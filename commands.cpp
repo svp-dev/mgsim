@@ -533,7 +533,7 @@ static bool cmd_dcache_read( Object* obj, const vector<string>& arguments )
         {
             const DCache::Line& line = cache->getLine(s * cache->getAssociativity() + a);
             cout << " | ";
-            if (line.state == DCache::LINE_UNUSED) {
+            if (line.state == DCache::LINE_INVALID) {
                 cout << "     -    ";
             } else {
 				cout << setw(8) << setfill('0') << hex << (line.tag * cache->getNumSets() + s) * cache->getLineSize() << " "

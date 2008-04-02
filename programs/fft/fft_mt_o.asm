@@ -141,16 +141,18 @@ _FFT_POST_SWAP:
 
 _FFT_POST_SWAP_1:
 	// Swap X[i] and X[j]
+	debug $GR0;
+	debug $LR0;
     ldt $LF0, 0($GR0);
     ldt $LF1, 8($GR0);
     ldt $LF2, 0($LR0);
     ldt $LF3, 8($LR0);
-    cpys $LF1, $LF1, $F31; swch;
-    cpys $LF2, $LF2, $F31; swch;
-    cpys $LF3, $LF3, $F31; swch;
-    stt $LF0, 0($LR0);
-    stt $LF1, 8($LR0);
-    stt $LF2, 0($GR0);
+    //cpys $LF1, $LF1, $F31; swch;
+    //cpys $LF2, $LF2, $F31; swch;
+    //cpys $LF3, $LF3, $F31; swch;
+    stt $LF0, 0($LR0); swch;
+    stt $LF1, 8($LR0); swch;
+    stt $LF2, 0($GR0); swch;
     stt $LF3, 8($GR0);
 	end;
 //	***************************/

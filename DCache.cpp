@@ -39,7 +39,7 @@ DCache::DCache(Processor& parent, const std::string& name, Allocator& alloc, Fam
     for (size_t i = 0; i < m_lines.size(); i++)
     {
         m_lines[i].data    = new char[m_lineSize];
-        m_lines[i].state   = LINE_UNUSED;
+        m_lines[i].state   = LINE_INVALID;
 		m_lines[i].waiting = INVALID_REG;
     }
     m_numWaiting = 0;
@@ -65,17 +65,20 @@ Result DCache::findLine(MemAddr address, Line* &line, bool reset)
     for (size_t i = 0; i < m_assoc; i++)
     {
         line = &m_lines[set + i];
-        if (line->state == LINE_UNUSED)
+        if (line->state == LINE_INVALID)
         {
-            // Empty line, remember this one
-            empty = line;
+			if (line->waiting == INVALID_REG)
+			{
+				// Empty, unused line, remember this one
+				empty = line;
+			}
         }
         else if (line->tag == tag)
         {
             // The wanted line was in the cache
             return SUCCESS;
         }
-        else if (line->state == LINE_USED && (replace == NULL || line->access < replace->access))
+        else if (line->state == LINE_VALID && (replace == NULL || line->access < replace->access))
         {
             // The line is available to be replaced and has a lower LRU rating,
             // remember it for replacing
@@ -149,7 +152,7 @@ Result DCache::read(MemAddr address, void* data, MemSize size, LFID fid, RegAddr
         // Data was already in the cache or has been loaded immediately, copy it
         COMMIT
         (
-            line->state = LINE_USED;
+            line->state = LINE_VALID;
             memcpy(data, line->data + offset, (size_t)size);
             m_numHits++;
         )
@@ -189,9 +192,13 @@ Result DCache::write(MemAddr address, void* data, MemSize size, LFID fid)
 		Line* line;
 		if (findLine(address, line, false) == SUCCESS)
 		{
-			// We have the line cached, update it
-			assert(line->state != LINE_LOADING);
-			memcpy(&line->data[offset], data, (size_t)size);
+			if (line->state == LINE_VALID) {
+				// The line is cached and has no outstanding reads, update it
+				memcpy(&line->data[offset], data, (size_t)size);
+			} else {
+				// The line is present, but not yet loaded or still processing outstanding reads, invalid it
+				line->state = LINE_INVALID;
+			}
 		}
 	)
 
@@ -216,7 +223,11 @@ bool DCache::onMemoryReadCompleted(const MemData& data)
             m_lines[m_returned.tail].next = data.tag.cid;
         }
         m_returned.tail = data.tag.cid;
-        m_lines[data.tag.cid].state = LINE_PROCESSING;
+		
+		// It might have been invalidated because of a write, check state
+		if (m_lines[data.tag.cid].state == LINE_LOADING) {
+			m_lines[data.tag.cid].state = LINE_PROCESSING;
+		}
     )
 
     return true;
@@ -309,8 +320,10 @@ Result DCache::onCycleWritePhase(int stateIndex)
 
 	if (line.waiting == INVALID_REG)
 	{
-		// Move the line from processing to used state
-		line.state = LINE_USED;
+		// If not invalidated, move the line from processing to used state
+		if (line.state != LINE_INVALID) {
+			line.state = LINE_VALID;
+		}
 		m_returned.head = line.next;
 	}
 	return SUCCESS;
