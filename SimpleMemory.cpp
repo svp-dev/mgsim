@@ -25,12 +25,7 @@ Result SimpleMemory::read(IMemoryCallback& callback, MemAddr address, void* data
         throw InvalidArgumentException("Size argument too big");
     }
 
-    if (address + size > m_size)
-    {
-        throw InvalidArgumentException("Reading outside of memory");
-    }
-
-    if (m_requestsSize == INFINITE || m_requests.size() < m_requestsSize)
+	if (m_config.bufferSize == INFINITE || m_requests.size() < m_config.bufferSize)
     {
         COMMIT
         (
@@ -56,12 +51,7 @@ Result SimpleMemory::write(IMemoryCallback& callback, MemAddr address, void* dat
         throw InvalidArgumentException("Size argument too big");
     }
 
-    if (address + size > m_size)
-    {
-        throw InvalidArgumentException("Writing outside of memory");
-    }
-
-    if (m_requestsSize == INFINITE || m_requests.size() < m_requestsSize)
+    if (m_config.bufferSize == INFINITE || m_requests.size() < m_config.bufferSize)
     {
 		assert(tag.fid != INVALID_LFID);
         Request request;
@@ -91,26 +81,12 @@ Result SimpleMemory::write(IMemoryCallback& callback, MemAddr address, void* dat
 
 void SimpleMemory::read(MemAddr address, void* data, MemSize size)
 {
-    // Admin function; never called from context of simulation; no 
-    // need for COMMIT() test
-    if (size > SIZE_MAX)
-    {
-        throw InvalidArgumentException("Size argument too big");
-    }
-
-    memcpy(data, &m_memory[address], (size_t)size);
+    return VirtualMemory::read(address, data, size);
 }
 
 void SimpleMemory::write(MemAddr address, void* data, MemSize size)
 {
-    // Admin function; never called from context of simulation; no 
-    // need for COMMIT() test
-    if (size > SIZE_MAX)
-    {
-        throw InvalidArgumentException("Size argument too big");
-    }
-
-    memcpy(&m_memory[address], data, (size_t)size);
+	return VirtualMemory::write(address, data, size);
 }
 
 Result SimpleMemory::onCycleWritePhase(int stateIndex)
@@ -147,13 +123,13 @@ Result SimpleMemory::onCycleWritePhase(int stateIndex)
             (
                 // A new request is ready to be handled
                 if (request.write) {
-                    memcpy(&m_memory[request.address], request.data.data, (size_t)request.data.size);
+					VirtualMemory::write(request.address, request.data.data, request.data.size);
                 } else {
-                    memcpy(request.data.data, &m_memory[request.address], (size_t)request.data.size);
+					VirtualMemory::read(request.address, request.data.data, request.data.size);
                 }
 
                 // Time the request
-                CycleNo requestTime = m_baseRequestTime + m_timePerLine * (request.data.size + m_sizeOfLine - 1) / m_sizeOfLine;
+                CycleNo requestTime = m_config.baseRequestTime + m_config.timePerLine * (request.data.size + m_config.sizeOfLine - 1) / m_config.sizeOfLine;
                 request.done = now + requestTime;
                 m_totalWaitTime += requestTime;
             )
@@ -163,23 +139,6 @@ Result SimpleMemory::onCycleWritePhase(int stateIndex)
 }
 
 SimpleMemory::SimpleMemory(Object* parent, Kernel& kernel, const std::string& name, const Config& config) :
-    IComponent(parent, kernel, name), m_requestsSize(config.bufferSize)
+    IComponent(parent, kernel, name), m_config(config), m_totalWaitTime(0)
 {
-    m_size            = config.size;
-	m_baseRequestTime = config.baseRequestTime;
-	m_timePerLine     = config.timePerLine;
-	m_sizeOfLine      = config.sizeOfLine;
-    m_totalWaitTime   = 0;
-
-    m_memory = NULL;
-    if (m_size > SIZE_MAX)
-    {
-        throw InvalidArgumentException("Memory size too big");
-    }
-    m_memory = new char[ (size_t)m_size ];
-}
-
-SimpleMemory::~SimpleMemory()
-{
-    delete[] m_memory;
 }

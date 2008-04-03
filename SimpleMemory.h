@@ -5,16 +5,16 @@
 #include <set>
 #include "Memory.h"
 #include "kernel.h"
+#include "VirtualMemory.h"
 
 namespace Simulator
 {
 
-class SimpleMemory : public IComponent, public IMemory, public IMemoryAdmin
+class SimpleMemory : public IComponent, public IMemory, public IMemoryAdmin, public VirtualMemory
 {
 public:
 	struct Config
 	{
-        MemSize    size;
         BufferSize bufferSize;
         CycleNo    baseRequestTime;
         CycleNo    timePerLine;
@@ -58,7 +58,6 @@ public:
     };
 
     SimpleMemory(Object* parent, Kernel& kernel, const std::string& name, const Config& config);
-    ~SimpleMemory();
 
     CycleNo getTotalWaitTime() const { return m_totalWaitTime; }
 
@@ -83,14 +82,7 @@ public:
 private:
     std::set<IMemoryCallback*>  m_caches;
     std::queue<Request>         m_requests;
-    BufferSize                  m_requestsSize;
-    char*                       m_memory;
-    MemSize                     m_size;
-    CycleNo					    m_baseRequestTime;
-    CycleNo						m_timePerLine;
-    size_t						m_sizeOfLine;
-
-    // Statistics
+    Config                      m_config;
     CycleNo                     m_totalWaitTime;
 };
 

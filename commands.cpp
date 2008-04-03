@@ -224,10 +224,43 @@ static bool cmd_mem_read(Object* obj, const vector<string>& arguments )
 // Usage: info <mem-component>
 static bool cmd_mem_info(Object* obj, const vector<string>& arguments )
 {
-    SimpleMemory* mem = dynamic_cast<SimpleMemory*>(obj);
+    VirtualMemory* mem = dynamic_cast<VirtualMemory*>(obj);
     if (mem == NULL) return false;
 
-    cout << "Total request wait time: " << mem->getTotalWaitTime() << endl;
+	const VirtualMemory::BlockMap& blocks = mem->getBlockMap();
+	cout << "Allocated memory blocks:" << endl
+		 << "-------------------------" << endl;
+
+	MemAddr begin = 0;
+	MemAddr size  = 0;
+	MemSize total = 0;
+	cout << hex << setfill('0');
+	for (VirtualMemory::BlockMap::const_iterator p = blocks.begin(); p != blocks.end();)
+	{
+		MemAddr addr = p->first;
+		if (addr > begin + size) {
+			cout << setw(8) << begin << " - " << setw(8) << begin + size - 1 << endl;
+			begin = addr;
+			size  = 0;
+		}
+		size  += VirtualMemory::BLOCK_SIZE;
+		total += VirtualMemory::BLOCK_SIZE;
+
+		if (++p == blocks.end()) {
+			cout << setw(8) << begin << " - " << setw(8) << begin + size - 1 << endl;
+		}
+	}
+
+	// Print total memory usage
+	int mod = 0;
+	while (total >= 1024 && mod < 4)
+	{
+		total /= 1024;
+		mod++;
+	}
+	static const char* Mods[] = { "B", "kB", "MB", "GB", "TB" };
+
+	cout << endl << "Total allocated memory: " << dec << total << " " << Mods[mod] << endl;
 
     return true;
 }

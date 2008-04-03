@@ -9,16 +9,16 @@
 #include "Memory.h"
 #include "kernel.h"
 #include "Processor.h"
+#include "VirtualMemory.h"
 
 namespace Simulator
 {
 
-class ParallelMemory : public IComponent, public IMemory, public IMemoryAdmin
+class ParallelMemory : public IComponent, public IMemory, public IMemoryAdmin, public VirtualMemory
 {
 public:
 	struct Config
 	{
-        MemSize    size;
         BufferSize bufferSize;
 	    CycleNo	   baseRequestTime; // This many cycles per request regardless of size
         CycleNo	   timePerLine;     // With this many additional cycles per line
@@ -67,7 +67,6 @@ public:
 	};
 
     ParallelMemory(Object* parent, Kernel& kernel, const std::string& name, const Config& config, PSize numProcs );
-    ~ParallelMemory();
 
     // Component
     Result onCycleWritePhase(int stateIndex);
@@ -79,7 +78,7 @@ public:
     Result write(IMemoryCallback& callback, MemAddr address, void* data, MemSize size, MemTag tag);
 
     // IMemoryAdmin
-    void read (MemAddr address, void* data, MemSize size);
+	void read (MemAddr address, void* data, MemSize size);
     void write(MemAddr address, void* data, MemSize size);
     bool idle() const;
 
@@ -97,11 +96,10 @@ private:
     std::map<IMemoryCallback*, Port*> m_portmap;
     std::vector<Port>                 m_ports;
  
-    Config     m_config;
-	BufferSize m_numRequests;
-    char*      m_memory;
-	size_t	   m_statMaxRequests;
-	size_t	   m_statMaxInFlight;
+    Config        m_config;
+	BufferSize    m_numRequests;
+	size_t	      m_statMaxRequests;
+	size_t	      m_statMaxInFlight;
 };
 
 }

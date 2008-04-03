@@ -336,7 +336,6 @@ static AlphaCMPSystem::Config ParseConfig(const Config& configfile)
     config.memory.baseRequestTime = configfile.getInteger<CycleNo>("MemoryBaseRequestTime", 1);
     config.memory.timePerLine     = configfile.getInteger<CycleNo>("MemoryTimePerLine", 1);
     config.memory.sizeOfLine      = configfile.getInteger<size_t>("MemorySizeOfLine", 8);
-    config.memory.size            = configfile.getSize<MemSize>("MemorySize", 1048576);
     config.memory.bufferSize      = configfile.getInteger<BufferSize>("MemoryBufferSize", INFINITE);
     config.memory.width           = configfile.getInteger<size_t>("MemoryParallelRequests", 1);
 

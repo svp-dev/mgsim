@@ -49,11 +49,6 @@ Result ParallelMemory::read(IMemoryCallback& callback, MemAddr address, void* da
         throw InvalidArgumentException("Size argument too big");
     }
 
-    if (address + size > m_config.size)
-    {
-        throw InvalidArgumentException("Reading outside of memory");
-    }
-
     if (m_config.bufferSize == INFINITE || m_numRequests < m_config.bufferSize)
     {
         COMMIT
@@ -77,11 +72,6 @@ Result ParallelMemory::write(IMemoryCallback& callback, MemAddr address, void* d
     if (size > SIZE_MAX)
     {
         throw InvalidArgumentException("Size argument too big");
-    }
-
-    if (address + size > m_config.size)
-    {
-        throw InvalidArgumentException("Writing outside of memory");
     }
 
     if (m_config.bufferSize == INFINITE || m_numRequests < m_config.bufferSize)
@@ -108,30 +98,6 @@ Result ParallelMemory::write(IMemoryCallback& callback, MemAddr address, void* d
         return DELAYED;
     }
     return FAILED;
-}
-
-void ParallelMemory::read(MemAddr address, void* data, MemSize size)
-{
-    // Admin function; never called from context of simulation; no 
-    // need for COMMIT() test
-    if (size > SIZE_MAX)
-    {
-        throw InvalidArgumentException("Size argument too big");
-    }
-
-    memcpy(data, &m_memory[address], (size_t)size);
-}
-
-void ParallelMemory::write(MemAddr address, void* data, MemSize size)
-{
-    // Admin function; never called from context of simulation; no 
-    // need for COMMIT() test
-    if (size > SIZE_MAX)
-    {
-        throw InvalidArgumentException("Size argument too big");
-    }
-
-    memcpy(&m_memory[address], data, (size_t)size);
 }
 
 Result ParallelMemory::onCycleWritePhase(int stateIndex)
@@ -184,9 +150,9 @@ Result ParallelMemory::onCycleWritePhase(int stateIndex)
 
 			request = *p;
 			if (request.write) {
-				memcpy(&m_memory[request.address], request.data.data, (size_t)request.data.size);
+				VirtualMemory::write(request.address, request.data.data, request.data.size);
 			} else {
-				memcpy(request.data.data, &m_memory[request.address], (size_t)request.data.size);
+				VirtualMemory::read(request.address, request.data.data, request.data.size);
 			}
 		)
 	}
@@ -205,6 +171,16 @@ Result ParallelMemory::onCycleWritePhase(int stateIndex)
 	return (nDispatched > 0) ? SUCCESS : result;
 }
 
+void ParallelMemory::read (MemAddr address, void* data, MemSize size)
+{
+	return VirtualMemory::read(address, data, size);
+}
+
+void ParallelMemory::write(MemAddr address, void* data, MemSize size)
+{
+	return VirtualMemory::write(address, data, size);
+}
+
 ParallelMemory::ParallelMemory(Object* parent, Kernel& kernel, const std::string& name, const Config& config, PSize numProcs ) :
     IComponent(parent, kernel, name, (int)numProcs),
     m_ports(numProcs),
@@ -213,14 +189,4 @@ ParallelMemory::ParallelMemory(Object* parent, Kernel& kernel, const std::string
     m_statMaxRequests(0),
     m_statMaxInFlight(0)
 {
-    if (config.size > SIZE_MAX)
-    {
-        throw InvalidArgumentException("Memory size too big");
-    }
-    m_memory = new char[ (size_t)config.size ];
-}
-
-ParallelMemory::~ParallelMemory()
-{
-    delete[] m_memory;
 }
