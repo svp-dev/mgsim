@@ -23,7 +23,7 @@ MGSim: $(OBJS)
 	$(CC) $(LDFLAGS) -o MGSim $(OBJS)
 
 -include $(DEPDIR)/*.d
-Makefile.linux: $(DEPS)
+Makefile: $(DEPS)
 
 $(OBJDIR)/%.o: %.cpp
 	echo CC $*.o
