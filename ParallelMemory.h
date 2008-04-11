@@ -76,10 +76,11 @@ public:
     void unregisterListener(IMemoryCallback& callback);
     Result read (IMemoryCallback& callback, MemAddr address, void* data, MemSize size, MemTag tag);
     Result write(IMemoryCallback& callback, MemAddr address, void* data, MemSize size, MemTag tag);
+	bool checkPermissions(MemAddr address, MemSize size, int access) const;
 
     // IMemoryAdmin
 	void read (MemAddr address, void* data, MemSize size);
-    void write(MemAddr address, void* data, MemSize size);
+    void write(MemAddr address, const void* data, MemSize size, int perm = 0);
     bool idle() const;
 
     const Config& getConfig()       const { return m_config; }

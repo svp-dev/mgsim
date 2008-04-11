@@ -6,7 +6,7 @@ using namespace std;
 //
 // Processor implementation
 //
-Processor::Processor(Object* parent, Kernel& kernel, PID pid, PSize numProcs, const std::string& name, IMemory& memory, const Config& config, MemAddr runAddress)
+Processor::Processor(Object* parent, Kernel& kernel, PID pid, PSize numProcs, const std::string& name, IMemory& memory, const Config& config, MemAddr runAddress, bool legacy)
 :   IComponent(parent, kernel, name, 0),
     m_pid(pid), m_kernel(kernel), m_memory(memory), m_numProcs(numProcs),
 	m_allocator   (*this, "alloc",    m_familyTable, m_threadTable, m_registerFile, m_raunit, m_icache, m_network, m_pipeline, numProcs, config.allocator),
@@ -48,7 +48,7 @@ Processor::Processor(Object* parent, Kernel& kernel, PID pid, PSize numProcs, co
     if (pid == 0)
     {
         // Allocate the startup family on the first processor
-        m_allocator.allocateInitialFamily(runAddress);
+        m_allocator.allocateInitialFamily(runAddress,legacy);
     }
 }
 
@@ -65,6 +65,11 @@ Result Processor::readMemory(MemAddr address, void* data, MemSize size, MemTag t
 Result Processor::writeMemory(MemAddr address, void* data, MemSize size, MemTag tag)
 {
 	return m_memory.write(*this, address, data, size, tag);
+}
+
+bool Processor::checkPermissions(MemAddr address, MemSize size, int access) const
+{
+	return m_memory.checkPermissions(address, size, access);
 }
 
 bool Processor::onMemoryReadCompleted(const MemData& data)

@@ -23,6 +23,7 @@ struct Family
     };
 
     MemAddr      pc;             // Initial PC for newly created threads
+	bool         legacy;		 // Consists of a single thread of legacy code?
 
 	bool         created;	     // Has the family entry been used in a create yet?
     TSize        virtBlockSize;  // Virtual block size, calculated from start, end and step

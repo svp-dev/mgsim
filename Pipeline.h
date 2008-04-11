@@ -187,6 +187,7 @@ public:
         GFID            m_gfid;
         TID             m_tid;
 		TID             m_next;
+		bool            m_legacy;
         MemAddr         m_pc;
 		FPCR            m_fpcr;
         Family::RegInfo m_familyRegs[NUM_REG_TYPES];

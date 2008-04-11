@@ -69,10 +69,11 @@ public:
     void unregisterListener(IMemoryCallback& callback);
     Result read (IMemoryCallback& callback, MemAddr address, void* data, MemSize size, MemTag tag);
     Result write(IMemoryCallback& callback, MemAddr address, void* data, MemSize size, MemTag tag);
+	bool checkPermissions(MemAddr address, MemSize size, int access) const;
 
     // IMemoryAdmin
     void read (MemAddr address, void* data, MemSize size);
-    void write(MemAddr address, void* data, MemSize size);
+    void write(MemAddr address, const void* data, MemSize size);
     bool idle()   const;
 
     const std::queue<Request>& getRequests() const {

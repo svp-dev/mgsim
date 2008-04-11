@@ -366,6 +366,12 @@ bool Allocator::allocateThread(LFID fid, TID tid, bool isNewlyAllocated)
             COMMIT( predecessor->nextInBlock = tid; )
         }
     }
+	else if (family->physBlockSize == 1 && family->gfid == INVALID_GFID && thread->index > 0)
+	{
+		// We're not the first thread, in a family executing on one CPU, with a block size of one.
+		// We are our own predecessor in terms of shareds.
+		predecessor = &m_threadTable[tid];
+	}
 
     // Set the register information for the new thread
     for (RegType i = 0; i < NUM_REG_TYPES; i++)
@@ -690,6 +696,7 @@ void Allocator::SetDefaultFamilyEntry(LFID fid, TID parent) const
 		const Family& parent_fam = m_familyTable[thread.family];
 
 		family.created       = false;
+		family.legacy        = false;
 		family.start         = 0;
 		family.end           = 0;
 		family.step          = 1;
@@ -744,6 +751,7 @@ LFID Allocator::AllocateFamily(const CreateMessage& msg)
 	{
 		// Copy the data
 		Family& family = m_familyTable[fid];
+		family.legacy        = false;
 		family.start         = msg.start;
 		family.step          = msg.step;
 		family.nThreads      = msg.nThreads;
@@ -1295,7 +1303,7 @@ Allocator::Allocator(Processor& parent, const string& name,
     m_activeThreads.tail  = INVALID_TID;
 }
 
-void Allocator::allocateInitialFamily(MemAddr pc)
+void Allocator::allocateInitialFamily(MemAddr pc, bool legacy)
 {
     static const int InitialRegisters[NUM_REG_TYPES] = {31, 31};
 
@@ -1313,12 +1321,16 @@ void Allocator::allocateInitialFamily(MemAddr pc)
 	family.physBlockSize = 0;
 	family.parent.tid    = INVALID_TID;
 	family.parent.pid    = m_parent.getPID();
-	family.pc            = (pc & -(int)m_icache.getLineSize()) + sizeof(Instruction); // Skip control word
 	family.exitCodeReg   = INVALID_REG;
     family.exitValueReg  = INVALID_REG;
 	family.place         = 1; // Set initial place to the whole group
 	family.created       = true;
 	family.gfid          = INVALID_GFID;
+	family.legacy        = legacy;
+	family.pc            = pc;
+	if (!family.legacy) {
+		family.pc = (family.pc & -(int)m_icache.getLineSize()) + sizeof(Instruction); // Align and skip control word
+	}
 
 	for (RegType i = 0; i < NUM_REG_TYPES; i++)
     {

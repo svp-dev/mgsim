@@ -66,7 +66,7 @@ public:
         FamilyTable& familyTable, ThreadTable& threadTable, RegisterFile& registerFile, RAUnit& raunit, ICache& icache, Network& network, Pipeline& pipeline,
         PSize procNo, const Config& config);
 
-    void allocateInitialFamily(MemAddr pc);
+    void allocateInitialFamily(MemAddr pc, bool legacy);
     bool idle()   const;
 
     // These implement register mappings

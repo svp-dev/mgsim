@@ -108,10 +108,10 @@ static void cmd_parallelmem_requests(ParallelMemory* mem)
 				}
 
 				cout << setw(9) << dec << p->first << " | "
-					 << setw(8) << right << req.address << " | "
+					 << setw(8) << hex << right << req.address << " | "
 				     << setw(4) << req.data.size << " | ";
 
-				if (req.data.tag.cid == INVALID_CID) {
+				if (req.write || req.data.tag.cid == INVALID_CID) {
 					cout << "N/A ";
 				} else {
 					cout << setw(4) << req.data.tag.cid;
@@ -231,24 +231,38 @@ static bool cmd_mem_info(Object* obj, const vector<string>& arguments )
 	cout << "Allocated memory blocks:" << endl
 		 << "-------------------------" << endl;
 
-	MemAddr begin = 0;
-	MemAddr size  = 0;
-	MemSize total = 0;
 	cout << hex << setfill('0');
-	for (VirtualMemory::BlockMap::const_iterator p = blocks.begin(); p != blocks.end();)
-	{
-		MemAddr addr = p->first;
-		if (addr > begin + size) {
-			cout << setw(8) << begin << " - " << setw(8) << begin + size - 1 << endl;
-			begin = addr;
-			size  = 0;
-		}
-		size  += VirtualMemory::BLOCK_SIZE;
-		total += VirtualMemory::BLOCK_SIZE;
 
-		if (++p == blocks.end()) {
-			cout << setw(8) << begin << " - " << setw(8) << begin + size - 1 << endl;
+	MemSize total = 0;
+	VirtualMemory::BlockMap::const_iterator p = blocks.begin();
+	if (p != blocks.end())
+	{
+		MemAddr begin = p->first;
+		int     perm  = p->second.permissions;
+		MemAddr size  = VirtualMemory::BLOCK_SIZE;
+		for (++p; p != blocks.end(); )
+		{
+			MemAddr addr = p->first;
+			if (addr > begin + size || p->second.permissions != perm) {
+				cout << setw(8) << begin << " - " << setw(8) << begin + size - 1 << ": ";
+				cout << (perm & IMemory::PERM_READ    ? "R" : ".");
+				cout << (perm & IMemory::PERM_WRITE   ? "W" : ".");
+				cout << (perm & IMemory::PERM_EXECUTE ? "X" : ".") << endl;
+				begin = addr;
+				perm  = p->second.permissions;
+				size  = 0;
+			}
+			size  += VirtualMemory::BLOCK_SIZE;
+			total += VirtualMemory::BLOCK_SIZE;
+
+			if (++p == blocks.end()) {
+				cout << setw(8) << begin << " - " << setw(8) << begin + size - 1 << ": ";
+				cout << (perm & IMemory::PERM_READ    ? "R" : ".");
+				cout << (perm & IMemory::PERM_WRITE   ? "W" : ".");
+				cout << (perm & IMemory::PERM_EXECUTE ? "X" : ".") << endl;
+			}
 		}
+		total += VirtualMemory::BLOCK_SIZE;
 	}
 
 	// Print total memory usage
@@ -793,8 +807,8 @@ static bool cmd_pipeline_read( Object* obj, const vector<string>& arguments )
     }
     else
     {
-        cout << " | LFID: "   << fdlatch.fid;
-        cout << "    TID: "  << hex << setw(4) << setfill('0') << fdlatch.tid << "h";
+        cout << " | LFID: "  << dec << fdlatch.fid;
+        cout << "    TID: "  << dec << setw(4) << fdlatch.tid;
         cout << "    PC: "   << hex << setw(8) << setfill('0') << fdlatch.pc << "h";
         cout << "    Annotation: " << ((fdlatch.kill) ? "End" : (fdlatch.swch ? "Switch" : "None")) << endl << " |" << endl;
         cout << " | Instr: " << hex << setw(8) << setfill('0') << fdlatch.instr << "h" << endl;
@@ -810,8 +824,8 @@ static bool cmd_pipeline_read( Object* obj, const vector<string>& arguments )
     }
     else
     {
-        cout << " | LFID: "   << drlatch.fid;
-        cout << "    TID: "  << hex << setw(4) << setfill('0') << drlatch.tid << "h";
+        cout << " | LFID: "  << dec << drlatch.fid;
+        cout << "    TID: "  << dec << setw(4) << drlatch.tid;
         cout << "    PC: "   << hex << setw(8) << setfill('0') << drlatch.pc << "h";
         cout << "    Annotation: " << ((drlatch.kill) ? "End" : (drlatch.swch ? "Switch" : "None")) << endl << " |" << endl;
         cout << " | Opcode:       " << hex << setw(2)  << setfill('0') << (int)drlatch.opcode << "h" << endl;
@@ -835,8 +849,8 @@ static bool cmd_pipeline_read( Object* obj, const vector<string>& arguments )
     {
         RegType type = RT_INTEGER;
 
-        cout << " | LFID: "   << relatch.fid;
-        cout << "    TID: "  << hex << setw(4) << setfill('0') << relatch.tid << "h";
+        cout << " | LFID: "  << dec << relatch.fid;
+        cout << "    TID: "  << dec << setw(4) << relatch.tid;
         cout << "    PC: "   << hex << setw(8) << setfill('0') << relatch.pc << "h";
         cout << "    Annotation: " << ((relatch.kill) ? "End" : (relatch.swch ? "Switch" : "None")) << endl << " |" << endl;
         cout << " | Opcode:       " << hex << setw(2)  << setfill('0') << (int)relatch.opcode << "h" << endl;

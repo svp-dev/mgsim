@@ -32,7 +32,7 @@ public:
 		FPU::Config          fpu;
     };
 
-    Processor(Object* parent, Kernel& kernel, PID pid, PSize numProcs, const std::string& name, IMemory& m_memory, const Config& config, MemAddr runAddress);
+    Processor(Object* parent, Kernel& kernel, PID pid, PSize numProcs, const std::string& name, IMemory& m_memory, const Config& config, MemAddr runAddress, bool legacy);
     void initialize(Processor& prev, Processor& next);
 
     PID     getPID()      const { return m_pid;      }
@@ -54,6 +54,7 @@ public:
 	// No memory callback specified, the processor will use the tag to determine where it came from.
 	Result readMemory (MemAddr address, void* data, MemSize size, MemTag tag);
 	Result writeMemory(MemAddr address, void* data, MemSize size, MemTag tag);
+	bool   checkPermissions(MemAddr address, MemSize size, int access) const;
 
 private:
     PID         m_pid;

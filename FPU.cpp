@@ -331,7 +331,7 @@ Result FPU::onCycleWritePhase(int stateIndex)
 			return SUCCESS;
 		}
 	}
-	return DELAYED;
+	return m_pipelines.empty() ? DELAYED : SUCCESS;
 }
 
 FPU::FPU(Processor& parent, const std::string& name, RegisterFile& regFile, const Config& config)

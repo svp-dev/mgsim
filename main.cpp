@@ -18,6 +18,7 @@
 #include "commands.h"
 #include "config.h"
 #include "profile.h"
+#include "loader.h"
 #include <math.h>
 using namespace Simulator;
 using namespace std;
@@ -66,7 +67,6 @@ public:
     struct Config
     {
         PSize                  numProcessors;
-		//SimpleMemory::Config   memory;
         ParallelMemory::Config memory;
         Processor::Config      processor;
     };
@@ -137,25 +137,7 @@ public:
 		cout << avg << "\t" << amin << "\t" << amax;
 	}
 
-    // Load the program file into the memory
-    static void LoadProgram(IMemoryAdmin* memory, const string& path, MemAddr address)
-    {
-        ifstream input(path.c_str(), ios::binary);
-        if (!input.is_open() || !input.good())
-        {
-            throw runtime_error("Unable to load program: " + path);
-        }
-
-        input.seekg(0, ios::end);
-        streampos size = input.tellg();
-        char* data = new char[size];
-        input.seekg(0, ios::beg);
-        input.read(data, size);
-        memory->write(address, data, size);
-        delete[] data;
-    }
-
-    const Kernel& getKernel() const { return m_kernel; }
+	const Kernel& getKernel() const { return m_kernel; }
           Kernel& getKernel()       { return m_kernel; }
 
     // Find a component in the system given its path
@@ -200,15 +182,16 @@ public:
 		return STATE_IDLE;
     }
 
-    AlphaCMPSystem(const Config& config, const string& program, MemAddr loadAddress, MemAddr runAddress, const vector<pair<RegAddr, RegValue> >& regs)
+    AlphaCMPSystem(const Config& config, const string& program, const vector<pair<RegAddr, RegValue> >& regs, bool legacy)
       : Object(NULL, NULL, "system"),
         m_numProcs(config.numProcessors)
     {
-        //m_memory = new SimpleMemory(this, m_kernel, "memory", config.memory);
-
         m_memory = new ParallelMemory(this, m_kernel, "memory", config.memory, m_numProcs);
         m_objects.resize(m_numProcs + 1);
         m_objects[m_numProcs] = m_memory;
+
+        // Load the program into memory
+        MemAddr entry = LoadProgram(m_memory, program);
 
         // Create processor group
         m_procs = new Processor*[config.numProcessors];
@@ -216,7 +199,7 @@ public:
         {
             stringstream name;
             name << "cpu" << i;
-            m_procs[i]   = new Processor(this, m_kernel, i, m_numProcs, name.str(), *m_memory, config.processor, runAddress);
+            m_procs[i]   = new Processor(this, m_kernel, i, m_numProcs, name.str(), *m_memory, config.processor, entry, legacy);
             m_objects[i] = m_procs[i];
         }
 
@@ -225,12 +208,17 @@ public:
         {
             m_procs[i]->initialize(*m_procs[(i+m_numProcs-1) % m_numProcs], *m_procs[(i+1) % m_numProcs]);
         }
-
-        // Load the program into memory
-        LoadProgram(m_memory, program, loadAddress);
-        
+       
         if (m_numProcs > 0)
         {
+			if (legacy)
+			{
+				RegValue value;
+				value.m_state   = RST_FULL;
+				value.m_integer = entry;
+				m_procs[0]->writeRegister(MAKE_REGADDR(RT_INTEGER, 27), value);
+			}
+
 	        // Fill initial registers
 	        for (size_t i = 0; i < regs.size(); i++)
 	        {
@@ -462,8 +450,7 @@ static void PrintUsage()
         "-h, --help               Show this help\n"
         "-c, --config <filename>  Read configuration from file\n"
         "-i, --interactive        Start the simulator in interactive mode\n"
-        "-a, --address <address>  Start executing from this address (default: 0)\n"
-        "-l, --load <address>     Load the program file at this address (default: 0)\n"
+        "-l, --legacy             The program file contains binary legacy code\n"
         "-p, --print <value>      Print the value before printing the results when\n"
         "                         done simulating\n"
         "-R<X> <value>            Store the integer value in the specified register\n"
@@ -475,9 +462,8 @@ struct ProgramConfig
 {
     string  m_programFile;
     string  m_configFile;
-    MemAddr m_loadAddress;
-    MemAddr m_runAddress;
     bool    m_interactive;
+	bool    m_legacy;
 	string  m_print;
 	
 	vector<pair<RegAddr, RegValue> > m_regs;
@@ -485,9 +471,8 @@ struct ProgramConfig
 
 static bool ParseArguments(int argc, const char* argv[], ProgramConfig& config)
 {
-    config.m_loadAddress = 0;
-    config.m_runAddress  = 0;
     config.m_interactive = false;
+	config.m_legacy      = false;
 
     for (int i = 1; i < argc; i++)
     {
@@ -508,9 +493,8 @@ static bool ParseArguments(int argc, const char* argv[], ProgramConfig& config)
 
                  if (arg == "-c" || arg == "--config")      config.m_configFile = argv[++i];
             else if (arg == "-i" || arg == "--interactive") config.m_interactive = true;
+            else if (arg == "-l" || arg == "--legacy")      config.m_legacy      = true;
             else if (arg == "-h" || arg == "--help")        { PrintUsage(); return false; }
-            else if (arg == "-a" || arg == "--address")     sstream >> config.m_runAddress;
-            else if (arg == "-l" || arg == "--load")        sstream >> config.m_loadAddress;
             else if (arg == "-p" || arg == "--print")       config.m_print = string(argv[++i]) + " ";
             else if (toupper(arg[1]) == 'R' || toupper(arg[1]) == 'F')
             {
@@ -567,8 +551,15 @@ int main(int argc, const char* argv[])
         Config configfile(config.m_configFile);
         AlphaCMPSystem::Config systemconfig = ParseConfig(configfile);
 
+        if (config.m_interactive)
+        {
+            // Interactive mode
+            cout << "Microthreaded Alpha System Simulator, version 1.0" << endl;
+            cout << "Created by Mike Lankamp at the University of Amsterdam" << endl << endl;
+		}
+
         // Create the system
-        AlphaCMPSystem sys(systemconfig, config.m_programFile, config.m_loadAddress, config.m_runAddress, config.m_regs);
+		AlphaCMPSystem sys(systemconfig, config.m_programFile, config.m_regs, config.m_legacy);
 
         if (!config.m_interactive)
         {
@@ -585,12 +576,9 @@ int main(int argc, const char* argv[])
         }
         else
         {
-            // Interactive mode
-            cout << "Microthreaded Alpha System Simulator, version 1.0" << endl;
-            cout << "Created by Mike Lankamp at the University of Amsterdam" << endl << endl;
-
             // Command loop
             vector<string> prevCommands;
+			cout << endl;
             for (bool quit = false; !quit; )
             {
                 stringstream prompt;

@@ -14,15 +14,23 @@ class VirtualMemory
 public:
 	// We allocate per block, this is the size of each block. Must be a power of two
 	static const int BLOCK_SIZE = (1 << 12);
-	typedef std::map<size_t, char*> BlockMap;
+	struct Block
+	{
+		char* data;
+		int   permissions;
+	};
 
-    void read (MemAddr address, void* data, MemSize size);
-    void write(MemAddr address, void* data, MemSize size);
+	typedef std::map<size_t, Block> BlockMap;
+
+    void read (MemAddr address, void* data, MemSize size) const;
+	void write(MemAddr address, const void* data, MemSize size, int perm = 0);
+	bool CheckPermissions(MemAddr address, MemSize size, int access) const;
 
 	virtual ~VirtualMemory();
 
 	const BlockMap& getBlockMap() const throw() { return m_blocks; }
 private:
+	
 	BlockMap m_blocks;
 };
 

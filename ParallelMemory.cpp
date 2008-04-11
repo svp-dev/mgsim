@@ -100,6 +100,11 @@ Result ParallelMemory::write(IMemoryCallback& callback, MemAddr address, void* d
     return FAILED;
 }
 
+bool ParallelMemory::checkPermissions(MemAddr address, MemSize size, int access) const
+{
+	return VirtualMemory::CheckPermissions(address, size, access);
+}
+
 Result ParallelMemory::onCycleWritePhase(int stateIndex)
 {
 	CycleNo now         = getKernel()->getCycleNo();
@@ -176,9 +181,9 @@ void ParallelMemory::read (MemAddr address, void* data, MemSize size)
 	return VirtualMemory::read(address, data, size);
 }
 
-void ParallelMemory::write(MemAddr address, void* data, MemSize size)
+void ParallelMemory::write(MemAddr address, const void* data, MemSize size, int perm)
 {
-	return VirtualMemory::write(address, data, size);
+	return VirtualMemory::write(address, data, size, perm);
 }
 
 ParallelMemory::ParallelMemory(Object* parent, Kernel& kernel, const std::string& name, const Config& config, PSize numProcs ) :

@@ -84,9 +84,14 @@ void SimpleMemory::read(MemAddr address, void* data, MemSize size)
     return VirtualMemory::read(address, data, size);
 }
 
-void SimpleMemory::write(MemAddr address, void* data, MemSize size)
+void SimpleMemory::write(MemAddr address, const void* data, MemSize size)
 {
 	return VirtualMemory::write(address, data, size);
+}
+
+bool SimpleMemory::checkPermissions(MemAddr address, MemSize size, int access) const
+{
+	return VirtualMemory::CheckPermissions(address, size, access);
 }
 
 Result SimpleMemory::onCycleWritePhase(int stateIndex)

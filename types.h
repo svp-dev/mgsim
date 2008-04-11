@@ -4,11 +4,6 @@
 // Support non-compliant C99 compilers (different long long type)
 #if defined(_MSC_VER)
 
-//typedef __int64             longlong;
-//typedef unsigned __int64    ulonglong;
-
-namespace Simulator
-{
 typedef __int8           int8_t;
 typedef __int16          int16_t;
 typedef __int32          int32_t;
@@ -34,7 +29,6 @@ static const uint32_t UINT32_MIN = 0UL;
 static const uint32_t UINT32_MAX = 0xFFFFFFFFUL;
 static const uint64_t UINT64_MIN = 0ULL;
 static const uint64_t UINT64_MAX = 0xFFFFFFFFFFFFFFFFULL;
-}
 
 #else
 // We just hope that this compiler properly supports the C++ standard
