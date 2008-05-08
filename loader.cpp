@@ -17,7 +17,7 @@ static void Verify(bool expr, const char* error = "invalid ELF file")
 }
 
 // Load the program image into the memory
-static MemAddr LoadProgram(IMemoryAdmin* memory, const void* _data, MemSize size)
+static MemAddr LoadProgram(IMemoryAdmin* memory, const void* _data, MemSize size, bool quiet)
 {
 	const char*       data = static_cast<const char*>(_data);
 	const Elf64_Ehdr* ehdr = static_cast<const Elf64_Ehdr*>(static_cast<const void*>(data));
@@ -28,7 +28,10 @@ static MemAddr LoadProgram(IMemoryAdmin* memory, const void* _data, MemSize size
 		ehdr->e_ident[EI_MAG2] != ELFMAG2 || ehdr->e_ident[EI_MAG3] != ELFMAG3)
 	{
 		// Not an ELF file, load as flat binary, starts at address 0
-		cout << "Loaded flat binary to address 0" << endl;
+		if (!quiet)
+		{
+    		cout << "Loaded flat binary to address 0" << endl;
+    	}
 		memory->write(0, data, size, IMemory::PERM_READ | IMemory::PERM_WRITE | IMemory::PERM_EXECUTE);
 		return 0;
 	}
@@ -92,13 +95,17 @@ static MemAddr LoadProgram(IMemoryAdmin* memory, const void* _data, MemSize size
 			}
 		}
 	}
-	cout << "Loaded ELF binary at address 0x" << hex << base << endl;
-	cout << "Entry point: 0x" << hex << ehdr->e_entry << endl;
+	
+	if (!quiet)
+	{
+    	cout << "Loaded ELF binary at address 0x" << hex << base << endl;
+    	cout << "Entry point: 0x" << hex << ehdr->e_entry << endl;
+    }
 	return ehdr->e_entry;
 }
 
 // Load the program file into the memory
-MemAddr LoadProgram(IMemoryAdmin* memory, const string& path)
+MemAddr LoadProgram(IMemoryAdmin* memory, const string& path, bool quiet)
 {
     ifstream input(path.c_str(), ios::binary);
     if (!input.is_open() || !input.good())
@@ -114,7 +121,7 @@ MemAddr LoadProgram(IMemoryAdmin* memory, const string& path)
 	{
 		input.seekg(0, ios::beg);
 		input.read(data, size);
-		MemAddr entry = LoadProgram(memory, data, size);
+		MemAddr entry = LoadProgram(memory, data, size, quiet);
 		delete[] data;
 		return entry;
 	}

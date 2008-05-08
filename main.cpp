@@ -182,7 +182,7 @@ public:
 		return STATE_IDLE;
     }
 
-    AlphaCMPSystem(const Config& config, const string& program, const vector<pair<RegAddr, RegValue> >& regs, bool legacy)
+    AlphaCMPSystem(const Config& config, const string& program, const vector<pair<RegAddr, RegValue> >& regs, bool legacy, bool quiet)
       : Object(NULL, NULL, "system"),
         m_numProcs(config.numProcessors)
     {
@@ -191,7 +191,7 @@ public:
         m_objects[m_numProcs] = m_memory;
 
         // Load the program into memory
-        MemAddr entry = LoadProgram(m_memory, program);
+        MemAddr entry = LoadProgram(m_memory, program, quiet);
 
         // Create processor group
         m_procs = new Processor*[config.numProcessors];
@@ -559,7 +559,7 @@ int main(int argc, const char* argv[])
 		}
 
         // Create the system
-		AlphaCMPSystem sys(systemconfig, config.m_programFile, config.m_regs, config.m_legacy);
+		AlphaCMPSystem sys(systemconfig, config.m_programFile, config.m_regs, config.m_legacy, !config.m_interactive);
 
         if (!config.m_interactive)
         {
