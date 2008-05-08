@@ -91,7 +91,7 @@ void VirtualMemory::write(MemAddr address, const void* _data, MemSize size, int 
 		}
 		
 		// Number of bytes to read, initially
-		size_t count = min( (size_t)size, (size_t)BLOCK_SIZE);
+		size_t count = min( (size_t)size, (size_t)BLOCK_SIZE - offset);
 
 		// Read data
 		memcpy(pos->second.data + offset, data, count);

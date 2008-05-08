@@ -568,7 +568,8 @@ int main(int argc, const char* argv[])
 			{
 				throw runtime_error("Deadlock!");
 			}
-			cout << config.m_print << sys.getKernel().getCycleNo() << "\t"
+			cout << dec
+			     << config.m_print << sys.getKernel().getCycleNo() << "\t"
                  << sys.getOp() << "\t"
                  << sys.getFlop() << "\t";
 			sys.printRegFileAsyncPortActivity();
