@@ -40,5 +40,22 @@ static const uint64_t UINT64_MAX = 0xFFFFFFFFFFFFFFFFULL;
 #define SIZE_MAX ((size_t)-1)
 #endif
 
+// Define endianness conversion routines
+static inline uint16_t letohs(uint16_t x) {
+    const uint8_t* b = reinterpret_cast<const uint8_t*>(&x);
+    return (uint16_t)b[0] | ((uint16_t)b[1] << 8);
+}
+
+static inline uint32_t letohl(uint32_t x) {
+    const uint8_t* b = reinterpret_cast<const uint8_t*>(&x);
+    return (uint32_t)b[0] | ((uint32_t)b[1] << 8) | ((uint32_t)b[2] << 16) | ((uint32_t)b[3] << 24);
+}
+
+static inline uint64_t letohll(uint64_t x) {
+    const uint8_t* b = reinterpret_cast<const uint8_t*>(&x);
+    return ((uint64_t)b[0] <<  0) | ((uint64_t)b[1] <<  8) | ((uint64_t)b[2] << 16) | ((uint64_t)b[3] << 24) |
+           ((uint64_t)b[4] << 32) | ((uint64_t)b[5] << 40) | ((uint64_t)b[6] << 48) | ((uint64_t)b[7] << 56);
+}
+
 #endif
 

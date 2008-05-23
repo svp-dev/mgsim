@@ -17,10 +17,25 @@ static void Verify(bool expr, const char* error = "invalid ELF file")
 }
 
 // Load the program image into the memory
-static MemAddr LoadProgram(IMemoryAdmin* memory, const void* _data, MemSize size, bool quiet)
+static MemAddr LoadProgram(IMemoryAdmin* memory, void* _data, MemSize size, bool quiet)
 {
-	const char*       data = static_cast<const char*>(_data);
-	const Elf64_Ehdr* ehdr = static_cast<const Elf64_Ehdr*>(static_cast<const void*>(data));
+	char*       data = static_cast<char*>(_data);
+	Elf64_Ehdr* ehdr = static_cast<Elf64_Ehdr*>(_data);
+	
+	// Unmarshall header
+	ehdr->e_type      = letohs (ehdr->e_type);
+	ehdr->e_machine   = letohs (ehdr->e_machine);
+	ehdr->e_version   = letohl (ehdr->e_version);
+	ehdr->e_entry     = letohll(ehdr->e_entry);
+	ehdr->e_phoff     = letohll(ehdr->e_phoff);
+	ehdr->e_shoff     = letohll(ehdr->e_shoff);
+	ehdr->e_flags     = letohl (ehdr->e_flags);
+	ehdr->e_ehsize    = letohs (ehdr->e_ehsize);
+	ehdr->e_phentsize = letohs (ehdr->e_phentsize);
+	ehdr->e_phnum     = letohs (ehdr->e_phnum);
+	ehdr->e_shentsize = letohs (ehdr->e_shentsize);
+	ehdr->e_shnum     = letohs (ehdr->e_shnum);
+	ehdr->e_shstrndx  = letohs (ehdr->e_shstrndx);
 
 	// Check file signature
 	if (size < sizeof(Elf64_Ehdr) ||
@@ -46,13 +61,22 @@ static MemAddr LoadProgram(IMemoryAdmin* memory, const void* _data, MemSize size
 	Verify(ehdr->e_phentsize == sizeof(Elf64_Phdr),  "file has an invalid program header");
 	Verify(ehdr->e_phoff + ehdr->e_phnum * ehdr->e_phentsize <= size, "file has an invalid program header");
 
-	const Elf64_Phdr* phdr = static_cast<const Elf64_Phdr*>(static_cast<const void*>(data + ehdr->e_phoff));
+	Elf64_Phdr* phdr = static_cast<Elf64_Phdr*>(static_cast<void*>(data + ehdr->e_phoff));
 
 	// Determine base address and check for loadable segments
 	bool       hasLoadable = false;
 	Elf64_Addr base = 0;
 	for (Elf64_Half i = 0; i < ehdr->e_phnum; i++)
 	{
+	    phdr[i].p_type   = letohl (phdr[i].p_type);
+	    phdr[i].p_flags  = letohl (phdr[i].p_flags);
+	    phdr[i].p_offset = letohll(phdr[i].p_offset);
+	    phdr[i].p_vaddr  = letohll(phdr[i].p_vaddr);
+	    phdr[i].p_paddr  = letohll(phdr[i].p_paddr);
+	    phdr[i].p_filesz = letohll(phdr[i].p_filesz);
+	    phdr[i].p_memsz  = letohll(phdr[i].p_memsz);
+	    phdr[i].p_align  = letohll(phdr[i].p_align);
+	    
 		if (phdr[i].p_type == PT_LOAD)
 		{
 			if (!hasLoadable || phdr[i].p_vaddr < base) {
