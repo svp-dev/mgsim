@@ -19,28 +19,28 @@ static void Verify(bool expr, const char* error = "invalid ELF file")
 // Load the program image into the memory
 static MemAddr LoadProgram(IMemoryAdmin* memory, void* _data, MemSize size, bool quiet)
 {
-	char*       data = static_cast<char*>(_data);
-	Elf64_Ehdr* ehdr = static_cast<Elf64_Ehdr*>(_data);
+	char*      data =  static_cast<char*>(_data);
+	Elf64_Ehdr ehdr = *static_cast<Elf64_Ehdr*>(_data);
 	
 	// Unmarshall header
-	ehdr->e_type      = letohs (ehdr->e_type);
-	ehdr->e_machine   = letohs (ehdr->e_machine);
-	ehdr->e_version   = letohl (ehdr->e_version);
-	ehdr->e_entry     = letohll(ehdr->e_entry);
-	ehdr->e_phoff     = letohll(ehdr->e_phoff);
-	ehdr->e_shoff     = letohll(ehdr->e_shoff);
-	ehdr->e_flags     = letohl (ehdr->e_flags);
-	ehdr->e_ehsize    = letohs (ehdr->e_ehsize);
-	ehdr->e_phentsize = letohs (ehdr->e_phentsize);
-	ehdr->e_phnum     = letohs (ehdr->e_phnum);
-	ehdr->e_shentsize = letohs (ehdr->e_shentsize);
-	ehdr->e_shnum     = letohs (ehdr->e_shnum);
-	ehdr->e_shstrndx  = letohs (ehdr->e_shstrndx);
+	ehdr.e_type      = letohs (ehdr.e_type);
+	ehdr.e_machine   = letohs (ehdr.e_machine);
+	ehdr.e_version   = letohl (ehdr.e_version);
+	ehdr.e_entry     = letohll(ehdr.e_entry);
+	ehdr.e_phoff     = letohll(ehdr.e_phoff);
+	ehdr.e_shoff     = letohll(ehdr.e_shoff);
+	ehdr.e_flags     = letohl (ehdr.e_flags);
+	ehdr.e_ehsize    = letohs (ehdr.e_ehsize);
+	ehdr.e_phentsize = letohs (ehdr.e_phentsize);
+	ehdr.e_phnum     = letohs (ehdr.e_phnum);
+	ehdr.e_shentsize = letohs (ehdr.e_shentsize);
+	ehdr.e_shnum     = letohs (ehdr.e_shnum);
+	ehdr.e_shstrndx  = letohs (ehdr.e_shstrndx);
 
 	// Check file signature
 	if (size < sizeof(Elf64_Ehdr) ||
-		ehdr->e_ident[EI_MAG0] != ELFMAG0 || ehdr->e_ident[EI_MAG1] != ELFMAG1 ||
-		ehdr->e_ident[EI_MAG2] != ELFMAG2 || ehdr->e_ident[EI_MAG3] != ELFMAG3)
+		ehdr.e_ident[EI_MAG0] != ELFMAG0 || ehdr.e_ident[EI_MAG1] != ELFMAG1 ||
+		ehdr.e_ident[EI_MAG2] != ELFMAG2 || ehdr.e_ident[EI_MAG3] != ELFMAG3)
 	{
 		// Not an ELF file, load as flat binary, starts at address 0
 		if (!quiet)
@@ -52,21 +52,21 @@ static MemAddr LoadProgram(IMemoryAdmin* memory, void* _data, MemSize size, bool
 	}
 
 	// Check that this file is for our 'architecture'
-	Verify(ehdr->e_ident[EI_CLASS]   == ELFCLASS64,  "file is not 64-bit");
-	Verify(ehdr->e_ident[EI_DATA]    == ELFDATA2LSB, "file is not little-endian");
-	Verify(ehdr->e_ident[EI_VERSION] == EV_CURRENT,  "ELF version mismatch");
-	Verify(ehdr->e_type              == ET_EXEC,     "file is not an executable file");
-	Verify(ehdr->e_machine           == EM_ALPHA,    "target architecture is not Alpha");
-	Verify(ehdr->e_phoff != 0 && ehdr->e_phnum != 0, "file has no program header");
-	Verify(ehdr->e_phentsize == sizeof(Elf64_Phdr),  "file has an invalid program header");
-	Verify(ehdr->e_phoff + ehdr->e_phnum * ehdr->e_phentsize <= size, "file has an invalid program header");
+	Verify(ehdr.e_ident[EI_CLASS]   == ELFCLASS64,  "file is not 64-bit");
+	Verify(ehdr.e_ident[EI_DATA]    == ELFDATA2LSB, "file is not little-endian");
+	Verify(ehdr.e_ident[EI_VERSION] == EV_CURRENT,  "ELF version mismatch");
+	Verify(ehdr.e_type              == ET_EXEC,     "file is not an executable file");
+	Verify(ehdr.e_machine           == EM_ALPHA,    "target architecture is not Alpha");
+	Verify(ehdr.e_phoff != 0 && ehdr.e_phnum != 0, "file has no program header");
+	Verify(ehdr.e_phentsize == sizeof(Elf64_Phdr),  "file has an invalid program header");
+	Verify(ehdr.e_phoff + ehdr.e_phnum * ehdr.e_phentsize <= size, "file has an invalid program header");
 
-	Elf64_Phdr* phdr = static_cast<Elf64_Phdr*>(static_cast<void*>(data + ehdr->e_phoff));
+	Elf64_Phdr* phdr = static_cast<Elf64_Phdr*>(static_cast<void*>(data + ehdr.e_phoff));
 
 	// Determine base address and check for loadable segments
 	bool       hasLoadable = false;
 	Elf64_Addr base = 0;
-	for (Elf64_Half i = 0; i < ehdr->e_phnum; i++)
+	for (Elf64_Half i = 0; i < ehdr.e_phnum; i++)
 	{
 	    phdr[i].p_type   = letohl (phdr[i].p_type);
 	    phdr[i].p_flags  = letohl (phdr[i].p_flags);
@@ -89,7 +89,7 @@ static MemAddr LoadProgram(IMemoryAdmin* memory, void* _data, MemSize size, bool
 	base = base & -PAGE_SIZE;
 
 	// Then copy the LOAD segments into their right locations
-	for (Elf64_Half i = 0; i < ehdr->e_phnum; i++)
+	for (Elf64_Half i = 0; i < ehdr.e_phnum; i++)
 	{
 		if (phdr[i].p_type == PT_LOAD)
 		{
@@ -123,9 +123,9 @@ static MemAddr LoadProgram(IMemoryAdmin* memory, void* _data, MemSize size, bool
 	if (!quiet)
 	{
     	cout << "Loaded ELF binary at address 0x" << hex << base << endl;
-    	cout << "Entry point: 0x" << hex << ehdr->e_entry << endl;
+    	cout << "Entry point: 0x" << hex << ehdr.e_entry << endl;
     }
-	return ehdr->e_entry;
+	return ehdr.e_entry;
 }
 
 // Load the program file into the memory
