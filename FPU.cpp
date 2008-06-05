@@ -264,7 +264,7 @@ bool FPU::queueOperation(int opcode, int func, const Float& Rav, const Float& Rb
 	}
 
 	//DebugSimWrite("Queued operation. Done at %lld\n", res.completion);
-	COMMIT( m_pipelines[latency].push_back(res); )
+	COMMIT{ m_pipelines[latency].push_back(res); }
 	return true;
 }
 
@@ -310,24 +310,24 @@ Result FPU::onCycleWritePhase(int stateIndex)
 			{
 				// Stall pipeline
 				COMMIT
-				(
+				{
 					for (deque<Result>::iterator q = p->second.begin(); q != p->second.end(); q++)
 					{
 						q->completion++;
 					}
-				)
+				}
 				return FAILED;
 			}
 
 			COMMIT
-			(
+			{
 				// Remove from queue
 				p->second.pop_front();
 				if (p->second.empty())
 				{
 					m_pipelines.erase(p);
 				}
-			)
+			}
 			return SUCCESS;
 		}
 	}

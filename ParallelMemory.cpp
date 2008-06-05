@@ -52,7 +52,7 @@ Result ParallelMemory::read(IMemoryCallback& callback, MemAddr address, void* da
     if (m_config.bufferSize == INFINITE || m_numRequests < m_config.bufferSize)
     {
         COMMIT
-        (
+        {
             Request request;
             request.callback  = &callback;
             request.address   = address;
@@ -61,7 +61,7 @@ Result ParallelMemory::read(IMemoryCallback& callback, MemAddr address, void* da
             request.data.tag  = tag;
             request.write     = false;
             addRequest(request);
-        )
+        }
         return DELAYED;
     }
     return FAILED;
@@ -94,7 +94,7 @@ Result ParallelMemory::write(IMemoryCallback& callback, MemAddr address, void* d
             }
         }
 
-        COMMIT( addRequest(request); )
+        COMMIT{ addRequest(request); }
         return DELAYED;
     }
     return FAILED;
@@ -130,10 +130,10 @@ Result ParallelMemory::onCycleWritePhase(int stateIndex)
 			}
 
 			COMMIT
-			(
+			{
 				port.m_inFlight.erase(p);
 				m_numRequests--;
-			)
+			}
 
 			nAvailable++;
 		}
@@ -146,7 +146,7 @@ Result ParallelMemory::onCycleWritePhase(int stateIndex)
 	for (deque<Request>::const_iterator p = port.m_requests.begin(); p != port.m_requests.end() && nDispatched < nAvailable; p++, nDispatched++)
 	{
 		COMMIT
-		(
+		{
 			// A new request can be handled
 			// Time the request
 			CycleNo done = now + m_config.baseRequestTime + m_config.timePerLine * (p->data.size + m_config.sizeOfLine - 1) / m_config.sizeOfLine;
@@ -159,11 +159,11 @@ Result ParallelMemory::onCycleWritePhase(int stateIndex)
 			} else {
 				VirtualMemory::read(request.address, request.data.data, request.data.size);
 			}
-		)
+		}
 	}
 
 	COMMIT
-	(
+	{
 		// Remove the dispatched requests
 		for (size_t i = 0; i < nDispatched; i++)
 		{
@@ -172,7 +172,7 @@ Result ParallelMemory::onCycleWritePhase(int stateIndex)
 
 		// Update stats
 		m_statMaxInFlight = max(m_statMaxInFlight, port.m_inFlight.size());
-	)
+	}
 	return (nDispatched > 0) ? SUCCESS : result;
 }
 

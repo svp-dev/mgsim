@@ -28,10 +28,10 @@ class Register : public IRegister
 
 public:
     const T& read() const     { return m_read.m_data; }
-    void write(const T& data) { COMMIT( m_data.m_data = data; m_data.m_full = true; ) }
+    void write(const T& data) { COMMIT{ m_data.m_data = data; m_data.m_full = true; } }
     bool empty() const        { return !m_data.m_full; }
     bool full()  const        { return  m_read.m_full; }
-    void clear()              { COMMIT( m_data.m_full = m_read.m_full = false; ) }
+    void clear()              { COMMIT{ m_data.m_full = m_read.m_full = false; } }
 
     Register(Kernel& kernel) : IRegister(kernel)
     {
@@ -94,12 +94,12 @@ class BroadcastRegisters : public IRegister
     }
 
 public:
-    void writeLocal(const T& data, bool processed = true) { COMMIT( m_local.m_data = data; m_local.m_full = true; if (processed) m_local.setProcessed(); ) }
-    void writeRemote(const T& data)                       { COMMIT( m_temp .m_data = data; m_temp .m_full = true; ) }
+    void writeLocal(const T& data, bool processed = true) { COMMIT{ m_local.m_data = data; m_local.m_full = true; if (processed) m_local.setProcessed(); } }
+    void writeRemote(const T& data)                       { COMMIT{ m_temp .m_data = data; m_temp .m_full = true; } }
 
-    void setLocalProcessed()   { COMMIT( m_local  .setProcessed(); ) }
-    void setRemoteProcessed()  { COMMIT( m_remote .setProcessed(); ) }
-    void setSendingForwarded() { COMMIT( m_sending.setForwarded(); ) }
+    void setLocalProcessed()   { COMMIT{ m_local  .setProcessed(); } }
+    void setRemoteProcessed()  { COMMIT{ m_remote .setProcessed(); } }
+    void setSendingForwarded() { COMMIT{ m_sending.setForwarded(); } }
 
     const T& readLocal()   const { return m_local.m_data;   }
     const T& readRemote()  const { return m_remote.m_data;  }

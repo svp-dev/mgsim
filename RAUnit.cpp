@@ -68,7 +68,7 @@ bool RAUnit::alloc(const RegSize sizes[NUM_REG_TYPES], LFID fid, RegIndex indice
 	}
 
 	COMMIT
-	( 
+	{ 
 		// We've found blocks for all types, commit them
 		for (RegType i = 0; i < NUM_REG_TYPES; i++)
 		{
@@ -79,7 +79,7 @@ bool RAUnit::alloc(const RegSize sizes[NUM_REG_TYPES], LFID fid, RegIndex indice
 				m_lists[i][indices[i] / m_blockSizes[i]].second = fid;
 			}
 		}
-	)
+	}
 
 	return true;
 }
@@ -96,7 +96,7 @@ bool RAUnit::free(RegIndex indices[NUM_REG_TYPES])
 			List& list = m_lists[i];
 			assert(list[index].first != 0);
 
-			COMMIT( list[index].first = 0; )
+			COMMIT{ list[index].first = 0; }
 		}
 	}
     return true;

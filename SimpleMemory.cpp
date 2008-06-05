@@ -28,7 +28,7 @@ Result SimpleMemory::read(IMemoryCallback& callback, MemAddr address, void* data
 	if (m_config.bufferSize == INFINITE || m_requests.size() < m_config.bufferSize)
     {
         COMMIT
-        (
+        {
             Request request;
             request.callback  = &callback;
             request.address   = address;
@@ -38,7 +38,7 @@ Result SimpleMemory::read(IMemoryCallback& callback, MemAddr address, void* data
             request.done      = 0;
             request.write     = false;
             m_requests.push(request);
-        )
+        }
         return DELAYED;
     }
     return FAILED;
@@ -73,7 +73,7 @@ Result SimpleMemory::write(IMemoryCallback& callback, MemAddr address, void* dat
             }
         }
 
-        COMMIT( m_requests.push(request); )
+        COMMIT{ m_requests.push(request); }
         return DELAYED;
     }
     return FAILED;
@@ -115,7 +115,7 @@ Result SimpleMemory::onCycleWritePhase(int stateIndex)
                 return FAILED;
             }
 
-            COMMIT( m_requests.pop(); )
+            COMMIT{ m_requests.pop(); }
         }
     }
 
@@ -125,7 +125,7 @@ Result SimpleMemory::onCycleWritePhase(int stateIndex)
         if (request.done == 0)
         {
             COMMIT
-            (
+            {
                 // A new request is ready to be handled
                 if (request.write) {
 					VirtualMemory::write(request.address, request.data.data, request.data.size);
@@ -137,7 +137,7 @@ Result SimpleMemory::onCycleWritePhase(int stateIndex)
                 CycleNo requestTime = m_config.baseRequestTime + m_config.timePerLine * (request.data.size + m_config.sizeOfLine - 1) / m_config.sizeOfLine;
                 request.done = now + requestTime;
                 m_totalWaitTime += requestTime;
-            )
+            }
         }
     }
     return result;

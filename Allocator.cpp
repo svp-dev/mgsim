@@ -99,7 +99,7 @@ bool Allocator::queueActiveThreads(TID first, TID last)
     assert(last  != INVALID_TID);
 
     COMMIT
-    (
+    {
         // Append the waiting queue to the family's active queue
         if (m_activeThreads.head != INVALID_TID) {
             m_threadTable[m_activeThreads.tail].nextState = first;
@@ -115,7 +115,7 @@ bool Allocator::queueActiveThreads(TID first, TID last)
         {
             m_threadTable[cur].state = TST_ACTIVE;
         }
-    )
+    }
     return true;
 }
 
@@ -135,7 +135,7 @@ bool Allocator::onRemoteThreadCompletion(LFID fid)
         return false;
     }
     
-    COMMIT( family.lastThreadInBlock = INVALID_TID; )
+    COMMIT{ family.lastThreadInBlock = INVALID_TID; }
     return true;
 }
 
@@ -155,7 +155,7 @@ bool Allocator::onRemoteThreadCleanup(LFID fid)
         return false;
     }
     
-    COMMIT( family.firstThreadInBlock = INVALID_TID; )
+    COMMIT{ family.firstThreadInBlock = INVALID_TID; }
     return true;
 }
 //
@@ -192,20 +192,26 @@ bool Allocator::activateThread(TID tid, const IComponent& component, MemAddr* pP
     }
 
     // Save the (possibly overriden) program counter
-    COMMIT( thread.pc  = pc; )
-	COMMIT( thread.cid = cid; )
+    COMMIT
+    {
+        thread.pc  = pc;
+	    thread.cid = cid;
+	}
 
     if (result != SUCCESS)
     {
-        // Request was delayed, link thread into waiting queue
-        COMMIT( thread.nextState = next; )
+        COMMIT
+        {
+            // Request was delayed, link thread into waiting queue
+            thread.nextState = next;
     
-        // Mark the thread as waiting
-        COMMIT( thread.state = TST_WAITING; )
+            // Mark the thread as waiting
+            thread.state = TST_WAITING;
+        }
     }
 	else
 	{
-        COMMIT( thread.nextState = INVALID_TID; )
+        COMMIT{ thread.nextState = INVALID_TID; }
 
         // The thread can be added to the family's active queue
         if (!queueActiveThreads(tid, tid))
@@ -230,7 +236,7 @@ bool Allocator::pushCleanup(TID tid)
 {
     if (!m_cleanup.full())
     {
-        COMMIT( m_cleanup.push(tid); )
+        COMMIT{ m_cleanup.push(tid); }
         return true;
     }
     return false;
@@ -247,7 +253,7 @@ bool Allocator::markNextKilled(TID tid)
         }
     }
     
-    COMMIT( thread.nextKilled = true; )
+    COMMIT{ thread.nextKilled = true; }
     return true;
 }
 
@@ -262,7 +268,7 @@ bool Allocator::markPrevCleanedUp(TID tid)
         }
     }
     
-    COMMIT( thread.prevCleanedUp = true; )
+    COMMIT{ thread.prevCleanedUp = true; }
     return true;
 }
 //
@@ -306,13 +312,13 @@ bool Allocator::killThread(TID tid)
     }
 
     COMMIT
-    (
+    {
         // Mark the thread as killed
         thread.cid    = INVALID_CID;
         thread.killed = true;
         thread.state  = TST_KILLED;
         family.nRunning--;
-    )
+    }
 
     return true;
 }
@@ -363,7 +369,7 @@ bool Allocator::allocateThread(LFID fid, TID tid, bool isNewlyAllocated)
         if (thread->prevInBlock != INVALID_TID)
         {
             predecessor = &m_threadTable[thread->prevInBlock];
-            COMMIT( predecessor->nextInBlock = tid; )
+            COMMIT{ predecessor->nextInBlock = tid; }
         }
     }
 	else if (family->physBlockSize == 1 && family->gfid == INVALID_GFID && thread->index > 0)
@@ -516,7 +522,7 @@ bool Allocator::killFamily(LFID fid, ExitCode code, RegValue value)
             if (family.exitCodeReg.valid())
             {
                 COMMIT
-                (
+                {
                     RegisterWrite write;
                     if (code != EXIT_NORMAL)
                     {
@@ -536,7 +542,7 @@ bool Allocator::killFamily(LFID fid, ExitCode code, RegValue value)
                     {
                         return false;
                     }
-                )
+                }
             }
         }
         // Send completion to next processor
@@ -567,7 +573,7 @@ bool Allocator::killFamily(LFID fid, ExitCode code, RegValue value)
         }
     }
 
-    COMMIT( family.killed = true; )
+    COMMIT{ family.killed = true; }
     DebugSimWrite("Killed family %d (parent PID: %02x)\n", fid, family.parent.pid);
     return true;
 }
@@ -657,7 +663,7 @@ bool Allocator::decreaseFamilyDependency(LFID fid, FamilyDependency dep)
 bool Allocator::increaseFamilyDependency(LFID fid, FamilyDependency dep)
 {
     COMMIT
-    (
+    {
         Family& family = m_familyTable[fid];
         switch (dep)
         {
@@ -670,7 +676,7 @@ bool Allocator::increaseFamilyDependency(LFID fid, FamilyDependency dep)
 		case FAMDEP_CREATE_COMPLETED:
         case FAMDEP_PREV_TERMINATED:     break;
         }
-    )
+    }
     return true;
 }
 
@@ -690,7 +696,7 @@ void Allocator::SetDefaultFamilyEntry(LFID fid, TID parent) const
 	assert(parent != INVALID_TID);
 
 	COMMIT
-	(
+	{
 		Family&       family     = m_familyTable[fid];
 		const Thread& thread     = m_threadTable[parent];
 		const Family& parent_fam = m_familyTable[thread.family];
@@ -713,7 +719,7 @@ void Allocator::SetDefaultFamilyEntry(LFID fid, TID parent) const
 			family.regs[i].globals = thread.regs[i].base + parent_fam.regs[i].count.shareds;
 			family.regs[i].shareds = thread.regs[i].base + parent_fam.regs[i].count.shareds;
 		}
-	)
+	}
 }
 
 // Allocates a family entry. Returns the LFID (and SUCCESS) if one is available,
@@ -733,12 +739,12 @@ Result Allocator::AllocateFamily(TID parent, RegIndex reg, LFID* fid)
 	{
 		// The buffer is not full, place the request in the buffer
 		COMMIT
-		(
+		{
 			AllocRequest request;
 			request.parent = parent;
 			request.reg    = reg;
 			m_allocations.push(request);
-		)
+		}
 		return DELAYED;
 	}
 	return FAILED;
@@ -793,7 +799,7 @@ bool Allocator::ActivateFamily(LFID fid)
 void Allocator::InitializeFamily(LFID fid) const
 {
 	COMMIT
-	(
+	{
 		Family& family = m_familyTable[fid];
 
 		bool global = (family.gfid != INVALID_GFID);
@@ -842,7 +848,7 @@ void Allocator::InitializeFamily(LFID fid) const
              // Ignore the pending count if we're not a CPU that will send a parent shared
             family.numPendingShareds = 0;
         }
-	)
+	}
 }
 
 bool Allocator::AllocateRegisters(LFID fid)
@@ -873,7 +879,7 @@ bool Allocator::AllocateRegisters(LFID fid)
 			{
 				Family::RegInfo& regs = family.regs[i];
 				COMMIT
-				(
+				{
 					regs.base            = INVALID_REG_INDEX;
 					regs.size            = sizes[i];
 					regs.latest          = INVALID_REG_INDEX;
@@ -882,7 +888,7 @@ bool Allocator::AllocateRegisters(LFID fid)
 					{
 						family.hasDependency = true;
 					}
-				)
+				}
 
 				if (sizes[i] > 0)
 				{
@@ -892,13 +898,13 @@ bool Allocator::AllocateRegisters(LFID fid)
 					m_registerFile.clear(MAKE_REGADDR(i, indices[i]), sizes[i], value);
 
 					COMMIT
-					(
+					{
 						regs.base = indices[i];
 
 						// Point globals and shareds to their local cache
 						if (regs.globals == INVALID_REG_INDEX && regs.count.globals > 0) regs.globals = regs.base + regs.size - regs.count.shareds - regs.count.globals;
 						if (regs.shareds == INVALID_REG_INDEX && regs.count.shareds > 0) regs.shareds = regs.base + regs.size - regs.count.shareds;
-					)
+					}
 				}
 				DebugSimWrite("Allocated registers: %d at %04x\n", sizes[i], indices[i]);
 			}
@@ -916,7 +922,7 @@ Result Allocator::onCycleReadPhase(int stateIndex)
         if (m_allocating == INVALID_LFID && m_alloc.head != INVALID_LFID)
         {
             // Get next family to allocate
-			COMMIT( m_allocating = pop(m_alloc); )
+			COMMIT{ m_allocating = pop(m_alloc); }
 			return SUCCESS;
         }
     }
@@ -926,10 +932,10 @@ Result Allocator::onCycleReadPhase(int stateIndex)
 bool Allocator::onCachelineLoaded(CID cid)
 {
 	assert(!m_creates.empty());
-	COMMIT(
+	COMMIT{
 		m_createState = CREATE_LINE_LOADED;
 		m_createLine  = cid;
-	)
+	}
 	return true;
 }
 
@@ -937,7 +943,7 @@ bool Allocator::onReservationComplete()
 {
 	// The reservation has gone full circle, we can now resume the create
 	assert(m_createState == CREATE_RESERVING_FAMILY);
-	COMMIT( m_createState = CREATE_BROADCASTING_CREATE; )
+	COMMIT{ m_createState = CREATE_BROADCASTING_CREATE; }
 	DebugSimWrite("Reservation complete\n");
 	return true;
 }
@@ -980,7 +986,7 @@ Result Allocator::onCycleWritePhase(int stateIndex)
             {
                 // With cleanup we don't do anything to the thread. We just forget about it.
                 // It will be recycled once the family terminates.
-                COMMIT( thread.state = TST_UNUSED; )
+                COMMIT{ thread.state = TST_UNUSED; }
 
                 // Cleanup
                 if (!decreaseFamilyDependency(fid, FAMDEP_THREAD_COUNT))
@@ -1001,10 +1007,10 @@ Result Allocator::onCycleWritePhase(int stateIndex)
                 if (family.allocationDone && m_allocating == fid)
                 {
                     // Go to next family
-                    COMMIT( m_allocating = INVALID_LFID; )
+                    COMMIT{ m_allocating = INVALID_LFID; }
                 }
             }
-            COMMIT( m_cleanup.pop(); )
+            COMMIT{ m_cleanup.pop(); }
 			return SUCCESS;
         }
         
@@ -1028,7 +1034,7 @@ Result Allocator::onCycleWritePhase(int stateIndex)
             if (family.allocated == family.physBlockSize || family.allocationDone)
             {
                 // Yes, go to next family
-                COMMIT( m_allocating = INVALID_LFID; )
+                COMMIT{ m_allocating = INVALID_LFID; }
             }
 			return SUCCESS;
         }
@@ -1056,7 +1062,7 @@ Result Allocator::onCycleWritePhase(int stateIndex)
             {
                 return FAILED;
             }
-			COMMIT(m_allocations.pop();)
+			COMMIT{m_allocations.pop();}
 			return SUCCESS;
 		}
 		break;
@@ -1089,7 +1095,7 @@ Result Allocator::onCycleWritePhase(int stateIndex)
 				{
 					// Cache miss, line is being fetched.
 					// The I-Cache will notify us with onCachelineLoaded().
-					COMMIT( m_createState = CREATE_LOADING_LINE; )
+					COMMIT{ m_createState = CREATE_LOADING_LINE; }
 				}
 			}
 			else if (m_createState == CREATE_LINE_LOADED)
@@ -1102,7 +1108,7 @@ Result Allocator::onCycleWritePhase(int stateIndex)
 				}
 
 				COMMIT
-				(
+				{
 				    counts = UnserializeInstruction(&counts);
 					for (RegType i = 0; i < NUM_REG_TYPES; i++)
 					{
@@ -1111,8 +1117,7 @@ Result Allocator::onCycleWritePhase(int stateIndex)
 						family.regs[i].count.shareds = (c >>  5) & 0x1F;
 						family.regs[i].count.locals  = (c >> 10) & 0x1F;
 					}
-				)
-
+				}
 				if (family.gfid != INVALID_GFID)
 				{
 					// Global family, request the create token
@@ -1120,16 +1125,16 @@ Result Allocator::onCycleWritePhase(int stateIndex)
 					{
 						return FAILED;
 					}
-					COMMIT( m_createState = CREATE_GETTING_TOKEN; )
+					COMMIT{ m_createState = CREATE_GETTING_TOKEN; }
 				}
 				else
 				{
 					// Local family, skip straight to allocating registers
-					COMMIT( m_createState = CREATE_ALLOCATING_REGISTERS; )
+					COMMIT{ m_createState = CREATE_ALLOCATING_REGISTERS; }
 				}
 
 				InitializeFamily(fid);
-				COMMIT( family.gfid = INVALID_GFID; )
+				COMMIT{ family.gfid = INVALID_GFID; }
 			}
 			else if (m_createState == CREATE_HAS_TOKEN)
 			{
@@ -1146,7 +1151,7 @@ Result Allocator::onCycleWritePhase(int stateIndex)
 					return FAILED;
 				}
 
-				COMMIT( m_createState = CREATE_RESERVING_FAMILY; )
+				COMMIT{ m_createState = CREATE_RESERVING_FAMILY; }
 				// The network will notify us with onReservationComplete() and advanced to CREATE_BROADCASTING_CREATE
 			}
 			else if (m_createState == CREATE_BROADCASTING_CREATE)
@@ -1158,7 +1163,7 @@ Result Allocator::onCycleWritePhase(int stateIndex)
 				}
 
 				// Advance to next stage
-				COMMIT( m_createState = CREATE_ALLOCATING_REGISTERS; )
+				COMMIT{ m_createState = CREATE_ALLOCATING_REGISTERS; }
 			}
 			else if (m_createState == CREATE_ALLOCATING_REGISTERS)
 			{
@@ -1174,8 +1179,10 @@ Result Allocator::onCycleWritePhase(int stateIndex)
 					return FAILED;
 				}
 
-			    COMMIT( m_creates.pop(); )
-				COMMIT( m_createState = CREATE_INITIAL; )
+			    COMMIT{
+			        m_creates.pop();
+    				m_createState = CREATE_INITIAL;
+    			}
             }
 		    return SUCCESS;
 		}
@@ -1194,7 +1201,7 @@ Result Allocator::onCycleWritePhase(int stateIndex)
                 return FAILED;
             }
 
-            COMMIT( m_registerWrites.pop(); )
+            COMMIT{ m_registerWrites.pop(); }
 			return SUCCESS;
         }
         break;
@@ -1208,7 +1215,7 @@ bool Allocator::onTokenReceived()
     // The network told us we can create this family (group family, local create)
     assert(!m_creates.empty());
 	assert(m_createState == CREATE_GETTING_TOKEN);
-	COMMIT( m_createState = CREATE_HAS_TOKEN; )
+	COMMIT{ m_createState = CREATE_HAS_TOKEN; }
     return true;
 }
 
@@ -1223,7 +1230,7 @@ bool Allocator::queueCreate(LFID fid, MemAddr address, TID parent, RegAddr exitC
 	}
 
 	COMMIT
-    (
+    {
 		Family& family = GetWritableFamilyEntry(fid, parent);
 
 		// Store the information
@@ -1241,10 +1248,10 @@ bool Allocator::queueCreate(LFID fid, MemAddr address, TID parent, RegAddr exitC
 		uint64_t blockSize = family.virtBlockSize;
 		if (family.step != 0)
 		{
-			// Finite family
+		    // Finite family
 			family.nThreads = (family.step < 0)
-				? ((uint64_t)-(family.end - 1 - family.start - family.step - 1) / -family.step)
-				: ((uint64_t) (family.end + 1 - family.start + family.step - 1) /  family.step);
+				? (((uint64_t)-(family.end - family.start) + 1 - family.step - 1) / -family.step)
+				: (((uint64_t) (family.end - family.start) + 1 + family.step - 1) /  family.step);
 			
 			if (family.nThreads == 1)
 			{
@@ -1275,13 +1282,13 @@ bool Allocator::queueCreate(LFID fid, MemAddr address, TID parent, RegAddr exitC
 			}
 		}
 		family.virtBlockSize = (TSize)min(min(family.nThreads, blockSize), (uint64_t)m_threadTable.getNumThreads());
-
+		
 		// Lock the family
 		family.created = true;
 
 		// Push the create
 		m_creates.push(fid);
-    )
+    }
 	DebugSimWrite("Queued local create by T%u at %08llx\n", parent, address);
     return true;
 }
@@ -1366,27 +1373,27 @@ bool Allocator::idle() const
 void Allocator::push(FamilyQueue& q, LFID fid)
 {
     COMMIT
-    (
+    {
         if (q.head == INVALID_LFID) {
             q.head = fid;
         } else {
             m_familyTable[q.tail].next = fid;
         }
         q.tail = fid;
-    )
+    }
 }
 
 void Allocator::push(ThreadQueue& q, TID tid, TID Thread::*link)
 {
     COMMIT
-    (
+    {
         if (q.head == INVALID_TID) {
             q.head = tid;
         } else {
             m_threadTable[q.tail].*link = tid;
         }
         q.tail = tid;
-    )
+    }
 }
 
 LFID Allocator::pop(FamilyQueue& q)

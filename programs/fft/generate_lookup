@@ -1,0 +1,25 @@
+#!/bin/sh
+
+echo '
+pi    = 4 * a(1)
+max_m = 16
+
+for(i = 0; i < max_m; i++)
+{
+    x = 2 ^ i
+    print ".double ",  c(pi / x), "\n"
+    print ".double ", -s(pi / x), "\n"
+}
+' | bc -l > fft_lookup_u.s
+
+echo '
+pi    = 4 * a(1)
+max_m = 16
+max_n = 2 ^ max_m
+
+for(i = 0; i < max_n; i++)
+{
+    print ".double ",  c(2 * i * pi / max_n), "\n"
+    print ".double ", -s(2 * i * pi / max_n), "\n"
+}
+' | bc -l > fft_lookup_o.s

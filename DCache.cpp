@@ -98,10 +98,10 @@ Result DCache::findLine(MemAddr address, Line* &line, bool reset)
 	{
 		// Reset the line
 		COMMIT
-		(
+		{
 			line->tag  = tag;
 		    line->next = INVALID_CID;
-		)
+		}
 	}
 
     return DELAYED;
@@ -151,30 +151,30 @@ Result DCache::read(MemAddr address, void* data, MemSize size, LFID fid, RegAddr
     }
 
     // Reset last line access
-    COMMIT( line->access  = m_parent.getKernel().getCycleNo(); )
+    COMMIT{ line->access  = m_parent.getKernel().getCycleNo(); }
 
     if (result == SUCCESS)
     {
         // Data was already in the cache or has been loaded immediately, copy it
         COMMIT
-        (
+        {
             line->state = LINE_VALID;
             memcpy(data, line->data + offset, (size_t)size);
             m_numHits++;
-        )
+        }
         return SUCCESS;
     }
 
     // Data is being loaded, add request to the queue
 	COMMIT
-	(
+	{
 		RegAddr old   = line->waiting;
 		line->waiting = *reg;
 		line->state   = LINE_LOADING;
 		*reg = old;
 		m_numWaiting++;
 		m_numMisses++;
-	)
+	}
     return DELAYED;
 }
 
@@ -200,7 +200,7 @@ Result DCache::write(MemAddr address, void* data, MemSize size, LFID fid)
 	}
 
 	COMMIT
-	(
+	{
 		Line* line;
 		if (findLine(address, line, false) == SUCCESS)
 		{
@@ -212,7 +212,7 @@ Result DCache::write(MemAddr address, void* data, MemSize size, LFID fid)
 				line->state = LINE_INVALID;
 			}
 		}
-	)
+	}
 
     // Pass-through
     return m_parent.writeMemory(address, data, size, MemTag(fid));
@@ -224,7 +224,7 @@ bool DCache::onMemoryReadCompleted(const MemData& data)
     assert(data.tag.cid != INVALID_CID);
 
     COMMIT
-    (
+    {
         // Copy the data into the cache line
         memcpy(m_lines[data.tag.cid].data, data.data, (size_t)data.size);
 
@@ -240,7 +240,7 @@ bool DCache::onMemoryReadCompleted(const MemData& data)
 		if (m_lines[data.tag.cid].state == LINE_LOADING) {
 			m_lines[data.tag.cid].state = LINE_PROCESSING;
 		}
-    )
+    }
 
     return true;
 }
@@ -258,7 +258,7 @@ bool DCache::onMemoryWriteCompleted(const MemTag& tag)
 bool DCache::onMemorySnooped(MemAddr address, const MemData& data)
 {
     COMMIT
-    (
+    {
         size_t offset = (size_t)(address % m_lineSize);
 		Line*  line;
 
@@ -271,7 +271,7 @@ bool DCache::onMemorySnooped(MemAddr address, const MemData& data)
                 memcpy(&line->data[offset], data.data, (size_t)data.size);
             }
         }
-    )
+    }
     return true;
 }
 
@@ -326,8 +326,10 @@ Result DCache::onCycleWritePhase(int stateIndex)
 			return FAILED;
 		}
 
-		COMMIT( line.waiting = value.m_request.next; )
-		COMMIT( m_numWaiting--; )
+		COMMIT{
+		    line.waiting = value.m_request.next;
+            m_numWaiting--;
+        }
 	}
 
 	if (line.waiting == INVALID_REG)

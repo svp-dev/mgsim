@@ -147,7 +147,7 @@ Pipeline::PipeAction Pipeline::ExecuteStage::write()
 
 	case IFORMAT_SPECIAL:
 		COMMIT
-		(
+		{
 			Family& family = m_allocator.GetWritableFamilyEntry(LFID((size_t)m_input.Rav.m_integer), m_input.tid);
             switch (m_input.opcode)
             {
@@ -163,12 +163,12 @@ Pipeline::PipeAction Pipeline::ExecuteStage::write()
 				if (sf != 31) family.regs[RT_FLOAT].shareds   = m_input.threadRegs[RT_FLOAT].base + sf;
 				break;
 			}
-		)
+		}
 		break;
 
     case IFORMAT_OP:
         COMMIT
-        (
+        {
 			bool (*execfunc)(RegValue&, const RegValue&, const RegValue&, int) = NULL;
 
             switch (m_input.opcode)
@@ -225,7 +225,7 @@ Pipeline::PipeAction Pipeline::ExecuteStage::write()
 						case A_UTHREAD_SQUEEZE:  break;
 
 						case A_UTHREAD_DEBUG:
-							DebugProgWrite("DEBUG by T%u at %016llx: %016llx\n", m_input.tid, m_input.pc, m_input.Rbv.m_integer);
+							DebugProgWrite("DEBUG by T%u at %016llx: %016llx\n", m_input.tid, m_input.pc, m_input.Rav.m_integer);
 							output.Rc = INVALID_REG;
 							break;
 					}
@@ -273,10 +273,10 @@ Pipeline::PipeAction Pipeline::ExecuteStage::write()
 					output.Rcv.m_component = &m_fpu;
                     
                     // We've executed a floating point operation
-                    COMMIT( m_flop++; )
+                    m_flop++;
 				}
 			}
-        )
+        }
         break;
     
         default: break;
@@ -299,11 +299,11 @@ Pipeline::PipeAction Pipeline::ExecuteStage::write()
                 // Suspend the thread
                 assert(thread.state == TST_RUNNING);
                 COMMIT
-                (
+                {
                     thread.state = TST_SUSPENDED;
                     thread.cid   = INVALID_CID;
                     thread.pc    = pc;
-                )
+                }
             }
             // Reschedule thread
             else if (!m_allocator.activateThread(m_input.tid, *this, &pc))
@@ -321,24 +321,27 @@ Pipeline::PipeAction Pipeline::ExecuteStage::write()
         if (output.kill || !resched)
         {
             COMMIT
-            (
+            {
                 Family& family = m_familyTable[m_input.fid];
                 if (family.numThreadsQueued == 0)
                 {
                     // Mark family as idle or killed
                     family.state = (family.allocationDone == 0 && family.nRunning == 0) ? FST_KILLED : FST_IDLE;
                 }
-            )
+            }
         }
     }
 
-    if (resched)
+    COMMIT
     {
-        // We've executed an instruction
-        COMMIT( m_op++; )
-    }
+        if (resched)
+        {
+            // We've executed an instruction
+            COMMIT{ m_op++; }
+        }
 
-    COMMIT( m_output = output; )
+        m_output = output;
+    }
     return (output.swch) ? PIPE_FLUSH : PIPE_CONTINUE;
 }
 

@@ -83,7 +83,7 @@ Result Pipeline::onCycleReadPhase(int stateIndex)
 			if (action == PIPE_FLUSH)
 			{
 				COMMIT
-				(
+				{
 					// Clear all previous stages with the same TID
 					Latch* input = m_stages[stage]->getInput();
 					for (int j = 0; j < stage; j++)
@@ -95,7 +95,7 @@ Result Pipeline::onCycleReadPhase(int stateIndex)
 						}
 						m_stages[j]->clear(input->tid);
 					}
-				)
+				}
 			}
 	        return SUCCESS;
 		}
@@ -144,10 +144,10 @@ Result Pipeline::onCycleWritePhase(int stateIndex)
 			}
 
 			COMMIT
-			(
+			{
 				if (input  != NULL) input->clear();
 				if (output != NULL) output->set();
-			)
+			}
 	        return SUCCESS;
 		}
     }

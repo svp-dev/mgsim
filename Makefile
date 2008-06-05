@@ -4,31 +4,45 @@
 #
 # Makefile for Linux.
 #
-all: MGSim
+all: release debug
+release: MGSim
+debug: MGSim.dbg
 
-CC       = g++
-CPPFLAGS = -O2 -Wall -DNDEBUG
+CC               = g++
+CPPFLAGS_COMMON  = -Wall
+CPPFLAGS_RELEASE = $(CPPFLAGS_COMMON) -O2 -DNDEBUG
+CPPFLAGS_DEBUG   = $(CPPFLAGS_COMMON) -O0 -g
+
 OBJDIR   = objs
 DEPDIR   = deps
 LDFLAGS  = -lreadline -lncurses
 OBJS     = $(patsubst %.cpp,$(OBJDIR)/%.o,$(wildcard *.cpp))
 DEPS     = $(patsubst %.cpp,$(DEPDIR)/%.d,$(wildcard *.cpp))
 
-.PHONY: clean tidy
+.PHONY: clean tidy all debug release
 .SUFFIXES:
 .SILENT:
 
+MGSim.dbg: $(subst .o,.dbg.o,$(OBJS))
+	echo LINK $@
+	$(CC) $(LDFLAGS) -o MGSim.dbg $^
+
 MGSim: $(OBJS)
 	echo LINK $@
-	$(CC) $(LDFLAGS) -o MGSim $(OBJS)
+	$(CC) $(LDFLAGS) -o MGSim $^
 
 -include $(DEPDIR)/*.d
 Makefile: $(DEPS)
 
+$(OBJDIR)/%.dbg.o: %.cpp
+	echo CC $*.o
+	if [ ! -e $(OBJDIR) ]; then mkdir $(OBJDIR); fi
+	$(CC) -c $(CPPFLAGS_DEBUG) -o $@ $<
+
 $(OBJDIR)/%.o: %.cpp
 	echo CC $*.o
 	if [ ! -e $(OBJDIR) ]; then mkdir $(OBJDIR); fi
-	$(CC) -c $(CPPFLAGS) -o $@ $<
+	$(CC) -c $(CPPFLAGS_RELEASE) -o $@ $<
 
 $(DEPDIR)/%.d: %.cpp
 	if [ ! -e $(DEPDIR) ]; then mkdir $(DEPDIR); fi

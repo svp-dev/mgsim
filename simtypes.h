@@ -20,33 +20,8 @@ typedef uint64_t MemSize;       // Size of something in memory
 typedef uint32_t Instruction;   // Instruction bits
 typedef size_t   Place;			// Place identifier
 typedef size_t   FSize;         // Family list size
-
-#ifdef NDEBUG
 typedef size_t   LFID;          // Local family index
 typedef size_t   GFID;          // Group family index
-#else
-// In debug mode, make the GFID incompatible with LFID, so compilation
-// will catch any LFID-to-GFID errors in the code.
-
-// Note: strong typedef template based on Boost definition
-#define STRONG_TYPEDEF(T, D)									\
-struct D                                                        \
-{                                                               \
-    T t;                                                        \
-    explicit D(const T t_) : t(t_) {};                          \
-    D(){};                                                      \
-    D(const D & t_) : t(t_.t){}                                 \
-    D & operator=(const D & rhs) { t = rhs.t; return *this;}    \
-    D & operator=(const T & rhs) { t = rhs; return *this;}      \
-    operator const T & () const {return t; }                    \
-    operator T & () { return t; }                               \
-    bool operator==(const D & rhs) const { return t == rhs.t; } \
-    bool operator<(const D & rhs) const { return t < rhs.t; }   \
-};
-
-STRONG_TYPEDEF(size_t, GFID);	// Group family index
-STRONG_TYPEDEF(size_t, LFID);	// Local family index
-#endif
 
 typedef unsigned int RegType;
 static const RegType RT_INTEGER    = 0;

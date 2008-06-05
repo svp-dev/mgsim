@@ -96,10 +96,10 @@ Result ICache::findLine(MemAddr address, Line* &line)
     }
 
     COMMIT
-    (
+    {
         // Reset the line
         line->tag = tag;
-    )
+    }
 
     return DELAYED;
 }
@@ -110,10 +110,10 @@ bool ICache::releaseCacheLine(CID cid)
     {
 		// Once the references hit zero, the line can be replaced by a next request
         COMMIT
-        (
+        {
 			assert(m_lines[cid].references > 0);
             m_lines[cid].references--;
-        )
+        }
     }
     return true;
 }
@@ -142,7 +142,7 @@ bool ICache::read(CID cid, MemAddr address, void* data, MemSize size) const
 	// Verify that we're actually reading a fetched line
 	assert(m_lines[cid].fetched);
 
-    COMMIT( memcpy(data, m_lines[cid].data + offset, (size_t)size); )
+    COMMIT{ memcpy(data, m_lines[cid].data + offset, (size_t)size); }
     return true;
 }
 
@@ -199,7 +199,7 @@ Result ICache::fetch(MemAddr address, MemSize size, TID* tid, CID* cid)
         {
             // The line is being fetched
 			COMMIT
-			(
+			{
 				if (tid != NULL)
 				{
 					// Add the thread to the queue
@@ -216,10 +216,10 @@ Result ICache::fetch(MemAddr address, MemSize size, TID* tid, CID* cid)
 					assert(!line->creation);
 					line->creation = true;
 				}
-			)
+			}
             result = DELAYED;
         }
-        COMMIT( m_numHits++; )
+        COMMIT{ m_numHits++; }
     }
 	else
 	{
@@ -238,7 +238,7 @@ Result ICache::fetch(MemAddr address, MemSize size, TID* tid, CID* cid)
 		
 		// Data has been fetched or is being fetched
 		COMMIT
-		(
+		{
 			// Initialize buffer
 			line->creation   = false;
 			line->references = 0;
@@ -267,15 +267,15 @@ Result ICache::fetch(MemAddr address, MemSize size, TID* tid, CID* cid)
 				}
 				m_numMisses++;
 			}
-		)
+		}
 	}
 
     // Update line
     COMMIT
-	(
+	{
 		line->access = m_parent.getKernel().getCycleNo();
 		line->references++;
-	)
+	}
 
 	if (cid != NULL)
 	{
@@ -293,10 +293,10 @@ bool ICache::onMemoryReadCompleted(const MemData& data)
 
 	Line& line = m_lines[data.tag.cid];
     COMMIT
-    (
+    {
         memcpy(line.data, data.data, (size_t)data.size);
 		line.fetched = true;
-    )
+    }
 
 	if (line.creation)
 	{
@@ -305,7 +305,7 @@ bool ICache::onMemoryReadCompleted(const MemData& data)
 		{
 			return false;
 		}
-		COMMIT( line.creation = false; )
+		COMMIT{ line.creation = false; }
 	}
 
 	if (line.waiting.head != INVALID_TID)
@@ -318,10 +318,10 @@ bool ICache::onMemoryReadCompleted(const MemData& data)
 
 		// Clear the waiting list
 		COMMIT
-		(
+		{
 			line.waiting.head = INVALID_TID;
 			line.waiting.tail = INVALID_TID;
-		)
+		}
 	}
 
     return true;

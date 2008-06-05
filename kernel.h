@@ -11,7 +11,7 @@
 namespace Simulator
 {
 
-#define COMMIT(statements)  if (committing()) { statements }
+#define COMMIT  if (committing())
 
 class Object;
 class Mutex;

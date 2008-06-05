@@ -162,7 +162,7 @@ Pipeline::PipeAction Pipeline::DecodeStage::read()
 Pipeline::PipeAction Pipeline::DecodeStage::write()
 {
     COMMIT
-    (
+    {
         m_output.isLastThreadInFamily  = m_input.isLastThreadInFamily;
 		m_output.isFirstThreadInFamily = m_input.isFirstThreadInFamily;
         m_output.fid     = m_input.fid;
@@ -291,7 +291,7 @@ Pipeline::PipeAction Pipeline::DecodeStage::write()
         m_output.Ra = translateRegister((uint8_t)m_output.Ra.index, m_output.Ra.type, &m_output.Rra);
         m_output.Rb = translateRegister((uint8_t)m_output.Rb.index, m_output.Rb.type, &m_output.Rrb);
         m_output.Rc = translateRegister((uint8_t)m_output.Rc.index, m_output.Rc.type, &m_output.Rrc);
-    )
+    }
     return PIPE_CONTINUE;
 }
 

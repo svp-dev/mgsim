@@ -53,12 +53,12 @@ bool Network::sendShared(GFID fid, bool parent, const RegAddr& addr, const RegVa
     if (m_sharedResponse.fid == INVALID_GFID)
     {
         COMMIT
-        (
+        {
             m_sharedResponse.fid    = fid;
             m_sharedResponse.parent = parent;
             m_sharedResponse.addr   = addr;
             m_sharedResponse.value  = value;
-        )
+        }
         return true;
     }
     return false;
@@ -69,12 +69,12 @@ bool Network::requestShared(GFID fid, const RegAddr& addr, bool parent)
     if (m_sharedRequest.fid == INVALID_GFID)
     {
         COMMIT
-        (
+        {
             m_sharedRequest.fid           = fid;
             m_sharedRequest.parent        = parent;
             m_sharedRequest.addr          = addr;
             m_sharedRequest.value.m_state = RST_INVALID;
-        )
+        }
         return true;
     }
     return false;
@@ -89,10 +89,10 @@ Result Network::onSharedRequested(const SharedInfo& sharedInfo)
 		{
 			DebugSimWrite("Shared request stored\n");
 			COMMIT
-			(
+			{
 				m_sharedResponse = sharedInfo;
 				m_sharedResponse.value.m_state = RST_INVALID;
-			)
+			}
 		}
 		else
 		{
@@ -112,7 +112,7 @@ Result Network::onSharedReceived(const SharedInfo& sharedInfo)
 		// If the family hasn't been created yet, we just ignore the request
 		if (m_familyTable.TranslateFamily(sharedInfo.fid) != INVALID_LFID)
 		{
-			COMMIT( m_sharedReceived = sharedInfo; )
+			COMMIT{ m_sharedReceived = sharedInfo; }
 		}
 		return SUCCESS;
     }
@@ -158,7 +158,7 @@ bool Network::sendFamilyCreate(LFID fid)
     {
         assert(m_hasToken.read());
         COMMIT
-        (
+        {
             // Buffer the family information
 			m_createFid = fid;
 			const Family& family = m_familyTable[fid];
@@ -180,7 +180,7 @@ bool Network::sendFamilyCreate(LFID fid)
 
 			m_createLocal.write(message);
 			DebugSimWrite("Broadcasting create for G%u (F%u)\n", message.fid, fid);
-        )
+        }
         return true;
     }
     return false;
@@ -201,7 +201,7 @@ bool Network::onFamilyCreateReceived(const CreateMessage& msg)
 	else
 	{
 		// Create has come full circle
-		COMMIT( m_lockToken--; )
+		COMMIT{ m_lockToken--; }
 	}
     return true;
 }
@@ -318,10 +318,10 @@ Result Network::onCycleReadPhase(int stateIndex)
 				if (value.m_state == RST_FULL)
 				{
 					COMMIT
-					(
+					{
 						m_sharedResponse.value  = value;
 						m_sharedResponse.parent = false;
-					)
+					}
 				}
 				else
 				{
@@ -336,7 +336,7 @@ Result Network::onCycleReadPhase(int stateIndex)
             if (m_sharedResponse.value.m_state != RST_FULL)
             {
 				// If it hasn't been read, ignore it.
-                COMMIT( m_sharedResponse.fid = INVALID_GFID; )
+                COMMIT{ m_sharedResponse.fid = INVALID_GFID; }
             }
 			return SUCCESS;
         }
@@ -356,7 +356,7 @@ Result Network::onCycleReadPhase(int stateIndex)
 				return FAILED;
 			}
 			assert(value.m_state == RST_FULL);
-			COMMIT( m_global.local = value; )
+			COMMIT{ m_global.local = value; }
 			DebugSimWrite("Read global %u: %d\n", addr.index, m_global.local.m_state);
 			return SUCCESS;
         }
@@ -400,7 +400,7 @@ Result Network::onCycleWritePhase(int stateIndex)
                 }
             }
 
-            COMMIT( m_sharedReceived.fid = INVALID_GFID; )
+            COMMIT{ m_sharedReceived.fid = INVALID_GFID; }
 			return SUCCESS;
         }
         break;
@@ -432,7 +432,7 @@ Result Network::onCycleWritePhase(int stateIndex)
 			{
 				// The family doesn't exist yet, but we can ignore this write if we're
 				// not writing to the parent shareds; the family will later request it.
-				COMMIT( m_sharedResponse.fid = INVALID_GFID; )
+				COMMIT{ m_sharedResponse.fid = INVALID_GFID; }
 			}
 			return SUCCESS;
 		}
@@ -444,7 +444,7 @@ Result Network::onCycleWritePhase(int stateIndex)
             {
                 return FAILED;
             }
-            COMMIT( m_sharedRequest.fid = INVALID_GFID; )
+            COMMIT{ m_sharedRequest.fid = INVALID_GFID; }
 			return SUCCESS;
         }
         break;
@@ -521,14 +521,14 @@ Result Network::onCycleWritePhase(int stateIndex)
 				{
 					// There are still globals to process, otherwise we can 
 					// process another create next cycle
-					COMMIT( m_createState = CS_PROCESSING_REMOTE; )
+					COMMIT{ m_createState = CS_PROCESSING_REMOTE; }
 				}
 				else if (!m_allocator.ActivateFamily(fid))
 				{
 					return FAILED;
 				}
-				COMMIT( m_createRemote.clear(); )
-				COMMIT( m_createFid = fid; )
+				COMMIT{ m_createRemote.clear(); }
+				COMMIT{ m_createFid = fid; }
 				return SUCCESS;
 			}
 
@@ -560,9 +560,9 @@ Result Network::onCycleWritePhase(int stateIndex)
 				{
 					// There are still globals to process, otherwise we can 
 					// process another create next cycle
-					COMMIT( m_createState = CS_PROCESSING_LOCAL; )
+					COMMIT{ m_createState = CS_PROCESSING_LOCAL; }
 				}
-				COMMIT( m_createLocal.clear(); )
+				COMMIT{ m_createLocal.clear(); }
 				return SUCCESS;
 			}
 		}
@@ -581,7 +581,7 @@ Result Network::onCycleWritePhase(int stateIndex)
 					family = &m_familyTable[ m_createFid ];
 
 					m_global.value.writeLocal(make_pair(family->parent.pid, m_global.local));
-					COMMIT( m_global.local.m_state = RST_INVALID; )
+					COMMIT{ m_global.local.m_state = RST_INVALID; }
 				}
 			}
 			else if (m_createState == CS_PROCESSING_REMOTE)
@@ -614,13 +614,13 @@ Result Network::onCycleWritePhase(int stateIndex)
 				{
 					// Last global of this type, go to the next type
 					done = true;
-					COMMIT( m_global.count = 0; )
+					COMMIT{ m_global.count = 0; }
 					for (RegType i = m_global.addr.type + 1; i < NUM_REG_TYPES; i++)
 					{
 						if (family->regs[i].count.globals > 0)
 						{
-							COMMIT( m_global.count = family->regs[i].count.globals; )
-							COMMIT( m_global.addr  = MAKE_REGADDR(i, 0); )
+							COMMIT{ m_global.count = family->regs[i].count.globals; }
+							COMMIT{ m_global.addr  = MAKE_REGADDR(i, 0); }
 							done = false;
 							break;
 						}
@@ -628,8 +628,8 @@ Result Network::onCycleWritePhase(int stateIndex)
 				}
 				else
 				{
-					COMMIT( m_global.count--; )
-					COMMIT( m_global.addr.index++; )
+					COMMIT{ m_global.count--; }
+					COMMIT{ m_global.addr.index++; }
 				}
 
 				if (done)
@@ -649,7 +649,7 @@ Result Network::onCycleWritePhase(int stateIndex)
 							return FAILED;
 						}
 					}
-					COMMIT( m_createState = CS_PROCESSING_NONE; )
+					COMMIT{ m_createState = CS_PROCESSING_NONE; }
 				}
 			}
 			return SUCCESS;
@@ -728,7 +728,7 @@ Result Network::onCycleWritePhase(int stateIndex)
 					return FAILED;
 				}
 				m_wantToken.write(false);
-				COMMIT( m_lockToken++; )	// We will send a create, so lock the token
+				COMMIT{ m_lockToken++; }	// We will send a create, so lock the token
 				return SUCCESS;
 			}
 
