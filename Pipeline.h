@@ -44,12 +44,16 @@ public:
         void clear()       { m_empty = true; }
         void set()         { m_empty = false; }
 
-        LFID fid;
+        void copy(const Latch& latch) { tid = latch.tid; }
+        
+        Latch& operator=(const Latch& rhs) {
+            // When copying data from latch to latch, we only copy the data,
+            // not the latch state
+            tid = rhs.tid;
+            return *this;
+        }
+        
         TID  tid;
-        bool swch;
-        bool kill;
-		bool isFirstThreadInFamily;
-        bool isLastThreadInFamily;
     private:
         bool m_empty;
     };
@@ -62,10 +66,8 @@ public:
         virtual void        clear(TID tid) {}
         Stage(Pipeline& parent, const std::string& name, Latch* input, Latch* output);
 
-        Latch* getInput()  { return m_input;  }
-        Latch* getOutput() { return m_output; }
-        const Latch* getInput()  const { return m_input;  }
-        const Latch* getOutput() const { return m_output; }
+        Latch* getInput()  const { return m_input;  }
+        Latch* getOutput() const { return m_output; }
 
     protected:
         Pipeline& m_parent;
@@ -78,9 +80,18 @@ public:
     //
     // Latches
     //
-    struct FetchDecodeLatch : public Latch
+    struct CommonLatch : public Latch
     {
-        MemAddr         pc;
+        MemAddr pc;
+        LFID    fid;
+        bool    swch;
+        bool    kill;
+		bool    isFirstThreadInFamily;
+        bool    isLastThreadInFamily;
+    };
+    
+    struct FetchDecodeLatch : public CommonLatch
+    {
         GFID            gfid;
         Instruction     instr;
 		FPCR            fpcr;
@@ -88,14 +99,10 @@ public:
         Thread::RegInfo threadRegs[NUM_REG_TYPES];
 		bool            onParent;
         bool            isLastThreadInBlock;
-        bool            swch;
-        bool            kill;
     };
 
-    struct DecodeReadLatch : public Latch
+    struct DecodeReadLatch : public CommonLatch
     {
-        MemAddr     pc;
-
         // Instruction misc
         InstrFormat format;
         uint8_t     opcode;
@@ -112,10 +119,8 @@ public:
         Thread::RegInfo threadRegs[NUM_REG_TYPES];
     };
 
-    struct ReadExecuteLatch : public Latch
+    struct ReadExecuteLatch : public CommonLatch
     {
-        MemAddr     pc;
-
         // Instruction misc
         InstrFormat format;
         uint8_t     opcode;
@@ -133,8 +138,10 @@ public:
         Thread::RegInfo threadRegs[NUM_REG_TYPES];
     };
 
-    struct ExecuteMemoryLatch : public Latch
+    struct ExecuteMemoryLatch : public CommonLatch
     {
+        bool suspend;
+        
         // Memory operation information
         MemAddr     address;
         MemSize     size;       // 0 means no memory operation
@@ -145,8 +152,10 @@ public:
         RegValue        Rcv;
     };
 
-    struct MemoryWritebackLatch : public Latch
+    struct MemoryWritebackLatch : public CommonLatch
     {
+        bool suspend;
+
         RemoteRegAddr   Rrc;
         RegAddr         Rc;
         RegValue        Rcv;
@@ -236,7 +245,7 @@ public:
     public:
         PipeAction read();
         PipeAction write();
-        ExecuteStage(Pipeline& parent, ReadExecuteLatch& input, ExecuteMemoryLatch& output, Allocator& allocator, FamilyTable& familyTable, ThreadTable& threadTable, ICache& icache, FPU& fpu);
+        ExecuteStage(Pipeline& parent, ReadExecuteLatch& input, ExecuteMemoryLatch& output, Allocator& allocator, ThreadTable& threadTable, FPU& fpu);
         
         uint64_t getFlop() const { return m_flop; }
         uint64_t getOp()   const { return m_op; }
@@ -245,12 +254,12 @@ public:
         ReadExecuteLatch&       m_input;
         ExecuteMemoryLatch&     m_output;
         Allocator&              m_allocator;
-        FamilyTable&            m_familyTable;
         ThreadTable&            m_threadTable;
-        ICache&                 m_icache;
 		FPU&                    m_fpu;
         uint64_t                m_flop;    // FP operations
         uint64_t                m_op;      // Instructions
+        
+        bool MemoryWriteBarrier(TID tid) const;
 
         static bool execINTA(RegValue& Rcv, const RegValue& Rav, const RegValue& Rbv, int func);
         static bool execINTL(RegValue& Rcv, const RegValue& Rav, const RegValue& Rbv, int func);
@@ -285,21 +294,20 @@ public:
     public:
         PipeAction read();
         PipeAction write();
-        WritebackStage(Pipeline& parent, MemoryWritebackLatch& input, RegisterFile& regFile, Network& network, Allocator& allocator);
+        WritebackStage(Pipeline& parent, MemoryWritebackLatch& input, RegisterFile& regFile, Network& network, Allocator& allocator, ThreadTable& threadTable);
     
     private:
         MemoryWritebackLatch&   m_input;
         RegisterFile&           m_regFile;
         Network&                m_network;
         Allocator&              m_allocator;
+        ThreadTable&            m_threadTable;
     };
 
     Pipeline(Processor& parent, const std::string& name, RegisterFile& regFile, Network& network, Allocator& allocator, FamilyTable& familyTable, ThreadTable& threadTable, ICache& icache, DCache& dcache, FPU& fpu, const Config& config);
 
-    bool idle()   const;
-
-    Result onCycleReadPhase(int stateIndex);
-    Result onCycleWritePhase(int stateIndex);
+    Result onCycleReadPhase(unsigned int stateIndex);
+    Result onCycleWritePhase(unsigned int stateIndex);
 
     const Stage& getStage(int i) const { return *m_stages[i]; }
     Processor& getProcessor() const { return m_parent; }

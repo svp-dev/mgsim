@@ -25,39 +25,21 @@ public:
         size_t	   sizeOfLine;      // With this many bytes per line
 	    size_t	   width;	        // number of requests which can be processed parallel
 	};
-
+	
     class Request
     {
-        void release()
-        {
-            if (refcount != NULL && --*refcount == 0) {
-                delete[] (char*)data.data;
-                delete refcount;
-            }
-        }
+        void release();
+     public:
+        unsigned long*   refcount;
+        bool             write;
+        MemAddr          address;
+        MemData          data;
+        IMemoryCallback* callback;
 
-    public:
-        unsigned long*      refcount;
-        bool                write;
-        MemAddr             address;
-        MemData             data;
-        IMemoryCallback*    callback;
-
-        Request& operator =(const Request& req)
-        {
-            release();
-            refcount  = req.refcount;
-            write     = req.write;
-            address   = req.address;
-            data      = req.data;
-            callback  = req.callback;
-            ++*refcount;
-            return *this;
-        }
-
-        Request(const Request& req) : refcount(NULL) { *this = req; }
-        Request() { refcount = new unsigned long(1); data.data = NULL; }
-        ~Request() { release(); }
+        Request& operator =(const Request& req);
+        Request(const Request& req);
+        Request();
+        ~Request();
     };
 
 	struct Port
@@ -67,9 +49,10 @@ public:
 	};
 
     ParallelMemory(Object* parent, Kernel& kernel, const std::string& name, const Config& config, PSize numProcs );
+    ~ParallelMemory();
 
     // Component
-    Result onCycleWritePhase(int stateIndex);
+    Result onCycleWritePhase(unsigned int stateIndex);
 
     // IMemory
     void registerListener(IMemoryCallback& callback);
@@ -81,7 +64,6 @@ public:
     // IMemoryAdmin
 	void read (MemAddr address, void* data, MemSize size);
     void write(MemAddr address, const void* data, MemSize size, int perm = 0);
-    bool idle() const;
 
     const Config& getConfig()       const { return m_config; }
     const Port&   getPort(size_t i) const { return m_ports[i]; }

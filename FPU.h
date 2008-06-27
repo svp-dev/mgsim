@@ -41,7 +41,7 @@ public:
 
 private:
 	bool onCompletion(const Result& res) const;
-	Simulator::Result onCycleWritePhase(int stateIndex);
+	Simulator::Result onCycleWritePhase(unsigned int stateIndex);
 
 	RegisterFile& m_registerFile;
 	Config        m_config;

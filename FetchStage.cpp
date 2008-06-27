@@ -111,18 +111,6 @@ Pipeline::PipeAction Pipeline::FetchStage::write()
 			thread.nextState = INVALID_TID;
 		}
 
-		// Decrease the queued dependency
-		if (!m_allocator.decreaseFamilyDependency(m_fid, FAMDEP_THREADS_QUEUED))
-		{
-			return PIPE_STALL;
-		}
-
-		// Increase the running dependency
-		if (!m_allocator.increaseFamilyDependency(m_fid, FAMDEP_THREADS_RUNNING))
-		{
-			return PIPE_STALL;
-		}
-
 		COMMIT
 		{
 			// Mark the thread as running

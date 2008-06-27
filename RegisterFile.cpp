@@ -84,13 +84,18 @@ bool RegisterFile::clear(const RegAddr& addr, RegSize size, const RegValue& valu
     return true;
 }
 
-bool RegisterFile::writeRegister(const RegAddr& addr, const RegValue& data, const IComponent& component)
+bool RegisterFile::writeRegister(const RegAddr& addr, RegValue& data, const IComponent& component)
 {
 	// DebugSimWrite("Writing register %s\n", addr.str().c_str());
 	std::vector<RegValue>& regs = (addr.type == RT_FLOAT) ? m_floats : m_integers;
     if (addr.index >= regs.size())
     {
         throw InvalidArgumentException("A component attempted to write to a non-existing register");
+    }
+    
+    if (addr.index == 258)
+    {
+        DebugSimWrite("YO");
     }
 
 	// Note that nothing can write Empty registers
@@ -105,21 +110,18 @@ bool RegisterFile::writeRegister(const RegAddr& addr, const RegValue& data, cons
 			throw InvalidArgumentException("Waiting on a non-pending register");
 		}
 
-		if (value.m_state == RST_FULL)
+    	if (value.m_state == RST_FULL)
+    	{
+    		// The data we wanted to wait for has returned before we could write the register.
+    		// Write back the state as FULL, the pipeline will reschedule the thread instead of
+    		// suspending it
+    		data.m_state = RST_FULL;
+    	}
+	    else
 		{
-			// The data we wanted to wait for has returned before we could write the register.
-			// So just wake up the thread that wanted to wait instead.
-			// Obviously, we don't write the register.
-			if (!m_allocator.activateThread(data.m_tid, component))
-			{
-				return false;
-			}
-		}
-		else
-		{
-			// Just copy the TID because we need to preserve the m_request member
-			COMMIT
-			{
+            COMMIT
+            {
+			    // Just copy the TID because we need to preserve the m_request member
 				value.m_tid   = data.m_tid;
 				value.m_state = RST_WAITING;
 			}
@@ -144,7 +146,7 @@ bool RegisterFile::writeRegister(const RegAddr& addr, const RegValue& data, cons
             assert (data.m_state == RST_FULL);
 
 			// This write caused a reschedule
-            if (!m_allocator.activateThread(value.m_tid, component))
+            if (!m_allocator.ActivateThread(value.m_tid, component))
             {
                 return false;
             }

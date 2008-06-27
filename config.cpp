@@ -9,15 +9,24 @@ using namespace std;
 string Config::getString(string name, const string& def) const
 {
     std::transform(name.begin(), name.end(), name.begin(), ::toupper);
-    ConfigMap::const_iterator p = m_data.find(name);
+    ConfigMap::const_iterator p = m_overrides.find(name);
+    if (p != m_overrides.end())
+    {
+        // Return the overriden value
+        return p->second;
+    }
+    
+    p = m_data.find(name);
     if (p != m_data.end())
     {
+        // Return the configuration value
         return p->second;
     }
     return def;
 }
 
-Config::Config(const string& filename)
+Config::Config(const string& filename, const ConfigMap& overrides)
+    : m_overrides(overrides)
 {
     enum State
     {

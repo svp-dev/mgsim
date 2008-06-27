@@ -38,7 +38,6 @@ public:
     PID     getPID()      const { return m_pid;      }
     PSize   getNumProcs() const { return m_numProcs; }
     Kernel& getKernel()   const { return m_kernel;   }
-    bool    idle()        const;
 
     uint64_t getFlop() const { return m_pipeline.getFlop(); }
     uint64_t getOp()   const { return m_pipeline.getOp(); }

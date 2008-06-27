@@ -15,23 +15,29 @@ struct Thread
         RegIndex base;
         RegIndex producer;
     };
-
-    MemAddr     pc;
-	FPCR        fpcr;
-    RegInfo     regs[NUM_REG_TYPES];
     
-    bool        killed;
-    bool        nextKilled;
-    bool        prevCleanedUp;
-    bool        isLastThreadInBlock;
-    bool        isFirstThreadInFamily;
-    bool        isLastThreadInFamily;
-    TID         prevInBlock;
-    TID         nextInBlock;
-    CID         cid;
-    LFID        family;
-    TID         nextState;
-    TID         nextMember;
+    struct Dependencies
+    {
+        bool         killed;
+        bool         nextKilled;
+        bool         prevCleanedUp;
+        unsigned int numPendingWrites;
+    };
+
+    MemAddr      pc;
+	FPCR         fpcr;
+    RegInfo      regs[NUM_REG_TYPES];
+    Dependencies dependencies;
+    bool         isLastThreadInBlock;
+    bool         isFirstThreadInFamily;
+    bool         isLastThreadInFamily;
+    bool         waitingForWrites;
+    TID          prevInBlock;
+    TID          nextInBlock;
+    CID          cid;
+    LFID         family;
+    TID          nextState;
+    TID          nextMember;
 
     // Admin
     uint64_t    index;

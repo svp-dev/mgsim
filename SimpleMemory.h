@@ -62,7 +62,7 @@ public:
     CycleNo getTotalWaitTime() const { return m_totalWaitTime; }
 
     // Component
-    Result onCycleWritePhase(int stateIndex);
+    Result onCycleWritePhase(unsigned int stateIndex);
 
     // IMemory
     void registerListener  (IMemoryCallback& callback);
@@ -74,7 +74,6 @@ public:
     // IMemoryAdmin
     void read (MemAddr address, void* data, MemSize size);
     void write(MemAddr address, const void* data, MemSize size);
-    bool idle()   const;
 
     const std::queue<Request>& getRequests() const {
         return m_requests;

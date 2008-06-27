@@ -101,22 +101,23 @@ static const RegAddr    INVALID_REG  = MAKE_REGADDR(RT_INTEGER, INVALID_REG_INDE
 
 struct MemTag
 {
-	LFID fid;
-	CID  cid;
-	bool data;
+    union
+    {
+        // For writes
+        struct {
+            LFID fid;
+            TID  tid;
+        };
+    
+        // For instruction or data reads
+        struct {
+            CID  cid;
+            bool data;
+        };
+    };
 
-    MemTag& operator = (const MemTag& t) {
-        if (this != &t) {
-			fid  = t.fid;
-            data = t.data;
-			cid  = t.cid;
-        }
-        return *this;
-    }
-
-    MemTag(const MemTag& t) { *this = t; }
     MemTag(CID _cid, bool _data) : cid(_cid), data(_data) {}
-	MemTag(LFID _fid) : fid(_fid) {}
+	MemTag(LFID _fid, TID _tid) : fid(_fid), tid(_tid) {}
     MemTag() {}
 };
 
@@ -216,6 +217,7 @@ enum InstrFormat
     IFORMAT_MEM_STORE,
     IFORMAT_JUMP,
     IFORMAT_OP,
+    IFORMAT_FPOP,
     IFORMAT_BRA,
     IFORMAT_PAL,
     IFORMAT_MISC,

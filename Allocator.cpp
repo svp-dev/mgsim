@@ -130,11 +130,11 @@ bool Allocator::onRemoteThreadCompletion(LFID fid)
     // The last thread in a family must exist for this notification
     assert(family.lastThreadInBlock != INVALID_TID);
     
-    if (!markNextKilled(family.lastThreadInBlock))
+    if (!DecreaseThreadDependency(fid, family.lastThreadInBlock, THREADDEP_NEXT_TERMINATED, *this))
     {
         return false;
     }
-    
+
     COMMIT{ family.lastThreadInBlock = INVALID_TID; }
     return true;
 }
@@ -150,7 +150,7 @@ bool Allocator::onRemoteThreadCleanup(LFID fid)
     }
     assert(family.firstThreadInBlock != INVALID_TID);
 
-    if (!markPrevCleanedUp(family.firstThreadInBlock))
+    if (!DecreaseThreadDependency(fid, family.firstThreadInBlock, THREADDEP_PREV_CLEANED_UP, *this))
     {
         return false;
     }
@@ -158,13 +158,22 @@ bool Allocator::onRemoteThreadCleanup(LFID fid)
     COMMIT{ family.firstThreadInBlock = INVALID_TID; }
     return true;
 }
+
 //
 // This is called by various components (RegisterFile, Pipeline, ...) to
 // add the thread to the active queue. The component argument should point
 // to the component making the request (for port privileges)
 //
-bool Allocator::activateThread(TID tid, const IComponent& component, MemAddr* pPC, LFID fid)
+bool Allocator::ActivateThread(TID tid, const IComponent& component)
 {
+    const Thread& thread = m_threadTable[tid];
+    return ActivateThread(tid, component, thread.pc, thread.family);
+}
+
+bool Allocator::ActivateThread(TID tid, const IComponent& component, MemAddr pc, LFID fid)
+{
+    assert(fid != INVALID_LFID);
+    
     // We need the port on the I-Cache to activate a thread
     if (!m_icache.p_request.invoke(component))
     {
@@ -172,13 +181,6 @@ bool Allocator::activateThread(TID tid, const IComponent& component, MemAddr* pP
     }
 
     Thread& thread = m_threadTable[tid];
-
-	// Check for overriden values
-    MemAddr pc  = (pPC == NULL) ? thread.pc  : *pPC;
-	if (fid == INVALID_LFID)
-	{
-		fid = thread.family;
-	}
 
     // This thread doesn't have a Thread Instruction Buffer yet,
     // so try to get the cache line
@@ -220,74 +222,33 @@ bool Allocator::activateThread(TID tid, const IComponent& component, MemAddr* pP
         }
     }
 
-	// Either way, the thread's in a queue now
-	if (!increaseFamilyDependency(fid, FAMDEP_THREADS_QUEUED))
-	{
-		return false;
-	}
-
     return true;
 }
 
-//
-// Push the thread on the cleanup queue
-//
-bool Allocator::pushCleanup(TID tid)
-{
-    if (!m_cleanup.full())
-    {
-        COMMIT{ m_cleanup.push(tid); }
-        return true;
-    }
-    return false;
-}
-
-bool Allocator::markNextKilled(TID tid)
-{
-    Thread& thread = m_threadTable[tid];
-    if (thread.killed && thread.prevCleanedUp)
-    {
-        if (!pushCleanup(tid))
-        {
-            return false;
-        }
-    }
-    
-    COMMIT{ thread.nextKilled = true; }
-    return true;
-}
-
-bool Allocator::markPrevCleanedUp(TID tid)
-{
-    Thread& thread = m_threadTable[tid];
-    if (thread.killed && thread.nextKilled)
-    {
-        if (!pushCleanup(tid))
-        {
-            return false;
-        }
-    }
-    
-    COMMIT{ thread.prevCleanedUp = true; }
-    return true;
-}
 //
 // Kill the thread.
 // This means it will be marked as killed and pushed to the
 // cleanup queue should it also be marked for cleanup.
+// Called from the pipeline
 //
-bool Allocator::killThread(TID tid)
+bool Allocator::KillThread(TID tid)
 {
     Thread& thread = m_threadTable[tid];
-    Family& family = m_familyTable[thread.family];
+    assert(thread.state == TST_RUNNING);
 
+    if (!m_icache.releaseCacheLine(thread.cid))
+    {
+        return false;
+    }
+
+    Family& family = m_familyTable[thread.family];
     if (family.hasDependency && (family.gfid != INVALID_GFID || family.physBlockSize > 1))
     {
         // Mark 'next thread kill' on the previous thread
         if (thread.prevInBlock != INVALID_TID)
         {
-            // Mark our predecessor for cleanup
-            if (!markNextKilled(thread.prevInBlock))
+            // Signal our termination to our predecessor
+            if (!DecreaseThreadDependency(thread.family, thread.prevInBlock, THREADDEP_NEXT_TERMINATED, *this))
             {
                 return false;
             }
@@ -302,24 +263,66 @@ bool Allocator::killThread(TID tid)
         }
     }
 
-    if (thread.nextKilled && thread.prevCleanedUp)
-	{
-		// This thread can be cleaned up
-		if (!pushCleanup(tid))
-		{
-			return false;
-		}
+    // Mark the thread as killed
+    if (!DecreaseThreadDependency(thread.family, tid, THREADDEP_TERMINATED, *this))
+    {
+        return false;
+    }
+
+    DebugSimWrite("Killed thread T%u\n", tid);
+
+    COMMIT
+    {
+        thread.cid    = INVALID_CID;
+        thread.state  = TST_KILLED;
+    }
+    return true;
+}
+
+//
+// Reschedules the thread at the specified PC.
+// The component is used to determine port arbitration priorities.
+// Called from the pipeline.
+//
+bool Allocator::RescheduleThread(TID tid, MemAddr pc, const IComponent& component)
+{
+    Thread& thread = m_threadTable[tid];
+    assert(thread.state == TST_RUNNING);
+    
+    if (!m_icache.releaseCacheLine(thread.cid))
+    {
+        return false;
+    }
+    
+    if (!ActivateThread(tid, component, pc, thread.family))
+    {
+        return false;
+    }
+
+    DebugSimWrite("Rescheduling thread T%u to %llx\n", tid, pc );
+    return true;
+}
+
+//
+// Suspends the thread at the specific PC.
+// Called from the pipeline.
+//
+bool Allocator::SuspendThread(TID tid, MemAddr pc)
+{
+    Thread& thread = m_threadTable[tid];
+    assert(thread.state == TST_RUNNING);
+
+    if (!m_icache.releaseCacheLine(thread.cid))
+    {
+        return false;
     }
 
     COMMIT
     {
-        // Mark the thread as killed
-        thread.cid    = INVALID_CID;
-        thread.killed = true;
-        thread.state  = TST_KILLED;
-        family.nRunning--;
+        thread.cid   = INVALID_CID;
+        thread.pc    = pc;
+        thread.state = TST_SUSPENDED;
     }
-
     return true;
 }
 
@@ -346,21 +349,23 @@ bool Allocator::allocateThread(LFID fid, TID tid, bool isNewlyAllocated)
     
     // Initialize thread
     thread->isFirstThreadInFamily = (family->index == 0);
-    thread->isLastThreadInFamily  = (family->step != 0 && family->index == family->nThreads - 1);
+    thread->isLastThreadInFamily  = (family->step != 0 && family->index == family->lastThread);
 	thread->isLastThreadInBlock   = (family->gfid != INVALID_GFID && (family->index % family->virtBlockSize) == family->virtBlockSize - 1);
+    thread->cid                   = INVALID_CID;
+    thread->pc                    = family->pc;
+    thread->family                = fid;
+    thread->index                 = family->index;
+    thread->prevInBlock           = INVALID_TID;
+    thread->nextInBlock           = INVALID_TID;
+	thread->waitingForWrites      = false;
 
-    thread->cid           = INVALID_CID;
-    thread->killed        = false;
-    thread->pc            = family->pc;
-    thread->family        = fid;
-    thread->index         = family->index;
-    thread->prevInBlock   = INVALID_TID;
-    thread->nextInBlock   = INVALID_TID;
-
+    // Initialize dependencies:
     // These dependencies only hold for non-border threads in dependent families that are global or have more than one thread running.
     // So we already set them in the other cases.
-	thread->nextKilled    = !family->hasDependency || thread->isLastThreadInFamily  || (family->gfid == INVALID_GFID && family->physBlockSize == 1);
-    thread->prevCleanedUp = !family->hasDependency || thread->isFirstThreadInFamily || (family->gfid == INVALID_GFID && family->physBlockSize == 1);
+	thread->dependencies.nextKilled       = !family->hasDependency || thread->isLastThreadInFamily  || (family->gfid == INVALID_GFID && family->physBlockSize == 1);
+    thread->dependencies.prevCleanedUp    = !family->hasDependency || thread->isFirstThreadInFamily || (family->gfid == INVALID_GFID && family->physBlockSize == 1);
+    thread->dependencies.killed           = false;
+    thread->dependencies.numPendingWrites = 0;
 
     Thread* predecessor = NULL;
     if ((family->gfid == INVALID_GFID || family->index % family->virtBlockSize != 0) && family->physBlockSize > 1)
@@ -384,7 +389,7 @@ bool Allocator::allocateThread(LFID fid, TID tid, bool isNewlyAllocated)
     {
         if (isNewlyAllocated)
         {
-            thread->regs[i].base = family->regs[i].base + (RegIndex)family->allocated * (family->regs[i].count.locals + family->regs[i].count.shareds);
+            thread->regs[i].base = family->regs[i].base + (RegIndex)family->dependencies.numThreadsAllocated * (family->regs[i].count.locals + family->regs[i].count.shareds);
         }
 
         thread->regs[i].producer = (predecessor != NULL)
@@ -443,7 +448,7 @@ bool Allocator::allocateThread(LFID fid, TID tid, bool isNewlyAllocated)
 
     if (isNewlyAllocated)
     {
-        assert(family->allocated < family->physBlockSize);
+        assert(family->dependencies.numThreadsAllocated < family->physBlockSize);
 
 		if (family->members.head == INVALID_TID && family->parent.pid == m_parent.getPID())
 		{
@@ -457,11 +462,10 @@ bool Allocator::allocateThread(LFID fid, TID tid, bool isNewlyAllocated)
         push(family->members, tid, &Thread::nextMember);
 
         // Increase the allocation count
-        if (!increaseFamilyDependency(fid, FAMDEP_THREAD_COUNT))
+        if (!IncreaseFamilyDependency(fid, FAMDEP_THREAD_COUNT))
         {
             return false;
         }
-        family->nRunning++;
     }
 
     //
@@ -484,27 +488,34 @@ bool Allocator::allocateThread(LFID fid, TID tid, bool isNewlyAllocated)
     if (thread->isLastThreadInFamily)
     {
         // We've allocated the last thread
-        family->allocationDone = true;
+        if (!DecreaseFamilyDependency(fid, FAMDEP_ALLOCATION_DONE))
+        {
+            return false;
+        }
     }
     else if (++family->index % family->virtBlockSize == 0 && family->gfid != INVALID_GFID && m_procNo > 1)
     {
         // We've allocated the last in a block, skip to the next block
-		family->index += (m_procNo - 1) * family->virtBlockSize;
-		if (family->step != 0 && family->index >= family->nThreads)
+        uint64_t skip = (m_procNo - 1) * family->virtBlockSize;
+		if (family->step != 0 && family->index > family->lastThread - min(family->lastThread, skip))
         {
             // There are no more blocks for us
-            family->allocationDone = true;
+            if (!DecreaseFamilyDependency(fid, FAMDEP_ALLOCATION_DONE))
+            {
+                return false;
+            }
         }
+		family->index += skip;
     }
 
-    if (!activateThread(tid, *this, &thread->pc, fid))
+    if (!ActivateThread(tid, *this, thread->pc, fid))
     {
         // Abort allocation
         return false;
     }
 
     DebugSimWrite("Allocated thread for F%u at T%u\n", fid, tid);
-	if (family->allocationDone)
+	if (family->dependencies.allocationDone)
 	{
 		DebugSimWrite("Last thread for processor\n");
 	}
@@ -578,45 +589,48 @@ bool Allocator::killFamily(LFID fid, ExitCode code, RegValue value)
     return true;
 }
 
-bool Allocator::decreaseFamilyDependency(LFID fid, FamilyDependency dep)
+bool Allocator::DecreaseFamilyDependency(LFID fid, FamilyDependency dep)
 {
-    // We work on a copy unless we're committing
-    Family  tmp_family;
-    Family* family = &tmp_family;
-    if (committing()) {
-        family = &m_familyTable[fid];
-    } else {
-        tmp_family = m_familyTable[fid];
-    }
-
-    if (family->state == FST_EMPTY)
+    Family& family = m_familyTable[fid];    
+    if (family.state == FST_EMPTY)
     {
-        // We're trying to modify a family that ísn't yet allocated.
+        // We're trying to modify a family that isn't yet allocated.
         // It is (hopefully) still in the create queue. Stall for a while.
         return false;
     }
 
+    // We work on a copy unless we're committing
+    Family::Dependencies  tmp_deps;
+    Family::Dependencies* deps = &tmp_deps;
+    if (committing()) {
+        deps = &family.dependencies;
+    } else {
+        tmp_deps = family.dependencies;
+    }
+
     switch (dep)
     {
-    case FAMDEP_THREAD_COUNT:        family->allocated--; break;
-    case FAMDEP_OUTSTANDING_READS:   family->numPendingReads--; break;
-    case FAMDEP_OUTSTANDING_WRITES:  family->numPendingWrites--; break;
-    case FAMDEP_PREV_TERMINATED:     family->prevTerminated = true; break;
-    case FAMDEP_OUTSTANDING_SHAREDS: family->numPendingShareds--; break;
-	case FAMDEP_THREADS_QUEUED:		 family->numThreadsQueued--; break;
-    case FAMDEP_THREADS_RUNNING:     family->numThreadsRunning--; break;
-	case FAMDEP_CREATE_COMPLETED:    family->createCompleted = true; break;
+    case FAMDEP_THREAD_COUNT:        deps->numThreadsAllocated--;  break;
+    case FAMDEP_OUTSTANDING_READS:   deps->numPendingReads    --;  break;
+    case FAMDEP_OUTSTANDING_SHAREDS: deps->numPendingShareds  --;  break;
+    case FAMDEP_PREV_TERMINATED:     deps->prevTerminated  = true; break;
+	case FAMDEP_ALLOCATION_DONE:     deps->allocationDone  = true; break;
     }
 
     switch (dep)
     {
     case FAMDEP_THREAD_COUNT:
-    case FAMDEP_OUTSTANDING_WRITES:
+    case FAMDEP_ALLOCATION_DONE:
+        if (deps->numThreadsAllocated == 0 && deps->allocationDone)
+        {
+            // It's considered 'killed' when all threads have gone
+            COMMIT{ family.state = FST_KILLED; }
+        }
+
     case FAMDEP_PREV_TERMINATED:
     case FAMDEP_OUTSTANDING_SHAREDS:
-    case FAMDEP_THREADS_RUNNING:
-	case FAMDEP_CREATE_COMPLETED:
-        if (family->allocationDone && family->allocated == 0 && family->prevTerminated && family->numPendingWrites == 0 && family->numPendingShareds == 0 && family->numThreadsRunning == 0 && family->createCompleted)
+        if (deps->numThreadsAllocated == 0 && deps->allocationDone &&
+            deps->numPendingShareds   == 0 && deps->prevTerminated)
         {
             // Family has terminated, 'kill' it
             RegValue value;
@@ -628,26 +642,26 @@ bool Allocator::decreaseFamilyDependency(LFID fid, FamilyDependency dep)
         }
 
     case FAMDEP_OUTSTANDING_READS:
-	case FAMDEP_THREADS_QUEUED:
-		if (family->allocationDone && family->allocated == 0 && family->prevTerminated && family->numPendingWrites == 0 && family->numPendingShareds == 0 && family->numThreadsRunning == 0 && family->createCompleted &&
-			family->numPendingReads == 0 && family->numThreadsQueued == 0)
+        if (deps->numThreadsAllocated == 0 && deps->allocationDone &&
+            deps->numPendingShareds   == 0 && deps->prevTerminated &&
+            deps->numPendingReads     == 0)
         {
             // Family can be cleaned up, recycle family slot
-            if (family->parent.pid == m_parent.getPID() && family->gfid != INVALID_GFID)
+            if (family.parent.pid == m_parent.getPID() && family.gfid != INVALID_GFID)
             {
                 // We unreserve it if we're the processor that created it
-                if (!m_network.sendFamilyUnreservation(family->gfid))
+                if (!m_network.sendFamilyUnreservation(family.gfid))
                 {
                     return false;
                 }
 
-				if (!m_familyTable.UnreserveGlobal(family->gfid))
+				if (!m_familyTable.UnreserveGlobal(family.gfid))
                 {
                     return false;
                 }
             }
 
-            family->next = INVALID_LFID;
+            COMMIT{ family.next = INVALID_LFID; }
 			if (!m_familyTable.FreeFamily(fid))
             {
                 return false;
@@ -660,21 +674,89 @@ bool Allocator::decreaseFamilyDependency(LFID fid, FamilyDependency dep)
     return true;
 }
 
-bool Allocator::increaseFamilyDependency(LFID fid, FamilyDependency dep)
+bool Allocator::IncreaseFamilyDependency(LFID fid, FamilyDependency dep)
 {
     COMMIT
     {
-        Family& family = m_familyTable[fid];
+        Family::Dependencies& deps = m_familyTable[fid].dependencies;
         switch (dep)
         {
-        case FAMDEP_THREAD_COUNT:        family.allocated++; break;
-        case FAMDEP_OUTSTANDING_READS:   family.numPendingReads++; break;
-        case FAMDEP_OUTSTANDING_WRITES:  family.numPendingWrites++; break;
-        case FAMDEP_OUTSTANDING_SHAREDS: family.numPendingShareds++; break;
-        case FAMDEP_THREADS_RUNNING:     family.numThreadsRunning++; break;
-		case FAMDEP_THREADS_QUEUED:		 family.numThreadsQueued++; break;
-		case FAMDEP_CREATE_COMPLETED:
-        case FAMDEP_PREV_TERMINATED:     break;
+        case FAMDEP_THREAD_COUNT:        deps.numThreadsAllocated++; break;
+        case FAMDEP_OUTSTANDING_READS:   deps.numPendingReads    ++; break;
+        case FAMDEP_OUTSTANDING_SHAREDS: deps.numPendingShareds  ++; break;
+        case FAMDEP_ALLOCATION_DONE:
+        case FAMDEP_PREV_TERMINATED:     assert(0); break;
+        }
+    }
+    return true;
+}
+
+bool Allocator::DecreaseThreadDependency(LFID fid, TID tid, ThreadDependency dep, const IComponent& component)
+{
+    if (m_familyTable[fid].killed)
+    {
+        // Do nothing if the family has been killed
+        return true;
+    }
+    
+    // We work on a copy unless we're committing
+    Thread::Dependencies tmp_deps;
+    Thread::Dependencies* deps = &tmp_deps;
+    Thread& thread = m_threadTable[tid];
+    if (committing()) {
+        deps = &thread.dependencies;
+    } else {
+        tmp_deps = thread.dependencies;
+    }
+    
+    switch (dep)
+    {
+    case THREADDEP_OUTSTANDING_WRITES: deps->numPendingWrites--;   break;
+    case THREADDEP_PREV_CLEANED_UP:    deps->prevCleanedUp = true; break;
+    case THREADDEP_NEXT_TERMINATED:    deps->nextKilled    = true; break;
+    case THREADDEP_TERMINATED:         deps->killed        = true; break;
+    }
+    
+    switch (dep)
+    {
+    case THREADDEP_OUTSTANDING_WRITES:
+        if (deps->numPendingWrites == 0 && thread.waitingForWrites)
+        {
+            if (!ActivateThread(tid, component, thread.pc, thread.family))
+            {
+                return false;
+            }
+        }
+        
+    case THREADDEP_PREV_CLEANED_UP:
+    case THREADDEP_NEXT_TERMINATED:
+    case THREADDEP_TERMINATED:
+        if (deps->numPendingWrites == 0 && deps->prevCleanedUp && deps->nextKilled && deps->killed)
+        {
+            // This thread can be cleaned up, push it on the cleanup queue
+            if (m_cleanup.full())
+            {
+                return false;
+            }
+            COMMIT{ m_cleanup.push(tid); }
+            break;
+        }
+    }
+    
+    return true;
+}
+
+bool Allocator::IncreaseThreadDependency(TID tid, ThreadDependency dep)
+{
+    COMMIT
+    {
+        Thread::Dependencies& deps = m_threadTable[tid].dependencies;
+        switch (dep)
+        {
+        case THREADDEP_OUTSTANDING_WRITES: deps.numPendingWrites++; break;
+        case THREADDEP_PREV_CLEANED_UP:    
+        case THREADDEP_NEXT_TERMINATED:    
+        case THREADDEP_TERMINATED:         assert(0); break;
         }
     }
     return true;
@@ -760,7 +842,7 @@ LFID Allocator::AllocateFamily(const CreateMessage& msg)
 		family.legacy        = false;
 		family.start         = msg.start;
 		family.step          = msg.step;
-		family.nThreads      = msg.nThreads;
+		family.lastThread    = msg.lastThread;
 		family.parent        = msg.parent;
 		family.virtBlockSize = msg.virtBlockSize;
 		family.pc            = msg.address;
@@ -784,15 +866,16 @@ LFID Allocator::AllocateFamily(const CreateMessage& msg)
 bool Allocator::ActivateFamily(LFID fid)
 {
 	const Family& family = m_familyTable[fid];
-	if (!family.allocationDone)
+    if (family.index <= family.lastThread)
 	{
+	    // We have threads to run
 		push(m_alloc, fid);
 	}
-
-	if (!decreaseFamilyDependency(fid, FAMDEP_CREATE_COMPLETED))
-	{
-		return false;
-	}
+    else if (!DecreaseFamilyDependency(fid, FAMDEP_ALLOCATION_DONE))
+    {
+    	return false;
+    }
+    	
 	return true;
 }
 
@@ -805,22 +888,17 @@ void Allocator::InitializeFamily(LFID fid) const
 		bool global = (family.gfid != INVALID_GFID);
 
 		family.state          = FST_IDLE;
-		family.nRunning       = 0;
 		family.members.head   = INVALID_TID;
 		family.next           = INVALID_LFID;
 		family.index          = (!global) ? 0 : ((m_procNo + m_parent.getPID() - (family.parent.pid + 1)) % m_procNo) * family.virtBlockSize;
-		family.allocationDone = (family.index >= family.nThreads);
+		family.killed         = false;
 
 		// Dependencies
-		family.allocated         = 0;
-		family.killed            = false;
-		family.createCompleted   = false;
-		family.numPendingReads   = 0;
-		family.numPendingWrites  = 0;
-		family.numPendingShareds = 0;
-		family.numThreadsRunning = 0;
-		family.numThreadsQueued  = 0;
-		family.prevTerminated    = (!global) || (m_parent.getPID() == (family.parent.pid + 1) % m_procNo);
+		family.dependencies.allocationDone      = false;
+		family.dependencies.numPendingReads     = 0;
+		family.dependencies.numPendingShareds   = 0;
+		family.dependencies.numThreadsAllocated = 0;
+		family.dependencies.prevTerminated      = (!global) || (m_parent.getPID() == (family.parent.pid + 1) % m_procNo); 
 
 		// Dependency information
 		family.hasDependency      = false;
@@ -834,11 +912,11 @@ void Allocator::InitializeFamily(LFID fid) const
 		{
 			family.regs[i].globals = (remote || family.regs[i].count.globals == 0) ? INVALID_REG_INDEX : family.regs[i].globals;
 			family.regs[i].shareds = (remote || family.regs[i].count.shareds == 0) ? INVALID_REG_INDEX : family.regs[i].shareds + family.regs[i].count.globals;		
-			family.numPendingShareds += family.regs[i].count.shareds;
+			family.dependencies.numPendingShareds += family.regs[i].count.shareds;
 		}
 
         // Calculate which CPU will run the last thread
-        PID lastPID = (PID)(family.parent.pid + 1 + (family.nThreads - 1) / family.virtBlockSize) % m_procNo;
+        PID lastPID = (PID)(family.parent.pid + 1 + family.lastThread / family.virtBlockSize) % m_procNo;
         PID pid     = m_parent.getPID();
 
         if (lastPID == family.parent.pid ||
@@ -846,7 +924,7 @@ void Allocator::InitializeFamily(LFID fid) const
               (lastPID < family.parent.pid && (pid >= lastPID && pid < family.parent.pid))))
         {
              // Ignore the pending count if we're not a CPU that will send a parent shared
-            family.numPendingShareds = 0;
+            family.dependencies.numPendingShareds = 0;
         }
 	}
 }
@@ -915,7 +993,7 @@ bool Allocator::AllocateRegisters(LFID fid)
     return false;
 }
 
-Result Allocator::onCycleReadPhase(int stateIndex)
+Result Allocator::onCycleReadPhase(unsigned int stateIndex)
 {
     if (stateIndex == 0)
     {
@@ -948,7 +1026,7 @@ bool Allocator::onReservationComplete()
 	return true;
 }
 
-Result Allocator::onCycleWritePhase(int stateIndex)
+Result Allocator::onCycleWritePhase(unsigned int stateIndex)
 {
     switch (stateIndex)
     {
@@ -971,7 +1049,7 @@ Result Allocator::onCycleWritePhase(int stateIndex)
                 if (!thread.isLastThreadInBlock)
                 {
                     assert(thread.nextInBlock != INVALID_TID);
-                    if (!markPrevCleanedUp(thread.nextInBlock))
+                    if (!DecreaseThreadDependency(fid, thread.nextInBlock, THREADDEP_PREV_CLEANED_UP, *this))
                     {
                         return FAILED;
                     }
@@ -982,14 +1060,14 @@ Result Allocator::onCycleWritePhase(int stateIndex)
                 }
             }
 
-            if (family.allocationDone)
+            if (family.dependencies.allocationDone)
             {
                 // With cleanup we don't do anything to the thread. We just forget about it.
                 // It will be recycled once the family terminates.
                 COMMIT{ thread.state = TST_UNUSED; }
 
                 // Cleanup
-                if (!decreaseFamilyDependency(fid, FAMDEP_THREAD_COUNT))
+                if (!DecreaseFamilyDependency(fid, FAMDEP_THREAD_COUNT))
                 {
                     return FAILED;
                 }
@@ -1004,7 +1082,7 @@ Result Allocator::onCycleWritePhase(int stateIndex)
                     return FAILED;
                 }
 
-                if (family.allocationDone && m_allocating == fid)
+                if (family.dependencies.allocationDone && m_allocating == fid)
                 {
                     // Go to next family
                     COMMIT{ m_allocating = INVALID_LFID; }
@@ -1031,7 +1109,7 @@ Result Allocator::onCycleWritePhase(int stateIndex)
             }
 
             // Check if we're done with the initial allocation of this family
-            if (family.allocated == family.physBlockSize || family.allocationDone)
+            if (family.dependencies.numThreadsAllocated == family.physBlockSize || family.dependencies.allocationDone)
             {
                 // Yes, go to next family
                 COMMIT{ m_allocating = INVALID_LFID; }
@@ -1245,26 +1323,26 @@ bool Allocator::queueCreate(LFID fid, MemAddr address, TID parent, RegAddr exitC
 		}
 
 		// Sanitize the family entry
-		uint64_t blockSize = family.virtBlockSize;
+		uint64_t lastInBlock = family.virtBlockSize - 1;
 		if (family.step != 0)
 		{
 		    // Finite family
-			family.nThreads = (family.step < 0)
-				? (((uint64_t)-(family.end - family.start) + 1 - family.step - 1) / -family.step)
-				: (((uint64_t) (family.end - family.start) + 1 + family.step - 1) /  family.step);
-			
-			if (family.nThreads == 1)
+			family.lastThread = (family.step < 0)
+			    ? (uint64_t)-(family.end - family.start) / -family.step
+			    : (uint64_t) (family.end - family.start) /  family.step;
+
+			if (family.lastThread == 0)
 			{
-				blockSize = 1;
+				lastInBlock = 0;
 			}
 
-			if (blockSize <= 0)
+			if (family.virtBlockSize == 0)
 			{
-				blockSize = (family.gfid == INVALID_GFID)
-					? family.nThreads								// Local family, take as many as possible
-					: (family.nThreads + m_procNo - 1) / m_procNo;	// Group family, divide threads evenly
+				lastInBlock = (family.gfid == INVALID_GFID)
+					? family.lastThread		        // Local family, take as many as possible
+					: family.lastThread / m_procNo;	// Group family, divide threads evenly
 			}
-			else if (family.nThreads <= blockSize)
+			else if (family.lastThread <= lastInBlock)
 			{
 				// Force to local
 				family.gfid = INVALID_GFID;
@@ -1275,14 +1353,14 @@ bool Allocator::queueCreate(LFID fid, MemAddr address, TID parent, RegAddr exitC
 			// Infinite family
 
 			// As close as we can get to infinity
-			family.nThreads = UINT64_MAX;
-			if (blockSize <= 0)
+			family.lastThread = UINT64_MAX;
+			if (lastInBlock < 0)
 			{
-				blockSize = UINT64_MAX;
+				lastInBlock = UINT64_MAX;
 			}
 		}
-		family.virtBlockSize = (TSize)min(min(family.nThreads, blockSize), (uint64_t)m_threadTable.getNumThreads());
-		
+		family.virtBlockSize = (TSize)min(min(family.lastThread, lastInBlock), (uint64_t)m_threadTable.getNumThreads() - 1) + 1;
+
 		// Lock the family
 		family.created = true;
 
@@ -1323,7 +1401,7 @@ void Allocator::allocateInitialFamily(MemAddr pc, bool legacy)
 	Family& family = m_familyTable[fid];
 	family.start         = 0;
     family.step          = 1;
-	family.nThreads      = 1;
+	family.lastThread    = 0;
 	family.virtBlockSize = 1;
 	family.physBlockSize = 0;
 	family.parent.tid    = INVALID_TID;

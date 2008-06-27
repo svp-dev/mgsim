@@ -14,7 +14,7 @@
 #endif
 
 #include "Processor.h"
-#include "ParallelMemory.h"
+#include "BankedMemory.h"
 #include "commands.h"
 #include "config.h"
 #include "profile.h"
@@ -62,13 +62,14 @@ class AlphaCMPSystem : public Object
 
 public:
     //SimpleMemory*   m_memory;
-    ParallelMemory*   m_memory;
+    //ParallelMemory* m_memory;
+    BankedMemory*   m_memory;
 
     struct Config
     {
-        PSize                  numProcessors;
-        ParallelMemory::Config memory;
-        Processor::Config      processor;
+        PSize                numProcessors;
+        BankedMemory::Config memory;
+        Processor::Config    processor;
     };
 
     // Get or set the debug flag
@@ -186,7 +187,7 @@ public:
       : Object(NULL, NULL, "system"),
         m_numProcs(config.numProcessors)
     {
-        m_memory = new ParallelMemory(this, m_kernel, "memory", config.memory, m_numProcs);
+        m_memory = new BankedMemory(this, m_kernel, "memory", config.memory, m_numProcs);
         m_objects.resize(m_numProcs + 1);
         m_objects[m_numProcs] = m_memory;
 
@@ -262,7 +263,10 @@ static string GetCommandLine( const string& prompt, istream& input = cin )
     if (str != NULL)
     {
         line = str;
-        add_history(str);
+        if (!line.empty())
+        {
+            add_history(str);
+        }
         free(str);
     }
 #endif
@@ -325,7 +329,8 @@ static AlphaCMPSystem::Config ParseConfig(const Config& configfile)
     config.memory.timePerLine     = configfile.getInteger<CycleNo>("MemoryTimePerLine", 1);
     config.memory.sizeOfLine      = configfile.getInteger<size_t>("MemorySizeOfLine", 8);
     config.memory.bufferSize      = configfile.getInteger<BufferSize>("MemoryBufferSize", INFINITE);
-    config.memory.width           = configfile.getInteger<size_t>("MemoryParallelRequests", 1);
+    //config.memory.width         = configfile.getInteger<size_t>("MemoryParallelRequests", 1);
+    config.memory.numBanks        = configfile.getInteger<size_t>("MemoryBanks", config.numProcessors);
 
 	config.processor.dcache.lineSize           = 
 	config.processor.icache.lineSize           = configfile.getInteger<size_t>("CacheLineSize",    64);
@@ -455,16 +460,18 @@ static void PrintUsage()
         "                         done simulating\n"
         "-R<X> <value>            Store the integer value in the specified register\n"
         "-F<X> <value>            Store the FP value in the specified register\n"
+        "-o, --override <n>=<v>   Overrides the configuration option n with value v\n"
         "\n";
 }
 
 struct ProgramConfig
 {
-    string  m_programFile;
-    string  m_configFile;
-    bool    m_interactive;
-	bool    m_legacy;
-	string  m_print;
+    string             m_programFile;
+    string             m_configFile;
+    bool               m_interactive;
+	bool               m_legacy;
+	string             m_print;
+	map<string,string> m_overrides;
 	
 	vector<pair<RegAddr, RegValue> > m_regs;
 };
@@ -486,45 +493,54 @@ static bool ParseArguments(int argc, const char* argv[], ProgramConfig& config)
             }
             break;
         }
-        else
+        
+             if (arg == "-c" || arg == "--config")      config.m_configFile = argv[++i];
+        else if (arg == "-i" || arg == "--interactive") config.m_interactive = true;
+        else if (arg == "-l" || arg == "--legacy")      config.m_legacy      = true;
+        else if (arg == "-h" || arg == "--help")        { PrintUsage(); return false; }
+        else if (arg == "-p" || arg == "--print")       config.m_print = string(argv[++i]) + " ";
+        else if (arg == "-o" || arg == "--override")
         {
-            stringstream sstream;
-            sstream << arg;
-
-                 if (arg == "-c" || arg == "--config")      config.m_configFile = argv[++i];
-            else if (arg == "-i" || arg == "--interactive") config.m_interactive = true;
-            else if (arg == "-l" || arg == "--legacy")      config.m_legacy      = true;
-            else if (arg == "-h" || arg == "--help")        { PrintUsage(); return false; }
-            else if (arg == "-p" || arg == "--print")       config.m_print = string(argv[++i]) + " ";
-            else if (toupper(arg[1]) == 'R' || toupper(arg[1]) == 'F')
-            {
-            	stringstream value;
-                value << argv[++i];
-
-                RegAddr  addr;
-                RegValue val;
-
-                char* endptr;
-                unsigned long index = strtoul(&arg[2], &endptr, 0);
-                if (*endptr != '\0') {
-                	throw runtime_error("Error: invalid register specifier in option");
-                }
-                
-            	if (toupper(arg[1]) == 'R') {
-            		value >> *(int64_t*)&val.m_integer;
-            		addr = MAKE_REGADDR(RT_INTEGER, index);
-            	} else {
-            		double f;
-            		value >> f;
-            		val.m_float.fromdouble(f);
-            		addr = MAKE_REGADDR(RT_FLOAT, index);
-            	}
-          		if (value.fail()) {
-           			throw runtime_error("Error: invalid value for register");
-            	}
-            	val.m_state = RST_FULL;
-                config.m_regs.push_back(make_pair(addr, val));
+            if (argv[++i] == NULL) {
+                throw runtime_error("Error: expected configuration option");
             }
+            string arg = argv[i];
+            string::size_type eq = arg.find_first_of("=");
+            if (eq == string::npos) {
+                throw runtime_error("Error: malformed configuration override syntax");
+            }
+            string name = arg.substr(0,eq);
+            transform(name.begin(), name.end(), name.begin(), ::toupper);
+            config.m_overrides[name] = arg.substr(eq + 1);
+        }
+        else if (toupper(arg[1]) == 'R' || toupper(arg[1]) == 'F')
+        {
+         	stringstream value;
+            value << argv[++i];
+
+            RegAddr  addr;
+            RegValue val;
+
+            char* endptr;
+            unsigned long index = strtoul(&arg[2], &endptr, 0);
+            if (*endptr != '\0') {
+             	throw runtime_error("Error: invalid register specifier in option");
+            }
+                
+         	if (toupper(arg[1]) == 'R') {
+          		value >> *(int64_t*)&val.m_integer;
+           		addr = MAKE_REGADDR(RT_INTEGER, index);
+           	} else {
+           		double f;
+           		value >> f;
+           		val.m_float.fromdouble(f);
+           		addr = MAKE_REGADDR(RT_FLOAT, index);
+           	}
+      		if (value.fail()) {
+       			throw runtime_error("Error: invalid value for register");
+           	}
+           	val.m_state = RST_FULL;
+            config.m_regs.push_back(make_pair(addr, val));
         }
     }
 
@@ -548,7 +564,7 @@ int main(int argc, const char* argv[])
         }
 
         // Read configuration
-        Config configfile(config.m_configFile);
+        Config configfile(config.m_configFile, config.m_overrides);
         AlphaCMPSystem::Config systemconfig = ParseConfig(configfile);
 
         if (config.m_interactive)

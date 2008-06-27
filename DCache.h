@@ -52,7 +52,7 @@ public:
     ~DCache();
 
     Result read (MemAddr address, void* data, MemSize size, LFID fid, RegAddr* reg);
-    Result write(MemAddr address, void* data, MemSize size, LFID fid);
+    Result write(MemAddr address, void* data, MemSize size, LFID fid, TID tid);
 
     // IMemoryCallback
     bool onMemoryReadCompleted(const MemData& data);
@@ -61,7 +61,7 @@ public:
     bool idle()   const { return m_numWaiting == 0; }
 
     // Component
-    Result onCycleWritePhase(int stateIndex);
+    Result onCycleWritePhase(unsigned int stateIndex);
 
     // Ports
     ArbitratedWriteFunction p_request;

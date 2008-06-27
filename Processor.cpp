@@ -94,8 +94,3 @@ bool Processor::onMemorySnooped(MemAddr addr, const MemData& data)
 {
 	return m_dcache.onMemorySnooped(addr, data);
 }
-
-bool Processor::idle() const
-{
-    return (m_familyTable.empty() && m_threadTable.empty());
-}

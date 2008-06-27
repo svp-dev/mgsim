@@ -156,6 +156,10 @@ bool Pipeline::ExecuteStage::execINTL(RegValue& Rcv, const RegValue& Rav, const 
         case A_INTLFUNC_CMOVGT:  if (Ra >  0) Rc = Rb; else Rcv.m_state = RST_INVALID; break;
         case A_INTLFUNC_CMOVLBS: if ( Ra & 1) Rc = Rb; else Rcv.m_state = RST_INVALID; break;
         case A_INTLFUNC_CMOVLBC: if (~Ra & 1) Rc = Rb; else Rcv.m_state = RST_INVALID; break;
+
+        // Misc functions
+        case A_INTLFUNC_IMPLVER: Rc = IMPLVER_EV6; break; // We simulate an EV6 ISA
+        case A_INTLFUNC_AMASK:   Rc = Rb & (AMASK_BWX | AMASK_FIX | AMASK_CIX | AMASK_MVI); break;
     }
 	return true;
 }
@@ -519,16 +523,28 @@ bool Pipeline::ExecuteStage::execITFP(RegValue& Rcv, const RegValue& Rav, const 
 	return true;
 }
 
+template <typename T>
+static T BITS(const T& val, int offset, int size)
+{
+    const T s = (sizeof(T) * 8) - size;
+    return (val << (s - offset)) >> s;
+}
+
+static uint64_t MASK1(int offset, int size)
+{
+    return ((1ULL << size) - 1) << offset;
+}
+
 bool Pipeline::ExecuteStage::execFPTI(RegValue& Rcv, const RegValue& Rav, const RegValue& Rbv, int func)
 {
-	Rcv.m_state = RST_FULL;
+	Rcv.m_state   = RST_FULL;
+    Rcv.m_integer = 0;
 	switch (func)
 	{
 		// Count Leading Zero
 		case A_FPTIFUNC_CTLZ:
-			Rcv.m_integer = 0;
 			for (int i = 63; i > 0; i--) {
-				if (Rbv.m_integer >> i) {
+				if ((Rbv.m_integer >> i) & 1) {
 					break;
 				}
 				Rcv.m_integer++;
@@ -537,9 +553,8 @@ bool Pipeline::ExecuteStage::execFPTI(RegValue& Rcv, const RegValue& Rav, const 
 
 		// Count Population
 		case A_FPTIFUNC_CTPOP:
-			Rcv.m_integer = 0;
 			for (int i = 0; i < 63; i++) {
-				if (Rbv.m_integer >> i) {
+				if ((Rbv.m_integer >> i) & 1) {
 					Rcv.m_integer++;
 				}
 			}
@@ -547,11 +562,11 @@ bool Pipeline::ExecuteStage::execFPTI(RegValue& Rcv, const RegValue& Rav, const 
 
 		// Count Trailing Zero
 		case A_FPTIFUNC_CTTZ:
-			Rcv.m_integer = 0;
 			for (int i = 0; i < 63; i++) {
-				if (Rbv.m_integer >> i) {
-					Rcv.m_integer++;
-				}
+				if ((Rbv.m_integer >> i) & 1) {
+				    break;
+    		    }
+    			Rcv.m_integer++;
 			}
 			break;
 
@@ -569,6 +584,53 @@ bool Pipeline::ExecuteStage::execFPTI(RegValue& Rcv, const RegValue& Rav, const 
 				Rcv = UnserializeRegister(RT_INTEGER, data, size);
 				break;
 			}
+			
+		// Pixel error
+	    case A_FPTIFUNC_PERR:
+	        for (int i = 0; i < 64; i += 8) {
+	            uint8_t a = BITS(Rav.m_integer, i, 8);
+	            uint8_t b = BITS(Rbv.m_integer, i, 8);
+	            Rcv.m_integer += (a >= b ? a - b : b - a);
+	        }
+	        break;
+	   
+        // Pack Bytes
+	    case A_FPTIFUNC_PKLB: Rcv.m_integer = (BITS(Rbv.m_integer,  0, 8) <<  0) | (BITS(Rbv.m_integer, 32, 8) <<  8); break;
+	    case A_FPTIFUNC_PKWB: Rcv.m_integer = (BITS(Rbv.m_integer,  0, 8) <<  0) | (BITS(Rbv.m_integer, 16, 8) <<  8) |
+	                                          (BITS(Rbv.m_integer, 32, 8) << 16) | (BITS(Rbv.m_integer, 48, 8) << 24); break;
+
+        // Unpack Bytes
+	    case A_FPTIFUNC_UNPKBL: Rcv.m_integer = (BITS(Rbv.m_integer,  0, 8) <<  0) | (BITS(Rbv.m_integer,  8, 8) << 32); break;
+	    case A_FPTIFUNC_UNPKBW: Rcv.m_integer = (BITS(Rbv.m_integer,  0, 8) <<  0) | (BITS(Rbv.m_integer,  8, 8) << 16) |
+	                                            (BITS(Rbv.m_integer, 16, 8) << 32) | (BITS(Rbv.m_integer, 24, 8) << 48); break;
+
+	    case A_FPTIFUNC_MINSB8:
+	    case A_FPTIFUNC_MINSW4:
+	    case A_FPTIFUNC_MAXSB8:
+	    case A_FPTIFUNC_MAXSW4:
+	    {
+	        int step = (func == A_FPTIFUNC_MINSB8 || func == A_FPTIFUNC_MAXSB8 ? 8 : 16);
+	        const int64_t& (*cmp)(const int64_t&,const int64_t&) = std::max<int64_t>;
+	        if (func == A_FPTIFUNC_MINSB8 || func == A_FPTIFUNC_MINSW4) cmp = std::min<int64_t>;
+	        for (int i = 0; i < 64; i += step) {
+	            Rcv.m_integer |= (cmp(BITS<int64_t>(Rav.m_integer, i, step), BITS<int64_t>(Rbv.m_integer, i, step)) & MASK1(0,step)) << i;
+	        }
+    	    break;
+    	}
+
+	    case A_FPTIFUNC_MINUB8:
+	    case A_FPTIFUNC_MINUW4:
+	    case A_FPTIFUNC_MAXUB8:
+	    case A_FPTIFUNC_MAXUW4:
+	    {
+	        int step = (func == A_FPTIFUNC_MINUB8 || func == A_FPTIFUNC_MAXUB8 ? 8 : 16);
+	        const uint64_t& (*cmp)(const uint64_t&,const uint64_t&) = std::max<uint64_t>;
+	        if (func == A_FPTIFUNC_MINUB8 || func == A_FPTIFUNC_MINUW4) cmp = std::min<uint64_t>;
+	        for (int i = 0; i < 64; i += step) {
+	            Rcv.m_integer |= (cmp(BITS<uint64_t>(Rav.m_integer, i, step), BITS<uint64_t>(Rbv.m_integer, i, step)) & MASK1(0,step)) << i;
+	        }
+    	    break;
+    	}
 	}
 	return true;
 }

@@ -3,11 +3,6 @@
 using namespace Simulator;
 using namespace std;
 
-bool SimpleMemory::idle() const
-{
-    return m_requests.size() == 0;
-}
-
 void SimpleMemory::registerListener(IMemoryCallback& callback)
 {
     m_caches.insert(&callback);
@@ -94,7 +89,7 @@ bool SimpleMemory::checkPermissions(MemAddr address, MemSize size, int access) c
 	return VirtualMemory::CheckPermissions(address, size, access);
 }
 
-Result SimpleMemory::onCycleWritePhase(int stateIndex)
+Result SimpleMemory::onCycleWritePhase(unsigned int stateIndex)
 {
 	Result result = (!m_requests.empty()) ? SUCCESS : DELAYED;
 

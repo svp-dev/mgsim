@@ -83,14 +83,10 @@ Pipeline::PipeAction Pipeline::ReadStage::write()
 
     COMMIT
     {
-        m_output.isLastThreadInFamily  = m_input.isLastThreadInFamily;
-		m_output.isFirstThreadInFamily = m_input.isFirstThreadInFamily;
-        m_output.fid            = m_input.fid;
-        m_output.tid            = m_input.tid;
-        m_output.pc             = m_input.pc;
+        // Copy common latch data
+        (CommonLatch&)m_output = m_input;
+                
 		m_output.fpcr           = m_input.fpcr;
-        m_output.swch           = m_input.swch;
-        m_output.kill           = m_input.kill;
         m_output.format         = m_input.format;
         m_output.opcode         = m_input.opcode;
         m_output.function       = m_input.function;

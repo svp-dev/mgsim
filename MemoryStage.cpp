@@ -19,19 +19,17 @@ Pipeline::PipeAction Pipeline::MemoryStage::write()
     if (m_input.size > 0)
     {
         // It's a memory operation!
-        Result           result;
-        FamilyDependency dependency;
+        Result result;
 
         if (m_input.Rcv.m_state == RST_FULL)
         {
             // Memory write
-            dependency = FAMDEP_OUTSTANDING_WRITES;
 
             // Serialize and store data
             char data[MAX_MEMORY_OPERATION_SIZE];
             SerializeRegister(m_input.Rc.type, m_input.Rcv, data, (size_t)m_input.size);
 
-            if ((result = m_dcache.write(m_input.address, data, m_input.size, m_input.fid)) == FAILED)
+            if ((result = m_dcache.write(m_input.address, data, m_input.size, m_input.fid, m_input.tid)) == FAILED)
             {
                 // Stall
                 return PIPE_STALL;
@@ -43,8 +41,6 @@ Pipeline::PipeAction Pipeline::MemoryStage::write()
         else 
         {
             // Memory read
-            dependency = FAMDEP_OUTSTANDING_READS;
-
             char data[MAX_MEMORY_OPERATION_SIZE];
 			RegAddr reg = m_input.Rc;
             if ((result = m_dcache.read(m_input.address, data, m_input.size, m_input.fid, &reg)) == FAILED)
@@ -73,7 +69,14 @@ Pipeline::PipeAction Pipeline::MemoryStage::write()
         if (result == DELAYED)
         {
             // Increase the oustanding memory count for the family
-            if (!m_allocator.increaseFamilyDependency(m_input.fid, dependency))
+            if (m_input.Rcv.m_state == RST_FULL)
+            {
+                if (!m_allocator.IncreaseThreadDependency(m_input.tid, THREADDEP_OUTSTANDING_WRITES))
+                {
+                    return PIPE_STALL;
+                }
+            }
+            else if (!m_allocator.IncreaseFamilyDependency(m_input.fid, FAMDEP_OUTSTANDING_READS))
             {
                 return PIPE_STALL;
             }
@@ -82,15 +85,13 @@ Pipeline::PipeAction Pipeline::MemoryStage::write()
 
     COMMIT
     {
-        m_output.isLastThreadInFamily  = m_input.isLastThreadInFamily;
-		m_output.isFirstThreadInFamily = m_input.isFirstThreadInFamily;
-        m_output.fid  = m_input.fid;
-        m_output.tid  = m_input.tid;
-        m_output.swch = m_input.swch;
-        m_output.kill = m_input.kill;
-        m_output.Rc   = m_input.Rc;
-        m_output.Rrc  = m_input.Rrc;
-        m_output.Rcv  = rcv;
+        // Copy common latch data
+        (CommonLatch&)m_output = m_input;
+        
+        m_output.suspend = m_input.suspend;
+        m_output.Rc      = m_input.Rc;
+        m_output.Rrc     = m_input.Rrc;
+        m_output.Rcv     = rcv;
     }   
     return PIPE_CONTINUE;
 }

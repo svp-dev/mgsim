@@ -121,7 +121,7 @@ struct CreateMessage
     GFID      fid;                   // Global Family ID to use for the family
 	int64_t   start;
 	int64_t   step;
-	uint64_t  nThreads;
+	uint64_t  lastThread;
 	TSize     virtBlockSize;
 	MemAddr   address;			     // Address of the thread
     RemoteTID parent;                // Parent Thread ID
@@ -160,7 +160,6 @@ class Network : public IComponent
 public:
     Network(Processor& parent, const std::string& name, Allocator& allocator, RegisterFile& regFile, FamilyTable& familyTable);
     void initialize(Network& prev, Network& next);
-    bool idle()   const;
 
     // Public functions
     bool sendFamilyReservation(GFID fid);
@@ -190,8 +189,8 @@ public:
     Result onSharedRequested(const SharedInfo& sharedInfo);
     Result onSharedReceived(const SharedInfo& sharedInfo);
 
-    Result onCycleReadPhase(int stateIndex);
-    Result onCycleWritePhase(int stateIndex);
+    Result onCycleReadPhase(unsigned int stateIndex);
+    Result onCycleWritePhase(unsigned int stateIndex);
 
 //private:
     Processor&      m_parent;

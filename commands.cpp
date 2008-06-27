@@ -5,6 +5,7 @@
 #include "Processor.h"
 #include "SimpleMemory.h"
 #include "ParallelMemory.h"
+#include "BankedMemory.h"
 using namespace std;
 using namespace Simulator;
 
@@ -47,7 +48,7 @@ static void cmd_simplemem_requests(SimpleMemory* mem)
         if (req.data.tag.cid == INVALID_CID) {
             cout << "N/A  | ";
         } else {
-            cout << setw(4) << req.data.tag.cid << " | ";
+            cout << dec << setw(4) << req.data.tag.cid << " | ";
         }
 
         if (req.write) {
@@ -114,7 +115,7 @@ static void cmd_parallelmem_requests(ParallelMemory* mem)
 				if (req.write || req.data.tag.cid == INVALID_CID) {
 					cout << "N/A ";
 				} else {
-					cout << setw(4) << req.data.tag.cid;
+					cout << dec << setw(4) << req.data.tag.cid;
 				}
 				p++;
 			}
@@ -127,6 +128,114 @@ static void cmd_parallelmem_requests(ParallelMemory* mem)
 		cout << endl;
 	}
     cout << endl << endl;
+}
+
+static void print_bankedmem_pipelines(const vector<BankedMemory::Pipeline>& queues)
+{
+    for (size_t i = 0; i < queues.size(); i++) {
+        cout << "    Done   | Address  | Size | CID  ";
+    }
+    cout << endl;
+    for (size_t i = 0; i < queues.size(); i++) {
+        cout << "-----------+----------+------+----- ";
+    }
+    cout << endl;
+    
+	vector<BankedMemory::Pipeline::const_iterator> iters;
+	size_t length = 0;
+	for (size_t i = 0; i < queues.size(); i++)
+	{
+		iters.push_back(queues[i].begin());
+		length = max(length, queues[i].size());
+	}
+
+	for (size_t y = 0; y < length; y++)
+	{
+		for (size_t x = 0; x < queues.size(); x++)
+		{
+			BankedMemory::Pipeline::const_iterator& p = iters[x];
+
+			if (p != queues[x].end())
+			{
+				const BankedMemory::Request& req = p->second;
+
+				if (req.write) {
+					cout << "W";
+				} else if (req.data.tag.data) {
+					cout << "R";
+				} else if (req.data.tag.cid != INVALID_CID) {
+					cout << "C";
+				}
+
+				cout << setw(9) << dec << p->first << " | "
+					 << setw(8) << hex << right << req.address << " | "
+				     << setw(4) << req.data.size << " | ";
+
+				if (req.write || req.data.tag.cid == INVALID_CID) {
+					cout << "N/A ";
+				} else {
+					cout << dec << setw(4) << req.data.tag.cid;
+				}
+				p++;
+			}
+			else
+			{
+				cout << "           |          |      |     ";
+			}
+			cout << " ";
+		}
+		cout << endl;
+	}
+    cout << endl << endl;
+}
+
+static void cmd_bankedmem_requests(BankedMemory* mem)
+{
+    print_bankedmem_pipelines( mem->GetIncoming() );
+    
+    // Print the banks
+    const vector<BankedMemory::Bank>& banks = mem->GetBanks();
+    for (size_t i = 0; i < banks.size(); i++) {
+        cout << "    Done   | Address  | Size | CID  ";
+    }
+    cout << endl;
+    for (size_t i = 0; i < banks.size(); i++) {
+        cout << "-----------+----------+------+----- ";
+    }
+    cout << endl;
+    for (size_t i = 0; i < banks.size(); i++)
+	{
+		if (banks[i].busy)
+		{
+			const BankedMemory::Request& req = banks[i].request;
+
+			if (req.write) {
+				cout << "W";
+			} else if (req.data.tag.data) {
+				cout << "R";
+			} else if (req.data.tag.cid != INVALID_CID) {
+				cout << "C";
+			}
+
+			cout << setw(9) << dec << banks[i].done << " | "
+				 << setw(8) << hex << right << req.address << " | "
+			     << setw(4) << req.data.size << " | ";
+
+			if (req.write || req.data.tag.cid == INVALID_CID) {
+				cout << "N/A ";
+			} else {
+				cout << dec << setw(4) << req.data.tag.cid;
+			}
+		}
+		else
+		{
+			cout << "           |          |      |     ";
+		}
+		cout << " ";
+	}
+    cout << endl << endl;    
+    
+    print_bankedmem_pipelines( mem->GetOutgoing() );
 }
 
 
@@ -151,6 +260,10 @@ static bool cmd_mem_read(Object* obj, const vector<string>& arguments )
         else if (dynamic_cast<ParallelMemory*>(mem) != NULL)
         {
             cmd_parallelmem_requests( dynamic_cast<ParallelMemory*>(mem) );
+        }
+        else if (dynamic_cast<BankedMemory*>(mem) != NULL)
+        {
+            cmd_bankedmem_requests( dynamic_cast<BankedMemory*>(mem) );
         }
         return true;
     }
@@ -317,12 +430,10 @@ static bool cmd_network_read( Object* obj, const vector<string>& arguments )
     cout << endl;
 
     cout << "Families and threads:" << endl;
-/*    if (network->m_createLocal.full())   cout << "* Local create for " << network->m_create.readLocal().fid << endl;
-    if (network->m_createRmeote.isRemoteFull())
-    {
-        cout << "* Received create for " << network->m_create.readRemote().fid << " (";
-        cout << (network->m_create.isRemoteProcessed() ? "processed" : "not processed") << ")" << endl;
-    }*/
+    if (network->m_createState != Network::CS_PROCESSING_NONE) {
+        cout << "* Processing " << (network->m_createState == Network::CS_PROCESSING_LOCAL ? "local" : "remote") << " create for F" << network->m_createFid
+             << ", global " << network->m_global.addr.str() << endl;
+    }
 
     if (network->m_reservation.isLocalFull())   cout << "* Local family reservation for " << network->m_reservation.readLocal().fid << endl;
     if (network->m_reservation.isSendingFull()) cout << "* Forwarding family reservation for " << network->m_reservation.readSending().fid << endl;
@@ -614,36 +725,34 @@ static bool cmd_families_read( Object* obj, const vector<string>& arguments )
 
     static const char* FamilyStates[] = {"", "ALLOCATED", "IDLE", "ACTIVE", "KILLED"};
 
-	cout << "    |    PC    |  Allocated   | P/A/C/Rd/Wr/Sh/Ru | Parent | GFID | State" << endl;
-    cout << "----+----------+--------------+-------------------+--------+------+-----------" << endl;
+	cout << "    |    PC    |   Allocated   | P/A/Rd/Sh | Parent | GFID | State" << endl;
+    cout << "----+----------+---------------+-----------+--------+------+-----------" << endl;
+    
+    cout << setfill(' ') << right;
 	
 	const vector<Family>& families = table->GetFamilies();
 	for (size_t i = 0; i < families.size(); i++)
     {
         const Family& family = families[i];
 
-        cout << setw(3) << setfill(' ') << right << i << " | ";
+        cout << dec << setw(3) << i << " | ";
         if (family.state != FST_EMPTY)
         {
-			cout << setfill('0');
 			if (family.state != FST_ALLOCATED)
 			{
-	            cout << setw(8) << right << hex << family.pc << " | ";
-
-				cout << setw(3) << right << dec << family.allocated << "/"
-					 << setw(3) << right << dec << family.physBlockSize << "("
-					 << setw(3) << right << dec << family.virtBlockSize << ") | ";
-
-				cout << dec << !family.prevTerminated << "/"
-					 << dec << !family.allocationDone << "/"
-					 << dec << !family.createCompleted << "/"
-					 << setw(2) << right << family.numPendingReads << "/"
-					 << setw(2) << right << family.numPendingWrites << "/"
-					 << setw(2) << right << family.numPendingShareds << "/"
-					 << setw(2) << right << family.numThreadsRunning << " | " << right;
+	            cout << hex
+	                 << setw(8) << family.pc << " | "
+				     << dec
+				     << setw(3) << family.dependencies.numThreadsAllocated << "/"
+					 << setw(3) << family.physBlockSize << " ("
+					 << setw(3) << family.virtBlockSize << ") | "
+				     << !family.dependencies.prevTerminated << "/"
+					 << !family.dependencies.allocationDone << "/"
+					 << setw(2) << family.dependencies.numPendingReads << "/"
+					 << setw(2) << family.dependencies.numPendingShareds << " | " << right;
 			}
 			else {
-	            cout << "   -     |      -       |         -         | ";
+	            cout << "   -     |       -       |     -     | ";
 			}
 
 			if (family.parent.tid == INVALID_TID) {
@@ -667,7 +776,7 @@ static bool cmd_families_read( Object* obj, const vector<string>& arguments )
         }
         else
         {
-            cout << "         |              |                   |        |      | ";
+            cout << "         |               |           |        |      | ";
         }
         cout << endl;
     }
@@ -698,8 +807,8 @@ static bool cmd_threads_read( Object* obj, const vector<string>& arguments )
         "", "WAITING", "ACTIVE", "RUNNING", "SUSPENDED", "UNUSED", "KILLED"
     };
 
-    cout << "    |    PC    | Fam | Index | Prev | Next | Int. | Flt. | Flags | State" << endl;
-    cout << "----+----------+-----+-------+------+------+------+------+-------+----------" << endl;
+    cout << "    |    PC    | Fam | Index | Prev | Next | Int. | Flt. | Flags | WR | State" << endl;
+    cout << "----+----------+-----+-------+------+------+------+------+-------+----+----------" << endl;
     for (TID i = 0; i < table->getNumThreads(); i++)
     {
         cout << dec << setw(3) << setfill(' ') << i << " | ";
@@ -724,17 +833,19 @@ static bool cmd_threads_read( Object* obj, const vector<string>& arguments )
                 cout << " | ";
             }
 
-            cout << (thread.prevCleanedUp       ? 'P' : '.')
-                 << (thread.killed              ? 'K' : '.')
-                 << (thread.nextKilled          ? 'N' : '.')
-                 << (thread.isLastThreadInBlock ? 'L' : '.')
-                 << "  | ";
+            cout << (thread.dependencies.prevCleanedUp ? 'P' : '.')
+                 << (thread.dependencies.killed        ? 'K' : '.')
+                 << (thread.dependencies.nextKilled    ? 'N' : '.')
+                 << (thread.isLastThreadInBlock        ? 'L' : '.')
+                 << "  | "
+                 << setw(2) << setfill(' ') << thread.dependencies.numPendingWrites
+                 << " | ";
 
             cout << ThreadStates[thread.state];
         }
         else
         {
-            cout << "         |     |       |      |      |      |      |       |";
+            cout << "         |     |       |      |      |      |      |       |    |";
         }
         cout << endl;
     }
@@ -780,6 +891,15 @@ static string MakeRegValue(const RegType& type, const RegValue& value)
     return ret;
 }
 
+static ostream& operator<<(ostream& out, const RemoteRegAddr& rreg) {
+    if (rreg.fid != INVALID_GFID) {
+        out << hex << setw(2) << setfill('0') << rreg.reg.str() << " @ " << rreg.fid;
+    } else {
+        out << "N/A";
+    }
+    return out;
+}
+
 // Read the pipeline latches
 static bool cmd_pipeline_read( Object* obj, const vector<string>& arguments )
 {
@@ -807,10 +927,11 @@ static bool cmd_pipeline_read( Object* obj, const vector<string>& arguments )
     }
     else
     {
-        cout << " | LFID: "  << dec << fdlatch.fid;
-        cout << "    TID: "  << dec << setw(4) << fdlatch.tid;
-        cout << "    PC: "   << hex << setw(8) << setfill('0') << fdlatch.pc << "h";
-        cout << "    Annotation: " << ((fdlatch.kill) ? "End" : (fdlatch.swch ? "Switch" : "None")) << endl << " |" << endl;
+        cout << " | LFID: "  << dec << fdlatch.fid
+             << "    TID: "  << dec << fdlatch.tid << right
+             << "    PC: "   << hex << setw(8) << setfill('0') << fdlatch.pc << "h"
+             << "    Annotation: " << ((fdlatch.kill) ? "End" : (fdlatch.swch ? "Switch" : "None")) << endl 
+             << " |" << endl;
         cout << " | Instr: " << hex << setw(8) << setfill('0') << fdlatch.instr << "h" << endl;
     }
     cout << " v" << endl;
@@ -824,15 +945,16 @@ static bool cmd_pipeline_read( Object* obj, const vector<string>& arguments )
     }
     else
     {
-        cout << " | LFID: "  << dec << drlatch.fid;
-        cout << "    TID: "  << dec << setw(4) << drlatch.tid;
-        cout << "    PC: "   << hex << setw(8) << setfill('0') << drlatch.pc << "h";
-        cout << "    Annotation: " << ((drlatch.kill) ? "End" : (drlatch.swch ? "Switch" : "None")) << endl << " |" << endl;
+        cout << " | LFID: "  << dec << drlatch.fid
+             << "    TID: "  << dec << drlatch.tid
+             << "    PC: "   << hex << setw(8) << setfill('0') << drlatch.pc << "h"
+             << "    Annotation: " << ((drlatch.kill) ? "End" : (drlatch.swch ? "Switch" : "None")) << endl 
+             << " |" << endl;
         cout << " | Opcode:       " << hex << setw(2)  << setfill('0') << (int)drlatch.opcode << "h" << endl;
         cout << " | Function:     " << hex << setw(4)  << setfill('0') << drlatch.function << "h" << endl;
-        cout << " | Ra:           " << drlatch.Ra << "    Rra: "; if (drlatch.Rra.fid != INVALID_GFID) cout << hex << setw(2) << setfill('0') << drlatch.Rra.reg.str().c_str() << " @ "; cout << drlatch.Rra.fid << endl;
-        cout << " | Rb:           " << drlatch.Rb << "    Rrb: "; if (drlatch.Rrb.fid != INVALID_GFID) cout << hex << setw(2) << setfill('0') << drlatch.Rrb.reg.str().c_str() << " @ "; cout << drlatch.Rrb.fid << endl;
-        cout << " | Rc:           " << drlatch.Rc << "    Rrc: "; if (drlatch.Rrc.fid != INVALID_GFID) cout << hex << setw(2) << setfill('0') << drlatch.Rrc.reg.str().c_str() << " @ "; cout << drlatch.Rrc.fid << endl;
+        cout << " | Ra:           " << drlatch.Ra << "    Rra: " << drlatch.Rra << endl;
+        cout << " | Rb:           " << drlatch.Rb << "    Rrb: " << drlatch.Rrb << endl;
+        cout << " | Rc:           " << drlatch.Rc << "    Rrc: " << drlatch.Rrc << endl;
         cout << " | Displacement: " << hex << setw(16) << setfill('0') << drlatch.displacement << "h" << endl;
         cout << " | Literal:      " << hex << setw(16) << setfill('0') << drlatch.literal << "h" << endl;
     }
@@ -849,15 +971,16 @@ static bool cmd_pipeline_read( Object* obj, const vector<string>& arguments )
     {
         RegType type = RT_INTEGER;
 
-        cout << " | LFID: "  << dec << relatch.fid;
-        cout << "    TID: "  << dec << setw(4) << relatch.tid;
-        cout << "    PC: "   << hex << setw(8) << setfill('0') << relatch.pc << "h";
-        cout << "    Annotation: " << ((relatch.kill) ? "End" : (relatch.swch ? "Switch" : "None")) << endl << " |" << endl;
+        cout << " | LFID: "  << dec << relatch.fid
+             << "    TID: "  << dec << relatch.tid
+             << "    PC: "   << hex << setw(8) << setfill('0') << relatch.pc << "h"
+             << "    Annotation: " << ((relatch.kill) ? "End" : (relatch.swch ? "Switch" : "None")) << endl 
+             << " |" << endl;
         cout << " | Opcode:       " << hex << setw(2)  << setfill('0') << (int)relatch.opcode << "h" << endl;
         cout << " | Function:     " << hex << setw(4)  << setfill('0') << relatch.function << "h" << endl;
         cout << " | Rav:          " << MakeRegValue(type, relatch.Rav) << endl;
         cout << " | Rbv:          " << MakeRegValue(type, relatch.Rbv) << endl;
-        cout << " | Rc:           " << relatch.Rc << "    Rrc: "; if (relatch.Rrc.fid != INVALID_GFID) cout << hex << setw(2) << setfill('0') << relatch.Rrc.reg.str().c_str() << " @ "; cout << relatch.Rrc.fid << endl;
+        cout << " | Rc:           " << relatch.Rc << "    Rrc: " << relatch.Rrc << endl;
         cout << " | Displacement: " << hex << setw(16) << setfill('0') << relatch.displacement << "h" << endl;
     }
     cout << " v" << endl;
@@ -871,7 +994,12 @@ static bool cmd_pipeline_read( Object* obj, const vector<string>& arguments )
     }
     else
     {
-        cout << " | Rc:        " << emlatch.Rc << "    Rrc: "; if (emlatch.Rrc.fid != INVALID_GFID) cout << hex << setw(2) << setfill('0') << emlatch.Rrc.reg.str().c_str() << " @ "; cout << emlatch.Rrc.fid << endl;
+        cout << " | LFID: "  << dec << emlatch.fid
+             << "    TID: "  << dec << emlatch.tid
+             << "    PC: "   << hex << setw(8) << setfill('0') << emlatch.pc << "h"
+             << "    Annotation: " << ((emlatch.kill) ? "End" : (emlatch.swch ? "Switch" : "None")) << endl
+             << " |" << endl;
+        cout << " | Rc:        " << emlatch.Rc << "    Rrc: " << emlatch.Rrc << endl;
         cout << " | Rcv:       " << MakeRegValue(emlatch.Rc.type, emlatch.Rcv) << endl;
         if (emlatch.size == 0)
         {
@@ -898,7 +1026,12 @@ static bool cmd_pipeline_read( Object* obj, const vector<string>& arguments )
     }
     else
     {
-        cout << " | Rc:   " << mwlatch.Rc << "    Rrc: "; if (mwlatch.Rrc.fid != INVALID_GFID) cout << hex << setw(2) << setfill('0') << mwlatch.Rrc.reg.str().c_str() << " @ "; cout << mwlatch.Rrc.fid << endl;
+        cout << " | LFID: "  << dec << mwlatch.fid
+             << "    TID: "  << dec << mwlatch.tid
+             << "    PC: "   << hex << setw(8) << setfill('0') << mwlatch.pc << "h"
+             << "    Annotation: " << ((mwlatch.kill) ? "End" : (mwlatch.swch ? "Switch" : "None")) << endl
+             << " |" << endl;
+        cout << " | Rc:   " << mwlatch.Rc << "    Rrc: " << mwlatch.Rrc << endl;
         cout << " | Rcv:  " << MakeRegValue(mwlatch.Rc.type, mwlatch.Rcv) << endl;
     }
     cout << " v" << endl;

@@ -34,7 +34,7 @@ main:
  * $10 = M = log2(array size);
  */
 .equ MAX_M,      16
-.equ BLOCK_POST, 32
+.equ BLOCK_POST, 16
 
 _FFT:
 	mov     1, $3	        # $3 = 1
@@ -58,7 +58,6 @@ _FFT:
 	mov     $7, $31
 	swch
 	.endif
-	
 	
 	allocate $7
 

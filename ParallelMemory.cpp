@@ -4,11 +4,31 @@
 using namespace Simulator;
 using namespace std;
 
-bool ParallelMemory::idle() const
+void ParallelMemory::Request::release()
 {
-    return m_numRequests == 0;
+    if (refcount != NULL && --*refcount == 0) {
+        delete[] (char*)data.data;
+        delete refcount;
+    }
 }
 
+ParallelMemory::Request& ParallelMemory::Request::operator =(const Request& req)
+{
+    release();
+    refcount  = req.refcount;
+    write     = req.write;
+    address   = req.address;
+    data      = req.data;
+    callback  = req.callback;
+    ++*refcount;
+    return *this;
+}
+
+ParallelMemory::Request::Request(const Request& req) : refcount(NULL) { *this = req; }
+ParallelMemory::Request::Request() { refcount = new unsigned long(1); data.data = NULL; }
+ParallelMemory::Request::~Request() { release(); }
+
+                                    
 void ParallelMemory::registerListener(IMemoryCallback& callback)
 {
     m_caches.insert(&callback);
@@ -30,7 +50,7 @@ void ParallelMemory::addRequest(Request& request)
 		assert(index < m_ports.size());
 		port = &m_ports[index];
 
-		m_portmap.insert(p, make_pair(request.callback, port));
+		m_portmap.insert(make_pair(request.callback, port));
 	}
 	else
 	{
@@ -105,7 +125,7 @@ bool ParallelMemory::checkPermissions(MemAddr address, MemSize size, int access)
 	return VirtualMemory::CheckPermissions(address, size, access);
 }
 
-Result ParallelMemory::onCycleWritePhase(int stateIndex)
+Result ParallelMemory::onCycleWritePhase(unsigned int stateIndex)
 {
 	CycleNo now         = getKernel()->getCycleNo();
 	Port&   port        = m_ports[stateIndex];
@@ -120,15 +140,26 @@ Result ParallelMemory::onCycleWritePhase(int stateIndex)
 		{
 			// Yes, do the callback
 			const Request& request = p->second;
-			if (!request.write && !request.callback->onMemoryReadCompleted(request.data))
+			
+			if (request.write)
 			{
-				return FAILED;
+				VirtualMemory::write(request.address, request.data.data, request.data.size);
+    			if (!request.callback->onMemoryWriteCompleted(request.data.tag))
+	    		{
+		    		return FAILED;
+			    }
+			    DebugSimWrite("Completed write to %llx\n", request.address);
 			}
-			else if (request.write && !request.callback->onMemoryWriteCompleted(request.data.tag))
+			else
 			{
-				return FAILED;
+				VirtualMemory::read(request.address, request.data.data, request.data.size);
+			    if (!request.callback->onMemoryReadCompleted(request.data))
+    			{
+    				return FAILED;
+    			}
+			    DebugSimWrite("Completed read to %llx\n", request.address);
 			}
-
+			
 			COMMIT
 			{
 				port.m_inFlight.erase(p);
@@ -145,21 +176,13 @@ Result ParallelMemory::onCycleWritePhase(int stateIndex)
 	size_t nDispatched = 0;
 	for (deque<Request>::const_iterator p = port.m_requests.begin(); p != port.m_requests.end() && nDispatched < nAvailable; p++, nDispatched++)
 	{
-		COMMIT
-		{
-			// A new request can be handled
-			// Time the request
-			CycleNo done = now + m_config.baseRequestTime + m_config.timePerLine * (p->data.size + m_config.sizeOfLine - 1) / m_config.sizeOfLine;
-
-			Request& request = port.m_inFlight.insert(make_pair(done, Request()))->second;
-
-			request = *p;
-			if (request.write) {
-				VirtualMemory::write(request.address, request.data.data, request.data.size);
-			} else {
-				VirtualMemory::read(request.address, request.data.data, request.data.size);
-			}
-		}
+		// A new request can be handled
+  		COMMIT
+   		{
+   			// Time the request
+    		CycleNo delay = m_config.baseRequestTime + m_config.timePerLine * (p->data.size + m_config.sizeOfLine - 1) / m_config.sizeOfLine;
+	    	port.m_inFlight.insert(make_pair(now + delay, *p));
+    	}
 	}
 
 	COMMIT
@@ -193,5 +216,9 @@ ParallelMemory::ParallelMemory(Object* parent, Kernel& kernel, const std::string
     m_numRequests(0),
     m_statMaxRequests(0),
     m_statMaxInFlight(0)
+{
+}
+
+ParallelMemory::~ParallelMemory()
 {
 }

@@ -3,13 +3,16 @@
  *
  * Also see http://www.dspguide.com/ch12.htm
  ********************************************/
+#include <stdio.h>
 #include <stdlib.h>
+#include <math.h>
+#include <string.h>
  
 #define PI 3.1415926535897932384626433832795
 
 typedef struct
 {
-	float re, im;
+	double re, im;
 } complex;
 
 static void FFT(complex* X, int M)
@@ -95,7 +98,7 @@ static void InvFFT(complex* X, int M)
 
 int main()
 {
-	int M = 5;
+	int M = 8;
 	int N = 1 << M;
 	int i;
 	
@@ -117,7 +120,14 @@ int main()
 	srand(time(NULL));
 	for (i = 0; i < N; i++)
 	{
-		X[i].re = 200.0f * rand() / RAND_MAX;
+		X[i].re = 0.0f;
+		X[i].im = 0.0f;
+		Y[i]    = X[i];
+	}
+
+	for (i = 0; i < (1 << 4); i++)
+	{
+		X[i].re = (double)i + 1;
 		X[i].im = 0.0f;
 		Y[i]    = X[i];
 	}
@@ -128,7 +138,12 @@ int main()
 	
 	for (i = 0; i < N; i++)
 	{
-		printf("%8.2f %8.2f   -   %8.2f %8.2f   -   %8.2f %8.2f\n", X[i].re, X[i].im, Y[i].re, Y[i].im, Z[i].re, Z[i].im );
+		printf("%8.2lf %8.2lf   -   %8.2lf %8.2lf   -   %8.2lf %8.2lf\n", X[i].re, X[i].im, Y[i].re, Y[i].im, Z[i].re, Z[i].im );
+	}
+
+	for (i = 0; i < N; i++)
+	{
+		printf("%016llx %016llx\n", *(unsigned long long*)&Y[i].re, *(unsigned long long*)&Y[i].im);
 	}
 	
 	free(X);

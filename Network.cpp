@@ -32,17 +32,6 @@ void Network::initialize(Network& prev, Network& next)
     m_next = &next;
 }
 
-bool Network::idle() const
-{
-    return (!m_completedFamily.full() &&
-            !m_completedThread.full() &&
-             m_createState == CS_PROCESSING_NONE &&
-             m_reservation.empty() &&
-             m_unreservation.empty() &&
-             m_sharedRequest.fid == INVALID_GFID
-            );
-}
-
 bool Network::sendThreadCleanup   (GFID fid) { return m_next->onThreadCleanedUp(fid); }
 bool Network::sendThreadCompletion(GFID fid) { return m_prev->onThreadCompleted(fid); }
 bool Network::sendFamilyCompletion(GFID fid) { return m_next->onFamilyCompleted(fid); }
@@ -167,7 +156,7 @@ bool Network::sendFamilyCreate(LFID fid)
 			message.fid           = family.gfid;
             message.start         = family.start;
 			message.step          = family.step;
-			message.nThreads      = family.nThreads;
+			message.lastThread    = family.lastThread;
 			message.virtBlockSize = family.virtBlockSize;
 			message.address       = family.pc;
 			message.parent        = family.parent;
@@ -291,7 +280,7 @@ bool Network::onGlobalReceived(PID parent, const RegValue& value)
 	return true;
 }
 
-Result Network::onCycleReadPhase(int stateIndex)
+Result Network::onCycleReadPhase(unsigned int stateIndex)
 {
     if (stateIndex == 0)
     {
@@ -315,6 +304,8 @@ Result Network::onCycleReadPhase(int stateIndex)
                     return FAILED;
                 }
 				
+                DebugSimWrite("Read shared from %s: %016llx\n", addr.str().c_str(), value.m_integer);
+                
 				if (value.m_state == RST_FULL)
 				{
 					COMMIT
@@ -364,7 +355,7 @@ Result Network::onCycleReadPhase(int stateIndex)
     return DELAYED;
 }
 
-Result Network::onCycleWritePhase(int stateIndex)
+Result Network::onCycleWritePhase(unsigned int stateIndex)
 {
     switch (stateIndex)
     {
@@ -421,7 +412,7 @@ Result Network::onCycleWritePhase(int stateIndex)
 			{
 				if (m_sharedResponse.parent)
 				{
-					if (!m_allocator.decreaseFamilyDependency(m_familyTable.TranslateFamily(m_sharedResponse.fid), FAMDEP_OUTSTANDING_SHAREDS))
+					if (!m_allocator.DecreaseFamilyDependency(m_familyTable.TranslateFamily(m_sharedResponse.fid), FAMDEP_OUTSTANDING_SHAREDS))
 					{
 						return FAILED;
 					}
@@ -473,7 +464,7 @@ Result Network::onCycleWritePhase(int stateIndex)
         
 		if (m_completedFamily.full())
         {
-			if (!m_allocator.decreaseFamilyDependency(m_familyTable.TranslateFamily(m_completedFamily.read()), FAMDEP_PREV_TERMINATED))
+			if (!m_allocator.DecreaseFamilyDependency(m_familyTable.TranslateFamily(m_completedFamily.read()), FAMDEP_PREV_TERMINATED))
             {
                 return FAILED;
             }
@@ -651,8 +642,8 @@ Result Network::onCycleWritePhase(int stateIndex)
 					}
 					COMMIT{ m_createState = CS_PROCESSING_NONE; }
 				}
-			}
-			return SUCCESS;
+		    	return SUCCESS;
+        	}
 		}
         break;
 

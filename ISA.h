@@ -157,8 +157,10 @@ namespace Simulator
 #define A_INTLFUNC_CMOVLT   0x44
 #define A_INTLFUNC_CMOVGE   0x46
 #define A_INTLFUNC_EQV      0x48
+#define A_INTLFUNC_AMASK    0x61
 #define A_INTLFUNC_CMOVLE   0x64
 #define A_INTLFUNC_CMOVGT   0x66
+#define A_INTLFUNC_IMPLVER  0x6C
 
 
 // INTS Instructions.
@@ -514,17 +516,30 @@ namespace Simulator
 #define A_FLTIFUNC_CVTQL_SV    0x530
 
 // FPTI Instructions
-#define A_FPTIFUNC_CTLZ		0x32
-#define A_FPTIFUNC_CTPOP	0x30
-#define A_FPTIFUNC_CTTZ		0x33
 #define A_FPTIFUNC_SEXTB	0x00
 #define A_FPTIFUNC_SEXTW	0x01
-#define A_FPTIFUNC_FTOIS	0x78
+#define A_FPTIFUNC_CTPOP	0x30
+#define A_FPTIFUNC_PERR	    0x31
+#define A_FPTIFUNC_CTLZ		0x32
+#define A_FPTIFUNC_CTTZ		0x33
+#define A_FPTIFUNC_UNPKBW   0x34
+#define A_FPTIFUNC_UNPKBL   0x35
+#define A_FPTIFUNC_PKWB     0x36
+#define A_FPTIFUNC_PKLB     0x37
+#define A_FPTIFUNC_MINSB8   0x38
+#define A_FPTIFUNC_MINSW4   0x39
+#define A_FPTIFUNC_MINUB8   0x3A
+#define A_FPTIFUNC_MINUW4   0x3B
+#define A_FPTIFUNC_MAXUB8   0x3C
+#define A_FPTIFUNC_MAXUW4   0x3D
+#define A_FPTIFUNC_MAXSB8   0x3E
+#define A_FPTIFUNC_MAXSW4   0x3F
 #define A_FPTIFUNC_FTOIT	0x70
+#define A_FPTIFUNC_FTOIS	0x78
 
 // ITFP Instructions
-#define A_ITFPFUNC_ITOFF       0x014
 #define A_ITFPFUNC_ITOFS       0x004
+#define A_ITFPFUNC_ITOFF       0x014
 #define A_ITFPFUNC_ITOFT       0x024
 #define A_ITFPFUNC_SQRTF       0x08A
 #define A_ITFPFUNC_SQRTF_C     0x00A
@@ -574,6 +589,18 @@ namespace Simulator
 #define A_ITFPFUNC_SQRTT_UC    0x12B
 #define A_ITFPFUNC_SQRTT_UD    0x1EB
 #define A_ITFPFUNC_SQRTT_UM    0x16B
+
+// Masks for the AMASK instruction
+#define AMASK_BWX   0x001
+#define AMASK_FIX   0x002
+#define AMASK_CIX   0x004
+#define AMASK_MVI   0x100
+#define AMASK_TRAP  0x200
+
+// Values for the IMPLVER instruction
+#define IMPLVER_EV4 0
+#define IMPLVER_EV5 1
+#define IMPLVER_EV6 2
 
 }
 

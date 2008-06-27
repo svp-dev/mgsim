@@ -29,7 +29,7 @@ public:
     RegisterFile(Processor& parent, ICache& icache, DCache &dcache, Allocator& allocator, const Config& config);
 
     bool readRegister(const RegAddr& addr, RegValue& data) const;
-    bool writeRegister(const RegAddr& addr, const RegValue& data, const IComponent& component);
+    bool writeRegister(const RegAddr& addr, RegValue& data, const IComponent& component);
     bool clear(const RegAddr& addr, RegSize size, const RegValue& value);
 
 	// Admin interface, do not use from simulation

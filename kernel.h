@@ -44,8 +44,8 @@ class Kernel
 public:
 	struct CallbackInfo
 	{
-		int     nStates;
-		RunState state;
+		unsigned int nStates;
+		RunState     state;
 	};
 
 	typedef std::map<IComponent*, CallbackInfo> CallbackList;
@@ -75,7 +75,7 @@ public:
 
     void registerFunction (IFunction&  _function );
     void registerStructure(IStructure& _structure);
-    void registerComponent(IComponent& _component, int numStates);
+    void registerComponent(IComponent& _component, unsigned int numStates);
     void registerRegister (IRegister&  _register );
     void unregisterFunction (IFunction&  _function );
     void unregisterStructure(IStructure& _structure);
@@ -156,6 +156,8 @@ class IStructure : public Object
 public:
     virtual void onArbitrateReadPhase()  {}
     virtual void onArbitrateWritePhase() {}
+    
+    virtual bool empty() const { return true; }
 
     IStructure(Object* parent, Kernel& kernel, const std::string& name);
     ~IStructure();
@@ -168,11 +170,10 @@ public:
 	// DELAYED: There's nothing to do
 	// FAILED:  There's something to do but I can't do it
 	// SUCCESS: There's something to do and I have done it
-    virtual Result onCycleReadPhase(int stateIndex)  { return DELAYED; }
-    virtual Result onCycleWritePhase(int stateIndex) { return DELAYED; }
-    virtual bool idle()   const { return true;  }
+    virtual Result onCycleReadPhase(unsigned int stateIndex)  { return DELAYED; }
+    virtual Result onCycleWritePhase(unsigned int stateIndex) { return DELAYED; }
 
-    IComponent(Object* parent, Kernel& kernel, const std::string& name, int numStates = 1);
+    IComponent(Object* parent, Kernel& kernel, const std::string& name, unsigned int numStates = 1);
     ~IComponent();
 };
 

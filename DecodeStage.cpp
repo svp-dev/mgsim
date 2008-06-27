@@ -42,7 +42,7 @@ InstrFormat Pipeline::DecodeStage::getInstrFormat(uint8_t opcode)
 					case 0x2: return IFORMAT_SPECIAL;
 					case 0x3: return IFORMAT_JUMP;
 					case 0x4: return IFORMAT_BRA;
-					case 0x5: return IFORMAT_OP;
+					case 0x5: return IFORMAT_FPOP;
 					case 0x6:
 					case 0x7: return IFORMAT_SPECIAL;
                     case 0x8:
@@ -61,11 +61,11 @@ InstrFormat Pipeline::DecodeStage::getInstrFormat(uint8_t opcode)
                     case 0x0:
                     case 0x1:
                     case 0x2:
-                    case 0x3:
+                    case 0x3: return IFORMAT_OP;
                     case 0x4:
                     case 0x5:
                     case 0x6:
-                    case 0x7: return IFORMAT_OP;
+                    case 0x7: return IFORMAT_FPOP;
                     case 0x8: return IFORMAT_MISC;
                     case 0xA: return IFORMAT_JUMP;
                     case 0xC: return IFORMAT_OP;
@@ -163,13 +163,9 @@ Pipeline::PipeAction Pipeline::DecodeStage::write()
 {
     COMMIT
     {
-        m_output.isLastThreadInFamily  = m_input.isLastThreadInFamily;
-		m_output.isFirstThreadInFamily = m_input.isFirstThreadInFamily;
-        m_output.fid     = m_input.fid;
-        m_output.tid     = m_input.tid;
-        m_output.pc      = m_input.pc;
-        m_output.swch    = m_input.swch;
-        m_output.kill    = m_input.kill;
+        // Copy common latch data
+        (CommonLatch&)m_output = m_input;
+        
 		m_output.fpcr    = m_input.fpcr;
         m_output.opcode  = (m_input.instr >> A_OPCODE_SHIFT) & A_OPCODE_MASK;
         m_output.format  = getInstrFormat(m_output.opcode);
@@ -245,31 +241,36 @@ Pipeline::PipeAction Pipeline::DecodeStage::write()
             break;
         }
 
+        case IFORMAT_FPOP:
+        {
+            // Floating point operate instruction
+            m_output.function = (m_input.instr >> A_FLT_FUNC_SHIFT) & A_FLT_FUNC_MASK;
+            bool itof = (m_output.opcode == A_OP_ITFP) && (m_output.function == A_ITFPFUNC_ITOFT || m_output.function == A_ITFPFUNC_ITOFS || m_output.function == A_ITFPFUNC_ITOFF);
+            
+            m_output.Ra = MAKE_REGADDR(itof ? RT_INTEGER : RT_FLOAT, Ra);
+            m_output.Rb = MAKE_REGADDR(RT_FLOAT, Rb);
+            m_output.Rc = MAKE_REGADDR(RT_FLOAT, Rc);
+            break;
+        }
+
         case IFORMAT_OP:
-            if (m_output.opcode >= 0x14 || m_output.opcode == A_OP_UTHREADF)
+        {
+            // Integer operate instruction
+            m_output.function = (m_input.instr >> A_INT_FUNC_SHIFT) & A_INT_FUNC_MASK;
+            bool ftoi = (m_output.opcode == A_OP_FPTI) && (m_output.function == A_FPTIFUNC_FTOIT || m_output.function == A_FPTIFUNC_FTOIS);
+
+            m_output.Ra = MAKE_REGADDR(ftoi ? RT_FLOAT : RT_INTEGER, Ra);
+            m_output.Rb = MAKE_REGADDR(RT_INTEGER, Rb);
+            m_output.Rc = MAKE_REGADDR(RT_INTEGER, Rc);
+            if (!ftoi && m_input.instr & 0x0001000)
             {
-                // Floating point operate instruction
-                m_output.function = (m_input.instr >> A_FLT_FUNC_SHIFT) & A_FLT_FUNC_MASK;
-                m_output.Ra = MAKE_REGADDR((m_output.opcode == A_OP_ITFP) ? RT_INTEGER : RT_FLOAT, Ra);
-                m_output.Rc = MAKE_REGADDR((m_output.opcode == A_OP_FPTI) ? RT_INTEGER : RT_FLOAT, Rc);
-                m_output.Rb = MAKE_REGADDR(RT_FLOAT, Rb);
-            }
-            else
-            {
-                // Integer operate instruction
-                m_output.function = (m_input.instr >> A_INT_FUNC_SHIFT) & A_INT_FUNC_MASK;
-                m_output.Ra       = MAKE_REGADDR(RT_INTEGER, Ra);
-                m_output.Rb       = MAKE_REGADDR(RT_INTEGER, Rb);
-                m_output.Rc       = MAKE_REGADDR(RT_INTEGER, Rc);
-                if (m_input.instr & 0x0001000)
-                {
-                    // Use literal instead of Rb
-                    m_output.Rb      = MAKE_REGADDR(RT_INTEGER, 31);
-                    m_output.literal = (m_input.instr >> A_LITERAL_SHIFT) & A_LITERAL_MASK;
-                }
+                // Use literal instead of Rb
+                m_output.Rb      = MAKE_REGADDR(RT_INTEGER, 31);
+                m_output.literal = (m_input.instr >> A_LITERAL_SHIFT) & A_LITERAL_MASK;
             }
             break;
-		
+        }
+
 		case IFORMAT_SPECIAL:
 			// We encode the register specifiers in the literal
 			m_output.literal = ((uint64_t)Rb << 0) | ((uint64_t)Rc << 16) | ((uint64_t)Fd << 32) | ((uint64_t)Fe << 48);

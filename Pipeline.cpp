@@ -27,9 +27,9 @@ Pipeline::Pipeline(
     m_fetch(*this, m_fdLatch, alloc, familyTable, threadTable, icache, config.controlBlockSize),
     m_decode(*this, m_fdLatch, m_drLatch),
     m_read(*this, m_drLatch, m_reLatch, regFile, network, m_emLatch, m_mwLatch),
-    m_execute(*this, m_reLatch, m_emLatch, alloc, familyTable, threadTable, icache, fpu),
+    m_execute(*this, m_reLatch, m_emLatch, alloc, threadTable, fpu),
     m_memory(*this, m_emLatch, m_mwLatch, dcache, alloc, regFile, familyTable),
-    m_writeback(*this, m_mwLatch, regFile, network, alloc)
+    m_writeback(*this, m_mwLatch, regFile, network, alloc, threadTable)
 {
     m_stages[0] = &m_fetch;
     m_stages[1] = &m_decode;
@@ -39,19 +39,7 @@ Pipeline::Pipeline(
     m_stages[5] = &m_writeback;
 }
 
-bool Pipeline::idle() const
-{
-    for (int i = 1; i < NUM_STAGES; i++)
-    {
-        if (!m_stages[i]->getInput()->empty())
-        {
-            return false;
-        }
-    }
-    return true;
-}
-
-Result Pipeline::onCycleReadPhase(int stateIndex)
+Result Pipeline::onCycleReadPhase(unsigned int stateIndex)
 {   
     if (acquiring() && stateIndex == 0)
     {
@@ -63,6 +51,7 @@ Result Pipeline::onCycleReadPhase(int stateIndex)
         }
     }
 
+    // Execute stages from back to front
     int stage = NUM_STAGES - 1 - stateIndex;
     if (m_runnable[stage])
     {
@@ -85,15 +74,15 @@ Result Pipeline::onCycleReadPhase(int stateIndex)
 				COMMIT
 				{
 					// Clear all previous stages with the same TID
-					Latch* input = m_stages[stage]->getInput();
+					TID tid = m_stages[stage]->getInput()->tid;
 					for (int j = 0; j < stage; j++)
 					{
-						Latch* in = m_stages[j]->getInput();
-						if (in != NULL && in->tid == input->tid)
+						Latch* input = m_stages[j]->getInput();
+						if (input != NULL && input->tid == tid)
 						{
-							in->clear();
+							input->clear();
 						}
-						m_stages[j]->clear(input->tid);
+						m_stages[j]->clear(tid);
 					}
 				}
 			}
@@ -105,7 +94,7 @@ Result Pipeline::onCycleReadPhase(int stateIndex)
     return DELAYED;
 }
 
-Result Pipeline::onCycleWritePhase(int stateIndex)
+Result Pipeline::onCycleWritePhase(unsigned int stateIndex)
 {
     int stage = NUM_STAGES - 1 - stateIndex;
     if (m_runnable[stage])

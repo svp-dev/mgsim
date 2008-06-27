@@ -24,14 +24,21 @@ struct CreateMessage;
 // terminated or cleaned up
 enum FamilyDependency
 {
-    FAMDEP_THREAD_COUNT,
-    FAMDEP_OUTSTANDING_READS,
-    FAMDEP_OUTSTANDING_WRITES,
-    FAMDEP_OUTSTANDING_SHAREDS,
-    FAMDEP_THREADS_RUNNING,
-	FAMDEP_THREADS_QUEUED,
-    FAMDEP_PREV_TERMINATED,
-	FAMDEP_CREATE_COMPLETED,
+    FAMDEP_THREAD_COUNT,        // Number of allocated threads
+    FAMDEP_OUTSTANDING_READS,   // Number of outstanding memory reads
+    FAMDEP_OUTSTANDING_SHAREDS, // Number of outstanding parent shareds
+    FAMDEP_PREV_TERMINATED,     // Family is terminated on the previous processor
+	FAMDEP_ALLOCATION_DONE,     // Thread allocation is done
+};
+
+// A list of dependencies that prevent a thread from being
+// terminated or cleaned up
+enum ThreadDependency
+{
+    THREADDEP_OUTSTANDING_WRITES,   // Number of outstanding memory writes
+    THREADDEP_PREV_CLEANED_UP,      // Predecessor has been cleaned up
+    THREADDEP_NEXT_TERMINATED,      // Successor has terminated
+    THREADDEP_TERMINATED,           // Thread has terminated
 };
 
 class Allocator : public IComponent
@@ -70,22 +77,26 @@ public:
     bool idle()   const;
 
     // These implement register mappings
-    RegAddr  getSharedAddress(SharedType stype, GFID fid, RegAddr addr) const;
+    RegAddr getSharedAddress(SharedType stype, GFID fid, RegAddr addr) const;
 
 	Family& GetWritableFamilyEntry(LFID fid, TID parent) const;
 
-    // Public functions
-    bool activateThread(TID tid, const IComponent& component, MemAddr* pPC = NULL, LFID fid = INVALID_LFID);
-    bool killThread(TID tid);
+    // Thread management
+    bool ActivateThread(TID tid, const IComponent& component);
+    bool ActivateThread(TID tid, const IComponent& component, MemAddr pc, LFID fid);
+    bool RescheduleThread(TID tid, MemAddr pc, const IComponent& component);
+    bool SuspendThread(TID tid, MemAddr pc);
+    bool KillThread(TID tid);
+    
     bool killFamily(LFID fid, ExitCode code, RegValue value);
 	Result AllocateFamily(TID parent, RegIndex reg, LFID* fid);
 	LFID AllocateFamily(const CreateMessage& msg);
 	bool ActivateFamily(LFID fid);
     bool queueCreate(LFID fid, MemAddr address, TID parent, RegAddr exitCodeReg);
-    bool markNextKilled(TID tid);
-    bool markPrevCleanedUp(TID tid);
-    bool increaseFamilyDependency(LFID fid, FamilyDependency dep);
-    bool decreaseFamilyDependency(LFID fid, FamilyDependency dep);
+    bool IncreaseFamilyDependency(LFID fid, FamilyDependency dep);
+    bool DecreaseFamilyDependency(LFID fid, FamilyDependency dep);
+    bool IncreaseThreadDependency(          TID tid, ThreadDependency dep);
+    bool DecreaseThreadDependency(LFID fid, TID tid, ThreadDependency dep, const IComponent& component);
     bool queueActiveThreads(TID first, TID last);
 
     // External events
@@ -96,8 +107,8 @@ public:
     bool onRemoteThreadCleanup(LFID fid);
 
     /* Component */
-    Result onCycleReadPhase(int stateIndex);
-    Result onCycleWritePhase(int stateIndex);
+    Result onCycleReadPhase(unsigned int stateIndex);
+    Result onCycleWritePhase(unsigned int stateIndex);
 
     /* Admin functions */
 	TID GetRegisterType(LFID fid, RegAddr addr, RegGroup* group) const;
@@ -130,7 +141,7 @@ private:
     // Thread and family queue manipulation
     void push(FamilyQueue& queue, LFID fid);
     void push(ThreadQueue& queue, TID tid, TID Thread::*link = &Thread::nextState);
-    LFID  pop (FamilyQueue& queue);
+    LFID pop (FamilyQueue& queue);
     TID  pop (ThreadQueue& queue, TID Thread::*link = &Thread::nextState);
 
     Processor&          m_parent;

@@ -10,7 +10,8 @@ class Config
 {
     typedef std::map<std::string,std::string> ConfigMap;
     
-    ConfigMap m_data;
+    ConfigMap        m_data;
+    const ConfigMap& m_overrides;
 
 public:
     template <typename T>
@@ -56,7 +57,7 @@ public:
 
     std::string getString(std::string name, const std::string& def) const;
 
-    Config(const std::string& filename);
+    Config(const std::string& filename, const ConfigMap& overrides);
 };
 
 #endif

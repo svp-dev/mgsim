@@ -46,7 +46,7 @@ $(OBJDIR)/%.o: %.cpp
 
 $(DEPDIR)/%.d: %.cpp
 	if [ ! -e $(DEPDIR) ]; then mkdir $(DEPDIR); fi
-	$(CC) -MM $< | sed 's,\($*\)\.o[ :]*,$(OBJDIR)/\1.o $@ : ,g' > $@
+	$(CC) -MM $< | sed 's,\($*\)\.o[ :]*,$(OBJDIR)/\1.o $(OBJDIR)/\1.dbg.o $@ : ,g' > $@
 
 tidy:
 	@rm -rf $(OBJDIR)

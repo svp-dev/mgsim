@@ -5,6 +5,19 @@
 using namespace Simulator;
 using namespace std;
 
+bool Pipeline::ExecuteStage::MemoryWriteBarrier(TID tid) const
+{
+    Thread& thread = m_threadTable[tid];
+    if (thread.dependencies.numPendingWrites != 0)
+    {
+        // There are pending writes, we need to wait for them
+        assert(!thread.waitingForWrites);
+        COMMIT{ thread.waitingForWrites = true; }
+        return false;
+    }
+    return true;
+}
+
 Pipeline::PipeAction Pipeline::ExecuteStage::read()
 {
     return PIPE_CONTINUE;
@@ -13,54 +26,75 @@ Pipeline::PipeAction Pipeline::ExecuteStage::read()
 Pipeline::PipeAction Pipeline::ExecuteStage::write()
 {
     ExecuteMemoryLatch output;
-    output.isLastThreadInFamily  = m_input.isLastThreadInFamily;
-	output.isFirstThreadInFamily = m_input.isFirstThreadInFamily;
-    output.fid     = m_input.fid;
-    output.tid     = m_input.tid;
+    
+    // Copy common latch data
+    (CommonLatch&)output = m_input;
+
     output.Rrc     = m_input.Rrc;
-    output.swch    = m_input.swch;
-    output.kill    = m_input.kill;
     output.address = 0;
     output.size    = 0;
     output.Rc      = m_input.Rc;
+    output.suspend = false;
     output.Rcv.m_state = RST_INVALID;
-
-    MemAddr pc   = m_input.pc + sizeof(Instruction);
-    bool resched = true;
 
     // Check if both registers are available.
     // If not, we must write them back, because they actually contain the
     // suspend information.
     if (m_input.Rav.m_state != RST_FULL)
     {
-        output.Rcv  = m_input.Rav;
-        output.swch = true;
-        output.kill = false;
-        pc     -= sizeof(Instruction);
-        resched = false;
+        COMMIT
+        {
+            m_output = output;
+            m_output.Rcv     = m_input.Rav;
+            m_output.swch    = true;
+            m_output.suspend = true;
+            m_output.kill    = false;
+        }
+        return PIPE_FLUSH;
     }
-    else if (m_input.Rbv.m_state != RST_FULL)
+    
+    if (m_input.Rbv.m_state != RST_FULL)
     {
-        output.Rcv  = m_input.Rbv;
-        output.swch = true;
-        output.kill = false;
-        pc     -= sizeof(Instruction);
-        resched = false;
+        COMMIT
+        {
+            m_output = output;
+            m_output.Rcv     = m_input.Rbv;
+            m_output.swch    = true;
+            m_output.suspend = true;
+            m_output.kill    = false;
+        }
+        return PIPE_FLUSH;
     }
-    else switch (m_input.format)
+    
+    // Adjust PC to point to next instruction
+    output.pc += sizeof(Instruction);
+    
+    switch (m_input.format)
     {
     case IFORMAT_BRA:
 		if (m_input.opcode == A_OP_CREATE_D)
 		{
 			// Direct create
-			LFID    fid     = LFID((size_t)m_input.Rav.m_integer);
-			MemAddr address = pc + m_input.displacement * sizeof(Instruction);
-		    if (!m_allocator.queueCreate(fid, address, m_input.tid, m_input.Rc))
+			if (!MemoryWriteBarrier(m_input.tid))
 			{
-				return PIPE_STALL;
+			    // Suspend thread at our PC
+			    output.pc      = m_input.pc;
+			    output.suspend = true;
+    			output.swch    = true;
+    			output.kill    = false;
+    			output.Rc      = INVALID_REG;
 			}
-			output.Rcv.m_state     = RST_PENDING;
-			output.Rcv.m_component = &m_allocator;
+			else
+			{
+			    LFID    fid     = LFID((size_t)m_input.Rav.m_integer);
+    			MemAddr address = output.pc + m_input.displacement * sizeof(Instruction);
+    		    if (!m_allocator.queueCreate(fid, address, m_input.tid, m_input.Rc))
+    			{
+    				return PIPE_STALL;
+    			}
+	    		output.Rcv.m_state     = RST_PENDING;
+		    	output.Rcv.m_component = &m_allocator;
+		    }
 		}
         // Conditional and unconditional branches
         else if (branchTaken(m_input.opcode, m_input.Rav))
@@ -68,10 +102,10 @@ Pipeline::PipeAction Pipeline::ExecuteStage::write()
             if (m_input.opcode == A_OP_BR || m_input.opcode == A_OP_BSR)
             {
                 // Store the address of the next instruction for BR and BSR
-                output.Rcv.m_integer = pc;
+                output.Rcv.m_integer = output.pc;
                 output.Rcv.m_state   = RST_FULL;
             }
-            pc += m_input.displacement * sizeof(Instruction);
+            output.pc  += m_input.displacement * sizeof(Instruction);
 			output.swch = true;
 			output.kill = false;
         }
@@ -81,22 +115,34 @@ Pipeline::PipeAction Pipeline::ExecuteStage::write()
 		if (m_input.opcode == A_OP_CREATE_I)
 		{
 			// Indirect create
-			LFID    fid     = LFID((size_t)m_input.Rav.m_integer);
-			MemAddr address = m_input.Rbv.m_integer & -3;
-		    if (!m_allocator.queueCreate(fid, address, m_input.tid, m_input.Rc))
+			if (!MemoryWriteBarrier(m_input.tid))
 			{
-				return PIPE_STALL;
+			    // Suspend thread at our PC
+			    output.pc      = m_input.pc;
+			    output.suspend = true;
+    			output.swch    = true;
+    			output.kill    = false;
+    			output.Rc      = INVALID_REG;
 			}
-			output.Rcv.m_state     = RST_PENDING;
-			output.Rcv.m_component = &m_allocator;
+			else
+			{
+    			LFID    fid     = LFID((size_t)m_input.Rav.m_integer);
+    			MemAddr address = m_input.Rbv.m_integer & -3;
+    		    if (!m_allocator.queueCreate(fid, address, m_input.tid, m_input.Rc))
+    			{
+    				return PIPE_STALL;
+    			}
+    			output.Rcv.m_state     = RST_PENDING;
+	    		output.Rcv.m_component = &m_allocator;
+		    }
 		}
 		else
 		{
 			// Jumps
-			output.Rcv.m_integer = pc;
+			output.Rcv.m_integer = output.pc;
 			output.Rcv.m_state   = RST_FULL;
 
-			pc   = m_input.Rbv.m_integer & ~3;
+			output.pc   = m_input.Rbv.m_integer & ~3;
 			output.swch = true;
 			output.kill = false;
 		}
@@ -167,101 +213,98 @@ Pipeline::PipeAction Pipeline::ExecuteStage::write()
 		break;
 
     case IFORMAT_OP:
+    case IFORMAT_FPOP:
         COMMIT
         {
-			bool (*execfunc)(RegValue&, const RegValue&, const RegValue&, int) = NULL;
-
-            switch (m_input.opcode)
+            if (m_input.opcode == A_OP_UTHREAD)
             {
-                case A_OP_UTHREAD:
+				switch (m_input.function)
 				{
-					switch (m_input.function)
-					{
-						case A_UTHREAD_ALLOCATE: {
-							LFID fid;
-							Result res = m_allocator.AllocateFamily(m_input.tid, output.Rc.index, &fid);
-							if (res == FAILED)
-							{
-								return PIPE_STALL;
-							}
-							
-							if (res == SUCCESS) {
-								// The entry was allocated, store it
-								output.Rcv.m_state   = RST_FULL;
-								output.Rcv.m_integer = fid;
-							} else {
-								// The request was buffered and will be written back
-								output.Rcv.m_state     = RST_PENDING;
-								output.Rcv.m_component = &m_allocator;
-							}
-							break;
-						}
-
-						case A_UTHREAD_GETPROCS:
-							output.Rcv.m_state   = RST_FULL;
-							output.Rcv.m_integer = m_parent.m_parent.getNumProcs();
-							break;
-
-						case A_UTHREAD_SETSTART:
-						case A_UTHREAD_SETLIMIT:
-						case A_UTHREAD_SETSTEP:
-						case A_UTHREAD_SETBLOCK:
-						case A_UTHREAD_SETPLACE:
+					case A_UTHREAD_ALLOCATE: {
+						LFID fid;
+						Result res = m_allocator.AllocateFamily(m_input.tid, output.Rc.index, &fid);
+						if (res == FAILED)
 						{
-							Family& family = m_allocator.GetWritableFamilyEntry(LFID((size_t)m_input.Rav.m_integer), m_input.tid);
-							switch (m_input.function)
-							{
-							case A_UTHREAD_SETSTART: family.start         = m_input.Rbv.m_integer; break;
-							case A_UTHREAD_SETLIMIT: family.end           = m_input.Rbv.m_integer; break;
-							case A_UTHREAD_SETSTEP:  family.step          = m_input.Rbv.m_integer; break;
-							case A_UTHREAD_SETBLOCK: family.virtBlockSize = (TSize)m_input.Rbv.m_integer; break;
-							case A_UTHREAD_SETPLACE: family.gfid          = (m_input.Rbv.m_integer == 0) ? INVALID_GFID : 0; break;
-							}
-							break;
+							return PIPE_STALL;
 						}
-
-						case A_UTHREAD_BREAK:    break;
-						case A_UTHREAD_KILL:     break;
-						case A_UTHREAD_SQUEEZE:  break;
-
-						case A_UTHREAD_DEBUG:
-							DebugProgWrite("DEBUG by T%u at %016llx: %016llx\n", m_input.tid, m_input.pc, m_input.Rav.m_integer);
-							output.Rc = INVALID_REG;
-							break;
+						
+						if (res == SUCCESS) {
+							// The entry was allocated, store it
+							output.Rcv.m_state   = RST_FULL;
+							output.Rcv.m_integer = fid;
+						} else {
+							// The request was buffered and will be written back
+							output.Rcv.m_state     = RST_PENDING;
+							output.Rcv.m_component = &m_allocator;
+						}
+						break;
 					}
-                    break;
-				}
 
-                case A_OP_UTHREADF:
-				{
-					switch (m_input.function)
+					case A_UTHREAD_GETPROCS:
+						output.Rcv.m_state   = RST_FULL;
+						output.Rcv.m_integer = m_parent.m_parent.getNumProcs();
+						break;
+
+					case A_UTHREAD_SETSTART:
+					case A_UTHREAD_SETLIMIT:
+					case A_UTHREAD_SETSTEP:
+					case A_UTHREAD_SETBLOCK:
+					case A_UTHREAD_SETPLACE:
 					{
-						case A_UTHREADF_DEBUG:
-							DebugProgWrite("DEBUG by T%u at %016llx: %.12lf\n", m_input.tid, m_input.pc, m_input.Rav.m_float);
-							output.Rc = INVALID_REG;
-							break;
-							
-						case A_UTHREADF_GETINVPROCS:
-							output.Rcv.m_state = RST_FULL;
-							output.Rcv.m_float.fromdouble(1.0 / m_parent.m_parent.getNumProcs());
-							break;
+						Family& family = m_allocator.GetWritableFamilyEntry(LFID((size_t)m_input.Rav.m_integer), m_input.tid);
+						switch (m_input.function)
+						{
+						case A_UTHREAD_SETSTART: family.start         = m_input.Rbv.m_integer; break;
+						case A_UTHREAD_SETLIMIT: family.end           = m_input.Rbv.m_integer; break;
+						case A_UTHREAD_SETSTEP:  family.step          = m_input.Rbv.m_integer; break;
+						case A_UTHREAD_SETBLOCK: family.virtBlockSize = (TSize)m_input.Rbv.m_integer; break;
+						case A_UTHREAD_SETPLACE: family.gfid          = (m_input.Rbv.m_integer == 0) ? INVALID_GFID : 0; break;
+						}
+						break;
 					}
-                    break;
-				}
 
-                case A_OP_INTA: execfunc = execINTA; break; 
-                case A_OP_INTL: execfunc = execINTL; break; 
-                case A_OP_INTS: execfunc = execINTS; break; 
-                case A_OP_INTM: execfunc = execINTM; break; 
-                case A_OP_FLTV: execfunc = execFLTV; break; 
-				case A_OP_ITFP: execfunc = execITFP; break;
-                case A_OP_FLTI: execfunc = execFLTI; break;
-                case A_OP_FLTL: execfunc = execFLTL; break;
-				case A_OP_FPTI: execfunc = execFPTI; break; 
+					case A_UTHREAD_BREAK:    break;
+					case A_UTHREAD_KILL:     break;
+					case A_UTHREAD_SQUEEZE:  break;
+
+					case A_UTHREAD_DEBUG:
+						DebugProgWrite("DEBUG by T%u at %016llx: %016llx\n", m_input.tid, m_input.pc, m_input.Rav.m_integer);
+						output.Rc = INVALID_REG;
+						break;
+				}
             }
+            else if (m_input.opcode == A_OP_UTHREADF)
+            {
+				switch (m_input.function)
+				{
+					case A_UTHREADF_DEBUG:
+						DebugProgWrite("DEBUG by T%u at %016llx: %.12lf\n", m_input.tid, m_input.pc, m_input.Rav.m_float);
+						output.Rc = INVALID_REG;
+						break;
+					
+					case A_UTHREADF_GETINVPROCS:
+						output.Rcv.m_state = RST_FULL;
+						output.Rcv.m_float.fromdouble(1.0 / m_parent.m_parent.getNumProcs());
+						break;
+				}
+			}
+            else
+            {
+    			bool (*execfunc)(RegValue&, const RegValue&, const RegValue&, int) = NULL;
+
+                switch (m_input.opcode)
+                {
+                    case A_OP_INTA: execfunc = execINTA; break; 
+                    case A_OP_INTL: execfunc = execINTL; break; 
+                    case A_OP_INTS: execfunc = execINTS; break; 
+                    case A_OP_INTM: execfunc = execINTM; break; 
+                    case A_OP_FLTV: execfunc = execFLTV; break; 
+    				case A_OP_ITFP: execfunc = execITFP; break;
+                    case A_OP_FLTI: execfunc = execFLTI; break;
+                    case A_OP_FLTL: execfunc = execFLTL; break;
+    				case A_OP_FPTI: execfunc = execFPTI; break; 
+                }
 			
-			if (execfunc != NULL)
-			{
 				if (!(*execfunc)(output.Rcv, m_input.Rav, m_input.Rbv, m_input.function))
 				{
 					// Dispatch long-latency operation to FPU
@@ -278,81 +321,54 @@ Pipeline::PipeAction Pipeline::ExecuteStage::write()
 			}
         }
         break;
+        
+    case IFORMAT_MISC:
+        COMMIT
+        {
+            switch (m_input.function)
+            {
+            case A_MISCFUNC_MB:
+            case A_MISCFUNC_WMB:
+                // Memory barrier
+                if (!MemoryWriteBarrier(m_input.tid))
+                {
+			        // Suspend thread at our PC
+			        output.pc      = m_input.pc;
+			        output.suspend = true;
+    	    		output.swch    = true;
+        			output.kill    = false;
+        			output.Rc      = INVALID_REG;
+                }
+                break;
+    
+            case A_MISCFUNC_RPCC:
+                // Read processor cycle count
+                output.Rcv.m_state   = RST_FULL;
+                output.Rcv.m_integer = getKernel()->getCycleNo() & 0xFFFFFFFF;
+                break;
+            }
+        }        
+        break;
     
         default: break;
     }
 
-    if (output.swch)
-    {
-        // We've switched threads
-        Thread& thread = m_threadTable[m_input.tid];
-        if (!m_icache.releaseCacheLine(thread.cid))
-        {
-            return PIPE_STALL;
-        }
-
-		if (!output.kill)
-        {
-            // We're not killing, update the thread table and possibly reschedule
-            if (!resched)
-            {
-                // Suspend the thread
-                assert(thread.state == TST_RUNNING);
-                COMMIT
-                {
-                    thread.state = TST_SUSPENDED;
-                    thread.cid   = INVALID_CID;
-                    thread.pc    = pc;
-                }
-            }
-            // Reschedule thread
-            else if (!m_allocator.activateThread(m_input.tid, *this, &pc))
-            {
-                // We cannot reschedule, stall pipeline
-                return PIPE_STALL;
-            }
-		}
-        else if (!m_allocator.killThread(m_input.tid))
-        {
-            // Can't kill, stall!
-            return PIPE_STALL;
-        }
-
-        if (output.kill || !resched)
-        {
-            COMMIT
-            {
-                Family& family = m_familyTable[m_input.fid];
-                if (family.numThreadsQueued == 0)
-                {
-                    // Mark family as idle or killed
-                    family.state = (family.allocationDone == 0 && family.nRunning == 0) ? FST_KILLED : FST_IDLE;
-                }
-            }
-        }
-    }
-
     COMMIT
     {
-        if (resched)
-        {
-            // We've executed an instruction
-            COMMIT{ m_op++; }
-        }
-
         m_output = output;
+
+        // We've executed an instruction
+        m_op++;
     }
     return (output.swch) ? PIPE_FLUSH : PIPE_CONTINUE;
 }
 
-Pipeline::ExecuteStage::ExecuteStage(Pipeline& parent, ReadExecuteLatch& input, ExecuteMemoryLatch& output, Allocator& alloc, FamilyTable& familyTable, ThreadTable& threadTable, ICache& icache, FPU& fpu)
+Pipeline::ExecuteStage::ExecuteStage(Pipeline& parent, ReadExecuteLatch& input, ExecuteMemoryLatch& output, Allocator& alloc, ThreadTable& threadTable, FPU& fpu)
   : Stage(parent, "execute", &input, &output),
     m_input(input),
     m_output(output),
     m_allocator(alloc),
-    m_familyTable(familyTable),
     m_threadTable(threadTable),
-    m_icache(icache),
 	m_fpu(fpu)
 {
     m_flop = 0;
