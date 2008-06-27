@@ -693,12 +693,12 @@ int main(int argc, const char* argv[])
     catch (Exception &e)
     {
         cerr << e.getMessage() << endl;
-        return -1;
+        return 1;
     }
     catch (exception &e)
     {
         cerr << e.what() << endl;
-        return -1;
+        return 1;
     }
     return 0;
 }
