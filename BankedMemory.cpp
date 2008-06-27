@@ -65,7 +65,7 @@ void BankedMemory::AddRequest(Pipeline& queue, const Request& request, bool data
     CycleNo now  = getKernel()->getCycleNo();
     CycleNo done = now + (CycleNo)log2(m_banks.size());
     
-    Pipeline::const_reverse_iterator p = queue.rbegin();
+    Pipeline::reverse_iterator p = queue.rbegin();
     if (p != queue.rend() && done < p->first)
     {
         // We're waiting for another message to be sent, so skip the initial delay
