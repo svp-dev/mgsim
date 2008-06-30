@@ -93,12 +93,16 @@ def main(argv = None):
                 break
             pids.append(pid)
             start = start + step
+            if start > limit: 
+                break
 
         print "Distributed jobs, waiting for completion..."
         while len(pids) > 0:
             os.waitpid(pids.pop(), 0)
     except:
-        print "Interrupted"
+        exc = sys.exc_info()
+        print "%s: %s" % (exc[0].__name__, exc[1])
+        
         retval = 1
 
     # Kill all pids

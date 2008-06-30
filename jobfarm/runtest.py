@@ -1,6 +1,6 @@
 #!/usr/bin/python
 
-import optparse, sys, os, signal, time
+import optparse, sys, os, signal, time, popen2, socket
 
 def run_test(index, options):
     index = str(index)
@@ -23,24 +23,32 @@ def run_test(index, options):
         
     args.append(options.program)
     
-    pid = None
+    hostname = socket.gethostname()
+
+    p = None
+    retval = 0
     try:
         # Start process
-        try:
-            pid = os.spawnv(os.P_NOWAIT, args[0], args)
-        except OSError, (errno, strerror):
-            print "Error:", strerror
-            return 1
+        p = popen2.Popen4(" ".join(args))
 
         # Wait for it
-        os.waitpid(pid, 0)
+        p.wait()
     except:
         # Something interrupted us, kill the process
-        if pid is not None:
-            os.kill(pid, signal.SIGKILL)
-        return 1
+        exc = sys.exc_info()
+        print "[%s] %s: %s" % (hostname, exc[0].__name__, exc[1])
         
-    return 0
+        if p is not None:
+            os.kill(p.pid, signal.SIGKILL)
+        retval = 1
+
+    # Read, format and print output        
+    output = p.fromchild.read().strip().split("\n")
+    p.fromchild.close()
+    for line in output:
+        print "[%s] %s" % (hostname, line)
+    
+    return retval
 
 def main(argv = None):
     if argv is None:

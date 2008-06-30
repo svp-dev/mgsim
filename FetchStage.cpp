@@ -106,9 +106,7 @@ Pipeline::PipeAction Pipeline::FetchStage::write()
 		COMMIT
 		{
 			// Pop the active thread
-			m_allocator.m_activeThreads.head = thread.nextState;
-			m_next = m_allocator.m_activeThreads.head;
-			thread.nextState = INVALID_TID;
+			m_next = m_allocator.PopActiveThread(m_tid);
 		}
 
 		COMMIT

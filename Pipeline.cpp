@@ -24,6 +24,8 @@ Pipeline::Pipeline(
     const Config&       config)
 :
     IComponent(&parent, parent.getKernel(), name, NUM_STAGES), m_parent(parent), m_regFile(regFile),
+    m_nStagesRun(0), m_maxPipelineIdleTime(0), m_minPipelineIdleTime(numeric_limits<uint64_t>::max()),
+    m_totalPipelineIdleTime(0), m_pipelineIdleEvents(0), m_pipelineIdleTime(0), m_pipelineBusyTime(0),
     m_fetch(*this, m_fdLatch, alloc, familyTable, threadTable, icache, config.controlBlockSize),
     m_decode(*this, m_fdLatch, m_drLatch),
     m_read(*this, m_drLatch, m_reLatch, regFile, network, m_emLatch, m_mwLatch),
@@ -44,6 +46,7 @@ Result Pipeline::onCycleReadPhase(unsigned int stateIndex)
     if (acquiring() && stateIndex == 0)
     {
         // Begin of the cycle, initialize
+        m_nStagesRunnable = 0;
         for (int i = 0; i < NUM_STAGES; i++)
         {
             Latch* input = m_stages[i]->getInput();
@@ -59,6 +62,10 @@ Result Pipeline::onCycleReadPhase(unsigned int stateIndex)
         PipeAction action = m_stages[stage]->read();
 		if (action != PIPE_IDLE)
 		{
+            COMMIT{
+                m_nStagesRunnable++;
+            }
+            
 			if (action == PIPE_STALL)
 			{
 				// This stage has stalled, abort pipeline
@@ -134,6 +141,7 @@ Result Pipeline::onCycleWritePhase(unsigned int stateIndex)
 
 			COMMIT
 			{
+                m_nStagesRun++;
 				if (input  != NULL) input->clear();
 				if (output != NULL) output->set();
 			}
@@ -143,4 +151,26 @@ Result Pipeline::onCycleWritePhase(unsigned int stateIndex)
 
 	// This stage has nothing to do
     return DELAYED;
+}
+
+void Pipeline::UpdateStatistics()
+{
+    if (m_nStagesRunnable == 0)
+    {
+        m_pipelineIdleTime++;
+    }
+    else
+    {
+        m_pipelineBusyTime++;
+        
+        if (m_pipelineIdleTime > 0)
+        {
+            // Process this pipeline idle streak
+            m_maxPipelineIdleTime    = max(m_maxPipelineIdleTime, m_pipelineIdleTime);
+            m_minPipelineIdleTime    = min(m_minPipelineIdleTime, m_pipelineIdleTime);
+            m_totalPipelineIdleTime += m_pipelineIdleTime;
+            m_pipelineIdleEvents++;
+            m_pipelineIdleTime = 0;
+        }
+    }
 }

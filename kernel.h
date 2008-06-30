@@ -172,6 +172,7 @@ public:
 	// SUCCESS: There's something to do and I have done it
     virtual Result onCycleReadPhase(unsigned int stateIndex)  { return DELAYED; }
     virtual Result onCycleWritePhase(unsigned int stateIndex) { return DELAYED; }
+    virtual void UpdateStatistics() {}
 
     IComponent(Object* parent, Kernel& kernel, const std::string& name, unsigned int numStates = 1);
     ~IComponent();

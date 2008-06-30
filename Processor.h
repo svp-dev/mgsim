@@ -45,6 +45,16 @@ public:
 		return (float)m_registerFile.p_asyncW.getBusyCycles() / m_kernel.getCycleNo();
 	}
 	
+	uint64_t GetTotalActiveQueueSize() const { return m_allocator.GetTotalActiveQueueSize(); }
+	uint64_t GetMaxActiveQueueSize()   const { return m_allocator.GetMaxActiveQueueSize(); }
+	uint64_t GetMinActiveQueueSize()   const { return m_allocator.GetMinActiveQueueSize(); }
+	
+	uint64_t GetMinPipelineIdleTime() const { return m_pipeline.GetMinIdleTime(); }
+	uint64_t GetMaxPipelineIdleTime() const { return m_pipeline.GetMaxIdleTime(); }
+	uint64_t GetAvgPipelineIdleTime() const { return m_pipeline.GetAvgIdleTime(); }
+	
+	float GetPipelineEfficiency() const { return m_pipeline.GetEfficiency(); }
+	
 	void writeRegister(const RegAddr& addr, const RegValue& value) {
 		m_registerFile.writeRegister(addr, value);
 	}

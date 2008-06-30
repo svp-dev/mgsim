@@ -88,6 +88,10 @@ public:
     bool SuspendThread(TID tid, MemAddr pc);
     bool KillThread(TID tid);
     
+    uint64_t GetTotalActiveQueueSize() const { return m_totalActiveQueueSize; }
+    uint64_t GetMaxActiveQueueSize() const { return m_maxActiveQueueSize; }
+    uint64_t GetMinActiveQueueSize() const { return m_minActiveQueueSize; }
+    
     bool killFamily(LFID fid, ExitCode code, RegValue value);
 	Result AllocateFamily(TID parent, RegIndex reg, LFID* fid);
 	LFID AllocateFamily(const CreateMessage& msg);
@@ -98,6 +102,7 @@ public:
     bool IncreaseThreadDependency(          TID tid, ThreadDependency dep);
     bool DecreaseThreadDependency(LFID fid, TID tid, ThreadDependency dep, const IComponent& component);
     bool queueActiveThreads(TID first, TID last);
+    TID  PopActiveThread(TID tid);
 
     // External events
 	bool onCachelineLoaded(CID cid);
@@ -109,6 +114,7 @@ public:
     /* Component */
     Result onCycleReadPhase(unsigned int stateIndex);
     Result onCycleWritePhase(unsigned int stateIndex);
+    void   UpdateStatistics();
 
     /* Admin functions */
 	TID GetRegisterType(LFID fid, RegAddr addr, RegGroup* group) const;
@@ -153,6 +159,11 @@ private:
     Network&            m_network;
 	Pipeline&			m_pipeline;
     PSize               m_procNo;
+
+    uint64_t             m_activeQueueSize;
+    uint64_t             m_totalActiveQueueSize;
+    uint64_t             m_maxActiveQueueSize;
+    uint64_t             m_minActiveQueueSize;
 
     // Initial allocation
     LFID                 m_allocating;   // This family we're initially allocating from

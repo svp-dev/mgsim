@@ -114,9 +114,21 @@ bool Allocator::queueActiveThreads(TID first, TID last)
         for (TID cur = first; cur != INVALID_TID; cur = m_threadTable[cur].nextState)
         {
             m_threadTable[cur].state = TST_ACTIVE;
+            m_activeQueueSize++;
         }
     }
     return true;
+}
+
+TID Allocator::PopActiveThread(TID tid)
+{
+    assert(m_activeQueueSize > 0);
+
+    Thread& thread = m_threadTable[tid];
+    m_activeThreads.head = thread.nextState;
+    thread.nextState = INVALID_TID;
+    m_activeQueueSize--;
+    return m_activeThreads.head;
 }
 
 //
@@ -1007,6 +1019,13 @@ Result Allocator::onCycleReadPhase(unsigned int stateIndex)
     return DELAYED;
 }
 
+void Allocator::UpdateStatistics()
+{
+    m_totalActiveQueueSize += m_activeQueueSize;
+    m_maxActiveQueueSize = max(m_maxActiveQueueSize, m_activeQueueSize);
+    m_minActiveQueueSize = min(m_minActiveQueueSize, m_activeQueueSize);
+}
+
 bool Allocator::onCachelineLoaded(CID cid)
 {
 	assert(!m_creates.empty());
@@ -1378,7 +1397,8 @@ Allocator::Allocator(Processor& parent, const string& name,
     IComponent(&parent, parent.getKernel(), name, 4),
     p_cleanup(parent.getKernel()),
     m_parent(parent), m_familyTable(familyTable), m_threadTable(threadTable), m_registerFile(registerFile), m_raunit(raunit), m_icache(icache), m_network(network), m_pipeline(pipeline),
-    m_procNo(procNo), m_creates(config.localCreatesSize), m_registerWrites(INFINITE), m_cleanup(config.cleanupSize),
+    m_procNo(procNo), m_activeQueueSize(0), m_totalActiveQueueSize(0), m_maxActiveQueueSize(0), m_minActiveQueueSize(UINT64_MAX),
+    m_creates(config.localCreatesSize), m_registerWrites(INFINITE), m_cleanup(config.cleanupSize),
 	m_allocations(INFINITE), m_createState(CREATE_INITIAL)
 {
     m_allocating   = INVALID_LFID;

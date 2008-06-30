@@ -308,9 +308,16 @@ public:
 
     Result onCycleReadPhase(unsigned int stateIndex);
     Result onCycleWritePhase(unsigned int stateIndex);
+    void   UpdateStatistics();
 
     const Stage& getStage(int i) const { return *m_stages[i]; }
     Processor& getProcessor() const { return m_parent; }
+    
+    uint64_t GetMaxIdleTime() const { return m_maxPipelineIdleTime; }
+    uint64_t GetMinIdleTime() const { return m_minPipelineIdleTime; }
+    uint64_t GetAvgIdleTime() const { return m_totalPipelineIdleTime / std::max(1ULL, m_pipelineIdleEvents); }
+    
+    float    GetEfficiency() const { return (float)m_nStagesRun / NUM_STAGES / std::max(1ULL, m_pipelineBusyTime); }
 
     uint64_t getFlop() const { return m_execute.getFlop(); }
     uint64_t getOp()   const { return m_execute.getOp(); }
@@ -328,6 +335,15 @@ private:
     static const int    NUM_STAGES = 6;
     Stage*              m_stages[NUM_STAGES];
     bool                m_runnable[NUM_STAGES];
+    
+    size_t   m_nStagesRunnable;
+    size_t   m_nStagesRun;
+    uint64_t m_maxPipelineIdleTime;
+    uint64_t m_minPipelineIdleTime;
+    uint64_t m_totalPipelineIdleTime;
+    uint64_t m_pipelineIdleEvents;
+    uint64_t m_pipelineIdleTime;
+    uint64_t m_pipelineBusyTime;
 
 public:
     FetchStage          m_fetch;

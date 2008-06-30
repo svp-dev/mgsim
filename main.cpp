@@ -1,10 +1,14 @@
-#include <algorithm>
-#include <fstream>
+#include "Processor.h"
+#include "BankedMemory.h"
+#include "commands.h"
+#include "config.h"
+#include "profile.h"
+#include "loader.h"
+
 #include <iostream>
 #include <iomanip>
-#include <sstream>
-#include <cstdio>
 #include <stdexcept>
+#include <limits>
 
 #ifndef WIN32
 // On non-Windows machines (Unix, Linux, Solaris, MacOS), we use readline
@@ -12,14 +16,6 @@
 #include <readline/readline.h>
 #include <readline/history.h>
 #endif
-
-#include "Processor.h"
-#include "BankedMemory.h"
-#include "commands.h"
-#include "config.h"
-#include "profile.h"
-#include "loader.h"
-#include <math.h>
 using namespace Simulator;
 using namespace std;
 
@@ -135,7 +131,62 @@ public:
 			avg += a;
         }
         avg /= m_numProcs;
-		cout << avg << "\t" << amin << "\t" << amax;
+		cout << avg << " " << amin << " " << amax;
+	}
+
+	void PrintPipelineEfficiency() const
+	{
+		float avg  = 0;
+		float amax = 0.0f;
+		float amin = 1.0f;
+		size_t num = 0;
+        for (PSize i = 0; i < m_numProcs; i++) {
+            float a = m_procs[i]->GetPipelineEfficiency();
+            if (a > 0)
+            {
+				amax = max(amax, a);
+				amin = min(amin, a);
+				avg += a;
+				num++;
+			}
+        }
+        avg /= num;
+		cout << avg << " " << amin << " " << amax;
+	}
+	
+	void PrintActiveQueueSize() const
+	{
+	    float    avg    = 0;
+	    uint64_t amax   = 0;
+	    uint64_t amin   = numeric_limits<uint64_t>::max();
+	    CycleNo cycles = m_kernel.getCycleNo();
+        for (PSize i = 0; i < m_numProcs; i++) {
+            float a = m_procs[i]->GetTotalActiveQueueSize() / cycles;
+			amax    = max(amax, m_procs[i]->GetMaxActiveQueueSize() );
+			amin    = min(amin, m_procs[i]->GetMinActiveQueueSize() );
+			avg += a;
+        }
+        avg /= m_numProcs;
+		cout << avg << " " << amin << " " << amax;
+	}
+
+	void PrintPipelineIdleTime() const
+	{
+	    float    avg    = 0;
+	    uint64_t amax   = 0;
+	    uint64_t amin   = numeric_limits<uint64_t>::max();
+        for (PSize i = 0; i < m_numProcs; i++) {
+            float a = m_procs[i]->GetAvgPipelineIdleTime();
+			amax    = max(amax, m_procs[i]->GetMaxPipelineIdleTime() );
+			amin    = min(amin, m_procs[i]->GetMinPipelineIdleTime() );
+			avg += a;
+        }
+        avg /= m_numProcs;
+        if (avg == 0) {
+    		cout << "- - -";
+        } else {
+    		cout << avg << " " << amin << " " << amax;
+    	}
 	}
 
 	const Kernel& getKernel() const { return m_kernel; }
@@ -585,10 +636,16 @@ int main(int argc, const char* argv[])
 				throw runtime_error("Deadlock!");
 			}
 			cout << dec
-			     << config.m_print << sys.getKernel().getCycleNo() << "\t"
-                 << sys.getOp() << "\t"
-                 << sys.getFlop() << "\t";
+			     << config.m_print << sys.getKernel().getCycleNo() << " ; "
+                 << sys.getOp() << " "
+                 << sys.getFlop() << " ; ";
 			sys.printRegFileAsyncPortActivity();
+			cout << " ; ";
+			sys.PrintActiveQueueSize();
+			cout << " ; ";
+			sys.PrintPipelineIdleTime();
+			cout << " ; ";
+			sys.PrintPipelineEfficiency();
 			cout << endl;
         }
         else
