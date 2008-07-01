@@ -410,6 +410,8 @@ static bool cmd_network_read( Object* obj, const vector<string>& arguments )
     const Network* network = dynamic_cast<Network*>(obj);
     if (network == NULL) return false;
 
+    cout << dec;
+
     cout << "Shareds:" << endl;
     if (network->m_sharedRequest.fid  != INVALID_GFID) cout << "* Requesting shared " << network->m_sharedRequest.addr.index  << " for G" << network->m_sharedRequest.fid << " from previous processor" << endl;
     if (network->m_sharedResponse.fid != INVALID_GFID)
@@ -435,25 +437,25 @@ static bool cmd_network_read( Object* obj, const vector<string>& arguments )
              << ", global " << network->m_global.addr.str() << endl;
     }
 
-    if (network->m_reservation.isLocalFull())   cout << "* Local family reservation for " << network->m_reservation.readLocal().fid << endl;
-    if (network->m_reservation.isSendingFull()) cout << "* Forwarding family reservation for " << network->m_reservation.readSending().fid << endl;
+    if (network->m_reservation.isLocalFull())   cout << "* Local family reservation for G" << network->m_reservation.readLocal().fid << endl;
+    if (network->m_reservation.isSendingFull()) cout << "* Forwarding family reservation for G" << network->m_reservation.readSending().fid << endl;
     if (network->m_reservation.isRemoteFull())
     {
-        cout << "* Received family reservation for " << network->m_reservation.readRemote().fid << " (";
+        cout << "* Received family reservation for G" << network->m_reservation.readRemote().fid << " (";
         cout << (network->m_reservation.isRemoteProcessed() ? "processed" : "not processed") << ")" << endl;
     }
 
-    if (network->m_unreservation.isLocalFull())   cout << "* Local family unreservation for " << network->m_unreservation.readLocal().fid << endl;
-    if (network->m_unreservation.isSendingFull()) cout << "* Forwarding family unreservation for " << network->m_unreservation.readSending().fid << endl;
+    if (network->m_unreservation.isLocalFull())   cout << "* Local family unreservation for G" << network->m_unreservation.readLocal().fid << endl;
+    if (network->m_unreservation.isSendingFull()) cout << "* Forwarding family unreservation for G" << network->m_unreservation.readSending().fid << endl;
     if (network->m_unreservation.isRemoteFull())
     {
-        cout << "* Received family unreservation for " << network->m_unreservation.readRemote().fid << " (";
+        cout << "* Received family unreservation for G" << network->m_unreservation.readRemote().fid << " (";
         cout << (network->m_unreservation.isRemoteProcessed() ? "processed" : "not processed") << ")" << endl;
     }
 
-    if (!network->m_completedFamily.empty()) cout << "* Local family completion of " << network->m_completedFamily.read() << endl;
-    if (!network->m_completedThread.empty()) cout << "* Local thread completion of " << network->m_completedThread.read() << endl;
-    if (!network->m_cleanedUpThread.empty()) cout << "* Local thread cleanup of " << network->m_cleanedUpThread.read() << endl;
+    if (!network->m_completedFamily.empty()) cout << "* Local family completion of G" << network->m_completedFamily.read() << endl;
+    if (!network->m_completedThread.empty()) cout << "* Local thread completion of G" << network->m_completedThread.read() << endl;
+    if (!network->m_cleanedUpThread.empty()) cout << "* Local thread cleanup of G" << network->m_cleanedUpThread.read() << endl;
 
     return true;
 }
@@ -1198,7 +1200,7 @@ static bool cmd_regs_read( Object* obj, const vector<string>& arguments )
         }
 
 		cout << ss.str().substr(0, 16) << " | ";
-        if (fid != INVALID_LFID) cout << "F" << setw(2) << setfill('0') << fid; else cout << "   ";
+        if (fid != INVALID_LFID) cout << "F" << setw(2) << setfill('0') << dec << fid; else cout << "   ";
         cout << " |  ";
 
 		RegGroup group = RG_LOCAL;

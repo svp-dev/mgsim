@@ -218,7 +218,7 @@ public:
 	};
 
 	// Create information
-    Register<CreateMessage> m_createLocal;
+    Register<std::pair<LFID, CreateMessage> > m_createLocal;
 	Register<CreateMessage> m_createRemote;
 	CreateState             m_createState;
 	LFID                    m_createFid;

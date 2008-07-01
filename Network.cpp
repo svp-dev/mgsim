@@ -149,7 +149,6 @@ bool Network::sendFamilyCreate(LFID fid)
         COMMIT
         {
             // Buffer the family information
-			m_createFid = fid;
 			const Family& family = m_familyTable[fid];
 
             CreateMessage message;
@@ -164,10 +163,9 @@ bool Network::sendFamilyCreate(LFID fid)
             for (RegType i = 0; i < NUM_REG_TYPES; i++)
             {
 				message.regsNo[i] = family.regs[i].count;
-				m_globalsBase[i]  = family.regs[i].globals;
 			}
 
-			m_createLocal.write(message);
+			m_createLocal.write(make_pair(fid, message));
 			DebugSimWrite("Broadcasting create for G%u (F%u)\n", message.fid, fid);
         }
         return true;
@@ -388,6 +386,14 @@ Result Network::onCycleWritePhase(unsigned int stateIndex)
                     {
                         return FAILED;
                     }
+                    
+    				if (m_sharedReceived.parent)
+	    			{
+		    			if (!m_allocator.DecreaseFamilyDependency(m_familyTable.TranslateFamily(m_sharedReceived.fid), FAMDEP_OUTSTANDING_SHAREDS))
+			    		{
+				    		return FAILED;
+					    }
+    				}
                 }
             }
 
@@ -507,11 +513,12 @@ Result Network::onCycleWritePhase(unsigned int stateIndex)
 					}
 				}
 				
-				DebugSimWrite("Allocated family G%u: %u globals left initially\n", msg.fid, m_global.count);
+				DebugSimWrite("Allocated family F%u for G%u: %u globals left initially\n", fid, msg.fid, m_global.count);
 				if (m_global.count > 0)
 				{
 					// There are still globals to process, otherwise we can 
 					// process another create next cycle
+					DebugSimWrite("Processing remote create\n");
 					COMMIT{ m_createState = CS_PROCESSING_REMOTE; }
 				}
 				else if (!m_allocator.ActivateFamily(fid))
@@ -525,9 +532,10 @@ Result Network::onCycleWritePhase(unsigned int stateIndex)
 
 			if (m_createLocal.full())
 			{
-				const CreateMessage& msg = m_createLocal.read();
+				const pair<LFID, CreateMessage>& create = m_createLocal.read();
+				const CreateMessage& msg = create.second;
 
-				const Family& family = m_familyTable[m_createFid];
+				const Family& family = m_familyTable[create.first];
 
 				m_global.count = 0;
 				for (RegType i = 0; i < NUM_REG_TYPES; i++)
@@ -551,8 +559,10 @@ Result Network::onCycleWritePhase(unsigned int stateIndex)
 				{
 					// There are still globals to process, otherwise we can 
 					// process another create next cycle
+					DebugSimWrite("Processing local create\n");
 					COMMIT{ m_createState = CS_PROCESSING_LOCAL; }
 				}
+				COMMIT{ m_createFid = create.first; }
 				COMMIT{ m_createLocal.clear(); }
 				return SUCCESS;
 			}
@@ -625,7 +635,7 @@ Result Network::onCycleWritePhase(unsigned int stateIndex)
 
 				if (done)
 				{
-					DebugSimWrite("Done with creation\n");
+					DebugSimWrite("Done with creation for F%u; remote=%d\n", m_createFid, m_createState == CS_PROCESSING_REMOTE);
 					for (RegType i = 0; i < NUM_REG_TYPES; i++)
 					{
 						DebugSimWrite("Globals: %d, Shareds: %d\n", family->regs[i].globals, family->regs[i].shareds);
@@ -640,6 +650,8 @@ Result Network::onCycleWritePhase(unsigned int stateIndex)
 							return FAILED;
 						}
 					}
+					
+					DebugSimWrite("Processing no create\n");
 					COMMIT{ m_createState = CS_PROCESSING_NONE; }
 				}
 		    	return SUCCESS;

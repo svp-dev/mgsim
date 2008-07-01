@@ -932,10 +932,10 @@ void Allocator::InitializeFamily(LFID fid) const
         PID pid     = m_parent.getPID();
 
         if (lastPID == family.parent.pid ||
-            !((lastPID > family.parent.pid && (pid >= lastPID || pid < family.parent.pid)) ||
-              (lastPID < family.parent.pid && (pid >= lastPID && pid < family.parent.pid))))
+            !((lastPID > family.parent.pid && (pid >= lastPID || pid <= family.parent.pid)) ||
+              (lastPID < family.parent.pid && (pid >= lastPID && pid <= family.parent.pid))))
         {
-             // Ignore the pending count if we're not a CPU that will send a parent shared
+             // Ignore the pending count if we're not a CPU that will send or write a parent shared
             family.dependencies.numPendingShareds = 0;
         }
 	}
@@ -965,6 +965,8 @@ bool Allocator::AllocateRegisters(LFID fid)
 		if (m_raunit.alloc(sizes, fid, indices))
 		{
 			// Success, we have registers for all types
+			COMMIT{ family.physBlockSize = physBlockSize; }
+			
 			for (RegType i = 0; i < NUM_REG_TYPES; i++)
 			{
 				Family::RegInfo& regs = family.regs[i];
@@ -973,7 +975,6 @@ bool Allocator::AllocateRegisters(LFID fid)
 					regs.base            = INVALID_REG_INDEX;
 					regs.size            = sizes[i];
 					regs.latest          = INVALID_REG_INDEX;
-					family.physBlockSize = physBlockSize;
 					if (regs.count.shareds > 0)
 					{
 						family.hasDependency = true;
@@ -1013,6 +1014,7 @@ Result Allocator::onCycleReadPhase(unsigned int stateIndex)
         {
             // Get next family to allocate
 			COMMIT{ m_allocating = pop(m_alloc); }
+			DebugSimWrite("Allocating from F%u\n", m_allocating );
 			return SUCCESS;
         }
     }
@@ -1104,6 +1106,7 @@ Result Allocator::onCycleWritePhase(unsigned int stateIndex)
                 if (family.dependencies.allocationDone && m_allocating == fid)
                 {
                     // Go to next family
+                    DebugSimWrite("Done allocating from F%u\n", m_allocating);
                     COMMIT{ m_allocating = INVALID_LFID; }
                 }
             }
@@ -1131,6 +1134,7 @@ Result Allocator::onCycleWritePhase(unsigned int stateIndex)
             if (family.dependencies.numThreadsAllocated == family.physBlockSize || family.dependencies.allocationDone)
             {
                 // Yes, go to next family
+                DebugSimWrite("Done allocating from F%u\n", m_allocating);
                 COMMIT{ m_allocating = INVALID_LFID; }
             }
 			return SUCCESS;

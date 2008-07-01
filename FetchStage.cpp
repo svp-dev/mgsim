@@ -15,7 +15,6 @@ void Pipeline::FetchStage::clear(TID tid)
 
 Pipeline::PipeAction Pipeline::FetchStage::read()
 {
-	m_next = m_allocator.m_activeThreads.head;
     if (m_tid == INVALID_TID)
     {
         // Get the next active thread
