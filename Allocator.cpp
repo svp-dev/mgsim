@@ -931,11 +931,12 @@ void Allocator::InitializeFamily(LFID fid) const
         PID lastPID = (PID)(family.parent.pid + 1 + family.lastThread / family.virtBlockSize) % m_procNo;
         PID pid     = m_parent.getPID();
 
-        if (lastPID == family.parent.pid ||
+        if (!global ||
+            lastPID == family.parent.pid ||
             !((lastPID > family.parent.pid && (pid >= lastPID || pid <= family.parent.pid)) ||
               (lastPID < family.parent.pid && (pid >= lastPID && pid <= family.parent.pid))))
         {
-             // Ignore the pending count if we're not a CPU that will send or write a parent shared
+             // Ignore the pending count if we're not a CPU whose network will send or write a parent shared
             family.dependencies.numPendingShareds = 0;
         }
 	}
