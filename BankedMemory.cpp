@@ -1,18 +1,12 @@
 #include <cassert>
 #include <cmath>
 #include "BankedMemory.h"
-#include "functions.h"
 using namespace Simulator;
 using namespace std;
 
 BankedMemory::Bank::Bank()
-    : func(NULL), busy(false)
+    : busy(false)
 {
-}
-
-BankedMemory::Bank::~Bank()
-{
-    delete func;
 }
 
 void BankedMemory::Request::release()
@@ -47,11 +41,6 @@ void BankedMemory::registerListener(IMemoryCallback& callback)
 void BankedMemory::unregisterListener(IMemoryCallback& callback)
 {
     m_caches.erase(&callback);
-}
-
-size_t BankedMemory::GetQueueIndex(IMemoryCallback* callback)
-{
-    return m_portmap.insert(make_pair(callback, m_portmap.size())).first->second;
 }
 
 size_t BankedMemory::GetBankFromAddress(MemAddr address) const
@@ -92,7 +81,7 @@ Result BankedMemory::read(IMemoryCallback& callback, MemAddr address, void* data
         throw InvalidArgumentException("Size argument too big");
     }
     
-    Pipeline& queue = m_incoming[ GetQueueIndex(&callback) ];
+    Pipeline& queue = m_banks[ GetBankFromAddress(address) ].incoming;
 	if (m_config.bufferSize == INFINITE || queue.size() < m_config.bufferSize)
     {
         COMMIT
@@ -118,7 +107,7 @@ Result BankedMemory::write(IMemoryCallback& callback, MemAddr address, void* dat
         throw InvalidArgumentException("Size argument too big");
     }
 
-    Pipeline& queue = m_incoming[ GetQueueIndex(&callback) ];
+    Pipeline& queue = m_banks[ GetBankFromAddress(address) ].incoming;
     if (m_config.bufferSize == INFINITE || queue.size() < m_config.bufferSize)
     {
 		assert(tag.fid != INVALID_LFID);
@@ -169,13 +158,13 @@ bool BankedMemory::checkPermissions(MemAddr address, MemSize size, int access) c
 Result BankedMemory::onCycleWritePhase(unsigned int stateIndex)
 {
     CycleNo now = getKernel()->getCycleNo();
-    if (stateIndex < m_incoming.size() + m_outgoing.size())
+    if (stateIndex < 2 * m_banks.size())
     {
         // Process a queue
         bool incoming = (stateIndex % 2);
         int  index    = (stateIndex / 2);
-        vector<Pipeline>& queues = (incoming) ? m_incoming : m_outgoing;
-        Pipeline& queue = queues[index];
+        Bank&     bank  = m_banks[index];
+        Pipeline& queue = (incoming) ? bank.incoming : bank.outgoing;
     
         Pipeline::iterator p = queue.begin();
         if (p == queue.end())
@@ -186,14 +175,13 @@ Result BankedMemory::onCycleWritePhase(unsigned int stateIndex)
         
         if (p->first <= now)
         {
-            // This request has arrived, send it to a bank/cpu
+            // This request has arrived, process it
             Request& request = p->second;
     
             if (incoming)
             {
-                // Incoming pipeline, send it to a bank
-                Bank& bank = m_banks[ GetBankFromAddress(request.address) ];
-                if (bank.busy || !bank.func->invoke(index))
+                // Incoming pipeline, send it to the bank
+                if (bank.busy)
                 {
                     return FAILED;
                 }
@@ -227,7 +215,8 @@ Result BankedMemory::onCycleWritePhase(unsigned int stateIndex)
     else
     {
         // Process a bank
-        Bank& bank = m_banks[stateIndex - m_incoming.size() - m_outgoing.size()];
+        size_t index = stateIndex - 2 * m_banks.size();
+        Bank& bank = m_banks[index];
         if (!bank.busy)
         {
             // Nothing to do
@@ -246,8 +235,7 @@ Result BankedMemory::onCycleWritePhase(unsigned int stateIndex)
             // Move it to the outgoing queue
             COMMIT
             {
-                Pipeline& queue = m_outgoing[ GetQueueIndex(bank.request.callback) ];
-                AddRequest(queue, bank.request, !bank.request.write);
+                AddRequest(bank.outgoing, bank.request, !bank.request.write);
 
                 bank.busy = false;
             }
@@ -257,11 +245,7 @@ Result BankedMemory::onCycleWritePhase(unsigned int stateIndex)
 }
 
 BankedMemory::BankedMemory(Object* parent, Kernel& kernel, const std::string& name, const Config& config, size_t nProcs) :
-    IComponent(parent, kernel, name, 2 * nProcs + config.numBanks),
-    m_config(config), m_banks(config.numBanks), m_incoming(nProcs), m_outgoing(nProcs)
+    IComponent(parent, kernel, name, 3 * config.numBanks),
+    m_config(config), m_banks(config.numBanks)
 {
-    for (size_t i = 0; i < m_banks.size(); i++)
-    {
-        m_banks[i].func = new ArbitratedWriteFunction(kernel);
-    }
 }

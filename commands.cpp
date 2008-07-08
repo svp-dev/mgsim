@@ -130,32 +130,32 @@ static void cmd_parallelmem_requests(ParallelMemory* mem)
     cout << endl << endl;
 }
 
-static void print_bankedmem_pipelines(const vector<BankedMemory::Pipeline>& queues)
+static void print_bankedmem_pipelines(const vector<BankedMemory::Bank> banks, const BankedMemory::Pipeline BankedMemory::Bank::*queue)
 {
-    for (size_t i = 0; i < queues.size(); i++) {
+    for (size_t i = 0; i < banks.size(); i++) {
         cout << "    Done   | Address  | Size | CID  ";
     }
     cout << endl;
-    for (size_t i = 0; i < queues.size(); i++) {
+    for (size_t i = 0; i < banks.size(); i++) {
         cout << "-----------+----------+------+----- ";
     }
     cout << endl;
     
 	vector<BankedMemory::Pipeline::const_iterator> iters;
 	size_t length = 0;
-	for (size_t i = 0; i < queues.size(); i++)
+	for (size_t i = 0; i < banks.size(); i++)
 	{
-		iters.push_back(queues[i].begin());
-		length = max(length, queues[i].size());
+		iters.push_back((banks[i].*queue).begin());
+		length = max(length, (banks[i].*queue).size());
 	}
 
 	for (size_t y = 0; y < length; y++)
 	{
-		for (size_t x = 0; x < queues.size(); x++)
+		for (size_t x = 0; x < banks.size(); x++)
 		{
 			BankedMemory::Pipeline::const_iterator& p = iters[x];
 
-			if (p != queues[x].end())
+			if (p != (banks[x].*queue).end())
 			{
 				const BankedMemory::Request& req = p->second;
 
@@ -191,10 +191,11 @@ static void print_bankedmem_pipelines(const vector<BankedMemory::Pipeline>& queu
 
 static void cmd_bankedmem_requests(BankedMemory* mem)
 {
-    print_bankedmem_pipelines( mem->GetIncoming() );
+    const vector<BankedMemory::Bank>& banks = mem->GetBanks();
+
+    print_bankedmem_pipelines(banks, &BankedMemory::Bank::incoming);
     
     // Print the banks
-    const vector<BankedMemory::Bank>& banks = mem->GetBanks();
     for (size_t i = 0; i < banks.size(); i++) {
         cout << "    Done   | Address  | Size | CID  ";
     }
@@ -235,7 +236,7 @@ static void cmd_bankedmem_requests(BankedMemory* mem)
 	}
     cout << endl << endl;    
     
-    print_bankedmem_pipelines( mem->GetOutgoing() );
+    print_bankedmem_pipelines(banks, &BankedMemory::Bank::outgoing);
 }
 
 

@@ -6,7 +6,7 @@ def run_test(index, options):
     index = str(index)
     
     # Construct the argument list
-    args = [options.executable, "-c", options.config, "-p", str(index)]
+    args = ["nice", options.executable, "-c", options.config, "-p", str(index)]
 
     if options.overrides is not None:
         # Configuration overrides

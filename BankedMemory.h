@@ -41,26 +41,23 @@ public:
         ~Request();
     };
     
+    typedef std::multimap<CycleNo, Request> Pipeline;
+   
     struct Bank
     {
-        ArbitratedWriteFunction* func;
-        bool                     busy;
-        Request                  request;
-        CycleNo                  done;
+        bool     busy;
+        Request  request;
+        CycleNo  done;
+        Pipeline incoming;
+        Pipeline outgoing;
         
         Bank();
-        ~Bank();
     };
 
     BankedMemory(Object* parent, Kernel& kernel, const std::string& name, const Config& config, size_t nProcs);
     
-    typedef std::multimap<CycleNo, Request> Pipeline;
-   
-    const std::vector<Bank>&     GetBanks()    const { return m_banks; }
-    const std::vector<Pipeline>& GetIncoming() const { return m_incoming; }
-    const std::vector<Pipeline>& GetOutgoing() const { return m_outgoing; }
+    const std::vector<Bank>& GetBanks() const { return m_banks; }
 
-    size_t GetQueueIndex(IMemoryCallback* callback);
     size_t GetBankFromAddress(MemAddr address) const;
     
     // Component
@@ -83,10 +80,6 @@ private:
     std::vector<Bank>           m_banks;
     
     void AddRequest(Pipeline& queue, const Request& request, bool data);
-    
-    std::vector<Pipeline> m_incoming;
-    std::vector<Pipeline> m_outgoing;
-    std::map<IMemoryCallback*, size_t> m_portmap;
 };
 
 }
