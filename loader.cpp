@@ -93,9 +93,8 @@ static MemAddr LoadProgram(IMemoryAdmin* memory, void* _data, MemSize size, bool
 	{
 		if (phdr[i].p_type == PT_LOAD)
 		{
-			Verify(phdr[i].p_offset + phdr[i].p_filesz <= size, "file has an invalid segment");
-			Verify(phdr[i].p_memsz >= phdr[i].p_filesz,         "file has an invalid segment");
-
+  			Verify(phdr[i].p_memsz >= phdr[i].p_filesz, "file has an invalid segment");
+  			
 			int perm = 0;
 			if (phdr[i].p_flags & PF_R) perm |= IMemory::PERM_READ;
 			if (phdr[i].p_flags & PF_W) perm |= IMemory::PERM_WRITE;
@@ -103,6 +102,8 @@ static MemAddr LoadProgram(IMemoryAdmin* memory, void* _data, MemSize size, bool
 
 			if (phdr[i].p_filesz > 0)
 			{
+				Verify(phdr[i].p_offset + phdr[i].p_filesz <= size, "file has an invalid segment");
+
 				memory->write(phdr[i].p_vaddr, data + phdr[i].p_offset, phdr[i].p_filesz, perm);
 			}
 
