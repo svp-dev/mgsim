@@ -45,7 +45,12 @@ void BankedMemory::unregisterListener(IMemoryCallback& callback)
 
 size_t BankedMemory::GetBankFromAddress(MemAddr address) const
 {
-    return (address >> 6) % m_banks.size();
+    // We work on whole cache lines
+    address >>= 6;
+
+    uint64_t hash = (31 * address / m_banks.size() / 32);
+
+    return (hash + address) % m_banks.size();
 }
 
 void BankedMemory::AddRequest(Pipeline& queue, const Request& request, bool data)
