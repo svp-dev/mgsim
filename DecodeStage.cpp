@@ -194,6 +194,7 @@ Pipeline::PipeAction Pipeline::DecodeStage::write()
             m_output.Rc      = MAKE_REGADDR(RT_INTEGER, 31);
             break;
 
+        case IFORMAT_MISC:
         case IFORMAT_MEM_LOAD:
         case IFORMAT_MEM_STORE:
         {
@@ -279,7 +280,6 @@ Pipeline::PipeAction Pipeline::DecodeStage::write()
             m_output.Rc = MAKE_REGADDR(RT_INTEGER, 31);
 			break;
 
-        case IFORMAT_MISC:
         default:
             {
                 stringstream error;
