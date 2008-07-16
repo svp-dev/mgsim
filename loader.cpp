@@ -110,10 +110,10 @@ static MemAddr LoadProgram(IMemoryAdmin* memory, void* _data, MemSize size, bool
 			// Clear the difference between filesz and memsz
 			static const char zero[256] = {0};
 			Elf64_Xword size = phdr[i].p_memsz - phdr[i].p_filesz;
+    		Elf64_Addr  addr = phdr[i].p_vaddr + phdr[i].p_filesz;
 			while (size > 0)
 			{
 				Elf64_Xword num  = min(size, 256ULL);
-				Elf64_Addr addr = phdr[i].p_vaddr + phdr[i].p_filesz;
 				memory->write(addr, zero, num, perm);
 				size -= num;
 				addr += num;
