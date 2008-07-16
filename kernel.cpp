@@ -221,6 +221,7 @@ RunState Kernel::step(CycleNo cycles)
             }
         }
 
+        m_phase = PHASE_COMMIT;
         for (CallbackList::iterator i = m_callbacks.begin(); i != m_callbacks.end(); ++i)
         {
             i->first->UpdateStatistics();
