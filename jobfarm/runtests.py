@@ -79,7 +79,7 @@ def main(argv = None):
         return 1
         
     # Check hosts status
-    hosts = status.check_status(options.filename)
+    hosts = status.check_status(options.filename, options.executable)
     
     # Do distribution
     retval = 0

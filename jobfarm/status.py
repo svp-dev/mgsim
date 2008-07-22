@@ -13,7 +13,7 @@ def run_command(args):
     output = fd.read()
     return (fd.close(), output)
 
-def check_status(filename):
+def check_status(filename, executable):
     # Read hosts file
     try:
         hosts = readfile(filename)
@@ -21,6 +21,9 @@ def check_status(filename):
         print strerror
         sys.exit(1)
     
+    # Get the path of the load checker
+    listusers = os.path.abspath(sys.path[0]) + "/listusers.py"
+
     # Get our username
     username = run_command("whoami")[1].split("\n")[0].strip()
 
@@ -46,17 +49,12 @@ def check_status(filename):
             num_alive += 1
             
             # Get list of users logged in at the host
-            output = run_command(['rsh', host, 'who -q'])[1]
-            users = output.split('\n')[0].split(' ')
+            output = run_command(['rsh', host, listusers,executable])[1]
+            result = output.split('\n')[0].strip().split(' ')
 
             # Parse list and update statistics
-            user_present  = False
-            other_present = False
-            for user in users:
-                if user == username:
-                    user_present = True
-                elif user != '':
-                    other_present = True
+            user_present  = (result[0] != 'False')
+            other_present = (result[1] != 'False')
  
             if user_present:
                 if other_present:
