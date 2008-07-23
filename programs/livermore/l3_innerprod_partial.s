@@ -22,32 +22,28 @@ main:
     lda     $0, X($0)       !gprellow   # $0 = X
     ldah    $1, Y($29)      !gprelhigh
     lda     $1, Y($1)       !gprellow   # $1 = Y
-    clr     $5                          # $5 = sum = 0
     
     # Calculate N / #procs
-    getprocs $3
-    addl    $10, $3, $2
-    subl    $2, 1, $2
-    itoft   $2, $f0
+    itoft   $10, $f0
     cvtqt   $f0, $f0
     getinvprocs $f1
     mult    $f0, $f1, $f0
     cvttq   $f0, $f0; swch
-    ftoit   $f0, $2                     # $2 = normal_size = ceil(N / #procs)
+    ftoit   $f0, $2                     # $2 = normal_size = floor(N / #procs)
     
-    # Calculate last index
-    subl    $3,  1, $3
-    mull    $2, $3, $3                  # $3 = last_index = normal_size * (#procs - 1)
+    # Family runs from [0 ... #procs - 1]
+    allocate $5
+    getprocs $3
+    subq     $3, 1, $4
+    setlimit $5, $4
     
-    # Calculate last size
-    subl    $10, $3, $4                 # $4 = last_size = N - last_index
+    # Calculate #procs that does one more
+    mull    $2,  $3, $3
+    subl    $10, $3, $3                 # $3 = num_more = N % #procs = N - normal_size * #procs
     
-    allocate $6
-    setlimit $6, $3
-    setstep  $6, $2
-    cred    $6, outer
-
-    mov     $6, $31
+    clr     $4                          # $4 = sum = 0
+    cred    $5, outer
+    mov     $5, $31
     end
     .end main
 
@@ -57,24 +53,26 @@ main:
 # $g0 = X
 # $g1 = Y
 # $g2 = normal_size
-# $g3 = last_index
-# $g4 = last_size
+# $g3 = num_more
 # $d0 = sum
-# $l0 = i
+# $l0 = i (0.. #procs - 1)
     .globl outer
     .ent outer
 outer:
-    .registers 5 1 4 0 0 0
-    allocate $l3
-    setstart $l3, $l0
-
-    mov     $g2, $l1
-    subq    $g3, $l0, $l2
-    cmoveq  $l2, $g4, $l1   # $l1 = size = (i == last_index) ? last_size : normal_size    
-    addq    $l0, $l1, $l0
-    subq    $l0,   1, $l0   # $l0 = i + size - 1
+    .registers 4 1 4 0 0 0
+    mulq    $l0, $g2, $l1       # $l1 = start
+    addq    $g2,   1, $l2       # $l2 = more_size = normal_size + 1
     
-    setlimit $l3, $l0
+    subq    $l0, $g3, $l3
+    cmovgt  $l3, $g3, $l0       # $l0 = min(i, num_more)
+    addq    $l1, $l0, $l1       # $l1 = actual start (accounting for +1)
+    cmovge  $l3, $g2, $l2       # $l2 = actual size  (accounting for +1)
+    addq    $l1, $l2, $l2
+    subq    $l2,   1, $l2       # $l2 = limit
+    
+    allocate $l3
+    setstart $l3, $l1
+    setlimit $l3, $l2
     setplace $l3, 0     # Local family
     
     mov     $g0, $l0
@@ -82,7 +80,6 @@ outer:
     clr     $l2
     cred    $l3, loop
     mov     $l3, $31; swch
-    debug   $l2
     addl    $d0, $l2, $s0
     end
     .end outer
@@ -103,7 +100,6 @@ loop:
     s4addq $l0, $g0, $l0
     ldl $l0, 0($l0)
     mull $l0, $l1, $l0; swch
-    debug $l0
     addq $d0, $l0, $s0
     end
     .end loop

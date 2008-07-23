@@ -110,6 +110,7 @@ Result Network::onSharedReceived(const SharedInfo& sharedInfo)
 
 bool Network::onThreadCleanedUp(GFID fid)
 {
+    assert(fid != INVALID_GFID);
     if (m_cleanedUpThread.empty())
     {
 		DebugSimWrite("Received OnThreadCleanup\n");
@@ -121,6 +122,7 @@ bool Network::onThreadCleanedUp(GFID fid)
 
 bool Network::onThreadCompleted(GFID fid)
 {
+    assert(fid != INVALID_GFID);
     if (m_completedThread.empty())
     {
 		DebugSimWrite("Received OnThreadCompleted\n");
@@ -132,6 +134,7 @@ bool Network::onThreadCompleted(GFID fid)
 
 bool Network::onFamilyCompleted(GFID fid)
 {
+    assert(fid != INVALID_GFID);
     if (m_completedFamily.empty())
     {
 		DebugSimWrite("Received OnFamilyCompleted\n");
@@ -407,7 +410,7 @@ Result Network::onCycleWritePhase(unsigned int stateIndex)
         if (m_sharedResponse.fid != INVALID_GFID && m_sharedResponse.value.m_state == RST_FULL)
         {
             // Response
-			DebugProgWrite("Sending shared %s for G%u; parent: %d\n", m_sharedResponse.addr.str().c_str(), m_sharedResponse.fid, m_sharedResponse.parent);
+			DebugSimWrite("Sending shared %s for G%u; parent: %d\n", m_sharedResponse.addr.str().c_str(), m_sharedResponse.fid, m_sharedResponse.parent);
 			Result res = m_next->onSharedReceived(m_sharedResponse);
 			if (res == FAILED)
             {

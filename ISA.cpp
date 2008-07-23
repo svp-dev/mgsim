@@ -148,14 +148,14 @@ bool Pipeline::ExecuteStage::execINTL(RegValue& Rcv, const RegValue& Rav, const 
         case A_INTLFUNC_EQV:   Rc = Ra ^ ~Rb; break;
 
         // Conditional move
-        case A_INTLFUNC_CMOVEQ:  if (Ra == 0) Rc = Rb; else Rcv.m_state = RST_INVALID; break;
-        case A_INTLFUNC_CMOVNE:  if (Ra != 0) Rc = Rb; else Rcv.m_state = RST_INVALID; break;
-        case A_INTLFUNC_CMOVLT:  if (Ra <  0) Rc = Rb; else Rcv.m_state = RST_INVALID; break;
-        case A_INTLFUNC_CMOVGE:  if (Ra >= 0) Rc = Rb; else Rcv.m_state = RST_INVALID; break;
-        case A_INTLFUNC_CMOVLE:  if (Ra <= 0) Rc = Rb; else Rcv.m_state = RST_INVALID; break;
-        case A_INTLFUNC_CMOVGT:  if (Ra >  0) Rc = Rb; else Rcv.m_state = RST_INVALID; break;
-        case A_INTLFUNC_CMOVLBS: if ( Ra & 1) Rc = Rb; else Rcv.m_state = RST_INVALID; break;
-        case A_INTLFUNC_CMOVLBC: if (~Ra & 1) Rc = Rb; else Rcv.m_state = RST_INVALID; break;
+        case A_INTLFUNC_CMOVEQ:  if ((int64_t)Ra == 0) Rc = Rb; else Rcv.m_state = RST_INVALID; break;
+        case A_INTLFUNC_CMOVNE:  if ((int64_t)Ra != 0) Rc = Rb; else Rcv.m_state = RST_INVALID; break;
+        case A_INTLFUNC_CMOVLT:  if ((int64_t)Ra <  0) Rc = Rb; else Rcv.m_state = RST_INVALID; break;
+        case A_INTLFUNC_CMOVGE:  if ((int64_t)Ra >= 0) Rc = Rb; else Rcv.m_state = RST_INVALID; break;
+        case A_INTLFUNC_CMOVLE:  if ((int64_t)Ra <= 0) Rc = Rb; else Rcv.m_state = RST_INVALID; break;
+        case A_INTLFUNC_CMOVGT:  if ((int64_t)Ra >  0) Rc = Rb; else Rcv.m_state = RST_INVALID; break;
+        case A_INTLFUNC_CMOVLBS: if ( Ra & 1)          Rc = Rb; else Rcv.m_state = RST_INVALID; break;
+        case A_INTLFUNC_CMOVLBC: if (~Ra & 1)          Rc = Rb; else Rcv.m_state = RST_INVALID; break;
 
         // Misc functions
         case A_INTLFUNC_IMPLVER: Rc = IMPLVER_EV6; break; // We simulate an EV6 ISA
