@@ -1,4 +1,4 @@
-import optparse, sys, os, re
+import optparse, sys, os, re, popen2
 
 # Reads the complete file
 def readfile(name):
@@ -9,9 +9,11 @@ def readfile(name):
     
 # Runs a command like the backtick operator
 def run_command(args):
-    fd = os.popen(" ".join(args),"r");
-    output = fd.read()
-    return (fd.close(), output)
+	p = popen2.Popen4(" ".join(args))
+	p.tochild.close()
+	output = p.fromchild.read()
+	p.fromchild.close()
+	return (p.wait(), output)
 
 def check_status(filename, executable):
     # Read hosts file
@@ -25,7 +27,7 @@ def check_status(filename, executable):
     listusers = os.path.abspath(sys.path[0]) + "/listusers.py"
 
     # Get our username
-    username = run_command("whoami")[1].split("\n")[0].strip()
+    username = run_command(["whoami"])[1].split("\n")[0].strip()
 
     num_idle      = 0
     num_used      = 0
@@ -42,29 +44,30 @@ def check_status(filename, executable):
         host = host.strip()
 
         # Check if host is alive
-        status = run_command(['ping','-q','-W','1','-c','1', host])[0];
-        
-        if status == None:
-            # Host is alive
-            num_alive += 1
-            
+        if run_command(['ping','-q','-W','1','-c','1', host])[0] == 0:
             # Get list of users logged in at the host
-            output = run_command(['rsh', host, listusers,executable])[1]
-            result = output.split('\n')[0].strip().split(' ')
-
-            # Parse list and update statistics
-            user_present  = (result[0] != 'False')
-            other_present = (result[1] != 'False')
- 
-            if user_present:
-                if other_present:
-                    num_obtruding += 1
-                num_running += 1
-            elif other_present:
-                num_used += 1
-            else:
-                num_idle += 1
-                idle_hosts.append(host)
+            output = run_command(['rsh', host, listusers,executable])
+            if output[0] == 0:
+                result = output[1].split('\n')[0].strip().split(' ')
+                try:
+                    # Parse list and update statistics
+                    user_present  = result[0] == 'True'   # Conservative
+                    other_present = result[1] != 'False'  # Liberal
+                    
+                    # Host is alive
+                    num_alive += 1
+                    
+                    if user_present:
+                        if other_present:
+                            num_obtruding += 1
+                        num_running += 1
+                    elif other_present:
+                        num_used += 1
+                    else:
+                        num_idle += 1
+                    idle_hosts.append(host)
+                except:
+                    num_alive = num_alive   # Do nothing
 
     # Report!
     print "%d hosts alive, of which" % num_alive

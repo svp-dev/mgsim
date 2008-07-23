@@ -47,7 +47,8 @@ def run_test(index, options):
     p.fromchild.close()
     for line in output:
         print "[%s] %s" % (hostname, line)
-    
+    sys.stdout.flush()
+        
     return retval
 
 def main(argv = None):
