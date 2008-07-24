@@ -161,7 +161,7 @@ public:
 	    uint64_t amin   = numeric_limits<uint64_t>::max();
 	    CycleNo cycles = m_kernel.getCycleNo();
         for (PSize i = 0; i < m_numProcs; i++) {
-            float a = m_procs[i]->GetTotalActiveQueueSize() / cycles;
+            float a = (float)m_procs[i]->GetTotalActiveQueueSize() / cycles;
 			amax    = max(amax, m_procs[i]->GetMaxActiveQueueSize() );
 			amin    = min(amin, m_procs[i]->GetMinActiveQueueSize() );
 			avg += a;
@@ -176,7 +176,7 @@ public:
 	    uint64_t amax   = 0;
 	    uint64_t amin   = numeric_limits<uint64_t>::max();
         for (PSize i = 0; i < m_numProcs; i++) {
-            float a = m_procs[i]->GetAvgPipelineIdleTime();
+            float a = (float)m_procs[i]->GetAvgPipelineIdleTime();
 			amax    = max(amax, m_procs[i]->GetMaxPipelineIdleTime() );
 			amin    = min(amin, m_procs[i]->GetMinPipelineIdleTime() );
 			avg += a;

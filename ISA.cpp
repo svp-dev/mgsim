@@ -588,8 +588,8 @@ bool Pipeline::ExecuteStage::execFPTI(RegValue& Rcv, const RegValue& Rav, const 
 		// Pixel error
 	    case A_FPTIFUNC_PERR:
 	        for (int i = 0; i < 64; i += 8) {
-	            uint8_t a = BITS(Rav.m_integer, i, 8);
-	            uint8_t b = BITS(Rbv.m_integer, i, 8);
+	            uint8_t a = (uint8_t)BITS(Rav.m_integer, i, 8);
+	            uint8_t b = (uint8_t)BITS(Rbv.m_integer, i, 8);
 	            Rcv.m_integer += (a >= b ? a - b : b - a);
 	        }
 	        break;

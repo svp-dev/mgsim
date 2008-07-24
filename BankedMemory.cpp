@@ -50,14 +50,14 @@ size_t BankedMemory::GetBankFromAddress(MemAddr address) const
 
     uint64_t hash = (31 * address / m_banks.size() / 32);
 
-    return (hash + address) % m_banks.size();
+    return (size_t)((hash + address) % m_banks.size());
 }
 
 void BankedMemory::AddRequest(Pipeline& queue, const Request& request, bool data)
 {
     // Get the initial delay, independent of message size
     CycleNo now  = getKernel()->getCycleNo();
-    CycleNo done = now + (CycleNo)log2(m_banks.size());
+    CycleNo done = now + (CycleNo)(log((double)m_banks.size()) / log(2.0));
     
     Pipeline::reverse_iterator p = queue.rbegin();
     if (p != queue.rend() && done < p->first)
@@ -166,7 +166,7 @@ Result BankedMemory::onCycleWritePhase(unsigned int stateIndex)
     if (stateIndex < 2 * m_banks.size())
     {
         // Process a queue
-        bool incoming = (stateIndex % 2);
+        bool incoming = (stateIndex % 2) != 0;
         int  index    = (stateIndex / 2);
         Bank&     bank  = m_banks[index];
         Pipeline& queue = (incoming) ? bank.incoming : bank.outgoing;
@@ -250,7 +250,7 @@ Result BankedMemory::onCycleWritePhase(unsigned int stateIndex)
 }
 
 BankedMemory::BankedMemory(Object* parent, Kernel& kernel, const std::string& name, const Config& config, size_t nProcs) :
-    IComponent(parent, kernel, name, 3 * config.numBanks),
+    IComponent(parent, kernel, name, (unsigned int)(3 * config.numBanks) ),
     m_config(config), m_banks(config.numBanks)
 {
 }
