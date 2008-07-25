@@ -1,6 +1,8 @@
 #include <cassert>
 #include <algorithm>
 #include <cstdarg>
+#include <iostream>
+#include <iomanip>
 #include <set>
 #include <map>
 #include "kernel.h"
@@ -50,8 +52,8 @@ void Object::OutputWrite(const char* msg, ...) const
         va_list args;
 
         string name = getFQN();
-        transform(name.begin(), name.end(), name.begin(), toupper);
-        printf("[%08lld:%s] ", m_kernel->getCycleNo(), name.c_str());
+        transform(name.begin(), name.end(), name.begin(), ::toupper);
+        cout << "[" << setfill('0') << setw(8) << m_kernel->getCycleNo() << ":" << name << "] ";
 
         va_start(args, msg);
         vprintf(msg, args);
@@ -66,8 +68,8 @@ void Object::DebugSimWrite(const char* msg, ...) const
         va_list args;
 
         string name = getFQN();
-        transform(name.begin(), name.end(), name.begin(), toupper);
-        printf("[%08lld:%s] ", m_kernel->getCycleNo(), name.c_str());
+        transform(name.begin(), name.end(), name.begin(), ::toupper);
+        cout << "[" << setfill('0') << setw(8) << m_kernel->getCycleNo() << ":" << name << "] ";
 
         va_start(args, msg);
         vprintf(msg, args);
@@ -82,8 +84,8 @@ void Object::DebugProgWrite(const char* msg, ...) const
         va_list args;
 
         string name = getFQN();
-        transform(name.begin(), name.end(), name.begin(), toupper);
-        printf("[%08lld:%s] ", m_kernel->getCycleNo(), name.c_str());
+        transform(name.begin(), name.end(), name.begin(), ::toupper);
+        cout << "[" << setfill('0') << setw(8) << m_kernel->getCycleNo() << ":" << name << "] ";
 
         va_start(args, msg);
         vprintf(msg, args);

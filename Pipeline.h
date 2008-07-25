@@ -315,9 +315,9 @@ public:
     
     uint64_t GetMaxIdleTime() const { return m_maxPipelineIdleTime; }
     uint64_t GetMinIdleTime() const { return m_minPipelineIdleTime; }
-    uint64_t GetAvgIdleTime() const { return m_totalPipelineIdleTime / std::max(1ULL, m_pipelineIdleEvents); }
+    uint64_t GetAvgIdleTime() const { return m_totalPipelineIdleTime / std::max<uint64_t>(1ULL, m_pipelineIdleEvents); }
     
-    float    GetEfficiency() const { return (float)m_nStagesRun / NUM_STAGES / std::max(1ULL, m_pipelineBusyTime); }
+    float    GetEfficiency() const { return (float)m_nStagesRun / NUM_STAGES / std::max<uint64_t>(1ULL, m_pipelineBusyTime); }
 
     uint64_t getFlop() const { return m_execute.getFlop(); }
     uint64_t getOp()   const { return m_execute.getOp(); }
