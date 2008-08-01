@@ -29,12 +29,12 @@ def check_status(filename, executable):
     # Get our username
     username = run_command(["whoami"])[1].split("\n")[0].strip()
 
-    num_idle      = 0
-    num_used      = 0
-    num_running   = 0
-    num_obtruding = 0
-    num_alive     = 0
-    idle_hosts    = []
+    alive      = []
+    idle       = []
+    used       = []
+    dead       = []
+    running    = []
+    obtruding  = []
     
     # Check all the hosts
     print "Checking %d hosts... " % len(hosts),
@@ -55,24 +55,28 @@ def check_status(filename, executable):
                     other_present = result[1] != 'False'  # Liberal
                     
                     # Host is alive
-                    num_alive += 1
+                    alive.append(host)
                     
                     if user_present:
                         if other_present:
-                            num_obtruding += 1
-                        num_running += 1
+                            obtruding.append(host)
+                        running.append(host)
                     elif other_present:
-                        num_used += 1
+                        used.append(host)
                     else:
-                        num_idle += 1
-                    idle_hosts.append(host)
+                        idle.append(host)
+                    host = ''
                 except:
-                    num_alive = num_alive   # Do nothing
+                    host = host # Do nothing
+
+        if host != "":
+            # Host is dead or not responding properly
+            dead.append(host)
 
     # Report!
-    print "%d hosts alive, of which" % num_alive
-    print "* %3d hosts running simulations (%d obtruding)" % (num_running, num_obtruding)
-    print "* %3d hosts in use" % num_used
-    print "* %3d hosts idle" % num_idle
+    print "%d hosts alive; %d hosts dead: %s" % (len(alive), len(dead), " ".join(dead))
+    print "* %3d hosts running simulations; %d obtruding: %s" % (len(running), len(obtruding), " ".join(obtruding))
+    print "* %3d hosts in use: %s" % (len(used), " ".join(used))
+    print "* %3d hosts idle" % len(idle)
     
-    return idle_hosts
+    return idle

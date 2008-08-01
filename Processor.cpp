@@ -9,6 +9,7 @@ using namespace std;
 Processor::Processor(Object* parent, Kernel& kernel, PID pid, PSize numProcs, const std::string& name, IMemory& memory, const Config& config, MemAddr runAddress, bool legacy)
 :   IComponent(parent, kernel, name, 0),
     m_pid(pid), m_kernel(kernel), m_memory(memory), m_numProcs(numProcs),
+    m_localFamilyCompletion(0),
 	m_allocator   (*this, "alloc",    m_familyTable, m_threadTable, m_registerFile, m_raunit, m_icache, m_network, m_pipeline, numProcs, config.allocator),
     m_icache      (*this, "icache",   m_allocator, config.icache),
     m_dcache      (*this, "dcache",   m_allocator, m_familyTable, m_registerFile, config.dcache),
@@ -93,4 +94,13 @@ bool Processor::onMemoryWriteCompleted(const MemTag& tag)
 bool Processor::onMemorySnooped(MemAddr addr, const MemData& data)
 {
 	return m_dcache.onMemorySnooped(addr, data);
+}
+
+void Processor::OnFamilyTerminatedLocally(MemAddr pc)
+{
+    if (pc == 0x88)
+    {
+        CycleNo cycle = getKernel().getCycleNo();
+        m_localFamilyCompletion = cycle;
+    }
 }

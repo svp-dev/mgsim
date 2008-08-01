@@ -282,7 +282,7 @@ bool Allocator::KillThread(TID tid)
     }
 
     DebugSimWrite("Killed thread T%u\n", tid);
-
+    
     COMMIT
     {
         thread.cid    = INVALID_CID;
@@ -636,7 +636,16 @@ bool Allocator::DecreaseFamilyDependency(LFID fid, FamilyDependency dep)
         if (deps->numThreadsAllocated == 0 && deps->allocationDone)
         {
             // It's considered 'killed' when all threads have gone
-            COMMIT{ family.state = FST_KILLED; }
+            COMMIT{
+                family.state = FST_KILLED;
+                
+                if (family.members.head != INVALID_TID)
+                {
+                    // We executed threads, so notify CPU of family termination (for statistics).
+                    // The Family PC identifies the thread.
+                    m_parent.OnFamilyTerminatedLocally(family.pc);
+                }
+            }
         }
 
     case FAMDEP_PREV_TERMINATED:
@@ -1286,6 +1295,10 @@ Result Allocator::onCycleWritePhase(unsigned int stateIndex)
     				m_createState = CREATE_INITIAL;
     			}
             }
+            else
+            {
+                return DELAYED;
+            }
 		    return SUCCESS;
 		}
         break;
@@ -1383,9 +1396,9 @@ bool Allocator::queueCreate(LFID fid, MemAddr address, TID parent, RegAddr exitC
 				lastInBlock = UINT64_MAX;
 			}
 		}
-		family.virtBlockSize = (TSize)min(min(family.lastThread, lastInBlock), (uint64_t)m_threadTable.getNumThreads() - 1) + 1;
+		family.virtBlockSize = (TSize)max(min(min(family.lastThread, lastInBlock), (uint64_t)m_threadTable.getNumThreads() - 1), (uint64_t)1);
 
-		// Lock the family
+		// Lock the family~
 		family.created = true;
 
 		// Push the create

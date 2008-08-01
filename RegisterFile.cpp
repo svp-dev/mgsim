@@ -93,11 +93,6 @@ bool RegisterFile::writeRegister(const RegAddr& addr, RegValue& data, const ICom
         throw InvalidArgumentException("A component attempted to write to a non-existing register");
     }
     
-    if (addr.index == 258)
-    {
-        DebugSimWrite("YO");
-    }
-
 	// Note that nothing can write Empty registers
 	assert(data.m_state == RST_PENDING || data.m_state == RST_WAITING || data.m_state == RST_FULL);
 

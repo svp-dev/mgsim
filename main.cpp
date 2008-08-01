@@ -188,6 +188,21 @@ public:
     		cout << avg << " " << amin << " " << amax;
     	}
 	}
+	
+	void PrintFamilyCompletions() const
+	{
+	    CycleNo first = UINT64_MAX;
+	    CycleNo last  = 0;
+        for (PSize i = 0; i < m_numProcs; i++) {
+            CycleNo cycle = m_procs[i]->GetLocalFamilyCompletion();
+            if (cycle != 0)
+            {
+                first = min(first, cycle);
+                last  = max(last,  cycle);
+            }
+        }
+        cout << first << " " << last;
+	}
 
 	const Kernel& getKernel() const { return m_kernel; }
           Kernel& getKernel()       { return m_kernel; }
@@ -381,7 +396,7 @@ static AlphaCMPSystem::Config ParseConfig(const Config& configfile)
     config.memory.sizeOfLine      = configfile.getInteger<size_t>("MemorySizeOfLine", 8);
     config.memory.bufferSize      = configfile.getInteger<BufferSize>("MemoryBufferSize", INFINITE);
     //config.memory.width         = configfile.getInteger<size_t>("MemoryParallelRequests", 1);
-    config.memory.numBanks        = configfile.getInteger<size_t>("MemoryBanks", config.numProcessors);
+    config.memory.numBanks        = configfile.getInteger<size_t>("MemoryBanks", config.numProcessors * 2);
 
 	config.processor.dcache.lineSize           = 
 	config.processor.icache.lineSize           = configfile.getInteger<size_t>("CacheLineSize",    64);
@@ -646,6 +661,8 @@ int main(int argc, const char* argv[])
 			sys.PrintPipelineIdleTime();
 			cout << " ; ";
 			sys.PrintPipelineEfficiency();
+			cout << " ; ";
+			sys.PrintFamilyCompletions();
 			cout << endl;
         }
         else

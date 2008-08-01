@@ -55,9 +55,13 @@ public:
 	
 	float GetPipelineEfficiency() const { return m_pipeline.GetEfficiency(); }
 	
+	CycleNo GetLocalFamilyCompletion() const { return m_localFamilyCompletion; }
+	
 	void writeRegister(const RegAddr& addr, const RegValue& value) {
 		m_registerFile.writeRegister(addr, value);
 	}
+	
+	void OnFamilyTerminatedLocally(MemAddr pc);
 
 	// All memory requests from caches go through the processor.
 	// No memory callback specified, the processor will use the tag to determine where it came from.
@@ -70,6 +74,9 @@ private:
     Kernel&     m_kernel;
 	IMemory&	m_memory;
 	PSize       m_numProcs;
+	
+	// Statistics
+	CycleNo m_localFamilyCompletion;
 
     // IMemoryCallback
     bool onMemoryReadCompleted(const MemData& data);

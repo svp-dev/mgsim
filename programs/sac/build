@@ -1,0 +1,24 @@
+#!/bin/bash
+if [ $# -ne 2 ]
+then
+    echo "Expected two arguments (N, D)"
+    exit 1
+fi
+
+# Arguments: base method N D
+function build_program
+{
+    cp $1.s tmp.s && \
+    ./generate_matrix.py $2 $3 $4 >> tmp.s && \
+    ../gas -o tmp.o tmp.s && \
+    ../ld -o ../$1_$2.bin -Ttext 0 -e main tmp.o
+    rm -f tmp.s tmp.o
+}
+
+for p in `ls sac_*.s | sed 's/\.s//'`
+do
+    for m in 'random' 'plane'
+    do
+        build_program $p $m $1 $2
+    done
+done
