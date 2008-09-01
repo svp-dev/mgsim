@@ -88,12 +88,13 @@ void VirtualMemory::write(MemAddr address, const void* _data, MemSize size, int 
 			// A new element was inserted, allocate and set memory
 			pos->second.data        = new char[BLOCK_SIZE];
 			pos->second.permissions = perm;
+			memset(pos->second.data, 0xCD, BLOCK_SIZE);
 		}
 		
-		// Number of bytes to read, initially
+		// Number of bytes to write, initially
 		size_t count = min( (size_t)size, (size_t)BLOCK_SIZE - offset);
 
-		// Read data
+		// Write data
 		memcpy(pos->second.data + offset, data, count);
 		size  -= count;
 		data  += count;
