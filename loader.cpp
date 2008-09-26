@@ -42,13 +42,13 @@ static MemAddr LoadProgram(IMemoryAdmin* memory, void* _data, MemSize size, bool
 		ehdr.e_ident[EI_MAG0] != ELFMAG0 || ehdr.e_ident[EI_MAG1] != ELFMAG1 ||
 		ehdr.e_ident[EI_MAG2] != ELFMAG2 || ehdr.e_ident[EI_MAG3] != ELFMAG3)
 	{
-		// Not an ELF file, load as flat binary, starts at address 0
+		// Not an ELF file, load as flat binary, starts at address 4 (past control word)
 		if (!quiet)
 		{
     		cout << "Loaded flat binary to address 0" << endl;
     	}
 		memory->write(0, data, size, IMemory::PERM_READ | IMemory::PERM_WRITE | IMemory::PERM_EXECUTE);
-		return 0;
+		return 4;
 	}
 
 	// Check that this file is for our 'architecture'
@@ -56,7 +56,7 @@ static MemAddr LoadProgram(IMemoryAdmin* memory, void* _data, MemSize size, bool
 	Verify(ehdr.e_ident[EI_DATA]    == ELFDATA2LSB, "file is not little-endian");
 	Verify(ehdr.e_ident[EI_VERSION] == EV_CURRENT,  "ELF version mismatch");
 	Verify(ehdr.e_type              == ET_EXEC,     "file is not an executable file");
-	Verify(ehdr.e_machine           == EM_ALPHA,    "target architecture is not Alpha");
+	Verify(ehdr.e_machine           == EM_MTALPHA,  "target architecture is not Microthread Alpha");
 	Verify(ehdr.e_phoff != 0 && ehdr.e_phnum != 0, "file has no program header");
 	Verify(ehdr.e_phentsize == sizeof(Elf64_Phdr),  "file has an invalid program header");
 	Verify(ehdr.e_phoff + ehdr.e_phnum * ehdr.e_phentsize <= size, "file has an invalid program header");

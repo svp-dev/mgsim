@@ -91,6 +91,7 @@ static const Elf64_Half EM_68HC12      = 53; // Motorola M68HC12
 
 // unofficial EM_* values
 static const Elf64_Half EM_ALPHA       = 0x9026; // Alpha
+static const Elf64_Half EM_MTALPHA     = 0xAFEF; // Microthread Alpha
 
 // File header
 struct Elf64_Ehdr

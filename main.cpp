@@ -278,13 +278,11 @@ public:
        
         if (m_numProcs > 0)
         {
-			if (legacy)
-			{
-				RegValue value;
-				value.m_state   = RST_FULL;
-				value.m_integer = entry;
-				m_procs[0]->writeRegister(MAKE_REGADDR(RT_INTEGER, 27), value);
-			}
+            // Write r27 with entry point address
+        	RegValue value;
+			value.m_state   = RST_FULL;
+			value.m_integer = entry;
+			m_procs[0]->writeRegister(MAKE_REGADDR(RT_INTEGER, 27), value);
 
 	        // Fill initial registers
 	        for (size_t i = 0; i < regs.size(); i++)

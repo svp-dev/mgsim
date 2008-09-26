@@ -1,0 +1,72 @@
+ Building programs for use with the simulator
+==============================================
+
+The MicroGrid simulator can load binary executables in the flat binary format
+as well as the ELF format. To assemble and link assembly files into a
+microthread-compatible binary format, use the special binutils release.
+
+ 1. Setting up binutils
+------------------------
+Unpack the microthread-binutils source (which you should have obtained
+seperately from the simulator) into (e.g.) ~/binutils-mtalpha.
+Then, in ~/binutils-mtalpha, do:
+
+  ./configure --target=mtalpha-linux-gnu
+  make
+  
+This will build the binutils for the Microthread Alpha target. The main tools
+of interest are gas/as-new and ld/ld-new, although binutils/objdump and
+binutils/readelf may be helpful too.
+
+You may want to create symbolic links to as-new (as "gas") and ld-new (as "ld")
+in the directory where you will using them.
+
+ 2. Build a program
+--------------------
+As example in this chapter, the FFT program will be used.
+
+First make sure that the assembly file doesn't need to be generated or if it
+depends on external dependencies such as include files, e.g.:
+
+  cd fft
+  ./generate_lookup
+  cd ..
+
+Use the newly built GNU assembler to assemble an assembly file, e.g.:
+
+  ./gas -o fft.o -I fft fft/fft_mt_o.s
+
+In many cases, there are many variants of the same program. fft_mt_o.s, for
+instance, indicates an Optimized MicroThreaded FFT program.
+
+Now use the GNU linker to link the single object file into an executable file,
+e.g.:
+
+  ./ld -o fft.bin -Ttext 0 -e main fft.o
+  
+We put the .text segment at address 0 and set the entry point to the symbol
+"main". Note that for ELF binaries, the entry point doesn't have to be at the
+start of the assembly file.
+
+ 3. Run the program
+--------------------
+Now run the simulator by providing this program:
+
+  ../MGSim -c config.ini -R10 8 fft.bin
+
+"-c config.ini" specifies the configuration file, "-R10 8" writes the value
+8 into register #10 and "fft.bin" specifies the program file. The FFT program
+expects the log2 of the array in r10 when it starts. So in this case, the FFT
+of a 256-element array is calculated.
+
+The output will contain various statistics:
+* The cycle count.
+* Number of int and float instructions executed, respectively.
+* Average, min and max of the Register File Pressure.
+* Average, min and max of the Active Queue Size.
+* Average, min and max of the Pipeline Idle Time.
+* Average, min and max of the Pipeline Efficiency.
+
+For exact details on these statistics, consult the code (main.cpp). A better
+statistics interface will come in the future. For now, all statistics are
+hardcoded.
