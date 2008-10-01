@@ -73,11 +73,14 @@ thread void t_main(shared int exit_code, int argc, char *argv[])
 thread void fibo_report(int i, int p1, int p2, int res) {
 
   char *str;
+  char *p;
   int n;
 
-  UTSYS_ALLOC(150, str);
+  UTSYS_ALLOC(150, p);
 
-  ASSERT(str != 0);
+  ASSERT(p != 0);
+
+  str = p;
 
   create(fam;;1;1;1;0;) strcat(str, "The ");  sync(fam);
   create(fam;;1;1;1;0;) str_print_int(str, n = i);  sync(fam);
@@ -89,7 +92,7 @@ thread void fibo_report(int i, int p1, int p2, int res) {
   create(fam;;1;1;1;0;) str_print_int(str, n = res); sync(fam);
   create(fam;;1;1;1;0;) strcat(str, "\n");  sync(fam);
 
-  UTIO_PUTS(str);
+  UTIO_PUTS(p);
 
-  UTSYS_FREE(str);
+  UTSYS_FREE(p);
 }

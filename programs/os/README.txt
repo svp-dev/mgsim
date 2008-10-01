@@ -16,9 +16,9 @@ To use proceed as follows:
 - write a regular uTC program (e.g. example/fibonacci.ut.c). This can
   use the include files in <utos/...> and <utlib/...>
 
-- compile the program
+- compile the program (don't forget -I<simulator>/programs/os/include)
 
-- compile all the sources for the OS
+- compile all the sources for the OS (also don't forget -I...)
 
 - link everything together, ensuring that a symbol __heap_start is
   added at the end of the executable by the linker (this needs a link
