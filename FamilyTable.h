@@ -35,7 +35,7 @@ struct Family
     MemAddr      pc;             // Initial PC for newly created threads
 	bool         legacy;		 // Consists of a single thread of legacy code?
 	bool         created;	     // Has the family entry been used in a create yet?
-    TSize        virtBlockSize;  // Virtual block size, calculated from start, end and step
+    uint64_t     virtBlockSize;  // Virtual block size
     TSize        physBlockSize;  // Physical block size, <= Virtual block size, depending on the amount of free registers
     int64_t      start;          // Start index of the family
     int64_t      step;           // Step size of the family

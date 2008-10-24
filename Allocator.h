@@ -95,6 +95,7 @@ public:
     bool killFamily(LFID fid, ExitCode code, RegValue value);
 	Result AllocateFamily(TID parent, RegIndex reg, LFID* fid);
 	LFID AllocateFamily(const CreateMessage& msg);
+	GFID SanitizeFamily(Family& family, bool hasDependency);
 	bool ActivateFamily(LFID fid);
     bool queueCreate(LFID fid, MemAddr address, TID parent, RegAddr exitCodeReg);
     bool IncreaseFamilyDependency(LFID fid, FamilyDependency dep);

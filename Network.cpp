@@ -160,6 +160,7 @@ bool Network::sendFamilyCreate(LFID fid)
 			message.step          = family.step;
 			message.lastThread    = family.lastThread;
 			message.virtBlockSize = family.virtBlockSize;
+			message.physBlockSize = family.physBlockSize;
 			message.address       = family.pc;
 			message.parent        = family.parent;
 

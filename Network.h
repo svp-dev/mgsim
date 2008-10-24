@@ -122,7 +122,8 @@ struct CreateMessage
 	int64_t   start;
 	int64_t   step;
 	uint64_t  lastThread;
-	TSize     virtBlockSize;
+	uint64_t  virtBlockSize;
+	TSize     physBlockSize;
 	MemAddr   address;			     // Address of the thread
     RemoteTID parent;                // Parent Thread ID
     RegsNo    regsNo[NUM_REG_TYPES]; // Register information
