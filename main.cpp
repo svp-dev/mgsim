@@ -664,7 +664,8 @@ int main(int argc, const char* argv[])
 			{
 				throw runtime_error("Deadlock!");
 			}
-			cerr << dec
+			cout.rdbuf(cerr.rdbuf());
+			cout << dec
 			     << config.m_print << sys.getKernel().getCycleNo() << " ; "
                  << sys.getOp() << " "
                  << sys.getFlop() << " ; ";
