@@ -119,9 +119,10 @@ public:
 struct CreateMessage
 {
     GFID      fid;                   // Global Family ID to use for the family
+    bool      infinite;
 	int64_t   start;
 	int64_t   step;
-	uint64_t  lastThread;
+	uint64_t  nThreads;
 	uint64_t  virtBlockSize;
 	TSize     physBlockSize;
 	MemAddr   address;			     // Address of the thread

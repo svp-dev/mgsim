@@ -155,10 +155,11 @@ bool Network::sendFamilyCreate(LFID fid)
 			const Family& family = m_familyTable[fid];
 
             CreateMessage message;
+            message.infinite      = family.infinite;
 			message.fid           = family.gfid;
             message.start         = family.start;
 			message.step          = family.step;
-			message.lastThread    = family.lastThread;
+			message.nThreads      = family.nThreads;
 			message.virtBlockSize = family.virtBlockSize;
 			message.physBlockSize = family.physBlockSize;
 			message.address       = family.pc;

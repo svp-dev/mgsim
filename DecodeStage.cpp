@@ -246,10 +246,11 @@ Pipeline::PipeAction Pipeline::DecodeStage::write()
         {
             // Floating point operate instruction
             m_output.function = (m_input.instr >> A_FLT_FUNC_SHIFT) & A_FLT_FUNC_MASK;
-            bool itof = (m_output.opcode == A_OP_ITFP) && (m_output.function == A_ITFPFUNC_ITOFT || m_output.function == A_ITFPFUNC_ITOFS || m_output.function == A_ITFPFUNC_ITOFF);
+            bool itof   = (m_output.opcode == A_OP_ITFP)     && (m_output.function == A_ITFPFUNC_ITOFT || m_output.function == A_ITFPFUNC_ITOFS || m_output.function == A_ITFPFUNC_ITOFF);
+            bool debugf = (m_output.opcode == A_OP_UTHREADF) && (m_output.function == A_UTHREADF_DEBUG);
             
-            m_output.Ra = MAKE_REGADDR(itof ? RT_INTEGER : RT_FLOAT, Ra);
-            m_output.Rb = MAKE_REGADDR(RT_FLOAT, Rb);
+            m_output.Ra = MAKE_REGADDR(itof   ? RT_INTEGER : RT_FLOAT, Ra);
+            m_output.Rb = MAKE_REGADDR(debugf ? RT_INTEGER : RT_FLOAT, Rb);
             m_output.Rc = MAKE_REGADDR(RT_FLOAT, Rc);
             break;
         }

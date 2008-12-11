@@ -40,11 +40,12 @@ struct Family
     int64_t      start;          // Start index of the family
     int64_t      step;           // Step size of the family
 	Place        place;		     // Place where the family is to be created
+	bool         infinite;       // Is this an infinite family?
 	union {
-		uint64_t lastThread;     // Number of threads we need to allocate minus one (index of last thread)
-		int64_t  end;			 // Limit of the family
+		uint64_t nThreads;       // Number of threads we need to allocate
+		int64_t  limit;			 // Limit of the family
 	};
-    uint64_t     index;          // Index of the next to be allocated thread (0, 1, 2... lastThread)
+    uint64_t     index;          // Index of the next to be allocated thread (0, 1, 2... nThreads-1)
     RemoteTID    parent;         // Parent thread
 	GFID         gfid;			 // Corresponding global LFID    
     bool         hasDependency;  // Does this family use shareds?

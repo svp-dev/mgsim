@@ -728,8 +728,8 @@ static bool cmd_families_read( Object* obj, const vector<string>& arguments )
 
     static const char* FamilyStates[] = {"", "ALLOCATED", "IDLE", "ACTIVE", "KILLED"};
 
-	cout << "    |    PC    |   Allocated    | P/A/Rd/Sh | Parent | GFID | State" << endl;
-    cout << "----+----------+----------------+-----------+--------+------+-----------" << endl;
+	cout << "    |        PC        |   Allocated    | P/A/Rd/Sh | Parent | GFID | State" << endl;
+    cout << "----+------------------+----------------+-----------+--------+------+-----------" << endl;
     
     cout << setfill(' ') << right;
 	
@@ -738,13 +738,13 @@ static bool cmd_families_read( Object* obj, const vector<string>& arguments )
     {
         const Family& family = families[i];
 
-        cout << dec << setw(3) << i << " | ";
+        cout << dec << setw(3) << setfill(' ') << i << " | ";
         if (family.state != FST_EMPTY)
         {
 			if (family.state != FST_ALLOCATED)
 			{
 	            cout << hex
-	                 << setw(8) << family.pc << " | "
+	                 << setw(16) << family.pc << " | "
 				     << dec
 				     << setw(3) << family.dependencies.numThreadsAllocated << "/"
 					 << setw(3) << family.physBlockSize << " ("
@@ -755,7 +755,7 @@ static bool cmd_families_read( Object* obj, const vector<string>& arguments )
 					 << setw(2) << family.dependencies.numPendingShareds << " | " << right;
 			}
 			else {
-	            cout << "   -     |       -        |     -     | ";
+	            cout << "       -         |       -        |     -     | ";
 			}
 
 			if (family.parent.tid == INVALID_TID) {
@@ -779,7 +779,7 @@ static bool cmd_families_read( Object* obj, const vector<string>& arguments )
         }
         else
         {
-            cout << "         |                |           |        |      | ";
+            cout << "                 |                |           |        |      | ";
         }
         cout << endl;
     }
