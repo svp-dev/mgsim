@@ -170,7 +170,7 @@ Pipeline::PipeAction Pipeline::ExecuteStage::write()
 				case A_OP_STS:	 case A_OP_LDS:
 				case A_OP_STF:	 case A_OP_LDF:
                 case A_OP_STL:   case A_OP_LDL:   output.size = 4; break;
-                case A_OP_STQ_U: case A_OP_LDQ_U: output.address &= ~3;
+                case A_OP_STQ_U: case A_OP_LDQ_U: output.address &= ~7;
 				case A_OP_STT:	 case A_OP_LDT:
 				case A_OP_STG:	 case A_OP_LDG:
                 case A_OP_STQ:   case A_OP_LDQ:   output.size = 8; break;
