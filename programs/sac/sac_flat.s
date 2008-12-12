@@ -35,7 +35,6 @@ main:
     lda     $1, a($1)       !gprellow   # $1 = a
 
     # Create family
-    subq    $2, 1, $2
     allocate $3
     setlimit $3, $2; swch
     cred    $3, fun

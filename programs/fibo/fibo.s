@@ -14,7 +14,7 @@ main:
     allocate $3
     mov     0, $0
     mov     1, $1
-    subl    $2, 2, $2
+    subl    $2, 1, $2
     setlimit $3, $2
     swch
     cred    $3, fibonacci

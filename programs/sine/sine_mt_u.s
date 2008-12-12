@@ -24,7 +24,7 @@ main:
 	cpys    $f0, $f0, $f1	# $f1 = x (iteration)
 	cpys    $f0, $f0, $f2	# $f2 = x (power series)
 	setstart $2, 2; swch
-	setlimit $2, TAYLOR_ITERATIONS * 2
+	setlimit $2, (TAYLOR_ITERATIONS + 1) * 2
 	setstep  $2, 2
 	setblock $2, 2
 	cred    $2, sin

@@ -34,7 +34,6 @@ main:
     lda     $1, Y($1)       !gprellow   # $1 = Y
     lda     $2, MAX_N($31)              # $2 = MAX_N
     mov     $31, $3                     # $3 = token
-    subq    $10, 1, $10
     
     # Load 0.01 into $f0
     # It's 0x3F847AE147AE147B in IEEE 754
@@ -74,9 +73,10 @@ outer:
     s8addq  $l1,  $g1, $l1  # $l1 = &Y[i]
     mov     $g0,  $l2       # $l2 = X
     fmov    $gf0, $lf0      # $lf0 = 0.01
+    addl    $l0, 1, $l4
     
     setstart $l3,   1; swch
-    setlimit $l3, $l0
+    setlimit $l3, $l4
     mov     $d0, $31
     cred    $l3, inner
     s8addq  $l0, $g0, $l4   # $l4 = &X[i]

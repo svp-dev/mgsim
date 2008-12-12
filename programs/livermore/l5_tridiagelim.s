@@ -32,7 +32,6 @@ main:
     
     ldl     $3, 0($0)                   # $3 = X[0]
     
-    subq    $10, 1, $10
     allocate $4
     setlimit $4, $10
     mov     $3, $31                     # Wait for memory

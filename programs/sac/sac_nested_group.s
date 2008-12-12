@@ -35,7 +35,6 @@ main:
     lda     $1, a($1)       !gprellow   # $1 = a
 
     # Create family
-    subq    $10, 1, $10
     allocate $2
     setlimit $2, $10; swch
     setblock $2, 8
@@ -68,7 +67,6 @@ with_0_set_0:
     mov     $g1, $l2
     ldl     $l3, 16($g0)
     allocate $l4
-    subq    $l3, 1, $l3; swch
     setlimit $l4, $l3; swch
     cred    $l4, fun
     mov     $l4, $31            # Sync

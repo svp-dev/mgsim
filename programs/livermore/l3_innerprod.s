@@ -24,7 +24,6 @@ main:
     clr     $2                          # $2 = sum = 0
     
     allocate $3
-    subq    $10, 1, $10
     setlimit $3, $10
     cred    $3, loop
 

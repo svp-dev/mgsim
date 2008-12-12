@@ -26,8 +26,8 @@ main:
 	lda  $2, matrixC( $2)      !gprellow
 	mov  N,  $3
 
-	#	create (fam1; 0; N-1;)
-	setlimit $4, N - 1
+	#	create (fam1; 0; N;)
+	setlimit $4, N
 	swch
 	.ifdef BLOCK1
 	setblock $4, BLOCK1
@@ -57,7 +57,7 @@ thread1:
 	mov     $g1, $l1
 	mov     $g3, $l3
 	
-	setlimit $l4, N - 1
+	setlimit $l4, N
 	swch
 	cred $l4, thread2
 	mov $l4, $31

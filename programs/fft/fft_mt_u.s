@@ -45,14 +45,14 @@ _FFT:
 
 	# local const int N = (1 << M);
 	sll   $3, $10, $9	    # $9 = N
-	subq  $9,   1, $4       # $4 = tmp, doubles as token
+	subq  $9,   0, $4       # $4 = tmp, doubles as token
 	sll   $4,   4, $2
-	addq  $2,  $0, $2    	# $2 = &X[N - 1]
+	addq  $2,  $0, $2    	# $2 = &X[N]
 	
 	allocate $6
 	setstart $6, $10    	# start = M
     swch
-	setlimit $6, 1    		# limit = 1
+	setlimit $6, 0    		# limit = 0
 	negq     1, $7
 	setstep  $6, $7
 	setblock $6, 2
@@ -63,16 +63,16 @@ _FFT:
     swch
 
 	allocate $7
-	subq     $2, 16, $8
-	setlimit $7, $8	    	# limit = &X[N - 2]
+	subq     $2, 16, $2
+	setlimit $7, $2	    	# limit = &X[N - 1]
     swch
     setblock $7, BLOCK_POST
 	setstart $7, $0	    	# start = &X[0]
 	setstep  $7, 16	    	# step  = 16
 	
 							# $R0 = X
-	srl     $9,    1, $1	# $R1 = N / 2
-	bis     $31, $31, $2	# $R2 = j = 0
+	srl     $9,   1, $1	    # $R1 = N / 2
+	clr     $2  	        # $R2 = j = 0
 	cred    $7, _FFT_POST
 	mov     $7, $31
     .endif
@@ -169,7 +169,7 @@ _FFT_POST_SWAP:
 #
 # $GR0 = X
 # $GR1 = &_cos_sin[-1]
-# $GR2 = &X[N - 1]
+# $GR2 = &X[N]
 # $GR3 = 1
 # $GF0 = 1.0
 # $SR0 = token
@@ -195,11 +195,10 @@ _FFT_1:
     
     srl  $l2,   1, $l3
 	addq $l3, $g0, $l3	    	# $LR3 = &X[LE2]
-    bis  $g2, $g2, $l1	    	# $LR1 = &X[N - 1]
+    mov  $g2, $l1	        	# $LR1 = &X[N]
     
 	allocate $l4
-	subq     $l3, 16, $l0
-	setlimit $l4, $l0	    	# limit = &X[LE2 - 1]
+	setlimit $l4, $l3	    	# limit = &X[LE2]
 	setstart $l4, $g0	    	# start = &X[0]
 	setstep  $l4, 16	    	# step  = 16
 	
@@ -220,7 +219,7 @@ _FFT_1:
 # $GF0, $GF1 = S
 # $SF0, $SF1 = U
 # $GR0 = X
-# $GR1 = &X[N - 1]
+# $GR1 = &X[N]
 # $GR2 = LE * 16
 # $GR3 = &X[LE2]
 # $LR0 = &X[j]
@@ -230,7 +229,7 @@ _FFT_2:
 
 	allocate $l1
 	setstart $l1, $l0		# start = &X[j];
-	setlimit $l1, $g1		# limit = &X[N - 1];
+	setlimit $l1, $g1		# limit = &X[N];
 	setstep  $l1, $g2		# step = LE * 16;
 	
 	srl  $g2, 1, $l0		# $l0 = LE2 * 16 (= LE * 16 / 2)

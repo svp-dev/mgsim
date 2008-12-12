@@ -44,7 +44,7 @@ main:
     negq    1, $5
     allocate $4
     setstart $4, $10
-    setlimit $4, 1
+    setlimit $4, 0
     setstep  $4, $5
     cred    $4, outer
     mov     $4, $31
@@ -69,7 +69,8 @@ outer:
     mov     $g1, $l1            # $l1 = V
     mov     $d0, $l3            # $l3 = ipnt
     sll     $g2, $l0, $l0       # $l0 = ii
-    setlimit $l4, $l0; swch
+    adll    $l0, 1, $l2
+    setlimit $l4, $l2; swch
     setstart $l4, 1
     setstep  $l4, 2
     addq    $d0, $l0, $l2; swch # $l2 = ipntp + ii

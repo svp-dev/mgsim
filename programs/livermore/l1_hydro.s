@@ -33,8 +33,7 @@ main:
     lda     $2, Z($2)      !gprellow   # $2 = Z
 
     allocate $3             # Start = 0, Step = 1
-    subq     $10, 1, $10
-    setlimit $3, $10        # Limit = N - 1
+    setlimit $3, $10        # Limit = N
     cred     $3, loop
     mov      $3, $31        # Sync
     end

@@ -23,8 +23,8 @@ main:
 	lda  $2, matrixC( $2)      !gprellow
 	mov  N,  $3
 
-	#	create (fam1; 0; N-1;)
-	setlimit $4, N - 1
+	#	create (fam1; 0; N;)
+	setlimit $4, N
 	swch
 	cred $4, thread1
 	

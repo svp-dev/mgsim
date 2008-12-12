@@ -39,7 +39,7 @@ main:
 _FFT:
 	mov     1, $3	        # $3 = 1
 	sll     $3, $10, $9	    # $9 = N
-	subq    $9,   2, $5	    # $5 = N - 2	(doubles as token)
+	subq    $9,   1, $5	    # $5 = N - 1	(doubles as token)
 	srl     $9,  1, $1	    # $1 = N / 2
 
     
@@ -49,7 +49,7 @@ _FFT:
 	setstart $7, $8		    # start = &X[1]
 	sll      $5,  4, $8
 	addq	 $8, $0, $8
-	setlimit $7, $8 		# limit = &X[N - 2]
+	setlimit $7, $8 		# limit = &X[N - 1]
 	setstep  $7, 16 		# step  = 16
 	setblock $7, BLOCK_POST
 	
@@ -61,8 +61,7 @@ _FFT:
 	
 	allocate $7
 
-    subl    $1,   1, $1
-	sll     $1,   4, $1		                # $1 = (N / 2 - 1) * 16;
+	sll     $1,   4, $1		                # $1 = (N / 2) * 16;
 	ldah    $2, _cos_sin($29)   !gprelhigh
 	lda     $2, _cos_sin($2)    !gprellow	# $2 = _cos_sin
     sll     $3, MAX_M, $4                   # $4 = MAX_N
@@ -159,7 +158,7 @@ _FFT_POST_SWAP:
  * for (int k = 1; k <= M; k++) {
  *
  * $GR0 = X
- * $GR1 = (N / 2 - 1) * 16
+ * $GR1 = (N / 2) * 16
  * $GR2 = _cos_sin
  * $GR3 = 1
  * $GR4 = MAX_N
@@ -171,7 +170,7 @@ _FFT_1:
 	.registers 5 1 6  0 0 0	    # GR,SR,LR, GF,SF,LF
 	
 	allocate $lr5				# start = 0
-	setlimit $lr5, $gr1		    # limit = (N / 2 - 1) * 16
+	setlimit $lr5, $gr1		    # limit = (N / 2) * 16
 	setstep  $lr5, 16			# step  = 16
 	# setblock $lr5, $gr5
 	
