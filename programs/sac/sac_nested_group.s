@@ -1,4 +1,4 @@
-    .file "sac.s"
+    .file "sac_nested_group.s"
     .arch ev6
     .text
     
@@ -37,7 +37,7 @@ main:
     # Create family
     allocate $2
     setlimit $2, $10; swch
-    setblock $2, 8
+    setblock $2, 1
     cred    $2, with_0_set_0
     mov     $2, $31         # Sync
     end
@@ -68,6 +68,7 @@ with_0_set_0:
     ldl     $l3, 16($g0)
     allocate $l4
     setlimit $l4, $l3; swch
+    setblock $l4, 1
     cred    $l4, fun
     mov     $l4, $31            # Sync
     end
@@ -126,5 +127,4 @@ adesc: .skip 5 * 4
     
     .data
     .align 6
-a:
-
+a:  .skip MAX_X * MAX_Y * 4

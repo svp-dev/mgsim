@@ -17,7 +17,7 @@ function build_program
 
 for p in `ls sac_*.s | sed 's/\.s//'`
 do
-    for m in 'random' 'plane'
+    for m in 'random' 'plane' 'flat'
     do
         build_program $p $m $1 $2
     done

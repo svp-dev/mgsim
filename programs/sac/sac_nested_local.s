@@ -37,7 +37,7 @@ main:
     # Create family
     allocate $2
     setlimit $2, $10; swch
-    #setblock $2, 8
+    setblock $2, 0
     cred    $2, with_0_set_0
     mov     $2, $31         # Sync
     end

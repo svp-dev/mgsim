@@ -26,6 +26,12 @@ def main(argv = None):
         for i in range(1,N+1):
             for j in range(1,N+1):
                 print "    .double", random.random() * D
+
+    elif method == "flat":
+        # Every element is the same
+        for i in range(1,N+1):
+            for j in range(1,N+1):
+                print "    .double", D
                 
     elif method == "plane":
         # We have a plane going from (1,1) to (N,N), normalized
