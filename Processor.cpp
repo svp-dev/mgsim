@@ -98,9 +98,6 @@ bool Processor::onMemorySnooped(MemAddr addr, const MemData& data)
 
 void Processor::OnFamilyTerminatedLocally(MemAddr pc)
 {
-    if (pc == 0x88)
-    {
-        CycleNo cycle = getKernel().getCycleNo();
-        m_localFamilyCompletion = cycle;
-    }
+    CycleNo cycle = getKernel().getCycleNo();
+    m_localFamilyCompletion = cycle;
 }
