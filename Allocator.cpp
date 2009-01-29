@@ -794,7 +794,7 @@ Family& Allocator::GetWritableFamilyEntry(LFID fid, TID parent) const
 	return family;
 }
 
-void Allocator::SetDefaultFamilyEntry(LFID fid, TID parent) const
+void Allocator::SetDefaultFamilyEntry(LFID fid, TID parent, const RegisterBases bases[]) const
 {
 	assert(parent != INVALID_TID);
 
@@ -816,11 +816,11 @@ void Allocator::SetDefaultFamilyEntry(LFID fid, TID parent) const
 		family.gfid          = 0; // Meaningless, but indicates group create
 		family.place         = parent_fam.place; // Inherit place
 
-		// By default, the globals and shareds are taken from the locals of the parent thread
+        // Assign the bases for globals and shareds
 		for (RegType i = 0; i < NUM_REG_TYPES; i++)
 		{
-			family.regs[i].globals = thread.regs[i].base + parent_fam.regs[i].count.shareds;
-			family.regs[i].shareds = thread.regs[i].base + parent_fam.regs[i].count.shareds;
+			family.regs[i].globals = bases[i].globals;
+			family.regs[i].shareds = bases[i].shareds;
 		}
 	}
 }
@@ -828,13 +828,13 @@ void Allocator::SetDefaultFamilyEntry(LFID fid, TID parent) const
 // Allocates a family entry. Returns the LFID (and SUCCESS) if one is available,
 // DELAYED if none is available and the request is written to the buffer. FAILED is
 // returned if the buffer was full.
-Result Allocator::AllocateFamily(TID parent, RegIndex reg, LFID* fid)
+Result Allocator::AllocateFamily(TID parent, RegIndex reg, LFID* fid, const RegisterBases bases[])
 {
 	*fid = m_familyTable.AllocateFamily();
 	if (*fid != INVALID_LFID)
 	{
 		// A family entry was free
-		SetDefaultFamilyEntry(*fid, parent);
+		SetDefaultFamilyEntry(*fid, parent, bases);
 		return SUCCESS;
 	}
 
@@ -846,6 +846,7 @@ Result Allocator::AllocateFamily(TID parent, RegIndex reg, LFID* fid)
 			AllocRequest request;
 			request.parent = parent;
 			request.reg    = reg;
+			copy(bases, bases + NUM_REG_TYPES, request.bases);
 			m_allocations.push(request);
 		}
 		return DELAYED;
@@ -872,7 +873,9 @@ LFID Allocator::AllocateFamily(const CreateMessage& msg)
 		family.hasDependency = false;
 		for (RegType i = 0; i < NUM_REG_TYPES; i++)
 		{
-			family.regs[i].count = msg.regsNo[i];
+		    family.regs[i].globals = INVALID_REG_INDEX;
+		    family.regs[i].shareds = INVALID_REG_INDEX;
+			family.regs[i].count   = msg.regsNo[i];
 		}
 
 		// Initialize the family
@@ -930,14 +933,36 @@ void Allocator::InitializeFamily(LFID fid) const
 		family.firstThreadInBlock = INVALID_TID;
 		family.lastAllocated      = INVALID_TID;
 
-		// Register bases
-		bool remote = global && (m_parent.getPID() != family.parent.pid);
 		for (RegType i = 0; i < NUM_REG_TYPES; i++)
 		{
-			family.regs[i].globals = (remote || family.regs[i].count.globals == 0) ? INVALID_REG_INDEX : family.regs[i].globals;
-			family.regs[i].shareds = (remote || family.regs[i].count.shareds == 0) ? INVALID_REG_INDEX : family.regs[i].shareds + family.regs[i].count.globals;		
-			family.dependencies.numPendingShareds += family.regs[i].count.shareds;
-			if (family.regs[i].count.shareds > 0)
+		    Family::RegInfo& regs = family.regs[i];
+		    
+       		// Adjust register bases if necessary
+       		if (regs.globals != INVALID_REG_INDEX)
+       		{
+    			if (regs.count.globals == 0) {
+    			    // We have no parent globals
+    			    regs.globals = INVALID_REG_INDEX;
+    			} else if (regs.shareds < regs.globals) {
+    			    // In case globals and shareds overlap, move globals up
+    			    regs.globals = max(regs.shareds + regs.count.shareds, regs.globals);
+    			}
+    	    }
+			
+			if (regs.shareds != INVALID_REG_INDEX)
+			{
+    			if (regs.count.shareds == 0) {
+    			    // We have no parent shareds
+    			    regs.shareds = INVALID_REG_INDEX;
+    			} else if (regs.globals <= regs.shareds) {
+    			    // In case globals and shareds overlap, move shareds up
+    			    regs.shareds = max(regs.globals + regs.count.globals, regs.shareds);
+    			}
+    		}
+			
+			// Figure out how many shareds will be pending
+			family.dependencies.numPendingShareds += regs.count.shareds;
+			if (regs.count.shareds > 0)
 			{
 			    family.hasDependency = true;
 			}
@@ -1181,7 +1206,7 @@ Result Allocator::onCycleWritePhase(unsigned int stateIndex)
 			}
 			
 			// A family entry was free
-			SetDefaultFamilyEntry(fid, req.parent);
+			SetDefaultFamilyEntry(fid, req.parent, req.bases);
 
             // Writeback the FID
             RegisterWrite write;

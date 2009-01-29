@@ -109,6 +109,9 @@ Result DCache::findLine(MemAddr address, Line* &line, bool reset)
 
 Result DCache::read(MemAddr address, void* data, MemSize size, LFID fid, RegAddr* reg)
 {
+    assert(reg  != NULL);
+    assert(reg->valid());
+
     size_t offset = (size_t)(address % m_lineSize);
     if (offset + size > m_lineSize)
     {

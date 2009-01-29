@@ -42,7 +42,7 @@ main:
     clr     $3              # $3 = 0
     
     negq    1, $5
-    allocate $4
+    allocate $4, 0, 0, 0, 0
     setstart $4, $10
     setlimit $4, 0
     setstep  $4, $5
@@ -64,7 +64,7 @@ main:
     .ent outer
     .registers 3 1 5 0 0 0
 outer:
-    allocate $l4
+    allocate $l4, 0, 0, 0, 0
 
     mov     $g1, $l1            # $l1 = V
     mov     $d0, $l3            # $l3 = ipnt

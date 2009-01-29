@@ -9,7 +9,7 @@ namespace Simulator
 
 // uThread Instructions
 #define A_OP_UTHREAD    0x01    // Generic instructions (Operate format)
-#define A_OP_SETREGS    0x02    // SETREGS instruction (Special format)
+#define A_OP_ALLOCATE   0x02    // Allocate instruction (Branch format)
 #define A_OP_CREATE_I   0x03    // Create Indirect (Memory format)
 #define A_OP_CREATE_D   0x04    // Create Direct (Branch format)
 #define A_OP_UTHREADF   0x05    // FP uThread instructions (FP Operate format)
@@ -100,7 +100,6 @@ namespace Simulator
 /*------------------ Operate Instructions Function Codes----------------------*/
 
 // UTHREAD Instructions
-#define A_UTHREAD_ALLOCATE	 0x00
 #define A_UTHREAD_SETSTART	 0x01
 #define A_UTHREAD_SETLIMIT	 0x02
 #define A_UTHREAD_SETSTEP	 0x03
@@ -108,7 +107,6 @@ namespace Simulator
 #define A_UTHREAD_SETPLACE	 0x05
 #define A_UTHREAD_BREAK      0x06
 #define A_UTHREAD_KILL       0x07
-#define A_UTHREAD_SQUEEZE    0x08
 #define A_UTHREAD_GETPROCS   0x09
 #define A_UTHREAD_DEBUG      0x10
 

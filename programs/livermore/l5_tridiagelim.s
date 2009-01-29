@@ -32,7 +32,7 @@ main:
     
     ldl     $3, 0($0)                   # $3 = X[0]
     
-    allocate $4
+    allocate $4, 0, 0, 0, 0
     setlimit $4, $10
     mov     $3, $31                     # Wait for memory
     cred    $4, loop

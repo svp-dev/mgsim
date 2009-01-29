@@ -11,7 +11,7 @@
     .ent main
     .globl main
 main:
-    allocate $3
+    allocate $3, 0, 0, 0, 0
     mov     0, $0
     mov     1, $1
     subl    $2, 1, $2

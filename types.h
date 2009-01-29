@@ -33,7 +33,7 @@ static const uint64_t UINT64_MAX = 0xFFFFFFFFFFFFFFFFULL;
 #else
 // We just hope that this compiler properly supports the C++ standard
 #define __STDC_LIMIT_MACROS
-#include "stdint.h"
+#include <stdint.h>
 #endif
 
 #ifndef SIZE_MAX

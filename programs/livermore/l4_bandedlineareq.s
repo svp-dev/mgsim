@@ -57,7 +57,7 @@ main:
     lda     $4,    M($31)
     lda     $5, 1001($31)
     
-    allocate $3
+    allocate $3, 0, 0, 0, 0
     setstart $3, 6
     setlimit $3, $5
     setstep  $3, $4
@@ -79,7 +79,7 @@ main:
     .ent outer
 outer:
     .registers 3 0 8 0 0 0
-    allocate $l4
+    allocate $l4, 0, 0, 0, 0
     mov     $g0, $l1    # $l1 = X
     mov     $g1, $l2    # $l2 = Y
     clr     $l3         # $l3 = temp = 0

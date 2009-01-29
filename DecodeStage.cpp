@@ -13,8 +13,6 @@ static const int A_RB_SHIFT       = 16;
 static const int A_INT_FUNC_SHIFT = 5;
 static const int A_FLT_FUNC_SHIFT = 5;
 static const int A_RC_SHIFT       = 0;
-static const int A_FD_SHIFT       = 11;	// Only used for IFORMAT_SPECIAL
-static const int A_FE_SHIFT       = 5;	// Only used for IFORMAT_SPECIAL
 static const int A_MEMDISP_SHIFT  = 0;
 static const int A_BRADISP_SHIFT  = 0;
 static const int A_PALCODE_SHIFT  = 0;
@@ -44,7 +42,7 @@ InstrFormat Pipeline::DecodeStage::getInstrFormat(uint8_t opcode)
 					case 0x4: return IFORMAT_BRA;
 					case 0x5: return IFORMAT_FPOP;
 					case 0x6:
-					case 0x7: return IFORMAT_SPECIAL;
+					case 0x7: return IFORMAT_INVALID;
                     case 0x8:
                     case 0x9:
                     case 0xA:
@@ -172,8 +170,6 @@ Pipeline::PipeAction Pipeline::DecodeStage::write()
         RegIndex Ra      = (m_input.instr >> A_RA_SHIFT) & A_REG_MASK;
         RegIndex Rb      = (m_input.instr >> A_RB_SHIFT) & A_REG_MASK;
         RegIndex Rc      = (m_input.instr >> A_RC_SHIFT) & A_REG_MASK;
-        RegIndex Fd      = (m_input.instr >> A_FD_SHIFT) & A_REG_MASK;
-        RegIndex Fe      = (m_input.instr >> A_FE_SHIFT) & A_REG_MASK;
 
         for (RegType i = 0; i < NUM_REG_TYPES; i++)
         {
@@ -274,11 +270,11 @@ Pipeline::PipeAction Pipeline::DecodeStage::write()
         }
 
 		case IFORMAT_SPECIAL:
-			// We encode the register specifiers in the literal
-			m_output.literal = ((uint64_t)Rb << 0) | ((uint64_t)Rc << 16) | ((uint64_t)Fd << 32) | ((uint64_t)Fe << 48);
-            m_output.Ra = MAKE_REGADDR(RT_INTEGER, Ra);
+			// We encode the register specifiers (in branch-like displacement) in the literal
+			m_output.literal = (m_input.instr >> A_BRADISP_SHIFT) & A_BRADISP_MASK;
+            m_output.Ra = MAKE_REGADDR(RT_INTEGER, 31);
             m_output.Rb = MAKE_REGADDR(RT_INTEGER, 31);
-            m_output.Rc = MAKE_REGADDR(RT_INTEGER, 31);
+            m_output.Rc = MAKE_REGADDR(RT_INTEGER, Ra); // Destination is in Ra
 			break;
 
         default:

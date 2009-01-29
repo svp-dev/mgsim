@@ -51,12 +51,19 @@ public:
 		BufferSize cleanupSize;
 	};
 
-	struct AllocRequest
+	struct RegisterBases
 	{
-		TID      parent; // Thread performing the allocation (for security)
-		RegIndex reg;	 // Register that will receive the LFID
+	    RegIndex globals;
+	    RegIndex shareds;
 	};
 
+	struct AllocRequest
+	{
+		TID           parent;               // Thread performing the allocation (for security)
+		RegIndex      reg;	                // Register that will receive the LFID
+		RegisterBases bases[NUM_REG_TYPES]; // Bases of parent registers
+	};
+	
 	enum CreateState
 	{
 		CREATE_INITIAL,
@@ -93,7 +100,7 @@ public:
     uint64_t GetMinActiveQueueSize() const { return m_minActiveQueueSize; }
     
     bool killFamily(LFID fid, ExitCode code, RegValue value);
-	Result AllocateFamily(TID parent, RegIndex reg, LFID* fid);
+	Result AllocateFamily(TID parent, RegIndex reg, LFID* fid, const RegisterBases bases[]);
 	LFID AllocateFamily(const CreateMessage& msg);
 	GFID SanitizeFamily(Family& family, bool hasDependency);
 	bool ActivateFamily(LFID fid);
@@ -138,7 +145,7 @@ private:
     };
 
     // Private functions
-	void SetDefaultFamilyEntry(LFID fid, TID parent) const;
+	void SetDefaultFamilyEntry(LFID fid, TID parent, const RegisterBases bases[]) const;
 	void InitializeFamily(LFID fid) const;
 	bool AllocateRegisters(LFID fid);
 

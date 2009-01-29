@@ -93,11 +93,22 @@ bool RegisterFile::writeRegister(const RegAddr& addr, RegValue& data, const ICom
         throw InvalidArgumentException("A component attempted to write to a non-existing register");
     }
     
-	// Note that nothing can write Empty registers
-	assert(data.m_state == RST_PENDING || data.m_state == RST_WAITING || data.m_state == RST_FULL);
+	assert(data.m_state == RST_EMPTY || data.m_state == RST_PENDING || data.m_state == RST_WAITING || data.m_state == RST_FULL);
 
     RegValue& value = regs[addr.index];
-    if (data.m_state == RST_WAITING)
+    if (data.m_state == RST_EMPTY)
+    {
+        if (value.m_state != RST_EMPTY && value.m_state != RST_FULL)
+        {
+            throw InvalidArgumentException("Clearing a waiting or pending register");
+        }
+        
+        COMMIT
+        {
+            value.m_state = RST_EMPTY;
+        }
+    }
+    else if (data.m_state == RST_WAITING)
     {
 		// Must come from the pipeline (i.e., an instruction read a non-full register)
 		if (value.m_state != RST_PENDING && value.m_state != RST_FULL)

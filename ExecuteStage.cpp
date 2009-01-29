@@ -194,23 +194,39 @@ Pipeline::PipeAction Pipeline::ExecuteStage::write()
         break;
 
 	case IFORMAT_SPECIAL:
-		COMMIT
-		{
-			Family& family = m_allocator.GetWritableFamilyEntry(LFID((size_t)m_input.Rav.m_integer), m_input.tid);
-            switch (m_input.opcode)
-            {
-			case A_OP_SETREGS:
-				// Set the base for the shareds and globals in the parent thread
-				RegIndex gr = (RegIndex)((m_input.literal >>  0) & 0x1F);
-				RegIndex sr = (RegIndex)((m_input.literal >> 16) & 0x1F);
-				RegIndex gf = (RegIndex)((m_input.literal >> 32) & 0x1F);
-				RegIndex sf = (RegIndex)((m_input.literal >> 48) & 0x1F);
-				if (gr != 31) family.regs[RT_INTEGER].globals = m_input.threadRegs[RT_INTEGER].base + gr;
-				if (sr != 31) family.regs[RT_INTEGER].shareds = m_input.threadRegs[RT_INTEGER].base + sr;
-				if (gf != 31) family.regs[RT_FLOAT].globals   = m_input.threadRegs[RT_FLOAT].base + gf;
-				if (sf != 31) family.regs[RT_FLOAT].shareds   = m_input.threadRegs[RT_FLOAT].base + sf;
+        switch (m_input.opcode)
+        {
+			case A_OP_ALLOCATE: {
+			    // Get the base for the shareds and globals in the parent thread
+			    Allocator::RegisterBases bases[NUM_REG_TYPES];
+			    
+			    uint64_t literal = m_input.literal;
+			    for (RegType i = 0; i < NUM_REG_TYPES; i++, literal >>= 10)
+			    {
+                    const RegIndex locals = m_input.threadRegs[i].base + m_input.familyRegs[i].count.shareds;
+    		    	bases[i].globals = locals + ((literal >> 0) & 0x1F);
+    	    		bases[i].shareds = locals + ((literal >> 5) & 0x1F);
+       		    }
+
+                // Allocate the entry
+				LFID fid;
+				Result res = m_allocator.AllocateFamily(m_input.tid, output.Rc.index, &fid, bases);
+				if (res == FAILED)
+				{
+					return PIPE_STALL;
+				}
+					
+				if (res == SUCCESS) {
+					// The entry was allocated, store it
+					output.Rcv.m_state   = RST_FULL;
+					output.Rcv.m_integer = fid;
+				} else {
+					// The request was buffered and will be written back
+					output.Rcv.m_state     = RST_PENDING;
+					output.Rcv.m_component = &m_allocator;
+				}
 				break;
-			}
+   			}
 		}
 		break;
 
@@ -222,26 +238,6 @@ Pipeline::PipeAction Pipeline::ExecuteStage::write()
             {
 				switch (m_input.function)
 				{
-					case A_UTHREAD_ALLOCATE: {
-						LFID fid;
-						Result res = m_allocator.AllocateFamily(m_input.tid, output.Rc.index, &fid);
-						if (res == FAILED)
-						{
-							return PIPE_STALL;
-						}
-						
-						if (res == SUCCESS) {
-							// The entry was allocated, store it
-							output.Rcv.m_state   = RST_FULL;
-							output.Rcv.m_integer = fid;
-						} else {
-							// The request was buffered and will be written back
-							output.Rcv.m_state     = RST_PENDING;
-							output.Rcv.m_component = &m_allocator;
-						}
-						break;
-					}
-
 					case A_UTHREAD_GETPROCS:
 						output.Rcv.m_state   = RST_FULL;
 						output.Rcv.m_integer = m_parent.m_parent.getNumProcs();
@@ -267,7 +263,6 @@ Pipeline::PipeAction Pipeline::ExecuteStage::write()
 
 					case A_UTHREAD_BREAK:    break;
 					case A_UTHREAD_KILL:     break;
-					case A_UTHREAD_SQUEEZE:  break;
 
 					case A_UTHREAD_DEBUG:
 					    if (m_input.Rbv.m_integer == 0) {

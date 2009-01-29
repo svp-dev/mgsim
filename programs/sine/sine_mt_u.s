@@ -11,7 +11,7 @@
     .ent main
     .globl main
 main:
-	allocate $2
+	allocate $2, 0, 0, 0, 0
 	
     # Calculate the sine of 2 (in radians)
     addq    $31, 2, $0

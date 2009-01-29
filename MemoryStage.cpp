@@ -38,9 +38,15 @@ Pipeline::PipeAction Pipeline::MemoryStage::write()
             // Clear the register state so it won't get written to the register file
             rcv.m_state = RST_INVALID;
         }
-        else 
+        // Memory read
+        else if (m_input.address == numeric_limits<MemAddr>::max())
         {
-            // Memory read
+            // Invalid address; don't send request, just clear register
+            rcv.m_state = RST_EMPTY;
+            result = SUCCESS;
+        }
+        else
+        {
             char data[MAX_MEMORY_OPERATION_SIZE];
 			RegAddr reg = m_input.Rc;
             if ((result = m_dcache.read(m_input.address, data, m_input.size, m_input.fid, &reg)) == FAILED)

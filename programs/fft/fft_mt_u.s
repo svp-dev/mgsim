@@ -49,7 +49,7 @@ _FFT:
 	sll   $4,   4, $2
 	addq  $2,  $0, $2    	# $2 = &X[N]
 	
-	allocate $6
+	allocate $6, 0, 0, 0, 0
 	setstart $6, $10    	# start = M
     swch
 	setlimit $6, 0    		# limit = 0
@@ -62,7 +62,7 @@ _FFT:
     .ifdef DO_BIT_REVERSAL
     swch
 
-	allocate $7
+	allocate $7, 0, 0, 0, 0
 	subq     $2, 16, $2
 	setlimit $7, $2	    	# limit = &X[N - 1]
     swch
@@ -101,7 +101,7 @@ _FFT_POST:
 	mov $d0, $l1         	# $LR1 = j
 	mov $g0, $l2        	# $LR2 = X
 
-	allocate $l3
+	allocate $l3, 0, 0, 0, 0
 	cred $l3, _FFT_POST_SWAP
     swch
 
@@ -197,7 +197,7 @@ _FFT_1:
 	addq $l3, $g0, $l3	    	# $LR3 = &X[LE2]
     mov  $g2, $l1	        	# $LR1 = &X[N]
     
-	allocate $l4
+	allocate $l4, 0, 0, 0, 0
 	setlimit $l4, $l3	    	# limit = &X[LE2]
 	setstart $l4, $g0	    	# start = &X[0]
 	setstep  $l4, 16	    	# step  = 16
@@ -227,7 +227,7 @@ _FFT_1:
 _FFT_2:
 	.registers 4 0 2  2 2 6 	# GR,SR,LR, GF,SF,LF
 
-	allocate $l1
+	allocate $l1, 0, 0, 0, 0
 	setstart $l1, $l0		# start = &X[j];
 	setlimit $l1, $g1		# limit = &X[N];
 	setstep  $l1, $g2		# step = LE * 16;

@@ -32,7 +32,7 @@ main:
     ftoit   $f0, $2                     # $2 = normal_size = floor(N / #procs)
     
     # Family runs from [0 ... #procs - 1]
-    allocate $5
+    allocate $5, 0, 0, 0, 0
     getprocs $3
     subq     $3, 1, $4
     setlimit $5, $4
@@ -70,7 +70,7 @@ outer:
     addq    $l1, $l2, $l2
     subq    $l2,   1, $l2       # $l2 = limit
     
-    allocate $l3
+    allocate $l3, 0, 0, 0, 0
     setstart $l3, $l1
     setlimit $l3, $l2
     setplace $l3, 0     # Local family

@@ -23,7 +23,7 @@ main:
     lda     $1, Y($1)       !gprellow   # $1 = Y
     clr     $2                          # $2 = sum = 0
     
-    allocate $3
+    allocate $3, 0, 0, 0, 0
     setlimit $3, $10
     cred    $3, loop
 

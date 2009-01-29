@@ -44,7 +44,7 @@ main:
     lda     $4, 0x147B($4)
     itoft   $4, $f0
     
-    allocate $4
+    allocate $4, 0, 0, 0, 0
     setstart $4, 1
     setlimit $4, $10
     cred    $4, outer
@@ -67,7 +67,7 @@ main:
 outer:
     .registers 3 1 5 1 0 1
     
-    allocate $l3
+    allocate $l3, 0, 0, 0, 0
 
     mull    $l0,  $g2, $l1
     s8addq  $l1,  $g1, $l1  # $l1 = &Y[i]
