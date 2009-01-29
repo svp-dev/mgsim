@@ -19,7 +19,7 @@ Pipeline::PipeAction Pipeline::MemoryStage::write()
     if (m_input.size > 0)
     {
         // It's a memory operation!
-        Result result;
+        Result result = SUCCESS;
 
         if (m_input.Rcv.m_state == RST_FULL)
         {
@@ -43,9 +43,8 @@ Pipeline::PipeAction Pipeline::MemoryStage::write()
         {
             // Invalid address; don't send request, just clear register
             rcv.m_state = RST_EMPTY;
-            result = SUCCESS;
         }
-        else
+        else if (m_input.Rc.valid())
         {
             char data[MAX_MEMORY_OPERATION_SIZE];
 			RegAddr reg = m_input.Rc;

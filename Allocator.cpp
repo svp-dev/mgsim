@@ -438,7 +438,7 @@ bool Allocator::allocateThread(LFID fid, TID tid, bool isNewlyAllocated)
         }
     }
 
-    // Write L0 to the register file
+    // Write L0 and L1 to the register file
     if (family->regs[RT_INTEGER].count.locals > 0)
     {
         RegIndex L0   = thread->regs[RT_INTEGER].base + family->regs[RT_INTEGER].count.shareds;
@@ -455,6 +455,19 @@ bool Allocator::allocateThread(LFID fid, TID tid, bool isNewlyAllocated)
         if (!m_registerFile.writeRegister(addr, data, *this))
         {
             return false;
+        }
+
+        if (family->regs[RT_INTEGER].count.locals > 1)
+        {
+            RegAddr  addr = MAKE_REGADDR(RT_INTEGER, L0 + 1);
+            RegValue data;
+            data.m_state   = RST_FULL;
+            data.m_integer = 0;         // Dummy Stack Pointer for now
+            
+            if (!m_registerFile.writeRegister(addr, data, *this))
+            {
+                return false;
+            }
         }
     }
 

@@ -232,7 +232,11 @@ Pipeline::PipeAction Pipeline::DecodeStage::write()
         case IFORMAT_JUMP: {
             // Jumps read the target from Rb and write the current PC back to Ra.
             // Microthreading doesn't need branch prediction, so we ignore the hints.
-            m_output.Ra = MAKE_REGADDR(RT_INTEGER, 31);
+            
+            // Create (Indirect) also reads Ra
+            bool crei = (m_output.opcode == A_OP_CREATE_I);
+            
+            m_output.Ra = MAKE_REGADDR(RT_INTEGER, crei ? Ra : 31);
             m_output.Rb = MAKE_REGADDR(RT_INTEGER, Rb);
             m_output.Rc = MAKE_REGADDR(RT_INTEGER, Ra);
             break;
