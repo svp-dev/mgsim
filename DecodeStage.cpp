@@ -41,7 +41,7 @@ InstrFormat Pipeline::DecodeStage::getInstrFormat(uint8_t opcode)
 					case 0x3: return IFORMAT_JUMP;
 					case 0x4: return IFORMAT_BRA;
 					case 0x5: return IFORMAT_FPOP;
-					case 0x6:
+					case 0x6: return IFORMAT_SPECIAL;   // Remove when SETREGS becomes obsolete
 					case 0x7: return IFORMAT_INVALID;
                     case 0x8:
                     case 0x9:
@@ -274,12 +274,19 @@ Pipeline::PipeAction Pipeline::DecodeStage::write()
         }
 
 		case IFORMAT_SPECIAL:
+		{
+			bool setregs = (m_output.opcode == A_OP_SETREGS);
+
 			// We encode the register specifiers (in branch-like displacement) in the literal
 			m_output.literal = (m_input.instr >> A_BRADISP_SHIFT) & A_BRADISP_MASK;
-            m_output.Ra = MAKE_REGADDR(RT_INTEGER, 31);
+
+			// Allocate writes to Ra
+			// Setregs reads from Ra
+            m_output.Ra = MAKE_REGADDR(RT_INTEGER, setregs ? Ra : 31);
             m_output.Rb = MAKE_REGADDR(RT_INTEGER, 31);
-            m_output.Rc = MAKE_REGADDR(RT_INTEGER, Ra); // Destination is in Ra
+            m_output.Rc = MAKE_REGADDR(RT_INTEGER, setregs ? 31 : Ra);
 			break;
+		}
 
         default:
             {

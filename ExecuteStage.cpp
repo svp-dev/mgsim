@@ -227,6 +227,20 @@ Pipeline::PipeAction Pipeline::ExecuteStage::write()
 				}
 				break;
    			}
+   			
+   			case A_OP_SETREGS: {
+                // Get the base for the shareds and globals in the parent thread
+				Family& family = m_allocator.GetWritableFamilyEntry(LFID((size_t)m_input.Rav.m_integer), m_input.tid);
+
+                uint64_t literal = m_input.literal;
+                for (RegType i = 0; i < NUM_REG_TYPES; i++, literal >>= 10)
+                {
+                    const RegIndex locals = m_input.threadRegs[i].base + m_input.familyRegs[i].count.shareds;
+                    family.regs[i].globals = locals + ((literal >> 0) & 0x1F);
+                    family.regs[i].shareds = locals + ((literal >> 5) & 0x1F);
+                }
+   			    break;
+   			}
 		}
 		break;
 
