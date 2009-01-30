@@ -76,7 +76,7 @@ Result Network::onSharedRequested(const SharedInfo& sharedInfo)
 		// If the family hasn't been created yet, we just ignore the request
 		if (m_familyTable.TranslateFamily(sharedInfo.fid) != INVALID_LFID)
 		{
-			DebugSimWrite("Shared request stored\n");
+			DebugSimWrite("Shared request G%u:%s stored", sharedInfo.fid, sharedInfo.addr.str().c_str());
 			COMMIT
 			{
 				m_sharedResponse = sharedInfo;
@@ -85,7 +85,7 @@ Result Network::onSharedRequested(const SharedInfo& sharedInfo)
 		}
 		else
 		{
-			DebugSimWrite("Shared request ignored\n");
+			DebugSimWrite("Shared request G%u:%s ignored", sharedInfo.fid, sharedInfo.addr.str().c_str());
 		}
         return SUCCESS;
     }
@@ -113,7 +113,7 @@ bool Network::onThreadCleanedUp(GFID fid)
     assert(fid != INVALID_GFID);
     if (m_cleanedUpThread.empty())
     {
-		DebugSimWrite("Received OnThreadCleanup\n");
+		DebugSimWrite("Received OnThreadCleanup for G%u", fid);
         m_cleanedUpThread.write(fid);
         return true;
     }
@@ -125,7 +125,7 @@ bool Network::onThreadCompleted(GFID fid)
     assert(fid != INVALID_GFID);
     if (m_completedThread.empty())
     {
-		DebugSimWrite("Received OnThreadCompleted\n");
+		DebugSimWrite("Received OnThreadCompleted for G%u", fid);
         m_completedThread.write(fid);
         return true;
     }
@@ -137,7 +137,7 @@ bool Network::onFamilyCompleted(GFID fid)
     assert(fid != INVALID_GFID);
     if (m_completedFamily.empty())
     {
-		DebugSimWrite("Received OnFamilyCompleted\n");
+		DebugSimWrite("Received OnFamilyCompleted for G%u", fid);
         m_completedFamily.write(fid);
         return true;
     }
@@ -171,7 +171,7 @@ bool Network::sendFamilyCreate(LFID fid)
 			}
 
 			m_createLocal.write(make_pair(fid, message));
-			DebugSimWrite("Broadcasting create for G%u (F%u)\n", message.fid, fid);
+			DebugSimWrite("Broadcasting create for G%u (F%u)", message.fid, fid);
         }
         return true;
     }
@@ -188,7 +188,7 @@ bool Network::onFamilyCreateReceived(const CreateMessage& msg)
 		}
 
 		m_createRemote.write(msg);
-		DebugSimWrite("Received create for G%u\n", msg.fid);
+		DebugSimWrite("Received create for G%u", msg.fid);
     }
 	else
 	{
@@ -232,7 +232,7 @@ bool Network::onFamilyReservationReceived(const RemoteFID& rfid)
 {
 	if (rfid.pid != m_parent.getPID())
     {
-		DebugSimWrite("Received reservation for G%u\n", rfid.fid);
+		DebugSimWrite("Received reservation for G%u", rfid.fid);
 		if (m_reservation.isRemoteFull())
 		{
 			return false;
@@ -307,7 +307,7 @@ Result Network::onCycleReadPhase(unsigned int stateIndex)
                     return FAILED;
                 }
 				
-                DebugSimWrite("Read shared from %s: %016llx\n", addr.str().c_str(), value.m_integer);
+                DebugSimWrite("Read shared G%u:%s from %s: 0x%016llx", m_sharedResponse.fid, m_sharedResponse.addr.str().c_str(), addr.str().c_str(), value.m_integer);
                 
 				if (value.m_state == RST_FULL)
 				{
@@ -319,12 +319,12 @@ Result Network::onCycleReadPhase(unsigned int stateIndex)
 				}
 				else
 				{
-					DebugSimWrite("Discarding shared request: shared not yet written\n");
+					DebugSimWrite("Discarding shared G%u:%s request: shared not yet written", m_sharedResponse.fid, m_sharedResponse.addr.str().c_str());
 				}
             }
 			else
 			{
-				DebugSimWrite("Discarding shared request: shared not yet allocated\n");
+				DebugSimWrite("Discarding shared G%u:%s request: shared not yet allocated", m_sharedResponse.fid, m_sharedResponse.addr.str().c_str());
 			}
 
             if (m_sharedResponse.value.m_state != RST_FULL)
@@ -351,7 +351,7 @@ Result Network::onCycleReadPhase(unsigned int stateIndex)
 			}
 			assert(value.m_state == RST_FULL);
 			COMMIT{ m_global.local = value; }
-			DebugSimWrite("Read global %u: %d\n", addr.index, m_global.local.m_state);
+			DebugSimWrite("Read global #%u from %s", m_global.addr.index, addr.str().c_str());
 			return SUCCESS;
         }
     }
@@ -377,7 +377,7 @@ Result Network::onCycleWritePhase(unsigned int stateIndex)
             }
             else
             {
-				DebugSimWrite("Writing shared %s for G%u\n", m_sharedReceived.addr.str().c_str(), m_sharedReceived.fid);
+				DebugSimWrite("Writing shared %Gu:%s", m_sharedReceived.fid, m_sharedReceived.addr.str().c_str());
                 RegAddr addr = m_allocator.getSharedAddress(m_sharedReceived.parent ? ST_PARENT : ST_FIRST, m_sharedReceived.fid, m_sharedReceived.addr);
                 if (addr.valid())
                 {
@@ -412,7 +412,7 @@ Result Network::onCycleWritePhase(unsigned int stateIndex)
         if (m_sharedResponse.fid != INVALID_GFID && m_sharedResponse.value.m_state == RST_FULL)
         {
             // Response
-			DebugSimWrite("Sending shared %s for G%u; parent: %d\n", m_sharedResponse.addr.str().c_str(), m_sharedResponse.fid, m_sharedResponse.parent);
+			DebugSimWrite("Sending shared G%u:%s; parent shared: %s", m_sharedResponse.fid, m_sharedResponse.addr.str().c_str(), m_sharedResponse.parent ? "true" : "false");
 			Result res = m_next->onSharedReceived(m_sharedResponse);
 			if (res == FAILED)
             {
@@ -518,12 +518,12 @@ Result Network::onCycleWritePhase(unsigned int stateIndex)
 					}
 				}
 				
-				DebugSimWrite("Allocated family F%u for G%u: %u globals left initially\n", fid, msg.fid, m_global.count);
+				DebugSimWrite("Allocated family F%u for G%u: %u globals left initially", fid, msg.fid, m_global.count);
 				if (m_global.count > 0)
 				{
 					// There are still globals to process, otherwise we can 
 					// process another create next cycle
-					DebugSimWrite("Processing remote create\n");
+					DebugSimWrite("Processing remote create");
 					COMMIT{ m_createState = CS_PROCESSING_REMOTE; }
 				}
 				else if (!m_allocator.ActivateFamily(fid))
@@ -559,12 +559,12 @@ Result Network::onCycleWritePhase(unsigned int stateIndex)
 					return FAILED;
 				}
 
-				DebugSimWrite("Sent local family create G%u: %u globals left initially (type %d)\n", msg.fid, m_global.count, m_global.addr.type);
+				DebugSimWrite("Sent local family create G%u: %u globals left initially (type %d)", msg.fid, m_global.count, m_global.addr.type);
 				if (m_global.count > 0)
 				{
 					// There are still globals to process, otherwise we can 
 					// process another create next cycle
-					DebugSimWrite("Processing local create\n");
+					DebugSimWrite("Processing local create");
 					COMMIT{ m_createState = CS_PROCESSING_LOCAL; }
 				}
 				COMMIT{ m_createFid = create.first; }
@@ -582,7 +582,7 @@ Result Network::onCycleWritePhase(unsigned int stateIndex)
 				{
 					// Forward the read global
 					assert(m_global.local.m_state == RST_FULL);
-					DebugSimWrite("Sent global %s\n", m_global.addr.str().c_str());
+					DebugSimWrite("Sent global %s", m_global.addr.str().c_str());
 
 					family = &m_familyTable[ m_createFid ];
 
@@ -601,7 +601,7 @@ Result Network::onCycleWritePhase(unsigned int stateIndex)
 						return FAILED;
 					}
 
-					DebugSimWrite("Writing global %s to %u\n", m_global.addr.str().c_str(), addr.index);
+					DebugSimWrite("Writing global %s to %s", m_global.addr.str().c_str(), addr.str().c_str());
 					if (!m_regFile.writeRegister(addr, m_global.value.readRemote().second))
 					{
 						return FAILED;
@@ -640,10 +640,10 @@ Result Network::onCycleWritePhase(unsigned int stateIndex)
 
 				if (done)
 				{
-					DebugSimWrite("Done with creation for F%u; remote=%d\n", m_createFid, m_createState == CS_PROCESSING_REMOTE);
+					DebugSimWrite("Done with creation for F%u; remote: %s", m_createFid, m_createState == CS_PROCESSING_REMOTE ? "true" : "false");
 					for (RegType i = 0; i < NUM_REG_TYPES; i++)
 					{
-						DebugSimWrite("Globals: %d, Shareds: %d\n", family->regs[i].globals, family->regs[i].shareds);
+						DebugSimWrite("#Globals: %u, #Shareds: %u", family->regs[i].globals, family->regs[i].shareds);
 					}
 
 					// We've read or written all globals for this create
@@ -656,7 +656,7 @@ Result Network::onCycleWritePhase(unsigned int stateIndex)
 						}
 					}
 					
-					DebugSimWrite("Processing no create\n");
+					DebugSimWrite("Processing no create");
 					COMMIT{ m_createState = CS_PROCESSING_NONE; }
 				}
 		    	return SUCCESS;
@@ -743,7 +743,7 @@ Result Network::onCycleWritePhase(unsigned int stateIndex)
 			if (m_nextWantsToken.read() && m_lockToken == 0)
 			{
 				// Pass the token to the next CPU
-				DebugSimWrite("Sending token to next\n");
+				DebugSimWrite("Sending token to next processor");
 				if (!m_next->onTokenReceived())
 				{
 					return FAILED;

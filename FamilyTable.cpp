@@ -84,7 +84,7 @@ GFID FamilyTable::AllocateGlobal(LFID lfid)
 				m_globals[i].used = true;
 				m_globals[i].fid  = lfid;
 			}
-			DebugSimWrite("Allocated G%u for F%u\n", i, lfid);
+			DebugSimWrite("Allocated G%u for F%u", i, lfid);
             return GFID(i);
         }
     }
@@ -98,7 +98,7 @@ bool FamilyTable::ReserveGlobal(GFID fid)
     assert(!m_globals[fid].used);
 
     COMMIT{ m_globals[fid].used = true; }
-    DebugSimWrite("Reserved family G%u\n", fid);
+    DebugSimWrite("Reserved family G%u", fid);
     return true;
 }
 
@@ -111,7 +111,7 @@ bool FamilyTable::UnreserveGlobal(GFID fid)
         m_globals[fid].used = false;
     	m_globals[fid].fid  = INVALID_LFID;
     }
-    DebugSimWrite("Unreserved family G%u\n", fid);
+    DebugSimWrite("Unreserved family G%u", fid);
     return true;
 }
 

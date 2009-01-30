@@ -64,7 +64,6 @@ bool FPU::queueOperation(int opcode, int func, const Float& Rav, const Float& Rb
 			case A_ITFPFUNC_SQRTS_UM:
 				res.value.fromfloat( sqrtf( Rbv.tofloat() ) );
 				latency = m_config.sqrtLatency;
-				//DebugSimWrite("sqrt(%f) = %f\n", Rbv.tofloat(), res.value.tofloat());
 				break;
 
 			case A_ITFPFUNC_SQRTT:
@@ -85,7 +84,6 @@ bool FPU::queueOperation(int opcode, int func, const Float& Rav, const Float& Rb
 			case A_ITFPFUNC_SQRTT_UM:
 				res.value.fromdouble( sqrt( Rbv.todouble() ) );
 				latency = m_config.sqrtLatency;
-				//DebugSimWrite("sqrt(%lf) = %lf\n", Rbv.todouble(), res.value.todouble());
 				break;
 		}
 	}
@@ -110,7 +108,6 @@ bool FPU::queueOperation(int opcode, int func, const Float& Rav, const Float& Rb
 			case A_FLTIFUNC_ADDS_UM:
 				res.value.fromfloat(Rav.tofloat() + Rbv.tofloat());
 				latency = m_config.addLatency;
-				//DebugSimWrite("%f + %f = %f\n", Rav.tofloat(), Rbv.tofloat(), res.value.tofloat());
 				break;
 
 			case A_FLTIFUNC_SUBS:
@@ -130,7 +127,6 @@ bool FPU::queueOperation(int opcode, int func, const Float& Rav, const Float& Rb
 			case A_FLTIFUNC_SUBS_UM:
 				res.value.fromfloat(Rav.tofloat() - Rbv.tofloat());
 				latency = m_config.subLatency;
-				//DebugSimWrite("%f - %f = %f\n", Rav.tofloat(), Rbv.tofloat(), res.value.tofloat());
 				break;
 
 			case A_FLTIFUNC_MULS:
@@ -150,7 +146,6 @@ bool FPU::queueOperation(int opcode, int func, const Float& Rav, const Float& Rb
 			case A_FLTIFUNC_MULS_UM:
 				res.value.fromfloat(Rav.tofloat() * Rbv.tofloat());
 				latency = m_config.mulLatency;
-				//DebugSimWrite("%f * %f = %f\n", Rav.tofloat(), Rbv.tofloat(), res.value.tofloat());
 				break;
 
 			case A_FLTIFUNC_DIVS:
@@ -170,7 +165,6 @@ bool FPU::queueOperation(int opcode, int func, const Float& Rav, const Float& Rb
 			case A_FLTIFUNC_DIVS_UM:
 				res.value.fromfloat(Rav.tofloat() / Rbv.tofloat());
 				latency = m_config.divLatency;
-				//DebugSimWrite("%f / %f = %f\n", Rav.tofloat(), Rbv.tofloat(), res.value.tofloat());
 				break;
 
 			case A_FLTIFUNC_ADDT:
@@ -190,7 +184,6 @@ bool FPU::queueOperation(int opcode, int func, const Float& Rav, const Float& Rb
 			case A_FLTIFUNC_ADDT_UM:
 				res.value.fromdouble(Rav.todouble() + Rbv.todouble());
 				latency = m_config.addLatency;
-				//DebugSimWrite("%lf + %lf = %lf\n", Rav.todouble(), Rbv.todouble(), res.value.todouble());
 				break;
 
 			case A_FLTIFUNC_SUBT:
@@ -210,7 +203,6 @@ bool FPU::queueOperation(int opcode, int func, const Float& Rav, const Float& Rb
 			case A_FLTIFUNC_SUBT_UM:
 				res.value.fromdouble(Rav.todouble() - Rbv.todouble());
 				latency = m_config.subLatency;
-				//DebugSimWrite("%lf - %lf = %lf\n", Rav.todouble(), Rbv.todouble(), res.value.todouble());
 				break;
 
 			case A_FLTIFUNC_MULT:
@@ -230,7 +222,6 @@ bool FPU::queueOperation(int opcode, int func, const Float& Rav, const Float& Rb
 			case A_FLTIFUNC_MULT_UM:
 				res.value.fromdouble(Rav.todouble() * Rbv.todouble());
 				latency = m_config.mulLatency;
-				//DebugSimWrite("%lf * %lf = %lf\n", Rav.todouble(), Rbv.todouble(), res.value.todouble());
 				break;
 
 			case A_FLTIFUNC_DIVT:
@@ -250,7 +241,6 @@ bool FPU::queueOperation(int opcode, int func, const Float& Rav, const Float& Rb
 			case A_FLTIFUNC_DIVT_UM:
 				res.value.fromdouble(Rav.todouble() / Rbv.todouble());
 				latency = m_config.divLatency;
-				//DebugSimWrite("%lf / %lf = %lf\n", Rav.todouble(), Rbv.todouble(), res.value.todouble());
 				break;
 		}
 	}
@@ -263,7 +253,6 @@ bool FPU::queueOperation(int opcode, int func, const Float& Rav, const Float& Rb
 		return false;
 	}
 
-	//DebugSimWrite("Queued operation. Done at %lld\n", res.completion);
 	COMMIT{ m_pipelines[latency].push_back(res); }
 	return true;
 }

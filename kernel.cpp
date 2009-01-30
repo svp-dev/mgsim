@@ -58,6 +58,8 @@ void Object::OutputWrite(const char* msg, ...) const
         va_start(args, msg);
         vprintf(msg, args);
         va_end(args);
+        
+        cout << endl;
     }
 }
 
@@ -74,6 +76,8 @@ void Object::DebugSimWrite(const char* msg, ...) const
         va_start(args, msg);
         vprintf(msg, args);
         va_end(args);
+        
+        cout << endl;
     }
 }
 
@@ -90,6 +94,8 @@ void Object::DebugProgWrite(const char* msg, ...) const
         va_start(args, msg);
         vprintf(msg, args);
         va_end(args);
+        
+        cout << endl;
     }
 }
 

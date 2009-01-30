@@ -110,7 +110,7 @@ Pipeline::PipeAction Pipeline::ReadStage::write()
         if (m_input.Rra.fid != INVALID_GFID)
         {
             // Send a remote request
-			DebugSimWrite("Requesting shared %s for G%u\n", m_input.Rra.reg.str().c_str(), m_input.Rra.fid);
+			DebugSimWrite("Requesting shared %s for G%u", m_input.Rra.reg.str().c_str(), m_input.Rra.fid);
 			if (!m_network.requestShared(m_input.Rra.fid, m_input.Rra.reg, m_input.isFirstThreadInFamily))
             {
                 return PIPE_STALL;
@@ -131,7 +131,7 @@ Pipeline::PipeAction Pipeline::ReadStage::write()
         if (m_input.Rrb.fid != INVALID_GFID)
         {
             // Send a remote request
-			DebugSimWrite("Requesting remote shared %s for family G%u\n", m_input.Rrb.reg.str().c_str(), m_input.Rrb.fid);
+			DebugSimWrite("Requesting remote shared %s for family G%u", m_input.Rrb.reg.str().c_str(), m_input.Rrb.fid);
 			if (!m_network.requestShared(m_input.Rrb.fid, m_input.Rrb.reg, m_input.isFirstThreadInFamily))
             {
                 return PIPE_STALL;

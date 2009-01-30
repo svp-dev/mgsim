@@ -123,7 +123,7 @@ Result DCache::read(MemAddr address, void* data, MemSize size, LFID fid, RegAddr
 	// Check that we're reading readable memory
 	if (!m_parent.checkPermissions(address, size, IMemory::PERM_READ))
 	{
-		throw SecurityException("Attempting to read non-readable memory");
+		throw SecurityException(*this, "Attempting to read non-readable memory");
 	}
 
     Line*  line;
@@ -200,7 +200,7 @@ Result DCache::write(MemAddr address, void* data, MemSize size, LFID fid, TID ti
 	// Check that we're writing writable memory
 	if (!m_parent.checkPermissions(address, size, IMemory::PERM_WRITE))
 	{
-		throw SecurityException("Attempting to write non-writable memory");
+		throw SecurityException(*this, "Attempting to write non-writable memory");
 	}
 
 	COMMIT

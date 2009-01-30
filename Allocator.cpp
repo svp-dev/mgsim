@@ -247,7 +247,7 @@ bool Allocator::KillThread(TID tid)
 {
     Thread& thread = m_threadTable[tid];
     assert(thread.state == TST_RUNNING);
-
+    
     if (!m_icache.releaseCacheLine(thread.cid))
     {
         return false;
@@ -274,6 +274,12 @@ bool Allocator::KillThread(TID tid)
             }
         }
     }
+    
+    if (thread.isLastThreadInFamily && family.dependencies.numPendingShareds > 0)
+    {
+        // The last thread didn't write all its shareds
+        OutputWrite("Thread T%u (F%u) did not write all its shareds", tid, thread.family);
+    }
 
     // Mark the thread as killed
     if (!DecreaseThreadDependency(thread.family, tid, THREADDEP_TERMINATED, *this))
@@ -281,7 +287,7 @@ bool Allocator::KillThread(TID tid)
         return false;
     }
 
-    DebugSimWrite("Killed thread T%u\n", tid);
+    DebugSimWrite("Killed thread T%u", tid);
     
     COMMIT
     {
@@ -311,7 +317,7 @@ bool Allocator::RescheduleThread(TID tid, MemAddr pc, const IComponent& componen
         return false;
     }
 
-    DebugSimWrite("Rescheduling thread T%u to %llx\n", tid, pc );
+    DebugSimWrite("Rescheduling thread T%u in F%u to 0x%llx", tid, thread.family, pc );
     return true;
 }
 
@@ -499,7 +505,7 @@ bool Allocator::allocateThread(LFID fid, TID tid, bool isNewlyAllocated)
     if (thread->prevInBlock == INVALID_TID)
 	{
 		family->firstThreadInBlock = tid;
-		DebugSimWrite("Set first thread in block for F%u to T%u (index %d)\n", fid, tid, thread->index);
+		DebugSimWrite("Set first thread in block for F%u to T%u (index %llu)", fid, tid, thread->index);
 	}
 	
 	if (thread->isLastThreadInBlock)
@@ -539,10 +545,10 @@ bool Allocator::allocateThread(LFID fid, TID tid, bool isNewlyAllocated)
         return false;
     }
 
-    DebugSimWrite("Allocated thread for F%u at T%u\n", fid, tid);
+    DebugSimWrite("Allocated thread for F%u at T%u", fid, tid);
 	if (family->dependencies.allocationDone)
 	{
-		DebugSimWrite("Last thread for processor\n");
+		DebugSimWrite("T%u is the last thread for F%u on this processor", tid, fid);
 	}
     return true;
 }
@@ -610,7 +616,7 @@ bool Allocator::killFamily(LFID fid, ExitCode code, RegValue value)
     }
 
     COMMIT{ family.killed = true; }
-    DebugSimWrite("Killed family %d (parent PID: %02x)\n", fid, family.parent.pid);
+    DebugSimWrite("Killed F%u (parent: T%u@P%u)", fid, family.parent.tid, family.parent.pid);
     return true;
 }
 
@@ -700,7 +706,7 @@ bool Allocator::DecreaseFamilyDependency(LFID fid, FamilyDependency dep)
             {
                 return false;
             }
-            DebugSimWrite("Cleaned up family %d\n", fid);
+            DebugSimWrite("Cleaned up F%u", fid);
         }
         break;
     }
@@ -1064,7 +1070,7 @@ bool Allocator::AllocateRegisters(LFID fid)
 						if (regs.shareds == INVALID_REG_INDEX && regs.count.shareds > 0) regs.shareds = regs.base + regs.size - regs.count.shareds;
 					}
 				}
-				DebugSimWrite("Allocated registers: %d at %04x\n", sizes[i], indices[i]);
+				DebugSimWrite("%d: Allocated %u registers at 0x%04x", i, sizes[i], indices[i]);
 			}
 			return true;
         }
@@ -1081,7 +1087,7 @@ Result Allocator::onCycleReadPhase(unsigned int stateIndex)
         {
             // Get next family to allocate
 			COMMIT{ m_allocating = pop(m_alloc); }
-			DebugSimWrite("Allocating from F%u\n", m_allocating );
+			DebugSimWrite("Starting thread allocation from F%u", m_allocating );
 			return SUCCESS;
         }
     }
@@ -1110,7 +1116,7 @@ bool Allocator::onReservationComplete()
 	// The reservation has gone full circle, we can now resume the create
 	assert(m_createState == CREATE_RESERVING_FAMILY);
 	COMMIT{ m_createState = CREATE_BROADCASTING_CREATE; }
-	DebugSimWrite("Reservation complete\n");
+	DebugSimWrite("Reservation complete");
 	return true;
 }
 
@@ -1160,7 +1166,7 @@ Result Allocator::onCycleWritePhase(unsigned int stateIndex)
                     return FAILED;
                 }
 
-				DebugSimWrite("Cleaned up T%u for F%u (index %lld)\n", tid, fid, thread.index);
+				DebugSimWrite("Cleaned up T%u for F%u (index %llu)", tid, fid, thread.index);
 			}
             else
             {
@@ -1173,7 +1179,7 @@ Result Allocator::onCycleWritePhase(unsigned int stateIndex)
                 if (family.dependencies.allocationDone && m_allocating == fid)
                 {
                     // Go to next family
-                    DebugSimWrite("Done allocating from F%u\n", m_allocating);
+                    DebugSimWrite("Done allocating from F%u", m_allocating);
                     COMMIT{ m_allocating = INVALID_LFID; }
                 }
             }
@@ -1201,7 +1207,7 @@ Result Allocator::onCycleWritePhase(unsigned int stateIndex)
             if (family.dependencies.numThreadsAllocated == family.physBlockSize || family.dependencies.allocationDone)
             {
                 // Yes, go to next family
-                DebugSimWrite("Done allocating from F%u\n", m_allocating);
+                DebugSimWrite("Done allocating from F%u", m_allocating);
                 COMMIT{ m_allocating = INVALID_LFID; }
             }
 			return SUCCESS;
@@ -1243,7 +1249,7 @@ Result Allocator::onCycleWritePhase(unsigned int stateIndex)
 
             if (m_createState == CREATE_INITIAL)
             {
-				DebugSimWrite("Processing %s create for F%u\n", (family.gfid == INVALID_GFID) ? "local" : "group", fid);
+				DebugSimWrite("Processing %s create for F%u", (family.gfid == INVALID_GFID) ? "local" : "group", fid);
 
 				// Load the register counts from the family's first cache line
 				Instruction counts;
@@ -1513,7 +1519,7 @@ bool Allocator::queueCreate(LFID fid, MemAddr address, TID parent, RegAddr exitC
 		// Push the create
 		m_creates.push(fid);
     }
-	DebugSimWrite("Queued local create by T%u at %08llx\n", parent, address);
+	DebugSimWrite("Queued local create by T%u at 0x%llx", parent, address);
     return true;
 }
 
@@ -1542,7 +1548,7 @@ void Allocator::allocateInitialFamily(MemAddr pc, bool legacy)
 	LFID fid = m_familyTable.AllocateFamily();
 	if (fid == INVALID_LFID)
 	{
-		throw Exception("Unable to create initial family");
+		throw SimulationException(*this, "Unable to create initial family");
 	}
 
 	Family& family = m_familyTable[fid];
@@ -1578,12 +1584,12 @@ void Allocator::allocateInitialFamily(MemAddr pc, bool legacy)
 	// Allocate the registers
 	if (!AllocateRegisters(fid))
 	{
-		throw Exception("Unable to create initial family");
+		throw SimulationException(*this, "Unable to create initial family");
 	}
 
 	if (!ActivateFamily(fid))
 	{
-		throw Exception("Unable to create initial family");
+		throw SimulationException(*this, "Unable to create initial family");
 	}
 }
 

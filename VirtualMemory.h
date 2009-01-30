@@ -20,7 +20,7 @@ public:
 		int   permissions;
 	};
 
-	typedef std::map<size_t, Block> BlockMap;
+	typedef std::map<MemAddr, Block> BlockMap;
 
     void read (MemAddr address, void* data, MemSize size) const;
 	void write(MemAddr address, const void* data, MemSize size, int perm = 0);

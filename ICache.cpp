@@ -165,7 +165,7 @@ Result ICache::fetch(MemAddr address, MemSize size, TID* tid, CID* cid)
 	// Check that we're fetching executable memory
 	if (!m_parent.checkPermissions(address, size, IMemory::PERM_EXECUTE))
 	{
-		throw SecurityException("Attempting to execute non-executable memory");
+		throw SecurityException(*this, "Attempting to execute non-executable memory");
 	}
 
     // Validate input

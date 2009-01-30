@@ -148,7 +148,6 @@ Result ParallelMemory::onCycleWritePhase(unsigned int stateIndex)
 	    		{
 		    		return FAILED;
 			    }
-			    DebugSimWrite("Completed write to %llx\n", request.address);
 			}
 			else
 			{
@@ -157,7 +156,6 @@ Result ParallelMemory::onCycleWritePhase(unsigned int stateIndex)
     			{
     				return FAILED;
     			}
-			    DebugSimWrite("Completed read to %llx\n", request.address);
 			}
 			
 			COMMIT

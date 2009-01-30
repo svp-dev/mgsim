@@ -283,9 +283,9 @@ Pipeline::PipeAction Pipeline::ExecuteStage::write()
 					    unsigned int stream = m_input.Rbv.m_integer & 0x7F;
 					    if (stream == 0) {
 					        if (m_input.Rbv.m_integer & 0x80) {
-    						    DebugProgWrite("PRINT by T%u at %016llx: %016lld\n", m_input.tid, m_input.pc, m_input.Rav.m_integer);
+    						    DebugProgWrite("PRINT by T%u at %016llx: %016lld", m_input.tid, (uint64_t)m_input.pc, m_input.Rav.m_integer);
     						} else {
-    						    DebugProgWrite("PRINT by T%u at %016llx: %016llu\n", m_input.tid, m_input.pc, m_input.Rav.m_integer);
+    						    DebugProgWrite("PRINT by T%u at %016llx: %016llu", m_input.tid, (uint64_t)m_input.pc, m_input.Rav.m_integer);
     						}
     					} else {
 	    				    ostream& out = (stream != 1) ? cerr : cout;
@@ -304,7 +304,7 @@ Pipeline::PipeAction Pipeline::ExecuteStage::write()
 				    {
 					    unsigned int stream = m_input.Rbv.m_integer & 0x7F;
 					    if (stream == 0) {
-    						DebugProgWrite("DEBUG by T%u at %016llx: %.12lf\n", m_input.tid, m_input.pc, m_input.Rav.m_float.todouble());
+    						DebugProgWrite("DEBUG by T%u at %016llx: %.12lf", m_input.tid, (uint64_t)m_input.pc, m_input.Rav.m_float.todouble());
     				    } else {
 	    				    ostream& out = (stream != 1) ? cerr : cout;
 		    			    out << setprecision(12) << fixed << m_input.Rav.m_float.todouble();

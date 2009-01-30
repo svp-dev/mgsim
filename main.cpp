@@ -19,12 +19,9 @@
 #include <stdexcept>
 #include <limits>
 
-#ifndef WIN32
-// On non-Windows machines (Unix, Linux, Solaris, MacOS), we use readline
-// instead of cin.
 #include <readline/readline.h>
 #include <readline/history.h>
-#endif
+
 using namespace Simulator;
 using namespace std;
 
@@ -250,16 +247,7 @@ public:
     // Steps the entire system this many cycles
     RunState step(CycleNo nCycles)
     {
-		try
-		{
-			Kernel& kernel = getKernel();
-			return kernel.step(nCycles);
-		}
-		catch (Exception& e)
-		{
-			cout << endl << "Exception:" << endl << e.getType() << ": " << e.getMessage() << endl;
-        }
-		return STATE_IDLE;
+		return getKernel().step(nCycles);
     }
 
     AlphaCMPSystem(const Config& config, const string& program, const vector<pair<RegAddr, RegValue> >& regs, bool legacy, bool quiet)
@@ -319,35 +307,14 @@ public:
 //
 // Gets a command line from an input stream
 //
-static string GetCommandLine( const string& prompt, istream& input = cin )
+static char* GetCommandLine(const string& prompt)
 {
-    string line;
-#ifdef WIN32
-    // Simply read from cin
-    cout << prompt;
-    while (1)
-    {
-        int ch = cin.get();
-        if (ch == '\n')
-        {
-            break;
-        }
-        line += (char)ch;
-    }
-#else
-    // Use readline
     char* str = readline(prompt.c_str());
-    if (str != NULL)
+    if (str != NULL && *str != '\0')
     {
-        line = str;
-        if (!line.empty())
-        {
-            add_history(str);
-        }
-        free(str);
+        add_history(str);
     }
-#endif
-    return line;
+    return str;
 }
 
 // Return the classname. That's everything after the last ::, if any
@@ -657,30 +624,44 @@ int main(int argc, const char* argv[])
         // Create the system
 		AlphaCMPSystem sys(systemconfig, config.m_programFile, config.m_regs, config.m_legacy, !config.m_interactive);
 
-        if (!config.m_interactive)
+        bool interactive = config.m_interactive;
+        if (!interactive)
         {
             // Non-interactive mode; run and dump cycle count
-            if (sys.step(INFINITE_CYCLES) == STATE_DEADLOCK)
-			{
-				throw runtime_error("Deadlock!");
-			}
-			cout.rdbuf(cerr.rdbuf());
-			cout << dec
-			     << config.m_print << sys.getKernel().getCycleNo() << " ; "
-                 << sys.getOp() << " "
-                 << sys.getFlop() << " ; ";
-			sys.printRegFileAsyncPortActivity();
-			cout << " ; ";
-			sys.PrintActiveQueueSize();
-			cout << " ; ";
-			sys.PrintPipelineIdleTime();
-			cout << " ; ";
-			sys.PrintPipelineEfficiency();
-			cout << " ; ";
-			sys.PrintFamilyCompletions();
-			cout << endl;
+    		try
+    		{
+                if (sys.step(INFINITE_CYCLES) == STATE_DEADLOCK)
+    			{
+    				throw runtime_error("Deadlock!");
+    			}
+            
+    			cout.rdbuf(cerr.rdbuf());
+    			cout << dec
+    			     << config.m_print << sys.getKernel().getCycleNo() << " ; "
+                     << sys.getOp() << " "
+                     << sys.getFlop() << " ; ";
+    			sys.printRegFileAsyncPortActivity();
+    			cout << " ; ";
+    			sys.PrintActiveQueueSize();
+    			cout << " ; ";
+    			sys.PrintPipelineIdleTime();
+    			cout << " ; ";
+    			sys.PrintPipelineEfficiency();
+    			cout << " ; ";
+    			sys.PrintFamilyCompletions();
+    			cout << endl;
+    		}
+    		catch (exception& e)
+    		{
+    			cerr << endl << e.what() << endl;
+
+    		    // When we get an exception in non-interactive mode,
+    		    // jump into interactive mode
+    			interactive = true;
+            }
         }
-        else
+        
+        if (interactive)
         {
             // Command loop
             vector<string> prevCommands;
@@ -691,13 +672,22 @@ int main(int argc, const char* argv[])
                 prompt << dec << setw(8) << setfill('0') << right << sys.getKernel().getCycleNo() << "> ";
             
 				// Read the command line and split into commands
-				vector<string> commands = Tokenize(GetCommandLine(prompt.str()), ";");
+				char* line = GetCommandLine(prompt.str());
+				if (line == NULL)
+				{
+				    // End of input
+				    cout << endl;
+				    break;
+				}
+				
+				vector<string> commands = Tokenize(line, ";");
 				if (commands.size() == 0)
 				{
 					// Empty line, use previous command line
 					commands = prevCommands;
 				}
 				prevCommands = commands;
+				free(line);
 
 				// Execute all commands
 				for (vector<string>::const_iterator command = commands.begin(); command != commands.end() && !quit; command++)
@@ -779,11 +769,6 @@ int main(int argc, const char* argv[])
 			}
 	    }
 	}
-    catch (Exception &e)
-    {
-        cerr << e.getMessage() << endl;
-        return 1;
-    }
     catch (exception &e)
     {
         cerr << e.what() << endl;

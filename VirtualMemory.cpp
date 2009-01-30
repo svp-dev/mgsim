@@ -12,7 +12,7 @@ bool VirtualMemory::CheckPermissions(MemAddr address, MemSize size, int access) 
         throw InvalidArgumentException("Size argument too big");
     }
 
-	size_t base = (size_t)address & -BLOCK_SIZE;	// Base address of block containing address
+	MemAddr base = address & -BLOCK_SIZE;	// Base address of block containing address
 	for (BlockMap::const_iterator pos = m_blocks.find(base); size > 0; ++pos)
 	{
 		if (pos == m_blocks.end() || (pos->second.permissions & access) != access)
@@ -35,9 +35,9 @@ void VirtualMemory::read(MemAddr address, void* _data, MemSize size) const
         throw InvalidArgumentException("Size argument too big");
     }
 
-	size_t base   = (size_t)address & -BLOCK_SIZE;	// Base address of block containing address
-	size_t offset = (size_t)address - base;			// Offset within base block of address
-	char*  data   = static_cast<char*>(_data);		// Byte-aligned pointer to destination
+	MemAddr base   = address & -BLOCK_SIZE;	    // Base address of block containing address
+	size_t  offset = address - base;			// Offset within base block of address
+	char*   data   = static_cast<char*>(_data);	// Byte-aligned pointer to destination
 
 	for (BlockMap::const_iterator pos = m_blocks.lower_bound(base); size > 0;)
 	{
@@ -73,8 +73,8 @@ void VirtualMemory::write(MemAddr address, const void* _data, MemSize size, int 
         throw InvalidArgumentException("Size argument too big");
     }
 
-	size_t      base   = (size_t)address & -BLOCK_SIZE;		// Base address of block containing address
-	size_t      offset = (size_t)address - base;			// Offset within base block of address
+	MemAddr     base   = address & -BLOCK_SIZE;		        // Base address of block containing address
+	size_t      offset = address - base;			        // Offset within base block of address
 	const char* data   = static_cast<const char*>(_data);	// Byte-aligned pointer to destination
 
 	BlockMap::iterator pos = m_blocks.begin();

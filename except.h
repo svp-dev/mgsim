@@ -2,86 +2,55 @@
 #define CLIB_EXCEPT_H
 
 #include <string>
+#include <stdexcept>
 
 namespace Simulator
 {
 
+class Object;
+
 // Base exception class
-class Exception
+class SimulationException : public std::runtime_error
 {
-    const std::string message;
 public:
-    virtual Exception*  clone()   { return new Exception( *this ); }
-    virtual void        raise()   { throw Exception( *this ); }
-    virtual const char* getType() { return "Exception"; }
-
-    const std::string& getMessage()
-    {
-        return message;
-    }
-
-    Exception( const std::string& msg ) : message(msg) {}
-    Exception() {}
-    virtual ~Exception() {}
+    SimulationException(const Object& obj, const std::string& msg);
 };
 
-#define EXCEPTION_COMMON(name) 
-/*\
-    Exception*  clone()   { return new name( *this ); } \
-    void        raise()   { throw name( *this ); } \
-    const char* getType() { return #name; }
-*/
-class IllegalPortAccess : public Exception
+class IllegalPortAccess : public SimulationException
 {
 public:
-    EXCEPTION_COMMON(IllegalPortAccess)
-
-    IllegalPortAccess(const std::string& componentName) : Exception(componentName + " tried to access a port illegally") {}
+    IllegalPortAccess(const Object& obj) : SimulationException(obj, "Illegal port access") {}
 };
 
-class InvalidArgumentException : public Exception
+class InvalidArgumentException : public std::runtime_error
+
 {
 public:
-    EXCEPTION_COMMON(InvalidArgumentException)
-
-    InvalidArgumentException( const std::string& msg ) : Exception(msg) {}
-    InvalidArgumentException() {}
+    InvalidArgumentException(const std::string& msg) : std::runtime_error(msg) {}
 };
 
-class IllegalInstructionException : public Exception
+class IllegalInstructionException : public SimulationException
 {
 public:
-    EXCEPTION_COMMON(IllegalInstructionException)
-
-    IllegalInstructionException( const std::string& msg ) : Exception(msg) {}
-    IllegalInstructionException() {}
+    IllegalInstructionException(const Object& obj, const std::string& msg) : SimulationException(obj, msg) {}
 };
 
-class IOException : public Exception
+class IOException : public std::runtime_error
 {
 public:
-    EXCEPTION_COMMON(IOException)
-
-    IOException( const std::string& msg ) : Exception(msg) {}
-    IOException() {}
+    IOException(const std::string& msg) : std::runtime_error(msg) {}
 };
 
 class FileNotFoundException : public IOException
 {
 public:
-    EXCEPTION_COMMON(FileNotFoundException)
-
-    FileNotFoundException( const std::string& filename ) : IOException("File not found: " + filename) {}
-    FileNotFoundException() {}
+    FileNotFoundException(const std::string& filename) : IOException("File not found: " + filename) {}
 };
 
-class SecurityException : public Exception
+class SecurityException : public SimulationException
 {
 public:
-    EXCEPTION_COMMON(SecurityException)
-
-    SecurityException( const std::string& msg) : Exception(msg) {}
-    SecurityException() {}
+    SecurityException(const Object& obj, const std::string& msg) : SimulationException(obj, msg) {}
 };
 
 }

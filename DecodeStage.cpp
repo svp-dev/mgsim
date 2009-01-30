@@ -297,8 +297,8 @@ Pipeline::PipeAction Pipeline::DecodeStage::write()
         default:
             {
                 stringstream error;
-                error << "Illegal opcode in instruction at " << hex << setw(16) << setfill('0') << m_input.pc;
-                throw IllegalInstructionException(error.str());
+                error << "Illegal opcode in instruction at 0x" << hex << setw(16) << setfill('0') << m_input.pc;
+                throw IllegalInstructionException(*this, error.str());
             }
         }
 

@@ -45,7 +45,7 @@ void ArbitratedFunction::verify(const IComponent& component) const
 {
     if (m_priorities.find(&component) == m_priorities.end())
     {
-        throw IllegalPortAccess(component.getFQN());
+        throw IllegalPortAccess(component);
     }
 }
 
@@ -53,7 +53,7 @@ void DedicatedFunction::verify(const IComponent& component) const
 {
     if (m_component != &component)
     {
-        throw IllegalPortAccess(component.getFQN());
+        throw IllegalPortAccess(component);
     }
 }
 #endif

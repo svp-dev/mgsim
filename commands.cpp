@@ -325,10 +325,10 @@ static bool cmd_mem_read(Object* obj, const vector<string>& arguments )
             cout << endl;
         }
     }
-    catch (Exception &e)
+    catch (exception& e)
     {
-        cout << "An exception occured while reading the memory:" << endl;
-        cout << e.getMessage() << endl;
+        cout << "An exception occured while reading the memory:" << endl
+             << e.what() << endl;
     }
     delete[] buf;
     return true;
@@ -347,37 +347,39 @@ static bool cmd_mem_info(Object* obj, const vector<string>& arguments )
 
 	cout << hex << setfill('0');
 
-	MemSize total = 0;
-	VirtualMemory::BlockMap::const_iterator p = blocks.begin();
-	if (p != blocks.end())
-	{
-		MemAddr begin = p->first;
-		int     perm  = p->second.permissions;
-		MemAddr size  = VirtualMemory::BLOCK_SIZE;
-		for (++p; p != blocks.end(); )
-		{
-			MemAddr addr = p->first;
-			if (addr > begin + size || p->second.permissions != perm) {
-				cout << setw(8) << begin << " - " << setw(8) << begin + size - 1 << ": ";
-				cout << (perm & IMemory::PERM_READ    ? "R" : ".");
-				cout << (perm & IMemory::PERM_WRITE   ? "W" : ".");
-				cout << (perm & IMemory::PERM_EXECUTE ? "X" : ".") << endl;
-				begin = addr;
-				perm  = p->second.permissions;
-				size  = 0;
-			}
-			size  += VirtualMemory::BLOCK_SIZE;
-			total += VirtualMemory::BLOCK_SIZE;
+    MemSize total = 0;
+    VirtualMemory::BlockMap::const_iterator p = blocks.begin();
+    if (p != blocks.end())
+    {
+        // We have at least one block, walk over all blocks and
+        // coalesce neighbouring blocks with similar properties.
+        MemAddr begin = p->first;
+        int     perm  = p->second.permissions;
+        MemAddr size  = 0;
 
-			if (++p == blocks.end()) {
-				cout << setw(8) << begin << " - " << setw(8) << begin + size - 1 << ": ";
-				cout << (perm & IMemory::PERM_READ    ? "R" : ".");
-				cout << (perm & IMemory::PERM_WRITE   ? "W" : ".");
-				cout << (perm & IMemory::PERM_EXECUTE ? "X" : ".") << endl;
-			}
-		}
-		total += VirtualMemory::BLOCK_SIZE;
-	}
+        do
+        {
+            size  += VirtualMemory::BLOCK_SIZE;
+            total += VirtualMemory::BLOCK_SIZE;
+
+            p++;
+            if (p == blocks.end() || p->first > begin + size || p->second.permissions != perm)
+            {
+                // Different block, or end of blocks
+                cout << setw(16) << begin << " - " << setw(16) << begin + size - 1 << ": ";
+                cout << (perm & IMemory::PERM_READ    ? "R" : ".");
+                cout << (perm & IMemory::PERM_WRITE   ? "W" : ".");
+                cout << (perm & IMemory::PERM_EXECUTE ? "X" : ".") << endl;
+                if (p != blocks.end())
+                {
+                    // Different block
+                    begin = p->first;
+                    perm  = p->second.permissions;
+                    size  = 0;
+                }
+            }
+        } while (p != blocks.end());
+    }
 
 	// Print total memory usage
 	int mod = 0;

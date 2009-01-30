@@ -47,7 +47,7 @@ bool RegisterFile::readRegister(const RegAddr& addr, RegValue& data) const
     const vector<RegValue>& regs = (addr.type == RT_FLOAT) ? m_floats : m_integers;
     if (addr.index >= regs.size())
     {
-        throw InvalidArgumentException("A component attempted to read from a non-existing register");
+        throw SimulationException(*this, "A component attempted to read from a non-existing register");
     }
     data = regs[addr.index];
     return true;
@@ -70,7 +70,7 @@ bool RegisterFile::clear(const RegAddr& addr, RegSize size, const RegValue& valu
     std::vector<RegValue>& regs = (addr.type == RT_FLOAT) ? m_floats : m_integers;
     if (addr.index + size > regs.size())
     {
-        throw InvalidArgumentException("A component attempted to clear a non-existing register");
+        throw SimulationException(*this, "A component attempted to clear a non-existing register");
     }
 
     for (RegSize i = 0; i < size; i++)
@@ -86,11 +86,10 @@ bool RegisterFile::clear(const RegAddr& addr, RegSize size, const RegValue& valu
 
 bool RegisterFile::writeRegister(const RegAddr& addr, RegValue& data, const IComponent& component)
 {
-	// DebugSimWrite("Writing register %s\n", addr.str().c_str());
 	std::vector<RegValue>& regs = (addr.type == RT_FLOAT) ? m_floats : m_integers;
     if (addr.index >= regs.size())
     {
-        throw InvalidArgumentException("A component attempted to write to a non-existing register");
+        throw SimulationException(component, "Writing to a non-existing register");
     }
     
 	assert(data.m_state == RST_EMPTY || data.m_state == RST_PENDING || data.m_state == RST_WAITING || data.m_state == RST_FULL);
@@ -100,7 +99,7 @@ bool RegisterFile::writeRegister(const RegAddr& addr, RegValue& data, const ICom
     {
         if (value.m_state != RST_EMPTY && value.m_state != RST_FULL)
         {
-            throw InvalidArgumentException("Clearing a waiting or pending register");
+            throw SimulationException(component, "Clearing a waiting or pending register");
         }
         
         COMMIT
@@ -113,7 +112,7 @@ bool RegisterFile::writeRegister(const RegAddr& addr, RegValue& data, const ICom
 		// Must come from the pipeline (i.e., an instruction read a non-full register)
 		if (value.m_state != RST_PENDING && value.m_state != RST_FULL)
 		{
-			throw InvalidArgumentException("Waiting on a non-pending register");
+			throw SimulationException(component, "Waiting on a non-pending register");
 		}
 
     	if (value.m_state == RST_FULL)
@@ -139,12 +138,12 @@ bool RegisterFile::writeRegister(const RegAddr& addr, RegValue& data, const ICom
 		{
 			if (data.m_state != RST_FULL)
 			{
-				throw InvalidArgumentException("Writing to a pending register");
+				throw SimulationException(component, "Writing to a pending register");
 			}
 
 			if (value.m_component != &component)
 			{
-				throw InvalidArgumentException("Invalid component is overwriting a pending register");
+				throw SimulationException(component, "Invalid component is overwriting a pending register");
 			}
 		}
 		else if (value.m_state == RST_WAITING)
