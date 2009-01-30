@@ -202,6 +202,12 @@ Pipeline::PipeAction Pipeline::DecodeStage::write()
             m_output.Rb           = MAKE_REGADDR(RT_INTEGER, Rb);
             m_output.displacement = (m_output.opcode == A_OP_LDAH) ? (int32_t)(disp << 16) : (int16_t)disp;
             m_output.function     = (uint16_t)disp;
+            
+            if (m_output.opcode == A_OP_LDQ_U && disp == 0 && Ra == 31)
+            {
+                // This is a UNOP. Rb can be anything, but that might cause problems, so we force Rb to R31
+                m_output.Rb = MAKE_REGADDR(type, 31);
+            }
             break;
         }
 
@@ -246,11 +252,11 @@ Pipeline::PipeAction Pipeline::DecodeStage::write()
         {
             // Floating point operate instruction
             m_output.function = (m_input.instr >> A_FLT_FUNC_SHIFT) & A_FLT_FUNC_MASK;
-            bool itof   = (m_output.opcode == A_OP_ITFP)     && (m_output.function == A_ITFPFUNC_ITOFT || m_output.function == A_ITFPFUNC_ITOFS || m_output.function == A_ITFPFUNC_ITOFF);
-            bool debugf = (m_output.opcode == A_OP_UTHREADF) && (m_output.function == A_UTHREADF_DEBUG);
+            bool itof  = (m_output.opcode == A_OP_ITFP)     && (m_output.function == A_ITFPFUNC_ITOFT || m_output.function == A_ITFPFUNC_ITOFS || m_output.function == A_ITFPFUNC_ITOFF);
+            bool print = (m_output.opcode == A_OP_UTHREADF) && (m_output.function == A_UTHREADF_PRINT);
             
-            m_output.Ra = MAKE_REGADDR(itof   ? RT_INTEGER : RT_FLOAT, Ra);
-            m_output.Rb = MAKE_REGADDR(debugf ? RT_INTEGER : RT_FLOAT, Rb);
+            m_output.Ra = MAKE_REGADDR(itof  ? RT_INTEGER : RT_FLOAT, Ra);
+            m_output.Rb = MAKE_REGADDR(print ? RT_INTEGER : RT_FLOAT, Rb);
             m_output.Rc = MAKE_REGADDR(RT_FLOAT, Rc);
             break;
         }

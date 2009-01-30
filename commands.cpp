@@ -271,10 +271,10 @@ static bool cmd_mem_read(Object* obj, const vector<string>& arguments )
 
     if (arguments.size() == 2)
     {
-        addr = strtoul( arguments[0].c_str(), &endptr, 0 );
+        addr = strtoull( arguments[0].c_str(), &endptr, 0 );
         if (*endptr == '\0')
         {
-            size = strtoul( arguments[1].c_str(), &endptr, 0 );
+            size = strtoull( arguments[1].c_str(), &endptr, 0 );
         }
     }
 
@@ -809,9 +809,8 @@ static bool cmd_threads_read( Object* obj, const vector<string>& arguments )
     static const char* ThreadStates[] = {
         "", "WAITING", "ACTIVE", "RUNNING", "SUSPENDED", "UNUSED", "KILLED"
     };
-
-    cout << "    |    PC    | Fam | Index | Prev | Next | Int. | Flt. | Flags | WR | State" << endl;
-    cout << "----+----------+-----+-------+------+------+------+------+-------+----+----------" << endl;
+    cout << "    |        PC        | Fam | Index | Prev | Next | Int. | Flt. | Flags | WR | State" << endl;
+    cout << "----+------------------+-----+-------+------+------+------+------+-------+----+----------" << endl;
     for (TID i = 0; i < table->getNumThreads(); i++)
     {
         cout << dec << setw(3) << setfill(' ') << i << " | ";
@@ -819,8 +818,8 @@ static bool cmd_threads_read( Object* obj, const vector<string>& arguments )
 
         if (thread.state != TST_EMPTY)
         {
-            cout << setw(8) << setfill('0') << hex << thread.pc << " | ";
-            cout << "F" << setw(2) << thread.family << " | ";
+            cout << setw(16) << setfill(' ') << hex << right << thread.pc << " | ";
+            cout << "F" << setfill('0') << setw(2) << thread.family << " | ";
             cout << setw(5) << dec << setfill(' ') << thread.index << " | ";
             if (thread.prevInBlock != INVALID_TID) cout << dec << setw(4) << setfill(' ') << thread.prevInBlock; else cout << "   -";
             cout << " | ";
@@ -848,7 +847,7 @@ static bool cmd_threads_read( Object* obj, const vector<string>& arguments )
         }
         else
         {
-            cout << "         |     |       |      |      |      |      |       |    |";
+            cout << "                 |     |       |      |      |      |      |       |    |";
         }
         cout << endl;
     }

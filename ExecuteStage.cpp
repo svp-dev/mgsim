@@ -278,30 +278,40 @@ Pipeline::PipeAction Pipeline::ExecuteStage::write()
 					case A_UTHREAD_BREAK:    break;
 					case A_UTHREAD_KILL:     break;
 
-					case A_UTHREAD_DEBUG:
-					    if (m_input.Rbv.m_integer == 0) {
-						    DebugProgWrite("DEBUG by T%u at %016llx: %016llx\n", m_input.tid, m_input.pc, m_input.Rav.m_integer);
+					case A_UTHREAD_PRINT:
+					{
+					    unsigned int stream = m_input.Rbv.m_integer & 0x7F;
+					    if (stream == 0) {
+					        if (m_input.Rbv.m_integer & 0x80) {
+    						    DebugProgWrite("PRINT by T%u at %016llx: %016lld\n", m_input.tid, m_input.pc, m_input.Rav.m_integer);
+    						} else {
+    						    DebugProgWrite("PRINT by T%u at %016llx: %016llu\n", m_input.tid, m_input.pc, m_input.Rav.m_integer);
+    						}
     					} else {
-	    				    ostream& out = (m_input.Rbv.m_integer != 1) ? cerr : cout;
+	    				    ostream& out = (stream != 1) ? cerr : cout;
 		    			    out << (char)m_input.Rav.m_integer;
 		    			}
 			    		output.Rc = INVALID_REG;
 				        break;
+				    }
 				}
             }
             else if (m_input.opcode == A_OP_UTHREADF)
             {
 				switch (m_input.function)
 				{
-					case A_UTHREADF_DEBUG:
-					    if (m_input.Rbv.m_integer == 0) {
+					case A_UTHREADF_PRINT:
+				    {
+					    unsigned int stream = m_input.Rbv.m_integer & 0x7F;
+					    if (stream == 0) {
     						DebugProgWrite("DEBUG by T%u at %016llx: %.12lf\n", m_input.tid, m_input.pc, m_input.Rav.m_float.todouble());
     				    } else {
-	    				    ostream& out = (m_input.Rbv.m_integer != 1) ? cerr : cout;
+	    				    ostream& out = (stream != 1) ? cerr : cout;
 		    			    out << setprecision(12) << fixed << m_input.Rav.m_float.todouble();
     				    }
 						output.Rc = INVALID_REG;
 						break;
+					}
 					
 					case A_UTHREADF_GETINVPROCS:
 						output.Rcv.m_state = RST_FULL;

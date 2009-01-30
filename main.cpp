@@ -388,7 +388,7 @@ static void PrintHelp()
         "               Deadlocks or livelocks will not be reported.\n"
         "debug [mode]   Show debug mode or set debug mode (SIM, PROG or ALL).\n"
         "profiles       Lists the total time of the profiled section.\n"
-        "idle           Prints the idle state for all components.\n"
+        "state          Prints the state for all components.\n"
         "\n"
         "help <component>            Show the supported methods and options for this\n"
         "                            component.\n"

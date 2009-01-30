@@ -109,12 +109,12 @@ namespace Simulator
 #define A_UTHREAD_BREAK      0x06
 #define A_UTHREAD_KILL       0x07
 #define A_UTHREAD_GETPROCS   0x09
-#define A_UTHREAD_DEBUG      0x10
+#define A_UTHREAD_PRINT      0x10
 
 // UTHREADF Instructions
 #define A_UTHREADF_BREAK       0x000
 #define A_UTHREADF_GETINVPROCS 0x001
-#define A_UTHREADF_DEBUG       0x100
+#define A_UTHREADF_PRINT       0x100
 
 // INTA Instructions.
 
