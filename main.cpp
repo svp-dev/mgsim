@@ -714,10 +714,17 @@ int main(int argc, const char* argv[])
 								nCycles = args.empty() ? 1 : max(1UL, strtoul(args[0].c_str(), &endptr, 0));
 							}
 
-							if (sys.step(nCycles) == STATE_DEADLOCK)
-							{
-								cout << "Deadlock!" << endl;
-							}
+                            try
+                            {
+    							if (sys.step(nCycles) == STATE_DEADLOCK)
+    							{
+    								throw runtime_error("Deadlock!");
+    							}
+    						}
+    						catch (exception& e)
+    						{
+    						    cout << e.what() << endl;
+    						}
 						}
 						else if (command == "p" || command == "print")
 						{

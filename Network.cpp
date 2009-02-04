@@ -377,7 +377,7 @@ Result Network::onCycleWritePhase(unsigned int stateIndex)
             }
             else
             {
-				DebugSimWrite("Writing shared %Gu:%s", m_sharedReceived.fid, m_sharedReceived.addr.str().c_str());
+				DebugSimWrite("Writing shared G%u:%s", m_sharedReceived.fid, m_sharedReceived.addr.str().c_str());
                 RegAddr addr = m_allocator.getSharedAddress(m_sharedReceived.parent ? ST_PARENT : ST_FIRST, m_sharedReceived.fid, m_sharedReceived.addr);
                 if (addr.valid())
                 {
