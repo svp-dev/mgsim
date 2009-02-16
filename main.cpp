@@ -502,6 +502,7 @@ static void PrintUsage()
         "-h, --help               Show this help\n"
         "-c, --config <filename>  Read configuration from file\n"
         "-i, --interactive        Start the simulator in interactive mode\n"
+        "-t, --terminate          Terminate simulator on exception\n"
         "-l, --legacy             The program file contains binary legacy code\n"
         "-p, --print <value>      Print the value before printing the results when\n"
         "                         done simulating\n"
@@ -517,6 +518,7 @@ struct ProgramConfig
     string             m_configFile;
     bool               m_interactive;
 	bool               m_legacy;
+	bool               m_terminate;
 	string             m_print;
 	map<string,string> m_overrides;
 	
@@ -527,6 +529,7 @@ static bool ParseArguments(int argc, const char* argv[], ProgramConfig& config)
 {
     config.m_interactive = false;
 	config.m_legacy      = false;
+	config.m_terminate   = false;
 
     for (int i = 1; i < argc; i++)
     {
@@ -541,8 +544,9 @@ static bool ParseArguments(int argc, const char* argv[], ProgramConfig& config)
             break;
         }
         
-             if (arg == "-c" || arg == "--config")      config.m_configFile = argv[++i];
+             if (arg == "-c" || arg == "--config")      config.m_configFile  = argv[++i];
         else if (arg == "-i" || arg == "--interactive") config.m_interactive = true;
+        else if (arg == "-t" || arg == "--terminate")   config.m_terminate   = true;
         else if (arg == "-l" || arg == "--legacy")      config.m_legacy      = true;
         else if (arg == "-h" || arg == "--help")        { PrintUsage(); return false; }
         else if (arg == "-p" || arg == "--print")       config.m_print = string(argv[++i]) + " ";
@@ -653,6 +657,13 @@ int main(int argc, const char* argv[])
     		}
     		catch (exception& e)
     		{
+                if (config.m_terminate)
+                {
+                    // We do not want to go to interactive mode,
+                    // rethrow so it abort the program.
+                    throw;
+                }
+
     			cerr << endl << e.what() << endl;
 
     		    // When we get an exception in non-interactive mode,
