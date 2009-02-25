@@ -29,17 +29,17 @@ ParallelMemory::Request::Request() { refcount = new unsigned long(1); data.data 
 ParallelMemory::Request::~Request() { release(); }
 
                                     
-void ParallelMemory::registerListener(IMemoryCallback& callback)
+void ParallelMemory::RegisterListener(IMemoryCallback& callback)
 {
     m_caches.insert(&callback);
 }
 
-void ParallelMemory::unregisterListener(IMemoryCallback& callback)
+void ParallelMemory::UnregisterListener(IMemoryCallback& callback)
 {
     m_caches.erase(&callback);
 }
 
-void ParallelMemory::addRequest(Request& request)
+void ParallelMemory::AddRequest(Request& request)
 {
 	Port* port;
 	map<IMemoryCallback*, Port*>::iterator p = m_portmap.find(request.callback);
@@ -62,7 +62,7 @@ void ParallelMemory::addRequest(Request& request)
 	m_statMaxRequests = max(m_statMaxRequests, m_numRequests);
 }
 
-Result ParallelMemory::read(IMemoryCallback& callback, MemAddr address, void* data, MemSize size, MemTag tag)
+Result ParallelMemory::Read(IMemoryCallback& callback, MemAddr address, void* data, MemSize size, MemTag tag)
 {
     if (size > SIZE_MAX)
     {
@@ -80,14 +80,14 @@ Result ParallelMemory::read(IMemoryCallback& callback, MemAddr address, void* da
             request.data.size = size;
             request.data.tag  = tag;
             request.write     = false;
-            addRequest(request);
+            AddRequest(request);
         }
         return DELAYED;
     }
     return FAILED;
 }
 
-Result ParallelMemory::write(IMemoryCallback& callback, MemAddr address, void* data, MemSize size, MemTag tag)
+Result ParallelMemory::Write(IMemoryCallback& callback, MemAddr address, void* data, MemSize size, MemTag tag)
 {
     if (size > SIZE_MAX)
     {
@@ -103,31 +103,31 @@ Result ParallelMemory::write(IMemoryCallback& callback, MemAddr address, void* d
         request.data.size = size;
         request.data.tag  = tag;
         request.write     = true;
-        memcpy(request.data.data, data, (size_t)size);
+        memcpy(request.data.data, data, size);
 
         // Broadcast the snoop data
         for (set<IMemoryCallback*>::iterator p = m_caches.begin(); p != m_caches.end(); p++)
         {
-            if (!(*p)->onMemorySnooped(request.address, request.data))
+            if (!(*p)->OnMemorySnooped(request.address, request.data))
             {
                 return FAILED;
             }
         }
 
-        COMMIT{ addRequest(request); }
+        COMMIT{ AddRequest(request); }
         return DELAYED;
     }
     return FAILED;
 }
 
-bool ParallelMemory::checkPermissions(MemAddr address, MemSize size, int access) const
+bool ParallelMemory::CheckPermissions(MemAddr address, MemSize size, int access) const
 {
 	return VirtualMemory::CheckPermissions(address, size, access);
 }
 
-Result ParallelMemory::onCycleWritePhase(unsigned int stateIndex)
+Result ParallelMemory::OnCycleWritePhase(unsigned int stateIndex)
 {
-	CycleNo now         = getKernel()->getCycleNo();
+	CycleNo now         = GetKernel()->GetCycleNo();
 	Port&   port        = m_ports[stateIndex];
 	size_t  nAvailable  = m_config.width - port.m_inFlight.size();
 	Result  result      = DELAYED;
@@ -143,16 +143,16 @@ Result ParallelMemory::onCycleWritePhase(unsigned int stateIndex)
 			
 			if (request.write)
 			{
-				VirtualMemory::write(request.address, request.data.data, request.data.size);
-    			if (!request.callback->onMemoryWriteCompleted(request.data.tag))
+				VirtualMemory::Write(request.address, request.data.data, request.data.size);
+    			if (!request.callback->OnMemoryWriteCompleted(request.data.tag))
 	    		{
 		    		return FAILED;
 			    }
 			}
 			else
 			{
-				VirtualMemory::read(request.address, request.data.data, request.data.size);
-			    if (!request.callback->onMemoryReadCompleted(request.data))
+				VirtualMemory::Read(request.address, request.data.data, request.data.size);
+			    if (!request.callback->OnMemoryReadCompleted(request.data))
     			{
     				return FAILED;
     			}
@@ -197,14 +197,14 @@ Result ParallelMemory::onCycleWritePhase(unsigned int stateIndex)
 	return (nDispatched > 0) ? SUCCESS : result;
 }
 
-void ParallelMemory::read (MemAddr address, void* data, MemSize size)
+void ParallelMemory::Read (MemAddr address, void* data, MemSize size)
 {
-	return VirtualMemory::read(address, data, size);
+	return VirtualMemory::Read(address, data, size);
 }
 
-void ParallelMemory::write(MemAddr address, const void* data, MemSize size, int perm)
+void ParallelMemory::Write(MemAddr address, const void* data, MemSize size, int perm)
 {
-	return VirtualMemory::write(address, data, size, perm);
+	return VirtualMemory::Write(address, data, size, perm);
 }
 
 ParallelMemory::ParallelMemory(Object* parent, Kernel& kernel, const std::string& name, const Config& config, PSize numProcs ) :

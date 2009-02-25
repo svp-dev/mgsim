@@ -8,15 +8,13 @@ using namespace std;
 // RegisterFile implementation
 //
 
-RegisterFile::RegisterFile(Processor& parent, ICache& icache, DCache &dcache, Allocator& alloc, const Config& config)
-:   Structure<RegAddr>(&parent, parent.getKernel(), "registers"),
+RegisterFile::RegisterFile(Processor& parent, Allocator& alloc, const Config& config)
+:   Structure<RegAddr>(&parent, parent.GetKernel(), "registers"),
     p_pipelineR1(*this), p_pipelineR2(*this), p_pipelineW(*this), p_asyncR(*this), p_asyncW(*this),
     m_integers(config.numIntegers),
     m_floats(config.numFloats),
     m_parent(parent),
-    m_allocator(alloc),
-    m_icache(icache),
-	m_dcache(dcache)
+    m_allocator(alloc)
 {
     // Initialize all registers to empty
     for (RegSize i = 0; i < config.numIntegers; i++)
@@ -32,17 +30,17 @@ RegisterFile::RegisterFile(Processor& parent, ICache& icache, DCache &dcache, Al
     }
 
     // Set port priorities
-    setPriority(p_asyncW,    1);
-    setPriority(p_pipelineW, 0);
+    SetPriority(p_asyncW,    1);
+    SetPriority(p_pipelineW, 0);
 }
 
-RegSize RegisterFile::getSize(RegType type) const
+RegSize RegisterFile::GetSize(RegType type) const
 {
     const vector<RegValue>& regs = (type == RT_FLOAT) ? m_floats : m_integers;
     return regs.size();
 }
 
-bool RegisterFile::readRegister(const RegAddr& addr, RegValue& data) const
+bool RegisterFile::ReadRegister(const RegAddr& addr, RegValue& data) const
 {
     const vector<RegValue>& regs = (addr.type == RT_FLOAT) ? m_floats : m_integers;
     if (addr.index >= regs.size())
@@ -54,7 +52,7 @@ bool RegisterFile::readRegister(const RegAddr& addr, RegValue& data) const
 }
 
 // Admin version
-bool RegisterFile::writeRegister(const RegAddr& addr, const RegValue& data)
+bool RegisterFile::WriteRegister(const RegAddr& addr, const RegValue& data)
 {
     vector<RegValue>& regs = (addr.type == RT_FLOAT) ? m_floats : m_integers;
     if (addr.index < regs.size())
@@ -65,7 +63,7 @@ bool RegisterFile::writeRegister(const RegAddr& addr, const RegValue& data)
 	return false;
 }
 
-bool RegisterFile::clear(const RegAddr& addr, RegSize size, const RegValue& value)
+bool RegisterFile::Clear(const RegAddr& addr, RegSize size, const RegValue& value)
 {
     std::vector<RegValue>& regs = (addr.type == RT_FLOAT) ? m_floats : m_integers;
     if (addr.index + size > regs.size())
@@ -84,30 +82,18 @@ bool RegisterFile::clear(const RegAddr& addr, RegSize size, const RegValue& valu
     return true;
 }
 
-bool RegisterFile::writeRegister(const RegAddr& addr, RegValue& data, const IComponent& component)
+bool RegisterFile::WriteRegister(const RegAddr& addr, RegValue& data, const IComponent& component)
 {
 	std::vector<RegValue>& regs = (addr.type == RT_FLOAT) ? m_floats : m_integers;
     if (addr.index >= regs.size())
     {
-        throw SimulationException(component, "Writing to a non-existing register");
+        throw SimulationException(component, "A component attempted to write to a non-existing register");
     }
     
 	assert(data.m_state == RST_EMPTY || data.m_state == RST_PENDING || data.m_state == RST_WAITING || data.m_state == RST_FULL);
 
     RegValue& value = regs[addr.index];
-    if (data.m_state == RST_EMPTY)
-    {
-        if (value.m_state != RST_EMPTY && value.m_state != RST_FULL)
-        {
-            throw SimulationException(component, "Clearing a waiting or pending register");
-        }
-        
-        COMMIT
-        {
-            value.m_state = RST_EMPTY;
-        }
-    }
-    else if (data.m_state == RST_WAITING)
+    if (data.m_state == RST_WAITING)
     {
 		// Must come from the pipeline (i.e., an instruction read a non-full register)
 		if (value.m_state != RST_PENDING && value.m_state != RST_FULL)
@@ -161,4 +147,3 @@ bool RegisterFile::writeRegister(const RegAddr& addr, RegValue& data, const ICom
     }
     return true;
 }
-

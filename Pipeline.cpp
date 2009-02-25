@@ -6,7 +6,7 @@ using namespace Simulator;
 using namespace std;
 
 Pipeline::Stage::Stage(Pipeline& parent, const std::string& name, Latch* input, Latch* output)
-:   IComponent(&parent, parent.getProcessor().getKernel(), name, 0),    // Stages don't require callbacks
+:   IComponent(&parent, parent.GetProcessor().GetKernel(), name, 0),    // Stages don't require callbacks
     m_parent(parent), m_input(input), m_output(output)
 {
 }
@@ -24,13 +24,13 @@ Pipeline::Pipeline(
 	FPU&                fpu,
     const Config&       config)
 :
-    IComponent(&parent, parent.getKernel(), name, NUM_STAGES), m_parent(parent), m_regFile(regFile),
+    IComponent(&parent, parent.GetKernel(), name, NUM_STAGES), m_parent(parent), m_regFile(regFile),
     m_nStagesRun(0), m_maxPipelineIdleTime(0), m_minPipelineIdleTime(numeric_limits<uint64_t>::max()),
     m_totalPipelineIdleTime(0), m_pipelineIdleEvents(0), m_pipelineIdleTime(0), m_pipelineBusyTime(0),
     m_fetch(*this, m_fdLatch, alloc, familyTable, threadTable, icache, config.controlBlockSize),
     m_decode(*this, m_fdLatch, m_drLatch),
     m_read(*this, m_drLatch, m_reLatch, regFile, network, m_emLatch, m_mwLatch),
-    m_execute(*this, m_reLatch, m_emLatch, alloc, threadTable, fpu),
+    m_execute(*this, m_reLatch, m_emLatch, alloc, threadTable, familyTable, fpu),
     m_memory(*this, m_emLatch, m_mwLatch, dcache, alloc, regFile, familyTable),
     m_writeback(*this, m_mwLatch, regFile, network, alloc, threadTable)
 {
@@ -42,9 +42,9 @@ Pipeline::Pipeline(
     m_stages[5] = &m_writeback;
 }
 
-Result Pipeline::onCycleReadPhase(unsigned int stateIndex)
+Result Pipeline::OnCycleReadPhase(unsigned int stateIndex)
 {   
-    if (acquiring() && stateIndex == 0)
+    if (IsAcquiring() && stateIndex == 0)
     {
         // Begin of the cycle, initialize
         m_nStagesRunnable = 0;
@@ -67,14 +67,14 @@ Result Pipeline::onCycleReadPhase(unsigned int stateIndex)
                 m_nStagesRunnable++;
             }
             
-			if (action == PIPE_STALL)
+			if (action == PIPE_STALL || action == PIPE_DELAY)
 			{
 				// This stage has stalled, abort pipeline
 				for (int i = 0; i < stage; i++)
 				{
 					m_runnable[i] = false;
 				}
-				return FAILED;
+				return (action == PIPE_STALL) ? FAILED : SUCCESS;
 			}
 			
 			if (action == PIPE_FLUSH)
@@ -102,7 +102,7 @@ Result Pipeline::onCycleReadPhase(unsigned int stateIndex)
     return DELAYED;
 }
 
-Result Pipeline::onCycleWritePhase(unsigned int stateIndex)
+Result Pipeline::OnCycleWritePhase(unsigned int stateIndex)
 {
     int stage = NUM_STAGES - 1 - stateIndex;
     if (m_runnable[stage])
@@ -111,14 +111,14 @@ Result Pipeline::onCycleWritePhase(unsigned int stateIndex)
         PipeAction action = m_stages[stage]->write();
 		if (action != PIPE_IDLE)
 		{
-			if (action == PIPE_STALL)
+			if (action == PIPE_STALL || action == PIPE_DELAY)
 			{
-				// This stage has stalled, abort pipeline
+				// This stage has stalled or is delayed, abort pipeline
 				for (int i = 0; i < stage; i++)
 				{
 					m_runnable[i] = false;
 				}
-				return FAILED;
+				return (action == PIPE_STALL) ? FAILED : SUCCESS;
 			}
 
 			Latch* input  = m_stages[stage]->getInput();

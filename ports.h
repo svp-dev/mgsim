@@ -4,6 +4,7 @@
 #include "kernel.h"
 #include <map>
 #include <set>
+#include <limits>
 
 namespace Simulator
 {
@@ -23,23 +24,23 @@ class ArbitratedPort
 
 	uint64_t m_busyCycles;
 public:
-	uint64_t getBusyCycles() const {
+	uint64_t GetBusyCycles() const {
 		return m_busyCycles;
 	}
 
-    void setPriority(const IComponent& component, int priority) {
+    void SetPriority(const IComponent& component, int priority) {
         m_priorities[&component] = priority;
     }
 
-    void notify(bool chosen) {
+    void Notify(bool chosen) {
         m_chosen = chosen;
         m_requests.clear();
     }
 
-    bool arbitrate(I* pIndex)
+    bool Arbitrate(I* pIndex)
     {
         // Choose the request with the highest priority
-        int highest = INT_MAX;
+        int highest = std::numeric_limits<int>::max();
         for (typename RequestMap::const_iterator i = m_requests.begin(); i != m_requests.end(); i++)
         {
             typename PriorityMap::const_iterator priority = m_priorities.find(i->first);
@@ -51,7 +52,7 @@ public:
             }
         }
         m_chosen = false;
-        if (highest != INT_MAX)
+        if (highest != std::numeric_limits<int>::max())
 		{
 			m_busyCycles++;
 			return true;
@@ -59,19 +60,19 @@ public:
 		return false;
     }
     
-    bool chosen() const { return m_chosen; }
-    const IComponent* component() const { return m_component; }
+    bool IsChosen() const { return m_chosen; }
+    const IComponent* GetComponent() const { return m_component; }
 
 protected:
-    bool acquiring() const {
-        return m_kernel.getCyclePhase() == PHASE_ACQUIRE;
+    bool IsAcquiring() const {
+        return m_kernel.GetCyclePhase() == PHASE_ACQUIRE;
     }
 
-    bool acquired(const IComponent& component) const {
+    bool HasAcquired(const IComponent& component) const {
         return m_chosen && &component == m_component;
     }
 
-    void verify(const IComponent& component) const {
+    void Verify(const IComponent& component) const {
 #ifndef NDEBUG
         if (m_priorities.find(&component) == m_priorities.end()) {
             throw IllegalPortAccess(component);
@@ -79,7 +80,7 @@ protected:
 #endif
     }
 
-    void addRequest(const IComponent& component, const I& index) {
+    void AddRequest(const IComponent& component, const I& index) {
         m_requests[&component] = index;
     }
 
@@ -111,23 +112,23 @@ public:
 
     Structure(Object* parent, Kernel& kernel, const std::string& name) : IStructure(parent, kernel, name) {}
 
-    void setPriority(ArbitratedWritePort<I>& port, int priority) { m_priorities[&port] = priority; }
+    void SetPriority(ArbitratedWritePort<I>& port, int priority) { m_priorities[&port] = priority; }
 
-    void registerReadPort(ArbitratedReadPort& port)         { m_readPorts.insert(&port);  }
-    void registerWritePort(ArbitratedWritePort<I>& port)    { m_writePorts.insert(&port); }
-    void unregisterReadPort(ArbitratedReadPort& port)       { m_readPorts.erase(&port);   }
-    void unregisterWritePort(ArbitratedWritePort<I>& port)  { m_writePorts.erase(&port);  }
+    void RegisterReadPort(ArbitratedReadPort& port)         { m_readPorts.insert(&port);  }
+    void RegisterWritePort(ArbitratedWritePort<I>& port)    { m_writePorts.insert(&port); }
+    void UnregisterReadPort(ArbitratedReadPort& port)       { m_readPorts.erase(&port);   }
+    void UnregisterWritePort(ArbitratedWritePort<I>& port)  { m_writePorts.erase(&port);  }
 
-    void onArbitrateReadPhase();        // Body defined below
+    void OnArbitrateReadPhase();        // Body defined below
 
-    void onArbitrateWritePhase()
+    void OnArbitrateWritePhase()
     {
         // Arbitrate between the ports      
         m_requests.clear();
         for (typename WritePortList::iterator i = m_writePorts.begin(); i != m_writePorts.end(); i++)
         {
             I index;
-            if ((*i)->arbitrate(&index))
+            if ((*i)->Arbitrate(&index))
             {
                 // This port has requests
                 m_requests[index].push_back(*i);
@@ -137,11 +138,11 @@ public:
         for (typename RequestPortMap::iterator i = m_requests.begin(); i != m_requests.end(); i++)
         {
             ArbitratedWritePort<I>* port = NULL;
-            int highest = INT_MAX;
+            int highest = std::numeric_limits<int>::max();
 
             for (typename WritePortMap::iterator j = i->second.begin(); j != i->second.end(); j++)
             {
-                int priority = getPriority(*j);
+                int priority = GetPriority(*j);
                 if (priority < highest)
                 {
                     highest   = priority;
@@ -151,25 +152,25 @@ public:
 
             for (typename WritePortMap::iterator j = i->second.begin(); j != i->second.end(); j++)
             {
-                (*j)->notify( port == *j );
+                (*j)->Notify( port == *j );
             }
         }
     }
 
 protected:
-    const RequestPortMap& getArbitratedRequests() const {
+    const RequestPortMap& GetArbitratedRequests() const {
         return m_requests;
     }
 
-    int getPriority(ArbitratedWritePort<I>* &port) const {
+    int GetPriority(ArbitratedWritePort<I>* &port) const {
         typename PriorityMap::const_iterator priority = m_priorities.find(port);
-        return (priority != m_priorities.end()) ? priority->second : INT_MAX;
+        return (priority != m_priorities.end()) ? priority->second : std::numeric_limits<int>::max();
     }
 
 private:
     ReadPortList    m_readPorts;
     WritePortList   m_writePorts;
-    PriorityMap m_priorities;
+    PriorityMap     m_priorities;
     RequestPortMap  m_requests;
 };
 
@@ -182,11 +183,11 @@ public:
     DedicatedPort() { m_component = NULL; }
     virtual ~DedicatedPort() {}
 
-    virtual void setComponent(const IComponent& component) {
+    virtual void SetComponent(const IComponent& component) {
         m_component = &component;
     }
 protected:
-    void verify(const IComponent& component) {
+    void Verify(const IComponent& component) {
 #ifndef NDEBUG
         if (m_component != &component) {
             throw IllegalPortAccess(component);
@@ -200,7 +201,7 @@ private:
 class ReadPort
 {
 public:
-    virtual bool read(const IComponent& component) = 0;
+    virtual bool Read(const IComponent& component) = 0;
     virtual ~ReadPort() {}
 };
 
@@ -208,7 +209,7 @@ template <typename I>
 class WritePort
 {
 public:
-    virtual bool write(const IComponent& component, const I& index) = 0;
+    virtual bool Write(const IComponent& component, const I& index) = 0;
     virtual ~WritePort() {}
 };
 
@@ -219,18 +220,18 @@ class ArbitratedReadPort : public ArbitratedPort<bool>, public ReadPort
 {
 public:
     template <typename I>
-    ArbitratedReadPort(Structure<I>& structure) : ArbitratedPort<bool>(*structure.getKernel()) {
-        structure.registerReadPort(*this);
+    ArbitratedReadPort(Structure<I>& structure) : ArbitratedPort<bool>(*structure.GetKernel()) {
+        structure.RegisterReadPort(*this);
     }
 
-    bool read(const IComponent& component)
+    bool Read(const IComponent& component)
     {
-        this->verify(component);
-        if (acquiring())
+        this->Verify(component);
+        if (IsAcquiring())
         {
-            addRequest(component, false);
+            AddRequest(component, false);
         }
-        else if (!acquired(component))
+        else if (!HasAcquired(component))
         {
             return false;
         }
@@ -245,18 +246,18 @@ template <typename I>
 class ArbitratedWritePort : public ArbitratedPort<I>, public WritePort<I>
 {
 public:
-    ArbitratedWritePort(Structure<I>& structure) : ArbitratedPort<I>(*structure.getKernel()) {
-        structure.registerWritePort(*this);
+    ArbitratedWritePort(Structure<I>& structure) : ArbitratedPort<I>(*structure.GetKernel()) {
+        structure.RegisterWritePort(*this);
     }
 
-    bool write(const IComponent& component, const I& index)
+    bool Write(const IComponent& component, const I& index)
     {
-        this->verify(component);
-        if (this->acquiring())
+        this->Verify(component);
+        if (this->IsAcquiring())
         {
-            this->addRequest(component, index);
+            this->AddRequest(component, index);
         }
-        else if (!this->acquired(component))
+        else if (!this->HasAcquired(component))
         {
             return false;
         }
@@ -272,8 +273,8 @@ class DedicatedReadPort : public DedicatedPort, public ReadPort
 public:
     template <typename I>
     DedicatedReadPort(Structure<I>& structure) {}
-    bool read(const IComponent& component) {
-        verify(component);
+    bool Read(const IComponent& component) {
+        Verify(component);
         return true;
     }
 };
@@ -287,29 +288,29 @@ class DedicatedWritePort : public ArbitratedWritePort<I>, public DedicatedPort
 public:
     DedicatedWritePort(Structure<I>& structure) : ArbitratedWritePort<I>(structure) {}
 
-    void setComponent(const IComponent& component) {
-        this->setPriority(component, 0);
-        DedicatedPort::setComponent(component);
+    void SetComponent(const IComponent& component) {
+        this->SetPriority(component, 0);
+        DedicatedPort::SetComponent(component);
     }
 
-    bool write(const IComponent& component, const I& index) {
-        DedicatedPort::verify(component);
-        return ArbitratedWritePort<I>::write(component, index);
+    bool Write(const IComponent& component, const I& index) {
+        DedicatedPort::Verify(component);
+        return ArbitratedWritePort<I>::Write(component, index);
     }
 };
 
 
 template <typename I>
-void Structure<I>::onArbitrateReadPhase()
+void Structure<I>::OnArbitrateReadPhase()
 {
     // Arbitrate between all incoming requests
     for (typename ReadPortList::iterator i = m_readPorts.begin(); i != m_readPorts.end(); i++)
     {
         bool index;
-        if ((*i)->arbitrate(&index))
+        if ((*i)->Arbitrate(&index))
         {
             // This port has a request, handle it
-            (*i)->notify(true);
+            (*i)->Notify(true);
         }
     }
 }

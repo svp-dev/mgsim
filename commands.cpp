@@ -1,6 +1,7 @@
 #include <iomanip>
 #include <iostream>
 #include <sstream>
+#include <cstdlib>
 #include "commands.h"
 #include "Processor.h"
 #include "SimpleMemory.h"
@@ -30,7 +31,7 @@ static void cmd_simplemem_requests(SimpleMemory* mem)
     cout << "----------+------+------+------+------------" << endl;
 
     typedef queue<SimpleMemory::Request> RequestQueue;
-    RequestQueue requests = mem->getRequests();
+    RequestQueue requests = mem->GetRequests();
     while (!requests.empty())
     {
         const RequestQueue::value_type& req = requests.front();
@@ -42,7 +43,7 @@ static void cmd_simplemem_requests(SimpleMemory* mem)
         if (cpu == NULL) {
                 cout << "???? | ";
         } else {
-                cout << cpu->getName() << " | ";
+                cout << cpu->GetName() << " | ";
         }
 
         if (req.data.tag.cid == INVALID_CID) {
@@ -63,10 +64,10 @@ static void cmd_simplemem_requests(SimpleMemory* mem)
     }
 
     cout << endl << "First request done at: ";
-    if (mem->getRequests().empty() || mem->getRequests().front().done == 0) {
+    if (mem->GetRequests().empty() || mem->GetRequests().front().done == 0) {
         cout << "N/A";
     } else {
-        cout << dec << setw(8) << mem->getRequests().front().done;
+        cout << dec << setw(8) << mem->GetRequests().front().done;
     }
     cout << endl << endl;
 }
@@ -74,28 +75,28 @@ static void cmd_simplemem_requests(SimpleMemory* mem)
 static void cmd_parallelmem_requests(ParallelMemory* mem)
 {
     // Display in-flight requests
-    for (size_t i = 0; i < mem->getNumPorts(); i++) {
+    for (size_t i = 0; i < mem->GetNumPorts(); i++) {
         cout << "    Done   | Address  | Size | CID  ";
     }
     cout << endl;
-    for (size_t i = 0; i < mem->getNumPorts(); i++) {
+    for (size_t i = 0; i < mem->GetNumPorts(); i++) {
         cout << "-----------+----------+------+----- ";
     }
     cout << endl;
 
 	vector<multimap<CycleNo, ParallelMemory::Request>::const_iterator> iters;
-	for (size_t i = 0; i < mem->getNumPorts(); i++)
+	for (size_t i = 0; i < mem->GetNumPorts(); i++)
 	{
-		iters.push_back(mem->getPort(i).m_inFlight.begin());
+		iters.push_back(mem->GetPort(i).m_inFlight.begin());
 	}
 
-	for (size_t y = 0; y < mem->getConfig().width; y++)
+	for (size_t y = 0; y < mem->GetConfig().width; y++)
 	{
-		for (size_t x = 0; x < mem->getNumPorts(); x++)
+		for (size_t x = 0; x < mem->GetNumPorts(); x++)
 		{
 			multimap<CycleNo, ParallelMemory::Request>::const_iterator& p = iters[x];
 
-			const ParallelMemory::Port& port = mem->getPort(x);
+			const ParallelMemory::Port& port = mem->GetPort(x);
 			if (p != port.m_inFlight.end())
 			{
 				const ParallelMemory::Request& req = p->second;
@@ -108,9 +109,9 @@ static void cmd_parallelmem_requests(ParallelMemory* mem)
 					cout << "C";
 				}
 
-				cout << setw(9) << dec << p->first << " | "
-					 << setw(8) << hex << right << req.address << " | "
-				     << setw(4) << req.data.size << " | ";
+				cout << setw(9) << dec << setfill(' ') << p->first << " | "
+					 << setw(8) << hex << setfill('0') << right << req.address << " | "
+				     << setw(4) << dec << setfill(' ') << req.data.size << " | ";
 
 				if (req.write || req.data.tag.cid == INVALID_CID) {
 					cout << "N/A ";
@@ -271,10 +272,10 @@ static bool cmd_mem_read(Object* obj, const vector<string>& arguments )
 
     if (arguments.size() == 2)
     {
-        addr = strtoull( arguments[0].c_str(), &endptr, 0 );
+        addr = (MemSize)strtoull( arguments[0].c_str(), &endptr, 0 );
         if (*endptr == '\0')
         {
-            size = strtoull( arguments[1].c_str(), &endptr, 0 );
+            size = strtoul( arguments[1].c_str(), &endptr, 0 );
         }
     }
 
@@ -288,11 +289,10 @@ static bool cmd_mem_read(Object* obj, const vector<string>& arguments )
     MemAddr start = addr & -16;
     MemAddr end   = (addr + size + 15) & -16;
 
-    uint8_t* buf = NULL;
     try {
         // Read the data
-        buf = new uint8_t[(size_t)size];
-        mem->read(addr, buf, size);
+        vector<uint8_t> buf((size_t)size);
+        mem->Read(addr, &buf[0], size);
     
         // Print it, 16 bytes per row
         for (MemAddr y = start; y < end; y += 16)
@@ -325,12 +325,11 @@ static bool cmd_mem_read(Object* obj, const vector<string>& arguments )
             cout << endl;
         }
     }
-    catch (exception& e)
+    catch (exception &e)
     {
-        cout << "An exception occured while reading the memory:" << endl
-             << e.what() << endl;
+        cout << "An exception occured while reading the memory:" << endl;
+        cout << e.what() << endl;
     }
-    delete[] buf;
     return true;
 }
 
@@ -341,45 +340,45 @@ static bool cmd_mem_info(Object* obj, const vector<string>& arguments )
     VirtualMemory* mem = dynamic_cast<VirtualMemory*>(obj);
     if (mem == NULL) return false;
 
-	const VirtualMemory::BlockMap& blocks = mem->getBlockMap();
-	cout << "Allocated memory blocks:" << endl
+	const VirtualMemory::BlockMap& blocks = mem->GetBlockMap();
+	cout << "Allocated memory ranges:" << endl
 		 << "-------------------------" << endl;
 
 	cout << hex << setfill('0');
+	
+	MemSize total = 0;
+	VirtualMemory::BlockMap::const_iterator p = blocks.begin();
+	if (p != blocks.end())
+	{
+	    // We have at least one block, walk over all blocks and
+	    // coalesce neighbouring blocks with similar properties.
+		MemAddr begin = p->first;
+		int     perm  = p->second.permissions;
+		MemAddr size  = 0;
+		
+		do
+		{
+			size  += VirtualMemory::BLOCK_SIZE;
+			total += VirtualMemory::BLOCK_SIZE;
 
-    MemSize total = 0;
-    VirtualMemory::BlockMap::const_iterator p = blocks.begin();
-    if (p != blocks.end())
-    {
-        // We have at least one block, walk over all blocks and
-        // coalesce neighbouring blocks with similar properties.
-        MemAddr begin = p->first;
-        int     perm  = p->second.permissions;
-        MemAddr size  = 0;
-
-        do
-        {
-            size  += VirtualMemory::BLOCK_SIZE;
-            total += VirtualMemory::BLOCK_SIZE;
-
-            p++;
-            if (p == blocks.end() || p->first > begin + size || p->second.permissions != perm)
-            {
-                // Different block, or end of blocks
-                cout << setw(16) << begin << " - " << setw(16) << begin + size - 1 << ": ";
-                cout << (perm & IMemory::PERM_READ    ? "R" : ".");
-                cout << (perm & IMemory::PERM_WRITE   ? "W" : ".");
-                cout << (perm & IMemory::PERM_EXECUTE ? "X" : ".") << endl;
-                if (p != blocks.end())
-                {
-                    // Different block
-                    begin = p->first;
-                    perm  = p->second.permissions;
-                    size  = 0;
-                }
-            }
-        } while (p != blocks.end());
-    }
+		    p++;
+		    if (p == blocks.end() || p->first > begin + size || p->second.permissions != perm)
+		    {
+		        // Different block, or end of blocks
+			    cout << setw(16) << begin << " - " << setw(16) << begin + size - 1 << ": ";
+			    cout << (perm & IMemory::PERM_READ    ? "R" : ".");
+			    cout << (perm & IMemory::PERM_WRITE   ? "W" : ".");
+			    cout << (perm & IMemory::PERM_EXECUTE ? "X" : ".") << endl;
+			    if (p != blocks.end())
+			    {
+			        // Different block
+    			    begin = p->first;
+    			    perm  = p->second.permissions;
+	    		    size  = 0;
+			    }
+			}
+		} while (p != blocks.end());
+	}
 
 	// Print total memory usage
 	int mod = 0;
@@ -391,7 +390,6 @@ static bool cmd_mem_info(Object* obj, const vector<string>& arguments )
 	static const char* Mods[] = { "B", "kB", "MB", "GB", "TB" };
 
 	cout << endl << "Total allocated memory: " << dec << total << " " << Mods[mod] << endl;
-
     return true;
 }
 
@@ -429,9 +427,9 @@ static bool cmd_network_read( Object* obj, const vector<string>& arguments )
     cout << endl;
 
     cout << "Token:" << endl;
-    if (network->m_hasToken.read())       cout << "* Processor has token (" << network->m_lockToken << " outstanding creates)" << endl;
-    if (network->m_wantToken.read())      cout << "* Processor wants token" << endl;
-    if (network->m_nextWantsToken.read()) cout << "* Next processor wants token" << endl;
+    if (network->m_hasToken.Read())       cout << "* Processor has token (" << network->m_lockToken << " outstanding creates)" << endl;
+    if (network->m_wantToken.Read())      cout << "* Processor wants token" << endl;
+    if (network->m_nextWantsToken.Read()) cout << "* Next processor wants token" << endl;
     cout << endl;
 
     cout << "Families and threads:" << endl;
@@ -440,25 +438,25 @@ static bool cmd_network_read( Object* obj, const vector<string>& arguments )
              << ", global " << network->m_global.addr.str() << endl;
     }
 
-    if (network->m_reservation.isLocalFull())   cout << "* Local family reservation for G" << network->m_reservation.readLocal().fid << endl;
-    if (network->m_reservation.isSendingFull()) cout << "* Forwarding family reservation for G" << network->m_reservation.readSending().fid << endl;
-    if (network->m_reservation.isRemoteFull())
+    if (network->m_reservation.IsLocalFull())   cout << "* Local family reservation for G" << network->m_reservation.ReadLocal().fid << endl;
+    if (network->m_reservation.IsSendingFull()) cout << "* Forwarding family reservation for G" << network->m_reservation.ReadSending().fid << endl;
+    if (network->m_reservation.IsRemoteFull())
     {
-        cout << "* Received family reservation for G" << network->m_reservation.readRemote().fid << " (";
-        cout << (network->m_reservation.isRemoteProcessed() ? "processed" : "not processed") << ")" << endl;
+        cout << "* Received family reservation for G" << network->m_reservation.ReadRemote().fid << " (";
+        cout << (network->m_reservation.IsRemoteProcessed() ? "processed" : "not processed") << ")" << endl;
     }
 
-    if (network->m_unreservation.isLocalFull())   cout << "* Local family unreservation for G" << network->m_unreservation.readLocal().fid << endl;
-    if (network->m_unreservation.isSendingFull()) cout << "* Forwarding family unreservation for G" << network->m_unreservation.readSending().fid << endl;
-    if (network->m_unreservation.isRemoteFull())
+    if (network->m_unreservation.IsLocalFull())   cout << "* Local family unreservation for G" << network->m_unreservation.ReadLocal().fid << endl;
+    if (network->m_unreservation.IsSendingFull()) cout << "* Forwarding family unreservation for G" << network->m_unreservation.ReadSending().fid << endl;
+    if (network->m_unreservation.IsRemoteFull())
     {
-        cout << "* Received family unreservation for G" << network->m_unreservation.readRemote().fid << " (";
-        cout << (network->m_unreservation.isRemoteProcessed() ? "processed" : "not processed") << ")" << endl;
+        cout << "* Received family unreservation for G" << network->m_unreservation.ReadRemote().fid << " (";
+        cout << (network->m_unreservation.IsRemoteProcessed() ? "processed" : "not processed") << ")" << endl;
     }
 
-    if (!network->m_completedFamily.empty()) cout << "* Local family completion of G" << network->m_completedFamily.read() << endl;
-    if (!network->m_completedThread.empty()) cout << "* Local thread completion of G" << network->m_completedThread.read() << endl;
-    if (!network->m_cleanedUpThread.empty()) cout << "* Local thread cleanup of G" << network->m_cleanedUpThread.read() << endl;
+    if (!network->m_completedFamily.IsEmpty()) cout << "* Local family completion of G" << network->m_completedFamily.Read() << endl;
+    if (!network->m_completedThread.IsEmpty()) cout << "* Local thread completion of G" << network->m_completedThread.Read() << endl;
+    if (!network->m_cleanedUpThread.IsEmpty()) cout << "* Local thread cleanup of G" << network->m_cleanedUpThread.Read() << endl;
 
     return true;
 }
@@ -481,8 +479,8 @@ static bool cmd_allocator_read( Object* obj, const vector<string>& arguments )
     const Allocator* alloc = dynamic_cast<Allocator*>(obj);
     if (alloc == NULL) return false;
 
-	Buffer<LFID>                    creates = alloc->getCreateQueue();
-    Buffer<TID>                     cleanup = alloc->getCleanupQueue();
+	Buffer<LFID>                    creates = alloc->GetCreateQueue();
+    Buffer<TID>                     cleanup = alloc->GetCleanupQueue();
 	Buffer<Allocator::AllocRequest> allocs  = alloc->GetAllocationQueue();
     
     cout << "Allocation queue: " << endl;
@@ -582,9 +580,9 @@ static bool cmd_icache_info( Object* obj, const vector<string>& arguments )
     const ICache* cache = dynamic_cast<ICache*>(obj);
     if (cache == NULL) return false;
 
-    size_t assoc    = cache->getAssociativity();
-    size_t nLines   = cache->getNumLines();
-    size_t lineSize = cache->getLineSize();
+    size_t assoc    = cache->GetAssociativity();
+    size_t nLines   = cache->GetNumLines();
+    size_t lineSize = cache->GetLineSize();
 
     cout << "Cache type:          ";
     if (assoc == 1) {
@@ -599,8 +597,8 @@ static bool cmd_icache_info( Object* obj, const vector<string>& arguments )
     cout << "Cache line size:     " << dec << lineSize << " bytes" << endl;
     cout << endl;
 
-    uint64_t hits    = cache->getNumHits();
-    uint64_t misses  = cache->getNumMisses();
+    uint64_t hits    = cache->GetNumHits();
+    uint64_t misses  = cache->GetNumMisses();
     cout << "Current hit rate:    ";
     if (hits + misses > 0) {
         cout << dec << hits * 100 / (hits + misses) << "%" << endl;
@@ -615,17 +613,17 @@ static bool cmd_icache_read( Object* obj, const vector<string>& arguments )
     const ICache* cache = dynamic_cast<ICache*>(obj);
     if (cache == NULL) return false;
 
-    for (size_t s = 0; s < cache->getNumSets(); s++)
+    for (size_t s = 0; s < cache->GetNumSets(); s++)
     {
         cout << setw(3) << setfill(' ') << dec << s;
-        for (size_t a = 0; a < cache->getAssociativity(); a++)
+        for (size_t a = 0; a < cache->GetAssociativity(); a++)
         {
-            const ICache::Line& line = cache->getLine(s * cache->getAssociativity() + a);
+            const ICache::Line& line = cache->GetLine(s * cache->GetAssociativity() + a);
             cout << " | ";
             if (!line.used) {
                 cout << "    -     ";
             } else {
-                cout << setw(8) << setfill('0') << hex << (line.tag * cache->getNumSets() + s) * cache->getLineSize() << " "
+                cout << setw(8) << setfill('0') << hex << (line.tag * cache->GetNumSets() + s) * cache->GetLineSize() << " "
                      << (line.waiting.head != INVALID_TID ? "L" : " ");
             }
         }
@@ -655,9 +653,9 @@ static bool cmd_dcache_info( Object* obj, const vector<string>& arguments )
     const DCache* cache = dynamic_cast<DCache*>(obj);
     if (cache == NULL) return false;
 
-    size_t assoc    = cache->getAssociativity();
-    size_t nLines   = cache->getNumLines();
-    size_t lineSize = cache->getLineSize();
+    size_t assoc    = cache->GetAssociativity();
+    size_t nLines   = cache->GetNumLines();
+    size_t lineSize = cache->GetLineSize();
 
     cout << "Cache type:          ";
     if (assoc == 1) {
@@ -672,15 +670,15 @@ static bool cmd_dcache_info( Object* obj, const vector<string>& arguments )
     cout << "Cache line size:     " << dec << lineSize << " bytes" << endl;
     cout << endl;
 
-    uint64_t hits    = cache->getNumHits();
-    uint64_t misses  = cache->getNumMisses();
+    uint64_t hits    = cache->GetNumHits();
+    uint64_t misses  = cache->GetNumMisses();
     cout << "Current hit rate:    ";
     if (hits + misses > 0) {
         cout << dec << hits * 100 / (hits + misses) << "%" << endl;
     } else {
         cout << "N/A" << endl;
     }
-    cout << "Pending requests:    " << cache->getNumPending() << endl;
+    cout << "Pending requests:    " << cache->GetNumPending() << endl;
     return true;
 }
 
@@ -689,18 +687,27 @@ static bool cmd_dcache_read( Object* obj, const vector<string>& arguments )
     const DCache* cache = dynamic_cast<DCache*>(obj);
     if (cache == NULL) return false;
 
-	for (size_t s = 0; s < cache->getNumSets(); s++)
+	for (size_t s = 0; s < cache->GetNumSets(); s++)
     {
-        cout << setw(3) << setfill(' ') << dec << s;
-        for (size_t a = 0; a < cache->getAssociativity(); a++)
+        cout << left  << setfill(' ') << dec << setw(3) << s;
+        cout << right << setfill('0') << hex;
+        for (size_t a = 0; a < cache->GetAssociativity(); a++)
         {
-            const DCache::Line& line = cache->getLine(s * cache->getAssociativity() + a);
+            const DCache::Line& line = cache->GetLine(s * cache->GetAssociativity() + a);
             cout << " | ";
-            if (line.state == DCache::LINE_INVALID) {
+            if (line.state == DCache::LINE_EMPTY) {
                 cout << "     -    ";
             } else {
-				cout << setw(8) << setfill('0') << hex << (line.tag * cache->getNumSets() + s) * cache->getLineSize() << " "
-                    << (line.state == DCache::LINE_LOADING ? 'L' : ' ');
+                char c;
+                switch (line.state) {
+                case DCache::LINE_LOADING:    c = 'L'; break;
+                case DCache::LINE_PROCESSING: c = 'P'; break;
+                case DCache::LINE_INVALID:    c = 'X'; break;
+                default:
+                case DCache::LINE_FULL:       c = ' '; break;
+                }
+				cout << setw(8) << (line.tag * cache->GetNumSets() + s) * cache->GetLineSize()
+				     << " " << c;
             }
         }
         cout << endl;
@@ -728,11 +735,11 @@ static bool cmd_families_read( Object* obj, const vector<string>& arguments )
     const FamilyTable* table = dynamic_cast<FamilyTable*>(obj);
     if (table == NULL) return false;
 
-    static const char* FamilyStates[] = {"", "ALLOCATED", "IDLE", "ACTIVE", "KILLED"};
+    static const char* FamilyStates[] = {"", "ALLOCATED", "CREATE QUEUED", "CREATING", "IDLE", "ACTIVE", "KILLED"};
 
-	cout << "    |        PC        |   Allocated    | P/A/Rd/Sh | Parent | GFID | State" << endl;
+    cout << "    |        PC        |   Allocated    | P/A/Rd/Sh | Parent | GFID | State" << endl;
     cout << "----+------------------+----------------+-----------+--------+------+-----------" << endl;
-    
+
     cout << setfill(' ') << right;
 	
 	const vector<Family>& families = table->GetFamilies();
@@ -757,7 +764,7 @@ static bool cmd_families_read( Object* obj, const vector<string>& arguments )
 					 << setw(2) << family.dependencies.numPendingShareds << " | " << right;
 			}
 			else {
-	            cout << "       -         |       -        |     -     | ";
+                cout << "       -         |       -        |     -     | ";
 			}
 
 			if (family.parent.tid == INVALID_TID) {
@@ -811,17 +818,18 @@ static bool cmd_threads_read( Object* obj, const vector<string>& arguments )
     static const char* ThreadStates[] = {
         "", "WAITING", "ACTIVE", "RUNNING", "SUSPENDED", "UNUSED", "KILLED"
     };
-    cout << "    |        PC        | Fam | Index | Prev | Next | Int. | Flt. | Flags | WR | State" << endl;
-    cout << "----+------------------+-----+-------+------+------+------+------+-------+----+----------" << endl;
-    for (TID i = 0; i < table->getNumThreads(); i++)
+
+    cout << "    |    PC    | Fam | Index | Prev | Next | Int. | Flt. | Flags | WR | State" << endl;
+    cout << "----+----------+-----+-------+------+------+------+------+-------+----+----------" << endl;
+    for (TID i = 0; i < table->GetNumThreads(); i++)
     {
         cout << dec << setw(3) << setfill(' ') << i << " | ";
         const Thread& thread = (*table)[i];
 
         if (thread.state != TST_EMPTY)
         {
-            cout << setw(16) << setfill(' ') << hex << right << thread.pc << " | ";
-            cout << "F" << setfill('0') << setw(2) << thread.family << " | ";
+            cout << setw(8) << setfill('0') << hex << thread.pc << " | ";
+            cout << "F" << setw(2) << thread.family << " | ";
             cout << setw(5) << dec << setfill(' ') << thread.index << " | ";
             if (thread.prevInBlock != INVALID_TID) cout << dec << setw(4) << setfill(' ') << thread.prevInBlock; else cout << "   -";
             cout << " | ";
@@ -849,7 +857,7 @@ static bool cmd_threads_read( Object* obj, const vector<string>& arguments )
         }
         else
         {
-            cout << "                 |     |       |      |      |      |      |       |    |";
+            cout << "         |     |       |      |      |      |      |       |    |";
         }
         cout << endl;
     }
@@ -869,8 +877,8 @@ static bool cmd_pipeline_help(Object* obj, const vector<string>& arguments )
     return true;
 }
 
-// Construct a string representation of a register value
-static string MakeRegValue(const RegType& type, const RegValue& value)
+// Construct a string representation of a pipeline register value
+static string MakePipeValue(const RegType& type, const PipeValue& value)
 {
     stringstream ss;
 
@@ -881,16 +889,18 @@ static string MakeRegValue(const RegType& type, const RegValue& value)
         case RST_EMPTY:     ss << "Empty";   break;
 		case RST_WAITING:   ss << "Waiting (" << setw(4) << setfill('0') << value.m_tid << "h)"; break;
         case RST_FULL:
-            if (type == RT_INTEGER)
-                ss << setw(16) << setfill('0') << hex << value.m_integer << "h";
-            else
-                ss << setprecision(16) << fixed << value.m_float.todouble();
+            if (type == RT_INTEGER) {
+                ss << setw(value.m_size * 2);
+                ss << setfill('0') << hex << value.m_integer.get(value.m_size) << "h";
+            } else {
+                ss << setprecision(16) << fixed << value.m_float.tofloat(value.m_size);
+            }
             break;
     }
 	
 	string ret = ss.str();
-	if (ret.length() > 16) {
-		ret = ret.substr(0,16);
+	if (ret.length() > 17) {
+		ret = ret.substr(0,17);
 	}
     return ret;
 }
@@ -911,11 +921,11 @@ static bool cmd_pipeline_read( Object* obj, const vector<string>& arguments )
     if (pipe == NULL) return false;
 
     // Get the stages and latches
-    const Pipeline::FetchStage&       fetch   = (const Pipeline::FetchStage&)    pipe->getStage(0);
-    const Pipeline::DecodeStage&      decode  = (const Pipeline::DecodeStage&)   pipe->getStage(1);
-    const Pipeline::ReadStage&        read    = (const Pipeline::ReadStage&)     pipe->getStage(2);
-    const Pipeline::ExecuteStage&     execute = (const Pipeline::ExecuteStage&)  pipe->getStage(3);
-    const Pipeline::MemoryStage&      memory  = (const Pipeline::MemoryStage&)   pipe->getStage(4);
+    const Pipeline::FetchStage&       fetch   = (const Pipeline::FetchStage&)    pipe->GetStage(0);
+    const Pipeline::DecodeStage&      decode  = (const Pipeline::DecodeStage&)   pipe->GetStage(1);
+    const Pipeline::ReadStage&        read    = (const Pipeline::ReadStage&)     pipe->GetStage(2);
+    const Pipeline::ExecuteStage&     execute = (const Pipeline::ExecuteStage&)  pipe->GetStage(3);
+    const Pipeline::MemoryStage&      memory  = (const Pipeline::MemoryStage&)   pipe->GetStage(4);
     const Pipeline::FetchDecodeLatch&     fdlatch = *(const Pipeline::FetchDecodeLatch*)    fetch  .getOutput();
     const Pipeline::DecodeReadLatch&      drlatch = *(const Pipeline::DecodeReadLatch*)     decode .getOutput();
     const Pipeline::ReadExecuteLatch&     relatch = *(const Pipeline::ReadExecuteLatch*)    read   .getOutput();
@@ -953,14 +963,24 @@ static bool cmd_pipeline_read( Object* obj, const vector<string>& arguments )
              << "    TID: "  << dec << drlatch.tid
              << "    PC: "   << hex << setw(8) << setfill('0') << drlatch.pc << "h"
              << "    Annotation: " << ((drlatch.kill) ? "End" : (drlatch.swch ? "Switch" : "None")) << endl 
-             << " |" << endl;
-        cout << " | Opcode:       " << hex << setw(2)  << setfill('0') << (int)drlatch.opcode << "h" << endl;
-        cout << " | Function:     " << hex << setw(4)  << setfill('0') << drlatch.function << "h" << endl;
-        cout << " | Ra:           " << drlatch.Ra << "    Rra: " << drlatch.Rra << endl;
-        cout << " | Rb:           " << drlatch.Rb << "    Rrb: " << drlatch.Rrb << endl;
-        cout << " | Rc:           " << drlatch.Rc << "    Rrc: " << drlatch.Rrc << endl;
-        cout << " | Displacement: " << hex << setw(16) << setfill('0') << drlatch.displacement << "h" << endl;
-        cout << " | Literal:      " << hex << setw(16) << setfill('0') << drlatch.literal << "h" << endl;
+             << " |" << endl
+             << hex << setfill('0')
+#if TARGET_ARCH == ARCH_ALPHA
+             << " | Opcode:       " << setw(2) << (int)drlatch.opcode << "h" << endl
+             << " | Function:     " << setw(4) << drlatch.function << "h" << endl
+             << " | Displacement: " << setw(8) << drlatch.displacement << "h" << endl
+#elif TARGET_ARCH == ARCH_SPARC
+             << " | Op1:          " << setw(2) << (int)drlatch.op1 << "h"
+             << "    Op2: " << setw(2) << (int)drlatch.op2 << "h"
+             << "    Op3: " << setw(2) << (int)drlatch.op3 << "h" << endl
+             << " | Function:     " << setw(4) << drlatch.function << "h" << endl
+             << " | Displacement: " << setw(8) << drlatch.displacement << "h" << endl
+#endif
+             << " | Literal:      " << setw(8) << drlatch.literal << "h" << endl
+             << dec
+             << " | Ra:           " << drlatch.Ra << "/" << drlatch.RaSize << "    Rra: " << drlatch.Rra << endl
+             << " | Rb:           " << drlatch.Rb << "/" << drlatch.RbSize << "    Rrb: " << drlatch.Rrb << endl
+             << " | Rc:           " << drlatch.Rc << "/" << drlatch.RcSize << "    Rrc: " << drlatch.Rrc << endl;
     }
     cout << " v" << endl;
 
@@ -973,19 +993,27 @@ static bool cmd_pipeline_read( Object* obj, const vector<string>& arguments )
     }
     else
     {
-        RegType type = RT_INTEGER;
-
         cout << " | LFID: "  << dec << relatch.fid
              << "    TID: "  << dec << relatch.tid
              << "    PC: "   << hex << setw(8) << setfill('0') << relatch.pc << "h"
              << "    Annotation: " << ((relatch.kill) ? "End" : (relatch.swch ? "Switch" : "None")) << endl 
-             << " |" << endl;
-        cout << " | Opcode:       " << hex << setw(2)  << setfill('0') << (int)relatch.opcode << "h" << endl;
-        cout << " | Function:     " << hex << setw(4)  << setfill('0') << relatch.function << "h" << endl;
-        cout << " | Rav:          " << MakeRegValue(type, relatch.Rav) << endl;
-        cout << " | Rbv:          " << MakeRegValue(type, relatch.Rbv) << endl;
-        cout << " | Rc:           " << relatch.Rc << "    Rrc: " << relatch.Rrc << endl;
-        cout << " | Displacement: " << hex << setw(16) << setfill('0') << relatch.displacement << "h" << endl;
+             << " |" << endl
+             << hex << setfill('0')
+#if TARGET_ARCH == ARCH_ALPHA
+             << " | Opcode:       " << setw(2) << (int)relatch.opcode << "h" << endl
+             << " | Function:     " << setw(4) << relatch.function << "h" << endl
+             << " | Displacement: " << setw(8) << relatch.displacement << "h" << endl
+#elif TARGET_ARCH == ARCH_SPARC
+             << " | Op1:          " << setw(2) << (int)drlatch.op1 << "h"
+             << "    Op2: " << setw(2) << (int)drlatch.op2 << "h"
+             << "    Op3: " << setw(2) << (int)drlatch.op3 << "h" << endl
+             << " | Function:     " << setw(4) << relatch.function << "h" << endl
+             << " | Displacement: " << setw(8) << relatch.displacement << "h" << endl
+#endif
+             << " | Rav:          " << MakePipeValue(relatch.Ra.type, relatch.Rav) << "/" << relatch.Rav.m_size << endl
+             << " | Rbv:          " << MakePipeValue(relatch.Rb.type, relatch.Rbv) << "/" << relatch.Rbv.m_size << endl
+             << dec
+             << " | Rc:           " << relatch.Rc << "/" << relatch.Rcv.m_size << "    Rrc: " << relatch.Rrc << endl;
     }
     cout << " v" << endl;
 
@@ -1003,8 +1031,8 @@ static bool cmd_pipeline_read( Object* obj, const vector<string>& arguments )
              << "    PC: "   << hex << setw(8) << setfill('0') << emlatch.pc << "h"
              << "    Annotation: " << ((emlatch.kill) ? "End" : (emlatch.swch ? "Switch" : "None")) << endl
              << " |" << endl;
-        cout << " | Rc:        " << emlatch.Rc << "    Rrc: " << emlatch.Rrc << endl;
-        cout << " | Rcv:       " << MakeRegValue(emlatch.Rc.type, emlatch.Rcv) << endl;
+        cout << " | Rc:        " << emlatch.Rc << "/" << emlatch.Rcv.m_size << "    Rrc: " << emlatch.Rrc << endl;
+        cout << " | Rcv:       " << MakePipeValue(emlatch.Rc.type, emlatch.Rcv) << endl;
         if (emlatch.size == 0)
         {
             // No memory operation
@@ -1015,8 +1043,8 @@ static bool cmd_pipeline_read( Object* obj, const vector<string>& arguments )
         else
         {
             cout << " | Operation: " << (emlatch.Rcv.m_state == RST_FULL ? "Store" : "Load") << endl;
-            cout << " | Address:   " << hex << setw(16) << setfill('0') << emlatch.address << "h" << endl;
-            cout << " | Size:      " << hex << setw(16) << setfill('0') << emlatch.size    << "h" << endl;
+            cout << " | Address:   " << hex << setw(sizeof(MemAddr) * 2) << setfill('0') << emlatch.address << "h" << endl;
+            cout << " | Size:      " << hex << setw(4) << setfill('0') << emlatch.size    << "h" << endl;
         }
     }
     cout << " v" << endl;
@@ -1035,14 +1063,15 @@ static bool cmd_pipeline_read( Object* obj, const vector<string>& arguments )
              << "    PC: "   << hex << setw(8) << setfill('0') << mwlatch.pc << "h"
              << "    Annotation: " << ((mwlatch.kill) ? "End" : (mwlatch.swch ? "Switch" : "None")) << endl
              << " |" << endl;
-        cout << " | Rc:   " << mwlatch.Rc << "    Rrc: " << mwlatch.Rrc << endl;
-        cout << " | Rcv:  " << MakeRegValue(mwlatch.Rc.type, mwlatch.Rcv) << endl;
+        cout << " | Rc:   " << mwlatch.Rc << "/" << mwlatch.Rcv.m_size << "    Rrc: " << mwlatch.Rrc << endl;
+        cout << " | Rcv:  " << MakePipeValue(mwlatch.Rc.type, mwlatch.Rcv) << endl;
     }
     cout << " v" << endl;
 
     // Writeback stage
     cout << "Writeback stage" << endl;
-
+//#else
+//    cout << "Sorry, this architecture's pipeline printing has not been implemented yet" << endl;
     return true;
 }
 
@@ -1069,8 +1098,8 @@ static bool cmd_rau_read( Object* obj, const vector<string>& arguments )
     if (rau == NULL) return false;
 
     RegType type = (arguments.size() > 0 && arguments[0] == "float") ? RT_FLOAT : RT_INTEGER;
-    const RAUnit::List& list = rau->getList(type);
-    const RegSize blockSize  = rau->getBlockSize(type);
+    const RAUnit::List& list = rau->GetList(type);
+    const RegSize blockSize  = rau->GetBlockSize(type);
 
     cout << TypeNames[type] << " registers:" << endl;
     for (size_t next, entry = 0; entry < list.size(); entry = next)
@@ -1093,7 +1122,7 @@ struct REGINFO
 {
     LFID     fid;
     TID      tid;
-    RegGroup group;
+    RegClass group;
 
     REGINFO() : fid(INVALID_LFID), tid(INVALID_TID) {}
 };
@@ -1121,12 +1150,12 @@ static bool cmd_regs_read( Object* obj, const vector<string>& arguments )
     if (regfile == NULL) return false;
 
     // Find the RAUnit and FamilyTable in the same processor
-    const Object* proc = regfile->getParent();
+    const Object* proc = regfile->GetParent();
     if (proc != NULL)
     {
-        for (unsigned int i = 0; i < proc->getNumChildren(); i++)
+        for (unsigned int i = 0; i < proc->GetNumChildren(); i++)
         {
-            const Object* child = proc->getChild(i);
+            const Object* child = proc->GetChild(i);
             if (rau    == NULL) rau    = dynamic_cast<const RAUnit*>(child);
             if (ftable == NULL) ftable = dynamic_cast<const FamilyTable*>(child);
             if (alloc  == NULL) alloc  = dynamic_cast<const Allocator*>(child);
@@ -1134,13 +1163,13 @@ static bool cmd_regs_read( Object* obj, const vector<string>& arguments )
     }
 
     RegType type = (arguments.size() > 0 && arguments[0] == "float") ? RT_FLOAT : RT_INTEGER;
-    RegSize size = regfile->getSize(type);
+    RegSize size = regfile->GetSize(type);
 
     vector<REGINFO> regs(size);
     if (rau != NULL)
     {
-        const RAUnit::List& list = rau->getList(type);
-        const RegSize blockSize  = rau->getBlockSize(type);
+        const RAUnit::List& list = rau->GetList(type);
+        const RegSize blockSize  = rau->GetBlockSize(type);
         for (size_t i = 0; i < list.size();)
         {
             if (list[i].first != 0)
@@ -1169,14 +1198,14 @@ static bool cmd_regs_read( Object* obj, const vector<string>& arguments )
         }
     }
 
-    cout << "      |  State  |       Value      | Fam | Thread | Type" << endl;
+    cout << "      |  State  |       Value      | Fam | Thread | Type"       << endl;
     cout << "------+---------+------------------+-----+--------+-----------" << endl;
     for (RegIndex i = size; i > 0; i--)
     {
         RegValue value;
         RegAddr  addr = MAKE_REGADDR(type, i - 1);
         LFID      fid = regs[i - 1].fid;
-        regfile->readRegister(addr, value);
+        regfile->ReadRegister(addr, value);
         cout << addr << " | " << setw(7) << setfill(' ') << StateNames[value.m_state] << " | ";
         
 		stringstream ss;
@@ -1185,8 +1214,11 @@ static bool cmd_regs_read( Object* obj, const vector<string>& arguments )
         case RST_FULL:
             switch (type)
             {
-            case RT_INTEGER: ss << setw(16) << setfill('0') << hex << value.m_integer; break;
-            case RT_FLOAT:   ss << setprecision(16) << fixed << value.m_float.todouble(); break;
+            case RT_INTEGER: ss << setw(16 - sizeof(Integer) * 2) << setfill(' ') << ""
+                                << setw(     sizeof(Integer) * 2) << setfill('0') << hex << value.m_integer; break;
+            case RT_FLOAT:   ss << setw(16 - sizeof(Integer) * 2) << setfill(' ') << ""
+                                << setw(     sizeof(Integer) * 2) << setfill('0') << hex << value.m_float.integer; break;
+            //case RT_FLOAT:   ss << setprecision(16) << fixed << value.m_float.tofloat(); break;
             }
             break;
 
@@ -1205,7 +1237,7 @@ static bool cmd_regs_read( Object* obj, const vector<string>& arguments )
         if (fid != INVALID_LFID) cout << "F" << setw(2) << setfill('0') << dec << fid; else cout << "   ";
         cout << " |  ";
 
-		RegGroup group = RG_LOCAL;
+		RegClass group = RC_LOCAL;
 		TID      tid   = (fid != INVALID_LFID) ? alloc->GetRegisterType(fid, addr, &group) : INVALID_TID;
 		if (tid != INVALID_TID) {
 			cout << "T" << setw(4) << setfill('0') << tid;
@@ -1215,12 +1247,13 @@ static bool cmd_regs_read( Object* obj, const vector<string>& arguments )
 		cout << " | ";
 		switch (group)
 		{
-			case RG_GLOBAL:    cout << "Global"; break;
-			case RG_DEPENDENT: cout << "Dependent"; break;
-			case RG_SHARED:    cout << "Shared"; break;
-			case RG_LOCAL:     
+			case RC_GLOBAL:    cout << "Global"; break;
+			case RC_DEPENDENT: cout << "Dependent"; break;
+			case RC_SHARED:    cout << "Shared"; break;
+			case RC_LOCAL:     
 				if (tid != INVALID_TID) cout << "Local";
 				break;
+		    case RC_RAZ: break;
 		}
 		cout << endl;
     }

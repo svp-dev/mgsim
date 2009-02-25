@@ -69,7 +69,7 @@ outer:
     mov     $g1, $l1            # $l1 = V
     mov     $d0, $l3            # $l3 = ipnt
     sll     $g2, $l0, $l0       # $l0 = ii
-    adll    $l0, 1, $l2
+    addl    $l0, 1, $l2
     setlimit $l4, $l2; swch
     setstart $l4, 1
     setstep  $l4, 2

@@ -1,8 +1,22 @@
-#ifndef ISA_H
-#define ISA_H
+#ifndef ISA_ALPHA_H
+#define ISA_ALPHA_H
 
 namespace Simulator
 {
+
+enum InstrFormat
+{
+    IFORMAT_MEM_LOAD,
+    IFORMAT_MEM_STORE,
+    IFORMAT_JUMP,
+    IFORMAT_OP,
+    IFORMAT_FPOP,
+    IFORMAT_BRA,
+    IFORMAT_PAL,
+    IFORMAT_MISC,
+    IFORMAT_SPECIAL,
+    IFORMAT_INVALID
+};
 
 // PAL Instructions
 #define A_OP_CALL_PAL 0x00
@@ -600,6 +614,28 @@ namespace Simulator
 #define IMPLVER_EV4 0
 #define IMPLVER_EV5 1
 #define IMPLVER_EV6 2
+
+// Floating Point Control Register flags
+static const FPCR FPCR_SUM      = 0x8000000000000000ULL;
+static const FPCR FPCR_INED     = 0x4000000000000000ULL;
+static const FPCR FPCR_UNFD     = 0x2000000000000000ULL;
+static const FPCR FPCR_UNDZ     = 0x1000000000000000ULL;
+static const FPCR FPCR_DYN_RM   = 0x0C00000000000000ULL;
+static const FPCR FPCR_DYN_RM_C = 0x0000000000000000ULL; // Chopped
+static const FPCR FPCR_DYN_RM_M = 0x0400000000000000ULL; // Minus
+static const FPCR FPCR_DYN_RM_N = 0x0800000000000000ULL; // Normal
+static const FPCR FPCR_DYN_RM_P = 0x0C00000000000000ULL; // Plus
+static const FPCR FPCR_IOV      = 0x0200000000000000ULL;
+static const FPCR FPCR_INE      = 0x0100000000000000ULL;
+static const FPCR FPCR_UNF      = 0x0080000000000000ULL;
+static const FPCR FPCR_OVF      = 0x0040000000000000ULL;
+static const FPCR FPCR_DZE      = 0x0020000000000000ULL;
+static const FPCR FPCR_INV      = 0x0010000000000000ULL;
+static const FPCR FPCR_OVFD     = 0x0008000000000000ULL;
+static const FPCR FPCR_DZED     = 0x0004000000000000ULL;
+static const FPCR FPCR_INVD     = 0x0002000000000000ULL;
+static const FPCR FPCR_DNZ      = 0x0001000000000000ULL;
+static const FPCR FPCR_DNOD     = 0x0000800000000000ULL;
 
 }
 

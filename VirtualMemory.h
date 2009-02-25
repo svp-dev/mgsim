@@ -22,13 +22,13 @@ public:
 
 	typedef std::map<MemAddr, Block> BlockMap;
 
-    void read (MemAddr address, void* data, MemSize size) const;
-	void write(MemAddr address, const void* data, MemSize size, int perm = 0);
+    void Read (MemAddr address, void* data, MemSize size) const;
+	void Write(MemAddr address, const void* data, MemSize size, int perm = 0);
 	bool CheckPermissions(MemAddr address, MemSize size, int access) const;
 
 	virtual ~VirtualMemory();
 
-	const BlockMap& getBlockMap() const throw() { return m_blocks; }
+	const BlockMap& GetBlockMap() const throw() { return m_blocks; }
 private:
 	
 	BlockMap m_blocks;

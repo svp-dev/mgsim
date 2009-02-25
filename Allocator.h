@@ -51,88 +51,102 @@ public:
 		BufferSize cleanupSize;
 	};
 
-	struct RegisterBases
-	{
-	    RegIndex globals;
-	    RegIndex shareds;
-	};
+    struct RegisterBases
+    {
+        RegIndex globals;
+        RegIndex shareds;
+    };
 
 	struct AllocRequest
 	{
 		TID           parent;               // Thread performing the allocation (for security)
-		RegIndex      reg;	                // Register that will receive the LFID
-		RegisterBases bases[NUM_REG_TYPES]; // Bases of parent registers
+		RegIndex      reg;                  // Register that will receive the LFID
+        RegisterBases bases[NUM_REG_TYPES]; // Bases of parent registers
 	};
-	
+
+    // These are the different states in the state machine for
+    // family creation
 	enum CreateState
 	{
-		CREATE_INITIAL,
-		CREATE_LOADING_LINE,
-		CREATE_LINE_LOADED,
-		CREATE_GETTING_TOKEN,
-		CREATE_HAS_TOKEN,
-		CREATE_RESERVING_FAMILY,
-		CREATE_BROADCASTING_CREATE,
-		CREATE_ALLOCATING_REGISTERS,
+		CREATE_INITIAL,             // Waiting for a family to create
+		CREATE_LOADING_LINE,        // Waiting until the cache-line is loaded
+		CREATE_LINE_LOADED,         // The line has been loaded
+		CREATE_GETTING_TOKEN,       // Requesting the token from the network
+		CREATE_HAS_TOKEN,           // Got the token
+		CREATE_RESERVING_FAMILY,    // Reserving the family across the CPU group
+		CREATE_BROADCASTING_CREATE, // Broadcasting the create
+		CREATE_ALLOCATING_REGISTERS,// Allocating register space
 	};
 
     Allocator(Processor& parent, const std::string& name,
         FamilyTable& familyTable, ThreadTable& threadTable, RegisterFile& registerFile, RAUnit& raunit, ICache& icache, Network& network, Pipeline& pipeline,
         PSize procNo, const Config& config);
 
-    void allocateInitialFamily(MemAddr pc, bool legacy);
-    bool idle()   const;
+    // Allocates the initial (legacy or not) family consisting of a single thread on the first CPU.
+    // Typically called before tha actual simulation starts.
+    void AllocateInitialFamily(MemAddr pc, bool legacy);
 
-    // These implement register mappings
-    RegAddr getSharedAddress(SharedType stype, GFID fid, RegAddr addr) const;
+    // Returns the physical register address for a logical shared in a certain family.
+    RegAddr GetSharedAddress(SharedType stype, GFID fid, RegAddr addr) const;
 
+    // This is used in all TCB instructions to index the family table with additional checks.
 	Family& GetWritableFamilyEntry(LFID fid, TID parent) const;
 
-    // Thread management
-    bool ActivateThread(TID tid, const IComponent& component);
+    /*
+     * Thread management
+     */
+    
+    // Activates the specified thread, belonging to family @fid, with PC of @pc.
+    // The component is used for arbitration in accesses to resources.
     bool ActivateThread(TID tid, const IComponent& component, MemAddr pc, LFID fid);
+    bool ActivateThread(TID tid, const IComponent& component); // Reads PC and FID from thread table
+    
+    // Reschedules a thread from the pipeline. Manages cache-lines and calls ActivateThread
     bool RescheduleThread(TID tid, MemAddr pc, const IComponent& component);
+    // Suspends a thread at the specified PC.
     bool SuspendThread(TID tid, MemAddr pc);
+    // Kills a thread
     bool KillThread(TID tid);
     
     uint64_t GetTotalActiveQueueSize() const { return m_totalActiveQueueSize; }
     uint64_t GetMaxActiveQueueSize() const { return m_maxActiveQueueSize; }
     uint64_t GetMinActiveQueueSize() const { return m_minActiveQueueSize; }
     
-    bool killFamily(LFID fid, ExitCode code, RegValue value);
+    bool   KillFamily(LFID fid, ExitCode code, RegValue value);
 	Result AllocateFamily(TID parent, RegIndex reg, LFID* fid, const RegisterBases bases[]);
-	LFID AllocateFamily(const CreateMessage& msg);
-	GFID SanitizeFamily(Family& family, bool hasDependency);
-	bool ActivateFamily(LFID fid);
-    bool queueCreate(LFID fid, MemAddr address, TID parent, RegAddr exitCodeReg);
-    bool IncreaseFamilyDependency(LFID fid, FamilyDependency dep);
-    bool DecreaseFamilyDependency(LFID fid, FamilyDependency dep);
-    bool IncreaseThreadDependency(          TID tid, ThreadDependency dep);
-    bool DecreaseThreadDependency(LFID fid, TID tid, ThreadDependency dep, const IComponent& component);
-    bool queueActiveThreads(TID first, TID last);
-    TID  PopActiveThread(TID tid);
-
+	LFID   AllocateFamily(const CreateMessage& msg);
+    GFID   SanitizeFamily(Family& family, bool hasDependency);
+	bool   ActivateFamily(LFID fid);
+    bool   QueueCreate(LFID fid, MemAddr address, TID parent, RegAddr exitCodeReg);
+    bool   QueueActiveThreads(TID first, TID last);
+    TID    PopActiveThread(TID tid);
+    
+    bool   IncreaseFamilyDependency(LFID fid, FamilyDependency dep);
+    bool   DecreaseFamilyDependency(LFID fid, FamilyDependency dep);
+    bool   IncreaseThreadDependency(          TID tid, ThreadDependency dep);
+    bool   DecreaseThreadDependency(LFID fid, TID tid, ThreadDependency dep, const IComponent& component);
+    
     // External events
-	bool onCachelineLoaded(CID cid);
-	bool onReservationComplete();
-    bool onTokenReceived();
-    bool onRemoteThreadCompletion(LFID fid);
-    bool onRemoteThreadCleanup(LFID fid);
+	bool OnCachelineLoaded(CID cid);
+	bool OnReservationComplete();
+    bool OnTokenReceived();
+    bool OnRemoteThreadCompletion(LFID fid);
+    bool OnRemoteThreadCleanup(LFID fid);
 
     /* Component */
-    Result onCycleReadPhase(unsigned int stateIndex);
-    Result onCycleWritePhase(unsigned int stateIndex);
+    Result OnCycleReadPhase(unsigned int stateIndex);
+    Result OnCycleWritePhase(unsigned int stateIndex);
     void   UpdateStatistics();
 
     /* Admin functions */
-	TID GetRegisterType(LFID fid, RegAddr addr, RegGroup* group) const;
-    const Buffer<LFID>&          getCreateQueue()     const { return m_creates;     }
+	TID                          GetRegisterType(LFID fid, RegAddr addr, RegClass* group) const;
+    const Buffer<LFID>&          GetCreateQueue()     const { return m_creates;     }
 	CreateState                  GetCreateState()     const { return m_createState; }
 	const Buffer<AllocRequest>&  GetAllocationQueue() const { return m_allocations; }
-    const Buffer<TID>&           getCleanupQueue()    const { return m_cleanup;     }
+    const Buffer<TID>&           GetCleanupQueue()    const { return m_cleanup;     }
 
     //
-    // Functions
+    // Functions/Ports
     //
     ArbitratedWriteFunction     p_cleanup;
 
@@ -149,14 +163,14 @@ private:
 	void InitializeFamily(LFID fid) const;
 	bool AllocateRegisters(LFID fid);
 
-    bool allocateThread(LFID fid, TID tid, bool isNewlyAllocated = true);
-    bool pushCleanup(TID tid);
+    bool AllocateThread(LFID fid, TID tid, bool isNewlyAllocated = true);
+    bool PushCleanup(TID tid);
 
     // Thread and family queue manipulation
-    void push(FamilyQueue& queue, LFID fid);
-    void push(ThreadQueue& queue, TID tid, TID Thread::*link = &Thread::nextState);
-    LFID pop (FamilyQueue& queue);
-    TID  pop (ThreadQueue& queue, TID Thread::*link = &Thread::nextState);
+    void Push(FamilyQueue& queue, LFID fid);
+    void Push(ThreadQueue& queue, TID tid, TID Thread::*link = &Thread::nextState);
+    LFID Pop (FamilyQueue& queue);
+    TID  Pop (ThreadQueue& queue, TID Thread::*link = &Thread::nextState);
 
     Processor&          m_parent;
     FamilyTable&        m_familyTable;
@@ -174,11 +188,11 @@ private:
     uint64_t             m_minActiveQueueSize;
 
     // Initial allocation
-    LFID                 m_allocating;   // This family we're initially allocating from
-    FamilyQueue          m_alloc;        // This is the queue of families waiting for initial allocation
+    LFID                 m_allocating; // This family we're initially allocating from
+    FamilyQueue          m_alloc;      // This is the queue of families waiting for initial allocation
 
     // Buffers
-    Buffer<LFID>          m_creates;   // Local create queue
+    Buffer<LFID>          m_creates;        // Local create queue
     Buffer<RegisterWrite> m_registerWrites; // Register write queue
     Buffer<TID>           m_cleanup;        // Cleanup queue
 	Buffer<AllocRequest>  m_allocations;	// Family allocation queue

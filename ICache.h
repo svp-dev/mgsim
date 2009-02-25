@@ -28,7 +28,7 @@ public:
 		bool		  used;			// Line used or empty?
         MemAddr       tag;			// Address tag
         char*         data;			// The line data
-        CycleNo       access;		// Last access time
+        CycleNo       access;		// Last access time (for LRU replacement)
 		bool          creation;		// Is the family creation process waiting on this line?
         ThreadQueue	  waiting;		// Threads waiting on this line
 		unsigned long references;	// Number of references to this line
@@ -38,28 +38,28 @@ public:
     ICache(Processor& parent, const std::string& name, Allocator& allocator, const Config& config);
     ~ICache();
 
-    Result fetch(MemAddr address, MemSize size, CID& cid);				// Initial family line fetch
-    Result fetch(MemAddr address, MemSize size, TID& tid, CID& cid);	// Thread code fetch
-    bool   read(CID cid, MemAddr address, void* data, MemSize size) const;
-    bool   releaseCacheLine(CID bid);
+    Result Fetch(MemAddr address, MemSize size, CID& cid);				// Initial family line fetch
+    Result Fetch(MemAddr address, MemSize size, TID& tid, CID& cid);	// Thread code fetch
+    bool   Read(CID cid, MemAddr address, void* data, MemSize size) const;
+    bool   ReleaseCacheLine(CID bid);
 
-    bool onMemoryReadCompleted(const MemData& data);
+    bool   OnMemoryReadCompleted(const MemData& data);
 
     // Ports
     ArbitratedWriteFunction p_request;
 
     // Admin information
-    size_t      getAssociativity() const { return m_assoc; }
-    size_t      getLineSize()      const { return m_lineSize; }
-    size_t      getNumLines()      const { return m_lines.size(); }
-    size_t      getNumSets()       const { return m_lines.size() / m_assoc; }
-    const Line& getLine(size_t i)  const { return m_lines[i];   }
-    uint64_t    getNumHits()       const { return m_numHits; }
-    uint64_t    getNumMisses()     const { return m_numMisses; }
+    size_t      GetAssociativity() const { return m_assoc; }
+    size_t      GetLineSize()      const { return m_lineSize; }
+    size_t      GetNumLines()      const { return m_lines.size(); }
+    size_t      GetNumSets()       const { return m_lines.size() / m_assoc; }
+    const Line& GetLine(size_t i)  const { return m_lines[i];   }
+    uint64_t    GetNumHits()       const { return m_numHits; }
+    uint64_t    GetNumMisses()     const { return m_numMisses; }
 
 private:
-    Result fetch(MemAddr address, MemSize size, TID* tid, CID* cid);
-    Result findLine(MemAddr address, Line* &line);
+    Result Fetch(MemAddr address, MemSize size, TID* tid, CID* cid);
+    Result FindLine(MemAddr address, Line* &line);
 
     Processor&          m_parent;
 	Allocator&          m_allocator;

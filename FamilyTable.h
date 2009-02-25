@@ -53,8 +53,7 @@ struct Family
     Dependencies dependencies;   // The dependecies for termination and cleanup
     ThreadQueue  members;        // Queue of all threads in this family
     LFID         next;           // Next family in the empty or active family queue
-
-
+    
     RegAddr      exitCodeReg;
     RegAddr      exitValueReg;
     TID          lastAllocated;
@@ -95,7 +94,6 @@ public:
     bool FreeFamily(LFID fid);
 
     // Admin functions
-    bool  empty() const { return m_numFamilies == 0; }
     const std::vector<GlobalFamily>& GetGlobals()  const { return m_globals; }
     const std::vector<Family>&       GetFamilies() const { return m_families; }
 
@@ -103,7 +101,6 @@ private:
     Processor&                m_parent;
     std::vector<GlobalFamily> m_globals;
     std::vector<Family>       m_families;
-	FSize                     m_numFamilies;
     FamilyQueue               m_empty;
 };
 

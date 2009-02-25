@@ -33,16 +33,16 @@ public:
     };
 
     Processor(Object* parent, Kernel& kernel, PID pid, PSize numProcs, const std::string& name, IMemory& m_memory, const Config& config, MemAddr runAddress, bool legacy);
-    void initialize(Processor& prev, Processor& next);
+    void Initialize(Processor& prev, Processor& next);
 
-    PID     getPID()      const { return m_pid;      }
-    PSize   getNumProcs() const { return m_numProcs; }
-    Kernel& getKernel()   const { return m_kernel;   }
+    PID     GetPID()      const { return m_pid;      }
+    PSize   GetNumProcs() const { return m_numProcs; }
+    Kernel& GetKernel()   const { return m_kernel;   }
 
-    uint64_t getFlop() const { return m_pipeline.getFlop(); }
-    uint64_t getOp()   const { return m_pipeline.getOp(); }
-	float getRegFileAsyncPortActivity() const {
-		return (float)m_registerFile.p_asyncW.getBusyCycles() / m_kernel.getCycleNo();
+    uint64_t GetFlop() const { return m_pipeline.GetFlop(); }
+    uint64_t GetOp()   const { return m_pipeline.GetOp(); }
+	float GetRegFileAsyncPortActivity() const {
+		return (float)m_registerFile.p_asyncW.GetBusyCycles() / m_kernel.GetCycleNo();
 	}
 	
 	uint64_t GetTotalActiveQueueSize() const { return m_allocator.GetTotalActiveQueueSize(); }
@@ -57,17 +57,17 @@ public:
 	
 	CycleNo GetLocalFamilyCompletion() const { return m_localFamilyCompletion; }
 	
-	void writeRegister(const RegAddr& addr, const RegValue& value) {
-		m_registerFile.writeRegister(addr, value);
+	void WriteRegister(const RegAddr& addr, const RegValue& value) {
+		m_registerFile.WriteRegister(addr, value);
 	}
 	
 	void OnFamilyTerminatedLocally(MemAddr pc);
 
 	// All memory requests from caches go through the processor.
 	// No memory callback specified, the processor will use the tag to determine where it came from.
-	Result readMemory (MemAddr address, void* data, MemSize size, MemTag tag);
-	Result writeMemory(MemAddr address, void* data, MemSize size, MemTag tag);
-	bool   checkPermissions(MemAddr address, MemSize size, int access) const;
+	Result ReadMemory (MemAddr address, void* data, MemSize size, MemTag tag);
+	Result WriteMemory(MemAddr address, void* data, MemSize size, MemTag tag);
+	bool   CheckPermissions(MemAddr address, MemSize size, int access) const;
 
 private:
     PID         m_pid;
@@ -75,13 +75,13 @@ private:
 	IMemory&	m_memory;
 	PSize       m_numProcs;
 	
-	// Statistics
-	CycleNo m_localFamilyCompletion;
+	// Statistics 
+    CycleNo m_localFamilyCompletion; 
 
     // IMemoryCallback
-    bool onMemoryReadCompleted(const MemData& data);
-    bool onMemoryWriteCompleted(const MemTag& tag);
-    bool onMemorySnooped(MemAddr addr, const MemData& data);
+    bool OnMemoryReadCompleted(const MemData& data);
+    bool OnMemoryWriteCompleted(const MemTag& tag);
+    bool OnMemorySnooped(MemAddr addr, const MemData& data);
 
     // The components on the chip
     Allocator       m_allocator;

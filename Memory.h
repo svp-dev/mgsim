@@ -18,9 +18,9 @@ class IMemory;
 class IMemoryCallback
 {
 public:
-    virtual bool onMemoryReadCompleted(const MemData& data) = 0;
-    virtual bool onMemoryWriteCompleted(const MemTag& tag) = 0;
-    virtual bool onMemorySnooped(MemAddr addr, const MemData& data) { return true; }
+    virtual bool OnMemoryReadCompleted(const MemData& data) = 0;
+    virtual bool OnMemoryWriteCompleted(const MemTag& tag) = 0;
+    virtual bool OnMemorySnooped(MemAddr addr, const MemData& data) { return true; }
 
     virtual ~IMemoryCallback() {}
 };
@@ -32,11 +32,11 @@ public:
 	static const int PERM_WRITE   = 2;
 	static const int PERM_READ    = 4;
 
-    virtual void registerListener  (IMemoryCallback& callback) = 0;
-    virtual void unregisterListener(IMemoryCallback& callback) = 0;
-    virtual Result read (IMemoryCallback& callback, MemAddr address, void* data, MemSize size, MemTag tag) = 0;
-    virtual Result write(IMemoryCallback& callback, MemAddr address, void* data, MemSize size, MemTag tag) = 0;
-	virtual bool checkPermissions(MemAddr address, MemSize size, int access) const = 0;
+    virtual void   RegisterListener  (IMemoryCallback& callback) = 0;
+    virtual void   UnregisterListener(IMemoryCallback& callback) = 0;
+    virtual Result Read (IMemoryCallback& callback, MemAddr address, void* data, MemSize size, MemTag tag) = 0;
+    virtual Result Write(IMemoryCallback& callback, MemAddr address, void* data, MemSize size, MemTag tag) = 0;
+	virtual bool   CheckPermissions(MemAddr address, MemSize size, int access) const = 0;
 
     virtual ~IMemory() {}
 };
@@ -44,8 +44,8 @@ public:
 class IMemoryAdmin
 {
 public:
-    virtual void read (MemAddr address, void* data, MemSize size) = 0;
-    virtual void write(MemAddr address, const void* data, MemSize size, int perm = 0) = 0;
+    virtual void Read (MemAddr address, void* data, MemSize size) = 0;
+    virtual void Write(MemAddr address, const void* data, MemSize size, int perm = 0) = 0;
 
     virtual ~IMemoryAdmin() {}
 };

@@ -22,12 +22,12 @@ public:
     RAUnit(Processor& parent, const std::string& name, const RegisterFile& regFile, const Config& config);
 
     // LFID is for admin purposes only; not used for simulation
-    bool alloc(const RegSize size[NUM_REG_TYPES], LFID fid, RegIndex indices[NUM_REG_TYPES]);
-    bool free(RegIndex indices[NUM_REG_TYPES]);
+    bool Alloc(const RegSize size[NUM_REG_TYPES], LFID fid, RegIndex indices[NUM_REG_TYPES]);
+    bool Free(RegIndex indices[NUM_REG_TYPES]);
 
     // Admin functions
-    const List& getList(RegType type) const { return m_lists[type]; }
-    RegSize getBlockSize(RegType type) const { return m_blockSizes[type]; }
+    const List& GetList(RegType type) const { return m_lists[type]; }
+    RegSize GetBlockSize(RegType type) const { return m_blockSizes[type]; }
 
 private:
     List    m_lists[NUM_REG_TYPES];

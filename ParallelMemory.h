@@ -52,28 +52,28 @@ public:
     ~ParallelMemory();
 
     // Component
-    Result onCycleWritePhase(unsigned int stateIndex);
+    Result OnCycleWritePhase(unsigned int stateIndex);
 
     // IMemory
-    void registerListener(IMemoryCallback& callback);
-    void unregisterListener(IMemoryCallback& callback);
-    Result read (IMemoryCallback& callback, MemAddr address, void* data, MemSize size, MemTag tag);
-    Result write(IMemoryCallback& callback, MemAddr address, void* data, MemSize size, MemTag tag);
-	bool checkPermissions(MemAddr address, MemSize size, int access) const;
+    void   RegisterListener(IMemoryCallback& callback);
+    void   UnregisterListener(IMemoryCallback& callback);
+    Result Read (IMemoryCallback& callback, MemAddr address, void* data, MemSize size, MemTag tag);
+    Result Write(IMemoryCallback& callback, MemAddr address, void* data, MemSize size, MemTag tag);
+	bool   CheckPermissions(MemAddr address, MemSize size, int access) const;
 
     // IMemoryAdmin
-	void read (MemAddr address, void* data, MemSize size);
-    void write(MemAddr address, const void* data, MemSize size, int perm = 0);
+	void Read (MemAddr address, void* data, MemSize size);
+    void Write(MemAddr address, const void* data, MemSize size, int perm = 0);
 
-    const Config& getConfig()       const { return m_config; }
-    const Port&   getPort(size_t i) const { return m_ports[i]; }
-    size_t        getNumPorts()     const { return m_ports.size(); }
+    const Config& GetConfig()       const { return m_config; }
+    const Port&   GetPort(size_t i) const { return m_ports[i]; }
+    size_t        GetNumPorts()     const { return m_ports.size(); }
 
-    size_t getStatMaxRequests() { return m_statMaxRequests; }
-    size_t getStatMaxInFlight() { return m_statMaxInFlight; }
+    size_t GetStatMaxRequests() { return m_statMaxRequests; }
+    size_t GetStatMaxInFlight() { return m_statMaxInFlight; }
     
 private:
-    void addRequest(Request& request);
+    void AddRequest(Request& request);
     
     std::set<IMemoryCallback*>        m_caches;
     std::map<IMemoryCallback*, Port*> m_portmap;

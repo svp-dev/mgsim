@@ -57,5 +57,21 @@ static inline uint64_t letohll(uint64_t x) {
            ((uint64_t)b[4] << 32) | ((uint64_t)b[5] << 40) | ((uint64_t)b[6] << 48) | ((uint64_t)b[7] << 56);
 }
 
+static inline uint16_t betohs(uint16_t x) {
+    const uint8_t* b = reinterpret_cast<const uint8_t*>(&x);
+    return (uint16_t)b[1] | ((uint16_t)b[0] << 8);
+}
+
+static inline uint32_t betohl(uint32_t x) {
+    const uint8_t* b = reinterpret_cast<const uint8_t*>(&x);
+    return (uint32_t)b[3] | ((uint32_t)b[2] << 8) | ((uint32_t)b[1] << 16) | ((uint32_t)b[0] << 24);
+}
+
+static inline uint64_t betohll(uint64_t x) {
+    const uint8_t* b = reinterpret_cast<const uint8_t*>(&x);
+    return ((uint64_t)b[7] <<  0) | ((uint64_t)b[6] <<  8) | ((uint64_t)b[5] << 16) | ((uint64_t)b[4] << 24) |
+           ((uint64_t)b[3] << 32) | ((uint64_t)b[2] << 40) | ((uint64_t)b[1] << 48) | ((uint64_t)b[0] << 56);
+}
+
 #endif
 

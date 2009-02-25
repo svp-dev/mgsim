@@ -25,7 +25,6 @@ struct Thread
     };
 
     MemAddr      pc;
-	FPCR         fpcr;
     RegInfo      regs[NUM_REG_TYPES];
     Dependencies dependencies;
     bool         isLastThreadInBlock;
@@ -38,6 +37,15 @@ struct Thread
     LFID         family;
     TID          nextState;
     TID          nextMember;
+
+    // Architecture specific per-thread stuff
+#if TARGET_ARCH == ARCH_ALPHA
+	FPCR         fpcr;
+#elif TARGET_ARCH == ARCH_SPARC
+    PSR          psr;
+    FSR          fsr;
+    uint32_t     Y;
+#endif    
 
     // Admin
     uint64_t    index;
@@ -54,15 +62,13 @@ public:
 
     ThreadTable(Processor& parent, const Config& config);
 
-    TSize getNumThreads() const { return m_threads.size(); }
+    TSize GetNumThreads() const { return m_threads.size(); }
 
           Thread& operator[](TID index)       { return m_threads[index]; }
     const Thread& operator[](TID index) const { return m_threads[index]; }
 
-    bool empty() const { return m_numUsed == 0; }
-
-    TID  popEmpty();
-    bool pushEmpty(const ThreadQueue& queue);
+    TID  PopEmpty();
+    bool PushEmpty(const ThreadQueue& queue);
 
     //
     // Ports
@@ -74,7 +80,6 @@ private:
     Processor&          m_parent;
     ThreadQueue         m_empty;
     std::vector<Thread> m_threads;
-    unsigned long       m_numUsed;
 };
 
 }

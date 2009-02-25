@@ -2,25 +2,24 @@
 #define USE_BANKED_MEMORY
 
 #include "Processor.h"
-
-#ifdef USE_BANKED_MEMORY
 #include "BankedMemory.h"
-#else
 #include "ParallelMemory.h"
-#endif
 
 #include "commands.h"
 #include "config.h"
 #include "profile.h"
 #include "loader.h"
 
+#include <cassert>
 #include <iostream>
 #include <iomanip>
 #include <stdexcept>
 #include <limits>
+#include <typeinfo>
 
 #include <readline/readline.h>
 #include <readline/history.h>
+#include <signal.h>
 
 using namespace Simulator;
 using namespace std;
@@ -55,7 +54,7 @@ static string Trim(const string& str)
 	return "";
 }
 
-class AlphaCMPSystem : public Object
+class MGSystem : public Object
 {
     PSize           m_numProcs;
     Processor**     m_procs;
@@ -73,29 +72,29 @@ public:
 
     struct Config
     {
-        PSize              numProcessors;
-        MemoryType::Config memory;
-        Processor::Config  processor;
+        PSize                numProcessors;
+        BankedMemory::Config memory;
+        Processor::Config    processor;
     };
 
     // Get or set the debug flag
-    int  debug() const   { return m_kernel.debug(); }
-    void debug(int mode) { m_kernel.debug(mode); }
+    int  GetDebugMode() const   { return m_kernel.GetDebugMode(); }
+    void SetDebugMode(int mode) { m_kernel.SetDebugMode(mode); }
 
-    uint64_t getOp() const
+    uint64_t GetOp() const
     {
         uint64_t op = 0;
         for (PSize i = 0; i < m_numProcs; i++) {
-            op += m_procs[i]->getOp();
+            op += m_procs[i]->GetOp();
         }
         return op;
     }
 
-    uint64_t getFlop() const
+    uint64_t GetFlop() const
     {
         uint64_t flop = 0;
         for (PSize i = 0; i < m_numProcs; i++) {
-            flop += m_procs[i]->getFlop();
+            flop += m_procs[i]->GetFlop();
         }
         return flop;
     }
@@ -110,7 +109,7 @@ public:
 		const Kernel::CallbackList& callbacks = m_kernel.GetCallbacks();
 		for (Kernel::CallbackList::const_iterator p = callbacks.begin(); p != callbacks.end(); p++)
 		{
-			string name = p->first->getFQN() + ": ";
+			string name = p->first->GetFQN() + ": ";
 			states[name] = p->second.state;
 			length = max(length, (streamsize)name.length());
 		}
@@ -124,18 +123,19 @@ public:
 				case STATE_IDLE:     cout << "idle";     break;
 				case STATE_DEADLOCK: cout << "deadlock"; break;
 				case STATE_RUNNING:  cout << "running";  break;
+				case STATE_ABORTED:  assert(0); break;
 			}
 			cout << endl;
 		}
 	}
 
-	void printRegFileAsyncPortActivity() const
+	void PrintRegFileAsyncPortActivity() const
 	{
 		float avg  = 0;
 		float amax = 0.0f;
 		float amin = 1.0f;
         for (PSize i = 0; i < m_numProcs; i++) {
-            float a = m_procs[i]->getRegFileAsyncPortActivity();
+            float a = m_procs[i]->GetRegFileAsyncPortActivity();
 			amax = max(amax, a);
 			amin = min(amin, a);
 			avg += a;
@@ -169,7 +169,7 @@ public:
 	    float    avg    = 0;
 	    uint64_t amax   = 0;
 	    uint64_t amin   = numeric_limits<uint64_t>::max();
-	    CycleNo cycles = m_kernel.getCycleNo();
+	    CycleNo cycles = m_kernel.GetCycleNo();
         for (PSize i = 0; i < m_numProcs; i++) {
             float a = (float)m_procs[i]->GetTotalActiveQueueSize() / cycles;
 			amax    = max(amax, m_procs[i]->GetMaxActiveQueueSize() );
@@ -198,11 +198,11 @@ public:
     		cout << avg << " " << amin << " " << amax;
     	}
 	}
-	
-	void PrintFamilyCompletions() const
-	{
-	    CycleNo first = UINT64_MAX;
-	    CycleNo last  = 0;
+
+    void PrintFamilyCompletions() const
+    {
+        CycleNo first = UINT64_MAX;
+        CycleNo last  = 0;
         for (PSize i = 0; i < m_numProcs; i++) {
             CycleNo cycle = m_procs[i]->GetLocalFamilyCompletion();
             if (cycle != 0)
@@ -212,10 +212,10 @@ public:
             }
         }
         cout << first << " " << last;
-	}
+    }
 
-	const Kernel& getKernel() const { return m_kernel; }
-          Kernel& getKernel()       { return m_kernel; }
+	const Kernel& GetKernel() const { return m_kernel; }
+          Kernel& GetKernel()       { return m_kernel; }
 
     // Find a component in the system given its path
     // Returns NULL when the component is not found
@@ -228,10 +228,10 @@ public:
             transform(p->begin(), p->end(), p->begin(), ::toupper);
 
             Object* next = NULL;
-            for (unsigned int i = 0; i < cur->getNumChildren(); i++)
+            for (unsigned int i = 0; i < cur->GetNumChildren(); i++)
             {
-                Object* child = cur->getChild(i);
-                string name   = child->getName();
+                Object* child = cur->GetChild(i);
+                string name   = child->GetName();
                 transform(name.begin(), name.end(), name.begin(), ::toupper);
                 if (name == *p)
                 {
@@ -245,12 +245,17 @@ public:
     }
 
     // Steps the entire system this many cycles
-    RunState step(CycleNo nCycles)
+    RunState Step(CycleNo nCycles)
     {
-		return getKernel().step(nCycles);
+   		return GetKernel().Step(nCycles);
+    }
+    
+    void Abort()
+    {
+        GetKernel().Abort();
     }
 
-    AlphaCMPSystem(const Config& config, const string& program, const vector<pair<RegAddr, RegValue> >& regs, bool legacy, bool quiet)
+    MGSystem(const Config& config, const string& program, const vector<pair<RegAddr, RegValue> >& regs, bool legacy, bool quiet)
       : Object(NULL, NULL, "system"),
         m_numProcs(config.numProcessors)
     {
@@ -274,26 +279,28 @@ public:
         // Connect processors in ring
         for (PSize i = 0; i < m_numProcs; i++)
         {
-            m_procs[i]->initialize(*m_procs[(i+m_numProcs-1) % m_numProcs], *m_procs[(i+1) % m_numProcs]);
+            m_procs[i]->Initialize(*m_procs[(i+m_numProcs-1) % m_numProcs], *m_procs[(i+1) % m_numProcs]);
         }
        
         if (m_numProcs > 0)
         {
-            // Write r27 with entry point address
-        	RegValue value;
+#if TARGET_ARCH == ARCH_ALPHA
+            // The Alpha expects the function address in $27
+			RegValue value;
 			value.m_state   = RST_FULL;
 			value.m_integer = entry;
-			m_procs[0]->writeRegister(MAKE_REGADDR(RT_INTEGER, 27), value);
+			m_procs[0]->WriteRegister(MAKE_REGADDR(RT_INTEGER, 27), value);
+#endif
 
 	        // Fill initial registers
 	        for (size_t i = 0; i < regs.size(); i++)
 	        {
-	        	m_procs[0]->writeRegister(regs[i].first, regs[i].second);
+	        	m_procs[0]->WriteRegister(regs[i].first, regs[i].second);
 	        }
 	    }
     }
 
-    ~AlphaCMPSystem()
+    ~MGSystem()
     {
         delete m_memory;
         for (PSize i = 0; i < m_numProcs; i++)
@@ -329,10 +336,10 @@ static const char* GetClassName(const type_info& info)
 // Print all components that are a child of root
 static void PrintComponents(const Object* root, const string& indent = "")
 {
-    for (unsigned int i = 0; i < root->getNumChildren(); i++)
+    for (unsigned int i = 0; i < root->GetNumChildren(); i++)
     {
-        const Object* child = root->getChild(i);
-        string str = indent + child->getName();
+        const Object* child = root->GetChild(i);
+        string str = indent + child->GetName();
 
         cout << str << " ";
         for (size_t len = str.length(); len < 30; len++) cout << " ";
@@ -355,7 +362,7 @@ static void PrintHelp()
         "               Deadlocks or livelocks will not be reported.\n"
         "debug [mode]   Show debug mode or set debug mode (SIM, PROG or ALL).\n"
         "profiles       Lists the total time of the profiled section.\n"
-        "state          Prints the state for all components.\n"
+        "idle           Prints the idle state for all components.\n"
         "\n"
         "help <component>            Show the supported methods and options for this\n"
         "                            component.\n"
@@ -364,9 +371,9 @@ static void PrintHelp()
         << endl;
 }
 
-static AlphaCMPSystem::Config ParseConfig(const Config& configfile)
+static MGSystem::Config ParseConfig(const Config& configfile)
 {
-    AlphaCMPSystem::Config config;
+    MGSystem::Config config;
     config.numProcessors    = configfile.getInteger<PSize>("NumProcessors", 1);
 
     config.memory.baseRequestTime = configfile.getInteger<CycleNo>("MemoryBaseRequestTime", 1);
@@ -443,7 +450,7 @@ static void PrintProfiles()
     }
 }
 
-static void ExecuteCommand(AlphaCMPSystem& sys, const string& command, vector<string> args)
+static void ExecuteCommand(MGSystem& sys, const string& command, vector<string> args)
 {
     // See if the command exists
     int i;
@@ -579,12 +586,12 @@ static bool ParseArguments(int argc, const char* argv[], ProgramConfig& config)
             }
                 
          	if (toupper(arg[1]) == 'R') {
-          		value >> *(int64_t*)&val.m_integer;
+          		value >> *(signed Integer*)&val.m_integer;
            		addr = MAKE_REGADDR(RT_INTEGER, index);
            	} else {
            		double f;
            		value >> f;
-           		val.m_float.fromdouble(f);
+           		val.m_float.fromfloat(f);
            		addr = MAKE_REGADDR(RT_FLOAT, index);
            	}
       		if (value.fail()) {
@@ -603,6 +610,36 @@ static bool ParseArguments(int argc, const char* argv[], ProgramConfig& config)
     return true;
 }
 
+/// The currently active system, for the signal handler
+static MGSystem* active_system = NULL;
+
+static void sigabrt_handler(int)
+{
+    if (active_system != NULL)
+    {
+        active_system->Abort();
+        active_system = NULL;
+    }
+}
+
+static RunState StepSystem(MGSystem& system, CycleNo cycles)
+{
+    active_system = &system;
+    sighandler_t old_handler = signal(SIGINT, sigabrt_handler);
+    RunState state;
+    try
+    {
+        state = system.Step(cycles);
+    }
+    catch (...)
+    {
+        signal(SIGINT, old_handler);
+        throw;
+    }
+    signal(SIGINT, old_handler);
+    return state;
+}
+    
 int main(int argc, const char* argv[])
 {
     try
@@ -616,7 +653,7 @@ int main(int argc, const char* argv[])
 
         // Read configuration
         Config configfile(config.m_configFile, config.m_overrides);
-        AlphaCMPSystem::Config systemconfig = ParseConfig(configfile);
+        MGSystem::Config systemconfig = ParseConfig(configfile);
 
         if (config.m_interactive)
         {
@@ -626,50 +663,54 @@ int main(int argc, const char* argv[])
 		}
 
         // Create the system
-		AlphaCMPSystem sys(systemconfig, config.m_programFile, config.m_regs, config.m_legacy, !config.m_interactive);
+		MGSystem sys(systemconfig, config.m_programFile, config.m_regs, config.m_legacy, !config.m_interactive);
 
         bool interactive = config.m_interactive;
         if (!interactive)
         {
             // Non-interactive mode; run and dump cycle count
-    		try
-    		{
-                if (sys.step(INFINITE_CYCLES) == STATE_DEADLOCK)
+            try
+            {
+                RunState state = StepSystem(sys, INFINITE_CYCLES);
+                if (state == STATE_DEADLOCK)
     			{
     				throw runtime_error("Deadlock!");
     			}
-            
-    			cout.rdbuf(cerr.rdbuf());
+    			
+    			if (state == STATE_ABORTED)
+    			{
+    			    throw runtime_error("Aborted!");
+    			}
+                cout.rdbuf(cerr.rdbuf());
     			cout << dec
-    			     << config.m_print << sys.getKernel().getCycleNo() << " ; "
-                     << sys.getOp() << " "
-                     << sys.getFlop() << " ; ";
-    			sys.printRegFileAsyncPortActivity();
+    			     << config.m_print << sys.GetKernel().GetCycleNo() << " ; "
+                     << sys.GetOp() << " "
+                     << sys.GetFlop() << " ; ";
+    			sys.PrintRegFileAsyncPortActivity();
     			cout << " ; ";
     			sys.PrintActiveQueueSize();
     			cout << " ; ";
     			sys.PrintPipelineIdleTime();
     			cout << " ; ";
     			sys.PrintPipelineEfficiency();
-    			cout << " ; ";
-    			sys.PrintFamilyCompletions();
+                cout << " ; ";
+                sys.PrintFamilyCompletions();
     			cout << endl;
     		}
     		catch (exception& e)
     		{
-                if (config.m_terminate)
+                if (config.m_terminate) 
                 {
                     // We do not want to go to interactive mode,
                     // rethrow so it abort the program.
                     throw;
                 }
-
-    			cerr << endl << e.what() << endl;
-
+    		    cerr << endl << e.what() << endl;
+    		    
     		    // When we get an exception in non-interactive mode,
     		    // jump into interactive mode
-    			interactive = true;
-            }
+        		interactive = true;
+    		}
         }
         
         if (interactive)
@@ -680,7 +721,7 @@ int main(int argc, const char* argv[])
             for (bool quit = false; !quit; )
             {
                 stringstream prompt;
-                prompt << dec << setw(8) << setfill('0') << right << sys.getKernel().getCycleNo() << "> ";
+                prompt << dec << setw(8) << setfill('0') << right << sys.GetKernel().GetCycleNo() << "> ";
             
 				// Read the command line and split into commands
 				char* line = GetCommandLine(prompt.str());
@@ -727,15 +768,21 @@ int main(int argc, const char* argv[])
 
                             try
                             {
-    							if (sys.step(nCycles) == STATE_DEADLOCK)
+                                RunState state = StepSystem(sys, nCycles);
+                                if (state == STATE_DEADLOCK)
     							{
     								throw runtime_error("Deadlock!");
     							}
-    						}
-    						catch (exception& e)
-    						{
-    						    cout << e.what() << endl;
-    						}
+    							
+    							if (state == STATE_ABORTED)
+    							{
+    							    throw runtime_error("Aborted!");
+    							}
+    					    }
+    					    catch (exception& e)
+    					    {
+    					        cout << e.what() << endl;
+    					    }
 						}
 						else if (command == "p" || command == "print")
 						{
@@ -764,12 +811,12 @@ int main(int argc, const char* argv[])
 								transform(state.begin(), state.end(), state.begin(), ::toupper);
 							}
 	        
-                                 if (state == "SIM")  sys.debug(Kernel::DEBUG_SIM);
-                            else if (state == "PROG") sys.debug(Kernel::DEBUG_PROG);
-                            else if (state == "ALL")  sys.debug(Kernel::DEBUG_PROG | Kernel::DEBUG_SIM);
+                                 if (state == "SIM")  sys.SetDebugMode(Kernel::DEBUG_SIM);
+                            else if (state == "PROG") sys.SetDebugMode(Kernel::DEBUG_PROG);
+                            else if (state == "ALL")  sys.SetDebugMode(Kernel::DEBUG_PROG | Kernel::DEBUG_SIM);
                             
                             string debugStr;
-                            switch (sys.debug())
+                            switch (sys.GetDebugMode())
                             {
                             default:                                     debugStr = "nothing";   break;
                             case Kernel::DEBUG_PROG:                     debugStr = "program";   break;

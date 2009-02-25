@@ -9,11 +9,11 @@ namespace Simulator
 
 static string ConstructErrorMessage(const Object& obj, const string& message)
 {
-    string name = obj.getFQN();
+    string name = obj.GetFQN();
     transform(name.begin(), name.end(), name.begin(), ::toupper);
     
     stringstream ss;
-    ss << "[" << setw(8) << setfill('0') << obj.getKernel()->getCycleNo() << ":" << name << "] " << message;
+    ss << "[" << setw(8) << setfill('0') << obj.GetKernel()->GetCycleNo() << ":" << name << "] " << message;
     return ss.str();
 }
 

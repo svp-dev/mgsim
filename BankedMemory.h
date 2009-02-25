@@ -61,18 +61,18 @@ public:
     size_t GetBankFromAddress(MemAddr address) const;
     
     // Component
-    Result onCycleWritePhase(unsigned int stateIndex);
+    Result OnCycleWritePhase(unsigned int stateIndex);
 
     // IMemory
-    void registerListener  (IMemoryCallback& callback);
-    void unregisterListener(IMemoryCallback& callback);
-    Result read (IMemoryCallback& callback, MemAddr address, void* data, MemSize size, MemTag tag);
-    Result write(IMemoryCallback& callback, MemAddr address, void* data, MemSize size, MemTag tag);
-	bool checkPermissions(MemAddr address, MemSize size, int access) const;
+    void   RegisterListener  (IMemoryCallback& callback);
+    void   UnregisterListener(IMemoryCallback& callback);
+    Result Read (IMemoryCallback& callback, MemAddr address, void* data, MemSize size, MemTag tag);
+    Result Write(IMemoryCallback& callback, MemAddr address, void* data, MemSize size, MemTag tag);
+	bool   CheckPermissions(MemAddr address, MemSize size, int access) const;
 
     // IMemoryAdmin
-    void read (MemAddr address, void* data, MemSize size);
-    void write(MemAddr address, const void* data, MemSize size, int perm = 0);
+    void Read (MemAddr address, void* data, MemSize size);
+    void Write(MemAddr address, const void* data, MemSize size, int perm = 0);
 
 private:
     Config                      m_config;

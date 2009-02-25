@@ -5,11 +5,10 @@ using namespace Simulator;
 using namespace std;
 
 FamilyTable::FamilyTable(Processor& parent, const Config& config)
-:   Structure<LFID>(&parent, parent.getKernel(), "families"),
+:   Structure<LFID>(&parent, parent.GetKernel(), "families"),
     m_parent(parent),
     m_globals(config.numGlobals),
-    m_families(config.numFamilies),
-    m_numFamilies(0)
+    m_families(config.numFamilies)
 {
     for (size_t i = 0; i < config.numGlobals; i++)
     {
@@ -59,7 +58,6 @@ LFID FamilyTable::AllocateFamily(GFID gfid)
             m_empty.head = m_families[fid].next;
             family.state = FST_ALLOCATED;
             family.next  = INVALID_LFID;
-			m_numFamilies++;
 		}
     }
     return fid;
@@ -132,7 +130,6 @@ bool FamilyTable::FreeFamily(LFID fid)
 		Family& family = m_families[fid];
         family.next  = INVALID_LFID;
         family.state = FST_EMPTY;
-        m_numFamilies--;
     }
     return true;
 }

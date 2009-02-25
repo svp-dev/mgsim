@@ -5,7 +5,7 @@ using namespace Simulator;
 using namespace std;
 
 // Memory reads and writes will be of at most this many bytes
-static const int MAX_MEMORY_OPERATION_SIZE = 8;
+static const size_t MAX_MEMORY_OPERATION_SIZE = 8;
 
 Pipeline::PipeAction Pipeline::MemoryStage::read()
 {
@@ -14,22 +14,32 @@ Pipeline::PipeAction Pipeline::MemoryStage::read()
 
 Pipeline::PipeAction Pipeline::MemoryStage::write()
 {
-    RegValue rcv = m_input.Rcv;
-
+    PipeValue rcv = m_input.Rcv;
+    
     if (m_input.size > 0)
     {
-        // It's a memory operation!
-        Result result = SUCCESS;
+        // It's a new memory operation!
+        assert(m_input.size <= MAX_MEMORY_OPERATION_SIZE);
+        assert(MAX_MEMORY_OPERATION_SIZE <= sizeof(uint64_t));
 
-        if (m_input.Rcv.m_state == RST_FULL)
+        Result result = SUCCESS;
+        if (rcv.m_state == RST_FULL)
         {
             // Memory write
 
             // Serialize and store data
             char data[MAX_MEMORY_OPERATION_SIZE];
-            SerializeRegister(m_input.Rc.type, m_input.Rcv, data, (size_t)m_input.size);
 
-            if ((result = m_dcache.write(m_input.address, data, m_input.size, m_input.fid, m_input.tid)) == FAILED)
+            uint64_t value = 0;
+            switch (m_input.Rc.type) {
+                case RT_INTEGER: value = m_input.Rcv.m_integer.get(m_input.Rcv.m_size); break;
+                case RT_FLOAT:   value = m_input.Rcv.m_float.toint(m_input.Rcv.m_size); break;
+                default: assert(0);
+            }
+            
+            SerializeRegister(m_input.Rc.type, value, data, (size_t)m_input.size);
+
+            if ((result = m_dcache.Write(m_input.address, data, m_input.size, m_input.fid, m_input.tid)) == FAILED)
             {
                 // Stall
                 return PIPE_STALL;
@@ -46,28 +56,46 @@ Pipeline::PipeAction Pipeline::MemoryStage::write()
         }
         else if (m_input.Rc.valid())
         {
+            // Memory read
             char data[MAX_MEMORY_OPERATION_SIZE];
 			RegAddr reg = m_input.Rc;
-            if ((result = m_dcache.read(m_input.address, data, m_input.size, m_input.fid, &reg)) == FAILED)
+            if ((result = m_dcache.Read(m_input.address, data, m_input.size, m_input.fid, &reg)) == FAILED)
             {
                 // Stall
                 return PIPE_STALL;
             }
 
+            rcv.m_size = m_input.Rcv.m_size;
             if (result == SUCCESS)
             {
                 // Unserialize and store data
-                rcv = UnserializeRegister(m_input.Rc.type, data, (size_t)m_input.size);
+                uint64_t value = UnserializeRegister(m_input.Rc.type, data, (size_t)m_input.size);
+
+                if (m_input.sign_extend)
+                {
+                    // Sign-extend the value
+                    size_t shift = (sizeof(value) - m_input.size) * 8;
+                    value = (int64_t)(value << shift) >> shift;
+                }
+                
+                rcv.m_state = RST_FULL;
+                switch (m_input.Rc.type)
+                {
+                case RT_INTEGER: rcv.m_integer.set(value, rcv.m_size); break;
+                case RT_FLOAT:   rcv.m_float.fromint(value, rcv.m_size); break;
+                default:         assert(0);
+                }
             }
 			else
 			{
 				// Remember request data
-	            rcv.m_state          = RST_PENDING;
-				rcv.m_request.fid    = m_input.fid;
-				rcv.m_request.next   = reg;
-				rcv.m_request.offset = (unsigned int)(m_input.address % m_dcache.getLineSize());
-				rcv.m_request.size   = (size_t)m_input.size;
-				rcv.m_component      = &m_dcache;
+	            rcv.m_state               = RST_PENDING;
+				rcv.m_request.fid         = m_input.fid;
+				rcv.m_request.next        = reg;
+				rcv.m_request.offset      = (unsigned int)(m_input.address % m_dcache.GetLineSize());
+				rcv.m_request.size        = (size_t)m_input.size;
+				rcv.m_request.sign_extend = m_input.sign_extend;
+				rcv.m_component           = &m_dcache;
 			}
         }
 
@@ -97,7 +125,8 @@ Pipeline::PipeAction Pipeline::MemoryStage::write()
         m_output.Rc      = m_input.Rc;
         m_output.Rrc     = m_input.Rrc;
         m_output.Rcv     = rcv;
-    }   
+    }
+    
     return PIPE_CONTINUE;
 }
 

@@ -68,7 +68,8 @@ _FFT:
 
 	# create and sync
 	setstart $7, $3		# start = 1
-	setlimit $7, $10	# limit = M
+	addq     $10, 1, $10
+	setlimit $7, $10	# limit = M + 1
 	setplace $7, $31    # place = LOCAL
 	cred    $7, _FFT_1
 	mov     $7, $31

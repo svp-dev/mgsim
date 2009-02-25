@@ -21,17 +21,17 @@ class Register : public IRegister
     };
     Data m_data, m_read;
 
-    void onUpdate()
+    void OnUpdate()
     {
         m_read = m_data;
     }
 
 public:
-    const T& read() const     { return m_read.m_data; }
-    void write(const T& data) { COMMIT{ m_data.m_data = data; m_data.m_full = true; } }
-    bool empty() const        { return !m_data.m_full; }
-    bool full()  const        { return  m_read.m_full; }
-    void clear()              { COMMIT{ m_data.m_full = m_read.m_full = false; } }
+    const T& Read() const     { return m_read.m_data; }
+    void Write(const T& data) { COMMIT{ m_data.m_data = data; m_data.m_full = true; } }
+    bool IsEmpty() const      { return !m_data.m_full; }
+    bool IsFull()  const      { return  m_read.m_full; }
+    void Clear()              { COMMIT{ m_data.m_full = m_read.m_full = false; } }
 
     Register(Kernel& kernel) : IRegister(kernel)
     {
@@ -58,10 +58,10 @@ class BroadcastRegisters : public IRegister
         bool m_full;
         T    m_data;
 
-        void clear()        { m_full = m_processed = m_forwarded = false; }
-        void setProcessed() { m_processed = true; if (m_forwarded) clear(); }
-        void setForwarded() { m_forwarded = true; if (m_processed) clear(); }
-        Data()              { clear(); }
+        void Clear()        { m_full = m_processed = m_forwarded = false; }
+        void SetProcessed() { m_processed = true; if (m_forwarded) Clear(); }
+        void SetForwarded() { m_forwarded = true; if (m_processed) Clear(); }
+        Data()              { Clear(); }
     };
 
     Data          m_temp;
@@ -69,48 +69,48 @@ class BroadcastRegisters : public IRegister
     Data          m_local;
     Data          m_sending;
 
-    void onUpdate()
+    void OnUpdate()
     {
         if (m_temp.m_full)
         {
             m_remote = m_temp;
-            m_temp.clear();
+            m_temp.Clear();
         }
 
-        if (!isSendingFull())
+        if (!IsSendingFull())
         {
-            if (isRemoteFull() && !m_remote.m_forwarded)
+            if (IsRemoteFull() && !m_remote.m_forwarded)
             {
                 m_sending = m_remote;
-                m_remote.setForwarded();
+                m_remote.SetForwarded();
             }
-            else if (isLocalFull() && m_local.m_processed)
+            else if (IsLocalFull() && m_local.m_processed)
             {
                 m_sending = m_local;
-                m_local.setForwarded();
+                m_local.SetForwarded();
             }
-            m_sending.setProcessed();
+            m_sending.SetProcessed();
         }
     }
 
 public:
-    void writeLocal(const T& data, bool processed = true) { COMMIT{ m_local.m_data = data; m_local.m_full = true; if (processed) m_local.setProcessed(); } }
-    void writeRemote(const T& data)                       { COMMIT{ m_temp .m_data = data; m_temp .m_full = true; } }
+    void WriteLocal(const T& data, bool processed = true) { COMMIT{ m_local.m_data = data; m_local.m_full = true; if (processed) m_local.SetProcessed(); } }
+    void WriteRemote(const T& data)                       { COMMIT{ m_temp .m_data = data; m_temp .m_full = true; } }
 
-    void setLocalProcessed()   { COMMIT{ m_local  .setProcessed(); } }
-    void setRemoteProcessed()  { COMMIT{ m_remote .setProcessed(); } }
-    void setSendingForwarded() { COMMIT{ m_sending.setForwarded(); } }
+    void SetLocalProcessed()   { COMMIT{ m_local  .SetProcessed(); } }
+    void SetRemoteProcessed()  { COMMIT{ m_remote .SetProcessed(); } }
+    void SetSendingForwarded() { COMMIT{ m_sending.SetForwarded(); } }
 
-    const T& readLocal()   const { return m_local.m_data;   }
-    const T& readRemote()  const { return m_remote.m_data;  }
-    const T& readSending() const { return m_sending.m_data; }
+    const T& ReadLocal()   const { return m_local.m_data;   }
+    const T& ReadRemote()  const { return m_remote.m_data;  }
+    const T& ReadSending() const { return m_sending.m_data; }
 
-    bool isRemoteProcessed() const { return m_remote.m_processed; }
-    bool isSendingFull()     const { return m_sending.m_full; }
-    bool isLocalFull()       const { return m_local.m_full;   }
-    bool isRemoteFull()      const { return m_remote.m_full;  }
-    bool empty()             const { return !isLocalFull() && !isRemoteFull() && !isSendingFull(); }
-
+    bool IsRemoteProcessed() const { return m_remote.m_processed; }
+    bool IsSendingFull()     const { return m_sending.m_full; }
+    bool IsLocalFull()       const { return m_local.m_full;   }
+    bool IsRemoteFull()      const { return m_remote.m_full;  }
+    bool IsEmpty()           const { return !IsLocalFull() && !IsRemoteFull() && !IsSendingFull(); }
+    
     BroadcastRegisters(Kernel& kernel) : IRegister(kernel)
     {
     }
@@ -161,38 +161,38 @@ class Network : public IComponent
 
 public:
     Network(Processor& parent, const std::string& name, Allocator& allocator, RegisterFile& regFile, FamilyTable& familyTable);
-    void initialize(Network& prev, Network& next);
+    void Initialize(Network& prev, Network& next);
 
     // Public functions
-    bool sendFamilyReservation(GFID fid);
-    bool sendFamilyUnreservation(GFID fid);
-    bool sendFamilyCreate(LFID fid);
-    bool requestToken();
-    bool sendThreadCleanup(GFID fid);
-    bool sendThreadCompletion(GFID fid);
-    bool sendFamilyCompletion(GFID fid);
+    bool SendFamilyReservation(GFID fid);
+    bool SendFamilyUnreservation(GFID fid);
+    bool SendFamilyCreate(LFID fid);
+    bool RequestToken();
+    bool SendThreadCleanup(GFID fid);
+    bool SendThreadCompletion(GFID fid);
+    bool SendFamilyCompletion(GFID fid);
 	
 	// addr is into the thread's shareds space
-    bool sendShared   (GFID fid, bool parent, const RegAddr& addr, const RegValue& value);
-    bool requestShared(GFID fid, const RegAddr& addr, bool parent);
+    bool SendShared   (GFID fid, bool parent, const RegAddr& addr, const RegValue& value);
+    bool RequestShared(GFID fid, const RegAddr& addr, bool parent);
     
     //
     // Network-specific stuff, do not call outside of this class
     //
-    bool onFamilyReservationReceived(const RemoteFID& rfid);
-    bool onFamilyUnreservationReceived(const RemoteFID& rfid);
-    bool onFamilyCreateReceived(const CreateMessage& msg);
-	bool onGlobalReceived(PID parent, const RegValue& value);
-    bool onRemoteTokenRequested();
-    bool onTokenReceived();
-    bool onThreadCleanedUp(GFID fid);
-    bool onThreadCompleted(GFID fid);
-    bool onFamilyCompleted(GFID fid);
-    Result onSharedRequested(const SharedInfo& sharedInfo);
-    Result onSharedReceived(const SharedInfo& sharedInfo);
+    bool OnFamilyReservationReceived(const RemoteFID& rfid);
+    bool OnFamilyUnreservationReceived(const RemoteFID& rfid);
+    bool OnFamilyCreateReceived(const CreateMessage& msg);
+	bool OnGlobalReceived(PID parent, const RegValue& value);
+    bool OnRemoteTokenRequested();
+    bool OnTokenReceived();
+    bool OnThreadCleanedUp(GFID fid);
+    bool OnThreadCompleted(GFID fid);
+    bool OnFamilyCompleted(GFID fid);
+    Result OnSharedRequested(const SharedInfo& sharedInfo);
+    Result OnSharedReceived(const SharedInfo& sharedInfo);
 
-    Result onCycleReadPhase(unsigned int stateIndex);
-    Result onCycleWritePhase(unsigned int stateIndex);
+    Result OnCycleReadPhase(unsigned int stateIndex);
+    Result OnCycleWritePhase(unsigned int stateIndex);
 
 //private:
     Processor&      m_parent;

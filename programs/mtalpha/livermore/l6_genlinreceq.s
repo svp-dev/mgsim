@@ -4,8 +4,8 @@
 #
 #    for(int i = 1; i < N; i++) {
 #        double sum = 0.01;
-#        for(int j = 1; j <= i; j++) {
-#            sum += y[i][j - 1] * x[i - j];
+#        for(int j = 0; j < i; j++) {
+#            sum += y[i][j] * x[i - j + 1];
 #        }
 #        x[i] = sum;
 #    }
@@ -33,7 +33,7 @@ main:
     ldah    $1, Y($29)      !gprelhigh
     lda     $1, Y($1)       !gprellow   # $1 = Y
     lda     $2, MAX_N($31)              # $2 = MAX_N
-    mov     $31, $3                     # $3 = token
+    clr     $3                          # $3 = token
     
     # Load 0.01 into $f0
     # It's 0x3F847AE147AE147B in IEEE 754
@@ -47,6 +47,8 @@ main:
     allocate $4, 0, 0, 0, 0
     setstart $4, 1
     setlimit $4, $10
+    setblock $4, 2
+    setplace $4, 0
     cred    $4, outer
     mov     $4, $31
     end
@@ -73,10 +75,8 @@ outer:
     s8addq  $l1,  $g1, $l1  # $l1 = &Y[i]
     mov     $g0,  $l2       # $l2 = X
     fmov    $gf0, $lf0      # $lf0 = 0.01
-    addl    $l0, 1, $l4
     
-    setstart $l3,   1; swch
-    setlimit $l3, $l4
+    setlimit $l3, $l0; swch
     mov     $d0, $31
     cred    $l3, inner
     s8addq  $l0, $g0, $l4   # $l4 = &X[i]
@@ -102,10 +102,10 @@ inner:
     .registers 3 0 2 0 1 2
     subq    $g0,  $l0, $l1
     s8addq  $l1,  $g2, $l1
-    ldt     $lf0, 0($l1)        # $lf0 = X[i - j - 1]
+    ldt     $lf0, 8($l1)        # $lf0 = X[i - j + 1]
     
     s8addq  $l0, $g1, $l0
-    ldt     $lf1, -8($l0)       # $lf1 = Y[i][j]
+    ldt     $lf1, 0($l0)        # $lf1 = Y[i][j]
     
     mult    $lf0, $lf1, $lf0; swch
     addt    $lf0, $df0, $lf0; swch
@@ -114,7 +114,7 @@ inner:
     .end inner
     
     
-    .section .bbs
+    .section .bss
     .align 6
 X:  .skip MAX_N * 8
     .align 6

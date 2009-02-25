@@ -28,7 +28,7 @@ bool VirtualMemory::CheckPermissions(MemAddr address, MemSize size, int access) 
 	return true;
 }
 
-void VirtualMemory::read(MemAddr address, void* _data, MemSize size) const
+void VirtualMemory::Read(MemAddr address, void* _data, MemSize size) const
 {
     if (size > SIZE_MAX)
     {
@@ -36,7 +36,7 @@ void VirtualMemory::read(MemAddr address, void* _data, MemSize size) const
     }
 
 	MemAddr base   = address & -BLOCK_SIZE;	    // Base address of block containing address
-	size_t  offset = address - base;			// Offset within base block of address
+	size_t  offset = address - base;		    // Offset within base block of address
 	char*   data   = static_cast<char*>(_data);	// Byte-aligned pointer to destination
 
 	for (BlockMap::const_iterator pos = m_blocks.lower_bound(base); size > 0;)
@@ -44,7 +44,7 @@ void VirtualMemory::read(MemAddr address, void* _data, MemSize size) const
 		if (pos == m_blocks.end())
 		{
 			// Rest of address range does not exist, fill with garbage
-			memset(data, 0xCD, (size_t)size);
+			fill(data, data + size, 0xCD);
 			break;
 		}
 
@@ -53,7 +53,7 @@ void VirtualMemory::read(MemAddr address, void* _data, MemSize size) const
 
 		if (pos->first > base) {
 			// This part of the request does not exist, fill with garbage
-			memset(data, 0xCD, count);
+			fill(data, data + count, 0xCD);
 		} else {
 			// Read data
 			memcpy(data, pos->second.data + offset, count);
@@ -66,7 +66,7 @@ void VirtualMemory::read(MemAddr address, void* _data, MemSize size) const
 	}
 }
 
-void VirtualMemory::write(MemAddr address, const void* _data, MemSize size, int perm)
+void VirtualMemory::Write(MemAddr address, const void* _data, MemSize size, int perm)
 {
     if (size > SIZE_MAX)
     {

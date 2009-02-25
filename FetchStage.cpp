@@ -39,8 +39,8 @@ Pipeline::PipeAction Pipeline::FetchStage::read()
 			}
 
 			// Read the cache line for this PC
-			size_t offset = (size_t)(pc % m_icache.getLineSize());   // Offset within the cacheline
-			if (!m_icache.read(thread.cid, pc - offset, m_buffer, m_icache.getLineSize()))
+			size_t offset = (size_t)(pc % m_icache.GetLineSize());   // Offset within the cacheline
+			if (!m_icache.Read(thread.cid, pc - offset, m_buffer, m_icache.GetLineSize()))
 			{
 				return PIPE_STALL;
 			}
@@ -52,13 +52,12 @@ Pipeline::PipeAction Pipeline::FetchStage::read()
 				m_isLastThreadInBlock   = thread.isLastThreadInBlock;
 				m_isLastThreadInFamily  = thread.isLastThreadInFamily;
 				m_isFirstThreadInFamily = thread.isFirstThreadInFamily;
-				m_onParent              = (family.parent.pid == m_parent.getProcessor().getPID());
-				m_fpcr                  = thread.fpcr;
+				m_onParent              = (family.parent.pid == m_parent.GetProcessor().GetPID());
 
 				for (RegType i = 0; i < NUM_REG_TYPES; i++)
 				{
-					m_familyRegs[i] = family.regs[i];
-					m_threadRegs[i] = thread.regs[i];
+					m_regs.types[i].family = family.regs[i];
+					m_regs.types[i].thread = thread.regs[i];
 				}
 
 				m_switched = true;
@@ -92,7 +91,7 @@ Pipeline::PipeAction Pipeline::FetchStage::write()
 		return PIPE_STALL;
 	}
 
-	size_t offset   = (size_t)(m_pc % m_icache.getLineSize());              // Offset within the cacheline
+	size_t offset   = (size_t)(m_pc % m_icache.GetLineSize());              // Offset within the cacheline
 	size_t iInstr   = offset / sizeof(Instruction);                         // Offset in instructions
 	size_t iControl = (offset & -m_controlBlockSize) / sizeof(Instruction); // Align offset down to control block size
 
@@ -122,7 +121,6 @@ Pipeline::PipeAction Pipeline::FetchStage::write()
 		m_output.gfid  = m_gfid;
 		m_output.tid   = m_tid;
 		m_output.pc    = m_pc;
-		m_output.fpcr  = m_fpcr;
 		m_output.onParent = m_onParent;
 		m_output.isLastThreadInFamily  = m_isLastThreadInFamily;
 		m_output.isLastThreadInBlock   = m_isLastThreadInBlock;
@@ -132,14 +130,9 @@ Pipeline::PipeAction Pipeline::FetchStage::write()
 
 		m_output.kill   = ((control & 2) != 0);
 		bool wantSwitch = ((control & 1) != 0);
-		bool mustSwitch = m_output.kill || (m_pc % m_icache.getLineSize() == 0);
+		bool mustSwitch = m_output.kill || (m_pc % m_icache.GetLineSize() == 0);
 		m_output.swch   = mustSwitch;
-		
-		for (RegType i = 0; i < NUM_REG_TYPES; i++)
-		{
-			m_output.familyRegs[i] = m_familyRegs[i];
-			m_output.threadRegs[i] = m_threadRegs[i];
-		}
+		m_output.regs   = m_regs;
 
 		if (mustSwitch || (wantSwitch && m_next != INVALID_TID))
 		{
@@ -173,13 +166,13 @@ Pipeline::FetchStage::FetchStage(Pipeline& parent, FetchDecodeLatch& fdLatch, Al
         throw InvalidArgumentException("Control block size is larger than 64");
     }
 
-    if (controlBlockSize > m_icache.getLineSize())
+    if (controlBlockSize > m_icache.GetLineSize())
     {
         throw InvalidArgumentException("Control block size is larger than the cache line size");
     }
 
     m_tid = INVALID_TID;
-    m_buffer = new char[m_icache.getLineSize()];
+    m_buffer = new char[m_icache.GetLineSize()];
     m_controlBlockSize = (int)controlBlockSize;
 }
 

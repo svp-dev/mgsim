@@ -7,11 +7,11 @@ using namespace Simulator;
 using namespace std;
 
 RAUnit::RAUnit(Processor& parent, const std::string& name, const RegisterFile& regFile, const Config& config)
-    : Object(&parent, &parent.getKernel(), name)
+    : Object(&parent, &parent.GetKernel(), name)
 {
     for (RegType i = 0; i < NUM_REG_TYPES; i++)
     {
-        RegSize size = regFile.getSize(i);
+        RegSize size = regFile.GetSize(i);
 
         m_blockSizes[i] = config.blockSizes[i];
         if (m_blockSizes[i] == 0 || (m_blockSizes[i] & (m_blockSizes[i] - 1)) != 0)
@@ -28,7 +28,7 @@ RAUnit::RAUnit(Processor& parent, const std::string& name, const RegisterFile& r
     }
 }
 
-bool RAUnit::alloc(const RegSize sizes[NUM_REG_TYPES], LFID fid, RegIndex indices[NUM_REG_TYPES])
+bool RAUnit::Alloc(const RegSize sizes[NUM_REG_TYPES], LFID fid, RegIndex indices[NUM_REG_TYPES])
 {
 	for (RegType i = 0; i < NUM_REG_TYPES; i++)
 	{
@@ -84,7 +84,7 @@ bool RAUnit::alloc(const RegSize sizes[NUM_REG_TYPES], LFID fid, RegIndex indice
 	return true;
 }
 
-bool RAUnit::free(RegIndex indices[NUM_REG_TYPES])
+bool RAUnit::Free(RegIndex indices[NUM_REG_TYPES])
 {
 	for (RegType i = 0; i < NUM_REG_TYPES; i++)
 	{

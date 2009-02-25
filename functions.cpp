@@ -3,10 +3,10 @@
 using namespace Simulator;
 using namespace std;
 
-void ArbitratedFunction::arbitrate()
+void ArbitratedFunction::Arbitrate()
 {
     // Choose the request with the highest priority (lowest numerical value)
-    m_priority = INT_MAX;
+    m_priority = std::numeric_limits<int>::max();
     for (RequestMap::const_iterator i = m_requests.begin(); i != m_requests.end(); i++)
     {
         if (i->first < m_priority)
@@ -18,12 +18,12 @@ void ArbitratedFunction::arbitrate()
     m_requests.clear();
 }
 
-void ArbitratedFunction::setPriority(const IComponent& component, int priority)
+void ArbitratedFunction::SetPriority(const IComponent& component, int priority)
 {
     m_priorities[&component] = priority;
 }
 
-void ArbitratedFunction::addRequest(const IComponent& component)
+void ArbitratedFunction::AddRequest(const IComponent& component)
 {
     assert(!m_priorities.empty());
     
@@ -32,7 +32,7 @@ void ArbitratedFunction::addRequest(const IComponent& component)
     m_requests.insert(make_pair(p->second, &component));
 }
 
-void ArbitratedFunction::addRequest(int priority)
+void ArbitratedFunction::AddRequest(int priority)
 {
     assert(m_priorities.empty());
     
@@ -41,7 +41,7 @@ void ArbitratedFunction::addRequest(int priority)
 
                                 
 #ifndef NDEBUG
-void ArbitratedFunction::verify(const IComponent& component) const
+void ArbitratedFunction::Verify(const IComponent& component) const
 {
     if (m_priorities.find(&component) == m_priorities.end())
     {
@@ -49,7 +49,7 @@ void ArbitratedFunction::verify(const IComponent& component) const
     }
 }
 
-void DedicatedFunction::verify(const IComponent& component) const
+void DedicatedFunction::Verify(const IComponent& component) const
 {
     if (m_component != &component)
     {

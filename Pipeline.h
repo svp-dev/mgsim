@@ -3,10 +3,63 @@
 
 #include "FamilyTable.h"
 #include "ThreadTable.h"
+#include "Allocator.h"
 #include "ICache.h"
+
+#if TARGET_ARCH == ARCH_ALPHA
+#include "ISA.alpha.h"
+#elif TARGET_ARCH == ARCH_SPARC
+#include "ISA.sparc.h"
+#endif
 
 namespace Simulator
 {
+
+/// A (possibly multi-) register value in the pipeline
+struct PipeValue
+{
+    RegState     m_state;   ///< State of the register.
+    unsigned int m_size;    ///< Size of the value, in bytes
+    union
+    {
+        MultiFloat   m_float;    ///< Value of the register, if it is an FP register.
+        MultiInteger m_integer;  ///< Value of the register, if it is an integer register.
+
+        struct
+        {
+            TID         m_tid;          ///< TID of the thread that is waiting on the register.
+            MemRequest  m_request;      ///< Memory request information for pending registers.
+            IComponent* m_component;    ///< Component that will write back; for security.
+        };
+    };
+};
+
+#if TARGET_ARCH == ARCH_ALPHA
+    struct ArchDecodeReadLatch
+    {
+        InstrFormat format;
+        uint8_t     opcode;
+        uint16_t    function;
+        int32_t     displacement;
+    };
+
+    struct ArchReadExecuteLatch : public ArchDecodeReadLatch
+    {
+    };
+#elif TARGET_ARCH == ARCH_SPARC
+    struct ArchDecodeReadLatch
+    {
+        uint8_t  op1, op2, op3;
+        uint16_t function;
+        uint8_t  asi;
+        int32_t  displacement;
+    };
+
+    struct ArchReadExecuteLatch : public ArchDecodeReadLatch
+    {
+        PipeValue storeValue;
+    };
+#endif
 
 class Processor;
 class Allocator;
@@ -19,12 +72,22 @@ class FPU;
 
 class Pipeline : public IComponent
 {
+    /// Return code from the various pipeline stages, indicates the action for the pipeline.
     enum PipeAction
     {
-        PIPE_CONTINUE,
-        PIPE_FLUSH,
-        PIPE_STALL,
-		PIPE_IDLE,
+        PIPE_CONTINUE,  ///< Stage completed succesfully, continue.
+        PIPE_FLUSH,     ///< Stage completed, but the rest of the thread must be flushed.
+        PIPE_STALL,     ///< Stage cannot complete, stall pipeline.
+        PIPE_DELAY,     ///< Stage completed, but must be run again; delay rest of the pipeline.
+		PIPE_IDLE,      ///< Stage has no work.
+    };
+    
+    /// Type of thread suspension
+    enum SuspendType
+    {
+        SUSPEND_NONE,           ///< Don't suspend
+        SUSPEND_MEMORY_BARRIER, ///< Memory barrier
+        SUSPEND_MISSING_DATA,   ///< We're missing data
     };
 
 public:
@@ -41,8 +104,8 @@ public:
     public:
         Latch() { clear(); }
         bool empty() const { return m_empty; }
-        void clear()       { m_empty = true; }
         void set()         { m_empty = false; }
+        void clear()       { m_empty = true; }
 
         void copy(const Latch& latch) { tid = latch.tid; }
         
@@ -80,6 +143,15 @@ public:
     //
     // Latches
     //
+    struct RegInfo
+    {
+        struct
+        {
+            Family::RegInfo family;
+            Thread::RegInfo thread;
+        } types[NUM_REG_TYPES];
+    };
+    
     struct CommonLatch : public Latch
     {
         MemAddr pc;
@@ -94,71 +166,57 @@ public:
     {
         GFID            gfid;
         Instruction     instr;
-		FPCR            fpcr;
-        Family::RegInfo familyRegs[NUM_REG_TYPES];
-        Thread::RegInfo threadRegs[NUM_REG_TYPES];
+        RegInfo         regs;
 		bool            onParent;
         bool            isLastThreadInBlock;
     };
 
-    struct DecodeReadLatch : public CommonLatch
+    struct DecodeReadLatch : public CommonLatch, public ArchDecodeReadLatch
     {
-        // Instruction misc
-        InstrFormat format;
-        uint8_t     opcode;
-        uint16_t    function;
-        int64_t     displacement;
-        uint64_t    literal;
-		FPCR        fpcr;
-
-        // Registers addresses and types
+        uint32_t        literal;
+        RegInfo         regs;
+        
+        // Registers addresses, types and sizes
         RemoteRegAddr   Rra, Rrb, Rrc;
-        RegAddr         Ra, Rb, Rc;
-
-        Family::RegInfo familyRegs[NUM_REG_TYPES];
-        Thread::RegInfo threadRegs[NUM_REG_TYPES];
+        RegAddr         Ra,  Rb,  Rc;
+        unsigned int    RaSize, RbSize, RcSize;
     };
 
-    struct ReadExecuteLatch : public CommonLatch
+    struct ReadExecuteLatch : public CommonLatch, public ArchReadExecuteLatch
     {
-        // Instruction misc
-        InstrFormat format;
-        uint8_t     opcode;
-        uint16_t    function;
-        int64_t     displacement;
-        uint64_t    literal;
-		FPCR        fpcr;
-
         // Registers addresses, values and types
-        RemoteRegAddr   Rrc;
         RegAddr         Rc;
-        RegValue        Rav, Rbv;
+        PipeValue       Rav, Rbv;
+        PipeValue       Rcv; // Used for m_size only
+        RemoteRegAddr   Rrc;
+        RegInfo         regs;
 
-        Family::RegInfo familyRegs[NUM_REG_TYPES];
-        Thread::RegInfo threadRegs[NUM_REG_TYPES];
+        // For debugging only
+        RegAddr         Ra, Rb;
     };
 
     struct ExecuteMemoryLatch : public CommonLatch
     {
-        bool suspend;
+        SuspendType suspend;
         
         // Memory operation information
-        MemAddr     address;
-        MemSize     size;       // 0 means no memory operation
+        MemAddr address;
+        MemSize size;           // 0 when no memory operation
+        bool    sign_extend;    // Sign extend sub-register loads?
 
         // To be written address and value
         RemoteRegAddr   Rrc;
         RegAddr         Rc;
-        RegValue        Rcv;
+        PipeValue       Rcv;    // On loads, m_state = RST_INVALID and m_size is reg. size
     };
 
     struct MemoryWritebackLatch : public CommonLatch
     {
-        bool suspend;
+        SuspendType suspend;
 
         RemoteRegAddr   Rrc;
         RegAddr         Rc;
-        RegValue        Rcv;
+        PipeValue       Rcv;
     };
 
     //
@@ -198,9 +256,7 @@ public:
 		TID             m_next;
 		bool            m_legacy;
         MemAddr         m_pc;
-		FPCR            m_fpcr;
-        Family::RegInfo m_familyRegs[NUM_REG_TYPES];
-        Thread::RegInfo m_threadRegs[NUM_REG_TYPES];
+        RegInfo         m_regs;
     };
 
     class DecodeStage : public Stage
@@ -211,11 +267,11 @@ public:
         DecodeStage(Pipeline& parent, FetchDecodeLatch& input, DecodeReadLatch& output);
     
     private:
-        static InstrFormat getInstrFormat(uint8_t opcode);
-        RegAddr            translateRegister(uint8_t reg, RegType type, RemoteRegAddr* remoteReg) const;
+        RegAddr TranslateRegister(uint8_t reg, RegType type, unsigned int size, RemoteRegAddr* remoteReg) const;
+        bool    DecodeInstruction(const Instruction& instr);
 
-        FetchDecodeLatch&   m_input;
-        DecodeReadLatch&    m_output;
+        FetchDecodeLatch& m_input;
+        DecodeReadLatch&  m_output;
     };
 
     class ReadStage : public Stage
@@ -226,7 +282,24 @@ public:
         ReadStage(Pipeline& parent, DecodeReadLatch& input, ReadExecuteLatch& output, RegisterFile& regFile, Network& network, ExecuteMemoryLatch& bypass1, MemoryWritebackLatch& bypass2);
     
     private:
-        bool readRegister(RegAddr reg, ReadPort& port, RegValue& val, bool& RvFromExec);
+        struct OperandInfo
+        {
+            ReadPort* port;
+            RegAddr   addr;
+            PipeValue value;
+            int       to_read_mask;
+        };
+        
+        bool ReadRegister(OperandInfo& operand);
+        bool ReadBypasses(OperandInfo& operand);
+        void clear(TID tid);
+
+#if TARGET_ARCH == ARCH_SPARC
+        // Sparc memory stores require three registers so takes two cycles.
+        // First cycle calculates the address and stores it here.
+        bool      m_isMemoryStore;
+        PipeValue m_storeValue;
+#endif
 
         RegisterFile&           m_regFile;
         Network&                m_network;
@@ -234,10 +307,8 @@ public:
         ReadExecuteLatch&       m_output;
         ExecuteMemoryLatch&     m_bypass1;
         MemoryWritebackLatch&   m_bypass2;
-
-        // The read values
-        RegValue m_rav, m_rbv;
-        bool m_ravFromExec, m_rbvFromExec;
+        
+        OperandInfo             m_operand1, m_operand2;
     };
 
     class ExecuteStage : public Stage
@@ -245,7 +316,7 @@ public:
     public:
         PipeAction read();
         PipeAction write();
-        ExecuteStage(Pipeline& parent, ReadExecuteLatch& input, ExecuteMemoryLatch& output, Allocator& allocator, ThreadTable& threadTable, FPU& fpu);
+        ExecuteStage(Pipeline& parent, ReadExecuteLatch& input, ExecuteMemoryLatch& output, Allocator& allocator, ThreadTable& threadTable, FamilyTable& familyTable, FPU& fpu);
         
         uint64_t getFlop() const { return m_flop; }
         uint64_t getOp()   const { return m_op; }
@@ -255,22 +326,29 @@ public:
         ExecuteMemoryLatch&     m_output;
         Allocator&              m_allocator;
         ThreadTable&            m_threadTable;
+        FamilyTable&            m_familyTable;
 		FPU&                    m_fpu;
-        uint64_t                m_flop;    // FP operations
-        uint64_t                m_op;      // Instructions
+        uint64_t                m_flop;         // FP operations
+        uint64_t                m_op;           // Instructions
         
-        bool MemoryWriteBarrier(TID tid) const;
-
-        static bool execINTA(RegValue& Rcv, const RegValue& Rav, const RegValue& Rbv, int func);
-        static bool execINTL(RegValue& Rcv, const RegValue& Rav, const RegValue& Rbv, int func);
-        static bool execINTS(RegValue& Rcv, const RegValue& Rav, const RegValue& Rbv, int func);
-        static bool execINTM(RegValue& Rcv, const RegValue& Rav, const RegValue& Rbv, int func);
-        static bool execFLTV(RegValue& Rcv, const RegValue& Rav, const RegValue& Rbv, int func);
-        static bool execFLTI(RegValue& Rcv, const RegValue& Rav, const RegValue& Rbv, int func);
-        static bool execFLTL(RegValue& Rcv, const RegValue& Rav, const RegValue& Rbv, int func);
-		static bool execITFP(RegValue& Rcv, const RegValue& Rav, const RegValue& Rbv, int func);
-		static bool execFPTI(RegValue& Rcv, const RegValue& Rav, const RegValue& Rbv, int func);
-        static bool branchTaken(uint8_t opcode, const RegValue& value);
+        enum FamilyProperty {
+            FAMPROP_START,
+            FAMPROP_LIMIT,
+            FAMPROP_STEP,
+            FAMPROP_BLOCK,
+            FAMPROP_PLACE,
+        };
+        
+        bool       MemoryWriteBarrier(TID tid) const;
+        PipeAction SetFamilyProperty(LFID fid, FamilyProperty property, uint64_t value);
+        PipeAction SetFamilyRegs(LFID fid, const Allocator::RegisterBases bases[]);
+        PipeAction ExecuteInstruction();
+        PipeAction ExecCreate(LFID fid, MemAddr address, RegAddr exitCodeReg);
+        PipeAction ExecBreak(Integer value);
+        PipeAction ExecBreak(double value);
+        PipeAction ExecKill(LFID fid);
+        void       ExecDebug(Integer value, Integer stream) const;
+        void       ExecDebug(double value, Integer stream) const;
     };
 
     class MemoryStage : public Stage
@@ -286,7 +364,7 @@ public:
         Allocator&              m_allocator;
         DCache&                 m_dcache;
         RegisterFile&           m_regFile;
-        FamilyTable&            m_familyTable;
+        FamilyTable&            m_familyTable;        
     };
 
     class WritebackStage : public Stage
@@ -302,16 +380,21 @@ public:
         Network&                m_network;
         Allocator&              m_allocator;
         ThreadTable&            m_threadTable;
+
+        // These fields are for multiple-cycle writebacks
+        RegIndex                m_writebackOffset;
+        uint64_t                m_writebackValue;
+        RegSize                 m_writebackSize;
     };
 
     Pipeline(Processor& parent, const std::string& name, RegisterFile& regFile, Network& network, Allocator& allocator, FamilyTable& familyTable, ThreadTable& threadTable, ICache& icache, DCache& dcache, FPU& fpu, const Config& config);
 
-    Result onCycleReadPhase(unsigned int stateIndex);
-    Result onCycleWritePhase(unsigned int stateIndex);
+    Result OnCycleReadPhase(unsigned int stateIndex);
+    Result OnCycleWritePhase(unsigned int stateIndex);
     void   UpdateStatistics();
 
-    const Stage& getStage(int i) const { return *m_stages[i]; }
-    Processor& getProcessor() const { return m_parent; }
+    const Stage& GetStage(int i) const { return *m_stages[i]; }
+    Processor&   GetProcessor()  const { return m_parent; }
     
     uint64_t GetMaxIdleTime() const { return m_maxPipelineIdleTime; }
     uint64_t GetMinIdleTime() const { return m_minPipelineIdleTime; }
@@ -319,8 +402,8 @@ public:
     
     float    GetEfficiency() const { return (float)m_nStagesRun / NUM_STAGES / std::max<uint64_t>(1ULL, m_pipelineBusyTime); }
 
-    uint64_t getFlop() const { return m_execute.getFlop(); }
-    uint64_t getOp()   const { return m_execute.getOp(); }
+    uint64_t GetFlop() const { return m_execute.getFlop(); }
+    uint64_t GetOp()   const { return m_execute.getOp(); }
 
 private:
     Processor&          m_parent;

@@ -33,12 +33,12 @@ BankedMemory::Request::Request(const Request& req) : refcount(NULL) { *this = re
 BankedMemory::Request::Request() { refcount = new unsigned long(1); data.data = NULL; }
 BankedMemory::Request::~Request() { release(); }
 
-void BankedMemory::registerListener(IMemoryCallback& callback)
+void BankedMemory::RegisterListener(IMemoryCallback& callback)
 {
     m_caches.insert(&callback);
 }
 
-void BankedMemory::unregisterListener(IMemoryCallback& callback)
+void BankedMemory::UnregisterListener(IMemoryCallback& callback)
 {
     m_caches.erase(&callback);
 }
@@ -56,7 +56,7 @@ size_t BankedMemory::GetBankFromAddress(MemAddr address) const
 void BankedMemory::AddRequest(Pipeline& queue, const Request& request, bool data)
 {
     // Get the initial delay, independent of message size
-    CycleNo now  = getKernel()->getCycleNo();
+    CycleNo now  = GetKernel()->GetCycleNo();
     CycleNo done = now + (CycleNo)(log((double)m_banks.size()) / log(2.0));
     
     Pipeline::reverse_iterator p = queue.rbegin();
@@ -79,7 +79,7 @@ void BankedMemory::AddRequest(Pipeline& queue, const Request& request, bool data
     queue.insert(make_pair(done, request));
 }
 
-Result BankedMemory::read(IMemoryCallback& callback, MemAddr address, void* data, MemSize size, MemTag tag)
+Result BankedMemory::Read(IMemoryCallback& callback, MemAddr address, void* data, MemSize size, MemTag tag)
 {
     if (size > SIZE_MAX)
     {
@@ -105,7 +105,7 @@ Result BankedMemory::read(IMemoryCallback& callback, MemAddr address, void* data
     return FAILED;
 }
 
-Result BankedMemory::write(IMemoryCallback& callback, MemAddr address, void* data, MemSize size, MemTag tag)
+Result BankedMemory::Write(IMemoryCallback& callback, MemAddr address, void* data, MemSize size, MemTag tag)
 {
     if (size > SIZE_MAX)
     {
@@ -124,12 +124,12 @@ Result BankedMemory::write(IMemoryCallback& callback, MemAddr address, void* dat
         request.data.size = size;
         request.data.tag  = tag;
         request.write     = true;
-        memcpy(request.data.data, data, (size_t)size);
+        memcpy(request.data.data, data, size);
 
         // Broadcast the snoop data
         for (set<IMemoryCallback*>::iterator p = m_caches.begin(); p != m_caches.end(); p++)
         {
-            if (!(*p)->onMemorySnooped(request.address, request.data))
+            if (!(*p)->OnMemorySnooped(request.address, request.data))
             {
                 return FAILED;
             }
@@ -145,24 +145,24 @@ Result BankedMemory::write(IMemoryCallback& callback, MemAddr address, void* dat
     return FAILED;
 }
 
-void BankedMemory::read(MemAddr address, void* data, MemSize size)
+void BankedMemory::Read(MemAddr address, void* data, MemSize size)
 {
-    return VirtualMemory::read(address, data, size);
+    return VirtualMemory::Read(address, data, size);
 }
 
-void BankedMemory::write(MemAddr address, const void* data, MemSize size, int perm)
+void BankedMemory::Write(MemAddr address, const void* data, MemSize size, int perm)
 {
-	return VirtualMemory::write(address, data, size, perm);
+	return VirtualMemory::Write(address, data, size, perm);
 }
 
-bool BankedMemory::checkPermissions(MemAddr address, MemSize size, int access) const
+bool BankedMemory::CheckPermissions(MemAddr address, MemSize size, int access) const
 {
 	return VirtualMemory::CheckPermissions(address, size, access);
 }
 
-Result BankedMemory::onCycleWritePhase(unsigned int stateIndex)
+Result BankedMemory::OnCycleWritePhase(unsigned int stateIndex)
 {
-    CycleNo now = getKernel()->getCycleNo();
+    CycleNo now = GetKernel()->GetCycleNo();
     if (stateIndex < 2 * m_banks.size())
     {
         // Process a queue
@@ -205,11 +205,11 @@ Result BankedMemory::onCycleWritePhase(unsigned int stateIndex)
             {
                 // Outgoing pipeline, send it to the callback
                 if (request.write) {
-                    if (!request.callback->onMemoryWriteCompleted(request.data.tag)) {
+                    if (!request.callback->OnMemoryWriteCompleted(request.data.tag)) {
                         return FAILED;
                     }
                 } else {
-                    if (!request.callback->onMemoryReadCompleted(request.data)) {
+                    if (!request.callback->OnMemoryReadCompleted(request.data)) {
                         return FAILED;
                     }
                 }
@@ -232,9 +232,9 @@ Result BankedMemory::onCycleWritePhase(unsigned int stateIndex)
         {
             // This bank is done serving the request
             if (bank.request.write) {
-                VirtualMemory::write(bank.request.address, bank.request.data.data, bank.request.data.size);
+                VirtualMemory::Write(bank.request.address, bank.request.data.data, bank.request.data.size);
             } else {
-                VirtualMemory::read(bank.request.address, bank.request.data.data, bank.request.data.size);
+                VirtualMemory::Read(bank.request.address, bank.request.data.data, bank.request.data.size);
             }
 
             // Move it to the outgoing queue

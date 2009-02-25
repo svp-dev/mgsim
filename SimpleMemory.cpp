@@ -3,17 +3,17 @@
 using namespace Simulator;
 using namespace std;
 
-void SimpleMemory::registerListener(IMemoryCallback& callback)
+void SimpleMemory::RegisterListener(IMemoryCallback& callback)
 {
     m_caches.insert(&callback);
 }
 
-void SimpleMemory::unregisterListener(IMemoryCallback& callback)
+void SimpleMemory::UnregisterListener(IMemoryCallback& callback)
 {
     m_caches.erase(&callback);
 }
 
-Result SimpleMemory::read(IMemoryCallback& callback, MemAddr address, void* data, MemSize size, MemTag tag)
+Result SimpleMemory::Read(IMemoryCallback& callback, MemAddr address, void* data, MemSize size, MemTag tag)
 {
     if (size > SIZE_MAX)
     {
@@ -39,7 +39,7 @@ Result SimpleMemory::read(IMemoryCallback& callback, MemAddr address, void* data
     return FAILED;
 }
 
-Result SimpleMemory::write(IMemoryCallback& callback, MemAddr address, void* data, MemSize size, MemTag tag)
+Result SimpleMemory::Write(IMemoryCallback& callback, MemAddr address, void* data, MemSize size, MemTag tag)
 {
     if (size > SIZE_MAX)
     {
@@ -57,12 +57,12 @@ Result SimpleMemory::write(IMemoryCallback& callback, MemAddr address, void* dat
         request.data.tag  = tag;
         request.done      = 0;
         request.write     = true;
-        memcpy(request.data.data, data, (size_t)size);
+        memcpy(request.data.data, data, size);
 
         // Broadcast the snoop data
         for (set<IMemoryCallback*>::iterator p = m_caches.begin(); p != m_caches.end(); p++)
         {
-            if (!(*p)->onMemorySnooped(request.address, request.data))
+            if (!(*p)->OnMemorySnooped(request.address, request.data))
             {
                 return FAILED;
             }
@@ -74,38 +74,38 @@ Result SimpleMemory::write(IMemoryCallback& callback, MemAddr address, void* dat
     return FAILED;
 }
 
-void SimpleMemory::read(MemAddr address, void* data, MemSize size)
+void SimpleMemory::Read(MemAddr address, void* data, MemSize size)
 {
-    return VirtualMemory::read(address, data, size);
+    return VirtualMemory::Read(address, data, size);
 }
 
-void SimpleMemory::write(MemAddr address, const void* data, MemSize size)
+void SimpleMemory::Write(MemAddr address, const void* data, MemSize size)
 {
-	return VirtualMemory::write(address, data, size);
+	return VirtualMemory::Write(address, data, size);
 }
 
-bool SimpleMemory::checkPermissions(MemAddr address, MemSize size, int access) const
+bool SimpleMemory::CheckPermissions(MemAddr address, MemSize size, int access) const
 {
 	return VirtualMemory::CheckPermissions(address, size, access);
 }
 
-Result SimpleMemory::onCycleWritePhase(unsigned int stateIndex)
+Result SimpleMemory::OnCycleWritePhase(unsigned int stateIndex)
 {
 	Result result = (!m_requests.empty()) ? SUCCESS : DELAYED;
 
-    CycleNo now = getKernel()->getCycleNo();
+    CycleNo now = GetKernel()->GetCycleNo();
     if (!m_requests.empty())
     {
         const Request& request = m_requests.front();
         if (request.done > 0 && now >= request.done)
         {
             // The current request has completed
-            if (!request.write && !request.callback->onMemoryReadCompleted(request.data))
+            if (!request.write && !request.callback->OnMemoryReadCompleted(request.data))
             {
                 return FAILED;
             }
 
-            if (request.write && !request.callback->onMemoryWriteCompleted(request.data.tag))
+            if (request.write && !request.callback->OnMemoryWriteCompleted(request.data.tag))
             {
                 return FAILED;
             }
@@ -123,9 +123,9 @@ Result SimpleMemory::onCycleWritePhase(unsigned int stateIndex)
             {
                 // A new request is ready to be handled
                 if (request.write) {
-					VirtualMemory::write(request.address, request.data.data, request.data.size);
+					VirtualMemory::Write(request.address, request.data.data, request.data.size);
                 } else {
-					VirtualMemory::read(request.address, request.data.data, request.data.size);
+					VirtualMemory::Read(request.address, request.data.data, request.data.size);
                 }
 
                 // Time the request

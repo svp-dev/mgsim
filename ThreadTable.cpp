@@ -5,12 +5,12 @@ using namespace Simulator;
 using namespace std;
 
 ThreadTable::ThreadTable(Processor& parent, const Config& config)
-  : Structure<TID>(&parent, parent.getKernel(), "threads"),
+  : Structure<TID>(&parent, parent.GetKernel(), "threads"),
     p_fetch(*this), p_execute(*this),
     m_parent(parent),
     m_threads(config.numThreads)
 {
-    setPriority(p_execute, 0);
+    SetPriority(p_execute, 0);
 
     for (TID i = 0; i < config.numThreads; i++)
     {
@@ -21,10 +21,9 @@ ThreadTable::ThreadTable(Processor& parent, const Config& config)
 
     m_empty.head = 0;
     m_empty.tail = config.numThreads - 1;
-    m_numUsed = 0;
 }
 
-TID ThreadTable::popEmpty()
+TID ThreadTable::PopEmpty()
 {
     TID tid = m_empty.head;
     if (tid != INVALID_TID)
@@ -34,13 +33,12 @@ TID ThreadTable::popEmpty()
         {
             m_empty.head = m_threads[tid].nextMember;
             m_threads[tid].state = TST_WAITING;
-            m_numUsed++;
         }
     }
     return tid;
 }
 
-bool ThreadTable::pushEmpty(const ThreadQueue& q)
+bool ThreadTable::PushEmpty(const ThreadQueue& q)
 {
     COMMIT
     {
@@ -56,7 +54,6 @@ bool ThreadTable::pushEmpty(const ThreadQueue& q)
         for (TID cur = q.head; cur != INVALID_TID; cur = m_threads[cur].nextMember)
         {
             m_threads[cur].state = TST_EMPTY;
-            m_numUsed--;
         }
     }
     return true;
