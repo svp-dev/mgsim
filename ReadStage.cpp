@@ -7,15 +7,15 @@
   data. Afterwards, we may still need to read parts from the Register
   File.
 */
-#include <cassert>
-#include <sstream>
-#include <iomanip>
 #include "Pipeline.h"
 #include "Processor.h"
 #include "Network.h"
 #if TARGET_ARCH == ARCH_SPARC
 #include "ISA.sparc.h"
 #endif
+#include <cassert>
+#include <sstream>
+#include <iomanip>
 using namespace Simulator;
 using namespace std;
 
@@ -538,8 +538,11 @@ Pipeline::PipeAction Pipeline::ReadStage::write()
         if (m_input.Rra.fid != INVALID_GFID)
         {
             // Send a remote request
-			DebugSimWrite("Requesting shared %s for G%u", m_input.Rra.reg.str().c_str(), m_input.Rra.fid);
-			if (!m_network.RequestShared(m_input.Rra.fid, m_input.Rra.reg, m_input.isFirstThreadInFamily))
+            RegAddr rra(m_input.Rra.reg);
+            rra.index += (operand1.addr.index - m_input.Ra.index);
+            
+			DebugSimWrite("Requesting remote shared %s for G%u", rra.str().c_str(), m_input.Rra.fid);
+			if (!m_network.RequestShared(m_input.Rra.fid, rra, m_input.isFirstThreadInFamily))
             {
 #ifdef DEBUG_READ_STAGE
                 printf("Stall\n");
@@ -562,8 +565,11 @@ Pipeline::PipeAction Pipeline::ReadStage::write()
         if (m_input.Rrb.fid != INVALID_GFID)
         {
             // Send a remote request
-			DebugSimWrite("Requesting remote shared %s for family G%u", m_input.Rrb.reg.str().c_str(), m_input.Rrb.fid);
-			if (!m_network.RequestShared(m_input.Rrb.fid, m_input.Rrb.reg, m_input.isFirstThreadInFamily))
+            RegAddr rrb(m_input.Rrb.reg);
+            rrb.index += (operand2.addr.index - m_input.Rb.index);
+            
+			DebugSimWrite("Requesting remote shared %s for family G%u", rrb.str().c_str(), m_input.Rrb.fid);
+			if (!m_network.RequestShared(m_input.Rrb.fid, rrb, m_input.isFirstThreadInFamily))
             {
 #ifdef DEBUG_READ_STAGE
                 printf("Stall\n");

@@ -1,9 +1,9 @@
 #ifndef PROFILE_H
 #define PROFILE_H
 
+#include "types.h"
 #include <string>
 #include <map>
-#include "types.h"
 
 namespace Simulator
 {

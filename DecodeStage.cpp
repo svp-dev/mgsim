@@ -1,8 +1,8 @@
+#include "Pipeline.h"
+#include "Processor.h"
 #include <cassert>
 #include <sstream>
 #include <iomanip>
-#include "Pipeline.h"
-#include "Processor.h"
 using namespace Simulator;
 using namespace std;
 

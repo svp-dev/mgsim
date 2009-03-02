@@ -1,3 +1,5 @@
+#include "kernel.h"
+#include "profile.h"
 #include <cassert>
 #include <algorithm>
 #include <cstdarg>
@@ -5,8 +7,6 @@
 #include <iomanip>
 #include <set>
 #include <map>
-#include "kernel.h"
-#include "profile.h"
 using namespace Simulator;
 using namespace std;
 

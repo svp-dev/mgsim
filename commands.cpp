@@ -1,12 +1,12 @@
-#include <iomanip>
-#include <iostream>
-#include <sstream>
-#include <cstdlib>
 #include "commands.h"
 #include "Processor.h"
 #include "SimpleMemory.h"
 #include "ParallelMemory.h"
 #include "BankedMemory.h"
+#include <iomanip>
+#include <iostream>
+#include <sstream>
+#include <cstdlib>
 using namespace std;
 using namespace Simulator;
 

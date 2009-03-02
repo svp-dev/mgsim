@@ -1,8 +1,8 @@
 #ifndef FAMILYTABLE_H
 #define FAMILYTABLE_H
 
-#include <queue>
 #include "ports.h"
+#include <queue>
 
 namespace Simulator
 {

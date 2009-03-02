@@ -1,6 +1,6 @@
-#include <cassert>
 #include "Pipeline.h"
 #include "Processor.h"
+#include <cassert>
 using namespace Simulator;
 using namespace std;
 

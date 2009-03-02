@@ -625,7 +625,13 @@ static void sigabrt_handler(int)
 static RunState StepSystem(MGSystem& system, CycleNo cycles)
 {
     active_system = &system;
-    sighandler_t old_handler = signal(SIGINT, sigabrt_handler);
+
+    struct sigaction new_handler, old_handler;
+    new_handler.sa_handler = sigabrt_handler;
+    new_handler.sa_flags   = 0;
+    sigemptyset(&new_handler.sa_mask);
+    sigaction(SIGINT, &new_handler, &old_handler);
+
     RunState state;
     try
     {
@@ -633,10 +639,10 @@ static RunState StepSystem(MGSystem& system, CycleNo cycles)
     }
     catch (...)
     {
-        signal(SIGINT, old_handler);
+        sigaction(SIGINT, &old_handler, NULL);
         throw;
     }
-    signal(SIGINT, old_handler);
+    sigaction(SIGINT, &old_handler, NULL);
     return state;
 }
     

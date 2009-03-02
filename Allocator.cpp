@@ -989,7 +989,7 @@ void Allocator::InitializeFamily(LFID fid) const
 		}
 
         // Calculate which CPU will run the last thread
-        PID lastPID = (PID)(family.parent.pid + 1 + (max(1ULL, family.nThreads) - 1) / family.virtBlockSize) % m_procNo;
+        PID lastPID = (PID)(family.parent.pid + 1 + (max<uint64_t>(1, family.nThreads) - 1) / family.virtBlockSize) % m_procNo;
         PID pid     = m_parent.GetPID();
 
         if (!global ||
@@ -1489,7 +1489,7 @@ GFID Allocator::SanitizeFamily(Family& family, bool hasDependency)
         family.physBlockSize = (family.virtBlockSize == 0 || hasDependency)
                              ? nBlock
                              : family.virtBlockSize;
-        family.virtBlockSize = max(nBlock,1ULL);
+        family.virtBlockSize = max<uint64_t>(nBlock,1);
         family.nThreads      = nThreads;
         family.gfid          = gfid;
     }

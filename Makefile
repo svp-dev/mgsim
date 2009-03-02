@@ -18,7 +18,7 @@ CPPFLAGS_SPARC   = -DTARGET_ARCH=ARCH_SPARC
 
 OBJDIR   = objs
 DEPDIR   = deps
-LDFLAGS  = -lreadline -lncurses -lgmp -lgmpxx
+LDFLAGS  = -lreadline -lncurses
 OBJS     = $(patsubst %.cpp,$(OBJDIR)/%.o,$(wildcard *.cpp))
 DEPS     = $(patsubst %.cpp,$(DEPDIR)/%.d,$(wildcard *.cpp))
 
@@ -51,26 +51,26 @@ Makefile: $(DEPS)
 
 $(OBJDIR)/%.alpha.dbg.o: %.cpp
 	echo [Alpha.dbg] CC $*.o
-	if [ ! -e $(OBJDIR) ]; then mkdir $(OBJDIR); fi
+	if [ ! -e $(OBJDIR) ]; then mkdir -p $(OBJDIR); fi
 	$(CC) -c $(CPPFLAGS_DEBUG) $(CPPFLAGS_ALPHA) -o $@ $<
 
 $(OBJDIR)/%.alpha.o: %.cpp
 	echo [Alpha] CC $*.o
-	if [ ! -e $(OBJDIR) ]; then mkdir $(OBJDIR); fi
+	if [ ! -e $(OBJDIR) ]; then mkdir -p $(OBJDIR); fi
 	$(CC) -c $(CPPFLAGS_RELEASE) $(CPPFLAGS_ALPHA) -o $@ $<
 
 $(OBJDIR)/%.sparc.dbg.o: %.cpp
 	echo [Sparc.dbg] CC $*.o
-	if [ ! -e $(OBJDIR) ]; then mkdir $(OBJDIR); fi
+	if [ ! -e $(OBJDIR) ]; then mkdir -p $(OBJDIR); fi
 	$(CC) -c $(CPPFLAGS_DEBUG) $(CPPFLAGS_SPARC) -o $@ $<
 
 $(OBJDIR)/%.sparc.o: %.cpp
 	echo [Sparc] CC $*.o
-	if [ ! -e $(OBJDIR) ]; then mkdir $(OBJDIR); fi
+	if [ ! -e $(OBJDIR) ]; then mkdir -p $(OBJDIR); fi
 	$(CC) -c $(CPPFLAGS_RELEASE) $(CPPFLAGS_SPARC) -o $@ $<
 
 $(DEPDIR)/%.d: %.cpp
-	if [ ! -e $(DEPDIR) ]; then mkdir $(DEPDIR); fi
+	if [ ! -e $(DEPDIR) ]; then mkdir -p $(DEPDIR); fi
 	$(CC) -MM $< | sed 's,\($*\)\.o[ :]*,$(OBJDIR)/\1.alpha.o $(OBJDIR)/\1.alpha.dbg.o $(OBJDIR)/\1.sparc.o $(OBJDIR)/\1.sparc.dbg.o $@ : ,g' > $@
 
 tidy:

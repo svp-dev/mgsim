@@ -1,15 +1,15 @@
 #ifndef PARALLELMEMORY_H
 #define PARALLELMEMORY_H
 
+#include "Memory.h"
+#include "kernel.h"
+#include "Processor.h"
+#include "VirtualMemory.h"
 #include <queue>
 #include <deque>
 #include <set>
 #include <map>
 #include <vector>
-#include "Memory.h"
-#include "kernel.h"
-#include "Processor.h"
-#include "VirtualMemory.h"
 
 namespace Simulator
 {

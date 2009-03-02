@@ -1,10 +1,10 @@
 #ifndef DCACHE_H
 #define DCACHE_H
 
-#include <queue>
 #include "kernel.h"
 #include "functions.h"
 #include "Memory.h"
+#include <queue>
 
 namespace Simulator
 {

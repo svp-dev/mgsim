@@ -64,10 +64,12 @@ void ParallelMemory::AddRequest(Request& request)
 
 Result ParallelMemory::Read(IMemoryCallback& callback, MemAddr address, void* data, MemSize size, MemTag tag)
 {
+#if MEMSIZE_MAX >= SIZE_MAX
     if (size > SIZE_MAX)
     {
         throw InvalidArgumentException("Size argument too big");
     }
+#endif
 
     if (m_config.bufferSize == INFINITE || m_numRequests < m_config.bufferSize)
     {
@@ -89,10 +91,12 @@ Result ParallelMemory::Read(IMemoryCallback& callback, MemAddr address, void* da
 
 Result ParallelMemory::Write(IMemoryCallback& callback, MemAddr address, void* data, MemSize size, MemTag tag)
 {
+#if MEMSIZE_MAX >= SIZE_MAX
     if (size > SIZE_MAX)
     {
         throw InvalidArgumentException("Size argument too big");
     }
+#endif
 
     if (m_config.bufferSize == INFINITE || m_numRequests < m_config.bufferSize)
     {

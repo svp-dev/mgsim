@@ -1,6 +1,7 @@
+#include "BankedMemory.h"
 #include <cassert>
 #include <cmath>
-#include "BankedMemory.h"
+
 using namespace Simulator;
 using namespace std;
 
@@ -81,11 +82,13 @@ void BankedMemory::AddRequest(Pipeline& queue, const Request& request, bool data
 
 Result BankedMemory::Read(IMemoryCallback& callback, MemAddr address, void* data, MemSize size, MemTag tag)
 {
+#if MEMSIZE_MAX >= SIZE_MAX
     if (size > SIZE_MAX)
     {
         throw InvalidArgumentException("Size argument too big");
     }
-    
+#endif
+
     Pipeline& queue = m_banks[ GetBankFromAddress(address) ].incoming;
 	if (m_config.bufferSize == INFINITE || queue.size() < m_config.bufferSize)
     {
@@ -107,10 +110,12 @@ Result BankedMemory::Read(IMemoryCallback& callback, MemAddr address, void* data
 
 Result BankedMemory::Write(IMemoryCallback& callback, MemAddr address, void* data, MemSize size, MemTag tag)
 {
+#if MEMSIZE_MAX >= SIZE_MAX
     if (size > SIZE_MAX)
     {
         throw InvalidArgumentException("Size argument too big");
     }
+#endif
 
     Pipeline& queue = m_banks[ GetBankFromAddress(address) ].incoming;
     if (m_config.bufferSize == INFINITE || queue.size() < m_config.bufferSize)

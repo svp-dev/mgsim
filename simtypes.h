@@ -70,6 +70,7 @@ typedef uint32_t Instruction;   ///< Instruction bits
 typedef uint64_t Integer;       ///< Natural integer type
 typedef int64_t  SInteger;      ///< Natural integer type, signed
 typedef Float64  Float;         ///< Natural floating point type
+#define MEMSIZE_MAX UINT64_MAX
 #elif TARGET_ARCH == ARCH_SPARC
 typedef uint32_t MemAddr;       ///< Address into memory
 typedef uint32_t MemSize;       ///< Size of something in memory
@@ -77,6 +78,7 @@ typedef uint32_t Instruction;   ///< Instruction bits
 typedef uint32_t Integer;       ///< Natural integer type
 typedef int32_t  SInteger;      ///< Natural integer type, signed
 typedef Float32  Float;         ///< Natural floating point type
+#define MEMSIZE_MAX UINT32_MAX
 #endif
 
 /// An FP value that can be of different sizes

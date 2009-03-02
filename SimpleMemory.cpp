@@ -1,5 +1,5 @@
-#include <cassert>
 #include "SimpleMemory.h"
+#include <cassert>
 using namespace Simulator;
 using namespace std;
 
@@ -15,10 +15,12 @@ void SimpleMemory::UnregisterListener(IMemoryCallback& callback)
 
 Result SimpleMemory::Read(IMemoryCallback& callback, MemAddr address, void* data, MemSize size, MemTag tag)
 {
+#if MEMSIZE_MAX >= SIZE_MAX
     if (size > SIZE_MAX)
     {
         throw InvalidArgumentException("Size argument too big");
     }
+#endif
 
 	if (m_config.bufferSize == INFINITE || m_requests.size() < m_config.bufferSize)
     {
@@ -41,10 +43,12 @@ Result SimpleMemory::Read(IMemoryCallback& callback, MemAddr address, void* data
 
 Result SimpleMemory::Write(IMemoryCallback& callback, MemAddr address, void* data, MemSize size, MemTag tag)
 {
+#if MEMSIZE_MAX >= SIZE_MAX
     if (size > SIZE_MAX)
     {
         throw InvalidArgumentException("Size argument too big");
     }
+#endif
 
     if (m_config.bufferSize == INFINITE || m_requests.size() < m_config.bufferSize)
     {

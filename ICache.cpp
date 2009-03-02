@@ -1,6 +1,6 @@
-#include <cassert>
 #include "ICache.h"
 #include "Processor.h"
+#include <cassert>
 using namespace Simulator;
 using namespace std;
 
@@ -129,10 +129,12 @@ bool ICache::Read(CID cid, MemAddr address, void* data, MemSize size) const
         throw InvalidArgumentException("Address range crosses over cache line boundary");
     }
 
+#if MEMSIZE_MAX >= SIZE_MAX
     if (size > SIZE_MAX)
     {
         throw InvalidArgumentException("Size argument too big");
     }
+#endif
 
     if (!m_lines[cid].used || m_lines[cid].tag != tag)
     {
@@ -175,10 +177,12 @@ Result ICache::Fetch(MemAddr address, MemSize size, TID* tid, CID* cid)
         throw InvalidArgumentException("Address range crosses over cache line boundary");
     }
 
+#if MEMSIZE_MAX >= SIZE_MAX
     if (size > SIZE_MAX)
     {
         throw InvalidArgumentException("Size argument too big");
     }
+#endif
 
 	// Align the address
     address = address - offset;

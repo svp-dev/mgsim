@@ -7,10 +7,12 @@ namespace Simulator
 
 bool VirtualMemory::CheckPermissions(MemAddr address, MemSize size, int access) const
 {
+#if MEMSIZE_MAX >= SIZE_MAX
     if (size > SIZE_MAX)
     {
         throw InvalidArgumentException("Size argument too big");
     }
+#endif
 
 	MemAddr base = address & -BLOCK_SIZE;	// Base address of block containing address
 	for (BlockMap::const_iterator pos = m_blocks.find(base); size > 0; ++pos)
@@ -30,10 +32,12 @@ bool VirtualMemory::CheckPermissions(MemAddr address, MemSize size, int access) 
 
 void VirtualMemory::Read(MemAddr address, void* _data, MemSize size) const
 {
+#if MEMSIZE_MAX >= SIZE_MAX
     if (size > SIZE_MAX)
     {
         throw InvalidArgumentException("Size argument too big");
     }
+#endif
 
 	MemAddr base   = address & -BLOCK_SIZE;	    // Base address of block containing address
 	size_t  offset = address - base;		    // Offset within base block of address
@@ -68,10 +72,12 @@ void VirtualMemory::Read(MemAddr address, void* _data, MemSize size) const
 
 void VirtualMemory::Write(MemAddr address, const void* _data, MemSize size, int perm)
 {
+#if MEMSIZE_MAX >= SIZE_MAX
     if (size > SIZE_MAX)
     {
         throw InvalidArgumentException("Size argument too big");
     }
+#endif
 
 	MemAddr     base   = address & -BLOCK_SIZE;		        // Base address of block containing address
 	size_t      offset = address - base;			        // Offset within base block of address

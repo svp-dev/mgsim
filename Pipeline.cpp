@@ -1,7 +1,7 @@
-#include <limits>
-#include <cassert>
 #include "Pipeline.h"
 #include "Processor.h"
+#include <limits>
+#include <cassert>
 using namespace Simulator;
 using namespace std;
 

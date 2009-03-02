@@ -1,11 +1,11 @@
 #ifndef BANKEDMEMORY_H
 #define BANKEDMEMORY_H
 
-#include <queue>
-#include <set>
 #include "Memory.h"
 #include "kernel.h"
 #include "VirtualMemory.h"
+#include <queue>
+#include <set>
 
 namespace Simulator
 {
