@@ -1,6 +1,7 @@
 #include "ParallelMemory.h"
 #include <cassert>
 #include <iostream>
+#include <cstring>
 using namespace Simulator;
 using namespace std;
 

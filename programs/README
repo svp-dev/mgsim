@@ -7,16 +7,11 @@ microthread-compatible binary format, use the special binutils release.
 
  1. Setting up binutils
 ------------------------
-Unpack the microthread-binutils source (which you should have obtained
-seperately from the simulator) into (e.g.) ~/binutils-mtalpha.
-Then, in ~/binutils-mtalpha, do:
+Please refer to the binutils-mt package that should be available separately
+for instructions on building the microthread binutils.
 
-  ./configure --target=mtalpha-linux-gnu
-  make
-  
-This will build the binutils for the Microthread Alpha target. The main tools
-of interest are gas/as-new and ld/ld-new, although binutils/objdump and
-binutils/readelf may be helpful too.
+After building, the main tools of interest are gas/as-new and ld/ld-new,
+although binutils/objdump and binutils/readelf may be helpful too.
 
 You may want to create symbolic links to as-new (as "gas") and ld-new (as "ld")
 in the directory where you will using them.
@@ -52,7 +47,7 @@ start of the assembly file.
 --------------------
 Now run the simulator by providing this program:
 
-  ../MGSim -c config.ini -R10 8 fft.bin
+  ../MGAlpha -c config.ini -R10 8 fft.bin
 
 "-c config.ini" specifies the configuration file, "-R10 8" writes the value
 8 into register #10 and "fft.bin" specifies the program file. The FFT program

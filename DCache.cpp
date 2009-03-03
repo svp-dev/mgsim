@@ -1,6 +1,7 @@
-#include <cassert>
 #include "DCache.h"
 #include "Processor.h"
+#include <cassert>
+#include <cstring>
 using namespace Simulator;
 using namespace std;
 

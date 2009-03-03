@@ -1,6 +1,7 @@
 #include "BankedMemory.h"
 #include <cassert>
 #include <cmath>
+#include <cstring>
 
 using namespace Simulator;
 using namespace std;

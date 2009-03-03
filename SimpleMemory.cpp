@@ -1,5 +1,6 @@
 #include "SimpleMemory.h"
 #include <cassert>
+#include <cstring>
 using namespace Simulator;
 using namespace std;
 
