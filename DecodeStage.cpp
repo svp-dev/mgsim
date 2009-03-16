@@ -117,10 +117,7 @@ Pipeline::PipeAction Pipeline::DecodeStage::write()
             m_output.RbSize = sizeof(Integer);
             m_output.RcSize = sizeof(Integer);
 
-            if (!DecodeInstruction(m_input.instr))
-            {
-                throw IllegalInstruction();
-            }
+            DecodeInstruction(m_input.instr);
             
             // Translate registers from window to full register file
             m_output.Ra = TranslateRegister((uint8_t)m_output.Ra.index, m_output.Ra.type, m_output.RaSize, &m_output.Rra);

@@ -2,6 +2,8 @@
 #include "ISA.alpha.h"
 #include "Processor.h"
 #include <cassert>
+#include <sstream>
+#include <iomanip>
 using namespace Simulator;
 using namespace std;
 
@@ -24,6 +26,14 @@ static const uint32_t A_PALCODE_MASK  = 0x3FFFFFF;
 static const uint32_t A_INT_FUNC_MASK = 0x7F;
 static const uint32_t A_FLT_FUNC_MASK = 0x7FF;
 static const uint32_t A_LITERAL_MASK  = 0xFF;
+
+static void ThrowIllegalInstructionException(Object& obj, MemAddr pc)
+{
+    stringstream error;
+    error << "Illegal instruction at "
+          << hex << setw(sizeof(MemAddr) * 2) << setfill('0') << pc;
+    throw IllegalInstructionException(obj, error.str());
+}
 
 // Function for getting a register's type and index within that type
 uint8_t Simulator::GetRegisterClass(uint8_t addr, const RegsNo& regs, RegClass* rc)
@@ -70,7 +80,6 @@ static InstrFormat GetInstrFormat(uint8_t opcode)
                     case 0x4: return IFORMAT_BRA;
                     case 0x5: return IFORMAT_FPOP;
                     case 0x6: return IFORMAT_SPECIAL;   // Remove when SETREGS becomes obsolete
-                    case 0x7: return IFORMAT_INVALID;
                     case 0x8:
                     case 0x9:
                     case 0xA:
@@ -105,7 +114,7 @@ static InstrFormat GetInstrFormat(uint8_t opcode)
     return IFORMAT_INVALID;
 }
 
-bool Pipeline::DecodeStage::DecodeInstruction(const Instruction& instr)
+void Pipeline::DecodeStage::DecodeInstruction(const Instruction& instr)
 {
     m_output.opcode  = (instr >> A_OPCODE_SHIFT) & A_OPCODE_MASK;
     m_output.format  = GetInstrFormat(m_output.opcode);
@@ -231,9 +240,8 @@ bool Pipeline::DecodeStage::DecodeInstruction(const Instruction& instr)
         }
         
         default:
-            return false;
+            break;
     }
-    return true;
 }
 
 static bool BranchTaken(uint8_t opcode, const PipeValue& value)
@@ -1228,6 +1236,7 @@ Pipeline::PipeAction Pipeline::ExecuteStage::ExecuteInstruction()
         break;
 
     default:
+        ThrowIllegalInstructionException(*this, m_input.pc);
         break;
     }
     return PIPE_CONTINUE;

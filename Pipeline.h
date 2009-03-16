@@ -268,7 +268,7 @@ public:
     
     private:
         RegAddr TranslateRegister(uint8_t reg, RegType type, unsigned int size, RemoteRegAddr* remoteReg) const;
-        bool    DecodeInstruction(const Instruction& instr);
+        void    DecodeInstruction(const Instruction& instr);
 
         FetchDecodeLatch& m_input;
         DecodeReadLatch&  m_output;

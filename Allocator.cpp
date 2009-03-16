@@ -3,6 +3,7 @@
 #include "Pipeline.h"
 #include "Network.h"
 #include <cassert>
+#include <cmath>
 using namespace Simulator;
 using namespace std;
 
@@ -345,6 +346,33 @@ bool Allocator::SuspendThread(TID tid, MemAddr pc)
     return true;
 }
 
+MemAddr Allocator::CalculateTLSAddress(LFID fid, TID tid) const
+{
+    // 1 bit for TLS/GS
+    // P bits for CPU
+    // T bits for TID   
+    unsigned int P = (unsigned int)ceil(log2(m_parent.GetNumProcs()));
+    unsigned int T = (unsigned int)ceil(log2(m_threadTable.GetNumThreads()));    
+    assert(sizeof(MemAddr) * 8 > P + T + 1);
+    
+    unsigned int Ls  = sizeof(MemAddr) * 8 - 1;
+    unsigned int Ps  = Ls - P;
+    unsigned int Ts  = Ps - T;
+    
+    return (static_cast<MemAddr>(1)                 << Ls) |
+           (static_cast<MemAddr>(m_parent.GetPID()) << Ps) |
+           (static_cast<MemAddr>(tid)               << Ts);
+}
+
+MemSize Allocator::CalculateTLSSize() const
+{
+    unsigned int P = (unsigned int)ceil(log2(m_parent.GetNumProcs()));
+    unsigned int T = (unsigned int)ceil(log2(m_threadTable.GetNumThreads()));    
+    assert(sizeof(MemAddr) * 8 > P + T + 1);
+    
+    return static_cast<MemSize>(1) << (sizeof(MemSize) * 8 - (1 + P + T));
+}
+
 //
 // Allocates a new thread to the specified thread slot.
 // @isNew indicates if this a new thread for the family, or a recycled
@@ -466,10 +494,18 @@ bool Allocator::AllocateThread(LFID fid, TID tid, bool isNewlyAllocated)
 
         if (family->regs[RT_INTEGER].count.locals > 1)
         {
+            const MemAddr tls_base = CalculateTLSAddress(fid, tid);
+            const MemSize tls_size = CalculateTLSSize();
+            COMMIT
+            {
+                // Reserve the memory (commits on use)
+                m_parent.ReserveTLS(tls_base, tls_size);
+            }
+
             RegAddr  addr = MAKE_REGADDR(RT_INTEGER, L0 + 1);
             RegValue data;
             data.m_state   = RST_FULL;
-            data.m_integer = 0;         // Dummy Stack Pointer for now
+            data.m_integer = tls_base + tls_size;   // TLS ptr starts at the top
 
             if (!m_registerFile.WriteRegister(addr, data, *this))
             {
@@ -1153,6 +1189,13 @@ Result Allocator::OnCycleWritePhase(unsigned int stateIndex)
                 {
                     return FAILED;
                 }
+            }
+            
+            COMMIT
+            {
+                // Unreserve the TLS memory
+                const MemAddr tls_base = CalculateTLSAddress(fid, tid);
+                m_parent.UnreserveTLS(tls_base);
             }
 
             if (family.dependencies.allocationDone)

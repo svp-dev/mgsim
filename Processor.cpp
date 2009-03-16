@@ -58,6 +58,16 @@ void Processor::Initialize(Processor& prev, Processor& next)
     m_network.Initialize(prev.m_network, next.m_network);
 }
 
+void Processor::ReserveTLS(MemAddr address, MemSize size)
+{
+    return m_memory.Reserve(address, size, IMemory::PERM_READ | IMemory::PERM_WRITE);
+}
+
+void Processor::UnreserveTLS(MemAddr address)
+{
+    return m_memory.Unreserve(address);
+}
+
 Result Processor::ReadMemory(MemAddr address, void* data, MemSize size, MemTag tag)
 {
 	return m_memory.Read(*this, address, data, size, tag);

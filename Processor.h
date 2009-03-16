@@ -65,6 +65,8 @@ public:
 
 	// All memory requests from caches go through the processor.
 	// No memory callback specified, the processor will use the tag to determine where it came from.
+	void   ReserveTLS(MemAddr address, MemSize size);
+	void   UnreserveTLS(MemAddr address);
 	Result ReadMemory (MemAddr address, void* data, MemSize size, MemTag tag);
 	Result WriteMemory(MemAddr address, void* data, MemSize size, MemTag tag);
 	bool   CheckPermissions(MemAddr address, MemSize size, int access) const;

@@ -202,14 +202,24 @@ Result ParallelMemory::OnCycleWritePhase(unsigned int stateIndex)
 	return (nDispatched > 0) ? SUCCESS : result;
 }
 
+void ParallelMemory::Reserve(MemAddr address, MemSize size, int perm)
+{
+    return VirtualMemory::Reserve(address, size, perm);
+}
+
+void ParallelMemory::Unreserve(MemAddr address)
+{
+    return VirtualMemory::Unreserve(address);
+}
+
 void ParallelMemory::Read (MemAddr address, void* data, MemSize size)
 {
 	return VirtualMemory::Read(address, data, size);
 }
 
-void ParallelMemory::Write(MemAddr address, const void* data, MemSize size, int perm)
+void ParallelMemory::Write(MemAddr address, const void* data, MemSize size)
 {
-	return VirtualMemory::Write(address, data, size, perm);
+	return VirtualMemory::Write(address, data, size);
 }
 
 ParallelMemory::ParallelMemory(Object* parent, Kernel& kernel, const std::string& name, const Config& config, PSize numProcs ) :

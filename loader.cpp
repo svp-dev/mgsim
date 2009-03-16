@@ -48,7 +48,8 @@ static MemAddr LoadProgram(IMemoryAdmin* memory, void* _data, MemSize size, bool
 		{
     		cout << "Loaded flat binary to address 0" << endl;
     	}
-		memory->Write(0, data, size, IMemory::PERM_READ | IMemory::PERM_WRITE | IMemory::PERM_EXECUTE);
+    	memory->Reserve(0, size, IMemory::PERM_READ | IMemory::PERM_WRITE | IMemory::PERM_EXECUTE);
+		memory->Write(0, data, size);
 		return 4;
 	}
 
@@ -96,30 +97,32 @@ static MemAddr LoadProgram(IMemoryAdmin* memory, void* _data, MemSize size, bool
 	// Then copy the LOAD segments into their right locations
 	for (Elf_Half i = 0; i < ehdr.e_phnum; i++)
 	{
-		if (phdr[i].p_type == PT_LOAD)
+		if (phdr[i].p_type == PT_LOAD && phdr[i].p_memsz > 0)
 		{
   			Verify(phdr[i].p_memsz >= phdr[i].p_filesz, "file has an invalid segment");
   			
-			int perm = 0;
-			if (phdr[i].p_flags & PF_R) perm |= IMemory::PERM_READ;
-			if (phdr[i].p_flags & PF_W) perm |= IMemory::PERM_WRITE;
-			if (phdr[i].p_flags & PF_X) perm |= IMemory::PERM_EXECUTE;
-
+  			int perm = 0;
+   			if (phdr[i].p_flags & PF_R) perm |= IMemory::PERM_READ;
+   			if (phdr[i].p_flags & PF_W) perm |= IMemory::PERM_WRITE;
+   			if (phdr[i].p_flags & PF_X) perm |= IMemory::PERM_EXECUTE;
+   			
+            memory->Reserve(phdr[i].p_vaddr, phdr[i].p_memsz, perm);
+            
 			if (phdr[i].p_filesz > 0)
 			{
 				Verify(phdr[i].p_offset + phdr[i].p_filesz <= size, "file has an invalid segment");
 
-				memory->Write(phdr[i].p_vaddr, data + phdr[i].p_offset, phdr[i].p_filesz, perm);
+				memory->Write(phdr[i].p_vaddr, data + phdr[i].p_offset, phdr[i].p_filesz);
 			}
 
 			// Clear the difference between filesz and memsz
-			static const char zero[256] = {0};
 			Elf_Xword size = phdr[i].p_memsz - phdr[i].p_filesz;
     		Elf_Addr  addr = phdr[i].p_vaddr + phdr[i].p_filesz;
 			while (size > 0)
 			{
-				Elf_Xword num  = min<Elf_Xword>(size, 256ULL);
-				memory->Write(addr, zero, num, perm);
+    			static const char zero[256] = {0};
+				Elf_Xword num = min<Elf_Xword>(size, 256ULL);
+				memory->Write(addr, zero, num);
 				size -= num;
 				addr += num;
 			}

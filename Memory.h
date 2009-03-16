@@ -32,6 +32,8 @@ public:
 	static const int PERM_WRITE   = 2;
 	static const int PERM_READ    = 4;
 
+    virtual void   Reserve(MemAddr address, MemSize size, int perm) = 0;
+    virtual void   Unreserve(MemAddr address) = 0;
     virtual void   RegisterListener  (IMemoryCallback& callback) = 0;
     virtual void   UnregisterListener(IMemoryCallback& callback) = 0;
     virtual Result Read (IMemoryCallback& callback, MemAddr address, void* data, MemSize size, MemTag tag) = 0;
@@ -44,8 +46,10 @@ public:
 class IMemoryAdmin
 {
 public:
+    virtual void Reserve(MemAddr address, MemSize size, int perm) = 0;
+    virtual void Unreserve(MemAddr address) = 0;
     virtual void Read (MemAddr address, void* data, MemSize size) = 0;
-    virtual void Write(MemAddr address, const void* data, MemSize size, int perm = 0) = 0;
+    virtual void Write(MemAddr address, const void* data, MemSize size) = 0;
 
     virtual ~IMemoryAdmin() {}
 };

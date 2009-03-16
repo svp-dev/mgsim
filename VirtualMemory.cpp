@@ -6,6 +6,63 @@ using namespace std;
 namespace Simulator
 {
 
+// We allocate per block, this is the size of each block. Must be a power of two
+static const int BLOCK_SIZE = (1 << 12);
+
+void VirtualMemory::Reserve(MemAddr address, MemSize size, int perm)
+{
+    if (size != 0)
+    {
+        // Check that there is no overlap
+        RangeMap::iterator p = m_ranges.lower_bound(address);
+        if (p != m_ranges.end())
+        {
+            if (p->first == address || (address < p->first && address + size > p->first))
+            {
+                // The range overlaps with an existing range after it
+                throw InvalidArgumentException("Overlap in memory reservation");
+            }
+        
+            if (p != m_ranges.begin())
+            {
+                RangeMap::iterator q = p; --q;
+                if (q->first < address && q->first > address - q->second.size)
+                {
+                    // The range overlaps with an existing range before it
+                    throw InvalidArgumentException("Overlap in memory reservation");
+                }
+            }
+        }
+
+        Range range;
+        range.size        = size;
+        range.permissions = perm;
+        m_ranges.insert(p, make_pair(address, range));
+    }
+}
+
+VirtualMemory::RangeMap::const_iterator VirtualMemory::GetReservationRange(MemAddr address, MemSize size) const
+{
+    RangeMap::const_iterator p = m_ranges.lower_bound(address);
+    if (p != m_ranges.begin() && (p == m_ranges.end() || p->first > address))
+    {
+        --p;
+    }
+    return (p != m_ranges.end() &&
+            address >= p->first && p->second.size >= size && 
+            address <= p->first + (p->second.size - size)) ? p : m_ranges.end();
+}
+
+void VirtualMemory::Unreserve(MemAddr address)
+{
+    RangeMap::iterator p = m_ranges.find(address);
+    if (p == m_ranges.end())
+    {
+        throw InvalidArgumentException("Attempting to unreserve non-reserved memory");
+    }
+    m_ranges.erase(p);
+}
+
 bool VirtualMemory::CheckPermissions(MemAddr address, MemSize size, int access) const
 {
 #if MEMSIZE_MAX >= SIZE_MAX
@@ -15,20 +72,8 @@ bool VirtualMemory::CheckPermissions(MemAddr address, MemSize size, int access) 
     }
 #endif
 
-	MemAddr base = address & -BLOCK_SIZE;	// Base address of block containing address
-	for (BlockMap::const_iterator pos = m_blocks.find(base); size > 0; ++pos)
-	{
-		if (pos == m_blocks.end() || (pos->second.permissions & access) != access)
-		{
-			// Block not found or not the correct permissions
-			return false;
-		}
-
-		size_t count = min( (size_t)size, (size_t)BLOCK_SIZE);
-		size  -= count;
-		base  += BLOCK_SIZE;
-	}
-	return true;
+    RangeMap::const_iterator p = GetReservationRange(address, size);
+    return (p != m_ranges.end() && (p->second.permissions & access) == access);
 }
 
 void VirtualMemory::Read(MemAddr address, void* _data, MemSize size) const
@@ -39,6 +84,12 @@ void VirtualMemory::Read(MemAddr address, void* _data, MemSize size) const
         throw InvalidArgumentException("Size argument too big");
     }
 #endif
+
+    // Verify that the address range is mapped
+    if (GetReservationRange(address, size) == m_ranges.end())
+    {
+        throw InvalidArgumentException("Reading non-reserved memory");
+    }
 
 	MemAddr base   = address & -BLOCK_SIZE;	    // Base address of block containing address
 	size_t  offset = address - base;		    // Offset within base block of address
@@ -71,7 +122,7 @@ void VirtualMemory::Read(MemAddr address, void* _data, MemSize size) const
 	}
 }
 
-void VirtualMemory::Write(MemAddr address, const void* _data, MemSize size, int perm)
+void VirtualMemory::Write(MemAddr address, const void* _data, MemSize size)
 {
 #if MEMSIZE_MAX >= SIZE_MAX
     if (size > SIZE_MAX)
@@ -80,21 +131,23 @@ void VirtualMemory::Write(MemAddr address, const void* _data, MemSize size, int 
     }
 #endif
 
+    // Verify that the address range is mapped
+    if (GetReservationRange(address, size) == m_ranges.end())
+    {
+        throw InvalidArgumentException("Writing non-reserved memory");
+    }
+    
 	MemAddr     base   = address & -BLOCK_SIZE;		        // Base address of block containing address
 	size_t      offset = address - base;			        // Offset within base block of address
 	const char* data   = static_cast<const char*>(_data);	// Byte-aligned pointer to destination
 
-	BlockMap::iterator pos = m_blocks.begin();
 	while (size > 0)
 	{
 		// Find or insert the block
-		Block block = {NULL};
-
-		pos = m_blocks.insert(pos, make_pair(base, block));
-		if (pos->second.data == NULL) {
+		pair<BlockMap::iterator, bool> ins = m_blocks.insert(make_pair(base, Block()));
+    	BlockMap::iterator pos = ins.first;
+		if (ins.second) {
 			// A new element was inserted, allocate and set memory
-			pos->second.data        = new char[BLOCK_SIZE];
-			pos->second.permissions = perm;
 			memset(pos->second.data, 0xCD, BLOCK_SIZE);
 		}
 		
@@ -112,11 +165,6 @@ void VirtualMemory::Write(MemAddr address, const void* _data, MemSize size, int 
 
 VirtualMemory::~VirtualMemory()
 {
-	// Clean up all allocated memory
-	for (BlockMap::const_iterator p = m_blocks.begin(); p != m_blocks.end(); p++)
-	{
-		delete[] p->second.data;
-	}
 }
 
 }

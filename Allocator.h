@@ -159,6 +159,9 @@ private:
     };
 
     // Private functions
+    MemAddr CalculateTLSAddress(LFID fid, TID tid) const;
+    MemSize CalculateTLSSize() const;
+    
 	void SetDefaultFamilyEntry(LFID fid, TID parent, const RegisterBases bases[]) const;
 	void InitializeFamily(LFID fid) const;
 	bool AllocateRegisters(LFID fid);

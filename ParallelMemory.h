@@ -55,6 +55,8 @@ public:
     Result OnCycleWritePhase(unsigned int stateIndex);
 
     // IMemory
+    void   Reserve(MemAddr address, MemSize size, int perm);
+    void   Unreserve(MemAddr address);
     void   RegisterListener(IMemoryCallback& callback);
     void   UnregisterListener(IMemoryCallback& callback);
     Result Read (IMemoryCallback& callback, MemAddr address, void* data, MemSize size, MemTag tag);
@@ -63,7 +65,7 @@ public:
 
     // IMemoryAdmin
 	void Read (MemAddr address, void* data, MemSize size);
-    void Write(MemAddr address, const void* data, MemSize size, int perm = 0);
+    void Write(MemAddr address, const void* data, MemSize size);
 
     const Config& GetConfig()       const { return m_config; }
     const Port&   GetPort(size_t i) const { return m_ports[i]; }

@@ -340,56 +340,69 @@ static bool cmd_mem_info(Object* obj, const vector<string>& arguments )
     VirtualMemory* mem = dynamic_cast<VirtualMemory*>(obj);
     if (mem == NULL) return false;
 
-	const VirtualMemory::BlockMap& blocks = mem->GetBlockMap();
-	cout << "Allocated memory ranges:" << endl
-		 << "-------------------------" << endl;
+	const VirtualMemory::RangeMap& ranges = mem->GetRangeMap();
+	cout << "Reserved memory ranges:" << endl
+		 << "------------------------" << endl;
 
 	cout << hex << setfill('0');
-	
-	MemSize total = 0;
-	VirtualMemory::BlockMap::const_iterator p = blocks.begin();
-	if (p != blocks.end())
-	{
-	    // We have at least one block, walk over all blocks and
-	    // coalesce neighbouring blocks with similar properties.
-		MemAddr begin = p->first;
-		int     perm  = p->second.permissions;
-		MemAddr size  = 0;
-		
-		do
-		{
-			size  += VirtualMemory::BLOCK_SIZE;
-			total += VirtualMemory::BLOCK_SIZE;
 
-		    p++;
-		    if (p == blocks.end() || p->first > begin + size || p->second.permissions != perm)
-		    {
-		        // Different block, or end of blocks
-			    cout << setw(16) << begin << " - " << setw(16) << begin + size - 1 << ": ";
-			    cout << (perm & IMemory::PERM_READ    ? "R" : ".");
-			    cout << (perm & IMemory::PERM_WRITE   ? "W" : ".");
-			    cout << (perm & IMemory::PERM_EXECUTE ? "X" : ".") << endl;
-			    if (p != blocks.end())
-			    {
-			        // Different block
-    			    begin = p->first;
-    			    perm  = p->second.permissions;
-	    		    size  = 0;
-			    }
-			}
-		} while (p != blocks.end());
+    MemSize total = 0;
+    VirtualMemory::RangeMap::const_iterator p = ranges.begin();
+    if (p != ranges.end())
+    {
+        // We have at least one range, walk over all ranges and
+        // coalesce neighbouring ranges with similar properties.
+        MemAddr begin = p->first;
+        int     perm  = p->second.permissions;
+        MemAddr size  = 0;
+
+        do
+        {
+            size  += p->second.size;
+            total += p->second.size;
+            p++;
+            if (p == ranges.end() || p->first > begin + size || p->second.permissions != perm)
+            {
+                // Different block, or end of blocks
+                cout << setw(16) << begin << " - " << setw(16) << begin + size - 1 << ": ";
+                cout << (perm & IMemory::PERM_READ    ? "R" : ".");
+                cout << (perm & IMemory::PERM_WRITE   ? "W" : ".");
+                cout << (perm & IMemory::PERM_EXECUTE ? "X" : ".") << endl;
+                if (p != ranges.end())
+                {
+                    // Different block
+                    begin = p->first;
+                    perm  = p->second.permissions;
+                    size  = 0;
+                }
+            }
+        } while (p != ranges.end());
+    }
+	
+	static const char* Mods[] = { "B", "kB", "MB", "GB", "TB", "PB", "EB", "ZB", "YB" };
+
+	// Print total memory reservation
+	int mod;
+	for(mod = 0; total >= 1024 && mod < 9; mod++)
+	{
+		total /= 1024;
+	}
+	cout << endl << setfill(' ') << dec;
+	cout << "Total reserved memory:  " << setw(4) << total << " " << Mods[mod] << endl;
+	
+	total = 0;
+	const VirtualMemory::BlockMap& blocks = mem->GetBlockMap();
+	for (VirtualMemory::BlockMap::const_iterator p = blocks.begin(); p != blocks.end(); ++p)
+	{
+	    total += VirtualMemory::BLOCK_SIZE;
 	}
 
 	// Print total memory usage
-	int mod = 0;
-	while (total >= 1024 && mod < 4)
+	for (mod = 0; total >= 1024 && mod < 4; mod++)
 	{
 		total /= 1024;
-		mod++;
 	}
-	static const char* Mods[] = { "B", "kB", "MB", "GB", "TB" };
-
-	cout << endl << "Total allocated memory: " << dec << total << " " << Mods[mod] << endl;
+	cout << "Total allocated memory: " << setw(4) << total << " " << Mods[mod] << endl;
     return true;
 }
 

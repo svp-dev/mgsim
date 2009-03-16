@@ -79,6 +79,16 @@ Result SimpleMemory::Write(IMemoryCallback& callback, MemAddr address, void* dat
     return FAILED;
 }
 
+void SimpleMemory::Reserve(MemAddr address, MemSize size, int perm)
+{
+    return VirtualMemory::Reserve(address, size, perm);
+}
+
+void SimpleMemory::Unreserve(MemAddr address)
+{
+    return VirtualMemory::Unreserve(address);
+}
+
 void SimpleMemory::Read(MemAddr address, void* data, MemSize size)
 {
     return VirtualMemory::Read(address, data, size);

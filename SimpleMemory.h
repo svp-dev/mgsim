@@ -65,6 +65,8 @@ public:
     Result OnCycleWritePhase(unsigned int stateIndex);
 
     // IMemory
+    void   Reserve(MemAddr address, MemSize size, int perm);
+    void   Unreserve(MemAddr address);
     void   RegisterListener  (IMemoryCallback& callback);
     void   UnregisterListener(IMemoryCallback& callback);
     Result Read (IMemoryCallback& callback, MemAddr address, void* data, MemSize size, MemTag tag);

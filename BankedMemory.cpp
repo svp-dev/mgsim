@@ -151,14 +151,24 @@ Result BankedMemory::Write(IMemoryCallback& callback, MemAddr address, void* dat
     return FAILED;
 }
 
+void BankedMemory::Reserve(MemAddr address, MemSize size, int perm)
+{
+    return VirtualMemory::Reserve(address, size, perm);
+}
+
+void BankedMemory::Unreserve(MemAddr address)
+{
+    return VirtualMemory::Unreserve(address);
+}
+
 void BankedMemory::Read(MemAddr address, void* data, MemSize size)
 {
     return VirtualMemory::Read(address, data, size);
 }
 
-void BankedMemory::Write(MemAddr address, const void* data, MemSize size, int perm)
+void BankedMemory::Write(MemAddr address, const void* data, MemSize size)
 {
-	return VirtualMemory::Write(address, data, size, perm);
+	return VirtualMemory::Write(address, data, size);
 }
 
 bool BankedMemory::CheckPermissions(MemAddr address, MemSize size, int access) const
