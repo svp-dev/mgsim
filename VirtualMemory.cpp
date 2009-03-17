@@ -85,12 +85,6 @@ void VirtualMemory::Read(MemAddr address, void* _data, MemSize size) const
     }
 #endif
 
-    // Verify that the address range is mapped
-    if (GetReservationRange(address, size) == m_ranges.end())
-    {
-        throw InvalidArgumentException("Reading non-reserved memory");
-    }
-
 	MemAddr base   = address & -BLOCK_SIZE;	    // Base address of block containing address
 	size_t  offset = address - base;		    // Offset within base block of address
 	char*   data   = static_cast<char*>(_data);	// Byte-aligned pointer to destination
@@ -131,12 +125,6 @@ void VirtualMemory::Write(MemAddr address, const void* _data, MemSize size)
     }
 #endif
 
-    // Verify that the address range is mapped
-    if (GetReservationRange(address, size) == m_ranges.end())
-    {
-        throw InvalidArgumentException("Writing non-reserved memory");
-    }
-    
 	MemAddr     base   = address & -BLOCK_SIZE;		        // Base address of block containing address
 	size_t      offset = address - base;			        // Offset within base block of address
 	const char* data   = static_cast<const char*>(_data);	// Byte-aligned pointer to destination
