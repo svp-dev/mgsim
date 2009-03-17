@@ -32,7 +32,7 @@ public:
 		FPU::Config          fpu;
     };
 
-    Processor(Object* parent, Kernel& kernel, PID pid, PSize numProcs, const std::string& name, IMemory& m_memory, const Config& config, MemAddr runAddress, bool legacy);
+    Processor(Object* parent, Kernel& kernel, PID pid, PSize numProcs, const std::string& name, IMemory& m_memory, const Config& config, MemAddr runAddress);
     void Initialize(Processor& prev, Processor& next);
 
     PID     GetPID()      const { return m_pid;      }

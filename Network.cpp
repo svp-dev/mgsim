@@ -7,7 +7,7 @@ using namespace Simulator;
 using namespace std;
 
 Network::Network(Processor& parent, const std::string& name, Allocator& alloc, RegisterFile& regFile, FamilyTable& familyTable) :
-    IComponent(&parent, parent.GetKernel(), name, 8),
+    IComponent(&parent, parent.GetKernel(), name, "shareds-in|shareds-out|completion|creation|unreservation|reservation|token|send-global"),
     m_parent(parent), m_regFile(regFile), m_familyTable(familyTable), m_allocator(alloc),
     m_prev(NULL), m_next(NULL),
 	
@@ -20,7 +20,6 @@ Network::Network(Processor& parent, const std::string& name, Allocator& alloc, R
 	m_hasToken(parent.GetKernel(), parent.GetPID() == 0), // CPU #0 starts out with the token
 	m_wantToken(parent.GetKernel(), false), m_nextWantsToken(parent.GetKernel(), false), m_requestedToken(parent.GetKernel(), false)
 {
-    parent.GetKernel().RegisterComponent(*this, 1);
     m_lockToken            = 0;
 	m_global.count         = 0;
 	m_global.local.m_state = RST_INVALID;

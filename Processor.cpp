@@ -6,8 +6,8 @@ using namespace std;
 //
 // Processor implementation
 //
-Processor::Processor(Object* parent, Kernel& kernel, PID pid, PSize numProcs, const std::string& name, IMemory& memory, const Config& config, MemAddr runAddress, bool legacy)
-:   IComponent(parent, kernel, name, 0),
+Processor::Processor(Object* parent, Kernel& kernel, PID pid, PSize numProcs, const std::string& name, IMemory& memory, const Config& config, MemAddr runAddress)
+:   IComponent(parent, kernel, name, ""),
     m_pid(pid), m_kernel(kernel), m_memory(memory), m_numProcs(numProcs),
     m_localFamilyCompletion(0),
 	m_allocator   (*this, "alloc",    m_familyTable, m_threadTable, m_registerFile, m_raunit, m_icache, m_network, m_pipeline, numProcs, config.allocator),
@@ -49,7 +49,7 @@ Processor::Processor(Object* parent, Kernel& kernel, PID pid, PSize numProcs, co
     if (pid == 0)
     {
         // Allocate the startup family on the first processor
-        m_allocator.AllocateInitialFamily(runAddress,legacy);
+        m_allocator.AllocateInitialFamily(runAddress);
     }
 }
 

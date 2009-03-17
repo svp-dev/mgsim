@@ -1,6 +1,6 @@
 #include "ParallelMemory.h"
 #include <cassert>
-#include <iostream>
+#include <sstream>
 #include <cstring>
 using namespace Simulator;
 using namespace std;
@@ -222,8 +222,22 @@ void ParallelMemory::Write(MemAddr address, const void* data, MemSize size)
 	return VirtualMemory::Write(address, data, size);
 }
 
+static string CreateStateNames(size_t numProcs)
+{
+    stringstream states;
+    for (size_t i = 0; i < numProcs; i++)
+    {
+        states << "port" << i << "|";
+    }
+    string ret = states.str();
+    if (!ret.empty()) {
+        ret.erase(ret.end() - 1, ret.end());
+    }
+    return ret;
+}
+
 ParallelMemory::ParallelMemory(Object* parent, Kernel& kernel, const std::string& name, const Config& config, PSize numProcs ) :
-    IComponent(parent, kernel, name, (int)numProcs),
+    IComponent(parent, kernel, name, CreateStateNames(numProcs)),
     m_ports(numProcs),
     m_config(config),
     m_numRequests(0),

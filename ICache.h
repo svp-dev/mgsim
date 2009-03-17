@@ -38,6 +38,7 @@ public:
     ICache(Processor& parent, const std::string& name, Allocator& allocator, const Config& config);
     ~ICache();
 
+    bool   Fetch(MemAddr address, MemSize size);				        // Initial family line fetch (hardcoded)
     Result Fetch(MemAddr address, MemSize size, CID& cid);				// Initial family line fetch
     Result Fetch(MemAddr address, MemSize size, TID& tid, CID& cid);	// Thread code fetch
     bool   Read(CID cid, MemAddr address, void* data, MemSize size) const;

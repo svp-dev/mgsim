@@ -139,6 +139,7 @@ bool RegisterFile::WriteRegister(const RegAddr& addr, RegValue& data, const ICom
 			// This write caused a reschedule
             if (!m_allocator.ActivateThread(value.m_tid, component))
             {
+                DeadlockWrite("Unable to wake up thread T%u from %s", value.m_tid, addr.str().c_str());
                 return false;
             }
         }

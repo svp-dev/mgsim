@@ -6,7 +6,7 @@ using namespace Simulator;
 using namespace std;
 
 Pipeline::Stage::Stage(Pipeline& parent, const std::string& name, Latch* input, Latch* output)
-:   IComponent(&parent, parent.GetProcessor().GetKernel(), name, 0),    // Stages don't require callbacks
+:   IComponent(&parent, parent.GetProcessor().GetKernel(), name, ""),    // Stages don't require callbacks
     m_parent(parent), m_input(input), m_output(output)
 {
 }
@@ -24,7 +24,7 @@ Pipeline::Pipeline(
 	FPU&                fpu,
     const Config&       config)
 :
-    IComponent(&parent, parent.GetKernel(), name, NUM_STAGES), m_parent(parent), m_regFile(regFile),
+    IComponent(&parent, parent.GetKernel(), name, "fetch|decode|read|execute|memory|writeback"), m_parent(parent), m_regFile(regFile),
     m_nStagesRun(0), m_maxPipelineIdleTime(0), m_minPipelineIdleTime(numeric_limits<uint64_t>::max()),
     m_totalPipelineIdleTime(0), m_pipelineIdleEvents(0), m_pipelineIdleTime(0), m_pipelineBusyTime(0),
     m_fetch(*this, m_fdLatch, alloc, familyTable, threadTable, icache, config.controlBlockSize),

@@ -72,6 +72,7 @@ public:
 
     struct Config
     {
+        vector<PSize>        clusterSizes;
         PSize                numProcessors;
         BankedMemory::Config memory;
         Processor::Config    processor;
@@ -109,9 +110,12 @@ public:
 		const Kernel::CallbackList& callbacks = m_kernel.GetCallbacks();
 		for (Kernel::CallbackList::const_iterator p = callbacks.begin(); p != callbacks.end(); p++)
 		{
-			string name = p->first->GetFQN() + ": ";
-			states[name] = p->second.state;
-			length = max(length, (streamsize)name.length());
+		    for (size_t i = 0; i < p->second.states.size(); i++)
+		    {
+    			string name = p->first->GetFQN() + ":" + p->second.states[i].name + ": ";
+    			states[name] = p->second.states[i].state;
+    			length = max(length, (streamsize)name.length());
+    	    }
 		}
 		
 		cout << left << setfill(' ');
@@ -255,7 +259,7 @@ public:
         GetKernel().Abort();
     }
 
-    MGSystem(const Config& config, const string& program, const vector<pair<RegAddr, RegValue> >& regs, bool legacy, bool quiet)
+    MGSystem(const Config& config, const string& program, const vector<pair<RegAddr, RegValue> >& regs, bool quiet)
       : Object(NULL, NULL, "system"),
         m_numProcs(config.numProcessors)
     {
@@ -266,13 +270,13 @@ public:
         // Load the program into memory
         MemAddr entry = LoadProgram(m_memory, program, quiet);
 
-        // Create processor group
-        m_procs = new Processor*[config.numProcessors];
+        // Create processor grid
+        m_procs = new Processor*[m_numProcs];
         for (PSize i = 0; i < m_numProcs; i++)
         {
             stringstream name;
             name << "cpu" << i;
-            m_procs[i]   = new Processor(this, m_kernel, i, m_numProcs, name.str(), *m_memory, config.processor, entry, legacy);
+            m_procs[i]   = new Processor(this, m_kernel, i, m_numProcs, name.str(), *m_memory, config.processor, entry);
             m_objects[i] = m_procs[i];
         }
 
@@ -374,14 +378,20 @@ static void PrintHelp()
 static MGSystem::Config ParseConfig(const Config& configfile)
 {
     MGSystem::Config config;
-    config.numProcessors    = configfile.getInteger<PSize>("NumProcessors", 1);
+    config.clusterSizes  = configfile.getIntegerList<PSize>("NumProcessors");
+
+    config.numProcessors = 0;
+    for (size_t i = 0; i < config.clusterSizes.size(); i++)
+    {
+        config.numProcessors += config.clusterSizes[i];
+    }
 
     config.memory.baseRequestTime = configfile.getInteger<CycleNo>("MemoryBaseRequestTime", 1);
     config.memory.timePerLine     = configfile.getInteger<CycleNo>("MemoryTimePerLine", 1);
     config.memory.sizeOfLine      = configfile.getInteger<size_t>("MemorySizeOfLine", 8);
     config.memory.bufferSize      = configfile.getInteger<BufferSize>("MemoryBufferSize", INFINITE);
 #ifdef USE_BANKED_MEMORY
-    config.memory.numBanks        = configfile.getInteger<size_t>("MemoryBanks", config.numProcessors * 2);
+    config.memory.numBanks        = configfile.getInteger<size_t>("MemoryBanks", config.numProcessors);
 #else
     config.memory.width         = configfile.getInteger<size_t>("MemoryParallelRequests", 1);
 #endif
@@ -510,7 +520,6 @@ static void PrintUsage()
         "-c, --config <filename>  Read configuration from file\n"
         "-i, --interactive        Start the simulator in interactive mode\n"
         "-t, --terminate          Terminate simulator on exception\n"
-        "-l, --legacy             The program file contains binary legacy code\n"
         "-p, --print <value>      Print the value before printing the results when\n"
         "                         done simulating\n"
         "-R<X> <value>            Store the integer value in the specified register\n"
@@ -524,7 +533,6 @@ struct ProgramConfig
     string             m_programFile;
     string             m_configFile;
     bool               m_interactive;
-	bool               m_legacy;
 	bool               m_terminate;
 	string             m_print;
 	map<string,string> m_overrides;
@@ -535,7 +543,6 @@ struct ProgramConfig
 static bool ParseArguments(int argc, const char* argv[], ProgramConfig& config)
 {
     config.m_interactive = false;
-	config.m_legacy      = false;
 	config.m_terminate   = false;
 
     for (int i = 1; i < argc; i++)
@@ -554,7 +561,6 @@ static bool ParseArguments(int argc, const char* argv[], ProgramConfig& config)
              if (arg == "-c" || arg == "--config")      config.m_configFile  = argv[++i];
         else if (arg == "-i" || arg == "--interactive") config.m_interactive = true;
         else if (arg == "-t" || arg == "--terminate")   config.m_terminate   = true;
-        else if (arg == "-l" || arg == "--legacy")      config.m_legacy      = true;
         else if (arg == "-h" || arg == "--help")        { PrintUsage(); return false; }
         else if (arg == "-p" || arg == "--print")       config.m_print = string(argv[++i]) + " ";
         else if (arg == "-o" || arg == "--override")
@@ -648,8 +654,6 @@ static RunState StepSystem(MGSystem& system, CycleNo cycles)
     
 int main(int argc, const char* argv[])
 {
-    try
-    {
         // Parse command line arguments
         ProgramConfig config;
         if (!ParseArguments(argc, argv, config))
@@ -669,8 +673,10 @@ int main(int argc, const char* argv[])
 		}
 
         // Create the system
-		MGSystem sys(systemconfig, config.m_programFile, config.m_regs, config.m_legacy, !config.m_interactive);
+		MGSystem sys(systemconfig, config.m_programFile, config.m_regs, !config.m_interactive);
 
+    try
+    {
         bool interactive = config.m_interactive;
         if (!interactive)
         {
@@ -817,9 +823,10 @@ int main(int argc, const char* argv[])
 								transform(state.begin(), state.end(), state.begin(), ::toupper);
 							}
 	        
-                                 if (state == "SIM")  sys.SetDebugMode(Kernel::DEBUG_SIM);
-                            else if (state == "PROG") sys.SetDebugMode(Kernel::DEBUG_PROG);
-                            else if (state == "ALL")  sys.SetDebugMode(Kernel::DEBUG_PROG | Kernel::DEBUG_SIM);
+                                 if (state == "SIM")      sys.SetDebugMode(Kernel::DEBUG_SIM);
+                            else if (state == "PROG")     sys.SetDebugMode(Kernel::DEBUG_PROG);
+                            else if (state == "DEADLOCK") sys.SetDebugMode(Kernel::DEBUG_DEADLOCK);
+                            else if (state == "ALL")      sys.SetDebugMode(Kernel::DEBUG_PROG | Kernel::DEBUG_SIM);
                             
                             string debugStr;
                             switch (sys.GetDebugMode())
@@ -827,6 +834,7 @@ int main(int argc, const char* argv[])
                             default:                                     debugStr = "nothing";   break;
                             case Kernel::DEBUG_PROG:                     debugStr = "program";   break;
                             case Kernel::DEBUG_SIM:                      debugStr = "simulator"; break;
+                            case Kernel::DEBUG_DEADLOCK:                 debugStr = "deadlocks"; break;
                             case Kernel::DEBUG_PROG | Kernel::DEBUG_SIM: debugStr = "simulator and program"; break;
                             }
 						    cout << "Debugging " << debugStr << endl;

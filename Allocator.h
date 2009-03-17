@@ -82,9 +82,9 @@ public:
         FamilyTable& familyTable, ThreadTable& threadTable, RegisterFile& registerFile, RAUnit& raunit, ICache& icache, Network& network, Pipeline& pipeline,
         PSize procNo, const Config& config);
 
-    // Allocates the initial (legacy or not) family consisting of a single thread on the first CPU.
+    // Allocates the initial family consisting of a single thread on the first CPU.
     // Typically called before tha actual simulation starts.
-    void AllocateInitialFamily(MemAddr pc, bool legacy);
+    void AllocateInitialFamily(MemAddr pc);
 
     // Returns the physical register address for a logical shared in a certain family.
     RegAddr GetSharedAddress(SharedType stype, GFID fid, RegAddr addr) const;

@@ -93,6 +93,7 @@ Result ICache::FindLine(MemAddr address, Line* &line)
     if (line == NULL)
     {
         // No available line
+        DeadlockWrite("Unable to allocate a cache-line for the request to 0x%016llx (set %u)", (unsigned long long)address, set);
         return FAILED;
     }
 
@@ -149,6 +150,12 @@ bool ICache::Read(CID cid, MemAddr address, void* data, MemSize size) const
     return true;
 }
 
+// For hardcoded family creation
+bool ICache::Fetch(MemAddr address, MemSize size)
+{
+	return Fetch(address, size, NULL, NULL) != FAILED;
+}
+
 // For family creation
 Result ICache::Fetch(MemAddr address, MemSize size, CID& cid)
 {
@@ -163,8 +170,6 @@ Result ICache::Fetch(MemAddr address, MemSize size, TID& tid, CID& cid)
 
 Result ICache::Fetch(MemAddr address, MemSize size, TID* tid, CID* cid)
 {
-	assert(cid != NULL);
-
 	// Check that we're fetching executable memory
 	if (!m_parent.CheckPermissions(address, size, IMemory::PERM_EXECUTE))
 	{
@@ -194,6 +199,7 @@ Result ICache::Fetch(MemAddr address, MemSize size, TID* tid, CID* cid)
     if ((result = FindLine(address, line)) == FAILED)
     {
         // No cache lines are available
+        // DeadlockWrite was already called in FindLine (which has more information)
         return FAILED;
     }
 
@@ -215,7 +221,7 @@ Result ICache::Fetch(MemAddr address, MemSize size, TID* tid, CID* cid)
 					line->waiting.head = *tid;
 					*tid = head;
 				}
-				else
+				else if (cid != NULL)
 				{
 					// Initial line for creation
 					assert(!line->creation);
@@ -238,6 +244,7 @@ Result ICache::Fetch(MemAddr address, MemSize size, TID* tid, CID* cid)
 		if ((result = m_parent.ReadMemory(address, data.data, data.size, data.tag)) == FAILED)
 		{
 			// The fetch failed
+			DeadlockWrite("Unable to read 0x%016llx from memory", (unsigned long long)address);
 			return FAILED;
 		}
 		
@@ -266,7 +273,7 @@ Result ICache::Fetch(MemAddr address, MemSize size, TID* tid, CID* cid)
 					line->waiting.tail = *tid;
 					*tid = INVALID_TID;
 				}
-				else
+				else if (cid != NULL)
 				{
 					line->creation = true;
 				}
@@ -308,6 +315,7 @@ bool ICache::OnMemoryReadCompleted(const MemData& data)
 		// Resume family creation
 		if (!m_allocator.OnCachelineLoaded(data.tag.cid))
 		{
+		    DeadlockWrite("Unable to resume family creation for C%u", data.tag.cid);
 			return false;
 		}
 		COMMIT{ line.creation = false; }
@@ -318,6 +326,7 @@ bool ICache::OnMemoryReadCompleted(const MemData& data)
 		// Reschedule the line's waiting list
 		if (!m_allocator.QueueActiveThreads(line.waiting.head, line.waiting.tail))
 		{
+		    DeadlockWrite("Unable to queue active threads T%u through T%u for C%u", line.waiting.head, line.waiting.tail, data.tag.cid);
 			return false;
 		}
 

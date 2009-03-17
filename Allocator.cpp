@@ -190,6 +190,7 @@ bool Allocator::ActivateThread(TID tid, const IComponent& component, MemAddr pc,
     // We need the port on the I-Cache to activate a thread
     if (!m_icache.p_request.Invoke(component))
     {
+        DeadlockWrite("Unable to invoke the I-Cache to activate thread T%u in F%u at 0x%016llx", tid, fid, (unsigned long long)pc);
         return false;
     }
 
@@ -203,6 +204,7 @@ bool Allocator::ActivateThread(TID tid, const IComponent& component, MemAddr pc,
     if ((result = m_icache.Fetch(pc, sizeof(Instruction), next, cid)) == FAILED)
     {
         // We cannot fetch, abort activation
+        DeadlockWrite("Unable to fetch the I-Cache line for 0x%016llx to activate thread T%u in F%u", (unsigned long long)pc, tid, fid);
         return false;
     }
 
@@ -231,6 +233,7 @@ bool Allocator::ActivateThread(TID tid, const IComponent& component, MemAddr pc,
         // The thread can be added to the family's active queue
         if (!QueueActiveThreads(tid, tid))
         {
+            DeadlockWrite("Unable to enqueue T%u in F%u to the Active Queue", tid, fid);
             return false;
         }
     }
@@ -514,17 +517,13 @@ bool Allocator::AllocateThread(LFID fid, TID tid, bool isNewlyAllocated)
         }
     }
 
+    bool isFirstAllocatedThread = false;
     if (isNewlyAllocated)
     {
         assert(family->dependencies.numThreadsAllocated < family->physBlockSize);
 
-		if (family->members.head == INVALID_TID && family->parent.pid == m_parent.GetPID())
-		{
-			// We've created the first thread on the creating processor;
-			// release the family's lock on the cache-line
-			m_icache.ReleaseCacheLine(thread->cid);
-		}
-
+        isFirstAllocatedThread = (family->members.head == INVALID_TID);
+        
 		// Add the thread to the family's member queue
         thread->nextMember = INVALID_TID;
         Push(family->members, tid, &Thread::nextMember);
@@ -580,6 +579,13 @@ bool Allocator::AllocateThread(LFID fid, TID tid, bool isNewlyAllocated)
     {
         // Abort allocation
         return false;
+    }
+
+    if (isFirstAllocatedThread && family->parent.pid == m_parent.GetPID())
+	{
+		// We've created the first thread on the creating processor;
+		// release the family's lock on the cache-line
+		m_icache.ReleaseCacheLine(m_threadTable[tid].cid);
     }
 
     DebugSimWrite("Allocated thread for F%u at T%u", fid, tid);
@@ -852,8 +858,6 @@ Family& Allocator::GetWritableFamilyEntry(LFID fid, TID parent) const
 
 void Allocator::SetDefaultFamilyEntry(LFID fid, TID parent, const RegisterBases bases[]) const
 {
-	assert(parent != INVALID_TID);
-
 	COMMIT
 	{
 		Family&       family     = m_familyTable[fid];
@@ -1182,11 +1186,13 @@ Result Allocator::OnCycleWritePhase(unsigned int stateIndex)
                     assert(thread.nextInBlock != INVALID_TID);
                     if (!DecreaseThreadDependency(fid, thread.nextInBlock, THREADDEP_PREV_CLEANED_UP, *this))
                     {
+                        DeadlockWrite("Unable to mark PREV_CLEANED_UP for T%u's next thread T%u in F%u", tid, thread.nextInBlock, fid);
                         return FAILED;
                     }
                 }
                 else if (!m_network.SendThreadCleanup(family.gfid))
                 {
+                    DeadlockWrite("Unable to send thread cleanup notification for T%u in F%u (G%u)", tid, fid, family.gfid);
                     return FAILED;
                 }
             }
@@ -1207,6 +1213,7 @@ Result Allocator::OnCycleWritePhase(unsigned int stateIndex)
                 // Cleanup
                 if (!DecreaseFamilyDependency(fid, FAMDEP_THREAD_COUNT))
                 {
+                    DeadlockWrite("Unable to decrease thread count during cleanup of T%u in F%u", tid, fid);
                     return FAILED;
                 }
 
@@ -1217,6 +1224,7 @@ Result Allocator::OnCycleWritePhase(unsigned int stateIndex)
                 // Reallocate thread
                 if (!AllocateThread(fid, tid, false))
                 {
+                    DeadlockWrite("Unable to reallocate thread T%u in F%u", tid, fid);
                     return FAILED;
                 }
 
@@ -1239,11 +1247,13 @@ Result Allocator::OnCycleWritePhase(unsigned int stateIndex)
             TID tid = m_threadTable.PopEmpty();
             if (tid == INVALID_TID)
             {
+                DeadlockWrite("Unable to allocate a free thread entry for F%u", m_allocating);
                 return FAILED;
             }
             
             if (!AllocateThread(m_allocating, tid))
             {
+                DeadlockWrite("Unable to allocate new thread T%u for F%u", tid, m_allocating);
                 return FAILED;
             }
 
@@ -1265,6 +1275,7 @@ Result Allocator::OnCycleWritePhase(unsigned int stateIndex)
 			LFID fid = m_familyTable.AllocateFamily();
 			if (fid == INVALID_LFID)
 			{
+			    DeadlockWrite("Unable to allocate a free family entry (target R%04x)", req.reg);
 				return FAILED;
 			}
 			
@@ -1278,6 +1289,7 @@ Result Allocator::OnCycleWritePhase(unsigned int stateIndex)
 			write.value.m_integer = fid;
             if (!m_registerWrites.push(write))
             {
+                DeadlockWrite("Unable to queue write to register R%04x", req.reg);
                 return FAILED;
             }
 			COMMIT{m_allocations.pop();}
@@ -1301,6 +1313,7 @@ Result Allocator::OnCycleWritePhase(unsigned int stateIndex)
 				Result      result;
 				if ((result = m_icache.Fetch(family.pc - sizeof(Instruction), sizeof(counts), cid)) == FAILED)
 				{
+				    DeadlockWrite("Unable to fetch the I-Cache line for 0x%016llx for F%u", (unsigned long long)family.pc, fid);
 					return FAILED;
 				}
 
@@ -1323,6 +1336,7 @@ Result Allocator::OnCycleWritePhase(unsigned int stateIndex)
 				Instruction counts;
 				if (!m_icache.Read(m_createLine, family.pc - sizeof(Instruction), &counts, sizeof(counts)))
 				{
+				    DeadlockWrite("Unable to read the I-Cache line for 0x%016llx for F%u", (unsigned long long)family.pc, fid);
 					return FAILED;
 				}
     		    counts = UnserializeInstruction(&counts);
@@ -1347,6 +1361,7 @@ Result Allocator::OnCycleWritePhase(unsigned int stateIndex)
 					// Global family, request the create token
 					if (!m_network.RequestToken())
 					{
+					    DeadlockWrite("Unable to request the create token from the network for F%u", fid);
 						return FAILED;
 					}
 					COMMIT{ m_createState = CREATE_GETTING_TOKEN; }
@@ -1374,12 +1389,14 @@ Result Allocator::OnCycleWritePhase(unsigned int stateIndex)
 				if ((family.gfid = m_familyTable.AllocateGlobal(fid)) == INVALID_GFID)
 				{
 					// No global ID available
+					DeadlockWrite("Unable to allocate a Global FID for F%u", fid);
 					return FAILED;
 				}
 
 				if (!m_network.SendFamilyReservation(family.gfid))
 				{
 					// Send failed
+					DeadlockWrite("Unable to send family reservation for F%u (G%u)", fid, family.gfid);
 					return FAILED;
 				}
 
@@ -1391,6 +1408,7 @@ Result Allocator::OnCycleWritePhase(unsigned int stateIndex)
 				// We have the token, and the family is globally reserved; broadcast the create
 				if (!m_network.SendFamilyCreate(fid))
 				{
+				    DeadlockWrite("Unable to send the create for F%u (G%u)", fid, family.gfid);
 					return FAILED;
 				}
 
@@ -1402,12 +1420,14 @@ Result Allocator::OnCycleWritePhase(unsigned int stateIndex)
 				// Allocate the registers
 				if (!AllocateRegisters(fid))
 				{
+				    DeadlockWrite("Unable to allocate registers for F%u", fid);
 					return FAILED;
 				}
 
 				// Family's now created, we can start creating threads
 				if (!ActivateFamily(fid))
 				{
+				    DeadlockWrite("Unable to activate the family F%u", fid);
 					return FAILED;
 				}
 
@@ -1427,13 +1447,16 @@ Result Allocator::OnCycleWritePhase(unsigned int stateIndex)
     case 3:
 		if (!m_registerWrites.empty())
         {
-            if (!m_registerFile.p_asyncW.Write(*this, m_registerWrites.front().address))
+            RegAddr addr = m_registerWrites.front().address;
+            if (!m_registerFile.p_asyncW.Write(*this, addr))
             {
+                DeadlockWrite("Unable to acquire the port for the queued register write to %s", addr.str().c_str());
                 return FAILED;
             }
 
             if (!m_registerFile.WriteRegister(m_registerWrites.front().address, m_registerWrites.front().value, *this))
             {
+                DeadlockWrite("Unable to write the queued register write to %s", addr.str().c_str());
                 return FAILED;
             }
 
@@ -1573,7 +1596,7 @@ Allocator::Allocator(Processor& parent, const string& name,
     FamilyTable& familyTable, ThreadTable& threadTable, RegisterFile& registerFile, RAUnit& raunit, ICache& icache, Network& network, Pipeline& pipeline,
     PSize procNo, const Config& config)
 :
-    IComponent(&parent, parent.GetKernel(), name, 4),
+    IComponent(&parent, parent.GetKernel(), name, "cleanup|family-allocate|family-create|reg-write-queue"),
     p_cleanup(parent.GetKernel()),
     m_parent(parent), m_familyTable(familyTable), m_threadTable(threadTable), m_registerFile(registerFile), m_raunit(raunit), m_icache(icache), m_network(network), m_pipeline(pipeline),
     m_procNo(procNo), m_activeQueueSize(0), m_totalActiveQueueSize(0), m_maxActiveQueueSize(0), m_minActiveQueueSize(UINT64_MAX),
@@ -1587,9 +1610,9 @@ Allocator::Allocator(Processor& parent, const string& name,
     m_activeThreads.tail  = INVALID_TID;
 }
 
-void Allocator::AllocateInitialFamily(MemAddr pc, bool legacy)
+void Allocator::AllocateInitialFamily(MemAddr pc)
 {
-    static const int InitialRegisters[NUM_REG_TYPES] = {31, 31};
+    static const RegSize InitialRegisters[NUM_REG_TYPES] = {31, 31};
 
 	LFID fid = m_familyTable.AllocateFamily();
 	if (fid == INVALID_LFID)
@@ -1610,7 +1633,7 @@ void Allocator::AllocateInitialFamily(MemAddr pc, bool legacy)
 	family.place         = 1; // Set initial place to the whole group
 	family.created       = true;
 	family.gfid          = INVALID_GFID;
-	family.legacy        = legacy;
+	family.legacy        = false;
 	family.pc            = pc;
 
 	for (RegType i = 0; i < NUM_REG_TYPES; i++)
@@ -1624,13 +1647,10 @@ void Allocator::AllocateInitialFamily(MemAddr pc, bool legacy)
 
 	InitializeFamily(fid);
 
-	// Allocate the registers
-	if (!AllocateRegisters(fid))
-	{
-		throw SimulationException(*this, "Unable to create initial family");
-	}
-
-	if (!ActivateFamily(fid))
+    if (!m_icache.Fetch(family.pc, sizeof(Instruction)) ||
+	    !AllocateRegisters(fid) ||
+	    !ActivateFamily(fid)
+	   )
 	{
 		throw SimulationException(*this, "Unable to create initial family");
 	}

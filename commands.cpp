@@ -626,18 +626,30 @@ static bool cmd_icache_read( Object* obj, const vector<string>& arguments )
     const ICache* cache = dynamic_cast<ICache*>(obj);
     if (cache == NULL) return false;
 
+    cout << "Set";
+    for (size_t a = 0; a < cache->GetAssociativity(); a++) {
+        cout << " | Address  L  ref ";
+    }
+    cout << endl;
+    cout << "---";
+    for (size_t a = 0; a < cache->GetAssociativity(); a++) {
+        cout << "-+-----------------";
+    }
+    cout << endl;
+    
     for (size_t s = 0; s < cache->GetNumSets(); s++)
     {
-        cout << setw(3) << setfill(' ') << dec << s;
+        cout << setw(3) << setfill(' ') << dec << right << s;
         for (size_t a = 0; a < cache->GetAssociativity(); a++)
         {
             const ICache::Line& line = cache->GetLine(s * cache->GetAssociativity() + a);
             cout << " | ";
             if (!line.used) {
-                cout << "    -     ";
+                cout << "       -        ";
             } else {
-                cout << setw(8) << setfill('0') << hex << (line.tag * cache->GetNumSets() + s) * cache->GetLineSize() << " "
-                     << (line.waiting.head != INVALID_TID ? "L" : " ");
+                cout << right << setw(8) << setfill('0') << hex << (line.tag * cache->GetNumSets() + s) * cache->GetLineSize() << " "
+                     << (line.waiting.head != INVALID_TID ? "L" : " ") << " "
+                     << "(" << setw(3) << dec << setfill(' ') << line.references << ")";
             }
         }
         cout << endl;
@@ -760,7 +772,7 @@ static bool cmd_families_read( Object* obj, const vector<string>& arguments )
     {
         const Family& family = families[i];
 
-        cout << dec << setw(3) << setfill(' ') << i << " | ";
+        cout << dec << right << setw(3) << setfill(' ') << i << " | ";
         if (family.state != FST_EMPTY)
         {
 			if (family.state != FST_ALLOCATED)

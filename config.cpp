@@ -93,19 +93,25 @@ Config::Config(const string& filename, const ConfigMap& overrides)
             if (isspace(c) && value.empty())
             {
             }
-            else if (!isspace(c))
+            else if (c == '\r' || c == '\n' || c == '#')
             {
-                value = value + c;
-            }
-            else 
-            {
-                if (value != "")
+                if (!value.empty())
                 {
+                    // Strip off all the spaces from the end
+                    string::size_type pos = value.find_last_not_of("\r\n\t\v\f ");
+                    if (pos != string::npos) {
+                        value.erase(pos + 1);
+                    }
+                    
                     m_data.insert(make_pair(name,value));
                     name.clear();
                     value.clear();
                 }
-                state = STATE_BEGIN;
+                state = (c == '#') ? STATE_COMMENT : STATE_BEGIN;
+            }
+            else 
+            {
+                value = value + c;
             }
         }
     }

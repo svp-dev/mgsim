@@ -63,6 +63,24 @@ void Object::OutputWrite(const char* msg, ...) const
     }
 }
 
+void Object::DeadlockWrite(const char* msg, ...) const
+{
+    if (m_kernel->GetDebugMode() & Kernel::DEBUG_DEADLOCK)
+    {
+        va_list args;
+
+        string name = GetFQN();
+        transform(name.begin(), name.end(), name.begin(), ::toupper);
+        cout << "[" << dec << setfill('0') << setw(8) << m_kernel->GetCycleNo() << ":" << name << "] ";
+
+        va_start(args, msg);
+        vprintf(msg, args);
+        va_end(args);
+
+        cout << endl;
+    }
+}
+
 void Object::DebugSimWrite(const char* msg, ...) const
 {
     if ((m_kernel->GetDebugMode() & Kernel::DEBUG_SIM) && m_kernel->GetCyclePhase() == PHASE_COMMIT)
@@ -115,10 +133,10 @@ IStructure::~IStructure()
 //
 // Component class
 //
-IComponent::IComponent(Object* parent, Kernel& kernel, const std::string& name, unsigned int numStates)
+IComponent::IComponent(Object* parent, Kernel& kernel, const std::string& name, const std::string& states)
     : Object(parent, &kernel, name)
 {
-    GetKernel()->RegisterComponent(*this, numStates);
+    GetKernel()->RegisterComponent(*this, states);
 }
 
 IComponent::~IComponent()
@@ -151,7 +169,7 @@ RunState Kernel::Step(CycleNo cycles)
         PROFILE_BEGIN("Read Acquire");
         for (CallbackList::iterator i = m_callbacks.begin(); i != m_callbacks.end(); ++i)
         {
- 			for (unsigned int j = 0; j < i->second.nStates; ++j)
+ 			for (size_t j = 0; j < i->second.states.size(); ++j)
             {
                 i->first->OnCycleReadPhase(j);
             }
@@ -166,7 +184,7 @@ RunState Kernel::Step(CycleNo cycles)
         PROFILE_BEGIN("Read Commit");
         for (CallbackList::iterator i = m_callbacks.begin(); i != m_callbacks.end(); ++i)
         {
- 			for (unsigned int j = 0; j < i->second.nStates; ++j)
+ 			for (size_t j = 0; j < i->second.states.size(); ++j)
             {
                 m_phase = PHASE_CHECK;
   				Result result;
@@ -187,9 +205,11 @@ RunState Kernel::Step(CycleNo cycles)
         PROFILE_BEGIN("Write Acquire");
         for (CallbackList::iterator i = m_callbacks.begin(); i != m_callbacks.end(); ++i)
         {
- 			for (unsigned int j = 0; j < i->second.nStates; ++j)
+ 			for (size_t j = 0; j < i->second.states.size(); ++j)
             {
-                i->first->OnCycleWritePhase(j);
+                Result result = i->first->OnCycleWritePhase(j);
+                
+                i->second.states[j].state = (result == FAILED) ? STATE_DEADLOCK : STATE_RUNNING;
             }
         }
         PROFILE_END("Write Acquire");
@@ -202,25 +222,36 @@ RunState Kernel::Step(CycleNo cycles)
         PROFILE_BEGIN("Write Commit");
         for (CallbackList::iterator i = m_callbacks.begin(); i != m_callbacks.end(); ++i)
         {
-  			bool comp_idle     = true;
-  			bool comp_has_work = false;
-  			for (unsigned int j = 0; j < i->second.nStates; ++j)
+  			for (size_t j = 0; j < i->second.states.size(); ++j)
             {
-                m_phase = PHASE_CHECK;
- 				Result result;
-  				if ((result = i->first->OnCycleWritePhase(j)) == SUCCESS)
+                RunState& state = i->second.states[j].state;
+                if (state != STATE_DEADLOCK)
                 {
-                    m_phase = PHASE_COMMIT;
-                    result = i->first->OnCycleWritePhase(j);
- 					assert(result == SUCCESS);
-  					idle = comp_idle = false;
+                    m_phase = PHASE_CHECK;
+     				Result result;
+      				if ((result = i->first->OnCycleWritePhase(j)) == SUCCESS)
+                    {
+                        m_phase = PHASE_COMMIT;
+                        result = i->first->OnCycleWritePhase(j);
+     					assert(result == SUCCESS);
+      					idle  = false;
+      					state = STATE_RUNNING;
+                    }
+      				else if (result == FAILED)
+       				{
+       				    state    = STATE_DEADLOCK;
+       					has_work = true;
+       				}
+   	    			else
+   		    		{
+   			    	    state = STATE_IDLE;
+   				    }
                 }
-  				else if (result == FAILED)
-   				{
-   					has_work = comp_has_work = true;
-   				}
+                else 
+                {
+                    has_work = true;
+                }
             }
-   			i->second.state = (comp_idle) ? (comp_has_work) ? STATE_DEADLOCK : STATE_IDLE : STATE_RUNNING;
         }
         PROFILE_END("Write Commit");
     
@@ -260,17 +291,28 @@ void Kernel::RegisterStructure(IStructure& _structure)
 	m_structures.insert(&_structure);
 }
 
-void Kernel::RegisterComponent(IComponent& _component, unsigned int numStates)
+void Kernel::RegisterComponent(IComponent& _component, const std::string& states)
 {
     m_components.insert(&_component);
-    if (numStates > 0)
+    if (!states.empty())
     {
-		CallbackInfo info;
-		info.nStates = numStates;
-		info.state   = STATE_IDLE;
+        CallbackInfo info;
+    
+	    string::const_iterator cur = states.begin();
+        while (cur != states.end())
+    	{
+        	string::const_iterator delim = find(cur, states.end(), '|');
+
+            ComponentState s;
+            s.name  = string(cur, delim);
+            s.state = STATE_IDLE;
+      		info.states.push_back(s);
+      		cur = (delim != states.end()) ? delim + 1 : delim;
+        }
         m_callbacks.insert(make_pair(&_component, info));
     }
 }
+
 void Kernel::RegisterFunction (IFunction&  _function )    { m_functions .insert(&_function ); }
 void Kernel::RegisterRegister (IRegister&  _register )    { m_registers .insert(&_register ); }
 void Kernel::UnregisterStructure(IStructure& _structure)  { m_structures.erase(&_structure); }
