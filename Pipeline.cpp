@@ -111,40 +111,43 @@ Result Pipeline::OnCycleWritePhase(unsigned int stateIndex)
         PipeAction action = m_stages[stage]->write();
 		if (action != PIPE_IDLE)
 		{
-			if (action == PIPE_STALL || action == PIPE_DELAY)
-			{
-				// This stage has stalled or is delayed, abort pipeline
-				for (int i = 0; i < stage; i++)
-				{
-					m_runnable[i] = false;
-				}
-				return (action == PIPE_STALL) ? FAILED : SUCCESS;
-			}
+		    if (!IsAcquiring())
+		    {
+			    if (action == PIPE_STALL || action == PIPE_DELAY)
+    			{
+    				// This stage has stalled or is delayed, abort pipeline
+    				for (int i = 0; i < stage; i++)
+    				{
+    					m_runnable[i] = false;
+    				}
+    				return (action == PIPE_STALL) ? FAILED : SUCCESS;
+	    		}
 
-			Latch* input  = m_stages[stage]->getInput();
-			Latch* output = m_stages[stage]->getOutput();
+		    	Latch* input  = m_stages[stage]->getInput();
+    			Latch* output = m_stages[stage]->getOutput();
 
-			if (action == PIPE_FLUSH)
-			{
-				// Clear all previous stages with the same TID
-				for (int j = 0; j < stage; j++)
-				{
-					Latch* in = m_stages[j]->getInput();
-					if (in != NULL && in->tid == input->tid)
-					{
-						in->clear();
-						m_runnable[j] = false;
-					}
+	    		if (action == PIPE_FLUSH)
+    			{
+    				// Clear all previous stages with the same TID
+    				for (int j = 0; j < stage; j++)
+    				{
+    					Latch* in = m_stages[j]->getInput();
+    					if (in != NULL && in->tid == input->tid)
+    					{
+    						in->clear();
+    						m_runnable[j] = false;
+    					}
 
-					m_stages[j]->clear(input->tid);
-				}
-			}
+    					m_stages[j]->clear(input->tid);
+	    			}
+    			}
 
-			COMMIT
-			{
-                m_nStagesRun++;
-				if (input  != NULL) input->clear();
-				if (output != NULL) output->set();
+	    		COMMIT
+    			{
+                    m_nStagesRun++;
+    				if (input  != NULL) input->clear();
+    				if (output != NULL) output->set();
+    			}
 			}
 	        return SUCCESS;
 		}

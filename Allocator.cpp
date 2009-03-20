@@ -476,6 +476,14 @@ bool Allocator::AllocateThread(LFID fid, TID tid, bool isNewlyAllocated)
         }
     }
 
+    const MemAddr tls_base = CalculateTLSAddress(fid, tid);
+    const MemSize tls_size = CalculateTLSSize();
+    COMMIT
+    {
+        // Reserve the memory (commits on use)
+        m_parent.ReserveTLS(tls_base, tls_size);
+    }
+
     // Write L0 and L1 to the register file
     if (family->regs[RT_INTEGER].count.locals > 0)
     {
@@ -497,14 +505,6 @@ bool Allocator::AllocateThread(LFID fid, TID tid, bool isNewlyAllocated)
 
         if (family->regs[RT_INTEGER].count.locals > 1)
         {
-            const MemAddr tls_base = CalculateTLSAddress(fid, tid);
-            const MemSize tls_size = CalculateTLSSize();
-            COMMIT
-            {
-                // Reserve the memory (commits on use)
-                m_parent.ReserveTLS(tls_base, tls_size);
-            }
-
             RegAddr  addr = MAKE_REGADDR(RT_INTEGER, L0 + 1);
             RegValue data;
             data.m_state   = RST_FULL;
@@ -809,6 +809,7 @@ bool Allocator::DecreaseThreadDependency(LFID fid, TID tid, ThreadDependency dep
             {
                 return false;
             }
+            COMMIT{ thread.waitingForWrites = false; }
         }
         
     case THREADDEP_PREV_CLEANED_UP:

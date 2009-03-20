@@ -648,7 +648,7 @@ static bool cmd_icache_read( Object* obj, const vector<string>& arguments )
                 cout << "       -        ";
             } else {
                 cout << right << setw(8) << setfill('0') << hex << (line.tag * cache->GetNumSets() + s) * cache->GetLineSize() << " "
-                     << (line.waiting.head != INVALID_TID ? "L" : " ") << " "
+                     << (line.waiting.head != INVALID_TID || line.creation ? "L" : " ") << " "
                      << "(" << setw(3) << dec << setfill(' ') << line.references << ")";
             }
         }
