@@ -167,7 +167,7 @@ RunState Kernel::Step(CycleNo cycles)
         //
         m_phase = PHASE_ACQUIRE;
         PROFILE_BEGIN("Read Acquire");
-        for (CallbackList::iterator i = m_callbacks.begin(); i != m_callbacks.end(); ++i)
+        for (CallbackList::const_iterator i = m_callbacks.begin(); i != m_callbacks.end(); ++i)
         {
  			for (size_t j = 0; j < i->second.states.size(); ++j)
             {
@@ -177,12 +177,12 @@ RunState Kernel::Step(CycleNo cycles)
         PROFILE_END("Read Acquire");
 
         PROFILE_BEGIN("Read Arbitrate");
-        for (StructureList::iterator i = m_structures.begin(); i != m_structures.end(); ++i) (*i)->OnArbitrateReadPhase();
-        for (FunctionList ::iterator i = m_functions .begin(); i != m_functions .end(); ++i) (*i)->OnArbitrateReadPhase();
+        for (StructureList::const_iterator i = m_structures.begin(); i != m_structures.end(); ++i) (*i)->OnArbitrateReadPhase();
+        for (FunctionList ::const_iterator i = m_functions .begin(); i != m_functions .end(); ++i) (*i)->OnArbitrateReadPhase();
         PROFILE_END("Read Arbitrate");
 
         PROFILE_BEGIN("Read Commit");
-        for (CallbackList::iterator i = m_callbacks.begin(); i != m_callbacks.end(); ++i)
+        for (CallbackList::const_iterator i = m_callbacks.begin(); i != m_callbacks.end(); ++i)
         {
  			for (size_t j = 0; j < i->second.states.size(); ++j)
             {
@@ -215,8 +215,8 @@ RunState Kernel::Step(CycleNo cycles)
         PROFILE_END("Write Acquire");
 
         PROFILE_BEGIN("Write Arbitrate");
-        for (StructureList::iterator i = m_structures.begin(); i != m_structures.end(); ++i) (*i)->OnArbitrateWritePhase();
-        for (FunctionList ::iterator i = m_functions .begin(); i != m_functions .end(); ++i) (*i)->OnArbitrateWritePhase();
+        for (StructureList::const_iterator i = m_structures.begin(); i != m_structures.end(); ++i) (*i)->OnArbitrateWritePhase();
+        for (FunctionList ::const_iterator i = m_functions .begin(); i != m_functions .end(); ++i) (*i)->OnArbitrateWritePhase();
         PROFILE_END("Write Arbitrate");
 
         PROFILE_BEGIN("Write Commit");
@@ -255,9 +255,9 @@ RunState Kernel::Step(CycleNo cycles)
         }
         PROFILE_END("Write Commit");
     
-        for (RegisterList::iterator i = m_registers.begin(); i != m_registers.end(); ++i) (*i)->OnUpdate();
+        for (RegisterList::const_iterator i = m_registers.begin(); i != m_registers.end(); ++i) (*i)->OnUpdate();
         m_phase = PHASE_COMMIT;
-        for (CallbackList::iterator i = m_callbacks.begin(); i != m_callbacks.end(); ++i)
+        for (CallbackList::const_iterator i = m_callbacks.begin(); i != m_callbacks.end(); ++i)
         {
             i->first->UpdateStatistics();
         }
@@ -273,18 +273,7 @@ RunState Kernel::Step(CycleNo cycles)
 	    : (idle) ? (has_work) ? STATE_DEADLOCK : STATE_IDLE : STATE_RUNNING;
 }
 
-CycleNo Kernel::GetCycleNo() const
-{
-    return m_cycle;
-}
-
-CyclePhase Kernel::GetCyclePhase() const
-{
-    return m_phase;
-}
-
 void Kernel::SetDebugMode(int mode) { m_debugMode = mode; }
-int  Kernel::GetDebugMode() const   { return m_debugMode; }
 
 void Kernel::RegisterStructure(IStructure& _structure)
 {

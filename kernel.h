@@ -123,14 +123,14 @@ public:
      * Gets the current cycle counter of the simulation.
      * @return the current cycle counter.
      */
-    CycleNo GetCycleNo() const;
+    inline CycleNo GetCycleNo() const { return m_cycle; }
     
     /**
      * @brief Get the cycle phase.
      * Gets the current sub-cycle phase of the simulation.
      * @return the current sub-cycle phase.
      */
-    CyclePhase GetCyclePhase() const;
+    inline CyclePhase GetCyclePhase() const { return m_phase; }
     
     /**
      * Sets the debug mode.
@@ -142,7 +142,7 @@ public:
      * Gets the current debug mode.
      * @return the current debug mode.
      */
-    int GetDebugMode() const;
+    inline int GetDebugMode() const { return m_debugMode; }
 
     /**
      * @brief Advances the simulation.

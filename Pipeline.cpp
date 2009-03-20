@@ -24,7 +24,7 @@ Pipeline::Pipeline(
 	FPU&                fpu,
     const Config&       config)
 :
-    IComponent(&parent, parent.GetKernel(), name, "fetch|decode|read|execute|memory|writeback"), m_parent(parent), m_regFile(regFile),
+    IComponent(&parent, parent.GetKernel(), name, "writeback|memory|execute|read|decode|fetch"), m_parent(parent), m_regFile(regFile),
     m_nStagesRun(0), m_maxPipelineIdleTime(0), m_minPipelineIdleTime(numeric_limits<uint64_t>::max()),
     m_totalPipelineIdleTime(0), m_pipelineIdleEvents(0), m_pipelineIdleTime(0), m_pipelineBusyTime(0),
     m_fetch(*this, m_fdLatch, alloc, familyTable, threadTable, icache, config.controlBlockSize),

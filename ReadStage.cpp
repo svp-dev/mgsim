@@ -186,7 +186,7 @@ bool Pipeline::ReadStage::ReadRegister(OperandInfo& operand)
             : 0;
 
 #ifdef DEBUG_READ_STAGE
-        printf("[CPU %u] New operand read: %d\n", m_parent.GetProcessor().GetPID(), operand.to_read_mask);
+        printf("[CPU %u] New operand read: %d\n", (unsigned int)m_parent.GetProcessor().GetPID(), operand.to_read_mask);
 #endif
     }
     
@@ -222,7 +222,7 @@ bool Pipeline::ReadStage::ReadRegister(OperandInfo& operand)
                 if (read_mask < 0)
                 {
 #ifdef DEBUG_READ_STAGE
-                    printf("[CPU %u] Got it NON-FULL from bypass #%d\n", m_parent.GetProcessor().GetPID(), i );
+                    printf("[CPU %u] Got it NON-FULL from bypass #%d\n", (unsigned int)m_parent.GetProcessor().GetPID(), i );
 #endif
                     // A part of the operand was not full. read_mask contains
                     // the register offset. Since we have to suspend on this
@@ -240,7 +240,7 @@ bool Pipeline::ReadStage::ReadRegister(OperandInfo& operand)
                 {
                     // We can read part of the operand from this bypass later
 #ifdef DEBUG_READ_STAGE
-                    printf("[CPU %u] Get it in write stage from bypass #%d\n", m_parent.GetProcessor().GetPID(), i );
+                    printf("[CPU %u] Get it in write stage from bypass #%d\n", (unsigned int)m_parent.GetProcessor().GetPID(), i );
 #endif
                     to_read_mask &= ~read_mask;
                     if (bi.read)
@@ -254,7 +254,7 @@ bool Pipeline::ReadStage::ReadRegister(OperandInfo& operand)
         if (to_read_mask != 0)
         {
 #ifdef DEBUG_READ_STAGE
-            printf("[CPU %u] Reading from registers %04x: %d\n", m_parent.GetProcessor().GetPID(), operand.addr.index, to_read_mask );
+            printf("[CPU %u] Reading from registers %04x: %d\n", (unsigned int)m_parent.GetProcessor().GetPID(), (unsigned int)operand.addr.index, to_read_mask );
 #endif
             // Part of the operand still needs to be read from the register file
             if (!operand.port->Read(*this))
@@ -321,7 +321,7 @@ bool Pipeline::ReadStage::ReadBypasses(OperandInfo& operand)
                 if (read_mask < 0)
                 {
 #ifdef DEBUG_READ_STAGE
-                    printf("[CPU %u] Got it from bypass #%d: NOT FULL\n", m_parent.GetProcessor().GetPID(), i );
+                    printf("[CPU %u] Got it from bypass #%d: NOT FULL\n", (unsigned int)m_parent.GetProcessor().GetPID(), i );
 #endif
                     // A part of the operand was not full. read_mask contains
                     // the register offset. Since we have to suspend on this
@@ -338,7 +338,7 @@ bool Pipeline::ReadStage::ReadBypasses(OperandInfo& operand)
                 else if (read_mask != 0)
                 {
 #ifdef DEBUG_READ_STAGE
-                    printf("[CPU %u] Got it from bypass #%d\n", m_parent.GetProcessor().GetPID(), i );
+                    printf("[CPU %u] Got it from bypass #%d\n", (unsigned int)m_parent.GetProcessor().GetPID(), i );
 #endif
                     // We've read part of the operand from this bypass
                     operand.to_read_mask &= ~read_mask;
@@ -388,8 +388,8 @@ Pipeline::PipeAction Pipeline::ReadStage::read()
 #endif
 
 #ifdef DEBUG_READ_STAGE
-    printf("[CPU %u][R] Before reading: %d, %d\n", m_parent.GetProcessor().GetPID(), operand1.to_read_mask, operand2.to_read_mask );
-    printf("[CPU %u][R] Reading operand 1\n", m_parent.GetProcessor().GetPID());
+    printf("[CPU %u][R] Before reading: %d, %d\n", (unsigned int)m_parent.GetProcessor().GetPID(), operand1.to_read_mask, operand2.to_read_mask );
+    printf("[CPU %u][R] Reading operand 1\n", (unsigned int)m_parent.GetProcessor().GetPID());
 #endif
     if (!ReadRegister(operand1))
     {
@@ -400,10 +400,10 @@ Pipeline::PipeAction Pipeline::ReadStage::read()
     }
 #ifdef DEBUG_READ_STAGE
     printf("[CPU %u][R] Operand 1: %016llx\n",
-        m_parent.GetProcessor().GetPID(),
+        (unsigned int)m_parent.GetProcessor().GetPID(),
         (operand1.addr.type == RT_INTEGER)
-        ? operand1.value.m_integer.get(operand1.value.m_size)
-        : operand1.value.m_float.toint(operand1.value.m_size));
+        ? (unsigned long long)operand1.value.m_integer.get(operand1.value.m_size)
+        : (unsigned long long)operand1.value.m_float.toint(operand1.value.m_size));
 #endif
 
     if (!operand2.addr.valid())
@@ -416,7 +416,7 @@ Pipeline::PipeAction Pipeline::ReadStage::read()
     else
     {
 #ifdef DEBUG_READ_STAGE
-        printf("[CPU %u][R] Reading operand 2\n", m_parent.GetProcessor().GetPID());
+        printf("[CPU %u][R] Reading operand 2\n", (unsigned int)m_parent.GetProcessor().GetPID());
 #endif
         if (!ReadRegister(operand2))
         {
@@ -427,14 +427,14 @@ Pipeline::PipeAction Pipeline::ReadStage::read()
         }
 #ifdef DEBUG_READ_STAGE
     printf("[CPU %u][R] Operand 2: %016llx\n",
-        m_parent.GetProcessor().GetPID(),
+        (unsigned int)m_parent.GetProcessor().GetPID(),
         (operand2.addr.type == RT_INTEGER)
-        ? operand2.value.m_integer.get(operand2.value.m_size)
-        : operand2.value.m_float.toint(operand2.value.m_size));
+        ? (unsigned long long)operand2.value.m_integer.get(operand2.value.m_size)
+        : (unsigned long long)operand2.value.m_float.toint(operand2.value.m_size));
 #endif
     }
 #ifdef DEBUG_READ_STAGE
-    printf("[CPU %u][R] After reading: %d, %d\n", m_parent.GetProcessor().GetPID(), operand1.to_read_mask, operand2.to_read_mask );
+    printf("[CPU %u][R] After reading: %d, %d\n", (unsigned int)m_parent.GetProcessor().GetPID(), operand1.to_read_mask, operand2.to_read_mask );
 #endif
 
     COMMIT
@@ -451,8 +451,8 @@ Pipeline::PipeAction Pipeline::ReadStage::write()
     OperandInfo operand2( m_operand2 );
 
 #ifdef DEBUG_READ_STAGE
-    printf("[CPU %u][W] Before reading: %d, %d\n", m_parent.GetProcessor().GetPID(), operand1.to_read_mask, operand2.to_read_mask );
-    printf("[CPU %u][W] Reading operand 1\n", m_parent.GetProcessor().GetPID());
+    printf("[CPU %u][W] Before reading: %d, %d\n", (unsigned int)m_parent.GetProcessor().GetPID(), operand1.to_read_mask, operand2.to_read_mask );
+    printf("[CPU %u][W] Reading operand 1\n", (unsigned int)m_parent.GetProcessor().GetPID());
 #endif
     if (!ReadBypasses(operand1))
     {
@@ -463,14 +463,14 @@ Pipeline::PipeAction Pipeline::ReadStage::write()
     }
 #ifdef DEBUG_READ_STAGE
     printf("[CPU %u][W] Operand 1: %016llx\n",
-        m_parent.GetProcessor().GetPID(),
+        (unsigned int)m_parent.GetProcessor().GetPID(),
         (operand1.addr.type == RT_INTEGER)
-        ? operand1.value.m_integer.get(operand1.value.m_size)
-        : operand1.value.m_float.toint(operand1.value.m_size));
+        ? (unsigned long long)operand1.value.m_integer.get(operand1.value.m_size)
+        : (unsigned long long)operand1.value.m_float.toint(operand1.value.m_size));
 #endif
     
 #ifdef DEBUG_READ_STAGE
-    printf("[CPU %u][W] Reading operand 2\n", m_parent.GetProcessor().GetPID());
+    printf("[CPU %u][W] Reading operand 2\n", (unsigned int)m_parent.GetProcessor().GetPID());
 #endif
     if (!ReadBypasses(operand2))
     {
@@ -481,10 +481,10 @@ Pipeline::PipeAction Pipeline::ReadStage::write()
     }
 #ifdef DEBUG_READ_STAGE
     printf("[CPU %u][W] Operand 2: %016llx\n",
-        m_parent.GetProcessor().GetPID(),
+        (unsigned int)m_parent.GetProcessor().GetPID(),
         (operand2.addr.type == RT_INTEGER)
-        ? operand2.value.m_integer.get(operand2.value.m_size)
-        : operand2.value.m_float.toint(operand2.value.m_size));
+        ? (unsigned long long)operand2.value.m_integer.get(operand2.value.m_size)
+        : (unsigned long long)operand2.value.m_float.toint(operand2.value.m_size));
 #endif
     
     COMMIT
@@ -494,7 +494,7 @@ Pipeline::PipeAction Pipeline::ReadStage::write()
     }
     
 #ifdef DEBUG_READ_STAGE
-    printf("[CPU %u][W] After reading: %d, %d\n", m_parent.GetProcessor().GetPID(), operand1.to_read_mask, operand2.to_read_mask );
+    printf("[CPU %u][W] After reading: %d, %d\n", (unsigned int)m_parent.GetProcessor().GetPID(), operand1.to_read_mask, operand2.to_read_mask );
 #endif
     if (operand1.to_read_mask != 0 || operand2.to_read_mask != 0)
     {
@@ -541,7 +541,7 @@ Pipeline::PipeAction Pipeline::ReadStage::write()
             RegAddr rra(m_input.Rra.reg);
             rra.index += (operand1.addr.index - m_input.Ra.index);
             
-			DebugSimWrite("Requesting remote shared %s for G%u", rra.str().c_str(), m_input.Rra.fid);
+			DebugSimWrite("Requesting remote shared %s for G%u", rra.str().c_str(), (unsigned int)m_input.Rra.fid);
 			if (!m_network.RequestShared(m_input.Rra.fid, rra, m_input.isFirstThreadInFamily))
             {
 #ifdef DEBUG_READ_STAGE
@@ -649,5 +649,5 @@ Pipeline::ReadStage::ReadStage(Pipeline& parent, DecodeReadLatch& input, ReadExe
 #endif
     m_operand1.port = &m_regFile.p_pipelineR1;
     m_operand2.port = &m_regFile.p_pipelineR2;
-    clear(0);
+    clear(input.tid);
 }

@@ -10,11 +10,11 @@
     .ent main
     .globl main
 main:
-	allocate $4, 0, 0, 0, 0
-
     ldah $29, 0($27)    !gpdisp!1
     lda  $29, 0($29)    !gpdisp!1
     
+	allocate $4, 0, 0, 0, 0
+
 	ldah $0, matrixA($29)      !gprelhigh
 	lda  $0, matrixA( $0)      !gprellow
 	ldah $1, matrixB($29)      !gprelhigh
