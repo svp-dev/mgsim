@@ -1,0 +1,55 @@
+#! /bin/sh
+# slc, a SVP generic compiler.
+# Copyright (C) 2009 The CSA group, Universiteit van Amsterdam.
+
+me=$(basename $0)
+
+stderr ()
+{
+    echo >&2 "$0: $@"
+}
+
+# Debian ships both 1.9.6 and 1.10 but defaults to 1.9.6...
+automake-1.10 --version >/dev/null 2>/dev/null \
+  && export AUTOMAKE=automake-1.10 \
+  && export ACLOCAL=aclocal-1.10
+
+# run DIRECTORY COMMAND-LINE
+# --------------------------
+# "set -e" doesn't work for subshells!
+run ()
+{
+    (
+	stderr "$@"
+	cd "$1"
+	shift
+	if ! "$@"; then
+	    stderr "unexpected failure: $@"
+	    exit 1
+	fi
+    )
+}
+
+set -e
+
+if [ "$#" -eq "1" ]; then
+  AUTORECONF=$1
+  echo "Using \`$1' instead of \`autoreconf' command"
+else
+  AUTORECONF=autoreconf
+fi
+
+# On some environments (Darwin Ports), libtoolize is glibtoolize.
+# I suppose their autoreconf is adjusted accordingly, but I use
+# my custom Autoconf...
+for lt in "$LIBTOOLIZE" libtoolize glibtoolize
+do
+  if ($lt --version) >/dev/null 2>&1; then
+    export LIBTOOLIZE="$lt"
+    break
+  fi
+done
+
+run .                     $AUTORECONF -v -f -i
+
+echo "Reconfiguration done."

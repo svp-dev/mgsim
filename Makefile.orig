@@ -9,10 +9,10 @@ debug: MGAlpha.dbg MGSparc.dbg
 alpha Alpha: MGAlpha MGAlpha.dbg
 sparc Sparc: MGSparc MGSparc.dbg
 
-CC               = g++
-CPPFLAGS_COMMON  = -Wall
+CC               = g++-mp-4.4
+CPPFLAGS_COMMON  = -Wall -W
 CPPFLAGS_RELEASE = $(CPPFLAGS_COMMON) -O2 -DNDEBUG
-CPPFLAGS_DEBUG   = $(CPPFLAGS_COMMON) -O0 -g
+CPPFLAGS_DEBUG   = $(CPPFLAGS_COMMON) -O3 -DNDEBUG
 CPPFLAGS_ALPHA   = -DTARGET_ARCH=ARCH_ALPHA
 CPPFLAGS_SPARC   = -DTARGET_ARCH=ARCH_SPARC
 
@@ -24,7 +24,6 @@ DEPS     = $(patsubst %.cpp,$(DEPDIR)/%.d,$(wildcard *.cpp))
 
 .PHONY: clean tidy all debug release
 .SUFFIXES:
-.SILENT:
 
 OBJS_COMMON = $(foreach f,$(OBJS),$(if $(findstring .,$(f:.o=)),,$f))
 OBJS_ALPHA  = $(filter %.alpha.o,$(OBJS)) $(OBJS_COMMON)
@@ -32,7 +31,7 @@ OBJS_SPARC  = $(filter %.sparc.o,$(OBJS)) $(OBJS_COMMON)
 
 MGAlpha.dbg: $(subst .o,.alpha.dbg.o,$(OBJS_ALPHA))
 	echo LINK $@
-	$(CC) $(LDFLAGS) -o $@ $^
+	$(CC) $(LDFLAGS) $(CPPFLAGS_DEBUG) -o $@ $^
 
 MGAlpha: $(subst .o,.alpha.o,$(OBJS_ALPHA))
 	echo LINK $@

@@ -1,5 +1,6 @@
 #include "profile.h"
-#include "time.h"
+#include "simtime.h"
+
 using namespace std;
 
 namespace Simulator

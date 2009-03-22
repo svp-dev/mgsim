@@ -17,8 +17,8 @@
 #include <limits>
 #include <typeinfo>
 
-#include <readline/readline.h>
-#include <readline/history.h>
+#include "simreadline.h"
+
 #include <signal.h>
 
 using namespace Simulator;

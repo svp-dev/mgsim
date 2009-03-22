@@ -1,4 +1,4 @@
-#include "time.h"
+#include "simtime.h"
 #include <sys/time.h>
 
 namespace Simulator
