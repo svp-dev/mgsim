@@ -19,6 +19,10 @@ CXXFLAGS=''
 AC_PROG_CXX
 AC_LIB_READLINE
 
+# FIXME: the following should use $datadir
+AC_DEFINE_UNQUOTED([MGSIM_CONFIG_PATH], ["$prefix/share/mgsim/config.ini"], 
+                   [Path to simulator default configuration file])
+
 AC_CONFIG_FILES([
 	Makefile
 	doc/Makefile

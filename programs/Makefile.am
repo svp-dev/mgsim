@@ -1,1 +1,1 @@
-dist_pkglib_DATA = config.ini
+dist_pkgdata_DATA = config.ini
