@@ -5,6 +5,7 @@ FLAGS_ALPHA = -DTARGET_ARCH=ARCH_ALPHA
 FLAGS_SPARC = -DTARGET_ARCH=ARCH_SPARC
 FLAGS_OPT = -O3 -DNDEBUG
 FLAGS_DEBUG = -O0 -g -pg
+FLAGS_COMMON = -Wall -W -DMGSIM_CONFIG_PATH=\"$(pkgdatadir)/config.ini\"
 
 COMMON_SRC = \
 	Allocator.cpp \
@@ -80,14 +81,14 @@ SPARC_SRC = $(COMMON_SRC) \
 
 
 mgsim_alpha_SOURCES = $(ALPHA_SRC)
-mgsim_alpha_CXXFLAGS = $(FLAGS_ALPHA) $(FLAGS_OPT)
+mgsim_alpha_CXXFLAGS = $(FLAGS_ALPHA) $(FLAGS_OPT) $(FLAGS_COMMON)
 
 mgsim_alpha_dbg_SOURCES = $(ALPHA_SRC)
-mgsim_alpha_dbg_CXXFLAGS = $(FLAGS_ALPHA) $(FLAGS_DEBUG)
+mgsim_alpha_dbg_CXXFLAGS = $(FLAGS_ALPHA) $(FLAGS_DEBUG) $(FLAGS_COMMON)
 
 mgsim_sparc_SOURCES = $(SPARC_SRC)
-mgsim_sparc_CXXFLAGS = $(FLAGS_SPARC) $(FLAGS_OPT)
+mgsim_sparc_CXXFLAGS = $(FLAGS_SPARC) $(FLAGS_OPT) $(FLAGS_COMMON)
 
 mgsim_sparc_dbg_SOURCES = $(SPARC_SRC)
-mgsim_sparc_dbg_CXXFLAGS = $(FLAGS_SPARC) $(FLAGS_DEBUG)
+mgsim_sparc_dbg_CXXFLAGS = $(FLAGS_SPARC) $(FLAGS_DEBUG) $(FLAGS_COMMON)
 
