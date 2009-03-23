@@ -1,6 +1,9 @@
 EXTRA_DIST = $(TEST_SOURCES)
 
-TESTS_ENVIRONMENT = $(top_builddir)/src/mgsim-$(ARCH) -c $(top_srcdir)/programs/config.ini -t
+TESTS_ENVIRONMENT = \
+   MGSIM="$(top_builddir)/src/mgsim-$(ARCH) -c $(top_srcdir)/programs/config.ini -t" \
+   $(SHELL) $(top_srcdir)/programs/runtest.sh $(ARCH) 4
+
 ASLINK = $(SHELL) $(top_builddir)/programs/aslink.sh $(ARCH)
 SUFFIXES = .s .bin
 

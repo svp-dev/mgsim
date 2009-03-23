@@ -70,6 +70,9 @@ loop:
     end   
     .end loop
 
+    .section .rodata
+    .ascii "\0TEST_INPUTS:R10:1024\0"
+
 #
 # Data
 #

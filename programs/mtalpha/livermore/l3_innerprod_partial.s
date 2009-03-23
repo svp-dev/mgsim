@@ -2,6 +2,10 @@
 #
     .file "l3_innerprod_partial.s"
     .arch ev6
+
+    .section .rodata
+    .ascii "\0TEST_INPUTS:R10:1024\0"
+	
     .text
     
     .equ MAX_N, 1048576

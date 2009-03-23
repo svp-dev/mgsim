@@ -30,3 +30,7 @@ fibonacci:
     mov $d1, $s0
     end
     .end fibonacci
+
+    .section .rodata
+    .ascii "\0TEST_INPUTS:R2:2 5 7 12\0"
+	

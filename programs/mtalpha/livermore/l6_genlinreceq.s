@@ -12,6 +12,10 @@
 #
     .file "l6_genlinreceq.s"
     .arch ev6
+
+    .section .rodata
+    .ascii "\0TEST_INPUTS:R10:256\0"
+	
     .text
     
     .equ MAX_N, 1024

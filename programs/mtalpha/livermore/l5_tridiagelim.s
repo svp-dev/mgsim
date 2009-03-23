@@ -7,6 +7,10 @@
 #    }
 #
     .file "l5_tridiagelim.s"
+
+    .section .rodata
+    .ascii "\0TEST_INPUTS:R10:1024\0"
+	
     .text
     
     .equ MAX_N, 1048576
