@@ -304,10 +304,11 @@ bool DCache::OnMemorySnooped(MemAddr address, const MemData& data)
     return true;
 }
 
-Result DCache::OnCycleWritePhase(unsigned int /* stateIndex */)
+Result DCache::OnCycleWritePhase(unsigned int stateIndex)
 {
     assert(stateIndex == 0);
-    
+    (void)stateIndex;
+ 
     if (m_returned.head == INVALID_CID)
     {
 		// Nothing to do
