@@ -349,7 +349,7 @@ bool Allocator::SuspendThread(TID tid, MemAddr pc)
     return true;
 }
 
-MemAddr Allocator::CalculateTLSAddress(LFID fid, TID tid) const
+MemAddr Allocator::CalculateTLSAddress(LFID /* fid */, TID tid) const
 {
     // 1 bit for TLS/GS
     // P bits for CPU

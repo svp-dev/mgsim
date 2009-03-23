@@ -313,8 +313,8 @@ public:
 	 * - FAILED:  There's something to do but I can't do it
  	 * - SUCCESS: There's something to do and I have done it
 	 */
-    virtual Result OnCycleReadPhase(unsigned int stateIndex)  { return DELAYED; }
-    virtual Result OnCycleWritePhase(unsigned int stateIndex) { return DELAYED; }
+    virtual Result OnCycleReadPhase(unsigned int /*stateIndex*/)  { return DELAYED; }
+    virtual Result OnCycleWritePhase(unsigned int /*stateIndex*/) { return DELAYED; }
     virtual void UpdateStatistics() {}
 
     /**

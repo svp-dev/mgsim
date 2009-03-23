@@ -20,7 +20,7 @@ class IMemoryCallback
 public:
     virtual bool OnMemoryReadCompleted(const MemData& data) = 0;
     virtual bool OnMemoryWriteCompleted(const MemTag& tag) = 0;
-    virtual bool OnMemorySnooped(MemAddr addr, const MemData& data) { return true; }
+    virtual bool OnMemorySnooped(MemAddr /* addr */, const MemData& /* data */) { return true; }
 
     virtual ~IMemoryCallback() {}
 };

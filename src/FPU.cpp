@@ -116,7 +116,7 @@ bool FPU::OnCompletion(const Result& res) const
 	return true;
 }
 
-Result FPU::OnCycleWritePhase(unsigned int stateIndex)
+Result FPU::OnCycleWritePhase(unsigned int /* stateIndex */)
 {
 	CycleNo now = GetKernel()->GetCycleNo();
 	for (map<CycleNo, deque<Result> >::iterator p = m_pipelines.begin(); p != m_pipelines.end(); p++)

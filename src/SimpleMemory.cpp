@@ -14,7 +14,8 @@ void SimpleMemory::UnregisterListener(IMemoryCallback& callback)
     m_caches.erase(&callback);
 }
 
-Result SimpleMemory::Read(IMemoryCallback& callback, MemAddr address, void* data, MemSize size, MemTag tag)
+Result SimpleMemory::Read(IMemoryCallback& callback, MemAddr address, 
+                          void* /* data */, MemSize size, MemTag tag)
 {
 #if MEMSIZE_MAX >= SIZE_MAX
     if (size > SIZE_MAX)
@@ -104,7 +105,7 @@ bool SimpleMemory::CheckPermissions(MemAddr address, MemSize size, int access) c
 	return VirtualMemory::CheckPermissions(address, size, access);
 }
 
-Result SimpleMemory::OnCycleWritePhase(unsigned int stateIndex)
+Result SimpleMemory::OnCycleWritePhase(unsigned int /* stateIndex */)
 {
 	Result result = (!m_requests.empty()) ? SUCCESS : DELAYED;
 

@@ -143,9 +143,9 @@ Pipeline::PipeAction Pipeline::ExecuteStage::SetFamilyRegs(LFID fid, const Alloc
 	return PIPE_CONTINUE;
 }
 
-Pipeline::PipeAction Pipeline::ExecuteStage::ExecBreak(Integer value) { return PIPE_CONTINUE; }
-Pipeline::PipeAction Pipeline::ExecuteStage::ExecBreak(double value)  { return PIPE_CONTINUE; }
-Pipeline::PipeAction Pipeline::ExecuteStage::ExecKill(LFID fid)       { return PIPE_CONTINUE; }
+Pipeline::PipeAction Pipeline::ExecuteStage::ExecBreak(Integer /* value */) { return PIPE_CONTINUE; }
+Pipeline::PipeAction Pipeline::ExecuteStage::ExecBreak(double /* value */)  { return PIPE_CONTINUE; }
+Pipeline::PipeAction Pipeline::ExecuteStage::ExecKill(LFID /* fid */)       { return PIPE_CONTINUE; }
 
 void Pipeline::ExecuteStage::ExecDebug(Integer value, Integer stream) const
 {

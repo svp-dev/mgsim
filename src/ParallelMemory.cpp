@@ -63,7 +63,8 @@ void ParallelMemory::AddRequest(Request& request)
 	m_statMaxRequests = max(m_statMaxRequests, m_numRequests);
 }
 
-Result ParallelMemory::Read(IMemoryCallback& callback, MemAddr address, void* data, MemSize size, MemTag tag)
+Result ParallelMemory::Read(IMemoryCallback& callback, MemAddr address, 
+                            void* /* data */, MemSize size, MemTag tag)
 {
 #if MEMSIZE_MAX >= SIZE_MAX
     if (size > SIZE_MAX)

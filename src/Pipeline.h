@@ -126,7 +126,7 @@ public:
     public:
         virtual PipeAction  read()  = 0;
         virtual PipeAction  write() = 0;
-        virtual void        clear(TID tid) {}
+        virtual void        clear(TID /* tid */) {}
         Stage(Pipeline& parent, const std::string& name, Latch* input, Latch* output);
 
         Latch* getInput()  const { return m_input;  }

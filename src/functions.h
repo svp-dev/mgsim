@@ -16,7 +16,7 @@ class ArbitratedFunction : public IFunction
 
 public:
     ArbitratedFunction(const ArbitratedFunction& f)
-        : m_priorities(f.m_priorities), m_requests(f.m_requests), m_kernel(f.m_kernel),
+      : IFunction(), m_priorities(f.m_priorities), m_requests(f.m_requests), m_kernel(f.m_kernel),
           m_priority(f.m_priority), m_component(f.m_component)
     {
         m_kernel.RegisterFunction(*this);
@@ -51,7 +51,7 @@ protected:
 #ifndef NDEBUG
     void Verify(const IComponent& component) const;
 #else
-    void Verify(const IComponent& component) const {}
+    void Verify(const IComponent& /* component */) const {}
 #endif
 
     void AddRequest(const IComponent& component);
@@ -80,7 +80,7 @@ protected:
 #ifndef NDEBUG
     void Verify(const IComponent& component) const;
 #else
-    void Verify(const IComponent& component) const {}
+    void Verify(const IComponent& /* component */) const {}
 #endif
 
 private:

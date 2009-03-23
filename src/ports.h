@@ -72,11 +72,13 @@ protected:
         return m_chosen && &component == m_component;
     }
 
-    void Verify(const IComponent& component) const {
 #ifndef NDEBUG
+    void Verify(const IComponent& component) const {
         if (m_priorities.find(&component) == m_priorities.end()) {
             throw IllegalPortAccess(component);
         }
+#else
+    void Verify(const IComponent& /* component */) const {
 #endif
     }
 
@@ -180,18 +182,20 @@ private:
 class DedicatedPort
 {
 public:
-    DedicatedPort() { m_component = NULL; }
+    DedicatedPort() : m_component(NULL) { }
     virtual ~DedicatedPort() {}
 
     virtual void SetComponent(const IComponent& component) {
         m_component = &component;
     }
 protected:
-    void Verify(const IComponent& component) {
 #ifndef NDEBUG
+    void Verify(const IComponent& component) {
         if (m_component != &component) {
             throw IllegalPortAccess(component);
         }
+#else
+    void Verify(const IComponent& /* component */) {
 #endif
     }
 private:
@@ -272,7 +276,7 @@ class DedicatedReadPort : public DedicatedPort, public ReadPort
 {
 public:
     template <typename I>
-    DedicatedReadPort(Structure<I>& structure) {}
+    DedicatedReadPort(Structure<I>& /* structure */) {}
     bool Read(const IComponent& component) {
         Verify(component);
         return true;

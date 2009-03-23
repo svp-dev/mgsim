@@ -13,8 +13,8 @@ void PROFILE_BEGIN(const std::string& name);
 void PROFILE_END(const std::string& name);
 static bool inline ProfilingEnabled() { return true; }
 #else
-static void inline PROFILE_BEGIN(const std::string& name) {}
-static void inline PROFILE_END(const std::string& name) {}
+static void inline PROFILE_BEGIN(const std::string& /* name */) {}
+static void inline PROFILE_END(const std::string& /* name */) {}
 static bool inline ProfilingEnabled() { return false; }
 #endif
 

@@ -82,7 +82,8 @@ void BankedMemory::AddRequest(Pipeline& queue, const Request& request, bool data
     queue.insert(make_pair(done, request));
 }
 
-Result BankedMemory::Read(IMemoryCallback& callback, MemAddr address, void* data, MemSize size, MemTag tag)
+Result BankedMemory::Read(IMemoryCallback& callback, MemAddr address, void* /* data */, 
+                          MemSize size, MemTag tag)
 {
 #if MEMSIZE_MAX >= SIZE_MAX
     if (size > SIZE_MAX)
@@ -285,7 +286,8 @@ static string CreateStateNames(size_t numBanks)
     return ret;
 }
 
-BankedMemory::BankedMemory(Object* parent, Kernel& kernel, const std::string& name, const Config& config, size_t nProcs) :
+BankedMemory::BankedMemory(Object* parent, Kernel& kernel, const std::string& name, 
+                           const Config& config, size_t /* nProcs */) :
     IComponent(parent, kernel, name, CreateStateNames(config.numBanks)),
     m_config(config), m_banks(config.numBanks)
 {

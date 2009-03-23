@@ -5,7 +5,10 @@ FLAGS_ALPHA = -DTARGET_ARCH=ARCH_ALPHA
 FLAGS_SPARC = -DTARGET_ARCH=ARCH_SPARC
 FLAGS_OPT = -O3 -DNDEBUG
 FLAGS_DEBUG = -O0 -g -pg
-FLAGS_COMMON = -Wall -W -DMGSIM_CONFIG_PATH=\"$(pkgdatadir)/config.ini\"
+FLAGS_COMMON = -Wall -Wextra -Wwrite-strings -Wconversion \
+       -Wshorten-64-to-32 \
+       -Weffc++ -Woverloaded-virtual \
+       -DMGSIM_CONFIG_PATH=\"$(pkgdatadir)/config.ini\"
 
 COMMON_SRC = \
 	Allocator.cpp \

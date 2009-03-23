@@ -115,7 +115,7 @@ Result DCache::FindLine(MemAddr address, Line* &line, bool check_only)
     return DELAYED;
 }
 
-Result DCache::Read(MemAddr address, void* data, MemSize size, LFID fid, RegAddr* reg)
+Result DCache::Read(MemAddr address, void* data, MemSize size, LFID /* fid */, RegAddr* reg)
 {
     size_t offset = (size_t)(address % m_config.lineSize);
     if (offset + size > m_config.lineSize)
@@ -304,7 +304,7 @@ bool DCache::OnMemorySnooped(MemAddr address, const MemData& data)
     return true;
 }
 
-Result DCache::OnCycleWritePhase(unsigned int stateIndex)
+Result DCache::OnCycleWritePhase(unsigned int /* stateIndex */)
 {
     assert(stateIndex == 0);
     
