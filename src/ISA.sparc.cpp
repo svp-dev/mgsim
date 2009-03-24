@@ -371,8 +371,8 @@ static uint32_t ExecBasicInteger(int opcode, uint32_t Rav, uint32_t Rbv, uint32_
                 break;
                 
             case S_OP3_SDIV:
-                if ((int64_t)Rcv < -0x80000000LL) { psr |= PSR_ICC_V; Rcv = (int64_t)-0x80000000LL; }
-                if ((int64_t)Rcv >  0x7FFFFFFFLL) { psr |= PSR_ICC_V; Rcv = (int64_t) 0x7FFFFFFFLL; }
+                if ((int64_t)Rcv < -0x80000000LL) { psr |= PSR_ICC_V; Rcv = (uint64_t)(int64_t)-0x80000000LL; }
+                if ((int64_t)Rcv >  0x7FFFFFFFLL) { psr |= PSR_ICC_V; Rcv = (uint64_t)(int64_t) 0x7FFFFFFFLL; }
                 if (Rcv == 0) psr |= PSR_ICC_Z;
                 if (C31)      psr |= PSR_ICC_N;
                 break;

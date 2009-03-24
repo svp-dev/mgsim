@@ -1315,5 +1315,5 @@ const COMMAND Commands[] = {
     {"info", cmd_icache_info },
     {"info", cmd_dcache_info },
     {"info", cmd_mem_info },
-    {NULL}
+    {NULL, NULL}
 };

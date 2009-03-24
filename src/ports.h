@@ -129,7 +129,7 @@ public:
         m_requests.clear();
         for (typename WritePortList::iterator i = m_writePorts.begin(); i != m_writePorts.end(); i++)
         {
-            I index;
+            I index = I();
             if ((*i)->Arbitrate(&index))
             {
                 // This port has requests

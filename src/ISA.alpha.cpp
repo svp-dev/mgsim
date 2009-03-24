@@ -452,7 +452,7 @@ static bool ExecuteINTM(PipeValue& Rcv, const PipeValue& Rav, const PipeValue& R
     uint64_t Ra = Rav.m_integer.get(Rav.m_size);
     uint64_t Rb = Rbv.m_integer.get(Rbv.m_size);
 
-    uint64_t Rc; // FIXME: not always set by switch below.
+    uint64_t Rc;
     switch(func)
     {
         case A_INTMFUNC_MULL_V:
@@ -460,8 +460,9 @@ static bool ExecuteINTM(PipeValue& Rcv, const PipeValue& Rav, const PipeValue& R
         case A_INTMFUNC_MULQ_V:
         case A_INTMFUNC_MULQ:  mul128b(Ra, Rb, NULL, &Rc); break;
         case A_INTMFUNC_UMULH: mul128b(Ra, Rb, &Rc, NULL); break;
+        default: assert(0); Rc = 0; break;
     }
-        Rcv.m_integer = Rc; // FIXME: may be uninitialized here!!
+    Rcv.m_integer = Rc;
 	return true;
 }
 

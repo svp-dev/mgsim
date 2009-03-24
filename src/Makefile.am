@@ -4,10 +4,10 @@ noinst_PROGRAMS =
 
 FLAGS_OPT = -O3 -DNDEBUG
 FLAGS_DEBUG = -O0 -g -pg
-FLAGS_COMMON = -Wall -Wextra -Wwrite-strings -Wconversion \
+FLAGS_COMMON = -Wall -Wwrite-strings -Wconversion \
        -DMGSIM_CONFIG_PATH=\"$(pkgdatadir)/config.ini\"
 
-#       -Wshorten-64-to-32 
+#       -Wshorten-64-to-32 -Wextra
 #       -Weffc++ -Woverloaded-virtual 
 
 COMMON_SRC = \
