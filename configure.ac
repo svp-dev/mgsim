@@ -54,10 +54,10 @@ AC_ARG_ENABLE([mtsparc-tests],
 [], [enable_mtsparc_tests=yes])
 
 AC_ARG_VAR([AS_MTSPARC], [Location of the `as' utility configured for the MT-Sparc binary format.])
-AC_PATH_PROG([AS_MTSPARC], [mtsparc-linux-gnu-as], [no], [$prefix/bin$PATH_SEPARATOR$PATH])
+AC_PATH_PROG([AS_MTSPARC], [mtsparc-leon-linux-as], [no], [$prefix/bin$PATH_SEPARATOR$PATH])
 
 AC_ARG_VAR([LD_MTSPARC], [Location of the `ld' utility configured for the MT-Sparc binary format.])
-AC_PATH_PROG([LD_MTSPARC], [mtsparc-linux-gnu-ld], [no], [$prefix/bin$PATH_SEPARATOR$PATH])
+AC_PATH_PROG([LD_MTSPARC], [mtsparc-leon-linux-ld], [no], [$prefix/bin$PATH_SEPARATOR$PATH])
 
 if test "x$enable_mtsparc" = "xyes"; then
   if test "x$AS_MTSPARC" = "xno" \
