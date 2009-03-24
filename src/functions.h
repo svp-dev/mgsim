@@ -28,7 +28,7 @@ public:
         m_kernel.RegisterFunction(*this);
     }
 
-    virtual ~ArbitratedFunction() {
+    ~ArbitratedFunction() {
         m_kernel.UnregisterFunction(*this);
     }
 
@@ -72,7 +72,7 @@ public:
     DedicatedFunction() : m_component(NULL) {}
     virtual ~DedicatedFunction() {}
 
-    virtual void SetComponent(const IComponent& component) {
+    void SetComponent(const IComponent& component) {
         m_component = &component;
     }
 
@@ -88,30 +88,9 @@ private:
 };
 
 //
-// Read and Write function
-//
-class ReadFunction
-{
-public:
-    virtual bool Invoke(const IComponent& component) = 0;
-    virtual bool Invoke(int priority) = 0;
-
-    virtual ~ReadFunction() {}
-};
-
-class WriteFunction
-{
-public:
-    virtual bool Invoke(const IComponent& component) = 0;
-    virtual bool Invoke(int priority) = 0;
-
-    virtual ~WriteFunction() {}
-};
-
-//
 // Arbitrated Functions
 //
-class ArbitratedReadFunction : public ReadFunction, public ArbitratedFunction
+class ArbitratedReadFunction : public ArbitratedFunction
 {
 public:
     ArbitratedReadFunction(Kernel& kernel) : ArbitratedFunction(kernel) {}
@@ -145,7 +124,7 @@ public:
     }
 };
 
-class ArbitratedWriteFunction : public WriteFunction, public ArbitratedFunction
+class ArbitratedWriteFunction : public ArbitratedFunction
 {
 public:
     ArbitratedWriteFunction(Kernel& kernel) : ArbitratedFunction(kernel) {}
@@ -182,7 +161,7 @@ public:
 //
 // Dedicated Functions
 //
-class DedicatedReadFunction : public ReadFunction, public DedicatedFunction
+class DedicatedReadFunction : public DedicatedFunction
 {
 public:
     bool Invoke(const IComponent& component) {
@@ -191,7 +170,7 @@ public:
     }
 };
 
-class DedicatedWriteFunction : public WriteFunction, public DedicatedFunction
+class DedicatedWriteFunction : public DedicatedFunction
 {
 public:
     bool Invoke(const IComponent& component) {
