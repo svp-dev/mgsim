@@ -16,6 +16,10 @@
 !    }
 !
     .file "l2_iccq.s"
+
+    .section .rodata
+    .ascii "\0TEST_INPUTS:R10:8\0"
+
     .text
     
     .equ MAX_M, 16

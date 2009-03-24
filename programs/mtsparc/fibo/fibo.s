@@ -54,3 +54,7 @@ fibonacci:
     ! We tag it with END because it's the last instruction
     mov %d1, %s0
     end
+
+    .section .rodata
+    .ascii "\0TEST_INPUTS:R2:2 5 7 12\0"
+

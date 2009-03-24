@@ -11,6 +11,10 @@
 !    }
 !
     .file "l6_genlinreceq.s"
+
+    .section .rodata
+    .ascii "\0TEST_INPUTS:R10:256\0"
+
     .text
     
     .equ MAX_N, 1024
@@ -106,6 +110,7 @@ inner:
     end
     
     .data
+    .align 8
 initial:
     .double 0.01
     
