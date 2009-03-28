@@ -22,6 +22,7 @@
 #include <stdexcept>
 #include <limits>
 #include <typeinfo>
+#include <cstring>
 
 #include <signal.h>
 

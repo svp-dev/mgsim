@@ -8,7 +8,7 @@ using namespace std;
 namespace Simulator
 {
 
-bool FPU::QueueOperation(FPUOperation op, int size, float Rav, float Rbv, const RegAddr& Rc)
+bool FPU::QueueOperation(FPUOperation op, int size, double Rav, double Rbv, const RegAddr& Rc)
 {
 	CycleNo	latency = 0;
 	double  value;

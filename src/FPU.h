@@ -78,7 +78,7 @@ public:
      * @param Rc   address of the destination register(s)
      * @return true if the operation could be queued.
      */
-	bool QueueOperation(FPUOperation op, int size, float Rav, float Rbv, const RegAddr& Rc);
+	bool QueueOperation(FPUOperation op, int size, double Rav, double Rbv, const RegAddr& Rc);
 
 private:
     /**

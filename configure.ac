@@ -5,7 +5,7 @@
 # All rights reserved.
 # 
 
-AC_PREREQ([2.63])
+AC_PREREQ([2.61])
 AC_INIT([mgsim], [1.x], [m.lankamp@uva.nl])
 AC_CONFIG_AUX_DIR([build-aux])
 AC_CONFIG_HEADERS([src/sys_config.h])
