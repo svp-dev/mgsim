@@ -264,7 +264,10 @@ public:
         GetKernel().Abort();
     }
 
-    MGSystem(const Config& config, const string& program, const vector<pair<RegAddr, RegValue> >& regs, bool quiet)
+    MGSystem(const Config& config, const string& program, 
+	     const vector<pair<RegAddr, RegValue> >& regs, 
+	     const vector<pair<RegAddr, string> >& loads,
+	     bool quiet)
       : Object(NULL, NULL, "system"),
         m_numProcs(config.numProcessors)
     {
@@ -273,7 +276,8 @@ public:
         m_objects[m_numProcs] = m_memory;
 
         // Load the program into memory
-        MemAddr entry = LoadProgram(m_memory, program, quiet);
+        pair<MemAddr,MemAddr> addrs = LoadProgram(m_memory, program, quiet);
+	MemAddr entry = addrs.first;
 
         // Create processor grid
         m_procs = new Processor*[m_numProcs];
@@ -302,10 +306,20 @@ public:
 #endif
 
 	        // Fill initial registers
-	        for (size_t i = 0; i < regs.size(); i++)
+	        for (size_t i = 0; i < regs.size(); ++i)
 	        {
 	        	m_procs[0]->WriteRegister(regs[i].first, regs[i].second);
 	        }
+
+		MemAddr dataloadbase = addrs.second;
+		for (size_t i = 0; i < loads.size(); ++i)
+		  {
+		    RegValue value;
+		    value.m_state = RST_FULL;
+		    value.m_integer = dataloadbase;
+		    m_procs[0]->WriteRegister(loads[i].first, value);
+		    dataloadbase = LoadDataFile(m_memory, loads[i].second, dataloadbase, quiet);
+		  }
 	    }
     }
 
@@ -529,20 +543,23 @@ static void PrintUsage()
         "                         done simulating\n"
         "-R<X> <value>            Store the integer value in the specified register\n"
         "-F<X> <value>            Store the FP value in the specified register\n"
+        "-L<X> <filename>         Load the contents of the file after the program\n"
+        "                         and store the address in the specified register\n"
         "-o, --override <n>=<v>   Overrides the configuration option n with value v\n"
         "\n";
 }
 
 struct ProgramConfig
 {
-    string             m_programFile;
-    string             m_configFile;
-    bool               m_interactive;
-	bool               m_terminate;
-	string             m_print;
-	map<string,string> m_overrides;
-	
-	vector<pair<RegAddr, RegValue> > m_regs;
+  string             m_programFile;
+  string             m_configFile;
+  bool               m_interactive;
+  bool               m_terminate;
+  string             m_print;
+  map<string,string> m_overrides;
+  
+  vector<pair<RegAddr, RegValue> > m_regs;
+  vector<pair<RegAddr, string> > m_loads;
 };
 
 static bool ParseArguments(int argc, const char* argv[], ProgramConfig& config)
@@ -583,6 +600,21 @@ static bool ParseArguments(int argc, const char* argv[], ProgramConfig& config)
             transform(name.begin(), name.end(), name.begin(), ::toupper);
             config.m_overrides[name] = arg.substr(eq + 1);
         }
+	else if (toupper(arg[1]) == 'L') 
+	  {
+	    string filename(argv[++i]);
+
+            char* endptr;
+            RegAddr  addr;
+            unsigned long index = strtoul(&arg[2], &endptr, 0);
+            if (*endptr != '\0') {
+             	throw runtime_error("Error: invalid register specifier in option");
+            }
+	    addr = MAKE_REGADDR(RT_INTEGER, index);			
+
+            config.m_loads.push_back(make_pair(addr, filename));
+
+	  }
         else if (toupper(arg[1]) == 'R' || toupper(arg[1]) == 'F')
         {
          	stringstream value;
@@ -681,7 +713,7 @@ int main(int argc, const char* argv[])
 		}
 
         // Create the system
-		MGSystem sys(systemconfig, config.m_programFile, config.m_regs, !config.m_interactive);
+	MGSystem sys(systemconfig, config.m_programFile, config.m_regs, config.m_loads, !config.m_interactive);
 
         bool interactive = config.m_interactive;
         if (!interactive)

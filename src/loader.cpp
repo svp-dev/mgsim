@@ -17,8 +17,36 @@ static void Verify(bool expr, const char* error = "invalid ELF file")
 	}
 }
 
+// Load a data file into the memory
+MemAddr LoadDataFile(IMemoryAdmin* memory, const string& path, MemAddr base, bool quiet)
+{
+  ifstream input(path.c_str(), ios::binary);
+  if (!input.is_open() || !input.good())
+      throw runtime_error("Unable to open file \"" + path + "\"");
+
+  input.seekg(0, ios::end);
+  size_t fsize = input.tellg();
+  // pad to 8 bytes
+  size_t dsize = (fsize + 8) & (~7);
+  vector<char> data(dsize);
+
+  input.seekg(0, ios::beg);
+  input.read(&data[0], fsize);
+
+
+  memory->Reserve(base, dsize, IMemory::PERM_READ | IMemory::PERM_WRITE);
+  memory->Write(base, &data[0], dsize);
+
+  if (!quiet) {
+    cout << "Loaded " << dec << dsize << " bytes of data at address 0x" << hex << base
+	 << " from: \"" << path << "\"" << endl;
+  }
+
+  return base + dsize;
+}
+
 // Load the program image into the memory
-static MemAddr LoadProgram(IMemoryAdmin* memory, void* _data, MemSize size, bool quiet)
+static pair<MemAddr,MemAddr> LoadProgram(IMemoryAdmin* memory, void* _data, MemSize size, bool quiet)
 {
 	char*    data =  static_cast<char*>(_data);
 	Elf_Ehdr ehdr = *static_cast<Elf_Ehdr*>(_data);
@@ -50,7 +78,7 @@ static MemAddr LoadProgram(IMemoryAdmin* memory, void* _data, MemSize size, bool
     	}
     	memory->Reserve(0, size, IMemory::PERM_READ | IMemory::PERM_WRITE | IMemory::PERM_EXECUTE);
 		memory->Write(0, data, size);
-		return 4;
+		return make_pair<MemAddr,MemAddr>(4, size);
 	}
 
 	// Check that this file is for our 'architecture'
@@ -94,6 +122,8 @@ static MemAddr LoadProgram(IMemoryAdmin* memory, void* _data, MemSize size, bool
 	Verify(hasLoadable, "file has no loadable segments");
 	base = base & -PAGE_SIZE;
 
+	Elf_Addr last = 0;
+
 	// Then copy the LOAD segments into their right locations
 	for (Elf_Half i = 0; i < ehdr.e_phnum; i++)
 	{
@@ -113,6 +143,7 @@ static MemAddr LoadProgram(IMemoryAdmin* memory, void* _data, MemSize size, bool
 				Verify(phdr[i].p_offset + phdr[i].p_filesz <= size, "file has an invalid segment");
 
 				memory->Write(phdr[i].p_vaddr, data + phdr[i].p_offset, phdr[i].p_filesz);
+
 			}
 
 			// Clear the difference between filesz and memsz
@@ -126,6 +157,7 @@ static MemAddr LoadProgram(IMemoryAdmin* memory, void* _data, MemSize size, bool
 				size -= num;
 				addr += num;
 			}
+			last = max<Elf_Addr>(last, addr);
 		}
 	}
 	
@@ -133,12 +165,13 @@ static MemAddr LoadProgram(IMemoryAdmin* memory, void* _data, MemSize size, bool
 	{
     	cout << "Loaded ELF binary at address 0x" << hex << base << endl;
     	cout << "Entry point: 0x" << hex << ehdr.e_entry << endl;
-    }
-	return ehdr.e_entry;
+	cout << "First address past program: 0x" << hex << last << endl;
+	}
+	return make_pair<MemAddr,MemAddr>(ehdr.e_entry, last);
 }
 
 // Load the program file into the memory
-MemAddr LoadProgram(IMemoryAdmin* memory, const string& path, bool quiet)
+pair<MemAddr,MemAddr> LoadProgram(IMemoryAdmin* memory, const string& path, bool quiet)
 {
     ifstream input(path.c_str(), ios::binary);
     if (!input.is_open() || !input.good())
