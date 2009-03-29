@@ -112,7 +112,7 @@ Result ParallelMemory::Write(IMemoryCallback& callback, MemAddr address, void* d
         memcpy(request.data.data, data, size);
 
         // Broadcast the snoop data
-        for (set<IMemoryCallback*>::iterator p = m_caches.begin(); p != m_caches.end(); p++)
+        for (set<IMemoryCallback*>::iterator p = m_caches.begin(); p != m_caches.end(); ++p)
         {
             if (!(*p)->OnMemorySnooped(request.address, request.data))
             {
@@ -192,7 +192,7 @@ Result ParallelMemory::OnCycleWritePhase(unsigned int stateIndex)
 	COMMIT
 	{
 		// Remove the dispatched requests
-		for (size_t i = 0; i < nDispatched; i++)
+		for (size_t i = 0; i < nDispatched; ++i)
 		{
 			port.m_requests.pop_front();
 		}
@@ -226,7 +226,7 @@ void ParallelMemory::Write(MemAddr address, const void* data, MemSize size)
 static string CreateStateNames(size_t numProcs)
 {
     stringstream states;
-    for (size_t i = 0; i < numProcs; i++)
+    for (size_t i = 0; i < numProcs; ++i)
     {
         states << "port" << i << "|";
     }

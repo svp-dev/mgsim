@@ -10,13 +10,13 @@ FamilyTable::FamilyTable(Processor& parent, const Config& config)
     m_globals(config.numGlobals),
     m_families(config.numFamilies)
 {
-    for (size_t i = 0; i < config.numGlobals; i++)
+    for (size_t i = 0; i < config.numGlobals; ++i)
     {
         m_globals[i].used = false;
 		m_globals[i].fid  = INVALID_LFID;
     }
 
-    for (size_t i = 0; i < config.numFamilies; i++)
+    for (size_t i = 0; i < config.numFamilies; ++i)
     {
 		// Deny access to empty families
 		m_families[i].created    = false;
@@ -72,7 +72,7 @@ LFID FamilyTable::TranslateFamily(GFID gfid) const
 GFID FamilyTable::AllocateGlobal(LFID lfid)
 {
     // Find a free Global ID
-    for (size_t i = 0; i < m_globals.size(); i++)
+    for (size_t i = 0; i < m_globals.size(); ++i)
     {
         if (!m_globals[i].used)
         {

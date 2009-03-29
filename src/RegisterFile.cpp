@@ -17,13 +17,13 @@ RegisterFile::RegisterFile(Processor& parent, Allocator& alloc, const Config& co
     m_allocator(alloc)
 {
     // Initialize all registers to empty
-    for (RegSize i = 0; i < config.numIntegers; i++)
+    for (RegSize i = 0; i < config.numIntegers; ++i)
     {
         m_integers[i].m_state        = RST_EMPTY;
 		m_integers[i].m_request.size = 0;
     }
 
-    for (RegSize i = 0; i < config.numFloats; i++)
+    for (RegSize i = 0; i < config.numFloats; ++i)
     {
         m_floats[i].m_state        = RST_EMPTY;
 		m_floats[i].m_request.size = 0;
@@ -71,7 +71,7 @@ bool RegisterFile::Clear(const RegAddr& addr, RegSize size, const RegValue& valu
         throw SimulationException(*this, "A component attempted to clear a non-existing register");
     }
 
-    for (RegSize i = 0; i < size; i++)
+    for (RegSize i = 0; i < size; ++i)
     {
         COMMIT
 		{

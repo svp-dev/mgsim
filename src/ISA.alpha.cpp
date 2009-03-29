@@ -352,7 +352,7 @@ static bool ExecuteINTA(PipeValue& Rcv, const PipeValue& Rav, const PipeValue& R
         case A_INTAFUNC_CMPBGE:
         {
             uint64_t result = 0;
-            for (int i = 0; i < 8; i++) {
+            for (int i = 0; i < 8; ++i) {
                 uint8_t a = (uint8_t)((Ra >> (i * 8)) & 0xFF);
                 uint8_t b = (uint8_t)((Rb >> (i * 8)) & 0xFF);
                 if (a >= b) result |= (uint64_t)(1 << i);
@@ -774,7 +774,7 @@ static bool ExecuteFPTI(PipeValue& Rcv, const PipeValue& Rav, const PipeValue& R
 		case A_FPTIFUNC_CTPOP:
 		{
 		    unsigned int count = 0;
-			for (int i = 0; i < 63; i++) {
+			for (int i = 0; i < 63; ++i) {
 				if ((Rbv.m_integer.get(Rbv.m_size) >> i) & 1) {
 				    ++count;
 				}
@@ -787,7 +787,7 @@ static bool ExecuteFPTI(PipeValue& Rcv, const PipeValue& Rav, const PipeValue& R
 		case A_FPTIFUNC_CTTZ:
 		{
 		    unsigned int count = 0;
-			for (int i = 0; i < 63; i++) {
+			for (int i = 0; i < 63; ++i) {
 				if ((Rbv.m_integer.get(Rbv.m_size) >> i) & 1) {
 				    break;
     		    }

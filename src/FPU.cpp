@@ -91,7 +91,7 @@ bool FPU::OnCompletion(const Result& res) const
     
     uint64_t data = res.value.toint(res.size);
     unsigned int nRegs = res.size / sizeof(Integer);
-    for (unsigned int i = 0; i < nRegs; i++)
+    for (unsigned int i = 0; i < nRegs; ++i)
     {
         RegAddr a = res.address;
 #if ARCH_ENDIANNESS == ARCH_BIG_ENDIAN
@@ -119,7 +119,7 @@ bool FPU::OnCompletion(const Result& res) const
 Result FPU::OnCycleWritePhase(unsigned int /* stateIndex */)
 {
 	CycleNo now = GetKernel()->GetCycleNo();
-	for (map<CycleNo, deque<Result> >::iterator p = m_pipelines.begin(); p != m_pipelines.end(); p++)
+	for (map<CycleNo, deque<Result> >::iterator p = m_pipelines.begin(); p != m_pipelines.end(); ++p)
 	{
 	    if (!p->second.empty())
 	    {
@@ -132,7 +132,7 @@ Result FPU::OnCycleWritePhase(unsigned int /* stateIndex */)
     				// Stall pipeline
     				COMMIT
     				{
-	    				for (deque<Result>::iterator q = p->second.begin(); q != p->second.end(); q++)
+	    				for (deque<Result>::iterator q = p->second.begin(); q != p->second.end(); ++q)
 		    			{
 			    			q->completion++;
 				    	}

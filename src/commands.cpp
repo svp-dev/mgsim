@@ -75,24 +75,24 @@ static void cmd_simplemem_requests(SimpleMemory* mem)
 static void cmd_parallelmem_requests(ParallelMemory* mem)
 {
     // Display in-flight requests
-    for (size_t i = 0; i < mem->GetNumPorts(); i++) {
+    for (size_t i = 0; i < mem->GetNumPorts(); ++i) {
         cout << "    Done   | Address  | Size | CID  ";
     }
     cout << endl;
-    for (size_t i = 0; i < mem->GetNumPorts(); i++) {
+    for (size_t i = 0; i < mem->GetNumPorts(); ++i) {
         cout << "-----------+----------+------+----- ";
     }
     cout << endl;
 
 	vector<multimap<CycleNo, ParallelMemory::Request>::const_iterator> iters;
-	for (size_t i = 0; i < mem->GetNumPorts(); i++)
+	for (size_t i = 0; i < mem->GetNumPorts(); ++i)
 	{
 		iters.push_back(mem->GetPort(i).m_inFlight.begin());
 	}
 
-	for (size_t y = 0; y < mem->GetConfig().width; y++)
+	for (size_t y = 0; y < mem->GetConfig().width; ++y)
 	{
-		for (size_t x = 0; x < mem->GetNumPorts(); x++)
+		for (size_t x = 0; x < mem->GetNumPorts(); ++x)
 		{
 			multimap<CycleNo, ParallelMemory::Request>::const_iterator& p = iters[x];
 
@@ -133,26 +133,26 @@ static void cmd_parallelmem_requests(ParallelMemory* mem)
 
 static void print_bankedmem_pipelines(const vector<BankedMemory::Bank> banks, const BankedMemory::Pipeline BankedMemory::Bank::*queue)
 {
-    for (size_t i = 0; i < banks.size(); i++) {
+    for (size_t i = 0; i < banks.size(); ++i) {
         cout << "    Done   | Address  | Size | CID  ";
     }
     cout << endl;
-    for (size_t i = 0; i < banks.size(); i++) {
+    for (size_t i = 0; i < banks.size(); ++i) {
         cout << "-----------+----------+------+----- ";
     }
     cout << endl;
     
 	vector<BankedMemory::Pipeline::const_iterator> iters;
 	size_t length = 0;
-	for (size_t i = 0; i < banks.size(); i++)
+	for (size_t i = 0; i < banks.size(); ++i)
 	{
 		iters.push_back((banks[i].*queue).begin());
 		length = max(length, (banks[i].*queue).size());
 	}
 
-	for (size_t y = 0; y < length; y++)
+	for (size_t y = 0; y < length; ++y)
 	{
-		for (size_t x = 0; x < banks.size(); x++)
+		for (size_t x = 0; x < banks.size(); ++x)
 		{
 			BankedMemory::Pipeline::const_iterator& p = iters[x];
 
@@ -197,15 +197,15 @@ static void cmd_bankedmem_requests(BankedMemory* mem)
     print_bankedmem_pipelines(banks, &BankedMemory::Bank::incoming);
     
     // Print the banks
-    for (size_t i = 0; i < banks.size(); i++) {
+    for (size_t i = 0; i < banks.size(); ++i) {
         cout << "    Done   | Address  | Size | CID  ";
     }
     cout << endl;
-    for (size_t i = 0; i < banks.size(); i++) {
+    for (size_t i = 0; i < banks.size(); ++i) {
         cout << "-----------+----------+------+----- ";
     }
     cout << endl;
-    for (size_t i = 0; i < banks.size(); i++)
+    for (size_t i = 0; i < banks.size(); ++i)
 	{
 		if (banks[i].busy)
 		{
@@ -301,7 +301,7 @@ static bool cmd_mem_read(Object* obj, const vector<string>& arguments )
             cout << setw(8) << hex << setfill('0') << y << " | ";
 
             // The bytes
-            for (MemAddr x = 0; x < 16; x++)
+            for (MemAddr x = 0; x < 16; ++x)
             {
                 if (y + x >= addr && y + x < addr + size)
                     cout << hex << setw(2) << setfill('0') << (unsigned int)buf[y + x - addr];
@@ -313,7 +313,7 @@ static bool cmd_mem_read(Object* obj, const vector<string>& arguments )
             cout << "| ";
 
             // The bytes, as characters
-            for (MemAddr x = 0; x < 16; x++)
+            for (MemAddr x = 0; x < 16; ++x)
             {
                 unsigned char c = buf[y + x - addr];
                 if (y + x >= addr && y + x < addr + size)
@@ -383,7 +383,7 @@ static bool cmd_mem_info(Object* obj, const vector<string>& /* arguments */)
 
 	// Print total memory reservation
 	int mod;
-	for(mod = 0; total >= 1024 && mod < 9; mod++)
+	for(mod = 0; total >= 1024 && mod < 9; ++mod)
 	{
 		total /= 1024;
 	}
@@ -398,7 +398,7 @@ static bool cmd_mem_info(Object* obj, const vector<string>& /* arguments */)
 	}
 
 	// Print total memory usage
-	for (mod = 0; total >= 1024 && mod < 4; mod++)
+	for (mod = 0; total >= 1024 && mod < 4; ++mod)
 	{
 		total /= 1024;
 	}
@@ -525,7 +525,7 @@ static bool cmd_allocator_read( Object* obj, const vector<string>& /* arguments 
     else
     {
 		LFID fid = creates.front();
-        for (int i = 0; !creates.empty(); i++)
+        for (int i = 0; !creates.empty(); ++i)
         {
 			cout << "F" << creates.front();
             creates.pop();
@@ -627,20 +627,20 @@ static bool cmd_icache_read( Object* obj, const vector<string>& /* arguments */)
     if (cache == NULL) return false;
 
     cout << "Set";
-    for (size_t a = 0; a < cache->GetAssociativity(); a++) {
+    for (size_t a = 0; a < cache->GetAssociativity(); ++a) {
         cout << " | Address  L  ref ";
     }
     cout << endl;
     cout << "---";
-    for (size_t a = 0; a < cache->GetAssociativity(); a++) {
+    for (size_t a = 0; a < cache->GetAssociativity(); ++a) {
         cout << "-+-----------------";
     }
     cout << endl;
     
-    for (size_t s = 0; s < cache->GetNumSets(); s++)
+    for (size_t s = 0; s < cache->GetNumSets(); ++s)
     {
         cout << setw(3) << setfill(' ') << dec << right << s;
-        for (size_t a = 0; a < cache->GetAssociativity(); a++)
+        for (size_t a = 0; a < cache->GetAssociativity(); ++a)
         {
             const ICache::Line& line = cache->GetLine(s * cache->GetAssociativity() + a);
             cout << " | ";
@@ -712,11 +712,11 @@ static bool cmd_dcache_read( Object* obj, const vector<string>& /* arguments */)
     const DCache* cache = dynamic_cast<DCache*>(obj);
     if (cache == NULL) return false;
 
-	for (size_t s = 0; s < cache->GetNumSets(); s++)
+	for (size_t s = 0; s < cache->GetNumSets(); ++s)
     {
         cout << left  << setfill(' ') << dec << setw(3) << s;
         cout << right << setfill('0') << hex;
-        for (size_t a = 0; a < cache->GetAssociativity(); a++)
+        for (size_t a = 0; a < cache->GetAssociativity(); ++a)
         {
             const DCache::Line& line = cache->GetLine(s * cache->GetAssociativity() + a);
             cout << " | ";
@@ -768,7 +768,7 @@ static bool cmd_families_read( Object* obj, const vector<string>& /* arguments *
     cout << setfill(' ') << right;
 	
 	const vector<Family>& families = table->GetFamilies();
-	for (size_t i = 0; i < families.size(); i++)
+	for (size_t i = 0; i < families.size(); ++i)
     {
         const Family& family = families[i];
 
@@ -846,7 +846,7 @@ static bool cmd_threads_read( Object* obj, const vector<string>& /* arguments */
 
     cout << "    |    PC    | Fam | Index | Prev | Next | Int. | Flt. | Flags | WR | State" << endl;
     cout << "----+----------+-----+-------+------+------+------+------+-------+----+----------" << endl;
-    for (TID i = 0; i < table->GetNumThreads(); i++)
+    for (TID i = 0; i < table->GetNumThreads(); ++i)
     {
         cout << dec << setw(3) << setfill(' ') << i << " | ";
         const Thread& thread = (*table)[i];
@@ -861,7 +861,7 @@ static bool cmd_threads_read( Object* obj, const vector<string>& /* arguments */
             if (thread.nextInBlock != INVALID_TID) cout << dec << setw(4) << setfill(' ') << thread.nextInBlock; else cout << "   -";
             cout << " | ";
 
-            for (RegType type = 0; type < NUM_REG_TYPES; type++)
+            for (RegType type = 0; type < NUM_REG_TYPES; ++type)
             {
                 if (thread.regs[type].base != INVALID_REG_INDEX)
                     cout << setw(4) << setfill('0') << hex << thread.regs[type].base;
@@ -1135,7 +1135,7 @@ static bool cmd_rau_read( Object* obj, const vector<string>& arguments )
             next = entry + list[entry].first;
             cout << (next * blockSize) - 1 << "h: Allocated to " << list[entry].second << endl;
         } else {
-            for (next = entry + 1; next < list.size() && list[next].first == 0; next++);
+            for (next = entry + 1; next < list.size() && list[next].first == 0; ++next);
             cout << (next * blockSize) - 1 << "h: Free" << endl;
         }
     }
@@ -1178,7 +1178,7 @@ static bool cmd_regs_read( Object* obj, const vector<string>& arguments )
     const Object* proc = regfile->GetParent();
     if (proc != NULL)
     {
-        for (unsigned int i = 0; i < proc->GetNumChildren(); i++)
+        for (unsigned int i = 0; i < proc->GetNumChildren(); ++i)
         {
             const Object* child = proc->GetChild(i);
             if (rau    == NULL) rau    = dynamic_cast<const RAUnit*>(child);
@@ -1199,7 +1199,7 @@ static bool cmd_regs_read( Object* obj, const vector<string>& arguments )
         {
             if (list[i].first != 0)
             {
-                for (size_t j = 0; j < list[i].first * blockSize; j++)
+                for (size_t j = 0; j < list[i].first * blockSize; ++j)
                 {
                     regs[i * blockSize + j].fid = list[i].second;
                 }
@@ -1211,12 +1211,12 @@ static bool cmd_regs_read( Object* obj, const vector<string>& arguments )
 
     if (ftable != NULL && alloc != NULL)
     {
-        for (size_t i = 0; i < regs.size(); i++)
+        for (size_t i = 0; i < regs.size(); ++i)
         {
             if (regs[i].fid != INVALID_LFID)
             {
                 const Family& family = (*ftable)[regs[i].fid];
-                for (TID t = 0; t < family.physBlockSize; t++)
+                for (TID t = 0; t < family.physBlockSize; ++t)
                 {
                 }
             }

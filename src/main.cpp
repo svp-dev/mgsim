@@ -90,7 +90,7 @@ public:
     uint64_t GetOp() const
     {
         uint64_t op = 0;
-        for (PSize i = 0; i < m_numProcs; i++) {
+        for (PSize i = 0; i < m_numProcs; ++i) {
             op += m_procs[i]->GetOp();
         }
         return op;
@@ -99,7 +99,7 @@ public:
     uint64_t GetFlop() const
     {
         uint64_t flop = 0;
-        for (PSize i = 0; i < m_numProcs; i++) {
+        for (PSize i = 0; i < m_numProcs; ++i) {
             flop += m_procs[i]->GetFlop();
         }
         return flop;
@@ -113,9 +113,9 @@ public:
 		streamsize length = 0;
 
 		const Kernel::CallbackList& callbacks = m_kernel.GetCallbacks();
-		for (Kernel::CallbackList::const_iterator p = callbacks.begin(); p != callbacks.end(); p++)
+		for (Kernel::CallbackList::const_iterator p = callbacks.begin(); p != callbacks.end(); ++p)
 		{
-		    for (size_t i = 0; i < p->second.states.size(); i++)
+		    for (size_t i = 0; i < p->second.states.size(); ++i)
 		    {
     			string name = p->first->GetFQN() + ":" + p->second.states[i].name + ": ";
     			states[name] = p->second.states[i].state;
@@ -124,7 +124,7 @@ public:
 		}
 		
 		cout << left << setfill(' ');
-		for (StateMap::const_iterator p = states.begin(); p != states.end(); p++)
+		for (StateMap::const_iterator p = states.begin(); p != states.end(); ++p)
 		{
 			cout << setw(length) << p->first;
 			switch (p->second)
@@ -143,7 +143,7 @@ public:
 		float avg  = 0;
 		float amax = 0.0f;
 		float amin = 1.0f;
-        for (PSize i = 0; i < m_numProcs; i++) {
+        for (PSize i = 0; i < m_numProcs; ++i) {
             float a = m_procs[i]->GetRegFileAsyncPortActivity();
 			amax = max(amax, a);
 			amin = min(amin, a);
@@ -159,7 +159,7 @@ public:
 		float amax = 0.0f;
 		float amin = 1.0f;
 		size_t num = 0;
-        for (PSize i = 0; i < m_numProcs; i++) {
+        for (PSize i = 0; i < m_numProcs; ++i) {
             float a = m_procs[i]->GetPipelineEfficiency();
             if (a > 0)
             {
@@ -179,7 +179,7 @@ public:
 	    uint64_t amax   = 0;
 	    uint64_t amin   = numeric_limits<uint64_t>::max();
 	    CycleNo cycles = m_kernel.GetCycleNo();
-        for (PSize i = 0; i < m_numProcs; i++) {
+        for (PSize i = 0; i < m_numProcs; ++i) {
             float a = (float)m_procs[i]->GetTotalActiveQueueSize() / cycles;
 			amax    = max(amax, m_procs[i]->GetMaxActiveQueueSize() );
 			amin    = min(amin, m_procs[i]->GetMinActiveQueueSize() );
@@ -194,7 +194,7 @@ public:
 	    float    avg    = 0;
 	    uint64_t amax   = 0;
 	    uint64_t amin   = numeric_limits<uint64_t>::max();
-        for (PSize i = 0; i < m_numProcs; i++) {
+        for (PSize i = 0; i < m_numProcs; ++i) {
             float a = (float)m_procs[i]->GetAvgPipelineIdleTime();
 			amax    = max(amax, m_procs[i]->GetMaxPipelineIdleTime() );
 			amin    = min(amin, m_procs[i]->GetMinPipelineIdleTime() );
@@ -212,7 +212,7 @@ public:
     {
         CycleNo first = UINT64_MAX;
         CycleNo last  = 0;
-        for (PSize i = 0; i < m_numProcs; i++) {
+        for (PSize i = 0; i < m_numProcs; ++i) {
             CycleNo cycle = m_procs[i]->GetLocalFamilyCompletion();
             if (cycle != 0)
             {
@@ -232,12 +232,12 @@ public:
     {
         Object* cur = this;
         vector<string> names = Tokenize(path, ".");
-        for (vector<string>::iterator p = names.begin(); cur != NULL && p != names.end(); p++)
+        for (vector<string>::iterator p = names.begin(); cur != NULL && p != names.end(); ++p)
         {
             transform(p->begin(), p->end(), p->begin(), ::toupper);
 
             Object* next = NULL;
-            for (unsigned int i = 0; i < cur->GetNumChildren(); i++)
+            for (unsigned int i = 0; i < cur->GetNumChildren(); ++i)
             {
                 Object* child = cur->GetChild(i);
                 string name   = child->GetName();
@@ -281,7 +281,7 @@ public:
 
         // Create processor grid
         m_procs = new Processor*[m_numProcs];
-        for (PSize i = 0; i < m_numProcs; i++)
+        for (PSize i = 0; i < m_numProcs; ++i)
         {
             stringstream name;
             name << "cpu" << i;
@@ -290,7 +290,7 @@ public:
         }
 
         // Connect processors in ring
-        for (PSize i = 0; i < m_numProcs; i++)
+        for (PSize i = 0; i < m_numProcs; ++i)
         {
             m_procs[i]->Initialize(*m_procs[(i+m_numProcs-1) % m_numProcs], *m_procs[(i+1) % m_numProcs]);
         }
@@ -326,7 +326,7 @@ public:
     ~MGSystem()
     {
         delete m_memory;
-        for (PSize i = 0; i < m_numProcs; i++)
+        for (PSize i = 0; i < m_numProcs; ++i)
         {
             delete m_procs[i];
         }
@@ -359,13 +359,13 @@ static const char* GetClassName(const type_info& info)
 // Print all components that are a child of root
 static void PrintComponents(const Object* root, const string& indent = "")
 {
-    for (unsigned int i = 0; i < root->GetNumChildren(); i++)
+    for (unsigned int i = 0; i < root->GetNumChildren(); ++i)
     {
         const Object* child = root->GetChild(i);
         string str = indent + child->GetName();
 
         cout << str << " ";
-        for (size_t len = str.length(); len < 30; len++) cout << " ";
+        for (size_t len = str.length(); len < 30; ++len) cout << " ";
         cout << GetClassName(typeid(*child)) << endl;
 
         PrintComponents(child, indent + "  ");
@@ -400,7 +400,7 @@ static MGSystem::Config ParseConfig(const Config& configfile)
     config.clusterSizes  = configfile.getIntegerList<PSize>("NumProcessors");
 
     config.numProcessors = 0;
-    for (size_t i = 0; i < config.clusterSizes.size(); i++)
+    for (size_t i = 0; i < config.clusterSizes.size(); ++i)
     {
         config.numProcessors += config.clusterSizes[i];
     }
@@ -461,13 +461,13 @@ static void PrintProfiles()
         // Get maximum name length and total time
         size_t   length = 0;
         uint64_t total  = 0;
-        for (ProfileMap::const_iterator p = profiles.begin(); p != profiles.end(); p++)
+        for (ProfileMap::const_iterator p = profiles.begin(); p != profiles.end(); ++p)
         {
             length = max(length, p->first.length());
             total += p->second;
         }
 
-        for (ProfileMap::const_iterator p = profiles.begin(); p != profiles.end(); p++)
+        for (ProfileMap::const_iterator p = profiles.begin(); p != profiles.end(); ++p)
         {
             cout << setw((streamsize)length) << left << p->first << " "
                  << setw(6) << right << fixed << setprecision(2) << (p->second / 1000000.0f) << "s "
@@ -483,7 +483,7 @@ static void ExecuteCommand(MGSystem& sys, const string& command, vector<string> 
 {
     // See if the command exists
     int i;
-    for (i = 0; Commands[i].name != NULL; i++)
+    for (i = 0; Commands[i].name != NULL; ++i)
     {
         if (Commands[i].name == command)
         {
@@ -505,7 +505,7 @@ static void ExecuteCommand(MGSystem& sys, const string& command, vector<string> 
             {
                 // See if the object type matches
                 int j;
-                for (j = i; Commands[j].name != NULL && Commands[j].name == command; j++)
+                for (j = i; Commands[j].name != NULL && Commands[j].name == command; ++j)
                 {
                     if (Commands[j].execute(obj, args))
                     {
@@ -568,7 +568,7 @@ static bool ParseArguments(int argc, const char* argv[], ProgramConfig& config)
     config.m_terminate   = false;
     config.m_configFile  = MGSIM_CONFIG_PATH; 
 
-    for (int i = 1; i < argc; i++)
+    for (int i = 1; i < argc; ++i)
     {
         const string arg = argv[i];
         if (arg[0] != '-')
@@ -792,7 +792,7 @@ int main(int argc, const char* argv[])
 				free(line);
 
 				// Execute all commands
-				for (vector<string>::const_iterator command = commands.begin(); command != commands.end() && !quit; command++)
+				for (vector<string>::const_iterator command = commands.begin(); command != commands.end() && !quit; ++command)
 				{
 					vector<string> args = Tokenize(Trim(*command), " ");
 					if (args.size() > 0)

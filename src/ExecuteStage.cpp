@@ -134,7 +134,7 @@ Pipeline::PipeAction Pipeline::ExecuteStage::SetFamilyRegs(LFID fid, const Alloc
 	// Set the base for the shareds and globals in the parent thread
 	COMMIT
 	{
-	    for (RegType i = 0; i < NUM_REG_TYPES; i++)
+	    for (RegType i = 0; i < NUM_REG_TYPES; ++i)
 	    {
         	family.regs[i].globals = bases[i].globals;
             family.regs[i].shareds = bases[i].shareds;

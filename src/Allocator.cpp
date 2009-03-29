@@ -435,7 +435,7 @@ bool Allocator::AllocateThread(LFID fid, TID tid, bool isNewlyAllocated)
 	}
 
     // Set the register information for the new thread
-    for (RegType i = 0; i < NUM_REG_TYPES; i++)
+    for (RegType i = 0; i < NUM_REG_TYPES; ++i)
     {
         if (isNewlyAllocated)
         {
@@ -639,7 +639,7 @@ bool Allocator::KillFamily(LFID fid, ExitCode code, RegValue value)
 
     // Release registers
 	RegIndex indices[NUM_REG_TYPES];
-    for (RegType i = 0; i < NUM_REG_TYPES; i++)
+    for (RegType i = 0; i < NUM_REG_TYPES; ++i)
     {
 		indices[i] = family.regs[i].base;
 	}
@@ -878,7 +878,7 @@ void Allocator::SetDefaultFamilyEntry(LFID fid, TID parent, const RegisterBases 
 		family.place         = parent_fam.place; // Inherit place
 
 		// By default, the globals and shareds are taken from the locals of the parent thread
-		for (RegType i = 0; i < NUM_REG_TYPES; i++)
+		for (RegType i = 0; i < NUM_REG_TYPES; ++i)
 		{
 			family.regs[i].globals = bases[i].globals;
 			family.regs[i].shareds = bases[i].shareds;
@@ -932,7 +932,7 @@ LFID Allocator::AllocateFamily(const CreateMessage& msg)
         family.physBlockSize = msg.physBlockSize;
 		family.pc            = msg.address;
 		family.hasDependency = false;
-		for (RegType i = 0; i < NUM_REG_TYPES; i++)
+		for (RegType i = 0; i < NUM_REG_TYPES; ++i)
 		{
             family.regs[i].globals = INVALID_REG_INDEX;
             family.regs[i].shareds = INVALID_REG_INDEX;
@@ -995,7 +995,7 @@ void Allocator::InitializeFamily(LFID fid) const
 		family.lastAllocated      = INVALID_TID;
 
 		// Register bases
-		for (RegType i = 0; i < NUM_REG_TYPES; i++)
+		for (RegType i = 0; i < NUM_REG_TYPES; ++i)
 		{
             Family::RegInfo& regs = family.regs[i];
 
@@ -1054,7 +1054,7 @@ bool Allocator::AllocateRegisters(LFID fid)
     if (family.physBlockSize == 0) 
     { 
         // We have nothing to allocate, so it succeeded 
-        for (RegType i = 0; i < NUM_REG_TYPES; i++) 
+        for (RegType i = 0; i < NUM_REG_TYPES; ++i) 
         { 
             Family::RegInfo& regs = family.regs[i]; 
             COMMIT 
@@ -1071,7 +1071,7 @@ bool Allocator::AllocateRegisters(LFID fid)
     {
 		// Calculate register requirements
 		RegSize sizes[NUM_REG_TYPES];
-        for (RegType i = 0; i < NUM_REG_TYPES; i++)
+        for (RegType i = 0; i < NUM_REG_TYPES; ++i)
         {
             const Family::RegInfo& regs = family.regs[i];
 
@@ -1086,7 +1086,7 @@ bool Allocator::AllocateRegisters(LFID fid)
 			// Success, we have registers for all types
 			COMMIT{ family.physBlockSize = physBlockSize; }
 			
-			for (RegType i = 0; i < NUM_REG_TYPES; i++)
+			for (RegType i = 0; i < NUM_REG_TYPES; ++i)
 			{
 				Family::RegInfo& regs = family.regs[i];
 				COMMIT
@@ -1344,7 +1344,7 @@ Result Allocator::OnCycleWritePhase(unsigned int stateIndex)
 
                 RegsNo regcounts[NUM_REG_TYPES];
                 bool   hasDependency = false;
-                for (RegType i = 0; i < NUM_REG_TYPES; i++)
+                for (RegType i = 0; i < NUM_REG_TYPES; ++i)
                 {
                     Instruction c = counts >> (i * 16);
                     regcounts[i].globals = (c >>  0) & 0x1F;
@@ -1375,7 +1375,7 @@ Result Allocator::OnCycleWritePhase(unsigned int stateIndex)
 
                 COMMIT
                 {
-                    for (RegType i = 0; i < NUM_REG_TYPES; i++)
+                    for (RegType i = 0; i < NUM_REG_TYPES; ++i)
                     {
                         family.regs[i].count = regcounts[i];
                     }
@@ -1637,7 +1637,7 @@ void Allocator::AllocateInitialFamily(MemAddr pc)
 	family.legacy        = false;
 	family.pc            = pc;
 
-	for (RegType i = 0; i < NUM_REG_TYPES; i++)
+	for (RegType i = 0; i < NUM_REG_TYPES; ++i)
     {
 		family.regs[i].count.locals  = InitialRegisters[i];
         family.regs[i].count.globals = 0;

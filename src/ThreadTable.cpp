@@ -12,7 +12,7 @@ ThreadTable::ThreadTable(Processor& parent, const Config& config)
 {
     SetPriority(p_execute, 0);
 
-    for (TID i = 0; i < config.numThreads; i++)
+    for (TID i = 0; i < config.numThreads; ++i)
     {
         m_threads[i].nextMember = i + 1;
         m_threads[i].state      = TST_EMPTY;

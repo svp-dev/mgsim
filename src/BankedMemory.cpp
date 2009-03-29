@@ -135,7 +135,7 @@ Result BankedMemory::Write(IMemoryCallback& callback, MemAddr address, void* dat
         memcpy(request.data.data, data, size);
 
         // Broadcast the snoop data
-        for (set<IMemoryCallback*>::iterator p = m_caches.begin(); p != m_caches.end(); p++)
+        for (set<IMemoryCallback*>::iterator p = m_caches.begin(); p != m_caches.end(); ++p)
         {
             if (!(*p)->OnMemorySnooped(request.address, request.data))
             {
@@ -270,12 +270,12 @@ Result BankedMemory::OnCycleWritePhase(unsigned int stateIndex)
 static string CreateStateNames(size_t numBanks)
 {
     stringstream states;
-    for (size_t i = 0; i < numBanks; i++)
+    for (size_t i = 0; i < numBanks; ++i)
     {
         states << "in"  << i << "|" <<
                   "out" << i << "|";
     }
-    for (size_t i = 0; i < numBanks; i++)
+    for (size_t i = 0; i < numBanks; ++i)
     {
         states << "bank" << i << "|";
     }

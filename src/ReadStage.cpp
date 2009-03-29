@@ -212,7 +212,7 @@ bool Pipeline::ReadStage::ReadRegister(OperandInfo& operand)
         unsigned int to_read_mask = operand.to_read_mask;
 
         // Iterate over all bypasses as long as we still have sub-values to read
-        for (unsigned int i = 0; i < N_BYPASSES && to_read_mask != 0; i++)
+        for (unsigned int i = 0; i < N_BYPASSES && to_read_mask != 0; ++i)
         {
             const BypassInfo& bi = bypasses[i];
             if (!bi.latch.empty())
@@ -311,7 +311,7 @@ bool Pipeline::ReadStage::ReadBypasses(OperandInfo& operand)
         unsigned int start = !IsAcquiring() ? 1 : 0;
         
         // Iterate over all bypasses as long as we still have sub-values to read
-        for (unsigned int i = 0; i < N_BYPASSES && operand.to_read_mask != 0; i++)
+        for (unsigned int i = 0; i < N_BYPASSES && operand.to_read_mask != 0; ++i)
         {
             const BypassInfo& bi = bypasses[start + i];
             if (!bi.latch.empty())

@@ -100,7 +100,7 @@ static pair<MemAddr,MemAddr> LoadProgram(IMemoryAdmin* memory, void* _data, MemS
 	// Determine base address and check for loadable segments
 	bool     hasLoadable = false;
 	Elf_Addr base = 0;
-	for (Elf_Half i = 0; i < ehdr.e_phnum; i++)
+	for (Elf_Half i = 0; i < ehdr.e_phnum; ++i)
 	{
 	    phdr[i].p_type   = elftohw (phdr[i].p_type);
 	    phdr[i].p_flags  = elftohw (phdr[i].p_flags);
@@ -125,7 +125,7 @@ static pair<MemAddr,MemAddr> LoadProgram(IMemoryAdmin* memory, void* _data, MemS
 	Elf_Addr last = 0;
 
 	// Then copy the LOAD segments into their right locations
-	for (Elf_Half i = 0; i < ehdr.e_phnum; i++)
+	for (Elf_Half i = 0; i < ehdr.e_phnum; ++i)
 	{
 		if (phdr[i].p_type == PT_LOAD && phdr[i].p_memsz > 0)
 		{

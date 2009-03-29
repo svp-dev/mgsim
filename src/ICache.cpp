@@ -36,7 +36,7 @@ ICache::ICache(Processor& parent, const std::string& name, Allocator& alloc, con
 	// Initialize the cache lines
     m_lines.resize(config.sets * config.assoc);
 	m_data = new char[m_lineSize * m_lines.size()];
-    for (size_t i = 0; i < m_lines.size(); i++)
+    for (size_t i = 0; i < m_lines.size(); ++i)
     {
         m_lines[i].data         = &m_data[i * m_lineSize];
         m_lines[i].used         = false;
@@ -67,7 +67,7 @@ Result ICache::FindLine(MemAddr address, Line* &line)
     // Find the line
     Line* empty   = NULL;
     Line* replace = NULL;
-    for (size_t i = 0; i < m_assoc; i++)
+    for (size_t i = 0; i < m_assoc; ++i)
     {
         line = &m_lines[set + i];
         if (!line->used)

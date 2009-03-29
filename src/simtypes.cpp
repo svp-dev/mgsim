@@ -83,7 +83,7 @@ Instruction UnserializeInstruction(const void* _data)
     Instruction i = 0;
     const uint8_t* data = static_cast<const uint8_t*>(_data);
     #if ARCH_ENDIANNESS == ARCH_BIG_ENDIAN
-    for (int j = 0; j <= 3; j++) {
+    for (int j = 0; j <= 3; ++j) {
         i = (i << 8) | data[j];
     }
     #else
@@ -300,7 +300,7 @@ public:
     	else 
       	{
     		// (De)normalized number
-    		for (int i = 0; i < Frac; i++)
+    		for (int i = 0; i < Frac; ++i)
     		{
     			if (GET_BITS(data, i, 1)) {
     				value = value + 1;

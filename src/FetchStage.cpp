@@ -54,7 +54,7 @@ Pipeline::PipeAction Pipeline::FetchStage::read()
 				m_isFirstThreadInFamily = thread.isFirstThreadInFamily;
 				m_onParent              = (family.parent.pid == m_parent.GetProcessor().GetPID());
 
-				for (RegType i = 0; i < NUM_REG_TYPES; i++)
+				for (RegType i = 0; i < NUM_REG_TYPES; ++i)
 				{
 					m_regs.types[i].family = family.regs[i];
 					m_regs.types[i].thread = thread.regs[i];

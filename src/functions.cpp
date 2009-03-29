@@ -7,7 +7,7 @@ void ArbitratedFunction::Arbitrate()
 {
     // Choose the request with the highest priority (lowest numerical value)
     m_priority = std::numeric_limits<int>::max();
-    for (RequestMap::const_iterator i = m_requests.begin(); i != m_requests.end(); i++)
+    for (RequestMap::const_iterator i = m_requests.begin(); i != m_requests.end(); ++i)
     {
         if (i->first < m_priority)
         {
