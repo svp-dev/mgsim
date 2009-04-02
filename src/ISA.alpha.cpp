@@ -1228,9 +1228,12 @@ Pipeline::PipeAction Pipeline::ExecuteStage::ExecuteInstruction()
 
             case A_MISCFUNC_RPCC:
                 // Read processor cycle count
+	        // NOTE: the Alpha spec specifies that the higher 32-bits
+                // are operating-system dependent. In our case we stuff
+                // extra precision from the cycle counter. 
                 COMMIT {
                     m_output.Rcv.m_state   = RST_FULL;
-                    m_output.Rcv.m_integer = GetKernel()->GetCycleNo() & 0xFFFFFFFF;
+                    m_output.Rcv.m_integer = GetKernel()->GetCycleNo();
                 }
                 break;
         }
