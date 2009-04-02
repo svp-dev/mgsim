@@ -537,6 +537,7 @@ static void PrintUsage()
         "Options:\n"
         "-h, --help               Show this help\n"
         "-c, --config <filename>  Read configuration from file\n"
+        "-q, --quiet              Do not print simulation statistics after run\n"
         "-i, --interactive        Start the simulator in interactive mode\n"
         "-t, --terminate          Terminate simulator on exception\n"
         "-p, --print <value>      Print the value before printing the results when\n"
@@ -555,6 +556,7 @@ struct ProgramConfig
   string             m_configFile;
   bool               m_interactive;
   bool               m_terminate;
+  bool               m_quiet;
   string             m_print;
   map<string,string> m_overrides;
   
@@ -566,6 +568,7 @@ static bool ParseArguments(int argc, const char* argv[], ProgramConfig& config)
 {
     config.m_interactive = false;
     config.m_terminate   = false;
+    config.m_quiet       = false;
     config.m_configFile  = MGSIM_CONFIG_PATH; 
 
     for (int i = 1; i < argc; ++i)
@@ -584,6 +587,7 @@ static bool ParseArguments(int argc, const char* argv[], ProgramConfig& config)
              if (arg == "-c" || arg == "--config")      config.m_configFile  = argv[++i];
         else if (arg == "-i" || arg == "--interactive") config.m_interactive = true;
         else if (arg == "-t" || arg == "--terminate")   config.m_terminate   = true;
+        else if (arg == "-q" || arg == "--quiet")       config.m_quiet       = true;
         else if (arg == "-h" || arg == "--help")        { PrintUsage(); return false; }
         else if (arg == "-p" || arg == "--print")       config.m_print = string(argv[++i]) + " ";
         else if (arg == "-o" || arg == "--override")
@@ -731,6 +735,7 @@ int main(int argc, const char* argv[])
     			{
     			    throw runtime_error("Aborted!");
     			}
+			if(!config.m_quiet) {
                 cout.rdbuf(cerr.rdbuf());
     			cout << dec
     			     << config.m_print << sys.GetKernel().GetCycleNo() << " ; "
@@ -746,6 +751,7 @@ int main(int argc, const char* argv[])
                 cout << " ; ";
                 sys.PrintFamilyCompletions();
     			cout << endl;
+			}
     		}
     		catch (exception& e)
     		{
