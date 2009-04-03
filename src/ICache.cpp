@@ -7,7 +7,6 @@ using namespace std;
 
 ICache::ICache(Processor& parent, const std::string& name, Allocator& alloc, const Config& config)
 :   IComponent(&parent, parent.GetKernel(), name),
-    p_request(parent.GetKernel()),
     m_parent(parent), m_allocator(alloc),
     m_lineSize(config.lineSize), m_numHits(0), m_numMisses(0), m_assoc(config.assoc)
 {
@@ -324,7 +323,7 @@ bool ICache::OnMemoryReadCompleted(const MemData& data)
 	if (line.waiting.head != INVALID_TID)
 	{
 		// Reschedule the line's waiting list
-		if (!m_allocator.QueueActiveThreads(line.waiting.head, line.waiting.tail))
+		if (!m_allocator.QueueActiveThreads(line.waiting))
 		{
 		    DeadlockWrite("Unable to queue active threads T%u through T%u for C%u", line.waiting.head, line.waiting.tail, data.tag.cid);
 			return false;

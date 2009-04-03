@@ -14,6 +14,7 @@ Pipeline::Stage::Stage(Pipeline& parent, const std::string& name, Latch* input, 
 Pipeline::Pipeline(
     Processor&          parent,
     const std::string&  name,
+    LPID                lpid,
     RegisterFile&       regFile,
     Network&            network,
     Allocator&          alloc,
@@ -27,11 +28,12 @@ Pipeline::Pipeline(
     IComponent(&parent, parent.GetKernel(), name, "writeback|memory|execute|read|decode|fetch"), m_parent(parent), m_regFile(regFile),
     m_nStagesRun(0), m_maxPipelineIdleTime(0), m_minPipelineIdleTime(numeric_limits<uint64_t>::max()),
     m_totalPipelineIdleTime(0), m_pipelineIdleEvents(0), m_pipelineIdleTime(0), m_pipelineBusyTime(0),
-    m_fetch(*this, m_fdLatch, alloc, familyTable, threadTable, icache, config.controlBlockSize),
-    m_decode(*this, m_fdLatch, m_drLatch),
-    m_read(*this, m_drLatch, m_reLatch, regFile, network, m_emLatch, m_mwLatch),
-    m_execute(*this, m_reLatch, m_emLatch, alloc, threadTable, familyTable, fpu),
-    m_memory(*this, m_emLatch, m_mwLatch, dcache, alloc, regFile, familyTable),
+    
+    m_fetch    (*this, m_fdLatch, alloc, familyTable, threadTable, icache, lpid, config.controlBlockSize),
+    m_decode   (*this, m_fdLatch, m_drLatch),
+    m_read     (*this, m_drLatch, m_reLatch, regFile, network, m_emLatch, m_mwLatch),
+    m_execute  (*this, m_reLatch, m_emLatch, alloc, threadTable, familyTable, fpu),
+    m_memory   (*this, m_emLatch, m_mwLatch, dcache, alloc, regFile, familyTable),
     m_writeback(*this, m_mwLatch, regFile, network, alloc, threadTable)
 {
     m_stages[0] = &m_fetch;

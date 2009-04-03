@@ -178,7 +178,6 @@ RunState Kernel::Step(CycleNo cycles)
 
         PROFILE_BEGIN("Read Arbitrate");
         for (StructureList::const_iterator i = m_structures.begin(); i != m_structures.end(); ++i) (*i)->OnArbitrateReadPhase();
-        for (FunctionList ::const_iterator i = m_functions .begin(); i != m_functions .end(); ++i) (*i)->OnArbitrateReadPhase();
         PROFILE_END("Read Arbitrate");
 
         PROFILE_BEGIN("Read Commit");
@@ -216,7 +215,6 @@ RunState Kernel::Step(CycleNo cycles)
 
         PROFILE_BEGIN("Write Arbitrate");
         for (StructureList::const_iterator i = m_structures.begin(); i != m_structures.end(); ++i) (*i)->OnArbitrateWritePhase();
-        for (FunctionList ::const_iterator i = m_functions .begin(); i != m_functions .end(); ++i) (*i)->OnArbitrateWritePhase();
         PROFILE_END("Write Arbitrate");
 
         PROFILE_BEGIN("Write Commit");
@@ -302,11 +300,9 @@ void Kernel::RegisterComponent(IComponent& _component, const std::string& states
     }
 }
 
-void Kernel::RegisterFunction (IFunction&  _function )    { m_functions .insert(&_function ); }
 void Kernel::RegisterRegister (IRegister&  _register )    { m_registers .insert(&_register ); }
 void Kernel::UnregisterStructure(IStructure& _structure)  { m_structures.erase(&_structure); }
 void Kernel::UnregisterComponent(IComponent& _component)  { m_components.erase(&_component); m_callbacks.erase(&_component); }
-void Kernel::UnregisterFunction (IFunction&  _function )  { m_functions .erase(&_function ); }
 void Kernel::UnregisterRegister (IRegister&  _register )  { m_registers .erase(&_register ); }
 
 Kernel::Kernel()

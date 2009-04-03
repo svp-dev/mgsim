@@ -8,7 +8,8 @@ FamilyTable::FamilyTable(Processor& parent, const Config& config)
 :   Structure<LFID>(&parent, parent.GetKernel(), "families"),
     m_parent(parent),
     m_globals(config.numGlobals),
-    m_families(config.numFamilies)
+    m_families(config.numFamilies),
+    m_numFamiliesUsed(0)
 {
     for (size_t i = 0; i < config.numGlobals; ++i)
     {
@@ -19,9 +20,9 @@ FamilyTable::FamilyTable(Processor& parent, const Config& config)
     for (size_t i = 0; i < config.numFamilies; ++i)
     {
 		// Deny access to empty families
-		m_families[i].created    = false;
-		m_families[i].parent.pid = INVALID_PID;
-		m_families[i].parent.tid = INVALID_TID;
+		m_families[i].created     = false;
+		m_families[i].parent.lpid = INVALID_LPID;
+		m_families[i].parent.gpid = INVALID_GPID;
 
         m_families[i].next    = i + 1;
         m_families[i].state   = FST_EMPTY;
@@ -58,6 +59,8 @@ LFID FamilyTable::AllocateFamily(GFID gfid)
             m_empty.head = m_families[fid].next;
             family.state = FST_ALLOCATED;
             family.next  = INVALID_LFID;
+            
+            m_numFamiliesUsed++;
 		}
     }
     return fid;
@@ -130,6 +133,8 @@ bool FamilyTable::FreeFamily(LFID fid)
 		Family& family = m_families[fid];
         family.next  = INVALID_LFID;
         family.state = FST_EMPTY;
+        
+        m_numFamiliesUsed--;
     }
     return true;
 }

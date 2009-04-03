@@ -16,6 +16,11 @@
 namespace Simulator
 {
 
+struct PlaceInfo
+{
+    PSize m_size;  ///< Number of processors in the place
+};
+
 class Processor : public IComponent, public IMemoryCallback
 {
 public:
@@ -32,12 +37,14 @@ public:
 		FPU::Config          fpu;
     };
 
-    Processor(Object* parent, Kernel& kernel, PID pid, PSize numProcs, const std::string& name, IMemory& m_memory, const Config& config, MemAddr runAddress);
+    Processor(Object* parent, Kernel& kernel, GPID pid, LPID lpid, const std::vector<Processor*>& grid, PSize gridSize, PSize placeSize, const std::string& name, IMemory& m_memory, const Config& config, MemAddr runAddress);
     void Initialize(Processor& prev, Processor& next);
 
-    PID     GetPID()      const { return m_pid;      }
-    PSize   GetNumProcs() const { return m_numProcs; }
-    Kernel& GetKernel()   const { return m_kernel;   }
+    GPID    GetPID()       const { return m_pid;       }
+    PSize   GetPlaceSize() const { return m_placeSize; }
+    PSize   GetGridSize()  const { return m_gridSize;  }
+    Kernel& GetKernel()    const { return m_kernel;    }
+    bool    IsIdle()       const;
 
     uint64_t GetFlop() const { return m_pipeline.GetFlop(); }
     uint64_t GetOp()   const { return m_pipeline.GetOp(); }
@@ -70,12 +77,16 @@ public:
 	Result ReadMemory (MemAddr address, void* data, MemSize size, MemTag tag);
 	Result WriteMemory(MemAddr address, void* data, MemSize size, MemTag tag);
 	bool   CheckPermissions(MemAddr address, MemSize size, int access) const;
+	
+	Network& GetNetwork() { return m_network; }
 
 private:
-    PID         m_pid;
-    Kernel&     m_kernel;
-	IMemory&	m_memory;
-	PSize       m_numProcs;
+    GPID                           m_pid;
+    Kernel&                        m_kernel;
+	IMemory&	                   m_memory;
+	const std::vector<Processor*>& m_grid;
+	PSize                          m_gridSize;
+	size_t                         m_placeSize;
 	
 	// Statistics 
     CycleNo m_localFamilyCompletion; 

@@ -56,11 +56,10 @@ public:
      *
      * @param[in]     addr the address of the register to write
      * @param[in,out] data the data to write to the register. May receive value in register.
-     * @param[in]     component the component making the write request. This is used to
-     *                arbitrate further requests triggered by the write.
+     * @param[in]     from_memory indicates if the write comes from memory.
      * @return true if the register could be written
      */
-    bool WriteRegister(const RegAddr& addr, RegValue& data, const IComponent& component);
+    bool WriteRegister(const RegAddr& addr, RegValue& data, bool from_memory);
     
     /**
      * Clears a range of registers.
@@ -69,7 +68,7 @@ public:
      * @param[in] value the value to clear the registers to
      * @return true if the registers could be cleared
      */
-    bool Clear(const RegAddr& addr, RegSize size, const RegValue& value);
+    bool Clear(const RegAddr& addr, RegSize size);
 
 	/**
 	 * Writes a value into a register unconditionally

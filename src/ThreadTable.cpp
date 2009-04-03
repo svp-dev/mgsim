@@ -8,7 +8,8 @@ ThreadTable::ThreadTable(Processor& parent, const Config& config)
   : Structure<TID>(&parent, parent.GetKernel(), "threads"),
     p_fetch(*this), p_execute(*this),
     m_parent(parent),
-    m_threads(config.numThreads)
+    m_threads(config.numThreads),
+    m_numThreadsUsed(0)
 {
     SetPriority(p_execute, 0);
 
@@ -33,6 +34,7 @@ TID ThreadTable::PopEmpty()
         {
             m_empty.head = m_threads[tid].nextMember;
             m_threads[tid].state = TST_WAITING;
+            m_numThreadsUsed++;
         }
     }
     return tid;
@@ -54,6 +56,7 @@ bool ThreadTable::PushEmpty(const ThreadQueue& q)
         for (TID cur = q.head; cur != INVALID_TID; cur = m_threads[cur].nextMember)
         {
             m_threads[cur].state = TST_EMPTY;
+            m_numThreadsUsed--;
         }
     }
     return true;

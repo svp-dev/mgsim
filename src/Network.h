@@ -116,6 +116,23 @@ public:
     }
 };
 
+/// Network message for delegated creates
+struct DelegateMessage
+{
+    SInteger  start;
+    SInteger  limit;
+    SInteger  step;
+    TSize     blockSize;
+    bool      exclusive;
+	MemAddr   address;
+	struct {
+	    GPID pid;
+	    LFID fid;
+    }         parent;
+    RegsNo    regsNo[NUM_REG_TYPES];
+};
+
+/// Network message for group creates
 struct CreateMessage
 {
     GFID      fid;                   // Global Family ID to use for the family
@@ -126,7 +143,10 @@ struct CreateMessage
 	uint64_t  virtBlockSize;
 	TSize     physBlockSize;
 	MemAddr   address;			     // Address of the thread
-    RemoteTID parent;                // Parent Thread ID
+    struct {
+        LPID pid;
+        TID  tid;
+    } parent;                        // Parent Thread ID
     RegsNo    regsNo[NUM_REG_TYPES]; // Register information
 };
 
@@ -151,26 +171,26 @@ class Network : public IComponent
     struct RemoteFID
     {
         GFID fid;
-        PID  pid;
+        LPID pid;
 
-        RemoteFID(GFID _fid = INVALID_GFID, PID _pid = INVALID_PID)
-			: fid(_fid), pid(_pid)
-        {
-        }
+        RemoteFID(GFID fid, LPID pid) : fid(fid), pid(pid) {}
+        RemoteFID() {}
     };
 
 public:
-    Network(Processor& parent, const std::string& name, Allocator& allocator, RegisterFile& regFile, FamilyTable& familyTable);
+    Network(Processor& parent, const std::string& name, const std::vector<Processor*>& grid, LPID lpid, Allocator& allocator, RegisterFile& regFile, FamilyTable& familyTable);
     void Initialize(Network& prev, Network& next);
 
     // Public functions
     bool SendFamilyReservation(GFID fid);
     bool SendFamilyUnreservation(GFID fid);
     bool SendFamilyCreate(LFID fid);
+    bool SendFamilyDelegation(LFID fid);
     bool RequestToken();
     bool SendThreadCleanup(GFID fid);
     bool SendThreadCompletion(GFID fid);
     bool SendFamilyCompletion(GFID fid);
+    bool SendRemoteSync(GPID pid, LFID fid, ExitCode code);
 	
 	// addr is into the thread's shareds space
     bool SendShared   (GFID fid, bool parent, const RegAddr& addr, const RegValue& value);
@@ -182,12 +202,14 @@ public:
     bool OnFamilyReservationReceived(const RemoteFID& rfid);
     bool OnFamilyUnreservationReceived(const RemoteFID& rfid);
     bool OnFamilyCreateReceived(const CreateMessage& msg);
-	bool OnGlobalReceived(PID parent, const RegValue& value);
+    bool OnFamilyDelegationReceived(const DelegateMessage& msg);
+	bool OnGlobalReceived(LPID parent, const RegValue& value);
     bool OnRemoteTokenRequested();
     bool OnTokenReceived();
     bool OnThreadCleanedUp(GFID fid);
     bool OnThreadCompleted(GFID fid);
     bool OnFamilyCompleted(GFID fid);
+    bool OnRemoteSyncReceived(LFID fid, ExitCode code);
     Result OnSharedRequested(const SharedInfo& sharedInfo);
     Result OnSharedReceived(const SharedInfo& sharedInfo);
 
@@ -195,12 +217,14 @@ public:
     Result OnCycleWritePhase(unsigned int stateIndex);
 
 //private:
-    Processor&      m_parent;
-    RegisterFile&   m_regFile;
-    FamilyTable&    m_familyTable;
-    Allocator&      m_allocator;
-    Network*        m_prev;
-    Network*        m_next;
+    Processor&                     m_parent;
+    RegisterFile&                  m_regFile;
+    FamilyTable&                   m_familyTable;
+    Allocator&                     m_allocator;
+    Network*                       m_prev;
+    Network*                       m_next;
+    LPID                           m_lpid;
+    const std::vector<Processor*>& m_grid;
 
 	enum CreateState
 	{
@@ -214,18 +238,28 @@ public:
 		RegAddr  addr;
 		RegSize  count;
 		RegValue local;
-		BroadcastRegisters<std::pair<PID, RegValue> > value;
+		BroadcastRegisters<std::pair<LPID, RegValue> > value;
 
 		GlobalInfo(Kernel& kernel) : value(kernel) {}
 	};
+	
+	struct RemoteSync
+	{
+	    GPID     pid;
+	    LFID     fid;
+	    ExitCode code;
+	};
 
 	// Create information
-    Register<std::pair<LFID, CreateMessage> > m_createLocal;
-	Register<CreateMessage> m_createRemote;
-	CreateState             m_createState;
-	LFID                    m_createFid;
-	RegIndex                m_globalsBase[NUM_REG_TYPES];
-	GlobalInfo              m_global;
+    Register<std::pair<LFID, CreateMessage  > > m_createLocal;
+    Register<std::pair<GPID, DelegateMessage> > m_delegateLocal;
+    
+	Register<CreateMessage>   m_createRemote;
+	Register<DelegateMessage> m_delegateRemote;
+	CreateState               m_createState;
+	LFID                      m_createFid;
+	RegIndex                  m_globalsBase[NUM_REG_TYPES];
+	GlobalInfo                m_global;
 
 	// Notifications and reservations
     BroadcastRegisters<RemoteFID> m_reservation;
@@ -233,6 +267,7 @@ public:
     Register<GFID>                m_completedFamily;
     Register<GFID>                m_completedThread;
     Register<GFID>                m_cleanedUpThread;
+    Register<RemoteSync>          m_remoteSync;
 
 	// Shareds communication
     SharedInfo m_sharedRequest;

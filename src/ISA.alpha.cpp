@@ -1014,8 +1014,8 @@ Pipeline::PipeAction Pipeline::ExecuteStage::ExecuteInstruction()
             } else {
                 COMMIT {
                     // The request was buffered and will be written back
-                    m_output.Rcv.m_state     = RST_PENDING;
-                    m_output.Rcv.m_component = &m_allocator;
+                    m_output.Rcv.m_state       = RST_EMPTY;
+                    m_output.Rcv.m_memory.size = 0;
                 }
             }
         }
@@ -1047,7 +1047,7 @@ Pipeline::PipeAction Pipeline::ExecuteStage::ExecuteInstruction()
                 case A_UTHREAD_GETPROCS:
                     COMMIT {
                         m_output.Rcv.m_state   = RST_FULL;
-                        m_output.Rcv.m_integer = m_parent.m_parent.GetNumProcs();
+                        m_output.Rcv.m_integer = m_parent.m_parent.GetPlaceSize();
                     }
                     break;
 
@@ -1086,7 +1086,7 @@ Pipeline::PipeAction Pipeline::ExecuteStage::ExecuteInstruction()
                 case A_UTHREADF_GETINVPROCS:
                     COMMIT {
                         m_output.Rcv.m_state = RST_FULL;
-                        m_output.Rcv.m_float.fromfloat(1.0 / m_parent.m_parent.GetNumProcs(), sizeof(Integer));
+                        m_output.Rcv.m_float.fromfloat(1.0 / m_parent.m_parent.GetPlaceSize(), sizeof(Integer));
                     }
                     break;
             }
@@ -1197,8 +1197,8 @@ Pipeline::PipeAction Pipeline::ExecuteStage::ExecuteInstruction()
 
                 COMMIT
                 {
-                    m_output.Rcv.m_state     = RST_PENDING;
-                    m_output.Rcv.m_component = &m_fpu;
+                    m_output.Rcv.m_state       = RST_EMPTY;
+                    m_output.Rcv.m_memory.size = 0;
 
                     // We've executed a floating point operation
                     m_flop++;

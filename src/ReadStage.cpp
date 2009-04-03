@@ -36,14 +36,13 @@ static bool CopyRegister(RegType type, const PipeValue& src_value, RegSize src_o
     switch (src_value.m_state)
     {
     case RST_INVALID: break;
-    case RST_EMPTY:   break;
+    case RST_EMPTY:
+        dest_value.m_memory    = src_value.m_memory;
+        dest_value.m_remote    = src_value.m_remote;
+        // Fall-through
         
     case RST_WAITING:
-        dest_value.m_tid = src_value.m_tid;
-        // Fall-through
-    case RST_PENDING:
-        dest_value.m_request   = src_value.m_request;
-        dest_value.m_component = src_value.m_component;
+        dest_value.m_waiting = src_value.m_waiting;
         break;
         
     case RST_FULL:
@@ -84,13 +83,13 @@ static bool CopyRegister(RegType type, const RegValue& src_value, PipeValue& des
     switch (src_value.m_state)
     {
     case RST_INVALID: assert(0);
-    case RST_EMPTY:   break;
-    case RST_WAITING:
-        dest_value.m_tid = src_value.m_tid;
+    case RST_EMPTY:
+        dest_value.m_remote    = src_value.m_remote;
+        dest_value.m_memory    = src_value.m_memory;
         // Fall-through
-    case RST_PENDING:
-        dest_value.m_request   = src_value.m_request;
-        dest_value.m_component = src_value.m_component;
+
+    case RST_WAITING:
+        dest_value.m_waiting = src_value.m_waiting;
         break;
         
     case RST_FULL:
@@ -553,10 +552,13 @@ Pipeline::PipeAction Pipeline::ReadStage::write()
         
         COMMIT
         {
-            m_output.Rc          = operand1.addr;
-            m_output.Rrc.fid     = INVALID_GFID;
-			m_output.Rav.m_tid   = m_input.tid;
-            m_output.Rav.m_state = RST_WAITING;
+            m_output.Rc                 = operand1.addr;
+            m_output.Rrc.fid            = INVALID_GFID;
+            m_output.Rav.m_state        = RST_WAITING;
+            m_output.Rav.m_waiting.head = m_input.tid;
+            m_output.Rav.m_waiting.tail = (operand1.value.m_state == RST_WAITING)
+                ? operand1.value.m_waiting.head     // The register was already waiting, append thread to list
+                : m_input.tid;                      // First thread waiting on the register
         }
     }
     else if (operand2.value.m_state != RST_FULL)
@@ -580,10 +582,13 @@ Pipeline::PipeAction Pipeline::ReadStage::write()
 
         COMMIT
         {
-            m_output.Rc          = operand2.addr;
-            m_output.Rrc.fid     = INVALID_GFID;
-            m_output.Rbv.m_tid   = m_input.tid;
-            m_output.Rbv.m_state = RST_WAITING;
+            m_output.Rc                 = operand2.addr;
+            m_output.Rrc.fid            = INVALID_GFID;
+            m_output.Rbv.m_state        = RST_WAITING;
+            m_output.Rbv.m_waiting.head = m_input.tid;
+            m_output.Rbv.m_waiting.tail = (operand2.value.m_state == RST_WAITING)
+                ? operand2.value.m_waiting.head     // The register was already waiting, append thread to list
+                : m_input.tid;                      // First thread waiting on the register
         }
     }
     else

@@ -22,7 +22,6 @@
 #include <stdexcept>
 #include <limits>
 #include <typeinfo>
-#include <cstring>
 
 #include <signal.h>
 
@@ -61,10 +60,9 @@ static string Trim(const string& str)
 
 class MGSystem : public Object
 {
-    PSize           m_numProcs;
-    Processor**     m_procs;
-    vector<Object*> m_objects;
-    Kernel          m_kernel;
+    vector<Processor*> m_procs;
+    vector<Object*>    m_objects;
+    Kernel             m_kernel;
 
 public:
     //SimpleMemory*   m_memory;
@@ -77,7 +75,7 @@ public:
 
     struct Config
     {
-        vector<PSize>        clusterSizes;
+        vector<PSize>        placeSizes;
         PSize                numProcessors;
         BankedMemory::Config memory;
         Processor::Config    processor;
@@ -90,7 +88,7 @@ public:
     uint64_t GetOp() const
     {
         uint64_t op = 0;
-        for (PSize i = 0; i < m_numProcs; ++i) {
+        for (size_t i = 0; i < m_procs.size(); ++i) {
             op += m_procs[i]->GetOp();
         }
         return op;
@@ -99,7 +97,7 @@ public:
     uint64_t GetFlop() const
     {
         uint64_t flop = 0;
-        for (PSize i = 0; i < m_numProcs; ++i) {
+        for (size_t i = 0; i < m_procs.size(); ++i) {
             flop += m_procs[i]->GetFlop();
         }
         return flop;
@@ -143,13 +141,13 @@ public:
 		float avg  = 0;
 		float amax = 0.0f;
 		float amin = 1.0f;
-        for (PSize i = 0; i < m_numProcs; ++i) {
+        for (size_t i = 0; i < m_procs.size(); ++i) {
             float a = m_procs[i]->GetRegFileAsyncPortActivity();
 			amax = max(amax, a);
 			amin = min(amin, a);
 			avg += a;
         }
-        avg /= m_numProcs;
+        avg /= m_procs.size();
 		cout << avg << " " << amin << " " << amax;
 	}
 
@@ -159,7 +157,7 @@ public:
 		float amax = 0.0f;
 		float amin = 1.0f;
 		size_t num = 0;
-        for (PSize i = 0; i < m_numProcs; ++i) {
+        for (size_t i = 0; i < m_procs.size(); ++i) {
             float a = m_procs[i]->GetPipelineEfficiency();
             if (a > 0)
             {
@@ -179,13 +177,13 @@ public:
 	    uint64_t amax   = 0;
 	    uint64_t amin   = numeric_limits<uint64_t>::max();
 	    CycleNo cycles = m_kernel.GetCycleNo();
-        for (PSize i = 0; i < m_numProcs; ++i) {
+        for (size_t i = 0; i < m_procs.size(); ++i) {
             float a = (float)m_procs[i]->GetTotalActiveQueueSize() / cycles;
 			amax    = max(amax, m_procs[i]->GetMaxActiveQueueSize() );
 			amin    = min(amin, m_procs[i]->GetMinActiveQueueSize() );
 			avg += a;
         }
-        avg /= m_numProcs;
+        avg /= m_procs.size();
 		cout << avg << " " << amin << " " << amax;
 	}
 
@@ -194,13 +192,13 @@ public:
 	    float    avg    = 0;
 	    uint64_t amax   = 0;
 	    uint64_t amin   = numeric_limits<uint64_t>::max();
-        for (PSize i = 0; i < m_numProcs; ++i) {
+        for (size_t i = 0; i < m_procs.size(); ++i) {
             float a = (float)m_procs[i]->GetAvgPipelineIdleTime();
 			amax    = max(amax, m_procs[i]->GetMaxPipelineIdleTime() );
 			amin    = min(amin, m_procs[i]->GetMinPipelineIdleTime() );
 			avg += a;
         }
-        avg /= m_numProcs;
+        avg /= m_procs.size();
         if (avg == 0) {
     		cout << "- - -";
         } else {
@@ -212,7 +210,7 @@ public:
     {
         CycleNo first = UINT64_MAX;
         CycleNo last  = 0;
-        for (PSize i = 0; i < m_numProcs; ++i) {
+        for (size_t i = 0; i < m_procs.size(); ++i) {
             CycleNo cycle = m_procs[i]->GetLocalFamilyCompletion();
             if (cycle != 0)
             {
@@ -256,7 +254,20 @@ public:
     // Steps the entire system this many cycles
     RunState Step(CycleNo nCycles)
     {
-   		return GetKernel().Step(nCycles);
+   		RunState state = GetKernel().Step(nCycles);
+   		if (state == STATE_IDLE)
+   		{
+   		    // An idle state might actually be deadlock if there's a bug in the simulator.
+   		    // So check all cores to see if they're really done.
+   		    for (size_t i = 0; i < m_procs.size(); ++i)
+   		    {
+   		        if (!m_procs[i]->IsIdle())
+   		        {
+   		            return STATE_DEADLOCK;
+   		        }
+   		    }
+   		}
+   		return state;
     }
     
     void Abort()
@@ -264,38 +275,56 @@ public:
         GetKernel().Abort();
     }
 
-    MGSystem(const Config& config, const string& program, 
-	     const vector<pair<RegAddr, RegValue> >& regs, 
-	     const vector<pair<RegAddr, string> >& loads,
-	     bool quiet)
-      : Object(NULL, NULL, "system"),
-        m_numProcs(config.numProcessors)
+    MGSystem(const Config& config, const string& program,
+        const vector<pair<RegAddr, RegValue> >& regs,
+        const vector<pair<RegAddr, string> >& loads,
+        bool quiet)
+    : Object(NULL, NULL, "system"),
+      m_objects(config.numProcessors + 1)
     {
-        m_memory = new MemoryType(this, m_kernel, "memory", config.memory, m_numProcs);
-        m_objects.resize(m_numProcs + 1);
-        m_objects[m_numProcs] = m_memory;
+        m_memory = new MemoryType(this, m_kernel, "memory", config.memory, config.numProcessors);
+        m_objects.back() = m_memory;
 
         // Load the program into memory
         pair<MemAddr,MemAddr> addrs = LoadProgram(m_memory, program, quiet);
-	MemAddr entry = addrs.first;
+        MemAddr entry = addrs.first;
 
         // Create processor grid
-        m_procs = new Processor*[m_numProcs];
-        for (PSize i = 0; i < m_numProcs; ++i)
+        m_procs.resize(config.numProcessors);
+        
+        PSize first = 0;
+        for (size_t p = 0; p < config.placeSizes.size(); ++p)
         {
-            stringstream name;
-            name << "cpu" << i;
-            m_procs[i]   = new Processor(this, m_kernel, i, m_numProcs, name.str(), *m_memory, config.processor, entry);
-            m_objects[i] = m_procs[i];
+            
+            PSize placeSize = config.placeSizes[p];
+            for (size_t i = 0; i < placeSize; ++i)
+            {
+                PSize pid = (first + i);
+
+                stringstream name;
+                name << "cpu" << pid;
+                m_procs[pid]   = new Processor(this, m_kernel, pid, i, m_procs, m_procs.size(), placeSize, name.str(), *m_memory, config.processor, entry);
+                m_objects[pid] = m_procs[pid];
+            }
+            first += placeSize;
         }
 
-        // Connect processors in ring
-        for (PSize i = 0; i < m_numProcs; ++i)
+        // Connect processors in rings
+        first = 0;
+        for (size_t p = 0; p < config.placeSizes.size(); ++p)
         {
-            m_procs[i]->Initialize(*m_procs[(i+m_numProcs-1) % m_numProcs], *m_procs[(i+1) % m_numProcs]);
+            PSize placeSize = config.placeSizes[p];
+            for (size_t i = 0; i < placeSize; ++i)
+            {
+                PSize pid = (first + i);
+                LPID prev = (i + placeSize - 1) % placeSize;
+                LPID next = (i + 1) % placeSize;
+                m_procs[pid]->Initialize(*m_procs[first + prev], *m_procs[first + next]);
+            }
+            first += placeSize;
         }
        
-        if (m_numProcs > 0)
+        if (!m_procs.empty())
         {
 #if TARGET_ARCH == ARCH_ALPHA
             // The Alpha expects the function address in $27
@@ -310,27 +339,26 @@ public:
 	        {
 	        	m_procs[0]->WriteRegister(regs[i].first, regs[i].second);
 	        }
-
-		MemAddr dataloadbase = addrs.second;
-		for (size_t i = 0; i < loads.size(); ++i)
-		  {
-		    RegValue value;
-		    value.m_state = RST_FULL;
-		    value.m_integer = dataloadbase;
-		    m_procs[0]->WriteRegister(loads[i].first, value);
-		    dataloadbase = LoadDataFile(m_memory, loads[i].second, dataloadbase, quiet);
-		  }
-	    }
+	        
+            MemAddr dataloadbase = addrs.second;
+            for (size_t i = 0; i < loads.size(); ++i)
+            { 
+                RegValue value; 
+                value.m_state = RST_FULL; 
+                value.m_integer = dataloadbase; 
+                m_procs[0]->WriteRegister(loads[i].first, value); 
+                dataloadbase = LoadDataFile(m_memory, loads[i].second, dataloadbase, quiet); 
+            }
+        }
     }
 
     ~MGSystem()
     {
         delete m_memory;
-        for (PSize i = 0; i < m_numProcs; ++i)
+        for (size_t i = 0; i < m_procs.size(); ++i)
         {
             delete m_procs[i];
         }
-        delete[] m_procs;
     }
 };
 
@@ -397,12 +425,12 @@ static void PrintHelp()
 static MGSystem::Config ParseConfig(const Config& configfile)
 {
     MGSystem::Config config;
-    config.clusterSizes  = configfile.getIntegerList<PSize>("NumProcessors");
+    config.placeSizes = configfile.getIntegerList<PSize>("NumProcessors");
 
     config.numProcessors = 0;
-    for (size_t i = 0; i < config.clusterSizes.size(); ++i)
+    for (size_t i = 0; i < config.placeSizes.size(); ++i)
     {
-        config.numProcessors += config.clusterSizes[i];
+        config.numProcessors += config.placeSizes[i];
     }
 
     config.memory.baseRequestTime = configfile.getInteger<CycleNo>("MemoryBaseRequestTime", 1);
@@ -537,31 +565,31 @@ static void PrintUsage()
         "Options:\n"
         "-h, --help               Show this help\n"
         "-c, --config <filename>  Read configuration from file\n"
-        "-q, --quiet              Do not print simulation statistics after run\n"
+        "-q, --quiet              Do not print simulation statistics after run\n" 
         "-i, --interactive        Start the simulator in interactive mode\n"
         "-t, --terminate          Terminate simulator on exception\n"
         "-p, --print <value>      Print the value before printing the results when\n"
         "                         done simulating\n"
         "-R<X> <value>            Store the integer value in the specified register\n"
         "-F<X> <value>            Store the FP value in the specified register\n"
-        "-L<X> <filename>         Load the contents of the file after the program\n"
-        "                         and store the address in the specified register\n"
+        "-L<X> <filename>         Load the contents of the file after the program\n" 
+        "                         and store the address in the specified register\n" 
         "-o, --override <n>=<v>   Overrides the configuration option n with value v\n"
         "\n";
 }
 
 struct ProgramConfig
 {
-  string             m_programFile;
-  string             m_configFile;
-  bool               m_interactive;
-  bool               m_terminate;
-  bool               m_quiet;
-  string             m_print;
-  map<string,string> m_overrides;
-  
-  vector<pair<RegAddr, RegValue> > m_regs;
-  vector<pair<RegAddr, string> > m_loads;
+    string             m_programFile;
+    string             m_configFile;
+    bool               m_interactive;
+	bool               m_terminate;
+	bool               m_quiet;
+	string             m_print;
+	map<string,string> m_overrides;
+	
+	vector<pair<RegAddr, RegValue> > m_regs;
+    vector<pair<RegAddr, string> >   m_loads;
 };
 
 static bool ParseArguments(int argc, const char* argv[], ProgramConfig& config)
@@ -604,21 +632,18 @@ static bool ParseArguments(int argc, const char* argv[], ProgramConfig& config)
             transform(name.begin(), name.end(), name.begin(), ::toupper);
             config.m_overrides[name] = arg.substr(eq + 1);
         }
-	else if (toupper(arg[1]) == 'L') 
-	  {
-	    string filename(argv[++i]);
-
-            char* endptr;
-            RegAddr  addr;
-            unsigned long index = strtoul(&arg[2], &endptr, 0);
-            if (*endptr != '\0') {
-             	throw runtime_error("Error: invalid register specifier in option");
-            }
-	    addr = MAKE_REGADDR(RT_INTEGER, index);			
-
-            config.m_loads.push_back(make_pair(addr, filename));
-
-	  }
+        else if (toupper(arg[1]) == 'L')  
+        { 
+            string filename(argv[++i]); 
+            char* endptr; 
+            RegAddr  addr; 
+            unsigned long index = strtoul(&arg[2], &endptr, 0); 
+            if (*endptr != '\0') { 
+                throw runtime_error("Error: invalid register specifier in option"); 
+            } 
+            addr = MAKE_REGADDR(RT_INTEGER, index);                      
+            config.m_loads.push_back(make_pair(addr, filename)); 
+        } 
         else if (toupper(arg[1]) == 'R' || toupper(arg[1]) == 'F')
         {
          	stringstream value;
@@ -717,7 +742,7 @@ int main(int argc, const char* argv[])
 		}
 
         // Create the system
-	MGSystem sys(systemconfig, config.m_programFile, config.m_regs, config.m_loads, !config.m_interactive);
+		MGSystem sys(systemconfig, config.m_programFile, config.m_regs, config.m_loads, !config.m_interactive);
 
         bool interactive = config.m_interactive;
         if (!interactive)
@@ -735,23 +760,25 @@ int main(int argc, const char* argv[])
     			{
     			    throw runtime_error("Aborted!");
     			}
-			if(!config.m_quiet) {
-                cout.rdbuf(cerr.rdbuf());
-    			cout << dec
-    			     << config.m_print << sys.GetKernel().GetCycleNo() << " ; "
-                     << sys.GetOp() << " "
-                     << sys.GetFlop() << " ; ";
-    			sys.PrintRegFileAsyncPortActivity();
-    			cout << " ; ";
-    			sys.PrintActiveQueueSize();
-    			cout << " ; ";
-    			sys.PrintPipelineIdleTime();
-    			cout << " ; ";
-    			sys.PrintPipelineEfficiency();
-                cout << " ; ";
-                sys.PrintFamilyCompletions();
-    			cout << endl;
-			}
+    			
+    			if (!config.m_quiet)
+    			{
+                    cout.rdbuf(cerr.rdbuf());
+    			    cout << dec
+    			         << config.m_print << sys.GetKernel().GetCycleNo() << " ; "
+                         << sys.GetOp() << " "
+                         << sys.GetFlop() << " ; ";
+    			    sys.PrintRegFileAsyncPortActivity();
+    			    cout << " ; ";
+    			    sys.PrintActiveQueueSize();
+    			    cout << " ; ";
+    			    sys.PrintPipelineIdleTime();
+    			    cout << " ; ";
+    			    sys.PrintPipelineEfficiency();
+                    cout << " ; ";
+                    sys.PrintFamilyCompletions();
+    			    cout << endl;
+    			}
     		}
     		catch (exception& e)
     		{

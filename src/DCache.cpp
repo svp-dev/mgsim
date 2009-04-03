@@ -12,8 +12,7 @@ static bool IsPowerOfTwo(const T& x)
 }
 
 DCache::DCache(Processor& parent, const std::string& name, Allocator& alloc, FamilyTable& familyTable, RegisterFile& regFile, const Config& config)
-:   IComponent(&parent, parent.GetKernel(), name),
-    p_request(parent.GetKernel()), m_parent(parent),
+:   IComponent(&parent, parent.GetKernel(), name), m_parent(parent),
 	m_allocator(alloc), m_familyTable(familyTable), m_regFile(regFile),
 	m_config(config), m_numHits(0), m_numMisses(0)
 {
@@ -332,36 +331,37 @@ Result DCache::OnCycleWritePhase(unsigned int stateIndex)
 			return FAILED;
 		}
 
-		if (value.m_state == RST_EMPTY || value.m_state == RST_FULL || value.m_request.size == 0)
+		if (value.m_state == RST_FULL || value.m_memory.size == 0)
 		{
 			// Rare case: the request info is still in the pipeline, stall!
 			return FAILED;
 		}
-        
+
         // Register must be in pending or waiting state
-        assert(value.m_state == RST_PENDING || value.m_state == RST_WAITING);
+		assert(value.m_state == RST_EMPTY || value.m_state == RST_WAITING);
 
 		// Ignore the request if the family has been killed
-		const Family& family = m_familyTable[value.m_request.fid];
+		const Family& family = m_familyTable[value.m_memory.fid];
 		if (!family.killed)
 		{
 			// Write to register file
-			uint64_t data = UnserializeRegister(line.waiting.type, &line.data[value.m_request.offset], value.m_request.size);
+			uint64_t data = UnserializeRegister(line.waiting.type, &line.data[value.m_memory.offset], value.m_memory.size);
 
             // Number of registers that we're writing (must be a power of two)
-            const size_t nRegs = (value.m_request.size + sizeof(Integer) - 1) / sizeof(Integer);
+            const size_t nRegs = (value.m_memory.size + sizeof(Integer) - 1) / sizeof(Integer);
             assert((nRegs & (nRegs - 1)) == 0);
             
-            if (value.m_request.sign_extend)
+            if (value.m_memory.sign_extend)
             {
                 // Sign-extend the value
-                assert(value.m_request.size < sizeof(Integer));
-                int shift = (sizeof(data) - value.m_request.size) * 8;
+                assert(value.m_memory.size < sizeof(Integer));
+                int shift = (sizeof(data) - value.m_memory.size) * 8;
                 data = (int64_t)(data << shift) >> shift;
             }
 
    			RegAddr  addr = line.waiting;
-   			RegValue reg  = {RST_FULL};
+   			RegValue reg;
+   			reg.m_state = RST_FULL;
 
             for (size_t i = 0; i < nRegs; ++i)
             {
@@ -379,7 +379,7 @@ Result DCache::OnCycleWritePhase(unsigned int stateIndex)
                 a.index += i;
 #endif
 
-    			if (!m_regFile.WriteRegister(a, reg, *this))
+    			if (!m_regFile.WriteRegister(a, reg, true))
 		    	{
 	    			return FAILED;
     			}
@@ -391,13 +391,13 @@ Result DCache::OnCycleWritePhase(unsigned int stateIndex)
     		}
         }
 
-		if (!m_allocator.DecreaseFamilyDependency(value.m_request.fid, FAMDEP_OUTSTANDING_READS))
+		if (!m_allocator.DecreaseFamilyDependency(value.m_memory.fid, FAMDEP_OUTSTANDING_READS))
 		{
 			return FAILED;
 		}
 
 		COMMIT{
-		    line.waiting = value.m_request.next;
+		    line.waiting = value.m_memory.next;
             m_numWaiting--;
         }
 	}

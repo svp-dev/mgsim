@@ -1,7 +1,6 @@
 #ifndef ALLOCATOR_H
 #define ALLOCATOR_H
 
-#include "functions.h"
 #include "Memory.h"
 #include "ThreadTable.h"
 #include <queue>
@@ -19,6 +18,7 @@ class Network;
 class Pipeline;
 struct Family;
 struct CreateMessage;
+struct DelegateMessage;
 
 // A list of dependencies that prevent a family from being
 // terminated or cleaned up
@@ -80,7 +80,7 @@ public:
 
     Allocator(Processor& parent, const std::string& name,
         FamilyTable& familyTable, ThreadTable& threadTable, RegisterFile& registerFile, RAUnit& raunit, ICache& icache, Network& network, Pipeline& pipeline,
-        PSize procNo, const Config& config);
+        LPID lpid, const Config& config);
 
     // Allocates the initial family consisting of a single thread on the first CPU.
     // Typically called before tha actual simulation starts.
@@ -95,31 +95,25 @@ public:
     /*
      * Thread management
      */
-    
-    // Activates the specified thread, belonging to family @fid, with PC of @pc.
-    // The component is used for arbitration in accesses to resources.
-    bool ActivateThread(TID tid, const IComponent& component, MemAddr pc, LFID fid);
-    bool ActivateThread(TID tid, const IComponent& component); // Reads PC and FID from thread table
-    
-    // Reschedules a thread from the pipeline. Manages cache-lines and calls ActivateThread
-    bool RescheduleThread(TID tid, MemAddr pc, const IComponent& component);
-    // Suspends a thread at the specified PC.
-    bool SuspendThread(TID tid, MemAddr pc);
-    // Kills a thread
-    bool KillThread(TID tid);
+    bool ActivateThreads(const ThreadQueue& threads);   // Activates the specified threads
+    bool RescheduleThread(TID tid, MemAddr pc);         // Reschedules a thread from the pipeline
+    bool SuspendThread(TID tid, MemAddr pc);            // Suspends a thread at the specified PC
+    bool KillThread(TID tid);                           // Kills a thread
     
     uint64_t GetTotalActiveQueueSize() const { return m_totalActiveQueueSize; }
     uint64_t GetMaxActiveQueueSize() const { return m_maxActiveQueueSize; }
     uint64_t GetMinActiveQueueSize() const { return m_minActiveQueueSize; }
     
-    bool   KillFamily(LFID fid, ExitCode code, RegValue value);
+    bool   KillFamily(LFID fid, ExitCode code);
 	Result AllocateFamily(TID parent, RegIndex reg, LFID* fid, const RegisterBases bases[]);
 	LFID   AllocateFamily(const CreateMessage& msg);
-    GFID   SanitizeFamily(Family& family, bool hasDependency);
+    bool   SanitizeFamily(Family& family, bool hasDependency);
 	bool   ActivateFamily(LFID fid);
-    bool   QueueCreate(LFID fid, MemAddr address, TID parent, RegAddr exitCodeReg);
-    bool   QueueActiveThreads(TID first, TID last);
-    TID    PopActiveThread(TID tid);
+    LFID   QueueCreate(const DelegateMessage& msg);
+    bool   QueueCreate(LFID fid, MemAddr address, TID parent, RegIndex exitCodeReg);
+    bool   QueueActiveThreads(const ThreadQueue& threads);
+    bool   QueueThreads(ThreadQueue& queue, const ThreadQueue& threads, ThreadState state);
+    TID    PopActiveThread();
     
     bool   IncreaseFamilyDependency(LFID fid, FamilyDependency dep);
     bool   DecreaseFamilyDependency(LFID fid, FamilyDependency dep);
@@ -132,6 +126,7 @@ public:
     bool OnTokenReceived();
     bool OnRemoteThreadCompletion(LFID fid);
     bool OnRemoteThreadCleanup(LFID fid);
+    bool OnRemoteSync(LFID fid, ExitCode code);
 
     /* Component */
     Result OnCycleReadPhase(unsigned int stateIndex);
@@ -144,11 +139,6 @@ public:
 	CreateState                  GetCreateState()     const { return m_createState; }
 	const Buffer<AllocRequest>&  GetAllocationQueue() const { return m_allocations; }
     const Buffer<TID>&           GetCleanupQueue()    const { return m_cleanup;     }
-
-    //
-    // Functions/Ports
-    //
-    ArbitratedWriteFunction     p_cleanup;
 
 private:
     // A queued register write
@@ -163,8 +153,9 @@ private:
     MemSize CalculateTLSSize() const;
     
 	void SetDefaultFamilyEntry(LFID fid, TID parent, const RegisterBases bases[]) const;
-	void InitializeFamily(LFID fid) const;
+	void InitializeFamily(LFID fid, bool local) const;
 	bool AllocateRegisters(LFID fid);
+	bool WriteExitCode(RegIndex reg, ExitCode code);
 
     bool AllocateThread(LFID fid, TID tid, bool isNewlyAllocated = true);
     bool PushCleanup(TID tid);
@@ -183,7 +174,7 @@ private:
     ICache&             m_icache;
     Network&            m_network;
 	Pipeline&			m_pipeline;
-    PSize               m_procNo;
+    LPID                m_lpid;
 
     uint64_t             m_activeQueueSize;
     uint64_t             m_totalActiveQueueSize;
@@ -204,6 +195,7 @@ private:
 
 public:
     ThreadQueue			  m_activeThreads;  // Queue of the active threads
+    ThreadQueue           m_readyThreads;   // Queue of the threads can be activated
 };
 
 }

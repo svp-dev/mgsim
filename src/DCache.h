@@ -2,7 +2,6 @@
 #define DCACHE_H
 
 #include "kernel.h"
-#include "functions.h"
 #include "Memory.h"
 #include <queue>
 
@@ -64,9 +63,6 @@ public:
 
     // Component
     Result OnCycleWritePhase(unsigned int stateIndex);
-
-    // Ports
-    ArbitratedWriteFunction p_request;
 
     // Admin information
     size_t GetAssociativity() const { return m_config.assoc; }

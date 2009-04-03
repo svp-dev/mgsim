@@ -89,13 +89,12 @@ Pipeline::PipeAction Pipeline::MemoryStage::write()
 			else
 			{
 				// Remember request data
-	            rcv.m_state               = RST_PENDING;
-				rcv.m_request.fid         = m_input.fid;
-				rcv.m_request.next        = reg;
-				rcv.m_request.offset      = (unsigned int)(m_input.address % m_dcache.GetLineSize());
-				rcv.m_request.size        = (size_t)m_input.size;
-				rcv.m_request.sign_extend = m_input.sign_extend;
-				rcv.m_component           = &m_dcache;
+	            rcv.m_state              = RST_EMPTY;
+				rcv.m_memory.fid         = m_input.fid;
+				rcv.m_memory.next        = reg;
+				rcv.m_memory.offset      = (unsigned int)(m_input.address % m_dcache.GetLineSize());
+				rcv.m_memory.size        = (size_t)m_input.size;
+				rcv.m_memory.sign_extend = m_input.sign_extend;
 			}
         }
 

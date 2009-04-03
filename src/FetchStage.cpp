@@ -52,7 +52,7 @@ Pipeline::PipeAction Pipeline::FetchStage::read()
 				m_isLastThreadInBlock   = thread.isLastThreadInBlock;
 				m_isLastThreadInFamily  = thread.isLastThreadInFamily;
 				m_isFirstThreadInFamily = thread.isFirstThreadInFamily;
-				m_onParent              = (family.parent.pid == m_parent.GetProcessor().GetPID());
+				m_onParent              = (family.parent.lpid == m_lpid);
 
 				for (RegType i = 0; i < NUM_REG_TYPES; ++i)
 				{
@@ -104,11 +104,8 @@ Pipeline::PipeAction Pipeline::FetchStage::write()
 		COMMIT
 		{
 			// Pop the active thread
-			m_next = m_allocator.PopActiveThread(m_tid);
-		}
+			m_next = m_allocator.PopActiveThread();
 
-		COMMIT
-		{
 			// Mark the thread as running
 			thread.state = TST_RUNNING;
 		}
@@ -148,13 +145,14 @@ Pipeline::PipeAction Pipeline::FetchStage::write()
 	return PIPE_CONTINUE;
 }
 
-Pipeline::FetchStage::FetchStage(Pipeline& parent, FetchDecodeLatch& fdLatch, Allocator& alloc, FamilyTable& familyTable, ThreadTable& threadTable, ICache& icache, size_t controlBlockSize)
+Pipeline::FetchStage::FetchStage(Pipeline& parent, FetchDecodeLatch& fdLatch, Allocator& alloc, FamilyTable& familyTable, ThreadTable& threadTable, ICache& icache, LPID lpid, size_t controlBlockSize)
   : Stage(parent, "fetch", NULL, &fdLatch),
     m_output(fdLatch),
     m_allocator(alloc),
     m_familyTable(familyTable),
     m_threadTable(threadTable),
-    m_icache(icache)
+    m_icache(icache),
+    m_lpid(lpid)
 {
     if ((controlBlockSize & ~(controlBlockSize - 1)) != controlBlockSize)
     {

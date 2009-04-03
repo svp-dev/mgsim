@@ -760,10 +760,10 @@ static bool cmd_families_read( Object* obj, const vector<string>& /* arguments *
     const FamilyTable* table = dynamic_cast<FamilyTable*>(obj);
     if (table == NULL) return false;
 
-    static const char* FamilyStates[] = {"", "ALLOCATED", "CREATE QUEUED", "CREATING", "IDLE", "ACTIVE", "KILLED"};
+    static const char* FamilyStates[] = {"", "ALLOCATED", "CREATE QUEUED", "CREATING", "DELEGATED", "IDLE", "ACTIVE", "KILLED"};
 
-    cout << "    |        PC        |   Allocated    | P/A/Rd/Sh | Parent | GFID | State" << endl;
-    cout << "----+------------------+----------------+-----------+--------+------+-----------" << endl;
+    cout << "    |         PC         |   Allocated    | P/A/Rd/Sh |  Parent | GFID | State" << endl;
+    cout << "----+--------------------+----------------+-----------+---------+------+-----------" << endl;
 
     cout << setfill(' ') << right;
 	
@@ -773,12 +773,25 @@ static bool cmd_families_read( Object* obj, const vector<string>& /* arguments *
         const Family& family = families[i];
 
         cout << dec << right << setw(3) << setfill(' ') << i << " | ";
-        if (family.state != FST_EMPTY)
+        if (family.state == FST_EMPTY)
         {
-			if (family.state != FST_ALLOCATED)
+            cout << "                   |                |           |         |      | ";
+        }
+        else
+        {
+			if (family.state == FST_ALLOCATED)
+			{
+                cout << "        -          |       -        |      -     | ";
+			}
+			else if (family.state == FST_CREATING || family.state == FST_DELEGATED)
+			{
+	            cout << hex << setw(18) << showbase << family.pc << dec
+	                 << " |       -        |     -     | ";
+			}
+			else
 			{
 	            cout << hex
-	                 << setw(16) << family.pc << " | "
+	                 << setw(18) << showbase << family.pc << " | "
 				     << dec
 				     << setw(3) << family.dependencies.numThreadsAllocated << "/"
 					 << setw(3) << family.physBlockSize << " ("
@@ -788,32 +801,33 @@ static bool cmd_families_read( Object* obj, const vector<string>& /* arguments *
 					 << setw(2) << family.dependencies.numPendingReads << "/"
 					 << setw(2) << family.dependencies.numPendingShareds << " | " << right;
 			}
-			else {
-                cout << "       -         |       -        |     -     | ";
-			}
 
-			if (family.parent.tid == INVALID_TID) {
-				cout << "  -    | ";
-			} else {
-				cout << setw(3) << (int)family.parent.tid << "@" << setw(2) << family.parent.pid << " | ";
+            // Print parent
+            if (family.parent.gpid != INVALID_GPID) {
+                // Delegated family
+				cout << setfill('0') 
+				     << "F"  << setw(2) << family.parent.fid
+				     << "@P" << setw(2) << family.parent.gpid;
+            } else if (family.gfid != INVALID_GFID) {
+                // Group family
+				cout << setfill('0') 
+				     << "T"  << setw(2) << family.parent.tid
+				     << "@P" << setw(2) << family.parent.lpid;
+		    } else {
+		        // Local family
+				cout << "   -   ";
 			}
+			cout << " | ";
 
-			if (family.state != FST_ALLOCATED)
-			{
-				if (family.gfid == INVALID_GFID) {
-					cout << " -  ";
-				} else {
-					cout << "G" << setw(2) << setfill('0') << right << family.gfid << " ";
-				}
-			}
-			else {
+            // Print GFID
+			if (family.state == FST_ALLOCATED) {
 	            cout << " -  ";
+			} else if (family.gfid == INVALID_GFID) {
+    			cout << " -  ";
+			} else {
+				cout << "G" << setw(2) << setfill('0') << right << family.gfid << " ";
 			}
             cout << " | " << FamilyStates[family.state];
-        }
-        else
-        {
-            cout << "                 |                |           |        |      | ";
         }
         cout << endl;
     }
@@ -841,11 +855,11 @@ static bool cmd_threads_read( Object* obj, const vector<string>& /* arguments */
     if (table == NULL) return false;
 
     static const char* ThreadStates[] = {
-        "", "WAITING", "ACTIVE", "RUNNING", "SUSPENDED", "UNUSED", "KILLED"
+        "", "WAITING", "READY", "ACTIVE", "RUNNING", "SUSPENDED", "UNUSED", "KILLED"
     };
 
-    cout << "    |    PC    | Fam | Index | Prev | Next | Int. | Flt. | Flags | WR | State" << endl;
-    cout << "----+----------+-----+-------+------+------+------+------+-------+----+----------" << endl;
+    cout << "    |         PC         | Fam | Index | Prev | Next | Int. | Flt. | Flags | WR | State" << endl;
+    cout << "----+--------------------+-----+-------+------+------+------+------+-------+----+----------" << endl;
     for (TID i = 0; i < table->GetNumThreads(); ++i)
     {
         cout << dec << setw(3) << setfill(' ') << i << " | ";
@@ -853,8 +867,8 @@ static bool cmd_threads_read( Object* obj, const vector<string>& /* arguments */
 
         if (thread.state != TST_EMPTY)
         {
-            cout << setw(8) << setfill('0') << hex << thread.pc << " | ";
-            cout << "F" << setw(2) << thread.family << " | ";
+            cout << setw(18) << setfill(' ') << hex << showbase << thread.pc << " | ";
+            cout << "F" << setfill('0') << dec << noshowbase << setw(2) << thread.family << " | ";
             cout << setw(5) << dec << setfill(' ') << thread.index << " | ";
             if (thread.prevInBlock != INVALID_TID) cout << dec << setw(4) << setfill(' ') << thread.prevInBlock; else cout << "   -";
             cout << " | ";
@@ -882,7 +896,7 @@ static bool cmd_threads_read( Object* obj, const vector<string>& /* arguments */
         }
         else
         {
-            cout << "         |     |       |      |      |      |      |       |    |";
+            cout << "                   |     |       |      |      |      |      |       |    |";
         }
         cout << endl;
     }
@@ -909,10 +923,9 @@ static string MakePipeValue(const RegType& type, const PipeValue& value)
 
     switch (value.m_state)
     {
-        case RST_INVALID:   ss << "N/A";     break;
-		case RST_PENDING:   ss << "Pending"; break;
-        case RST_EMPTY:     ss << "Empty";   break;
-		case RST_WAITING:   ss << "Waiting (" << setw(4) << setfill('0') << value.m_tid << "h)"; break;
+        case RST_INVALID:   ss << "N/A";   break;
+        case RST_EMPTY:     ss << "Empty"; break;
+		case RST_WAITING:   ss << "Waiting (" << setw(4) << setfill('0') << value.m_waiting.head << "h)"; break;
         case RST_FULL:
             if (type == RT_INTEGER) {
                 ss << setw(value.m_size * 2);
@@ -1114,7 +1127,7 @@ static bool cmd_rau_help(Object* obj, const vector<string>& /* arguments */)
 }
 
 static const char* TypeNames[NUM_REG_TYPES] = {"Integer", "Float"};
-static const char* StateNames[5] = {"", "Empty", "Pending", "Waiting", "Full"};
+static const char* StateNames[5] = {"", "Empty", "Waiting", "Full"};
 
 // Read the Register Allocation Unit
 static bool cmd_rau_read( Object* obj, const vector<string>& arguments )
@@ -1248,12 +1261,11 @@ static bool cmd_regs_read( Object* obj, const vector<string>& arguments )
             break;
 
         case RST_WAITING:
-            ss << "      " << setw(4) << setfill('0') << hex << value.m_tid << "      "; break;
+            ss << "   " << setw(4) << setfill('0') << hex << value.m_waiting.head << " - " << setw(4) << value.m_waiting.tail << "  "; break;
             break;
 
         case RST_INVALID:
         case RST_EMPTY:
-		case RST_PENDING:
             ss << setw(16) << " ";
             break;
         }

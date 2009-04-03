@@ -82,7 +82,7 @@ bool FPU::OnCompletion(const Result& res) const
 	    return false;
     }
 
-    if (value.m_state != RST_PENDING && value.m_state != RST_WAITING)
+    if (value.m_state != RST_EMPTY && value.m_state != RST_WAITING)
     {
     	// We're too fast, wait!
     	return false;
@@ -103,7 +103,7 @@ bool FPU::OnCompletion(const Result& res) const
 #endif
 
 	    value.m_float.integer = (Integer)data;
-	    if (!m_registerFile.WriteRegister(a, value, *this))
+	    if (!m_registerFile.WriteRegister(a, value, false))
 	    {
 	    	return false;
 	    }

@@ -39,14 +39,23 @@ struct Family
     TSize        physBlockSize;  // Physical block size, <= Virtual block size, depending on the amount of free registers
     int64_t      start;          // Start index of the family
     int64_t      step;           // Step size of the family
-	Place        place;		     // Place where the family is to be created
+	PlaceID      place;		     // Place where the family is to be created
 	bool         infinite;       // Is this an infinite family?
 	union {
 		uint64_t nThreads;       // Number of threads we need to allocate
 		int64_t  limit;			 // Limit of the family
 	};
     uint64_t     index;          // Index of the next to be allocated thread (0, 1, 2... nThreads-1)
-    RemoteTID    parent;         // Parent thread
+    struct
+    {
+        LPID lpid;               // Parent for group creates (creating CPU for delegated)
+        GPID gpid;               // Parent for delegated creates
+        union
+        {
+            TID  tid;            // Parent thread for group creates
+            LFID fid;            // Parent family for delegated creates
+        };
+    }            parent;         // Parent thread/family
 	GFID         gfid;			 // Corresponding global LFID    
     bool         hasDependency;  // Does this family use shareds?
     bool         killed;         // Has this family been killed?
@@ -54,8 +63,7 @@ struct Family
     ThreadQueue  members;        // Queue of all threads in this family
     LFID         next;           // Next family in the empty or active family queue
     
-    RegAddr      exitCodeReg;
-    RegAddr      exitValueReg;
+    RegIndex     exitCodeReg;
     TID          lastAllocated;
     TID          lastThreadInBlock;
     TID          firstThreadInBlock;
@@ -92,6 +100,7 @@ public:
     bool ReserveGlobal(GFID fid);
     bool UnreserveGlobal(GFID fid);
     bool FreeFamily(LFID fid);
+    bool IsEmpty() const { return m_numFamiliesUsed == 0; }
 
     // Admin functions
     const std::vector<GlobalFamily>& GetGlobals()  const { return m_globals; }
@@ -102,6 +111,7 @@ private:
     std::vector<GlobalFamily> m_globals;
     std::vector<Family>       m_families;
     FamilyQueue               m_empty;
+    FSize                     m_numFamiliesUsed;
 };
 
 }

@@ -18,18 +18,30 @@ namespace Simulator
 #define ARCH_ENDIANNESS ARCH_BIG_ENDIAN
 #endif
 
-typedef size_t   PID;           ///< Processor index
+typedef size_t   GPID;          ///< Global (grid) processor index
+typedef size_t   LPID;          ///< Local (group) Processor index
 typedef size_t   TID;           ///< Thread index
 typedef size_t   CID;           ///< Cache index
 typedef size_t   PSize;         ///< Processor list size
 typedef size_t   TSize;         ///< Thread list size
 typedef uint64_t CycleNo;       ///< Cycle Number
+typedef uint64_t Capability;    ///< Capability
 typedef size_t   RegIndex;      ///< Index into a register file
 typedef size_t   RegSize;       ///< Size of something in the register file
-typedef size_t   Place;			///< Place identifier
 typedef size_t   FSize;         ///< Family list size
 typedef size_t   LFID;          ///< Local family index
-typedef size_t   GFID;          ///< Group family index
+typedef size_t   GFID;          ///< Global family index
+
+/// Place identifier
+struct PlaceID
+{
+    GPID       pid;
+    Capability capability;
+    bool       exclusive;
+    
+    bool IsLocal() const { return pid == 0 && capability == 0; }
+    bool IsDelegated(GPID self_pid) const { return !IsLocal() && self_pid != pid; }
+};
 
 /// 32-bit IEEE-754 float
 struct Float32
@@ -175,6 +187,7 @@ enum ThreadState
 {
     TST_EMPTY,
     TST_WAITING,
+    TST_READY,
     TST_ACTIVE,
     TST_RUNNING,
     TST_SUSPENDED,
@@ -188,6 +201,7 @@ enum FamilyState
 	FST_ALLOCATED,
 	FST_CREATE_QUEUED,
 	FST_CREATING,
+	FST_DELEGATED,
     FST_IDLE,
     FST_ACTIVE,
     FST_KILLED
@@ -195,7 +209,8 @@ enum FamilyState
 
 std::ostream& operator << (std::ostream& output, const RegAddr& reg);
 
-static const PID     INVALID_PID  = PID (-1);
+static const GPID    INVALID_GPID = GPID(-1);
+static const LPID    INVALID_LPID = LPID(-1);
 static const LFID    INVALID_LFID = LFID(-1);
 static const GFID    INVALID_GFID = GFID(-1);
 static const TID     INVALID_TID  = TID (-1);
@@ -224,14 +239,21 @@ struct MemTag
     MemTag() {}
 };
 
-// This structure stores memory request information, to be used in RegValue.
-struct MemRequest
+/// This structure stores memory request information, to be used in RegValue.
+struct MemoryRequest
 {
-	LFID		 fid;		  // Family that made the request
-	unsigned int offset;	  // Offset in the cache-line, in bytes
-	size_t       size;		  // Size of data, in bytes
-	bool         sign_extend; // Sign-extend the loaded value into the register?
-	RegAddr      next;	 	  // Next register waiting on the cache-line
+	LFID	 	 fid;		  ///< Family that made the request
+	unsigned int offset;	  ///< Offset in the cache-line, in bytes
+	size_t       size;		  ///< Size of data, in bytes
+	bool         sign_extend; ///< Sign-extend the loaded value into the register?
+	RegAddr      next;	 	  ///< Next register waiting on the cache-line
+};
+
+/// This structure stores remote request information for shareds and globals.
+struct RemoteRequest
+{
+    GPID     pid;   ///< ID of the requesting CPU (INVALID for group requests)
+    RegIndex reg;   ///< Destination register (INVALID for non-requests)
 };
 
 enum Result
@@ -241,18 +263,23 @@ enum Result
     SUCCESS
 };
 
-struct RemoteTID
-{
-    PID pid;    // Processor ID
-    TID tid;    // Thread ID
-};
-
 enum RegState {
     RST_INVALID,
     RST_EMPTY,
-	RST_PENDING,
     RST_WAITING,
     RST_FULL,
+};
+
+struct ThreadQueue
+{
+    TID head;
+    TID tail;
+};
+
+struct FamilyQueue
+{
+    LFID head;
+    LFID tail;
 };
 
 class IComponent;
@@ -267,29 +294,18 @@ struct RegValue
         
 		struct
 		{
-			TID			m_tid;          ///< TID of the thread that is waiting on the register.
-			MemRequest	m_request;      ///< Memory request information for pending registers.
-			IComponent* m_component;	///< Component that will write back; for security.
+		    ThreadQueue   m_waiting;    ///< List of the threads that are waiting on the register.
+			MemoryRequest m_memory;     ///< Memory request information for pending registers.
+			RemoteRequest m_remote;     ///< Remote request information for shareds and globals.
 		};
     };
 };
 
+/// This structure represents a remote request for a global or shared register
 struct RemoteRegAddr
 {
-    GFID    fid;
-    RegAddr reg;
-};
-
-struct ThreadQueue
-{
-    TID head;
-    TID tail;
-};
-
-struct FamilyQueue
-{
-    LFID head;
-    LFID tail;
+    RegAddr reg;    ///< The type and (logical) index of the register
+    GFID    fid;    ///< The ID of the family containing the global or shared
 };
 
 enum ExitCode

@@ -6,18 +6,29 @@
 using namespace Simulator;
 using namespace std;
 
-Network::Network(Processor& parent, const std::string& name, Allocator& alloc, RegisterFile& regFile, FamilyTable& familyTable) :
-    IComponent(&parent, parent.GetKernel(), name, "shareds-in|shareds-out|completion|creation|unreservation|reservation|token|send-global"),
+Network::Network(
+    Processor&                parent,
+    const string&             name,
+    const vector<Processor*>& grid,
+    LPID                      lpid,
+    Allocator&                alloc,
+    RegisterFile&             regFile,
+    FamilyTable&              familyTable
+) :
+    IComponent(&parent, parent.GetKernel(), name, "shareds-in|shareds-out|completion|creation|unreservation|reservation|token|send-global|rsync"),
     m_parent(parent), m_regFile(regFile), m_familyTable(familyTable), m_allocator(alloc),
-    m_prev(NULL), m_next(NULL),
+    m_prev(NULL), m_next(NULL), m_lpid(lpid), m_grid(grid),
 	
-	m_createLocal(parent.GetKernel()), m_createRemote(parent.GetKernel()), m_createState(CS_PROCESSING_NONE),
+	m_createLocal(parent.GetKernel()), m_delegateLocal(parent.GetKernel()),
+	m_createRemote(parent.GetKernel()), m_delegateRemote(parent.GetKernel()),
+	m_createState(CS_PROCESSING_NONE),
 	m_global(parent.GetKernel()),
 
     m_reservation(parent.GetKernel()), m_unreservation(parent.GetKernel()),
-    m_completedFamily(parent.GetKernel()), m_completedThread(parent.GetKernel()), m_cleanedUpThread(parent.GetKernel()),
+    m_completedFamily(parent.GetKernel()), m_completedThread(parent.GetKernel()),
+    m_cleanedUpThread(parent.GetKernel()), m_remoteSync(parent.GetKernel()),
     
-	m_hasToken(parent.GetKernel(), parent.GetPID() == 0), // CPU #0 starts out with the token
+	m_hasToken(parent.GetKernel(), lpid == 0), // CPU #0 starts out with the token
 	m_wantToken(parent.GetKernel(), false), m_nextWantsToken(parent.GetKernel(), false), m_requestedToken(parent.GetKernel(), false)
 {
     m_lockToken            = 0;
@@ -143,6 +154,41 @@ bool Network::OnFamilyCompleted(GFID fid)
     return false;
 }
 
+bool Network::SendFamilyDelegation(LFID fid)
+{
+	if (!m_delegateLocal.IsFull())
+    {
+        COMMIT
+        {
+            // Buffer the family information
+			const Family& family = m_familyTable[fid];
+
+            DelegateMessage message;
+            message.start      = family.start;
+			message.limit      = family.limit;
+			message.step       = family.step;
+			message.blockSize  = family.virtBlockSize;
+			message.address    = family.pc;
+			message.parent.pid = m_parent.GetPID();
+			message.parent.fid = fid;
+			message.exclusive  = family.place.exclusive;
+
+            for (RegType i = 0; i < NUM_REG_TYPES; i++)
+            {
+				message.regsNo[i] = family.regs[i].count;
+			}
+
+			GPID dest_pid = family.place.pid;
+			assert(dest_pid != m_parent.GetPID());
+
+			m_delegateLocal.Write(make_pair(dest_pid, message));
+			DebugSimWrite("Delegating create for (F%u) to P%u", fid, dest_pid);
+        }
+        return true;
+    }
+    return false;
+}
+
 bool Network::SendFamilyCreate(LFID fid)
 {
 	if (!m_createLocal.IsFull())
@@ -153,6 +199,8 @@ bool Network::SendFamilyCreate(LFID fid)
             // Buffer the family information
 			const Family& family = m_familyTable[fid];
 
+            assert(family.parent.lpid == m_lpid);
+            
             CreateMessage message;
             message.infinite      = family.infinite;
 			message.fid           = family.gfid;
@@ -162,7 +210,8 @@ bool Network::SendFamilyCreate(LFID fid)
 			message.virtBlockSize = family.virtBlockSize;
 			message.physBlockSize = family.physBlockSize;
 			message.address       = family.pc;
-			message.parent        = family.parent;
+			message.parent.pid    = family.parent.lpid;
+			message.parent.tid    = family.parent.tid;
 
             for (RegType i = 0; i < NUM_REG_TYPES; ++i)
             {
@@ -177,9 +226,43 @@ bool Network::SendFamilyCreate(LFID fid)
     return false;
 }
 
+bool Network::SendRemoteSync(GPID pid, LFID fid, ExitCode code)
+{
+    assert(pid != INVALID_GPID);
+    assert(fid != INVALID_LFID);
+    
+    if (m_remoteSync.IsFull())
+    {
+        return false;
+    }
+    
+    RemoteSync rs;
+    rs.pid  = pid;
+    rs.fid  = fid;
+    rs.code = code;
+    m_remoteSync.Write(rs);
+    DebugSimWrite("Sending remote sync to F%u@P%u; code=%d", fid, pid, code);
+    return true;
+}
+
+bool Network::OnFamilyDelegationReceived(const DelegateMessage& msg)
+{
+    // The delegation should come from a different processor
+    assert(msg.parent.pid != m_parent.GetPID());
+    
+    if (m_delegateRemote.IsFull())
+	{
+		return false;
+	}
+
+	m_delegateRemote.Write(msg);
+	DebugSimWrite("Received delegated create from F%u@P%u", msg.parent.fid, msg.parent.pid);
+    return true;
+}
+
 bool Network::OnFamilyCreateReceived(const CreateMessage& msg)
 {
-    if (msg.parent.pid != m_parent.GetPID())
+    if (msg.parent.pid != m_lpid)
     {
 		if (m_createRemote.IsFull())
 		{
@@ -268,10 +351,10 @@ bool Network::OnFamilyUnreservationReceived(const RemoteFID& rfid)
     return true;
 }
 
-bool Network::OnGlobalReceived(PID parent, const RegValue& value)
+bool Network::OnGlobalReceived(LPID parent, const RegValue& value)
 {
 	assert(value.m_state == RST_FULL);
-	if (m_parent.GetPID() != parent)
+	if (m_lpid != parent)
 	{
 		if (m_createState != CS_PROCESSING_REMOTE || m_global.value.IsRemoteFull())
 		{
@@ -280,6 +363,16 @@ bool Network::OnGlobalReceived(PID parent, const RegValue& value)
 		m_global.value.WriteRemote(make_pair(parent, value));
 	}
 	return true;
+}
+
+bool Network::OnRemoteSyncReceived(LFID fid, ExitCode code)
+{
+    DebugSimWrite("Received remote sync for F%u; code: %d", fid, code);
+    if (!m_allocator.OnRemoteSync(fid, code))
+    {
+        return false;
+    }
+    return true;
 }
 
 Result Network::OnCycleReadPhase(unsigned int stateIndex)
@@ -366,7 +459,7 @@ Result Network::OnCycleWritePhase(unsigned int stateIndex)
         if (m_sharedReceived.fid != INVALID_GFID)
         {
 			const Family& family = m_familyTable[m_familyTable.TranslateFamily(m_sharedReceived.fid)];
-            if (m_sharedReceived.parent && family.parent.pid != m_parent.GetPID())
+            if (m_sharedReceived.parent && family.parent.lpid != m_lpid)
             {
                 // This is not the CPU the parent thread is located on. Forward it
                 if (!SendShared(m_sharedReceived.fid, m_sharedReceived.parent, m_sharedReceived.addr, m_sharedReceived.value))
@@ -386,7 +479,7 @@ Result Network::OnCycleWritePhase(unsigned int stateIndex)
                         return FAILED;
                     }
                     
-                    if (!m_regFile.WriteRegister(addr, m_sharedReceived.value, *this))
+                    if (!m_regFile.WriteRegister(addr, m_sharedReceived.value, false))
                     {
                         return FAILED;
                     }
@@ -486,7 +579,40 @@ Result Network::OnCycleWritePhase(unsigned int stateIndex)
     case 3:
 		if (m_createState == CS_PROCESSING_NONE)
 		{
-			// We're not processing a create, check if there is a remote or local create
+			// We're not processing a create, check if there is a create
+			if (m_delegateRemote.IsFull())
+			{
+			    // Process the received delegation
+				const DelegateMessage& msg = m_delegateRemote.Read();
+				
+				LFID fid = m_allocator.QueueCreate(msg);
+				if (fid == INVALID_LFID)
+				{
+					return FAILED;
+				}
+				
+				m_delegateRemote.Clear();
+			    return SUCCESS;
+			}
+
+			if (m_delegateLocal.IsFull())
+			{
+			    // Process the outgoing delegation
+				const pair<GPID, DelegateMessage>& delegate = m_delegateLocal.Read();
+				const GPID             pid = delegate.first;
+				const DelegateMessage& msg = delegate.second;
+				
+				// Send the create
+				if (!m_grid[pid]->GetNetwork().OnFamilyDelegationReceived(msg))
+				{
+					return FAILED;
+				}
+
+                DebugSimWrite("Sent delegated family create to P%u", pid);
+				m_delegateLocal.Clear();
+			    return SUCCESS;
+			}
+			
 			if (m_createRemote.IsFull())
 			{
 				// Process the received create
@@ -529,7 +655,7 @@ Result Network::OnCycleWritePhase(unsigned int stateIndex)
 				{
 					return FAILED;
 				}
-				COMMIT{ m_createRemote.Clear(); }
+				m_createRemote.Clear();
 				COMMIT{ m_createFid = fid; }
 				return SUCCESS;
 			}
@@ -567,7 +693,7 @@ Result Network::OnCycleWritePhase(unsigned int stateIndex)
 					COMMIT{ m_createState = CS_PROCESSING_LOCAL; }
 				}
 				COMMIT{ m_createFid = create.first; }
-				COMMIT{ m_createLocal.Clear(); }
+				m_createLocal.Clear();
 				return SUCCESS;
 			}
 		}
@@ -585,7 +711,7 @@ Result Network::OnCycleWritePhase(unsigned int stateIndex)
 
 					family = &m_familyTable[ m_createFid ];
 
-					m_global.value.WriteLocal(make_pair(family->parent.pid, m_global.local));
+					m_global.value.WriteLocal(make_pair(family->parent.lpid, m_global.local));
 					COMMIT{ m_global.local.m_state = RST_INVALID; }
 				}
 			}
@@ -601,7 +727,8 @@ Result Network::OnCycleWritePhase(unsigned int stateIndex)
 					}
 
                     DebugSimWrite("Writing global %s to %s", m_global.addr.str().c_str(), addr.str().c_str());
-					if (!m_regFile.WriteRegister(addr, m_global.value.ReadRemote().second))
+                    RegValue value = m_global.value.ReadRemote().second;
+					if (!m_regFile.WriteRegister(addr, value, false))
 					{
 						return FAILED;
 					}
@@ -667,7 +794,7 @@ Result Network::OnCycleWritePhase(unsigned int stateIndex)
 		if (m_global.value.IsSendingFull())
 		{
 			// Forward a global
-			const pair<PID,RegValue>& p = m_global.value.ReadSending();
+			const pair<LPID,RegValue>& p = m_global.value.ReadSending();
 			if (!m_next->OnGlobalReceived(p.first, p.second))
 			{
 				return FAILED;
@@ -764,6 +891,22 @@ Result Network::OnCycleWritePhase(unsigned int stateIndex)
 			m_requestedToken.Write(true);
 			return SUCCESS;
 		}
+        break;
+    
+    case 8:
+        // Send the remote sync
+        if (m_remoteSync.IsFull())
+        {
+            const RemoteSync& rs = m_remoteSync.Read();
+            
+            if (!m_grid[rs.pid]->GetNetwork().OnRemoteSyncReceived(rs.fid, rs.code))
+            {
+                return FAILED;
+            }
+            
+            m_remoteSync.Clear();
+            return SUCCESS;
+        }
         break;
     }
 

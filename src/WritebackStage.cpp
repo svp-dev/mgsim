@@ -45,17 +45,14 @@ Pipeline::PipeAction Pipeline::WritebackStage::write()
         switch (value.m_state)
         {
         case RST_EMPTY:
-            break;
-            
-        case RST_WAITING:
-            value.m_tid   = m_input.Rcv.m_tid;
-            writebackSize = 1;      // Write just one register
-            nRegs         = 1;
+            value.m_remote    = m_input.Rcv.m_remote;
+            value.m_memory    = m_input.Rcv.m_memory;
             // Fall-through
 
-        case RST_PENDING:
-            value.m_request   = m_input.Rcv.m_request;
-            value.m_component = m_input.Rcv.m_component;
+        case RST_WAITING:
+            value.m_waiting = m_input.Rcv.m_waiting;
+            writebackSize   = 1;      // Write just one register
+            nRegs           = 1;
             break;
 
         case RST_FULL:
@@ -107,12 +104,20 @@ Pipeline::PipeAction Pipeline::WritebackStage::write()
         
         // If we're writing WAITING and the data is already present,
         // Rcv's state will be set to FULL
-        if (!m_regFile.WriteRegister(addr, value, *this))
+        if (!m_regFile.WriteRegister(addr, value, false))
         {
             return PIPE_STALL;
         }
         
         suspend = (value.m_state == RST_WAITING);
+        
+        if (suspend)
+        {
+            // We're suspending because we're waiting on a non-full register.
+            // Since we support multiple threads waiting on a register, update the
+            // next field in the thread table to the next waiting thread.
+            COMMIT{ m_threadTable[m_input.tid].nextState = value.m_waiting.head; }
+        }
 
         // Adjust after writing
         writebackSize--;
@@ -150,7 +155,7 @@ Pipeline::PipeAction Pipeline::WritebackStage::write()
             }
         }
         // Reschedule thread
-        else if (!m_allocator.RescheduleThread(m_input.tid, m_input.pc, *this))
+        else if (!m_allocator.RescheduleThread(m_input.tid, m_input.pc))
         {
             // We cannot reschedule, stall pipeline
             return PIPE_STALL;

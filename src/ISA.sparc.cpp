@@ -510,8 +510,8 @@ Pipeline::PipeAction Pipeline::ExecuteStage::ExecuteInstruction()
             } else {
                 COMMIT {
                     // The request was buffered and will be written back
-                    m_output.Rcv.m_state     = RST_PENDING;
-                    m_output.Rcv.m_component = &m_allocator;
+                    m_output.Rcv.m_state       = RST_EMPTY;
+                    m_output.Rcv.m_memory.size = 0;
                 }
             }
             break;
@@ -725,8 +725,8 @@ Pipeline::PipeAction Pipeline::ExecuteStage::ExecuteInstruction()
 
                 COMMIT
                 {
-                    m_output.Rcv.m_state     = RST_PENDING;
-                    m_output.Rcv.m_component = &m_fpu;
+                    m_output.Rcv.m_state       = RST_EMPTY;
+                    m_output.Rcv.m_memory.size = 0;
 
                     // We've executed a floating point operation
                     m_flop++;

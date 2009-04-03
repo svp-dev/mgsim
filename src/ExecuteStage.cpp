@@ -1,6 +1,7 @@
 #include "Pipeline.h"
 #include "Processor.h"
 #include <cassert>
+#include <cmath>
 #include <iostream>
 #include <iomanip>
 using namespace Simulator;
@@ -82,6 +83,8 @@ Pipeline::PipeAction Pipeline::ExecuteStage::write()
 
 Pipeline::PipeAction Pipeline::ExecuteStage::ExecCreate(LFID fid, MemAddr address, RegAddr exitCodeReg)
 {
+    assert(exitCodeReg.type == RT_INTEGER);
+
     // Direct create
 	if (!MemoryWriteBarrier(m_input.tid))
 	{
@@ -97,15 +100,15 @@ Pipeline::PipeAction Pipeline::ExecuteStage::ExecCreate(LFID fid, MemAddr addres
         return PIPE_FLUSH;
 	}
 	
-    if (!m_allocator.QueueCreate(fid, address, m_input.tid, exitCodeReg))
+    if (!m_allocator.QueueCreate(fid, address, m_input.tid, exitCodeReg.index))
    	{
    		return PIPE_STALL;
    	}
    	
     COMMIT
     {
-       	m_output.Rcv.m_state     = RST_PENDING;
-       	m_output.Rcv.m_component = &m_allocator;
+       	m_output.Rcv.m_state       = RST_EMPTY;
+       	m_output.Rcv.m_memory.size = 0;
     }
 	return PIPE_CONTINUE;
 }
@@ -121,7 +124,16 @@ Pipeline::PipeAction Pipeline::ExecuteStage::SetFamilyProperty(LFID fid, FamilyP
             case FAMPROP_LIMIT: family.limit         = (SInteger)value; break;
             case FAMPROP_STEP:  family.step          = (SInteger)value; break;
     		case FAMPROP_BLOCK: family.virtBlockSize = (TSize)value; break;
-    		case FAMPROP_PLACE: family.gfid          = (value == 0) ? INVALID_GFID : 0; break;
+    		case FAMPROP_PLACE:
+    		{
+    		    // Unpack the place value: <Capability:N, PID:P, EX:1>
+    		    unsigned int P = (unsigned int)ceil(log2(m_parent.GetProcessor().GetGridSize()));
+    		    
+    		    family.place.exclusive  = ((value & 1) != 0);
+    		    family.place.pid        = (value >> 1) & ((1ULL << P) - 1);
+    		    family.place.capability = value >> (P + 1);
+    		    break;
+    		}
     	}
     }
 	return PIPE_CONTINUE;

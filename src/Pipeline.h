@@ -27,9 +27,10 @@ struct PipeValue
 
         struct
         {
-            TID         m_tid;          ///< TID of the thread that is waiting on the register.
-            MemRequest  m_request;      ///< Memory request information for pending registers.
-            IComponent* m_component;    ///< Component that will write back; for security.
+            ThreadQueue   m_waiting;    ///< List of the threads that are waiting on the register.
+            MemoryRequest m_memory;     ///< Memory request information for pending registers.
+            RemoteRequest m_remote;     ///< Remote request information for shareds and globals.
+            IComponent*   m_component;  ///< Component that will write back; for security. 
         };
     };
 };
@@ -227,7 +228,7 @@ public:
     public:
         PipeAction read();
         PipeAction write();
-        FetchStage(Pipeline& parent, FetchDecodeLatch& fdlatch, Allocator& allocator, FamilyTable& familyTable, ThreadTable& threadTable, ICache &icache, size_t controlBlockSize);
+        FetchStage(Pipeline& parent, FetchDecodeLatch& fdlatch, Allocator& allocator, FamilyTable& familyTable, ThreadTable& threadTable, ICache &icache, LPID lpid, size_t controlBlockSize);
         ~FetchStage();
 
         void clear(TID tid);
@@ -241,6 +242,7 @@ public:
         FamilyTable&        m_familyTable;
         ThreadTable&        m_threadTable;
         ICache&             m_icache;
+        LPID                m_lpid;
 
         // Information of current executing thread
         char*           m_buffer;
@@ -387,7 +389,7 @@ public:
         RegSize                 m_writebackSize;
     };
 
-    Pipeline(Processor& parent, const std::string& name, RegisterFile& regFile, Network& network, Allocator& allocator, FamilyTable& familyTable, ThreadTable& threadTable, ICache& icache, DCache& dcache, FPU& fpu, const Config& config);
+    Pipeline(Processor& parent, const std::string& name, LPID lpid, RegisterFile& regFile, Network& network, Allocator& allocator, FamilyTable& familyTable, ThreadTable& threadTable, ICache& icache, DCache& dcache, FPU& fpu, const Config& config);
 
     Result OnCycleReadPhase(unsigned int stateIndex);
     Result OnCycleWritePhase(unsigned int stateIndex);

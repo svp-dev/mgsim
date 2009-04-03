@@ -57,8 +57,6 @@ COMMON_SRC = \
 	elf.h \
 	except.cpp \
 	except.h \
-	functions.cpp \
-	functions.h \
 	kernel.cpp \
 	kernel.h \
 	loader.cpp \

@@ -2,7 +2,6 @@
 #define ICACHE_H
 
 #include "kernel.h"
-#include "functions.h"
 #include "Memory.h"
 
 namespace Simulator
@@ -45,9 +44,6 @@ public:
     bool   ReleaseCacheLine(CID bid);
 
     bool   OnMemoryReadCompleted(const MemData& data);
-
-    // Ports
-    ArbitratedWriteFunction p_request;
 
     // Admin information
     size_t      GetAssociativity() const { return m_assoc; }

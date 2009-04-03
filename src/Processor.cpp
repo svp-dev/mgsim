@@ -6,20 +6,20 @@ using namespace std;
 //
 // Processor implementation
 //
-Processor::Processor(Object* parent, Kernel& kernel, PID pid, PSize numProcs, const std::string& name, IMemory& memory, const Config& config, MemAddr runAddress)
+Processor::Processor(Object* parent, Kernel& kernel, GPID gpid, LPID lpid, const vector<Processor*>& grid, PSize gridSize, PSize placeSize, const std::string& name, IMemory& memory, const Config& config, MemAddr runAddress)
 :   IComponent(parent, kernel, name, ""),
-    m_pid(pid), m_kernel(kernel), m_memory(memory), m_numProcs(numProcs),
+    m_pid(gpid), m_kernel(kernel), m_memory(memory), m_grid(grid), m_gridSize(gridSize), m_placeSize(placeSize),
     m_localFamilyCompletion(0),
-	m_allocator   (*this, "alloc",    m_familyTable, m_threadTable, m_registerFile, m_raunit, m_icache, m_network, m_pipeline, numProcs, config.allocator),
+	m_allocator   (*this, "alloc",    m_familyTable, m_threadTable, m_registerFile, m_raunit, m_icache, m_network, m_pipeline, lpid, config.allocator),
     m_icache      (*this, "icache",   m_allocator, config.icache),
     m_dcache      (*this, "dcache",   m_allocator, m_familyTable, m_registerFile, config.dcache),
 	m_registerFile(*this,             m_allocator, config.registerFile),
-    m_pipeline    (*this, "pipeline", m_registerFile, m_network, m_allocator, m_familyTable, m_threadTable, m_icache, m_dcache, m_fpu, config.pipeline),
+    m_pipeline    (*this, "pipeline", lpid, m_registerFile, m_network, m_allocator, m_familyTable, m_threadTable, m_icache, m_dcache, m_fpu, config.pipeline),
 	m_fpu         (*this, "fpu",      m_registerFile, config.fpu),
     m_raunit      (*this, "rau",      m_registerFile, config.raunit),
 	m_familyTable (*this,             config.familyTable),
 	m_threadTable (*this,             config.threadTable),
-    m_network     (*this, "network",  m_allocator, m_registerFile, m_familyTable)
+    m_network     (*this, "network",  grid, lpid, m_allocator, m_registerFile, m_familyTable)
 {
     //
     // Set port priorities and connections on all components
@@ -33,20 +33,9 @@ Processor::Processor(Object* parent, Kernel& kernel, PID pid, PSize numProcs, co
     m_registerFile.p_pipelineR2.SetComponent(m_pipeline.m_read);
     m_registerFile.p_pipelineW.SetComponent(m_pipeline.m_writeback);
     
-    // Set thread activation (cache-line query) order.
-    // Primary concern is keeping the pipeline flowing. So order from back to front.
-    m_icache.p_request.SetPriority(m_pipeline.m_writeback, 0);  // Writebacks
-    m_icache.p_request.SetPriority(m_pipeline.m_execute,   1);  // Reschedules
-    m_icache.p_request.SetPriority(m_fpu,                  2);  // FPU writeback
-    m_icache.p_request.SetPriority(m_dcache,               3);  // Memory read writebacks
-    m_icache.p_request.SetPriority(m_network,              4);  // Remote shareds writebacks
-    m_icache.p_request.SetPriority(m_allocator,            5);  // Family completion, etc
-
-    m_allocator.p_cleanup.SetPriority(m_pipeline.m_read, 0);
-
     m_memory.RegisterListener(*this);
-
-    if (pid == 0)
+    
+    if (gpid == 0)
     {
         // Allocate the startup family on the first processor
         m_allocator.AllocateInitialFamily(runAddress);
@@ -56,6 +45,11 @@ Processor::Processor(Object* parent, Kernel& kernel, PID pid, PSize numProcs, co
 void Processor::Initialize(Processor& prev, Processor& next)
 {
     m_network.Initialize(prev.m_network, next.m_network);
+}
+
+bool Processor::IsIdle() const
+{
+    return m_threadTable.IsEmpty() && m_familyTable.IsEmpty();
 }
 
 void Processor::ReserveTLS(MemAddr address, MemSize size)

@@ -17,7 +17,6 @@ class Object;
 class Mutex;
 class Kernel;
 class IComponent;
-class IFunction;
 class IStructure;
 class IRegister;
 
@@ -32,7 +31,6 @@ enum CyclePhase {
 
 class IComponent;
 class IStructure;
-class IFunction;
 class IRegister;
 
 /**
@@ -69,7 +67,6 @@ public:
 	typedef std::map<IComponent*, CallbackInfo> CallbackList;   ///< List of callbacks, indexed by component.
     typedef std::set<IComponent*>               ComponentList;  ///< List of unique components.
     typedef std::set<IStructure*>               StructureList;  ///< List of unique structures.
-    typedef std::set<IFunction*>                FunctionList;   ///< List of unique functions.
     typedef std::set<IRegister*>                RegisterList;   ///< List of unique registers.
 
     /// Modes of debugging
@@ -89,15 +86,12 @@ private:
     StructureList m_structures;     ///< List of all structures in the simulation.
     CallbackList  m_callbacks;      ///< List of all callbacks in the simulation.
     ComponentList m_components;     ///< List of all components in the simulation.
-    FunctionList  m_functions;      ///< List of all functions in the simulation.
     RegisterList  m_registers;      ///< List of all registers in the simulation.
 
 public:
     Kernel();
     ~Kernel();
 
-    /// Registers a function to the kernel. @param function the function to register.
-    void RegisterFunction (IFunction&  function );
     /// Registers a structure to the kernel. @param structure the structure to register.
     void RegisterStructure(IStructure& structure);
     /**
@@ -109,8 +103,6 @@ public:
     /// Registers a register to the kernel. @param reg the register to register.
     void RegisterRegister (IRegister&  reg );
 
-    /// Unregisters a function from the kernel. @param function the function to unregister.
-    void UnregisterFunction (IFunction&  function );
     /// Unregisters a structure from the kernel. @param structure the structure to unregister.
     void UnregisterStructure(IStructure& structure);
     /// Unregisters a component from the kernel. @param component the component to unregister.
@@ -241,16 +233,6 @@ public:
 
     /// Writes output. @param msg the printf-style format string.
     void OutputWrite(const char* msg, ...) const;
-};
-
-/// Base class for all functions in the simulation.
-class IFunction
-{
-public:
-    virtual void OnArbitrateReadPhase()  = 0; ///< Callback for arbitration in the read phase.
-    virtual void OnArbitrateWritePhase() = 0; ///< Callback for arbitration in the write phase.
-
-    virtual ~IFunction() {}
 };
 
 /// Base class for all registers in the simulation.
