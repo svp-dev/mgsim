@@ -7,51 +7,51 @@
 using namespace Simulator;
 using namespace std;
 
-RegAddr Allocator::GetSharedAddress(SharedType stype, GFID fid, RegAddr addr) const
+RegAddr Allocator::GetRemoteRegisterAddress(const RemoteRegAddr& addr) const
 {
-	const Family& family = m_familyTable[ m_familyTable.TranslateFamily(fid) ];
-    RegIndex base = INVALID_REG_INDEX;
+	const Family&          family = m_familyTable[addr.fid];
+    const Family::RegInfo& regs   = family.regs[addr.reg.type];
 
-    assert(!family.place.IsDelegated(m_parent.GetPID()));
+    assert(family.state != FST_EMPTY);
+    assert(family.type  == Family::GROUP);
     
-    if (family.state != FST_EMPTY)
+    RegIndex base = INVALID_REG_INDEX;
+    switch (addr.type)
     {
-        switch (stype)
-        {
-            case ST_PARENT:
-                // Return the shared address in the parent thread
-                if (family.parent.tid != INVALID_TID)
-                {
-                    // This should only be used if the parent thread is on this CPU
-                    assert(family.parent.lpid == m_lpid);
-
-                    base = family.regs[addr.type].shareds;
-                }
-                break;
-
-            case ST_FIRST:
-                // Return the shared address for the first thread in the block
-                if (family.firstThreadInBlock != INVALID_TID)
-                {
-					// Get base of remote dependency block
-                    base = family.regs[addr.type].base + family.regs[addr.type].size - family.regs[addr.type].count.shareds;
-                }
-                break;
+        case RRT_GLOBAL:
+            base = regs.globals;
+            break;
             
-            case ST_LAST:
-                // Return the shared address for the last thread in the block
-                if (family.lastThreadInBlock != INVALID_TID)
-                {
-					// Get base of first thread's shareds
-                    base = m_threadTable[family.lastThreadInBlock].regs[addr.type].base;
-                }
-                break;
+        case RRT_PARENT_SHARED:
+            // This should only be used if the parent thread is on this CPU
+            assert(family.parent.lpid == m_lpid);
 
-            case ST_LOCAL:
-                break;
-        }
+            // Return the shared address in the parent thread
+            if (family.parent.tid != INVALID_TID)
+            {
+                base = regs.shareds;
+            }
+            break;
+
+        case RRT_FIRST_DEPENDENT:
+            // Return the dpendent address for the first thread in the block
+            if (family.firstThreadInBlock != INVALID_TID)
+            {
+        		// Get base of remote dependency block
+                base = regs.base + regs.size - regs.count.shareds;
+            }
+            break;
+            
+        case RRT_LAST_SHARED:
+            // Return the shared address for the last thread in the block
+            if (family.lastThreadInBlock != INVALID_TID)
+            {
+        		// Get base of last thread's shareds
+                base = m_threadTable[family.lastThreadInBlock].regs[addr.reg.type].base;
+            }
+            break;
     }
-    return MAKE_REGADDR(addr.type, (base != INVALID_REG_INDEX) ? base + addr.index : INVALID_REG_INDEX);
+    return MAKE_REGADDR(addr.reg.type, (base != INVALID_REG_INDEX) ? base + addr.reg.index : INVALID_REG_INDEX);
 }
 
 // Administrative function for getting a register's type and thread mapping
@@ -62,32 +62,38 @@ TID Allocator::GetRegisterType(LFID fid, RegAddr addr, RegClass* group) const
 
 	if (addr.index >= regs.globals && addr.index < regs.globals + regs.count.globals)
 	{
-		// Globals
+		// It's a global
 		*group = RC_GLOBAL;
 		return INVALID_TID;
 	}
 
 	if (addr.index >= regs.base + regs.size - regs.count.shareds && addr.index < regs.base + regs.size)
 	{
-		// Remote dependency
+		// It's a remote dependency
 		*group = RC_DEPENDENT;
 		return INVALID_TID;
 	}
 
-	RegIndex index = (addr.index - regs.base) % (regs.count.locals + regs.count.shareds);
-	RegIndex  base = addr.index - index;
+    if (regs.count.locals + regs.count.shareds > 0)
+    {
+        // It's a local or shared; check which thread it belongs to
+    	RegIndex index = (addr.index - regs.base) % (regs.count.locals + regs.count.shareds);
+    	RegIndex  base = addr.index - index;
 
-	for (TID cur = family.members.head; cur != INVALID_TID;)
-	{
-		const Thread& thread = m_threadTable[cur];
-		if (thread.regs[addr.type].base == base)
-		{
-			*group = (index < regs.count.shareds) ? RC_SHARED : RC_LOCAL;
-			return cur;
-		}
-		cur = thread.nextMember;
+	    for (TID cur = family.members.head; cur != INVALID_TID;)
+	    {
+    		const Thread& thread = m_threadTable[cur];
+		    if (thread.regs[addr.type].base == base)
+		    {
+    			*group = (index < regs.count.shareds) ? RC_SHARED : RC_LOCAL;
+			    return cur;
+		    }
+		    cur = thread.nextMember;
+	    }
 	}
-	*group = RC_LOCAL;
+	
+	// Belongs to no thread
+    *group = RC_LOCAL;
     return INVALID_TID;
 }
 
@@ -151,8 +157,7 @@ bool Allocator::OnRemoteThreadCompletion(LFID fid)
 
     // The last thread in a family must exist for this notification
     assert(family.lastThreadInBlock != INVALID_TID);
-    
-    if (!DecreaseThreadDependency(fid, family.lastThreadInBlock, THREADDEP_NEXT_TERMINATED, *this))
+    if (!DecreaseThreadDependency(fid, family.lastThreadInBlock, THREADDEP_NEXT_TERMINATED))
     {
         return false;
     }
@@ -172,7 +177,7 @@ bool Allocator::OnRemoteThreadCleanup(LFID fid)
     }
     assert(family.firstThreadInBlock != INVALID_TID);
 
-    if (!DecreaseThreadDependency(fid, family.firstThreadInBlock, THREADDEP_PREV_CLEANED_UP, *this))
+    if (!DecreaseThreadDependency(fid, family.firstThreadInBlock, THREADDEP_PREV_CLEANED_UP))
     {
         return false;
     }
@@ -213,13 +218,13 @@ bool Allocator::KillThread(TID tid)
     }
 
     Family& family = m_familyTable[thread.family];
-    if (family.hasDependency && (family.gfid != INVALID_GFID || family.physBlockSize > 1))
+    if (family.hasDependency && (family.type == Family::GROUP || family.physBlockSize > 1))
     {
         // Mark 'next thread kill' on the previous thread
         if (thread.prevInBlock != INVALID_TID)
         {
             // Signal our termination to our predecessor
-            if (!DecreaseThreadDependency(thread.family, thread.prevInBlock, THREADDEP_NEXT_TERMINATED, *this))
+            if (!DecreaseThreadDependency(thread.family, thread.prevInBlock, THREADDEP_NEXT_TERMINATED))
             {
                 return false;
             }
@@ -227,7 +232,7 @@ bool Allocator::KillThread(TID tid)
         else if (!thread.isFirstThreadInFamily)
         {
             // Send remote notification 
-            if (!m_network.SendThreadCompletion(family.gfid))
+            if (!m_network.SendThreadCompletion(family.link_prev))
             {
                 return false;
             }
@@ -242,7 +247,7 @@ bool Allocator::KillThread(TID tid)
     }
 
     // Mark the thread as killed
-    if (!DecreaseThreadDependency(thread.family, tid, THREADDEP_TERMINATED, *this))
+    if (!DecreaseThreadDependency(thread.family, tid, THREADDEP_TERMINATED))
     {
         return false;
     }
@@ -272,6 +277,11 @@ bool Allocator::RescheduleThread(TID tid, MemAddr pc)
     {
         thread.pc = pc;
         thread.nextState = INVALID_TID;
+    }
+    
+    if (!m_icache.ReleaseCacheLine(thread.cid))
+    {
+        return false;
     }
 
     // The thread can be added to the ready queue
@@ -360,7 +370,7 @@ bool Allocator::AllocateThread(LFID fid, TID tid, bool isNewlyAllocated)
     // Initialize thread
     thread->isFirstThreadInFamily = (family->index == 0);
     thread->isLastThreadInFamily  = (!family->infinite != 0 && family->index + 1 == family->nThreads);
-	thread->isLastThreadInBlock   = (family->gfid != INVALID_GFID && (family->index % family->virtBlockSize) == family->virtBlockSize - 1);
+	thread->isLastThreadInBlock   = (family->type == Family::GROUP && (family->index % family->virtBlockSize) == family->virtBlockSize - 1);
     thread->cid                   = INVALID_CID;
     thread->pc                    = family->pc;
     thread->family                = fid;
@@ -373,13 +383,13 @@ bool Allocator::AllocateThread(LFID fid, TID tid, bool isNewlyAllocated)
     // Initialize dependencies:
     // These dependencies only hold for non-border threads in dependent families that are global or have more than one thread running.
     // So we already set them in the other cases.
-	thread->dependencies.nextKilled       = !family->hasDependency || thread->isLastThreadInFamily  || (family->gfid == INVALID_GFID && family->physBlockSize == 1);
-    thread->dependencies.prevCleanedUp    = !family->hasDependency || thread->isFirstThreadInFamily || (family->gfid == INVALID_GFID && family->physBlockSize == 1);
+	thread->dependencies.nextKilled       = !family->hasDependency || thread->isLastThreadInFamily  || (family->type == Family::LOCAL && family->physBlockSize == 1);
+    thread->dependencies.prevCleanedUp    = !family->hasDependency || thread->isFirstThreadInFamily || (family->type == Family::LOCAL && family->physBlockSize == 1);
     thread->dependencies.killed           = false;
     thread->dependencies.numPendingWrites = 0;
 
     Thread* predecessor = NULL;
-    if ((family->gfid == INVALID_GFID || family->index % family->virtBlockSize != 0) && family->physBlockSize > 1)
+    if ((family->type == Family::LOCAL || family->index % family->virtBlockSize != 0) && family->physBlockSize > 1)
     {
         thread->prevInBlock = family->lastAllocated;
         if (thread->prevInBlock != INVALID_TID)
@@ -388,7 +398,7 @@ bool Allocator::AllocateThread(LFID fid, TID tid, bool isNewlyAllocated)
             COMMIT{ predecessor->nextInBlock = tid; }
         }
     }
-	else if (family->physBlockSize == 1 && family->gfid == INVALID_GFID && thread->index > 0)
+	else if (family->physBlockSize == 1 && family->type == Family::LOCAL && thread->index > 0)
 	{
 		// We're not the first thread, in a family executing on one CPU, with a block size of one.
 		// We are our own predecessor in terms of shareds.
@@ -405,27 +415,29 @@ bool Allocator::AllocateThread(LFID fid, TID tid, bool isNewlyAllocated)
 
         thread->regs[i].producer = (predecessor != NULL)
 			? predecessor->regs[i].base		// Producer runs on the same processor (predecessor)
-			: (family->gfid == INVALID_GFID
+			: (family->type == Family::LOCAL
 			   ? family->regs[i].shareds	// Producer runs on the same processor (parent)
 			   : INVALID_REG_INDEX);		// Producer runs on the previous processor (parent or predecessor)
 
         if (family->regs[i].count.shareds > 0)
         {
             // Clear thread registers
-            if (family->gfid != INVALID_GFID || family->physBlockSize > 1)
+            if (family->type == Family::GROUP || family->physBlockSize > 1)
             {
                 // Clear the thread's shareds
                 if (!m_registerFile.Clear(MAKE_REGADDR(i, thread->regs[i].base), family->regs[i].count.shareds))
                 {
+                    DeadlockWrite("Unable to clear the thread's shareds");
                     return false;
                 }
             }
 
-            if (family->gfid != INVALID_GFID && thread->prevInBlock == INVALID_TID)
+            if (family->type == Family::GROUP && thread->prevInBlock == INVALID_TID)
             {
                 // Clear the thread's remote cache
                 if (!m_registerFile.Clear(MAKE_REGADDR(i, family->regs[i].base + family->regs[i].size - family->regs[i].count.shareds), family->regs[i].count.shareds))
                 {
+                    DeadlockWrite("Unable to clear the thread's remote dependents");
                     return false;
                 }
             }
@@ -449,13 +461,15 @@ bool Allocator::AllocateThread(LFID fid, TID tid, bool isNewlyAllocated)
         data.m_state   = RST_FULL;
         data.m_integer = family->start + family->index * family->step;
 
-        if (!m_registerFile.p_asyncW.Write(*this, addr))
+        if (!m_registerFile.p_asyncW.Write(addr))
         {
+            DeadlockWrite("Unable to acquire Register File port");
             return false;
         }
 
         if (!m_registerFile.WriteRegister(addr, data, false))
         {
+            DeadlockWrite("Unable to write L0 register");
             return false;
         }
 
@@ -468,6 +482,7 @@ bool Allocator::AllocateThread(LFID fid, TID tid, bool isNewlyAllocated)
 
             if (!m_registerFile.WriteRegister(addr, data, false))
             {
+                DeadlockWrite("Unable to write L1 register");
                 return false;
             }
         }
@@ -485,10 +500,7 @@ bool Allocator::AllocateThread(LFID fid, TID tid, bool isNewlyAllocated)
         Push(family->members, tid, &Thread::nextMember);
 
         // Increase the allocation count
-        if (!IncreaseFamilyDependency(fid, FAMDEP_THREAD_COUNT))
-        {
-            return false;
-        }
+        family->dependencies.numThreadsAllocated++;
     }
 
     //
@@ -511,20 +523,22 @@ bool Allocator::AllocateThread(LFID fid, TID tid, bool isNewlyAllocated)
     if (thread->isLastThreadInFamily)
     {
         // We've allocated the last thread
-        if (!DecreaseFamilyDependency(fid, FAMDEP_ALLOCATION_DONE))
+        if (!DecreaseFamilyDependency(fid, *family, FAMDEP_ALLOCATION_DONE))
         {
+            DeadlockWrite("Unable to mark ALLOCATION_DONE in family");
             return false;
         }
     }
-    else if (++family->index % family->virtBlockSize == 0 && family->gfid != INVALID_GFID && m_parent.GetPlaceSize() > 1)
+    else if (++family->index % family->virtBlockSize == 0 && family->type == Family::GROUP && m_parent.GetPlaceSize() > 1)
     {
         // We've allocated the last in a block, skip to the next block
         uint64_t skip = (m_parent.GetPlaceSize() - 1) * family->virtBlockSize;
 		if (!family->infinite && family->index >= family->nThreads - min(family->nThreads, skip))
         {
             // There are no more blocks for us
-            if (!DecreaseFamilyDependency(fid, FAMDEP_ALLOCATION_DONE))
+            if (!DecreaseFamilyDependency(fid, *family, FAMDEP_ALLOCATION_DONE))
             {
+                DeadlockWrite("Unable to mark ALLOACTION_DONE in family");
                 return false;
             }
         }
@@ -535,15 +549,16 @@ bool Allocator::AllocateThread(LFID fid, TID tid, bool isNewlyAllocated)
     if (!ActivateThreads(tq))
     {
         // Abort allocation
+        DeadlockWrite("Unable to activate thread");
         return false;
     }
 
-    if (isFirstAllocatedThread && family->parent.lpid == m_lpid)
+    /*if (isFirstAllocatedThread && family->parent.lpid == m_lpid)
 	{
 		// We've created the first thread on the creating processor;
 		// release the family's lock on the cache-line
 		m_icache.ReleaseCacheLine(m_threadTable[tid].cid);
-    }
+    }*/
 
     DebugSimWrite("Allocated thread for F%u at T%u", fid, tid);
 	if (family->dependencies.allocationDone)
@@ -575,9 +590,10 @@ bool Allocator::WriteExitCode(RegIndex reg, ExitCode code)
 // and sent the sync event to the parent (this) processor.
 bool Allocator::OnRemoteSync(LFID fid, ExitCode code)
 {
-    assert(m_familyTable[fid].place.IsDelegated(m_parent.GetPID()));
+    Family& family = m_familyTable[fid];
+    assert(family.place.IsDelegated(m_parent.GetPID()));
     
-    if (!KillFamily(fid, code))
+    if (!KillFamily(fid, family, code))
     {
         return false;
     }
@@ -590,34 +606,54 @@ bool Allocator::OnRemoteSync(LFID fid, ExitCode code)
     return true;
 }
 
-bool Allocator::KillFamily(LFID fid, ExitCode code)
+bool Allocator::SetupFamilyPrevLink(LFID fid, LFID link_prev)
 {
-    Family& family = m_familyTable[fid]; 
-    //if (family.place.IsDelegated(m_parent.GetPID()) || family.parent.gpid != INVALID_GPID || family.gfid != INVALID_GFID)
+    Family& family = m_familyTable[fid];
+    
+    assert(family.type      == Family::GROUP);
+    assert(family.link_prev == INVALID_LFID);
+    
+    COMMIT{ family.link_prev = link_prev; } 
+    DebugSimWrite("Setting previous FID for F%u to F%u", fid, link_prev);
+    return true;
+}
+
+bool Allocator::SetupFamilyNextLink(LFID fid, LFID link_next)
+{
+    Family& family = m_familyTable[fid];
+    
+    assert(family.type      == Family::GROUP);
+    assert(family.link_next == INVALID_LFID);
+    
+    COMMIT{ family.link_next = link_next; } 
+    DebugSimWrite("Setting next FID for F%u to F%u", fid, link_next);
+    return true;
+}
+
+bool Allocator::KillFamily(LFID fid, Family& family, ExitCode code)
+{
+    // This is a group or delegated family or proxy
+    if (family.parent.lpid == m_lpid)
     {
-        // This is a group or delegated family or proxy
-        if (family.parent.lpid == m_lpid)
+        // This is the parent CPU of the family. All other CPUs have
+        // finished and synched. Write back the exit code
+        if (family.exitCodeReg != INVALID_REG_INDEX)
         {
-            // This is the parent CPU of the family. All other CPUs have
-            // finished and synched. Write back the exit code
-            if (family.exitCodeReg != INVALID_REG_INDEX)
+            WriteExitCode(family.exitCodeReg, code);
+        }
+        else if (family.parent.gpid != INVALID_GPID)
+        {
+            // This is a delegated family, send the exit code back as a sync event.
+            if (!m_network.SendRemoteSync(family.parent.gpid, family.parent.fid, code))
             {
-                WriteExitCode(family.exitCodeReg, code);
-            }
-            else if (family.parent.gpid != INVALID_GPID)
-            {
-                // This is a delegated family, send the exit code back as a sync event.
-                if (!m_network.SendRemoteSync(family.parent.gpid, family.parent.fid, code))
-                {
-                    return false;
-                }
+                return false;
             }
         }
-        // Send completion to next processor
-        else if (!m_network.SendFamilyCompletion(family.gfid))
-        {
-            return false;
-        }
+    }
+    // Send completion to next processor
+    else if (!m_network.SendFamilyCompletion(family.link_next))
+    {
+        return false;
     }
 
     // Release registers
@@ -645,7 +681,7 @@ bool Allocator::KillFamily(LFID fid, ExitCode code)
     if (family.parent.gpid != INVALID_GPID) {
         // Killed a delegated family
         DebugSimWrite("Killed F%u (parent: F%u@P%u)", fid, family.parent.fid, family.parent.gpid);
-    } else if (family.gfid != INVALID_GFID) {
+    } else if (family.type == Family::GROUP) {
         // Killed a group family
         DebugSimWrite("Killed F%u (parent: T%u@P%u)", fid, family.parent.tid, family.parent.lpid);
     } else if (family.parent.tid != INVALID_TID) {
@@ -660,13 +696,12 @@ bool Allocator::KillFamily(LFID fid, ExitCode code)
 
 bool Allocator::DecreaseFamilyDependency(LFID fid, FamilyDependency dep)
 {
-    Family& family = m_familyTable[fid];    
-    if (family.state == FST_EMPTY)
-    {
-        // We're trying to modify a family that isn't yet allocated.
-        // It is (hopefully) still in the create queue. Stall for a while.
-        return false;
-    }
+    return DecreaseFamilyDependency(fid, m_familyTable[fid], dep);
+}
+
+bool Allocator::DecreaseFamilyDependency(LFID fid, Family& family, FamilyDependency dep)
+{
+    assert(family.state != FST_EMPTY);
 
     // We work on a copy unless we're committing
     Family::Dependencies  tmp_deps;
@@ -704,6 +739,7 @@ bool Allocator::DecreaseFamilyDependency(LFID fid, FamilyDependency dep)
                 }
             }
         }
+        // Fall through
 
     case FAMDEP_PREV_TERMINATED:
     case FAMDEP_OUTSTANDING_SHAREDS:
@@ -711,35 +747,23 @@ bool Allocator::DecreaseFamilyDependency(LFID fid, FamilyDependency dep)
             deps->numPendingShareds   == 0 && deps->prevTerminated)
         {
             // Family has terminated, 'kill' it
-            if (!KillFamily(fid, EXIT_NORMAL))
+            if (!KillFamily(fid, family, EXIT_NORMAL))
             {
+                DeadlockWrite("Unable to kill family F%u", fid);
                 return false;
             }
         }
+        // Fall through
 
     case FAMDEP_OUTSTANDING_READS:
         if (deps->numThreadsAllocated == 0 && deps->allocationDone &&
             deps->numPendingShareds   == 0 && deps->prevTerminated &&
             deps->numPendingReads     == 0)
         {
-            // Family can be cleaned up, recycle family slot
-            if (family.gfid != INVALID_GFID && family.parent.lpid == m_lpid)
-            {
-                // We unreserve group families if we're the processor that created it
-                if (!m_network.SendFamilyUnreservation(family.gfid))
-                {
-                    return false;
-                }
-
-				if (!m_familyTable.UnreserveGlobal(family.gfid))
-                {
-                    return false;
-                }
-            }
-
             COMMIT{ family.next = INVALID_LFID; }
 			if (!m_familyTable.FreeFamily(fid))
             {
+                DeadlockWrite("Unable to free family F%u", fid);
                 return false;
             }
             DebugSimWrite("Cleaned up F%u", fid);
@@ -750,24 +774,13 @@ bool Allocator::DecreaseFamilyDependency(LFID fid, FamilyDependency dep)
     return true;
 }
 
-bool Allocator::IncreaseFamilyDependency(LFID fid, FamilyDependency dep)
+bool Allocator::OnMemoryRead(LFID fid)
 {
-    COMMIT
-    {
-        Family::Dependencies& deps = m_familyTable[fid].dependencies;
-        switch (dep)
-        {
-        case FAMDEP_THREAD_COUNT:        deps.numThreadsAllocated++; break;
-        case FAMDEP_OUTSTANDING_READS:   deps.numPendingReads    ++; break;
-        case FAMDEP_OUTSTANDING_SHAREDS: deps.numPendingShareds  ++; break;
-        case FAMDEP_ALLOCATION_DONE:
-        case FAMDEP_PREV_TERMINATED:     assert(0); break;
-        }
-    }
+    COMMIT{ m_familyTable[fid].dependencies.numPendingReads++; }
     return true;
 }
 
-bool Allocator::DecreaseThreadDependency(LFID fid, TID tid, ThreadDependency dep, const IComponent& component)
+bool Allocator::DecreaseThreadDependency(LFID fid, TID tid, ThreadDependency dep)
 {
     if (m_familyTable[fid].killed)
     {
@@ -852,6 +865,8 @@ Family& Allocator::GetWritableFamilyEntry(LFID fid, TID parent) const
 	return family;
 }
 
+// Initializes the family entry with default values.
+// This is only called for families allocated locally with the ALLOCATE instruction.
 void Allocator::SetDefaultFamilyEntry(LFID fid, TID parent, const RegisterBases bases[]) const
 {
 	COMMIT
@@ -860,18 +875,19 @@ void Allocator::SetDefaultFamilyEntry(LFID fid, TID parent, const RegisterBases 
 		const Thread& thread     = m_threadTable[parent];
 		const Family& parent_fam = m_familyTable[thread.family];
 
-		family.created          = false;
-		family.legacy           = false;
-		family.start            = 0;
-		family.limit            = 1;
-		family.step             = 1;
-		family.virtBlockSize    = 0;
-		family.physBlockSize    = 0;
-		family.parent.gpid      = INVALID_GPID;
-		family.parent.lpid      = m_lpid;
-		family.parent.tid       = parent;
-		family.gfid             = INVALID_GFID;
-		
+		family.created       = false;
+		family.legacy        = false;
+		family.start         = 0;
+		family.limit         = 1;
+		family.step          = 1;
+		family.virtBlockSize = 0;
+		family.physBlockSize = 0;
+		family.parent.gpid   = INVALID_GPID;
+		family.parent.lpid   = m_lpid;
+		family.parent.tid    = parent;
+        family.link_prev     = INVALID_LFID;
+        family.link_next     = INVALID_LFID;
+                                                    		
 		// Inherit place (local or group)
         family.place.pid        = parent_fam.place.IsLocal() ? 0 : m_parent.GetPID();
 		family.place.capability = parent_fam.place.IsLocal() ? 0 : 1;
@@ -907,7 +923,7 @@ Result Allocator::AllocateFamily(TID parent, RegIndex reg, LFID* fid, const Regi
 			AllocRequest request;
 			request.parent = parent;
 			request.reg    = reg;
-			copy(bases, bases + NUM_REG_TYPES, request.bases);
+			std::copy(bases, bases + NUM_REG_TYPES, request.bases);
 			m_allocations.push(request);
 		}
 		return DELAYED;
@@ -915,7 +931,7 @@ Result Allocator::AllocateFamily(TID parent, RegIndex reg, LFID* fid, const Regi
 	return FAILED;
 }
 
-LFID Allocator::QueueCreate(const DelegateMessage& msg)
+bool Allocator::OnDelegatedCreate(const DelegateMessage& msg)
 {
     if (m_creates.full())
     {
@@ -939,7 +955,8 @@ LFID Allocator::QueueCreate(const DelegateMessage& msg)
             family.parent.gpid   = msg.parent.pid;
             family.parent.lpid   = m_lpid;
             family.parent.fid    = msg.parent.fid;
-            family.gfid          = INVALID_GFID;
+            family.link_prev     = INVALID_LFID;
+            family.link_next     = INVALID_LFID;
             family.pc            = msg.address;
             family.exitCodeReg   = INVALID_REG_INDEX;
             family.state         = FST_CREATE_QUEUED;
@@ -966,40 +983,53 @@ LFID Allocator::QueueCreate(const DelegateMessage& msg)
 	return fid;
 }
 
-LFID Allocator::AllocateFamily(const CreateMessage& msg)
+LFID Allocator::OnGroupCreate(const CreateMessage& msg)
 {
-	LFID fid = m_familyTable.AllocateFamily(msg.fid);
-	if (fid != INVALID_LFID)
+	LFID fid = m_familyTable.AllocateFamily();
+	if (fid == INVALID_LFID)
 	{
-		// Copy the data
-		Family& family = m_familyTable[fid];
-		family.legacy        = false;
-		family.infinite      = msg.infinite;
-		family.start         = msg.start;
-		family.step          = msg.step;
-		family.nThreads      = msg.nThreads;
-		family.parent.gpid   = INVALID_GPID;
-		family.parent.lpid   = msg.parent.pid;
-		family.parent.tid    = msg.parent.tid;
-		family.virtBlockSize = msg.virtBlockSize;
-        family.physBlockSize = msg.physBlockSize;
-		family.pc            = msg.address;
-		family.hasDependency = false;
-		for (RegType i = 0; i < NUM_REG_TYPES; i++)
-		{
-            family.regs[i].globals = INVALID_REG_INDEX;
-            family.regs[i].shareds = INVALID_REG_INDEX;
-			family.regs[i].count   = msg.regsNo[i];
-		}
+        // Couldn't allocate an entry
+        return INVALID_LFID;
+    }
 
-		// Initialize the family
-		InitializeFamily(fid, false);
+    DebugSimWrite("Allocated family F%u for group create", fid);
 
-		// Allocate the registers
-		if (!AllocateRegisters(fid))
-		{
-			return INVALID_LFID;
-		}
+    // Copy the data
+	Family& family = m_familyTable[fid];
+	family.type          = Family::GROUP;
+	family.legacy        = false;
+	family.infinite      = msg.infinite;
+	family.start         = msg.start;
+	family.step          = msg.step;
+	family.nThreads      = msg.nThreads;
+	family.parent.gpid   = INVALID_GPID;
+	family.parent.lpid   = msg.parent.pid;
+	family.parent.tid    = msg.parent.tid;
+	family.virtBlockSize = msg.virtBlockSize;
+    family.physBlockSize = msg.physBlockSize;
+	family.pc            = msg.address;
+	family.hasDependency = false;
+    family.link_prev     = msg.link_prev;
+    family.link_next     = INVALID_LFID;
+	for (RegType i = 0; i < NUM_REG_TYPES; i++)
+    {
+        family.regs[i].globals = INVALID_REG_INDEX;
+        family.regs[i].shareds = INVALID_REG_INDEX;
+        family.regs[i].count   = msg.regsNo[i];
+	}
+
+	// Initialize the family
+	InitializeFamily(fid, false);
+
+	// Allocate the registers
+	if (!AllocateRegisters(fid))
+	{
+		return INVALID_LFID;
+	}
+
+    if (!ActivateFamily(fid))
+    {
+        return INVALID_LFID;
 	}
 	return fid;
 }
@@ -1035,7 +1065,8 @@ void Allocator::InitializeFamily(LFID fid, bool local) const
 		family.next           = INVALID_LFID;
 		family.index          = (local) ? 0 : ((placeSize + m_lpid - first_pid) % placeSize) * family.virtBlockSize;
 		family.killed         = false;
-
+                                                    
+                                                    
 		// Dependencies
 		family.dependencies.allocationDone      = false;
 		family.dependencies.numPendingReads     = 0;
@@ -1087,12 +1118,9 @@ void Allocator::InitializeFamily(LFID fid, bool local) const
         // Calculate which CPU will run the last thread
         LPID last_pid = (first_pid + (max<uint64_t>(1, family.nThreads) - 1) / family.virtBlockSize) % placeSize;
 
-        if (local ||
-            last_pid == family.parent.lpid ||
-            !((last_pid > family.parent.lpid && (m_lpid >= last_pid || m_lpid <= family.parent.lpid)) ||
-              (last_pid < family.parent.lpid && (m_lpid >= last_pid && m_lpid <= family.parent.lpid))))
+        if (local || last_pid == family.parent.lpid || m_lpid != family.parent.lpid)
         {
-            // Ignore the pending count if we're not a CPU whose network will send or write a parent shared
+            // Ignore the pending shareds count
             family.dependencies.numPendingShareds = 0;
         }
 	}
@@ -1103,8 +1131,6 @@ bool Allocator::AllocateRegisters(LFID fid)
     // Try to allocate registers
 	Family& family = m_familyTable[fid];
 
-	bool global = (family.gfid != INVALID_GFID);
-	
     if (family.physBlockSize == 0) 
     { 
         // We have nothing to allocate, so it succeeded 
@@ -1131,7 +1157,7 @@ bool Allocator::AllocateRegisters(LFID fid)
 
             sizes[i] = (regs.count.locals + regs.count.shareds) * physBlockSize;
 			if (regs.globals == INVALID_REG_INDEX) sizes[i] += regs.count.globals; // Add the cache for the globals
-			if (global                           ) sizes[i] += regs.count.shareds; // Add the cache for the remote shareds
+			if (family.type  == Family::GROUP    ) sizes[i] += regs.count.shareds; // Add the cache for the remote shareds
 		}
 
 		RegIndex indices[NUM_REG_TYPES];
@@ -1205,15 +1231,6 @@ bool Allocator::OnCachelineLoaded(CID cid)
 	return true;
 }
 
-bool Allocator::OnReservationComplete()
-{
-	// The reservation has gone full circle, we can now resume the create
-	assert(m_createState == CREATE_RESERVING_FAMILY);
-	COMMIT{ m_createState = CREATE_BROADCASTING_CREATE; }
-	DebugSimWrite("Reservation complete");
-	return true;
-}
-
 Result Allocator::OnCycleWritePhase(unsigned int stateIndex)
 {
     switch (stateIndex)
@@ -1231,21 +1248,21 @@ Result Allocator::OnCycleWritePhase(unsigned int stateIndex)
 
             assert(thread.state == TST_KILLED);
 
-			if (family.hasDependency && !thread.isLastThreadInFamily && (family.gfid != INVALID_GFID || family.physBlockSize > 1))
+			if (family.hasDependency && !thread.isLastThreadInFamily && (family.type == Family::GROUP || family.physBlockSize > 1))
             {
                 // Mark 'previous thread cleaned up' on the next thread
                 if (!thread.isLastThreadInBlock)
                 {
                     assert(thread.nextInBlock != INVALID_TID);
-                    if (!DecreaseThreadDependency(fid, thread.nextInBlock, THREADDEP_PREV_CLEANED_UP, *this))
+                    if (!DecreaseThreadDependency(fid, thread.nextInBlock, THREADDEP_PREV_CLEANED_UP))
                     {
                         DeadlockWrite("Unable to mark PREV_CLEANED_UP for T%u's next thread T%u in F%u", tid, thread.nextInBlock, fid);
                         return FAILED;
                     }
                 }
-                else if (!m_network.SendThreadCleanup(family.gfid))
+                else if (!m_network.SendThreadCleanup(family.link_next))
                 {
-                    DeadlockWrite("Unable to send thread cleanup notification for T%u in F%u (G%u)", tid, fid, family.gfid);
+                    DeadlockWrite("Unable to send thread cleanup notification for T%u in F%u", tid, fid);
                     return FAILED;
                 }
             }
@@ -1421,6 +1438,8 @@ Result Allocator::OnCycleWritePhase(unsigned int stateIndex)
                     }
                 }
 
+        		m_icache.ReleaseCacheLine(m_createLine);
+
                 COMMIT
                 {
                     for (RegType i = 0; i < NUM_REG_TYPES; i++)
@@ -1433,7 +1452,7 @@ Result Allocator::OnCycleWritePhase(unsigned int stateIndex)
                 if (family.place.IsDelegated(m_parent.GetPID()))
                 {
                     // Delegated create; send the create -- no further processing required on this core
-                    if (!m_network.SendFamilyDelegation(fid))
+                    if (!m_network.SendDelegatedCreate(fid))
                     {
     				    DeadlockWrite("Unable to send the delegation for F%u", fid);
                         return FAILED;
@@ -1449,6 +1468,7 @@ Result Allocator::OnCycleWritePhase(unsigned int stateIndex)
 			        COMMIT
 			        {
 			            // Mark family as delegated
+			            family.type  = Family::DELEGATED;
 			            family.state = FST_DELEGATED;
 			            
                         // Reset the create state; we're done with this create
@@ -1468,7 +1488,7 @@ Result Allocator::OnCycleWritePhase(unsigned int stateIndex)
     					    DeadlockWrite("Unable to request the create token from the network for F%u", fid);
     						return FAILED;
     					}
-    					COMMIT{ m_createState = CREATE_GETTING_TOKEN; }
+    					COMMIT{ m_createState = CREATE_ACQUIRING_TOKEN; }
     				}
     				else
     				{
@@ -1479,32 +1499,12 @@ Result Allocator::OnCycleWritePhase(unsigned int stateIndex)
     				InitializeFamily(fid, local);
     	        }
 			}
-			else if (m_createState == CREATE_HAS_TOKEN)
-			{
-				// We have the token (group creates only), pick a GFID and send around the reservation
-				if ((family.gfid = m_familyTable.AllocateGlobal(fid)) == INVALID_GFID)
-				{
-					// No global ID available
-					DeadlockWrite("Unable to allocate a Global FID for F%u", fid);
-					return FAILED;
-				}
-
-				if (!m_network.SendFamilyReservation(family.gfid))
-				{
-					// Send failed
-					DeadlockWrite("Unable to send family reservation for F%u (G%u)", fid, family.gfid);
-					return FAILED;
-				}
-
-				COMMIT{ m_createState = CREATE_RESERVING_FAMILY; }
-				// The network will notify us with onReservationComplete() and advanced to CREATE_BROADCASTING_CREATE
-			}
 			else if (m_createState == CREATE_BROADCASTING_CREATE)
 			{
-				// We have the token, and the family is globally reserved; broadcast the create
-				if (!m_network.SendFamilyCreate(fid))
+				// We have the token; broadcast the create
+				if (!m_network.SendGroupCreate(fid))
 				{
-				    DeadlockWrite("Unable to send the create for F%u (G%u)", fid, family.gfid);
+				    DeadlockWrite("Unable to send the create for F%u", fid);
 					return FAILED;
 				}
 
@@ -1600,7 +1600,7 @@ Result Allocator::OnCycleWritePhase(unsigned int stateIndex)
 		if (!m_registerWrites.empty())
         {
             RegAddr addr = m_registerWrites.front().address;
-            if (!m_registerFile.p_asyncW.Write(*this, addr))
+            if (!m_registerFile.p_asyncW.Write(addr))
             {
                 DeadlockWrite("Unable to acquire the port for the queued register write to %s", addr.str().c_str());
                 return FAILED;
@@ -1625,8 +1625,8 @@ bool Allocator::OnTokenReceived()
 {
     // The network told us we can create this family (group family, local create)
     assert(!m_creates.empty());
-	assert(m_createState == CREATE_GETTING_TOKEN);
-	COMMIT{ m_createState = CREATE_HAS_TOKEN; }
+	assert(m_createState == CREATE_ACQUIRING_TOKEN);
+	COMMIT{ m_createState = CREATE_BROADCASTING_CREATE; }
     return true;
 }
 
@@ -1701,8 +1701,9 @@ bool Allocator::SanitizeFamily(Family& family, bool hasDependency)
 
     COMMIT
     {
-        family.infinite      = (family.step == 0);
-        family.step          = step;
+        family.type     = (local) ? Family::LOCAL : Family::GROUP;
+        family.infinite = (family.step == 0);
+        family.step     = step;
 
         // For independent families, use the original virtual block size
         // as physical block size.
@@ -1745,7 +1746,7 @@ bool Allocator::QueueCreate(LFID fid, MemAddr address, TID parent, RegIndex exit
 		// Push the create
 		m_creates.push(fid);
     }
-    DebugSimWrite("Queued local create by T%u at 0x%llx", parent, (uint64_t)address);
+    DebugSimWrite("Queued local create by T%u at 0x%llx", parent, (unsigned long long)address);
     return true;
 }
 
@@ -1789,9 +1790,10 @@ void Allocator::AllocateInitialFamily(MemAddr pc)
 	family.parent.gpid   = INVALID_GPID;
 	family.exitCodeReg   = INVALID_REG_INDEX;
 	family.created       = true;
-	family.gfid          = INVALID_GFID;
 	family.legacy        = false;
 	family.pc            = pc;
+    family.link_prev     = INVALID_LFID;
+    family.link_next     = INVALID_LFID;
 
 	// Set initial place to the whole group
 	family.place.pid        = m_parent.GetPID();
@@ -1809,7 +1811,7 @@ void Allocator::AllocateInitialFamily(MemAddr pc)
 
 	InitializeFamily(fid, true);
 
-    if (!m_icache.Fetch(family.pc, sizeof(Instruction)) ||
+    if (//!m_icache.Fetch(family.pc, sizeof(Instruction)) ||
 	    !AllocateRegisters(fid) ||
 	    !ActivateFamily(fid)
 	   )

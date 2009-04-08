@@ -1014,8 +1014,7 @@ Pipeline::PipeAction Pipeline::ExecuteStage::ExecuteInstruction()
             } else {
                 COMMIT {
                     // The request was buffered and will be written back
-                    m_output.Rcv.m_state       = RST_EMPTY;
-                    m_output.Rcv.m_memory.size = 0;
+                    m_output.Rcv = MAKE_EMPTY_PIPEVALUE(m_output.Rcv.m_size);
                 }
             }
         }
@@ -1197,8 +1196,7 @@ Pipeline::PipeAction Pipeline::ExecuteStage::ExecuteInstruction()
 
                 COMMIT
                 {
-                    m_output.Rcv.m_state       = RST_EMPTY;
-                    m_output.Rcv.m_memory.size = 0;
+                    m_output.Rcv = MAKE_EMPTY_PIPEVALUE(m_output.Rcv.m_size);
 
                     // We've executed a floating point operation
                     m_flop++;

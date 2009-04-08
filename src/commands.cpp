@@ -426,50 +426,53 @@ static bool cmd_network_read( Object* obj, const vector<string>& /* arguments */
 
     cout << dec;
 
-    cout << "Shareds:" << endl;
-    if (network->m_sharedRequest.fid  != INVALID_GFID) cout << "* Requesting shared " << network->m_sharedRequest.addr.index  << " for G" << network->m_sharedRequest.fid << " from previous processor" << endl;
-    if (network->m_sharedResponse.fid != INVALID_GFID)
+    cout << "Registers:" << endl;
+    if (network->m_registerRequestOut.addr.fid != INVALID_LFID)
     {
-        if (network->m_sharedResponse.value.m_state == RST_FULL) {
-            cout << "* Sending shared "    << network->m_sharedResponse.addr.index << " for G" << network->m_sharedResponse.fid << " to next processor" << endl;
-        } else {
-            cout << "* Reading shared "    << network->m_sharedResponse.addr.index << " for G" << network->m_sharedResponse.fid << endl;
-        }
+        cout << "* Requesting "
+             << GetRemoteRegisterTypeString(network->m_registerRequestOut.addr.type) << " register "
+             << network->m_registerRequestOut.addr.reg.str()
+             << " from F" << network->m_registerRequestOut.addr.fid
+             << " on previous processor" << endl;
     }
-    if (network->m_sharedReceived.fid != INVALID_GFID) cout << "* Received shared "   << network->m_sharedReceived.addr.index << " for G" << network->m_sharedReceived.fid << " from previous processor" << endl;
+
+    if (network->m_registerRequestIn.addr.fid != INVALID_LFID)
+    {
+        cout << "* Reading "
+             << GetRemoteRegisterTypeString(network->m_registerRequestIn.addr.type) << " register "
+             << network->m_registerRequestIn.addr.reg.str()
+             << " from F" << network->m_registerRequestIn.addr.fid << endl;
+    }
+    
+    if (network->m_registerResponseOut.addr.fid != INVALID_LFID)
+    {
+        cout << "* Sending "
+             << GetRemoteRegisterTypeString(network->m_registerResponseOut.addr.type) << " register "
+             << network->m_registerResponseOut.addr.reg.str()
+             << " to F" << network->m_registerResponseOut.addr.fid
+             << " on next processor" << endl;
+    }
+
+    if (network->m_registerResponseIn.addr.fid != INVALID_LFID)
+    {
+        cout << "* Received "
+             << GetRemoteRegisterTypeString(network->m_registerResponseIn.addr.type) << " register "
+             << network->m_registerResponseIn.addr.reg.str()
+             << " from F" << network->m_registerResponseIn.addr.fid
+             << " on previous processor" << endl;
+    }
     cout << endl;
 
     cout << "Token:" << endl;
-    if (network->m_hasToken.Read())       cout << "* Processor has token (" << network->m_lockToken << " outstanding creates)" << endl;
+    if (network->m_hasToken.Read())       cout << "* Processor has token" << endl;
     if (network->m_wantToken.Read())      cout << "* Processor wants token" << endl;
     if (network->m_nextWantsToken.Read()) cout << "* Next processor wants token" << endl;
     cout << endl;
 
     cout << "Families and threads:" << endl;
-    if (network->m_createState != Network::CS_PROCESSING_NONE) {
-        cout << "* Processing " << (network->m_createState == Network::CS_PROCESSING_LOCAL ? "local" : "remote") << " create for F" << network->m_createFid
-             << ", global " << network->m_global.addr.str() << endl;
-    }
-
-    if (network->m_reservation.IsLocalFull())   cout << "* Local family reservation for G" << network->m_reservation.ReadLocal().fid << endl;
-    if (network->m_reservation.IsSendingFull()) cout << "* Forwarding family reservation for G" << network->m_reservation.ReadSending().fid << endl;
-    if (network->m_reservation.IsRemoteFull())
-    {
-        cout << "* Received family reservation for G" << network->m_reservation.ReadRemote().fid << " (";
-        cout << (network->m_reservation.IsRemoteProcessed() ? "processed" : "not processed") << ")" << endl;
-    }
-
-    if (network->m_unreservation.IsLocalFull())   cout << "* Local family unreservation for G" << network->m_unreservation.ReadLocal().fid << endl;
-    if (network->m_unreservation.IsSendingFull()) cout << "* Forwarding family unreservation for G" << network->m_unreservation.ReadSending().fid << endl;
-    if (network->m_unreservation.IsRemoteFull())
-    {
-        cout << "* Received family unreservation for G" << network->m_unreservation.ReadRemote().fid << " (";
-        cout << (network->m_unreservation.IsRemoteProcessed() ? "processed" : "not processed") << ")" << endl;
-    }
-
-    if (!network->m_completedFamily.IsEmpty()) cout << "* Local family completion of G" << network->m_completedFamily.Read() << endl;
-    if (!network->m_completedThread.IsEmpty()) cout << "* Local thread completion of G" << network->m_completedThread.Read() << endl;
-    if (!network->m_cleanedUpThread.IsEmpty()) cout << "* Local thread cleanup of G" << network->m_cleanedUpThread.Read() << endl;
+    if (!network->m_completedFamily.IsEmpty()) cout << "* Local family completion of F" << network->m_completedFamily.Read() << endl;
+    if (!network->m_completedThread.IsEmpty()) cout << "* Local thread completion of F" << network->m_completedThread.Read() << endl;
+    if (!network->m_cleanedUpThread.IsEmpty()) cout << "* Local thread cleanup of F" << network->m_cleanedUpThread.Read() << endl;
 
     return true;
 }
@@ -541,9 +544,7 @@ static bool cmd_allocator_read( Object* obj, const vector<string>& /* arguments 
 			case Allocator::CREATE_INITIAL:				 cout << "Initial"; break;
 			case Allocator::CREATE_LOADING_LINE:		 cout << "Loading cache-line"; break;
 			case Allocator::CREATE_LINE_LOADED:			 cout << "Cache-line loaded"; break;
-			case Allocator::CREATE_GETTING_TOKEN:		 cout << "Getting token"; break;
-			case Allocator::CREATE_HAS_TOKEN:			 cout << "Received token"; break;
-			case Allocator::CREATE_RESERVING_FAMILY:	 cout << "Reserving family"; break;
+			case Allocator::CREATE_ACQUIRING_TOKEN:		 cout << "Acquiring token"; break;
 			case Allocator::CREATE_BROADCASTING_CREATE:	 cout << "Broadcasting create"; break;
 			case Allocator::CREATE_ALLOCATING_REGISTERS: cout << "Allocating registers"; break;
 		}
@@ -762,8 +763,8 @@ static bool cmd_families_read( Object* obj, const vector<string>& /* arguments *
 
     static const char* FamilyStates[] = {"", "ALLOCATED", "CREATE QUEUED", "CREATING", "DELEGATED", "IDLE", "ACTIVE", "KILLED"};
 
-    cout << "    |         PC         |   Allocated    | P/A/Rd/Sh |  Parent | GFID | State" << endl;
-    cout << "----+--------------------+----------------+-----------+---------+------+-----------" << endl;
+    cout << "    |         PC         |   Allocated    | P/A/Rd/Sh |  Parent | Prev | Next | State" << endl;
+    cout << "----+--------------------+----------------+-----------+---------+------+------+-----------" << endl;
 
     cout << setfill(' ') << right;
 	
@@ -775,13 +776,13 @@ static bool cmd_families_read( Object* obj, const vector<string>& /* arguments *
         cout << dec << right << setw(3) << setfill(' ') << i << " | ";
         if (family.state == FST_EMPTY)
         {
-            cout << "                   |                |           |         |      | ";
+            cout << "                   |                |           |         |      |      |";
         }
         else
         {
 			if (family.state == FST_ALLOCATED)
 			{
-                cout << "        -          |       -        |      -     | ";
+                cout << "        -          |       -        |     -     | ";
 			}
 			else if (family.state == FST_CREATING || family.state == FST_DELEGATED)
 			{
@@ -808,7 +809,7 @@ static bool cmd_families_read( Object* obj, const vector<string>& /* arguments *
 				cout << setfill('0') 
 				     << "F"  << setw(2) << family.parent.fid
 				     << "@P" << setw(2) << family.parent.gpid;
-            } else if (family.gfid != INVALID_GFID) {
+            } else if (family.type == Family::GROUP) {
                 // Group family
 				cout << setfill('0') 
 				     << "T"  << setw(2) << family.parent.tid
@@ -819,13 +820,22 @@ static bool cmd_families_read( Object* obj, const vector<string>& /* arguments *
 			}
 			cout << " | ";
 
-            // Print GFID
+            // Print prev and next FIDs
 			if (family.state == FST_ALLOCATED) {
-	            cout << " -  ";
-			} else if (family.gfid == INVALID_GFID) {
-    			cout << " -  ";
+	            cout << "  -  |  -  ";
 			} else {
-				cout << "G" << setw(2) << setfill('0') << right << family.gfid << " ";
+			    cout << setfill('0') << right;
+			    if (family.link_prev != INVALID_LFID) {
+				    cout << " F" << setw(2) << family.link_prev;
+				} else {
+				    cout << "  - ";
+				}
+				cout << " | ";
+			    if (family.link_next != INVALID_LFID) {
+				    cout << " F" << setw(2) << family.link_next;
+				} else {
+				    cout << "  - ";
+				}
 			}
             cout << " | " << FamilyStates[family.state];
         }
@@ -944,7 +954,7 @@ static string MakePipeValue(const RegType& type, const PipeValue& value)
 }
 
 static ostream& operator<<(ostream& out, const RemoteRegAddr& rreg) {
-    if (rreg.fid != INVALID_GFID) {
+    if (rreg.fid != INVALID_LFID) {
         out << hex << setw(2) << setfill('0') << rreg.reg.str() << " @ " << rreg.fid;
     } else {
         out << "N/A";

@@ -51,6 +51,18 @@ ICache::~ICache()
     delete[] m_data;
 }
 
+bool ICache::IsEmpty() const
+{
+    for (size_t i = 0; i < m_lines.size(); ++i)
+    {
+        if (m_lines[i].used && m_lines[i].references != 0)
+        {
+            return false;
+        }
+    }
+    return true;
+}
+
 //
 // Finds the line for the specified address. Returns:
 // SUCCESS - Line found (hit)
@@ -92,7 +104,7 @@ Result ICache::FindLine(MemAddr address, Line* &line)
     if (line == NULL)
     {
         // No available line
-        DeadlockWrite("Unable to allocate a cache-line for the request to 0x%016llx (set %u)", (unsigned long long)address, set);
+        DeadlockWrite("Unable to allocate a cache-line for the request to 0x%016llx (set %u)", (unsigned long long)address, set / m_assoc);
         return FAILED;
     }
 
@@ -147,12 +159,6 @@ bool ICache::Read(CID cid, MemAddr address, void* data, MemSize size) const
 
     COMMIT{ memcpy(data, m_lines[cid].data + offset, size); }
     return true;
-}
-
-// For hardcoded family creation
-bool ICache::Fetch(MemAddr address, MemSize size)
-{
-	return Fetch(address, size, NULL, NULL) != FAILED;
 }
 
 // For family creation
@@ -285,7 +291,7 @@ Result ICache::Fetch(MemAddr address, MemSize size, TID* tid, CID* cid)
     COMMIT
 	{
 		line->access = m_parent.GetKernel().GetCycleNo();
-		line->references++;
+	    line->references++;
 	}
 
 	if (cid != NULL)

@@ -9,6 +9,18 @@ using namespace std;
 namespace Simulator
 {
 
+const char* GetRemoteRegisterTypeString(RemoteRegType type)
+{
+    switch (type)
+    {
+    case RRT_GLOBAL:            return "global";
+    case RRT_PARENT_SHARED:     return "parent shared";
+    case RRT_LAST_SHARED:
+    case RRT_FIRST_DEPENDENT:   return "shared";
+    }
+    return "unknown";
+}
+
 string RegAddr::str() const
 {
     if (valid())

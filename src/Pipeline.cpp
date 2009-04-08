@@ -33,7 +33,7 @@ Pipeline::Pipeline(
     m_decode   (*this, m_fdLatch, m_drLatch),
     m_read     (*this, m_drLatch, m_reLatch, regFile, network, m_emLatch, m_mwLatch),
     m_execute  (*this, m_reLatch, m_emLatch, alloc, threadTable, familyTable, fpu),
-    m_memory   (*this, m_emLatch, m_mwLatch, dcache, alloc, regFile, familyTable),
+    m_memory   (*this, m_emLatch, m_mwLatch, dcache, alloc),
     m_writeback(*this, m_mwLatch, regFile, network, alloc, threadTable)
 {
     m_stages[0] = &m_fetch;

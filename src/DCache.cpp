@@ -276,7 +276,7 @@ bool DCache::OnMemoryReadCompleted(const MemData& data)
 bool DCache::OnMemoryWriteCompleted(const MemTag& tag)
 {
     // Data has been written
-    if (!m_allocator.DecreaseThreadDependency(tag.fid, tag.tid, THREADDEP_OUTSTANDING_WRITES, *this))
+    if (!m_allocator.DecreaseThreadDependency(tag.fid, tag.tid, THREADDEP_OUTSTANDING_WRITES))
     {
         return false;
     }
@@ -319,7 +319,7 @@ Result DCache::OnCycleWritePhase(unsigned int stateIndex)
 	if (line.waiting.valid())
 	{
 		// Write to register
-		if (!m_regFile.p_asyncW.Write(*this, line.waiting))
+		if (!m_regFile.p_asyncW.Write(line.waiting))
 		{
 			return FAILED;
 		}

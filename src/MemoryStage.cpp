@@ -52,7 +52,7 @@ Pipeline::PipeAction Pipeline::MemoryStage::write()
         else if (m_input.address == numeric_limits<MemAddr>::max())
         {
             // Invalid address; don't send request, just clear register
-            rcv.m_state = RST_EMPTY;
+            rcv = MAKE_EMPTY_PIPEVALUE(rcv.m_size);
         }
         else if (m_input.Rc.valid())
         {
@@ -89,7 +89,7 @@ Pipeline::PipeAction Pipeline::MemoryStage::write()
 			else
 			{
 				// Remember request data
-	            rcv.m_state              = RST_EMPTY;
+	            rcv = MAKE_EMPTY_PIPEVALUE(rcv.m_size);
 				rcv.m_memory.fid         = m_input.fid;
 				rcv.m_memory.next        = reg;
 				rcv.m_memory.offset      = (unsigned int)(m_input.address % m_dcache.GetLineSize());
@@ -108,7 +108,7 @@ Pipeline::PipeAction Pipeline::MemoryStage::write()
                     return PIPE_STALL;
                 }
             }
-            else if (!m_allocator.IncreaseFamilyDependency(m_input.fid, FAMDEP_OUTSTANDING_READS))
+            else if (!m_allocator.OnMemoryRead(m_input.fid))
             {
                 return PIPE_STALL;
             }
@@ -129,13 +129,11 @@ Pipeline::PipeAction Pipeline::MemoryStage::write()
     return PIPE_CONTINUE;
 }
 
-Pipeline::MemoryStage::MemoryStage(Pipeline& parent, ExecuteMemoryLatch& input, MemoryWritebackLatch& output, DCache& dcache, Allocator& alloc, RegisterFile& regFile, FamilyTable& familyTable)
+Pipeline::MemoryStage::MemoryStage(Pipeline& parent, ExecuteMemoryLatch& input, MemoryWritebackLatch& output, DCache& dcache, Allocator& alloc)
   : Stage(parent, "memory", &input, &output),
     m_input(input),
     m_output(output),
     m_allocator(alloc),
-    m_dcache(dcache),
-    m_regFile(regFile),
-    m_familyTable(familyTable)
+    m_dcache(dcache)
 {
 }

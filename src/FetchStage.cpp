@@ -66,9 +66,10 @@ Pipeline::PipeAction Pipeline::FetchStage::read()
 
 		COMMIT
 		{
-			m_fid  = thread.family;
-			m_gfid = family.gfid;
-			m_tid  = tid;
+			m_fid       = thread.family;
+			m_link_prev = family.link_prev;
+			m_link_next = family.link_next;
+			m_tid       = tid;
 		}
 	}
     return PIPE_CONTINUE;
@@ -113,12 +114,13 @@ Pipeline::PipeAction Pipeline::FetchStage::write()
 
 	COMMIT
 	{
-		m_output.instr = UnserializeInstruction(&instrs[iInstr]);
-		m_output.fid   = m_fid;
-		m_output.gfid  = m_gfid;
-		m_output.tid   = m_tid;
-		m_output.pc    = m_pc;
-		m_output.onParent = m_onParent;
+		m_output.instr     = UnserializeInstruction(&instrs[iInstr]);
+		m_output.fid       = m_fid;
+		m_output.link_prev = m_link_prev;
+		m_output.link_next = m_link_next;
+		m_output.tid       = m_tid;
+		m_output.pc        = m_pc;
+		m_output.onParent  = m_onParent;
 		m_output.isLastThreadInFamily  = m_isLastThreadInFamily;
 		m_output.isLastThreadInBlock   = m_isLastThreadInBlock;
 		m_output.isFirstThreadInFamily = m_isFirstThreadInFamily;

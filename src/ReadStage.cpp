@@ -36,13 +36,11 @@ static bool CopyRegister(RegType type, const PipeValue& src_value, RegSize src_o
     switch (src_value.m_state)
     {
     case RST_INVALID: break;
-    case RST_EMPTY:
-        dest_value.m_memory    = src_value.m_memory;
-        dest_value.m_remote    = src_value.m_remote;
-        // Fall-through
-        
     case RST_WAITING:
+    case RST_EMPTY:
         dest_value.m_waiting = src_value.m_waiting;
+        dest_value.m_memory  = src_value.m_memory;
+        dest_value.m_remote  = src_value.m_remote;
         break;
         
     case RST_FULL:
@@ -82,14 +80,12 @@ static bool CopyRegister(RegType type, const RegValue& src_value, PipeValue& des
     dest_value.m_state = src_value.m_state;
     switch (src_value.m_state)
     {
-    case RST_INVALID: assert(0);
-    case RST_EMPTY:
-        dest_value.m_remote    = src_value.m_remote;
-        dest_value.m_memory    = src_value.m_memory;
-        // Fall-through
-
+    case RST_INVALID: assert(0); break;
     case RST_WAITING:
+    case RST_EMPTY:
         dest_value.m_waiting = src_value.m_waiting;
+        dest_value.m_remote  = src_value.m_remote;
+        dest_value.m_memory  = src_value.m_memory;
         break;
         
     case RST_FULL:
@@ -256,7 +252,7 @@ bool Pipeline::ReadStage::ReadRegister(OperandInfo& operand)
             printf("[CPU %u] Reading from registers %04x: %d\n", (unsigned int)m_parent.GetProcessor().GetPID(), (unsigned int)operand.addr.index, to_read_mask );
 #endif
             // Part of the operand still needs to be read from the register file
-            if (!operand.port->Read(*this))
+            if (!operand.port->Read())
             {
                 return false;
             }
@@ -534,14 +530,14 @@ Pipeline::PipeAction Pipeline::ReadStage::write()
     if (operand1.value.m_state != RST_FULL)
     {
         // Register wasn't full, write back the suspend information
-        if (m_input.Rra.fid != INVALID_GFID)
+        if (operand1.value.m_state != RST_WAITING && m_input.Rra.fid != INVALID_LFID)
         {
-            // Send a remote request
-            RegAddr rra(m_input.Rra.reg);
-            rra.index += (operand1.addr.index - m_input.Ra.index);
+            // Send a remote request unless a thread is already
+            // waiting on it (that thread has already sent the request).
+            RemoteRegAddr rra(m_input.Rra);
+            rra.reg.index += (operand1.addr.index - m_input.Ra.index);
             
-			DebugSimWrite("Requesting remote shared %s for G%u", rra.str().c_str(), (unsigned int)m_input.Rra.fid);
-			if (!m_network.RequestShared(m_input.Rra.fid, rra, m_input.isFirstThreadInFamily))
+			if (!m_network.RequestRegister(rra, m_input.fid))
             {
 #ifdef DEBUG_READ_STAGE
                 printf("Stall\n");
@@ -553,25 +549,24 @@ Pipeline::PipeAction Pipeline::ReadStage::write()
         COMMIT
         {
             m_output.Rc                 = operand1.addr;
-            m_output.Rrc.fid            = INVALID_GFID;
+            m_output.Rrc.fid            = INVALID_LFID;
             m_output.Rav.m_state        = RST_WAITING;
             m_output.Rav.m_waiting.head = m_input.tid;
             m_output.Rav.m_waiting.tail = (operand1.value.m_state == RST_WAITING)
-                ? operand1.value.m_waiting.head     // The register was already waiting, append thread to list
+                ? operand1.value.m_waiting.tail     // The register was already waiting, append thread to list
                 : m_input.tid;                      // First thread waiting on the register
         }
     }
     else if (operand2.value.m_state != RST_FULL)
     {
         // Register wasn't full, write back the suspend information
-        if (m_input.Rrb.fid != INVALID_GFID)
+        if (operand2.value.m_state != RST_WAITING && m_input.Rrb.fid != INVALID_LFID)
         {
             // Send a remote request
-            RegAddr rrb(m_input.Rrb.reg);
-            rrb.index += (operand2.addr.index - m_input.Rb.index);
+            RemoteRegAddr rrb(m_input.Rrb);
+            rrb.reg.index += (operand2.addr.index - m_input.Rb.index);
             
-			DebugSimWrite("Requesting remote shared %s for family G%u", rrb.str().c_str(), m_input.Rrb.fid);
-			if (!m_network.RequestShared(m_input.Rrb.fid, rrb, m_input.isFirstThreadInFamily))
+			if (!m_network.RequestRegister(rrb, m_input.fid))
             {
 #ifdef DEBUG_READ_STAGE
                 printf("Stall\n");
@@ -583,11 +578,11 @@ Pipeline::PipeAction Pipeline::ReadStage::write()
         COMMIT
         {
             m_output.Rc                 = operand2.addr;
-            m_output.Rrc.fid            = INVALID_GFID;
+            m_output.Rrc.fid            = INVALID_LFID;
             m_output.Rbv.m_state        = RST_WAITING;
             m_output.Rbv.m_waiting.head = m_input.tid;
             m_output.Rbv.m_waiting.tail = (operand2.value.m_state == RST_WAITING)
-                ? operand2.value.m_waiting.head     // The register was already waiting, append thread to list
+                ? operand2.value.m_waiting.tail     // The register was already waiting, append thread to list
                 : m_input.tid;                      // First thread waiting on the register
         }
     }

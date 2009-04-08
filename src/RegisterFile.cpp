@@ -8,27 +8,23 @@ using namespace std;
 // RegisterFile implementation
 //
 
-RegisterFile::RegisterFile(Processor& parent, Allocator& alloc, const Config& config)
+RegisterFile::RegisterFile(Processor& parent, Allocator& alloc, Network& network, const Config& config)
 :   Structure<RegAddr>(&parent, parent.GetKernel(), "registers"),
     p_pipelineR1(*this), p_pipelineR2(*this), p_pipelineW(*this), p_asyncR(*this), p_asyncW(*this),
     m_integers(config.numIntegers),
     m_floats(config.numFloats),
     m_parent(parent),
-    m_allocator(alloc)
+    m_allocator(alloc), m_network(network)
 {
     // Initialize all registers to empty
     for (RegSize i = 0; i < config.numIntegers; ++i)
     {
-        m_integers[i].m_state       = RST_EMPTY;
-		m_integers[i].m_memory.size = 0;
-		m_integers[i].m_remote.reg  = INVALID_REG_INDEX;
+        m_integers[i] = MAKE_EMPTY_REG();
     }
 
     for (RegSize i = 0; i < config.numFloats; ++i)
     {
-        m_floats[i].m_state       = RST_EMPTY;
-		m_floats[i].m_memory.size = 0;
-		m_floats[i].m_remote.reg  = INVALID_REG_INDEX;
+        m_floats[i] = MAKE_EMPTY_REG();
     }
 
     // Set port priorities
@@ -75,9 +71,7 @@ bool RegisterFile::Clear(const RegAddr& addr, RegSize size)
 
     COMMIT
     {
-        RegValue value;
-        value.m_state       = RST_EMPTY;
-        value.m_memory.size = 0;
+        const RegValue value = MAKE_EMPTY_REG();
         for (RegSize i = 0; i < size; ++i)
         {
 			regs[addr.index + i] = value;
@@ -96,62 +90,65 @@ bool RegisterFile::WriteRegister(const RegAddr& addr, RegValue& data, bool from_
     }
     
 	assert(data.m_state == RST_EMPTY || data.m_state == RST_WAITING || data.m_state == RST_FULL);
+	
+	if (data.m_state == RST_EMPTY)
+	{
+		assert(data.m_remote.reg.fid == INVALID_LFID);
+		assert(data.m_waiting.head   == INVALID_TID);
+	}
 
     RegValue& value = regs[addr.index];
-    if (data.m_state == RST_WAITING)
-    {
-		// Must come from the pipeline (i.e., an instruction read a non-full register)
-    	if (value.m_state == RST_FULL)
-    	{
-    		// The data we wanted to wait for has returned before we could write the register.
-    		// Write back the state as FULL, the pipeline will reschedule the thread instead of
-    		// suspending it
-    		data.m_state = RST_FULL;
-    	}
-	    else
-	    {
-            // Link this thread into the list
-	        TID old_head = value.m_waiting.head;
-	        
-	        COMMIT
-	        {
-	            value.m_waiting.head = data.m_waiting.head;
-    	        if (value.m_state != RST_WAITING)
-	            {
-        		    // First thread waiting on the register
-        		    // Update the tail and update state
-    	            value.m_waiting.tail = data.m_waiting.tail;
-    				value.m_state        = RST_WAITING;
-    	        }
-	        }
-	        
-	        // Return the old_head to the pipeline (to update the Thread Table with)
-	        data.m_waiting.head = old_head;
-	    }
-	}
-	else
+	if (value.m_state == RST_EMPTY)
 	{
-		if (value.m_state == RST_EMPTY)
-		{
-		    // Only the memory can write to memory-pending registers
-		    if (value.m_memory.size != 0 && !from_memory)
-		    {
-				throw SimulationException(*this, "Writing to a memory-load destination register");
-			}
+	    if (value.m_memory.size != 0)
+	    {
+	        if (data.m_state == RST_WAITING)
+	        {
+	            // Check that the memory information isn't changed
+	            assert(data.m_memory.fid         == value.m_memory.fid);
+	            assert(data.m_memory.offset      == value.m_memory.offset);
+	            assert(data.m_memory.size        == value.m_memory.size);
+	            assert(data.m_memory.sign_extend == value.m_memory.sign_extend);
+	            assert(data.m_memory.next        == value.m_memory.next);
+	        }
+	        else if (!from_memory)
+	        {
+    	        // Only the memory can write to memory-pending registers
+    			throw SimulationException(*this, "Writing to a memory-load destination register");
+		    }
 		}
-		else if (value.m_state == RST_WAITING)
+	}
+	else if (value.m_state == RST_WAITING)
+    {
+	    if (data.m_state == RST_EMPTY)
+	    {
+			throw SimulationException(*this, "Resetting a waiting register");
+		}
+        
+        if (data.m_state == RST_FULL)
         {
-            assert (data.m_state == RST_FULL);
-
-			// This write caused a reschedule
-            if (!m_allocator.ActivateThreads(value.m_waiting))
+            if (value.m_waiting.head != INVALID_TID)
             {
-                DeadlockWrite("Unable to wake up threads from %s", addr.str().c_str());
-                return false;
+		        // This write caused a reschedule
+                if (!m_allocator.ActivateThreads(value.m_waiting))
+                {
+                    DeadlockWrite("Unable to wake up threads from %s", addr.str().c_str());
+                    return false;
+                }
+            }
+            
+            if (value.m_remote.reg.fid != INVALID_LFID)
+            {
+                // Another processor wants this value
+                if (!m_network.SendRegister(value.m_remote.reg, data))
+                {
+                    DeadlockWrite("Unable to send register from %s", addr.str().c_str());
+                    return false;
+                }
             }
         }
-
-        COMMIT{ value = data; }
     }
+
+    COMMIT{ value = data; }
     return true;
 }

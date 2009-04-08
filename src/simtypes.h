@@ -30,7 +30,6 @@ typedef size_t   RegIndex;      ///< Index into a register file
 typedef size_t   RegSize;       ///< Size of something in the register file
 typedef size_t   FSize;         ///< Family list size
 typedef size_t   LFID;          ///< Local family index
-typedef size_t   GFID;          ///< Global family index
 
 /// Place identifier
 struct PlaceID
@@ -129,15 +128,6 @@ static const RegType NUM_REG_TYPES = 2;
 
 static const CycleNo INFINITE_CYCLES = (CycleNo)-1;
 
-/// Different types of shared classes
-enum SharedType
-{
-    ST_LOCAL,   ///< The shareds of the previous thread on the same CPU
-    ST_FIRST,   ///< The dependents (copy) in the first thread in the block
-    ST_LAST,    ///< The shareds in the last thread in the block
-    ST_PARENT,  ///< The child-shareds in the parent thread
-};
-
 #pragma pack(1)
 struct RegsNo
 {
@@ -212,7 +202,6 @@ std::ostream& operator << (std::ostream& output, const RegAddr& reg);
 static const GPID    INVALID_GPID = GPID(-1);
 static const LPID    INVALID_LPID = LPID(-1);
 static const LFID    INVALID_LFID = LFID(-1);
-static const GFID    INVALID_GFID = GFID(-1);
 static const TID     INVALID_TID  = TID (-1);
 static const CID     INVALID_CID  = CID (-1);
 static const RegAddr INVALID_REG  = MAKE_REGADDR(RT_INTEGER, INVALID_REG_INDEX);
@@ -249,11 +238,30 @@ struct MemoryRequest
 	RegAddr      next;	 	  ///< Next register waiting on the cache-line
 };
 
+/// Different types of shared classes
+enum RemoteRegType
+{
+    RRT_GLOBAL,          ///< The globals
+    RRT_FIRST_DEPENDENT, ///< The dependents (copy) in the first thread in the block
+    RRT_LAST_SHARED,     ///< The shareds in the last thread in the block
+    RRT_PARENT_SHARED,   ///< The child-shareds in the parent thread
+};
+
+const char* GetRemoteRegisterTypeString(RemoteRegType type);
+
+/// This structure represents a remote request for a global or shared register
+struct RemoteRegAddr
+{
+    RemoteRegType type; ///< The type of register we're requesting
+    RegAddr       reg;  ///< The type and (logical) index of the register
+    LFID          fid;  ///< The ID of the family containing the desired global or shared
+};
+
 /// This structure stores remote request information for shareds and globals.
 struct RemoteRequest
 {
-    GPID     pid;   ///< ID of the requesting CPU (INVALID for group requests)
-    RegIndex reg;   ///< Destination register (INVALID for non-requests)
+    GPID          pid; ///< ID of the requesting CPU (INVALID for group requests)
+    RemoteRegAddr reg; ///< Destination register
 };
 
 enum Result
@@ -301,12 +309,15 @@ struct RegValue
     };
 };
 
-/// This structure represents a remote request for a global or shared register
-struct RemoteRegAddr
+static inline RegValue MAKE_EMPTY_REG()
 {
-    RegAddr reg;    ///< The type and (logical) index of the register
-    GFID    fid;    ///< The ID of the family containing the global or shared
-};
+    RegValue value;
+    value.m_state          = RST_EMPTY;
+    value.m_waiting.head   = INVALID_TID;
+    value.m_memory.size    = 0;
+    value.m_remote.reg.fid = INVALID_LFID;
+    return value;
+}
 
 enum ExitCode
 {

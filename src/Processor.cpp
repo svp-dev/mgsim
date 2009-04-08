@@ -13,7 +13,7 @@ Processor::Processor(Object* parent, Kernel& kernel, GPID gpid, LPID lpid, const
 	m_allocator   (*this, "alloc",    m_familyTable, m_threadTable, m_registerFile, m_raunit, m_icache, m_network, m_pipeline, lpid, config.allocator),
     m_icache      (*this, "icache",   m_allocator, config.icache),
     m_dcache      (*this, "dcache",   m_allocator, m_familyTable, m_registerFile, config.dcache),
-	m_registerFile(*this,             m_allocator, config.registerFile),
+	m_registerFile(*this,             m_allocator, m_network, config.registerFile),
     m_pipeline    (*this, "pipeline", lpid, m_registerFile, m_network, m_allocator, m_familyTable, m_threadTable, m_icache, m_dcache, m_fpu, config.pipeline),
 	m_fpu         (*this, "fpu",      m_registerFile, config.fpu),
     m_raunit      (*this, "rau",      m_registerFile, config.raunit),
@@ -24,15 +24,24 @@ Processor::Processor(Object* parent, Kernel& kernel, GPID gpid, LPID lpid, const
     //
     // Set port priorities and connections on all components
     //
-	m_registerFile.p_asyncW.SetPriority(m_fpu,       0);
-    m_registerFile.p_asyncW.SetPriority(m_dcache,    1);
-    m_registerFile.p_asyncW.SetPriority(m_network,   2);
-    m_registerFile.p_asyncW.SetPriority(m_allocator, 3);
-    m_registerFile.p_asyncR.SetPriority(m_network,   0);
-    m_registerFile.p_pipelineR1.SetComponent(m_pipeline.m_read);
-    m_registerFile.p_pipelineR2.SetComponent(m_pipeline.m_read);
-    m_registerFile.p_pipelineW.SetComponent(m_pipeline.m_writeback);
+	m_registerFile.p_asyncW.SetPriority(ArbitrationSource(&m_fpu,       0), 0);
+    m_registerFile.p_asyncW.SetPriority(ArbitrationSource(&m_dcache,    0), 1);
+    m_registerFile.p_asyncW.SetPriority(ArbitrationSource(&m_network,   0), 2);
+    m_registerFile.p_asyncW.SetPriority(ArbitrationSource(&m_network,   1), 3);
+    m_registerFile.p_asyncW.SetPriority(ArbitrationSource(&m_allocator, 0), 4);
+    m_registerFile.p_asyncW.SetPriority(ArbitrationSource(&m_allocator, 4), 5);
+    m_registerFile.p_asyncR.SetPriority(ArbitrationSource(&m_network,   1), 0);
+    m_registerFile.p_pipelineR1.SetSource(ArbitrationSource(&m_pipeline, 3));
+    m_registerFile.p_pipelineR2.SetSource(ArbitrationSource(&m_pipeline, 3));
+    m_registerFile.p_pipelineW .SetSource(ArbitrationSource(&m_pipeline, 0));
     
+    m_network.p_registerResponseOut.SetPriority(ArbitrationSource(&m_pipeline, 0), 0);
+    m_network.p_registerResponseOut.SetPriority(ArbitrationSource(&m_network,  0), 1);
+    m_network.p_registerResponseOut.SetPriority(ArbitrationSource(&m_fpu,      0), 2);
+    m_network.p_registerResponseOut.SetPriority(ArbitrationSource(&m_dcache,   0), 3);
+    // The Allocator shouldn't be able to trigger a
+    // remote register write, so we don't give them access.
+        
     m_memory.RegisterListener(*this);
     
     if (gpid == 0)
@@ -49,7 +58,7 @@ void Processor::Initialize(Processor& prev, Processor& next)
 
 bool Processor::IsIdle() const
 {
-    return m_threadTable.IsEmpty() && m_familyTable.IsEmpty();
+    return m_threadTable.IsEmpty() && m_familyTable.IsEmpty() && m_icache.IsEmpty();
 }
 
 void Processor::ReserveTLS(MemAddr address, MemSize size)

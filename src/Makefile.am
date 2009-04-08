@@ -63,6 +63,7 @@ COMMON_SRC = \
 	loader.h \
 	main.cpp \
 	ports.h \
+	ports.cpp \
 	profile.cpp \
 	profile.h \
 	simreadline.h \

@@ -15,25 +15,40 @@ Network::Network(
     RegisterFile&             regFile,
     FamilyTable&              familyTable
 ) :
-    IComponent(&parent, parent.GetKernel(), name, "shareds-in|shareds-out|completion|creation|unreservation|reservation|token|send-global|rsync"),
-    m_parent(parent), m_regFile(regFile), m_familyTable(familyTable), m_allocator(alloc),
-    m_prev(NULL), m_next(NULL), m_lpid(lpid), m_grid(grid),
-	
-	m_createLocal(parent.GetKernel()), m_delegateLocal(parent.GetKernel()),
-	m_createRemote(parent.GetKernel()), m_delegateRemote(parent.GetKernel()),
-	m_createState(CS_PROCESSING_NONE),
-	m_global(parent.GetKernel()),
-
-    m_reservation(parent.GetKernel()), m_unreservation(parent.GetKernel()),
-    m_completedFamily(parent.GetKernel()), m_completedThread(parent.GetKernel()),
-    m_cleanedUpThread(parent.GetKernel()), m_remoteSync(parent.GetKernel()),
+    IComponent(&parent, parent.GetKernel(), name, "registers-in|registers-out|completion|creation|token|rsync"),
     
-	m_hasToken(parent.GetKernel(), lpid == 0), // CPU #0 starts out with the token
-	m_wantToken(parent.GetKernel(), false), m_nextWantsToken(parent.GetKernel(), false), m_requestedToken(parent.GetKernel(), false)
+    m_parent     (parent),
+    m_regFile    (regFile),
+    m_familyTable(familyTable),
+    m_allocator  (alloc),
+    
+    m_prev(NULL),
+    m_next(NULL),
+    m_lpid(lpid),
+    m_grid(grid),
+    
+	m_createLocal   (parent.GetKernel()),
+	m_createRemote  (parent.GetKernel()),
+	m_delegateLocal (parent.GetKernel()),
+	m_delegateRemote(parent.GetKernel()),
+
+    m_completedFamily(parent.GetKernel()),
+    m_completedThread(parent.GetKernel()),
+    m_cleanedUpThread(parent.GetKernel()),
+    m_remoteSync     (parent.GetKernel()),
+    
+    p_registerResponseOut(parent.GetKernel()),
+	
+	m_hasToken      (parent.GetKernel(), lpid == 0), // CPU #0 starts out with the token
+	m_wantToken     (parent.GetKernel(), false),
+	m_nextWantsToken(parent.GetKernel(), false),
+	m_requestedToken(parent.GetKernel(), false)
 {
-    m_lockToken            = 0;
-	m_global.count         = 0;
-	m_global.local.m_state = RST_INVALID;
+    m_registerRequestIn .addr.fid  = INVALID_LFID;
+    m_registerRequestOut.addr.fid  = INVALID_LFID;
+    m_registerResponseIn .addr.fid = INVALID_LFID;
+    m_registerResponseOut.addr.fid = INVALID_LFID;
+    m_registerValue.m_state        = RST_INVALID;
 }
 
 void Network::Initialize(Network& prev, Network& next)
@@ -42,119 +57,138 @@ void Network::Initialize(Network& prev, Network& next)
     m_next = &next;
 }
 
-bool Network::SendThreadCleanup   (GFID fid) { return m_next->OnThreadCleanedUp(fid); }
-bool Network::SendThreadCompletion(GFID fid) { return m_prev->OnThreadCompleted(fid); }
-bool Network::SendFamilyCompletion(GFID fid) { return m_next->OnFamilyCompleted(fid); }
+bool Network::SendThreadCleanup   (LFID fid) { return m_next->OnThreadCleanedUp(fid); }
+bool Network::SendThreadCompletion(LFID fid) { return m_prev->OnThreadCompleted(fid); }
+bool Network::SendFamilyCompletion(LFID fid) { return m_next->OnFamilyCompleted(fid); }
 
-bool Network::SendShared(GFID fid, bool parent, const RegAddr& addr, const RegValue& value)
+// Called by the pipeline to send a register to the next CPU
+bool Network::SendRegister(const RemoteRegAddr& addr, const RegValue& value)
 {
-    assert(value.m_state == RST_FULL);
-    if (m_sharedResponse.fid == INVALID_GFID)
+    assert(addr.fid       != INVALID_LFID);
+    assert(addr.reg.index != INVALID_REG_INDEX);
+    assert(value.m_state  == RST_FULL);
+    
+    if (!p_registerResponseOut.Invoke())
+    {
+        return false;
+    }
+    
+    if (m_registerResponseOut.addr.fid == INVALID_LFID)
     {
         COMMIT
         {
-            m_sharedResponse.fid    = fid;
-            m_sharedResponse.parent = parent;
-            m_sharedResponse.addr   = addr;
-            m_sharedResponse.value  = value;
+            m_registerResponseOut.addr  = addr;
+            m_registerResponseOut.value = value;
         }
         return true;
     }
     return false;
 }
 
-bool Network::RequestShared(GFID fid, const RegAddr& addr, bool parent)
+// Called by the pipeline to request a register from the previous CPU
+bool Network::RequestRegister(const RemoteRegAddr& addr, LFID fid_self)
 {
-    if (m_sharedRequest.fid == INVALID_GFID)
+    assert(fid_self       != INVALID_LFID);
+    assert(addr.fid       != INVALID_LFID);
+    assert(addr.reg.index != INVALID_REG_INDEX);
+    
+    if (m_registerRequestOut.addr.fid == INVALID_LFID)
     {
         COMMIT
         {
-            m_sharedRequest.fid           = fid;
-            m_sharedRequest.parent        = parent;
-            m_sharedRequest.addr          = addr;
-            m_sharedRequest.value.m_state = RST_INVALID;
+            m_registerRequestOut.addr       = addr;
+            m_registerRequestOut.return_fid = fid_self;
         }
+        
+        DebugSimWrite("Requesting %s register %s in F%u",
+            GetRemoteRegisterTypeString(addr.type),
+            addr.reg.str().c_str(),
+            addr.fid
+        );
         return true;
     }
     return false;
 }
 
-Result Network::OnSharedRequested(const SharedInfo& sharedInfo)
+// This CPU received a register request from it's next CPU
+bool Network::OnRegisterRequested(const RegisterRequest& request)
 {
-    if (m_sharedResponse.fid == INVALID_GFID)
+    assert(request.return_fid     != INVALID_LFID);
+    assert(request.addr.fid       != INVALID_LFID);
+    assert(request.addr.reg.index != INVALID_REG_INDEX);
+    
+    if (m_registerRequestIn.addr.fid == INVALID_LFID)
     {	
-		// If the family hasn't been created yet, we just ignore the request
-		if (m_familyTable.TranslateFamily(sharedInfo.fid) != INVALID_LFID)
-		{
-		    DebugSimWrite("Shared request G%u:%s stored", sharedInfo.fid, sharedInfo.addr.str().c_str());
-			COMMIT
-			{
-				m_sharedResponse = sharedInfo;
-				m_sharedResponse.value.m_state = RST_INVALID;
-			}
-		}
-		else
-		{
-            DebugSimWrite("Shared request G%u:%s ignored", sharedInfo.fid, sharedInfo.addr.str().c_str());
-		}
-        return SUCCESS;
+	    DebugSimWrite("Received request for %s register %s in F%u",
+	        GetRemoteRegisterTypeString(request.addr.type),
+	        request.addr.reg.str().c_str(),
+	        request.addr.fid
+	    );
+	    
+		COMMIT { m_registerRequestIn = request; }
+        return true;
     }
-    return FAILED;
+    return false;
 }
 
-Result Network::OnSharedReceived(const SharedInfo& sharedInfo)
+// This CPU received a register from it's previous CPU
+bool Network::OnRegisterReceived(const RegisterResponse& response)
 {
-    if (m_sharedReceived.fid == INVALID_GFID)
+    assert(response.addr.fid       != INVALID_LFID);
+    assert(response.addr.reg.index != INVALID_REG_INDEX);
+    assert(response.value.m_state  == RST_FULL);
+    
+    if (m_registerResponseIn.addr.fid == INVALID_LFID)
     {
-		assert(sharedInfo.value.m_state == RST_FULL);
-
-		// If the family hasn't been created yet, we just ignore the request
-		if (m_familyTable.TranslateFamily(sharedInfo.fid) != INVALID_LFID)
-		{
-			COMMIT{ m_sharedReceived = sharedInfo; }
-		}
-		return SUCCESS;
+	    DebugSimWrite("Received response for %s register %s in F%u",
+	        GetRemoteRegisterTypeString(response.addr.type),
+	        response.addr.reg.str().c_str(),
+	        response.addr.fid
+       );
+       
+		COMMIT{ m_registerResponseIn = response; }
+		return true;
     }
-    return FAILED;
+    return false;
 }
 
-bool Network::OnThreadCleanedUp(GFID fid)
+bool Network::OnThreadCleanedUp(LFID fid)
 {
-    assert(fid != INVALID_GFID);
+    assert(fid != INVALID_LFID);
     if (m_cleanedUpThread.IsEmpty())
     {
-        DebugSimWrite("Received OnThreadCleanup for G%u", fid);
+        DebugSimWrite("Received thread cleanup notification for F%u", fid);
         m_cleanedUpThread.Write(fid);
         return true;
     }
     return false;
 }
 
-bool Network::OnThreadCompleted(GFID fid)
+bool Network::OnThreadCompleted(LFID fid)
 {
-    assert(fid != INVALID_GFID);
+    assert(fid != INVALID_LFID);
     if (m_completedThread.IsEmpty())
     {
-        DebugSimWrite("Received OnThreadCompleted for G%u", fid);
+        DebugSimWrite("Received thread completion notification for F%u", fid);
         m_completedThread.Write(fid);
         return true;
     }
     return false;
 }
 
-bool Network::OnFamilyCompleted(GFID fid)
+bool Network::OnFamilyCompleted(LFID fid)
 {
-    assert(fid != INVALID_GFID);
+    assert(fid != INVALID_LFID);
     if (m_completedFamily.IsEmpty())
     {
-        DebugSimWrite("Received OnFamilyCompleted for G%u", fid);
+        DebugSimWrite("Received family completion notification for F%u", fid);
         m_completedFamily.Write(fid);
         return true;
     }
     return false;
 }
 
-bool Network::SendFamilyDelegation(LFID fid)
+bool Network::SendDelegatedCreate(LFID fid)
 {
 	if (!m_delegateLocal.IsFull())
     {
@@ -189,7 +223,7 @@ bool Network::SendFamilyDelegation(LFID fid)
     return false;
 }
 
-bool Network::SendFamilyCreate(LFID fid)
+bool Network::SendGroupCreate(LFID fid)
 {
 	if (!m_createLocal.IsFull())
     {
@@ -202,8 +236,9 @@ bool Network::SendFamilyCreate(LFID fid)
             assert(family.parent.lpid == m_lpid);
             
             CreateMessage message;
+            message.first_fid     = fid;
+			message.link_prev     = fid;
             message.infinite      = family.infinite;
-			message.fid           = family.gfid;
             message.start         = family.start;
 			message.step          = family.step;
 			message.nThreads      = family.nThreads;
@@ -218,8 +253,8 @@ bool Network::SendFamilyCreate(LFID fid)
 				message.regsNo[i] = family.regs[i].count;
 			}
 
-			m_createLocal.Write(make_pair(fid, message));
-			DebugSimWrite("Broadcasting create for G%u (F%u)", message.fid, fid);
+			m_createLocal.Write(message);
+			DebugSimWrite("Broadcasting group create", fid);
         }
         return true;
     }
@@ -245,7 +280,7 @@ bool Network::SendRemoteSync(GPID pid, LFID fid, ExitCode code)
     return true;
 }
 
-bool Network::OnFamilyDelegationReceived(const DelegateMessage& msg)
+bool Network::OnDelegationCreateReceived(const DelegateMessage& msg)
 {
     // The delegation should come from a different processor
     assert(msg.parent.pid != m_parent.GetPID());
@@ -260,29 +295,41 @@ bool Network::OnFamilyDelegationReceived(const DelegateMessage& msg)
     return true;
 }
 
-bool Network::OnFamilyCreateReceived(const CreateMessage& msg)
+bool Network::OnGroupCreateReceived(const CreateMessage& msg)
 {
     if (msg.parent.pid != m_lpid)
     {
+        // The create hasn't made a full circle yet,
+        // store it for processing and forwarding.
 		if (m_createRemote.IsFull())
 		{
 			return false;
 		}
 
 		m_createRemote.Write(msg);
-		DebugSimWrite("Received create for G%u", msg.fid);
+		DebugSimWrite("Received group create");
     }
-	else
-	{
-		// Create has come full circle
-		COMMIT{ m_lockToken--; }
-	}
+    else
+    {
+        // The create has come back to the creating CPU.
+        // Link the family entry to the one on the previous CPU.
+        if (!m_allocator.SetupFamilyPrevLink(msg.first_fid, msg.link_prev))
+        {
+            return false;
+        }
+        
+        // Also link the family on the previous CPU up
+        if (!m_prev->SetupFamilyNextLink(msg.link_prev, msg.first_fid))
+        {
+            return false;
+        }
+    }
     return true;
 }
 
+/// Called by the Allocator when it wants to do a group create
 bool Network::RequestToken()
 {
-    // Called by the Allocator when it wants to do a global create
     m_wantToken.Write(true);
     return true;
 }
@@ -300,71 +347,6 @@ bool Network::OnRemoteTokenRequested()
     return true;
 }
 
-bool Network::SendFamilyReservation(GFID fid)
-{
-    if (!m_reservation.IsLocalFull())
-    {
-        m_reservation.WriteLocal(RemoteFID(fid, m_parent.GetPID()));
-        return true;
-    }
-    return false;
-}
-
-bool Network::OnFamilyReservationReceived(const RemoteFID& rfid)
-{
-	if (rfid.pid != m_parent.GetPID())
-    {
-        DebugSimWrite("Received reservation for G%u", rfid.fid);
-		if (m_reservation.IsRemoteFull())
-		{
-			return false;
-        }
-		m_reservation.WriteRemote(rfid);
-    }
-	else
-	{
-		m_allocator.OnReservationComplete();
-	}
-	return true;
-}
-
-bool Network::SendFamilyUnreservation(GFID fid)
-{
-    if (!m_unreservation.IsLocalFull())
-    {
-        m_unreservation.WriteLocal(RemoteFID(fid, m_parent.GetPID()));
-        return true;
-    }
-    return false;
-}
-
-bool Network::OnFamilyUnreservationReceived(const RemoteFID& rfid)
-{
-    if (rfid.pid != m_parent.GetPID())
-	{
-		if (m_unreservation.IsRemoteFull())
-		{
-	        return false;
-        }
-        m_unreservation.WriteRemote(rfid);
-    }
-    return true;
-}
-
-bool Network::OnGlobalReceived(LPID parent, const RegValue& value)
-{
-	assert(value.m_state == RST_FULL);
-	if (m_lpid != parent)
-	{
-		if (m_createState != CS_PROCESSING_REMOTE || m_global.value.IsRemoteFull())
-		{
-			return false;
-		}
-		m_global.value.WriteRemote(make_pair(parent, value));
-	}
-	return true;
-}
-
 bool Network::OnRemoteSyncReceived(LFID fid, ExitCode code)
 {
     DebugSimWrite("Received remote sync for F%u; code: %d", fid, code);
@@ -375,77 +357,65 @@ bool Network::OnRemoteSyncReceived(LFID fid, ExitCode code)
     return true;
 }
 
+bool Network::SetupFamilyNextLink(LFID fid, LFID link_next)
+{
+    if (!m_allocator.SetupFamilyNextLink(fid, link_next))
+    {
+        return false;
+    }
+    return true;
+}
+
 Result Network::OnCycleReadPhase(unsigned int stateIndex)
 {
-    if (stateIndex == 0)
+    switch (stateIndex)
     {
-        // We can only read one thing per cycle:
-        // Either a shared to send, or a global to broadcast.
-        RegAddr addr = INVALID_REG;
-        if (m_sharedResponse.fid != INVALID_GFID && m_sharedResponse.value.m_state != RST_FULL)
+    case 1:
+        // Read a shared to send, if there is a request and no response yet
+        if (m_registerRequestIn.addr.fid != INVALID_LFID)
         {
-			addr = m_allocator.GetSharedAddress( (m_sharedResponse.parent) ? ST_PARENT : ST_LAST, m_sharedResponse.fid, m_sharedResponse.addr);
+			RegAddr addr = m_allocator.GetRemoteRegisterAddress(m_registerRequestIn.addr);
             if (addr.valid())
             {
-                // The thread of the shared has been allocated, read it
-                if (!m_regFile.p_asyncR.Read(*this))
+                // The thread of the register has been allocated, read it
+                if (!m_regFile.p_asyncR.Read())
                 {
                     return FAILED;
                 }
 
-				RegValue value;
+                RegValue value;
                 if (!m_regFile.ReadRegister(addr, value))
                 {
                     return FAILED;
                 }
+                assert(value.m_state != RST_INVALID);
+                if (value.m_state != RST_FULL)
+                {
+       			    assert(value.m_remote.reg.fid == INVALID_LFID);
+       			}
 
-                DebugSimWrite("Read shared G%u:%s from %s: 0x%016llx", m_sharedResponse.fid, m_sharedResponse.addr.str().c_str(), addr.str().c_str(), (uint64_t)value.m_integer);
+                DebugSimWrite("Read %s register %s in F%u from %s",
+                    GetRemoteRegisterTypeString(m_registerRequestIn.addr.type),
+                    m_registerRequestIn.addr.reg.str().c_str(),
+                    m_registerRequestIn.addr.fid,
+                    addr.str().c_str()
+                );
                 
-				if (value.m_state == RST_FULL)
-				{
-					COMMIT
-					{
-						m_sharedResponse.value  = value;
-						m_sharedResponse.parent = false;
-					}
-				}
-				else
-				{
-				    DebugSimWrite("Discarding shared G%u:%s request: shared not yet written", m_sharedResponse.fid, m_sharedResponse.addr.str().c_str());
-				}
+                COMMIT{ m_registerValue = value; }
             }
 			else
 			{
-			    DebugSimWrite("Discarding shared G%u:%s request: shared not yet allocated", m_sharedResponse.fid, m_sharedResponse.addr.str().c_str());
-			}
-
-            if (m_sharedResponse.value.m_state != RST_FULL)
-            {
-				// If it hasn't been read, ignore it.
-                COMMIT{ m_sharedResponse.fid = INVALID_GFID; }
-            }
+			    DebugSimWrite("Discarding request for %s register %s in F%u: register not yet allocated",
+        	        GetRemoteRegisterTypeString(m_registerRequestIn.addr.type),
+			        m_registerRequestIn.addr.reg.str().c_str(),
+			        m_registerRequestIn.addr.fid
+			    );
+			    
+    			COMMIT{ m_registerRequestIn.addr.fid = INVALID_LFID; }
+	        }
 			return SUCCESS;
         }
-
-		if (m_createState == CS_PROCESSING_LOCAL && m_global.count > 0 && m_global.local.m_state == RST_INVALID)
-        {
-            // We didn't (try to) read a shared, so we're clear to read a global for the outgoing CREATE message
-			if (!m_regFile.p_asyncR.Read(*this))
-			{
-				return FAILED;
-			}
-
-			RegAddr  addr = MAKE_REGADDR(m_global.addr.type, m_globalsBase[m_global.addr.type] + m_global.addr.index);
-			RegValue value;
-			if (!m_regFile.ReadRegister(addr, value))
-			{
-				return FAILED;
-			}
-			assert(value.m_state == RST_FULL);
-			COMMIT{ m_global.local = value; }
-			DebugSimWrite("Read global #%u from %s", m_global.addr.index, addr.str().c_str());
-			return SUCCESS;
-        }
+        break;
     }
     return DELAYED;
 }
@@ -455,90 +425,162 @@ Result Network::OnCycleWritePhase(unsigned int stateIndex)
     switch (stateIndex)
     {
     case 0:
-        // Incoming shareds channel
-        if (m_sharedReceived.fid != INVALID_GFID)
+        // Incoming register channel
+        if (m_registerResponseIn.addr.fid != INVALID_LFID)
         {
-			const Family& family = m_familyTable[m_familyTable.TranslateFamily(m_sharedReceived.fid)];
-            if (m_sharedReceived.parent && family.parent.lpid != m_lpid)
+			const Family& family = m_familyTable[m_registerResponseIn.addr.fid];
+            if (m_registerResponseIn.addr.type == RRT_PARENT_SHARED && family.parent.lpid != m_lpid)
             {
                 // This is not the CPU the parent thread is located on. Forward it
-                if (!SendShared(m_sharedReceived.fid, m_sharedReceived.parent, m_sharedReceived.addr, m_sharedReceived.value))
+                RemoteRegAddr addr(m_registerResponseIn.addr);
+                addr.fid = family.link_next;
+                if (!SendRegister(addr, m_registerResponseIn.value))
                 {
+                    DeadlockWrite("Unable to forward parent shared");
                     return FAILED;
                 }
             }
             else
             {
-                DebugSimWrite("Writing shared G%u:%s", m_sharedReceived.fid, m_sharedReceived.addr.str().c_str());
-                RegAddr addr = m_allocator.GetSharedAddress(m_sharedReceived.parent ? ST_PARENT : ST_FIRST, m_sharedReceived.fid, m_sharedReceived.addr);
+                DebugSimWrite("Writing %s register %s in F%u",
+        	        GetRemoteRegisterTypeString(m_registerResponseIn.addr.type),
+                    m_registerResponseIn.addr.reg.str().c_str(),
+                    m_registerResponseIn.addr.fid
+                );
+                    
+                RegAddr addr = m_allocator.GetRemoteRegisterAddress(m_registerResponseIn.addr);
                 if (addr.valid())
                 {
                     // Write it
-                    if (!m_regFile.p_asyncW.Write(*this, addr))
+                    if (!m_regFile.p_asyncW.Write(addr))
                     {
+                        DeadlockWrite("Unable to acquire port to write register response to %s", addr.str().c_str());
                         return FAILED;
                     }
                     
-                    if (!m_regFile.WriteRegister(addr, m_sharedReceived.value, false))
+                    if (!m_regFile.WriteRegister(addr, m_registerResponseIn.value, false))
                     {
+                        DeadlockWrite("Unable to write register response to %s", addr.str().c_str());
                         return FAILED;
                     }
                     
-    				if (m_sharedReceived.parent)
+    				if (m_registerResponseIn.addr.type == RRT_PARENT_SHARED)
 	    			{
-		    			if (!m_allocator.DecreaseFamilyDependency(m_familyTable.TranslateFamily(m_sharedReceived.fid), FAMDEP_OUTSTANDING_SHAREDS))
+		    			if (!m_allocator.DecreaseFamilyDependency(m_registerResponseIn.addr.fid, FAMDEP_OUTSTANDING_SHAREDS))
 			    		{
+			    		    DeadlockWrite("Unable to decrease outstanding shareds for F%u on writeback", m_registerResponseIn.addr.fid);
 				    		return FAILED;
 					    }
     				}
                 }
             }
 
-            COMMIT{ m_sharedReceived.fid = INVALID_GFID; }
+            // We've processed this register response
+            COMMIT{ m_registerResponseIn.addr.fid = INVALID_LFID; }
 			return SUCCESS;
         }
         break;
 
     case 1:
-        // Outgoing shareds channel
-        if (m_sharedResponse.fid != INVALID_GFID && m_sharedResponse.value.m_state == RST_FULL)
+        // Outgoing register channel
+        
+        // There's either a register sent, or an incoming register request has been read
+        if (m_registerResponseOut.addr.fid != INVALID_LFID ||
+           (m_registerRequestIn.addr.fid != INVALID_LFID && m_registerValue.m_state != RST_INVALID))
         {
-            // Response
-            DebugSimWrite("Sending shared G%u:%s; parent shared: %s", m_sharedResponse.fid, m_sharedResponse.addr.str().c_str(), m_sharedResponse.parent ? "true" : "false");
-			Result res = m_next->OnSharedReceived(m_sharedResponse);
-			if (res == FAILED)
+            // Outgoing response
+            if (m_registerResponseOut.addr.fid == INVALID_LFID)
             {
-                return FAILED;
-            }
-
-			if (res == SUCCESS)
-			{
-				if (m_sharedResponse.parent)
+                // No outgoing register, so send the request that we've read
+                
+                // Construct return address from request information
+                RemoteRegAddr return_addr;
+			    return_addr.type = (m_registerRequestIn.addr.type == RRT_GLOBAL) ? RRT_GLOBAL : RRT_FIRST_DEPENDENT;
+			    return_addr.fid  = m_registerRequestIn.return_fid;
+    		    return_addr.reg  = m_registerRequestIn.addr.reg;
+                
+				if (m_registerValue.m_state == RST_FULL)
 				{
-					if (!m_allocator.DecreaseFamilyDependency(m_familyTable.TranslateFamily(m_sharedResponse.fid), FAMDEP_OUTSTANDING_SHAREDS))
-					{
-						return FAILED;
-					}
-				}
-			}
+				    // Create response
+                    RegisterResponse response;
+				    response.addr  = return_addr;
+					response.value = m_registerValue;
 
-			if (res != DELAYED || !m_sharedResponse.parent)
-			{
-				// The family doesn't exist yet, but we can ignore this write if we're
-				// not writing to the parent shareds; the family will later request it.
-				COMMIT{ m_sharedResponse.fid = INVALID_GFID; }
+			        if (!m_next->OnRegisterReceived(response))
+                    {
+                        DeadlockWrite("Unable to send response to register request to next processor");
+                        return FAILED;
+                    }
+				}
+				else
+				{
+				    // Write back a remote waiting state
+        			RegAddr addr = m_allocator.GetRemoteRegisterAddress(m_registerRequestIn.addr);
+        			assert(addr.valid());
+        			assert(m_registerValue.m_remote.reg.fid == INVALID_LFID);
+        			
+                    if (!m_regFile.p_asyncW.Write(addr))
+                    {
+                        DeadlockWrite("Unable to acquire port to write to register %s to mark as remote waiting", addr.str().c_str());
+                        return FAILED;
+                    }
+                    
+				    RegValue value(m_registerValue);
+			        value.m_state      = RST_WAITING;
+				    value.m_remote.pid = INVALID_GPID;
+				    value.m_remote.reg = return_addr;
+				    
+                    if (!m_regFile.WriteRegister(addr, value, false))
+                    {
+                        DeadlockWrite("Unable to write register %s to mark as remote waiting", addr.str().c_str());
+                        return FAILED;
+                    }
+
+	                DebugSimWrite("Writing remote wait to %s register %s in F%u",
+	                    GetRemoteRegisterTypeString(m_registerRequestIn.addr.type),
+	                    m_registerRequestIn.addr.reg.str().c_str(),
+        	            m_registerRequestIn.addr.fid
+                    );
+				}
+				
+				COMMIT {
+				    m_registerRequestIn.addr.fid = INVALID_LFID;
+				    m_registerValue.m_state = RST_INVALID;
+				}
+	        }
+	        else
+	        {
+                assert(m_registerResponseOut.value.m_state == RST_FULL);
+            
+                DebugSimWrite("Sending %s register %s in F%u",
+    	            GetRemoteRegisterTypeString(m_registerResponseOut.addr.type),
+                    m_registerResponseOut.addr.reg.str().c_str(),
+                    m_registerResponseOut.addr.fid
+                );
+            
+			    if (!m_next->OnRegisterReceived(m_registerResponseOut))
+                {
+                    DeadlockWrite("Unable to send register response to next processor");
+                    return FAILED;
+                }
+
+                // We've sent this register response
+			    COMMIT{ m_registerResponseOut.addr.fid = INVALID_LFID; }
 			}
 			return SUCCESS;
 		}
         
-		if (m_sharedRequest.fid != INVALID_GFID)
+		if (m_registerRequestOut.addr.fid != INVALID_LFID)
         {
-            // Request
-            if (m_prev->OnSharedRequested(m_sharedRequest) == FAILED)
+            // Outgoing request
+            if (!m_prev->OnRegisterRequested(m_registerRequestOut))
             {
+                DeadlockWrite("Unable to send register request to previous processor");
                 return FAILED;
             }
-            COMMIT{ m_sharedRequest.fid = INVALID_GFID; }
+            
+            // We've sent this register request
+            COMMIT{ m_registerRequestOut.addr.fid = INVALID_LFID; }
 			return SUCCESS;
         }
         break;
@@ -547,8 +589,10 @@ Result Network::OnCycleWritePhase(unsigned int stateIndex)
         // Thread and family completion channel
         if (m_cleanedUpThread.IsFull())
         {
-            if (!m_allocator.OnRemoteThreadCleanup(m_familyTable.TranslateFamily(m_cleanedUpThread.Read())))
+            LFID fid = m_cleanedUpThread.Read();
+            if (!m_allocator.OnRemoteThreadCleanup(fid))
             {
+                DeadlockWrite("Unable to mark thread cleanup on F%u", fid);
                 return FAILED;
             }
             m_cleanedUpThread.Clear();
@@ -557,8 +601,10 @@ Result Network::OnCycleWritePhase(unsigned int stateIndex)
         
 		if (m_completedThread.IsFull())
         {
-            if (!m_allocator.OnRemoteThreadCompletion(m_familyTable.TranslateFamily(m_completedThread.Read())))
+            LFID fid = m_completedThread.Read();
+            if (!m_allocator.OnRemoteThreadCompletion(fid))
             {
+                DeadlockWrite("Unable to mark thread completion on F%u", fid);
                 return FAILED;
             }
             m_completedThread.Clear();
@@ -567,8 +613,10 @@ Result Network::OnCycleWritePhase(unsigned int stateIndex)
         
 		if (m_completedFamily.IsFull())
         {
-			if (!m_allocator.DecreaseFamilyDependency(m_familyTable.TranslateFamily(m_completedFamily.Read()), FAMDEP_PREV_TERMINATED))
+            LFID fid = m_completedFamily.Read();
+			if (!m_allocator.DecreaseFamilyDependency(fid, FAMDEP_PREV_TERMINATED))
             {
+                DeadlockWrite("Unable to mark family termination on F%u", fid);
                 return FAILED;
             }
             m_completedFamily.Clear();
@@ -577,280 +625,90 @@ Result Network::OnCycleWritePhase(unsigned int stateIndex)
         break;
 
     case 3:
-		if (m_createState == CS_PROCESSING_NONE)
+    	// We're not processing a create, check if there is a create
+		if (m_delegateRemote.IsFull())
 		{
-			// We're not processing a create, check if there is a create
-			if (m_delegateRemote.IsFull())
-			{
-			    // Process the received delegation
-				const DelegateMessage& msg = m_delegateRemote.Read();
+		    // Process the received delegation
+			const DelegateMessage& msg = m_delegateRemote.Read();
 				
-				LFID fid = m_allocator.QueueCreate(msg);
-				if (fid == INVALID_LFID)
-				{
-					return FAILED;
-				}
-				
-				m_delegateRemote.Clear();
-			    return SUCCESS;
-			}
-
-			if (m_delegateLocal.IsFull())
+			if (!m_allocator.OnDelegatedCreate(msg))
 			{
-			    // Process the outgoing delegation
-				const pair<GPID, DelegateMessage>& delegate = m_delegateLocal.Read();
-				const GPID             pid = delegate.first;
-				const DelegateMessage& msg = delegate.second;
-				
-				// Send the create
-				if (!m_grid[pid]->GetNetwork().OnFamilyDelegationReceived(msg))
-				{
-					return FAILED;
-				}
-
-                DebugSimWrite("Sent delegated family create to P%u", pid);
-				m_delegateLocal.Clear();
-			    return SUCCESS;
-			}
-			
-			if (m_createRemote.IsFull())
-			{
-				// Process the received create
-				const CreateMessage& msg = m_createRemote.Read();
-
-				// Forward the create
-				if (!m_next->OnFamilyCreateReceived(msg))
-				{
-					return FAILED;
-				}
-
-				LFID fid = m_allocator.AllocateFamily(msg);
-				if (fid == INVALID_LFID)
-				{
-					return FAILED;
-				}
-
-				const Family& family = m_familyTable[fid];
-
-				m_global.count = 0;
-				for (RegType i = 0; i < NUM_REG_TYPES; ++i)
-				{
-					m_globalsBase[i] = family.regs[i].globals;
-					if (m_global.count == 0 && msg.regsNo[i].globals > 0)
-					{
-						m_global.count = msg.regsNo[i].globals;
-						m_global.addr  = MAKE_REGADDR(i, 0);
-					}
-				}
-				
-				DebugSimWrite("Allocated family F%u for G%u: %u globals left initially", fid, msg.fid, m_global.count);
-				if (m_global.count > 0)
-				{
-					// There are still globals to process, otherwise we can 
-					// process another create next cycle
-					DebugSimWrite("Processing remote create");
-					COMMIT{ m_createState = CS_PROCESSING_REMOTE; }
-				}
-				else if (!m_allocator.ActivateFamily(fid))
-				{
-					return FAILED;
-				}
-				m_createRemote.Clear();
-				COMMIT{ m_createFid = fid; }
-				return SUCCESS;
-			}
-
-			if (m_createLocal.IsFull())
-			{
-				const pair<LFID, CreateMessage>& create = m_createLocal.Read();
-				const CreateMessage& msg = create.second;
-
-				const Family& family = m_familyTable[create.first];
-
-				m_global.count = 0;
-				for (RegType i = 0; i < NUM_REG_TYPES; ++i)
-				{
-					m_globalsBase[i] = family.regs[i].globals;
-					if (m_global.count == 0 && msg.regsNo[i].globals > 0)
-					{
-						m_global.count = msg.regsNo[i].globals;
-						m_global.addr  = MAKE_REGADDR(i, 0);
-					}
-				}
-
-				// Send the create
-				if (!m_next->OnFamilyCreateReceived(msg))
-				{
-					return FAILED;
-				}
-
-                DebugSimWrite("Sent local family create G%u: %u globals left initially (type %d)", msg.fid, m_global.count, m_global.addr.type);
-				if (m_global.count > 0)
-				{
-					// There are still globals to process, otherwise we can 
-					// process another create next cycle
-					DebugSimWrite("Processing local create");
-					COMMIT{ m_createState = CS_PROCESSING_LOCAL; }
-				}
-				COMMIT{ m_createFid = create.first; }
-				m_createLocal.Clear();
-				return SUCCESS;
-			}
-		}
-		else
-		{
-			const Family* family = NULL;
-			
-			if (m_createState == CS_PROCESSING_LOCAL)
-			{
-				if (!m_global.value.IsLocalFull() && m_global.local.m_state != RST_INVALID)
-				{
-					// Forward the read global
-					assert(m_global.local.m_state == RST_FULL);
-					DebugSimWrite("Sent global %s", m_global.addr.str().c_str());
-
-					family = &m_familyTable[ m_createFid ];
-
-					m_global.value.WriteLocal(make_pair(family->parent.lpid, m_global.local));
-					COMMIT{ m_global.local.m_state = RST_INVALID; }
-				}
-			}
-			else if (m_createState == CS_PROCESSING_REMOTE)
-			{
-				if (m_global.value.IsRemoteFull() && !m_global.value.IsRemoteProcessed())
-				{
-					// We've received a global, write it
-					RegAddr addr = MAKE_REGADDR(m_global.addr.type, m_globalsBase[m_global.addr.type] + m_global.addr.index);
-					if (!m_regFile.p_asyncW.Write(*this, addr))
-					{
-						return FAILED;
-					}
-
-                    DebugSimWrite("Writing global %s to %s", m_global.addr.str().c_str(), addr.str().c_str());
-                    RegValue value = m_global.value.ReadRemote().second;
-					if (!m_regFile.WriteRegister(addr, value, false))
-					{
-						return FAILED;
-					}
-
-					m_global.value.SetRemoteProcessed();
-					family = &m_familyTable[ m_createFid ];
-				}
-			}
-
-			if (family != NULL)
-			{
-				// Reset and increment for next global
-				bool done = false;
-				if (m_global.count == 1)
-				{
-					// Last global of this type, go to the next type
-					done = true;
-					COMMIT{ m_global.count = 0; }
-					for (RegType i = m_global.addr.type + 1; i < NUM_REG_TYPES; ++i)
-					{
-						if (family->regs[i].count.globals > 0)
-						{
-							COMMIT{ m_global.count = family->regs[i].count.globals; }
-							COMMIT{ m_global.addr  = MAKE_REGADDR(i, 0); }
-							done = false;
-							break;
-						}
-					}
-				}
-				else
-				{
-					COMMIT{ m_global.count--; }
-					COMMIT{ m_global.addr.index++; }
-				}
-
-				if (done)
-				{
-				    DebugSimWrite("Done with creation for F%u; remote: %s", m_createFid, m_createState == CS_PROCESSING_REMOTE ? "true" : "false");
-					for (RegType i = 0; i < NUM_REG_TYPES; ++i)
-					{
-					    DebugSimWrite("#Globals: %u, #Shareds: %u", family->regs[i].globals, family->regs[i].shareds);
-					}
-
-					// We've read or written all globals for this create
-					if (m_createState == CS_PROCESSING_REMOTE)
-					{
-						// For remote creates we can now activate the family (start creating threads)
-						if (!m_allocator.ActivateFamily(m_createFid))
-						{
-							return FAILED;
-						}
-					}
-					
-					DebugSimWrite("Processing no create");
-					COMMIT{ m_createState = CS_PROCESSING_NONE; }
-				}
-		    	return SUCCESS;
-        	}
-		}
-        break;
-
-	case 7:
-		if (m_global.value.IsSendingFull())
-		{
-			// Forward a global
-			const pair<LPID,RegValue>& p = m_global.value.ReadSending();
-			if (!m_next->OnGlobalReceived(p.first, p.second))
-			{
+			    DeadlockWrite("Unable to process received delegation create");
 				return FAILED;
 			}
-			m_global.value.SetSendingForwarded();
+
+			m_delegateRemote.Clear();
+		    return SUCCESS;
+		}
+
+		if (m_delegateLocal.IsFull())
+		{
+		    // Process the outgoing delegation
+			const pair<GPID, DelegateMessage>& delegate = m_delegateLocal.Read();
+			const GPID             pid = delegate.first;
+			const DelegateMessage& msg = delegate.second;
+				
+			// Send the create
+			if (!m_grid[pid]->GetNetwork().OnDelegationCreateReceived(msg))
+			{
+			    DeadlockWrite("Unable to send delegation create to P%u", pid);
+				return FAILED;
+			}
+
+            DebugSimWrite("Sent delegated family create to P%u", pid);
+			m_delegateLocal.Clear();
+		    return SUCCESS;
+		}
+			
+		if (m_createRemote.IsFull())
+		{
+			// Process the received create
+			CreateMessage msg = m_createRemote.Read();
+
+            // Process the create
+            LFID fid = m_allocator.OnGroupCreate(msg);
+            if (fid == INVALID_LFID)
+		    {
+		        DeadlockWrite("Unable to process received group create");
+   				return FAILED;
+		    }
+		    
+		    // Send the FID back to the previous processor
+		    if (!m_prev->SetupFamilyNextLink(msg.link_prev, fid))
+		    {
+		        DeadlockWrite("Unable to setup F%u's next link to F%u", fid, msg.link_prev);
+		        return FAILED;
+		    }
+            
+			// Forward the create
+			COMMIT{ msg.link_prev = fid; }
+			if (!m_next->OnGroupCreateReceived(msg))
+			{
+			    DeadlockWrite("Unable to forward group create to next processor");
+				return FAILED;
+			}
+
+			m_createRemote.Clear();
 			return SUCCESS;
 		}
-		break;
+
+		if (m_createLocal.IsFull())
+		{
+			const CreateMessage& msg = m_createLocal.Read();
+
+			// Send the create
+			if (!m_next->OnGroupCreateReceived(msg))
+			{
+			    DeadlockWrite("Unable to send group create to next processor");
+				return FAILED;
+			}
+
+			m_createLocal.Clear();
+			return SUCCESS;
+		}
+        break;
 
     case 4:
-        if (m_unreservation.IsRemoteFull() && !m_unreservation.IsRemoteProcessed())
-        {
-            // Process the unreservation
-            if (!m_familyTable.UnreserveGlobal(m_unreservation.ReadRemote().fid))
-            {
-                return FAILED;
-            }
-            m_unreservation.SetRemoteProcessed();
-			return SUCCESS;
-        }
-        break;
-
-    case 5:
-        if (m_reservation.IsRemoteFull() && !m_reservation.IsRemoteProcessed())
-        {
-            // Process the reservation
-            if (!m_familyTable.ReserveGlobal(m_reservation.ReadRemote().fid))
-            {
-                return FAILED;
-            }
-            m_reservation.SetRemoteProcessed();
-			return SUCCESS;
-        }
-        break;
-
-    case 6:
-        if (m_unreservation.IsSendingFull())
-        {
-            if (!m_next->OnFamilyUnreservationReceived(m_unreservation.ReadSending()))
-            {
-                return FAILED;
-            }
-            m_unreservation.SetSendingForwarded();
-			return SUCCESS;
-        }
-        
-		if (m_reservation.IsSendingFull())
-        {
-            if (!m_next->OnFamilyReservationReceived(m_reservation.ReadSending()))
-            {
-                return FAILED;
-            }
-            m_reservation.SetSendingForwarded();
-			return SUCCESS;
-        }
-		
 		if (m_hasToken.Read())
 		{
 			// We have the token
@@ -859,19 +717,20 @@ Result Network::OnCycleWritePhase(unsigned int stateIndex)
 				// We want it as well, approve the Create
 				if (!m_allocator.OnTokenReceived())
 				{
+				    DeadlockWrite("Unable to continue group create with token");
 					return FAILED;
 				}
 				m_wantToken.Write(false);
-				COMMIT{ m_lockToken++; }	// We will send a create, so lock the token
 				return SUCCESS;
 			}
 
-			if (m_nextWantsToken.Read() && m_lockToken == 0)
+			if (m_nextWantsToken.Read())
 			{
 				// Pass the token to the next CPU
 				DebugSimWrite("Sending token to next processor");
 				if (!m_next->OnTokenReceived())
 				{
+				    DeadlockWrite("Unable to send token to next processor");
 					return FAILED;
 				}
 				m_nextWantsToken.Write(false);
@@ -885,6 +744,7 @@ Result Network::OnCycleWritePhase(unsigned int stateIndex)
 			// But we, or m_next, wants it, so request it.
 			if (!m_prev->OnRemoteTokenRequested())
 			{
+			    DeadlockWrite("Unable to request token from previous processor");
 				return FAILED;
 			}
 			// Set a flag to prevent us from spamming the previous CPU
@@ -893,7 +753,7 @@ Result Network::OnCycleWritePhase(unsigned int stateIndex)
 		}
         break;
     
-    case 8:
+    case 5:
         // Send the remote sync
         if (m_remoteSync.IsFull())
         {
@@ -901,6 +761,7 @@ Result Network::OnCycleWritePhase(unsigned int stateIndex)
             
             if (!m_grid[rs.pid]->GetNetwork().OnRemoteSyncReceived(rs.fid, rs.code))
             {
+                DeadlockWrite("Unable to send remote sync for F%u to P%u", rs.fid, rs.pid);
                 return FAILED;
             }
             

@@ -11,6 +11,13 @@ class Processor;
 
 struct Family
 {
+    enum Type
+    {
+        LOCAL,
+        GROUP,
+        DELEGATED,
+    };
+
     struct RegInfo
     {   
         RegIndex globals;  // Base address of the globals
@@ -32,6 +39,7 @@ struct Family
         unsigned int numPendingShareds;   // Number of parent shareds still needing to be transmitted
 	};
 
+    Type         type;           // The type of the family
     MemAddr      pc;             // Initial PC for newly created threads
 	bool         legacy;		 // Consists of a single thread of legacy code?
 	bool         created;	     // Has the family entry been used in a create yet?
@@ -56,12 +64,13 @@ struct Family
             LFID fid;            // Parent family for delegated creates
         };
     }            parent;         // Parent thread/family
-	GFID         gfid;			 // Corresponding global LFID    
     bool         hasDependency;  // Does this family use shareds?
     bool         killed;         // Has this family been killed?
-    Dependencies dependencies;   // The dependecies for termination and cleanup
+    Dependencies dependencies;   // The dependencies for termination and cleanup
     ThreadQueue  members;        // Queue of all threads in this family
     LFID         next;           // Next family in the empty or active family queue
+    LFID         link_next;      // The LFID of the matching family on the next CPU
+    LFID         link_prev;      // The LFID of the matching family on the previous CPU
     
     RegIndex     exitCodeReg;
     TID          lastAllocated;
@@ -71,21 +80,14 @@ struct Family
     RegInfo      regs[NUM_REG_TYPES];    // Register information
 
     // Admin
-    FamilyState state;          // Family state
+    FamilyState  state;          // Family state
 };
 
 class FamilyTable : public Structure<LFID>
 {
 public:
-	struct GlobalFamily
-	{
-		LFID fid;
-		bool used;
-	};
-
 	struct Config
 	{
-		FSize numGlobals;
 		FSize numFamilies;
 	};
 
@@ -94,24 +96,18 @@ public:
           Family& operator[](LFID fid)       { return m_families[fid]; }
 	const Family& operator[](LFID fid) const { return m_families[fid]; }
 
-	LFID AllocateFamily(GFID gfid = INVALID_GFID);
-	LFID TranslateFamily(GFID gfid) const;
-	GFID AllocateGlobal(LFID lfid);
-    bool ReserveGlobal(GFID fid);
-    bool UnreserveGlobal(GFID fid);
+	LFID AllocateFamily();
     bool FreeFamily(LFID fid);
     bool IsEmpty() const { return m_numFamiliesUsed == 0; }
 
     // Admin functions
-    const std::vector<GlobalFamily>& GetGlobals()  const { return m_globals; }
-    const std::vector<Family>&       GetFamilies() const { return m_families; }
+    const std::vector<Family>& GetFamilies() const { return m_families; }
 
 private:
-    Processor&                m_parent;
-    std::vector<GlobalFamily> m_globals;
-    std::vector<Family>       m_families;
-    FamilyQueue               m_empty;
-    FSize                     m_numFamiliesUsed;
+    Processor&          m_parent;
+    std::vector<Family> m_families;
+    FamilyQueue         m_empty;
+    FSize               m_numFamiliesUsed;
 };
 
 }

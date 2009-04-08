@@ -107,8 +107,7 @@ Pipeline::PipeAction Pipeline::ExecuteStage::ExecCreate(LFID fid, MemAddr addres
    	
     COMMIT
     {
-       	m_output.Rcv.m_state       = RST_EMPTY;
-       	m_output.Rcv.m_memory.size = 0;
+       	m_output.Rcv = MAKE_EMPTY_PIPEVALUE(m_output.Rcv.m_size);
     }
 	return PIPE_CONTINUE;
 }

@@ -16,8 +16,8 @@ namespace Simulator
 class Object;
 class Mutex;
 class Kernel;
+class Arbitrator;
 class IComponent;
-class IStructure;
 class IRegister;
 
 /**
@@ -28,10 +28,6 @@ enum CyclePhase {
     PHASE_CHECK,    ///< Check phase, all components verify that they can continue.
     PHASE_COMMIT    ///< Commit phase, all components commit their cycle.
 };
-
-class IComponent;
-class IStructure;
-class IRegister;
 
 /**
  * Enumeration for the run states of components
@@ -66,7 +62,7 @@ public:
 
 	typedef std::map<IComponent*, CallbackInfo> CallbackList;   ///< List of callbacks, indexed by component.
     typedef std::set<IComponent*>               ComponentList;  ///< List of unique components.
-    typedef std::set<IStructure*>               StructureList;  ///< List of unique structures.
+    typedef std::set<Arbitrator*>               ArbitratorList; ///< List of unique arbitrators.
     typedef std::set<IRegister*>                RegisterList;   ///< List of unique registers.
 
     /// Modes of debugging
@@ -83,32 +79,47 @@ private:
     CycleNo      m_cycle;           ///< Current cycle of the simulation.
     CyclePhase   m_phase;           ///< Current sub-cycle phase of the simulation.
 
-    StructureList m_structures;     ///< List of all structures in the simulation.
-    CallbackList  m_callbacks;      ///< List of all callbacks in the simulation.
-    ComponentList m_components;     ///< List of all components in the simulation.
-    RegisterList  m_registers;      ///< List of all registers in the simulation.
+    ArbitratorList m_arbitrators;   ///< List of all arbitrators in the simulation.
+    CallbackList   m_callbacks;     ///< List of all callbacks in the simulation.
+    ComponentList  m_components;    ///< List of all components in the simulation.
+    RegisterList   m_registers;     ///< List of all registers in the simulation.
+    
+    std::pair<const IComponent*, int> m_component; ///< The currently executing component.
 
 public:
     Kernel();
     ~Kernel();
 
-    /// Registers a structure to the kernel. @param structure the structure to register.
-    void RegisterStructure(IStructure& structure);
+    /**
+     * Registers an arbitrator to the kernel.
+     * @param structure the structure to register.
+     */
+    void RegisterArbitrator(Arbitrator& arbitrator);
+    
     /**
      * Registers a component to the kernel.
      * @param component the component to register.
      * @param states '|'-delimited list of state names
      */
     void RegisterComponent(IComponent& component, const std::string& states);
-    /// Registers a register to the kernel. @param reg the register to register.
-    void RegisterRegister (IRegister&  reg );
+    
+    /**
+     * Registers a register to the kernel.
+     * @param reg the register to register.
+     */
+    void RegisterRegister(IRegister& reg);
 
     /// Unregisters a structure from the kernel. @param structure the structure to unregister.
-    void UnregisterStructure(IStructure& structure);
+    void UnregisterArbitrator(Arbitrator& arbitrator);
     /// Unregisters a component from the kernel. @param component the component to unregister.
     void UnregisterComponent(IComponent& component);
     /// Unregisters a register from the kernel. @param reg the register to unregister.
     void UnregisterRegister (IRegister&  reg );
+    
+    /**
+     * @brief Get the currently executing component and state
+     */
+    inline const std::pair<const IComponent*, int>& GetComponent() const { return m_component; }
 
     /**
      * @brief Get the cycle counter.
@@ -262,13 +273,20 @@ public:
     virtual ~IRegister() {}
 };
 
-/// Base class for all structures in the simulation.
-class IStructure : public Object
+/// Base class for all objects that arbitrate
+class Arbitrator
 {
 public:
-    virtual void OnArbitrateReadPhase()  {} ///< Callback for arbitration in the read phase.
-    virtual void OnArbitrateWritePhase() {} ///< Callback for arbitration in the write phase.
+    virtual void OnArbitrateReadPhase()  = 0; ///< Callback for arbitration in the read phase.
+    virtual void OnArbitrateWritePhase() = 0; ///< Callback for arbitration in the write phase.
     
+    virtual ~Arbitrator() {}
+};
+
+/// Base class for all structures in the simulation.
+class IStructure : public Object, Arbitrator
+{
+public:
     /**
      * Constructs the structure.
      * @param parent parent object.

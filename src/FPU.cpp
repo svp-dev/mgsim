@@ -71,7 +71,7 @@ bool FPU::QueueOperation(FPUOperation op, int size, double Rav, double Rbv, cons
 
 bool FPU::OnCompletion(const Result& res) const
 {
-    if (!m_registerFile.p_asyncW.Write(*this, res.address))
+    if (!m_registerFile.p_asyncW.Write(res.address))
     {
     	return false;
     }

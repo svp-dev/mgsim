@@ -48,74 +48,6 @@ public:
     }
 };
 
-template <typename T>
-class BroadcastRegisters : public IRegister
-{
-    struct Data
-    {
-        bool m_forwarded;
-        bool m_processed;
-        bool m_full;
-        T    m_data;
-
-        void Clear()        { m_full = m_processed = m_forwarded = false; }
-        void SetProcessed() { m_processed = true; if (m_forwarded) Clear(); }
-        void SetForwarded() { m_forwarded = true; if (m_processed) Clear(); }
-        Data()              { Clear(); }
-    };
-
-    Data          m_temp;
-    Data          m_remote;
-    Data          m_local;
-    Data          m_sending;
-
-    void OnUpdate()
-    {
-        if (m_temp.m_full)
-        {
-            m_remote = m_temp;
-            m_temp.Clear();
-        }
-
-        if (!IsSendingFull())
-        {
-            if (IsRemoteFull() && !m_remote.m_forwarded)
-            {
-                m_sending = m_remote;
-                m_remote.SetForwarded();
-            }
-            else if (IsLocalFull() && m_local.m_processed)
-            {
-                m_sending = m_local;
-                m_local.SetForwarded();
-            }
-            m_sending.SetProcessed();
-        }
-    }
-
-public:
-    void WriteLocal(const T& data, bool processed = true) { COMMIT{ m_local.m_data = data; m_local.m_full = true; if (processed) m_local.SetProcessed(); } }
-    void WriteRemote(const T& data)                       { COMMIT{ m_temp .m_data = data; m_temp .m_full = true; } }
-
-    void SetLocalProcessed()   { COMMIT{ m_local  .SetProcessed(); } }
-    void SetRemoteProcessed()  { COMMIT{ m_remote .SetProcessed(); } }
-    void SetSendingForwarded() { COMMIT{ m_sending.SetForwarded(); } }
-
-    const T& ReadLocal()   const { return m_local.m_data;   }
-    const T& ReadRemote()  const { return m_remote.m_data;  }
-    const T& ReadSending() const { return m_sending.m_data; }
-
-    bool IsRemoteProcessed() const { return m_remote.m_processed; }
-    bool IsSendingFull()     const { return m_sending.m_full; }
-    bool IsLocalFull()       const { return m_local.m_full;   }
-    bool IsRemoteFull()      const { return m_remote.m_full;  }
-    bool IsEmpty()           const { return !IsLocalFull() && !IsRemoteFull() && !IsSendingFull(); }
-    
-    BroadcastRegisters(Kernel& kernel) : IRegister(kernel)
-    {
-    }
-};
-
 /// Network message for delegated creates
 struct DelegateMessage
 {
@@ -135,88 +67,68 @@ struct DelegateMessage
 /// Network message for group creates
 struct CreateMessage
 {
-    GFID      fid;                   // Global Family ID to use for the family
-    bool      infinite;
-	int64_t   start;
-	int64_t   step;
-	uint64_t  nThreads;
-	uint64_t  virtBlockSize;
-	TSize     physBlockSize;
-	MemAddr   address;			     // Address of the thread
+    LFID      first_fid;            ///< FID of the family on the creating CPU
+    LFID      link_prev;            ///< FID to use for the next CPU's family's link_prev
+    bool      infinite;             ///< Infinite create?
+	int64_t   start;                ///< Index start
+	int64_t   step;                 ///< Index step size
+	uint64_t  nThreads;             ///< Number of threads in the family
+	uint64_t  virtBlockSize;        ///< Virtual block size
+	TSize     physBlockSize;        ///< Physical block size
+	MemAddr   address;			    ///< Initial address of new threads
     struct {
         LPID pid;
         TID  tid;
-    } parent;                        // Parent Thread ID
-    RegsNo    regsNo[NUM_REG_TYPES]; // Register information
+    } parent;                       ///< Parent Thread ID
+    RegsNo    regsNo[NUM_REG_TYPES];///< Register counts
 };
 
 class Network : public IComponent
 {
-	struct RegInfo
-	{
-		RegIndex current;
-		RegSize  count;
-	};
-
-    struct SharedInfo
+    struct RegisterRequest
     {
-        GFID     fid;		// Family of the shared
-        RegAddr  addr;		// Address of the shared (type and 0-based index)
-        RegValue value;		// Value, in case of response
-        bool     parent;	// Read/write from/to parent
-
-        SharedInfo() : fid(INVALID_GFID) {}
+        RemoteRegAddr addr;         ///< Address of the register to read
+        LFID          return_fid;   ///< FID of the family on the next core to write back to
     };
-
-    struct RemoteFID
+    
+    struct RegisterResponse
     {
-        GFID fid;
-        LPID pid;
-
-        RemoteFID(GFID fid, LPID pid) : fid(fid), pid(pid) {}
-        RemoteFID() {}
+        RemoteRegAddr addr;  ///< Address of the register to write
+        RegValue      value; ///< Value, in case of response
     };
 
 public:
     Network(Processor& parent, const std::string& name, const std::vector<Processor*>& grid, LPID lpid, Allocator& allocator, RegisterFile& regFile, FamilyTable& familyTable);
     void Initialize(Network& prev, Network& next);
 
-    // Public functions
-    bool SendFamilyReservation(GFID fid);
-    bool SendFamilyUnreservation(GFID fid);
-    bool SendFamilyCreate(LFID fid);
-    bool SendFamilyDelegation(LFID fid);
+    bool SendGroupCreate(LFID fid);
+    bool SendDelegatedCreate(LFID fid);
     bool RequestToken();
-    bool SendThreadCleanup(GFID fid);
-    bool SendThreadCompletion(GFID fid);
-    bool SendFamilyCompletion(GFID fid);
+    bool SendThreadCleanup(LFID fid);
+    bool SendThreadCompletion(LFID fid);
+    bool SendFamilyCompletion(LFID fid);
     bool SendRemoteSync(GPID pid, LFID fid, ExitCode code);
-	
-	// addr is into the thread's shareds space
-    bool SendShared   (GFID fid, bool parent, const RegAddr& addr, const RegValue& value);
-    bool RequestShared(GFID fid, const RegAddr& addr, bool parent);
     
-    //
-    // Network-specific stuff, do not call outside of this class
-    //
-    bool OnFamilyReservationReceived(const RemoteFID& rfid);
-    bool OnFamilyUnreservationReceived(const RemoteFID& rfid);
-    bool OnFamilyCreateReceived(const CreateMessage& msg);
-    bool OnFamilyDelegationReceived(const DelegateMessage& msg);
-	bool OnGlobalReceived(LPID parent, const RegValue& value);
+    bool SendRegister   (const RemoteRegAddr& addr, const RegValue& value);
+    bool RequestRegister(const RemoteRegAddr& addr, LFID fid_self);
+    
+private:
+    bool SetupFamilyNextLink(LFID fid, LFID link_next);
+    bool OnGroupCreateReceived(const CreateMessage& msg);
+    bool OnDelegationCreateReceived(const DelegateMessage& msg);
     bool OnRemoteTokenRequested();
     bool OnTokenReceived();
-    bool OnThreadCleanedUp(GFID fid);
-    bool OnThreadCompleted(GFID fid);
-    bool OnFamilyCompleted(GFID fid);
+    bool OnThreadCleanedUp(LFID fid);
+    bool OnThreadCompleted(LFID fid);
+    bool OnFamilyCompleted(LFID fid);
     bool OnRemoteSyncReceived(LFID fid, ExitCode code);
-    Result OnSharedRequested(const SharedInfo& sharedInfo);
-    Result OnSharedReceived(const SharedInfo& sharedInfo);
+    
+    bool OnRegisterRequested(const RegisterRequest& request);
+    bool OnRegisterReceived (const RegisterResponse& response);
 
     Result OnCycleReadPhase(unsigned int stateIndex);
     Result OnCycleWritePhase(unsigned int stateIndex);
 
-//private:
     Processor&                     m_parent;
     RegisterFile&                  m_regFile;
     FamilyTable&                   m_familyTable;
@@ -226,23 +138,7 @@ public:
     LPID                           m_lpid;
     const std::vector<Processor*>& m_grid;
 
-	enum CreateState
-	{
-		CS_PROCESSING_NONE,
-		CS_PROCESSING_LOCAL,
-		CS_PROCESSING_REMOTE,
-	};
-
-	struct GlobalInfo
-	{
-		RegAddr  addr;
-		RegSize  count;
-		RegValue local;
-		BroadcastRegisters<std::pair<LPID, RegValue> > value;
-
-		GlobalInfo(Kernel& kernel) : value(kernel) {}
-	};
-	
+public:
 	struct RemoteSync
 	{
 	    GPID     pid;
@@ -250,36 +146,34 @@ public:
 	    ExitCode code;
 	};
 
-	// Create information
-    Register<std::pair<LFID, CreateMessage  > > m_createLocal;
-    Register<std::pair<GPID, DelegateMessage> > m_delegateLocal;
-    
-	Register<CreateMessage>   m_createRemote;
-	Register<DelegateMessage> m_delegateRemote;
-	CreateState               m_createState;
-	LFID                      m_createFid;
-	RegIndex                  m_globalsBase[NUM_REG_TYPES];
-	GlobalInfo                m_global;
+	// Group creates
+    Register<CreateMessage>   m_createLocal;    ///< Outgoing group create
+	Register<CreateMessage>   m_createRemote;   ///< Incoming group create
 
-	// Notifications and reservations
-    BroadcastRegisters<RemoteFID> m_reservation;
-    BroadcastRegisters<RemoteFID> m_unreservation;
-    Register<GFID>                m_completedFamily;
-    Register<GFID>                m_completedThread;
-    Register<GFID>                m_cleanedUpThread;
-    Register<RemoteSync>          m_remoteSync;
+    // Delegation creates
+    Register<std::pair<GPID, DelegateMessage> > m_delegateLocal;  ///< Outgoing delegation create
+	Register<DelegateMessage>                   m_delegateRemote; ///< Incoming delegation created
 
-	// Shareds communication
-    SharedInfo m_sharedRequest;
-    SharedInfo m_sharedResponse;
-    SharedInfo m_sharedReceived;
+	// Notifications
+    Register<LFID>       m_completedFamily;     ///< Incoming 'family completed' notification
+    Register<LFID>       m_completedThread;     ///< Incoming 'thread completed' notification
+    Register<LFID>       m_cleanedUpThread;     ///< Incoming 'thread cleaned up' notification
+    Register<RemoteSync> m_remoteSync;          ///< Incoming remote synchronization
 
-	// Token stuff
-    Register<bool> m_hasToken;		 // We have the token
-    unsigned int   m_lockToken;	 	 // #Locks on the token
-    Register<bool> m_wantToken;		 // We want the token
-    Register<bool> m_nextWantsToken; // Next processor wants the token
-	Register<bool> m_requestedToken; // We've requested the token
+	// Register communication
+	ArbitratedService p_registerResponseOut; ///< Port arbitrating outgoing registers
+    RegisterRequest   m_registerRequestOut;  ///< Outgoing register request
+    RegisterRequest   m_registerRequestIn;   ///< Incoming register request
+    RegisterResponse  m_registerResponseOut; ///< Outgoing register response
+    RegisterResponse  m_registerResponseIn;  ///< Incoming register response
+    RegValue          m_registerValue;       ///< Value of incoming register request
+
+	// Token management
+    Register<bool> m_hasToken;		 ///< We have the token
+    Register<bool> m_wantToken;		 ///< We want the token
+    Register<bool> m_nextWantsToken; ///< Next processor wants the token
+	Register<bool> m_requestedToken; ///< We've requested the token
+
 };
 
 }

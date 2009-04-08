@@ -1,7 +1,6 @@
 #ifndef ALLOCATOR_H
 #define ALLOCATOR_H
 
-#include "Memory.h"
 #include "ThreadTable.h"
 #include <queue>
 
@@ -71,9 +70,7 @@ public:
 		CREATE_INITIAL,             // Waiting for a family to create
 		CREATE_LOADING_LINE,        // Waiting until the cache-line is loaded
 		CREATE_LINE_LOADED,         // The line has been loaded
-		CREATE_GETTING_TOKEN,       // Requesting the token from the network
-		CREATE_HAS_TOKEN,           // Got the token
-		CREATE_RESERVING_FAMILY,    // Reserving the family across the CPU group
+		CREATE_ACQUIRING_TOKEN,     // Requesting the token from the network
 		CREATE_BROADCASTING_CREATE, // Broadcasting the create
 		CREATE_ALLOCATING_REGISTERS,// Allocating register space
 	};
@@ -86,8 +83,8 @@ public:
     // Typically called before tha actual simulation starts.
     void AllocateInitialFamily(MemAddr pc);
 
-    // Returns the physical register address for a logical shared in a certain family.
-    RegAddr GetSharedAddress(SharedType stype, GFID fid, RegAddr addr) const;
+    // Returns the physical register address for a logical register in a certain family.
+    RegAddr GetRemoteRegisterAddress(const RemoteRegAddr& addr) const;
 
     // This is used in all TCB instructions to index the family table with additional checks.
 	Family& GetWritableFamilyEntry(LFID fid, TID parent) const;
@@ -104,25 +101,31 @@ public:
     uint64_t GetMaxActiveQueueSize() const { return m_maxActiveQueueSize; }
     uint64_t GetMinActiveQueueSize() const { return m_minActiveQueueSize; }
     
-    bool   KillFamily(LFID fid, ExitCode code);
+    bool   KillFamily(LFID fid, Family& family, ExitCode code);
 	Result AllocateFamily(TID parent, RegIndex reg, LFID* fid, const RegisterBases bases[]);
-	LFID   AllocateFamily(const CreateMessage& msg);
     bool   SanitizeFamily(Family& family, bool hasDependency);
-	bool   ActivateFamily(LFID fid);
-    LFID   QueueCreate(const DelegateMessage& msg);
     bool   QueueCreate(LFID fid, MemAddr address, TID parent, RegIndex exitCodeReg);
+	bool   ActivateFamily(LFID fid);
+	
+	LFID   OnGroupCreate(const CreateMessage& msg);
+    bool   OnDelegatedCreate(const DelegateMessage& msg);
+    
     bool   QueueActiveThreads(const ThreadQueue& threads);
     bool   QueueThreads(ThreadQueue& queue, const ThreadQueue& threads, ThreadState state);
     TID    PopActiveThread();
     
-    bool   IncreaseFamilyDependency(LFID fid, FamilyDependency dep);
+    bool   SetupFamilyPrevLink(LFID fid, LFID link_prev);
+    bool   SetupFamilyNextLink(LFID fid, LFID link_next);
+    
+    bool   OnMemoryRead(LFID fid);
+    
     bool   DecreaseFamilyDependency(LFID fid, FamilyDependency dep);
+    bool   DecreaseFamilyDependency(LFID fid, Family& family, FamilyDependency dep);
     bool   IncreaseThreadDependency(          TID tid, ThreadDependency dep);
-    bool   DecreaseThreadDependency(LFID fid, TID tid, ThreadDependency dep, const IComponent& component);
+    bool   DecreaseThreadDependency(LFID fid, TID tid, ThreadDependency dep);
     
     // External events
 	bool OnCachelineLoaded(CID cid);
-	bool OnReservationComplete();
     bool OnTokenReceived();
     bool OnRemoteThreadCompletion(LFID fid);
     bool OnRemoteThreadCleanup(LFID fid);

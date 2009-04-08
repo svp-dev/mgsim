@@ -453,7 +453,6 @@ static MGSystem::Config ParseConfig(const Config& configfile)
 	config.processor.dcache.sets       = configfile.getInteger<size_t>("DCacheNumSets", 4);
 	config.processor.threadTable.numThreads  = configfile.getInteger<TSize>("NumThreads", 64);
 	config.processor.familyTable.numFamilies = configfile.getInteger<FSize>("NumFamilies", 8);
-	config.processor.familyTable.numGlobals  = configfile.getInteger<FSize>("NumGlobalFamilies", 8);
 	config.processor.registerFile.numIntegers      = configfile.getInteger<RegSize>("NumIntRegisters", 1024);
 	config.processor.raunit.blockSizes[RT_INTEGER] = configfile.getInteger<RegSize>("IntRegistersBlockSize", 32); 
 	config.processor.registerFile.numFloats        = configfile.getInteger<RegSize>("NumFltRegisters", 128);

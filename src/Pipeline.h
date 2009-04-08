@@ -30,10 +30,20 @@ struct PipeValue
             ThreadQueue   m_waiting;    ///< List of the threads that are waiting on the register.
             MemoryRequest m_memory;     ///< Memory request information for pending registers.
             RemoteRequest m_remote;     ///< Remote request information for shareds and globals.
-            IComponent*   m_component;  ///< Component that will write back; for security. 
         };
     };
 };
+
+static inline PipeValue MAKE_EMPTY_PIPEVALUE(unsigned int size)
+{
+    PipeValue value;
+    value.m_state          = RST_EMPTY;
+    value.m_size           = size;
+    value.m_waiting.head   = INVALID_TID;
+    value.m_memory.size    = 0;
+    value.m_remote.reg.fid = INVALID_LFID;
+    return value;
+}
 
 #if TARGET_ARCH == ARCH_ALPHA
     struct ArchDecodeReadLatch
@@ -159,17 +169,18 @@ public:
         LFID    fid;
         bool    swch;
         bool    kill;
-		bool    isFirstThreadInFamily;
-        bool    isLastThreadInFamily;
     };
     
     struct FetchDecodeLatch : public CommonLatch
     {
-        GFID            gfid;
+        LFID            link_prev;
+        LFID            link_next;
         Instruction     instr;
         RegInfo         regs;
 		bool            onParent;
         bool            isLastThreadInBlock;
+		bool            isFirstThreadInFamily;
+        bool            isLastThreadInFamily;
     };
 
     struct DecodeReadLatch : public CommonLatch, public ArchDecodeReadLatch
@@ -253,7 +264,8 @@ public:
         bool            m_switched;
 		bool            m_onParent;
         LFID            m_fid;
-        GFID            m_gfid;
+        LFID            m_link_prev;
+        LFID            m_link_next;
         TID             m_tid;
 		TID             m_next;
 		bool            m_legacy;
@@ -286,10 +298,10 @@ public:
     private:
         struct OperandInfo
         {
-            ReadPort* port;
-            RegAddr   addr;
-            PipeValue value;
-            int       to_read_mask;
+            DedicatedReadPort* port;
+            RegAddr            addr;
+            PipeValue          value;
+            int                to_read_mask;
         };
         
         bool ReadRegister(OperandInfo& operand);
@@ -358,15 +370,13 @@ public:
     public:
         PipeAction read();
         PipeAction write();
-        MemoryStage(Pipeline& parent, ExecuteMemoryLatch& input, MemoryWritebackLatch& output, DCache& dcache, Allocator& allocator, RegisterFile& regFile, FamilyTable& familyTable);
+        MemoryStage(Pipeline& parent, ExecuteMemoryLatch& input, MemoryWritebackLatch& output, DCache& dcache, Allocator& allocator);
     
     private:
         ExecuteMemoryLatch&     m_input;
         MemoryWritebackLatch&   m_output;
         Allocator&              m_allocator;
         DCache&                 m_dcache;
-        RegisterFile&           m_regFile;
-        FamilyTable&            m_familyTable;        
     };
 
     class WritebackStage : public Stage

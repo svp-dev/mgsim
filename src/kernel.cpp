@@ -53,7 +53,7 @@ void Object::OutputWrite(const char* msg, ...) const
 
         string name = GetFQN();
         transform(name.begin(), name.end(), name.begin(), ::toupper);
-        cout << "[" << dec << setfill('0') << setw(8) << m_kernel->GetCycleNo() << ":" << name << "] ";
+        cout << "[" << right << dec << setfill('0') << setw(8) << m_kernel->GetCycleNo() << ":" << name << "] ";
 
         va_start(args, msg);
         vprintf(msg, args);
@@ -71,7 +71,7 @@ void Object::DeadlockWrite(const char* msg, ...) const
 
         string name = GetFQN();
         transform(name.begin(), name.end(), name.begin(), ::toupper);
-        cout << "[" << dec << setfill('0') << setw(8) << m_kernel->GetCycleNo() << ":" << name << "] ";
+        cout << "[" << right << dec << setfill('0') << setw(8) << m_kernel->GetCycleNo() << ":" << name << "] ";
 
         va_start(args, msg);
         vprintf(msg, args);
@@ -89,7 +89,7 @@ void Object::DebugSimWrite(const char* msg, ...) const
 
         string name = GetFQN();
         transform(name.begin(), name.end(), name.begin(), ::toupper);
-        cout << "[" << dec << setfill('0') << setw(8) << m_kernel->GetCycleNo() << ":" << name << "] ";
+        cout << "[" << right << dec << setfill('0') << setw(8) << m_kernel->GetCycleNo() << ":" << name << "] ";
 
         va_start(args, msg);
         vprintf(msg, args);
@@ -107,7 +107,7 @@ void Object::DebugProgWrite(const char* msg, ...) const
 
         string name = GetFQN();
         transform(name.begin(), name.end(), name.begin(), ::toupper);
-        cout << "[" << dec << setfill('0') << setw(8) << m_kernel->GetCycleNo() << ":" << name << "] ";
+        cout << "[" << right << dec << setfill('0') << setw(8) << m_kernel->GetCycleNo() << ":" << name << "] ";
 
         va_start(args, msg);
         vprintf(msg, args);
@@ -122,12 +122,12 @@ void Object::DebugProgWrite(const char* msg, ...) const
 //
 IStructure::IStructure(Object* parent, Kernel& kernel, const std::string& name) : Object(parent, &kernel, name)
 {
-    GetKernel()->RegisterStructure(*this);
+    GetKernel()->RegisterArbitrator(*this);
 }
 
 IStructure::~IStructure()
 {
-    GetKernel()->UnregisterStructure(*this);
+    GetKernel()->UnregisterArbitrator(*this);
 }
 
 //
@@ -169,22 +169,29 @@ RunState Kernel::Step(CycleNo cycles)
         PROFILE_BEGIN("Read Acquire");
         for (CallbackList::const_iterator i = m_callbacks.begin(); i != m_callbacks.end(); ++i)
         {
+            m_component.first = i->first;
  			for (size_t j = 0; j < i->second.states.size(); ++j)
             {
+                m_component.second = j;
                 i->first->OnCycleReadPhase(j);
             }
         }
         PROFILE_END("Read Acquire");
 
         PROFILE_BEGIN("Read Arbitrate");
-        for (StructureList::const_iterator i = m_structures.begin(); i != m_structures.end(); ++i) (*i)->OnArbitrateReadPhase();
+        for (ArbitratorList::const_iterator i = m_arbitrators.begin(); i != m_arbitrators.end(); ++i)
+        {
+            (*i)->OnArbitrateReadPhase();
+        }
         PROFILE_END("Read Arbitrate");
 
         PROFILE_BEGIN("Read Commit");
         for (CallbackList::const_iterator i = m_callbacks.begin(); i != m_callbacks.end(); ++i)
         {
+            m_component.first = i->first;
  			for (size_t j = 0; j < i->second.states.size(); ++j)
             {
+                m_component.second = j;
                 m_phase = PHASE_CHECK;
   				Result result;
   				if ((result = i->first->OnCycleReadPhase(j)) == SUCCESS)
@@ -204,8 +211,10 @@ RunState Kernel::Step(CycleNo cycles)
         PROFILE_BEGIN("Write Acquire");
         for (CallbackList::iterator i = m_callbacks.begin(); i != m_callbacks.end(); ++i)
         {
+            m_component.first = i->first;
  			for (size_t j = 0; j < i->second.states.size(); ++j)
             {
+                m_component.second = j;
                 Result result = i->first->OnCycleWritePhase(j);
                 
                 i->second.states[j].state = (result == FAILED) ? STATE_DEADLOCK : STATE_RUNNING;
@@ -214,14 +223,19 @@ RunState Kernel::Step(CycleNo cycles)
         PROFILE_END("Write Acquire");
 
         PROFILE_BEGIN("Write Arbitrate");
-        for (StructureList::const_iterator i = m_structures.begin(); i != m_structures.end(); ++i) (*i)->OnArbitrateWritePhase();
+        for (ArbitratorList::const_iterator i = m_arbitrators.begin(); i != m_arbitrators.end(); ++i)
+        {
+            (*i)->OnArbitrateWritePhase();
+        }
         PROFILE_END("Write Arbitrate");
 
         PROFILE_BEGIN("Write Commit");
         for (CallbackList::iterator i = m_callbacks.begin(); i != m_callbacks.end(); ++i)
         {
+            m_component.first = i->first;
   			for (size_t j = 0; j < i->second.states.size(); ++j)
             {
+                m_component.second = j;
                 RunState& state = i->second.states[j].state;
                 if (state != STATE_DEADLOCK)
                 {
@@ -273,11 +287,6 @@ RunState Kernel::Step(CycleNo cycles)
 
 void Kernel::SetDebugMode(int mode) { m_debugMode = mode; }
 
-void Kernel::RegisterStructure(IStructure& _structure)
-{
-	m_structures.insert(&_structure);
-}
-
 void Kernel::RegisterComponent(IComponent& _component, const std::string& states)
 {
     m_components.insert(&_component);
@@ -300,10 +309,12 @@ void Kernel::RegisterComponent(IComponent& _component, const std::string& states
     }
 }
 
-void Kernel::RegisterRegister (IRegister&  _register )    { m_registers .insert(&_register ); }
-void Kernel::UnregisterStructure(IStructure& _structure)  { m_structures.erase(&_structure); }
-void Kernel::UnregisterComponent(IComponent& _component)  { m_components.erase(&_component); m_callbacks.erase(&_component); }
-void Kernel::UnregisterRegister (IRegister&  _register )  { m_registers .erase(&_register ); }
+void Kernel::RegisterArbitrator(Arbitrator& _arbitrator) { m_arbitrators.insert(&_arbitrator); }
+void Kernel::RegisterRegister  (IRegister&  _register)   { m_registers  .insert(&_register); }
+
+void Kernel::UnregisterArbitrator(Arbitrator& _arbitrator) { m_arbitrators.erase(&_arbitrator); }
+void Kernel::UnregisterComponent (IComponent& _component)  { m_components .erase(&_component); m_callbacks.erase(&_component); }
+void Kernel::UnregisterRegister  (IRegister&  _register)   { m_registers  .erase(&_register); }
 
 Kernel::Kernel()
 {

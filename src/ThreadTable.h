@@ -72,12 +72,6 @@ public:
     
     bool IsEmpty() const { return m_numThreadsUsed == 0; }
 
-    //
-    // Ports
-    //
-    DedicatedReadPort       p_fetch;
-    DedicatedWritePort<TID> p_execute;
-
 private:
     Processor&          m_parent;
     ThreadQueue         m_empty;

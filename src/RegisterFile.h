@@ -10,6 +10,7 @@ class Processor;
 class ICache;
 class DCache;
 class Allocator;
+class Network;
 
 /**
  * @brief Register File with R/W ports.
@@ -34,9 +35,10 @@ public:
      * @param[in] parent reference to parent processor.
      * @param[in] allocator reference to allocator used to wake up threads on
      *                      writes to waiting registers.
+     * @param[in] network reference to network used to send remote registers.
      * @param[in] config reference to the configuration data.
      */
-    RegisterFile(Processor& parent, Allocator& allocator, const Config& config);
+    RegisterFile(Processor& parent, Allocator& allocator, Network& network, const Config& config);
 
     /**
      * Reads a register
@@ -57,6 +59,7 @@ public:
      * @param[in]     addr the address of the register to write
      * @param[in,out] data the data to write to the register. May receive value in register.
      * @param[in]     from_memory indicates if the write comes from memory.
+     * @param[in]     source the source of the write. This is used for arbitration in certain cases.
      * @return true if the register could be written
      */
     bool WriteRegister(const RegAddr& addr, RegValue& data, bool from_memory);
@@ -100,6 +103,7 @@ private:
     
     Processor& m_parent;    ///< Reference to parent processor
     Allocator& m_allocator; ///< Reference to the allocator
+    Network&   m_network;   ///< Reference to the network
 };
 
 }

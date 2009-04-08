@@ -44,13 +44,11 @@ Pipeline::PipeAction Pipeline::WritebackStage::write()
         // Take data from input
         switch (value.m_state)
         {
-        case RST_EMPTY:
-            value.m_remote    = m_input.Rcv.m_remote;
-            value.m_memory    = m_input.Rcv.m_memory;
-            // Fall-through
-
         case RST_WAITING:
+        case RST_EMPTY:
             value.m_waiting = m_input.Rcv.m_waiting;
+            value.m_remote  = m_input.Rcv.m_remote;
+            value.m_memory  = m_input.Rcv.m_memory;
             writebackSize   = 1;      // Write just one register
             nRegs           = 1;
             break;
@@ -77,48 +75,84 @@ Pipeline::PipeAction Pipeline::WritebackStage::write()
         offset = nRegs - 1 - offset;
 #endif
 
-        if (m_input.Rrc.fid != INVALID_GFID)
+        // Get the address of the register we're writing.
+        const RegAddr addr = MAKE_REGADDR(m_input.Rc.type, m_input.Rc.index + offset);
+        
+        // We have something to write back          
+        if (!m_regFile.p_pipelineW.Write(addr))
         {
-            assert(m_input.Rcv.m_state == RST_FULL);
+            return PIPE_STALL;
+        }
+        
+        // Read the old value
+        RegValue old_value;
+        if (!m_regFile.ReadRegister(addr, old_value))
+        {
+            return PIPE_STALL;
+        }
+
+        if (value.m_state == RST_WAITING)
+        {
+            assert(suspend);
             
-            // Also forward the shared to the next CPU.
-            // If we're the last thread in the family, it writes to the parent thread.
-			if (!m_network.SendShared(
-			    m_input.Rrc.fid,
-			    m_input.isLastThreadInFamily,
-			    MAKE_REGADDR(m_input.Rrc.reg.type, m_input.Rrc.reg.index + offset),
-			    value))
+            if (old_value.m_state == RST_FULL)
+            {
+                // The data we wanted to wait for has returned before we could write the register.
+                // Just reschedule the thread.
+                suspend = false;
+                value.m_state = RST_INVALID;
+            }
+            else
+            {
+                assert(value.m_waiting.head == m_input.tid);
+                
+                // The Read Stage will have setup the register to 
+                // link this thread into the register's thread waiting list
+                if (old_value.m_state == RST_WAITING && old_value.m_waiting.head != INVALID_TID)
+                {
+                    // Not the first thread waiting on the register
+                    // Update the tail
+                    assert(value.m_waiting.tail == old_value.m_waiting.tail);
+                }
+                else
+                {
+                    assert(value.m_waiting.tail == m_input.tid);
+                }
+                    
+                COMMIT
+                {
+                    // We're suspending because we're waiting on a non-full register.
+                    // Since we support multiple threads waiting on a register, update the
+                    // next field in the thread table to the next waiting thread.
+                    m_threadTable[m_input.tid].nextState = old_value.m_waiting.head;
+                }
+            }
+        }
+
+        if (value.m_state != RST_INVALID)
+        {
+            if (!m_regFile.WriteRegister(addr, value, false))
             {
                 return PIPE_STALL;
             }
         }
         
-        // Get the address of the register we're writing.
-        const RegAddr addr = MAKE_REGADDR(m_input.Rc.type, m_input.Rc.index + offset);
-        
-        // We have something to write back          
-        if (!m_regFile.p_pipelineW.Write(*this, addr))
+        // Check if this value should be forwarded.
+        // If there is a remote write waiting on this register, we never forward.
+        if (m_input.Rrc.fid != INVALID_LFID && (old_value.m_state != RST_WAITING || old_value.m_remote.reg.fid == INVALID_LFID))
         {
-            return PIPE_STALL;
+            assert(m_input.Rcv.m_state == RST_FULL);
+            
+            // Forward the value to the next CPU.
+            RemoteRegAddr rrc(m_input.Rrc);
+			rrc.reg.index += offset;
+            
+			if (!m_network.SendRegister(rrc, value))
+            {
+                return PIPE_STALL;
+            }
         }
         
-        // If we're writing WAITING and the data is already present,
-        // Rcv's state will be set to FULL
-        if (!m_regFile.WriteRegister(addr, value, false))
-        {
-            return PIPE_STALL;
-        }
-        
-        suspend = (value.m_state == RST_WAITING);
-        
-        if (suspend)
-        {
-            // We're suspending because we're waiting on a non-full register.
-            // Since we support multiple threads waiting on a register, update the
-            // next field in the thread table to the next waiting thread.
-            COMMIT{ m_threadTable[m_input.tid].nextState = value.m_waiting.head; }
-        }
-
         // Adjust after writing
         writebackSize--;
         writebackOffset++;

@@ -6,13 +6,10 @@ using namespace std;
 
 ThreadTable::ThreadTable(Processor& parent, const Config& config)
   : Structure<TID>(&parent, parent.GetKernel(), "threads"),
-    p_fetch(*this), p_execute(*this),
     m_parent(parent),
     m_threads(config.numThreads),
     m_numThreadsUsed(0)
 {
-    SetPriority(p_execute, 0);
-
     for (TID i = 0; i < config.numThreads; ++i)
     {
         m_threads[i].nextMember = i + 1;
