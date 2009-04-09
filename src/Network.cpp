@@ -301,25 +301,19 @@ bool Network::OnGroupCreateReceived(const CreateMessage& msg)
     {
         // The create hasn't made a full circle yet,
         // store it for processing and forwarding.
-		if (m_createRemote.IsFull())
-		{
-			return false;
-		}
-
-		m_createRemote.Write(msg);
-		DebugSimWrite("Received group create");
+        if (m_createRemote.IsFull())
+	    {
+    		return false;
+    	}
+    
+    	m_createRemote.Write(msg);
+    	DebugSimWrite("Received group create");
     }
     else
     {
         // The create has come back to the creating CPU.
         // Link the family entry to the one on the previous CPU.
         if (!m_allocator.SetupFamilyPrevLink(msg.first_fid, msg.link_prev))
-        {
-            return false;
-        }
-        
-        // Also link the family on the previous CPU up
-        if (!m_prev->SetupFamilyNextLink(msg.link_prev, msg.first_fid))
         {
             return false;
         }
@@ -665,8 +659,11 @@ Result Network::OnCycleWritePhase(unsigned int stateIndex)
 			// Process the received create
 			CreateMessage msg = m_createRemote.Read();
 
+            // Determine the next link
+            LFID link_next = (m_next->m_lpid != msg.parent.pid) ? INVALID_LFID : msg.first_fid;
+            
             // Process the create
-            LFID fid = m_allocator.OnGroupCreate(msg);
+            LFID fid = m_allocator.OnGroupCreate(msg, link_next);
             if (fid == INVALID_LFID)
 		    {
 		        DeadlockWrite("Unable to process received group create");
@@ -680,12 +677,13 @@ Result Network::OnCycleWritePhase(unsigned int stateIndex)
 		        return FAILED;
 		    }
             
-			// Forward the create
-			COMMIT{ msg.link_prev = fid; }
-			if (!m_next->OnGroupCreateReceived(msg))
-			{
-			    DeadlockWrite("Unable to forward group create to next processor");
-				return FAILED;
+            // Forward the create
+  			COMMIT{ msg.link_prev = fid; }
+
+		    if (!m_next->OnGroupCreateReceived(msg))
+		    {
+   			    DeadlockWrite("Unable to forward group create to next processor");
+			    return FAILED;
 			}
 
 			m_createRemote.Clear();

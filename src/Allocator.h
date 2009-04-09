@@ -107,7 +107,7 @@ public:
     bool   QueueCreate(LFID fid, MemAddr address, TID parent, RegIndex exitCodeReg);
 	bool   ActivateFamily(LFID fid);
 	
-	LFID   OnGroupCreate(const CreateMessage& msg);
+	LFID   OnGroupCreate(const CreateMessage& msg, LFID link_next);
     bool   OnDelegatedCreate(const DelegateMessage& msg);
     
     bool   QueueActiveThreads(const ThreadQueue& threads);
