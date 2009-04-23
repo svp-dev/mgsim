@@ -118,7 +118,7 @@ Pipeline::PipeAction Pipeline::MemoryStage::write()
     COMMIT
     {
         // Copy common latch data
-        (CommonLatch&)m_output = m_input;
+        (Latch&)m_output = m_input;
         
         m_output.suspend = m_input.suspend;
         m_output.Rc      = m_input.Rc;

@@ -983,7 +983,7 @@ static bool cmd_pipeline_read( Object* obj, const vector<string>& /* arguments *
     // Fetch stage
     cout << "Fetch stage" << endl;
     cout << " |" << endl;
-    if (fdlatch.empty())
+    if (fdlatch.empty)
     {
         cout << " | (Empty)" << endl;
     }
@@ -1001,7 +1001,7 @@ static bool cmd_pipeline_read( Object* obj, const vector<string>& /* arguments *
     // Decode stage
     cout << "Decode stage" << endl;
     cout << " |" << endl;
-    if (drlatch.empty())
+    if (drlatch.empty)
     {
         cout << " | (Empty)" << endl;
     }
@@ -1035,7 +1035,7 @@ static bool cmd_pipeline_read( Object* obj, const vector<string>& /* arguments *
     // Read stage
     cout << "Read stage" << endl;
     cout << " |" << endl;
-    if (relatch.empty())
+    if (relatch.empty)
     {
         cout << " | (Empty)" << endl;
     }
@@ -1068,7 +1068,7 @@ static bool cmd_pipeline_read( Object* obj, const vector<string>& /* arguments *
     // Execute stage
     cout << "Execute stage" << endl;
     cout << " |" << endl;
-    if (emlatch.empty())
+    if (emlatch.empty)
     {
         cout << " | (Empty)" << endl;
     }
@@ -1100,7 +1100,7 @@ static bool cmd_pipeline_read( Object* obj, const vector<string>& /* arguments *
     // Memory stage
     cout << "Memory stage" << endl;
     cout << " |" << endl;
-    if (mwlatch.empty())
+    if (mwlatch.empty)
     {
         cout << " | (Empty)" << endl;
     }

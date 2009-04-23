@@ -108,28 +108,22 @@ public:
 	};
 
     //
-    // Base classes
+    // Common latch data
     //
-    class Latch
+    struct LatchState
     {
-    public:
-        Latch() { clear(); }
-        bool empty() const { return m_empty; }
-        void set()         { m_empty = false; }
-        void clear()       { m_empty = true; }
-
-        void copy(const Latch& latch) { tid = latch.tid; }
-        
-        Latch& operator=(const Latch& rhs) {
-            // When copying data from latch to latch, we only copy the data,
-            // not the latch state
-            tid = rhs.tid;
-            return *this;
-        }
-        
-        TID  tid;
-    private:
-        bool m_empty;
+        bool empty;
+       
+        LatchState() : empty(true) {}
+    };
+    
+    struct Latch
+    {
+        TID     tid;
+        MemAddr pc;
+        LFID    fid;
+        bool    swch;
+        bool    kill;
     };
 
     class Stage : public IComponent
@@ -163,15 +157,7 @@ public:
         } types[NUM_REG_TYPES];
     };
     
-    struct CommonLatch : public Latch
-    {
-        MemAddr pc;
-        LFID    fid;
-        bool    swch;
-        bool    kill;
-    };
-    
-    struct FetchDecodeLatch : public CommonLatch
+    struct FetchDecodeLatch : public Latch, public LatchState
     {
         LFID            link_prev;
         LFID            link_next;
@@ -183,7 +169,7 @@ public:
         bool            isLastThreadInFamily;
     };
 
-    struct DecodeReadLatch : public CommonLatch, public ArchDecodeReadLatch
+    struct DecodeReadLatch : public Latch, public LatchState, public ArchDecodeReadLatch
     {
         uint32_t        literal;
         RegInfo         regs;
@@ -194,7 +180,7 @@ public:
         unsigned int    RaSize, RbSize, RcSize;
     };
 
-    struct ReadExecuteLatch : public CommonLatch, public ArchReadExecuteLatch
+    struct ReadExecuteLatch : public Latch, public LatchState, public ArchReadExecuteLatch
     {
         // Registers addresses, values and types
         RegAddr         Rc;
@@ -207,7 +193,7 @@ public:
         RegAddr         Ra, Rb;
     };
 
-    struct ExecuteMemoryLatch : public CommonLatch
+    struct ExecuteMemoryLatch : public Latch, public LatchState
     {
         SuspendType suspend;
         
@@ -222,7 +208,7 @@ public:
         PipeValue       Rcv;    // On loads, m_state = RST_INVALID and m_size is reg. size
     };
 
-    struct MemoryWritebackLatch : public CommonLatch
+    struct MemoryWritebackLatch : public Latch, public LatchState
     {
         SuspendType suspend;
 
@@ -298,13 +284,18 @@ public:
     private:
         struct OperandInfo
         {
-            DedicatedReadPort* port;
-            RegAddr            addr;
-            PipeValue          value;
-            int                to_read_mask;
+            DedicatedReadPort* port;            ///< Port on the RegFile to use for reading this operand
+            RegAddr            addr;            ///< (Base) address of the operand            
+            PipeValue          value;           ///< Final value
+            int                to_read_mask;    ///< Sub-register of the operand we still need to read
+            
+            // Address and value as read from the register file
+            // The PipeValue actually contains a RegValue, but this way the code can remain generic
+            RegAddr            addr_reg;        ///< Address of the value read from register
+            PipeValue          value_reg;       ///< Value as read from the register file
         };
         
-        bool ReadRegister(OperandInfo& operand);
+        bool ReadRegister(OperandInfo& operand, uint32_t literal);
         bool ReadBypasses(OperandInfo& operand);
         void clear(TID tid);
 
@@ -321,6 +312,10 @@ public:
         ReadExecuteLatch&       m_output;
         ExecuteMemoryLatch&     m_bypass1;
         MemoryWritebackLatch&   m_bypass2;
+        
+        // Copy of the Writeback latch, because the actual latch will be gone
+        // when we need it.
+        MemoryWritebackLatch    m_wblatch;
         
         OperandInfo             m_operand1, m_operand2;
     };
@@ -418,9 +413,9 @@ public:
     uint64_t GetOp()   const { return m_execute.getOp(); }
 
 private:
-    Processor&          m_parent;
-    RegisterFile&       m_regFile;
-
+    Processor&    m_parent;
+    RegisterFile& m_regFile;
+    
     FetchDecodeLatch     m_fdLatch;
     DecodeReadLatch      m_drLatch;
     ReadExecuteLatch     m_reLatch;
@@ -429,6 +424,7 @@ private:
 
     static const int    NUM_STAGES = 6;
     Stage*              m_stages[NUM_STAGES];
+    LatchState*         m_latches[NUM_STAGES - 1];
     bool                m_runnable[NUM_STAGES];
     
     size_t   m_nStagesRunnable;

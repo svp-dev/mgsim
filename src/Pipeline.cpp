@@ -29,12 +29,12 @@ Pipeline::Pipeline(
     m_nStagesRun(0), m_maxPipelineIdleTime(0), m_minPipelineIdleTime(numeric_limits<uint64_t>::max()),
     m_totalPipelineIdleTime(0), m_pipelineIdleEvents(0), m_pipelineIdleTime(0), m_pipelineBusyTime(0),
     
-    m_fetch    (*this, m_fdLatch, alloc, familyTable, threadTable, icache, lpid, config.controlBlockSize),
+    m_fetch    (*this,            m_fdLatch, alloc, familyTable, threadTable, icache, lpid, config.controlBlockSize),
     m_decode   (*this, m_fdLatch, m_drLatch),
     m_read     (*this, m_drLatch, m_reLatch, regFile, network, m_emLatch, m_mwLatch),
     m_execute  (*this, m_reLatch, m_emLatch, alloc, threadTable, familyTable, fpu),
     m_memory   (*this, m_emLatch, m_mwLatch, dcache, alloc),
-    m_writeback(*this, m_mwLatch, regFile, network, alloc, threadTable)
+    m_writeback(*this, m_mwLatch,            regFile, network, alloc, threadTable)
 {
     m_stages[0] = &m_fetch;
     m_stages[1] = &m_decode;
@@ -42,6 +42,12 @@ Pipeline::Pipeline(
     m_stages[3] = &m_execute;
     m_stages[4] = &m_memory;
     m_stages[5] = &m_writeback;
+    
+    m_latches[0] = &m_fdLatch;
+    m_latches[1] = &m_drLatch;
+    m_latches[2] = &m_reLatch;
+    m_latches[3] = &m_emLatch;
+    m_latches[4] = &m_mwLatch;
 }
 
 Result Pipeline::OnCycleReadPhase(unsigned int stateIndex)
@@ -50,10 +56,10 @@ Result Pipeline::OnCycleReadPhase(unsigned int stateIndex)
     {
         // Begin of the cycle, initialize
         m_nStagesRunnable = 0;
-        for (int i = 0; i < NUM_STAGES; ++i)
+        m_runnable[0] = true;
+        for (int i = 0; i < NUM_STAGES - 1; ++i)
         {
-            Latch* input = m_stages[i]->getInput();
-            m_runnable[i] = (input == NULL || !input->empty());
+            m_runnable[i + 1] = !m_latches[i]->empty;
         }
     }
 
@@ -90,7 +96,8 @@ Result Pipeline::OnCycleReadPhase(unsigned int stateIndex)
 						Latch* input = m_stages[j]->getInput();
 						if (input != NULL && input->tid == tid)
 						{
-							input->clear();
+						    assert(j > 0);
+							m_latches[j - 1]->empty = true;
 						}
 						m_stages[j]->clear(tid);
 					}
@@ -125,9 +132,7 @@ Result Pipeline::OnCycleWritePhase(unsigned int stateIndex)
     				return (action == PIPE_STALL) ? FAILED : SUCCESS;
 	    		}
 
-		    	Latch* input  = m_stages[stage]->getInput();
-    			Latch* output = m_stages[stage]->getOutput();
-
+		    	Latch* input = m_stages[stage]->getInput();
 	    		if (action == PIPE_FLUSH)
     			{
     				// Clear all previous stages with the same TID
@@ -136,7 +141,8 @@ Result Pipeline::OnCycleWritePhase(unsigned int stateIndex)
     					Latch* in = m_stages[j]->getInput();
     					if (in != NULL && in->tid == input->tid)
     					{
-    						in->clear();
+    					    assert(j > 0);
+    					    m_latches[j - 1]->empty = true;
     						m_runnable[j] = false;
     					}
 
@@ -147,8 +153,8 @@ Result Pipeline::OnCycleWritePhase(unsigned int stateIndex)
 	    		COMMIT
     			{
                     m_nStagesRun++;
-    				if (input  != NULL) input->clear();
-    				if (output != NULL) output->set();
+                    if (stage > 0)              m_latches[stage - 1]->empty = true;  // Clear input
+                    if (stage < NUM_STAGES - 1) m_latches[stage    ]->empty = false; // Set output
     			}
 			}
 	        return SUCCESS;

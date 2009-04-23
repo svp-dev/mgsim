@@ -2,8 +2,9 @@
 set -e
 ARCH=${1:?}
 NRCPUS=${2:?}
-TEST=${3:?}
+TEST=${4:?}
 sim=${MGSIM:?}
+timeout=${3:?}
 
 fail=0
 
@@ -16,17 +17,22 @@ dotest() {
       cmd="$sim -o NumProcessors=$i $extraarg $TEST"
       printf "%s" "TEST: $TEST: CPUS=$i $extradesc -> "
       set +e
-      $cmd >/dev/null 2>&1
+      exec 3>&2 2>/dev/null
+      $timeout $cmd >/dev/null
       x=$?
+      exec 2>&3
       set -e
       if test $x = 0; then
-	  echo "PASS"
+	    echo "PASS"
       else
-	  if test $x -ge 126; then
-              exit $x
-	  fi
-	  echo "FAIL"
-	  fail=1
+        if test $x = 137; then
+            echo "TIMEOUT"
+        elif test $x -ge 126; then
+            exit $x
+	    else
+    	    echo "FAIL"
+	    fi
+	    fail=1
       fi
       
       i=$(expr $i + 1)

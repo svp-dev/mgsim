@@ -19,7 +19,8 @@ TEST_SOURCES = \
 	sine/sine_mt_o.s \
 	sine/sine_mt_u.s \
 	sine/sine_seq_o.s \
-	sine/sine_seq_u.s
+	sine/sine_seq_u.s \
+	regression/inf_pipeline_wait_loop.s
 
 if ENABLE_MTALPHA_TESTS
 TESTS = $(TEST_SOURCES:.s=.bin)

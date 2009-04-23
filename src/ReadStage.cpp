@@ -19,65 +19,22 @@
 using namespace Simulator;
 using namespace std;
 
-// Uncomment this define if the Read Stage doesn't read properly.
-// #define DEBUG_READ_STAGE
-
 static uint64_t MAKE_MASK(int num_bits)
 {
+    // Shift in two steps so shifting
+    // by the entire register width works.
     uint64_t mask = 1;
     mask <<= num_bits / 2;
     mask <<= (num_bits - num_bits / 2);
     return mask - 1;
 }
 
-static bool CopyRegister(RegType type, const PipeValue& src_value, RegSize src_offset, PipeValue& dest_value, RegSize dest_offset)
+// Convert a RegValue into a PipeValue
+static PipeValue RegToPipeValue(RegType type, const RegValue& src_value)
 {
+    PipeValue dest_value;
     dest_value.m_state = src_value.m_state;
-    switch (src_value.m_state)
-    {
-    case RST_INVALID: break;
-    case RST_WAITING:
-    case RST_EMPTY:
-        dest_value.m_waiting = src_value.m_waiting;
-        dest_value.m_memory  = src_value.m_memory;
-        dest_value.m_remote  = src_value.m_remote;
-        break;
-        
-    case RST_FULL:
-        {
-            // Make bit-mask and bit-offsets
-#ifdef ARCH_BIG_ENDIAN
-            src_offset  = src_value.m_size  / sizeof(Integer) - 1 - src_offset;
-            dest_offset = dest_value.m_size / sizeof(Integer) - 1 - dest_offset;
-#endif
-            uint64_t     mask       = MAKE_MASK(sizeof(Integer) * 8);
-            unsigned int src_shift  = src_offset  * sizeof(Integer) * 8;
-            unsigned int dest_shift = dest_offset * sizeof(Integer) * 8;
-            switch (type)
-            {
-            case RT_INTEGER:
-                dest_value.m_integer.set(
-                    dest_value.m_integer.get(dest_value.m_size) |
-                    (((src_value.m_integer.get(src_value.m_size) >> src_shift) & mask) << dest_shift),
-                    dest_value.m_size);
-                break;
-            
-            case RT_FLOAT:
-                dest_value.m_float.fromint(
-                    dest_value.m_float.toint(dest_value.m_size) |
-                    (((src_value.m_float.toint(src_value.m_size) >> src_shift) & mask) << dest_shift),
-                    dest_value.m_size);
-                break;
-            }
-        }
-        return true;
-    }
-    return false;
-}
-
-static bool CopyRegister(RegType type, const RegValue& src_value, PipeValue& dest_value, RegSize dest_offset)
-{
-    dest_value.m_state = src_value.m_state;
+    dest_value.m_size  = sizeof(Integer);
     switch (src_value.m_state)
     {
     case RST_INVALID: assert(0); break;
@@ -91,195 +48,174 @@ static bool CopyRegister(RegType type, const RegValue& src_value, PipeValue& des
     case RST_FULL:
         {
             // Make bit-mask and bit-offsets
-#ifdef ARCH_BIG_ENDIAN
-            dest_offset = dest_value.m_size / sizeof(Integer) - 1 - dest_offset;
-#endif
-            unsigned int dest_shift = dest_offset * sizeof(Integer) * 8;
             switch (type)
             {
-            case RT_INTEGER:
-                dest_value.m_integer.set(
-                    dest_value.m_integer.get(dest_value.m_size) | ((uint64_t)src_value.m_integer << dest_shift),
-                    dest_value.m_size);
-                break;
-            
-            case RT_FLOAT:
-                dest_value.m_float.fromint(
-                    dest_value.m_float.toint(dest_value.m_size) | ((uint64_t)src_value.m_float.integer << dest_shift),
-                    dest_value.m_size);
-                break;
+            case RT_INTEGER: dest_value.m_integer.set(src_value.m_integer, dest_value.m_size);
+            case RT_FLOAT:   dest_value.m_float.fromint(src_value.m_float.integer, dest_value.m_size);
             }
         }
-        return true;
+        break;
     }
-    return false;
+    return dest_value;
 }
 
-static int ReadBypass(const RegAddr& src_addr, const PipeValue& src_value, const RegAddr& dest_addr, PipeValue& dest_value, unsigned int to_read_mask, bool read)
+static void CopyRegister(RegType type, const PipeValue& src_value, RegSize src_offset, PipeValue& dest_value, RegSize dest_offset)
 {
-    unsigned int read_mask = 0;
-    
-    // The bypass stage output should be of the same type
-    if (src_addr.valid() && src_addr.type == dest_addr.type)
+    assert(src_value.m_state == RST_FULL);
+
+    // Make bit-mask and bit-offsets
+#ifdef ARCH_BIG_ENDIAN
+    src_offset  = src_value.m_size  / sizeof(Integer) - 1 - src_offset;
+    dest_offset = dest_value.m_size / sizeof(Integer) - 1 - dest_offset;
+#endif
+    const uint64_t     mask       = MAKE_MASK(sizeof(Integer) * 8);
+    const unsigned int src_shift  = src_offset  * sizeof(Integer) * 8;
+    const unsigned int dest_shift = dest_offset * sizeof(Integer) * 8;
+    switch (type)
     {
-        assert(src_value.m_size % sizeof(Integer) == 0);
+        case RT_INTEGER:
+            dest_value.m_integer.set(
+                (dest_value.m_integer.get(dest_value.m_size) & ~(mask << dest_shift)) |
+                (((src_value.m_integer.get(src_value.m_size) >> src_shift) & mask) << dest_shift),
+                dest_value.m_size);
+            break;
+            
+        case RT_FLOAT:
+            dest_value.m_float.fromint(
+                (dest_value.m_float.toint(dest_value.m_size) & ~(mask << dest_shift)) |
+                (((src_value.m_float.toint(src_value.m_size) >> src_shift) & mask) << dest_shift),
+                dest_value.m_size);
+            break;
+    }
+}
+
+/*
+ This function figures out what part of the desired operand is in the source
+ PipeValue and copies the relevant data.
+ 
+ The return value is:
+  = 0 if nothing was read from the source operand.
+  < 0 if at least one register is required from the source, but it's not full.
+  > 0 if at least one register has been copied from the source.
+ 
+ In the latter two cases, the return value is a register mask. In the first of the two cases, the register mask
+ identifies the registers in the destination operand that were wanted. In the second case, the register mask
+ identifies the registers in the destination operand that were written.
+*/
+static int ReadBypass(const RegAddr& src_addr, const PipeValue& src_value, const RegAddr& dest_addr, PipeValue& dest_value, unsigned int to_read_mask)
+{
+    assert( src_addr.valid());
+    assert(dest_addr.valid());
+    assert(src_addr.type == dest_addr.type);
+    assert( src_value.m_size % sizeof(Integer) == 0);
+    assert(dest_value.m_size % sizeof(Integer) == 0);
         
-        RegSize  src_size    = src_value.m_size / sizeof(Integer);
-        RegSize dest_size   = dest_value.m_size / sizeof(Integer);
-        RegSize  src_offset = (dest_addr.index > src_addr.index) ? dest_addr.index -  src_addr.index : 0;
-        RegSize dest_offset = (dest_addr.index < src_addr.index) ?  src_addr.index - dest_addr.index : 0;
+    // See what parts of the source and destination we're interested in
+    const RegSize  src_size   =  src_value.m_size / sizeof(Integer);
+    const RegSize dest_size   = dest_value.m_size / sizeof(Integer);
+    const RegSize  src_offset = (dest_addr.index > src_addr.index) ? dest_addr.index -  src_addr.index : 0;
+    const RegSize dest_offset = (dest_addr.index < src_addr.index) ?  src_addr.index - dest_addr.index : 0;
+    
+    if (src_offset < src_size && dest_offset < dest_size)
+    {
+        // There is overlap between source and destination, get its size
+        const RegSize size = min(src_size - src_offset, dest_size - dest_offset);
         
-        for (to_read_mask >>= dest_offset;
-             src_offset < src_size && to_read_mask != 0;
-             to_read_mask >>= 1, dest_offset++, src_offset++)
+        // All checks are relative to the destination offset.
+        // Also mask the read_mask to get the registers we can actually read.
+        to_read_mask = (to_read_mask >> dest_offset) & ((1 << size) - 1);
+
+        // Check if there's any part of the overlap that we need
+        if (to_read_mask != 0)
         {
-            if (dest_offset < dest_size && to_read_mask & 1)
+            // Yes, check the state of the source and fill the destination
+            switch (src_value.m_state)
             {
-                if (read)
+                case RST_INVALID:
+                case RST_WAITING:
+                case RST_EMPTY:
+                    // The operand was not full.
+                    // In the return value, specify which registers in the destination operand we wanted.
+                    return -(to_read_mask << dest_offset);
+
+                case RST_FULL:
                 {
-                    if (!CopyRegister(
-                        src_addr.type,
-                        src_value,  src_offset,
-                        dest_value, dest_offset
-                        ))
+                    // Copy all registers in the operand that we want
+                    dest_value.m_state = RST_FULL;
+                    for (RegSize i = 0; i < size; ++i)
                     {
-                        // The data was not RST_FULL.
-                        // In the return value, specify which sub-register wasn't full.
-                        return -(1 + src_offset);
+                        if (to_read_mask & (1 << i))
+                        {
+                            CopyRegister(
+                                src_addr.type,
+                                src_value,  src_offset  + i,
+                                dest_value, dest_offset + i
+                            );
+                        }
                     }
+                    
+                    // Return the registers that we've copied
+                    return to_read_mask << dest_offset;
                 }
-                read_mask |= (1 << dest_offset);
             }
+            assert(0);
         }
     }
-    return read_mask;
+    // We've read nothing
+    return 0;
 }
 
 /**
- * Reads a (possibly multi-register) operand.
+ * Prepares to read a (possibly multi-register) operand by reading the register file.
  * @param[in] addr register address of the base of the operand
  * @param[in] size size of the operand, in registers
  * @param[in,out] operand persistent information about the reading of the operand for multi-cycle reads
  * @return true if the operation succeeded. This does not have to indicate the entire register has been read.
  */
-bool Pipeline::ReadStage::ReadRegister(OperandInfo& operand)
+bool Pipeline::ReadStage::ReadRegister(OperandInfo& operand, uint32_t literal)
 {
     if (operand.to_read_mask == -1)
     {
-        // This is a new operand read; initialize operand value to zero
+        // This is a new operand read; initialize operand value
         operand.value.m_state = RST_FULL;
+        if (operand.addr.valid()) {
+            // Valid new read; mark entire operand as unread and initialize to zero
+            literal = 0;
+            operand.to_read_mask = (1 << (operand.value.m_size / sizeof(Integer))) - 1;
+        } else {
+            // Invalid read -- use the literal, and everything's been read
+            operand.to_read_mask = 0;
+        }
+        
         switch (operand.addr.type)
         {
-            case RT_INTEGER: operand.value.m_integer.set  (0, operand.value.m_size); break;
-            case RT_FLOAT:   operand.value.m_float.fromint(0, operand.value.m_size); break;
+            case RT_INTEGER: operand.value.m_integer.set  (literal, operand.value.m_size); break;
+            case RT_FLOAT:   operand.value.m_float.fromint(literal, operand.value.m_size); break;
         }
-
-        operand.to_read_mask = operand.addr.valid()
-            // Valid new read; mark entire operand as unread
-            ? (1 << (operand.value.m_size / sizeof(Integer))) - 1
-            // Invalid read -- everything's been read
-            : 0;
-
-#ifdef DEBUG_READ_STAGE
-        printf("[CPU %u] New operand read: %d\n", (unsigned int)m_parent.GetProcessor().GetPID(), operand.to_read_mask);
-#endif
     }
     
-    if (operand.addr.valid())
+    if (operand.to_read_mask != 0)
     {
-        // We have a valid address; read the operand
-        static const unsigned int N_BYPASSES = 3;
-        const struct BypassInfo
+        // Part of the operand still needs to be read from the register file
+        if (!operand.port->Read())
         {
-            const Pipeline::Latch& latch;
-            RegAddr&               addr;
-            PipeValue&             value;
-            bool                   read;
-        } bypasses[N_BYPASSES] = {
-            {m_output,  m_output .Rc, m_output .Rcv, false},    // Read-Execute latch
-            {m_bypass1, m_bypass1.Rc, m_bypass1.Rcv, false},    // Execute-Memory latch
-            {m_bypass2, m_bypass2.Rc, m_bypass2.Rcv, true }     // Memory-Writeback latch
-        };
-
-        // We check the bypasses with a copy of the read mask, because we don't
-        // actually read the bypasses here, we just need to check if they'll have
-        // the data in the Write phase.
-        unsigned int to_read_mask = operand.to_read_mask;
-
-        // Iterate over all bypasses as long as we still have sub-values to read
-        for (unsigned int i = 0; i < N_BYPASSES && to_read_mask != 0; ++i)
-        {
-            const BypassInfo& bi = bypasses[i];
-            if (!bi.latch.empty())
-            {
-                // Non-empty bypass; check it
-                int read_mask = ReadBypass(bi.addr, bi.value, operand.addr, operand.value, operand.to_read_mask, bi.read);
-                if (read_mask < 0)
-                {
-#ifdef DEBUG_READ_STAGE
-                    printf("[CPU %u] Got it NON-FULL from bypass #%d\n", (unsigned int)m_parent.GetProcessor().GetPID(), i );
-#endif
-                    // A part of the operand was not full. read_mask contains
-                    // the register offset. Since we have to suspend on this
-                    // register, pretend we've read everything to stop reading.
-                    if (operand.value.m_state == RST_INVALID)
-                    {
-                        // Drop what we're doing -- we need to try again next cycle
-                        return false;
-                    }
-                    operand.addr = bi.addr;
-                    operand.addr.index += -read_mask - 1;
-                    to_read_mask = operand.to_read_mask = 0;
-                }
-                else if (read_mask > 0)
-                {
-                    // We can read part of the operand from this bypass later
-#ifdef DEBUG_READ_STAGE
-                    printf("[CPU %u] Get it in write stage from bypass #%d\n", (unsigned int)m_parent.GetProcessor().GetPID(), i );
-#endif
-                    to_read_mask &= ~read_mask;
-                    if (bi.read)
-                    {
-                        operand.to_read_mask &= ~read_mask;
-                    }
-                }
-            }
+            return false;
         }
 
-        if (to_read_mask != 0)
-        {
-#ifdef DEBUG_READ_STAGE
-            printf("[CPU %u] Reading from registers %04x: %d\n", (unsigned int)m_parent.GetProcessor().GetPID(), (unsigned int)operand.addr.index, to_read_mask );
-#endif
-            // Part of the operand still needs to be read from the register file
-            if (!operand.port->Read())
-            {
-                return false;
-            }
+        // Find the first register to read
+        unsigned int offset, mask = operand.to_read_mask;
+        for (offset = 0; ~mask & 1; mask >>= 1, offset++);
 
-            // Find the first register to read
-            unsigned int offset, mask = to_read_mask;
-            for (offset = 0; ~mask & 1; mask >>= 1, offset++);
-                       
-            RegValue value;
-            if (!m_regFile.ReadRegister(MAKE_REGADDR(operand.addr.type, operand.addr.index + offset), value))
-            {
-                return false;
-            }
-            
-            // Place the read register into the final value
-            if (!CopyRegister(operand.addr.type, value, operand.value, offset))
-            {
-                // A part of the operand was not full.
-                operand.addr.index += offset;
-                to_read_mask = operand.to_read_mask = 0;
-            }
-            else
-            {
-                // We've read this register part
-                operand.to_read_mask &= ~(1 << offset);
-            }
+        operand.addr_reg = MAKE_REGADDR(operand.addr.type, operand.addr.index + offset);
+        RegValue value;
+        if (!m_regFile.ReadRegister(operand.addr_reg, value))
+        {
+            return false;
         }
+
+        // Convert the register value to a PipeValue.
+        // That way, all ReadStage inputs are PipeValues.
+        operand.value_reg = RegToPipeValue(operand.addr_reg.type, value);
     }
     
     // Data was read
@@ -288,57 +224,102 @@ bool Pipeline::ReadStage::ReadRegister(OperandInfo& operand)
 
 bool Pipeline::ReadStage::ReadBypasses(OperandInfo& operand)
 {
+    // We don't perform this function in the ACQUIRE phase because
+    // we don't have to acquire any ports, but it can still 'fail' in
+    // the VERIFY phase, when the EX stage's output indicates a memory
+    // load, and we have to wait a cycle to get the actual value.
+    // Of course, in the VERIFY phase, the other stages will have already
+    // been run, so all bypasses have the correct values.
     if (operand.addr.valid())
     {
         // We have a valid address; read the operand
-        static const unsigned int N_BYPASSES = 2;
-        const struct BypassInfo
+        static const unsigned int N_INPUTS = 4;
+        const struct InputInfo
         {
-            const Pipeline::Latch& latch;
-            RegAddr&               addr;
-            PipeValue&             value;
-        } bypasses[N_BYPASSES + 1] = {
-            {m_output,  m_output .Rc, m_output .Rcv},
-            {m_bypass1, m_bypass1.Rc, m_bypass1.Rcv},
-            {m_bypass2, m_bypass2.Rc, m_bypass2.Rcv}
+            bool       empty;
+            RegAddr&   addr;
+            PipeValue& value;
+        } bypasses[N_INPUTS] = {
+            {false,           operand.addr_reg, operand.value_reg},
+            {m_wblatch.empty, m_wblatch.Rc,     m_wblatch.Rcv},
+            {m_bypass2.empty, m_bypass2.Rc,     m_bypass2.Rcv},
+            {m_bypass1.empty, m_bypass1.Rc,     m_bypass1.Rcv},
         };
-        
-        unsigned int start = !IsAcquiring() ? 1 : 0;
-        
-        // Iterate over all bypasses as long as we still have sub-values to read
-        for (unsigned int i = 0; i < N_BYPASSES && operand.to_read_mask != 0; ++i)
+
+        // If an operand is not full, we need to keep track of its contents,
+        // and address of first register.
+        unsigned int nonfull_mask  = 0;
+        RegAddr      nonfull_addr  = INVALID_REG;
+        PipeValue    nonfull_value = MAKE_EMPTY_PIPEVALUE(sizeof(Integer));
+
+        // Iterate over all inputs from back to front. This in effect 'replays'
+        // the last instructions and gets the correct final value.
+        unsigned int combined_read_mask = 0;
+        for (unsigned int i = 0; i < N_INPUTS; ++i)
         {
-            const BypassInfo& bi = bypasses[start + i];
-            if (!bi.latch.empty())
+            const InputInfo& ii = bypasses[i];
+            if (!ii.empty && ii.addr.valid() && ii.addr.type == operand.addr.type)
             {
-                // Non-empty bypass; read it
-                int read_mask = ReadBypass(bi.addr, bi.value, operand.addr, operand.value, operand.to_read_mask, !IsAcquiring());
+                // Non-empty bypass of the same type; read it
+                int read_mask = ReadBypass(ii.addr, ii.value, operand.addr, operand.value, operand.to_read_mask);
                 if (read_mask < 0)
                 {
-#ifdef DEBUG_READ_STAGE
-                    printf("[CPU %u] Got it from bypass #%d: NOT FULL\n", (unsigned int)m_parent.GetProcessor().GetPID(), i );
-#endif
                     // A part of the operand was not full. read_mask contains
-                    // the register offset. Since we have to suspend on this
-                    // register, pretend we've read everything to stop reading.
-                    if (operand.value.m_state == RST_INVALID)
+                    // which registers (negated).
+                    read_mask = -read_mask;
+
+                    // If the input value is waiting, but the desired value turns out to have
+                    // been written earlier, don't wait.
+                    if (ii.value.m_state != RST_WAITING || (combined_read_mask & read_mask) != (unsigned int)read_mask)
                     {
-                        // Drop what we're doing -- we need to try again next cycle
-                        return false;
+                        // The operand value was not touched, remember the operand
+                        // for the empty state (memory/remote request, waiting queue)
+                        nonfull_mask |= read_mask;
+                        nonfull_value = ii.value;
+
+                        // Get the address of the first non-full register to be able to wait on it.
+                        nonfull_addr = operand.addr;
+                        while (~read_mask & 1) {
+                            ++nonfull_addr.index;
+                            read_mask >>= 1;
+                        }
+                        read_mask = 0;
                     }
-                    operand.addr = bi.addr;
-                    operand.addr.index += -read_mask - 1;
-                    operand.to_read_mask = 0;
                 }
-                else if (read_mask != 0)
+                
+                if (read_mask != 0)
                 {
-#ifdef DEBUG_READ_STAGE
-                    printf("[CPU %u] Got it from bypass #%d\n", (unsigned int)m_parent.GetProcessor().GetPID(), i );
-#endif
                     // We've read part of the operand from this bypass
-                    operand.to_read_mask &= ~read_mask;
+                    nonfull_mask       &= ~read_mask;    // These bits are now full
+                    combined_read_mask |=  read_mask;    // And have been read
                 }
             }
+        }
+        
+        if (nonfull_mask != 0)
+        {
+            // At least one register was not full in the end.
+            if (nonfull_value.m_state == RST_INVALID)
+            {
+                // Drop what we're doing -- we need to try again next cycle.
+                // This is when the most recent result will actually be generated
+                // later in the pipeline (e.g., a memory load is picked up before
+                // the Memory Stage).
+                return false;
+            }
+
+            // Wait on it
+            operand.addr  = nonfull_addr;
+            operand.value = nonfull_value;
+            
+            // Pretend we've read everything since the entire operand
+            // will now be waiting on the wanted register.
+            operand.to_read_mask = 0;
+        }
+        else
+        {
+            // We no longer have to read the registers that we read
+            operand.to_read_mask &= ~combined_read_mask;
         }
     }
     return true;
@@ -349,10 +330,14 @@ Pipeline::PipeAction Pipeline::ReadStage::read()
     OperandInfo operand1(m_operand1);
     OperandInfo operand2(m_operand2);
 
+    // Initialize the operand states
     operand1.addr         = m_input.Ra;
     operand1.value.m_size = m_input.RaSize;
     operand2.addr         = m_input.Rb;
     operand2.value.m_size = m_input.RbSize;
+    
+    // Copy the writeback latch because it'll be gone in the Write phase
+    m_wblatch = m_bypass2;
     
 #if TARGET_ARCH == ARCH_SPARC
     m_isMemoryStore = false;
@@ -382,56 +367,17 @@ Pipeline::PipeAction Pipeline::ReadStage::read()
     }
 #endif
 
-#ifdef DEBUG_READ_STAGE
-    printf("[CPU %u][R] Before reading: %d, %d\n", (unsigned int)m_parent.GetProcessor().GetPID(), operand1.to_read_mask, operand2.to_read_mask );
-    printf("[CPU %u][R] Reading operand 1\n", (unsigned int)m_parent.GetProcessor().GetPID());
-#endif
-    if (!ReadRegister(operand1))
+    if (!ReadRegister(operand1, 0))
     {
-#ifdef DEBUG_READ_STAGE
-        printf("Stall\n");
-#endif
         return PIPE_STALL;
     }
-#ifdef DEBUG_READ_STAGE
-    printf("[CPU %u][R] Operand 1: %016llx\n",
-        (unsigned int)m_parent.GetProcessor().GetPID(),
-        (operand1.addr.type == RT_INTEGER)
-        ? (unsigned long long)operand1.value.m_integer.get(operand1.value.m_size)
-        : (unsigned long long)operand1.value.m_float.toint(operand1.value.m_size));
-#endif
-
-    if (!operand2.addr.valid())
+    
+    // Use the literal if the second operand is not valid
+    if (!ReadRegister(operand2, m_input.literal))
     {
-        // Use the literal if the second operand is not valid
-        operand2.value.m_integer = m_input.literal;
-        operand2.value.m_state   = RST_FULL;
-        operand2.to_read_mask    = 0;
+        return PIPE_STALL;
     }
-    else
-    {
-#ifdef DEBUG_READ_STAGE
-        printf("[CPU %u][R] Reading operand 2\n", (unsigned int)m_parent.GetProcessor().GetPID());
-#endif
-        if (!ReadRegister(operand2))
-        {
-#ifdef DEBUG_READ_STAGE
-            printf("Stall\n");
-#endif
-            return PIPE_STALL;
-        }
-#ifdef DEBUG_READ_STAGE
-    printf("[CPU %u][R] Operand 2: %016llx\n",
-        (unsigned int)m_parent.GetProcessor().GetPID(),
-        (operand2.addr.type == RT_INTEGER)
-        ? (unsigned long long)operand2.value.m_integer.get(operand2.value.m_size)
-        : (unsigned long long)operand2.value.m_float.toint(operand2.value.m_size));
-#endif
-    }
-#ifdef DEBUG_READ_STAGE
-    printf("[CPU %u][R] After reading: %d, %d\n", (unsigned int)m_parent.GetProcessor().GetPID(), operand1.to_read_mask, operand2.to_read_mask );
-#endif
-
+    
     COMMIT
     {
         m_operand1 = operand1;
@@ -442,69 +388,40 @@ Pipeline::PipeAction Pipeline::ReadStage::read()
 
 Pipeline::PipeAction Pipeline::ReadStage::write()
 {
+    if (IsAcquiring())
+    {
+        // We're not acquiring anything in the write phase,
+        // so everything went well. This simplifies the rest of
+        // the code a bit.
+        return PIPE_CONTINUE;
+    }
+    
     OperandInfo operand1( m_operand1 );
     OperandInfo operand2( m_operand2 );
 
-#ifdef DEBUG_READ_STAGE
-    printf("[CPU %u][W] Before reading: %d, %d\n", (unsigned int)m_parent.GetProcessor().GetPID(), operand1.to_read_mask, operand2.to_read_mask );
-    printf("[CPU %u][W] Reading operand 1\n", (unsigned int)m_parent.GetProcessor().GetPID());
-#endif
     if (!ReadBypasses(operand1))
     {
-#ifdef DEBUG_READ_STAGE
-        printf("Stall\n");
-#endif
         return PIPE_STALL;
     }
-#ifdef DEBUG_READ_STAGE
-    printf("[CPU %u][W] Operand 1: %016llx\n",
-        (unsigned int)m_parent.GetProcessor().GetPID(),
-        (operand1.addr.type == RT_INTEGER)
-        ? (unsigned long long)operand1.value.m_integer.get(operand1.value.m_size)
-        : (unsigned long long)operand1.value.m_float.toint(operand1.value.m_size));
-#endif
     
-#ifdef DEBUG_READ_STAGE
-    printf("[CPU %u][W] Reading operand 2\n", (unsigned int)m_parent.GetProcessor().GetPID());
-#endif
     if (!ReadBypasses(operand2))
     {
-#ifdef DEBUG_READ_STAGE
-        printf("Stall\n");
-#endif
         return PIPE_STALL;
     }
-#ifdef DEBUG_READ_STAGE
-    printf("[CPU %u][W] Operand 2: %016llx\n",
-        (unsigned int)m_parent.GetProcessor().GetPID(),
-        (operand2.addr.type == RT_INTEGER)
-        ? (unsigned long long)operand2.value.m_integer.get(operand2.value.m_size)
-        : (unsigned long long)operand2.value.m_float.toint(operand2.value.m_size));
-#endif
     
-    COMMIT
-    {
-        m_operand1 = operand1;
-        m_operand2 = operand2;
-    }
-    
-#ifdef DEBUG_READ_STAGE
-    printf("[CPU %u][W] After reading: %d, %d\n", (unsigned int)m_parent.GetProcessor().GetPID(), operand1.to_read_mask, operand2.to_read_mask );
-#endif
     if (operand1.to_read_mask != 0 || operand2.to_read_mask != 0)
     {
         // Both operands haven't been fully read yet -- delay
-#ifdef DEBUG_READ_STAGE
-        printf("Delaying\n");
-#endif
+        COMMIT
+        {
+            m_operand1 = operand1;
+            m_operand2 = operand2;
+        }
         return PIPE_DELAY;
     }
     else
     {
         // We're done with these operands -- reset for new operands next cycle
-#ifdef DEBUG_READ_STAGE
-        printf("Done\n");
-#endif
         COMMIT
         {
             m_operand1.to_read_mask = -1;
@@ -515,14 +432,15 @@ Pipeline::PipeAction Pipeline::ReadStage::write()
     COMMIT
     {
         // Copy common latch data
-        (CommonLatch&)m_output         = m_input;
+        (Latch&)m_output               = m_input;
         (ArchDecodeReadLatch&)m_output = m_input;
-        m_output.Ra   = m_operand1.addr;
-        m_output.Rb   = m_operand2.addr;
+        
+        m_output.Ra   = operand1.addr;
+        m_output.Rb   = operand2.addr;
         m_output.Rc   = m_input.Rc;
         m_output.Rrc  = m_input.Rrc;
-        m_output.Rav  = m_operand1.value;
-        m_output.Rbv  = m_operand2.value;
+        m_output.Rav  = operand1.value;
+        m_output.Rbv  = operand2.value;
         m_output.Rcv.m_size = m_input.RcSize;
         m_output.regs = m_input.regs;
     }
@@ -539,9 +457,6 @@ Pipeline::PipeAction Pipeline::ReadStage::write()
             
 			if (!m_network.RequestRegister(rra, m_input.fid))
             {
-#ifdef DEBUG_READ_STAGE
-                printf("Stall\n");
-#endif
                 return PIPE_STALL;
             }
         }
@@ -550,6 +465,7 @@ Pipeline::PipeAction Pipeline::ReadStage::write()
         {
             m_output.Rc                 = operand1.addr;
             m_output.Rrc.fid            = INVALID_LFID;
+            m_output.Rav                = operand1.value;
             m_output.Rav.m_state        = RST_WAITING;
             m_output.Rav.m_waiting.head = m_input.tid;
             m_output.Rav.m_waiting.tail = (operand1.value.m_state == RST_WAITING)
@@ -568,9 +484,6 @@ Pipeline::PipeAction Pipeline::ReadStage::write()
             
 			if (!m_network.RequestRegister(rrb, m_input.fid))
             {
-#ifdef DEBUG_READ_STAGE
-                printf("Stall\n");
-#endif
                 return PIPE_STALL;
             }
         }
@@ -579,6 +492,7 @@ Pipeline::PipeAction Pipeline::ReadStage::write()
         {
             m_output.Rc                 = operand2.addr;
             m_output.Rrc.fid            = INVALID_LFID;
+            m_output.Rbv                = operand2.value;
             m_output.Rbv.m_state        = RST_WAITING;
             m_output.Rbv.m_waiting.head = m_input.tid;
             m_output.Rbv.m_waiting.tail = (operand2.value.m_state == RST_WAITING)
@@ -594,14 +508,11 @@ Pipeline::PipeAction Pipeline::ReadStage::write()
         // and then the two address registers in the next cycle.
         if (m_isMemoryStore)
         {
-#ifdef DEBUG_READ_STAGE
-            printf("Handling memory store, value full: %d\n", m_storeValue.m_state == RST_FULL);
-#endif
             if (m_storeValue.m_state != RST_FULL)
             {
                 // Store value hasn't been read yet; read it
                 COMMIT {
-                    if (m_operand1.to_read_mask <= 0) {
+                    if (operand1.to_read_mask <= 0) {
                         // First phase of the store has completed,
                         // copy the read value.
                         m_storeValue = operand1.value;
@@ -619,9 +530,6 @@ Pipeline::PipeAction Pipeline::ReadStage::write()
         }
 #endif
     }
-#ifdef DEBUG_READ_STAGE
-    printf("Continuing\n");
-#endif
     return PIPE_CONTINUE;
 }
 

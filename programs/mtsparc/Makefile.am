@@ -11,7 +11,8 @@ TEST_SOURCES = \
     matmul/matmul0.s \
     matmul/matmul1.s \
     matmul/matmul2.s \
-    matmul/matmul3.s
+    matmul/matmul3.s \
+    regression/inf_pipeline_wait_loop.s
 
 if ENABLE_MTSPARC_TESTS
 TESTS = $(TEST_SOURCES:.s=.bin)
