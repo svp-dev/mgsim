@@ -495,82 +495,131 @@ static bool cmd_allocator_read( Object* obj, const vector<string>& /* arguments 
     const Allocator* alloc = dynamic_cast<Allocator*>(obj);
     if (alloc == NULL) return false;
 
-	Buffer<LFID>                    creates = alloc->GetCreateQueue();
-    Buffer<TID>                     cleanup = alloc->GetCleanupQueue();
-	Buffer<Allocator::AllocRequest> allocs  = alloc->GetAllocationQueue();
+    {
+        cout << "Family allocation queue: " << endl;
+	    Buffer<Allocator::AllocRequest> allocs = alloc->GetFamilyAllocationQueue();
+        if (allocs.empty())
+        {
+            cout << "Empty" << endl;
+        }
+        else
+        {
+            while (!allocs.empty())
+            {
+    			const Allocator::AllocRequest& req = allocs.front();
+			    cout << "T" << req.parent << ":R" << hex << uppercase << setw(4) << setfill('0') << req.reg << nouppercase << dec;
+                allocs.pop();
+                if (!allocs.empty())
+                {
+                    cout << ", ";
+                }
+            }
+            cout << endl;
+        }
+	    cout << endl;
+	}
+	
+	{
+	    cout << "Thread allocation queue: " << endl;	    
+	    const FamilyTable& families = alloc->GetFamilyTable();
+        const FamilyQueue& queue    = alloc->GetThreadAllocationQueue();
+	    if (queue.head == INVALID_LFID)
+	    {
+    	    cout << "Empty";
+    	}
+
+    	LFID fid = queue.head;
+    	while (fid != INVALID_LFID)
+    	{
+    	    cout << "F" << fid;
+    	    if (fid != queue.tail)
+    	    {
+        	    cout << ", ";
+    	    }
+    	    fid = families[fid].next;
+    	}
+    	cout << endl << endl;
+    }
     
-    cout << "Allocation queue: " << endl;
-    if (allocs.empty())
-    {
-        cout << "Empty" << endl;
+    {    
+        cout << "Current exclusive family: ";
+        LFID fid_ex = alloc->GetExclusiveFamily();
+        if (fid_ex == INVALID_LFID) {
+            cout << "None";
+        } else {
+            cout << "F" << fid_ex;
+        }
+        cout << endl << endl;
     }
-    else
-    {
-        while (!allocs.empty())
-        {
-			const Allocator::AllocRequest& req = allocs.front();
-			cout << "T" << req.parent << ":R" << hex << uppercase << setw(4) << setfill('0') << req.reg;
-            allocs.pop();
-            if (!allocs.empty())
+    
+	{
+	    const struct {
+	        const char*         name;
+	        const Buffer<LFID>& queue;
+	    } queues[2] = {
+	        {"Non-exclusive", alloc->GetCreateQueue()          },
+	        {"Exclusive",     alloc->GetExclusiveCreateQueue() }
+	    };
+	    
+	    for (size_t i = 0; i < 2; i++)
+	    {
+            cout << queues[i].name << " create queue: " << dec << endl;
+	        Buffer<LFID> creates = queues[i].queue;
+            if (creates.empty())
             {
-                cout << ", ";
+                cout << "Empty" << endl;
             }
-        }
-        cout << endl;
-    }
-	cout << endl;
-
-    cout << "Create queue: " << dec << endl;
-    if (creates.empty())
-    {
-        cout << "Empty" << endl;
-    }
-    else
-    {
-		LFID fid = creates.front();
-        for (int i = 0; !creates.empty(); ++i)
-        {
-			cout << "F" << creates.front();
-            creates.pop();
-			if (!creates.empty())
-			{
-				cout << ", ";
-			}
-        }
-        cout << endl;
-		cout << "Create state for F" << fid << ": ";
-		switch (alloc->GetCreateState())
-		{
-			case Allocator::CREATE_INITIAL:				 cout << "Initial"; break;
-			case Allocator::CREATE_LOADING_LINE:		 cout << "Loading cache-line"; break;
-			case Allocator::CREATE_LINE_LOADED:			 cout << "Cache-line loaded"; break;
-			case Allocator::CREATE_ACQUIRING_TOKEN:		 cout << "Acquiring token"; break;
-			case Allocator::CREATE_BROADCASTING_CREATE:	 cout << "Broadcasting create"; break;
-			case Allocator::CREATE_ALLOCATING_REGISTERS: cout << "Allocating registers"; break;
-		}
-		cout << endl;
-    }
-    cout << endl;
-
-    cout << "Cleanup queue: " << endl;
-    if (cleanup.empty())
-    {
-        cout << "Empty" << endl;
-    }
-    else
-    {
-        while (!cleanup.empty())
-        {
-            cout << "T" << cleanup.front();
-            cleanup.pop();
-            if (!cleanup.empty())
+            else
             {
-                cout << ", ";
+    		    LFID fid = creates.front();
+                for (int i = 0; !creates.empty(); ++i)
+                {
+        			cout << "F" << creates.front();
+                    creates.pop();
+			        if (!creates.empty())
+			        {
+        				cout << ", ";
+			        }
+                }
+                cout << endl;
+		        cout << "Create state for F" << fid << ": ";
+		        switch (alloc->GetCreateState())
+		        {
+        			case Allocator::CREATE_INITIAL:				 cout << "Initial"; break;
+			        case Allocator::CREATE_LOADING_LINE:		 cout << "Loading cache-line"; break;
+			        case Allocator::CREATE_LINE_LOADED:			 cout << "Cache-line loaded"; break;
+			        case Allocator::CREATE_ACQUIRING_TOKEN:		 cout << "Acquiring token"; break;
+			        case Allocator::CREATE_BROADCASTING_CREATE:	 cout << "Broadcasting create"; break;
+			        case Allocator::CREATE_ALLOCATING_REGISTERS: cout << "Allocating registers"; break;
+		        }
+		        cout << endl;
             }
+            cout << endl;
         }
-        cout << endl;
     }
-
+    
+    {
+        cout << "Cleanup queue: " << endl;
+        Buffer<TID> cleanup  = alloc->GetCleanupQueue();
+        if (cleanup.empty())
+        {
+            cout << "Empty" << endl;
+        }
+        else
+        {
+            while (!cleanup.empty())
+            {
+                cout << "T" << cleanup.front();
+                cleanup.pop();
+                if (!cleanup.empty())
+                {
+                    cout << ", ";
+                }
+            }
+            cout << endl;
+        }
+    }
+    
     return true;
 }
 

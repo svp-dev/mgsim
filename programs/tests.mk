@@ -1,7 +1,7 @@
 EXTRA_DIST = $(TEST_SOURCES)
 
 TESTS_ENVIRONMENT = \
-   MGSIM="$(top_builddir)/src/mgsim-$(ARCH) -c $(top_srcdir)/programs/config.ini -t" \
+   MGSIM="$(top_builddir)/src/mgsim-$(ARCH).dbg -c $(top_srcdir)/programs/config.ini -t" \
    $(SHELL) $(top_srcdir)/programs/runtest.sh $(ARCH) 4 $(top_srcdir)/programs/timeout
 
 ASLINK = $(SHELL) $(top_builddir)/programs/aslink.sh $(ARCH)

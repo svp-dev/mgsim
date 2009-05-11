@@ -137,11 +137,15 @@ public:
     void   UpdateStatistics();
 
     /* Admin functions */
+    FamilyTable&                 GetFamilyTable()             const { return m_familyTable; }
 	TID                          GetRegisterType(LFID fid, RegAddr addr, RegClass* group) const;
-    const Buffer<LFID>&          GetCreateQueue()     const { return m_creates;     }
-	CreateState                  GetCreateState()     const { return m_createState; }
-	const Buffer<AllocRequest>&  GetAllocationQueue() const { return m_allocations; }
-    const Buffer<TID>&           GetCleanupQueue()    const { return m_cleanup;     }
+    const Buffer<LFID>&          GetCreateQueue()             const { return m_creates;     }
+    const Buffer<LFID>&          GetExclusiveCreateQueue()    const { return m_createsEx;   }
+	CreateState                  GetCreateState()             const { return m_createState; }
+	const Buffer<AllocRequest>&  GetFamilyAllocationQueue()   const { return m_allocations; }
+	const FamilyQueue&           GetThreadAllocationQueue()   const { return m_alloc;       }
+    const Buffer<TID>&           GetCleanupQueue()            const { return m_cleanup;     }
+    LFID                         GetExclusiveFamily()         const { return m_exclusive;   }
 
 private:
     // A queued register write
@@ -185,14 +189,18 @@ private:
     uint64_t             m_minActiveQueueSize;
 
     // Initial allocation
+    LFID                 m_exclusive;  // Currently executing exclusive family
     LFID                 m_allocating; // This family we're initially allocating from
     FamilyQueue          m_alloc;      // This is the queue of families waiting for initial allocation
 
     // Buffers
-    Buffer<LFID>          m_creates;        // Local create queue
+    Buffer<LFID>          m_creates;        // Create queue
+    Buffer<LFID>          m_createsEx;      // Exclusive create queue
     Buffer<RegisterWrite> m_registerWrites; // Register write queue
     Buffer<TID>           m_cleanup;        // Cleanup queue
 	Buffer<AllocRequest>  m_allocations;	// Family allocation queue
+	
+	LFID                  m_createFID;      // Family ID of the current create
 	CreateState           m_createState;	// State of the current state;
 	CID                   m_createLine;		// Cache line that holds the register info
 

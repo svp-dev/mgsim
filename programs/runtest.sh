@@ -27,8 +27,10 @@ dotest() {
       else
         if test $x = 137; then
             echo "TIMEOUT"
-        elif test $x -ge 126; then
-            exit $x
+        elif test $x = 134; then
+            echo "ABORT"
+        elif test $x -ge 128; then
+            kill -$($x - 128) $$
 	    else
     	    echo "FAIL"
 	    fi
