@@ -40,7 +40,7 @@ main:
     setstart %5, 1
     setlimit %5, %11
     setblock %5, 2
-    setplace %5, 0
+    setplace %5, 2      ! Local
     fmovs   %f2, %f0
     cred    outer, %5
     mov     %5, %0

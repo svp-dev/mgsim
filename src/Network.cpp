@@ -520,7 +520,6 @@ Result Network::OnCycleWritePhase(unsigned int stateIndex)
                     }
                     
 				    RegValue value(m_registerValue);
-			        value.m_state      = RST_WAITING;
 				    value.m_remote.pid = INVALID_GPID;
 				    value.m_remote.reg = return_addr;
 				    

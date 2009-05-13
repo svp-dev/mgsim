@@ -77,7 +77,7 @@ outer:
     allocate $l3, 0, 0, 0, 0
     setstart $l3, $l1
     setlimit $l3, $l2
-    setplace $l3, 0     # Local family
+    setplace $l3, 2     # Local family
     
     mov     $g0, $l0
     mov     $g1, $l1

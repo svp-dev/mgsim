@@ -118,6 +118,16 @@ Pipeline::PipeAction Pipeline::WritebackStage::write()
                 {
                     assert(value.m_waiting.tail == m_input.tid);
                 }
+                
+                // The remote waiting state might have changed since the pipeline.
+                // If the register's now waiting remotely, copy that information.
+                // Note: this cannot happen for the memory state (m_memory), because
+                // that is only written from the pipeline, so the read stage would've
+                // picked it up from the bypass bus.
+                if (value.m_remote.reg.fid == INVALID_LFID)
+                {
+                    value.m_remote = old_value.m_remote;
+                }
                     
                 COMMIT
                 {
@@ -139,7 +149,7 @@ Pipeline::PipeAction Pipeline::WritebackStage::write()
         
         // Check if this value should be forwarded.
         // If there is a remote write waiting on this register, we never forward.
-        if (m_input.Rrc.fid != INVALID_LFID && (old_value.m_state != RST_WAITING || old_value.m_remote.reg.fid == INVALID_LFID))
+        if (m_input.Rrc.fid != INVALID_LFID && (old_value.m_state == RST_FULL || old_value.m_remote.reg.fid == INVALID_LFID))
         {
             assert(m_input.Rcv.m_state == RST_FULL);
             

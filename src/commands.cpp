@@ -473,6 +473,8 @@ static bool cmd_network_read( Object* obj, const vector<string>& /* arguments */
     if (!network->m_completedFamily.IsEmpty()) cout << "* Local family completion of F" << network->m_completedFamily.Read() << endl;
     if (!network->m_completedThread.IsEmpty()) cout << "* Local thread completion of F" << network->m_completedThread.Read() << endl;
     if (!network->m_cleanedUpThread.IsEmpty()) cout << "* Local thread cleanup of F" << network->m_cleanedUpThread.Read() << endl;
+    
+    if (!network->m_delegateRemote.IsEmpty()) cout << "* Delegated create of PC 0x" << hex << network->m_delegateRemote.Read().address << dec << endl;
 
     return true;
 }
@@ -1295,8 +1297,8 @@ static bool cmd_regs_read( Object* obj, const vector<string>& arguments )
         }
     }
 
-    cout << "      |  State  |       Value      | Fam | Thread | Type"       << endl;
-    cout << "------+---------+------------------+-----+--------+-----------" << endl;
+    cout << "      |  State  | MR |       Value      | Fam | Thread | Type"       << endl;
+    cout << "------+---------+----+------------------+-----+--------+-----------" << endl;
     for (RegIndex i = size; i > 0; i--)
     {
         RegValue value;
@@ -1304,6 +1306,16 @@ static bool cmd_regs_read( Object* obj, const vector<string>& arguments )
         LFID      fid = regs[i - 1].fid;
         regfile->ReadRegister(addr, value);
         cout << addr << " | " << setw(7) << setfill(' ') << StateNames[value.m_state] << " | ";
+        if (value.m_state != RST_FULL)
+        {
+            cout << (value.m_memory.size    != 0            ? 'M' : ' ');
+            cout << (value.m_remote.reg.fid != INVALID_LFID ? 'R' : ' ');
+        }
+        else
+        {
+            cout << "  ";
+        }
+        cout << " | ";
         
 		stringstream ss;
         switch (value.m_state)
@@ -1315,7 +1327,6 @@ static bool cmd_regs_read( Object* obj, const vector<string>& arguments )
                                 << setw(     sizeof(Integer) * 2) << setfill('0') << hex << value.m_integer; break;
             case RT_FLOAT:   ss << setw(16 - sizeof(Integer) * 2) << setfill(' ') << ""
                                 << setw(     sizeof(Integer) * 2) << setfill('0') << hex << value.m_float.integer; break;
-            //case RT_FLOAT:   ss << setprecision(16) << fixed << value.m_float.tofloat(); break;
             }
             break;
 

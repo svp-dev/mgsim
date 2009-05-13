@@ -34,12 +34,17 @@ typedef size_t   LFID;          ///< Local family index
 /// Place identifier
 struct PlaceID
 {
+    enum Type {
+        DEFAULT  = 0,
+        GROUP    = 0,
+        LOCAL    = 1,
+        DELEGATE = 2,
+    };
+    
     GPID       pid;
     Capability capability;
     bool       exclusive;
-    
-    bool IsLocal() const { return pid == 0 && capability == 0; }
-    bool IsDelegated(GPID self_pid) const { return !IsLocal() && self_pid != pid; }
+    Type       type;
 };
 
 /// 32-bit IEEE-754 float

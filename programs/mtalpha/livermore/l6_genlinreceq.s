@@ -52,7 +52,7 @@ main:
     setstart $4, 1
     setlimit $4, $10
     setblock $4, 2
-    setplace $4, 0
+    setplace $4, 2      # Local
     cred    $4, outer
     mov     $4, $31
     end

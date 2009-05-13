@@ -591,7 +591,7 @@ bool Allocator::WriteExitCode(RegIndex reg, ExitCode code)
 bool Allocator::OnRemoteSync(LFID fid, ExitCode code)
 {
     Family& family = m_familyTable[fid];
-    assert(family.place.IsDelegated(m_parent.GetPID()));
+    assert(family.place.type == PlaceID::DELEGATE);
     
     if (!KillFamily(fid, family, code))
     {
@@ -879,9 +879,7 @@ void Allocator::SetDefaultFamilyEntry(LFID fid, TID parent, const RegisterBases 
 {
 	COMMIT
 	{
-		Family&       family     = m_familyTable[fid];
-		const Thread& thread     = m_threadTable[parent];
-		const Family& parent_fam = m_familyTable[thread.family];
+		Family& family = m_familyTable[fid];
 
 		family.created       = false;
 		family.legacy        = false;
@@ -896,10 +894,11 @@ void Allocator::SetDefaultFamilyEntry(LFID fid, TID parent, const RegisterBases 
         family.link_prev     = INVALID_LFID;
         family.link_next     = INVALID_LFID;
                                                     		
-		// Inherit place (local or group)
-        family.place.pid        = parent_fam.place.IsLocal() ? 0 : m_parent.GetPID();
-		family.place.capability = parent_fam.place.IsLocal() ? 0 : 1;
+		// Set default place
+		family.place.type       = PlaceID::DEFAULT;
 		family.place.exclusive  = false;
+        family.place.pid        = 0;
+		family.place.capability = 0;
 
 		// By default, the globals and shareds are taken from the locals of the parent thread
 		for (RegType i = 0; i < NUM_REG_TYPES; i++)
@@ -941,10 +940,10 @@ Result Allocator::AllocateFamily(TID parent, RegIndex reg, LFID* fid, const Regi
 
 bool Allocator::OnDelegatedCreate(const DelegateMessage& msg)
 {
-    Buffer<LFID> queue = (msg.exclusive) ? m_createsEx : m_creates;
+    Buffer<LFID>& queue = (msg.exclusive) ? m_createsEx : m_creates;
     if (queue.full())
     {
-        return INVALID_LFID;
+        return false;
     }
 
 	LFID fid = m_familyTable.AllocateFamily();
@@ -971,9 +970,10 @@ bool Allocator::OnDelegatedCreate(const DelegateMessage& msg)
             family.state         = FST_CREATE_QUEUED;
 
     		// Set place to group
-            family.place.pid        = m_parent.GetPID();
+    		family.place.type       = PlaceID::GROUP;
+    		family.place.exclusive  = msg.exclusive;
+            family.place.pid        = 0;
     		family.place.capability = 0;
-    		family.place.exclusive  = false;
 
             // Lock the family
             family.created = true;
@@ -988,8 +988,9 @@ bool Allocator::OnDelegatedCreate(const DelegateMessage& msg)
             queue.push(fid);
         }
         DebugSimWrite("Queued delegated create by F%u@P%u at 0x%llx", msg.parent.fid, msg.parent.pid, (unsigned long long)msg.address);
+        return true;
 	}
-	return fid;
+	return false;
 }
 
 LFID Allocator::OnGroupCreate(const CreateMessage& msg, LFID link_next)
@@ -1405,12 +1406,12 @@ Result Allocator::OnCycleWritePhase(unsigned int stateIndex)
     			
                 // Determine create type
                 const char* create_type = "???";
-                if (family.place.IsLocal()) {
+                if (family.place.type == PlaceID::LOCAL) {
                     create_type = "local";
-                } else if (family.place.IsDelegated(m_parent.GetPID())) {
+                } else if (family.place.type == PlaceID::DELEGATE) {
                     create_type = "delegated";
                 } else {
-                    create_type = "group";
+                    create_type = "default";
                 }
                 
                 // Determine exclusiveness
@@ -1478,8 +1479,14 @@ Result Allocator::OnCycleWritePhase(unsigned int stateIndex)
                     hasDependency = true;
                 }
             }
-      		m_icache.ReleaseCacheLine(m_createLine);
-
+            
+            // Release the cache-lined held by the create so far
+            if (!m_icache.ReleaseCacheLine(m_createLine))
+            {
+    		    DeadlockWrite("Unable to release cache line for F%u", m_createFID);
+                return FAILED;
+            }
+                
             COMMIT
             {
                 for (RegType i = 0; i < NUM_REG_TYPES; i++)
@@ -1489,7 +1496,7 @@ Result Allocator::OnCycleWritePhase(unsigned int stateIndex)
                 }
             }
                 
-            if (family.place.IsDelegated(m_parent.GetPID()))
+            if (family.place.type == PlaceID::DELEGATE)
             {
                 // Delegated create; send the create -- no further processing required on this core
                 if (!m_network.SendDelegatedCreate(m_createFID))
@@ -1498,13 +1505,6 @@ Result Allocator::OnCycleWritePhase(unsigned int stateIndex)
                     return FAILED;
                 }
                     
-                // Release the cache-lined held by the create so far
-                if (!m_icache.ReleaseCacheLine(m_createLine))
-                {
-    			    DeadlockWrite("Unable to release cache line for F%u", m_createFID);
-                    return FAILED;
-                }
-
     	        COMMIT
 		        {
 		            // Mark family as delegated
@@ -1676,7 +1676,7 @@ bool Allocator::OnTokenReceived()
 // Returns whether the sanitized family is local (not means group).
 bool Allocator::SanitizeFamily(Family& family, bool hasDependency)
 {
-    bool local = family.place.IsLocal();
+    bool local = (family.place.type == PlaceID::LOCAL);
     if (m_parent.GetPlaceSize() == 1)
     {
         // Force to local
@@ -1834,8 +1834,9 @@ void Allocator::AllocateInitialFamily(MemAddr pc)
     family.link_next     = INVALID_LFID;
 
 	// Set initial place to the whole group
-	family.place.pid        = m_parent.GetPID();
-	family.place.capability = 1;
+	family.place.type       = PlaceID::GROUP;
+	family.place.pid        = 0;
+	family.place.capability = 0;
 	family.place.exclusive  = false;
 	
 	for (RegType i = 0; i < NUM_REG_TYPES; i++)

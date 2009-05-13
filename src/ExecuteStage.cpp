@@ -128,9 +128,10 @@ Pipeline::PipeAction Pipeline::ExecuteStage::SetFamilyProperty(LFID fid, FamilyP
     		    // Unpack the place value: <Capability:N, PID:P, EX:1>
     		    unsigned int P = (unsigned int)ceil(log2(m_parent.GetProcessor().GetGridSize()));
     		    
-    		    family.place.exclusive  = ((value & 1) != 0);
-    		    family.place.pid        = (value >> 1) & ((1ULL << P) - 1);
-    		    family.place.capability = value >> (P + 1);
+    		    family.place.exclusive  = (((value >> 0) & 1) != 0);
+    		    family.place.type       = (PlaceID::Type)((value >> 1) & 3);
+    		    family.place.pid        = (value >> 3) & ((1ULL << P) - 1);
+    		    family.place.capability = value >> (P + 3);
     		    break;
     		}
     	}

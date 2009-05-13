@@ -62,7 +62,7 @@ _FFT:
 	setstart %8, %4		    ! start = 1
 	add      %11, 1, %11
 	setlimit %8, %11	    ! limit = M + 1
-	setplace %8, %0         ! place = LOCAL
+	setplace %8, 2          ! place = LOCAL
 	cred     _FFT_1, %8
 	mov      %8, %1
 	end

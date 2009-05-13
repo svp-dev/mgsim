@@ -10,7 +10,7 @@ main:
     
     allocate $2, 0, 0, 0, 0
     setlimit $2, 64
-    setplace $2, 0
+    setplace $2, 2  # Local
     cred $2, foo
     
     # Sync
@@ -32,8 +32,7 @@ foo:
     .registers 1 1 3 0 0 0
     mov      $g0, $l0
     allocate $l2, 0, 0, 0, 0
-    mov      1, $l1
-    setplace $l2, $l1; swch
+    setplace $l2, 3; swch   # Local exclusive
     cred     $l2, bar
     mov      $l2, $31; swch
     addq     $d0, $l1, $s0

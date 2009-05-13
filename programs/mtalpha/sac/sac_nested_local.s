@@ -68,7 +68,7 @@ with_0_set_0:
     ldl     $l3, 16($g0)
     allocate $l4, 0, 0, 0, 0
     setlimit $l4, $l3; swch
-    setplace $l4, 0
+    setplace $l4, 2             # Local
     cred    $l4, fun
     mov     $l4, $31            # Sync
     end

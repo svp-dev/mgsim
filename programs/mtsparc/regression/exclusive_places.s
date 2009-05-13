@@ -7,13 +7,13 @@ main:
     
     allocate %2, 0, 0, 0, 0
     setlimit %2, 64
-    setplace %2, 0
+    setplace %2, 2      ! Local
     cred foo, %2
     
-    # Sync
+    ! Sync
     mov %2, %0; swch
 
-    # Check if the result matches
+    ! Check if the result matches
     set 2080, %2
     print %1, 0
     cmp %1, %2
@@ -22,18 +22,18 @@ main:
 1:  nop
     end
 
-# %s0/%d0 = accumulator
+! %s0/%d0 = accumulator
     .align 64
 foo:
     .registers 0 1 3 0 0 0
     allocate %l1, 0, 0, 0, 0
-    setplace %l1, 1; swch
+    setplace %l1, 3; swch   ! Local exclusive
     cred     bar, %l1
     mov      %l1, %0; swch
     add      %d0, %l0, %s0
     end
     
-# %s0 = return value
+! %s0 = return value
     .align 64
 bar:
     .registers 0 1 2 0 0 0
