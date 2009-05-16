@@ -33,7 +33,8 @@ struct Family
     struct Dependencies
     {
         bool         allocationDone;      // We are done allocating threads
-        bool         prevTerminated;      // Family has terminated on the previous processor
+        bool         prevSynchronized;    // Family has synchronized on the previous processor
+        bool         nextTerminated;      // Family has terminated on the next processor
         TSize        numThreadsAllocated; // Number of threads currently allocated (0 <= allocated <= physBlockSize)
         unsigned int numPendingReads;     // Number of outstanding memory reads
         unsigned int numPendingShareds;   // Number of parent shareds still needing to be transmitted

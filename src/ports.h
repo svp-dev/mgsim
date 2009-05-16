@@ -22,6 +22,20 @@ class ArbitratedReadPort;
 typedef std::pair<const IComponent*, int> ArbitrationSource;
 
 //
+// IllegalPortAccess
+//
+// Exception thrown when a component accesses a port or service
+// that it has not been allowed to di.
+//
+class IllegalPortAccess : public SimulationException
+{
+    static std::string ConstructString(const Object& object, const std::string& name, const ArbitrationSource& src);
+public:
+    IllegalPortAccess(const Object& object, const std::string& name, const ArbitrationSource& src)
+        : SimulationException(ConstructString(object, name, src)) {}
+};
+
+//
 // ArbitratedPort
 //
 class ArbitratedPort
@@ -29,14 +43,13 @@ class ArbitratedPort
     typedef std::set<ArbitrationSource>     RequestMap;
     typedef std::map<ArbitrationSource,int> PriorityMap;
 
-	uint64_t m_busyCycles;
 public:
 	uint64_t GetBusyCycles() const {
 		return m_busyCycles;
 	}
 
-    void SetPriority(ArbitrationSource source, int priority) {
-        m_priorities[source] = priority;
+    void AddSource(ArbitrationSource source) {
+        m_priorities.insert(PriorityMap::value_type(source, m_priorities.size()));
     }
 
     void Arbitrate();
@@ -49,7 +62,7 @@ protected:
 #ifndef NDEBUG
     void Verify(ArbitrationSource source) const {
         if (m_priorities.find(source) == m_priorities.end()) {
-            throw IllegalPortAccess(*source.first);
+            throw IllegalPortAccess(m_object, m_name, source);
         }
     }
 #else
@@ -60,13 +73,16 @@ protected:
         m_requests.insert(source);
     }
 
-    ArbitratedPort() : m_busyCycles(0) {}
+    ArbitratedPort(const Object& object, const std::string& name) : m_busyCycles(0), m_object(object), m_name(name) {}
     virtual ~ArbitratedPort() {}
 
 private:
     PriorityMap       m_priorities;
-    RequestMap        m_requests;    
+    RequestMap        m_requests;
     ArbitrationSource m_source;
+	uint64_t          m_busyCycles;
+	const Object&     m_object;
+    std::string       m_name;
 };
 
 //
@@ -129,7 +145,10 @@ class Structure : public StructureBase
 public:
     Structure(Object* parent, Kernel& kernel, const std::string& name) : StructureBase(parent, kernel, name) {}
 
-    void SetPriority(WritePort<I>& port, int priority) { m_priorities[&port] = priority; }
+    void AddPort(WritePort<I>& port)
+    {
+        m_priorities.insert(typename PriorityMap::value_type(&port, m_priorities.size()));
+    }
 
     void RegisterWritePort(WritePort<I>& port)                        { m_writePorts.insert(&port); }
     void UnregisterWritePort(WritePort<I>& port)                      { m_writePorts.erase(&port);  }
@@ -193,7 +212,9 @@ class ArbitratedReadPort : public ArbitratedPort
 {
     StructureBase& m_structure;
 public:
-    ArbitratedReadPort(StructureBase& structure) : m_structure(structure) {
+    ArbitratedReadPort(StructureBase& structure, const std::string& name)
+        : ArbitratedPort(structure, name), m_structure(structure)
+    {
         m_structure.RegisterReadPort(*this);
     }
     
@@ -225,7 +246,9 @@ class ArbitratedWritePort : public ArbitratedPort, public WritePort<I>
 {
     Structure<I>& m_structure;
 public:
-    ArbitratedWritePort(Structure<I>& structure) : m_structure(structure) {
+    ArbitratedWritePort(Structure<I>& structure, const std::string& name)
+        : ArbitratedPort(structure, name), m_structure(structure)
+    {
         m_structure.RegisterArbitratedWritePort(*this);
     }
     
@@ -256,7 +279,7 @@ public:
 class DedicatedPort
 {
 public:
-    DedicatedPort() { }
+    DedicatedPort(const Object& object, const std::string& name) : m_object(object), m_name(name) { }
     virtual ~DedicatedPort() {}
 
     void SetSource(ArbitrationSource source) {
@@ -266,7 +289,7 @@ protected:
 #ifndef NDEBUG
     void Verify(ArbitrationSource source) {
         if (m_source != source) {
-            throw IllegalPortAccess(*source.first);
+            throw IllegalPortAccess(m_object, m_name, source);
         }
 #else
     void Verify(ArbitrationSource /* source */) {
@@ -274,6 +297,8 @@ protected:
     }
 private:
     ArbitrationSource m_source;
+    const Object&     m_object;
+    std::string       m_name;
 };
 
 //
@@ -283,7 +308,9 @@ class DedicatedReadPort : public DedicatedPort
 {
     StructureBase& m_structure;
 public:
-    DedicatedReadPort(StructureBase& structure) : m_structure(structure) {}
+    DedicatedReadPort(StructureBase& structure, const std::string& name)
+        : DedicatedPort(structure, name), m_structure(structure) {}
+        
     bool Read() {
         const ArbitrationSource& source = m_structure.GetKernel()->GetComponent();
         Verify(source);
@@ -299,16 +326,14 @@ class DedicatedWritePort : public DedicatedPort, public WritePort<I>
 {
     Structure<I>& m_structure;
 public:
-    DedicatedWritePort(Structure<I>& structure) : m_structure(structure) {
+    DedicatedWritePort(Structure<I>& structure, const std::string& name)
+        : DedicatedPort(structure, name), m_structure(structure)
+    {
         m_structure.RegisterWritePort(*this);
     }
     
     ~DedicatedWritePort() {
         m_structure.UnregisterWritePort(*this);
-    }
-
-    void SetComponent(ArbitrationSource source) {
-        DedicatedPort::SetSource(source);
     }
 
     bool Write(const I& index) {
@@ -349,7 +374,9 @@ public:
         return true;
     }
     
-    ArbitratedService(Kernel& kernel) : m_kernel(kernel) {
+    ArbitratedService(const Object& object, const std::string& name)
+        : ArbitratedPort(object, name), m_kernel(*object.GetKernel())
+    {
         m_kernel.RegisterArbitrator(*this);
     }
     

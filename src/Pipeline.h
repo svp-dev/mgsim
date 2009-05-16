@@ -183,10 +183,10 @@ public:
     struct ReadExecuteLatch : public Latch, public LatchState, public ArchReadExecuteLatch
     {
         // Registers addresses, values and types
+        RemoteRegAddr   Rra, Rrb, Rrc;
         RegAddr         Rc;
         PipeValue       Rav, Rbv;
         PipeValue       Rcv; // Used for m_size only
-        RemoteRegAddr   Rrc;
         RegInfo         regs;
 
         // For debugging only
@@ -279,7 +279,7 @@ public:
     public:
         PipeAction read();
         PipeAction write();
-        ReadStage(Pipeline& parent, DecodeReadLatch& input, ReadExecuteLatch& output, RegisterFile& regFile, Network& network, ExecuteMemoryLatch& bypass1, MemoryWritebackLatch& bypass2);
+        ReadStage(Pipeline& parent, DecodeReadLatch& input, ReadExecuteLatch& output, RegisterFile& regFile, ExecuteMemoryLatch& bypass1, MemoryWritebackLatch& bypass2);
     
     private:
         struct OperandInfo
@@ -307,7 +307,6 @@ public:
 #endif
 
         RegisterFile&           m_regFile;
-        Network&                m_network;
         DecodeReadLatch&        m_input;
         ReadExecuteLatch&       m_output;
         ExecuteMemoryLatch&     m_bypass1;
@@ -325,7 +324,7 @@ public:
     public:
         PipeAction read();
         PipeAction write();
-        ExecuteStage(Pipeline& parent, ReadExecuteLatch& input, ExecuteMemoryLatch& output, Allocator& allocator, ThreadTable& threadTable, FamilyTable& familyTable, FPU& fpu);
+        ExecuteStage(Pipeline& parent, ReadExecuteLatch& input, ExecuteMemoryLatch& output, Allocator& allocator, Network& network, ThreadTable& threadTable, FamilyTable& familyTable, FPU& fpu);
         
         uint64_t getFlop() const { return m_flop; }
         uint64_t getOp()   const { return m_op; }
@@ -334,6 +333,7 @@ public:
         ReadExecuteLatch&       m_input;
         ExecuteMemoryLatch&     m_output;
         Allocator&              m_allocator;
+        Network&                m_network;
         ThreadTable&            m_threadTable;
         FamilyTable&            m_familyTable;
 		FPU&                    m_fpu;

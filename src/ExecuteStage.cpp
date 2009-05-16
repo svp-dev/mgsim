@@ -45,6 +45,17 @@ Pipeline::PipeAction Pipeline::ExecuteStage::write()
     // suspend information.
     if (m_input.Rav.m_state != RST_FULL || m_input.Rbv.m_state != RST_FULL)
     {
+        const RemoteRegAddr& rr = (m_input.Rav.m_state != RST_FULL) ? m_input.Rra : m_input.Rrb;
+        if (rr.fid != INVALID_LFID)
+        {
+            // We need to request this register remotely
+            if (!m_network.RequestRegister(rr, m_input.fid))
+            {
+                DeadlockWrite("Unable to request remote register for operand");
+                return PIPE_STALL;
+            }
+        }
+
         COMMIT
         {
             m_output.Rcv     = (m_input.Rav.m_state != RST_FULL) ? m_input.Rav : m_input.Rbv;
@@ -190,11 +201,12 @@ void Pipeline::ExecuteStage::ExecDebug(double value, Integer stream) const
     }
 }
 
-Pipeline::ExecuteStage::ExecuteStage(Pipeline& parent, ReadExecuteLatch& input, ExecuteMemoryLatch& output, Allocator& alloc, ThreadTable& threadTable, FamilyTable& familyTable, FPU& fpu)
+Pipeline::ExecuteStage::ExecuteStage(Pipeline& parent, ReadExecuteLatch& input, ExecuteMemoryLatch& output, Allocator& alloc, Network& network, ThreadTable& threadTable, FamilyTable& familyTable, FPU& fpu)
   : Stage(parent, "execute", &input, &output),
     m_input(input),
     m_output(output),
     m_allocator(alloc),
+    m_network(network),
     m_threadTable(threadTable),
     m_familyTable(familyTable),
 	m_fpu(fpu)

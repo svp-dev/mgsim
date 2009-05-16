@@ -10,7 +10,11 @@ using namespace std;
 
 RegisterFile::RegisterFile(Processor& parent, Allocator& alloc, Network& network, const Config& config)
 :   Structure<RegAddr>(&parent, parent.GetKernel(), "registers"),
-    p_pipelineR1(*this), p_pipelineR2(*this), p_pipelineW(*this), p_asyncR(*this), p_asyncW(*this),
+    p_pipelineR1(*this, "p_pipelineR1"),
+    p_pipelineR2(*this, "p_pipelineR2"),
+    p_pipelineW (*this, "p_pipelineW"),
+    p_asyncR    (*this, "p_asyncR"),
+    p_asyncW    (*this, "p_asyncW"),
     m_integers(config.numIntegers),
     m_floats(config.numFloats),
     m_parent(parent),
@@ -27,9 +31,9 @@ RegisterFile::RegisterFile(Processor& parent, Allocator& alloc, Network& network
         m_floats[i] = MAKE_EMPTY_REG();
     }
 
-    // Set port priorities
-    SetPriority(p_asyncW,    1);
-    SetPriority(p_pipelineW, 0);
+    // Set port priorities; first port has highest priority
+    AddPort(p_pipelineW);
+    AddPort(p_asyncW);
 }
 
 RegSize RegisterFile::GetSize(RegType type) const
@@ -43,7 +47,7 @@ bool RegisterFile::ReadRegister(const RegAddr& addr, RegValue& data) const
     const vector<RegValue>& regs = (addr.type == RT_FLOAT) ? m_floats : m_integers;
     if (addr.index >= regs.size())
     {
-        throw SimulationException(*this, "A component attempted to read from a non-existing register");
+        throw SimulationException("A component attempted to read from a non-existing register");
     }
     data = regs[addr.index];
     return true;
@@ -66,7 +70,7 @@ bool RegisterFile::Clear(const RegAddr& addr, RegSize size)
     std::vector<RegValue>& regs = (addr.type == RT_FLOAT) ? m_floats : m_integers;
     if (addr.index + size > regs.size())
     {
-        throw SimulationException(*this, "A component attempted to clear a non-existing register");
+        throw SimulationException("A component attempted to clear a non-existing register");
     }
 
     COMMIT
@@ -86,7 +90,7 @@ bool RegisterFile::WriteRegister(const RegAddr& addr, RegValue& data, bool from_
 	std::vector<RegValue>& regs = (addr.type == RT_FLOAT) ? m_floats : m_integers;
     if (addr.index >= regs.size())
     {
-        throw SimulationException(*this, "A component attempted to write to a non-existing register");
+        throw SimulationException("A component attempted to write to a non-existing register");
     }
     
 	assert(data.m_state == RST_EMPTY || data.m_state == RST_WAITING || data.m_state == RST_FULL);
@@ -115,7 +119,7 @@ bool RegisterFile::WriteRegister(const RegAddr& addr, RegValue& data, bool from_
 	            else if (!from_memory)
 	            {
         	        // Only the memory can write to memory-pending registers
-    			    throw SimulationException(*this, "Writing to a memory-load destination register");
+    			    throw SimulationException("Writing to a memory-load destination register");
 		        }
 		    }
 	    }
@@ -123,7 +127,7 @@ bool RegisterFile::WriteRegister(const RegAddr& addr, RegValue& data, bool from_
         {
     	    if (data.m_state == RST_EMPTY)
 	        {
-    			throw SimulationException(*this, "Resetting a waiting register");
+    			throw SimulationException("Resetting a waiting register");
 		    }
             
             if (data.m_state == RST_FULL && value.m_waiting.head != INVALID_TID)

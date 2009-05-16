@@ -127,9 +127,9 @@ public:
 			cout << setw(length) << p->first;
 			switch (p->second)
 			{
-				case STATE_IDLE:     cout << "idle";     break;
-				case STATE_DEADLOCK: cout << "deadlock"; break;
-				case STATE_RUNNING:  cout << "running";  break;
+				case STATE_IDLE:     cout << "idle";    break;
+				case STATE_DEADLOCK: cout << "stalled"; break;
+				case STATE_RUNNING:  cout << "running"; break;
 				case STATE_ABORTED:  assert(0); break;
 			}
 			cout << endl;

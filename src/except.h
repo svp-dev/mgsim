@@ -13,13 +13,7 @@ class Object;
 class SimulationException : public std::runtime_error
 {
 public:
-    SimulationException(const Object& obj, const std::string& msg);
-};
-
-class IllegalPortAccess : public SimulationException
-{
-public:
-    IllegalPortAccess(const Object& obj) : SimulationException(obj, "Illegal port access") {}
+    SimulationException(const std::string& msg) : std::runtime_error(msg) {}
 };
 
 class InvalidArgumentException : public std::runtime_error
@@ -32,7 +26,7 @@ public:
 class IllegalInstructionException : public SimulationException
 {
 public:
-    IllegalInstructionException(const Object& obj, const std::string& msg) : SimulationException(obj, msg) {}
+    IllegalInstructionException(const Object& obj, const std::string& msg) : SimulationException(msg) {}
 };
 
 class IOException : public std::runtime_error
@@ -50,7 +44,7 @@ public:
 class SecurityException : public SimulationException
 {
 public:
-    SecurityException(const Object& obj, const std::string& msg) : SimulationException(obj, msg) {}
+    SecurityException(const Object& obj, const std::string& msg) : SimulationException(msg) {}
 };
 
 }

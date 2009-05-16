@@ -26,7 +26,8 @@ enum FamilyDependency
     FAMDEP_THREAD_COUNT,        // Number of allocated threads
     FAMDEP_OUTSTANDING_READS,   // Number of outstanding memory reads
     FAMDEP_OUTSTANDING_SHAREDS, // Number of outstanding parent shareds
-    FAMDEP_PREV_TERMINATED,     // Family is terminated on the previous processor
+    FAMDEP_PREV_SYNCHRONIZED,   // Family has synchronized on the previous processor
+    FAMDEP_NEXT_TERMINATED,     // Family has terminated on the next processor
 	FAMDEP_ALLOCATION_DONE,     // Thread allocation is done
 };
 
@@ -101,7 +102,7 @@ public:
     uint64_t GetMaxActiveQueueSize() const { return m_maxActiveQueueSize; }
     uint64_t GetMinActiveQueueSize() const { return m_minActiveQueueSize; }
     
-    bool   KillFamily(LFID fid, Family& family, ExitCode code);
+    bool   SynchronizeFamily(LFID fid, Family& family, ExitCode code);
 	Result AllocateFamily(TID parent, RegIndex reg, LFID* fid, const RegisterBases bases[]);
     bool   SanitizeFamily(Family& family, bool hasDependency);
     bool   QueueCreate(LFID fid, MemAddr address, TID parent, RegIndex exitCodeReg);

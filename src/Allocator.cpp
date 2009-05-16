@@ -592,8 +592,11 @@ bool Allocator::OnRemoteSync(LFID fid, ExitCode code)
 {
     Family& family = m_familyTable[fid];
     assert(family.place.type == PlaceID::DELEGATE);
+    assert(family.parent.lpid == m_lpid);
     
-    if (!KillFamily(fid, family, code))
+    // Note that this will not generate network messages.
+    // It's just a local synchronization.
+    if (!SynchronizeFamily(fid, family, code))
     {
         return false;
     }
@@ -606,14 +609,31 @@ bool Allocator::OnRemoteSync(LFID fid, ExitCode code)
     return true;
 }
 
+/// Called by the network to link the family on the parent core up with the
+/// last created family in the group on the previous core
 bool Allocator::SetupFamilyPrevLink(LFID fid, LFID link_prev)
 {
     Family& family = m_familyTable[fid];
     
     assert(family.type      == Family::GROUP);
     assert(family.link_prev == INVALID_LFID);
+    assert(!family.dependencies.nextTerminated);
     
-    COMMIT{ family.link_prev = link_prev; } 
+    if (family.dependencies.numThreadsAllocated == 0 && family.dependencies.allocationDone)
+    {
+        // The family has been 'terminated', send the notification
+        if (!m_network.SendFamilyTermination(link_prev))
+        {
+            return false;
+        }
+    }
+    
+    COMMIT
+    {
+        family.link_prev = link_prev;
+        family.dependencies.nextTerminated = true;
+    } 
+    
     DebugSimWrite("Setting previous FID for F%u to F%u", fid, link_prev);
     return true;
 }
@@ -630,7 +650,7 @@ bool Allocator::SetupFamilyNextLink(LFID fid, LFID link_next)
     return true;
 }
 
-bool Allocator::KillFamily(LFID fid, Family& family, ExitCode code)
+bool Allocator::SynchronizeFamily(LFID fid, Family& family, ExitCode code)
 {
     // This is a group or delegated family or proxy
     if (family.parent.lpid == m_lpid)
@@ -650,8 +670,8 @@ bool Allocator::KillFamily(LFID fid, Family& family, ExitCode code)
             }
         }
     }
-    // Send completion to next processor
-    else if (!m_network.SendFamilyCompletion(family.link_next))
+    // Send synchronization to next processor
+    else if (!m_network.SendFamilySynchronization(family.link_next))
     {
         return false;
     }
@@ -722,11 +742,41 @@ bool Allocator::DecreaseFamilyDependency(LFID fid, Family& family, FamilyDepende
 
     switch (dep)
     {
-    case FAMDEP_THREAD_COUNT:        deps->numThreadsAllocated--;  break;
-    case FAMDEP_OUTSTANDING_READS:   deps->numPendingReads    --;  break;
-    case FAMDEP_OUTSTANDING_SHAREDS: deps->numPendingShareds  --;  break;
-    case FAMDEP_PREV_TERMINATED:     deps->prevTerminated  = true; break;
-	case FAMDEP_ALLOCATION_DONE:     deps->allocationDone  = true; break;
+    case FAMDEP_THREAD_COUNT:        assert(deps->numThreadsAllocated > 0); deps->numThreadsAllocated--;  break;
+    case FAMDEP_OUTSTANDING_READS:   assert(deps->numPendingReads     > 0); deps->numPendingReads    --;  break;
+    case FAMDEP_OUTSTANDING_SHAREDS: assert(deps->numPendingShareds   > 0); deps->numPendingShareds  --;  break;
+    case FAMDEP_PREV_SYNCHRONIZED:   assert(!deps->prevSynchronized);       deps->prevSynchronized = true; break;
+	case FAMDEP_ALLOCATION_DONE:     assert(!deps->allocationDone);         deps->allocationDone   = true; break;
+    case FAMDEP_NEXT_TERMINATED:     assert(!deps->nextTerminated);         deps->nextTerminated   = true; break;
+    }
+
+    switch (dep)
+    {
+    case FAMDEP_THREAD_COUNT:
+    case FAMDEP_ALLOCATION_DONE:
+    case FAMDEP_NEXT_TERMINATED:
+        if (deps->numThreadsAllocated == 0 && deps->allocationDone && deps->nextTerminated)
+        {
+            // Forward the cleanup token when we have it, and all threads are done
+            if (family.type != Family::LOCAL)
+            {
+    		    PSize placeSize = m_parent.GetPlaceSize();
+    		    LPID  prev      = (m_lpid - 1 + placeSize) % placeSize;
+                if (prev != family.parent.lpid)
+                {
+                    // The previous core is NOT the parent core, so send the termination notification
+                    if (!m_network.SendFamilyTermination(family.link_prev))
+                    {
+                        DeadlockWrite("Unable to send family termination to F%u on previous processor", family.link_prev);
+                        return false;
+                    }
+                }
+            }
+        }
+        break;
+        
+    default:
+        break;
     }
 
     switch (dep)
@@ -749,13 +799,13 @@ bool Allocator::DecreaseFamilyDependency(LFID fid, Family& family, FamilyDepende
         }
         // Fall through
 
-    case FAMDEP_PREV_TERMINATED:
+    case FAMDEP_PREV_SYNCHRONIZED:
     case FAMDEP_OUTSTANDING_SHAREDS:
         if (deps->numThreadsAllocated == 0 && deps->allocationDone &&
-            deps->numPendingShareds   == 0 && deps->prevTerminated)
+            deps->numPendingShareds   == 0 && deps->prevSynchronized)
         {
-            // Family has terminated, 'kill' it
-            if (!KillFamily(fid, family, EXIT_NORMAL))
+            // Family has terminated, synchronize it
+            if (!SynchronizeFamily(fid, family, EXIT_NORMAL))
             {
                 DeadlockWrite("Unable to kill family F%u", fid);
                 return false;
@@ -763,10 +813,11 @@ bool Allocator::DecreaseFamilyDependency(LFID fid, Family& family, FamilyDepende
         }
         // Fall through
 
+    case FAMDEP_NEXT_TERMINATED:
     case FAMDEP_OUTSTANDING_READS:
         if (deps->numThreadsAllocated == 0 && deps->allocationDone &&
-            deps->numPendingShareds   == 0 && deps->prevTerminated &&
-            deps->numPendingReads     == 0)
+            deps->numPendingShareds   == 0 && deps->prevSynchronized &&
+            deps->numPendingReads     == 0 && deps->nextTerminated)
         {
             COMMIT{ family.next = INVALID_LFID; }
 			if (!m_familyTable.FreeFamily(fid))
@@ -1066,13 +1117,13 @@ void Allocator::InitializeFamily(LFID fid, bool local) const
 		family.index          = (local) ? 0 : ((placeSize + m_lpid - first_pid) % placeSize) * family.virtBlockSize;
 		family.killed         = false;
                                                     
-                                                    
 		// Dependencies
 		family.dependencies.allocationDone      = false;
 		family.dependencies.numPendingReads     = 0;
 		family.dependencies.numPendingShareds   = 0;
 		family.dependencies.numThreadsAllocated = 0;
-		family.dependencies.prevTerminated      = local || (m_lpid == first_pid); 
+		family.dependencies.prevSynchronized    = local || (m_lpid == first_pid); 
+		family.dependencies.nextTerminated      = local;
 
 		// Dependency information
 		family.hasDependency      = false;
@@ -1791,7 +1842,7 @@ Allocator::Allocator(Processor& parent, const string& name,
     FamilyTable& familyTable, ThreadTable& threadTable, RegisterFile& registerFile, RAUnit& raunit, ICache& icache, Network& network, Pipeline& pipeline,
     LPID lpid, const Config& config)
 :
-    IComponent(&parent, parent.GetKernel(), name, "cleanup|family-allocate|family-create|thread-activation|reg-write-queue"),
+    IComponent(&parent, parent.GetKernel(), name, "thread-allocate|family-allocate|family-create|thread-activation|reg-write-queue"),
     m_parent(parent), m_familyTable(familyTable), m_threadTable(threadTable), m_registerFile(registerFile), m_raunit(raunit), m_icache(icache), m_network(network), m_pipeline(pipeline),
     m_lpid(lpid), m_activeQueueSize(0), m_totalActiveQueueSize(0), m_maxActiveQueueSize(0), m_minActiveQueueSize(UINT64_MAX),
     m_creates(config.localCreatesSize), m_createsEx(config.localCreatesSize), m_registerWrites(INFINITE), m_cleanup(config.cleanupSize),
@@ -1814,7 +1865,7 @@ void Allocator::AllocateInitialFamily(MemAddr pc)
 	LFID fid = m_familyTable.AllocateFamily();
 	if (fid == INVALID_LFID)
 	{
-		throw SimulationException(*this, "Unable to create initial family");
+		throw SimulationException("Unable to create initial family");
 	}
 
 	Family& family = m_familyTable[fid];
@@ -1855,7 +1906,7 @@ void Allocator::AllocateInitialFamily(MemAddr pc)
 	    !ActivateFamily(fid)
 	   )
 	{
-		throw SimulationException(*this, "Unable to create initial family");
+		throw SimulationException("Unable to create initial family");
 	}
 }
 

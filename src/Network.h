@@ -2,6 +2,7 @@
 #define NETWORK_H
 
 #include "ports.h"
+#include <cassert>
 
 namespace Simulator
 {
@@ -19,32 +20,36 @@ class Register : public IRegister
         bool m_full;
         T    m_data;
     };
-    Data m_data, m_read;
 
     void OnUpdate()
     {
         m_read = m_data;
     }
+    
+    Data              m_data;
+    Data              m_read;
+    ArbitratedService m_service;
 
 public:
-    const T& Read() const     { return m_read.m_data; }
+    void AddSource(const ArbitrationSource& source) {
+        m_service.AddSource(source);
+    }
+    
+    void Clear()              { COMMIT{ m_data.m_full = false; } }
     void Write(const T& data) { COMMIT{ m_data.m_data = data; m_data.m_full = true; } }
-    bool IsEmpty() const      { return !m_data.m_full; }
-    bool IsFull()  const      { return  m_read.m_full; }
-    void Clear()              { COMMIT{ m_data.m_full = m_read.m_full = false; } }
+    const T& Read() const     { assert(m_read.m_full); return m_read.m_data; }
+    bool CanRead()  const     { return  m_read.m_full; }
+    bool CanWrite()           { return !m_data.m_full && m_service.Invoke(); }
 
-    Register(Kernel& kernel) : IRegister(kernel)
+    Register(const Object& object, const std::string& name) : IRegister(*object.GetKernel()), m_service(object, name)
     {
-        m_data.m_full = false;
-		m_read.m_full = false;
+        m_data.m_full = m_read.m_full = false;
     }
 
-    Register(Kernel& kernel, const T& def) : IRegister(kernel)
+    Register(const Object& object, const std::string& name, const T& def) : IRegister(*object.GetKernel()), m_service(object, name)
     {
-        m_data.m_full = false;
-		m_read.m_full = true;
-		m_read.m_data = def;
-		m_data.m_data = def;
+        m_data.m_full = m_read.m_full = true;
+		m_data.m_data = m_read.m_data = def;
     }
 };
 
@@ -85,6 +90,7 @@ struct CreateMessage
 
 class Network : public IComponent
 {
+public:
     struct RegisterRequest
     {
         RemoteRegAddr addr;         ///< Address of the register to read
@@ -97,7 +103,6 @@ class Network : public IComponent
         RegValue      value; ///< Value, in case of response
     };
 
-public:
     Network(Processor& parent, const std::string& name, const std::vector<Processor*>& grid, LPID lpid, Allocator& allocator, RegisterFile& regFile, FamilyTable& familyTable);
     void Initialize(Network& prev, Network& next);
 
@@ -106,7 +111,8 @@ public:
     bool RequestToken();
     bool SendThreadCleanup(LFID fid);
     bool SendThreadCompletion(LFID fid);
-    bool SendFamilyCompletion(LFID fid);
+    bool SendFamilySynchronization(LFID fid);
+    bool SendFamilyTermination(LFID fid);
     bool SendRemoteSync(GPID pid, LFID fid, ExitCode code);
     
     bool SendRegister   (const RemoteRegAddr& addr, const RegValue& value);
@@ -120,7 +126,8 @@ private:
     bool OnTokenReceived();
     bool OnThreadCleanedUp(LFID fid);
     bool OnThreadCompleted(LFID fid);
-    bool OnFamilyCompleted(LFID fid);
+    bool OnFamilySynchronized(LFID fid);
+    bool OnFamilyTerminated(LFID fid);
     bool OnRemoteSyncReceived(LFID fid, ExitCode code);
     
     bool OnRegisterRequested(const RegisterRequest& request);
@@ -152,25 +159,27 @@ public:
 
     // Delegation creates
     Register<std::pair<GPID, DelegateMessage> > m_delegateLocal;  ///< Outgoing delegation create
-	Register<DelegateMessage>                   m_delegateRemote; ///< Incoming delegation created
+	Register<DelegateMessage>                   m_delegateRemote; ///< Incoming delegation create
 
 	// Notifications
-    Register<LFID>       m_completedFamily;     ///< Incoming 'family completed' notification
+    Register<LFID>       m_synchronizedFamily; ///< Outgoing 'family synchronized' notification
+    Register<LFID>       m_terminatedFamily;   ///< Outgoing 'family terminated' notification
+	
     Register<LFID>       m_completedThread;     ///< Incoming 'thread completed' notification
     Register<LFID>       m_cleanedUpThread;     ///< Incoming 'thread cleaned up' notification
     Register<RemoteSync> m_remoteSync;          ///< Incoming remote synchronization
 
 	// Register communication
-	ArbitratedService p_registerResponseOut; ///< Port arbitrating outgoing registers
-    RegisterRequest   m_registerRequestOut;  ///< Outgoing register request
-    RegisterRequest   m_registerRequestIn;   ///< Incoming register request
-    RegisterResponse  m_registerResponseOut; ///< Outgoing register response
-    RegisterResponse  m_registerResponseIn;  ///< Incoming register response
-    RegValue          m_registerValue;       ///< Value of incoming register request
+    Register<RegisterRequest>  m_registerRequestOut;  ///< Outgoing register request
+    Register<RegisterRequest>  m_registerRequestIn;   ///< Incoming register request
+    Register<RegisterResponse> m_registerResponseOut; ///< Outgoing register response
+    Register<RegisterResponse> m_registerResponseIn;  ///< Incoming register response
+    RegValue                   m_registerValue;       ///< Value of incoming register request
 
 	// Token management
     Register<bool> m_hasToken;		 ///< We have the token
     Register<bool> m_wantToken;		 ///< We want the token
+    Register<bool> m_tokenUsed;      ///< Has the token been used locally?
     Register<bool> m_nextWantsToken; ///< Next processor wants the token
 	Register<bool> m_requestedToken; ///< We've requested the token
 

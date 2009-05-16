@@ -55,7 +55,6 @@ COMMON_SRC = \
 	config.cpp \
 	config.h \
 	elf.h \
-	except.cpp \
 	except.h \
 	kernel.cpp \
 	kernel.h \

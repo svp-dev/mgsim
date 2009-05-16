@@ -31,8 +31,8 @@ Pipeline::Pipeline(
     
     m_fetch    (*this,            m_fdLatch, alloc, familyTable, threadTable, icache, lpid, config.controlBlockSize),
     m_decode   (*this, m_fdLatch, m_drLatch),
-    m_read     (*this, m_drLatch, m_reLatch, regFile, network, m_emLatch, m_mwLatch),
-    m_execute  (*this, m_reLatch, m_emLatch, alloc, threadTable, familyTable, fpu),
+    m_read     (*this, m_drLatch, m_reLatch, regFile, m_emLatch, m_mwLatch),
+    m_execute  (*this, m_reLatch, m_emLatch, alloc, network, threadTable, familyTable, fpu),
     m_memory   (*this, m_emLatch, m_mwLatch, dcache, alloc),
     m_writeback(*this, m_mwLatch,            regFile, network, alloc, threadTable)
 {

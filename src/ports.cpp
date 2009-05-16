@@ -1,7 +1,18 @@
 #include "ports.h"
+#include <sstream>
 
 namespace Simulator
 {
+
+/*static*/ std::string IllegalPortAccess::ConstructString(const Object& object, const std::string& name, const ArbitrationSource& src)
+{
+    std::stringstream ss;
+    std::string from = src.first->GetFQN(), dest = object.GetFQN();
+    std::transform(from.begin(), from.end(), from.begin(), toupper);
+    std::transform(dest.begin(), dest.end(), dest.begin(), toupper);
+    ss << "Illegal access to " << dest << "." << name << " by " << from << ", state " << src.second;
+    return ss.str();
+}
 
 void StructureBase::RegisterReadPort(ArbitratedReadPort& port)
 {

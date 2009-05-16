@@ -21,30 +21,7 @@ Processor::Processor(Object* parent, Kernel& kernel, GPID gpid, LPID lpid, const
 	m_threadTable (*this,             config.threadTable),
     m_network     (*this, "network",  grid, lpid, m_allocator, m_registerFile, m_familyTable)
 {
-    //
-    // Set port priorities and connections on all components
-    //
-	m_registerFile.p_asyncW.SetPriority(ArbitrationSource(&m_fpu,       0), 0);
-    m_registerFile.p_asyncW.SetPriority(ArbitrationSource(&m_dcache,    0), 1);
-    m_registerFile.p_asyncW.SetPriority(ArbitrationSource(&m_network,   0), 2);
-    m_registerFile.p_asyncW.SetPriority(ArbitrationSource(&m_network,   1), 3);
-    m_registerFile.p_asyncW.SetPriority(ArbitrationSource(&m_allocator, 0), 4);
-    m_registerFile.p_asyncW.SetPriority(ArbitrationSource(&m_allocator, 4), 5);
-    m_registerFile.p_asyncR.SetPriority(ArbitrationSource(&m_network,   1), 0);
-    m_registerFile.p_pipelineR1.SetSource(ArbitrationSource(&m_pipeline, 3));
-    m_registerFile.p_pipelineR2.SetSource(ArbitrationSource(&m_pipeline, 3));
-    m_registerFile.p_pipelineW .SetSource(ArbitrationSource(&m_pipeline, 0));
-    
-    m_network.p_registerResponseOut.SetPriority(ArbitrationSource(&m_pipeline, 0), 0);
-    m_network.p_registerResponseOut.SetPriority(ArbitrationSource(&m_network,  0), 1);
-    m_network.p_registerResponseOut.SetPriority(ArbitrationSource(&m_fpu,      0), 2);
-    m_network.p_registerResponseOut.SetPriority(ArbitrationSource(&m_dcache,   0), 3);
-    // The Allocator shouldn't be able to trigger a
-    // remote register write, so we don't give them access.
-        
-    m_memory.RegisterListener(*this);
-    
-    if (gpid == 0)
+    if (m_pid == 0)
     {
         // Allocate the startup family on the first processor
         m_allocator.AllocateInitialFamily(runAddress);
@@ -54,7 +31,41 @@ Processor::Processor(Object* parent, Kernel& kernel, GPID gpid, LPID lpid, const
 void Processor::Initialize(Processor& prev, Processor& next)
 {
     m_network.Initialize(prev.m_network, next.m_network);
-}
+    
+    //
+    // Set port priorities and connections on all components.
+    // First source on a port has the highest priority.
+    //
+	m_registerFile.p_asyncW.AddSource(ArbitrationSource(&m_fpu,       0)); // FP operation writebacks
+    m_registerFile.p_asyncW.AddSource(ArbitrationSource(&m_dcache,    0)); // Mem Load writebacks
+    m_registerFile.p_asyncW.AddSource(ArbitrationSource(&m_network,   0)); // Remote register receives
+    m_registerFile.p_asyncW.AddSource(ArbitrationSource(&m_network,   1)); // Remote register sends
+    m_registerFile.p_asyncW.AddSource(ArbitrationSource(&m_allocator, 0)); // Thread allocation
+    m_registerFile.p_asyncW.AddSource(ArbitrationSource(&m_allocator, 4)); // Syncs
+    m_registerFile.p_asyncR.AddSource(ArbitrationSource(&m_network,   1)); // Remote register sends
+    
+    m_registerFile.p_pipelineR1.SetSource(ArbitrationSource(&m_pipeline, 3)); // Pipeline read stage
+    m_registerFile.p_pipelineR2.SetSource(ArbitrationSource(&m_pipeline, 3)); // Pipeline read stage
+    
+    m_registerFile.p_pipelineW .SetSource(ArbitrationSource(&m_pipeline, 0)); // Pipeline writeback stage
+    
+    m_network.m_createLocal        .AddSource(ArbitrationSource(&m_allocator,      2)); // Create process broadcasts create
+    m_network.m_createRemote       .AddSource(ArbitrationSource(&prev.m_network,   3)); // Forward of group create
+    m_network.m_registerRequestOut .AddSource(ArbitrationSource(&m_pipeline,       2)); // Non-full register with remote mapping read
+    m_network.m_registerRequestIn  .AddSource(ArbitrationSource(&next.m_network,   1)); // From neighbour
+    m_network.m_registerResponseIn .AddSource(ArbitrationSource(&prev.m_network,   1)); // From neighbour
+    m_network.m_registerResponseOut.AddSource(ArbitrationSource(&m_pipeline,       0)); // Pipeline write to register with remote mapping
+    m_network.m_registerResponseOut.AddSource(ArbitrationSource(&m_network,        0)); // Returning register from a request
+    m_network.m_completedThread    .AddSource(ArbitrationSource(&next.m_pipeline,  0)); // Thread terminated (reschedule at WB stage)
+    m_network.m_cleanedUpThread    .AddSource(ArbitrationSource(&prev.m_allocator, 0)); // Thread cleaned up
+    m_network.m_synchronizedFamily .AddSource(ArbitrationSource(&prev.m_network,   7)); // Forwarding
+    m_network.m_synchronizedFamily .AddSource(ArbitrationSource(&m_allocator,      0)); // Dependencies resolved
+    m_network.m_terminatedFamily   .AddSource(ArbitrationSource(&next.m_network,   8)); // Forwarding
+    m_network.m_terminatedFamily   .AddSource(ArbitrationSource(&m_network,        3)); // Create with no threads
+    m_network.m_terminatedFamily   .AddSource(ArbitrationSource(&m_allocator,      0)); // Last thread cleaned up
+    
+    m_memory.RegisterListener(*this);
+}    
 
 bool Processor::IsIdle() const
 {

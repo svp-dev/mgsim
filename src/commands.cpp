@@ -427,54 +427,58 @@ static bool cmd_network_read( Object* obj, const vector<string>& /* arguments */
     cout << dec;
 
     cout << "Registers:" << endl;
-    if (network->m_registerRequestOut.addr.fid != INVALID_LFID)
+    if (network->m_registerRequestOut.CanRead())
     {
+        const Network::RegisterRequest& request = network->m_registerRequestOut.Read();
         cout << "* Requesting "
-             << GetRemoteRegisterTypeString(network->m_registerRequestOut.addr.type) << " register "
-             << network->m_registerRequestOut.addr.reg.str()
-             << " from F" << network->m_registerRequestOut.addr.fid
+             << GetRemoteRegisterTypeString(request.addr.type) << " register "
+             << request.addr.reg.str()
+             << " from F" << request.addr.fid
              << " on previous processor" << endl;
     }
 
-    if (network->m_registerRequestIn.addr.fid != INVALID_LFID)
+    if (network->m_registerRequestIn.CanRead())
     {
+        const Network::RegisterRequest& request = network->m_registerRequestIn.Read();
         cout << "* Reading "
-             << GetRemoteRegisterTypeString(network->m_registerRequestIn.addr.type) << " register "
-             << network->m_registerRequestIn.addr.reg.str()
-             << " from F" << network->m_registerRequestIn.addr.fid << endl;
+             << GetRemoteRegisterTypeString(request.addr.type) << " register "
+             << request.addr.reg.str()
+             << " from F" << request.addr.fid << endl;
     }
     
-    if (network->m_registerResponseOut.addr.fid != INVALID_LFID)
+    if (network->m_registerResponseOut.CanRead())
     {
+        const Network::RegisterResponse& response = network->m_registerResponseOut.Read();
         cout << "* Sending "
-             << GetRemoteRegisterTypeString(network->m_registerResponseOut.addr.type) << " register "
-             << network->m_registerResponseOut.addr.reg.str()
-             << " to F" << network->m_registerResponseOut.addr.fid
+             << GetRemoteRegisterTypeString(response.addr.type) << " register "
+             << response.addr.reg.str()
+             << " to F" << response.addr.fid
              << " on next processor" << endl;
     }
 
-    if (network->m_registerResponseIn.addr.fid != INVALID_LFID)
+    if (network->m_registerResponseIn.CanRead())
     {
+        const Network::RegisterResponse& response = network->m_registerResponseIn.Read();
         cout << "* Received "
-             << GetRemoteRegisterTypeString(network->m_registerResponseIn.addr.type) << " register "
-             << network->m_registerResponseIn.addr.reg.str()
-             << " from F" << network->m_registerResponseIn.addr.fid
+             << GetRemoteRegisterTypeString(response.addr.type) << " register "
+             << response.addr.reg.str()
+             << " from F" << response.addr.fid
              << " on previous processor" << endl;
     }
     cout << endl;
 
     cout << "Token:" << endl;
-    if (network->m_hasToken.Read())       cout << "* Processor has token" << endl;
+    if (network->m_hasToken.Read())       cout << "* Processor has token (used: " << boolalpha << network->m_tokenUsed.Read() << ")" << endl;
     if (network->m_wantToken.Read())      cout << "* Processor wants token" << endl;
     if (network->m_nextWantsToken.Read()) cout << "* Next processor wants token" << endl;
     cout << endl;
 
     cout << "Families and threads:" << endl;
-    if (!network->m_completedFamily.IsEmpty()) cout << "* Local family completion of F" << network->m_completedFamily.Read() << endl;
-    if (!network->m_completedThread.IsEmpty()) cout << "* Local thread completion of F" << network->m_completedThread.Read() << endl;
-    if (!network->m_cleanedUpThread.IsEmpty()) cout << "* Local thread cleanup of F" << network->m_cleanedUpThread.Read() << endl;
-    
-    if (!network->m_delegateRemote.IsEmpty()) cout << "* Delegated create of PC 0x" << hex << network->m_delegateRemote.Read().address << dec << endl;
+    if (network->m_terminatedFamily  .CanRead()) cout << "* Sending family termination of F" << network->m_terminatedFamily.Read() << endl;
+    if (network->m_synchronizedFamily.CanRead()) cout << "* Sending family synchronization of F" << network->m_synchronizedFamily.Read() << endl;
+    if (network->m_completedThread   .CanRead()) cout << "* Sending thread completion of F" << network->m_completedThread.Read() << endl;
+    if (network->m_cleanedUpThread   .CanRead()) cout << "* Sending thread cleanup of F" << network->m_cleanedUpThread.Read() << endl;
+    if (network->m_delegateRemote    .CanRead()) cout << "* Received delegated create of PC 0x" << hex << network->m_delegateRemote.Read().address << dec << endl;
 
     return true;
 }
@@ -814,8 +818,8 @@ static bool cmd_families_read( Object* obj, const vector<string>& /* arguments *
 
     static const char* FamilyStates[] = {"", "ALLOCATED", "CREATE QUEUED", "CREATING", "DELEGATED", "IDLE", "ACTIVE", "KILLED"};
 
-    cout << "    |         PC         |   Allocated    | P/A/Rd/Sh |  Parent | Prev | Next | State" << endl;
-    cout << "----+--------------------+----------------+-----------+---------+------+------+-----------" << endl;
+    cout << "    |         PC         |   Allocated    | P/N/A/Rd/Sh |  Parent | Prev | Next | State" << endl;
+    cout << "----+--------------------+----------------+-------------+---------+------+------+-----------" << endl;
 
     cout << setfill(' ') << right;
 	
@@ -827,13 +831,13 @@ static bool cmd_families_read( Object* obj, const vector<string>& /* arguments *
         cout << dec << right << setw(3) << setfill(' ') << i << " | ";
         if (family.state == FST_EMPTY)
         {
-            cout << "                   |                |           |         |      |      |";
+            cout << "                   |                |             |         |      |      |";
         }
         else
         {
 			if (family.state == FST_ALLOCATED)
 			{
-                cout << "        -          |       -        |     -     | ";
+                cout << "        -          |       -        |      -      | ";
 			}
 			else if (family.state == FST_CREATING || family.state == FST_DELEGATED)
 			{
@@ -848,7 +852,8 @@ static bool cmd_families_read( Object* obj, const vector<string>& /* arguments *
 				     << setw(3) << family.dependencies.numThreadsAllocated << "/"
 					 << setw(3) << family.physBlockSize << " ("
 					 << setw(4) << family.virtBlockSize << ") | "
-				     << !family.dependencies.prevTerminated << "/"
+				     << !family.dependencies.prevSynchronized << "/"
+				     << !family.dependencies.nextTerminated << "/"
 					 << !family.dependencies.allocationDone << "/"
 					 << setw(2) << family.dependencies.numPendingReads << "/"
 					 << setw(2) << family.dependencies.numPendingShareds << " | " << right;

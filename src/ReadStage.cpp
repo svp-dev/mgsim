@@ -369,12 +369,14 @@ Pipeline::PipeAction Pipeline::ReadStage::read()
 
     if (!ReadRegister(operand1, 0))
     {
+        DeadlockWrite("Unable to read operand #1's register");
         return PIPE_STALL;
     }
     
     // Use the literal if the second operand is not valid
     if (!ReadRegister(operand2, m_input.literal))
     {
+        DeadlockWrite("Unable to read operand #2's register");
         return PIPE_STALL;
     }
     
@@ -401,11 +403,13 @@ Pipeline::PipeAction Pipeline::ReadStage::write()
 
     if (!ReadBypasses(operand1))
     {
+        DeadlockWrite("Unable to read bypasses for operand #1");
         return PIPE_STALL;
     }
     
     if (!ReadBypasses(operand2))
     {
+        DeadlockWrite("Unable to read bypasses for operand #2");
         return PIPE_STALL;
     }
     
@@ -435,14 +439,16 @@ Pipeline::PipeAction Pipeline::ReadStage::write()
         (Latch&)m_output               = m_input;
         (ArchDecodeReadLatch&)m_output = m_input;
         
-        m_output.Ra   = operand1.addr;
-        m_output.Rb   = operand2.addr;
-        m_output.Rc   = m_input.Rc;
-        m_output.Rrc  = m_input.Rrc;
-        m_output.Rav  = operand1.value;
-        m_output.Rbv  = operand2.value;
+        m_output.Ra      = operand1.addr;
+        m_output.Rb      = operand2.addr;
+        m_output.Rc      = m_input.Rc;
+        m_output.Rra.fid = INVALID_LFID;
+        m_output.Rrb.fid = INVALID_LFID;
+        m_output.Rrc     = m_input.Rrc;
+        m_output.Rav     = operand1.value;
+        m_output.Rbv     = operand2.value;
         m_output.Rcv.m_size = m_input.RcSize;
-        m_output.regs = m_input.regs;
+        m_output.regs    = m_input.regs;
     }
 
     if (operand1.value.m_state != RST_FULL)
@@ -454,18 +460,13 @@ Pipeline::PipeAction Pipeline::ReadStage::write()
             // waiting on it (that thread has already sent the request).
             RemoteRegAddr rra(m_input.Rra);
             rra.reg.index += (operand1.addr.index - m_input.Ra.index);
-            
-			if (!m_network.RequestRegister(rra, m_input.fid))
-            {
-                return PIPE_STALL;
-            }
+            COMMIT{ m_output.Rra = rra; }
         }
         
         COMMIT
         {
             m_output.Rc                 = operand1.addr;
             m_output.Rrc.fid            = INVALID_LFID;
-            m_output.Rav                = operand1.value;
             m_output.Rav.m_state        = RST_WAITING;
             m_output.Rav.m_waiting.head = m_input.tid;
             m_output.Rav.m_waiting.tail = (operand1.value.m_state == RST_WAITING)
@@ -478,21 +479,17 @@ Pipeline::PipeAction Pipeline::ReadStage::write()
         // Register wasn't full, write back the suspend information
         if (operand2.value.m_state != RST_WAITING && m_input.Rrb.fid != INVALID_LFID)
         {
-            // Send a remote request
+            // Send a remote request unless a thread is already
+            // waiting on it (that thread has already sent the request).
             RemoteRegAddr rrb(m_input.Rrb);
             rrb.reg.index += (operand2.addr.index - m_input.Rb.index);
-            
-			if (!m_network.RequestRegister(rrb, m_input.fid))
-            {
-                return PIPE_STALL;
-            }
+            COMMIT{ m_output.Rrb = rrb; }
         }
 
         COMMIT
         {
             m_output.Rc                 = operand2.addr;
             m_output.Rrc.fid            = INVALID_LFID;
-            m_output.Rbv                = operand2.value;
             m_output.Rbv.m_state        = RST_WAITING;
             m_output.Rbv.m_waiting.head = m_input.tid;
             m_output.Rbv.m_waiting.tail = (operand2.value.m_state == RST_WAITING)
@@ -542,10 +539,9 @@ void Pipeline::ReadStage::clear(TID tid)
     }
 }
 
-Pipeline::ReadStage::ReadStage(Pipeline& parent, DecodeReadLatch& input, ReadExecuteLatch& output, RegisterFile& regFile, Network& network, ExecuteMemoryLatch& bypass1, MemoryWritebackLatch& bypass2)
+Pipeline::ReadStage::ReadStage(Pipeline& parent, DecodeReadLatch& input, ReadExecuteLatch& output, RegisterFile& regFile, ExecuteMemoryLatch& bypass1, MemoryWritebackLatch& bypass2)
   : Stage(parent, "read", &input, &output),
     m_regFile(regFile),
-    m_network(network),
     m_input(input),
     m_output(output),
     m_bypass1(bypass1),
