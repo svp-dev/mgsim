@@ -30,13 +30,15 @@ public:
     {
         std::vector<T> vals;
         
-        std::stringstream stream;
-        stream << getString(name, "");
-        while (!stream.eof())
+        std::istringstream stream(getString(name,""));
+        std::string token;
+        while (getline(stream, token, ','))
         {
+            std::stringstream ss;
             T val;
-            stream >> val;
-            if (stream.fail()) break;
+            ss << token;
+            ss >> val;
+            if (ss.fail()) break;
             vals.push_back(val);
         }
         return vals;
