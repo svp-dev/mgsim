@@ -21,7 +21,10 @@ TEST_SOURCES = \
 	sine/sine_seq_o.s \
 	sine/sine_seq_u.s \
 	regression/inf_pipeline_wait_loop.s \
-	regression/exclusive_places.s
+	regression/exclusive_places.s \
+	regression/delegation1.s \
+	regression/delegation2.s \
+	regression/sparse_globals.s
 
 if ENABLE_MTALPHA_TESTS
 TESTS = $(TEST_SOURCES:.s=.bin)

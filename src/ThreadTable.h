@@ -62,7 +62,8 @@ public:
 
     ThreadTable(Processor& parent, const Config& config);
 
-    TSize GetNumThreads() const { return m_threads.size(); }
+    TSize GetNumThreads()     const { return m_threads.size(); }
+    TSize GetNumUsedThreads() const { return m_numThreadsUsed; }
 
           Thread& operator[](TID index)       { return m_threads[index]; }
     const Thread& operator[](TID index) const { return m_threads[index]; }

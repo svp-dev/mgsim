@@ -22,6 +22,7 @@
 #include <stdexcept>
 #include <limits>
 #include <typeinfo>
+#include <cmath>
 
 #include <signal.h>
 
@@ -134,6 +135,14 @@ public:
 			}
 			cout << endl;
 		}
+		cout << endl;
+
+        int width = (int)log10(m_procs.size()) + 1;
+   		for (size_t i = 0; i < m_procs.size(); ++i)
+   		{
+   		    cout << "Processor " << right << setw(width) << i << ": "
+   		         << (m_procs[i]->IsIdle() ? "idle" : "busy") << endl;
+   		}
 	}
 
 	void PrintRegFileAsyncPortActivity() const

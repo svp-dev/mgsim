@@ -38,8 +38,8 @@ void Processor::Initialize(Processor& prev, Processor& next)
     //
 	m_registerFile.p_asyncW.AddSource(ArbitrationSource(&m_fpu,       0)); // FP operation writebacks
     m_registerFile.p_asyncW.AddSource(ArbitrationSource(&m_dcache,    0)); // Mem Load writebacks
-    m_registerFile.p_asyncW.AddSource(ArbitrationSource(&m_network,   0)); // Remote register receives
-    m_registerFile.p_asyncW.AddSource(ArbitrationSource(&m_network,   1)); // Remote register sends
+    m_registerFile.p_asyncW.AddSource(ArbitrationSource(&m_network,   0)); // Register receives
+    m_registerFile.p_asyncW.AddSource(ArbitrationSource(&m_network,   1)); // Register sends (waiting writeback)
     m_registerFile.p_asyncW.AddSource(ArbitrationSource(&m_allocator, 0)); // Thread allocation
     m_registerFile.p_asyncW.AddSource(ArbitrationSource(&m_allocator, 4)); // Syncs
     m_registerFile.p_asyncR.AddSource(ArbitrationSource(&m_network,   1)); // Remote register sends
@@ -49,20 +49,39 @@ void Processor::Initialize(Processor& prev, Processor& next)
     
     m_registerFile.p_pipelineW .SetSource(ArbitrationSource(&m_pipeline, 0)); // Pipeline writeback stage
     
-    m_network.m_createLocal        .AddSource(ArbitrationSource(&m_allocator,      2)); // Create process broadcasts create
-    m_network.m_createRemote       .AddSource(ArbitrationSource(&prev.m_network,   3)); // Forward of group create
-    m_network.m_registerRequestOut .AddSource(ArbitrationSource(&m_pipeline,       2)); // Non-full register with remote mapping read
-    m_network.m_registerRequestIn  .AddSource(ArbitrationSource(&next.m_network,   1)); // From neighbour
-    m_network.m_registerResponseIn .AddSource(ArbitrationSource(&prev.m_network,   1)); // From neighbour
-    m_network.m_registerResponseOut.AddSource(ArbitrationSource(&m_pipeline,       0)); // Pipeline write to register with remote mapping
-    m_network.m_registerResponseOut.AddSource(ArbitrationSource(&m_network,        0)); // Returning register from a request
-    m_network.m_completedThread    .AddSource(ArbitrationSource(&next.m_pipeline,  0)); // Thread terminated (reschedule at WB stage)
-    m_network.m_cleanedUpThread    .AddSource(ArbitrationSource(&prev.m_allocator, 0)); // Thread cleaned up
-    m_network.m_synchronizedFamily .AddSource(ArbitrationSource(&prev.m_network,   7)); // Forwarding
-    m_network.m_synchronizedFamily .AddSource(ArbitrationSource(&m_allocator,      0)); // Dependencies resolved
-    m_network.m_terminatedFamily   .AddSource(ArbitrationSource(&next.m_network,   8)); // Forwarding
-    m_network.m_terminatedFamily   .AddSource(ArbitrationSource(&m_network,        3)); // Create with no threads
-    m_network.m_terminatedFamily   .AddSource(ArbitrationSource(&m_allocator,      0)); // Last thread cleaned up
+    for (size_t i = 0; i < m_grid.size(); i++)
+    {
+        // Every core can delegate to this core
+        m_network.m_delegateRemote.AddSource(ArbitrationSource(&m_grid[i]->m_network, 4));
+
+        // Every core can request registers
+        m_network.m_registerRequestRemote .in.AddSource(ArbitrationSource(&m_grid[i]->m_network, 11));
+        m_network.m_registerResponseRemote.in.AddSource(ArbitrationSource(&m_grid[i]->m_network, 12));
+    }
+    
+    m_network.m_delegateLocal             .AddSource(ArbitrationSource(&m_allocator,      2)); // Create process sends delegated create
+    m_network.m_createLocal               .AddSource(ArbitrationSource(&m_allocator,      2)); // Create process broadcasts create
+    m_network.m_createRemote              .AddSource(ArbitrationSource(&prev.m_network,   5)); // Forward of group create
+    m_network.m_registerRequestRemote.out .AddSource(ArbitrationSource(&m_pipeline,       2)); // Non-full register with remote mapping read
+    m_network.m_registerRequestRemote.out .AddSource(ArbitrationSource(&m_network,        1)); // Forward of global request to remote parent
+    m_network.m_registerRequestGroup.out  .AddSource(ArbitrationSource(&m_network,        1)); // Forward of global request to group place
+    m_network.m_registerRequestGroup.out  .AddSource(ArbitrationSource(&m_pipeline,       2)); // Non-full register with remote mapping read
+    m_network.m_registerRequestGroup.in   .AddSource(ArbitrationSource(&next.m_network,   3)); // From neighbour
+    m_network.m_registerResponseGroup.in  .AddSource(ArbitrationSource(&prev.m_network,   2)); // From neighbour
+    m_network.m_registerResponseGroup.out .AddSource(ArbitrationSource(&m_pipeline,       0)); // Pipeline write to register with remote mapping
+    m_network.m_registerResponseGroup.out .AddSource(ArbitrationSource(&m_network,        1)); // Returning register from a request
+    m_network.m_registerResponseGroup.out .AddSource(ArbitrationSource(&m_network,        0)); // Forwarding response from remote parent onto group
+    m_network.m_registerResponseRemote.out.AddSource(ArbitrationSource(&m_network,        1)); // Returning register from a request
+    m_network.m_registerResponseRemote.out.AddSource(ArbitrationSource(&m_pipeline,       0)); // Writing a remote shared from pipeline
+    m_network.m_completedThread           .AddSource(ArbitrationSource(&next.m_pipeline,  0)); // Thread terminated (reschedule at WB stage)
+    m_network.m_cleanedUpThread           .AddSource(ArbitrationSource(&prev.m_allocator, 0)); // Thread cleaned up
+    m_network.m_synchronizedFamily        .AddSource(ArbitrationSource(&prev.m_network,   9)); // Forwarding
+    m_network.m_synchronizedFamily        .AddSource(ArbitrationSource(&m_allocator,      0)); // Dependencies resolved
+    m_network.m_terminatedFamily          .AddSource(ArbitrationSource(&next.m_network,  10)); // Forwarding
+    m_network.m_terminatedFamily          .AddSource(ArbitrationSource(&m_network,        5)); // Create with no threads
+    m_network.m_terminatedFamily          .AddSource(ArbitrationSource(&m_allocator,      0)); // Last thread cleaned up
+    m_network.m_remoteSync                .AddSource(ArbitrationSource(&prev.m_network,   9)); // Sync token caused sync
+    m_network.m_remoteSync                .AddSource(ArbitrationSource(&m_allocator,      0)); // Thread administration caused sync
     
     m_memory.RegisterListener(*this);
 }    

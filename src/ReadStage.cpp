@@ -448,7 +448,7 @@ Pipeline::PipeAction Pipeline::ReadStage::write()
         m_output.Rav     = operand1.value;
         m_output.Rbv     = operand2.value;
         m_output.Rcv.m_size = m_input.RcSize;
-        m_output.regs    = m_input.regs;
+        m_output.regs       = m_input.regs;
     }
 
     if (operand1.value.m_state != RST_FULL)

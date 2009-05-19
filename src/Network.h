@@ -82,7 +82,8 @@ struct CreateMessage
 	TSize     physBlockSize;        ///< Physical block size
 	MemAddr   address;			    ///< Initial address of new threads
     struct {
-        LPID pid;
+        GPID gpid;
+        LPID lpid;
         TID  tid;
     } parent;                       ///< Parent Thread ID
     RegsNo    regsNo[NUM_REG_TYPES];///< Register counts
@@ -94,6 +95,7 @@ public:
     struct RegisterRequest
     {
         RemoteRegAddr addr;         ///< Address of the register to read
+        GPID          return_pid;   ///< Address of the core to send to (delegated requests only)
         LFID          return_fid;   ///< FID of the family on the next core to write back to
     };
     
@@ -129,9 +131,11 @@ private:
     bool OnFamilySynchronized(LFID fid);
     bool OnFamilyTerminated(LFID fid);
     bool OnRemoteSyncReceived(LFID fid, ExitCode code);
-    
     bool OnRegisterRequested(const RegisterRequest& request);
     bool OnRegisterReceived (const RegisterResponse& response);
+    bool OnRemoteRegisterRequested(const RegisterRequest& request);
+    bool OnRemoteRegisterReceived(const RegisterResponse& response);
+    bool ReadRegister(const RegisterRequest& request);
 
     Result OnCycleReadPhase(unsigned int stateIndex);
     Result OnCycleWritePhase(unsigned int stateIndex);
@@ -152,6 +156,16 @@ public:
 	    LFID     fid;
 	    ExitCode code;
 	};
+	
+	template <typename T>
+	struct RegisterPair
+	{
+	    Register<T> out;  ///< Register for outgoing messages
+	    Register<T> in;   ///< Register for incoming messages
+
+        RegisterPair(const Object& object, const std::string& name)
+            : out(object, name + ".out"), in(object, name + ".in") {}
+	};
 
 	// Group creates
     Register<CreateMessage>   m_createLocal;    ///< Outgoing group create
@@ -170,11 +184,11 @@ public:
     Register<RemoteSync> m_remoteSync;          ///< Incoming remote synchronization
 
 	// Register communication
-    Register<RegisterRequest>  m_registerRequestOut;  ///< Outgoing register request
-    Register<RegisterRequest>  m_registerRequestIn;   ///< Incoming register request
-    Register<RegisterResponse> m_registerResponseOut; ///< Outgoing register response
-    Register<RegisterResponse> m_registerResponseIn;  ///< Incoming register response
-    RegValue                   m_registerValue;       ///< Value of incoming register request
+	RegisterPair<RegisterRequest>  m_registerRequestRemote;  ///< Remote register request
+	RegisterPair<RegisterResponse> m_registerResponseRemote; ///< Remote register response
+    RegisterPair<RegisterRequest>  m_registerRequestGroup;   ///< Group register request
+    RegisterPair<RegisterResponse> m_registerResponseGroup;  ///< Group register response
+    RegValue                       m_registerValue;          ///< Value of incoming register request
 
 	// Token management
     Register<bool> m_hasToken;		 ///< We have the token

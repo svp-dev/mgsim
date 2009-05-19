@@ -164,6 +164,8 @@ public:
         Instruction     instr;
         RegInfo         regs;
 		bool            onParent;
+		GPID            parent_pid;
+		LFID            parent_fid;
         bool            isLastThreadInBlock;
 		bool            isFirstThreadInFamily;
         bool            isLastThreadInFamily;
@@ -255,6 +257,8 @@ public:
         TID             m_tid;
 		TID             m_next;
 		bool            m_legacy;
+		GPID            m_parent_pid;
+		LFID            m_parent_fid;
         MemAddr         m_pc;
         RegInfo         m_regs;
     };
@@ -324,7 +328,7 @@ public:
     public:
         PipeAction read();
         PipeAction write();
-        ExecuteStage(Pipeline& parent, ReadExecuteLatch& input, ExecuteMemoryLatch& output, Allocator& allocator, Network& network, ThreadTable& threadTable, FamilyTable& familyTable, FPU& fpu);
+        ExecuteStage(Pipeline& parent, ReadExecuteLatch& input, ExecuteMemoryLatch& output, Allocator& allocator, Network& network, ThreadTable& threadTable, FPU& fpu);
         
         uint64_t getFlop() const { return m_flop; }
         uint64_t getOp()   const { return m_op; }
@@ -335,7 +339,6 @@ public:
         Allocator&              m_allocator;
         Network&                m_network;
         ThreadTable&            m_threadTable;
-        FamilyTable&            m_familyTable;
 		FPU&                    m_fpu;
         uint64_t                m_flop;         // FP operations
         uint64_t                m_op;           // Instructions

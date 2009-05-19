@@ -804,13 +804,6 @@ Pipeline::PipeAction Pipeline::ExecuteStage::ExecuteInstruction()
         case S_OP3_SAVE:
         case S_OP3_RESTORE:
         {
-            const Family& family = m_familyTable[m_input.fid];
-            if (!family.legacy)
-            {
-                // We only allow SAVE and RESTORE in legacy code
-                ThrowIllegalInstructionException(*this, m_input.pc);
-            }
-
             // TODO
             //const Thread& thread = m_threadTable[m_input.tid];
             ThrowIllegalInstructionException(*this, m_input.pc);

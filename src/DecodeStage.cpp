@@ -36,12 +36,13 @@ RegAddr Pipeline::DecodeStage::TranslateRegister(uint8_t reg, RegType type, unsi
                 throw IllegalInstruction();
             }
             
-            if (!m_input.onParent)
+            if (!m_input.onParent || m_input.parent_pid != INVALID_GPID)
             {
                 // Set up the remote register information, in case the global is not full
+                remoteReg->pid  = (m_input.onParent) ? m_input.parent_pid : INVALID_GPID;
+                remoteReg->fid  = (m_input.onParent) ? m_input.parent_fid : m_input.link_prev;
                 remoteReg->type = RRT_GLOBAL;
                 remoteReg->reg  = MAKE_REGADDR(type, reg);
-                remoteReg->fid  = m_input.link_prev;
             }
             
             return MAKE_REGADDR(type, family.globals + reg);
@@ -52,21 +53,38 @@ RegAddr Pipeline::DecodeStage::TranslateRegister(uint8_t reg, RegType type, unsi
                 throw IllegalInstruction();
             }
             
-    		if (m_input.isLastThreadInFamily && m_input.onParent)
-            {
-                // We should write back to the parent shareds on our own CPU
-                return MAKE_REGADDR(type, family.shareds + reg);
-            }
+    		if (m_input.isLastThreadInFamily || m_input.isLastThreadInBlock)
+    		{
+	    	    if (m_input.isLastThreadInFamily && m_input.parent_pid != INVALID_GPID)
+                {
+                    // Last thread in a delegated create,
+                    // we should send the shareds back remotely
+                    remoteReg->pid  = m_input.parent_pid;
+                    remoteReg->fid  = m_input.parent_fid;
+                    remoteReg->type = RRT_PARENT_SHARED;
+                    remoteReg->reg  = MAKE_REGADDR(type, reg);
+                }
+  		        else
+  		        {
+  		            if (m_input.isLastThreadInFamily && m_input.onParent)
+                    {
+                        // We should write back to the parent shareds on our own CPU
+                        return MAKE_REGADDR(type, family.shareds + reg);
+                    }
 
-		    if ((m_input.isLastThreadInFamily || m_input.isLastThreadInBlock) && m_input.link_next != INVALID_LFID)
-		    {
-                // This is the last thread in the block, set the remoteReg as well,
-                // because we need to forward the shared value to the next CPU
-                // Obviously, this isn't necessary for local families
-                remoteReg->type = (m_input.isLastThreadInFamily) ? RRT_PARENT_SHARED : RRT_FIRST_DEPENDENT;
-                remoteReg->reg  = MAKE_REGADDR(type, reg);
-                remoteReg->fid  = m_input.link_next;
+                    // This is the last thread in the block, set the remoteReg as well,
+                    // because we need to forward the shared value to the next CPU
+                    // Obviously, this isn't necessary for local families
+		            if (m_input.link_next != INVALID_LFID)
+		            {
+                        remoteReg->type = (m_input.isLastThreadInFamily) ? RRT_PARENT_SHARED : RRT_FIRST_DEPENDENT;
+                        remoteReg->pid  = INVALID_GPID;
+                        remoteReg->reg  = MAKE_REGADDR(type, reg);
+                        remoteReg->fid  = m_input.link_next;
+                    }
+                }
             }
+            
             return MAKE_REGADDR(type, thread.base + reg);
             
         case RC_LOCAL:
@@ -83,16 +101,17 @@ RegAddr Pipeline::DecodeStage::TranslateRegister(uint8_t reg, RegType type, unsi
                 throw IllegalInstruction();
             }
             
-            if (thread.producer != INVALID_REG_INDEX)
+            if (thread.producer != INVALID_REG_INDEX && (!m_input.isFirstThreadInFamily || m_input.parent_pid == INVALID_GPID))
             {
                 // It's a local dependency
                 return MAKE_REGADDR(type, thread.producer + reg);
             }
 
             // It's a remote dependency
-            remoteReg->type = (m_input.isFirstThreadInFamily) ? RRT_PARENT_SHARED : RRT_LAST_SHARED;
+            remoteReg->pid  = (m_input.isFirstThreadInFamily)  ? m_input.parent_pid : INVALID_GPID;
+            remoteReg->fid  = (remoteReg->pid != INVALID_GPID) ? m_input.parent_fid : m_input.link_prev;
+            remoteReg->type = (m_input.isFirstThreadInFamily)  ? RRT_PARENT_SHARED  : RRT_LAST_SHARED;
             remoteReg->reg  = MAKE_REGADDR(type, reg);
-            remoteReg->fid  = m_input.link_prev;
             return MAKE_REGADDR(type, family.base + family.size - family.count.shareds + reg);
 
         case RC_RAZ:
@@ -113,8 +132,8 @@ Pipeline::PipeAction Pipeline::DecodeStage::write()
     COMMIT
     {
         // Copy common latch data
-        (Latch&)m_output = m_input;
-        m_output.regs = m_input.regs;
+        (Latch&)m_output  = m_input;
+        m_output.regs     = m_input.regs;
         
         try
         {

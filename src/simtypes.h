@@ -258,6 +258,7 @@ const char* GetRemoteRegisterTypeString(RemoteRegType type);
 struct RemoteRegAddr
 {
     RemoteRegType type; ///< The type of register we're requesting
+    GPID          pid;  ///< The core we're requesting it from (INVALID_GPID for group)
     RegAddr       reg;  ///< The type and (logical) index of the register
     LFID          fid;  ///< The ID of the family containing the desired global or shared
 };

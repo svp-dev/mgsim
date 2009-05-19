@@ -427,9 +427,9 @@ static bool cmd_network_read( Object* obj, const vector<string>& /* arguments */
     cout << dec;
 
     cout << "Registers:" << endl;
-    if (network->m_registerRequestOut.CanRead())
+    if (network->m_registerRequestGroup.out.CanRead())
     {
-        const Network::RegisterRequest& request = network->m_registerRequestOut.Read();
+        const Network::RegisterRequest& request = network->m_registerRequestGroup.out.Read();
         cout << "* Requesting "
              << GetRemoteRegisterTypeString(request.addr.type) << " register "
              << request.addr.reg.str()
@@ -437,18 +437,19 @@ static bool cmd_network_read( Object* obj, const vector<string>& /* arguments */
              << " on previous processor" << endl;
     }
 
-    if (network->m_registerRequestIn.CanRead())
+    if (network->m_registerRequestGroup.in.CanRead())
     {
-        const Network::RegisterRequest& request = network->m_registerRequestIn.Read();
-        cout << "* Reading "
+        const Network::RegisterRequest& request = network->m_registerRequestGroup.in.Read();
+        cout << "* Received request for "
              << GetRemoteRegisterTypeString(request.addr.type) << " register "
              << request.addr.reg.str()
-             << " from F" << request.addr.fid << endl;
+             << " in F" << request.addr.fid
+             << " from next processor" << endl;
     }
     
-    if (network->m_registerResponseOut.CanRead())
+    if (network->m_registerResponseGroup.out.CanRead())
     {
-        const Network::RegisterResponse& response = network->m_registerResponseOut.Read();
+        const Network::RegisterResponse& response = network->m_registerResponseGroup.out.Read();
         cout << "* Sending "
              << GetRemoteRegisterTypeString(response.addr.type) << " register "
              << response.addr.reg.str()
@@ -456,14 +457,54 @@ static bool cmd_network_read( Object* obj, const vector<string>& /* arguments */
              << " on next processor" << endl;
     }
 
-    if (network->m_registerResponseIn.CanRead())
+    if (network->m_registerResponseGroup.in.CanRead())
     {
-        const Network::RegisterResponse& response = network->m_registerResponseIn.Read();
+        const Network::RegisterResponse& response = network->m_registerResponseGroup.in.Read();
         cout << "* Received "
              << GetRemoteRegisterTypeString(response.addr.type) << " register "
              << response.addr.reg.str()
-             << " from F" << response.addr.fid
-             << " on previous processor" << endl;
+             << " in F" << response.addr.fid
+             << " from previous processor" << endl;
+    }
+    
+    if (network->m_registerRequestRemote.out.CanRead())
+    {
+        const Network::RegisterRequest& request = network->m_registerRequestRemote.out.Read();
+        cout << "* Requesting "
+             << GetRemoteRegisterTypeString(request.addr.type) << " register "
+             << request.addr.reg.str()
+             << " from F" << request.addr.fid
+             << " on P" << request.addr.pid << endl;
+    }
+
+    if (network->m_registerRequestRemote.in.CanRead())
+    {
+        const Network::RegisterRequest& request = network->m_registerRequestRemote.in.Read();
+        cout << "* Received request for "
+             << GetRemoteRegisterTypeString(request.addr.type) << " register "
+             << request.addr.reg.str()
+             << " in F" << request.addr.fid
+             << " from P" << request.addr.pid << endl;
+    }
+    
+    if (network->m_registerResponseRemote.out.CanRead())
+    {
+        const Network::RegisterResponse& response = network->m_registerResponseRemote.out.Read();
+        cout << "* Sending "
+             << GetRemoteRegisterTypeString(response.addr.type) << " register "
+             << response.addr.reg.str()
+             << " to F" << response.addr.fid
+             << " on P" << response.addr.pid << endl;
+    }
+
+    if (network->m_registerResponseRemote.in.CanRead())
+    {
+        const Network::RegisterResponse& response = network->m_registerResponseRemote.in.Read();
+        cout << "* Received "
+             << GetRemoteRegisterTypeString(response.addr.type) << " register "
+             << response.addr.reg.str()
+             << " in F" << response.addr.fid
+             << " from P" << response.addr.pid << endl;
     }
     cout << endl;
 
@@ -839,24 +880,27 @@ static bool cmd_families_read( Object* obj, const vector<string>& /* arguments *
 			{
                 cout << "        -          |       -        |      -      | ";
 			}
-			else if (family.state == FST_CREATING || family.state == FST_DELEGATED)
+			else 
 			{
-	            cout << hex << setw(18) << showbase << family.pc << dec
-	                 << " |       -        |     -     | ";
-			}
-			else
-			{
-	            cout << hex
-	                 << setw(18) << showbase << family.pc << " | "
-				     << dec
-				     << setw(3) << family.dependencies.numThreadsAllocated << "/"
-					 << setw(3) << family.physBlockSize << " ("
-					 << setw(4) << family.virtBlockSize << ") | "
-				     << !family.dependencies.prevSynchronized << "/"
-				     << !family.dependencies.nextTerminated << "/"
-					 << !family.dependencies.allocationDone << "/"
-					 << setw(2) << family.dependencies.numPendingReads << "/"
-					 << setw(2) << family.dependencies.numPendingShareds << " | " << right;
+   	            cout << hex << setw(18) << showbase << family.pc << " | " << dec;
+			    if (family.state == FST_CREATING || family.state == FST_DELEGATED) {
+	                cout << "      -       ";
+			    } else {
+	                cout << setw(3) << family.dependencies.numThreadsAllocated << "/"
+					     << setw(3) << family.physBlockSize << " ("
+					     << setw(4) << family.virtBlockSize << ")";
+		        }
+		        cout << " | ";
+			    if (family.state == FST_CREATING) {
+	                cout << "     -     ";
+			    } else {
+				    cout << !family.dependencies.prevSynchronized << "/"
+				         << !family.dependencies.nextTerminated << "/"
+					     << !family.dependencies.allocationDone << "/"
+					     << setw(2) << family.dependencies.numPendingReads << "/"
+					     << setw(2) << family.dependencies.numPendingShareds << right;
+			    }
+			    cout << " | ";
 			}
 
             // Print parent
@@ -897,7 +941,7 @@ static bool cmd_families_read( Object* obj, const vector<string>& /* arguments *
         }
         cout << endl;
     }
-	cout << endl;
+	cout << endl << dec << table->GetNumUsedFamilies() << " used families." << endl;
 	
     return true;
 }
@@ -966,6 +1010,7 @@ static bool cmd_threads_read( Object* obj, const vector<string>& /* arguments */
         }
         cout << endl;
     }
+	cout << endl << dec << table->GetNumUsedThreads() << " used threads." << endl;
     return true;
 }
 
@@ -1011,7 +1056,10 @@ static string MakePipeValue(const RegType& type, const PipeValue& value)
 
 static ostream& operator<<(ostream& out, const RemoteRegAddr& rreg) {
     if (rreg.fid != INVALID_LFID) {
-        out << hex << setw(2) << setfill('0') << rreg.reg.str() << " @ " << rreg.fid;
+        out << hex << setw(2) << setfill('0') << rreg.reg.str() << ", F" << dec << rreg.fid;
+        if (rreg.pid != INVALID_GPID) {
+            out << "@P" << rreg.pid;
+        }
     } else {
         out << "N/A";
     }
@@ -1116,6 +1164,8 @@ static bool cmd_pipeline_read( Object* obj, const vector<string>& /* arguments *
 #endif
              << " | Rav:          " << MakePipeValue(relatch.Ra.type, relatch.Rav) << "/" << relatch.Rav.m_size << endl
              << " | Rbv:          " << MakePipeValue(relatch.Rb.type, relatch.Rbv) << "/" << relatch.Rbv.m_size << endl
+             << " | Rra:          " << relatch.Rra << endl
+             << " | Rrb:          " << relatch.Rrb << endl
              << dec
              << " | Rc:           " << relatch.Rc << "/" << relatch.Rcv.m_size << "    Rrc: " << relatch.Rrc << endl;
     }

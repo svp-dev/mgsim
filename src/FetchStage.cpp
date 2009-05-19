@@ -53,6 +53,8 @@ Pipeline::PipeAction Pipeline::FetchStage::read()
 				m_isLastThreadInFamily  = thread.isLastThreadInFamily;
 				m_isFirstThreadInFamily = thread.isFirstThreadInFamily;
 				m_onParent              = (family.parent.lpid == m_lpid);
+				m_parent_pid            = family.parent.gpid;
+				m_parent_fid            = family.parent.fid;
 
 				for (RegType i = 0; i < NUM_REG_TYPES; ++i)
 				{
@@ -114,13 +116,15 @@ Pipeline::PipeAction Pipeline::FetchStage::write()
 
 	COMMIT
 	{
-		m_output.instr     = UnserializeInstruction(&instrs[iInstr]);
-		m_output.fid       = m_fid;
-		m_output.link_prev = m_link_prev;
-		m_output.link_next = m_link_next;
-		m_output.tid       = m_tid;
-		m_output.pc        = m_pc;
-		m_output.onParent  = m_onParent;
+		m_output.instr      = UnserializeInstruction(&instrs[iInstr]);
+		m_output.fid        = m_fid;
+		m_output.link_prev  = m_link_prev;
+		m_output.link_next  = m_link_next;
+		m_output.tid        = m_tid;
+		m_output.pc         = m_pc;
+		m_output.onParent   = m_onParent;
+		m_output.parent_pid = m_parent_pid;
+		m_output.parent_fid = m_parent_fid;
 		m_output.isLastThreadInFamily  = m_isLastThreadInFamily;
 		m_output.isLastThreadInBlock   = m_isLastThreadInBlock;
 		m_output.isFirstThreadInFamily = m_isFirstThreadInFamily;

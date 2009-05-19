@@ -27,6 +27,7 @@ TID ThreadTable::PopEmpty()
     if (tid != INVALID_TID)
     {
         assert(m_threads[tid].state == TST_EMPTY);
+        assert(m_numThreadsUsed < m_threads.size());
         COMMIT
         {
             m_empty.head = m_threads[tid].nextMember;
@@ -39,6 +40,9 @@ TID ThreadTable::PopEmpty()
 
 bool ThreadTable::PushEmpty(const ThreadQueue& q)
 {
+    assert(q.head != INVALID_TID);
+    assert(q.tail != INVALID_TID);
+    
     COMMIT
     {
         if (m_empty.head == INVALID_TID) {
@@ -52,6 +56,8 @@ bool ThreadTable::PushEmpty(const ThreadQueue& q)
         // Admin, set states to empty
         for (TID cur = q.head; cur != INVALID_TID; cur = m_threads[cur].nextMember)
         {
+            assert(m_numThreadsUsed > 0);
+            DebugSimWrite("Decrementing for T%u", cur);
             m_threads[cur].state = TST_EMPTY;
             m_numThreadsUsed--;
         }

@@ -51,7 +51,7 @@ Pipeline::PipeAction Pipeline::ExecuteStage::write()
             // We need to request this register remotely
             if (!m_network.RequestRegister(rr, m_input.fid))
             {
-                DeadlockWrite("Unable to request remote register for operand");
+                DeadlockWrite("Unable to request register for operand");
                 return PIPE_STALL;
             }
         }
@@ -143,6 +143,11 @@ Pipeline::PipeAction Pipeline::ExecuteStage::SetFamilyProperty(LFID fid, FamilyP
     		    family.place.type       = (PlaceID::Type)((value >> 1) & 3);
     		    family.place.pid        = (value >> 3) & ((1ULL << P) - 1);
     		    family.place.capability = value >> (P + 3);
+    		    
+    		    if (family.place.type == Family::DELEGATED && family.place.pid >= m_parent.GetProcessor().GetGridSize())
+    		    {
+    		        throw SimulationException("Attempting to delegate to a non-existing core");
+    		    }
     		    break;
     		}
     	}
@@ -201,14 +206,13 @@ void Pipeline::ExecuteStage::ExecDebug(double value, Integer stream) const
     }
 }
 
-Pipeline::ExecuteStage::ExecuteStage(Pipeline& parent, ReadExecuteLatch& input, ExecuteMemoryLatch& output, Allocator& alloc, Network& network, ThreadTable& threadTable, FamilyTable& familyTable, FPU& fpu)
+Pipeline::ExecuteStage::ExecuteStage(Pipeline& parent, ReadExecuteLatch& input, ExecuteMemoryLatch& output, Allocator& alloc, Network& network, ThreadTable& threadTable, FPU& fpu)
   : Stage(parent, "execute", &input, &output),
     m_input(input),
     m_output(output),
     m_allocator(alloc),
     m_network(network),
     m_threadTable(threadTable),
-    m_familyTable(familyTable),
 	m_fpu(fpu)
 {
     m_flop = 0;

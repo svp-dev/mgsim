@@ -2,6 +2,7 @@
 #define ALLOCATOR_H
 
 #include "ThreadTable.h"
+#include "FamilyTable.h"
 #include <queue>
 
 namespace Simulator
@@ -161,7 +162,7 @@ private:
     MemSize CalculateTLSSize() const;
     
 	void SetDefaultFamilyEntry(LFID fid, TID parent, const RegisterBases bases[]) const;
-	void InitializeFamily(LFID fid, bool local) const;
+	void InitializeFamily(LFID fid, Family::Type type) const;
 	bool AllocateRegisters(LFID fid);
 	bool WriteExitCode(RegIndex reg, ExitCode code);
 

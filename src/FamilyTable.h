@@ -100,6 +100,8 @@ public:
 	LFID AllocateFamily();
     bool FreeFamily(LFID fid);
     bool IsEmpty() const { return m_numFamiliesUsed == 0; }
+    
+    FSize GetNumUsedFamilies() const { return m_numFamiliesUsed; }
 
     // Admin functions
     const std::vector<Family>& GetFamilies() const { return m_families; }

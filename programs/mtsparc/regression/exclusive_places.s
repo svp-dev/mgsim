@@ -1,3 +1,8 @@
+/*
+ This test test exclusive delegation. A shared, global variable is incremented
+ on an exclusive place and summed in its parent. Without exclusivity, the
+ result would not be correct due to overlapping increments.
+ */
     .file "exclusive_places.s"
     
     .globl main
@@ -18,7 +23,7 @@ main:
     print %1, 0
     cmp %1, %2
     beq 1f
-    unimp
+    unimp           ! Cause an invalid instruction
 1:  nop
     end
 
@@ -27,7 +32,8 @@ main:
 foo:
     .registers 0 1 3 0 0 0
     allocate %l1, 0, 0, 0, 0
-    setplace %l1, 3; swch   ! Local exclusive
+    setplace %l1, (1 << 3) | (2 << 1) | 1   ! Delegated, exclusive
+    swch
     cred     bar, %l1
     mov      %l1, %0; swch
     add      %d0, %l0, %s0
@@ -47,3 +53,5 @@ bar:
     .align 4
 val:
     .int 0
+
+    .ascii "PLACES: 1,{1,2,3,4}\0"
