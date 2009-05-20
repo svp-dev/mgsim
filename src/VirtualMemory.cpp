@@ -93,8 +93,8 @@ void VirtualMemory::Read(MemAddr address, void* _data, MemSize size) const
 	{
 		if (pos == m_blocks.end())
 		{
-			// Rest of address range does not exist, fill with garbage
-			fill(data, data + size, 0xCD);
+			// Rest of address range does not exist, fill with zero
+			fill(data, data + size, 0);
 			break;
 		}
 
@@ -102,8 +102,8 @@ void VirtualMemory::Read(MemAddr address, void* _data, MemSize size) const
 		size_t count = min( (size_t)size, (size_t)BLOCK_SIZE);
 
 		if (pos->first > base) {
-			// This part of the request does not exist, fill with garbage
-			fill(data, data + count, 0xCD);
+			// This part of the request does not exist, fill with zero
+			fill(data, data + count, 0);
 		} else {
 			// Read data
 			memcpy(data, pos->second.data + offset, count);
@@ -135,8 +135,8 @@ void VirtualMemory::Write(MemAddr address, const void* _data, MemSize size)
 		pair<BlockMap::iterator, bool> ins = m_blocks.insert(make_pair(base, Block()));
     	BlockMap::iterator pos = ins.first;
 		if (ins.second) {
-			// A new element was inserted, allocate and set memory
-			memset(pos->second.data, 0xCD, BLOCK_SIZE);
+			// A new element was inserted, allocate and clear memory
+			memset(pos->second.data, 0, BLOCK_SIZE);
 		}
 		
 		// Number of bytes to write, initially

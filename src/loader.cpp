@@ -146,18 +146,7 @@ static pair<MemAddr,MemAddr> LoadProgram(IMemoryAdmin* memory, void* _data, MemS
 
 			}
 
-			// Clear the difference between filesz and memsz
-			Elf_Xword size = phdr[i].p_memsz - phdr[i].p_filesz;
-    		Elf_Addr  addr = phdr[i].p_vaddr + phdr[i].p_filesz;
-			while (size > 0)
-			{
-    			static const char zero[256] = {0};
-				Elf_Xword num = min<Elf_Xword>(size, 256ULL);
-				memory->Write(addr, zero, num);
-				size -= num;
-				addr += num;
-			}
-			last = max<Elf_Addr>(last, addr);
+			last = max<Elf_Addr>(last, phdr[i].p_vaddr + phdr[i].p_memsz);
 		}
 	}
 	
