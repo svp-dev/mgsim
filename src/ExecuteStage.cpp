@@ -144,7 +144,7 @@ Pipeline::PipeAction Pipeline::ExecuteStage::SetFamilyProperty(LFID fid, FamilyP
     		    family.place.pid        = (value >> 3) & ((1ULL << P) - 1);
     		    family.place.capability = value >> (P + 3);
     		    
-    		    if (family.place.type == Family::DELEGATED && family.place.pid >= m_parent.GetProcessor().GetGridSize())
+    		    if (family.place.type == PlaceID::DELEGATE && family.place.pid >= m_parent.GetProcessor().GetGridSize())
     		    {
     		        throw SimulationException("Attempting to delegate to a non-existing core");
     		    }

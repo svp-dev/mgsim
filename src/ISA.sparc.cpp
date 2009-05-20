@@ -725,6 +725,7 @@ Pipeline::PipeAction Pipeline::ExecuteStage::ExecuteInstruction()
                 COMMIT
                 {
                     m_output.Rcv = MAKE_EMPTY_PIPEVALUE(m_output.Rcv.m_size);
+                    m_output.Rcv.m_remote = m_input.Rrc;
 
                     // We've executed a floating point operation
                     m_flop++;

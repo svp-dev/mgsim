@@ -1363,8 +1363,8 @@ static bool cmd_regs_read( Object* obj, const vector<string>& arguments )
         cout << addr << " | " << setw(7) << setfill(' ') << StateNames[value.m_state] << " | ";
         if (value.m_state != RST_FULL)
         {
-            cout << (value.m_memory.size    != 0            ? 'M' : ' ');
-            cout << (value.m_remote.reg.fid != INVALID_LFID ? 'R' : ' ');
+            cout << (value.m_memory.size != 0            ? 'M' : ' ');
+            cout << (value.m_remote.fid  != INVALID_LFID ? 'R' : ' ');
         }
         else
         {

@@ -29,7 +29,7 @@ struct PipeValue
         {
             ThreadQueue   m_waiting;    ///< List of the threads that are waiting on the register.
             MemoryRequest m_memory;     ///< Memory request information for pending registers.
-            RemoteRequest m_remote;     ///< Remote request information for shareds and globals.
+            RemoteRegAddr m_remote;     ///< Remote request information for shareds and globals.
         };
     };
 };
@@ -37,11 +37,11 @@ struct PipeValue
 static inline PipeValue MAKE_EMPTY_PIPEVALUE(unsigned int size)
 {
     PipeValue value;
-    value.m_state          = RST_EMPTY;
-    value.m_size           = size;
-    value.m_waiting.head   = INVALID_TID;
-    value.m_memory.size    = 0;
-    value.m_remote.reg.fid = INVALID_LFID;
+    value.m_state        = RST_EMPTY;
+    value.m_size         = size;
+    value.m_waiting.head = INVALID_TID;
+    value.m_memory.size  = 0;
+    value.m_remote.fid   = INVALID_LFID;
     return value;
 }
 

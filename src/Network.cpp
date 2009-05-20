@@ -479,7 +479,7 @@ Result Network::OnCycleReadPhase(unsigned int stateIndex)
                 }
                 assert(value.m_state != RST_INVALID);
                 
-                if (value.m_state != RST_FULL && value.m_remote.reg.fid != INVALID_LFID)
+                if (value.m_state != RST_FULL && value.m_remote.fid != INVALID_LFID)
                 {
                     // We can only have one remote request waiting on a register
     	            DebugSimWrite("Discarding request for %s register %s in F%u: register has already been requested",
@@ -631,7 +631,7 @@ Result Network::OnCycleWritePhase(unsigned int stateIndex)
 			    // Write back a remote waiting state
         		RegAddr addr = m_allocator.GetRemoteRegisterAddress(request.addr);
         		assert(addr.valid());
-        		assert(m_registerValue.m_remote.reg.fid == INVALID_LFID);
+        		assert(m_registerValue.m_remote.fid == INVALID_LFID);
         			
                 if (!m_regFile.p_asyncW.Write(addr))
                 {
@@ -640,8 +640,7 @@ Result Network::OnCycleWritePhase(unsigned int stateIndex)
                 }
                     
 			    RegValue value(m_registerValue);
-			    value.m_remote.pid = request.return_pid;
-			    value.m_remote.reg = return_addr;
+			    value.m_remote = return_addr;
 				    
                 if (!m_regFile.WriteRegister(addr, value, false))
                 {

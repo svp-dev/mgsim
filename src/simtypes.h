@@ -263,13 +263,6 @@ struct RemoteRegAddr
     LFID          fid;  ///< The ID of the family containing the desired global or shared
 };
 
-/// This structure stores remote request information for shareds and globals.
-struct RemoteRequest
-{
-    GPID          pid; ///< ID of the requesting CPU (INVALID for group requests)
-    RemoteRegAddr reg; ///< Destination register
-};
-
 enum Result
 {
     FAILED,
@@ -310,7 +303,7 @@ struct RegValue
 		{
 		    ThreadQueue   m_waiting;    ///< List of the threads that are waiting on the register.
 			MemoryRequest m_memory;     ///< Memory request information for pending registers.
-			RemoteRequest m_remote;     ///< Remote request information for shareds and globals.
+			RemoteRegAddr m_remote;     ///< Remote request information for shareds and globals.
 		};
     };
 };
@@ -318,10 +311,10 @@ struct RegValue
 static inline RegValue MAKE_EMPTY_REG()
 {
     RegValue value;
-    value.m_state          = RST_EMPTY;
-    value.m_waiting.head   = INVALID_TID;
-    value.m_memory.size    = 0;
-    value.m_remote.reg.fid = INVALID_LFID;
+    value.m_state        = RST_EMPTY;
+    value.m_waiting.head = INVALID_TID;
+    value.m_memory.size  = 0;
+    value.m_remote.fid   = INVALID_LFID;
     return value;
 }
 

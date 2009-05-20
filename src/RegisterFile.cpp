@@ -141,10 +141,10 @@ bool RegisterFile::WriteRegister(const RegAddr& addr, RegValue& data, bool from_
             }
         }
         
-        if (data.m_state == RST_FULL && value.m_remote.reg.fid != INVALID_LFID)
+        if (data.m_state == RST_FULL && value.m_remote.fid != INVALID_LFID)
         {
             // Another processor wants this value
-            if (!m_network.SendRegister(value.m_remote.reg, data))
+            if (!m_network.SendRegister(value.m_remote, data))
             {
                 DeadlockWrite("Unable to send register from %s", addr.str().c_str());
                 return false;
