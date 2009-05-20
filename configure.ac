@@ -12,6 +12,7 @@ AC_CONFIG_HEADERS([src/sys_config.h])
 
 AM_INIT_AUTOMAKE([1.11 tar-ustar no-define foreign dist-bzip2 
                   parallel-tests color-tests silent-rules])
+AM_SILENT_RULES([yes])
 
 # Override the default CXXFLAGS since
 # Makefile.am applies new values.
