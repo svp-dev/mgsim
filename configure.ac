@@ -10,7 +10,8 @@ AC_INIT([mgsim], [1.x], [m.lankamp@uva.nl])
 AC_CONFIG_AUX_DIR([build-aux])
 AC_CONFIG_HEADERS([src/sys_config.h])
 
-AM_INIT_AUTOMAKE([1.10 tar-ustar no-define foreign dist-bzip2])
+AM_INIT_AUTOMAKE([1.11 tar-ustar no-define foreign dist-bzip2 
+                  parallel-tests color-tests silent-rules])
 
 # Override the default CXXFLAGS since
 # Makefile.am applies new values.
