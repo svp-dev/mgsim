@@ -61,19 +61,7 @@ static string Trim(const string& str)
 
 class MGSystem : public Object
 {
-    vector<Processor*> m_procs;
-    vector<Object*>    m_objects;
-    Kernel             m_kernel;
-
 public:
-    //SimpleMemory*   m_memory;
-#ifdef USE_BANKED_MEMORY
-    typedef BankedMemory MemoryType;
-#else
-    typedef ParallelMemory MemoryType;
-#endif
-    MemoryType* m_memory;
-
     struct Config
     {
         vector<PSize>        placeSizes;
@@ -82,6 +70,50 @@ public:
         Processor::Config    processor;
     };
 
+private:
+    //SimpleMemory*   m_memory;
+#ifdef USE_BANKED_MEMORY
+    typedef BankedMemory MemoryType;
+#else
+    typedef ParallelMemory MemoryType;
+#endif
+
+    vector<Processor*> m_procs;
+    vector<Object*>    m_objects;
+    Kernel             m_kernel;
+    MemoryType*        m_memory;
+
+    // Writes the current configuration into memory and returns its address
+    MemAddr WriteConfiguration(const Config& config)
+    {
+        vector<uint32_t> data(1 + m_procs.size());
+
+        // Store the number of cores
+        SerializeRegister(RT_INTEGER, m_procs.size(), &data[0], sizeof data[0]);
+
+        // Store the cores, per place
+        PSize first = 0;
+        for (size_t p = 0; p < config.placeSizes.size(); ++p)
+        {            
+            PSize placeSize = config.placeSizes[p];
+            for (size_t i = 0; i < placeSize; ++i)
+            {
+                PSize pid = first + i;
+                SerializeRegister(RT_INTEGER, (p << 16) | (pid << 0), &data[1 + pid], sizeof data[0]);
+            }
+            first += placeSize;
+        }
+        
+        MemAddr base;
+        if (!m_memory->Allocate(data.size() * sizeof data[0], IMemory::PERM_READ, base))
+        {
+            throw runtime_error("Unable to allocate memory to store configuration data");
+        }
+        m_memory->Write(base, &data[0], data.size() * sizeof data[0]);
+        return base;
+    }
+
+public:
     // Get or set the debug flag
     int  GetDebugMode() const   { return m_kernel.GetDebugMode(); }
     void SetDebugMode(int mode) { m_kernel.SetDebugMode(mode); }
@@ -283,7 +315,7 @@ public:
     {
         GetKernel().Abort();
     }
-
+    
     MGSystem(const Config& config, const string& program,
         const vector<pair<RegAddr, RegValue> >& regs,
         const vector<pair<RegAddr, string> >& loads,
@@ -295,16 +327,14 @@ public:
         m_objects.back() = m_memory;
 
         // Load the program into memory
-        pair<MemAddr,MemAddr> addrs = LoadProgram(m_memory, program, quiet);
-        MemAddr entry = addrs.first;
+        MemAddr entry = LoadProgram(m_memory, program, quiet);
 
         // Create processor grid
         m_procs.resize(config.numProcessors);
         
         PSize first = 0;
         for (size_t p = 0; p < config.placeSizes.size(); ++p)
-        {
-            
+        {            
             PSize placeSize = config.placeSizes[p];
             for (size_t i = 0; i < placeSize; ++i)
             {
@@ -335,29 +365,33 @@ public:
        
         if (!m_procs.empty())
         {
-#if TARGET_ARCH == ARCH_ALPHA
-            // The Alpha expects the function address in $27
-			RegValue value;
-			value.m_state   = RST_FULL;
-			value.m_integer = entry;
-			m_procs[0]->WriteRegister(MAKE_REGADDR(RT_INTEGER, 27), value);
-#endif
-
 	        // Fill initial registers
 	        for (size_t i = 0; i < regs.size(); ++i)
 	        {
 	        	m_procs[0]->WriteRegister(regs[i].first, regs[i].second);
 	        }
-	        
-            MemAddr dataloadbase = addrs.second;
+
+            // Load data files	        
             for (size_t i = 0; i < loads.size(); ++i)
             { 
                 RegValue value; 
-                value.m_state = RST_FULL; 
-                value.m_integer = dataloadbase; 
+                value.m_state   = RST_FULL; 
+                value.m_integer = LoadDataFile(m_memory, loads[i].second, quiet);
                 m_procs[0]->WriteRegister(loads[i].first, value); 
-                dataloadbase = LoadDataFile(m_memory, loads[i].second, dataloadbase, quiet); 
             }
+            
+            // Load configuration
+            // Store the address in local #2
+			RegValue value;
+			value.m_state   = RST_FULL;
+            value.m_integer = WriteConfiguration(config);
+			m_procs[0]->WriteRegister(MAKE_REGADDR(RT_INTEGER, 2), value);
+
+#if TARGET_ARCH == ARCH_ALPHA
+            // The Alpha expects the function address in $27
+			value.m_integer = entry;
+			m_procs[0]->WriteRegister(MAKE_REGADDR(RT_INTEGER, 27), value);
+#endif
         }
     }
 

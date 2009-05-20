@@ -9,6 +9,63 @@ namespace Simulator
 // We allocate per block, this is the size of each block. Must be a power of two
 static const int BLOCK_SIZE = (1 << 12);
 
+// Align allocations on 64 bytes
+static const MemAddr ALIGNMENT = 64;
+
+static MemAddr ALIGN_UP(const MemAddr& a)
+{
+    return (a + ALIGNMENT - 1) / ALIGNMENT * ALIGNMENT;
+}
+
+static MemAddr ALIGN_DOWN(const MemAddr& a)
+{
+    return a / ALIGNMENT * ALIGNMENT;
+}
+
+bool VirtualMemory::Allocate(MemSize size, int perm, MemAddr& address)
+{
+    if (size == 0)
+    {
+        // No size, nothing to allocate
+        return false;
+    }
+    
+    // Find a free spot in the reservation table
+    RangeMap::const_iterator cur = m_ranges.begin();
+    if (cur == m_ranges.end())
+    {
+        // There's nothing reserved yet, just grab the lowest address
+        address = 0;
+        return true;
+    }
+    
+    RangeMap::const_iterator next = cur;
+    for (++next; next != m_ranges.end(); ++next, ++cur)
+    {
+        const MemAddr cur_end    = ALIGN_UP(cur->first + cur->second.size);
+        const MemAddr next_begin = ALIGN_DOWN(next->first);
+        if (next_begin - cur_end >= size)
+        {
+            // Found a free range
+            address = cur_end;
+            Reserve(address, size, perm);
+            return true;
+        }
+    }
+    
+    const MemAddr cur_end = ALIGN_UP(cur->first + cur->second.size);
+    if (numeric_limits<MemAddr>::max() - cur_end >= size - 1)
+    {
+        // There's room after the last reserved region
+        address = cur_end;
+        Reserve(address, size, perm);
+        return true;
+    }
+    
+    // No free range
+    return false;
+}
+
 void VirtualMemory::Reserve(MemAddr address, MemSize size, int perm)
 {
     if (size != 0)

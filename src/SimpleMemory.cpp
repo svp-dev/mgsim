@@ -90,6 +90,11 @@ void SimpleMemory::Unreserve(MemAddr address)
     return VirtualMemory::Unreserve(address);
 }
 
+bool SimpleMemory::Allocate(MemSize size, int perm, MemAddr& address)
+{
+    return VirtualMemory::Allocate(size, perm, address);
+}
+
 void SimpleMemory::Read(MemAddr address, void* data, MemSize size)
 {
     return VirtualMemory::Read(address, data, size);

@@ -46,6 +46,7 @@ public:
 class IMemoryAdmin
 {
 public:
+    virtual bool   Allocate(MemSize size, int perm, MemAddr& address) = 0;
     virtual void Reserve(MemAddr address, MemSize size, int perm) = 0;
     virtual void Unreserve(MemAddr address) = 0;
     virtual void Read (MemAddr address, void* data, MemSize size) = 0;

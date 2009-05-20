@@ -73,6 +73,7 @@ public:
 	bool   CheckPermissions(MemAddr address, MemSize size, int access) const;
 
     // IMemoryAdmin
+    bool Allocate(MemSize size, int perm, MemAddr& address);
     void Read (MemAddr address, void* data, MemSize size);
     void Write(MemAddr address, const void* data, MemSize size);
 

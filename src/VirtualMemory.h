@@ -29,6 +29,8 @@ public:
 	typedef std::map<MemAddr, Block> BlockMap;
 	typedef std::map<MemAddr, Range> RangeMap;
 	
+	bool Allocate(MemSize size, int perm, MemAddr& address);
+	
 	void Reserve(MemAddr address, MemSize size, int perm);
 	void Unreserve(MemAddr address);
 

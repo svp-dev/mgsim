@@ -64,7 +64,8 @@ public:
 	bool   CheckPermissions(MemAddr address, MemSize size, int access) const;
 
     // IMemoryAdmin
-	void Read (MemAddr address, void* data, MemSize size);
+    bool Allocate(MemSize size, int perm, MemAddr& address);
+    void Read (MemAddr address, void* data, MemSize size);
     void Write(MemAddr address, const void* data, MemSize size);
 
     const Config& GetConfig()       const { return m_config; }

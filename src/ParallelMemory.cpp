@@ -213,6 +213,11 @@ void ParallelMemory::Unreserve(MemAddr address)
     return VirtualMemory::Unreserve(address);
 }
 
+bool ParallelMemory::Allocate(MemSize size, int perm, MemAddr& address)
+{
+    return VirtualMemory::Allocate(size, perm, address);
+}
+    
 void ParallelMemory::Read (MemAddr address, void* data, MemSize size)
 {
 	return VirtualMemory::Read(address, data, size);
