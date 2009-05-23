@@ -26,7 +26,7 @@ public:
 class IllegalInstructionException : public SimulationException
 {
 public:
-    IllegalInstructionException(const Object& obj, const std::string& msg) : SimulationException(msg) {}
+    IllegalInstructionException(const Object& , const std::string& msg) : SimulationException(msg) {}
 };
 
 class IOException : public std::runtime_error
@@ -44,7 +44,7 @@ public:
 class SecurityException : public SimulationException
 {
 public:
-    SecurityException(const Object& obj, const std::string& msg) : SimulationException(msg) {}
+    SecurityException(const Object& , const std::string& msg) : SimulationException(msg) {}
 };
 
 }

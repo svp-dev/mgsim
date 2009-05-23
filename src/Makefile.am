@@ -3,8 +3,8 @@ bin_PROGRAMS =
 noinst_PROGRAMS = 
 
 FLAGS_OPT = -O3 -DNDEBUG
-FLAGS_DEBUG = -O0 -g -pg
-FLAGS_COMMON = -Wall -Wwrite-strings -Wconversion \
+FLAGS_DEBUG = -O1 -g -pg -D_GLIBCXX_DEBUG
+FLAGS_COMMON = -W -Wall -Wwrite-strings -Wconversion \
        -DMGSIM_CONFIG_PATH=\"$(pkgdatadir)/config.ini\"
 
 #       -Wshorten-64-to-32 -Wextra

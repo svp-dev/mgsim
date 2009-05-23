@@ -594,7 +594,7 @@ bool Allocator::WriteExitCode(RegIndex reg, ExitCode code)
                 
 // Called when a delegated family has synchronized remotely
 // and sent the sync event to the parent (this) processor.
-bool Allocator::OnRemoteSync(LFID fid, ExitCode code)
+bool Allocator::OnRemoteSync(LFID fid, ExitCode /* code */)
 {
     assert(m_familyTable[fid].place.type == PlaceID::DELEGATE);
     assert(m_familyTable[fid].parent.lpid == m_lpid);
