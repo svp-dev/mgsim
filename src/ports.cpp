@@ -1,5 +1,6 @@
 #include "ports.h"
 #include <sstream>
+#include <algorithm>
 
 namespace Simulator
 {

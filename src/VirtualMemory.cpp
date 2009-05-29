@@ -1,6 +1,7 @@
 #include "VirtualMemory.h"
 #include "except.h"
 #include <cstring>
+#include <limits>
 using namespace std;
 
 namespace Simulator
