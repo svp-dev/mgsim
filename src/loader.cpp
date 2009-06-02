@@ -27,8 +27,8 @@ MemAddr LoadDataFile(IMemoryAdmin* memory, const string& path, bool quiet)
     }
 
     input.seekg(0, ios::end);
-    size_t fsize = input.tellg();
-    size_t dsize = (fsize + 8) & -8; // Pad to 8 bytes
+    streamsize fsize = (streamsize)input.tellg();
+    streamsize dsize = (fsize + 8) & -8; // Pad to 8 bytes
     vector<char> data(dsize);
 
     input.seekg(0, ios::beg);
@@ -170,11 +170,11 @@ MemAddr LoadProgram(IMemoryAdmin* memory, const string& path, bool quiet)
 	// Read the entire file
     input.seekg(0, ios::end);
     streampos size = input.tellg();
-    vector<char> data(size);
+    vector<char> data( (size_t)size );
 	try
 	{
 		input.seekg(0, ios::beg);
-		input.read(&data[0], size);
+		input.read(&data[0], data.size());
 		return LoadProgram(memory, &data[0], data.size(), quiet);
 	}
 	catch (exception& e)

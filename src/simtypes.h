@@ -133,14 +133,13 @@ static const RegType NUM_REG_TYPES = 2;
 
 static const CycleNo INFINITE_CYCLES = (CycleNo)-1;
 
-#pragma pack(1)
+// These fields only have to be 5 bits wide
 struct RegsNo
 {
-    uint16_t globals:5;
-    uint16_t shareds:5;
-    uint16_t locals:5;
+    unsigned char globals;
+    unsigned char shareds;
+    unsigned char locals;
 };
-#pragma pack()
 
 /// Register classes
 enum RegClass
@@ -153,7 +152,7 @@ enum RegClass
 };
 
 // ISA-specific function to map virtual registers to register classes
-extern uint8_t GetRegisterClass(uint8_t addr, const RegsNo& regs, RegClass* rc);
+extern unsigned char GetRegisterClass(unsigned char addr, const RegsNo& regs, RegClass* rc);
 
 static RegIndex INVALID_REG_INDEX = (RegIndex)-1;
 

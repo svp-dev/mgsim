@@ -13,7 +13,7 @@ struct IllegalInstruction
 
 // This function translates the 32-registers based address into the proper
 // register file address.
-RegAddr Pipeline::DecodeStage::TranslateRegister(uint8_t reg, RegType type, unsigned int size, RemoteRegAddr* remoteReg) const
+RegAddr Pipeline::DecodeStage::TranslateRegister(unsigned char reg, RegType type, unsigned int size, RemoteRegAddr* remoteReg) const
 {
     // We're always dealing with whole registers
     assert(size % sizeof(Integer) == 0);
@@ -145,9 +145,9 @@ Pipeline::PipeAction Pipeline::DecodeStage::write()
             DecodeInstruction(m_input.instr);
             
             // Translate registers from window to full register file
-            m_output.Ra = TranslateRegister((uint8_t)m_output.Ra.index, m_output.Ra.type, m_output.RaSize, &m_output.Rra);
-            m_output.Rb = TranslateRegister((uint8_t)m_output.Rb.index, m_output.Rb.type, m_output.RbSize, &m_output.Rrb);
-            m_output.Rc = TranslateRegister((uint8_t)m_output.Rc.index, m_output.Rc.type, m_output.RcSize, &m_output.Rrc);
+            m_output.Ra = TranslateRegister((unsigned char)m_output.Ra.index, m_output.Ra.type, m_output.RaSize, &m_output.Rra);
+            m_output.Rb = TranslateRegister((unsigned char)m_output.Rb.index, m_output.Rb.type, m_output.RbSize, &m_output.Rrb);
+            m_output.Rc = TranslateRegister((unsigned char)m_output.Rc.index, m_output.Rc.type, m_output.RcSize, &m_output.Rrc);
         }
         catch (IllegalInstruction&)
         {

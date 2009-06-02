@@ -44,17 +44,17 @@ struct Family
     MemAddr      pc;             // Initial PC for newly created threads
 	bool         legacy;		 // Consists of a single thread of legacy code?
 	bool         created;	     // Has the family entry been used in a create yet?
-    uint64_t     virtBlockSize;  // Virtual block size
+    Integer      virtBlockSize;  // Virtual block size
     TSize        physBlockSize;  // Physical block size, <= Virtual block size, depending on the amount of free registers
-    int64_t      start;          // Start index of the family
-    int64_t      step;           // Step size of the family
+    SInteger     start;          // Start index of the family
+    SInteger     step;           // Step size of the family
 	PlaceID      place;		     // Place where the family is to be created
 	bool         infinite;       // Is this an infinite family?
 	union {
-		uint64_t nThreads;       // Number of threads we need to allocate
-		int64_t  limit;			 // Limit of the family
+	    Integer  nThreads;       // Number of threads we need to allocate
+		SInteger limit;		     // Limit of the family
 	};
-    uint64_t     index;          // Index of the next to be allocated thread (0, 1, 2... nThreads-1)
+    Integer      index;          // Index of the next to be allocated thread (0, 1, 2... nThreads-1)
     struct
     {
         LPID lpid;               // Parent for group creates (creating CPU for delegated)

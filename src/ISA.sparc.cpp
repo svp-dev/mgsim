@@ -37,33 +37,33 @@ static const int OPF_SHIFT      = 5;
 static const int OPF_MASK       = (1 << 9) - 1;
 
 // Function for getting a register's type and index within that type
-uint8_t Simulator::GetRegisterClass(uint8_t addr, const RegsNo& regs, RegClass* rc)
+unsigned char Simulator::GetRegisterClass(unsigned char addr, const RegsNo& regs, RegClass* rc)
 {
     // SPARC has r0 as RAZ, so we flip everything around.
-    addr = 31 - addr;
+    addr = (unsigned char)(31 - addr);
     
     if (addr < regs.globals)
     {
         *rc = RC_GLOBAL;
-        return regs.globals - 1 - addr;
+        return (unsigned char)(regs.globals - 1 - addr);
     }
     addr -= regs.globals;
     if (addr < regs.shareds)
     {
         *rc = RC_SHARED;
-        return regs.shareds - 1 - addr;
+        return (unsigned char)(regs.shareds - 1 - addr);
     }
     addr -= regs.shareds;
     if (addr < regs.locals)
     {
         *rc = RC_LOCAL;
-        return regs.locals - 1 - addr;
+        return (unsigned char)(regs.locals - 1 - addr);
     }
     addr -= regs.locals;
     if (addr < regs.shareds)
     {
         *rc = RC_DEPENDENT;
-        return regs.shareds - 1 - addr;
+        return (unsigned char)(regs.shareds - 1 - addr);
     }
     *rc = RC_RAZ;
     return 0;
@@ -78,7 +78,7 @@ static int32_t SEXT(uint32_t value, int bits)
 
 void Pipeline::DecodeStage::DecodeInstruction(const Instruction& instr)
 {
-    m_output.op1 = (instr >> OP1_SHIFT) & OP1_MASK;
+    m_output.op1 = (uint8_t)((instr >> OP1_SHIFT) & OP1_MASK);
     RegIndex Ra  = (instr >> RA_SHIFT) & REG_MASK;
     RegIndex Rb  = (instr >> RB_SHIFT) & REG_MASK;
     RegIndex Rc  = (instr >> RC_SHIFT) & REG_MASK;
@@ -91,7 +91,7 @@ void Pipeline::DecodeStage::DecodeInstruction(const Instruction& instr)
     {
     case S_OP1_BRANCH:
         // SETHI & Branches
-        m_output.op2 = (instr >> OP2_SHIFT) & OP2_MASK;
+        m_output.op2 = (uint8_t)((instr >> OP2_SHIFT) & OP2_MASK);
         switch (m_output.op2)
         {
         case S_OP2_SETHI:
@@ -122,7 +122,7 @@ void Pipeline::DecodeStage::DecodeInstruction(const Instruction& instr)
         default:
             // We don't care about the annul bit (not supported; obviously this presents a problem with legacy code later)
             m_output.displacement = SEXT((instr >> OP2_DISP_SHIFT) & OP2_DISP_MASK, OP2_DISP_SIZE);
-            m_output.function     = (instr >> COND_SHIFT) & COND_MASK;
+            m_output.function     = (uint16_t)((instr >> COND_SHIFT) & COND_MASK);
             break;
         }
         break;
@@ -133,12 +133,12 @@ void Pipeline::DecodeStage::DecodeInstruction(const Instruction& instr)
         break;
 
     case S_OP1_MEMORY:
-        m_output.op3 = (instr >> OP3_SHIFT) & OP3_MASK;
+        m_output.op3 = (uint8_t)((instr >> OP3_SHIFT) & OP3_MASK);
         m_output.Ra  = MAKE_REGADDR(RT_INTEGER, Ra);
         if (instr & IMMEDIATE) {
             m_output.literal = SEXT((instr >> SIMM_SHIFT) & SIMM_MASK, SIMM_SIZE);
         } else  {
-            m_output.asi = (instr >> ASI_SHIFT) & ASI_MASK;
+            m_output.asi = (uint8_t)((instr >> ASI_SHIFT) & ASI_MASK);
             m_output.Rb  = MAKE_REGADDR(RT_INTEGER, Rb);
         }
         
@@ -177,13 +177,13 @@ void Pipeline::DecodeStage::DecodeInstruction(const Instruction& instr)
         break;
             
     case S_OP1_OTHER:
-        m_output.op3 = (instr >> OP3_SHIFT) & OP3_MASK;
+        m_output.op3 = (uint8_t)((instr >> OP3_SHIFT) & OP3_MASK);
         switch (m_output.op3)
         {
         case S_OP3_FPOP1:
         case S_OP3_FPOP2:
             // FP operation
-            m_output.function = (instr >> OPF_SHIFT) & OPF_MASK;
+            m_output.function = (uint16_t)((instr >> OPF_SHIFT) & OPF_MASK);
             m_output.Ra = MAKE_REGADDR(RT_FLOAT, Ra);
             m_output.Rb = MAKE_REGADDR(RT_FLOAT, Rb);
             m_output.Rc = MAKE_REGADDR(RT_FLOAT, Rc);
@@ -323,8 +323,8 @@ static uint32_t ExecBasicInteger(int opcode, uint32_t Rav, uint32_t Rbv, uint32_
         case S_OP3_SUBX:    Rcv = (int64_t)Rav - (int64_t)Rbv - (psr & PSR_ICC_C ? 1 : 0); break;
 
         // Multiplication & Division
-        case S_OP3_UMUL:    Rcv =          Rav *          Rbv; Y = Rcv >> 32; break;
-        case S_OP3_SMUL:    Rcv = (int64_t)Rav * (int64_t)Rbv; Y = Rcv >> 32; break;
+        case S_OP3_UMUL:    Rcv =          Rav *          Rbv; Y = (uint32_t)(Rcv >> 32); break;
+        case S_OP3_SMUL:    Rcv = (int64_t)Rav * (int64_t)Rbv; Y = (uint32_t)(Rcv >> 32); break;
         case S_OP3_UDIV:    Rcv =          (((uint64_t)Y << 32) | Rav) /          Rbv; break;
         case S_OP3_SDIV:    Rcv = (int64_t)(((uint64_t)Y << 32) | Rav) / (int64_t)Rbv; break;
     }
@@ -490,8 +490,8 @@ Pipeline::PipeAction Pipeline::ExecuteStage::ExecuteInstruction()
             for (RegType i = 0; i < NUM_REG_TYPES; i++, literal >>= 10)
             {
                 const RegIndex locals = m_input.regs.types[i].thread.base + m_input.regs.types[i].family.count.shareds;
-                bases[i].globals = locals + ((literal >> 0) & 0x1F);
-                bases[i].shareds = locals + ((literal >> 5) & 0x1F);
+                bases[i].globals = locals + (unsigned char)((literal >> 0) & 0x1F);
+                bases[i].shareds = locals + (unsigned char)((literal >> 5) & 0x1F);
             }
 
             LFID fid;
@@ -525,11 +525,11 @@ Pipeline::PipeAction Pipeline::ExecuteStage::ExecuteInstruction()
             for (RegType i = 0; i < NUM_REG_TYPES; i++, literal >>= 10)
             {
                 const RegIndex locals = m_input.regs.types[i].thread.base + m_input.regs.types[i].family.count.shareds;
-                bases[i].globals = locals + ((literal >> 0) & 0x1F);
-                bases[i].shareds = locals + ((literal >> 5) & 0x1F);
+                bases[i].globals = locals + (unsigned char)((literal >> 0) & 0x1F);
+                bases[i].shareds = locals + (unsigned char)((literal >> 5) & 0x1F);
             }
             
-            LFID fid = m_input.Rav.m_integer.get(m_input.Rav.m_size);
+            LFID fid = (LFID)m_input.Rav.m_integer.get(m_input.Rav.m_size);
             return SetFamilyRegs(fid, bases);
         }
             
@@ -603,8 +603,8 @@ Pipeline::PipeAction Pipeline::ExecuteStage::ExecuteInstruction()
                 m_output.Rcv.m_size    = m_input.Rav.m_size;
                 m_output.Rcv.m_integer = ExecBasicInteger(
                     m_input.op3,
-                    m_input.Rav.m_integer.get(m_input.Rav.m_size),
-                    m_input.Rbv.m_integer.get(m_input.Rbv.m_size),
+                    (uint32_t)m_input.Rav.m_integer.get(m_input.Rav.m_size),
+                    (uint32_t)m_input.Rbv.m_integer.get(m_input.Rbv.m_size),
                     thread.Y, thread.psr);
             }
         }
@@ -663,7 +663,7 @@ Pipeline::PipeAction Pipeline::ExecuteStage::ExecuteInstruction()
             case S_OPF_FPRINTD:
             case S_OPF_FPRINTQ:
                 COMMIT {
-                    ExecDebug(m_input.Rav.m_float.tofloat(m_input.Rav.m_size), m_input.Rbv.m_integer.get(m_input.Rbv.m_size));
+                    ExecDebug(m_input.Rav.m_float.tofloat(m_input.Rav.m_size), (Integer)m_input.Rbv.m_integer.get(m_input.Rbv.m_size));
                     m_output.Rc = INVALID_REG;
                 }
                 break;
@@ -739,7 +739,11 @@ Pipeline::PipeAction Pipeline::ExecuteStage::ExecuteInstruction()
         case S_OP3_SRA:
         case S_OP3_MULScc:
             COMMIT {
-                m_output.Rcv.m_integer = ExecOtherInteger(m_input.op3, m_input.Rav.m_integer.get(m_input.Rav.m_size), m_input.Rbv.m_integer.get(m_input.Rbv.m_size), thread.Y, thread.psr);
+                m_output.Rcv.m_integer = ExecOtherInteger(
+                    m_input.op3,
+                    (uint32_t)m_input.Rav.m_integer.get(m_input.Rav.m_size),
+                    (uint32_t)m_input.Rbv.m_integer.get(m_input.Rbv.m_size),
+                    thread.Y, thread.psr);
                 m_output.Rcv.m_state   = RST_FULL;
             }
             break;
@@ -784,7 +788,7 @@ Pipeline::PipeAction Pipeline::ExecuteStage::ExecuteInstruction()
 
         case S_OP3_WRSR:
         {
-            uint32_t value = (m_input.Rav.m_integer.get(m_input.Rav.m_size) ^ m_input.Rbv.m_integer.get(m_input.Rbv.m_size));
+            uint32_t value = (uint32_t)(m_input.Rav.m_integer.get(m_input.Rav.m_size) ^ m_input.Rbv.m_integer.get(m_input.Rbv.m_size));
             if (m_input.displacement == 0) {
                 // WRY: Write Y Register
                 COMMIT {
@@ -813,7 +817,7 @@ Pipeline::PipeAction Pipeline::ExecuteStage::ExecuteInstruction()
             
         case S_OP3_JMPL:
         {
-            MemAddr target = m_input.Rav.m_integer.get(m_input.Rav.m_size) + m_input.Rbv.m_integer.get(m_input.Rbv.m_size);
+            MemAddr target = (MemAddr)(m_input.Rav.m_integer.get(m_input.Rav.m_size) + m_input.Rbv.m_integer.get(m_input.Rbv.m_size));
             if ((target & (sizeof(Instruction) - 1)) != 0)
             {
                 // Misaligned jump

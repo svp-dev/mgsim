@@ -41,7 +41,7 @@ static const uint64_t UINT64_MAX = 0xFFFFFFFFFFFFFFFFULL;
 // Define endianness conversion routines
 static inline uint16_t letohs(uint16_t x) {
     const uint8_t* b = reinterpret_cast<const uint8_t*>(&x);
-    return (uint16_t)b[0] | ((uint16_t)b[1] << 8);
+    return (uint16_t)((uint16_t)b[0] | ((uint16_t)b[1] << 8));
 }
 
 static inline uint32_t letohl(uint32_t x) {
@@ -57,7 +57,7 @@ static inline uint64_t letohll(uint64_t x) {
 
 static inline uint16_t betohs(uint16_t x) {
     const uint8_t* b = reinterpret_cast<const uint8_t*>(&x);
-    return (uint16_t)b[1] | ((uint16_t)b[0] << 8);
+    return (uint16_t)((uint16_t)b[1] | ((uint16_t)b[0] << 8));
 }
 
 static inline uint32_t betohl(uint32_t x) {

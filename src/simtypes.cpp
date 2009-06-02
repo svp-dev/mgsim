@@ -189,7 +189,7 @@ class IEEE754
     static const unsigned int IEEE754_MAX_EXPONENT  = (1U << (Exp - 0)) - 1;
 
     // Reads bits [start, start + num) from the "bigint" at data
-    static unsigned int GET_BITS(const uint64_t* data, unsigned int start, unsigned int num)
+    static unsigned long long GET_BITS(const uint64_t* data, unsigned int start, unsigned int num)
     {
         // Ensure we can store the result
         assert(num <= sizeof(unsigned int) * 8);
@@ -205,7 +205,7 @@ class IEEE754
         {
             // Get number of bits in this block
             unsigned int n = min(width - start, num);
-            uint32_t mask = ((n < width) ? (1ULL << n) : 0) - 1;
+            uint64_t mask = ((n < width) ? (1ULL << n) : 0) - 1;
             
             // Read block, shift to the bits we want, mask them, move them to final position
             x |= ((*data >> start) & mask) << pos;
@@ -298,8 +298,8 @@ public:
     static double tofloat(const uint64_t* data)
     {
 	    double value = 0.0; // Default to zero
-	    unsigned int sign     = GET_BITS(data, Frac + Exp, 1);
-	    unsigned int exponent = GET_BITS(data, Frac, Exp);
+	    unsigned long long sign     = GET_BITS(data, Frac + Exp, 1);
+	    unsigned long long exponent = GET_BITS(data, Frac, Exp);
 	    
     	if (exponent == IEEE754_MAX_EXPONENT)
     	{
@@ -450,7 +450,7 @@ void MultiInteger::set(uint64_t v, int size)
 {
     switch (size)
     {
-    case 4: _32 = v; break;
+    case 4: _32 = (uint32_t)v; break;
     case 8: _64 = v; break;
     default: assert(0);
     }

@@ -59,7 +59,7 @@ struct DelegateMessage
     SInteger  start;
     SInteger  limit;
     SInteger  step;
-    TSize     blockSize;
+    Integer   blockSize;
     bool      exclusive;
 	MemAddr   address;
 	struct {
@@ -75,10 +75,10 @@ struct CreateMessage
     LFID      first_fid;            ///< FID of the family on the creating CPU
     LFID      link_prev;            ///< FID to use for the next CPU's family's link_prev
     bool      infinite;             ///< Infinite create?
-	int64_t   start;                ///< Index start
-	int64_t   step;                 ///< Index step size
-	uint64_t  nThreads;             ///< Number of threads in the family
-	uint64_t  virtBlockSize;        ///< Virtual block size
+	SInteger  start;                ///< Index start
+	SInteger  step;                 ///< Index step size
+	Integer   nThreads;             ///< Number of threads in the family
+	Integer   virtBlockSize;        ///< Virtual block size
 	TSize     physBlockSize;        ///< Physical block size
 	MemAddr   address;			    ///< Initial address of new threads
     struct {

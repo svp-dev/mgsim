@@ -204,7 +204,7 @@ bool Pipeline::ReadStage::ReadRegister(OperandInfo& operand, uint32_t literal)
 
         // Find the first register to read
         unsigned int offset, mask = operand.to_read_mask;
-        for (offset = 0; ~mask & 1; mask >>= 1, offset++);
+        for (offset = 0; ~mask & 1; mask >>= 1, offset++) {}
 
         operand.addr_reg = MAKE_REGADDR(operand.addr.type, operand.addr.index + offset);
         RegValue value;

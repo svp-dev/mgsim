@@ -80,8 +80,8 @@ static inline Elf_Addr   elftoha  (Elf_Addr   x) { return elftohll(x); }
 static inline Elf_Half   elftohh  (Elf_Half   x) { return elftohs(x); }
 static inline Elf_Off    elftoho  (Elf_Off    x) { return elftohll(x); }
 static inline Elf_Sword  elftohsw (Elf_Sword  x) { return elftohl(x); }
-static inline Elf_Word   elftohw  (Elf_Word   x) { return elftohll(x); }
-static inline Elf_Sxword elftohsxw(Elf_Sxword x) { return elftohl(x); }
+static inline Elf_Word   elftohw  (Elf_Word   x) { return elftohl(x); }
+static inline Elf_Sxword elftohsxw(Elf_Sxword x) { return elftohll(x); }
 static inline Elf_Xword  elftohxw (Elf_Xword  x) { return elftohll(x); }
 
 #else

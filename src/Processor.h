@@ -49,7 +49,7 @@ public:
     uint64_t GetFlop() const { return m_pipeline.GetFlop(); }
     uint64_t GetOp()   const { return m_pipeline.GetOp(); }
 	float GetRegFileAsyncPortActivity() const {
-		return (float)m_registerFile.p_asyncW.GetBusyCycles() / m_kernel.GetCycleNo();
+		return (float)m_registerFile.p_asyncW.GetBusyCycles() / (float)m_kernel.GetCycleNo();
 	}
 	
 	uint64_t GetTotalActiveQueueSize() const { return m_allocator.GetTotalActiveQueueSize(); }

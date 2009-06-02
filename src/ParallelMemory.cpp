@@ -109,7 +109,7 @@ Result ParallelMemory::Write(IMemoryCallback& callback, MemAddr address, void* d
         request.data.size = size;
         request.data.tag  = tag;
         request.write     = true;
-        memcpy(request.data.data, data, size);
+        memcpy(request.data.data, data, (size_t)size);
 
         // Broadcast the snoop data
         for (set<IMemoryCallback*>::iterator p = m_caches.begin(); p != m_caches.end(); ++p)

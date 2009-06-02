@@ -144,7 +144,7 @@ void VirtualMemory::Read(MemAddr address, void* _data, MemSize size) const
 #endif
 
 	MemAddr base   = address & -BLOCK_SIZE;	    // Base address of block containing address
-	size_t  offset = address - base;		    // Offset within base block of address
+	size_t  offset = (size_t)(address - base);	// Offset within base block of address
 	char*   data   = static_cast<char*>(_data);	// Byte-aligned pointer to destination
 
 	for (BlockMap::const_iterator pos = m_blocks.lower_bound(base); size > 0;)
@@ -184,7 +184,7 @@ void VirtualMemory::Write(MemAddr address, const void* _data, MemSize size)
 #endif
 
 	MemAddr     base   = address & -BLOCK_SIZE;		        // Base address of block containing address
-	size_t      offset = address - base;			        // Offset within base block of address
+	size_t      offset = (size_t)(address - base);          // Offset within base block of address
 	const char* data   = static_cast<const char*>(_data);	// Byte-aligned pointer to destination
 
 	while (size > 0)

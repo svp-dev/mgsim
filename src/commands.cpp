@@ -272,7 +272,7 @@ static bool cmd_mem_read(Object* obj, const vector<string>& arguments )
 
     if (arguments.size() == 2)
     {
-        addr = (MemSize)strtoull( arguments[0].c_str(), &endptr, 0 );
+        addr = (MemAddr)strtoull( arguments[0].c_str(), &endptr, 0 );
         if (*endptr == '\0')
         {
             size = strtoul( arguments[1].c_str(), &endptr, 0 );
@@ -304,7 +304,7 @@ static bool cmd_mem_read(Object* obj, const vector<string>& arguments )
             for (MemAddr x = 0; x < 16; ++x)
             {
                 if (y + x >= addr && y + x < addr + size)
-                    cout << hex << setw(2) << setfill('0') << (unsigned int)buf[y + x - addr];
+                    cout << hex << setw(2) << setfill('0') << (unsigned int)buf[(size_t)(y + x - addr)];
                 else
                     cout << "  ";
                 if (x == 7) cout << "  ";
@@ -315,9 +315,9 @@ static bool cmd_mem_read(Object* obj, const vector<string>& arguments )
             // The bytes, as characters
             for (MemAddr x = 0; x < 16; ++x)
             {
-                unsigned char c = buf[y + x - addr];
+                char c = buf[(size_t)(y + x - addr)];
                 if (y + x >= addr && y + x < addr + size)
-                    c = isprint(c) ? c : '.';
+                    c = (isprint(c) ? c : '.');
                 else c = ' ';
                 cout << c;
             }
@@ -1264,7 +1264,7 @@ static bool cmd_rau_read( Object* obj, const vector<string>& arguments )
             next = entry + list[entry].first;
             cout << (next * blockSize) - 1 << "h: Allocated to " << list[entry].second << endl;
         } else {
-            for (next = entry + 1; next < list.size() && list[next].first == 0; ++next);
+            for (next = entry + 1; next < list.size() && list[next].first == 0; ++next) {}
             cout << (next * blockSize) - 1 << "h: Free" << endl;
         }
     }

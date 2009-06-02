@@ -49,7 +49,7 @@ Config::Config(const string& filename, const ConfigMap& overrides)
 
     while (!input.eof())
     {
-        char c = input.get();
+        int c = input.get();
 		if (input.fail())
 		{
 			break;
@@ -64,7 +64,7 @@ Config::Config(const string& filename, const ConfigMap& overrides)
             else if (isalpha(c))
             {
                 state = STATE_NAME;
-                name = c;
+                name = (char)c;
             }
         }
         else if (state == STATE_COMMENT)
@@ -76,7 +76,7 @@ Config::Config(const string& filename, const ConfigMap& overrides)
         }
         else if (state == STATE_NAME)
         {
-            if (isalnum(c)) name += c;
+            if (isalnum(c)) name += (char)c;
             else 
             {
                 transform(name.begin(), name.end(), name.begin(), ::toupper);
@@ -111,7 +111,7 @@ Config::Config(const string& filename, const ConfigMap& overrides)
             }
             else 
             {
-                value = value + c;
+                value = value + (char)c;
             }
         }
     }

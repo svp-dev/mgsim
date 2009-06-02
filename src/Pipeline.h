@@ -410,7 +410,7 @@ public:
     uint64_t GetMinIdleTime() const { return m_minPipelineIdleTime; }
     uint64_t GetAvgIdleTime() const { return m_totalPipelineIdleTime / std::max<uint64_t>(1ULL, m_pipelineIdleEvents); }
     
-    float    GetEfficiency() const { return (float)m_nStagesRun / NUM_STAGES / std::max<uint64_t>(1ULL, m_pipelineBusyTime); }
+    float    GetEfficiency() const { return (float)m_nStagesRun / NUM_STAGES / (float)std::max<uint64_t>(1ULL, m_pipelineBusyTime); }
 
     uint64_t GetFlop() const { return m_execute.getFlop(); }
     uint64_t GetOp()   const { return m_execute.getOp(); }

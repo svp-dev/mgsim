@@ -74,7 +74,7 @@ Pipeline::PipeAction Pipeline::MemoryStage::write()
                 if (m_input.sign_extend)
                 {
                     // Sign-extend the value
-                    size_t shift = (sizeof(value) - m_input.size) * 8;
+                    size_t shift = (sizeof(value) - (size_t)m_input.size) * 8;
                     value = (int64_t)(value << shift) >> shift;
                 }
                 

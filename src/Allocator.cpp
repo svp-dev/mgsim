@@ -538,7 +538,7 @@ bool Allocator::AllocateThread(LFID fid, TID tid, bool isNewlyAllocated)
     else if (++family->index % family->virtBlockSize == 0 && family->type == Family::GROUP && m_parent.GetPlaceSize() > 1)
     {
         // We've allocated the last in a block, skip to the next block
-        uint64_t skip = (m_parent.GetPlaceSize() - 1) * family->virtBlockSize;
+        Integer skip = (m_parent.GetPlaceSize() - 1) * family->virtBlockSize;
 		if (!family->infinite && family->index >= family->nThreads - min(family->nThreads, skip))
         {
             // There are no more blocks for us
@@ -1181,7 +1181,7 @@ void Allocator::InitializeFamily(LFID fid, Family::Type type) const
 		    family.index = (type == Family::LOCAL) ? 0 : ((placeSize + m_lpid - first_pid) % placeSize) * family.virtBlockSize;
 		    
             // Calculate which CPU will run the last thread
-            LPID last_pid = (first_pid + (max<uint64_t>(1, family.nThreads) - 1) / family.virtBlockSize) % placeSize;
+            LPID last_pid = (first_pid + (LPID)((max<uint64_t>(1, family.nThreads) - 1) / family.virtBlockSize)) % placeSize;
                 
             if (type == Family::LOCAL || last_pid == family.parent.lpid || m_lpid != family.parent.lpid)
             {
@@ -1542,9 +1542,9 @@ Result Allocator::OnCycleWritePhase(unsigned int stateIndex)
             for (RegType i = 0; i < NUM_REG_TYPES; i++)
             {
                 Instruction c = counts >> (i * 16);
-                regcounts[i].globals = (c >>  0) & 0x1F;
-                regcounts[i].shareds = (c >>  5) & 0x1F;
-                regcounts[i].locals  = (c >> 10) & 0x1F;
+                regcounts[i].globals = (unsigned char)((c >>  0) & 0x1F);
+                regcounts[i].shareds = (unsigned char)((c >>  5) & 0x1F);
+                regcounts[i].locals  = (unsigned char)((c >> 10) & 0x1F);
                 if (regcounts[i].shareds > 0)
                 {
                     hasDependency = true;
@@ -1752,14 +1752,14 @@ bool Allocator::SanitizeFamily(Family& family, bool hasDependency)
     }
 
     // Sanitize the family entry
-    uint64_t nBlock;
-    uint64_t nThreads = 0;
-    uint64_t step;
+    Integer nBlock;
+    Integer nThreads = 0;
+    Integer step;
     if (family.step != 0)
     {
         // Finite family
 
-        uint64_t diff = 0;
+        Integer diff = 0;
         if (family.step > 0)
         {
             if (family.limit > family.start) {
@@ -1815,10 +1815,10 @@ bool Allocator::SanitizeFamily(Family& family, bool hasDependency)
 
         // For independent families, use the original virtual block size
         // as physical block size.
-        family.physBlockSize = (family.virtBlockSize == 0 || hasDependency)
+        family.physBlockSize = (TSize)((family.virtBlockSize == 0 || hasDependency)
                              ? nBlock
-                             : family.virtBlockSize;
-        family.virtBlockSize = max<uint64_t>(nBlock,1);
+                             : family.virtBlockSize);
+        family.virtBlockSize = max<Integer>(nBlock,1);
         family.nThreads      = nThreads;
     }
     return local;
@@ -1876,7 +1876,7 @@ Allocator::Allocator(Processor& parent, const string& name,
 
 void Allocator::AllocateInitialFamily(MemAddr pc)
 {
-    static const RegSize InitialRegisters[NUM_REG_TYPES] = {31, 31};
+    static const unsigned char InitialRegisters[NUM_REG_TYPES] = {31, 31};
 
 	LFID fid = m_familyTable.AllocateFamily();
 	if (fid == INVALID_LFID)

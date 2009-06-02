@@ -36,7 +36,7 @@ static void ThrowIllegalInstructionException(Object& obj, MemAddr pc)
 }
 
 // Function for getting a register's type and index within that type
-uint8_t Simulator::GetRegisterClass(uint8_t addr, const RegsNo& regs, RegClass* rc)
+unsigned char Simulator::GetRegisterClass(unsigned char addr, const RegsNo& regs, RegClass* rc)
 {
     if (addr < regs.globals)
     {
@@ -116,7 +116,7 @@ static InstrFormat GetInstrFormat(uint8_t opcode)
 
 void Pipeline::DecodeStage::DecodeInstruction(const Instruction& instr)
 {
-    m_output.opcode  = (instr >> A_OPCODE_SHIFT) & A_OPCODE_MASK;
+    m_output.opcode  = (uint8_t)((instr >> A_OPCODE_SHIFT) & A_OPCODE_MASK);
     m_output.format  = GetInstrFormat(m_output.opcode);
     RegIndex Ra    = (instr >> A_RA_SHIFT) & A_REG_MASK;
     RegIndex Rb    = (instr >> A_RB_SHIFT) & A_REG_MASK;
@@ -196,7 +196,7 @@ void Pipeline::DecodeStage::DecodeInstruction(const Instruction& instr)
         case IFORMAT_FPOP:
         {
             // Floating point operate instruction
-            m_output.function = (instr >> A_FLT_FUNC_SHIFT) & A_FLT_FUNC_MASK;
+            m_output.function = (uint16_t)((instr >> A_FLT_FUNC_SHIFT) & A_FLT_FUNC_MASK);
             bool itof   = (m_output.opcode == A_OP_ITFP)     && (m_output.function == A_ITFPFUNC_ITOFT || m_output.function == A_ITFPFUNC_ITOFS || m_output.function == A_ITFPFUNC_ITOFF);
             bool fprint = (m_output.opcode == A_OP_UTHREADF) && (m_output.function == A_UTHREADF_PRINT);
 
@@ -209,7 +209,7 @@ void Pipeline::DecodeStage::DecodeInstruction(const Instruction& instr)
         case IFORMAT_OP:
         {
             // Integer operate instruction
-            m_output.function = (instr >> A_INT_FUNC_SHIFT) & A_INT_FUNC_MASK;
+            m_output.function = (uint16_t)((instr >> A_INT_FUNC_SHIFT) & A_INT_FUNC_MASK);
             bool ftoi = (m_output.opcode == A_OP_FPTI) && (m_output.function == A_FPTIFUNC_FTOIT || m_output.function == A_FPTIFUNC_FTOIS);
 
             m_output.Ra = MAKE_REGADDR(ftoi ? RT_FLOAT : RT_INTEGER, Ra);
@@ -642,7 +642,7 @@ static bool ExecuteFLTI(PipeValue& Rcv, const PipeValue& Rav, const PipeValue& R
 		case A_FLTIFUNC_CVTQT_SUIM:
 		case A_FLTIFUNC_CVTQT_SUI:
 		case A_FLTIFUNC_CVTQT_SUID:
-			Rc.fromfloat( (int64_t)Rb.integer );
+			Rc.fromfloat( (double)(int64_t)Rb.integer );
 			break;
 
 		// Convert IEEE S_Floating to IEEE T_Floating
@@ -994,8 +994,8 @@ Pipeline::PipeAction Pipeline::ExecuteStage::ExecuteInstruction()
             for (RegType i = 0; i < NUM_REG_TYPES; i++, literal >>= 10)
             {
                 const RegIndex locals = m_input.regs.types[i].thread.base + m_input.regs.types[i].family.count.shareds;
-                bases[i].globals = locals + ((literal >> 0) & 0x1F);
-                bases[i].shareds = locals + ((literal >> 5) & 0x1F);
+                bases[i].globals = locals + (unsigned char)((literal >> 0) & 0x1F);
+                bases[i].shareds = locals + (unsigned char)((literal >> 5) & 0x1F);
             }
 
             LFID fid;
@@ -1027,11 +1027,11 @@ Pipeline::PipeAction Pipeline::ExecuteStage::ExecuteInstruction()
             for (RegType i = 0; i < NUM_REG_TYPES; i++, literal >>= 10)
             {
                 const RegIndex locals = m_input.regs.types[i].thread.base + m_input.regs.types[i].family.count.shareds;
-                bases[i].globals = locals + ((literal >> 0) & 0x1F);
-                bases[i].shareds = locals + ((literal >> 5) & 0x1F);
+                bases[i].globals = locals + (unsigned char)((literal >> 0) & 0x1F);
+                bases[i].shareds = locals + (unsigned char)((literal >> 5) & 0x1F);
             }
 
-            LFID fid = m_input.Rav.m_integer.get(m_input.Rav.m_size);
+            LFID fid = (LFID)m_input.Rav.m_integer.get(m_input.Rav.m_size);
             return SetFamilyRegs(fid, bases);
             
         }
