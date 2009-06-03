@@ -1,4 +1,4 @@
-#! /bin/sh
+#! /bin/bash
 set -e
 ARCH=${1:?}
 TEST=${3:?}
