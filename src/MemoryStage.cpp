@@ -130,7 +130,7 @@ Pipeline::PipeAction Pipeline::MemoryStage::write()
     return PIPE_CONTINUE;
 }
 
-Pipeline::MemoryStage::MemoryStage(Pipeline& parent, ExecuteMemoryLatch& input, MemoryWritebackLatch& output, DCache& dcache, Allocator& alloc)
+Pipeline::MemoryStage::MemoryStage(Pipeline& parent, ExecuteMemoryLatch& input, MemoryWritebackLatch& output, DCache& dcache, Allocator& alloc, const Config& /*config*/)
   : Stage(parent, "memory", &input, &output),
     m_input(input),
     m_output(output),

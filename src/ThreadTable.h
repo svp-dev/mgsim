@@ -3,6 +3,8 @@
 
 #include "ports.h"
 
+class Config;
+
 namespace Simulator
 {
 
@@ -55,11 +57,6 @@ struct Thread
 class ThreadTable : public Structure<TID>
 {
 public:
-	struct Config
-	{
-		TSize numThreads;
-	};
-
     ThreadTable(Processor& parent, const Config& config);
 
     TSize GetNumThreads()     const { return m_threads.size(); }

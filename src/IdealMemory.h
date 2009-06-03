@@ -1,5 +1,5 @@
-#ifndef SIMPLEMEMORY_H
-#define SIMPLEMEMORY_H
+#ifndef IDEALMEMORY_H
+#define IDEALMEMORY_H
 
 #include "Memory.h"
 #include "kernel.h"
@@ -7,20 +7,14 @@
 #include <queue>
 #include <set>
 
+class Config;
+
 namespace Simulator
 {
 
-class SimpleMemory : public IComponent, public IMemory, public IMemoryAdmin, public VirtualMemory
+class IdealMemory : public IComponent, public IMemoryAdmin, public VirtualMemory
 {
 public:
-	struct Config
-	{
-        BufferSize bufferSize;
-        CycleNo    baseRequestTime;
-        CycleNo    timePerLine;
-        size_t     sizeOfLine;
-	};
-
     class Request
     {
         void release()
@@ -57,7 +51,7 @@ public:
         ~Request() { release(); }
     };
 
-    SimpleMemory(Object* parent, Kernel& kernel, const std::string& name, const Config& config);
+    IdealMemory(Object* parent, Kernel& kernel, const std::string& name, const Config& config);
 
     CycleNo GetTotalWaitTime() const { return m_totalWaitTime; }
 
@@ -85,7 +79,10 @@ public:
 private:
     std::set<IMemoryCallback*>  m_caches;
     std::queue<Request>         m_requests;
-    Config                      m_config;
+    BufferSize                  m_bufferSize;
+    CycleNo                     m_baseRequestTime;
+    CycleNo                     m_timePerLine;
+    CycleNo                     m_sizeOfLine;
     CycleNo                     m_totalWaitTime;
 };
 

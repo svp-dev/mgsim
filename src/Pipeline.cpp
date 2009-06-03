@@ -29,12 +29,12 @@ Pipeline::Pipeline(
     m_nStagesRun(0), m_maxPipelineIdleTime(0), m_minPipelineIdleTime(numeric_limits<uint64_t>::max()),
     m_totalPipelineIdleTime(0), m_pipelineIdleEvents(0), m_pipelineIdleTime(0), m_pipelineBusyTime(0),
     
-    m_fetch    (*this,            m_fdLatch, alloc, familyTable, threadTable, icache, lpid, config.controlBlockSize),
-    m_decode   (*this, m_fdLatch, m_drLatch),
-    m_read     (*this, m_drLatch, m_reLatch, regFile, m_emLatch, m_mwLatch),
-    m_execute  (*this, m_reLatch, m_emLatch, alloc, network, threadTable, fpu),
-    m_memory   (*this, m_emLatch, m_mwLatch, dcache, alloc),
-    m_writeback(*this, m_mwLatch,            regFile, network, alloc, threadTable)
+    m_fetch    (*this,            m_fdLatch, alloc, familyTable, threadTable, icache, lpid, config),
+    m_decode   (*this, m_fdLatch, m_drLatch, config),
+    m_read     (*this, m_drLatch, m_reLatch, regFile, m_emLatch, m_mwLatch, config),
+    m_execute  (*this, m_reLatch, m_emLatch, alloc, network, threadTable, fpu, config),
+    m_memory   (*this, m_emLatch, m_mwLatch, dcache, alloc, config),
+    m_writeback(*this, m_mwLatch,            regFile, network, alloc, threadTable, config)
 {
     m_stages[0] = &m_fetch;
     m_stages[1] = &m_decode;

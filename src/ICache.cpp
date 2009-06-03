@@ -1,27 +1,38 @@
 #include "ICache.h"
 #include "Processor.h"
+#include "config.h"
 #include <cassert>
 #include <cstring>
 using namespace Simulator;
 using namespace std;
 
+template <typename T>
+static bool IsPowerOfTwo(const T& x)
+{
+    return (x & (x - 1)) == 0;
+}
+
 ICache::ICache(Processor& parent, const std::string& name, Allocator& alloc, const Config& config)
 :   IComponent(&parent, parent.GetKernel(), name),
     m_parent(parent), m_allocator(alloc),
-    m_lineSize(config.lineSize), m_numHits(0), m_numMisses(0), m_assoc(config.assoc)
+    m_numHits(0),
+    m_numMisses(0),
+    m_lineSize(config.getInteger<size_t>("CacheLineSize", 64)),
+    m_assoc   (config.getInteger<size_t>("ICacheAssociativity", 4))
 {
     // These things must be powers of two
-    if ((config.assoc & ~(config.assoc - 1)) != config.assoc)
+    if (!IsPowerOfTwo(m_assoc))
     {
         throw InvalidArgumentException("Instruction cache associativity is not a power of two");
     }
 
-    if ((config.sets & ~(config.sets - 1)) != config.sets)
+    const size_t sets = config.getInteger<size_t>("ICacheNumSets", 4);
+    if (!IsPowerOfTwo(sets))
     {
         throw InvalidArgumentException("Number of sets in instruction cache is not a power of two");
     }
 
-    if ((m_lineSize & ~(m_lineSize - 1)) != m_lineSize)
+    if (!IsPowerOfTwo(m_lineSize))
     {
         throw InvalidArgumentException("Instruction cache line size is not a power of two");
     }
@@ -29,11 +40,11 @@ ICache::ICache(Processor& parent, const std::string& name, Allocator& alloc, con
     // At least a complete register value has to fit in a line
     if (m_lineSize < 8)
     {
-        throw InvalidArgumentException("Instruction cache line size is less than 8.");
+        throw InvalidArgumentException("Instruction cache line size cannot be less than 8.");
     }
 
 	// Initialize the cache lines
-    m_lines.resize(config.sets * config.assoc);
+    m_lines.resize(sets * m_assoc);
 	m_data = new char[m_lineSize * m_lines.size()];
     for (size_t i = 0; i < m_lines.size(); ++i)
     {

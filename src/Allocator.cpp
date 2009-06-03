@@ -2,6 +2,7 @@
 #include "Processor.h"
 #include "Pipeline.h"
 #include "Network.h"
+#include "config.h"
 #include <cassert>
 #include <cmath>
 using namespace Simulator;
@@ -1861,8 +1862,12 @@ Allocator::Allocator(Processor& parent, const string& name,
     IComponent(&parent, parent.GetKernel(), name, "thread-allocate|family-allocate|family-create|thread-activation|reg-write-queue"),
     m_parent(parent), m_familyTable(familyTable), m_threadTable(threadTable), m_registerFile(registerFile), m_raunit(raunit), m_icache(icache), m_network(network), m_pipeline(pipeline),
     m_lpid(lpid), m_activeQueueSize(0), m_totalActiveQueueSize(0), m_maxActiveQueueSize(0), m_minActiveQueueSize(UINT64_MAX),
-    m_creates(config.localCreatesSize), m_createsEx(config.localCreatesSize), m_registerWrites(INFINITE), m_cleanup(config.cleanupSize),
-	m_allocations(INFINITE), m_createFID(INVALID_LFID), m_createState(CREATE_INITIAL)
+    m_creates       (config.getInteger<BufferSize>("LocalCreatesQueueSize", INFINITE)),
+    m_createsEx     (config.getInteger<BufferSize>("LocalExclusiveCreatesQueueSize", INFINITE)),
+    m_registerWrites(config.getInteger<BufferSize>("RegisterWritesQueueSize", INFINITE)),
+    m_cleanup       (config.getInteger<BufferSize>("ThreadCleanupQueueSize", INFINITE)),
+	m_allocations   (config.getInteger<BufferSize>("FamilyAllocationQueueSize", INFINITE)),
+	m_createFID(INVALID_LFID), m_createState(CREATE_INITIAL)
 {
     m_allocating   = INVALID_LFID;
     m_alloc.head   = INVALID_LFID;

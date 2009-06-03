@@ -3,6 +3,8 @@
 
 #include "ports.h"
 
+class Config;
+
 namespace Simulator
 {
 
@@ -23,13 +25,6 @@ class Network;
 class RegisterFile : public Structure<RegAddr>
 {
 public:
-    /// Structure for the configuration data
-	struct Config
-	{
-		RegSize numIntegers;    ///< Number of integer registers in the register file
-		RegSize numFloats;      ///< Number of floating pointer registers in the register file
-	};
-
     /**
      * Constructs the Register File.
      * @param[in] parent reference to parent processor.

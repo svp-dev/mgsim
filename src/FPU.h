@@ -5,6 +5,8 @@
 #include <queue>
 #include <map>
 
+class Config;
+
 namespace Simulator
 {
 
@@ -47,18 +49,6 @@ class FPU : public IComponent
 
 public:
     /**
-     * Structure for the configuration data
-     */
-	struct Config
-	{
-		CycleNo addLatency;     ///< Delay for an FP addition
-		CycleNo subLatency;     ///< Delay for an FP subtraction
-		CycleNo mulLatency;     ///< Delay for an FP multiplication
-		CycleNo divLatency;     ///< Delay for an FP division
-		CycleNo sqrtLatency;    ///< Delay for an FP square root
-	};
-
-    /**
      * Constructs the FPU.
      * @param parent  reference to the parent processor
      * @param name    name of the FPU, irrelevant to simulation
@@ -91,7 +81,12 @@ private:
 	Simulator::Result OnCycleWritePhase(unsigned int stateIndex);
 
 	RegisterFile& m_registerFile;   ///< Reference to the register file in which to write back results
-	Config        m_config;         ///< Configuration data for the FPU
+
+	CycleNo m_addLatency;     ///< Delay for an FP addition
+	CycleNo m_subLatency;     ///< Delay for an FP subtraction
+	CycleNo m_mulLatency;     ///< Delay for an FP multiplication
+	CycleNo m_divLatency;     ///< Delay for an FP division
+	CycleNo m_sqrtLatency;    ///< Delay for an FP square root
 };
 
 }

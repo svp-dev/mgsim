@@ -5,6 +5,8 @@
 #include "Memory.h"
 #include <queue>
 
+class Config;
+
 namespace Simulator
 {
 
@@ -16,13 +18,6 @@ class RegisterFile;
 class DCache : public IComponent
 {
 public:
-	struct Config
-	{
-		size_t assoc;    ///< Cache associativity.
-		size_t sets;     ///< Number of sets in the cace.
-		size_t lineSize; ///< Size of a cache line, in bytes.
-	};
-
     /// Represents a queue of cache-lines
     struct LineQueue
     {
@@ -65,10 +60,10 @@ public:
     Result OnCycleWritePhase(unsigned int stateIndex);
 
     // Admin information
-    size_t GetAssociativity() const { return m_config.assoc; }
-    size_t GetLineSize()      const { return m_config.lineSize; }
+    size_t GetAssociativity() const { return m_assoc; }
+    size_t GetLineSize()      const { return m_lineSize; }
     size_t GetNumLines()      const { return m_lines.size(); }
-    size_t GetNumSets()       const { return m_lines.size() / m_config.assoc; }
+    size_t GetNumSets()       const { return m_sets; }
     size_t GetNumPending()    const { return m_numWaiting; }
 
     const Line& GetLine(size_t i) const { return m_lines[i];  }
@@ -82,9 +77,10 @@ private:
     Allocator&			 m_allocator;   ///< Allocator component.
 	FamilyTable&		 m_familyTable; ///< Family table .
 	RegisterFile&		 m_regFile;     ///< Register File.
-
     std::vector<Line>    m_lines;       ///< The cache-lines.
-    Config               m_config;      ///< Configuration data.
+	size_t               m_assoc;       ///< Config: Cache associativity.
+	size_t               m_sets;        ///< Config: Number of sets in the cace.
+	size_t               m_lineSize;    ///< Config: Size of a cache line, in bytes.
     unsigned int         m_numWaiting;  ///< Number of pending requests.
     LineQueue            m_returned;    ///< Returned cache-lines waiting to be processed.
     uint64_t             m_numHits;     ///< Number of hits so far.

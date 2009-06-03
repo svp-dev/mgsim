@@ -1,6 +1,3 @@
-// Undefine to use ideal memory
-#define USE_BANKED_MEMORY
-
 #ifdef HAVE_CONFIG_H
 #include "sys_config.h"
 #endif
@@ -8,8 +5,10 @@
 #include "simreadline.h"
 
 #include "Processor.h"
-#include "BankedMemory.h"
+#include "IdealMemory.h"
 #include "ParallelMemory.h"
+#include "BankedMemory.h"
+#include "RandomBankedMemory.h"
 
 #include "commands.h"
 #include "config.h"
@@ -23,6 +22,7 @@
 #include <limits>
 #include <typeinfo>
 #include <cmath>
+#include <algorithm>
 
 #include <signal.h>
 
@@ -61,31 +61,16 @@ static string Trim(const string& str)
 
 class MGSystem : public Object
 {
-public:
-    struct Config
-    {
-        vector<PSize>        placeSizes;
-        PSize                numProcessors;
-        BankedMemory::Config memory;
-        Processor::Config    processor;
-    };
-
-private:
-    //SimpleMemory*   m_memory;
-#ifdef USE_BANKED_MEMORY
-    typedef BankedMemory MemoryType;
-#else
-    typedef ParallelMemory MemoryType;
-#endif
-
     vector<Processor*> m_procs;
     vector<Object*>    m_objects;
     Kernel             m_kernel;
-    MemoryType*        m_memory;
+    IMemoryAdmin*      m_memory;
 
     // Writes the current configuration into memory and returns its address
     MemAddr WriteConfiguration(const Config& config)
     {
+        const vector<PSize>& placeSizes = config.getIntegerList<PSize>("NumProcessors");
+        
         vector<uint32_t> data(1 + m_procs.size());
 
         // Store the number of cores
@@ -93,9 +78,9 @@ private:
 
         // Store the cores, per place
         PSize first = 0;
-        for (size_t p = 0; p < config.placeSizes.size(); ++p)
+        for (size_t p = 0; p < placeSizes.size(); ++p)
         {            
-            PSize placeSize = config.placeSizes[p];
+            PSize placeSize = placeSizes[p];
             for (size_t i = 0; i < placeSize; ++i)
             {
                 PSize pid = first + i;
@@ -320,29 +305,55 @@ public:
         const vector<pair<RegAddr, RegValue> >& regs,
         const vector<pair<RegAddr, string> >& loads,
         bool quiet)
-    : Object(NULL, NULL, "system"),
-      m_objects(config.numProcessors + 1)
+    : Object(NULL, NULL, "system")
     {
-        m_memory = new MemoryType(this, m_kernel, "memory", config.memory, config.numProcessors);
-        m_objects.back() = m_memory;
-
+        const vector<PSize> placeSizes = config.getIntegerList<PSize>("NumProcessors");
+        PSize numProcessors = 0;
+        for (size_t i = 0; i < placeSizes.size(); ++i) {
+            numProcessors += placeSizes[i];
+        }
+        
+        string memory_type = config.getString("MemoryType", "");
+        std::transform(memory_type.begin(), memory_type.end(), memory_type.begin(), ::toupper);
+        
+        m_objects.resize(numProcessors + 1);
+        if (memory_type == "IDEAL") {
+            IdealMemory* memory = new IdealMemory(this, m_kernel, "memory", config);
+            m_objects.back() = memory;
+            m_memory = memory;
+        } else if (memory_type == "PARALLEL") {
+            ParallelMemory* memory = new ParallelMemory(this, m_kernel, "memory", config);
+            m_objects.back() = memory;
+            m_memory = memory;
+        } else if (memory_type == "BANKED") {
+            BankedMemory* memory = new BankedMemory(this, m_kernel, "memory", config);
+            m_objects.back() = memory;
+            m_memory = memory;
+        } else if (memory_type == "RANDOMBANKED") {
+            RandomBankedMemory* memory = new RandomBankedMemory(this, m_kernel, "memory", config);            
+            m_objects.back() = memory;
+            m_memory = memory;
+        } else {
+            throw std::runtime_error("Unknown memory type specified in configuration");
+        }
+        
         // Load the program into memory
         MemAddr entry = LoadProgram(m_memory, program, quiet);
 
         // Create processor grid
-        m_procs.resize(config.numProcessors);
-        
+        m_procs.resize(numProcessors);
+
         PSize first = 0;
-        for (size_t p = 0; p < config.placeSizes.size(); ++p)
+        for (size_t p = 0; p < placeSizes.size(); ++p)
         {            
-            PSize placeSize = config.placeSizes[p];
+            PSize placeSize = placeSizes[p];
             for (size_t i = 0; i < placeSize; ++i)
             {
                 PSize pid = (first + i);
 
                 stringstream name;
                 name << "cpu" << pid;
-                m_procs[pid]   = new Processor(this, m_kernel, pid, i, m_procs, m_procs.size(), placeSize, name.str(), *m_memory, config.processor, entry);
+                m_procs[pid]   = new Processor(this, m_kernel, pid, i, m_procs, m_procs.size(), placeSize, name.str(), *m_memory, config, entry);
                 m_objects[pid] = m_procs[pid];
             }
             first += placeSize;
@@ -350,9 +361,9 @@ public:
 
         // Connect processors in rings
         first = 0;
-        for (size_t p = 0; p < config.placeSizes.size(); ++p)
+        for (size_t p = 0; p < placeSizes.size(); ++p)
         {
-            PSize placeSize = config.placeSizes[p];
+            PSize placeSize = placeSizes[p];
             for (size_t i = 0; i < placeSize; ++i)
             {
                 PSize pid = (first + i);
@@ -466,53 +477,6 @@ static void PrintHelp()
         "read <component> <options>  Read data from this component.\n"
         "info <component> <options>  Get general information from this component.\n"
         << endl;
-}
-
-static MGSystem::Config ParseConfig(const Config& configfile)
-{
-    MGSystem::Config config;
-    config.placeSizes = configfile.getIntegerList<PSize>("NumProcessors");
-
-    config.numProcessors = 0;
-    for (size_t i = 0; i < config.placeSizes.size(); ++i)
-    {
-        config.numProcessors += config.placeSizes[i];
-    }
-
-    config.memory.baseRequestTime = configfile.getInteger<CycleNo>("MemoryBaseRequestTime", 1);
-    config.memory.timePerLine     = configfile.getInteger<CycleNo>("MemoryTimePerLine", 1);
-    config.memory.sizeOfLine      = configfile.getInteger<size_t>("MemorySizeOfLine", 8);
-    config.memory.bufferSize      = configfile.getInteger<BufferSize>("MemoryBufferSize", INFINITE);
-#ifdef USE_BANKED_MEMORY
-    config.memory.numBanks        = configfile.getInteger<size_t>("MemoryBanks", config.numProcessors);
-#else
-    config.memory.width         = configfile.getInteger<size_t>("MemoryParallelRequests", 1);
-#endif
-
-	config.processor.dcache.lineSize           = 
-	config.processor.icache.lineSize           = configfile.getInteger<size_t>("CacheLineSize",    64);
-	config.processor.pipeline.controlBlockSize = configfile.getInteger<size_t>("ControlBlockSize", 64);
-
-	config.processor.icache.assoc    = configfile.getInteger<size_t>("ICacheAssociativity", 4);
-	config.processor.icache.sets     = configfile.getInteger<size_t>("ICacheNumSets", 4);
-	config.processor.dcache.assoc      = configfile.getInteger<size_t>("DCacheAssociativity", 4);
-	config.processor.dcache.sets       = configfile.getInteger<size_t>("DCacheNumSets", 4);
-	config.processor.threadTable.numThreads  = configfile.getInteger<TSize>("NumThreads", 64);
-	config.processor.familyTable.numFamilies = configfile.getInteger<FSize>("NumFamilies", 8);
-	config.processor.registerFile.numIntegers      = configfile.getInteger<RegSize>("NumIntRegisters", 1024);
-	config.processor.raunit.blockSizes[RT_INTEGER] = configfile.getInteger<RegSize>("IntRegistersBlockSize", 32); 
-	config.processor.registerFile.numFloats        = configfile.getInteger<RegSize>("NumFltRegisters", 128);
-	config.processor.raunit.blockSizes[RT_FLOAT]   = configfile.getInteger<RegSize>("FltRegistersBlockSize", 8); 
-	config.processor.allocator.localCreatesSize  = configfile.getInteger<BufferSize>("LocalCreatesQueueSize", INFINITE);
-	config.processor.allocator.remoteCreatesSize = configfile.getInteger<BufferSize>("RemoteCreatesQueueSize", INFINITE);
-	config.processor.allocator.cleanupSize       = configfile.getInteger<BufferSize>("ThreadCleanupQueueSize", INFINITE);
-	config.processor.fpu.addLatency  = configfile.getInteger<CycleNo>("FPUAddLatency",  1);
-	config.processor.fpu.subLatency  = configfile.getInteger<CycleNo>("FPUSubLatency",  1);
-	config.processor.fpu.mulLatency  = configfile.getInteger<CycleNo>("FPUMulLatency",  1);
-	config.processor.fpu.divLatency  = configfile.getInteger<CycleNo>("FPUDivLatency",  1);
-	config.processor.fpu.sqrtLatency = configfile.getInteger<CycleNo>("FPUSqrtLatency", 1);
-
-    return config;
 }
 
 static void PrintProfiles()
@@ -777,7 +741,6 @@ int main(int argc, const char* argv[])
 
         // Read configuration
         Config configfile(config.m_configFile, config.m_overrides);
-        MGSystem::Config systemconfig = ParseConfig(configfile);
 
         if (config.m_interactive)
         {
@@ -787,7 +750,7 @@ int main(int argc, const char* argv[])
 		}
 
         // Create the system
-		MGSystem sys(systemconfig, config.m_programFile, config.m_regs, config.m_loads, !config.m_interactive);
+		MGSystem sys(configfile, config.m_programFile, config.m_regs, config.m_loads, !config.m_interactive);
 
         bool interactive = config.m_interactive;
         if (!interactive)

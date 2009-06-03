@@ -1,20 +1,21 @@
-#include "SimpleMemory.h"
+#include "IdealMemory.h"
+#include "config.h"
 #include <cassert>
 #include <cstring>
 using namespace Simulator;
 using namespace std;
 
-void SimpleMemory::RegisterListener(IMemoryCallback& callback)
+void IdealMemory::RegisterListener(IMemoryCallback& callback)
 {
     m_caches.insert(&callback);
 }
 
-void SimpleMemory::UnregisterListener(IMemoryCallback& callback)
+void IdealMemory::UnregisterListener(IMemoryCallback& callback)
 {
     m_caches.erase(&callback);
 }
 
-Result SimpleMemory::Read(IMemoryCallback& callback, MemAddr address, 
+Result IdealMemory::Read(IMemoryCallback& callback, MemAddr address, 
                           void* /* data */, MemSize size, MemTag tag)
 {
 #if MEMSIZE_MAX >= SIZE_MAX
@@ -24,7 +25,7 @@ Result SimpleMemory::Read(IMemoryCallback& callback, MemAddr address,
     }
 #endif
 
-	if (m_config.bufferSize == INFINITE || m_requests.size() < m_config.bufferSize)
+	if (m_bufferSize == INFINITE || m_requests.size() < m_bufferSize)
     {
         COMMIT
         {
@@ -43,7 +44,7 @@ Result SimpleMemory::Read(IMemoryCallback& callback, MemAddr address,
     return FAILED;
 }
 
-Result SimpleMemory::Write(IMemoryCallback& callback, MemAddr address, void* data, MemSize size, MemTag tag)
+Result IdealMemory::Write(IMemoryCallback& callback, MemAddr address, void* data, MemSize size, MemTag tag)
 {
 #if MEMSIZE_MAX >= SIZE_MAX
     if (size > SIZE_MAX)
@@ -52,7 +53,7 @@ Result SimpleMemory::Write(IMemoryCallback& callback, MemAddr address, void* dat
     }
 #endif
 
-    if (m_config.bufferSize == INFINITE || m_requests.size() < m_config.bufferSize)
+    if (m_bufferSize == INFINITE || m_requests.size() < m_bufferSize)
     {
 		assert(tag.fid != INVALID_LFID);
         Request request;
@@ -80,37 +81,37 @@ Result SimpleMemory::Write(IMemoryCallback& callback, MemAddr address, void* dat
     return FAILED;
 }
 
-void SimpleMemory::Reserve(MemAddr address, MemSize size, int perm)
+void IdealMemory::Reserve(MemAddr address, MemSize size, int perm)
 {
     return VirtualMemory::Reserve(address, size, perm);
 }
 
-void SimpleMemory::Unreserve(MemAddr address)
+void IdealMemory::Unreserve(MemAddr address)
 {
     return VirtualMemory::Unreserve(address);
 }
 
-bool SimpleMemory::Allocate(MemSize size, int perm, MemAddr& address)
+bool IdealMemory::Allocate(MemSize size, int perm, MemAddr& address)
 {
     return VirtualMemory::Allocate(size, perm, address);
 }
 
-void SimpleMemory::Read(MemAddr address, void* data, MemSize size)
+void IdealMemory::Read(MemAddr address, void* data, MemSize size)
 {
     return VirtualMemory::Read(address, data, size);
 }
 
-void SimpleMemory::Write(MemAddr address, const void* data, MemSize size)
+void IdealMemory::Write(MemAddr address, const void* data, MemSize size)
 {
 	return VirtualMemory::Write(address, data, size);
 }
 
-bool SimpleMemory::CheckPermissions(MemAddr address, MemSize size, int access) const
+bool IdealMemory::CheckPermissions(MemAddr address, MemSize size, int access) const
 {
 	return VirtualMemory::CheckPermissions(address, size, access);
 }
 
-Result SimpleMemory::OnCycleWritePhase(unsigned int /* stateIndex */)
+Result IdealMemory::OnCycleWritePhase(unsigned int /* stateIndex */)
 {
 	Result result = (!m_requests.empty()) ? SUCCESS : DELAYED;
 
@@ -150,7 +151,7 @@ Result SimpleMemory::OnCycleWritePhase(unsigned int /* stateIndex */)
                 }
 
                 // Time the request
-                CycleNo requestTime = m_config.baseRequestTime + m_config.timePerLine * (request.data.size + m_config.sizeOfLine - 1) / m_config.sizeOfLine;
+                CycleNo requestTime = m_baseRequestTime + m_timePerLine * (request.data.size + m_sizeOfLine - 1) / m_sizeOfLine;
                 request.done = now + requestTime;
                 m_totalWaitTime += requestTime;
             }
@@ -159,7 +160,12 @@ Result SimpleMemory::OnCycleWritePhase(unsigned int /* stateIndex */)
     return result;
 }
 
-SimpleMemory::SimpleMemory(Object* parent, Kernel& kernel, const std::string& name, const Config& config) :
-    IComponent(parent, kernel, name), m_config(config), m_totalWaitTime(0)
+IdealMemory::IdealMemory(Object* parent, Kernel& kernel, const std::string& name, const Config& config) :
+    IComponent(parent, kernel, name), 
+    m_bufferSize     (config.getInteger<BufferSize>("MemoryBufferSize", INFINITE)),
+    m_baseRequestTime(config.getInteger<CycleNo>   ("MemoryBaseRequestTime", 1)),
+    m_timePerLine    (config.getInteger<CycleNo>   ("MemoryTimePerLine", 1)),
+    m_sizeOfLine     (config.getInteger<CycleNo>   ("MemorySizeOfLine", 8)),
+    m_totalWaitTime(0)
 {
 }

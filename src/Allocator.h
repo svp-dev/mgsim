@@ -5,6 +5,8 @@
 #include "FamilyTable.h"
 #include <queue>
 
+class Config;
+
 namespace Simulator
 {
 
@@ -45,13 +47,6 @@ enum ThreadDependency
 class Allocator : public IComponent
 {
 public:
-	struct Config
-	{
-		BufferSize localCreatesSize;
-		BufferSize remoteCreatesSize;
-		BufferSize cleanupSize;
-	};
-
     struct RegisterBases
     {
         RegIndex globals;

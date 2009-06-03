@@ -1,6 +1,6 @@
 #include "Pipeline.h"
 #include "Processor.h"
-#include "SimpleMemory.h"
+#include "config.h"
 #include <cassert>
 using namespace Simulator;
 using namespace std;
@@ -151,33 +151,33 @@ Pipeline::PipeAction Pipeline::FetchStage::write()
 	return PIPE_CONTINUE;
 }
 
-Pipeline::FetchStage::FetchStage(Pipeline& parent, FetchDecodeLatch& fdLatch, Allocator& alloc, FamilyTable& familyTable, ThreadTable& threadTable, ICache& icache, LPID lpid, size_t controlBlockSize)
+Pipeline::FetchStage::FetchStage(Pipeline& parent, FetchDecodeLatch& fdLatch, Allocator& alloc, FamilyTable& familyTable, ThreadTable& threadTable, ICache& icache, LPID lpid, const Config& config)
   : Stage(parent, "fetch", NULL, &fdLatch),
     m_output(fdLatch),
     m_allocator(alloc),
     m_familyTable(familyTable),
     m_threadTable(threadTable),
     m_icache(icache),
-    m_lpid(lpid)
+    m_lpid(lpid),
+    m_controlBlockSize(config.getInteger<size_t>("ControlBlockSize", 64))
 {
-    if ((controlBlockSize & ~(controlBlockSize - 1)) != controlBlockSize)
+    if ((m_controlBlockSize & ~(m_controlBlockSize - 1)) != m_controlBlockSize)
     {
         throw InvalidArgumentException("Control block size is not a power of two");
     }
 
-    if (controlBlockSize > 64)
+    if (m_controlBlockSize > 64)
     {
         throw InvalidArgumentException("Control block size is larger than 64");
     }
 
-    if (controlBlockSize > m_icache.GetLineSize())
+    if (m_controlBlockSize > m_icache.GetLineSize())
     {
         throw InvalidArgumentException("Control block size is larger than the cache line size");
     }
 
     m_tid = INVALID_TID;
     m_buffer = new char[m_icache.GetLineSize()];
-    m_controlBlockSize = (int)controlBlockSize;
 }
 
 Pipeline::FetchStage::~FetchStage()

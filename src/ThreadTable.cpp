@@ -1,5 +1,6 @@
 #include "ThreadTable.h"
 #include "Processor.h"
+#include "config.h"
 #include <cassert>
 using namespace Simulator;
 using namespace std;
@@ -7,18 +8,18 @@ using namespace std;
 ThreadTable::ThreadTable(Processor& parent, const Config& config)
   : Structure<TID>(&parent, parent.GetKernel(), "threads"),
     m_parent(parent),
-    m_threads(config.numThreads),
+    m_threads(config.getInteger<size_t>("NumThreads", 64)),
     m_numThreadsUsed(0)
 {
-    for (TID i = 0; i < config.numThreads; ++i)
+    for (TID i = 0; i < m_threads.size(); ++i)
     {
         m_threads[i].nextMember = i + 1;
         m_threads[i].state      = TST_EMPTY;
     }
-    m_threads[config.numThreads - 1].nextMember = INVALID_TID;
+    m_threads[m_threads.size() - 1].nextMember = INVALID_TID;
 
     m_empty.head = 0;
-    m_empty.tail = config.numThreads - 1;
+    m_empty.tail = m_threads.size() - 1;
 }
 
 TID ThreadTable::PopEmpty()

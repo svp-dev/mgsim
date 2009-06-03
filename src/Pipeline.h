@@ -102,11 +102,6 @@ class Pipeline : public IComponent
     };
 
 public:
-	struct Config
-	{
-		size_t controlBlockSize;
-	};
-
     //
     // Common latch data
     //
@@ -227,7 +222,7 @@ public:
     public:
         PipeAction read();
         PipeAction write();
-        FetchStage(Pipeline& parent, FetchDecodeLatch& fdlatch, Allocator& allocator, FamilyTable& familyTable, ThreadTable& threadTable, ICache &icache, LPID lpid, size_t controlBlockSize);
+        FetchStage(Pipeline& parent, FetchDecodeLatch& fdlatch, Allocator& allocator, FamilyTable& familyTable, ThreadTable& threadTable, ICache &icache, LPID lpid, const Config& config);
         ~FetchStage();
 
         void clear(TID tid);
@@ -245,7 +240,7 @@ public:
 
         // Information of current executing thread
         char*           m_buffer;
-        int             m_controlBlockSize;
+        size_t          m_controlBlockSize;
         bool            m_isLastThreadInBlock;
         bool            m_isLastThreadInFamily;
 		bool            m_isFirstThreadInFamily;
@@ -268,7 +263,7 @@ public:
     public:
         PipeAction read();
         PipeAction write();
-        DecodeStage(Pipeline& parent, FetchDecodeLatch& input, DecodeReadLatch& output);
+        DecodeStage(Pipeline& parent, FetchDecodeLatch& input, DecodeReadLatch& output, const Config& config);
     
     private:
         RegAddr TranslateRegister(uint8_t reg, RegType type, unsigned int size, RemoteRegAddr* remoteReg) const;
@@ -283,7 +278,7 @@ public:
     public:
         PipeAction read();
         PipeAction write();
-        ReadStage(Pipeline& parent, DecodeReadLatch& input, ReadExecuteLatch& output, RegisterFile& regFile, ExecuteMemoryLatch& bypass1, MemoryWritebackLatch& bypass2);
+        ReadStage(Pipeline& parent, DecodeReadLatch& input, ReadExecuteLatch& output, RegisterFile& regFile, ExecuteMemoryLatch& bypass1, MemoryWritebackLatch& bypass2, const Config& config);
     
     private:
         struct OperandInfo
@@ -328,7 +323,7 @@ public:
     public:
         PipeAction read();
         PipeAction write();
-        ExecuteStage(Pipeline& parent, ReadExecuteLatch& input, ExecuteMemoryLatch& output, Allocator& allocator, Network& network, ThreadTable& threadTable, FPU& fpu);
+        ExecuteStage(Pipeline& parent, ReadExecuteLatch& input, ExecuteMemoryLatch& output, Allocator& allocator, Network& network, ThreadTable& threadTable, FPU& fpu, const Config& config);
         
         uint64_t getFlop() const { return m_flop; }
         uint64_t getOp()   const { return m_op; }
@@ -368,7 +363,7 @@ public:
     public:
         PipeAction read();
         PipeAction write();
-        MemoryStage(Pipeline& parent, ExecuteMemoryLatch& input, MemoryWritebackLatch& output, DCache& dcache, Allocator& allocator);
+        MemoryStage(Pipeline& parent, ExecuteMemoryLatch& input, MemoryWritebackLatch& output, DCache& dcache, Allocator& allocator, const Config& config);
     
     private:
         ExecuteMemoryLatch&     m_input;
@@ -382,7 +377,7 @@ public:
     public:
         PipeAction read();
         PipeAction write();
-        WritebackStage(Pipeline& parent, MemoryWritebackLatch& input, RegisterFile& regFile, Network& network, Allocator& allocator, ThreadTable& threadTable);
+        WritebackStage(Pipeline& parent, MemoryWritebackLatch& input, RegisterFile& regFile, Network& network, Allocator& allocator, ThreadTable& threadTable, const Config& config);
     
     private:
         MemoryWritebackLatch&   m_input;

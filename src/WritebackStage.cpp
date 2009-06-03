@@ -233,7 +233,7 @@ Pipeline::PipeAction Pipeline::WritebackStage::write()
         : PIPE_DELAY;       // We still have data to write back next cycle
 }
 
-Pipeline::WritebackStage::WritebackStage(Pipeline& parent, MemoryWritebackLatch& input, RegisterFile& regFile, Network& network, Allocator& alloc, ThreadTable& threadTable)
+Pipeline::WritebackStage::WritebackStage(Pipeline& parent, MemoryWritebackLatch& input, RegisterFile& regFile, Network& network, Allocator& alloc, ThreadTable& threadTable, const Config& /*config*/)
   : Stage(parent, "writeback", &input, NULL),
     m_input(input),
     m_regFile(regFile),

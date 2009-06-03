@@ -1,4 +1,5 @@
 #include "ParallelMemory.h"
+#include "config.h"
 #include <cassert>
 #include <sstream>
 #include <cstring>
@@ -73,7 +74,7 @@ Result ParallelMemory::Read(IMemoryCallback& callback, MemAddr address,
     }
 #endif
 
-    if (m_config.bufferSize == INFINITE || m_numRequests < m_config.bufferSize)
+    if (m_bufferSize == INFINITE || m_numRequests < m_bufferSize)
     {
         COMMIT
         {
@@ -100,7 +101,7 @@ Result ParallelMemory::Write(IMemoryCallback& callback, MemAddr address, void* d
     }
 #endif
 
-    if (m_config.bufferSize == INFINITE || m_numRequests < m_config.bufferSize)
+    if (m_bufferSize == INFINITE || m_numRequests < m_bufferSize)
     {
         Request request;
         request.callback  = &callback;
@@ -135,7 +136,7 @@ Result ParallelMemory::OnCycleWritePhase(unsigned int stateIndex)
 {
 	CycleNo now         = GetKernel()->GetCycleNo();
 	Port&   port        = m_ports[stateIndex];
-	size_t  nAvailable  = m_config.width - port.m_inFlight.size();
+	size_t  nAvailable  = m_width - port.m_inFlight.size();
 	Result  result      = DELAYED;
 
 	// Check if the first pending request has completed
@@ -184,7 +185,7 @@ Result ParallelMemory::OnCycleWritePhase(unsigned int stateIndex)
   		COMMIT
    		{
    			// Time the request
-    		CycleNo delay = m_config.baseRequestTime + m_config.timePerLine * (p->data.size + m_config.sizeOfLine - 1) / m_config.sizeOfLine;
+    		CycleNo delay = m_baseRequestTime + m_timePerLine * (p->data.size + m_sizeOfLine - 1) / m_sizeOfLine;
 	    	port.m_inFlight.insert(make_pair(now + delay, *p));
     	}
 	}
@@ -228,6 +229,16 @@ void ParallelMemory::Write(MemAddr address, const void* data, MemSize size)
 	return VirtualMemory::Write(address, data, size);
 }
 
+static size_t GetNumProcessors(const Config& config)
+{
+    const vector<PSize> places = config.getIntegerList<PSize>("NumProcessors");
+    PSize numProcs = 0;
+    for (size_t i = 0; i < places.size(); ++i) {
+        numProcs += places[i];
+    }
+    return numProcs;    
+}
+
 static string CreateStateNames(size_t numProcs)
 {
     stringstream states;
@@ -242,10 +253,14 @@ static string CreateStateNames(size_t numProcs)
     return ret;
 }
 
-ParallelMemory::ParallelMemory(Object* parent, Kernel& kernel, const std::string& name, const Config& config, PSize numProcs ) :
-    IComponent(parent, kernel, name, CreateStateNames(numProcs)),
-    m_ports(numProcs),
-    m_config(config),
+ParallelMemory::ParallelMemory(Object* parent, Kernel& kernel, const std::string& name, const Config& config) :
+    IComponent(parent, kernel, name, CreateStateNames(GetNumProcessors(config))),
+    m_ports(GetNumProcessors(config)),
+    m_bufferSize     (config.getInteger<BufferSize>("MemoryBufferSize", INFINITE)),
+    m_baseRequestTime(config.getInteger<CycleNo>   ("MemoryBaseRequestTime", 1)),
+    m_timePerLine    (config.getInteger<CycleNo>   ("MemoryTimePerLine", 1)),
+    m_sizeOfLine     (config.getInteger<size_t>    ("MemorySizeOfLine", 8)),
+    m_width          (config.getInteger<size_t>    ("MemoryParallelRequests", 1)),
     m_numRequests(0),
     m_statMaxRequests(0),
     m_statMaxInFlight(0)

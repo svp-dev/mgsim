@@ -1,5 +1,5 @@
-#ifndef BANKEDMEMORY_H
-#define BANKEDMEMORY_H
+#ifndef RANDOMBANKEDMEMORY_H
+#define RANDOMBANKEDMEMORY_H
 
 #include "Memory.h"
 #include "kernel.h"
@@ -14,7 +14,7 @@ namespace Simulator
 
 class ArbitratedWriteFunction;
 
-class BankedMemory : public IComponent, public IMemoryAdmin, public VirtualMemory
+class RandomBankedMemory : public IComponent, public IMemoryAdmin, public VirtualMemory
 {
 public:
     class Request
@@ -47,7 +47,7 @@ public:
         Bank();
     };
 
-    BankedMemory(Object* parent, Kernel& kernel, const std::string& name, const Config& config);
+    RandomBankedMemory(Object* parent, Kernel& kernel, const std::string& name, const Config& config);
     
     const std::vector<Bank>& GetBanks() const { return m_banks; }
 

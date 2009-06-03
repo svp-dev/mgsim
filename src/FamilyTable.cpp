@@ -1,5 +1,6 @@
 #include "FamilyTable.h"
 #include "Processor.h"
+#include "config.h"
 #include <cassert>
 using namespace Simulator;
 using namespace std;
@@ -7,10 +8,10 @@ using namespace std;
 FamilyTable::FamilyTable(Processor& parent, const Config& config)
 :   Structure<LFID>(&parent, parent.GetKernel(), "families"),
     m_parent(parent),
-    m_families(config.numFamilies),
+    m_families(config.getInteger<size_t>("NumFamilies", 8)),
     m_numFamiliesUsed(0)
 {
-    for (size_t i = 0; i < config.numFamilies; ++i)
+    for (size_t i = 0; i < m_families.size(); ++i)
     {
 		// Deny access to empty families
 		m_families[i].created     = false;
@@ -22,7 +23,7 @@ FamilyTable::FamilyTable(Processor& parent, const Config& config)
     }
 
     m_empty.head = 0;
-    m_empty.tail = config.numFamilies - 1;
+    m_empty.tail = m_families.size() - 1;
 
     m_families[m_empty.tail].next = INVALID_LFID;
 }

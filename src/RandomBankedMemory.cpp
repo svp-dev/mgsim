@@ -1,4 +1,4 @@
-#include "BankedMemory.h"
+#include "RandomBankedMemory.h"
 #include "config.h"
 #include <sstream>
 #include <cassert>
@@ -8,12 +8,12 @@
 using namespace Simulator;
 using namespace std;
 
-BankedMemory::Bank::Bank()
+RandomBankedMemory::Bank::Bank()
     : busy(false)
 {
 }
 
-void BankedMemory::Request::release()
+void RandomBankedMemory::Request::release()
 {
     if (refcount != NULL && --*refcount == 0) {
         delete[] (char*)data.data;
@@ -21,7 +21,7 @@ void BankedMemory::Request::release()
     }
 }
 
-BankedMemory::Request& BankedMemory::Request::operator =(const Request& req)
+RandomBankedMemory::Request& RandomBankedMemory::Request::operator =(const Request& req)
 {
     release();
     refcount  = req.refcount;
@@ -33,27 +33,31 @@ BankedMemory::Request& BankedMemory::Request::operator =(const Request& req)
     return *this;
 }
 
-BankedMemory::Request::Request(const Request& req) : refcount(NULL) { *this = req; }
-BankedMemory::Request::Request() { refcount = new unsigned long(1); data.data = NULL; }
-BankedMemory::Request::~Request() { release(); }
+RandomBankedMemory::Request::Request(const Request& req) : refcount(NULL) { *this = req; }
+RandomBankedMemory::Request::Request() { refcount = new unsigned long(1); data.data = NULL; }
+RandomBankedMemory::Request::~Request() { release(); }
 
-void BankedMemory::RegisterListener(IMemoryCallback& callback)
+void RandomBankedMemory::RegisterListener(IMemoryCallback& callback)
 {
     m_caches.insert(&callback);
 }
 
-void BankedMemory::UnregisterListener(IMemoryCallback& callback)
+void RandomBankedMemory::UnregisterListener(IMemoryCallback& callback)
 {
     m_caches.erase(&callback);
 }
 
-size_t BankedMemory::GetBankFromAddress(MemAddr address) const
+size_t RandomBankedMemory::GetBankFromAddress(MemAddr address) const
 {
     // We work on whole cache lines
-    return (size_t)((address / m_cachelineSize) % m_banks.size());
+    address /= m_cachelineSize;
+
+    uint64_t hash = (31 * address / m_banks.size() / 32);
+
+    return (size_t)((hash + address) % m_banks.size());
 }
 
-void BankedMemory::AddRequest(Pipeline& queue, const Request& request, bool data)
+void RandomBankedMemory::AddRequest(Pipeline& queue, const Request& request, bool data)
 {
     // Get the initial delay, independent of message size
     CycleNo now  = GetKernel()->GetCycleNo();
@@ -79,7 +83,7 @@ void BankedMemory::AddRequest(Pipeline& queue, const Request& request, bool data
     queue.insert(make_pair(done, request));
 }
 
-Result BankedMemory::Read(IMemoryCallback& callback, MemAddr address, void* /* data */, 
+Result RandomBankedMemory::Read(IMemoryCallback& callback, MemAddr address, void* /* data */, 
                           MemSize size, MemTag tag)
 {
 #if MEMSIZE_MAX >= SIZE_MAX
@@ -108,7 +112,7 @@ Result BankedMemory::Read(IMemoryCallback& callback, MemAddr address, void* /* d
     return FAILED;
 }
 
-Result BankedMemory::Write(IMemoryCallback& callback, MemAddr address, void* data, MemSize size, MemTag tag)
+Result RandomBankedMemory::Write(IMemoryCallback& callback, MemAddr address, void* data, MemSize size, MemTag tag)
 {
 #if MEMSIZE_MAX >= SIZE_MAX
     if (size > SIZE_MAX)
@@ -150,37 +154,37 @@ Result BankedMemory::Write(IMemoryCallback& callback, MemAddr address, void* dat
     return FAILED;
 }
 
-void BankedMemory::Reserve(MemAddr address, MemSize size, int perm)
+void RandomBankedMemory::Reserve(MemAddr address, MemSize size, int perm)
 {
     return VirtualMemory::Reserve(address, size, perm);
 }
 
-void BankedMemory::Unreserve(MemAddr address)
+void RandomBankedMemory::Unreserve(MemAddr address)
 {
     return VirtualMemory::Unreserve(address);
 }
 
-bool BankedMemory::Allocate(MemSize size, int perm, MemAddr& address)
+bool RandomBankedMemory::Allocate(MemSize size, int perm, MemAddr& address)
 {
     return VirtualMemory::Allocate(size, perm, address);
 }
 
-void BankedMemory::Read(MemAddr address, void* data, MemSize size)
+void RandomBankedMemory::Read(MemAddr address, void* data, MemSize size)
 {
     return VirtualMemory::Read(address, data, size);
 }
 
-void BankedMemory::Write(MemAddr address, const void* data, MemSize size)
+void RandomBankedMemory::Write(MemAddr address, const void* data, MemSize size)
 {
 	return VirtualMemory::Write(address, data, size);
 }
 
-bool BankedMemory::CheckPermissions(MemAddr address, MemSize size, int access) const
+bool RandomBankedMemory::CheckPermissions(MemAddr address, MemSize size, int access) const
 {
 	return VirtualMemory::CheckPermissions(address, size, access);
 }
 
-Result BankedMemory::OnCycleWritePhase(unsigned int stateIndex)
+Result RandomBankedMemory::OnCycleWritePhase(unsigned int stateIndex)
 {
     CycleNo now = GetKernel()->GetCycleNo();
     if (stateIndex < 2 * m_banks.size())
@@ -289,7 +293,7 @@ static string CreateStateNames(const Config& config)
     return ret;
 }
 
-BankedMemory::BankedMemory(Object* parent, Kernel& kernel, const std::string& name, const Config& config) :
+RandomBankedMemory::RandomBankedMemory(Object* parent, Kernel& kernel, const std::string& name, const Config& config) :
     IComponent(parent, kernel, name, CreateStateNames(config)),
     m_baseRequestTime(config.getInteger<CycleNo>   ("MemoryBaseRequestTime", 1)),
     m_timePerLine    (config.getInteger<CycleNo>   ("MemoryTimePerLine", 1)),

@@ -159,7 +159,7 @@ Pipeline::PipeAction Pipeline::DecodeStage::write()
     return PIPE_CONTINUE;
 }
 
-Pipeline::DecodeStage::DecodeStage(Pipeline& parent, FetchDecodeLatch& input, DecodeReadLatch& output)
+Pipeline::DecodeStage::DecodeStage(Pipeline& parent, FetchDecodeLatch& input, DecodeReadLatch& output, const Config& /*config*/)
   : Stage(parent, "decode", &input, &output),
     m_input(input),
     m_output(output)

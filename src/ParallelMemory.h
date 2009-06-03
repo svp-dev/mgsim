@@ -14,18 +14,9 @@
 namespace Simulator
 {
 
-class ParallelMemory : public IComponent, public IMemory, public IMemoryAdmin, public VirtualMemory
+class ParallelMemory : public IComponent, public IMemoryAdmin, public VirtualMemory
 {
 public:
-	struct Config
-	{
-        BufferSize bufferSize;
-	    CycleNo	   baseRequestTime; // This many cycles per request regardless of size
-        CycleNo	   timePerLine;     // With this many additional cycles per line
-        size_t	   sizeOfLine;      // With this many bytes per line
-	    size_t	   width;	        // number of requests which can be processed parallel
-	};
-	
     class Request
     {
         void release();
@@ -48,7 +39,7 @@ public:
 		std::multimap<CycleNo, Request> m_inFlight;
 	};
 
-    ParallelMemory(Object* parent, Kernel& kernel, const std::string& name, const Config& config, PSize numProcs );
+    ParallelMemory(Object* parent, Kernel& kernel, const std::string& name, const Config& config);
     ~ParallelMemory();
 
     // Component
@@ -68,9 +59,8 @@ public:
     void Read (MemAddr address, void* data, MemSize size);
     void Write(MemAddr address, const void* data, MemSize size);
 
-    const Config& GetConfig()       const { return m_config; }
-    const Port&   GetPort(size_t i) const { return m_ports[i]; }
-    size_t        GetNumPorts()     const { return m_ports.size(); }
+    const Port& GetPort(size_t i) const { return m_ports[i]; }
+    size_t      GetNumPorts()     const { return m_ports.size(); }
 
     size_t GetStatMaxRequests() { return m_statMaxRequests; }
     size_t GetStatMaxInFlight() { return m_statMaxInFlight; }
@@ -82,7 +72,11 @@ private:
     std::map<IMemoryCallback*, Port*> m_portmap;
     std::vector<Port>                 m_ports;
  
-    Config        m_config;
+    BufferSize    m_bufferSize;
+	CycleNo	      m_baseRequestTime; // Config: This many cycles per request regardless of size
+    CycleNo	      m_timePerLine;     // Config: With this many additional cycles per line
+    size_t	      m_sizeOfLine;      // Config: With this many bytes per line
+	size_t	      m_width;	         // Config: Number of requests which can be processed parallel
 	BufferSize    m_numRequests;
 	size_t	      m_statMaxRequests;
 	size_t	      m_statMaxInFlight;

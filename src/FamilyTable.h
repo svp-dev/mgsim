@@ -4,6 +4,8 @@
 #include "ports.h"
 #include <queue>
 
+class Config;
+
 namespace Simulator
 {
 
@@ -87,11 +89,6 @@ struct Family
 class FamilyTable : public Structure<LFID>
 {
 public:
-	struct Config
-	{
-		FSize numFamilies;
-	};
-
     FamilyTable(Processor& parent, const Config& config);
     
           Family& operator[](LFID fid)       { return m_families[fid]; }

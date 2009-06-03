@@ -1,20 +1,35 @@
 #include "RAUnit.h"
 #include "RegisterFile.h"
 #include "Processor.h"
+#include "config.h"
 #include <cassert>
 
 using namespace Simulator;
 using namespace std;
 
+template <typename T>
+static bool IsPowerOfTwo(const T& x)
+{
+    return (x & (x - 1)) == 0;
+}
+
 RAUnit::RAUnit(Processor& parent, const std::string& name, const RegisterFile& regFile, const Config& config)
     : Object(&parent, &parent.GetKernel(), name)
 {
+    static struct {
+        const char* name;
+        size_t      def;
+    } config_names[NUM_REG_TYPES] = {
+        {"IntRegistersBlockSize", 32},
+        {"FltRegistersBlockSize", 8}
+    };
+    
     for (RegType i = 0; i < NUM_REG_TYPES; ++i)
     {
         RegSize size = regFile.GetSize(i);
 
-        m_blockSizes[i] = config.blockSizes[i];
-        if (m_blockSizes[i] == 0 || (m_blockSizes[i] & (m_blockSizes[i] - 1)) != 0)
+        m_blockSizes[i] = config.getInteger<size_t>(config_names[i].name, config_names[i].def);
+        if (m_blockSizes[i] == 0 || !IsPowerOfTwo(m_blockSizes[i]))
         {
             throw InvalidArgumentException("Allocation block size is not a power of two");
         }

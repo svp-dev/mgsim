@@ -1,6 +1,7 @@
 #include "FPU.h"
 #include "RegisterFile.h"
 #include "Processor.h"
+#include "config.h"
 #include <cassert>
 #include <cmath>
 using namespace std;
@@ -24,27 +25,27 @@ bool FPU::QueueOperation(FPUOperation op, int size, double Rav, double Rbv, cons
 	{
 	    case FPU_OP_SQRT:
 	        value = sqrt( Rbv );
-	        latency = m_config.sqrtLatency;
+	        latency = m_sqrtLatency;
 	        break;
 	            
 	    case FPU_OP_ADD: 
 			value = Rav + Rbv;
-			latency = m_config.addLatency;
+			latency = m_addLatency;
 			break;
 				
         case FPU_OP_SUB:
             value = Rav - Rbv;
-			latency = m_config.subLatency;
+			latency = m_subLatency;
 			break;
 			
         case FPU_OP_MUL:
             value = Rav * Rbv;
-			latency = m_config.mulLatency;
+			latency = m_mulLatency;
 			break;
 			
         case FPU_OP_DIV:
 			value = Rav / Rbv;
-			latency = m_config.divLatency;
+			latency = m_divLatency;
 			break;
 
 		default:
@@ -157,7 +158,12 @@ Result FPU::OnCycleWritePhase(unsigned int /* stateIndex */)
 }
 
 FPU::FPU(Processor& parent, const std::string& name, RegisterFile& regFile, const Config& config)
-	: IComponent(&parent, parent.GetKernel(), name), m_registerFile(regFile), m_config(config)
+	: IComponent(&parent, parent.GetKernel(), name), m_registerFile(regFile),
+      m_addLatency (config.getInteger<CycleNo>("FPUAddLatency", 1)),
+      m_subLatency (config.getInteger<CycleNo>("FPUSubLatency", 1)),
+      m_mulLatency (config.getInteger<CycleNo>("FPUMulLatency", 1)),
+      m_divLatency (config.getInteger<CycleNo>("FPUDivLatency", 1)),
+      m_sqrtLatency(config.getInteger<CycleNo>("FPUSqrtLatency", 1))
 {
 }
 

@@ -4,6 +4,8 @@
 #include "kernel.h"
 #include "Memory.h"
 
+class Config;
+
 namespace Simulator
 {
 
@@ -13,14 +15,6 @@ class Allocator;
 class ICache : public IComponent
 {
 public:
-	// Instruction Cache Configuration
-	struct Config
-	{
-		size_t assoc;
-		size_t sets;
-		size_t lineSize;
-	};
-
 	// A Cache-line
     struct Line
     {
@@ -59,11 +53,11 @@ private:
 
     Processor&          m_parent;
 	Allocator&          m_allocator;
-    size_t              m_lineSize;
     std::vector<Line>   m_lines;
 	char*               m_data;
     uint64_t            m_numHits;
     uint64_t            m_numMisses;
+    size_t              m_lineSize;
     size_t              m_assoc;
     size_t              m_assocLog;
 };

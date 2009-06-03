@@ -1,5 +1,6 @@
 #include "DCache.h"
 #include "Processor.h"
+#include "config.h"
 #include <cassert>
 #include <cstring>
 using namespace Simulator;
@@ -14,37 +15,41 @@ static bool IsPowerOfTwo(const T& x)
 DCache::DCache(Processor& parent, const std::string& name, Allocator& alloc, FamilyTable& familyTable, RegisterFile& regFile, const Config& config)
 :   IComponent(&parent, parent.GetKernel(), name), m_parent(parent),
 	m_allocator(alloc), m_familyTable(familyTable), m_regFile(regFile),
-	m_config(config), m_numHits(0), m_numMisses(0)
+	m_assoc   (config.getInteger<size_t>("DCacheAssociativity", 4)),
+	m_sets    (config.getInteger<size_t>("DCacheNumSets", 4)),
+	m_lineSize(config.getInteger<size_t>("CacheLineSize", 64)),
+	m_numHits(0),
+	m_numMisses(0)
 {
     m_returned.head = INVALID_CID;
 
     // These things must be powers of two
-    if (config.assoc == 0 || !IsPowerOfTwo(config.assoc))
+    if (m_assoc == 0 || !IsPowerOfTwo(m_assoc))
     {
         throw InvalidArgumentException("Data cache associativity is not a power of two");
     }
 
-    if (config.sets == 0 || !IsPowerOfTwo(config.sets))
+    if (m_sets == 0 || !IsPowerOfTwo(m_sets))
     {
         throw InvalidArgumentException("Number of sets in data cache is not a power of two");
     }
 
-    if (config.lineSize == 0 || !IsPowerOfTwo(config.lineSize))
+    if (m_lineSize == 0 || !IsPowerOfTwo(m_lineSize))
     {
         throw InvalidArgumentException("Data cache line size is not a power of two");
     }
 
     // At least a complete register value has to fit in a line
-    if (config.lineSize < 8)
+    if (m_lineSize < 8)
     {
         throw InvalidArgumentException("Data cache line size is less than 8.");
     }
 
-    m_lines.resize(config.sets * config.assoc);
+    m_lines.resize(m_sets * m_assoc);
     for (size_t i = 0; i < m_lines.size(); ++i)
     {
         m_lines[i].state = LINE_EMPTY;
-        m_lines[i].data  = new char[config.lineSize];
+        m_lines[i].data  = new char[m_lineSize];
     }
     m_numWaiting = 0;
 }
@@ -59,14 +64,13 @@ DCache::~DCache()
 
 Result DCache::FindLine(MemAddr address, Line* &line, bool check_only)
 {
-    const size_t  sets = m_lines.size() / m_config.assoc;
-    const MemAddr tag  = (address / m_config.lineSize) / sets;
-    const size_t  set  = (size_t)((address / m_config.lineSize) % sets) * m_config.assoc;
+    const MemAddr tag  = (address / m_lineSize) / m_sets;
+    const size_t  set  = (size_t)((address / m_lineSize) % m_sets) * m_assoc;
 
     // Find the line
     Line* empty   = NULL;
     Line* replace = NULL;
-    for (size_t i = 0; i < m_config.assoc; ++i)
+    for (size_t i = 0; i < m_assoc; ++i)
     {
         line = &m_lines[set + i];
 
@@ -116,8 +120,8 @@ Result DCache::FindLine(MemAddr address, Line* &line, bool check_only)
 
 Result DCache::Read(MemAddr address, void* data, MemSize size, LFID /* fid */, RegAddr* reg)
 {
-    size_t offset = (size_t)(address % m_config.lineSize);
-    if (offset + size > m_config.lineSize)
+    size_t offset = (size_t)(address % m_lineSize);
+    if (offset + size > m_lineSize)
     {
         throw InvalidArgumentException("Address range crosses over cache line boundary");
     }
@@ -148,7 +152,7 @@ Result DCache::Read(MemAddr address, void* data, MemSize size, LFID /* fid */, R
     else if (result == DELAYED)
     {
         // Fetch the data
-        if ((result = m_parent.ReadMemory(address - offset, line->data, m_config.lineSize, MemTag(line - &m_lines[0], true))) == FAILED)
+        if ((result = m_parent.ReadMemory(address - offset, line->data, m_lineSize, MemTag(line - &m_lines[0], true))) == FAILED)
         {
             return FAILED;
         }
@@ -202,8 +206,8 @@ Result DCache::Write(MemAddr address, void* data, MemSize size, LFID fid, TID ti
 	assert(fid != INVALID_LFID);
 	assert(tid != INVALID_TID);
 
-	size_t offset = (size_t)(address % m_config.lineSize);
-    if (offset + size > m_config.lineSize)
+	size_t offset = (size_t)(address % m_lineSize);
+    if (offset + size > m_lineSize)
     {
         throw InvalidArgumentException("Address range crosses over cache line boundary");
     }
@@ -287,7 +291,7 @@ bool DCache::OnMemorySnooped(MemAddr address, const MemData& data)
 {
     COMMIT
     {
-        size_t offset = (size_t)(address % m_config.lineSize);
+        size_t offset = (size_t)(address % m_lineSize);
 		Line*  line;
 
         // Cache coherency: check if we have the same address

@@ -1,5 +1,6 @@
 #include "RegisterFile.h"
 #include "Processor.h"
+#include "config.h"
 #include <cassert>
 using namespace Simulator;
 using namespace std;
@@ -15,18 +16,18 @@ RegisterFile::RegisterFile(Processor& parent, Allocator& alloc, Network& network
     p_pipelineW (*this, "p_pipelineW"),
     p_asyncR    (*this, "p_asyncR"),
     p_asyncW    (*this, "p_asyncW"),
-    m_integers(config.numIntegers),
-    m_floats(config.numFloats),
+    m_integers(config.getInteger<size_t>("NumIntRegisters", 1024)),
+    m_floats  (config.getInteger<size_t>("NumFltRegisters", 128)),
     m_parent(parent),
     m_allocator(alloc), m_network(network)
 {
     // Initialize all registers to empty
-    for (RegSize i = 0; i < config.numIntegers; ++i)
+    for (RegSize i = 0; i < m_integers.size(); ++i)
     {
         m_integers[i] = MAKE_EMPTY_REG();
     }
 
-    for (RegSize i = 0; i < config.numFloats; ++i)
+    for (RegSize i = 0; i < m_floats.size(); ++i)
     {
         m_floats[i] = MAKE_EMPTY_REG();
     }

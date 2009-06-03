@@ -13,6 +13,8 @@
 #include "ThreadTable.h"
 #include "RAUnit.h"
 
+class Config;
+
 namespace Simulator
 {
 
@@ -24,19 +26,6 @@ struct PlaceInfo
 class Processor : public IComponent, public IMemoryCallback
 {
 public:
-    struct Config
-    {
-		ICache::Config		 icache;
-		DCache::Config		 dcache;
-		ThreadTable::Config  threadTable;
-		FamilyTable::Config  familyTable;
-		RegisterFile::Config registerFile;
-		Allocator::Config    allocator;
-		Pipeline::Config     pipeline;
-		RAUnit::Config		 raunit;
-		FPU::Config          fpu;
-    };
-
     Processor(Object* parent, Kernel& kernel, GPID pid, LPID lpid, const std::vector<Processor*>& grid, PSize gridSize, PSize placeSize, const std::string& name, IMemory& m_memory, const Config& config, MemAddr runAddress);
     void Initialize(Processor& prev, Processor& next);
 

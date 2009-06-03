@@ -37,13 +37,15 @@ COMMON_SRC = \
 	Pipeline.h \
 	Processor.cpp \
 	Processor.h \
+	RandomBankedMemory.cpp \
+	RandomBankedMemory.h \
 	RAUnit.cpp \
 	RAUnit.h \
 	ReadStage.cpp \
 	RegisterFile.cpp \
 	RegisterFile.h \
-	SimpleMemory.cpp \
-	SimpleMemory.h \
+	IdealMemory.cpp \
+	IdealeMemory.h \
 	ThreadTable.cpp \
 	ThreadTable.h \
 	VirtualMemory.cpp \

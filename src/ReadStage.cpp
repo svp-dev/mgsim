@@ -539,7 +539,7 @@ void Pipeline::ReadStage::clear(TID tid)
     }
 }
 
-Pipeline::ReadStage::ReadStage(Pipeline& parent, DecodeReadLatch& input, ReadExecuteLatch& output, RegisterFile& regFile, ExecuteMemoryLatch& bypass1, MemoryWritebackLatch& bypass2)
+Pipeline::ReadStage::ReadStage(Pipeline& parent, DecodeReadLatch& input, ReadExecuteLatch& output, RegisterFile& regFile, ExecuteMemoryLatch& bypass1, MemoryWritebackLatch& bypass2, const Config& /*config*/)
   : Stage(parent, "read", &input, &output),
     m_regFile(regFile),
     m_input(input),
