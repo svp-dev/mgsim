@@ -310,7 +310,26 @@ public:
     : Object(NULL, NULL, "system")
     {
         const vector<PSize> placeSizes = config.getIntegerList<PSize>("NumProcessors");
-        const size_t numProcessorsPerFPU = config.getInteger<size_t>("NumProcessorsPerFPU", 1);
+        const size_t numProcessorsPerFPU_orig = max<size_t>(1, config.getInteger<size_t>("NumProcessorsPerFPU", 1));
+
+        // Validate the #cores/FPU
+        size_t numProcessorsPerFPU = numProcessorsPerFPU_orig;
+        for (; numProcessorsPerFPU > 1; --numProcessorsPerFPU)
+        {
+            size_t i;
+            for (i = 0; i < placeSizes.size(); ++i) {
+                if (placeSizes[i] % numProcessorsPerFPU != 0) {
+                    break;
+                }
+            }
+            if (i == placeSizes.size()) break;
+        }
+
+        if (numProcessorsPerFPU != numProcessorsPerFPU_orig) {
+            fprintf(stderr, "Warning: #cores in at least one place cannot be divided by %u cores/FPU\nValue has been adjusted to %u cores/FPU\n",
+                numProcessorsPerFPU_orig, numProcessorsPerFPU);
+        }
+                        
         PSize numProcessors = 0;
         size_t numFPUs      = 0;
         for (size_t i = 0; i < placeSizes.size(); ++i) {
