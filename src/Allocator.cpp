@@ -1820,7 +1820,9 @@ bool Allocator::QueueCreate(LFID fid, MemAddr address, TID parent, RegIndex exit
 
     Family& family = GetWritableFamilyEntry(fid, parent);
 
-    Buffer<LFID>& queue = family.place.exclusive ? m_createsEx : m_creates;
+    // Note that delegated creates never go on the exclusive queue where they're created. They go on the exclusive
+    // create queue on the remote core.
+    Buffer<LFID>& queue = (family.place.exclusive && family.place.type != PlaceID::DELEGATE) ? m_createsEx : m_creates;
     if (queue.full())
     {
 		return false;

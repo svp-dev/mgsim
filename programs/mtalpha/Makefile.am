@@ -24,6 +24,7 @@ TEST_SOURCES = \
 	regression/exclusive_places.s \
 	regression/delegation1.s \
 	regression/delegation2.s \
+	regression/self_exclusive_delegate.s \
 	regression/sparse_globals.s
 
 if ENABLE_MTALPHA_TESTS

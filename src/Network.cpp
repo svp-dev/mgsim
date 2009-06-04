@@ -317,7 +317,6 @@ bool Network::SendDelegatedCreate(LFID fid)
 			message.regsNo[i] = family.regs[i].count;
 		}
 		GPID dest_pid = family.place.pid;
-		assert(dest_pid != m_parent.GetPID());
 		
 		m_delegateLocal.Write(make_pair(dest_pid, message));
 		DebugSimWrite("Delegating create for (F%u) to P%u", fid, dest_pid);
@@ -383,9 +382,6 @@ bool Network::SendRemoteSync(GPID pid, LFID fid, ExitCode code)
 
 bool Network::OnDelegationCreateReceived(const DelegateMessage& msg)
 {
-    // The delegation should come from a different processor
-    assert(msg.parent.pid != m_parent.GetPID());
-    
     if (m_delegateRemote.CanWrite())
 	{
     	m_delegateRemote.Write(msg);
