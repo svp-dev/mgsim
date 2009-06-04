@@ -1,4 +1,5 @@
 #include "Processor.h"
+#include "FPU.h"
 #include <cassert>
 using namespace Simulator;
 using namespace std;
@@ -6,16 +7,15 @@ using namespace std;
 //
 // Processor implementation
 //
-Processor::Processor(Object* parent, Kernel& kernel, GPID gpid, LPID lpid, const vector<Processor*>& grid, PSize gridSize, PSize placeSize, const std::string& name, IMemory& memory, const Config& config, MemAddr runAddress)
+Processor::Processor(Object* parent, Kernel& kernel, GPID gpid, LPID lpid, const vector<Processor*>& grid, PSize gridSize, PSize placeSize, const std::string& name, IMemory& memory, FPU& fpu, const Config& config, MemAddr runAddress)
 :   IComponent(parent, kernel, name, ""),
-    m_pid(gpid), m_kernel(kernel), m_memory(memory), m_grid(grid), m_gridSize(gridSize), m_placeSize(placeSize),
+    m_pid(gpid), m_kernel(kernel), m_memory(memory), m_grid(grid), m_gridSize(gridSize), m_placeSize(placeSize), m_fpu(fpu),
     m_localFamilyCompletion(0),
 	m_allocator   (*this, "alloc",    m_familyTable, m_threadTable, m_registerFile, m_raunit, m_icache, m_network, m_pipeline, lpid, config),
     m_icache      (*this, "icache",   m_allocator, config),
     m_dcache      (*this, "dcache",   m_allocator, m_familyTable, m_registerFile, config),
 	m_registerFile(*this,             m_allocator, m_network, config),
-    m_pipeline    (*this, "pipeline", lpid, m_registerFile, m_network, m_allocator, m_familyTable, m_threadTable, m_icache, m_dcache, m_fpu, config),
-	m_fpu         (*this, "fpu",      m_registerFile, config),
+    m_pipeline    (*this, "pipeline", lpid, m_registerFile, m_network, m_allocator, m_familyTable, m_threadTable, m_icache, m_dcache, fpu, config),
     m_raunit      (*this, "rau",      m_registerFile, config),
 	m_familyTable (*this,             config),
 	m_threadTable (*this,             config),
@@ -31,12 +31,17 @@ Processor::Processor(Object* parent, Kernel& kernel, GPID gpid, LPID lpid, const
 void Processor::Initialize(Processor& prev, Processor& next)
 {
     m_network.Initialize(prev.m_network, next.m_network);
-    
+
     //
     // Set port priorities and connections on all components.
     // First source on a port has the highest priority.
     //
-	m_registerFile.p_asyncW.AddSource(ArbitrationSource(&m_fpu,       0)); // FP operation writebacks
+
+    for (int i = 0; i < FPU_NUM_OPS; ++i)
+    {    
+	    m_registerFile.p_asyncW.AddSource(ArbitrationSource(&m_fpu, i));
+	}
+
     m_registerFile.p_asyncW.AddSource(ArbitrationSource(&m_dcache,    0)); // Mem Load writebacks
     m_registerFile.p_asyncW.AddSource(ArbitrationSource(&m_network,   0)); // Register receives
     m_registerFile.p_asyncW.AddSource(ArbitrationSource(&m_network,   1)); // Register sends (waiting writeback)
@@ -71,7 +76,10 @@ void Processor::Initialize(Processor& prev, Processor& next)
     m_network.m_registerResponseGroup.out .AddSource(ArbitrationSource(&m_pipeline,       0)); // Pipeline write to register with remote mapping
     m_network.m_registerResponseGroup.out .AddSource(ArbitrationSource(&m_network,        1)); // Returning register from a request
     m_network.m_registerResponseGroup.out .AddSource(ArbitrationSource(&m_network,        0)); // Forwarding response from remote parent onto group
-    m_network.m_registerResponseGroup.out .AddSource(ArbitrationSource(&m_fpu,            0)); // FP operation to a shared
+    for (int i = 0; i < FPU_NUM_OPS; ++i)
+    {    
+        m_network.m_registerResponseGroup.out.AddSource(ArbitrationSource(&m_fpu, i)); // FP operation to a shared
+    }
     m_network.m_registerResponseRemote.out.AddSource(ArbitrationSource(&m_network,        1)); // Returning register from a request
     m_network.m_registerResponseRemote.out.AddSource(ArbitrationSource(&m_pipeline,       0)); // Writing a remote shared from pipeline
     m_network.m_completedThread           .AddSource(ArbitrationSource(&next.m_pipeline,  0)); // Thread terminated (reschedule at WB stage)

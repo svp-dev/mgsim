@@ -7,7 +7,6 @@
 #include "DCache.h"
 #include "RegisterFile.h"
 #include "Pipeline.h"
-#include "FPU.h"
 #include "Network.h"
 #include "FamilyTable.h"
 #include "ThreadTable.h"
@@ -23,10 +22,12 @@ struct PlaceInfo
     PSize m_size;  ///< Number of processors in the place
 };
 
+class FPU;
+
 class Processor : public IComponent, public IMemoryCallback
 {
 public:
-    Processor(Object* parent, Kernel& kernel, GPID pid, LPID lpid, const std::vector<Processor*>& grid, PSize gridSize, PSize placeSize, const std::string& name, IMemory& m_memory, const Config& config, MemAddr runAddress);
+    Processor(Object* parent, Kernel& kernel, GPID pid, LPID lpid, const std::vector<Processor*>& grid, PSize gridSize, PSize placeSize, const std::string& name, IMemory& m_memory, FPU& fpu, const Config& config, MemAddr runAddress);
     void Initialize(Processor& prev, Processor& next);
 
     GPID    GetPID()       const { return m_pid;       }
@@ -76,6 +77,7 @@ private:
 	const std::vector<Processor*>& m_grid;
 	PSize                          m_gridSize;
 	size_t                         m_placeSize;
+	FPU&                           m_fpu;
 	
 	// Statistics 
     CycleNo m_localFamilyCompletion; 
@@ -91,7 +93,6 @@ private:
     DCache          m_dcache;
     RegisterFile    m_registerFile;
     Pipeline        m_pipeline;
-	FPU				m_fpu;
     RAUnit          m_raunit;
     FamilyTable     m_familyTable;
     ThreadTable     m_threadTable;

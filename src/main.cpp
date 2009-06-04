@@ -5,6 +5,7 @@
 #include "simreadline.h"
 
 #include "Processor.h"
+#include "FPU.h"
 #include "IdealMemory.h"
 #include "ParallelMemory.h"
 #include "BankedMemory.h"
@@ -62,6 +63,7 @@ static string Trim(const string& str)
 class MGSystem : public Object
 {
     vector<Processor*> m_procs;
+    vector<FPU*>       m_fpus;
     vector<Object*>    m_objects;
     Kernel             m_kernel;
     IMemoryAdmin*      m_memory;
@@ -308,15 +310,21 @@ public:
     : Object(NULL, NULL, "system")
     {
         const vector<PSize> placeSizes = config.getIntegerList<PSize>("NumProcessors");
+        const size_t numProcessorsPerFPU = config.getInteger<size_t>("NumProcessorsPerFPU", 1);
         PSize numProcessors = 0;
+        size_t numFPUs      = 0;
         for (size_t i = 0; i < placeSizes.size(); ++i) {
+            if (placeSizes[i] % numProcessorsPerFPU != 0) {
+                throw runtime_error("#cores in at least one place cannot be divided by #cores/FPU");
+            }
             numProcessors += placeSizes[i];
+            numFPUs       += placeSizes[i] / numProcessorsPerFPU;
         }
         
         string memory_type = config.getString("MemoryType", "");
         std::transform(memory_type.begin(), memory_type.end(), memory_type.begin(), ::toupper);
         
-        m_objects.resize(numProcessors + 1);
+        m_objects.resize(numProcessors + numFPUs + 1);
         if (memory_type == "IDEAL") {
             IdealMemory* memory = new IdealMemory(this, m_kernel, "memory", config);
             m_objects.back() = memory;
@@ -339,6 +347,15 @@ public:
         
         // Load the program into memory
         MemAddr entry = LoadProgram(m_memory, program, quiet);
+        
+        // Create the FPUs
+        m_fpus.resize(numFPUs);
+        for (size_t f = 0; f < numFPUs; ++f)
+        {
+            stringstream name;
+            name << "fpu" << f;
+            m_fpus[f] = new FPU(this, m_kernel, name.str(), config);
+        }
 
         // Create processor grid
         m_procs.resize(numProcessors);
@@ -350,10 +367,11 @@ public:
             for (size_t i = 0; i < placeSize; ++i)
             {
                 PSize pid = (first + i);
+                FPU&  fpu = *m_fpus[pid / numProcessorsPerFPU]; 
 
                 stringstream name;
                 name << "cpu" << pid;
-                m_procs[pid]   = new Processor(this, m_kernel, pid, i, m_procs, m_procs.size(), placeSize, name.str(), *m_memory, config, entry);
+                m_procs[pid]   = new Processor(this, m_kernel, pid, i, m_procs, m_procs.size(), placeSize, name.str(), *m_memory, fpu, config, entry);
                 m_objects[pid] = m_procs[pid];
             }
             first += placeSize;

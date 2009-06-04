@@ -3,6 +3,7 @@
 
 #include "ThreadTable.h"
 #include "FamilyTable.h"
+#include "buffer.h"
 #include <queue>
 
 class Config;

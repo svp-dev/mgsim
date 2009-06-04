@@ -2,7 +2,7 @@
 #define BANKEDMEMORY_H
 
 #include "Memory.h"
-#include "kernel.h"
+#include "buffer.h"
 #include "VirtualMemory.h"
 #include <queue>
 #include <set>

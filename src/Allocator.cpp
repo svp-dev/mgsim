@@ -577,19 +577,15 @@ bool Allocator::AllocateThread(LFID fid, TID tid, bool isNewlyAllocated)
 
 bool Allocator::WriteExitCode(RegIndex reg, ExitCode code)
 {
-    if (m_registerWrites.full())
+    RegisterWrite write;
+    write.address = MAKE_REGADDR(RT_INTEGER, reg);
+    write.value.m_state   = RST_FULL;
+    write.value.m_integer = code;
+    if (!m_registerWrites.push(write))
     {
         return false;
-        
     }
-    COMMIT
-    {
-        RegisterWrite write;
-        write.address = MAKE_REGADDR(RT_INTEGER, reg);
-        write.value.m_state   = RST_FULL;
-        write.value.m_integer = code;
-        m_registerWrites.push(write);
-    }
+    
     return true;
 }
                 
@@ -883,11 +879,10 @@ bool Allocator::DecreaseThreadDependency(LFID fid, TID tid, ThreadDependency dep
         if (deps->numPendingWrites == 0 && deps->prevCleanedUp && deps->nextKilled && deps->killed)
         {
             // This thread can be cleaned up, push it on the cleanup queue
-            if (m_cleanup.full())
+            if (!m_cleanup.push(tid))
             {
                 return false;
             }
-            COMMIT{ m_cleanup.push(tid); }
             break;
         }
     }
@@ -971,20 +966,17 @@ Result Allocator::AllocateFamily(TID parent, RegIndex reg, LFID* fid, const Regi
 		return SUCCESS;
 	}
 
-	if (!m_allocations.full())
+    // Place the request in the buffer
+	AllocRequest request;
+	request.parent = parent;
+	request.reg    = reg;
+	std::copy(bases, bases + NUM_REG_TYPES, request.bases);
+	if (!m_allocations.push(request))
 	{
-		// The buffer is not full, place the request in the buffer
-		COMMIT
-		{
-			AllocRequest request;
-			request.parent = parent;
-			request.reg    = reg;
-			std::copy(bases, bases + NUM_REG_TYPES, request.bases);
-			m_allocations.push(request);
-		}
-		return DELAYED;
+		return FAILED;
 	}
-	return FAILED;
+	
+	return DELAYED;
 }
 
 bool Allocator::OnDelegatedCreate(const DelegateMessage& msg)
@@ -992,57 +984,55 @@ bool Allocator::OnDelegatedCreate(const DelegateMessage& msg)
     assert(msg.parent.pid != INVALID_GPID);
     assert(msg.parent.fid != INVALID_LFID);
     
+	LFID fid = m_familyTable.AllocateFamily();
+	if (fid == INVALID_LFID)
+	{
+	    return false;
+	}
+	
+	// Copy the data
+    COMMIT
+    {
+        Family& family = m_familyTable[fid];
+        family.created       = false;
+        family.legacy        = false;
+        family.start         = msg.start;
+        family.limit         = msg.limit;
+        family.step          = msg.step;
+        family.virtBlockSize = msg.blockSize;
+        family.physBlockSize = 0;
+        family.parent.gpid   = msg.parent.pid;
+        family.parent.lpid   = m_lpid;
+        family.parent.fid    = msg.parent.fid;
+        family.link_prev     = INVALID_LFID;
+        family.link_next     = INVALID_LFID;
+        family.pc            = msg.address;
+        family.exitCodeReg   = INVALID_REG_INDEX;
+        family.state         = FST_CREATE_QUEUED;
+
+        // Set place to group
+    	family.place.type       = PlaceID::GROUP;
+    	family.place.exclusive  = msg.exclusive;
+        family.place.pid        = 0;
+    	family.place.capability = 0;
+
+        // Lock the family
+        family.created = true;
+
+    	for (RegType i = 0; i < NUM_REG_TYPES; i++)
+    	{
+    		family.regs[i].globals = INVALID_REG_INDEX;
+    		family.regs[i].shareds = INVALID_REG_INDEX;
+    	}
+    }
+        
     Buffer<LFID>& queue = (msg.exclusive) ? m_createsEx : m_creates;
-    if (queue.full())
+    if (!queue.push(fid))
     {
         return false;
     }
-
-	LFID fid = m_familyTable.AllocateFamily();
-	if (fid != INVALID_LFID)
-	{
-	    // Copy the data
-        COMMIT
-        {
-            Family& family = m_familyTable[fid];
-            family.created       = false;
-            family.legacy        = false;
-            family.start         = msg.start;
-            family.limit         = msg.limit;
-            family.step          = msg.step;
-            family.virtBlockSize = msg.blockSize;
-            family.physBlockSize = 0;
-            family.parent.gpid   = msg.parent.pid;
-            family.parent.lpid   = m_lpid;
-            family.parent.fid    = msg.parent.fid;
-            family.link_prev     = INVALID_LFID;
-            family.link_next     = INVALID_LFID;
-            family.pc            = msg.address;
-            family.exitCodeReg   = INVALID_REG_INDEX;
-            family.state         = FST_CREATE_QUEUED;
-
-    		// Set place to group
-    		family.place.type       = PlaceID::GROUP;
-    		family.place.exclusive  = msg.exclusive;
-            family.place.pid        = 0;
-    		family.place.capability = 0;
-
-            // Lock the family
-            family.created = true;
-
-    		for (RegType i = 0; i < NUM_REG_TYPES; i++)
-    		{
-    			family.regs[i].globals = INVALID_REG_INDEX;
-    			family.regs[i].shareds = INVALID_REG_INDEX;
-    		}
-
-            // Push the create
-            queue.push(fid);
-        }
-        DebugSimWrite("Queued delegated create by F%u@P%u at 0x%llx", msg.parent.fid, msg.parent.pid, (unsigned long long)msg.address);
-        return true;
-	}
-	return false;
+    DebugSimWrite("Queued delegated create by F%u@P%u at 0x%llx", msg.parent.fid, msg.parent.pid, (unsigned long long)msg.address);
+    return true;
 }
 
 LFID Allocator::OnGroupCreate(const CreateMessage& msg, LFID link_next)
@@ -1376,7 +1366,7 @@ Result Allocator::OnCycleWritePhase(unsigned int stateIndex)
                     COMMIT{ m_allocating = INVALID_LFID; }
                 }
             }
-            COMMIT{ m_cleanup.pop(); }
+            m_cleanup.pop();
 			return SUCCESS;
         }
         
@@ -1445,7 +1435,7 @@ Result Allocator::OnCycleWritePhase(unsigned int stateIndex)
                 DeadlockWrite("Unable to queue write to register R%04x", req.reg);
                 return FAILED;
             }
-			COMMIT{m_allocations.pop();}
+			m_allocations.pop();
 			return SUCCESS;
 		}
 		break;
@@ -1460,16 +1450,14 @@ Result Allocator::OnCycleWritePhase(unsigned int stateIndex)
             {
                 fid = m_createsEx.front();
                 ex_type = "exclusive";
-                COMMIT{
-                    m_createsEx.pop();
-                    m_exclusive = fid;
-                }
+                m_createsEx.pop();
+                COMMIT{ m_exclusive = fid; }
             }
             else if (!m_creates.empty())
             {
                 fid = m_creates.front();
                 ex_type = "non-exclusive";
-                COMMIT{ m_creates.pop(); }
+                m_creates.pop();
             }
             
             if (fid != INVALID_LFID)
@@ -1722,7 +1710,7 @@ Result Allocator::OnCycleWritePhase(unsigned int stateIndex)
                 return FAILED;
             }
 
-            COMMIT{ m_registerWrites.pop(); }
+            m_registerWrites.pop();
 			return SUCCESS;
         }
         break;
@@ -1862,11 +1850,11 @@ Allocator::Allocator(Processor& parent, const string& name,
     IComponent(&parent, parent.GetKernel(), name, "thread-allocate|family-allocate|family-create|thread-activation|reg-write-queue"),
     m_parent(parent), m_familyTable(familyTable), m_threadTable(threadTable), m_registerFile(registerFile), m_raunit(raunit), m_icache(icache), m_network(network), m_pipeline(pipeline),
     m_lpid(lpid), m_activeQueueSize(0), m_totalActiveQueueSize(0), m_maxActiveQueueSize(0), m_minActiveQueueSize(UINT64_MAX),
-    m_creates       (config.getInteger<BufferSize>("LocalCreatesQueueSize", INFINITE)),
-    m_createsEx     (config.getInteger<BufferSize>("LocalExclusiveCreatesQueueSize", INFINITE)),
-    m_registerWrites(config.getInteger<BufferSize>("RegisterWritesQueueSize", INFINITE)),
-    m_cleanup       (config.getInteger<BufferSize>("ThreadCleanupQueueSize", INFINITE)),
-	m_allocations   (config.getInteger<BufferSize>("FamilyAllocationQueueSize", INFINITE)),
+    m_creates       (parent.GetKernel(), config.getInteger<BufferSize>("LocalCreatesQueueSize", INFINITE)),
+    m_createsEx     (parent.GetKernel(), config.getInteger<BufferSize>("LocalExclusiveCreatesQueueSize", INFINITE)),
+    m_registerWrites(parent.GetKernel(), config.getInteger<BufferSize>("RegisterWritesQueueSize", INFINITE)),
+    m_cleanup       (parent.GetKernel(), config.getInteger<BufferSize>("ThreadCleanupQueueSize", INFINITE)),
+	m_allocations   (parent.GetKernel(), config.getInteger<BufferSize>("FamilyAllocationQueueSize", INFINITE)),
 	m_createFID(INVALID_LFID), m_createState(CREATE_INITIAL)
 {
     m_allocating   = INVALID_LFID;

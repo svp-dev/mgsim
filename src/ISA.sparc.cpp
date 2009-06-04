@@ -1,5 +1,6 @@
 #include "Pipeline.h"
 #include "Processor.h"
+#include "FPU.h"
 #include <cassert>
 #include <cmath>
 #include <sstream>
@@ -717,7 +718,7 @@ Pipeline::PipeAction Pipeline::ExecuteStage::ExecuteInstruction()
                 // Dispatch long-latency operation to FPU
                 if (!m_fpu.QueueOperation(fpuop, m_input.Rcv.m_size,
                     m_input.Rav.m_float.tofloat(m_input.Rav.m_size),
-                    m_input.Rbv.m_float.tofloat(m_input.Rbv.m_size), m_input.Rc))
+                    m_input.Rbv.m_float.tofloat(m_input.Rbv.m_size), m_regFile, m_input.Rc))
                 {
                     return PIPE_STALL;
                 }

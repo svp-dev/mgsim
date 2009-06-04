@@ -3,7 +3,6 @@
 
 #include "simtypes.h"
 #include "except.h"
-#include "buffer.h"
 #include <vector>
 #include <map>
 #include <set>
