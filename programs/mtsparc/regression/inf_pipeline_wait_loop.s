@@ -11,9 +11,9 @@
 */
     .file "inf_pipeline_wait_loop.s"
     
-    .globl _start
+    .globl main
     .align 64
-_start:
+main:
     setempty %1
     allocate %2, 0, 0, 0, 0
     setlimit %2, 250

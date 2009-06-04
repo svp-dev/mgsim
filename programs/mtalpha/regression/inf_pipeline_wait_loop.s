@@ -11,9 +11,9 @@
 */
     .file "inf_pipeline_wait_loop.s"
     
-    .globl _start
-    .ent _start
-_start:
+    .globl main
+    .ent main
+main:
     ldgp $29, 0($27)
     
     setempty $0
@@ -28,7 +28,7 @@ _start:
     # Sync
     mov $2, $31
     end
-    .end _start
+    .end main
 
     .ent foo
 foo:
