@@ -266,7 +266,7 @@ public:
         DecodeStage(Pipeline& parent, FetchDecodeLatch& input, DecodeReadLatch& output, const Config& config);
     
     private:
-        RegAddr TranslateRegister(uint8_t reg, RegType type, unsigned int size, RemoteRegAddr* remoteReg) const;
+        RegAddr TranslateRegister(uint8_t reg, RegType type, unsigned int size, RemoteRegAddr* remoteReg, bool writing) const;
         void    DecodeInstruction(const Instruction& instr);
 
         FetchDecodeLatch& m_input;
