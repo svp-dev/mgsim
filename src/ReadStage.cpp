@@ -274,8 +274,16 @@ bool Pipeline::ReadStage::ReadBypasses(OperandInfo& operand)
                     {
                         // The operand value was not touched, remember the operand
                         // for the empty state (memory/remote request, waiting queue)
+                        if (ii.value.m_state == RST_EMPTY && nonfull_value.m_state == RST_WAITING)
+                        {
+                            // This bypass resets a waiting register. Ignore the new value and
+                            // use the waiting value.
+                        }
+                        else
+                        {
+                            nonfull_value = ii.value;
+                        }
                         nonfull_mask |= read_mask;
-                        nonfull_value = ii.value;
 
                         // Get the address of the first non-full register to be able to wait on it.
                         nonfull_addr = operand.addr;

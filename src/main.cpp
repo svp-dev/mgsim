@@ -327,7 +327,8 @@ public:
 
         if (numProcessorsPerFPU != numProcessorsPerFPU_orig) {
             fprintf(stderr, "Warning: #cores in at least one place cannot be divided by %u cores/FPU\nValue has been adjusted to %u cores/FPU\n",
-                numProcessorsPerFPU_orig, numProcessorsPerFPU);
+                (unsigned)numProcessorsPerFPU_orig,
+                (unsigned)numProcessorsPerFPU);
         }
                         
         PSize numProcessors = 0;
