@@ -15,6 +15,8 @@ class Config
     const ConfigMap& m_overrides;
 
 public:
+    bool getBoolean(const std::string& name, const bool def) const;
+    
     template <typename T>
     T getInteger(const std::string& name, const T& def) const
     {

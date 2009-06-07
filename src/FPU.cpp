@@ -36,54 +36,24 @@ bool FPU::QueueOperation(FPUOperation fop, int size, double Rav, double Rbv, Reg
     return true;
 }
 
-FPU::Result FPU::CalculateResult(const Operation& op, CycleNo start) const
+FPU::Result FPU::CalculateResult(const Operation& op) const
 {
-	CycleNo	latency = 0;
-	double  value = 0.0;
-	
-    // The result is actually calculated at the queueing. The rest is just a delay
-    // to simulate the supposed calculation.
+	double value;
 	switch (op.op)
 	{
-	    case FPU_OP_SQRT:
-	        value = sqrt( op.Rbv );
-	        latency = m_sqrtLatency;
-	        break;
-	            
-	    case FPU_OP_ADD: 
-			value = op.Rav + op.Rbv;
-			latency = m_addLatency;
-			break;
-				
-        case FPU_OP_SUB:
-            value = op.Rav - op.Rbv;
-			latency = m_subLatency;
-			break;
-			
-        case FPU_OP_MUL:
-            value = op.Rav * op.Rbv;
-			latency = m_mulLatency;
-			break;
-			
-        case FPU_OP_DIV:
-			value = op.Rav / op.Rbv;
-			latency = m_divLatency;
-			break;
-
-		default:
-		    assert(0);
-		    break;
+	case FPU_OP_SQRT: value = sqrt( op.Rbv ); break;
+    case FPU_OP_ADD:  value = op.Rav + op.Rbv; break;
+    case FPU_OP_SUB:  value = op.Rav - op.Rbv; break;
+    case FPU_OP_MUL:  value = op.Rav * op.Rbv; break;
+    case FPU_OP_DIV:  value = op.Rav / op.Rbv; break;
+	default:	      value = 0.0; assert(0); break;
 	}
 	
-	assert(latency > 0);
-
 	Result  res;
- 	res.address    = op.Rc;
- 	res.size       = op.size;
- 	res.completion = start + latency;
+ 	res.address = op.Rc;
+ 	res.size    = op.size;
+ 	res.state   = 1;
  	res.value.fromfloat(value, op.size);
-
-    DebugSimWrite("Issueing FP %s operation, writing back to %s at cycle %u", OperationNames[op.op], res.address.str().c_str(), res.completion);
 
 	return res;
 }
@@ -141,28 +111,35 @@ bool FPU::OnCompletion(const Result& res) const
 
 Result FPU::OnCycleWritePhase(unsigned int stateIndex)
 {
-	CycleNo now = GetKernel()->GetCycleNo();
 	if (stateIndex < FPU_NUM_OPS)
 	{
- 		Result& res = m_units[stateIndex];
-	    if (res.address.valid())
+	    // Advance a pipeline
+ 		Pipeline& pipeline = m_pipelines[stateIndex];
+	    if (!pipeline.slots.empty())
 	    {
-		    if (res.completion > now)
+	        const Result& res = pipeline.slots.front();
+		    if (res.state == pipeline.latency)
     	    {
-    	        // This operation hasn't completed yet;
-    	        // pretend we advanced the calculation with a cycle
-    	        return SUCCESS;
-    	    }
-    	        
-            // Write back result
-		    if (!OnCompletion(res))
-		    {
-    	        // Stall pipeline
-    		    return FAILED;
-	        }
+    	        // This operation has completed
+                // Write back result
+		        if (!OnCompletion(res))
+		        {
+        	        // Stall pipeline
+    		        return FAILED;
+	            }
 	    	
-	        // Clear execution unit
-	        COMMIT{ res.address = INVALID_REG; }
+	            // Clear the result
+	            COMMIT{ pipeline.slots.pop_front(); }
+	        }
+	        
+	        COMMIT
+	        {
+	            // Advance the pipeline
+ 		        for (deque<Result>::iterator p = pipeline.slots.begin(); p != pipeline.slots.end(); ++p)
+ 		        {
+     		        p->state++;
+ 	    	    }
+     		}
    		    return SUCCESS;
         }
     }
@@ -190,17 +167,18 @@ Result FPU::OnCycleWritePhase(unsigned int stateIndex)
         if (q != m_queues.end() && !q->second.empty())
         {
             const Operation& op = q->second.front();
-            Result& unit = m_units[op.op];
-            if (unit.address.valid())
+            Pipeline& pipeline = m_pipelines[op.op];
+            if (!pipeline.slots.empty() && (!pipeline.pipelined || pipeline.slots.back().state == 1))
             {
-                // Unit is busy
+                // Unit is busy or pipeline cannot accept a new operation
                 return FAILED;
             }
         
             // Calculate the result and store it in the unit
             COMMIT{
-                unit = CalculateResult(op, now);
-                unit.regfile = q->first;
+                Result res = CalculateResult(op);
+                res.regfile = q->first;
+                pipeline.slots.push_back(res);
             }
             
             // Remove the queued operation from the queue
@@ -213,16 +191,17 @@ Result FPU::OnCycleWritePhase(unsigned int stateIndex)
 
 FPU::FPU(Object* parent, Kernel& kernel, const std::string& name, const Config& config)
 	: IComponent(parent, kernel, name, "add|sub|mul|div|sqrt|read-input"),
-	  m_queueSize  (config.getInteger<BufferSize>("FPUBufferSize", INFINITE)),
-      m_addLatency (config.getInteger<CycleNo>("FPUAddLatency", 1)),
-      m_subLatency (config.getInteger<CycleNo>("FPUSubLatency", 1)),
-      m_mulLatency (config.getInteger<CycleNo>("FPUMulLatency", 1)),
-      m_divLatency (config.getInteger<CycleNo>("FPUDivLatency", 1)),
-      m_sqrtLatency(config.getInteger<CycleNo>("FPUSqrtLatency", 1))
+	  m_queueSize  (config.getInteger<BufferSize>("FPUBufferSize", INFINITE))  
 {
+    static const char* const Names[FPU_NUM_OPS] = {
+        "Add","Sub","Mul","Div","Sqrt"
+    };
+    
     for (int i = 0; i < FPU_NUM_OPS; ++i)
     {
-        m_units[i].address = INVALID_REG;
+        Pipeline& p = m_pipelines[i];
+        p.latency   = config.getInteger<CycleNo>( string("FPU") + Names[i] + "Latency", 1);
+        p.pipelined = config.getBoolean( string("FPUPipeline") + Names[i], false);
     }
 }
 

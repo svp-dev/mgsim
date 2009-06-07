@@ -6,6 +6,22 @@
 using namespace Simulator;
 using namespace std;
 
+bool Config::getBoolean(const string& name, const bool def) const
+{
+    string val = getString(name, def ? "true" : "false");
+    transform(val.begin(), val.end(), val.begin(), ::toupper);
+
+    // Check for the boolean values
+    if (val == "TRUE" || val == "YES") return true;
+    if (val == "FALSE" || val == "NO") return false;
+    
+    // Otherwise, try to interpret as an integer
+    int i;
+    stringstream stream(val);
+    stream >> i;
+    return (!stream.fail() && stream.eof()) ? i != 0 : def;
+}
+
 string Config::getString(string name, const string& def) const
 {
     std::transform(name.begin(), name.end(), name.begin(), ::toupper);
