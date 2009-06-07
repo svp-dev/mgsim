@@ -269,9 +269,19 @@ Result BankedMemory::OnCycleWritePhase(unsigned int stateIndex)
     return SUCCESS;
 }
 
+static size_t GetNumBanks(const Config& config)
+{
+    const vector<PSize> placeSizes = config.getIntegerList<PSize>("NumProcessors");
+    PSize numProcessors = 0;
+    for (size_t i = 0; i < placeSizes.size(); ++i) {
+        numProcessors += placeSizes[i];
+    }
+    return config.getInteger<size_t>("MemoryBanks", numProcessors);
+}
+
 static string CreateStateNames(const Config& config)
 {
-    const size_t numBanks = config.getInteger<size_t>("MemoryBanks", 1);
+    const size_t numBanks = GetNumBanks(config);
     stringstream states;
     for (size_t i = 0; i < numBanks; ++i)
     {
@@ -296,6 +306,6 @@ BankedMemory::BankedMemory(Object* parent, Kernel& kernel, const std::string& na
     m_sizeOfLine     (config.getInteger<size_t>    ("MemorySizeOfLine", 8)),
     m_cachelineSize  (config.getInteger<size_t>    ("CacheLineSize", 64)),
     m_bufferSize     (config.getInteger<BufferSize>("MemoryBufferSize", INFINITE)),
-    m_banks          (config.getInteger<size_t>    ("MemoryBanks", 1))
+    m_banks          (GetNumBanks(config))
 {
 }
