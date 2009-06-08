@@ -55,11 +55,12 @@ class FPU : public IComponent
 	};
 
     /// Represents a pipeline for an FP operation type
-	struct Pipeline
+	struct Unit
 	{
-	    CycleNo            latency;     ///< The latency of the pipeline
-	    bool               pipelined;   ///< Is it a pipeline or a single ex. unit?
-	    std::deque<Result> slots;       ///< The pipeline slots
+	    std::set<FPUOperation> ops;         ///< The operation types this unit services
+	    bool                   pipelined;   ///< Is it a pipeline or a single ex. unit?
+	    CycleNo                latency;     ///< The latency of the unit/pipeline
+	    std::deque<Result>     slots;       ///< The pipeline slots
 	};
 	
 	typedef std::map<RegisterFile*, Buffer<Operation> > QueueMap;
@@ -81,13 +82,16 @@ class FPU : public IComponent
 	
 	Simulator::Result OnCycleWritePhase(unsigned int stateIndex);
 
-    BufferSize m_queueSize;              ///< Maximum size for FPU input buffers    
-	QueueMap   m_queues;                 ///< Input queues
-	Pipeline   m_pipelines[FPU_NUM_OPS]; ///< The execution units in the FPU, one for each type of operation
+    BufferSize        m_queueSize; ///< Maximum size for FPU input buffers    
+	QueueMap          m_queues;    ///< Input queues
+	std::vector<Unit> m_units;     ///< The execution units in the FPU
 
 public:
+    /// Returns the number of execution units (states that can write back)
+    size_t GetNumExecutionUnits() const { return m_units.size(); }
+
     /**
-     * Constructs the FPU.
+     * @brief Constructs the FPU.
      * @param parent  reference to the parent object
      * @param kernel  the kernel to manage this FPU
      * @param name    name of the FPU, irrelevant to simulation
@@ -98,8 +102,8 @@ public:
 
     /**
      * @brief Queues an FP operation.
-     * This function determines the length of the operation and queues the operation in the corresponding
-     * pipeline. When the operation has completed, the result is written back to the register file.
+     * @details This function determines the length of the operation and queues the operation in the corresponding
+     *      pipeline. When the operation has completed, the result is written back to the register file.
      * @param op      the FP operation to perform
      * @param size    size of the FP operation (4 or 8)
      * @param Rav     first (or only) operand of the operation

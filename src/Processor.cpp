@@ -37,7 +37,7 @@ void Processor::Initialize(Processor& prev, Processor& next)
     // First source on a port has the highest priority.
     //
 
-    for (int i = 0; i < FPU_NUM_OPS; ++i)
+    for (size_t i = 0; i < m_fpu.GetNumExecutionUnits(); ++i)
     {    
 	    m_registerFile.p_asyncW.AddSource(ArbitrationSource(&m_fpu, i));
 	}
@@ -76,7 +76,7 @@ void Processor::Initialize(Processor& prev, Processor& next)
     m_network.m_registerResponseGroup.out .AddSource(ArbitrationSource(&m_pipeline,       0)); // Pipeline write to register with remote mapping
     m_network.m_registerResponseGroup.out .AddSource(ArbitrationSource(&m_network,        1)); // Returning register from a request
     m_network.m_registerResponseGroup.out .AddSource(ArbitrationSource(&m_network,        0)); // Forwarding response from remote parent onto group
-    for (int i = 0; i < FPU_NUM_OPS; ++i)
+    for (size_t i = 0; i < m_fpu.GetNumExecutionUnits(); ++i)
     {    
         m_network.m_registerResponseGroup.out.AddSource(ArbitrationSource(&m_fpu, i)); // FP operation to a shared
     }

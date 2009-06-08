@@ -111,14 +111,14 @@ bool FPU::OnCompletion(const Result& res) const
 
 Result FPU::OnCycleWritePhase(unsigned int stateIndex)
 {
-	if (stateIndex < FPU_NUM_OPS)
+	if (stateIndex < m_units.size())
 	{
 	    // Advance a pipeline
- 		Pipeline& pipeline = m_pipelines[stateIndex];
-	    if (!pipeline.slots.empty())
+ 		Unit& unit = m_units[stateIndex];
+	    if (!unit.slots.empty())
 	    {
-	        const Result& res = pipeline.slots.front();
-		    if (res.state == pipeline.latency)
+	        const Result& res = unit.slots.front();
+		    if (res.state == unit.latency)
     	    {
     	        // This operation has completed
                 // Write back result
@@ -129,13 +129,13 @@ Result FPU::OnCycleWritePhase(unsigned int stateIndex)
 	            }
 	    	
 	            // Clear the result
-	            COMMIT{ pipeline.slots.pop_front(); }
+	            COMMIT{ unit.slots.pop_front(); }
 	        }
 	        
 	        COMMIT
 	        {
 	            // Advance the pipeline
- 		        for (deque<Result>::iterator p = pipeline.slots.begin(); p != pipeline.slots.end(); ++p)
+ 		        for (deque<Result>::iterator p = unit.slots.begin(); p != unit.slots.end(); ++p)
  		        {
      		        p->state++;
  	    	    }
@@ -145,7 +145,7 @@ Result FPU::OnCycleWritePhase(unsigned int stateIndex)
     }
     else
     {
-        assert(stateIndex == FPU_NUM_OPS);
+        assert(stateIndex == m_units.size());
     
         /*
          Select an input to put in an execution unit.
@@ -167,10 +167,23 @@ Result FPU::OnCycleWritePhase(unsigned int stateIndex)
         if (q != m_queues.end() && !q->second.empty())
         {
             const Operation& op = q->second.front();
-            Pipeline& pipeline = m_pipelines[op.op];
-            if (!pipeline.slots.empty() && (!pipeline.pipelined || pipeline.slots.back().state == 1))
+            
+            // Find a unit that can accept this operation
+            size_t i;
+            for (i = 0; i < m_units.size(); ++i)
             {
-                // Unit is busy or pipeline cannot accept a new operation
+                Unit& unit = m_units[i];
+                if (unit.ops.find(op.op) != unit.ops.end() && (unit.slots.empty() || (unit.pipelined && unit.slots.back().state > 1)))
+                {
+                    // This unit can accept our operation
+                    break;
+                }
+            }
+            
+            if (i == m_units.size())
+            {
+                // All units that can accept the op are busy or
+                // the pipeline cannot accept a new operation
                 return FAILED;
             }
         
@@ -178,7 +191,7 @@ Result FPU::OnCycleWritePhase(unsigned int stateIndex)
             COMMIT{
                 Result res = CalculateResult(op);
                 res.regfile = q->first;
-                pipeline.slots.push_back(res);
+                m_units[i].slots.push_back(res);
             }
             
             // Remove the queued operation from the queue
@@ -189,19 +202,59 @@ Result FPU::OnCycleWritePhase(unsigned int stateIndex)
     return DELAYED;
 }
 
+static string GetStateNames(const Config& config)
+{
+    stringstream ss;
+    for (int i = 1;; ++i)
+    {
+        stringstream name;
+        name << "FPUUnit" << i << "Ops";
+        if (config.getString(name.str(), "") == "")
+        {
+            break;
+        }
+        ss << "unit" << i << "|";
+    }
+    ss << "read-input";
+    return ss.str();
+}
+
 FPU::FPU(Object* parent, Kernel& kernel, const std::string& name, const Config& config)
-	: IComponent(parent, kernel, name, "add|sub|mul|div|sqrt|read-input"),
+	: IComponent(parent, kernel, name, GetStateNames(config)),
 	  m_queueSize  (config.getInteger<BufferSize>("FPUBufferSize", INFINITE))  
 {
     static const char* const Names[FPU_NUM_OPS] = {
-        "Add","Sub","Mul","Div","Sqrt"
+        "ADD","SUB","MUL","DIV","SQRT"
     };
     
-    for (int i = 0; i < FPU_NUM_OPS; ++i)
+    for (int i = 1;; ++i)
     {
-        Pipeline& p = m_pipelines[i];
-        p.latency   = config.getInteger<CycleNo>( string("FPU") + Names[i] + "Latency", 1);
-        p.pipelined = config.getBoolean( string("FPUPipeline") + Names[i], false);
+        stringstream name;
+        name << "FPUUnit" << i;
+        
+        Unit unit;
+        
+        // Get ops for this unit
+        string ops = config.getString(name.str() + "Ops", "");
+        transform(ops.begin(), ops.end(), ops.begin(), ::toupper);
+        stringstream ss(ops);
+        while (getline(ss, ops, ',')) {
+            for (int j = 0; j < FPU_NUM_OPS; ++j) {
+                if (ops.compare(Names[j]) == 0) {
+                    unit.ops.insert( (FPUOperation)j );
+                    break;
+                }
+            }
+        }
+        
+        if (unit.ops.empty())
+        {
+            break;
+        }
+        
+        unit.latency   = config.getInteger<CycleNo>( name.str() + "Latency",   1);
+        unit.pipelined = config.getBoolean         ( name.str() + "Pipelined", false);
+        m_units.push_back(unit);
     }
 }
 
