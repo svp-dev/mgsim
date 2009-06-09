@@ -8,13 +8,35 @@ using namespace std;
 namespace Simulator
 {
 
+FPU::Unit::Unit(const Object& object, const std::string& name)
+    : service(object, name)
+{
+}
+
 static const char* const OperationNames[FPU_NUM_OPS] = {
     "ADD", "SUB", "MUL", "DIV", "SQRT"
 };
+
+size_t FPU::RegisterSource(RegisterFile& regfile)
+{
+    for (size_t i = 0; i < m_sources.size(); ++i)
+    {
+        if (m_sources[i].regfile == NULL)
+        {
+            m_sources[i].regfile = &regfile;
+            return i;
+        }
+    }
+    // This shouldn't happen
+    assert(0);
+    return SIZE_MAX;
+}
     
-bool FPU::QueueOperation(FPUOperation fop, int size, double Rav, double Rbv, RegisterFile& regfile, const RegAddr& Rc)
+bool FPU::QueueOperation(size_t source, FPUOperation fop, int size, double Rav, double Rbv, const RegAddr& Rc)
 {
 	// The size must be a multiple of the arch's native integer size
+	assert(source < m_sources.size());
+	assert(m_sources[source].regfile != NULL);
 	assert(size > 0);
 	assert(size % sizeof(Integer) == 0);
 	assert(Rc.valid());
@@ -26,13 +48,12 @@ bool FPU::QueueOperation(FPUOperation fop, int size, double Rav, double Rbv, Reg
     op.Rbv  = Rbv;
     op.Rc   = Rc;
     
-    QueueMap::iterator p = m_queues.insert(make_pair(&regfile, Buffer<Operation>(*GetKernel(), m_queueSize))).first;
-    if (!p->second.push(op))
+    if (!m_sources[source].inputs.push(op))
     {
         return false;
     }
     
-    DebugSimWrite("Queued FP %s operation into queue %p", OperationNames[fop], &regfile);
+    DebugSimWrite("Queued FP %s operation into queue %u", OperationNames[fop], source);
     return true;
 }
 
@@ -60,14 +81,14 @@ FPU::Result FPU::CalculateResult(const Operation& op) const
 
 bool FPU::OnCompletion(const Result& res) const
 {
-    if (!res.regfile->p_asyncW.Write(res.address))
+    if (!res.source->regfile->p_asyncW.Write(res.address))
     {
         DeadlockWrite("Unable to acquire port to write back to %s", res.address.str().c_str());
     	return false;
     }
 
     RegValue value;
-    if (!res.regfile->ReadRegister(res.address, value))
+    if (!res.source->regfile->ReadRegister(res.address, value))
     {
         DeadlockWrite("Unable to read register %s", res.address.str().c_str());
 	    return false;
@@ -95,7 +116,7 @@ bool FPU::OnCompletion(const Result& res) const
 #endif
 
 	    value.m_float.integer = (Integer)data;
-	    if (!res.regfile->WriteRegister(a, value, false))
+	    if (!res.source->regfile->WriteRegister(a, value, false))
 	    {
             DeadlockWrite("Unable to write register %s", res.address.str().c_str());
 	    	return false;
@@ -114,7 +135,7 @@ Result FPU::OnCycleWritePhase(unsigned int stateIndex)
 	if (stateIndex < m_units.size())
 	{
 	    // Advance a pipeline
- 		Unit& unit = m_units[stateIndex];
+ 		Unit& unit = *m_units[stateIndex];
 	    if (!unit.slots.empty())
 	    {
 	        const Result& res = unit.slots.front();
@@ -145,64 +166,53 @@ Result FPU::OnCycleWritePhase(unsigned int stateIndex)
     }
     else
     {
-        assert(stateIndex == m_units.size());
-    
-        /*
-         Select an input to put in an execution unit.
-         We grab an operation from the fullest queue.
-      
-         Note that we might pick a queue whose operation has to go in a unit
-         that is full. If possible in hardware, we can optimize to check this
-         and pick another queue instead. Here, however, we don't.
-        */
-        QueueMap::iterator q = m_queues.end();
-        for (QueueMap::iterator p = m_queues.begin(); p != m_queues.end(); ++p)
+        // Process an input queue
+        const size_t input_index = stateIndex - m_units.size();
+        Buffer<Operation>& input = m_sources[input_index].inputs;
+        if (!input.empty())
         {
-            if (q == m_queues.end() || p->second.size() > q->second.size())
-            {
-                q = p;
-            }
-        }
-    
-        if (q != m_queues.end() && !q->second.empty())
-        {
-            const Operation& op = q->second.front();
+            const Operation& op = input.front();
+
+            // We use a fixed (with modulo) mapping from inputs to units
+            const size_t unit_index = m_mapping[op.op][ input_index % m_mapping[op.op].size() ];
+            Unit& unit = *m_units[ unit_index ];
             
-            // Find a unit that can accept this operation
-            size_t i;
-            for (i = 0; i < m_units.size(); ++i)
+            // Request access
+            if (!unit.service.Invoke())
             {
-                Unit& unit = m_units[i];
-                if (unit.ops.find(op.op) != unit.ops.end() && (unit.slots.empty() || (unit.pipelined && unit.slots.back().state > 1)))
-                {
-                    // This unit can accept our operation
-                    break;
-                }
-            }
-            
-            if (i == m_units.size())
-            {
-                // All units that can accept the op are busy or
-                // the pipeline cannot accept a new operation
                 return FAILED;
+            }
+            
+            if (!IsAcquiring())
+            {
+                // See if the unit can accept a new request
+                // Do this check after the Acquire phase, when the actual pipeline has
+                // moved on and made room for our request.
+                if (!unit.slots.empty() && (!unit.pipelined || unit.slots.back().state == 1))
+                {
+                    // The unit is busy or cannot accept a new operation
+                    return FAILED;
+                }
             }
         
             // Calculate the result and store it in the unit
             COMMIT{
                 Result res = CalculateResult(op);
-                res.regfile = q->first;
-                m_units[i].slots.push_back(res);
+                res.source = &m_sources[input_index];
+                unit.slots.push_back(res);
             }
             
+            DebugSimWrite("Put %s operation from queue %u into pipeline %u", OperationNames[op.op], (unsigned)input_index, (unsigned)unit_index);
+            
             // Remove the queued operation from the queue
-            q->second.pop();
+            input.pop();
             return SUCCESS;
         }
     }
     return DELAYED;
 }
 
-static string GetStateNames(const Config& config)
+static string GetStateNames(const Config& config, size_t num_inputs)
 {
     stringstream ss;
     for (int i = 1;; ++i)
@@ -215,47 +225,95 @@ static string GetStateNames(const Config& config)
         }
         ss << "unit" << i << "|";
     }
-    ss << "read-input";
+    
+    for (size_t i = 0; i < num_inputs; ++i)
+    {
+        ss << "input" << i;
+        if (i < num_inputs - 1) {
+            ss << "|";
+        }
+    }
     return ss.str();
 }
 
-FPU::FPU(Object* parent, Kernel& kernel, const std::string& name, const Config& config)
-	: IComponent(parent, kernel, name, GetStateNames(config)),
-	  m_queueSize  (config.getInteger<BufferSize>("FPUBufferSize", INFINITE))  
+FPU::FPU(Object* parent, Kernel& kernel, const std::string& name, const Config& config, size_t num_inputs)
+	: IComponent(parent, kernel, name, GetStateNames(config, num_inputs)),
+	  m_sources(num_inputs, Source(kernel, config.getInteger<BufferSize>("FPUBufferSize", INFINITE)))
 {
-    static const char* const Names[FPU_NUM_OPS] = {
-        "ADD","SUB","MUL","DIV","SQRT"
-    };
-    
-    for (int i = 1;; ++i)
+    try
     {
-        stringstream name;
-        name << "FPUUnit" << i;
+        static const char* const Names[FPU_NUM_OPS] = {
+            "ADD","SUB","MUL","DIV","SQRT"
+        };
+    
+        // Construct the FP units
+        for (int i = 1;; ++i)
+        {
+            stringstream ssname;
+            ssname << "FPUUnit" << i;
+            string name = ssname.str();
         
-        Unit unit;
-        
-        // Get ops for this unit
-        string ops = config.getString(name.str() + "Ops", "");
-        transform(ops.begin(), ops.end(), ops.begin(), ::toupper);
-        stringstream ss(ops);
-        while (getline(ss, ops, ',')) {
-            for (int j = 0; j < FPU_NUM_OPS; ++j) {
-                if (ops.compare(Names[j]) == 0) {
-                    unit.ops.insert( (FPUOperation)j );
-                    break;
+            set<FPUOperation> ops;
+                
+            // Get ops for this unit
+            string strops = config.getString(name + "Ops", "");
+            transform(strops.begin(), strops.end(), strops.begin(), ::toupper);
+            stringstream ss(strops);
+            while (getline(ss, strops, ',')) {
+                for (int j = 0; j < FPU_NUM_OPS; ++j) {
+                    if (strops.compare(Names[j]) == 0) {
+                        ops.insert( (FPUOperation)j );
+                        break;
+                    }
                 }
             }
+        
+            if (ops.empty())
+            {
+                break;
+            }
+        
+            // Add this unit into the mapping table for the ops it implements
+            for (set<FPUOperation>::const_iterator p = ops.begin(); p != ops.end(); ++p)
+            {
+                m_mapping[*p].push_back(m_units.size());
+            }
+
+            m_units.push_back(NULL);
+            Unit* unit = m_units.back() = new Unit(*this, name);
+            unit->latency   = config.getInteger<CycleNo>( name + "Latency",   1);
+            unit->pipelined = config.getBoolean         ( name + "Pipelined", false);            
         }
         
-        if (unit.ops.empty())
+        // Set up priorities for the unit arbitrators;
+        // all inputs have access to all units
+        for (size_t i = 0; i < m_units.size(); ++i)
         {
-            break;
+            for (size_t j = 0; j < num_inputs; ++j)
+            {
+                const int state = (int)(m_units.size() + j);
+                m_units[i]->service.AddSource(ArbitrationSource(this, state));
+            }
         }
-        
-        unit.latency   = config.getInteger<CycleNo>( name.str() + "Latency",   1);
-        unit.pipelined = config.getBoolean         ( name.str() + "Pipelined", false);
-        m_units.push_back(unit);
     }
+    catch (...)
+    {
+        Cleanup();
+        throw;
+    }
+}
+
+void FPU::Cleanup()
+{
+    for (size_t i = 0; i < m_units.size(); ++i)
+    {
+        delete m_units[i];
+    }
+}
+
+FPU::~FPU()
+{
+    Cleanup();
 }
 
 }

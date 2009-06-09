@@ -323,7 +323,7 @@ public:
     public:
         PipeAction read();
         PipeAction write();
-        ExecuteStage(Pipeline& parent, ReadExecuteLatch& input, ExecuteMemoryLatch& output, Allocator& allocator, Network& network, ThreadTable& threadTable, RegisterFile& regFile, FPU& fpu, const Config& config);
+        ExecuteStage(Pipeline& parent, ReadExecuteLatch& input, ExecuteMemoryLatch& output, Allocator& allocator, Network& network, ThreadTable& threadTable, FPU& fpu, size_t fpu_source, const Config& config);
         
         uint64_t getFlop() const { return m_flop; }
         uint64_t getOp()   const { return m_op; }
@@ -334,8 +334,8 @@ public:
         Allocator&              m_allocator;
         Network&                m_network;
         ThreadTable&            m_threadTable;
-        RegisterFile&           m_regFile;
 		FPU&                    m_fpu;
+		size_t                  m_fpuSource;    // Which input are we to the FPU?
         uint64_t                m_flop;         // FP operations
         uint64_t                m_op;           // Instructions
         

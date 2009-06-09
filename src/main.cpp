@@ -374,7 +374,7 @@ public:
         {
             stringstream name;
             name << "fpu" << f;
-            m_fpus[f] = new FPU(this, m_kernel, name.str(), config);
+            m_fpus[f] = new FPU(this, m_kernel, name.str(), config, numProcessorsPerFPU);
         }
 
         // Create processor grid

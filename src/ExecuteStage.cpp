@@ -206,15 +206,15 @@ void Pipeline::ExecuteStage::ExecDebug(double value, Integer stream) const
     }
 }
 
-Pipeline::ExecuteStage::ExecuteStage(Pipeline& parent, ReadExecuteLatch& input, ExecuteMemoryLatch& output, Allocator& alloc, Network& network, ThreadTable& threadTable, RegisterFile& regFile, FPU& fpu, const Config& /*config*/)
+Pipeline::ExecuteStage::ExecuteStage(Pipeline& parent, ReadExecuteLatch& input, ExecuteMemoryLatch& output, Allocator& alloc, Network& network, ThreadTable& threadTable, FPU& fpu, size_t fpu_source, const Config& /*config*/)
   : Stage(parent, "execute", &input, &output),
     m_input(input),
     m_output(output),
     m_allocator(alloc),
     m_network(network),
     m_threadTable(threadTable),
-    m_regFile(regFile),
-	m_fpu(fpu)
+	m_fpu(fpu),
+	m_fpuSource(fpu_source)
 {
     m_flop = 0;
     m_op   = 0;

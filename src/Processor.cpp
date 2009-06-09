@@ -25,7 +25,7 @@ Processor::Processor(Object* parent, Kernel& kernel, GPID gpid, LPID lpid, const
     {
         // Allocate the startup family on the first processor
         m_allocator.AllocateInitialFamily(runAddress);
-    }
+    }    
 }
 
 void Processor::Initialize(Processor& prev, Processor& next)

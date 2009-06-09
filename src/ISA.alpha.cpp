@@ -1187,10 +1187,9 @@ Pipeline::PipeAction Pipeline::ExecuteStage::ExecuteInstruction()
                 assert(fpuop != FPU_OP_NONE);
                 
                 // Dispatch long-latency operation to FPU
-                if (!m_fpu.QueueOperation(fpuop, 8,
+                if (!m_fpu.QueueOperation(m_fpuSource, fpuop, 8,
                     m_input.Rav.m_float.tofloat(m_input.Rav.m_size),
                     m_input.Rbv.m_float.tofloat(m_input.Rbv.m_size),
-                    m_regFile,
                     m_input.Rc))
                 {
                     return PIPE_STALL;
