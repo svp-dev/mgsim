@@ -5,25 +5,22 @@
 using namespace Simulator;
 using namespace std;
 
-void IdealMemory::RegisterListener(IMemoryCallback& callback)
+void IdealMemory::RegisterListener(PSize /*pid*/, IMemoryCallback& callback)
 {
     m_caches.insert(&callback);
 }
 
-void IdealMemory::UnregisterListener(IMemoryCallback& callback)
+void IdealMemory::UnregisterListener(PSize /*pid*/, IMemoryCallback& callback)
 {
     m_caches.erase(&callback);
 }
 
-Result IdealMemory::Read(IMemoryCallback& callback, MemAddr address, 
-                          void* /* data */, MemSize size, MemTag tag)
+Result IdealMemory::Read(IMemoryCallback& callback, MemAddr address, void* /*data*/, MemSize size, MemTag tag)
 {
-#if MEMSIZE_MAX >= SIZE_MAX
-    if (size > SIZE_MAX)
+    if (size > MAX_MEMORY_OPERATION_SIZE)
     {
         throw InvalidArgumentException("Size argument too big");
     }
-#endif
 
 	if (m_bufferSize == INFINITE || m_requests.size() < m_bufferSize)
     {
@@ -32,7 +29,6 @@ Result IdealMemory::Read(IMemoryCallback& callback, MemAddr address,
             Request request;
             request.callback  = &callback;
             request.address   = address;
-            request.data.data = new char[ (size_t)size ];
             request.data.size = size;
             request.data.tag  = tag;
             request.done      = 0;
@@ -46,12 +42,10 @@ Result IdealMemory::Read(IMemoryCallback& callback, MemAddr address,
 
 Result IdealMemory::Write(IMemoryCallback& callback, MemAddr address, void* data, MemSize size, MemTag tag)
 {
-#if MEMSIZE_MAX >= SIZE_MAX
-    if (size > SIZE_MAX)
+    if (size > MAX_MEMORY_OPERATION_SIZE)
     {
         throw InvalidArgumentException("Size argument too big");
     }
-#endif
 
     if (m_bufferSize == INFINITE || m_requests.size() < m_bufferSize)
     {
@@ -59,7 +53,6 @@ Result IdealMemory::Write(IMemoryCallback& callback, MemAddr address, void* data
         Request request;
         request.callback  = &callback;
         request.address   = address;
-        request.data.data = new char[ (size_t)size ];
         request.data.size = size;
         request.data.tag  = tag;
         request.done      = 0;

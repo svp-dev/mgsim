@@ -250,14 +250,8 @@ Result ICache::Fetch(MemAddr address, MemSize size, TID* tid, CID* cid)
     }
 	else
 	{
-		// The data has to be fetched
-		MemData data;
-		data.data = line->data;
-		data.size = m_lineSize;
-		data.tag  = MemTag(line - &m_lines[0], false);
-
 		// Cache miss, fetch the data
-		if ((result = m_parent.ReadMemory(address, data.data, data.size, data.tag)) == FAILED)
+		if ((result = m_parent.ReadMemory(address, line->data, m_lineSize, MemTag(line - &m_lines[0], false))) == FAILED)
 		{
 			// The fetch failed
 			DeadlockWrite("Unable to read 0x%016llx from memory", (unsigned long long)address);
@@ -275,7 +269,6 @@ Result ICache::Fetch(MemAddr address, MemSize size, TID* tid, CID* cid)
 			if (result == SUCCESS)
 			{
 				// Data was fetched immediately, copy it
-				memcpy(line->data, data.data, (size_t)data.size);
 				m_numHits++;
 			}
 			else

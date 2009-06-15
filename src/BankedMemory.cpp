@@ -13,36 +13,12 @@ BankedMemory::Bank::Bank()
 {
 }
 
-void BankedMemory::Request::release()
-{
-    if (refcount != NULL && --*refcount == 0) {
-        delete[] (char*)data.data;
-        delete refcount;
-    }
-}
-
-BankedMemory::Request& BankedMemory::Request::operator =(const Request& req)
-{
-    release();
-    refcount  = req.refcount;
-    callback  = req.callback;
-    write     = req.write;
-    address   = req.address;
-    data      = req.data;
-    ++*refcount;
-    return *this;
-}
-
-BankedMemory::Request::Request(const Request& req) : refcount(NULL) { *this = req; }
-BankedMemory::Request::Request() { refcount = new unsigned long(1); data.data = NULL; }
-BankedMemory::Request::~Request() { release(); }
-
-void BankedMemory::RegisterListener(IMemoryCallback& callback)
+void BankedMemory::RegisterListener(PSize /*pid*/, IMemoryCallback& callback)
 {
     m_caches.insert(&callback);
 }
 
-void BankedMemory::UnregisterListener(IMemoryCallback& callback)
+void BankedMemory::UnregisterListener(PSize /*pid*/, IMemoryCallback& callback)
 {
     m_caches.erase(&callback);
 }
@@ -79,15 +55,12 @@ void BankedMemory::AddRequest(Pipeline& queue, const Request& request, bool data
     queue.insert(make_pair(done, request));
 }
 
-Result BankedMemory::Read(IMemoryCallback& callback, MemAddr address, void* /* data */, 
-                          MemSize size, MemTag tag)
+Result BankedMemory::Read(IMemoryCallback& callback, MemAddr address, void* /*data*/, MemSize size, MemTag tag)
 {
-#if MEMSIZE_MAX >= SIZE_MAX
-    if (size > SIZE_MAX)
+    if (size > MAX_MEMORY_OPERATION_SIZE)
     {
         throw InvalidArgumentException("Size argument too big");
     }
-#endif
 
     Pipeline& queue = m_banks[ GetBankFromAddress(address) ].incoming;
 	if (m_bufferSize == INFINITE || queue.size() < m_bufferSize)
@@ -97,7 +70,6 @@ Result BankedMemory::Read(IMemoryCallback& callback, MemAddr address, void* /* d
             Request request;
             request.address   = address;
             request.callback  = &callback;
-            request.data.data = new char[ (size_t)size ];
             request.data.size = size;
             request.data.tag  = tag;
             request.write     = false;
@@ -110,12 +82,10 @@ Result BankedMemory::Read(IMemoryCallback& callback, MemAddr address, void* /* d
 
 Result BankedMemory::Write(IMemoryCallback& callback, MemAddr address, void* data, MemSize size, MemTag tag)
 {
-#if MEMSIZE_MAX >= SIZE_MAX
-    if (size > SIZE_MAX)
+    if (size > MAX_MEMORY_OPERATION_SIZE)
     {
         throw InvalidArgumentException("Size argument too big");
     }
-#endif
 
     Pipeline& queue = m_banks[ GetBankFromAddress(address) ].incoming;
     if (m_bufferSize == INFINITE || queue.size() < m_bufferSize)
@@ -125,7 +95,6 @@ Result BankedMemory::Write(IMemoryCallback& callback, MemAddr address, void* dat
         Request request;
         request.address   = address;
         request.callback  = &callback;
-        request.data.data = new char[ (size_t)size ];
         request.data.size = size;
         request.data.tag  = tag;
         request.write     = true;

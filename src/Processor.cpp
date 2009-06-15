@@ -92,7 +92,7 @@ void Processor::Initialize(Processor& prev, Processor& next)
     m_network.m_remoteSync                .AddSource(ArbitrationSource(&prev.m_network,   9)); // Sync token caused sync
     m_network.m_remoteSync                .AddSource(ArbitrationSource(&m_allocator,      0)); // Thread administration caused sync
     
-    m_memory.RegisterListener(*this);
+    m_memory.RegisterListener(m_pid, *this);
 }    
 
 bool Processor::IsIdle() const

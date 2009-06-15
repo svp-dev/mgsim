@@ -17,20 +17,12 @@ namespace Simulator
 class ParallelMemory : public IComponent, public IMemoryAdmin, public VirtualMemory
 {
 public:
-    class Request
+    struct Request
     {
-        void release();
-     public:
-        unsigned long*   refcount;
         bool             write;
         MemAddr          address;
         MemData          data;
         IMemoryCallback* callback;
-
-        Request& operator =(const Request& req);
-        Request(const Request& req);
-        Request();
-        ~Request();
     };
 
 	struct Port
@@ -48,8 +40,8 @@ public:
     // IMemory
     void   Reserve(MemAddr address, MemSize size, int perm);
     void   Unreserve(MemAddr address);
-    void   RegisterListener(IMemoryCallback& callback);
-    void   UnregisterListener(IMemoryCallback& callback);
+    void   RegisterListener(PSize pid, IMemoryCallback& callback);
+    void   UnregisterListener(PSize pid, IMemoryCallback& callback);
     Result Read (IMemoryCallback& callback, MemAddr address, void* data, MemSize size, MemTag tag);
     Result Write(IMemoryCallback& callback, MemAddr address, void* data, MemSize size, MemTag tag);
 	bool   CheckPermissions(MemAddr address, MemSize size, int access) const;

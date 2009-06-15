@@ -13,36 +13,12 @@ RandomBankedMemory::Bank::Bank()
 {
 }
 
-void RandomBankedMemory::Request::release()
-{
-    if (refcount != NULL && --*refcount == 0) {
-        delete[] (char*)data.data;
-        delete refcount;
-    }
-}
-
-RandomBankedMemory::Request& RandomBankedMemory::Request::operator =(const Request& req)
-{
-    release();
-    refcount  = req.refcount;
-    callback  = req.callback;
-    write     = req.write;
-    address   = req.address;
-    data      = req.data;
-    ++*refcount;
-    return *this;
-}
-
-RandomBankedMemory::Request::Request(const Request& req) : refcount(NULL) { *this = req; }
-RandomBankedMemory::Request::Request() { refcount = new unsigned long(1); data.data = NULL; }
-RandomBankedMemory::Request::~Request() { release(); }
-
-void RandomBankedMemory::RegisterListener(IMemoryCallback& callback)
+void RandomBankedMemory::RegisterListener(PSize /*pid*/, IMemoryCallback& callback)
 {
     m_caches.insert(&callback);
 }
 
-void RandomBankedMemory::UnregisterListener(IMemoryCallback& callback)
+void RandomBankedMemory::UnregisterListener(PSize /*pid*/, IMemoryCallback& callback)
 {
     m_caches.erase(&callback);
 }
@@ -83,15 +59,12 @@ void RandomBankedMemory::AddRequest(Pipeline& queue, const Request& request, boo
     queue.insert(make_pair(done, request));
 }
 
-Result RandomBankedMemory::Read(IMemoryCallback& callback, MemAddr address, void* /* data */, 
-                          MemSize size, MemTag tag)
+Result RandomBankedMemory::Read(IMemoryCallback& callback, MemAddr address, void* /*data*/, MemSize size, MemTag tag)
 {
-#if MEMSIZE_MAX >= SIZE_MAX
-    if (size > SIZE_MAX)
+    if (size > MAX_MEMORY_OPERATION_SIZE)
     {
         throw InvalidArgumentException("Size argument too big");
     }
-#endif
 
     Pipeline& queue = m_banks[ GetBankFromAddress(address) ].incoming;
 	if (m_bufferSize == INFINITE || queue.size() < m_bufferSize)
@@ -101,7 +74,6 @@ Result RandomBankedMemory::Read(IMemoryCallback& callback, MemAddr address, void
             Request request;
             request.address   = address;
             request.callback  = &callback;
-            request.data.data = new char[ (size_t)size ];
             request.data.size = size;
             request.data.tag  = tag;
             request.write     = false;
@@ -129,7 +101,6 @@ Result RandomBankedMemory::Write(IMemoryCallback& callback, MemAddr address, voi
         Request request;
         request.address   = address;
         request.callback  = &callback;
-        request.data.data = new char[ (size_t)size ];
         request.data.size = size;
         request.data.tag  = tag;
         request.write     = true;
