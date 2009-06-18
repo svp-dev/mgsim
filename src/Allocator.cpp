@@ -699,7 +699,7 @@ bool Allocator::SynchronizeFamily(LFID fid, Family& family, ExitCode code)
         COMMIT{ m_exclusive = INVALID_LFID; }
     }
 
-    COMMIT{ family.killed = true; }
+    //COMMIT{ family.killed = true; }
     if (family.parent.gpid != INVALID_GPID) {
         // Killed a delegated family
         DebugSimWrite("Killed F%u (parent: F%u@P%u)", fid, family.parent.fid, family.parent.gpid);
