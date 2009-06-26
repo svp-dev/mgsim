@@ -76,12 +76,16 @@ void Processor::Initialize(Processor& prev, Processor& next)
     m_network.m_registerResponseGroup.out .AddSource(ArbitrationSource(&m_pipeline,       0)); // Pipeline write to register with remote mapping
     m_network.m_registerResponseGroup.out .AddSource(ArbitrationSource(&m_network,        1)); // Returning register from a request
     m_network.m_registerResponseGroup.out .AddSource(ArbitrationSource(&m_network,        0)); // Forwarding response from remote parent onto group
+    m_network.m_registerResponseGroup.out .AddSource(ArbitrationSource(&m_dcache,         0)); // Memory load to a shared completes
     for (size_t i = 0; i < m_fpu.GetNumExecutionUnits(); ++i)
     {    
-        m_network.m_registerResponseGroup.out.AddSource(ArbitrationSource(&m_fpu, i)); // FP operation to a shared
+        m_network.m_registerResponseGroup .out.AddSource(ArbitrationSource(&m_fpu, i)); // FP operation to a shared
+        m_network.m_registerResponseRemote.out.AddSource(ArbitrationSource(&m_fpu, i)); // FP operation to a shared
     }
+    m_network.m_registerResponseRemote.out.AddSource(ArbitrationSource(&m_pipeline,       0)); // Pipeline write to register with remote mapping
     m_network.m_registerResponseRemote.out.AddSource(ArbitrationSource(&m_network,        1)); // Returning register from a request
-    m_network.m_registerResponseRemote.out.AddSource(ArbitrationSource(&m_pipeline,       0)); // Writing a remote shared from pipeline
+    m_network.m_registerResponseRemote.out.AddSource(ArbitrationSource(&m_network,        0)); // Forwarding response from remote parent onto group
+    m_network.m_registerResponseRemote.out.AddSource(ArbitrationSource(&m_dcache,         0)); // Memory load to a shared completes
     m_network.m_completedThread           .AddSource(ArbitrationSource(&next.m_pipeline,  0)); // Thread terminated (reschedule at WB stage)
     m_network.m_cleanedUpThread           .AddSource(ArbitrationSource(&prev.m_allocator, 0)); // Thread cleaned up
     m_network.m_synchronizedFamily        .AddSource(ArbitrationSource(&prev.m_network,   9)); // Forwarding
