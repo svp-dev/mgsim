@@ -1,14 +1,20 @@
-! Livermore kernel 3 -- Inner product
-!
+/*
+    Livermore kernel 3 -- Inner product
+
+    double z[1001], x[1001];
+    double q = 0.0;
+    for (int k = 0; k < n; k++)
+    {
+        q += z[k] * x[k];
+    }
+*/
     .file "l3_innerprod.s"
 
     .section .rodata
-    .ascii "\0TEST_INPUTS:R10:1024\0"
+    .ascii "\0TEST_INPUTS:R10:512\0"
 
     .text
     
-    .equ MAX_N, 1048576
-
 !
 ! Main thread
 !
@@ -19,7 +25,8 @@
 main:
     set     X, %1           ! %1 = X
     set     Y, %2           ! %2 = Y
-    clr     %3              ! %3 = sum = 0
+    fmovs   %f0, %f1
+    fmovs   %f0, %f2        ! %f1,%f2 = sum = 0
     
     allocate %4, 0, 0, 0, 0
     setlimit %4, %11
@@ -38,20 +45,18 @@ main:
     .globl loop
     .align 64
 loop:
-    .registers 2 1 3 0 0 0
-    sll     %l0, 2, %l0
+    .registers 2 0 2 0 2 4
+    sll     %l0, 3, %l0
     add     %l0, %g1, %l1
-    ld      [%l1], %l1
+    ldd     [%l1], %lf2
     add     %l0, %g0, %l0
-    ld      [%l0], %l0
-    smul    %l0, %l1, %l0; swch
-    add     %d0, %l0, %s0
+    ldd     [%l0], %lf0
+    fmuld   %lf0, %lf2, %lf0; swch
+    faddd   %df0, %lf0, %sf0
     end
 
     .section .bss
-
     .align 64
-X:  .skip MAX_N * 4
-
+X:  .skip 1001 * 8
     .align 64
-Y:  .skip MAX_N * 4
+Y:  .skip 1001 * 8

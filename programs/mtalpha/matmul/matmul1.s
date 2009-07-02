@@ -1,10 +1,16 @@
     .file "matmul1.s"
 
+    .section .rodata
+    .ascii "\0TEST_INPUTS:R10:4 7 10\0"
+
     # Matrix width (only square matrices supported)
-    .equ N, 10
+    .equ MAX_N, 10
 
 #
 # Multiply matrixA by matrixB and store result in matrixC. Single depth uTC version.
+#
+# $27 = main
+# $10 = N
 #
     .text
     .ent main
@@ -15,16 +21,16 @@ main:
     
 	allocate $4, 0, 0, 0, 0
 
-	ldah $0, matrixA($29)      !gprelhigh
-	lda  $0, matrixA( $0)      !gprellow
-	ldah $1, matrixB($29)      !gprelhigh
-	lda  $1, matrixB( $1)      !gprellow
-	ldah $2, matrixC($29)      !gprelhigh
-	lda  $2, matrixC( $2)      !gprellow
-	mov  N,  $3
+	ldah $0, A($29)     !gprelhigh
+	lda  $0, A($0)      !gprellow
+	ldah $1, B($29)     !gprelhigh
+	lda  $1, B($1)      !gprellow
+	ldah $2, C($29)     !gprelhigh
+	lda  $2, C($2)      !gprellow
+	mov  $10, $3
 
 	#	create (fam1; 0; N;)
-	setlimit $4, N
+	setlimit $4, $10
 	swch
 	cred $4, thread1
 	
@@ -35,9 +41,9 @@ main:
 
 
     .ent thread1
-    # $g0 = matrixA 
-    # $g1 = matrixB
-    # $g2 = matrixC
+    # $g0 = A 
+    # $g1 = B
+    # $g2 = C
     # $g3 = N
     # $l0 = i
 thread1:
@@ -80,7 +86,7 @@ L2s:
     # }
     #
     addl    $l4, 1, $l4
-L2e:cmplt   $l4, N, $l6
+L2e:cmplt   $l4, $g3, $l6
 	bne     $l6, L2s
 	swch
 	
@@ -91,7 +97,7 @@ L2e:cmplt   $l4, N, $l6
     # }
     #
 	addl    $l3, 1, $l3
-L1e:cmplt   $l3, N, $l6
+L1e:cmplt   $l3, $g3, $l6
 	bne     $l6, L1s
 	end
 	.end thread1
@@ -101,21 +107,11 @@ L1e:cmplt   $l3, N, $l6
 #
     .data
     .align 6;
-    .globl matrixC
-matrixC:
-    .skip N*N*4
+C:  .skip MAX_N * MAX_N * 4
 
     .section .rodata
-
     .align 6
-matrixA:
-    .rep N*N
-    .int 2
-    .endr
-
+A:  .skip MAX_N * MAX_N * 4
     .align 6
-matrixB:
-    .rep N*N
-    .int 3
-    .endr
+B:  .skip MAX_N * MAX_N * 4
 

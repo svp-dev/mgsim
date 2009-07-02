@@ -168,24 +168,23 @@ _FFT_POST_SWAP:
  */
     .ent _FFT_1
 _FFT_1:
-	.registers 5 1 6  0 0 0	    # GR,SR,LR, GF,SF,LF
+	.registers 5 1 5  0 0 0	    # GR,SR,LR, GF,SF,LF
 	
-	allocate $lr5, 0, 0, 0, 0	# start = 0
-	setlimit $lr5, $gr1		    # limit = (N / 2) * 16
-	setstep  $lr5, 16			# step  = 16
-	# setblock $lr5, $gr5
+	allocate $lr4, 0, 0, 0, 0	# start = 0
+	setlimit $lr4, $gr1		    # limit = (N / 2) * 16
+	setstep  $lr4, 16			# step  = 16
+	# setblock $lr4, $gr4
 	
-	srl  $gr4, $lr0, $lr4		# $LR4 = Z = (MAX_N >> k);
-    mov  $gr0, $lr3		        # $LR3 = X
-    mov  $gr2, $lr2		        # $LR2 = _cos_sin
-	subq $lr0,    1, $lr1		# $LR1 = k - 1;
+	srl  $gr4, $lr0, $lr3		# $LR3 = Z = (MAX_N >> k);
+    mov  $gr0, $lr2		        # $LR2 = X
+    mov  $gr2, $lr1		        # $LR1 = _cos_sin
 	sll  $gr3, $lr0, $lr0
 	sll  $lr0,    3, $lr0
 	subq $lr0,    1, $lr0		# $LR0 = LE2 * 16 - 1
 	
     mov  $dr0, $31; swch        # wait for token
-	cred $lr5, _FFT_2
-	mov  $lr5, $sr0 		    # sync and write token
+	cred $lr4, _FFT_2
+	mov  $lr4, $sr0 		    # sync and write token
 	end;
     .end _FFT_1
 
@@ -193,15 +192,14 @@ _FFT_1:
  * for (i = 0; i < N / 2; i++) {
  *
  * $GR0 = LE2 * 16 - 1
- * $GR1 = k - 1
- * $GR2 = _cos_sin
- * $GR3 = X
- * $GR4 = Z
+ * $GR1 = _cos_sin
+ * $GR2 = X
+ * $GR3 = Z
  * $LR0 = i * 16
  */
     .ent _FFT_2
 _FFT_2:
-	.registers 5 0 3  0 0 8	    # GR,SR,LR, GF,SF,LF
+	.registers 4 0 3  0 0 8	    # GR,SR,LR, GF,SF,LF
 	
 	and  $lr0, $gr0, $lr1	    # $LR1 = w
 	subq $lr0, $lr1, $lr0
@@ -209,16 +207,16 @@ _FFT_2:
 	addq $lr0, $lr1, $lr0	    # $LR0 = j
 	
 	addq $lr0, $gr0, $lr2       # $LR2 = ip;
-	addq $lr2, $gr3, $lr2	    # $LR2 = &X[ip] - 1;
+	addq $lr2, $gr2, $lr2	    # $LR2 = &X[ip] - 1;
 	ldt $lf2, 1($lr2)
 	ldt $lf3, 9($lr2)		    # $LF2, $LF3 = X[ip]
 	
-	mulq $lr1, $gr4, $lr1
-	addq $lr1, $gr2, $lr1	    # $LR1 = &_cos_sin[w * Z];
+	mulq $lr1, $gr3, $lr1
+	addq $lr1, $gr1, $lr1	    # $LR1 = &_cos_sin[w * Z];
 	ldt $lf4, 0($lr1)
 	ldt $lf5, 8($lr1)		    # $LF4, $LF5 = U
 				
-	addq $lr0, $gr3, $lr0       # $LR0 = &X[j];
+	addq $lr0, $gr2, $lr0       # $LR0 = &X[j];
 	ldt $lf0, 0($lr0)
 	ldt $lf1, 8($lr0)		    # $LF0, $LF1 = X[j]
 	

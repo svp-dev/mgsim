@@ -5,7 +5,7 @@ TEST_SOURCES = \
 	sine/sine_seq_o.s \
 	sine/sine_seq_u.s \
 	livermore/l1_hydro.s \
-	livermore/l2_iccq.s \
+	livermore/l2_iccg.s \
 	livermore/l3_innerprod.s \
 	livermore/l3_innerprod_partial.s \
 	livermore/l4_bandedlineareq.s \
@@ -16,10 +16,6 @@ TEST_SOURCES = \
 	matmul/matmul1.s \
 	matmul/matmul2.s \
 	matmul/matmul3.s \
-	sine/sine_mt_o.s \
-	sine/sine_mt_u.s \
-	sine/sine_seq_o.s \
-	sine/sine_seq_u.s \
 	regression/inf_pipeline_wait_loop.s \
 	regression/exclusive_places.s \
 	regression/delegation1.s \

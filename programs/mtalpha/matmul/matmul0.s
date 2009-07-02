@@ -1,10 +1,16 @@
     .file "matmul0.s"
 
-    # Matrix width (only square matrices supported)
-    .equ N, 10
+    .section .rodata
+    .ascii "\0TEST_INPUTS:R10:4 7 10\0"
+
+    # Maximum matrix width (only square matrices supported)
+    .equ MAX_N, 16
 
 #
-# Multiply matrixA by matrixB and store result in matrixC. Linear version.
+# Multiply A by B and store result in C. Linear version.
+#
+# $27 = main
+# $10 = N
 # 
     .text
     .ent main
@@ -18,13 +24,13 @@ main:
 	clr $3
 	clr $4
 L3:
-	cmplt $3, N, $0
+	cmplt $3, $10, $0
 	beq $0, L4
 	#	{
 	#		for (i=0; i<N; i++)
 	clr $2
 L5:
-	cmplt $2, N, $0
+	cmplt $2, $10, $0
 	beq $0, L6
 	#		{
 	#			for (v=k=kN=0; k<N; k++, kN+=N)
@@ -32,28 +38,28 @@ L5:
 	clr $6
 	clr $7
 L7:
-	cmplt $6, N, $0
+	cmplt $6, $10, $0
 	beq $0, L8
-	#		    	v += matrixA[kN+i] * matrixB[jN+k];
-	ldah $1, matrixA($29)   !gprelhigh
-	lda  $1, matrixA($1)    !gprellow
+	#		    	v += A[kN+i] * B[jN+k];
+	ldah $1, A($29)   !gprelhigh
+	lda  $1, A($1)    !gprellow
 	addl $7, $2, $0
 	s4addl $0, $1, $1
 	ldl $8, 0($1)
-	ldah $1, matrixB($29)   !gprelhigh
-	lda  $1, matrixB($1)    !gprellow
+	ldah $1, B($29)   !gprelhigh
+	lda  $1, B($1)    !gprellow
 	addl $4, $6, $0
 	s4addl $0, $1, $1
 	ldl $0, 0($1)
 	mull $0, $8, $1
 	addl $5, $1, $5
 	addl $6, 1, $6
-	addl $7, N, $7
+	addl $7, $10, $7
 	br $31, L7
 L8:
-	#			matrixC[jN+i] = v;
-	ldah $1, matrixC($29)   !gprelhigh
-	lda  $1, matrixC($1)    !gprellow
+	#			C[jN+i] = v;
+	ldah $1, C($29)   !gprelhigh
+	lda  $1, C($1)    !gprellow
 	addl $4, $2, $0
 	s4addl $0, $1, $1
 	stl $5, 0($1)
@@ -63,7 +69,7 @@ L8:
 L6:
 	#	}
 	addl $3, 1, $3
-	addl $4, N, $4
+	addl $4, $10, $4
 	br $31, L3
 L4:
 	#	return 0
@@ -76,19 +82,10 @@ L4:
 #
     .data
     .align 6;
-matrixC:
-    .skip N*N*4
+C:  .skip MAX_N * MAX_N * 4
     
     .section .rodata
-
     .align 6
-matrixA:
-    .rep N*N
-    .int 2
-    .endr
-
+A:  .skip MAX_N * MAX_N * 4
     .align 6
-matrixB:
-    .rep N*N
-    .int 3
-    .endr
+B:  .skip MAX_N * MAX_N * 4

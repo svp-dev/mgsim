@@ -1,13 +1,19 @@
     .file "matmul2.s"
 
+    .section .rodata
+    .ascii "\0TEST_INPUTS:R10:4 7 10\0"
+
     # Matrix width (only square matrices supported)
-    .equ N,         10
+    .equ MAX_N,    10
     
     # Block sizes, comment lines to not set the block size
     .equ BLOCK1,    5
 
 #
-# Multiply matrixA by matrixB and store result in matrixC. Double depth uTC version.
+# Multiply A by B and store result in C. Double depth microthreaded version.
+#
+# $27 = main
+# $10 = N
 #
     .text
     .ent main
@@ -18,32 +24,32 @@ main:
     
 	allocate $4, 0, 0, 0, 0
 	
-	ldah $0, matrixA($29)      !gprelhigh
-	lda  $0, matrixA( $0)      !gprellow
-	ldah $1, matrixB($29)      !gprelhigh
-	lda  $1, matrixB( $1)      !gprellow
-	ldah $2, matrixC($29)      !gprelhigh
-	lda  $2, matrixC( $2)      !gprellow
-	mov  N,  $3
+	ldah $0, A($29)     !gprelhigh
+	lda  $0, A($0)      !gprellow
+	ldah $1, B($29)     !gprelhigh
+	lda  $1, B($1)      !gprellow
+	ldah $2, C($29)     !gprelhigh
+	lda  $2, C($2)      !gprellow
+	mov  $10, $3
 
-	#	create (fam1; 0; N;)
-	setlimit $4, N
+	# create (fam1; 0; N;)
+	setlimit $4, $10
 	swch
 	.ifdef BLOCK1
 	setblock $4, BLOCK1
 	.endif
 	cred $4, thread1
 	
-	#	sync(fam1);
+	# sync(fam1);
 	mov $4, $31
 	end
 	.end main
 
 
     .ent thread1
-    # $g0 = matrixA 
-    # $g1 = matrixB
-    # $g2 = matrixC
+    # $g0 = A 
+    # $g1 = B
+    # $g2 = C
     # $g3 = N
     # $l0 = i
 thread1:
@@ -57,7 +63,7 @@ thread1:
 	mov     $g1, $l1
 	mov     $g3, $l3
 	
-	setlimit $l4, N
+	setlimit $l4, $g3
 	swch
 	cred $l4, thread2
 	mov $l4, $31
@@ -99,7 +105,7 @@ L2s:
     # }
     #
     addl    $l3, 1, $l3
-L2e:cmplt   $l3, N, $l4
+L2e:cmplt   $l3, $g3, $l4
 	bne     $l4, L2s
 	swch
 	
@@ -113,21 +119,10 @@ L2e:cmplt   $l3, N, $l4
 #
     .data
     .align 6;
-    .globl matrixC
-matrixC:
-    .skip N*N*4
+C:  .skip MAX_N * MAX_N * 4
 
     .section .rodata
-
     .align 6
-matrixA:
-    .rep N*N
-    .int 2
-    .endr
-
+A:  .skip MAX_N * MAX_N * 4
     .align 6
-matrixB:
-    .rep N*N
-    .int 3
-    .endr
-
+B:  .skip MAX_N * MAX_N * 4

@@ -1,25 +1,23 @@
-# Livermore kernel 6 -- General linear recurrence equations
-#
-#    double x[N], y[N][N];
-#
-#    for(int i = 1; i < N; i++) {
-#        double sum = 0.01;
-#        for(int j = 0; j < i; j++) {
-#            sum += y[i][j] * x[i - j + 1];
-#        }
-#        x[i] = sum;
-#    }
-#
+/*
+    Livermore kernel 6 -- General linear recurrence equations
+
+    double x[1001], y[64][64];
+
+    for(int i = 1; i < N; i++) {
+        double sum = 0;
+        for(int j = 0; j < i; j++) {
+            sum += y[j][i] * x[i - j - 1];
+        }
+        x[i] = x[i] + sum;
+    }
+*/
     .file "l6_genlinreceq.s"
     .arch ev6
 
     .section .rodata
-    .ascii "\0TEST_INPUTS:R10:256\0"
+    .ascii "\0TEST_INPUTS:R10:16\0"
 	
     .text
-    
-    .equ MAX_N, 1024
-    
 #
 # Main thread
 #
@@ -36,17 +34,7 @@ main:
     lda     $0, X($0)       !gprellow   # $0 = X
     ldah    $1, Y($29)      !gprelhigh
     lda     $1, Y($1)       !gprellow   # $1 = Y
-    lda     $2, MAX_N($31)              # $2 = MAX_N
-    clr     $3                          # $3 = token
-    
-    # Load 0.01 into $f0
-    # It's 0x3F847AE147AE147B in IEEE 754
-    ldah    $4, 0x3F84($31)
-    lda     $4, 0x7AE1($4)
-    sll     $4, 32
-    ldah    $4, 0x47AE($4)
-    lda     $4, 0x147B($4)
-    itoft   $4, $f0
+    clr     $2                          # $2 = token
     
     allocate $4, 0, 0, 0, 0
     setstart $4, 1
@@ -63,31 +51,29 @@ main:
 #
 # $g0  = X
 # $g1  = Y
-# $g2  = MAX_N
 # $d0  = token
 # $l0  = i
-# $gf0 = 0.01
 #
-    .globl outer
     .ent outer
 outer:
-    .registers 3 1 5 1 0 1
+    .registers 2 1 6 0 0 2
     
     allocate $l3, 0, 0, 0, 0
 
-    mull    $l0,  $g2, $l1
-    s8addq  $l1,  $g1, $l1  # $l1 = &Y[i]
+    s8addq  $l0,  $g1, $l1  # $l1 = &Y[0][i]
     mov     $g0,  $l2       # $l2 = X
-    fmov    $gf0, $lf0      # $lf0 = 0.01
+    fclr    $lf0            # $lf0 = sum = 0
     
     setlimit $l3, $l0; swch
-    mov     $d0, $31
+    mov     $d0, $31; swch
     cred    $l3, inner
     s8addq  $l0, $g0, $l4   # $l4 = &X[i]
+    ldt     $lf1, 0($l4)
     mov     $l3, $31
-    stt     $lf0, 0($l4)
+    addt    $lf1, $lf0, $lf0; swch # $lf0 = X[i] + sum
+    stt     $lf0, 0($l4); swch
     wmb
-    mov     $31, $s0
+    clr     $s0
     end
     .end outer
     
@@ -95,31 +81,29 @@ outer:
 # Inner loop
 #
 # $g0  = i
-# $g1  = &Y[i]
+# $g1  = &Y[0][i]
 # $g2  = X
 # $df0 = sum
 # $l0  = j
 #
-    .globl inner
     .ent inner
 inner:
     .registers 3 0 2 0 1 2
     subq    $g0,  $l0, $l1
     s8addq  $l1,  $g2, $l1
-    ldt     $lf0, 8($l1)        # $lf0 = X[i - j + 1]
+    ldt     $lf0, -8($l1)       # $lf0 = X[i - j - 1]
     
+    sll     $l0,   6, $l0
     s8addq  $l0, $g1, $l0
-    ldt     $lf1, 0($l0)        # $lf1 = Y[i][j]
+    ldt     $lf1, 0($l0)        # $lf1 = Y[j][i]
     
     mult    $lf0, $lf1, $lf0; swch
-    addt    $lf0, $df0, $lf0; swch
-    fmov    $lf0, $sf0
+    addt    $lf0, $df0, $sf0
     end
     .end inner
     
-    
     .section .bss
     .align 6
-X:  .skip MAX_N * 8
+X:  .skip 1001 * 8
     .align 6
-Y:  .skip MAX_N * MAX_N * 8
+Y:  .skip 64 * 64 * 8

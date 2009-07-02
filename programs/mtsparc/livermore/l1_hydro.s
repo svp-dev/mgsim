@@ -1,30 +1,39 @@
-!
-! Livermore kernel 1 -- Hydro fragment
-!
+/*
+    Livermore kernel 1 -- Hydro fragment
+
+    double X[1001], Y[1001], Z[1001];
+
+    for (k=0 ; k < N; k++)
+    {
+        x[k] = Q + Y[k] * (R * Z[k+10] + T * Z[k+11]);
+    }
+*/
     .file "l1_hydro.s"
-    .text
 
 !
 ! Constants
 !
-    .equ MAX_N, 1048576
-    
-    .equ Q, 100
-    .equ R, 5
-    .equ T, 2
+    .section .rodata    
+    Q: .double 100
+    R: .double 5
+    T: .double 2
 
+    .text
 !
 ! Main thread
 !
-! %11 = N
+! %11 = N (0 <= N < 990)
 !
     .globl main
 main:
+    set     Q, %1; ldd [%1], %f2
+    set     R, %1; ldd [%1], %f4
+    set     T, %1; ldd [%1], %f6
     set     X, %1
     set     Y, %2
     set     Z, %3
 
-    allocate %4, 0, 0, 0, 0 ! Start = 0, Step = 1
+    allocate %4, 0, 0, 1, 0 ! Start = 0, Step = 1
     setlimit %4, %11        ! Limit = N
     cred     loop, %4
     mov      %4, %0         ! Sync
@@ -34,48 +43,47 @@ main:
 ! Loop thread:
 ! x[i] = Q + Y[i] * (R * Z[i + 10] + T * Z[i + 11]);
 !
-! %g0 = X
-! %g1 = Y
-! %g2 = Z
-! %l0 = i
+! %g0       = X
+! %g1       = Y
+! %g2       = Z
+! %gf0,%gf1 = Q
+! %gf2,%gf3 = R
+! %gf4,%gf5 = T
+! %l0       = i
 !
-    .globl loop
     .align 64
 loop:
-    .registers 3 0 4  0 0 0     ! GR,SR,LR, GF,SF,LF
+    .registers 3 0 2  6 0 6     ! GR,SR,LR, GF,SF,LF
 
-    sll     %l0,   2, %l3
-    add     %l3, %g2, %l3   ! %l3 = &Z[i]
-    ld      [%l3+40], %l2   ! %l2 = Z[i + 10]
-    ld      [%l3+44], %l3   ! %l3 = Z[i + 11]
-    sll     %l0,   2, %l1
+    sll     %l0,   3, %l1
+    add     %l1, %g2, %l1   ! %l1 = &Z[i]
+    ldd     [%l1+80], %lf2  ! %lf2, %lf3 = Z[i + 10]
+    ldd     [%l1+88], %lf4  ! %lf4, %lf5 = Z[i + 11]
+    sll     %l0,   3, %l1
     add     %l1, %g1, %l1   ! %l1 = &Y[i]
-    ld      [%l1+0],  %l1   ! %l1 = Y[i]
-    sll     %l0,   2, %l0
+    ldd     [%l1],    %lf0  ! %lf0,%lf1 = Y[i]
+    sll     %l0,   3, %l0
     add     %l0, %g0, %l0   ! %l0 = &X[i]
 
-    smul    %l2, R, %l2; swch
-    smul    %l3, T, %l3; swch
-    add     %l2, %l3, %l2
-    smul    %l1, %l2, %l1; swch
-    add     %l1, Q, %l1
-    st      %l1, [%l0+0]
-
+    fmuld   %lf2, %gf2, %lf2; swch
+    fmuld   %lf4, %gf4, %lf4; swch
+    faddd   %lf2, %lf4, %lf2; swch
+    fmuld   %lf0, %lf2, %lf0; swch
+    faddd   %lf0, %gf0, %lf0; swch
+    std     %lf0, [%l0]
     end
 
     .section .rodata
-    .ascii "\0TEST_INPUTS:R10:1024\0"
+    .ascii "\0TEST_INPUTS:R10:128\0"
 
 !
 ! Data
 !
     .section .bss
     .align 64
-X:  .skip MAX_N*4
-
+X:  .skip 1001 * 8
     .align 64
-Y:  .skip MAX_N*4
-
+Y:  .skip 1001 * 8
     .align 64
-Z:  .skip (MAX_N + 11)*4
+Z:  .skip 1001 * 8
 

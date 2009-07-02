@@ -2,7 +2,7 @@ TEST_SOURCES = \
     fibo/fibo.s \
     sine/sine_mt_o.s \
     livermore/l1_hydro.s \
-    livermore/l2_iccq.s \
+    livermore/l2_iccg.s \
     livermore/l3_innerprod.s \
     livermore/l4_bandedlineareq.s \
     livermore/l5_tridiagelim.s \

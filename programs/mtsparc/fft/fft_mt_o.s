@@ -157,40 +157,37 @@ _FFT_POST_SWAP:
  */
     .align 64
 _FFT_1:
-	.registers 5 1 6  0 0 0	    ! GR,SR,LR, GF,SF,LF
+	.registers 5 1 5  0 0 0	    ! GR,SR,LR, GF,SF,LF
 	
-	print %g1, 0
-	allocate %l5, 0, 0, 0, 0	! start = 0
-	setlimit %l5, %g1		    ! limit = (N / 2) * 16
-	setstep  %l5, 16			! step  = 16
-	! setblock %l5, %g5
+	allocate %l4, 0, 0, 0, 0	! start = 0
+	setlimit %l4, %g1		    ! limit = (N / 2) * 16
+	setstep  %l4, 16			! step  = 16
+	! setblock %l4, %g4
 	
-	srl  %g4, %l0, %l4		! %l4 = Z = (MAX_N >> k);
-    mov  %g0, %l3		    ! %l3 = X
-    mov  %g2, %l2		    ! %l2 = _cos_sin
-	sub  %l0,   1, %l1		! %l1 = k - 1;
+	srl  %g4, %l0, %l3		! %l3 = Z = (MAX_N >> k);
+    mov  %g0, %l2		    ! %l2 = X
+    mov  %g2, %l1		    ! %l1 = _cos_sin
 	sll  %g3, %l0, %l0
 	sll  %l0,   3, %l0
 	sub  %l0,   1, %l0		! %l0 = LE2 * 16 - 1
 	
     mov  %d0, %0; swch      ! wait for token
-	cred _FFT_2, %l5
-	mov  %l5, %s0 		    ! sync and write token
+	cred _FFT_2, %l4
+	mov  %l4, %s0 		    ! sync and write token
 	end;
 
 /*
  * for (i = 0; i < N / 2; i++) {
  *
  * %g0 = LE2 * 16 - 1
- * %g1 = k - 1
- * %g2 = _cos_sin
- * %g3 = X
- * %g4 = Z
+ * %g1 = _cos_sin
+ * %g2 = X
+ * %g3 = Z
  * %l0 = i * 16
  */
     .align 64
 _FFT_2:
-	.registers 5 0 3  0 0 16    ! GR,SR,LR, GF,SF,LF
+	.registers 4 0 3  0 0 16    ! GR,SR,LR, GF,SF,LF
 	
 	and  %l0, %g0, %l1	    ! %l1 = w
 	sub  %l0, %l1, %l0
@@ -198,16 +195,16 @@ _FFT_2:
 	add  %l0, %l1, %l0	    ! %l0 = j
 	
 	add %l0, %g0, %l2       ! %l2 = ip;
-	add %l2, %g3, %l2	    ! %l2 = &X[ip] - 1;
+	add %l2, %g2, %l2	    ! %l2 = &X[ip] - 1;
 	ldd [%l2+1], %lf4
 	ldd [%l2+9], %lf6		! %LF4, %LF6 = X[ip]
 	
-	umul %l1, %g4, %l1
-	add  %l1, %g2, %l1	    ! %l1 = &_cos_sin[w * Z];
+	umul %l1, %g3, %l1
+	add  %l1, %g1, %l1	    ! %l1 = &_cos_sin[w * Z];
 	ldd  [%l1+0], %lf8
 	ldd  [%l1+8], %lf10		! %LF8, %LF10 = U
 				
-	add %l0, %g3, %l0       ! %l0 = &X[j];
+	add %l0, %g2, %l0       ! %l0 = &X[j];
 
 	ldd [%l0+0], %lf0
 	ldd [%l0+8], %lf2		! %LF0, %LF2 = X[j]

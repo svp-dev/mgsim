@@ -1,14 +1,19 @@
-# Livermore kernel 3 -- Inner product
-#
+/*
+    Livermore kernel 3 -- Inner product
+
+    double z[1001], x[1001];
+    double q = 0.0;
+    for (int k = 0; k < n; k++)
+    {
+        q += z[k] * x[k];
+    }
+*/
     .file "l3_innerprod.s"
 
     .section .rodata
-    .ascii "\0TEST_INPUTS:R10:1024\0"
+    .ascii "\0TEST_INPUTS:R10:512\0"
 	
     .text
-    
-    .equ MAX_N, 1048576
-
 #
 # Main thread
 #
@@ -25,7 +30,7 @@ main:
     lda     $0, X($0)       !gprellow   # $0 = X
     ldah    $1, Y($29)      !gprelhigh
     lda     $1, Y($1)       !gprellow   # $1 = Y
-    clr     $2                          # $2 = sum = 0
+    fclr    $f0                         # $f0 = sum = 0
     
     allocate $3, 0, 0, 0, 0
     setlimit $3, $10
@@ -38,27 +43,24 @@ main:
 #
 # Loop thread
 #
-# $g0 = X
-# $g1 = Y
-# $d0 = sum
-# $l0 = i
-    .globl loop
+# $g0  = X
+# $g1  = Y
+# $df0 = sum
+# $l0  = i
     .ent loop
 loop:
-    .registers 2 1 3 0 0 0
-    s4addq $l0, $g1, $l1
-    ldl $l1, 0($l1)
-    s4addq $l0, $g0, $l0
-    ldl $l0, 0($l0)
-    mull $l0, $l1, $l0; swch
-    addq $d0, $l0, $s0
+    .registers 2 0 2 0 1 2
+    s8addq  $l0, $g1, $l1
+    ldt     $lf1, 0($l1)
+    s8addq  $l0, $g0, $l0
+    ldt     $lf0, 0($l0)
+    mult    $lf0, $lf1, $lf0; swch
+    addt    $df0, $lf0, $sf0
     end
     .end loop
 
     .section .bss
-
     .align 6
-X:  .skip MAX_N * 4
-
+X:  .skip 1001 * 8
     .align 6
-Y:  .skip MAX_N * 4
+Y:  .skip 1001 * 8
