@@ -62,7 +62,6 @@ bool ThreadTable::PushEmpty(const ThreadQueue& q)
         for (TID cur = q.head; cur != INVALID_TID; cur = m_threads[cur].nextMember)
         {
             assert(m_numThreadsUsed > 0);
-            DebugSimWrite("Decrementing for T%u", cur);
             m_threads[cur].state = TST_EMPTY;
             m_numThreadsUsed--;
         }

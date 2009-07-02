@@ -1,6 +1,16 @@
 #ifndef TYPES_H
 #define TYPES_H
 
+// Define the GCC version for checking for certain extensions
+#define GCC_VERSION (__GNUC__ * 10000 + __GNUC_MINOR__ * 100 + __GNUC_PATCHLEVEL__)
+
+#if GCC_VERSION > 20300
+// The printf-format attribute is available since GCC 2.3
+# define FORMAT_PRINTF(fmt,va) __attribute__ ((format (printf, fmt, va)))
+#else
+# define FORMAT_PRINTF(fmt,va)
+#endif
+
 // Support non-compliant C99 compilers (different long long type)
 #if defined(_MSC_VER)
 typedef __int8           int8_t;

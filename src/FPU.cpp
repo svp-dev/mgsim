@@ -54,7 +54,7 @@ bool FPU::QueueOperation(size_t source, FPUOperation fop, int size, double Rav, 
         return false;
     }
     
-    DebugSimWrite("Queued FP %s operation into queue %u", OperationNames[fop], source);
+    DebugSimWrite("Queued FP %s operation into queue %u", OperationNames[fop], (unsigned)source);
     return true;
 }
 
@@ -203,7 +203,8 @@ Result FPU::OnCycleWritePhase(unsigned int stateIndex)
                 unit.slots.push_back(res);
             }
             
-            DebugSimWrite("Put %s operation from queue %u into pipeline %u", OperationNames[op.op], (unsigned)input_index, (unsigned)unit_index);
+            DebugSimWrite("Put %s operation from queue %u into pipeline %u",
+                OperationNames[op.op], (unsigned)input_index, (unsigned)unit_index);
             
             // Remove the queued operation from the queue
             input.Pop();

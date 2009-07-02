@@ -225,24 +225,24 @@ public:
      * Writes debug output if and only if the object's kernel's debug more contains at least DEBUG_SIM.
      * @param msg the printf-style format string.
      */
-    void DebugSimWrite(const char* msg, ...) const;
+    void DebugSimWrite(const char* msg, ...) const FORMAT_PRINTF(2,3);
 
     /**
      * @brief Writes program debug output.
      * Writes debug output if and only if the object's kernel's debug more contains at least DEBUG_PROG.
      * @param msg the printf-style format string.
      */
-    void DebugProgWrite(const char* msg, ...) const;
+    void DebugProgWrite(const char* msg, ...) const FORMAT_PRINTF(2,3);
 
     /**
      * @brief Writes deadlock debug output.
      * Writes debug output if and only if the object's kernel's debug more contains at least DEBUG_DEADLOCK.
      * @param msg the printf-style format string.
      */
-    void DeadlockWrite(const char* msg, ...) const;
+    void DeadlockWrite(const char* msg, ...) const FORMAT_PRINTF(2,3);
 
     /// Writes output. @param msg the printf-style format string.
-    void OutputWrite(const char* msg, ...) const;
+    void OutputWrite(const char* msg, ...) const FORMAT_PRINTF(2,3);
 };
 
 /// Base class for all registers in the simulation.

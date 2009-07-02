@@ -73,7 +73,7 @@ bool Network::SendFamilySynchronization(LFID fid)
     if (m_synchronizedFamily.CanWrite())
     {
         m_synchronizedFamily.Write(fid);
-        DebugSimWrite("Stored family synchronization for F%u", fid);
+        DebugSimWrite("Stored family synchronization for F%u", (unsigned)fid);
         return true;
     }
     return false;
@@ -85,7 +85,7 @@ bool Network::SendFamilyTermination(LFID fid)
     if (m_terminatedFamily.CanWrite())
     {
         m_terminatedFamily.Write(fid);
-        DebugSimWrite("Stored family termination for F%u", fid);
+        DebugSimWrite("Stored family termination for F%u", (unsigned)fid);
         return true;
     }
     return false;
@@ -140,7 +140,7 @@ bool Network::RequestRegister(const RemoteRegAddr& addr, LFID fid_self)
             DebugSimWrite("Requesting %s register %s in F%u",
                 GetRemoteRegisterTypeString(addr.type),
                 addr.reg.str().c_str(),
-                addr.fid
+                (unsigned)addr.fid
             );
             return true;
         }
@@ -155,7 +155,7 @@ bool Network::RequestRegister(const RemoteRegAddr& addr, LFID fid_self)
             DebugSimWrite("Requesting remote %s register %s in F%u",
                 GetRemoteRegisterTypeString(addr.type),
                 addr.reg.str().c_str(),
-                addr.fid
+                (unsigned)addr.fid
             );
             return true;
         }
@@ -179,7 +179,7 @@ bool Network::OnRemoteRegisterRequested(const RegisterRequest& request)
         DebugSimWrite("Requesting remote %s register %s in F%u from F%u@P%u",
             GetRemoteRegisterTypeString(request.addr.type),
             request.addr.reg.str().c_str(),
-            request.addr.fid, request.return_fid, request.return_pid
+            (unsigned)request.addr.fid, (unsigned)request.return_fid, (unsigned)request.return_pid
         );
         return true;
     }
@@ -199,7 +199,7 @@ bool Network::OnRemoteRegisterReceived(const RegisterResponse& response)
 	    DebugSimWrite("Received remote response for %s register %s in F%u",
 	        GetRemoteRegisterTypeString(response.addr.type),
 	        response.addr.reg.str().c_str(),
-	        response.addr.fid
+	        (unsigned)response.addr.fid
         );
        
 		m_registerResponseRemote.in.Write(response);
@@ -222,7 +222,7 @@ bool Network::OnRegisterRequested(const RegisterRequest& request)
 	    DebugSimWrite("Received request for %s register %s in F%u from F%u@next",
 	        GetRemoteRegisterTypeString(request.addr.type),
 	        request.addr.reg.str().c_str(),
-	        request.addr.fid, request.return_fid
+	        (unsigned)request.addr.fid, (unsigned)request.return_fid
 	    );
 	    
 		m_registerRequestGroup.in.Write(request);
@@ -244,7 +244,7 @@ bool Network::OnRegisterReceived(const RegisterResponse& response)
 	    DebugSimWrite("Received response for %s register %s in F%u",
 	        GetRemoteRegisterTypeString(response.addr.type),
 	        response.addr.reg.str().c_str(),
-	        response.addr.fid
+	        (unsigned)response.addr.fid
         );
        
 		m_registerResponseGroup.in.Write(response);
@@ -258,7 +258,7 @@ bool Network::OnThreadCleanedUp(LFID fid)
     assert(fid != INVALID_LFID);
     if (m_cleanedUpThread.CanWrite())
     {
-        DebugSimWrite("Received thread cleanup notification for F%u", fid);
+        DebugSimWrite("Received thread cleanup notification for F%u", (unsigned)fid);
         m_cleanedUpThread.Write(fid);
         return true;
     }
@@ -270,7 +270,7 @@ bool Network::OnThreadCompleted(LFID fid)
     assert(fid != INVALID_LFID);
     if (m_completedThread.CanWrite())
     {
-        DebugSimWrite("Received thread completion notification for F%u", fid);
+        DebugSimWrite("Received thread completion notification for F%u", (unsigned)fid);
         m_completedThread.Write(fid);
         return true;
     }
@@ -281,7 +281,7 @@ bool Network::OnFamilySynchronized(LFID fid)
 {
     if (!m_allocator.DecreaseFamilyDependency(fid, FAMDEP_PREV_SYNCHRONIZED))
     {
-        DeadlockWrite("Unable to mark family synchronization on F%u", fid);
+        DeadlockWrite("Unable to mark family synchronization on F%u", (unsigned)fid);
         return false;
     }
     return true;
@@ -292,7 +292,7 @@ bool Network::OnFamilyTerminated(LFID fid)
     assert(fid != INVALID_LFID);
     if (!m_allocator.DecreaseFamilyDependency(fid, FAMDEP_NEXT_TERMINATED))
     {
-        DeadlockWrite("Unable to mark family termination on F%u", fid);
+        DeadlockWrite("Unable to mark family termination on F%u", (unsigned)fid);
         return false;
     }
     return true;
@@ -322,7 +322,7 @@ bool Network::SendDelegatedCreate(LFID fid)
 		GPID dest_pid = family.place.pid;
 		
 		m_delegateLocal.Write(make_pair(dest_pid, message));
-		DebugSimWrite("Delegating create for (F%u) to P%u", fid, dest_pid);
+		DebugSimWrite("Delegating create for (F%u) to P%u", (unsigned)fid, (unsigned)dest_pid);
         return true;
     }
     return false;
@@ -359,7 +359,7 @@ bool Network::SendGroupCreate(LFID fid)
 		
         m_tokenUsed.Write(true);
 		m_createLocal.Write(message);
-		DebugSimWrite("Broadcasting group create", fid);
+		DebugSimWrite("Broadcasting group create for F%u", (unsigned)fid);
         return true;
     }
     return false;
@@ -377,7 +377,7 @@ bool Network::SendRemoteSync(GPID pid, LFID fid, ExitCode code)
         rs.fid  = fid;
         rs.code = code;
         m_remoteSync.Write(rs);
-        DebugSimWrite("Sending remote sync to F%u@P%u; code=%d", fid, pid, code);
+        DebugSimWrite("Sending remote sync to F%u@P%u; code=%u", (unsigned)fid, (unsigned)pid, (unsigned)code);
         return true;
     }
     return false;
@@ -388,7 +388,7 @@ bool Network::OnDelegationCreateReceived(const DelegateMessage& msg)
     if (m_delegateRemote.CanWrite())
 	{
     	m_delegateRemote.Write(msg);
-    	DebugSimWrite("Received delegated create from F%u@P%u", msg.parent.fid, msg.parent.pid);
+    	DebugSimWrite("Received delegated create from F%u@P%u", (unsigned)msg.parent.fid, (unsigned)msg.parent.pid);
         return true;
     }
     return false;
@@ -428,7 +428,7 @@ bool Network::OnRemoteTokenRequested()
 
 bool Network::OnRemoteSyncReceived(LFID fid, ExitCode code)
 {
-    DebugSimWrite("Received remote sync for F%u; code: %d", fid, code);
+    DebugSimWrite("Received remote sync for F%u; code: %u", (unsigned)fid, (unsigned)code);
     if (!m_allocator.OnRemoteSync(fid, code))
     {
         return false;
@@ -484,7 +484,7 @@ Result Network::OnCycleReadPhase(unsigned int stateIndex)
     	            DebugSimWrite("Discarding request for %s register %s in F%u: register has already been requested",
        	                GetRemoteRegisterTypeString(request.addr.type),
 		                request.addr.reg.str().c_str(),
-		                request.addr.fid
+		                (unsigned)request.addr.fid
 	        	    );
 			    
        			    reg->Clear();
@@ -494,7 +494,7 @@ Result Network::OnCycleReadPhase(unsigned int stateIndex)
                     DebugSimWrite("Read %s register %s in F%u from %s",
                         GetRemoteRegisterTypeString(request.addr.type),
                         request.addr.reg.str().c_str(),
-                        request.addr.fid,
+                        (unsigned)request.addr.fid,
                         addr.str().c_str()
                     );
                 
@@ -510,7 +510,7 @@ Result Network::OnCycleReadPhase(unsigned int stateIndex)
 			    DebugSimWrite("Discarding request for %s register %s in F%u: register not yet allocated",
         	        GetRemoteRegisterTypeString(request.addr.type),
 			        request.addr.reg.str().c_str(),
-			        request.addr.fid
+			        (unsigned)request.addr.fid
 			    );
 			    
 			    reg->Clear();
@@ -557,7 +557,7 @@ Result Network::OnCycleWritePhase(unsigned int stateIndex)
                 DebugSimWrite("Writing %s register %s in F%u",
         	        GetRemoteRegisterTypeString(response.addr.type),
                     response.addr.reg.str().c_str(),
-                    response.addr.fid
+                    (unsigned)response.addr.fid
                 );
                     
                 RegAddr addr = m_allocator.GetRemoteRegisterAddress(response.addr);
@@ -580,7 +580,7 @@ Result Network::OnCycleWritePhase(unsigned int stateIndex)
 	    			{
 		    			if (!m_allocator.DecreaseFamilyDependency(response.addr.fid, FAMDEP_OUTSTANDING_SHAREDS))
 			    		{
-			    		    DeadlockWrite("Unable to decrease outstanding shareds for F%u on writeback", response.addr.fid);
+			    		    DeadlockWrite("Unable to decrease outstanding shareds for F%u on writeback", (unsigned)response.addr.fid);
 				    		return FAILED;
 					    }
     				}
@@ -649,7 +649,7 @@ Result Network::OnCycleWritePhase(unsigned int stateIndex)
 	            DebugSimWrite("Writing remote wait to %s register %s in F%u",
 	                GetRemoteRegisterTypeString(request.addr.type),
 	                request.addr.reg.str().c_str(),
-        	        request.addr.fid
+        	        (unsigned)request.addr.fid
                 );
                     
                 if (request.addr.type == RRT_GLOBAL)
@@ -671,7 +671,7 @@ Result Network::OnCycleWritePhase(unsigned int stateIndex)
                         DebugSimWrite("Forwarded remote request to %s register %s in F%u",
                             GetRemoteRegisterTypeString(request.addr.type),
                             request.addr.reg.str().c_str(),
-                            request.addr.fid
+                            (unsigned)request.addr.fid
                         );
                     }
                     else if (family.parent.gpid != INVALID_GPID)
@@ -690,9 +690,9 @@ Result Network::OnCycleWritePhase(unsigned int stateIndex)
                         DebugSimWrite("Forwarded remote request to %s register %s in F%u to F%u@P%u",
                             GetRemoteRegisterTypeString(request.addr.type),
                             request.addr.reg.str().c_str(),
-                            request.addr.fid,
-                            family.parent.fid,
-                            family.parent.gpid
+                            (unsigned)request.addr.fid,
+                            (unsigned)family.parent.fid,
+                            (unsigned)family.parent.gpid
                         );
                     }
                 }
@@ -715,7 +715,7 @@ Result Network::OnCycleWritePhase(unsigned int stateIndex)
             DebugSimWrite("Sending %s register %s in F%u",
     	        GetRemoteRegisterTypeString(response.addr.type),
                 response.addr.reg.str().c_str(),
-                response.addr.fid
+                (unsigned)response.addr.fid
             );
             
 			if (!m_next->OnRegisterReceived(response))
@@ -756,13 +756,13 @@ Result Network::OnCycleWritePhase(unsigned int stateIndex)
             DebugSimWrite("Sending %s register %s in F%u to P%u",
     	        GetRemoteRegisterTypeString(response.addr.type),
                 response.addr.reg.str().c_str(),
-                response.addr.fid,
-                response.addr.pid
+                (unsigned)response.addr.fid,
+                (unsigned)response.addr.pid
             );
             
 			if (!m_grid[response.addr.pid]->GetNetwork().OnRemoteRegisterReceived(response))
             {
-                DeadlockWrite("Unable to send register response to P%u", response.addr.pid);
+                DeadlockWrite("Unable to send register response to P%u", (unsigned)response.addr.pid);
                 return FAILED;
             }
 
@@ -779,7 +779,7 @@ Result Network::OnCycleWritePhase(unsigned int stateIndex)
 	        const RegisterRequest& request = m_registerRequestRemote.out.Read();
             if (!m_grid[request.addr.pid]->GetNetwork().OnRemoteRegisterRequested(request))
             {
-                DeadlockWrite("Unable to send register request to P%u", request.addr.pid);
+                DeadlockWrite("Unable to send register request to P%u", (unsigned)request.addr.pid);
                 return FAILED;
             }
             
@@ -814,11 +814,11 @@ Result Network::OnCycleWritePhase(unsigned int stateIndex)
 			// Send the create
 			if (!m_grid[pid]->GetNetwork().OnDelegationCreateReceived(msg))
 			{
-			    DeadlockWrite("Unable to send delegation create to P%u", pid);
+			    DeadlockWrite("Unable to send delegation create to P%u", (unsigned)pid);
 				return FAILED;
 			}
 
-            DebugSimWrite("Sent delegated family create to P%u", pid);
+            DebugSimWrite("Sent delegated family create to P%u", (unsigned)pid);
 			m_delegateLocal.Clear();
 		    return SUCCESS;
 		}		
@@ -856,7 +856,7 @@ Result Network::OnCycleWritePhase(unsigned int stateIndex)
 		        // Send the FID back to the previous processor
 		        if (!m_prev->SetupFamilyNextLink(msg.link_prev, fid))
 		        {
-    		        DeadlockWrite("Unable to setup F%u's next link to F%u", fid, msg.link_prev);
+    		        DeadlockWrite("Unable to setup F%u's next link to F%u", (unsigned)fid, (unsigned)msg.link_prev);
 		            return FAILED;
 		        }
             
@@ -942,7 +942,7 @@ Result Network::OnCycleWritePhase(unsigned int stateIndex)
             
             if (!m_grid[rs.pid]->GetNetwork().OnRemoteSyncReceived(rs.fid, rs.code))
             {
-                DeadlockWrite("Unable to send remote sync for F%u to P%u", rs.fid, rs.pid);
+                DeadlockWrite("Unable to send remote sync for F%u to P%u", (unsigned)rs.fid, (unsigned)rs.pid);
                 return FAILED;
             }
             
@@ -957,7 +957,7 @@ Result Network::OnCycleWritePhase(unsigned int stateIndex)
             LFID fid = m_cleanedUpThread.Read();
             if (!m_allocator.OnRemoteThreadCleanup(fid))
             {
-                DeadlockWrite("Unable to mark thread cleanup on F%u", fid);
+                DeadlockWrite("Unable to mark thread cleanup on F%u", (unsigned)fid);
                 return FAILED;
             }
             m_cleanedUpThread.Clear();
@@ -971,7 +971,7 @@ Result Network::OnCycleWritePhase(unsigned int stateIndex)
             LFID fid = m_completedThread.Read();
             if (!m_allocator.OnRemoteThreadCompletion(fid))
             {
-                DeadlockWrite("Unable to mark thread completion on F%u", fid);
+                DeadlockWrite("Unable to mark thread completion on F%u", (unsigned)fid);
                 return FAILED;
             }
             m_completedThread.Clear();
@@ -985,7 +985,7 @@ Result Network::OnCycleWritePhase(unsigned int stateIndex)
             LFID fid = m_synchronizedFamily.Read();
             if (!m_next->OnFamilySynchronized(fid))
             {
-                DeadlockWrite("Unable to send family synchronization for F%u", fid);
+                DeadlockWrite("Unable to send family synchronization for F%u", (unsigned)fid);
                 return FAILED;
             }
             m_synchronizedFamily.Clear();
@@ -999,7 +999,7 @@ Result Network::OnCycleWritePhase(unsigned int stateIndex)
             LFID fid = m_terminatedFamily.Read();
             if (!m_prev->OnFamilyTerminated(fid))
             {
-                DeadlockWrite("Unable to send family termination for F%u", fid);
+                DeadlockWrite("Unable to send family termination for F%u", (unsigned)fid);
                 return FAILED;
             }
             m_terminatedFamily.Clear();

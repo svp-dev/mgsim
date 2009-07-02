@@ -118,7 +118,8 @@ Result ICache::FindLine(MemAddr address, Line* &line)
     if (line == NULL)
     {
         // No available line
-        DeadlockWrite("Unable to allocate a cache-line for the request to 0x%016llx (set %u)", (unsigned long long)address, set / m_assoc);
+        DeadlockWrite("Unable to allocate a cache-line for the request to 0x%016llx (set %u)",
+            (unsigned long long)address, (unsigned)(set / m_assoc));
         return FAILED;
     }
 
@@ -327,7 +328,7 @@ bool ICache::OnMemoryReadCompleted(const MemData& data)
 		// Resume family creation
 		if (!m_allocator.OnCachelineLoaded(data.tag.cid))
 		{
-		    DeadlockWrite("Unable to resume family creation for C%u", data.tag.cid);
+		    DeadlockWrite("Unable to resume family creation for C%u", (unsigned)data.tag.cid);
 			return false;
 		}
 		COMMIT{ line.creation = false; }
@@ -338,7 +339,8 @@ bool ICache::OnMemoryReadCompleted(const MemData& data)
 		// Reschedule the line's waiting list
 		if (!m_allocator.QueueActiveThreads(line.waiting))
 		{
-		    DeadlockWrite("Unable to queue active threads T%u through T%u for C%u", line.waiting.head, line.waiting.tail, data.tag.cid);
+		    DeadlockWrite("Unable to queue active threads T%u through T%u for C%u",
+		        (unsigned)line.waiting.head, (unsigned)line.waiting.tail, (unsigned)data.tag.cid);
 			return false;
 		}
 

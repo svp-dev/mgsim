@@ -181,12 +181,12 @@ void Pipeline::ExecuteStage::ExecDebug(Integer value, Integer stream) const
 {
     if ((stream & 0x7f) == 0) {
         if (stream & 0x80) {
-            DebugProgWrite("PRINT by T%u at 0x%0.*llx: %lld",
-                m_input.tid, sizeof(m_input.pc) * 2, (unsigned long long)m_input.pc,
+            DebugProgWrite("PRINT by T%u at 0x%.*llx: %lld",
+                (unsigned)m_input.tid, (int)sizeof(m_input.pc) * 2, (unsigned long long)m_input.pc,
                 (long long)(SInteger)value);
         } else {
-            DebugProgWrite("PRINT by T%u at 0x%0.*llx: %llu",
-                m_input.tid, sizeof(m_input.pc) * 2, (unsigned long long)m_input.pc,
+            DebugProgWrite("PRINT by T%u at 0x%.*llx: %llu",
+                (unsigned)m_input.tid, (int)sizeof(m_input.pc) * 2, (unsigned long long)m_input.pc,
                 (unsigned long long)value);
         }
     } else {
@@ -198,9 +198,8 @@ void Pipeline::ExecuteStage::ExecDebug(Integer value, Integer stream) const
 void Pipeline::ExecuteStage::ExecDebug(double value, Integer stream) const
 {
     if (stream == 0) {
-        DebugProgWrite("PRINT by T%u at 0x%0.*llx: %0.12f",
-            m_input.tid,
-            sizeof(m_input.pc) * 2, (unsigned long long)m_input.pc,
+        DebugProgWrite("PRINT by T%u at 0x%.*llx: %0.12f",
+            (unsigned)m_input.tid, (int)sizeof(m_input.pc) * 2, (unsigned long long)m_input.pc,
             value );
     } else {
         ostream& out = (stream != 1) ? cerr : cout;
