@@ -116,6 +116,7 @@ public:
     {
         TID     tid;
         MemAddr pc;
+        MemAddr pc_dbg; // Original, unmodified PC for debugging
         LFID    fid;
         bool    swch;
         bool    kill;
@@ -399,8 +400,7 @@ public:
     Result OnCycleWritePhase(unsigned int stateIndex);
     void   UpdateStatistics();
 
-    const Stage& GetStage(int i) const { return *m_stages[i]; }
-    Processor&   GetProcessor()  const { return m_parent; }
+    Processor& GetProcessor()  const { return m_parent; }
     
     uint64_t GetMaxIdleTime() const { return m_maxPipelineIdleTime; }
     uint64_t GetMinIdleTime() const { return m_minPipelineIdleTime; }
@@ -410,6 +410,9 @@ public:
 
     uint64_t GetFlop() const { return m_execute.getFlop(); }
     uint64_t GetOp()   const { return m_execute.getOp(); }
+    
+    void Cmd_Help(std::ostream& out, const std::vector<std::string>& arguments) const;
+    void Cmd_Read(std::ostream& out, const std::vector<std::string>& arguments) const;
 
 private:
     Processor&    m_parent;

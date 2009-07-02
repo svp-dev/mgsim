@@ -17,20 +17,6 @@ namespace Simulator
 class ParallelMemory : public IComponent, public IMemoryAdmin, public VirtualMemory
 {
 public:
-    struct Request
-    {
-        bool             write;
-        MemAddr          address;
-        MemData          data;
-        IMemoryCallback* callback;
-    };
-
-	struct Port
-	{
-		std::deque<Request>             m_requests;
-		std::multimap<CycleNo, Request> m_inFlight;
-	};
-
     ParallelMemory(Object* parent, Kernel& kernel, const std::string& name, const Config& config);
     ~ParallelMemory();
 
@@ -51,14 +37,28 @@ public:
     void Read (MemAddr address, void* data, MemSize size);
     void Write(MemAddr address, const void* data, MemSize size);
 
-    const Port& GetPort(size_t i) const { return m_ports[i]; }
-    size_t      GetNumPorts()     const { return m_ports.size(); }
-
     size_t GetStatMaxRequests() { return m_statMaxRequests; }
     size_t GetStatMaxInFlight() { return m_statMaxInFlight; }
     
+    void Cmd_Help(std::ostream& out, const std::vector<std::string>& arguments) const;
+    void Cmd_Read(std::ostream& out, const std::vector<std::string>& arguments) const;
 private:
+    struct Request
+    {
+        bool             write;
+        MemAddr          address;
+        MemData          data;
+        IMemoryCallback* callback;
+    };
+
+	struct Port
+	{
+		std::deque<Request>             m_requests;
+		std::multimap<CycleNo, Request> m_inFlight;
+	};
+
     void AddRequest(Request& request);
+    static void PrintRequest(std::ostream& out, const Request& request, CycleNo done);
     
     std::set<IMemoryCallback*>        m_caches;
     std::map<IMemoryCallback*, Port*> m_portmap;

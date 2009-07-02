@@ -4,7 +4,7 @@
 #include "Memory.h"
 #include "buffer.h"
 #include "VirtualMemory.h"
-#include <queue>
+#include <deque>
 #include <set>
 
 class Config;
@@ -45,13 +45,12 @@ public:
     void Read (MemAddr address, void* data, MemSize size);
     void Write(MemAddr address, const void* data, MemSize size);
 
-    const std::queue<Request>& GetRequests() const {
-        return m_requests;
-    }
+    void Cmd_Help(std::ostream& out, const std::vector<std::string>& arguments) const;
+    void Cmd_Read(std::ostream& out, const std::vector<std::string>& arguments) const;
 
 private:
     std::set<IMemoryCallback*>  m_caches;
-    std::queue<Request>         m_requests;
+    std::deque<Request>         m_requests;
     BufferSize                  m_bufferSize;
     CycleNo                     m_baseRequestTime;
     CycleNo                     m_timePerLine;

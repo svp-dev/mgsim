@@ -135,6 +135,9 @@ public:
      * @return true if the operation could be queued.
      */
 	bool QueueOperation(size_t source, FPUOperation op, int size, double Rav, double Rbv, const RegAddr& Rc);
+
+    void Cmd_Help(std::ostream& out, const std::vector<std::string>& arguments) const;
+    void Cmd_Read(std::ostream& out, const std::vector<std::string>& arguments) const;
 };
 
 }

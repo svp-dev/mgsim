@@ -3,8 +3,11 @@
 #include <cassert>
 #include <sstream>
 #include <cstring>
-using namespace Simulator;
+#include <iomanip>
 using namespace std;
+
+namespace Simulator
+{
 
 void ParallelMemory::RegisterListener(PSize /*pid*/, IMemoryCallback& callback)
 {
@@ -237,4 +240,89 @@ ParallelMemory::ParallelMemory(Object* parent, Kernel& kernel, const std::string
 
 ParallelMemory::~ParallelMemory()
 {
+}
+
+void ParallelMemory::Cmd_Help(ostream& out, const vector<string>& /*arguments*/) const
+{
+    out <<
+    "The Parallel Memory is an extension on the Ideal Memory in that every CPU has a\n"
+    "dedicated port into memory. Internally, there are no conflicts between ports so\n"
+    "every CPU can issue memory operations fully independent of all other CPUs.\n\n"
+    "Supported operations:\n"
+    "- info <component>\n"
+    "  Displays the currently reserved and allocated memory ranges\n\n"
+    "- read <component> <start> <size>\n"
+    "  Reads the specified number of bytes of raw data from memory from the\n"
+    "  specified address\n\n"
+    "- read <component> requests\n"
+    "  Reads the ports' requests buffers\n";
+}
+
+/*static*/ void ParallelMemory::PrintRequest(ostream& out, const Request& request, CycleNo done)
+{
+    out << hex << setfill('0') << right
+        << " 0x" << setw(16) << request.address << " | "
+        << setfill(' ') << setw(4) << dec << request.data.size << " | ";
+
+    if (request.data.tag.cid == INVALID_CID) {
+        out << " N/A  | ";
+    } else {
+        out << setw(5) << request.data.tag.cid << " | ";
+    }
+
+    if (request.write) {
+        out << "Data write";
+    } else if (request.data.tag.data) {
+        out << "Data read ";
+    } else if (request.data.tag.cid != INVALID_CID) {
+        out << "Cache-line";
+    }
+    out << " | ";
+    
+    if (done != 0)
+    {
+        out << dec << done;
+    }
+    
+    out << endl;
+}
+
+void ParallelMemory::Cmd_Read(ostream& out, const vector<string>& arguments) const
+{
+    if (arguments.empty() || arguments[0] != "requests")
+    {
+        return VirtualMemory::Cmd_Read(out, arguments);
+    }
+
+    for (map<IMemoryCallback*, Port*>::const_iterator q = m_portmap.begin(); q != m_portmap.end(); ++q)
+    {
+        Port& port = *q->second;
+        if (!port.m_inFlight.empty() || !port.m_requests.empty())
+        {
+            out << "Port for: ";
+            Object* obj = dynamic_cast<Object*>(q->first);
+            if (obj == NULL) {
+                out << "???";
+            } else {
+                out << obj->GetFQN();
+            }
+            out << endl;
+        
+            out << "      Address       | Size |  CID  |    Type    | Done" << endl;
+            out << "--------------------+------+-------+------------+---------" << endl;
+
+            for (multimap<CycleNo, Request>::const_iterator p = port.m_inFlight.begin(); p != port.m_inFlight.end(); ++p)
+            {
+                PrintRequest(out, p->second, p->first);
+            }
+        
+            for (deque<Request>::const_iterator p = port.m_requests.begin(); p != port.m_requests.end(); ++p)
+            {
+                PrintRequest(out, *p, 0);
+            }
+            out << endl;
+        }
+    }
+}
+
 }

@@ -11,7 +11,6 @@
 #include "BankedMemory.h"
 #include "RandomBankedMemory.h"
 
-#include "commands.h"
 #include "config.h"
 #include "profile.h"
 #include "loader.h"
@@ -19,7 +18,6 @@
 #include <cassert>
 #include <iostream>
 #include <iomanip>
-#include <stdexcept>
 #include <limits>
 #include <typeinfo>
 #include <cmath>
@@ -123,9 +121,11 @@ public:
         return flop;
     }
 
-	void PrintState() const
+	void PrintState(const vector<string>& arguments) const
 	{
 		typedef map<string, RunState> StateMap;
+		
+		bool show_all = (!arguments.empty() && arguments[0] == "all");
 		
 		StateMap   states;
 		streamsize length = 0;
@@ -135,9 +135,12 @@ public:
 		{
 		    for (size_t i = 0; i < p->second.states.size(); ++i)
 		    {
-    			string name = p->first->GetFQN() + ":" + p->second.states[i].name + ": ";
-    			states[name] = p->second.states[i].state;
-    			length = max(length, (streamsize)name.length());
+    			RunState state = p->second.states[i].state;
+    			if (show_all || state != STATE_IDLE) {
+        			const string name = p->first->GetFQN() + ":" + p->second.states[i].name + ": ";
+    			    states[name] = state;
+        			length = max(length, (streamsize)name.length());
+    			}
     	    }
 		}
 		
@@ -159,8 +162,11 @@ public:
         int width = (int)log10(m_procs.size()) + 1;
    		for (size_t i = 0; i < m_procs.size(); ++i)
    		{
-   		    cout << "Processor " << right << setw(width) << i << ": "
-   		         << (m_procs[i]->IsIdle() ? "idle" : "busy") << endl;
+   		    bool idle = m_procs[i]->IsIdle();
+   		    if (show_all || !idle) {
+   		        cout << "Processor " << right << setw(width) << i << ": "
+   		             << (idle ? "idle" : "busy") << endl;
+   		    }
    		}
 	}
 
@@ -280,22 +286,60 @@ public:
     }
 
     // Steps the entire system this many cycles
-    RunState Step(CycleNo nCycles)
+    void Step(CycleNo nCycles)
     {
    		RunState state = GetKernel().Step(nCycles);
    		if (state == STATE_IDLE)
    		{
-   		    // An idle state might actually be deadlock if there's a bug in the simulator.
+   		    // An idle state might actually be deadlock if there's a suspended thread.
    		    // So check all cores to see if they're really done.
    		    for (size_t i = 0; i < m_procs.size(); ++i)
    		    {
    		        if (!m_procs[i]->IsIdle())
    		        {
-   		            return STATE_DEADLOCK;
+   		            state = STATE_DEADLOCK;
+   		            break;
    		        }
    		    }
    		}
-   		return state;
+   		
+        if (state == STATE_DEADLOCK)
+        {
+            // See how many processes are in each of the states
+            unsigned int num_idle = 0, num_stalled = 0, num_running = 0;
+            const Kernel::CallbackList& callbacks = m_kernel.GetCallbacks();
+            for (Kernel::CallbackList::const_iterator p = callbacks.begin(); p != callbacks.end(); ++p)
+            {
+                for (size_t i = 0; i < p->second.states.size(); ++i)
+                {
+                    switch (p->second.states[i].state)
+                    {
+                        case STATE_IDLE:     ++num_idle;    break;
+                        case STATE_DEADLOCK: ++num_stalled; break;
+                        case STATE_RUNNING:  ++num_running; break;
+                        case STATE_ABORTED:  assert(0); break;
+                    }
+                }
+            }
+            
+            unsigned int num_regs = 0;
+            for (size_t i = 0; i < m_procs.size(); ++i)
+            {
+                num_regs += m_procs[i]->GetNumSuspendedRegisters();
+            }
+            
+            stringstream ss;
+            ss << "Deadlock!" << endl
+               << "(" << num_stalled << " processes stalled;  " << num_running << " processes running; "
+               << num_regs << " registers waited on)";
+    	    throw runtime_error(ss.str());
+        }
+    							
+   	    if (state == STATE_ABORTED)
+        {
+            // The simulation was aborted, because the user interrupted it.
+            throw runtime_error("Interrupted!");
+        }
     }
     
     void Abort()
@@ -493,27 +537,24 @@ static void PrintComponents(const Object* root, const string& indent = "")
 }
 
 // Prints the help text
-static void PrintHelp()
+static void PrintHelp(ostream& out)
 {
-    cout <<
+    out <<
         "Available commands:\n"
         "-------------------\n"
-        "(h)elp         Print this help text.\n"
-        "(p)rint        Print all components in the system.\n"
-        "(s)tep         Advance the system one clock cycle.\n"
-        "(r)un          Run the system until it is idle or deadlocks.\n"
-        "               Deadlocks or livelocks will not be reported.\n"
-        "state          Shows the state of the system.\n"
-        "debug [mode]   Show debug mode or set debug mode\n"
-        "               Debug mode can be: SIM, PROG or DEADLOCK.\n"
-        "               ALL is short for SIM and PROG\n"
-        "profiles       Lists the total time of the profiled section.\n"
-        "idle           Prints the idle state for all components.\n"
-        "\n"
-        "help <component>            Show the supported methods and options for this\n"
-        "                            component.\n"
-        "read <component> <options>  Read data from this component.\n"
-        "info <component> <options>  Get general information from this component.\n"
+        "(h)elp           Print this help text.\n"
+        "(p)rint          Print all components in the system.\n"
+        "(s)tep           Advance the system one clock cycle.\n"
+        "(r)un            Run the system until it is idle or deadlocks.\n"
+        "                 Livelocks will not be reported.\n"
+        "state [all]      Shows the state of the system. When \"all\" is\n"
+        "                 not specified, it leaves out all idle components\n"
+        "debug [mode]     Show debug mode or set debug mode\n"
+        "                 Debug mode can be: SIM, PROG, DEADLOCK or NONE.\n"
+        "                 ALL is short for SIM and PROG\n"
+        "profiles         Lists the total time of the profiled section.\n"
+        "help <component> Show the supported methods and options for this\n"
+        "                 component.\n"
         << endl;
 }
 
@@ -554,13 +595,77 @@ static void PrintProfiles()
     }
 }
 
+class bind_cmd
+{
+public:
+    virtual bool call(std::ostream& out, Object* obj, const std::vector<std::string>& arguments) const = 0;
+    virtual ~bind_cmd() {}
+};
+
+template <typename T>
+class bind_cmd_T : public bind_cmd
+{
+    typedef void (T::*func_t)(std::ostream& out, const std::vector<std::string>& arguments) const;
+    func_t m_func;
+public:
+    bool call(std::ostream& out, Object* obj, const std::vector<std::string>& arguments) const {
+        T* o = dynamic_cast<T*>(obj);
+        if (o == NULL) return false;
+        (o->*m_func)(out, arguments);
+        return true;
+    }
+    bind_cmd_T(const func_t& func) : m_func(func) {}
+};
+
+static const struct
+{
+    const char*     name;
+    const bind_cmd* func;
+} _Commands[] = {
+    {"help", new bind_cmd_T<RAUnit            >(&RAUnit            ::Cmd_Help) },
+    {"help", new bind_cmd_T<ThreadTable       >(&ThreadTable       ::Cmd_Help) },
+    {"help", new bind_cmd_T<FamilyTable       >(&FamilyTable       ::Cmd_Help) },
+    {"help", new bind_cmd_T<Network           >(&Network           ::Cmd_Help) },
+    {"help", new bind_cmd_T<RegisterFile      >(&RegisterFile      ::Cmd_Help) },
+    {"help", new bind_cmd_T<ICache            >(&ICache            ::Cmd_Help) },
+    {"help", new bind_cmd_T<DCache            >(&DCache            ::Cmd_Help) },
+    {"help", new bind_cmd_T<Pipeline          >(&Pipeline          ::Cmd_Help) },
+    {"help", new bind_cmd_T<Allocator         >(&Allocator         ::Cmd_Help) },
+    {"help", new bind_cmd_T<IdealMemory       >(&IdealMemory       ::Cmd_Help) },
+    {"help", new bind_cmd_T<ParallelMemory    >(&ParallelMemory    ::Cmd_Help) },
+    {"help", new bind_cmd_T<RandomBankedMemory>(&RandomBankedMemory::Cmd_Help) },
+    {"help", new bind_cmd_T<BankedMemory      >(&BankedMemory      ::Cmd_Help) },
+    {"help", new bind_cmd_T<FPU               >(&FPU               ::Cmd_Help) },
+    {"info", new bind_cmd_T<VirtualMemory     >(&VirtualMemory     ::Cmd_Info) },
+    {"read", new bind_cmd_T<RAUnit            >(&RAUnit            ::Cmd_Read) },
+    {"read", new bind_cmd_T<ThreadTable       >(&ThreadTable       ::Cmd_Read) },
+    {"read", new bind_cmd_T<FamilyTable       >(&FamilyTable       ::Cmd_Read) },
+    {"read", new bind_cmd_T<Network           >(&Network           ::Cmd_Read) },
+    {"read", new bind_cmd_T<RegisterFile      >(&RegisterFile      ::Cmd_Read) },
+    {"read", new bind_cmd_T<ICache            >(&ICache            ::Cmd_Read) },
+    {"read", new bind_cmd_T<DCache            >(&DCache            ::Cmd_Read) },
+    {"read", new bind_cmd_T<Pipeline          >(&Pipeline          ::Cmd_Read) },
+    {"read", new bind_cmd_T<Allocator         >(&Allocator         ::Cmd_Read) },
+    {"read", new bind_cmd_T<IdealMemory       >(&IdealMemory       ::Cmd_Read) },
+    {"read", new bind_cmd_T<ParallelMemory    >(&ParallelMemory    ::Cmd_Read) },
+    {"read", new bind_cmd_T<RandomBankedMemory>(&RandomBankedMemory::Cmd_Read) },
+    {"read", new bind_cmd_T<BankedMemory      >(&BankedMemory      ::Cmd_Read) },
+    {"read", new bind_cmd_T<VirtualMemory     >(&VirtualMemory     ::Cmd_Read) },
+    {"read", new bind_cmd_T<FPU               >(&FPU               ::Cmd_Read) },
+    {NULL, NULL}
+};
+
 static void ExecuteCommand(MGSystem& sys, const string& command, vector<string> args)
 {
+    // Backup stream state before command
+    stringstream backup;
+    backup.copyfmt(cout);
+    
     // See if the command exists
     int i;
-    for (i = 0; Commands[i].name != NULL; ++i)
+    for (i = 0; _Commands[i].name != NULL; ++i)
     {
-        if (Commands[i].name == command)
+        if (_Commands[i].name == command)
         {
             if (args.size() == 0)
             {
@@ -580,16 +685,16 @@ static void ExecuteCommand(MGSystem& sys, const string& command, vector<string> 
             {
                 // See if the object type matches
                 int j;
-                for (j = i; Commands[j].name != NULL && Commands[j].name == command; ++j)
+                for (j = i; _Commands[j].name != NULL && _Commands[j].name == command; ++j)
                 {
-                    if (Commands[j].execute(obj, args))
+                    if (_Commands[j].func->call(cout, obj, args))
                     {
                         cout << endl;
                         break;
                     }
                 }
 
-                if (Commands[j].name == NULL || Commands[j].name != command)
+                if (_Commands[j].name == NULL || _Commands[j].name != command)
                 {
                     cout << "Invalid argument type for command" << endl;
                 }
@@ -598,11 +703,14 @@ static void ExecuteCommand(MGSystem& sys, const string& command, vector<string> 
         }
     }
 
-    if (Commands[i].name == NULL)
+    if (_Commands[i].name == NULL)
     {
         // Command does not exist
         cout << "Unknown command" << endl;
     }
+    
+    // Restore stream state
+    cout.copyfmt(backup);
 }
 
 static void PrintUsage()
@@ -742,7 +850,7 @@ static void sigabrt_handler(int)
     }
 }
 
-static RunState StepSystem(MGSystem& system, CycleNo cycles)
+static void StepSystem(MGSystem& system, CycleNo cycles)
 {
     active_system = &system;
 
@@ -752,18 +860,34 @@ static RunState StepSystem(MGSystem& system, CycleNo cycles)
     sigemptyset(&new_handler.sa_mask);
     sigaction(SIGINT, &new_handler, &old_handler);
 
-    RunState state;
     try
     {
-        state = system.Step(cycles);
+        system.Step(cycles);
     }
     catch (...)
     {
         sigaction(SIGINT, &old_handler, NULL);
+        active_system = NULL;
         throw;
     }
-    sigaction(SIGINT, &old_handler, NULL);
-    return state;
+    sigaction(SIGINT, &old_handler, NULL);   
+    active_system = NULL;
+}
+
+static void PrintException(ostream& out, const exception& e)
+{
+    out << endl << e.what() << endl;
+    
+    const SimulationException* se = dynamic_cast<const SimulationException*>(&e);
+    if (se != NULL)
+    {
+    	// SimulationExceptions hold more information, print it
+    	const list<string>& details = se->GetDetails();
+    	for (list<string>::const_iterator p = details.begin(); p != details.end(); ++p)
+    	{
+    	    out << *p << endl;
+        }
+    }
 }
     
 int main(int argc, const char* argv[])
@@ -796,16 +920,7 @@ int main(int argc, const char* argv[])
             // Non-interactive mode; run and dump cycle count
             try
             {
-                RunState state = StepSystem(sys, INFINITE_CYCLES);
-                if (state == STATE_DEADLOCK)
-    			{
-    				throw runtime_error("Deadlock!");
-    			}
-    			
-    			if (state == STATE_ABORTED)
-    			{
-    			    throw runtime_error("Aborted!");
-    			}
+                StepSystem(sys, INFINITE_CYCLES);
     			
     			if (!config.m_quiet)
     			{
@@ -826,7 +941,7 @@ int main(int argc, const char* argv[])
     			    cout << endl;
     			}
     		}
-    		catch (exception& e)
+    		catch (const exception& e)
     		{
                 if (config.m_terminate) 
                 {
@@ -834,7 +949,8 @@ int main(int argc, const char* argv[])
                     // rethrow so it abort the program.
                     throw;
                 }
-    		    cerr << endl << e.what() << endl;
+                
+                PrintException(cerr, e);
     		    
     		    // When we get an exception in non-interactive mode,
     		    // jump into interactive mode
@@ -882,7 +998,7 @@ int main(int argc, const char* argv[])
 
 						if (command == "h" || command == "/?" || (command == "help" && args.empty()))
 						{
-							PrintHelp();
+							PrintHelp(cout);
 						}
 						else if (command == "r" || command == "run" || command == "s" || command == "step")
 						{
@@ -897,20 +1013,11 @@ int main(int argc, const char* argv[])
 
                             try
                             {
-                                RunState state = StepSystem(sys, nCycles);
-                                if (state == STATE_DEADLOCK)
-    							{
-    								throw runtime_error("Deadlock!");
-    							}
-    							
-    							if (state == STATE_ABORTED)
-    							{
-    							    throw runtime_error("Aborted!");
-    							}
+                                StepSystem(sys, nCycles);
     					    }
-    					    catch (exception& e)
+    					    catch (const exception& e)
     					    {
-    					        cout << e.what() << endl;
+                                PrintException(cerr, e);
     					    }
 						}
 						else if (command == "p" || command == "print")
@@ -929,7 +1036,7 @@ int main(int argc, const char* argv[])
 						}
 						else if (command == "state")
 						{
-							sys.PrintState();
+							sys.PrintState(args);
 						}
 						else if (command == "debug")
 						{
@@ -944,6 +1051,7 @@ int main(int argc, const char* argv[])
                             else if (state == "PROG")     sys.SetDebugMode(Kernel::DEBUG_PROG);
                             else if (state == "DEADLOCK") sys.SetDebugMode(Kernel::DEBUG_DEADLOCK);
                             else if (state == "ALL")      sys.SetDebugMode(Kernel::DEBUG_PROG | Kernel::DEBUG_SIM);
+                            else if (state == "NONE")     sys.SetDebugMode(0);
                             
                             string debugStr;
                             switch (sys.GetDebugMode())
@@ -965,9 +1073,9 @@ int main(int argc, const char* argv[])
 			}
 	    }
 	}
-    catch (exception &e)
+    catch (const exception& e)
     {
-        cerr << e.what() << endl;
+        PrintException(cerr, e);
         return 1;
     }
     return 0;

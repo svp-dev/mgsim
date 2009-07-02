@@ -2,8 +2,10 @@
 #include "Processor.h"
 #include "config.h"
 #include <cassert>
-using namespace Simulator;
 using namespace std;
+
+namespace Simulator
+{
 
 void Pipeline::FetchStage::clear(TID tid)
 {
@@ -122,6 +124,7 @@ Pipeline::PipeAction Pipeline::FetchStage::write()
 		m_output.link_next  = m_link_next;
 		m_output.tid        = m_tid;
 		m_output.pc         = m_pc;
+		m_output.pc_dbg     = m_pc;
 		m_output.onParent   = m_onParent;
 		m_output.parent_pid = m_parent_pid;
 		m_output.parent_fid = m_parent_fid;
@@ -185,3 +188,4 @@ Pipeline::FetchStage::~FetchStage()
     delete[] m_buffer;
 }
 
+}

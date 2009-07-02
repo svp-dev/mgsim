@@ -120,6 +120,9 @@ public:
     bool SendRegister   (const RemoteRegAddr& addr, const RegValue& value);
     bool RequestRegister(const RemoteRegAddr& addr, LFID fid_self);
     
+    void Cmd_Help(std::ostream& out, const std::vector<std::string>& arguments) const;
+    void Cmd_Read(std::ostream& out, const std::vector<std::string>& arguments) const;
+
 private:
     bool SetupFamilyNextLink(LFID fid, LFID link_next);
     bool OnGroupCreateReceived(const CreateMessage& msg);

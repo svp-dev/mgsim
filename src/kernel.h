@@ -83,7 +83,7 @@ private:
     ComponentList  m_components;    ///< List of all components in the simulation.
     RegisterList   m_registers;     ///< List of all registers in the simulation.
     
-    std::pair<const IComponent*, int> m_component; ///< The currently executing component.
+    std::pair<IComponent*, int> m_component; ///< The currently executing component.
 
 public:
     Kernel();
@@ -118,7 +118,7 @@ public:
     /**
      * @brief Get the currently executing component and state
      */
-    inline const std::pair<const IComponent*, int>& GetComponent() const { return m_component; }
+    inline const std::pair<IComponent*, int>& GetComponent() const { return m_component; }
 
     /**
      * @brief Get the cycle counter.

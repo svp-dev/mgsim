@@ -53,6 +53,8 @@ public:
 	float GetPipelineEfficiency() const { return m_pipeline.GetEfficiency(); }
 	
 	CycleNo GetLocalFamilyCompletion() const { return m_localFamilyCompletion; }
+
+    unsigned int GetNumSuspendedRegisters() const;
 	
 	void WriteRegister(const RegAddr& addr, const RegValue& value) {
 		m_registerFile.WriteRegister(addr, value);

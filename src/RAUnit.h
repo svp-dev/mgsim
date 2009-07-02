@@ -13,6 +13,7 @@ class RegisterFile;
 
 class RAUnit : public Object
 {
+    friend class RegisterFile;
 public:
     typedef std::vector<std::pair<RegSize, LFID> > List;
 
@@ -22,9 +23,9 @@ public:
     bool Alloc(const RegSize size[NUM_REG_TYPES], LFID fid, RegIndex indices[NUM_REG_TYPES]);
     bool Free(RegIndex indices[NUM_REG_TYPES]);
 
-    // Admin functions
-    const List& GetList(RegType type) const { return m_lists[type]; }
-    RegSize GetBlockSize(RegType type) const { return m_blockSizes[type]; }
+    // Interaction functions
+    void Cmd_Help(std::ostream& out, const std::vector<std::string>& arguments) const;
+    void Cmd_Read(std::ostream& out, const std::vector<std::string>& arguments) const;
 
 private:
     List    m_lists[NUM_REG_TYPES];

@@ -5,9 +5,6 @@
 #include <string>
 #include <map>
 
-namespace Simulator
-{
-
 #ifdef PROFILE
 void PROFILE_BEGIN(const std::string& name);
 void PROFILE_END(const std::string& name);
@@ -23,6 +20,5 @@ typedef std::map<std::string, uint64_t> ProfileMap;
 uint64_t GetProfileTime(const std::string& name);
 const ProfileMap& GetProfiles();
 
-}
 #endif
 

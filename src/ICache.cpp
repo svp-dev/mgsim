@@ -3,8 +3,11 @@
 #include "config.h"
 #include <cassert>
 #include <cstring>
-using namespace Simulator;
+#include <iomanip>
 using namespace std;
+
+namespace Simulator
+{
 
 template <typename T>
 static bool IsPowerOfTwo(const T& x)
@@ -189,7 +192,7 @@ Result ICache::Fetch(MemAddr address, MemSize size, TID* tid, CID* cid)
 	// Check that we're fetching executable memory
 	if (!m_parent.CheckPermissions(address, size, IMemory::PERM_EXECUTE))
 	{
-		throw SecurityException(*this, "Attempting to execute non-executable memory");
+		throw SecurityException("Attempting to execute from non-executable memory", *this);
 	}
 
     // Validate input
@@ -348,4 +351,98 @@ bool ICache::OnMemoryReadCompleted(const MemData& data)
 	}
 
     return true;
+}
+
+void ICache::Cmd_Help(std::ostream& out, const std::vector<std::string>& /*arguments*/) const
+{
+    out <<
+    "The Instruction Cache stores data from memory that contains instructions for\n"
+    "active threads for faster access. Compared to a traditional cache, this I-Cache\n"
+    "is extended with several fields to support the multiple threads.\n\n"
+    "Supported operations:\n"
+    "- read <component>\n"
+    "  Reads and displays the cache-lines, and global information such as hit-rate\n"
+    "  and cache configuration.\n";
+}
+
+void ICache::Cmd_Read(std::ostream& out, const std::vector<std::string>& /*arguments*/) const
+{
+    out << "Cache type:          ";
+    if (m_assoc == 1) {
+        out << "Direct mapped" << endl;
+    } else if (m_assoc == m_lines.size()) {
+        out << "Fully associative" << endl;
+    } else {
+        out << dec << m_assoc << "-way set associative" << endl;
+    }
+
+    out << "Cache size:          " << dec << (m_lineSize * m_lines.size()) << " bytes" << endl;
+    out << "Cache line size:     " << dec << m_lineSize << " bytes" << endl;
+    out << "Current hit rate:    ";
+    if (m_numHits + m_numMisses > 0) {
+        out << setprecision(2) << fixed << m_numHits * 100.0f / (m_numHits + m_numMisses) << "%";
+    } else {
+        out << "N/A";
+    }
+    out << " (" << dec << m_numHits << " hits, " << m_numMisses << " misses)" << endl;
+    out << endl;
+    
+    const size_t num_sets = m_lines.size() / m_assoc;
+
+    out << "Set |       Address       |                       Data                      | Ref |" << endl;
+    out << "----+---------------------+-------------------------------------------------+-----+" << endl;
+    for (size_t i = 0; i < m_lines.size(); ++i)
+    {
+        const size_t set = i / m_assoc;
+        const Line& line = m_lines[i];
+        if (i % m_assoc == 0) {
+            out << setw(3) << setfill(' ') << dec << right << set;
+        } else {
+            out << "   ";
+        }
+        
+        if (!line.used) {
+            out << " |                     |                                                 |     |";
+        } else {
+            out << " | "
+                << hex << "0x" << setw(16) << setfill('0') << (line.tag * num_sets + set) * m_lineSize
+                << (line.waiting.head != INVALID_TID || line.creation ? "L" : " ")
+                << " |";
+            
+            if (line.waiting.head == INVALID_TID && !line.creation)
+            {
+                // Print the data
+                static const int BYTES_PER_LINE = 16;
+                for (size_t y = 0; y < m_lineSize; y += BYTES_PER_LINE)
+                {
+                    out << hex << setfill('0');
+                    for (size_t x = y; x < y + BYTES_PER_LINE; ++x) {
+                        out << " " << setw(2) << (unsigned)(unsigned char)line.data[x];
+                    }
+                    
+                    out << " | ";
+                    if (y == 0) {
+                        out << setw(3) << dec << setfill(' ') << line.references;
+                    } else {
+                        out << "   ";
+                    }
+                    out << " |";
+
+                    if (y + BYTES_PER_LINE < m_lineSize) {
+                        // This was not yet the last line
+                        out << endl << "    |                     |";
+                    }
+                }
+            }
+            else
+            {
+                out << "                                                 |     |";
+            }
+        }
+        out << endl;
+        out << ((i + 1) % m_assoc == 0 ? "----" : "    ");
+        out << "+---------------------+-------------------------------------------------+-----+" << endl;
+    }
+}
+
 }

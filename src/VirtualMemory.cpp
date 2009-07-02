@@ -1,7 +1,9 @@
 #include "VirtualMemory.h"
+#include "Memory.h"
 #include "except.h"
 #include <cstring>
 #include <limits>
+#include <iomanip>
 using namespace std;
 
 namespace Simulator
@@ -211,6 +213,143 @@ void VirtualMemory::Write(MemAddr address, const void* _data, MemSize size)
 
 VirtualMemory::~VirtualMemory()
 {
+}
+
+void VirtualMemory::Cmd_Info(ostream& out, const vector<string>& /* arguments */) const
+{
+    out << "Reserved memory ranges:" << endl
+        << "------------------------" << endl;
+
+    out << hex << setfill('0');
+
+    MemSize total = 0;
+    RangeMap::const_iterator p = m_ranges.begin();
+    if (p != m_ranges.end())
+    {
+        // We have at least one range, walk over all ranges and
+        // coalesce neighbouring ranges with similar properties.
+        MemAddr begin = p->first;
+        int     perm  = p->second.permissions;
+        MemAddr size  = 0;
+
+        do
+        {
+            size  += p->second.size;
+            total += p->second.size;
+            p++;
+            if (p == m_ranges.end() || p->first > begin + size || p->second.permissions != perm)
+            {
+                // Different block, or end of blocks
+                out << setw(16) << begin << " - " << setw(16) << begin + size - 1 << ": ";
+                out << (perm & IMemory::PERM_READ    ? "R" : ".");
+                out << (perm & IMemory::PERM_WRITE   ? "W" : ".");
+                out << (perm & IMemory::PERM_EXECUTE ? "X" : ".") << endl;
+                if (p != m_ranges.end())
+                {
+                    // Different block
+                    begin = p->first;
+                    perm  = p->second.permissions;
+                    size  = 0;
+                }
+            }
+        } while (p != m_ranges.end());
+    }
+
+    static const char* Mods[] = { "B", "kB", "MB", "GB", "TB", "PB", "EB", "ZB", "YB" };
+
+    // Print total memory reservation
+    int mod;
+    for(mod = 0; total >= 1024 && mod < 9; ++mod)
+    {
+        total /= 1024;
+    }
+    out << endl << setfill(' ') << dec;
+    out << "Total reserved memory:  " << setw(4) << total << " " << Mods[mod] << endl;
+
+    total = 0;
+    for (BlockMap::const_iterator p = m_blocks.begin(); p != m_blocks.end(); ++p)
+    {
+        total += BLOCK_SIZE;
+    }
+    // Print total memory usage
+    for (mod = 0; total >= 1024 && mod < 4; ++mod)
+    {
+        total /= 1024;
+    }
+    out << "Total allocated memory: " << setw(4) << total << " " << Mods[mod] << endl;
+}
+
+void VirtualMemory::Cmd_Read(ostream& out, const vector<string>& arguments) const
+{
+    MemAddr addr = 0;
+    MemSize size = 0;
+    char* endptr = NULL;
+    
+    if (arguments.size() == 2)
+    {
+        addr = (MemAddr)strtoull( arguments[0].c_str(), &endptr, 0 );
+        if (*endptr == '\0')
+        {
+            size = strtoul( arguments[1].c_str(), &endptr, 0 );
+        }
+    }
+
+    if (arguments.size() != 2 || *endptr != '\0')
+    {
+        out << "Usage: read <mem> <address> <count>" << endl;
+        return;
+    }
+
+    static const unsigned int BYTES_PER_LINE = 16;
+
+    // Calculate aligned start and end addresses
+    MemAddr start = addr / BYTES_PER_LINE * BYTES_PER_LINE;
+    MemAddr end   = (addr + size + BYTES_PER_LINE - 1) / BYTES_PER_LINE * BYTES_PER_LINE;
+
+    try
+    {
+        // Read the data
+        vector<uint8_t> buf((size_t)size);
+        Read(addr, &buf[0], size);
+
+        // Print it
+        for (MemAddr y = start; y < end; y += BYTES_PER_LINE)
+        {
+            // The address
+            out << setw(8) << hex << setfill('0') << y << " | ";
+
+            // The bytes
+            for (MemAddr x = y; x < y + BYTES_PER_LINE; ++x)
+            {
+                if (x >= addr && x < addr + size)
+                    out << setw(2) << (unsigned int)buf[(size_t)(x - addr)];
+                else
+                    out << "  ";
+                    
+                // Print some space at half the grid
+                if ((x - y) == BYTES_PER_LINE / 2 - 1) out << "  ";
+                out << " ";
+            }
+            out << "| ";
+
+            // The bytes, as characters
+            for (MemAddr x = y; x < y + BYTES_PER_LINE; ++x)
+            {
+                char c = ' ';
+                if (x >= addr && x < addr + size) {
+                    c = buf[(size_t)(x - addr)];
+                    c = (isprint(c) ? c : '.');
+                }
+                out << c;
+            }
+            out << endl;
+        }
+    }
+    catch (exception &e)
+    {
+        out << "An exception occured while reading the memory:" << endl;
+        out << e.what() << endl;
+    }
 }
 
 }

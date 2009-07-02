@@ -1,9 +1,13 @@
 #include "ThreadTable.h"
 #include "Processor.h"
 #include "config.h"
+#include "range.h"
 #include <cassert>
-using namespace Simulator;
+#include <iomanip>
 using namespace std;
+
+namespace Simulator
+{
 
 ThreadTable::ThreadTable(Processor& parent, const Config& config)
   : Structure<TID>(&parent, parent.GetKernel(), "threads"),
@@ -64,4 +68,89 @@ bool ThreadTable::PushEmpty(const ThreadQueue& q)
         }
     }
     return true;
+}
+
+void ThreadTable::Cmd_Help(ostream& out, const vector<string>& /* arguments */) const
+{
+    out <<
+    "The Thread Table is the storage area in a processor that stores all thread's\n"
+    "information. It contains information about the thread's state, execution\n"
+    "context, dependencies and much more.\n\n"
+    "Supported operations:\n"
+    "- read <component> [range]\n"
+    "  Reads and displays the used thread table entries. Note that not all\n"
+    "  information is displayed; only the most important data.\n"
+    "  An optional range argument can be given to only read those threads. The\n"
+    "  range is a comma-seperated list of thread ranges. Example ranges:\n"
+    "  \"1\", \"1-4,15,7-8\", \"all\"\n";
+}
+
+void ThreadTable::Cmd_Read(ostream& out, const vector<string>& arguments) const
+{
+    static const char* const ThreadStates[] = {
+        "", "WAITING", "READY", "ACTIVE", "RUNNING", "SUSPENDED", "UNUSED", "KILLED"
+    };
+    
+    // Read the range
+    set<TID> tids;
+    if (!arguments.empty()) {
+        tids = parse_range<TID>(arguments[0], 0, m_threads.size());
+    } else {
+        for (TID i = 0; i < m_threads.size(); ++i) {
+            if (m_threads[i].state != TST_EMPTY) {
+                tids.insert(i);
+            }
+        }
+    }
+    
+    if (tids.empty())
+    {
+        out << "No threads selected" << endl;
+        return;
+    }
+
+    out << "    |         PC         | Fam | Index | Prev | Next | Int. | Flt. | Flags | WR | State" << endl;
+    out << "----+--------------------+-----+-------+------+------+------+------+-------+----+----------" << endl;
+    for (set<TID>::const_iterator p = tids.begin(); p != tids.end(); ++p)
+    {
+        out << dec << setw(3) << setfill(' ') << *p << " | ";
+        const Thread& thread = m_threads[*p];
+
+        if (thread.state != TST_EMPTY)
+        {
+            out << setw(18) << setfill(' ') << hex << showbase << thread.pc << " | ";
+            out << "F" << setfill('0') << dec << noshowbase << setw(2) << thread.family << " | ";
+            out << setw(5) << dec << setfill(' ') << thread.index << " | ";
+            if (thread.prevInBlock != INVALID_TID) out << dec << setw(4) << setfill(' ') << thread.prevInBlock; else out << "   -";
+            out << " | ";
+            if (thread.nextInBlock != INVALID_TID) out << dec << setw(4) << setfill(' ') << thread.nextInBlock; else out << "   -";
+            out << " | ";
+
+            for (RegType type = 0; type < NUM_REG_TYPES; ++type)
+            {
+                if (thread.regs[type].base != INVALID_REG_INDEX)
+                    out << setw(4) << setfill('0') << hex << thread.regs[type].base;
+                else
+                    out << "  - ";
+                out << " | ";
+            }
+
+            out << (thread.dependencies.prevCleanedUp ? 'P' : '.')
+                << (thread.dependencies.killed        ? 'K' : '.')
+                << (thread.dependencies.nextKilled    ? 'N' : '.')
+                << (thread.isLastThreadInBlock        ? 'L' : '.')
+                << "  | "
+                << setw(2) << setfill(' ') << thread.dependencies.numPendingWrites
+                << " | ";
+
+            out << ThreadStates[thread.state];
+        }
+        else
+        {
+            out << "                   |     |       |      |      |      |      |       |    |";
+        }
+        out << endl;
+    }
+}
+
 }

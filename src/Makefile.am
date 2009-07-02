@@ -52,12 +52,11 @@ COMMON_SRC = \
 	VirtualMemory.h \
 	WritebackStage.cpp \
 	buffer.h \
-	commands.cpp \
-	commands.h \
 	config.cpp \
 	config.h \
 	elf.h \
 	except.h \
+	except.cpp \
 	kernel.cpp \
 	kernel.h \
 	loader.cpp \
@@ -67,6 +66,7 @@ COMMON_SRC = \
 	ports.cpp \
 	profile.cpp \
 	profile.h \
+	range.h \
 	simreadline.h \
 	simtime.cpp \
 	simtime.h \

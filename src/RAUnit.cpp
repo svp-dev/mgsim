@@ -3,9 +3,11 @@
 #include "Processor.h"
 #include "config.h"
 #include <cassert>
-
-using namespace Simulator;
+#include <iomanip>
 using namespace std;
+
+namespace Simulator
+{
 
 template <typename T>
 static bool IsPowerOfTwo(const T& x)
@@ -115,4 +117,47 @@ bool RAUnit::Free(RegIndex indices[NUM_REG_TYPES])
 		}
 	}
     return true;
+}
+
+void RAUnit::Cmd_Help(ostream& out, const std::vector<std::string>& /*arguments*/) const
+{
+    out <<
+        "The Register Allocation Unit is the component that manages the allocation\n"
+        "data for the register file. It simply maintains an administration that\n"
+        "indicates which registers are allocated and which are not.\n"
+        "This component is used during family creation to allocate a block of\n"
+        "registers for the new family.\n\n"
+        "Supported operations:\n"
+        "- read <component>\n"
+        "  Reads the administration from the register allocation unit. Use this to\n"
+        "  quickly see which registers are allocated to which family.\n";
+}
+
+void RAUnit::Cmd_Read(ostream& out, const vector<string>& /*arguments*/) const
+{
+    static const char* TypeNames[NUM_REG_TYPES] = {"Integer", "Float"};
+
+    for (RegType i = 0; i < NUM_REG_TYPES; ++i)
+    {
+        const List&   list      = m_lists[i];
+        const RegSize blockSize = m_blockSizes[i];
+
+        out << TypeNames[i] << " registers (" << dec << blockSize << " registers per block):" << endl;
+        for (size_t next, entry = 0; entry < list.size(); entry = next)
+        {
+            out << hex << setfill('0');
+            out << "0x" << setw(4) << entry * blockSize << " - ";
+
+            if (list[entry].first != 0) {
+                next = entry + list[entry].first;
+                out << "0x" << setw(4) << (next * blockSize) - 1 << ": Allocated to " << list[entry].second << endl;
+            } else {
+                for (next = entry + 1; next < list.size() && list[next].first == 0; ++next) {}
+                out << "0x" << setw(4) << (next * blockSize) - 1 << ": Free" << endl;
+            }
+        }
+        out << endl;
+    }
+}
+
 }

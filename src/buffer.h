@@ -2,7 +2,7 @@
 #define BUFFER_H
 
 #include "kernel.h"
-#include <queue>
+#include <deque>
 
 namespace Simulator
 {
@@ -15,21 +15,26 @@ class Buffer
 {
     Kernel&         m_kernel;
     size_t          m_maxSize;
-    std::queue<T>   m_data;
+    std::deque<T>   m_data;
 
 public:
+    // We define an iterator for debugging the contents only
+    typedef typename std::deque<T>::const_iterator const_iterator;
+    const_iterator begin() const { return m_data.begin(); }
+    const_iterator end()   const { return m_data.end(); }
+
     bool       empty() const { return m_data.empty(); }
     bool       full()  const { return (m_maxSize != INFINITE && m_data.size() == m_maxSize); }
     BufferSize size()  const { return m_data.size(); }
     const T& front() const { return m_data.front(); }
           T& front()       { return m_data.front(); }
 
-    void pop() { if (m_kernel.GetCyclePhase() == PHASE_COMMIT) { m_data.pop(); } }
+    void pop() { if (m_kernel.GetCyclePhase() == PHASE_COMMIT) { m_data.pop_front(); } }
     bool push(const T& item)
     {
         if (!full())
         {
-            if (m_kernel.GetCyclePhase() == PHASE_COMMIT) { m_data.push(item); }
+            if (m_kernel.GetCyclePhase() == PHASE_COMMIT) { m_data.push_back(item); }
             return true;
         }
         return false;

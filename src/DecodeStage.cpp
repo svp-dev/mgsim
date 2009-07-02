@@ -3,8 +3,10 @@
 #include <cassert>
 #include <sstream>
 #include <iomanip>
-using namespace Simulator;
 using namespace std;
+
+namespace Simulator
+{
 
 struct IllegalInstruction
 {
@@ -164,4 +166,6 @@ Pipeline::DecodeStage::DecodeStage(Pipeline& parent, FetchDecodeLatch& input, De
     m_input(input),
     m_output(output)
 {
+}
+
 }

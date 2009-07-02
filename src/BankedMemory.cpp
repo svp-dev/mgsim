@@ -4,9 +4,11 @@
 #include <cassert>
 #include <cmath>
 #include <cstring>
-
-using namespace Simulator;
+#include <iomanip>
 using namespace std;
+
+namespace Simulator
+{
 
 BankedMemory::Bank::Bank()
     : busy(false)
@@ -254,8 +256,8 @@ static string CreateStateNames(const Config& config)
     stringstream states;
     for (size_t i = 0; i < numBanks; ++i)
     {
-        states << "in"  << i << "|" <<
-                  "out" << i << "|";
+        states << "out" << i << "|" <<
+                  "in"  << i << "|";
     }
     for (size_t i = 0; i < numBanks; ++i)
     {
@@ -270,11 +272,92 @@ static string CreateStateNames(const Config& config)
 
 BankedMemory::BankedMemory(Object* parent, Kernel& kernel, const std::string& name, const Config& config) :
     IComponent(parent, kernel, name, CreateStateNames(config)),
+    m_banks          (GetNumBanks(config)),
     m_baseRequestTime(config.getInteger<CycleNo>   ("MemoryBaseRequestTime", 1)),
     m_timePerLine    (config.getInteger<CycleNo>   ("MemoryTimePerLine", 1)),
     m_sizeOfLine     (config.getInteger<size_t>    ("MemorySizeOfLine", 8)),
-    m_cachelineSize  (config.getInteger<size_t>    ("CacheLineSize", 64)),
     m_bufferSize     (config.getInteger<BufferSize>("MemoryBufferSize", INFINITE)),
-    m_banks          (GetNumBanks(config))
+    m_cachelineSize  (config.getInteger<size_t>    ("CacheLineSize", 64))
 {
+}
+
+void BankedMemory::Cmd_Help(ostream& out, const vector<string>& /*arguments*/) const
+{
+    out <<
+    "The Banked Memory represents a switched memory network between P processors and N\n"
+    "memory banks. Requests are sequentialized on each bank and the cache line-to-bank\n"
+    "mapping is a simple modulo.\n\n"
+    "Supported operations:\n"
+    "- info <component>\n"
+    "  Displays the currently reserved and allocated memory ranges\n\n"
+    "- read <component> <start> <size>\n"
+    "  Reads the specified number of bytes of raw data from memory from the\n"
+    "  specified address\n\n"
+    "- read <component> requests\n"
+    "  Reads the banks' requests buffers and queues\n";
+}
+
+/*static*/ void BankedMemory::PrintRequest(ostream& out, char prefix, const Request& request, CycleNo done)
+{
+    out << prefix << " "
+        << hex << setfill('0') << right
+        << " 0x" << setw(16) << request.address << " | "
+        << setfill(' ') << setw(4) << dec << request.data.size << " | ";
+
+    if (request.data.tag.cid == INVALID_CID) {
+        out << " N/A  | ";
+    } else {
+        out << setw(5) << request.data.tag.cid << " | ";
+    }
+
+    if (request.write) {
+        out << "Data write";
+    } else if (request.data.tag.data) {
+        out << "Data read ";
+    } else if (request.data.tag.cid != INVALID_CID) {
+        out << "Cache-line";
+    }
+    out << " | " << setw(8) << dec << done << " | ";
+    
+    Object* obj = dynamic_cast<Object*>(request.callback);
+    if (obj == NULL) {
+        out << "???";
+    } else {
+        out << obj->GetFQN();
+    }
+    out << endl;
+}
+
+void BankedMemory::Cmd_Read(ostream& out, const vector<string>& arguments) const
+{
+    if (arguments.empty() || arguments[0] != "requests")
+    {
+        return VirtualMemory::Cmd_Read(out, arguments);
+    }
+
+    for (size_t i = 0; i < m_banks.size(); ++i)
+    {
+        const Bank& bank = m_banks[i];
+
+        out << "Bank " << dec << i << ":" << endl;
+        out << "        Address       | Size |  CID  |    Type    |   Done   | Source" << endl;
+        out << "----------------------+------+-------+------------+----------+----------------" << endl;
+
+        for (Pipeline::const_iterator p = bank.incoming.begin(); p != bank.incoming.end(); ++p)
+        {
+            PrintRequest(out, '>', p->second, p->first);
+        }
+        if (bank.busy) {
+            PrintRequest(out, '*', bank.request, bank.done);
+        } else {
+            out << "*                     |      |       |            |          |" << endl;
+        }
+        for (Pipeline::const_iterator p = bank.outgoing.begin(); p != bank.outgoing.end(); ++p)
+        {
+            PrintRequest(out, '<', p->second, p->first);
+        }
+        out << endl;
+    }
+}
+
 }

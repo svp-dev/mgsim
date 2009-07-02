@@ -4,8 +4,8 @@
 #include <fstream>
 #include <iostream>
 #include <vector>
-using namespace Simulator;
 using namespace std;
+using namespace Simulator;
 
 static const int PAGE_SIZE = 4096;
 

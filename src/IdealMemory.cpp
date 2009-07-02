@@ -2,8 +2,11 @@
 #include "config.h"
 #include <cassert>
 #include <cstring>
-using namespace Simulator;
+#include <iomanip>
 using namespace std;
+
+namespace Simulator
+{
 
 void IdealMemory::RegisterListener(PSize /*pid*/, IMemoryCallback& callback)
 {
@@ -33,7 +36,7 @@ Result IdealMemory::Read(IMemoryCallback& callback, MemAddr address, void* /*dat
             request.data.tag  = tag;
             request.done      = 0;
             request.write     = false;
-            m_requests.push(request);
+            m_requests.push_back(request);
         }
         return DELAYED;
     }
@@ -68,7 +71,7 @@ Result IdealMemory::Write(IMemoryCallback& callback, MemAddr address, void* data
             }
         }
 
-        COMMIT{ m_requests.push(request); }
+        COMMIT{ m_requests.push_back(request); }
         return DELAYED;
     }
     return FAILED;
@@ -125,7 +128,7 @@ Result IdealMemory::OnCycleWritePhase(unsigned int /* stateIndex */)
                 return FAILED;
             }
 
-            COMMIT{ m_requests.pop(); }
+            COMMIT{ m_requests.pop_front(); }
         }
     }
 
@@ -161,4 +164,71 @@ IdealMemory::IdealMemory(Object* parent, Kernel& kernel, const std::string& name
     m_sizeOfLine     (config.getInteger<CycleNo>   ("MemorySizeOfLine", 8)),
     m_totalWaitTime(0)
 {
+}
+
+void IdealMemory::Cmd_Help(ostream& out, const vector<string>& /*arguments*/) const
+{
+    out <<
+    "The Ideal Memory is a simplified memory implementation that has no contention\n"
+    "on accesses and simply queues all requests in a single queue.\n\n"
+    "Supported operations:\n"
+    "- info <component>\n"
+    "  Displays the currently reserved and allocated memory ranges\n\n"
+    "- read <component> <start> <size>\n"
+    "  Reads the specified number of bytes of raw data from memory from the\n"
+    "  specified address\n\n"
+    "- read <component> requests\n"
+    "  Reads the requests buffer\n";
+}
+
+void IdealMemory::Cmd_Read(ostream& out, const vector<string>& arguments) const
+{
+    if (arguments.empty() || arguments[0] != "requests")
+    {
+        return VirtualMemory::Cmd_Read(out, arguments);
+    }
+    
+    out << "      Address       | Size |  CID  |    Type    | Source" << endl;
+    out << "--------------------+------+-------+------------+---------------------" << endl;
+
+    for (deque<Request>::const_iterator p = m_requests.begin(); p != m_requests.end(); ++p)
+    {
+        out << hex << setfill('0') << right 
+            << " 0x" << setw(16) << p->address << " | "
+            << setfill(' ') << setw(4) << dec << p->data.size << " | ";
+
+        if (p->data.tag.cid == INVALID_CID) {
+            out << " N/A  | ";
+        } else {
+            out << setw(5) << p->data.tag.cid << " | ";
+        }
+
+        if (p->write) {
+            out << "Data write";
+        } else if (p->data.tag.data) {
+            out << "Data read ";
+        } else if (p->data.tag.cid != INVALID_CID) {
+            out << "Cache-line";
+        }
+        out << " | ";
+
+        Object* obj = dynamic_cast<Object*>(p->callback);
+        if (obj == NULL) {
+            out << "???";
+        } else {
+            out << obj->GetFQN();
+        }
+
+        out << endl;
+    }
+
+    out << endl << "First request done at: ";
+    if (m_requests.empty() || m_requests.front().done == 0) {
+        out << "N/A";
+    } else {
+        out << dec << m_requests.front().done;
+    }
+    out << endl << endl;
+}
+
 }

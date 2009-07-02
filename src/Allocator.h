@@ -135,15 +135,10 @@ public:
     void   UpdateStatistics();
 
     /* Admin functions */
-    FamilyTable&                 GetFamilyTable()             const { return m_familyTable; }
-	TID                          GetRegisterType(LFID fid, RegAddr addr, RegClass* group) const;
-    const Buffer<LFID>&          GetCreateQueue()             const { return m_creates;     }
-    const Buffer<LFID>&          GetExclusiveCreateQueue()    const { return m_createsEx;   }
-	CreateState                  GetCreateState()             const { return m_createState; }
-	const Buffer<AllocRequest>&  GetFamilyAllocationQueue()   const { return m_allocations; }
-	const FamilyQueue&           GetThreadAllocationQueue()   const { return m_alloc;       }
-    const Buffer<TID>&           GetCleanupQueue()            const { return m_cleanup;     }
-    LFID                         GetExclusiveFamily()         const { return m_exclusive;   }
+	TID GetRegisterType(LFID fid, RegAddr addr, RegClass* group) const;
+	
+    void Cmd_Help(std::ostream& out, const std::vector<std::string>& arguments) const;
+    void Cmd_Read(std::ostream& out, const std::vector<std::string>& arguments) const;
 
 private:
     // A queued register write

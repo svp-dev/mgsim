@@ -70,6 +70,9 @@ public:
     uint64_t    GetNumHits()      const { return m_numHits;   }
     uint64_t    GetNumMisses()    const { return m_numMisses; }
 
+    void Cmd_Help(std::ostream& out, const std::vector<std::string>& arguments) const;
+    void Cmd_Read(std::ostream& out, const std::vector<std::string>& arguments) const;
+
 private:
     Result FindLine(MemAddr address, Line* &line, bool check_only);
 

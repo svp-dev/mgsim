@@ -5,11 +5,13 @@
 #include <cstdarg>
 #include <iostream>
 #include <iomanip>
+#include <sstream>
 #include <set>
 #include <map>
-using namespace Simulator;
 using namespace std;
 
+namespace Simulator
+{
 
 //
 // Object class
@@ -154,135 +156,150 @@ void Kernel::Abort()
 
 RunState Kernel::Step(CycleNo cycles)
 {
-	bool idle = true, has_work = false;
-	
-	m_aborted = false;
-    for (CycleNo i = 0; (cycles == INFINITE_CYCLES || i < cycles) && !m_aborted; ++i)
+    try
     {
-  		idle     = true;
-   		has_work = false;
+	    bool idle = true, has_work = false;
+	
+	    m_aborted = false;
+        for (CycleNo i = 0; (cycles == INFINITE_CYCLES || i < cycles) && !m_aborted; ++i)
+        {
+      		idle     = true;
+   	    	has_work = false;
         
-       	//
-        // Read phase
-        //
-        m_phase = PHASE_ACQUIRE;
-        PROFILE_BEGIN("Read Acquire");
-        for (CallbackList::const_iterator i = m_callbacks.begin(); i != m_callbacks.end(); ++i)
-        {
-            m_component.first = i->first;
- 			for (size_t j = 0; j < i->second.states.size(); ++j)
+       	    //
+            // Read phase
+            //
+            m_phase = PHASE_ACQUIRE;
+            PROFILE_BEGIN("Read Acquire");
+            for (CallbackList::const_iterator i = m_callbacks.begin(); i != m_callbacks.end(); ++i)
             {
-                m_component.second = j;
-                i->first->OnCycleReadPhase(j);
-            }
-        }
-        PROFILE_END("Read Acquire");
-
-        PROFILE_BEGIN("Read Arbitrate");
-        for (ArbitratorList::const_iterator i = m_arbitrators.begin(); i != m_arbitrators.end(); ++i)
-        {
-            (*i)->OnArbitrateReadPhase();
-        }
-        PROFILE_END("Read Arbitrate");
-
-        PROFILE_BEGIN("Read Commit");
-        for (CallbackList::const_iterator i = m_callbacks.begin(); i != m_callbacks.end(); ++i)
-        {
-            m_component.first = i->first;
- 			for (size_t j = 0; j < i->second.states.size(); ++j)
-            {
-                m_component.second = j;
-                m_phase = PHASE_CHECK;
-  				Result result;
-  				if ((result = i->first->OnCycleReadPhase(j)) == SUCCESS)
+                m_component.first = i->first;
+ 			    for (size_t j = 0; j < i->second.states.size(); ++j)
                 {
-                    m_phase = PHASE_COMMIT;
-                    result = i->first->OnCycleReadPhase(j);
-  					assert(result == SUCCESS);
+                    m_component.second = j;
+                    i->first->OnCycleReadPhase(j);
                 }
             }
-        }
-        PROFILE_END("Read Commit");
+            PROFILE_END("Read Acquire");
 
-        //
-        // Write phase
-        //
-        m_phase = PHASE_ACQUIRE;
-        PROFILE_BEGIN("Write Acquire");
-        for (CallbackList::iterator i = m_callbacks.begin(); i != m_callbacks.end(); ++i)
-        {
-            m_component.first = i->first;
- 			for (size_t j = 0; j < i->second.states.size(); ++j)
+            PROFILE_BEGIN("Read Arbitrate");
+            for (ArbitratorList::const_iterator i = m_arbitrators.begin(); i != m_arbitrators.end(); ++i)
             {
-                m_component.second = j;
-                Result result = i->first->OnCycleWritePhase(j);
-                
-                i->second.states[j].state = (result == FAILED) ? STATE_DEADLOCK : STATE_RUNNING;
+                (*i)->OnArbitrateReadPhase();
             }
-        }
-        PROFILE_END("Write Acquire");
+            PROFILE_END("Read Arbitrate");
 
-        PROFILE_BEGIN("Write Arbitrate");
-        for (ArbitratorList::const_iterator i = m_arbitrators.begin(); i != m_arbitrators.end(); ++i)
-        {
-            (*i)->OnArbitrateWritePhase();
-        }
-        PROFILE_END("Write Arbitrate");
-
-        PROFILE_BEGIN("Write Commit");
-        for (CallbackList::iterator i = m_callbacks.begin(); i != m_callbacks.end(); ++i)
-        {
-            m_component.first = i->first;
-  			for (size_t j = 0; j < i->second.states.size(); ++j)
+            PROFILE_BEGIN("Read Commit");
+            for (CallbackList::const_iterator i = m_callbacks.begin(); i != m_callbacks.end(); ++i)
             {
-                m_component.second = j;
-                RunState& state = i->second.states[j].state;
-                if (state != STATE_DEADLOCK)
+                m_component.first = i->first;
+ 			    for (size_t j = 0; j < i->second.states.size(); ++j)
                 {
+                    m_component.second = j;
                     m_phase = PHASE_CHECK;
-     				Result result;
-      				if ((result = i->first->OnCycleWritePhase(j)) == SUCCESS)
+  				    Result result;
+      				if ((result = i->first->OnCycleReadPhase(j)) == SUCCESS)
                     {
                         m_phase = PHASE_COMMIT;
-                        result = i->first->OnCycleWritePhase(j);
-     					assert(result == SUCCESS);
-      					idle  = false;
-      					state = STATE_RUNNING;
+                        result = i->first->OnCycleReadPhase(j);
+  					    assert(result == SUCCESS);
                     }
-      				else if (result == FAILED)
-       				{
-       				    state    = STATE_DEADLOCK;
-       					has_work = true;
-       				}
-   	    			else
-   		    		{
-   			    	    state = STATE_IDLE;
-   				    }
-                }
-                else 
-                {
-                    has_work = true;
                 }
             }
-        }
-        PROFILE_END("Write Commit");
+            PROFILE_END("Read Commit");
+
+            //
+            // Write phase
+            //
+            m_phase = PHASE_ACQUIRE;
+            PROFILE_BEGIN("Write Acquire");
+            for (CallbackList::iterator i = m_callbacks.begin(); i != m_callbacks.end(); ++i)
+            {
+                m_component.first = i->first;
+ 			    for (size_t j = 0; j < i->second.states.size(); ++j)
+                {
+                    m_component.second = j;
+                    Result result = i->first->OnCycleWritePhase(j);
+                
+                    i->second.states[j].state = (result == FAILED) ? STATE_DEADLOCK : STATE_RUNNING;
+                }
+            }
+            PROFILE_END("Write Acquire");
+
+            PROFILE_BEGIN("Write Arbitrate");
+            for (ArbitratorList::const_iterator i = m_arbitrators.begin(); i != m_arbitrators.end(); ++i)
+            {
+                (*i)->OnArbitrateWritePhase();
+            }
+            PROFILE_END("Write Arbitrate");
+
+            PROFILE_BEGIN("Write Commit");
+            for (CallbackList::iterator i = m_callbacks.begin(); i != m_callbacks.end(); ++i)
+            {
+                m_component.first = i->first;
+  			    for (size_t j = 0; j < i->second.states.size(); ++j)
+                {
+                    m_component.second = j;
+                    RunState& state = i->second.states[j].state;
+                    if (state != STATE_DEADLOCK)
+                    {
+                        m_phase = PHASE_CHECK;
+     				    Result result;
+      				    if ((result = i->first->OnCycleWritePhase(j)) == SUCCESS)
+                        {
+                            m_phase = PHASE_COMMIT;
+                            result = i->first->OnCycleWritePhase(j);
+     					    assert(result == SUCCESS);
+      					    idle  = false;
+      					    state = STATE_RUNNING;
+                        }
+      				    else if (result == FAILED)
+       				    {
+           				    state    = STATE_DEADLOCK;
+       					    has_work = true;
+       				    }
+   	    			    else
+   		    		    {
+       			    	    state = STATE_IDLE;
+   				        }
+                    }
+                    else 
+                    {
+                        has_work = true;
+                    }
+                }
+            }
+            PROFILE_END("Write Commit");
     
-        for (RegisterList::const_iterator i = m_registers.begin(); i != m_registers.end(); ++i) (*i)->OnUpdate();
-        m_phase = PHASE_COMMIT;
-        for (CallbackList::const_iterator i = m_callbacks.begin(); i != m_callbacks.end(); ++i)
-        {
-            i->first->UpdateStatistics();
-        }
+            for (RegisterList::const_iterator i = m_registers.begin(); i != m_registers.end(); ++i) (*i)->OnUpdate();
+            m_phase = PHASE_COMMIT;
+            for (CallbackList::const_iterator i = m_callbacks.begin(); i != m_callbacks.end(); ++i)
+            {
+                i->first->UpdateStatistics();
+            }
         
-        m_cycle++;
-        if (cycles == INFINITE_CYCLES && idle)
-        {
-            break;
+            m_cycle++;
+            if (cycles == INFINITE_CYCLES && idle)
+            {
+                break;
+            }
         }
+	    return (m_aborted)
+	        ? STATE_ABORTED
+	        : (idle) ? (has_work) ? STATE_DEADLOCK : STATE_IDLE : STATE_RUNNING;
     }
-	return (m_aborted)
-	    ? STATE_ABORTED
-	    : (idle) ? (has_work) ? STATE_DEADLOCK : STATE_IDLE : STATE_RUNNING;
+    catch (SimulationException& e)
+    {
+        // Add information about what component/state we were executing
+        CallbackList::const_iterator p = m_callbacks.find(m_component.first);
+        if (p != m_callbacks.end())
+        {
+            stringstream details;
+            details << "While executing process " << m_component.first->GetFQN() << ":" << p->second.states[m_component.second].name << endl;
+            e.AddDetails(details.str());
+        }
+        throw;
+    }
 }
 
 void Kernel::SetDebugMode(int mode) { m_debugMode = mode; }
@@ -325,4 +342,6 @@ Kernel::Kernel()
 
 Kernel::~Kernel()
 {
+}
+
 }

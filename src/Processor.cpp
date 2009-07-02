@@ -1,8 +1,10 @@
 #include "Processor.h"
 #include "FPU.h"
 #include <cassert>
-using namespace Simulator;
 using namespace std;
+
+namespace Simulator
+{
 
 //
 // Processor implementation
@@ -104,6 +106,24 @@ bool Processor::IsIdle() const
     return m_threadTable.IsEmpty() && m_familyTable.IsEmpty() && m_icache.IsEmpty();
 }
 
+unsigned int Processor::GetNumSuspendedRegisters() const
+{
+    unsigned int num = 0;
+    for (RegType i = 0; i < NUM_REG_TYPES; ++i)
+    {
+        RegSize size = m_registerFile.GetSize(i);
+        for (RegIndex r = 0; r < size; ++r)
+        {
+            RegValue value;
+            m_registerFile.ReadRegister(MAKE_REGADDR(i, r), value);
+            if (value.m_state == RST_WAITING) {
+                ++num;
+            }
+        }
+    }
+    return num;
+}
+
 void Processor::ReserveTLS(MemAddr address, MemSize size)
 {
     return m_memory.Reserve(address, size, IMemory::PERM_READ | IMemory::PERM_WRITE);
@@ -156,4 +176,6 @@ void Processor::OnFamilyTerminatedLocally(MemAddr /* pc */)
 {
     CycleNo cycle = GetKernel().GetCycleNo();
     m_localFamilyCompletion = cycle;
+}
+
 }

@@ -3,6 +3,7 @@
 #include "config.h"
 #include <cassert>
 #include <cmath>
+#include <iomanip>
 using namespace std;
 
 namespace Simulator
@@ -314,6 +315,104 @@ void FPU::Cleanup()
 FPU::~FPU()
 {
     Cleanup();
+}
+
+void FPU::Cmd_Help(std::ostream& out, const std::vector<std::string>& /*arguments*/) const
+{
+    out <<
+    "The Floating-Point Unit executes floating-point operations asynchronously and\n"
+    "can be shared among multiple processors. Results are written back asynchronously\n"
+    "to the original processor's register file.\n\n"
+    "Supported operations:\n"
+    "- read <component>\n"
+    "  Reads and displays the FPU's queues and pipelines.\n";
+}
+
+void FPU::Cmd_Read(std::ostream& out, const std::vector<std::string>& /*arguments*/) const
+{
+    out << fixed << setfill(' ');
+    
+    // Print the source queues
+    for (size_t i = 0; i < m_sources.size(); ++i)
+    {
+        const Source& source = m_sources[i];
+        
+        // Print the source name
+        out << "Source: ";
+        Object* object = (source.regfile != NULL) ? source.regfile->GetParent() : NULL;
+        if (object == NULL) {
+            out << "???";
+        } else {
+            out << object->GetFQN();
+        }
+        out << endl;
+        
+        if (source.inputs.begin() != source.inputs.end())
+        {
+            // Print the queued operations
+            out << " Op  |           A            |            B           | Dest" << endl;
+            out << "-----+------------------------+------------------------+-------" << endl;
+            for (Buffer<Operation>::const_iterator p = source.inputs.begin(); p != source.inputs.end(); ++p)
+            {
+                out << setw(4) << left << OperationNames[p->op] << right << " | "
+                    << setw(20) << setprecision(12) << p->Rav << "/" << p->size << " | "
+                    << setw(20);
+                if (p->op != FPU_OP_SQRT) { 
+                    out << setprecision(12) << fixed << p->Rbv << "/" << p->size;
+                } else {
+                    out << " ";
+                }
+                out << " | "
+                    << p->Rc.str() << endl;
+            }
+        }
+        else
+        {
+            out << "(Empty)" << endl;
+        }
+        out << endl;
+    }
+    out << endl;
+    
+    // Print the execution units
+    for (size_t i = 0; i < m_units.size(); ++i)
+    {
+        const Unit& unit = *m_units[i];
+        
+        // Print information of this unit
+        out << "Unit:       #" << dec << i << endl;
+        out << "Pipelined:  " << boolalpha << unit.pipelined << endl;
+        out << "Latency:    " << unit.latency << " cycles" << endl;
+        out << "Operations:";
+        for (unsigned int j = 0; j < FPU_NUM_OPS; ++j)
+        {
+            if (find(m_mapping[j].begin(), m_mapping[j].end(), i) != m_mapping[j].end()) {
+                out << " " << OperationNames[j];
+            }
+        }
+        out << endl << endl;
+        
+        // Print pipeline
+        if (unit.slots.empty())
+        {
+            out << "(Empty)" << endl;
+        }
+        else
+        {
+            out << " t |         Result         |  Reg  | Destination" << endl;
+            out << "---+------------------------+-------+--------------------" << endl;
+            for (deque<Result>::const_iterator p = unit.slots.begin(); p != unit.slots.end(); ++p)
+            {
+                out << setw(2) << p->state << " | "
+                    << setw(20) << setprecision(12) << p->value.tofloat(p->size) << "/" << p->size << " | "
+                    << p->address.str() << " | "
+                    << p->source->regfile->GetParent()->GetFQN()
+                    << endl;
+            }
+            out << endl;
+        }
+        out << endl;
+    }
 }
 
 }

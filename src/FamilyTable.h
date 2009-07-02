@@ -98,10 +98,11 @@ public:
     bool FreeFamily(LFID fid);
     bool IsEmpty() const { return m_numFamiliesUsed == 0; }
     
-    FSize GetNumUsedFamilies() const { return m_numFamiliesUsed; }
-
     // Admin functions
     const std::vector<Family>& GetFamilies() const { return m_families; }
+
+    void Cmd_Help(std::ostream& out, const std::vector<std::string>& arguments) const;
+    void Cmd_Read(std::ostream& out, const std::vector<std::string>& arguments) const;
 
 private:
     Processor&          m_parent;

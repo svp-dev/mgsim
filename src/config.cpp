@@ -3,8 +3,8 @@
 #include <algorithm>
 #include <fstream>
 #include <iostream>
-using namespace Simulator;
 using namespace std;
+using namespace Simulator;
 
 bool Config::getBoolean(const string& name, const bool def) const
 {

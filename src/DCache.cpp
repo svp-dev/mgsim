@@ -3,8 +3,11 @@
 #include "config.h"
 #include <cassert>
 #include <cstring>
-using namespace Simulator;
+#include <iomanip>
 using namespace std;
+
+namespace Simulator
+{
 
 template <typename T>
 static bool IsPowerOfTwo(const T& x)
@@ -136,7 +139,7 @@ Result DCache::Read(MemAddr address, void* data, MemSize size, LFID /* fid */, R
 	// Check that we're reading readable memory
 	if (!m_parent.CheckPermissions(address, size, IMemory::PERM_READ))
 	{
-		throw SecurityException(*this, "Attempting to read non-readable memory");
+		throw SecurityException("Attempting to read from non-readable memory", *this);
 	}
 
     Line*  line;
@@ -222,7 +225,7 @@ Result DCache::Write(MemAddr address, void* data, MemSize size, LFID fid, TID ti
 	// Check that we're writing writable memory
 	if (!m_parent.CheckPermissions(address, size, IMemory::PERM_WRITE))
 	{
-		throw SecurityException(*this, "Attempting to write non-writable memory");
+		throw SecurityException("Attempting to write to non-writable memory", *this);
 	}
 
 	COMMIT
@@ -425,3 +428,94 @@ Result DCache::OnCycleWritePhase(unsigned int stateIndex)
 	return SUCCESS;
 }
 
+void DCache::Cmd_Help(std::ostream& out, const std::vector<std::string>& /*arguments*/) const
+{
+    out <<
+    "The Data Cache stores data from memory that has been used in loads and stores\n"
+    "for faster access. Compared to a traditional cache, this D-Cache is extended\n"
+    "with several fields to support the multiple threads and asynchronous operation.\n\n"
+    "Supported operations:\n"
+    "- read <component>\n"
+    "  Reads and displays the cache-lines, and global information such as hit-rate\n"
+    "  and cache configuration.\n";
+}
+
+void DCache::Cmd_Read(std::ostream& out, const std::vector<std::string>& /*arguments*/) const
+{
+    out << "Cache type:          ";
+    if (m_assoc == 1) {
+        out << "Direct mapped" << endl;
+    } else if (m_assoc == m_lines.size()) {
+        out << "Fully associative" << endl;
+    } else {
+        out << dec << m_assoc << "-way set associative" << endl;
+    }
+
+    out << "Cache size:          " << dec << (m_lineSize * m_lines.size()) << " bytes" << endl;
+    out << "Cache line size:     " << dec << m_lineSize << " bytes" << endl;
+    out << "Current hit rate:    ";
+    if (m_numHits + m_numMisses > 0) {
+        out << setprecision(2) << fixed << m_numHits * 100.0f / (m_numHits + m_numMisses) << "%";
+    } else {
+        out << "N/A";
+    }
+    out << " (" << dec << m_numHits << " hits, " << m_numMisses << " misses)" << endl;
+    out << endl;
+
+    const size_t num_sets = m_lines.size() / m_assoc;
+
+    out << "Set |       Address       |                       Data                      |" << endl;
+    out << "----+---------------------+-------------------------------------------------+" << endl;
+    for (size_t i = 0; i < m_lines.size(); ++i)
+    {
+        const size_t set = i / m_assoc;
+        const Line& line = m_lines[i];
+        if (i % m_assoc == 0) {
+            out << setw(3) << setfill(' ') << dec << right << set;
+        } else {
+            out << "   ";
+        }
+
+        if (line.state == LINE_EMPTY) {
+            out << " |                     |                                                 |";
+        } else {
+            out << " | "
+                << hex << "0x" << setw(16) << setfill('0') << (line.tag * num_sets + set) * m_lineSize;
+            switch (line.state) {
+                case LINE_LOADING:    out << "L"; break;
+                case LINE_PROCESSING: out << "P"; break;
+                case LINE_INVALID:    out << "I"; break;
+                default:              out << " "; break;
+            }
+            out << " |";
+
+            if (line.state != LINE_LOADING)
+            {
+                // Print the data
+                out << hex << setfill('0');
+                static const int BYTES_PER_LINE = 16;
+                for (size_t y = 0; y < m_lineSize; y += BYTES_PER_LINE)
+                {
+                    for (size_t x = y; x < y + BYTES_PER_LINE; ++x) {
+                        out << " " << setw(2) << (unsigned)(unsigned char)line.data[x];
+                    }
+
+                    out << " |";
+                    if (y + BYTES_PER_LINE < m_lineSize) {
+                        // This was not yet the last line
+                        out << endl << "    |                     |";
+                    }
+                }
+            }
+            else
+            {
+                out << "                                                 |";
+            }
+        }
+        out << endl;
+        out << ((i + 1) % m_assoc == 0 ? "----" : "    ");
+        out << "+---------------------+-------------------------------------------------+" << endl;
+    }
+}
+
+}

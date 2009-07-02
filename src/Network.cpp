@@ -3,8 +3,11 @@
 #include "Processor.h"
 #include "FamilyTable.h"
 #include <cassert>
-using namespace Simulator;
+#include <iostream>
 using namespace std;
+
+namespace Simulator
+{
 
 #define CONSTRUCT_REGISTER(name) name(*this, #name)
 #define CONSTRUCT_REGISTER_VAL(name, val) name(*this, #name, val)
@@ -1010,3 +1013,115 @@ Result Network::OnCycleWritePhase(unsigned int stateIndex)
     return DELAYED;
 }
 
+void Network::Cmd_Help(ostream& out, const vector<string>& /* arguments */) const
+{
+    out <<
+    "The network component manages all inter-processor communication such as\n"
+    "the broadcasting of creates or exchange of shareds and globals. It also\n"
+    "connects each processor to the delegation network.\n"
+    "For communication within the group it uses a ring network exclusively.\n\n"
+    "Supported operations:\n"
+    "- read <component>\n"
+    "  Reads and displays the various registers and buffers from the component.\n";
+}
+
+void Network::Cmd_Read(ostream& out, const vector<string>& /* arguments */) const
+{
+    out << dec;
+    out << "Registers:" << endl;
+    if (m_registerRequestGroup.out.CanRead())
+    {
+        const RegisterRequest& request = m_registerRequestGroup.out.Read();
+        out << "* Requesting "
+             << GetRemoteRegisterTypeString(request.addr.type) << " register "
+             << request.addr.reg.str()
+             << " from F" << request.addr.fid
+             << " on previous processor" << endl;
+    }
+
+    if (m_registerRequestGroup.in.CanRead())
+    {
+        const RegisterRequest& request = m_registerRequestGroup.in.Read();
+        out << "* Received request for "
+             << GetRemoteRegisterTypeString(request.addr.type) << " register "
+             << request.addr.reg.str()
+             << " in F" << request.addr.fid
+             << " from next processor" << endl;
+    }
+
+    if (m_registerResponseGroup.out.CanRead())
+    {
+        const RegisterResponse& response = m_registerResponseGroup.out.Read();
+        out << "* Sending "
+             << GetRemoteRegisterTypeString(response.addr.type) << " register "
+             << response.addr.reg.str()
+             << " to F" << response.addr.fid
+             << " on next processor" << endl;
+    }
+
+    if (m_registerResponseGroup.in.CanRead())
+    {
+        const RegisterResponse& response = m_registerResponseGroup.in.Read();
+        out << "* Received "
+             << GetRemoteRegisterTypeString(response.addr.type) << " register "
+             << response.addr.reg.str()
+             << " in F" << response.addr.fid
+             << " from previous processor" << endl;
+    }
+
+    if (m_registerRequestRemote.out.CanRead())
+    {
+        const RegisterRequest& request = m_registerRequestRemote.out.Read();
+        out << "* Requesting "
+             << GetRemoteRegisterTypeString(request.addr.type) << " register "
+             << request.addr.reg.str()
+             << " from F" << request.addr.fid
+             << " on P" << request.addr.pid << endl;
+    }
+
+    if (m_registerRequestRemote.in.CanRead())
+    {
+        const RegisterRequest& request = m_registerRequestRemote.in.Read();
+        out << "* Received request for "
+             << GetRemoteRegisterTypeString(request.addr.type) << " register "
+             << request.addr.reg.str()
+             << " in F" << request.addr.fid
+             << " from P" << request.addr.pid << endl;
+    }
+
+    if (m_registerResponseRemote.out.CanRead())
+    {
+        const RegisterResponse& response = m_registerResponseRemote.out.Read();
+        out << "* Sending "
+             << GetRemoteRegisterTypeString(response.addr.type) << " register "
+             << response.addr.reg.str()
+             << " to F" << response.addr.fid
+             << " on P" << response.addr.pid << endl;
+    }
+
+    if (m_registerResponseRemote.in.CanRead())
+    {
+        const RegisterResponse& response = m_registerResponseRemote.in.Read();
+        out << "* Received "
+             << GetRemoteRegisterTypeString(response.addr.type) << " register "
+             << response.addr.reg.str()
+             << " in F" << response.addr.fid
+             << " from P" << response.addr.pid << endl;
+    }
+    out << endl;
+
+    out << "Token:" << endl;
+    if (m_hasToken.Read())       out << "* Processor has token (used: " << boolalpha << m_tokenUsed.Read() << ")" << endl;
+    if (m_wantToken.Read())      out << "* Processor wants token" << endl;
+    if (m_nextWantsToken.Read()) out << "* Next processor wants token" << endl;
+    out << endl;
+
+    out << "Families and threads:" << endl;
+    if (m_terminatedFamily  .CanRead()) out << "* Sending family termination of F" << m_terminatedFamily.Read() << endl;
+    if (m_synchronizedFamily.CanRead()) out << "* Sending family synchronization of F" << m_synchronizedFamily.Read() << endl;
+    if (m_completedThread   .CanRead()) out << "* Sending thread completion of F" << m_completedThread.Read() << endl;
+    if (m_cleanedUpThread   .CanRead()) out << "* Sending thread cleanup of F" << m_cleanedUpThread.Read() << endl;
+    if (m_delegateRemote    .CanRead()) out << "* Received delegated create of PC 0x" << hex << m_delegateRemote.Read().address << dec << endl;
+}
+
+}

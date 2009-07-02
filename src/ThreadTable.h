@@ -59,8 +59,7 @@ class ThreadTable : public Structure<TID>
 public:
     ThreadTable(Processor& parent, const Config& config);
 
-    TSize GetNumThreads()     const { return m_threads.size(); }
-    TSize GetNumUsedThreads() const { return m_numThreadsUsed; }
+    TSize GetNumThreads() const { return m_threads.size(); }
 
           Thread& operator[](TID index)       { return m_threads[index]; }
     const Thread& operator[](TID index) const { return m_threads[index]; }
@@ -69,6 +68,9 @@ public:
     bool PushEmpty(const ThreadQueue& queue);
     
     bool IsEmpty() const { return m_numThreadsUsed == 0; }
+    
+    void Cmd_Help(std::ostream& out, const std::vector<std::string>& arguments) const;
+    void Cmd_Read(std::ostream& out, const std::vector<std::string>& arguments) const;
 
 private:
     Processor&          m_parent;

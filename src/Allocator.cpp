@@ -5,8 +5,11 @@
 #include "config.h"
 #include <cassert>
 #include <cmath>
-using namespace Simulator;
+#include <iomanip>
 using namespace std;
+
+namespace Simulator
+{
 
 RegAddr Allocator::GetRemoteRegisterAddress(const RemoteRegAddr& addr) const
 {
@@ -1965,4 +1968,128 @@ TID Allocator::Pop(ThreadQueue& q, TID Thread::*link)
         q.head = m_threadTable[tid].*link;
     }
     return tid;
+}
+
+void Allocator::Cmd_Help(ostream& out, const vector<string>& /* arguments */) const
+{
+    out <<
+    "The Allocator is where most of the thread and family management takes place.\n"
+    "\n"
+    "Supported operations:\n"
+    "- read <component> [range]\n"
+    "  Reads and displays the various queues and registers in the Allocator.\n";
+}
+
+void Allocator::Cmd_Read(ostream& out, const vector<string>& /*arguments*/) const
+{
+    {
+        out << "Family allocation queue: " << endl;
+        if (m_allocations.empty())
+        {
+            out << "Empty" << endl;
+        }
+        else
+        {
+            for (Buffer<AllocRequest>::const_iterator p = m_allocations.begin(); p != m_allocations.end(); )
+            {
+                out << "T" << p->parent << ":R" << hex << uppercase << setw(4) << setfill('0') << p->reg << nouppercase << dec;
+                if (++p != m_allocations.end()) {
+                    out << ", ";
+                }
+            }
+            out << endl;
+        }
+        out << endl;
+    }
+
+    {
+        out << "Thread allocation queue: " << endl;
+        if (m_alloc.head == INVALID_LFID)
+        {
+            out << "Empty";
+        }
+
+        out << dec;
+        for (LFID fid = m_alloc.head; fid != INVALID_LFID; fid = m_familyTable[fid].next)
+        {
+            out << "F" << fid;
+            if (fid != m_alloc.tail) {
+                out << ", ";
+            }
+        }
+        out << endl << endl;
+    }
+    {
+        out << "Current exclusive family: ";
+        if (m_exclusive == INVALID_LFID) {
+            out << "None";
+        } else {
+            out << "F" << m_exclusive;
+        }
+        out << endl << endl;
+    }
+
+    {
+        const struct {
+            const char*         name;
+            const Buffer<LFID>& queue;
+        } queues[2] = {
+            {"Non-exclusive", m_creates   },
+            {"Exclusive",     m_createsEx }
+        };
+
+        for (size_t i = 0; i < 2; i++)
+        {
+            out << queues[i].name << " create queue: " << dec << endl;
+            const Buffer<LFID>& creates = queues[i].queue;
+            if (creates.empty())
+            {
+                out << "Empty" << endl;
+            }
+            else
+            {
+                for (Buffer<LFID>::const_iterator p = creates.begin(); p != creates.end(); )
+                {
+                    out << "F" << *p;
+                    if (++p != creates.end()) {
+                        out << ", ";
+                    }
+                }
+                out << endl;
+                out << "Create state for F" << *creates.begin() << ": ";
+                switch (m_createState)
+                {
+                    case CREATE_INITIAL:              out << "Initial"; break;
+                    case CREATE_LOADING_LINE:         out << "Loading cache-line"; break;
+                    case CREATE_LINE_LOADED:          out << "Cache-line loaded"; break;
+                    case CREATE_ACQUIRING_TOKEN:      out << "Acquiring token"; break;
+                    case CREATE_BROADCASTING_CREATE:  out << "Broadcasting create"; break;
+                    case CREATE_ALLOCATING_REGISTERS: out << "Allocating registers"; break;
+                }
+                out << endl;
+            }
+            out << endl;
+        }
+    }
+
+    {
+        out << "Cleanup queue: " << endl;
+        if (m_cleanup.empty())
+        {
+            out << "Empty" << endl;
+        }
+        else
+        {
+            for (Buffer<TID>::const_iterator p = m_cleanup.begin(); p != m_cleanup.end(); )
+            {
+                out << "T" << *p;
+                if (++p != m_cleanup.end()) {
+                    out << ", ";
+                }
+            }
+            out << endl;
+        }
+    }
+}
+
 }
