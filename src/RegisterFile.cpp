@@ -90,7 +90,7 @@ bool RegisterFile::Clear(const RegAddr& addr, RegSize size)
     return true;
 }
 
-bool RegisterFile::WriteRegister(const RegAddr& addr, RegValue& data, bool from_memory)
+bool RegisterFile::WriteRegister(const RegAddr& addr, const RegValue& data, bool from_memory)
 {
 	std::vector<RegValue>& regs = (addr.type == RT_FLOAT) ? m_floats : m_integers;
     if (addr.index >= regs.size())

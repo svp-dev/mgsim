@@ -51,13 +51,13 @@ public:
      * register which is full. The resulting state of the parameter will be full, such that
      * the caller can reschedule the thread.
      *
-     * @param[in]     addr the address of the register to write
-     * @param[in,out] data the data to write to the register. May receive value in register.
-     * @param[in]     from_memory indicates if the write comes from memory.
-     * @param[in]     source the source of the write. This is used for arbitration in certain cases.
+     * @param[in] addr the address of the register to write
+     * @param[in] data the data to write to the register.
+     * @param[in] from_memory indicates if the write comes from memory.
+     * @param[in] source the source of the write. This is used for arbitration in certain cases.
      * @return true if the register could be written
      */
-    bool WriteRegister(const RegAddr& addr, RegValue& data, bool from_memory);
+    bool WriteRegister(const RegAddr& addr, const RegValue& data, bool from_memory);
     
     /**
      * Clears a range of registers.

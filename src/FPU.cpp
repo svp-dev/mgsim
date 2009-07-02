@@ -49,7 +49,7 @@ bool FPU::QueueOperation(size_t source, FPUOperation fop, int size, double Rav, 
     op.Rbv  = Rbv;
     op.Rc   = Rc;
     
-    if (!m_sources[source].inputs.push(op))
+    if (!m_sources[source].inputs.Push(op))
     {
         return false;
     }
@@ -170,9 +170,9 @@ Result FPU::OnCycleWritePhase(unsigned int stateIndex)
         // Process an input queue
         const size_t input_index = stateIndex - m_units.size();
         Buffer<Operation>& input = m_sources[input_index].inputs;
-        if (!input.empty())
+        if (!input.Empty())
         {
-            const Operation& op = input.front();
+            const Operation& op = input.Front();
 
             // We use a fixed (with modulo) mapping from inputs to units
             const size_t unit_index = m_mapping[op.op][ input_index % m_mapping[op.op].size() ];
@@ -206,7 +206,7 @@ Result FPU::OnCycleWritePhase(unsigned int stateIndex)
             DebugSimWrite("Put %s operation from queue %u into pipeline %u", OperationNames[op.op], (unsigned)input_index, (unsigned)unit_index);
             
             // Remove the queued operation from the queue
-            input.pop();
+            input.Pop();
             return SUCCESS;
         }
     }

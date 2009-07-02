@@ -570,8 +570,7 @@ Result Network::OnCycleWritePhase(unsigned int stateIndex)
                         return FAILED;
                     }
                     
-                    RegValue value(response.value);
-                    if (!m_regFile.WriteRegister(addr, value, false))
+                    if (!m_regFile.WriteRegister(addr, response.value, false))
                     {
                         DeadlockWrite("Unable to write register response to %s", addr.str().c_str());
                         return FAILED;

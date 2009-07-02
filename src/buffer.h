@@ -17,24 +17,34 @@ class Buffer
     size_t          m_maxSize;
     std::deque<T>   m_data;
 
+    bool Full() const {
+        return (m_maxSize != INFINITE && m_data.size() == m_maxSize);
+    }
+    
 public:
     // We define an iterator for debugging the contents only
     typedef typename std::deque<T>::const_iterator const_iterator;
     const_iterator begin() const { return m_data.begin(); }
     const_iterator end()   const { return m_data.end(); }
 
-    bool       empty() const { return m_data.empty(); }
-    bool       full()  const { return (m_maxSize != INFINITE && m_data.size() == m_maxSize); }
-    BufferSize size()  const { return m_data.size(); }
-    const T& front() const { return m_data.front(); }
-          T& front()       { return m_data.front(); }
+    bool     Empty() const { return m_data.empty(); }
+    const T& Front() const { return m_data.front(); }
+          T& Front()       { return m_data.front(); }
 
-    void pop() { if (m_kernel.GetCyclePhase() == PHASE_COMMIT) { m_data.pop_front(); } }
-    bool push(const T& item)
+    void Pop()
     {
-        if (!full())
+        if (m_kernel.GetCyclePhase() == PHASE_COMMIT) {
+            m_data.pop_front();
+        }
+    }
+    
+    bool Push(const T& item)
+    {
+        if (!Full())
         {
-            if (m_kernel.GetCyclePhase() == PHASE_COMMIT) { m_data.push_back(item); }
+            if (m_kernel.GetCyclePhase() == PHASE_COMMIT) {
+                m_data.push_back(item);
+            }
             return true;
         }
         return false;

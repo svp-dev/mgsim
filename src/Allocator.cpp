@@ -584,7 +584,7 @@ bool Allocator::WriteExitCode(RegIndex reg, ExitCode code)
     write.address = MAKE_REGADDR(RT_INTEGER, reg);
     write.value.m_state   = RST_FULL;
     write.value.m_integer = code;
-    if (!m_registerWrites.push(write))
+    if (!m_registerWrites.Push(write))
     {
         return false;
     }
@@ -882,7 +882,7 @@ bool Allocator::DecreaseThreadDependency(LFID fid, TID tid, ThreadDependency dep
         if (deps->numPendingWrites == 0 && deps->prevCleanedUp && deps->nextKilled && deps->killed)
         {
             // This thread can be cleaned up, push it on the cleanup queue
-            if (!m_cleanup.push(tid))
+            if (!m_cleanup.Push(tid))
             {
                 return false;
             }
@@ -974,7 +974,7 @@ Result Allocator::AllocateFamily(TID parent, RegIndex reg, LFID* fid, const Regi
 	request.parent = parent;
 	request.reg    = reg;
 	std::copy(bases, bases + NUM_REG_TYPES, request.bases);
-	if (!m_allocations.push(request))
+	if (!m_allocations.Push(request))
 	{
 		return FAILED;
 	}
@@ -1030,7 +1030,7 @@ bool Allocator::OnDelegatedCreate(const DelegateMessage& msg)
     }
         
     Buffer<LFID>& queue = (msg.exclusive) ? m_createsEx : m_creates;
-    if (!queue.push(fid))
+    if (!queue.Push(fid))
     {
         return false;
     }
@@ -1303,9 +1303,9 @@ Result Allocator::OnCycleWritePhase(unsigned int stateIndex)
         //
         // Cleanup (reallocation) takes precedence over initial allocation
         //
-        if (!m_cleanup.empty())
+        if (!m_cleanup.Empty())
         {
-            TID     tid    = m_cleanup.front();
+            TID     tid    = m_cleanup.Front();
             Thread& thread = m_threadTable[tid];
             LFID    fid    = thread.family;
             Family& family = m_familyTable[fid];
@@ -1369,7 +1369,7 @@ Result Allocator::OnCycleWritePhase(unsigned int stateIndex)
                     COMMIT{ m_allocating = INVALID_LFID; }
                 }
             }
-            m_cleanup.pop();
+            m_cleanup.Pop();
 			return SUCCESS;
         }
         
@@ -1415,9 +1415,9 @@ Result Allocator::OnCycleWritePhase(unsigned int stateIndex)
         break;
 
 	case 1:
-        if (!m_allocations.empty())
+        if (!m_allocations.Empty())
 		{
-			const AllocRequest& req = m_allocations.front();
+			const AllocRequest& req = m_allocations.Front();
 			LFID fid = m_familyTable.AllocateFamily();
 			if (fid == INVALID_LFID)
 			{
@@ -1433,12 +1433,12 @@ Result Allocator::OnCycleWritePhase(unsigned int stateIndex)
 			write.address = MAKE_REGADDR(RT_INTEGER, req.reg);
 			write.value.m_state   = RST_FULL;
 			write.value.m_integer = fid;
-            if (!m_registerWrites.push(write))
+            if (!m_registerWrites.Push(write))
             {
                 DeadlockWrite("Unable to queue write to register R%04x", req.reg);
                 return FAILED;
             }
-			m_allocations.pop();
+			m_allocations.Pop();
 			return SUCCESS;
 		}
 		break;
@@ -1449,18 +1449,18 @@ Result Allocator::OnCycleWritePhase(unsigned int stateIndex)
             // Pick a create queue to create from
             LFID fid = INVALID_LFID;
             const char* ex_type = NULL;
-            if (m_exclusive == INVALID_LFID && !m_createsEx.empty())
+            if (m_exclusive == INVALID_LFID && !m_createsEx.Empty())
             {
-                fid = m_createsEx.front();
+                fid = m_createsEx.Front();
                 ex_type = "exclusive";
-                m_createsEx.pop();
+                m_createsEx.Pop();
                 COMMIT{ m_exclusive = fid; }
             }
-            else if (!m_creates.empty())
+            else if (!m_creates.Empty())
             {
-                fid = m_creates.front();
+                fid = m_creates.Front();
                 ex_type = "non-exclusive";
-                m_creates.pop();
+                m_creates.Pop();
             }
             
             if (fid != INVALID_LFID)
@@ -1698,22 +1698,22 @@ Result Allocator::OnCycleWritePhase(unsigned int stateIndex)
         break;
 
     case 4:
-		if (!m_registerWrites.empty())
+		if (!m_registerWrites.Empty())
         {
-            RegAddr addr = m_registerWrites.front().address;
-            if (!m_registerFile.p_asyncW.Write(addr))
+            const RegisterWrite& write = m_registerWrites.Front();
+            if (!m_registerFile.p_asyncW.Write(write.address))
             {
-                DeadlockWrite("Unable to acquire the port for the queued register write to %s", addr.str().c_str());
+                DeadlockWrite("Unable to acquire the port for the queued register write to %s", write.address.str().c_str());
                 return FAILED;
             }
 
-            if (!m_registerFile.WriteRegister(m_registerWrites.front().address, m_registerWrites.front().value, false))
+            if (!m_registerFile.WriteRegister(write.address, write.value, false))
             {
-                DeadlockWrite("Unable to write the queued register write to %s", addr.str().c_str());
+                DeadlockWrite("Unable to write the queued register write to %s", write.address.str().c_str());
                 return FAILED;
             }
 
-            m_registerWrites.pop();
+            m_registerWrites.Pop();
 			return SUCCESS;
         }
         break;
@@ -1823,14 +1823,15 @@ bool Allocator::QueueCreate(LFID fid, MemAddr address, TID parent, RegIndex exit
 
     Family& family = GetWritableFamilyEntry(fid, parent);
 
+	// Push the create
     // Note that delegated creates never go on the exclusive queue where they're created. They go on the exclusive
     // create queue on the remote core.
     Buffer<LFID>& queue = (family.place.exclusive && family.place.type != PlaceID::DELEGATE) ? m_createsEx : m_creates;
-    if (queue.full())
-    {
-		return false;
-	}
-
+	if (!queue.Push(fid))
+	{
+	    return false;
+    }
+    
 	COMMIT
     {
 		// Store the information
@@ -1840,10 +1841,8 @@ bool Allocator::QueueCreate(LFID fid, MemAddr address, TID parent, RegIndex exit
 
 		// Lock the family
 		family.created = true;
-
-		// Push the create
-		queue.push(fid);
     }
+    
     DebugSimWrite("Queued local create by T%u at 0x%llx", parent, (unsigned long long)address);
     return true;
 }
@@ -1984,7 +1983,7 @@ void Allocator::Cmd_Read(ostream& out, const vector<string>& /*arguments*/) cons
 {
     {
         out << "Family allocation queue: " << endl;
-        if (m_allocations.empty())
+        if (m_allocations.Empty())
         {
             out << "Empty" << endl;
         }
@@ -2042,7 +2041,7 @@ void Allocator::Cmd_Read(ostream& out, const vector<string>& /*arguments*/) cons
         {
             out << queues[i].name << " create queue: " << dec << endl;
             const Buffer<LFID>& creates = queues[i].queue;
-            if (creates.empty())
+            if (creates.Empty())
             {
                 out << "Empty" << endl;
             }
@@ -2074,7 +2073,7 @@ void Allocator::Cmd_Read(ostream& out, const vector<string>& /*arguments*/) cons
 
     {
         out << "Cleanup queue: " << endl;
-        if (m_cleanup.empty())
+        if (m_cleanup.Empty())
         {
             out << "Empty" << endl;
         }
