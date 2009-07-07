@@ -11,7 +11,7 @@ namespace Simulator
 {
 
 Pipeline::Stage::Stage(Pipeline& parent, const std::string& name, Latch* input, Latch* output)
-:   IComponent(&parent, parent.GetProcessor().GetKernel(), name, ""),    // Stages don't require callbacks
+:   Object(&parent, &parent.GetProcessor().GetKernel(), name),
     m_parent(parent), m_input(input), m_output(output)
 {
 }

@@ -122,7 +122,7 @@ public:
         bool    kill;
     };
 
-    class Stage : public IComponent
+    class Stage : public Object
     {
     public:
         virtual PipeAction  read()  = 0;
