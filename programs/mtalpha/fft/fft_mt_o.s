@@ -70,7 +70,7 @@ _FFT:
 	setstart $7, $3		# start = 1
 	addq     $10, 1, $10
 	setlimit $7, $10	# limit = M + 1
-	setplace $7, $31    # place = LOCAL
+	setplace $7, 2      # place = LOCAL
 	cred    $7, _FFT_1
 	mov     $7, $31
 	end
