@@ -12,7 +12,6 @@
 #include "RandomBankedMemory.h"
 
 #include "config.h"
-#include "profile.h"
 #include "loader.h"
 
 #include <cassert>
@@ -130,14 +129,14 @@ public:
 		StateMap   states;
 		streamsize length = 0;
 
-		const Kernel::CallbackList& callbacks = m_kernel.GetCallbacks();
-		for (Kernel::CallbackList::const_iterator p = callbacks.begin(); p != callbacks.end(); ++p)
+		const Kernel::ComponentList& components = m_kernel.GetComponents();
+		for (Kernel::ComponentList::const_iterator p = components.begin(); p != components.end(); ++p)
 		{
-		    for (size_t i = 0; i < p->second.states.size(); ++i)
+		    for (size_t i = 0; i < p->processes.size(); ++i)
 		    {
-    			RunState state = p->second.states[i].state;
+    			RunState state = p->processes[i].state;
     			if (show_all || state != STATE_IDLE) {
-        			const string name = p->first->GetFQN() + ":" + p->second.states[i].name + ": ";
+        			const string name = p->component->GetFQN() + ":" + p->processes[i].name + ": ";
     			    states[name] = state;
         			length = max(length, (streamsize)name.length());
     			}
@@ -165,7 +164,7 @@ public:
    		    bool idle = m_procs[i]->IsIdle();
    		    if (show_all || !idle) {
    		        cout << "Processor " << right << setw(width) << i << ": "
-   		             << (idle ? "idle" : "busy") << endl;
+   		             << (idle ? "empty" : "non-empty") << endl;
    		    }
    		}
 	}
@@ -307,12 +306,12 @@ public:
         {
             // See how many processes are in each of the states
             unsigned int num_idle = 0, num_stalled = 0, num_running = 0;
-            const Kernel::CallbackList& callbacks = m_kernel.GetCallbacks();
-            for (Kernel::CallbackList::const_iterator p = callbacks.begin(); p != callbacks.end(); ++p)
+            const Kernel::ComponentList& components = m_kernel.GetComponents();
+            for (Kernel::ComponentList::const_iterator p = components.begin(); p != components.end(); ++p)
             {
-                for (size_t i = 0; i < p->second.states.size(); ++i)
+                for (size_t i = 0; i < p->processes.size(); ++i)
                 {
-                    switch (p->second.states[i].state)
+                    switch (p->processes[i].state)
                     {
                         case STATE_IDLE:     ++num_idle;    break;
                         case STATE_DEADLOCK: ++num_stalled; break;
@@ -435,11 +434,13 @@ public:
 
                 stringstream name;
                 name << "cpu" << pid;
-                m_procs[pid]   = new Processor(this, m_kernel, pid, i, m_procs, m_procs.size(), placeSize, name.str(), *m_memory, fpu, config, entry);
+                m_procs[pid]   = new Processor(this, m_kernel, pid, i, m_procs, m_procs.size(), placeSize, name.str(), *m_memory, fpu, config);
                 m_objects[pid] = m_procs[pid];
             }
             first += placeSize;
         }
+        
+        m_kernel.Initialize();
 
         // Connect processors in rings
         first = 0;
@@ -451,7 +452,7 @@ public:
                 PSize pid = (first + i);
                 LPID prev = (i + placeSize - 1) % placeSize;
                 LPID next = (i + 1) % placeSize;
-                m_procs[pid]->Initialize(*m_procs[first + prev], *m_procs[first + next]);
+                m_procs[pid]->Initialize(*m_procs[first + prev], *m_procs[first + next], entry);
             }
             first += placeSize;
         }
@@ -552,47 +553,9 @@ static void PrintHelp(ostream& out)
         "debug [mode]     Show debug mode or set debug mode\n"
         "                 Debug mode can be: SIM, PROG, DEADLOCK or NONE.\n"
         "                 ALL is short for SIM and PROG\n"
-        "profiles         Lists the total time of the profiled section.\n"
         "help <component> Show the supported methods and options for this\n"
         "                 component.\n"
         << endl;
-}
-
-static void PrintProfiles()
-{
-    if (!ProfilingEnabled())
-    {
-        cout << "Profiling is not enabled." << endl
-             << "Please build the simulator with the PROFILE macro defined." << endl;
-        return;
-    }
-
-    const ProfileMap& profiles = GetProfiles();
-    if (profiles.empty())
-    {
-        cout << "There are no profiles to show" << endl;
-    }
-    else
-    {
-        // Get maximum name length and total time
-        size_t   length = 0;
-        uint64_t total  = 0;
-        for (ProfileMap::const_iterator p = profiles.begin(); p != profiles.end(); ++p)
-        {
-            length = max(length, p->first.length());
-            total += p->second;
-        }
-
-        for (ProfileMap::const_iterator p = profiles.begin(); p != profiles.end(); ++p)
-        {
-            cout << setw((streamsize)length) << left << p->first << " "
-                 << setw(6) << right << fixed << setprecision(2) << ((float)p->second / 1000000.0f) << "s "
-                 << setw(5) << right << fixed << setprecision(1) << ((float)p->second * 100.0f / (float)total) << "%" << endl;
-        }
-        cout << string(length + 15, '-') << endl;
-        cout << setw((streamsize)length) << left << "Total:" << " "
-             << setw(6) << right << fixed << setprecision(2) << (float)total / 1000000.0f << "s 100.0%" << endl << endl;
-    }
 }
 
 class bind_cmd
@@ -1029,10 +992,6 @@ int main(int argc, const char* argv[])
 							cout << "Thank you. Come again!" << endl;
 							quit = true;
 							break;
-						}
-						else if (command == "profiles")
-						{
-							PrintProfiles();
 						}
 						else if (command == "state")
 						{

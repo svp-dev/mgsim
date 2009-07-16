@@ -15,23 +15,13 @@ namespace Simulator
     return ss.str();
 }
 
-void StructureBase::RegisterReadPort(ArbitratedReadPort& port)
+void ArbitratedPort::AddRequest(const ArbitrationSource& source)
 {
-    m_readPorts.insert(&port);
-}
+    // A source should not request a port more than once
+    // in a cycle or Bad Things (TM) could happen
+    assert(find(m_requests.begin(), m_requests.end(), source) == m_requests.end());
 
-void StructureBase::UnregisterReadPort(ArbitratedReadPort& port)
-{
-    m_readPorts.erase(&port);
-}
-
-void StructureBase::OnArbitrateReadPhase()
-{
-    // Arbitrate between all incoming requests
-    for (ReadPortList::iterator i = m_readPorts.begin(); i != m_readPorts.end(); ++i)
-    {
-        (*i)->Arbitrate();
-    }
+    m_requests.push_back(source);
 }
 
 void ArbitratedPort::Arbitrate()
@@ -40,7 +30,7 @@ void ArbitratedPort::Arbitrate()
     m_source = ArbitrationSource();
 
     int highest = std::numeric_limits<int>::max();
-    for (RequestMap::const_iterator i = m_requests.begin(); i != m_requests.end(); ++i)
+    for (RequestList::const_iterator i = m_requests.begin(); i != m_requests.end(); ++i)
     {
         PriorityMap::const_iterator priority = m_priorities.find(*i);
         if (priority != m_priorities.end() && priority->second < highest)
@@ -57,15 +47,36 @@ void ArbitratedPort::Arbitrate()
     }
 }
 
-void ArbitratedService::OnArbitrateReadPhase()
+void ArbitratedService::OnArbitrate()
 {
     Arbitrate();
 }
 
-void ArbitratedService::OnArbitrateWritePhase()
+//
+// IStructure class
+//
+IStructure::IStructure(Object* parent, Kernel& kernel, const std::string& name)
+    : Object(parent, &kernel, name), Arbitrator(kernel)
 {
-    Arbitrate();
 }
 
+void IStructure::RegisterReadPort(ArbitratedReadPort& port)
+{
+    m_readPorts.insert(&port);
+}
+
+void IStructure::UnregisterReadPort(ArbitratedReadPort& port)
+{
+    m_readPorts.erase(&port);
+}
+
+void IStructure::ArbitrateReadPorts()
+{
+    // Arbitrate between all incoming requests
+    for (ReadPortList::iterator i = m_readPorts.begin(); i != m_readPorts.end(); ++i)
+    {
+        (*i)->Arbitrate();
+    }
+}
 
 }

@@ -10,7 +10,7 @@ namespace Simulator
 {
 
 FamilyTable::FamilyTable(Processor& parent, const Config& config)
-:   Structure<LFID>(&parent, parent.GetKernel(), "families"),
+:   Object(&parent, &parent.GetKernel(), "families"),
     m_parent(parent),
     m_families(config.getInteger<size_t>("NumFamilies", 8)),
     m_numFamiliesUsed(0)
@@ -21,61 +21,41 @@ FamilyTable::FamilyTable(Processor& parent, const Config& config)
 		m_families[i].created     = false;
 		m_families[i].parent.lpid = INVALID_LPID;
 		m_families[i].parent.gpid = INVALID_GPID;
-
-        m_families[i].next    = i + 1;
-        m_families[i].state   = FST_EMPTY;
+		m_families[i].next        = INVALID_LFID;
+        m_families[i].state       = FST_EMPTY;
     }
-
-    m_empty.head = 0;
-    m_empty.tail = m_families.size() - 1;
-
-    m_families[m_empty.tail].next = INVALID_LFID;
 }
 
 LFID FamilyTable::AllocateFamily()
 {
-    LFID fid = m_empty.head;
-    if (m_empty.head != INVALID_LFID)
+    // Do an associative lookup
+    for (size_t i = 0; i < m_families.size(); ++i)
     {
-		// There are empty families, pop one off the queue
-        assert(m_numFamiliesUsed < m_families.size());
-		Family& family = m_families[fid];
-        assert(family.state == FST_EMPTY);
-
-        COMMIT
-		{
-            m_empty.head = m_families[fid].next;
-            family.state = FST_ALLOCATED;
-            family.next  = INVALID_LFID;
-            
-            m_numFamiliesUsed++;
-		}
+        if (m_families[i].state == FST_EMPTY)
+        {
+            assert(m_numFamiliesUsed < m_families.size());
+            COMMIT
+            {
+        		Family& family = m_families[i];
+                family.state = FST_ALLOCATED;
+                m_numFamiliesUsed++;
+            }
+            return i;
+        }
     }
-    return fid;
+    return INVALID_LFID;
 }
 
-bool FamilyTable::FreeFamily(LFID fid)
+void FamilyTable::FreeFamily(LFID fid)
 {
 	assert(fid != INVALID_LFID);
     assert(m_numFamiliesUsed > 0);
     
     COMMIT
     {
-        // Put it on the queue
-        if (m_empty.head == INVALID_LFID) {
-            m_empty.head = fid;
-        } else {
-            m_families[m_empty.tail].next = fid;
-        }
-        m_empty.tail = fid;
-
-		Family& family = m_families[fid];
-        family.next  = INVALID_LFID;
-        family.state = FST_EMPTY;
-        
+		m_families[fid].state = FST_EMPTY;
         m_numFamiliesUsed--;
     }
-    return true;
 }
 
 void FamilyTable::Cmd_Help(ostream& out, const vector<string>& /* arguments */) const

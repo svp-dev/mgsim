@@ -101,7 +101,7 @@ bool RAUnit::Alloc(const RegSize sizes[NUM_REG_TYPES], LFID fid, RegIndex indice
 	return true;
 }
 
-bool RAUnit::Free(RegIndex indices[NUM_REG_TYPES])
+void RAUnit::Free(RegIndex indices[NUM_REG_TYPES])
 {
 	for (RegType i = 0; i < NUM_REG_TYPES; ++i)
 	{
@@ -116,7 +116,6 @@ bool RAUnit::Free(RegIndex indices[NUM_REG_TYPES])
 			COMMIT{ list[index].first = 0; }
 		}
 	}
-    return true;
 }
 
 void RAUnit::Cmd_Help(ostream& out, const std::vector<std::string>& /*arguments*/) const

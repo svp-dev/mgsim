@@ -1,8 +1,7 @@
 #ifndef NETWORK_H
 #define NETWORK_H
 
-#include "ports.h"
-#include <cassert>
+#include "storage.h"
 
 namespace Simulator
 {
@@ -11,47 +10,6 @@ class Processor;
 class RegisterFile;
 class Allocator;
 class FamilyTable;
-
-template <typename T>
-class Register : public IRegister
-{
-    struct Data
-    {
-        bool m_full;
-        T    m_data;
-    };
-
-    void OnUpdate()
-    {
-        m_read = m_data;
-    }
-    
-    Data              m_data;
-    Data              m_read;
-    ArbitratedService m_service;
-
-public:
-    void AddSource(const ArbitrationSource& source) {
-        m_service.AddSource(source);
-    }
-    
-    void Clear()              { COMMIT{ m_data.m_full = false; } }
-    void Write(const T& data) { COMMIT{ m_data.m_data = data; m_data.m_full = true; } }
-    const T& Read() const     { assert(m_read.m_full); return m_read.m_data; }
-    bool CanRead()  const     { return  m_read.m_full; }
-    bool CanWrite()           { return !m_data.m_full && m_service.Invoke(); }
-
-    Register(const Object& object, const std::string& name) : IRegister(*object.GetKernel()), m_service(object, name)
-    {
-        m_data.m_full = m_read.m_full = false;
-    }
-
-    Register(const Object& object, const std::string& name, const T& def) : IRegister(*object.GetKernel()), m_service(object, name)
-    {
-        m_data.m_full = m_read.m_full = true;
-		m_data.m_data = m_read.m_data = def;
-    }
-};
 
 /// Network message for delegated creates
 struct DelegateMessage
@@ -91,20 +49,56 @@ struct CreateMessage
 
 class Network : public IComponent
 {
-public:
-    struct RegisterRequest
+    template <typename T>
+    class Register : public Simulator::Register<T>
     {
-        RemoteRegAddr addr;         ///< Address of the register to read
-        GPID          return_pid;   ///< Address of the core to send to (delegated requests only)
-        LFID          return_fid;   ///< FID of the family on the next core to write back to
-    };
+        ArbitratedService m_service;
+
+    public:
+        void AddSource(const ArbitrationSource& source) {
+            m_service.AddSource(source);
+        }
+        
+        // Use ForceWrite to avoid deadlock issues with network buffers
+        // if you KNOW that the buffer will be cleared at the same cycle.
+        bool ForceWrite(const T& data)
+        {
+            if (!m_service.Invoke()) {
+                return false;
+            }
+            Simulator::Register<T>::Write(data);
+            return true;
+        }
     
-    struct RegisterResponse
-    {
-        RemoteRegAddr addr;  ///< Address of the register to write
-        RegValue      value; ///< Value, in case of response
+        bool Write(const T& data)
+        {
+            if (!this->Empty() || !m_service.Invoke()) {
+                return false;
+            }
+            Simulator::Register<T>::Write(data);
+            return true;
+        }
+
+        Register(Kernel& kernel, IComponent& component, int state, const std::string& name)
+            : Simulator::Register<T>(kernel, component, state), m_service(component, name)
+        {
+        }
     };
 
+	template <typename T>
+	struct RegisterPair
+	{
+	    Register<T> out;  ///< Register for outgoing messages
+	    Register<T> in;   ///< Register for incoming messages
+
+        RegisterPair(Kernel& kernel, IComponent& component, int state_in, int state_out, const std::string& name)
+            : out(kernel, component, state_out, name + ".out"),
+              in (kernel, component, state_in,  name + ".in")
+        {
+        }
+	};
+	
+public:
     Network(Processor& parent, const std::string& name, const std::vector<Processor*>& grid, LPID lpid, Allocator& allocator, RegisterFile& regFile, FamilyTable& familyTable);
     void Initialize(Network& prev, Network& next);
 
@@ -124,6 +118,19 @@ public:
     void Cmd_Read(std::ostream& out, const std::vector<std::string>& arguments) const;
 
 private:
+    struct RegisterRequest
+    {
+        RemoteRegAddr addr;         ///< Address of the register to read
+        GPID          return_pid;   ///< Address of the core to send to (delegated requests only)
+        LFID          return_fid;   ///< FID of the family on the next core to write back to
+    };
+    
+    struct RegisterResponse
+    {
+        RemoteRegAddr addr;  ///< Address of the register to write
+        RegValue      value; ///< Value, in case of response
+    };
+
     bool SetupFamilyNextLink(LFID fid, LFID link_next);
     bool OnGroupCreateReceived(const CreateMessage& msg);
     bool OnDelegationCreateReceived(const DelegateMessage& msg);
@@ -140,8 +147,7 @@ private:
     bool OnRemoteRegisterReceived(const RegisterResponse& response);
     bool ReadRegister(const RegisterRequest& request);
 
-    Result OnCycleReadPhase(unsigned int stateIndex);
-    Result OnCycleWritePhase(unsigned int stateIndex);
+    Result OnCycle(unsigned int stateIndex);
 
     Processor&                     m_parent;
     RegisterFile&                  m_regFile;
@@ -160,16 +166,6 @@ public:
 	    ExitCode code;
 	};
 	
-	template <typename T>
-	struct RegisterPair
-	{
-	    Register<T> out;  ///< Register for outgoing messages
-	    Register<T> in;   ///< Register for incoming messages
-
-        RegisterPair(const Object& object, const std::string& name)
-            : out(object, name + ".out"), in(object, name + ".in") {}
-	};
-
 	// Group creates
     Register<CreateMessage>   m_createLocal;    ///< Outgoing group create
 	Register<CreateMessage>   m_createRemote;   ///< Incoming group create
@@ -191,15 +187,13 @@ public:
 	RegisterPair<RegisterResponse> m_registerResponseRemote; ///< Remote register response
     RegisterPair<RegisterRequest>  m_registerRequestGroup;   ///< Group register request
     RegisterPair<RegisterResponse> m_registerResponseGroup;  ///< Group register response
-    RegValue                       m_registerValue;          ///< Value of incoming register request
 
 	// Token management
-    Register<bool> m_hasToken;		 ///< We have the token
-    Register<bool> m_wantToken;		 ///< We want the token
-    Register<bool> m_tokenUsed;      ///< Has the token been used locally?
-    Register<bool> m_nextWantsToken; ///< Next processor wants the token
-	Register<bool> m_requestedToken; ///< We've requested the token
-
+    Flag          m_hasToken; 	    ///< We have the token
+    SensitiveFlag m_wantToken; 	    ///< We want the token
+    Flag          m_tokenUsed;      ///< Has the token been used locally?
+    SensitiveFlag m_nextWantsToken; ///< Next processor wants the token
+	Flag          m_requestedToken; ///< We've requested the token
 };
 
 }

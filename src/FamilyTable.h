@@ -86,16 +86,17 @@ struct Family
     FamilyState  state;          // Family state
 };
 
-class FamilyTable : public Structure<LFID>
+class FamilyTable : public Object
 {
 public:
     FamilyTable(Processor& parent, const Config& config);
-    
+
+    typedef Family value_type;
           Family& operator[](LFID fid)       { return m_families[fid]; }
 	const Family& operator[](LFID fid) const { return m_families[fid]; }
 
 	LFID AllocateFamily();
-    bool FreeFamily(LFID fid);
+    void FreeFamily(LFID fid);
     bool IsEmpty() const { return m_numFamiliesUsed == 0; }
     
     // Admin functions
@@ -107,7 +108,6 @@ public:
 private:
     Processor&          m_parent;
     std::vector<Family> m_families;
-    FamilyQueue         m_empty;
     FSize               m_numFamiliesUsed;
 };
 

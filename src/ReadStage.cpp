@@ -21,16 +21,6 @@ using namespace std;
 namespace Simulator
 {
 
-static uint64_t MAKE_MASK(int num_bits)
-{
-    // Shift in two steps so shifting
-    // by the entire register width works.
-    uint64_t mask = 1;
-    mask <<= num_bits / 2;
-    mask <<= (num_bits - num_bits / 2);
-    return mask - 1;
-}
-
 // Convert a RegValue into a PipeValue
 static PipeValue RegToPipeValue(RegType type, const RegValue& src_value)
 {
@@ -61,112 +51,6 @@ static PipeValue RegToPipeValue(RegType type, const RegValue& src_value)
     return dest_value;
 }
 
-static void CopyRegister(RegType type, const PipeValue& src_value, RegSize src_offset, PipeValue& dest_value, RegSize dest_offset)
-{
-    assert(src_value.m_state == RST_FULL);
-
-    // Make bit-mask and bit-offsets
-#ifdef ARCH_BIG_ENDIAN
-    src_offset  = src_value.m_size  / sizeof(Integer) - 1 - src_offset;
-    dest_offset = dest_value.m_size / sizeof(Integer) - 1 - dest_offset;
-#endif
-    const uint64_t     mask       = MAKE_MASK(sizeof(Integer) * 8);
-    const unsigned int src_shift  = src_offset  * sizeof(Integer) * 8;
-    const unsigned int dest_shift = dest_offset * sizeof(Integer) * 8;
-    switch (type)
-    {
-        case RT_INTEGER:
-            dest_value.m_integer.set(
-                (dest_value.m_integer.get(dest_value.m_size) & ~(mask << dest_shift)) |
-                (((src_value.m_integer.get(src_value.m_size) >> src_shift) & mask) << dest_shift),
-                dest_value.m_size);
-            break;
-            
-        case RT_FLOAT:
-            dest_value.m_float.fromint(
-                (dest_value.m_float.toint(dest_value.m_size) & ~(mask << dest_shift)) |
-                (((src_value.m_float.toint(src_value.m_size) >> src_shift) & mask) << dest_shift),
-                dest_value.m_size);
-            break;
-    }
-}
-
-/*
- This function figures out what part of the desired operand is in the source
- PipeValue and copies the relevant data.
- 
- The return value is:
-  = 0 if nothing was read from the source operand.
-  < 0 if at least one register is required from the source, but it's not full.
-  > 0 if at least one register has been copied from the source.
- 
- In the latter two cases, the return value is a register mask. In the first of the two cases, the register mask
- identifies the registers in the destination operand that were wanted. In the second case, the register mask
- identifies the registers in the destination operand that were written.
-*/
-static int ReadBypass(const RegAddr& src_addr, const PipeValue& src_value, const RegAddr& dest_addr, PipeValue& dest_value, unsigned int to_read_mask)
-{
-    assert( src_addr.valid());
-    assert(dest_addr.valid());
-    assert(src_addr.type == dest_addr.type);
-    assert( src_value.m_size % sizeof(Integer) == 0);
-    assert(dest_value.m_size % sizeof(Integer) == 0);
-        
-    // See what parts of the source and destination we're interested in
-    const RegSize  src_size   =  src_value.m_size / sizeof(Integer);
-    const RegSize dest_size   = dest_value.m_size / sizeof(Integer);
-    const RegSize  src_offset = (dest_addr.index > src_addr.index) ? dest_addr.index -  src_addr.index : 0;
-    const RegSize dest_offset = (dest_addr.index < src_addr.index) ?  src_addr.index - dest_addr.index : 0;
-    
-    if (src_offset < src_size && dest_offset < dest_size)
-    {
-        // There is overlap between source and destination, get its size
-        const RegSize size = min(src_size - src_offset, dest_size - dest_offset);
-        
-        // All checks are relative to the destination offset.
-        // Also mask the read_mask to get the registers we can actually read.
-        to_read_mask = (to_read_mask >> dest_offset) & ((1 << size) - 1);
-
-        // Check if there's any part of the overlap that we need
-        if (to_read_mask != 0)
-        {
-            // Yes, check the state of the source and fill the destination
-            switch (src_value.m_state)
-            {
-                case RST_INVALID:
-                case RST_WAITING:
-                case RST_EMPTY:
-                    // The operand was not full.
-                    // In the return value, specify which registers in the destination operand we wanted.
-                    return -(to_read_mask << dest_offset);
-
-                case RST_FULL:
-                {
-                    // Copy all registers in the operand that we want
-                    dest_value.m_state = RST_FULL;
-                    for (RegSize i = 0; i < size; ++i)
-                    {
-                        if (to_read_mask & (1 << i))
-                        {
-                            CopyRegister(
-                                src_addr.type,
-                                src_value,  src_offset  + i,
-                                dest_value, dest_offset + i
-                            );
-                        }
-                    }
-                    
-                    // Return the registers that we've copied
-                    return to_read_mask << dest_offset;
-                }
-            }
-            assert(0);
-        }
-    }
-    // We've read nothing
-    return 0;
-}
-
 /**
  * Prepares to read a (possibly multi-register) operand by reading the register file.
  * @param[in] addr register address of the base of the operand
@@ -176,17 +60,19 @@ static int ReadBypass(const RegAddr& src_addr, const PipeValue& src_value, const
  */
 bool Pipeline::ReadStage::ReadRegister(OperandInfo& operand, uint32_t literal)
 {
-    if (operand.to_read_mask == -1)
+    if (operand.offset == -2)
     {
         // This is a new operand read; initialize operand value
         operand.value.m_state = RST_FULL;
         if (operand.addr.valid()) {
-            // Valid new read; mark entire operand as unread and initialize to zero
+            // Valid new read; initialize value to zero.
+            // We start reading at the highest sub-register, so we can decrement
+            // and when we hit -1 we're done.
             literal = 0;
-            operand.to_read_mask = (1 << (operand.value.m_size / sizeof(Integer))) - 1;
+            operand.offset = operand.value.m_size / sizeof(Integer) - 1;
         } else {
             // Invalid read -- use the literal, and everything's been read
-            operand.to_read_mask = 0;
+            operand.offset = -1;
         }
         
         switch (operand.addr.type)
@@ -196,7 +82,7 @@ bool Pipeline::ReadStage::ReadRegister(OperandInfo& operand, uint32_t literal)
         }
     }
     
-    if (operand.to_read_mask != 0)
+    if (operand.offset >= 0)
     {
         // Part of the operand still needs to be read from the register file
         if (!operand.port->Read())
@@ -204,11 +90,7 @@ bool Pipeline::ReadStage::ReadRegister(OperandInfo& operand, uint32_t literal)
             return false;
         }
 
-        // Find the first register to read
-        unsigned int offset, mask = operand.to_read_mask;
-        for (offset = 0; ~mask & 1; mask >>= 1, offset++) {}
-
-        operand.addr_reg = MAKE_REGADDR(operand.addr.type, operand.addr.index + offset);
+        operand.addr_reg = MAKE_REGADDR(operand.addr.type, operand.addr.index + operand.offset);
         RegValue value;
         if (!m_regFile.ReadRegister(operand.addr_reg, value))
         {
@@ -232,151 +114,238 @@ bool Pipeline::ReadStage::ReadBypasses(OperandInfo& operand)
     // load, and we have to wait a cycle to get the actual value.
     // Of course, in the VERIFY phase, the other stages will have already
     // been run, so all bypasses have the correct values.
-    if (operand.addr.valid())
+    if (!operand.addr.valid() || operand.offset < 0)
     {
-        // We have a valid address; read the operand
-        static const unsigned int N_INPUTS = 4;
-        const struct InputInfo
-        {
-            bool       empty;
-            RegAddr&   addr;
-            PipeValue& value;
-        } bypasses[N_INPUTS] = {
-            {false,           operand.addr_reg, operand.value_reg},
-            {m_wblatch.empty, m_wblatch.Rc,     m_wblatch.Rcv},
-            {m_bypass2.empty, m_bypass2.Rc,     m_bypass2.Rcv},
-            {m_bypass1.empty, m_bypass1.Rc,     m_bypass1.Rcv},
-        };
+        // No data to read? Then we're done
+        return true;
+    }
 
-        // If an operand is not full, we need to keep track of its contents,
-        // and address of first register.
-        unsigned int nonfull_mask  = 0;
-        RegAddr      nonfull_addr  = INVALID_REG;
-        PipeValue    nonfull_value = MAKE_EMPTY_PIPEVALUE(sizeof(Integer));
+    //
+    // We have a valid address and data to read; read the bypasses.
+    //
+    // We iterate over all inputs from back to front. This in effect 'replays'
+    // the last instructions and gets the correct final value.
+    //
+    static const unsigned int N_INPUTS = 4;
+    const struct InputInfo
+    {
+        bool             empty;
+        const RegAddr&   addr;
+        const PipeValue& value;
+    } bypasses[N_INPUTS] = {
+        {false,           operand.addr_reg, operand.value_reg},
+        {m_bypass3.empty, m_bypass3.Rc,     m_bypass3.Rcv},
+        {m_bypass2.empty, m_bypass2.Rc,     m_bypass2.Rcv},
+        {m_bypass1.empty, m_bypass1.Rc,     m_bypass1.Rcv},
+    };
 
-        // Iterate over all inputs from back to front. This in effect 'replays'
-        // the last instructions and gets the correct final value.
-        unsigned int combined_read_mask = 0;
-        for (unsigned int i = 0; i < N_INPUTS; ++i)
+    // This variable keeps the value of the register as we replay the instructions
+    RegValue value;
+    value.m_state = RST_EMPTY;
+
+    for (unsigned int i = 0; i < N_INPUTS; ++i)
+    {
+        const InputInfo& ii = bypasses[i];
+
+        if (ii.empty || !ii.addr.valid() ||                         // Empty latch or no result
+            ii.addr.type != operand.addr.type ||                    // Value type mismatch
+            operand.addr.index + operand.offset <  ii.addr.index || // Register not in operand's register range
+            operand.addr.index + operand.offset >= ii.addr.index + ii.value.m_size / sizeof(Integer))
         {
-            const InputInfo& ii = bypasses[i];
-            if (!ii.empty && ii.addr.valid() && ii.addr.type == operand.addr.type)
+            // This bypass does not hold the register that we want
+            continue;
+        }
+    
+        // The wanted register is present in the source.
+        // Check the state of the source.
+        switch (ii.value.m_state)
+        {
+        case RST_INVALID:
+        case RST_WAITING:
+        case RST_EMPTY:
+            // The source was not FULL
+            if (ii.value.m_state == RST_WAITING && value.m_state == RST_FULL)
             {
-                // Non-empty bypass of the same type; read it
-                int read_mask = ReadBypass(ii.addr, ii.value, operand.addr, operand.value, operand.to_read_mask);
-                if (read_mask < 0)
-                {
-                    // A part of the operand was not full. read_mask contains
-                    // which registers (negated).
-                    read_mask = -read_mask;
+                // If the source value is WAITING, but the desired value turns out to have
+                // been written earlier, ignore the source.
+            }
+            // The operand value was not touched, remember the operand
+            // for the empty state (memory/remote request, waiting queue)
+            else if (ii.value.m_state == RST_EMPTY && value.m_state == RST_WAITING)
+            {
+                // This bypass resets a waiting register. Ignore the new value and
+                // use the waiting value.
+            }
+            else
+            {
+                // Set this as the 'current' value: copy the information
+                value.m_state   = ii.value.m_state;
+                value.m_waiting = ii.value.m_waiting;
+                value.m_remote  = ii.value.m_remote;
+                value.m_memory  = ii.value.m_memory;
+            }
+            break;
 
-                    // If the input value is waiting, but the desired value turns out to have
-                    // been written earlier, don't wait.
-                    if (ii.value.m_state != RST_WAITING || (combined_read_mask & read_mask) != (unsigned int)read_mask)
-                    {
-                        // The operand value was not touched, remember the operand
-                        // for the empty state (memory/remote request, waiting queue)
-                        if (ii.value.m_state == RST_EMPTY && nonfull_value.m_state == RST_WAITING)
-                        {
-                            // This bypass resets a waiting register. Ignore the new value and
-                            // use the waiting value.
-                        }
-                        else
-                        {
-                            nonfull_value = ii.value;
-                        }
-                        nonfull_mask |= read_mask;
-
-                        // Get the address of the first non-full register to be able to wait on it.
-                        nonfull_addr = operand.addr;
-                        while (~read_mask & 1) {
-                            ++nonfull_addr.index;
-                            read_mask >>= 1;
-                        }
-                        read_mask = 0;
-                    }
-                }
+        case RST_FULL:
+            // Full always overwrites everything else.
+            // Get the register from the pipeline value.
+            value.m_state = RST_FULL;
                 
-                if (read_mask != 0)
-                {
-                    // We've read part of the operand from this bypass
-                    nonfull_mask       &= ~read_mask;    // These bits are now full
-                    combined_read_mask |=  read_mask;    // And have been read
-                }
-            }
-        }
-        
-        if (nonfull_mask != 0)
-        {
-            // At least one register was not full in the end.
-            if (nonfull_value.m_state == RST_INVALID)
+            // Make bit-mask and bit-offsets
+            unsigned int offset = operand.addr.index + operand.offset - ii.addr.index;
+#ifdef ARCH_BIG_ENDIAN
+            offset = ii.value.m_size  / sizeof(Integer) - 1 - offset;
+#endif
+            const unsigned int shift = offset * sizeof(Integer) * 8;
+            switch (ii.addr.type)
             {
-                // Drop what we're doing -- we need to try again next cycle.
-                // This is when the most recent result will actually be generated
-                // later in the pipeline (e.g., a memory load is picked up before
-                // the Memory Stage).
-                return false;
+            case RT_INTEGER: value.m_integer       = (Integer)(ii.value.m_integer.get(ii.value.m_size) >> shift); break;
+            case RT_FLOAT:   value.m_float.integer = (Integer)(ii.value.m_float.toint(ii.value.m_size) >> shift); break;
             }
-
-            // Wait on it
-            operand.addr  = nonfull_addr;
-            operand.value = nonfull_value;
-            
-            // Pretend we've read everything since the entire operand
-            // will now be waiting on the wanted register.
-            operand.to_read_mask = 0;
+            break;
         }
-        else
+    }
+    
+    //
+    // We're done replaying the bypasses. See what we ended up with.
+    //
+    
+    if (value.m_state != RST_FULL)
+    {
+        // The register is not full
+        if (value.m_state == RST_INVALID)
         {
-            // We no longer have to read the registers that we read
-            operand.to_read_mask &= ~combined_read_mask;
+            // Drop what we're doing -- we need to try again next cycle.
+            // This is when the most recent result will actually be generated
+            // later in the pipeline (e.g., a memory load is picked up before
+            // the Memory Stage).
+            return false;
         }
+
+        // Wait on it
+        operand.addr.index += operand.offset;
+        operand.value = RegToPipeValue(operand.addr.type, value);
+            
+        // Pretend we've read everything since the entire operand
+        // will now be waiting on the wanted register.
+        operand.offset = -1;
+    }
+    else
+    {
+        // Insert the read data into the operand
+        unsigned int offset = operand.offset;
+#ifdef ARCH_BIG_ENDIAN
+        offset = operand.value.m_size / sizeof(Integer) - 1 - offset;
+#endif
+        const unsigned int shift = offset * sizeof(Integer) * 8;
+        switch (operand.addr.type)
+        {
+        case RT_INTEGER:
+            operand.value.m_integer.set(
+                operand.value.m_integer.get(operand.value.m_size) | (value.m_integer << shift),
+                operand.value.m_size);
+            break;
+            
+        case RT_FLOAT:
+            operand.value.m_float.fromint(
+                operand.value.m_float.toint(operand.value.m_size) | (value.m_float.integer << shift),
+                operand.value.m_size);
+            break;
+        }
+            
+        // Proceed to the next register in the operand
+        operand.offset--;
     }
     return true;
 }
 
-Pipeline::PipeAction Pipeline::ReadStage::read()
+/*
+ Checks if the operand is FULL and if not, writes the output (Rav/Rra) to suspend on the missing register.
+ @param [in]  operand The operand to check
+ @param [in]  addr    The base address of the operand
+ @param [in]  rr      The base remote address of the operand
+ */
+bool Pipeline::ReadStage::CheckOperandForSuspension(const OperandInfo& operand, const RegAddr& addr, const RemoteRegAddr& rr)
 {
-    OperandInfo operand1(m_operand1);
-    OperandInfo operand2(m_operand2);
+    if (operand.value.m_state != RST_FULL)
+    {
+        COMMIT
+        {
+            // Register wasn't full, write back the suspend information
+            if (operand.value.m_state != RST_WAITING && rr.fid != INVALID_LFID)
+            {
+                // Send a remote request unless a thread is already
+                // waiting on it (that thread has already sent the request).
+                m_output.Rra = rr;
+                m_output.Rra.reg.index += (operand.addr.index - addr.index);
+            }
+            else
+            {
+                // No remote request
+                m_output.Rra.fid = INVALID_LFID;
+            }
+            
+            // Put the output value in the waiting state
+            m_output.Rc                 = operand.addr;
+            m_output.Rav                = operand.value;
+            m_output.Rav.m_state        = RST_WAITING;
+            m_output.Rav.m_waiting.head = m_input.tid;
+            m_output.Rav.m_waiting.tail = (operand.value.m_state == RST_WAITING)
+                ? operand.value.m_waiting.tail     // The register was already waiting, append thread to list
+                : m_input.tid;                     // First thread waiting on the register
+        }
+        return true;
+    }
+    return false;
+}
 
-    // Initialize the operand states
-    operand1.addr         = m_input.Ra;
-    operand1.value.m_size = m_input.RaSize;
-    operand2.addr         = m_input.Rb;
-    operand2.value.m_size = m_input.RbSize;
-    
-    // Copy the writeback latch because it'll be gone in the Write phase
-    m_wblatch = m_bypass2;
+Pipeline::PipeAction Pipeline::ReadStage::Write()
+{
+    OperandInfo operand1( m_operand1 );
+    OperandInfo operand2( m_operand2 );
+
+    if (operand1.offset == -2 && operand2.offset == -2)
+    {
+        // This is a new read; initialize stuff
+        
+        // Initialize the operand data
+        operand1.addr         = m_input.Ra;
+        operand1.value.m_size = m_input.RaSize;
+        operand2.addr         = m_input.Rb;
+        operand2.value.m_size = m_input.RbSize;
     
 #if TARGET_ARCH == ARCH_SPARC
-    m_isMemoryStore = false;
-    if (m_input.op1 == S_OP1_MEMORY)
-    {
-        switch (m_input.op3)
+        m_isMemoryStore = false;
+        if (m_input.op1 == S_OP1_MEMORY)
         {
+            switch (m_input.op3)
+            {
             case S_OP3_STB: case S_OP3_STBA:
             case S_OP3_STH: case S_OP3_STHA:
             case S_OP3_ST:  case S_OP3_STA:
             case S_OP3_STD: case S_OP3_STDA:
             case S_OP3_STF: case S_OP3_STDF:
-                // Stores on the Sparc require multiple cycles. First cycle we
+                // Stores on the Sparc require at least two cycles. First cycle we
                 // read the value to store. After that the two registers for
                 // the address.
                 m_isMemoryStore = true;
+                if (m_storeValue.m_state == RST_INVALID)
+                {
+                    // Store value hasn't been read yet, so read it first
+                    operand1.addr         = m_input.Rc;
+                    operand1.value.m_size = m_input.RcSize;
+                    operand2.addr         = INVALID_REG;
+                }
                 break;
+            }
         }
-    }
-
-    if (m_isMemoryStore && m_storeValue.m_state == RST_INVALID)
-    {
-        // Initial phase of memory store; read to-be-stored value
-        operand1.addr         = m_input.Rc;
-        operand1.value.m_size = m_input.RcSize;
-        operand2.addr         = INVALID_REG;
-    }
 #endif
+    }
 
+    //
+    // Read the registers for both operands.
+    // This reads the values into operand<n>.value_reg
+    //
     if (!ReadRegister(operand1, 0))
     {
         DeadlockWrite("Unable to read operand #1's register");
@@ -390,40 +359,28 @@ Pipeline::PipeAction Pipeline::ReadStage::read()
         return PIPE_STALL;
     }
     
-    COMMIT
+    if (!IsAcquiring())
     {
-        m_operand1 = operand1;
-        m_operand2 = operand2;
-    }
-    return PIPE_CONTINUE;
-}
-
-Pipeline::PipeAction Pipeline::ReadStage::write()
-{
-    if (IsAcquiring())
-    {
-        // We're not acquiring anything in the write phase,
-        // so everything went well. This simplifies the rest of
-        // the code a bit.
-        return PIPE_CONTINUE;
+        //
+        // Now read the bypasses and construct the final value.
+        //
+        // We don't call this in the acquire phase because the bypasses will have
+        // wrong values which could mess things up.
+        //
+        if (!ReadBypasses(operand1))
+        {
+            DeadlockWrite("Unable to read bypasses for operand #1");
+            return PIPE_STALL;
+        }
+    
+        if (!ReadBypasses(operand2))
+        {
+            DeadlockWrite("Unable to read bypasses for operand #2");
+            return PIPE_STALL;
+        }
     }
     
-    OperandInfo operand1( m_operand1 );
-    OperandInfo operand2( m_operand2 );
-
-    if (!ReadBypasses(operand1))
-    {
-        DeadlockWrite("Unable to read bypasses for operand #1");
-        return PIPE_STALL;
-    }
-    
-    if (!ReadBypasses(operand2))
-    {
-        DeadlockWrite("Unable to read bypasses for operand #2");
-        return PIPE_STALL;
-    }
-    
-    if (operand1.to_read_mask != 0 || operand2.to_read_mask != 0)
+    if (operand1.offset >= 0 || operand2.offset >= 0)
     {
         // Both operands haven't been fully read yet -- delay
         COMMIT
@@ -433,82 +390,40 @@ Pipeline::PipeAction Pipeline::ReadStage::write()
         }
         return PIPE_DELAY;
     }
-    else
-    {
-        // We're done with these operands -- reset for new operands next cycle
-        COMMIT
-        {
-            m_operand1.to_read_mask = -1;
-            m_operand2.to_read_mask = -1;
-        }
-    }
-
+    
+    //
+    // Both operands are now fully read
+    //
     COMMIT
     {
         // Copy common latch data
-        (Latch&)m_output               = m_input;
+        (CommonData&)m_output          = m_input;
         (ArchDecodeReadLatch&)m_output = m_input;
         
-        m_output.Ra      = operand1.addr;
-        m_output.Rb      = operand2.addr;
-        m_output.Rc      = m_input.Rc;
-        m_output.Rra.fid = INVALID_LFID;
-        m_output.Rrb.fid = INVALID_LFID;
-        m_output.Rrc     = m_input.Rrc;
-        m_output.Rav     = operand1.value;
-        m_output.Rbv     = operand2.value;
-        m_output.Rcv.m_size = m_input.RcSize;
-        m_output.regs       = m_input.regs;
+        m_output.Ra = operand1.addr;
+        m_output.Rb = operand2.addr;
+        
+        // We're done with these operands -- reset for new operands next cycle
+        m_operand1.offset = -2;
+        m_operand2.offset = -2;
     }
 
-    if (operand1.value.m_state != RST_FULL)
+    if (!CheckOperandForSuspension(operand1, m_input.Ra, m_input.Rra))  // Suspending on operand #1?
+    if (!CheckOperandForSuspension(operand2, m_input.Rb, m_input.Rrb))  // Suspending on operand #2?
     {
-        // Register wasn't full, write back the suspend information
-        if (operand1.value.m_state != RST_WAITING && m_input.Rra.fid != INVALID_LFID)
+        // Not suspending, output the normal stuff
+        COMMIT
         {
-            // Send a remote request unless a thread is already
-            // waiting on it (that thread has already sent the request).
-            RemoteRegAddr rra(m_input.Rra);
-            rra.reg.index += (operand1.addr.index - m_input.Ra.index);
-            COMMIT{ m_output.Rra = rra; }
+            m_output.Rc         = m_input.Rc;
+            m_output.Rrc        = m_input.Rrc;
+            m_output.Rcv.m_size = m_input.RcSize;
+            m_output.Rra.fid    = INVALID_LFID;
+            m_output.Rrb.fid    = INVALID_LFID;
+            m_output.Rav        = operand1.value;
+            m_output.Rbv        = operand2.value;
+            m_output.regs       = m_input.regs;
         }
         
-        COMMIT
-        {
-            m_output.Rc                 = operand1.addr;
-            m_output.Rrc.fid            = INVALID_LFID;
-            m_output.Rav.m_state        = RST_WAITING;
-            m_output.Rav.m_waiting.head = m_input.tid;
-            m_output.Rav.m_waiting.tail = (operand1.value.m_state == RST_WAITING)
-                ? operand1.value.m_waiting.tail     // The register was already waiting, append thread to list
-                : m_input.tid;                      // First thread waiting on the register
-        }
-    }
-    else if (operand2.value.m_state != RST_FULL)
-    {
-        // Register wasn't full, write back the suspend information
-        if (operand2.value.m_state != RST_WAITING && m_input.Rrb.fid != INVALID_LFID)
-        {
-            // Send a remote request unless a thread is already
-            // waiting on it (that thread has already sent the request).
-            RemoteRegAddr rrb(m_input.Rrb);
-            rrb.reg.index += (operand2.addr.index - m_input.Rb.index);
-            COMMIT{ m_output.Rrb = rrb; }
-        }
-
-        COMMIT
-        {
-            m_output.Rc                 = operand2.addr;
-            m_output.Rrc.fid            = INVALID_LFID;
-            m_output.Rbv.m_state        = RST_WAITING;
-            m_output.Rbv.m_waiting.head = m_input.tid;
-            m_output.Rbv.m_waiting.tail = (operand2.value.m_state == RST_WAITING)
-                ? operand2.value.m_waiting.tail     // The register was already waiting, append thread to list
-                : m_input.tid;                      // First thread waiting on the register
-        }
-    }
-    else
-    {
 #if TARGET_ARCH == ARCH_SPARC
         // On the Sparc, memory stores take longer because three registers
         // need to be read. We do this by first reading the value to store
@@ -517,19 +432,16 @@ Pipeline::PipeAction Pipeline::ReadStage::write()
         {
             if (m_storeValue.m_state != RST_FULL)
             {
-                // Store value hasn't been read yet; read it
-                COMMIT {
-                    if (operand1.to_read_mask <= 0) {
-                        // First phase of the store has completed,
-                        // copy the read value.
-                        m_storeValue = operand1.value;
-                    }
-                }
-                // We need to delay (stall) this cycle
+                // First phase of the store has completed,
+                // copy the read value.
+                COMMIT{ m_storeValue = operand1.value; }
+                
+                // We need to delay this cycle
                 return PIPE_DELAY;
             }
         
-            COMMIT {
+            COMMIT
+            {
                 // Final cycle of the store
                 m_output.storeValue  = m_storeValue;
                 m_storeValue.m_state = RST_INVALID;
@@ -537,25 +449,30 @@ Pipeline::PipeAction Pipeline::ReadStage::write()
         }
 #endif
     }
+
     return PIPE_CONTINUE;
 }
 
-void Pipeline::ReadStage::clear(TID tid)
+void Pipeline::ReadStage::Clear(TID tid)
 {
     if (m_input.tid == tid)
     {
-        m_operand1.to_read_mask = -1;
-        m_operand2.to_read_mask = -1;
+        m_operand1.offset = -2;
+        m_operand2.offset = -2;
     }
 }
 
-Pipeline::ReadStage::ReadStage(Pipeline& parent, DecodeReadLatch& input, ReadExecuteLatch& output, RegisterFile& regFile, ExecuteMemoryLatch& bypass1, MemoryWritebackLatch& bypass2, const Config& /*config*/)
-  : Stage(parent, "read", &input, &output),
+Pipeline::ReadStage::ReadStage(Pipeline& parent, const DecodeReadLatch& input, ReadExecuteLatch& output, RegisterFile& regFile,
+    const ExecuteMemoryLatch& bypass1, const MemoryWritebackLatch& bypass2, const MemoryWritebackLatch& bypass3,
+    const Config& /*config*/
+  )
+  : Stage(parent, "read"),
     m_regFile(regFile),
     m_input(input),
     m_output(output),
     m_bypass1(bypass1),
-    m_bypass2(bypass2)
+    m_bypass2(bypass2),
+    m_bypass3(bypass3)
 {
 #if TARGET_ARCH == ARCH_SPARC
     m_isMemoryStore = false;
@@ -563,7 +480,7 @@ Pipeline::ReadStage::ReadStage(Pipeline& parent, DecodeReadLatch& input, ReadExe
 #endif
     m_operand1.port = &m_regFile.p_pipelineR1;
     m_operand2.port = &m_regFile.p_pipelineR2;
-    clear(input.tid);
+    Clear(input.tid);
 }
 
 }

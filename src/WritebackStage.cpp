@@ -6,12 +6,7 @@ using namespace std;
 namespace Simulator
 {
 
-Pipeline::PipeAction Pipeline::WritebackStage::read()
-{
-    return PIPE_CONTINUE;
-}
-
-Pipeline::PipeAction Pipeline::WritebackStage::write()
+Pipeline::PipeAction Pipeline::WritebackStage::Write()
 {
     bool     suspend         = (m_input.suspend != SUSPEND_NONE);
     uint64_t writebackValue  = m_writebackValue;
@@ -235,8 +230,8 @@ Pipeline::PipeAction Pipeline::WritebackStage::write()
         : PIPE_DELAY;       // We still have data to write back next cycle
 }
 
-Pipeline::WritebackStage::WritebackStage(Pipeline& parent, MemoryWritebackLatch& input, RegisterFile& regFile, Network& network, Allocator& alloc, ThreadTable& threadTable, const Config& /*config*/)
-  : Stage(parent, "writeback", &input, NULL),
+Pipeline::WritebackStage::WritebackStage(Pipeline& parent, const MemoryWritebackLatch& input, RegisterFile& regFile, Network& network, Allocator& alloc, ThreadTable& threadTable, const Config& /*config*/)
+  : Stage(parent, "writeback"),
     m_input(input),
     m_regFile(regFile),
     m_network(network),

@@ -3,7 +3,7 @@
 
 #include "ThreadTable.h"
 #include "FamilyTable.h"
-#include "buffer.h"
+#include "storage.h"
 #include <queue>
 
 class Config;
@@ -48,6 +48,9 @@ enum ThreadDependency
 class Allocator : public IComponent
 {
 public:
+    typedef LinkedList< TID, ThreadTable, &Thread::nextState> ThreadList;
+    typedef LinkedList<LFID, FamilyTable, &Family::next>      FamilyList;
+    
     struct RegisterBases
     {
         RegIndex globals;
@@ -109,8 +112,7 @@ public:
     bool   OnDelegatedCreate(const DelegateMessage& msg);
     
     bool   QueueActiveThreads(const ThreadQueue& threads);
-    bool   QueueThreads(ThreadQueue& queue, const ThreadQueue& threads, ThreadState state);
-    TID    PopActiveThread();
+    bool   QueueThreads(ThreadList& list, const ThreadQueue& threads, ThreadState state);
     
     bool   SetupFamilyPrevLink(LFID fid, LFID link_prev);
     bool   SetupFamilyNextLink(LFID fid, LFID link_next);
@@ -129,16 +131,18 @@ public:
     bool OnRemoteThreadCleanup(LFID fid);
     bool OnRemoteSync(LFID fid, ExitCode code);
 
-    /* Component */
-    Result OnCycleReadPhase(unsigned int stateIndex);
-    Result OnCycleWritePhase(unsigned int stateIndex);
+    // Component
+    Result OnCycle(unsigned int stateIndex);
     void   UpdateStatistics();
 
-    /* Admin functions */
-	TID GetRegisterType(LFID fid, RegAddr addr, RegClass* group) const;
+    // Helpers
+	TID     GetRegisterType(LFID fid, RegAddr addr, RegClass* group) const;
+    MemAddr CalculateTLSAddress(LFID fid, TID tid) const;
+    MemSize CalculateTLSSize() const;
     MemAddr CalculateTLSAddress(LFID fid, TID tid) const;
     MemSize CalculateTLSSize() const;
     
+	// Debugging
     void Cmd_Help(std::ostream& out, const std::vector<std::string>& arguments) const;
     void Cmd_Read(std::ostream& out, const std::vector<std::string>& arguments) const;
 
@@ -159,45 +163,43 @@ private:
     bool PushCleanup(TID tid);
 
     // Thread and family queue manipulation
-    void Push(FamilyQueue& queue, LFID fid);
+    //void Push(FamilyQueue& queue, LFID fid);
     void Push(ThreadQueue& queue, TID tid, TID Thread::*link = &Thread::nextState);
-    LFID Pop (FamilyQueue& queue);
+    //LFID Pop (FamilyQueue& queue);
     TID  Pop (ThreadQueue& queue, TID Thread::*link = &Thread::nextState);
 
-    Processor&          m_parent;
-    FamilyTable&        m_familyTable;
-    ThreadTable&        m_threadTable;
-    RegisterFile&       m_registerFile;
-    RAUnit&             m_raunit;
-    ICache&             m_icache;
-    Network&            m_network;
-	Pipeline&			m_pipeline;
-    LPID                m_lpid;
+    Processor&    m_parent;
+    FamilyTable&  m_familyTable;
+    ThreadTable&  m_threadTable;
+    RegisterFile& m_registerFile;
+    RAUnit&       m_raunit;
+    ICache&       m_icache;
+    Network&      m_network;
+	Pipeline&	  m_pipeline;
+    LPID          m_lpid;
 
-    uint64_t             m_activeQueueSize;
-    uint64_t             m_totalActiveQueueSize;
-    uint64_t             m_maxActiveQueueSize;
-    uint64_t             m_minActiveQueueSize;
+    uint64_t m_activeQueueSize;
+    uint64_t m_totalActiveQueueSize;
+    uint64_t m_maxActiveQueueSize;
+    uint64_t m_minActiveQueueSize;
 
-    // Initial allocation
-    LFID                 m_exclusive;  // Currently executing exclusive family
-    LFID                 m_allocating; // This family we're initially allocating from
-    FamilyQueue          m_alloc;      // This is the queue of families waiting for initial allocation
-
-    // Buffers
-    Buffer<LFID>          m_creates;        // Create queue
-    Buffer<LFID>          m_createsEx;      // Exclusive create queue
-    Buffer<RegisterWrite> m_registerWrites; // Register write queue
-    Buffer<TID>           m_cleanup;        // Cleanup queue
-	Buffer<AllocRequest>  m_allocations;	// Family allocation queue
-	
-	LFID                  m_createFID;      // Family ID of the current create
-	CreateState           m_createState;	// State of the current state;
-	CID                   m_createLine;		// Cache line that holds the register info
+    LFID                  m_exclusive;      ///< Currently executing exclusive family
+    FamilyList            m_alloc;          ///< This is the queue of families waiting for initial allocation
+    Buffer<LFID>          m_creates;        ///< Create queue
+    Buffer<LFID>          m_createsEx;      ///< Exclusive create queue
+    Buffer<RegisterWrite> m_registerWrites; ///< Register write queue
+    Buffer<TID>           m_cleanup;        ///< Cleanup queue
+	Buffer<AllocRequest>  m_allocations;	///< Family allocation queue
+	Register<LFID>        m_createFID;      ///< Family ID of the current create
+	CreateState           m_createState;	///< State of the current state;
+	CID                   m_createLine;	   	///< Cache line that holds the register info
+    ThreadList            m_readyThreads;   ///< Queue of the threads can be activated
 
 public:
-    ThreadQueue			  m_activeThreads;  // Queue of the active threads
-    ThreadQueue           m_readyThreads;   // Queue of the threads can be activated
+    ArbitratedService     p_alloc;          ///< Arbitrator for m_alloc
+    ArbitratedService     p_readyThreads;   ///< Arbitrator for m_readyThreads
+    ArbitratedService     p_activeThreads;  ///< Arbitrator for m_activeThreads
+    ThreadList            m_activeThreads;  ///< Queue of the active threads
 };
 
 }

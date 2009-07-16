@@ -8,9 +8,13 @@ using namespace std;
 namespace Simulator
 {
 
-void IdealMemory::RegisterListener(PSize /*pid*/, IMemoryCallback& callback)
+void IdealMemory::RegisterListener(PSize /*pid*/, IMemoryCallback& callback, const ArbitrationSource* sources)
 {
     m_caches.insert(&callback);
+    for (; sources->first != NULL; sources++)
+    {
+        p_requests.AddSource(*sources);
+    }
 }
 
 void IdealMemory::UnregisterListener(PSize /*pid*/, IMemoryCallback& callback)
@@ -18,63 +22,70 @@ void IdealMemory::UnregisterListener(PSize /*pid*/, IMemoryCallback& callback)
     m_caches.erase(&callback);
 }
 
-Result IdealMemory::Read(IMemoryCallback& callback, MemAddr address, void* /*data*/, MemSize size, MemTag tag)
+bool IdealMemory::Read(IMemoryCallback& callback, MemAddr address, MemSize size, MemTag tag)
 {
     if (size > MAX_MEMORY_OPERATION_SIZE)
     {
         throw InvalidArgumentException("Size argument too big");
     }
-
-	if (m_bufferSize == INFINITE || m_requests.size() < m_bufferSize)
+    
+    if (!p_requests.Invoke())
     {
-        COMMIT
-        {
-            Request request;
-            request.callback  = &callback;
-            request.address   = address;
-            request.data.size = size;
-            request.data.tag  = tag;
-            request.done      = 0;
-            request.write     = false;
-            m_requests.push_back(request);
-        }
-        return DELAYED;
+        return false;
     }
-    return FAILED;
+
+    Request request;
+    request.callback  = &callback;
+    request.address   = address;
+    request.data.size = size;
+    request.data.tag  = tag;
+    request.write     = false;
+
+    if (!m_requests.Push(request))
+    {
+        return false;
+    }
+    
+    return true;
 }
 
-Result IdealMemory::Write(IMemoryCallback& callback, MemAddr address, void* data, MemSize size, MemTag tag)
+bool IdealMemory::Write(IMemoryCallback& callback, MemAddr address, const void* data, MemSize size, MemTag tag)
 {
+    assert(tag.fid != INVALID_LFID);
+
     if (size > MAX_MEMORY_OPERATION_SIZE)
     {
         throw InvalidArgumentException("Size argument too big");
     }
 
-    if (m_bufferSize == INFINITE || m_requests.size() < m_bufferSize)
+    if (!p_requests.Invoke())
     {
-		assert(tag.fid != INVALID_LFID);
-        Request request;
-        request.callback  = &callback;
-        request.address   = address;
-        request.data.size = size;
-        request.data.tag  = tag;
-        request.done      = 0;
-        request.write     = true;
-        memcpy(request.data.data, data, (size_t)size);
-
-        // Broadcast the snoop data
-        for (set<IMemoryCallback*>::iterator p = m_caches.begin(); p != m_caches.end(); ++p)
-        {
-            if (!(*p)->OnMemorySnooped(request.address, request.data))
-            {
-                return FAILED;
-            }
-        }
-
-        COMMIT{ m_requests.push_back(request); }
-        return DELAYED;
+        return false;
     }
-    return FAILED;
+
+    Request request;
+    request.callback  = &callback;
+    request.address   = address;
+    request.data.size = size;
+    request.data.tag  = tag;
+    request.write     = true;
+    memcpy(request.data.data, data, (size_t)size);
+
+    if (!m_requests.Push(request))
+    {
+        return false;
+    }
+
+    // Broadcast the snoop data
+    for (set<IMemoryCallback*>::iterator p = m_caches.begin(); p != m_caches.end(); ++p)
+    {
+        if (!(*p)->OnMemorySnooped(request.address, request.data))
+        {
+            return false;
+        }
+    }
+
+    return true;
 }
 
 void IdealMemory::Reserve(MemAddr address, MemSize size, int perm)
@@ -107,62 +118,58 @@ bool IdealMemory::CheckPermissions(MemAddr address, MemSize size, int access) co
 	return VirtualMemory::CheckPermissions(address, size, access);
 }
 
-Result IdealMemory::OnCycleWritePhase(unsigned int /* stateIndex */)
+Result IdealMemory::OnCycle(unsigned int /* stateIndex */)
 {
-	Result result = (!m_requests.empty()) ? SUCCESS : DELAYED;
+    assert(!m_requests.Empty());
 
-    CycleNo now = GetKernel()->GetCycleNo();
-    if (!m_requests.empty())
+    const Request& request = m_requests.Front();
+    const CycleNo  now     = GetKernel()->GetCycleNo();
+        
+    if (m_nextdone > 0)
     {
-        const Request& request = m_requests.front();
-        if (request.done > 0 && now >= request.done)
+        // There is already a request active
+        if (now >= m_nextdone)
         {
             // The current request has completed
-            if (!request.write && !request.callback->OnMemoryReadCompleted(request.data))
-            {
-                return FAILED;
-            }
-
-            if (request.write && !request.callback->OnMemoryWriteCompleted(request.data.tag))
-            {
-                return FAILED;
-            }
-
-            COMMIT{ m_requests.pop_front(); }
-        }
-    }
-
-    if (!m_requests.empty())
-    {
-        Request& request = m_requests.front();
-        if (request.done == 0)
-        {
-            COMMIT
-            {
-                // A new request is ready to be handled
-                if (request.write) {
-					VirtualMemory::Write(request.address, request.data.data, request.data.size);
-                } else {
-					VirtualMemory::Read(request.address, request.data.data, request.data.size);
+            if (request.write) {
+        		VirtualMemory::Write(request.address, request.data.data, request.data.size);
+                if (!request.callback->OnMemoryWriteCompleted(request.data.tag))
+                {
+                    return FAILED;
                 }
-
-                // Time the request
-                CycleNo requestTime = m_baseRequestTime + m_timePerLine * (request.data.size + m_sizeOfLine - 1) / m_sizeOfLine;
-                request.done = now + requestTime;
-                m_totalWaitTime += requestTime;
+            } else {
+                MemData data(request.data);
+  		        VirtualMemory::Read(request.address, data.data, data.size);
+                if (!request.callback->OnMemoryReadCompleted(data))
+                {
+                    return FAILED;
+                }
             }
+            m_requests.Pop();
+            COMMIT{ m_nextdone = 0; }
         }
     }
-    return result;
+    else
+    {
+        // A new request is ready to be handled
+        COMMIT
+        {
+            // Time the request
+            CycleNo requestTime = m_baseRequestTime + m_timePerLine * (request.data.size + m_sizeOfLine - 1) / m_sizeOfLine;
+            m_nextdone = now + requestTime;
+        }
+    }
+    return SUCCESS;
 }
 
 IdealMemory::IdealMemory(Object* parent, Kernel& kernel, const std::string& name, const Config& config) :
     IComponent(parent, kernel, name), 
-    m_bufferSize     (config.getInteger<BufferSize>("MemoryBufferSize", INFINITE)),
+    m_requests       (kernel, *this, 0, config.getInteger<BufferSize>("MemoryBufferSize", INFINITE)),
+    p_requests       (*this, "m_requests"),
     m_baseRequestTime(config.getInteger<CycleNo>   ("MemoryBaseRequestTime", 1)),
     m_timePerLine    (config.getInteger<CycleNo>   ("MemoryTimePerLine", 1)),
     m_sizeOfLine     (config.getInteger<CycleNo>   ("MemorySizeOfLine", 8)),
-    m_totalWaitTime(0)
+    m_nextdone(0)
 {
 }
 
@@ -191,7 +198,7 @@ void IdealMemory::Cmd_Read(ostream& out, const vector<string>& arguments) const
     out << "      Address       | Size |  CID  |    Type    | Source" << endl;
     out << "--------------------+------+-------+------------+---------------------" << endl;
 
-    for (deque<Request>::const_iterator p = m_requests.begin(); p != m_requests.end(); ++p)
+    for (Buffer<Request>::const_iterator p = m_requests.begin(); p != m_requests.end(); ++p)
     {
         out << hex << setfill('0') << right 
             << " 0x" << setw(16) << p->address << " | "
@@ -205,10 +212,10 @@ void IdealMemory::Cmd_Read(ostream& out, const vector<string>& arguments) const
 
         if (p->write) {
             out << "Data write";
-        } else if (p->data.tag.data) {
-            out << "Data read ";
         } else if (p->data.tag.cid != INVALID_CID) {
             out << "Cache-line";
+        } else {
+            out << "Data read ";
         }
         out << " | ";
 
@@ -223,10 +230,10 @@ void IdealMemory::Cmd_Read(ostream& out, const vector<string>& arguments) const
     }
 
     out << endl << "First request done at: ";
-    if (m_requests.empty() || m_requests.front().done == 0) {
+    if (m_nextdone == 0) {
         out << "N/A";
     } else {
-        out << dec << m_requests.front().done;
+        out << dec << m_nextdone;
     }
     out << endl << endl;
 }

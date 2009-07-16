@@ -1,7 +1,7 @@
 #ifndef REGISTERFILE_H
 #define REGISTERFILE_H
 
-#include "ports.h"
+#include "storage.h"
 
 class Config;
 
@@ -22,7 +22,7 @@ class Network;
  * one write port from the writeback stage of the pipeline, and one asynchronous
  * read and write port for other components (network, memory, etc).
  */
-class RegisterFile : public Structure<RegAddr>
+class RegisterFile : public Structure<RegAddr>, public Storage
 {
 public:
     /**
@@ -97,12 +97,23 @@ public:
     ArbitratedWritePort<RegAddr> p_asyncW;     ///< Write port for all other components
 
 private:
-    std::vector<RegValue> m_integers; ///< Integer register file
-    std::vector<RegValue> m_floats;   ///< Floating point register file
-    
     Processor& m_parent;    ///< Reference to parent processor
     Allocator& m_allocator; ///< Reference to the allocator
     Network&   m_network;   ///< Reference to the network
+
+    // We can have at most this many number of updates per cycle.
+    // This should be equal to the number of write ports.
+    static const unsigned int MAX_UPDATES = 2;
+    
+    // The queued updates
+    std::pair<RegAddr, RegValue> m_updates[MAX_UPDATES];
+    unsigned int                 m_nUpdates;
+
+    // Applies the queued updates
+    void Update();
+    
+    std::vector<RegValue> m_integers; ///< Integer register file
+    std::vector<RegValue> m_floats;   ///< Floating point register file    
 };
 
 }

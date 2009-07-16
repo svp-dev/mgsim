@@ -54,18 +54,19 @@ struct Thread
     ThreadState state;
 };
 
-class ThreadTable : public Structure<TID>
+class ThreadTable : public Object
 {
 public:
     ThreadTable(Processor& parent, const Config& config);
 
     TSize GetNumThreads() const { return m_threads.size(); }
 
+    typedef Thread value_type;
           Thread& operator[](TID index)       { return m_threads[index]; }
     const Thread& operator[](TID index) const { return m_threads[index]; }
 
     TID  PopEmpty();
-    bool PushEmpty(const ThreadQueue& queue);
+    void PushEmpty(const ThreadQueue& queue);
     
     bool IsEmpty() const { return m_numThreadsUsed == 0; }
     

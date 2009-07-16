@@ -122,20 +122,13 @@ RegAddr Pipeline::DecodeStage::TranslateRegister(unsigned char reg, RegType type
     return MAKE_REGADDR(type, INVALID_REG_INDEX);
 }
 
-Pipeline::PipeAction Pipeline::DecodeStage::read()
-{
-    // This stage has no external dependencies, so all the work is done
-    // in the write phase
-    return PIPE_CONTINUE;
-}
-
-Pipeline::PipeAction Pipeline::DecodeStage::write()
+Pipeline::PipeAction Pipeline::DecodeStage::Write()
 {
     COMMIT
     {
         // Copy common latch data
-        (Latch&)m_output  = m_input;
-        m_output.regs     = m_input.regs;
+        (CommonData&)m_output = m_input;
+        m_output.regs         = m_input.regs;
         
         try
         {
@@ -161,8 +154,8 @@ Pipeline::PipeAction Pipeline::DecodeStage::write()
     return PIPE_CONTINUE;
 }
 
-Pipeline::DecodeStage::DecodeStage(Pipeline& parent, FetchDecodeLatch& input, DecodeReadLatch& output, const Config& /*config*/)
-  : Stage(parent, "decode", &input, &output),
+Pipeline::DecodeStage::DecodeStage(Pipeline& parent, const FetchDecodeLatch& input, DecodeReadLatch& output, const Config& /*config*/)
+  : Stage(parent, "decode"),
     m_input(input),
     m_output(output)
 {

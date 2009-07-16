@@ -21,37 +21,32 @@ bool Pipeline::ExecuteStage::MemoryWriteBarrier(TID tid) const
     return true;
 }
 
-Pipeline::PipeAction Pipeline::ExecuteStage::read()
+Pipeline::PipeAction Pipeline::ExecuteStage::Read()
 {
     return PIPE_CONTINUE;
 }
 
-Pipeline::PipeAction Pipeline::ExecuteStage::write()
+Pipeline::PipeAction Pipeline::ExecuteStage::Write()
 {
     COMMIT
     {
         // Copy common latch data
-        (Latch&)m_output = m_input;
+        (CommonData&)m_output = m_input;
 
-        m_output.Rc          = m_input.Rc;
-        m_output.Rrc         = m_input.Rrc;
+        // Clear memory operation information
         m_output.address     = 0;
-        m_output.size        = 0;
-        m_output.suspend     = SUSPEND_NONE;
-        m_output.Rcv.m_state = RST_INVALID;
-        m_output.Rcv.m_size  = m_input.Rcv.m_size;
+        m_output.size        = 0;        
     }
     
-    // Check if both operands are available.
-    // If not, we must write them back, because they actually contain the
+    // If we need to suspend on an operand, it'll be in Rav (by the Read Stage)
+    // In such a case, we must write them back, because they actually contain the
     // suspend information.
-    if (m_input.Rav.m_state != RST_FULL || m_input.Rbv.m_state != RST_FULL)
+    if (m_input.Rav.m_state != RST_FULL)
     {
-        const RemoteRegAddr& rr = (m_input.Rav.m_state != RST_FULL) ? m_input.Rra : m_input.Rrb;
-        if (rr.fid != INVALID_LFID)
+        if (m_input.Rra.fid != INVALID_LFID)
         {
             // We need to request this register remotely
-            if (!m_network.RequestRegister(rr, m_input.fid))
+            if (!m_network.RequestRegister(m_input.Rra, m_input.fid))
             {
                 DeadlockWrite("Unable to request register for operand");
                 return PIPE_STALL;
@@ -60,10 +55,17 @@ Pipeline::PipeAction Pipeline::ExecuteStage::write()
 
         COMMIT
         {
-            m_output.Rcv     = (m_input.Rav.m_state != RST_FULL) ? m_input.Rav : m_input.Rbv;
+            // Write Rav (with suspend info) back to Rc.
+            m_output.Rc  = m_input.Rc;
+            m_output.Rcv = m_input.Rav;
+            
+            // Disable a potentional remote write for this instruction.
+            m_output.Rrc.fid = INVALID_LFID;
+            
+            // Force a thread switch
             m_output.swch    = true;
-            m_output.suspend = SUSPEND_MISSING_DATA;
             m_output.kill    = false;
+            m_output.suspend = SUSPEND_MISSING_DATA;
         }
         return PIPE_FLUSH;
     }
@@ -72,6 +74,13 @@ Pipeline::PipeAction Pipeline::ExecuteStage::write()
     {
         // Set PC to point to next instruction
         m_output.pc = m_input.pc + sizeof(Instruction);
+        
+        // Copy input data and set some defaults
+        m_output.Rc          = m_input.Rc;
+        m_output.Rrc         = m_input.Rrc;
+        m_output.suspend     = SUSPEND_NONE;
+        m_output.Rcv.m_state = RST_INVALID;
+        m_output.Rcv.m_size  = m_input.Rcv.m_size;
     }
     
     PipeAction action = ExecuteInstruction();
@@ -157,22 +166,6 @@ Pipeline::PipeAction Pipeline::ExecuteStage::SetFamilyProperty(LFID fid, FamilyP
 	return PIPE_CONTINUE;
 }
 
-Pipeline::PipeAction Pipeline::ExecuteStage::SetFamilyRegs(LFID fid, const Allocator::RegisterBases bases[])
-{
-    Family& family = m_allocator.GetWritableFamilyEntry(fid, m_input.tid);
-
-	// Set the base for the shareds and globals in the parent thread
-	COMMIT
-	{
-	    for (RegType i = 0; i < NUM_REG_TYPES; ++i)
-	    {
-        	family.regs[i].globals = bases[i].globals;
-            family.regs[i].shareds = bases[i].shareds;
-        }
-    }
-	return PIPE_CONTINUE;
-}
-
 Pipeline::PipeAction Pipeline::ExecuteStage::ExecBreak(Integer /* value */) { return PIPE_CONTINUE; }
 Pipeline::PipeAction Pipeline::ExecuteStage::ExecBreak(double /* value */)  { return PIPE_CONTINUE; }
 Pipeline::PipeAction Pipeline::ExecuteStage::ExecKill(LFID /* fid */)       { return PIPE_CONTINUE; }
@@ -207,8 +200,8 @@ void Pipeline::ExecuteStage::ExecDebug(double value, Integer stream) const
     }
 }
 
-Pipeline::ExecuteStage::ExecuteStage(Pipeline& parent, ReadExecuteLatch& input, ExecuteMemoryLatch& output, Allocator& alloc, Network& network, ThreadTable& threadTable, FPU& fpu, size_t fpu_source, const Config& /*config*/)
-  : Stage(parent, "execute", &input, &output),
+Pipeline::ExecuteStage::ExecuteStage(Pipeline& parent, const ReadExecuteLatch& input, ExecuteMemoryLatch& output, Allocator& alloc, Network& network, ThreadTable& threadTable, FPU& fpu, size_t fpu_source, const Config& /*config*/)
+  : Stage(parent, "execute"),
     m_input(input),
     m_output(output),
     m_allocator(alloc),

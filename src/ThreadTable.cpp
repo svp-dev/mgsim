@@ -10,7 +10,7 @@ namespace Simulator
 {
 
 ThreadTable::ThreadTable(Processor& parent, const Config& config)
-  : Structure<TID>(&parent, parent.GetKernel(), "threads"),
+  : Object(&parent, &parent.GetKernel(), "threads"),
     m_parent(parent),
     m_threads(config.getInteger<size_t>("NumThreads", 64)),
     m_numThreadsUsed(0)
@@ -18,6 +18,7 @@ ThreadTable::ThreadTable(Processor& parent, const Config& config)
     for (TID i = 0; i < m_threads.size(); ++i)
     {
         m_threads[i].nextMember = i + 1;
+        m_threads[i].nextState  = INVALID_TID;
         m_threads[i].state      = TST_EMPTY;
     }
     m_threads[m_threads.size() - 1].nextMember = INVALID_TID;
@@ -43,7 +44,7 @@ TID ThreadTable::PopEmpty()
     return tid;
 }
 
-bool ThreadTable::PushEmpty(const ThreadQueue& q)
+void ThreadTable::PushEmpty(const ThreadQueue& q)
 {
     assert(q.head != INVALID_TID);
     assert(q.tail != INVALID_TID);
@@ -66,7 +67,6 @@ bool ThreadTable::PushEmpty(const ThreadQueue& q)
             m_numThreadsUsed--;
         }
     }
-    return true;
 }
 
 void ThreadTable::Cmd_Help(ostream& out, const vector<string>& /* arguments */) const

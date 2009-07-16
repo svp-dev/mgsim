@@ -7,162 +7,113 @@ using namespace std;
 namespace Simulator
 {
 
-void Pipeline::FetchStage::clear(TID tid)
+void Pipeline::FetchStage::Clear(TID tid)
 {
-    if (m_tid == tid)
+    if (m_output.tid == tid)
     {
-        m_tid = INVALID_TID;
+        m_switched = true;
     }
 }
 
-Pipeline::PipeAction Pipeline::FetchStage::read()
+Pipeline::PipeAction Pipeline::FetchStage::Write()
 {
-    if (m_tid == INVALID_TID)
+    MemAddr pc = m_pc;
+    if (m_switched)
     {
-        // Get the next active thread
-        TID tid = m_allocator.m_activeThreads.head;
-        if (tid == INVALID_TID)
+        // We need to switch to a new thread
+
+        // Get the thread on the front of the active queue
+        if (m_allocator.m_activeThreads.Empty())
         {
-			// No thread, nothing to do
-			return PIPE_IDLE;
-		}
-
-        // Get the family and thread information
-        const Thread& thread = m_threadTable[tid];
-		const Family& family = m_familyTable[thread.family];
-
-		if (!family.killed)
-		{
-			MemAddr pc = thread.pc;
-			if (!family.legacy && pc % m_controlBlockSize == 0)
-			{
-				// Skip the control word
-				pc += sizeof(Instruction);
-			}
-
-			// Read the cache line for this PC
-			size_t offset = (size_t)(pc % m_icache.GetLineSize());   // Offset within the cacheline
-			if (!m_icache.Read(thread.cid, pc - offset, m_buffer, m_icache.GetLineSize()))
-			{
-				return PIPE_STALL;
-			}
-
-			COMMIT
-			{
-				m_pc  = pc;
-			    m_legacy                = family.legacy;
-				m_isLastThreadInBlock   = thread.isLastThreadInBlock;
-				m_isLastThreadInFamily  = thread.isLastThreadInFamily;
-				m_isFirstThreadInFamily = thread.isFirstThreadInFamily;
-				m_onParent              = (family.parent.lpid == m_lpid);
-				m_parent_pid            = family.parent.gpid;
-				m_parent_fid            = family.parent.fid;
-
-				for (RegType i = 0; i < NUM_REG_TYPES; ++i)
-				{
-					m_regs.types[i].family = family.regs[i];
-					m_regs.types[i].thread = thread.regs[i];
-				}
-
-				m_switched = true;
-			}
+            // Nothing to do....
+            return PIPE_IDLE;
         }
+        
+        TID tid = m_allocator.m_activeThreads.Front();
+     	m_allocator.m_activeThreads.Pop();
+     	
+        // Read its information from the Family and Thread Tables
+        Thread& thread = m_threadTable[tid];
+      	Family& family = m_familyTable[thread.family];
 
-		COMMIT
+    	pc = thread.pc;
+		if (!family.legacy && pc % m_controlBlockSize == 0)
 		{
-			m_fid       = thread.family;
-			m_link_prev = family.link_prev;
-			m_link_next = family.link_next;
-			m_tid       = tid;
+    	    // Skip the control word
+			pc += sizeof(Instruction);
 		}
-	}
-    return PIPE_CONTINUE;
-}
 
-Pipeline::PipeAction Pipeline::FetchStage::write()
-{
-    if (m_tid == INVALID_TID)
-    {
-        // There are no active families and threads
-        return PIPE_IDLE;
+		// Read the cache line for this PC
+		size_t offset = (size_t)(pc % m_icache.GetLineSize());   // Offset within the cacheline
+		if (!m_icache.Read(thread.cid, pc - offset, m_buffer, m_icache.GetLineSize()))
+		{
+		    return PIPE_STALL;
+	    }
+
+	    COMMIT
+	    {
+	        m_output.tid                   = tid;
+		    m_output.fid                   = thread.family;
+		    m_output.link_prev             = family.link_prev;
+		    m_output.link_next             = family.link_next;
+		    m_output.isLastThreadInBlock   = thread.isLastThreadInBlock;
+		    m_output.isLastThreadInFamily  = thread.isLastThreadInFamily;
+		    m_output.isFirstThreadInFamily = thread.isFirstThreadInFamily;
+		    m_output.legacy                = family.legacy;
+		    m_output.onParent              = (family.parent.lpid == m_lpid);
+		    m_output.parent_pid            = family.parent.gpid;
+		    m_output.parent_fid            = family.parent.fid;
+
+		    for (RegType i = 0; i < NUM_REG_TYPES; ++i)
+		    {
+   				m_output.regs.types[i].family = family.regs[i];
+			    m_output.regs.types[i].thread = thread.regs[i];
+		    }
+			
+		    // Mark the thread as running
+		    thread.state = TST_RUNNING;
+        }
     }
-
-	Thread& thread = m_threadTable[m_tid];
-	Family& family = m_familyTable[m_fid];
-
-	if (family.killed)
-	{
-		// If the family has been killed, don't continue
-		return PIPE_STALL;
-	}
-
-	size_t offset   = (size_t)(m_pc % m_icache.GetLineSize());              // Offset within the cacheline
-	size_t iInstr   = offset / sizeof(Instruction);                         // Offset in instructions
-	size_t iControl = (offset & -m_controlBlockSize) / sizeof(Instruction); // Align offset down to control block size
-
-	Instruction* instrs = (Instruction*)m_buffer;
-	Instruction control = (!m_legacy) ? UnserializeInstruction(&instrs[iControl]) >> (2 * (iInstr - iControl)) : 0;
-
-	if (m_switched)
-	{
-		// We've just switched to this thread
-		COMMIT
-		{
-			// Pop the active thread
-			m_next = m_allocator.PopActiveThread();
-
-			// Mark the thread as running
-			thread.state = TST_RUNNING;
-		}
-	}
 
 	COMMIT
 	{
-		m_output.instr      = UnserializeInstruction(&instrs[iInstr]);
-		m_output.fid        = m_fid;
-		m_output.link_prev  = m_link_prev;
-		m_output.link_next  = m_link_next;
-		m_output.tid        = m_tid;
-		m_output.pc         = m_pc;
-		m_output.pc_dbg     = m_pc;
-		m_output.onParent   = m_onParent;
-		m_output.parent_pid = m_parent_pid;
-		m_output.parent_fid = m_parent_fid;
-		m_output.isLastThreadInFamily  = m_isLastThreadInFamily;
-		m_output.isLastThreadInBlock   = m_isLastThreadInBlock;
-		m_output.isFirstThreadInFamily = m_isFirstThreadInFamily;
+        // Read the instruction and control bits
+        const size_t offset   = (size_t)(pc % m_icache.GetLineSize());                // Offset within the cacheline
+	    const size_t iInstr   = offset / sizeof(Instruction);                         // Offset in instructions
+	    const size_t iControl = (offset & -m_controlBlockSize) / sizeof(Instruction); // Align offset down to control block size
+	
+	    const Instruction* instrs = (const Instruction*)m_buffer;
+	    const Instruction control = (!m_output.legacy) ? UnserializeInstruction(&instrs[iControl]) >> (2 * (iInstr - iControl)) : 0;
+        const MemAddr     next_pc = pc + sizeof(Instruction);
 
-		m_pc += sizeof(Instruction);
+        // Fill output latch structure
+	    m_output.kill         = ((control & 2) != 0);
+	    const bool wantSwitch = ((control & 1) != 0);
+	    const bool mustSwitch = m_output.kill || (next_pc % m_icache.GetLineSize() == 0);
+	    const bool lastThread = m_allocator.m_activeThreads.Empty() || m_allocator.m_activeThreads.Singular();
+	    m_output.swch         = mustSwitch || (wantSwitch && !lastThread);
+	    m_output.pc           = pc;
+	    m_output.pc_dbg       = pc;
+        m_output.instr        = UnserializeInstruction(&instrs[iInstr]);
 
-		m_output.kill   = ((control & 2) != 0);
-		bool wantSwitch = ((control & 1) != 0);
-		bool mustSwitch = m_output.kill || (m_pc % m_icache.GetLineSize() == 0);
-		m_output.swch   = mustSwitch;
-		m_output.regs   = m_regs;
-
-		if (mustSwitch || (wantSwitch && m_next != INVALID_TID))
-		{
-			// Switch to another thread next cycle.
-			// Don't switch if there are no other threads!
-			m_tid         = INVALID_TID;
-			m_output.swch = true;
-		}
-
-		m_switched = false;
-	}
-
+        // Update the PC and switched state
+        m_pc       = next_pc;
+        m_switched = m_output.swch;
+    }
+        
 	return PIPE_CONTINUE;
 }
 
-Pipeline::FetchStage::FetchStage(Pipeline& parent, FetchDecodeLatch& fdLatch, Allocator& alloc, FamilyTable& familyTable, ThreadTable& threadTable, ICache& icache, LPID lpid, const Config& config)
-  : Stage(parent, "fetch", NULL, &fdLatch),
-    m_output(fdLatch),
+Pipeline::FetchStage::FetchStage(Pipeline& parent, FetchDecodeLatch& output, Allocator& alloc, FamilyTable& familyTable, ThreadTable& threadTable, ICache& icache, LPID lpid, const Config& config)
+  : Stage(parent, "fetch"),
+    m_output(output),
     m_allocator(alloc),
     m_familyTable(familyTable),
     m_threadTable(threadTable),
     m_icache(icache),
     m_lpid(lpid),
-    m_controlBlockSize(config.getInteger<size_t>("ControlBlockSize", 64))
+    m_controlBlockSize(config.getInteger<size_t>("ControlBlockSize", 64)),
+    m_switched(true)
 {
     if ((m_controlBlockSize & ~(m_controlBlockSize - 1)) != m_controlBlockSize)
     {
@@ -179,7 +130,6 @@ Pipeline::FetchStage::FetchStage(Pipeline& parent, FetchDecodeLatch& fdLatch, Al
         throw InvalidArgumentException("Control block size is larger than the cache line size");
     }
 
-    m_tid = INVALID_TID;
     m_buffer = new char[m_icache.GetLineSize()];
 }
 

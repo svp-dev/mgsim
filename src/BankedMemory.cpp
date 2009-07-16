@@ -10,19 +10,61 @@ using namespace std;
 namespace Simulator
 {
 
-BankedMemory::Bank::Bank()
-    : busy(false)
+struct BankedMemory::Request
 {
-}
+    IMemoryCallback* callback;
+    bool             write;
+    MemAddr          address;
+    MemData          data;
+    CycleNo          done;
+};
 
-void BankedMemory::RegisterListener(PSize /*pid*/, IMemoryCallback& callback)
+struct BankedMemory::Bank
 {
-    m_caches.insert(&callback);
+    ArbitratedService p_incoming;
+    Buffer<Request>   incoming;
+    Buffer<Request>   outgoing;
+    SensitiveFlag     busy;
+    Request           request;
+
+    Bank(Kernel& kernel, IComponent& component, int s_in, int s_bank, int s_out, BufferSize buffersize)
+        : p_incoming(component, "incoming"),
+          incoming  (kernel, component, s_in,   buffersize),
+          outgoing  (kernel, component, s_out,  buffersize),
+          busy      (kernel, component, s_bank, false)
+    {
+    }
+};
+
+void BankedMemory::RegisterListener(PSize pid, IMemoryCallback& callback, const ArbitrationSource* sources)
+{
+    for (; sources->first != NULL; ++sources)
+    {
+        for (size_t i = 0; i < m_banks.size(); ++i)
+        {
+            Bank& bank = *m_banks[i];
+            bank.p_incoming.AddSource(*sources);
+        }
+    }
+    
+    ArbitratedService* &service = m_clients.insert(ClientMap::value_type(&callback, NULL)).first->second;
+    if (service == NULL)
+    {
+        stringstream name;
+        name << "client-" << pid << endl;
+        service = new ArbitratedService(*this, name.str());
+        
+        // Add all outgoing bank processes as sources
+        for (size_t i = 0; i < m_banks.size(); ++i)
+        {
+            service->AddSource(ArbitrationSource(this, 3*i+2));
+        }
+    }
 }
 
 void BankedMemory::UnregisterListener(PSize /*pid*/, IMemoryCallback& callback)
 {
-    m_caches.erase(&callback);
+    m_clients.erase(&callback);
 }
 
 size_t BankedMemory::GetBankFromAddress(MemAddr address) const
@@ -31,94 +73,101 @@ size_t BankedMemory::GetBankFromAddress(MemAddr address) const
     return (size_t)((address / m_cachelineSize) % m_banks.size());
 }
 
-void BankedMemory::AddRequest(Pipeline& queue, const Request& request, bool data)
+bool BankedMemory::AddRequest(Buffer<Request>& queue, Request& request, bool data)
 {
     // Get the initial delay, independent of message size
-    CycleNo now  = GetKernel()->GetCycleNo();
-    CycleNo done = now + (CycleNo)(log((double)m_banks.size()) / log(2.0));
-    
-    Pipeline::reverse_iterator p = queue.rbegin();
-    if (p != queue.rend() && done < p->first)
+    COMMIT
     {
-        // We're waiting for another message to be sent, so skip the initial delay
-        // (pretend our data comes after the data of the previous message)
-        done = p->first;
+        const CycleNo now  = GetKernel()->GetCycleNo();
+        request.done = now + (CycleNo)(log((double)m_banks.size()) / log(2.0));
+    
+        Buffer<Request>::const_reverse_iterator p = queue.rbegin();
+        if (p != queue.rend() && request.done < p->done)
+        {
+            // We're waiting for another message to be sent, so skip the initial delay
+            // (pretend our data comes after the data of the previous message)
+            request.done = p->done;
+        }
+    
+        if (data)
+        {
+            // This delay is the time is takes for the message body to traverse the network
+            request.done += (request.data.size + m_sizeOfLine - 1) / m_sizeOfLine;
+        }
+    
+        // At least one size for the 'header'
+        request.done++;
     }
     
-    if (data)
+    if (!queue.Push(request))
     {
-        // This delay is the time is takes for the message body to traverse the network
-        done += (request.data.size + m_sizeOfLine - 1) / m_sizeOfLine;
+        return false;
     }
-    
-    // At least one size for the 'header'
-    done++;
-    
-    queue.insert(make_pair(done, request));
+    return true;
 }
 
-Result BankedMemory::Read(IMemoryCallback& callback, MemAddr address, void* /*data*/, MemSize size, MemTag tag)
+bool BankedMemory::Read(IMemoryCallback& callback, MemAddr address, MemSize size, MemTag tag)
 {
     if (size > MAX_MEMORY_OPERATION_SIZE)
     {
         throw InvalidArgumentException("Size argument too big");
     }
 
-    Pipeline& queue = m_banks[ GetBankFromAddress(address) ].incoming;
-	if (m_bufferSize == INFINITE || queue.size() < m_bufferSize)
+    Bank& bank = *m_banks[ GetBankFromAddress(address) ];    
+    if (!bank.p_incoming.Invoke())
     {
-        COMMIT
-        {
-            Request request;
-            request.address   = address;
-            request.callback  = &callback;
-            request.data.size = size;
-            request.data.tag  = tag;
-            request.write     = false;
-            AddRequest(queue, request, false);
-        }
-        return DELAYED;
+        return false;
     }
-    return FAILED;
+    
+    Request request;
+    request.address   = address;
+    request.callback  = &callback;
+    request.data.size = size;
+    request.data.tag  = tag;
+    request.write     = false;
+    
+    if (!AddRequest(bank.incoming, request, false))
+    {
+        return false;
+    }
+    return true;
 }
 
-Result BankedMemory::Write(IMemoryCallback& callback, MemAddr address, void* data, MemSize size, MemTag tag)
+bool BankedMemory::Write(IMemoryCallback& callback, MemAddr address, const void* data, MemSize size, MemTag tag)
 {
     if (size > MAX_MEMORY_OPERATION_SIZE)
     {
         throw InvalidArgumentException("Size argument too big");
     }
 
-    Pipeline& queue = m_banks[ GetBankFromAddress(address) ].incoming;
-    if (m_bufferSize == INFINITE || queue.size() < m_bufferSize)
+    Bank& bank = *m_banks[ GetBankFromAddress(address) ];    
+    if (!bank.p_incoming.Invoke())
     {
-		assert(tag.fid != INVALID_LFID);
-		
-        Request request;
-        request.address   = address;
-        request.callback  = &callback;
-        request.data.size = size;
-        request.data.tag  = tag;
-        request.write     = true;
-        memcpy(request.data.data, data, (size_t)size);
-
-        // Broadcast the snoop data
-        for (set<IMemoryCallback*>::iterator p = m_caches.begin(); p != m_caches.end(); ++p)
-        {
-            if (!(*p)->OnMemorySnooped(request.address, request.data))
-            {
-                return FAILED;
-            }
-        }
-
-        COMMIT
-        {
-            // Calculate completion time
-            AddRequest(queue, request, true);
-        }
-        return DELAYED;
+        return false;
     }
-    return FAILED;
+
+    Request request;
+    request.address   = address;
+    request.callback  = &callback;
+    request.data.size = size;
+    request.data.tag  = tag;
+    request.write     = true;
+    memcpy(request.data.data, data, (size_t)size);
+
+    // Broadcast the snoop data
+    for (ClientMap::iterator p = m_clients.begin(); p != m_clients.end(); ++p)
+    {
+        if (!p->first->OnMemorySnooped(request.address, request.data))
+        {
+            return false;
+        }
+    }
+
+    if (!AddRequest(bank.incoming, request, true))
+    {
+        return false;
+    }
+    return true;
 }
 
 void BankedMemory::Reserve(MemAddr address, MemSize size, int perm)
@@ -151,50 +200,49 @@ bool BankedMemory::CheckPermissions(MemAddr address, MemSize size, int access) c
 	return VirtualMemory::CheckPermissions(address, size, access);
 }
 
-Result BankedMemory::OnCycleWritePhase(unsigned int stateIndex)
+Result BankedMemory::OnCycle(unsigned int stateIndex)
 {
-    CycleNo now = GetKernel()->GetCycleNo();
-    if (stateIndex < 2 * m_banks.size())
+    const CycleNo now = GetKernel()->GetCycleNo();
+    Bank& bank = *m_banks[stateIndex / 3];
+    switch (stateIndex % 3)
     {
-        // Process a queue
-        bool incoming = (stateIndex % 2) != 0;
-        int  index    = (stateIndex / 2);
-        Bank&     bank  = m_banks[index];
-        Pipeline& queue = (incoming) ? bank.incoming : bank.outgoing;
+    case 0:
+    case 2:
+    {
+        // Process the incoming or outgoing queue
+        const bool     incoming = (stateIndex % 3 == 0);
+        Buffer<Request>&  queue = (incoming) ? bank.incoming : bank.outgoing;   
+        assert(!queue.Empty());
     
-        Pipeline::iterator p = queue.begin();
-        if (p == queue.end())
-        {
-            // Empty queue, nothing to do
-            return DELAYED;
-        }
-        
-        if (p->first <= now)
+        const Request& request = queue.Front();
+        if (now >= request.done)
         {
             // This request has arrived, process it
-            Request& request = p->second;
-    
             if (incoming)
             {
                 // Incoming pipeline, send it to the bank
-                if (bank.busy)
+                if (bank.busy.IsSet())
                 {
                     return FAILED;
                 }
                     
-                COMMIT
-                {
-                    // Calculate bank read/write delay
-                    CycleNo delay = m_baseRequestTime + m_timePerLine * (request.data.size + m_sizeOfLine - 1) / m_sizeOfLine;
+                // Calculate bank read/write delay
+                const CycleNo delay = m_baseRequestTime + m_timePerLine * (request.data.size + m_sizeOfLine - 1) / m_sizeOfLine;
                             
-                    bank.request = request;
-                    bank.busy    = true;
-                    bank.done    = now + delay;
-                }
+                bank.request = request;
+                bank.request.done = now + delay;
+                bank.busy.Set();
             }
             else
             {
                 // Outgoing pipeline, send it to the callback
+                ClientMap::const_iterator p = m_clients.find(request.callback);
+                assert(p != m_clients.end());
+                if (!p->second->Invoke())
+                {
+                    return FAILED;
+                }
+                
                 if (request.write) {
                     if (!request.callback->OnMemoryWriteCompleted(request.data.tag)) {
                         return FAILED;
@@ -205,21 +253,15 @@ Result BankedMemory::OnCycleWritePhase(unsigned int stateIndex)
                     }
                 }
             }
-            COMMIT{ queue.erase(p); }
+            queue.Pop();
         }
+        return SUCCESS;
     }
-    else
-    {
-        // Process a bank
-        size_t index = stateIndex - 2 * m_banks.size();
-        Bank& bank = m_banks[index];
-        if (!bank.busy)
-        {
-            // Nothing to do
-            return DELAYED;
-        }
-        
-        if (bank.done <= now)
+            
+    case 1:
+        // Process the bank itself
+        assert(bank.busy.IsSet());
+        if (now >= bank.request.done)
         {
             // This bank is done serving the request
             if (bank.request.write) {
@@ -229,15 +271,16 @@ Result BankedMemory::OnCycleWritePhase(unsigned int stateIndex)
             }
 
             // Move it to the outgoing queue
-            COMMIT
+            if (!AddRequest(bank.outgoing, bank.request, !bank.request.write))
             {
-                AddRequest(bank.outgoing, bank.request, !bank.request.write);
-
-                bank.busy = false;
+                return FAILED;
             }
+            
+            bank.busy.Clear();
         }
-    }             
-    return SUCCESS;
+        return SUCCESS;
+    }
+    return DELAYED;
 }
 
 static size_t GetNumBanks(const Config& config)
@@ -256,13 +299,11 @@ static string CreateStateNames(const Config& config)
     stringstream states;
     for (size_t i = 0; i < numBanks; ++i)
     {
-        states << "out" << i << "|" <<
-                  "in"  << i << "|";
+        states << "in"   << i << "|"
+               << "bank" << i << "|"
+               << "out"  << i << "|";
     }
-    for (size_t i = 0; i < numBanks; ++i)
-    {
-        states << "bank" << i << "|";
-    }
+    
     string ret = states.str();
     if (!ret.empty()) {
         ret.erase(ret.end() - 1, ret.end());
@@ -272,13 +313,26 @@ static string CreateStateNames(const Config& config)
 
 BankedMemory::BankedMemory(Object* parent, Kernel& kernel, const std::string& name, const Config& config) :
     IComponent(parent, kernel, name, CreateStateNames(config)),
-    m_banks          (GetNumBanks(config)),
     m_baseRequestTime(config.getInteger<CycleNo>   ("MemoryBaseRequestTime", 1)),
     m_timePerLine    (config.getInteger<CycleNo>   ("MemoryTimePerLine", 1)),
     m_sizeOfLine     (config.getInteger<size_t>    ("MemorySizeOfLine", 8)),
-    m_bufferSize     (config.getInteger<BufferSize>("MemoryBufferSize", INFINITE)),
     m_cachelineSize  (config.getInteger<size_t>    ("CacheLineSize", 64))
 {
+    const BufferSize buffersize = config.getInteger<BufferSize>("MemoryBufferSize", INFINITE);
+    
+    m_banks.resize(GetNumBanks(config));
+    for (size_t i = 0; i < m_banks.size(); ++i)
+    {
+        m_banks[i] = new Bank(kernel, *this, 3*i+0, 3*i+1, 3*i+2, buffersize);
+    }
+}
+
+BankedMemory::~BankedMemory()
+{
+    for (size_t i = 0; i < m_banks.size(); ++i)
+    {
+        delete m_banks[i];
+    }
 }
 
 void BankedMemory::Cmd_Help(ostream& out, const vector<string>& /*arguments*/) const
@@ -297,7 +351,7 @@ void BankedMemory::Cmd_Help(ostream& out, const vector<string>& /*arguments*/) c
     "  Reads the banks' requests buffers and queues\n";
 }
 
-/*static*/ void BankedMemory::PrintRequest(ostream& out, char prefix, const Request& request, CycleNo done)
+/*static*/ void BankedMemory::PrintRequest(ostream& out, char prefix, const Request& request)
 {
     out << prefix << " "
         << hex << setfill('0') << right
@@ -317,7 +371,7 @@ void BankedMemory::Cmd_Help(ostream& out, const vector<string>& /*arguments*/) c
     } else if (request.data.tag.cid != INVALID_CID) {
         out << "Cache-line";
     }
-    out << " | " << setw(8) << dec << done << " | ";
+    out << " | " << setw(8) << dec << request.done << " | ";
     
     Object* obj = dynamic_cast<Object*>(request.callback);
     if (obj == NULL) {
@@ -337,24 +391,24 @@ void BankedMemory::Cmd_Read(ostream& out, const vector<string>& arguments) const
 
     for (size_t i = 0; i < m_banks.size(); ++i)
     {
-        const Bank& bank = m_banks[i];
+        const Bank& bank = *m_banks[i];
 
         out << "Bank " << dec << i << ":" << endl;
         out << "        Address       | Size |  CID  |    Type    |   Done   | Source" << endl;
         out << "----------------------+------+-------+------------+----------+----------------" << endl;
 
-        for (Pipeline::const_iterator p = bank.incoming.begin(); p != bank.incoming.end(); ++p)
+        for (Buffer<Request>::const_reverse_iterator p = bank.incoming.rbegin(); p != bank.incoming.rend(); ++p)
         {
-            PrintRequest(out, '>', p->second, p->first);
+            PrintRequest(out, '>', *p);
         }
-        if (bank.busy) {
-            PrintRequest(out, '*', bank.request, bank.done);
+        if (bank.busy.IsSet()) {
+            PrintRequest(out, '*', bank.request);
         } else {
             out << "*                     |      |       |            |          |" << endl;
         }
-        for (Pipeline::const_iterator p = bank.outgoing.begin(); p != bank.outgoing.end(); ++p)
+        for (Buffer<Request>::const_reverse_iterator p = bank.outgoing.rbegin(); p != bank.outgoing.rend(); ++p)
         {
-            PrintRequest(out, '<', p->second, p->first);
+            PrintRequest(out, '<', *p);
         }
         out << endl;
     }

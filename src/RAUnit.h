@@ -21,7 +21,7 @@ public:
 
     // LFID is for admin purposes only; not used for simulation
     bool Alloc(const RegSize size[NUM_REG_TYPES], LFID fid, RegIndex indices[NUM_REG_TYPES]);
-    bool Free(RegIndex indices[NUM_REG_TYPES]);
+    void Free(RegIndex indices[NUM_REG_TYPES]);
 
     // Interaction functions
     void Cmd_Help(std::ostream& out, const std::vector<std::string>& arguments) const;

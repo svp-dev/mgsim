@@ -3,7 +3,7 @@ bin_PROGRAMS =
 noinst_PROGRAMS = 
 
 FLAGS_OPT = -O3 -DNDEBUG
-FLAGS_DEBUG = -O1 -g -pg -D_GLIBCXX_DEBUG
+FLAGS_DEBUG = -O0 -g -pg -D_GLIBCXX_DEBUG
 FLAGS_COMMON = -W -Wall -Wwrite-strings -Wconversion \
        -DMGSIM_CONFIG_PATH=\"$(pkgdatadir)/config.ini\"
 
@@ -51,7 +51,6 @@ COMMON_SRC = \
 	VirtualMemory.cpp \
 	VirtualMemory.h \
 	WritebackStage.cpp \
-	buffer.h \
 	config.cpp \
 	config.h \
 	elf.h \
@@ -64,14 +63,12 @@ COMMON_SRC = \
 	main.cpp \
 	ports.h \
 	ports.cpp \
-	profile.cpp \
-	profile.h \
 	range.h \
 	simreadline.h \
-	simtime.cpp \
-	simtime.h \
 	simtypes.cpp \
 	simtypes.h \
+	storage.h \
+	storage.cpp \
 	types.h
 
 ALPHA_SRC = $(COMMON_SRC) \

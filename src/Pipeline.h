@@ -15,6 +15,15 @@
 namespace Simulator
 {
 
+class Processor;
+class Allocator;
+class DCache;
+class FamilyTable;
+class ThreadTable;
+class RegisterFile;
+class Network;
+class FPU;
+
 /// A (possibly multi-) register value in the pipeline
 struct PipeValue
 {
@@ -45,6 +54,8 @@ static inline PipeValue MAKE_EMPTY_PIPEVALUE(unsigned int size)
     return value;
 }
 
+class Pipeline : public IComponent
+{
 #if TARGET_ARCH == ARCH_ALPHA
     struct ArchDecodeReadLatch
     {
@@ -72,17 +83,6 @@ static inline PipeValue MAKE_EMPTY_PIPEVALUE(unsigned int size)
     };
 #endif
 
-class Processor;
-class Allocator;
-class DCache;
-class FamilyTable;
-class ThreadTable;
-class RegisterFile;
-class Network;
-class FPU;
-
-class Pipeline : public IComponent
-{
     /// Return code from the various pipeline stages, indicates the action for the pipeline.
     enum PipeAction
     {
@@ -90,7 +90,7 @@ class Pipeline : public IComponent
         PIPE_FLUSH,     ///< Stage completed, but the rest of the thread must be flushed.
         PIPE_STALL,     ///< Stage cannot complete, stall pipeline.
         PIPE_DELAY,     ///< Stage completed, but must be run again; delay rest of the pipeline.
-		PIPE_IDLE,      ///< Stage has no work.
+        PIPE_IDLE,      ///< Stage has nothing to do
     };
     
     /// Type of thread suspension
@@ -101,49 +101,6 @@ class Pipeline : public IComponent
         SUSPEND_MISSING_DATA,   ///< We're missing data
     };
 
-public:
-    //
-    // Common latch data
-    //
-    struct LatchState
-    {
-        bool empty;
-       
-        LatchState() : empty(true) {}
-    };
-    
-    struct Latch
-    {
-        TID     tid;
-        MemAddr pc;
-        MemAddr pc_dbg; // Original, unmodified PC for debugging
-        LFID    fid;
-        bool    swch;
-        bool    kill;
-    };
-
-    class Stage : public Object
-    {
-    public:
-        virtual PipeAction  read()  = 0;
-        virtual PipeAction  write() = 0;
-        virtual void        clear(TID /* tid */) {}
-        Stage(Pipeline& parent, const std::string& name, Latch* input, Latch* output);
-
-        Latch* getInput()  const { return m_input;  }
-        Latch* getOutput() const { return m_output; }
-
-    protected:
-        Pipeline& m_parent;
-
-    private:
-        Latch* m_input;
-        Latch* m_output;
-    };
-
-    //
-    // Latches
-    //
     struct RegInfo
     {
         struct
@@ -153,12 +110,33 @@ public:
         } types[NUM_REG_TYPES];
     };
     
-    struct FetchDecodeLatch : public Latch, public LatchState
+    //
+    // Latches
+    //
+    struct CommonData
+    {
+        TID     tid;
+        MemAddr pc;
+        MemAddr pc_dbg; // Original, unmodified PC for debugging
+        LFID    fid;
+        bool    swch;
+        bool    kill;
+    };
+
+    struct Latch : public CommonData
+    {
+        bool empty;
+        
+        Latch() : empty(true) {}
+    };
+
+    struct FetchDecodeLatch : public Latch
     {
         LFID            link_prev;
         LFID            link_next;
         Instruction     instr;
         RegInfo         regs;
+        bool            legacy;
 		bool            onParent;
 		GPID            parent_pid;
 		LFID            parent_fid;
@@ -167,7 +145,7 @@ public:
         bool            isLastThreadInFamily;
     };
 
-    struct DecodeReadLatch : public Latch, public LatchState, public ArchDecodeReadLatch
+    struct DecodeReadLatch : public Latch, public ArchDecodeReadLatch
     {
         uint32_t        literal;
         RegInfo         regs;
@@ -178,7 +156,7 @@ public:
         unsigned int    RaSize, RbSize, RcSize;
     };
 
-    struct ReadExecuteLatch : public Latch, public LatchState, public ArchReadExecuteLatch
+    struct ReadExecuteLatch : public Latch, public ArchReadExecuteLatch
     {
         // Registers addresses, values and types
         RemoteRegAddr   Rra, Rrb, Rrc;
@@ -191,7 +169,7 @@ public:
         RegAddr         Ra, Rb;
     };
 
-    struct ExecuteMemoryLatch : public Latch, public LatchState
+    struct ExecuteMemoryLatch : public Latch
     {
         SuspendType suspend;
         
@@ -206,7 +184,7 @@ public:
         PipeValue       Rcv;    // On loads, m_state = RST_INVALID and m_size is reg. size
     };
 
-    struct MemoryWritebackLatch : public Latch, public LatchState
+    struct MemoryWritebackLatch : public Latch
     {
         SuspendType suspend;
 
@@ -214,123 +192,115 @@ public:
         RegAddr         Rc;
         PipeValue       Rcv;
     };
-
+    
     //
     // Stages
     //
+    class Stage : public Object
+    {
+    public:
+        virtual PipeAction Write() = 0;
+        virtual void       Clear(TID /*tid*/) {}
+        Stage(Pipeline& parent, const std::string& name);
+
+    protected:
+        Pipeline& m_parent;
+    };
+
     class FetchStage : public Stage
     {
     public:
-        PipeAction read();
-        PipeAction write();
-        FetchStage(Pipeline& parent, FetchDecodeLatch& fdlatch, Allocator& allocator, FamilyTable& familyTable, ThreadTable& threadTable, ICache &icache, LPID lpid, const Config& config);
+        PipeAction Read();
+        PipeAction Write();
+        FetchStage(Pipeline& parent, FetchDecodeLatch& output, Allocator& allocator, FamilyTable& familyTable, ThreadTable& threadTable, ICache &icache, LPID lpid, const Config& config);
         ~FetchStage();
 
-        void clear(TID tid);
-        LFID getFID() const { return m_fid; }
-        TID getTID() const { return m_tid; }
-        MemAddr getPC() const { return m_pc; }
+        void Clear(TID tid);
     
     private:
-        FetchDecodeLatch&   m_output;
-        Allocator&          m_allocator;
-        FamilyTable&        m_familyTable;
-        ThreadTable&        m_threadTable;
-        ICache&             m_icache;
-        LPID                m_lpid;
-
-        // Information of current executing thread
-        char*           m_buffer;
-        size_t          m_controlBlockSize;
-        bool            m_isLastThreadInBlock;
-        bool            m_isLastThreadInFamily;
-		bool            m_isFirstThreadInFamily;
-        bool            m_switched;
-		bool            m_onParent;
-        LFID            m_fid;
-        LFID            m_link_prev;
-        LFID            m_link_next;
-        TID             m_tid;
-		TID             m_next;
-		bool            m_legacy;
-		GPID            m_parent_pid;
-		LFID            m_parent_fid;
-        MemAddr         m_pc;
-        RegInfo         m_regs;
+        FetchDecodeLatch& m_output;
+        Allocator&        m_allocator;
+        FamilyTable&      m_familyTable;
+        ThreadTable&      m_threadTable;
+        ICache&           m_icache;
+        LPID              m_lpid;
+        size_t            m_controlBlockSize;
+        char*             m_buffer;
+        bool              m_switched;
+        MemAddr           m_pc;
     };
 
     class DecodeStage : public Stage
     {
     public:
-        PipeAction read();
-        PipeAction write();
-        DecodeStage(Pipeline& parent, FetchDecodeLatch& input, DecodeReadLatch& output, const Config& config);
+        PipeAction Read();
+        PipeAction Write();
+        DecodeStage(Pipeline& parent, const FetchDecodeLatch& input, DecodeReadLatch& output, const Config& config);
     
     private:
         RegAddr TranslateRegister(uint8_t reg, RegType type, unsigned int size, RemoteRegAddr* remoteReg, bool writing) const;
         void    DecodeInstruction(const Instruction& instr);
 
-        FetchDecodeLatch& m_input;
-        DecodeReadLatch&  m_output;
+        const FetchDecodeLatch& m_input;
+        DecodeReadLatch&        m_output;
     };
 
     class ReadStage : public Stage
     {
     public:
-        PipeAction read();
-        PipeAction write();
-        ReadStage(Pipeline& parent, DecodeReadLatch& input, ReadExecuteLatch& output, RegisterFile& regFile, ExecuteMemoryLatch& bypass1, MemoryWritebackLatch& bypass2, const Config& config);
+        PipeAction Read();
+        PipeAction Write();
+        ReadStage(Pipeline& parent, const DecodeReadLatch& input, ReadExecuteLatch& output, RegisterFile& regFile,
+            const ExecuteMemoryLatch& bypass1, const MemoryWritebackLatch& bypass2, const MemoryWritebackLatch& bypass3,
+            const Config& config);
     
     private:
         struct OperandInfo
         {
-            DedicatedReadPort* port;            ///< Port on the RegFile to use for reading this operand
-            RegAddr            addr;            ///< (Base) address of the operand            
-            PipeValue          value;           ///< Final value
-            int                to_read_mask;    ///< Sub-register of the operand we still need to read
+            DedicatedReadPort* port;      ///< Port on the RegFile to use for reading this operand
+            RegAddr            addr;      ///< (Base) address of the operand
+            PipeValue          value;     ///< Final value
+            int                offset;    ///< Sub-register of the operand we are currently reading
             
             // Address and value as read from the register file
             // The PipeValue actually contains a RegValue, but this way the code can remain generic
-            RegAddr            addr_reg;        ///< Address of the value read from register
-            PipeValue          value_reg;       ///< Value as read from the register file
+            RegAddr            addr_reg;  ///< Address of the value read from register
+            PipeValue          value_reg; ///< Value as read from the register file
         };
         
         bool ReadRegister(OperandInfo& operand, uint32_t literal);
         bool ReadBypasses(OperandInfo& operand);
-        void clear(TID tid);
+        bool CheckOperandForSuspension(const OperandInfo& operand, const RegAddr& addr, const RemoteRegAddr& rr);
+        void Clear(TID tid);
 
+        RegisterFile&               m_regFile;
+        const DecodeReadLatch&      m_input;
+        ReadExecuteLatch&           m_output;
+        const ExecuteMemoryLatch&   m_bypass1;
+        const MemoryWritebackLatch& m_bypass2;
+        const MemoryWritebackLatch& m_bypass3;
+        OperandInfo                 m_operand1, m_operand2;
+        
 #if TARGET_ARCH == ARCH_SPARC
         // Sparc memory stores require three registers so takes two cycles.
         // First cycle calculates the address and stores it here.
         bool      m_isMemoryStore;
         PipeValue m_storeValue;
 #endif
-
-        RegisterFile&           m_regFile;
-        DecodeReadLatch&        m_input;
-        ReadExecuteLatch&       m_output;
-        ExecuteMemoryLatch&     m_bypass1;
-        MemoryWritebackLatch&   m_bypass2;
-        
-        // Copy of the Writeback latch, because the actual latch will be gone
-        // when we need it.
-        MemoryWritebackLatch    m_wblatch;
-        
-        OperandInfo             m_operand1, m_operand2;
     };
 
     class ExecuteStage : public Stage
     {
     public:
-        PipeAction read();
-        PipeAction write();
-        ExecuteStage(Pipeline& parent, ReadExecuteLatch& input, ExecuteMemoryLatch& output, Allocator& allocator, Network& network, ThreadTable& threadTable, FPU& fpu, size_t fpu_source, const Config& config);
+        PipeAction Read();
+        PipeAction Write();
+        ExecuteStage(Pipeline& parent, const ReadExecuteLatch& input, ExecuteMemoryLatch& output, Allocator& allocator, Network& network, ThreadTable& threadTable, FPU& fpu, size_t fpu_source, const Config& config);
         
         uint64_t getFlop() const { return m_flop; }
         uint64_t getOp()   const { return m_op; }
     
     private:
-        ReadExecuteLatch&       m_input;
+        const ReadExecuteLatch& m_input;
         ExecuteMemoryLatch&     m_output;
         Allocator&              m_allocator;
         Network&                m_network;
@@ -350,7 +320,6 @@ public:
         
         bool       MemoryWriteBarrier(TID tid) const;
         PipeAction SetFamilyProperty(LFID fid, FamilyProperty property, uint64_t value);
-        PipeAction SetFamilyRegs(LFID fid, const Allocator::RegisterBases bases[]);
         PipeAction ExecuteInstruction();
         PipeAction ExecCreate(LFID fid, MemAddr address, RegAddr exitCodeReg);
         PipeAction ExecBreak(Integer value);
@@ -363,41 +332,44 @@ public:
     class MemoryStage : public Stage
     {
     public:
-        PipeAction read();
-        PipeAction write();
-        MemoryStage(Pipeline& parent, ExecuteMemoryLatch& input, MemoryWritebackLatch& output, DCache& dcache, Allocator& allocator, const Config& config);
+        PipeAction Read();
+        PipeAction Write();
+        MemoryStage(Pipeline& parent, const ExecuteMemoryLatch& input, MemoryWritebackLatch& output, DCache& dcache, Allocator& allocator, const Config& config);
     
     private:
-        ExecuteMemoryLatch&     m_input;
-        MemoryWritebackLatch&   m_output;
-        Allocator&              m_allocator;
-        DCache&                 m_dcache;
+        const ExecuteMemoryLatch& m_input;
+        MemoryWritebackLatch&     m_output;
+        Allocator&                m_allocator;
+        DCache&                   m_dcache;
     };
 
     class WritebackStage : public Stage
     {
     public:
-        PipeAction read();
-        PipeAction write();
-        WritebackStage(Pipeline& parent, MemoryWritebackLatch& input, RegisterFile& regFile, Network& network, Allocator& allocator, ThreadTable& threadTable, const Config& config);
+        PipeAction Read();
+        PipeAction Write();
+        WritebackStage(Pipeline& parent, const MemoryWritebackLatch& input, RegisterFile& regFile, Network& network, Allocator& allocator, ThreadTable& threadTable, const Config& config);
     
     private:
-        MemoryWritebackLatch&   m_input;
-        RegisterFile&           m_regFile;
-        Network&                m_network;
-        Allocator&              m_allocator;
-        ThreadTable&            m_threadTable;
+        const MemoryWritebackLatch& m_input;
+        RegisterFile&               m_regFile;
+        Network&                    m_network;
+        Allocator&                  m_allocator;
+        ThreadTable&                m_threadTable;
 
         // These fields are for multiple-cycle writebacks
-        RegIndex                m_writebackOffset;
-        uint64_t                m_writebackValue;
-        RegSize                 m_writebackSize;
+        RegIndex                    m_writebackOffset;
+        uint64_t                    m_writebackValue;
+        RegSize                     m_writebackSize;
     };
 
+    static void PrintLatchCommon(std::ostream& out, const CommonData& latch);
+    static std::string MakePipeValue(const RegType& type, const PipeValue& value);
+    
+public:
     Pipeline(Processor& parent, const std::string& name, LPID lpid, RegisterFile& regFile, Network& network, Allocator& allocator, FamilyTable& familyTable, ThreadTable& threadTable, ICache& icache, DCache& dcache, FPU& fpu, const Config& config);
 
-    Result OnCycleReadPhase(unsigned int stateIndex);
-    Result OnCycleWritePhase(unsigned int stateIndex);
+    Result OnCycle(unsigned int stateIndex);
     void   UpdateStatistics();
 
     Processor& GetProcessor()  const { return m_parent; }
@@ -415,19 +387,28 @@ public:
     void Cmd_Read(std::ostream& out, const std::vector<std::string>& arguments) const;
 
 private:
-    Processor&    m_parent;
-    RegisterFile& m_regFile;
+    Processor& m_parent;
+    
+    FetchStage     m_fetch;
+    DecodeStage    m_decode;
+    ReadStage      m_read;
+    ExecuteStage   m_execute;
+    MemoryStage    m_memory;
+    WritebackStage m_writeback;
     
     FetchDecodeLatch     m_fdLatch;
     DecodeReadLatch      m_drLatch;
     ReadExecuteLatch     m_reLatch;
     ExecuteMemoryLatch   m_emLatch;
     MemoryWritebackLatch m_mwLatch;
+    MemoryWritebackLatch m_mwBypass;
 
-    static const int    NUM_STAGES = 6;
-    Stage*              m_stages[NUM_STAGES];
-    LatchState*         m_latches[NUM_STAGES - 1];
-    bool                m_runnable[NUM_STAGES];
+    static const int NUM_STAGES = 6;
+    Stage*           m_stages  [NUM_STAGES];
+    Latch*           m_latches [NUM_STAGES - 1];
+    Result           m_runnable[NUM_STAGES];
+    
+    Register<bool>   m_active;
     
     size_t   m_nStagesRunnable;
     size_t   m_nStagesRun;
@@ -437,14 +418,6 @@ private:
     uint64_t m_pipelineIdleEvents;
     uint64_t m_pipelineIdleTime;
     uint64_t m_pipelineBusyTime;
-
-public:
-    FetchStage          m_fetch;
-    DecodeStage         m_decode;
-    ReadStage           m_read;
-    ExecuteStage        m_execute;
-    MemoryStage         m_memory;
-    WritebackStage      m_writeback;
 };
 
 }

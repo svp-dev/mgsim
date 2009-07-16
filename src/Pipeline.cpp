@@ -10,9 +10,9 @@ using namespace std;
 namespace Simulator
 {
 
-Pipeline::Stage::Stage(Pipeline& parent, const std::string& name, Latch* input, Latch* output)
-:   Object(&parent, &parent.GetProcessor().GetKernel(), name),
-    m_parent(parent), m_input(input), m_output(output)
+Pipeline::Stage::Stage(Pipeline& parent, const std::string& name)
+:   Object(&parent, parent.GetKernel(), name),
+    m_parent(parent)
 {
 }
 
@@ -30,16 +30,20 @@ Pipeline::Pipeline(
 	FPU&                fpu,
     const Config&       config)
 :
-    IComponent(&parent, parent.GetKernel(), name, "writeback|memory|execute|read|decode|fetch"), m_parent(parent), m_regFile(regFile),
-    m_nStagesRun(0), m_maxPipelineIdleTime(0), m_minPipelineIdleTime(numeric_limits<uint64_t>::max()),
-    m_totalPipelineIdleTime(0), m_pipelineIdleEvents(0), m_pipelineIdleTime(0), m_pipelineBusyTime(0),
+    IComponent(&parent, parent.GetKernel(), name),
+    m_parent(parent),
     
     m_fetch    (*this,            m_fdLatch, alloc, familyTable, threadTable, icache, lpid, config),
     m_decode   (*this, m_fdLatch, m_drLatch, config),
-    m_read     (*this, m_drLatch, m_reLatch, regFile, m_emLatch, m_mwLatch, config),
+    m_read     (*this, m_drLatch, m_reLatch, regFile, m_emLatch, m_mwLatch, m_mwBypass, config),
     m_execute  (*this, m_reLatch, m_emLatch, alloc, network, threadTable, fpu, fpu.RegisterSource(regFile), config),
     m_memory   (*this, m_emLatch, m_mwLatch, dcache, alloc, config),
-    m_writeback(*this, m_mwLatch,            regFile, network, alloc, threadTable, config)
+    m_writeback(*this, m_mwLatch,            regFile, network, alloc, threadTable, config),
+    
+    m_active(parent.GetKernel(), *this, 0),
+
+    m_maxPipelineIdleTime(0), m_minPipelineIdleTime(numeric_limits<uint64_t>::max()),
+    m_totalPipelineIdleTime(0), m_pipelineIdleEvents(0), m_pipelineIdleTime(0), m_pipelineBusyTime(0)
 {
     m_stages[0] = &m_fetch;
     m_stages[1] = &m_decode;
@@ -55,132 +59,125 @@ Pipeline::Pipeline(
     m_latches[4] = &m_mwLatch;
 }
 
-Result Pipeline::OnCycleReadPhase(unsigned int stateIndex)
-{   
-    if (IsAcquiring() && stateIndex == 0)
+Result Pipeline::OnCycle(unsigned int /*stateIndex*/)
+{
+    static const char* StageNames[NUM_STAGES] = {
+        "fetch", "decode", "read", "execute", "memory", "writeback"
+    };
+    
+    if (IsAcquiring())
     {
         // Begin of the cycle, initialize
-        m_nStagesRunnable = 0;
-        m_runnable[0] = true;
+        m_runnable[0] = SUCCESS;
         for (int i = 0; i < NUM_STAGES - 1; ++i)
         {
-            m_runnable[i + 1] = !m_latches[i]->empty;
+            m_runnable[i + 1] = (m_latches[i]->empty ? DELAYED : SUCCESS);
         }
-    }
-
-    // Execute stages from back to front
-    int stage = NUM_STAGES - 1 - stateIndex;
-    if (m_runnable[stage])
-    {
-        // This stage can read
-        PipeAction action = m_stages[stage]->read();
-		if (action != PIPE_IDLE)
-		{
-            COMMIT{
-                m_nStagesRunnable++;
-            }
-            
-			if (action == PIPE_STALL || action == PIPE_DELAY)
-			{
-				// This stage has stalled, abort pipeline
-				for (int i = 0; i < stage; ++i)
-				{
-					m_runnable[i] = false;
-				}
-				return (action == PIPE_STALL) ? FAILED : SUCCESS;
-			}
-			
-			if (action == PIPE_FLUSH)
-			{
-				COMMIT
-				{
-					// Clear all previous stages with the same TID
-					TID tid = m_stages[stage]->getInput()->tid;
-					for (int j = 0; j < stage; ++j)
-					{
-						Latch* input = m_stages[j]->getInput();
-						if (input != NULL && input->tid == tid)
-						{
-						    assert(j > 0);
-							m_latches[j - 1]->empty = true;
-						}
-						m_stages[j]->clear(tid);
-					}
-				}
-			}
-	        return SUCCESS;
-		}
-    }
-
-	// This stage has nothing to do
-    return DELAYED;
-}
-
-Result Pipeline::OnCycleWritePhase(unsigned int stateIndex)
-{
-    int stage = NUM_STAGES - 1 - stateIndex;
-    try
-    {
-        if (m_runnable[stage])
-        {
-            // This stage can execute
-            PipeAction action = m_stages[stage]->write();
-		    if (action != PIPE_IDLE)
-		    {
-		        if (!IsAcquiring())
-		        {
-    			    if (action == PIPE_STALL || action == PIPE_DELAY)
-    			    {
-        				// This stage has stalled or is delayed, abort pipeline
-    				    for (int i = 0; i < stage; ++i)
-    				    {
-        					m_runnable[i] = false;
-    				    }
-    				    return (action == PIPE_STALL) ? FAILED : SUCCESS;
-	    		    }
-
-		    	    Latch* input = m_stages[stage]->getInput();
-	    		    if (action == PIPE_FLUSH)
-    			    {
-        				// Clear all previous stages with the same TID
-    				    for (int j = 0; j < stage; ++j)
-    				    {
-        					Latch* in = m_stages[j]->getInput();
-    					    if (in != NULL && in->tid == input->tid)
-    					    {
-        					    assert(j > 0);
-    					        m_latches[j - 1]->empty = true;
-    						    m_runnable[j] = false;
-    					    }
     
-    					    m_stages[j]->clear(input->tid);
-	    			    }
-    			    }
+        /*
+         Make a copy of the WB latch before doing anything. This will be used as
+         the source for the bypass to the Read Stage. This can be justified by
+         noting that the stages *should* happen in parallel, so the read stage
+         will read the WB latch before it's been updated.
+        */
+        m_mwBypass = m_mwLatch;
+    }
+    
+    Result result = FAILED;
+    m_nStagesRunnable = 0;
+    for (int stage = NUM_STAGES - 1; stage >= 0; --stage)
+    {
+        if (m_runnable[stage] == FAILED) 
+        {
+            // The pipeline stalled at this point
+            break;
+        }
+        
+        if (m_runnable[stage] == SUCCESS)
+        try
+        {
+            m_nStagesRunnable++;
 
+            const PipeAction action = m_stages[stage]->Write();
+            if (!IsAcquiring())
+            {
+   	            // If this stage has stalled or is delayed, abort pipeline.
+  	            // Note that the stages before this one in the pipeline
+  	            // will never get executed now.
+                if (action == PIPE_STALL)
+                {
+                    m_runnable[stage] = FAILED;
+                    DeadlockWrite("%s stage stalled", StageNames[stage]);
+                    break;
+                }
+                
+                if (action == PIPE_DELAY)
+                {
+                    result = SUCCESS;
+                    break;
+                }
+                
+                if (action == PIPE_IDLE)
+    		    {
+    		        m_nStagesRunnable--;
+    		    }
+    		    else
+    		    {
+    		        if (action == PIPE_FLUSH && stage > 0)
+   			        {
+       		            // Clear all previous stages with the same TID
+   		    	        const Latch* input = m_latches[stage - 1];
+     					m_stages[0]->Clear(input->tid);
+   				        for (int j = 0; j < stage - 1; ++j)
+   				        {
+   					        if (m_latches[j]->tid == input->tid)
+  					        {
+       					        m_latches[j]->empty = true;
+   						        m_runnable[j + 1] = DELAYED;
+   					        }
+       					    m_stages[j + 1]->Clear(input->tid);
+    			        }
+  			        }
+  			        
 	    		    COMMIT
     			    {
-                        m_nStagesRun++;
-                        if (stage > 0)              m_latches[stage - 1]->empty = true;  // Clear input
-                        if (stage < NUM_STAGES - 1) m_latches[stage    ]->empty = false; // Set output
-    			    }
-			    }
-	            return SUCCESS;
-		    }
+    			        // Clear input and set output
+                        if (stage > 0)              m_latches[stage-1]->empty = true;
+                        if (stage < NUM_STAGES - 1) m_latches[stage  ]->empty = false;
+    		        }
+    		        result = SUCCESS;
+    		    }
+            }
+            else
+            {
+                result = SUCCESS;
+            }
         }
-
-	    // This stage has nothing to do
-        return DELAYED;
+        catch (SimulationException& e)
+        {
+            if (stage > 0)
+            {
+                // Add details about thread, family and PC
+                const Latch* input = m_latches[stage - 1];
+                stringstream details;
+                details << "While executing instruction at 0x" << setw(sizeof(MemAddr) * 2) << setfill('0') << hex << input->pc_dbg
+                        << " in T" << dec << input->tid << " in F" << input->fid;
+                e.AddDetails(details.str());
+            }
+            throw;
+        }
     }
-    catch (SimulationException& e)
-    {
-        // Add details about thread, family and PC
-        const Latch* input = m_stages[stage]->getInput();
-        stringstream details;
-        details << "While executing instruction at 0x" << setw(sizeof(MemAddr) * 2) << setfill('0') << hex << input->pc_dbg
-                << " in T" << dec << input->tid << " in F" << input->fid;
-        e.AddDetails(details.str());
-        throw;
+    
+    if (m_nStagesRunnable == 0) {
+        // Nothing to do anymore
+        m_active.Clear();
+        return SUCCESS;
     }
+    
+    COMMIT{ m_nStagesRun += m_nStagesRunnable; }
+    
+    m_active.Write(true);
+    return result;
 }
 
 void Pipeline::UpdateStatistics()
@@ -216,7 +213,7 @@ void Pipeline::Cmd_Help(std::ostream& out, const std::vector<std::string>& /*arg
     "  Reads and displays the stages and latches.\n";
 }
 
-static void PrintLatchCommon(std::ostream& out, const Pipeline::Latch& latch)
+/*static*/ void Pipeline::PrintLatchCommon(std::ostream& out, const CommonData& latch)
 {
     out << " | LFID: F"  << dec << latch.fid
         << "    TID: T"  << dec << latch.tid << right
@@ -226,7 +223,7 @@ static void PrintLatchCommon(std::ostream& out, const Pipeline::Latch& latch)
 }
 
 // Construct a string representation of a pipeline register value
-static std::string MakePipeValue(const RegType& type, const PipeValue& value)
+/*static*/ std::string Pipeline::MakePipeValue(const RegType& type, const PipeValue& value)
 {
     std::stringstream ss;
 
@@ -237,8 +234,8 @@ static std::string MakePipeValue(const RegType& type, const PipeValue& value)
         case RST_WAITING: ss << "Waiting (T" << dec << value.m_waiting.head << ")"; break;
         case RST_FULL:
             if (type == RT_INTEGER) {
-                ss << "0x" << setw(value.m_size * 2);
-                ss << setfill('0') << hex << value.m_integer.get(value.m_size);
+                ss << "0x" << setw(value.m_size * 2)
+                   << setfill('0') << hex << value.m_integer.get(value.m_size);
             } else {
                 ss << setprecision(16) << fixed << value.m_float.tofloat(value.m_size);
             }
@@ -246,8 +243,8 @@ static std::string MakePipeValue(const RegType& type, const PipeValue& value)
     }
 
     std::string ret = ss.str();
-    if (ret.length() > 17) {
-        ret = ret.substr(0,17);
+    if (ret.length() > 18) {
+        ret = ret.substr(0,18);
     }
     return ret;
 }
@@ -304,8 +301,7 @@ void Pipeline::Cmd_Read(std::ostream& out, const std::vector<std::string>& /*arg
              << " | Literal:      0x" << setw(8) << m_drLatch.literal << endl
              << dec
              << " | Ra:           " << m_drLatch.Ra << "/" << m_drLatch.RaSize << "    Rra: " << m_drLatch.Rra << endl
-             << " | Rb:           " << m_drLatch.Rb << "/" << m_drLatch.RbSize << "    Rrb: "
-             << m_drLatch.Rrb << endl
+             << " | Rb:           " << m_drLatch.Rb << "/" << m_drLatch.RbSize << "    Rrb: " << m_drLatch.Rrb << endl
              << " | Rc:           " << m_drLatch.Rc << "/" << m_drLatch.RcSize << "    Rrc: " << m_drLatch.Rrc << endl;
     }
     out << " v" << endl;

@@ -6,12 +6,14 @@
 #include <vector>
 #include <map>
 #include <set>
+#include <cassert>
 
 namespace Simulator
 {
 
 #define COMMIT  if (IsCommitting())
 
+class Storage;
 class Object;
 class Mutex;
 class Kernel;
@@ -46,23 +48,49 @@ enum RunState
  */
 class Kernel
 {
+    friend class Object;
+    
 public:
-    struct ComponentState
+    struct ComponentInfo;
+
+    /// Holds information a component's process
+    struct ProcessInfo
     {
-        std::string name;   ///< Name of this state
-        RunState    state;  ///< Last run state of this state
+        ComponentInfo* info;          ///< The component it's part of
+        std::string    name;          ///< Name of this process
+        RunState       state;         ///< Last run state of this process
+        unsigned int   activations;   ///< Reference count of activations of this process
+        ProcessInfo*   next;          ///< Next pointer in the list of processes that require updates
+        ProcessInfo**  pPrev;         ///< Prev pointer in the list of processes that require updates
     };
     
-    /// Holds information about a component's callbacks struct C
-	struct CallbackInfo
+    /// Holds information about a component
+	struct ComponentInfo
 	{
-	    std::vector<ComponentState> states;   ///< The component's states
+	    IComponent*              component; ///< The component
+	    std::vector<ProcessInfo> processes; ///< The component's processes
+	};
+	
+	/// Holds information about an arbitrator
+	struct ArbitratorInfo
+	{
+	    Arbitrator*     arbitrator; ///< The arbitrator object
+	    bool            activated;  ///< Has the arbitrator already been activated this cycle?
+	    ArbitratorInfo* next;       ///< Next pointer in the list of arbitrators that require arbitration
+	};
+	
+	/// Holds information about a storage object
+	struct StorageInfo
+	{
+	    Storage*     storage;   ///< The storage object
+	    bool         activated; ///< Has the storage already been activated this cycle?
+	    StorageInfo* next;      ///< Next pointer in the list of storages that require updates
 	};
 
-	typedef std::map<IComponent*, CallbackInfo> CallbackList;   ///< List of callbacks, indexed by component.
-    typedef std::set<IComponent*>               ComponentList;  ///< List of unique components.
-    typedef std::set<Arbitrator*>               ArbitratorList; ///< List of unique arbitrators.
-    typedef std::set<IRegister*>                RegisterList;   ///< List of unique registers.
+	typedef std::vector<ComponentInfo>     ComponentList;  ///< List of components.
+    typedef std::vector<ArbitratorInfo>    ArbitratorList; ///< List of unique arbitrators.
+    typedef std::vector<StorageInfo>       StorageList;    ///< List of storages.
+    typedef std::pair<ComponentInfo*, int> Process;        ///< Type of a process
 
     /// Modes of debugging
     enum DebugMode
@@ -73,52 +101,81 @@ public:
     };
     
 private:
-    bool         m_aborted;         ///< Should the run be aborted?
-    int			 m_debugMode;       ///< Bit mask of enabled debugging modes.
-    CycleNo      m_cycle;           ///< Current cycle of the simulation.
-    CyclePhase   m_phase;           ///< Current sub-cycle phase of the simulation.
+    bool            m_aborted;           ///< Should the run be aborted?
+    int		        m_debugMode;         ///< Bit mask of enabled debugging modes.
+    CycleNo         m_cycle;             ///< Current cycle of the simulation.
+    CyclePhase      m_phase;             ///< Current sub-cycle phase of the simulation.
+    ProcessInfo*    m_process;           ///< The currently executing process.
+    bool            m_debugging;         ///< Are we in a debug trace?
 
-    ArbitratorList m_arbitrators;   ///< List of all arbitrators in the simulation.
-    CallbackList   m_callbacks;     ///< List of all callbacks in the simulation.
-    ComponentList  m_components;    ///< List of all components in the simulation.
-    RegisterList   m_registers;     ///< List of all registers in the simulation.
+    ComponentList   m_components;        ///< List of all components.
+    ArbitratorList  m_arbitrators;       ///< List of all arbitrators.
+    StorageList     m_storages;          ///< List of all storages.
     
-    std::pair<IComponent*, int> m_component; ///< The currently executing component.
+    ProcessInfo*    m_activeProcesses;   ///< List of processes that need to be run.
+    StorageInfo*    m_activeStorages;    ///< List of storages that need to be updated.
+    ArbitratorInfo* m_activeArbitrators; ///< List of arbitrators that need arbitration.
 
+    void UpdateStorages();
 public:
     Kernel();
     ~Kernel();
+    
+    void Initialize();
+    
+    ProcessInfo* GetProcessInfo(IComponent* component, int state);
+    
+    /**
+     * @brief Register an update request for the specified storage at the end of the cycle.
+     * @param storage The storage to update
+     */
+    void ActivateStorage(StorageInfo* storage)
+    {
+        if (!storage->activated) {
+            storage->next = m_activeStorages;
+            storage->activated = true;
+            m_activeStorages = storage;
+        }
+    }
+    
+    void ActivateArbitrator(ArbitratorInfo* arbitrator)
+    {
+        if (!arbitrator->activated) {
+            arbitrator->next = m_activeArbitrators;
+            arbitrator->activated = true;
+            m_activeArbitrators = arbitrator;
+        }
+    }
+    
+    /**
+     * @brief Schedule the specified process on the run queue.
+     * @param process The process to schedule
+     */
+    void ActivateProcess(ProcessInfo* process);
 
     /**
-     * Registers an arbitrator to the kernel.
+     * @brief Registers an arbitrator to the kernel.
      * @param structure the structure to register.
      */
     void RegisterArbitrator(Arbitrator& arbitrator);
     
     /**
-     * Registers a component to the kernel.
+     * @brief Registers a component to the kernel.
      * @param component the component to register.
      * @param states '|'-delimited list of state names
      */
     void RegisterComponent(IComponent& component, const std::string& states);
-    
-    /**
-     * Registers a register to the kernel.
-     * @param reg the register to register.
-     */
-    void RegisterRegister(IRegister& reg);
 
-    /// Unregisters a structure from the kernel. @param structure the structure to unregister.
-    void UnregisterArbitrator(Arbitrator& arbitrator);
-    /// Unregisters a component from the kernel. @param component the component to unregister.
-    void UnregisterComponent(IComponent& component);
-    /// Unregisters a register from the kernel. @param reg the register to unregister.
-    void UnregisterRegister (IRegister&  reg );
+    /**
+     * @brief Registers a storage to the kernel.
+     * @param storage the storage to register.
+     */
+    void RegisterStorage(Storage& storage);
     
     /**
-     * @brief Get the currently executing component and state
+     * @brief Get the currently executing process
      */
-    inline const std::pair<IComponent*, int>& GetComponent() const { return m_component; }
+    inline const ProcessInfo* GetActiveProcess() const { return m_process; }
 
     /**
      * @brief Get the cycle counter.
@@ -163,11 +220,11 @@ public:
     void Abort();
 
     /**
-     * @brief Get all callbacks.
-     * Gets the list of all callbacks in the simulation.
-     * @return a constant reference to the list of all callbacks.
+     * @brief Get all components.
+     * Gets the list of all components in the simulation.
+     * @return a constant reference to the list of all components.
      */
-	const CallbackList& GetCallbacks() const { return m_callbacks; }
+	const ComponentList& GetComponents() const { return m_components; }
 };
 
 /**
@@ -245,55 +302,35 @@ public:
     void OutputWrite(const char* msg, ...) const FORMAT_PRINTF(2,3);
 };
 
-/// Base class for all registers in the simulation.
-class IRegister
-{
-    const Kernel& m_kernel; ///< Kernel that manages this register
-
-protected:
-    /// Check if the simulation is in the commit phase. @return true if the simulation is in the commit phase.
-    bool IsCommitting() const
-    {
-        return m_kernel.GetCyclePhase() == PHASE_COMMIT;
-    }
-
-public:
-    virtual void OnUpdate() = 0;    ///< Callback to affect any pending writes to the register.
-
-    /**
-     * Constructs the register
-     * @param kernel the kernel which will manage this register.
-     */
-	IRegister(Kernel& kernel) : m_kernel(kernel)
-	{
-        kernel.RegisterRegister(*this);
-	}
-
-    virtual ~IRegister() {}
-};
-
 /// Base class for all objects that arbitrate
 class Arbitrator
 {
-public:
-    virtual void OnArbitrateReadPhase()  = 0; ///< Callback for arbitration in the read phase.
-    virtual void OnArbitrateWritePhase() = 0; ///< Callback for arbitration in the write phase.
-    
-    virtual ~Arbitrator() {}
-};
+    Kernel::ArbitratorInfo* m_handle;
 
-/// Base class for all structures in the simulation.
-class IStructure : public Object, Arbitrator
-{
+protected:
+    Kernel& m_kernel;
+    
+    void RequestArbitration()
+    {
+        m_kernel.ActivateArbitrator(m_handle);
+    }
+    
 public:
-    /**
-     * Constructs the structure.
-     * @param parent parent object.
-     * @param kernel the kernel which will manage this structure.
-     * @param name name of the object.
-     */
-    IStructure(Object* parent, Kernel& kernel, const std::string& name);
-    ~IStructure();
+    ///< Callback for arbitration
+    virtual void OnArbitrate() = 0;
+    
+    void Initialize(Kernel::ArbitratorInfo* handle)
+    {
+        assert(m_handle == NULL);
+        assert(handle != NULL);
+        m_handle = handle;
+    }
+    
+    Arbitrator(Kernel& kernel) : m_handle(NULL), m_kernel(kernel)
+    {
+        kernel.RegisterArbitrator(*this);
+    }
+    virtual ~Arbitrator() {}
 };
 
 /// Base class for all components in the simulation.
@@ -301,29 +338,33 @@ class IComponent : public Object
 {
 public:
 	/**
-	 * @brief Per-cycle read-phase callback handler.
-	 * Called every cycle in the read phase. The state index is a number between
+	 * @brief Per-cycle callback handler.
+	 * @details Called every cycle. The state index is a number between
 	 * 0 and the number of states in the component as indicated at the constructor.
 	 * Should a state not be able to proceed, other states will still be tried
-	 * independently.
+	 * independently. Equivalent to a 'process'.
+	 * A process will only be called when its at least of the structures it's
+	 * sensitive is full, so a process should rarely have nothing to do when called.
 	 * @param stateIndex the current index of the state that should be handled.
 	 * @return a value used to detect idle and deadlocked components:
 	 * - DELAYED: There's nothing to do
 	 * - FAILED:  There's something to do but I can't do it
  	 * - SUCCESS: There's something to do and I have done it
 	 */
-    virtual Result OnCycleReadPhase(unsigned int /*stateIndex*/)  { return DELAYED; }
-    virtual Result OnCycleWritePhase(unsigned int /*stateIndex*/) { return DELAYED; }
+    virtual Result OnCycle(unsigned int /*stateIndex*/) { return DELAYED; }
+    
     virtual void UpdateStatistics() {}
 
     /**
-     * Constructs the component.
+     * @brief Constructs the component
      * @param parent the parent object.
      * @param kernel the kernel that will manage this component.
      * @param name the name of tehe compnent.
      * @param states '|'-delimited list of state names
      */
     IComponent(Object* parent, Kernel& kernel, const std::string& name, const std::string& states = "default");
+    
+    /// Destroys the component
     ~IComponent();
 };
 

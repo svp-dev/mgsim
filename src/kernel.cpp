@@ -1,5 +1,5 @@
 #include "kernel.h"
-#include "profile.h"
+#include "storage.h"
 #include <cassert>
 #include <algorithm>
 #include <cstdarg>
@@ -70,6 +70,12 @@ void Object::DeadlockWrite(const char* msg, ...) const
     if (m_kernel->GetDebugMode() & Kernel::DEBUG_DEADLOCK)
     {
         va_list args;
+        
+        if (!m_kernel->m_debugging) {
+            const Kernel::ProcessInfo* process = m_kernel->GetActiveProcess(); 
+            cout << endl << process->info->component->GetFQN() << ":" << process->name << ":" << endl;
+            m_kernel->m_debugging = true;
+        }
 
         string name = GetFQN();
         transform(name.begin(), name.end(), name.begin(), ::toupper);
@@ -120,19 +126,6 @@ void Object::DebugProgWrite(const char* msg, ...) const
 }
 
 //
-// IStructure class
-//
-IStructure::IStructure(Object* parent, Kernel& kernel, const std::string& name) : Object(parent, &kernel, name)
-{
-    GetKernel()->RegisterArbitrator(*this);
-}
-
-IStructure::~IStructure()
-{
-    GetKernel()->UnregisterArbitrator(*this);
-}
-
-//
 // Component class
 //
 IComponent::IComponent(Object* parent, Kernel& kernel, const std::string& name, const std::string& states)
@@ -143,7 +136,6 @@ IComponent::IComponent(Object* parent, Kernel& kernel, const std::string& name, 
 
 IComponent::~IComponent()
 {
-    GetKernel()->UnregisterComponent(*this);
 }
 
 //
@@ -158,186 +150,224 @@ RunState Kernel::Step(CycleNo cycles)
 {
     try
     {
-	    bool idle = true, has_work = false;
-	
-	    m_aborted = false;
-        for (CycleNo i = 0; (cycles == INFINITE_CYCLES || i < cycles) && !m_aborted; ++i)
-        {
-      		idle     = true;
-   	    	has_work = false;
+        bool idle     = false;
+        bool has_work = false;
         
-       	    //
-            // Read phase
+        // Update any storages changed since the last run.
+        // Practically this will just be to effect the initialization writes,
+        // to activate the initial processes.
+        UpdateStorages();
+        
+	    m_aborted = false;
+        for (CycleNo i = 0; !m_aborted && !idle && (cycles == INFINITE_CYCLES || i < cycles); ++i)
+        {
+            //
+            // Acquire phase
             //
             m_phase = PHASE_ACQUIRE;
-            PROFILE_BEGIN("Read Acquire");
-            for (CallbackList::const_iterator i = m_callbacks.begin(); i != m_callbacks.end(); ++i)
+            for (ProcessInfo* process = m_activeProcesses; process != NULL; process = process->next)
             {
-                m_component.first = i->first;
- 			    for (size_t j = 0; j < i->second.states.size(); ++j)
-                {
-                    m_component.second = j;
-                    i->first->OnCycleReadPhase(j);
-                }
+                m_process   = process;
+                m_debugging = false; // Will be used by DeadlockWrite() for process-seperating newlines
+                
+                // If we fail in the acquire stage, don't bother with the check and commit stages
+                process->state = (process->info->component->OnCycle(process - &process->info->processes[0]) == FAILED)
+                    ? STATE_DEADLOCK
+                    : STATE_RUNNING;
             }
-            PROFILE_END("Read Acquire");
-
-            PROFILE_BEGIN("Read Arbitrate");
-            for (ArbitratorList::const_iterator i = m_arbitrators.begin(); i != m_arbitrators.end(); ++i)
+            
+            //
+            // Arbitrate phase
+            //
+            for (ArbitratorInfo* arbitrator = m_activeArbitrators; arbitrator != NULL; arbitrator = arbitrator->next)
             {
-                (*i)->OnArbitrateReadPhase();
+                arbitrator->arbitrator->OnArbitrate();
+                arbitrator->activated = false;
             }
-            PROFILE_END("Read Arbitrate");
+            m_activeArbitrators = NULL;
 
-            PROFILE_BEGIN("Read Commit");
-            for (CallbackList::const_iterator i = m_callbacks.begin(); i != m_callbacks.end(); ++i)
+            //
+            // Commit phase
+            //
+            idle = true;
+            for (ProcessInfo* process = m_activeProcesses; process != NULL; process = process->next)
             {
-                m_component.first = i->first;
- 			    for (size_t j = 0; j < i->second.states.size(); ++j)
+                if (process->state != STATE_DEADLOCK)
                 {
-                    m_component.second = j;
-                    m_phase = PHASE_CHECK;
-  				    Result result;
-      				if ((result = i->first->OnCycleReadPhase(j)) == SUCCESS)
+                    m_process   = process;
+                    m_phase     = PHASE_CHECK;
+                    m_debugging = false; // Will be used by DeadlockWrite() for process-seperating newlines
+                
+                    Result result;
+                    const int index = process - &process->info->processes[0];
+                    if ((result = process->info->component->OnCycle(index)) == SUCCESS)
                     {
                         m_phase = PHASE_COMMIT;
-                        result = i->first->OnCycleReadPhase(j);
-  					    assert(result == SUCCESS);
+                        result = process->info->component->OnCycle(index);
+                            
+                        // If the CHECK succeeded, the COMMIT cannot fail
+ 					    assert(result == SUCCESS);
+                        process->state = STATE_RUNNING;
+                    
+                        // We've done something -- we're not idle
+                        idle = false;
                     }
-                }
-            }
-            PROFILE_END("Read Commit");
-
-            //
-            // Write phase
-            //
-            m_phase = PHASE_ACQUIRE;
-            PROFILE_BEGIN("Write Acquire");
-            for (CallbackList::iterator i = m_callbacks.begin(); i != m_callbacks.end(); ++i)
-            {
-                m_component.first = i->first;
- 			    for (size_t j = 0; j < i->second.states.size(); ++j)
-                {
-                    m_component.second = j;
-                    Result result = i->first->OnCycleWritePhase(j);
-                
-                    i->second.states[j].state = (result == FAILED) ? STATE_DEADLOCK : STATE_RUNNING;
-                }
-            }
-            PROFILE_END("Write Acquire");
-
-            PROFILE_BEGIN("Write Arbitrate");
-            for (ArbitratorList::const_iterator i = m_arbitrators.begin(); i != m_arbitrators.end(); ++i)
-            {
-                (*i)->OnArbitrateWritePhase();
-            }
-            PROFILE_END("Write Arbitrate");
-
-            PROFILE_BEGIN("Write Commit");
-            for (CallbackList::iterator i = m_callbacks.begin(); i != m_callbacks.end(); ++i)
-            {
-                m_component.first = i->first;
-  			    for (size_t j = 0; j < i->second.states.size(); ++j)
-                {
-                    m_component.second = j;
-                    RunState& state = i->second.states[j].state;
-                    if (state != STATE_DEADLOCK)
+                    else
                     {
-                        m_phase = PHASE_CHECK;
-     				    Result result;
-      				    if ((result = i->first->OnCycleWritePhase(j)) == SUCCESS)
-                        {
-                            m_phase = PHASE_COMMIT;
-                            result = i->first->OnCycleWritePhase(j);
-     					    assert(result == SUCCESS);
-      					    idle  = false;
-      					    state = STATE_RUNNING;
-                        }
-      				    else if (result == FAILED)
-       				    {
-           				    state    = STATE_DEADLOCK;
-       					    has_work = true;
-       				    }
-   	    			    else
-   		    		    {
-       			    	    state = STATE_IDLE;
-   				        }
+                        // If a process has nothing to do (DELAYED) it shouldn't have been
+                        // called in the first place.
+                        assert(result == FAILED);
+                        process->state = STATE_DEADLOCK;
                     }
-                    else 
-                    {
-                        has_work = true;
-                    }
-                }
+			    }
             }
-            PROFILE_END("Write Commit");
-    
-            for (RegisterList::const_iterator i = m_registers.begin(); i != m_registers.end(); ++i) (*i)->OnUpdate();
-            m_phase = PHASE_COMMIT;
-            for (CallbackList::const_iterator i = m_callbacks.begin(); i != m_callbacks.end(); ++i)
+            
+            // Update statistics
+            for (ComponentList::const_iterator i = m_components.begin(); i != m_components.end(); ++i)
             {
-                i->first->UpdateStatistics();
-            }
-        
-            m_cycle++;
-            if (cycles == INFINITE_CYCLES && idle)
+                i->component->UpdateStatistics();
+            }      
+
+            // Process the requested storage updates
+            UpdateStorages();
+            
+            // Check if, after updating the storages, we have processes to run
+            has_work = (m_activeProcesses != NULL);
+            
+            if (!idle)
             {
-                break;
+                // We did something this cycle
+                ++m_cycle;
             }
         }
-	    return (m_aborted)
-	        ? STATE_ABORTED
-	        : (idle) ? (has_work) ? STATE_DEADLOCK : STATE_IDLE : STATE_RUNNING;
+        
+        return (m_aborted)
+            ? STATE_ABORTED
+	        : idle ? has_work ? STATE_DEADLOCK : STATE_IDLE : STATE_RUNNING;
     }
     catch (SimulationException& e)
     {
         // Add information about what component/state we were executing
-        CallbackList::const_iterator p = m_callbacks.find(m_component.first);
-        if (p != m_callbacks.end())
-        {
-            stringstream details;
-            details << "While executing process " << m_component.first->GetFQN() << ":" << p->second.states[m_component.second].name << endl;
-            e.AddDetails(details.str());
-        }
+        stringstream details;
+        details << "While executing process " << m_process->info->component->GetFQN() << ":" << m_process->name << endl;
+        e.AddDetails(details.str());
         throw;
     }
 }
 
-void Kernel::SetDebugMode(int mode) { m_debugMode = mode; }
-
-void Kernel::RegisterComponent(IComponent& _component, const std::string& states)
+void Kernel::UpdateStorages()
 {
-    m_components.insert(&_component);
-    if (!states.empty())
+    for (StorageInfo *s = m_activeStorages; s != NULL; s = s->next)
     {
-        CallbackInfo info;
-    
-	    string::const_iterator cur = states.begin();
-        while (cur != states.end())
-    	{
-        	string::const_iterator delim = find(cur, states.end(), '|');
+        s->storage->Update();
+        s->activated = false;
+    }
+    m_activeStorages = NULL;
+}        
 
-            ComponentState s;
-            s.name  = string(cur, delim);
-            s.state = STATE_IDLE;
-      		info.states.push_back(s);
-      		cur = (delim != states.end()) ? delim + 1 : delim;
+void Kernel::ActivateProcess(ProcessInfo* process)
+{
+    if (++process->activations == 1)
+    {
+        // First time this process has been activated, queue it
+        process->next  = m_activeProcesses;
+        process->pPrev = &m_activeProcesses;
+        if (process->next != NULL) {
+            process->next->pPrev = &process->next;
         }
-        m_callbacks.insert(make_pair(&_component, info));
+        m_activeProcesses = process;
     }
 }
 
-void Kernel::RegisterArbitrator(Arbitrator& _arbitrator) { m_arbitrators.insert(&_arbitrator); }
-void Kernel::RegisterRegister  (IRegister&  _register)   { m_registers  .insert(&_register); }
+void Kernel::RegisterStorage(Storage& storage)
+{
+    m_storages.push_back(StorageInfo());
+    StorageInfo& info = m_storages.back();
+    info.storage = &storage;
+    info.activated = false;
+}
 
-void Kernel::UnregisterArbitrator(Arbitrator& _arbitrator) { m_arbitrators.erase(&_arbitrator); }
-void Kernel::UnregisterComponent (IComponent& _component)  { m_components .erase(&_component); m_callbacks.erase(&_component); }
-void Kernel::UnregisterRegister  (IRegister&  _register)   { m_registers  .erase(&_register); }
+Kernel::ProcessInfo* Kernel::GetProcessInfo(IComponent* component, int state)
+{
+    // We don't care that this is O(n) -- it happens during initialization only
+    for (ComponentList::iterator p = m_components.begin(); p != m_components.end(); ++p)
+    {
+        if (p->component == component)
+        {
+            return &p->processes[state];
+        }
+    }
+    return NULL;
+}
+
+void Kernel::RegisterComponent(IComponent& component, const std::string& states)
+{
+    m_components.push_back(ComponentInfo());
+    ComponentInfo& info = m_components.back();
+    info.component = &component;
+    
+    // Split up the state string into states
+    for (string::const_iterator cur = states.begin(); cur != states.end(); )
+ 	{
+       	string::const_iterator delim = find(cur, states.end(), '|');
+
+        ProcessInfo s;
+        s.name        = string(cur, delim);
+        s.state       = STATE_IDLE;
+        s.activations = 0;
+   		info.processes.push_back(s);
+  		cur = (delim != states.end()) ? delim + 1 : delim;
+    }
+}
+
+void Kernel::RegisterArbitrator(Arbitrator& arbitrator)
+{
+    m_arbitrators.push_back(ArbitratorInfo());
+    ArbitratorInfo& info = m_arbitrators.back();
+    info.arbitrator = &arbitrator;
+    info.activated = false;
+}
+
+void Kernel::SetDebugMode(int mode)
+{
+    m_debugMode = mode;
+}
+
+/// Called after everything has been created
+void Kernel::Initialize()
+{
+    // Set all backlinks from ProcessInfo to ComponentInfo
+    for (size_t i = 0; i < m_components.size(); ++i)
+    {
+        ComponentInfo* info = &m_components[i];
+        for (size_t j = 0; j < info->processes.size(); ++j)
+        {
+            info->processes[j].info = info;
+        }
+    }
+    
+    // Tell all storages what handle they have
+    for (size_t i = 0; i < m_storages.size(); ++i)
+    {
+        m_storages[i].storage->Initialize(&m_storages[i]);
+    }
+
+    // Tell all arbitrators what handle they have
+    for (size_t i = 0; i < m_arbitrators.size(); ++i)
+    {
+        m_arbitrators[i].arbitrator->Initialize(&m_arbitrators[i]);
+    }
+}
 
 Kernel::Kernel()
+ : m_debugMode(0),
+   m_cycle(0),
+   m_phase(PHASE_COMMIT),
+   m_process(NULL),
+   m_activeProcesses(NULL),
+   m_activeStorages(NULL),
+   m_activeArbitrators(NULL)
 {
-	m_cycle     = 0;
-	m_debugMode = 0;
-	m_phase     = PHASE_COMMIT;
 }
 
 Kernel::~Kernel()

@@ -15,15 +15,16 @@ namespace Simulator
 
 RegisterFile::RegisterFile(Processor& parent, Allocator& alloc, Network& network, const Config& config)
 :   Structure<RegAddr>(&parent, parent.GetKernel(), "registers"),
+    Storage(parent.GetKernel()),
     p_pipelineR1(*this, "p_pipelineR1"),
     p_pipelineR2(*this, "p_pipelineR2"),
     p_pipelineW (*this, "p_pipelineW"),
     p_asyncR    (*this, "p_asyncR"),
     p_asyncW    (*this, "p_asyncW"),
+    m_parent(parent), m_allocator(alloc), m_network(network),
+    m_nUpdates(0),
     m_integers(config.getInteger<size_t>("NumIntRegisters", 1024)),
-    m_floats  (config.getInteger<size_t>("NumFltRegisters", 128)),
-    m_parent(parent),
-    m_allocator(alloc), m_network(network)
+    m_floats  (config.getInteger<size_t>("NumFltRegisters", 128))
 {
     // Initialize all registers to empty
     for (RegSize i = 0; i < m_integers.size(); ++i)
@@ -35,7 +36,7 @@ RegisterFile::RegisterFile(Processor& parent, Allocator& alloc, Network& network
     {
         m_floats[i] = MAKE_EMPTY_REG();
     }
-
+    
     // Set port priorities; first port has highest priority
     AddPort(p_pipelineW);
     AddPort(p_asyncW);
@@ -78,7 +79,7 @@ bool RegisterFile::Clear(const RegAddr& addr, RegSize size)
         throw SimulationException("A component attempted to clear a non-existing register", *this);
     }
 
-    COMMIT
+    if (Object::IsCommitting())
     {
         const RegValue value = MAKE_EMPTY_REG();
         for (RegSize i = 0; i < size; ++i)
@@ -105,7 +106,7 @@ bool RegisterFile::WriteRegister(const RegAddr& addr, const RegValue& data, bool
 		assert(data.m_waiting.head == INVALID_TID);
 	}
 
-    RegValue& value = regs[addr.index];
+    const RegValue& value = regs[addr.index];
     if (value.m_state != RST_FULL)
     {
 	    if (value.m_state == RST_EMPTY)
@@ -157,8 +158,38 @@ bool RegisterFile::WriteRegister(const RegAddr& addr, const RegValue& data, bool
         }
     }
     
-    COMMIT{ value = data; }
+    if (Object::IsCommitting())
+    {
+#ifndef NDEBUG
+        // Paranoid sanity check:
+        // We cannot have multiple writes to same register in a cycle
+        for (unsigned int i = 0; i < m_nUpdates; ++i)
+        {
+            assert(m_updates[i].first != addr);
+        }
+#endif
+
+        // Queue the update
+        assert(m_nUpdates < MAX_UPDATES);
+        m_updates[m_nUpdates] = make_pair(addr, data);
+        if (m_nUpdates == 0) {
+            RegisterUpdate();
+        }
+        m_nUpdates++;
+    }
     return true;
+}
+
+void RegisterFile::Update()
+{
+    // Commit the queued updates to registers
+    assert(m_nUpdates > 0);
+    for (unsigned int i = 0; i < m_nUpdates; ++i)
+    {
+	    vector<RegValue>& regs = (m_updates[i].first.type == RT_FLOAT) ? m_floats : m_integers;
+	    regs[ m_updates[i].first.index ] = m_updates[i].second;
+    }
+    m_nUpdates = 0;
 }
 
 void RegisterFile::Cmd_Help(std::ostream& out, const std::vector<std::string>& /*arguments*/) const
@@ -276,7 +307,7 @@ void RegisterFile::Cmd_Read(std::ostream& out, const std::vector<std::string>& a
             break;
 
         case RST_WAITING:
-            ss << "   " << setw(4) << setfill('0') << hex << value.m_waiting.head << " - " << setw(4) << value.m_waiting.tail << "  "; break;
+            ss << "   " << setfill(' ') << dec << setw(4) << value.m_waiting.head << " - " << setw(4) << value.m_waiting.tail << "  "; break;
             break;
 
         case RST_INVALID:
