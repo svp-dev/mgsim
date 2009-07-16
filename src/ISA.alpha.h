@@ -27,7 +27,6 @@ enum InstrFormat
 #define A_OP_CREATE_I   0x03    // Create Indirect (Memory format)
 #define A_OP_CREATE_D   0x04    // Create Direct (Branch format)
 #define A_OP_UTHREADF   0x05    // FP uThread instructions (FP Operate format)
-#define A_OP_SETREGS    0x06    // Set Register Bases (Legacy support) (Branch format)
 
 // Branch Instructions
 #define  A_OP_BR    0x30
@@ -122,6 +121,7 @@ enum InstrFormat
 #define A_UTHREAD_SETPLACE	 0x05
 #define A_UTHREAD_BREAK      0x06
 #define A_UTHREAD_KILL       0x07
+#define A_UTHREAD_LDFP       0x08
 #define A_UTHREAD_GETPROCS   0x09
 #define A_UTHREAD_PRINT      0x10
 

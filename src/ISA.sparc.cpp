@@ -9,7 +9,6 @@ using namespace std;
 
 namespace Simulator
 {
-
 static const int RA_SHIFT       = 14;
 static const int RB_SHIFT       = 0;
 static const int RC_SHIFT       = 25;
@@ -116,12 +115,6 @@ void Pipeline::DecodeStage::DecodeInstruction(const Instruction& instr)
             m_output.Rc      = MAKE_REGADDR(RT_INTEGER, Rc);
             break;
 
-        case S_OP2_SETREGS:
-            // Setregs reads Ra
-            m_output.literal = (instr >> IMM_SHIFT) & IMM_MASK;
-            m_output.Ra      = MAKE_REGADDR(RT_INTEGER, Rc);
-            break;
-            
         default:
             // We don't care about the annul bit (not supported; obviously this presents a problem with legacy code later)
             m_output.displacement = SEXT((instr >> OP2_DISP_SHIFT) & OP2_DISP_MASK, OP2_DISP_SIZE);
@@ -519,23 +512,6 @@ Pipeline::PipeAction Pipeline::ExecuteStage::ExecuteInstruction()
             break;
         }
 
-        case S_OP2_SETREGS:
-        {
-            // Get the base for the shareds and globals in the parent thread
-            Allocator::RegisterBases bases[NUM_REG_TYPES];
-
-            uint64_t literal = m_input.Rbv.m_integer.get(m_input.Rbv.m_size);
-            for (RegType i = 0; i < NUM_REG_TYPES; i++, literal >>= 10)
-            {
-                const RegIndex locals = m_input.regs.types[i].thread.base + m_input.regs.types[i].family.count.shareds;
-                bases[i].globals = locals + (unsigned char)((literal >> 0) & 0x1F);
-                bases[i].shareds = locals + (unsigned char)((literal >> 5) & 0x1F);
-            }
-            
-            LFID fid = (LFID)m_input.Rav.m_integer.get(m_input.Rav.m_size);
-            return SetFamilyRegs(fid, bases);
-        }
-            
         case S_OP2_UNIMPL:
         default:
             ThrowIllegalInstructionException(*this, m_input.pc);
@@ -852,6 +828,15 @@ Pipeline::PipeAction Pipeline::ExecuteStage::ExecuteInstruction()
             }
             return SetFamilyProperty( LFID((size_t)m_input.Rav.m_integer.get(m_input.Rav.m_size)), prop, m_input.Rbv.m_integer.get(m_input.Rbv.m_size));
         }
+        
+        case S_OP3_LDFP:
+            COMMIT {
+                const MemAddr tls_base = m_allocator.CalculateTLSAddress(m_input.fid, m_input.tid);
+                const MemAddr tls_size = m_allocator.CalculateTLSSize();
+                m_output.Rcv.m_integer = tls_base + tls_size; // TLS pointer starts at the top
+                m_output.Rcv.m_state   = RST_FULL;
+            }
+            break;
         
         case S_OP3_PRINT:
             assert(m_input.Rav.m_size == sizeof(Integer));

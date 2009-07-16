@@ -16,7 +16,6 @@ namespace Simulator
 #define S_OP2_BRANCH_INT 2
 #define S_OP2_ALLOCATE   3      // uT
 #define S_OP2_SETHI      4
-#define S_OP2_SETREGS    5      // uT, obsolete
 #define S_OP2_BRANCH_FLT 6
 #define S_OP2_BRANCH_COP 7
 
@@ -65,7 +64,6 @@ namespace Simulator
 #define S_OP3_SETLIMIT  0x2D    // uT
 #define S_OP3_SETSTEP   0x2E    // uT
 #define S_OP3_SETBLOCK  0x2F    // uT
-#define S_OP3_SETPLACE  0x3E    // uT
 #define S_OP3_WRSR      0x30
 #define S_OP3_WRPSR     0x31
 #define S_OP3_WRWIM     0x32
@@ -81,6 +79,8 @@ namespace Simulator
 #define S_OP3_FLUSH     0x3B
 #define S_OP3_SAVE      0x3C
 #define S_OP3_RESTORE   0x3D
+#define S_OP3_SETPLACE  0x3E    // uT
+#define S_OP3_LDFP      0x3F    // uT
 
 // op3 (op1 is S_OP1_MEMORY)
 #define S_OP3_LD      0x00

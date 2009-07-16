@@ -9,7 +9,6 @@ using namespace std;
 
 namespace Simulator
 {
-
 static const int A_OPCODE_SHIFT   = 26;
 static const int A_RA_SHIFT       = 21;
 static const int A_RB_SHIFT       = 16;
@@ -82,7 +81,6 @@ static InstrFormat GetInstrFormat(uint8_t opcode)
                     case 0x3: return IFORMAT_JUMP;
                     case 0x4: return IFORMAT_BRA;
                     case 0x5: return IFORMAT_FPOP;
-                    case 0x6: return IFORMAT_SPECIAL;   // Remove when SETREGS becomes obsolete
                     case 0x8:
                     case 0x9:
                     case 0xA:
@@ -228,19 +226,16 @@ void Pipeline::DecodeStage::DecodeInstruction(const Instruction& instr)
         }
         
         case IFORMAT_SPECIAL:
-        {
-            bool setregs = (m_output.opcode == A_OP_SETREGS);
+            assert(m_output.opcode == A_OP_ALLOCATE);
             
             // We encode the register specifiers (in branch-like displacement) in the literal
             m_output.literal = (instr >> A_BRADISP_SHIFT) & A_BRADISP_MASK;
             
             // Allocate writes to Ra
-            // Setregs reads from Ra
-            m_output.Ra = MAKE_REGADDR(RT_INTEGER, setregs ? Ra : 31);
+            m_output.Ra = MAKE_REGADDR(RT_INTEGER, 31);
             m_output.Rb = MAKE_REGADDR(RT_INTEGER, 31);
-            m_output.Rc = MAKE_REGADDR(RT_INTEGER, setregs ? 31 : Ra);
+            m_output.Rc = MAKE_REGADDR(RT_INTEGER, Ra);
             break;
-        }
         
         default:
             break;
@@ -1021,23 +1016,6 @@ Pipeline::PipeAction Pipeline::ExecuteStage::ExecuteInstruction()
                 }
             }
         }
-        else if (m_input.opcode == A_OP_SETREGS)
-        {
-            // Get the base for the shareds and globals in the parent thread
-            Allocator::RegisterBases bases[NUM_REG_TYPES];
-
-            uint64_t literal = m_input.Rbv.m_integer.get(m_input.Rbv.m_size);
-            for (RegType i = 0; i < NUM_REG_TYPES; i++, literal >>= 10)
-            {
-                const RegIndex locals = m_input.regs.types[i].thread.base + m_input.regs.types[i].family.count.shareds;
-                bases[i].globals = locals + (unsigned char)((literal >> 0) & 0x1F);
-                bases[i].shareds = locals + (unsigned char)((literal >> 5) & 0x1F);
-            }
-
-            LFID fid = (LFID)m_input.Rav.m_integer.get(m_input.Rav.m_size);
-            return SetFamilyRegs(fid, bases);
-            
-        }
         break;
         
     case IFORMAT_OP:
@@ -1061,6 +1039,15 @@ Pipeline::PipeAction Pipeline::ExecuteStage::ExecuteInstruction()
 
                 case A_UTHREAD_BREAK:    return ExecBreak( Rav );
                 case A_UTHREAD_KILL:     return ExecKill( LFID((size_t)Rav) );
+                
+                case A_UTHREAD_LDFP:
+                    COMMIT {
+                        const MemAddr tls_base = m_allocator.CalculateTLSAddress(m_input.fid, m_input.tid);
+                        const MemAddr tls_size = m_allocator.CalculateTLSSize();
+                        m_output.Rcv.m_integer = tls_base + tls_size; // TLS pointer starts at the top
+                        m_output.Rcv.m_state   = RST_FULL;
+                    }
+                    break;
 
                 case A_UTHREAD_PRINT:
                     COMMIT {
