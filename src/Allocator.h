@@ -139,8 +139,6 @@ public:
 	TID     GetRegisterType(LFID fid, RegAddr addr, RegClass* group) const;
     MemAddr CalculateTLSAddress(LFID fid, TID tid) const;
     MemSize CalculateTLSSize() const;
-    MemAddr CalculateTLSAddress(LFID fid, TID tid) const;
-    MemSize CalculateTLSSize() const;
     
 	// Debugging
     void Cmd_Help(std::ostream& out, const std::vector<std::string>& arguments) const;
