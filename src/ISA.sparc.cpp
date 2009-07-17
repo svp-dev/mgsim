@@ -88,6 +88,7 @@ void Pipeline::DecodeStage::DecodeInstruction(const Instruction& instr)
     m_output.Ra = INVALID_REG;
     m_output.Rb = INVALID_REG;
     m_output.Rc = INVALID_REG;
+    m_output.Rs = INVALID_REG;
     m_output.literal = 0;
     switch (m_output.op1)
     {
@@ -168,6 +169,23 @@ void Pipeline::DecodeStage::DecodeInstruction(const Instruction& instr)
             default:
                 // Integer load or store
                 m_output.Rc  = MAKE_REGADDR(RT_INTEGER, Rc);
+                break;
+        }
+        
+        // Stores have three operands, don't put the third one in Rc
+        switch (m_output.op3)
+        {
+            case S_OP3_STB: case S_OP3_STBA:
+            case S_OP3_STH: case S_OP3_STHA:
+            case S_OP3_ST:  case S_OP3_STA:
+            case S_OP3_STD: case S_OP3_STDA:
+            case S_OP3_STF: case S_OP3_STDF:
+                m_output.Rs     = m_output.Rc;
+                m_output.RsSize = m_output.RcSize;
+                m_output.Rrs    = m_output.Rrc;
+                m_output.Rc     = INVALID_REG;
+                break;
+            default:
                 break;
         }
         break;
@@ -560,7 +578,7 @@ Pipeline::PipeAction Pipeline::ExecuteStage::ExecuteInstruction()
                 case S_OP3_STD:
                 case S_OP3_STF:
                 case S_OP3_STDF:
-                    m_output.Rcv = m_input.storeValue;
+                    m_output.Rcv = m_input.Rsv;
                     break;
             }
 

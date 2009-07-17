@@ -24,16 +24,14 @@ namespace Simulator
 // Convert a RegValue into a PipeValue
 static PipeValue RegToPipeValue(RegType type, const RegValue& src_value)
 {
-    PipeValue dest_value;
+    PipeValue dest_value = MAKE_EMPTY_PIPEVALUE(sizeof(Integer));
     dest_value.m_state = src_value.m_state;
-    dest_value.m_size  = sizeof(Integer);
     switch (src_value.m_state)
     {
     case RST_INVALID: assert(0); break;
     case RST_WAITING:
     case RST_EMPTY:
         dest_value.m_waiting = src_value.m_waiting;
-        dest_value.m_remote  = src_value.m_remote;
         dest_value.m_memory  = src_value.m_memory;
         break;
         
@@ -140,7 +138,7 @@ bool Pipeline::ReadStage::ReadBypasses(OperandInfo& operand)
     };
 
     // This variable keeps the value of the register as we replay the instructions
-    RegValue value;
+    RegValue value = MAKE_EMPTY_REG();
     value.m_state = RST_EMPTY;
 
     for (unsigned int i = 0; i < N_INPUTS; ++i)
@@ -181,7 +179,6 @@ bool Pipeline::ReadStage::ReadBypasses(OperandInfo& operand)
                 // Set this as the 'current' value: copy the information
                 value.m_state   = ii.value.m_state;
                 value.m_waiting = ii.value.m_waiting;
-                value.m_remote  = ii.value.m_remote;
                 value.m_memory  = ii.value.m_memory;
             }
             break;
@@ -263,36 +260,33 @@ bool Pipeline::ReadStage::ReadBypasses(OperandInfo& operand)
  Checks if the operand is FULL and if not, writes the output (Rav/Rra) to suspend on the missing register.
  @param [in]  operand The operand to check
  @param [in]  addr    The base address of the operand
- @param [in]  rr      The base remote address of the operand
  */
-bool Pipeline::ReadStage::CheckOperandForSuspension(const OperandInfo& operand, const RegAddr& addr, const RemoteRegAddr& rr)
+bool Pipeline::ReadStage::CheckOperandForSuspension(const OperandInfo& operand, const RegAddr& addr)
 {
     if (operand.value.m_state != RST_FULL)
     {
         COMMIT
         {
             // Register wasn't full, write back the suspend information
-            if (operand.value.m_state != RST_WAITING && rr.fid != INVALID_LFID)
-            {
-                // Send a remote request unless a thread is already
-                // waiting on it (that thread has already sent the request).
-                m_output.Rra = rr;
-                m_output.Rra.reg.index += (operand.addr.index - addr.index);
-            }
-            else
-            {
-                // No remote request
-                m_output.Rra.fid = INVALID_LFID;
-            }
             
             // Put the output value in the waiting state
             m_output.Rc                 = operand.addr;
+            m_output.Rrc.fid            = INVALID_LFID;
             m_output.Rav                = operand.value;
             m_output.Rav.m_state        = RST_WAITING;
             m_output.Rav.m_waiting.head = m_input.tid;
             m_output.Rav.m_waiting.tail = (operand.value.m_state == RST_WAITING)
                 ? operand.value.m_waiting.tail     // The register was already waiting, append thread to list
                 : m_input.tid;                     // First thread waiting on the register
+            m_output.Rra                = operand.remote;
+            m_output.Rra.reg.index     += (operand.addr.index - addr.index);
+            
+            if (operand.value.m_state == RST_WAITING)
+            {
+                // Don't send a remote request a thread is already waiting on it
+                // because that thread has already sent the request.
+                m_output.Rra.fid = INVALID_LFID;
+            }
         }
         return true;
     }
@@ -310,8 +304,10 @@ Pipeline::PipeAction Pipeline::ReadStage::Write()
         
         // Initialize the operand data
         operand1.addr         = m_input.Ra;
+        operand1.remote       = m_input.Rra;
         operand1.value.m_size = m_input.RaSize;
         operand2.addr         = m_input.Rb;
+        operand2.remote       = m_input.Rrb;
         operand2.value.m_size = m_input.RbSize;
     
 #if TARGET_ARCH == ARCH_SPARC
@@ -329,11 +325,12 @@ Pipeline::PipeAction Pipeline::ReadStage::Write()
                 // read the value to store. After that the two registers for
                 // the address.
                 m_isMemoryStore = true;
-                if (m_storeValue.m_state == RST_INVALID)
+                if (m_rsv.m_state == RST_INVALID)
                 {
                     // Store value hasn't been read yet, so read it first
-                    operand1.addr         = m_input.Rc;
-                    operand1.value.m_size = m_input.RcSize;
+                    operand1.addr         = m_input.Rs;
+                    operand1.remote       = m_input.Rrs;
+                    operand1.value.m_size = m_input.RsSize;
                     operand2.addr         = INVALID_REG;
                 }
                 break;
@@ -408,8 +405,8 @@ Pipeline::PipeAction Pipeline::ReadStage::Write()
         m_operand2.offset = -2;
     }
 
-    if (!CheckOperandForSuspension(operand1, m_input.Ra, m_input.Rra))  // Suspending on operand #1?
-    if (!CheckOperandForSuspension(operand2, m_input.Rb, m_input.Rrb))  // Suspending on operand #2?
+    if (!CheckOperandForSuspension(operand1, m_input.Ra))  // Suspending on operand #1?
+    if (!CheckOperandForSuspension(operand2, m_input.Rb))  // Suspending on operand #2?
     {
         // Not suspending, output the normal stuff
         COMMIT
@@ -430,11 +427,11 @@ Pipeline::PipeAction Pipeline::ReadStage::Write()
         // and then the two address registers in the next cycle.
         if (m_isMemoryStore)
         {
-            if (m_storeValue.m_state != RST_FULL)
+            if (m_rsv.m_state != RST_FULL)
             {
                 // First phase of the store has completed,
                 // copy the read value.
-                COMMIT{ m_storeValue = operand1.value; }
+                COMMIT{ m_rsv = operand1.value; }
                 
                 // We need to delay this cycle
                 return PIPE_DELAY;
@@ -443,8 +440,8 @@ Pipeline::PipeAction Pipeline::ReadStage::Write()
             COMMIT
             {
                 // Final cycle of the store
-                m_output.storeValue  = m_storeValue;
-                m_storeValue.m_state = RST_INVALID;
+                m_output.Rsv  = m_rsv;
+                m_rsv.m_state = RST_INVALID;
             }
         }
 #endif
@@ -476,7 +473,7 @@ Pipeline::ReadStage::ReadStage(Pipeline& parent, const DecodeReadLatch& input, R
 {
 #if TARGET_ARCH == ARCH_SPARC
     m_isMemoryStore = false;
-    m_storeValue.m_state = RST_INVALID;
+    m_rsv.m_state = RST_INVALID;
 #endif
     m_operand1.port = &m_regFile.p_pipelineR1;
     m_operand2.port = &m_regFile.p_pipelineR2;

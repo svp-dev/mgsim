@@ -17,7 +17,8 @@ TEST_SOURCES = \
     regression/delegation1.s \
     regression/delegation2.s \
     regression/self_exclusive_delegate.s \
-    regression/sparse_globals.s
+    regression/sparse_globals.s \
+    regression/multi_shareds.s
 
 if ENABLE_MTSPARC_TESTS
 TESTS = $(TEST_SOURCES:.s=.bin)

@@ -9,16 +9,12 @@ namespace Simulator
 Pipeline::PipeAction Pipeline::WritebackStage::Write()
 {
     bool     suspend         = (m_input.suspend != SUSPEND_NONE);
-    uint64_t writebackValue  = m_writebackValue;
     RegSize  writebackSize   = m_writebackSize;
     RegIndex writebackOffset = m_writebackOffset;
     
     if (m_input.Rc.valid() && m_input.Rcv.m_state != RST_INVALID)
     {
         // We have something to write back
-        RegValue value;
-        value.m_state = m_input.Rcv.m_state;
-
         assert(m_input.Rcv.m_size % sizeof(Integer) == 0);
         RegSize nRegs = m_input.Rcv.m_size / sizeof(Integer);
         
@@ -27,55 +23,53 @@ Pipeline::PipeAction Pipeline::WritebackStage::Write()
             // New data write
             writebackSize   = nRegs;
             writebackOffset = 0;
-            if (value.m_state == RST_FULL)
-            {
-                // New data write
-                switch (m_input.Rc.type)
-                {
-                    case RT_INTEGER: writebackValue = m_input.Rcv.m_integer.get(m_input.Rcv.m_size); break;
-                    case RT_FLOAT:   writebackValue = m_input.Rcv.m_float.toint(m_input.Rcv.m_size); break;
-                }
-            }
         }
 
         // Take data from input
+        RegValue value = MAKE_EMPTY_REG();
+        value.m_state = m_input.Rcv.m_state;
         switch (value.m_state)
         {
         case RST_WAITING:
         case RST_EMPTY:
-            value.m_waiting = m_input.Rcv.m_waiting;
-            value.m_remote  = m_input.Rcv.m_remote;
-            value.m_memory  = m_input.Rcv.m_memory;
-            writebackSize   = 1;      // Write just one register
-            nRegs           = 1;
+            // We store the remote information in all registers.
+            // Adjust the shared index for the offset accordingly.
+            value.m_remote = m_input.Rcv.m_remote;
+            value.m_remote.reg.index += writebackOffset;
+            if (writebackOffset == 0)
+            {
+                // Store the thread and memory information in the first register only
+                value.m_waiting = m_input.Rcv.m_waiting;
+                value.m_memory  = m_input.Rcv.m_memory;
+            }
             break;
 
         case RST_FULL:
+        {
             // Compose register value
+            unsigned int index = writebackOffset;
+#ifdef ARCH_BIG_ENDIAN
+            index = writebackSize - 1 - index;
+#endif
+            const unsigned int shift = index * 8 * sizeof(Integer);
+            
             switch (m_input.Rc.type)
             {
-                case RT_INTEGER: value.m_integer = (Integer)writebackValue; break;
-                case RT_FLOAT:   value.m_float.integer = (Integer)writebackValue; break;
+                case RT_INTEGER: value.m_integer       = (Integer)(m_input.Rcv.m_integer.get(m_input.Rcv.m_size) >> shift); break;
+                case RT_FLOAT:   value.m_float.integer = (Integer)(m_input.Rcv.m_float.toint(m_input.Rcv.m_size) >> shift); break;
             }
-            // We do this in two steps; otherwise the compiler could complain
-            writebackValue >>= 4 * sizeof(Integer);
-            writebackValue >>= 4 * sizeof(Integer);
             break;
-
+        }
+        
         default:
             // These states are never written from the pipeline
             assert(0);
         }
         
-        int offset = writebackOffset;
-#ifdef ARCH_BIG_ENDIAN
-        offset = nRegs - 1 - offset;
-#endif
-
         // Get the address of the register we're writing.
-        const RegAddr addr = MAKE_REGADDR(m_input.Rc.type, m_input.Rc.index + offset);
+        const RegAddr addr = MAKE_REGADDR(m_input.Rc.type, m_input.Rc.index + writebackOffset);
         
-        // We have something to write back          
+        // We have something to write back
         if (!m_regFile.p_pipelineW.Write(addr))
         {
             return PIPE_STALL;
@@ -148,6 +142,14 @@ Pipeline::PipeAction Pipeline::WritebackStage::Write()
             {
                 value.m_remote = old_value.m_remote;
             }
+            else if (old_value.m_remote.fid != INVALID_LFID)
+            {
+                // If we're writing back a remote state as well, it must match what's already there
+                assert(value.m_remote.type == old_value.m_remote.type);
+                assert(value.m_remote.pid  == old_value.m_remote.pid);
+                assert(value.m_remote.reg  == old_value.m_remote.reg);
+                assert(value.m_remote.fid  == old_value.m_remote.fid);
+            }
         }
 
         if (value.m_state != RST_INVALID)
@@ -160,7 +162,8 @@ Pipeline::PipeAction Pipeline::WritebackStage::Write()
         
         // Check if this value should be forwarded.
         // If there is a remote write waiting on this register, we never forward.
-        // The register also has to be full (empty registers can be written on FP operations to shareds)
+        // The register also has to be full (empty registers can be written on
+        // long-latency operations to shareds).
         if (m_input.Rrc.fid != INVALID_LFID &&
             (old_value.m_state == RST_FULL || old_value.m_remote.fid == INVALID_LFID) &&
             m_input.Rcv.m_state == RST_FULL
@@ -168,7 +171,7 @@ Pipeline::PipeAction Pipeline::WritebackStage::Write()
         {
             // Forward the value to the next CPU.
             RemoteRegAddr rrc(m_input.Rrc);
-			rrc.reg.index += offset;
+			rrc.reg.index += writebackOffset;
             
 			if (!m_network.SendRegister(rrc, value))
             {
@@ -220,7 +223,6 @@ Pipeline::PipeAction Pipeline::WritebackStage::Write()
     }
 
     COMMIT {
-        m_writebackValue  = writebackValue;
         m_writebackSize   = writebackSize;
         m_writebackOffset = writebackOffset;
     }

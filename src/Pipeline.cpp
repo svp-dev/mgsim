@@ -302,7 +302,11 @@ void Pipeline::Cmd_Read(std::ostream& out, const std::vector<std::string>& /*arg
              << dec
              << " | Ra:           " << m_drLatch.Ra << "/" << m_drLatch.RaSize << "    Rra: " << m_drLatch.Rra << endl
              << " | Rb:           " << m_drLatch.Rb << "/" << m_drLatch.RbSize << "    Rrb: " << m_drLatch.Rrb << endl
-             << " | Rc:           " << m_drLatch.Rc << "/" << m_drLatch.RcSize << "    Rrc: " << m_drLatch.Rrc << endl;
+             << " | Rc:           " << m_drLatch.Rc << "/" << m_drLatch.RcSize << "    Rrc: " << m_drLatch.Rrc << endl
+#if TARGET_ARCH == ARCH_SPARC
+             << " | Rs:           " << m_drLatch.Rs << "/" << m_drLatch.RcSize << "    Rrs: " << m_drLatch.Rrs << endl
+#endif
+            ;
     }
     out << " v" << endl;
 

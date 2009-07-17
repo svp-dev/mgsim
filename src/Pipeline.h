@@ -75,11 +75,16 @@ class Pipeline : public IComponent
         uint16_t function;
         uint8_t  asi;
         int32_t  displacement;
+        
+        // Memory store data source
+        RemoteRegAddr Rrs;
+        RegAddr       Rs;
+        unsigned int  RsSize;
     };
 
     struct ArchReadExecuteLatch : public ArchDecodeReadLatch
     {
-        PipeValue storeValue;
+        PipeValue Rsv;
     };
 #endif
 
@@ -259,6 +264,7 @@ class Pipeline : public IComponent
         {
             DedicatedReadPort* port;      ///< Port on the RegFile to use for reading this operand
             RegAddr            addr;      ///< (Base) address of the operand
+            RemoteRegAddr      remote;    ///< (Base) remote address of the operand
             PipeValue          value;     ///< Final value
             int                offset;    ///< Sub-register of the operand we are currently reading
             
@@ -270,7 +276,7 @@ class Pipeline : public IComponent
         
         bool ReadRegister(OperandInfo& operand, uint32_t literal);
         bool ReadBypasses(OperandInfo& operand);
-        bool CheckOperandForSuspension(const OperandInfo& operand, const RegAddr& addr, const RemoteRegAddr& rr);
+        bool CheckOperandForSuspension(const OperandInfo& operand, const RegAddr& addr);
         void Clear(TID tid);
 
         RegisterFile&               m_regFile;
@@ -285,7 +291,7 @@ class Pipeline : public IComponent
         // Sparc memory stores require three registers so takes two cycles.
         // First cycle calculates the address and stores it here.
         bool      m_isMemoryStore;
-        PipeValue m_storeValue;
+        PipeValue m_rsv;
 #endif
     };
 
@@ -359,7 +365,6 @@ class Pipeline : public IComponent
 
         // These fields are for multiple-cycle writebacks
         RegIndex                    m_writebackOffset;
-        uint64_t                    m_writebackValue;
         RegSize                     m_writebackSize;
     };
 

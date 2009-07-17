@@ -143,6 +143,9 @@ Pipeline::PipeAction Pipeline::DecodeStage::Write()
             m_output.Ra = TranslateRegister((unsigned char)m_output.Ra.index, m_output.Ra.type, m_output.RaSize, &m_output.Rra, false);
             m_output.Rb = TranslateRegister((unsigned char)m_output.Rb.index, m_output.Rb.type, m_output.RbSize, &m_output.Rrb, false);
             m_output.Rc = TranslateRegister((unsigned char)m_output.Rc.index, m_output.Rc.type, m_output.RcSize, &m_output.Rrc, true);
+#if TARGET_ARCH == ARCH_SPARC
+            m_output.Rs = TranslateRegister((unsigned char)m_output.Rs.index, m_output.Rs.type, m_output.RsSize, &m_output.Rrs, false);
+#endif
         }
         catch (IllegalInstruction&)
         {
