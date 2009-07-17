@@ -4,6 +4,8 @@
 #include <cstring>
 #include <limits>
 #include <iomanip>
+#include <iostream>
+
 using namespace std;
 
 namespace Simulator
