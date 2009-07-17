@@ -362,10 +362,7 @@ class Pipeline : public IComponent
         Network&                    m_network;
         Allocator&                  m_allocator;
         ThreadTable&                m_threadTable;
-
-        // These fields are for multiple-cycle writebacks
-        RegIndex                    m_writebackOffset;
-        RegSize                     m_writebackSize;
+        int                         m_writebackOffset; // For multiple-cycle writebacks
     };
 
     static void PrintLatchCommon(std::ostream& out, const CommonData& latch);

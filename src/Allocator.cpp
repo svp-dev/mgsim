@@ -1491,6 +1491,11 @@ Result Allocator::OnCycle(unsigned int stateIndex)
 				COMMIT{ family.state = FST_CREATING; }
 			}
 	    }
+        else if (m_createState == CREATE_LOADING_LINE)
+        {
+            DeadlockWrite("Waiting for the cache-line to be loaded");
+            return FAILED;
+        }
 		else if (m_createState == CREATE_LINE_LOADED)
 		{
 		    assert(!m_createFID.Empty());
@@ -1575,6 +1580,11 @@ Result Allocator::OnCycle(unsigned int stateIndex)
     			}
             }
         	InitializeFamily(fid, type);
+        }
+        else if (m_createState == CREATE_ACQUIRING_TOKEN)
+        {
+            DeadlockWrite("Waiting for token to be acquired");
+            return FAILED;
         }
 		else if (m_createState == CREATE_BROADCASTING_CREATE)
 		{
