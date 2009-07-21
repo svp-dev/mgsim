@@ -245,10 +245,10 @@ struct MemoryRequest
 /// Different types of shared classes
 enum RemoteRegType
 {
-    RRT_GLOBAL,          ///< The globals
-    RRT_FIRST_DEPENDENT, ///< The dependents (copy) in the first thread in the block
-    RRT_LAST_SHARED,     ///< The shareds in the last thread in the block
-    RRT_PARENT_SHARED,   ///< The child-shareds in the parent thread
+    RRT_GLOBAL,           ///< The globals
+    RRT_FIRST_DEPENDENT,  ///< The dependents (copy) in the first thread in the block
+    RRT_LAST_SHARED,      ///< The shareds in the last thread in the block
+    RRT_PARENT_SHARED,    ///< The child-shareds in the parent thread
 };
 
 const char* GetRemoteRegisterTypeString(RemoteRegType type);
@@ -257,7 +257,8 @@ const char* GetRemoteRegisterTypeString(RemoteRegType type);
 struct RemoteRegAddr
 {
     RemoteRegType type; ///< The type of register we're requesting
-    GPID          pid;  ///< The core we're requesting it from (INVALID_GPID for group)
+    GPID          gpid; ///< The core we're requesting it from (INVALID_GPID for group)
+    LPID          lpid; ///< The local core we're forwarding to (for parent shareds)
     RegAddr       reg;  ///< The type and (logical) index of the register
     LFID          fid;  ///< The ID of the family containing the desired global or shared
 };

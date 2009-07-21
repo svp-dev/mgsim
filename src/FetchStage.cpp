@@ -61,7 +61,8 @@ Pipeline::PipeAction Pipeline::FetchStage::Write()
 		    m_output.isFirstThreadInFamily = thread.isFirstThreadInFamily;
 		    m_output.legacy                = family.legacy;
 		    m_output.onParent              = (family.parent.lpid == m_lpid);
-		    m_output.parent_pid            = family.parent.gpid;
+		    m_output.parent_gpid           = family.parent.gpid;
+		    m_output.parent_lpid           = family.parent.lpid;
 		    m_output.parent_fid            = family.parent.fid;
 
 		    for (RegType i = 0; i < NUM_REG_TYPES; ++i)

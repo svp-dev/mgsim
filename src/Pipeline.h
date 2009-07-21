@@ -143,7 +143,8 @@ class Pipeline : public IComponent
         RegInfo         regs;
         bool            legacy;
 		bool            onParent;
-		GPID            parent_pid;
+		GPID            parent_gpid;
+		LPID            parent_lpid;
 		LFID            parent_fid;
         bool            isLastThreadInBlock;
 		bool            isFirstThreadInFamily;

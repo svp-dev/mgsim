@@ -22,13 +22,11 @@ struct Family
 
     struct RegInfo
     {   
-        RegIndex globals;  // Base address of the globals
-        RegIndex shareds;  // Address of the shareds in the parent thread
-        RegsNo   count;    // Number of globals, locals and shareds
-
-        RegIndex base;     // Base address of this family's register block
-        RegSize  size;     // Purely for simplicity, this could be calculated from other values
-        RegIndex latest;   // Address of the last allocated thread
+        RegIndex parent_globals; // Base address of the globals in the parent thread
+        RegIndex parent_shareds; // Base address of the shareds in the parent thread
+        RegsNo   count;          // Number of globals, locals and shareds
+        RegIndex base;           // Base address of this family's register block
+        RegSize  size;           // Size of the allocated registers (could be calculated from other values)
     };
     
     // Groups all dependencies that need to be resolved before termination and cleanup
@@ -59,12 +57,12 @@ struct Family
     Integer      index;          // Index of the next to be allocated thread (0, 1, 2... nThreads-1)
     struct
     {
-        LPID lpid;               // Parent for group creates (creating CPU for delegated)
-        GPID gpid;               // Parent for delegated creates
+        LPID lpid;               // Parent core in group
+        GPID gpid;               // Remote parent core (for delegated creates only)
         union
         {
-            TID  tid;            // Parent thread for group creates
-            LFID fid;            // Parent family for delegated creates
+            TID  tid;            // Parent thread during create for security validation
+            LFID fid;            // Family on parent core (group & delegated)
         };
     }            parent;         // Parent thread/family
     bool         hasDependency;  // Does this family use shareds?

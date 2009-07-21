@@ -252,8 +252,8 @@ void Pipeline::Cmd_Help(std::ostream& out, const std::vector<std::string>& /*arg
 static std::ostream& operator << (std::ostream& out, const RemoteRegAddr& rreg) {
     if (rreg.fid != INVALID_LFID) {
         out << rreg.reg.str() << ", F" << dec << rreg.fid;
-        if (rreg.pid != INVALID_GPID) {
-            out << "@P" << rreg.pid;
+        if (rreg.gpid != INVALID_GPID) {
+            out << "@CPU" << rreg.gpid;
         }
     } else {
         out << "N/A";

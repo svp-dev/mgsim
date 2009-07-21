@@ -23,19 +23,20 @@ RegAddr Allocator::GetRemoteRegisterAddress(const RemoteRegAddr& addr) const
     {
         case RRT_GLOBAL:
             assert(family.type == Family::GROUP || family.type == Family::DELEGATED || family.parent.gpid != INVALID_GPID);
-            base = regs.globals;
+            base = (regs.parent_globals == INVALID_REG_INDEX)
+                ? regs.base + regs.size - regs.count.shareds - regs.count.globals
+                : regs.parent_globals;
             break;
             
         case RRT_PARENT_SHARED:
-            // This should only be used if the parent thread is on this CPU
+            // This should only be used if the actual parent thread is on this CPU
             assert(family.type == Family::GROUP || family.type == Family::DELEGATED);
+            assert(family.parent.gpid == INVALID_GPID);
             assert(family.parent.lpid == m_lpid);
+            assert(regs.parent_shareds != INVALID_REG_INDEX);
 
             // Return the shared address in the parent thread
-            if (family.parent.tid != INVALID_TID)
-            {
-                base = regs.shareds;
-            }
+            base = regs.parent_shareds;
             break;
 
         case RRT_FIRST_DEPENDENT:
@@ -67,14 +68,15 @@ TID Allocator::GetRegisterType(LFID fid, RegAddr addr, RegClass* group) const
     const Family& family = m_familyTable[fid];
     const Family::RegInfo& regs = family.regs[addr.type];
 
-	if (addr.index >= regs.globals && addr.index < regs.globals + regs.count.globals)
+    const RegIndex globals = regs.base + regs.size - regs.count.shareds - regs.count.globals;
+	if (addr.index >= globals && addr.index < globals + regs.count.globals)
 	{
 		// It's a global
 		*group = RC_GLOBAL;
 		return INVALID_TID;
 	}
 
-    if (regs.shareds >= regs.base && regs.shareds < regs.base + regs.size)
+    if (regs.parent_shareds == INVALID_REG_INDEX)
     {
 	    if (addr.index >= regs.base + regs.size - regs.count.shareds && addr.index < regs.base + regs.size)
 	    {
@@ -432,10 +434,10 @@ bool Allocator::AllocateThread(LFID fid, TID tid, bool isNewlyAllocated)
         }
 
         thread->regs[i].producer = (predecessor != NULL)
-			? predecessor->regs[i].base		// Producer runs on the same processor (predecessor)
+			? predecessor->regs[i].base         // Producer runs on the same processor (predecessor)
 			: (family->type == Family::LOCAL
-			   ? family->regs[i].shareds	// Producer runs on the same processor (parent)
-			   : INVALID_REG_INDEX);		// Producer runs on the previous processor (parent or predecessor)
+			   ? family->regs[i].parent_shareds	// Producer runs on the same processor (parent)
+			   : INVALID_REG_INDEX);		    // Producer runs on the previous processor (parent or predecessor)
 
         if (family->regs[i].count.shareds > 0)
         {
@@ -688,16 +690,13 @@ bool Allocator::SynchronizeFamily(LFID fid, Family& family, ExitCode code)
     //COMMIT{ family.killed = true; }
     if (family.parent.gpid != INVALID_GPID) {
         // Killed a delegated family
-        DebugSimWrite("Killed F%u (parent: F%u@P%u)", (unsigned)fid, (unsigned)family.parent.fid, (unsigned)family.parent.gpid);
+        DebugSimWrite("Killed delegated F%u (parent: F%u@CPU%u)", (unsigned)fid, (unsigned)family.parent.fid, (unsigned)family.parent.gpid);
     } else if (family.type == Family::GROUP) {
         // Killed a group family
-        DebugSimWrite("Killed F%u (parent: T%u@P%u)", (unsigned)fid, (unsigned)family.parent.tid, (unsigned)family.parent.lpid);
-    } else if (family.parent.tid != INVALID_TID) {
-        // Killed a local family with a parent
-        DebugSimWrite("Killed F%u (parent: T%u)", (unsigned)fid, (unsigned)family.parent.tid);
+        DebugSimWrite("Killed group F%u (parent: F%u@P%u)", (unsigned)fid, (unsigned)family.parent.fid, (unsigned)family.parent.lpid);
     } else {
-        // Killed initial family (no parent)
-        DebugSimWrite("Killed F%u", (unsigned)fid);
+        // Killed a local family
+        DebugSimWrite("Killed local F%u", (unsigned)fid);
     }
     return true;
 }
@@ -929,8 +928,8 @@ void Allocator::SetDefaultFamilyEntry(LFID fid, TID parent, const RegisterBases 
 		// By default, the globals and shareds are taken from the locals of the parent thread
 		for (RegType i = 0; i < NUM_REG_TYPES; i++)
 		{
-			family.regs[i].globals = bases[i].globals;
-			family.regs[i].shareds = bases[i].shareds;
+			family.regs[i].parent_globals = bases[i].globals;
+			family.regs[i].parent_shareds = bases[i].shareds;
 		}
 	}
 }
@@ -1003,8 +1002,8 @@ bool Allocator::OnDelegatedCreate(const DelegateMessage& msg)
 
     	for (RegType i = 0; i < NUM_REG_TYPES; i++)
     	{
-    		family.regs[i].globals = INVALID_REG_INDEX;
-    		family.regs[i].shareds = INVALID_REG_INDEX;
+    		family.regs[i].parent_globals = INVALID_REG_INDEX;
+    		family.regs[i].parent_shareds = INVALID_REG_INDEX;
     	}
     }
         
@@ -1014,7 +1013,7 @@ bool Allocator::OnDelegatedCreate(const DelegateMessage& msg)
         return false;
     }
     
-    DebugSimWrite("Queued delegated create by F%u@P%u at 0x%llx",
+    DebugSimWrite("Queued delegated create by F%u@CPU%u at 0x%llx",
         (unsigned)msg.parent.fid, (unsigned)msg.parent.pid, (unsigned long long)msg.address);
         
     return true;
@@ -1041,7 +1040,7 @@ LFID Allocator::OnGroupCreate(const CreateMessage& msg, LFID link_next)
 	family.nThreads      = msg.nThreads;
 	family.parent.gpid   = msg.parent.gpid;
 	family.parent.lpid   = msg.parent.lpid;
-	family.parent.tid    = msg.parent.tid;
+	family.parent.fid    = msg.parent.fid;
 	family.virtBlockSize = msg.virtBlockSize;
     family.physBlockSize = msg.physBlockSize;
 	family.pc            = msg.address;
@@ -1050,9 +1049,9 @@ LFID Allocator::OnGroupCreate(const CreateMessage& msg, LFID link_next)
     family.link_next     = link_next;
 	for (RegType i = 0; i < NUM_REG_TYPES; i++)
     {
-        family.regs[i].globals = INVALID_REG_INDEX;
-        family.regs[i].shareds = INVALID_REG_INDEX;
-        family.regs[i].count   = msg.regsNo[i];
+        family.regs[i].parent_globals = INVALID_REG_INDEX;
+        family.regs[i].parent_shareds = INVALID_REG_INDEX;
+        family.regs[i].count          = msg.regsNo[i];
 	}
 
 	// Initialize the family
@@ -1115,25 +1114,25 @@ void Allocator::InitializeFamily(LFID fid, Family::Type type) const
             Family::RegInfo& regs = family.regs[i];
 
             // Adjust register bases if necessary
-            if (regs.globals != INVALID_REG_INDEX)
+            if (regs.parent_globals != INVALID_REG_INDEX)
             {
                 if (regs.count.globals == 0) {
                     // We have no parent globals
-                    regs.globals = INVALID_REG_INDEX;
-                } else if (regs.shareds < regs.globals) {
+                    regs.parent_globals = INVALID_REG_INDEX;
+                } else if (regs.parent_shareds < regs.parent_globals) {
                     // In case globals and shareds overlap, move globals up
-                    regs.globals = max(regs.shareds + regs.count.shareds, regs.globals);
+                    regs.parent_globals = max(regs.parent_shareds + regs.count.shareds, regs.parent_globals);
                 }
             }
 
-            if (regs.shareds != INVALID_REG_INDEX)
+            if (regs.parent_shareds != INVALID_REG_INDEX)
             {
                 if (regs.count.shareds == 0) {
                     // We have no parent shareds
-                    regs.shareds = INVALID_REG_INDEX;
-                } else if (regs.globals <= regs.shareds) {
+                    regs.parent_shareds = INVALID_REG_INDEX;
+                } else if (regs.parent_globals <= regs.parent_shareds) {
                     // In case globals and shareds overlap, move shareds up
-                    regs.shareds = max(regs.globals + regs.count.globals, regs.shareds);
+                    regs.parent_shareds = max(regs.parent_globals + regs.count.globals, regs.parent_shareds);
                 }
             }
     		
@@ -1186,9 +1185,8 @@ bool Allocator::AllocateRegisters(LFID fid)
             Family::RegInfo& regs = family.regs[i]; 
             COMMIT 
             { 
-                regs.base   = INVALID_REG_INDEX; 
-                regs.size   = 0; 
-                regs.latest = INVALID_REG_INDEX; 
+                regs.base = INVALID_REG_INDEX; 
+                regs.size = 0; 
             } 
         } 
         return true; 
@@ -1200,15 +1198,21 @@ bool Allocator::AllocateRegisters(LFID fid)
 		RegSize sizes[NUM_REG_TYPES];
         for (RegType i = 0; i < NUM_REG_TYPES; i++)
         {
+            // The family needs a cache for remote shareds if
+            // * it's a group create (even if we're on the parent), or
+            // * if it's a delegated create (to receive from parent)
+            const bool need_shareds_cache = (family.type == Family::GROUP || family.parent.gpid != INVALID_GPID);
+
+            // The family needs a cache for remote globals if
+            // * it's a group create AND we're not on the parent, or
+            // * if it's a delegated create (to receive from parent)
+            const bool need_globals_cache = ((family.type == Family::GROUP && family.parent.lpid != m_lpid) || family.parent.gpid != INVALID_GPID);
+
             const Family::RegInfo& regs = family.regs[i];
-            
-            // The family needs a cache for remote shareds if it's a group create,
-            // or if it's a delegated create (to receive from parent)
-            const bool need_shared_cache = (family.type == Family::GROUP || family.parent.gpid != INVALID_GPID);
 
             sizes[i] = (regs.count.locals + regs.count.shareds) * physBlockSize;
-			if (regs.globals == INVALID_REG_INDEX) sizes[i] += regs.count.globals; // Add the cache for the globals
-			if (need_shared_cache)   		       sizes[i] += regs.count.shareds; // Add the cache for the remote shareds
+			if (need_globals_cache) sizes[i] += regs.count.globals; // Add the cache for the globals
+			if (need_shareds_cache) sizes[i] += regs.count.shareds; // Add the cache for the remote shareds
 		}
 
 		RegIndex indices[NUM_REG_TYPES];
@@ -1219,27 +1223,19 @@ bool Allocator::AllocateRegisters(LFID fid)
 			
 			for (RegType i = 0; i < NUM_REG_TYPES; i++)
 			{
-				Family::RegInfo& regs = family.regs[i];
-				COMMIT
-				{
-					regs.base            = INVALID_REG_INDEX;
-					regs.size            = sizes[i];
-					regs.latest          = INVALID_REG_INDEX;
-				}
-
+                RegIndex base = INVALID_REG_INDEX;
 				if (sizes[i] > 0)
 				{
 					// Clear the allocated registers
 					m_registerFile.Clear(MAKE_REGADDR(i, indices[i]), sizes[i]);
+                    base = indices[i];
+				}
 
-					COMMIT
-					{
-						regs.base = indices[i];
-
-						// Point globals and shareds to their local cache
-						if (regs.globals == INVALID_REG_INDEX && regs.count.globals > 0) regs.globals = regs.base + regs.size - regs.count.shareds - regs.count.globals;
-						if (regs.shareds == INVALID_REG_INDEX && regs.count.shareds > 0) regs.shareds = regs.base + regs.size - regs.count.shareds;
-					}
+				COMMIT
+				{
+    				Family::RegInfo& regs = family.regs[i];
+					regs.base = base;
+					regs.size = sizes[i];
 				}
 				DebugSimWrite("%d: Allocated %u registers at 0x%04x", (int)i, (unsigned)sizes[i], (unsigned)indices[i]);
 			}
@@ -1864,7 +1860,7 @@ void Allocator::AllocateInitialFamily(MemAddr pc)
 	family.nThreads      = 1;
 	family.virtBlockSize = 1;
 	family.physBlockSize = 1;
-	family.parent.tid    = INVALID_TID;
+	family.parent.fid    = INVALID_LFID;
 	family.parent.lpid   = m_lpid;
 	family.parent.gpid   = INVALID_GPID;
 	family.exitCodeReg   = INVALID_REG_INDEX;
@@ -1885,8 +1881,8 @@ void Allocator::AllocateInitialFamily(MemAddr pc)
 		family.regs[i].count.locals  = InitialRegisters[i];
         family.regs[i].count.globals = 0;
         family.regs[i].count.shareds = 0;
-        family.regs[i].globals = INVALID_REG_INDEX;
-        family.regs[i].shareds = INVALID_REG_INDEX;
+        family.regs[i].parent_globals = INVALID_REG_INDEX;
+        family.regs[i].parent_shareds = INVALID_REG_INDEX;
     };
 
 	InitializeFamily(fid, Family::LOCAL);

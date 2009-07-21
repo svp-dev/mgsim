@@ -163,7 +163,7 @@ public:
    		{
    		    bool idle = m_procs[i]->IsIdle();
    		    if (show_all || !idle) {
-   		        cout << "Processor " << right << setw(width) << i << ": "
+   		        cout << "Processor " << dec << right << setw(width) << i << ": "
    		             << (idle ? "empty" : "non-empty") << endl;
    		    }
    		}

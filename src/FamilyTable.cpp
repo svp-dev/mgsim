@@ -98,8 +98,8 @@ void FamilyTable::Cmd_Read(ostream& out, const vector<string>& arguments) const
         return;
     }
 
-    out << "    |         PC         |   Allocated    | P/N/A/Rd/Sh |  Parent | Prev | Next | State" << endl;
-    out << "----+--------------------+----------------+-------------+---------+------+------+-----------" << endl;
+    out << "    |         PC         |   Allocated    | P/N/A/Rd/Sh |   Parent  | Prev | Next | State" << endl;
+    out << "----+--------------------+----------------+-------------+-----------+------+------+-----------" << endl;
     for (set<LFID>::const_iterator p = fids.begin(); p != fids.end(); ++p)
     {
         const Family& family = m_families[*p];
@@ -107,7 +107,7 @@ void FamilyTable::Cmd_Read(ostream& out, const vector<string>& arguments) const
         out << dec << right << setw(3) << setfill(' ') << *p << " | ";
         if (family.state == FST_EMPTY)
         {
-            out << "                   |                |             |         |      |      |";
+            out << "                   |                |             |           |      |      |";
         }
         else
         {
@@ -143,13 +143,13 @@ void FamilyTable::Cmd_Read(ostream& out, const vector<string>& arguments) const
             if (family.parent.gpid != INVALID_GPID) {
                 // Delegated family
                 out << setfill('0')
-                     << "F"  << setw(2) << family.parent.fid
-                     << "@P" << setw(2) << family.parent.gpid;
+                     << "F"   << setw(2) << family.parent.fid
+                     << "@GP" << setw(3) << family.parent.gpid;
             } else if (family.type == Family::GROUP) {
                 // Group family
                 out << setfill('0')
-                     << "T"  << setw(2) << family.parent.tid
-                     << "@P" << setw(2) << family.parent.lpid;
+                     << "F"   << setw(2) << family.parent.fid
+                     << "@LP" << setw(3) << family.parent.lpid;
             } else {
                 // Local family
                 out << "   -   ";

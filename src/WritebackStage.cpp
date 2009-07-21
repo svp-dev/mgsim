@@ -156,7 +156,8 @@ Pipeline::PipeAction Pipeline::WritebackStage::Write()
                 {
                     // If we're writing back a remote state as well, it must match what's already there
                     assert(value.m_remote.type == old_value.m_remote.type);
-                    assert(value.m_remote.pid  == old_value.m_remote.pid);
+                    assert(value.m_remote.gpid == old_value.m_remote.gpid);
+                    assert(value.m_remote.lpid == old_value.m_remote.lpid);
                     assert(value.m_remote.reg  == old_value.m_remote.reg);
                     assert(value.m_remote.fid  == old_value.m_remote.fid);
                 }
