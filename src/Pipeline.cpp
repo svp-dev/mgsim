@@ -1,6 +1,7 @@
 #include "Pipeline.h"
 #include "Processor.h"
 #include "FPU.h"
+#include "config.h"
 #include <limits>
 #include <cassert>
 #include <iomanip>
@@ -33,45 +34,90 @@ Pipeline::Pipeline(
     IComponent(&parent, parent.GetKernel(), name),
     m_parent(parent),
     
-    m_fetch    (*this,            m_fdLatch, alloc, familyTable, threadTable, icache, lpid, config),
-    m_decode   (*this, m_fdLatch, m_drLatch, config),
-    m_read     (*this, m_drLatch, m_reLatch, regFile, m_emLatch, m_mwLatch, m_mwBypass, config),
-    m_execute  (*this, m_reLatch, m_emLatch, alloc, network, threadTable, fpu, fpu.RegisterSource(regFile), config),
-    m_memory   (*this, m_emLatch, m_mwLatch, dcache, alloc, config),
-    m_writeback(*this, m_mwLatch,            regFile, network, alloc, threadTable, config),
-    
     m_active(parent.GetKernel(), *this, 0),
 
     m_maxPipelineIdleTime(0), m_minPipelineIdleTime(numeric_limits<uint64_t>::max()),
     m_totalPipelineIdleTime(0), m_pipelineIdleEvents(0), m_pipelineIdleTime(0), m_pipelineBusyTime(0)
 {
-    m_stages[0] = &m_fetch;
-    m_stages[1] = &m_decode;
-    m_stages[2] = &m_read;
-    m_stages[3] = &m_execute;
-    m_stages[4] = &m_memory;
-    m_stages[5] = &m_writeback;
+    static const size_t NUM_FIXED_STAGES = 6;
     
-    m_latches[0] = &m_fdLatch;
-    m_latches[1] = &m_drLatch;
-    m_latches[2] = &m_reLatch;
-    m_latches[3] = &m_emLatch;
-    m_latches[4] = &m_mwLatch;
+    // Number of forwarding delay slots between the Memory and Writeback stage
+    const size_t num_dummy_stages = config.getInteger<size_t>("NumPipelineDummyStages", 0);
+    
+    m_stages.resize( num_dummy_stages + NUM_FIXED_STAGES );
+
+    // Create the Fetch stage
+    m_stages[0].stage  = new FetchStage(*this, m_fdLatch, alloc, familyTable, threadTable, icache, lpid, config);
+    m_stages[0].input  = NULL;
+    m_stages[0].output = &m_fdLatch;
+
+    // Create the Decode stage
+    m_stages[1].stage  = new DecodeStage(*this, m_fdLatch, m_drLatch, config);
+    m_stages[1].input  = &m_fdLatch;
+    m_stages[1].output = &m_drLatch;
+
+    // Construct the Read stage later, after all bypasses have been created
+    m_stages[2].input  = &m_drLatch;
+    m_stages[2].output = &m_reLatch;
+    std::vector<BypassInfo> bypasses;
+
+    // Create the Execute stage
+    m_stages[3].stage  = new ExecuteStage(*this, m_reLatch, m_emLatch, alloc, network, threadTable, fpu, fpu.RegisterSource(regFile), config);
+    m_stages[3].input  = &m_reLatch;
+    m_stages[3].output = &m_emLatch;
+    bypasses.push_back(BypassInfo(m_emLatch.empty, m_emLatch.Rc, m_emLatch.Rcv));
+
+    // Create the Memory stage
+    m_stages[4].stage  = new MemoryStage(*this, m_emLatch, m_mwLatch, dcache, alloc, config);
+    m_stages[4].input  = &m_emLatch;
+    m_stages[4].output = &m_mwLatch;
+    bypasses.push_back(BypassInfo(m_mwLatch.empty, m_mwLatch.Rc, m_mwLatch.Rcv));
+
+    // Create the dummy stages   
+    MemoryWritebackLatch* last_output = &m_mwLatch;    
+    m_dummyLatches.resize(num_dummy_stages);
+    for (size_t i = 0; i < num_dummy_stages; ++i)
+    {
+        const size_t j = i + NUM_FIXED_STAGES - 1;
+        StageInfo& si = m_stages[j];
+        
+        MemoryWritebackLatch& output = m_dummyLatches[i];
+        bypasses.push_back(BypassInfo(output.empty, output.Rc, output.Rcv));
+
+        stringstream name;
+        name << "dummy" << i;
+        si.input  = last_output;
+        si.output = &output;
+        si.stage  = new DummyStage(*this, name.str(), *last_output, output, config);
+        
+        last_output = &output;
+    }
+    
+    // Create the Writeback stage
+    m_stages.back().stage  = new WritebackStage(*this, *last_output, regFile, network, alloc, threadTable, config);
+    m_stages.back().input  = m_stages[m_stages.size() - 2].output;
+    m_stages.back().output = NULL;
+    bypasses.push_back(BypassInfo(m_mwBypass.empty, m_mwBypass.Rc, m_mwBypass.Rcv));
+
+    m_stages[2].stage = new ReadStage(*this, m_drLatch, m_reLatch, regFile, bypasses, config);
+}
+
+Pipeline::~Pipeline()
+{
+    for (vector<StageInfo>::const_iterator p = m_stages.begin(); p != m_stages.end(); ++p)
+    {
+        delete p->stage;
+    }
 }
 
 Result Pipeline::OnCycle(unsigned int /*stateIndex*/)
 {
-    static const char* StageNames[NUM_STAGES] = {
-        "fetch", "decode", "read", "execute", "memory", "writeback"
-    };
-    
     if (IsAcquiring())
     {
         // Begin of the cycle, initialize
-        m_runnable[0] = SUCCESS;
-        for (int i = 0; i < NUM_STAGES - 1; ++i)
+        for (vector<StageInfo>::iterator p = m_stages.begin(); p != m_stages.end(); ++p)
         {
-            m_runnable[i + 1] = (m_latches[i]->empty ? DELAYED : SUCCESS);
+            p->status = (p->input != NULL && p->input->empty ? DELAYED : SUCCESS);
         }
     
         /*
@@ -80,25 +126,25 @@ Result Pipeline::OnCycle(unsigned int /*stateIndex*/)
          noting that the stages *should* happen in parallel, so the read stage
          will read the WB latch before it's been updated.
         */
-        m_mwBypass = m_mwLatch;
+        m_mwBypass = m_dummyLatches.empty() ? m_mwLatch : m_dummyLatches.back();
     }
     
     Result result = FAILED;
     m_nStagesRunnable = 0;
-    for (int stage = NUM_STAGES - 1; stage >= 0; --stage)
+    for (vector<StageInfo>::reverse_iterator stage = m_stages.rbegin(); stage != m_stages.rend(); ++stage)
     {
-        if (m_runnable[stage] == FAILED) 
+        if (stage->status == FAILED) 
         {
             // The pipeline stalled at this point
             break;
         }
         
-        if (m_runnable[stage] == SUCCESS)
+        if (stage->status == SUCCESS)
         try
         {
             m_nStagesRunnable++;
 
-            const PipeAction action = m_stages[stage]->Write();
+            const PipeAction action = stage->stage->OnCycle();
             if (!IsAcquiring())
             {
    	            // If this stage has stalled or is delayed, abort pipeline.
@@ -106,8 +152,8 @@ Result Pipeline::OnCycle(unsigned int /*stateIndex*/)
   	            // will never get executed now.
                 if (action == PIPE_STALL)
                 {
-                    m_runnable[stage] = FAILED;
-                    DeadlockWrite("%s stage stalled", StageNames[stage]);
+                    stage->status = FAILED;
+                    DeadlockWrite("%s stage stalled", stage->stage->GetName().c_str());
                     break;
                 }
                 
@@ -123,27 +169,26 @@ Result Pipeline::OnCycle(unsigned int /*stateIndex*/)
     		    }
     		    else
     		    {
-    		        if (action == PIPE_FLUSH && stage > 0)
+    		        if (action == PIPE_FLUSH && stage->input != NULL)
    			        {
        		            // Clear all previous stages with the same TID
-   		    	        const Latch* input = m_latches[stage - 1];
-     					m_stages[0]->Clear(input->tid);
-   				        for (int j = 0; j < stage - 1; ++j)
+       		            const TID tid = stage->input->tid;
+    		            for (vector<StageInfo>::reverse_iterator f = stage + 1; f != m_stages.rend(); ++f)
    				        {
-   					        if (m_latches[j]->tid == input->tid)
+   					        if (f->input != NULL && f->input->tid == tid)
   					        {
-       					        m_latches[j]->empty = true;
-   						        m_runnable[j + 1] = DELAYED;
+       					        f->input->empty = true;
+   						        f->status = DELAYED;
    					        }
-       					    m_stages[j + 1]->Clear(input->tid);
+       					    f->stage->Clear(tid);
     			        }
   			        }
   			        
 	    		    COMMIT
     			    {
     			        // Clear input and set output
-                        if (stage > 0)              m_latches[stage-1]->empty = true;
-                        if (stage < NUM_STAGES - 1) m_latches[stage  ]->empty = false;
+                        if (stage->input  != NULL) stage->input ->empty = true;
+                        if (stage->output != NULL) stage->output->empty = false;
     		        }
     		        result = SUCCESS;
     		    }
@@ -155,13 +200,12 @@ Result Pipeline::OnCycle(unsigned int /*stateIndex*/)
         }
         catch (SimulationException& e)
         {
-            if (stage > 0)
+            if (stage->input != NULL)
             {
                 // Add details about thread, family and PC
-                const Latch* input = m_latches[stage - 1];
                 stringstream details;
-                details << "While executing instruction at 0x" << setw(sizeof(MemAddr) * 2) << setfill('0') << hex << input->pc_dbg
-                        << " in T" << dec << input->tid << " in F" << input->fid;
+                details << "While executing instruction at 0x" << setw(sizeof(MemAddr) * 2) << setfill('0') << hex << stage->input->pc_dbg
+                        << " in T" << dec << stage->input->tid << " in F" << stage->input->fid;
                 e.AddDetails(details.str());
             }
             throw;
@@ -371,18 +415,30 @@ void Pipeline::Cmd_Read(std::ostream& out, const std::vector<std::string>& /*arg
     // Memory stage
     out << "Memory stage" << endl
         << " |" << endl;
-    if (m_mwLatch.empty)
+    
+    const MemoryWritebackLatch* latch = &m_mwLatch;
+    for (size_t i = 0; i <= m_dummyLatches.size(); ++i)
     {
-        out << " | (Empty)" << endl;
+        if (latch->empty)
+        {
+            out << " | (Empty)" << endl;
+        }
+        else
+        {
+            PrintLatchCommon(out, *latch);
+            out << " | Rc:  " << latch->Rc << "/" << latch->Rcv.m_size << "    Rrc: " << latch->Rrc << endl
+                << " | Rcv: " << MakePipeValue(latch->Rc.type, latch->Rcv) << endl;
+        }
+        out << " v" << endl;
+        
+        if (i < m_dummyLatches.size())
+        {
+            out << "Dummy Stage" << endl
+                << " |" << endl;
+            latch = &m_dummyLatches[i];
+        }
     }
-    else
-    {
-        PrintLatchCommon(out, m_mwLatch);
-        out << " | Rc:  " << m_mwLatch.Rc << "/" << m_mwLatch.Rcv.m_size << "    Rrc: " << m_mwLatch.Rrc << endl
-            << " | Rcv: " << MakePipeValue(m_mwLatch.Rc.type, m_mwLatch.Rcv) << endl;
-    }
-    out << " v" << endl;
-
+    
     // Writeback stage
     out << "Writeback stage" << endl;
 }

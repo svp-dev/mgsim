@@ -6,7 +6,7 @@ using namespace std;
 namespace Simulator
 {
 
-Pipeline::PipeAction Pipeline::MemoryStage::Write()
+Pipeline::PipeAction Pipeline::MemoryStage::OnCycle()
 {
     PipeValue rcv = m_input.Rcv;
     

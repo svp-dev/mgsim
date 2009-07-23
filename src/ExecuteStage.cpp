@@ -21,12 +21,7 @@ bool Pipeline::ExecuteStage::MemoryWriteBarrier(TID tid) const
     return true;
 }
 
-Pipeline::PipeAction Pipeline::ExecuteStage::Read()
-{
-    return PIPE_CONTINUE;
-}
-
-Pipeline::PipeAction Pipeline::ExecuteStage::Write()
+Pipeline::PipeAction Pipeline::ExecuteStage::OnCycle()
 {
     COMMIT
     {

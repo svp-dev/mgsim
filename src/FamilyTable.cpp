@@ -152,7 +152,7 @@ void FamilyTable::Cmd_Read(ostream& out, const vector<string>& arguments) const
                      << "@LP" << setw(3) << family.parent.lpid;
             } else {
                 // Local family
-                out << "   -   ";
+                out << "    -    ";
             }
             out << " | ";
 

@@ -19,6 +19,7 @@ COMMON_SRC = \
 	DCache.cpp \
 	DCache.h \
 	DecodeStage.cpp \
+	DummyStage.cpp \
 	ExecuteStage.cpp \
 	FPU.cpp \
 	FPU.h \

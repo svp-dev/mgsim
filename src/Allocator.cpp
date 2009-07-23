@@ -68,14 +68,17 @@ TID Allocator::GetRegisterType(LFID fid, RegAddr addr, RegClass* group) const
     const Family& family = m_familyTable[fid];
     const Family::RegInfo& regs = family.regs[addr.type];
 
-    const RegIndex globals = regs.base + regs.size - regs.count.shareds - regs.count.globals;
-	if (addr.index >= globals && addr.index < globals + regs.count.globals)
-	{
-		// It's a global
-		*group = RC_GLOBAL;
-		return INVALID_TID;
-	}
-
+    if (regs.parent_globals == INVALID_REG_INDEX)
+    {
+        const RegIndex globals = regs.base + regs.size - regs.count.shareds - regs.count.globals;
+	    if (addr.index >= globals && addr.index < globals + regs.count.globals)
+	    {
+    		// It's a global
+		    *group = RC_GLOBAL;
+		    return INVALID_TID;
+	    }
+    }
+    
     if (regs.parent_shareds == INVALID_REG_INDEX)
     {
 	    if (addr.index >= regs.base + regs.size - regs.count.shareds && addr.index < regs.base + regs.size)

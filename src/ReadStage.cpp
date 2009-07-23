@@ -124,31 +124,22 @@ bool Pipeline::ReadStage::ReadBypasses(OperandInfo& operand)
     // We iterate over all inputs from back to front. This in effect 'replays'
     // the last instructions and gets the correct final value.
     //
-    static const unsigned int N_INPUTS = 4;
-    const struct InputInfo
-    {
-        bool             empty;
-        const RegAddr&   addr;
-        const PipeValue& value;
-    } bypasses[N_INPUTS] = {
-        {false,           operand.addr_reg, operand.value_reg},
-        {m_bypass3.empty, m_bypass3.Rc,     m_bypass3.Rcv},
-        {m_bypass2.empty, m_bypass2.Rc,     m_bypass2.Rcv},
-        {m_bypass1.empty, m_bypass1.Rc,     m_bypass1.Rcv},
-    };
+    
+    // Set the read register at the end of the bypass list to make
+    // the code simple. This is removed at the end.
+    static const bool g_false = false;
+    m_bypasses.push_back(BypassInfo(g_false, operand.addr_reg, operand.value_reg));
 
     // This variable keeps the value of the register as we replay the instructions
     RegValue value = MAKE_EMPTY_REG();
     value.m_state = RST_EMPTY;
 
-    for (unsigned int i = 0; i < N_INPUTS; ++i)
+    for (vector<BypassInfo>::const_reverse_iterator p = m_bypasses.rbegin(); p != m_bypasses.rend(); ++p)
     {
-        const InputInfo& ii = bypasses[i];
-
-        if (ii.empty || !ii.addr.valid() ||                         // Empty latch or no result
-            ii.addr.type != operand.addr.type ||                    // Value type mismatch
-            operand.addr.index + operand.offset <  ii.addr.index || // Register not in operand's register range
-            operand.addr.index + operand.offset >= ii.addr.index + ii.value.m_size / sizeof(Integer))
+        if (*p->empty || !p->addr->valid() ||                        // Empty latch or no result
+            p->addr->type != operand.addr.type ||                    // Value type mismatch
+            operand.addr.index + operand.offset <  p->addr->index || // Register not in operand's register range
+            operand.addr.index + operand.offset >= p->addr->index + p->value->m_size / sizeof(Integer))
         {
             // This bypass does not hold the register that we want
             continue;
@@ -156,20 +147,20 @@ bool Pipeline::ReadStage::ReadBypasses(OperandInfo& operand)
     
         // The wanted register is present in the source.
         // Check the state of the source.
-        switch (ii.value.m_state)
+        switch (p->value->m_state)
         {
         case RST_INVALID:
         case RST_WAITING:
         case RST_EMPTY:
             // The source was not FULL
-            if (ii.value.m_state == RST_WAITING && value.m_state == RST_FULL)
+            if (p->value->m_state == RST_WAITING && value.m_state == RST_FULL)
             {
                 // If the source value is WAITING, but the desired value turns out to have
                 // been written earlier, ignore the source.
             }
             // The operand value was not touched, remember the operand
             // for the empty state (memory/remote request, waiting queue)
-            else if (ii.value.m_state == RST_EMPTY && value.m_state == RST_WAITING)
+            else if (p->value->m_state == RST_EMPTY && value.m_state == RST_WAITING)
             {
                 // This bypass resets a waiting register. Ignore the new value and
                 // use the waiting value.
@@ -177,9 +168,9 @@ bool Pipeline::ReadStage::ReadBypasses(OperandInfo& operand)
             else
             {
                 // Set this as the 'current' value: copy the information
-                value.m_state   = ii.value.m_state;
-                value.m_waiting = ii.value.m_waiting;
-                value.m_memory  = ii.value.m_memory;
+                value.m_state   = p->value->m_state;
+                value.m_waiting = p->value->m_waiting;
+                value.m_memory  = p->value->m_memory;
             }
             break;
 
@@ -189,19 +180,21 @@ bool Pipeline::ReadStage::ReadBypasses(OperandInfo& operand)
             value.m_state = RST_FULL;
                 
             // Make bit-mask and bit-offsets
-            unsigned int offset = operand.addr.index + operand.offset - ii.addr.index;
+            unsigned int offset = operand.addr.index + operand.offset - p->addr->index;
 #ifdef ARCH_BIG_ENDIAN
-            offset = ii.value.m_size  / sizeof(Integer) - 1 - offset;
+            offset = p->value->m_size  / sizeof(Integer) - 1 - offset;
 #endif
             const unsigned int shift = offset * sizeof(Integer) * 8;
-            switch (ii.addr.type)
+            switch (p->addr->type)
             {
-            case RT_INTEGER: value.m_integer       = (Integer)(ii.value.m_integer.get(ii.value.m_size) >> shift); break;
-            case RT_FLOAT:   value.m_float.integer = (Integer)(ii.value.m_float.toint(ii.value.m_size) >> shift); break;
+            case RT_INTEGER: value.m_integer       = (Integer)(p->value->m_integer.get(p->value->m_size) >> shift); break;
+            case RT_FLOAT:   value.m_float.integer = (Integer)(p->value->m_float.toint(p->value->m_size) >> shift); break;
             }
             break;
         }
     }
+    
+    m_bypasses.pop_back();
     
     //
     // We're done replaying the bypasses. See what we ended up with.
@@ -293,7 +286,7 @@ bool Pipeline::ReadStage::CheckOperandForSuspension(const OperandInfo& operand, 
     return false;
 }
 
-Pipeline::PipeAction Pipeline::ReadStage::Write()
+Pipeline::PipeAction Pipeline::ReadStage::OnCycle()
 {
     OperandInfo operand1( m_operand1 );
     OperandInfo operand2( m_operand2 );
@@ -460,17 +453,22 @@ void Pipeline::ReadStage::Clear(TID tid)
 }
 
 Pipeline::ReadStage::ReadStage(Pipeline& parent, const DecodeReadLatch& input, ReadExecuteLatch& output, RegisterFile& regFile,
-    const ExecuteMemoryLatch& bypass1, const MemoryWritebackLatch& bypass2, const MemoryWritebackLatch& bypass3,
+    const vector<BypassInfo>& bypasses,
     const Config& /*config*/
   )
   : Stage(parent, "read"),
     m_regFile(regFile),
     m_input(input),
     m_output(output),
-    m_bypass1(bypass1),
-    m_bypass2(bypass2),
-    m_bypass3(bypass3)
+    m_bypasses(bypasses)
 {
+    // Add a dummy entry to our copy of the bypass list. We need this entry
+    // to set the read register as a bypass.
+    static const bool      g_true  = true;
+    static const RegAddr   g_addr  = INVALID_REG;
+    static const PipeValue g_value = MAKE_EMPTY_PIPEVALUE(sizeof(Integer));
+    m_bypasses.push_back(BypassInfo(g_true, g_addr, g_value));
+    
 #if TARGET_ARCH == ARCH_SPARC
     m_isMemoryStore = false;
     m_rsv.m_state = RST_INVALID;

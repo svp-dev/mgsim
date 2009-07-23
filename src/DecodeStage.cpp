@@ -169,7 +169,7 @@ RegAddr Pipeline::DecodeStage::TranslateRegister(unsigned char reg, RegType type
     return MAKE_REGADDR(type, INVALID_REG_INDEX);
 }
 
-Pipeline::PipeAction Pipeline::DecodeStage::Write()
+Pipeline::PipeAction Pipeline::DecodeStage::OnCycle()
 {
     COMMIT
     {

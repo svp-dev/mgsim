@@ -118,6 +118,16 @@ class Pipeline : public IComponent
     //
     // Latches
     //
+    struct BypassInfo
+    {
+        const bool*      empty;
+        const RegAddr*   addr;
+        const PipeValue* value;
+        
+        BypassInfo(const bool& empty, const RegAddr& addr, const PipeValue& value)
+            : empty(&empty), addr(&addr), value(&value) {}
+    };
+    
     struct CommonData
     {
         TID     tid;
@@ -205,7 +215,7 @@ class Pipeline : public IComponent
     class Stage : public Object
     {
     public:
-        virtual PipeAction Write() = 0;
+        virtual PipeAction OnCycle() = 0;
         virtual void       Clear(TID /*tid*/) {}
         Stage(Pipeline& parent, const std::string& name);
 
@@ -215,15 +225,6 @@ class Pipeline : public IComponent
 
     class FetchStage : public Stage
     {
-    public:
-        PipeAction Read();
-        PipeAction Write();
-        FetchStage(Pipeline& parent, FetchDecodeLatch& output, Allocator& allocator, FamilyTable& familyTable, ThreadTable& threadTable, ICache &icache, LPID lpid, const Config& config);
-        ~FetchStage();
-
-        void Clear(TID tid);
-    
-    private:
         FetchDecodeLatch& m_output;
         Allocator&        m_allocator;
         FamilyTable&      m_familyTable;
@@ -234,33 +235,29 @@ class Pipeline : public IComponent
         char*             m_buffer;
         bool              m_switched;
         MemAddr           m_pc;
+
+        void Clear(TID tid);    
+        PipeAction OnCycle();
+    public:
+        FetchStage(Pipeline& parent, FetchDecodeLatch& output, Allocator& allocator, FamilyTable& familyTable, ThreadTable& threadTable, ICache &icache, LPID lpid, const Config& config);
+        ~FetchStage();
     };
 
     class DecodeStage : public Stage
     {
-    public:
-        PipeAction Read();
-        PipeAction Write();
-        DecodeStage(Pipeline& parent, const FetchDecodeLatch& input, DecodeReadLatch& output, const Config& config);
-    
-    private:
+        const FetchDecodeLatch& m_input;
+        DecodeReadLatch&        m_output;
+
+        PipeAction OnCycle();
         RegAddr TranslateRegister(uint8_t reg, RegType type, unsigned int size, RemoteRegAddr* remoteReg, bool writing) const;
         void    DecodeInstruction(const Instruction& instr);
 
-        const FetchDecodeLatch& m_input;
-        DecodeReadLatch&        m_output;
+    public:
+        DecodeStage(Pipeline& parent, const FetchDecodeLatch& input, DecodeReadLatch& output, const Config& config);
     };
 
     class ReadStage : public Stage
     {
-    public:
-        PipeAction Read();
-        PipeAction Write();
-        ReadStage(Pipeline& parent, const DecodeReadLatch& input, ReadExecuteLatch& output, RegisterFile& regFile,
-            const ExecuteMemoryLatch& bypass1, const MemoryWritebackLatch& bypass2, const MemoryWritebackLatch& bypass3,
-            const Config& config);
-    
-    private:
         struct OperandInfo
         {
             DedicatedReadPort* port;      ///< Port on the RegFile to use for reading this operand
@@ -279,13 +276,12 @@ class Pipeline : public IComponent
         bool ReadBypasses(OperandInfo& operand);
         bool CheckOperandForSuspension(const OperandInfo& operand, const RegAddr& addr);
         void Clear(TID tid);
+        PipeAction OnCycle();
 
         RegisterFile&               m_regFile;
         const DecodeReadLatch&      m_input;
         ReadExecuteLatch&           m_output;
-        const ExecuteMemoryLatch&   m_bypass1;
-        const MemoryWritebackLatch& m_bypass2;
-        const MemoryWritebackLatch& m_bypass3;
+        std::vector<BypassInfo>     m_bypasses;
         OperandInfo                 m_operand1, m_operand2;
         
 #if TARGET_ARCH == ARCH_SPARC
@@ -294,19 +290,15 @@ class Pipeline : public IComponent
         bool      m_isMemoryStore;
         PipeValue m_rsv;
 #endif
-    };
 
+    public:
+        ReadStage(Pipeline& parent, const DecodeReadLatch& input, ReadExecuteLatch& output, RegisterFile& regFile,
+            const std::vector<BypassInfo>& bypasses,
+            const Config& config);
+    };
+    
     class ExecuteStage : public Stage
     {
-    public:
-        PipeAction Read();
-        PipeAction Write();
-        ExecuteStage(Pipeline& parent, const ReadExecuteLatch& input, ExecuteMemoryLatch& output, Allocator& allocator, Network& network, ThreadTable& threadTable, FPU& fpu, size_t fpu_source, const Config& config);
-        
-        uint64_t getFlop() const { return m_flop; }
-        uint64_t getOp()   const { return m_op; }
-    
-    private:
         const ReadExecuteLatch& m_input;
         ExecuteMemoryLatch&     m_output;
         Allocator&              m_allocator;
@@ -334,36 +326,49 @@ class Pipeline : public IComponent
         PipeAction ExecKill(LFID fid);
         void       ExecDebug(Integer value, Integer stream) const;
         void       ExecDebug(double value, Integer stream) const;
+        PipeAction OnCycle();
+        
+    public:
+        ExecuteStage(Pipeline& parent, const ReadExecuteLatch& input, ExecuteMemoryLatch& output, Allocator& allocator, Network& network, ThreadTable& threadTable, FPU& fpu, size_t fpu_source, const Config& config);
+        
+        uint64_t getFlop() const { return m_flop; }
+        uint64_t getOp()   const { return m_op; }
     };
 
     class MemoryStage : public Stage
     {
-    public:
-        PipeAction Read();
-        PipeAction Write();
-        MemoryStage(Pipeline& parent, const ExecuteMemoryLatch& input, MemoryWritebackLatch& output, DCache& dcache, Allocator& allocator, const Config& config);
-    
-    private:
         const ExecuteMemoryLatch& m_input;
         MemoryWritebackLatch&     m_output;
         Allocator&                m_allocator;
         DCache&                   m_dcache;
+
+        PipeAction OnCycle();
+    public:
+        MemoryStage(Pipeline& parent, const ExecuteMemoryLatch& input, MemoryWritebackLatch& output, DCache& dcache, Allocator& allocator, const Config& config);
+    };
+    
+    class DummyStage : public Stage
+    {
+        const MemoryWritebackLatch& m_input;
+        MemoryWritebackLatch&       m_output;
+
+        PipeAction OnCycle();
+    public:
+        DummyStage(Pipeline& parent, const std::string& name, const MemoryWritebackLatch& input, MemoryWritebackLatch& output, const Config& config);
     };
 
     class WritebackStage : public Stage
     {
-    public:
-        PipeAction Read();
-        PipeAction Write();
-        WritebackStage(Pipeline& parent, const MemoryWritebackLatch& input, RegisterFile& regFile, Network& network, Allocator& allocator, ThreadTable& threadTable, const Config& config);
-    
-    private:
         const MemoryWritebackLatch& m_input;
         RegisterFile&               m_regFile;
         Network&                    m_network;
         Allocator&                  m_allocator;
         ThreadTable&                m_threadTable;
         int                         m_writebackOffset; // For multiple-cycle writebacks
+
+        PipeAction OnCycle();
+    public:
+        WritebackStage(Pipeline& parent, const MemoryWritebackLatch& input, RegisterFile& regFile, Network& network, Allocator& allocator, ThreadTable& threadTable, const Config& config);
     };
 
     static void PrintLatchCommon(std::ostream& out, const CommonData& latch);
@@ -371,6 +376,7 @@ class Pipeline : public IComponent
     
 public:
     Pipeline(Processor& parent, const std::string& name, LPID lpid, RegisterFile& regFile, Network& network, Allocator& allocator, FamilyTable& familyTable, ThreadTable& threadTable, ICache& icache, DCache& dcache, FPU& fpu, const Config& config);
+    ~Pipeline();
 
     Result OnCycle(unsigned int stateIndex);
     void   UpdateStatistics();
@@ -381,37 +387,36 @@ public:
     uint64_t GetMinIdleTime() const { return m_minPipelineIdleTime; }
     uint64_t GetAvgIdleTime() const { return m_totalPipelineIdleTime / std::max<uint64_t>(1ULL, m_pipelineIdleEvents); }
     
-    float    GetEfficiency() const { return (float)m_nStagesRun / NUM_STAGES / (float)std::max<uint64_t>(1ULL, m_pipelineBusyTime); }
+    float    GetEfficiency() const { return (float)m_nStagesRun / m_stages.size() / (float)std::max<uint64_t>(1ULL, m_pipelineBusyTime); }
 
-    uint64_t GetFlop() const { return m_execute.getFlop(); }
-    uint64_t GetOp()   const { return m_execute.getOp(); }
+    uint64_t GetFlop() const { return dynamic_cast<ExecuteStage&>(*m_stages[3].stage).getFlop(); }
+    uint64_t GetOp()   const { return dynamic_cast<ExecuteStage&>(*m_stages[3].stage).getOp(); }
     
     void Cmd_Help(std::ostream& out, const std::vector<std::string>& arguments) const;
     void Cmd_Read(std::ostream& out, const std::vector<std::string>& arguments) const;
 
 private:
+    struct StageInfo
+    {
+        Latch* input;
+        Stage* stage;
+        Latch* output;
+        Result status;
+    };
+    
     Processor& m_parent;
     
-    FetchStage     m_fetch;
-    DecodeStage    m_decode;
-    ReadStage      m_read;
-    ExecuteStage   m_execute;
-    MemoryStage    m_memory;
-    WritebackStage m_writeback;
-    
-    FetchDecodeLatch     m_fdLatch;
-    DecodeReadLatch      m_drLatch;
-    ReadExecuteLatch     m_reLatch;
-    ExecuteMemoryLatch   m_emLatch;
-    MemoryWritebackLatch m_mwLatch;
-    MemoryWritebackLatch m_mwBypass;
+    FetchDecodeLatch                  m_fdLatch;
+    DecodeReadLatch                   m_drLatch;
+    ReadExecuteLatch                  m_reLatch;
+    ExecuteMemoryLatch                m_emLatch;
+    MemoryWritebackLatch              m_mwLatch;
+    std::vector<MemoryWritebackLatch> m_dummyLatches;
+    MemoryWritebackLatch              m_mwBypass;
 
-    static const int NUM_STAGES = 6;
-    Stage*           m_stages  [NUM_STAGES];
-    Latch*           m_latches [NUM_STAGES - 1];
-    Result           m_runnable[NUM_STAGES];
+    std::vector<StageInfo> m_stages;
     
-    Register<bool>   m_active;
+    Register<bool> m_active;
     
     size_t   m_nStagesRunnable;
     size_t   m_nStagesRun;
