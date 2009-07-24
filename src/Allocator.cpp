@@ -129,6 +129,19 @@ bool Allocator::QueueActiveThreads(const ThreadQueue& threads)
     return true;
 }
 
+TID Allocator::PopActiveThread()
+{
+    TID tid = INVALID_TID;
+    if (!m_activeThreads.Empty())
+    {   
+        tid = m_activeThreads.Front();
+        m_activeThreads.Pop();
+        
+        COMMIT{ m_activeQueueSize--; }
+    }
+    return tid;
+}
+
 //
 // Adds the list of threads to the family's active queue.
 // There is assumed to be a linked list between the threads.head
@@ -1835,7 +1848,7 @@ Allocator::Allocator(Processor& parent, const string& name,
     m_creates       (parent.GetKernel(), *this, 2, config.getInteger<BufferSize>("LocalCreatesQueueSize",          INFINITE)),
     m_createsEx     (parent.GetKernel(), *this, 2, config.getInteger<BufferSize>("LocalExclusiveCreatesQueueSize", INFINITE)),
     m_registerWrites(parent.GetKernel(), *this, 4, config.getInteger<BufferSize>("RegisterWritesQueueSize",        INFINITE), 2),
-    m_cleanup       (parent.GetKernel(), *this, 0, config.getInteger<BufferSize>("ThreadCleanupQueueSize",         INFINITE), 3),
+    m_cleanup       (parent.GetKernel(), *this, 0, config.getInteger<BufferSize>("ThreadCleanupQueueSize",         INFINITE), 4),
 	m_allocations   (parent.GetKernel(), *this, 1, config.getInteger<BufferSize>("FamilyAllocationQueueSize",      INFINITE)),
 	m_createFID     (parent.GetKernel(), *this, 2),
 	m_createState   (CREATE_INITIAL),

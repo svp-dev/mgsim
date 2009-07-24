@@ -124,6 +124,8 @@ public:
     bool   IncreaseThreadDependency(          TID tid, ThreadDependency dep);
     bool   DecreaseThreadDependency(LFID fid, TID tid, ThreadDependency dep);
     
+    TID    PopActiveThread();
+    
     // External events
 	bool OnCachelineLoaded(CID cid);
     bool OnTokenReceived();

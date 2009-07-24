@@ -23,14 +23,12 @@ Pipeline::PipeAction Pipeline::FetchStage::OnCycle()
         // We need to switch to a new thread
 
         // Get the thread on the front of the active queue
-        if (m_allocator.m_activeThreads.Empty())
+        TID tid = m_allocator.PopActiveThread();
+        if (tid == INVALID_TID)
         {
             // Nothing to do....
             return PIPE_IDLE;
         }
-        
-        TID tid = m_allocator.m_activeThreads.Front();
-     	m_allocator.m_activeThreads.Pop();
      	
         // Read its information from the Family and Thread Tables
         Thread& thread = m_threadTable[tid];
