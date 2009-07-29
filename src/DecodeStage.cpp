@@ -131,7 +131,8 @@ RegAddr Pipeline::DecodeStage::TranslateRegister(unsigned char reg, RegType type
             return MAKE_REGADDR(type, thread.base + family.count.shareds + reg);
 
         case RC_DEPENDENT:
-            if (reg + nRegs > family.count.shareds)
+            // Note that we can NEVER ever write to dependent registers
+            if (reg + nRegs > family.count.shareds || writing)
             {
                 throw IllegalInstruction();
             }

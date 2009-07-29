@@ -209,7 +209,7 @@ class Buffer : public SensitiveStorage
 {
     // Maximum for m_maxPushes
     // In hardware it can be possible to support multiple pushes
-    static const size_t MAX_PUSHES = 3;
+    static const size_t MAX_PUSHES = 4;
     
     size_t        m_maxSize;         ///< Maximum size of this buffer
     size_t        m_maxPushes;       ///< Maximum number of pushes at a cycle

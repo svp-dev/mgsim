@@ -65,11 +65,11 @@ void Processor::Initialize(Processor& prev, Processor& next, MemAddr runAddress)
     m_allocator.p_activeThreads.AddSource(ArbitrationSource(&m_icache,    1)); // Thread activation due to I-Cache line return
     m_allocator.p_activeThreads.AddSource(ArbitrationSource(&m_allocator, 3)); // Thread activation due to I-Cache hit (from Ready Queue)
 
-    m_registerFile.p_asyncW.AddSource(ArbitrationSource(&m_fpu, 0));
+    m_registerFile.p_asyncW.AddSource(ArbitrationSource(&m_fpu,       0)); // FPU Op writebacks
     m_registerFile.p_asyncW.AddSource(ArbitrationSource(&m_dcache,    0)); // Mem Load writebacks
+    m_registerFile.p_asyncW.AddSource(ArbitrationSource(&m_network,   1)); // Register sends (waiting writeback)
     m_registerFile.p_asyncW.AddSource(ArbitrationSource(&m_network,   0)); // Group register receives
     m_registerFile.p_asyncW.AddSource(ArbitrationSource(&m_network,  13)); // Remote register receives
-    m_registerFile.p_asyncW.AddSource(ArbitrationSource(&m_network,   1)); // Register sends (waiting writeback)
     m_registerFile.p_asyncW.AddSource(ArbitrationSource(&m_allocator, 0)); // Thread allocation
     m_registerFile.p_asyncW.AddSource(ArbitrationSource(&m_allocator, 4)); // Syncs
     m_registerFile.p_asyncR.AddSource(ArbitrationSource(&m_network,   1)); // Remote register sends
@@ -98,11 +98,11 @@ void Processor::Initialize(Processor& prev, Processor& next, MemAddr runAddress)
     m_network.m_registerRequestGroup.in   .AddSource(ArbitrationSource(&next.m_network,   3)); // From neighbour
     m_network.m_registerResponseGroup.in  .AddSource(ArbitrationSource(&prev.m_network,   2)); // From neighbour
     m_network.m_registerResponseGroup.out .AddSource(ArbitrationSource(&m_pipeline,       0)); // Pipeline write to register with remote mapping
+    m_network.m_registerResponseGroup.out .AddSource(ArbitrationSource(&m_fpu,            0)); // FP operation to a shared
+    m_network.m_registerResponseGroup.out .AddSource(ArbitrationSource(&m_dcache,         0)); // Memory load to a shared completes
     m_network.m_registerResponseGroup.out .AddSource(ArbitrationSource(&m_network,        1)); // Returning register from a request
     m_network.m_registerResponseGroup.out .AddSource(ArbitrationSource(&m_network,        0)); // Forwarding global onto group
     m_network.m_registerResponseGroup.out .AddSource(ArbitrationSource(&m_network,       13)); // Forwarding response from remote parent onto group
-    m_network.m_registerResponseGroup.out .AddSource(ArbitrationSource(&m_dcache,         0)); // Memory load to a shared completes
-    m_network.m_registerResponseGroup .out.AddSource(ArbitrationSource(&m_fpu,            0)); // FP operation to a shared
     m_network.m_registerResponseRemote.out.AddSource(ArbitrationSource(&m_fpu,            0)); // FP operation to a shared
     m_network.m_registerResponseRemote.out.AddSource(ArbitrationSource(&m_pipeline,       0)); // Pipeline write to register with remote mapping
     m_network.m_registerResponseRemote.out.AddSource(ArbitrationSource(&m_network,        1)); // Returning register from a request
