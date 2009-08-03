@@ -101,6 +101,7 @@ public:
     // Get or set the debug flag
     int  GetDebugMode() const   { return m_kernel.GetDebugMode(); }
     void SetDebugMode(int mode) { m_kernel.SetDebugMode(mode); }
+    void ToggleDebugMode(int mode) { m_kernel.ToggleDebugMode(mode); }
 
     uint64_t GetOp() const
     {
@@ -350,7 +351,7 @@ public:
         const vector<pair<RegAddr, RegValue> >& regs,
         const vector<pair<RegAddr, string> >& loads,
         bool quiet)
-    : Object(NULL, NULL, "system")
+      : Object(NULL, NULL, "system")
     {
         const vector<PSize> placeSizes = config.getIntegerList<PSize>("NumProcessors");
         const size_t numProcessorsPerFPU_orig = max<size_t>(1, config.getInteger<size_t>("NumProcessorsPerFPU", 1));
@@ -487,6 +488,9 @@ public:
 			m_procs[0]->WriteRegister(MAKE_REGADDR(RT_INTEGER, 27), value);
 #endif
         }
+
+	// Set program debugging per default
+	m_kernel.SetDebugMode(Kernel::DEBUG_PROG);
     }
 
     ~MGSystem()
@@ -1006,22 +1010,19 @@ int main(int argc, const char* argv[])
 								transform(state.begin(), state.end(), state.begin(), ::toupper);
 							}
 	        
-                                 if (state == "SIM")      sys.SetDebugMode(Kernel::DEBUG_SIM);
-                            else if (state == "PROG")     sys.SetDebugMode(Kernel::DEBUG_PROG);
-                            else if (state == "DEADLOCK") sys.SetDebugMode(Kernel::DEBUG_DEADLOCK);
-                            else if (state == "ALL")      sys.SetDebugMode(Kernel::DEBUG_PROG | Kernel::DEBUG_SIM);
+                                 if (state == "SIM")      sys.ToggleDebugMode(Kernel::DEBUG_SIM);
+                            else if (state == "PROG")     sys.ToggleDebugMode(Kernel::DEBUG_PROG);
+                            else if (state == "DEADLOCK") sys.ToggleDebugMode(Kernel::DEBUG_DEADLOCK);
+                            else if (state == "ALL")      sys.SetDebugMode(-1);
                             else if (state == "NONE")     sys.SetDebugMode(0);
                             
                             string debugStr;
-                            switch (sys.GetDebugMode())
-                            {
-                            default:                                     debugStr = "nothing";   break;
-                            case Kernel::DEBUG_PROG:                     debugStr = "program";   break;
-                            case Kernel::DEBUG_SIM:                      debugStr = "simulator"; break;
-                            case Kernel::DEBUG_DEADLOCK:                 debugStr = "deadlocks"; break;
-                            case Kernel::DEBUG_PROG | Kernel::DEBUG_SIM: debugStr = "simulator and program"; break;
-                            }
-						    cout << "Debugging " << debugStr << endl;
+                            int m = sys.GetDebugMode();
+			    if (m & Kernel::DEBUG_PROG)     debugStr += " program";
+			    if (m & Kernel::DEBUG_SIM)      debugStr += " simulator";
+			    if (m & Kernel::DEBUG_DEADLOCK) debugStr += " deadlocks";
+			    if (!debugStr.size()) debugStr = " (nothing)";
+			    cout << "Debugging:" << debugStr << endl;
 						}
 						else
 						{

@@ -328,9 +328,14 @@ void Kernel::RegisterArbitrator(Arbitrator& arbitrator)
     info.activated = false;
 }
 
-void Kernel::SetDebugMode(int mode)
+void Kernel::SetDebugMode(int flags)
 {
-    m_debugMode = mode;
+    m_debugMode = flags;
+}
+
+void Kernel::ToggleDebugMode(int flags)
+{
+    m_debugMode ^= flags;
 }
 
 /// Called after everything has been created

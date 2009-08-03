@@ -192,14 +192,20 @@ public:
     inline CyclePhase GetCyclePhase() const { return m_phase; }
     
     /**
-     * Sets the debug mode.
-     * @param mode the debug mode to set.
+     * Sets the debug flags.
+     * @param mode the debug flags to set (from enum DebugMode).
      */
-    void SetDebugMode(int mode);
+    void SetDebugMode(int flags);
+
+    /**
+     * Toggle the debug flags.
+     * @param mode the debug flags to toggle (from enum DebugMode).
+     */
+    void ToggleDebugMode(int flags);
     
     /**
-     * Gets the current debug mode.
-     * @return the current debug mode.
+     * Gets the current debug flags.
+     * @return the current debug flags.
      */
     inline int GetDebugMode() const { return m_debugMode; }
 
