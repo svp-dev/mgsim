@@ -3,6 +3,7 @@
 #include <cassert>
 #include <cmath>
 #include <iostream>
+#include <sstream>
 #include <iomanip>
 using namespace std;
 
@@ -167,31 +168,45 @@ Pipeline::PipeAction Pipeline::ExecuteStage::ExecKill(LFID /* fid */)       { re
 
 void Pipeline::ExecuteStage::ExecDebug(Integer value, Integer stream) const
 {
-    if ((stream & 0x7f) == 0) {
-        if (stream & 0x80) {
-            DebugProgWrite("PRINT by T%u at 0x%.*llx: %lld",
-                (unsigned)m_input.tid, (int)sizeof(m_input.pc) * 2, (unsigned long long)m_input.pc,
-                (long long)(SInteger)value);
-        } else {
-            DebugProgWrite("PRINT by T%u at 0x%.*llx: %llu",
-                (unsigned)m_input.tid, (int)sizeof(m_input.pc) * 2, (unsigned long long)m_input.pc,
-                (unsigned long long)value);
-        }
-    } else {
-        ostream& out = (stream != 1) ? cerr : cout;
-        out << (char)value;
-    }
+  int outstream = stream & 3;
+
+  ostringstream stringout;
+  ostream& out = (outstream == 0) ? stringout : \
+    ((outstream == 2) ? cerr : cout);
+
+  switch ((stream >> 6) & 0x3) {
+  case 0:
+    out << dec << (unsigned long long)value; break;
+  case 1:
+    out << hex << (unsigned long long)value; break;
+  case 2:
+    out << dec << (long long)(SInteger)value; break;
+  case 3:
+    out << (char)value; break;
+  }
+
+  if (outstream == 0)
+    DebugProgWrite("PRINT by T%u at 0x%.*llx: %s",
+		   (unsigned)m_input.tid, (int)sizeof(m_input.pc) * 2, (unsigned long long)m_input.pc,
+		   stringout.str().c_str());
 }
 
 void Pipeline::ExecuteStage::ExecDebug(double value, Integer stream) const
 {
-    if (stream == 0) {
-        DebugProgWrite("PRINT by T%u at 0x%.*llx: %0.12f",
-            (unsigned)m_input.tid, (int)sizeof(m_input.pc) * 2, (unsigned long long)m_input.pc,
-            value );
-    } else {
-        ostream& out = (stream != 1) ? cerr : cout;
-        out << setprecision(12) << fixed << value;
+    /* precision: bits 4-7 */
+    int prec = (stream >> 4) & 0xf;
+    int s = stream & 3;
+    switch (s) {
+    case 0:
+      DebugProgWrite("PRINT by T%u at 0x%.*llx: %0.*lf",
+		     (unsigned)m_input.tid, (int)sizeof(m_input.pc) * 2, (unsigned long long)m_input.pc,
+		     prec, value );
+      break;
+    case 1:
+    case 2:
+      ostream& out = (s == 2) ? cerr : cout;
+        out << setprecision(prec) << scientific << value;
+	break;
     }
 }
 
