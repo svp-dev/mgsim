@@ -89,17 +89,8 @@ bool FPU::OnCompletion(unsigned int unit, const Result& res) const
     res.source->last_unit  = unit;
     
     // Calculate the address of this register
-    RegAddr  addr = res.address;
-
-#if ARCH_ENDIANNESS == ARCH_BIG_ENDIAN
-    // LSB goes in last register
-    const unsigned int nRegs = res.size / sizeof(Integer);
-    RegIndex offset = (nRegs - 1 - res.index);
-#else
-    // LSB goes in first register
-    RegIndex offset = res.index;
-#endif
-    addr.index += offset;
+    RegAddr addr = res.address;
+    addr.index += res.index;
 
     if (!res.source->regfile->p_asyncW.Write(addr))
     {
@@ -107,30 +98,30 @@ bool FPU::OnCompletion(unsigned int unit, const Result& res) const
   	    return false;
     }
 
-    if (offset == 0)
+    // Read the old value
+    RegValue value;
+    if (!res.source->regfile->ReadRegister(addr, value))
     {
-        // Read the old value
-        RegValue value;
-        if (!res.source->regfile->ReadRegister(addr, value))
-        {
-            DeadlockWrite("Unable to read register %s", addr.str().c_str());
-	        return false;
-        }
+        DeadlockWrite("Unable to read register %s", addr.str().c_str());
+        return false;
+    }
 
-        if (value.m_state != RST_EMPTY && value.m_state != RST_WAITING)
-        {
-          	// We're too fast, wait!
-            DeadlockWrite("FP operation completed before register %s was cleared", addr.str().c_str());
-            return false;
-        }
+    if (value.m_state != RST_PENDING && value.m_state != RST_WAITING)
+    {
+      	// We're too fast, wait!
+        DeadlockWrite("FP operation completed before register %s was cleared", addr.str().c_str());
+        return false;
     }
         
     // Write new value
-    RegValue value;
+    unsigned int index = res.index;
+#ifdef ARCH_BIG_ENDIAN
+    const unsigned int size = res.size / sizeof(Integer);
+    index = size - 1 - index;
+#endif
+
     value.m_state         = RST_FULL;
-	value.m_float.integer = (Integer)(
-	    res.value.toint(res.size) >> (sizeof(Integer) * 8 * res.index)
-	    );
+	value.m_float.integer = (Integer)(res.value.toint(res.size) >> (sizeof(Integer) * 8 * index));
 	    
 	if (!res.source->regfile->WriteRegister(addr, value, false))
 	{

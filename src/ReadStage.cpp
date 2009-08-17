@@ -24,15 +24,20 @@ namespace Simulator
 // Convert a RegValue into a PipeValue
 static PipeValue RegToPipeValue(RegType type, const RegValue& src_value)
 {
-    PipeValue dest_value = MAKE_EMPTY_PIPEVALUE(sizeof(Integer));
+    PipeValue dest_value;
     dest_value.m_state = src_value.m_state;
+    dest_value.m_size  = sizeof(Integer);
     switch (src_value.m_state)
     {
     case RST_INVALID: assert(0); break;
     case RST_WAITING:
+    case RST_PENDING:
     case RST_EMPTY:
-        dest_value.m_waiting = src_value.m_waiting;
-        dest_value.m_memory  = src_value.m_memory;
+        // We don't copy the remote information because the Writeback
+        // will fix it up.
+        dest_value.m_remote.fid = INVALID_LFID;
+        dest_value.m_waiting    = src_value.m_waiting;
+        dest_value.m_memory     = src_value.m_memory;
         break;
         
     case RST_FULL:
@@ -151,6 +156,7 @@ bool Pipeline::ReadStage::ReadBypasses(OperandInfo& operand)
         {
         case RST_INVALID:
         case RST_WAITING:
+        case RST_PENDING:
         case RST_EMPTY:
             // The source was not FULL
             if (p->value->m_state == RST_WAITING && value.m_state == RST_FULL)
@@ -160,7 +166,7 @@ bool Pipeline::ReadStage::ReadBypasses(OperandInfo& operand)
             }
             // The operand value was not touched, remember the operand
             // for the empty state (memory/remote request, waiting queue)
-            else if (p->value->m_state == RST_EMPTY && value.m_state == RST_WAITING)
+            else if (p->value->m_state == RST_PENDING && value.m_state == RST_WAITING)
             {
                 // This bypass resets a waiting register. Ignore the new value and
                 // use the waiting value.
@@ -462,13 +468,6 @@ Pipeline::ReadStage::ReadStage(Pipeline& parent, const DecodeReadLatch& input, R
     m_output(output),
     m_bypasses(bypasses)
 {
-    // Add a dummy entry to our copy of the bypass list. We need this entry
-    // to set the read register as a bypass.
-    static const bool      g_true  = true;
-    static const RegAddr   g_addr  = INVALID_REG;
-    static const PipeValue g_value = MAKE_EMPTY_PIPEVALUE(sizeof(Integer));
-    m_bypasses.push_back(BypassInfo(g_true, g_addr, g_value));
-    
 #if TARGET_ARCH == ARCH_SPARC
     m_isMemoryStore = false;
     m_rsv.m_state = RST_INVALID;

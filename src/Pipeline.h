@@ -54,6 +54,17 @@ static inline PipeValue MAKE_EMPTY_PIPEVALUE(unsigned int size)
     return value;
 }
 
+static inline PipeValue MAKE_PENDING_PIPEVALUE(unsigned int size)
+{
+    PipeValue value;
+    value.m_state        = RST_PENDING;
+    value.m_size         = size;
+    value.m_waiting.head = INVALID_TID;
+    value.m_memory.size  = 0;
+    value.m_remote.fid   = INVALID_LFID;
+    return value;
+}
+
 class Pipeline : public IComponent
 {
 #if TARGET_ARCH == ARCH_ALPHA

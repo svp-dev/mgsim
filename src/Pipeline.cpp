@@ -273,8 +273,9 @@ void Pipeline::Cmd_Help(std::ostream& out, const std::vector<std::string>& /*arg
 
     switch (value.m_state)
     {
-        case RST_INVALID: ss << "N/A";   break;
-        case RST_EMPTY:   ss << "Empty"; break;
+        case RST_INVALID: ss << "N/A";     break;
+        case RST_PENDING: ss << "Pending"; break;
+        case RST_EMPTY:   ss << "Empty";   break;
         case RST_WAITING: ss << "Waiting (T" << dec << value.m_waiting.head << ")"; break;
         case RST_FULL:
             if (type == RT_INTEGER) {

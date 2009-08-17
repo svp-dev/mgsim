@@ -99,9 +99,9 @@ bool RegisterFile::WriteRegister(const RegAddr& addr, const RegValue& data, bool
         throw SimulationException("A component attempted to write to a non-existing register", *this);
     }
     
-	assert(data.m_state == RST_EMPTY || data.m_state == RST_WAITING || data.m_state == RST_FULL);
+	assert(data.m_state == RST_EMPTY || data.m_state == RST_PENDING || data.m_state == RST_WAITING || data.m_state == RST_FULL);
 	
-	if (data.m_state == RST_EMPTY)
+	if (data.m_state == RST_EMPTY || data.m_state == RST_PENDING)
 	{
 		assert(data.m_waiting.head == INVALID_TID);
 	}
@@ -109,7 +109,7 @@ bool RegisterFile::WriteRegister(const RegAddr& addr, const RegValue& data, bool
     const RegValue& value = regs[addr.index];
     if (value.m_state != RST_FULL)
     {
-	    if (value.m_state == RST_EMPTY)
+	    if (value.m_state == RST_EMPTY || value.m_state == RST_PENDING)
 	    {
     	    if (value.m_memory.size != 0)
 	        {
@@ -270,7 +270,7 @@ void RegisterFile::Cmd_Read(std::ostream& out, const std::vector<std::string>& a
     }
 
     static const char* RegisterStateNames[5] = {
-        "", "Empty", "Waiting", "Full"
+        "", "Empty", "Pending", "Waiting", "Full"
     };
 
     out << "      |  State  | MR |       Value      | Fam | Thread | Type"       << endl;
@@ -311,6 +311,7 @@ void RegisterFile::Cmd_Read(std::ostream& out, const std::vector<std::string>& a
             break;
 
         case RST_INVALID:
+        case RST_PENDING:
         case RST_EMPTY:
             ss << setw(16) << " ";
             break;

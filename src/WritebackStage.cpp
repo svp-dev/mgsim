@@ -32,6 +32,7 @@ Pipeline::PipeAction Pipeline::WritebackStage::OnCycle()
             value.m_state = m_input.Rcv.m_state;
             switch (value.m_state)
             {
+            case RST_PENDING:
             case RST_WAITING:
             case RST_EMPTY:
                 // We store the remote information in all registers.
@@ -121,7 +122,7 @@ Pipeline::PipeAction Pipeline::WritebackStage::OnCycle()
                     }
                 }
             }
-            else if (value.m_state == RST_EMPTY && old_value.m_state == RST_WAITING)
+            else if (value.m_state == RST_PENDING && old_value.m_state == RST_WAITING)
             {
                 // "Resetting a waiting register" can occur when starting a long-latency
                 // operation on a shared register that already has a thread waiting on it.

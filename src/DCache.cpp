@@ -375,8 +375,12 @@ Result DCache::OnCycle(unsigned int stateIndex)
 	    	        return FAILED;
 	            }
 
-                // Register must be in pending or waiting state
-	            assert(value.m_state == RST_EMPTY || value.m_state == RST_WAITING);
+	            if (value.m_state != RST_PENDING && value.m_state != RST_WAITING)
+	            {
+                    // We're too fast, wait!
+                    DeadlockWrite("Memory read completed before register %s was cleared", line.waiting.str().c_str());
+                    return FAILED;
+	            }
 
 		        // Ignore the request if the family has been killed
 		        const Family& family = m_familyTable[value.m_memory.fid];

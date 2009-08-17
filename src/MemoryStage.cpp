@@ -82,7 +82,7 @@ Pipeline::PipeAction Pipeline::MemoryStage::OnCycle()
 			else
 			{
 				// Remember request data
-	            rcv = MAKE_EMPTY_PIPEVALUE(rcv.m_size);
+	            rcv = MAKE_PENDING_PIPEVALUE(rcv.m_size);
 				rcv.m_memory.fid         = m_input.fid;
 				rcv.m_memory.next        = reg;
 				rcv.m_memory.offset      = (unsigned int)(m_input.address % m_dcache.GetLineSize());

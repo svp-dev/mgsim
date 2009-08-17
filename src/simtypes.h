@@ -271,10 +271,11 @@ enum Result
 };
 
 enum RegState {
-    RST_INVALID,
-    RST_EMPTY,
-    RST_WAITING,
-    RST_FULL,
+    RST_INVALID,        ///< The register has no valid value (not used in Register File)
+    RST_EMPTY,          ///< The register is empty
+    RST_PENDING,        ///< The register is empty but will be written later
+    RST_WAITING,        ///< The register is empty and threads are waiting on it
+    RST_FULL,           ///< The register is full
 };
 
 struct ThreadQueue
