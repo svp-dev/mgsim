@@ -13,7 +13,7 @@ dotest() {
   extradesc=$2
   i=1
   for i in $cpuconf; do
-      cmd="$sim -o NumProcessors=$i $extraarg $TEST"
+      cmd="$sim $SIMARGS -o NumProcessors=$i $extraarg $TEST"
       printf "%s" "TEST: $TEST: CPUS=$i $extradesc -> "
       set +e
       exec 3>&2 2>/dev/null
