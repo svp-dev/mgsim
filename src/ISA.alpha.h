@@ -208,10 +208,14 @@ enum InstrFormat
 // INTM Instructions.
 
 #define A_INTMFUNC_MULL    0x00
-#define A_INTMFUNC_MULQ    0x20     
-#define A_INTMFUNC_UMULH   0x30      
-#define A_INTMFUNC_MULL_V  0x40       
-#define A_INTMFUNC_MULQ_V  0x60   
+#define A_INTMFUNC_DIVL    0x08
+#define A_INTMFUNC_MULQ    0x20
+#define A_INTMFUNC_DIVQ    0x28
+#define A_INTMFUNC_UMULH   0x30
+#define A_INTMFUNC_MULL_V  0x40
+#define A_INTMFUNC_UDIVL   0x48
+#define A_INTMFUNC_MULQ_V  0x60
+#define A_INTMFUNC_UDIVQ   0x68
 
 // FLTV Instructions.
 

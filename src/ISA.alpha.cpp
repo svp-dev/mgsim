@@ -458,6 +458,10 @@ static bool ExecuteINTM(PipeValue& Rcv, const PipeValue& Rav, const PipeValue& R
         case A_INTMFUNC_MULQ_V:
         case A_INTMFUNC_MULQ:  mul128b(Ra, Rb, NULL, &Rc); break;
         case A_INTMFUNC_UMULH: mul128b(Ra, Rb, &Rc, NULL); break;
+        case A_INTMFUNC_DIVL:  Rc = (int64_t)(int32_t)((int32_t)Ra / (int32_t)Rb); break;
+        case A_INTMFUNC_DIVQ:  Rc = (int64_t)Ra / (int64_t)Rb; break;
+        case A_INTMFUNC_UDIVL: Rc = (uint64_t)(uint32_t)((uint32_t)Ra / (uint32_t)Rb); break;
+        case A_INTMFUNC_UDIVQ: Rc = Ra / Rb; break;
         default: assert(0); Rc = 0; break;
     }
     Rcv.m_integer = Rc;
