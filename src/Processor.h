@@ -28,7 +28,7 @@ class Processor : public IComponent, public IMemoryCallback
 {
 public:
     Processor(Object* parent, Kernel& kernel, GPID pid, LPID lpid, const std::vector<Processor*>& grid, PSize gridSize, PSize placeSize, const std::string& name, IMemory& m_memory, FPU& fpu, const Config& config);
-    void Initialize(Processor& prev, Processor& next, MemAddr runAddress);
+    void Initialize(Processor& prev, Processor& next, MemAddr runAddress, bool legacy);
 
     GPID    GetPID()       const { return m_pid;       }
     PSize   GetPlaceSize() const { return m_placeSize; }

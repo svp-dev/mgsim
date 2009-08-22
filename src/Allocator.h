@@ -82,7 +82,7 @@ public:
 
     // Allocates the initial family consisting of a single thread on the first CPU.
     // Typically called before tha actual simulation starts.
-    void AllocateInitialFamily(MemAddr pc);
+    void AllocateInitialFamily(MemAddr pc, bool legacy);
 
     // Returns the physical register address for a logical register in a certain family.
     RegAddr GetRemoteRegisterAddress(const RemoteRegAddr& addr) const;

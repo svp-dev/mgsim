@@ -1860,7 +1860,7 @@ Allocator::Allocator(Processor& parent, const string& name,
 {
 }
 
-void Allocator::AllocateInitialFamily(MemAddr pc)
+void Allocator::AllocateInitialFamily(MemAddr pc, bool legacy)
 {
     static const unsigned char InitialRegisters[NUM_REG_TYPES] = {31, 31};
 
@@ -1881,7 +1881,7 @@ void Allocator::AllocateInitialFamily(MemAddr pc)
 	family.parent.gpid   = INVALID_GPID;
 	family.exitCodeReg   = INVALID_REG_INDEX;
 	family.created       = true;
-	family.legacy        = false;
+	family.legacy        = legacy;
 	family.pc            = pc;
     family.link_prev     = INVALID_LFID;
     family.link_next     = INVALID_LFID;

@@ -410,7 +410,7 @@ public:
         }
         
         // Load the program into memory
-        MemAddr entry = LoadProgram(m_memory, program, quiet);
+        std::pair<MemAddr, bool> progdesc = LoadProgram(m_memory, program, quiet);
         
         // Create the FPUs
         m_fpus.resize(numFPUs);
@@ -453,7 +453,7 @@ public:
                 PSize pid = (first + i);
                 LPID prev = (i + placeSize - 1) % placeSize;
                 LPID next = (i + 1) % placeSize;
-                m_procs[pid]->Initialize(*m_procs[first + prev], *m_procs[first + next], entry);
+                m_procs[pid]->Initialize(*m_procs[first + prev], *m_procs[first + next], progdesc.first, progdesc.second);
             }
             first += placeSize;
         }
@@ -484,7 +484,7 @@ public:
 
 #if TARGET_ARCH == ARCH_ALPHA
             // The Alpha expects the function address in $27
-			value.m_integer = entry;
+			value.m_integer = progdesc.first;
 			m_procs[0]->WriteRegister(MAKE_REGADDR(RT_INTEGER, 27), value);
 #endif
         }

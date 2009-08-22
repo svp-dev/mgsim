@@ -50,7 +50,7 @@ MemAddr LoadDataFile(IMemoryAdmin* memory, const string& path, bool quiet)
 }
 
 // Load the program image into the memory
-static MemAddr LoadProgram(IMemoryAdmin* memory, void* _data, MemSize size, bool quiet)
+static std::pair<MemAddr, bool> LoadProgram(IMemoryAdmin* memory, void* _data, MemSize size, bool quiet)
 {
 	char*    data =  static_cast<char*>(_data);
 	Elf_Ehdr ehdr = *static_cast<Elf_Ehdr*>(_data);
@@ -82,18 +82,15 @@ static MemAddr LoadProgram(IMemoryAdmin* memory, void* _data, MemSize size, bool
     	}
     	memory->Reserve(0, size, IMemory::PERM_READ | IMemory::PERM_WRITE | IMemory::PERM_EXECUTE);
 		memory->Write(0, data, size);
-		return 4;
+		return make_pair(4, false);
 	}
 
 	// Check that this file is for our 'architecture'
 	Verify(ehdr.e_ident[EI_VERSION] == EV_CURRENT,  "ELF version mismatch");
 	Verify(ehdr.e_ident[EI_CLASS]   == ELFCLASS,    "file is not of proper bitsize");
 	Verify(ehdr.e_ident[EI_DATA]    == ELFDATA,     "file is not of proper endianness");
-#if TARGET_ARCH == ARCH_ALPHA
-	Verify(ehdr.e_machine           == EM_MTALPHA,  "target architecture is not Microthread Alpha");
-#elif TARGET_ARCH == ARCH_SPARC
-	Verify(ehdr.e_machine           == EM_MTSPARC,  "target architecture is not Microthread Sparc");
-#endif
+	Verify(ehdr.e_machine == MACHINE_NORMAL ||
+	       ehdr.e_machine == MACHINE_LEGACY,       "target architecture is not supported");
 	Verify(ehdr.e_type              == ET_EXEC,    "file is not an executable file");
 	Verify(ehdr.e_phoff != 0 && ehdr.e_phnum != 0, "file has no program header");
 	Verify(ehdr.e_phentsize == sizeof(Elf_Phdr),   "file has an invalid program header");
@@ -152,14 +149,18 @@ static MemAddr LoadProgram(IMemoryAdmin* memory, void* _data, MemSize size, bool
 	
 	if (!quiet)
 	{
-    	cout << "Loaded ELF binary at address 0x" << hex << base << endl;
+	    const char* type = (ehdr.e_machine == MACHINE_LEGACY)
+	        ? "legacy"
+	        : "microthreaded";
+	        
+    	cout << "Loaded " << type << " ELF binary at address 0x" << hex << base << endl;
     	cout << "Entry point: 0x" << hex << ehdr.e_entry << endl;
 	}
-	return ehdr.e_entry;
+	return make_pair(ehdr.e_entry, ehdr.e_machine == MACHINE_LEGACY);
 }
 
 // Load the program file into the memory
-MemAddr LoadProgram(IMemoryAdmin* memory, const string& path, bool quiet)
+std::pair<MemAddr, bool> LoadProgram(IMemoryAdmin* memory, const string& path, bool quiet)
 {
     ifstream input(path.c_str(), ios::binary);
     if (!input.is_open() || !input.good())

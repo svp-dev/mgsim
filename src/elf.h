@@ -154,6 +154,14 @@ static const Elf_Half EM_ALPHA       = 0x9026; // Alpha
 static const Elf_Half EM_MTALPHA     = 0xafef; // Microthreaded Alpha
 static const Elf_Half EM_MTSPARC     = 0xaff0; // Microthreaded Sparc V8
 
+#if TARGET_ARCH == ARCH_ALPHA
+#define MACHINE_NORMAL EM_MTALPHA
+#define MACHINE_LEGACY EM_ALPHA
+#elif TARGET_ARCH == ARCH_SPARC
+#define MACHINE_NORMAL EM_MTSPARC
+#define MACHINE_LEGACY EM_SPARC
+#endif
+
 // File header
 #pragma pack(1)
 struct Elf_Ehdr
