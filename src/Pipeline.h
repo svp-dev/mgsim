@@ -371,6 +371,7 @@ class Pipeline : public IComponent
     class WritebackStage : public Stage
     {
         const MemoryWritebackLatch& m_input;
+        bool                        m_stall;
         RegisterFile&               m_regFile;
         Network&                    m_network;
         Allocator&                  m_allocator;

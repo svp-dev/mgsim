@@ -13,6 +13,17 @@ Pipeline::PipeAction Pipeline::WritebackStage::OnCycle()
     bool allow_reschedule = true;
     bool suspend          = (m_input.suspend != SUSPEND_NONE);        
     
+    if (m_stall)
+    {
+        // We need to stall this cycle without doing *anything*.
+        // Since we stall, we never commit.
+        if (!IsAcquiring())
+        {
+            m_stall = false;
+        }
+        return PIPE_STALL;
+    }
+                    
     if (m_input.Rc.valid() && m_input.Rcv.m_state != RST_INVALID)
     {
         // We have something to write back
@@ -132,6 +143,18 @@ Pipeline::PipeAction Pipeline::WritebackStage::OnCycle()
             
                 value.m_state   = RST_WAITING;
                 value.m_waiting = old_value.m_waiting;
+            }
+            else if (old_value.m_state == RST_EMPTY || old_value.m_state == RST_PENDING)
+            {
+                if (old_value.m_memory.size != 0)
+                {
+                    // The destination register is the target of a memory load, we need
+                    // to stall until the load completes.
+                    // Note that in order to avoid trying to write forever, thus tying up
+                    // the port and causing deadlock, we do nothing every other cycle.
+                    COMMIT{ m_stall = true; }
+                    return PIPE_DELAY;
+                }
             }
 
             if (value.m_state == RST_FULL)
@@ -268,6 +291,7 @@ Pipeline::PipeAction Pipeline::WritebackStage::OnCycle()
 Pipeline::WritebackStage::WritebackStage(Pipeline& parent, const MemoryWritebackLatch& input, RegisterFile& regFile, Network& network, Allocator& alloc, ThreadTable& threadTable, const Config& /*config*/)
   : Stage(parent, "writeback"),
     m_input(input),
+    m_stall(false),
     m_regFile(regFile),
     m_network(network),
     m_allocator(alloc),
