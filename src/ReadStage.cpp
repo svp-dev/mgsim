@@ -139,7 +139,8 @@ bool Pipeline::ReadStage::ReadBypasses(OperandInfo& operand)
     RegValue value = MAKE_EMPTY_REG();
     value.m_state = RST_EMPTY;
 
-    for (vector<BypassInfo>::const_reverse_iterator p = m_bypasses.rbegin(); p != m_bypasses.rend(); ++p)
+    typedef vector<BypassInfo>::const_reverse_iterator it_t;
+    for (it_t p = m_bypasses.rbegin(); p != (it_t)m_bypasses.rend(); ++p)
     {
         if (*p->empty || !p->addr->valid() ||                        // Empty latch or no result
             p->addr->type != operand.addr.type ||                    // Value type mismatch
