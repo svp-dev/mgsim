@@ -45,8 +45,8 @@ COMMON_SRC = \
 	ReadStage.cpp \
 	RegisterFile.cpp \
 	RegisterFile.h \
-	IdealMemory.cpp \
-	IdealeMemory.h \
+	SerialMemory.cpp \
+	SerialMemory.h \
 	ThreadTable.cpp \
 	ThreadTable.h \
 	VirtualMemory.cpp \

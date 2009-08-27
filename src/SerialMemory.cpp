@@ -1,4 +1,4 @@
-#include "IdealMemory.h"
+#include "SerialMemory.h"
 #include "config.h"
 #include <cassert>
 #include <cstring>
@@ -8,7 +8,7 @@ using namespace std;
 namespace Simulator
 {
 
-void IdealMemory::RegisterListener(PSize /*pid*/, IMemoryCallback& callback, const ArbitrationSource* sources)
+void SerialMemory::RegisterListener(PSize /*pid*/, IMemoryCallback& callback, const ArbitrationSource* sources)
 {
     m_caches.insert(&callback);
     for (; sources->first != NULL; sources++)
@@ -17,12 +17,12 @@ void IdealMemory::RegisterListener(PSize /*pid*/, IMemoryCallback& callback, con
     }
 }
 
-void IdealMemory::UnregisterListener(PSize /*pid*/, IMemoryCallback& callback)
+void SerialMemory::UnregisterListener(PSize /*pid*/, IMemoryCallback& callback)
 {
     m_caches.erase(&callback);
 }
 
-bool IdealMemory::Read(IMemoryCallback& callback, MemAddr address, MemSize size, MemTag tag)
+bool SerialMemory::Read(IMemoryCallback& callback, MemAddr address, MemSize size, MemTag tag)
 {
     if (size > MAX_MEMORY_OPERATION_SIZE)
     {
@@ -49,7 +49,7 @@ bool IdealMemory::Read(IMemoryCallback& callback, MemAddr address, MemSize size,
     return true;
 }
 
-bool IdealMemory::Write(IMemoryCallback& callback, MemAddr address, const void* data, MemSize size, MemTag tag)
+bool SerialMemory::Write(IMemoryCallback& callback, MemAddr address, const void* data, MemSize size, MemTag tag)
 {
     assert(tag.fid != INVALID_LFID);
 
@@ -88,37 +88,37 @@ bool IdealMemory::Write(IMemoryCallback& callback, MemAddr address, const void* 
     return true;
 }
 
-void IdealMemory::Reserve(MemAddr address, MemSize size, int perm)
+void SerialMemory::Reserve(MemAddr address, MemSize size, int perm)
 {
     return VirtualMemory::Reserve(address, size, perm);
 }
 
-void IdealMemory::Unreserve(MemAddr address)
+void SerialMemory::Unreserve(MemAddr address)
 {
     return VirtualMemory::Unreserve(address);
 }
 
-bool IdealMemory::Allocate(MemSize size, int perm, MemAddr& address)
+bool SerialMemory::Allocate(MemSize size, int perm, MemAddr& address)
 {
     return VirtualMemory::Allocate(size, perm, address);
 }
 
-void IdealMemory::Read(MemAddr address, void* data, MemSize size)
+void SerialMemory::Read(MemAddr address, void* data, MemSize size)
 {
     return VirtualMemory::Read(address, data, size);
 }
 
-void IdealMemory::Write(MemAddr address, const void* data, MemSize size)
+void SerialMemory::Write(MemAddr address, const void* data, MemSize size)
 {
 	return VirtualMemory::Write(address, data, size);
 }
 
-bool IdealMemory::CheckPermissions(MemAddr address, MemSize size, int access) const
+bool SerialMemory::CheckPermissions(MemAddr address, MemSize size, int access) const
 {
 	return VirtualMemory::CheckPermissions(address, size, access);
 }
 
-Result IdealMemory::OnCycle(unsigned int /* stateIndex */)
+Result SerialMemory::OnCycle(unsigned int /* stateIndex */)
 {
     assert(!m_requests.Empty());
 
@@ -162,7 +162,7 @@ Result IdealMemory::OnCycle(unsigned int /* stateIndex */)
     return SUCCESS;
 }
 
-IdealMemory::IdealMemory(Object* parent, Kernel& kernel, const std::string& name, const Config& config) :
+SerialMemory::SerialMemory(Object* parent, Kernel& kernel, const std::string& name, const Config& config) :
     IComponent(parent, kernel, name), 
     m_requests       (kernel, *this, 0, config.getInteger<BufferSize>("MemoryBufferSize", INFINITE)),
     p_requests       (*this, "m_requests"),
@@ -173,10 +173,10 @@ IdealMemory::IdealMemory(Object* parent, Kernel& kernel, const std::string& name
 {
 }
 
-void IdealMemory::Cmd_Help(ostream& out, const vector<string>& /*arguments*/) const
+void SerialMemory::Cmd_Help(ostream& out, const vector<string>& /*arguments*/) const
 {
     out <<
-    "The Ideal Memory is a simplified memory implementation that has no contention\n"
+    "The Serial Memory is a simplified memory implementation that has no contention\n"
     "on accesses and simply queues all requests in a single queue.\n\n"
     "Supported operations:\n"
     "- info <component>\n"
@@ -188,7 +188,7 @@ void IdealMemory::Cmd_Help(ostream& out, const vector<string>& /*arguments*/) co
     "  Reads the requests buffer\n";
 }
 
-void IdealMemory::Cmd_Read(ostream& out, const vector<string>& arguments) const
+void SerialMemory::Cmd_Read(ostream& out, const vector<string>& arguments) const
 {
     if (arguments.empty() || arguments[0] != "requests")
     {

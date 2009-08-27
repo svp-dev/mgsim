@@ -1,5 +1,5 @@
-#ifndef IDEALMEMORY_H
-#define IDEALMEMORY_H
+#ifndef SERIALMEMORY_H
+#define SERIALMEMORY_H
 
 #include "Memory.h"
 #include "storage.h"
@@ -12,7 +12,7 @@ class Config;
 namespace Simulator
 {
 
-class IdealMemory : public IComponent, public IMemoryAdmin, public VirtualMemory
+class SerialMemory : public IComponent, public IMemoryAdmin, public VirtualMemory
 {
     struct Request
     {
@@ -48,7 +48,7 @@ class IdealMemory : public IComponent, public IMemoryAdmin, public VirtualMemory
     CycleNo                     m_nextdone;
 
 public:
-    IdealMemory(Object* parent, Kernel& kernel, const std::string& name, const Config& config);
+    SerialMemory(Object* parent, Kernel& kernel, const std::string& name, const Config& config);
 
     // Debugging
     void Cmd_Help(std::ostream& out, const std::vector<std::string>& arguments) const;
