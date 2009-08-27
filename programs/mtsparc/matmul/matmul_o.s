@@ -17,6 +17,7 @@ main:
     ldah $29, 0($27)    !gpdisp!1
     lda  $29, 0($29)    !gpdisp!1
     
+    clr      $6
 	allocate $6
 	
 	ldah $0, A($29)      !gprelhigh
@@ -53,6 +54,7 @@ main:
     ! $l0 = ij
 outer:
 	.registers 6 0 6  0 0 0	    ! GR,SR,LR, GF,SF,LF
+	mov      2, $l4             ! Local
 	allocate $l4
 	
 	s4addl $l0, $g2, $l5        ! $l5 = &C[i][j]
@@ -69,7 +71,6 @@ outer:
 	setlimit $l4, $g5
 	swch
 	setstep  $l4, 4
-	setplace $l4, 2             ! Local
 	cred $l4, inner
 	mov $l4, $31
 	swch

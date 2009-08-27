@@ -10,6 +10,7 @@
 main:
     mov 42, %1
     
+    clr      %2
     allocate %2, 0, 0, 0, 0
     setlimit %2, 4
     cred foo, %2

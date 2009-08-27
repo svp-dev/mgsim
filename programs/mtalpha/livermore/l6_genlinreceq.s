@@ -36,11 +36,11 @@ main:
     lda     $1, Y($1)       !gprellow   # $1 = Y
     clr     $2                          # $2 = token
     
+    mov      2, $4      # place = LOCAL
     allocate $4, 0, 0, 0, 0
     setstart $4, 1
     setlimit $4, $10
     setblock $4, 2
-    setplace $4, 2      # Local
     cred    $4, outer
     mov     $4, $31
     end
@@ -58,6 +58,7 @@ main:
 outer:
     .registers 2 1 6 0 0 2
     
+    clr      $l3
     allocate $l3, 0, 0, 0, 0
 
     s8addq  $l0,  $g1, $l1  # $l1 = &Y[0][i]

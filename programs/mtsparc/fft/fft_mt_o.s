@@ -37,6 +37,7 @@ _FFT:
 
     
     .ifdef DO_BIT_REVERSAL	
+    clr      %8
 	allocate %8, 0, 0, 0, 0
 	add      %1, 16, %9
 	setstart %8, %9		    ! start = &X[1]
@@ -52,6 +53,7 @@ _FFT:
 	swch
 	.endif
 
+    mov      2, %8          ! place = LOCAL
 	allocate %8, 0, 0, 0, 0
 
 	sll     %2,     4, %2   ! %2 = (N / 2) * 16;
@@ -62,7 +64,6 @@ _FFT:
 	setstart %8, %4		    ! start = 1
 	add      %11, 1, %11
 	setlimit %8, %11	    ! limit = M + 1
-	setplace %8, 2          ! place = LOCAL
 	cred     _FFT_1, %8
 	mov      %8, %1
 	end
@@ -83,6 +84,7 @@ _FFT:
 _FFT_POST:
 	.registers 2 1 7  0 0 0	    ! GR,SR,LR, GF,SF,LF
 	
+	clr      %l3
 	allocate %l3, 0, 0, 0, 0
 							    ! %l0 = &X[i]
 	mov %d0, %l1; swch	    ! %l1 = j
@@ -159,6 +161,7 @@ _FFT_POST_SWAP:
 _FFT_1:
 	.registers 5 1 5  0 0 0	    ! GR,SR,LR, GF,SF,LF
 	
+	clr      %l4
 	allocate %l4, 0, 0, 0, 0	! start = 0
 	setlimit %l4, %g1		    ! limit = (N / 2) * 16
 	setstep  %l4, 16			! step  = 16

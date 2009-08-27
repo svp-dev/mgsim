@@ -916,7 +916,7 @@ Family& Allocator::GetWritableFamilyEntry(LFID fid, TID parent) const
 
 // Initializes the family entry with default values.
 // This is only called for families allocated locally with the ALLOCATE instruction.
-void Allocator::SetDefaultFamilyEntry(LFID fid, TID parent, const RegisterBases bases[]) const
+void Allocator::SetDefaultFamilyEntry(LFID fid, TID parent, const RegisterBases bases[], const PlaceID& place) const
 {
 	COMMIT
 	{
@@ -932,14 +932,9 @@ void Allocator::SetDefaultFamilyEntry(LFID fid, TID parent, const RegisterBases 
 		family.parent.gpid   = INVALID_GPID;
 		family.parent.lpid   = m_lpid;
 		family.parent.tid    = parent;
+        family.place         = place;
         family.link_prev     = INVALID_LFID;
         family.link_next     = INVALID_LFID;
-                                                    		
-		// Set default place
-		family.place.type       = PlaceID::DEFAULT;
-		family.place.exclusive  = false;
-        family.place.pid        = 0;
-		family.place.capability = 0;
 
 		// By default, the globals and shareds are taken from the locals of the parent thread
 		for (RegType i = 0; i < NUM_REG_TYPES; i++)
@@ -953,19 +948,34 @@ void Allocator::SetDefaultFamilyEntry(LFID fid, TID parent, const RegisterBases 
 // Allocates a family entry. Returns the LFID (and SUCCESS) if one is available,
 // DELAYED if none is available and the request is written to the buffer. FAILED is
 // returned if the buffer was full.
-Result Allocator::AllocateFamily(TID parent, RegIndex reg, LFID* fid, const RegisterBases bases[])
+Result Allocator::AllocateFamily(TID parent, RegIndex reg, LFID* fid, const RegisterBases bases[], Integer place_id)
 {
+    // Unpack the place value: <Capability:N, PID:P, EX:1>
+    const unsigned int P = (unsigned int)ceil(log2(m_parent.GetGridSize()));
+
+    PlaceID place;
+    place.exclusive  = (((place_id >> 0) & 1) != 0);
+    place.type       = (PlaceID::Type)((place_id >> 1) & 3);
+    place.pid        = (GPID)((place_id >> 3) & ((1ULL << P) - 1));
+    place.capability = place_id >> (P + 3);
+
+    if (place.type == PlaceID::DELEGATE && place.pid >= m_parent.GetGridSize())
+    {
+        throw SimulationException("Attempting to delegate to a non-existing core");
+    }
+
 	*fid = m_familyTable.AllocateFamily();
 	if (*fid != INVALID_LFID)
 	{
 		// A family entry was free
-		SetDefaultFamilyEntry(*fid, parent, bases);
+		SetDefaultFamilyEntry(*fid, parent, bases, place);
 		return SUCCESS;
 	}
 
     // Place the request in the buffer
 	AllocRequest request;
 	request.parent = parent;
+	request.place  = place;
 	request.reg    = reg;
 	std::copy(bases, bases + NUM_REG_TYPES, request.bases);
 	if (!m_allocations.Push(request))
@@ -1416,7 +1426,7 @@ Result Allocator::OnCycle(unsigned int stateIndex)
 			}
 			
 			// A family entry was free
-			SetDefaultFamilyEntry(fid, req.parent, req.bases);
+			SetDefaultFamilyEntry(fid, req.parent, req.bases, req.place);
 
             // Writeback the FID
             RegisterWrite write;

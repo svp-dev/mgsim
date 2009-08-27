@@ -44,6 +44,7 @@ main:
     clr     $3              # $3 = 0
     
     negq    1, $5
+    clr      $4
     allocate $4, 0, 0, 0, 0
     setstart $4, $10
     setlimit $4, $5
@@ -65,6 +66,7 @@ main:
     .ent outer
     .registers 3 1 5 0 0 0
 outer:
+    clr      $l4
     allocate $l4, 0, 0, 0, 0
     mov      $g1, $l1            # $l1 = V
     sll      $g2, $l0, $l2       # $l2 = 1 << m = ii

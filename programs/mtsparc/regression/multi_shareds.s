@@ -10,6 +10,7 @@ main:
     fmovs %f0, %f1
     fmovs %f0, %f2
 
+    clr      %2
     allocate %2, 0, 0, 0, 0
     setlimit %2, 37
     cred foo, %2

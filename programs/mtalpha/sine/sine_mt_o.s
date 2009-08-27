@@ -11,6 +11,7 @@
     .ent main
     .globl main
 main:
+    clr      $2
 	allocate $2, 0, 0, 0, 0
 
     # Calculate the sine of 2 (in radians)

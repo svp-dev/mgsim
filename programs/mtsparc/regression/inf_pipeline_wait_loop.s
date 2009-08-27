@@ -15,6 +15,7 @@
     .align 64
 main:
     setempty %1
+    clr      %2
     allocate %2, 0, 0, 0, 0
     setlimit %2, 250
     cred foo, %2

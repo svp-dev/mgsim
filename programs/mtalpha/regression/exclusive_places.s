@@ -11,9 +11,9 @@ main:
     ldgp $0, 0($27)
     mov 0, $1
     
+    mov      2, $2  # place = LOCAL
     allocate $2, 0, 0, 0, 0
     setlimit $2, 64
-    setplace $2, 2  # Local
     cred $2, foo
     
     # Sync
@@ -34,8 +34,8 @@ main:
 foo:
     .registers 1 1 3 0 0 0
     mov      $g0, $l0
+    mov      (1 << 3) | (2 << 1) | 1, $l2   # Delegated, exclusive
     allocate $l2, 0, 0, 0, 0
-    setplace $l2, (1 << 3) | (2 << 1) | 1   # Delegated, exclusive
     swch
     cred     $l2, bar
     mov      $l2, $31; swch

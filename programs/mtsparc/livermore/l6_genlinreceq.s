@@ -30,11 +30,11 @@ main:
     set     Y, %2           ! %2 = Y
     clr     %3              ! %3 = token
     
+    mov      2, %5      ! Local
     allocate %5, 0, 0, 0, 0
     setstart %5, 1
     setlimit %5, %11
     setblock %5, 2
-    setplace %5, 2      ! Local
     cred    outer, %5
     mov     %5, %0
     end
@@ -52,6 +52,7 @@ main:
 outer:
     .registers 2 1 5 0 0 4
     
+    clr      %l3
     allocate %l3, 0, 0, 0, 0
 
     sll     %l0,    3, %l1

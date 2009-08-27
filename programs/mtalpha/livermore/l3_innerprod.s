@@ -32,6 +32,7 @@ main:
     lda     $1, Y($1)       !gprellow   # $1 = Y
     fclr    $f0                         # $f0 = sum = 0
     
+    clr      $3
     allocate $3, 0, 0, 0, 0
     setlimit $3, $10
     cred    $3, loop

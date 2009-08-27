@@ -41,6 +41,7 @@ main:
     ldah    $3, U($29)      !gprelhigh
     lda     $3, U($3)       !gprellow   # $3 = U
     
+    clr      $4
     allocate $4, 0, 0, 0, 0
     setlimit $4, $10
     cred $4, loop

@@ -111,8 +111,9 @@ void Pipeline::DecodeStage::DecodeInstruction(const Instruction& instr)
             break;
 
         case S_OP2_ALLOCATE:
-            // Allocate writes Rc
+            // Allocate reads from and writes Rc
             m_output.literal = (instr >> IMM_SHIFT) & IMM_MASK;
+            m_output.Ra      = MAKE_REGADDR(RT_INTEGER, Rc);
             m_output.Rc      = MAKE_REGADDR(RT_INTEGER, Rc);
             break;
 
@@ -507,9 +508,11 @@ Pipeline::PipeAction Pipeline::ExecuteStage::ExecuteInstruction()
                 bases[i].globals = locals + (unsigned char)((literal >> 0) & 0x1F);
                 bases[i].shareds = locals + (unsigned char)((literal >> 5) & 0x1F);
             }
+            
+            Integer place = m_input.Rav.m_integer.get(m_input.Rav.m_size);
 
             LFID fid;
-            Result res = m_allocator.AllocateFamily(m_input.tid, m_input.Rc.index, &fid, bases);
+            Result res = m_allocator.AllocateFamily(m_input.tid, m_input.Rc.index, &fid, bases, place);
             if (res == FAILED)
             {
                 return PIPE_STALL;
@@ -832,7 +835,7 @@ Pipeline::PipeAction Pipeline::ExecuteStage::ExecuteInstruction()
         }
         
         case S_OP3_SETSTART: case S_OP3_SETLIMIT: case S_OP3_SETSTEP:
-        case S_OP3_SETBLOCK: case S_OP3_SETPLACE:
+        case S_OP3_SETBLOCK:
         {
             FamilyProperty prop;
             switch (m_input.op3)
@@ -842,7 +845,6 @@ Pipeline::PipeAction Pipeline::ExecuteStage::ExecuteInstruction()
             case S_OP3_SETLIMIT: prop = FAMPROP_LIMIT; break;
             case S_OP3_SETSTEP:  prop = FAMPROP_STEP;  break;
             case S_OP3_SETBLOCK: prop = FAMPROP_BLOCK; break;
-            case S_OP3_SETPLACE: prop = FAMPROP_PLACE; break;
             }
             return SetFamilyProperty( LFID((size_t)m_input.Rav.m_integer.get(m_input.Rav.m_size)), prop, m_input.Rbv.m_integer.get(m_input.Rbv.m_size));
         }

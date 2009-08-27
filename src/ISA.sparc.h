@@ -79,7 +79,6 @@ namespace Simulator
 #define S_OP3_FLUSH     0x3B
 #define S_OP3_SAVE      0x3C
 #define S_OP3_RESTORE   0x3D
-#define S_OP3_SETPLACE  0x3E    // uT
 #define S_OP3_LDFP      0x3F    // uT
 
 // op3 (op1 is S_OP1_MEMORY)

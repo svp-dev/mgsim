@@ -33,6 +33,7 @@ main:
     set     Z, %3      ! %2 = Z
     set     U, %4      ! %3 = U
     
+    clr      %5
     allocate %5, 0, 0, 0, 0
     setlimit %5, %11
     cred loop, %5

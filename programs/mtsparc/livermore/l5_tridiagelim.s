@@ -29,6 +29,7 @@ main:
     
     ldd     [%1], %f2   ! %lf0,%lf1 = X[0]
     
+    clr      %5
     allocate %5, 0, 0, 0, 1
     setstart %5, 1
     setlimit %5, %11

@@ -42,6 +42,7 @@ main:
     ldah     $2, Z($29)     !gprelhigh
     lda      $2, Z($2)      !gprellow   # $2  = Z
     
+    clr      $3
     allocate $3, 0, 0, 0, 0 # Start = 0, Step = 1
     setlimit $3, $10        # Limit = N
     cred     $3, loop

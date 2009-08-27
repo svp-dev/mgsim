@@ -231,8 +231,8 @@ void Pipeline::DecodeStage::DecodeInstruction(const Instruction& instr)
             // We encode the register specifiers (in branch-like displacement) in the literal
             m_output.literal = (instr >> A_BRADISP_SHIFT) & A_BRADISP_MASK;
             
-            // Allocate writes to Ra
-            m_output.Ra = MAKE_REGADDR(RT_INTEGER, 31);
+            // Allocate reads Ra and writes to Ra
+            m_output.Ra = MAKE_REGADDR(RT_INTEGER, Ra);
             m_output.Rb = MAKE_REGADDR(RT_INTEGER, 31);
             m_output.Rc = MAKE_REGADDR(RT_INTEGER, Ra);
             break;
@@ -1000,8 +1000,11 @@ Pipeline::PipeAction Pipeline::ExecuteStage::ExecuteInstruction()
                 bases[i].shareds = locals + (unsigned char)((literal >> 5) & 0x1F);
             }
 
+            // Get the place from the register
+            Integer place = m_input.Rav.m_integer.get(m_input.Rav.m_size);
+            
             LFID fid;
-            Result res = m_allocator.AllocateFamily(m_input.tid, m_input.Rc.index, &fid, bases);
+            Result res = m_allocator.AllocateFamily(m_input.tid, m_input.Rc.index, &fid, bases, place);
             if (res == FAILED)
             {
                 return PIPE_STALL;
@@ -1039,7 +1042,6 @@ Pipeline::PipeAction Pipeline::ExecuteStage::ExecuteInstruction()
                 case A_UTHREAD_SETLIMIT: return SetFamilyProperty( LFID((size_t)Rav), FAMPROP_LIMIT, Rbv);
                 case A_UTHREAD_SETSTEP:  return SetFamilyProperty( LFID((size_t)Rav), FAMPROP_STEP,  Rbv);
                 case A_UTHREAD_SETBLOCK: return SetFamilyProperty( LFID((size_t)Rav), FAMPROP_BLOCK, Rbv);
-                case A_UTHREAD_SETPLACE: return SetFamilyProperty( LFID((size_t)Rav), FAMPROP_PLACE, Rbv);
 
                 case A_UTHREAD_BREAK:    return ExecBreak( Rav );
                 case A_UTHREAD_KILL:     return ExecKill( LFID((size_t)Rav) );

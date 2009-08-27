@@ -11,9 +11,9 @@
 main:
     mov 42, $0
     
+    mov      (1 << 3) | (2 << 1), $2
     allocate $2, 0, 0, 0, 0
     setlimit $2, 4
-    setplace $2, (1 << 3) | (2 << 1)
     cred $2, bar
     
     # Sync 

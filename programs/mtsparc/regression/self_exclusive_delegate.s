@@ -8,8 +8,8 @@
     .globl main
     .align 64
 main:
+    mov      5, %2  ! Delegate to core #0, exclusive
     allocate %2, 0, 0, 0, 0
-    setplace %2, 5  ! Delegate to core #0, exclusive
     cred foo, %2
     
     ! Sync

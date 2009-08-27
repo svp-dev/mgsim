@@ -18,6 +18,7 @@ main:
     ld      [%1], %f1
 
     ! Request a family table entry
+    clr      %2
 	allocate %2, 0, 0, 0, 0
 
 	! Fill initial values for the family

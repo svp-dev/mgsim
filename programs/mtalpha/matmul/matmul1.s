@@ -19,6 +19,7 @@ main:
     ldah $29, 0($27)    !gpdisp!1
     lda  $29, 0($29)    !gpdisp!1
     
+    clr      $4
 	allocate $4, 0, 0, 0, 0
 
 	ldah $0, A($29)     !gprelhigh

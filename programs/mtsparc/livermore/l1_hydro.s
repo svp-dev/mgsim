@@ -33,6 +33,7 @@ main:
     set     Y, %2
     set     Z, %3
 
+    clr      %4
     allocate %4, 0, 0, 1, 0 ! Start = 0, Step = 1
     setlimit %4, %11        ! Limit = N
     cred     loop, %4

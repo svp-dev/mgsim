@@ -23,6 +23,7 @@ main:
     ldah $29, 0($27)    !gpdisp!1
     lda  $29, 0($29)    !gpdisp!1
     
+	clr      $4
 	allocate $4, 0, 0, 0, 0
 	
 	ldah $0, A($29)     !gprelhigh
@@ -56,6 +57,7 @@ main:
 thread1:
 	.registers 4 0 5  0 0 0	    # GR,SR,LR, GF,SF,LF
 
+    clr      $l4
 	allocate $l4, 0, 0, 0, 0
 	
 	mull    $l0, $g3, $l0;      # $l0 = i*N
@@ -83,6 +85,7 @@ thread1:
     # $l0 = j
 thread2:
 	.registers 4 0 6  0 0 0	    # GR,SR,LR, GF,SF,LF
+	clr      $l4
     allocate $l4, 0, 0, 0, 0
 
 	s4addl  $l0, $g2, $l5       # $l5 = &C[i*N+j]

@@ -11,6 +11,7 @@
 main:
     ! First we get a free entry in the Family Table.
     ! Will write back asynchronously if there is no free entry.
+    clr      %4
     allocate %4, 0, 0, 0,0 
     
     ! Get N - 1 as the loop limit

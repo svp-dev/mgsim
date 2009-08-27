@@ -42,6 +42,7 @@ _FFT:
 	sll   %5,   4, %3
 	add   %3,  %1, %3    	! %3 = &X[N]
 	
+	clr      %7
 	allocate %7, 0, 0, 0, 0
 	setstart %7, %11    	! start = M
     swch
@@ -54,6 +55,7 @@ _FFT:
     .ifdef DO_BIT_REVERSAL
     swch
 
+    clr      %8
 	allocate %8, 0, 0, 0, 0
 	sub      %3, 16, %3
 	setlimit %8, %3	    	! limit = &X[N - 1]
@@ -92,6 +94,7 @@ _FFT_POST:
 	mov %d0, %l1         	! %l1 = j
 	mov %g0, %l2        	! %l2 = X
 
+    clr      %l3
 	allocate %l3, 0, 0, 0, 0
 	cred _FFT_POST_SWAP, %l3
     swch
@@ -186,6 +189,7 @@ _FFT_1:
 	add  %l3, %g0, %l3	    	! %LR3 = &X[LE2]
     mov  %g2, %l1	        	! %LR1 = &X[N]
     
+    clr      %l4
 	allocate %l4, 0, 0, 0, 0
 	setlimit %l4, %l3	    	! limit = &X[LE2]
 	setstart %l4, %g0	    	! start = &X[0]
@@ -216,6 +220,7 @@ _FFT_1:
 _FFT_2:
 	.registers 4 0 2  4 4 12	! GR,SR,LR, GF,SF,LF
 
+    clr      %l1
 	allocate %l1, 0, 0, 0, 0
 	setstart %l1, %l0		! start = &X[j];
 	setlimit %l1, %g1		! limit = &X[N];

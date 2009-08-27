@@ -37,6 +37,7 @@ main:
     mov     1, %3           ! %3 = 1
     clr     %4              ! %4 = 0
     
+    clr      %5
     allocate %5, 0, 0, 0, 0
     setstart %5, %11
     setlimit %5, -1
@@ -58,6 +59,7 @@ main:
     .align 64
     .registers 3 1 5 0 0 0
 outer:
+    clr      %l4
     allocate %l4, 0, 0, 0, 0
     mov      %g1, %l1            ! %l1 = V
     sll      %g2, %l0, %l2       ! %l2 = ii

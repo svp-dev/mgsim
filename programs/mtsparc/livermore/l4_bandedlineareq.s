@@ -38,6 +38,8 @@ main:
     set     M, %5       ! %5 = M
     set     1001, %6    ! %6 = 1001
     
+    clr      %4
+    clr      %4
     allocate %4, 0, 0, 0, 0
     setstart %4, 6
     setlimit %4, %6
@@ -57,6 +59,7 @@ main:
     .align 64
 outer:
     .registers 3 0 5 0 0 6
+    clr      %l3
     allocate %l3, 0, 0, 0, 0
     mov      %g0, %l1    ! %l1 = X
     mov      %g1, %l2    ! %l2 = Y

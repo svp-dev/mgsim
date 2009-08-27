@@ -35,6 +35,7 @@ main:
     lda     $1, a($1)       !gprellow   # $1 = a
 
     # Create family
+    clr      $3
     allocate $3, 0, 0, 0, 0
     setlimit $3, $2; swch
     cred    $3, fun
@@ -43,6 +44,7 @@ main:
 
  /*   
     # Call print
+    clr      $3
     allocate $3, 0, 0, 0, 0
     cred    $3, print
     mov     $3, $31         # Sync

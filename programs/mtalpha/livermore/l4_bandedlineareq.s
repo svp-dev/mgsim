@@ -60,6 +60,7 @@ main:
     lda     $4,    M($31)
     lda     $5, 1001($31)
     
+    clr      $3
     allocate $3, 0, 0, 0, 0
     setstart $3, 6
     setlimit $3, $5
@@ -81,6 +82,7 @@ main:
     .ent outer
     .registers 3 0 5 0 0 3
 outer:
+    clr      $l3
     allocate $l3, 0, 0, 0, 0
     mov      $g0, $l1       # $l1 = X
     mov      $g1, $l2       # $l2 = Y

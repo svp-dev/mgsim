@@ -141,22 +141,6 @@ Pipeline::PipeAction Pipeline::ExecuteStage::SetFamilyProperty(LFID fid, FamilyP
             case FAMPROP_LIMIT: family.limit         = (SInteger)value; break;
             case FAMPROP_STEP:  family.step          = (SInteger)value; break;
     		case FAMPROP_BLOCK: family.virtBlockSize = (TSize)value; break;
-    		case FAMPROP_PLACE:
-    		{
-    		    // Unpack the place value: <Capability:N, PID:P, EX:1>
-    		    unsigned int P = (unsigned int)ceil(log2(m_parent.GetProcessor().GetGridSize()));
-    		    
-    		    family.place.exclusive  = (((value >> 0) & 1) != 0);
-    		    family.place.type       = (PlaceID::Type)((value >> 1) & 3);
-    		    family.place.pid        = (GPID)((value >> 3) & ((1ULL << P) - 1));
-    		    family.place.capability = value >> (P + 3);
-    		    
-    		    if (family.place.type == PlaceID::DELEGATE && family.place.pid >= m_parent.GetProcessor().GetGridSize())
-    		    {
-    		        throw SimulationException("Attempting to delegate to a non-existing core");
-    		    }
-    		    break;
-    		}
     	}
     }
 	return PIPE_CONTINUE;

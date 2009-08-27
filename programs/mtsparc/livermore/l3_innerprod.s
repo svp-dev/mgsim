@@ -28,6 +28,7 @@ main:
     fmovs   %f0, %f1
     fmovs   %f0, %f2        ! %f1,%f2 = sum = 0
     
+    clr      %4
     allocate %4, 0, 0, 0, 0
     setlimit %4, %11
     cred    loop, %4

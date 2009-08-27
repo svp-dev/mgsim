@@ -60,6 +60,7 @@ public:
 	struct AllocRequest
 	{
 		TID           parent;               // Thread performing the allocation (for security)
+		PlaceID       place;                // Place that the create should go to
 		RegIndex      reg;                  // Register that will receive the LFID
         RegisterBases bases[NUM_REG_TYPES]; // Bases of parent registers
 	};
@@ -103,7 +104,7 @@ public:
     uint64_t GetMinActiveQueueSize() const { return m_minActiveQueueSize; }
     
     bool   SynchronizeFamily(LFID fid, Family& family, ExitCode code);
-	Result AllocateFamily(TID parent, RegIndex reg, LFID* fid, const RegisterBases bases[]);
+	Result AllocateFamily(TID parent, RegIndex reg, LFID* fid, const RegisterBases bases[], Integer place);
     bool   SanitizeFamily(Family& family, bool hasDependency);
     bool   QueueCreate(LFID fid, MemAddr address, TID parent, RegIndex exitCodeReg);
 	bool   ActivateFamily(LFID fid);
@@ -154,7 +155,7 @@ private:
         RegValue value;     // What to write
     };
 
-	void SetDefaultFamilyEntry(LFID fid, TID parent, const RegisterBases bases[]) const;
+	void SetDefaultFamilyEntry(LFID fid, TID parent, const RegisterBases bases[], const PlaceID& place) const;
 	void InitializeFamily(LFID fid, Family::Type type) const;
 	bool AllocateRegisters(LFID fid);
 	bool WriteExitCode(RegIndex reg, ExitCode code);

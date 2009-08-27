@@ -17,6 +17,7 @@ main:
     ldgp $29, 0($27)
     
     setempty $0
+    clr      $2
     allocate $2, 0, 0, 0, 0
     setlimit $2, 250
     cred $2, foo

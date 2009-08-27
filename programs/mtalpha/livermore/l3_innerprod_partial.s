@@ -34,6 +34,7 @@ main:
     ftoit   $f0, $2                     # $2 = normal_size = floor(N / #procs)
     
     # Family runs from [0 ... #procs - 1]
+    clr      $5
     allocate $5, 0, 0, 0, 0
     getprocs $3
     setlimit $5, $3
@@ -70,10 +71,10 @@ outer:
     cmovge  $l3, $g2, $l2       # $l2 = actual size  (accounting for +1)
     addq    $l1, $l2, $l2       # $l2 = limit
     
+    mov      2, $l3     # place = LOCAL
     allocate $l3, 0, 0, 0, 0
     setstart $l3, $l1
     setlimit $l3, $l2
-    setplace $l3, 2     # Local family
     
     mov     $g0, $l0
     mov     $g1, $l1

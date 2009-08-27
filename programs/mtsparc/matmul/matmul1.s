@@ -14,6 +14,7 @@
     .text
     .globl main
 main:
+    clr      %5
 	allocate %5, 0, 0, 0, 0
 
     set A, %1

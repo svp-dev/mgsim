@@ -11,6 +11,7 @@
     .ent main
     .globl main
 main:
+    clr      $3
     allocate $3, 0, 0, 0, 0
     mov     0, $0
     mov     1, $1

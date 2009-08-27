@@ -12,9 +12,9 @@ main:
     mov 42, %1
     mov  2, %2
     
+    mov     (1 << 3) | (2 << 1), %3
     allocate %3, 0, 0, 0, 0
     setlimit %3, 4
-    setplace %3, (1 << 3) | (2 << 1)
     cred bar, %3
     
     ! Sync

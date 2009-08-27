@@ -18,6 +18,7 @@
     .text
     .globl main
 main:
+    clr      %5
 	allocate %5, 0, 0, 0, 0
 	
 	set A, %1
@@ -47,6 +48,7 @@ main:
 thread1:
 	.registers 4 0 5  0 0 0	    ! GR,SR,LR, GF,SF,LF
 
+    clr      %l4
 	allocate %l4, 0, 0, 0, 0
 	
 	umul    %l0, %g3, %l0       ! %l0 = i*N
@@ -74,6 +76,7 @@ thread1:
     .align 64
 thread2:
 	.registers 4 0 6  0 0 0	    ! GR,SR,LR, GF,SF,LF
+	clr      %l4
     allocate %l4, 0, 0, 0, 0
 
     sll     %l0,   2, %l1

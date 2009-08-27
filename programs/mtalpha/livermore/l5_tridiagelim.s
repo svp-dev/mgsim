@@ -35,6 +35,7 @@ main:
     
     ldt     $f0, 0($0)                  # $f0 = X[0]
     
+    clr      $4
     allocate $4, 0, 0, 0, 0
     setstart $4, 1
     setlimit $4, $10

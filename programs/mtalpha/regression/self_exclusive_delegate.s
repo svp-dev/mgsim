@@ -8,9 +8,9 @@
     .globl main
     .ent main
 main:
+    mov      5, $2  # Delegate to core #0, exclusive
     allocate $2, 0, 0, 0, 0
-    setplace $2, 5  # Delegate to core #0, exclusive
-    cred $2, foo
+    cred     $2, foo
     
     # Sync
     mov $2, $31

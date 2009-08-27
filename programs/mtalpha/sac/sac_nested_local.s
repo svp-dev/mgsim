@@ -35,6 +35,7 @@ main:
     lda     $1, a($1)       !gprellow   # $1 = a
 
     # Create family
+    clr      $2
     allocate $2, 0, 0, 0, 0
     setlimit $2, $10; swch
     setblock $2, 0
@@ -44,6 +45,7 @@ main:
 
  /*   
     # Call print
+    clr      $2
     allocate $2, 0, 0, 0, 0
     cred    $2, print
     mov     $2, $31         # Sync
@@ -66,9 +68,9 @@ with_0_set_0:
     mov     $g0, $l1
     mov     $g1, $l2
     ldl     $l3, 16($g0)
+    mov      2, $l4             # Local
     allocate $l4, 0, 0, 0, 0
     setlimit $l4, $l3; swch
-    setplace $l4, 2             # Local
     cred    $l4, fun
     mov     $l4, $31            # Sync
     end

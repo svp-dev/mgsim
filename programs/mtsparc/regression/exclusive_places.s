@@ -10,9 +10,9 @@
 main:
     mov 0, %1
     
+    mov      2, %2      ! Local
     allocate %2, 0, 0, 0, 0
     setlimit %2, 64
-    setplace %2, 2      ! Local
     cred foo, %2
     
     ! Sync
@@ -31,8 +31,8 @@ main:
     .align 64
 foo:
     .registers 0 1 3 0 0 0
+    mov     (1 << 3) | (2 << 1) | 1, %l1   ! Delegated, exclusive
     allocate %l1, 0, 0, 0, 0
-    setplace %l1, (1 << 3) | (2 << 1) | 1   ! Delegated, exclusive
     swch
     cred     bar, %l1
     mov      %l1, %0; swch
