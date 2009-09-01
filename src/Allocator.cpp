@@ -576,10 +576,6 @@ bool Allocator::AllocateThread(LFID fid, TID tid, bool isNewlyAllocated)
     }
 
     DebugSimWrite("Allocated thread for F%u at T%u", (unsigned)fid, (unsigned)tid);
-	if (family->dependencies.allocationDone)
-	{
-	    DebugSimWrite("Set first thread in block for F%u to T%u (index %llu)", (unsigned)fid, (unsigned)tid, (unsigned long long)thread->index);
-	}
     return true;
 }
 
@@ -687,22 +683,19 @@ bool Allocator::SynchronizeFamily(LFID fid, Family& family, ExitCode code)
     {
 		indices[i] = family.regs[i].base;
 	}
-	m_raunit.Free(indices);
-
+	
+    bool exclusive = (family.place.exclusive && family.place.type != PlaceID::DELEGATE);
+	m_raunit.Free(indices, exclusive ? CONTEXT_EXCLUSIVE : CONTEXT_NORMAL);
+    UpdateContextAvailability();
+    
     // Release member threads, if any
     if (family.members.head != INVALID_TID)
     {
-        m_threadTable.PushEmpty(family.members);
+        assert(family.place.type != PlaceID::DELEGATE);
+        m_threadTable.PushEmpty(family.members, family.place.exclusive ? CONTEXT_EXCLUSIVE : CONTEXT_NORMAL);
+        UpdateContextAvailability();
     }
     
-    if (m_exclusive == fid)
-    {
-        // The exclusively executing family has terminated, reset
-        // the variable to allow a next family from the exclusive queue
-        // to start.
-        COMMIT{ m_exclusive = INVALID_LFID; }
-    }
-
     //COMMIT{ family.killed = true; }
     if (family.parent.gpid != INVALID_GPID) {
         // Killed a delegated family
@@ -815,7 +808,12 @@ bool Allocator::DecreaseFamilyDependency(LFID fid, Family& family, FamilyDepende
             deps->numPendingReads     == 0 && deps->nextTerminated)
         {
             COMMIT{ family.next = INVALID_LFID; }
-			m_familyTable.FreeFamily(fid);
+            
+            // Free the family table entry
+            bool exclusive = (family.place.exclusive && family.place.type != PlaceID::DELEGATE);
+			m_familyTable.FreeFamily(fid, exclusive ? CONTEXT_EXCLUSIVE : CONTEXT_NORMAL);
+			UpdateContextAvailability();
+			
             DebugSimWrite("Cleaned up F%u", (unsigned)fid);
         }
         break;
@@ -945,6 +943,25 @@ void Allocator::SetDefaultFamilyEntry(LFID fid, TID parent, const RegisterBases 
 	}
 }
 
+// Called whenever a context element is used.
+// Checks if a context is still available and updates the global signal accordingly.
+void Allocator::UpdateContextAvailability()
+{
+    if (m_raunit     .GetNumFreeContexts() > 1 &&
+        m_threadTable.GetNumFreeThreads()  > 1 &&
+        m_familyTable.GetNumFreeFamilies() > 1)
+    {
+        // We are not full
+        // Note that we check against 1 to keep a local context for sequentialization
+        m_place.m_full_context.Clear(m_lpid);
+    }
+    else
+    {
+        // We are full
+        m_place.m_full_context.Set(m_lpid);
+    }
+}
+
 // Allocates a family entry. Returns the LFID (and SUCCESS) if one is available,
 // DELAYED if none is available and the request is written to the buffer. FAILED is
 // returned if the buffer was full.
@@ -959,15 +976,32 @@ Result Allocator::AllocateFamily(TID parent, RegIndex reg, LFID* fid, const Regi
     place.pid        = (GPID)((place_id >> 3) & ((1ULL << P) - 1));
     place.capability = place_id >> (P + 3);
 
-    if (place.type == PlaceID::DELEGATE && place.pid >= m_parent.GetGridSize())
+    if (place.type == PlaceID::DELEGATE)
     {
-        throw SimulationException("Attempting to delegate to a non-existing core");
+        if (place.pid >= m_parent.GetGridSize())
+        {
+            throw SimulationException("Attempting to delegate to a non-existing core");
+        }
+        
+        if (place.pid == m_parent.GetPID())
+        {
+            // We're delegating to our own core, make it a group create instead
+            place.type = PlaceID::GROUP;
+        }
+    }
+    
+    if (!p_allocation.Invoke())
+    {
+        DeadlockWrite("Unable to acquire service for family allocation");
+        return FAILED;
     }
 
-	*fid = m_familyTable.AllocateFamily();
+    bool exclusive = (place.exclusive && place.type != PlaceID::DELEGATE);
+	*fid = m_familyTable.AllocateFamily(exclusive ? CONTEXT_EXCLUSIVE : CONTEXT_NORMAL);
 	if (*fid != INVALID_LFID)
 	{
 		// A family entry was free
+		UpdateContextAvailability();
 		SetDefaultFamilyEntry(*fid, parent, bases, place);
 		return SUCCESS;
 	}
@@ -978,7 +1012,9 @@ Result Allocator::AllocateFamily(TID parent, RegIndex reg, LFID* fid, const Regi
 	request.place  = place;
 	request.reg    = reg;
 	std::copy(bases, bases + NUM_REG_TYPES, request.bases);
-	if (!m_allocations.Push(request))
+	
+	Buffer<AllocRequest>& allocations = exclusive ? m_allocationsEx : m_allocations;
+	if (!allocations.Push(request))
 	{
 		return FAILED;
 	}
@@ -986,16 +1022,52 @@ Result Allocator::AllocateFamily(TID parent, RegIndex reg, LFID* fid, const Regi
 	return DELAYED;
 }
 
-bool Allocator::OnDelegatedCreate(const DelegateMessage& msg)
+bool Allocator::OnDelegationFailed(LFID fid)
+{
+    assert(fid != INVALID_LFID);
+    Family& family = m_familyTable[fid];
+    assert(family.type == Family::DELEGATED);
+    assert(!family.place.exclusive);
+    
+    // Reinitialize the family to a local family
+    COMMIT{ family.place.type = PlaceID::LOCAL; }
+    
+    // And push it back on the create queue
+    if (!m_creates.Push(fid))
+    {
+        DeadlockWrite("Unable to queue reinitialized create to create queue");
+        return false;
+    }
+
+    return true;
+}
+
+Result Allocator::OnDelegatedCreate(const DelegateMessage& msg)
 {
     assert(msg.parent.pid != INVALID_GPID);
     assert(msg.parent.fid != INVALID_LFID);
     
-	LFID fid = m_familyTable.AllocateFamily();
+    if (!p_allocation.Invoke())
+    {
+        DeadlockWrite("Unable to acquire service for family allocation");
+        return FAILED;
+    }
+    
+	if (!msg.exclusive)// && m_familyTable.GetNumFreeFamilies() < 2)
+	{
+	    // We cannot get an entry, or use the last entry on this core.
+	    // Tell the network to send back a denial so the parent core can
+	    // restart the family locally.
+	    return DELAYED;
+    }
+    
+	LFID fid = m_familyTable.AllocateFamily(msg.exclusive ? CONTEXT_EXCLUSIVE : CONTEXT_NORMAL);
 	if (fid == INVALID_LFID)
 	{
-	    return false;
+	    DeadlockWrite("Unable to acquire family table entry for delegated create");
+	    return FAILED;
 	}
+	UpdateContextAvailability();
 	
 	// Copy the data
     COMMIT
@@ -1033,26 +1105,43 @@ bool Allocator::OnDelegatedCreate(const DelegateMessage& msg)
     	}
     }
         
-    Buffer<LFID>& queue = (msg.exclusive) ? m_createsEx : m_creates;
-    if (!queue.Push(fid))
+    if (!m_creates.Push(fid))
     {
-        return false;
+        DeadlockWrite("Unable to queue delegated create to create queue");
+        return FAILED;
     }
     
     DebugSimWrite("Queued delegated create by F%u@CPU%u at 0x%llx",
         (unsigned)msg.parent.fid, (unsigned)msg.parent.pid, (unsigned long long)msg.address);
         
-    return true;
+    return SUCCESS;
+}
+
+void Allocator::ReserveContext()
+{
+    // This should not fail
+    m_familyTable.ReserveFamily();
+    m_threadTable.ReserveThread();
+    m_raunit.ReserveContext();
+    
+    UpdateContextAvailability();
 }
 
 LFID Allocator::OnGroupCreate(const CreateMessage& msg, LFID link_next)
 {
-	LFID fid = m_familyTable.AllocateFamily();
+    if (!p_allocation.Invoke())
+    {
+        DeadlockWrite("Unable to acquire service for family allocation");
+        return INVALID_LFID;
+    }
+    
+	LFID fid = m_familyTable.AllocateFamily(CONTEXT_RESERVED);
 	if (fid == INVALID_LFID)
 	{
         // Couldn't allocate an entry
         return INVALID_LFID;
     }
+    UpdateContextAvailability();
 
     DebugSimWrite("Allocated family F%u for group create", (unsigned)fid);
 
@@ -1084,7 +1173,7 @@ LFID Allocator::OnGroupCreate(const CreateMessage& msg, LFID link_next)
 	InitializeFamily(fid, Family::GROUP);
 
 	// Allocate the registers
-	if (!AllocateRegisters(fid))
+	if (!AllocateRegisters(fid, CONTEXT_RESERVED))
 	{
 		return INVALID_LFID;
 	}
@@ -1109,6 +1198,15 @@ bool Allocator::ActivateFamily(LFID fid)
 
 void Allocator::InitializeFamily(LFID fid, Family::Type type) const
 {
+    /*
+     IMPORTANT:
+    
+     This function may be called twice for a single family when a group or delegated
+     family is re-initialized as a local family when it turns out there aren't enough
+     contexts available.
+    
+     So make sure this function is idempotent!
+     */
 	COMMIT
 	{
 		Family& family    = m_familyTable[fid];
@@ -1198,7 +1296,7 @@ void Allocator::InitializeFamily(LFID fid, Family::Type type) const
     }
 }
 
-bool Allocator::AllocateRegisters(LFID fid)
+bool Allocator::AllocateRegisters(LFID fid, ContextType type)
 {
     // Try to allocate registers
 	Family& family = m_familyTable[fid];
@@ -1242,10 +1340,11 @@ bool Allocator::AllocateRegisters(LFID fid)
 		}
 
 		RegIndex indices[NUM_REG_TYPES];
-		if (m_raunit.Alloc(sizes, fid, indices))
+		if (m_raunit.Alloc(sizes, fid, type, indices))
 		{
 			// Success, we have registers for all types
 			COMMIT{ family.physBlockSize = physBlockSize; }
+			UpdateContextAvailability();
 			
 			for (RegType i = 0; i < NUM_REG_TYPES; i++)
 			{
@@ -1382,12 +1481,20 @@ Result Allocator::OnCycle(unsigned int stateIndex)
             if (family.infinite || (family.nThreads > 0 && family.index < family.nThreads))
             {
                 // We have threads to run
-                TID tid = m_threadTable.PopEmpty();
+                
+                // We only allocate from the exclusive pool once:
+                // for the first thread of an exclusive family.
+                bool exclusive = family.place.exclusive && family.index == 0;
+                
+                TID tid = m_threadTable.PopEmpty( exclusive ? CONTEXT_EXCLUSIVE : CONTEXT_NORMAL );
                 if (tid == INVALID_TID)
                 {
                     DeadlockWrite("Unable to allocate a free thread entry for F%u", (unsigned)fid);
                     return FAILED;
                 }
+                
+                // Update after allocating a thread
+                UpdateContextAvailability();
             
                 if (!AllocateThread(fid, tid))
                 {
@@ -1415,10 +1522,28 @@ Result Allocator::OnCycle(unsigned int stateIndex)
         break;
 
 	case 1:
-        assert(!m_allocations.Empty());
-		{
-			const AllocRequest& req = m_allocations.Front();
-			LFID fid = m_familyTable.AllocateFamily();
+        {
+            // Pick an allocation queue to allocate from
+			Buffer<AllocRequest>* buffer = NULL;
+            if (!m_familyTable.IsExclusiveUsed() && !m_allocationsEx.Empty())
+            {
+                buffer = &m_allocationsEx;
+            }
+            else if (!m_allocations.Empty())
+            {
+                buffer = &m_allocations;
+            }
+
+            assert(buffer != NULL);
+			const AllocRequest& req = buffer->Front();
+			
+			if (!p_allocation.Invoke())
+			{
+                DeadlockWrite("Unable to acquire service for family allocation");
+			    return FAILED;
+			}
+			
+			LFID fid = m_familyTable.AllocateFamily(buffer == &m_allocationsEx ? CONTEXT_EXCLUSIVE : CONTEXT_NORMAL);
 			if (fid == INVALID_LFID)
 			{
 			    DeadlockWrite("Unable to allocate a free family entry (target R%04x)", (unsigned)req.reg);
@@ -1426,6 +1551,7 @@ Result Allocator::OnCycle(unsigned int stateIndex)
 			}
 			
 			// A family entry was free
+			UpdateContextAvailability();
 			SetDefaultFamilyEntry(fid, req.parent, req.bases, req.place);
 
             // Writeback the FID
@@ -1438,7 +1564,7 @@ Result Allocator::OnCycle(unsigned int stateIndex)
                 DeadlockWrite("Unable to queue write to register R%04x", (unsigned)req.reg);
                 return FAILED;
             }
-			m_allocations.Pop();
+            buffer->Pop();
 			return SUCCESS;
 		}
 		break;
@@ -1447,71 +1573,55 @@ Result Allocator::OnCycle(unsigned int stateIndex)
         if (m_createState == CREATE_INITIAL)
         {
             assert(m_createFID.Empty());
+            assert(!m_creates.Empty());
             
-            // Pick a create queue to create from
-            LFID fid = INVALID_LFID;
-            const char* ex_type = NULL;
-            if (m_exclusive == INVALID_LFID && !m_createsEx.Empty())
-            {
-                fid = m_createsEx.Front();
-                ex_type = "exclusive";
-                m_createsEx.Pop();
-                COMMIT{ m_exclusive = fid; }
-            }
-            else if (!m_creates.Empty())
-            {
-                fid = m_creates.Front();
-                ex_type = "non-exclusive";
-                m_creates.Pop();
-            }
-            
-            if (fid != INVALID_LFID)
-            {
-    			Family& family = m_familyTable[fid];
+            LFID fid = m_creates.Front();
+            m_creates.Pop();
+
+  			Family& family = m_familyTable[fid];
     			
-                // Determine create type
-                const char* create_type = "???";
-                if (family.place.type == PlaceID::LOCAL) {
-                    create_type = "local";
-                } else if (family.place.type == PlaceID::DELEGATE) {
-                    create_type = "delegated";
-                } else {
-                    create_type = "default";
-                }
+            // Determine create type
+            const char* create_type = "???";
+            if (family.place.type == PlaceID::LOCAL) {
+                create_type = "local";
+            } else if (family.place.type == PlaceID::DELEGATE) {
+                create_type = "delegated";
+            } else {
+                create_type = "default";
+            }
                 
-                // Determine exclusiveness
-                DebugSimWrite("Processing %s %s create for F%u", ex_type, create_type, (unsigned)fid);
+            // Determine exclusiveness
+            DebugSimWrite("Processing %s create for F%u", create_type, (unsigned)fid);
 
-				// Load the register counts from the family's first cache line
-				Instruction counts;
-				CID         cid;
-				Result      result;
-				if ((result = m_icache.Fetch(family.pc - sizeof(Instruction), sizeof(counts), cid)) == FAILED)
-				{
-				    DeadlockWrite("Unable to fetch the I-Cache line for 0x%016llx for F%u", (unsigned long long)family.pc, (unsigned)fid);
-					return FAILED;
-				}
-
-				if (result == SUCCESS)
-				{
-					// Cache hit, proceed to loaded stage
-                	COMMIT{
-		                m_createState = CREATE_LINE_LOADED;
-		                m_createLine  = cid;
-	                }
-				}
-				else
-				{
-					// Cache miss, line is being fetched.
-					// The I-Cache will notify us with onCachelineLoaded().
-					COMMIT{
-					    m_createState = CREATE_LOADING_LINE;
-					}
-				}
-				
-				m_createFID.Write(fid);
-				COMMIT{ family.state = FST_CREATING; }
+    		// Load the register counts from the family's first cache line
+			Instruction counts;
+			CID         cid;
+			Result      result;
+			if ((result = m_icache.Fetch(family.pc - sizeof(Instruction), sizeof(counts), cid)) == FAILED)
+			{
+			    DeadlockWrite("Unable to fetch the I-Cache line for 0x%016llx for F%u", (unsigned long long)family.pc, (unsigned)fid);
+				return FAILED;
 			}
+
+			if (result == SUCCESS)
+			{
+				// Cache hit, proceed to loaded stage
+               	COMMIT{
+		            m_createState = CREATE_LINE_LOADED;
+		            m_createLine  = cid;
+	            }
+			}
+			else
+			{
+				// Cache miss, line is being fetched.
+				// The I-Cache will notify us with onCachelineLoaded().
+				COMMIT{
+				    m_createState = CREATE_LOADING_LINE;
+				}
+			}
+			
+			m_createFID.Write(fid);
+			COMMIT{ family.state = FST_CREATING; }
 	    }
         else if (m_createState == CREATE_LOADING_LINE)
         {
@@ -1576,6 +1686,8 @@ Result Allocator::OnCycle(unsigned int stateIndex)
                 }
 
                 // Reset the create state; we're done with this create
+                // Note that if the delegate fails remotely, we push this family
+                // back onto the create queue, but change it to a local family.
     	        COMMIT{ m_createState = CREATE_INITIAL; }
     	        m_createFID.Clear();
             }
@@ -1610,16 +1722,30 @@ Result Allocator::OnCycle(unsigned int stateIndex)
         }
 		else if (m_createState == CREATE_BROADCASTING_CREATE)
 		{
+		    // We have the token
 		    assert(!m_createFID.Empty());
 		    LFID fid = m_createFID.Read();
 		    
-			// We have the token; broadcast the create
-			if (!m_network.SendGroupCreate(fid))
-			{
-			    DeadlockWrite("Unable to send the create for F%u", (unsigned)fid);
-				return FAILED;
-			}
-
+		    // See if we can broadcast the create
+		    if (m_place.m_full_context.IsSet())
+		    {
+		        // We cannot do a group create; re-initialize family as a local create
+		        DebugSimWrite("Reinitializing F%u as a local family due to lack of contexts in group", (unsigned)fid);
+		        InitializeFamily(fid, Family::LOCAL);
+		    }
+		    else
+		    {
+		        // There's a context, broadcast the create
+			    if (!m_network.SendGroupCreate(fid))
+			    {
+    			    DeadlockWrite("Unable to send the create for F%u", (unsigned)fid);
+				    return FAILED;
+			    }
+            }
+            
+            // We're done with the token
+            m_network.ReleaseToken();
+            
 			// Advance to next stage
 			COMMIT{ m_createState = CREATE_ALLOCATING_REGISTERS; }
 		}
@@ -1629,7 +1755,8 @@ Result Allocator::OnCycle(unsigned int stateIndex)
 		    LFID fid = m_createFID.Read();
 		    
 			// Allocate the registers
-			if (!AllocateRegisters(fid))
+			const Family& family = m_familyTable[fid];
+			if (!AllocateRegisters(fid, family.place.exclusive ? CONTEXT_EXCLUSIVE : CONTEXT_NORMAL))
 			{
 			    DeadlockWrite("Unable to allocate registers for F%u", (unsigned)fid);
 				return FAILED;
@@ -1823,10 +1950,7 @@ bool Allocator::QueueCreate(LFID fid, MemAddr address, TID parent, RegIndex exit
     Family& family = GetWritableFamilyEntry(fid, parent);
 
 	// Push the create
-    // Note that delegated creates never go on the exclusive queue where they're created. They go on the exclusive
-    // create queue on the remote core.
-    Buffer<LFID>& queue = (family.place.exclusive && family.place.type != PlaceID::DELEGATE) ? m_createsEx : m_creates;
-	if (!queue.Push(fid))
+	if (!m_creates.Push(fid))
 	{
 	    return false;
     }
@@ -1848,37 +1972,47 @@ bool Allocator::QueueCreate(LFID fid, MemAddr address, TID parent, RegIndex exit
 
 Allocator::Allocator(Processor& parent, const string& name,
     FamilyTable& familyTable, ThreadTable& threadTable, RegisterFile& registerFile, RAUnit& raunit, ICache& icache, Network& network, Pipeline& pipeline,
-    LPID lpid, const Config& config)
+    PlaceInfo& place, LPID lpid, const Config& config)
 :
     IComponent(&parent, parent.GetKernel(), name, "thread-allocate|family-allocate|family-create|thread-activation|reg-write-queue"),
     m_parent(parent), m_familyTable(familyTable), m_threadTable(threadTable), m_registerFile(registerFile), m_raunit(raunit), m_icache(icache), m_network(network), m_pipeline(pipeline),
-    m_lpid(lpid), m_activeQueueSize(0), m_totalActiveQueueSize(0), m_maxActiveQueueSize(0), m_minActiveQueueSize(UINT64_MAX),
-    m_exclusive     (INVALID_LFID),
-    m_alloc         (parent.GetKernel(), familyTable, *this, 0),
-    m_creates       (parent.GetKernel(), *this, 2, config.getInteger<BufferSize>("LocalCreatesQueueSize",          INFINITE)),
-    m_createsEx     (parent.GetKernel(), *this, 2, config.getInteger<BufferSize>("LocalExclusiveCreatesQueueSize", INFINITE)),
-    m_registerWrites(parent.GetKernel(), *this, 4, config.getInteger<BufferSize>("RegisterWritesQueueSize",        INFINITE), 2),
-    m_cleanup       (parent.GetKernel(), *this, 0, config.getInteger<BufferSize>("ThreadCleanupQueueSize",         INFINITE), 4),
-	m_allocations   (parent.GetKernel(), *this, 1, config.getInteger<BufferSize>("FamilyAllocationQueueSize",      INFINITE)),
-	m_createFID     (parent.GetKernel(), *this, 2),
+    m_place(place), m_lpid(lpid), m_activeQueueSize(0), m_totalActiveQueueSize(0), m_maxActiveQueueSize(0), m_minActiveQueueSize(UINT64_MAX),
+    m_alloc         (parent.GetKernel(), familyTable),
+    m_creates       (parent.GetKernel(), config.getInteger<BufferSize>("LocalCreatesQueueSize",          INFINITE), 3),
+    m_registerWrites(parent.GetKernel(), config.getInteger<BufferSize>("RegisterWritesQueueSize",        INFINITE), 2),
+    m_cleanup       (parent.GetKernel(), config.getInteger<BufferSize>("ThreadCleanupQueueSize",         INFINITE), 4),
+	m_allocations   (parent.GetKernel(), config.getInteger<BufferSize>("FamilyAllocationQueueSize",      INFINITE)),
+	m_allocationsEx (parent.GetKernel(), config.getInteger<BufferSize>("FamilyAllocationExclusiveQueueSize", INFINITE)),
+	m_createFID     (parent.GetKernel()),
 	m_createState   (CREATE_INITIAL),
-	m_readyThreads  (parent.GetKernel(), threadTable, *this,    3),
+	m_readyThreads  (parent.GetKernel(), threadTable),
+	p_allocation    (*this, "p_allocation"),
 	p_alloc         (*this, "p_alloc"),
 	p_readyThreads  (*this, "p_readyThreads"),
 	p_activeThreads (*this, "p_activeThreads"),
-	m_activeThreads (parent.GetKernel(), threadTable, pipeline, 0) // Fetch Stage is sensitive on this list
+	m_activeThreads (parent.GetKernel(), threadTable)
 {
+    m_alloc         .Sensitive(*this, 0);
+    m_creates       .Sensitive(*this, 2);
+    m_registerWrites.Sensitive(*this, 4);
+    m_cleanup       .Sensitive(*this, 0);
+    m_allocations   .Sensitive(*this, 1);
+    m_allocationsEx .Sensitive(*this, 1);
+    m_createFID     .Sensitive(*this, 2);
+    m_readyThreads  .Sensitive(*this, 3);
+    m_activeThreads .Sensitive(pipeline, 0); // Fetch Stage is sensitive on this list
 }
 
 void Allocator::AllocateInitialFamily(MemAddr pc, bool legacy)
 {
     static const unsigned char InitialRegisters[NUM_REG_TYPES] = {31, 31};
 
-	LFID fid = m_familyTable.AllocateFamily();
+	LFID fid = m_familyTable.AllocateFamily(CONTEXT_NORMAL);
 	if (fid == INVALID_LFID)
 	{
 		throw SimulationException("Unable to create initial family");
 	}
+	UpdateContextAvailability();
 
 	Family& family = m_familyTable[fid];
 	family.start         = 0;
@@ -1913,7 +2047,7 @@ void Allocator::AllocateInitialFamily(MemAddr pc, bool legacy)
 
 	InitializeFamily(fid, Family::LOCAL);
 
-    if (!AllocateRegisters(fid))
+    if (!AllocateRegisters(fid, CONTEXT_NORMAL))
 	{
 		throw SimulationException("Unable to create initial family");
 	}
@@ -1957,17 +2091,50 @@ void Allocator::Cmd_Help(ostream& out, const vector<string>& /* arguments */) co
 void Allocator::Cmd_Read(ostream& out, const vector<string>& /*arguments*/) const
 {
     {
-        out << "Family allocation queue: " << endl;
-        if (m_allocations.Empty())
+        const struct {
+            const char*                 type;
+            const Buffer<AllocRequest>& queue;
+        } Queues[2] = {
+            {"Non-exclusive", m_allocations},
+            {"Exclusive",     m_allocationsEx},
+        };
+        
+        for (int i = 0; i < 2; ++i)
+        {
+            const Buffer<AllocRequest>& allocations = Queues[i].queue;
+            out << Queues[i].type << " family allocation queue: " << endl;
+            if (allocations.Empty())
+            {
+                out << "Empty" << endl;
+            }
+            else
+            {
+                for (Buffer<AllocRequest>::const_iterator p = allocations.begin(); p != allocations.end(); )
+                {
+                    out << "T" << p->parent << ":R" << hex << uppercase << setw(4) << setfill('0') << p->reg << nouppercase << dec;
+                    if (++p != allocations.end()) {
+                        out << ", ";
+                    }
+                }
+                out << endl;
+            }
+            out << endl;
+        }
+    }
+
+    {
+        out << "Thread allocation queue" << endl;
+        if (m_alloc.Empty())
         {
             out << "Empty" << endl;
         }
         else
         {
-            for (Buffer<AllocRequest>::const_iterator p = m_allocations.begin(); p != m_allocations.end(); )
+            out << dec;
+            for (FamilyList::const_iterator f = m_alloc.begin(); f != m_alloc.end();)
             {
-                out << "T" << p->parent << ":R" << hex << uppercase << setw(4) << setfill('0') << p->reg << nouppercase << dec;
-                if (++p != m_allocations.end()) {
+                out << "F" << *f;
+                if (++f != m_alloc.end()) {
                     out << ", ";
                 }
             }
@@ -1977,73 +2144,34 @@ void Allocator::Cmd_Read(ostream& out, const vector<string>& /*arguments*/) cons
     }
 
     {
-        out << "Thread allocation queue: " << endl;
-        if (m_alloc.Front() == INVALID_LFID)
+        out << "Create queue: " << dec << endl;
+        if (m_creates.Empty())
         {
-            out << "Empty";
+            out << "Empty" << endl;
         }
-
-        out << dec;
-        for (FamilyList::const_iterator f = m_alloc.begin(); f != m_alloc.end();)
+        else
         {
-            out << "F" << *f;
-            if (++f != m_alloc.end()) {
-                out << ", ";
-            }
-        }
-        out << endl << endl;
-    }
-    {
-        out << "Current exclusive family: ";
-        if (m_exclusive == INVALID_LFID) {
-            out << "None";
-        } else {
-            out << "F" << m_exclusive;
-        }
-        out << endl << endl;
-    }
-
-    {
-        const struct {
-            const char*         name;
-            const Buffer<LFID>& queue;
-        } queues[2] = {
-            {"Non-exclusive", m_creates   },
-            {"Exclusive",     m_createsEx }
-        };
-
-        for (size_t i = 0; i < 2; i++)
-        {
-            out << queues[i].name << " create queue: " << dec << endl;
-            const Buffer<LFID>& creates = queues[i].queue;
-            if (creates.Empty())
+            for (Buffer<LFID>::const_iterator p = m_creates.begin(); p != m_creates.end(); )
             {
-                out << "Empty" << endl;
+                out << "F" << *p;
+                if (++p != m_creates.end()) {
+                    out << ", ";
+                }
             }
-            else
+            out << endl;
+            out << "Create state for F" << *m_creates.begin() << ": ";
+            switch (m_createState)
             {
-                for (Buffer<LFID>::const_iterator p = creates.begin(); p != creates.end(); )
-                {
-                    out << "F" << *p;
-                    if (++p != creates.end()) {
-                        out << ", ";
-                    }
-                }
-                out << endl;
-                out << "Create state for F" << *creates.begin() << ": ";
-                switch (m_createState)
-                {
-                    case CREATE_INITIAL:              out << "Initial"; break;
-                    case CREATE_LOADING_LINE:         out << "Loading cache-line"; break;
-                    case CREATE_LINE_LOADED:          out << "Cache-line loaded"; break;
-                    case CREATE_ACQUIRING_TOKEN:      out << "Acquiring token"; break;
-                    case CREATE_BROADCASTING_CREATE:  out << "Broadcasting create"; break;
-                    case CREATE_ALLOCATING_REGISTERS: out << "Allocating registers"; break;
-                }
-                out << endl;
+                case CREATE_INITIAL:              out << "Initial"; break;
+                case CREATE_LOADING_LINE:         out << "Loading cache-line"; break;
+                case CREATE_LINE_LOADED:          out << "Cache-line loaded"; break;
+                case CREATE_ACQUIRING_TOKEN:      out << "Acquiring token"; break;
+                case CREATE_BROADCASTING_CREATE:  out << "Broadcasting create"; break;
+                case CREATE_ALLOCATING_REGISTERS: out << "Allocating registers"; break;
             }
             out << endl;
         }
+        out << endl;
     }
 
     {

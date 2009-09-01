@@ -18,14 +18,17 @@ static bool IsPowerOfTwo(const T& x)
 ICache::ICache(Processor& parent, const std::string& name, Allocator& alloc, const Config& config)
 :   IComponent(&parent, parent.GetKernel(), name, "outgoing|incoming"),
     m_parent(parent), m_allocator(alloc),
-    m_outgoing(parent.GetKernel(), *this, 0, config.getInteger<BufferSize>("ICacheOutgoingBufferSize", 1)),
-    m_incoming(parent.GetKernel(), *this, 1, config.getInteger<BufferSize>("ICacheIncomingBufferSize", 1)),
+    m_outgoing(parent.GetKernel(), config.getInteger<BufferSize>("ICacheOutgoingBufferSize", 1)),
+    m_incoming(parent.GetKernel(), config.getInteger<BufferSize>("ICacheIncomingBufferSize", 1)),
     m_numHits(0),
     m_numMisses(0),
     m_lineSize(config.getInteger<size_t>("CacheLineSize", 64)),
     m_assoc   (config.getInteger<size_t>("ICacheAssociativity", 4)),
     p_service(*this, "p_service")
 {
+    m_outgoing.Sensitive(*this, 0);
+    m_incoming.Sensitive(*this, 1);
+
     // These things must be powers of two
     if (!IsPowerOfTwo(m_assoc))
     {

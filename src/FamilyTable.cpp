@@ -12,8 +12,7 @@ namespace Simulator
 FamilyTable::FamilyTable(Processor& parent, const Config& config)
 :   Object(&parent, &parent.GetKernel(), "families"),
     m_parent(parent),
-    m_families(config.getInteger<size_t>("NumFamilies", 8)),
-    m_numFamiliesUsed(0)
+    m_families(config.getInteger<size_t>("NumFamilies", 8))
 {
     for (size_t i = 0; i < m_families.size(); ++i)
     {
@@ -24,37 +23,89 @@ FamilyTable::FamilyTable(Processor& parent, const Config& config)
 		m_families[i].next        = INVALID_LFID;
         m_families[i].state       = FST_EMPTY;
     }
+    
+    m_free[CONTEXT_EXCLUSIVE] = 1;
+    m_free[CONTEXT_NORMAL]    = m_families.size() - 1;
+    m_free[CONTEXT_RESERVED]  = 0;
 }
 
-LFID FamilyTable::AllocateFamily()
+bool FamilyTable::IsEmpty() const
 {
-    // Do an associative lookup
-    for (size_t i = 0; i < m_families.size(); ++i)
+    FSize free = 0;
+    for (int i = 0; i < NUM_CONTEXT_TYPES; ++i)
     {
-        if (m_families[i].state == FST_EMPTY)
+        free += m_free[i];
+    }
+    return free == m_families.size();
+}
+
+LFID FamilyTable::AllocateFamily(ContextType context)
+{
+    // Check that we're in a sane state
+    assert(m_free[CONTEXT_NORMAL] + m_free[CONTEXT_RESERVED] + m_free[CONTEXT_EXCLUSIVE] <= m_families.size());
+    
+    LFID fid = INVALID_LFID;
+    if (m_free[context] > 0)
+    {
+        // There is at least one free entry for this context
+        // Do an associative lookup; do not consider the exclusive family entry
+        for (size_t i = 0; i < m_families.size() - 1; ++i)
         {
-            assert(m_numFamiliesUsed < m_families.size());
+            if (m_families[i].state == FST_EMPTY)
+            {
+                fid = i;
+                break;
+            }
+        }
+
+        if (fid != INVALID_LFID)
+        {
+            // We've allocated a family entry
+            assert(m_families[fid].state == FST_EMPTY);
             COMMIT
             {
-        		Family& family = m_families[i];
+                Family& family = m_families[fid];
                 family.state = FST_ALLOCATED;
-                m_numFamiliesUsed++;
+                m_free[context]--;
             }
-            return i;
         }
     }
-    return INVALID_LFID;
+    return fid;
 }
 
-void FamilyTable::FreeFamily(LFID fid)
+// Reserves an entry for a group create that will come later
+void FamilyTable::ReserveFamily()
 {
+    // Check that we're in a sane state
+    assert(m_free[CONTEXT_NORMAL] + m_free[CONTEXT_RESERVED] + m_free[CONTEXT_EXCLUSIVE] <= m_families.size());
+
+    // Move a free entry from normal to reserved
+    assert(m_free[CONTEXT_NORMAL] > 0);
+    COMMIT{
+        m_free[CONTEXT_NORMAL]--;
+        m_free[CONTEXT_RESERVED]++;
+    }
+}
+
+FSize FamilyTable::GetNumFreeFamilies() const
+{
+    // Check that we're in a sane state
+    assert(m_free[CONTEXT_NORMAL] + m_free[CONTEXT_RESERVED] + m_free[CONTEXT_EXCLUSIVE] <= m_families.size());
+
+    // We do not count reserved or exclusive entries to general free entries
+    return m_free[CONTEXT_NORMAL];
+}
+
+void FamilyTable::FreeFamily(LFID fid, ContextType context)
+{
+    // Check that we're in a sane state
+    assert(m_free[CONTEXT_NORMAL] + m_free[CONTEXT_RESERVED] + m_free[CONTEXT_EXCLUSIVE] < m_families.size());
 	assert(fid != INVALID_LFID);
-    assert(m_numFamiliesUsed > 0);
     
     COMMIT
     {
 		m_families[fid].state = FST_EMPTY;
-        m_numFamiliesUsed--;
+        m_free[context]++;
     }
 }
 

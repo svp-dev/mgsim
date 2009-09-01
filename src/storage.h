@@ -12,10 +12,22 @@ static const    BufferSize INFINITE = (size_t)-1;
 
 class Storage
 {
-    Kernel::StorageInfo* m_handle;
-protected:
-    Kernel& m_kernel;
+    /// The kernel handle of this storage object
+    union ProcessInfo
+    {
+        Kernel::ProcessInfo* m_handle;
+        struct {
+            IComponent* m_component;
+            int         m_state;
+        };
+    };
     
+    Kernel&                  m_kernel;      ///< The kernel that controls us
+    Kernel::StorageInfo*     m_handle;      ///< Our handle for communication with the kernel
+    std::vector<ProcessInfo> m_processes;   ///< The processes that are sensitive on this storage object
+    bool                     m_initialized; ///< Sanity check against registering after intialization
+    
+protected:
     bool IsCommitting() const {
         return m_kernel.GetCyclePhase() == PHASE_COMMIT;
     }
@@ -27,45 +39,21 @@ protected:
     virtual ~Storage() {
     }
     
-public:
-    virtual void Update() = 0;
-    
-    virtual void Initialize(Kernel::StorageInfo* handle)
-    {
-        assert(m_handle == NULL);
-        assert(handle != NULL);
-        m_handle = handle;
-    }
-    
-    Storage(Kernel& kernel) : m_handle(NULL), m_kernel(kernel) {
-        kernel.RegisterStorage(*this);
-    }
-};
-
-class SensitiveStorage : public Storage
-{
-    /// The kernel handle of this storage object
-    union {
-        Kernel::ProcessInfo* m_handle;
-        struct {
-            IComponent* m_component;
-            int         m_state;
-        };
-    };
-    
-protected:
-    void Initialize(Kernel::StorageInfo* handle)
-    {
-        Storage::Initialize(handle);
-        m_handle = m_kernel.GetProcessInfo(m_component, m_state);
-        assert(m_handle != NULL);
-    }
-    
     void Notify();
     void Unnotify();
     
 public:
-    SensitiveStorage(Kernel& kernel, IComponent& component, int state);
+    virtual void Update() = 0;
+    
+    virtual void Initialize(Kernel::StorageInfo* handle);
+
+    void Sensitive(IComponent& component, int state);
+    
+    Storage(Kernel& kernel)
+        : m_kernel(kernel), m_handle(NULL), m_initialized(false)
+    {
+        kernel.RegisterStorage(*this);
+    }
 };
 
 template <
@@ -73,7 +61,7 @@ template <
     typename          L, ///< The lookup table type
     T L::value_type::*N  ///< The next field in the table's element type
 >
-class LinkedList : public SensitiveStorage
+class LinkedList : public Storage
 {
     L&   m_table;     ///< The table to dereference to form the linked list
     bool m_empty;     ///< Whether this list is empty
@@ -163,6 +151,7 @@ public:
     
     /// Returns the front index on the list
     const T& Front() const {
+        assert(!m_empty);
         return m_head;
     }
     
@@ -197,15 +186,15 @@ public:
     }
     
     /// Construct an empty list with a sensitive component
-    LinkedList(Kernel& kernel, L& table, IComponent& component, int state)
-        : SensitiveStorage(kernel, component, state),
+    LinkedList(Kernel& kernel, L& table)
+        : Storage(kernel),
           m_table(table), m_empty(true), m_popped(false), m_pushed(false)
     {
     }
 };
 
 template <typename T>
-class Buffer : public SensitiveStorage
+class Buffer : public Storage
 {
     // Maximum for m_maxPushes
     // In hardware it can be possible to support multiple pushes
@@ -280,8 +269,8 @@ public:
         return false;
     }
 
-    Buffer(Kernel& kernel, IComponent& component, int state, BufferSize maxSize, size_t maxPushes = 1)
-        : SensitiveStorage(kernel, component, state),
+    Buffer(Kernel& kernel, BufferSize maxSize, size_t maxPushes = 1)
+        : Storage(kernel),
           m_maxSize(maxSize), m_maxPushes(maxPushes), m_popped(false), m_pushes(0)
     {
         assert(maxPushes <= MAX_PUSHES);
@@ -289,7 +278,7 @@ public:
 };
 
 template <typename T>
-class Register : public SensitiveStorage
+class Register : public Storage
 {
     bool m_empty;
     T    m_cur;
@@ -347,8 +336,8 @@ public:
         }
     }
     
-    Register(Kernel& kernel, IComponent& component, int state)
-        : SensitiveStorage(kernel, component, state),
+    Register(Kernel& kernel)
+        : Storage(kernel),
           m_empty(true), m_cleared(false), m_assigned(false)
     {
     }
@@ -360,49 +349,9 @@ class Flag : public Storage
     bool m_updated;
     bool m_new;
 
-    void Update() {
-        m_set     = m_new;
-        m_updated = false;
-    }
-    
-public:
-    bool IsSet() const {
-        return m_set;
-    }
-
-    void Set() {
-        assert(!m_updated);
-        COMMIT {
-            m_new     = true;
-            m_updated = true;
-            RegisterUpdate();
-        }
-    }
-    
-    void Clear() {
-        assert(!m_updated);
-        COMMIT {
-            m_new     = false;
-            m_updated = true;
-            RegisterUpdate();
-        }
-    }
-    
-    Flag(Kernel& kernel, bool set)
-        : Storage(kernel), m_set(set), m_updated(false)
-    {
-    }
-};
-
-class SensitiveFlag : public SensitiveStorage
-{
-    bool m_set;
-    bool m_updated;
-    bool m_new;
-
     void Initialize(Kernel::StorageInfo* handle)
     {
-        SensitiveStorage::Initialize(handle);
+        Storage::Initialize(handle);
         if (m_set) {
             Notify();
         }
@@ -441,9 +390,63 @@ public:
         }
     }
     
-    SensitiveFlag(Kernel& kernel, IComponent& component, int state, bool set)
-        : SensitiveStorage(kernel, component, state), m_set(set), m_updated(false)
+    Flag(Kernel& kernel, bool set)
+        : Storage(kernel), m_set(set), m_updated(false)
     {
+    }
+};
+
+/*
+ A combined boolean signal that each writer can contribute to.
+ The combined signal is the result of OR-ing all inputs.
+ */
+class CombinedFlag : public Storage
+{
+public:
+    // Gets the combined signal
+    bool IsSet() const {
+        return m_resolved;
+    }
+    
+    // Sets our single input
+    void Set(unsigned id) {
+        COMMIT{ m_inputs[id] = true; }
+        RegisterUpdate();
+    }
+
+    // Clears our single input
+    void Clear(unsigned id) {
+        COMMIT{ m_inputs[id] = false; }
+        RegisterUpdate();
+    }
+    
+    CombinedFlag(Kernel& kernel, PSize num_writers)
+        : Storage(kernel), m_inputs(num_writers, false), m_resolved(false)
+    {
+    }
+
+private:
+    std::vector<bool> m_inputs;
+    bool              m_resolved;
+    
+    void Update()
+    {
+        bool resolved = false;
+        for (std::vector<bool>::const_iterator p = m_inputs.begin(); p != m_inputs.end(); ++p)
+        {
+            if (*p)
+            {
+                resolved = true;
+                break;
+            }
+        }
+        
+        if (resolved && !m_resolved) {
+            Notify();
+        } else if (!resolved && m_resolved) {
+            Unnotify();
+        }
+        m_resolved = resolved;
     }
 };
 

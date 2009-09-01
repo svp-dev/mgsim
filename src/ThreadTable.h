@@ -65,10 +65,12 @@ public:
           Thread& operator[](TID index)       { return m_threads[index]; }
     const Thread& operator[](TID index) const { return m_threads[index]; }
 
-    TID  PopEmpty();
-    void PushEmpty(const ThreadQueue& queue);
+    TID   PopEmpty(ContextType type);
+    void  PushEmpty(const ThreadQueue& queue, ContextType context);
+    void  ReserveThread();
+    TSize GetNumFreeThreads() const;
     
-    bool IsEmpty() const { return m_numThreadsUsed == 0; }
+    bool IsEmpty() const;
     
     void Cmd_Help(std::ostream& out, const std::vector<std::string>& arguments) const;
     void Cmd_Read(std::ostream& out, const std::vector<std::string>& arguments) const;
@@ -77,7 +79,7 @@ private:
     Processor&          m_parent;
     ThreadQueue         m_empty;
     std::vector<Thread> m_threads;
-    TSize               m_numThreadsUsed;
+    TSize               m_free[NUM_CONTEXT_TYPES];
 };
 
 }

@@ -246,8 +246,9 @@ Result FPU::OnCycle(unsigned int /*stateIndex*/)
 }
 
 FPU::FPU(Object* parent, Kernel& kernel, const std::string& name, const Config& config, size_t num_inputs)
-	: IComponent(parent, kernel, name), m_active(kernel, *this, 0)
+	: IComponent(parent, kernel, name), m_active(kernel)
 {
+    m_active.Sensitive(*this, 0);
     try
     {
         static const char* const Names[FPU_NUM_OPS] = {
@@ -298,7 +299,9 @@ FPU::FPU(Object* parent, Kernel& kernel, const std::string& name, const Config& 
         for (size_t i = 0; i < num_inputs; ++i)
         {
 	        m_sources.push_back(NULL);
-	        m_sources.back() = new Source(kernel, *this, 0, input_buffer_size);
+	        Source* source = new Source(kernel, input_buffer_size);
+	        source->inputs.Sensitive(*this, 0);
+	        m_sources.back() = source;
 	    }	    
     }
     catch (...)

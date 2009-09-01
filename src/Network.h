@@ -10,6 +10,7 @@ class Processor;
 class RegisterFile;
 class Allocator;
 class FamilyTable;
+struct PlaceInfo;
 
 /// Network message for delegated creates
 struct DelegateMessage
@@ -79,8 +80,8 @@ class Network : public IComponent
             return true;
         }
 
-        Register(Kernel& kernel, IComponent& component, int state, const std::string& name)
-            : Simulator::Register<T>(kernel, component, state), m_service(component, name)
+        Register(Kernel& kernel, const IComponent& component, const std::string& name)
+            : Simulator::Register<T>(kernel), m_service(component, name)
         {
         }
     };
@@ -91,20 +92,21 @@ class Network : public IComponent
 	    Register<T> out;  ///< Register for outgoing messages
 	    Register<T> in;   ///< Register for incoming messages
 
-        RegisterPair(Kernel& kernel, IComponent& component, int state_in, int state_out, const std::string& name)
-            : out(kernel, component, state_out, name + ".out"),
-              in (kernel, component, state_in,  name + ".in")
+        RegisterPair(Kernel& kernel, const IComponent& component, const std::string& name)
+            : out(kernel, component, name + ".out"),
+              in (kernel, component, name + ".in")
         {
         }
 	};
 	
 public:
-    Network(Processor& parent, const std::string& name, const std::vector<Processor*>& grid, LPID lpid, Allocator& allocator, RegisterFile& regFile, FamilyTable& familyTable);
+    Network(Processor& parent, const std::string& name, PlaceInfo& place, const std::vector<Processor*>& grid, LPID lpid, Allocator& allocator, RegisterFile& regFile, FamilyTable& familyTable);
     void Initialize(Network& prev, Network& next);
 
     bool SendGroupCreate(LFID fid);
     bool SendDelegatedCreate(LFID fid);
     bool RequestToken();
+    void ReleaseToken();
     bool SendThreadCleanup(LFID fid);
     bool SendThreadCompletion(LFID fid);
     bool SendFamilySynchronization(LFID fid);
@@ -134,7 +136,7 @@ private:
     bool SetupFamilyNextLink(LFID fid, LFID link_next);
     bool OnGroupCreateReceived(const CreateMessage& msg);
     bool OnDelegationCreateReceived(const DelegateMessage& msg);
-    bool OnRemoteTokenRequested();
+    bool OnDelegationFailedReceived(LFID fid);
     bool OnTokenReceived();
     bool OnThreadCleanedUp(LFID fid);
     bool OnThreadCompleted(LFID fid);
@@ -154,6 +156,7 @@ private:
     RegisterFile&                  m_regFile;
     FamilyTable&                   m_familyTable;
     Allocator&                     m_allocator;
+    PlaceInfo&                     m_place;
     Network*                       m_prev;
     Network*                       m_next;
     LPID                           m_lpid;
@@ -172,8 +175,10 @@ public:
 	Register<CreateMessage>   m_createRemote;   ///< Incoming group create
 
     // Delegation creates
-    Register<std::pair<GPID, DelegateMessage> > m_delegateLocal;  ///< Outgoing delegation create
-	Register<DelegateMessage>                   m_delegateRemote; ///< Incoming delegation create
+    Register<std::pair<GPID, DelegateMessage> > m_delegateLocal;        ///< Outgoing delegation create
+	Register<DelegateMessage>                   m_delegateRemote;       ///< Incoming delegation create
+    Register<std::pair<GPID, LFID> >            m_delegateFailedLocal;  ///< Outgoing delegation failure
+    Register<LFID>                              m_delegateFailedRemote; ///< Incoming delegation failure
 
 	// Notifications
     Register<LFID>       m_synchronizedFamily; ///< Outgoing 'family synchronized' notification
@@ -190,11 +195,9 @@ public:
     RegisterPair<RegisterResponse> m_registerResponseGroup;  ///< Group register response
 
 	// Token management
-    Flag          m_hasToken; 	    ///< We have the token
-    SensitiveFlag m_wantToken; 	    ///< We want the token
-    Flag          m_tokenUsed;      ///< Has the token been used locally?
-    SensitiveFlag m_nextWantsToken; ///< Next processor wants the token
-	Flag          m_requestedToken; ///< We've requested the token
+    Flag m_hasToken;    ///< We have the token
+    Flag m_wantToken; 	///< We want the token
+    Flag m_tokenBusy;   ///< Is the token still in use?
 };
 
 }

@@ -9,11 +9,11 @@ namespace Simulator
 //
 // Processor implementation
 //
-Processor::Processor(Object* parent, Kernel& kernel, GPID gpid, LPID lpid, const vector<Processor*>& grid, PSize gridSize, PSize placeSize, const std::string& name, IMemory& memory, FPU& fpu, const Config& config)
+Processor::Processor(Object* parent, Kernel& kernel, GPID gpid, LPID lpid, const vector<Processor*>& grid, PSize gridSize, PlaceInfo& place, const std::string& name, IMemory& memory, FPU& fpu, const Config& config)
 :   IComponent(parent, kernel, name, ""),
-    m_pid(gpid), m_kernel(kernel), m_memory(memory), m_grid(grid), m_gridSize(gridSize), m_placeSize(placeSize), m_fpu(fpu),
+    m_pid(gpid), m_kernel(kernel), m_memory(memory), m_grid(grid), m_gridSize(gridSize), m_place(place), m_fpu(fpu),
     m_localFamilyCompletion(0),
-	m_allocator   (*this, "alloc",    m_familyTable, m_threadTable, m_registerFile, m_raunit, m_icache, m_network, m_pipeline, lpid, config),
+	m_allocator   (*this, "alloc",    m_familyTable, m_threadTable, m_registerFile, m_raunit, m_icache, m_network, m_pipeline, place, lpid, config),
     m_icache      (*this, "icache",   m_allocator, config),
     m_dcache      (*this, "dcache",   m_allocator, m_familyTable, m_registerFile, config),
 	m_registerFile(*this,             m_allocator, m_network, config),
@@ -21,7 +21,7 @@ Processor::Processor(Object* parent, Kernel& kernel, GPID gpid, LPID lpid, const
     m_raunit      (*this, "rau",      m_registerFile, config),
 	m_familyTable (*this,             config),
 	m_threadTable (*this,             config),
-    m_network     (*this, "network",  grid, lpid, m_allocator, m_registerFile, m_familyTable)
+    m_network     (*this, "network",  place, grid, lpid, m_allocator, m_registerFile, m_familyTable)
 {
     const ArbitrationSource sources[] = {
         ArbitrationSource(&m_icache, 0),    // Outgoing process in I-Cache
@@ -50,6 +50,11 @@ void Processor::Initialize(Processor& prev, Processor& next, MemAddr runAddress,
     m_dcache.p_service.AddSource(ArbitrationSource(&m_dcache,   0)); // Memory read returns
     m_dcache.p_service.AddSource(ArbitrationSource(&m_pipeline, 0)); // Memory read/write
 
+    m_allocator.p_allocation.AddSource(ArbitrationSource(&m_pipeline,  0)); // ALLOCATE instruction
+    m_allocator.p_allocation.AddSource(ArbitrationSource(&m_network,   5)); // Group create
+    m_allocator.p_allocation.AddSource(ArbitrationSource(&m_network,   4)); // Delegated create
+    m_allocator.p_allocation.AddSource(ArbitrationSource(&m_allocator, 1)); // Delayed ALLOCATE instruction
+    
     m_allocator.p_alloc.AddSource(ArbitrationSource(&m_network,   5)); // Group creates
     m_allocator.p_alloc.AddSource(ArbitrationSource(&m_allocator, 2)); // Local creates
     
@@ -83,7 +88,8 @@ void Processor::Initialize(Processor& prev, Processor& next, MemAddr runAddress,
     for (size_t i = 0; i < m_grid.size(); i++)
     {
         // Every core can delegate to this core
-        m_network.m_delegateRemote.AddSource(ArbitrationSource(&m_grid[i]->m_network, 4));
+        m_network.m_delegateRemote      .AddSource(ArbitrationSource(&m_grid[i]->m_network, 4));
+        m_network.m_delegateFailedRemote.AddSource(ArbitrationSource(&m_grid[i]->m_network, 15));
 
         // Every core can request registers
         m_network.m_registerRequestRemote .in.AddSource(ArbitrationSource(&m_grid[i]->m_network, 11));
@@ -94,6 +100,7 @@ void Processor::Initialize(Processor& prev, Processor& next, MemAddr runAddress,
     m_network.m_delegateLocal             .AddSource(ArbitrationSource(&m_allocator,      2)); // Create process sends delegated create
     m_network.m_createLocal               .AddSource(ArbitrationSource(&m_allocator,      2)); // Create process broadcasts create
     m_network.m_createRemote              .AddSource(ArbitrationSource(&prev.m_network,   5)); // Forward of group create
+    m_network.m_delegateFailedLocal       .AddSource(ArbitrationSource(&m_network,        4)); // Delegation fails
     
     m_network.m_registerRequestRemote.out .AddSource(ArbitrationSource(&m_pipeline,       0)); // Non-full register with remote mapping read
     m_network.m_registerRequestRemote.out .AddSource(ArbitrationSource(&m_network,        1)); // Forward of global request to remote parent

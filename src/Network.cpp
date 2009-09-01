@@ -9,53 +9,78 @@ using namespace std;
 namespace Simulator
 {
 
-#define CONSTRUCT_REGISTER(name, state)       name(parent.GetKernel(), *this, state,  #name)
-#define CONSTRUCT_FLAG(name, state, val)      name(parent.GetKernel(), *this, state,  #name, val)
-#define CONSTRUCT_REGISTER_PAIR(name, s1, s2) name(parent.GetKernel(), *this, s1, s2, #name)
-
 Network::Network(
     Processor&                parent,
     const string&             name,
+    PlaceInfo&                place,
     const vector<Processor*>& grid,
     LPID                      lpid,
     Allocator&                alloc,
     RegisterFile&             regFile,
     FamilyTable&              familyTable
 ) :
-    IComponent(&parent, parent.GetKernel(), name, "reg-response-in-group|reg-request-in|reg-response-group-out|reg-request-group-out|delegation|creation|rsync|thread-cleanup|thread-termination|family-sync|family-termination|reg-request-remote-out|reg-response-remote-out|reg-response-in-remote"),
+    IComponent(&parent, parent.GetKernel(), name, "reg-response-in-group|reg-request-in|reg-response-group-out|reg-request-group-out|delegation|creation|rsync|thread-cleanup|thread-termination|family-sync|family-termination|reg-request-remote-out|reg-response-remote-out|reg-response-in-remote|reserve-family|delegate-failed-out|delegate-failed-in"),
     
     m_parent     (parent),
     m_regFile    (regFile),
     m_familyTable(familyTable),
     m_allocator  (alloc),
+    m_place      (place),
     
     m_prev(NULL),
     m_next(NULL),
     m_lpid(lpid),
     m_grid(grid),
     
-    CONSTRUCT_REGISTER(m_createLocal,    5),
-    CONSTRUCT_REGISTER(m_createRemote,   5),
-    CONSTRUCT_REGISTER(m_delegateLocal,  4),
-    CONSTRUCT_REGISTER(m_delegateRemote, 4),
+#define CONSTRUCT_REGISTER(name) name(parent.GetKernel(), *this, #name)
+    CONSTRUCT_REGISTER(m_createLocal),
+    CONSTRUCT_REGISTER(m_createRemote),
+    CONSTRUCT_REGISTER(m_delegateLocal),
+    CONSTRUCT_REGISTER(m_delegateRemote),
+    CONSTRUCT_REGISTER(m_delegateFailedLocal),
+    CONSTRUCT_REGISTER(m_delegateFailedRemote),
 
-    CONSTRUCT_REGISTER(m_synchronizedFamily, 9),
-    CONSTRUCT_REGISTER(m_terminatedFamily,  10),
-    CONSTRUCT_REGISTER(m_completedThread,    8),
-    CONSTRUCT_REGISTER(m_cleanedUpThread,    7),
-    CONSTRUCT_REGISTER(m_remoteSync,         6),
+    CONSTRUCT_REGISTER(m_synchronizedFamily),
+    CONSTRUCT_REGISTER(m_terminatedFamily),
+    CONSTRUCT_REGISTER(m_completedThread),
+    CONSTRUCT_REGISTER(m_cleanedUpThread),
+    CONSTRUCT_REGISTER(m_remoteSync),
     
-    CONSTRUCT_REGISTER_PAIR(m_registerRequestRemote,   1, 11),
-    CONSTRUCT_REGISTER_PAIR(m_registerResponseRemote, 13, 12),
-    CONSTRUCT_REGISTER_PAIR(m_registerRequestGroup,    1,  3),
-    CONSTRUCT_REGISTER_PAIR(m_registerResponseGroup,   0,  2),
-	
-    m_hasToken      (parent.GetKernel(),           lpid == 0), // CPU #0 starts out with the token
-    m_wantToken     (parent.GetKernel(), *this, 5, false),
-    m_tokenUsed     (parent.GetKernel(),           true),
-    m_nextWantsToken(parent.GetKernel(), *this, 5, false),
-    m_requestedToken(parent.GetKernel(),           false)
+    CONSTRUCT_REGISTER(m_registerRequestRemote),
+    CONSTRUCT_REGISTER(m_registerResponseRemote),
+    CONSTRUCT_REGISTER(m_registerRequestGroup),
+    CONSTRUCT_REGISTER(m_registerResponseGroup),
+#undef CONTRUCT_REGISTER
+
+    m_hasToken      (parent.GetKernel(),  lpid == 0), // CPU #0 starts out with the token
+    m_wantToken     (parent.GetKernel(), false),
+    m_tokenBusy     (parent.GetKernel(), false)
 {
+    m_createLocal   .Sensitive(*this, 5);
+    m_createRemote  .Sensitive(*this, 5);
+    m_delegateLocal .Sensitive(*this, 4);
+    m_delegateRemote.Sensitive(*this, 4);
+    m_delegateFailedLocal .Sensitive(*this, 15);
+    m_delegateFailedRemote.Sensitive(*this, 16);
+
+    m_synchronizedFamily.Sensitive(*this,  9);
+    m_terminatedFamily  .Sensitive(*this, 10);
+    m_completedThread   .Sensitive(*this,  8);
+    m_cleanedUpThread   .Sensitive(*this,  7);
+    m_remoteSync        .Sensitive(*this,  6);
+    
+    m_registerRequestRemote .in .Sensitive(*this,  1);
+    m_registerRequestRemote .out.Sensitive(*this, 11);
+    m_registerResponseRemote.in .Sensitive(*this, 13);
+    m_registerResponseRemote.out.Sensitive(*this, 12);
+    m_registerRequestGroup  .in .Sensitive(*this,  1);
+    m_registerRequestGroup  .out.Sensitive(*this,  3);
+    m_registerResponseGroup .in .Sensitive(*this,  0);
+    m_registerResponseGroup .out.Sensitive(*this,  2);
+    
+    m_wantToken              .Sensitive(*this, 5);
+    m_place.m_reserve_context.Sensitive(*this, 14);
+    m_place.m_want_token     .Sensitive(*this, 5);
 }
 
 void Network::Initialize(Network& prev, Network& next)
@@ -320,7 +345,7 @@ bool Network::SendGroupCreate(LFID fid)
 {
  	const Family& family = m_familyTable[fid];
     assert(m_hasToken.IsSet());
-    assert(!m_tokenUsed.IsSet());   
+    assert(m_tokenBusy.IsSet());   
     assert(family.parent.lpid == m_lpid);
             
     // Buffer the family information
@@ -343,12 +368,14 @@ bool Network::SendGroupCreate(LFID fid)
 		message.regsNo[i] = family.regs[i].count;
 	}
 		
-    m_tokenUsed.Set();
-    
     if (!m_createLocal.Write(message))
     {
         return false;
     }
+    
+    // Set the global context reservation signal
+    assert(!m_place.m_reserve_context.IsSet());
+    m_place.m_reserve_context.Set();
     
     DebugSimWrite("Broadcasting group create for F%u", (unsigned)fid);
     return true;
@@ -367,6 +394,16 @@ bool Network::SendRemoteSync(GPID pid, LFID fid, ExitCode code)
     if (m_remoteSync.Write(rs))
     {
         DebugSimWrite("Sending remote sync to F%u@CPU%u; code=%u", (unsigned)fid, (unsigned)pid, (unsigned)code);
+        return true;
+    }
+    return false;
+}
+
+bool Network::OnDelegationFailedReceived(LFID fid)
+{
+    if (m_delegateFailedRemote.Write(fid))
+    {
+        DebugSimWrite("Received delegation failure for F%u", (unsigned)fid);
         return true;
     }
     return false;
@@ -396,21 +433,20 @@ bool Network::OnGroupCreateReceived(const CreateMessage& msg)
 bool Network::RequestToken()
 {
     m_wantToken.Set();
-	m_tokenUsed.Clear();
+    m_place.m_want_token.Set(m_lpid);
     return true;
 }
 
 bool Network::OnTokenReceived()
 {
     m_hasToken.Set();
-	m_requestedToken.Clear();
     return true;
 }
 
-bool Network::OnRemoteTokenRequested()
+void Network::ReleaseToken()
 {
-    m_nextWantsToken.Set();
-    return true;
+    assert(m_hasToken.IsSet());
+    m_tokenBusy.Clear();
 }
 
 bool Network::OnRemoteSyncReceived(LFID fid, ExitCode code)
@@ -828,10 +864,23 @@ Result Network::OnCycle(unsigned int stateIndex)
 		if (!m_delegateRemote.Empty())
 		{
 		    // Process the received delegation
-			if (!m_allocator.OnDelegatedCreate(m_delegateRemote.Read()))
+		    const DelegateMessage& msg =m_delegateRemote.Read();
+		    Result result = m_allocator.OnDelegatedCreate(msg);
+		    if (result == FAILED)
 			{
 			    DeadlockWrite("Unable to process received delegation create");
 				return FAILED;
+			}
+			
+			if (result == DELAYED)
+			{
+			    // We need to send back 
+			    DebugSimWrite("Delegated create failed");
+			    if (!m_delegateFailedLocal.Write(make_pair(msg.parent.pid, msg.parent.fid)))
+			    {
+			        DeadlockWrite("Unable to write failure to buffer");
+			        return FAILED;
+			    }
 			}
 
 			m_delegateRemote.Clear();
@@ -934,13 +983,16 @@ Result Network::OnCycle(unsigned int stateIndex)
 				    DeadlockWrite("Unable to continue group create with token");
 					return FAILED;
 				}
+				m_tokenBusy.Set();
 				m_wantToken.Clear();
+				m_place.m_want_token.Clear(m_lpid);
 			}
-			else if (m_nextWantsToken.IsSet())
+			else if (m_place.m_want_token.IsSet())
 			{
-			    if (!m_tokenUsed.IsSet())
+			    // Another core wants the token, send it on its way
+			    if (m_tokenBusy.IsSet())
 			    {
-			        DeadlockWrite("Waiting for token to be used before it can be sent to next processor");
+			        DeadlockWrite("Waiting for token to be released before it can be sent to next processor");
 			        return FAILED;
 			    }
 			    
@@ -952,25 +1004,9 @@ Result Network::OnCycle(unsigned int stateIndex)
 					return FAILED;
 				}
 				
-				m_nextWantsToken.Clear();
 				m_hasToken.Clear();
 			}
  			return SUCCESS;
-		}
-		
-		// We don't have the token
-		if ((m_wantToken.IsSet() || m_nextWantsToken.IsSet()) && !m_requestedToken.IsSet())
-		{
-			// But we, or m_next, wants it, so request it.
-			if (!m_prev->OnRemoteTokenRequested())
-			{
-			    DeadlockWrite("Unable to request token from previous processor");
-				return FAILED;
-			}
-			
-			// Set a flag to prevent us from spamming the previous CPU
-			m_requestedToken.Set();
-			return SUCCESS;
 		}
         return FAILED;
     
@@ -1046,6 +1082,45 @@ Result Network::OnCycle(unsigned int stateIndex)
 			return SUCCESS;
         }	
         break;
+        
+    case 14:
+        if (m_hasToken.IsSet()) {
+            // We sent the reservation signal, so just clear it now. This
+            // means it's only active for a single cycle, which is important,
+            // or we'll reserve multiple contexts for a single create.
+            m_place.m_reserve_context.Clear();
+        } else {
+            // We need to reserve a context
+            DebugSimWrite("Reserving context for group create");
+            m_allocator.ReserveContext();
+        }
+        return SUCCESS;
+    
+    case 15:
+        assert(!m_delegateFailedLocal.Empty());
+        {
+            const std::pair<GPID, LFID>& df = m_delegateFailedLocal.Read();
+            if (!m_grid[df.first]->GetNetwork().OnDelegationFailedReceived(df.second))
+            {
+                DeadlockWrite("Unable to send delegation failure for F%u to CPU%u", (unsigned)df.second, (unsigned)df.first);
+                return FAILED;
+            }
+            m_delegateFailedLocal.Clear();
+        }
+        return SUCCESS;
+    
+    case 16:
+        assert(!m_delegateFailedRemote.Empty());
+        {
+            LFID fid = m_delegateFailedRemote.Read();
+            if (!m_allocator.OnDelegationFailed(fid))
+            {
+                DeadlockWrite("Unable to process delegation failure for F%u", (unsigned)fid);
+                return FAILED;
+            }
+            m_delegateFailedRemote.Clear();
+        }
+        return SUCCESS;
     }
 
     return DELAYED;
@@ -1149,17 +1224,17 @@ void Network::Cmd_Read(ostream& out, const vector<string>& /* arguments */) cons
     out << endl;
 
     out << "Token:" << endl;
-    if (m_hasToken.IsSet())       out << "* Processor has token (used: " << boolalpha << m_tokenUsed.IsSet() << ")" << endl;
-    if (m_wantToken.IsSet())      out << "* Processor wants token" << endl;
-    if (m_nextWantsToken.IsSet()) out << "* Next processor wants token" << endl;
+    if (m_hasToken.IsSet())  out << "* Processor has token (in use: " << boolalpha << m_tokenBusy.IsSet() << ")" << endl;
+    if (m_wantToken.IsSet()) out << "* Processor wants token" << endl;
     out << endl;
 
     out << "Families and threads:" << endl;
-    if (!m_terminatedFamily  .Empty()) out << "* Sending family termination of F" << m_terminatedFamily.Read() << endl;
-    if (!m_synchronizedFamily.Empty()) out << "* Sending family synchronization of F" << m_synchronizedFamily.Read() << endl;
-    if (!m_completedThread   .Empty()) out << "* Sending thread completion of F" << m_completedThread.Read() << endl;
-    if (!m_cleanedUpThread   .Empty()) out << "* Sending thread cleanup of F" << m_cleanedUpThread.Read() << endl;
-    if (!m_delegateRemote    .Empty()) out << "* Received delegated create of PC 0x" << hex << m_delegateRemote.Read().address << dec << endl;
+    if (!m_terminatedFamily    .Empty()) out << "* Sending family termination of F" << m_terminatedFamily.Read() << endl;
+    if (!m_synchronizedFamily  .Empty()) out << "* Sending family synchronization of F" << m_synchronizedFamily.Read() << endl;
+    if (!m_completedThread     .Empty()) out << "* Sending thread completion of F" << m_completedThread.Read() << endl;
+    if (!m_cleanedUpThread     .Empty()) out << "* Sending thread cleanup of F" << m_cleanedUpThread.Read() << endl;
+    if (!m_delegateRemote      .Empty()) out << "* Received delegated create of PC 0x" << hex << m_delegateRemote.Read().address << dec << endl;
+    if (!m_delegateFailedRemote.Empty()) out << "* Received delegation failure for F" << m_delegateFailedRemote.Read() << dec << endl;
 }
 
 }

@@ -12,8 +12,7 @@ namespace Simulator
 ThreadTable::ThreadTable(Processor& parent, const Config& config)
   : Object(&parent, &parent.GetKernel(), "threads"),
     m_parent(parent),
-    m_threads(config.getInteger<size_t>("NumThreads", 64)),
-    m_numThreadsUsed(0)
+    m_threads(config.getInteger<size_t>("NumThreads", 64))
 {
     for (TID i = 0; i < m_threads.size(); ++i)
     {
@@ -22,30 +21,73 @@ ThreadTable::ThreadTable(Processor& parent, const Config& config)
         m_threads[i].state      = TST_EMPTY;
     }
     m_threads[m_threads.size() - 1].nextMember = INVALID_TID;
+    
+    m_free[CONTEXT_NORMAL]    = m_threads.size() - 1;
+    m_free[CONTEXT_RESERVED]  = 0;
+    m_free[CONTEXT_EXCLUSIVE] = 1;
 
     m_empty.head = 0;
     m_empty.tail = m_threads.size() - 1;
 }
 
-TID ThreadTable::PopEmpty()
+bool ThreadTable::IsEmpty() const
 {
-    TID tid = m_empty.head;
-    if (tid != INVALID_TID)
+    TSize free = 0;
+    for (int i = 0; i < NUM_CONTEXT_TYPES; ++i)
     {
+        free += m_free[i];
+    }
+    return free == m_threads.size();
+}
+
+TSize ThreadTable::GetNumFreeThreads() const
+{
+    // Check that we are in a sane state
+    assert(m_free[CONTEXT_NORMAL] + m_free[CONTEXT_RESERVED] + m_free[CONTEXT_EXCLUSIVE] <= m_threads.size());
+    
+    return m_free[CONTEXT_NORMAL];
+}
+
+void ThreadTable::ReserveThread()
+{
+    // Check that we are in a sane state
+    assert(m_free[CONTEXT_NORMAL] + m_free[CONTEXT_RESERVED] + m_free[CONTEXT_EXCLUSIVE] <= m_threads.size());
+
+    COMMIT{
+        // Move one free thread from normal to reserved
+        m_free[CONTEXT_NORMAL]--;
+        m_free[CONTEXT_RESERVED]++;
+    }
+}
+
+TID ThreadTable::PopEmpty(ContextType context)
+{
+    // Check that we are in a sane state
+    assert(m_free[CONTEXT_NORMAL] + m_free[CONTEXT_RESERVED] + m_free[CONTEXT_EXCLUSIVE] <= m_threads.size());
+
+    TID tid = INVALID_TID;
+    
+    // See if we have a free entry
+    if (m_free[context] > 0)
+    {
+        tid = m_empty.head;
+        assert(tid != INVALID_TID);
         assert(m_threads[tid].state == TST_EMPTY);
-        assert(m_numThreadsUsed < m_threads.size());
         COMMIT
         {
             m_empty.head = m_threads[tid].nextMember;
             m_threads[tid].state = TST_WAITING;
-            m_numThreadsUsed++;
+            m_free[context]--;
         }
     }
     return tid;
 }
 
-void ThreadTable::PushEmpty(const ThreadQueue& q)
+void ThreadTable::PushEmpty(const ThreadQueue& q, ContextType context)
 {
+    // Check that we are in a sane state
+    assert(m_free[CONTEXT_NORMAL] + m_free[CONTEXT_RESERVED] + m_free[CONTEXT_EXCLUSIVE] <= m_threads.size());
+
     assert(q.head != INVALID_TID);
     assert(q.tail != INVALID_TID);
     
@@ -60,12 +102,22 @@ void ThreadTable::PushEmpty(const ThreadQueue& q)
         m_threads[q.tail].nextMember = INVALID_TID;
 
         // Admin, set states to empty
+        TSize size = 0;
         for (TID cur = q.head; cur != INVALID_TID; cur = m_threads[cur].nextMember)
         {
-            assert(m_numThreadsUsed > 0);
             m_threads[cur].state = TST_EMPTY;
-            m_numThreadsUsed--;
+            size++;
         }
+        
+        if (context != CONTEXT_NORMAL)
+        {
+            // We used a special context, add one there
+            m_free[context]++;
+            // The rest go to the normal pool
+            size--;
+        }
+        
+        m_free[CONTEXT_NORMAL] += size;
     }
 }
 

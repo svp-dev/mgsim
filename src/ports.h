@@ -120,6 +120,11 @@ protected:
         m_valid  = true;
         m_chosen = false;
     }
+    
+    WritePort()
+        : m_valid(false), m_chosen(false)
+    {
+    }
 
 public:
     bool     IsChosen() const { return m_chosen; }

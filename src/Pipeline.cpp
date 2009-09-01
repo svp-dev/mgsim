@@ -34,12 +34,15 @@ Pipeline::Pipeline(
     IComponent(&parent, parent.GetKernel(), name),
     m_parent(parent),
     
-    m_active(parent.GetKernel(), *this, 0),
-
+    m_active(parent.GetKernel()),
+    
+    m_nStagesRunnable(0), m_nStagesRun(0),
     m_maxPipelineIdleTime(0), m_minPipelineIdleTime(numeric_limits<uint64_t>::max()),
     m_totalPipelineIdleTime(0), m_pipelineIdleEvents(0), m_pipelineIdleTime(0), m_pipelineBusyTime(0)
 {
     static const size_t NUM_FIXED_STAGES = 6;
+    
+    m_active.Sensitive(*this, 0);
     
     // Number of forwarding delay slots between the Memory and Writeback stage
     const size_t num_dummy_stages = config.getInteger<size_t>("NumPipelineDummyStages", 0);

@@ -62,6 +62,7 @@ class MGSystem : public Object
     vector<Processor*> m_procs;
     vector<FPU*>       m_fpus;
     vector<Object*>    m_objects;
+    vector<PlaceInfo*> m_places;
     Kernel             m_kernel;
     IMemoryAdmin*      m_memory;
 
@@ -423,22 +424,23 @@ public:
 
         // Create processor grid
         m_procs.resize(numProcessors);
+        m_places.resize(placeSizes.size());
 
         PSize first = 0;
         for (size_t p = 0; p < placeSizes.size(); ++p)
         {            
-            PSize placeSize = placeSizes[p];
-            for (size_t i = 0; i < placeSize; ++i)
+            m_places[p] = new PlaceInfo(m_kernel, placeSizes[p]);
+            for (size_t i = 0; i < m_places[p]->m_size; ++i)
             {
                 PSize pid = (first + i);
                 FPU&  fpu = *m_fpus[pid / numProcessorsPerFPU]; 
 
                 stringstream name;
                 name << "cpu" << pid;
-                m_procs[pid]   = new Processor(this, m_kernel, pid, i, m_procs, m_procs.size(), placeSize, name.str(), *m_memory, fpu, config);
+                m_procs[pid]   = new Processor(this, m_kernel, pid, i, m_procs, m_procs.size(), *m_places[p], name.str(), *m_memory, fpu, config);
                 m_objects[pid] = m_procs[pid];
             }
-            first += placeSize;
+            first += m_places[p]->m_size;
         }
         
         m_kernel.Initialize();
@@ -499,6 +501,10 @@ public:
         for (size_t i = 0; i < m_procs.size(); ++i)
         {
             delete m_procs[i];
+        }
+        for (size_t i = 0; i < m_places.size(); ++i)
+        {
+            delete m_places[i];
         }
     }
 };

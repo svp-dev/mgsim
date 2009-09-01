@@ -16,6 +16,7 @@ TEST_SOURCES = \
     regression/exclusive_places.s \
     regression/delegation1.s \
     regression/delegation2.s \
+    regression/delegation_flood.s \
     regression/self_exclusive_delegate.s \
     regression/sparse_globals.s \
     regression/multi_shareds.s

@@ -23,8 +23,9 @@ struct ParallelMemory::Port
     IMemoryCallback* m_callback;
 
     Port(Kernel& kernel, IComponent& component, int state, BufferSize buffersize)
-        : m_requests(kernel, component, state, buffersize), m_nextdone(0), m_callback(NULL)
+        : m_requests(kernel, buffersize), m_nextdone(0), m_callback(NULL)
     {
+        m_requests.Sensitive(component, state);
     }
 };
 

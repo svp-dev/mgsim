@@ -21,13 +21,17 @@ DCache::DCache(Processor& parent, const std::string& name, Allocator& alloc, Fam
 	m_assoc          (config.getInteger<size_t>("DCacheAssociativity", 4)),
 	m_sets           (config.getInteger<size_t>("DCacheNumSets", 4)),
 	m_lineSize       (config.getInteger<size_t>("CacheLineSize", 64)),
-	m_returned       (parent.GetKernel(), m_lines, *this, 0),
-	m_completedWrites(parent.GetKernel(), *this, 1, config.getInteger<BufferSize>("DCacheCompletedWriteBufferSize", INFINITE)),
-	m_outgoing       (parent.GetKernel(), *this, 2, config.getInteger<BufferSize>("DCacheOutgoingBufferSize", 1)),
+	m_returned       (parent.GetKernel(), m_lines),
+	m_completedWrites(parent.GetKernel(), config.getInteger<BufferSize>("DCacheCompletedWriteBufferSize", INFINITE)),
+	m_outgoing       (parent.GetKernel(), config.getInteger<BufferSize>("DCacheOutgoingBufferSize", 1)),
 	m_numHits        (0),
 	m_numMisses      (0),
 	p_service        (*this, "p_service")
 {
+	m_returned       .Sensitive(*this, 0);
+	m_completedWrites.Sensitive(*this, 1);
+	m_outgoing       .Sensitive(*this, 2);
+
     // These things must be powers of two
     if (m_assoc == 0 || !IsPowerOfTwo(m_assoc))
     {

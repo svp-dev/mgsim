@@ -93,9 +93,13 @@ public:
           Family& operator[](LFID fid)       { return m_families[fid]; }
 	const Family& operator[](LFID fid) const { return m_families[fid]; }
 
-	LFID AllocateFamily();
-    void FreeFamily(LFID fid);
-    bool IsEmpty() const { return m_numFamiliesUsed == 0; }
+	LFID  AllocateFamily(ContextType type);
+    void  FreeFamily(LFID fid, ContextType context);
+    void  ReserveFamily();
+    
+    FSize GetNumFreeFamilies()  const;
+    bool  IsEmpty()             const;
+    bool  IsExclusiveUsed()     const { return m_free[CONTEXT_EXCLUSIVE] == 0; }
     
     // Admin functions
     const std::vector<Family>& GetFamilies() const { return m_families; }
@@ -106,7 +110,7 @@ public:
 private:
     Processor&          m_parent;
     std::vector<Family> m_families;
-    FSize               m_numFamiliesUsed;
+    FSize               m_free[NUM_CONTEXT_TYPES];
 };
 
 }

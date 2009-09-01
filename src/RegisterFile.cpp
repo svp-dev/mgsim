@@ -236,8 +236,8 @@ void RegisterFile::Cmd_Read(std::ostream& out, const std::vector<std::string>& a
     vector<LFID> regs(GetSize(type), INVALID_LFID);
     if (rau != NULL)
     {
-        const RAUnit::List& list = rau->m_lists[type];
-        const RegSize blockSize  = rau->m_blockSizes[type];
+        const RAUnit::List& list = rau->m_types[type].list;
+        const RegSize blockSize  = rau->m_types[type].blockSize;
         for (size_t i = 0; i < list.size();)
         {
             if (list[i].first != 0)

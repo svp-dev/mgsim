@@ -22,6 +22,7 @@ class Pipeline;
 struct Family;
 struct CreateMessage;
 struct DelegateMessage;
+struct PlaceInfo;
 
 // A list of dependencies that prevent a family from being
 // terminated or cleaned up
@@ -79,7 +80,7 @@ public:
 
     Allocator(Processor& parent, const std::string& name,
         FamilyTable& familyTable, ThreadTable& threadTable, RegisterFile& registerFile, RAUnit& raunit, ICache& icache, Network& network, Pipeline& pipeline,
-        LPID lpid, const Config& config);
+        PlaceInfo& place, LPID lpid, const Config& config);
 
     // Allocates the initial family consisting of a single thread on the first CPU.
     // Typically called before tha actual simulation starts.
@@ -110,7 +111,8 @@ public:
 	bool   ActivateFamily(LFID fid);
 	
 	LFID   OnGroupCreate(const CreateMessage& msg, LFID link_next);
-    bool   OnDelegatedCreate(const DelegateMessage& msg);
+    Result OnDelegatedCreate(const DelegateMessage& msg);
+    bool   OnDelegationFailed(LFID fid);
     
     bool   QueueActiveThreads(const ThreadQueue& threads);
     bool   QueueThreads(ThreadList& list, const ThreadQueue& threads, ThreadState state);
@@ -133,6 +135,7 @@ public:
     bool OnRemoteThreadCompletion(LFID fid);
     bool OnRemoteThreadCleanup(LFID fid);
     bool OnRemoteSync(LFID fid, ExitCode code);
+    void ReserveContext();
 
     // Component
     Result OnCycle(unsigned int stateIndex);
@@ -157,16 +160,16 @@ private:
 
 	void SetDefaultFamilyEntry(LFID fid, TID parent, const RegisterBases bases[], const PlaceID& place) const;
 	void InitializeFamily(LFID fid, Family::Type type) const;
-	bool AllocateRegisters(LFID fid);
+	bool AllocateRegisters(LFID fid, ContextType type);
 	bool WriteExitCode(RegIndex reg, ExitCode code);
 
     bool AllocateThread(LFID fid, TID tid, bool isNewlyAllocated = true);
     bool PushCleanup(TID tid);
+    
+    void UpdateContextAvailability();
 
-    // Thread and family queue manipulation
-    //void Push(FamilyQueue& queue, LFID fid);
+    // Thread queue manipulation
     void Push(ThreadQueue& queue, TID tid, TID Thread::*link = &Thread::nextState);
-    //LFID Pop (FamilyQueue& queue);
     TID  Pop (ThreadQueue& queue, TID Thread::*link = &Thread::nextState);
 
     Processor&    m_parent;
@@ -177,6 +180,7 @@ private:
     ICache&       m_icache;
     Network&      m_network;
 	Pipeline&	  m_pipeline;
+	PlaceInfo&    m_place;
     LPID          m_lpid;
 
     uint64_t m_activeQueueSize;
@@ -184,19 +188,19 @@ private:
     uint64_t m_maxActiveQueueSize;
     uint64_t m_minActiveQueueSize;
 
-    LFID                  m_exclusive;      ///< Currently executing exclusive family
     FamilyList            m_alloc;          ///< This is the queue of families waiting for initial allocation
     Buffer<LFID>          m_creates;        ///< Create queue
-    Buffer<LFID>          m_createsEx;      ///< Exclusive create queue
     Buffer<RegisterWrite> m_registerWrites; ///< Register write queue
     Buffer<TID>           m_cleanup;        ///< Cleanup queue
 	Buffer<AllocRequest>  m_allocations;	///< Family allocation queue
+	Buffer<AllocRequest>  m_allocationsEx;  ///< Exclusive family allocation queue
 	Register<LFID>        m_createFID;      ///< Family ID of the current create
 	CreateState           m_createState;	///< State of the current state;
 	CID                   m_createLine;	   	///< Cache line that holds the register info
     ThreadList            m_readyThreads;   ///< Queue of the threads can be activated
 
 public:
+    ArbitratedService     p_allocation;     ///< Arbitrator for FamilyTable::AllocateFamily
     ArbitratedService     p_alloc;          ///< Arbitrator for m_alloc
     ArbitratedService     p_readyThreads;   ///< Arbitrator for m_readyThreads
     ArbitratedService     p_activeThreads;  ///< Arbitrator for m_activeThreads

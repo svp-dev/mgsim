@@ -19,7 +19,18 @@ namespace Simulator
 
 struct PlaceInfo
 {
-    PSize m_size;  ///< Number of processors in the place
+    PSize        m_size;            ///< Number of processors in the place
+    CombinedFlag m_full_context;    ///< Place-global signal for free context identification
+    Flag         m_reserve_context; ///< Place-global flag for reserving a context
+    CombinedFlag m_want_token;      ///< Place-global signal for token request
+
+    PlaceInfo(Kernel& kernel, unsigned int size)
+        : m_size(size),
+          m_full_context(kernel, size),
+          m_reserve_context(kernel, false),
+          m_want_token(kernel, size)
+    {
+    }
 };
 
 class FPU;
@@ -27,13 +38,13 @@ class FPU;
 class Processor : public IComponent, public IMemoryCallback
 {
 public:
-    Processor(Object* parent, Kernel& kernel, GPID pid, LPID lpid, const std::vector<Processor*>& grid, PSize gridSize, PSize placeSize, const std::string& name, IMemory& m_memory, FPU& fpu, const Config& config);
+    Processor(Object* parent, Kernel& kernel, GPID pid, LPID lpid, const std::vector<Processor*>& grid, PSize gridSize, PlaceInfo& place, const std::string& name, IMemory& m_memory, FPU& fpu, const Config& config);
     void Initialize(Processor& prev, Processor& next, MemAddr runAddress, bool legacy);
 
-    GPID    GetPID()       const { return m_pid;       }
-    PSize   GetPlaceSize() const { return m_placeSize; }
-    PSize   GetGridSize()  const { return m_gridSize;  }
-    Kernel& GetKernel()    const { return m_kernel;    }
+    GPID    GetPID()       const { return m_pid; }
+    PSize   GetPlaceSize() const { return m_place.m_size; }
+    PSize   GetGridSize()  const { return m_gridSize; }
+    Kernel& GetKernel()    const { return m_kernel; }
     bool    IsIdle()       const;
 
     uint64_t GetFlop() const { return m_pipeline.GetFlop(); }
@@ -78,7 +89,7 @@ private:
 	IMemory&	                   m_memory;
 	const std::vector<Processor*>& m_grid;
 	PSize                          m_gridSize;
-	size_t                         m_placeSize;
+	PlaceInfo&                     m_place;
 	FPU&                           m_fpu;
 	
 	// Statistics 

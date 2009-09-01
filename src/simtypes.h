@@ -31,6 +31,14 @@ typedef size_t   RegSize;       ///< Size of something in the register file
 typedef size_t   FSize;         ///< Family list size
 typedef size_t   LFID;          ///< Local family index
 
+enum ContextType
+{
+    CONTEXT_NORMAL = 0,
+    CONTEXT_RESERVED,
+    CONTEXT_EXCLUSIVE,
+    NUM_CONTEXT_TYPES
+};
+
 /// Place identifier
 struct PlaceID
 {

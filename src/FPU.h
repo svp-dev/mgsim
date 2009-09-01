@@ -52,8 +52,8 @@ class FPU : public IComponent
 	    CycleNo           last_write; ///< Last time an FPU pipe wrote back to this source
 	    unsigned int      last_unit;  ///< Unit that did the last (or current) write
 	    
-	    Source(Kernel& kernel, IComponent& component, int state, BufferSize bufferSize)
-	        : inputs(kernel, component, state, bufferSize), regfile(NULL), last_write(0) {}
+	    Source(Kernel& kernel, BufferSize bufferSize)
+	        : inputs(kernel, bufferSize), regfile(NULL), last_write(0) {}
 	};
 	
     /// Represents the result of an FP operation

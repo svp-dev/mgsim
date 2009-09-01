@@ -24,15 +24,18 @@ struct BankedMemory::Bank
     ArbitratedService p_incoming;
     Buffer<Request>   incoming;
     Buffer<Request>   outgoing;
-    SensitiveFlag     busy;
+    Flag              busy;
     Request           request;
 
     Bank(Kernel& kernel, IComponent& component, int s_in, int s_bank, int s_out, BufferSize buffersize)
         : p_incoming(component, "incoming"),
-          incoming  (kernel, component, s_in,   buffersize),
-          outgoing  (kernel, component, s_out,  buffersize),
-          busy      (kernel, component, s_bank, false)
+          incoming  (kernel, buffersize),
+          outgoing  (kernel, buffersize),
+          busy      (kernel, false)
     {
+        incoming.Sensitive(component, s_in);
+        outgoing.Sensitive(component, s_out);
+        busy    .Sensitive(component, s_bank);
     }
 };
 

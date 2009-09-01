@@ -164,13 +164,14 @@ Result SerialMemory::OnCycle(unsigned int /* stateIndex */)
 
 SerialMemory::SerialMemory(Object* parent, Kernel& kernel, const std::string& name, const Config& config) :
     IComponent(parent, kernel, name), 
-    m_requests       (kernel, *this, 0, config.getInteger<BufferSize>("MemoryBufferSize", INFINITE)),
+    m_requests       (kernel, config.getInteger<BufferSize>("MemoryBufferSize", INFINITE)),
     p_requests       (*this, "m_requests"),
     m_baseRequestTime(config.getInteger<CycleNo>   ("MemoryBaseRequestTime", 1)),
     m_timePerLine    (config.getInteger<CycleNo>   ("MemoryTimePerLine", 1)),
     m_sizeOfLine     (config.getInteger<CycleNo>   ("MemorySizeOfLine", 8)),
     m_nextdone(0)
 {
+    m_requests.Sensitive(*this, 0);
 }
 
 void SerialMemory::Cmd_Help(ostream& out, const vector<string>& /*arguments*/) const
