@@ -166,6 +166,7 @@ private:
     bool AllocateThread(LFID fid, TID tid, bool isNewlyAllocated = true);
     bool PushCleanup(TID tid);
     
+    bool IsContextAvailable() const;
     void UpdateContextAvailability();
 
     // Thread queue manipulation

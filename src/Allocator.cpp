@@ -943,16 +943,21 @@ void Allocator::SetDefaultFamilyEntry(LFID fid, TID parent, const RegisterBases 
 	}
 }
 
+bool Allocator::IsContextAvailable() const
+{
+    // Note that we check against 1, and not 0, to keep a local context for sequentialization
+    return m_raunit     .GetNumFreeContexts() > 1 &&
+           m_threadTable.GetNumFreeThreads()  > 1 &&
+           m_familyTable.GetNumFreeFamilies() > 1;
+}
+
 // Called whenever a context element is used.
 // Checks if a context is still available and updates the global signal accordingly.
 void Allocator::UpdateContextAvailability()
 {
-    if (m_raunit     .GetNumFreeContexts() > 1 &&
-        m_threadTable.GetNumFreeThreads()  > 1 &&
-        m_familyTable.GetNumFreeFamilies() > 1)
+    if (IsContextAvailable())
     {
         // We are not full
-        // Note that we check against 1 to keep a local context for sequentialization
         m_place.m_full_context.Clear(m_lpid);
     }
     else
@@ -1053,7 +1058,7 @@ Result Allocator::OnDelegatedCreate(const DelegateMessage& msg)
         return FAILED;
     }
     
-	if (!msg.exclusive)// && m_familyTable.GetNumFreeFamilies() < 2)
+	if (!msg.exclusive && !IsContextAvailable())
 	{
 	    // We cannot get an entry, or use the last entry on this core.
 	    // Tell the network to send back a denial so the parent core can
