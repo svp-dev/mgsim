@@ -241,6 +241,18 @@ public:
     	}
 	}
 
+    void PrintAll() const
+    {
+        cout << "[";
+        for (PSize i = 0; i < m_procs.size(); i++) {
+            cout << m_procs[i]->GetLocalFamilyCompletion();
+            if (i < m_procs.size() - 1) {
+                cout << ",";
+            }
+        }
+        cout << "]";
+    }
+
     void PrintFamilyCompletions() const
     {
         CycleNo first = UINT64_MAX;
@@ -911,6 +923,8 @@ int main(int argc, const char* argv[])
     			    sys.PrintPipelineEfficiency();
                     cout << " ; ";
                     sys.PrintFamilyCompletions();
+                    cout << " ; ";
+                    sys.PrintAll();
     			    cout << endl;
     			}
     		}
