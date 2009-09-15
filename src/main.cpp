@@ -10,6 +10,7 @@
 #include "ParallelMemory.h"
 #include "BankedMemory.h"
 #include "RandomBankedMemory.h"
+#include "gfx.h"
 
 #include "config.h"
 #include "loader.h"
@@ -510,6 +511,14 @@ public:
 
 	// Set program debugging per default
 	m_kernel.SetDebugMode(Kernel::DEBUG_PROG);
+
+	// Initialize graphical output
+	m_kernel.setDisplay(new GfxDisplay(config.getInteger<size_t>("GfxRefreshRate", 100),
+					   config.getInteger<size_t>("GfxDisplayWidth", 100),
+					   config.getInteger<size_t>("GfxDisplayHeight", 100),
+					   config.getInteger<size_t>("GfxHorizScale", 2),
+					   config.getInteger<size_t>("GfxVertScale", 2),
+					   config.getBoolean("GfxEnableOutput", false)));
     }
 
     ~MGSystem()
@@ -960,6 +969,7 @@ int main(int argc, char** argv)
 			cout << endl;
             for (bool quit = false; !quit; )
             {
+	      sys.GetKernel().getDisplay()->checkEvents();
                 stringstream prompt;
                 prompt << dec << setw(8) << setfill('0') << right << sys.GetKernel().GetCycleNo() << "> ";
             

@@ -3,10 +3,13 @@
 
 #include "simtypes.h"
 #include "except.h"
+
 #include <vector>
 #include <map>
 #include <set>
 #include <cassert>
+
+class GfxDisplay;
 
 namespace Simulator
 {
@@ -116,12 +119,17 @@ private:
     StorageInfo*    m_activeStorages;    ///< List of storages that need to be updated.
     ArbitratorInfo* m_activeArbitrators; ///< List of arbitrators that need arbitration.
 
+    GfxDisplay*     m_display;
+
     void UpdateStorages();
 public:
     Kernel();
     ~Kernel();
     
     void Initialize();
+
+    void setDisplay(GfxDisplay*);
+    GfxDisplay* getDisplay(void) const { return m_display; }
     
     ProcessInfo* GetProcessInfo(IComponent* component, int state);
     

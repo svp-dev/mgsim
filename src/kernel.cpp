@@ -1,5 +1,7 @@
 #include "kernel.h"
 #include "storage.h"
+#include "gfx.h"
+
 #include <cassert>
 #include <algorithm>
 #include <cstdarg>
@@ -239,6 +241,9 @@ RunState Kernel::Step(CycleNo cycles)
                 // We did something this cycle
                 ++m_cycle;
             }
+
+	    assert(m_display != NULL);
+	    m_display->cycle();
         }
         
         return (m_aborted)
@@ -254,6 +259,12 @@ RunState Kernel::Step(CycleNo cycles)
         throw;
     }
 }
+
+  void Kernel::setDisplay(GfxDisplay* p)
+  {
+    assert(m_display == NULL);
+    m_display = p;
+  }
 
 void Kernel::UpdateStorages()
 {
@@ -371,12 +382,15 @@ Kernel::Kernel()
    m_process(NULL),
    m_activeProcesses(NULL),
    m_activeStorages(NULL),
-   m_activeArbitrators(NULL)
+   m_activeArbitrators(NULL),
+   m_display(NULL)
 {
 }
 
 Kernel::~Kernel()
 {
+  if (m_display)
+    delete m_display;
 }
 
 }
