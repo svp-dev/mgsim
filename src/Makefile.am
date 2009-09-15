@@ -61,7 +61,6 @@ COMMON_SRC = \
 	kernel.h \
 	loader.cpp \
 	loader.h \
-	main.cpp \
 	ports.h \
 	ports.cpp \
 	range.h \
@@ -71,6 +70,13 @@ COMMON_SRC = \
 	storage.h \
 	storage.cpp \
 	types.h
+
+GFX_SRC = \
+	main.cpp \
+	gfx.h \
+	gfx.cpp
+
+EXTRA_DIST = gfxscaler.cpp gfxscreen.cpp
 
 ALPHA_SRC = $(COMMON_SRC) \
 	ISA.alpha.h \
