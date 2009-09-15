@@ -3,6 +3,7 @@
 
 #include "types.h"
 #include <cassert>
+#include <cstddef>
 
 class GfxFrameBuffer {
  public:
