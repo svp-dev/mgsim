@@ -1,10 +1,13 @@
 #include "Pipeline.h"
 #include "Processor.h"
+#include "gfx.h"
+
 #include <cassert>
 #include <cmath>
 #include <iostream>
 #include <sstream>
 #include <iomanip>
+
 using namespace std;
 
 namespace Simulator
@@ -150,8 +153,65 @@ Pipeline::PipeAction Pipeline::ExecuteStage::ExecBreak(Integer /* value */) { re
 Pipeline::PipeAction Pipeline::ExecuteStage::ExecBreak(double /* value */)  { return PIPE_CONTINUE; }
 Pipeline::PipeAction Pipeline::ExecuteStage::ExecKill(LFID /* fid */)       { return PIPE_CONTINUE; }
 
+  template<typename T, unsigned bits>
+  struct scaler {};
+
+
+  template<typename T>
+  struct scaler<T, 4> {
+static  void scale_pp(size_t& x, size_t& y, uint32_t& data, T value)
+  {
+	x = (value >> 24) & 0xff;
+	y = (value >> 16) & 0xff;
+	data = ((value & 0xf000) << (4*4))
+	  | ((value & 0x0f00) << (3*4))
+	  | ((value & 0x00f0) << (2*4))
+	  | ((value & 0x000f) << (1*4));
+  }
+
+    static void scale_rs(size_t& w, size_t& h, T value)
+    {
+      w = (value >> 24) & 0xff;
+      h = (value >> 16) & 0xff;
+    }
+  };
+
+  template<typename T>
+  struct scaler<T, 8> {
+    static void scale_pp(size_t& x, size_t& y, uint32_t& data, T value)
+  {
+	x = (value >> 48) & 0xffff;
+	y = (value >> 32) & 0xffff;
+	data = value & 0xffffffff;
+  }
+    static void scale_rs(size_t& w, size_t& h, T value)
+    {
+      w = (value >> 48) & 0xffff;
+      h = (value >> 32) & 0xffff;
+    }
+  };
+
 void Pipeline::ExecuteStage::ExecDebug(Integer value, Integer stream) const
 {
+  if ((stream >> 5) & 1) {
+    GfxDisplay *disp = GetKernel()->getDisplay();
+    assert(disp != NULL);
+    int command = (stream >> 6) & 3;
+    //    std::cerr << "Gfx command = " << command << std::endl;
+    if (command == 0) {
+      // put pixel
+      size_t x, y;
+      uint32_t data;
+      scaler<Integer, sizeof(value)>::scale_pp(x, y, data, value);
+      disp->getFrameBuffer().putPixel(x, y, data);
+    } else if (command == 1) {
+      // resize screen
+      size_t w, h;
+      scaler<Integer, sizeof(value)>::scale_rs(w, h, value);
+      disp->resizeFrameBuffer(w, h);
+    }
+  }
+  else {
   int outstream = stream & 3;
 
   ostringstream stringout;
@@ -173,6 +233,7 @@ void Pipeline::ExecuteStage::ExecDebug(Integer value, Integer stream) const
     DebugProgWrite("PRINT by T%u at 0x%.*llx: %s",
 		   (unsigned)m_input.tid, (int)sizeof(m_input.pc) * 2, (unsigned long long)m_input.pc,
 		   stringout.str().c_str());
+  }
 }
 
 void Pipeline::ExecuteStage::ExecDebug(double value, Integer stream) const
