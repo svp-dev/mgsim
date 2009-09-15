@@ -19,6 +19,7 @@ AM_SILENT_RULES([yes])
 CXXFLAGS=''
 
 AC_PROG_CXX
+AC_PROG_RANLIB
 AC_LIB_READLINE
 
 AC_ARG_ENABLE([mtalpha], 
@@ -72,6 +73,12 @@ else
 fi
 AM_CONDITIONAL([ENABLE_MTSPARC], [test x$enable_mtsparc = xyes])
 AM_CONDITIONAL([ENABLE_MTSPARC_TESTS], [test x$enable_mtsparc_tests = xyes])
+
+AM_PATH_SDL
+if test "x$no_sdl" = xyes; then
+  AC_MSG_WARN([SDL not found, disabling support for graphics output])
+fi
+AM_CONDITIONAL([ENABLE_USE_SDL], [test "x$no_sdl" = x])
 
 
 AC_CONFIG_FILES([

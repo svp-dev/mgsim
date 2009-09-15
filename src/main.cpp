@@ -24,6 +24,11 @@
 
 #include <signal.h>
 
+
+#ifdef USE_SDL
+#include <SDL.h>
+#endif
+
 using namespace Simulator;
 using namespace std;
 
@@ -732,7 +737,7 @@ struct ProgramConfig
     vector<pair<RegAddr, string> >   m_loads;
 };
 
-static bool ParseArguments(int argc, const char* argv[], ProgramConfig& config)
+static bool ParseArguments(int argc, char** argv, ProgramConfig& config)
 {
     config.m_interactive = false;
     config.m_terminate   = false;
@@ -875,7 +880,10 @@ static void PrintException(ostream& out, const exception& e)
     }
 }
     
-int main(int argc, const char* argv[])
+#ifdef USE_SDL
+extern "C"
+#endif
+int main(int argc, char** argv)
 {
     try
     {
