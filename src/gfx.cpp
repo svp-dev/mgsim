@@ -1,5 +1,6 @@
 #include "gfx.h"
 #include <cstring>
+#include <sys/resource.h>
 
 #ifdef USE_SDL
 #include "gfxscaler.cpp"
@@ -31,6 +32,25 @@ GfxFrameBuffer::resize(size_t nw, size_t nh)
   memset(buffer, 0, nw * nh * sizeof(uint32_t));
   width = nw;
   height = nh;
+}
+
+void
+GfxFrameBuffer::dump(std::ostream& f, unsigned key, const std::string& comment) const
+{
+  assert(buffer != NULL);
+  size_t w = width, h = height;
+
+  f << "P3" << std::endl
+    << "#key: " << key << std::endl
+    << "#" << comment << std::endl
+    << w << ' ' << h << ' ' << 255 << std::endl;
+  for (size_t y = 0; y < h; ++y) {
+    for (size_t x = 0; x < w; ++x) {
+      uint32_t d = buffer[y * w + x];
+      f << ((d >> 16) & 0xff) << ' ' << ((d >> 8) & 0xff) << ' ' << (d & 0xff) << ' ';
+    }
+    f << std::endl;
+  }
 }
 
 GfxFrameBuffer::~GfxFrameBuffer(void)

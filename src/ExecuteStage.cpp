@@ -7,6 +7,7 @@
 #include <iostream>
 #include <sstream>
 #include <iomanip>
+#include <fstream>
 
 using namespace std;
 
@@ -194,45 +195,106 @@ static  void scale_pp(size_t& x, size_t& y, uint32_t& data, T value)
 void Pipeline::ExecuteStage::ExecDebug(Integer value, Integer stream) const
 {
   if ((stream >> 5) & 1) {
+    // stream: C C 1 - - - - -
+    // C = command
+    //  0 -> putpixel
+    //  1 -> resize
+    //  2 -> snapshot
+
     GfxDisplay *disp = GetKernel()->getDisplay();
     assert(disp != NULL);
     int command = (stream >> 6) & 3;
-    //    std::cerr << "Gfx command = " << command << std::endl;
+
     if (command == 0) {
       // put pixel
+      // stream: 0 0 1 - - - - -
+      // value: unused(8) R(8) G(8) B(8) || unused(40) R(8) G(8) B(8)
+
       size_t x, y;
       uint32_t data;
       scaler<Integer, sizeof(value)>::scale_pp(x, y, data, value);
       disp->getFrameBuffer().putPixel(x, y, data);
+
     } else if (command == 1) {
       // resize screen
+      // stream: 0 1 1 - - - - -
+      // value:  W(8) H(8) unused(16)  ||  W(16) H(16) unused(32)
+
       size_t w, h;
       scaler<Integer, sizeof(value)>::scale_rs(w, h, value);
       disp->resizeFrameBuffer(w, h);
+
+    } else if (command == 2) {
+      // take screenshot
+      // stream: 1 0 1 T C - S S
+      // T = embed timestamp in filename
+      // C = embed thread information in picture comment
+      // S = output stream
+      //  0 -> file
+      //  1 -> standard output
+      //  2 -> standard error
+      //  3 -> (undefined)
+      // value: file identification key
+
+      ostringstream tinfo;
+      if ((stream >> 3) & 1) 
+	tinfo << "print by thread 0x" << std::hex << (unsigned)m_input.tid << " at 0x" << (unsigned long long)m_input.pc;
+
+      int outstream = stream & 3;
+
+      if (outstream == 0) {
+	ostringstream fname;
+	fname << "gfx." << value;
+	if ((stream >> 4) & 1) {
+	  struct rusage r;
+	  getrusage(RUSAGE_SELF, &r);
+	  fname << '.' << r.ru_utime.tv_sec << setw(6) << setfill('0') << r.ru_utime.tv_usec;
+	}
+	fname << ".ppm";
+	
+	ofstream f(fname.str().c_str(), ios_base::out | ios_base::trunc);
+	disp->getFrameBuffer().dump(f, value, tinfo.str());
+      }
+      else {
+	ostream& out = (outstream == 2) ? cerr : cout;
+	disp->getFrameBuffer().dump(out, value, tinfo.str());
+      }
     }
   }
   else {
-  int outstream = stream & 3;
+    // stream: F F 0 - - - S S
+    // F = format
+    //  0 -> unsigned decimal
+    //  1 -> hex
+    //  2 -> signed decimal
+    //  3 -> ASCII character
+    // S = output stream
+    //  0 -> debug output
+    //  1 -> standard output
+    //  2 -> standard error
+    //  3 -> (undefined)
 
-  ostringstream stringout;
-  ostream& out = (outstream == 0) ? stringout : \
-    ((outstream == 2) ? cerr : cout);
+    int outstream = stream & 3;
 
-  switch ((stream >> 6) & 0x3) {
-  case 0:
-    out << dec << (unsigned long long)value; break;
-  case 1:
-    out << hex << (unsigned long long)value; break;
-  case 2:
-    out << dec << (long long)(SInteger)value; break;
-  case 3:
-    out << (char)value; break;
-  }
+    ostringstream stringout;
+    ostream& out = (outstream == 0) ? stringout : \
+      ((outstream == 2) ? cerr : cout);
 
-  if (outstream == 0)
-    DebugProgWrite("PRINT by T%u at 0x%.*llx: %s",
-		   (unsigned)m_input.tid, (int)sizeof(m_input.pc) * 2, (unsigned long long)m_input.pc,
-		   stringout.str().c_str());
+    switch ((stream >> 6) & 0x3) {
+    case 0:
+      out << dec << (unsigned long long)value; break;
+    case 1:
+      out << hex << (unsigned long long)value; break;
+    case 2:
+      out << dec << (long long)(SInteger)value; break;
+    case 3:
+      out << (char)value; break;
+    }
+
+    if (outstream == 0)
+      DebugProgWrite("PRINT by T%u at 0x%.*llx: %s",
+		     (unsigned)m_input.tid, (int)sizeof(m_input.pc) * 2, (unsigned long long)m_input.pc,
+		     stringout.str().c_str());
   }
 }
 
