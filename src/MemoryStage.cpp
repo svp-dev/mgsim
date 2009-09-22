@@ -42,7 +42,7 @@ Pipeline::PipeAction Pipeline::MemoryStage::OnCycle()
             rcv.m_state = RST_INVALID;
         }
         // Memory read
-        else if (m_input.address == numeric_limits<MemAddr>::max())
+        else if (m_input.address > numeric_limits<MemAddr>::max() - 32)
         {
             // Invalid address; don't send request, just clear register
             rcv = MAKE_EMPTY_PIPEVALUE(rcv.m_size);
