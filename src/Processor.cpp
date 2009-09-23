@@ -219,4 +219,33 @@ void Processor::OnFamilyTerminatedLocally(MemAddr /* pc */)
     m_localFamilyCompletion = cycle;
 }
 
+Integer Processor::GetProfileWord(unsigned int i) const
+{
+    switch (i)
+    {
+    case 0:
+    {
+        // Return the number of executed instructions on all cores
+        Integer ops = 0;
+        for (size_t i = 0; i < m_grid.size(); ++i) {
+            ops += m_grid[i]->GetOp();
+        }
+        return ops;
+    }
+    
+    case 1:
+    {
+        // Return the number of executed FP instructions on all cores
+        Integer flops = 0;
+        for (size_t i = 0; i < m_grid.size(); ++i) {
+            flops += m_grid[i]->GetFlop();
+        }
+        return flops;
+    }
+        
+    default:
+        return 0;
+    }
+}
+
 }

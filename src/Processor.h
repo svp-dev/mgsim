@@ -66,6 +66,8 @@ public:
 	CycleNo GetLocalFamilyCompletion() const { return m_localFamilyCompletion; }
 
     unsigned int GetNumSuspendedRegisters() const;
+    
+    Integer GetProfileWord(unsigned int i) const;
 	
 	void WriteRegister(const RegAddr& addr, const RegValue& value) {
 		m_registerFile.WriteRegister(addr, value);

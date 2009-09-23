@@ -47,6 +47,14 @@ Pipeline::PipeAction Pipeline::MemoryStage::OnCycle()
             // Invalid address; don't send request, just clear register
             rcv = MAKE_EMPTY_PIPEVALUE(rcv.m_size);
         }
+        else if (m_input.address > numeric_limits<MemAddr>::max() - 256)
+        {
+            // Special range for obtaining profiling information. Rather hackish.
+            MemAddr i = (m_input.address - (numeric_limits<MemAddr>::max() - 256)) / sizeof(Integer);
+            rcv.m_state = RST_FULL;
+            rcv.m_size  = m_input.Rcv.m_size;
+            rcv.m_integer.set( m_parent.GetProcessor().GetProfileWord(i), rcv.m_size);
+        }
         else if (m_input.Rc.valid())
         {
             // Memory read
