@@ -238,18 +238,18 @@ void Pipeline::ExecuteStage::ExecDebug(Integer value, Integer stream) const
 
       ostringstream tinfo;
       if ((stream >> 3) & 1) 
-	tinfo << "print by thread 0x" << std::hex << (unsigned)m_input.tid << " at 0x" << (unsigned long long)m_input.pc;
+	tinfo << "print by thread 0x" 
+	      << std::hex << (unsigned)m_input.tid 
+	      << " at 0x" << (unsigned long long)m_input.pc
+	      << " on cycle " << GetKernel()->GetCycleNo();
 
       int outstream = stream & 3;
 
       if (outstream == 0) {
 	ostringstream fname;
 	fname << "gfx." << value;
-	if ((stream >> 4) & 1) {
-	  struct rusage r;
-	  getrusage(RUSAGE_SELF, &r);
-	  fname << '.' << r.ru_utime.tv_sec << setw(6) << setfill('0') << r.ru_utime.tv_usec;
-	}
+	if ((stream >> 4) & 1) 
+	  fname << '.' << GetKernel()->GetCycleNo();
 	fname << ".ppm";
 	
 	ofstream f(fname.str().c_str(), ios_base::out | ios_base::trunc);
