@@ -154,43 +154,55 @@ Pipeline::PipeAction Pipeline::ExecuteStage::ExecBreak(Integer /* value */) { re
 Pipeline::PipeAction Pipeline::ExecuteStage::ExecBreak(double /* value */)  { return PIPE_CONTINUE; }
 Pipeline::PipeAction Pipeline::ExecuteStage::ExecKill(LFID /* fid */)       { return PIPE_CONTINUE; }
 
-  template<typename T, unsigned bits>
-  struct scaler {};
-
-
-  template<typename T>
-  struct scaler<T, 4> {
-static  void scale_pp(size_t& x, size_t& y, uint32_t& data, T value)
+template<typename T, unsigned bits>
+struct scaler {};
+ 
+template<typename T>
+struct scaler<T, 4> {
+  static  void scale_pp(size_t& x, size_t& y, uint32_t& data, T value)
   {
-	x = (value >> 24) & 0xff;
-	y = (value >> 16) & 0xff;
-	data = ((value & 0xf000) << (4*4))
-	  | ((value & 0x0f00) << (3*4))
-	  | ((value & 0x00f0) << (2*4))
-	  | ((value & 0x000f) << (1*4));
+    x = (value >> 24) & 0xff;
+    y = (value >> 16) & 0xff;
+    data = ((value & 0xf000) << (4*4))
+      | ((value & 0x0f00) << (3*4))
+      | ((value & 0x00f0) << (2*4))
+      | ((value & 0x000f) << (1*4));
   }
-
-    static void scale_rs(size_t& w, size_t& h, T value)
-    {
-      w = (value >> 24) & 0xff;
-      h = (value >> 16) & 0xff;
-    }
-  };
-
-  template<typename T>
-  struct scaler<T, 8> {
-    static void scale_pp(size_t& x, size_t& y, uint32_t& data, T value)
+  static  void scale_ppo(size_t& offset, uint32_t& data, T value)
   {
-	x = (value >> 48) & 0xffff;
-	y = (value >> 32) & 0xffff;
-	data = value & 0xffffffff;
+    offset = (value >> 16) & 0xffff;
+    data = ((value & 0xf000) << (4*4))
+      | ((value & 0x0f00) << (3*4))
+      | ((value & 0x00f0) << (2*4))
+      | ((value & 0x000f) << (1*4));
   }
-    static void scale_rs(size_t& w, size_t& h, T value)
-    {
-      w = (value >> 48) & 0xffff;
-      h = (value >> 32) & 0xffff;
-    }
-  };
+  
+  static void scale_rs(size_t& w, size_t& h, T value)
+  {
+    w = (value >> 24) & 0xff;
+    h = (value >> 16) & 0xff;
+  }
+};
+
+template<typename T>
+struct scaler<T, 8> {
+  static void scale_pp(size_t& x, size_t& y, uint32_t& data, T value)
+  {
+    x = (value >> 48) & 0xffff;
+    y = (value >> 32) & 0xffff;
+    data = value & 0xffffffff;
+  }
+  static void scale_ppo(size_t& offset, uint32_t& data, T value)
+  {
+    offset = (value >> 32) & 0xffffffff;
+    data = value & 0xffffffff;
+  }
+  static void scale_rs(size_t& w, size_t& h, T value)
+  {
+    w = (value >> 48) & 0xffff;
+    h = (value >> 32) & 0xffff;
+  }
+};
 
 void Pipeline::ExecuteStage::ExecDebug(Integer value, Integer stream) const
 {
@@ -207,14 +219,27 @@ void Pipeline::ExecuteStage::ExecDebug(Integer value, Integer stream) const
 
     if (command == 0) {
       // put pixel
-      // stream: 0 0 1 - - - - -
-      // value: unused(8) R(8) G(8) B(8) || unused(40) R(8) G(8) B(8)
-
-      size_t x, y;
-      uint32_t data;
-      scaler<Integer, sizeof(value)>::scale_pp(x, y, data, value);
-      disp->getFrameBuffer().putPixel(x, y, data);
-
+      // stream: 0 0 1 M - - - -
+      // M = mode
+      //  0 -> pixel at (x,y)
+      //  1 -> pixel at offset
+      if (0 == ((stream >> 4) & 1))
+	{
+	  // value: x(8) y(8) unused(4) R(4) G(4) B(4) || x(16) y(16) unused(8) R(8) G(8) B(8)
+	  size_t x, y;
+	  uint32_t data;
+	  scaler<Integer, sizeof(value)>::scale_pp(x, y, data, value);
+	  disp->getFrameBuffer().putPixel(x, y, data);
+	}
+      else
+	{
+	  // value: offset(16) unused(4) R(4) G(4) B(4) || offset(32) unused(8) R(8) G(8) B(8)
+	  size_t offset;
+	  uint32_t data;
+	  scaler<Integer, sizeof(value)>::scale_ppo(offset, data, value);
+	  disp->getFrameBuffer().putPixel(offset, data);
+	}
+      
     } else if (command == 1) {
       // resize screen
       // stream: 0 1 1 - - - - -

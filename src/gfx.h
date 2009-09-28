@@ -20,16 +20,16 @@ class GfxFrameBuffer {
 
   void putPixel(size_t x, size_t y, uint32_t data) const
   {
-    if (x > width || y > height)
+    if (x >= width || y >= height)
       return;
-    pixelAt(x, y) = data;
+    buffer[x + y * width] = data;
   }
 
-  uint32_t getPixel(size_t x, size_t y) const
+  void putPixel(size_t offset, uint32_t data) const
   {
-    if (x > width || y > height)
-      return 0;
-    return pixelAt(x, y);
+    if (offset >= (width * height))
+      return;
+    buffer[offset] = data;
   }
 
   void resize(size_t nw, size_t nh);
@@ -40,15 +40,9 @@ protected:
   GfxFrameBuffer(const GfxFrameBuffer&);
   GfxFrameBuffer& operator=(const GfxFrameBuffer&);
 
-  uint32_t *buffer;
+  uint32_t *__restrict__ buffer;
   size_t width;
   size_t height;
-
-  uint32_t&  pixelAt(size_t x, size_t y) const
-  {
-    assert(buffer != NULL);
-    return *(buffer + y * width + x); 
-  }
 };
 
 class GfxScaler;
