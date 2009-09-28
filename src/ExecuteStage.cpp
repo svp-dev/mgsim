@@ -241,7 +241,7 @@ void Pipeline::ExecuteStage::ExecDebug(Integer value, Integer stream) const
 	tinfo << "print by thread 0x" 
 	      << std::hex << (unsigned)m_input.tid 
 	      << " at 0x" << (unsigned long long)m_input.pc
-	      << " on cycle " << GetKernel()->GetCycleNo();
+	      << " on cycle " << std::dec << GetKernel()->GetCycleNo();
 
       int outstream = stream & 3;
 
