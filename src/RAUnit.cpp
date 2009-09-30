@@ -174,6 +174,12 @@ bool RAUnit::Alloc(const RegSize sizes[NUM_REG_TYPES], LFID fid, ContextType con
 			    assert(type.free[CONTEXT_NORMAL] >= size);
     			type.free[CONTEXT_NORMAL] -= size;
 			}
+            else if (context == CONTEXT_RESERVED)
+            {
+                // We've reserved a context, but aren't using it.
+                // Release it back to the normal pool.
+			    type.free[CONTEXT_NORMAL]++;
+            }
 		}	
 	}
 
