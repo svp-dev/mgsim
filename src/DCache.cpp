@@ -59,6 +59,7 @@ DCache::DCache(Processor& parent, const std::string& name, Allocator& alloc, Fam
     {
         m_lines[i].state = LINE_EMPTY;
         m_lines[i].data  = new char[m_lineSize];
+        m_lines[i].valid = new bool[m_lineSize];
     }
     
     m_wbstate.size   = 0;
@@ -70,6 +71,7 @@ DCache::~DCache()
     for (size_t i = 0; i < m_lines.size(); ++i)
     {
         delete[] m_lines[i].data;
+        delete[] m_lines[i].valid;
     }
 }
 
@@ -84,14 +86,14 @@ Result DCache::FindLine(MemAddr address, Line* &line, bool check_only)
     for (size_t i = 0; i < m_assoc; ++i)
     {
         line = &m_lines[set + i];
-
-        // Invalid lines cannot be touched or considered
+        
+        // Invalid lines may not be touched or considered
         if (line->state != LINE_INVALID)
         {
             if (line->state == LINE_EMPTY)
             {
-    			// Empty, unused line, remember this one
-       			empty = line;
+     			// Empty, unused line, remember this one
+   			    empty = line;
             }
             else if (line->tag == tag)
             {
@@ -127,6 +129,7 @@ Result DCache::FindLine(MemAddr address, Line* &line, bool check_only)
 			line->tag     = tag;
 			line->waiting = INVALID_REG;
 		    line->next    = INVALID_CID;
+            std::fill(line->valid, line->valid + m_lineSize, false);
 		}
 	}
 
@@ -189,15 +192,33 @@ Result DCache::Read(MemAddr address, void* data, MemSize size, LFID /* fid */, R
             return FAILED;
         }
     }
-    else if (line->state != LINE_LOADING)
+    else 
     {
-        // Data was already in the cache, copy it
-        COMMIT
+        // Check if the data that we want is valid in the line.
+        // This happens when the line is FULL, or LOADING and has been
+        // snooped to (written to from another core) in the mean time.
+        size_t i;
+        for (i = 0; i < size; ++i)
         {
-            memcpy(data, line->data + offset, (size_t)size);
-            m_numHits++;
+            if (!line->valid[offset + i])
+            {
+                break;
+            }
         }
-        return SUCCESS;
+        
+        if (i == size)
+        {
+            // Data is entirely in the cache, copy it
+            COMMIT
+            {
+                memcpy(data, line->data + offset, (size_t)size);
+                m_numHits++;
+            }
+            return SUCCESS;
+        }
+        
+        // Data is not entirely in the cache; it should be loading from memory
+        assert(line->state == LINE_LOADING);
     }
 
     // Data is being loaded, add request to the queue
@@ -245,26 +266,33 @@ Result DCache::Write(MemAddr address, void* data, MemSize size, LFID fid, TID ti
         DeadlockWrite("Unable to acquire port for D-Cache access");
         return FAILED;
     }
-
-	COMMIT
+    
+    Line* line;
+	if (FindLine(address, line, true) == SUCCESS)
 	{
-		Line* line;
-		if (FindLine(address, line, true) == SUCCESS)
-		{
-			if (line->state == LINE_FULL) {
-				// The line is cached and has no outstanding reads, update it.
-				memcpy(line->data + offset, data, (size_t)size);
-			} else {
-			    assert(line->state == LINE_LOADING || line->state == LINE_PROCESSING);
-			    
-				// The line is present, but not yet loaded or still processing
-				// outstanding reads, invalidate it.
-				line->state = LINE_INVALID;
-			}
-		}
-	}
+	    assert(line->state != LINE_EMPTY);
 
-    // Store request for memory
+        if (line->state == LINE_LOADING)
+        {
+            // We cannot write into a loading line or we might violate the
+            // sequential semantics of a single thread because pending reads
+            // might get the later write's data.
+            // We cannot ignore the line either because new reads should get the new
+            // data and not the old.
+            // Therefore, we invalidate the line so new reads will generate a new
+            // request, which gets the new data whereas the queued reads will get the
+            // old data.
+            COMMIT{ line->state = LINE_INVALID; }
+        }
+        else
+        {
+            // Update the line
+            assert(line->state == LINE_FULL);
+    	    COMMIT{ memcpy(line->data + offset, data, (size_t)size); }
+	    }
+    }
+    
+    // Store request for memory (pass-through)
     Request request;
     request.write     = true;
     request.address   = address;
@@ -288,14 +316,15 @@ bool DCache::OnMemoryReadCompleted(const MemData& data)
     {
         Line& line = m_lines[data.tag.cid];
         
-        // Copy the data into the cache line
-        memcpy(line.data, data.data, (size_t)data.size);
-
-		// It might have been invalidated because of a write, check state
-		if (line.state != LINE_INVALID) {
-		    assert(line.state == LINE_LOADING);
-			line.state = LINE_PROCESSING;
-		}
+        // Copy the data into the cache line.
+        // Mask by valid bytes (don't overwrite already written data).
+        for (size_t i = 0; i < (size_t)data.size; ++i)
+        {
+            if (!line.valid[i]) {
+                line.data[i]  = data.data[i];
+                line.valid[i] = true;
+            }
+        }
     }
     
     // Push the cache-line to the back of the queue
@@ -324,11 +353,14 @@ bool DCache::OnMemorySnooped(MemAddr address, const MemData& data)
         // Cache coherency: check if we have the same address
 		if (FindLine(address, line, true) == SUCCESS)
 		{
-            if (line->state != LINE_LOADING)
-            {
-                // Yes, update it
-                memcpy(&line->data[offset], data.data, (size_t)data.size);
-            }
+		    // We do, update the data
+            memcpy(line->data + offset, data.data, (size_t)data.size);
+            
+            // Mark written bytes as valid
+            // Note that we don't have to check against already written data or queued reads
+            // because we don't have to guarantee sequential semantics from other cores.
+            // This falls with the non-determinism behavior of the architecture.
+            std::fill(line->valid + offset, line->valid + offset + data.size, true);
         }
     }
     return true;
@@ -350,6 +382,7 @@ Result DCache::OnCycle(unsigned int stateIndex)
 
 	    // Process a waiting register
         Line& line = m_lines[m_returned.Front()];
+        assert(line.state == LINE_LOADING || line.state == LINE_INVALID);
 	    if (line.waiting.valid())
 	    {
 	        WritebackState state = m_wbstate;
@@ -464,17 +497,11 @@ Result DCache::OnCycle(unsigned int stateIndex)
 	    }
 	    else
 	    {
-    	    // We're done with this line
-	        COMMIT
-	        {
-        		if (line.state != LINE_INVALID) {
-        		    // If not invalidated, move the line from processing to full state
-    		        assert(line.state == LINE_PROCESSING);
-    			    line.state = LINE_FULL;
-    		    } else {
-        		    // Otherwise, move it to the empty state
-    		        line.state = LINE_EMPTY;
-    		    }
+    	    // We're done with this line.
+   		    // Move the line to the FULL (or EMPTY when invalidated) state.
+   		    COMMIT
+   		    {
+	            line.state = (line.state == LINE_INVALID) ? LINE_EMPTY : LINE_FULL;
             }
             m_returned.Pop();
 	    }
@@ -575,35 +602,34 @@ void DCache::Cmd_Read(std::ostream& out, const std::vector<std::string>& /*argum
         } else {
             out << " | "
                 << hex << "0x" << setw(16) << setfill('0') << (line.tag * num_sets + set) * m_lineSize;
-            switch (line.state) {
-                case LINE_LOADING:    out << "L"; break;
-                case LINE_PROCESSING: out << "P"; break;
-                case LINE_INVALID:    out << "I"; break;
-                default:              out << " "; break;
+            
+            switch (line.state)
+            {
+                case LINE_LOADING: out << "L"; break;
+                case LINE_INVALID: out << "I"; break;
+                default: out << " ";
             }
             out << " |";
 
-            if (line.state != LINE_LOADING)
+            // Print the data
+            out << hex << setfill('0');
+            static const int BYTES_PER_LINE = 16;
+            for (size_t y = 0; y < m_lineSize; y += BYTES_PER_LINE)
             {
-                // Print the data
-                out << hex << setfill('0');
-                static const int BYTES_PER_LINE = 16;
-                for (size_t y = 0; y < m_lineSize; y += BYTES_PER_LINE)
-                {
-                    for (size_t x = y; x < y + BYTES_PER_LINE; ++x) {
-                        out << " " << setw(2) << (unsigned)(unsigned char)line.data[x];
-                    }
-
-                    out << " |";
-                    if (y + BYTES_PER_LINE < m_lineSize) {
-                        // This was not yet the last line
-                        out << endl << "    |                     |";
+                for (size_t x = y; x < y + BYTES_PER_LINE; ++x) {
+                    out << " ";
+                    if (line.valid[x]) {
+                        out << setw(2) << (unsigned)(unsigned char)line.data[x];
+                    } else {
+                        out << "  ";
                     }
                 }
-            }
-            else
-            {
-                out << "                                                 |";
+
+                out << " |";
+                if (y + BYTES_PER_LINE < m_lineSize) {
+                    // This was not yet the last line
+                    out << endl << "    |                     |";
+                }
             }
         }
         out << endl;

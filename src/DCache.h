@@ -22,8 +22,7 @@ class DCache : public IComponent
     {
         LINE_EMPTY,      ///< Line is empty.
         LINE_LOADING,    ///< Line is being loaded.
-        LINE_PROCESSING, ///< Line is full and being processed.
-        LINE_INVALID,    ///< Line is loading or processing, but invalid.
+        LINE_INVALID,    ///< Line is invalid.
         LINE_FULL        ///< Line is full.
     };
 
@@ -32,6 +31,7 @@ class DCache : public IComponent
         LineState   state;  ///< The line state.
         MemAddr     tag;    ///< The address tag.
         char*       data;   ///< The data in this line.
+        bool*       valid;  ///< A bitmap of valid bytes in this line.
         CycleNo     access; ///< Last access time of this line (for LRU).
         CID         next;   ///< Next cache-line in to-be-processed list.
 		RegAddr		waiting;///< First register waiting on this line.
