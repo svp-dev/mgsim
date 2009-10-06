@@ -388,7 +388,7 @@ public:
             if (i == placeSizes.size()) break;
         }
 
-        if (numProcessorsPerFPU != numProcessorsPerFPU_orig) {
+        if ((numProcessorsPerFPU != numProcessorsPerFPU_orig) && !quiet) {
             fprintf(stderr, "Warning: #cores in at least one place cannot be divided by %u cores/FPU\nValue has been adjusted to %u cores/FPU\n",
                 (unsigned)numProcessorsPerFPU_orig,
                 (unsigned)numProcessorsPerFPU);
