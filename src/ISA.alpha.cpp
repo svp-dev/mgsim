@@ -895,7 +895,7 @@ Pipeline::PipeAction Pipeline::ExecuteStage::ExecuteInstruction()
                     {
                         // Store the address of the next instruction for BR and BSR
                         MemAddr retaddr = next;
-                        if (retaddr & -64)
+                        if ((retaddr & 63) == 0)
                         {
                             // If the next PC is at a cache-line boundary, skip the control word
                             retaddr += sizeof(Instruction);
