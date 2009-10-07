@@ -1917,8 +1917,9 @@ bool Allocator::SanitizeFamily(Family& family, bool hasDependency)
             local  = true;
             nBlock = nThreads;
         }
-
-        step = family.step;
+        
+        nBlock = std::max<Integer>(nBlock,1);
+        step   = family.step;
     }
     else
     {
@@ -1933,15 +1934,19 @@ bool Allocator::SanitizeFamily(Family& family, bool hasDependency)
 
     COMMIT
     {
+        assert(nBlock > 0);
+
         family.infinite = (family.step == 0);
         family.step     = step;
 
-        // For independent families, use the original virtual block size
-        // as physical block size.
-        family.physBlockSize = (TSize)((family.virtBlockSize == 0 || hasDependency)
-                             ? nBlock
-                             : family.virtBlockSize);
-        family.virtBlockSize = max<Integer>(nBlock,1);
+        family.physBlockSize = nBlock;
+        if (family.virtBlockSize > 0 && !hasDependency && family.virtBlockSize < nBlock)
+        {
+            // For independent families, use the original virtual block size
+            // as physical block size, if it is smaller.
+            family.physBlockSize = family.virtBlockSize;
+        }
+        family.virtBlockSize = nBlock;
         family.nThreads      = nThreads;
     }
     return local;
