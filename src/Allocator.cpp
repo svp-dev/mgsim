@@ -1487,11 +1487,12 @@ Result Allocator::OnCycle(unsigned int stateIndex)
             {
                 // We have threads to run
                 
-                // We only allocate from the exclusive pool once:
-                // for the first thread of an exclusive family.
-                bool exclusive = family.place.exclusive && family.index == 0;
+                // We only allocate from a special pool once:
+                // for the first thread of the family.
+                bool exclusive = family.dependencies.numThreadsAllocated == 0 && family.place.exclusive;
+                bool reserved  = family.dependencies.numThreadsAllocated == 0 && family.place.type == PlaceID::GROUP && family.parent.lpid != m_lpid;
                 
-                TID tid = m_threadTable.PopEmpty( exclusive ? CONTEXT_EXCLUSIVE : CONTEXT_NORMAL );
+                TID tid = m_threadTable.PopEmpty( exclusive ? CONTEXT_EXCLUSIVE : reserved ? CONTEXT_RESERVED : CONTEXT_NORMAL );
                 if (tid == INVALID_TID)
                 {
                     DeadlockWrite("Unable to allocate a free thread entry for F%u", (unsigned)fid);
