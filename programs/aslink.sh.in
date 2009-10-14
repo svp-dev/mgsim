@@ -56,4 +56,4 @@ for f in $src; do
   obj="$obj $of"
 done
 
-$LD -e main -Ttext 0 -o "$target" $obj
+$LD -e main -Ttext 0x10000 -o "$target" $obj

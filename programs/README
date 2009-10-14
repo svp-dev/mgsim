@@ -37,7 +37,7 @@ instance, indicates an Optimized MicroThreaded FFT program.
 Now use the GNU linker to link the single object file into an executable file,
 e.g.:
 
-  ./ld -o fft.bin -Ttext 0 -e main fft.o
+  ./ld -o fft.bin -Ttext 0x10000 -e main fft.o
   
 We put the .text segment at address 0 and set the entry point to the symbol
 "main". Note that for ELF binaries, the entry point doesn't have to be at the

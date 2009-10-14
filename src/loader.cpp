@@ -49,6 +49,19 @@ MemAddr LoadDataFile(IMemoryAdmin* memory, const string& path, bool quiet)
     return base;
 }
 
+static bool IsReserved(MemAddr address, MemSize size)
+{
+    // The following memory ranges are reserved:
+
+    // The lower 256 bytes of memory, which contains profiling information
+    if (address < 256) return true;
+    
+    // The upper half of memory, which contains the TLS
+    if (address + size > ((MemAddr)1 << (sizeof(MemAddr) * 8 - 1)) ) return true;
+    
+    return false;
+}
+
 // Load the program image into the memory
 static std::pair<MemAddr, bool> LoadProgram(IMemoryAdmin* memory, void* _data, MemSize size, bool quiet)
 {
@@ -71,19 +84,10 @@ static std::pair<MemAddr, bool> LoadProgram(IMemoryAdmin* memory, void* _data, M
 	ehdr.e_shstrndx  = elftohh(ehdr.e_shstrndx);
 
 	// Check file signature
-	if (size < sizeof(Elf_Ehdr) ||
-		ehdr.e_ident[EI_MAG0] != ELFMAG0 || ehdr.e_ident[EI_MAG1] != ELFMAG1 ||
-		ehdr.e_ident[EI_MAG2] != ELFMAG2 || ehdr.e_ident[EI_MAG3] != ELFMAG3)
-	{
-		// Not an ELF file, load as flat binary, starts at address 4 (past control word)
-		if (!quiet)
-		{
-    		cout << "Loaded flat binary to address 0" << endl;
-    	}
-    	memory->Reserve(0, size, IMemory::PERM_READ | IMemory::PERM_WRITE | IMemory::PERM_EXECUTE);
-		memory->Write(0, data, size);
-		return make_pair(4, false);
-	}
+	Verify(size >= sizeof(Elf_Ehdr) &&
+		ehdr.e_ident[EI_MAG0] == ELFMAG0 && ehdr.e_ident[EI_MAG1] == ELFMAG1 &&
+		ehdr.e_ident[EI_MAG2] == ELFMAG2 && ehdr.e_ident[EI_MAG3] == ELFMAG3,
+		"invalid ELF file signature");
 
 	// Check that this file is for our 'architecture'
 	Verify(ehdr.e_ident[EI_VERSION] == EV_CURRENT,  "ELF version mismatch");
@@ -135,6 +139,10 @@ static std::pair<MemAddr, bool> LoadProgram(IMemoryAdmin* memory, void* _data, M
    			if (phdr[i].p_flags & PF_W) perm |= IMemory::PERM_WRITE;
    			if (phdr[i].p_flags & PF_X) perm |= IMemory::PERM_EXECUTE;
    			
+            // Check if the range is special, "reserved", memory
+            Verify(!IsReserved(phdr[i].p_vaddr, phdr[i].p_memsz), "section located at reserved memory");
+        
+            // Reserve the range
             memory->Reserve(phdr[i].p_vaddr, phdr[i].p_memsz, perm);
             
 			if (phdr[i].p_filesz > 0)

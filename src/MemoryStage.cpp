@@ -42,18 +42,23 @@ Pipeline::PipeAction Pipeline::MemoryStage::OnCycle()
             rcv.m_state = RST_INVALID;
         }
         // Memory read
-        else if (m_input.address >= numeric_limits<MemAddr>::max() - 31)
+        else if (m_input.address >= 4 && m_input.address < 256)
         {
-            // Invalid address; don't send request, just clear register
-            rcv = MAKE_EMPTY_PIPEVALUE(rcv.m_size);
-        }
-        else if (m_input.address >= numeric_limits<MemAddr>::max() - 255)
-        {
-            // Special range for obtaining profiling information. Rather hackish.
-            MemAddr i = (m_input.address - (numeric_limits<MemAddr>::max() - 255)) / sizeof(Integer);
-            rcv.m_state = RST_FULL;
-            rcv.m_size  = m_input.Rcv.m_size;
-            rcv.m_integer.set( m_parent.GetProcessor().GetProfileWord(i), rcv.m_size);
+            // Special range. Rather hackish.
+            // Note that we exclude address 0 from this so NULL pointers are still invalid.
+            if (m_input.address < 8)
+            {
+                // Invalid address; don't send request, just clear register
+                rcv = MAKE_EMPTY_PIPEVALUE(rcv.m_size);
+            }
+            else
+            {
+                // Profiling information
+                unsigned int i = (m_input.address - 8) / sizeof(Integer);
+                rcv.m_state = RST_FULL;
+                rcv.m_size  = m_input.Rcv.m_size;
+                rcv.m_integer.set( m_parent.GetProcessor().GetProfileWord(i), rcv.m_size);
+            }
         }
         else if (m_input.Rc.valid())
         {
