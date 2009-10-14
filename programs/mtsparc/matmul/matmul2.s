@@ -81,7 +81,7 @@ thread2:
 	! for (int k = 0; k < N; k++) {
 	!
     clr %l3                     ! %l3 = k
-    jmp L2e
+    ba L2e
     swch
 L2s:
     sll     %l3,   2, %l4

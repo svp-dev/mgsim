@@ -1,7 +1,7 @@
     !
     ! Calculate fibonacci(N)
     !
-    ! Expects N (with N >= 2) in %3
+    ! Expects N (with N >= 2) in %11
     ! Result ends up in %2
     !
     .file "fibo.s"
@@ -15,7 +15,7 @@ main:
     allocate %4, 0, 0, 0,0 
     
     ! Get N - 1 as the loop limit
-    sub     %3, 1, %3
+    sub     %11, 1, %11
 
     ! Write 0 and 1 into the first two locals (%0 is Read As Zero)
     mov     0, %1
@@ -24,7 +24,7 @@ main:
     ! Set the loop limit on the allocated FT entry
     ! We tag this instruction with SWCH because %3 is the result
     ! of a possibly long latency operation (allocate)
-    setlimit %4, %3
+    setlimit %4, %11
     swch
     
     ! Here we issue a direct (label operand) create with the
@@ -57,5 +57,5 @@ fibonacci:
     end
 
     .section .rodata
-    .ascii "\0TEST_INPUTS:R2:2 5 7 12\0"
+    .ascii "\0TEST_INPUTS:R10:2 5 7 12\0"
 

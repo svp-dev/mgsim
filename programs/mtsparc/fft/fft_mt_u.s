@@ -104,7 +104,7 @@ _FFT_POST:
     mov %l1, %l5	        ! %l5 = j
     
     ! while (k - 1 < j) {
-    jmp 2f
+    ba 2f
 1:
     	! j = j - k;
     	sub %l5, %l4, %l5

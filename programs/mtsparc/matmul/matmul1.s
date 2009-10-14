@@ -50,7 +50,7 @@ thread1:
     ! for (int j = 0; j < N; j++) {
     !
 	clr %l3                     ! %l3 = j
-	jmp L1e
+	ba L1e
 	swch
 L1s:
 
@@ -62,7 +62,7 @@ L1s:
 	! for (int k = 0; k < N; k++) {
 	!
     clr %l4                     ! %l4 = k
-    jmp L2e
+    ba L2e
     swch
 L2s:
 

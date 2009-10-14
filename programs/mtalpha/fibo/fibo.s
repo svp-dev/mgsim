@@ -1,7 +1,7 @@
     #
     # Calculate fibonacci(N)
     #
-    # Expects N (with N >= 2) in $2
+    # Expects N (with N >= 2) in $10
     # Result ends up in $1
     #
     .file "fibo.s"
@@ -15,8 +15,8 @@ main:
     allocate $3, 0, 0, 0, 0
     mov     0, $0
     mov     1, $1
-    subl    $2, 1, $2
-    setlimit $3, $2
+    subl    $10, 1, $10
+    setlimit $3, $10
     swch
     cred    $3, fibonacci
     mov     $3, $31
@@ -33,5 +33,5 @@ fibonacci:
     .end fibonacci
 
     .section .rodata
-    .ascii "\0TEST_INPUTS:R2:2 5 7 12\0"
+    .ascii "\0TEST_INPUTS:R10:2 5 7 12\0"
 	

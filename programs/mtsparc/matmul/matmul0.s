@@ -49,7 +49,7 @@ L7:
 	add %5, %1, %5
 	add %6,  1, %6
 	add %7, %11, %7
-	jmp L7
+	ba L7
 L8:
 	!			C[jN+i] = v;
 	set C, %1
@@ -59,12 +59,12 @@ L8:
 	st %5, [%1]
 	!		}
 	add %2,  1, %2
-	jmp L5
+	ba L5
 L6:
 	!	}
 	add %3, 1, %3
 	add %4, %11, %4
-	jmp L3
+	ba L3
 L4:
 	!	return 0
 	nop
