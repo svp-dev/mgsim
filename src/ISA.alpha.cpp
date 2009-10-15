@@ -117,8 +117,12 @@ static InstrFormat GetInstrFormat(uint8_t opcode)
 
 void Pipeline::DecodeStage::DecodeInstruction(const Instruction& instr)
 {
-    m_output.opcode  = (uint8_t)((instr >> A_OPCODE_SHIFT) & A_OPCODE_MASK);
-    m_output.format  = GetInstrFormat(m_output.opcode);
+    m_output.opcode = (uint8_t)((instr >> A_OPCODE_SHIFT) & A_OPCODE_MASK);
+    m_output.format = GetInstrFormat(m_output.opcode);
+    m_output.Ra     = INVALID_REG;
+    m_output.Rb     = INVALID_REG;
+    m_output.Rc     = INVALID_REG;
+    
     RegIndex Ra    = (instr >> A_RA_SHIFT) & A_REG_MASK;
     RegIndex Rb    = (instr >> A_RB_SHIFT) & A_REG_MASK;
     RegIndex Rc    = (instr >> A_RC_SHIFT) & A_REG_MASK;
@@ -131,9 +135,6 @@ void Pipeline::DecodeStage::DecodeInstruction(const Instruction& instr)
     {
         case IFORMAT_PAL:
             m_output.literal = (instr >> A_PALCODE_SHIFT) & A_PALCODE_MASK;
-            m_output.Ra      = MAKE_REGADDR(RT_INTEGER, 31);
-            m_output.Rb      = MAKE_REGADDR(RT_INTEGER, 31);
-            m_output.Rc      = MAKE_REGADDR(RT_INTEGER, 31);
             break;
 
         case IFORMAT_MISC:
