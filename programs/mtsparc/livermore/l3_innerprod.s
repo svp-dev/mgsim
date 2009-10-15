@@ -45,8 +45,8 @@ main:
 ! %l0 = i
     .globl loop
     .align 64
-loop:
     .registers 2 0 2 0 2 4
+loop:
     sll     %l0, 3, %l0
     add     %l0, %g1, %l1
     ldd     [%l1], %lf2

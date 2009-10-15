@@ -46,8 +46,8 @@ main:
 ! %d0 = X[i-1]
 ! %l0 = i
     .align 64
-loop:
     .registers 3 0 2 0 2 4
+loop:
     sll     %l0,   3, %l0
     add     %l0, %g1, %l1
     ldd     [%l1], %lf0             ! %lf0,%lf1 = Y[i]

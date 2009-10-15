@@ -24,8 +24,8 @@ main:
     .end main
 
     .ent fibonacci
-fibonacci:
     .registers 0 2 0 0 0 0      # GR,SR,LR, GF,SF,LF
+fibonacci:
     addl $d0, $d1, $s1
     swch
     mov $d1, $s0

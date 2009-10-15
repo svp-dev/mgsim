@@ -41,10 +41,9 @@ main:
     print   %2, %0
     end
 
-fibonacci:
     ! This thread uses 2 shared integers, nothing more
-    .registers 0 2 0 0 0 0
-    
+    .registers 0 2 0 0 0 0    
+fibonacci:
     ! We add the first two dependents into the second shared
     ! Tagged with a SWCH because %d0 and %d1 are both not
     ! guaranteed to be there at time of execution.

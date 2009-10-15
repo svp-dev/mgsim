@@ -49,9 +49,8 @@ main:
 !
     .globl outer
     .align 64
+    .registers 2 1 5 0 0 4    
 outer:
-    .registers 2 1 5 0 0 4
-    
     clr      %l3
     allocate %l3, 0, 0, 0, 0
 
@@ -85,8 +84,8 @@ outer:
 !
     .globl inner
     .align 64
-inner:
     .registers 3 0 2 0 2 4
+inner:
     sub     %g0,  %l0, %l1
     sll     %l1,    3, %l1
     add     %l1,  %g2, %l1

@@ -38,9 +38,8 @@ main:
     ! %g3 = N
     ! %l0 = i
     .align 64
+	.registers 4 0 8 0 0 0      ! GR SR LR GF SF LF	
 thread1:
-	.registers 4 0 8 0 0 0      ! GR SR LR GF SF LF
-	
 	umul    %l0, %g3, %l0       ! %l0 = i*N
 	sll     %l0,   2, %l0
 	add     %l0, %g2, %l2       ! %l2 = &C[i*N]

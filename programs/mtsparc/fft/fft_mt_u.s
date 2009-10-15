@@ -87,9 +87,8 @@ _FFT:
 ! %SR0 = j
 ! %LR0 = &X[i]
 !
+	.registers 2 1 7  0 0 0	    ! GR,SR,LR, GF,SF,LF	
 _FFT_POST:
-	.registers 2 1 7  0 0 0	    ! GR,SR,LR, GF,SF,LF
-	
 							! %l0 = &X[i]
 	mov %d0, %l1         	! %l1 = j
 	mov %g0, %l2        	! %l2 = X
@@ -132,8 +131,8 @@ _FFT_POST:
 ! %g1 = j
 ! %g2 = X
 !
-_FFT_POST_SWAP:
 	.registers 3 0 1  0 0 8
+_FFT_POST_SWAP:
 	sll %g1,   4, %l0
 	add %l0, %g2, %l0  	! %l0 = &X[j]
 	
@@ -167,9 +166,8 @@ _FFT_POST_SWAP:
 ! %s0  = token
 ! %l0  = k (M..1)
 !
+	.registers 4 1 5  1 0 8 	! GR,SR,LR, GF,SF,LF	
 _FFT_1:
-	.registers 4 1 5  1 0 8 	! GR,SR,LR, GF,SF,LF
-	
     ! complex S = {cos(PI/LE2), -sin(PI/LE2)} = _cos_sin[k - 1];
     sll  %l0,   4, %l4
     add  %l4, %g1, %l4
@@ -217,9 +215,8 @@ _FFT_1:
 ! %g3 = &X[LE2]
 ! %l0 = &X[j]
 !
-_FFT_2:
 	.registers 4 0 2  4 4 12	! GR,SR,LR, GF,SF,LF
-
+_FFT_2:
     clr      %l1
 	allocate %l1, 0, 0, 0, 0
 	setstart %l1, %l0		! start = &X[j];
@@ -259,9 +256,8 @@ _FFT_2:
 ! %g0 = LE2 * 16
 ! %l0 = &X[i]
 !
+	.registers 1 0 2  4 0 12 	! GR,SR,LR, GF,SF,LF	
 _FFT_3:
-	.registers 1 0 2  4 0 12 	! GR,SR,LR, GF,SF,LF
-	
 	ldd [%l0+0], %lf0
 	ldd [%l0+8], %lf2			! %lf0 - %lf3 = X[i]
 	

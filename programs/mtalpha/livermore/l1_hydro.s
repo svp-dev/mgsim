@@ -64,9 +64,8 @@ main:
 #
     .globl loop
     .ent loop
-loop:
     .registers 3 0 2  3 0 3     # GR,SR,LR, GF,SF,LF
-
+loop:
     s8addq  $l0, $g2, $l1   # $l1  = &Z[i]
     ldt     $lf1, 80($l1)   # $lf1 = Z[i + 10]
     ldt     $lf2, 88($l1)   # $lf2 = Z[i + 11]

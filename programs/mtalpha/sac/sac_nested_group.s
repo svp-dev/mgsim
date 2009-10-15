@@ -62,9 +62,8 @@ main:
 #
     .globl with_0_set_0
     .ent with_0_set_0
+    .registers 2 0 5 0 0 0    
 with_0_set_0:
-    .registers 2 0 5 0 0 0
-    
     mov     $g0, $l1
     mov     $g1, $l2
     ldl     $l3, 16($g0)
@@ -87,8 +86,8 @@ with_0_set_0:
 #
     .globl fun
     .ent fun
-fun:
     .registers 3 0 4 0 0 5
+fun:
     ldl     $l1, 12($g1)
     mull    $l1, $g0, $l1
     addl    $l1, $l0, $l1   # $l1 = offset = i * adesc[3] + j

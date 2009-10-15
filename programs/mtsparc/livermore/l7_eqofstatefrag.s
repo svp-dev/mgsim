@@ -50,8 +50,8 @@ main:
 !
     .globl loop
     .align 64
-loop:
     .registers 4 0 10 0 0 0
+loop:
     sll     %l0,   2, %l0
     add     %l0, %g3, %l1   ! %l1 = &u[i]
     ld      [%l1+16], %l2   ! %l2 = u[i+4]

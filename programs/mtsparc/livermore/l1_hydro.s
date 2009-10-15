@@ -53,9 +53,8 @@ main:
 ! %l0       = i
 !
     .align 64
-loop:
     .registers 3 0 2  6 0 6     ! GR,SR,LR, GF,SF,LF
-
+loop:
     sll     %l0,   3, %l1
     add     %l1, %g2, %l1   ! %l1 = &Z[i]
     ldd     [%l1+80], %lf2  ! %lf2, %lf3 = Z[i + 10]

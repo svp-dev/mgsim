@@ -49,8 +49,8 @@ main:
 # $df0 = sum
 # $l0  = i
     .ent loop
-loop:
     .registers 2 0 2 0 1 2
+loop:
     s8addq  $l0, $g1, $l1
     ldt     $lf1, 0($l1)
     s8addq  $l0, $g0, $l0

@@ -61,8 +61,8 @@ main:
 #
     .globl fun
     .ent fun
-fun:
     .registers 2 0 4 0 0 5
+fun:
     s8addl  $l0, $g1, $l1   # $l1 = &a[offset]
     ldt     $f1, 0($l1)     # $f1 = a[offset]
     cvttq   $f1, $f1; swch

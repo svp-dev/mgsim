@@ -47,9 +47,8 @@ main:
     # $g2 = C
     # $g3 = N
     # $l0 = i
+	.registers 4 0 8  0 0 0	    # GR,SR,LR, GF,SF,LF	
 thread1:
-	.registers 4 0 8  0 0 0	    # GR,SR,LR, GF,SF,LF
-	
 	mull    $l0, $g3, $l0;      # $l0 = i*N
 	s4addl  $l0, $g2, $l2;      # $l2 = &C[i*N]
 	s4addl  $l0, $g0, $l0;      # $l0 = &A[i*N]

@@ -32,8 +32,8 @@ main:
     .end main
 
     .ent foo
-foo:
     .registers 1 0 0 0 0 0
+foo:
     print $g0, 0
     nop
     end

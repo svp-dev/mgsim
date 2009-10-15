@@ -44,9 +44,8 @@ main:
     ! %g3 = N
     ! %l0 = i
     .align 64
-thread1:
 	.registers 4 0 5  0 0 0	    ! GR,SR,LR, GF,SF,LF
-
+thread1:
     clr      %l4
 	allocate %l4, 0, 0, 0, 0
 	
@@ -70,9 +69,8 @@ thread1:
     ! %g3 = N
     ! %l0 = j
     .align 64
-thread2:
 	.registers 4 0 6  0 0 0	    ! GR,SR,LR, GF,SF,LF
-
+thread2:
     sll     %l0,   2, %l1
 	add     %l1, %g1, %l1       ! %l1 = &B[j]
 	clr     %l2                 ! %l2 = sum = 0

@@ -60,8 +60,8 @@ main:
 # $l0  = i (0.. #procs - 1)
     .globl outer
     .ent outer
-outer:
     .registers 4 0 4 0 1 1
+outer:
     mulq    $l0, $g2, $l1       # $l1 = start
     addq    $g2,   1, $l2       # $l2 = more_size = normal_size + 1
     
@@ -94,8 +94,8 @@ outer:
 # $l0  = i
     .globl loop
     .ent loop
-loop:
     .registers 2 0 2 0 1 2
+loop:
     s8addq $l0, $g1, $l1
     ldt $lf1, 0($l1)
     s8addq $l0, $g0, $l0

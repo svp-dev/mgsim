@@ -51,11 +51,11 @@ main:
     ! [out] %s0  = factorial[i]
     ! [out] %sf0 = iter[i]
     ! [out] %sf1 = pow_x[i]
-sin:
+    
     ! Inform the hardware how many registers we require.
     ! The assembler verifies the following instructions against this.
-	.registers 0 1 3 1 2 3		! GR,SR,LR, GF,SF,LF
-
+    .registers 0 1 3 1 2 3		! GR,SR,LR, GF,SF,LF
+sin:
 	! Advance the power series by multiplying the previous iteration
 	! with x. swch because we read %df1.
 	fmuls   %df1, %gf0, %lf0

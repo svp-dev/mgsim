@@ -57,8 +57,8 @@ main:
 ! %l0 = i
 !
     .align 64
-outer:
     .registers 3 0 5 0 0 6
+outer:
     clr      %l3
     allocate %l3, 0, 0, 0, 0
     mov      %g0, %l1    ! %l1 = X
@@ -89,8 +89,8 @@ outer:
 ! %l0 = j
 !
     .align 64
-inner:
     .registers 3 0 2 0 2 4
+inner:
     add     %g0, %l0, %l1   ! %l1 = i + j
     sll     %l1,   3, %l1
     add     %l1, %g1, %l1   ! %l1 = &X[i + j];

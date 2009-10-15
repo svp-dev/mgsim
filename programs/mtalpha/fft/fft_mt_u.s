@@ -96,9 +96,8 @@ _FFT:
 # $SR0 = j
 # $LR0 = &X[i]
 #
+	.registers 2 1 7  0 0 0	    # GR,SR,LR, GF,SF,LF	
 _FFT_POST:
-	.registers 2 1 7  0 0 0	    # GR,SR,LR, GF,SF,LF
-	
 							# $LR0 = &X[i]
 	mov $d0, $l1         	# $LR1 = j
 	mov $g0, $l2        	# $LR2 = X
@@ -142,8 +141,8 @@ _FFT_POST:
 # $GR1 = j
 # $GR2 = X
 #
-_FFT_POST_SWAP:
 	.registers 3 0 2  0 0 4
+_FFT_POST_SWAP:
 	sll  $g1,   4, $l0
 	addq $l0, $g2, $l0  	# $l0 = &X[j]
 	
@@ -178,9 +177,8 @@ _FFT_POST_SWAP:
 # $SR0 = token
 # $LR0 = k (M..1)
 #
+	.registers 4 1 5  1 0 4 	# GR,SR,LR, GF,SF,LF	
 _FFT_1:
-	.registers 4 1 5  1 0 4 	# GR,SR,LR, GF,SF,LF
-	
     # complex S = {cos(PI/LE2), -sin(PI/LE2)} = _cos_sin[k - 1];
     sll  $l0,   4, $l4
     addq $l4, $g1, $l4
@@ -228,9 +226,8 @@ _FFT_1:
 # $GR3 = &X[LE2]
 # $LR0 = &X[j]
 #
-_FFT_2:
 	.registers 4 0 2  2 2 6 	# GR,SR,LR, GF,SF,LF
-
+_FFT_2:
     clr      $l1
 	allocate $l1, 0, 0, 0, 0
 	setstart $l1, $l0		# start = &X[j];
@@ -267,9 +264,8 @@ _FFT_2:
 # $GR0 = LE2 * 16
 # $LR0 = &X[i]
 #
+	.registers 1 0 2  2 0 6 	# GR,SR,LR, GF,SF,LF	
 _FFT_3:
-	.registers 1 0 2  2 0 6 	# GR,SR,LR, GF,SF,LF
-	
 	ldt $lf0, 0($l0)
 	ldt $lf1, 8($l0)			# $lf0, $lf1 = X[i]
 	

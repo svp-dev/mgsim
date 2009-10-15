@@ -55,9 +55,8 @@ main:
 # $l0  = i
 #
     .ent outer
+    .registers 2 1 6 0 0 2    
 outer:
-    .registers 2 1 6 0 0 2
-    
     clr      $l3
     allocate $l3, 0, 0, 0, 0
 
@@ -88,8 +87,8 @@ outer:
 # $l0  = j
 #
     .ent inner
-inner:
     .registers 3 0 2 0 1 2
+inner:
     subq    $g0,  $l0, $l1
     s8addq  $l1,  $g2, $l1
     ldt     $lf0, -8($l1)       # $lf0 = X[i - j - 1]

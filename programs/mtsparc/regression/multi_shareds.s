@@ -20,7 +20,7 @@ main:
     end
 
     .align 64
-foo:
     .registers 0 0 0 0 2 0
+foo:
     faddd %df0, %df0, %sf0
     end

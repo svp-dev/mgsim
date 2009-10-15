@@ -29,8 +29,8 @@ main:
 
 ! %s0/%d0 = accumulator
     .align 64
-foo:
     .registers 0 1 3 0 0 0
+foo:
     mov     (1 << 3) | (2 << 1) | 1, %l1   ! Delegated, exclusive
     allocate %l1, 0, 0, 0, 0
     swch
@@ -41,8 +41,8 @@ foo:
     
 ! %s0 = return value
     .align 64
-bar:
     .registers 0 1 2 0 0 0
+bar:
     set val, %l0
     ld  [%l0], %l1
     add %l1, 1, %s0

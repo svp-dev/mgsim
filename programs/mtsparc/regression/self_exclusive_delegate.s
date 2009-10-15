@@ -17,8 +17,8 @@ main:
     end
 
     .align 64
-foo:
     .registers 0 0 1 0 0 0
+foo:
     print %l0, 0
     end
 

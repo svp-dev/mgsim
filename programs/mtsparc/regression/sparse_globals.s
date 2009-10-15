@@ -20,8 +20,8 @@ main:
     end
 
     .align 64
-foo:
     .registers 1 0 2 0 0 0
+foo:
     cmp %l0, 2
     bne 1f
     print %g0, 0

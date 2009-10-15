@@ -21,8 +21,8 @@ main:
     .end main
 
     .ent foo
-foo:
     .registers 1 0 2 0 0 0
+foo:
     subq $l0, 2, $l0
     bne $l0, 1f
     print $g0, 0

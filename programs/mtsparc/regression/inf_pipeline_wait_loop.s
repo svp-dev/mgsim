@@ -28,8 +28,8 @@ main:
     end
 
     .align 64
-foo:
     .registers 1 0 0 0 0 0
+foo:
     print %g0, 0
     nop
     end

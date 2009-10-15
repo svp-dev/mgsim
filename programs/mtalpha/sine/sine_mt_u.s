@@ -42,9 +42,8 @@ main:
     # [out] $s0  = factorial[i]
     # [out] $sf0 = iter[i]
     # [out] $sf1 = pow_x[i]
+	.registers 0 1 3 1 2 3		# GR,SR,LR, GF,SF,LF	
 sin:
-	.registers 0 1 3 1 2 3		# GR,SR,LR, GF,SF,LF
-	
 	bis     $l0, 1,  $l2
 	sll     $l2, 62, $l2
 

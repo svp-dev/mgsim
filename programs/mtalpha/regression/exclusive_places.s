@@ -31,8 +31,8 @@ main:
 # $g0     = GP
 # $s0/$d0 = accumulator
     .ent foo
-foo:
     .registers 1 1 3 0 0 0
+foo:
     mov      $g0, $l0
     mov      (1 << 3) | (2 << 1) | 1, $l2   # Delegated, exclusive
     allocate $l2, 0, 0, 0, 0
@@ -46,8 +46,8 @@ foo:
 # $g0 = GP
 # $s0 = return value
     .ent bar
-bar:
     .registers 1 1 2 0 0 0
+bar:
     lda  $l0, val($g0)   !gprellow
     ldah $l0, val($l0)   !gprelhigh
     ldl  $l1, 0($l0)

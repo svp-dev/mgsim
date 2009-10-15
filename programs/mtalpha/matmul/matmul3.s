@@ -54,9 +54,8 @@ main:
     # $g2 = matrixC
     # $g3 = N
     # $l0 = i
-thread1:
 	.registers 4 0 5  0 0 0	    # GR,SR,LR, GF,SF,LF
-
+thread1:
     clr      $l4
 	allocate $l4, 0, 0, 0, 0
 	
@@ -83,8 +82,8 @@ thread1:
     # $g2 = &C[i*N]
     # $g3 = N
     # $l0 = j
-thread2:
 	.registers 4 0 6  0 0 0	    # GR,SR,LR, GF,SF,LF
+thread2:
 	clr      $l4
     allocate $l4, 0, 0, 0, 0
 
@@ -112,8 +111,8 @@ thread2:
 	# $g2 = N
 	# $s0 = sum
 	# $l0 = k
-thread3:
 	.registers 3 1 2  0 0 0	    # GR,SR,LR, GF,SF,LF
+thread3:
     s4addl  $l0, $g0, $l1       # $l1 = &A[i*N+k]
     ldl     $l1, 0($l1)         # $l1 =  A[i*N+k]
     mull    $l0, $g2, $l0       # $l0 =  k*N

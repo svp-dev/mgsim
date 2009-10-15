@@ -81,9 +81,8 @@ _FFT:
 ! %l0 = &X[i]
 !
     .align 64
+	.registers 2 1 7  0 0 0	    ! GR,SR,LR, GF,SF,LF	
 _FFT_POST:
-	.registers 2 1 7  0 0 0	    ! GR,SR,LR, GF,SF,LF
-	
 	clr      %l3
 	allocate %l3, 0, 0, 0, 0
 							    ! %l0 = &X[i]
@@ -123,8 +122,8 @@ _FFT_POST:
     ! %g2 = X
     !
     .align 64
-_FFT_POST_SWAP:
 	.registers 3 0 2  0 0 8
+_FFT_POST_SWAP:
 	sll  %g1,  4, %l0
 	add %l0, %g2, %l0	! %l0 = &X[j]
 	
@@ -158,9 +157,8 @@ _FFT_POST_SWAP:
  * %l0 = k
  */
     .align 64
+	.registers 5 1 5  0 0 0	    ! GR,SR,LR, GF,SF,LF	
 _FFT_1:
-	.registers 5 1 5  0 0 0	    ! GR,SR,LR, GF,SF,LF
-	
 	clr      %l4
 	allocate %l4, 0, 0, 0, 0	! start = 0
 	setlimit %l4, %g1		    ! limit = (N / 2) * 16
@@ -189,9 +187,8 @@ _FFT_1:
  * %l0 = i * 16
  */
     .align 64
-_FFT_2:
 	.registers 4 0 3  0 0 16    ! GR,SR,LR, GF,SF,LF
-	
+_FFT_2:	
 	and  %l0, %g0, %l1	    ! %l1 = w
 	sub  %l0, %l1, %l0
 	sll  %l0,   1, %l0

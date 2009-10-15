@@ -90,9 +90,8 @@ _FFT:
 # $l0 = &X[i]
 #
     .ent _FFT_POST
-_FFT_POST:
 	.registers 2 1 7  0 0 0	    # GR,SR,LR, GF,SF,LF
-	
+_FFT_POST:	
 	clr      $l3
 	allocate $l3, 0, 0, 0, 0
 								# $l0 = &X[i]
@@ -133,8 +132,8 @@ _FFT_POST:
     # $g1 = j
     # $g2 = X
     #
-_FFT_POST_SWAP:
 	.registers 3 0 2  0 0 4
+_FFT_POST_SWAP:
 	sll  $g1,   4, $l0
 	addq $l0, $g2, $l0	# $l0 = &X[j]
 	
@@ -169,9 +168,8 @@ _FFT_POST_SWAP:
  * $LR0 = k
  */
     .ent _FFT_1
+	.registers 5 1 5  0 0 0	    # GR,SR,LR, GF,SF,LF	
 _FFT_1:
-	.registers 5 1 5  0 0 0	    # GR,SR,LR, GF,SF,LF
-	
 	clr      $lr4
 	allocate $lr4, 0, 0, 0, 0	# start = 0
 	setlimit $lr4, $gr1		    # limit = (N / 2) * 16
@@ -201,9 +199,8 @@ _FFT_1:
  * $LR0 = i * 16
  */
     .ent _FFT_2
+	.registers 4 0 3  0 0 8	    # GR,SR,LR, GF,SF,LF	
 _FFT_2:
-	.registers 4 0 3  0 0 8	    # GR,SR,LR, GF,SF,LF
-	
 	and  $lr0, $gr0, $lr1	    # $LR1 = w
 	subq $lr0, $lr1, $lr0
 	sll  $lr0,    1, $lr0
