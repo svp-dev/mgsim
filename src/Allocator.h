@@ -135,7 +135,7 @@ public:
     bool OnRemoteThreadCompletion(LFID fid);
     bool OnRemoteThreadCleanup(LFID fid);
     bool OnRemoteSync(LFID fid, ExitCode code);
-    void ReserveContext();
+    void ReserveContext(bool self);
 
     // Component
     Result OnCycle(unsigned int stateIndex);

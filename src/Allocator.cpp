@@ -1122,12 +1122,15 @@ Result Allocator::OnDelegatedCreate(const DelegateMessage& msg)
     return SUCCESS;
 }
 
-void Allocator::ReserveContext()
+void Allocator::ReserveContext(bool self)
 {
     // This should not fail
-    m_familyTable.ReserveFamily();
+    if (!self)
+    {
+        m_familyTable.ReserveFamily();
+        m_raunit.ReserveContext();
+    }
     m_threadTable.ReserveThread();
-    m_raunit.ReserveContext();
     
     UpdateContextAvailability();
 }
@@ -1482,17 +1485,17 @@ Result Allocator::OnCycle(unsigned int stateIndex)
             LFID    fid    = m_alloc.Front();
             Family& family = m_familyTable[fid];
 
+            // We only allocate from a special pool once:
+            // for the first thread of the family.
+            bool exclusive = family.dependencies.numThreadsAllocated == 0 && family.place.exclusive;
+            bool reserved  = family.dependencies.numThreadsAllocated == 0 && family.type == Family::GROUP;// && family.parent.lpid != m_lpid;
+                
             bool done = true;
             if (family.infinite || (family.nThreads > 0 && family.index < family.nThreads))
             {
                 // We have threads to run
                 
-                // We only allocate from a special pool once:
-                // for the first thread of the family.
-                bool exclusive = family.dependencies.numThreadsAllocated == 0 && family.place.exclusive;
-                bool reserved  = family.dependencies.numThreadsAllocated == 0 && family.place.type == PlaceID::GROUP && family.parent.lpid != m_lpid;
-                
-                TID tid = m_threadTable.PopEmpty( exclusive ? CONTEXT_EXCLUSIVE : reserved ? CONTEXT_RESERVED : CONTEXT_NORMAL );
+                TID tid = m_threadTable.PopEmpty( exclusive ? CONTEXT_EXCLUSIVE : (reserved ? CONTEXT_RESERVED : CONTEXT_NORMAL) );
                 if (tid == INVALID_TID)
                 {
                     DeadlockWrite("Unable to allocate a free thread entry for F%u", (unsigned)fid);
@@ -1511,10 +1514,20 @@ Result Allocator::OnCycle(unsigned int stateIndex)
                 // Check if we're done with the initial allocation of this family
                 done = (family.dependencies.numThreadsAllocated == family.physBlockSize || family.dependencies.allocationDone);
             }
-            // We don't have any threads to run
-            else if (!DecreaseFamilyDependency(fid, FAMDEP_ALLOCATION_DONE))
+            else
             {
-                return FAILED;
+                // We don't have any threads to run
+                if (reserved)
+                {
+                    // We've reserved a thread for the create but aren't using it.
+                    // Unreserve it.
+                    m_threadTable.UnreserveThread();
+                }
+                
+                if (!DecreaseFamilyDependency(fid, FAMDEP_ALLOCATION_DONE))
+                {
+                    return FAILED;
+                }
             }
             
             if (done)

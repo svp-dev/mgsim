@@ -201,8 +201,12 @@ void FamilyTable::Cmd_Read(ostream& out, const vector<string>& arguments) const
                 out << setfill('0')
                      << "F"   << setw(2) << family.parent.fid
                      << "@LP" << setw(3) << family.parent.lpid;
-            } else {
+            } else if (family.parent.tid != INVALID_TID) {
                 // Local family
+                out << setfill('0')
+                    << "T"   << setw(3) << family.parent.tid
+                    << "     ";
+            } else {
                 out << "    -    ";
             }
             out << " | ";

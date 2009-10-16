@@ -60,6 +60,17 @@ void ThreadTable::ReserveThread()
     }
 }
 
+void ThreadTable::UnreserveThread()
+{
+    // Check that we are in a sane state
+    assert(m_free[CONTEXT_NORMAL] + m_free[CONTEXT_RESERVED] + m_free[CONTEXT_EXCLUSIVE] <= m_threads.size());
+    COMMIT{
+        // Move one free thread from reserved back to normal
+        m_free[CONTEXT_NORMAL]++;
+        m_free[CONTEXT_RESERVED]--;
+    }
+}
+
 TID ThreadTable::PopEmpty(ContextType context)
 {
     // Check that we are in a sane state

@@ -1084,15 +1084,15 @@ Result Network::OnCycle(unsigned int stateIndex)
         break;
         
     case 14:
+        // We need to reserve a context
+        DebugSimWrite("Reserving context for group create");
+        m_allocator.ReserveContext( m_hasToken.IsSet() );
+        
         if (m_hasToken.IsSet()) {
             // We sent the reservation signal, so just clear it now. This
             // means it's only active for a single cycle, which is important,
             // or we'll reserve multiple contexts for a single create.
             m_place.m_reserve_context.Clear();
-        } else {
-            // We need to reserve a context
-            DebugSimWrite("Reserving context for group create");
-            m_allocator.ReserveContext();
         }
         return SUCCESS;
     

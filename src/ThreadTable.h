@@ -68,6 +68,7 @@ public:
     TID   PopEmpty(ContextType type);
     void  PushEmpty(const ThreadQueue& queue, ContextType context);
     void  ReserveThread();
+    void  UnreserveThread();
     TSize GetNumFreeThreads() const;
     
     bool IsEmpty() const;
