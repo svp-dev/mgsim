@@ -80,11 +80,42 @@ if test "x$no_sdl" = xyes; then
 fi
 AM_CONDITIONAL([ENABLE_USE_SDL], [test "x$no_sdl" = x])
 
+AC_LANG_PUSH([C++])
+ AC_MSG_CHECKING([for SystemC])
+ save_LIBS=$LIBS
+ LIBS="$LIBS -lsystemc"
+ AC_LINK_IFELSE([AC_LANG_PROGRAM([[#include <systemc>]],
+                                 [[return (int)sc_dt::UINT64_ONE;]])],
+                [AC_MSG_RESULT([yes]); have_sysc=yes], 
+                [AC_MSG_RESULT([no]); have_sysc=no])
+ LIBS=$save_LIBS
+
+ AC_MSG_CHECKING([for tinyxml])
+ save_LIBS=$LIBS
+ save_CPPFLAGS=$CPPFLAGS
+ LIBS="$LIBS -ltinyxml"
+ CPPFLAGS="$CPPFLAGS -DTIXML_USE_STL"
+ AC_LINK_IFELSE([AC_LANG_PROGRAM([[#include <tinyxml/tinyxml.h>]],
+                                 [[TiXmlCursor cu; return cu.row;]])],
+                [AC_MSG_RESULT([yes]); have_tixml=yes], 
+                [AC_MSG_RESULT([no]); have_tixml=no])
+ LIBS=$save_LIBS
+ CPPFLAGS=$save_CPPFLAGS
+AC_LANG_POP
+
+if test "x$have_sysc" = "xno" -o "x$have_tixml" = "xno"; then
+  AC_MSG_WARN([COMA simulation not available])
+fi
+AM_CONDITIONAL([ENABLE_COMA], [test "x$have_sysc" = "xyes" -a "x$have_tixml" = "xyes"])
 
 AC_CONFIG_FILES([
 	Makefile
 	doc/Makefile
 	src/Makefile
+	src/coma/Makefile
+	src/coma/memorys/Makefile
+	src/coma/simlink/Makefile
+	src/coma/mgs/Makefile
         programs/aslink.sh
 	programs/Makefile
 	programs/mtalpha/Makefile

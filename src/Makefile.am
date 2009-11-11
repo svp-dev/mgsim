@@ -2,13 +2,30 @@
 bin_PROGRAMS =
 noinst_PROGRAMS = 
 
+SUBDIRS = coma .
+
 FLAGS_OPT = -O3 -DNDEBUG
-FLAGS_DEBUG = -O0 -g -pg -D_GLIBCXX_DEBUG
+FLAGS_DEBUG = -O0 -g -pg -D_GLIBCXX_DEBUG -DMDBLOG
 FLAGS_COMMON = -W -Wall -Wwrite-strings -Wconversion \
        -DMGSIM_CONFIG_PATH=\"$(pkgdatadir)/config.ini\"
 
 #       -Wshorten-64-to-32 -Wextra
 #       -Weffc++ -Woverloaded-virtual 
+
+COMA_LDADD = -lsystemc -ltinyxml
+COMA_LIBS = coma/memorys/libmemorys.a coma/simlink/libsimlink.a  
+COMA_LIBS_G = coma/memorys/libmemorys_g.a coma/simlink/libsimlink_g.a 
+COMA_SRC = \
+	coma/mgs/CMLink.cpp \
+	coma/mgs/CMLink.h \
+	coma/mgs/memsstoresequence.cpp \
+	coma/mgs/memsstoresequence.h \
+	coma/mgs/memstrace.cpp \
+	coma/mgs/memstrace.h \
+	coma/mgs/profile.cpp \
+	coma/mgs/profile.h \
+	coma/mgs/simtime.cpp \
+	coma/mgs/simtime.h
 
 COMMON_SRC = \
 	Allocator.cpp \
@@ -99,9 +116,9 @@ endif
 if ENABLE_MTALPHA
 
 bin_PROGRAMS += mgsim-alpha
-noinst_PROGRAMS += mgsim-alpha.dbg
+noinst_PROGRAMS += mgsim-alpha.dbg 
 
-noinst_LIBRARIES = libalpha.a libalpha_g.a
+noinst_LIBRARIES = libalpha.a libalpha_g.a 
 
 libalpha_a_SOURCES = $(COMMON_SRC) $(ALPHA_SRC)
 libalpha_a_CXXFLAGS = $(FLAGS_ALPHA) $(FLAGS_OPT) $(FLAGS_COMMON)
@@ -117,9 +134,28 @@ mgsim_alpha_dbg_SOURCES = $(GFX_SRC)
 mgsim_alpha_dbg_CXXFLAGS = $(FLAGS_ALPHA) $(FLAGS_DEBUG) $(FLAGS_COMMON)
 mgsim_alpha_dbg_LDADD = libalpha_g.a
 
+if ENABLE_COMA
+bin_PROGRAMS += simx-alpha simx-alpha.dbg
+noinst_LIBRARIES += libmgs_alpha.a libmgs_alpha_g.a
+
+libmgs_alpha_a_SOURCES = $(COMA_SRC) 
+libmgs_alpha_a_CXXFLAGS = $(FLAGS_ALPHA) $(FLAGS_OPT) $(FLAGS_COMMON)
+
+libmgs_alpha_g_a_SOURCES = $(COMA_SRC)
+libmgs_alpha_g_a_CXXFLAGS = $(FLAGS_ALPHA) $(FLAGS_DEBUG) $(FLAGS_COMMON)
+
+simx_alpha_SOURCES = $(GFX_SRC)
+simx_alpha_CXXFLAGS = $(FLAGS_ALPHA) $(FLAGS_OPT) $(FLAGS_COMMON)
+simx_alpha_LDADD = $(COMA_LIBS) libmgs_alpha.a libalpha.a $(COMA_LDADD)
+
+simx_alpha_dbg_SOURCES = $(GFX_SRC)
+simx_alpha_dbg_CXXFLAGS = $(FLAGS_ALPHA) $(FLAGS_DEBUG) $(FLAGS_COMMON)
+simx_alpha_dbg_LDADD = $(COMA_LIBS_G) libmgs_alpha_g.a libalpha_g.a $(COMA_LDADD)
+endif
+
 if ENABLE_USE_SDL
 bin_PROGRAMS += mgsim-alpha.gfx
-noinst_PROGRAMS += mgsim-alpha.dbg.gfx
+noinst_PROGRAMS += mgsim-alpha.dbg.gfx 
 
 mgsim_alpha_gfx_SOURCES = $(GFX_SRC)
 mgsim_alpha_gfx_CXXFLAGS = $(FLAGS_ALPHA) $(FLAGS_OPT) $(FLAGS_COMMON) $(GFX_FLAGS)
@@ -128,6 +164,18 @@ mgsim_alpha_gfx_LDADD = libalpha.a $(SDL_LIBS)
 mgsim_alpha_dbg_gfx_SOURCES = $(GFX_SRC)
 mgsim_alpha_dbg_gfx_CXXFLAGS = $(FLAGS_ALPHA) $(FLAGS_DEBUG) $(FLAGS_COMMON) $(GFX_FLAGS)
 mgsim_alpha_dbg_gfx_LDADD = libalpha_g.a $(SDL_LIBS)
+
+if ENABLE_COMA
+bin_PROGRAMS += simx-alpha.gfx simx-alpha.dbg.gfx
+simx_alpha_gfx_SOURCES = $(GFX_SRC)
+simx_alpha_gfx_CXXFLAGS = $(FLAGS_ALPHA) $(FLAGS_OPT) $(FLAGS_COMMON)
+simx_alpha_gfx_LDADD = $(COMA_LIBS) libmgs_alpha.a libalpha.a $(SDL_LIBS) $(COMA_LDADD)
+
+simx_alpha_dbg_gfx_SOURCES = $(GFX_SRC)
+simx_alpha_dbg_gfx_CXXFLAGS = $(FLAGS_ALPHA) $(FLAGS_DEBUG) $(FLAGS_COMMON)
+simx_alpha_dbg_gfx_LDADD = $(COMA_LIBS_G) libmgs_alpha_g.a libalpha_g.a $(SDL_LIBS) $(COMA_LDADD)
+endif
+
 endif
 
 endif

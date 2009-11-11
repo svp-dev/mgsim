@@ -1,0 +1,3 @@
+SUBDIRS = memorys simlink
+
+
