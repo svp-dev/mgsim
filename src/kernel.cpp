@@ -10,6 +10,7 @@
 #include <sstream>
 #include <set>
 #include <map>
+#include <cstdio>
 using namespace std;
 
 namespace Simulator
