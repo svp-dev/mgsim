@@ -4,6 +4,7 @@
 #include <cassert>
 #include <cstring>
 #include <iomanip>
+#include <iostream>
 using namespace std;
 
 namespace Simulator

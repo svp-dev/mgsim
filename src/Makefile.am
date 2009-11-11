@@ -69,6 +69,8 @@ COMMON_SRC = \
 	simtypes.h \
 	storage.h \
 	storage.cpp \
+	memdump.h \
+	memdump.cpp \
 	types.h
 
 GFX_SRC = \

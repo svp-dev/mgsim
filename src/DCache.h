@@ -17,6 +17,7 @@ class RegisterFile;
 
 class DCache : public IComponent
 {
+public:
     /// The state of a cache-line
     enum LineState
     {
@@ -37,6 +38,7 @@ class DCache : public IComponent
 		RegAddr		waiting;///< First register waiting on this line.
     };
 
+private:
     /// Represents a queue of cache-lines
     typedef LinkedList<CID, std::vector<Line>, &Line::next> LineList;
 
@@ -96,6 +98,13 @@ public:
     // Debugging
     void Cmd_Help(std::ostream& out, const std::vector<std::string>& arguments) const;
     void Cmd_Read(std::ostream& out, const std::vector<std::string>& arguments) const;
+
+    size_t GetAssociativity() const { return m_assoc; }
+    size_t GetNumLines()      const { return m_lines.size(); }
+    size_t GetNumSets()       const { return m_sets; }
+
+
+    const Line& GetLine(size_t i) const { return m_lines[i];  }
 };
 
 }
