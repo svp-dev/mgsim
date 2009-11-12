@@ -1,5 +1,6 @@
-    #include "Pipeline.h"
+#include "Pipeline.h"
 #include "Processor.h"
+#include "memstrace.h"
 #include <cassert>
 using namespace std;
 
@@ -32,6 +33,21 @@ Pipeline::PipeAction Pipeline::MemoryStage::OnCycle()
             
             SerializeRegister(m_input.Rc.type, value, data, (size_t)m_input.size);
 
+
+#ifdef MEM_DEBUG_TRACE
+            COMMIT{
+                uint64_t cycleno = m_parent.GetProcessor().GetKernel().GetCycleNo();
+                GPID pid = m_parent.GetProcessor().GetPID();
+                TID tid = m_input.fid;
+                uint64_t addr = m_input.address;
+                traceproc(cycleno, pid, tid, true, addr, m_input.size, data);
+                #ifdef MEM_STORE_SEQUENCE_DEBUG
+                debugSSproc(cycleno, pid, addr, m_input.size, data);
+                #endif
+            }
+#endif
+
+
             if ((result = m_dcache.Write(m_input.address, data, m_input.size, m_input.fid, m_input.tid)) == FAILED)
             {
                 // Stall
@@ -63,6 +79,15 @@ Pipeline::PipeAction Pipeline::MemoryStage::OnCycle()
         else if (m_input.Rc.valid())
         {
             // Memory read
+#ifdef MEM_DEBUG_TRACE
+            COMMIT{
+                uint64_t cycleno = m_parent.GetProcessor().GetKernel().GetCycleNo();
+                GPID pid = m_parent.GetProcessor().GetPID();
+                TID tid = m_input.fid;
+                uint64_t addr = m_input.address;
+                traceproc(cycleno, pid, tid, false, addr, 0, NULL);
+            }
+#endif
             char data[MAX_MEMORY_OPERATION_SIZE];
 			RegAddr reg = m_input.Rc;
             if ((result = m_dcache.Read(m_input.address, data, m_input.size, m_input.fid, &reg)) == FAILED)
@@ -76,6 +101,16 @@ Pipeline::PipeAction Pipeline::MemoryStage::OnCycle()
             {
                 // Unserialize and store data
                 uint64_t value = UnserializeRegister(m_input.Rc.type, data, (size_t)m_input.size);
+
+#ifdef MEM_DEBUG_TRACE
+                COMMIT{
+                    uint64_t cycleno = m_parent.GetProcessor().GetKernel().GetCycleNo();
+                    GPID pid = m_parent.GetProcessor().GetPID();
+                    TID tid = m_input.fid;
+                    uint64_t addr = m_input.address;
+                    traceproc(cycleno, pid, tid, false, addr, m_input.size, data);
+                }
+#endif
 
                 if (m_input.sign_extend)
                 {

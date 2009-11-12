@@ -6,11 +6,19 @@
 
 #include "Processor.h"
 #include "FPU.h"
-#include "SerialMemory.h"
-#include "ParallelMemory.h"
-#include "BankedMemory.h"
-#include "RandomBankedMemory.h"
+#ifdef ENABLE_COMA
+# include "CMLink.h"
+# include "coma/simlink/th.h"
+# include "coma/simlink/linkmgs.h"
+# include "memdump.h"
+#else
+# include "SerialMemory.h"
+# include "ParallelMemory.h"
+# include "BankedMemory.h"
+# include "RandomBankedMemory.h"
+#endif
 #include "gfx.h"
+#include "memstrace.h"
 
 #include "config.h"
 #include "loader.h"
@@ -32,6 +40,26 @@
 
 using namespace Simulator;
 using namespace std;
+#ifdef ENABLE_COMA
+using namespace MemSim;
+
+static bool dump(const char* pstr, bool bforce)
+{
+  ofstream dumpfile(pstr, ofstream::binary);
+    if (dumpfile.fail())
+    {
+      cerr << "dump: cannot open dump file " << pstr << endl;
+      dumpfile.close();
+      return false;
+    }
+
+    dumpcacheandmemory(dumpfile, bforce);
+
+    dumpfile.close();
+    return true;
+}
+#endif
+
 
 static vector<string> Tokenize(const string& str, const string& sep)
 {
@@ -71,7 +99,9 @@ class MGSystem : public Object
     vector<PlaceInfo*> m_places;
     Kernel             m_kernel;
     IMemoryAdmin*      m_memory;
-
+#ifdef ENABLE_COMA
+  CMLink**           m_pmemory;
+#endif
     // Writes the current configuration into memory and returns its address
     MemAddr WriteConfiguration(const Config& config)
     {
@@ -404,6 +434,10 @@ public:
             numFPUs       += placeSizes[i] / numProcessorsPerFPU;
         }
         
+#ifdef ENABLE_COMA
+	m_objects.resize(numProcessors * 2 + numFPUs);
+	m_pmemory = new CMLink*[LinkMGS::s_oLinkConfig.m_nProcLink];
+#else
         string memory_type = config.getString("MemoryType", "");
         std::transform(memory_type.begin(), memory_type.end(), memory_type.begin(), ::toupper);
         
@@ -427,9 +461,7 @@ public:
         } else {
             throw std::runtime_error("Unknown memory type specified in configuration");
         }
-        
-        // Load the program into memory
-        std::pair<MemAddr, bool> progdesc = LoadProgram(m_memory, program, quiet);
+#endif
         
         // Create the FPUs
         m_fpus.resize(numFPUs);
@@ -444,6 +476,7 @@ public:
         m_procs.resize(numProcessors);
         m_places.resize(placeSizes.size());
 
+
         PSize first = 0;
         for (size_t p = 0; p < placeSizes.size(); ++p)
         {            
@@ -455,11 +488,27 @@ public:
 
                 stringstream name;
                 name << "cpu" << pid;
+#ifdef ENABLE_COMA
+		stringstream namem;
+		namem << "memory" << pid;
+		if (pid >= LinkMGS::s_oLinkConfig.m_nProcLink)
+		  { std::cerr << "Too many memory links!" << std::endl; exit(1); }
+		m_pmemory[pid] = new CMLink(this, m_kernel, namem.str(), config, g_pLinks[i], g_pMemoryDataContainer);
+                if (pid == 0)
+                    m_memory = m_pmemory[0];
+                m_procs[pid]   = new Processor(this, m_kernel, pid, i, m_procs, m_procs.size(), *m_places[p], name.str(), *m_pmemory[pid], fpu, config);  
+                m_pmemory[pid]->SetProcessor(m_procs[pid]);
+		m_objects[pid+numProcessors] = m_pmemory[pid];
+#else
                 m_procs[pid]   = new Processor(this, m_kernel, pid, i, m_procs, m_procs.size(), *m_places[p], name.str(), *m_memory, fpu, config);
+#endif
                 m_objects[pid] = m_procs[pid];
             }
             first += m_places[p]->m_size;
         }
+
+        // Load the program into memory
+        std::pair<MemAddr, bool> progdesc = LoadProgram(m_memory, program, quiet);
         
         m_kernel.Initialize();
 
@@ -630,10 +679,12 @@ static const struct
     {"help", new bind_cmd_T<DCache            >(&DCache            ::Cmd_Help) },
     {"help", new bind_cmd_T<Pipeline          >(&Pipeline          ::Cmd_Help) },
     {"help", new bind_cmd_T<Allocator         >(&Allocator         ::Cmd_Help) },
+#ifndef ENABLE_COMA
     {"help", new bind_cmd_T<SerialMemory      >(&SerialMemory      ::Cmd_Help) },
     {"help", new bind_cmd_T<ParallelMemory    >(&ParallelMemory    ::Cmd_Help) },
     {"help", new bind_cmd_T<RandomBankedMemory>(&RandomBankedMemory::Cmd_Help) },
     {"help", new bind_cmd_T<BankedMemory      >(&BankedMemory      ::Cmd_Help) },
+#endif
     {"help", new bind_cmd_T<FPU               >(&FPU               ::Cmd_Help) },
     {"info", new bind_cmd_T<VirtualMemory     >(&VirtualMemory     ::Cmd_Info) },
     {"read", new bind_cmd_T<RAUnit            >(&RAUnit            ::Cmd_Read) },
@@ -645,10 +696,12 @@ static const struct
     {"read", new bind_cmd_T<DCache            >(&DCache            ::Cmd_Read) },
     {"read", new bind_cmd_T<Pipeline          >(&Pipeline          ::Cmd_Read) },
     {"read", new bind_cmd_T<Allocator         >(&Allocator         ::Cmd_Read) },
+#ifndef ENABLE_COMA
     {"read", new bind_cmd_T<SerialMemory      >(&SerialMemory      ::Cmd_Read) },
     {"read", new bind_cmd_T<ParallelMemory    >(&ParallelMemory    ::Cmd_Read) },
     {"read", new bind_cmd_T<RandomBankedMemory>(&RandomBankedMemory::Cmd_Read) },
     {"read", new bind_cmd_T<BankedMemory      >(&BankedMemory      ::Cmd_Read) },
+#endif
     {"read", new bind_cmd_T<VirtualMemory     >(&VirtualMemory     ::Cmd_Read) },
     {"read", new bind_cmd_T<FPU               >(&FPU               ::Cmd_Read) },
     {NULL, NULL}
@@ -734,6 +787,10 @@ static void PrintUsage()
 
 struct ProgramConfig
 {
+#ifdef ENABLE_COMA
+  unsigned           m_ncache;
+  unsigned           m_ndirectory;
+#endif
     string             m_programFile;
     string             m_configFile;
     bool               m_interactive;
@@ -746,12 +803,20 @@ struct ProgramConfig
     vector<pair<RegAddr, string> >   m_loads;
 };
 
-static bool ParseArguments(int argc, char** argv, ProgramConfig& config)
+static void ParseArguments(int argc, const char ** argv, ProgramConfig& config
+#ifdef ENABLE_COMA
+			   , LinkConfig& lkconfig
+#endif
+)
 {
     config.m_interactive = false;
     config.m_terminate   = false;
     config.m_quiet       = false;
     config.m_configFile  = MGSIM_CONFIG_PATH; 
+#ifdef ENABLE_COMA
+    config.m_ncache      = 0;
+    config.m_ndirectory  = 0xffff;
+#endif
 
     for (int i = 1; i < argc; ++i)
     {
@@ -770,8 +835,26 @@ static bool ParseArguments(int argc, char** argv, ProgramConfig& config)
         else if (arg == "-i" || arg == "--interactive") config.m_interactive = true;
         else if (arg == "-t" || arg == "--terminate")   config.m_terminate   = true;
         else if (arg == "-q" || arg == "--quiet")       config.m_quiet       = true;
-        else if (arg == "-h" || arg == "--help")        { PrintUsage(); return false; }
+        else if (arg == "-h" || arg == "--help")        { PrintUsage(); exit(0); }
         else if (arg == "-p" || arg == "--print")       config.m_print = string(argv[++i]) + " ";
+#ifdef ENABLE_COMA
+        else if (arg == "--ddr")        lkconfig.m_sDDRXML = argv[++i];
+        else if (arg == "--nump")       lkconfig.m_nProcLink = atoi(argv[++i]);
+        else if (arg == "--numc")       config.m_ncache = atoi(argv[++i]);
+        else if (arg == "--numd")       config.m_ndirectory = atoi(argv[++i]);
+        else if (arg == "--nsplitrd")                   {lkconfig.m_nSplitRootNumber = atoi(argv[++i]);}
+        else if (arg == "--eager")        				{lkconfig.m_bEager = true;}
+        else if (arg == "--inject")        				{lkconfig.m_nInject = atoi(argv[++i]);}
+        else if (arg == "--casso")        				{lkconfig.m_nCacheAssociativity = atoi(argv[++i]);}
+        else if (arg == "--cset")                       {lkconfig.m_nCacheSet = atoi(argv[++i]);}
+        else if (arg == "--mdelay")        				{lkconfig.m_nMemoryAccessTime = atoi(argv[++i]);}
+        else if (arg == "--cdelay")        				{lkconfig.m_nCacheAccessTime = atoi(argv[++i]);}
+        else if (arg == "--verbose")        			{lkconfig.m_nDefaultVerbose = atoi(argv[++i]);}
+        else if (arg == "--memlog")						{lkconfig.m_pGlobalLogFile = (char*)argv[++i];}
+        else if (arg == "--batch")                      {g_isBatchFile.open((char*)argv[++i]);}
+        else if (arg == "--ccore")                      {lkconfig.m_nCycleTimeCore = atoi(argv[++i]);}
+        else if (arg == "--cmem")                       {lkconfig.m_nCycleTimeMemory = atoi(argv[++i]);}
+#endif
         else if (arg == "-o" || arg == "--override")
         {
             if (argv[++i] == NULL) {
@@ -834,7 +917,6 @@ static bool ParseArguments(int argc, char** argv, ProgramConfig& config)
         throw runtime_error("Error: no program file specified");
     }
 
-    return true;
 }
 
 /// The currently active system, for the signal handler
@@ -888,23 +970,72 @@ static void PrintException(ostream& out, const exception& e)
         }
     }
 }
+
+#ifdef ENABLE_COMA
+void ConfigureCOMA(ProgramConfig& config, Config& configfile) 
+{
+  {
+    const vector<PSize> placeSizes = configfile.getIntegerList<PSize>("NumProcessors");
+    PSize numProcessors = 0;
+    for (size_t i = 0; i < placeSizes.size(); ++i) 
+      numProcessors += placeSizes[i];
     
-#ifdef USE_SDL
-extern "C"
+    LinkMGS::s_oLinkConfig.m_nProcMGS = numProcessors;
+  }
+  
+  size_t ncache = configfile.getInteger<size_t>("NumCaches", 1);
+  size_t ndir = configfile.getInteger<size_t>("NumDirectories", 0);
+  
+  LinkMGS::s_oLinkConfig.m_nLineSize = configfile.getInteger<size_t> ("CacheLineSize", 64);
+  
+  if (config.m_ncache != 0)
+    ncache = config.m_ncache;
+  if (config.m_ndirectory != 0xffff)
+    ndir = config.m_ndirectory;
+  
+  if (LinkMGS::s_oLinkConfig.m_nProcLink < LinkMGS::s_oLinkConfig.m_nProcMGS)
+    LinkMGS::s_oLinkConfig.m_nProcLink = LinkMGS::s_oLinkConfig.m_nProcMGS;
+  
+  if (LinkMGS::s_oLinkConfig.m_nProcLink < ncache)
+    ncache = LinkMGS::s_oLinkConfig.m_nProcLink;
+  LinkMGS::s_oLinkConfig.m_nCache = ncache;
+  
+  LinkMGS::s_oLinkConfig.m_nDDRConfigID = configfile.getInteger<size_t>("DDRConfiguration", 0);
+  
+  if (ncache < ndir)
+    ndir = ncache;
+
+  LinkMGS::s_oLinkConfig.m_nDirectory = ndir;
+  LinkMGS::s_oLinkConfig.m_nMemorySize = DEFAULT_DUMP_SIZE;
+}
 #endif
+
+
+#ifdef ENABLE_COMA
+int mgs_main(int argc, char const** argv)
+#else    
+# ifdef USE_SDL
+extern "C"
+# endif
 int main(int argc, char** argv)
+#endif
 {
     try
     {
         // Parse command line arguments
         ProgramConfig config;
-        if (!ParseArguments(argc, argv, config))
-        {
-            return 0;
-        }
+        ParseArguments(argc, (const char**)argv, config
+#ifdef ENABLE_COMA
+		       , LinkMGS::s_oLinkConfig
+#endif
+);
 
         // Read configuration
         Config configfile(config.m_configFile, config.m_overrides);
+
+#ifdef ENABLE_COMA
+	ConfigureCOMA(config, configfile);
+#endif
 
         if (config.m_interactive)
         {
@@ -913,12 +1044,27 @@ int main(int argc, char** argv)
             cout << "Created by Mike Lankamp at the University of Amsterdam" << endl << endl;
 		}
 
+#ifdef ENABLE_COMA
+       // finishing parsing config, now wait untile systemc topology is setup
+        sem_post(&thpara.sem_sync);
+        sem_wait(&thpara.sem_mgs);
+        sem_post(&thpara.sem_sync);
+#endif
+
         // Create the system
 		MGSystem sys(configfile, config.m_programFile, config.m_regs, config.m_loads, !config.m_interactive);
+
+#if defined(ENABLE_COMA) && defined(MEM_DATA_PREFILL)
+        sem_post(&thpara.sem_sync);
+        sem_wait(&thpara.sem_mgs);
+#endif
 
         bool interactive = config.m_interactive;
         if (!interactive)
         {
+#ifdef ENABLE_COMA
+	  setverboselevel(LinkMGS::s_oLinkConfig.m_nDefaultVerbose);
+#endif
             // Non-interactive mode; run and dump cycle count
             try
             {
@@ -941,9 +1087,40 @@ int main(int argc, char** argv)
                     cout << " ; ";
                     sys.PrintFamilyCompletions();
                     cout << " ; ";
+#ifdef ENABLE_COMA
+                    cout << LinkMGS::s_oLinkConfig.m_nProcLink 
+			 << " " << LinkMGS::s_oLinkConfig.m_nProcMGS 
+			 << " " << LinkMGS::s_oLinkConfig.m_nCache 
+			 << " " << LinkMGS::s_oLinkConfig.m_nDirectory
+			 << " ; " << g_uMemoryAccessesL 
+			 << " ; " << g_uMemoryAccessesS 
+			 << " ; " << g_uHitCountL 
+			 << " ; " << g_uHitCountS 
+			 << " ; " << g_uTotalL 
+			 << " ; " << g_uTotalS 
+			 << " ; " << g_fLatency 
+			 << " == " << ((double)g_uAccessDelayL)/g_uAccessL 
+			 << " , " << g_uAccessL 
+			 << " ; " << ((double)g_uAccessDelayS)/g_uAccessS 
+			 << " , " << g_uAccessS
+			 << " == " << ((double)g_uConflictDelayL)/g_uConflictL 
+			 << " , " << g_uConflictL 
+			 << " , " << g_uConflictAddL
+			 << " ; " << ((double)g_uConflictDelayS)/g_uConflictS 
+			 << " , " << g_uConflictS 
+			 << " , " << g_uConflictAddS
+			 << " || " << g_uProbingLocalLoad << " ; ";
+#endif
                     sys.PrintAll();
     			    cout << endl;
     			}
+#ifdef ENABLE_COMA
+                // stop the systemc and unlock the signal if it's locked
+                thpara.bterm = true;
+                sem_post(&thpara.sem_sync);
+                sem_wait(&thpara.sem_mgs);
+#endif
+
     		}
     		catch (const exception& e)
     		{
@@ -1062,6 +1239,109 @@ int main(int argc, char** argv)
 			    if (!debugStr.size()) debugStr = " (nothing)";
 			    cout << "Debugging:" << debugStr << endl;
 						}
+#ifdef ENABLE_COMA
+                        else if (command == "verbose")
+                        {
+                            if (args.empty())
+                                setverboselevel(3);
+                            else
+                                setverboselevel(atoi(args[0].c_str()));
+                        }
+                        else if (command == "dump")
+                        {
+                            if (args.empty())
+                            {
+                                cout << "argument needed" << endl;
+                            }
+                            else if ((args.size() == 1) || (args[0] != "-f"))
+                            {
+                                dump(args[0].c_str(), false);
+                            }
+                            else
+                            {
+                                dump(args[1].c_str(), true);
+                            }
+                        }
+                        else if (command == "checkmem")
+                        {
+                            if (!checkcacheandmemory())
+                                cout << "checking memory failed. " << endl;
+                        }
+                        else if (command == "reviewmem")
+                        {
+                            reviewmemorysystem();
+                        }
+#ifdef MEM_MODULE_STATISTICS
+                        else if (command == "stat")
+                        {
+                            if (args.empty())
+                            {
+                                cout << "argument needed" << endl;
+                            }
+                            else
+                            {
+                                printstatistics(args[0].c_str());
+                            }
+
+                        }
+#endif
+                        else if (command == "startmonitor")
+                        {
+                            if (!args.empty())
+                            {
+                                startmonitorfile(args[0].c_str());
+                            }
+                        }
+                        else if (command == "stopmonitor")
+                        {
+                            stopmonitorfile();
+                        }
+                        else if (command == "monitor")
+                        {
+                            if (args.empty())
+                            {
+                            }
+                            else
+                            {
+                                char *pend;
+                                monitormemoryaddress((unsigned __int64)strtol(args[0].c_str(), &pend, 0));    // 2FIX_64
+                            }
+                        }
+                        else if (command == "automonitor")
+                        {
+                            if (args.empty())
+                            {}
+                            else
+                            {
+                                char *pend;
+                                automonitoraddress((unsigned __int64)strtol(args[0].c_str(), &pend, 0));    // 2FIX_64
+                            }
+                        }
+                        else if (command == "traceaddr")
+                        {
+                            if (args.empty())
+                            {}
+                            else
+                            {
+                                char *pend;
+                                settraceaddress((uint64_t)strtol(args[0].c_str(), &pend, 0));
+                            }
+                        }
+                        else if (command == "tracep")
+                        {
+                            if (args.empty())
+                            {}
+                            else
+                                tracepid(atoi(args[0].c_str()));
+                        }
+                        else if (command == "tracet")
+                        {
+                            if (args.empty())
+                            {}
+                            else
+                                tracetid(atoi(args[0].c_str()));
+                        }
+#endif
 						else
 						{
 							ExecuteCommand(sys, command, args);
@@ -1074,7 +1354,7 @@ int main(int argc, char** argv)
     catch (const exception& e)
     {
         PrintException(cerr, e);
-        return 1;
+        exit(1);
     }
-    return 0;
+    exit(0);
 }

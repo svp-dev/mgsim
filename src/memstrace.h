@@ -9,7 +9,7 @@ using namespace std;
 
 #include "VirtualMemory.h"
 #include "kernel.h"
-#include "../memorys/dcswitch.h"
+#include "coma/memorys/dcswitch.h"
 
 #ifdef MEM_STORE_SEQUENCE_DEBUG
 #include "memsstoresequence.h"

@@ -15,12 +15,13 @@
 
 ////////////////////////
 // debug enabling switch
+#ifdef MDBLOG
+#define MEM_ENABLE_DEBUG    MEM_DEBUG_LEVEL_ALL
+#else
 //#define MEM_ENABLE_DEBUG    MEM_DEBUG_LEVEL_LOG
 //#define MEM_ENABLE_DEBUG    MEM_DEBUG_LEVEL_ALL
 #define MEM_ENABLE_DEBUG    MEM_DEBUG_LEVEL_NONE
 
-#ifdef MDBLOG
-#define MEM_ENABLE_DEBUG    MEM_DEBUG_LEVEL_ALL
 #endif
 
 // enable specific switches for debug

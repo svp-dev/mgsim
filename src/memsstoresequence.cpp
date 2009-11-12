@@ -48,7 +48,7 @@ namespace Simulator
     void debugSSproc(uint64_t cycleno, unsigned int pid, uint64_t address, unsigned int size, char* data)
     {
 //        cout << dec << cycleno << "\t" << pid << "\t" << hex << address << "\t" << size << endl;
-        storeentryheader_t header = {cycleno, pid, address, size};
+      storeentryheader_t header = {cycleno, pid, address, size, 0};
         g_osSSDTraceFile.write((const char*)&header, sizeof(storeentryheader_t));
 
         g_osSSDTraceFile.write((const char*)data, size);

@@ -8,9 +8,9 @@
 //#include "VirtualMemory.h"
 #include "SimpleMemory.h"
 
-#include "../simlink/linkmgs.h"
+#include "coma/simlink/linkmgs.h"
 
-#include "../simlink/memorydatacontainer.h"
+#include "coma/simlink/memorydatacontainer.h"
 
 #include "Processor.h"
 
