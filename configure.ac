@@ -83,12 +83,17 @@ AM_CONDITIONAL([ENABLE_USE_SDL], [test "x$no_sdl" = x])
 AC_LANG_PUSH([C++])
  AC_MSG_CHECKING([for SystemC])
  save_LIBS=$LIBS
- LIBS="$LIBS -lsystemc"
- AC_LINK_IFELSE([AC_LANG_PROGRAM([[#include <systemc>]],
+ have_sysc=no
+ for SC_LIBS in "-lsystemc" "-lsystemc -pthread" "-lsystemc -lpthread"; do
+  LIBS="$LIBS $SC_LIBS"
+  AC_LINK_IFELSE([AC_LANG_PROGRAM([[#include <systemc>]],
                                  [[return (int)sc_dt::UINT64_ONE;]])],
-                [AC_MSG_RESULT([yes]); have_sysc=yes], 
-                [AC_MSG_RESULT([no]); have_sysc=no])
- LIBS=$save_LIBS
+                [have_sysc=yes])
+  LIBS=$save_LIBS
+  if test x"$have_sysc" = xyes; then break; fi
+ done
+ AC_MSG_RESULT([$have_sysc])
+ AC_SUBST([SC_LIBS])
 
  AC_MSG_CHECKING([for tinyxml])
  save_LIBS=$LIBS

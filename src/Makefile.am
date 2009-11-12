@@ -13,7 +13,7 @@ FLAGS_COMA = -DENABLE_COMA=1
 #       -Wshorten-64-to-32 -Wextra
 #       -Weffc++ -Woverloaded-virtual 
 
-COMA_LDADD = -lsystemc -ltinyxml
+COMA_LDADD = $(SC_LIBS) -ltinyxml
 COMA_LIBS = coma/memorys/libmemorys.a coma/simlink/libsimlink.a  
 COMA_LIBS_G = coma/memorys/libmemorys_g.a coma/simlink/libsimlink_g.a 
 COMA_SRC = \
