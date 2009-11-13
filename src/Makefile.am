@@ -5,7 +5,7 @@ noinst_PROGRAMS =
 SUBDIRS = coma .
 
 FLAGS_OPT = -O3 -DNDEBUG
-FLAGS_DEBUG = -O0 -g -pg -D_GLIBCXX_DEBUG -DMDBLOG
+FLAGS_DEBUG = -g -D_GLIBCXX_DEBUG -DMDBLOG -DDEBUG
 FLAGS_COMMON = -W -Wall -Wwrite-strings -Wconversion \
        -DMGSIM_CONFIG_PATH=\"$(pkgdatadir)/config.ini\"
 FLAGS_COMA = -DENABLE_COMA=1 
@@ -13,7 +13,8 @@ FLAGS_COMA = -DENABLE_COMA=1
 #       -Wshorten-64-to-32 -Wextra
 #       -Weffc++ -Woverloaded-virtual 
 
-COMA_LDADD = $(SC_LIBS) -ltinyxml
+COMA_LDADD = $(SC_LIBS) -ltinyxml 
+COMA_LDADD_G = $(SC_LIBS) -ltinyxml_g 
 COMA_LIBS = coma/memorys/libmemorys.a coma/simlink/libsimlink.a  
 COMA_LIBS_G = coma/memorys/libmemorys_g.a coma/simlink/libsimlink_g.a 
 COMA_SRC = \
@@ -139,10 +140,12 @@ bin_PROGRAMS += simx-alpha simx-alpha.dbg
 simx_alpha_SOURCES = $(SPECIAL_SRC) $(COMA_SRC)
 simx_alpha_CXXFLAGS = $(FLAGS_ALPHA) $(FLAGS_OPT) $(FLAGS_COMMON) $(FLAGS_COMA)
 simx_alpha_LDADD = $(COMA_LIBS) libalpha.a $(COMA_LDADD)
+simx_alpha_LDFLAGS = -pthread
 
 simx_alpha_dbg_SOURCES = $(SPECIAL_SRC) $(COMA_SRC)
 simx_alpha_dbg_CXXFLAGS = $(FLAGS_ALPHA) $(FLAGS_DEBUG) $(FLAGS_COMMON) $(FLAGS_COMA)
-simx_alpha_dbg_LDADD = $(COMA_LIBS_G) libalpha_g.a $(COMA_LDADD)
+simx_alpha_dbg_LDADD = $(COMA_LIBS_G) libalpha_g.a $(COMA_LDADD_G)
+simx_alpha_dbg_LDFLAGS = -pthread
 endif
 
 if ENABLE_USE_SDL

@@ -31,8 +31,8 @@ public:
     std::vector<T> getIntegerList(const std::string& name) const
     {
         std::vector<T> vals;
-        
-        std::istringstream stream(getString(name,""));
+	std::string str = getString(name,"");
+        std::istringstream stream(str);
         std::string token;
         while (getline(stream, token, ','))
         {

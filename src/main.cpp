@@ -839,19 +839,8 @@ static void ParseArguments(int argc, const char ** argv, ProgramConfig& config
         else if (arg == "-p" || arg == "--print")       config.m_print = string(argv[++i]) + " ";
 #ifdef ENABLE_COMA
         else if (arg == "--ddr")        lkconfig.m_sDDRXML = argv[++i];
-        else if (arg == "--nump")       lkconfig.m_nProcLink = atoi(argv[++i]);
-        else if (arg == "--numc")       config.m_ncache = atoi(argv[++i]);
-        else if (arg == "--numd")       config.m_ndirectory = atoi(argv[++i]);
-        else if (arg == "--nsplitrd")                   {lkconfig.m_nSplitRootNumber = atoi(argv[++i]);}
-        else if (arg == "--eager")        				{lkconfig.m_bEager = true;}
-        else if (arg == "--inject")        				{lkconfig.m_nInject = atoi(argv[++i]);}
-        else if (arg == "--casso")        				{lkconfig.m_nCacheAssociativity = atoi(argv[++i]);}
-        else if (arg == "--cset")                       {lkconfig.m_nCacheSet = atoi(argv[++i]);}
-        else if (arg == "--mdelay")        				{lkconfig.m_nMemoryAccessTime = atoi(argv[++i]);}
-        else if (arg == "--cdelay")        				{lkconfig.m_nCacheAccessTime = atoi(argv[++i]);}
         else if (arg == "--verbose")        			{lkconfig.m_nDefaultVerbose = atoi(argv[++i]);}
         else if (arg == "--memlog")						{lkconfig.m_pGlobalLogFile = (char*)argv[++i];}
-        else if (arg == "--batch")                      {g_isBatchFile.open((char*)argv[++i]);}
         else if (arg == "--ccore")                      {lkconfig.m_nCycleTimeCore = atoi(argv[++i]);}
         else if (arg == "--cmem")                       {lkconfig.m_nCycleTimeMemory = atoi(argv[++i]);}
 #endif
@@ -974,38 +963,73 @@ static void PrintException(ostream& out, const exception& e)
 #ifdef ENABLE_COMA
 void ConfigureCOMA(ProgramConfig& config, Config& configfile) 
 {
-  {
-    const vector<PSize> placeSizes = configfile.getIntegerList<PSize>("NumProcessors");
-    PSize numProcessors = 0;
-    for (size_t i = 0; i < placeSizes.size(); ++i) 
-      numProcessors += placeSizes[i];
-    
-    LinkMGS::s_oLinkConfig.m_nProcMGS = numProcessors;
-  }
+  PSize numProcessors = 0;
+
+  const vector<PSize> placeSizes = configfile.getIntegerList<PSize>("NumProcessors");
+  for (size_t i = 0; i < placeSizes.size(); ++i) 
+    numProcessors += placeSizes[i];
   
-  size_t ncache = configfile.getInteger<size_t>("NumCaches", 1);
-  size_t ndir = configfile.getInteger<size_t>("NumDirectories", 0);
+  LinkMGS::s_oLinkConfig.m_nProcMGS = numProcessors;
+  if (config.m_interactive)
+    cerr << "Running with " << numProcessors << " cores." << endl;
+  size_t ncache = configfile.getInteger<size_t>("NumCaches", (numProcessors >= 4) ? (numProcessors / 4) : 1);
+  size_t ndir = configfile.getInteger<size_t>("NumDirectories", ncache / 8);
   
   LinkMGS::s_oLinkConfig.m_nLineSize = configfile.getInteger<size_t> ("CacheLineSize", 64);
   
-  if (config.m_ncache != 0)
-    ncache = config.m_ncache;
-  if (config.m_ndirectory != 0xffff)
-    ndir = config.m_ndirectory;
-  
-  if (LinkMGS::s_oLinkConfig.m_nProcLink < LinkMGS::s_oLinkConfig.m_nProcMGS)
+  if (LinkMGS::s_oLinkConfig.m_nProcLink < LinkMGS::s_oLinkConfig.m_nProcMGS) {
+    cerr << "warning: nProcLink (" << LinkMGS::s_oLinkConfig.m_nProcLink
+	 << ") < NumProcessors, adjusting" << endl;
     LinkMGS::s_oLinkConfig.m_nProcLink = LinkMGS::s_oLinkConfig.m_nProcMGS;
-  
-  if (LinkMGS::s_oLinkConfig.m_nProcLink < ncache)
+  }
+  if (LinkMGS::s_oLinkConfig.m_nProcLink < ncache) {
+    cerr << "warning: NumCaches (" << ncache
+	 << ") > nProcLink (" << LinkMGS::s_oLinkConfig.m_nProcLink << "), adjusting" << endl;
     ncache = LinkMGS::s_oLinkConfig.m_nProcLink;
+  }
   LinkMGS::s_oLinkConfig.m_nCache = ncache;
   
   LinkMGS::s_oLinkConfig.m_nDDRConfigID = configfile.getInteger<size_t>("DDRConfiguration", 0);
   
-  if (ncache < ndir)
+  if (ncache < ndir) {
+    cerr << "warning: NumDirectories (" << ndir << ") > NumCaches (" << ncache << "), adjusting" << endl;
     ndir = ncache;
-
+  }
   LinkMGS::s_oLinkConfig.m_nDirectory = ndir;
+  LinkMGS::s_oLinkConfig.m_nSplitRootNumber = configfile.getInteger<size_t>("NumSplitRootDirectories", 2); 
+
+  if (config.m_interactive)
+    cerr << "Running with " << ncache << " L2 caches, " 
+	 << ndir << " directories and " 
+	 << LinkMGS::s_oLinkConfig.m_nSplitRootNumber << " root directories."
+	 << endl;
+
+  LinkMGS::s_oLinkConfig.m_nCacheAccessTime = configfile.getInteger<size_t>("L2CacheDelay", 2);
+  LinkMGS::s_oLinkConfig.m_nCacheAssociativity = configfile.getInteger<size_t>("L2CacheAssociativity", 4);
+  LinkMGS::s_oLinkConfig.m_nCacheSet = configfile.getInteger<size_t>("L2CacheNumSets", 128);
+
+  if (config.m_interactive)
+    cerr << "L2 caches: associativity = "
+	 << LinkMGS::s_oLinkConfig.m_nCacheAssociativity
+	 << ", nsets = "
+	 << LinkMGS::s_oLinkConfig.m_nCacheSet
+	 << " (" << (LinkMGS::s_oLinkConfig.m_nCacheSet * LinkMGS::s_oLinkConfig.m_nCacheAssociativity * LinkMGS::s_oLinkConfig.m_nLineSize)/1024 
+	 << "kb per L2 cache)" << endl;
+      
+  LinkMGS::s_oLinkConfig.m_nInject = configfile.getBoolean("EnableCacheInjection", true);
+
+  size_t corefreq = configfile.getInteger<size_t>("CoreFreq", 1000);
+  size_t memfreq = configfile.getInteger<size_t>("DDRMemoryFreq", 800);
+  if (config.m_interactive)
+    cerr << "DDR / Core frequency ratio = " << memfreq << '/' << corefreq << endl;
+  double ps_per_memcycle = (1./(memfreq*1e6))/1e-12;
+  double ps_per_corecycle = (1./(corefreq*1e6))/1e-12;
+
+  LinkMGS::s_oLinkConfig.m_nCycleTimeCore = (size_t)ps_per_corecycle;
+  LinkMGS::s_oLinkConfig.m_nCycleTimeMemory = (size_t)ps_per_memcycle;
+  cerr << "DEBUG: ccore = " << ps_per_corecycle << ", cmem = " << ps_per_memcycle << endl;
+
+  // FIXME: maybe the following is not used anymore
   LinkMGS::s_oLinkConfig.m_nMemorySize = DEFAULT_DUMP_SIZE;
 }
 #endif
