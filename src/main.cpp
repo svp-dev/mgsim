@@ -1027,7 +1027,6 @@ void ConfigureCOMA(ProgramConfig& config, Config& configfile)
 
   LinkMGS::s_oLinkConfig.m_nCycleTimeCore = (size_t)ps_per_corecycle;
   LinkMGS::s_oLinkConfig.m_nCycleTimeMemory = (size_t)ps_per_memcycle;
-  cerr << "DEBUG: ccore = " << ps_per_corecycle << ", cmem = " << ps_per_memcycle << endl;
 
   // FIXME: maybe the following is not used anymore
   LinkMGS::s_oLinkConfig.m_nMemorySize = DEFAULT_DUMP_SIZE;
