@@ -18,9 +18,7 @@ bool DDRChannel::ScheduleRequest(ST_request* req)
         bwrite = true;
     else if (req->type == MemoryState::REQUEST_ACQUIRE_TOKEN_DATA)
         bwrite = false;
-    else
-        assert(false);
-
+    else assert(false);
 
     if ((AddrRowID(addr) != m_nLastRow) || (AddrRankID(addr) != m_nLastRank))
     {
@@ -126,7 +124,8 @@ void DDRChannel::FunRead(ST_request* req)
     }
     else
 #endif
-    if (req->type == REQUEST_ACQUIRE_TOKEN_DATA)
+
+	     assert (req->type == REQUEST_ACQUIRE_TOKEN_DATA);
     {
         // if (req->tokenacquired > 0)
         // no data but sometoken, two situations, 
@@ -136,8 +135,6 @@ void DDRChannel::FunRead(ST_request* req)
         req->dataavailable = true;
         req->bpriority = true;
     }
-    else
-        assert(false);
 #endif
 
     LOG_VERBOSE_BEGIN(VERBOSE_STATE)
@@ -148,8 +145,8 @@ void DDRChannel::FunRead(ST_request* req)
 
 void DDRChannel::FunWrite(ST_request* req)
 {
-    if (req->nsize>g_nCacheLineSize)
-        assert(false);
+  assert (req->nsize <= g_nCacheLineSize);
+
 #ifdef SIMULATE_DATA_TRANSACTION
 #if defined(TEMP_BASIC_DEBUG) && ((TEMP_BASIC_DEBUG & TEMP_BASIC_DEBUG_MM) == TEMP_BASIC_DEBUG_MM)
     cout << "memory container [w] " << hex << (unsigned int)m_pMemoryDataContainer << dec << "{" << req->getlineaddress() << "," << req->getreqaddress() << "}" << endl;

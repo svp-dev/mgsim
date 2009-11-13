@@ -42,12 +42,7 @@ public:
 
     bool ScheduleNext(ST_request * req, unsigned int gap, unsigned int delay)
     {
-        if (delay >= (m_nSize-1))
-        {
-            assert(false);
-            cerr << "wrong allocation size." << endl;
-            return false;
-        }
+      assert (delay < (m_nSize-1));
        
 //LOG_VERBOSE_BEGIN(VERBOSE_STATE)
 //clog << LOGN_HEAD_OUTPUT << "SCHEDULE REQUEST : " << endl;
@@ -60,7 +55,7 @@ public:
         {
             assert(m_nPointer == m_nHead);
             newpos = (m_nHead + gap + delay)%m_nSize;
-            assert(gap + delay < (int)(m_nSize - 1));
+            assert(gap + delay < (m_nSize - 1));
 
 
             newlast = gap;
@@ -71,7 +66,7 @@ public:
         {
             // check pipeline size
 //            if ( (newpos-m_nHead)%m_nSize < (newpos-m_nPointer)%m_nSize 
-            if ((m_nLastReqPosition + (int)gap + (int)delay) >= (m_nSize - 1))
+	  if ((m_nLastReqPosition + (int)gap + (int)delay) >= ((int)m_nSize - 1))
             {
 //                cerr << "warning: insufficient pipeline buffer in MSP." << endl;
                 return false;

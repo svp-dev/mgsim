@@ -284,7 +284,7 @@ TopologyS::TopologyS()
             clog << m_ppDirectoryL0[i]->name() << ".above joined the root-level network;" << endl;
 
 //            if ((i+1) >= (unsigned int)(floor((double)cf.m_nDirectory/(double)cf.m_nSplitRootNumber)*(nsplitrd+1)))
-            if (i+1  >= lastid + nocsp+((modsp>0)?1:0))
+            if ((int)i+1  >= lastid + nocsp+((modsp>0)?1:0))
             {
                 if (modsp-- == 0 )
                     modsp = 0;
@@ -340,7 +340,7 @@ TopologyS::TopologyS()
 
 //            cout << i+1  << " " <<  ((nsplitrd+1)*nocsp+((modsp>0)?1:0)) << endl;
 //            if ((i+1) >= (unsigned int)(floor((double)cf.m_nCache/(double)cf.m_nSplitRootNumber)*(nsplitrd+1)))
-            if (i+1  >= lastid + nocsp+((modsp>0)?1:0))
+            if ((int)i+1  >= lastid + nocsp+((modsp>0)?1:0))
             {
                 if (modsp-- == 0 )
                     modsp = 0;

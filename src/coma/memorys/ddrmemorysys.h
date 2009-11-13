@@ -62,9 +62,9 @@ private:
 
     unsigned int m_tCCD;                // /CAS to /CAS delay
 
-    unsigned int m_tRP;                 // /RAS precharge time (minimum precharge to active time)
-
     unsigned int m_tRPRE;               // minimum preamble time 
+
+    unsigned int m_tRP;                 // /RAS precharge time (minimum precharge to active time)
 
     unsigned int m_nDataPathBits;       // data path bits for the channel, can be 64-bit or dual-channel 128 bits
 
@@ -93,11 +93,38 @@ private:
     void FunWrite(ST_request*);
 
 public:
-    DDRChannel(MemoryDataContainer *pMemoryDataContainer, unsigned int datapathsize, unsigned int ncolstart, unsigned int ncolbits, unsigned int nbankstart, unsigned int nbankbits, unsigned int nrowstart, unsigned int nrowbits, unsigned int nrankstart, unsigned int nrankbits, unsigned int tRL, unsigned int tWL, unsigned int tBurst, unsigned int tCCD, unsigned int tRPRE, unsigned int tRP)
-        : m_pMemoryDataContainer(pMemoryDataContainer), m_nDataPathBits(datapathsize),
-          m_nRankBits(nrankbits), m_nBankBits(nbankbits), m_nRowBits(nrowbits), m_nColumnBits(ncolbits), 
-          m_nRankBitStart(nrankstart), m_nBankBitStart(nbankstart), m_nRowBitStart(nrowstart), m_nColumnBitStart(ncolstart), 
-          m_tRL(tRL), m_tWL(tWL), m_tBurst(tBurst), m_tCCD(tCCD), m_tRPRE(tRPRE), m_tRP(tRP)
+    DDRChannel(MemoryDataContainer *pMemoryDataContainer, 
+	       unsigned int datapathsize, 
+	       unsigned int ncolstart, 
+	       unsigned int ncolbits, 
+	       unsigned int nbankstart, 
+	       unsigned int nbankbits, 
+	       unsigned int nrowstart, 
+	       unsigned int nrowbits, 
+	       unsigned int nrankstart, 
+	       unsigned int nrankbits, 
+	       unsigned int tRL, 
+	       unsigned int tWL, 
+	       unsigned int tBurst, 
+	       unsigned int tCCD, 
+	       unsigned int tRPRE, 
+	       unsigned int tRP)
+      : m_nRankBits(nrankbits), 
+      m_nBankBits(nbankbits), 
+      m_nRowBits(nrowbits), 
+      m_nColumnBits(ncolbits), 
+      m_nRankBitStart(nrankstart), 
+      m_nBankBitStart(nbankstart), 
+      m_nRowBitStart(nrowstart), 
+      m_nColumnBitStart(ncolstart), 
+      m_tRL(tRL), 
+      m_tWL(tWL), 
+      m_tBurst(tBurst), 
+      m_tCCD(tCCD), 
+      m_tRPRE(tRPRE), 
+      m_tRP(tRP),
+      m_nDataPathBits(datapathsize),
+      m_pMemoryDataContainer(pMemoryDataContainer)
     {
         m_pMSP = new MemorySchedulePipeline(MSP_DEFAULT_SIZE);
 
@@ -304,7 +331,23 @@ public:
     }
 
     DDRMemorySys(sc_module_name nm, MemoryDataContainer *pMemoryDataContainer, unsigned int tAL, unsigned int tCL, unsigned int tCWL, unsigned int tRCD, unsigned int tRP, unsigned int tRAS, unsigned int nRankBits, unsigned int nBankBits, unsigned int nRowBits, unsigned int nColumnBits, unsigned int nCellSizeBits, unsigned int nChannel, unsigned int nModeChannel, unsigned int nDevicePerRank, unsigned int nBurstLength)
-        : SimObj(nm), sc_module(nm), m_pMemoryDataContainer(pMemoryDataContainer), m_tAL(tAL), m_tCL(tCL), m_tCWL(tCWL), m_tRCD(tRCD), m_tRP(tRP), m_tRAS(tRAS), m_nChannel(nChannel), m_nModeChannel(nModeChannel), m_nRankBits(nRankBits), m_nBankBits(nBankBits), m_nRowBits(nRowBits), m_nColumnBits(nColumnBits), m_nCellSizeBits(nCellSizeBits), m_nDevicePerRank(nDevicePerRank), m_nBurstLength(nBurstLength)
+        : SimObj(nm), sc_module(nm), 
+      m_tAL(tAL), 
+      m_tCL(tCL), 
+      m_tCWL(tCWL), 
+      m_tRCD(tRCD), 
+      m_tRP(tRP), 
+      m_tRAS(tRAS), 
+      m_nChannel(nChannel), 
+      m_nModeChannel(nModeChannel), 
+      m_nRankBits(nRankBits), 
+      m_nBankBits(nBankBits), 
+      m_nRowBits(nRowBits), 
+      m_nColumnBits(nColumnBits),
+      m_nCellSizeBits(nCellSizeBits), 
+      m_nDevicePerRank(nDevicePerRank),
+      m_nBurstLength(nBurstLength),
+      m_pMemoryDataContainer(pMemoryDataContainer)
     {
         /*
         cout << m_tAL << "\n" 

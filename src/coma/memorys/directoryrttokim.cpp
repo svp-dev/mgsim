@@ -54,7 +54,10 @@ void DirectoryRTTOKIM::OnNETAcquireTokenData(ST_request* req)
 
             // append the request to the queue
             if (!m_srqSusReqQ.AppendRequest2Line(req, line))
-                assert(false);
+	      {
+		cerr << "cannot append request to line (3, maybe queue is full)" << endl;
+		abort();
+	      }
 
             LOG_VERBOSE_BEGIN(VERBOSE_STATE)
                 clog << LOG_HEAD_OUTPUT << "RS reserves a line at CACHED state <=" << endl;
@@ -145,7 +148,7 @@ void DirectoryRTTOKIM::OnNETAcquireTokenData(ST_request* req)
 
                 // append the request to the queue
                 // if (!m_srqSusReqQ.AppendRequest2Line(req, line))
-                //     assert(false);
+                //     abort();
 
                 LOG_VERBOSE_BEGIN(VERBOSE_STATE)
                     clog << LOG_HEAD_OUTPUT << "RS/RE reserves a line at CACHED state <=" << endl;
@@ -190,7 +193,8 @@ void DirectoryRTTOKIM::OnNETAcquireTokenData(ST_request* req)
         // append request
         if (!m_srqSusReqQ.AppendRequest2Line(req, line))
         {
-            assert(false);
+	  cerr << "cannot append request to line (4, maybe queue is full)" << endl;
+	  abort();
         }
         else
         {
@@ -220,7 +224,7 @@ void DirectoryRTTOKIM::OnNETAcquireToken(ST_request* req)
 
     if (line == NULL)    // invalid
     {
-        assert(false);
+      abort();
         dir_line_t* pline = GetReplacementLine(address);
 
         // a local write
@@ -271,13 +275,13 @@ void DirectoryRTTOKIM::OnNETAcquireToken(ST_request* req)
     }
     else // never reached
     {
-        assert(false);
+        cerr << ERR_HEAD_OUTPUT << "wrong state" << endl;
+      abort();
         //// a local write
         //line->state = DRDIRTY;
         //line->time = sc_time_stamp();
         //line->tag = DirTag(address);
 
-        cerr << ERR_HEAD_OUTPUT << "wrong state" << endl;
     }
 
     //// the auxstate should be originally deferred
@@ -295,7 +299,8 @@ void DirectoryRTTOKIM::OnNETAcquireToken(ST_request* req)
         // append request
         if (!m_srqSusReqQ.AppendRequest2Line(req, line))
         {
-            assert(false);
+	  cerr << "cannot append request to line (5, maybe queue is full)" << endl;
+	  abort();
         }
     }
     else
@@ -320,12 +325,9 @@ void DirectoryRTTOKIM::OnNETDisseminateTokenData(ST_request* req)
 //  double check JOYING
 //    assert( ((line != NULL)&&(!req->bqueued)&&(!m_srqSusReqQ.IsRequestQueueEmpty(line))) == false );
 
-    if (line == NULL)    // DRINVALID
-    {
-        // maybe shouldn't happen
-        assert(false);
-    }
-    else if (line->state == DLS_CACHED)
+    assert (line != NULL);    // DRINVALID
+
+    if (line->state == DLS_CACHED)
     {
         if (req->tokenrequested == 0)    // EV
         {
@@ -343,7 +345,7 @@ void DirectoryRTTOKIM::OnNETDisseminateTokenData(ST_request* req)
 //                    // append request
 //                    if (!m_srqSusReqQ.AppendRequest2Line(req, line))
 //                    {
-//                        assert(false);
+//                        abort();
 //                    }
 //                }
 //                else
@@ -365,7 +367,8 @@ void DirectoryRTTOKIM::OnNETDisseminateTokenData(ST_request* req)
                 // append request
                 if (!m_srqSusReqQ.AppendRequest2Line(req, line))
                 {
-                    assert(false);
+		  cerr << "cannot append request to line (6, maybe queue is full)" << endl;
+		  abort();
                 }
             }
             else
@@ -402,7 +405,8 @@ void DirectoryRTTOKIM::OnNETDisseminateTokenData(ST_request* req)
                 // append request
                 if (!m_srqSusReqQ.AppendRequest2Line(req, line))
                 {
-                    assert(false);
+		  cerr << "cannot append request to line (7, maybe queue is full)" << endl;
+		  abort();
                 }
             }
             else
@@ -428,7 +432,8 @@ void DirectoryRTTOKIM::OnNETDisseminateTokenData(ST_request* req)
                     // append request
                     if (!m_srqSusReqQ.AppendRequest2Line(req, line))
                     {
-                        assert(false);
+		      cerr << "cannot append request to line (8, maybe queue is full)" << endl;
+		      abort();
                     }
                 }
                 else
@@ -450,12 +455,12 @@ void DirectoryRTTOKIM::OnNETDisseminateTokenData(ST_request* req)
         }
         else
         {
-            assert(false);
+	  abort();
         }
     }
     else // not reachable
     {
-        assert(false);
+      abort();
     }
 
     //// the auxstate should be originally deferred
@@ -506,11 +511,8 @@ void DirectoryRTTOKIM::AAIndicatorHandler(ST_request* req, dir_line_t* line)
 //    //print_request(req);
 //    line->counter--;
 //
-//    if (line->counter < 0)
-//    {
-//        assert(false);
-//    }
-//    else 
+//    assert (line->counter >= 0);
+
 //    {
 //        if (line->counter == 0)
 //        {

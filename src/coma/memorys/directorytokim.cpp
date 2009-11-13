@@ -104,15 +104,9 @@ void DirectoryTOKIM::OnBELAcquireTokenData(ST_request* req)
                 // if directory has token in hand, then hand it over to the reqeust.
                 if (line->tokencount > 0)
                 {
-                    if (req->btransient)
-                    {
-                        // RS/SR cannot be transient request
-                        assert(false);
-                    }
-                    else
-                    {
+		  assert (!req->btransient);  // RS/SR cannot be transient request
                         Update_RequestRipsLineTokens(true, true, true, req, line);
-                    }
+
                 }
 
                 // save the reqeust 
@@ -158,10 +152,9 @@ void DirectoryTOKIM::OnBELAcquireTokenData(ST_request* req)
             m_pReqCurBEL2Above = req;
 
 #ifdef MEMSIM_DIRECTORY_REQUEST_COUNTING
-            if (evictedhit)
-                m_evictedlinebuffer.UpdateEvictedLine(req->getlineaddress(), false, req->gettokenpermanent(), req->bpriority);
-            else
-                assert(false);
+            assert (evictedhit);
+	    m_evictedlinebuffer.UpdateEvictedLine(req->getlineaddress(), false, req->gettokenpermanent(), req->bpriority);
+
 #endif
 
             // pop initiator
@@ -299,10 +292,8 @@ void DirectoryTOKIM::OnBELAcquireToken(ST_request* req)
             m_pReqCurBEL2Above = req;
 
 #ifdef MEMSIM_DIRECTORY_REQUEST_COUNTING
-            if (evictedhit)
-                m_evictedlinebuffer.UpdateEvictedLine(req->getlineaddress(), false, req->gettokenpermanent(), req->bpriority);
-            else
-                assert(false);
+            assert (evictedhit);
+	    m_evictedlinebuffer.UpdateEvictedLine(req->getlineaddress(), false, req->gettokenpermanent(), req->bpriority);
 #endif
 
             // pop initiator
@@ -346,6 +337,7 @@ void DirectoryTOKIM::OnBELDisseminateTokenData(ST_request* req)
 #ifdef MEMSIM_DIRECTORY_REQUEST_COUNTING
     // evicted line buffer
     bool evictedhit = m_evictedlinebuffer.FindEvictedLine(req->getlineaddress());
+    (void)evictedhit;
 #endif
 
 
@@ -357,15 +349,13 @@ void DirectoryTOKIM::OnBELDisseminateTokenData(ST_request* req)
             m_pReqCurBEL2Above = req;
 
 #ifdef MEMSIM_DIRECTORY_REQUEST_COUNTING
-            if (evictedhit)
-            {
-                m_evictedlinebuffer.UpdateEvictedLine(req->getlineaddress(), false, req->gettokenpermanent(), req->bpriority, true);
-                LOG_VERBOSE_BEGIN(VERBOSE_DETAIL)
-                    clog << LOG_HEAD_OUTPUT << "DD missed hit on evicted buffer," << FMT_ADDR(address) << " is being sent to upper level " << endl;
-                LOG_VERBOSE_END
-            }
-            else
-                assert(false);
+            assert(evictedhit);
+	    {
+	      m_evictedlinebuffer.UpdateEvictedLine(req->getlineaddress(), false, req->gettokenpermanent(), req->bpriority, true);
+	      LOG_VERBOSE_BEGIN(VERBOSE_DETAIL)
+		clog << LOG_HEAD_OUTPUT << "DD missed hit on evicted buffer," << FMT_ADDR(address) << " is being sent to upper level " << endl;
+	      LOG_VERBOSE_END
+		}
 #endif
 
             return;
@@ -401,7 +391,7 @@ void DirectoryTOKIM::OnBELDisseminateTokenData(ST_request* req)
         }
         else
         {
-            if ((req->tokenacquired < line->ntokenline))
+	  if (((int)req->tokenacquired < line->ntokenline))
             {
                 // just stack, no ripping
                 line->ntokenline -= req->tokenacquired;
@@ -438,10 +428,9 @@ void DirectoryTOKIM::OnBELDisseminateTokenData(ST_request* req)
             m_pReqCurBEL2Above = req;
 
 #ifdef MEMSIM_DIRECTORY_REQUEST_COUNTING
-            if (evictedhit)
-                m_evictedlinebuffer.UpdateEvictedLine(req->getlineaddress(), false, req->gettokenpermanent(), req->bpriority, true);
-            else
-                assert(false);
+            assert (evictedhit);
+	    m_evictedlinebuffer.UpdateEvictedLine(req->getlineaddress(), false, req->gettokenpermanent(), req->bpriority, true);
+            
 #endif
 
             LOG_VERBOSE_BEGIN(VERBOSE_DETAIL)
@@ -527,11 +516,7 @@ void DirectoryTOKIM::OnABOAcquireTokenData(ST_request* req)
             assert(line != NULL);
         }
 
-        if (line == NULL)
-        {
-            assert(false);
-            return;
-        }
+        assert (line != NULL);
 
         if (req->tokenrequested < GetTotalTokenNum())  // read: RS, SR
         {
@@ -628,11 +613,8 @@ void DirectoryTOKIM::OnABOAcquireToken(ST_request* req)
         if (req->tokenacquired > 0)
             assert(line != NULL);
 
-        if (line == NULL)
-        {
-            assert(false);
-            return;
-        }
+        assert (line != NULL);
+
 
         // always go local
         m_pReqCurABO2Below = req;
@@ -742,7 +724,7 @@ void DirectoryTOKIM::OnABODisseminateTokenData(ST_request* req)
 
     if ((line == NULL)&&(!evictedhit))
     {
-        if ((m_nInjectionPolicy == IP_NONE)||(m_nInjectionPolicy == IP_EMPTY_1EJ))
+      assert ((m_nInjectionPolicy == IP_NONE)||(m_nInjectionPolicy == IP_EMPTY_1EJ));
  
         {
             // skip the local level and pass it on
@@ -769,10 +751,6 @@ void DirectoryTOKIM::OnABODisseminateTokenData(ST_request* req)
 ////                print_request(req);
 ////            LOG_VERBOSE_END
 //        }
-        else
-        {
-            assert(false);
-        }
 
         return;
     }
@@ -850,7 +828,10 @@ void DirectoryTOKIM::ReviewState(REVIEW_LEVEL rev)
 
     // print pipeline and buffer
     clog << hex;
-    clog << "|||========================||| [* " << name() << " *]" << " <[B:" << GetBelowIF().m_fifoinNetwork.num_available_fast() << "]>"<< " <[A:" << GetAboveIF().m_fifoinNetwork.num_available_fast() << "]>" << " |||========================|||" << endl;
+    clog << "|||========================||| [* " << name() << " *]" 
+	 << " <[B:" << GetBelowIF().m_fifoinNetwork.num_available_fast() << "]>"
+	 << " <[A:" << GetAboveIF().m_fifoinNetwork.num_available_fast() << "]>" 
+	 << " |||========================|||" << endl;
     clog << "-- Pipeline BEL --" << endl;
     m_pPipelineBEL->print();
     clog << "-- Pipeline ABO --" << endl;
@@ -858,7 +839,6 @@ void DirectoryTOKIM::ReviewState(REVIEW_LEVEL rev)
     clog << endl;
 
 
-    char ptext[0x500];
     // print out state
     switch(rev)
     {
@@ -881,7 +861,13 @@ void DirectoryTOKIM::ReviewState(REVIEW_LEVEL rev)
                     // print a cacheline
                     // print the line set and no. within a set
                     __address_t addr = line.getlineaddress(i, m_nSetBits);
-                    clog << "<Set>0x" << i << "-<no>0x" << j << " [" << addr << ", " << addr + s_nLineSize << "] : " << line.StateName(false) << " #(R) " << hex << line.nrequestin << "|" << line.nrequestout << " #(T) " << line.tokencount << "|" << line.ntokenline << "|" << line.ntokenrem << endl;
+                    clog << "<Set>0x" << i << "-<no>0x" << j 
+			 << " [" << addr << ", " << addr + s_nLineSize << "] : " 
+			 << line.StateName(false) << " #(R) " << hex << line.nrequestin 
+			 << "|" << line.nrequestout << " #(T) " << line.tokencount 
+			 << "|" << line.ntokenline 
+			 << "|" << line.ntokenrem 
+			 << endl;
                     
                 }
             }
@@ -923,7 +909,12 @@ void DirectoryTOKIM::ReviewState(REVIEW_LEVEL rev)
                     // print a cacheline
                     // print the line set and no. within a set
                     __address_t addr = line.getlineaddress(i, m_nSetBits);
-                    clog << "<Set>0x" << i << "-<no>0x" << j << " [" << addr << ", " << addr + s_nLineSize << "] : " << line.StateName(false) << " #(R) " << hex << line.nrequestin << "|" << line.nrequestout << " #(T) " << line.tokencount << "|" << line.ntokenline << "|" << line.ntokenrem << endl;
+                    clog << "<Set>0x" << i << "-<no>0x" << j 
+			 << " [" << addr << ", " << addr + s_nLineSize << "] : " 
+			 << line.StateName(false) << " #(R) " << hex << line.nrequestin 
+			 << "|" << line.nrequestout << " #(T) " << line.tokencount 
+			 << "|" << line.ntokenline 
+			 << "|" << line.ntokenrem << endl;
                 }
             }
             m_evictedlinebuffer.CheckStatus(clog);
@@ -964,7 +955,12 @@ void DirectoryTOKIM::ReviewState(REVIEW_LEVEL rev)
                     // print a cacheline
                     // print the line set and no. within a set
                     __address_t addr = line.getlineaddress(i, m_nSetBits);
-                    clog << "<Set>0x" << i << "-<no>0x" << j << " [" << addr << ", " << addr + s_nLineSize << "] : " << line.StateName(false) << " #(R) " << hex << line.nrequestin << "|" << line.nrequestout << " #(T) " << line.tokencount << "|" << line.ntokenline << "|" << line.ntokenrem << endl;
+                    clog << "<Set>0x" << i << "-<no>0x" << j 
+			 << " [" << addr << ", " << addr + s_nLineSize << "] : " 
+			 << line.StateName(false) << " #(R) " << hex << line.nrequestin 
+			 << "|" << line.nrequestout << " #(T) " << line.tokencount 
+			 << "|" << line.ntokenline 
+			 << "|" << line.ntokenrem << endl;
 
                 }
             }
@@ -1000,7 +996,12 @@ void DirectoryTOKIM::ReviewState(REVIEW_LEVEL rev)
                     // print a cacheline
                     // print the line set and no. within a set
                     __address_t addr = line.getlineaddress(i, m_nSetBits);
-                    clog << "<Set>0x" << i << "-<no>0x" << j << " [" << addr << ", " << addr + s_nLineSize << "] : " << line.StateName(false) << " #(R) " << hex << line.nrequestin << "|" << line.nrequestout << " #(T) " << line.tokencount << "|" << line.ntokenline << "|" << line.ntokenrem << endl;
+                    clog << "<Set>0x" << i << "-<no>0x" << j 
+			 << " [" << addr << ", " << addr + s_nLineSize << "] : " 
+			 << line.StateName(false) << " #(R) " << hex << line.nrequestin 
+			 << "|" << line.nrequestout << " #(T) " << line.tokencount 
+			 << "|" << line.ntokenline 
+			 << "|" << line.ntokenrem << endl;
                 }
             }
 

@@ -104,7 +104,7 @@ temp:
     g_osTraceFile << endl;
 }
 
-void printtraceline(unsigned int state, uint64_t addr, unsigned int size, char* data)
+void printtraceline(unsigned int state, uint64_t , unsigned int size, char* data)
 {
     const char *pLineState[] = {
         "LINE_EMPTY",

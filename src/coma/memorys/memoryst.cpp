@@ -248,7 +248,7 @@ void MemoryST::Behavior()
         break;
 
     default:
-        assert(false);
+      abort();
         break;
     }
 }
@@ -315,7 +315,7 @@ void MemoryST::FunRead(ST_request* req)
 	else if (req->type == REQUEST_REMOTE_READ_EXCLUSIVE)
 		req->type = REQUEST_REMOTE_EXCLUSIVE_READ_REPLY;
 	else
-		assert(false);
+	  assert(false);
 #else
 #ifdef MEMSIM_DIRECTORY_REQUEST_COUNTING
     if (req->bprocessed)
@@ -326,7 +326,7 @@ void MemoryST::FunRead(ST_request* req)
     }
     else
 #endif
-    if (req->type == REQUEST_ACQUIRE_TOKEN_DATA)
+      assert (req->type == REQUEST_ACQUIRE_TOKEN_DATA);
     {
         // if (req->tokenacquired > 0)
         // no data but sometoken, two situations, 
@@ -336,8 +336,7 @@ void MemoryST::FunRead(ST_request* req)
         req->dataavailable = true;
         req->bpriority = true;
     }
-    else
-        assert(false);
+
 #endif
     LOG_VERBOSE_BEGIN(VERBOSE_STATE)
         clog << LOG_HEAD_OUTPUT << "read done address@" << FMT_ADDR(req->getreqaddress()) << ", " << FMT_DTA(req->data[0]) << " returned, have now totally " << req->tokenacquired << " tokens."  << endl;
@@ -346,8 +345,7 @@ void MemoryST::FunRead(ST_request* req)
 
 void MemoryST::FunWrite(ST_request* req)
 {
-    if (req->nsize>g_nCacheLineSize)
-        assert(false);
+  assert (req->nsize <= g_nCacheLineSize);
 #ifdef SIMULATE_DATA_TRANSACTION
 #if defined(TEMP_BASIC_DEBUG) && ((TEMP_BASIC_DEBUG & TEMP_BASIC_DEBUG_MM) == TEMP_BASIC_DEBUG_MM)
     cout << "memory container [w] " << hex << (unsigned int)m_pMemoryDataContainer << dec << "{" << req->getlineaddress() << "," << req->getreqaddress() << "}" << endl;

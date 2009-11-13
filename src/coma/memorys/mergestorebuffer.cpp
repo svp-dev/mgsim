@@ -158,13 +158,13 @@ using namespace MemSim;
     {
         assert(reqpas != NULL);
 
-        int index;
-        cache_line_t* line;
+        int index=0;
+        cache_line_t* line=0;
         __address_t addrline = address >> g_nCacheLineWidth << g_nCacheLineWidth;
-        if (!m_fabLines.FindBufferItem(addrline, index, line))
-        {
-            assert(false);
-        }
+        bool bufferfound = m_fabLines.FindBufferItem(addrline, index, line);
+	(void)bufferfound;
+	assert(bufferfound);
+
 /*
         unsigned int offset = 0xffff;
         // find start position
@@ -282,8 +282,9 @@ using namespace MemSim;
             m_pvecRequestQueue[index]->clear();
 
 
-            if (m_fabLines.FindBufferItem(address, index, line))
-                    assert(false);
+            bool bufferfound = m_fabLines.FindBufferItem(address, index, line);
+	    (void)bufferfound;
+	    assert(!bufferfound);
 
             return true;
         }
@@ -327,8 +328,9 @@ using namespace MemSim;
         for (unsigned int i=0;i<g_nCacheLineSize;i++)
             line->data[i] = (char)0;
 
-        if (!m_fabLines.InsertItem2Buffer(address, line, 1))
-            assert(false);
+        bool iteminserted = m_fabLines.InsertItem2Buffer(address, line, 1);
+	(void)iteminserted;
+	assert(iteminserted);
 
         // verify...
         assert(AddressSlotPosition(address) == ind);
@@ -347,9 +349,12 @@ using namespace MemSim;
         assert(req->type == MemoryState::REQUEST_WRITE);
         __address_t address = req->getlineaddress();
 
-        cache_line_t* line;
-        int index;
-        if (m_fabLines.FindBufferItem(address, index, line))
+        cache_line_t* line=0;
+        int index =0;
+        bool itemfound = m_fabLines.FindBufferItem(address, index, line);
+	(void)itemfound;
+	assert(itemfound);
+
         {
             // update data and bit-mask
 
@@ -396,10 +401,6 @@ using namespace MemSim;
 
             // update request queue
             m_pvecRequestQueue[index]->push_back(req);
-        }
-        else
-        {
-            assert(false);
         }
 
         return true;

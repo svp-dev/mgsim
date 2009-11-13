@@ -269,7 +269,7 @@ public:
     // get network above and below interface
 	NetworkBelow_if& GetBelowIF(){return *((NetworkBelow_if*)this);};
 	NetworkAbove_if& GetAboveIF(){return *((NetworkAbove_if*)this);};
-//     bool DirectForward(ST_request* req){assert(false);return true;};
+//     bool DirectForward(ST_request* req){abort();return true;};
 
     // handle both below and above network interface
      bool MayHandle(ST_request* req);		// handle both below and above

@@ -5,31 +5,22 @@
 
 #define USE_IPC_SEMS
 #ifdef USE_IPC_SEMS
-#include <sys/types.h>
-#include <sys/ipc.h>
 #include <sys/sem.h>
 #include <cstdio>
 #include <cstdlib>
-   union mgs_semun
-   { 
-     int val;
-     struct semid_ds *buf;
-     unsigned short int *array;
-     struct seminfo *__buf;
-   };
-
+#include <sys/errno.h>
 #define sem_init(Sem, Shared, Val) do {					\
-    if (-1 == (*(Sem) = semget(IPC_PRIVATE, 1, IPC_CREAT|0600 ))) { perror("semget"); abort(); } \
-    union mgs_semun arg; arg.val = (Val);					\
+    if (-1 == (*(Sem) = semget(IPC_PRIVATE, 1, SEM_R|SEM_A))) { perror("semget"); abort(); } \
+    union semun arg; arg.val = (Val);					\
     if (-1 == semctl(*(Sem), 0, SETVAL, arg)) { perror("semctl"); abort(); } \
   } while(0)
 #define sem_post(Sem) do {					\
     struct sembuf sop = { 0, 1, 0 };					\
-    if (-1 == semop(*(Sem), &sop, 1)) { perror("semop"); abort(); }	\
+    if (-1 == semop(*(Sem), &sop, 1)) { if (errno == EIDRM) pthread_exit(0); perror("semop"); abort(); } \
   } while(0)
 #define sem_wait(Sem) do {	  \
     struct sembuf sop = { 0, -1, 0 };					\
-    if (-1 == semop(*(Sem), &sop, 1)) { perror("semop"); abort(); }	\
+    if (-1 == semop(*(Sem), &sop, 1)) { if (errno == EIDRM) pthread_exit(0); perror("semop"); abort(); } \
   } while(0)
 #define sem_destroy(Sem) do {	 \
     semctl(*(Sem), IPC_RMID, 0); \

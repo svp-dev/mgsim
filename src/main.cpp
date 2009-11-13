@@ -841,8 +841,6 @@ static void ParseArguments(int argc, const char ** argv, ProgramConfig& config
         else if (arg == "--ddr")        lkconfig.m_sDDRXML = argv[++i];
         else if (arg == "--verbose")        			{lkconfig.m_nDefaultVerbose = atoi(argv[++i]);}
         else if (arg == "--memlog")						{lkconfig.m_pGlobalLogFile = (char*)argv[++i];}
-        else if (arg == "--ccore")                      {lkconfig.m_nCycleTimeCore = atoi(argv[++i]);}
-        else if (arg == "--cmem")                       {lkconfig.m_nCycleTimeMemory = atoi(argv[++i]);}
 #endif
         else if (arg == "-o" || arg == "--override")
         {
@@ -961,62 +959,62 @@ static void PrintException(ostream& out, const exception& e)
 }
 
 #ifdef ENABLE_COMA
-void ConfigureCOMA(ProgramConfig& config, Config& configfile) 
+void ConfigureCOMA(ProgramConfig& config, Config& configfile, LinkConfig& lkconfig) 
 {
   PSize numProcessors = 0;
 
   const vector<PSize> placeSizes = configfile.getIntegerList<PSize>("NumProcessors");
   for (size_t i = 0; i < placeSizes.size(); ++i) 
     numProcessors += placeSizes[i];
-  
-  LinkMGS::s_oLinkConfig.m_nProcMGS = numProcessors;
+
+  lkconfig.m_nProcMGS = numProcessors;
   if (config.m_interactive)
     cerr << "Running with " << numProcessors << " cores." << endl;
   size_t ncache = configfile.getInteger<size_t>("NumCaches", (numProcessors >= 4) ? (numProcessors / 4) : 1);
   size_t ndir = configfile.getInteger<size_t>("NumDirectories", ncache / 8);
   
-  LinkMGS::s_oLinkConfig.m_nLineSize = configfile.getInteger<size_t> ("CacheLineSize", 64);
+  lkconfig.m_nLineSize = configfile.getInteger<size_t> ("CacheLineSize", 64);
   
-  if (LinkMGS::s_oLinkConfig.m_nProcLink < LinkMGS::s_oLinkConfig.m_nProcMGS) {
-    cerr << "warning: nProcLink (" << LinkMGS::s_oLinkConfig.m_nProcLink
+  if (lkconfig.m_nProcLink < lkconfig.m_nProcMGS) {
+    cerr << "warning: nProcLink (" << lkconfig.m_nProcLink
 	 << ") < NumProcessors, adjusting" << endl;
-    LinkMGS::s_oLinkConfig.m_nProcLink = LinkMGS::s_oLinkConfig.m_nProcMGS;
+    lkconfig.m_nProcLink = lkconfig.m_nProcMGS;
   }
-  if (LinkMGS::s_oLinkConfig.m_nProcLink < ncache) {
+  if (lkconfig.m_nProcLink < ncache) {
     cerr << "warning: NumCaches (" << ncache
-	 << ") > nProcLink (" << LinkMGS::s_oLinkConfig.m_nProcLink << "), adjusting" << endl;
-    ncache = LinkMGS::s_oLinkConfig.m_nProcLink;
+	 << ") > nProcLink (" << lkconfig.m_nProcLink << "), adjusting" << endl;
+    ncache = lkconfig.m_nProcLink;
   }
-  LinkMGS::s_oLinkConfig.m_nCache = ncache;
+  lkconfig.m_nCache = ncache;
   
-  LinkMGS::s_oLinkConfig.m_nDDRConfigID = configfile.getInteger<size_t>("DDRConfiguration", 0);
+  lkconfig.m_nDDRConfigID = configfile.getInteger<size_t>("DDRConfiguration", 0);
   
   if (ncache < ndir) {
     cerr << "warning: NumDirectories (" << ndir << ") > NumCaches (" << ncache << "), adjusting" << endl;
     ndir = ncache;
   }
-  LinkMGS::s_oLinkConfig.m_nDirectory = ndir;
-  LinkMGS::s_oLinkConfig.m_nSplitRootNumber = configfile.getInteger<size_t>("NumSplitRootDirectories", 2); 
+  lkconfig.m_nDirectory = ndir;
+  lkconfig.m_nSplitRootNumber = configfile.getInteger<size_t>("NumSplitRootDirectories", 2); 
 
   if (config.m_interactive)
     cerr << "Running with " << ncache << " L2 caches, " 
 	 << ndir << " directories and " 
-	 << LinkMGS::s_oLinkConfig.m_nSplitRootNumber << " root directories."
+	 << lkconfig.m_nSplitRootNumber << " root directories."
 	 << endl;
 
-  LinkMGS::s_oLinkConfig.m_nCacheAccessTime = configfile.getInteger<size_t>("L2CacheDelay", 2);
-  LinkMGS::s_oLinkConfig.m_nCacheAssociativity = configfile.getInteger<size_t>("L2CacheAssociativity", 4);
-  LinkMGS::s_oLinkConfig.m_nCacheSet = configfile.getInteger<size_t>("L2CacheNumSets", 128);
+  lkconfig.m_nCacheAccessTime = configfile.getInteger<size_t>("L2CacheDelay", 2);
+  lkconfig.m_nCacheAssociativity = configfile.getInteger<size_t>("L2CacheAssociativity", 4);
+  lkconfig.m_nCacheSet = configfile.getInteger<size_t>("L2CacheNumSets", 128);
 
   if (config.m_interactive)
     cerr << "L2 caches: associativity = "
-	 << LinkMGS::s_oLinkConfig.m_nCacheAssociativity
+	 << lkconfig.m_nCacheAssociativity
 	 << ", nsets = "
-	 << LinkMGS::s_oLinkConfig.m_nCacheSet
-	 << " (" << (LinkMGS::s_oLinkConfig.m_nCacheSet * LinkMGS::s_oLinkConfig.m_nCacheAssociativity * LinkMGS::s_oLinkConfig.m_nLineSize)/1024 
+	 << lkconfig.m_nCacheSet
+	 << " (" << (lkconfig.m_nCacheSet * lkconfig.m_nCacheAssociativity * lkconfig.m_nLineSize)/1024 
 	 << "kb per L2 cache)" << endl;
       
-  LinkMGS::s_oLinkConfig.m_nInject = configfile.getBoolean("EnableCacheInjection", true);
+  lkconfig.m_nInject = configfile.getBoolean("EnableCacheInjection", true);
 
   size_t corefreq = configfile.getInteger<size_t>("CoreFreq", 1000);
   size_t memfreq = configfile.getInteger<size_t>("DDRMemoryFreq", 800);
@@ -1025,11 +1023,14 @@ void ConfigureCOMA(ProgramConfig& config, Config& configfile)
   double ps_per_memcycle = (1./(memfreq*1e6))/1e-12;
   double ps_per_corecycle = (1./(corefreq*1e6))/1e-12;
 
-  LinkMGS::s_oLinkConfig.m_nCycleTimeCore = (size_t)ps_per_corecycle;
-  LinkMGS::s_oLinkConfig.m_nCycleTimeMemory = (size_t)ps_per_memcycle;
+  lkconfig.m_nCycleTimeCore = (size_t)ps_per_corecycle;
+  lkconfig.m_nCycleTimeMemory = (size_t)ps_per_memcycle;
 
   // FIXME: maybe the following is not used anymore
-  LinkMGS::s_oLinkConfig.m_nMemorySize = DEFAULT_DUMP_SIZE;
+  lkconfig.m_nMemorySize = DEFAULT_DUMP_SIZE;
+
+  lkconfig.m_bConfigDone = true;
+
 }
 #endif
 
@@ -1047,17 +1048,17 @@ int main(int argc, char** argv)
     {
         // Parse command line arguments
         ProgramConfig config;
-        ParseArguments(argc, (const char**)argv, config
 #ifdef ENABLE_COMA
-		       , LinkMGS::s_oLinkConfig
+	ParseArguments(argc, (const char**)argv, config, LinkMGS::s_oLinkConfig);
+#else
+        ParseArguments(argc, (const char**)argv, config);
 #endif
-);
 
         // Read configuration
         Config configfile(config.m_configFile, config.m_overrides);
 
 #ifdef ENABLE_COMA
-	ConfigureCOMA(config, configfile);
+	ConfigureCOMA(config, configfile, LinkMGS::s_oLinkConfig);
 #endif
 
         if (config.m_interactive)
@@ -1075,7 +1076,7 @@ int main(int argc, char** argv)
 #endif
 
         // Create the system
-		MGSystem sys(configfile, config.m_programFile, config.m_regs, config.m_loads, !config.m_interactive);
+	MGSystem sys(configfile, config.m_programFile, config.m_regs, config.m_loads, !config.m_interactive);
 
 #if defined(ENABLE_COMA) && defined(MEM_DATA_PREFILL)
         sem_post(&thpara.sem_sync);

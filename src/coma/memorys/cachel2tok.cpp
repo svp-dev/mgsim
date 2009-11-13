@@ -132,7 +132,7 @@ LOG_VERBOSE_END
 	cout << LOG_HEAD_OUTPUT ;
 	cout << m_pReqCurINI->type << endl;
 	cout << m_pReqCurINI->getreqaddress() << endl;
-    //    assert(false);
+    //    abort();
         break;
     }
 }
@@ -155,8 +155,7 @@ bool CacheL2TOK::OnLocalReadVictimBuffer(ST_request* req)
         LOG_VERBOSE_END
 
         // update request 
-        if (data == NULL)
-            assert(false);
+	  assert (data != NULL);
 
         memcpy(req->data, data, g_nCacheLineSize);
 
@@ -372,15 +371,14 @@ ST_request* CacheL2TOK::FetchRequestINI()
     {
 
         // the queue shouldn't be empty when buffer has priority
-      if (GlobalFIFOEmpty())
-            assert(false);
+      assert (!GlobalFIFOEmpty());
 
         // pop the request from the queue 
         ret = PoPQueuedRequest();
         if (ret == NULL)
         {
-            cerr << ERR_HEAD_OUTPUT << "should not fail in getting the request" << endl;
-            assert(false);
+            cerr << ERR_HEAD_OUTPUT << "should not fail in getting the request (1)" << endl;
+            abort();
             return NULL;
         }
 
@@ -400,8 +398,8 @@ ST_request* CacheL2TOK::FetchRequestINI()
         ret = PoPQueuedRequest();
         if (ret == NULL)
         {
-            cerr << ERR_HEAD_OUTPUT << "should not fail in getting the request" << endl;
-            assert(false);
+            cerr << ERR_HEAD_OUTPUT << "should not fail in getting the request (2)" << endl;
+            abort();
             return NULL;
         }
 
@@ -410,7 +408,7 @@ ST_request* CacheL2TOK::FetchRequestINI()
     else if (!m_pfifoReqIn->nb_read(ret))      // save the request to m_pReqCurINI
     {
         cerr << ERR_HEAD_OUTPUT << "should not get failed in this nb_read request" << endl;
-        assert(false);
+        abort();
         return NULL;
     }
 
@@ -521,7 +519,7 @@ void CacheL2TOK::CleansingAndInsert(ST_request* req)
         LOG_VERBOSE_END
 
         // this should not be reached
-        assert(false);
+	  abort();
     }
     else
     {
@@ -598,7 +596,7 @@ void CacheL2TOK::BehaviorIni()
         break;
 
     default:
-        assert(false);
+      abort();
         break;
     }
 }
@@ -654,11 +652,9 @@ LOG_VERBOSE_END
 
 #ifdef MEMSIM_DIRECTORY_REQUEST_COUNTING
     case Request_LOCALDIR_NOTIFICATION:
-        if (LinkMGS::s_oLinkConfig.m_nDirectory == 0)
-            assert(false);
-        else
-            OnDirNotification(req);
-        break;
+      assert (LinkMGS::s_oLinkConfig.m_nDirectory != 0);
+      OnDirNotification(req);
+      break;
 #endif
 
     default:
@@ -886,7 +882,7 @@ ST_request* CacheL2TOK::FetchRequestPAS()
     else if (!m_fifoinNetwork.nb_read(req_incoming))
     {
         cerr << ERR_HEAD_OUTPUT << "should not get failed in this nb_read request" << endl;
-        assert(false);
+        abort();
         return NULL;
     }
 
@@ -995,7 +991,7 @@ void CacheL2TOK::BehaviorNet()
 #endif
 
     default:
-        assert(false);
+      abort();
         break;
     }
 }
@@ -1023,10 +1019,7 @@ void CacheL2TOK::BindProcTopology(ProcessorTOK &proc)
 bool CacheL2TOK::RacingHashInvalidation(int pid)
 {
     // check processor topology
-    if ( (m_nPidMin > m_nPidMax) || (m_nPidMax < 0) || (m_nPidMin < 0) )
-	{
-        assert(false);
-	}
+  assert(!( (m_nPidMin > m_nPidMax) || (m_nPidMax < 0) || (m_nPidMin < 0) ));
 
     // make simple decision
     if (pid < m_nPidMin)
@@ -1041,7 +1034,7 @@ bool CacheL2TOK::RacingHashInvalidation(int pid)
 
     // hash invalidation shouldn't have the request from the same cache
     cerr << ERR_HEAD_OUTPUT << "hash invalidation shouldn't happen to itself!" << endl;
-    assert(false);
+    abort();
 
     return false;
 }
@@ -1135,7 +1128,7 @@ cache_line_t* CacheL2TOK::GetReplacementLine(__address_t address)
 
 cache_line_t* CacheL2TOK::GetReplacementLineEx(__address_t address)
 {
-    assert(false);
+  abort();
     cache_line_t *line, *lruline;
     unsigned int index = CacheIndex(address);
     // uint64 tag = CacheTag(address);
@@ -1299,7 +1292,7 @@ void CacheL2TOK::UpdateCacheLine(cache_line_t* line, ST_request* req, CACHE_LINE
         if (state == CLS_INVALID)
         {
             // should this be reached?
-            assert(false);
+	  abort();
             for (unsigned int i=0;i<CACHE_BIT_MASK_WIDTH/8;i++)
                 line->bitmask[i] = 0;
 
@@ -1355,15 +1348,13 @@ void CacheL2TOK::UpdateCacheLine(cache_line_t* line, ST_request* req, CACHE_LINE
 	else if ( (lum == LUM_FEEDBACK_UPDATE)||(lum == LUM_NOM_FEEDBACK_UPDATE) )	// complete the cacheline
 	{
         // make sure the request is complete
+#ifndef NDEBUG
         for (unsigned int i=0;i<CACHE_BIT_MASK_WIDTH/8;i++)
         {
 
-            if ((unsigned char)req->bitmask[i] != 0xff)
-            {
-                //print_request(req);
-                assert(false);
-            }
+	  assert ((unsigned char)req->bitmask[i] == 0xff);
         }
+#endif
 
         // reset the mask bits for CLS_INVALID
         if (state == CLS_INVALID)
@@ -1576,11 +1567,10 @@ bool CacheL2TOK::CheckLineValidness(cache_line_t* line, bool bwholeline, char* p
 {
     if (!bwholeline)
     {
-        if (pmask == NULL)
-            assert(false);
+      assert (pmask != NULL);
 
         // this part is not implemented yet
-        assert(false);
+      abort();
     }
 
     // a patch to writepending states
@@ -1669,7 +1659,7 @@ void CacheL2TOK::TryMissingLineBypass()
         // CHKS: maybe SET
         if ( (m_pReqNonExistBypass != NULL)&&(m_pReqNonExistBypass->getlineaddress() == vecdump[i]->getlineaddress()) )
         {
-            //assert(false);
+            // abort();
             continue;
         }
 
@@ -1702,10 +1692,8 @@ void CacheL2TOK::TryMissingLineBypass()
 
     // double check
     cache_line_t* pline = LocateLineEx(request_bypass->getlineaddress());
-    if (pline != NULL)
-    {
-        assert(false);
-    }
+    assert (pline == NULL);
+
 
     // perform bypassing
     // Pass the transaction down

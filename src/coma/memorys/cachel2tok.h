@@ -768,10 +768,8 @@ public:
                 assert(g_nCacheLineSize==64);
                 memcpy(reqpipe->data, req->data, g_nCacheLineSize);
             }
-            else if (reqpipe->getlineaddress()==addr)
-            {
-                assert(false);
-            }
+            else 
+	      assert(reqpipe->getlineaddress()!=addr);
         }
     }
     //////////////////////////////////////////////////////////////////////////
@@ -1019,7 +1017,7 @@ public:
 
     void SetStateToResiduePAS()
     {
-        assert(false);
+      abort();
         m_nStatePAS = STATE_PAS_RESIDUE;
         m_nWaitCountPAS = 0;
         m_pReqCurPASasSlave = NULL;  // reset combined requests ???

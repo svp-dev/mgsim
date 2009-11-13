@@ -126,11 +126,29 @@ protected:
 public:
 	// directory should be defined large enough to hold all the information in the hierarchy below
 	SC_HAS_PROCESS(DirectoryRTTOK);
-	DirectoryRTTOK(sc_module_name nm, unsigned int nset, unsigned int nassoc, unsigned int nlinesize, INJECTION_POLICY nIP=IP_NONE, unsigned int nSplitMode = 0x100, REPLACE_POLICY policyR = RP_LRU, unsigned char policyW = (WP_WRITE_THROUGH|WP_WRITE_AROUND), __address_t startaddr=0, __address_t endaddr= MemoryState::MEMORY_SIZE, UINT latency = 5) 
-		: /*BusST_Master(nm)*/ sc_module(nm), RingNode(), SetAssociativeProp(nlinesize), m_nSet(nset), m_nAssociativity(nassoc), m_policyReplace(policyR), m_policyWrite(policyW), m_nStartAddress(startaddr), m_nEndAddress(endaddr), m_nLatency(latency), m_srqSusReqQ(0x200, 0x100), m_nInjectionPolicy(nIP)
+	DirectoryRTTOK(sc_module_name nm, unsigned int nset, unsigned int nassoc, 
+		       unsigned int nlinesize, INJECTION_POLICY nIP=IP_NONE, 
+		       unsigned int nSplitMode = 0x100, 
+		       REPLACE_POLICY policyR = RP_LRU, 
+		       unsigned char policyW = (WP_WRITE_THROUGH|WP_WRITE_AROUND), 
+		       __address_t startaddr=0, 
+		       __address_t endaddr= MemoryState::MEMORY_SIZE, 
+		       UINT latency = 5) 
+		: /*BusST_Master(nm)*/ sc_module(nm), 
+	  RingNode(), 
+	  SetAssociativeProp(nlinesize), 
+	  m_nSet(nset), 
+	  m_nAssociativity(nassoc), 
+	  m_policyReplace(policyR), 
+	  m_policyWrite(policyW), 
+	  m_nStartAddress(startaddr),
+	  m_nEndAddress(endaddr), 
+	  m_nLatency(latency), 
+	  m_srqSusReqQ(0x200, 0x100), 
 #ifdef MEMSIM_DIRECTORY_REQUEST_COUNTING
-    , m_evictedlinebuffer(0x20)
+	  m_evictedlinebuffer(0x20),
 #endif
+	  m_nInjectionPolicy(nIP)
 	{
 
 		SC_METHOD(BehaviorNET);
@@ -180,7 +198,7 @@ public:
         if (nSplitMode < 0x100)
         {
             cout << "split mode " << nSplitMode << endl;
-            assert(false);
+            abort();
         }
         else
         {
@@ -357,7 +375,7 @@ virtual     void OnBUSExclusiveReadReply(ST_request*)=0;
             if (total > m_nAssociativity)
             {
                 cout << dec << "*** set: " << i << endl;
-                assert(false);
+                abort();
             }
         }
     }

@@ -73,9 +73,9 @@ std::vector<CMLink*> *CMLink::s_pLinks = NULL;
 
 bool CMLink::Allocate(MemSize size, int perm, MemAddr& address)
 {
-    if (m_pProcessor == NULL)   assert(false);
+  assert (m_pProcessor != NULL);
 
-//    if ((address >> 16) == 0x6de7)  assert(false);
+//    assert ((address >> 16) != 0x6de7);
     if (s_pMemoryDataContainer == NULL)
         throw runtime_error("Allocate without memory container");
 
@@ -97,11 +97,15 @@ bool CMLink::Read(IMemoryCallback& callback, MemAddr address, MemSize size, MemT
     requestact.data.size = size;
     requestact.data.tag  = tag;
     requestact.write     = false;
+    // FIXME: the following 3 were initialized, is this correct?
+    requestact.done = false;
+    requestact.starttime = GetKernel()->GetCycleNo();
+    requestact.bconflict = false;
 
     m_requests.Push(requestact);
 
-    if (m_pProcessor == NULL)   assert(false);
-//    if ((address >> 16) == 0x6de7)  assert(false);
+    assert (m_pProcessor != NULL);
+//   assert ((address >> 16) != 0x6de7);
     if (size > SIZE_MAX)
     {
         throw InvalidArgumentException("Size argument too big");
@@ -193,8 +197,7 @@ bool CMLink::Read(IMemoryCallback& callback, MemAddr address, MemSize size, MemT
             // save call back and check 
             if (m_pimcallback == NULL)
                 m_pimcallback = &callback;
-            else if (m_pimcallback != &callback)
-                assert(false);
+            else assert (m_pimcallback == &callback);
 #endif
 
             // push the request into the link
@@ -213,8 +216,8 @@ bool CMLink::Read(IMemoryCallback& callback, MemAddr address, MemSize size, MemT
 /*
 Result CMLink::Read(IMemoryCallback& callback, MemAddr address, void* data, MemSize size, MemTag tag)
 {
-    if (m_pProcessor == NULL)   assert(false);
-//    if ((address >> 16) == 0x6de7)  assert(false);
+    assert(m_pProcessor != NULL);
+//    assert ((address >> 16) != 0x6de7);
     if (size > SIZE_MAX)
     {
         throw InvalidArgumentException("Size argument too big");
@@ -304,8 +307,7 @@ Result CMLink::Read(IMemoryCallback& callback, MemAddr address, void* data, MemS
             // save call back and check 
             if (m_pimcallback == NULL)
                 m_pimcallback = &callback;
-            else if (m_pimcallback != &callback)
-                assert(false);
+            else assert (m_pimcallback == &callback);
 #endif
 
             // push the request into the link
@@ -328,10 +330,14 @@ bool CMLink::Write(IMemoryCallback& callback, MemAddr address, const void* data,
     requestact.data.size = size;
     requestact.data.tag  = tag;
     requestact.write     = true;
+    // FIXME: the following 3 were not initialized! is this correct?
+    requestact.done = false;
+    requestact.starttime = GetKernel()->GetCycleNo();
+    requestact.bconflict = false;
 
     m_requests.Push(requestact);
 
-    if (m_pProcessor == NULL)   assert(false);
+    assert(m_pProcessor != NULL);
 
     if (size > SIZE_MAX)
     {
@@ -379,8 +385,7 @@ bool CMLink::Write(IMemoryCallback& callback, MemAddr address, const void* data,
             // save call back and check 
             if (m_pimcallback == NULL)
                 m_pimcallback = &callback;
-            else if (m_pimcallback != &callback)
-                assert(false);
+            else assert (m_pimcallback == &callback);
 #endif
 
             // put request in link *** JONY ***
@@ -401,7 +406,7 @@ bool CMLink::Write(IMemoryCallback& callback, MemAddr address, const void* data,
 /*
 Result CMLink::Write(IMemoryCallback& callback, MemAddr address, void* data, MemSize size, MemTag tag)
 {
-    if (m_pProcessor == NULL)   assert(false);
+    assert(m_pProcessor != NULL);
 
     if (size > SIZE_MAX)
     {
@@ -448,8 +453,7 @@ Result CMLink::Write(IMemoryCallback& callback, MemAddr address, void* data, Mem
             // save call back and check 
             if (m_pimcallback == NULL)
                 m_pimcallback = &callback;
-            else if (m_pimcallback != &callback)
-                assert(false);
+            else assert (m_pimcallback == &callback);
 #endif
 
             // put request in link *** JONY ***
@@ -467,7 +471,7 @@ Result CMLink::Write(IMemoryCallback& callback, MemAddr address, void* data, Mem
 */
 
 
-Result CMLink::OnCycle(unsigned int stateIndex)
+Result CMLink::OnCycle(unsigned int)
 {
 //    cout << "OnCycle :: " << " ++++++++++++++++++++++" << endl;
     Result result = DELAYED;
@@ -566,7 +570,7 @@ Result CMLink::OnCycle(unsigned int stateIndex)
         return SUCCESS;
     }
 
-    if (m_pProcessor == NULL)   assert(false);
+    assert(m_pProcessor != NULL);
 
 
     //if (prequest != NULL)    	assert(!m_setrequests.empty());
@@ -597,7 +601,7 @@ Result CMLink::OnCycle(unsigned int stateIndex)
 			if (!preq->write && !preq->callback->OnMemoryReadCompleted(preq->data))
 			{
                 cerr << "fail in read" << endl;
-                assert(false);
+                abort();
 				return FAILED;
 			}
 			else if (preq->write && !preq->callback->OnMemoryWriteCompleted(preq->data.tag))
@@ -623,10 +627,10 @@ Result CMLink::OnCycle(unsigned int stateIndex)
 //                    if ((read_count & 0x1f)==0)
 //                        clog << dec << "reply -- read/write count : " << read_count << " / " << write_count << " | " << bbicount << endl;
 
+                    #ifdef MEM_STORE_SEQUENCE_DEBUG
                     uint64_t cycleno = GetKernel()->GetCycleNo();
                     LPID pid = ((Processor*)prequest->callback)->GetPID();
                     uint64_t addr = preq->address;
-                    #ifdef MEM_STORE_SEQUENCE_DEBUG
                     debugSSRproc(preq->starttime, cycleno, pid, addr, preq->data.size, (char*)preq->data.data);
                     #endif
 
@@ -803,7 +807,7 @@ Result CMLink::OnCycleWritePhase(unsigned int stateIndex)
         return SUCCESS;
     }
 
-    if (m_pProcessor == NULL)   assert(false);
+    assert(m_pProcessor != NULL);
 
 
     //if (prequest != NULL)    	assert(!m_setrequests.empty());
@@ -944,16 +948,16 @@ Result CMLink::OnCycleWritePhase(unsigned int stateIndex)
 }
 */
 
-bool CMLink::CheckPermissions(MemAddr address, MemSize size, int access) const
+bool CMLink::CheckPermissions(MemAddr /*address*/, MemSize , int ) const
 {
-    if (m_pProcessor == NULL)   assert(false);
-//    if ((address >> 16) == 0x6de7)  assert(false);
+  assert(m_pProcessor != NULL);
+//  assert((address >> 16) != 0x6de7);
     return true;
 }
 
 void CMLink::Read(MemAddr address, void* data, MemSize size)
 {
-//    if ((address >> 16) == 0x6de7)  assert(false);
+//    assert((address >> 16) != 0x6de7);
     if (s_pMemoryDataContainer == NULL)
         throw runtime_error("Read without memory container");
 
@@ -963,7 +967,7 @@ void CMLink::Read(MemAddr address, void* data, MemSize size)
 
 void CMLink::Write(MemAddr address, const void* data, MemSize size)
 {
-//    if ((address >> 16) == 0x6de7)  assert(false);
+//    assert((address >> 16) != 0x6de7);
     if (s_pMemoryDataContainer == NULL)
         throw runtime_error("Write without memory container");
    
@@ -976,7 +980,7 @@ void CMLink::Write(MemAddr address, const void* data, MemSize size)
 
 void CMLink::Reserve(MemAddr address, MemSize size, int perm)
 {
-//    if ((address >> 16) == 0x6de7)  assert(false);
+//    assert((address >> 16) != 0x6de7);
     if (s_pMemoryDataContainer == NULL)
         throw runtime_error("Allocate without memory container");
 

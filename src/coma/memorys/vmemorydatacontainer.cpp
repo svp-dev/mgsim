@@ -81,6 +81,7 @@ void VMemoryDataContainer::Reserve(uint64_t address, uint64_t size, int perm)
     {
         // Check that there is no overlap
         RangeMap::iterator p = m_ranges.lower_bound(address);
+#ifndef NDEBUG
         if (p != m_ranges.end())
         {
             if (p->first == address || (address < p->first && address + size > p->first))
@@ -101,6 +102,7 @@ void VMemoryDataContainer::Reserve(uint64_t address, uint64_t size, int perm)
                 }
             }
         }
+#endif
 
         Range range;
         range.size        = size;
@@ -128,7 +130,7 @@ void VMemoryDataContainer::Unreserve(uint64_t address)
     {
         cout << "unres " << hex << address << endl;
         //throw InvalidArgumentException("Attempting to unreserve non-reserved memory");
-        assert(false);
+        abort();
     }
     m_ranges.erase(p);
 }
@@ -136,11 +138,8 @@ void VMemoryDataContainer::Unreserve(uint64_t address)
 bool VMemoryDataContainer::CheckPermissions(uint64_t address, uint64_t size, int access) const
 {
 #if MEMSIZE_MAX >= SIZE_MAX
-    if (size > SIZE_MAX)
-    {
-        //throw InvalidArgumentException("Size argument too big");
-        assert(false);
-    }
+  assert (size <= SIZE_MAX);
+
 #endif
 
     RangeMap::const_iterator p = GetReservationRange(address, size);
@@ -150,11 +149,8 @@ bool VMemoryDataContainer::CheckPermissions(uint64_t address, uint64_t size, int
 void VMemoryDataContainer::Read(uint64_t address, void* _data, uint64_t size) const
 {
 #if MEMSIZE_MAX >= SIZE_MAX
-    if (size > SIZE_MAX)
-    {
-        //throw InvalidArgumentException("Size argument too big");
-        assert(false);
-    }
+  assert (size <= SIZE_MAX);
+
 #endif
 
 	uint64_t base   = address & -BLOCK_SIZE;	    // Base address of block containing address
@@ -191,11 +187,8 @@ void VMemoryDataContainer::Read(uint64_t address, void* _data, uint64_t size) co
 void VMemoryDataContainer::Write(uint64_t address, const void* _data, uint64_t size)
 {
 #if MEMSIZE_MAX >= SIZE_MAX
-    if (size > SIZE_MAX)
-    {
-        //throw InvalidArgumentException("Size argument too big");
-        assert(false);
-    }
+  assert (size <= SIZE_MAX);
+
 #endif
 
 	uint64_t     base   = address & -BLOCK_SIZE;		        // Base address of block containing address

@@ -157,13 +157,11 @@ public:
         m_bAssoModule = false;
 
         // save the object name
-		if (pname!=NULL)
+	assert (pname!=NULL);
 		{
 			m_pName = (char*)malloc(strlen(pname)+1);
 			strcpy(m_pName, pname);
 		}
-		else
-			assert(false);
 
         // save the object into all-object vector
         s_vecObj.push_back(this);

@@ -87,7 +87,7 @@ void CacheL2TOKIM::OnLocalRead(ST_request* req)
             if (req->nsize > s_nLineSize)
             {
                 cerr << ERR_HEAD_OUTPUT << "request size is comfined to be smaller than cacheline size now!" << endl;
-                assert(false);
+                abort();
             }
 
             if ((req->nsize+req->offset) <= s_nLineSize)
@@ -101,7 +101,7 @@ void CacheL2TOKIM::OnLocalRead(ST_request* req)
             {
                 // save the data of the whole line. 
                 cerr << ERR_HEAD_OUTPUT << "request size error" << endl;
-                assert(false);
+                abort();
             }
 
             // update line info
@@ -155,7 +155,7 @@ void CacheL2TOKIM::OnLocalRead(ST_request* req)
         }
         else    // pending lines
         {
-            assert(false);  // just to alert once 
+	  abort();  // just to alert once 
             // cleansing the pipeline and insert the request to the global FIFO
             CleansingAndInsert(req);
 
@@ -218,7 +218,7 @@ void CacheL2TOKIM::OnLocalRead(ST_request* req)
                 print_cline(line);
             LOG_VERBOSE_END
 #if defined(CACHE_SRQ)
-            assert(false);
+	      abort();
             // queue the request 
             nEntry = PopEmptyQueueEntry();
             if (nEntry != EOQ)
@@ -269,7 +269,7 @@ void CacheL2TOKIM::OnLocalRead(ST_request* req)
                         print_cline(line);
                     LOG_VERBOSE_END
 #if defined(CACHE_SRQ)
-                    assert(false);
+		      abort();
                     // queue the request 
                     nEntry = PopEmptyQueueEntry();
                     if (nEntry != EOQ)
@@ -333,7 +333,7 @@ void CacheL2TOKIM::OnLocalRead(ST_request* req)
                     print_cline(line);
                 LOG_VERBOSE_END
 #if defined(CACHE_SRQ)
-                assert(false);
+		  abort();
                 // queue the request 
                 nEntry = PopEmptyQueueEntry();
                 if (nEntry != EOQ)
@@ -406,7 +406,7 @@ void CacheL2TOKIM::OnLocalWrite(ST_request* req)
             if (req->nsize > s_nLineSize)
             {
                 cerr << ERR_HEAD_OUTPUT << "request size is comfined to be smaller than cacheline size now!" << endl;
-                assert(false);
+                abort();
                 return;
             }
 
@@ -421,7 +421,7 @@ void CacheL2TOKIM::OnLocalWrite(ST_request* req)
             {
                 // save the data of the whole line. 
                 cerr << ERR_HEAD_OUTPUT << "request size error" << endl;
-                assert(false);
+                abort();
             }
 
             // update line info
@@ -469,7 +469,7 @@ void CacheL2TOKIM::OnLocalWrite(ST_request* req)
         }
         else    // pending requests
         {
-            assert(false);  // just to alert once 
+	  abort();  // just to alert once 
             // cleansing the pipeline and insert the request to the global FIFO
             CleansingAndInsert(req);
 
@@ -504,7 +504,7 @@ void CacheL2TOKIM::OnLocalWrite(ST_request* req)
 
             if (hitonmsb)
             {
-                assert(false);      // wanna know why here
+	      abort();      // wanna know why here
                 m_msbModule.WriteBuffer(req);
             }
             else
@@ -576,7 +576,7 @@ void CacheL2TOKIM::OnLocalWrite(ST_request* req)
                 print_cline(line);
             LOG_VERBOSE_END
 #if defined(CACHE_SRQ)
-            assert(false);
+	      abort();
             // queue the request 
             nEntry = PopEmptyQueueEntry();
             if (nEntry != EOQ)
@@ -679,7 +679,7 @@ void CacheL2TOKIM::OnLocalWrite(ST_request* req)
                 print_cline(line);
             LOG_VERBOSE_END
 #if defined(CACHE_SRQ)
-            assert(false);
+	      abort();
             // queue the request 
             nEntry = PopEmptyQueueEntry();
             if (nEntry != EOQ)
@@ -708,7 +708,7 @@ void CacheL2TOKIM::OnLocalWrite(ST_request* req)
 // what tht hell is this
 void CacheL2TOKIM::OnInvalidateRet(ST_request* req)
 {
-    assert(false);
+  abort();
 
     // pass the request directly through the network
     m_pReqCurINIasNode = req;
@@ -830,7 +830,7 @@ void CacheL2TOKIM::OnAcquireTokenRem(ST_request* req)
         }
         else    // only give out some tokens 
         {
-            assert(false);  // not reachable for now
+	  abort();  // not reachable for now
         }
 
         // save the current request
@@ -1034,25 +1034,20 @@ void CacheL2TOKIM::OnAcquireTokenRet(ST_request* req)
     if (!line->pending) // non-pending states   // S, E, O, M
     {
         // this shouldn't happen
-        assert(false);
+      abort();
     }
     else    // pending states,  R, T, P, W, U
     {
-        if (line->state == CLS_SHARER)  // reading, before // R, T
-        {
-            assert(false);
-        }
-        else    // writing, before // P, W, U
+      assert(line->state != CLS_SHARER);  // reading, before // R, T
+
+        // writing, before // P, W, U
         {
             unsigned int newtokenline=0;
             unsigned int newtokenreq=0;
 
 #ifndef MEMSIM_DIRECTORY_REQUEST_COUNTING
             // double check this, whether this is correct // JXXX
-            if ((!line->invalidated)&&(line->tokencount == 0))
-            {
-                assert(false);
-            }
+            assert(!((!line->invalidated)&&(line->tokencount == 0)));
 #endif
 
 #ifdef MEMSIM_DIRECTORY_REQUEST_COUNTING
@@ -1083,7 +1078,7 @@ void CacheL2TOKIM::OnAcquireTokenRet(ST_request* req)
                 }
                 else if (line->priority)
                 {
-                    assert(false);
+		  abort();
                     // all transient tokens became normal
                     if (req->btransient)
                     {
@@ -1208,8 +1203,8 @@ void CacheL2TOKIM::OnAcquireTokenRet(ST_request* req)
 
 
                     // should only happen with directory
-                    if (LinkMGS::s_oLinkConfig.m_nDirectory == 0)
-                        assert(false);
+		      assert (LinkMGS::s_oLinkConfig.m_nDirectory != 0);
+
 
                     req->bprocessed = true;
 
@@ -1825,11 +1820,9 @@ void CacheL2TOKIM::OnAcquireTokenDataRet(ST_request* req)
 
     assert(line->state != CLS_INVALID);
 
-    if (!line->pending)     // non-pending states   // S, E, O, M
-    {
-        assert(false);
-    }
-    else    // pending states       // R, T, P, U, W
+    assert (line->pending);     // non-pending states   // S, E, O, M
+
+        // pending states       // R, T, P, U, W
     {
         if (req->tokenrequested < GetTotalTokenNum())   // read, // RS, SR
         {
@@ -1848,8 +1841,7 @@ void CacheL2TOKIM::OnAcquireTokenDataRet(ST_request* req)
 
 
                     // should only happen with directory
-                    if (LinkMGS::s_oLinkConfig.m_nDirectory == 0)
-                        assert(false);
+		      assert (LinkMGS::s_oLinkConfig.m_nDirectory != 0);
 
                     req->bprocessed = true;
 
@@ -2032,9 +2024,10 @@ void CacheL2TOKIM::OnAcquireTokenDataRet(ST_request* req)
         }
         else    // write, // RE, ER, (or maybe RS, SR when GetTotalTokenNum() == 1)
         {
-            if (line->state == CLS_SHARER)  // actually reading, before  // R, T
+	  
+	  if (line->state == CLS_SHARER)  // actually reading, before  // R, T
             {
-                if (GetTotalTokenNum() == 1)
+	      assert (GetTotalTokenNum() == 1);
                 {
                     // line is shared but also exclusive (not dirty not owner)
                    
@@ -2058,10 +2051,9 @@ void CacheL2TOKIM::OnAcquireTokenDataRet(ST_request* req)
                     LOG_VERBOSE_END
 
                     // update time and state
-                    if (line->tokencount == 0)
+		      assert (line->tokencount == 0);
                         UpdateCacheLine(line, req, line->state, tokenlinenew, false, false, true, false, LUM_INCRE_OVERWRITE);
-                    else
-                        assert(false);
+
 
                     // pop the initiator
                     pop_initiator_node(req);
@@ -2082,8 +2074,6 @@ void CacheL2TOKIM::OnAcquireTokenDataRet(ST_request* req)
 
                     OnPostAcquirePriorityToken(line, req);
                 }
-                else
-                    assert(false);
             }
             else    // writing, before  // P, U, W
             {
@@ -2118,7 +2108,7 @@ void CacheL2TOKIM::OnAcquireTokenDataRet(ST_request* req)
                     }
                     else if (line->priority)
                     {
-                        assert(false);
+		      abort();
                         // all transient tokens became normal
                         if (req->btransient)
                         {
@@ -2219,7 +2209,7 @@ void CacheL2TOKIM::OnAcquireTokenDataRet(ST_request* req)
                         OnPostAcquirePriorityToken(line, req);
 
                         delete req;
-                        //assert(false);
+                        //abort();
                     }
                     else
                     {
@@ -2245,8 +2235,7 @@ void CacheL2TOKIM::OnAcquireTokenDataRet(ST_request* req)
 
 
                         // should only happen with directory
-                        if (LinkMGS::s_oLinkConfig.m_nDirectory == 0)
-                            assert(false);
+			  assert (LinkMGS::s_oLinkConfig.m_nDirectory != 0);
 
                         req->bprocessed = true;
 
@@ -2311,7 +2300,7 @@ void CacheL2TOKIM::OnAcquireTokenDataRet(ST_request* req)
                         OnPostAcquirePriorityToken(line, req);
 
                         delete req;
-                        //assert(false);
+                        //abort();
                     }
                     else
                     {
@@ -2400,7 +2389,8 @@ void CacheL2TOKIM::OnDisseminateTokenData(ST_request* req)
         }
         else
         {
-            assert(false);
+	  // invalid case
+	  abort();
         }
 
         return;
@@ -2459,8 +2449,7 @@ void CacheL2TOKIM::OnDisseminateTokenData(ST_request* req)
             // [the original line sent out the DD should have already had been invalidated if the line is U]
             // or [the DD will met a non-invalidated line first, as P, W]
  
-            if (line->state == CLS_OWNER)
-                assert(false);
+	  assert (line->state != CLS_OWNER);
 
             InsertPASNodeRequest(req);
             //m_pReqCurPASasNode = req;
@@ -2636,7 +2625,7 @@ void CacheL2TOKIM::OnPostAcquirePriorityToken(cache_line_t* line, ST_request* re
             // remove the merged request, remove the msb slot
             m_msbModule.CleanSlot(address);
 
-            // assert(false);  // JONY ALERT JONY_ALERT
+            // abort();  // JONY ALERT JONY_ALERT
         }
     }
     else if (line->state == CLS_SHARER)
@@ -2750,10 +2739,8 @@ void CacheL2TOKIM::OnPostAcquirePriorityToken(cache_line_t* line, ST_request* re
 void CacheL2TOKIM::OnDirNotification(ST_request* req)
 {
     // request meant for directory, shouldn't receive it again
-    if (IS_NODE_INITIATOR(req, this))
-    {
-        assert(false);
-    }
+  assert (!IS_NODE_INITIATOR(req, this));
+
 
     LOG_VERBOSE_BEGIN(VERBOSE_DETAIL)
         clog << LOG_HEAD_OUTPUT << "Notification request received, pass it on - " << req << endl;
@@ -2839,10 +2826,8 @@ cache_line_t* CacheL2TOKIM::GetReplacementLineEx(__address_t address)
 
     // for RP_RND
     // for random policy we dont care about whether it's shared, owned or modified
-    if (m_policyReplace == RP_RND)
-    {
-        assert(false);
-    }
+    assert (m_policyReplace != RP_RND);
+
 
     return linelru;
 }

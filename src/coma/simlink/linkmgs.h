@@ -36,28 +36,23 @@ public:
     //char * m_pMemoryMapFile;
 	char * m_pGlobalLogFile;
 
-    LinkConfig(){
-        m_nLineSize = 64;
+	bool m_bConfigDone;
+
+ LinkConfig() : m_bConfigDone(false) {
         m_nProcLink = 1;
-        m_nProcMGS = 1;
-        m_nCache = 1;
-        m_nDirectory = 0;
-        m_nSplitRootNumber = 1;
+
         m_nStartingAddress = 0;
         m_nMemorySize = 0x2000000;
-        m_nCacheSet = 128;
-        m_nCacheAssociativity = 2;
+
         m_bEager = false;
-        m_nCacheAccessTime = 10;
+
         m_nMemoryAccessTime = 100;
         m_nDefaultVerbose = 3;
-        m_nInject = 0;
 
-        m_nCycleTimeCore = 1000;
-        m_nCycleTimeMemory = 1250;
+
 
         m_sDDRXML = NULL;
-        m_nDDRConfigID = 0;
+
         //m_pMemoryMapFile = NULL;
 		m_pGlobalLogFile = NULL;
     }

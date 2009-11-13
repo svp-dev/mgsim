@@ -44,8 +44,7 @@ public:
         EDL_Content ec = {requestin, tokenrem, grouppriority};
         m_mapEDL.insert(pair<__address_t, EDL_Content>(lineaddr, ec));
 
-//        if (m_mapEDL.size() > m_nSize)
-//            assert(false);
+//        assert (m_mapEDL.size() <= m_nSize);
     }
 
     bool FindEvictedLine(__address_t lineaddr, unsigned int& requestin, unsigned int& tokenrem, bool& grouppriority)

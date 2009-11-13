@@ -58,7 +58,7 @@ protected:
     // Update buffer's LRU
     void UpdateBufferLRU(unsigned int index)
     {
-        assert((index>=0) && (index<m_nMatchingBufferSize));
+        assert(index<m_nMatchingBufferSize);
 
         for (unsigned int i=0;i<m_nMatchingBufferSize;i++)
         {
@@ -71,7 +71,7 @@ protected:
     // get the LRU value
     virtual unsigned int GetLRUValue(unsigned int index)
     {
-        assert((index>=0) && (index<m_nMatchingBufferSize));
+        assert(index<m_nMatchingBufferSize);
 
         // empty is always least recent used
         if (m_vecBufferData[index]->bvalid == false)
@@ -143,10 +143,9 @@ public:
         if (data != NULL)
         {
             m_vecBufferData[index]->data = (Td*)malloc(size*sizeof(Td));
-            if (m_vecBufferData[index]->data != NULL)
-                memcpy(m_vecBufferData[index]->data, data, size*sizeof(Td));
-            else
-                assert(false);  // memory failure
+            assert (m_vecBufferData[index]->data != NULL);
+	    memcpy(m_vecBufferData[index]->data, data, size*sizeof(Td));
+
         }
         UpdateBufferLRU(index);
 
@@ -192,10 +191,9 @@ public:
             UpdateBufferLRU(index);
             if (data != NULL)
             {
-                if (m_vecBufferData[index]->data != NULL)
-                    memcpy(m_vecBufferData[index]->data, data, size*sizeof(Td));
-                else
-                    assert(false);  // memory failure
+	      assert (m_vecBufferData[index]->data != NULL);
+	      memcpy(m_vecBufferData[index]->data, data, size*sizeof(Td));
+
             }
 
             return true;

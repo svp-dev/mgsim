@@ -117,9 +117,6 @@ AC_CONFIG_FILES([
 	Makefile
 	doc/Makefile
 	src/Makefile
-	src/coma/Makefile
-	src/coma/memorys/Makefile
-	src/coma/simlink/Makefile
         programs/aslink.sh
 	programs/Makefile
 	programs/mtalpha/Makefile

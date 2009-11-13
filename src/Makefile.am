@@ -1,22 +1,23 @@
 # PROGRAMS is redefined below.
 bin_PROGRAMS =
 noinst_PROGRAMS = 
+noinst_LIBRARIES =
 
-SUBDIRS = coma .
+FLAGS_OPT = -O3 -DNDEBUG 
+FLAGS_DEBUG = -g -DMDBLOG -DDEBUG 
 
-FLAGS_OPT = -O3 -DNDEBUG
-FLAGS_DEBUG = -g -D_GLIBCXX_DEBUG -DMDBLOG -DDEBUG
-FLAGS_COMMON = -W -Wall -Wwrite-strings -Wconversion \
+FLAGS_COMMON = -W -Wall -Wwrite-strings -Wno-unused \
        -DMGSIM_CONFIG_PATH=\"$(pkgdatadir)/config.ini\"
-FLAGS_COMA = -DENABLE_COMA=1 
-
 #       -Wshorten-64-to-32 -Wextra
 #       -Weffc++ -Woverloaded-virtual 
 
+FLAGS_COMA = -DENABLE_COMA=1 -DSIMULATE_DRIVEN_MODE=CONST_DRIVEN_MODE_MIKE -DTIXML_USE_STL
+
+
 COMA_LDADD = $(SC_LIBS) -ltinyxml 
 COMA_LDADD_G = $(SC_LIBS) -ltinyxml_g 
-COMA_LIBS = coma/memorys/libmemorys.a coma/simlink/libsimlink.a  
-COMA_LIBS_G = coma/memorys/libmemorys_g.a coma/simlink/libsimlink_g.a 
+COMA_LIBS = libmemorys.a libsimlink.a  
+COMA_LIBS_G = libmemorys_g.a libsimlink_g.a 
 COMA_SRC = \
 	SimpleMemory.cpp \
 	SimpleMemory.h \
@@ -24,6 +25,89 @@ COMA_SRC = \
 	memdump.cpp \
 	CMLink.cpp \
 	CMLink.h 
+
+MEMORYS_SRC = \
+	coma/memorys/busst.cpp \
+	coma/memorys/busst.h \
+	coma/memorys/busst_arbiter.h \
+	coma/memorys/busst_arbiter_if.h \
+	coma/memorys/busst_if.h \
+	coma/memorys/busst_master.h \
+	coma/memorys/busst_slave_if.h \
+	coma/memorys/cachel2tok.cpp \
+	coma/memorys/cachel2tok.h \
+	coma/memorys/cachel2tokim.cpp \
+	coma/memorys/cachel2tokim.h \
+	coma/memorys/cachest.cpp \
+	coma/memorys/cachest.h \
+	coma/memorys/dcswitch.h \
+	coma/memorys/ddrmemorysys.cpp \
+	coma/memorys/ddrmemorysys.h \
+	coma/memorys/ddrxml.cpp \
+	coma/memorys/ddrxml.h \
+	coma/memorys/directoryrttok.cpp \
+	coma/memorys/directoryrttok.h \
+	coma/memorys/directoryrttokim.cpp \
+	coma/memorys/directoryrttokim.h \
+	coma/memorys/directorytok.cpp \
+	coma/memorys/directorytok.h \
+	coma/memorys/directorytokim.cpp \
+	coma/memorys/directorytokim.h \
+	coma/memorys/drv_clk.h \
+	coma/memorys/evicteddirlinebuffer.h \
+	coma/memorys/fabuffer.h \
+	coma/memorys/flatmemorydata.h \
+	coma/memorys/membankst_if.h \
+	coma/memorys/memory_main.cpp \
+	coma/memorys/memorybankst.h \
+	coma/memorys/memorycontrollerst.h \
+	coma/memorys/memoryst.cpp \
+	coma/memorys/memoryst.h \
+	coma/memorys/memschedulepipeline.h \
+	coma/memorys/mergestorebuffer.cpp \
+	coma/memorys/mergestorebuffer.h \
+	coma/memorys/network.h \
+	coma/memorys/network_if.h \
+	coma/memorys/network_node.cpp \
+	coma/memorys/network_node.h \
+	coma/memorys/network_port.cpp \
+	coma/memorys/network_port.h \
+	coma/memorys/networkabove_if.h \
+	coma/memorys/networkbelow_if.h \
+	coma/memorys/predef.cpp \
+	coma/memorys/predef.h \
+	coma/memorys/processortok.cpp \
+	coma/memorys/processortok.h \
+	coma/memorys/requestmergebufferst.h \
+	coma/memorys/ringnode.h \
+	coma/memorys/setassociativeprop.cpp \
+	coma/memorys/setassociativeprop.h \
+	coma/memorys/simcontrol.cpp \
+	coma/memorys/simcontrol.h \
+	coma/memorys/stat_def.h \
+	coma/memorys/suspendedrequestqueue.cpp \
+	coma/memorys/suspendedrequestqueue.h \
+	coma/memorys/topologys.cpp \
+	coma/memorys/topologys.h \
+	coma/memorys/tops.h \
+	coma/memorys/tracefile.cpp \
+	coma/memorys/tracefile.h \
+	coma/memorys/traceloader.cpp \
+	coma/memorys/traceloader.h \
+	coma/memorys/vmemorydatacontainer.cpp \
+	coma/memorys/vmemorydatacontainer.h
+
+SIMLINK_SRC = \
+	coma/simlink/linkmgs.h \
+	coma/simlink/linkprocs.cpp \
+	coma/simlink/linkrealization.h \
+	coma/simlink/memorydatacontainer.cpp \
+	coma/simlink/memorydatacontainer.h \
+	coma/simlink/memstat.h \
+	coma/simlink/mgs_main.h \
+	coma/simlink/smdatatype.h \
+	coma/simlink/th.h
+
 
 COMMON_SRC = \
 	Allocator.cpp \
@@ -112,13 +196,32 @@ if ENABLE_USE_SDL
 GFX_FLAGS = $(SDL_CFLAGS) -DUSE_SDL=1
 endif
 
+if ENABLE_COMA
+noinst_LIBRARIES += libsimlink.a libsimlink_g.a
+
+libsimlink_g_a_SOURCES = $(SIMLINK_SRC)
+libsimlink_g_a_CXXFLAGS = $(FLAGS_COMMON) $(FLAGS_DEBUG) $(FLAGS_COMA)
+
+libsimlink_a_SOURCES = $(SIMLINK_SRC)
+libsimlink_a_CXXFLAGS = $(FLAGS_COMMON) $(FLAGS_OPT) $(FLAGS_COMA)
+
+noinst_LIBRARIES += libmemorys.a libmemorys_g.a
+
+libmemorys_g_a_SOURCES = $(MEMORYS_SRC)
+libmemorys_g_a_CXXFLAGS = $(FLAGS_COMMON) $(FLAGS_DEBUG) $(FLAGS_COMA)
+
+libmemorys_a_SOURCES = $(MEMORYS_SRC)
+libmemorys_a_CXXFLAGS = $(FLAGS_COMMON) $(FLAGS_OPT) $(FLAGS_COMA)
+
+endif
+
 
 if ENABLE_MTALPHA
 
 bin_PROGRAMS += mgsim-alpha
 noinst_PROGRAMS += mgsim-alpha.dbg 
 
-noinst_LIBRARIES = libalpha.a libalpha_g.a 
+noinst_LIBRARIES += libalpha.a libalpha_g.a 
 
 libalpha_a_SOURCES = $(COMMON_SRC) $(ALPHA_SRC)
 libalpha_a_CXXFLAGS = $(FLAGS_ALPHA) $(FLAGS_OPT) $(FLAGS_COMMON)
@@ -169,7 +272,7 @@ if ENABLE_MTSPARC
 bin_PROGRAMS += mgsim-sparc
 noinst_PROGRAMS += mgsim-sparc.dbg
 
-noinst_LIBRARIES = libsparc.a libsparc_g.a
+noinst_LIBRARIES += libsparc.a libsparc_g.a
 
 libsparc_a_SOURCES = $(COMMON_SRC) $(SPARC_SRC)
 libsparc_a_CXXFLAGS = $(FLAGS_SPARC) $(FLAGS_OPT) $(FLAGS_COMMON)

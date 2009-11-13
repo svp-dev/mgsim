@@ -163,7 +163,7 @@ unsigned long* ProcessorTOK::GetReply(uint64_t &address, void* data, uint64_t &s
         else
         {
 #ifdef MEM_CACHE_LEVEL_ONE_SNOOP
-            assert(false);
+	  abort();
 #endif
 
 #ifndef MEM_BACKWARD_INVALIDATION_UPDATE
@@ -182,7 +182,7 @@ unsigned long* ProcessorTOK::GetReply(uint64_t &address, void* data, uint64_t &s
     }
     else
     {
-        assert(false);
+      abort();
     }
 
     //// ??? maybe more than one request is done
@@ -416,7 +416,7 @@ void ProcessorTOK::BehaviorMem()
     if (!m_pfifoFeedback->nb_read(req))
     {
         cerr << ERR_HEAD_OUTPUT << "should not get failed in this nb_read request" << endl;
-        assert(false);
+        abort();
         return;
     }
 

@@ -42,7 +42,7 @@ public:
 		//-- add new node with appropriate ID --
 		// make new name
 		char sname[100];
-		sprintf(sname, "%s_Node%02d", this->name(), m_vecLpNode.size());
+		sprintf(sname, "%s_Node%02lu", this->name(), (unsigned long)m_vecLpNode.size());
 		validatename(sname);
 		Network_Node* newNode = new Network_Node(sname, interface_.m_fifoinNetwork);
 		m_vecLpNode.push_back(newNode);
@@ -67,7 +67,7 @@ public:
 		//-- add new node with appropriate ID --
 		// make new name
 		char sname[100];
-		sprintf(sname, "%s_Node%02d", this->name(), m_vecLpNode.size());
+		sprintf(sname, "%s_Node%02lu", this->name(), (unsigned long) m_vecLpNode.size());
 		validatename(sname);
 		Network_Node* newNode = new Network_Node(sname, interface_.m_fifoinNetwork);
 		m_vecLpNode.push_back(newNode);

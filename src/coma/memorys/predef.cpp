@@ -525,11 +525,7 @@ bool ST_request::Conform2BitVecFormat()
     for (unsigned int i=0;i<CACHE_BIT_MASK_WIDTH/8;i++)
         bitmask[i] = 0;
 
-    if (nsize == 0)
-    {
-        assert(false);
-        return false;
-    }
+    assert (nsize != 0);
 
     // alignment is required 
     assert(offset%CACHE_REQUEST_ALIGNMENT == 0);
@@ -588,15 +584,14 @@ bool ST_request::Conform2SizeFormat()
             }
             else
             {
-                if (bsegstart == false)
+	      assert (bsegstart == false);
                     continue;
-                else
-                    assert(false);
+ 
             }
         }
         else
         {
-            if (!bsegend)
+	  assert (!bsegend);
             {
                 if (!bsegstart)
                 {
@@ -607,11 +602,6 @@ bool ST_request::Conform2SizeFormat()
                 {
                     continue;
                 }
-            }
-            else
-            {
-                assert(false);
-                return false;
             }
         }
     }
@@ -676,10 +666,15 @@ char* CacheState::CacheStateName(CACHE_LINE_STATE nlinestate, unsigned int ntoke
         }
         else
         {
-            cout << ntoken << " " << nlinestate << " " << pending << " " << invalidated << " " << priority << endl;
-            cout << ntotal << " " << (ntoken < ntotal) << endl;
-            cout << (nlinestate == CLS_OWNER) << endl;
-            assert(false);
+	  cerr << "error in CacheStateName: " 
+	       << ntoken << " " 
+	       << nlinestate << " " 
+	       << pending << " " 
+	       << invalidated 
+	       << " " << priority << endl
+	       << ntotal << " " << (ntoken < ntotal) << endl
+	       << (nlinestate == CLS_OWNER) << endl;
+            abort();
         }
     }
 
@@ -726,7 +721,7 @@ char* CacheState::CacheStateName(CACHE_LINE_STATE nlinestate, unsigned int ntoke
         }
         else
         {
-            assert(false);
+	  abort();
         }
     }
 
@@ -784,10 +779,11 @@ char* CacheState::CacheStateName(CACHE_LINE_STATE nlinestate, unsigned int ntoke
         }
         else
         {
-            cout << ntoken << " " << nlinestate << " " << pending << " " << invalidated << " " << priority << endl;
-            cout << ntotal << " " << (ntoken < ntotal) << endl;
-            cout << (nlinestate == CLS_OWNER) << endl;
-            assert(false);
+	  cerr << "in CacheStateName: ";
+            cerr << ntoken << " " << nlinestate << " " << pending << " " << invalidated << " " << priority << endl;
+            cerr << ntotal << " " << (ntoken < ntotal) << endl;
+            cerr << (nlinestate == CLS_OWNER) << endl;
+            abort();
         }
     }
 
@@ -834,7 +830,7 @@ char* CacheState::CacheStateName(CACHE_LINE_STATE nlinestate, unsigned int ntoke
         }
         else
         {
-            assert(false);
+	  abort();
         }
     }
 
@@ -945,7 +941,7 @@ const char* dir_line_t::StateName(bool root, bool shortname)
         default:
             ret = NULL;
             cerr << "***error***: wrong directory state for TOK-ext protocol" << endl;
-            assert(false);
+            abort();
             break;
         }
 

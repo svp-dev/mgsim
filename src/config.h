@@ -33,7 +33,7 @@ public:
         std::vector<T> vals;
 	std::string str = getString(name,"");
         std::istringstream stream(str);
-        std::string token;
+        std::string token = "";
         while (getline(stream, token, ','))
         {
             std::stringstream ss;
