@@ -10,7 +10,7 @@
 #include <cstdlib>
 #include <sys/errno.h>
 #define sem_init(Sem, Shared, Val) do {					\
-    if (-1 == (*(Sem) = semget(IPC_PRIVATE, 1, SEM_R|SEM_A))) { perror("semget"); abort(); } \
+    if (-1 == (*(Sem) = semget(IPC_PRIVATE, 1, 0600|IPC_CREAT))) { perror("semget"); abort(); } \
     union semun arg; arg.val = (Val);					\
     if (-1 == semctl(*(Sem), 0, SETVAL, arg)) { perror("semctl"); abort(); } \
   } while(0)

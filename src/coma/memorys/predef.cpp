@@ -1081,7 +1081,7 @@ char* ST_request::RequestInfo2Text(char* ptext, bool shortversion, bool withdata
 
     if (shortversion)
     {
-        sprintf(ptext, "[%s|%s](%c|%c)@ 0x%016llx - 0x%016llx", MemoryState::RequestName(type, shortversion), ((SimObj*)get_initiator_node(this))->GetObjectName(), (IsIndUASet()?'u':'-'), (IsIndAASet()?'a':'-'), getreqaddress(), getreqaddress()+nsize);
+        sprintf(ptext, "[%s|%s](%c|%c)@ 0x%016llx - 0x%016llx", MemoryState::RequestName(type, shortversion), ((SimObj*)get_initiator_node(this))->GetObjectName(), (IsIndUASet()?'u':'-'), (IsIndAASet()?'a':'-'), (unsigned long long)getreqaddress(), (unsigned long long)getreqaddress()+nsize);
         if (bprint)
         {
              clog << ptext;
@@ -1092,7 +1092,7 @@ char* ST_request::RequestInfo2Text(char* ptext, bool shortversion, bool withdata
     {
         unsigned int linesize = g_nCacheLineSize;
 //        sprintf(ptext, "[%s|%s](%c|%c)(0x%08x)@ 0x%016llx - 0x%016llx |<=0x%016llx - 0x%016llx=>|\n\t", MemoryState::RequestName(type, shortversion), ((SimObj*)get_initiator_node(this))->GetObjectName(), (IsIndUASet()?'u':'-'), (IsIndAASet()?'a':'-'), (int)this, getreqaddress(), getreqaddress()+nsize-1, getlineaddress(), getlineaddress()+linesize-1);
-        sprintf(ptext, "[%s|%s](%c|%c)(%p)@ 0x%016llx - 0x%016llx |<=0x%016llx - 0x%016llx=>|\n\t", MemoryState::RequestName(type, shortversion), ((SimObj*)get_initiator_node(this))->GetObjectName(), (IsIndUASet()?'u':'-'), (IsIndAASet()?'a':'-'), this, getreqaddress(), getreqaddress()+nsize-1, getlineaddress(), getlineaddress()+linesize-1);
+        sprintf(ptext, "[%s|%s](%c|%c)(%p)@ 0x%016llx - 0x%016llx |<=0x%016llx - 0x%016llx=>|\n\t", MemoryState::RequestName(type, shortversion), ((SimObj*)get_initiator_node(this))->GetObjectName(), (IsIndUASet()?'u':'-'), (IsIndAASet()?'a':'-'), this, (unsigned long long)getreqaddress(), (unsigned long long)getreqaddress()+nsize-1, (unsigned long long)getlineaddress(), (unsigned long long)getlineaddress()+linesize-1);
 
         unsigned int count = 0;
         for (unsigned int i=0;i<linesize;i++)
