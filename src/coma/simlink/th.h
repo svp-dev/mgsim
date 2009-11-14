@@ -9,6 +9,12 @@
 #include <cstdio>
 #include <cstdlib>
 #include <sys/errno.h>
+     union semun {
+             int     val;            /* value for SETVAL */
+             struct  semid_ds *buf;  /* buffer for IPC_STAT & IPC_SET */
+             u_short *array;         /* array for GETALL & SETALL */
+     };
+
 #define sem_init(Sem, Shared, Val) do {					\
     if (-1 == (*(Sem) = semget(IPC_PRIVATE, 1, 0600|IPC_CREAT))) { perror("semget"); abort(); } \
     union semun arg; arg.val = (Val);					\
