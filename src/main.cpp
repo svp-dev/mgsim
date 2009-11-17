@@ -11,6 +11,8 @@
 # include "coma/simlink/th.h"
 # include "coma/simlink/linkmgs.h"
 # include "memdump.h"
+
+const char* semaphore_journal = "/tmp/simx-sem-journal";
 #else
 # include "SerialMemory.h"
 # include "ParallelMemory.h"

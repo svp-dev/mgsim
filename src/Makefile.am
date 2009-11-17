@@ -1,5 +1,6 @@
 # PROGRAMS is redefined below.
 bin_PROGRAMS =
+bin_SCRIPTS = simx-cleanup-sems.sh
 noinst_PROGRAMS = 
 noinst_LIBRARIES =
 
