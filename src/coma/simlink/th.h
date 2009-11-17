@@ -33,13 +33,13 @@ extern const char* semaphore_journal;
     struct sembuf sop = { 0, 1, 0 };					\
     int semop_ret;							\
     while (-1 == (semop_ret = semop(*(Sem), &sop, 1)) && errno == EINTR) {}; \
-    if (-1 == semop_ret) { if (errno == EIDRM) pthread_exit(0); perror("semop"); abort(); } \
+    if (-1 == semop_ret) { if (errno == EIDRM || errno == EINVAL) pthread_exit(0); perror("semop"); abort(); } \
   } while(0)
 #define sem_wait(Sem) do {	  \
     struct sembuf sop = { 0, -1, 0 };					\
     int semop_ret;							\
     while (-1 == (semop_ret = semop(*(Sem), &sop, 1)) && errno == EINTR) {}; \
-    if (-1 == semop_ret) { if (errno == EIDRM) pthread_exit(0); perror("semop"); abort(); } \
+    if (-1 == semop_ret) { if (errno == EIDRM || errno == EINVAL) pthread_exit(0); perror("semop"); abort(); } \
   } while(0)
 #define sem_destroy(Sem) do {	 \
     semctl(*(Sem), IPC_RMID, 0); \

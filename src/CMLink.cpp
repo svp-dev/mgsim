@@ -600,13 +600,13 @@ Result CMLink::OnCycle(unsigned int)
 
 			if (!preq->write && !preq->callback->OnMemoryReadCompleted(preq->data))
 			{
-                cerr << "fail in read" << endl;
-                abort();
+//                cerr << "fail in read" << endl;
+//                abort();
 				return FAILED;
 			}
 			else if (preq->write && !preq->callback->OnMemoryWriteCompleted(preq->data.tag))
 			{
-				cout << "fail in write" << endl;
+//				cout << "fail in write" << endl;
 				return FAILED;
 			}
 
