@@ -1,5 +1,5 @@
 #! /bin/sh
-journal=${1:-/tmp/simx-sem-journal}
+journal=${1:-/tmp/simx-sem-journal-$UID}
 
 while true; do
     sleep 1;

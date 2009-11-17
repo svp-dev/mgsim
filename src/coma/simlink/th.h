@@ -22,12 +22,10 @@ extern const char* semaphore_journal;
 
 #define sem_init(Sem, Shared, Val) do {					\
     if (-1 == (*(Sem) = semget(IPC_PRIVATE, 1, 0600|IPC_CREAT))) { perror("semget"); abort(); } \
-    mode_t um = umask(002);						\
     FILE *jf = fopen(semaphore_journal, "a");				\
     if (jf == 0) { perror("fopen"); abort(); }				\
-    fprintf(jf, "%ld %ld\n", (long)(*(Sem)), (long)getpid());		\
+    fprintf(jf, "%ld %lu\n", (long)(*(Sem)), (unsigned long)getpid());		\
     fclose(jf);								\
-    umask(um);								\
     union semun_ipc arg; arg.val = (Val);				\
     if (-1 == semctl(*(Sem), 0, SETVAL, arg)) { perror("semctl"); abort(); } \
   } while(0)

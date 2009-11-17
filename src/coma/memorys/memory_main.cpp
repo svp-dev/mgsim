@@ -41,6 +41,11 @@ int sc_main(int argc, char* argv[] )
 	thpara.argv = argv;
 	thpara.bterm = false;
 
+	// set semaphore journal name
+	static char journal_name[256];
+	snprintf(journal_name, 256, "%s-%lu", semaphore_journal, (unsigned long) getuid());
+	semaphore_journal = journal_name;
+
 	// thread creation and semaphore initialization
 	sem_init(&thpara.sem_mgs, 0, 0);
 	sem_init(&thpara.sem_sync, 0, 0);
