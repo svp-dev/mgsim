@@ -322,7 +322,8 @@ TopologyS::TopologyS()
 //	    clog << m_pDirectoryRoot->name() << " joined the roo-level network." << endl;
 
         // connect network
-        m_pNet->ConnectNetwork();
+        if (nsplitrd >= cf.m_nSplitRootNumber)
+            m_pNet->ConnectNetwork();
     }
     else    // no low level directories
     {
@@ -378,7 +379,49 @@ TopologyS::TopologyS()
 //	    clog << m_pDirectoryRoot->name() << " joined the network." << endl;
 
         // connect network
-        m_pNet->ConnectNetwork();
+        if (nsplitrd >= cf.m_nSplitRootNumber)
+            m_pNet->ConnectNetwork();
+    }
+
+    if ( ((cf.m_nDirectory > 0) &&(cf.m_nSplitRootNumber > cf.m_nDirectory) ) || ((cf.m_nDirectory <= 0) && (cf.m_nSplitRootNumber > cf.m_nCache)) )
+    {
+        int nscurrent;
+        if (cf.m_nDirectory>0)
+            nscurrent = cf.m_nDirectory;
+        else
+            nscurrent = cf.m_nCache;
+
+        assert(nsplitrd == (unsigned int)nscurrent);
+
+        for (int i=nscurrent;i<(int)cf.m_nSplitRootNumber;i++)
+        {
+            sprintf(tempname, "split-root-%d", nsplitrd);
+            unsigned int nspmode = (cf.m_nSplitRootNumber << 8)|nsplitrd;
+            m_ppDirectoryRoot[nsplitrd] = new DIRRTIM_DEF(tempname, cf.m_nCacheSet/cf.m_nSplitRootNumber, cf.m_nCacheAssociativity*cf.m_nCache, cf.m_nLineSize, injpol, nspmode, 0, cf.m_nMemorySize-1, cf.m_nCacheAccessTime);
+            m_pNet->port_net(*m_ppDirectoryRoot[nsplitrd]);
+            clog << m_ppDirectoryRoot[nsplitrd]->name() << " joined the network." << endl;
+
+            sprintf(tempname, "ddrmem-sp-ch-%d", nsplitrd); 
+            if (bddrdefault)
+                m_ppMem[nsplitrd] = new DDRMemorySys(tempname, m_pmemDataSim);
+            else
+            {
+                int idinterface = (*pddrconfig)[nsplitrd%ddrinterfacecount];
+                map<int, ddr_interface*>::iterator iter = pddrinterfaces->find(idinterface);
+                assert(iter != pddrinterfaces->end());
+                ddr_interface* pinter = (*iter).second;
+
+                m_ppMem[nsplitrd] = new DDRMemorySys(tempname, m_pmemDataSim,  pinter->tAL, pinter->tCL, pinter->tCWL, pinter->tRCD, pinter->tRP, pinter->tRAS, pinter->nRankBits, pinter->nBankBits, pinter->nRowBits, pinter->nColumnBits, pinter->nCellSizeBits, pinter->nChannel, pinter->nModeChannel, pinter->nDevicePerRank, pinter->nBurstLength);
+
+            }
+//                m_ppMem[nsplitrd] = new DDRMemorySys(tempname, m_pmemDataSim);
+            sprintf(tempname, "membus-sp-%d", nsplitrd);
+            m_ppBusMem[nsplitrd] = new BusST(tempname);
+            nsplitrd ++;
+        }
+
+        if (nsplitrd >= cf.m_nSplitRootNumber)
+            m_pNet->ConnectNetwork();
     }
 
     for (unsigned int i=0;i<cf.m_nSplitRootNumber;i++)
