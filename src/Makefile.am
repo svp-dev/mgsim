@@ -180,8 +180,6 @@ SPECIAL_SRC = \
 	display.h \
 	display.cpp
 
-EXTRA_DIST = gfxscaler.cpp gfxscreen.cpp
-
 ALPHA_SRC = $(COMMON_SRC) \
 	ISA.alpha.h \
 	ISA.alpha.cpp
