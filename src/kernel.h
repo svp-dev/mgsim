@@ -9,7 +9,7 @@
 #include <set>
 #include <cassert>
 
-class GfxDisplay;
+class Display;
 
 namespace Simulator
 {
@@ -107,6 +107,7 @@ private:
     bool            m_aborted;           ///< Should the run be aborted?
     int		        m_debugMode;         ///< Bit mask of enabled debugging modes.
     CycleNo         m_cycle;             ///< Current cycle of the simulation.
+    Display&        m_display;           ///< The display to manage.
     CyclePhase      m_phase;             ///< Current sub-cycle phase of the simulation.
     ProcessInfo*    m_process;           ///< The currently executing process.
     bool            m_debugging;         ///< Are we in a debug trace?
@@ -119,18 +120,13 @@ private:
     StorageInfo*    m_activeStorages;    ///< List of storages that need to be updated.
     ArbitratorInfo* m_activeArbitrators; ///< List of arbitrators that need arbitration.
 
-    GfxDisplay*     m_display;
-
     void UpdateStorages();
 public:
-    Kernel();
+    Kernel(Display& display);
     ~Kernel();
     
     void Initialize();
 
-    void setDisplay(GfxDisplay*);
-    GfxDisplay* getDisplay(void) const { return m_display; }
-    
     ProcessInfo* GetProcessInfo(IComponent* component, int state);
     
     /**

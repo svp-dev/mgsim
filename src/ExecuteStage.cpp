@@ -1,6 +1,6 @@
 #include "Pipeline.h"
 #include "Processor.h"
-#include "gfx.h"
+#include "display.h"
 
 #include <cassert>
 #include <cmath>
@@ -154,173 +154,133 @@ Pipeline::PipeAction Pipeline::ExecuteStage::ExecBreak(Integer /* value */) { re
 Pipeline::PipeAction Pipeline::ExecuteStage::ExecBreak(double /* value */)  { return PIPE_CONTINUE; }
 Pipeline::PipeAction Pipeline::ExecuteStage::ExecKill(LFID /* fid */)       { return PIPE_CONTINUE; }
 
-template<typename T, unsigned bits>
-struct scaler {};
- 
-template<typename T>
-struct scaler<T, 4> {
-  static  void scale_pp(size_t& x, size_t& y, uint32_t& data, T value)
-  {
-    x = (value >> 24) & 0xff;
-    y = (value >> 16) & 0xff;
-    data = ((value & 0xf000) << (4*4))
-      | ((value & 0x0f00) << (3*4))
-      | ((value & 0x00f0) << (2*4))
-      | ((value & 0x000f) << (1*4));
-  }
-  static  void scale_ppo(size_t& offset, uint32_t& data, T value)
-  {
-    offset = (value >> 16) & 0xffff;
-    data = ((value & 0xf000) << (4*4))
-      | ((value & 0x0f00) << (3*4))
-      | ((value & 0x00f0) << (2*4))
-      | ((value & 0x000f) << (1*4));
-  }
-  
-  static void scale_rs(size_t& w, size_t& h, T value)
-  {
-    w = (value >> 24) & 0xff;
-    h = (value >> 16) & 0xff;
-  }
-};
-
-template<typename T>
-struct scaler<T, 8> {
-  static void scale_pp(size_t& x, size_t& y, uint32_t& data, T value)
-  {
-    x = (value >> 48) & 0xffff;
-    y = (value >> 32) & 0xffff;
-    data = value & 0xffffffff;
-  }
-  static void scale_ppo(size_t& offset, uint32_t& data, T value)
-  {
-    offset = (value >> 32) & 0xffffffff;
-    data = value & 0xffffffff;
-  }
-  static void scale_rs(size_t& w, size_t& h, T value)
-  {
-    w = (value >> 48) & 0xffff;
-    h = (value >> 32) & 0xffff;
-  }
-};
-
 void Pipeline::ExecuteStage::ExecDebug(Integer value, Integer stream) const
 {
-  if ((stream >> 5) & 1) {
-    // stream: C C 1 - - - - -
-    // C = command
-    //  0 -> putpixel
-    //  1 -> resize
-    //  2 -> snapshot
-
-    GfxDisplay *disp = GetKernel()->getDisplay();
-    assert(disp != NULL);
-    int command = (stream >> 6) & 3;
-
-    if (command == 0) {
-      // put pixel
-      // stream: 0 0 1 M - - - -
-      // M = mode
-      //  0 -> pixel at (x,y)
-      //  1 -> pixel at offset
-      if (0 == ((stream >> 4) & 1))
-	{
-	  // value: x(8) y(8) unused(4) R(4) G(4) B(4) || x(16) y(16) unused(8) R(8) G(8) B(8)
-	  size_t x, y;
-	  uint32_t data;
-	  scaler<Integer, sizeof(value)>::scale_pp(x, y, data, value);
-	  disp->getFrameBuffer().putPixel(x, y, data);
-	}
-      else
-	{
-	  // value: offset(16) unused(4) R(4) G(4) B(4) || offset(32) unused(8) R(8) G(8) B(8)
-	  size_t offset;
-	  uint32_t data;
-	  scaler<Integer, sizeof(value)>::scale_ppo(offset, data, value);
-	  disp->getFrameBuffer().putPixel(offset, data);
-	}
-      
-    } else if (command == 1) {
-      // resize screen
-      // stream: 0 1 1 - - - - -
-      // value:  W(8) H(8) unused(16)  ||  W(16) H(16) unused(32)
-
-      size_t w, h;
-      scaler<Integer, sizeof(value)>::scale_rs(w, h, value);
-      disp->resizeFrameBuffer(w, h);
-
-    } else if (command == 2) {
-      // take screenshot
-      // stream: 1 0 1 T C - S S
-      // T = embed timestamp in filename
-      // C = embed thread information in picture comment
-      // S = output stream
-      //  0 -> file
-      //  1 -> standard output
-      //  2 -> standard error
-      //  3 -> (undefined)
-      // value: file identification key
-
-      ostringstream tinfo;
-      if ((stream >> 3) & 1) 
-	tinfo << "print by thread 0x" 
-	      << std::hex << (unsigned)m_input.tid 
-	      << " at 0x" << (unsigned long long)m_input.pc
-	      << " on cycle " << std::dec << GetKernel()->GetCycleNo();
-
-      int outstream = stream & 3;
-
-      if (outstream == 0) {
-	ostringstream fname;
-	fname << "gfx." << value;
-	if ((stream >> 4) & 1) 
-	  fname << '.' << GetKernel()->GetCycleNo();
-	fname << ".ppm";
-	
-	ofstream f(fname.str().c_str(), ios_base::out | ios_base::trunc);
-	disp->getFrameBuffer().dump(f, value, tinfo.str());
-      }
-      else {
-	ostream& out = (outstream == 2) ? cerr : cout;
-	disp->getFrameBuffer().dump(out, value, tinfo.str());
-      }
+    if (stream & 0x20)
+    {
+        // stream: C C 1 - - - - -
+        // C = command
+        //  0 -> putpixel
+        //  1 -> resize
+        //  2 -> snapshot
+        switch ((stream >> 6) & 3)
+        {
+        case 0:
+        {
+            // put pixel
+            // stream: 0 0 1 M - - - -
+            // M = mode
+            //  0 -> pixel at (x,y)
+            //  1 -> pixel at offset
+            // value: position(16) X(4) R(4) G(4) B(4) || position(32) X(8) R(8) G(8) B(8)
+            const unsigned int  size     = sizeof value * 8;
+            const unsigned int  bits     = std::min(8U, size / 8);
+            const unsigned long position = value >> (size / 2);
+            const uint32_t data = (((value >> (0 * size / 8)) << ( 8 - bits)) & 0x0000ff) |
+                                  (((value >> (1 * size / 8)) << (16 - bits)) & 0x00ff00) |
+                                  (((value >> (2 * size / 8)) << (24 - bits)) & 0xff0000);
+            if (stream & 0x10) {
+	            // position: offset(16) || offset(32)
+	            m_display.PutPixel(position, data);
+	        } else {
+	            // position: x(8) y(8) || x(16) y(16)
+	            const unsigned int m = (1U << (size / 4)) - 1;
+	            const unsigned int y = (position >> (0 * size / 4)) & m;
+	            const unsigned int x = (position >> (1 * size / 4)) & m;
+	            m_display.PutPixel(x, y, data);
+	        }
+	        break;
+	    }
+	        
+        case 1:
+        {
+            // resize screen
+            // stream: 0 1 1 - - - - -
+            // value:  W(8) H(8) unused(16)  ||  W(16) H(16) unused(32)
+            const size_t       size = sizeof value * 8;
+	        const unsigned int mask = (1U << (size / 4)) - 1;
+	        const unsigned int w    = (value >> (3 * size / 4)) & mask;
+            const unsigned int h    = (value >> (2 * size / 4)) & mask;
+            m_display.Resize(w, h);
+            break;
+        }
+        
+        case 2:
+        {
+            // take screenshot
+            // stream: 1 0 1 T C - S S
+            // T = embed timestamp in filename
+            // C = embed thread information in picture comment
+            // S = output stream
+            //  0 -> file
+            //  1 -> standard output
+            //  2 -> standard error
+            //  3 -> (undefined)
+            // value: file identification key
+            ostringstream tinfo;
+            if (stream & 8)
+            {
+	            tinfo << "print by thread 0x" 
+	                  << std::hex << (unsigned)m_input.tid 
+	                  << " at 0x" << (unsigned long long)m_input.pc
+	                  << " on cycle " << std::dec << GetKernel()->GetCycleNo();
+            }
+            
+            int outstream = stream & 3;
+            if (outstream == 0)
+            {
+	            ostringstream fname;
+	            fname << "gfx." << value;
+	            if (stream & 0x10)
+	            {
+	                fname << '.' << GetKernel()->GetCycleNo();
+	            }
+	            fname << ".ppm";
+	            ofstream f(fname.str().c_str(), ios_base::out | ios_base::trunc);
+	            m_display.Dump(f, value, tinfo.str());
+            }
+            else
+            {
+	            ostream& out = (outstream == 2) ? cerr : cout;
+	            m_display.Dump(out, value, tinfo.str());
+            }
+            break;
+        }
+        }
     }
-  }
-  else {
-    // stream: F F 0 - - - S S
-    // F = format
-    //  0 -> unsigned decimal
-    //  1 -> hex
-    //  2 -> signed decimal
-    //  3 -> ASCII character
-    // S = output stream
-    //  0 -> debug output
-    //  1 -> standard output
-    //  2 -> standard error
-    //  3 -> (undefined)
+    else
+    {
+        // stream: F F 0 - - - S S
+        // F = format
+        //  0 -> unsigned decimal
+        //  1 -> hex
+        //  2 -> signed decimal
+        //  3 -> ASCII character
+        // S = output stream
+        //  0 -> debug output
+        //  1 -> standard output
+        //  2 -> standard error
+        //  3 -> (undefined)
+        int outstream = stream & 3;
 
-    int outstream = stream & 3;
+        ostringstream stringout;
+        ostream& out = (outstream == 0) ? stringout : ((outstream == 2) ? cerr : cout);
 
-    ostringstream stringout;
-    ostream& out = (outstream == 0) ? stringout : \
-      ((outstream == 2) ? cerr : cout);
+        switch ((stream >> 6) & 0x3)
+        {
+            case 0: out << dec << value; break;
+            case 1: out << hex << value; break;
+            case 2: out << dec << (SInteger)value; break;
+            case 3: out << (char)value; break;
+        }
 
-    switch ((stream >> 6) & 0x3) {
-    case 0:
-      out << dec << (unsigned long long)value; break;
-    case 1:
-      out << hex << (unsigned long long)value; break;
-    case 2:
-      out << dec << (long long)(SInteger)value; break;
-    case 3:
-      out << (char)value; break;
+        if (outstream == 0)
+        {
+            DebugProgWrite("PRINT by T%u at 0x%.*llx: %s",
+		        (unsigned)m_input.tid, (int)sizeof(m_input.pc) * 2, (unsigned long long)m_input.pc,
+		        stringout.str().c_str());
+        }
     }
-
-    if (outstream == 0)
-      DebugProgWrite("PRINT by T%u at 0x%.*llx: %s",
-		     (unsigned)m_input.tid, (int)sizeof(m_input.pc) * 2, (unsigned long long)m_input.pc,
-		     stringout.str().c_str());
-  }
 }
 
 void Pipeline::ExecuteStage::ExecDebug(double value, Integer stream) const
@@ -342,13 +302,14 @@ void Pipeline::ExecuteStage::ExecDebug(double value, Integer stream) const
     }
 }
 
-Pipeline::ExecuteStage::ExecuteStage(Pipeline& parent, const ReadExecuteLatch& input, ExecuteMemoryLatch& output, Allocator& alloc, Network& network, ThreadTable& threadTable, FPU& fpu, size_t fpu_source, const Config& /*config*/)
+Pipeline::ExecuteStage::ExecuteStage(Pipeline& parent, const ReadExecuteLatch& input, ExecuteMemoryLatch& output, Allocator& alloc, Network& network, ThreadTable& threadTable, Display& display, FPU& fpu, size_t fpu_source, const Config& /*config*/)
   : Stage(parent, "execute"),
     m_input(input),
     m_output(output),
     m_allocator(alloc),
     m_network(network),
     m_threadTable(threadTable),
+    m_display(display),
 	m_fpu(fpu),
 	m_fpuSource(fpu_source)
 {

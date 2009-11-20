@@ -315,6 +315,7 @@ class Pipeline : public IComponent
         Allocator&              m_allocator;
         Network&                m_network;
         ThreadTable&            m_threadTable;
+        Display&                m_display;
 		FPU&                    m_fpu;
 		size_t                  m_fpuSource;    // Which input are we to the FPU?
         uint64_t                m_flop;         // FP operations
@@ -339,7 +340,7 @@ class Pipeline : public IComponent
         PipeAction OnCycle();
         
     public:
-        ExecuteStage(Pipeline& parent, const ReadExecuteLatch& input, ExecuteMemoryLatch& output, Allocator& allocator, Network& network, ThreadTable& threadTable, FPU& fpu, size_t fpu_source, const Config& config);
+        ExecuteStage(Pipeline& parent, const ReadExecuteLatch& input, ExecuteMemoryLatch& output, Allocator& allocator, Network& network, ThreadTable& threadTable, Display& display, FPU& fpu, size_t fpu_source, const Config& config);
         
         uint64_t getFlop() const { return m_flop; }
         uint64_t getOp()   const { return m_op; }
@@ -386,7 +387,7 @@ class Pipeline : public IComponent
     static std::string MakePipeValue(const RegType& type, const PipeValue& value);
     
 public:
-    Pipeline(Processor& parent, const std::string& name, LPID lpid, RegisterFile& regFile, Network& network, Allocator& allocator, FamilyTable& familyTable, ThreadTable& threadTable, ICache& icache, DCache& dcache, FPU& fpu, const Config& config);
+    Pipeline(Processor& parent, const std::string& name, LPID lpid, RegisterFile& regFile, Network& network, Allocator& allocator, FamilyTable& familyTable, ThreadTable& threadTable, ICache& icache, DCache& dcache, Display& display, FPU& fpu, const Config& config);
     ~Pipeline();
 
     Result OnCycle(unsigned int stateIndex);

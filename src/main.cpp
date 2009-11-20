@@ -19,7 +19,7 @@ const char* semaphore_journal = "/tmp/simx-sem-journal";
 # include "BankedMemory.h"
 # include "RandomBankedMemory.h"
 #endif
-#include "gfx.h"
+#include "display.h"
 #include "memstrace.h"
 
 #include "config.h"
@@ -102,7 +102,7 @@ class MGSystem : public Object
     Kernel             m_kernel;
     IMemoryAdmin*      m_memory;
 #ifdef ENABLE_COMA
-  CMLink**           m_pmemory;
+    CMLink**           m_pmemory;
 #endif
     // Writes the current configuration into memory and returns its address
     MemAddr WriteConfiguration(const Config& config)
@@ -398,11 +398,12 @@ public:
         GetKernel().Abort();
     }
     
-    MGSystem(const Config& config, const string& program,
+    MGSystem(const Config& config, Display& display, const string& program,
         const vector<pair<RegAddr, RegValue> >& regs,
         const vector<pair<RegAddr, string> >& loads,
         bool quiet)
-      : Object(NULL, NULL, "system")
+      : Object(NULL, NULL, "system"),
+        m_kernel(display)
     {
         const vector<PSize> placeSizes = config.getIntegerList<PSize>("NumProcessors");
         const size_t numProcessorsPerFPU_orig = max<size_t>(1, config.getInteger<size_t>("NumProcessorsPerFPU", 1));
@@ -437,8 +438,8 @@ public:
         }
         
 #ifdef ENABLE_COMA
-	m_objects.resize(numProcessors * 2 + numFPUs);
-	m_pmemory = new CMLink*[LinkMGS::s_oLinkConfig.m_nProcLink];
+        m_objects.resize(numProcessors * 2 + numFPUs);
+        m_pmemory = new CMLink*[LinkMGS::s_oLinkConfig.m_nProcLink];
 #else
         string memory_type = config.getString("MemoryType", "");
         std::transform(memory_type.begin(), memory_type.end(), memory_type.begin(), ::toupper);
@@ -491,18 +492,18 @@ public:
                 stringstream name;
                 name << "cpu" << pid;
 #ifdef ENABLE_COMA
-		stringstream namem;
-		namem << "memory" << pid;
-		if (pid >= LinkMGS::s_oLinkConfig.m_nProcLink)
-		  { std::cerr << "Too many memory links!" << std::endl; exit(1); }
-		m_pmemory[pid] = new CMLink(this, m_kernel, namem.str(), config, g_pLinks[i], g_pMemoryDataContainer);
+                stringstream namem;
+                namem << "memory" << pid;
+                if (pid >= LinkMGS::s_oLinkConfig.m_nProcLink)
+                  { std::cerr << "Too many memory links!" << std::endl; exit(1); }
+                m_pmemory[pid] = new CMLink(this, m_kernel, namem.str(), config, g_pLinks[i], g_pMemoryDataContainer);
                 if (pid == 0)
                     m_memory = m_pmemory[0];
-                m_procs[pid]   = new Processor(this, m_kernel, pid, i, m_procs, m_procs.size(), *m_places[p], name.str(), *m_pmemory[pid], fpu, config);  
+                m_procs[pid]   = new Processor(this, m_kernel, pid, i, m_procs, m_procs.size(), *m_places[p], name.str(), *m_pmemory[pid], display, fpu, config);  
                 m_pmemory[pid]->SetProcessor(m_procs[pid]);
-		m_objects[pid+numProcessors] = m_pmemory[pid];
+                m_objects[pid+numProcessors] = m_pmemory[pid];
 #else
-                m_procs[pid]   = new Processor(this, m_kernel, pid, i, m_procs, m_procs.size(), *m_places[p], name.str(), *m_memory, fpu, config);
+                m_procs[pid]   = new Processor(this, m_kernel, pid, i, m_procs, m_procs.size(), *m_places[p], name.str(), *m_memory, display, fpu, config);
 #endif
                 m_objects[pid] = m_procs[pid];
             }
@@ -560,16 +561,8 @@ public:
 #endif
         }
 
-	// Set program debugging per default
-	m_kernel.SetDebugMode(Kernel::DEBUG_PROG);
-
-	// Initialize graphical output
-	m_kernel.setDisplay(new GfxDisplay(config.getInteger<size_t>("GfxRefreshRate", 100),
-					   config.getInteger<size_t>("GfxDisplayWidth", 100),
-					   config.getInteger<size_t>("GfxDisplayHeight", 100),
-					   config.getInteger<size_t>("GfxHorizScale", 2),
-					   config.getInteger<size_t>("GfxVertScale", 2),
-					   config.getBoolean("GfxEnableOutput", false)));
+        // Set program debugging per default
+        m_kernel.SetDebugMode(Kernel::DEBUG_PROG);
     }
 
     ~MGSystem()
@@ -1051,7 +1044,7 @@ int main(int argc, char** argv)
         // Parse command line arguments
         ProgramConfig config;
 #ifdef ENABLE_COMA
-	ParseArguments(argc, (const char**)argv, config, LinkMGS::s_oLinkConfig);
+        ParseArguments(argc, (const char**)argv, config, LinkMGS::s_oLinkConfig);
 #else
         ParseArguments(argc, (const char**)argv, config);
 #endif
@@ -1060,7 +1053,7 @@ int main(int argc, char** argv)
         Config configfile(config.m_configFile, config.m_overrides);
 
 #ifdef ENABLE_COMA
-	ConfigureCOMA(config, configfile, LinkMGS::s_oLinkConfig);
+        ConfigureCOMA(config, configfile, LinkMGS::s_oLinkConfig);
 #endif
 
         if (config.m_interactive)
@@ -1077,8 +1070,11 @@ int main(int argc, char** argv)
         sem_post(&thpara.sem_sync);
 #endif
 
+        // Create the display
+        Display display(configfile);
+
         // Create the system
-	MGSystem sys(configfile, config.m_programFile, config.m_regs, config.m_loads, !config.m_interactive);
+        MGSystem sys(configfile, display, config.m_programFile, config.m_regs, config.m_loads, !config.m_interactive);
 
 #if defined(ENABLE_COMA) && defined(MEM_DATA_PREFILL)
         sem_post(&thpara.sem_sync);
@@ -1089,7 +1085,7 @@ int main(int argc, char** argv)
         if (!interactive)
         {
 #ifdef ENABLE_COMA
-	  setverboselevel(LinkMGS::s_oLinkConfig.m_nDefaultVerbose);
+            setverboselevel(LinkMGS::s_oLinkConfig.m_nDefaultVerbose);
 #endif
             // Non-interactive mode; run and dump cycle count
             try
@@ -1172,7 +1168,8 @@ int main(int argc, char** argv)
 			cout << endl;
             for (bool quit = false; !quit; )
             {
-	      sys.GetKernel().getDisplay()->checkEvents();
+                display.CheckEvents();
+                
                 stringstream prompt;
                 prompt << dec << setw(8) << setfill('0') << right << sys.GetKernel().GetCycleNo() << "> ";
             

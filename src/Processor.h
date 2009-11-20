@@ -38,7 +38,7 @@ class FPU;
 class Processor : public IComponent, public IMemoryCallback
 {
 public:
-    Processor(Object* parent, Kernel& kernel, GPID pid, LPID lpid, const std::vector<Processor*>& grid, PSize gridSize, PlaceInfo& place, const std::string& name, IMemory& m_memory, FPU& fpu, const Config& config);
+    Processor(Object* parent, Kernel& kernel, GPID pid, LPID lpid, const std::vector<Processor*>& grid, PSize gridSize, PlaceInfo& place, const std::string& name, IMemory& m_memory, Display& display, FPU& fpu, const Config& config);
     void Initialize(Processor& prev, Processor& next, MemAddr runAddress, bool legacy);
 
     GPID    GetPID()       const { return m_pid; }

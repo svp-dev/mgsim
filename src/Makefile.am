@@ -177,8 +177,8 @@ COMMON_SRC = \
 SPECIAL_SRC = \
 	kernel.cpp \
 	main.cpp \
-	gfx.h \
-	gfx.cpp
+	display.h \
+	display.cpp
 
 EXTRA_DIST = gfxscaler.cpp gfxscreen.cpp
 
