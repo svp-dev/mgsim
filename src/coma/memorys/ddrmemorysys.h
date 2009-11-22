@@ -134,32 +134,32 @@ public:
         m_bLastWrite = false;
 
 
+        /*
+        clog << "channel parameters: " << endl;
+        clog << m_nRankBits << "\t"           // lg number of ranks on DIMM (only one active per DIMM)
+         << m_nBankBits << "\t"           // lg number of banks
+         << m_nRowBits << "\t"            // lg number of rows
+         << m_nColumnBits << "\t"         // lg number of columns
+         << m_nRankBitStart << "\t"           // start position of the rank bits
+         << m_nBankBitStart << "\t"           // start position of the bank bits
+         << m_nRowBitStart << "\t"            // start position of the row bits
+         << m_nColumnBitStart << endl;         // start position of the column bits
 
-        
-//        clog << m_nRankBits << "\t"           // lg number of ranks on DIMM (only one active per DIMM)
-//         << m_nBankBits << "\t"           // lg number of banks
-//         << m_nRowBits << "\t"            // lg number of rows
-//         << m_nColumnBits << "\t"         // lg number of columns
-//         << m_nRankBitStart << "\t"           // start position of the rank bits
-//         << m_nBankBitStart << "\t"           // start position of the bank bits
-//         << m_nRowBitStart << "\t"            // start position of the row bits
-//         << m_nColumnBitStart << endl;         // start position of the column bits
 
+        // DDR runtime parameters
+        clog << m_tRL << endl;                 // read latency
+        clog <<  m_tWL << endl;                 // write latency
 
-//    // DDR runtime parameters
-//    cout << m_tRL << endl;                 // read latency
-//    cout <<  m_tWL << endl;                 // write latency
-//
-//    cout << m_tBurst << endl;              // burst delay
-//
-//    cout << m_tCCD << endl;                // /CAS to /CAS delay
-//
-//    cout << m_tRP << endl;                 // /RAS precharge time (minimum precharge to active time)
-//
-//    cout <<  m_tRPRE  << endl;               // minimum preamble time 
-//
-//    cout << m_nDataPathBits << endl;       // data path bits for the channel, can be 64-bit or dual-channel 128 bits
+        clog << m_tBurst << endl;              // burst delay
 
+        clog << m_tCCD << endl;                // /CAS to /CAS delay
+
+        clog << m_tRP << endl;                 // /RAS precharge time (minimum precharge to active time)
+
+        clog <<  m_tRPRE  << endl;               // minimum preamble time 
+
+        clog << m_nDataPathBits << endl;       // data path bits for the channel, can be 64-bit or dual-channel 128 bits
+        */
 
     }
 
@@ -233,7 +233,7 @@ class DDRMemorySys : public sc_module, public MemoryState, public BusST_Slave_if
 {
 public:
     sc_in<bool> port_clk;
-    sc_fifo<ST_request*> channel_fifo_slave;
+    //sc_fifo<ST_request*> channel_fifo_slave;
 
 private:
     //////////////////////////////////////
@@ -349,6 +349,9 @@ public:
       m_nBurstLength(nBurstLength),
       m_pMemoryDataContainer(pMemoryDataContainer)
     {
+
+        m_nDataPathBits = (1 << m_nCellSizeBits) * m_nDevicePerRank;
+
         /*
         cout << m_tAL << "\n" 
         << m_tCL << "\n"
@@ -372,6 +375,7 @@ public:
 
         m_nState = STATE_PROCESSING;
         m_pReqCur = NULL;
+
     }
 
     virtual ~DDRMemorySys()
@@ -431,9 +435,9 @@ private:
                 m_nChannelBitStart = nbras + m_nRankBits;
 
                 m_pChannels = (DDRChannel**)malloc(sizeof(DDRChannel*));
-                unsigned int burstlength = (m_nDataPathBits*m_nChannel*m_nBurstLength)/8/g_nCacheLineSize;
+                unsigned int burstlength = ceil(((double)g_nCacheLineSize*8)/(m_nDataPathBits*m_nChannel));
 
-                m_pChannels[0] = new DDRChannel(m_pMemoryDataContainer, m_nDataPathBits, nbcs, m_nColumnBits, nbbs, m_nBankBits, nbros, m_nRowBits, nbras, m_nRankBits, tRL, tWL, burstlength/2, burstlength/2, tRPRE, m_tRP);
+                m_pChannels[0] = new DDRChannel(m_pMemoryDataContainer, m_nDataPathBits*m_nChannel, nbcs, m_nColumnBits, nbbs, m_nBankBits, nbros, m_nRowBits, nbras, m_nRankBits, tRL, tWL, burstlength/2, tCCD, tRPRE, m_tRP);
                 m_nOpChannels = 1;
             }
             break;

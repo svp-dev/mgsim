@@ -22,7 +22,7 @@ bool DDRChannel::ScheduleRequest(ST_request* req)
 
     if ((AddrRowID(addr) != m_nLastRow) || (AddrRankID(addr) != m_nLastRank))
     {
-        if (m_pMSP->ScheduleNext(req, m_tRP, bwrite?m_tWL:m_tRL))
+        if (m_pMSP->ScheduleNext(req, m_tRP+m_tBurst, bwrite?m_tWL:m_tRL))
         {
             m_nLastRank = AddrRankID(addr);
             m_nLastBank = AddrBankID(addr);

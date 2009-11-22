@@ -990,11 +990,13 @@ void ConfigureCOMA(ProgramConfig& config, Config& configfile, LinkConfig& lkconf
   }
   lkconfig.m_nDirectory = ndir;
   lkconfig.m_nSplitRootNumber = configfile.getInteger<size_t>("NumSplitRootDirectories", 2); 
+  lkconfig.m_nMemoryChannelNumber = configfile.getInteger<size_t>("NumMemoryChannels", lkconfig.m_nSplitRootNumber);
+  lkconfig.m_nChannelInterleavingScheme = configfile.getInteger<size_t>("ChannelInterleavingScheme", 0);
 
   if (config.m_interactive)
     cerr << "Running with " << ncache << " L2 caches, " 
 	 << ndir << " directories and " 
-	 << lkconfig.m_nSplitRootNumber << " root directories."
+     << lkconfig.m_nSplitRootNumber << " root directories."
 	 << endl;
 
   lkconfig.m_nCacheAccessTime = configfile.getInteger<size_t>("L2CacheDelay", 2);

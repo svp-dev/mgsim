@@ -1,0 +1,40 @@
+<?xml version="1.0" ?>
+<DDR_Interfaces>
+    <interface id="0" name="single channel">
+        <channel number="1" mode="0" />
+        <timing tAL="0" tCL="11" tCWL="11" tRCD="11" tRP="11" tRAS="28" />
+        <device Banks="8" RowBits="15" ColumnBits="10" CellSize="8" DataPath="64" BurstLength="8"/>
+        <config Ranks="2" DevicePerRank="8" />
+    </interface>
+
+    <interface id="1" name="duel-channel">
+        <channel number="2" mode="1" />
+        <timing tAL="0" tCL="11" tCWL="11" tRCD="11" tRP="11" tRAS="28" />
+        <device Banks="8" RowBits="15" ColumnBits="10" CellSize="8" DataPath="64" BurstLength="8"/>
+        <config Ranks="2" DevicePerRank="8" />
+    </interface>
+
+    <interface id="2" name="tri-chnannel">
+        <channel number="3" mode="1" />
+        <timing tAL="0" tCL="11" tCWL="11" tRCD="11" tRP="11" tRAS="34" />
+        <device Banks="8" RowBits="15" ColumnBits="10" CellSize="8" DataPath="64" BurstLength="8"/>
+        <config Ranks="2" DevicePerRank="8" />
+    </interface>
+</DDR_Interfaces>
+<DDR_Configurations>
+    <configuration id="0">
+        <interface id="0" />
+    </configuration>
+    <configuration id="1">
+        <interface id="1" />
+    </configuration>
+    <configuration id="2">
+        <interface id="2" />
+    </configuration>
+    <configuration id="3">
+        <interface id="0" />
+        <interface id="1" />
+    </configuration>
+</DDR_Configurations>
+</shapes>
+

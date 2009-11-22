@@ -285,21 +285,26 @@ int parseconfigurations(map<int, ddr_interface*>* pinterfaces, TiXmlNode* proot,
             if (!pElem->Attribute(STR_ATT_ID, &id))
                 continue;
 
-//            cout << "id " << id << endl;
-
             TiXmlNode* pint = 0;
             vector<int> conf;
             while( (pint = pNode->IterateChildren(pint)) )
             {
                 int intid;
                 if (!strcmp(pint->Value(), STR_ELE_INTERFACE) == 0)
+                {
                     continue;
+                }
 
-                if (!pElem->Attribute(STR_ATT_ID, &intid))
+                if (!(dynamic_cast<TiXmlElement*>(pint))->Attribute(STR_ATT_ID, &intid))
+                {
                     continue;
+                }
+
 
                 if (pinterfaces->find(intid) == pinterfaces->end())
+                {
                     continue;
+                }
 
                 conf.push_back(intid);
             }

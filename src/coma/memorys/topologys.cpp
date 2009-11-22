@@ -6,9 +6,8 @@ using namespace MemSim;
 
 TopologyS::TopologyS()
 {
-	//cout << g_nCacheLineWidth << endl;
- //   // check something here
- //   assert((1<<g_nCacheLineWidth) == CACHE_BIT_MASK_WIDTH*CACHE_REQUEST_ALIGNMENT);
+    // check something here
+    //assert((1<<g_nCacheLineWidth) == CACHE_BIT_MASK_WIDTH*CACHE_REQUEST_ALIGNMENT);
 
     // parsed config
     LinkConfig &cf = LinkMGS::s_oLinkConfig;
@@ -57,8 +56,7 @@ TopologyS::TopologyS()
     // processors are essential links 
     // the are defined first
     // SimpleMemoryDataContainer memDataSim;
-//    m_pmemDataSim = new SimpleMemoryDataContainer(cf.m_nMemorySize);
-//    m_pmemDataSim = new RangeMemoryDataContainer(cf.m_nMemorySize);
+    // m_pmemDataSim = new SimpleMemoryDataContainer(cf.m_nMemorySize);
     m_pmemDataSim = new VMemoryDataContainer();
     g_pMemoryDataContainer = m_pmemDataSim;
 
@@ -106,22 +104,61 @@ TopologyS::TopologyS()
 
     // create directory later if any specified
 
-    // check cache line size
-    //assert((1<<g_nCacheLineWidth) == CACHE_BIT_MASK_WIDTH*CACHE_REQUEST_ALIGNMENT);
-
     m_pNet = new Network("net");
 
+    //m_pMem = new MemoryST("mem", m_pmemDataSim, 0, cf.m_nMemorySize-1,cf.m_nMemoryAccessTime);
+#ifndef MEMBUS_CHANNELSWITCH
+    clog << "Root and Channel are associated in this configuration." << endl;
+    if (cf.m_nSplitRootNumber != cf.m_nMemoryChannelNumber)
+    {
+        clog << "warning: the configuration does not allow nChannel to be different than nRoot. Configuration is overwritten." << endl;
+        cf.m_nMemoryChannelNumber = cf.m_nSplitRootNumber;
+    }
+#endif
+
     // split directory memory bus
+#ifdef MEMBUS_CHANNELSWITCH
+    uint64_t chselmode = 0;
+    if (cf.m_nChannelInterleavingScheme == SC_INTERLEAVE_DIRECT)
+    {
+        chselmode = (int)ceil(log2(cf.m_nLineSize)) | ((int)(ceil(log2(cf.m_nMemoryChannelNumber)))<<8);
+        // interleaving directly on set bits
+    }
+    else if (cf.m_nChannelInterleavingScheme == SC_INTERLEAVE_KSKEW)
+    {
+        int k = 1;
+        chselmode = (int)ceil(log2(cf.m_nLineSize)) | (0x0f<<8) | (1 << 12) | (k << 16);
+        // k-skew 
+    }
+    m_pBSMem = new BusSwitch("membusswitch", cf.m_nSplitRootNumber, cf.m_nMemoryChannelNumber, chselmode);
+#else
     m_ppBusMem = (BusST**)malloc(cf.m_nSplitRootNumber*sizeof(BusST*));
-    //m_pBusMem = new BusST("busmem");
+#endif
+
+    if (!bddrdefault)
+    {
+        int totalchannels = 0;
+        for (unsigned int i=0;i<cf.m_nMemoryChannelNumber;i++)
+        {
+            int idinterface = (*pddrconfig)[i%ddrinterfacecount];
+            map<int, ddr_interface*>::iterator iter = pddrinterfaces->find(idinterface);
+
+            totalchannels += iter->second->nChannel;
+        }
+
+        clog << "total number of ddr-channels : " << totalchannels << "." << endl;
+    }
+
+
+    m_ppMem = (DDRMemorySys**)malloc(cf.m_nMemoryChannelNumber*sizeof(DDRMemorySys*));
+
 
     // split directories are created while connecting components
     m_ppDirectoryRoot = (DIRRTIM_DEF**)malloc(sizeof(DIRRTIM_DEF*)*cf.m_nSplitRootNumber);
 //    m_pDirectoryRoot = new DIRRTIM_DEF("DirRoot", cf.m_nCacheSet, cf.m_nCacheAssociativity*cf.m_nCache, cf.m_nLineSize, 0, cf.m_nMemorySize-1, cf.m_nCacheAccessTime);
 
 
-    //m_pMem = new MemoryST("mem", m_pmemDataSim, 0, cf.m_nMemorySize-1,cf.m_nMemoryAccessTime);
-    m_ppMem = (DDRMemorySys**)malloc(cf.m_nSplitRootNumber*sizeof(DDRMemorySys*));
+
 //    m_pMem = new DDRMemorySys("ddrmem", m_pmemDataSim);
 
     //////////////////////////////////////////////////////////////////////////
@@ -296,6 +333,7 @@ TopologyS::TopologyS()
             	m_pNet->port_net(*m_ppDirectoryRoot[nsplitrd]);
 	            clog << m_ppDirectoryRoot[nsplitrd]->name() << " joined the network." << endl;
    
+#ifndef MEMBUS_CHANNELSWITCH
                 sprintf(tempname, "ddrmem-sp-ch-%d", nsplitrd);
                 if (bddrdefault)
                     m_ppMem[nsplitrd] = new DDRMemorySys(tempname, m_pmemDataSim);
@@ -309,8 +347,10 @@ TopologyS::TopologyS()
                     m_ppMem[nsplitrd] = new DDRMemorySys(tempname, m_pmemDataSim,  pinter->tAL, pinter->tCL, pinter->tCWL, pinter->tRCD, pinter->tRP, pinter->tRAS, pinter->nRankBits, pinter->nBankBits, pinter->nRowBits, pinter->nColumnBits, pinter->nCellSizeBits, pinter->nChannel, pinter->nModeChannel, pinter->nDevicePerRank, pinter->nBurstLength);
 
                 }
+
                 sprintf(tempname, "membus-sp-%d", nsplitrd);
                 m_ppBusMem[nsplitrd] = new BusST(tempname);
+#endif
                 nsplitrd ++;
 
                 lastid = i+1;
@@ -352,6 +392,7 @@ TopologyS::TopologyS()
             	m_pNet->port_net(*m_ppDirectoryRoot[nsplitrd]);
 	            clog << m_ppDirectoryRoot[nsplitrd]->name() << " joined the network." << endl;
 
+#ifndef MEMBUS_CHANNELSWITCH
                 sprintf(tempname, "ddrmem-sp-ch-%d", nsplitrd); 
                 if (bddrdefault)
                     m_ppMem[nsplitrd] = new DDRMemorySys(tempname, m_pmemDataSim);
@@ -366,8 +407,10 @@ TopologyS::TopologyS()
 
                 }
 //                m_ppMem[nsplitrd] = new DDRMemorySys(tempname, m_pmemDataSim);
+
                 sprintf(tempname, "membus-sp-%d", nsplitrd);
                 m_ppBusMem[nsplitrd] = new BusST(tempname);
+#endif
                 nsplitrd ++;
 
                 lastid = i+1;
@@ -401,6 +444,7 @@ TopologyS::TopologyS()
             m_pNet->port_net(*m_ppDirectoryRoot[nsplitrd]);
             clog << m_ppDirectoryRoot[nsplitrd]->name() << " joined the network." << endl;
 
+#ifndef MEMBUS_CHANNELSWITCH
             sprintf(tempname, "ddrmem-sp-ch-%d", nsplitrd); 
             if (bddrdefault)
                 m_ppMem[nsplitrd] = new DDRMemorySys(tempname, m_pmemDataSim);
@@ -417,6 +461,7 @@ TopologyS::TopologyS()
 //                m_ppMem[nsplitrd] = new DDRMemorySys(tempname, m_pmemDataSim);
             sprintf(tempname, "membus-sp-%d", nsplitrd);
             m_ppBusMem[nsplitrd] = new BusST(tempname);
+#endif
             nsplitrd ++;
         }
 
@@ -424,20 +469,54 @@ TopologyS::TopologyS()
             m_pNet->ConnectNetwork();
     }
 
+#ifdef MEMBUS_CHANNELSWITCH
+    m_pBSMem->clk(*m_pclk);
+#endif
+
     for (unsigned int i=0;i<cf.m_nSplitRootNumber;i++)
     {
         // directory root
         m_ppDirectoryRoot[i]->port_clk(*m_pclk);
-        m_ppBusMem[i]->BindMaster(*m_ppDirectoryRoot[i]);
 
         // busmem
+#ifdef MEMBUS_CHANNELSWITCH
+        m_pBSMem->BindMaster(*m_ppDirectoryRoot[i]);
+#else
+        m_ppBusMem[i]->BindMaster(*m_ppDirectoryRoot[i]);
+
         m_ppBusMem[i]->clk(*m_pclk);
         m_ppBusMem[i]->port_slave(*m_ppMem[i]);
         m_ppBusMem[i]->port_fifo_slave_in(m_ppMem[i]->channel_fifo_slave);
 
         // memory
         m_ppMem[i]->port_clk(*m_pclkmem);
+#endif
     }
+
+#ifdef MEMBUS_CHANNELSWITCH
+    for (unsigned int i=0;i<cf.m_nMemoryChannelNumber;i++)
+    {
+        sprintf(tempname, "ddrmem-ch-%d", i); 
+        if (bddrdefault)
+            m_ppMem[i] = new DDRMemorySys(tempname, m_pmemDataSim);
+        else
+        {
+            int idinterface = (*pddrconfig)[i%ddrinterfacecount];
+            map<int, ddr_interface*>::iterator iter = pddrinterfaces->find(idinterface);
+            assert(iter != pddrinterfaces->end());
+            ddr_interface* pinter = (*iter).second;
+
+            m_ppMem[i] = new DDRMemorySys(tempname, m_pmemDataSim,  pinter->tAL, pinter->tCL, pinter->tCWL, pinter->tRCD, pinter->tRP, pinter->tRAS, pinter->nRankBits, pinter->nBankBits, pinter->nRowBits, pinter->nColumnBits, pinter->nCellSizeBits, pinter->nChannel, pinter->nModeChannel, pinter->nDevicePerRank, pinter->nBurstLength);
+
+        }
+
+        m_pBSMem->BindSlave(*m_ppMem[i]);
+
+        // memory
+        m_ppMem[i]->port_clk(*m_pclkmem);
+    }
+#endif
+
 
 //    // directory root
 //    m_pDirectoryRoot->port_clk(*m_pclk);
@@ -484,9 +563,17 @@ TopologyS::TopologyS()
     for(unsigned int i=0;i<cf.m_nSplitRootNumber;i++)
     {
         m_ppDirectoryRoot[i]->InitializeLog(NULL, SimObj::LOG_GLOBAL);
+#ifndef MEMBUS_CHANNELSWITCH
         m_ppBusMem[i]->InitializeLog(NULL, SimObj::LOG_GLOBAL);
-        m_ppMem[i]->InitializeLog(NULL, SimObj::LOG_GLOBAL);
+#endif
     }
+
+    for (unsigned int i=0;i<cf.m_nMemoryChannelNumber;i++)
+        m_ppMem[i]->InitializeLog(NULL, SimObj::LOG_GLOBAL);
+
+#ifdef MEMBUS_CHANNELSWITCH
+    m_pBSMem->InitializeLog(NULL, SimObj::LOG_GLOBAL);
+#endif
 
 //    m_pDirectoryRoot->InitializeLog(NULL, SimObj::LOG_GLOBAL);
 //    m_pBusMem->InitializeLog(NULL, SimObj::LOG_GLOBAL);
@@ -610,20 +697,24 @@ TopologyS::~TopologyS()
 
     for (unsigned int i=0;i<cf.m_nSplitRootNumber;i++)
     {
+#ifndef MEMBUS_CHANNELSWITCH
         delete m_ppBusMem[i];
+#endif
 
         delete m_ppDirectoryRoot[i];
-
-        delete m_ppMem[i];
     }
 
+    for (unsigned int i=0;i<cf.m_nMemoryChannelNumber;i++)
+        delete m_ppMem[i];
+
+#ifdef MEMBUS_CHANNELSWITCH
+    delete(m_pBSMem);
+#else
     free(m_ppBusMem);
+#endif
     free(m_ppDirectoryRoot);
     free(m_ppMem);
-//    delete m_pBusMem;
-//
-//    delete m_pDirectoryRoot;
-//
+
 //    delete m_pMem;
 }
 

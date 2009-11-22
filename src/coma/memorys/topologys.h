@@ -26,9 +26,19 @@
 
 #include "ddrmemorysys.h"
 
+
+#define MEMBUS_CHANNELSWITCH
+
+#ifdef MEMBUS_CHANNELSWITCH
+#include "busswitch.h"
+#endif
+
 namespace MemSim{
 //{ memory simulator namespace
 //////////////////////////////
+
+#define SC_INTERLEAVE_DIRECT    0
+#define SC_INTERLEAVE_KSKEW     1
 
 
 class TopologyS
@@ -67,8 +77,11 @@ private:
     Network**                   m_ppNetL0;
 
     // memoy bus
+#ifdef MEMBUS_CHANNELSWITCH
+    BusSwitch*                  m_pBSMem;
+#else
     BusST**                     m_ppBusMem;
-    //BusST*                      m_pBusMem;
+#endif
 
     // root direcotyr
     DIRRTIM_DEF**               m_ppDirectoryRoot;
@@ -78,7 +91,6 @@ private:
 
     // memory
     DDRMemorySys**              m_ppMem;
-    //DDRMemorySys*                 m_pMem;
     //MemoryST*                   m_pMem;
 };
 
