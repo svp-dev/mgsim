@@ -251,7 +251,7 @@ RunState Kernel::Step(CycleNo cycles)
                 ++m_cycle;
             }
             
-            m_display.CheckEvents();
+            m_display.OnCycle();
         }
         
         return (m_aborted)
