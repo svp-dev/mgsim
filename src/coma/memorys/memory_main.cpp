@@ -62,8 +62,13 @@ int sc_main(int argc, char* argv[] )
 
 	//////////////////////////////////////////////////////////////////////////
 	// create topology in SystemC
-	TopologyS top;
-
+    TopologyS *top;
+    try {
+      top = new TopologyS();
+    } catch(std::exception& e) {
+      cerr << e.what() << endl;
+      exit(1);
+    }
 
 	//////////////////////////////////////////////////////////////////////////
 	// simulate both in synchronized steps
@@ -79,7 +84,7 @@ int sc_main(int argc, char* argv[] )
 
 	sem_wait(&thpara.sem_sync);
 
-    top.PreFill();
+    top->PreFill();
 
     sem_post(&thpara.sem_mgs);
 
@@ -124,6 +129,6 @@ int sc_main(int argc, char* argv[] )
 
 
     pthread_join(pTh, NULL);
-
+    delete top;
 	return 0;
 }
