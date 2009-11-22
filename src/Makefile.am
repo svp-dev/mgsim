@@ -29,6 +29,8 @@ COMA_SRC = \
 	CMLink.h 
 
 MEMORYS_SRC = \
+	coma/memorys/busswitch.h \
+	coma/memorys/busswitch.cpp \
 	coma/memorys/busst.cpp \
 	coma/memorys/busst.h \
 	coma/memorys/busst_arbiter.h \
