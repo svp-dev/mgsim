@@ -51,12 +51,10 @@ public:
         m_nMemoryAccessTime = 100;
         m_nDefaultVerbose = 3;
 
-
-
-        m_sDDRXML = NULL;
+        m_sDDRXML = DDRXML_CONFIG_PATH;
 
         //m_pMemoryMapFile = NULL;
-		m_pGlobalLogFile = NULL;
+	m_pGlobalLogFile = NULL;
     }
 };
 

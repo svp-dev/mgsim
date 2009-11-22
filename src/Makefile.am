@@ -8,7 +8,8 @@ FLAGS_OPT = -O3 -DNDEBUG
 FLAGS_DEBUG = -g -DMDBLOG -DDEBUG 
 
 FLAGS_COMMON = -W -Wall -Wwrite-strings -Wno-unused \
-       -DMGSIM_CONFIG_PATH=\"$(pkgdatadir)/config.ini\"
+       -DMGSIM_CONFIG_PATH=\"$(pkgdatadir)/config.ini\" \
+       -DDDRXML_CONFIG_PATH=\"$(pkgdatadir)/ddr.xml\"
 #       -Wshorten-64-to-32 -Wextra
 #       -Weffc++ -Woverloaded-virtual 
 

@@ -777,6 +777,11 @@ static void PrintUsage()
         "-L<X> <filename>         Load the contents of the file after the program\n" 
         "                         and store the address in the specified register\n" 
         "-o, --override <n>=<v>   Overrides the configuration option n with value v\n"
+#ifdef ENABLE_COMA
+        "--ddr <file>             Read DDR channel configurations from file\n"
+        "--verbose <n>            Set memory verbosity\n" 
+        "--memlog <file>          Output memory log to file\n"
+#endif
         "\n";
 }
 
@@ -958,70 +963,117 @@ void ConfigureCOMA(ProgramConfig& config, Config& configfile, LinkConfig& lkconf
 {
   PSize numProcessors = 0;
 
-  const vector<PSize> placeSizes = configfile.getIntegerList<PSize>("NumProcessors");
+  // Get total number of cores:
+  const vector<PSize> placeSizes = 
+    configfile.getIntegerList<PSize>("NumProcessors");
   for (size_t i = 0; i < placeSizes.size(); ++i) 
     numProcessors += placeSizes[i];
-
   lkconfig.m_nProcMGS = numProcessors;
+
   if (config.m_interactive)
     cerr << "Running with " << numProcessors << " cores." << endl;
-  size_t ncache = configfile.getInteger<size_t>("NumCaches", (numProcessors >= 4) ? (numProcessors / 4) : 1);
+
+  // Get cache and directory configuration:
+  size_t ncache = 
+    configfile.getInteger<size_t>("NumCaches", 
+				  (numProcessors >= 4) ? (numProcessors / 4) : 1);
   size_t ndir = configfile.getInteger<size_t>("NumDirectories", ncache / 8);
-  
   lkconfig.m_nLineSize = configfile.getInteger<size_t> ("CacheLineSize", 64);
   
   if (lkconfig.m_nProcLink < lkconfig.m_nProcMGS) {
-    cerr << "warning: nProcLink (" << lkconfig.m_nProcLink
-	 << ") < NumProcessors, adjusting" << endl;
+    cerr << "warning: nProcLink (" 
+	 << lkconfig.m_nProcLink
+	 << ") < NumProcessors, adjusting nProcLink" 
+	 << endl;
     lkconfig.m_nProcLink = lkconfig.m_nProcMGS;
   }
   if (lkconfig.m_nProcLink < ncache) {
     cerr << "warning: NumCaches (" << ncache
-	 << ") > nProcLink (" << lkconfig.m_nProcLink << "), adjusting" << endl;
+	 << ") > nProcLink (" 
+	 << lkconfig.m_nProcLink 
+	 << "), adjusting NumCaches" 
+	 << endl;
     ncache = lkconfig.m_nProcLink;
   }
   lkconfig.m_nCache = ncache;
-  
-  lkconfig.m_nDDRConfigID = configfile.getInteger<size_t>("DDRConfiguration", 0);
-  
+
   if (ncache < ndir) {
-    cerr << "warning: NumDirectories (" << ndir << ") > NumCaches (" << ncache << "), adjusting" << endl;
+    cerr << "warning: NumDirectories (" 
+	 << ndir 
+	 << ") > NumCaches (" 
+	 << ncache 
+	 << "), adjusting NumDirectories" 
+	 << endl;
     ndir = ncache;
   }
   lkconfig.m_nDirectory = ndir;
-  lkconfig.m_nSplitRootNumber = configfile.getInteger<size_t>("NumSplitRootDirectories", 2); 
-  lkconfig.m_nMemoryChannelNumber = configfile.getInteger<size_t>("NumMemoryChannels", lkconfig.m_nSplitRootNumber);
-  lkconfig.m_nChannelInterleavingScheme = configfile.getInteger<size_t>("ChannelInterleavingScheme", 0);
+
+  lkconfig.m_nSplitRootNumber = 
+    configfile.getInteger<size_t>("NumSplitRootDirectories", 4); 
+  lkconfig.m_nMemoryChannelNumber = 
+    configfile.getInteger<size_t>("NumMemoryChannels", 
+				  lkconfig.m_nSplitRootNumber);
 
   if (config.m_interactive)
     cerr << "Running with " << ncache << " L2 caches, " 
-	 << ndir << " directories and " 
-     << lkconfig.m_nSplitRootNumber << " root directories."
+	 << ndir << " directories, " 
+	 << lkconfig.m_nSplitRootNumber << " root directories, and "
+	 << lkconfig.m_nMemoryChannelNumber << " DDR channels."
 	 << endl;
 
-  lkconfig.m_nCacheAccessTime = configfile.getInteger<size_t>("L2CacheDelay", 2);
-  lkconfig.m_nCacheAssociativity = configfile.getInteger<size_t>("L2CacheAssociativity", 4);
-  lkconfig.m_nCacheSet = configfile.getInteger<size_t>("L2CacheNumSets", 128);
+  // Check DDR configuration:
+  
+  lkconfig.m_nDDRConfigID = 
+    configfile.getInteger<size_t>("DDRConfiguration", 0);
+  
+  lkconfig.m_nChannelInterleavingScheme = 
+    configfile.getInteger<size_t>("ChannelInterleavingScheme", 0);
+
+  if (config.m_interactive)
+    cerr << "Running with DDR configuration with index "
+	 << lkconfig.m_nDDRConfigID << " in XML file; and interleaving scheme "
+	 << lkconfig.m_nChannelInterleavingScheme 
+	 << endl;
+
+  // Cache properties:
+  
+  lkconfig.m_nCacheAccessTime = 
+    configfile.getInteger<size_t>("L2CacheDelay", 2);
+  lkconfig.m_nCacheAssociativity = 
+    configfile.getInteger<size_t>("L2CacheAssociativity", 4);
+  lkconfig.m_nCacheSet = 
+    configfile.getInteger<size_t>("L2CacheNumSets", 128);
 
   if (config.m_interactive)
     cerr << "L2 caches: associativity = "
 	 << lkconfig.m_nCacheAssociativity
 	 << ", nsets = "
 	 << lkconfig.m_nCacheSet
-	 << " (" << (lkconfig.m_nCacheSet * lkconfig.m_nCacheAssociativity * lkconfig.m_nLineSize)/1024 
-	 << "kb per L2 cache)" << endl;
+	 << " (" 
+	 << (lkconfig.m_nCacheSet * lkconfig.m_nCacheAssociativity 
+	     * lkconfig.m_nLineSize) / 1024 
+	 << "kbyte per L2 cache)" 
+	 << endl;
       
   lkconfig.m_nInject = configfile.getBoolean("EnableCacheInjection", true);
 
+  if (config.m_interactive)
+    cerr << "Cache injection is " 
+	 << (lkconfig.m_nInject ? "enabled" : "disabled")
+	 << endl;
+
   size_t corefreq = configfile.getInteger<size_t>("CoreFreq", 1000);
   size_t memfreq = configfile.getInteger<size_t>("DDRMemoryFreq", 800);
-  if (config.m_interactive)
-    cerr << "DDR / Core frequency ratio = " << memfreq << '/' << corefreq << endl;
+
   double ps_per_memcycle = (1./(memfreq*1e6))/1e-12;
   double ps_per_corecycle = (1./(corefreq*1e6))/1e-12;
 
   lkconfig.m_nCycleTimeCore = (size_t)ps_per_corecycle;
   lkconfig.m_nCycleTimeMemory = (size_t)ps_per_memcycle;
+
+  if (config.m_interactive)
+    cerr << "DDR / Core frequency ratio = " 
+	 << memfreq << '/' << corefreq << endl;
 
   // FIXME: maybe the following is not used anymore
   lkconfig.m_nMemorySize = DEFAULT_DUMP_SIZE;
