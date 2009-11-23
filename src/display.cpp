@@ -2,6 +2,9 @@
 #include "config.h"
 #include <stdexcept>
 #include <cassert>
+#ifdef USE_SDL
+#include <SDL.h>
+#endif
 
 class ScreenOutput {
 protected:

@@ -5,9 +5,6 @@
 #include <string>
 #include <iostream>
 #include <vector>
-#ifdef USE_SDL
-#include <SDL.h>
-#endif
 
 class Config;
 
