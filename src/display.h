@@ -7,55 +7,46 @@
 #include <vector>
 
 class Config;
-
-class ScreenOutput;
+struct SDL_Surface;
 
 class Display
 {
-  unsigned int          m_fb_width;
-  unsigned int	        m_fb_height;
-  std::vector<uint32_t> m_framebuffer;
-  
-  unsigned              m_refreshrate;
-  unsigned              m_counter;
+    unsigned int          m_width, m_height;
+    std::vector<uint32_t> m_framebuffer;
+    bool                  m_enabled;
+    float                 m_scalex, m_scaley;
+    unsigned int          m_refreshDelay;
+    unsigned long         m_lastRefresh;
+    SDL_Surface*          m_screen;
+    
+    void ResizeScreen(unsigned int w, unsigned int h);
 
-  ScreenOutput*         m_output; 
+    Display(const Display&);
+    Display& operator=(const Display&);
+public:
+    Display(const Config& config);
+    ~Display();
 
-  Display(const Display&);
-  Display& operator=(const Display&);
- public:
-  Display(const Config& config);
-  ~Display();
-
-  void PutPixel(unsigned int x, unsigned int y, uint32_t data)
-  {
-    if (x < m_fb_width && y < m_fb_height)
-      m_framebuffer[y * m_fb_width + x] = data;
-  }
-
-  void PutPixel(unsigned int offset, uint32_t data)
-  {
-    if (offset < m_fb_width * m_fb_height) 
-      m_framebuffer[offset] = data;
-  }
-
-  void ResizeFramebuffer(unsigned w, unsigned h); 
-
-  void Dump(std::ostream&, unsigned key, 
-	    const std::string& comment = std::string()) const;
-  void Refresh();
-
-  void CheckEvents(bool skip_refresh = false);
-
-  void OnCycle(void) {
-    if (m_counter++ > m_refreshrate) {
-      m_counter = 0;
-      Refresh();
+    void PutPixel(unsigned int x, unsigned int y, uint32_t data)
+    {
+        if (x < m_width && y < m_height)
+        {
+            m_framebuffer[y * m_width + x] = data;
+        }
     }
-  }
 
- protected:
-  void ResizeOutput(unsigned w, unsigned h);
+    void PutPixel(unsigned int offset, uint32_t data)
+    {
+        if (offset < m_width * m_height) 
+        {
+            m_framebuffer[offset] = data;
+        }
+    }
+
+    void Resize(unsigned w, unsigned h); 
+    void Dump(std::ostream&, unsigned key, const std::string& comment = std::string()) const;
+    void Refresh();
+    void CheckEvents(bool skip_refresh = false);
 };
 
 #endif

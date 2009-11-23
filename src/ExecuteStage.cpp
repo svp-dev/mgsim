@@ -201,7 +201,7 @@ void Pipeline::ExecuteStage::ExecDebug(Integer value, Integer stream) const
 	        const unsigned int mask = (1U << (size / 4)) - 1;
 	        const unsigned int w    = (value >> (3 * size / 4)) & mask;
             const unsigned int h    = (value >> (2 * size / 4)) & mask;
-            m_display.ResizeFramebuffer(w, h);
+            m_display.Resize(w, h);
             break;
         }
         
