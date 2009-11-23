@@ -4,15 +4,33 @@
 #include <cassert>
 #ifdef USE_SDL
 #include <SDL.h>
+
+#define FAKE_SDL_GETTICKS
+
+#ifdef FAKE_SDL_GETTICKS
+#ifdef SDL_GetTicks
+#undef SDL_GetTicks
+#endif
+
+static inline unsigned long SDL_GetTicks_(void) 
+{
+    static unsigned long counter = 0;
+    // GetTicks returns milliseconds. We assume
+    // 1000 cycles per millisecond (1Ghz approximate clock rate).
+    return counter += 1000;
+}
+#define SDL_GetTicks SDL_GetTicks_
+#endif
 #endif
 
 Display::Display(const Config& config)
-  : m_width(0), m_height(0),
-    m_enabled(false),
-    m_scalex(1.0f / std::max(1U, config.getInteger<unsigned int>("GfxHorizScale", 2))),
-    m_scaley(1.0f / std::max(1U, config.getInteger<unsigned int>("GfxVertScale",  2))),
-    m_refreshDelay(1000 / std::max(1U, config.getInteger<unsigned>("GfxRefreshRate", 30))),
-    m_screen(NULL)
+    : m_width(0), m_height(0),
+      m_enabled(false),
+      m_scalex(1.0f / std::max(1U, config.getInteger<unsigned int>("GfxHorizScale", 2))),
+      m_scaley(1.0f / std::max(1U, config.getInteger<unsigned int>("GfxVertScale",  2))),
+      m_refreshDelay(1000 * config.getInteger<unsigned int>("GfxRefreshDelay", 30)),
+      m_screen(NULL),
+      m_max_screen_h(768), m_max_screen_w(1024)
 {
 #ifdef USE_SDL
     if (config.getBoolean("GfxEnableOutput", false))
@@ -21,6 +39,13 @@ Display::Display(const Config& config)
             std::cerr << "Unable to initialize SDL: " << SDL_GetError() << std::endl;
         } else {
             m_enabled = true;
+        }
+        const SDL_VideoInfo* vf = SDL_GetVideoInfo();
+        if (vf) {
+            m_max_screen_h = vf->current_h;
+            m_max_screen_w = vf->current_w;
+            std::cerr << "Maximum supported output size: " 
+                      << m_max_screen_w << 'x' << m_max_screen_h << std::endl;
         }
     }
 #endif
@@ -55,12 +80,28 @@ void Display::ResizeScreen(unsigned int w, unsigned int h)
 #ifdef USE_SDL
     if (m_enabled)
     {
-        m_scalex = (float)m_width  / (float)w;
-        m_scaley = (float)m_height / (float)h;
+        float r = (float)h / (float)w;
+
+        // std::cerr << "DEBUG: fb size " << m_width << " " << m_height << std::endl;
+        // std::cerr << "DEBUG: resizescreen " << w << " " << h << std::endl;
+        w = std::min(m_max_screen_w, w); h = w * r; 
+        h = std::min(m_max_screen_h, h); w = h / r;
+        // std::cerr << "DEBUG: after adjust " << w << " " << h << std::endl;
+
         m_screen = SDL_SetVideoMode(w, h, 32, SDL_SWSURFACE | SDL_RESIZABLE);
-        if (m_screen == NULL) {
+        
+        if ((NULL == (m_screen = SDL_SetVideoMode(w, h, 32, SDL_SWSURFACE | SDL_RESIZABLE))) &&
+            (NULL == (m_screen = SDL_SetVideoMode(640, 480, 32, SDL_SWSURFACE | SDL_RESIZABLE))))
+        {
             std::cerr << "Setting SDL video mode failed: " << SDL_GetError() << std::endl;
-        } else {
+        } 
+        else 
+        {
+            // std::cerr << "DEBUG: new size " << m_screen->w << " " << m_screen->h << std::endl;
+            // std::cerr << "DEBUG: before scale " << m_scalex << " " << m_scaley << std::endl;
+            m_scalex = (float)m_width  / (float)m_screen->w;
+            m_scaley = (float)m_height / (float)m_screen->h;
+            // std::cerr << "DEBUG: after scale " << m_scalex << " " << m_scaley << std::endl;
             std::stringstream caption;
             caption << "Microgrid Simulator Display (" << m_width << "x" << m_height << ")";
             SDL_WM_SetCaption(caption.str().c_str(), NULL);
@@ -80,26 +121,52 @@ void Display::Refresh()
             // No source to copy, just clear the surface
             SDL_FillRect(m_screen, NULL, 0);
         }
-        else if (!SDL_MUSTLOCK(m_screen) || SDL_LockSurface(m_screen) == 0)
+        else 
         {
+            if (SDL_MUSTLOCK(m_screen))
+                if (SDL_LockSurface(m_screen) < 0)
+                    return;
             assert(m_screen->format->BytesPerPixel == 4);
 
             // Copy the buffer into the video surface
-            for (int dy = 0; dy < m_screen->h; ++dy) 
+            unsigned dx, dy;
+            float m_scaley = this->m_scaley, m_scalex = this->m_scalex;
+            unsigned m_width = this->m_width;
+            unsigned m_screen_h = m_screen->h, m_screen_w = m_screen->w;
+            unsigned m_screen_pitch = m_screen->pitch;
+            char* pixels = (char*)m_screen->pixels;
+            const uint32_t *src = &m_framebuffer[0];
+
+/*
+            std::cerr << "Display refresh:" 
+                      << " scalex = " << m_scalex 
+                      << " scaley = " << m_scaley 
+                      << " screen w = " << m_screen_w 
+                      << " screen h = " << m_screen_h 
+                      << " screen pitch = " << m_screen_pitch 
+                      << " fb pitch = " << m_width
+                      << std::endl; 
+*/
+
+            for (dy = 0; dy < m_screen_h; ++dy) 
             {
-                unsigned int    sy   = (unsigned int)(dy * m_scaley);
-                Uint32*         dest = (Uint32*)((char*)m_screen->pixels + dy * m_screen->pitch);
-                const uint32_t* src  = &m_framebuffer[sy * m_width];
-	            for (int dx = 0; dx < m_screen->w; ++dx)
-	            {
-                    dest[dx] = src[ (unsigned int)(dx * m_scalex) ];
-	            }
-	        }
-	        
+                Uint32*         dest = (Uint32*)(pixels + dy * m_screen_pitch);
+
+                unsigned int    sy   = dy * m_scaley;
+
+                for (dx = 0; dx < m_screen_w; ++dx)
+                {
+                    unsigned int sx  = dx * m_scalex;
+                    // std::cerr << "Map pixel fb " 
+                    //           << sx << ' ' << sy 
+                    //           << " -> " 
+                    //           << dx << ' ' << dy << std::endl;
+                    dest[dx] = src[sy * m_width + sx];
+                }
+            }
+                
             if (SDL_MUSTLOCK(m_screen))
-            {
-    	        SDL_UnlockSurface(m_screen);
-	        }
+                SDL_UnlockSurface(m_screen);
             SDL_Flip(m_screen);
             m_lastRefresh = SDL_GetTicks();
         }
@@ -112,33 +179,75 @@ void Display::CheckEvents(bool skip_refresh)
 #ifdef USE_SDL
     if (m_enabled)
     {
-        bool refresh = (SDL_GetTicks() - m_lastRefresh > m_refreshDelay);
-        
+        bool do_refresh = (SDL_GetTicks() - m_lastRefresh > m_refreshDelay);
+        bool do_resize = false;
+        bool do_close = false;
+        unsigned nh = 0, nw = 0;
+
         SDL_Event event;
         while (SDL_PollEvent(&event))
         {
             switch (event.type)
             {
-	        case SDL_QUIT:
-                m_enabled = false;
-                m_screen  = NULL;
-                SDL_Quit();
-	            break;
-	        
+            case SDL_QUIT:
+                do_close = true;
+                break;
+                
             case SDL_VIDEOEXPOSE:
-                refresh = true;
-	            break;
+                do_refresh = true;
+                break;
 
-	        case SDL_VIDEORESIZE:
-	            ResizeScreen(event.resize.w, event.resize.h);
-	            break;
+            case SDL_KEYUP:
+                switch (event.key.keysym.sym) 
+                {
+                case SDLK_ESCAPE:
+                    do_close = true;
+                    break;
+                case SDLK_PAGEDOWN:
+                    m_scalex /= 2.0; m_scaley /= 2.0; do_resize = true;
+                    break;
+                case SDLK_PAGEUP:
+                    m_scalex *= 2.0; m_scaley *= 2.0; do_resize = true;
+                    break;
+                case SDLK_END:
+                    m_scalex *= .9; m_scaley *= .9; do_resize = true;
+                    break;
+                case SDLK_HOME:
+                    m_scalex *= 1.1; m_scaley *= 1.1; do_resize = true;
+                    break;
+                case SDLK_SPACE:
+                    m_scalex = m_scaley; do_resize = true;
+                    break;
+                default:
+                    // do nothing (yet)
+                    break;
+                }
+                if (do_resize) 
+                {
+                    nw = m_width / m_scalex;
+                    nh = m_height / m_scaley;
+                }
+                break;
+
+            case SDL_VIDEORESIZE:
+                do_resize = true;
+                nw = event.resize.w;
+                nh = event.resize.h;
+                break;
             }
         }
-        
-        if (refresh)
+
+        if (do_close)
         {
-            Refresh();
+            // std::cerr << "Graphics output closed by user." << std::endl;
+            m_enabled = false;
+            m_screen  = NULL;
+            SDL_Quit();
         }
+        if (do_resize)
+            ResizeScreen(nw, nh);
+        if (do_refresh)
+            Refresh();
     }
 #endif
 }

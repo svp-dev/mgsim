@@ -18,6 +18,7 @@ class Display
     unsigned int          m_refreshDelay;
     unsigned long         m_lastRefresh;
     SDL_Surface*          m_screen;
+    unsigned int          m_max_screen_h, m_max_screen_w;
     
     void ResizeScreen(unsigned int w, unsigned int h);
 
