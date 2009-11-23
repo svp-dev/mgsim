@@ -35,7 +35,6 @@ const char* semaphore_journal = "/tmp/simx-sem-journal";
 
 #include <signal.h>
 
-
 #ifdef USE_SDL
 #include <SDL.h>
 #endif
@@ -47,12 +46,12 @@ using namespace MemSim;
 
 static bool dump(const char* pstr, bool bforce)
 {
-  ofstream dumpfile(pstr, ofstream::binary);
+    ofstream dumpfile(pstr, ofstream::binary);
     if (dumpfile.fail())
     {
-      cerr << "dump: cannot open dump file " << pstr << endl;
-      dumpfile.close();
-      return false;
+        cerr << "dump: cannot open dump file " << pstr << endl;
+        dumpfile.close();
+        return false;
     }
 
     dumpcacheandmemory(dumpfile, bforce);
@@ -85,12 +84,12 @@ static vector<string> Tokenize(const string& str, const string& sep)
 static string Trim(const string& str)
 {
     size_t beg = str.find_first_not_of(" \t");
-	if (beg != string::npos)
-	{
-		size_t end = str.find_last_not_of(" \t");
-		return str.substr(beg, end - beg + 1);
-	}
-	return "";
+    if (beg != string::npos)
+    {
+        size_t end = str.find_last_not_of(" \t");
+        return str.substr(beg, end - beg + 1);
+    }
+    return "";
 }
 
 class MGSystem : public Object
@@ -160,138 +159,141 @@ public:
         return flop;
     }
 
-	void PrintState(const vector<string>& arguments) const
-	{
-		typedef map<string, RunState> StateMap;
+    void PrintState(const vector<string>& arguments) const
+    {
+        typedef map<string, RunState> StateMap;
 		
-		bool show_all = (!arguments.empty() && arguments[0] == "all");
+        bool show_all = (!arguments.empty() && arguments[0] == "all");
 		
-		StateMap   states;
-		streamsize length = 0;
+        StateMap   states;
+        streamsize length = 0;
 
-		const Kernel::ComponentList& components = m_kernel.GetComponents();
-		for (Kernel::ComponentList::const_iterator p = components.begin(); p != components.end(); ++p)
-		{
-		    for (size_t i = 0; i < p->processes.size(); ++i)
-		    {
-    			RunState state = p->processes[i].state;
-    			if (show_all || state != STATE_IDLE) {
-        			const string name = p->component->GetFQN() + ":" + p->processes[i].name + ": ";
-    			    states[name] = state;
-        			length = max(length, (streamsize)name.length());
-    			}
+        const Kernel::ComponentList& components = m_kernel.GetComponents();
+        for (Kernel::ComponentList::const_iterator p = components.begin(); p != components.end(); ++p)
+        {
+            for (size_t i = 0; i < p->processes.size(); ++i)
+            {
+                RunState state = p->processes[i].state;
+                if (show_all || state != STATE_IDLE) {
+                    const string name = p->component->GetFQN() + ":" + p->processes[i].name + ": ";
+                    states[name] = state;
+                    length = max(length, (streamsize)name.length());
+                }
     	    }
-		}
+        }
 		
-		cout << left << setfill(' ');
-		for (StateMap::const_iterator p = states.begin(); p != states.end(); ++p)
-		{
-			cout << setw(length) << p->first;
-			switch (p->second)
-			{
-				case STATE_IDLE:     cout << "idle";    break;
-				case STATE_DEADLOCK: cout << "stalled"; break;
-				case STATE_RUNNING:  cout << "running"; break;
-				case STATE_ABORTED:  assert(0); break;
-			}
-			cout << endl;
-		}
-		cout << endl;
+        cout << left << setfill(' ');
+        for (StateMap::const_iterator p = states.begin(); p != states.end(); ++p)
+        {
+            cout << setw(length) << p->first;
+            switch (p->second)
+            {
+            case STATE_IDLE:     cout << "idle";    break;
+            case STATE_DEADLOCK: cout << "stalled"; break;
+            case STATE_RUNNING:  cout << "running"; break;
+            case STATE_ABORTED:  assert(0); break;
+            }
+            cout << endl;
+        }
+        cout << endl;
 
         int width = (int)log10(m_procs.size()) + 1;
-   		for (size_t i = 0; i < m_procs.size(); ++i)
-   		{
-   		    bool idle = m_procs[i]->IsIdle();
-   		    if (show_all || !idle) {
-   		        cout << "Processor " << dec << right << setw(width) << i << ": "
-   		             << (idle ? "empty" : "non-empty") << endl;
-   		    }
-   		}
-	}
+        for (size_t i = 0; i < m_procs.size(); ++i)
+        {
+            bool idle = m_procs[i]->IsIdle();
+            if (show_all || !idle) {
+                cout << "Processor " << dec << right << setw(width) << i << ": "
+                     << (idle ? "empty" : "non-empty") << endl;
+            }
+        }
+    }
 
-	void PrintRegFileAsyncPortActivity() const
-	{
-		float avg  = 0;
-		float amax = 0.0f;
-		float amin = 1.0f;
+    void PrintRegFileAsyncPortActivity(std::ostream& os) const
+    {
+        float avg  = 0;
+        float amax = 0.0f;
+        float amin = 1.0f;
         for (size_t i = 0; i < m_procs.size(); ++i) {
             float a = m_procs[i]->GetRegFileAsyncPortActivity();
-			amax = max(amax, a);
-			amin = min(amin, a);
-			avg += a;
+            amax = max(amax, a);
+            amin = min(amin, a);
+            avg += a;
         }
         avg /= (float)m_procs.size();
-		cout << avg << " " << amin << " " << amax;
-	}
+        os << avg << "\t# average reg. file async port activity" << endl
+           << amin << "\t# min reg. file async port activity" << endl
+           << amax << "\t# max reg. file async port activity" << endl;
+    }
 
-	void PrintPipelineEfficiency() const
-	{
-		float avg  = 0;
-		float amax = 0.0f;
-		float amin = 1.0f;
-		size_t num = 0;
+    void PrintPipelineEfficiency(std::ostream& os) const
+    {
+        float avg  = 0;
+        float amax = 0.0f;
+        float amin = 1.0f;
+        size_t num = 0;
         for (size_t i = 0; i < m_procs.size(); ++i) {
             float a = m_procs[i]->GetPipelineEfficiency();
             if (a > 0)
             {
-				amax = max(amax, a);
-				amin = min(amin, a);
-				avg += a;
-				num++;
-			}
-        }
-        avg /= (float)num;
-		cout << avg << " " << amin << " " << amax;
-	}
-	
-	void PrintActiveQueueSize() const
-	{
-	    float    avg    = 0;
-	    uint64_t amax   = 0;
-	    uint64_t amin   = numeric_limits<uint64_t>::max();
-	    CycleNo cycles = m_kernel.GetCycleNo();
-        for (size_t i = 0; i < m_procs.size(); ++i) {
-            float a = (float)m_procs[i]->GetTotalActiveQueueSize() / (float)cycles;
-			amax    = max(amax, m_procs[i]->GetMaxActiveQueueSize() );
-			amin    = min(amin, m_procs[i]->GetMinActiveQueueSize() );
-			avg += a;
-        }
-        avg /= (float)m_procs.size();
-		cout << avg << " " << amin << " " << amax;
-	}
-
-	void PrintPipelineIdleTime() const
-	{
-	    float    avg    = 0;
-	    uint64_t amax   = 0;
-	    uint64_t amin   = numeric_limits<uint64_t>::max();
-        for (size_t i = 0; i < m_procs.size(); ++i) {
-            float a = (float)m_procs[i]->GetAvgPipelineIdleTime();
-			amax    = max(amax, m_procs[i]->GetMaxPipelineIdleTime() );
-			amin    = min(amin, m_procs[i]->GetMinPipelineIdleTime() );
-			avg += a;
-        }
-        avg /= (float)m_procs.size();
-        if (avg == 0) {
-    		cout << "- - -";
-        } else {
-    		cout << avg << " " << amin << " " << amax;
-    	}
-	}
-
-    void PrintAll() const
-    {
-        cout << "[";
-        for (PSize i = 0; i < m_procs.size(); i++) {
-            cout << m_procs[i]->GetLocalFamilyCompletion();
-            if (i < m_procs.size() - 1) {
-                cout << ",";
+                amax = max(amax, a);
+                amin = min(amin, a);
+                avg += a;
+                num++;
             }
         }
-        cout << "]";
+        avg /= (float)num;
+        os << avg << "\t# average pipeline efficiency" << endl
+           << amin << "\t# min pipeline efficiency" << endl
+           << amax << "\t# max pipeline efficiency" << endl;
+    }
+	
+    void PrintActiveQueueSize(std::ostream& os) const
+    {
+        float    avg    = 0;
+        uint64_t amax   = 0;
+        uint64_t amin   = numeric_limits<uint64_t>::max();
+        CycleNo cycles = m_kernel.GetCycleNo();
+        for (size_t i = 0; i < m_procs.size(); ++i) {
+            float a = (float)m_procs[i]->GetTotalActiveQueueSize() / (float)cycles;
+            amax    = max(amax, m_procs[i]->GetMaxActiveQueueSize() );
+            amin    = min(amin, m_procs[i]->GetMinActiveQueueSize() );
+            avg += a;
+        }
+        avg /= (float)m_procs.size();
+        os << avg << "\t# average active thread queue size per core" << endl
+           << amin << "\t# min active thread queue size per core (overall min)" << endl
+           << amax << "\t# max active thread queue size per core (overall max)" << endl;
     }
 
-    void PrintFamilyCompletions() const
+    void PrintPipelineIdleTime(std::ostream& os) const
+    {
+        float    avg    = 0;
+        uint64_t amax   = 0;
+        uint64_t amin   = numeric_limits<uint64_t>::max();
+        for (size_t i = 0; i < m_procs.size(); ++i) {
+            float a = (float)m_procs[i]->GetAvgPipelineIdleTime();
+            amax    = max(amax, m_procs[i]->GetMaxPipelineIdleTime() );
+            amin    = min(amin, m_procs[i]->GetMinPipelineIdleTime() );
+            avg += a;
+        }
+        avg /= (float)m_procs.size();
+        os << avg << "\t# average pipeline idle cycles per core" << endl
+           << amin << "\t# min pipeline idle cycles per core (overall min)" << endl
+           << amax << "\t# max pipeline idle cycles per core (overall max)" << endl;
+    }
+
+    void PrintAllFamilyCompletions(std::ostream& os) const
+    {
+        for (PSize i = 0; i < m_procs.size(); i++) {
+            CycleNo last = m_procs[i]->GetLocalFamilyCompletion();
+            if (last != 0)
+                os << m_procs[i]->GetLocalFamilyCompletion() 
+                   << "\t# cycle counter at last family completion on core " << i
+                   << endl;
+        }
+    }
+
+    void PrintFamilyCompletions(std::ostream& os) const
     {
         CycleNo first = UINT64_MAX;
         CycleNo last  = 0;
@@ -303,11 +305,12 @@ public:
                 last  = max(last,  cycle);
             }
         }
-        cout << first << " " << last;
+        cout << first << "\t# cycle counter at first family completion" << endl
+             << last << "\t# cycle counter at last family completion" << endl;
     }
 
-	const Kernel& GetKernel() const { return m_kernel; }
-          Kernel& GetKernel()       { return m_kernel; }
+    const Kernel& GetKernel() const { return m_kernel; }
+    Kernel& GetKernel()       { return m_kernel; }
 
     // Find a component in the system given its path
     // Returns NULL when the component is not found
@@ -339,20 +342,20 @@ public:
     // Steps the entire system this many cycles
     void Step(CycleNo nCycles)
     {
-   		RunState state = GetKernel().Step(nCycles);
-   		if (state == STATE_IDLE)
-   		{
-   		    // An idle state might actually be deadlock if there's a suspended thread.
-   		    // So check all cores to see if they're really done.
-   		    for (size_t i = 0; i < m_procs.size(); ++i)
-   		    {
-   		        if (!m_procs[i]->IsIdle())
-   		        {
-   		            state = STATE_DEADLOCK;
-   		            break;
-   		        }
-   		    }
-   		}
+        RunState state = GetKernel().Step(nCycles);
+        if (state == STATE_IDLE)
+        {
+            // An idle state might actually be deadlock if there's a suspended thread.
+            // So check all cores to see if they're really done.
+            for (size_t i = 0; i < m_procs.size(); ++i)
+            {
+                if (!m_procs[i]->IsIdle())
+                {
+                    state = STATE_DEADLOCK;
+                    break;
+                }
+            }
+        }
    		
         if (state == STATE_DEADLOCK)
         {
@@ -365,10 +368,10 @@ public:
                 {
                     switch (p->processes[i].state)
                     {
-                        case STATE_IDLE:     ++num_idle;    break;
-                        case STATE_DEADLOCK: ++num_stalled; break;
-                        case STATE_RUNNING:  ++num_running; break;
-                        case STATE_ABORTED:  assert(0); break;
+                    case STATE_IDLE:     ++num_idle;    break;
+                    case STATE_DEADLOCK: ++num_stalled; break;
+                    case STATE_RUNNING:  ++num_running; break;
+                    case STATE_ABORTED:  assert(0); break;
                     }
                 }
             }
@@ -386,7 +389,7 @@ public:
     	    throw runtime_error(ss.str());
         }
     							
-   	    if (state == STATE_ABORTED)
+        if (state == STATE_ABORTED)
         {
             // The simulation was aborted, because the user interrupted it.
             throw runtime_error("Interrupted!");
@@ -399,11 +402,11 @@ public:
     }
     
     MGSystem(const Config& config, Display& display, const string& program,
-        const vector<pair<RegAddr, RegValue> >& regs,
-        const vector<pair<RegAddr, string> >& loads,
-        bool quiet)
-      : Object(NULL, NULL, "system"),
-        m_kernel(display)
+             const vector<pair<RegAddr, RegValue> >& regs,
+             const vector<pair<RegAddr, string> >& loads,
+             bool quiet)
+        : Object(NULL, NULL, "system"),
+          m_kernel(display)
     {
         const vector<PSize> placeSizes = config.getIntegerList<PSize>("NumProcessors");
         const size_t numProcessorsPerFPU_orig = max<size_t>(1, config.getInteger<size_t>("NumProcessorsPerFPU", 1));
@@ -421,11 +424,14 @@ public:
             if (i == placeSizes.size()) break;
         }
 
-        if ((numProcessorsPerFPU != numProcessorsPerFPU_orig) && !quiet) {
-            fprintf(stderr, "Warning: #cores in at least one place cannot be divided by %u cores/FPU\nValue has been adjusted to %u cores/FPU\n",
-                (unsigned)numProcessorsPerFPU_orig,
-                (unsigned)numProcessorsPerFPU);
-        }
+        if ((numProcessorsPerFPU != numProcessorsPerFPU_orig) && !quiet) 
+            std::cerr << "Warning: #cores in at least one place cannot be divided by "
+                      << numProcessorsPerFPU_orig
+                      << " cores/FPU" << std::endl
+                      << "Value has been adjusted to "
+                      << numProcessorsPerFPU
+                      << " cores/FPU" << std::endl;
+        
                         
         PSize numProcessors = 0;
         size_t numFPUs      = 0;
@@ -495,7 +501,7 @@ public:
                 stringstream namem;
                 namem << "memory" << pid;
                 if (pid >= LinkMGS::s_oLinkConfig.m_nProcLink)
-                  { std::cerr << "Too many memory links!" << std::endl; exit(1); }
+                { std::cerr << "Too many memory links!" << std::endl; exit(1); }
                 m_pmemory[pid] = new CMLink(this, m_kernel, namem.str(), config, g_pLinks[i], g_pMemoryDataContainer);
                 if (pid == 0)
                     m_memory = m_pmemory[0];
@@ -532,11 +538,11 @@ public:
        
         if (!m_procs.empty())
         {
-	        // Fill initial registers
-	        for (size_t i = 0; i < regs.size(); ++i)
-	        {
-	        	m_procs[0]->WriteRegister(regs[i].first, regs[i].second);
-	        }
+            // Fill initial registers
+            for (size_t i = 0; i < regs.size(); ++i)
+            {
+                m_procs[0]->WriteRegister(regs[i].first, regs[i].second);
+            }
 
             // Load data files	        
             for (size_t i = 0; i < loads.size(); ++i)
@@ -549,15 +555,15 @@ public:
             
             // Load configuration
             // Store the address in local #2
-			RegValue value;
-			value.m_state   = RST_FULL;
+            RegValue value;
+            value.m_state   = RST_FULL;
             value.m_integer = WriteConfiguration(config);
-			m_procs[0]->WriteRegister(MAKE_REGADDR(RT_INTEGER, 2), value);
+            m_procs[0]->WriteRegister(MAKE_REGADDR(RT_INTEGER, 2), value);
 
 #if TARGET_ARCH == ARCH_ALPHA
             // The Alpha expects the function address in $27
-			value.m_integer = progdesc.first;
-			m_procs[0]->WriteRegister(MAKE_REGADDR(RT_INTEGER, 27), value);
+            value.m_integer = progdesc.first;
+            m_procs[0]->WriteRegister(MAKE_REGADDR(RT_INTEGER, 27), value);
 #endif
         }
 
@@ -788,18 +794,18 @@ static void PrintUsage()
 struct ProgramConfig
 {
 #ifdef ENABLE_COMA
-  unsigned           m_ncache;
-  unsigned           m_ndirectory;
+    unsigned           m_ncache;
+    unsigned           m_ndirectory;
 #endif
     string             m_programFile;
     string             m_configFile;
     bool               m_interactive;
-	bool               m_terminate;
-	bool               m_quiet;
-	string             m_print;
-	map<string,string> m_overrides;
+    bool               m_terminate;
+    bool               m_quiet;
+    string             m_print;
+    map<string,string> m_overrides;
 	
-	vector<pair<RegAddr, RegValue> > m_regs;
+    vector<pair<RegAddr, RegValue> > m_regs;
     vector<pair<RegAddr, string> >   m_loads;
 };
 
@@ -807,7 +813,7 @@ static void ParseArguments(int argc, const char ** argv, ProgramConfig& config
 #ifdef ENABLE_COMA
 			   , LinkConfig& lkconfig
 #endif
-)
+    )
 {
     config.m_interactive = false;
     config.m_terminate   = false;
@@ -831,7 +837,7 @@ static void ParseArguments(int argc, const char ** argv, ProgramConfig& config
             break;
         }
         
-             if (arg == "-c" || arg == "--config")      config.m_configFile  = argv[++i];
+        if (arg == "-c" || arg == "--config")      config.m_configFile  = argv[++i];
         else if (arg == "-i" || arg == "--interactive") config.m_interactive = true;
         else if (arg == "-t" || arg == "--terminate")   config.m_terminate   = true;
         else if (arg == "-q" || arg == "--quiet")       config.m_quiet       = true;
@@ -870,7 +876,7 @@ static void ParseArguments(int argc, const char ** argv, ProgramConfig& config
         } 
         else if (toupper(arg[1]) == 'R' || toupper(arg[1]) == 'F')
         {
-         	stringstream value;
+            stringstream value;
             value << argv[++i];
 
             RegAddr  addr;
@@ -882,19 +888,19 @@ static void ParseArguments(int argc, const char ** argv, ProgramConfig& config
              	throw runtime_error("Error: invalid register specifier in option");
             }
                 
-         	if (toupper(arg[1]) == 'R') {
-          		value >> *(signed Integer*)&val.m_integer;
-           		addr = MAKE_REGADDR(RT_INTEGER, index);
-           	} else {
-           		double f;
-           		value >> f;
-           		val.m_float.fromfloat(f);
-           		addr = MAKE_REGADDR(RT_FLOAT, index);
-           	}
-      		if (value.fail()) {
-       			throw runtime_error("Error: invalid value for register");
-           	}
-           	val.m_state = RST_FULL;
+            if (toupper(arg[1]) == 'R') {
+                value >> *(signed Integer*)&val.m_integer;
+                addr = MAKE_REGADDR(RT_INTEGER, index);
+            } else {
+                double f;
+                value >> f;
+                val.m_float.fromfloat(f);
+                addr = MAKE_REGADDR(RT_FLOAT, index);
+            }
+            if (value.fail()) {
+                throw runtime_error("Error: invalid value for register");
+            }
+            val.m_state = RST_FULL;
             config.m_regs.push_back(make_pair(addr, val));
         }
     }
@@ -961,124 +967,124 @@ static void PrintException(ostream& out, const exception& e)
 #ifdef ENABLE_COMA
 void ConfigureCOMA(ProgramConfig& config, Config& configfile, LinkConfig& lkconfig) 
 {
-  PSize numProcessors = 0;
+    PSize numProcessors = 0;
 
-  // Get total number of cores:
-  const vector<PSize> placeSizes = 
-    configfile.getIntegerList<PSize>("NumProcessors");
-  for (size_t i = 0; i < placeSizes.size(); ++i) 
-    numProcessors += placeSizes[i];
-  lkconfig.m_nProcMGS = numProcessors;
+    // Get total number of cores:
+    const vector<PSize> placeSizes = 
+        configfile.getIntegerList<PSize>("NumProcessors");
+    for (size_t i = 0; i < placeSizes.size(); ++i) 
+        numProcessors += placeSizes[i];
+    lkconfig.m_nProcMGS = numProcessors;
 
-  if (config.m_interactive)
-    cerr << "Running with " << numProcessors << " cores." << endl;
+    if (config.m_interactive)
+        cerr << "Running with " << numProcessors << " cores." << endl;
 
-  // Get cache and directory configuration:
-  size_t ncache = 
-    configfile.getInteger<size_t>("NumCaches", 
-				  (numProcessors >= 4) ? (numProcessors / 4) : 1);
-  size_t ndir = configfile.getInteger<size_t>("NumDirectories", ncache / 8);
-  lkconfig.m_nLineSize = configfile.getInteger<size_t> ("CacheLineSize", 64);
+    // Get cache and directory configuration:
+    size_t ncache = 
+        configfile.getInteger<size_t>("NumCaches", 
+                                      (numProcessors >= 4) ? (numProcessors / 4) : 1);
+    size_t ndir = configfile.getInteger<size_t>("NumDirectories", ncache / 8);
+    lkconfig.m_nLineSize = configfile.getInteger<size_t> ("CacheLineSize", 64);
   
-  if (lkconfig.m_nProcLink < lkconfig.m_nProcMGS) {
-    cerr << "warning: nProcLink (" 
-	 << lkconfig.m_nProcLink
-	 << ") < NumProcessors, adjusting nProcLink" 
-	 << endl;
-    lkconfig.m_nProcLink = lkconfig.m_nProcMGS;
-  }
-  if (lkconfig.m_nProcLink < ncache) {
-    cerr << "warning: NumCaches (" << ncache
-	 << ") > nProcLink (" 
-	 << lkconfig.m_nProcLink 
-	 << "), adjusting NumCaches" 
-	 << endl;
-    ncache = lkconfig.m_nProcLink;
-  }
-  lkconfig.m_nCache = ncache;
+    if (lkconfig.m_nProcLink < lkconfig.m_nProcMGS) {
+        cerr << "warning: nProcLink (" 
+             << lkconfig.m_nProcLink
+             << ") < NumProcessors, adjusting nProcLink" 
+             << endl;
+        lkconfig.m_nProcLink = lkconfig.m_nProcMGS;
+    }
+    if (lkconfig.m_nProcLink < ncache) {
+        cerr << "warning: NumCaches (" << ncache
+             << ") > nProcLink (" 
+             << lkconfig.m_nProcLink 
+             << "), adjusting NumCaches" 
+             << endl;
+        ncache = lkconfig.m_nProcLink;
+    }
+    lkconfig.m_nCache = ncache;
 
-  if (ncache < ndir) {
-    cerr << "warning: NumDirectories (" 
-	 << ndir 
-	 << ") > NumCaches (" 
-	 << ncache 
-	 << "), adjusting NumDirectories" 
-	 << endl;
-    ndir = ncache;
-  }
-  lkconfig.m_nDirectory = ndir;
+    if (ncache < ndir) {
+        cerr << "warning: NumDirectories (" 
+             << ndir 
+             << ") > NumCaches (" 
+             << ncache 
+             << "), adjusting NumDirectories" 
+             << endl;
+        ndir = ncache;
+    }
+    lkconfig.m_nDirectory = ndir;
 
-  lkconfig.m_nSplitRootNumber = 
-    configfile.getInteger<size_t>("NumSplitRootDirectories", 4); 
-  lkconfig.m_nMemoryChannelNumber = 
-    configfile.getInteger<size_t>("NumMemoryChannels", 
-				  lkconfig.m_nSplitRootNumber);
+    lkconfig.m_nSplitRootNumber = 
+        configfile.getInteger<size_t>("NumSplitRootDirectories", 4); 
+    lkconfig.m_nMemoryChannelNumber = 
+        configfile.getInteger<size_t>("NumMemoryChannels", 
+                                      lkconfig.m_nSplitRootNumber);
 
-  if (config.m_interactive)
-    cerr << "Running with " << ncache << " L2 caches, " 
-	 << ndir << " directories, " 
-	 << lkconfig.m_nSplitRootNumber << " root directories, and "
-	 << lkconfig.m_nMemoryChannelNumber << " DDR channels."
-	 << endl;
+    if (config.m_interactive)
+        cerr << "Running with " << ncache << " L2 caches, " 
+             << ndir << " directories, " 
+             << lkconfig.m_nSplitRootNumber << " root directories, and "
+             << lkconfig.m_nMemoryChannelNumber << " DDR channels."
+             << endl;
 
-  // Check DDR configuration:
+    // Check DDR configuration:
   
-  lkconfig.m_nDDRConfigID = 
-    configfile.getInteger<size_t>("DDRConfiguration", 0);
+    lkconfig.m_nDDRConfigID = 
+        configfile.getInteger<size_t>("DDRConfiguration", 0);
   
-  lkconfig.m_nChannelInterleavingScheme = 
-    configfile.getInteger<size_t>("ChannelInterleavingScheme", 0);
+    lkconfig.m_nChannelInterleavingScheme = 
+        configfile.getInteger<size_t>("ChannelInterleavingScheme", 0);
 
-  if (config.m_interactive)
-    cerr << "Running with DDR configuration with index "
-	 << lkconfig.m_nDDRConfigID << " in XML file; and interleaving scheme "
-	 << lkconfig.m_nChannelInterleavingScheme 
-	 << endl;
+    if (config.m_interactive)
+        cerr << "Running with DDR configuration with index "
+             << lkconfig.m_nDDRConfigID << " in XML file; and interleaving scheme "
+             << lkconfig.m_nChannelInterleavingScheme 
+             << endl;
 
-  // Cache properties:
+    // Cache properties:
   
-  lkconfig.m_nCacheAccessTime = 
-    configfile.getInteger<size_t>("L2CacheDelay", 2);
-  lkconfig.m_nCacheAssociativity = 
-    configfile.getInteger<size_t>("L2CacheAssociativity", 4);
-  lkconfig.m_nCacheSet = 
-    configfile.getInteger<size_t>("L2CacheNumSets", 128);
+    lkconfig.m_nCacheAccessTime = 
+        configfile.getInteger<size_t>("L2CacheDelay", 2);
+    lkconfig.m_nCacheAssociativity = 
+        configfile.getInteger<size_t>("L2CacheAssociativity", 4);
+    lkconfig.m_nCacheSet = 
+        configfile.getInteger<size_t>("L2CacheNumSets", 128);
 
-  if (config.m_interactive)
-    cerr << "L2 caches: associativity = "
-	 << lkconfig.m_nCacheAssociativity
-	 << ", nsets = "
-	 << lkconfig.m_nCacheSet
-	 << " (" 
-	 << (lkconfig.m_nCacheSet * lkconfig.m_nCacheAssociativity 
-	     * lkconfig.m_nLineSize) / 1024 
-	 << "kbyte per L2 cache)" 
-	 << endl;
+    if (config.m_interactive)
+        cerr << "L2 caches: associativity = "
+             << lkconfig.m_nCacheAssociativity
+             << ", nsets = "
+             << lkconfig.m_nCacheSet
+             << " (" 
+             << (lkconfig.m_nCacheSet * lkconfig.m_nCacheAssociativity 
+                 * lkconfig.m_nLineSize) / 1024 
+             << "kbyte per L2 cache)" 
+             << endl;
       
-  lkconfig.m_nInject = configfile.getBoolean("EnableCacheInjection", true);
+    lkconfig.m_nInject = configfile.getBoolean("EnableCacheInjection", true);
 
-  if (config.m_interactive)
-    cerr << "Cache injection is " 
-	 << (lkconfig.m_nInject ? "enabled" : "disabled")
-	 << endl;
+    if (config.m_interactive)
+        cerr << "Cache injection is " 
+             << (lkconfig.m_nInject ? "enabled" : "disabled")
+             << endl;
 
-  size_t corefreq = configfile.getInteger<size_t>("CoreFreq", 1000);
-  size_t memfreq = configfile.getInteger<size_t>("DDRMemoryFreq", 800);
+    size_t corefreq = configfile.getInteger<size_t>("CoreFreq", 1000);
+    size_t memfreq = configfile.getInteger<size_t>("DDRMemoryFreq", 800);
 
-  double ps_per_memcycle = (1./(memfreq*1e6))/1e-12;
-  double ps_per_corecycle = (1./(corefreq*1e6))/1e-12;
+    double ps_per_memcycle = (1./(memfreq*1e6))/1e-12;
+    double ps_per_corecycle = (1./(corefreq*1e6))/1e-12;
 
-  lkconfig.m_nCycleTimeCore = (size_t)ps_per_corecycle;
-  lkconfig.m_nCycleTimeMemory = (size_t)ps_per_memcycle;
+    lkconfig.m_nCycleTimeCore = (size_t)ps_per_corecycle;
+    lkconfig.m_nCycleTimeMemory = (size_t)ps_per_memcycle;
 
-  if (config.m_interactive)
-    cerr << "DDR / Core frequency ratio = " 
-	 << memfreq << '/' << corefreq << endl;
+    if (config.m_interactive)
+        cerr << "DDR / Core frequency ratio = " 
+             << memfreq << '/' << corefreq << endl;
 
-  // FIXME: maybe the following is not used anymore
-  lkconfig.m_nMemorySize = DEFAULT_DUMP_SIZE;
+    // FIXME: maybe the following is not used anymore
+    lkconfig.m_nMemorySize = DEFAULT_DUMP_SIZE;
 
-  lkconfig.m_bConfigDone = true;
+    lkconfig.m_bConfigDone = true;
 
 }
 #endif
@@ -1088,9 +1094,9 @@ void ConfigureCOMA(ProgramConfig& config, Config& configfile, LinkConfig& lkconf
 int mgs_main(int argc, char const** argv)
 #else    
 # ifdef USE_SDL
-extern "C"
+    extern "C"
 # endif
-int main(int argc, char** argv)
+    int main(int argc, char** argv)
 #endif
 {
     try
@@ -1115,10 +1121,10 @@ int main(int argc, char** argv)
             // Interactive mode
             cout << "Microthreaded Alpha System Simulator, version 1.0" << endl;
             cout << "Created by Mike Lankamp at the University of Amsterdam" << endl << endl;
-		}
+        }
 
 #ifdef ENABLE_COMA
-       // finishing parsing config, now wait untile systemc topology is setup
+        // finishing parsing config, now wait untile systemc topology is setup
         sem_post(&thpara.sem_sync);
         sem_wait(&thpara.sem_mgs);
         sem_post(&thpara.sem_sync);
@@ -1146,50 +1152,58 @@ int main(int argc, char** argv)
             {
                 StepSystem(sys, INFINITE_CYCLES);
     			
-    			if (!config.m_quiet)
-    			{
-                    cout.rdbuf(cerr.rdbuf());
-    			    cout << dec
-    			         << config.m_print << sys.GetKernel().GetCycleNo() << " ; "
-                         << sys.GetOp() << " "
-                         << sys.GetFlop() << " ; ";
-    			    sys.PrintRegFileAsyncPortActivity();
-    			    cout << " ; ";
-    			    sys.PrintActiveQueueSize();
-    			    cout << " ; ";
-    			    sys.PrintPipelineIdleTime();
-    			    cout << " ; ";
-    			    sys.PrintPipelineEfficiency();
-                    cout << " ; ";
-                    sys.PrintFamilyCompletions();
-                    cout << " ; ";
+                if (!config.m_quiet)
+                {
+                    cerr << "### begin end-of-simulation statistics" << endl << dec;
+                    cerr << sys.GetKernel().GetCycleNo() << "\t# cycle counter at end of simulation" << endl
+                         << sys.GetOp() << "\t# total executed instructions" << endl
+                         << sys.GetFlop() << "\t# total issued fp instructions" << endl;
+                    sys.PrintRegFileAsyncPortActivity(cerr);
+                    sys.PrintActiveQueueSize(cerr);
+                    sys.PrintPipelineIdleTime(cerr);
+                    sys.PrintPipelineEfficiency(cerr);
+                    sys.PrintFamilyCompletions(cerr);
 #ifdef ENABLE_COMA
-                    cout << LinkMGS::s_oLinkConfig.m_nProcLink 
-			 << " " << LinkMGS::s_oLinkConfig.m_nProcMGS 
-			 << " " << LinkMGS::s_oLinkConfig.m_nCache 
-			 << " " << LinkMGS::s_oLinkConfig.m_nDirectory
-			 << " ; " << g_uMemoryAccessesL 
-			 << " ; " << g_uMemoryAccessesS 
-			 << " ; " << g_uHitCountL 
-			 << " ; " << g_uHitCountS 
-			 << " ; " << g_uTotalL 
-			 << " ; " << g_uTotalS 
-			 << " ; " << g_fLatency 
-			 << " == " << ((double)g_uAccessDelayL)/g_uAccessL 
-			 << " , " << g_uAccessL 
-			 << " ; " << ((double)g_uAccessDelayS)/g_uAccessS 
-			 << " , " << g_uAccessS
-			 << " == " << ((double)g_uConflictDelayL)/g_uConflictL 
-			 << " , " << g_uConflictL 
-			 << " , " << g_uConflictAddL
-			 << " ; " << ((double)g_uConflictDelayS)/g_uConflictS 
-			 << " , " << g_uConflictS 
-			 << " , " << g_uConflictAddS
-			 << " || " << g_uProbingLocalLoad << " ; ";
+                    cout << LinkMGS::s_oLinkConfig.m_nProcLink << "\t# COMA: nProcLink" << endl
+			 << LinkMGS::s_oLinkConfig.m_nProcMGS << "\t# COMA: number of connected cores" << endl
+			 << LinkMGS::s_oLinkConfig.m_nCache << "\t# COMA: number of L2 caches" << endl
+			 << LinkMGS::s_oLinkConfig.m_nDirectory << "\t# COMA: number of first-level directories" << endl
+			 << g_uMemoryAccessesL << "\t# COMA: number of DDR load reqs (total)" << endl
+			 << g_uMemoryAccessesS << "\t# COMA: number of DDR store reqs (total)" << endl
+			 << g_uHitCountL << "\t# COMA: number of L2 cache load hits (total)" << endl
+			 << g_uHitCountS << "\t# COMA: number of L2 cache store hits (total)" << endl
+			 << g_uTotalL 
+                         << "\t# COMA: number of mem. load reqs received by L2 caches from cores (total)" << endl
+			 << g_uTotalS 
+                         << "\t# COMA: number of mem. store reqs received by L2 caches from cores (total)" << endl
+			 << g_fLatency 
+                         << "\t# COMA: accumulated latency of mem. reqs (total, in seconds)" << endl
+			 << ((double)g_uAccessDelayL)/g_uAccessL 
+                         << "\t# COMA: average latency of mem. loads (in cycles)" << endl
+			 << g_uAccessL 
+                         << "\t# COMA: number of mem. load reqs sent from cores (total)" << endl
+			 << ((double)g_uAccessDelayS)/g_uAccessS 
+                         << "\t# COMA: average latency of mem. stores (in cycles)" << endl
+			 << g_uAccessS 
+                         << "\t# COMA: number of mem. store reqs sent from cores (total)" << endl
+			 <<  ((double)g_uConflictDelayL)/g_uConflictL 
+                         << "\t# COMA: average latency of mem. load conflicts (in cycles)" << endl
+			 << g_uConflictL 
+                         << "\t# COMA: number of mem. load conflicts from cores (total)" << endl
+			 << g_uConflictAddL 
+                         << "\t# COMA: number of load conflicts in L2 caches (total)" << endl
+			 << ((double)g_uConflictDelayS)/g_uConflictS 
+                         << "\t# COMA: average latency of mem. store conflicts (in cycles)" << endl
+			 << g_uConflictS 
+                         << "\t# COMA: number of mem. store conflicts from cores (total)" << endl
+			 << g_uConflictAddS 
+                         << "\t# COMA: number of store conflicts in L2 caches (total)" << endl
+			 <<  g_uProbingLocalLoad 
+                         << "\t# COMA: number of L2 hits by reusing invalidated cache lines (total)" << endl;
 #endif
-                    sys.PrintAll();
-    			    cout << endl;
-    			}
+                    sys.PrintAllFamilyCompletions(std::cerr);
+                    cerr << "### end end-of-simulation statistics" << endl;
+                }
 #ifdef ENABLE_COMA
                 // stop the systemc and unlock the signal if it's locked
                 thpara.bterm = true;
@@ -1197,9 +1211,9 @@ int main(int argc, char** argv)
                 sem_wait(&thpara.sem_mgs);
 #endif
 
-    		}
-    		catch (const exception& e)
-    		{
+            }
+            catch (const exception& e)
+            {
                 if (config.m_terminate) 
                 {
                     // We do not want to go to interactive mode,
@@ -1209,17 +1223,17 @@ int main(int argc, char** argv)
                 
                 PrintException(cerr, e);
     		    
-    		    // When we get an exception in non-interactive mode,
-    		    // jump into interactive mode
-        		interactive = true;
-    		}
+                // When we get an exception in non-interactive mode,
+                // jump into interactive mode
+                interactive = true;
+            }
         }
         
         if (interactive)
         {
             // Command loop
             vector<string> prevCommands;
-			cout << endl;
+            cout << endl;
             for (bool quit = false; !quit; )
             {
                 display.CheckEvents();
@@ -1227,82 +1241,82 @@ int main(int argc, char** argv)
                 stringstream prompt;
                 prompt << dec << setw(8) << setfill('0') << right << sys.GetKernel().GetCycleNo() << "> ";
             
-				// Read the command line and split into commands
-				char* line = GetCommandLine(prompt.str());
-				if (line == NULL)
-				{
-				    // End of input
-				    cout << endl;
-				    break;
-				}
+                // Read the command line and split into commands
+                char* line = GetCommandLine(prompt.str());
+                if (line == NULL)
+                {
+                    // End of input
+                    cout << endl;
+                    break;
+                }
 				
-				vector<string> commands = Tokenize(line, ";");
-				if (commands.size() == 0)
-				{
-					// Empty line, use previous command line
-					commands = prevCommands;
-				}
-				prevCommands = commands;
-				free(line);
+                vector<string> commands = Tokenize(line, ";");
+                if (commands.size() == 0)
+                {
+                    // Empty line, use previous command line
+                    commands = prevCommands;
+                }
+                prevCommands = commands;
+                free(line);
 
-				// Execute all commands
-				for (vector<string>::const_iterator command = commands.begin(); command != commands.end() && !quit; ++command)
-				{
-					vector<string> args = Tokenize(Trim(*command), " ");
-					if (args.size() > 0)
-					{
-						// Pop the command from the front
-						string command = args[0];
-						args.erase(args.begin());
+                // Execute all commands
+                for (vector<string>::const_iterator command = commands.begin(); command != commands.end() && !quit; ++command)
+                {
+                    vector<string> args = Tokenize(Trim(*command), " ");
+                    if (args.size() > 0)
+                    {
+                        // Pop the command from the front
+                        string command = args[0];
+                        args.erase(args.begin());
 
-						if (command == "h" || command == "/?" || (command == "help" && args.empty()))
-						{
-							PrintHelp(cout);
-						}
-						else if (command == "r" || command == "run" || command == "s" || command == "step")
-						{
-							// Step of run
-							CycleNo nCycles = INFINITE_CYCLES;
-							if (command[0] == 's')
-							{
-								// Step
-								char* endptr;
-								nCycles = args.empty() ? 1 : max(1UL, strtoul(args[0].c_str(), &endptr, 0));
-							}
+                        if (command == "h" || command == "/?" || (command == "help" && args.empty()))
+                        {
+                            PrintHelp(cout);
+                        }
+                        else if (command == "r" || command == "run" || command == "s" || command == "step")
+                        {
+                            // Step of run
+                            CycleNo nCycles = INFINITE_CYCLES;
+                            if (command[0] == 's')
+                            {
+                                // Step
+                                char* endptr;
+                                nCycles = args.empty() ? 1 : max(1UL, strtoul(args[0].c_str(), &endptr, 0));
+                            }
 
                             try
                             {
                                 StepSystem(sys, nCycles);
-    					    }
-    					    catch (const exception& e)
-    					    {
+                            }
+                            catch (const exception& e)
+                            {
                                 PrintException(cerr, e);
-    					    }
-						}
-						else if (command == "p" || command == "print")
-						{
-							PrintComponents(&sys);
-						}
-						else if (command == "exit" || command == "quit")
-						{
-							cout << "Thank you. Come again!" << endl;
-							quit = true;
-							break;
-						}
-						else if (command == "state")
-						{
-							sys.PrintState(args);
-						}
-						else if (command == "debug")
-						{
-							string state;
-							if (!args.empty())
-							{
-								state = args[0];
-								transform(state.begin(), state.end(), state.begin(), ::toupper);
-							}
+                            }
+                        }
+                        else if (command == "p" || command == "print")
+                        {
+                            PrintComponents(&sys);
+                        }
+                        else if (command == "exit" || command == "quit")
+                        {
+                            cout << "Thank you. Come again!" << endl;
+                            quit = true;
+                            break;
+                        }
+                        else if (command == "state")
+                        {
+                            sys.PrintState(args);
+                        }
+                        else if (command == "debug")
+                        {
+                            string state;
+                            if (!args.empty())
+                            {
+                                state = args[0];
+                                transform(state.begin(), state.end(), state.begin(), ::toupper);
+                            }
 	        
-                                 if (state == "SIM")      sys.ToggleDebugMode(Kernel::DEBUG_SIM);
+                            if (state == "SIM")      sys.ToggleDebugMode(Kernel::DEBUG_SIM);
                             else if (state == "PROG")     sys.ToggleDebugMode(Kernel::DEBUG_PROG);
                             else if (state == "DEADLOCK") sys.ToggleDebugMode(Kernel::DEBUG_DEADLOCK);
                             else if (state == "ALL")      sys.SetDebugMode(-1);
@@ -1315,7 +1329,7 @@ int main(int argc, char** argv)
 			    if (m & Kernel::DEBUG_DEADLOCK) debugStr += " deadlocks";
 			    if (!debugStr.size()) debugStr = " (nothing)";
 			    cout << "Debugging:" << debugStr << endl;
-						}
+                        }
 #ifdef ENABLE_COMA
                         else if (command == "verbose")
                         {
@@ -1419,15 +1433,15 @@ int main(int argc, char** argv)
                                 tracetid(atoi(args[0].c_str()));
                         }
 #endif
-						else
-						{
-							ExecuteCommand(sys, command, args);
-						}
-					}
-				}
-			}
-	    }
-	}
+                        else
+                        {
+                            ExecuteCommand(sys, command, args);
+                        }
+                    }
+                }
+            }
+        }
+    }
     catch (const exception& e)
     {
         PrintException(cerr, e);
