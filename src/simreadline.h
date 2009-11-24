@@ -9,9 +9,12 @@
 #elif defined(HAVE_READLINE_H)
 #include <readline.h>
 #else /* !defined(HAVE_READLINE_H) */
-extern char *readline ();
+extern "C" char *readline ();
 #endif /* !defined(HAVE_READLINE_H) */
+extern "C" {
 char *cmdline = NULL;
+extern int (*rl_event_hook)(void);
+}
 #else /* !defined(HAVE_READLINE_READLINE_H) */
 /* no readline */
 #endif /* HAVE_LIBREADLINE */
@@ -22,9 +25,11 @@ char *cmdline = NULL;
 #elif defined(HAVE_HISTORY_H)
 #include <history.h>
 #else /* !defined(HAVE_HISTORY_H) */
-extern void add_history ();
-extern int write_history ();
-extern int read_history ();
+extern "C" {
+extern void add_history (const char*);
+extern int write_history (const char*);
+extern int read_history (const char*);
+}
 #endif /* defined(HAVE_READLINE_HISTORY_H) */
 /* no history */
 #endif /* HAVE_READLINE_HISTORY */

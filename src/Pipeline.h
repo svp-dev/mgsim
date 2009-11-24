@@ -23,6 +23,7 @@ class ThreadTable;
 class RegisterFile;
 class Network;
 class FPU;
+class Display;
 
 /// A (possibly multi-) register value in the pipeline
 struct PipeValue

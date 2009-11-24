@@ -2,9 +2,8 @@
 #include "config.h"
 #include <stdexcept>
 #include <cassert>
-#ifdef USE_SDL
-#include <SDL.h>
-#endif
+
+namespace Simulator {
 
 Display::Display(const Config& config)
     : m_width(0), m_height(0),
@@ -37,78 +36,57 @@ Display::Display(const Config& config)
 #endif
 }
 
+#ifdef USE_SDL
+
 Display::~Display()
 {
-#ifdef USE_SDL
     if (m_enabled)
-    {
         SDL_Quit();
-    }
-#endif
-}
-
-void Display::Resize(unsigned int w, unsigned int h)
-{
-    m_width  = w;
-    m_height = h;
-    m_framebuffer.resize(m_width * m_height);
-    std::fill(m_framebuffer.begin(), m_framebuffer.end(), 0);
-    
-#ifdef USE_SDL
-    // Try to resize the screen as well
-    ResizeScreen(m_width / m_scalex, m_height / m_scaley);
-    Refresh();
-#endif
 }
 
 void Display::ResizeScreen(unsigned int w, unsigned int h)
 {
-#ifdef USE_SDL
-    if (m_enabled)
-    {
-        float r = (float)h / (float)w;
+    if (!m_enabled)
+        return ;
 
-        // std::cerr << "DEBUG: fb size " << m_width << " " << m_height << std::endl;
-        // std::cerr << "DEBUG: resizescreen " << w << " " << h << std::endl;
-        w = std::min(m_max_screen_w, w); h = w * r; 
-        h = std::min(m_max_screen_h, h); w = h / r;
-        // std::cerr << "DEBUG: after adjust " << w << " " << h << std::endl;
+    float r = (float)h / (float)w;
 
-        m_screen = SDL_SetVideoMode(w, h, 32, SDL_SWSURFACE | SDL_RESIZABLE);
+    // std::cerr << "DEBUG: fb size " << m_width << " " << m_height << std::endl;
+    // std::cerr << "DEBUG: resizescreen " << w << " " << h << std::endl;
+    w = std::min(m_max_screen_w, w); h = w * r; 
+    h = std::min(m_max_screen_h, h); w = h / r;
+    // std::cerr << "DEBUG: after adjust " << w << " " << h << std::endl;
+
+    m_screen = SDL_SetVideoMode(w, h, 32, SDL_SWSURFACE | SDL_RESIZABLE);
         
-        if ((NULL == (m_screen = SDL_SetVideoMode(w, h, 32, SDL_SWSURFACE | SDL_RESIZABLE))) &&
-            (NULL == (m_screen = SDL_SetVideoMode(640, 480, 32, SDL_SWSURFACE | SDL_RESIZABLE))))
-        {
-            std::cerr << "Setting SDL video mode failed: " << SDL_GetError() << std::endl;
-        } 
-        else 
-        {
-            // std::cerr << "DEBUG: new size " << m_screen->w << " " << m_screen->h << std::endl;
-            // std::cerr << "DEBUG: before scale " << m_scalex << " " << m_scaley << std::endl;
-            m_scalex = (float)m_width  / (float)m_screen->w;
-            m_scaley = (float)m_height / (float)m_screen->h;
-            // std::cerr << "DEBUG: after scale " << m_scalex << " " << m_scaley << std::endl;
-            ResetCaption();
-            Refresh();
-        }
+    if ((NULL == (m_screen = SDL_SetVideoMode(w, h, 32, SDL_SWSURFACE | SDL_RESIZABLE))) &&
+        (NULL == (m_screen = SDL_SetVideoMode(640, 480, 32, SDL_SWSURFACE | SDL_RESIZABLE))))
+    {
+        std::cerr << "Setting SDL video mode failed: " << SDL_GetError() << std::endl;
+    } 
+    else 
+    {
+        // std::cerr << "DEBUG: new size " << m_screen->w << " " << m_screen->h << std::endl;
+        // std::cerr << "DEBUG: before scale " << m_scalex << " " << m_scaley << std::endl;
+        m_scalex = (float)m_width  / (float)m_screen->w;
+        m_scaley = (float)m_height / (float)m_screen->h;
+        // std::cerr << "DEBUG: after scale " << m_scalex << " " << m_scaley << std::endl;
+        ResetCaption();
+        Refresh();
     }
-#endif
 }
 
 void Display::ResetCaption()
 {
-#ifdef USE_SDL
     std::stringstream caption;
     caption << "Microgrid Simulator Display (" 
             << m_width << "x" << m_height 
             << "), " << m_refreshDelay << "cpf";
     SDL_WM_SetCaption(caption.str().c_str(), NULL);
-#endif
 }
 
 void Display::Refresh()
 {
-#ifdef USE_SDL
     if (m_screen != NULL)
     {
         if (m_width == 0 || m_height == 0)
@@ -156,95 +134,112 @@ void Display::Refresh()
             SDL_Flip(m_screen);
         }
     }
-#endif
 }
 
-void Display::CheckEvents_()
+void Display::CheckEvents(void)
 {
-#ifdef USE_SDL
-    if (m_enabled)
-    {
-        bool do_resize = false;
-        bool do_close = false;
-        unsigned nh = 0, nw = 0;
+    if (!m_enabled)
+        return ;
 
-        SDL_Event event;
-        while (SDL_PollEvent(&event))
+
+    bool do_resize = false;
+    bool do_close = false;
+    unsigned nh = 0, nw = 0;
+
+    SDL_Event event;
+    while (SDL_PollEvent(&event))
+    {
+        switch (event.type)
         {
-            switch (event.type)
+        case SDL_QUIT:
+            do_close = true;
+            break;
+                
+        case SDL_KEYUP:
+            switch (event.key.keysym.sym) 
             {
-            case SDL_QUIT:
+            case SDLK_ESCAPE:
                 do_close = true;
                 break;
-                
-            case SDL_KEYUP:
-                switch (event.key.keysym.sym) 
-                {
-                case SDLK_ESCAPE:
-                    do_close = true;
-                    break;
-                case SDLK_PAGEDOWN:
-                    m_scalex /= 2.0; m_scaley /= 2.0; do_resize = true;
-                    break;
-                case SDLK_PAGEUP:
-                    m_scalex *= 2.0; m_scaley *= 2.0; do_resize = true;
-                    break;
-                case SDLK_END:
-                    m_scalex *= .9; m_scaley *= .9; do_resize = true;
-                    break;
-                case SDLK_HOME:
-                    m_scalex *= 1.1; m_scaley *= 1.1; do_resize = true;
-                    break;
-                case SDLK_TAB:
-                    m_scalex = m_scaley; do_resize = true;
-                    break;
-                case SDLK_DOWN:
-                    m_refreshDelay += (m_refreshDelay < 1000) ? ((m_refreshDelay < 100) ? 10 : 100) : 1000; 
-                    ResetCaption();
-                    break;
-                case SDLK_UP:
-                    if (m_refreshDelay)
-                        m_refreshDelay -= (m_refreshDelay <= 1000) ? ((m_refreshDelay <= 100) ? ((m_refreshDelay <= 10) ? 1 : 10) : 100) : 1000;
-                    ResetCaption();
-                    break;
-                case SDLK_r:
-                    m_refreshDelay = m_refreshDelay_orig;
-                    m_scalex = m_scalex_orig;
-                    m_scaley = m_scaley_orig;
-                    do_resize = true;
-                    break;
-                default:
-                    // do nothing (yet)
-                    break;
-                }
-                if (do_resize) 
-                {
-                    nw = m_width / m_scalex;
-                    nh = m_height / m_scaley;
-                }
+            case SDLK_PAGEDOWN:
+                m_scalex /= 2.0; m_scaley /= 2.0; do_resize = true;
                 break;
-
-            case SDL_VIDEORESIZE:
+            case SDLK_PAGEUP:
+                m_scalex *= 2.0; m_scaley *= 2.0; do_resize = true;
+                break;
+            case SDLK_END:
+                m_scalex *= .9; m_scaley *= .9; do_resize = true;
+                break;
+            case SDLK_HOME:
+                m_scalex *= 1.1; m_scaley *= 1.1; do_resize = true;
+                break;
+            case SDLK_TAB:
+                m_scalex = m_scaley; do_resize = true;
+                break;
+            case SDLK_DOWN:
+                m_refreshDelay += (m_refreshDelay < 1000) ? ((m_refreshDelay < 100) ? 10 : 100) : 1000; 
+                ResetCaption();
+                break;
+            case SDLK_UP:
+                if (m_refreshDelay)
+                    m_refreshDelay -= (m_refreshDelay <= 1000) ? ((m_refreshDelay <= 100) ? ((m_refreshDelay <= 10) ? 1 : 10) : 100) : 1000;
+                ResetCaption();
+                break;
+            case SDLK_r:
+                m_refreshDelay = m_refreshDelay_orig;
+                m_scalex = m_scalex_orig;
+                m_scaley = m_scaley_orig;
                 do_resize = true;
-                nw = event.resize.w;
-                nh = event.resize.h;
+                break;
+            default:
+                // do nothing (yet)
                 break;
             }
-        }
+            if (do_resize) 
+            {
+                nw = m_width / m_scalex;
+                nh = m_height / m_scaley;
+            }
+            break;
 
-        if (do_close)
-        {
-            // std::cerr << "Graphics output closed by user." << std::endl;
-            m_enabled = false;
-            m_screen  = NULL;
-            SDL_Quit();
+        case SDL_VIDEORESIZE:
+            do_resize = true;
+            nw = event.resize.w;
+            nh = event.resize.h;
+            break;
         }
-        if (do_resize)
-            ResizeScreen(nw, nh);
-        Refresh();
     }
+
+    if (do_close)
+    {
+        // std::cerr << "Graphics output closed by user." << std::endl;
+        m_enabled = false;
+        m_screen  = NULL;
+        SDL_Quit();
+    }
+    if (do_resize)
+        ResizeScreen(nw, nh);
+
+    Refresh();
+}
+
+#endif
+
+
+void Display::Resize(unsigned int w, unsigned int h)
+{
+    m_width  = w;
+    m_height = h;
+    m_framebuffer.resize(m_width * m_height);
+    std::fill(m_framebuffer.begin(), m_framebuffer.end(), 0);
+    
+#ifdef USE_SDL
+    // Try to resize the screen as well
+    ResizeScreen(m_width / m_scalex, m_height / m_scaley);
+    Refresh();
 #endif
 }
+
 
 void Display::Dump(std::ostream& f, unsigned key, const std::string& comment) const
 {
@@ -265,4 +260,6 @@ void Display::Dump(std::ostream& f, unsigned key, const std::string& comment) co
         }
         f << std::endl;
     }
+}
+
 }

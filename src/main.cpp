@@ -33,7 +33,10 @@ const char* semaphore_journal = "/tmp/simx-sem-journal";
 #include <cmath>
 #include <algorithm>
 
+#include <sys/time.h>
 #include <signal.h>
+#include <cstdlib>
+#include <cxxabi.h>
 
 #ifdef USE_SDL
 #include <SDL.h>
@@ -585,26 +588,101 @@ public:
     }
 };
 
-//
-// Gets a command line from an input stream
-//
-static char* GetCommandLine(const string& prompt)
-{
-    char* str = readline(prompt.c_str());
-    if (str != NULL && *str != '\0')
-    {
-        add_history(str);
-    }
-    return str;
-}
+class CommandLineReader {
+    string   m_histfilename;
+    static Display* m_display;
 
-// Return the classname. That's everything after the last ::, if any
-// TODO: This doesn't work as well on *NIX. Fix it.
-static const char* GetClassName(const type_info& info)
+    static int ReadLineHook(void) {
+#ifdef CHECK_DISPLAY_EVENTS
+        if (!m_display) 
+            return 0;
+
+        // readline is annoying: the documentation says the event
+        // hook is called no more than 10 times per second, but
+        // tests show it _can_ be much more often than this. But
+        // we don't want to refresh the display or check events
+        // too often (it's expensive...) So we keep track of time
+        // here as well, and force 10ths of seconds ourselves.
+        
+        static long last_check = 0;
+        
+        struct timeval tv;
+        gettimeofday(&tv, 0);
+        long current = tv.tv_sec * 10 + tv.tv_usec / 100000;
+        if (current - last_check)
+        {
+            m_display->CheckEvents();
+            last_check = current;
+        }
+#endif
+        return 0;
+    }
+
+public:
+    CommandLineReader(Display& d)  {
+        m_display = &d;
+        rl_event_hook = &ReadLineHook;
+#ifdef HAVE_READLINE_HISTORY
+        std::ostringstream os;
+        os << getenv("HOME") << "/.mgsim_history";
+        m_histfilename = os.str();
+        read_history(m_histfilename.c_str());
+#endif
+    }
+
+    ~CommandLineReader() {
+        rl_event_hook = 0;
+        m_display = 0;
+        CheckPointHistory();
+    }
+
+    char* GetCommandLine(const string& prompt)
+    {
+        char* str = readline(prompt.c_str());
+#ifdef HAVE_READLINE_HISTORY
+        if (str != NULL && *str != '\0')
+        {
+            add_history(str);
+        }
+#endif
+        return str;
+    }
+
+    void CheckPointHistory() {
+#ifdef HAVE_READLINE_HISTORY
+        write_history(m_histfilename.c_str());
+#endif
+    }
+};
+
+Display* CommandLineReader::m_display = 0;
+
+static string GetClassName(const type_info& info)
 {
     const char* name = info.name();
-    const char* pos  = strrchr(name, ':');
-    return (pos != NULL) ? pos + 1 : name;
+
+    // __cxa_demangle requires an output buffer 
+    // allocated with malloc(). Provide it.
+    size_t len = 1024;
+    char *buf = (char*)malloc(len);
+    assert(buf != 0);
+
+    int status;
+
+    char *res = abi::__cxa_demangle(name, buf, &len, &status);
+
+    if (res && status == 0)
+    {
+        string ret = res;
+        free(res);
+        return ret;
+    }
+    else
+    {
+        if (res) free(res);
+        else free(buf);
+        return name;
+    }
 }
 
 // Print all components that are a child of root
@@ -1230,15 +1308,15 @@ int mgs_main(int argc, char const** argv)
             // Command loop
             vector<string> prevCommands;
             cout << endl;
+            CommandLineReader clr(display);
+
             for (bool quit = false; !quit; )
             {
-                display.CheckEvents();
-                
                 stringstream prompt;
                 prompt << dec << setw(8) << setfill('0') << right << sys.GetKernel().GetCycleNo() << "> ";
             
                 // Read the command line and split into commands
-                char* line = GetCommandLine(prompt.str());
+                char* line = clr.GetCommandLine(prompt.str());
                 if (line == NULL)
                 {
                     // End of input
@@ -1279,6 +1357,10 @@ int mgs_main(int argc, char const** argv)
                                 char* endptr;
                                 nCycles = args.empty() ? 1 : max(1UL, strtoul(args[0].c_str(), &endptr, 0));
                             }
+
+                            // Flush the history, in case something
+                            // bad happens in StepSystem...
+                            clr.CheckPointHistory();
 
                             try
                             {

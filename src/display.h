@@ -2,12 +2,24 @@
 #define DISPLAY_H
 
 #include "types.h"
+#include "simtypes.h"
 #include <string>
 #include <iostream>
 #include <vector>
 
-class Config;
+#ifndef GRAPHICS_SENSITIVE_COMPILE
+#error "This header is not included where it should."
+#endif
+
+#ifdef USE_SDL
+#include <SDL.h>
+#else
 struct SDL_Surface;
+#endif
+
+class Config;
+
+namespace Simulator {
 
 class Display
 {
@@ -27,7 +39,8 @@ class Display
     Display& operator=(const Display&);
 public:
     Display(const Config& config);
-    ~Display();
+
+    unsigned int GetRefreshDelay(void) const { return m_refreshDelay; }
 
     void PutPixel(unsigned int x, unsigned int y, uint32_t data)
     {
@@ -47,20 +60,26 @@ public:
 
     void Resize(unsigned w, unsigned h); 
     void Dump(std::ostream&, unsigned key, const std::string& comment = std::string()) const;
-    void Refresh();
 
-    void CheckEvents() 
+#ifdef USE_SDL
+    void Refresh();
+    void OnCycle(CycleNo cycle) 
     {
-        static unsigned long counter = 0;
-        if (++counter - m_lastRefresh > m_refreshDelay) 
+        if (cycle - m_lastRefresh > m_refreshDelay) 
         {
-            CheckEvents_();
-            m_lastRefresh = counter;
+            CheckEvents();
+            m_lastRefresh = cycle;
         }
     }           
+    void CheckEvents();
+    ~Display();
+#define CHECK_DISPLAY_EVENTS    
+#endif
+
 protected:
     void ResetCaption();
-    void CheckEvents_();
 };
+
+}
 
 #endif

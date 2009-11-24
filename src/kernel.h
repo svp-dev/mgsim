@@ -9,7 +9,6 @@
 #include <set>
 #include <cassert>
 
-class Display;
 
 namespace Simulator
 {
@@ -23,6 +22,7 @@ class Kernel;
 class Arbitrator;
 class IComponent;
 class IRegister;
+class Display;
 
 /**
  * Enumeration for the phases inside a cycle
