@@ -776,8 +776,6 @@ static void PrintUsage()
         "-q, --quiet              Do not print simulation statistics after run\n" 
         "-i, --interactive        Start the simulator in interactive mode\n"
         "-t, --terminate          Terminate simulator on exception\n"
-        "-p, --print <value>      Print the value before printing the results when\n"
-        "                         done simulating\n"
         "-R<X> <value>            Store the integer value in the specified register\n"
         "-F<X> <value>            Store the FP value in the specified register\n"
         "-L<X> <filename>         Load the contents of the file after the program\n" 
@@ -802,7 +800,6 @@ struct ProgramConfig
     bool               m_interactive;
     bool               m_terminate;
     bool               m_quiet;
-    string             m_print;
     map<string,string> m_overrides;
 	
     vector<pair<RegAddr, RegValue> > m_regs;
@@ -829,12 +826,12 @@ static void ParseArguments(int argc, const char ** argv, ProgramConfig& config
         const string arg = argv[i];
         if (arg[0] != '-')
         {
-            config.m_programFile = arg;
-            if (i != argc - 1)
-            {
-                cerr << "Warning: ignoring options after program file" << endl;
-            }
-            break;
+            if (config.m_programFile != "")
+                cerr << "Warning: program already set ("
+                     << config.m_programFile
+                     << "), ignoring extra arg: " << arg << endl;
+            else 
+                config.m_programFile = arg;
         }
         
         if (arg == "-c" || arg == "--config")      config.m_configFile  = argv[++i];
@@ -842,7 +839,6 @@ static void ParseArguments(int argc, const char ** argv, ProgramConfig& config
         else if (arg == "-t" || arg == "--terminate")   config.m_terminate   = true;
         else if (arg == "-q" || arg == "--quiet")       config.m_quiet       = true;
         else if (arg == "-h" || arg == "--help")        { PrintUsage(); exit(0); }
-        else if (arg == "-p" || arg == "--print")       config.m_print = string(argv[++i]) + " ";
 #ifdef ENABLE_COMA
         else if (arg == "--ddr")        lkconfig.m_sDDRXML = argv[++i];
         else if (arg == "--verbose")        			{lkconfig.m_nDefaultVerbose = atoi(argv[++i]);}
@@ -858,7 +854,7 @@ static void ParseArguments(int argc, const char ** argv, ProgramConfig& config
             if (eq == string::npos) {
                 throw runtime_error("Error: malformed configuration override syntax");
             }
-            string name = arg.substr(0,eq);
+            string name = arg.substr(0, eq);
             transform(name.begin(), name.end(), name.begin(), ::toupper);
             config.m_overrides[name] = arg.substr(eq + 1);
         }

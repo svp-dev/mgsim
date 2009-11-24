@@ -4,31 +4,17 @@
 #include <cassert>
 #ifdef USE_SDL
 #include <SDL.h>
-
-#define FAKE_SDL_GETTICKS
-
-#ifdef FAKE_SDL_GETTICKS
-#ifdef SDL_GetTicks
-#undef SDL_GetTicks
-#endif
-
-static inline unsigned long SDL_GetTicks_(void) 
-{
-    static unsigned long counter = 0;
-    // GetTicks returns milliseconds. We assume
-    // 1000 cycles per millisecond (1Ghz approximate clock rate).
-    return counter += 1000;
-}
-#define SDL_GetTicks SDL_GetTicks_
-#endif
 #endif
 
 Display::Display(const Config& config)
     : m_width(0), m_height(0),
       m_enabled(false),
-      m_scalex(1.0f / std::max(1U, config.getInteger<unsigned int>("GfxHorizScale", 2))),
-      m_scaley(1.0f / std::max(1U, config.getInteger<unsigned int>("GfxVertScale",  2))),
-      m_refreshDelay(1000 * config.getInteger<unsigned int>("GfxRefreshDelay", 30)),
+      m_scalex_orig(1.0f / std::max(1U, config.getInteger<unsigned int>("GfxHorizScale", 2))),
+      m_scalex(m_scalex_orig),
+      m_scaley_orig(1.0f / std::max(1U, config.getInteger<unsigned int>("GfxVertScale",  2))),
+      m_scaley(m_scaley_orig),
+      m_refreshDelay_orig(config.getInteger<unsigned int>("GfxRefreshDelay", 30)),
+      m_refreshDelay(m_refreshDelay_orig),
       m_screen(NULL),
       m_max_screen_h(768), m_max_screen_w(1024)
 {
@@ -102,12 +88,21 @@ void Display::ResizeScreen(unsigned int w, unsigned int h)
             m_scalex = (float)m_width  / (float)m_screen->w;
             m_scaley = (float)m_height / (float)m_screen->h;
             // std::cerr << "DEBUG: after scale " << m_scalex << " " << m_scaley << std::endl;
-            std::stringstream caption;
-            caption << "Microgrid Simulator Display (" << m_width << "x" << m_height << ")";
-            SDL_WM_SetCaption(caption.str().c_str(), NULL);
+            ResetCaption();
             Refresh();
         }
     }
+#endif
+}
+
+void Display::ResetCaption()
+{
+#ifdef USE_SDL
+    std::stringstream caption;
+    caption << "Microgrid Simulator Display (" 
+            << m_width << "x" << m_height 
+            << "), " << m_refreshDelay << "cpf";
+    SDL_WM_SetCaption(caption.str().c_str(), NULL);
 #endif
 }
 
@@ -135,18 +130,10 @@ void Display::Refresh()
             unsigned m_screen_h = m_screen->h, m_screen_w = m_screen->w;
             unsigned m_screen_pitch = m_screen->pitch;
             char* pixels = (char*)m_screen->pixels;
+            Uint8 Rshift = m_screen->format->Rshift,
+                Gshift = m_screen->format->Gshift,
+                Bshift = m_screen->format->Bshift;
             const uint32_t *src = &m_framebuffer[0];
-
-/*
-            std::cerr << "Display refresh:" 
-                      << " scalex = " << m_scalex 
-                      << " scaley = " << m_scaley 
-                      << " screen w = " << m_screen_w 
-                      << " screen h = " << m_screen_h 
-                      << " screen pitch = " << m_screen_pitch 
-                      << " fb pitch = " << m_width
-                      << std::endl; 
-*/
 
             for (dy = 0; dy < m_screen_h; ++dy) 
             {
@@ -157,29 +144,26 @@ void Display::Refresh()
                 for (dx = 0; dx < m_screen_w; ++dx)
                 {
                     unsigned int sx  = dx * m_scalex;
-                    // std::cerr << "Map pixel fb " 
-                    //           << sx << ' ' << sy 
-                    //           << " -> " 
-                    //           << dx << ' ' << dy << std::endl;
-                    dest[dx] = src[sy * m_width + sx];
+                    Uint32 color = src[sy * m_width + sx];
+                    dest[dx] = (((color & 0xff0000) >> 16) << Rshift) 
+                        | (((color & 0x00ff00) >> 8) << Gshift)
+                        | (((color & 0x0000ff)     ) << Bshift);
                 }
             }
                 
             if (SDL_MUSTLOCK(m_screen))
                 SDL_UnlockSurface(m_screen);
             SDL_Flip(m_screen);
-            m_lastRefresh = SDL_GetTicks();
         }
     }
 #endif
 }
 
-void Display::CheckEvents(bool skip_refresh)
+void Display::CheckEvents_()
 {
 #ifdef USE_SDL
     if (m_enabled)
     {
-        bool do_refresh = (SDL_GetTicks() - m_lastRefresh > m_refreshDelay);
         bool do_resize = false;
         bool do_close = false;
         unsigned nh = 0, nw = 0;
@@ -193,10 +177,6 @@ void Display::CheckEvents(bool skip_refresh)
                 do_close = true;
                 break;
                 
-            case SDL_VIDEOEXPOSE:
-                do_refresh = true;
-                break;
-
             case SDL_KEYUP:
                 switch (event.key.keysym.sym) 
                 {
@@ -215,8 +195,23 @@ void Display::CheckEvents(bool skip_refresh)
                 case SDLK_HOME:
                     m_scalex *= 1.1; m_scaley *= 1.1; do_resize = true;
                     break;
-                case SDLK_SPACE:
+                case SDLK_TAB:
                     m_scalex = m_scaley; do_resize = true;
+                    break;
+                case SDLK_DOWN:
+                    m_refreshDelay += (m_refreshDelay < 1000) ? ((m_refreshDelay < 100) ? 10 : 100) : 1000; 
+                    ResetCaption();
+                    break;
+                case SDLK_UP:
+                    if (m_refreshDelay)
+                        m_refreshDelay -= (m_refreshDelay <= 1000) ? ((m_refreshDelay <= 100) ? ((m_refreshDelay <= 10) ? 1 : 10) : 100) : 1000;
+                    ResetCaption();
+                    break;
+                case SDLK_r:
+                    m_refreshDelay = m_refreshDelay_orig;
+                    m_scalex = m_scalex_orig;
+                    m_scaley = m_scaley_orig;
+                    do_resize = true;
                     break;
                 default:
                     // do nothing (yet)
@@ -246,8 +241,7 @@ void Display::CheckEvents(bool skip_refresh)
         }
         if (do_resize)
             ResizeScreen(nw, nh);
-        if (do_refresh)
-            Refresh();
+        Refresh();
     }
 #endif
 }

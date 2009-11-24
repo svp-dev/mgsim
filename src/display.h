@@ -14,8 +14,9 @@ class Display
     unsigned int          m_width, m_height;
     std::vector<uint32_t> m_framebuffer;
     bool                  m_enabled;
-    float                 m_scalex, m_scaley;
-    unsigned int          m_refreshDelay;
+    float                 m_scalex_orig, m_scalex;
+    float                 m_scaley_orig, m_scaley;
+    unsigned int          m_refreshDelay_orig, m_refreshDelay;
     unsigned long         m_lastRefresh;
     SDL_Surface*          m_screen;
     unsigned int          m_max_screen_h, m_max_screen_w;
@@ -47,7 +48,19 @@ public:
     void Resize(unsigned w, unsigned h); 
     void Dump(std::ostream&, unsigned key, const std::string& comment = std::string()) const;
     void Refresh();
-    void CheckEvents(bool skip_refresh = false);
+
+    void CheckEvents() 
+    {
+        static unsigned long counter = 0;
+        if (++counter - m_lastRefresh > m_refreshDelay) 
+        {
+            CheckEvents_();
+            m_lastRefresh = counter;
+        }
+    }           
+protected:
+    void ResetCaption();
+    void CheckEvents_();
 };
 
 #endif
