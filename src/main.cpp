@@ -911,8 +911,7 @@ static void ParseArguments(int argc, const char ** argv, ProgramConfig& config
             else 
                 config.m_programFile = arg;
         }
-        
-        if (arg == "-c" || arg == "--config")      config.m_configFile  = argv[++i];
+        else if (arg == "-c" || arg == "--config")      config.m_configFile  = argv[++i];
         else if (arg == "-i" || arg == "--interactive") config.m_interactive = true;
         else if (arg == "-t" || arg == "--terminate")   config.m_terminate   = true;
         else if (arg == "-q" || arg == "--quiet")       config.m_quiet       = true;
