@@ -22,6 +22,13 @@ AC_PROG_CXX
 AC_PROG_RANLIB
 AC_LIB_READLINE
 
+AC_ARG_ENABLE([profile],
+[AC_HELP_STRING([--enable-profile], [enable profiling during execution (default is disabled)])],
+[], [enable_profile=no])
+if test "x$enable_profile" = "xyes"; then
+   CXXFLAGS="$CXXFLAGS -pg"
+fi
+
 AC_ARG_ENABLE([mtalpha], 
 [AC_HELP_STRING([--disable-mtalpha], [disable support for MT-Alpha compilation (default is try to enable)])],
 [], [enable_mtalpha=yes])
