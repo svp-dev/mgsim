@@ -173,36 +173,39 @@ void SerializeRegister(RegType type, uint64_t value, void* data, size_t size)
     }
 }
 
+#ifdef EMULATE_IEEE754
+
 /**
  * @brief Class for manipulating IEEE-754 values.
  * This class implements function to convert variably-sized IEEE-754 variables
  * into doubles. The raw IEEE-754 data should be stored in an (array of)
- * 64-bit integers.
+ * integers.
  *
+ * @tparam T    type of the integer that stores the data.
  * @tparam Exp  number of bits in the exponent.
  * @tparam Frac number of bits in the fraction.
  */
-template <int Exp, int Frac>
+template <typename T, int Exp, int Frac>
 class IEEE754
 {
     static const int          IEEE754_EXPONENT_BIAS = (1  << (Exp - 1)) - 1;
     static const unsigned int IEEE754_MAX_EXPONENT  = (1U << (Exp - 0)) - 1;
 
     // Reads bits [start, start + num) from the "bigint" at data
-    static unsigned long long GET_BITS(const uint64_t* data, unsigned int start, unsigned int num)
+    static unsigned long long GET_BITS(const T* data, unsigned int start, unsigned int num)
     {
         // Ensure we can store the result
         assert(num <= sizeof(unsigned long long) * 8);
 
-        if ((start + num) <= sizeof(uint64_t) * 8)
+        const unsigned int width = sizeof(T) * 8;
+        if (start + num <= width)
         {
-            uint64_t mask = (1ULL << num) - 1;
+            const T mask = (1ULL << num) - 1;
             return (*data >> start) & mask;
         }
         else
         {
             // Move to the first block
-            unsigned int width = sizeof(*data) * 8;
             data += start / width;
             start = start % width;
             
@@ -212,7 +215,7 @@ class IEEE754
             {
                 // Get number of bits in this block
                 unsigned int n = min(width - start, num);
-                uint64_t mask = ((n < width) ? (1ULL << n) : 0) - 1;
+                T mask = ((n < width) ? (1ULL << n) : 0) - 1;
                 
                 // Read block, shift to the bits we want, mask them, move them to final position
                 x |= ((*data >> start) & mask) << pos;
@@ -227,20 +230,20 @@ class IEEE754
     }
     
     // Copies the value x into the bits [start, start + num)
-    static void SET_BITS(uint64_t* data, unsigned int start, unsigned int num, unsigned long long x)
+    static void SET_BITS(T* data, unsigned int start, unsigned int num, unsigned long long x)
     {
         // Ensure we can store the value
         assert(num <= sizeof(unsigned long long) * 8);
         
-        if ((start + num) <= sizeof(uint64_t) * 8)
+        const unsigned int width = sizeof(T) * 8;
+        if (start + num <= width)
         {
-            uint64_t mask = (1ULL << num) - 1;
-            *data |= (x & mask) << start;
+            const T mask = (1ULL << num) - 1;
+            *data = (*data & ~(mask << start)) | ((x & mask) << start);
         }
         else
         {
             // Move to first block
-            unsigned int width = sizeof(*data) * 8;
             data += start / width;
             start = start % width;
             
@@ -248,7 +251,7 @@ class IEEE754
             {
                 // Get number of bits in this block
                 unsigned int n = min(width - start, num);
-                uint64_t mask = ((n < width) ? (1ULL << n) : 0) - 1;
+                T mask = ((n < width) ? (1ULL << n) : 0) - 1;
                 
                 // Read current data, clear to-be-written area, overwrite with new bits
                 *data = (*data & ~(mask << start)) | ((x & mask) << start);
@@ -262,17 +265,17 @@ class IEEE754
     }
     
     // Tests if all the bits [start, start + num) are zero
-    static bool IS_ZERO_BITS(const uint64_t* data, unsigned int start, unsigned int num)
+    static bool IS_ZERO_BITS(const T* data, unsigned int start, unsigned int num)
     {
-        if ((start + num) <= sizeof(uint64_t) * 8)
+        const unsigned int width = sizeof(T) * 8;
+        if (start + num <= width)
         {
-            uint64_t mask = (1ULL << num) - 1;
-            return (bool)((*data >> start) & mask);
+            T mask = (1ULL << num) - 1;
+            return ((*data >> start) & mask) == 0;
         }
         else
         {
             // Move to the first block
-            unsigned int width = sizeof(*data) * 8;
             data += start / width;
             start = start % width;
             
@@ -280,7 +283,7 @@ class IEEE754
             {
                 // Get number of bits in this block
                 unsigned int n = min(width - start, num);
-                uint64_t mask = ((n < width) ? (1ULL << n) : 0) - 1;
+                T mask = ((n < width) ? (1ULL << n) : 0) - 1;
                 
                 // Read block; shift to the bits we want, mask them, test them
                 if (((*data >> start) & mask) != 0) {
@@ -296,17 +299,17 @@ class IEEE754
     }
     
     // Clears the bits [start, start + num)
-    static void CLEAR_BITS(uint64_t* data, unsigned int start, unsigned int num)
+    static void CLEAR_BITS(T* data, unsigned int start, unsigned int num)
     {
-        if ((start + num) <= sizeof(uint64_t) * 8)
+        const unsigned int width = sizeof(T) * 8;
+        if (start + num <= width)
         {
-            uint64_t mask = (1ULL << num) - 1;
+            T mask = (1ULL << num) - 1;
             *data &= ~(mask << start);
         }
         else
         {
             // Move to the first block
-            unsigned int width = sizeof(*data) * 8;
             data += start / width;
             start = start % width;
             
@@ -314,7 +317,7 @@ class IEEE754
             {
                 // Get number of bits in this block
                 unsigned int n = min(width - start, num);
-                uint64_t mask = ((n < width) ? (1ULL << n) : 0) - 1;
+                T mask = ((n < width) ? (1ULL << n) : 0) - 1;
                 
                 // Clear block
                 *data &= ~(mask << start);
@@ -327,7 +330,7 @@ class IEEE754
     }
 
 public:
-    static double tofloat(const uint64_t* data)
+    static double tofloat(const T* data)
     {
 	    double value = 0.0; // Default to zero
 	    unsigned long long sign     = GET_BITS(data, Frac + Exp, 1);
@@ -365,7 +368,7 @@ public:
 	    return sign ? -value : value;
     }
 
-    static void fromfloat(uint64_t* data, double f)
+    static void fromfloat(T* data, double f)
     {
 	    CLEAR_BITS(data, 0, Frac);
 	    if (f == numeric_limits<double>::infinity()) {
@@ -420,11 +423,12 @@ public:
     }
 };
 
-double Float32 ::tofloat() const     { return IEEE754< 8, 23>::tofloat(&integer); }
-double Float64 ::tofloat() const     { return IEEE754<11, 52>::tofloat(&integer); }
-void   Float32 ::fromfloat(double f) { return IEEE754< 8, 23>::fromfloat(&integer, f); }
-void   Float64 ::fromfloat(double f) { return IEEE754<11, 52>::fromfloat(&integer, f); }
+double Float32 ::tofloat() const     { return IEEE754<uint32_t,  8, 23>::tofloat(&integer); }
+double Float64 ::tofloat() const     { return IEEE754<uint64_t, 11, 52>::tofloat(&integer); }
+void   Float32 ::fromfloat(double f) { return IEEE754<uint32_t,  8, 23>::fromfloat(&integer, f); }
+void   Float64 ::fromfloat(double f) { return IEEE754<uint64_t, 11, 52>::fromfloat(&integer, f); }
 
+#endif // EMULATE_IEEE754
 
 }
 

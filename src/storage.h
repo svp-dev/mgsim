@@ -255,7 +255,7 @@ public:
     bool Push(const T& item)
     {
         assert(m_pushes < m_maxPushes);
-        if (m_maxSize == INFINITE || m_data.size() + m_pushes <= m_maxSize)
+        if (m_maxSize == INFINITE || m_data.size() + m_pushes < m_maxSize)
         {
             COMMIT {
                 m_new[m_pushes] = item;

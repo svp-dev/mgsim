@@ -65,11 +65,19 @@ struct Float32
             unsigned long long exponent:8;
             unsigned long long sign:1;
         };
-        uint64_t integer;
+#ifndef EMULATE_IEEE754
+        float   floating;
+#endif
+        uint32_t integer;
     };
 
+#ifdef EMULATE_IEEE754
 	double tofloat() const;
 	void fromfloat(double f);
+#else
+	double tofloat() const { return floating; }	
+	void fromfloat(double f) { floating = f; }
+#endif
 };
 
 /// 64-bit IEEE-754 float
@@ -81,11 +89,19 @@ struct Float64
             unsigned long long exponent:11;
             unsigned long long sign:1;
         };
+#ifndef EMULATE_IEEE754
+        double   floating;
+#endif
         uint64_t integer;
     };
 
+#ifdef EMULATE_IEEE754
 	double tofloat() const;
 	void fromfloat(double f);
+#else
+	double tofloat() const { return floating; }
+	void fromfloat(double f) { floating = f; }
+#endif
 };
 
 #if TARGET_ARCH == ARCH_ALPHA
