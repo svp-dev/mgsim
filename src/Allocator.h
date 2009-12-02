@@ -100,10 +100,6 @@ public:
     bool SuspendThread(TID tid, MemAddr pc);            // Suspends a thread at the specified PC
     bool KillThread(TID tid);                           // Kills a thread
     
-    uint64_t GetTotalActiveQueueSize() const { return m_totalActiveQueueSize; }
-    uint64_t GetMaxActiveQueueSize() const { return m_maxActiveQueueSize; }
-    uint64_t GetMinActiveQueueSize() const { return m_minActiveQueueSize; }
-    
     bool   SynchronizeFamily(LFID fid, Family& family, ExitCode code);
 	Result AllocateFamily(TID parent, RegIndex reg, LFID* fid, const RegisterBases bases[], Integer place);
     bool   SanitizeFamily(Family& family, bool hasDependency);
@@ -139,7 +135,6 @@ public:
 
     // Component
     Result OnCycle(unsigned int stateIndex);
-    void   UpdateStatistics();
 
     // Helpers
 	TID     GetRegisterType(LFID fid, RegAddr addr, RegClass* group) const;
@@ -183,11 +178,6 @@ private:
 	Pipeline&	  m_pipeline;
 	PlaceInfo&    m_place;
     LPID          m_lpid;
-
-    uint64_t m_activeQueueSize;
-    uint64_t m_totalActiveQueueSize;
-    uint64_t m_maxActiveQueueSize;
-    uint64_t m_minActiveQueueSize;
 
     FamilyList            m_alloc;          ///< This is the queue of families waiting for initial allocation
     Buffer<LFID>          m_creates;        ///< Create queue

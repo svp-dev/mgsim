@@ -136,8 +136,6 @@ TID Allocator::PopActiveThread()
     {   
         tid = m_activeThreads.Front();
         m_activeThreads.Pop();
-        
-        COMMIT{ m_activeQueueSize--; }
     }
     return tid;
 }
@@ -167,11 +165,6 @@ bool Allocator::QueueThreads(ThreadList& list, const ThreadQueue& threads, Threa
             m_threadTable[cur].state = state;
             ++count;
         } while (cur != threads.tail);
-
-        if (state == TST_ACTIVE)
-        {
-            m_activeQueueSize += count;
-        }
     }
     return true;
 }
@@ -1379,13 +1372,6 @@ bool Allocator::AllocateRegisters(LFID fid, ContextType type)
     return false;
 }
 
-void Allocator::UpdateStatistics()
-{
-    m_totalActiveQueueSize += m_activeQueueSize;
-    m_maxActiveQueueSize = max(m_maxActiveQueueSize, m_activeQueueSize);
-    m_minActiveQueueSize = min(m_minActiveQueueSize, m_activeQueueSize);
-}
-
 bool Allocator::OnCachelineLoaded(CID cid)
 {
 	assert(!m_createFID.Empty());
@@ -2000,7 +1986,7 @@ Allocator::Allocator(Processor& parent, const string& name,
 :
     IComponent(&parent, parent.GetKernel(), name, "thread-allocate|family-allocate|family-create|thread-activation|reg-write-queue"),
     m_parent(parent), m_familyTable(familyTable), m_threadTable(threadTable), m_registerFile(registerFile), m_raunit(raunit), m_icache(icache), m_network(network), m_pipeline(pipeline),
-    m_place(place), m_lpid(lpid), m_activeQueueSize(0), m_totalActiveQueueSize(0), m_maxActiveQueueSize(0), m_minActiveQueueSize(UINT64_MAX),
+    m_place(place), m_lpid(lpid),
     m_alloc         (parent.GetKernel(), familyTable),
     m_creates       (parent.GetKernel(), config.getInteger<BufferSize>("LocalCreatesQueueSize",          INFINITE), 3),
     m_registerWrites(parent.GetKernel(), config.getInteger<BufferSize>("RegisterWritesQueueSize",        INFINITE), 2),

@@ -250,24 +250,6 @@ public:
            << amax << "\t# max pipeline efficiency" << endl;
     }
 	
-    void PrintActiveQueueSize(std::ostream& os) const
-    {
-        float    avg    = 0;
-        uint64_t amax   = 0;
-        uint64_t amin   = numeric_limits<uint64_t>::max();
-        CycleNo cycles = m_kernel.GetCycleNo();
-        for (size_t i = 0; i < m_procs.size(); ++i) {
-            float a = (float)m_procs[i]->GetTotalActiveQueueSize() / (float)cycles;
-            amax    = max(amax, m_procs[i]->GetMaxActiveQueueSize() );
-            amin    = min(amin, m_procs[i]->GetMinActiveQueueSize() );
-            avg += a;
-        }
-        avg /= (float)m_procs.size();
-        os << avg << "\t# average active thread queue size per core" << endl
-           << amin << "\t# min active thread queue size per core (overall min)" << endl
-           << amax << "\t# max active thread queue size per core (overall max)" << endl;
-    }
-
     void PrintPipelineIdleTime(std::ostream& os) const
     {
         float    avg    = 0;
@@ -1232,7 +1214,6 @@ int mgs_main(int argc, char const** argv)
                          << sys.GetOp() << "\t# total executed instructions" << endl
                          << sys.GetFlop() << "\t# total issued fp instructions" << endl;
                     sys.PrintRegFileAsyncPortActivity(cerr);
-                    sys.PrintActiveQueueSize(cerr);
                     sys.PrintPipelineIdleTime(cerr);
                     sys.PrintPipelineEfficiency(cerr);
                     sys.PrintFamilyCompletions(cerr);

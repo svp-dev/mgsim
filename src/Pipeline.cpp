@@ -219,23 +219,13 @@ Result Pipeline::OnCycle(unsigned int /*stateIndex*/)
     if (m_nStagesRunnable == 0) {
         // Nothing to do anymore
         m_active.Clear();
+        COMMIT{ m_pipelineIdleTime++; }
         return SUCCESS;
     }
     
-    COMMIT{ m_nStagesRun += m_nStagesRunnable; }
-    
-    m_active.Write(true);
-    return result;
-}
-
-void Pipeline::UpdateStatistics()
-{
-    if (m_nStagesRunnable == 0)
+    COMMIT
     {
-        m_pipelineIdleTime++;
-    }
-    else
-    {
+        m_nStagesRun += m_nStagesRunnable;
         m_pipelineBusyTime++;
         
         if (m_pipelineIdleTime > 0)
@@ -248,6 +238,9 @@ void Pipeline::UpdateStatistics()
             m_pipelineIdleTime = 0;
         }
     }
+    
+    m_active.Write(true);
+    return result;
 }
 
 void Pipeline::Cmd_Help(std::ostream& out, const std::vector<std::string>& /*arguments*/) const

@@ -392,7 +392,6 @@ public:
     ~Pipeline();
 
     Result OnCycle(unsigned int stateIndex);
-    void   UpdateStatistics();
 
     Processor& GetProcessor()  const { return m_parent; }
     

@@ -44,6 +44,12 @@ enum RunState
 	STATE_ABORTED,  ///< The simulation has been aborted.
 };
 
+// Define these methods as macros to allow for optimizations
+#define DebugSimWrite(msg, ...)  do { if ((GetKernel()->GetDebugMode() & Kernel::DEBUG_SIM ) && GetKernel()->GetCyclePhase() == PHASE_COMMIT) DebugSimWrite_((msg), ##__VA_ARGS__); } while(false)
+#define DebugProgWrite(msg, ...) do { if ((GetKernel()->GetDebugMode() & Kernel::DEBUG_PROG) && GetKernel()->GetCyclePhase() == PHASE_COMMIT) DebugProgWrite_((msg), ##__VA_ARGS__); } while(false)
+#define DeadlockWrite(msg, ...)  do { if (GetKernel()->GetDebugMode() & Kernel::DEBUG_DEADLOCK) DeadlockWrite_((msg), ##__VA_ARGS__); } while(false)
+#define OutputWrite(msg, ...)    do { if (GetKernel()->GetCyclePhase() == PHASE_COMMIT) OutputWrite_((msg), ##__VA_ARGS__); } while(false)
+
 /**
  * @brief Component-manager class
  * The kernel class is the manager for all components in the simulation. It advances
@@ -120,7 +126,7 @@ private:
     StorageInfo*    m_activeStorages;    ///< List of storages that need to be updated.
     ArbitratorInfo* m_activeArbitrators; ///< List of arbitrators that need arbitration.
 
-    void UpdateStorages();
+    bool UpdateStorages();
 public:
     Kernel(Display& display);
     ~Kernel();
@@ -292,24 +298,24 @@ public:
      * Writes debug output if and only if the object's kernel's debug more contains at least DEBUG_SIM.
      * @param msg the printf-style format string.
      */
-    void DebugSimWrite(const char* msg, ...) const FORMAT_PRINTF(2,3);
+    void DebugSimWrite_(const char* msg, ...) const FORMAT_PRINTF(2,3);
 
     /**
      * @brief Writes program debug output.
      * Writes debug output if and only if the object's kernel's debug more contains at least DEBUG_PROG.
      * @param msg the printf-style format string.
      */
-    void DebugProgWrite(const char* msg, ...) const FORMAT_PRINTF(2,3);
+    void DebugProgWrite_(const char* msg, ...) const FORMAT_PRINTF(2,3);
 
     /**
      * @brief Writes deadlock debug output.
      * Writes debug output if and only if the object's kernel's debug more contains at least DEBUG_DEADLOCK.
      * @param msg the printf-style format string.
      */
-    void DeadlockWrite(const char* msg, ...) const FORMAT_PRINTF(2,3);
+    void DeadlockWrite_(const char* msg, ...) const FORMAT_PRINTF(2,3);
 
     /// Writes output. @param msg the printf-style format string.
-    void OutputWrite(const char* msg, ...) const FORMAT_PRINTF(2,3);
+    void OutputWrite_(const char* msg, ...) const FORMAT_PRINTF(2,3);
 };
 
 /// Base class for all objects that arbitrate
@@ -363,8 +369,6 @@ public:
 	 */
     virtual Result OnCycle(unsigned int /*stateIndex*/) { return DELAYED; }
     
-    virtual void UpdateStatistics() {}
-
     /**
      * @brief Constructs the component
      * @param parent the parent object.

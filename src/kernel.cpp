@@ -54,82 +54,70 @@ const string Object::GetFQN() const
     return (m_parent != NULL) ? m_parent->GetFQN() + "." + GetName() : GetName();
 }
 
-void Object::OutputWrite(const char* msg, ...) const
+void Object::OutputWrite_(const char* msg, ...) const
 {
-    if (m_kernel->GetCyclePhase() == PHASE_COMMIT)
-    {
-        va_list args;
+    va_list args;
 
-        string name = GetFQN();
-        transform(name.begin(), name.end(), name.begin(), ::toupper);
-        cout << "[" << right << dec << setfill('0') << setw(8) << m_kernel->GetCycleNo() << ":" << name << "] ";
+    string name = GetFQN();
+    transform(name.begin(), name.end(), name.begin(), ::toupper);
+    cout << "[" << right << dec << setfill('0') << setw(8) << m_kernel->GetCycleNo() << ":" << name << "] ";
 
-        va_start(args, msg);
-        vprintf(msg, args);
-        va_end(args);
+    va_start(args, msg);
+    vprintf(msg, args);
+    va_end(args);
         
-        cout << endl;
-    }
+    cout << endl;
 }
 
-void Object::DeadlockWrite(const char* msg, ...) const
+void Object::DeadlockWrite_(const char* msg, ...) const
 {
-    if (m_kernel->GetDebugMode() & Kernel::DEBUG_DEADLOCK)
-    {
-        va_list args;
+    va_list args;
         
-        if (!m_kernel->m_debugging) {
-            const Kernel::ProcessInfo* process = m_kernel->GetActiveProcess(); 
-            cout << endl << process->info->component->GetFQN() << ":" << process->name << ":" << endl;
-            m_kernel->m_debugging = true;
-        }
-
-        string name = GetFQN();
-        transform(name.begin(), name.end(), name.begin(), ::toupper);
-        cout << "[" << right << dec << setfill('0') << setw(8) << m_kernel->GetCycleNo() << ":" << name << "] ";
-
-        va_start(args, msg);
-        vprintf(msg, args);
-        va_end(args);
-
-        cout << endl;
+    if (!m_kernel->m_debugging) {
+        const Kernel::ProcessInfo* process = m_kernel->GetActiveProcess(); 
+        cout << endl << process->info->component->GetFQN() << ":" << process->name << ":" << endl;
+        m_kernel->m_debugging = true;
     }
+
+    string name = GetFQN();
+    transform(name.begin(), name.end(), name.begin(), ::toupper);
+    cout << "[" << right << dec << setfill('0') << setw(8) << m_kernel->GetCycleNo() << ":" << name << "] ";
+
+    va_start(args, msg);
+    vprintf(msg, args);
+    va_end(args);
+
+    cout << endl;
 }
 
-void Object::DebugSimWrite(const char* msg, ...) const
+void Object::DebugSimWrite_(const char* msg, ...) const
 {
-    if ((m_kernel->GetDebugMode() & Kernel::DEBUG_SIM) && m_kernel->GetCyclePhase() == PHASE_COMMIT)
-    {
-        va_list args;
+    va_list args;
 
-        string name = GetFQN();
-        transform(name.begin(), name.end(), name.begin(), ::toupper);
-        cout << "[" << right << dec << setfill('0') << setw(8) << m_kernel->GetCycleNo() << ":" << name << "] ";
+    string name = GetFQN();
+    transform(name.begin(), name.end(), name.begin(), ::toupper);
+    cout << "[" << right << dec << setfill('0') << setw(8) << m_kernel->GetCycleNo() << ":" << name << "] ";
 
-        va_start(args, msg);
-        vprintf(msg, args);
-        va_end(args);
+    va_start(args, msg);
+    vprintf(msg, args);
+    va_end(args);
 
-        cout << endl;
-    }
+    cout << endl;
 }
 
-void Object::DebugProgWrite(const char* msg, ...) const
+void Object::DebugProgWrite_(const char* msg, ...) const
 {
-    if ((m_kernel->GetDebugMode() & Kernel::DEBUG_PROG) && m_kernel->GetCyclePhase() == PHASE_COMMIT)
-    {
-        va_list args;
+    va_list args;
 
-        string name = GetFQN();
-        transform(name.begin(), name.end(), name.begin(), ::toupper);
-        cout << "[" << right << dec << setfill('0') << setw(8) << m_kernel->GetCycleNo() << ":" << name << "] ";
+    string name = GetFQN();
+    transform(name.begin(), name.end(), name.begin(), ::toupper);
+    cout << "[" << right << dec << setfill('0') << setw(8) << m_kernel->GetCycleNo() << ":" << name << "] ";
 
-        va_start(args, msg);
-        vprintf(msg, args);
-        va_end(args);
+    va_start(args, msg);
+    vprintf(msg, args);
+    va_end(args);
 
-        cout << endl;
-    }
+    cout << endl;
 }
 
 //
@@ -233,17 +221,15 @@ RunState Kernel::Step(CycleNo cycles)
 			    }
             }
             
-            // Update statistics
-            for (ComponentList::const_iterator i = m_components.begin(); i != m_components.end(); ++i)
-            {
-                i->component->UpdateStatistics();
-            }      
-
             // Process the requested storage updates
-            UpdateStorages();
-            
-            // Check if, after updating the storages, we have processes to run
-            has_work = (m_activeProcesses != NULL);
+            if (UpdateStorages())
+            {
+                // Check if, after updating the storages, we have processes to run
+                if (m_activeProcesses != NULL)
+                {
+                    idle = false;
+                }
+            }
             
             if (!idle)
             {
@@ -270,14 +256,16 @@ RunState Kernel::Step(CycleNo cycles)
     }
 }
 
-void Kernel::UpdateStorages()
+bool Kernel::UpdateStorages()
 {
+    bool updated = (m_activeStorages != NULL);
     for (StorageInfo *s = m_activeStorages; s != NULL; s = s->next)
     {
         s->storage->Update();
         s->activated = false;
     }
     m_activeStorages = NULL;
+    return updated;
 }        
 
 void Kernel::ActivateProcess(ProcessInfo* process)
