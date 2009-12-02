@@ -4,6 +4,7 @@
 #include "types.h"
 #include "Archures.h"
 #include <string>
+#include <cassert>
 
 namespace Simulator
 {
@@ -114,10 +115,47 @@ struct MultiFloat
         Float64 _64;
     };
 
-    uint64_t toint  (int size) const;
-    double   tofloat(int size) const;
-    void fromint(uint64_t i, int size);
-    void fromfloat(double f, int size);
+    uint64_t toint  (int size) const
+    {
+        switch (size)
+        {
+        case 4: return _32.integer;
+        case 8: return _64.integer;
+        }
+        assert(false);
+        return 0;
+    }
+
+    double   tofloat(int size) const
+    {
+        switch (size)
+        {
+        case 4: return _32.tofloat();
+        case 8: return _64.tofloat();
+        }
+        assert(false);
+        return 0.0f;
+    }
+
+    void fromint(uint64_t i, int size)
+    {
+        switch (size)
+        {
+        case 4: _32.integer = i; break;
+        case 8: _64.integer = i; break;
+        default: assert(0);
+        }
+    }
+    
+    void fromfloat(double f, int size)
+    {
+        switch (size)
+        {
+        case 4: _32.fromfloat(f); break;
+        case 8: _64.fromfloat(f); break;
+        default: assert(0);
+        }
+    }
 };
 
 /// An integer value that can be of different sizes
@@ -129,8 +167,26 @@ struct MultiInteger
         uint64_t _64;
     };
 
-    uint64_t get(int size) const;
-    void set(uint64_t v, int size);
+    uint64_t get(int size) const
+    {
+        switch (size)
+        {
+        case 4: return _32; break;
+        case 8: return _64; break;
+        default: assert(0);
+        }
+        return 0;
+    }
+    void set(uint64_t v, int size)
+    {
+        switch (size)
+        {
+        case 4: _32 = (uint32_t)v; break;
+        case 8: _64 = v; break;
+        default: assert(0);
+        }
+    }
+
     MultiInteger& operator=(uint64_t v) { set(v, sizeof(Integer)); return *this; }
 };
 

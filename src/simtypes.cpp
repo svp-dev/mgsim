@@ -192,105 +192,137 @@ class IEEE754
     static unsigned long long GET_BITS(const uint64_t* data, unsigned int start, unsigned int num)
     {
         // Ensure we can store the result
-        assert(num <= sizeof(unsigned int) * 8);
-        
-        // Move to the first block
-        unsigned int width = sizeof(*data) * 8;
-        data += start / width;
-        start = start % width;
+        assert(num <= sizeof(unsigned long long) * 8);
 
-        unsigned long long x = 0; // Return value
-        unsigned int pos = 0;     // Bit-offset to put new bits
-        while (num > 0)           // While we have bits to read
+        if ((start + num) <= sizeof(uint64_t) * 8)
         {
-            // Get number of bits in this block
-            unsigned int n = min(width - start, num);
-            uint64_t mask = ((n < width) ? (1ULL << n) : 0) - 1;
-            
-            // Read block, shift to the bits we want, mask them, move them to final position
-            x |= ((*data >> start) & mask) << pos;
-            
-            num  -= n;  // We have n bits less to read
-            pos  += n;  // New bits are n bits further in the result
-            start = 0;  // New bits come from the start of the block
-            data++;     // Moving to next block
+            uint64_t mask = (1ULL << num) - 1;
+            return (*data >> start) & mask;
         }
-        return x;
+        else
+        {
+            // Move to the first block
+            unsigned int width = sizeof(*data) * 8;
+            data += start / width;
+            start = start % width;
+            
+            unsigned long long x = 0; // Return value
+            unsigned int pos = 0;     // Bit-offset to put new bits
+            while (num > 0)           // While we have bits to read
+            {
+                // Get number of bits in this block
+                unsigned int n = min(width - start, num);
+                uint64_t mask = ((n < width) ? (1ULL << n) : 0) - 1;
+                
+                // Read block, shift to the bits we want, mask them, move them to final position
+                x |= ((*data >> start) & mask) << pos;
+                
+                num  -= n;  // We have n bits less to read
+                pos  += n;  // New bits are n bits further in the result
+                start = 0;  // New bits come from the start of the block
+                data++;     // Moving to next block
+            }
+            return x;
+        }
     }
     
     // Copies the value x into the bits [start, start + num)
-    static void SET_BITS(uint64_t* data, unsigned int start, unsigned int num, unsigned int x)
+    static void SET_BITS(uint64_t* data, unsigned int start, unsigned int num, unsigned long long x)
     {
         // Ensure we can store the value
-        assert(num <= sizeof(unsigned int) * 8);
+        assert(num <= sizeof(unsigned long long) * 8);
         
-        // Move to first block
-        unsigned int width = sizeof(*data) * 8;
-        data += start / width;
-        start = start % width;
-
-        while (num > 0) // While we have bits to set
+        if ((start + num) <= sizeof(uint64_t) * 8)
         {
-            // Get number of bits in this block
-            unsigned int n = min(width - start, num);
-            uint64_t mask = ((n < width) ? (1ULL << n) : 0) - 1;
+            uint64_t mask = (1ULL << num) - 1;
+            *data |= (x & mask) << start;
+        }
+        else
+        {
+            // Move to first block
+            unsigned int width = sizeof(*data) * 8;
+            data += start / width;
+            start = start % width;
             
-            // Read current data, clear to-be-written area, overwrite with new bits
-            *data = (*data & ~(mask << start)) | ((x & mask) << start);
-            
-            num  -= n;  // We have n bits less to set
-            x   >>= n;  // Shift out the bits we set
-            start = 0;  // Next bits go to the start of the block
-            data++;     // Moving to next block
+            while (num > 0) // While we have bits to set
+            {
+                // Get number of bits in this block
+                unsigned int n = min(width - start, num);
+                uint64_t mask = ((n < width) ? (1ULL << n) : 0) - 1;
+                
+                // Read current data, clear to-be-written area, overwrite with new bits
+                *data = (*data & ~(mask << start)) | ((x & mask) << start);
+                
+                num  -= n;  // We have n bits less to set
+                x   >>= n;  // Shift out the bits we set
+                start = 0;  // Next bits go to the start of the block
+                data++;     // Moving to next block
+            }
         }        
     }
     
     // Tests if all the bits [start, start + num) are zero
     static bool IS_ZERO_BITS(const uint64_t* data, unsigned int start, unsigned int num)
     {
-        // Move to the first block
-        unsigned int width = sizeof(*data) * 8;
-        data += start / width;
-        start = start % width;
-        
-        while (num > 0) // While we have bits to check
+        if ((start + num) <= sizeof(uint64_t) * 8)
         {
-            // Get number of bits in this block
-            unsigned int n = min(width - start, num);
-            uint64_t mask = ((n < width) ? (1ULL << n) : 0) - 1;
-            
-            // Read block; shift to the bits we want, mask them, test them
-            if (((*data >> start) & mask) != 0) {
-                return false;
-            }
-            
-            num  -= n; // We have n bits less to check
-            start = 0; // Next bits come from the start of the block
-            data++;    // Moving to next block
+            uint64_t mask = (1ULL << num) - 1;
+            return (bool)((*data >> start) & mask);
         }
-        return true;
+        else
+        {
+            // Move to the first block
+            unsigned int width = sizeof(*data) * 8;
+            data += start / width;
+            start = start % width;
+            
+            while (num > 0) // While we have bits to check
+            {
+                // Get number of bits in this block
+                unsigned int n = min(width - start, num);
+                uint64_t mask = ((n < width) ? (1ULL << n) : 0) - 1;
+                
+                // Read block; shift to the bits we want, mask them, test them
+                if (((*data >> start) & mask) != 0) {
+                    return false;
+                }
+                
+                num  -= n; // We have n bits less to check
+                start = 0; // Next bits come from the start of the block
+                data++;    // Moving to next block
+            }
+            return true;
+        }
     }
     
     // Clears the bits [start, start + num)
     static void CLEAR_BITS(uint64_t* data, unsigned int start, unsigned int num)
     {
-        // Move to the first block
-        unsigned int width = sizeof(*data) * 8;
-        data += start / width;
-        start = start % width;
-        
-        while (num > 0) // While we have bits to clear
+        if ((start + num) <= sizeof(uint64_t) * 8)
         {
-            // Get number of bits in this block
-            unsigned int n = min(width - start, num);
-            uint64_t mask = ((n < width) ? (1ULL << n) : 0) - 1;
-            
-            // Clear block
+            uint64_t mask = (1ULL << num) - 1;
             *data &= ~(mask << start);
+        }
+        else
+        {
+            // Move to the first block
+            unsigned int width = sizeof(*data) * 8;
+            data += start / width;
+            start = start % width;
             
-            num  -= n; // We have n bits less to clear
-            start = 0; // Next bits come from the start of the block
-            data++;    // Moving to next block
+            while (num > 0) // While we have bits to clear
+            {
+                // Get number of bits in this block
+                unsigned int n = min(width - start, num);
+                uint64_t mask = ((n < width) ? (1ULL << n) : 0) - 1;
+                
+                // Clear block
+                *data &= ~(mask << start);
+                
+                num  -= n; // We have n bits less to clear
+                start = 0; // Next bits come from the start of the block
+                data++;    // Moving to next block
+            }
         }
     }
 
@@ -393,68 +425,6 @@ double Float64 ::tofloat() const     { return IEEE754<11, 52>::tofloat(&integer)
 void   Float32 ::fromfloat(double f) { return IEEE754< 8, 23>::fromfloat(&integer, f); }
 void   Float64 ::fromfloat(double f) { return IEEE754<11, 52>::fromfloat(&integer, f); }
 
-double MultiFloat::tofloat(int size) const
-{
-    switch (size)
-    {
-    case 4: return _32.tofloat();
-    case 8: return _64.tofloat();
-    }
-    assert(false);
-    return 0.0f;
-}
-
-void MultiFloat::fromfloat(double f, int size)
-{
-    switch (size)
-    {
-    case 4: _32.fromfloat(f); break;
-    case 8: _64.fromfloat(f); break;
-    default: assert(0);
-    }
-}
-
-uint64_t MultiFloat::toint(int size) const
-{
-    switch (size)
-    {
-    case 4: return _32.integer;
-    case 8: return _64.integer;
-    }
-    assert(false);
-    return 0;
-}
-
-void MultiFloat::fromint(uint64_t i, int size)
-{
-    switch (size)
-    {
-    case 4: _32.integer = i; break;
-    case 8: _64.integer = i; break;
-    default: assert(0);
-    }
-}
-
-uint64_t MultiInteger::get(int size) const
-{
-    switch (size)
-    {
-    case 4: return _32; break;
-    case 8: return _64; break;
-    default: assert(0);
-    }
-    return 0;
-}
-
-void MultiInteger::set(uint64_t v, int size)
-{
-    switch (size)
-    {
-    case 4: _32 = (uint32_t)v; break;
-    case 8: _64 = v; break;
-    default: assert(0);
-    }
-}
 
 }
 
