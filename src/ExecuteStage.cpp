@@ -268,11 +268,12 @@ void Pipeline::ExecuteStage::ExecDebug(Integer value, Integer stream) const
 
         switch ((stream >> 6) & 0x3)
         {
-            case 0: out << dec << value; break;
-            case 1: out << hex << value; break;
-            case 2: out << dec << (SInteger)value; break;
-            case 3: out << (char)value; break;
+        case 0: out << dec << value; break;
+        case 1: out << hex << value; break;
+        case 2: out << dec << (SInteger)value; break;
+        case 3: out << (char)value; break;
         }
+        out << flush;
 
         if (outstream == 0)
         {
