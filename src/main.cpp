@@ -1143,7 +1143,7 @@ int mgs_main(int argc, char const** argv)
         Config configfile(config.m_configFile, config.m_overrides);
 
         if (config.m_dumpconf)
-            configfile.dumpConfiguration(std::clog);
+            configfile.dumpConfiguration(std::clog, config.m_configFile);
 
 #ifdef ENABLE_COMA
         ConfigureCOMA(config, configfile, LinkMGS::s_oLinkConfig);

@@ -43,7 +43,7 @@ string Config::getString(string name, const string& def) const
     return def;
 }
 
-void Config::dumpConfiguration(ostream& os) const
+void Config::dumpConfiguration(ostream& os, const string& cf) const
 {
     os << "### begin simulator configuration" << endl;
     set<string> seen;
@@ -52,6 +52,7 @@ void Config::dumpConfiguration(ostream& os) const
         seen.insert(p->first);
         os << "# -o " << p->first << "=" << p->second << endl;
     }
+    os << "# (from " << cf << ')' << endl;
     for (ConfigMap::const_iterator p = m_data.begin(); p != m_data.end(); ++p)
         if (seen.find(p->first) == seen.end())
             os << "# -o " << p->first << "=" << p->second << endl;

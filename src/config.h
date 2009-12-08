@@ -80,7 +80,7 @@ public:
 
     std::string getString(std::string name, const std::string& def) const;
 
-    void dumpConfiguration(std::ostream& os) const;
+    void dumpConfiguration(std::ostream& os, const std::string& cf) const;
 
     Config(const std::string& filename, const ConfigMap& overrides);
 };
