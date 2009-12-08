@@ -1,13 +1,13 @@
 <?xml version="1.0" ?>
 <DDR_Interfaces>
-    <interface id="0" name="single channel">
+    <interface id="0" name="ddr3-1600 single channel">
         <channel number="1" mode="0" />
         <timing tAL="0" tCL="11" tCWL="11" tRCD="11" tRP="11" tRAS="28" />
         <device Banks="8" RowBits="15" ColumnBits="10" CellSize="8" DataPath="64" BurstLength="8"/>
         <config Ranks="2" DevicePerRank="8" />
     </interface>
 
-    <interface id="1" name="duel-channel">
+    <interface id="1" name="ddr3-1600 duel-channel">
         <channel number="2" mode="1" />
         <timing tAL="0" tCL="11" tCWL="11" tRCD="11" tRP="11" tRAS="28" />
         <device Banks="8" RowBits="15" ColumnBits="10" CellSize="8" DataPath="64" BurstLength="8"/>
@@ -20,6 +20,21 @@
         <device Banks="8" RowBits="15" ColumnBits="10" CellSize="8" DataPath="64" BurstLength="8"/>
         <config Ranks="2" DevicePerRank="8" />
     </interface>
+
+    <interface id="3" name="ddr3-2400 single-channel">
+        <channel number="1" mode="1" />
+        <timing tAL="0" tCL="11" tCWL="11" tRCD="11" tRP="11" tRAS="34" />
+        <device Banks="8" RowBits="15" ColumnBits="10" CellSize="8" DataPath="64" BurstLength="8"/>
+        <config Ranks="2" DevicePerRank="8" />
+    </interface>
+
+    <interface id="4" name="ddr3-2400 dual-channel">
+        <channel number="2" mode="1" />
+        <timing tAL="0" tCL="11" tCWL="11" tRCD="11" tRP="11" tRAS="34" />
+        <device Banks="8" RowBits="15" ColumnBits="10" CellSize="8" DataPath="64" BurstLength="8"/>
+        <config Ranks="2" DevicePerRank="8" />
+    </interface>
+
 </DDR_Interfaces>
 <DDR_Configurations>
     <configuration id="0">
@@ -34,6 +49,12 @@
     <configuration id="3">
         <interface id="0" />
         <interface id="1" />
+    </configuration>
+    <configuration id="4">
+        <interface id="3" />
+    </configuration>
+    <configuration id="5">
+        <interface id="4" />
     </configuration>
 </DDR_Configurations>
 </shapes>
