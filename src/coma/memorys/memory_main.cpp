@@ -4,6 +4,7 @@
 #include "predef.h"
 #include "topologys.h"
 #include <unistd.h>
+#include <cstdio>
 
 #include "../simlink/mgs_main.h"
 // include linkmgs and th header files, 
@@ -24,15 +25,21 @@ void* thread_proc(void*)
 }
 
 
-//void SimIni()
-//{
-//    SimObj::SetGlobalLog("..\\log\\log");
-//}
+void init_journal_name()
+{
+#ifdef USE_IPC_SEMS
+    static char buf[128];
+    snprintf(buf, sizeof(buf), "%s-%d", semaphore_journal, getuid());
+    semaphore_journal = buf;
+#endif
+}
 
 int sc_main(int argc, char* argv[] )
 {
 	//////////////////////////////////////////////////////////////////////////
 	// create thread for processor simulator
+
+    init_journal_name();
 
 	cerr << "# SCM: starting MGSim thread..." << endl;
 
