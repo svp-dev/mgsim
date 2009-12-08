@@ -8,7 +8,7 @@ using namespace std;
 
 typedef struct __stat_stru_request_t{
     bool                    valid;
-    unsigned __int64        address;    // line address
+    uint64_t        address;    // line address
     unsigned int            type;
     unsigned int            offset;
     unsigned int            size;
@@ -17,7 +17,7 @@ typedef struct __stat_stru_request_t{
 
 typedef struct __stat_stru_line_t{
     unsigned int            index;      // index within the set
-    unsigned __int64        address;    // line address
+    uint64_t        address;    // line address
     unsigned int            state;
     unsigned int            counter;    // only for directory
 } stat_stru_line_t;
@@ -32,7 +32,7 @@ typedef struct __stat_stru_req_latency_t{
     double                      start;
     double                      end;
     double                      latency;
-    unsigned __int64            address;
+    uint64_t            address;
     unsigned int                type;
 //    char                        data[64];   // data segment, only debuging
 } stat_stru_req_latency_t;
@@ -49,7 +49,7 @@ typedef vector<stat_stru_request_t> stat_stru_request_list_t;
 
 typedef unsigned int stat_stru_size_t;
 
-typedef unsigned __int64 stat_stru_address_t;
+typedef uint64_t stat_stru_address_t;
 
 enum STAT_MEMORY_COMP_DEFINITION{
     STAT_MEMORY_COMP_REQUEST_NO,        // total request number so far

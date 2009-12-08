@@ -840,7 +840,8 @@ static void PrintUsage()
         "-F<X> <value>            Store the FP value in the specified register\n"
         "-L<X> <filename>         Load the contents of the file after the program\n" 
         "                         and store the address in the specified register\n" 
-        "-o, --override <n>=<v>   Overrides the configuration option n with value v\n"
+        "-o, --override <n>=<v>   Overrides the configuration option <n> with value <v>\n"
+        "-d, --dumpconf           Dump configuration to standard error prior to program startup\n"
 #ifdef ENABLE_COMA
         "--ddr <file>             Read DDR channel configurations from file\n"
         "--verbose <n>            Set memory verbosity\n" 
@@ -859,6 +860,7 @@ struct ProgramConfig
     string             m_configFile;
     bool               m_interactive;
     bool               m_terminate;
+    bool               m_dumpconf;
     bool               m_quiet;
     map<string,string> m_overrides;
 	
@@ -872,14 +874,15 @@ static void ParseArguments(int argc, const char ** argv, ProgramConfig& config
 #endif
     )
 {
-    config.m_interactive = false;
-    config.m_terminate   = false;
-    config.m_quiet       = false;
-    config.m_configFile  = MGSIM_CONFIG_PATH; 
 #ifdef ENABLE_COMA
-    config.m_ncache      = 0;
-    config.m_ndirectory  = 0xffff;
+    config.m_ncache = 0;
+    config.m_ndirectory = 0xffff;
 #endif
+    config.m_configFile = MGSIM_CONFIG_PATH;
+    config.m_interactive = false;
+    config.m_terminate = false;
+    config.m_dumpconf = false;
+    config.m_quiet = false;
 
     for (int i = 1; i < argc; ++i)
     {
@@ -898,6 +901,7 @@ static void ParseArguments(int argc, const char ** argv, ProgramConfig& config
         else if (arg == "-t" || arg == "--terminate")   config.m_terminate   = true;
         else if (arg == "-q" || arg == "--quiet")       config.m_quiet       = true;
         else if (arg == "-h" || arg == "--help")        { PrintUsage(); exit(0); }
+        else if (arg == "-d" || arg == "--dumpconf")    config.m_dumpconf    = true;
 #ifdef ENABLE_COMA
         else if (arg == "--ddr")        lkconfig.m_sDDRXML = argv[++i];
         else if (arg == "--verbose")        			{lkconfig.m_nDefaultVerbose = atoi(argv[++i]);}
@@ -1031,9 +1035,6 @@ void ConfigureCOMA(ProgramConfig& config, Config& configfile, LinkConfig& lkconf
         numProcessors += placeSizes[i];
     lkconfig.m_nProcMGS = numProcessors;
 
-    if (config.m_interactive)
-        cerr << "Running with " << numProcessors << " cores." << endl;
-
     // Get cache and directory configuration:
     size_t ncache = 
         configfile.getInteger<size_t>("NumCaches", 
@@ -1075,13 +1076,6 @@ void ConfigureCOMA(ProgramConfig& config, Config& configfile, LinkConfig& lkconf
         configfile.getInteger<size_t>("NumMemoryChannels", 
                                       lkconfig.m_nSplitRootNumber);
 
-    if (config.m_interactive)
-        cerr << "Running with " << ncache << " L2 caches, " 
-             << ndir << " directories, " 
-             << lkconfig.m_nSplitRootNumber << " root directories, and "
-             << lkconfig.m_nMemoryChannelNumber << " DDR channels."
-             << endl;
-
     // Check DDR configuration:
   
     lkconfig.m_nDDRConfigID = 
@@ -1089,12 +1083,6 @@ void ConfigureCOMA(ProgramConfig& config, Config& configfile, LinkConfig& lkconf
   
     lkconfig.m_nChannelInterleavingScheme = 
         configfile.getInteger<size_t>("ChannelInterleavingScheme", 0);
-
-    if (config.m_interactive)
-        cerr << "Running with DDR configuration with index "
-             << lkconfig.m_nDDRConfigID << " in XML file; and interleaving scheme "
-             << lkconfig.m_nChannelInterleavingScheme 
-             << endl;
 
     // Cache properties:
   
@@ -1105,23 +1093,7 @@ void ConfigureCOMA(ProgramConfig& config, Config& configfile, LinkConfig& lkconf
     lkconfig.m_nCacheSet = 
         configfile.getInteger<size_t>("L2CacheNumSets", 128);
 
-    if (config.m_interactive)
-        cerr << "L2 caches: associativity = "
-             << lkconfig.m_nCacheAssociativity
-             << ", nsets = "
-             << lkconfig.m_nCacheSet
-             << " (" 
-             << (lkconfig.m_nCacheSet * lkconfig.m_nCacheAssociativity 
-                 * lkconfig.m_nLineSize) / 1024 
-             << "kbyte per L2 cache)" 
-             << endl;
-      
     lkconfig.m_nInject = configfile.getBoolean("EnableCacheInjection", true);
-
-    if (config.m_interactive)
-        cerr << "Cache injection is " 
-             << (lkconfig.m_nInject ? "enabled" : "disabled")
-             << endl;
 
     size_t corefreq = configfile.getInteger<size_t>("CoreFreq", 1000);
     size_t memfreq = configfile.getInteger<size_t>("DDRMemoryFreq", 800);
@@ -1131,10 +1103,6 @@ void ConfigureCOMA(ProgramConfig& config, Config& configfile, LinkConfig& lkconf
 
     lkconfig.m_nCycleTimeCore = (size_t)ps_per_corecycle;
     lkconfig.m_nCycleTimeMemory = (size_t)ps_per_memcycle;
-
-    if (config.m_interactive)
-        cerr << "DDR / Core frequency ratio = " 
-             << memfreq << '/' << corefreq << endl;
 
     // FIXME: maybe the following is not used anymore
     lkconfig.m_nMemorySize = DEFAULT_DUMP_SIZE;
@@ -1164,19 +1132,24 @@ int mgs_main(int argc, char const** argv)
         ParseArguments(argc, (const char**)argv, config);
 #endif
 
-        // Read configuration
-        Config configfile(config.m_configFile, config.m_overrides);
-
-#ifdef ENABLE_COMA
-        ConfigureCOMA(config, configfile, LinkMGS::s_oLinkConfig);
-#endif
-
         if (config.m_interactive)
         {
             // Interactive mode
             cout << "Microthreaded Alpha System Simulator, version 1.0" << endl;
             cout << "Created by Mike Lankamp at the University of Amsterdam" << endl << endl;
         }
+
+        // Read configuration
+        Config configfile(config.m_configFile, config.m_overrides);
+
+        if (config.m_dumpconf)
+            configfile.dumpConfiguration(std::clog);
+
+#ifdef ENABLE_COMA
+        ConfigureCOMA(config, configfile, LinkMGS::s_oLinkConfig);
+        if (config.m_dumpconf)
+            LinkMGS::s_oLinkConfig.dumpConfiguration(std::clog);
+#endif
 
 #ifdef ENABLE_COMA
         // finishing parsing config, now wait untile systemc topology is setup
@@ -1209,17 +1182,17 @@ int mgs_main(int argc, char const** argv)
     			
                 if (!config.m_quiet)
                 {
-                    cerr << "### begin end-of-simulation statistics" << endl << dec;
-                    cerr << sys.GetKernel().GetCycleNo() << "\t# cycle counter at end of simulation" << endl
+                    clog << "### begin end-of-simulation statistics" << endl << dec;
+                    clog << sys.GetKernel().GetCycleNo() << "\t# cycle counter at end of simulation" << endl
                          << sys.GetOp() << "\t# total executed instructions" << endl
                          << sys.GetFlop() << "\t# total issued fp instructions" << endl;
-                    sys.PrintRegFileAsyncPortActivity(cerr);
-                    sys.PrintPipelineIdleTime(cerr);
-                    sys.PrintPipelineEfficiency(cerr);
-                    sys.PrintFamilyCompletions(cerr);
-                    sys.PrintAllFamilyCompletions(std::cerr);
+                    sys.PrintRegFileAsyncPortActivity(clog);
+                    sys.PrintPipelineIdleTime(clog);
+                    sys.PrintPipelineEfficiency(clog);
+                    sys.PrintFamilyCompletions(clog);
+                    sys.PrintAllFamilyCompletions(std::clog);
 #ifdef ENABLE_COMA
-                    cout << LinkMGS::s_oLinkConfig.m_nProcLink << "\t# COMA: nProcLink" << endl
+                    clog << LinkMGS::s_oLinkConfig.m_nProcLink << "\t# COMA: nProcLink" << endl
 			 << LinkMGS::s_oLinkConfig.m_nProcMGS << "\t# COMA: number of connected cores" << endl
 			 << LinkMGS::s_oLinkConfig.m_nCache << "\t# COMA: number of L2 caches" << endl
 			 << LinkMGS::s_oLinkConfig.m_nDirectory << "\t# COMA: number of first-level directories" << endl
@@ -1256,7 +1229,7 @@ int mgs_main(int argc, char const** argv)
 			 <<  g_uProbingLocalLoad 
                          << "\t# COMA: number of L2 hits by reusing invalidated cache lines (total)" << endl;
 #endif
-                    cerr << "### end end-of-simulation statistics" << endl;
+                    clog << "### end end-of-simulation statistics" << endl;
                 }
 #ifdef ENABLE_COMA
                 // stop the systemc and unlock the signal if it's locked
@@ -1453,7 +1426,7 @@ int mgs_main(int argc, char const** argv)
                             else
                             {
                                 char *pend;
-                                monitormemoryaddress((unsigned __int64)strtol(args[0].c_str(), &pend, 0));    // 2FIX_64
+                                monitormemoryaddress((uint64_t)strtol(args[0].c_str(), &pend, 0));    // 2FIX_64
                             }
                         }
                         else if (command == "automonitor")
@@ -1463,7 +1436,7 @@ int mgs_main(int argc, char const** argv)
                             else
                             {
                                 char *pend;
-                                automonitoraddress((unsigned __int64)strtol(args[0].c_str(), &pend, 0));    // 2FIX_64
+                                automonitoraddress((uint64_t)strtol(args[0].c_str(), &pend, 0));    // 2FIX_64
                             }
                         }
                         else if (command == "traceaddr")

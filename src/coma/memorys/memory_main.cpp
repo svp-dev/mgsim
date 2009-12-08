@@ -34,7 +34,7 @@ int sc_main(int argc, char* argv[] )
 	//////////////////////////////////////////////////////////////////////////
 	// create thread for processor simulator
 
-	cerr << "Starting MGSim thread..." << endl;
+	cerr << "# SCM: starting MGSim thread..." << endl;
 
 	// set parameter
 	thpara.argc = argc;
@@ -55,7 +55,7 @@ int sc_main(int argc, char* argv[] )
 	}
 
 	sem_wait(&thpara.sem_sync);
-	cerr << "MGSim thread started, initializing memory..." << endl;
+	cerr << "# SCM: MGSim thread started, initializing memory..." << endl;
 
     if (thpara.bterm)
         return 0;
@@ -74,9 +74,9 @@ int sc_main(int argc, char* argv[] )
 	// simulate both in synchronized steps
 	// systemc setup is done, give the control back to simulator
 
-	cerr << "Memory initialized, control back to simulator..." << endl;
+	cerr << "# SCM: Memory initialized, control back to simulator..." << endl;
 	sem_post(&thpara.sem_mgs);
-    sem_wait(&thpara.sem_sync);
+        sem_wait(&thpara.sem_sync);
 
 
 // only for prefill purpose

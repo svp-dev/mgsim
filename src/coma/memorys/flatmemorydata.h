@@ -23,7 +23,7 @@ private:
 
 public:
     // address will actually starts from aligned address, as XXXXXX00 
-    bool Update(unsigned __int64 startingAddress, unsigned int size, char* data, unsigned char permission = 0)
+    bool Update(unsigned int64_t startingAddress, unsigned int size, char* data, unsigned char permission = 0)
     {
         startingAddress  = (startingAddress >> 2) << 2;
         if (size < 4) 
@@ -71,7 +71,7 @@ public:
     // FetchMemData will read data from certain address, if data not available, it will be generated
     // FetchMemData will automatically generate unavailable data
     // address will actually starts from aligned address, as XXXXXX00
-    bool Fetch(unsigned __int64 startingAddress, unsigned int size, char* data)
+    bool Fetch(unsigned int64_t startingAddress, unsigned int size, char* data)
     {
         startingAddress  = (startingAddress >> 2) << 2;
         if (size < 4) 
@@ -123,7 +123,7 @@ public:
 
     // verify the validness of a piece of data
     // address will actually starts from aligned address, as XXXXXX00 
-    bool Verify(unsigned __int64 startingAddress, unsigned int size, char* data)
+    bool Verify(unsigned int64_t startingAddress, unsigned int size, char* data)
     {
         bool ret = true;
         startingAddress = (startingAddress >> 2) << 2;
@@ -151,7 +151,7 @@ public:
                 {
                     bMatch = true;
                     // compare data
-                    if ( ((unsigned __int32)*((int*)pItem->data) ^ (unsigned __int32)*((int*)(&data[s])) ) != 0)
+                    if ( ((uint32_t)*((int*)pItem->data) ^ (uint32_t)*((int*)(&data[s])) ) != 0)
                     {
                         // data not match
                         cerr << ERR_HEAD_OUTPUT << "data@" << FMT_ADDR(startingAddress+s) << "("<< FMT_WID_DTA((int)(data[s] & 0xff), 2) << " " << FMT_WID_DTA((int)(data[s+1] & 0xff), 2) << " " 

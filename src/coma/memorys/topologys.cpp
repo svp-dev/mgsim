@@ -6,6 +6,7 @@ using namespace MemSim;
 
 TopologyS::TopologyS()
 {
+    clog << "### begin COMA topology initialization" << endl;
     // check something here
     //assert((1<<g_nCacheLineWidth) == CACHE_BIT_MASK_WIDTH*CACHE_REQUEST_ALIGNMENT);
 
@@ -15,12 +16,10 @@ TopologyS::TopologyS()
     // make sure the number of caches is checked
     assert(cf.m_nCache <= cf.m_nProcLink);
 
-    clog << "Simulation on " << cf.m_nProcMGS << "(" << cf.m_nProcLink << ")" << " Processors and " << cf.m_nCache << " L2 Caches." << endl;
-
     // set total token number
     CacheState::SetTotalTokenNum(cf.m_nCache);
 
-    bool bddrdefault = true;
+    bool bddrconf_found = false;
 
     // parse DDR Memory interfaces configurations
     map<int, ddr_interface*>* pddrinterfaces = NULL;
@@ -45,10 +44,16 @@ TopologyS::TopologyS()
                 pddrconfig = &(*iter).second;
                 ddrinterfacecount = pddrconfig->size();
 
-                bddrdefault = false;
+                bddrconf_found = true;
             }
         }
     }
+    if (!bddrconf_found) {
+        cerr << "error: DDR configuration " << cf.m_nDDRConfigID 
+             << " not found in " << cf.m_sDDRXML << endl;
+        exit(1);
+    }
+
 
     // temporary names
     char tempname[MAX_NAME_SIZE];
@@ -135,19 +140,16 @@ TopologyS::TopologyS()
     m_ppBusMem = (BusST**)malloc(cf.m_nSplitRootNumber*sizeof(BusST*));
 #endif
 
-    if (!bddrdefault)
+    int totalchannels = 0;
+    for (unsigned int i=0;i<cf.m_nMemoryChannelNumber;i++)
     {
-        int totalchannels = 0;
-        for (unsigned int i=0;i<cf.m_nMemoryChannelNumber;i++)
-        {
-            int idinterface = (*pddrconfig)[i%ddrinterfacecount];
-            map<int, ddr_interface*>::iterator iter = pddrinterfaces->find(idinterface);
-
-            totalchannels += iter->second->nChannel;
-        }
-
-        clog << "total number of ddr-channels : " << totalchannels << "." << endl;
+        int idinterface = (*pddrconfig)[i%ddrinterfacecount];
+        map<int, ddr_interface*>::iterator iter = pddrinterfaces->find(idinterface);
+        
+        totalchannels += iter->second->nChannel;
     }
+    
+    clog << "total number of ddr-channels : " << totalchannels << "." << endl;
 
 
     m_ppMem = (DDRMemorySys**)malloc(cf.m_nMemoryChannelNumber*sizeof(DDRMemorySys*));
@@ -335,18 +337,13 @@ TopologyS::TopologyS()
    
 #ifndef MEMBUS_CHANNELSWITCH
                 sprintf(tempname, "ddrmem-sp-ch-%d", nsplitrd);
-                if (bddrdefault)
-                    m_ppMem[nsplitrd] = new DDRMemorySys(tempname, m_pmemDataSim);
-                else
-                {
+
                     int idinterface = (*pddrconfig)[nsplitrd%ddrinterfacecount];
                     map<int, ddr_interface*>::iterator iter = pddrinterfaces->find(idinterface);
                     assert(iter != pddrinterfaces->end());
                     ddr_interface* pinter = (*iter).second;
 
                     m_ppMem[nsplitrd] = new DDRMemorySys(tempname, m_pmemDataSim,  pinter->tAL, pinter->tCL, pinter->tCWL, pinter->tRCD, pinter->tRP, pinter->tRAS, pinter->nRankBits, pinter->nBankBits, pinter->nRowBits, pinter->nColumnBits, pinter->nCellSizeBits, pinter->nChannel, pinter->nModeChannel, pinter->nDevicePerRank, pinter->nBurstLength);
-
-                }
 
                 sprintf(tempname, "membus-sp-%d", nsplitrd);
                 m_ppBusMem[nsplitrd] = new BusST(tempname);
@@ -394,10 +391,7 @@ TopologyS::TopologyS()
 
 #ifndef MEMBUS_CHANNELSWITCH
                 sprintf(tempname, "ddrmem-sp-ch-%d", nsplitrd); 
-                if (bddrdefault)
-                    m_ppMem[nsplitrd] = new DDRMemorySys(tempname, m_pmemDataSim);
-                else
-                {
+
                     int idinterface = (*pddrconfig)[nsplitrd%ddrinterfacecount];
                     map<int, ddr_interface*>::iterator iter = pddrinterfaces->find(idinterface);
                     assert(iter != pddrinterfaces->end());
@@ -405,7 +399,6 @@ TopologyS::TopologyS()
 
                     m_ppMem[nsplitrd] = new DDRMemorySys(tempname, m_pmemDataSim,  pinter->tAL, pinter->tCL, pinter->tCWL, pinter->tRCD, pinter->tRP, pinter->tRAS, pinter->nRankBits, pinter->nBankBits, pinter->nRowBits, pinter->nColumnBits, pinter->nCellSizeBits, pinter->nChannel, pinter->nModeChannel, pinter->nDevicePerRank, pinter->nBurstLength);
 
-                }
 //                m_ppMem[nsplitrd] = new DDRMemorySys(tempname, m_pmemDataSim);
 
                 sprintf(tempname, "membus-sp-%d", nsplitrd);
@@ -446,10 +439,7 @@ TopologyS::TopologyS()
 
 #ifndef MEMBUS_CHANNELSWITCH
             sprintf(tempname, "ddrmem-sp-ch-%d", nsplitrd); 
-            if (bddrdefault)
-                m_ppMem[nsplitrd] = new DDRMemorySys(tempname, m_pmemDataSim);
-            else
-            {
+
                 int idinterface = (*pddrconfig)[nsplitrd%ddrinterfacecount];
                 map<int, ddr_interface*>::iterator iter = pddrinterfaces->find(idinterface);
                 assert(iter != pddrinterfaces->end());
@@ -457,8 +447,7 @@ TopologyS::TopologyS()
 
                 m_ppMem[nsplitrd] = new DDRMemorySys(tempname, m_pmemDataSim,  pinter->tAL, pinter->tCL, pinter->tCWL, pinter->tRCD, pinter->tRP, pinter->tRAS, pinter->nRankBits, pinter->nBankBits, pinter->nRowBits, pinter->nColumnBits, pinter->nCellSizeBits, pinter->nChannel, pinter->nModeChannel, pinter->nDevicePerRank, pinter->nBurstLength);
 
-            }
-//                m_ppMem[nsplitrd] = new DDRMemorySys(tempname, m_pmemDataSim);
+
             sprintf(tempname, "membus-sp-%d", nsplitrd);
             m_ppBusMem[nsplitrd] = new BusST(tempname);
 #endif
@@ -497,18 +486,13 @@ TopologyS::TopologyS()
     for (unsigned int i=0;i<cf.m_nMemoryChannelNumber;i++)
     {
         sprintf(tempname, "ddrmem-ch-%d", i); 
-        if (bddrdefault)
-            m_ppMem[i] = new DDRMemorySys(tempname, m_pmemDataSim);
-        else
-        {
+
             int idinterface = (*pddrconfig)[i%ddrinterfacecount];
             map<int, ddr_interface*>::iterator iter = pddrinterfaces->find(idinterface);
             assert(iter != pddrinterfaces->end());
             ddr_interface* pinter = (*iter).second;
 
             m_ppMem[i] = new DDRMemorySys(tempname, m_pmemDataSim,  pinter->tAL, pinter->tCL, pinter->tCWL, pinter->tRCD, pinter->tRP, pinter->tRAS, pinter->nRankBits, pinter->nBankBits, pinter->nRowBits, pinter->nColumnBits, pinter->nCellSizeBits, pinter->nChannel, pinter->nModeChannel, pinter->nDevicePerRank, pinter->nBurstLength);
-
-        }
 
         m_pBSMem->BindSlave(*m_ppMem[i]);
 
@@ -665,6 +649,7 @@ TopologyS::TopologyS()
         //m_ppProcessors[i]->InitializeStatistics(STAT_PROC_COMP_REQ_SENT);
     }
 #endif
+    clog << "### end COMA topology initialization" << endl;
 }
 
 

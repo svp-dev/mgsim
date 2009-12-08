@@ -74,8 +74,8 @@ namespace MemSim{
 
 
 //typedef sc_uint<64> UINT64S;
-typedef long long UINT64S;
-typedef unsigned __int32 UINT32;
+typedef uint64_t UINT64S;
+typedef uint32_t UINT32;
 
 // define changable types
 //typedef unsigned __int64 __address_t;

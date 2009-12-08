@@ -2,12 +2,11 @@
 #define LINKMIKE_H
 #include "../simlink/memorydatacontainer.h"
 #include "../memorys/dcswitch.h"
-#include "stdlib.h"
+#include <cstdlib>
+#include <stdint.h>
 
 #include <vector>
-#include "iostream"
-using namespace std;
-
+#include <iostream>
 
 class LinkConfig
 {
@@ -20,8 +19,8 @@ public:
     unsigned int m_nSplitRootNumber;
     unsigned int m_nMemoryChannelNumber;
     unsigned int m_nChannelInterleavingScheme;
-    unsigned __int64 m_nStartingAddress;
-    unsigned __int64 m_nMemorySize;
+    uint64_t m_nStartingAddress;
+    uint64_t m_nMemorySize;
     unsigned int m_nCacheSet;
     unsigned int m_nCacheAssociativity;
     bool         m_bEager;
@@ -36,11 +35,11 @@ public:
     unsigned int m_nCycleTimeMemory;
 
     //char * m_pMemoryMapFile;
-	char * m_pGlobalLogFile;
+    char * m_pGlobalLogFile;
 
-	bool m_bConfigDone;
-
- LinkConfig() : m_bConfigDone(false) {
+    bool m_bConfigDone;
+    
+LinkConfig() : m_bConfigDone(false) {
         m_nProcLink = 1;
 
         m_nStartingAddress = 0;
@@ -56,6 +55,31 @@ public:
         //m_pMemoryMapFile = NULL;
 	m_pGlobalLogFile = NULL;
     }
+    void dumpConfiguration(std::ostream& os) const
+    {
+#define PC(N) "# " #N << '\t' << m_ ## N << std::endl 
+        os << "### begin COMA configuration" << std::endl
+           << PC(nProcMGS)
+           << PC(nProcLink)
+           << PC(nCache)
+           << PC(nDirectory)
+           << PC(nSplitRootNumber)
+           << PC(nMemoryChannelNumber)
+           << PC(nChannelInterleavingScheme)
+           << PC(sDDRXML)
+           << PC(nDDRConfigID)
+           << PC(nCycleTimeCore)
+           << PC(nCycleTimeMemory)
+           << PC(nCacheAccessTime)
+           << PC(nMemoryAccessTime)
+           << PC(nCacheSet)
+           << PC(nCacheAssociativity)
+           << PC(nLineSize)
+           << PC(nInject)
+           << PC(bEager)
+           << "### end COMA configuration" << std::endl;
+#undef PC
+    };
 };
 
 class LinkMGS
@@ -81,14 +105,14 @@ public:
     }
 
 #ifdef MEM_CACHE_LEVEL_ONE_SNOOP
-    vector<LinkMGS*>    m_vecLinkPeers;
+    std::vector<LinkMGS*>    m_vecLinkPeers;
 #endif
 
-	virtual ~LinkMGS(){}
+    virtual ~LinkMGS(){}
 
     // initiate a request to systemc
     virtual void PutRequest(uint64_t address, bool write, uint64_t size, void* data, unsigned long* ref) = 0;
-    //virtual void PutRequest(unsigned int address, bool write, unsigned int size, void* data, unsigned long* ref){PutRequest((unsigned __int64)address, write, (unsigned int)size, data, ref);};
+    //virtual void PutRequest(unsigned int address, bool write, unsigned int size, void* data, unsigned long* ref){PutRequest((uint64_t)address, write, (unsigned int)size, data, ref);};
 
     // check and get a reply from the systemc
     // NULL means no reply 
@@ -104,14 +128,14 @@ public:
     virtual bool RemoveReply() = 0;
 
 #ifdef MEM_CACHE_LEVEL_ONE_SNOOP
-    void BindPeers(vector<LinkMGS*> vecpeers){m_vecLinkPeers = vecpeers;}
+    void BindPeers(std::vector<LinkMGS*> vecpeers){m_vecLinkPeers = vecpeers;}
 /*    
-    // snoop read will try local first then try L2 
-    virtual bool OnMemorySnoopRead(unsigned __int64 address, void *data, unsigned int size, bool dcache) = 0;
-    // snoop write will try both directly
-    virtual bool OnMemorySnoopWrite(unsigned __int64 address, void *data, unsigned int size) = 0;
-    // snoop ib is from the cache side request
-    virtual bool OnMemorySnoopIB(unsigned __int64 address, void *data, unsigned int size) = 0;
+// snoop read will try local first then try L2 
+virtual bool OnMemorySnoopRead(uint64_t address, void *data, unsigned int size, bool dcache) = 0;
+// snoop write will try both directly
+virtual bool OnMemorySnoopWrite(uint64_t address, void *data, unsigned int size) = 0;
+// snoop ib is from the cache side request
+virtual bool OnMemorySnoopIB(uint64_t address, void *data, unsigned int size) = 0;
 */
     // Set m_pCMLink pointer
     void SetCMLinkPTR(void* cmlink){m_pCMLink = cmlink;}
@@ -128,8 +152,8 @@ protected:
 extern MemoryDataContainer* g_pMemoryDataContainer;
 extern LinkMGS** g_pLinks;
 
-extern ofstream g_osMonitorFile;
-extern unsigned __int64 g_u64MonitorAddress;
+extern std::ofstream g_osMonitorFile;
+extern uint64_t g_u64MonitorAddress;
 
 #include "memstat.h"
 
@@ -137,10 +161,10 @@ extern unsigned __int64 g_u64MonitorAddress;
 void setverboselevel(int nlevel);
 
 // dump the caches and memory into a file
-void dumpcacheandmemory(ofstream& filestream, bool bforce);
+void dumpcacheandmemory(std::ofstream& filestream, bool bforce);
 
 // gather line data for debug
-unsigned int gatherlinevalue(unsigned __int64 addr, char* linedata);
+unsigned int gatherlinevalue(uint64_t addr, char* linedata);
 
 // check the cache and memory consistency
 // return : false if the checking process failed
@@ -157,7 +181,7 @@ void printstatistics(const char* filename);
 
 void startmonitorfile(const char* filename);
 void stopmonitorfile();
-void monitormemoryaddress(unsigned __int64 address);
-void automonitoraddress(unsigned __int64 address);
+void monitormemoryaddress(uint64_t address);
+void automonitoraddress(uint64_t address);
 #endif
 

@@ -55,7 +55,7 @@ namespace Simulator
             else if (s_pMemoryDataContainer != mdc)
             {
                 // inconsistent memory container
-                throw runtime_error("Inconsistent memory container");
+                throw std::runtime_error("Inconsistent memory container");
             }
         }
 
@@ -106,9 +106,9 @@ namespace Simulator
         Processor* GetProcessor(){return m_pProcessor;}
 
 #ifdef MEM_CACHE_LEVEL_ONE_SNOOP
-        bool OnMemorySnoopRead(unsigned __int64 address, void *data, unsigned int size, bool dcache);
-        bool OnMemorySnoopWrite(unsigned __int64 address, void *data, unsigned int size);
-        bool OnMemorySnoopIB(unsigned __int64 address, void* data, unsigned int size);
+        bool OnMemorySnoopRead(uint64_t address, void *data, unsigned int size, bool dcache);
+        bool OnMemorySnoopWrite(uint64_t address, void *data, unsigned int size);
+        bool OnMemorySnoopIB(uint64_t address, void* data, unsigned int size);
 #endif
 
     private:

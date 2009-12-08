@@ -3,7 +3,7 @@
 #include "../memorys/predef.h"
 #include "../simlink/memorydatacontainer.h"
 #include "../memorys/cachel2tok.h"
-#include <stdio.h>
+#include <cstdio>
 
 #define CHECKCM_ERROR_NONE  0
 #define CHECKCM_ERROR_LOCKINGSTATEINCACHE  1
@@ -11,6 +11,8 @@
 #define CHECKCM_ERROR_INCONSISTENCY_SO  3                       // inconsistency with owner
 #define CHECKCM_ERROR_INCONSISTENCY_DOUBLEOWNER  4              // DOUBLE OWNED OR MODIFIED
 #define CHECKCM_ERROR_UNKNOWN  0XFF
+
+using namespace std;
 
 namespace MemSim{
     unsigned int g_uMemoryAccessesL = 0;
@@ -49,7 +51,7 @@ void setverboselevel(int nlevel)
 // function fail if either of the two pointers returned are NULL
 void allocatememorytable(char* &data, char* &state)
 {
-    unsigned __int64 memorysize = LinkMGS::s_oLinkConfig.m_nMemorySize;
+    uint64_t memorysize = LinkMGS::s_oLinkConfig.m_nMemorySize;
     unsigned int linesize = LinkMGS::s_oLinkConfig.m_nLineSize;
 
     if (memorysize%linesize != 0) 
@@ -71,12 +73,12 @@ void allocatememorytable(char* &data, char* &state)
 // 0xff      : failed to get memory data
 // 0x01 bit  : hitonmsb
 // 0x02 bit  : lockonmsb
-unsigned int gatherlinevalue(unsigned __int64 addr, char* linedata)
+unsigned int gatherlinevalue(uint64_t addr, char* linedata)
 {
     unsigned int linesize = LinkMGS::s_oLinkConfig.m_nLineSize;
     unsigned int nlinebit = lg2(linesize);
 
-    unsigned __int64 addrline = addr >> nlinebit << nlinebit;
+    uint64_t addrline = addr >> nlinebit << nlinebit;
 
     if (!MemoryDataContainer::s_pDataContainer->Fetch(addrline, linesize, linedata))
     {
@@ -111,20 +113,20 @@ unsigned int gatherlinevalue(unsigned __int64 addr, char* linedata)
             memcpy(linedata, line->data, linesize);
         }
     }
-    
+
     return ret;
 }
 
 // check only L2 caches
 bool checkcacheandmemory(int& errorcode, char* &pmemdata, char* &pstate, bool bIgnoreLockingStates = false)
 {
-    // first allocate a memory block 
+    // first allocate a memory block
     allocatememorytable(pmemdata, pstate);
 
-    unsigned __int64 memorysize = LinkMGS::s_oLinkConfig.m_nMemorySize;
+    uint64_t memorysize = LinkMGS::s_oLinkConfig.m_nMemorySize;
     unsigned int linesize = LinkMGS::s_oLinkConfig.m_nLineSize;
     unsigned int nlinebit = lg2(linesize);
-    unsigned __int64 startaddress = LinkMGS::s_oLinkConfig.m_nStartingAddress;
+    uint64_t startaddress = LinkMGS::s_oLinkConfig.m_nStartingAddress;
 
     enum CM_STATE{
         CM_STATE_BC,        // data in backing store
@@ -139,7 +141,7 @@ bool checkcacheandmemory(int& errorcode, char* &pmemdata, char* &pstate, bool bI
         return false;
     }
 
-    // copy the data of the memory all together to the allocated space. 
+    // copy the data of the memory all together to the allocated space.
     if (!MemoryDataContainer::s_pDataContainer->Fetch(LinkMGS::s_oLinkConfig.m_nStartingAddress, memorysize, pmemdata))
     {
         cout << "failed to copy data from memory data container." << endl;
@@ -158,7 +160,7 @@ bool checkcacheandmemory(int& errorcode, char* &pmemdata, char* &pstate, bool bI
     unsigned int nsetbit = lg2(nset);
 
     // start checking the caches
-    // any cachelines in locking state will be regarded as an error 
+    // any cachelines in locking state will be regarded as an error
     vector<CacheL2TOK*>::iterator iter;
     for (iter=CacheL2TOK::s_vecPtrCaches.begin();iter!=CacheL2TOK::s_vecPtrCaches.end();iter++)
     {
@@ -179,14 +181,14 @@ bool checkcacheandmemory(int& errorcode, char* &pmemdata, char* &pstate, bool bI
                 __address_t lineaddr = pline->getlineaddress(i, nsetbit);
 
                 // get the offset of this address in the memory table
-                unsigned __int64 taboffset = (lineaddr - startaddress) >> nlinebit;
+                uint64_t taboffset = (lineaddr - startaddress) >> nlinebit;
 
                 // compare the state of the line in cache and in memory table
                 bool berror = false;
 
                 // get the line data and state associated with certain address
                 char* curstate = &pstate[taboffset];
-                char* curdata = &pmemdata[(unsigned __int64)taboffset*linesize];
+                char* curdata = &pmemdata[(uint64_t)taboffset*linesize];
 
                 switch (pline->state)
                 {
@@ -432,13 +434,13 @@ bool checkcacheandmemory(int& errorcode, char* &pmemdata, char* &pstate, bool bI
 // check only L2 caches
 bool checkcacheandmemory(int& errorcode, char* &pmemdata, char* &pstate, bool bIgnoreLockingStates = false)
 {
-    // first allocate a memory block 
+    // first allocate a memory block
     allocatememorytable(pmemdata, pstate);
 
-    unsigned __int64 memorysize = LinkMGS::s_oLinkConfig.m_nMemorySize;
+    uint64_t memorysize = LinkMGS::s_oLinkConfig.m_nMemorySize;
     unsigned int linesize = LinkMGS::s_oLinkConfig.m_nLineSize;
     unsigned int nlinebit = lg2(linesize);
-    unsigned __int64 startaddress = LinkMGS::s_oLinkConfig.m_nStartingAddress;
+    uint64_t startaddress = LinkMGS::s_oLinkConfig.m_nStartingAddress;
 
     enum CM_STATE{
         CM_STATE_BC,        // data in backing store
@@ -453,7 +455,7 @@ bool checkcacheandmemory(int& errorcode, char* &pmemdata, char* &pstate, bool bI
         return false;
     }
 
-    // copy the data of the memory all together to the allocated space. 
+    // copy the data of the memory all together to the allocated space.
     if (!MemoryDataContainer::s_pDataContainer->Fetch(LinkMGS::s_oLinkConfig.m_nStartingAddress, memorysize, pmemdata))
     {
         cout << "failed to copy data from memory data container." << endl;
@@ -472,7 +474,7 @@ bool checkcacheandmemory(int& errorcode, char* &pmemdata, char* &pstate, bool bI
     unsigned int nsetbit = lg2(nset);
 
     // start checking the caches
-    // any cachelines in locking state will be regarded as an error 
+    // any cachelines in locking state will be regarded as an error
     vector<CacheL2ST*>::iterator iter;
     for (iter=CacheL2ST::s_vecPtrCaches.begin();iter!=CacheL2ST::s_vecPtrCaches.end();iter++)
     {
@@ -493,14 +495,14 @@ bool checkcacheandmemory(int& errorcode, char* &pmemdata, char* &pstate, bool bI
                 __address_t lineaddr = pline->getlineaddress(i, nsetbit);
 
                 // get the offset of this address in the memory table
-                unsigned __int64 taboffset = (lineaddr - startaddress) >> nlinebit;
+                uint64_t taboffset = (lineaddr - startaddress) >> nlinebit;
 
                 // compare the state of the line in cache and in memory table
                 bool berror = false;
 
                 // get the line data and state associated with certain address
                 char* curstate = &pstate[taboffset];
-                char* curdata = &pmemdata[(unsigned __int64)taboffset*linesize];
+                char* curdata = &pmemdata[(uint64_t)taboffset*linesize];
 
                 switch (pline->state)
                 {
@@ -623,63 +625,63 @@ bool checkcacheandmemory(int& errorcode, char* &pmemdata, char* &pstate, bool bI
                     break;
 
                 case CacheState::LNREADPENDING:
-					if (bIgnoreLockingStates)
-					{
-						// do something
-					}
-					else
-					{
-						berror = true;
-						errorcode = CHECKCM_ERROR_LOCKINGSTATEINCACHE;
-					}
+                                        if (bIgnoreLockingStates)
+                                        {
+                                                // do something
+                                        }
+                                        else
+                                        {
+                                                berror = true;
+                                                errorcode = CHECKCM_ERROR_LOCKINGSTATEINCACHE;
+                                        }
                     break;
-                    
+
                 case CacheState::LNREADPENDINGI:
-					if (bIgnoreLockingStates)
-					{
-						// do something
-					}
-					else
-					{
-						berror = true;
-						errorcode = CHECKCM_ERROR_LOCKINGSTATEINCACHE;
-					}
+                                        if (bIgnoreLockingStates)
+                                        {
+                                                // do something
+                                        }
+                                        else
+                                        {
+                                                berror = true;
+                                                errorcode = CHECKCM_ERROR_LOCKINGSTATEINCACHE;
+                                        }
                     break;
 
                 case CacheState::LNWRITEPENDINGI:
-					if (bIgnoreLockingStates)
-					{
-						// do something
-					}
-					else
-					{
-						berror = true;
-						errorcode = CHECKCM_ERROR_LOCKINGSTATEINCACHE;
-					}
+                                        if (bIgnoreLockingStates)
+                                        {
+                                                // do something
+                                        }
+                                        else
+                                        {
+                                                berror = true;
+                                                errorcode = CHECKCM_ERROR_LOCKINGSTATEINCACHE;
+                                        }
                     break;
 
                 case CacheState::LNWRITEPENDINGM:
-					if (bIgnoreLockingStates)
-					{
-						// do something
-					}
-					else
-					{
-						berror = true;
-						errorcode = CHECKCM_ERROR_LOCKINGSTATEINCACHE;
-					}
+                                        if (bIgnoreLockingStates)
+                                        {
+                                                // do something
+                                        }
+                                        else
+                                        {
+                                                berror = true;
+                                                errorcode = CHECKCM_ERROR_LOCKINGSTATEINCACHE;
+                                        }
                     break;
 
                 case CacheState::LNWRITEPENDINGE:
-					if (bIgnoreLockingStates)
-					{
-						// do something
-					}
-					else
-					{
-						berror = true;
-						errorcode = CHECKCM_ERROR_LOCKINGSTATEINCACHE;
-					}
+                                        if (bIgnoreLockingStates)
+                                        {
+                                                // do something
+                                        }
+                                        else
+                                        {
+                                                berror = true;
+                                                errorcode = CHECKCM_ERROR_LOCKINGSTATEINCACHE;
+                                        }
                     break;
 
                 default:
@@ -744,21 +746,21 @@ bool checkcacheandmemory()
 // dump only L2 caches
 void dumpcacheandmemory(ofstream& filestream, bool bforce)
 {
-	int errcode=CHECKCM_ERROR_NONE;
-	char* pmemdata;
-	char* pstate;
-	if (checkcacheandmemory(errcode, pmemdata, pstate, bforce))		// the last parameter should be false or empty for normal case. the force option is provided only for debug
-	{
-		if (errcode == CHECKCM_ERROR_NONE)
-			filestream.write(pmemdata, LinkMGS::s_oLinkConfig.m_nMemorySize);
-	}
-	else
-	{
-		cout << "error occurs during consistency check. no file memory and cache consistency." << endl;
-	}
+        int errcode=CHECKCM_ERROR_NONE;
+        char* pmemdata;
+        char* pstate;
+        if (checkcacheandmemory(errcode, pmemdata, pstate, bforce))		// the last parameter should be false or empty for normal case. the force option is provided only for debug
+        {
+                if (errcode == CHECKCM_ERROR_NONE)
+                        filestream.write(pmemdata, LinkMGS::s_oLinkConfig.m_nMemorySize);
+        }
+        else
+        {
+                cout << "error occurs during consistency check. no file memory and cache consistency." << endl;
+        }
 
-	free(pmemdata);
-	free(pstate);
+        free(pmemdata);
+        free(pstate);
 }
 
 void reviewmemorysystem()
@@ -785,9 +787,9 @@ void printstatistics(const char* filename)
 #endif
 
 ofstream g_osMonitorFile;
-unsigned __int64 g_u64MonitorAddress = 0;
+uint64_t g_u64MonitorAddress = 0;
 
-void automonitoraddress(unsigned __int64 address)
+void automonitoraddress(uint64_t address)
 {
     g_u64MonitorAddress = address;
 }
@@ -823,7 +825,7 @@ void stopmonitorfile()
 */
 }
 
-void monitormemoryaddress(unsigned __int64 address)
+void monitormemoryaddress(uint64_t address)
 {
     if (g_osMonitorFile.is_open()&&g_osMonitorFile.good())
         monitoraddress(g_osMonitorFile, address);

@@ -1343,7 +1343,7 @@ void systemprintstatistics(ofstream& statfile)
 //    if (!(g_osMonitorFile.is_open()&&g_osMonitorFile.good()))
 //        return;
 //
-//    unsigned __int64 addr = g_u64MonitorAddress;
+//    unsigned int64_t addr = g_u64MonitorAddress;
 //    //cout << hex << "Address: 0x" << addr << dec << endl;
 //    vector<SimObj*>::iterator iter;
 //    for (iter=g_vSimObjs.begin();iter!=g_vSimObjs.end();iter++)
@@ -1380,7 +1380,7 @@ void AutoMonitorProc()
     if (!(g_osMonitorFile.is_open()&&g_osMonitorFile.good()))
         return;
 
-    unsigned __int64 addr = g_u64MonitorAddress;
+    uint64_t addr = g_u64MonitorAddress;
     //cout << hex << "Address: 0x" << addr << dec << endl;
     vector<SimObj*>::iterator iter;
     for (iter=g_vSimObjs.begin();iter!=g_vSimObjs.end();iter++)
