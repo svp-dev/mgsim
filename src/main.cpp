@@ -162,6 +162,26 @@ public:
         return flop;
     }
 
+    void PrintMemoryStatistics(std::ostream& os) const {
+        uint64_t nr = 0, nrb = 0, nw = 0, nwb = 0;
+
+        for (size_t i = 0; i < m_procs.size(); ++i) {
+            m_procs[i]->CollectMemOpStatistics(nr, nw, nrb, nwb);
+        }
+
+        os << nr << "\t# number of completed load insns." << endl
+           << nrb << "\t# number of bytes loaded by completed loads" << endl
+           << nw << "\t# number of completed store insns." << endl
+           << nwb << "\t# number of bytes stored by completed stores" << endl;
+
+        m_memory->GetMemoryStatistics(nr, nw, nrb, nwb);
+        os << nr << "\t# number of load reqs. from the ext. mem. interface" << endl
+           << nrb << "\t# number of bytes loaded from the ext. mem. interface" << endl
+           << nw << "\t# number of store reqs. to the ext. mem. interface" << endl
+           << nwb << "\t# number of bytes stored to the ext. mem. interface" << endl;
+        
+    }
+
     void PrintState(const vector<string>& arguments) const
     {
         typedef map<string, RunState> StateMap;
@@ -292,6 +312,58 @@ public:
         }
         os << first << "\t# cycle counter at first family completion" << endl
              << last << "\t# cycle counter at last family completion" << endl;
+    }
+
+    void PrintAllStatistics(std::ostream& os) const
+    {
+        os << dec;
+        os << GetKernel().GetCycleNo() << "\t# cycle counter" << endl
+           << GetOp() << "\t# total executed instructions" << endl
+           << GetFlop() << "\t# total issued fp instructions" << endl;
+        PrintMemoryStatistics(os);
+        PrintRegFileAsyncPortActivity(os);
+        PrintPipelineIdleTime(os);
+        PrintPipelineEfficiency(os);
+        PrintFamilyCompletions(os);
+        PrintAllFamilyCompletions(os);
+#ifdef ENABLE_COMA
+        os << LinkMGS::s_oLinkConfig.m_nProcLink << "\t# COMA: nProcLink" << endl
+           << LinkMGS::s_oLinkConfig.m_nProcMGS << "\t# COMA: number of connected cores" << endl
+           << LinkMGS::s_oLinkConfig.m_nCache << "\t# COMA: number of L2 caches" << endl
+           << LinkMGS::s_oLinkConfig.m_nDirectory << "\t# COMA: number of first-level directories" << endl
+           << g_uMemoryAccessesL << "\t# COMA: number of DDR load reqs (total)" << endl
+           << g_uMemoryAccessesS << "\t# COMA: number of DDR store reqs (total)" << endl
+           << g_uHitCountL << "\t# COMA: number of L2 cache load hits (total)" << endl
+           << g_uHitCountS << "\t# COMA: number of L2 cache store hits (total)" << endl
+           << g_uTotalL 
+           << "\t# COMA: number of mem. load reqs received by L2 caches from cores (total)" << endl
+           << g_uTotalS 
+           << "\t# COMA: number of mem. store reqs received by L2 caches from cores (total)" << endl
+           << g_fLatency 
+           << "\t# COMA: accumulated latency of mem. reqs (total, in seconds)" << endl
+           << ((double)g_uAccessDelayL)/g_uAccessL 
+           << "\t# COMA: average latency of mem. loads (in cycles)" << endl
+           << g_uAccessL 
+           << "\t# COMA: number of mem. load reqs sent from cores (total)" << endl
+           << ((double)g_uAccessDelayS)/g_uAccessS 
+           << "\t# COMA: average latency of mem. stores (in cycles)" << endl
+           << g_uAccessS 
+           << "\t# COMA: number of mem. store reqs sent from cores (total)" << endl
+           <<  ((double)g_uConflictDelayL)/g_uConflictL 
+           << "\t# COMA: average latency of mem. load conflicts (in cycles)" << endl
+           << g_uConflictL 
+           << "\t# COMA: number of mem. load conflicts from cores (total)" << endl
+           << g_uConflictAddL 
+           << "\t# COMA: number of load conflicts in L2 caches (total)" << endl
+           << ((double)g_uConflictDelayS)/g_uConflictS 
+           << "\t# COMA: average latency of mem. store conflicts (in cycles)" << endl
+           << g_uConflictS 
+           << "\t# COMA: number of mem. store conflicts from cores (total)" << endl
+           << g_uConflictAddS 
+           << "\t# COMA: number of store conflicts in L2 caches (total)" << endl
+           <<  g_uProbingLocalLoad 
+           << "\t# COMA: number of L2 hits by reusing invalidated cache lines (total)" << endl;
+#endif
     }
 
     const Kernel& GetKernel() const { return m_kernel; }
@@ -1182,53 +1254,8 @@ int mgs_main(int argc, char const** argv)
     			
                 if (!config.m_quiet)
                 {
-                    clog << "### begin end-of-simulation statistics" << endl << dec;
-                    clog << sys.GetKernel().GetCycleNo() << "\t# cycle counter at end of simulation" << endl
-                         << sys.GetOp() << "\t# total executed instructions" << endl
-                         << sys.GetFlop() << "\t# total issued fp instructions" << endl;
-                    sys.PrintRegFileAsyncPortActivity(clog);
-                    sys.PrintPipelineIdleTime(clog);
-                    sys.PrintPipelineEfficiency(clog);
-                    sys.PrintFamilyCompletions(clog);
-                    sys.PrintAllFamilyCompletions(std::clog);
-#ifdef ENABLE_COMA
-                    clog << LinkMGS::s_oLinkConfig.m_nProcLink << "\t# COMA: nProcLink" << endl
-			 << LinkMGS::s_oLinkConfig.m_nProcMGS << "\t# COMA: number of connected cores" << endl
-			 << LinkMGS::s_oLinkConfig.m_nCache << "\t# COMA: number of L2 caches" << endl
-			 << LinkMGS::s_oLinkConfig.m_nDirectory << "\t# COMA: number of first-level directories" << endl
-			 << g_uMemoryAccessesL << "\t# COMA: number of DDR load reqs (total)" << endl
-			 << g_uMemoryAccessesS << "\t# COMA: number of DDR store reqs (total)" << endl
-			 << g_uHitCountL << "\t# COMA: number of L2 cache load hits (total)" << endl
-			 << g_uHitCountS << "\t# COMA: number of L2 cache store hits (total)" << endl
-			 << g_uTotalL 
-                         << "\t# COMA: number of mem. load reqs received by L2 caches from cores (total)" << endl
-			 << g_uTotalS 
-                         << "\t# COMA: number of mem. store reqs received by L2 caches from cores (total)" << endl
-			 << g_fLatency 
-                         << "\t# COMA: accumulated latency of mem. reqs (total, in seconds)" << endl
-			 << ((double)g_uAccessDelayL)/g_uAccessL 
-                         << "\t# COMA: average latency of mem. loads (in cycles)" << endl
-			 << g_uAccessL 
-                         << "\t# COMA: number of mem. load reqs sent from cores (total)" << endl
-			 << ((double)g_uAccessDelayS)/g_uAccessS 
-                         << "\t# COMA: average latency of mem. stores (in cycles)" << endl
-			 << g_uAccessS 
-                         << "\t# COMA: number of mem. store reqs sent from cores (total)" << endl
-			 <<  ((double)g_uConflictDelayL)/g_uConflictL 
-                         << "\t# COMA: average latency of mem. load conflicts (in cycles)" << endl
-			 << g_uConflictL 
-                         << "\t# COMA: number of mem. load conflicts from cores (total)" << endl
-			 << g_uConflictAddL 
-                         << "\t# COMA: number of load conflicts in L2 caches (total)" << endl
-			 << ((double)g_uConflictDelayS)/g_uConflictS 
-                         << "\t# COMA: average latency of mem. store conflicts (in cycles)" << endl
-			 << g_uConflictS 
-                         << "\t# COMA: number of mem. store conflicts from cores (total)" << endl
-			 << g_uConflictAddS 
-                         << "\t# COMA: number of store conflicts in L2 caches (total)" << endl
-			 <<  g_uProbingLocalLoad 
-                         << "\t# COMA: number of L2 hits by reusing invalidated cache lines (total)" << endl;
-#endif
+                    clog << "### begin end-of-simulation statistics" << endl;
+                    sys.PrintAllStatistics(clog);
                     clog << "### end end-of-simulation statistics" << endl;
                 }
 #ifdef ENABLE_COMA
@@ -1338,6 +1365,10 @@ int mgs_main(int argc, char const** argv)
                         {
                             sys.PrintState(args);
                         }
+                        else if (command == "stat")
+                        {
+                            sys.PrintAllStatistics(std::cout);
+                        }
                         else if (command == "debug")
                         {
                             string state;
@@ -1394,7 +1425,7 @@ int mgs_main(int argc, char const** argv)
                             reviewmemorysystem();
                         }
 #ifdef MEM_MODULE_STATISTICS
-                        else if (command == "stat")
+                        else if (command == "statmem")
                         {
                             if (args.empty())
                             {

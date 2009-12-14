@@ -195,7 +195,7 @@ void BankedMemory::Read(MemAddr address, void* data, MemSize size)
 
 void BankedMemory::Write(MemAddr address, const void* data, MemSize size)
 {
-	return VirtualMemory::Write(address, data, size);
+    return VirtualMemory::Write(address, data, size);
 }
 
 bool BankedMemory::CheckPermissions(MemAddr address, MemSize size, int access) const
@@ -250,10 +250,12 @@ Result BankedMemory::OnCycle(unsigned int stateIndex)
                     if (!request.callback->OnMemoryWriteCompleted(request.data.tag)) {
                         return FAILED;
                     }
+                    COMMIT { ++m_nwrites; m_nwrite_bytes += bank.request.data.size; }
                 } else {
                     if (!request.callback->OnMemoryReadCompleted(request.data)) {
                         return FAILED;
                     }
+                    COMMIT { ++m_nreads; m_nread_bytes += bank.request.data.size; }
                 }
             }
             queue.Pop();
@@ -319,7 +321,11 @@ BankedMemory::BankedMemory(Object* parent, Kernel& kernel, const std::string& na
     m_baseRequestTime(config.getInteger<CycleNo>   ("MemoryBaseRequestTime", 1)),
     m_timePerLine    (config.getInteger<CycleNo>   ("MemoryTimePerLine", 1)),
     m_sizeOfLine     (config.getInteger<size_t>    ("MemorySizeOfLine", 8)),
-    m_cachelineSize  (config.getInteger<size_t>    ("CacheLineSize", 64))
+    m_cachelineSize  (config.getInteger<size_t>    ("CacheLineSize", 64)),
+    m_nreads         (0),
+    m_nread_bytes    (0),
+    m_nwrites        (0),
+    m_nwrite_bytes   (0)
 {
     const BufferSize buffersize = config.getInteger<BufferSize>("MemoryBufferSize", INFINITE);
     

@@ -247,6 +247,62 @@ Integer Processor::GetProfileWord(unsigned int i) const
         }
         return flops;
     }
+
+    case 3:
+    {
+        // Return the number of completed loads on all cores
+        uint64_t n = 0, dummy;
+        for (size_t i = 0; i < m_grid.size(); ++i) {
+            m_grid[i]->CollectMemOpStatistics(n, dummy, dummy, dummy);
+        }
+        return (Integer)n;
+    }
+
+    case 4:
+    {
+        // Return the number of completed stores on all coresp
+        uint64_t n = 0, dummy;
+        for (size_t i = 0; i < m_grid.size(); ++i) {
+            m_grid[i]->CollectMemOpStatistics(dummy, n, dummy, dummy);
+        }
+        return (Integer)n;
+    }
+
+    case 5:
+    {
+        // Return the number of successfully loaded bytes on all cores
+        uint64_t n = 0, dummy;
+        for (size_t i = 0; i < m_grid.size(); ++i) {
+            m_grid[i]->CollectMemOpStatistics(dummy, dummy, n, dummy);
+        }
+        return (Integer)n;
+    }
+
+    case 6:
+    {
+        // Return the number of successfully stored bytes on all coresp
+        uint64_t n = 0, dummy;
+        for (size_t i = 0; i < m_grid.size(); ++i) {
+            m_grid[i]->CollectMemOpStatistics(dummy, dummy, dummy, n);
+        }
+        return (Integer)n;
+    }
+
+    case 7:
+    {
+        // Return the number of external memory loads (cache lines)
+        uint64_t n, dummy;
+        m_memory.GetMemoryStatistics(n, dummy, dummy, dummy);
+        return (Integer)n;
+    }
+
+    case 8:
+    {
+        // Return the number of external memory stores (cache lines)
+        uint64_t n, dummy;
+        m_memory.GetMemoryStatistics(dummy, n, dummy, dummy);
+        return (Integer)n;
+    }
         
     default:
         return 0;

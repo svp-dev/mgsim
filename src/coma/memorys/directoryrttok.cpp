@@ -1,4 +1,6 @@
- #include "directoryrttok.h"
+#include "directoryrttok.h"
+#include "../simlink/memstat.h"
+
 using namespace MemSim;
 
 void DirectoryRTTOK::InitializeDirLines()

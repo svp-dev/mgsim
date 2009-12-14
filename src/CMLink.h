@@ -85,6 +85,7 @@ namespace Simulator
         void Read (MemAddr address, void* data, MemSize size);
         void Write(MemAddr address, const void* data, MemSize size);
 
+        void GetMemoryStatistics(uint64_t&, uint64_t&, uint64_t&, uint64_t&) const;
 
 
 //        virtual const std::queue<Request>& GetRequests() {	// MESMX

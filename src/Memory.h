@@ -46,6 +46,9 @@ public:
 	virtual bool CheckPermissions(MemAddr address, MemSize size, int access) const = 0;
 
     virtual ~IMemory() {}
+
+    virtual void GetMemoryStatistics(uint64_t& nreads, uint64_t& nwrites, 
+                                     uint64_t& nread_bytes, uint64_t& nwrite_bytes) const = 0;
 };
 
 class IMemoryAdmin : public IMemory

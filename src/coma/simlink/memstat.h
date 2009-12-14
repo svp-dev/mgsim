@@ -3,8 +3,8 @@
 namespace MemSim{
 
 // within memory
-extern unsigned int g_uMemoryAccessesL;
-extern unsigned int g_uMemoryAccessesS;
+extern uint64_t g_uMemoryAccessesL;
+extern uint64_t g_uMemoryAccessesS;
 
 extern unsigned int g_uHitCountL;
 extern unsigned int g_uTotalL;

@@ -10,6 +10,9 @@ namespace Simulator
 Pipeline::PipeAction Pipeline::MemoryStage::OnCycle()
 {
     PipeValue rcv = m_input.Rcv;
+
+    unsigned inload = 0;
+    unsigned instore = 0;
     
     if (m_input.size > 0)
     {
@@ -26,9 +29,9 @@ Pipeline::PipeAction Pipeline::MemoryStage::OnCycle()
 
             uint64_t value = 0;
             switch (m_input.Rc.type) {
-                case RT_INTEGER: value = m_input.Rcv.m_integer.get(m_input.Rcv.m_size); break;
-                case RT_FLOAT:   value = m_input.Rcv.m_float.toint(m_input.Rcv.m_size); break;
-                default: assert(0);
+            case RT_INTEGER: value = m_input.Rcv.m_integer.get(m_input.Rcv.m_size); break;
+            case RT_FLOAT:   value = m_input.Rcv.m_float.toint(m_input.Rcv.m_size); break;
+            default: assert(0);
             }
             
             SerializeRegister(m_input.Rc.type, value, data, (size_t)m_input.size);
@@ -41,9 +44,9 @@ Pipeline::PipeAction Pipeline::MemoryStage::OnCycle()
                 TID tid = m_input.fid;
                 uint64_t addr = m_input.address;
                 traceproc(cycleno, pid, tid, true, addr, m_input.size, data);
-                #ifdef MEM_STORE_SEQUENCE_DEBUG
+#ifdef MEM_STORE_SEQUENCE_DEBUG
                 debugSSproc(cycleno, pid, addr, m_input.size, data);
-                #endif
+#endif
             }
 #endif
 
@@ -56,6 +59,9 @@ Pipeline::PipeAction Pipeline::MemoryStage::OnCycle()
 
             // Clear the register state so it won't get written to the register file
             rcv.m_state = RST_INVALID;
+
+            // Prepare for count increment
+            instore = m_input.size;
         }
         // Memory read
         else if (m_input.address >= 4 && m_input.address < 256)
@@ -75,6 +81,9 @@ Pipeline::PipeAction Pipeline::MemoryStage::OnCycle()
                 rcv.m_size  = m_input.Rcv.m_size;
                 rcv.m_integer.set( m_parent.GetProcessor().GetProfileWord(i), rcv.m_size);
             }
+
+            // We don't count pseudo-loads
+            // inload = 1;
         }
         else if (m_input.Rc.valid())
         {
@@ -89,12 +98,15 @@ Pipeline::PipeAction Pipeline::MemoryStage::OnCycle()
             }
 #endif
             char data[MAX_MEMORY_OPERATION_SIZE];
-			RegAddr reg = m_input.Rc;
+            RegAddr reg = m_input.Rc;
             if ((result = m_dcache.Read(m_input.address, data, m_input.size, m_input.fid, &reg)) == FAILED)
             {
                 // Stall
                 return PIPE_STALL;
             }
+
+            // Prepare for counter increment
+            inload = m_input.size;
 
             rcv.m_size = m_input.Rcv.m_size;
             if (result == SUCCESS)
@@ -127,17 +139,17 @@ Pipeline::PipeAction Pipeline::MemoryStage::OnCycle()
                 default:         assert(0);
                 }
             }
-			else
-			{
-				// Remember request data
-	            rcv = MAKE_PENDING_PIPEVALUE(rcv.m_size);
-				rcv.m_memory.fid         = m_input.fid;
-				rcv.m_memory.next        = reg;
-				rcv.m_memory.offset      = (unsigned int)(m_input.address % m_dcache.GetLineSize());
-				rcv.m_memory.size        = (size_t)m_input.size;
-				rcv.m_memory.sign_extend = m_input.sign_extend;
-				rcv.m_remote             = m_input.Rrc;
-			}
+            else
+            {
+                // Remember request data
+                rcv = MAKE_PENDING_PIPEVALUE(rcv.m_size);
+                rcv.m_memory.fid         = m_input.fid;
+                rcv.m_memory.next        = reg;
+                rcv.m_memory.offset      = (unsigned int)(m_input.address % m_dcache.GetLineSize());
+                rcv.m_memory.size        = (size_t)m_input.size;
+                rcv.m_memory.sign_extend = m_input.sign_extend;
+                rcv.m_remote             = m_input.Rrc;
+            }
         }
 
         if (result == DELAYED)
@@ -166,17 +178,27 @@ Pipeline::PipeAction Pipeline::MemoryStage::OnCycle()
         m_output.Rc      = m_input.Rc;
         m_output.Rrc     = m_input.Rrc;
         m_output.Rcv     = rcv;
+
+        // Increment counters
+        m_loads += !!inload;
+        m_load_bytes += inload;
+        m_stores += !!instore;
+        m_store_bytes += instore;
     }
     return PIPE_CONTINUE;
 }
 
 Pipeline::MemoryStage::MemoryStage(Pipeline& parent, const ExecuteMemoryLatch& input, MemoryWritebackLatch& output, DCache& dcache, Allocator& alloc, const Config& /*config*/)
-  : Stage(parent, "memory"),
-    m_input(input),
-    m_output(output),
-    m_allocator(alloc),
-    m_dcache(dcache)
+    : Stage(parent, "memory"),
+      m_input(input),
+      m_output(output),
+      m_allocator(alloc),
+      m_dcache(dcache),
+      m_loads(0),
+      m_stores(0),
+      m_load_bytes(0),
+      m_store_bytes(0)
 {
 }
-
+    
 }

@@ -15,8 +15,8 @@
 using namespace std;
 
 namespace MemSim{
-    unsigned int g_uMemoryAccessesL = 0;
-    unsigned int g_uMemoryAccessesS = 0;
+    uint64_t g_uMemoryAccessesL = 0;
+    uint64_t g_uMemoryAccessesS = 0;
 }
 
 

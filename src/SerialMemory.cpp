@@ -132,17 +132,25 @@ Result SerialMemory::OnCycle(unsigned int /* stateIndex */)
         {
             // The current request has completed
             if (request.write) {
-        		VirtualMemory::Write(request.address, request.data.data, request.data.size);
+                VirtualMemory::Write(request.address, request.data.data, request.data.size);
                 if (!request.callback->OnMemoryWriteCompleted(request.data.tag))
                 {
                     return FAILED;
                 }
+                COMMIT {
+                    ++m_nwrites;
+                    m_nwrite_bytes += request.data.size;
+                }
             } else {
                 MemData data(request.data);
-  		        VirtualMemory::Read(request.address, data.data, data.size);
+                VirtualMemory::Read(request.address, data.data, data.size);
                 if (!request.callback->OnMemoryReadCompleted(data))
                 {
                     return FAILED;
+                }
+                COMMIT {
+                    ++m_nreads;
+                    m_nread_bytes += request.data.size;
                 }
             }
             m_requests.Pop();

@@ -39,6 +39,16 @@ class SerialMemory : public IComponent, public IMemoryAdmin, public VirtualMemor
     void Read (MemAddr address, void* data, MemSize size);
     void Write(MemAddr address, const void* data, MemSize size);
 
+    void GetMemoryStatistics(uint64_t& nreads, uint64_t& nwrites, 
+                             uint64_t& nread_bytes, uint64_t& nwrite_bytes) const
+    {
+        nreads = m_nreads;
+        nread_bytes = m_nread_bytes;
+        nwrites = m_nwrites;
+        nwrite_bytes = m_nwrite_bytes;
+    }
+
+
     std::set<IMemoryCallback*>  m_caches;
     Buffer<Request>             m_requests;
     ArbitratedService           p_requests;
@@ -47,6 +57,10 @@ class SerialMemory : public IComponent, public IMemoryAdmin, public VirtualMemor
     CycleNo                     m_sizeOfLine;
     CycleNo                     m_nextdone;
 
+    uint64_t m_nreads;
+    uint64_t m_nread_bytes;
+    uint64_t m_nwrites;
+    uint64_t m_nwrite_bytes;
 public:
     SerialMemory(Object* parent, Kernel& kernel, const std::string& name, const Config& config);
 

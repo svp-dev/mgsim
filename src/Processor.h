@@ -47,50 +47,53 @@ public:
     Kernel& GetKernel()    const { return m_kernel; }
     bool    IsIdle()       const;
 
-    uint64_t GetFlop() const { return m_pipeline.GetFlop(); }
-    uint64_t GetOp()   const { return m_pipeline.GetOp(); }
-	float GetRegFileAsyncPortActivity() const {
-		return (float)m_registerFile.p_asyncW.GetBusyCycles() / (float)m_kernel.GetCycleNo();
-	}
+    uint64_t GetFlop()     const { return m_pipeline.GetFlop(); }
+    uint64_t GetOp()       const { return m_pipeline.GetOp(); }
+    void     CollectMemOpStatistics(uint64_t& nr, uint64_t& nw, uint64_t& nrb, uint64_t& nwb) const
+    { return m_pipeline.CollectMemOpStatistics(nr, nw, nrb, nwb); }
+
+    float GetRegFileAsyncPortActivity() const {
+        return (float)m_registerFile.p_asyncW.GetBusyCycles() / (float)m_kernel.GetCycleNo();
+    }
 	
-	uint64_t GetMinPipelineIdleTime() const { return m_pipeline.GetMinIdleTime(); }
-	uint64_t GetMaxPipelineIdleTime() const { return m_pipeline.GetMaxIdleTime(); }
-	uint64_t GetAvgPipelineIdleTime() const { return m_pipeline.GetAvgIdleTime(); }
+    uint64_t GetMinPipelineIdleTime() const { return m_pipeline.GetMinIdleTime(); }
+    uint64_t GetMaxPipelineIdleTime() const { return m_pipeline.GetMaxIdleTime(); }
+    uint64_t GetAvgPipelineIdleTime() const { return m_pipeline.GetAvgIdleTime(); }
 	
-	float GetPipelineEfficiency() const { return m_pipeline.GetEfficiency(); }
+    float GetPipelineEfficiency() const { return m_pipeline.GetEfficiency(); }
 	
-	CycleNo GetLocalFamilyCompletion() const { return m_localFamilyCompletion; }
+    CycleNo GetLocalFamilyCompletion() const { return m_localFamilyCompletion; }
 
     unsigned int GetNumSuspendedRegisters() const;
     
     Integer GetProfileWord(unsigned int i) const;
 	
-	void WriteRegister(const RegAddr& addr, const RegValue& value) {
-		m_registerFile.WriteRegister(addr, value);
-	}
+    void WriteRegister(const RegAddr& addr, const RegValue& value) {
+        m_registerFile.WriteRegister(addr, value);
+    }
 	
-	void OnFamilyTerminatedLocally(MemAddr pc);
+    void OnFamilyTerminatedLocally(MemAddr pc);
 
-	// All memory requests from caches go through the processor.
-	// No memory callback specified, the processor will use the tag to determine where it came from.
-	void ReserveTLS(MemAddr address, MemSize size);
-	void UnreserveTLS(MemAddr address);
-	bool ReadMemory (MemAddr address, MemSize size, MemTag tag);
-	bool WriteMemory(MemAddr address, const void* data, MemSize size, MemTag tag);
-	bool CheckPermissions(MemAddr address, MemSize size, int access) const;
+    // All memory requests from caches go through the processor.
+    // No memory callback specified, the processor will use the tag to determine where it came from.
+    void ReserveTLS(MemAddr address, MemSize size);
+    void UnreserveTLS(MemAddr address);
+    bool ReadMemory (MemAddr address, MemSize size, MemTag tag);
+    bool WriteMemory(MemAddr address, const void* data, MemSize size, MemTag tag);
+    bool CheckPermissions(MemAddr address, MemSize size, int access) const;
 	
-	Network& GetNetwork() { return m_network; }
+    Network& GetNetwork() { return m_network; }
 
 private:
     GPID                           m_pid;
     Kernel&                        m_kernel;
-	IMemory&	                   m_memory;
-	const std::vector<Processor*>& m_grid;
-	PSize                          m_gridSize;
-	PlaceInfo&                     m_place;
-	FPU&                           m_fpu;
+    IMemory&	                   m_memory;
+    const std::vector<Processor*>& m_grid;
+    PSize                          m_gridSize;
+    PlaceInfo&                     m_place;
+    FPU&                           m_fpu;
 	
-	// Statistics 
+    // Statistics 
     CycleNo m_localFamilyCompletion; 
 
     // IMemoryCallback

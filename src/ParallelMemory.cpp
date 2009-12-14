@@ -111,47 +111,55 @@ bool ParallelMemory::CheckPermissions(MemAddr address, MemSize size, int access)
 
 Result ParallelMemory::OnCycle(unsigned int stateIndex)
 {
-	Port& port = *m_ports[stateIndex];
+    Port& port = *m_ports[stateIndex];
     assert(!port.m_requests.Empty());
     
     const Request& request = port.m_requests.Front();
-	const CycleNo  now     = GetKernel()->GetCycleNo();
+    const CycleNo  now     = GetKernel()->GetCycleNo();
 
     if (port.m_nextdone > 0)
     {
         // There is a request active
-	    if (now >= port.m_nextdone)
-	    {
+        if (now >= port.m_nextdone)
+        {
     	    // The current request has completed
-		    if (request.write) {
-			    VirtualMemory::Write(request.address, request.data.data, request.data.size);
-   			    if (!port.m_callback->OnMemoryWriteCompleted(request.data.tag))
-    		    {
-    	    		return FAILED;
-		        }
-		    } else {
-		        MemData data(request.data);
-    			VirtualMemory::Read(request.address, data.data, data.size);
-		        if (!port.m_callback->OnMemoryReadCompleted(data))
-   			    {
-       				return FAILED;
-   			    }
-		    }
+            if (request.write) {
+                VirtualMemory::Write(request.address, request.data.data, request.data.size);
+                if (!port.m_callback->OnMemoryWriteCompleted(request.data.tag))
+                {
+                    return FAILED;
+                }
+                COMMIT {
+                    ++m_nwrites;
+                    m_nwrite_bytes += request.data.size;
+                }
+            } else {
+                MemData data(request.data);
+                VirtualMemory::Read(request.address, data.data, data.size);
+                if (!port.m_callback->OnMemoryReadCompleted(data))
+                {
+                    return FAILED;
+                }
+                COMMIT {
+                    ++m_nreads;
+                    m_nread_bytes += request.data.size;
+                }
+            }
             port.m_requests.Pop();
             COMMIT{ port.m_nextdone = 0; }
-	    }
+        }
     }
     else
     {
-		// A new request is ready to be handled
-  		COMMIT
-   		{
-   			// Time the request
-    		CycleNo requestTime = m_baseRequestTime + m_timePerLine * (request.data.size + m_sizeOfLine - 1) / m_sizeOfLine;
-    		port.m_nextdone = now + requestTime;
+        // A new request is ready to be handled
+        COMMIT
+        {
+            // Time the request
+            CycleNo requestTime = m_baseRequestTime + m_timePerLine * (request.data.size + m_sizeOfLine - 1) / m_sizeOfLine;
+            port.m_nextdone = now + requestTime;
     	}
-	}
-	return SUCCESS;
+    }
+    return SUCCESS;
 }
 
 void ParallelMemory::Reserve(MemAddr address, MemSize size, int perm)
@@ -207,7 +215,11 @@ ParallelMemory::ParallelMemory(Object* parent, Kernel& kernel, const std::string
     IComponent(parent, kernel, name, CreateStateNames(GetNumProcessors(config))),
     m_baseRequestTime(config.getInteger<CycleNo>("MemoryBaseRequestTime", 1)),
     m_timePerLine    (config.getInteger<CycleNo>("MemoryTimePerLine", 1)),
-    m_sizeOfLine     (config.getInteger<size_t> ("MemorySizeOfLine", 8))
+    m_sizeOfLine     (config.getInteger<size_t> ("MemorySizeOfLine", 8)),
+    m_nreads         (0),
+    m_nread_bytes    (0),
+    m_nwrites        (0),
+    m_nwrite_bytes   (0)
 {
     const BufferSize buffersize = config.getInteger<BufferSize>("MemoryBufferSize", INFINITE);
     m_ports.resize(GetNumProcessors(config));

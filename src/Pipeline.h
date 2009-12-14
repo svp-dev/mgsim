@@ -353,10 +353,16 @@ class Pipeline : public IComponent
         MemoryWritebackLatch&     m_output;
         Allocator&                m_allocator;
         DCache&                   m_dcache;
+        uint64_t                  m_loads;         // nr of successful loads
+        uint64_t                  m_stores;        // nr of successful stores
+        uint64_t                  m_load_bytes;    // nr of successfully loaded bytes
+        uint64_t                  m_store_bytes;   // nr of successfully stored bytes
 
         PipeAction OnCycle();
     public:
         MemoryStage(Pipeline& parent, const ExecuteMemoryLatch& input, MemoryWritebackLatch& output, DCache& dcache, Allocator& allocator, const Config& config);
+        void addMemStatistics(uint64_t& nr, uint64_t& nw, uint64_t& nrb, uint64_t& nwb) const 
+        { nr += m_loads; nw += m_stores; nrb += m_load_bytes; nwb += m_store_bytes; }
     };
     
     class DummyStage : public Stage
@@ -403,6 +409,8 @@ public:
 
     uint64_t GetFlop() const { return dynamic_cast<ExecuteStage&>(*m_stages[3].stage).getFlop(); }
     uint64_t GetOp()   const { return dynamic_cast<ExecuteStage&>(*m_stages[3].stage).getOp(); }
+    void     CollectMemOpStatistics(uint64_t& nr, uint64_t& nw, uint64_t& nrb, uint64_t& nwb) const 
+    { return dynamic_cast<MemoryStage&>(*m_stages[4].stage).addMemStatistics(nr, nw, nrb, nwb); }
     
     void Cmd_Help(std::ostream& out, const std::vector<std::string>& arguments) const;
     void Cmd_Read(std::ostream& out, const std::vector<std::string>& arguments) const;

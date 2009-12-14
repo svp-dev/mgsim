@@ -37,13 +37,28 @@ class ParallelMemory : public IComponent, public IMemoryAdmin, public VirtualMem
     bool Allocate(MemSize size, int perm, MemAddr& address);
     void Read (MemAddr address, void* data, MemSize size);
     void Write(MemAddr address, const void* data, MemSize size);
+    
+    void GetMemoryStatistics(uint64_t& nreads, uint64_t& nwrites, 
+                             uint64_t& nread_bytes, uint64_t& nwrite_bytes) const
+    {
+        nreads = m_nreads;
+        nread_bytes = m_nread_bytes;
+        nwrites = m_nwrites;
+        nwrite_bytes = m_nwrite_bytes;
+    }
+    
 
     std::map<IMemoryCallback*, Port*> m_clients;
     std::vector<Port*>                m_ports;
- 
-	CycleNo	m_baseRequestTime; // Config: This many cycles per request regardless of size
+    
+    CycleNo	m_baseRequestTime; // Config: This many cycles per request regardless of size
     CycleNo	m_timePerLine;     // Config: With this many additional cycles per line
     size_t	m_sizeOfLine;      // Config: With this many bytes per line
+    
+    uint64_t m_nreads;
+    uint64_t m_nread_bytes;
+    uint64_t m_nwrites;
+    uint64_t m_nwrite_bytes;
 
 public:
     ParallelMemory(Object* parent, Kernel& kernel, const std::string& name, const Config& config);
