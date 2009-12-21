@@ -3,6 +3,7 @@ bin_PROGRAMS =
 bin_SCRIPTS = simx-cleanup-sems.sh
 noinst_PROGRAMS = 
 noinst_LIBRARIES =
+dist_man1_MANS =
 
 FLAGS_OPT = -O3 -DNDEBUG 
 FLAGS_DEBUG = -g -DMDBLOG -DDEBUG 
@@ -193,8 +194,8 @@ SPARC_SRC = $(COMMON_SRC) \
 	ISA.sparc.h \
 	ISA.sparc.cpp
 
-FLAGS_ALPHA = -DTARGET_ARCH=ARCH_ALPHA
-FLAGS_SPARC = -DTARGET_ARCH=ARCH_SPARC
+FLAGS_ALPHA = -DTARGET_ARCH=ARCH_ALPHA -DCORE_ISA_NAME=\"DEC\ Alpha\"
+FLAGS_SPARC = -DTARGET_ARCH=ARCH_SPARC -DCORE_ISA_NAME=\"SPARC\ v8\"
 
 if ENABLE_USE_SDL
 GFX_FLAGS = $(SDL_CFLAGS) -DUSE_SDL=1 
@@ -224,6 +225,7 @@ if ENABLE_MTALPHA
 
 bin_PROGRAMS += mgsim-alpha
 noinst_PROGRAMS += mgsim-alpha.dbg 
+dist_man1_MANS += mgsim-alpha.1
 
 noinst_LIBRARIES += libalpha.a libalpha_g.a 
 
@@ -243,6 +245,7 @@ mgsim_alpha_dbg_LDADD = libalpha_g.a
 
 if ENABLE_COMA
 bin_PROGRAMS += simx-alpha simx-alpha.dbg
+dist_man1_MANS += simx-alpha.1
 
 simx_alpha_SOURCES = $(SPECIAL_SRC) $(COMA_SRC)
 simx_alpha_CXXFLAGS = $(FLAGS_ALPHA) $(FLAGS_OPT) $(FLAGS_COMMON) $(FLAGS_COMA) $(FLAGS_SPECIAL)
@@ -275,6 +278,7 @@ if ENABLE_MTSPARC
 
 bin_PROGRAMS += mgsim-sparc
 noinst_PROGRAMS += mgsim-sparc.dbg
+dist_man1_MANS += mgsim-sparc.1
 
 noinst_LIBRARIES += libsparc.a libsparc_g.a
 
@@ -294,6 +298,7 @@ mgsim_sparc_dbg_LDADD = libsparc_g.a
 
 # if ENABLE_COMA
 # bin_PROGRAMS += simx-sparc simx-sparc.dbg
+# dist_man1_MANS += simx-sparc.1
 
 # simx_sparc_SOURCES = $(SPECIAL_SRC) $(COMA_SRC)
 # simx_sparc_CXXFLAGS = $(FLAGS_SPARC) $(FLAGS_OPT) $(FLAGS_COMMON) $(FLAGS_COMA)
@@ -318,3 +323,18 @@ mgsim_sparc_dbg_gfx_LDADD = libsparc_g.a $(SDL_LIBS)
 endif
 
 endif
+
+## 
+## Manual page rules
+##
+$(dist_man1_MANS): $(top_srcdir)/.version
+	$(AM_V_at)$(MAKE) $(AM_MAKEFLAGS) $(@:.1=)
+	$(AM_V_GEN)$(HELP2MAN) -N --output=$@ \
+	    `test -r $(srcdir)/$(@:.1=) && echo $(srcdir) || echo .`/$(@:.1=)
+
+mgsim-alpha.1: mgsim-alpha
+simx-alpha.1: simx-alpha
+mgsim-sparc.1: mgsim-sparc
+simx-sparc.1: simx-sparc
+
+MAINTAINERCLEANFILES = $(dist_man1_MANS)

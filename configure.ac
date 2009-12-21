@@ -6,13 +6,17 @@
 # 
 
 AC_PREREQ([2.61])
-AC_INIT([mgsim], [1.x], [m.lankamp@uva.nl])
+AC_INIT([mgsim], 
+        m4_esyscmd([build-aux/version-gen build-aux/tarball-version build-aux/package-version]), 
+        [m.lankamp@uva.nl])
 AC_CONFIG_AUX_DIR([build-aux])
 AC_CONFIG_HEADERS([src/sys_config.h])
 
 AM_INIT_AUTOMAKE([1.11 tar-ustar no-define foreign dist-bzip2 
                   parallel-tests color-tests silent-rules])
 AM_SILENT_RULES([yes])
+
+AC_CHECK_PROGS([HELP2MAN], [help2man], [$am_aux_dir/missing help2man])
 
 # Override the default CXXFLAGS since
 # Makefile.am applies new values.

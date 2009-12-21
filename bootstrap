@@ -50,6 +50,7 @@ do
   fi
 done
 
+rm -rf autom4te.cache
 run .                     $AUTORECONF -v -f -i
 
 echo "Reconfiguration done."

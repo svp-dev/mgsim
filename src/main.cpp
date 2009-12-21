@@ -898,28 +898,47 @@ static void ExecuteCommand(MGSystem& sys, const string& command, vector<string> 
     cout.copyfmt(backup);
 }
 
-static void PrintUsage()
+static void PrintVersion()
+{
+    cout << 
+        "mgsim (Microgrid Simulator) " PACKAGE_VERSION "\n"
+        "Copyright (C) 2009 Universiteit van Amsterdam.\n"
+        "\n"
+        "Written by Mike Lankamp. Contributions by Li Zhang, Raphael 'kena' Poss.\n";
+}
+             
+static void PrintUsage(const char* cmd)
 {
     cout <<
-        "MGSim [options] <program-file>\n\n"
-        "Options:\n"
-        "-h, --help               Show this help\n"
-        "-c, --config <filename>  Read configuration from file\n"
-        "-q, --quiet              Do not print simulation statistics after run\n" 
-        "-i, --interactive        Start the simulator in interactive mode\n"
-        "-t, --terminate          Terminate simulator on exception\n"
-        "-R<X> <value>            Store the integer value in the specified register\n"
-        "-F<X> <value>            Store the FP value in the specified register\n"
-        "-L<X> <filename>         Load the contents of the file after the program\n" 
-        "                         and store the address in the specified register\n" 
-        "-o, --override <n>=<v>   Overrides the configuration option <n> with value <v>\n"
-        "-d, --dumpconf           Dump configuration to standard error prior to program startup\n"
+        "Microgrid Simulator"
 #ifdef ENABLE_COMA
-        "--ddr <file>             Read DDR channel configurations from file\n"
-        "--verbose <n>            Set memory verbosity\n" 
-        "--memlog <file>          Output memory log to file\n"
+        " with COMA memory enabled"
 #endif
-        "\n";
+        ".\n"
+        "Each simulated core implements the " CORE_ISA_NAME " ISA.\n\n"
+        "Usage: " << cmd << " [ARG]...\n\n"
+        "Options:\n\n"
+        "  -c, --config FILE        Read configuration from FILE.\n"
+        "  -d, --dumpconf           Dump configuration to standard error prior to program startup.\n"
+        "  -i, --interactive        Start the simulator in interactive mode.\n"
+        "  -o, --override NAME=VAL  Overrides the configuration option NAME with value VAL.\n"
+        "  -q, --quiet              Do not print simulation statistics after execution.\n" 
+        "  -t, --terminate          Terminate the simulator upon an exception.\n"
+        "  -R<X> VALUE              Store the integer VALUE in the specified register.\n"
+        "  -F<X> VALUE              Store the float VALUE in the specified FP register.\n"
+        "  -L<X> FILE               Load the contents of FILE after the program in memory\n" 
+        "                           and store the address in the specified register.\n" 
+#ifdef ENABLE_COMA
+        "COMA-related options:\n"
+        "     --ddr FILE            Read DDR channel configurations from FILE.\n"
+        "     --verbose N           Set memory verbosity level to N.\n" 
+        "     --memlog FILE         Output memory log to FILE.\n"
+#endif
+        "Other options:\n"
+        "  -h, --help               Print this help, then exit.\n"
+        "      --version            Print version information, then exit.\n"
+        "\n"
+        "Report bugs and suggestions to " PACKAGE_BUGREPORT ".\n";
 }
 
 struct ProgramConfig
@@ -972,7 +991,8 @@ static void ParseArguments(int argc, const char ** argv, ProgramConfig& config
         else if (arg == "-i" || arg == "--interactive") config.m_interactive = true;
         else if (arg == "-t" || arg == "--terminate")   config.m_terminate   = true;
         else if (arg == "-q" || arg == "--quiet")       config.m_quiet       = true;
-        else if (arg == "-h" || arg == "--help")        { PrintUsage(); exit(0); }
+        else if (arg == "--version")                    { PrintVersion(); exit(0); }
+        else if (arg == "-h" || arg == "--help")        { PrintUsage(argv[0]); exit(0); }
         else if (arg == "-d" || arg == "--dumpconf")    config.m_dumpconf    = true;
 #ifdef ENABLE_COMA
         else if (arg == "--ddr")        lkconfig.m_sDDRXML = argv[++i];
@@ -1207,8 +1227,7 @@ int mgs_main(int argc, char const** argv)
         if (config.m_interactive)
         {
             // Interactive mode
-            cout << "Microthreaded Alpha System Simulator, version 1.0" << endl;
-            cout << "Created by Mike Lankamp at the University of Amsterdam" << endl << endl;
+            PrintVersion();
         }
 
         // Read configuration
