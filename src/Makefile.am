@@ -1,6 +1,6 @@
 # PROGRAMS is redefined below.
 bin_PROGRAMS =
-bin_SCRIPTS = simx-cleanup-sems.sh
+dist_bin_SCRIPTS = simx-cleanup-sems.sh
 noinst_PROGRAMS = 
 noinst_LIBRARIES =
 dist_man1_MANS =
@@ -331,10 +331,5 @@ $(dist_man1_MANS): $(top_srcdir)/.version
 	$(AM_V_at)$(MAKE) $(AM_MAKEFLAGS) $(@:.1=)
 	$(AM_V_GEN)$(HELP2MAN) -N --output=$@ \
 	    `test -r $(srcdir)/$(@:.1=) && echo $(srcdir) || echo .`/$(@:.1=)
-
-mgsim-alpha.1: mgsim-alpha
-simx-alpha.1: simx-alpha
-mgsim-sparc.1: mgsim-sparc
-simx-sparc.1: simx-sparc
 
 MAINTAINERCLEANFILES = $(dist_man1_MANS)

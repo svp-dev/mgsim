@@ -6,7 +6,7 @@ ACLOCAL_AMFLAGS = -I m4
 ## Version number management
 ##
 
-EXTRA_DIST = .version
+EXTRA_DIST = .version build-aux/version-gen build-aux/package-version
 BUILT_SOURCES = $(top_srcdir)/.version
 
 $(top_srcdir)/.version:
