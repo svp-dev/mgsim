@@ -20,11 +20,13 @@ install-recursive install-exec-recursive install-data-recursive installcheck-rec
 VERSION_GEN = (cd $(top_srcdir); build-aux/version-gen \
 	build-aux/tarball-version build-aux/package-version)
 
-.PHONY: check-version
+.PHONY: check-version _version
 check-version:
 	set -e; \
 	if ! test "x$(VERSION)" = "x`$(VERSION_GEN)`"; then \
-	   echo "Version string not up to date, reconfing..." >&2; \
-	   ( cd "$(top_srcdir)" && rm -rf autom4te.cache && $${AUTORECONF:-autoreconf} ) >&2; \
-	   echo "Done, now run make again with your intended rule." >&2; exit 1; \
+	   echo "Version string not up to date: run 'make _version' first." >&2; \
+	   exit 1; \
 	fi
+
+_version:
+	cd $(srcdir) && rm -rf autom4te.cache .version && $${AUTORECONF:-autoreconf}
