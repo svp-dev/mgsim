@@ -23,6 +23,7 @@ TEST_SOURCES = \
 
 if ENABLE_MTSPARC_TESTS
 TESTS = $(TEST_SOURCES:.s=.bin)
+CLEANFILES = $(TESTS)
 endif
 
 ARCH = sparc

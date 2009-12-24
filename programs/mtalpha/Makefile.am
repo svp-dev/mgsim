@@ -26,6 +26,7 @@ TEST_SOURCES = \
 
 if ENABLE_MTALPHA_TESTS
 TESTS = $(TEST_SOURCES:.s=.bin)
+CLEANFILES = $(TESTS)
 endif
 
 ARCH = alpha
