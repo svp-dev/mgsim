@@ -15,10 +15,10 @@ $(top_srcdir)/.version:
 dist-hook: check-version
 	echo $(VERSION) >$(distdir)/build-aux/tarball-version
 
-install-exec-am install-data-am installcheck-am: check-version
+install-recursive install-exec-recursive install-data-recursive installcheck-recursive: check-version
 
-VERSION_GEN = $(top_srcdir)/build-aux/version-gen \
-	$(top_srcdir)/build-aux/tarball-version $(top_srcdir)/build-aux/package-version
+VERSION_GEN = (cd $(top_srcdir); build-aux/version-gen \
+	build-aux/tarball-version build-aux/package-version)
 
 .PHONY: check-version
 check-version:
