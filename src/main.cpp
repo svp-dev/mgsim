@@ -1234,7 +1234,10 @@ int mgs_main(int argc, char const** argv)
         Config configfile(config.m_configFile, config.m_overrides);
 
         if (config.m_dumpconf)
+        {
+            std::clog << "### simulator version: " PACKAGE_VERSION << std::endl;
             configfile.dumpConfiguration(std::clog, config.m_configFile);
+        }
 
 #ifdef ENABLE_COMA
         ConfigureCOMA(config, configfile, LinkMGS::s_oLinkConfig);
