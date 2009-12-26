@@ -1,19 +1,34 @@
-#! /bin/sh
+#! /bin/bash
 # Print a version string.
 
-# This script is derived from git-version-gen originally from GIT:
+# Copyright (C) 2009 Raphael 'kena' Poss
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+# This script is inspired from git-version-gen (originally from
 # http://git.or.cz/ and modified for use in GNUlib, M4, Bison and
-# other GNU software.
+# other GNU software.)
+#
 # It may be run in two ways:
-# - from a VC repository in which the "svnversion" or "git describe"
+# - from a VC repository in which the "svnversion" or "git log"
 #   produce useful output and a "package-version" file exists.
 # - from a non-VC repo directory containing a tarball-version file.
 #
-# It differs from the original git-version-gen in that the version
-# number is derived from the content of a version file, not a tag
-# name in the SCM repository.
-#
-# Also it supports local checkouts from both git and svn.
+# It differs from git-version-gen in that the version number is
+# derived from the content of a version file, not a tag name in the
+# SCM repository; and that both Subversion, Git and git-svn branches
+# are supported.
 #
 # The script should be invoked as:
 #     version-gen <location of tarball-version> <location of package-version>
@@ -38,19 +53,21 @@
 # polished release, e.g. the outcome of "make dist" immediately after
 # the fixed version number was committed into the SCM repository.
 #
+# Another example is "1.0.3.77-r3124". This would be the version
+# generated from a Subversion repository or git-svn dcommit at SVN
+# revision 3124, when 3124 is 77 revisions after the fixed version
+# number was set.
+#
 # Another example is "1.0.3.77-a7d8f", where 1.0.3 is the fixed part
 # and "77-a7d8f" is the floating part. This would be the version
-# generated from a git repository at the commit identified by "a7d8f",
-# 77 commits after the commit where the fixed part was set.
+# generated from a git repository or non-dcommitted git-svn clone at
+# the commit identified by "a7d8f", 77 git commits after the commit
+# where the fixed part was set.
 #
-# Another example is "1.0.3.77-3124". This would be the version
-# generated from a SVN repository at revision "3124", when "3124" is
-# 77 revisions after the fixed version number was set.
-#
-# Other examples are "1.0.3.77-a7d8f-dirty" and "1.0.3.77-3124-dirty".
-# The suffix "-dirty" is appended when the version string is
-# generated from a source tree with changes not committed to the
-# SCM repository.
+# Other examples are "1.0.3.77-a7d8f-dirty" and
+# "1.0.3.77-r3124-dirty".  The suffix "-dirty" is appended when the
+# version string is generated from a source tree with changes not
+# committed to the SCM repository.
 #
 # In order to use intra-version strings in your project, you will
 # need two separate automatically generated version string files:
@@ -98,6 +115,7 @@
 #	echo $(VERSION) > $@-t && mv $@-t $@
 # dist-hook:
 #	echo $(VERSION) > $(distdir)/.tarball-version
+#
 set -e
 
 if ! test $# = 2; then
@@ -118,8 +136,9 @@ if test -f $tarball_version_file; then
 	[0-9]*) ;;
 	*) v= ;; # reject non-numbers
     esac
-    test -z "$v" \
-	&& echo "$0: WARNING: $tarball_version_file seems to be damaged" 1>&2
+    if test -z "$v"; then
+	echo "$0: WARNING: $tarball_version_file seems to be damaged" >&2
+    fi
 fi
 
 
@@ -175,7 +194,15 @@ elif test -d .git; then
     case $distance$dirty in
         '0') ;;
         *) 
-            suffix=.$distance-`echo "$head_commit"|cut -c1-5`
+            maybe_svn_rev=`git log -n 1 $head_commit | grep '^ *git-svn-id: [^@]*@[0-9][0-9]*'` || maybe_svn_rev=
+            if test -z "$maybe_svn_rev"; then
+                # no svn revision in head commit, assume (not yet dcomitted) local branch
+                suffix=.$distance-`echo $head_commit|cut -c1-5`
+            else
+                maybe_svn_rev=${maybe_svn_rev#*@}
+                maybe_svn_rev=${maybe_svn_rev% *}
+                suffix=.$distance-r$maybe_svn_rev
+            fi
             case $dirty in
                 '') ;;
                 *) suffix=$suffix-dirty ;;
@@ -190,7 +217,5 @@ else
     v=$package_version-UNKNOWN
 fi
 
-v=`echo "$v" |sed 's/^v//'`
-
 # Omit the trailing newline, so that m4_esyscmd can use the result directly.
-echo "$v" | tr -d '\012'
+echo "$v" | tr -d '\n'
