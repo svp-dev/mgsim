@@ -13,4 +13,6 @@ config.log
 config.status
 *.bin
 *.out
+*~
+*.log
 
