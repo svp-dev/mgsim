@@ -1,6 +1,7 @@
 #ifndef BUFFER_H
 #define BUFFER_H
 
+#include "delegate.h"
 #include "ports.h"
 #include <deque>
 
@@ -12,20 +13,11 @@ static const    BufferSize INFINITE = (size_t)-1;
 
 class Storage
 {
-    /// The kernel handle of this storage object
-    union ProcessInfo
-    {
-        Kernel::ProcessInfo* m_handle;
-        struct {
-            IComponent* m_component;
-            int         m_state;
-        };
-    };
-    
-    Kernel&                  m_kernel;      ///< The kernel that controls us
-    Kernel::StorageInfo*     m_handle;      ///< Our handle for communication with the kernel
-    std::vector<ProcessInfo> m_processes;   ///< The processes that are sensitive on this storage object
-    bool                     m_initialized; ///< Sanity check against registering after intialization
+    friend class Kernel;
+
+    Kernel&               m_kernel;      ///< The kernel that controls us
+    bool                  m_activated;   ///< Has the storage already been activated this cycle?
+    Storage*              m_next;        ///< Next pointer in the list of storages that require updates
     
 protected:
     bool IsCommitting() const {
@@ -33,26 +25,84 @@ protected:
     }
     
     void RegisterUpdate() {
-        m_kernel.ActivateStorage(m_handle);
+        if (!m_activated) {
+            m_next = m_kernel.ActivateStorage(*this);
+            m_activated = true;
+        }
     }
     
     virtual ~Storage() {
     }
     
-    void Notify();
-    void Unnotify();
-    
 public:
     virtual void Update() = 0;
-    
-    virtual void Initialize(Kernel::StorageInfo* handle);
 
-    void Sensitive(IComponent& component, int state);
-    
     Storage(Kernel& kernel)
-        : m_kernel(kernel), m_handle(NULL), m_initialized(false)
+        : m_kernel(kernel), m_activated(false)
+    {}
+};
+
+class SingleSensitivity
+{
+    Kernel&  m_kernel;  ///< The kernel to use
+    Process* m_process; ///< The process that is sensitive on this storage object
+
+protected:
+    void Notify()
     {
-        kernel.RegisterStorage(*this);
+        assert(m_process != NULL);
+        m_kernel.ActivateProcess(*m_process);
+    }
+
+    void Unnotify()
+    {
+        assert(m_process != NULL);
+        m_process->Deactivate();
+    }
+
+public:
+    void Sensitive(Process& process)
+    {
+        assert(m_process == NULL);
+        m_process = &process;
+    }
+
+    SingleSensitivity(Kernel& kernel)
+      : m_kernel(kernel), m_process(NULL)
+    {
+    }
+};
+
+class MultipleSensitivity
+{
+    Kernel&               m_kernel;    ///< The kernel to use
+    std::vector<Process*> m_processes; ///< The processes that are sensitive on this storage object
+
+protected:
+    void Notify()
+    {
+        for (std::vector<Process*>::const_iterator p = m_processes.begin(); p != m_processes.end(); ++p)
+        {
+            m_kernel.ActivateProcess(**p);
+        }
+    }
+
+    void Unnotify()
+    {
+        for (std::vector<Process*>::const_iterator p = m_processes.begin(); p != m_processes.end(); ++p)
+        {
+            (*p)->Deactivate();
+        }
+    }
+
+public:
+    void Sensitive(Process& process)
+    {
+        m_processes.push_back(&process);
+    }
+
+    MultipleSensitivity(Kernel& kernel) : m_kernel(kernel)
+    {
     }
 };
 
@@ -61,7 +111,7 @@ template <
     typename          L, ///< The lookup table type
     T L::value_type::*N  ///< The next field in the table's element type
 >
-class LinkedList : public Storage
+class LinkedList : public SingleSensitivity, public Storage
 {
     L&   m_table;     ///< The table to dereference to form the linked list
     bool m_empty;     ///< Whether this list is empty
@@ -187,14 +237,14 @@ public:
     
     /// Construct an empty list with a sensitive component
     LinkedList(Kernel& kernel, L& table)
-        : Storage(kernel),
+        : SingleSensitivity(kernel), Storage(kernel),
           m_table(table), m_empty(true), m_popped(false), m_pushed(false)
     {
     }
 };
 
 template <typename T>
-class Buffer : public Storage
+class Buffer : public SingleSensitivity, public Storage
 {
     // Maximum for m_maxPushes
     // In hardware it can be possible to support multiple pushes
@@ -270,7 +320,7 @@ public:
     }
 
     Buffer(Kernel& kernel, BufferSize maxSize, size_t maxPushes = 1)
-        : Storage(kernel),
+        : SingleSensitivity(kernel), Storage(kernel),
           m_maxSize(maxSize), m_maxPushes(maxPushes), m_popped(false), m_pushes(0)
     {
         assert(maxPushes <= MAX_PUSHES);
@@ -278,7 +328,7 @@ public:
 };
 
 template <typename T>
-class Register : public Storage
+class Register : public SingleSensitivity, public Storage
 {
     bool m_empty;
     T    m_cur;
@@ -337,7 +387,7 @@ public:
     }
     
     Register(Kernel& kernel)
-        : Storage(kernel),
+        : SingleSensitivity(kernel), Storage(kernel),
           m_empty(true), m_cleared(false), m_assigned(false)
     {
     }
@@ -345,24 +395,12 @@ public:
 
 class Flag : public Storage
 {
+protected:
     bool m_set;
     bool m_updated;
     bool m_new;
 
-    void Initialize(Kernel::StorageInfo* handle)
-    {
-        Storage::Initialize(handle);
-        if (m_set) {
-            Notify();
-        }
-    }
-    
     void Update() {
-        if (m_new && !m_set) {
-            Notify();
-        } else if (m_set && !m_new) {
-            Unnotify();
-        }
         m_set     = m_new;
         m_updated = false;
     }
@@ -391,16 +429,52 @@ public:
     }
     
     Flag(Kernel& kernel, bool set)
-        : Storage(kernel), m_set(set), m_updated(false)
+        : Storage(kernel),
+          m_set(false), m_updated(false), m_new(set)
     {
+        if (set) {
+            RegisterUpdate();
+        }
     }
+};
+
+class SingleFlag : public Flag, public SingleSensitivity
+{
+    void Update() {
+        if (m_new && !m_set) {
+            this->Notify();
+        } else if (m_set && !m_new) {
+            this->Unnotify();
+        }
+        Flag::Update();
+    }
+public:
+    SingleFlag(Kernel& kernel, bool set)
+      : Flag(kernel, set), SingleSensitivity(kernel)
+    {}
+};
+
+class MultiFlag : public Flag, public MultipleSensitivity
+{
+    void Update() {
+        if (m_new && !m_set) {
+            this->Notify();
+        } else if (m_set && !m_new) {
+            this->Unnotify();
+        }
+        Flag::Update();
+    }
+public:
+    MultiFlag(Kernel& kernel, bool set)
+      : Flag(kernel, set), MultipleSensitivity(kernel)
+    {}
 };
 
 /*
  A combined boolean signal that each writer can contribute to.
  The combined signal is the result of OR-ing all inputs.
  */
-class CombinedFlag : public Storage
+class CombinedFlag : public MultipleSensitivity, public Storage
 {
 public:
     // Gets the combined signal
@@ -421,7 +495,8 @@ public:
     }
     
     CombinedFlag(Kernel& kernel, PSize num_writers)
-        : Storage(kernel), m_inputs(num_writers, false), m_resolved(false)
+        : MultipleSensitivity(kernel), Storage(kernel),
+          m_inputs(num_writers, false), m_resolved(false)
     {
     }
 

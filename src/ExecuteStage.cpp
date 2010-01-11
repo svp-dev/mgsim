@@ -108,30 +108,30 @@ Pipeline::PipeAction Pipeline::ExecuteStage::ExecCreate(LFID fid, MemAddr addres
     assert(exitCodeReg.type == RT_INTEGER);
 
     // Direct create
-	if (!MemoryWriteBarrier(m_input.tid))
-	{
-	    // We need to wait for the pending writes to complete
-	    COMMIT
-	    {
-    	    m_output.pc      = m_input.pc;
-        	m_output.suspend = SUSPEND_MEMORY_BARRIER;
-        	m_output.swch    = true;
-        	m_output.kill    = false;
-        	m_output.Rc      = INVALID_REG;
+    if (!MemoryWriteBarrier(m_input.tid))
+    {
+        // We need to wait for the pending writes to complete
+        COMMIT
+        {
+            m_output.pc      = m_input.pc;
+            m_output.suspend = SUSPEND_MEMORY_BARRIER;
+            m_output.swch    = true;
+            m_output.kill    = false;
+            m_output.Rc      = INVALID_REG;
         }
         return PIPE_FLUSH;
-	}
-	
+    }
+    
     if (!m_allocator.QueueCreate(fid, address, m_input.tid, exitCodeReg.index))
-   	{
-   		return PIPE_STALL;
-   	}
-   	
+    {
+        return PIPE_STALL;
+    }
+    
     COMMIT
     {
-       	m_output.Rcv = MAKE_PENDING_PIPEVALUE(m_output.Rcv.m_size);
+        m_output.Rcv = MAKE_PENDING_PIPEVALUE(m_output.Rcv.m_size);
     }
-	return PIPE_CONTINUE;
+    return PIPE_CONTINUE;
 }
 
 Pipeline::PipeAction Pipeline::ExecuteStage::SetFamilyProperty(LFID fid, FamilyProperty property, uint64_t value)
@@ -144,10 +144,10 @@ Pipeline::PipeAction Pipeline::ExecuteStage::SetFamilyProperty(LFID fid, FamilyP
             case FAMPROP_START: family.start         = (SInteger)value; break;
             case FAMPROP_LIMIT: family.limit         = (SInteger)value; break;
             case FAMPROP_STEP:  family.step          = (SInteger)value; break;
-    		case FAMPROP_BLOCK: family.virtBlockSize = (TSize)value; break;
-    	}
+            case FAMPROP_BLOCK: family.virtBlockSize = (TSize)value; break;
+        }
     }
-	return PIPE_CONTINUE;
+    return PIPE_CONTINUE;
 }
 
 Pipeline::PipeAction Pipeline::ExecuteStage::ExecBreak(Integer /* value */) { return PIPE_CONTINUE; }
@@ -180,26 +180,26 @@ void Pipeline::ExecuteStage::ExecDebug(Integer value, Integer stream) const
                                   (((value >> (1 * size / 8)) << (16 - bits)) & 0x00ff00) |
                                   (((value >> (2 * size / 8)) << (24 - bits)) & 0xff0000);
             if (stream & 0x10) {
-	            // position: offset(16) || offset(32)
-	            m_display.PutPixel(position, data);
-	        } else {
-	            // position: x(8) y(8) || x(16) y(16)
-	            const unsigned int m = (1U << (size / 4)) - 1;
-	            const unsigned int y = (position >> (0 * size / 4)) & m;
-	            const unsigned int x = (position >> (1 * size / 4)) & m;
-	            m_display.PutPixel(x, y, data);
-	        }
-	        break;
-	    }
-	        
+                // position: offset(16) || offset(32)
+                m_display.PutPixel(position, data);
+            } else {
+                // position: x(8) y(8) || x(16) y(16)
+                const unsigned int m = (1U << (size / 4)) - 1;
+                const unsigned int y = (position >> (0 * size / 4)) & m;
+                const unsigned int x = (position >> (1 * size / 4)) & m;
+                m_display.PutPixel(x, y, data);
+            }
+            break;
+        }
+            
         case 1:
         {
             // resize screen
             // stream: 0 1 1 - - - - -
             // value:  W(8) H(8) unused(16)  ||  W(16) H(16) unused(32)
             const size_t       size = sizeof value * 8;
-	        const unsigned int mask = (1U << (size / 4)) - 1;
-	        const unsigned int w    = (value >> (3 * size / 4)) & mask;
+            const unsigned int mask = (1U << (size / 4)) - 1;
+            const unsigned int w    = (value >> (3 * size / 4)) & mask;
             const unsigned int h    = (value >> (2 * size / 4)) & mask;
             m_display.Resize(w, h);
             break;
@@ -220,29 +220,29 @@ void Pipeline::ExecuteStage::ExecDebug(Integer value, Integer stream) const
             ostringstream tinfo;
             if (stream & 8)
             {
-	            tinfo << "print by thread 0x" 
-	                  << std::hex << (unsigned)m_input.tid 
-	                  << " at 0x" << (unsigned long long)m_input.pc
-	                  << " on cycle " << std::dec << GetKernel()->GetCycleNo();
+                tinfo << "print by thread 0x" 
+                      << std::hex << (unsigned)m_input.tid 
+                      << " at 0x" << (unsigned long long)m_input.pc
+                      << " on cycle " << std::dec << GetKernel()->GetCycleNo();
             }
             
             int outstream = stream & 3;
             if (outstream == 0)
             {
-	            ostringstream fname;
-	            fname << "gfx." << value;
-	            if (stream & 0x10)
-	            {
-	                fname << '.' << GetKernel()->GetCycleNo();
-	            }
-	            fname << ".ppm";
-	            ofstream f(fname.str().c_str(), ios_base::out | ios_base::trunc);
-	            m_display.Dump(f, value, tinfo.str());
+                ostringstream fname;
+                fname << "gfx." << value;
+                if (stream & 0x10)
+                {
+                    fname << '.' << GetKernel()->GetCycleNo();
+                }
+                fname << ".ppm";
+                ofstream f(fname.str().c_str(), ios_base::out | ios_base::trunc);
+                m_display.Dump(f, value, tinfo.str());
             }
             else
             {
-	            ostream& out = (outstream == 2) ? cerr : cout;
-	            m_display.Dump(out, value, tinfo.str());
+                ostream& out = (outstream == 2) ? cerr : cout;
+                m_display.Dump(out, value, tinfo.str());
             }
             break;
         }
@@ -278,8 +278,8 @@ void Pipeline::ExecuteStage::ExecDebug(Integer value, Integer stream) const
         if (outstream == 0)
         {
             DebugProgWrite("PRINT by T%u at 0x%.*llx: %s",
-		        (unsigned)m_input.tid, (int)sizeof(m_input.pc) * 2, (unsigned long long)m_input.pc,
-		        stringout.str().c_str());
+                (unsigned)m_input.tid, (int)sizeof(m_input.pc) * 2, (unsigned long long)m_input.pc,
+                stringout.str().c_str());
         }
     }
 }
@@ -292,27 +292,27 @@ void Pipeline::ExecuteStage::ExecDebug(double value, Integer stream) const
     switch (s) {
     case 0:
       DebugProgWrite("PRINT by T%u at 0x%.*llx: %0.*lf",
-		     (unsigned)m_input.tid, (int)sizeof(m_input.pc) * 2, (unsigned long long)m_input.pc,
-		     prec, value );
+             (unsigned)m_input.tid, (int)sizeof(m_input.pc) * 2, (unsigned long long)m_input.pc,
+             prec, value );
       break;
     case 1:
     case 2:
       ostream& out = (s == 2) ? cerr : cout;
         out << setprecision(prec) << scientific << value;
-	break;
+    break;
     }
 }
 
 Pipeline::ExecuteStage::ExecuteStage(Pipeline& parent, const ReadExecuteLatch& input, ExecuteMemoryLatch& output, Allocator& alloc, Network& network, ThreadTable& threadTable, Display& display, FPU& fpu, size_t fpu_source, const Config& /*config*/)
-  : Stage(parent, "execute"),
+  : Stage("execute", parent),
     m_input(input),
     m_output(output),
     m_allocator(alloc),
     m_network(network),
     m_threadTable(threadTable),
     m_display(display),
-	m_fpu(fpu),
-	m_fpuSource(fpu_source)
+    m_fpu(fpu),
+    m_fpuSource(fpu_source)
 {
     m_flop = 0;
     m_op   = 0;

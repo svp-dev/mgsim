@@ -57,7 +57,7 @@ struct Thread
 class ThreadTable : public Object
 {
 public:
-    ThreadTable(Processor& parent, const Config& config);
+    ThreadTable(const std::string& name, Processor& parent, const Config& config);
 
     TSize GetNumThreads() const { return m_threads.size(); }
 
@@ -77,7 +77,6 @@ public:
     void Cmd_Read(std::ostream& out, const std::vector<std::string>& arguments) const;
 
 private:
-    Processor&          m_parent;
     ThreadQueue         m_empty;
     std::vector<Thread> m_threads;
     TSize               m_free[NUM_CONTEXT_TYPES];

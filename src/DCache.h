@@ -15,7 +15,7 @@ class Allocator;
 class FamilyTable;
 class RegisterFile;
 
-class DCache : public IComponent
+class DCache : public Object
 {
 public:
     /// The state of a cache-line
@@ -60,7 +60,6 @@ private:
         RegAddr      next;   ///< Next register after this one
     };
     
-    Result OnCycle(unsigned int stateIndex);
     Result FindLine(MemAddr address, Line* &line, bool check_only);
 
     Processor&           m_parent;          ///< Parent processor.
@@ -77,11 +76,20 @@ private:
     WritebackState       m_wbstate;         ///< Writeback state
     uint64_t             m_numHits;         ///< Number of hits so far.
     uint64_t             m_numMisses;       ///< Number of misses so far.
+       
+    Result DoCompletedReads();
+    Result DoCompletedWrites();
+    Result DoOutgoingRequests();
 
 public:
-    DCache(Processor& parent, const std::string& name, Allocator& allocator, FamilyTable& familyTable, RegisterFile& regFile, const Config& config);
+    DCache(const std::string& name, Processor& parent, Allocator& allocator, FamilyTable& familyTable, RegisterFile& regFile, const Config& config);
     ~DCache();
     
+    // Processes
+    Process p_IncomingReads;
+    Process p_IncomingWrites;
+    Process p_Outgoing;
+
     ArbitratedService p_service;
 
     // Public interface

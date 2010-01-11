@@ -84,10 +84,10 @@ Config::Config(const string& filename, const ConfigMap& overrides)
     while (!input.eof())
     {
         int c = input.get();
-		if (input.fail())
-		{
-			break;
-		}
+        if (input.fail())
+        {
+            break;
+        }
 
         if (state == STATE_BEGIN && !isspace(c))
         {

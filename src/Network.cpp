@@ -10,8 +10,8 @@ namespace Simulator
 {
 
 Network::Network(
+    const std::string&        name,
     Processor&                parent,
-    const string&             name,
     PlaceInfo&                place,
     const vector<Processor*>& grid,
     LPID                      lpid,
@@ -19,7 +19,7 @@ Network::Network(
     RegisterFile&             regFile,
     FamilyTable&              familyTable
 ) :
-    IComponent(&parent, parent.GetKernel(), name, "reg-response-in-group|reg-request-in|reg-response-group-out|reg-request-group-out|delegation|creation|rsync|thread-cleanup|thread-termination|family-sync|family-termination|reg-request-remote-out|reg-response-remote-out|reg-response-in-remote|reserve-family|delegate-failed-out|delegate-failed-in"),
+    Object(name, parent),
     
     m_parent     (parent),
     m_regFile    (regFile),
@@ -32,7 +32,7 @@ Network::Network(
     m_lpid(lpid),
     m_grid(grid),
     
-#define CONSTRUCT_REGISTER(name) name(parent.GetKernel(), *this, #name)
+#define CONSTRUCT_REGISTER(name) name(*parent.GetKernel(), *this, #name)
     CONSTRUCT_REGISTER(m_createLocal),
     CONSTRUCT_REGISTER(m_createRemote),
     CONSTRUCT_REGISTER(m_delegateLocal),
@@ -52,35 +52,53 @@ Network::Network(
     CONSTRUCT_REGISTER(m_registerResponseGroup),
 #undef CONTRUCT_REGISTER
 
-    m_hasToken      (parent.GetKernel(),  lpid == 0), // CPU #0 starts out with the token
-    m_wantToken     (parent.GetKernel(), false),
-    m_tokenBusy     (parent.GetKernel(), false)
-{
-    m_createLocal   .Sensitive(*this, 5);
-    m_createRemote  .Sensitive(*this, 5);
-    m_delegateLocal .Sensitive(*this, 4);
-    m_delegateRemote.Sensitive(*this, 4);
-    m_delegateFailedLocal .Sensitive(*this, 15);
-    m_delegateFailedRemote.Sensitive(*this, 16);
+    m_hasToken      (*parent.GetKernel(),  lpid == 0), // CPU #0 starts out with the token
+    m_wantToken     (*parent.GetKernel(), false),
+    m_tokenBusy     (*parent.GetKernel(), false),
 
-    m_synchronizedFamily.Sensitive(*this,  9);
-    m_terminatedFamily  .Sensitive(*this, 10);
-    m_completedThread   .Sensitive(*this,  8);
-    m_cleanedUpThread   .Sensitive(*this,  7);
-    m_remoteSync        .Sensitive(*this,  6);
+    p_RegResponseInGroup  ("reg-response-in-group",   delegate::create<Network, &Network::DoRegResponseInGroup  >(*this)),
+    p_RegRequestIn        ("reg-request-in",          delegate::create<Network, &Network::DoRegRequestIn        >(*this)),
+    p_RegResponseOutGroup ("reg-response-out-group",  delegate::create<Network, &Network::DoRegResponseOutGroup >(*this)),
+    p_RegRequestOutGroup  ("reg-request-out-group",   delegate::create<Network, &Network::DoRegRequestOutGroup  >(*this)),
+    p_Delegation          ("delegation",              delegate::create<Network, &Network::DoDelegation          >(*this)),
+    p_Creation            ("creation",                delegate::create<Network, &Network::DoCreation            >(*this)),
+    p_RemoteSync          ("rsync",                   delegate::create<Network, &Network::DoRemoteSync          >(*this)),
+    p_ThreadCleanup       ("thread-cleanup",          delegate::create<Network, &Network::DoThreadCleanup       >(*this)),
+    p_ThreadTermination   ("thread-termination",      delegate::create<Network, &Network::DoThreadTermination   >(*this)),
+    p_FamilySync          ("family-sync",             delegate::create<Network, &Network::DoFamilySync          >(*this)),
+    p_FamilyTermination   ("family-termination",      delegate::create<Network, &Network::DoFamilyTermination   >(*this)),
+    p_RegRequestOutRemote ("reg-request-out-remote",  delegate::create<Network, &Network::DoRegRequestOutRemote >(*this)),
+    p_RegResponseOutRemote("reg-response-out-remote", delegate::create<Network, &Network::DoRegResponseOutRemote>(*this)),
+    p_RegResponseInRemote ("reg-response-in-remote",  delegate::create<Network, &Network::DoRegResponseInRemote >(*this)),
+    p_ReserveFamily       ("reserve-family",          delegate::create<Network, &Network::DoReserveFamily       >(*this)),
+    p_DelegateFailedOut   ("delegate-failed-out",     delegate::create<Network, &Network::DoDelegateFailedOut   >(*this)),
+    p_DelegateFailedIn    ("delegate-failed-in",      delegate::create<Network, &Network::DoDelegateFailedIn    >(*this))
+{
+    m_createLocal   .Sensitive(p_Creation);
+    m_createRemote  .Sensitive(p_Creation);
+    m_delegateLocal .Sensitive(p_Delegation);
+    m_delegateRemote.Sensitive(p_Delegation);
+    m_delegateFailedLocal .Sensitive(p_DelegateFailedOut);
+    m_delegateFailedRemote.Sensitive(p_DelegateFailedIn);
+
+    m_synchronizedFamily.Sensitive(p_FamilySync);
+    m_terminatedFamily  .Sensitive(p_FamilyTermination);
+    m_completedThread   .Sensitive(p_ThreadTermination);
+    m_cleanedUpThread   .Sensitive(p_ThreadCleanup);
+    m_remoteSync        .Sensitive(p_RemoteSync);
     
-    m_registerRequestRemote .in .Sensitive(*this,  1);
-    m_registerRequestRemote .out.Sensitive(*this, 11);
-    m_registerResponseRemote.in .Sensitive(*this, 13);
-    m_registerResponseRemote.out.Sensitive(*this, 12);
-    m_registerRequestGroup  .in .Sensitive(*this,  1);
-    m_registerRequestGroup  .out.Sensitive(*this,  3);
-    m_registerResponseGroup .in .Sensitive(*this,  0);
-    m_registerResponseGroup .out.Sensitive(*this,  2);
+    m_registerRequestRemote .in .Sensitive(p_RegRequestIn);
+    m_registerRequestRemote .out.Sensitive(p_RegRequestOutRemote);
+    m_registerResponseRemote.in .Sensitive(p_RegResponseInRemote);
+    m_registerResponseRemote.out.Sensitive(p_RegResponseOutRemote);
+    m_registerRequestGroup  .in .Sensitive(p_RegRequestIn);
+    m_registerRequestGroup  .out.Sensitive(p_RegRequestOutGroup);
+    m_registerResponseGroup .in .Sensitive(p_RegResponseInGroup);
+    m_registerResponseGroup .out.Sensitive(p_RegResponseOutGroup);
     
-    m_wantToken              .Sensitive(*this, 5);
-    m_place.m_reserve_context.Sensitive(*this, 14);
-    m_place.m_want_token     .Sensitive(*this, 5);
+    m_wantToken              .Sensitive(p_Creation);
+    m_place.m_reserve_context.Sensitive(p_ReserveFamily);
+    m_place.m_want_token     .Sensitive(p_Creation);
 }
 
 void Network::Initialize(Network& prev, Network& next)
@@ -214,14 +232,14 @@ bool Network::OnRemoteRegisterReceived(const RegisterResponse& response)
     assert(response.addr.reg.index != INVALID_REG_INDEX);
     assert(response.value.m_state  == RST_FULL);
     
-	if (m_registerResponseRemote.in.Write(response))
-	{
-	    DebugSimWrite("Received remote response for %s register %s in F%u",
-	        GetRemoteRegisterTypeString(response.addr.type),
-	        response.addr.reg.str().c_str(),
-	        (unsigned)response.addr.fid
+    if (m_registerResponseRemote.in.Write(response))
+    {
+        DebugSimWrite("Received remote response for %s register %s in F%u",
+            GetRemoteRegisterTypeString(response.addr.type),
+            response.addr.reg.str().c_str(),
+            (unsigned)response.addr.fid
         );       
-		return true;
+        return true;
     }
     return false;
 }
@@ -237,12 +255,12 @@ bool Network::OnRegisterRequested(const RegisterRequest& request)
     assert(request.return_fid     == m_familyTable[request.addr.fid].link_next);
     
     if (m_registerRequestGroup.in.Write(request))
-    {	
-	    DebugSimWrite("Received request for %s register %s in F%u from F%u@next",
-	        GetRemoteRegisterTypeString(request.addr.type),
-	        request.addr.reg.str().c_str(),
-	        (unsigned)request.addr.fid, (unsigned)request.return_fid
-	    );
+    {   
+        DebugSimWrite("Received request for %s register %s in F%u from F%u@next",
+            GetRemoteRegisterTypeString(request.addr.type),
+            request.addr.reg.str().c_str(),
+            (unsigned)request.addr.fid, (unsigned)request.return_fid
+        );
         return true;
     }
     return false;
@@ -259,12 +277,12 @@ bool Network::OnRegisterReceived(const RegisterResponse& response)
     
     if (m_registerResponseGroup.in.Write(response))
     {
-	    DebugSimWrite("Received response for %s register %s in F%u",
-	        GetRemoteRegisterTypeString(response.addr.type),
-	        response.addr.reg.str().c_str(),
-	        (unsigned)response.addr.fid
+        DebugSimWrite("Received response for %s register %s in F%u",
+            GetRemoteRegisterTypeString(response.addr.type),
+            response.addr.reg.str().c_str(),
+            (unsigned)response.addr.fid
         );
-		return true;
+        return true;
     }
     return false;
 }
@@ -315,27 +333,27 @@ bool Network::OnFamilyTerminated(LFID fid)
 bool Network::SendDelegatedCreate(LFID fid)
 {
     // Buffer the family information
-	const Family& family = m_familyTable[fid];
+    const Family& family = m_familyTable[fid];
 
     DelegateMessage message;
     message.start      = family.start;
-	message.limit      = family.limit;
-	message.step       = family.step;
-	message.blockSize  = family.virtBlockSize;
-	message.address    = family.pc;
-	message.parent.pid = m_parent.GetPID();
-	message.parent.fid = fid;
-	message.exclusive  = family.place.exclusive;
+    message.limit      = family.limit;
+    message.step       = family.step;
+    message.blockSize  = family.virtBlockSize;
+    message.address    = family.pc;
+    message.parent.pid = m_parent.GetPID();
+    message.parent.fid = fid;
+    message.exclusive  = family.place.exclusive;
 
     for (RegType i = 0; i < NUM_REG_TYPES; i++)
     {
-		message.regsNo[i] = family.regs[i].count;
-	}
-	GPID dest_pid = family.place.pid;
-		
+        message.regsNo[i] = family.regs[i].count;
+    }
+    GPID dest_pid = family.place.pid;
+        
     if (m_delegateLocal.Write(make_pair(dest_pid, message)))
     {
-		DebugSimWrite("Delegating create for F%u to CPU%u", (unsigned)fid, (unsigned)dest_pid);
+        DebugSimWrite("Delegating create for F%u to CPU%u", (unsigned)fid, (unsigned)dest_pid);
         return true;
     }
     return false;
@@ -343,7 +361,7 @@ bool Network::SendDelegatedCreate(LFID fid)
 
 bool Network::SendGroupCreate(LFID fid)
 {
- 	const Family& family = m_familyTable[fid];
+    const Family& family = m_familyTable[fid];
     assert(m_hasToken.IsSet());
     assert(m_tokenBusy.IsSet());   
     assert(family.parent.lpid == m_lpid);
@@ -351,23 +369,23 @@ bool Network::SendGroupCreate(LFID fid)
     // Buffer the family information
     CreateMessage message;
     message.first_fid     = fid;
-	message.link_prev     = fid;
+    message.link_prev     = fid;
     message.infinite      = family.infinite;
     message.start         = family.start;
-	message.step          = family.step;
-	message.nThreads      = family.nThreads;
-	message.virtBlockSize = family.virtBlockSize;
-	message.physBlockSize = family.physBlockSize;
-	message.address       = family.pc;
-	message.parent.gpid   = family.parent.gpid;
-	message.parent.lpid   = family.parent.lpid;
-	message.parent.fid    = fid;
+    message.step          = family.step;
+    message.nThreads      = family.nThreads;
+    message.virtBlockSize = family.virtBlockSize;
+    message.physBlockSize = family.physBlockSize;
+    message.address       = family.pc;
+    message.parent.gpid   = family.parent.gpid;
+    message.parent.lpid   = family.parent.lpid;
+    message.parent.fid    = fid;
 
     for (RegType i = 0; i < NUM_REG_TYPES; ++i)
     {
-		message.regsNo[i] = family.regs[i].count;
-	}
-		
+        message.regsNo[i] = family.regs[i].count;
+    }
+        
     if (!m_createLocal.Write(message))
     {
         return false;
@@ -413,7 +431,7 @@ bool Network::OnDelegationCreateReceived(const DelegateMessage& msg)
 {
     if (m_delegateRemote.Write(msg))
     {
-    	DebugSimWrite("Received delegated create from F%u@CPU%u", (unsigned)msg.parent.fid, (unsigned)msg.parent.pid);
+        DebugSimWrite("Received delegated create from F%u@CPU%u", (unsigned)msg.parent.fid, (unsigned)msg.parent.pid);
         return true;
     }
     return false;
@@ -491,7 +509,7 @@ bool Network::WriteRegister(const RemoteRegAddr& raddr, const RegValue& value)
            DeadlockWrite("Unable to write register response to %s", addr.str().c_str());
            return false;
         }
-       	
+        
         if (raddr.type == RRT_PARENT_SHARED)
         {
             if (!m_allocator.DecreaseFamilyDependency(raddr.fid, FAMDEP_OUTSTANDING_SHAREDS))
@@ -504,76 +522,34 @@ bool Network::WriteRegister(const RemoteRegAddr& raddr, const RegValue& value)
     return true;
 }
 
-Result Network::OnCycle(unsigned int stateIndex)
+Result Network::DoRegResponseInGroup()
 {
-    switch (stateIndex)
+    // Incoming group responses
+    assert(!m_registerResponseGroup.in.Empty());       
+    const RegisterResponse& response = m_registerResponseGroup.in.Read();
+            
+    if (response.addr.type == RRT_PARENT_SHARED && response.addr.lpid != m_lpid)
     {
-    case 0:
-    {
-        // Incoming group responses
-        assert(!m_registerResponseGroup.in.Empty());       
-        const RegisterResponse& response = m_registerResponseGroup.in.Read();
-			
-        if (response.addr.type == RRT_PARENT_SHARED && response.addr.lpid != m_lpid)
+        // This is not the CPU the parent thread is located on. Forward it
+        if (!SendRegister(response.addr, response.value))
         {
-            // This is not the CPU the parent thread is located on. Forward it
-            if (!SendRegister(response.addr, response.value))
-            {
-                DeadlockWrite("Unable to forward group parent shared");
-                return FAILED;
-            }
+            DeadlockWrite("Unable to forward group parent shared");
+            return FAILED;
         }
-        else
-        {
-    	    const Family& family = m_familyTable[response.addr.fid];
-		    assert(family.state != FST_EMPTY);
-
-            if (response.addr.type == RRT_PARENT_SHARED && family.parent.gpid != INVALID_GPID)
-            {
-                // This is a parent shared on the local parent core in a delegated create.
-                // It should be forwarded to the remote parent core.
-                RemoteRegAddr addr(response.addr);
-                addr.fid  = family.parent.fid;
-                addr.gpid = family.parent.gpid;
-                addr.lpid = INVALID_LPID;
-                if (!SendRegister(addr, response.value))
-                {
-                    DeadlockWrite("Unable to forward remote parent shared");
-                    return FAILED;
-                }
-            }
-            else
-            {
-                // Incoming shared, global or parent shared for us. (Try to) write it.
-                if (!WriteRegister(response.addr, response.value))
-                {
-                    return FAILED;
-                }
-            }
-        }
-        
-        // We've processed this register response
-        m_registerResponseGroup.in.Clear();
-    	return SUCCESS;
     }
-
-    case 13:
+    else
     {
-        // Incoming remote responses
-        assert(!m_registerResponseRemote.in.Empty());
+        const Family& family = m_familyTable[response.addr.fid];
+        assert(family.state != FST_EMPTY);
 
-        const RegisterResponse& response = m_registerResponseRemote.in.Read();
-    	const Family&           family   = m_familyTable[response.addr.fid];
-	    assert(family.state != FST_EMPTY);
-
-        if (response.addr.type == RRT_FIRST_DEPENDENT && family.type != Family::LOCAL)
+        if (response.addr.type == RRT_PARENT_SHARED && family.parent.gpid != INVALID_GPID)
         {
-            // Incoming remote shareds must be responses to parent shareds, which were
-            // requested from the next core (where the first thread runs), so we just
-            // forward the response (unless we're a local family
+            // This is a parent shared on the local parent core in a delegated create.
+            // It should be forwarded to the remote parent core.
             RemoteRegAddr addr(response.addr);
-            addr.fid  = family.link_next;
-            addr.gpid = INVALID_GPID;
+            addr.fid  = family.parent.fid;
+            addr.gpid = family.parent.gpid;
+            addr.lpid = INVALID_LPID;
             if (!SendRegister(addr, response.value))
             {
                 DeadlockWrite("Unable to forward remote parent shared");
@@ -582,548 +558,575 @@ Result Network::OnCycle(unsigned int stateIndex)
         }
         else
         {
-            // Incoming global or (parent) shared for us. Write it.
+            // Incoming shared, global or parent shared for us. (Try to) write it.
             if (!WriteRegister(response.addr, response.value))
             {
                 return FAILED;
             }
         }
+    }
+    
+    // We've processed this register response
+    m_registerResponseGroup.in.Clear();
+    return SUCCESS;
+}
+
+Result Network::DoRegResponseInRemote()
+{
+    // Incoming remote responses
+    assert(!m_registerResponseRemote.in.Empty());
+
+    const RegisterResponse& response = m_registerResponseRemote.in.Read();
+    const Family&           family   = m_familyTable[response.addr.fid];
+    assert(family.state != FST_EMPTY);
+
+    if (response.addr.type == RRT_FIRST_DEPENDENT && family.type != Family::LOCAL)
+    {
+        // Incoming remote shareds must be responses to parent shareds, which were
+        // requested from the next core (where the first thread runs), so we just
+        // forward the response (unless we're a local family
+        RemoteRegAddr addr(response.addr);
+        addr.fid  = family.link_next;
+        addr.gpid = INVALID_GPID;
+        if (!SendRegister(addr, response.value))
+        {
+            DeadlockWrite("Unable to forward remote parent shared");
+            return FAILED;
+        }
+    }
+    else
+    {
+        // Incoming global or (parent) shared for us. Write it.
+        if (!WriteRegister(response.addr, response.value))
+        {
+            return FAILED;
+        }
+    }
             
-        // We've processed this register response
-        m_registerResponseRemote.in.Clear();
-    	return SUCCESS;
+    // We've processed this register response
+    m_registerResponseRemote.in.Clear();
+    return SUCCESS;
+}
+        
+Result Network::DoRegRequestIn()
+{
+    // Incoming group/remote requests
+    Register<RegisterRequest>* reg = NULL;
+    if (!m_registerRequestGroup.in.Empty()) {
+        reg = &m_registerRequestGroup.in;
+    } else {
+        assert (!m_registerRequestRemote.in.Empty());
+        reg = &m_registerRequestRemote.in;
     }
         
-    case 1:
+    const RegisterRequest& request = reg->Read();
+    const Family&          family  = m_familyTable[request.addr.fid];
+        
+    if (request.addr.type == RRT_PARENT_SHARED && family.parent.gpid != INVALID_GPID)
     {
-        // Incoming group/remote requests
-        Register<RegisterRequest>* reg = NULL;
-        if (!m_registerRequestGroup.in.Empty()) {
-            reg = &m_registerRequestGroup.in;
-        } else {
-            assert (!m_registerRequestRemote.in.Empty());
-            reg = &m_registerRequestRemote.in;
-        }
-        
-        const RegisterRequest& request = reg->Read();
-        const Family&          family  = m_familyTable[request.addr.fid];
-        
-        if (request.addr.type == RRT_PARENT_SHARED && family.parent.gpid != INVALID_GPID)
+        // A parent shared request came in on the local parent core of a delegated create.
+        assert(reg == &m_registerRequestGroup.in);
+
+        // Forward it to the remote parent
+        RemoteRegAddr addr = request.addr;
+        addr.gpid = family.parent.gpid;
+        addr.fid  = family.parent.fid;
+
+        DebugSimWrite("Forwarding request for parent shared %s to F%u@CPU%u",
+            addr.reg.str().c_str(), (unsigned)addr.fid, (unsigned)addr.gpid);
+
+        if (!RequestRegister(addr, request.addr.fid))
         {
-            // A parent shared request came in on the local parent core of a delegated create.
-            assert(reg == &m_registerRequestGroup.in);
+            DeadlockWrite("Unable to forward request for parent shared to remote parent core");
+            return FAILED;
+        }
 
-            // Forward it to the remote parent
-            RemoteRegAddr addr = request.addr;
-            addr.gpid = family.parent.gpid;
-            addr.fid  = family.parent.fid;
-
-            DebugSimWrite("Forwarding request for parent shared %s to F%u@CPU%u",
-                addr.reg.str().c_str(), (unsigned)addr.fid, (unsigned)addr.gpid);
-
-		    if (!RequestRegister(addr, request.addr.fid))
-       	    {
-                DeadlockWrite("Unable to forward request for parent shared to remote parent core");
-                return FAILED;
-            }
-
+        reg->Clear();
+        return SUCCESS;
+    }
+    else
+    {
+        RegAddr addr = m_allocator.GetRemoteRegisterAddress(request.addr);
+        if (!addr.valid())
+        {
+            // The source thread hasn't been allocated yet.
+            // This shouldn't happen for remote requests -- they must always hit the parent
+            // which should always be allocated.
+            assert(reg != &m_registerRequestRemote.in);
+                
+            DebugSimWrite("Discarding request for %s register %s in F%u: register not yet allocated",
+                GetRemoteRegisterTypeString(request.addr.type),
+                request.addr.reg.str().c_str(),
+                (unsigned)request.addr.fid
+            );
+                
             reg->Clear();
             return SUCCESS;
         }
-        else
-        {
-			RegAddr addr = m_allocator.GetRemoteRegisterAddress(request.addr);
-            if (!addr.valid())
-			{
-			    // The source thread hasn't been allocated yet.
-			    // This shouldn't happen for remote requests -- they must always hit the parent
-			    // which should always be allocated.
-			    assert(reg != &m_registerRequestRemote.in);
-			    
-			    DebugSimWrite("Discarding request for %s register %s in F%u: register not yet allocated",
-        	        GetRemoteRegisterTypeString(request.addr.type),
-			        request.addr.reg.str().c_str(),
-			        (unsigned)request.addr.fid
-			    );
-			    
-			    reg->Clear();
-			    return SUCCESS;
-	        }
-	        
-            // The thread of the register has been allocated, read it
-            if (!m_regFile.p_asyncR.Read())
-            {
-                return FAILED;
-            }
-
-            RegValue value;
-            if (!m_regFile.ReadRegister(addr, value))
-            {
-                return FAILED;
-            }
-            assert(value.m_state != RST_INVALID);
-                
-            if (value.m_state != RST_FULL && value.m_remote.fid != INVALID_LFID)
-            {
-                // We can only have one remote request waiting on a register
-    	        DebugSimWrite("Discarding request for %s register %s in F%u: register has already been requested",
-       	            GetRemoteRegisterTypeString(request.addr.type),
-		            request.addr.reg.str().c_str(),
-		            (unsigned)request.addr.fid
-	            );
-			    
-       			reg->Clear();
-       			return SUCCESS;
-            }
             
-            DebugSimWrite("Read %s register %s in F%u from %s",
+        // The thread of the register has been allocated, read it
+        if (!m_regFile.p_asyncR.Read())
+        {
+            return FAILED;
+        }
+
+        RegValue value;
+        if (!m_regFile.ReadRegister(addr, value))
+        {
+            return FAILED;
+        }
+        assert(value.m_state != RST_INVALID);
+                
+        if (value.m_state != RST_FULL && value.m_remote.fid != INVALID_LFID)
+        {
+            // We can only have one remote request waiting on a register
+            DebugSimWrite("Discarding request for %s register %s in F%u: register has already been requested",
                 GetRemoteRegisterTypeString(request.addr.type),
                 request.addr.reg.str().c_str(),
-                (unsigned)request.addr.fid,
-                addr.str().c_str()
+                (unsigned)request.addr.fid
             );
-                    
-            // Construct return address from request information
-            RemoteRegAddr return_addr;
-            return_addr.type = (request.addr.type == RRT_GLOBAL) ? RRT_GLOBAL : RRT_FIRST_DEPENDENT;
-    		return_addr.gpid = request.return_pid;
-    		return_addr.lpid = INVALID_LPID;
-		    return_addr.fid  = request.return_fid;
-    		return_addr.reg  = request.addr.reg;
                 
-			if (value.m_state == RST_FULL)
-			{
-			    // Create response and we're done
-			    if (!SendRegister(return_addr, value))
-        	    {
-                    DeadlockWrite("Unable to send response to register request");
-		            return FAILED;
-                }
-                
-                reg->Clear();
-                return SUCCESS;
-            }
-            
-			// Write back a remote waiting state
-        	assert(value.m_remote.fid == INVALID_LFID);
-        			
-            if (!m_regFile.p_asyncW.Write(addr))
-            {
-                DeadlockWrite("Unable to acquire port to write to register %s to mark as remote waiting", addr.str().c_str());
-                return FAILED;
-            }
-                    
-			value.m_remote = return_addr;				    
-            if (!m_regFile.WriteRegister(addr, value, false))
-            {
-                DeadlockWrite("Unable to write register %s to mark as remote waiting", addr.str().c_str());
-                return FAILED;
-            }
-
-	        DebugSimWrite("Writing remote wait to %s register %s in F%u",
-	            GetRemoteRegisterTypeString(request.addr.type),
-	            request.addr.reg.str().c_str(),
-        	    (unsigned)request.addr.fid
-            );
-                    
-            if (request.addr.type == RRT_GLOBAL)
-            {
-                // Check to forward the request
-                if (family.parent.lpid != m_lpid)
-                {
-                    // We're not on the parent processor, forward on the ring
-                    RemoteRegAddr forward = request.addr;
-                    forward.fid = family.link_prev;
-                    if (!RequestRegister(forward, request.addr.fid))
-                    {
-                        DeadlockWrite("Unable to forward request");
-                        return FAILED;
-                    }
-
-                    DebugSimWrite("Forwarded remote request to %s register %s in F%u",
-                        GetRemoteRegisterTypeString(request.addr.type),
-                        request.addr.reg.str().c_str(),
-                        (unsigned)request.addr.fid
-                    );
-                }
-                else if (family.parent.gpid != INVALID_GPID)
-                {
-                    // This is a delegated create; forward the request to the creating core
-                    RemoteRegAddr forward = request.addr;
-                    forward.gpid = family.parent.gpid;
-                    forward.fid  = family.parent.fid;
-
-                    if (!RequestRegister(forward, request.addr.fid))
-                    {                            
-                        DeadlockWrite("Unable to forward request to remote place");
-                        return FAILED;
-                    }
-
-                    DebugSimWrite("Forwarded remote request to %s register %s in F%u to F%u@CPU%u",
-                        GetRemoteRegisterTypeString(request.addr.type),
-                        request.addr.reg.str().c_str(),
-                        (unsigned)request.addr.fid,
-                        (unsigned)family.parent.fid,
-                        (unsigned)family.parent.gpid
-                    );
-                }
-		    }
-				
-			reg->Clear();
-			return SUCCESS;
-        }        			
-		break;
-    }
-    
-    case 2:
-        // Outgoing group responses
-        assert(!m_registerResponseGroup.out.Empty());
-        {
-	        const RegisterResponse& response = m_registerResponseGroup.out.Read();
-            assert(response.value.m_state == RST_FULL);
-            
-            DebugSimWrite("Sending %s register %s in F%u",
-    	        GetRemoteRegisterTypeString(response.addr.type),
-                response.addr.reg.str().c_str(),
-                (unsigned)response.addr.fid
-            );
-            
-			if (!m_next->OnRegisterReceived(response))
-            {
-                DeadlockWrite("Unable to send register response to next processor");
-                return FAILED;
-            }
-
-            // We've sent this register response
-            m_registerResponseGroup.out.Clear();
+            reg->Clear();
             return SUCCESS;
         }
-        break;
-        
-    case 3:
-        // Outgoing group requests
-		assert(!m_registerRequestGroup.out.Empty());
+            
+        DebugSimWrite("Read %s register %s in F%u from %s",
+            GetRemoteRegisterTypeString(request.addr.type),
+            request.addr.reg.str().c_str(),
+            (unsigned)request.addr.fid,
+            addr.str().c_str()
+        );
+                    
+        // Construct return address from request information
+        RemoteRegAddr return_addr;
+        return_addr.type = (request.addr.type == RRT_GLOBAL) ? RRT_GLOBAL : RRT_FIRST_DEPENDENT;
+        return_addr.gpid = request.return_pid;
+        return_addr.lpid = INVALID_LPID;
+        return_addr.fid  = request.return_fid;
+        return_addr.reg  = request.addr.reg;
+                
+        if (value.m_state == RST_FULL)
         {
-            if (!m_prev->OnRegisterRequested(m_registerRequestGroup.out.Read()))
+            // Create response and we're done
+            if (!SendRegister(return_addr, value))
             {
-                DeadlockWrite("Unable to send register request to previous processor");
+                DeadlockWrite("Unable to send response to register request");
                 return FAILED;
             }
-            
-            // We've sent this register request
-            m_registerRequestGroup.out.Clear();
-			return SUCCESS;
-        }
-        break;
-
-    case 12:
-        // Outgoing remote responses
-        assert(!m_registerResponseRemote.out.Empty());
-        {
-	        const RegisterResponse& response = m_registerResponseRemote.out.Read();
-            assert(response.value.m_state == RST_FULL);
-            
-            DebugSimWrite("Sending %s register %s in F%u to CPU%u",
-    	        GetRemoteRegisterTypeString(response.addr.type),
-                response.addr.reg.str().c_str(),
-                (unsigned)response.addr.fid,
-                (unsigned)response.addr.gpid
-            );
-            
-			if (!m_grid[response.addr.gpid]->GetNetwork().OnRemoteRegisterReceived(response))
-            {
-                DeadlockWrite("Unable to send register response to CPU%u", (unsigned)response.addr.gpid);
-                return FAILED;
-            }
-
-            // We've sent this register response
-            m_registerResponseRemote.out.Clear();
+                
+            reg->Clear();
             return SUCCESS;
         }
-        break;
-        
-    case 11:
-        // Outgoing remote requests
-		assert(!m_registerRequestRemote.out.Empty());
-        {
-	        const RegisterRequest& request = m_registerRequestRemote.out.Read();
-            if (!m_grid[request.addr.gpid]->GetNetwork().OnRemoteRegisterRequested(request))
-            {
-                DeadlockWrite("Unable to send register request to CPU%u", (unsigned)request.addr.gpid);
-                return FAILED;
-            }
             
-            // We've sent this register request
-            m_registerRequestRemote.out.Clear();
-			return SUCCESS;
+        // Write back a remote waiting state
+        assert(value.m_remote.fid == INVALID_LFID);
+                    
+        if (!m_regFile.p_asyncW.Write(addr))
+        {
+            DeadlockWrite("Unable to acquire port to write to register %s to mark as remote waiting", addr.str().c_str());
+            return FAILED;
         }
-        break;
+                    
+        value.m_remote = return_addr;                   
+        if (!m_regFile.WriteRegister(addr, value, false))
+        {
+            DeadlockWrite("Unable to write register %s to mark as remote waiting", addr.str().c_str());
+            return FAILED;
+        }
 
-    case 4:
-    	// We're not processing a delegated create, check if there is a create
-		if (!m_delegateRemote.Empty())
-		{
-		    // Process the received delegation
-		    const DelegateMessage& msg =m_delegateRemote.Read();
-		    Result result = m_allocator.OnDelegatedCreate(msg);
-		    if (result == FAILED)
-			{
-			    DeadlockWrite("Unable to process received delegation create");
-				return FAILED;
-			}
-			
-			if (result == DELAYED)
-			{
-			    // We need to send back 
-			    DebugSimWrite("Delegated create failed");
-			    if (!m_delegateFailedLocal.Write(make_pair(msg.parent.pid, msg.parent.fid)))
-			    {
-			        DeadlockWrite("Unable to write failure to buffer");
-			        return FAILED;
-			    }
-			}
-
-			m_delegateRemote.Clear();
-		    return SUCCESS;
-		}
-
-		assert(!m_delegateLocal.Empty());
-		{
-		    // Process the outgoing delegation
-			const pair<GPID, DelegateMessage>& delegate = m_delegateLocal.Read();
-			const GPID             pid = delegate.first;
-			const DelegateMessage& msg = delegate.second;
-				
-			// Send the create
-			if (!m_grid[pid]->GetNetwork().OnDelegationCreateReceived(msg))
-			{
-			    DeadlockWrite("Unable to send delegation create to CPU%u", (unsigned)pid);
-				return FAILED;
-			}
-
-            DebugSimWrite("Sent delegated family create to CPU%u", (unsigned)pid);
-			m_delegateLocal.Clear();
-		    return SUCCESS;
-		}		
-        break;
-
-    case 5:
-    	// We're not processing a group create, check if there is a create
-		if (!m_createRemote.Empty())
-		{
-			// Process the received create
-			CreateMessage msg = m_createRemote.Read();
-
-            if (msg.parent.lpid == m_lpid)
+        DebugSimWrite("Writing remote wait to %s register %s in F%u",
+            GetRemoteRegisterTypeString(request.addr.type),
+            request.addr.reg.str().c_str(),
+            (unsigned)request.addr.fid
+        );
+                    
+        if (request.addr.type == RRT_GLOBAL)
+        {
+            // Check to forward the request
+            if (family.parent.lpid != m_lpid)
             {
-                // The create has come back to the creating CPU.
-                // Link the family entry to the one on the previous CPU.
-                if (!m_allocator.SetupFamilyPrevLink(msg.first_fid, msg.link_prev))
+                // We're not on the parent processor, forward on the ring
+                RemoteRegAddr forward = request.addr;
+                forward.fid = family.link_prev;
+                if (!RequestRegister(forward, request.addr.fid))
                 {
+                   DeadlockWrite("Unable to forward request");
+                   return FAILED;
+                }
+
+                DebugSimWrite("Forwarded remote request to %s register %s in F%u",
+                    GetRemoteRegisterTypeString(request.addr.type),
+                    request.addr.reg.str().c_str(),
+                    (unsigned)request.addr.fid
+                );
+            }
+            else if (family.parent.gpid != INVALID_GPID)
+            {
+                // This is a delegated create; forward the request to the creating core
+                RemoteRegAddr forward = request.addr;
+                forward.gpid = family.parent.gpid;
+                forward.fid  = family.parent.fid;
+
+                if (!RequestRegister(forward, request.addr.fid))
+                {                            
+                    DeadlockWrite("Unable to forward request to remote place");
                     return FAILED;
                 }
-            }
-            else
-            {
-                // Determine the next link
-                LFID link_next = (m_next->m_lpid != msg.parent.lpid) ? INVALID_LFID : msg.first_fid;
-            
-                // Process the create
-                LFID fid = m_allocator.OnGroupCreate(msg, link_next);
-                if (fid == INVALID_LFID)
-		        {
-    		        DeadlockWrite("Unable to process received group create");
-   				    return FAILED;
-		        }
-		    
-		        // Send the FID back to the previous processor
-		        if (!m_prev->SetupFamilyNextLink(msg.link_prev, fid))
-		        {
-    		        DeadlockWrite("Unable to setup F%u's next link to F%u", (unsigned)fid, (unsigned)msg.link_prev);
-		            return FAILED;
-		        }
-            
-                // Forward the create
-  			    COMMIT{ msg.link_prev = fid; }
 
-		        if (!m_next->OnGroupCreateReceived(msg))
-		        {
-       			    DeadlockWrite("Unable to forward group create to next processor");
-			        return FAILED;
-			    }
+                DebugSimWrite("Forwarded remote request to %s register %s in F%u to F%u@CPU%u",
+                    GetRemoteRegisterTypeString(request.addr.type),
+                    request.addr.reg.str().c_str(),
+                    (unsigned)request.addr.fid,
+                    (unsigned)family.parent.fid,
+                    (unsigned)family.parent.gpid
+                );
             }
-			m_createRemote.Clear();
-			return SUCCESS;
-		}
-		
-		if (!m_createLocal.Empty())
-		{
-			// Send the create
-			if (!m_next->OnGroupCreateReceived(m_createLocal.Read()))
-			{
-			    DeadlockWrite("Unable to send group create to next processor");
-				return FAILED;
-			}
+        }
+                
+        reg->Clear();
+        return SUCCESS;
+    }
+}
+    
+Result Network::DoRegResponseOutGroup()
+{
+    // Outgoing group responses
+    assert(!m_registerResponseGroup.out.Empty());
+    const RegisterResponse& response = m_registerResponseGroup.out.Read();
+    assert(response.value.m_state == RST_FULL);
 
-			m_createLocal.Clear();
-			return SUCCESS;
-		}
-		
-        // Only if there are no creates, do we handle the token.
-        // This ensures that the token always follows the create on the ring network
-        // and as such prevents certain deadlocks with concurrent group creates.
-		if (m_hasToken.IsSet())
-		{
-			// We have the token
-			if (m_wantToken.IsSet())
-			{
-				// We want it as well, approve the Create
-				if (!m_allocator.OnTokenReceived())
-				{
-				    DeadlockWrite("Unable to continue group create with token");
-					return FAILED;
-				}
-				m_tokenBusy.Set();
-				m_wantToken.Clear();
-				m_place.m_want_token.Clear(m_lpid);
-			}
-			else if (m_place.m_want_token.IsSet())
-			{
-			    // Another core wants the token, send it on its way
-			    if (m_tokenBusy.IsSet())
-			    {
-			        DeadlockWrite("Waiting for token to be released before it can be sent to next processor");
-			        return FAILED;
-			    }
-			    
-				// Pass the token to the next CPU
-				DebugSimWrite("Sending token to next processor");
-				if (!m_next->OnTokenReceived())
-				{
-				    DeadlockWrite("Unable to send token to next processor");
-					return FAILED;
-				}
-				
-				m_hasToken.Clear();
-			}
- 			return SUCCESS;
-		}
+    DebugSimWrite("Sending %s register %s in F%u",
+        GetRemoteRegisterTypeString(response.addr.type),
+        response.addr.reg.str().c_str(),
+        (unsigned)response.addr.fid
+    );
+            
+    if (!m_next->OnRegisterReceived(response))
+    {
+        DeadlockWrite("Unable to send register response to next processor");
         return FAILED;
-    
-    case 6:
-        // Send the remote sync
-        assert(!m_remoteSync.Empty());
-        {
-            const RemoteSync& rs = m_remoteSync.Read();
-            
-            if (!m_grid[rs.pid]->GetNetwork().OnRemoteSyncReceived(rs.fid, rs.code))
-            {
-                DeadlockWrite("Unable to send remote sync for F%u to CPU%u", (unsigned)rs.fid, (unsigned)rs.pid);
-                return FAILED;
-            }
-            
-            m_remoteSync.Clear();
-            return SUCCESS;
-        }
-        break;
-        
-    case 7:
-        assert(!m_cleanedUpThread.Empty());
-        {
-            LFID fid = m_cleanedUpThread.Read();
-            if (!m_allocator.OnRemoteThreadCleanup(fid))
-            {
-                DeadlockWrite("Unable to mark thread cleanup on F%u", (unsigned)fid);
-                return FAILED;
-            }
-            m_cleanedUpThread.Clear();
-			return SUCCESS;
-        }
-        break;
+    }
 
-    case 8:
-		assert(!m_completedThread.Empty());
-        {
-            LFID fid = m_completedThread.Read();
-            if (!m_allocator.OnRemoteThreadCompletion(fid))
-            {
-                DeadlockWrite("Unable to mark thread completion on F%u", (unsigned)fid);
-                return FAILED;
-            }
-            m_completedThread.Clear();
-			return SUCCESS;
-        }
-        break;
+    // We've sent this register response
+    m_registerResponseGroup.out.Clear();
+    return SUCCESS;
+}
         
-    case 9:
-		assert(!m_synchronizedFamily.Empty());
-        {
-            LFID fid = m_synchronizedFamily.Read();
-            if (!m_next->OnFamilySynchronized(fid))
-            {
-                DeadlockWrite("Unable to send family synchronization for F%u", (unsigned)fid);
-                return FAILED;
-            }
-            m_synchronizedFamily.Clear();
-			return SUCCESS;
-        }	
-        break;
-        
-    case 10:
-		assert(!m_terminatedFamily.Empty());
-        {
-            LFID fid = m_terminatedFamily.Read();
-            if (!m_prev->OnFamilyTerminated(fid))
-            {
-                DeadlockWrite("Unable to send family termination for F%u", (unsigned)fid);
-                return FAILED;
-            }
-            m_terminatedFamily.Clear();
-			return SUCCESS;
-        }	
-        break;
-        
-    case 14:
-        // We need to reserve a context
-        DebugSimWrite("Reserving context for group create");
-        m_allocator.ReserveContext( m_hasToken.IsSet() );
-        
-        if (m_hasToken.IsSet()) {
-            // We sent the reservation signal, so just clear it now. This
-            // means it's only active for a single cycle, which is important,
-            // or we'll reserve multiple contexts for a single create.
-            m_place.m_reserve_context.Clear();
-        }
-        return SUCCESS;
+Result Network::DoRegRequestOutGroup()
+{
+    // Outgoing group requests
+    assert(!m_registerRequestGroup.out.Empty());
+    if (!m_prev->OnRegisterRequested(m_registerRequestGroup.out.Read()))
+    {
+        DeadlockWrite("Unable to send register request to previous processor");
+        return FAILED;
+    }
+
+    // We've sent this register request
+    m_registerRequestGroup.out.Clear();
+    return SUCCESS;
+}
+
+Result Network::DoRegResponseOutRemote()
+{
+    // Outgoing remote responses
+    assert(!m_registerResponseRemote.out.Empty());
+    const RegisterResponse& response = m_registerResponseRemote.out.Read();
+    assert(response.value.m_state == RST_FULL);
+            
+    DebugSimWrite("Sending %s register %s in F%u to CPU%u",
+        GetRemoteRegisterTypeString(response.addr.type),
+        response.addr.reg.str().c_str(),
+        (unsigned)response.addr.fid,
+        (unsigned)response.addr.gpid
+    );
+            
+    if (!m_grid[response.addr.gpid]->GetNetwork().OnRemoteRegisterReceived(response))
+    {
+        DeadlockWrite("Unable to send register response to CPU%u", (unsigned)response.addr.gpid);
+        return FAILED;
+    }
+
+    // We've sent this register response
+    m_registerResponseRemote.out.Clear();
+    return SUCCESS;
+}
     
-    case 15:
-        assert(!m_delegateFailedLocal.Empty());
-        {
-            const std::pair<GPID, LFID>& df = m_delegateFailedLocal.Read();
-            if (!m_grid[df.first]->GetNetwork().OnDelegationFailedReceived(df.second))
-            {
-                DeadlockWrite("Unable to send delegation failure for F%u to CPU%u", (unsigned)df.second, (unsigned)df.first);
-                return FAILED;
-            }
-            m_delegateFailedLocal.Clear();
-        }
-        return SUCCESS;
+Result Network::DoRegRequestOutRemote()
+{
+    // Outgoing remote requests
+    assert(!m_registerRequestRemote.out.Empty());
+    const RegisterRequest& request = m_registerRequestRemote.out.Read();
+    if (!m_grid[request.addr.gpid]->GetNetwork().OnRemoteRegisterRequested(request))
+    {
+        DeadlockWrite("Unable to send register request to CPU%u", (unsigned)request.addr.gpid);
+        return FAILED;
+    }
+
+    // We've sent this register request
+    m_registerRequestRemote.out.Clear();
+    return SUCCESS;
+}
     
-    case 16:
-        assert(!m_delegateFailedRemote.Empty());
+Result Network::DoDelegation()
+{
+    // We're not processing a delegated create, check if there is a create
+    if (!m_delegateRemote.Empty())
+    {
+        // Process the received delegation
+        const DelegateMessage& msg =m_delegateRemote.Read();
+        Result result = m_allocator.OnDelegatedCreate(msg);
+        if (result == FAILED)
         {
-            LFID fid = m_delegateFailedRemote.Read();
-            if (!m_allocator.OnDelegationFailed(fid))
+            DeadlockWrite("Unable to process received delegation create");
+            return FAILED;
+        }
+            
+        if (result == DELAYED)
+        {
+            // We need to send back 
+            DebugSimWrite("Delegated create failed");
+            if (!m_delegateFailedLocal.Write(make_pair(msg.parent.pid, msg.parent.fid)))
             {
-                DeadlockWrite("Unable to process delegation failure for F%u", (unsigned)fid);
+                DeadlockWrite("Unable to write failure to buffer");
                 return FAILED;
             }
-            m_delegateFailedRemote.Clear();
         }
+        
+        m_delegateRemote.Clear();
         return SUCCESS;
     }
 
-    return DELAYED;
+    assert(!m_delegateLocal.Empty());
+    // Process the outgoing delegation
+    const pair<GPID, DelegateMessage>& delegate = m_delegateLocal.Read();
+    const GPID             pid = delegate.first;
+    const DelegateMessage& msg = delegate.second;
+                
+    // Send the create
+    if (!m_grid[pid]->GetNetwork().OnDelegationCreateReceived(msg))
+    {
+        DeadlockWrite("Unable to send delegation create to CPU%u", (unsigned)pid);
+        return FAILED;
+    }
+
+    DebugSimWrite("Sent delegated family create to CPU%u", (unsigned)pid);
+    m_delegateLocal.Clear();
+    return SUCCESS;
+}
+    
+Result Network::DoCreation()
+{
+    // We're not processing a group create, check if there is a create
+    if (!m_createRemote.Empty())
+    {
+        // Process the received create
+        CreateMessage msg = m_createRemote.Read();
+
+        if (msg.parent.lpid == m_lpid)
+        {
+            // The create has come back to the creating CPU.
+            // Link the family entry to the one on the previous CPU.
+            if (!m_allocator.SetupFamilyPrevLink(msg.first_fid, msg.link_prev))
+            {
+                return FAILED;
+            }
+        }
+        else
+        {
+            // Determine the next link
+            LFID link_next = (m_next->m_lpid != msg.parent.lpid) ? INVALID_LFID : msg.first_fid;
+            
+            // Process the create
+            LFID fid = m_allocator.OnGroupCreate(msg, link_next);
+            if (fid == INVALID_LFID)
+            {
+                DeadlockWrite("Unable to process received group create");
+                return FAILED;
+            }
+            
+            // Send the FID back to the previous processor
+            if (!m_prev->SetupFamilyNextLink(msg.link_prev, fid))
+            {
+                DeadlockWrite("Unable to setup F%u's next link to F%u", (unsigned)fid, (unsigned)msg.link_prev);
+                return FAILED;
+            }
+            
+            // Forward the create
+            COMMIT{ msg.link_prev = fid; }
+            if (!m_next->OnGroupCreateReceived(msg))
+            {
+                DeadlockWrite("Unable to forward group create to next processor");
+                return FAILED;
+            }
+        }
+        m_createRemote.Clear();
+        return SUCCESS;
+    }
+        
+    if (!m_createLocal.Empty())
+    {
+        // Send the create
+        if (!m_next->OnGroupCreateReceived(m_createLocal.Read()))
+        {
+            DeadlockWrite("Unable to send group create to next processor");
+            return FAILED;
+        }
+
+        m_createLocal.Clear();
+        return SUCCESS;
+    }
+        
+    // Only if there are no creates, do we handle the token.
+    // This ensures that the token always follows the create on the ring network
+    // and as such prevents certain deadlocks with concurrent group creates.
+    if (m_hasToken.IsSet())
+    {
+        // We have the token
+        if (m_wantToken.IsSet())
+        {
+            // We want it as well, approve the Create
+            if (!m_allocator.OnTokenReceived())
+            {
+                DeadlockWrite("Unable to continue group create with token");
+                return FAILED;
+            }
+            m_tokenBusy.Set();
+            m_wantToken.Clear();
+            m_place.m_want_token.Clear(m_lpid);
+        }
+        else if (m_place.m_want_token.IsSet())
+        {
+            // Another core wants the token, send it on its way
+            if (m_tokenBusy.IsSet())
+            {
+                DeadlockWrite("Waiting for token to be released before it can be sent to next processor");
+                return FAILED;
+            }
+            
+            // Pass the token to the next CPU
+            DebugSimWrite("Sending token to next processor");
+            if (!m_next->OnTokenReceived())
+            {
+                DeadlockWrite("Unable to send token to next processor");
+                return FAILED;
+            }
+            
+            m_hasToken.Clear();
+        }
+        return SUCCESS;
+    }
+    
+    return FAILED;
+}
+    
+Result Network::DoRemoteSync()
+{
+    // Send the remote sync
+    assert(!m_remoteSync.Empty());
+    const RemoteSync& rs = m_remoteSync.Read();
+            
+    if (!m_grid[rs.pid]->GetNetwork().OnRemoteSyncReceived(rs.fid, rs.code))
+    {
+        DeadlockWrite("Unable to send remote sync for F%u to CPU%u", (unsigned)rs.fid, (unsigned)rs.pid);
+        return FAILED;
+    }
+            
+    m_remoteSync.Clear();
+    return SUCCESS;
+}
+        
+Result Network::DoThreadCleanup()
+{
+    assert(!m_cleanedUpThread.Empty());
+    LFID fid = m_cleanedUpThread.Read();
+    if (!m_allocator.OnRemoteThreadCleanup(fid))
+    {
+        DeadlockWrite("Unable to mark thread cleanup on F%u", (unsigned)fid);
+        return FAILED;
+    }
+    m_cleanedUpThread.Clear();
+    return SUCCESS;
+}
+
+Result Network::DoThreadTermination()
+{
+    assert(!m_completedThread.Empty());
+    LFID fid = m_completedThread.Read();
+    if (!m_allocator.OnRemoteThreadCompletion(fid))
+    {
+        DeadlockWrite("Unable to mark thread completion on F%u", (unsigned)fid);
+        return FAILED;
+    }
+    m_completedThread.Clear();
+    return SUCCESS;
+}
+        
+Result Network::DoFamilySync()
+{
+    assert(!m_synchronizedFamily.Empty());
+    LFID fid = m_synchronizedFamily.Read();
+    if (!m_next->OnFamilySynchronized(fid))
+    {
+       DeadlockWrite("Unable to send family synchronization for F%u", (unsigned)fid);
+       return FAILED;
+    }
+    m_synchronizedFamily.Clear();
+    return SUCCESS;
+}
+        
+Result Network::DoFamilyTermination()
+{
+    assert(!m_terminatedFamily.Empty());
+    LFID fid = m_terminatedFamily.Read();
+    if (!m_prev->OnFamilyTerminated(fid))
+    {
+        DeadlockWrite("Unable to send family termination for F%u", (unsigned)fid);
+        return FAILED;
+    }
+    m_terminatedFamily.Clear();
+    return SUCCESS;
+}   
+        
+Result Network::DoReserveFamily()
+{
+    // We need to reserve a context
+    DebugSimWrite("Reserving context for group create");
+    m_allocator.ReserveContext( m_hasToken.IsSet() );
+        
+    if (m_hasToken.IsSet()) {
+        // We sent the reservation signal, so just clear it now. This
+        // means it's only active for a single cycle, which is important,
+        // or we'll reserve multiple contexts for a single create.
+        m_place.m_reserve_context.Clear();
+    }
+    return SUCCESS;
+}
+    
+Result Network::DoDelegateFailedOut()
+{
+    assert(!m_delegateFailedLocal.Empty());
+    const std::pair<GPID, LFID>& df = m_delegateFailedLocal.Read();
+    if (!m_grid[df.first]->GetNetwork().OnDelegationFailedReceived(df.second))
+    {
+        DeadlockWrite("Unable to send delegation failure for F%u to CPU%u", (unsigned)df.second, (unsigned)df.first);
+        return FAILED;
+    }
+    m_delegateFailedLocal.Clear();
+    return SUCCESS;
+}
+    
+Result Network::DoDelegateFailedIn()
+{
+    assert(!m_delegateFailedRemote.Empty());
+    LFID fid = m_delegateFailedRemote.Read();
+    if (!m_allocator.OnDelegationFailed(fid))
+    {
+        DeadlockWrite("Unable to process delegation failure for F%u", (unsigned)fid);
+        return FAILED;
+    }
+    m_delegateFailedRemote.Clear();
+    return SUCCESS;
 }
 
 void Network::Cmd_Help(ostream& out, const vector<string>& /* arguments */) const

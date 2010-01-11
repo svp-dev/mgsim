@@ -142,7 +142,7 @@ void tracecacheproc(Object* obj, uint64_t cycleno, size_t pid, unsigned int ext)
     if (!g_osTraceFileDCache.is_open() && g_osTraceFileDCache.good())
         return;
 
-    DCache *pdcache = (DCache*)obj;
+    DCache *pdcache = dynamic_cast<DCache*>(obj);
 
     size_t sets = pdcache->GetNumSets();
     size_t asso = pdcache->GetAssociativity();

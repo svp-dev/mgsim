@@ -1,8 +1,8 @@
 #ifndef KERNEL_H
 #define KERNEL_H
 
-#include "simtypes.h"
 #include "except.h"
+#include "delegate.h"
 
 #include <vector>
 #include <map>
@@ -15,14 +15,56 @@ namespace Simulator
 
 #define COMMIT  if (IsCommitting())
 
-class Storage;
 class Object;
 class Mutex;
 class Kernel;
 class Arbitrator;
-class IComponent;
+class Storage;
 class IRegister;
 class Display;
+
+/**
+ * Enumeration for the run states of processes
+ */
+enum RunState
+{
+    STATE_ACTIVE,   ///< The component has been activated.
+	STATE_RUNNING,  ///< The component is running.
+	STATE_IDLE,     ///< The component has no work.
+	STATE_DEADLOCK, ///< The component has work but cannot continue.
+	STATE_ABORTED,  ///< The simulation has been aborted.
+};
+
+// Processes are member variables in components and represent the information
+// about a single process in that component.
+class Process
+{
+    friend class Kernel;
+    
+    const std::string m_name;          ///< The name of this process
+    const delegate    m_delegate;      ///< The callback for the execution of the process
+    RunState          m_state;         ///< Last run state of this process
+    unsigned int      m_activations;   ///< Reference count of activations of this process
+    Process*          m_next;          ///< Next pointer in the list of processes that require updates
+    Process**         m_pPrev;         ///< Prev pointer in the list of processes that require updates
+
+    // Processes are non-copyable and non-assignable
+    Process(const Process&);
+    void operator=(const Process&);
+    
+public:
+    const Process* GetNext()   const { return m_next;  }
+    RunState       GetState()  const { return m_state; }
+    Object*        GetObject() const { return m_delegate.GetObject(); }
+    std::string    GetName()   const;
+    
+    void Deactivate();
+        
+    Process(const std::string& name, const delegate& delegate)
+        : m_name(name), m_delegate(delegate), m_state(STATE_IDLE), m_activations(0)
+    {
+    }
+};
 
 /**
  * Enumeration for the phases inside a cycle
@@ -31,17 +73,6 @@ enum CyclePhase {
     PHASE_ACQUIRE,  ///< Acquire phase, all components indicate their wishes.
     PHASE_CHECK,    ///< Check phase, all components verify that they can continue.
     PHASE_COMMIT    ///< Commit phase, all components commit their cycle.
-};
-
-/**
- * Enumeration for the run states of components
- */
-enum RunState
-{
-	STATE_RUNNING,  ///< The component is running.
-	STATE_IDLE,     ///< The component has no work.
-	STATE_DEADLOCK, ///< The component has work but cannot continue.
-	STATE_ABORTED,  ///< The simulation has been aborted.
 };
 
 // Define these methods as macros to allow for optimizations
@@ -60,47 +91,6 @@ class Kernel
     friend class Object;
     
 public:
-    struct ComponentInfo;
-
-    /// Holds information a component's process
-    struct ProcessInfo
-    {
-        ComponentInfo* info;          ///< The component it's part of
-        std::string    name;          ///< Name of this process
-        RunState       state;         ///< Last run state of this process
-        unsigned int   activations;   ///< Reference count of activations of this process
-        ProcessInfo*   next;          ///< Next pointer in the list of processes that require updates
-        ProcessInfo**  pPrev;         ///< Prev pointer in the list of processes that require updates
-    };
-    
-    /// Holds information about a component
-	struct ComponentInfo
-	{
-	    IComponent*              component; ///< The component
-	    std::vector<ProcessInfo> processes; ///< The component's processes
-	};
-	
-	/// Holds information about an arbitrator
-	struct ArbitratorInfo
-	{
-	    Arbitrator*     arbitrator; ///< The arbitrator object
-	    bool            activated;  ///< Has the arbitrator already been activated this cycle?
-	    ArbitratorInfo* next;       ///< Next pointer in the list of arbitrators that require arbitration
-	};
-	
-	/// Holds information about a storage object
-	struct StorageInfo
-	{
-	    Storage*     storage;   ///< The storage object
-	    bool         activated; ///< Has the storage already been activated this cycle?
-	    StorageInfo* next;      ///< Next pointer in the list of storages that require updates
-	};
-
-	typedef std::vector<ComponentInfo>     ComponentList;  ///< List of components.
-    typedef std::vector<ArbitratorInfo>    ArbitratorList; ///< List of unique arbitrators.
-    typedef std::vector<StorageInfo>       StorageList;    ///< List of storages.
-    typedef std::pair<ComponentInfo*, int> Process;        ///< Type of a process
-
     /// Modes of debugging
     enum DebugMode
     {
@@ -110,82 +100,57 @@ public:
     };
     
 private:
-    bool            m_aborted;           ///< Should the run be aborted?
-    int		        m_debugMode;         ///< Bit mask of enabled debugging modes.
-    CycleNo         m_cycle;             ///< Current cycle of the simulation.
-    Display&        m_display;           ///< The display to manage.
-    CyclePhase      m_phase;             ///< Current sub-cycle phase of the simulation.
-    ProcessInfo*    m_process;           ///< The currently executing process.
-    bool            m_debugging;         ///< Are we in a debug trace?
+    bool        m_aborted;           ///< Should the run be aborted?
+    int		    m_debugMode;         ///< Bit mask of enabled debugging modes.
+    CycleNo     m_cycle;             ///< Current cycle of the simulation.
+    Display&    m_display;           ///< The display to manage.
+    CyclePhase  m_phase;             ///< Current sub-cycle phase of the simulation.
+    Process*    m_process;           ///< The currently executing process.
+    bool        m_debugging;         ///< Are we in a debug trace?
 
-    ComponentList   m_components;        ///< List of all components.
-    ArbitratorList  m_arbitrators;       ///< List of all arbitrators.
-    StorageList     m_storages;          ///< List of all storages.
-    
-    ProcessInfo*    m_activeProcesses;   ///< List of processes that need to be run.
-    StorageInfo*    m_activeStorages;    ///< List of storages that need to be updated.
-    ArbitratorInfo* m_activeArbitrators; ///< List of arbitrators that need arbitration.
+    Process*    m_activeProcesses;   ///< List of processes that need to be run.
+    Storage*    m_activeStorages;    ///< List of storages that need to be updated.
+    Arbitrator* m_activeArbitrators; ///< List of arbitrators that need arbitration.
 
     bool UpdateStorages();
 public:
     Kernel(Display& display);
     ~Kernel();
     
-    void Initialize();
-
-    ProcessInfo* GetProcessInfo(IComponent* component, int state);
-    
     /**
      * @brief Register an update request for the specified storage at the end of the cycle.
      * @param storage The storage to update
+     * @return the next storage that require update
      */
-    void ActivateStorage(StorageInfo* storage)
+    Storage* ActivateStorage(Storage& storage)
     {
-        if (!storage->activated) {
-            storage->next = m_activeStorages;
-            storage->activated = true;
-            m_activeStorages = storage;
-        }
+        Storage* next = m_activeStorages;
+        m_activeStorages = &storage;
+        return next;
     }
     
-    void ActivateArbitrator(ArbitratorInfo* arbitrator)
+    Arbitrator* ActivateArbitrator(Arbitrator& arbitrator)
     {
-        if (!arbitrator->activated) {
-            arbitrator->next = m_activeArbitrators;
-            arbitrator->activated = true;
-            m_activeArbitrators = arbitrator;
-        }
+        Arbitrator* next = m_activeArbitrators;
+        m_activeArbitrators = &arbitrator;
+        return next;
     }
     
     /**
      * @brief Schedule the specified process on the run queue.
      * @param process The process to schedule
      */
-    void ActivateProcess(ProcessInfo* process);
+    void ActivateProcess(Process& process);
 
-    /**
-     * @brief Registers an arbitrator to the kernel.
-     * @param structure the structure to register.
-     */
-    void RegisterArbitrator(Arbitrator& arbitrator);
-    
-    /**
-     * @brief Registers a component to the kernel.
-     * @param component the component to register.
-     * @param states '|'-delimited list of state names
-     */
-    void RegisterComponent(IComponent& component, const std::string& states);
-
-    /**
-     * @brief Registers a storage to the kernel.
-     * @param storage the storage to register.
-     */
-    void RegisterStorage(Storage& storage);
-    
     /**
      * @brief Get the currently executing process
      */
-    inline const ProcessInfo* GetActiveProcess() const { return m_process; }
+    inline const Process* GetActiveProcess() const { return m_process; }
+
+    /**
+     * @brief Get the currently scheduled processes
+     */
+    inline const Process* GetActiveProcesses() const { return m_activeProcesses; }
 
     /**
      * @brief Get the cycle counter.
@@ -240,7 +205,7 @@ public:
      * Gets the list of all components in the simulation.
      * @return a constant reference to the list of all components.
      */
-	const ComponentList& GetComponents() const { return m_components; }
+	//const ComponentList& GetComponents() const { return m_components; }
 };
 
 /**
@@ -254,28 +219,42 @@ class Object
 {
     Object*              m_parent;      ///< Parent object.
     std::string          m_name;        ///< Object name.
-    Kernel*              m_kernel;      ///< Kernel managing this object.
+    Kernel&              m_kernel;      ///< Kernel managing this object.
     std::vector<Object*> m_children;    ///< Children of this object
     
 public:
     /**
-     * Constructs the object.
+     * Constructs a root object.
+     * @param name the name of this object.
+     */
+    Object(const std::string& name, Kernel& kernel);
+    
+    /**
+     * Constructs a child object, using the same kernel as the parent
+     * @param parent the parent object.
+     * @param name the name of this object.
+     */
+    Object(const std::string& name, Object& parent);
+
+    /**
+     * Constructs a child object.
      * @param parent the parent object.
      * @param kernel the kernel which will manage this object.
      * @param name the name of this object.
      */
-    Object(Object* parent, Kernel* kernel, const std::string& name);
+    Object(const std::string& name, Object& parent, Kernel& kernel);
+
     virtual ~Object();
 
     /// Check if the simulation is in the acquiring phase. @return true if the simulation is in the acquiring phase.
-    bool IsAcquiring()  const { return m_kernel->GetCyclePhase() == PHASE_ACQUIRE; }
+    bool IsAcquiring()  const { return m_kernel.GetCyclePhase() == PHASE_ACQUIRE; }
     /// Check if the simulation is in the check phase. @return true if the simulation is in the check phase.
-    bool IsChecking()   const { return m_kernel->GetCyclePhase() == PHASE_CHECK;   }
+    bool IsChecking()   const { return m_kernel.GetCyclePhase() == PHASE_CHECK;   }
     /// Check if the simulation is in the commit phase. @return true if the simulation is in the commit phase.
-    bool IsCommitting() const { return m_kernel->GetCyclePhase() == PHASE_COMMIT;  }
+    bool IsCommitting() const { return m_kernel.GetCyclePhase() == PHASE_COMMIT;  }
 
     /// Get the kernel managing this object. @return the kernel managing this object.
-    Kernel*            GetKernel() const { return m_kernel; }
+    Kernel*            GetKernel() const { return &m_kernel; }
     /// Get the parent object. @return the parent object.
     Object*            GetParent() const { return m_parent; }
     /// Get the number of children of the object. @return the number of children.
@@ -321,65 +300,30 @@ public:
 /// Base class for all objects that arbitrate
 class Arbitrator
 {
-    Kernel::ArbitratorInfo* m_handle;
+    friend class Kernel;
+
+    bool        m_activated;  ///< Has the arbitrator already been activated this cycle?
+    Arbitrator* m_next;       ///< Next pointer in the list of arbitrators that require arbitration
 
 protected:
     Kernel& m_kernel;
     
     void RequestArbitration()
     {
-        m_kernel.ActivateArbitrator(m_handle);
+        if (!m_activated) {
+            m_next = m_kernel.ActivateArbitrator(*this);
+            m_activated = true;
+        }
     }
-    
+
 public:
     ///< Callback for arbitration
     virtual void OnArbitrate() = 0;
     
-    void Initialize(Kernel::ArbitratorInfo* handle)
-    {
-        assert(m_handle == NULL);
-        assert(handle != NULL);
-        m_handle = handle;
-    }
+    Arbitrator(Kernel& kernel) : m_activated(false), m_kernel(kernel)
+    {}
     
-    Arbitrator(Kernel& kernel) : m_handle(NULL), m_kernel(kernel)
-    {
-        kernel.RegisterArbitrator(*this);
-    }
     virtual ~Arbitrator() {}
-};
-
-/// Base class for all components in the simulation.
-class IComponent : public Object
-{
-public:
-	/**
-	 * @brief Per-cycle callback handler.
-	 * @details Called every cycle. The state index is a number between
-	 * 0 and the number of states in the component as indicated at the constructor.
-	 * Should a state not be able to proceed, other states will still be tried
-	 * independently. Equivalent to a 'process'.
-	 * A process will only be called when its at least of the structures it's
-	 * sensitive is full, so a process should rarely have nothing to do when called.
-	 * @param stateIndex the current index of the state that should be handled.
-	 * @return a value used to detect idle and deadlocked components:
-	 * - DELAYED: There's nothing to do
-	 * - FAILED:  There's something to do but I can't do it
- 	 * - SUCCESS: There's something to do and I have done it
-	 */
-    virtual Result OnCycle(unsigned int /*stateIndex*/) { return DELAYED; }
-    
-    /**
-     * @brief Constructs the component
-     * @param parent the parent object.
-     * @param kernel the kernel that will manage this component.
-     * @param name the name of tehe compnent.
-     * @param states '|'-delimited list of state names
-     */
-    IComponent(Object* parent, Kernel& kernel, const std::string& name, const std::string& states = "default");
-    
-    /// Destroys the component
-    ~IComponent();
 };
 
 }

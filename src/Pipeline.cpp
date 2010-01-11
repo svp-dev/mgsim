@@ -11,15 +11,15 @@ using namespace std;
 namespace Simulator
 {
 
-Pipeline::Stage::Stage(Pipeline& parent, const std::string& name)
-:   Object(&parent, parent.GetKernel(), name),
+Pipeline::Stage::Stage(const std::string& name, Pipeline& parent)
+:   Object(name, parent),
     m_parent(parent)
 {
 }
 
 Pipeline::Pipeline(
-    Processor&          parent,
     const std::string&  name,
+    Processor&          parent,
     LPID                lpid,
     RegisterFile&       regFile,
     Network&            network,
@@ -29,13 +29,14 @@ Pipeline::Pipeline(
     ICache&             icache,
     DCache&             dcache,
     Display&            display,
-	FPU&                fpu,
+    FPU&                fpu,
     const Config&       config)
 :
-    IComponent(&parent, parent.GetKernel(), name),
+    Object(name, parent),
+    p_Pipeline("pipeline", delegate::create<Pipeline, &Pipeline::DoPipeline>(*this)),
     m_parent(parent),
     
-    m_active(parent.GetKernel()),
+    m_active(*parent.GetKernel()),
     
     m_nStagesRunnable(0), m_nStagesRun(0),
     m_maxPipelineIdleTime(0), m_minPipelineIdleTime(numeric_limits<uint64_t>::max()),
@@ -43,7 +44,7 @@ Pipeline::Pipeline(
 {
     static const size_t NUM_FIXED_STAGES = 6;
     
-    m_active.Sensitive(*this, 0);
+    m_active.Sensitive(p_Pipeline);
     
     // Number of forwarding delay slots between the Memory and Writeback stage
     const size_t num_dummy_stages = config.getInteger<size_t>("NumPipelineDummyStages", 0);
@@ -92,7 +93,7 @@ Pipeline::Pipeline(
         name << "dummy" << i;
         si.input  = last_output;
         si.output = &output;
-        si.stage  = new DummyStage(*this, name.str(), *last_output, output, config);
+        si.stage  = new DummyStage(name.str(), *this, *last_output, output, config);
         
         last_output = &output;
     }
@@ -114,7 +115,7 @@ Pipeline::~Pipeline()
     }
 }
 
-Result Pipeline::OnCycle(unsigned int /*stateIndex*/)
+Result Pipeline::DoPipeline()
 {
     if (IsAcquiring())
     {
@@ -135,7 +136,11 @@ Result Pipeline::OnCycle(unsigned int /*stateIndex*/)
     
     Result result = FAILED;
     m_nStagesRunnable = 0;
-    for (vector<StageInfo>::reverse_iterator stage = m_stages.rbegin(); stage != m_stages.rend(); ++stage)
+
+    vector<StageInfo>::reverse_iterator stage;
+    try
+    {
+    for (stage = m_stages.rbegin(); stage != m_stages.rend(); ++stage)
     {
         if (stage->status == FAILED) 
         {
@@ -144,16 +149,15 @@ Result Pipeline::OnCycle(unsigned int /*stateIndex*/)
         }
         
         if (stage->status == SUCCESS)
-        try
         {
             m_nStagesRunnable++;
 
             const PipeAction action = stage->stage->OnCycle();
             if (!IsAcquiring())
             {
-   	            // If this stage has stalled or is delayed, abort pipeline.
-  	            // Note that the stages before this one in the pipeline
-  	            // will never get executed now.
+                // If this stage has stalled or is delayed, abort pipeline.
+                // Note that the stages before this one in the pipeline
+                // will never get executed now.
                 if (action == PIPE_STALL)
                 {
                     stage->status = FAILED;
@@ -168,52 +172,53 @@ Result Pipeline::OnCycle(unsigned int /*stateIndex*/)
                 }
                 
                 if (action == PIPE_IDLE)
-    		    {
-    		        m_nStagesRunnable--;
-    		    }
-    		    else
-    		    {
-    		        if (action == PIPE_FLUSH && stage->input != NULL)
-   			        {
-       		            // Clear all previous stages with the same TID
-       		            const TID tid = stage->input->tid;
-    		            for (vector<StageInfo>::reverse_iterator f = stage + 1; f != m_stages.rend(); ++f)
-   				        {
-   					        if (f->input != NULL && f->input->tid == tid)
-  					        {
-       					        f->input->empty = true;
-   						        f->status = DELAYED;
-   					        }
-       					    f->stage->Clear(tid);
-    			        }
-  			        }
-  			        
-	    		    COMMIT
-    			    {
-    			        // Clear input and set output
+                {
+                    m_nStagesRunnable--;
+                }
+                else
+                {
+                    if (action == PIPE_FLUSH && stage->input != NULL)
+                    {
+                        // Clear all previous stages with the same TID
+                        const TID tid = stage->input->tid;
+                        for (vector<StageInfo>::reverse_iterator f = stage + 1; f != m_stages.rend(); ++f)
+                        {
+                            if (f->input != NULL && f->input->tid == tid)
+                            {
+                                f->input->empty = true;
+                                f->status = DELAYED;
+                            }
+                            f->stage->Clear(tid);
+                        }
+                    }
+                    
+                    COMMIT
+                    {
+                        // Clear input and set output
                         if (stage->input  != NULL) stage->input ->empty = true;
                         if (stage->output != NULL) stage->output->empty = false;
-    		        }
-    		        result = SUCCESS;
-    		    }
+                    }
+                    result = SUCCESS;
+                }
             }
             else
             {
                 result = SUCCESS;
             }
         }
-        catch (SimulationException& e)
+    }
+    }
+    catch (SimulationException& e)
+    {
+        if (stage->input != NULL)
         {
-            if (stage->input != NULL)
-            {
-                // Add details about thread, family and PC
-                stringstream details;
-                details << "While executing instruction at 0x" << setw(sizeof(MemAddr) * 2) << setfill('0') << hex << stage->input->pc_dbg
-                        << " in T" << dec << stage->input->tid << " in F" << stage->input->fid;
-                e.AddDetails(details.str());
-            }
-            throw;
+            // Add details about thread, family and PC
+            stringstream details;
+            details << "While executing instruction at 0x" << setw(sizeof(MemAddr) * 2) << setfill('0') << hex << stage->input->pc_dbg
+                    << " in T" << dec << stage->input->tid << " in F" << stage->input->fid;
+            e.AddDetails(details.str());
         }
+        throw;
     }
     
     if (m_nStagesRunnable == 0) {

@@ -11,155 +11,219 @@ namespace Simulator
 
 struct ParallelMemory::Request
 {
-    bool    write;
-    MemAddr address;
-    MemData data;
+    IMemoryCallback* callback;
+    bool             write;
+    MemAddr          address;
+    MemData          data;
 };
 
-struct ParallelMemory::Port
+class ParallelMemory::Port : public Object
 {
+    ParallelMemory&  m_memory;
     Buffer<Request>  m_requests;
     CycleNo          m_nextdone;
-    IMemoryCallback* m_callback;
+    Process          p_Requests;
 
-    Port(Kernel& kernel, IComponent& component, int state, BufferSize buffersize)
-        : m_requests(kernel, buffersize), m_nextdone(0), m_callback(NULL)
+    Result DoRequests()
     {
-        m_requests.Sensitive(component, state);
+        assert(!m_requests.Empty());
+    
+        const Request& request = m_requests.Front();
+        const CycleNo  now     = GetKernel()->GetCycleNo();
+
+        if (m_nextdone == 0)
+        {
+            // A new request is ready to be handled
+            COMMIT
+            {
+                // Time the request
+                CycleNo requestTime = m_memory.GetMemoryDelay(request.data.size);
+                m_nextdone = now + requestTime;
+            }
+        }
+        // There is a request active
+        else if (now >= m_nextdone)
+        {
+            // The current request has completed
+            if (request.write)
+            {
+                m_memory.Write(request.address, request.data.data, request.data.size);
+                if (!request.callback->OnMemoryWriteCompleted(request.data.tag))
+                {
+                    return FAILED;
+                }
+            }
+            else
+            {
+                MemData data(request.data);
+                m_memory.Read(request.address, data.data, data.size);
+                if (!request.callback->OnMemoryReadCompleted(data))
+                {
+                    return FAILED;
+                }
+            }
+            m_requests.Pop();
+            COMMIT{ m_nextdone = 0; }
+        }
+        return SUCCESS;
+    }
+
+public:
+    void Print(ostream& out)
+    {
+        if (!m_requests.Empty())
+        {
+            out << "Port for: ";
+            Object* obj = dynamic_cast<Object*>(m_requests.Front().callback);
+            if (obj == NULL) {
+                out << "???";
+            } else {
+                out << obj->GetFQN();
+            }
+            out << endl;
+        
+            out << "      Address       | Size |  CID  |    Type    " << endl;
+            out << "--------------------+------+-------+------------" << endl;
+
+            for (Buffer<Request>::const_iterator p = m_requests.begin(); p != m_requests.end(); ++p)
+            {
+                out << hex << setfill('0') << right
+                    << " 0x" << setw(16) << p->address << " | "
+                    << setfill(' ') << setw(4) << dec << p->data.size << " | ";
+    
+                if (p->data.tag.cid == INVALID_CID) {
+                    out << " N/A  | ";
+                } else {
+                    out << setw(5) << p->data.tag.cid << " | ";
+                }
+
+                if (p->write) {
+                    out << "Data write";
+                } else if (p->data.tag.cid != INVALID_CID) {
+                    out << "Cache-line";
+                } else {
+                    out << "Data read ";
+                }
+                
+                out << endl;
+            }
+            
+            out << endl << "First request done at: ";
+            if (m_nextdone == 0) {
+                out << "N/A";
+            } else {
+                out << dec << m_nextdone;
+            }
+            out << endl << endl;
+        }
+    }
+    
+    bool AddRequest(const Request& request)
+    {
+        return m_requests.Push(request);
+    }
+
+    Port(const std::string& name, ParallelMemory& memory, BufferSize buffersize)
+        : Object(name, memory),
+          m_memory(memory),
+          m_requests(*memory.GetKernel(), buffersize), m_nextdone(0),
+          p_Requests("port", delegate::create<Port, &Port::DoRequests>(*this))
+    {
+        m_requests.Sensitive( p_Requests );
     }
 };
 
-void ParallelMemory::RegisterListener(PSize /*pid*/, IMemoryCallback& callback, const ArbitrationSource* /*sources*/)
+struct ParallelMemory::ClientInfo
 {
-	size_t index = m_clients.size();
-	assert(index < m_ports.size());
-    m_ports[index]->m_callback = &callback;
-    m_clients.insert(make_pair(&callback, m_ports[index]));
+    IMemoryCallback* callback;
+    Port*            port;
+};
+
+// Time it takes to process (read/write) a request once arrived
+CycleNo ParallelMemory::GetMemoryDelay(size_t data_size) const
+{
+    return m_baseRequestTime + m_timePerLine * (data_size + m_sizeOfLine - 1) / m_sizeOfLine;
 }
 
-void ParallelMemory::UnregisterListener(PSize /*pid*/, IMemoryCallback& callback)
+void ParallelMemory::RegisterClient(PSize pid, IMemoryCallback& callback, const Process* /*processes*/[])
 {
-    m_clients.erase(&callback);
+    ClientInfo& client = m_clients[pid];
+    assert(client.callback == NULL);
+    client.callback = &callback;
 }
 
-bool ParallelMemory::AddRequest(IMemoryCallback& callback, const Request& request)
+void ParallelMemory::UnregisterClient(PSize pid)
 {
-	map<IMemoryCallback*, Port*>::iterator p = m_clients.find(&callback);
-	assert(p != m_clients.end());
-
-	if (!p->second->m_requests.Push(request))
-	{
-	    return false;
-	}
-	return true;
+    ClientInfo& client = m_clients[pid];
+    assert(client.callback != NULL);
+    client.callback = NULL;
 }
 
-bool ParallelMemory::Read(IMemoryCallback& callback, MemAddr address, MemSize size, MemTag tag)
+bool ParallelMemory::Read(PSize pid, MemAddr address, MemSize size, MemTag tag)
 {
     if (size > MAX_MEMORY_OPERATION_SIZE)
     {
         throw InvalidArgumentException("Size argument too big");
     }
-
+    
+    // Client should have registered
+    assert(m_clients[pid].callback != NULL);
+    
     Request request;
     request.address   = address;
+    request.callback  = m_clients[pid].callback;
     request.data.size = size;
     request.data.tag  = tag;
     request.write     = false;
     
-    if (!AddRequest(callback, request))
+    if (!m_clients[pid].port->AddRequest(request))
     {
         return false;
     }
+
+    COMMIT{ ++m_nreads; m_nread_bytes += size; }
     return true;
 }
 
-bool ParallelMemory::Write(IMemoryCallback& callback, MemAddr address, const void* data, MemSize size, MemTag tag)
+bool ParallelMemory::Write(PSize pid, MemAddr address, const void* data, MemSize size, MemTag tag)
 {
     if (size > MAX_MEMORY_OPERATION_SIZE)
     {
         throw InvalidArgumentException("Size argument too big");
     }
 
+    // Client should have registered
+    assert(m_clients[pid].callback != NULL);
+    
     Request request;
     request.address   = address;
+    request.callback  = m_clients[pid].callback;
     request.data.size = size;
     request.data.tag  = tag;
     request.write     = true;
     memcpy(request.data.data, data, (size_t)size);
 
     // Broadcast the snoop data
-    for (map<IMemoryCallback*, Port*>::iterator p = m_clients.begin(); p != m_clients.end(); ++p)
+    for (std::vector<ClientInfo>::iterator p = m_clients.begin(); p != m_clients.end(); ++p)
     {
-        if (!p->first->OnMemorySnooped(request.address, request.data))
+        if (!p->callback->OnMemorySnooped(request.address, request.data))
         {
             return false;
         }
     }
 
-    if (!AddRequest(callback, request))
+    if (!m_clients[pid].port->AddRequest(request))
     {
         return false;
     }
+
+    COMMIT { ++m_nwrites; m_nwrite_bytes += size; }
     return true;
 }
 
 bool ParallelMemory::CheckPermissions(MemAddr address, MemSize size, int access) const
 {
-	return VirtualMemory::CheckPermissions(address, size, access);
-}
-
-Result ParallelMemory::OnCycle(unsigned int stateIndex)
-{
-    Port& port = *m_ports[stateIndex];
-    assert(!port.m_requests.Empty());
-    
-    const Request& request = port.m_requests.Front();
-    const CycleNo  now     = GetKernel()->GetCycleNo();
-
-    if (port.m_nextdone > 0)
-    {
-        // There is a request active
-        if (now >= port.m_nextdone)
-        {
-    	    // The current request has completed
-            if (request.write) {
-                VirtualMemory::Write(request.address, request.data.data, request.data.size);
-                if (!port.m_callback->OnMemoryWriteCompleted(request.data.tag))
-                {
-                    return FAILED;
-                }
-                COMMIT {
-                    ++m_nwrites;
-                    m_nwrite_bytes += request.data.size;
-                }
-            } else {
-                MemData data(request.data);
-                VirtualMemory::Read(request.address, data.data, data.size);
-                if (!port.m_callback->OnMemoryReadCompleted(data))
-                {
-                    return FAILED;
-                }
-                COMMIT {
-                    ++m_nreads;
-                    m_nread_bytes += request.data.size;
-                }
-            }
-            port.m_requests.Pop();
-            COMMIT{ port.m_nextdone = 0; }
-        }
-    }
-    else
-    {
-        // A new request is ready to be handled
-        COMMIT
-        {
-            // Time the request
-            CycleNo requestTime = m_baseRequestTime + m_timePerLine * (request.data.size + m_sizeOfLine - 1) / m_sizeOfLine;
-            port.m_nextdone = now + requestTime;
-    	}
-    }
-    return SUCCESS;
+    return VirtualMemory::CheckPermissions(address, size, access);
 }
 
 void ParallelMemory::Reserve(MemAddr address, MemSize size, int perm)
@@ -179,40 +243,16 @@ bool ParallelMemory::Allocate(MemSize size, int perm, MemAddr& address)
     
 void ParallelMemory::Read (MemAddr address, void* data, MemSize size)
 {
-	return VirtualMemory::Read(address, data, size);
+    return VirtualMemory::Read(address, data, size);
 }
 
 void ParallelMemory::Write(MemAddr address, const void* data, MemSize size)
 {
-	return VirtualMemory::Write(address, data, size);
+    return VirtualMemory::Write(address, data, size);
 }
 
-static size_t GetNumProcessors(const Config& config)
-{
-    const vector<PSize> places = config.getIntegerList<PSize>("NumProcessors");
-    PSize numProcs = 0;
-    for (size_t i = 0; i < places.size(); ++i) {
-        numProcs += places[i];
-    }
-    return numProcs;    
-}
-
-static string CreateStateNames(size_t numProcs)
-{
-    stringstream states;
-    for (size_t i = 0; i < numProcs; ++i)
-    {
-        states << "port" << i << "|";
-    }
-    string ret = states.str();
-    if (!ret.empty()) {
-        ret.erase(ret.end() - 1, ret.end());
-    }
-    return ret;
-}
-
-ParallelMemory::ParallelMemory(Object* parent, Kernel& kernel, const std::string& name, const Config& config) :
-    IComponent(parent, kernel, name, CreateStateNames(GetNumProcessors(config))),
+ParallelMemory::ParallelMemory(const std::string& name, Object& parent, const Config& config) :
+    Object(name, parent),
     m_baseRequestTime(config.getInteger<CycleNo>("MemoryBaseRequestTime", 1)),
     m_timePerLine    (config.getInteger<CycleNo>("MemoryTimePerLine", 1)),
     m_sizeOfLine     (config.getInteger<size_t> ("MemorySizeOfLine", 8)),
@@ -222,18 +262,30 @@ ParallelMemory::ParallelMemory(Object* parent, Kernel& kernel, const std::string
     m_nwrite_bytes   (0)
 {
     const BufferSize buffersize = config.getInteger<BufferSize>("MemoryBufferSize", INFINITE);
-    m_ports.resize(GetNumProcessors(config));
-    for (size_t i = 0; i < m_ports.size(); ++i)
+
+    // Get number of processors as number of ports
+    const vector<PSize> places = config.getIntegerList<PSize>("NumProcessors");
+    PSize numProcs = 0;
+    for (size_t i = 0; i < places.size(); ++i) {
+        numProcs += places[i];
+    }
+    m_clients.resize(numProcs);
+
+    for (size_t i = 0; i < m_clients.size(); ++i)
     {
-        m_ports[i] = new Port(kernel, *this, i, buffersize);
+        stringstream name;
+        name << "port" << i;
+        ClientInfo& client = m_clients[i];
+        client.callback = NULL;
+        client.port     = new Port(name.str(), *this, buffersize);
     }
 }
 
 ParallelMemory::~ParallelMemory()
 {
-    for (size_t i = 0; i < m_ports.size(); ++i)
+    for (size_t i = 0; i < m_clients.size(); ++i)
     {
-        delete m_ports[i];
+        delete m_clients[i].port;
     }
 }
 
@@ -260,54 +312,9 @@ void ParallelMemory::Cmd_Read(ostream& out, const vector<string>& arguments) con
         return VirtualMemory::Cmd_Read(out, arguments);
     }
 
-    for (map<IMemoryCallback*, Port*>::const_iterator q = m_clients.begin(); q != m_clients.end(); ++q)
+    for (std::vector<ClientInfo>::const_iterator q = m_clients.begin(); q != m_clients.end(); ++q)
     {
-        Port& port = *q->second;
-        if (!port.m_requests.Empty())
-        {
-            out << "Port for: ";
-            Object* obj = dynamic_cast<Object*>(q->first);
-            if (obj == NULL) {
-                out << "???";
-            } else {
-                out << obj->GetFQN();
-            }
-            out << endl;
-        
-            out << "      Address       | Size |  CID  |    Type    " << endl;
-            out << "--------------------+------+-------+------------" << endl;
-
-            for (Buffer<Request>::const_iterator p = port.m_requests.begin(); p != port.m_requests.end(); ++p)
-            {
-                out << hex << setfill('0') << right
-                    << " 0x" << setw(16) << p->address << " | "
-                    << setfill(' ') << setw(4) << dec << p->data.size << " | ";
-
-                if (p->data.tag.cid == INVALID_CID) {
-                    out << " N/A  | ";
-                } else {
-                    out << setw(5) << p->data.tag.cid << " | ";
-                }
-
-                if (p->write) {
-                    out << "Data write";
-                } else if (p->data.tag.cid != INVALID_CID) {
-                    out << "Cache-line";
-                } else {
-                    out << "Data read ";
-                }
-                
-                out << endl;
-            }
-            
-            out << endl << "First request done at: ";
-            if (port.m_nextdone == 0) {
-                out << "N/A";
-            } else {
-                out << dec << port.m_nextdone;
-            }
-            out << endl << endl;
-        }
+        q->port->Print(out);
     }
 }
 

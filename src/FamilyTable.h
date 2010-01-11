@@ -87,7 +87,7 @@ struct Family
 class FamilyTable : public Object
 {
 public:
-    FamilyTable(Processor& parent, const Config& config);
+    FamilyTable(const std::string& name, Processor& parent, const Config& config);
 
     typedef Family value_type;
           Family& operator[](LFID fid)       { return m_families[fid]; }

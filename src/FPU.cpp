@@ -30,12 +30,12 @@ size_t FPU::RegisterSource(RegisterFile& regfile)
     
 bool FPU::QueueOperation(size_t source, FPUOperation fop, int size, double Rav, double Rbv, const RegAddr& Rc)
 {
-	// The size must be a multiple of the arch's native integer size
-	assert(source < m_sources.size());
-	assert(m_sources[source]->regfile != NULL);
-	assert(size > 0);
-	assert(size % sizeof(Integer) == 0);
-	assert(Rc.valid());
+    // The size must be a multiple of the arch's native integer size
+    assert(source < m_sources.size());
+    assert(m_sources[source]->regfile != NULL);
+    assert(size > 0);
+    assert(size % sizeof(Integer) == 0);
+    assert(Rc.valid());
 
     Operation op;
     op.op   = fop;
@@ -55,25 +55,25 @@ bool FPU::QueueOperation(size_t source, FPUOperation fop, int size, double Rav, 
 
 FPU::Result FPU::CalculateResult(const Operation& op) const
 {
-	double value;
-	switch (op.op)
-	{
-	case FPU_OP_SQRT: value = sqrt( op.Rbv ); break;
+    double value;
+    switch (op.op)
+    {
+    case FPU_OP_SQRT: value = sqrt( op.Rbv ); break;
     case FPU_OP_ADD:  value = op.Rav + op.Rbv; break;
     case FPU_OP_SUB:  value = op.Rav - op.Rbv; break;
     case FPU_OP_MUL:  value = op.Rav * op.Rbv; break;
     case FPU_OP_DIV:  value = op.Rav / op.Rbv; break;
-	default:	      value = 0.0; assert(0); break;
-	}
-	
-	Result  res;
- 	res.address = op.Rc;
- 	res.size    = op.size;
- 	res.index   = 0;
- 	res.state   = 1;
- 	res.value.fromfloat(value, op.size);
+    default:          value = 0.0; assert(0); break;
+    }
+    
+    Result  res;
+    res.address = op.Rc;
+    res.size    = op.size;
+    res.index   = 0;
+    res.state   = 1;
+    res.value.fromfloat(value, op.size);
 
-	return res;
+    return res;
 }
 
 bool FPU::OnCompletion(unsigned int unit, const Result& res) const
@@ -95,7 +95,7 @@ bool FPU::OnCompletion(unsigned int unit, const Result& res) const
     if (!res.source->regfile->p_asyncW.Write(addr))
     {
         DeadlockWrite("Unable to acquire port to write back to %s", addr.str().c_str());
-  	    return false;
+        return false;
     }
 
     // Read the old value
@@ -108,7 +108,7 @@ bool FPU::OnCompletion(unsigned int unit, const Result& res) const
 
     if (value.m_state != RST_PENDING && value.m_state != RST_WAITING)
     {
-      	// We're too fast, wait!
+        // We're too fast, wait!
         DeadlockWrite("FP operation completed before register %s was cleared", addr.str().c_str());
         return false;
     }
@@ -121,73 +121,73 @@ bool FPU::OnCompletion(unsigned int unit, const Result& res) const
 #endif
 
     value.m_state         = RST_FULL;
-	value.m_float.integer = (Integer)(res.value.toint(res.size) >> (sizeof(Integer) * 8 * index));
-	    
-	if (!res.source->regfile->WriteRegister(addr, value, false))
-	{
+    value.m_float.integer = (Integer)(res.value.toint(res.size) >> (sizeof(Integer) * 8 * index));
+        
+    if (!res.source->regfile->WriteRegister(addr, value, false))
+    {
         DeadlockWrite("Unable to write register %s", addr.str().c_str());
-		return false;
-	}
+        return false;
+    }
 
-	DebugSimWrite("Wrote FP result back to %s", addr.str().c_str());
-	return true;
+    DebugSimWrite("Wrote FP result back to %s", addr.str().c_str());
+    return true;
 }
 
-Result FPU::OnCycle(unsigned int /*stateIndex*/)
+Result FPU::DoPipeline()
 {
     size_t num_units_active = 0, num_units_failed = 0;
     size_t num_units_full = 0;
-	for (size_t i = 0; i < m_units.size(); ++i)
-	{
-	    // Advance a pipeline
- 		Unit& unit = m_units[i];
-	    if (!unit.slots.empty())
-	    {
+    for (size_t i = 0; i < m_units.size(); ++i)
+    {
+        // Advance a pipeline
+        Unit& unit = m_units[i];
+        if (!unit.slots.empty())
+        {
             num_units_active++;
             num_units_full++;
             
             bool advance = true;
             Result&  res = unit.slots.front();
-	        if (res.state == unit.latency)
-    	    {
-    	        // This operation has completed
+            if (res.state == unit.latency)
+            {
+                // This operation has completed
                 // Write back result
-		        if (!OnCompletion(i, res))
-		        {
+                if (!OnCompletion(i, res))
+                {
                     // Stall; stop processing this pipeline
                     num_units_failed++;
-    	            continue;
-	            }
-	            
-	            if (res.index + 1 == res.size / sizeof(Integer))
-	            {
-	                // We've written the last register of the result;
-    	            // clear the result
-	                if (unit.slots.size() == 1)
-	                {
-	                    // It's empty now
-	                    num_units_full--;
-	                }
-	                COMMIT{ unit.slots.pop_front(); }
-	            }
-	            else
-	            {
-	                // We're not done yet -- delay the FPU pipeline
-	                advance = false;
-	                COMMIT{ ++res.index; }
-	            }
-	        }
-	        
-	        if (advance)
-	        {
-	            COMMIT
-	            {
-        	        // Advance the pipeline
- 	        	    for (deque<Result>::iterator p = unit.slots.begin(); p != unit.slots.end(); ++p)
- 		            {
-     	                p->state++;
-     	            }
- 	            }
+                    continue;
+                }
+                
+                if (res.index + 1 == res.size / sizeof(Integer))
+                {
+                    // We've written the last register of the result;
+                    // clear the result
+                    if (unit.slots.size() == 1)
+                    {
+                        // It's empty now
+                        num_units_full--;
+                    }
+                    COMMIT{ unit.slots.pop_front(); }
+                }
+                else
+                {
+                    // We're not done yet -- delay the FPU pipeline
+                    advance = false;
+                    COMMIT{ ++res.index; }
+                }
+            }
+            
+            if (advance)
+            {
+                COMMIT
+                {
+                    // Advance the pipeline
+                    for (deque<Result>::iterator p = unit.slots.begin(); p != unit.slots.end(); ++p)
+                    {
+                        p->state++;
+                    }
+                }
             }
         }
     }
@@ -245,10 +245,12 @@ Result FPU::OnCycle(unsigned int /*stateIndex*/)
     return (num_units_failed == num_units_active && num_sources_failed == num_sources_active) ? FAILED : SUCCESS;
 }
 
-FPU::FPU(Object* parent, Kernel& kernel, const std::string& name, const Config& config, size_t num_inputs)
-	: IComponent(parent, kernel, name), m_active(kernel)
+FPU::FPU(const std::string& name, Object& parent, const Config& config, size_t num_inputs)
+    : Object(name, parent),
+      m_active(*parent.GetKernel()),
+      p_Pipeline("pipeline", delegate::create<FPU, &FPU::DoPipeline>(*this) )
 {
-    m_active.Sensitive(*this, 0);
+    m_active.Sensitive(p_Pipeline);
     try
     {
         static const char* const Names[FPU_NUM_OPS] = {
@@ -298,11 +300,11 @@ FPU::FPU(Object* parent, Kernel& kernel, const std::string& name, const Config& 
         const BufferSize input_buffer_size = config.getInteger<BufferSize>("FPUBufferSize", INFINITE);
         for (size_t i = 0; i < num_inputs; ++i)
         {
-	        m_sources.push_back(NULL);
-	        Source* source = new Source(kernel, input_buffer_size);
-	        source->inputs.Sensitive(*this, 0);
-	        m_sources.back() = source;
-	    }	    
+            m_sources.push_back(NULL);
+            Source* source = new Source(*parent.GetKernel(), input_buffer_size);
+            source->inputs.Sensitive(p_Pipeline);
+            m_sources.back() = source;
+        }       
     }
     catch (...)
     {

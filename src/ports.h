@@ -3,6 +3,7 @@
 
 #include "kernel.h"
 #include <cassert>
+#include <algorithm>
 #include <map>
 #include <set>
 #include <limits>
@@ -15,25 +16,6 @@ template <typename I> class ArbitratedWritePort;
 class ArbitratedReadPort;
 
 //
-// ArbitrationSource
-//
-// This identifies any 'source' for arbitrated requests.
-// It consists of a component ID and state index.
-//
-struct ArbitrationSource : public std::pair<IComponent*, int>
-{
-    ArbitrationSource() {}
-    
-    ArbitrationSource(IComponent* component, int state) 
-        : std::pair<IComponent*, int>(component, state) {
-    }
-    
-    explicit ArbitrationSource(const Kernel::ProcessInfo* p)
-        : std::pair<IComponent*, int>(p->info->component, p - &p->info->processes[0]) {
-    }
-};
-
-//
 // IllegalPortAccess
 //
 // Exception thrown when a component accesses a port or service
@@ -41,10 +23,10 @@ struct ArbitrationSource : public std::pair<IComponent*, int>
 //
 class IllegalPortAccess : public SimulationException
 {
-    static std::string ConstructString(const Object& object, const std::string& name, const ArbitrationSource& src);
+    static std::string ConstructString(const Object& object, const std::string& name, const Process& process);
 public:
-    IllegalPortAccess(const Object& object, const std::string& name, const ArbitrationSource& src)
-        : SimulationException(ConstructString(object, name, src)) {}
+    IllegalPortAccess(const Object& object, const std::string& name, const Process& process)
+        : SimulationException(ConstructString(object, name, process)) {}
 };
 
 //
@@ -52,51 +34,50 @@ public:
 //
 class ArbitratedPort
 {
-    typedef std::vector<ArbitrationSource>  RequestList;
-    typedef std::map<ArbitrationSource,int> PriorityMap;
+    typedef std::vector<const Process*> ProcessList;
 
 public:
 	uint64_t GetBusyCycles() const {
 		return m_busyCycles;
 	}
 
-    void AddSource(const ArbitrationSource& source) {
-        m_priorities.insert(PriorityMap::value_type(source, m_priorities.size()));
+    void AddProcess(const Process& process) {
+        m_processes.push_back(&process);
     }
 
     void Arbitrate();
     
 protected:
-    bool HasAcquired(const ArbitrationSource& source) const {
-        return m_source == source;
+    bool HasAcquired(const Process& process) const {
+        return m_selected == &process;
     }
     
-    const ArbitrationSource& GetArbitratedSource() const {
-        return m_source;
+    const Process* GetSelectedProcess() const {
+        return m_selected;
     }
 
 #ifndef NDEBUG
-    void Verify(const ArbitrationSource& source) const {
-        if (m_priorities.find(source) == m_priorities.end()) {
-            throw IllegalPortAccess(m_object, m_name, source);
+    void Verify(const Process& process) const {
+        if (std::find(m_processes.begin(), m_processes.end(), &process) == m_processes.end()) {
+            throw IllegalPortAccess(m_object, m_name, process);
         }
     }
 #else
-    void Verify(const ArbitrationSource& /* source */) const {}
+    void Verify(const Process& ) const {}
 #endif
 
-    void AddRequest(const ArbitrationSource& source);
+    void AddRequest(const Process& process);
 
     ArbitratedPort(const Object& object, const std::string& name) : m_busyCycles(0), m_object(object), m_name(name) {}
     virtual ~ArbitratedPort() {}
 
 private:
-    PriorityMap       m_priorities;
-    RequestList       m_requests;
-    ArbitrationSource m_source;
-	uint64_t          m_busyCycles;
-	const Object&     m_object;
-    std::string       m_name;
+    ProcessList    m_processes;
+    ProcessList    m_requests;
+    const Process* m_selected;
+	uint64_t       m_busyCycles;
+	const Object&  m_object;
+    std::string    m_name;
 };
 
 //
@@ -159,10 +140,9 @@ public:
     /**
      * @brief Constructs the structure
      * @param parent parent object.
-     * @param kernel the kernel which will manage this structure.
      * @param name name of the object.
      */
-    IStructure(Object* parent, Kernel& kernel, const std::string& name);
+    IStructure(const std::string& name, Object& parent);
 
     void RegisterReadPort(ArbitratedReadPort& port);
     void UnregisterReadPort(ArbitratedReadPort& port);
@@ -226,7 +206,7 @@ class Structure : public IStructure
     PriorityMap             m_priorities;
 
 public:
-    Structure(Object* parent, Kernel& kernel, const std::string& name) : IStructure(parent, kernel, name) {}
+    Structure(const std::string& name, Object& parent) : IStructure(name, parent) {}
 
     void AddPort(WritePort<I>& port)
     {
@@ -258,14 +238,14 @@ public:
 
     bool Read()
     {
-        const ArbitrationSource source(m_structure.GetKernel()->GetActiveProcess());
-        Verify(source);
+        const Process& process = *m_structure.GetKernel()->GetActiveProcess();
+        Verify(process);
         if (m_structure.GetKernel()->GetCyclePhase() == PHASE_ACQUIRE)
         {
-            AddRequest(source);
+            AddRequest(process);
             m_structure.RequestArbitration();
         }
-        else if (!HasAcquired(source))
+        else if (!HasAcquired(process))
         {
             return false;
         }
@@ -279,27 +259,27 @@ public:
 template <typename I>
 class ArbitratedWritePort : public ArbitratedPort, public WritePort<I>
 {
-    typedef std::map<ArbitrationSource, I> IndexMap;
+    typedef std::map<const Process*, I> IndexMap;
    
     Structure<I>& m_structure;
     IndexMap      m_indices;
 
-    void AddRequest(const ArbitrationSource& source, const I& index)
+    void AddRequest(const Process& process, const I& index)
     {
-        ArbitratedPort::AddRequest(source);
-        m_indices[source] = index;
+        ArbitratedPort::AddRequest(process);
+        m_indices[&process] = index;
     }
     
 public:
     void Arbitrate()
     {
         ArbitratedPort::Arbitrate();
-        const ArbitrationSource& source = GetArbitratedSource();
-        if (source != ArbitrationSource())
+        const Process* process = GetSelectedProcess();
+        if (process != NULL)
         {
-            // A source was selected; make its index active for
+            // A process was selected; make its index active for
             // write port arbitration
-            typename IndexMap::const_iterator p = m_indices.find(source);
+            typename IndexMap::const_iterator p = m_indices.find(process);
             assert(p != m_indices.end());
             this->SetIndex(p->second);
         }
@@ -317,14 +297,14 @@ public:
 
     bool Write(const I& index)
     {
-        const ArbitrationSource source(m_structure.GetKernel()->GetActiveProcess());
-        Verify(source);
+        const Process& process = *m_structure.GetKernel()->GetActiveProcess();
+        Verify(process);
         if (m_structure.GetKernel()->GetCyclePhase() == PHASE_ACQUIRE)
         {
-            AddRequest(source, index);
+            AddRequest(process, index);
             m_structure.RequestArbitration();
         }
-        else if (!this->IsChosen() || !HasAcquired(source))
+        else if (!this->IsChosen() || !HasAcquired(process))
         {
             return false;
         }
@@ -341,23 +321,23 @@ public:
     DedicatedPort(const Object& object, const std::string& name) : m_object(object), m_name(name) {}
     virtual ~DedicatedPort() {}
 
-    void SetSource(ArbitrationSource source) {
-        m_source = source;
+    void SetProcess(const Process& process) {
+        m_process = &process;
     }
 protected:
 #ifndef NDEBUG
-    void Verify(ArbitrationSource source) {
-        if (m_source != source) {
-            throw IllegalPortAccess(m_object, m_name, source);
+    void Verify(const Process& process) {
+        if (m_process != &process) {
+            throw IllegalPortAccess(m_object, m_name, process);
         }
 #else
-    void Verify(ArbitrationSource /* source */) {
+    void Verify(const Process& ) {
 #endif
     }
 private:
-    ArbitrationSource m_source;
-    const Object&     m_object;
-    std::string       m_name;
+    const Process* m_process;
+    const Object&  m_object;
+    std::string    m_name;
 };
 
 //
@@ -371,9 +351,8 @@ public:
         : DedicatedPort(structure, name), m_structure(structure) {}
         
     bool Read() {
-        const ArbitrationSource source(m_structure.GetKernel()->GetActiveProcess());
         // Dedicated Read ports always succeed -- they don't require arbitration
-        Verify(source);
+        Verify( *m_structure.GetKernel()->GetActiveProcess() );
         return true;
     }
 };
@@ -397,8 +376,7 @@ public:
     }
 
     bool Write(const I& index) {
-        const ArbitrationSource source(m_structure.GetKernel()->GetActiveProcess());
-        DedicatedPort::Verify(source);
+        Verify( *m_structure.GetKernel()->GetActiveProcess() );
         if (m_structure.GetKernel()->GetCyclePhase() == PHASE_ACQUIRE) {
             this->SetIndex(index);
             m_structure.RequestArbitration();
@@ -423,12 +401,12 @@ class ArbitratedService : public ArbitratedPort, public Arbitrator
 public:
     bool Invoke()
     {
-        const ArbitrationSource source(m_kernel.GetActiveProcess());
-        Verify(source);
+        const Process& process = *m_kernel.GetActiveProcess();
+        Verify(process);
         if (m_kernel.GetCyclePhase() == PHASE_ACQUIRE) {
-            this->AddRequest(source);
+            this->AddRequest(process);
             RequestArbitration();
-        } else if (!this->HasAcquired(source)) {
+        } else if (!this->HasAcquired(process)) {
             return false;
         }
         return true;

@@ -13,9 +13,9 @@ namespace Simulator
 // RegisterFile implementation
 //
 
-RegisterFile::RegisterFile(Processor& parent, Allocator& alloc, Network& network, const Config& config)
-:   Structure<RegAddr>(&parent, parent.GetKernel(), "registers"),
-    Storage(parent.GetKernel()),
+RegisterFile::RegisterFile(const std::string& name, Processor& parent, Allocator& alloc, Network& network, const Config& config)
+  : Structure<RegAddr>(name, parent),
+    Storage(*parent.GetKernel()),
     p_pipelineR1(*this, "p_pipelineR1"),
     p_pipelineR2(*this, "p_pipelineR2"),
     p_pipelineW (*this, "p_pipelineW"),
@@ -65,10 +65,10 @@ bool RegisterFile::WriteRegister(const RegAddr& addr, const RegValue& data)
     vector<RegValue>& regs = (addr.type == RT_FLOAT) ? m_floats : m_integers;
     if (addr.index < regs.size())
     {
-	    regs[addr.index] = data;
-	    return true;
-	}
-	return false;
+        regs[addr.index] = data;
+        return true;
+    }
+    return false;
 }
 
 bool RegisterFile::Clear(const RegAddr& addr, RegSize size)
@@ -84,8 +84,8 @@ bool RegisterFile::Clear(const RegAddr& addr, RegSize size)
         const RegValue value = MAKE_EMPTY_REG();
         for (RegSize i = 0; i < size; ++i)
         {
-			regs[addr.index + i] = value;
-		}
+            regs[addr.index + i] = value;
+        }
     }
 
     return true;
@@ -93,52 +93,52 @@ bool RegisterFile::Clear(const RegAddr& addr, RegSize size)
 
 bool RegisterFile::WriteRegister(const RegAddr& addr, const RegValue& data, bool from_memory)
 {
-	std::vector<RegValue>& regs = (addr.type == RT_FLOAT) ? m_floats : m_integers;
+    std::vector<RegValue>& regs = (addr.type == RT_FLOAT) ? m_floats : m_integers;
     if (addr.index >= regs.size())
     {
         throw SimulationException("A component attempted to write to a non-existing register", *this);
     }
     
-	assert(data.m_state == RST_EMPTY || data.m_state == RST_PENDING || data.m_state == RST_WAITING || data.m_state == RST_FULL);
-	
-	if (data.m_state == RST_EMPTY || data.m_state == RST_PENDING)
-	{
-		assert(data.m_waiting.head == INVALID_TID);
-	}
+    assert(data.m_state == RST_EMPTY || data.m_state == RST_PENDING || data.m_state == RST_WAITING || data.m_state == RST_FULL);
+    
+    if (data.m_state == RST_EMPTY || data.m_state == RST_PENDING)
+    {
+        assert(data.m_waiting.head == INVALID_TID);
+    }
 
     const RegValue& value = regs[addr.index];
     if (value.m_state != RST_FULL)
     {
-	    if (value.m_state == RST_EMPTY || value.m_state == RST_PENDING)
-	    {
-    	    if (value.m_memory.size != 0)
-	        {
-    	        if (data.m_state == RST_WAITING)
-	            {
-    	            // Check that the memory information isn't changed
-	                assert(data.m_memory.fid         == value.m_memory.fid);
-	                assert(data.m_memory.offset      == value.m_memory.offset);
-	                assert(data.m_memory.size        == value.m_memory.size);
-	                assert(data.m_memory.sign_extend == value.m_memory.sign_extend);
-	                assert(data.m_memory.next        == value.m_memory.next);
-	            }
-	            else if (!from_memory)
-	            {
-        	        // Only the memory can write to memory-pending registers
-    			    throw SimulationException("Writing to a memory-load destination register", *this);
-		        }
-		    }
-	    }
-	    else if (value.m_state == RST_WAITING)
+        if (value.m_state == RST_EMPTY || value.m_state == RST_PENDING)
         {
-    	    if (data.m_state == RST_EMPTY)
-	        {
-    			throw SimulationException("Resetting a waiting register", *this);
-		    }
+            if (value.m_memory.size != 0)
+            {
+                if (data.m_state == RST_WAITING)
+                {
+                    // Check that the memory information isn't changed
+                    assert(data.m_memory.fid         == value.m_memory.fid);
+                    assert(data.m_memory.offset      == value.m_memory.offset);
+                    assert(data.m_memory.size        == value.m_memory.size);
+                    assert(data.m_memory.sign_extend == value.m_memory.sign_extend);
+                    assert(data.m_memory.next        == value.m_memory.next);
+                }
+                else if (!from_memory)
+                {
+                    // Only the memory can write to memory-pending registers
+                    throw SimulationException("Writing to a memory-load destination register", *this);
+                }
+            }
+        }
+        else if (value.m_state == RST_WAITING)
+        {
+            if (data.m_state == RST_EMPTY)
+            {
+                throw SimulationException("Resetting a waiting register", *this);
+            }
             
             if (data.m_state == RST_FULL && value.m_waiting.head != INVALID_TID)
             {
-    		    // This write caused a reschedule
+                // This write caused a reschedule
                 if (!m_allocator.ActivateThreads(value.m_waiting))
                 {
                     DeadlockWrite("Unable to wake up threads from %s", addr.str().c_str());
@@ -186,8 +186,8 @@ void RegisterFile::Update()
     assert(m_nUpdates > 0);
     for (unsigned int i = 0; i < m_nUpdates; ++i)
     {
-	    vector<RegValue>& regs = (m_updates[i].first.type == RT_FLOAT) ? m_floats : m_integers;
-	    regs[ m_updates[i].first.index ] = m_updates[i].second;
+        vector<RegValue>& regs = (m_updates[i].first.type == RT_FLOAT) ? m_floats : m_integers;
+        regs[ m_updates[i].first.index ] = m_updates[i].second;
     }
     m_nUpdates = 0;
 }

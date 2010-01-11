@@ -16,19 +16,21 @@ static bool IsPowerOfTwo(const T& x)
     return (x & (x - 1)) == 0;
 }
 
-ICache::ICache(Processor& parent, const std::string& name, Allocator& alloc, const Config& config)
-:   IComponent(&parent, parent.GetKernel(), name, "outgoing|incoming"),
+ICache::ICache(const std::string& name, Processor& parent, Allocator& alloc, const Config& config)
+:   Object(name, parent),
     m_parent(parent), m_allocator(alloc),
-    m_outgoing(parent.GetKernel(), config.getInteger<BufferSize>("ICacheOutgoingBufferSize", 1)),
-    m_incoming(parent.GetKernel(), config.getInteger<BufferSize>("ICacheIncomingBufferSize", 1)),
+    m_outgoing(*parent.GetKernel(), config.getInteger<BufferSize>("ICacheOutgoingBufferSize", 1)),
+    m_incoming(*parent.GetKernel(), config.getInteger<BufferSize>("ICacheIncomingBufferSize", 1)),
     m_numHits(0),
     m_numMisses(0),
     m_lineSize(config.getInteger<size_t>("CacheLineSize", 64)),
     m_assoc   (config.getInteger<size_t>("ICacheAssociativity", 4)),
+    p_Outgoing("outgoing", delegate::create<ICache, &ICache::DoOutgoing>(*this)),
+    p_Incoming("incoming", delegate::create<ICache, &ICache::DoIncoming>(*this)),
     p_service(*this, "p_service")
 {
-    m_outgoing.Sensitive(*this, 0);
-    m_incoming.Sensitive(*this, 1);
+    m_outgoing.Sensitive( p_Outgoing );
+    m_incoming.Sensitive( p_Incoming );
 
     // These things must be powers of two
     if (!IsPowerOfTwo(m_assoc))
@@ -53,17 +55,17 @@ ICache::ICache(Processor& parent, const std::string& name, Allocator& alloc, con
         throw InvalidArgumentException("Instruction cache line size cannot be less than 8.");
     }
 
-	// Initialize the cache lines
+    // Initialize the cache lines
     m_lines.resize(sets * m_assoc);
-	m_data.resize(m_lineSize * m_lines.size());
+    m_data.resize(m_lineSize * m_lines.size());
     for (size_t i = 0; i < m_lines.size(); ++i)
     {
         m_lines[i].data         = &m_data[i * m_lineSize];
         m_lines[i].used         = false;
-		m_lines[i].references   = 0;
+        m_lines[i].references   = 0;
         m_lines[i].waiting.head = INVALID_TID;
-		m_lines[i].creation     = false;
-		m_lines[i].fetched      = false;
+        m_lines[i].creation     = false;
+        m_lines[i].fetched      = false;
     }
 }
 
@@ -142,10 +144,10 @@ bool ICache::ReleaseCacheLine(CID cid)
 {
     if (cid != INVALID_CID)
     {
-		// Once the references hit zero, the line can be replaced by a next request
+        // Once the references hit zero, the line can be replaced by a next request
         COMMIT
         {
-			assert(m_lines[cid].references > 0);
+            assert(m_lines[cid].references > 0);
             m_lines[cid].references--;
         }
     }
@@ -175,8 +177,8 @@ bool ICache::Read(CID cid, MemAddr address, void* data, MemSize size) const
         throw InvalidArgumentException("Attempting to read from an invalid cache line");
     }
 
-	// Verify that we're actually reading a fetched line
-	assert(m_lines[cid].fetched);
+    // Verify that we're actually reading a fetched line
+    assert(m_lines[cid].fetched);
 
     COMMIT{ memcpy(data, m_lines[cid].data + offset, (size_t)size); }
     return true;
@@ -185,22 +187,22 @@ bool ICache::Read(CID cid, MemAddr address, void* data, MemSize size) const
 // For family creation
 Result ICache::Fetch(MemAddr address, MemSize size, CID& cid)
 {
-	return Fetch(address, size, NULL, &cid);
+    return Fetch(address, size, NULL, &cid);
 }
 
 // For thread activation
 Result ICache::Fetch(MemAddr address, MemSize size, TID& tid, CID& cid)
 {
-	return Fetch(address, size, &tid, &cid);
+    return Fetch(address, size, &tid, &cid);
 }
 
 Result ICache::Fetch(MemAddr address, MemSize size, TID* tid, CID* cid)
 {
-	// Check that we're fetching executable memory
-	if (!m_parent.CheckPermissions(address, size, IMemory::PERM_EXECUTE))
-	{
-		throw SecurityException("Attempting to execute from non-executable memory", *this);
-	}
+    // Check that we're fetching executable memory
+    if (!m_parent.CheckPermissions(address, size, IMemory::PERM_EXECUTE))
+    {
+        throw SecurityException("Attempting to execute from non-executable memory", *this);
+    }
 
     // Validate input
     size_t offset = (size_t)(address % m_lineSize);
@@ -221,7 +223,7 @@ Result ICache::Fetch(MemAddr address, MemSize size, TID* tid, CID* cid)
         return FAILED;
     }
 
-	// Align the address
+    // Align the address
     address = address - offset;
 
     // Check the cache
@@ -235,21 +237,21 @@ Result ICache::Fetch(MemAddr address, MemSize size, TID* tid, CID* cid)
     }
 
     // Update access time
-	COMMIT{ line->access = m_parent.GetKernel().GetCycleNo(); }
+    COMMIT{ line->access = m_parent.GetKernel()->GetCycleNo(); }
 
     // If the caller wants the line index, give it
-	if (cid != NULL)
-	{
-		*cid = line - &m_lines[0];
-	}
+    if (cid != NULL)
+    {
+        *cid = line - &m_lines[0];
+    }
 
     if (result == SUCCESS)
     {
         // Cache hit
 
         // Update reference count
-	    COMMIT{ line->references++; }
-	    
+        COMMIT{ line->references++; }
+        
         if (line->fetched)
         {
             // The line was already fetched so we're done.
@@ -259,61 +261,61 @@ Result ICache::Fetch(MemAddr address, MemSize size, TID* tid, CID* cid)
         }
         
         // The line is being fetched
-		COMMIT
-		{
-			if (tid != NULL)
-			{
-				// Add the thread to the queue
-				TID head = line->waiting.head;
-				if (line->waiting.head == INVALID_TID) {
-					line->waiting.tail = *tid;
-				}
-				line->waiting.head = *tid;
-				*tid = head;
-			}
-			else if (cid != NULL)
-			{
-				// Initial line for creation
-				assert(!line->creation);
-				line->creation = true;
-			}
-		}
+        COMMIT
+        {
+            if (tid != NULL)
+            {
+                // Add the thread to the queue
+                TID head = line->waiting.head;
+                if (line->waiting.head == INVALID_TID) {
+                    line->waiting.tail = *tid;
+                }
+                line->waiting.head = *tid;
+                *tid = head;
+            }
+            else if (cid != NULL)
+            {
+                // Initial line for creation
+                assert(!line->creation);
+                line->creation = true;
+            }
+        }
     }
-	else
-	{
-		// Cache miss; a line has been allocated, fetch the data
+    else
+    {
+        // Cache miss; a line has been allocated, fetch the data
         Request request;
         request.address = address;
-        request.tag     = MemTag(line - &m_lines[0], false);		
-		if (!m_outgoing.Push(request))
-		{
-		    DeadlockWrite("Unable to put request for I-Cache line into outgoing buffer");
-		    return FAILED;
-		}
+        request.tag     = MemTag(line - &m_lines[0], false);
+        if (!m_outgoing.Push(request))
+        {
+            DeadlockWrite("Unable to put request for I-Cache line into outgoing buffer");
+            return FAILED;
+        }
 
-		// Data is being fetched
-		COMMIT
-		{
-			// Initialize buffer
-			line->creation   = false;
-			line->references = 1;
-			line->used       = true;
+        // Data is being fetched
+        COMMIT
+        {
+            // Initialize buffer
+            line->creation   = false;
+            line->references = 1;
+            line->used       = true;
 
-			line->fetched = false;
-			if (tid != NULL)
-			{
-				// Initialize the waiting queue
-				line->waiting.head = *tid;
-				line->waiting.tail = *tid;
-				*tid = INVALID_TID;
-			}
-			else if (cid != NULL)
-			{
-			    // Line is used in family creation
-				line->creation = true;
-			}
-		}
-	}
+            line->fetched = false;
+            if (tid != NULL)
+            {
+                // Initialize the waiting queue
+                line->waiting.head = *tid;
+                line->waiting.tail = *tid;
+                *tid = INVALID_TID;
+            }
+            else if (cid != NULL)
+            {
+                // Line is used in family creation
+                line->creation = true;
+            }
+        }
+    }
 
     COMMIT{ m_numMisses++; }
     return DELAYED;
@@ -330,7 +332,7 @@ bool ICache::OnMemoryReadCompleted(const MemData& data)
         return false;
     }
 
-	Line& line = m_lines[data.tag.cid];
+    Line& line = m_lines[data.tag.cid];
     COMMIT
     {
         memcpy(line.data, data.data, (size_t)data.size);
@@ -338,71 +340,64 @@ bool ICache::OnMemoryReadCompleted(const MemData& data)
     return true;
 }
 
-Result ICache::OnCycle(unsigned int stateIndex)
+Result ICache::DoOutgoing()
 {
-    switch (stateIndex)
+    assert(!m_outgoing.Empty());
+    const Request& request = m_outgoing.Front();
+    if (!m_parent.ReadMemory(request.address, m_lineSize, request.tag))
     {
-        case 0:
-        {
-            assert(!m_outgoing.Empty());
-            const Request& request = m_outgoing.Front();
-		    if (!m_parent.ReadMemory(request.address, m_lineSize, request.tag))
-		    {
-    			// The fetch failed
-			    DeadlockWrite("Unable to read 0x%016llx from memory", (unsigned long long)request.address);
-			    return FAILED;
-		    }
-		    m_outgoing.Pop();
-		    return SUCCESS;
-        }
-        
-        case 1:
-        {
-            assert(!m_incoming.Empty());
-	        
-            if (!p_service.Invoke())
-            {
-                return FAILED;
-            }
-            
-            CID   cid  = m_incoming.Front();
-	        Line& line = m_lines[cid];            
-            COMMIT{ line.fetched = true; }
-
-	        if (line.creation)
-	        {
-		        // Resume family creation
-		        if (!m_allocator.OnCachelineLoaded(cid))
-		        {
-		            DeadlockWrite("Unable to resume family creation for C%u", (unsigned)cid);
-			        return FAILED;
-		        }
-		        COMMIT{ line.creation = false; }
-	        }
-
-	        if (line.waiting.head != INVALID_TID)
-	        {
-		        // Reschedule the line's waiting list
-		        if (!m_allocator.QueueActiveThreads(line.waiting))
-		        {
-		            DeadlockWrite("Unable to queue active threads T%u through T%u for C%u",
-		                (unsigned)line.waiting.head, (unsigned)line.waiting.tail, (unsigned)cid);
-			        return FAILED;
-		        }
-
-        		// Clear the waiting list
-        		COMMIT
-        		{
-			        line.waiting.head = INVALID_TID;
-			        line.waiting.tail = INVALID_TID;
-		        }
-	        }
-	        m_incoming.Pop();
-            return SUCCESS;
-        }        
+        // The fetch failed
+        DeadlockWrite("Unable to read 0x%016llx from memory", (unsigned long long)request.address);
+        return FAILED;
     }
-    return DELAYED;
+    m_outgoing.Pop();
+    return SUCCESS;
 }
+
+Result ICache::DoIncoming()
+{
+    assert(!m_incoming.Empty());
+
+    if (!p_service.Invoke())
+    {
+        return FAILED;
+    }
+    
+    CID   cid  = m_incoming.Front();
+    Line& line = m_lines[cid];            
+    COMMIT{ line.fetched = true; }
+
+    if (line.creation)
+    {
+        // Resume family creation
+        if (!m_allocator.OnCachelineLoaded(cid))
+        {
+            DeadlockWrite("Unable to resume family creation for C%u", (unsigned)cid);
+            return FAILED;
+        }
+        COMMIT{ line.creation = false; }
+    }
+
+    if (line.waiting.head != INVALID_TID)
+    {
+        // Reschedule the line's waiting list
+        if (!m_allocator.QueueActiveThreads(line.waiting))
+        {
+            DeadlockWrite("Unable to queue active threads T%u through T%u for C%u",
+                (unsigned)line.waiting.head, (unsigned)line.waiting.tail, (unsigned)cid);
+            return FAILED;
+        }
+
+        // Clear the waiting list
+        COMMIT
+        {
+            line.waiting.head = INVALID_TID;
+            line.waiting.tail = INVALID_TID;
+           }
+    }
+    m_incoming.Pop();
+    return SUCCESS;
+}        
 
 void ICache::Cmd_Help(std::ostream& out, const std::vector<std::string>& /*arguments*/) const
 {

@@ -9,27 +9,32 @@ namespace Simulator
 //
 // Processor implementation
 //
-Processor::Processor(Object* parent, Kernel& kernel, GPID gpid, LPID lpid, const vector<Processor*>& grid, PSize gridSize, PlaceInfo& place, const std::string& name, IMemory& memory, Display& display, FPU& fpu, const Config& config)
-:   IComponent(parent, kernel, name, ""),
-    m_pid(gpid), m_kernel(kernel), m_memory(memory), m_grid(grid), m_gridSize(gridSize), m_place(place), m_fpu(fpu),
+Processor::Processor(const std::string& name, Object& parent, GPID gpid, LPID lpid, const vector<Processor*>& grid, PSize gridSize, PlaceInfo& place, IMemory& memory, Display& display, FPU& fpu, const Config& config)
+:   Object(name, parent),
+    m_pid(gpid), m_memory(memory), m_grid(grid), m_gridSize(gridSize), m_place(place), m_fpu(fpu),
     m_localFamilyCompletion(0),
-	m_allocator   (*this, "alloc",    m_familyTable, m_threadTable, m_registerFile, m_raunit, m_icache, m_network, m_pipeline, place, lpid, config),
-    m_icache      (*this, "icache",   m_allocator, config),
-    m_dcache      (*this, "dcache",   m_allocator, m_familyTable, m_registerFile, config),
-	m_registerFile(*this,             m_allocator, m_network, config),
-    m_pipeline    (*this, "pipeline", lpid, m_registerFile, m_network, m_allocator, m_familyTable, m_threadTable, m_icache, m_dcache, display, fpu, config),
-    m_raunit      (*this, "rau",      m_registerFile, config),
-	m_familyTable (*this,             config),
-	m_threadTable (*this,             config),
-    m_network     (*this, "network",  place, grid, lpid, m_allocator, m_registerFile, m_familyTable)
+    m_allocator   ("alloc",     *this, m_familyTable, m_threadTable, m_registerFile, m_raunit, m_icache, m_network, m_pipeline, place, lpid, config),
+    m_icache      ("icache",    *this, m_allocator, config),
+    m_dcache      ("dcache",    *this, m_allocator, m_familyTable, m_registerFile, config),
+    m_registerFile("registers", *this, m_allocator, m_network, config),
+    m_pipeline    ("pipeline",  *this, lpid, m_registerFile, m_network, m_allocator, m_familyTable, m_threadTable, m_icache, m_dcache, display, fpu, config),
+    m_raunit      ("rau",       *this, m_registerFile, config),
+    m_familyTable ("families",  *this, config),
+    m_threadTable ("threads",   *this, config),
+    m_network     ("network",   *this, place, grid, lpid, m_allocator, m_registerFile, m_familyTable)
 {
-    const ArbitrationSource sources[] = {
-        ArbitrationSource(&m_icache, 0),    // Outgoing process in I-Cache
-        ArbitrationSource(&m_dcache, 2),    // Outgoing process in D-Cache
-        ArbitrationSource(NULL, -1)
+    const Process* sources[] = {
+        &m_icache.p_Outgoing,   // Outgoing process in I-Cache
+        &m_dcache.p_Outgoing,   // Outgoing process in D-Cache
+        NULL
     };
     
-    m_memory.RegisterListener(m_pid, *this, sources);
+    m_memory.RegisterClient(m_pid, *this, sources);
+}
+
+Processor::~Processor()
+{
+    m_memory.UnregisterClient(m_pid);
 }
 
 void Processor::Initialize(Processor& prev, Processor& next, MemAddr runAddress, bool legacy)
@@ -40,100 +45,100 @@ void Processor::Initialize(Processor& prev, Processor& next, MemAddr runAddress,
     // Set port priorities and connections on all components.
     // First source on a port has the highest priority.
     //
-    
-    m_icache.p_service.AddSource(ArbitrationSource(&m_icache,    1)); // Cache-line returns
-    m_icache.p_service.AddSource(ArbitrationSource(&m_allocator, 3)); // Thread activation
-    m_icache.p_service.AddSource(ArbitrationSource(&m_allocator, 2)); // Create process
+
+    m_icache.p_service.AddProcess(m_icache.p_Incoming);             // Cache-line returns
+    m_icache.p_service.AddProcess(m_allocator.p_ThreadActivation);  // Thread activation
+    m_icache.p_service.AddProcess(m_allocator.p_FamilyCreate);      // Create process
 
     // Unfortunately the D-Cache needs priority here because otherwise all cache-lines can
     // remain filled and we get deadlock because the pipeline keeps wanting to do a read.
-    m_dcache.p_service.AddSource(ArbitrationSource(&m_dcache,   0)); // Memory read returns
-    m_dcache.p_service.AddSource(ArbitrationSource(&m_pipeline, 0)); // Memory read/write
+    m_dcache.p_service.AddProcess(m_dcache.p_IncomingReads);   // Memory read returns
+    m_dcache.p_service.AddProcess(m_pipeline.p_Pipeline);       // Memory read/write
 
-    m_allocator.p_allocation.AddSource(ArbitrationSource(&m_pipeline,  0)); // ALLOCATE instruction
-    m_allocator.p_allocation.AddSource(ArbitrationSource(&m_network,   5)); // Group create
-    m_allocator.p_allocation.AddSource(ArbitrationSource(&m_network,   4)); // Delegated create
-    m_allocator.p_allocation.AddSource(ArbitrationSource(&m_allocator, 1)); // Delayed ALLOCATE instruction
+    m_allocator.p_allocation.AddProcess(m_pipeline.p_Pipeline);         // ALLOCATE instruction
+    m_allocator.p_allocation.AddProcess(m_network.p_Creation);          // Group create
+    m_allocator.p_allocation.AddProcess(m_network.p_Delegation);        // Delegated create
+    m_allocator.p_allocation.AddProcess(m_allocator.p_FamilyAllocate);  // Delayed ALLOCATE instruction
     
-    m_allocator.p_alloc.AddSource(ArbitrationSource(&m_network,   5)); // Group creates
-    m_allocator.p_alloc.AddSource(ArbitrationSource(&m_allocator, 2)); // Local creates
+    m_allocator.p_alloc.AddProcess(m_network.p_Creation);               // Group creates
+    m_allocator.p_alloc.AddProcess(m_allocator.p_FamilyCreate);         // Local creates
     
-    m_allocator.p_readyThreads.AddSource(ArbitrationSource(&m_pipeline,  0)); // Thread reschedule / wakeup due to write
-    m_allocator.p_readyThreads.AddSource(ArbitrationSource(&m_fpu,       0)); // Thread wakeup due to FP completion
-    m_allocator.p_readyThreads.AddSource(ArbitrationSource(&m_dcache,    0)); // Thread wakeup due to load completion
-    m_allocator.p_readyThreads.AddSource(ArbitrationSource(&m_dcache,    1)); // Thread wakeup due to write completion
-    m_allocator.p_readyThreads.AddSource(ArbitrationSource(&m_network,   0)); // Thread wakeup due to shared write
-    m_allocator.p_readyThreads.AddSource(ArbitrationSource(&m_network,  13)); // Thread wakeup due to shared write
-    m_allocator.p_readyThreads.AddSource(ArbitrationSource(&m_allocator, 0)); // Thread creation
-    m_allocator.p_readyThreads.AddSource(ArbitrationSource(&m_allocator, 4)); // Thread wakeup due to sync
+    m_allocator.p_readyThreads.AddProcess(m_pipeline.p_Pipeline);           // Thread reschedule / wakeup due to write
+    m_allocator.p_readyThreads.AddProcess(m_fpu.p_Pipeline);                // Thread wakeup due to FP completion
+    m_allocator.p_readyThreads.AddProcess(m_dcache.p_IncomingReads);        // Thread wakeup due to load completion
+    m_allocator.p_readyThreads.AddProcess(m_dcache.p_IncomingWrites);       // Thread wakeup due to write completion
+    m_allocator.p_readyThreads.AddProcess(m_network.p_RegResponseInGroup);  // Thread wakeup due to shared write
+    m_allocator.p_readyThreads.AddProcess(m_network.p_RegResponseInRemote); // Thread wakeup due to shared write
+    m_allocator.p_readyThreads.AddProcess(m_allocator.p_ThreadAllocate);    // Thread creation
+    m_allocator.p_readyThreads.AddProcess(m_allocator.p_RegWrites);         // Thread wakeup due to sync
 
-    m_allocator.p_activeThreads.AddSource(ArbitrationSource(&m_icache,    1)); // Thread activation due to I-Cache line return
-    m_allocator.p_activeThreads.AddSource(ArbitrationSource(&m_allocator, 3)); // Thread activation due to I-Cache hit (from Ready Queue)
+    m_allocator.p_activeThreads.AddProcess(m_icache.p_Incoming);            // Thread activation due to I-Cache line return
+    m_allocator.p_activeThreads.AddProcess(m_allocator.p_ThreadActivation); // Thread activation due to I-Cache hit (from Ready Queue)
 
-    m_registerFile.p_asyncW.AddSource(ArbitrationSource(&m_fpu,       0)); // FPU Op writebacks
-    m_registerFile.p_asyncW.AddSource(ArbitrationSource(&m_dcache,    0)); // Mem Load writebacks
-    m_registerFile.p_asyncW.AddSource(ArbitrationSource(&m_network,   0)); // Group register receives
-    m_registerFile.p_asyncW.AddSource(ArbitrationSource(&m_network,   1)); // Register sends (waiting writeback)
-    m_registerFile.p_asyncW.AddSource(ArbitrationSource(&m_network,  13)); // Remote register receives
-    m_registerFile.p_asyncW.AddSource(ArbitrationSource(&m_allocator, 0)); // Thread allocation
-    m_registerFile.p_asyncW.AddSource(ArbitrationSource(&m_allocator, 4)); // Syncs
+    m_registerFile.p_asyncW.AddProcess(m_fpu.p_Pipeline);                   // FPU Op writebacks
+    m_registerFile.p_asyncW.AddProcess(m_dcache.p_IncomingReads);           // Mem Load writebacks
+    m_registerFile.p_asyncW.AddProcess(m_network.p_RegResponseInGroup);     // Group register receives
+    m_registerFile.p_asyncW.AddProcess(m_network.p_RegRequestIn);           // Register sends (waiting writeback)
+    m_registerFile.p_asyncW.AddProcess(m_network.p_RegResponseInRemote);    // Remote register receives
+    m_registerFile.p_asyncW.AddProcess(m_allocator.p_ThreadAllocate);       // Thread allocation
+    m_registerFile.p_asyncW.AddProcess(m_allocator.p_RegWrites);            // Syncs
     
-    m_registerFile.p_asyncR.AddSource(ArbitrationSource(&m_network,   1)); // Remote register sends
+    m_registerFile.p_asyncR.AddProcess(m_network.p_RegRequestIn);           // Remote register sends
     
-    m_registerFile.p_pipelineR1.SetSource(ArbitrationSource(&m_pipeline, 0)); // Pipeline read stage
-    m_registerFile.p_pipelineR2.SetSource(ArbitrationSource(&m_pipeline, 0)); // Pipeline read stage
+    m_registerFile.p_pipelineR1.SetProcess(m_pipeline.p_Pipeline);          // Pipeline read stage
+    m_registerFile.p_pipelineR2.SetProcess(m_pipeline.p_Pipeline);          // Pipeline read stage
     
-    m_registerFile.p_pipelineW .SetSource(ArbitrationSource(&m_pipeline, 0)); // Pipeline writeback stage
+    m_registerFile.p_pipelineW .SetProcess(m_pipeline.p_Pipeline);          // Pipeline writeback stage
     
     for (size_t i = 0; i < m_grid.size(); i++)
     {
         // Every core can delegate to this core
-        m_network.m_delegateRemote      .AddSource(ArbitrationSource(&m_grid[i]->m_network, 4));
-        m_network.m_delegateFailedRemote.AddSource(ArbitrationSource(&m_grid[i]->m_network, 15));
+        m_network.m_delegateRemote      .AddProcess(m_grid[i]->m_network.p_Delegation);
+        m_network.m_delegateFailedRemote.AddProcess(m_grid[i]->m_network.p_DelegateFailedOut);
 
         // Every core can request registers
-        m_network.m_registerRequestRemote .in.AddSource(ArbitrationSource(&m_grid[i]->m_network, 11));
+        m_network.m_registerRequestRemote .in.AddProcess(m_grid[i]->m_network.p_RegRequestOutRemote);
         
-        m_network.m_registerResponseRemote.in.AddSource(ArbitrationSource(&m_grid[i]->m_network, 12));
+        m_network.m_registerResponseRemote.in.AddProcess(m_grid[i]->m_network.p_RegResponseOutRemote);
     }
     
-    m_network.m_delegateLocal             .AddSource(ArbitrationSource(&m_allocator,      2)); // Create process sends delegated create
-    m_network.m_createLocal               .AddSource(ArbitrationSource(&m_allocator,      2)); // Create process broadcasts create
-    m_network.m_createRemote              .AddSource(ArbitrationSource(&prev.m_network,   5)); // Forward of group create
-    m_network.m_delegateFailedLocal       .AddSource(ArbitrationSource(&m_network,        4)); // Delegation fails
+    m_network.m_delegateLocal             .AddProcess(m_allocator.p_FamilyCreate);  // Create process sends delegated create
+    m_network.m_createLocal               .AddProcess(m_allocator.p_FamilyCreate);  // Create process broadcasts create
+    m_network.m_createRemote              .AddProcess(prev.m_network.p_Creation);   // Forward of group create
+    m_network.m_delegateFailedLocal       .AddProcess(m_network.p_Delegation);      // Delegation fails
     
-    m_network.m_registerRequestRemote.out .AddSource(ArbitrationSource(&m_pipeline,       0)); // Non-full register with remote mapping read
-    m_network.m_registerRequestRemote.out .AddSource(ArbitrationSource(&m_network,        1)); // Forward of global request to remote parent
+    m_network.m_registerRequestRemote.out .AddProcess(m_pipeline.p_Pipeline);       // Non-full register with remote mapping read
+    m_network.m_registerRequestRemote.out .AddProcess(m_network.p_RegRequestIn);    // Forward of global request to remote parent
     
-    m_network.m_registerRequestGroup.out  .AddSource(ArbitrationSource(&m_network,        1)); // Forward of global request to group place
-    m_network.m_registerRequestGroup.out  .AddSource(ArbitrationSource(&m_pipeline,       0)); // Non-full register with remote mapping read
+    m_network.m_registerRequestGroup.out  .AddProcess(m_network.p_RegRequestIn);    // Forward of global request to group place
+    m_network.m_registerRequestGroup.out  .AddProcess(m_pipeline.p_Pipeline);       // Non-full register with remote mapping read
     
-    m_network.m_registerRequestGroup.in   .AddSource(ArbitrationSource(&next.m_network,   3)); // From neighbour
+    m_network.m_registerRequestGroup.in   .AddProcess(next.m_network.p_RegRequestOutGroup); // From neighbour
     
-    m_network.m_registerResponseGroup.in  .AddSource(ArbitrationSource(&prev.m_network,   2)); // From neighbour
+    m_network.m_registerResponseGroup.in  .AddProcess(prev.m_network.p_RegResponseOutGroup); // From neighbour
     
-    m_network.m_registerResponseGroup.out .AddSource(ArbitrationSource(&m_pipeline,       0)); // Pipeline write to register with remote mapping
-    m_network.m_registerResponseGroup.out .AddSource(ArbitrationSource(&m_fpu,            0)); // FP operation to a shared
-    m_network.m_registerResponseGroup.out .AddSource(ArbitrationSource(&m_dcache,         0)); // Memory load to a shared completes
-    m_network.m_registerResponseGroup.out .AddSource(ArbitrationSource(&m_network,        1)); // Returning register from a request
-    m_network.m_registerResponseGroup.out .AddSource(ArbitrationSource(&m_network,        0)); // Forwarding global onto group
-    m_network.m_registerResponseGroup.out .AddSource(ArbitrationSource(&m_network,       13)); // Forwarding response from remote parent onto group
+    m_network.m_registerResponseGroup.out .AddProcess(m_pipeline.p_Pipeline);           // Pipeline write to register with remote mapping
+    m_network.m_registerResponseGroup.out .AddProcess(m_fpu.p_Pipeline);                // FP operation to a shared
+    m_network.m_registerResponseGroup.out .AddProcess(m_dcache.p_IncomingReads);        // Memory load to a shared completes
+    m_network.m_registerResponseGroup.out .AddProcess(m_network.p_RegRequestIn);        // Returning register from a request
+    m_network.m_registerResponseGroup.out .AddProcess(m_network.p_RegResponseInGroup);  // Forwarding global onto group
+    m_network.m_registerResponseGroup.out .AddProcess(m_network.p_RegResponseInRemote); // Forwarding response from remote parent onto group
     
-    m_network.m_registerResponseRemote.out.AddSource(ArbitrationSource(&m_fpu,            0)); // FP operation to a shared
-    m_network.m_registerResponseRemote.out.AddSource(ArbitrationSource(&m_pipeline,       0)); // Pipeline write to register with remote mapping
-    m_network.m_registerResponseRemote.out.AddSource(ArbitrationSource(&m_network,        1)); // Returning register from a request
-    m_network.m_registerResponseRemote.out.AddSource(ArbitrationSource(&m_network,        0)); // Forwarding response from remote parent onto group
-    m_network.m_registerResponseRemote.out.AddSource(ArbitrationSource(&m_dcache,         0)); // Memory load to a shared completes
+    m_network.m_registerResponseRemote.out.AddProcess(m_fpu.p_Pipeline);                // FP operation to a shared
+    m_network.m_registerResponseRemote.out.AddProcess(m_pipeline.p_Pipeline);           // Pipeline write to register with remote mapping
+    m_network.m_registerResponseRemote.out.AddProcess(m_network.p_RegRequestIn);        // Returning register from a request
+    m_network.m_registerResponseRemote.out.AddProcess(m_network.p_RegResponseInGroup);  // Forwarding response from remote parent onto group
+    m_network.m_registerResponseRemote.out.AddProcess(m_dcache.p_IncomingReads);        // Memory load to a shared completes
     
-    m_network.m_completedThread           .AddSource(ArbitrationSource(&next.m_pipeline,  0)); // Thread terminated (reschedule at WB stage)
-    m_network.m_cleanedUpThread           .AddSource(ArbitrationSource(&prev.m_allocator, 0)); // Thread cleaned up
-    m_network.m_synchronizedFamily        .AddSource(ArbitrationSource(&prev.m_network,   9)); // Forwarding
-    m_network.m_synchronizedFamily        .AddSource(ArbitrationSource(&m_allocator,      0)); // Dependencies resolved
-    m_network.m_terminatedFamily          .AddSource(ArbitrationSource(&next.m_network,  10)); // Forwarding
-    m_network.m_terminatedFamily          .AddSource(ArbitrationSource(&m_network,        5)); // Create with no threads
-    m_network.m_terminatedFamily          .AddSource(ArbitrationSource(&m_allocator,      0)); // Last thread cleaned up
-    m_network.m_remoteSync                .AddSource(ArbitrationSource(&prev.m_network,   9)); // Sync token caused sync
-    m_network.m_remoteSync                .AddSource(ArbitrationSource(&m_allocator,      0)); // Thread administration caused sync
+    m_network.m_completedThread           .AddProcess(next.m_pipeline.p_Pipeline);          // Thread terminated (reschedule at WB stage)
+    m_network.m_cleanedUpThread           .AddProcess(prev.m_allocator.p_ThreadAllocate);   // Thread cleaned up
+    m_network.m_synchronizedFamily        .AddProcess(prev.m_network.p_FamilySync);         // Forwarding
+    m_network.m_synchronizedFamily        .AddProcess(m_allocator.p_ThreadAllocate);        // Dependencies resolved
+    m_network.m_terminatedFamily          .AddProcess(next.m_network.p_FamilyTermination);  // Forwarding
+    m_network.m_terminatedFamily          .AddProcess(m_network.p_Creation);                // Create with no threads
+    m_network.m_terminatedFamily          .AddProcess(m_allocator.p_ThreadAllocate);        // Last thread cleaned up
+    m_network.m_remoteSync                .AddProcess(prev.m_network.p_FamilySync);         // Sync token caused sync
+    m_network.m_remoteSync                .AddProcess(m_allocator.p_ThreadAllocate);        // Thread administration caused sync
 
     if (m_pid == 0)
     {
@@ -177,46 +182,45 @@ void Processor::UnreserveTLS(MemAddr address)
 
 bool Processor::ReadMemory(MemAddr address, MemSize size, MemTag tag)
 {
-	return m_memory.Read(*this, address, size, tag);
+    return m_memory.Read(m_pid, address, size, tag);
 }
 
 bool Processor::WriteMemory(MemAddr address, const void* data, MemSize size, MemTag tag)
 {
-	return m_memory.Write(*this, address, data, size, tag);
+    return m_memory.Write(m_pid, address, data, size, tag);
 }
 
 bool Processor::CheckPermissions(MemAddr address, MemSize size, int access) const
 {
-	return m_memory.CheckPermissions(address, size, access);
+    return m_memory.CheckPermissions(address, size, access);
 }
 
 bool Processor::OnMemoryReadCompleted(const MemData& data)
 {
-	// Dispatch result to I-Cache, D-Cache or Create Process, depending on tag
-	assert(data.tag.cid != INVALID_CID);
-	if (data.tag.data)
-	{
-		return m_dcache.OnMemoryReadCompleted(data);
-	}
-	return m_icache.OnMemoryReadCompleted(data);
+    // Dispatch result to I-Cache, D-Cache or Create Process, depending on tag
+    assert(data.tag.cid != INVALID_CID);
+    if (data.tag.data)
+    {
+        return m_dcache.OnMemoryReadCompleted(data);
+    }
+    return m_icache.OnMemoryReadCompleted(data);
 }
 
 bool Processor::OnMemoryWriteCompleted(const MemTag& tag)
 {
-	// Dispatch result to D-Cache
-	assert(tag.fid != INVALID_LFID);
-	return m_dcache.OnMemoryWriteCompleted(tag);
+    // Dispatch result to D-Cache
+    assert(tag.fid != INVALID_LFID);
+    return m_dcache.OnMemoryWriteCompleted(tag);
 }
 
 bool Processor::OnMemorySnooped(MemAddr addr, const MemData& data)
 {
-	return m_dcache.OnMemorySnooped(addr, data);
+    return m_dcache.OnMemorySnooped(addr, data);
 }
 
 void Processor::OnFamilyTerminatedLocally(MemAddr /* pc */)
 {
-    CycleNo cycle = GetKernel().GetCycleNo();
-    m_localFamilyCompletion = cycle;
+    m_localFamilyCompletion = GetKernel()->GetCycleNo();
 }
 
 Integer Processor::GetProfileWord(unsigned int i) const
@@ -224,10 +228,10 @@ Integer Processor::GetProfileWord(unsigned int i) const
     switch (i)
     {
     case 0:
-      {
-	// Return the number of elapsed cycles
-	return (Integer)GetKernel().GetCycleNo();
-      }
+    {
+        // Return the number of elapsed cycles
+        return (Integer)GetKernel()->GetCycleNo();
+    }
     case 1:
     {
         // Return the number of executed instructions on all cores

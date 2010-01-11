@@ -4,6 +4,7 @@
 #include <cassert>
 #include <cstring>
 #include <iomanip>
+#include <cstdio>
 using namespace std;
 
 namespace Simulator
@@ -15,23 +16,29 @@ static bool IsPowerOfTwo(const T& x)
     return (x & (x - 1)) == 0;
 }
 
-DCache::DCache(Processor& parent, const std::string& name, Allocator& alloc, FamilyTable& familyTable, RegisterFile& regFile, const Config& config)
-:   IComponent(&parent, parent.GetKernel(), name, "completed-reads|completed-writes|outgoing"), m_parent(parent),
-	m_allocator(alloc), m_familyTable(familyTable), m_regFile(regFile),
-	m_assoc          (config.getInteger<size_t>("DCacheAssociativity", 4)),
-	m_sets           (config.getInteger<size_t>("DCacheNumSets", 4)),
-	m_lineSize       (config.getInteger<size_t>("CacheLineSize", 64)),
-	m_returned       (parent.GetKernel(), m_lines),
-	m_completedWrites(parent.GetKernel(), config.getInteger<BufferSize>("DCacheCompletedWriteBufferSize", INFINITE)),
-	m_outgoing       (parent.GetKernel(), config.getInteger<BufferSize>("DCacheOutgoingBufferSize", 1)),
-	m_numHits        (0),
-	m_numMisses      (0),
-	p_service        (*this, "p_service")
-{
-	m_returned       .Sensitive(*this, 0);
-	m_completedWrites.Sensitive(*this, 1);
-	m_outgoing       .Sensitive(*this, 2);
+DCache::DCache(const std::string& name, Processor& parent, Allocator& alloc, FamilyTable& familyTable, RegisterFile& regFile, const Config& config)
+:   Object(name, parent), m_parent(parent),
+    m_allocator(alloc), m_familyTable(familyTable), m_regFile(regFile),
 
+    m_assoc          (config.getInteger<size_t>("DCacheAssociativity", 4)),
+    m_sets           (config.getInteger<size_t>("DCacheNumSets", 4)),
+    m_lineSize       (config.getInteger<size_t>("CacheLineSize", 64)),
+    m_returned       (*parent.GetKernel(), m_lines),
+    m_completedWrites(*parent.GetKernel(), config.getInteger<BufferSize>("DCacheCompletedWriteBufferSize", INFINITE)),
+    m_outgoing       (*parent.GetKernel(), config.getInteger<BufferSize>("DCacheOutgoingBufferSize", 1)),
+    m_numHits        (0),
+    m_numMisses      (0),
+
+    p_IncomingReads ("completed-reads",  delegate::create<DCache, &DCache::DoCompletedReads  >(*this) ),
+    p_IncomingWrites("completed-writes", delegate::create<DCache, &DCache::DoCompletedWrites >(*this) ),
+    p_Outgoing      ("outgoing",         delegate::create<DCache, &DCache::DoOutgoingRequests>(*this) ),
+
+    p_service        (*this, "p_service")
+{
+    m_returned       .Sensitive(p_IncomingReads);
+    m_completedWrites.Sensitive(p_IncomingWrites);
+    m_outgoing       .Sensitive(p_Outgoing);
+    
     // These things must be powers of two
     if (m_assoc == 0 || !IsPowerOfTwo(m_assoc))
     {
@@ -92,8 +99,8 @@ Result DCache::FindLine(MemAddr address, Line* &line, bool check_only)
         {
             if (line->state == LINE_EMPTY)
             {
-     			// Empty, unused line, remember this one
-   			    empty = line;
+                // Empty, unused line, remember this one
+                empty = line;
             }
             else if (line->tag == tag)
             {
@@ -121,17 +128,17 @@ Result DCache::FindLine(MemAddr address, Line* &line, bool check_only)
         return FAILED;
     }
 
-	if (!check_only)
-	{
-		// Reset the line
-		COMMIT
-		{
-			line->tag     = tag;
-			line->waiting = INVALID_REG;
-		    line->next    = INVALID_CID;
+    if (!check_only)
+    {
+        // Reset the line
+        COMMIT
+        {
+            line->tag     = tag;
+            line->waiting = INVALID_REG;
+            line->next    = INVALID_CID;
             std::fill(line->valid, line->valid + m_lineSize, false);
-		}
-	}
+        }
+    }
 
     return DELAYED;
 }
@@ -151,11 +158,11 @@ Result DCache::Read(MemAddr address, void* data, MemSize size, LFID /* fid */, R
     }
 #endif
 
-	// Check that we're reading readable memory
-	if (!m_parent.CheckPermissions(address, size, IMemory::PERM_READ))
-	{
-		throw SecurityException("Attempting to read from non-readable memory", *this);
-	}
+    // Check that we're reading readable memory
+    if (!m_parent.CheckPermissions(address, size, IMemory::PERM_READ))
+    {
+        throw SecurityException("Attempting to read from non-readable memory", *this);
+    }
 
     if (!p_service.Invoke())
     {
@@ -176,7 +183,7 @@ Result DCache::Read(MemAddr address, void* data, MemSize size, LFID /* fid */, R
     }
     
     // Update last line access
-    COMMIT{ line->access = m_parent.GetKernel().GetCycleNo(); }
+    COMMIT{ line->access = m_parent.GetKernel()->GetCycleNo(); }
 
     if (result == DELAYED)
     {
@@ -222,27 +229,27 @@ Result DCache::Read(MemAddr address, void* data, MemSize size, LFID /* fid */, R
     }
 
     // Data is being loaded, add request to the queue
-	COMMIT
-	{
-		line->state = LINE_LOADING;
-		if (reg != NULL && reg->valid())
-		{
-		    // We're loading to a valid register, queue it
-    		RegAddr old   = line->waiting;
-    		line->waiting = *reg;
-    		*reg = old;
-    	}
-		m_numMisses++;
-	}
+    COMMIT
+    {
+        line->state = LINE_LOADING;
+        if (reg != NULL && reg->valid())
+        {
+            // We're loading to a valid register, queue it
+            RegAddr old   = line->waiting;
+            line->waiting = *reg;
+            *reg = old;
+        }
+        m_numMisses++;
+    }
     return DELAYED;
 }
 
 Result DCache::Write(MemAddr address, void* data, MemSize size, LFID fid, TID tid)
 {
-	assert(fid != INVALID_LFID);
-	assert(tid != INVALID_TID);
+    assert(fid != INVALID_LFID);
+    assert(tid != INVALID_TID);
 
-	size_t offset = (size_t)(address % m_lineSize);
+    size_t offset = (size_t)(address % m_lineSize);
     if (offset + size > m_lineSize)
     {
         throw InvalidArgumentException("Address range crosses over cache line boundary");
@@ -255,11 +262,11 @@ Result DCache::Write(MemAddr address, void* data, MemSize size, LFID fid, TID ti
     }
 #endif
 
-	// Check that we're writing writable memory
-	if (!m_parent.CheckPermissions(address, size, IMemory::PERM_WRITE))
-	{
-		throw SecurityException("Attempting to write to non-writable memory", *this);
-	}
+    // Check that we're writing writable memory
+    if (!m_parent.CheckPermissions(address, size, IMemory::PERM_WRITE))
+    {
+        throw SecurityException("Attempting to write to non-writable memory", *this);
+    }
 
     if (!p_service.Invoke())
     {
@@ -268,9 +275,9 @@ Result DCache::Write(MemAddr address, void* data, MemSize size, LFID fid, TID ti
     }
     
     Line* line;
-	if (FindLine(address, line, true) == SUCCESS)
-	{
-	    assert(line->state != LINE_EMPTY);
+    if (FindLine(address, line, true) == SUCCESS)
+    {
+        assert(line->state != LINE_EMPTY);
 
         if (line->state == LINE_LOADING)
         {
@@ -288,8 +295,8 @@ Result DCache::Write(MemAddr address, void* data, MemSize size, LFID fid, TID ti
         {
             // Update the line
             assert(line->state == LINE_FULL);
-    	    COMMIT{ memcpy(line->data + offset, data, (size_t)size); }
-	    }
+            COMMIT{ memcpy(line->data + offset, data, (size_t)size); }
+        }
     }
     
     // Store request for memory (pass-through)
@@ -348,12 +355,12 @@ bool DCache::OnMemorySnooped(MemAddr address, const MemData& data)
     COMMIT
     {
         size_t offset = (size_t)(address % m_lineSize);
-		Line*  line;
+        Line*  line;
 
         // Cache coherency: check if we have the same address
-		if (FindLine(address, line, true) == SUCCESS)
-		{
-		    // We do, update the data
+        if (FindLine(address, line, true) == SUCCESS)
+        {
+            // We do, update the data
             memcpy(line->data + offset, data.data, (size_t)data.size);
             
             // Mark written bytes as valid
@@ -366,187 +373,179 @@ bool DCache::OnMemorySnooped(MemAddr address, const MemData& data)
     return true;
 }
 
-Result DCache::OnCycle(unsigned int stateIndex)
+Result DCache::DoCompletedReads()
 {
-    switch (stateIndex)
+    assert(!m_returned.Empty());
+
+    if (!p_service.Invoke())
     {
-    case 0:
-    {
-        assert(!m_returned.Empty());
-	
-        if (!p_service.Invoke())
-        {
-            DeadlockWrite("Unable to acquire port for D-Cache access in read completion");
-            return FAILED;
-        }
-
-	    // Process a waiting register
-        Line& line = m_lines[m_returned.Front()];
-        assert(line.state == LINE_LOADING || line.state == LINE_INVALID);
-	    if (line.waiting.valid())
-	    {
-	        WritebackState state = m_wbstate;
-	        if (state.offset == state.size)
-	        {
-	            // Starting a new multi-register write
-	        
-	    	    // Write to register
-    		    if (!m_regFile.p_asyncW.Write(line.waiting))
-		        {
-		            DeadlockWrite("Unable to acquire port to write back %s", line.waiting.str().c_str());
-        			return FAILED;
-		        }
-
-	            // Read request information
-	            RegValue value;
-	            if (!m_regFile.ReadRegister(line.waiting, value))
-	            {
-		            DeadlockWrite("Unable to read register %s", line.waiting.str().c_str());
-           			return FAILED;
-    	        }
-            
-	            if (value.m_state == RST_FULL || value.m_memory.size == 0)
-   		        {
-       			    // Rare case: the request info is still in the pipeline, stall!
-		            DeadlockWrite("Register %s is not yet written for read completion", line.waiting.str().c_str());
-	    	        return FAILED;
-	            }
-
-	            if (value.m_state != RST_PENDING && value.m_state != RST_WAITING)
-	            {
-                    // We're too fast, wait!
-                    DeadlockWrite("Memory read completed before register %s was cleared", line.waiting.str().c_str());
-                    return FAILED;
-	            }
-
-		        // Ignore the request if the family has been killed
-		        const Family& family = m_familyTable[value.m_memory.fid];
-	    	    if (!family.killed)
-    		    {
-			        state.value = UnserializeRegister(line.waiting.type, &line.data[value.m_memory.offset], value.m_memory.size);
-
-                    if (value.m_memory.sign_extend)
-                    {
-                        // Sign-extend the value
-                        assert(value.m_memory.size < sizeof(Integer));
-                        int shift = (sizeof(state.value) - value.m_memory.size) * 8;
-                        state.value = (int64_t)(state.value << shift) >> shift;
-                    }
-
-                    state.fid    = value.m_memory.fid;
-    	            state.addr   = line.waiting;
-    	            state.next   = value.m_memory.next;
-    	            state.offset = 0;
-
-                    // Number of registers that we're writing (must be a power of two)
-                    state.size = (value.m_memory.size + sizeof(Integer) - 1) / sizeof(Integer);
-                    assert((state.size & (state.size - 1)) == 0);
-    		    }
-	        }
-	        else
-	        {
-	    	    // Write to register
-    		    if (!m_regFile.p_asyncW.Write(state.addr))
-		        {
-		            DeadlockWrite("Unable to acquire port to write back %s", state.addr.str().c_str());
-        			return FAILED;
-		        }
-	        }
-
-            assert(state.offset < state.size);
-
-  			// Write to register file
-    	    RegValue reg;
-  		    reg.m_state = RST_FULL;
-
-#if ARCH_ENDIANNESS == ARCH_BIG_ENDIAN
-            // LSB goes in last register
-            const Integer data = state.value >> ((state.size - 1 - state.offset) * sizeof(Integer) * 8);
-#else
-            // LSB goes in first register
-            const Integer data = state.value >> (state.offset * sizeof(Integer) * 8);
-#endif
-
-        	switch (state.addr.type) {
-   		        case RT_INTEGER: reg.m_integer       = data; break;
-   		        case RT_FLOAT:   reg.m_float.integer = data; break;
-   		    }
-
-    		if (!m_regFile.WriteRegister(state.addr, reg, true))
-		   	{
-                DeadlockWrite("Unable to write register %s", state.addr.str().c_str());
-    	   	    return FAILED;
-    		}
-    		
-    		// Update writeback state
-            state.offset++;
-            state.addr.index++;
-            
-            if (state.offset == state.size)
-            {
-                // This operand is now fully written
-		        if (!m_allocator.DecreaseFamilyDependency(state.fid, FAMDEP_OUTSTANDING_READS))
-		        {
-		            DeadlockWrite("Unable to decrement outstanding reads on F%u", (unsigned)state.fid);
-        			return FAILED;
-		        }
-
-		        COMMIT{ line.waiting = state.next; }
-            }
-            COMMIT{ m_wbstate = state; }
-	    }
-	    else
-	    {
-    	    // We're done with this line.
-   		    // Move the line to the FULL (or EMPTY when invalidated) state.
-   		    COMMIT
-   		    {
-	            line.state = (line.state == LINE_INVALID) ? LINE_EMPTY : LINE_FULL;
-            }
-            m_returned.Pop();
-	    }
-	    return SUCCESS;
-	}
-	    
-    case 1:
-    {
-        assert(!m_completedWrites.Empty());
-        const MemTag& tag = m_completedWrites.Front();
-        if (!m_allocator.DecreaseThreadDependency(tag.fid, tag.tid, THREADDEP_OUTSTANDING_WRITES))
-        {
-            DeadlockWrite("Unable to decrease outstanding writes on T%u in F%u", (unsigned)tag.tid, (unsigned)tag.fid);
-            return FAILED;
-        }
-        m_completedWrites.Pop();
-        return SUCCESS;
+        DeadlockWrite("Unable to acquire port for D-Cache access in read completion");
+        return FAILED;
     }
-    
-    case 2:
+
+    // Process a waiting register
+    Line& line = m_lines[m_returned.Front()];
+    assert(line.state == LINE_LOADING || line.state == LINE_INVALID);
+    if (line.waiting.valid())
     {
-        assert(!m_outgoing.Empty());
-        const Request& request = m_outgoing.Front();
-        if (request.write)
+        WritebackState state = m_wbstate;
+        if (state.offset == state.size)
         {
-            if (!m_parent.WriteMemory(request.address, request.data.data, request.data.size, request.data.tag))
+            // Starting a new multi-register write
+        
+            // Write to register
+            if (!m_regFile.p_asyncW.Write(line.waiting))
             {
-                DeadlockWrite("Unable to send write of %u bytes to 0x%016llx to memory", (unsigned)request.data.size, (unsigned long long)request.address);
+                DeadlockWrite("Unable to acquire port to write back %s", line.waiting.str().c_str());
                 return FAILED;
+            }
+
+            // Read request information
+            RegValue value;
+            if (!m_regFile.ReadRegister(line.waiting, value))
+            {
+                DeadlockWrite("Unable to read register %s", line.waiting.str().c_str());
+                return FAILED;
+            }
+        
+            if (value.m_state == RST_FULL || value.m_memory.size == 0)
+            {
+                // Rare case: the request info is still in the pipeline, stall!
+                DeadlockWrite("Register %s is not yet written for read completion", line.waiting.str().c_str());
+                return FAILED;
+            }
+
+            if (value.m_state != RST_PENDING && value.m_state != RST_WAITING)
+            {
+                // We're too fast, wait!
+                DeadlockWrite("Memory read completed before register %s was cleared", line.waiting.str().c_str());
+                return FAILED;
+            }
+
+            // Ignore the request if the family has been killed
+            const Family& family = m_familyTable[value.m_memory.fid];
+            if (!family.killed)
+            {
+                state.value = UnserializeRegister(line.waiting.type, &line.data[value.m_memory.offset], value.m_memory.size);
+
+                if (value.m_memory.sign_extend)
+                {
+                    // Sign-extend the value
+                    assert(value.m_memory.size < sizeof(Integer));
+                    int shift = (sizeof(state.value) - value.m_memory.size) * 8;
+                    state.value = (int64_t)(state.value << shift) >> shift;
+                }
+
+                state.fid    = value.m_memory.fid;
+                state.addr   = line.waiting;
+                state.next   = value.m_memory.next;
+                state.offset = 0;
+
+                // Number of registers that we're writing (must be a power of two)
+                state.size = (value.m_memory.size + sizeof(Integer) - 1) / sizeof(Integer);
+                assert((state.size & (state.size - 1)) == 0);
             }
         }
         else
         {
-            if (!m_parent.ReadMemory(request.address, request.data.size, request.data.tag))
+            // Write to register
+            if (!m_regFile.p_asyncW.Write(state.addr))
             {
-                DeadlockWrite("Unable to send read of %u bytes to 0x%016llx to memory", (unsigned)request.data.size, (unsigned long long)request.address);
+                DeadlockWrite("Unable to acquire port to write back %s", state.addr.str().c_str());
                 return FAILED;
             }
         }
-        m_outgoing.Pop();
-        return SUCCESS;
-    }
-    }
 
-    return DELAYED;
+        assert(state.offset < state.size);
+
+        // Write to register file
+        RegValue reg;
+        reg.m_state = RST_FULL;
+
+#if ARCH_ENDIANNESS == ARCH_BIG_ENDIAN
+        // LSB goes in last register
+        const Integer data = state.value >> ((state.size - 1 - state.offset) * sizeof(Integer) * 8);
+#else
+        // LSB goes in first register
+        const Integer data = state.value >> (state.offset * sizeof(Integer) * 8);
+#endif
+
+        switch (state.addr.type) {
+            case RT_INTEGER: reg.m_integer       = data; break;
+            case RT_FLOAT:   reg.m_float.integer = data; break;
+        }
+
+        if (!m_regFile.WriteRegister(state.addr, reg, true))
+        {
+            DeadlockWrite("Unable to write register %s", state.addr.str().c_str());
+            return FAILED;
+        }
+        
+        // Update writeback state
+        state.offset++;
+        state.addr.index++;
+        
+        if (state.offset == state.size)
+        {
+            // This operand is now fully written
+            if (!m_allocator.DecreaseFamilyDependency(state.fid, FAMDEP_OUTSTANDING_READS))
+            {
+                DeadlockWrite("Unable to decrement outstanding reads on F%u", (unsigned)state.fid);
+                return FAILED;
+            }
+
+            COMMIT{ line.waiting = state.next; }
+        }
+        COMMIT{ m_wbstate = state; }
+    }
+    else
+    {
+        // We're done with this line.
+        // Move the line to the FULL (or EMPTY when invalidated) state.
+        COMMIT
+        {
+            line.state = (line.state == LINE_INVALID) ? LINE_EMPTY : LINE_FULL;
+        }
+        m_returned.Pop();
+    }
+    return SUCCESS;
+}
+        
+Result DCache::DoCompletedWrites()
+{
+    assert(!m_completedWrites.Empty());
+    const MemTag& tag = m_completedWrites.Front();
+    if (!m_allocator.DecreaseThreadDependency(tag.fid, tag.tid, THREADDEP_OUTSTANDING_WRITES))
+    {
+        DeadlockWrite("Unable to decrease outstanding writes on T%u in F%u", (unsigned)tag.tid, (unsigned)tag.fid);
+        return FAILED;
+    }
+    m_completedWrites.Pop();
+    return SUCCESS;
+}
+
+Result DCache::DoOutgoingRequests()
+{
+    assert(!m_outgoing.Empty());
+    const Request& request = m_outgoing.Front();
+    if (request.write)
+    {
+        if (!m_parent.WriteMemory(request.address, request.data.data, request.data.size, request.data.tag))
+        {
+            DeadlockWrite("Unable to send write of %u bytes to 0x%016llx to memory", (unsigned)request.data.size, (unsigned long long)request.address);
+            return FAILED;
+        }
+    }
+    else
+    {
+        if (!m_parent.ReadMemory(request.address, request.data.size, request.data.tag))
+        {
+            DeadlockWrite("Unable to send read of %u bytes to 0x%016llx to memory", (unsigned)request.data.size, (unsigned long long)request.address);
+            return FAILED;
+        }
+    }
+    m_outgoing.Pop();
+    return SUCCESS;
 }
 
 void DCache::Cmd_Help(std::ostream& out, const std::vector<std::string>& /*arguments*/) const

@@ -27,13 +27,14 @@ class RegisterFile : public Structure<RegAddr>, public Storage
 public:
     /**
      * Constructs the Register File.
+     * @param[in] name name of this register file.
      * @param[in] parent reference to parent processor.
      * @param[in] allocator reference to allocator used to wake up threads on
      *                      writes to waiting registers.
      * @param[in] network reference to network used to send remote registers.
      * @param[in] config reference to the configuration data.
      */
-    RegisterFile(Processor& parent, Allocator& allocator, Network& network, const Config& config);
+    RegisterFile(const std::string& name, Processor& parent, Allocator& allocator, Network& network, const Config& config);
 
     /**
      * Reads a register

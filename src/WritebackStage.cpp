@@ -206,9 +206,9 @@ Pipeline::PipeAction Pipeline::WritebackStage::OnCycle()
             {
                 // Forward the value to the next CPU.
                 RemoteRegAddr rrc(m_input.Rrc);
-			    rrc.reg.index += writebackOffset;
+                            rrc.reg.index += writebackOffset;
                 
-			    if (!m_network.SendRegister(rrc, value))
+                            if (!m_network.SendRegister(rrc, value))
                 {
                     return PIPE_STALL;
                 }
@@ -289,7 +289,7 @@ Pipeline::PipeAction Pipeline::WritebackStage::OnCycle()
 }
 
 Pipeline::WritebackStage::WritebackStage(Pipeline& parent, const MemoryWritebackLatch& input, RegisterFile& regFile, Network& network, Allocator& alloc, ThreadTable& threadTable, const Config& /*config*/)
-  : Stage(parent, "writeback"),
+  : Stage("writeback", parent),
     m_input(input),
     m_stall(false),
     m_regFile(regFile),

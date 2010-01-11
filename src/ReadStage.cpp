@@ -463,7 +463,7 @@ Pipeline::ReadStage::ReadStage(Pipeline& parent, const DecodeReadLatch& input, R
     const vector<BypassInfo>& bypasses,
     const Config& /*config*/
   )
-  : Stage(parent, "read"),
+  : Stage("read", parent),
     m_regFile(regFile),
     m_input(input),
     m_output(output),

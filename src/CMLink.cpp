@@ -55,13 +55,13 @@ void MemStatMarkConflict(unsigned long* ptr)
     if (ptr == NULL)
         return;
 
-    Simulator::SimpleMemory::Request * req = (Simulator::SimpleMemory::Request*)ptr;
+    CMLink::Request * req = (CMLink::Request*)ptr;
 
     req->bconflict = true;
 }
 
 
-#define MAX_DATA_SIZE 256		// *** JONY ***
+#define MAX_DATA_SIZE 256       // *** JONY ***
 
 int read_count = 0;
 int write_count = 0;
@@ -91,8 +91,23 @@ bool CMLink::Allocate(MemSize size, int perm, MemAddr& address)
 //     return VirtualMemory::Allocate(size, perm, address);
 }
 
-bool CMLink::Read(IMemoryCallback& callback, MemAddr address, MemSize size, MemTag tag)
+void CMLink::RegisterClient(PSize pid, IMemoryCallback& callback, const Process* processes[])
 {
+    assert(m_clients[pid] == NULL);
+    m_clients[pid] = &callback;
+}
+
+void CMLink::UnregisterClient(PSize pid)
+{
+    assert(m_clients[pid] != NULL);
+    m_clients[pid] = NULL;
+}
+
+bool CMLink::Read(PSize pid, MemAddr address, MemSize size, MemTag tag)
+{
+    assert(m_clients[pid] != NULL);
+    IMemoryCallback& callback = *m_clients[pid];
+    
     // just to make the memory module active
     Request requestact;
     requestact.callback  = &callback;
@@ -134,7 +149,7 @@ bool CMLink::Read(IMemoryCallback& callback, MemAddr address, MemSize size, MemT
         bool dcache = false;
 
         assert(tag.cid != INVALID_CID);
-    	if (tag.data)
+        if (tag.data)
             dcache = true;
 
         CMLink* peercm = (CMLink*)peer->GetCMLinkPTR();
@@ -215,8 +230,11 @@ bool CMLink::Read(IMemoryCallback& callback, MemAddr address, MemSize size, MemT
 }
 
 
-bool CMLink::Write(IMemoryCallback& callback, MemAddr address, const void* data, MemSize size, MemTag tag)
+bool CMLink::Write(PSize pid, MemAddr address, const void* data, MemSize size, MemTag tag)
 {
+    assert(m_clients[pid] != NULL);
+    IMemoryCallback& callback = *m_clients[pid];
+    
     // just to make the memory module active
     Request requestact;
     requestact.callback  = &callback;
@@ -292,7 +310,7 @@ bool CMLink::Write(IMemoryCallback& callback, MemAddr address, const void* data,
 
 
 
-Result CMLink::OnCycle(unsigned int)
+Result CMLink::DoRequests()
 {
     Result result = DELAYED;
 #ifdef MEM_CACHE_LEVEL_ONE_SNOOP
@@ -338,8 +356,8 @@ Result CMLink::OnCycle(unsigned int)
     }   
 #endif
 
-	//result = ((result == SUCCESS)||(!m_setrequests.empty())) ? SUCCESS : DELAYED;
-	result = ((result == SUCCESS)||(m_nTotalReq != 0)) ? SUCCESS : DELAYED;
+    //result = ((result == SUCCESS)||(!m_setrequests.empty())) ? SUCCESS : DELAYED;
+    result = ((result == SUCCESS)||(m_nTotalReq != 0)) ? SUCCESS : DELAYED;
 
     MemAddr address;
     char data[MAX_DATA_SIZE];
@@ -392,34 +410,34 @@ Result CMLink::OnCycle(unsigned int)
     assert(m_pProcessor != NULL);
 
 
-    //if (prequest != NULL)    	assert(!m_setrequests.empty());
-    if (prequest != NULL)    	assert(m_nTotalReq);
+    //if (prequest != NULL)     assert(!m_setrequests.empty());
+    if (prequest != NULL)       assert(m_nTotalReq);
 
 
-	//if (!m_setrequests.empty())
-	{
-		if (prequest != NULL)
-		{
-			Request* preq = prequest;
-			if (preq->write) {}
-			else {
-				memcpy(preq->data.data, data, (size_t)preq->data.size);
-			}
+    //if (!m_setrequests.empty())
+    {
+        if (prequest != NULL)
+        {
+            Request* preq = prequest;
+            if (preq->write) {}
+            else {
+                memcpy(preq->data.data, data, (size_t)preq->data.size);
+            }
 
-			// The current request has completed
+            // The current request has completed
 
-			if (!preq->write && !preq->callback->OnMemoryReadCompleted(preq->data))
-			{
-				return FAILED;
-			}
-			else if (preq->write && !preq->callback->OnMemoryWriteCompleted(preq->data.tag))
-			{
-				return FAILED;
-			}
+            if (!preq->write && !preq->callback->OnMemoryReadCompleted(preq->data))
+            {
+                return FAILED;
+            }
+            else if (preq->write && !preq->callback->OnMemoryWriteCompleted(preq->data.tag))
+            {
+                return FAILED;
+            }
 
             m_requests.Pop();
-			COMMIT
-			{
+            COMMIT
+            {
                 if (preq->write)
                 {
                     write_count --;
@@ -441,7 +459,7 @@ Result CMLink::OnCycle(unsigned int)
                 else
                 {
                     #ifdef MEM_DEBUG_TRACE
-                    uint64_t cycleno = ((Processor*)prequest->callback)->GetKernel().GetCycleNo();
+                    uint64_t cycleno = ((Processor*)prequest->callback)->GetKernel()->GetCycleNo();
                     LPID pid = ((Processor*)prequest->callback)->GetPID();
                     TID tid = 0xffff;
                     uint64_t addr = prequest->address;
@@ -476,15 +494,15 @@ Result CMLink::OnCycle(unsigned int)
                 m_nTotalReq--;
                 delete preq;
 
-				m_linkmgs->RemoveReply();
+                m_linkmgs->RemoveReply();
 
-			}
-		}
+            }
+        }
 
-	}
+    }
 
-	return SUCCESS;
-	//return result;
+    return SUCCESS;
+    //return result;
 }
 
 bool CMLink::CheckPermissions(MemAddr /*address*/, MemSize , int ) const
@@ -561,4 +579,54 @@ bool CMLink::OnMemorySnoopIB(unsigned __int64 address, void* data, unsigned int 
 }
 
 #endif
+
+CMLink::CMLink(const std::string& name, Object& parent, const Config& config, LinkMGS* linkmgs, MemoryDataContainer* mdc)
+  : Object(name, parent),
+    p_Requests("requests", delegate::create<CMLink, &CMLink::DoRequests>(*this)),
+    m_requests(*parent.GetKernel(), config.getInteger<BufferSize>("CMBufferSize", INFINITE)),
+    m_linkmgs(linkmgs)
+#ifndef MEM_CACHE_LEVEL_ONE_SNOOP
+    , m_pimcallback(NULL)
+#endif
+
+{
+    m_requests.Sensitive(p_Requests);
+    
+    // Get number of processors
+    const vector<PSize> places = config.getIntegerList<PSize>("NumProcessors");
+    PSize numProcs = 0;
+    for (size_t i = 0; i < places.size(); ++i) {
+        numProcs += places[i];
+    }
+    m_clients.resize(numProcs, NULL);
+
+    m_pProcessor = NULL;
+    m_nTotalReq = 0;
+
+    if (s_pLinks == NULL)
+    {
+        s_pLinks = new std::vector<CMLink*>();
+    }
+
+    s_pLinks->push_back(this);
+
+#ifdef MEM_CACHE_LEVEL_ONE_SNOOP
+    // add this link to linkmgs
+    m_linkmgs->SetCMLinkPTR((void*)this);
+#endif
+    // ignore memory data container pointer
+    if (mdc == NULL)
+        return;
+
+    // save or update the memory container pointer
+    if (s_pMemoryDataContainer == NULL)
+    {
+        s_pMemoryDataContainer = mdc;
+    }
+    else if (s_pMemoryDataContainer != mdc)
+    {
+        // inconsistent memory container
+        throw std::runtime_error("Inconsistent memory container");
+    }
+}
 

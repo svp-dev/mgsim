@@ -14,24 +14,24 @@ namespace Simulator
 
 class ArbitratedWriteFunction;
 
-class BankedMemory : public IComponent, public IMemoryAdmin, public VirtualMemory
+class BankedMemory : public Object, public IMemoryAdmin, public VirtualMemory
 {
+    struct ClientInfo;
     struct Request;
-    struct Bank;
+    class Bank;
 
     virtual size_t GetBankFromAddress(MemAddr address) const;
-    bool AddRequest(Buffer<Request>& queue, Request& request, bool data);
 
-    // Component
-    Result OnCycle(unsigned int stateIndex);
+    std::pair<CycleNo, CycleNo> GetMessageDelay(size_t body_size) const;
+    CycleNo                     GetMemoryDelay (size_t data_size) const;
 
     // IMemory
     void Reserve(MemAddr address, MemSize size, int perm);
     void Unreserve(MemAddr address);
-    void RegisterListener  (PSize pid, IMemoryCallback& callback, const ArbitrationSource* sources);
-    void UnregisterListener(PSize pid, IMemoryCallback& callback);
-    bool Read (IMemoryCallback& callback, MemAddr address, MemSize size, MemTag tag);
-    bool Write(IMemoryCallback& callback, MemAddr address, const void* data, MemSize size, MemTag tag);
+    void RegisterClient  (PSize pid, IMemoryCallback& callback, const Process* processes[]);
+    void UnregisterClient(PSize pid);
+    bool Read (PSize pid, MemAddr address, MemSize size, MemTag tag);
+    bool Write(PSize pid, MemAddr address, const void* data, MemSize size, MemTag tag);
 	bool CheckPermissions(MemAddr address, MemSize size, int access) const;
 
     // IMemoryAdmin
@@ -48,30 +48,22 @@ class BankedMemory : public IComponent, public IMemoryAdmin, public VirtualMemor
         nwrite_bytes = m_nwrite_bytes;
     }	
 
-    // Debugging
-    static void PrintRequest(std::ostream& out, char prefix, const Request& request);
-
-
 protected:
-    // We need arbitration per client because only one bank can write
-    // to a client at a time.
-    typedef std::map<IMemoryCallback*, ArbitratedService*> ClientMap;
-    
-    ClientMap          m_clients;
-    std::vector<Bank*> m_banks;
-    CycleNo            m_baseRequestTime;
-    CycleNo            m_timePerLine;
-    size_t             m_sizeOfLine;
-    BufferSize         m_bufferSize;
-    size_t             m_cachelineSize;
+    std::vector<ClientInfo> m_clients;
+    std::vector<Bank*>      m_banks;
+    CycleNo                 m_baseRequestTime;
+    CycleNo                 m_timePerLine;
+    size_t                  m_sizeOfLine;
+    BufferSize              m_bufferSize;
+    size_t                  m_cachelineSize;
 
-        uint64_t m_nreads;
-        uint64_t m_nread_bytes;
-        uint64_t m_nwrites;
-        uint64_t m_nwrite_bytes;
+    uint64_t m_nreads;
+    uint64_t m_nread_bytes;
+    uint64_t m_nwrites;
+    uint64_t m_nwrite_bytes;
 
 public:
-    BankedMemory(Object* parent, Kernel& kernel, const std::string& name, const Config& config);
+    BankedMemory(const std::string& name, Object& parent, const Config& config);
     ~BankedMemory();
     
     // Debugging

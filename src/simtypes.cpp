@@ -111,10 +111,10 @@ Instruction UnserializeInstruction(const void* _data)
 // in the Alpha Handbook, section 2.2.6.1.
 static uint64_t MAP_S(uint64_t exp)
 {
-	if (exp == 0xFF) return 0x7FF;
-	if (exp == 0x00) return 0x000;
-	if (exp &  0x80) return 0x400 | (exp & 0x7F);
-	return 0x380 | (exp & 0x7F);
+    if (exp == 0xFF) return 0x7FF;
+    if (exp == 0x00) return 0x000;
+    if (exp &  0x80) return 0x400 | (exp & 0x7F);
+    return 0x380 | (exp & 0x7F);
 }
 #endif
 
@@ -122,22 +122,22 @@ uint64_t UnserializeRegister(RegType type, const void* data, size_t size)
 {
     switch (type)
     {
-		case RT_INTEGER:
+        case RT_INTEGER:
         {
-			uint64_t value = EndianToInteger(data, size);
+            uint64_t value = EndianToInteger(data, size);
 #if TARGET_ARCH == ARCH_ALPHA
             // The Alpha sign-extends 32-bits to 64-bits
-			if (size == 4) {
-				// Sign-extend
-				value = (int64_t)(int32_t)(uint32_t)value;
-			}
+            if (size == 4) {
+                // Sign-extend
+                value = (int64_t)(int32_t)(uint32_t)value;
+            }
 #endif
-			return value;
+            return value;
         }
 
         case RT_FLOAT:
         {
-			uint64_t value = EndianToInteger(data, size);
+            uint64_t value = EndianToInteger(data, size);
 #if TARGET_ARCH == ARCH_ALPHA
             // The Alpha returns 32-bit S_Floatings as 64-bit T_Floatings
             // See Alpha Manual, 4.8.3, Load S_Floating
@@ -332,94 +332,94 @@ class IEEE754
 public:
     static double tofloat(const T* data)
     {
-	    double value = 0.0; // Default to zero
-	    unsigned long long sign     = GET_BITS(data, Frac + Exp, 1);
-	    unsigned long long exponent = GET_BITS(data, Frac, Exp);
-	    
-    	if (exponent == IEEE754_MAX_EXPONENT)
-    	{
-    		value = (IS_ZERO_BITS(data, 0, Frac))
-    			? numeric_limits<double>::infinity()	// Infinity
-    			: GET_BITS(data, Frac - 1, 1)           // Test highest fraction bit
-    				? numeric_limits<double>::quiet_NaN()	   // Not-a-Number (Quiet)
-    				: numeric_limits<double>::signaling_NaN(); // Not-a-Number (Signaling)
-	    }
-    	else 
-      	{
-    		// (De)normalized number
-    		for (int i = 0; i < Frac; ++i)
-    		{
-    			if (GET_BITS(data, i, 1)) {
-    				value = value + 1;
-    			}
-    			value = value / 2;
-	    	}
+        double value = 0.0; // Default to zero
+        unsigned long long sign     = GET_BITS(data, Frac + Exp, 1);
+        unsigned long long exponent = GET_BITS(data, Frac, Exp);
+        
+        if (exponent == IEEE754_MAX_EXPONENT)
+        {
+            value = (IS_ZERO_BITS(data, 0, Frac))
+                ? numeric_limits<double>::infinity()    // Infinity
+                : GET_BITS(data, Frac - 1, 1)           // Test highest fraction bit
+                    ? numeric_limits<double>::quiet_NaN()      // Not-a-Number (Quiet)
+                    : numeric_limits<double>::signaling_NaN(); // Not-a-Number (Signaling)
+        }
+        else 
+        {
+            // (De)normalized number
+            for (int i = 0; i < Frac; ++i)
+            {
+                if (GET_BITS(data, i, 1)) {
+                    value = value + 1;
+                }
+                value = value / 2;
+            }
 
-    		int exp = (int)exponent - IEEE754_EXPONENT_BIAS;
-    		if (exponent != 0) {
-    			// Normalized number
-    			value += 1;
-    		} else {
-    			// Denormalized number
-    			exp++;
-    		}
-    		value = ldexp(value, exp);
-    	}
-	    return sign ? -value : value;
+            int exp = (int)exponent - IEEE754_EXPONENT_BIAS;
+            if (exponent != 0) {
+                // Normalized number
+                value += 1;
+            } else {
+                // Denormalized number
+                exp++;
+            }
+            value = ldexp(value, exp);
+        }
+        return sign ? -value : value;
     }
 
     static void fromfloat(T* data, double f)
     {
-	    CLEAR_BITS(data, 0, Frac);
-	    if (f == numeric_limits<double>::infinity()) {
-    		// Positive infinity
-    		SET_BITS(data, Frac + Exp, 1, 0);
-    		SET_BITS(data, Frac, Exp, IEEE754_MAX_EXPONENT);
-    	}
-    	else if (f == -numeric_limits<double>::infinity()) {
-    		// Negative infinity
-    		SET_BITS(data, Frac + Exp, 1, 1);
-    		SET_BITS(data, Frac, Exp, IEEE754_MAX_EXPONENT);
-    	}
-    	else if (f != f) {
-    		// Not a Number (Quiet)
-    		SET_BITS(data, Frac + Exp, 1, 0);
-    		SET_BITS(data, Frac, Exp, IEEE754_MAX_EXPONENT);
-    		SET_BITS(data, Frac - 1, 1, 1);
-    	}
-    	else
-    	{
-    		// (De)normalized number
-    		SET_BITS(data, Frac + Exp, 1, (f < 0) ? 1 : 0);
-    		f = fabs(f);
-		
-    		int exp;
-    		f = frexp(f, &exp);
-		
-    		if (exp != 0 || f != 0)
-    		{
-    			// Non-zero number
-    			if (f < 1) {
-    				exp--;
-    				f = f * 2;
-    			}
+        CLEAR_BITS(data, 0, Frac);
+        if (f == numeric_limits<double>::infinity()) {
+            // Positive infinity
+            SET_BITS(data, Frac + Exp, 1, 0);
+            SET_BITS(data, Frac, Exp, IEEE754_MAX_EXPONENT);
+        }
+        else if (f == -numeric_limits<double>::infinity()) {
+            // Negative infinity
+            SET_BITS(data, Frac + Exp, 1, 1);
+            SET_BITS(data, Frac, Exp, IEEE754_MAX_EXPONENT);
+        }
+        else if (f != f) {
+            // Not a Number (Quiet)
+            SET_BITS(data, Frac + Exp, 1, 0);
+            SET_BITS(data, Frac, Exp, IEEE754_MAX_EXPONENT);
+            SET_BITS(data, Frac - 1, 1, 1);
+        }
+        else
+        {
+            // (De)normalized number
+            SET_BITS(data, Frac + Exp, 1, (f < 0) ? 1 : 0);
+            f = fabs(f);
+        
+            int exp;
+            f = frexp(f, &exp);
+        
+            if (exp != 0 || f != 0)
+            {
+                // Non-zero number
+                if (f < 1) {
+                    exp--;
+                    f = f * 2;
+                }
 
                 if (f >= 1) {
                     f -= 1;
                 }
                 
-	    		for (int i = Frac - 1; i >= 0; i--)
-    			{
-    				f = (f * 2);
-    				if (f >= 1) {
-    				    SET_BITS(data, i, 1, 1);
-    					f -= 1;
-    				}
-    			}
-	    		exp += IEEE754_EXPONENT_BIAS;
-    		}
-    		SET_BITS(data, Frac, Exp, exp);
-    	}
+                for (int i = Frac - 1; i >= 0; i--)
+                {
+                    f = (f * 2);
+                    if (f >= 1) {
+                        SET_BITS(data, i, 1, 1);
+                        f -= 1;
+                    }
+                }
+                exp += IEEE754_EXPONENT_BIAS;
+            }
+            SET_BITS(data, Frac, Exp, exp);
+        }
     }
 };
 

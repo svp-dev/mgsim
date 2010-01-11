@@ -22,8 +22,6 @@ COMA_LDADD_G = $(SC_LIBS) -ltinyxml_g
 COMA_LIBS = libmemorys.a libsimlink.a  
 COMA_LIBS_G = libmemorys_g.a libsimlink_g.a 
 COMA_SRC = \
-	SimpleMemory.cpp \
-	SimpleMemory.h \
 	memdump.h \
 	memdump.cpp \
 	CMLink.cpp \
@@ -170,7 +168,6 @@ COMMON_SRC = \
 	simtypes.cpp \
 	simtypes.h \
 	storage.h \
-	storage.cpp \
 	memsstoresequence.cpp \
 	memsstoresequence.h \
 	memstrace.cpp \

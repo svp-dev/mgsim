@@ -14,23 +14,21 @@
 namespace Simulator
 {
 
-class ParallelMemory : public IComponent, public IMemoryAdmin, public VirtualMemory
+class ParallelMemory : public Object, public IMemoryAdmin, public VirtualMemory
 {
     struct Request;
-	struct Port;
+	struct ClientInfo;
+	class Port;
 
     bool AddRequest(IMemoryCallback& callback, const Request& request);
     
-    // Component
-    Result OnCycle(unsigned int stateIndex);
-
     // IMemory
     void Reserve(MemAddr address, MemSize size, int perm);
     void Unreserve(MemAddr address);
-    void RegisterListener(PSize pid, IMemoryCallback& callback, const ArbitrationSource* sources);
-    void UnregisterListener(PSize pid, IMemoryCallback& callback);
-    bool Read (IMemoryCallback& callback, MemAddr address, MemSize size, MemTag tag);
-    bool Write(IMemoryCallback& callback, MemAddr address, const void* data, MemSize size, MemTag tag);
+    void RegisterClient(PSize pid, IMemoryCallback& callback, const Process* processes[]);
+    void UnregisterClient(PSize pid);
+    bool Read (PSize pid, MemAddr address, MemSize size, MemTag tag);
+    bool Write(PSize pid, MemAddr address, const void* data, MemSize size, MemTag tag);
 	bool CheckPermissions(MemAddr address, MemSize size, int access) const;
 
     // IMemoryAdmin
@@ -47,9 +45,9 @@ class ParallelMemory : public IComponent, public IMemoryAdmin, public VirtualMem
         nwrite_bytes = m_nwrite_bytes;
     }
     
-
-    std::map<IMemoryCallback*, Port*> m_clients;
-    std::vector<Port*>                m_ports;
+    CycleNo GetMemoryDelay(size_t data_size) const;
+    
+    std::vector<ClientInfo> m_clients;
     
     CycleNo	m_baseRequestTime; // Config: This many cycles per request regardless of size
     CycleNo	m_timePerLine;     // Config: With this many additional cycles per line
@@ -61,7 +59,7 @@ class ParallelMemory : public IComponent, public IMemoryAdmin, public VirtualMem
     uint64_t m_nwrite_bytes;
 
 public:
-    ParallelMemory(Object* parent, Kernel& kernel, const std::string& name, const Config& config);
+    ParallelMemory(const std::string& name, Object& parent, const Config& config);
     ~ParallelMemory();
 
     // Debugging

@@ -80,13 +80,13 @@ RegAddr Pipeline::DecodeStage::TranslateRegister(unsigned char reg, RegType type
                 throw IllegalInstruction();
             }
             
-    		if (m_input.isLastThreadInFamily || m_input.isLastThreadInBlock)
-    		{
-    		    // We may need to do something special
-	            if (m_input.isLastThreadInFamily && m_input.onParent)
+            if (m_input.isLastThreadInFamily || m_input.isLastThreadInBlock)
+            {
+                // We may need to do something special
+                if (m_input.isLastThreadInFamily && m_input.onParent)
                 {
                     // We map to the parent shareds (unless it's a delegated create)
-	    	        if (m_input.parent_gpid == INVALID_GPID)
+                    if (m_input.parent_gpid == INVALID_GPID)
                     {
                         // We should write back to the parent shareds on our own CPU
                         assert(family.parent_shareds != INVALID_REG_INDEX);
@@ -109,8 +109,8 @@ RegAddr Pipeline::DecodeStage::TranslateRegister(unsigned char reg, RegType type
                     // This is the last thread in the block, set the remoteReg as well,
                     // because we need to forward the shared value to the next CPU
                     // Obviously, this isn't necessary for local families
-		            if (writing && m_input.link_next != INVALID_LFID)
-		            {
+                    if (writing && m_input.link_next != INVALID_LFID)
+                    {
                         remoteReg->gpid = INVALID_GPID;
                         remoteReg->fid  = (m_input.isLastThreadInFamily) ? m_input.parent_fid  : m_input.link_next;
                         remoteReg->type = (m_input.isLastThreadInFamily) ? RRT_PARENT_SHARED   : RRT_FIRST_DEPENDENT;
@@ -206,7 +206,7 @@ Pipeline::PipeAction Pipeline::DecodeStage::OnCycle()
 }
 
 Pipeline::DecodeStage::DecodeStage(Pipeline& parent, const FetchDecodeLatch& input, DecodeReadLatch& output, const Config& /*config*/)
-  : Stage(parent, "decode"),
+  : Stage("decode", parent),
     m_input(input),
     m_output(output)
 {

@@ -21,16 +21,49 @@ namespace Simulator
 {
 
 //
+// Process class
+//
+
+std::string Process::GetName() const
+{
+    return GetObject()->GetFQN() + ":" + m_name;
+}
+
+void Process::Deactivate()
+{
+    // A process can be sensitive to multiple objects, so we only remove it from the list
+    // if the count becomes zero
+    if (--m_activations == 0)
+    {
+        // Remove the handle node from the list
+        *m_pPrev = m_next;
+        if (m_next != NULL) {
+            m_next->m_pPrev = m_pPrev;
+        }
+        m_state = STATE_IDLE;
+    }
+}
+
+//
 // Object class
 //
-Object::Object(Object* parent, Kernel* kernel, const std::string& name)
-    : m_parent(parent), m_name(name), m_kernel(kernel)
+Object::Object(const std::string& name, Kernel& kernel)
+    : m_parent(NULL), m_name(name), m_kernel(kernel)
 {
-    if (m_parent != NULL)
-    {
-        // Add ourself to the parent's children array
-        m_parent->m_children.push_back(this);
-    }
+}
+
+Object::Object(const std::string& name, Object& parent)
+    : m_parent(&parent), m_name(name), m_kernel(parent.m_kernel)
+{
+    // Add ourself to the parent's children array
+    parent.m_children.push_back(this);
+}
+
+Object::Object(const std::string& name, Object& parent, Kernel& kernel)
+    : m_parent(&parent), m_name(name), m_kernel(kernel)
+{
+    // Add ourself to the parent's children array
+    parent.m_children.push_back(this);
 }
 
 Object::~Object()
@@ -60,7 +93,7 @@ void Object::OutputWrite_(const char* msg, ...) const
 
     string name = GetFQN();
     transform(name.begin(), name.end(), name.begin(), ::toupper);
-    cout << "[" << right << dec << setfill('0') << setw(8) << m_kernel->GetCycleNo() << ":" << name << "] ";
+    cout << "[" << right << dec << setfill('0') << setw(8) << m_kernel.GetCycleNo() << ":" << name << "] ";
 
     va_start(args, msg);
     vprintf(msg, args);
@@ -73,15 +106,15 @@ void Object::DeadlockWrite_(const char* msg, ...) const
 {
     va_list args;
         
-    if (!m_kernel->m_debugging) {
-        const Kernel::ProcessInfo* process = m_kernel->GetActiveProcess(); 
-        cout << endl << process->info->component->GetFQN() << ":" << process->name << ":" << endl;
-        m_kernel->m_debugging = true;
+    if (!m_kernel.m_debugging) {
+        const Process* process = m_kernel.GetActiveProcess(); 
+        cout << endl << process->GetName() << ":" << endl;
+        m_kernel.m_debugging = true;
     }
 
     string name = GetFQN();
     transform(name.begin(), name.end(), name.begin(), ::toupper);
-    cout << "[" << right << dec << setfill('0') << setw(8) << m_kernel->GetCycleNo() << ":" << name << "] ";
+    cout << "[" << right << dec << setfill('0') << setw(8) << m_kernel.GetCycleNo() << ":" << name << "] ";
 
     va_start(args, msg);
     vprintf(msg, args);
@@ -96,7 +129,7 @@ void Object::DebugSimWrite_(const char* msg, ...) const
 
     string name = GetFQN();
     transform(name.begin(), name.end(), name.begin(), ::toupper);
-    cout << "[" << right << dec << setfill('0') << setw(8) << m_kernel->GetCycleNo() << ":" << name << "] ";
+    cout << "[" << right << dec << setfill('0') << setw(8) << m_kernel.GetCycleNo() << ":" << name << "] ";
 
     va_start(args, msg);
     vprintf(msg, args);
@@ -111,26 +144,13 @@ void Object::DebugProgWrite_(const char* msg, ...) const
 
     string name = GetFQN();
     transform(name.begin(), name.end(), name.begin(), ::toupper);
-    cout << "[" << right << dec << setfill('0') << setw(8) << m_kernel->GetCycleNo() << ":" << name << "] ";
+    cout << "[" << right << dec << setfill('0') << setw(8) << m_kernel.GetCycleNo() << ":" << name << "] ";
 
     va_start(args, msg);
     vprintf(msg, args);
     va_end(args);
 
     cout << endl;
-}
-
-//
-// Component class
-//
-IComponent::IComponent(Object* parent, Kernel& kernel, const std::string& name, const std::string& states)
-    : Object(parent, &kernel, name)
-{
-    GetKernel()->RegisterComponent(*this, states);
-}
-
-IComponent::~IComponent()
-{
 }
 
 //
@@ -153,7 +173,7 @@ RunState Kernel::Step(CycleNo cycles)
         // to activate the initial processes.
         UpdateStorages();
         
-	    m_aborted = false;
+        m_aborted = false;
         for (CycleNo i = 0; !m_aborted && !idle && (cycles == INFINITE_CYCLES || i < cycles); ++i)
         {
 #ifdef ENABLE_COMA
@@ -164,13 +184,13 @@ RunState Kernel::Step(CycleNo cycles)
             // Acquire phase
             //
             m_phase = PHASE_ACQUIRE;
-            for (ProcessInfo* process = m_activeProcesses; process != NULL; process = process->next)
+            for (Process* process = m_activeProcesses; process != NULL; process = process->m_next)
             {
                 m_process   = process;
                 m_debugging = false; // Will be used by DeadlockWrite() for process-seperating newlines
                 
                 // If we fail in the acquire stage, don't bother with the check and commit stages
-                process->state = (process->info->component->OnCycle(process - &process->info->processes[0]) == FAILED)
+                process->m_state = (process->m_delegate() == FAILED)
                     ? STATE_DEADLOCK
                     : STATE_RUNNING;
             }
@@ -178,10 +198,10 @@ RunState Kernel::Step(CycleNo cycles)
             //
             // Arbitrate phase
             //
-            for (ArbitratorInfo* arbitrator = m_activeArbitrators; arbitrator != NULL; arbitrator = arbitrator->next)
+            for (Arbitrator* arbitrator = m_activeArbitrators; arbitrator != NULL; arbitrator = arbitrator->m_next)
             {
-                arbitrator->arbitrator->OnArbitrate();
-                arbitrator->activated = false;
+                arbitrator->OnArbitrate();
+                arbitrator->m_activated = false;
             }
             m_activeArbitrators = NULL;
 
@@ -189,24 +209,23 @@ RunState Kernel::Step(CycleNo cycles)
             // Commit phase
             //
             idle = true;
-            for (ProcessInfo* process = m_activeProcesses; process != NULL; process = process->next)
+            for (Process* process = m_activeProcesses; process != NULL; process = process->m_next)
             {
-                if (process->state != STATE_DEADLOCK)
+                if (process->m_state != STATE_DEADLOCK)
                 {
                     m_process   = process;
                     m_phase     = PHASE_CHECK;
                     m_debugging = false; // Will be used by DeadlockWrite() for process-seperating newlines
                 
                     Result result;
-                    const int index = process - &process->info->processes[0];
-                    if ((result = process->info->component->OnCycle(index)) == SUCCESS)
+                    if ((result = process->m_delegate()) == SUCCESS)
                     {
                         m_phase = PHASE_COMMIT;
-                        result = process->info->component->OnCycle(index);
+                        result = process->m_delegate();
                             
                         // If the CHECK succeeded, the COMMIT cannot fail
- 					    assert(result == SUCCESS);
-                        process->state = STATE_RUNNING;
+                        assert(result == SUCCESS);
+                        process->m_state = STATE_RUNNING;
                     
                         // We've done something -- we're not idle
                         idle = false;
@@ -216,9 +235,9 @@ RunState Kernel::Step(CycleNo cycles)
                         // If a process has nothing to do (DELAYED) it shouldn't have been
                         // called in the first place.
                         assert(result == FAILED);
-                        process->state = STATE_DEADLOCK;
+                        process->m_state = STATE_DEADLOCK;
                     }
-			    }
+                }
             }
             
             // Process the requested storage updates
@@ -244,13 +263,13 @@ RunState Kernel::Step(CycleNo cycles)
         
         return (m_aborted)
             ? STATE_ABORTED
-	        : idle ? has_work ? STATE_DEADLOCK : STATE_IDLE : STATE_RUNNING;
+            : idle ? has_work ? STATE_DEADLOCK : STATE_IDLE : STATE_RUNNING;
     }
     catch (SimulationException& e)
     {
         // Add information about what component/state we were executing
         stringstream details;
-        details << "While executing process " << m_process->info->component->GetFQN() << ":" << m_process->name << endl;
+        details << "While executing process " << m_process->GetName() << endl;
         e.AddDetails(details.str());
         throw;
     }
@@ -259,76 +278,28 @@ RunState Kernel::Step(CycleNo cycles)
 bool Kernel::UpdateStorages()
 {
     bool updated = (m_activeStorages != NULL);
-    for (StorageInfo *s = m_activeStorages; s != NULL; s = s->next)
+    for (Storage *s = m_activeStorages; s != NULL; s = s->m_next)
     {
-        s->storage->Update();
-        s->activated = false;
+        s->Update();
+        s->m_activated = false;
     }
     m_activeStorages = NULL;
     return updated;
 }        
 
-void Kernel::ActivateProcess(ProcessInfo* process)
+void Kernel::ActivateProcess(Process& process)
 {
-    if (++process->activations == 1)
+    if (++process.m_activations == 1)
     {
         // First time this process has been activated, queue it
-        process->next  = m_activeProcesses;
-        process->pPrev = &m_activeProcesses;
-        if (process->next != NULL) {
-            process->next->pPrev = &process->next;
+        process.m_next  = m_activeProcesses;
+        process.m_pPrev = &m_activeProcesses;
+        if (process.m_next != NULL) {
+            process.m_next->m_pPrev = &process.m_next;
         }
-        m_activeProcesses = process;
+        m_activeProcesses = &process;
+        process.m_state = STATE_ACTIVE;
     }
-}
-
-void Kernel::RegisterStorage(Storage& storage)
-{
-    m_storages.push_back(StorageInfo());
-    StorageInfo& info = m_storages.back();
-    info.storage = &storage;
-    info.activated = false;
-}
-
-Kernel::ProcessInfo* Kernel::GetProcessInfo(IComponent* component, int state)
-{
-    // We don't care that this is O(n) -- it happens during initialization only
-    for (ComponentList::iterator p = m_components.begin(); p != m_components.end(); ++p)
-    {
-        if (p->component == component)
-        {
-            return &p->processes[state];
-        }
-    }
-    return NULL;
-}
-
-void Kernel::RegisterComponent(IComponent& component, const std::string& states)
-{
-    m_components.push_back(ComponentInfo());
-    ComponentInfo& info = m_components.back();
-    info.component = &component;
-    
-    // Split up the state string into states
-    for (string::const_iterator cur = states.begin(); cur != states.end(); )
- 	{
-       	string::const_iterator delim = find(cur, states.end(), '|');
-
-        ProcessInfo s;
-        s.name        = string(cur, delim);
-        s.state       = STATE_IDLE;
-        s.activations = 0;
-   		info.processes.push_back(s);
-  		cur = (delim != states.end()) ? delim + 1 : delim;
-    }
-}
-
-void Kernel::RegisterArbitrator(Arbitrator& arbitrator)
-{
-    m_arbitrators.push_back(ArbitratorInfo());
-    ArbitratorInfo& info = m_arbitrators.back();
-    info.arbitrator = &arbitrator;
-    info.activated = false;
 }
 
 void Kernel::SetDebugMode(int flags)
@@ -339,32 +310,6 @@ void Kernel::SetDebugMode(int flags)
 void Kernel::ToggleDebugMode(int flags)
 {
     m_debugMode ^= flags;
-}
-
-/// Called after everything has been created
-void Kernel::Initialize()
-{
-    // Set all backlinks from ProcessInfo to ComponentInfo
-    for (size_t i = 0; i < m_components.size(); ++i)
-    {
-        ComponentInfo* info = &m_components[i];
-        for (size_t j = 0; j < info->processes.size(); ++j)
-        {
-            info->processes[j].info = info;
-        }
-    }
-    
-    // Tell all storages what handle they have
-    for (size_t i = 0; i < m_storages.size(); ++i)
-    {
-        m_storages[i].storage->Initialize(&m_storages[i]);
-    }
-
-    // Tell all arbitrators what handle they have
-    for (size_t i = 0; i < m_arbitrators.size(); ++i)
-    {
-        m_arbitrators[i].arbitrator->Initialize(&m_arbitrators[i]);
-    }
 }
 
 Kernel::Kernel(Display& display)

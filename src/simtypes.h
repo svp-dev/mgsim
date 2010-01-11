@@ -370,8 +370,6 @@ struct FamilyQueue
     LFID tail;
 };
 
-class IComponent;
-
 struct RegValue
 {
     RegState m_state;       ///< State of the register.

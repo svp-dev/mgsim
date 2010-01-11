@@ -12,7 +12,7 @@ namespace Simulator
 class Processor;
 class Allocator;
 
-class ICache : public IComponent
+class ICache : public Object
 {
 	/// A Cache-line
     struct Line
@@ -37,8 +37,9 @@ class ICache : public IComponent
     Result Fetch(MemAddr address, MemSize size, TID* tid, CID* cid);
     Result FindLine(MemAddr address, Line* &line);
     
-    // Component
-    Result OnCycle(unsigned int stateIndex);
+    // Processes
+    Result DoOutgoing();
+    Result DoIncoming();
 
     Processor&        m_parent;
 	Allocator&        m_allocator;
@@ -50,11 +51,15 @@ class ICache : public IComponent
     uint64_t          m_numMisses;
     size_t            m_lineSize;
     size_t            m_assoc;
-
+    
 public:
-    ICache(Processor& parent, const std::string& name, Allocator& allocator, const Config& config);
+    ICache(const std::string& name, Processor& parent, Allocator& allocator, const Config& config);
     ~ICache();
     
+    // Processes
+    Process p_Outgoing;
+    Process p_Incoming;
+
     ArbitratedService p_service;
     
     Result Fetch(MemAddr address, MemSize size, CID& cid);				// Initial family line fetch

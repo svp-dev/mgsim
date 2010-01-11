@@ -6,7 +6,7 @@
 #include "Memory.h"
 #include "kernel.h"
 //#include "VirtualMemory.h"
-#include "SimpleMemory.h"
+#include "config.h"
 
 #include "coma/simlink/linkmgs.h"
 
@@ -19,66 +19,44 @@
 namespace Simulator
 {
 
-    class CMLink : public SimpleMemory
+    class CMLink : public Object, public IMemoryAdmin
     {
     public:
-        CMLink(Object* parent, Kernel& kernel, const std::string& name, const Config& config, LinkMGS* linkmgs, MemoryDataContainer* mdc=NULL)
-            :SimpleMemory(parent, kernel, name, config), m_linkmgs(linkmgs)
-#ifndef MEM_CACHE_LEVEL_ONE_SNOOP
-                , m_pimcallback(NULL)
-#endif
-
+        struct Request
         {
-            m_pProcessor = NULL;
-            m_nTotalReq = 0;
-
-            if (s_pLinks == NULL)
-            {
-                s_pLinks = new std::vector<CMLink*>();
-            }
-
-            s_pLinks->push_back(this);
-
-#ifdef MEM_CACHE_LEVEL_ONE_SNOOP
-            // add this link to linkmgs
-            m_linkmgs->SetCMLinkPTR((void*)this);
-#endif
-            // ignore memory data container pointer
-            if (mdc == NULL)
-                return;
-
-            // save or update the memory container pointer
-            if (s_pMemoryDataContainer == NULL)
-            {
-                s_pMemoryDataContainer = mdc;
-            }
-            else if (s_pMemoryDataContainer != mdc)
-            {
-                // inconsistent memory container
-                throw std::runtime_error("Inconsistent memory container");
-            }
-        }
+            bool                write;
+            CycleNo             done;
+            MemAddr             address;
+            MemData             data;
+            IMemoryCallback*    callback;
+            CycleNo             starttime;  // MESMX debug
+            bool                bconflict;   
+        };
+            
+        CMLink(const std::string& name, Object& parent, const Config& config, LinkMGS* linkmgs, MemoryDataContainer* mdc=NULL);
 
         ~CMLink(){
         }
 
         static std::vector<CMLink*> *s_pLinks;
 
+        void RegisterClient(PSize pid, IMemoryCallback& callback, const Process* processes[]);
+        void UnregisterClient(PSize pid);
+
         void Reserve(MemAddr address, MemSize size, int perm);
         void Unreserve(MemAddr address);
 
-        bool Read (IMemoryCallback& callback, MemAddr address, MemSize size, MemTag tag);
-        bool Write(IMemoryCallback& callback, MemAddr address, const void* data, MemSize size, MemTag tag);
-
+        bool Read (PSize pid, MemAddr address, MemSize size, MemTag tag);
+        bool Write(PSize pid, MemAddr address, const void* data, MemSize size, MemTag tag);
 
         // IMemory
 //        Result Read (IMemoryCallback& callback, MemAddr address, void* data, MemSize size, MemTag tag);
 //        Result Write(IMemoryCallback& callback, MemAddr address, void* data, MemSize size, MemTag tag);
 		bool CheckPermissions(MemAddr address, MemSize size, int access) const;
+		
+		Process p_Requests;
 
-        // Component
-        Result OnCycle(unsigned int stateIndex);
-//        Result OnCycleWritePhase(unsigned int stateIndex);
+        Result DoRequests();
 
         // IMemoryAdmin
         bool Allocate(MemSize size, int perm, MemAddr& address);
@@ -113,6 +91,8 @@ namespace Simulator
 #endif
 
     private:
+        Buffer<Request>               m_requests;
+        std::vector<IMemoryCallback*> m_clients;
         std::set<Request*>            m_setrequests;     // MESMX 
         unsigned int                  m_nTotalReq;
 

@@ -8,21 +8,24 @@ using namespace std;
 namespace Simulator
 {
 
-void SerialMemory::RegisterListener(PSize /*pid*/, IMemoryCallback& callback, const ArbitrationSource* sources)
+void SerialMemory::RegisterClient(PSize pid, IMemoryCallback& callback, const Process* processes[])
 {
-    m_caches.insert(&callback);
-    for (; sources->first != NULL; sources++)
+    assert(m_clients[pid] == NULL);
+    m_clients[pid] = &callback;
+    
+    for (size_t i = 0; processes[i] != NULL; ++i)
     {
-        p_requests.AddSource(*sources);
+        p_requests.AddProcess(*processes[i]);
     }
 }
 
-void SerialMemory::UnregisterListener(PSize /*pid*/, IMemoryCallback& callback)
+void SerialMemory::UnregisterClient(PSize pid)
 {
-    m_caches.erase(&callback);
+    assert(m_clients[pid] != NULL);
+    m_clients[pid] = NULL;
 }
 
-bool SerialMemory::Read(IMemoryCallback& callback, MemAddr address, MemSize size, MemTag tag)
+bool SerialMemory::Read(PSize pid, MemAddr address, MemSize size, MemTag tag)
 {
     if (size > MAX_MEMORY_OPERATION_SIZE)
     {
@@ -35,7 +38,7 @@ bool SerialMemory::Read(IMemoryCallback& callback, MemAddr address, MemSize size
     }
 
     Request request;
-    request.callback  = &callback;
+    request.callback  = m_clients[pid];
     request.address   = address;
     request.data.size = size;
     request.data.tag  = tag;
@@ -49,7 +52,7 @@ bool SerialMemory::Read(IMemoryCallback& callback, MemAddr address, MemSize size
     return true;
 }
 
-bool SerialMemory::Write(IMemoryCallback& callback, MemAddr address, const void* data, MemSize size, MemTag tag)
+bool SerialMemory::Write(PSize pid, MemAddr address, const void* data, MemSize size, MemTag tag)
 {
     assert(tag.fid != INVALID_LFID);
 
@@ -64,7 +67,7 @@ bool SerialMemory::Write(IMemoryCallback& callback, MemAddr address, const void*
     }
 
     Request request;
-    request.callback  = &callback;
+    request.callback  = m_clients[pid];
     request.address   = address;
     request.data.size = size;
     request.data.tag  = tag;
@@ -77,9 +80,9 @@ bool SerialMemory::Write(IMemoryCallback& callback, MemAddr address, const void*
     }
 
     // Broadcast the snoop data
-    for (set<IMemoryCallback*>::iterator p = m_caches.begin(); p != m_caches.end(); ++p)
+    for (vector<IMemoryCallback*>::const_iterator p = m_clients.begin(); p != m_clients.end(); ++p)
     {
-        if (!(*p)->OnMemorySnooped(request.address, request.data))
+        if (*p != NULL && !(*p)->OnMemorySnooped(request.address, request.data))
         {
             return false;
         }
@@ -110,15 +113,15 @@ void SerialMemory::Read(MemAddr address, void* data, MemSize size)
 
 void SerialMemory::Write(MemAddr address, const void* data, MemSize size)
 {
-	return VirtualMemory::Write(address, data, size);
+    return VirtualMemory::Write(address, data, size);
 }
 
 bool SerialMemory::CheckPermissions(MemAddr address, MemSize size, int access) const
 {
-	return VirtualMemory::CheckPermissions(address, size, access);
+    return VirtualMemory::CheckPermissions(address, size, access);
 }
 
-Result SerialMemory::OnCycle(unsigned int /* stateIndex */)
+Result SerialMemory::DoRequests()
 {
     assert(!m_requests.Empty());
 
@@ -170,16 +173,26 @@ Result SerialMemory::OnCycle(unsigned int /* stateIndex */)
     return SUCCESS;
 }
 
-SerialMemory::SerialMemory(Object* parent, Kernel& kernel, const std::string& name, const Config& config) :
-    IComponent(parent, kernel, name), 
-    m_requests       (kernel, config.getInteger<BufferSize>("MemoryBufferSize", INFINITE)),
+SerialMemory::SerialMemory(const std::string& name, Object& parent, const Config& config) :
+    Object(name, parent),
+    m_requests       (*parent.GetKernel(), config.getInteger<BufferSize>("MemoryBufferSize", INFINITE)),
     p_requests       (*this, "m_requests"),
     m_baseRequestTime(config.getInteger<CycleNo>   ("MemoryBaseRequestTime", 1)),
     m_timePerLine    (config.getInteger<CycleNo>   ("MemoryTimePerLine", 1)),
     m_sizeOfLine     (config.getInteger<CycleNo>   ("MemorySizeOfLine", 8)),
-    m_nextdone(0)
+    m_nextdone(0),
+    
+    p_Requests("requests", delegate::create<SerialMemory, &SerialMemory::DoRequests>(*this) )
 {
-    m_requests.Sensitive(*this, 0);
+    m_requests.Sensitive( p_Requests );
+
+    // Get number of processors
+    const vector<PSize> places = config.getIntegerList<PSize>("NumProcessors");
+    PSize numProcs = 0;
+    for (size_t i = 0; i < places.size(); ++i) {
+        numProcs += places[i];
+    }
+    m_clients.resize(numProcs, NULL);
 }
 
 void SerialMemory::Cmd_Help(ostream& out, const vector<string>& /*arguments*/) const

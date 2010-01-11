@@ -247,25 +247,25 @@ static bool BranchTaken(uint8_t opcode, const PipeValue& value)
 {
     switch (opcode)
     {
-		case A_OP_BR  : return true;
-		case A_OP_BSR : return true;
-		case A_OP_BEQ : return ((int64_t)value.m_integer.get(value.m_size) == 0);
-		case A_OP_BGE : return ((int64_t)value.m_integer.get(value.m_size) >= 0);
-		case A_OP_BGT : return ((int64_t)value.m_integer.get(value.m_size) >  0);
-		case A_OP_BLE : return ((int64_t)value.m_integer.get(value.m_size) <= 0);
-		case A_OP_BLT : return ((int64_t)value.m_integer.get(value.m_size) <  0);
-		case A_OP_BNE : return ((int64_t)value.m_integer.get(value.m_size) != 0);
-		case A_OP_BLBC: return ((value.m_integer.get(value.m_size) & 0x1) == 0);
-		case A_OP_BLBS: return ((value.m_integer.get(value.m_size) & 0x1) == 1);
-		
-		// Although, as described in the Alpha Handbook, section 4.9, FP branches are tested bitwise,
-		// we're lazy and interpret them.
-		case A_OP_FBEQ: return value.m_float.tofloat(value.m_size) == 0;
-		case A_OP_FBGE: return value.m_float.tofloat(value.m_size) >= 0;
-		case A_OP_FBLE: return value.m_float.tofloat(value.m_size) <= 0;
-		case A_OP_FBGT: return value.m_float.tofloat(value.m_size) >  0;
-		case A_OP_FBLT: return value.m_float.tofloat(value.m_size) <  0;
-		case A_OP_FBNE: return value.m_float.tofloat(value.m_size) != 0;
+        case A_OP_BR  : return true;
+        case A_OP_BSR : return true;
+        case A_OP_BEQ : return ((int64_t)value.m_integer.get(value.m_size) == 0);
+        case A_OP_BGE : return ((int64_t)value.m_integer.get(value.m_size) >= 0);
+        case A_OP_BGT : return ((int64_t)value.m_integer.get(value.m_size) >  0);
+        case A_OP_BLE : return ((int64_t)value.m_integer.get(value.m_size) <= 0);
+        case A_OP_BLT : return ((int64_t)value.m_integer.get(value.m_size) <  0);
+        case A_OP_BNE : return ((int64_t)value.m_integer.get(value.m_size) != 0);
+        case A_OP_BLBC: return ((value.m_integer.get(value.m_size) & 0x1) == 0);
+        case A_OP_BLBS: return ((value.m_integer.get(value.m_size) & 0x1) == 1);
+        
+        // Although, as described in the Alpha Handbook, section 4.9, FP branches are tested bitwise,
+        // we're lazy and interpret them.
+        case A_OP_FBEQ: return value.m_float.tofloat(value.m_size) == 0;
+        case A_OP_FBGE: return value.m_float.tofloat(value.m_size) >= 0;
+        case A_OP_FBLE: return value.m_float.tofloat(value.m_size) <= 0;
+        case A_OP_FBGT: return value.m_float.tofloat(value.m_size) >  0;
+        case A_OP_FBLT: return value.m_float.tofloat(value.m_size) <  0;
+        case A_OP_FBNE: return value.m_float.tofloat(value.m_size) != 0;
 
     }
     return false;
@@ -360,7 +360,7 @@ static bool ExecuteINTA(PipeValue& Rcv, const PipeValue& Rav, const PipeValue& R
             break;
         }
     }
-	return true;
+    return true;
 }
 
 static bool ExecuteINTL(PipeValue& Rcv, const PipeValue& Rav, const PipeValue& Rbv, int func)
@@ -394,7 +394,7 @@ static bool ExecuteINTL(PipeValue& Rcv, const PipeValue& Rav, const PipeValue& R
         case A_INTLFUNC_IMPLVER: Rc = IMPLVER_EV6; break; // We simulate an EV6 ISA
         case A_INTLFUNC_AMASK:   Rc = Rb & (AMASK_BWX | AMASK_FIX | AMASK_CIX | AMASK_MVI); break;
     }
-	return true;
+    return true;
 }
 
 static bool ExecuteINTS(PipeValue& Rcv, const PipeValue& Rav, const PipeValue& Rbv, int func)
@@ -442,7 +442,7 @@ static bool ExecuteINTS(PipeValue& Rcv, const PipeValue& Rav, const PipeValue& R
         case A_INTSFUNC_SRL: Rc = Ra >> (Rb & 0x3F); break;
         case A_INTSFUNC_SRA: Rc = (int64_t)Ra >> (Rb & 0x3F); break;
     }
-	return true;
+    return true;
 }
 
 static bool ExecuteINTM(PipeValue& Rcv, const PipeValue& Rav, const PipeValue& Rbv, int func)
@@ -466,7 +466,7 @@ static bool ExecuteINTM(PipeValue& Rcv, const PipeValue& Rav, const PipeValue& R
         default: assert(0); Rc = 0; break;
     }
     Rcv.m_integer = Rc;
-	return true;
+    return true;
 }
 
 static bool ExecuteFLTV(PipeValue& Rcv, const PipeValue& /* Rav */, const PipeValue& /* Rbv */, int func)
@@ -587,103 +587,103 @@ static bool ExecuteFLTV(PipeValue& Rcv, const PipeValue& /* Rav */, const PipeVa
 static bool ExecuteFLTI(PipeValue& Rcv, const PipeValue& Rav, const PipeValue& Rbv, int func)
 {
     Rcv.m_state = RST_FULL;
-	const Float64& Ra = Rav.m_float._64;
-	const Float64& Rb = Rbv.m_float._64;
-	Float64&       Rc = Rcv.m_float._64;
+    const Float64& Ra = Rav.m_float._64;
+    const Float64& Rb = Rbv.m_float._64;
+    Float64&       Rc = Rcv.m_float._64;
 
     switch(func) {
-		default:
-			// Add, Sub, Mul and Div are done in the FPU
-			return false;
+        default:
+            // Add, Sub, Mul and Div are done in the FPU
+            return false;
 
-		// IEEE Floating Compare
-		case A_FLTIFUNC_CMPTUN:
-		case A_FLTIFUNC_CMPTUN_SU: Rc.fromfloat( (Ra.tofloat() != Ra.tofloat() || Rb.tofloat() != Rb.tofloat()) ? 2.0 : 0.0 ); break;
-		case A_FLTIFUNC_CMPTEQ:
-		case A_FLTIFUNC_CMPTEQ_SU: Rc.fromfloat( (Ra.tofloat() == Rb.tofloat()) ? 2.0 : 0.0 ); break;
-		case A_FLTIFUNC_CMPTLT:
-		case A_FLTIFUNC_CMPTLT_SU: Rc.fromfloat( (Ra.tofloat() <  Rb.tofloat()) ? 2.0 : 0.0 ); break;
-		case A_FLTIFUNC_CMPTLE:
-		case A_FLTIFUNC_CMPTLE_SU: Rc.fromfloat( (Ra.tofloat() <= Rb.tofloat()) ? 2.0 : 0.0 ); break;
+        // IEEE Floating Compare
+        case A_FLTIFUNC_CMPTUN:
+        case A_FLTIFUNC_CMPTUN_SU: Rc.fromfloat( (Ra.tofloat() != Ra.tofloat() || Rb.tofloat() != Rb.tofloat()) ? 2.0 : 0.0 ); break;
+        case A_FLTIFUNC_CMPTEQ:
+        case A_FLTIFUNC_CMPTEQ_SU: Rc.fromfloat( (Ra.tofloat() == Rb.tofloat()) ? 2.0 : 0.0 ); break;
+        case A_FLTIFUNC_CMPTLT:
+        case A_FLTIFUNC_CMPTLT_SU: Rc.fromfloat( (Ra.tofloat() <  Rb.tofloat()) ? 2.0 : 0.0 ); break;
+        case A_FLTIFUNC_CMPTLE:
+        case A_FLTIFUNC_CMPTLE_SU: Rc.fromfloat( (Ra.tofloat() <= Rb.tofloat()) ? 2.0 : 0.0 ); break;
 
-		// Convert IEEE Floating to Integer
-		case A_FLTIFUNC_CVTTQ_VC:
-		case A_FLTIFUNC_CVTTQ_VM:
-		case A_FLTIFUNC_CVTTQ_V:
-		case A_FLTIFUNC_CVTTQ_VD:
-		case A_FLTIFUNC_CVTTQ_SVC:
-		case A_FLTIFUNC_CVTTQ_SVM:
-		case A_FLTIFUNC_CVTTQ:
-		case A_FLTIFUNC_CVTTQ_C:
-		case A_FLTIFUNC_CVTTQ_M:
-		case A_FLTIFUNC_CVTTQ_D:
-		case A_FLTIFUNC_CVTTQ_SV:
-		case A_FLTIFUNC_CVTTQ_SVD:
-		case A_FLTIFUNC_CVTTQ_SVIC:
-		case A_FLTIFUNC_CVTTQ_SVIM:
-		case A_FLTIFUNC_CVTTQ_SVI:
-		{
-		    Rc.integer = (int64_t)Rb.tofloat();
-			break;
-	    }
+        // Convert IEEE Floating to Integer
+        case A_FLTIFUNC_CVTTQ_VC:
+        case A_FLTIFUNC_CVTTQ_VM:
+        case A_FLTIFUNC_CVTTQ_V:
+        case A_FLTIFUNC_CVTTQ_VD:
+        case A_FLTIFUNC_CVTTQ_SVC:
+        case A_FLTIFUNC_CVTTQ_SVM:
+        case A_FLTIFUNC_CVTTQ:
+        case A_FLTIFUNC_CVTTQ_C:
+        case A_FLTIFUNC_CVTTQ_M:
+        case A_FLTIFUNC_CVTTQ_D:
+        case A_FLTIFUNC_CVTTQ_SV:
+        case A_FLTIFUNC_CVTTQ_SVD:
+        case A_FLTIFUNC_CVTTQ_SVIC:
+        case A_FLTIFUNC_CVTTQ_SVIM:
+        case A_FLTIFUNC_CVTTQ_SVI:
+        {
+            Rc.integer = (int64_t)Rb.tofloat();
+            break;
+        }
 
-		// Convert Integer to IEEE Floating (S_floating)
-		case A_FLTIFUNC_CVTQS_C:
-		case A_FLTIFUNC_CVTQS:
-		case A_FLTIFUNC_CVTQS_M:
-		case A_FLTIFUNC_CVTQS_D:
-		case A_FLTIFUNC_CVTQS_SUIC:
-		case A_FLTIFUNC_CVTQS_SUIM:
-		case A_FLTIFUNC_CVTQS_SUI:
-		case A_FLTIFUNC_CVTQS_SUID:
-		// Convert Integer to IEEE Floating (T_floating)
-		case A_FLTIFUNC_CVTQT_C:
-		case A_FLTIFUNC_CVTQT_M:
-		case A_FLTIFUNC_CVTQT:
-		case A_FLTIFUNC_CVTQT_D:
-		case A_FLTIFUNC_CVTQT_SUIC:
-		case A_FLTIFUNC_CVTQT_SUIM:
-		case A_FLTIFUNC_CVTQT_SUI:
-		case A_FLTIFUNC_CVTQT_SUID:
-			Rc.fromfloat( (double)(int64_t)Rb.integer );
-			break;
+        // Convert Integer to IEEE Floating (S_floating)
+        case A_FLTIFUNC_CVTQS_C:
+        case A_FLTIFUNC_CVTQS:
+        case A_FLTIFUNC_CVTQS_M:
+        case A_FLTIFUNC_CVTQS_D:
+        case A_FLTIFUNC_CVTQS_SUIC:
+        case A_FLTIFUNC_CVTQS_SUIM:
+        case A_FLTIFUNC_CVTQS_SUI:
+        case A_FLTIFUNC_CVTQS_SUID:
+        // Convert Integer to IEEE Floating (T_floating)
+        case A_FLTIFUNC_CVTQT_C:
+        case A_FLTIFUNC_CVTQT_M:
+        case A_FLTIFUNC_CVTQT:
+        case A_FLTIFUNC_CVTQT_D:
+        case A_FLTIFUNC_CVTQT_SUIC:
+        case A_FLTIFUNC_CVTQT_SUIM:
+        case A_FLTIFUNC_CVTQT_SUI:
+        case A_FLTIFUNC_CVTQT_SUID:
+            Rc.fromfloat( (double)(int64_t)Rb.integer );
+            break;
 
-		// Convert IEEE S_Floating to IEEE T_Floating
-		case A_FLTIFUNC_CVTST:
-		case A_FLTIFUNC_CVTST_S:
-			Rc.fromfloat( Rb.tofloat() );
-			break;
+        // Convert IEEE S_Floating to IEEE T_Floating
+        case A_FLTIFUNC_CVTST:
+        case A_FLTIFUNC_CVTST_S:
+            Rc.fromfloat( Rb.tofloat() );
+            break;
 
-		// Convert IEEE T_Floating to IEEE S_Floating
-		case A_FLTIFUNC_CVTTS_C:
-		case A_FLTIFUNC_CVTTS_M:
-		case A_FLTIFUNC_CVTTS:
-		case A_FLTIFUNC_CVTTS_D:
-		case A_FLTIFUNC_CVTTS_UC:
-		case A_FLTIFUNC_CVTTS_UM:
-		case A_FLTIFUNC_CVTTS_U:
-		case A_FLTIFUNC_CVTTS_UD:
-		case A_FLTIFUNC_CVTTS_SUC:
-		case A_FLTIFUNC_CVTTS_SUM:
-		case A_FLTIFUNC_CVTTS_SU:
-		case A_FLTIFUNC_CVTTS_SUD:
-		case A_FLTIFUNC_CVTTS_SUIC:
-		case A_FLTIFUNC_CVTTS_SUIM:
-		case A_FLTIFUNC_CVTTS_SUI:
-		case A_FLTIFUNC_CVTTS_SUID:
-		case A_FLTIFUNC_CVTTQ_SVID:
-			Rc.fromfloat( Rb.tofloat() );
-			break;
-	}
-	return true;
+        // Convert IEEE T_Floating to IEEE S_Floating
+        case A_FLTIFUNC_CVTTS_C:
+        case A_FLTIFUNC_CVTTS_M:
+        case A_FLTIFUNC_CVTTS:
+        case A_FLTIFUNC_CVTTS_D:
+        case A_FLTIFUNC_CVTTS_UC:
+        case A_FLTIFUNC_CVTTS_UM:
+        case A_FLTIFUNC_CVTTS_U:
+        case A_FLTIFUNC_CVTTS_UD:
+        case A_FLTIFUNC_CVTTS_SUC:
+        case A_FLTIFUNC_CVTTS_SUM:
+        case A_FLTIFUNC_CVTTS_SU:
+        case A_FLTIFUNC_CVTTS_SUD:
+        case A_FLTIFUNC_CVTTS_SUIC:
+        case A_FLTIFUNC_CVTTS_SUIM:
+        case A_FLTIFUNC_CVTTS_SUI:
+        case A_FLTIFUNC_CVTTS_SUID:
+        case A_FLTIFUNC_CVTTQ_SVID:
+            Rc.fromfloat( Rb.tofloat() );
+            break;
+    }
+    return true;
 }
 
 static bool ExecuteFLTL(PipeValue& Rcv, const PipeValue& Rav, const PipeValue& Rbv, int func)
 {
     Rcv.m_state = RST_FULL;
-	const Float64& Ra = Rav.m_float._64;
-	const Float64& Rb = Rbv.m_float._64;
-	Float64&       Rc = Rcv.m_float._64;
+    const Float64& Ra = Rav.m_float._64;
+    const Float64& Rb = Rbv.m_float._64;
+    Float64&       Rc = Rcv.m_float._64;
 
     switch(func)
     {
@@ -694,51 +694,51 @@ static bool ExecuteFLTL(PipeValue& Rcv, const PipeValue& Rav, const PipeValue& R
         case A_FLTIFUNC_CVTLQ: Rc.integer = (int64_t)(((Rb.integer >> 32) & 0xC0000000) | ((Rb.integer >> 29) & 0x03FFFFFF)); break;
 
         // Copy sign
-		case A_FLTIFUNC_CPYS:  Rc.sign =  Ra.sign; Rc.exponent = Rb.exponent; Rc.fraction = Rb.fraction; break;
+        case A_FLTIFUNC_CPYS:  Rc.sign =  Ra.sign; Rc.exponent = Rb.exponent; Rc.fraction = Rb.fraction; break;
         case A_FLTIFUNC_CPYSN: Rc.sign = ~Ra.sign; Rc.exponent = Rb.exponent; Rc.fraction = Rb.fraction; break;
-		case A_FLTIFUNC_CPYSE: Rc.sign =  Ra.sign; Rc.exponent = Ra.exponent; Rc.fraction = Rb.fraction; break;
+        case A_FLTIFUNC_CPYSE: Rc.sign =  Ra.sign; Rc.exponent = Ra.exponent; Rc.fraction = Rb.fraction; break;
 
-		// Move from/to Floating-Point Control Register
+        // Move from/to Floating-Point Control Register
         case A_FLTIFUNC_MT_FPCR:
         case A_FLTIFUNC_MF_FPCR:
-			break;
+            break;
 
-		// Floating-Point Conditional Move
+        // Floating-Point Conditional Move
         case A_FLTIFUNC_FCMOVEQ: if (BranchTaken(A_OP_FBEQ, Rav)) Rc = Rb; else Rcv.m_state = RST_INVALID; break;
         case A_FLTIFUNC_FCMOVNE: if (BranchTaken(A_OP_FBNE, Rav)) Rc = Rb; else Rcv.m_state = RST_INVALID; break;
-		case A_FLTIFUNC_FCMOVLT: if (BranchTaken(A_OP_FBLT, Rav)) Rc = Rb; else Rcv.m_state = RST_INVALID; break;
+        case A_FLTIFUNC_FCMOVLT: if (BranchTaken(A_OP_FBLT, Rav)) Rc = Rb; else Rcv.m_state = RST_INVALID; break;
         case A_FLTIFUNC_FCMOVGE: if (BranchTaken(A_OP_FBGE, Rav)) Rc = Rb; else Rcv.m_state = RST_INVALID; break;
         case A_FLTIFUNC_FCMOVLE: if (BranchTaken(A_OP_FBLE, Rav)) Rc = Rb; else Rcv.m_state = RST_INVALID; break;
         case A_FLTIFUNC_FCMOVGT: if (BranchTaken(A_OP_FBGT, Rav)) Rc = Rb; else Rcv.m_state = RST_INVALID; break;
-			break;
+            break;
     }
-	return true;
+    return true;
 }
 
 static bool ExecuteITFP(PipeValue& Rcv, const PipeValue& Rav, const PipeValue& /* Rbv */, int func)
 {
-	Rcv.m_state = RST_FULL;
-	switch (func)
-	{
-		// Integer Register to Floating-Point Register Move
-		case A_ITFPFUNC_ITOFF:
-			break;
+    Rcv.m_state = RST_FULL;
+    switch (func)
+    {
+        // Integer Register to Floating-Point Register Move
+        case A_ITFPFUNC_ITOFF:
+            break;
 
-		case A_ITFPFUNC_ITOFS:
-		case A_ITFPFUNC_ITOFT:
-			{
-				int size = (func == A_ITFPFUNC_ITOFS) ? 4 : 8;
-				char data[sizeof(Integer)];
-				SerializeRegister(RT_INTEGER, Rav.m_integer.get(Rav.m_size), data, size);
-				Rcv.m_float._64.integer = UnserializeRegister(RT_FLOAT, data, size);
-				break;
-			}
+        case A_ITFPFUNC_ITOFS:
+        case A_ITFPFUNC_ITOFT:
+            {
+                int size = (func == A_ITFPFUNC_ITOFS) ? 4 : 8;
+                char data[sizeof(Integer)];
+                SerializeRegister(RT_INTEGER, Rav.m_integer.get(Rav.m_size), data, size);
+                Rcv.m_float._64.integer = UnserializeRegister(RT_FLOAT, data, size);
+                break;
+            }
 
-		default:
-			// Square Root is done in the FPU
-			return false;
-	}
-	return true;
+        default:
+            // Square Root is done in the FPU
+            return false;
+    }
+    return true;
 }
 
 template <typename T>
@@ -755,118 +755,118 @@ static uint64_t MASK1(int offset, int size)
 
 static bool ExecuteFPTI(PipeValue& Rcv, const PipeValue& Rav, const PipeValue& Rbv, int func)
 {
-	Rcv.m_state   = RST_FULL;
+    Rcv.m_state   = RST_FULL;
     Rcv.m_integer = 0;
-	switch (func)
-	{
-		// Count Leading Zero
-		case A_FPTIFUNC_CTLZ:
-	    {
-		    unsigned int count = 0;
-			for (int i = 63; i > 0; i--) {
-				if ((Rbv.m_integer.get(Rbv.m_size) >> i) & 1) {
-					break;
-				}
-				++count;
-			}
-			Rcv.m_integer = count;
-			break;
+    switch (func)
+    {
+        // Count Leading Zero
+        case A_FPTIFUNC_CTLZ:
+        {
+            unsigned int count = 0;
+            for (int i = 63; i > 0; i--) {
+                if ((Rbv.m_integer.get(Rbv.m_size) >> i) & 1) {
+                    break;
+                }
+                ++count;
+            }
+            Rcv.m_integer = count;
+            break;
         }
         
-		// Count Population
-		case A_FPTIFUNC_CTPOP:
-		{
-		    unsigned int count = 0;
-			for (int i = 0; i < 63; ++i) {
-				if ((Rbv.m_integer.get(Rbv.m_size) >> i) & 1) {
-				    ++count;
-				}
-			}
-			Rcv.m_integer = count;
-			break;
+        // Count Population
+        case A_FPTIFUNC_CTPOP:
+        {
+            unsigned int count = 0;
+            for (int i = 0; i < 63; ++i) {
+                if ((Rbv.m_integer.get(Rbv.m_size) >> i) & 1) {
+                    ++count;
+                }
+            }
+            Rcv.m_integer = count;
+            break;
         }
         
-		// Count Trailing Zero
-		case A_FPTIFUNC_CTTZ:
-		{
-		    unsigned int count = 0;
-			for (int i = 0; i < 63; ++i) {
-				if ((Rbv.m_integer.get(Rbv.m_size) >> i) & 1) {
-				    break;
-    		    }
-    		    ++count;
-			}
-   			Rcv.m_integer = count;
-			break;
+        // Count Trailing Zero
+        case A_FPTIFUNC_CTTZ:
+        {
+            unsigned int count = 0;
+            for (int i = 0; i < 63; ++i) {
+                if ((Rbv.m_integer.get(Rbv.m_size) >> i) & 1) {
+                    break;
+                }
+                ++count;
+            }
+            Rcv.m_integer = count;
+            break;
         }
         
-		// Sign Extend
-		case A_FPTIFUNC_SEXTB: Rcv.m_integer = (int64_t)( int8_t)Rbv.m_integer.get(Rbv.m_size); break;
-		case A_FPTIFUNC_SEXTW: Rcv.m_integer = (int64_t)(int16_t)Rbv.m_integer.get(Rbv.m_size); break;
+        // Sign Extend
+        case A_FPTIFUNC_SEXTB: Rcv.m_integer = (int64_t)( int8_t)Rbv.m_integer.get(Rbv.m_size); break;
+        case A_FPTIFUNC_SEXTW: Rcv.m_integer = (int64_t)(int16_t)Rbv.m_integer.get(Rbv.m_size); break;
 
-		// Floating-Point Register to Integer Register Move
-		case A_FPTIFUNC_FTOIS:
-		case A_FPTIFUNC_FTOIT:
-			{
-				int size = (func == A_FPTIFUNC_FTOIS) ? 4 : 8;
-				char data[8];
-				SerializeRegister(RT_FLOAT, Rav.m_float._64.integer, data, size);
-				Rcv.m_integer = UnserializeRegister(RT_INTEGER, data, size);
-				break;
-			}
-			
-		// Pixel error
-	    case A_FPTIFUNC_PERR:
-	        for (int i = 0; i < 64; i += 8) {
-	            uint8_t a = (uint8_t)BITS<uint64_t>(Rav, i, 8);
-	            uint8_t b = (uint8_t)BITS<uint64_t>(Rbv, i, 8);
-	            Rcv.m_integer = Rcv.m_integer.get(Rcv.m_size) + (a >= b ? a - b : b - a);
-	        }
-	        break;
-	   
+        // Floating-Point Register to Integer Register Move
+        case A_FPTIFUNC_FTOIS:
+        case A_FPTIFUNC_FTOIT:
+            {
+                int size = (func == A_FPTIFUNC_FTOIS) ? 4 : 8;
+                char data[8];
+                SerializeRegister(RT_FLOAT, Rav.m_float._64.integer, data, size);
+                Rcv.m_integer = UnserializeRegister(RT_INTEGER, data, size);
+                break;
+            }
+            
+        // Pixel error
+        case A_FPTIFUNC_PERR:
+            for (int i = 0; i < 64; i += 8) {
+                uint8_t a = (uint8_t)BITS<uint64_t>(Rav, i, 8);
+                uint8_t b = (uint8_t)BITS<uint64_t>(Rbv, i, 8);
+                Rcv.m_integer = Rcv.m_integer.get(Rcv.m_size) + (a >= b ? a - b : b - a);
+            }
+            break;
+       
         // Pack Bytes
-	    case A_FPTIFUNC_PKLB: Rcv.m_integer = (BITS<uint64_t>(Rbv,  0, 8) <<  0) | (BITS<uint64_t>(Rbv, 32, 8) <<  8); break;
-	    case A_FPTIFUNC_PKWB: Rcv.m_integer = (BITS<uint64_t>(Rbv,  0, 8) <<  0) | (BITS<uint64_t>(Rbv, 16, 8) <<  8) |
-	                                          (BITS<uint64_t>(Rbv, 32, 8) << 16) | (BITS<uint64_t>(Rbv, 48, 8) << 24); break;
+        case A_FPTIFUNC_PKLB: Rcv.m_integer = (BITS<uint64_t>(Rbv,  0, 8) <<  0) | (BITS<uint64_t>(Rbv, 32, 8) <<  8); break;
+        case A_FPTIFUNC_PKWB: Rcv.m_integer = (BITS<uint64_t>(Rbv,  0, 8) <<  0) | (BITS<uint64_t>(Rbv, 16, 8) <<  8) |
+                                              (BITS<uint64_t>(Rbv, 32, 8) << 16) | (BITS<uint64_t>(Rbv, 48, 8) << 24); break;
 
         // Unpack Bytes
-	    case A_FPTIFUNC_UNPKBL: Rcv.m_integer = (BITS<uint64_t>(Rbv,  0, 8) <<  0) | (BITS<uint64_t>(Rbv,  8, 8) << 32); break;
-	    case A_FPTIFUNC_UNPKBW: Rcv.m_integer = (BITS<uint64_t>(Rbv,  0, 8) <<  0) | (BITS<uint64_t>(Rbv,  8, 8) << 16) |
-	                                            (BITS<uint64_t>(Rbv, 16, 8) << 32) | (BITS<uint64_t>(Rbv, 24, 8) << 48); break;
+        case A_FPTIFUNC_UNPKBL: Rcv.m_integer = (BITS<uint64_t>(Rbv,  0, 8) <<  0) | (BITS<uint64_t>(Rbv,  8, 8) << 32); break;
+        case A_FPTIFUNC_UNPKBW: Rcv.m_integer = (BITS<uint64_t>(Rbv,  0, 8) <<  0) | (BITS<uint64_t>(Rbv,  8, 8) << 16) |
+                                                (BITS<uint64_t>(Rbv, 16, 8) << 32) | (BITS<uint64_t>(Rbv, 24, 8) << 48); break;
 
-	    case A_FPTIFUNC_MINSB8:
-	    case A_FPTIFUNC_MINSW4:
-	    case A_FPTIFUNC_MAXSB8:
-	    case A_FPTIFUNC_MAXSW4:
-	    {
-	        int step = (func == A_FPTIFUNC_MINSB8 || func == A_FPTIFUNC_MAXSB8 ? 8 : 16);
-	        const int64_t& (*cmp)(const int64_t&,const int64_t&) = std::max<int64_t>;
-	        if (func == A_FPTIFUNC_MINSB8 || func == A_FPTIFUNC_MINSW4) cmp = std::min<int64_t>;
-	        uint64_t result = 0;
-	        for (int i = 0; i < 64; i += step) {
-	            result |= (cmp(BITS<int64_t>(Rav, i, step), BITS<int64_t>(Rbv, i, step)) & MASK1(0,step)) << i;
-	        }
-	        Rcv.m_integer = result;
-    	    break;
-    	}
+        case A_FPTIFUNC_MINSB8:
+        case A_FPTIFUNC_MINSW4:
+        case A_FPTIFUNC_MAXSB8:
+        case A_FPTIFUNC_MAXSW4:
+        {
+            int step = (func == A_FPTIFUNC_MINSB8 || func == A_FPTIFUNC_MAXSB8 ? 8 : 16);
+            const int64_t& (*cmp)(const int64_t&,const int64_t&) = std::max<int64_t>;
+            if (func == A_FPTIFUNC_MINSB8 || func == A_FPTIFUNC_MINSW4) cmp = std::min<int64_t>;
+            uint64_t result = 0;
+            for (int i = 0; i < 64; i += step) {
+                result |= (cmp(BITS<int64_t>(Rav, i, step), BITS<int64_t>(Rbv, i, step)) & MASK1(0,step)) << i;
+            }
+            Rcv.m_integer = result;
+            break;
+        }
 
-	    case A_FPTIFUNC_MINUB8:
-	    case A_FPTIFUNC_MINUW4:
-	    case A_FPTIFUNC_MAXUB8:
-	    case A_FPTIFUNC_MAXUW4:
-	    {
-	        int step = (func == A_FPTIFUNC_MINUB8 || func == A_FPTIFUNC_MAXUB8 ? 8 : 16);
-	        const uint64_t& (*cmp)(const uint64_t&,const uint64_t&) = std::max<uint64_t>;
-	        if (func == A_FPTIFUNC_MINUB8 || func == A_FPTIFUNC_MINUW4) cmp = std::min<uint64_t>;
-	        uint64_t result = 0;
-	        for (int i = 0; i < 64; i += step) {
-	            result |= (cmp(BITS<uint64_t>(Rav, i, step), BITS<uint64_t>(Rbv, i, step)) & MASK1(0,step)) << i;
-	        }
-	        Rcv.m_integer = result;
-    	    break;
-    	}
-	}
-	return true;
+        case A_FPTIFUNC_MINUB8:
+        case A_FPTIFUNC_MINUW4:
+        case A_FPTIFUNC_MAXUB8:
+        case A_FPTIFUNC_MAXUW4:
+        {
+            int step = (func == A_FPTIFUNC_MINUB8 || func == A_FPTIFUNC_MAXUB8 ? 8 : 16);
+            const uint64_t& (*cmp)(const uint64_t&,const uint64_t&) = std::max<uint64_t>;
+            if (func == A_FPTIFUNC_MINUB8 || func == A_FPTIFUNC_MINUW4) cmp = std::min<uint64_t>;
+            uint64_t result = 0;
+            for (int i = 0; i < 64; i += step) {
+                result |= (cmp(BITS<uint64_t>(Rav, i, step), BITS<uint64_t>(Rbv, i, step)) & MASK1(0,step)) << i;
+            }
+            Rcv.m_integer = result;
+            break;
+        }
+    }
+    return true;
 }
 
 Pipeline::PipeAction Pipeline::ExecuteStage::ExecuteInstruction()
@@ -1224,7 +1224,7 @@ Pipeline::PipeAction Pipeline::ExecuteStage::ExecuteInstruction()
 
             case A_MISCFUNC_RPCC:
                 // Read processor cycle count
-	        // NOTE: the Alpha spec specifies that the higher 32-bits
+            // NOTE: the Alpha spec specifies that the higher 32-bits
                 // are operating-system dependent. In our case we stuff
                 // extra precision from the cycle counter. 
                 COMMIT {

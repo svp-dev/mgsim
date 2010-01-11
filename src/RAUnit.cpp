@@ -15,8 +15,8 @@ static bool IsPowerOfTwo(const T& x)
     return (x & (x - 1)) == 0;
 }
 
-RAUnit::RAUnit(Processor& parent, const std::string& name, const RegisterFile& regFile, const Config& config)
-    : Object(&parent, &parent.GetKernel(), name)
+RAUnit::RAUnit(const std::string& name, Processor& parent, const RegisterFile& regFile, const Config& config)
+    : Object(name, parent)
 {
     static struct RegTypeInfo {
         const char* blocksize_name;
@@ -96,124 +96,124 @@ bool RAUnit::Alloc(const RegSize sizes[NUM_REG_TYPES], LFID fid, ContextType con
 {
     BlockSize blocksizes[NUM_REG_TYPES];
     
-	for (RegType i = 0; i < NUM_REG_TYPES; ++i)
-	{
-	    TypeInfo& type = m_types[i];
-	    
-		indices[i] = INVALID_REG_INDEX;
-		if (sizes[i] != 0)
-		{
-			// Get number of blocks (round up to nearest block size)
-			BlockSize size = blocksizes[i] = (sizes[i] + type.blockSize - 1) / type.blockSize;
+    for (RegType i = 0; i < NUM_REG_TYPES; ++i)
+    {
+        TypeInfo& type = m_types[i];
+        
+        indices[i] = INVALID_REG_INDEX;
+        if (sizes[i] != 0)
+        {
+            // Get number of blocks (round up to nearest block size)
+            BlockSize size = blocksizes[i] = (sizes[i] + type.blockSize - 1) / type.blockSize;
 
-		    // Check if have enough blocks free to even start looking
-		    BlockSize free = type.free[CONTEXT_NORMAL];
-		    if (context != CONTEXT_NORMAL)
-		    {
-		        // We have an extra block to include in our search
-		        free++;
-		    }
+            // Check if have enough blocks free to even start looking
+            BlockSize free = type.free[CONTEXT_NORMAL];
+            if (context != CONTEXT_NORMAL)
+            {
+                // We have an extra block to include in our search
+                free++;
+            }
             assert(free <= type.list.size());
-		    
-		    if (free >= size)
-		    {
+            
+            if (free >= size)
+            {
                 // We have enough free space, find a contiguous free area of specified size
-			    for (RegIndex pos = 0; pos < type.list.size() && indices[i] == INVALID_REG_INDEX;)
-			    {
-    				if (type.list[pos].first != 0)
-				    {
-    				    // Used area, skip past it
-					    pos += type.list[pos].first;
-				    }
-				    else
-				    {
-    					// Free area, check size
-					    for (RegIndex start = pos; pos < type.list.size() && type.list[pos].first == 0; ++pos)
-					    {
-    						if (pos - start + 1 == size)
-						    {
-    						    // We found a free area, store it's base register index
-							    indices[i] = start * type.blockSize;
-							    break;
-						    }
-					    }
-				    }
-			    }
+                for (RegIndex pos = 0; pos < type.list.size() && indices[i] == INVALID_REG_INDEX;)
+                {
+                    if (type.list[pos].first != 0)
+                    {
+                        // Used area, skip past it
+                        pos += type.list[pos].first;
+                    }
+                    else
+                    {
+                        // Free area, check size
+                        for (RegIndex start = pos; pos < type.list.size() && type.list[pos].first == 0; ++pos)
+                        {
+                            if (pos - start + 1 == size)
+                            {
+                                // We found a free area, store it's base register index
+                                indices[i] = start * type.blockSize;
+                                break;
+                            }
+                        }
+                    }
+                }
             }
             
-			if (indices[i] == INVALID_REG_INDEX)
-			{
-				// Couldn't get a block for this type
-				return false;
-			}
-		}
-	}
+            if (indices[i] == INVALID_REG_INDEX)
+            {
+                // Couldn't get a block for this type
+                return false;
+            }
+        }
+    }
 
-	COMMIT
-	{ 
-		// We've found blocks for all types, commit them
-		for (RegType i = 0; i < NUM_REG_TYPES; ++i)
-		{
-    	    TypeInfo& type = m_types[i];
-			if (sizes[i] != 0)
-			{
-			    BlockSize size = blocksizes[i];
-			    
-				type.list[indices[i] / type.blockSize].first  = size;
-				type.list[indices[i] / type.blockSize].second = fid;
-    			
-    			if (context != CONTEXT_NORMAL)
-    			{
-    			    // We used one special context
-    			    assert(type.free[context] > 0);
-    			    type.free[context]--;
-    			    
-    			    // The rest come from the normal contexts' pool
-    			    size--;
-    			}
-			    assert(type.free[CONTEXT_NORMAL] >= size);
-    			type.free[CONTEXT_NORMAL] -= size;
-			}
+    COMMIT
+    { 
+        // We've found blocks for all types, commit them
+        for (RegType i = 0; i < NUM_REG_TYPES; ++i)
+        {
+            TypeInfo& type = m_types[i];
+            if (sizes[i] != 0)
+            {
+                BlockSize size = blocksizes[i];
+                
+                type.list[indices[i] / type.blockSize].first  = size;
+                type.list[indices[i] / type.blockSize].second = fid;
+                
+                if (context != CONTEXT_NORMAL)
+                {
+                    // We used one special context
+                    assert(type.free[context] > 0);
+                    type.free[context]--;
+                    
+                    // The rest come from the normal contexts' pool
+                    size--;
+                }
+                assert(type.free[CONTEXT_NORMAL] >= size);
+                type.free[CONTEXT_NORMAL] -= size;
+            }
             else if (context == CONTEXT_RESERVED)
             {
                 // We've reserved a context, but aren't using it.
                 // Release it back to the normal pool.
-			    type.free[CONTEXT_NORMAL]++;
+                type.free[CONTEXT_NORMAL]++;
             }
-		}	
-	}
+        }   
+    }
 
-	return true;
+    return true;
 }
 
 void RAUnit::Free(RegIndex indices[NUM_REG_TYPES], ContextType context)
 {
-	for (RegType i = 0; i < NUM_REG_TYPES; ++i)
-	{
-  	    TypeInfo& type = m_types[i];
-		if (indices[i] != INVALID_REG_INDEX)
-		{
-		    // Get block index and allocated size
-			BlockIndex index = indices[i] / type.blockSize;
-			BlockSize  size  = type.list[index].first;
+    for (RegType i = 0; i < NUM_REG_TYPES; ++i)
+    {
+        TypeInfo& type = m_types[i];
+        if (indices[i] != INVALID_REG_INDEX)
+        {
+            // Get block index and allocated size
+            BlockIndex index = indices[i] / type.blockSize;
+            BlockSize  size  = type.list[index].first;
 
-			assert(size != 0);
+            assert(size != 0);
 
-			COMMIT{
-			    if (context == CONTEXT_EXCLUSIVE)
-			    {
-			        // One of the blocks goes to the exclusive pool
-			        assert(type.free[CONTEXT_EXCLUSIVE] == 0);
-			        type.free[CONTEXT_EXCLUSIVE]++;
-			        
-			        // The rest to the normal pool
-			        size--;
-			    }
-			    type.free[CONTEXT_NORMAL] += size;
-			    type.list[index].first = 0;
-			}
-		}
-	}
+            COMMIT{
+                if (context == CONTEXT_EXCLUSIVE)
+                {
+                    // One of the blocks goes to the exclusive pool
+                    assert(type.free[CONTEXT_EXCLUSIVE] == 0);
+                    type.free[CONTEXT_EXCLUSIVE]++;
+                    
+                    // The rest to the normal pool
+                    size--;
+                }
+                type.free[CONTEXT_NORMAL] += size;
+                type.list[index].first = 0;
+            }
+        }
+    }
 }
 
 void RAUnit::Cmd_Help(ostream& out, const std::vector<std::string>& /*arguments*/) const

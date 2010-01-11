@@ -48,7 +48,7 @@ struct CreateMessage
     RegsNo    regsNo[NUM_REG_TYPES];///< Register counts
 };
 
-class Network : public IComponent
+class Network : public Object
 {
     template <typename T>
     class Register : public Simulator::Register<T>
@@ -56,8 +56,8 @@ class Network : public IComponent
         ArbitratedService m_service;
 
     public:
-        void AddSource(const ArbitrationSource& source) {
-            m_service.AddSource(source);
+        void AddProcess(const Process& process) {
+            m_service.AddProcess(process);
         }
         
         // Use ForceWrite to avoid deadlock issues with network buffers
@@ -80,8 +80,8 @@ class Network : public IComponent
             return true;
         }
 
-        Register(Kernel& kernel, const IComponent& component, const std::string& name)
-            : Simulator::Register<T>(kernel), m_service(component, name)
+        Register(Kernel& kernel, const Object& object, const std::string& name)
+            : Simulator::Register<T>(kernel), m_service(object, name)
         {
         }
     };
@@ -92,15 +92,15 @@ class Network : public IComponent
 	    Register<T> out;  ///< Register for outgoing messages
 	    Register<T> in;   ///< Register for incoming messages
 
-        RegisterPair(Kernel& kernel, const IComponent& component, const std::string& name)
-            : out(kernel, component, name + ".out"),
-              in (kernel, component, name + ".in")
+        RegisterPair(Kernel& kernel, const Object& object, const std::string& name)
+            : out(kernel, object, name + ".out"),
+              in (kernel, object, name + ".in")
         {
         }
 	};
 	
 public:
-    Network(Processor& parent, const std::string& name, PlaceInfo& place, const std::vector<Processor*>& grid, LPID lpid, Allocator& allocator, RegisterFile& regFile, FamilyTable& familyTable);
+    Network(const std::string& name, Processor& parent, PlaceInfo& place, const std::vector<Processor*>& grid, LPID lpid, Allocator& allocator, RegisterFile& regFile, FamilyTable& familyTable);
     void Initialize(Network& prev, Network& next);
 
     bool SendGroupCreate(LFID fid);
@@ -149,8 +149,25 @@ private:
     bool OnRemoteRegisterReceived(const RegisterResponse& response);
     bool ReadRegister(const RegisterRequest& request);
     bool WriteRegister(const RemoteRegAddr& addr, const RegValue& value);
-
-    Result OnCycle(unsigned int stateIndex);
+    
+    // Processes
+    Result DoRegResponseInGroup();
+    Result DoRegRequestIn();
+    Result DoRegResponseOutGroup();
+    Result DoRegRequestOutGroup();
+    Result DoDelegation();
+    Result DoCreation();
+    Result DoRemoteSync();
+    Result DoThreadCleanup();
+    Result DoThreadTermination();
+    Result DoFamilySync();
+    Result DoFamilyTermination();
+    Result DoRegRequestOutRemote();
+    Result DoRegResponseOutRemote();
+    Result DoRegResponseInRemote();
+    Result DoReserveFamily();
+    Result DoDelegateFailedOut();
+    Result DoDelegateFailedIn();
 
     Processor&                     m_parent;
     RegisterFile&                  m_regFile;
@@ -195,9 +212,28 @@ public:
     RegisterPair<RegisterResponse> m_registerResponseGroup;  ///< Group register response
 
 	// Token management
-    Flag m_hasToken;    ///< We have the token
-    Flag m_wantToken; 	///< We want the token
-    Flag m_tokenBusy;   ///< Is the token still in use?
+    Flag       m_hasToken;    ///< We have the token
+    SingleFlag m_wantToken; 	///< We want the token
+    Flag       m_tokenBusy;   ///< Is the token still in use?
+    
+    // Processes
+    Process p_RegResponseInGroup;
+    Process p_RegRequestIn;
+    Process p_RegResponseOutGroup;
+    Process p_RegRequestOutGroup;
+    Process p_Delegation;
+    Process p_Creation;
+    Process p_RemoteSync;
+    Process p_ThreadCleanup;
+    Process p_ThreadTermination;
+    Process p_FamilySync;
+    Process p_FamilyTermination;
+    Process p_RegRequestOutRemote;
+    Process p_RegResponseOutRemote;
+    Process p_RegResponseInRemote;
+    Process p_ReserveFamily;
+    Process p_DelegateFailedOut;
+    Process p_DelegateFailedIn;
 };
 
 }

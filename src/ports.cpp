@@ -5,43 +5,45 @@
 namespace Simulator
 {
 
-/*static*/ std::string IllegalPortAccess::ConstructString(const Object& object, const std::string& name, const ArbitrationSource& src)
+/*static*/ std::string IllegalPortAccess::ConstructString(const Object& object, const std::string& name, const Process& src)
 {
     std::stringstream ss;
-    std::string from = src.first->GetFQN(), dest = object.GetFQN();
+    std::string from = src.GetName(), dest = object.GetFQN();
     std::transform(from.begin(), from.end(), from.begin(), toupper);
     std::transform(dest.begin(), dest.end(), dest.begin(), toupper);
-    ss << "Illegal access to " << dest << "." << name << " by " << from << ", state " << src.second;
+    ss << "Illegal access to " << dest << "." << name << " by " << from;
     return ss.str();
 }
 
-void ArbitratedPort::AddRequest(const ArbitrationSource& source)
+void ArbitratedPort::AddRequest(const Process& process)
 {
-    // A source should not request a port more than once
+    // A process should not request a port more than once
     // in a cycle or Bad Things (TM) could happen
-    assert(find(m_requests.begin(), m_requests.end(), source) == m_requests.end());
+    assert(find(m_requests.begin(), m_requests.end(), &process) == m_requests.end());
 
-    m_requests.push_back(source);
+    m_requests.push_back(&process);
 }
 
 void ArbitratedPort::Arbitrate()
 {
     // Choose the request with the highest priority
-    m_source = ArbitrationSource();
+    m_selected = NULL;
 
-    int highest = std::numeric_limits<int>::max();
-    for (RequestList::const_iterator i = m_requests.begin(); i != m_requests.end(); ++i)
+    unsigned int highest = std::numeric_limits<unsigned int>::max();
+    for (ProcessList::const_iterator i = m_requests.begin(); i != m_requests.end(); ++i)
     {
-        PriorityMap::const_iterator priority = m_priorities.find(*i);
-        if (priority != m_priorities.end() && priority->second < highest)
+        // The position in the vector is its priority
+        unsigned int priority = std::find(&m_processes.front(), &m_processes.back() + 1, *i) - &m_processes.front();
+        assert(priority < m_processes.size());
+        if (priority < highest)
         {
-            highest  = priority->second;
-            m_source = *i;
+            highest    = priority;
+            m_selected = *i;
         }
     }
     m_requests.clear();
     
-    if (m_source != ArbitrationSource())
+    if (m_selected != NULL)
     {
         m_busyCycles++;
     }
@@ -55,8 +57,8 @@ void ArbitratedService::OnArbitrate()
 //
 // IStructure class
 //
-IStructure::IStructure(Object* parent, Kernel& kernel, const std::string& name)
-    : Object(parent, &kernel, name), Arbitrator(kernel)
+IStructure::IStructure(const std::string& name, Object& parent)
+    : Object(name, parent), Arbitrator(*parent.GetKernel())
 {
 }
 

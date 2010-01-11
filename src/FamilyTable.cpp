@@ -9,18 +9,18 @@ using namespace std;
 namespace Simulator
 {
 
-FamilyTable::FamilyTable(Processor& parent, const Config& config)
-:   Object(&parent, &parent.GetKernel(), "families"),
+FamilyTable::FamilyTable(const std::string& name, Processor& parent, const Config& config)
+:   Object(name, parent),
     m_parent(parent),
     m_families(config.getInteger<size_t>("NumFamilies", 8))
 {
     for (size_t i = 0; i < m_families.size(); ++i)
     {
-		// Deny access to empty families
-		m_families[i].created     = false;
-		m_families[i].parent.lpid = INVALID_LPID;
-		m_families[i].parent.gpid = INVALID_GPID;
-		m_families[i].next        = INVALID_LFID;
+        // Deny access to empty families
+        m_families[i].created     = false;
+        m_families[i].parent.lpid = INVALID_LPID;
+        m_families[i].parent.gpid = INVALID_GPID;
+        m_families[i].next        = INVALID_LFID;
         m_families[i].state       = FST_EMPTY;
     }
     
@@ -100,11 +100,11 @@ void FamilyTable::FreeFamily(LFID fid, ContextType context)
 {
     // Check that we're in a sane state
     assert(m_free[CONTEXT_NORMAL] + m_free[CONTEXT_RESERVED] + m_free[CONTEXT_EXCLUSIVE] < m_families.size());
-	assert(fid != INVALID_LFID);
+    assert(fid != INVALID_LFID);
     
     COMMIT
     {
-		m_families[fid].state = FST_EMPTY;
+        m_families[fid].state = FST_EMPTY;
         m_free[context]++;
     }
 }

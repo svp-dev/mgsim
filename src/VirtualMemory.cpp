@@ -148,35 +148,35 @@ void VirtualMemory::Read(MemAddr address, void* _data, MemSize size) const
     }
 #endif
 
-	MemAddr base   = address & -BLOCK_SIZE;	    // Base address of block containing address
-	size_t  offset = (size_t)(address - base);	// Offset within base block of address
-	char*   data   = static_cast<char*>(_data);	// Byte-aligned pointer to destination
+    MemAddr base   = address & -BLOCK_SIZE;     // Base address of block containing address
+    size_t  offset = (size_t)(address - base);      // Offset within base block of address
+    char*   data   = static_cast<char*>(_data);     // Byte-aligned pointer to destination
 
-	for (BlockMap::const_iterator pos = m_blocks.lower_bound(base); size > 0;)
-	{
-		if (pos == m_blocks.end())
-		{
-			// Rest of address range does not exist, fill with zero
-			fill(data, data + size, 0);
-			break;
-		}
+    for (BlockMap::const_iterator pos = m_blocks.lower_bound(base); size > 0;)
+    {
+        if (pos == m_blocks.end())
+        {
+            // Rest of address range does not exist, fill with zero
+            fill(data, data + size, 0);
+            break;
+        }
 
-		// Number of bytes to read, initially
-		size_t count = min( (size_t)size, (size_t)BLOCK_SIZE);
+        // Number of bytes to read, initially
+        size_t count = min( (size_t)size, (size_t)BLOCK_SIZE);
 
-		if (pos->first > base) {
-			// This part of the request does not exist, fill with zero
-			fill(data, data + count, 0);
-		} else {
-			// Read data
-			memcpy(data, pos->second.data + offset, count);
-			++pos;
-		}
-		size  -= count;
-		data  += count;
-		base  += BLOCK_SIZE;
-		offset = 0;
-	}
+        if (pos->first > base) {
+            // This part of the request does not exist, fill with zero
+            fill(data, data + count, 0);
+        } else {
+            // Read data
+            memcpy(data, pos->second.data + offset, count);
+            ++pos;
+        }
+        size  -= count;
+        data  += count;
+        base  += BLOCK_SIZE;
+        offset = 0;
+    }
 }
 
 void VirtualMemory::Write(MemAddr address, const void* _data, MemSize size)
@@ -188,30 +188,30 @@ void VirtualMemory::Write(MemAddr address, const void* _data, MemSize size)
     }
 #endif
 
-	MemAddr     base   = address & -BLOCK_SIZE;		        // Base address of block containing address
-	size_t      offset = (size_t)(address - base);          // Offset within base block of address
-	const char* data   = static_cast<const char*>(_data);	// Byte-aligned pointer to destination
+    MemAddr     base   = address & -BLOCK_SIZE;                     // Base address of block containing address
+    size_t      offset = (size_t)(address - base);          // Offset within base block of address
+    const char* data   = static_cast<const char*>(_data);   // Byte-aligned pointer to destination
 
-	while (size > 0)
-	{
-		// Find or insert the block
-		pair<BlockMap::iterator, bool> ins = m_blocks.insert(make_pair(base, Block()));
-    	BlockMap::iterator pos = ins.first;
-		if (ins.second) {
-			// A new element was inserted, allocate and clear memory
-			memset(pos->second.data, 0, BLOCK_SIZE);
-		}
-		
-		// Number of bytes to write, initially
-		size_t count = min( (size_t)size, (size_t)BLOCK_SIZE - offset);
+    while (size > 0)
+    {
+        // Find or insert the block
+        pair<BlockMap::iterator, bool> ins = m_blocks.insert(make_pair(base, Block()));
+        BlockMap::iterator pos = ins.first;
+        if (ins.second) {
+            // A new element was inserted, allocate and clear memory
+            memset(pos->second.data, 0, BLOCK_SIZE);
+        }
+       
+        // Number of bytes to write, initially
+        size_t count = min( (size_t)size, (size_t)BLOCK_SIZE - offset);
 
-		// Write data
-		memcpy(pos->second.data + offset, data, count);
-		size  -= count;
-		data  += count;
-		base  += BLOCK_SIZE;
-		offset = 0;
-	}
+        // Write data
+        memcpy(pos->second.data + offset, data, count);
+        size  -= count;
+        data  += count;
+        base  += BLOCK_SIZE;
+        offset = 0;
+    }
 }
 
 VirtualMemory::~VirtualMemory()

@@ -9,9 +9,8 @@ using namespace std;
 namespace Simulator
 {
 
-ThreadTable::ThreadTable(Processor& parent, const Config& config)
-  : Object(&parent, &parent.GetKernel(), "threads"),
-    m_parent(parent),
+ThreadTable::ThreadTable(const std::string& name, Processor& parent, const Config& config)
+  : Object(name, parent),
     m_threads(config.getInteger<size_t>("NumThreads", 64))
 {
     for (TID i = 0; i < m_threads.size(); ++i)
