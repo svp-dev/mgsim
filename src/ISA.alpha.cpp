@@ -1044,14 +1044,23 @@ Pipeline::PipeAction Pipeline::ExecuteStage::ExecuteInstruction()
                 case A_UTHREAD_SETSTEP:  return SetFamilyProperty( LFID((size_t)Rav), FAMPROP_STEP,  Rbv);
                 case A_UTHREAD_SETBLOCK: return SetFamilyProperty( LFID((size_t)Rav), FAMPROP_BLOCK, Rbv);
 
-                case A_UTHREAD_BREAK:    return ExecBreak( Rav );
                 case A_UTHREAD_KILL:     return ExecKill( LFID((size_t)Rav) );
+                case A_UTHREAD_BREAK:    return ExecBreak( Rav );
                 
+                case A_UTHREAD_LDBP:
+                    COMMIT {
+                        // TLS base pointer: base address of TLS
+                        m_output.Rcv.m_integer = m_allocator.CalculateTLSAddress(m_input.fid, m_input.tid);
+                        m_output.Rcv.m_state   = RST_FULL;
+                    }
+                    break;
+
                 case A_UTHREAD_LDFP:
                     COMMIT {
+                        /// TLS frame (stack) pointer: top of TLS
                         const MemAddr tls_base = m_allocator.CalculateTLSAddress(m_input.fid, m_input.tid);
                         const MemAddr tls_size = m_allocator.CalculateTLSSize();
-                        m_output.Rcv.m_integer = tls_base + tls_size; // TLS pointer starts at the top
+                        m_output.Rcv.m_integer = tls_base + tls_size;
                         m_output.Rcv.m_state   = RST_FULL;
                     }
                     break;

@@ -849,11 +849,20 @@ Pipeline::PipeAction Pipeline::ExecuteStage::ExecuteInstruction()
             return SetFamilyProperty( LFID((size_t)m_input.Rav.m_integer.get(m_input.Rav.m_size)), prop, m_input.Rbv.m_integer.get(m_input.Rbv.m_size));
         }
         
+        case S_OP3_LDBP:
+            COMMIT {
+                // TLS base pointer: base address of TLS
+                m_output.Rcv.m_integer = m_allocator.CalculateTLSAddress(m_input.fid, m_input.tid);
+                m_output.Rcv.m_state   = RST_FULL;
+            }
+            break;
+
         case S_OP3_LDFP:
             COMMIT {
+                /// TLS frame (stack) pointer: top of TLS
                 const MemAddr tls_base = m_allocator.CalculateTLSAddress(m_input.fid, m_input.tid);
                 const MemAddr tls_size = m_allocator.CalculateTLSSize();
-                m_output.Rcv.m_integer = tls_base + tls_size; // TLS pointer starts at the top
+                m_output.Rcv.m_integer = tls_base + tls_size;
                 m_output.Rcv.m_state   = RST_FULL;
             }
             break;

@@ -72,6 +72,7 @@ namespace Simulator
 #define S_OP3_FPOP2     0x35
 //#define S_OP3_CPOP1     0x36
 //#define S_OP3_CPOP2     0x37
+#define S_OP3_CREI      0x36    // uT
 #define S_OP3_PRINT     0x37    // uT
 #define S_OP3_JMPL      0x38
 #define S_OP3_RETT      0x39
@@ -79,6 +80,7 @@ namespace Simulator
 #define S_OP3_FLUSH     0x3B
 #define S_OP3_SAVE      0x3C
 #define S_OP3_RESTORE   0x3D
+#define S_OP3_LDBP      0x3E    // uT
 #define S_OP3_LDFP      0x3F    // uT
 
 // op3 (op1 is S_OP1_MEMORY)

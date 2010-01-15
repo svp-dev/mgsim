@@ -118,8 +118,9 @@ enum InstrFormat
 #define A_UTHREAD_SETLIMIT	 0x02
 #define A_UTHREAD_SETSTEP	 0x03
 #define A_UTHREAD_SETBLOCK	 0x04
+#define A_UTHREAD_KILL       0x05
 #define A_UTHREAD_BREAK      0x06
-#define A_UTHREAD_KILL       0x07
+#define A_UTHREAD_LDBP       0x07
 #define A_UTHREAD_LDFP       0x08
 #define A_UTHREAD_GETPROCS   0x09
 #define A_UTHREAD_PRINT      0x10
