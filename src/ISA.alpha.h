@@ -127,7 +127,6 @@ enum InstrFormat
 
 // UTHREADF Instructions
 #define A_UTHREADF_BREAK       0x000
-#define A_UTHREADF_GETINVPROCS 0x001
 #define A_UTHREADF_PRINT       0x100
 
 // INTA Instructions.

@@ -1087,13 +1087,6 @@ Pipeline::PipeAction Pipeline::ExecuteStage::ExecuteInstruction()
                         m_output.Rc = INVALID_REG;
                     }
                     break;
-
-                case A_UTHREADF_GETINVPROCS:
-                    COMMIT {
-                        m_output.Rcv.m_state = RST_FULL;
-                        m_output.Rcv.m_float.fromfloat(1.0 / m_parent.m_parent.GetPlaceSize(), sizeof(Integer));
-                    }
-                    break;
             }
         }
         else
