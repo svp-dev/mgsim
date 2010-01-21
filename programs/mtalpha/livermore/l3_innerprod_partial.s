@@ -26,12 +26,8 @@ main:
     lda     $1, Y($1)       !gprellow   # $1 = Y
     
     # Calculate N / #procs
-    itoft   $10, $f0
-    cvtqt   $f0, $f0
-    getinvprocs $f1
-    mult    $f0, $f1, $f0
-    cvttq   $f0, $f0; swch
-    ftoit   $f0, $2                     # $2 = normal_size = floor(N / #procs)
+    getprocs $2
+    divqu    $10, $2, $2     # $2 = normal_size = N / #procs
     
     # Family runs from [0 ... #procs - 1]
     clr      $5

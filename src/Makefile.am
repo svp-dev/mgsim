@@ -119,6 +119,7 @@ COMMON_SRC = \
 	WritebackStage.cpp \
 	config.cpp \
 	config.h \
+	delegate.h \
 	elf.h \
 	except.h \
 	except.cpp \
