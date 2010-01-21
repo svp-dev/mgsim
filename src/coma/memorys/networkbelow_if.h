@@ -2,27 +2,14 @@
 #define _NETWORKBELOW_IF_H
 
 #include "predef.h"
-
 #include "network_if.h"
 
-namespace MemSim{
-//{ memory simulator namespace
-//////////////////////////////
-
+namespace MemSim
+{
 
 class NetworkBelow_if : public Network_if
 {
-public:
-
-public:
-	NetworkBelow_if(){
-		m_bBelow = true;// avoid runtime judgment of class type
-	}
-
 };
 
-//////////////////////////////
-//} memory simulator namespace
 }
-
 #endif

@@ -1,7 +1,6 @@
 #ifndef EVICTED_DIR_LINE_BUFFER_H
 #define EVICTED_DIR_LINE_BUFFER_H
 
-#ifdef MEMSIM_DIRECTORY_REQUEST_COUNTING
 #include "predef.h"
 #include <map>
 #include <ostream>
@@ -11,164 +10,91 @@ using namespace std;
 // the matching buffer is for locating the evicted lines with incoming request within the local group
 // check predef::dir_line_t::requestin and directortok for detail
 
-namespace MemSim{
-
-class EvictedDirLineBuffer : virtual public SimObj
+namespace MemSim
 {
-public:
-    typedef struct _EDL_content_t{
+
+class EvictedDirLineBuffer
+{
+    struct EDL_Content
+    {
         unsigned int nrequestin;
         unsigned int ntokenrem;
         bool grouppriority;
-    } EDL_Content;
+    };
 
-private:
-    // date container
-    map<__address_t, EDL_Content>   m_mapEDL;
-
-    unsigned int m_nSize;
+    std::map<__address_t, EDL_Content> m_mapEDL;
 
 public:
-    EvictedDirLineBuffer(unsigned int size) : m_nSize(size)
-    {
-        
-    }
-
-    virtual ~EvictedDirLineBuffer()
-    {
-    }
-
-
     void AddEvictedLine(__address_t lineaddr, unsigned int requestin, unsigned int tokenrem, bool grouppriority)
     {
         EDL_Content ec = {requestin, tokenrem, grouppriority};
         m_mapEDL.insert(pair<__address_t, EDL_Content>(lineaddr, ec));
-
-//        assert (m_mapEDL.size() <= m_nSize);
     }
 
-    bool FindEvictedLine(__address_t lineaddr, unsigned int& requestin, unsigned int& tokenrem, bool& grouppriority)
+    bool FindEvictedLine(__address_t lineaddr, unsigned int& requestin, unsigned int& tokenrem, bool& grouppriority) const
     {
-        map<__address_t, EDL_Content>::iterator iter;
-
-        iter = m_mapEDL.find(lineaddr);
-
-        if (iter == m_mapEDL.end())
-            return false;
-
-        requestin = (*iter).second.nrequestin;
-        tokenrem = (*iter).second.ntokenrem;
-        grouppriority = (*iter).second.grouppriority;
-
-        return true;
+        map<__address_t, EDL_Content>::const_iterator iter = m_mapEDL.find(lineaddr);
+        if (iter != m_mapEDL.end())
+        {
+            requestin     = iter->second.nrequestin;
+            tokenrem      = iter->second.ntokenrem;
+            grouppriority = iter->second.grouppriority;
+            return true;
+        }
+        return false;
     }
 
-    bool FindEvictedLine(__address_t lineaddr)
+    bool FindEvictedLine(__address_t lineaddr) const
     {
-        map<__address_t, EDL_Content>::iterator iter;
-
-        iter = m_mapEDL.find(lineaddr);
-
-        if (iter == m_mapEDL.end())
-            return false;
-
-        return true;
+        return m_mapEDL.find(lineaddr) != m_mapEDL.end();
     }
 
     // incoming : true  - incoming request
     //            false - outgoing request
     bool UpdateEvictedLine(__address_t lineaddr, bool incoming, unsigned int reqtoken, bool reqpriority, bool eviction=false)
     {
-        map<__address_t, EDL_Content>::iterator iter;
-
-        iter = m_mapEDL.find(lineaddr);
-
-        if (iter == m_mapEDL.end())
-            return false;
-
-        if (incoming)
+        map<__address_t, EDL_Content>::iterator iter = m_mapEDL.find(lineaddr);
+        if (iter != m_mapEDL.end())
         {
-            if (!eviction)
-                (*iter).second.nrequestin++;
-            (*iter).second.ntokenrem += reqtoken;
-            (*iter).second.grouppriority |= reqpriority;
-        }
-        else
-        {
-            if (!eviction)
-                (*iter).second.nrequestin--;
-            (*iter).second.ntokenrem -= reqtoken;
-            (*iter).second.grouppriority &= (!reqpriority);
-        }
+            if (incoming)
+            {
+                if (!eviction)
+                    iter->second.nrequestin++;
+                iter->second.ntokenrem += reqtoken;
+                iter->second.grouppriority |= reqpriority;
+            }
+            else
+            {
+                if (!eviction)
+                    iter->second.nrequestin--;
+                iter->second.ntokenrem -= reqtoken;
+                iter->second.grouppriority &= (!reqpriority);
+            }
     
-        CheckEvictedLine(iter);
-
-        return true;
+            if ((iter->second.nrequestin == 0) && (iter->second.ntokenrem == 0))
+            {
+                assert(iter->second.grouppriority == false);
+                m_mapEDL.erase(iter);
+            }
+            return true;
+        }
+        return false;
     }
 
     bool DumpEvictedLine2Line(__address_t lineaddr, dir_line_t* line)
     {
-        map<__address_t, EDL_Content>::iterator iter;
-
-        iter = m_mapEDL.find(lineaddr);
-
-        if (iter == m_mapEDL.end())
-            return false;
-
-        line->nrequestin += iter->second.nrequestin;
-        line->ntokenrem += iter->second.ntokenrem;
-        line->grouppriority |= iter->second.grouppriority;
-
-        // remote the buffer slot
-        m_mapEDL.erase(iter);
-
-        return true;
-    }
-
-    void CheckStatus(ostream& ofs)
-    {
-        ofs << "Evicted Line Buffer:" << endl;
-        map<__address_t, EDL_Content>::iterator iter;
-
-        for (iter=m_mapEDL.begin();iter!=m_mapEDL.end();iter++)
+        map<__address_t, EDL_Content>::iterator iter = m_mapEDL.find(lineaddr);
+        if (iter != m_mapEDL.end())
         {
-            ofs << hex << "0x" << iter->first << " #RI " << iter->second.nrequestin << " TR " << iter->second.ntokenrem << " GP(" << iter->second.grouppriority << ")" << endl;
-        }
-    }
+            line->nrequestin += iter->second.nrequestin;
+            line->ntokenrem += iter->second.ntokenrem;
+            line->grouppriority |= iter->second.grouppriority;
 
-
-    void CheckStatus(ostream& ofs, __address_t addr)
-    {
-        map<__address_t, EDL_Content>::iterator iter;
-
-        iter = m_mapEDL.find(addr);
-
-        if (iter == m_mapEDL.end())
-        {
-            ofs << hex << "$X|X|X";
-            return;
-        }
-
-        ofs << "$" << iter->second.nrequestin << "|" << iter->second.ntokenrem << "|" << (iter->second.grouppriority?"T":"F");
-         
-    }
-
-private:
-
-    void CheckEvictedLine(map<__address_t, EDL_Content>::iterator iter)
-    {
-        if (((*iter).second.nrequestin == 0) && ((*iter).second.ntokenrem == 0))
-        {
-            assert((*iter).second.grouppriority == false);
-
-            // remove 
+            // remote the buffer slot
             m_mapEDL.erase(iter);
+            return true;
         }
-    }
-
-    void RemoveEvictedLine()
-    {
-    
+        return false;
     }
 };
 
@@ -176,5 +102,4 @@ private:
 }
 
 
-#endif
 #endif

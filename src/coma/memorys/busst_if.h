@@ -3,22 +3,15 @@
 
 #include "predef.h"
 
-namespace MemSim{
-//{ memory simulator namespace
+namespace MemSim
+{
 
-// master interface
-class BusST_if 
-	: public virtual sc_interface, public virtual SimObj
+class BusST_if : public virtual sc_interface
 {
 public:
     virtual bool request(ST_request*) = 0;
-
-	virtual void MasterNotify() = 0;
-	virtual void SlaveNotify() = 0;
-
 }; 
 
-//} memory simulator namespace
 }
 #endif
 

@@ -1,16 +1,16 @@
 #include "suspendedrequestqueue.h"
-using namespace MemSim;
 
-namespace MemSim{
+namespace MemSim
+{
+
 const unsigned int SuspendedRequestQueue::EOQ = 0xffffffff;
-}
 
 // the line in the active list
-dir_line_t* SuspendedRequestQueue::GetActiveLine(){
-    if (m_nActiveLineQueueHead == EOQ)
-        return NULL;
-
-    return m_pServingLineQueueBuffer[m_nActiveLineQueueHead].line;
+dir_line_t* SuspendedRequestQueue::GetActiveLine()
+{
+    return (m_nActiveLineQueueHead != EOQ)
+        ? m_pServingLineQueueBuffer[m_nActiveLineQueueHead].line
+        : NULL;
 }
 
 ST_request* SuspendedRequestQueue::GetTopActiveRequest()
@@ -80,23 +80,7 @@ ST_request* SuspendedRequestQueue::PopTopActiveRequest()
         // put the removed slot into empty queue
         m_pReqQueueBuffer[currentreqslot].next = m_nEmptyReqQueueHead;
         m_nEmptyReqQueueHead = currentreqslot;
-
-//            if (bRem)
-//            {
-//                bool lineremoved = RemoveLineFromLineQueue(activeline);
-//                (void) lineremoved; assert(lineremoved);
-//
-////                LOG_VERBOSE_BEGIN(VERBOSE_MOST)
-////                    clog << LOG_HEAD_OUTPUT << "line removed from active line queue" << endl;
-////                LOG_VERBOSE_END
-//            }
     }
-
-//        LOG_VERBOSE_BEGIN(VERBOSE_MOST)
-//            clog << LOG_HEAD_OUTPUT << "request popped " << FMT_ADDR(activereq->getreqaddress()) << endl;
-//            clog << "\t"; print_request(m_pReqCurNET);
-//        LOG_VERBOSE_END
-
     return activereq;
     
 }
@@ -104,8 +88,7 @@ ST_request* SuspendedRequestQueue::PopTopActiveRequest()
 // append the line to the line queue
 bool SuspendedRequestQueue::AppendLine2LineQueue(dir_line_t* line)
 {
-  assert (m_nEmptyLineQueueHead != EOQ);
-
+    assert (m_nEmptyLineQueueHead != EOQ);
 
     // acquire the an empty slot
     unsigned int newslot = m_nEmptyLineQueueHead;
@@ -168,57 +151,42 @@ bool SuspendedRequestQueue::AppendRequest2Line(ST_request* req, dir_line_t* line
     // if the line is not loading yet, this should not happen
     // since the loading request will update this flag
     // if the line is already loading, then append the request directly to the queue
-
     assert(!req->bqueued);
+    assert(line->aux != AUXSTATE_NONE);
+    assert(line->aux == AUXSTATE_LOADING || line->aux == AUXSTATE_DEFER);
 
-    assert (line->aux != AUXSTATE_NONE);
+    unsigned int emptyhead = m_nEmptyReqQueueHead;
 
-    assert ((line->aux == AUXSTATE_LOADING) || (line->aux == AUXSTATE_DEFER));
+    // check the line queuehead and queuetail
+    if (line->queuehead == EOQ && line->queuetail == EOQ)
     {
-        unsigned int emptyhead = m_nEmptyReqQueueHead;
-
-        // check the line queuehead and queuetail
-        if ( (line->queuehead == EOQ)&&(line->queuetail == EOQ) )
-        {
-            // initialize the queuehead
-            line->queuehead = emptyhead;
-        }
-        else if ( (line->queuehead != EOQ)&&(line->queuetail != EOQ) )
-        {
-
-        }
-        else
-        {
-	  abort();
-        }
-
-        // acquire the empty queue head
-        // fail, if the buffer is full
-        if (emptyhead == EOQ)
-            return false;
-
-        // get the empty head and alter the empty queue
-        unsigned int secondempty = m_pReqQueueBuffer[emptyhead].next;
-        m_nEmptyReqQueueHead = secondempty;
-
-        // use the head for the request
-        m_pReqQueueBuffer[emptyhead].request = req;
-
-        // set queue property
-        req->bqueued = true;
-
-        // append the request to the queue
-        if (line->queuetail != EOQ)
-            m_pReqQueueBuffer[line->queuetail].next = emptyhead;
-        line->queuetail = emptyhead;
-
-        // finish the tail of the current queue
-        m_pReqQueueBuffer[emptyhead].next = EOQ;
-
-        return true;
+        // initialize the queuehead
+        line->queuehead = emptyhead;
     }
 
+    // acquire the empty queue head
+    // fail, if the buffer is full
+    if (emptyhead == EOQ)
+        return false;
 
+    // get the empty head and alter the empty queue
+    unsigned int secondempty = m_pReqQueueBuffer[emptyhead].next;
+    m_nEmptyReqQueueHead = secondempty;
+
+    // use the head for the request
+    m_pReqQueueBuffer[emptyhead].request = req;
+
+    // set queue property
+    req->bqueued = true;
+
+    // append the request to the queue
+    if (line->queuetail != EOQ)
+        m_pReqQueueBuffer[line->queuetail].next = emptyhead;
+    line->queuetail = emptyhead;
+
+    // finish the tail of the current queue
+    m_pReqQueueBuffer[emptyhead].next = EOQ;
+    return true;
 }
 
 bool SuspendedRequestQueue::ReverselyAppendRequest2Line(ST_request* req, dir_line_t* line)
@@ -231,9 +199,7 @@ bool SuspendedRequestQueue::ReverselyAppendRequest2Line(ST_request* req, dir_lin
     // if the line is not loading yet, this should not happen
     // since the loading request will update this flag
     // if the line is already loading, then append the request directly to the queue
-
     assert(req->bqueued);
-
     assert (line->aux != AUXSTATE_NONE);
 
     assert ((line->aux == AUXSTATE_LOADING) || (line->aux == AUXSTATE_DEFER));
@@ -261,11 +227,8 @@ bool SuspendedRequestQueue::ReverselyAppendRequest2Line(ST_request* req, dir_lin
         {
             line->queuetail = emptyhead;
         }
-
         return true;
     }
-
-
 }
 
 // reactivate line can be 
@@ -273,7 +236,7 @@ bool SuspendedRequestQueue::ReverselyAppendRequest2Line(ST_request* req, dir_lin
 // 2. the line got a reply, so put it in active line queue
 bool SuspendedRequestQueue::ReactivateLine(dir_line_t* line)
 {
-    if ((line == NULL)||(!line->breserved))
+    if (line == NULL || !line->breserved)
         return false;
 
     if (line->queuehead != EOQ)
@@ -293,26 +256,17 @@ bool SuspendedRequestQueue::ReactivateLine(dir_line_t* line)
     return true;
 }
 
-
-
 // Normalize line Aux
 bool SuspendedRequestQueue::NormalizeLineAux(dir_line_t* line)
 {
-    assert(!((line->tokencount > CacheState::GetTotalTokenNum())));
+    assert(line->tokencount <= CacheState::GetTotalTokenNum());
 
-    if (line->tokencount == CacheState::GetTotalTokenNum()) // all the tokens are collected by the directory now
+    if (line->tokencount == CacheState::GetTotalTokenNum())
     {
-        if ((line->aux == AUXSTATE_DEFER)||(line->aux == AUXSTATE_LOADING))
+        // All the tokens are collected by the directory now
+        if (line->aux == AUXSTATE_DEFER || line->aux == AUXSTATE_LOADING)
         {
-            //assert(line->queuehead!=NULL);
-            //assert(line->queuetail!=NULL);
-
-            //line->state = DRRESERVED;    //JNEW
             line->breserved = true;         // JNEW
-
-//                LOG_VERBOSE_BEGIN(VERBOSE_STATE)
-//                    clog << LOG_HEAD_OUTPUT << "line loading or deferred, reserved flag is set." << endl;  // JNEW
-//                LOG_VERBOSE_END
         }
         else    //AUXSTATE_NONE
         {
@@ -322,15 +276,11 @@ bool SuspendedRequestQueue::NormalizeLineAux(dir_line_t* line)
         }
     }
 
-    if ( (line->aux != AUXSTATE_DEFER) && (line->aux != AUXSTATE_LOADING) )
+    if (line->aux != AUXSTATE_DEFER && line->aux != AUXSTATE_LOADING)
     {
         // time to reset the reserved flag 
         line->breserved = false;
-//            LOG_VERBOSE_BEGIN(VERBOSE_STATE)
-//                clog << LOG_HEAD_OUTPUT << "line reset to non-reserved state, incoming queue will not be automatically queued." << endl;  // JNEW
-//            LOG_VERBOSE_END
     }
-
     return true;
 }
 
@@ -338,16 +288,12 @@ bool SuspendedRequestQueue::HasOutstandingRequest(dir_line_t* line)
 {
     if (line->breserved)
     {
-        assert((line->aux == AUXSTATE_DEFER)||(line->aux == AUXSTATE_LOADING));
+        assert(line->aux == AUXSTATE_DEFER || line->aux == AUXSTATE_LOADING);
         return true;
     }
-    else
-    {
-        assert(line->queuehead == EOQ);
-        assert(line->queuetail == EOQ);
-
-        return false;
-    }
+    assert(line->queuehead == EOQ);
+    assert(line->queuetail == EOQ);
+    return false;
 }
 
 
@@ -365,71 +311,7 @@ bool SuspendedRequestQueue::StartLoading(dir_line_t* line)
 
 bool SuspendedRequestQueue::IsRequestQueueEmpty(dir_line_t* line)
 {
-    if (line->queuehead == EOQ)
-        return true;
-
-    return false;
+    return line->queuehead == EOQ;
 }
 
-bool SuspendedRequestQueue::IsActiveLineQueueEmpty()
-{
-    if (m_nActiveLineQueueHead == EOQ)
-        return true;
-
-    return false;
 }
-
-// ** for a certain line, the function should be used continuously.
-// return true, if there's a next request on the queue.
-// return false, if end of queue is reached.
-bool SuspendedRequestQueue::GetNextReq(dir_line_t& line, ST_request* &req, bool restart)
-{
-    static unsigned int qpos = EOQ;
-
-    if (restart)
-    {
-        qpos = line.queuehead;
-    }
-
-    if (qpos == EOQ)
-    {
-        req = NULL;
-        return false;
-    }
-
-    req = m_pReqQueueBuffer[qpos].request;
-    qpos = m_pReqQueueBuffer[qpos].next;
-
-    return true;
-}
-
-// ** the function should be called continously for a directory
-// return true, if there's a next line in the active line queue
-// return false, if end of the queue is reached.
-bool SuspendedRequestQueue::GetNextActiveLine(dir_line_t* &line, bool restart)
-{
-    static unsigned int qpos = EOQ;
-
-    if (m_nActiveLineQueueHead == EOQ)
-    {
-        line = NULL;
-        return false;
-    }
-
-    if (restart)
-        qpos = m_nActiveLineQueueHead;
-
-    if (qpos == EOQ)
-    {
-        line = NULL;
-        return false;
-    }
-
-    line = m_pServingLineQueueBuffer[qpos].line;
-    qpos = m_pServingLineQueueBuffer[qpos].next;
-
-    return true;
-}
-
-
-

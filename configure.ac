@@ -26,6 +26,13 @@ AC_PROG_CXX
 AC_PROG_RANLIB
 AC_LIB_READLINE
 
+AC_ARG_ENABLE([softfpu],
+[AC_HELP_STRING([--enable-softfpu], [enable software emulation of IEEE 754 (default is disabled)])]],
+[], [enable_softfpu=no])
+if test "x$enable_softfpu" = "xyes"; then
+   CXXFLAGS="$CPPFLAGS -DEMULATE_IEEE754"
+fi
+
 AC_ARG_ENABLE([profile],
 [AC_HELP_STRING([--enable-profile], [enable profiling during execution (default is disabled)])],
 [], [enable_profile=no])
@@ -106,23 +113,12 @@ AC_LANG_PUSH([C++])
  AC_MSG_RESULT([$have_sysc])
  AC_SUBST([SC_LIBS])
 
- AC_MSG_CHECKING([for tinyxml])
- save_LIBS=$LIBS
- save_CPPFLAGS=$CPPFLAGS
- LIBS="$LIBS -ltinyxml"
- CPPFLAGS="$CPPFLAGS -DTIXML_USE_STL"
- AC_LINK_IFELSE([AC_LANG_PROGRAM([[#include <tinyxml/tinyxml.h>]],
-                                 [[TiXmlCursor cu; return cu.row;]])],
-                [AC_MSG_RESULT([yes]); have_tixml=yes], 
-                [AC_MSG_RESULT([no]); have_tixml=no])
- LIBS=$save_LIBS
- CPPFLAGS=$save_CPPFLAGS
 AC_LANG_POP
 
-if test "x$have_sysc" = "xno" -o "x$have_tixml" = "xno"; then
+if test "x$have_sysc" = "xno"; then
   AC_MSG_WARN([COMA simulation not available])
 fi
-AM_CONDITIONAL([ENABLE_COMA], [test "x$have_sysc" = "xyes" -a "x$have_tixml" = "xyes"])
+AM_CONDITIONAL([ENABLE_COMA], [test "x$have_sysc" = "xyes"])
 
 AC_CONFIG_FILES([
 	Makefile

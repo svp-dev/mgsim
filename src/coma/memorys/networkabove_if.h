@@ -5,24 +5,13 @@
 
 #include "network_if.h"
 
-namespace MemSim{
-//{ memory simulator namespace
-//////////////////////////////
-
+namespace MemSim
+{
 
 class NetworkAbove_if : public Network_if
 {
-public:
-
-public:
-	NetworkAbove_if(){
-		m_bBelow = false;// avoid runtime judgment of class type
-	}
-
 };
 
-//////////////////////////////
-//} memory simulator namespace
 }
 
 #endif

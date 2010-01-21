@@ -7,110 +7,64 @@
 #include "busst_slave_if.h"
 #include "busst_master.h"
 
-namespace MemSim{
-//{ memory simulator namespace
-
-class BusST : public BusST_if, public sc_module, virtual public SimObj
+namespace MemSim
 {
-public:
-	// ports
-	sc_in<bool> clk;
 
-	sc_port<BusST_Slave_if, 0> port_slave;
-	sc_fifo_in<ST_request*> port_fifo_slave_in;
-
-    vector<BusST_Master*> m_vecBusMaster;
-private:
-	sc_event m_eMasterEvent;
-	sc_event m_eSlaveEvent;
-
-	sc_fifo<ST_request*> *m_pfifoMasterIn;
-
-    ST_request* m_pReqCurINI;
-    ST_request* m_pReqCurMEM;
-
-    enum STATE_INI{
-        STATE_INI_AVAILABLE,
-        STATE_INI_CONGEST
-    };
-
-    enum STATE_MEM{
+class BusST : public BusST_if, public sc_module
+{
+    enum STATE_MEM {
         STATE_MEM_AVAILABLE,
         STATE_MEM_CONGEST
     };
 
-    STATE_INI m_nStateINI;
-    STATE_MEM m_nStateMEM;
-
+	BusST_Slave_if&            m_port_slave;
+	sc_fifo_in<ST_request*>    m_port_fifo_slave_in;
+    std::vector<BusST_Master*> m_vecBusMaster;
+    std::vector<BusST_Master*> m_vecBCMasters;
+	sc_fifo<ST_request*>       m_pfifoMasterIn;
+    ST_request*                m_pReqCurINI;
+    ST_request*                m_pReqCurMEM;
+    STATE_MEM                  m_nStateMEM;
+    
+    void SendFeedbackToMaster(ST_request* req);
+    void BroadCastFeedback(ST_request* req);
+    
 public:
 	SC_HAS_PROCESS(BusST);
 
 	// constructor
-	BusST(sc_module_name name)
-		: SimObj(name), sc_module(name)
-	{
+	BusST(sc_module_name name, sc_clock& clock, BusST_Slave_if& slave)
+	  : sc_module(name),
+        m_port_slave(slave),
+	    m_pReqCurINI(NULL),
+        m_nStateMEM(STATE_MEM_AVAILABLE)
+    {
 		// process declaration
 		SC_METHOD(BehaviorMaster);
-		sensitive << clk.neg();
+		sensitive << clock.negedge_event();
 		dont_initialize();
 
 		SC_METHOD(BehaviorSlave);
-		sensitive << clk.pos();
+		sensitive << clock.posedge_event();
 		dont_initialize();
 
-		m_pfifoMasterIn = new sc_fifo<ST_request*>();
-
-        m_nStateINI = STATE_INI_AVAILABLE;
-        m_nStateMEM = STATE_MEM_AVAILABLE;
+        m_port_fifo_slave_in(slave.channel_fifo_slave);
 	}
 
-    ~BusST(){
-        delete m_pfifoMasterIn;
-    }
-
-	// process
+	// Process
 	void BehaviorMaster();
 	void BehaviorSlave();
 
 	// direct BUS interface
     bool request(ST_request* req);
 
-	void MasterNotify();
-	void SlaveNotify();
-
-    void BindSlave(BusST_Slave_if& slave)
-    {
-        port_slave(slave);
-        port_fifo_slave_in(slave.channel_fifo_slave);
-        slave.m_pBusST = this;
-    }
-
     void BindMaster(BusST_Master& master)
     {
         master.port_bus(*this);
         m_vecBusMaster.push_back(&master);
     }
-
-
-private:
-    vector<BusST_Master*> m_vecBCMasters;
-
-	BusST_Slave_if* GetSlave(__address_t address);
-
-	void DispatchRequest(ST_request *req);
-
-    void SendFeedbackToMaster(ST_request* req);
-
-#ifdef MEM_CACHE_LEVEL_ONE_SNOOP
-    void RandomFeedbackDispatch(ST_request* req);
-#else
-    void BroadCastFeedback(ST_request* req);
-#endif
-	
-public:
 };
 
-//} memory simulator namespace
 }
 #endif
 

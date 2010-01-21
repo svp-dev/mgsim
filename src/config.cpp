@@ -95,7 +95,7 @@ Config::Config(const string& filename, const ConfigMap& overrides)
             {
                 state = STATE_COMMENT;
             }
-            else if (isalpha(c))
+            else if (isalpha(c) || c == '_')
             {
                 state = STATE_NAME;
                 name = (char)c;
@@ -110,7 +110,7 @@ Config::Config(const string& filename, const ConfigMap& overrides)
         }
         else if (state == STATE_NAME)
         {
-            if (isalnum(c)) name += (char)c;
+            if (isalnum(c) || c == '_') name += (char)c;
             else 
             {
                 transform(name.begin(), name.end(), name.begin(), ::toupper);

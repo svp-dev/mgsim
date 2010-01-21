@@ -1,10 +1,8 @@
-#ifndef LINKMIKE_H
-#define LINKMIKE_H
-#include "../simlink/memorydatacontainer.h"
-#include "../memorys/dcswitch.h"
+#ifndef LINKMGS_H
+#define LINKMGS_H
+#include "../../VirtualMemory.h"
 #include <cstdlib>
 #include <stdint.h>
-
 #include <vector>
 #include <iostream>
 
@@ -12,62 +10,34 @@ class LinkConfig
 {
 public:
     unsigned int m_nLineSize;
-    unsigned int m_nProcLink;
-    unsigned int m_nProcMGS;
-    unsigned int m_nCache;
-    unsigned int m_nDirectory;
-    unsigned int m_nSplitRootNumber;
-    unsigned int m_nMemoryChannelNumber;
-    unsigned int m_nChannelInterleavingScheme;
-    uint64_t m_nStartingAddress;
-    uint64_t m_nMemorySize;
+    unsigned int m_nProcs;
+    unsigned int m_nProcessorsPerCache;
+    unsigned int m_nCachesPerDirectory;
+    unsigned int m_nNumRootDirs;
+    unsigned int m_nMemoryChannels;
     unsigned int m_nCacheSet;
     unsigned int m_nCacheAssociativity;
-    bool         m_bEager;
     unsigned int m_nCacheAccessTime;
     unsigned int m_nMemoryAccessTime;
-    unsigned int m_nDefaultVerbose;
-    const char*  m_sDDRXML;
-    unsigned int m_nDDRConfigID;
     unsigned int m_nInject;
 
     unsigned int m_nCycleTimeCore;
     unsigned int m_nCycleTimeMemory;
 
-    //char * m_pMemoryMapFile;
-    char * m_pGlobalLogFile;
-
-    bool m_bConfigDone;
-    
-LinkConfig() : m_bConfigDone(false) {
-        m_nProcLink = 1;
-
-        m_nStartingAddress = 0;
-        m_nMemorySize = 0x2000000;
-
-        m_bEager = false;
-
+    LinkConfig()
+    {
         m_nMemoryAccessTime = 100;
-        m_nDefaultVerbose = 3;
-
-        m_sDDRXML = DDRXML_CONFIG_PATH;
-
-        //m_pMemoryMapFile = NULL;
-	m_pGlobalLogFile = NULL;
     }
+    
     void dumpConfiguration(std::ostream& os) const
     {
 #define PC(N) "# " #N << '\t' << m_ ## N << std::endl 
         os << "### begin COMA configuration" << std::endl
-           << PC(nProcMGS)
-           << PC(nProcLink)
-           << PC(nCache)
-           << PC(nDirectory)
-           << PC(nSplitRootNumber)
-           << PC(nMemoryChannelNumber)
-           << PC(nChannelInterleavingScheme)
-           << PC(sDDRXML)
-           << PC(nDDRConfigID)
+           << PC(nProcs)
+           << PC(nProcessorsPerCache)
+           << PC(nCachesPerDirectory)
+           << PC(nNumRootDirs)
+           << PC(nMemoryChannels)
            << PC(nCycleTimeCore)
            << PC(nCycleTimeMemory)
            << PC(nCacheAccessTime)
@@ -76,7 +46,6 @@ LinkConfig() : m_bConfigDone(false) {
            << PC(nCacheAssociativity)
            << PC(nLineSize)
            << PC(nInject)
-           << PC(bEager)
            << "### end COMA configuration" << std::endl;
 #undef PC
     };
@@ -96,17 +65,11 @@ public:
 protected:
     // link flags
     LINKFLAG m_eRequestIni;
-    LINKFLAG m_eRequestDone;
 
 public:
     LinkMGS(){
         m_eRequestIni = LF_NONE;
-        m_eRequestDone = LF_NONE;
     }
-
-#ifdef MEM_CACHE_LEVEL_ONE_SNOOP
-    std::vector<LinkMGS*>    m_vecLinkPeers;
-#endif
 
     virtual ~LinkMGS(){}
 
@@ -126,62 +89,12 @@ public:
     virtual unsigned long* GetReply(uint32_t &address, void* data, uint64_t &size, int &extcode){return GetReply((uint64_t&)address, data, size, extcode);}
 
     virtual bool RemoveReply() = 0;
-
-#ifdef MEM_CACHE_LEVEL_ONE_SNOOP
-    void BindPeers(std::vector<LinkMGS*> vecpeers){m_vecLinkPeers = vecpeers;}
-/*    
-// snoop read will try local first then try L2 
-virtual bool OnMemorySnoopRead(uint64_t address, void *data, unsigned int size, bool dcache) = 0;
-// snoop write will try both directly
-virtual bool OnMemorySnoopWrite(uint64_t address, void *data, unsigned int size) = 0;
-// snoop ib is from the cache side request
-virtual bool OnMemorySnoopIB(uint64_t address, void *data, unsigned int size) = 0;
-*/
-    // Set m_pCMLink pointer
-    void SetCMLinkPTR(void* cmlink){m_pCMLink = cmlink;}
-
-    // get m_pCMLink pointer
-    void* GetCMLinkPTR(){return m_pCMLink;}
-
-protected:
-    void * m_pCMLink;
-#endif
-
 };
 
-extern MemoryDataContainer* g_pMemoryDataContainer;
+extern Simulator::VirtualMemory* g_pMemoryDataContainer;
 extern LinkMGS** g_pLinks;
-
-extern std::ofstream g_osMonitorFile;
-extern uint64_t g_u64MonitorAddress;
 
 #include "memstat.h"
 
-// some command functions can be called
-void setverboselevel(int nlevel);
-
-// dump the caches and memory into a file
-void dumpcacheandmemory(std::ofstream& filestream, bool bforce);
-
-// gather line data for debug
-unsigned int gatherlinevalue(uint64_t addr, char* linedata);
-
-// check the cache and memory consistency
-// return : false if the checking process failed
-// return :  true if the checking process succeed
-// whether the caches and memory are consistent or not 
-// is not given by the boolean return value
-bool checkcacheandmemory();
-
-void reviewmemorysystem();
-
-#ifdef MEM_MODULE_STATISTICS
-void printstatistics(const char* filename);
-#endif
-
-void startmonitorfile(const char* filename);
-void stopmonitorfile();
-void monitormemoryaddress(uint64_t address);
-void automonitoraddress(uint64_t address);
 #endif
 

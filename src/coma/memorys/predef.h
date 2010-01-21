@@ -1,34 +1,9 @@
 #ifndef MEMORY_PREDEFINE_H
 #define MEMORY_PREDEFINE_H
 
-#define _CRT_SECURE_NO_DEPRECATE 1
-#define _CRT_NONSTDC_NO_DEPRECATE 1
-
 #include <systemc.h>
 #include <cassert>
-
-//////////////////////////////////////////
-// with Token coherence or not
-#define TOKEN_COHERENCE
-//////////////////////////////////////////
-
-#include "dcswitch.h"
-
 #include "../simlink/smdatatype.h"
-
-#define SIMULATE_DATA_TRANSACTION
-
-#define CONST_DRIVEN_MODE_RANDOM    0
-#define CONST_DRIVEN_MODE_TRACE     1
-#define CONST_DRIVEN_MODE_MIKE      2
-
-#if defined(SIMULATE_DRIVEN_MODE) && (SIMULATE_DRIVEN_MODE == CONST_DRIVEN_MODE_MIKE)
-    #ifndef SIMULATE_DATA_TRANSACTION
-    #define SIMULATE_DATA_TRANSACTION
-    #endif
-#endif
-
-//////////////////////////////////////////////////////////////////////////
 #include <iomanip>
 #include <vector>
 #include <set>
@@ -38,19 +13,18 @@
 #include <stdint.h>
 
 using namespace std;
-using namespace MemSim;
-//////////////////////////////////////////////////////////////////////////
 
-namespace MemSim{
-//{ memory simulator namespace
-
+namespace MemSim
+{
 
 #define INITIATOR_TABLE_SIZE    7
-#define ADD_INITIATOR_BUS(req, a)       assert(req->curinitiator < INITIATOR_TABLE_SIZE); req->initiatortable[req->curinitiator] = (SimObj*)(a); req->curinitiator++
-#define ADD_INITIATOR_NODE(req, a)      assert(req->curinitiator < INITIATOR_TABLE_SIZE); req->initiatortable[req->curinitiator] = (SimObj*)(a); req->curinitiator++
 
-#define IS_NODE_INITIATOR(req, a)   (get_initiator_node(req) == (SimObj*)a)
-#define IS_BUS_INITIATOR(req, a)   (get_initiator_bus(req) == (SimObj*)a)
+#define ADD_INITIATOR(req, a) \
+    assert(req->curinitiator < INITIATOR_TABLE_SIZE); \
+    req->initiatortable[req->curinitiator] = (SimObj*)(a); \
+    req->curinitiator++
+
+#define IS_INITIATOR(req, a)   (get_initiator(req)  == (SimObj*)(a))
 
 
 // NOTE:
@@ -72,30 +46,11 @@ namespace MemSim{
 //    while data availability is represented in the tokens and functions. 
 //    (check IsLineAtCompleteState for details)
 
-
-//typedef sc_uint<64> UINT64S;
-typedef uint64_t UINT64S;
-typedef uint32_t UINT32;
-
-// define changable types
-//typedef unsigned __int64 __address_t;
 typedef uint64_t __address_t;
 
 class MemoryState
 {
 public:
-    static const __address_t MEMORY_SIZE;
-
-    enum SIGNAL{
-        SIGNAL_DEFAULT,
-        SIGNAL_READ_DONE,
-        SIGNAL_WRITE_DONE,
-        SIGNAL_ERROR,
-        SIGNAL_READ_REDIRECT,
-        SIGNAL_WRITE_REDIRECT
-    };
-
-#ifdef TOKEN_COHERENCE
     enum REQUEST{
         // basic local requests
         REQUEST_NONE = 0,                       // NO: None Exist                                       non-exist request
@@ -113,167 +68,13 @@ public:
         REQUEST_INVALIDATE_BR = 9,              // IB: Invalidate request Broadcast                     broadcast invalidation to L1 caches, 
                                                 // for level 1 caches
 
-#ifdef MEMSIM_DIRECTORY_REQUEST_COUNTING
         Request_LOCALDIR_NOTIFICATION = 10,     // the notification is used for caches to notify local directory the changes in the token status in the cache
-#endif
     };
-
-#else
-    enum REQUEST{
-        // basic ST requests
-        REQUEST_READ = 0,                        // LR: Local Read                                       local read
-        REQUEST_WRITE = 1,                        // LW: Local Write                                      local write
-        REQUEST_READ_REPLY = 2,                // RR: Read Reply                                       read reply
-        REQUEST_MERGE_READ_REPLY = 3,           // MP: Merge Read Reply                                 read reply
-        REQUEST_WRITE_REPLY = 4,              // WR: Write Reply -                                    write reply
-        REQUEST_READ_REDIRECT = 5,              // LR: Local Read *                                     local read
-        REQUEST_MERGE_READ_REDIRECT = 6,        // MR: Merge Read Redirect                              local read
-        REQUEST_WRITE_REDIRECT = 7,             // LW: Local Write *                                    local_write
-        REQUEST_READ_MERGE = 8,                 // RG: Merged Read                                      local read
-        REQUEST_WRITE_MERGE = 9,                // WG: Merged Write -*                                  local write
-
-        // extended transaction
-        REQUEST_INVALIDATE = 10,                // IV: Invalidate                                       invalidation
-                                                // DE: Data Exclusive                                    invalidation return
-                                                // for level 2 caches
-        REQUEST_INVALIDATE_BR = 11,             // IB: Invalidate request Broadcast                     broadcast invalidation to L1 caches, 
-                                                // for level 1 caches
-        REQUEST_LINE_REPLACEMENT = 12,          // RL: Line Replacement (similar to Injection)          line replacement
-                                                // ???
-        REQUEST_REMOTE_READ_SHARED = 13,            // RS: Remote Read to shared state                      remote read to shared
-        REQUEST_REMOTE_READ_EXCLUSIVE = 14,         // RE: Remote Read to exclusive state                   remote read to exclusive
-        REQUEST_REMOTE_SHARED_READ_REPLY = 15,      // SR: (to Shared State) Read Reply                        read reply to shared 
-        REQUEST_REMOTE_EXCLUSIVE_READ_REPLY = 16,   // ER: (to Exclusive State) Read Reply                    read reply to exclusive
-        // REQUEST_RACING_READ_REPLY,                // RER: Racing (to Exclusive State) Read Reply            racing read reply 
-        // REQUEST_RACING_INVALIDATION,                // RIV: Racing invalidation                                racing invalidation
-        // REQUEST_INJECT,                            // IJ: Inject request                                    inject request
-        // REQUEST_DATA_EXCLUSIVE,                    // DE: Data Exclusive    ---- reduced to IV done         invalidation (acknoledgement return)
-        REQUEST_WRITE_BACK = 17,                    // WB: Write Back to main memory                        write back to main memory
-        REQUEST_EVICT = 18                          // EV: Eviction of shared data, will terminate at dir    eviction to of a shared data
-    };
-#endif
-
-    // return the request type name
-    static const char* RequestName(int requesttype, bool shortname = false);
 };
 
 class CacheState : public MemoryState
 {
 public:
-    // replace policy
-    enum REPLACE_POLICY{
-        RP_LRU,    // least recently used block
-        RP_RND,    // random one
-        RP_FIFO    // the oldest block in the set
-    };
-
-    // write policy, hit and miss policy should be both assigned 
-    enum WRITE_POLICY{
-        WP_WRITE_BACK = 0,        // hit policy, BIT 0
-                                // 0 : write back
-                                // 1 : write through
-        WP_WRITE_THROUGH = 1,
-
-        WP_WRITE_ALLOCATE = 0,    // miss policy, BIT 1
-                                // 0 : write allocate
-                                // 1 : write around 
-        WP_WRITE_AROUND = 2
-    };
-
-    // cache line mask used for cacheline state transition
-    enum CACHE_LINE_MASK{
-        LNMRRW = 4,         // Read Reply Waiting bit
-        // bin: 0100
-        LNMIAW = 8          // Invalidation Acknowledgement Waiting bit
-        // bin: 1000
-    };
-
-#ifndef TOKEN_COHERENCE
-    // cacheline state
-    enum CACHE_LINE_STATE{
-        LNINVALID = 0,      // The line is invalid
-                            // bin: 0000
-                            // used in all the protocols
-                            // shortname: I or "-" as a symbol
-
-        LNVALID = 1,        // The line is valid 
-                            // bin: 0001    
-                            // used in valid-invalid protocol
-                            // shortname: V
-
-        LNSHARED = 1,       // The line is in Shared state
-                            // SHARED bit | !RRW | !IAW
-                            // bin: 0001
-                            // used in MOSI protocol
-                            // shortname: S
-
-        LNMODIFIED = 2,     // The line is in modified state
-                            // MODIFIED bit | !RRW | !IAW
-                            // bin: 0010
-                            // used in MOSI protocol
-                            // shortname: M
-
-        LNOWNED = 3,        // Owned state
-                            // Owned state.... *** 
-                            // used in MOSI protocol
-                            // shortname: O
-
-        //LNEXCLUSIVE = 4,    // Exclusive state
-        //                    // ....
-        //                    // Used in MOSI protocol
-                              // shortname: E
-
-        LNREADPENDING = 5,  // Waiting for the answer from a remote read request
-                            // ???SHARED | RRW
-                            // used in MOSI protocol
-                            // shortname: R
-
-        LNREADPENDINGI = 6, // Waiting for the answer from a remote read request with Invalid data
-                            // ???SHARED | RRW
-                            // used in MOSI protocol
-                            // shortname: T
-
-        LNWRITEPENDINGI = 7,// Waiting for an invalidation to be passed around with Invalid data
-                            // ???MODIFIED | RRW or MODIFIED | IAW or MODIFIED | RRW | IAW
-                            // used in MOSI protocol
-                            // shortname: P
-
-        LNWRITEPENDINGM = 8,// Waiting for an invalidation to be passed around with Modified data
-                            // ???MODIFIED | RRW or MODIFIED | IAW or MODIFIED | RRW | IAW
-                            // used in MOSI protocol
-                            // shortname: W
-
-        LNWRITEPENDINGE = 9,// Waiting for an invalidation/exclusive read to be passed around with Invalid data
-                            // This state indicate that the line is invalidated by another IV/RE/ER to the same line
-                            // and this line is being invalidated, however waiting for the reply from its own. 
-                            // After its reply comes back, the line can be then changed to INVALID state. 
-                            // ?? 
-                            // used in MOSI protocol
-
-        //LNWRITEPENDINGO = 9 // Waiting for an invalidation to be passed around with Owned data
-        //                    // ???MODIFIED | RRW or MODIFIED | IAW or MODIFIED | RRW | IAW
-        //                    // used in MOESI protocol
-  //                          // shortname: U
-    };
-
-    // Directory line state
-    enum DIRECTORY_LINE_STATE{
-        DRINVALID,      // the sub-group doessn't have the data
-                        // shortname: I or "-" as a symbol
-        //DRRESERVED,     // the sub-group has request going on now. 
-                        // current directory has the count equal to 0. 
-                        // however, the aux flag and queuehead and queuetail are not empty
-                        // shortname: R
-        DRSHARED,       // the sub-group has the data
-                        // normal dir:  has shared data owned data owned data, but probably other sub-group also has the copy
-                        // root dir:    has shared non-dirty data
-                        // shortname: S
-        DREXCLUSIVE     // the sub-group has the data
-                        // normal dir:  only the sub-group has the data
-                        // root dir:    has dirty data
-                        // shortname: E
-    };
-#else
     // cacheline state
     enum CACHE_LINE_STATE{
         CLS_INVALID = 0,    // invalid state
@@ -285,12 +86,8 @@ public:
     enum DIR_LINE_STATE{
         DLS_INVALID = 0,    // invalid, for invalid and sharing
         DLS_CACHED = 1,     // normal; group has the data
-//        DLS_SHARER = 1,     // Normal, for invalid and sharing
-//        DLS_OWNER = 2       // Owner, for dirty and owned
     };
  
-#endif // not token coherence
-
     // Cacheline update method
     enum LINE_UPDATE_METHOD{
         LUM_NO_UPDATE = 0,            // no update necessary for the data
@@ -335,138 +132,83 @@ public:
         RUM_NONE                    // update nothing in the request
     };
 
-    enum PROTOCOL_TYPE{
-        PT_VI = 0,                  // V-I protocol
-        PT_MOSI = 1,                // MOSI-ext protocol
-    //    PT_TOKEN = 2                // Token cohernence protocol
-    };
-
-//#if defined(SIMULATE_DRIVEN_MODE) && (SIMULATE_DRIVEN_MODE == CONST_DRIVEN_MODE_MIKE)
-    // backward broadcast invalidation policy
-    enum BACKWARD_BRAODCAST_INVALIDATION{
-        BBI_EAGER,                  // backward invalidation EAGER policy
-                                    // always keep consistency between L2 cache and the corresponding L1 caches
-                                    // whenever a line in L2 is invalidated, evicted or written back, (anyway disappear)
-                                    // an backward invalidation will have to be delivered to L1 caches associated
-                                    // in this scheme, if the IV, RE, or ER misses the L2 cache. 
-                                    // the backward broadcast invalidation will not be sent
-
-        BBI_LAZY                    // backward invalidation LAZY policy
-                                    // not always keep the consistency between L2 and L1 caches
-                                    // when a line in L2 is evicted or written back
-                                    // the backward broadcast invalidation will not be sent
-                                    // however all the IV, RE, or ER will be delivered back to L1 caches
-                                    // no matter it's a miss or a hit on the target. 
-                                    // read snooping on the bus could reduce local read 
-
-
-                                    // *** the read snooping on the bus is useful for both policies
-                                    // be cautious about both policy *** !!!
-    };
-
     enum INJECTION_POLICY{
         IP_NONE = 0,                    // NO INJECTION AT ALL
         IP_EMPTY_1EJ = 1                // INJECT INTO EMPTY CACHES, 
                                         // eject out immediately when meeting directory
                                         // no inject into other local levels
     };
-//#endif
-
 
     // Racing situation
     // ER will not pickup the newly written data from the WPI or WPM 
     // IV or RE or ER is responsible to bring the new data to the target around the ring. 
     // the updated value are kept in cacheline and marked by the bitmasks for WPI or WPM lines
 
-#ifndef TOKEN_COHERENCE
-    // return the name of a certain cache state
-    // cache type:  PT_VI:      represents V-I protocol
-    //              PT_MOSI:    represents MOSI-ext protocol
-    const char* CacheStateName(int cachestate, int cachetype, bool shortname = false);
-#else
-    // get cache state name with pre-allocated buffer
-    char* CacheStateName(CACHE_LINE_STATE nlinestate, unsigned int ntoken, bool pending, bool invalidated, bool priority, bool tlock, char* pstatename, bool shortname = false);
-    char* CacheStateName(CACHE_LINE_STATE nlinestate, unsigned int ntoken, bool pending, bool invalidated, bool priority, bool tlock, bool msbhit, bool msblock, char* pstatename, bool shortname = false);
-    char* DirectoryStateName(DIR_LINE_STATE nlinestate, unsigned int ntoken, bool breserved, bool priority, char* pstatename, bool shortname = false);
-#endif
-
 private:
     static unsigned int s_nTotalToken;
 
 public:
-    static void SetTotalTokenNum(unsigned int ntoken){s_nTotalToken = ntoken;}
-    static unsigned int GetTotalTokenNum(){return s_nTotalToken;};
+    static void SetTotalTokenNum(unsigned int ntoken) { s_nTotalToken = ntoken; }
+    static unsigned int GetTotalTokenNum() { return s_nTotalToken; }
 };
 
-// 16 X 4 bytyes can be covered for a cacheline, which is a 64-byte cacheline
-//#define CACHE_BIT_MASK_WIDTH    16    // for totally 16 bits are used for the mask
-//#define CACHE_REQUEST_ALIGNMENT 4        // 4-byte alignment
-
-// for a 128 X 1 byte cacheline
-//#define CACHE_BIT_MASK_WIDTH    128        // for totally 128 bits are used for the mask
-//#define CACHE_REQUEST_ALIGNMENT 1        // 1-byte alignment
-
 // for a 64 X 1 byte cacheline
-#define CACHE_BIT_MASK_WIDTH    64        // for totally 128 bits are used for the mask
-#define CACHE_REQUEST_ALIGNMENT 1        // 1-byte alignment
-
-// the bit width size of the cacheline
-extern unsigned int &g_nCacheLineWidth;
+#define CACHE_BIT_MASK_WIDTH    64      // for totally 128 bits are used for the mask
+#define CACHE_REQUEST_ALIGNMENT 1       // 1-byte alignment
 
 // the line size of the cacheline
-extern unsigned int &g_nCacheLineSize;
+extern unsigned int g_nCacheLineSize;
 
-//extern struct _cache_set;
-struct _ST_request;
+struct ST_request;
 
-
-
-typedef struct _cache_line
+struct cache_line_t
 {
-    __address_t getlineaddress(unsigned int nset, unsigned int nsetbits){return ((tag << (g_nCacheLineWidth+nsetbits))|(nset<<g_nCacheLineWidth));};
-    bool islinecomplete(){  // only check the line bitmasks
-        for (int i=0;i<CACHE_BIT_MASK_WIDTH/8;i++) 
+    __address_t tag;
+    sc_time     time;
+    CacheState::CACHE_LINE_STATE state;
+
+    char *data;
+    char  bitmask[CACHE_BIT_MASK_WIDTH/8];      // bit mask is defined to hold written data before reply comes back
+                                                // it does not always represent the validness of word segment within the line
+                                                // for WP states, bitmask only indicates the newly written data. 
+
+    __address_t getlineaddress(unsigned int nset, unsigned int nsetbits) const
+    {
+        return ((tag << nsetbits) + nset) * g_nCacheLineSize;
+    };
+    
+    bool islinecomplete() const
+    {
+        for (int i = 0; i < CACHE_BIT_MASK_WIDTH/8; ++i) 
             if (bitmask[i] != (char)0xff)
                 return false;
         return true;
     };
-    __address_t tag;
-    sc_time time;
-    CacheState::CACHE_LINE_STATE state;
-
-#ifdef SIMULATE_DATA_TRANSACTION
-    char *data;
-#endif
-
-    char bitmask[CACHE_BIT_MASK_WIDTH/8];       // bit mask is defined to hold written data before reply comes back
-                                                // it does not always represent the validness of word segment within the line
-                                                // for WP states, bitmask only indicates the newly written data. 
-    void removemask(){for(int i=0;i<CACHE_BIT_MASK_WIDTH/8;i++) bitmask[i]=0;};
-
-    unsigned int queuehead;
-    unsigned int queuetail;
+    
+    void removemask()
+    {
+        for(int i = 0; i < CACHE_BIT_MASK_WIDTH/8; ++i)
+            bitmask[i] = 0;
+    };
 
     unsigned int tokencount;
-    unsigned int gettokenglobalvisible()
+    
+    unsigned int gettokenglobalvisible() const
     {
-        if (invalidated)
-            return 0;
-        if (tlock)
-            return 0;
-
+        if (invalidated) return 0;
+        if (tlock) return 0;
         return tokencount;
     }
 
-    unsigned int gettokenlocalvisible()
+    unsigned int gettokenlocalvisible() const
     {
         return tokencount;
     }
 
-    unsigned int gettokenlocked()
+    unsigned int gettokenlocked() const
     {
         if (tlock)
             return tokencount;
-
         return 0;
     }
 
@@ -496,24 +238,21 @@ typedef struct _cache_line
 
     bool pending;       // pending request, either read or write pending
 
-private:
     bool llock;         // prevent the pending line from being further accessed
                         // currently used only for lines in the merge buffer
 
-public:
-    void SetLineLock(bool lock){llock = lock;}          // currently only used for lines in the merge buffer
-    bool IsLineLocked(struct _ST_request* req = NULL){return llock;}         // currently only used for lines in the merge buffer
-
     // check whether the line state signify the line is complete
     bool IsLineAtCompleteState();
-} cache_line_t;
+};
 
-typedef struct _dir_line
+struct dir_line_t
 {
-    __address_t getlineaddress(unsigned int nset, unsigned int nsetbits){return ((tag << (g_nCacheLineWidth+nsetbits))|(nset<<g_nCacheLineWidth));};
+    __address_t getlineaddress(unsigned int nset, unsigned int nsetbits, unsigned int nsplitbits)
+    {
+        return ((tag << (nsetbits + nsplitbits)) + nset) * g_nCacheLineSize;
+    };
     __address_t tag;
     sc_time time;
-    //char state;
     CacheState::DIR_LINE_STATE state;
     bool breserved;     // reserved flag represents the cacheline cannot be processed immediately
                         // there are requests suspended on the line, 
@@ -546,7 +285,10 @@ typedef struct _dir_line
 
     bool priority;              // represent the priority token
 
-#ifdef MEMSIM_DIRECTORY_REQUEST_COUNTING
+    bool bskipdispatch;         // if true, skip dispatching the request to the memory module
+                                // when a request returns without any token or data (uncessful).
+                                // if false, the failed request should be sent to the memory directly.
+
     unsigned int nrequestin;    // remote request in local level
                                 // with remote request inside the local level,
                                 // the directory line can still be evicted.
@@ -566,8 +308,6 @@ typedef struct _dir_line
     int ntokenrem;     // tokens inside from remote request
     bool grouppriority;         // local group priority, excluding tokens held by directory 
 
-#endif
-
     unsigned int counter;
     char aux;       // some additional state for extension
                     // auxiliary loading means data is being read from memory, 
@@ -586,80 +326,79 @@ typedef struct _dir_line
     unsigned int queuetail; // tail of the suspended request queue, used to append new request
 
     unsigned int setid;     // just to make it simpler to find set id;
+};
 
-//#ifdef SIMULATE_DATA_TRANSACTION
-//    char *data;
-//#endif
-
-    //char bitmask[CACHE_BIT_MASK_WIDTH/8];     // bit mask is defined to hold written data before reply comes back
-    const char* StateName(bool root = true, bool shortname = false);
-} dir_line_t;
-
-
-typedef struct _cache_set
+struct cache_set_t
 {
     cache_line_t *lines;
-} cache_set_t;
+};
 
-typedef struct _dir_set
+struct dir_set_t
 {
     dir_line_t *lines;
-} dir_set_t;
+};
 
 int lg2(int n);
-void validatename(char *name);
-
-/*
-#ifdef WIN32
-extern class SimObj;
-#else
-class SimObj;
-#endif
-*/
 
 // request->data always starts from the line-aligned address
 // so the request data may actually start from the middle
-typedef struct _ST_request
+struct ST_request
 {
-    _ST_request(){initiatortable = new SimObj*[INITIATOR_TABLE_SIZE]; data = (char*)calloc(s_nRequestAlignedSize, sizeof(char)); curinitiator = 0; ref = NULL;dcode=0;bqueued=false;bnewline=false;bprocessed=false;tokenrequested=0;tokenacquired=0;dataavailable=false;bpriority=false;btransient=false;bmerged=false; for (unsigned int i=0;i<CACHE_BIT_MASK_WIDTH/8;i++) bitmask[i]=0;
-#ifndef MEM_CACHE_LEVEL_ONE_SNOOP
+    ST_request()
+    {
+        data = (char*)calloc(s_nRequestAlignedSize, sizeof(char));
+        curinitiator = 0;
+        ref = NULL;
+        bqueued=false;
+        bprocessed=false;
+        tokenrequested=0;
+        tokenacquired=0;
+        dataavailable=false;
+        bpriority=false;
+        btransient=false;
+        bmerged=false;
+        for (unsigned int i=0;i<CACHE_BIT_MASK_WIDTH/8;i++) bitmask[i]=0;
+        ndirection=0xff;
         bbackinv=false;
-#endif
     };
-    _ST_request(struct _ST_request* req){
-        *this=*req;initiatortable = new SimObj*[INITIATOR_TABLE_SIZE]; /*_ST_request();*/
-        data = (char*)malloc(s_nRequestAlignedSize); memcpy(data, req->data, s_nRequestAlignedSize);
+
+    ST_request(struct ST_request* req)
+    {
+        *this = *req;
+        data = (char*)malloc(s_nRequestAlignedSize);
+        memcpy(data, req->data, s_nRequestAlignedSize);
         memcpy(initiatortable, req->initiatortable, INITIATOR_TABLE_SIZE*sizeof(SimObj*));
-        curinitiator = req->curinitiator;ref=NULL;bqueued=false;bpriority=false;btransient=false;
+        curinitiator = req->curinitiator;
+        ref=NULL;
+        bqueued=false;
+        bpriority=false;
+        btransient=false;
     };
-    ~_ST_request(){delete[] initiatortable;free(data);};
+    
+    ~ST_request()
+    {
+        free(data);
+    };
 
     static unsigned int s_nRequestAlignedSize;
-    __address_t getlineaddress(unsigned nlinebit){return (addresspre << nlinebit);};
-    __address_t getlineaddress(){return (addresspre << g_nCacheLineWidth);};
-    __address_t getreqaddress(unsigned nlinebit){return (addresspre << nlinebit)+offset;};
-    __address_t getreqaddress(){return (addresspre << g_nCacheLineWidth)+offset;};
+    __address_t getlineaddress(unsigned nlinebit) { return (addresspre << nlinebit); };
+    __address_t getlineaddress() { return (addresspre * g_nCacheLineSize); };
+    __address_t getreqaddress(unsigned nlinebit) { return (addresspre << nlinebit)+offset; };
+    __address_t getreqaddress() { return addresspre * g_nCacheLineSize + offset; };
 
-    SimObj **initiatortable;
+    SimObj* initiatortable[INITIATOR_TABLE_SIZE];
     unsigned int curinitiator;
-    //Feedback_if* initiator;
     unsigned int pid;
-    unsigned int familyID;
     MemoryState::REQUEST type;
 
     // request from and to the processors uses addresspre, nsize, offset to determine the address range 
     __address_t addresspre;
-    unsigned int nsize;     // number of UINT32 words
-    unsigned int offset;    // number of UINT32 words
+    unsigned int nsize;     // number of 32-bit words
+    unsigned int offset;    // number of 32-bit words
 
     // request on the network uses addresspre, nsize, offset to determine the address range 
     char bitmask[CACHE_BIT_MASK_WIDTH/8];       // bit mask to identify the valid data segments of a request
     
-    //__address_t address;
-    //__address_t oriaddress;
-    //unsigned size;      // number of UINT32 words
-    //unsigned orisize;      // number of UINT32 words
-    //char data[CONST_REQUEST_DATA_SIZE];    // line size alert
     char *data;         // line size alert
     unsigned long* ref; // reference point to the request in MG simulator
     bool    bqueued;    // JXXX this property is only used for cache fetching and queueing purpose
@@ -669,46 +408,14 @@ typedef struct _ST_request
     bool    bprocessed; // this flag represent the request is preprocessed 
                         // *** in COUTING mechanism, the flag is representing repeated access requests
 
-    bool    bnewline;   // represent this request will be a request on a newline on the directory
-                        // which means the directory at the moment should have a invalid (empty) line 
-                        // and the request should be able to grab the line and occupy it with new address
-                        // the newline flag should only be set on RS/RE requests
-
-#ifndef MEM_CACHE_LEVEL_ONE_SNOOP
     bool    bbackinv;   // this flag also used for WRITE_REPLY backward broadcast decision
 
     unsigned char refcount; // reference counter for broadcasting requests IB/WR_BR
-#endif
 
     bool bpriority;     // represent priority token for the ring based protocol
                         // similar to micro06-ring
 
     bool btransient;    // represents that token request has has only transient tokens
-    unsigned int dcode;    // the code are necessary for directory to decode
-                        // code can be updated by caches and directory
-                        // [bit 0] indicator u-a - indicator unavailable: 
-                        //     indicate the original cache will become READPENDINGI 
-                        //     and the data will be self-invalidated after use
-                        // [bit 1] indicator a-a - indicator already-available: 
-                        //     indicate the cache was already counted by the directory
-                        //     and the directory should correct its counter value before processing the req
-                        // default code for both indicators is always 0b00
-                        //////////////////////////////////////////////////////////////////////////
-                        // indicator u-a is set when:
-                        // a. when RS request passes a WPI
-                        // b. when SR request passes a WPM
-                        // the indicator u-a is handled by the directory like this
-                        // a. directory will not increase the counter when coded RS or SR passes
-                        // 
-                        // indicator a-a is set when
-                        // a. when RS returns ReadPending again
-                        // the indicator a-a is handled by the directory as follows
-                        // a. the directory will correct the counter and maybe even state if necessary
-                        //
-                        // when BOTH indicators are set:
-                        // only u-a indicator will be dealt with as above
-                        // both indicator will be reset
-
     bool bmerged;       // merged request only used for msb
 
     double starttime;   // for statistics
@@ -717,28 +424,16 @@ typedef struct _ST_request
     unsigned int tokenrequested;    // normally means token requested
                                     // for EV, WB requests, 0 means EV, TotalTokenNumber means WB
 
-    // transient tokens cannot be grabbed by anybody, but can be transformed into permanent token by priority token
-    // permanent tokens can be stored and grabed by the lines.
-    unsigned int gettokenpermanent()
-    {
-        if (btransient == false)
-            return tokenacquired;
-
-        return 0;
-    }
+    unsigned char ndirection;   // Direction to send a request, after suspension.
 
     bool dataavailable; // for network request, to represent whether it's a reply or not
-    bool dirty;         // represent whether the request carry dirty data
 
-    bool IsIndUASet(){return ((dcode&0x01) != 0);};
-    bool IsIndAASet(){return ((dcode&0x02) != 0);};
-    void SetIndUA(bool status=true){dcode &= (~0x01); dcode |= (status?0x01:0);};
-    void SetIndAA(bool status=true){dcode &= (~0x02); dcode |= (status?0x02:0);};
-
-    // convert the request information into text
-    // the buffer for ptext should be preallocated.
-    // reutrn the string pointer, same as ptext
-    char* RequestInfo2Text(char* ptext, bool shortversion=true, bool withdata=false, bool bprint=false);
+    // transient tokens cannot be grabbed by anybody, but can be transformed into permanent token by priority token
+    // permanent tokens can be stored and grabed by the lines.
+    unsigned int gettokenpermanent() const
+    {
+        return btransient ? 0 : tokenacquired;
+    }
 
     // check whether the request state signify the request is complete
     bool IsRequestWithCompleteData();
@@ -749,269 +444,67 @@ typedef struct _ST_request
     // check whether the request state indicates newly modified data (RE, ER, IV)
     bool IsRequestWithModifiedData();
 
-    // only for debugging purpose
-    void clear(){addresspre = 0;nsize = 0;offset = 0;data = NULL;type = MemoryState::REQUEST_NONE;curinitiator = 0; ref = NULL;dcode=0;bqueued=false;bnewline=false;bprocessed=false;tokenrequested=0;tokenacquired=0;dataavailable=false;bpriority=false;btransient=false;bmerged=false;}
-
     // convert the processor format to bit vector format
-    bool Conform2BitVecFormat();
+    void Conform2BitVecFormat();
 
     // convert the bit-vector format to processor format
-    bool Conform2SizeFormat();
-
-} ST_request;
-
-void print_cline_state(CacheState::CACHE_LINE_STATE state, bool bshort = true);
-void print_dline_state(CacheState::DIR_LINE_STATE state, bool broot = true, bool bshort = true);
-
-void print_cline(cache_line_t* line, bool bshort = true);
-void print_dline(cache_line_t* line, bool broot = true, bool bshort = true);
-
-void print_cline_data(cache_line_t*);
-void print_request_type(ST_request* req);
-void print_request(ST_request* req, bool popped = false);       // popped: print popped initiator with request
-
-
+    void Conform2SizeFormat();
+};
 
 // pipeline register array
- typedef struct __pipeline_t{
-   typedef vector<ST_request*> lst_t;
+class pipeline_t
+{
+    std::vector<ST_request*> m_lstRegisters;
+    size_t m_current;
 
-   const lst_t& getlst(void) const { return m_lstRegisters; }
-
-   unsigned front_i(void) const { return current; }
-   unsigned back_i(void) const { 
-     if (current == 0) return m_lstRegisters.size()-1; 
-     else return current-1;
-   }
-   void shift_i(void) {
-     ++current;
-     if (current >= m_lstRegisters.size())
-       current = 0;
-   }
-
-   void copy(lst_t& other) const {
-     unsigned i;
-     for (i = current; i < m_lstRegisters.size(); ++i)
-       other.push_back(m_lstRegisters[i]);
-     for (i = 0; i < current; ++i) 
-       other.push_back(m_lstRegisters[i]);
-   }
-
-   void reset(const lst_t& other) {
-     assert(other.size() == m_lstRegisters.size());
-     m_lstRegisters = other;
-     current = 0;
-   }
-
-   __pipeline_t(unsigned int n) : current(0) { 
-     m_lstRegisters.resize(n); 
-     for (unsigned int i = 0; i < n; ++i) m_lstRegisters[i] = 0; 
-   }
-
-   ST_request* shift(ST_request* req) {
-     ST_request* t = m_lstRegisters[front_i()];
-     shift_i();
-     m_lstRegisters[back_i()] = req;
-     return t;
-   }
-
-   ST_request* top() const {
-     return m_lstRegisters[front_i()]; 
-   }
-   ST_request* bottom() const {
-     return m_lstRegisters[back_i()];
-   }
-   void print() {
-     unsigned i;
-     unsigned j;
-     for (i = current, j = 0; i < m_lstRegisters.size(); ++i, ++j)
-       {
-	 clog << '[' << j << "] ";
-	 if (m_lstRegisters[i] == 0)
-	   clog << NULL << endl;
-	 else
-	   print_request(m_lstRegisters[i]);
-       }
-     for (i = 0; i < current; ++i, ++j) {
-	 clog << '[' << j << "] ";
-	 if (m_lstRegisters[i] == 0)
-	   clog << NULL << endl;
-	 else
-	   print_request(m_lstRegisters[i]);
-     }
-   }
-
-   protected:
-   vector<ST_request*> m_lstRegisters;
-   unsigned current;
-
-
- } pipeline_t;
-
- /*
-typedef struct __pipeline_t{
-    list<ST_request*>   m_lstRegisters;
-    unsigned int        m_nSize;
-
-    // pipeline registers initialized with NULL
-    __pipeline_t(unsigned int n){m_nSize = n; for(unsigned int i=0;i<n;i++) m_lstRegisters.push_back(NULL);}
-    ST_request* shift(ST_request* req){
-        assert(m_lstRegisters.size() == m_nSize);
-        m_lstRegisters.push_back(req);
-        ST_request* ret = m_lstRegisters.front();
-        m_lstRegisters.pop_front();
-        return ret;
+public:
+    void copy(vector<ST_request*>& other) const
+    {
+        for (size_t i = m_current; i < m_lstRegisters.size(); ++i)
+            other.push_back(m_lstRegisters[i]);
+            
+        for (size_t i = 0; i < m_current; ++i)
+            other.push_back(m_lstRegisters[i]);
     }
-    ST_request* top(){assert(m_lstRegisters.size() == m_nSize);return m_lstRegisters.front();}
-    ST_request* bottom(){assert(m_lstRegisters.size() == m_nSize);return m_lstRegisters.back();}
-    void print(){
-        list<ST_request*>::iterator iter;
-        int i=0;
-        for (iter=m_lstRegisters.begin();iter!=m_lstRegisters.end();iter++,i++)
-        {
-            clog << "[" << i << "] ";
-            if (*iter == NULL)
-                clog << "NULL" << endl;
-            else 
-                print_request(*iter);
-        }
+
+    void reset(const vector<ST_request*>& other)
+    {
+        assert(other.size() == m_lstRegisters.size());
+        m_lstRegisters = other;
+        m_current = 0;
     }
-} pipeline_t;
- */
 
+    ST_request* shift(ST_request* req)
+    {
+        std::swap(req, m_lstRegisters[m_current]);
+        m_current = (m_current + 1) % m_lstRegisters.size();
+        return req;
+    }
 
+    ST_request* top() const
+    {
+        return m_lstRegisters[m_current]; 
+    }
 
-#define NOTIFY_PORT(port) ((sc_event &)port.default_event()).notify()
+    pipeline_t(size_t n)
+        : m_lstRegisters(n, NULL), m_current(0)
+    {
+    }
+};
 
-#define LOG_HEAD_OUTPUT sc_time_stamp() << "# " << name() << "." << __FUNCTION__ << "." << dec << __LINE__ << ": " 
-#define LOGN_HEAD_OUTPUT sc_time_stamp() << "# " << __FUNCTION__ << "." << dec << __LINE__ << ": " 
-#define ERR_HEAD_OUTPUT sc_time_stamp() << "[E] " << __FUNCTION__ << "."<< dec << __LINE__ << ": " 
-#define TMP_HEAD_OUTPUT sc_time_stamp() << " ***T*** " 
-#define TMP_REQBEG_PUTPUT sc_time_stamp() << " ***T*** ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ \n" 
-#define TMP_REQEND_PUTPUT sc_time_stamp() << " ***T*** -------------------------------------------------------------- \n" 
-
-// 32 bit alert 
-#define FMT_ADDR(addr) hex << setfill('0') << setw(8) << addr
-// 32 bit alert 
-#define FMT_DTA(data) hex << setfill('0') << setw(8) << data
-
-// widthed data
-#define FMT_WID_DTA(data, wid) hex << setfill('0') << setw(wid) << data
-
-// 16 bit alert
-#define FMT_SETIDX(set) hex << setfill('0') << setw(4) << set
-// 64 bit alert
-#define FMT_TAG(tag) hex << setfill('0') << setw(16) << tag
-
-void generate_random_data(char *data, unsigned int size = 1);
-//void generate_random_data(UINT32 *data, unsigned int size = 1);
-
-SimObj* get_initiator_bus(ST_request* req, bool popped = false);      // prev: whether to get popped initiator 
-SimObj* get_initiator_node(ST_request* req, bool popped = false);     // prev: whether to get popped initiator
-
-SimObj* pop_initiator_bus(ST_request* req);
-SimObj* pop_initiator_node(ST_request* req);
-
-extern vector<SimObj*>  g_vSimObjs;
-extern vector<SimObj*>  &g_vecAllSimObjs;
-void reviewsystemstates();
-#ifdef MEM_MODULE_STATISTICS
-void systemprintstatistics(ofstream& statfile);
-#endif
-void monitoraddress(ostream&, __address_t);
-
-void AutoMonitorProc();
-
-#ifdef MEM_MODULE_STATISTICS
-void PerformStatistics();
-#endif
-
-
-//extern unsigned int nib;
-//extern vector<ST_request*> vecpib;
-
-// COLOR DEFINITION
-// BACK GROUND COLORS ARE NOT DEFINED IN THE FOLLOWING TEXT
-
-#define SPECIFIED_COLOR_OUTPUT
-
-#ifdef WIN32
-#include <windows.h>
-#define __TEXT_BLACK                0
-#define __TEXT_RED                  FOREGROUND_RED
-#define __TEXT_GREEN                FOREGROUND_GREEN
-#define __TEXT_BLUE                 FOREGROUND_BLUE
-#define __TEXT_YELLOW               FOREGROUND_GREEN|FOREGROUND_RED
-#define __TEXT_MAGENTA              FOREGROUND_BLUE|FOREGROUND_RED
-#define __TEXT_CYAN                 FOREGROUND_BLUE|FOREGROUND_GREEN
-#define __TEXT_WHITE                FOREGROUND_GREEN|FOREGROUND_RED|FOREGROUND_BLUE
-#define __TEXT_HIGHLIGHT            FOREGROUND_INTENSITY
-
-extern HANDLE __hColorConsole;
-
-#define __TEXTCOLOR(outps,color,bhigh)  do{\
-                                        __hColorConsole = GetStdHandle(STD_OUTPUT_HANDLE);\
-                                        SetConsoleTextAttribute(__hColorConsole, color|(bhigh?FOREGROUND_INTENSITY:0));\
-                                        }while(0)
-
-#define __TEXTCOLORNORMAL()             do{\
-                                        __hColorConsole = GetStdHandle(STD_OUTPUT_HANDLE);\
-                                        SetConsoleTextAttribute(__hColorConsole, __TEXT_WHITE);\
-                                        }while(0)
-
-#ifdef SPECIFIED_COLOR_OUTPUT
-#define __TEXTCOLOR_GRAY()             __TEXTCOLOR(clog,__TEXT_BLACK,true)
-#define __TEXTCOLOR_CYAN()             __TEXTCOLOR(clog, __TEXT_CYAN, true)
-#define __TEXTCOLOR_YELLOW()         __TEXTCOLOR(clog, __TEXT_YELLOW, false)
-#define __TEXTCOLOR_RED()             __TEXTCOLOR(clog,__TEXT_RED,true)
-#define __TEXTCOLOR_GREEN()             __TEXTCOLOR(clog,__TEXT_GREEN,true)
-#endif
-
-#else
-#define __TEXT_BLACK                30
-#define __TEXT_RED                  31
-#define __TEXT_GREEN                32
-#define __TEXT_BLUE                 34
-#define __TEXT_YELLOW               33
-#define __TEXT_MAGENTA              35
-#define __TEXT_CYAN                 36
-#define __TEXT_WHITE                37
-
-// extra needs to be defined to make it work with printf
-#define __TEXTCOLOR(outfs,color,bhigh)  outfs << "\033[" << (bhigh?1:0) <<";" << color << "m"
-//#define __TEXTCOLOR(outfs,color,bhigh)  do{}while(0)
-//#define __TEXTCOLOR(outfs,color,bhigh)  do{clog.flush();clog << "\033[0;"<<32<<"m";clog.flush();}while(0)
-//#define __TEXTCOLOR(outfs,color,bhigh)  std::clog << "\033[0;" << 32 << "m" << "a"
-//#define __TEXTCOLOR(outfs,color,bhigh)  std::clog << "\033[0;" << 32 << "m"
-
-//#define __TEXTCOLORNORMAL()             do{cout << "\033[0;" << __TEXT_WHITE << "m"; clog << "\033[0;" << __TEXT_WHITE << "m";} while(0)
-
-//#ifdef SPECIFIED_COLOR_OUTPUT
-//#define __TEXTCOLOR_GRAY()             std::clog << "\033[1;30m"
-//#define __TEXTCOLOR_CYAN()             std::clog << "\033[1;36m"
-//#define __TEXTCOLOR_YELLOW()         std::clog << "\033[0;33m"
-//#define __TEXTCOLOR_RED()             std::clog << "\033[1;31m"
-//#define __TEXTCOLOR_GREEN()             std::clog << "\033[1;32m"
-//#endif
-
-// non color output in linux
-#ifdef SPECIFIED_COLOR_OUTPUT
-#define __TEXTCOLOR_GRAY()             std::clog << ""
-#define __TEXTCOLOR_CYAN()             std::clog << ""
-#define __TEXTCOLOR_YELLOW()         std::clog << ""
-#define __TEXTCOLOR_RED()             std::clog << ""
-#define __TEXTCOLOR_GREEN()             std::clog << ""
-
-#define __TEXTCOLORNORMAL()             do{\
-}while(0)
-
-#endif
-
-
-#endif  //color
-
-//} memory simulator namespace
+static SimObj* get_initiator(ST_request* req)
+{
+    assert(req->curinitiator > 0);
+    return req->initiatortable[req->curinitiator - 1];
 }
 
-#endif  //headerfile
+static void pop_initiator(ST_request* req)
+{
+    assert(req->curinitiator > 0);
+    --req->curinitiator;
+}
+
+}
+
+#endif
 

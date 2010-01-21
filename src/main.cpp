@@ -10,7 +10,6 @@
 # include "CMLink.h"
 # include "coma/simlink/th.h"
 # include "coma/simlink/linkmgs.h"
-# include "memdump.h"
 
 const char* semaphore_journal = "/tmp/simx-sem-journal";
 #else
@@ -20,7 +19,7 @@ const char* semaphore_journal = "/tmp/simx-sem-journal";
 # include "RandomBankedMemory.h"
 #endif
 #include "display.h"
-#include "memstrace.h"
+#include "VirtualMemory.h"
 
 #include "config.h"
 #include "loader.h"
@@ -47,22 +46,6 @@ using namespace Simulator;
 using namespace std;
 #ifdef ENABLE_COMA
 using namespace MemSim;
-
-static bool dump(const char* pstr, bool bforce)
-{
-    ofstream dumpfile(pstr, ofstream::binary);
-    if (dumpfile.fail())
-    {
-        cerr << "dump: cannot open dump file " << pstr << endl;
-        dumpfile.close();
-        return false;
-    }
-
-    dumpcacheandmemory(dumpfile, bforce);
-
-    dumpfile.close();
-    return true;
-}
 #endif
 
 
@@ -292,7 +275,7 @@ public:
 
     void PrintFamilyCompletions(std::ostream& os) const
     {
-        CycleNo first = UINT64_MAX;
+        CycleNo first = numeric_limits<CycleNo>::max();
         CycleNo last  = 0;
         for (size_t i = 0; i < m_procs.size(); ++i) {
             CycleNo cycle = m_procs[i]->GetLocalFamilyCompletion();
@@ -319,10 +302,9 @@ public:
         PrintFamilyCompletions(os);
         PrintAllFamilyCompletions(os);
 #ifdef ENABLE_COMA
-        os << LinkMGS::s_oLinkConfig.m_nProcLink << "\t# COMA: nProcLink" << endl
-           << LinkMGS::s_oLinkConfig.m_nProcMGS << "\t# COMA: number of connected cores" << endl
-           << LinkMGS::s_oLinkConfig.m_nCache << "\t# COMA: number of L2 caches" << endl
-           << LinkMGS::s_oLinkConfig.m_nDirectory << "\t# COMA: number of first-level directories" << endl
+        os << LinkMGS::s_oLinkConfig.m_nProcs << "\t# COMA: number of connected cores" << endl
+           << LinkMGS::s_oLinkConfig.m_nProcessorsPerCache << "\t# COMA: number of processors per L2 cache" << endl
+           << LinkMGS::s_oLinkConfig.m_nCachesPerDirectory << "\t# COMA: number of L2 caches per directory" << endl
            << g_uMemoryAccessesL << "\t# COMA: number of DDR load reqs (total)" << endl
            << g_uMemoryAccessesS << "\t# COMA: number of DDR store reqs (total)" << endl
            << g_uHitCountL << "\t# COMA: number of L2 cache load hits (total)" << endl
@@ -493,7 +475,7 @@ public:
         
 #ifdef ENABLE_COMA
         m_objects.resize(numProcessors * 2 + numFPUs);
-        m_pmemory = new CMLink*[LinkMGS::s_oLinkConfig.m_nProcLink];
+        m_pmemory = new CMLink*[LinkMGS::s_oLinkConfig.m_nProcs];
 #else
         string memory_type = config.getString("MemoryType", "");
         std::transform(memory_type.begin(), memory_type.end(), memory_type.begin(), ::toupper);
@@ -548,9 +530,7 @@ public:
 #ifdef ENABLE_COMA
                 stringstream namem;
                 namem << "memory" << pid;
-                if (pid >= LinkMGS::s_oLinkConfig.m_nProcLink)
-                { std::cerr << "Too many memory links!" << std::endl; exit(1); }
-                m_pmemory[pid] = new CMLink(namem.str(), *this, config, g_pLinks[i], g_pMemoryDataContainer);
+                m_pmemory[pid] = new CMLink(namem.str(), *this, config, g_pLinks[i]);
                 if (pid == 0)
                     m_memory = m_pmemory[0];
                 m_procs[pid]   = new Processor(name.str(), *this, pid, i, m_procs, m_procs.size(), *m_places[p], *m_pmemory[pid], display, fpu, config);  
@@ -921,12 +901,6 @@ static void PrintUsage(const char* cmd)
         "  -F<X> VALUE              Store the float VALUE in the specified FP register.\n"
         "  -L<X> FILE               Load the contents of FILE after the program in memory\n" 
         "                           and store the address in the specified register.\n" 
-#ifdef ENABLE_COMA
-        "COMA-related options:\n"
-        "     --ddr FILE            Read DDR channel configurations from FILE.\n"
-        "     --verbose N           Set memory verbosity level to N.\n" 
-        "     --memlog FILE         Output memory log to FILE.\n"
-#endif
         "Other options:\n"
         "  -h, --help               Print this help, then exit.\n"
         "      --version            Print version information, then exit.\n"
@@ -936,10 +910,6 @@ static void PrintUsage(const char* cmd)
 
 struct ProgramConfig
 {
-#ifdef ENABLE_COMA
-    unsigned           m_ncache;
-    unsigned           m_ndirectory;
-#endif
     string             m_programFile;
     string             m_configFile;
     bool               m_interactive;
@@ -958,10 +928,6 @@ static void ParseArguments(int argc, const char ** argv, ProgramConfig& config
 #endif
     )
 {
-#ifdef ENABLE_COMA
-    config.m_ncache = 0;
-    config.m_ndirectory = 0xffff;
-#endif
     config.m_configFile = MGSIM_CONFIG_PATH;
     config.m_interactive = false;
     config.m_terminate = false;
@@ -987,11 +953,6 @@ static void ParseArguments(int argc, const char ** argv, ProgramConfig& config
         else if (arg == "--version")                    { PrintVersion(); exit(0); }
         else if (arg == "-h" || arg == "--help")        { PrintUsage(argv[0]); exit(0); }
         else if (arg == "-d" || arg == "--dumpconf")    config.m_dumpconf    = true;
-#ifdef ENABLE_COMA
-        else if (arg == "--ddr")        lkconfig.m_sDDRXML = argv[++i];
-        else if (arg == "--verbose")                    {lkconfig.m_nDefaultVerbose = atoi(argv[++i]);}
-        else if (arg == "--memlog")                     {lkconfig.m_pGlobalLogFile = (char*)argv[++i];}
-#endif
         else if (arg == "-o" || arg == "--override")
         {
             if (argv[++i] == NULL) {
@@ -1111,92 +1072,32 @@ static void PrintException(ostream& out, const exception& e)
 #ifdef ENABLE_COMA
 void ConfigureCOMA(ProgramConfig& config, Config& configfile, LinkConfig& lkconfig) 
 {
-    PSize numProcessors = 0;
-
-    // Get total number of cores:
-    const vector<PSize> placeSizes = 
-        configfile.getIntegerList<PSize>("NumProcessors");
+    // Get total number of cores
+    lkconfig.m_nProcs = 0;
+    const vector<PSize> placeSizes = configfile.getIntegerList<PSize>("NumProcessors");
     for (size_t i = 0; i < placeSizes.size(); ++i) 
-        numProcessors += placeSizes[i];
-    lkconfig.m_nProcMGS = numProcessors;
+        lkconfig.m_nProcs += placeSizes[i];
 
     // Get cache and directory configuration:
-    size_t ncache = 
-        configfile.getInteger<size_t>("NumCaches", 
-                                      (numProcessors >= 4) ? (numProcessors / 4) : 1);
-    size_t ndir = configfile.getInteger<size_t>("NumDirectories", ncache / 8);
-    lkconfig.m_nLineSize = configfile.getInteger<size_t> ("CacheLineSize", 64);
-  
-    if (lkconfig.m_nProcLink < lkconfig.m_nProcMGS) {
-        cerr << "warning: nProcLink (" 
-             << lkconfig.m_nProcLink
-             << ") < NumProcessors, adjusting nProcLink" 
-             << endl;
-        lkconfig.m_nProcLink = lkconfig.m_nProcMGS;
-    }
-    if (lkconfig.m_nProcLink < ncache) {
-        cerr << "warning: NumCaches (" << ncache
-             << ") > nProcLink (" 
-             << lkconfig.m_nProcLink 
-             << "), adjusting NumCaches" 
-             << endl;
-        ncache = lkconfig.m_nProcLink;
-    }
-    lkconfig.m_nCache = ncache;
+    lkconfig.m_nCachesPerDirectory = configfile.getInteger<size_t>("NumCachesPerDirectory", 8);
+    lkconfig.m_nProcessorsPerCache = configfile.getInteger<size_t>("NumProcessorsPerCache", 4);
+    lkconfig.m_nNumRootDirs        = configfile.getInteger<size_t>("NumRootDirectories", 4); 
+    lkconfig.m_nMemoryChannels     = configfile.getInteger<size_t>("NumMemoryChannels", lkconfig.m_nNumRootDirs);
 
-    if (ncache < ndir) {
-        cerr << "warning: NumDirectories (" 
-             << ndir 
-             << ") > NumCaches (" 
-             << ncache 
-             << "), adjusting NumDirectories" 
-             << endl;
-        ndir = ncache;
-    }
-    lkconfig.m_nDirectory = ndir;
+    lkconfig.m_nLineSize           = configfile.getInteger<size_t>("CacheLineSize", 64);
 
-    lkconfig.m_nSplitRootNumber = 
-        configfile.getInteger<size_t>("NumSplitRootDirectories", 4); 
-    lkconfig.m_nMemoryChannelNumber = 
-        configfile.getInteger<size_t>("NumMemoryChannels", 
-                                      lkconfig.m_nSplitRootNumber);
-
-    // Check DDR configuration:
-  
-    lkconfig.m_nDDRConfigID = 
-        configfile.getInteger<size_t>("DDRConfiguration", 0);
-  
-    lkconfig.m_nChannelInterleavingScheme = 
-        configfile.getInteger<size_t>("ChannelInterleavingScheme", 0);
-
-    // Cache properties:
-  
-    lkconfig.m_nCacheAccessTime = 
-        configfile.getInteger<size_t>("L2CacheDelay", 2);
-    lkconfig.m_nCacheAssociativity = 
-        configfile.getInteger<size_t>("L2CacheAssociativity", 4);
-    lkconfig.m_nCacheSet = 
-        configfile.getInteger<size_t>("L2CacheNumSets", 128);
-
-    lkconfig.m_nInject = configfile.getBoolean("EnableCacheInjection", true);
-
-    size_t corefreq = configfile.getInteger<size_t>("CoreFreq", 1000);
-    size_t memfreq = configfile.getInteger<size_t>("DDRMemoryFreq", 800);
-
-    double ps_per_memcycle = (1./(memfreq*1e6))/1e-12;
-    double ps_per_corecycle = (1./(corefreq*1e6))/1e-12;
-
-    lkconfig.m_nCycleTimeCore = (size_t)ps_per_corecycle;
-    lkconfig.m_nCycleTimeMemory = (size_t)ps_per_memcycle;
-
-    // FIXME: maybe the following is not used anymore
-    lkconfig.m_nMemorySize = DEFAULT_DUMP_SIZE;
-
-    lkconfig.m_bConfigDone = true;
-
+    // Cache properties:  
+    lkconfig.m_nCacheAccessTime    = configfile.getInteger<size_t>("L2CacheDelay", 2);
+    lkconfig.m_nCacheAssociativity = configfile.getInteger<size_t>("L2CacheAssociativity", 4);
+    lkconfig.m_nCacheSet           = configfile.getInteger<size_t>("L2CacheNumSets", 128);
+    lkconfig.m_nInject             = configfile.getBoolean("EnableCacheInjection", true);
+    lkconfig.m_nCycleTimeCore      = 1000000 / configfile.getInteger<size_t>("CoreFreq",     1000); // ps per cycle
+    lkconfig.m_nCycleTimeMemory    = 1000000 / configfile.getInteger<size_t>("DDRMemoryFreq", 800); // ps per cycle
 }
 #endif
 
+
+Config* g_Config = NULL;
 
 #ifdef ENABLE_COMA
 int mgs_main(int argc, char const** argv)
@@ -1225,6 +1126,8 @@ int mgs_main(int argc, char const** argv)
 
         // Read configuration
         Config configfile(config.m_configFile, config.m_overrides);
+        
+        g_Config = &configfile;
 
         if (config.m_dumpconf)
         {
@@ -1251,17 +1154,9 @@ int mgs_main(int argc, char const** argv)
         // Create the system
         MGSystem sys(configfile, display, config.m_programFile, config.m_regs, config.m_loads, !config.m_interactive);
 
-#if defined(ENABLE_COMA) && defined(MEM_DATA_PREFILL)
-        sem_post(&thpara.sem_sync);
-        sem_wait(&thpara.sem_mgs);
-#endif
-
         bool interactive = config.m_interactive;
         if (!interactive)
         {
-#ifdef ENABLE_COMA
-            setverboselevel(LinkMGS::s_oLinkConfig.m_nDefaultVerbose);
-#endif
             // Non-interactive mode; run and dump cycle count
             try
             {
@@ -1401,115 +1296,12 @@ int mgs_main(int argc, char const** argv)
                             
                             string debugStr;
                             int m = sys.GetDebugMode();
-                if (m & Kernel::DEBUG_PROG)     debugStr += " program";
-                if (m & Kernel::DEBUG_SIM)      debugStr += " simulator";
-                if (m & Kernel::DEBUG_DEADLOCK) debugStr += " deadlocks";
-                if (!debugStr.size()) debugStr = " (nothing)";
-                cout << "Debugging:" << debugStr << endl;
+                            if (m & Kernel::DEBUG_PROG)     debugStr += " program";
+                            if (m & Kernel::DEBUG_SIM)      debugStr += " simulator";
+                            if (m & Kernel::DEBUG_DEADLOCK) debugStr += " deadlocks";
+                            if (!debugStr.size()) debugStr = " (nothing)";
+                            cout << "Debugging:" << debugStr << endl;
                         }
-#ifdef ENABLE_COMA
-                        else if (command == "verbose")
-                        {
-                            if (args.empty())
-                                setverboselevel(3);
-                            else
-                                setverboselevel(atoi(args[0].c_str()));
-                        }
-                        else if (command == "dump")
-                        {
-                            if (args.empty())
-                            {
-                                cout << "argument needed" << endl;
-                            }
-                            else if ((args.size() == 1) || (args[0] != "-f"))
-                            {
-                                dump(args[0].c_str(), false);
-                            }
-                            else
-                            {
-                                dump(args[1].c_str(), true);
-                            }
-                        }
-                        else if (command == "checkmem")
-                        {
-                            if (!checkcacheandmemory())
-                                cout << "checking memory failed. " << endl;
-                        }
-                        else if (command == "reviewmem")
-                        {
-                            reviewmemorysystem();
-                        }
-#ifdef MEM_MODULE_STATISTICS
-                        else if (command == "statmem")
-                        {
-                            if (args.empty())
-                            {
-                                cout << "argument needed" << endl;
-                            }
-                            else
-                            {
-                                printstatistics(args[0].c_str());
-                            }
-
-                        }
-#endif
-                        else if (command == "startmonitor")
-                        {
-                            if (!args.empty())
-                            {
-                                startmonitorfile(args[0].c_str());
-                            }
-                        }
-                        else if (command == "stopmonitor")
-                        {
-                            stopmonitorfile();
-                        }
-                        else if (command == "monitor")
-                        {
-                            if (args.empty())
-                            {
-                            }
-                            else
-                            {
-                                char *pend;
-                                monitormemoryaddress((uint64_t)strtol(args[0].c_str(), &pend, 0));    // 2FIX_64
-                            }
-                        }
-                        else if (command == "automonitor")
-                        {
-                            if (args.empty())
-                            {}
-                            else
-                            {
-                                char *pend;
-                                automonitoraddress((uint64_t)strtol(args[0].c_str(), &pend, 0));    // 2FIX_64
-                            }
-                        }
-                        else if (command == "traceaddr")
-                        {
-                            if (args.empty())
-                            {}
-                            else
-                            {
-                                char *pend;
-                                settraceaddress((uint64_t)strtol(args[0].c_str(), &pend, 0));
-                            }
-                        }
-                        else if (command == "tracep")
-                        {
-                            if (args.empty())
-                            {}
-                            else
-                                tracepid(atoi(args[0].c_str()));
-                        }
-                        else if (command == "tracet")
-                        {
-                            if (args.empty())
-                            {}
-                            else
-                                tracetid(atoi(args[0].c_str()));
-                        }
-#endif
                         else
                         {
                             ExecuteCommand(sys, command, args);

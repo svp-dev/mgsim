@@ -27,7 +27,7 @@ private:
     unsigned int m_nSize;
 
 public:
-    MergeStoreBuffer(unsigned int size) : SimObj("MergeStoreBuffer"), m_fabLines(size), m_nSize(size)
+    MergeStoreBuffer(unsigned int size) : m_fabLines(size), m_nSize(size)
     {
         m_pvecRequestQueue = (vector<ST_request*>**)malloc(sizeof(vector<ST_request*>*)*size);
         m_ppData = (char**)malloc(sizeof(char*)*size);

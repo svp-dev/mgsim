@@ -50,19 +50,12 @@ bool DDRChannel::ScheduleRequest(ST_request* req)
 
 void DDRChannel::FunRead(ST_request* req)
 {
-#if defined(TEMP_BASIC_DEBUG) && ((TEMP_BASIC_DEBUG & TEMP_BASIC_DEBUG_MM) == TEMP_BASIC_DEBUG_MM)
-    cout << "memory container [r] " << hex << (unsigned int)m_pMemoryDataContainer << " @" << req->getlineaddress() << " # " << req->nsize << dec << endl;
-#endif
-
-#ifdef SIMULATE_DATA_TRANSACTION
     // always fetch the whole line size
-    unsigned int linesize = g_nCacheLineSize;
     char * tempdata = (char*)malloc(g_nCacheLineSize);
-    m_pMemoryDataContainer->Fetch(req->getlineaddress(), linesize, tempdata);
+    m_pMemoryDataContainer.Read(req->getlineaddress(), tempdata, g_nCacheLineSize);
 
     // JXXX JONY ?? should update the memory data if it's read exclusive?
     // update
-#ifdef TOKEN_COHERENCE
     if ((req->type == REQUEST_ACQUIRE_TOKEN_DATA) && (req->tokenrequested == CacheState::GetTotalTokenNum()))
     {
         for (unsigned int i=0;i<CACHE_BIT_MASK_WIDTH;i++)
@@ -81,19 +74,12 @@ void DDRChannel::FunRead(ST_request* req)
         }
     }
 
-    memcpy(req->data, tempdata, linesize);
+    memcpy(req->data, tempdata, g_nCacheLineSize);
 
-
-#endif
-
-#ifndef TOKEN_COHERENCE
-    if (req->type != REQUEST_REMOTE_READ_EXCLUSIVE)
-#else
     if ((req->type == REQUEST_ACQUIRE_TOKEN_DATA) && (req->tokenrequested < CacheState::GetTotalTokenNum()))
-#endif
     {
         req->offset = 0;
-        req->nsize = linesize;
+        req->nsize = g_nCacheLineSize;
 
     }
 
@@ -102,17 +88,6 @@ void DDRChannel::FunRead(ST_request* req)
 
     free(tempdata);
 
-#endif
-
-#ifndef TOKEN_COHERENCE
-	if (req->type == REQUEST_REMOTE_READ_SHARED)
-		req->type = REQUEST_REMOTE_SHARED_READ_REPLY;
-	else if (req->type == REQUEST_REMOTE_READ_EXCLUSIVE)
-		req->type = REQUEST_REMOTE_EXCLUSIVE_READ_REPLY;
-	else
-		assert(false);
-#else
-#ifdef MEMSIM_DIRECTORY_REQUEST_COUNTING
     if (req->bprocessed)
     {
         assert(!req->dataavailable);
@@ -120,8 +95,6 @@ void DDRChannel::FunRead(ST_request* req)
         req->dataavailable = true;
     }
     else
-#endif
-
 	     assert (req->type == REQUEST_ACQUIRE_TOKEN_DATA);
     {
         // if (req->tokenacquired > 0)
@@ -132,43 +105,15 @@ void DDRChannel::FunRead(ST_request* req)
         req->dataavailable = true;
         req->bpriority = true;
     }
-#endif
-
-    LOG_VERBOSE_BEGIN(VERBOSE_STATE)
-        clog << LOGN_HEAD_OUTPUT << "read done address@" << FMT_ADDR(req->getreqaddress()) << ", " << FMT_DTA(req->data[0]) << " returned." << endl;
-        print_request(req);
-    LOG_VERBOSE_END
 }
 
 void DDRChannel::FunWrite(ST_request* req)
 {
-  assert (req->nsize <= g_nCacheLineSize);
-
-#ifdef SIMULATE_DATA_TRANSACTION
-#if defined(TEMP_BASIC_DEBUG) && ((TEMP_BASIC_DEBUG & TEMP_BASIC_DEBUG_MM) == TEMP_BASIC_DEBUG_MM)
-    cout << "memory container [w] " << hex << (unsigned int)m_pMemoryDataContainer << dec << "{" << req->getlineaddress() << "," << req->getreqaddress() << "}" << endl;
-#endif
-
-#ifdef TOKEN_COHERENCE
+    assert (req->nsize <= g_nCacheLineSize);
     assert(req->type == REQUEST_DISSEMINATE_TOKEN_DATA);
-#else
-    assert(req->type == REQUEST_WRITE_BACK);
-#endif
-
     assert(req->nsize == g_nCacheLineSize);
 
-    //m_pMemoryDataContainer->Update(req->getreqaddress(), req->nsize*sizeof(UINT32), (char*)req->data);     // 32 bit alert
-    m_pMemoryDataContainer->Update(req->getlineaddress(), req->nsize, (char*)req->data);     // 32 bit alert
-
-    //m_pMemoryDataContainer->Verify(req->getreqaddress(), req->nsize*sizeof(UINT32), (char*)req->data);     // 32 bit alert
-#endif
-
-// JONYXXX
-//    req->type = MemoryState::REQUEST_WRITE_REPLY_X;
-
-LOG_VERBOSE_BEGIN(VERBOSE_STATE)
-    clog << LOGN_HEAD_OUTPUT << "write done address " << FMT_ADDR(req->getreqaddress()) << " with " << FMT_DTA(req->data[0]) << endl;
-LOG_VERBOSE_END
+    m_pMemoryDataContainer.Write(req->getlineaddress(), req->data, req->nsize); // 32 bit alert
 }
 
 
@@ -176,32 +121,14 @@ void DDRChannel::ProcessRequest(ST_request *req)
 {
     MemoryState::REQUEST reqtype = req->type;
 
-LOG_VERBOSE_BEGIN(VERBOSE_DETAIL)
-            clog << LOGN_HEAD_OUTPUT << "process request " << endl;
-            print_request(req);
-LOG_VERBOSE_END
-
     // handle request
     switch (reqtype)
     {
-#ifndef TOKEN_COHERENCE
-    case MemoryState::REQUEST_READ:
-    case MemoryState::REQUEST_READ_REDIRECT:
-    case MemoryState::REQUEST_REMOTE_READ_SHARED:
-    case MemoryState::REQUEST_REMOTE_READ_EXCLUSIVE:
-#else
     case MemoryState::REQUEST_ACQUIRE_TOKEN_DATA:
-#endif
         g_uMemoryAccessesL++;
         FunRead(req);
         break;
-#ifndef TOKEN_COHERENCE
-    case MemoryState::REQUEST_WRITE:
-    case MemoryState::REQUEST_WRITE_REDIRECT:
-    case MemoryState::REQUEST_WRITE_BACK:
-#else
     case MemoryState::REQUEST_DISSEMINATE_TOKEN_DATA:
-#endif
         g_uMemoryAccessesS++;
 
         FunWrite(req);
@@ -248,10 +175,6 @@ void DDRChannel::ExecuteCycle()
 
         if (req->type == MemoryState::REQUEST_DISSEMINATE_TOKEN_DATA)
         {
-            LOG_VERBOSE_BEGIN(VERBOSE_STATE)
-                clog << LOGN_HEAD_OUTPUT << "write back request terminated" << endl;
-            LOG_VERBOSE_END
-
             // terminate and delete the eviction request
             delete req;
         }
@@ -263,59 +186,29 @@ void DDRChannel::ExecuteCycle()
     }
 }
 
-
-void DDRMemorySys::SendRequests()
+void DDRMemorySys::Behavior()
 {
-    for (unsigned int i=0;i<m_nOpChannels;i++)
+    // check incoming request
+    ST_request* req_incoming = (m_pfifoReqIn.num_available_fast() <= 0)?NULL:(m_pfifoReqIn.read());
+    if (req_incoming != NULL)
     {
-        ST_request* req = m_pChannels[i]->GetOutputRequest();
+        // dispatch it to the channel
+        m_channel.InsertRequest(req_incoming);
+    }
 
-        if (req != NULL)
+    // execute cycle
+    m_channel.ExecuteCycle();
+
+    // get the reply request. and send them over network interface
+    ST_request* req = m_channel.GetOutputRequest();
+    if (req != NULL)
+    {
+        // send reply transaction
+        if (channel_fifo_slave.nb_write(req))
         {
-            // send reply transaction
-            if (!channel_fifo_slave.nb_write(req))
-            {
-    LOG_VERBOSE_BEGIN(VERBOSE_DETAIL)
-                clog << LOGN_HEAD_OUTPUT << "feedback transaction sent failed, wait for the next cycle" << endl;
-    LOG_VERBOSE_END
-                continue;
-            }
-
-            m_pChannels[i]->PopOutputRequest();
+            m_channel.PopOutputRequest();
         }
     }
 }
 
-void DDRMemorySys::Behavior()
-{
-    // check incoming request
-    ST_request* req_incoming = (m_pfifoReqIn->num_available_fast() <= 0)?NULL:(m_pfifoReqIn->read());
-
-    if (req_incoming != NULL)
-    {
-        LOG_VERBOSE_BEGIN(VERBOSE_DETAIL)
-            clog << LOGN_HEAD_OUTPUT << "request in " << FMT_ADDR(req_incoming->getreqaddress()) << endl;
-            clog << "\t"; print_request(req_incoming);
-        LOG_VERBOSE_END
-
-        // dispatch them to the appropriate channel
-        InsertRequest(req_incoming);
-
-    }
-
-    // execute cycle
-    for (unsigned int i=0;i<m_nOpChannels;i++)
-    {
-        m_pChannels[i]->ExecuteCycle();
-    }
-
-    // get the reply request. and send them over network interface
-    SendRequests();
-
-    // collect finished requests and dispatch them.
-
 }
-
-}
-
-

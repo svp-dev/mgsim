@@ -2,41 +2,42 @@
 #define _NETWORK_H
 
 #include "predef.h"
+#include "network_node.h"
 
-#include "network_port.h"
-
-namespace MemSim{
-//{ memory simulator namespace
-//////////////////////////////
-
-
-class Network : public sc_module, public SimObj
+namespace MemSim
 {
 
-public:
-    // ports
-    sc_in_clk port_clk;
-    Network_port port_net;
+class Network
+{
+    sc_clock& m_clock;
+    
+protected:
+    std::vector<Network_Node*> m_vecLpNode;
 
 public:
-    SC_HAS_PROCESS(Network);
-    Network(sc_module_name nm) : sc_module(nm)
+    Network(sc_clock& clock) : m_clock(clock)
     {
-        port_net.SetClockPort(&port_clk);
     }
 
-    void ConnectNetwork(){port_net.ConnectNodes();};
-
-    virtual void InitializeLog(const char* logName, LOG_LOCATION ll, VERBOSE_LEVEL verbose = VERBOSE_DEFAULT)
+    void ConnectNetwork()
     {
-        SimObj::InitializeLog(logName, ll, verbose);
+        for (size_t i = 1; i < m_vecLpNode.size(); ++i)
+        {
+            m_vecLpNode[i - 1]->m_fifoNetOut(m_vecLpNode[i]->m_fifoNetIn);
+        }
+        m_vecLpNode.back()->m_fifoNetOut(m_vecLpNode[0]->m_fifoNetIn);
+    }
 
-        port_net.InitializeLog(logName, ll, verbose);
+    void operator () (Network_if& interface_)
+    {
+        // bind interface with network port
+        char sname[100];
+        sprintf(sname, "%p_node%lu", this, (unsigned long)m_vecLpNode.size());
+        m_vecLpNode.push_back(
+            new Network_Node(sname, m_clock, interface_.GetNetworkFifo(), interface_.GetNetworkFifoOut())
+        );
     }
 };
 
-//////////////////////////////
-//} memory simulator namespace
 }
-
 #endif
