@@ -109,34 +109,32 @@ bool RegisterFile::WriteRegister(const RegAddr& addr, const RegValue& data, bool
     const RegValue& value = regs[addr.index];
     if (value.m_state != RST_FULL)
     {
-        if (value.m_state == RST_EMPTY || value.m_state == RST_PENDING)
+        if (value.m_state == RST_WAITING && data.m_state == RST_EMPTY)
         {
-            if (value.m_memory.size != 0)
+            throw SimulationException("Resetting a waiting register", *this);
+        }
+
+        if (value.m_memory.size != 0)
+        {
+            // Check that the memory information isn't changed
+            if (data.m_state              == RST_FULL ||
+                data.m_memory.fid         != value.m_memory.fid ||
+                data.m_memory.offset      != value.m_memory.offset ||
+                data.m_memory.size        != value.m_memory.size ||
+                data.m_memory.sign_extend != value.m_memory.sign_extend ||
+                data.m_memory.next        != value.m_memory.next)
             {
-                if (data.m_state == RST_WAITING)
+                if (!from_memory)
                 {
-                    // Check that the memory information isn't changed
-                    assert(data.m_memory.fid         == value.m_memory.fid);
-                    assert(data.m_memory.offset      == value.m_memory.offset);
-                    assert(data.m_memory.size        == value.m_memory.size);
-                    assert(data.m_memory.sign_extend == value.m_memory.sign_extend);
-                    assert(data.m_memory.next        == value.m_memory.next);
-                }
-                else if (!from_memory)
-                {
-                    // Only the memory can write to memory-pending registers
+                    // Only the memory can change memory-pending registers
                     throw SimulationException("Writing to a memory-load destination register", *this);
                 }
             }
-        }
-        else if (value.m_state == RST_WAITING)
+        }        
+       
+        if (data.m_state == RST_FULL)
         {
-            if (data.m_state == RST_EMPTY)
-            {
-                throw SimulationException("Resetting a waiting register", *this);
-            }
-            
-            if (data.m_state == RST_FULL && value.m_waiting.head != INVALID_TID)
+            if (value.m_state == RST_WAITING && value.m_waiting.head != INVALID_TID)
             {
                 // This write caused a reschedule
                 if (!m_allocator.ActivateThreads(value.m_waiting))
@@ -145,15 +143,15 @@ bool RegisterFile::WriteRegister(const RegAddr& addr, const RegValue& data, bool
                     return false;
                 }
             }
-        }
-        
-        if (data.m_state == RST_FULL && value.m_remote.fid != INVALID_LFID)
-        {
-            // Another processor wants this value
-            if (!m_network.SendRegister(value.m_remote, data))
+
+            if (value.m_remote.fid != INVALID_LFID)
             {
-                DeadlockWrite("Unable to send register from %s", addr.str().c_str());
-                return false;
+                // Writing data to a register that has a remote suspension. Send the data to the other processor.
+                if (!m_network.SendRegister(value.m_remote, data))
+                {
+                    DeadlockWrite("Unable to send register from %s", addr.str().c_str());
+                    return false;
+                }
             }
         }
     }
