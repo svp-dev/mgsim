@@ -6,12 +6,14 @@ namespace Simulator
 
 size_t RandomBankedMemory::GetBankFromAddress(MemAddr address) const
 {
-    // We work on whole cache lines
-    address /= m_cachelineSize;
-
-    uint64_t hash = (31 * address / m_banks.size() / 32);
-
-    return (size_t)((hash + address) % m_banks.size());
+    address &= ~(m_cachelineSize - 1);
+#if MEMSIZE_MAX >= 4294967296
+    address = address ^ ((address >> 32) | (address << (sizeof(address)*8-32)));
+#endif
+    address = address ^ ((address >> 16) | (address << (sizeof(address)*8-16)));
+    address = address ^ ((address >> 8) | (address << (sizeof(address)*8-8)));
+    address = address ^ ((address >> 4) | (address << (sizeof(address)*8-4)));
+    return address % m_banks.size();
 }
 
 RandomBankedMemory::RandomBankedMemory(const std::string& name, Object& parent, const Config& config)
