@@ -1526,51 +1526,53 @@ Result Allocator::DoThreadAllocate()
 
 Result Allocator::DoFamilyAllocate()
 {
+    // Pick an allocation queue to allocate from
+    Buffer<AllocRequest>* buffer = NULL;
+    if (!m_familyTable.IsExclusiveUsed() && !m_allocationsEx.Empty())
     {
-        // Pick an allocation queue to allocate from
-            Buffer<AllocRequest>* buffer = NULL;
-        if (!m_familyTable.IsExclusiveUsed() && !m_allocationsEx.Empty())
-        {
-            buffer = &m_allocationsEx;
-        }
-        else if (!m_allocations.Empty())
-        {
-            buffer = &m_allocations;
-        }
+        buffer = &m_allocationsEx;
+    }
+    else if (!m_allocations.Empty())
+    {
+        buffer = &m_allocations;
+    }
 
-        assert(buffer != NULL);
-            const AllocRequest& req = buffer->Front();
-            
-            if (!p_allocation.Invoke())
-            {
-            DeadlockWrite("Unable to acquire service for family allocation");
-                return FAILED;
-            }
-            
-            LFID fid = m_familyTable.AllocateFamily(buffer == &m_allocationsEx ? CONTEXT_EXCLUSIVE : CONTEXT_NORMAL);
-            if (fid == INVALID_LFID)
-            {
-                DeadlockWrite("Unable to allocate a free family entry (target R%04x)", (unsigned)req.reg);
-                return FAILED;
-            }
-            
-            // A family entry was free
-            UpdateContextAvailability();
-            SetDefaultFamilyEntry(fid, req.parent, req.bases, req.place);
+    if (buffer == NULL)
+    {
+        return FAILED;
+    }
 
-        // Writeback the FID
-        RegisterWrite write;
-            write.address = MAKE_REGADDR(RT_INTEGER, req.reg);
-            write.value.m_state   = RST_FULL;
-            write.value.m_integer = fid;
-        if (!m_registerWrites.Push(write))
-        {
-            DeadlockWrite("Unable to queue write to register R%04x", (unsigned)req.reg);
-            return FAILED;
-        }
-        buffer->Pop();
-            return SUCCESS;
-        }
+    const AllocRequest& req = buffer->Front();
+            
+    if (!p_allocation.Invoke())
+    {
+        DeadlockWrite("Unable to acquire service for family allocation");
+        return FAILED;
+    }
+            
+    LFID fid = m_familyTable.AllocateFamily(buffer == &m_allocationsEx ? CONTEXT_EXCLUSIVE : CONTEXT_NORMAL);
+    if (fid == INVALID_LFID)
+    {
+        DeadlockWrite("Unable to allocate a free family entry (target R%04x)", (unsigned)req.reg);
+        return FAILED;
+    }
+            
+    // A family entry was free
+    UpdateContextAvailability();
+    SetDefaultFamilyEntry(fid, req.parent, req.bases, req.place);
+
+    // Writeback the FID
+    RegisterWrite write;
+    write.address = MAKE_REGADDR(RT_INTEGER, req.reg);
+    write.value.m_state   = RST_FULL;
+    write.value.m_integer = fid;
+    if (!m_registerWrites.Push(write))
+    {
+        DeadlockWrite("Unable to queue write to register R%04x", (unsigned)req.reg);
+        return FAILED;
+    }
+    buffer->Pop();
+    return SUCCESS;
 }
 
 Result Allocator::DoFamilyCreate()
