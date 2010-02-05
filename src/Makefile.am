@@ -129,7 +129,6 @@ COMMON_SRC = \
 	ports.h \
 	ports.cpp \
 	range.h \
-	simreadline.h \
 	simtypes.cpp \
 	simtypes.h \
 	storage.h \
@@ -138,6 +137,12 @@ COMMON_SRC = \
 SPECIAL_SRC = \
 	ExecuteStage.cpp \
 	kernel.cpp \
+	MGSystem.h \
+	MGSystem.cpp \
+	commands.h \
+	commands.cpp \
+	simreadline.h \
+	simreadline.cpp \
 	main.cpp \
 	display.h \
 	display.cpp
