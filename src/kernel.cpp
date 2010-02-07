@@ -312,10 +312,11 @@ void Kernel::ToggleDebugMode(int flags)
     m_debugMode ^= flags;
 }
 
-Kernel::Kernel(Display& display)
+Kernel::Kernel(Display& display, SymbolTable& symtable)
  : m_debugMode(0),
    m_cycle(0),
    m_display(display),
+   m_symtable(symtable),
    m_phase(PHASE_COMMIT),
    m_process(NULL),
    m_activeProcesses(NULL),

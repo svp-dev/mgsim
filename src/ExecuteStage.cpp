@@ -1,6 +1,7 @@
 #include "Pipeline.h"
 #include "Processor.h"
 #include "display.h"
+#include "symtable.h"
 
 #include <cassert>
 #include <cmath>
@@ -181,13 +182,13 @@ void Pipeline::ExecuteStage::ExecDebug(Integer value, Integer stream) const
                                   (((value >> (2 * size / 8)) << (24 - bits)) & 0xff0000);
             if (stream & 0x10) {
                 // position: offset(16) || offset(32)
-                m_display.PutPixel(position, data);
+                GetKernel()->GetDisplay().PutPixel(position, data);
             } else {
                 // position: x(8) y(8) || x(16) y(16)
                 const unsigned int m = (1U << (size / 4)) - 1;
                 const unsigned int y = (position >> (0 * size / 4)) & m;
                 const unsigned int x = (position >> (1 * size / 4)) & m;
-                m_display.PutPixel(x, y, data);
+                GetKernel()->GetDisplay().PutPixel(x, y, data);
             }
             break;
         }
@@ -201,7 +202,7 @@ void Pipeline::ExecuteStage::ExecDebug(Integer value, Integer stream) const
             const unsigned int mask = (1U << (size / 4)) - 1;
             const unsigned int w    = (value >> (3 * size / 4)) & mask;
             const unsigned int h    = (value >> (2 * size / 4)) & mask;
-            m_display.Resize(w, h);
+            GetKernel()->GetDisplay().Resize(w, h);
             break;
         }
         
@@ -222,7 +223,7 @@ void Pipeline::ExecuteStage::ExecDebug(Integer value, Integer stream) const
             {
                 tinfo << "print by thread 0x" 
                       << std::hex << (unsigned)m_input.tid 
-                      << " at 0x" << (unsigned long long)m_input.pc
+                      << " at " << GetKernel()->GetSymbolTable()[m_input.pc]
                       << " on cycle " << std::dec << GetKernel()->GetCycleNo();
             }
             
@@ -237,12 +238,12 @@ void Pipeline::ExecuteStage::ExecDebug(Integer value, Integer stream) const
                 }
                 fname << ".ppm";
                 ofstream f(fname.str().c_str(), ios_base::out | ios_base::trunc);
-                m_display.Dump(f, value, tinfo.str());
+                GetKernel()->GetDisplay().Dump(f, value, tinfo.str());
             }
             else
             {
                 ostream& out = (outstream == 2) ? cerr : cout;
-                m_display.Dump(out, value, tinfo.str());
+                GetKernel()->GetDisplay().Dump(out, value, tinfo.str());
             }
             break;
         }
@@ -277,9 +278,9 @@ void Pipeline::ExecuteStage::ExecDebug(Integer value, Integer stream) const
 
         if (outstream == 0)
         {
-            DebugProgWrite("PRINT by T%u at 0x%.*llx: %s",
-                (unsigned)m_input.tid, (int)sizeof(m_input.pc) * 2, (unsigned long long)m_input.pc,
-                stringout.str().c_str());
+            DebugProgWrite("PRINT by T%u at %s: %s",
+                           (unsigned)m_input.tid, GetKernel()->GetSymbolTable()[m_input.pc].c_str(),
+                           stringout.str().c_str());
         }
     }
 }
@@ -303,14 +304,13 @@ void Pipeline::ExecuteStage::ExecDebug(double value, Integer stream) const
     }
 }
 
-Pipeline::ExecuteStage::ExecuteStage(Pipeline& parent, const ReadExecuteLatch& input, ExecuteMemoryLatch& output, Allocator& alloc, Network& network, ThreadTable& threadTable, Display& display, FPU& fpu, size_t fpu_source, const Config& /*config*/)
+Pipeline::ExecuteStage::ExecuteStage(Pipeline& parent, const ReadExecuteLatch& input, ExecuteMemoryLatch& output, Allocator& alloc, Network& network, ThreadTable& threadTable, FPU& fpu, size_t fpu_source, const Config& /*config*/)
   : Stage("execute", parent),
     m_input(input),
     m_output(output),
     m_allocator(alloc),
     m_network(network),
     m_threadTable(threadTable),
-    m_display(display),
     m_fpu(fpu),
     m_fpuSource(fpu_source)
 {

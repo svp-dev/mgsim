@@ -3,6 +3,7 @@
 #include "Pipeline.h"
 #include "Network.h"
 #include "config.h"
+#include "symtable.h"
 #include <cassert>
 #include <cmath>
 #include <iomanip>
@@ -321,7 +322,8 @@ bool Allocator::RescheduleThread(TID tid, MemAddr pc)
         return false;
     }
 
-    DebugSimWrite("Rescheduling thread T%u in F%u to 0x%llx", (unsigned)tid, (unsigned)thread.family, (unsigned long long)pc );
+    DebugSimWrite("Rescheduling thread T%u in F%u to %s", (unsigned)tid, (unsigned)thread.family, 
+                  GetKernel()->GetSymbolTable()[pc].c_str());
     return true;
 }
 
@@ -1109,8 +1111,8 @@ Result Allocator::OnDelegatedCreate(const DelegateMessage& msg)
         return FAILED;
     }
     
-    DebugSimWrite("Queued delegated create by F%u@CPU%u at 0x%llx",
-        (unsigned)msg.parent.fid, (unsigned)msg.parent.pid, (unsigned long long)msg.address);
+    DebugSimWrite("Queued delegated create by F%u@CPU%u at %s",
+                  (unsigned)msg.parent.fid, (unsigned)msg.parent.pid, GetKernel()->GetSymbolTable()[msg.address].c_str());
         
     return SUCCESS;
 }
@@ -1977,7 +1979,7 @@ bool Allocator::QueueCreate(LFID fid, MemAddr address, TID parent, RegIndex exit
         family.created = true;
     }
     
-    DebugSimWrite("Queued local create by T%u at 0x%llx", (unsigned)parent, (unsigned long long)address);
+    DebugSimWrite("Queued local create by T%u at %s", (unsigned)parent, GetKernel()->GetSymbolTable()[address].c_str());
     return true;
 }
 

@@ -9,7 +9,7 @@ namespace Simulator
 //
 // Processor implementation
 //
-Processor::Processor(const std::string& name, Object& parent, GPID gpid, LPID lpid, const vector<Processor*>& grid, PSize gridSize, PlaceInfo& place, IMemory& memory, Display& display, FPU& fpu, const Config& config)
+Processor::Processor(const std::string& name, Object& parent, GPID gpid, LPID lpid, const vector<Processor*>& grid, PSize gridSize, PlaceInfo& place, IMemory& memory, FPU& fpu, const Config& config)
 :   Object(name, parent),
     m_pid(gpid), m_memory(memory), m_grid(grid), m_gridSize(gridSize), m_place(place), m_fpu(fpu),
     m_localFamilyCompletion(0),
@@ -17,7 +17,7 @@ Processor::Processor(const std::string& name, Object& parent, GPID gpid, LPID lp
     m_icache      ("icache",    *this, m_allocator, config),
     m_dcache      ("dcache",    *this, m_allocator, m_familyTable, m_registerFile, config),
     m_registerFile("registers", *this, m_allocator, m_network, config),
-    m_pipeline    ("pipeline",  *this, lpid, m_registerFile, m_network, m_allocator, m_familyTable, m_threadTable, m_icache, m_dcache, display, fpu, config),
+    m_pipeline    ("pipeline",  *this, lpid, m_registerFile, m_network, m_allocator, m_familyTable, m_threadTable, m_icache, m_dcache, fpu, config),
     m_raunit      ("rau",       *this, m_registerFile, config),
     m_familyTable ("families",  *this, config),
     m_threadTable ("threads",   *this, config),

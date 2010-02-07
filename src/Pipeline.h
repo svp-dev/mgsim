@@ -23,7 +23,6 @@ class ThreadTable;
 class RegisterFile;
 class Network;
 class FPU;
-class Display;
 
 /// A (possibly multi-) register value in the pipeline
 struct PipeValue
@@ -316,7 +315,6 @@ class Pipeline : public Object
         Allocator&              m_allocator;
         Network&                m_network;
         ThreadTable&            m_threadTable;
-        Display&                m_display;
 		FPU&                    m_fpu;
 		size_t                  m_fpuSource;    // Which input are we to the FPU?
         uint64_t                m_flop;         // FP operations
@@ -341,7 +339,7 @@ class Pipeline : public Object
         PipeAction OnCycle();
         
     public:
-        ExecuteStage(Pipeline& parent, const ReadExecuteLatch& input, ExecuteMemoryLatch& output, Allocator& allocator, Network& network, ThreadTable& threadTable, Display& display, FPU& fpu, size_t fpu_source, const Config& config);
+        ExecuteStage(Pipeline& parent, const ReadExecuteLatch& input, ExecuteMemoryLatch& output, Allocator& allocator, Network& network, ThreadTable& threadTable, FPU& fpu, size_t fpu_source, const Config& config);
         
         uint64_t getFlop() const { return m_flop; }
         uint64_t getOp()   const { return m_op; }
@@ -390,11 +388,11 @@ class Pipeline : public Object
         WritebackStage(Pipeline& parent, const MemoryWritebackLatch& input, RegisterFile& regFile, Network& network, Allocator& allocator, ThreadTable& threadTable, const Config& config);
     };
 
-    static void PrintLatchCommon(std::ostream& out, const CommonData& latch);
+    void PrintLatchCommon(std::ostream& out, const CommonData& latch) const;
     static std::string MakePipeValue(const RegType& type, const PipeValue& value);
     
 public:
-    Pipeline(const std::string& name, Processor& parent, LPID lpid, RegisterFile& regFile, Network& network, Allocator& allocator, FamilyTable& familyTable, ThreadTable& threadTable, ICache& icache, DCache& dcache, Display& display, FPU& fpu, const Config& config);
+    Pipeline(const std::string& name, Processor& parent, LPID lpid, RegisterFile& regFile, Network& network, Allocator& allocator, FamilyTable& familyTable, ThreadTable& threadTable, ICache& icache, DCache& dcache, FPU& fpu, const Config& config);
     ~Pipeline();
 
     Result DoPipeline();

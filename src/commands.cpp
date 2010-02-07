@@ -204,8 +204,7 @@ void HandleCommandLine(CommandLineReader& clr,
             if (command[0] == 's')
             {
                 // Step
-                char* endptr;
-                nCycles = args.empty() ? 1 : max(1UL, strtoul(args[0].c_str(), &endptr, 0));
+                nCycles = args.empty() ? 1 : max(1UL, strtoul(args[0].c_str(), 0, 0));
             }
                 
             // Flush the history, in case something
@@ -262,6 +261,17 @@ void HandleCommandLine(CommandLineReader& clr,
             if (!debugStr.size()) debugStr = " (nothing)";
             cout << "Debugging:" << debugStr << endl;
         }
+        else if (command == "l" || command == "list")
+        {
+            if (args.empty())
+                sys.PrintAllSymbols(cout);
+            else
+                sys.PrintAllSymbols(cout, args[0]);
+        }
+        else if ((command == "f" || command == "find") && !args.empty())
+        {
+            cout << sys.GetSymbol(static_cast<MemAddr>(strtoull(args[0].c_str(), 0, 0))) << endl;
+        }
         else
         {
             ExecuteCommand(sys, command, args);
@@ -295,6 +305,7 @@ void PrintUsage(std::ostream& out, const char* cmd)
         "  -i, --interactive        Start the simulator in interactive mode.\n"
         "  -o, --override NAME=VAL  Overrides the configuration option NAME with value VAL.\n"
         "  -q, --quiet              Do not print simulation statistics after execution.\n" 
+        "  -s, --symtable FILE      Read symbol from FILE. (generate with nm -P)\n"
         "  -t, --terminate          Terminate the simulator upon an exception.\n"
         "  -R<X> VALUE              Store the integer VALUE in the specified register.\n"
         "  -F<X> VALUE              Store the float VALUE in the specified FP register.\n"
@@ -318,6 +329,8 @@ void PrintHelp(ostream& out)
         "(s)tep           Advance the system one clock cycle.\n"
         "(r)un            Run the system until it is idle or deadlocks.\n"
         "                 Livelocks will not be reported.\n"
+        "(f)ind <addr>    Find the symbol nearest to the specified address.\n"
+        "(l)ist [PAT]     List symbols matching PAT (default *).\n"
         "state            Shows the state of the system. Idle components\n"
         "                 are left out.\n"
         "debug [mode]     Show debug mode or set debug mode\n"

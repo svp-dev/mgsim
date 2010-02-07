@@ -9,6 +9,7 @@
 #include <set>
 #include <cassert>
 
+class SymbolTable;
 
 namespace Simulator
 {
@@ -100,21 +101,22 @@ public:
     };
     
 private:
-    bool        m_aborted;           ///< Should the run be aborted?
-    int		    m_debugMode;         ///< Bit mask of enabled debugging modes.
-    CycleNo     m_cycle;             ///< Current cycle of the simulation.
-    Display&    m_display;           ///< The display to manage.
-    CyclePhase  m_phase;             ///< Current sub-cycle phase of the simulation.
-    Process*    m_process;           ///< The currently executing process.
-    bool        m_debugging;         ///< Are we in a debug trace?
+    bool         m_aborted;           ///< Should the run be aborted?
+    int		 m_debugMode;         ///< Bit mask of enabled debugging modes.
+    CycleNo      m_cycle;             ///< Current cycle of the simulation.
+    Display&     m_display;           ///< The display to manage.
+    SymbolTable& m_symtable;          ///< The symbol table for debugging.
+    CyclePhase   m_phase;             ///< Current sub-cycle phase of the simulation.
+    Process*     m_process;           ///< The currently executing process.
+    bool         m_debugging;         ///< Are we in a debug trace?
 
-    Process*    m_activeProcesses;   ///< List of processes that need to be run.
-    Storage*    m_activeStorages;    ///< List of storages that need to be updated.
-    Arbitrator* m_activeArbitrators; ///< List of arbitrators that need arbitration.
+    Process*     m_activeProcesses;   ///< List of processes that need to be run.
+    Storage*     m_activeStorages;    ///< List of storages that need to be updated.
+    Arbitrator*  m_activeArbitrators; ///< List of arbitrators that need arbitration.
 
     bool UpdateStorages();
 public:
-    Kernel(Display& display);
+    Kernel(Display& display, SymbolTable& symtable);
     ~Kernel();
     
     /**
@@ -206,6 +208,9 @@ public:
      * @return a constant reference to the list of all components.
      */
 	//const ComponentList& GetComponents() const { return m_components; }
+
+    inline Display& GetDisplay() const { return m_display; }
+    inline SymbolTable& GetSymbolTable() const { return m_symtable; }
 };
 
 /**

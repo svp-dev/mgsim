@@ -7,6 +7,7 @@
 #include "Allocator.h"
 #include "Memory.h"
 #include "config.h"
+#include "symtable.h"
 
 #include <vector>
 #include <utility>
@@ -23,6 +24,7 @@ namespace Simulator {
         Kernel             m_kernel;
         IMemoryAdmin*      m_memory;
         void*              m_pmemory;  // Will be used by CMLink if COMA is enabled.
+        SymbolTable        m_symtable;
 
         // Writes the current configuration into memory and returns its address
         MemAddr WriteConfiguration(const Config& config);
@@ -36,6 +38,9 @@ namespace Simulator {
         uint64_t GetOp() const;
         uint64_t GetFlop() const;
 
+        std::string GetSymbol(MemAddr addr) const;
+
+        void PrintAllSymbols(std::ostream& os, const std::string& pat = "*") const;
         void PrintMemoryStatistics(std::ostream& os) const;
         void PrintState(const std::vector<std::string>& arguments) const;
         void PrintRegFileAsyncPortActivity(std::ostream& os) const;
@@ -57,6 +62,7 @@ namespace Simulator {
         void Abort() { GetKernel().Abort(); }
     
         MGSystem(const Config& config, Display& display, const std::string& program,
+                 const std::string& symtable,
                  const std::vector<std::pair<RegAddr, RegValue> >& regs,
                  const std::vector<std::pair<RegAddr, std::string> >& loads,
                  bool quiet);

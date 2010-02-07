@@ -2,6 +2,8 @@
 #include "Processor.h"
 #include "FPU.h"
 #include "config.h"
+#include "symtable.h"
+
 #include <limits>
 #include <cassert>
 #include <iomanip>
@@ -28,7 +30,6 @@ Pipeline::Pipeline(
     ThreadTable&        threadTable,
     ICache&             icache,
     DCache&             dcache,
-    Display&            display,
     FPU&                fpu,
     const Config&       config)
 :
@@ -67,7 +68,7 @@ Pipeline::Pipeline(
     std::vector<BypassInfo> bypasses;
 
     // Create the Execute stage
-    m_stages[3].stage  = new ExecuteStage(*this, m_reLatch, m_emLatch, alloc, network, threadTable, display, fpu, fpu.RegisterSource(regFile), config);
+    m_stages[3].stage  = new ExecuteStage(*this, m_reLatch, m_emLatch, alloc, network, threadTable, fpu, fpu.RegisterSource(regFile), config);
     m_stages[3].input  = &m_reLatch;
     m_stages[3].output = &m_emLatch;
     bypasses.push_back(BypassInfo(m_emLatch.empty, m_emLatch.Rc, m_emLatch.Rcv));
@@ -214,7 +215,8 @@ Result Pipeline::DoPipeline()
         {
             // Add details about thread, family and PC
             stringstream details;
-            details << "While executing instruction at 0x" << setw(sizeof(MemAddr) * 2) << setfill('0') << hex << stage->input->pc_dbg
+            details << "While executing instruction at " << GetKernel()->GetSymbolTable()[stage->input->pc_dbg] 
+                        // "0x" << setw(sizeof(MemAddr) * 2) << setfill('0') << hex << stage->input->pc_dbg
                     << " in T" << dec << stage->input->tid << " in F" << stage->input->fid;
             e.AddDetails(details.str());
         }
@@ -259,11 +261,11 @@ void Pipeline::Cmd_Help(std::ostream& out, const std::vector<std::string>& /*arg
     "  Reads and displays the stages and latches.\n";
 }
 
-/*static*/ void Pipeline::PrintLatchCommon(std::ostream& out, const CommonData& latch)
+void Pipeline::PrintLatchCommon(std::ostream& out, const CommonData& latch) const
 {
     out << " | LFID: F"  << dec << latch.fid
         << "    TID: T"  << dec << latch.tid << right
-        << "    PC: 0x" << hex << setw(sizeof(MemAddr) * 2) << setfill('0') << latch.pc
+        << "    PC: " << GetKernel()->GetSymbolTable()[latch.pc] // "0x" << hex << setw(sizeof(MemAddr) * 2) << setfill('0') << latch.pc
         << "    Annotation: " << ((latch.kill) ? "End" : (latch.swch ? "Switch" : "None")) << endl
         << " |" << endl;
 }
@@ -409,7 +411,8 @@ void Pipeline::Cmd_Read(std::ostream& out, const std::vector<std::string>& /*arg
         else
         {
             out << " | Operation: " << (m_emLatch.Rcv.m_state == RST_FULL ? "Store" : "Load") << endl
-                << " | Address:   0x" << hex << setw(sizeof(MemAddr) * 2) << setfill('0') << m_emLatch.address << endl
+                << " | Address:   0x" << hex << setw(sizeof(MemAddr) * 2) << setfill('0') << m_emLatch.address 
+                << " " << GetKernel()->GetSymbolTable()[m_emLatch.address] << endl
                 << " | Size:      " << dec << m_emLatch.size << " bytes" << endl;
         }
     }

@@ -131,6 +131,8 @@ COMMON_SRC = \
 	range.h \
 	simtypes.cpp \
 	simtypes.h \
+	symtable.h \
+	symtable.cpp \
 	storage.h \
 	types.h
 

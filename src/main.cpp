@@ -32,6 +32,7 @@ struct ProgramConfig
 {
     string             m_programFile;
     string             m_configFile;
+    string             m_symtableFile;
     bool               m_interactive;
     bool               m_terminate;
     bool               m_dumpconf;
@@ -70,6 +71,7 @@ static void ParseArguments(int argc, const char ** argv, ProgramConfig& config
         else if (arg == "-i" || arg == "--interactive") config.m_interactive = true;
         else if (arg == "-t" || arg == "--terminate")   config.m_terminate   = true;
         else if (arg == "-q" || arg == "--quiet")       config.m_quiet       = true;
+        else if (arg == "-s" || arg == "--symtable")    config.m_symtableFile = argv[++i];
         else if (arg == "--version")                    { PrintVersion(std::cout); exit(0); }
         else if (arg == "-h" || arg == "--help")        { PrintUsage(std::cout, argv[0]); exit(0); }
         else if (arg == "-d" || arg == "--dumpconf")    config.m_dumpconf    = true;
@@ -223,7 +225,8 @@ int mgs_main(int argc, char const** argv)
 
         // Create the system
         MGSystem sys(configfile, display, 
-                     config.m_programFile, config.m_regs, config.m_loads, !config.m_interactive);
+                     config.m_programFile, config.m_symtableFile,
+                     config.m_regs, config.m_loads, !config.m_interactive);
 
         bool interactive = config.m_interactive;
         if (!interactive)
