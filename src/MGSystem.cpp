@@ -16,6 +16,7 @@
 // For Tokenize:
 #include "simreadline.h"
 
+#include <cstdlib>
 #include <iomanip>
 #include <iostream>
 #include <fstream>
@@ -363,13 +364,23 @@ void MGSystem::PrintAllSymbols(ostream& o, const string& pat) const
     m_symtable.Write(o, pat);
 }
 
+void MGSystem::Disassemble(MemAddr addr, size_t sz) const
+{
+    ostringstream cmd;
+
+    cmd << m_objdump_cmd << " -d -r --prefix-addresses --show-raw-insn --start-address=" << addr
+        << " --stop-address=" << addr + sz << " " << m_program;
+    system(cmd.str().c_str());
+}
+
 MGSystem::MGSystem(const Config& config, Display& display, const string& program,
                    const string& symtable,
                    const vector<pair<RegAddr, RegValue> >& regs,
                    const vector<pair<RegAddr, string> >& loads,
                    bool quiet)
     : Object("system", m_kernel),
-      m_kernel(display, m_symtable)
+      m_kernel(display, m_symtable),
+      m_program(program)
 {
     const vector<PSize> placeSizes = config.getIntegerList<PSize>("NumProcessors");
     const size_t numProcessorsPerFPU_orig = max<size_t>(1, config.getInteger<size_t>("NumProcessorsPerFPU", 1));
@@ -542,6 +553,19 @@ MGSystem::MGSystem(const Config& config, Display& display, const string& program
         ifstream in(symtable.c_str(), ios::in);
         m_symtable.Read(in);
     }
+
+    // Find objdump command
+#if TARGET_ARCH == ARCH_ALPHA
+    const char *default_objdump = "mtalpha-linux-gnu-objdump";
+    const char *objdump_var = "MTALPHA_OBJDUMP";
+#endif
+#if TARGET_ARCH == ARCH_SPARC
+    const char *default_objdump = "mtsparc-leon-linux-objdump";
+    const char *objdump_var = "MTSPARC_OBJDUMP";
+#endif
+    const char *v = getenv(objdump_var);
+    if (!v) v = default_objdump;
+    m_objdump_cmd = v;
 }
 
 MGSystem::~MGSystem()

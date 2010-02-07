@@ -261,6 +261,17 @@ void HandleCommandLine(CommandLineReader& clr,
             if (!debugStr.size()) debugStr = " (nothing)";
             cout << "Debugging:" << debugStr << endl;
         }
+        else if ((command == "d" || command == "dis" || command == "disasm") && !args.empty())
+        {
+            MemAddr addr = strtoull(args[0].c_str(), 0, 0);
+            size_t sz = 0;
+            if (args.size() > 1)
+                sz = strtoul(args[1].c_str(), 0, 0);
+            if (sz)
+                sys.Disassemble(addr, sz);
+            else
+                sys.Disassemble(addr);
+        }
         else if (command == "l" || command == "list")
         {
             if (args.empty())
@@ -330,6 +341,7 @@ void PrintHelp(ostream& out)
         "(r)un            Run the system until it is idle or deadlocks.\n"
         "                 Livelocks will not be reported.\n"
         "(f)ind <addr>    Find the symbol nearest to the specified address.\n"
+        "(d)isasm <addr>  Disassemble program from this address.\n"
         "(l)ist [PAT]     List symbols matching PAT (default *).\n"
         "state            Shows the state of the system. Idle components\n"
         "                 are left out.\n"
