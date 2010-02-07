@@ -179,7 +179,7 @@ void SymbolTable::Read(std::istream& i)
     if (!nread)
         cerr << "#warning: no symbols read." << endl;
     else
-        cout << "# " << nread << " symbols loaded." << endl;
+        clog << "# " << nread << " symbols loaded." << endl;
 
     sort(m_entries.begin(), m_entries.end());
     m_cache.clear();
