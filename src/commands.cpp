@@ -35,10 +35,27 @@ public:
     virtual ~bind_cmd() {}
 };
 
+// Const version
 template <typename T>
-class bind_cmd_T : public bind_cmd
+class bind_cmd_C : public bind_cmd
 {
     typedef void (T::*func_t)(std::ostream& out, const std::vector<std::string>& arguments) const;
+    func_t m_func;
+public:
+    bool call(std::ostream& out, Object* obj, const std::vector<std::string>& arguments) const {
+        const T* o = dynamic_cast<T*>(obj);
+        if (o == NULL) return false;
+        (o->*m_func)(out, arguments);
+        return true;
+    }
+    bind_cmd_C(const func_t& func) : m_func(func) {}
+};
+
+// Non-const version
+template <typename T>
+class bind_cmd_NC : public bind_cmd
+{
+    typedef void (T::*func_t)(std::ostream& out, const std::vector<std::string>& arguments);
     func_t m_func;
 public:
     bool call(std::ostream& out, Object* obj, const std::vector<std::string>& arguments) const {
@@ -47,7 +64,7 @@ public:
         (o->*m_func)(out, arguments);
         return true;
     }
-    bind_cmd_T(const func_t& func) : m_func(func) {}
+    bind_cmd_NC(const func_t& func) : m_func(func) {}
 };
 
 static const struct
@@ -55,40 +72,40 @@ static const struct
     const char*     name;
     const bind_cmd* func;
 } _Commands[] = {
-    {"help", new bind_cmd_T<RAUnit            >(&RAUnit            ::Cmd_Help) },
-    {"help", new bind_cmd_T<ThreadTable       >(&ThreadTable       ::Cmd_Help) },
-    {"help", new bind_cmd_T<FamilyTable       >(&FamilyTable       ::Cmd_Help) },
-    {"help", new bind_cmd_T<Network           >(&Network           ::Cmd_Help) },
-    {"help", new bind_cmd_T<RegisterFile      >(&RegisterFile      ::Cmd_Help) },
-    {"help", new bind_cmd_T<ICache            >(&ICache            ::Cmd_Help) },
-    {"help", new bind_cmd_T<DCache            >(&DCache            ::Cmd_Help) },
-    {"help", new bind_cmd_T<Pipeline          >(&Pipeline          ::Cmd_Help) },
-    {"help", new bind_cmd_T<Allocator         >(&Allocator         ::Cmd_Help) },
+    {"help", new bind_cmd_C<RAUnit            >(&RAUnit            ::Cmd_Help) },
+    {"help", new bind_cmd_C<ThreadTable       >(&ThreadTable       ::Cmd_Help) },
+    {"help", new bind_cmd_C<FamilyTable       >(&FamilyTable       ::Cmd_Help) },
+    {"help", new bind_cmd_C<Network           >(&Network           ::Cmd_Help) },
+    {"help", new bind_cmd_C<RegisterFile      >(&RegisterFile      ::Cmd_Help) },
+    {"help", new bind_cmd_C<ICache            >(&ICache            ::Cmd_Help) },
+    {"help", new bind_cmd_C<DCache            >(&DCache            ::Cmd_Help) },
+    {"help", new bind_cmd_C<Pipeline          >(&Pipeline          ::Cmd_Help) },
+    {"help", new bind_cmd_C<Allocator         >(&Allocator         ::Cmd_Help) },
 #ifndef ENABLE_COMA
-    {"help", new bind_cmd_T<SerialMemory      >(&SerialMemory      ::Cmd_Help) },
-    {"help", new bind_cmd_T<ParallelMemory    >(&ParallelMemory    ::Cmd_Help) },
-    {"help", new bind_cmd_T<RandomBankedMemory>(&RandomBankedMemory::Cmd_Help) },
-    {"help", new bind_cmd_T<BankedMemory      >(&BankedMemory      ::Cmd_Help) },
+    {"help", new bind_cmd_C<SerialMemory      >(&SerialMemory      ::Cmd_Help) },
+    {"help", new bind_cmd_C<ParallelMemory    >(&ParallelMemory    ::Cmd_Help) },
+    {"help", new bind_cmd_C<RandomBankedMemory>(&RandomBankedMemory::Cmd_Help) },
+    {"help", new bind_cmd_C<BankedMemory      >(&BankedMemory      ::Cmd_Help) },
 #endif
-    {"help", new bind_cmd_T<FPU               >(&FPU               ::Cmd_Help) },
-    {"info", new bind_cmd_T<VirtualMemory     >(&VirtualMemory     ::Cmd_Info) },
-    {"read", new bind_cmd_T<RAUnit            >(&RAUnit            ::Cmd_Read) },
-    {"read", new bind_cmd_T<ThreadTable       >(&ThreadTable       ::Cmd_Read) },
-    {"read", new bind_cmd_T<FamilyTable       >(&FamilyTable       ::Cmd_Read) },
-    {"read", new bind_cmd_T<Network           >(&Network           ::Cmd_Read) },
-    {"read", new bind_cmd_T<RegisterFile      >(&RegisterFile      ::Cmd_Read) },
-    {"read", new bind_cmd_T<ICache            >(&ICache            ::Cmd_Read) },
-    {"read", new bind_cmd_T<DCache            >(&DCache            ::Cmd_Read) },
-    {"read", new bind_cmd_T<Pipeline          >(&Pipeline          ::Cmd_Read) },
-    {"read", new bind_cmd_T<Allocator         >(&Allocator         ::Cmd_Read) },
+    {"help", new bind_cmd_C<FPU               >(&FPU               ::Cmd_Help) },
+    {"info", new bind_cmd_C<VirtualMemory     >(&VirtualMemory     ::Cmd_Info) },
+    {"read", new bind_cmd_C<RAUnit            >(&RAUnit            ::Cmd_Read) },
+    {"read", new bind_cmd_C<ThreadTable       >(&ThreadTable       ::Cmd_Read) },
+    {"read", new bind_cmd_C<FamilyTable       >(&FamilyTable       ::Cmd_Read) },
+    {"read", new bind_cmd_C<Network           >(&Network           ::Cmd_Read) },
+    {"read", new bind_cmd_C<RegisterFile      >(&RegisterFile      ::Cmd_Read) },
+    {"read", new bind_cmd_C<ICache            >(&ICache            ::Cmd_Read) },
+    {"read", new bind_cmd_C<DCache            >(&DCache            ::Cmd_Read) },
+    {"read", new bind_cmd_C<Pipeline          >(&Pipeline          ::Cmd_Read) },
+    {"read", new bind_cmd_C<Allocator         >(&Allocator         ::Cmd_Read) },
 #ifndef ENABLE_COMA
-    {"read", new bind_cmd_T<SerialMemory      >(&SerialMemory      ::Cmd_Read) },
-    {"read", new bind_cmd_T<ParallelMemory    >(&ParallelMemory    ::Cmd_Read) },
-    {"read", new bind_cmd_T<RandomBankedMemory>(&RandomBankedMemory::Cmd_Read) },
-    {"read", new bind_cmd_T<BankedMemory      >(&BankedMemory      ::Cmd_Read) },
+    {"read", new bind_cmd_C<SerialMemory      >(&SerialMemory      ::Cmd_Read) },
+    {"read", new bind_cmd_C<ParallelMemory    >(&ParallelMemory    ::Cmd_Read) },
+    {"read", new bind_cmd_C<RandomBankedMemory>(&RandomBankedMemory::Cmd_Read) },
+    {"read", new bind_cmd_C<BankedMemory      >(&BankedMemory      ::Cmd_Read) },
 #endif
-    {"read", new bind_cmd_T<VirtualMemory     >(&VirtualMemory     ::Cmd_Read) },
-    {"read", new bind_cmd_T<FPU               >(&FPU               ::Cmd_Read) },
+    {"read", new bind_cmd_C<VirtualMemory     >(&VirtualMemory     ::Cmd_Read) },
+    {"read", new bind_cmd_C<FPU               >(&FPU               ::Cmd_Read) },
     {NULL, NULL}
 };
 
