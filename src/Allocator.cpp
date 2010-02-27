@@ -180,7 +180,7 @@ bool Allocator::OnRemoteThreadCompletion(LFID fid)
 
     // The last thread in a family must exist for this notification
     assert(family.lastThreadInBlock != INVALID_TID);
-    if (!DecreaseThreadDependency(fid, family.lastThreadInBlock, THREADDEP_NEXT_TERMINATED))
+    if (!DecreaseThreadDependency(family.lastThreadInBlock, THREADDEP_NEXT_TERMINATED))
     {
         return false;
     }
@@ -200,7 +200,7 @@ bool Allocator::OnRemoteThreadCleanup(LFID fid)
     }
     assert(family.firstThreadInBlock != INVALID_TID);
 
-    if (!DecreaseThreadDependency(fid, family.firstThreadInBlock, THREADDEP_PREV_CLEANED_UP))
+    if (!DecreaseThreadDependency(family.firstThreadInBlock, THREADDEP_PREV_CLEANED_UP))
     {
         return false;
     }
@@ -253,7 +253,7 @@ bool Allocator::KillThread(TID tid)
         if (thread.prevInBlock != INVALID_TID)
         {
             // Signal our termination to our predecessor
-            if (!DecreaseThreadDependency(thread.family, thread.prevInBlock, THREADDEP_NEXT_TERMINATED))
+            if (!DecreaseThreadDependency(thread.prevInBlock, THREADDEP_NEXT_TERMINATED))
             {
                 return false;
             }
@@ -276,7 +276,7 @@ bool Allocator::KillThread(TID tid)
     }
 
     // Mark the thread as killed
-    if (!DecreaseThreadDependency(thread.family, tid, THREADDEP_TERMINATED))
+    if (!DecreaseThreadDependency(tid, THREADDEP_TERMINATED))
     {
         return false;
     }
@@ -822,7 +822,7 @@ bool Allocator::OnMemoryRead(LFID fid)
     return true;
 }
 
-bool Allocator::DecreaseThreadDependency(LFID fid, TID tid, ThreadDependency dep)
+bool Allocator::DecreaseThreadDependency(TID tid, ThreadDependency dep)
 {
     // We work on a copy unless we're committing
     Thread::Dependencies tmp_deps;
@@ -1397,7 +1397,7 @@ Result Allocator::DoThreadAllocate()
             if (!thread.isLastThreadInBlock)
             {
                 assert(thread.nextInBlock != INVALID_TID);
-                if (!DecreaseThreadDependency(fid, thread.nextInBlock, THREADDEP_PREV_CLEANED_UP))
+                if (!DecreaseThreadDependency(thread.nextInBlock, THREADDEP_PREV_CLEANED_UP))
                 {
                     DeadlockWrite("Unable to mark PREV_CLEANED_UP for T%u's next thread T%u in F%u",
                         (unsigned)tid, (unsigned)thread.nextInBlock, (unsigned)fid);

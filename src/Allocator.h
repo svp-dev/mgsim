@@ -120,8 +120,8 @@ public:
     
     bool   DecreaseFamilyDependency(LFID fid, FamilyDependency dep);
     bool   DecreaseFamilyDependency(LFID fid, Family& family, FamilyDependency dep);
-    bool   IncreaseThreadDependency(          TID tid, ThreadDependency dep);
-    bool   DecreaseThreadDependency(LFID fid, TID tid, ThreadDependency dep);
+    bool   IncreaseThreadDependency(TID tid, ThreadDependency dep);
+    bool   DecreaseThreadDependency(TID tid, ThreadDependency dep);
     
     TID    PopActiveThread();
     

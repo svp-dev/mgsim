@@ -23,7 +23,7 @@ DCache::DCache(const std::string& name, Processor& parent, Allocator& alloc, Fam
     m_assoc          (config.getInteger<size_t>("DCacheAssociativity", 4)),
     m_sets           (config.getInteger<size_t>("DCacheNumSets", 4)),
     m_lineSize       (config.getInteger<size_t>("CacheLineSize", 64)),
-    m_returned       (*parent.GetKernel(), m_lines),
+    m_returned       (*parent.GetKernel(), m_sets * m_assoc),
     m_completedWrites(*parent.GetKernel(), config.getInteger<BufferSize>("DCacheCompletedWriteBufferSize", INFINITE)),
     m_outgoing       (*parent.GetKernel(), config.getInteger<BufferSize>("DCacheOutgoingBufferSize", 1)),
     m_numHits        (0),
@@ -95,24 +95,21 @@ Result DCache::FindLine(MemAddr address, Line* &line, bool check_only)
         line = &m_lines[set + i];
         
         // Invalid lines may not be touched or considered
-        if (line->state != LINE_INVALID)
+        if (line->state == LINE_EMPTY)
         {
-            if (line->state == LINE_EMPTY)
-            {
-                // Empty, unused line, remember this one
-                empty = line;
-            }
-            else if (line->tag == tag)
-            {
-                // The wanted line was in the cache
-                return SUCCESS;
-            }
-            else if (line->state == LINE_FULL && (replace == NULL || line->access < replace->access))
-            {
-                // The line is available to be replaced and has a lower LRU rating,
-                // remember it for replacing
-                replace = line;
-            }
+            // Empty, unused line, remember this one
+            empty = line;
+        }
+        else if (line->tag == tag)
+        {
+            // The wanted line was in the cache
+            return SUCCESS;
+        }
+        else if (line->state == LINE_FULL && (replace == NULL || line->access < replace->access))
+        {
+            // The line is available to be replaced and has a lower LRU rating,
+            // remember it for replacing
+            replace = line;
         }
     }
     
@@ -133,9 +130,9 @@ Result DCache::FindLine(MemAddr address, Line* &line, bool check_only)
         // Reset the line
         COMMIT
         {
-            line->tag     = tag;
-            line->waiting = INVALID_REG;
-            line->next    = INVALID_CID;
+            line->processing = false;
+            line->tag        = tag;
+            line->waiting    = INVALID_REG;
             std::fill(line->valid, line->valid + m_lineSize, false);
         }
     }
@@ -192,7 +189,6 @@ Result DCache::Read(MemAddr address, void* data, MemSize size, LFID /* fid */, R
         request.write     = false;
         request.address   = address - offset;
         request.data.size = m_lineSize;
-        request.data.tag  = MemTag(line - &m_lines[0], true);
         if (!m_outgoing.Push(request))
         {
             DeadlockWrite("Unable to push request to outgoing buffer");
@@ -225,7 +221,11 @@ Result DCache::Read(MemAddr address, void* data, MemSize size, LFID /* fid */, R
         }
         
         // Data is not entirely in the cache; it should be loading from memory
-        assert(line->state == LINE_LOADING);
+        if (line->state != LINE_LOADING)
+        {
+            assert(line->state == LINE_INVALID);
+            return FAILED;
+        }
     }
 
     // Data is being loaded, add request to the queue
@@ -286,10 +286,14 @@ Result DCache::Write(MemAddr address, void* data, MemSize size, LFID fid, TID ti
             // might get the later write's data.
             // We cannot ignore the line either because new reads should get the new
             // data and not the old.
-            // Therefore, we invalidate the line so new reads will generate a new
-            // request, which gets the new data whereas the queued reads will get the
-            // old data.
-            COMMIT{ line->state = LINE_INVALID; }
+            // We cannot invalidate the line so new reads will generate a new
+            // request, because read completion goes on address, and then we would have
+            // multiple lines of the same address.
+            //
+            
+            // So for now, just stall the write
+            DeadlockWrite("Unable to write into loading cache line");
+            return FAILED;
         }
         else
         {
@@ -305,7 +309,7 @@ Result DCache::Write(MemAddr address, void* data, MemSize size, LFID fid, TID ti
     request.address   = address;
     memcpy(request.data.data, data, size);
     request.data.size = size;
-    request.data.tag  = MemTag(fid, tid);
+    request.tid       = tid;
     if (!m_outgoing.Push(request))
     {
         DeadlockWrite("Unable to push request to outgoing buffer");
@@ -314,35 +318,44 @@ Result DCache::Write(MemAddr address, void* data, MemSize size, LFID fid, TID ti
     return DELAYED;
 }
 
-bool DCache::OnMemoryReadCompleted(const MemData& data)
+bool DCache::OnMemoryReadCompleted(MemAddr addr, const MemData& data)
 {
-    assert(data.tag.data);
-    assert(data.tag.cid != INVALID_CID);
-
-    COMMIT
-    {
-        Line& line = m_lines[data.tag.cid];
-        
-        // Copy the data into the cache line.
-        // Mask by valid bytes (don't overwrite already written data).
-        for (size_t i = 0; i < (size_t)data.size; ++i)
-        {
-            if (!line.valid[i]) {
-                line.data[i]  = data.data[i];
-                line.valid[i] = true;
-            }
-        }
-    }
+    assert(data.size == m_lineSize);
     
-    // Push the cache-line to the back of the queue
-    m_returned.Push(data.tag.cid);
+    // Check if we have the line and if its loading.
+    // This method gets called whenever a memory read completion is put on the
+    // bus from the L2 cache, so we have to check if we actually need the data.
+    Line* line;
+    if (FindLine(addr, line, true) == SUCCESS && line->state != LINE_FULL && !line->processing)
+    {
+        assert(line->state == LINE_LOADING || line->state == LINE_INVALID);
+        
+        // Registers are waiting on this data
+        COMMIT
+        {
+            // Copy the data into the cache line.
+            // Mask by valid bytes (don't overwrite already written data).
+            for (size_t i = 0; i < (size_t)data.size; ++i)
+            {
+                if (!line->valid[i]) {
+                    line->data[i]  = data.data[i];
+                     line->valid[i] = true;
+                }
+            }
+            
+            line->processing = true;
+        }
+    
+        // Push the cache-line to the back of the queue
+        m_returned.Push(line - &m_lines[0]);
+    }
     return true;
 }
 
-bool DCache::OnMemoryWriteCompleted(const MemTag& tag)
+bool DCache::OnMemoryWriteCompleted(TID tid)
 {
     // Data has been written
-    if (!m_completedWrites.Push(tag))
+    if (!m_completedWrites.Push(tid))
     {
         DeadlockWrite("Unable to push write completion to buffer");
         return false;
@@ -366,8 +379,29 @@ bool DCache::OnMemorySnooped(MemAddr address, const MemData& data)
             // Mark written bytes as valid
             // Note that we don't have to check against already written data or queued reads
             // because we don't have to guarantee sequential semantics from other cores.
-            // This falls with the non-determinism behavior of the architecture.
+            // This falls within the non-determinism behavior of the architecture.
             std::fill(line->valid + offset, line->valid + offset + data.size, true);
+        }
+    }
+    return true;
+}
+
+bool DCache::OnMemoryInvalidated(MemAddr address)
+{
+    COMMIT
+    {
+        Line* line;
+        if (FindLine(address, line, true) == SUCCESS)
+        {
+            // We have the line, invalidate it
+            if (line->state == LINE_FULL) {
+                // Full lines are invalidated by clearing them. Simple.
+                line->state = LINE_EMPTY;
+            } else if (line->state == LINE_LOADING) {
+                // The data is being loaded. Invalidate the line and it will get cleaned up
+                // when the data is read.
+                line->state = LINE_INVALID;
+            }
         }
     }
     return true;
@@ -424,6 +458,7 @@ Result DCache::DoCompletedReads()
 
             // Ignore the request if the family has been killed
             state.value = UnserializeRegister(line.waiting.type, &line.data[value.m_memory.offset], value.m_memory.size);
+
             if (value.m_memory.sign_extend)
             {
                 // Sign-extend the value
@@ -509,10 +544,10 @@ Result DCache::DoCompletedReads()
 Result DCache::DoCompletedWrites()
 {
     assert(!m_completedWrites.Empty());
-    const MemTag& tag = m_completedWrites.Front();
-    if (!m_allocator.DecreaseThreadDependency(tag.fid, tag.tid, THREADDEP_OUTSTANDING_WRITES))
+    TID tid = m_completedWrites.Front();
+    if (!m_allocator.DecreaseThreadDependency(tid, THREADDEP_OUTSTANDING_WRITES))
     {
-        DeadlockWrite("Unable to decrease outstanding writes on T%u in F%u", (unsigned)tag.tid, (unsigned)tag.fid);
+        DeadlockWrite("Unable to decrease outstanding writes on T%u", (unsigned)tid);
         return FAILED;
     }
     m_completedWrites.Pop();
@@ -525,7 +560,7 @@ Result DCache::DoOutgoingRequests()
     const Request& request = m_outgoing.Front();
     if (request.write)
     {
-        if (!m_parent.WriteMemory(request.address, request.data.data, request.data.size, request.data.tag))
+        if (!m_parent.WriteMemory(request.address, request.data.data, request.data.size, request.tid))
         {
             DeadlockWrite("Unable to send write of %u bytes to 0x%016llx to memory", (unsigned)request.data.size, (unsigned long long)request.address);
             return FAILED;
@@ -533,7 +568,7 @@ Result DCache::DoOutgoingRequests()
     }
     else
     {
-        if (!m_parent.ReadMemory(request.address, request.data.size, request.data.tag))
+        if (!m_parent.ReadMemory(request.address, request.data.size))
         {
             DeadlockWrite("Unable to send read of %u bytes to 0x%016llx to memory", (unsigned)request.data.size, (unsigned long long)request.address);
             return FAILED;
@@ -630,7 +665,7 @@ void DCache::Cmd_Read(std::ostream& out, const std::vector<std::string>& /*argum
         out << ((i + 1) % m_assoc == 0 ? "----" : "    ");
         out << "+---------------------+-------------------------------------------------+" << endl;
     }
-    
+
     out << endl << "Outgoing requests:" << endl << endl
         << "      Address      | Size | Type  |" << endl
         << "-------------------+------+-------+" << endl;

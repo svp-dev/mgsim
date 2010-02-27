@@ -13,7 +13,6 @@ static const size_t MAX_MEMORY_OPERATION_SIZE = 64;
 
 struct MemData
 {
-    MemTag  tag;
     char    data[MAX_MEMORY_OPERATION_SIZE];
     MemSize size;
 };
@@ -23,8 +22,9 @@ class IMemory;
 class IMemoryCallback
 {
 public:
-    virtual bool OnMemoryReadCompleted(const MemData& data) = 0;
-    virtual bool OnMemoryWriteCompleted(const MemTag& tag) = 0;
+    virtual bool OnMemoryReadCompleted(MemAddr addr, const MemData& data) = 0;
+    virtual bool OnMemoryWriteCompleted(TID tid) = 0;
+    virtual bool OnMemoryInvalidated(MemAddr addr) = 0;
     virtual bool OnMemorySnooped(MemAddr /* addr */, const MemData& /* data */) { return true; }
 
     virtual ~IMemoryCallback() {}
@@ -41,8 +41,8 @@ public:
     virtual void Unreserve(MemAddr address) = 0;
     virtual void RegisterClient  (PSize pid, IMemoryCallback& callback, const Process* processes[]) = 0;
     virtual void UnregisterClient(PSize pid) = 0;
-    virtual bool Read (PSize pid, MemAddr address, MemSize size, MemTag tag) = 0;
-    virtual bool Write(PSize pid, MemAddr address, const void* data, MemSize size, MemTag tag) = 0;
+    virtual bool Read (PSize pid, MemAddr address, MemSize size) = 0;
+    virtual bool Write(PSize pid, MemAddr address, const void* data, MemSize size, TID tid) = 0;
 	virtual bool CheckPermissions(MemAddr address, MemSize size, int access) const = 0;
 
     virtual ~IMemory() {}

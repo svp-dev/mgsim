@@ -79,8 +79,8 @@ public:
     // No memory callback specified, the processor will use the tag to determine where it came from.
     void ReserveTLS(MemAddr address, MemSize size);
     void UnreserveTLS(MemAddr address);
-    bool ReadMemory (MemAddr address, MemSize size, MemTag tag);
-    bool WriteMemory(MemAddr address, const void* data, MemSize size, MemTag tag);
+    bool ReadMemory (MemAddr address, MemSize size);
+    bool WriteMemory(MemAddr address, const void* data, MemSize size, TID tid);
     bool CheckPermissions(MemAddr address, MemSize size, int access) const;
 	
     Network& GetNetwork() { return m_network; }
@@ -97,8 +97,9 @@ private:
     CycleNo m_localFamilyCompletion; 
 
     // IMemoryCallback
-    bool OnMemoryReadCompleted(const MemData& data);
-    bool OnMemoryWriteCompleted(const MemTag& tag);
+    bool OnMemoryReadCompleted(MemAddr addr, const MemData& data);
+    bool OnMemoryWriteCompleted(TID tid);
+    bool OnMemoryInvalidated(MemAddr addr);
     bool OnMemorySnooped(MemAddr addr, const MemData& data);
 
     // The components on the chip

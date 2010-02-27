@@ -30,8 +30,8 @@ class BankedMemory : public Object, public IMemoryAdmin, public VirtualMemory
     void Unreserve(MemAddr address);
     void RegisterClient  (PSize pid, IMemoryCallback& callback, const Process* processes[]);
     void UnregisterClient(PSize pid);
-    bool Read (PSize pid, MemAddr address, MemSize size, MemTag tag);
-    bool Write(PSize pid, MemAddr address, const void* data, MemSize size, MemTag tag);
+    bool Read (PSize pid, MemAddr address, MemSize size);
+    bool Write(PSize pid, MemAddr address, const void* data, MemSize size, TID tid);
 	bool CheckPermissions(MemAddr address, MemSize size, int access) const;
 
     // IMemoryAdmin

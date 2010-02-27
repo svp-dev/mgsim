@@ -21,6 +21,7 @@ public:
         CycleNo             done;
         MemAddr             address;
         MemData             data;
+        TID                 tid;
         IMemoryCallback*    callback;
         CycleNo             starttime;  // MESMX debug
         bool                bconflict;   
@@ -34,12 +35,10 @@ public:
     void Reserve(MemAddr address, MemSize size, int perm);
     void Unreserve(MemAddr address);
 
-    bool Read (PSize pid, MemAddr address, MemSize size, MemTag tag);
-    bool Write(PSize pid, MemAddr address, const void* data, MemSize size, MemTag tag);
+    bool Read (PSize pid, MemAddr address, MemSize size);
+    bool Write(PSize pid, MemAddr address, const void* data, MemSize size, TID tid);
 
     // IMemory
-    // Result Read (IMemoryCallback& callback, MemAddr address, void* data, MemSize size, MemTag tag);
-    // Result Write(IMemoryCallback& callback, MemAddr address, void* data, MemSize size, MemTag tag);
 	bool CheckPermissions(MemAddr address, MemSize size, int access) const;
 	
 	Process p_Requests;

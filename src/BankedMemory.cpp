@@ -22,6 +22,7 @@ struct BankedMemory::Request
     bool        write;
     MemAddr     address;
     MemData     data;
+    TID         tid;
     CycleNo     done;
 };
 
@@ -106,11 +107,11 @@ class BankedMemory::Bank : public Object
             }
                 
             if (request.write) {
-                if (!request.client->callback->OnMemoryWriteCompleted(request.data.tag)) {
+                if (!request.client->callback->OnMemoryWriteCompleted(request.tid)) {
                     return FAILED;
                 }
             } else {
-                if (!request.client->callback->OnMemoryReadCompleted(request.data)) {
+                if (!request.client->callback->OnMemoryReadCompleted(request.address, request.data)) {
                     return FAILED;
                 }
             }
@@ -151,18 +152,10 @@ class BankedMemory::Bank : public Object
             << " 0x" << setw(16) << request.address << " | "
             << setfill(' ') << setw(4) << dec << request.data.size << " | ";
 
-        if (request.data.tag.cid == INVALID_CID) {
-            out << " N/A  | ";
-        } else {
-            out << setw(5) << request.data.tag.cid << " | ";
-        }
-
         if (request.write) {
-            out << "Data write";
-        } else if (request.data.tag.data) {
-            out << "Data read ";
-        } else if (request.data.tag.cid != INVALID_CID) {
-            out << "Cache-line";
+            out << "Write";
+        } else { 
+            out << "Read ";
         }
         out << " | " << setw(8) << dec << request.done << " | ";
     
@@ -198,8 +191,8 @@ public:
     void Print(ostream& out)
     {
         out << GetName() << ":" << endl;
-        out << "        Address       | Size |  CID  |    Type    |   Done   | Source" << endl;
-        out << "----------------------+------+-------+------------+----------+----------------" << endl;
+        out << "        Address       | Size | Type  |   Done   | Source" << endl;
+        out << "----------------------+------+-------+----------+----------------" << endl;
 
         for (Buffer<Request>::const_reverse_iterator p = m_incoming.rbegin(); p != m_incoming.rend(); ++p)
         {
@@ -208,7 +201,7 @@ public:
         if (m_busy.IsSet()) {
             PrintRequest(out, '*', m_request);
         } else {
-            out << "*                     |      |       |            |          |" << endl;
+            out << "*                     |      |       |          |" << endl;
         }
         for (Buffer<Request>::const_reverse_iterator p = m_outgoing.rbegin(); p != m_outgoing.rend(); ++p)
         {
@@ -281,7 +274,7 @@ size_t BankedMemory::GetBankFromAddress(MemAddr address) const
     return (size_t)((address / m_cachelineSize) % m_banks.size());
 }
 
-bool BankedMemory::Read(PSize pid, MemAddr address, MemSize size, MemTag tag)
+bool BankedMemory::Read(PSize pid, MemAddr address, MemSize size)
 {
     if (size > MAX_MEMORY_OPERATION_SIZE)
     {
@@ -295,7 +288,6 @@ bool BankedMemory::Read(PSize pid, MemAddr address, MemSize size, MemTag tag)
     request.address   = address;
     request.client    = &m_clients[pid];
     request.data.size = size;
-    request.data.tag  = tag;
     request.write     = false;
     
     Bank& bank = *m_banks[ GetBankFromAddress(address) ];
@@ -308,7 +300,7 @@ bool BankedMemory::Read(PSize pid, MemAddr address, MemSize size, MemTag tag)
     return true;
 }
 
-bool BankedMemory::Write(PSize pid, MemAddr address, const void* data, MemSize size, MemTag tag)
+bool BankedMemory::Write(PSize pid, MemAddr address, const void* data, MemSize size, TID tid)
 {
     if (size > MAX_MEMORY_OPERATION_SIZE)
     {
@@ -322,7 +314,7 @@ bool BankedMemory::Write(PSize pid, MemAddr address, const void* data, MemSize s
     request.address   = address;
     request.client    = &m_clients[pid];
     request.data.size = size;
-    request.data.tag  = tag;
+    request.tid       = tid;
     request.write     = true;
     memcpy(request.data.data, data, (size_t)size);
 

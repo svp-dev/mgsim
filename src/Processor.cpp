@@ -180,14 +180,14 @@ void Processor::UnreserveTLS(MemAddr address)
     return m_memory.Unreserve(address);
 }
 
-bool Processor::ReadMemory(MemAddr address, MemSize size, MemTag tag)
+bool Processor::ReadMemory(MemAddr address, MemSize size)
 {
-    return m_memory.Read(m_pid, address, size, tag);
+    return m_memory.Read(m_pid, address, size);
 }
 
-bool Processor::WriteMemory(MemAddr address, const void* data, MemSize size, MemTag tag)
+bool Processor::WriteMemory(MemAddr address, const void* data, MemSize size, TID tid)
 {
-    return m_memory.Write(m_pid, address, data, size, tag);
+    return m_memory.Write(m_pid, address, data, size, tid);
 }
 
 bool Processor::CheckPermissions(MemAddr address, MemSize size, int access) const
@@ -195,27 +195,29 @@ bool Processor::CheckPermissions(MemAddr address, MemSize size, int access) cons
     return m_memory.CheckPermissions(address, size, access);
 }
 
-bool Processor::OnMemoryReadCompleted(const MemData& data)
+bool Processor::OnMemoryReadCompleted(MemAddr address, const MemData& data)
 {
-    // Dispatch result to I-Cache, D-Cache or Create Process, depending on tag
-    assert(data.tag.cid != INVALID_CID);
-    if (data.tag.data)
-    {
-        return m_dcache.OnMemoryReadCompleted(data);
-    }
-    return m_icache.OnMemoryReadCompleted(data);
+    // Notify I-Cache and D-Cache (they both snoop: they're on a bus)
+    return m_dcache.OnMemoryReadCompleted(address, data) && 
+           m_icache.OnMemoryReadCompleted(address, data);
 }
 
-bool Processor::OnMemoryWriteCompleted(const MemTag& tag)
+bool Processor::OnMemoryWriteCompleted(TID tid)
 {
     // Dispatch result to D-Cache
-    assert(tag.fid != INVALID_LFID);
-    return m_dcache.OnMemoryWriteCompleted(tag);
+    return m_dcache.OnMemoryWriteCompleted(tid);
 }
 
 bool Processor::OnMemorySnooped(MemAddr addr, const MemData& data)
 {
-    return m_dcache.OnMemorySnooped(addr, data);
+    return m_dcache.OnMemorySnooped(addr, data) &&
+           m_icache.OnMemorySnooped(addr, data);
+}
+
+bool Processor::OnMemoryInvalidated(MemAddr addr)
+{
+    return m_dcache.OnMemoryInvalidated(addr) &&
+           m_icache.OnMemoryInvalidated(addr);
 }
 
 void Processor::OnFamilyTerminatedLocally(MemAddr /* pc */)

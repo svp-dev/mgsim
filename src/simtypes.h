@@ -290,28 +290,6 @@ static const TID     INVALID_TID  = TID (-1);
 static const CID     INVALID_CID  = CID (-1);
 static const RegAddr INVALID_REG  = MAKE_REGADDR(RT_INTEGER, INVALID_REG_INDEX);
 
-struct MemTag
-{
-    union
-    {
-        // For writes
-        struct {
-            LFID fid;
-            TID  tid;
-        };
-    
-        // For instruction or data reads
-        struct {
-            CID  cid;
-            bool data;
-        };
-    };
-
-    MemTag(CID _cid, bool _data) : cid(_cid), data(_data) {}
-	MemTag(LFID _fid, TID _tid) : fid(_fid), tid(_tid) {}
-    MemTag() {}
-};
-
 /// This structure stores memory request information, to be used in RegValue.
 struct MemoryRequest
 {

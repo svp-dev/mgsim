@@ -29,24 +29,22 @@ public:
 
     struct Line
     {
-        LineState   state;  ///< The line state.
-        MemAddr     tag;    ///< The address tag.
-        char*       data;   ///< The data in this line.
-        bool*       valid;  ///< A bitmap of valid bytes in this line.
-        CycleNo     access; ///< Last access time of this line (for LRU).
-        CID         next;   ///< Next cache-line in to-be-processed list.
-		RegAddr		waiting;///< First register waiting on this line.
+        LineState   state;      ///< The line state.
+        bool        processing; ///< Has the line been added to m_returned yet?
+        MemAddr     tag;        ///< The address tag.
+        char*       data;       ///< The data in this line.
+        bool*       valid;      ///< A bitmap of valid bytes in this line.
+        CycleNo     access;     ///< Last access time of this line (for LRU).
+        RegAddr     waiting;    ///< First register waiting on this line.
     };
 
 private:
-    /// Represents a queue of cache-lines
-    typedef LinkedList<CID, std::vector<Line>, &Line::next> LineList;
-
     struct Request
     {
         MemAddr address;
         bool    write;
         MemData data;
+        TID     tid;
     };
     
     // Information for multi-register writes
@@ -70,8 +68,8 @@ private:
 	size_t               m_assoc;           ///< Config: Cache associativity.
 	size_t               m_sets;            ///< Config: Number of sets in the cace.
 	size_t               m_lineSize;        ///< Config: Size of a cache line, in bytes.
-    LineList             m_returned;        ///< Returned cache-lines waiting to be processed.
-    Buffer<MemTag>       m_completedWrites; ///< Completed writes.
+    Buffer<CID>          m_returned;        ///< Returned cache-lines waiting to be processed.
+    Buffer<TID>          m_completedWrites; ///< Completed writes.
     Buffer<Request>      m_outgoing;        ///< Outgoing buffer to memory bus.
     WritebackState       m_wbstate;         ///< Writeback state
     uint64_t             m_numHits;         ///< Number of hits so far.
@@ -99,9 +97,10 @@ public:
     size_t GetLineSize() const { return m_lineSize; }
 
     // Memory callbacks
-    bool OnMemoryReadCompleted(const MemData& data);
-    bool OnMemoryWriteCompleted(const MemTag& tag);
+    bool OnMemoryReadCompleted(MemAddr addr, const MemData& data);
+    bool OnMemoryWriteCompleted(TID tid);
     bool OnMemorySnooped(MemAddr addr, const MemData& data);
+    bool OnMemoryInvalidated(MemAddr addr);
 
     // Debugging
     void Cmd_Help(std::ostream& out, const std::vector<std::string>& arguments) const;

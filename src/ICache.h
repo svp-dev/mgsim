@@ -14,28 +14,28 @@ class Allocator;
 
 class ICache : public Object
 {
+    enum LineState
+    {
+        LINE_EMPTY,      ///< Line is not in use
+        LINE_LOADING,    ///< Line is being loaded
+        LINE_INVALID,    ///< Line has been invalidated but still has a pending load
+        LINE_FULL,       ///< Line has data and can be reused
+    };
+        
 	/// A Cache-line
     struct Line
     {
-		bool		  used;			///< Line used or empty?
+        LineState     state;        ///< The state of the line
         MemAddr       tag;			///< Address tag
         char*         data;			///< The line data
         CycleNo       access;		///< Last access time (for LRU replacement)
 		bool          creation;		///< Is the family creation process waiting on this line?
         ThreadQueue	  waiting;		///< Threads waiting on this line
 		unsigned long references;	///< Number of references to this line
-		bool          fetched;		///< To verify that we're actually reading a fetched line
 	};
 	
-	/// Outgoing requests
-	struct Request
-    {
-        MemAddr address;
-        MemTag  tag;
-    };
-
     Result Fetch(MemAddr address, MemSize size, TID* tid, CID* cid);
-    Result FindLine(MemAddr address, Line* &line);
+    Result FindLine(MemAddr address, Line* &line, bool check_only = false);
     
     // Processes
     Result DoOutgoing();
@@ -45,7 +45,7 @@ class ICache : public Object
 	Allocator&        m_allocator;
     std::vector<Line> m_lines;
 	std::vector<char> m_data;
-	Buffer<Request>   m_outgoing;
+	Buffer<MemAddr>   m_outgoing;
 	Buffer<CID>       m_incoming;
     uint64_t          m_numHits;
     uint64_t          m_numMisses;
@@ -67,7 +67,9 @@ public:
     bool   Read(CID cid, MemAddr address, void* data, MemSize size) const;
     bool   ReleaseCacheLine(CID bid);
     bool   IsEmpty() const;
-    bool   OnMemoryReadCompleted(const MemData& data);
+    bool   OnMemoryReadCompleted(MemAddr addr, const MemData& data);
+    bool   OnMemorySnooped(MemAddr addr, const MemData& data);
+    bool   OnMemoryInvalidated(MemAddr addr);
     size_t GetLineSize() const { return m_lineSize; }
     
     // Debugging

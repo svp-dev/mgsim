@@ -60,12 +60,12 @@ ICache::ICache(const std::string& name, Processor& parent, Allocator& alloc, con
     m_data.resize(m_lineSize * m_lines.size());
     for (size_t i = 0; i < m_lines.size(); ++i)
     {
-        m_lines[i].data         = &m_data[i * m_lineSize];
-        m_lines[i].used         = false;
-        m_lines[i].references   = 0;
-        m_lines[i].waiting.head = INVALID_TID;
-        m_lines[i].creation     = false;
-        m_lines[i].fetched      = false;
+        Line& line = m_lines[i];
+        line.state        = LINE_EMPTY;
+        line.data         = &m_data[i * m_lineSize];
+        line.references   = 0;
+        line.waiting.head = INVALID_TID;
+        line.creation     = false;
     }
 }
 
@@ -77,7 +77,7 @@ bool ICache::IsEmpty() const
 {
     for (size_t i = 0; i < m_lines.size(); ++i)
     {
-        if (m_lines[i].used && m_lines[i].references != 0)
+        if (m_lines[i].state != LINE_EMPTY && m_lines[i].references != 0)
         {
             return false;
         }
@@ -91,7 +91,7 @@ bool ICache::IsEmpty() const
 // DELAYED - Line not found (miss), but empty one allocated
 // FAILED  - Line not found (miss), no empty lines to allocate
 //
-Result ICache::FindLine(MemAddr address, Line* &line)
+Result ICache::FindLine(MemAddr address, Line* &line, bool check_only)
 {
     size_t  sets = m_lines.size() / m_assoc;
     MemAddr tag  = (address / m_lineSize) / sets;
@@ -103,24 +103,29 @@ Result ICache::FindLine(MemAddr address, Line* &line)
     for (size_t i = 0; i < m_assoc; ++i)
     {
         line = &m_lines[set + i];
-        if (!line->used)
+
+        // Invalid lines are not considered for anything
+        if (line->state != LINE_INVALID)
         {
-            // Empty line, remember this one
-            empty = line;
-        }
-        else if (line->tag == tag)
-        {
-            // The wanted line was in the cache
-            return SUCCESS;
-        }
-        else if (line->references == 0 && (replace == NULL || line->access < replace->access))
-        {
-            // The line is available to be replaced and has a lower LRU rating,
-            // remember it for replacing
-            replace = line;
+            if (line->state == LINE_EMPTY)
+            {
+                // Empty line, remember this one
+                empty = line;
+            }
+            else if (line->tag == tag)
+            {
+                // The wanted line was in the cache
+                return SUCCESS;
+            }
+            else if (line->references == 0 && (replace == NULL || line->access < replace->access))
+            {
+                // The line is available to be replaced and has a lower LRU rating,
+                // remember it for replacing
+                replace = line;
+            }
         }
     }
-
+    
     // The line could not be found, allocate the empty line or replace an existing line
     line = (empty != NULL) ? empty : replace;
     if (line == NULL)
@@ -131,12 +136,14 @@ Result ICache::FindLine(MemAddr address, Line* &line)
         return FAILED;
     }
 
-    COMMIT
+    if (!check_only)
     {
-        // Reset the line
-        line->tag = tag;
+        COMMIT
+        {
+            // Reset the line
+            line->tag = tag;
+        }
     }
-
     return DELAYED;
 }
 
@@ -147,8 +154,12 @@ bool ICache::ReleaseCacheLine(CID cid)
         // Once the references hit zero, the line can be replaced by a next request
         COMMIT
         {
-            assert(m_lines[cid].references > 0);
-            m_lines[cid].references--;
+            Line& line = m_lines[cid];
+            assert(line.references > 0);
+            if (--line.references == 0 && line.state == LINE_INVALID)
+            {
+                line.state = LINE_EMPTY;
+            }
         }
     }
     return true;
@@ -172,15 +183,17 @@ bool ICache::Read(CID cid, MemAddr address, void* data, MemSize size) const
     }
 #endif
 
-    if (!m_lines[cid].used || m_lines[cid].tag != tag)
+    if (m_lines[cid].state == LINE_EMPTY || m_lines[cid].tag != tag)
     {
         throw InvalidArgumentException("Attempting to read from an invalid cache line");
     }
 
-    // Verify that we're actually reading a fetched line
-    assert(m_lines[cid].fetched);
+    const Line& line = m_lines[cid];
 
-    COMMIT{ memcpy(data, m_lines[cid].data + offset, (size_t)size); }
+    // Verify that we're actually reading a fetched line
+    assert(line.state == LINE_FULL || line.state == LINE_INVALID);
+
+    COMMIT{ memcpy(data, line.data + offset, (size_t)size); }
     return true;
 }
 
@@ -252,7 +265,7 @@ Result ICache::Fetch(MemAddr address, MemSize size, TID* tid, CID* cid)
         // Update reference count
         COMMIT{ line->references++; }
         
-        if (line->fetched)
+        if (line->state == LINE_FULL)
         {
             // The line was already fetched so we're done.
             // This is 'true' hit in that we don't have to wait.
@@ -284,10 +297,7 @@ Result ICache::Fetch(MemAddr address, MemSize size, TID* tid, CID* cid)
     else
     {
         // Cache miss; a line has been allocated, fetch the data
-        Request request;
-        request.address = address;
-        request.tag     = MemTag(line - &m_lines[0], false);
-        if (!m_outgoing.Push(request))
+        if (!m_outgoing.Push(address))
         {
             DeadlockWrite("Unable to put request for I-Cache line into outgoing buffer");
             return FAILED;
@@ -299,9 +309,8 @@ Result ICache::Fetch(MemAddr address, MemSize size, TID* tid, CID* cid)
             // Initialize buffer
             line->creation   = false;
             line->references = 1;
-            line->used       = true;
+            line->state      = LINE_LOADING;
 
-            line->fetched = false;
             if (tid != NULL)
             {
                 // Initialize the waiting queue
@@ -321,21 +330,63 @@ Result ICache::Fetch(MemAddr address, MemSize size, TID* tid, CID* cid)
     return DELAYED;
 }
 
-bool ICache::OnMemoryReadCompleted(const MemData& data)
+bool ICache::OnMemoryReadCompleted(MemAddr addr, const MemData& data)
 {
     // Instruction cache line returned, store in cache and Buffer
     assert(data.size == m_lineSize);
     
-    if (!m_incoming.Push(data.tag.cid))
+    // Find the line
+    Line* line;
+    if (FindLine(addr, line, true) == SUCCESS && line->state != LINE_FULL)
     {
-        DeadlockWrite("Unable to buffer I-Cache line read completion for line #%u", (unsigned)data.tag.cid);
-        return false;
+        // We need this data, store it
+        assert(line->state == LINE_LOADING || line->state == LINE_INVALID);
+        
+        COMMIT
+        {
+            memcpy(line->data, data.data, (size_t)data.size);
+        }
+    
+        CID cid = line - &m_lines[0];
+        if (!m_incoming.Push(cid))
+        {
+            DeadlockWrite("Unable to buffer I-Cache line read completion for line #%u", (unsigned)cid);
+            return false;
+        }
     }
+    return true;
+}
 
-    Line& line = m_lines[data.tag.cid];
+bool ICache::OnMemorySnooped(MemAddr address, const MemData& data)
+{
+    Line* line;
+    // Cache coherency: check if we have the same address
+    if (FindLine(address, line, true) == SUCCESS)
+    {
+        // We do, update the data
+        size_t offset = (size_t)(address % m_lineSize);
+        memcpy(line->data + offset, data.data, (size_t)data.size);
+    }
+    return true;
+}
+
+bool ICache::OnMemoryInvalidated(MemAddr address)
+{
     COMMIT
     {
-        memcpy(line.data, data.data, (size_t)data.size);
+        Line* line;
+        if (FindLine(address, line, true) == SUCCESS)
+        {
+            if (line->state == LINE_FULL) {
+                // Valid lines without references are invalidated by clearing then. Simple.
+                // Otherwise, we invalidate them.
+                line->state = (line->references == 0) ? LINE_EMPTY : LINE_INVALID;
+            } else {            
+                // Mark the line as invalidated. After it has been loaded and used it will be cleared
+                assert(line->state == LINE_LOADING);
+                line->state = LINE_INVALID;
+            }
+        }
     }
     return true;
 }
@@ -343,11 +394,11 @@ bool ICache::OnMemoryReadCompleted(const MemData& data)
 Result ICache::DoOutgoing()
 {
     assert(!m_outgoing.Empty());
-    const Request& request = m_outgoing.Front();
-    if (!m_parent.ReadMemory(request.address, m_lineSize, request.tag))
+    const MemAddr& address = m_outgoing.Front();
+    if (!m_parent.ReadMemory(address, m_lineSize))
     {
         // The fetch failed
-        DeadlockWrite("Unable to read 0x%016llx from memory", (unsigned long long)request.address);
+        DeadlockWrite("Unable to read 0x%016llx from memory", (unsigned long long)address);
         return FAILED;
     }
     m_outgoing.Pop();
@@ -365,7 +416,7 @@ Result ICache::DoIncoming()
     
     CID   cid  = m_incoming.Front();
     Line& line = m_lines[cid];            
-    COMMIT{ line.fetched = true; }
+    COMMIT{ line.state = LINE_FULL; }
 
     if (line.creation)
     {
@@ -447,15 +498,21 @@ void ICache::Cmd_Read(std::ostream& out, const std::vector<std::string>& /*argum
             out << "   ";
         }
         
-        if (!line.used) {
+        if (line.state == LINE_EMPTY) {
             out << " |                     |                                                 |     |";
         } else {
+            char state = ' ';
+            switch (line.state) {
+                case LINE_LOADING: state = 'L'; break;
+                case LINE_INVALID: state = 'I'; break;
+                default: state = ' '; break;
+            }
+            
             out << " | "
                 << hex << "0x" << setw(16) << setfill('0') << (line.tag * num_sets + set) * m_lineSize
-                << (line.waiting.head != INVALID_TID || line.creation ? "L" : " ")
-                << " |";
+                << state << " |";
             
-            if (line.waiting.head == INVALID_TID && !line.creation)
+            if (line.state == LINE_FULL)
             {
                 // Print the data
                 static const int BYTES_PER_LINE = 16;
@@ -494,13 +551,11 @@ void ICache::Cmd_Read(std::ostream& out, const std::vector<std::string>& /*argum
     if (m_outgoing.Empty()) {
         out << "(Empty)" << endl;
     } else {
-        out << "     Address     | CID" << endl;
-        out << "-----------------+-----" << endl;
-        for (Buffer<Request>::const_iterator p = m_outgoing.begin(); p != m_outgoing.end(); ++p)
+        out << "     Address     " << endl;
+        out << "-----------------" << endl;
+        for (Buffer<MemAddr>::const_iterator p = m_outgoing.begin(); p != m_outgoing.end(); ++p)
         {
-            out << setfill('0') << hex << setw(16) << p->address << " | "
-                << setfill(' ') << dec << setw( 4) << p->tag.cid
-                << endl;
+            out << setfill('0') << hex << setw(16) << *p << endl;
         }
     }
         

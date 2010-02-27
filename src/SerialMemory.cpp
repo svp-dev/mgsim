@@ -25,7 +25,7 @@ void SerialMemory::UnregisterClient(PSize pid)
     m_clients[pid] = NULL;
 }
 
-bool SerialMemory::Read(PSize pid, MemAddr address, MemSize size, MemTag tag)
+bool SerialMemory::Read(PSize pid, MemAddr address, MemSize size)
 {
     if (size > MAX_MEMORY_OPERATION_SIZE)
     {
@@ -41,7 +41,6 @@ bool SerialMemory::Read(PSize pid, MemAddr address, MemSize size, MemTag tag)
     request.callback  = m_clients[pid];
     request.address   = address;
     request.data.size = size;
-    request.data.tag  = tag;
     request.write     = false;
 
     if (!m_requests.Push(request))
@@ -52,10 +51,8 @@ bool SerialMemory::Read(PSize pid, MemAddr address, MemSize size, MemTag tag)
     return true;
 }
 
-bool SerialMemory::Write(PSize pid, MemAddr address, const void* data, MemSize size, MemTag tag)
+bool SerialMemory::Write(PSize pid, MemAddr address, const void* data, MemSize size, TID tid)
 {
-    assert(tag.fid != INVALID_LFID);
-
     if (size > MAX_MEMORY_OPERATION_SIZE)
     {
         throw InvalidArgumentException("Size argument too big");
@@ -70,7 +67,7 @@ bool SerialMemory::Write(PSize pid, MemAddr address, const void* data, MemSize s
     request.callback  = m_clients[pid];
     request.address   = address;
     request.data.size = size;
-    request.data.tag  = tag;
+    request.tid       = tid;
     request.write     = true;
     memcpy(request.data.data, data, (size_t)size);
 
@@ -136,7 +133,7 @@ Result SerialMemory::DoRequests()
             // The current request has completed
             if (request.write) {
                 VirtualMemory::Write(request.address, request.data.data, request.data.size);
-                if (!request.callback->OnMemoryWriteCompleted(request.data.tag))
+                if (!request.callback->OnMemoryWriteCompleted(request.tid))
                 {
                     return FAILED;
                 }
@@ -147,7 +144,7 @@ Result SerialMemory::DoRequests()
             } else {
                 MemData data(request.data);
                 VirtualMemory::Read(request.address, data.data, data.size);
-                if (!request.callback->OnMemoryReadCompleted(data))
+                if (!request.callback->OnMemoryReadCompleted(request.address, data))
                 {
                     return FAILED;
                 }
@@ -181,6 +178,10 @@ SerialMemory::SerialMemory(const std::string& name, Object& parent, const Config
     m_timePerLine    (config.getInteger<CycleNo>   ("MemoryTimePerLine", 1)),
     m_sizeOfLine     (config.getInteger<CycleNo>   ("MemorySizeOfLine", 8)),
     m_nextdone(0),
+    m_nreads(0),
+    m_nread_bytes(0),
+    m_nwrites(0),
+    m_nwrite_bytes(0),
     
     p_Requests("requests", delegate::create<SerialMemory, &SerialMemory::DoRequests>(*this) )
 {
@@ -217,8 +218,8 @@ void SerialMemory::Cmd_Read(ostream& out, const vector<string>& arguments) const
         return VirtualMemory::Cmd_Read(out, arguments);
     }
     
-    out << "      Address       | Size |  CID  |    Type    | Source" << endl;
-    out << "--------------------+------+-------+------------+---------------------" << endl;
+    out << "      Address       | Size | Type  | Source" << endl;
+    out << "--------------------+------+-------+---------------------" << endl;
 
     for (Buffer<Request>::const_iterator p = m_requests.begin(); p != m_requests.end(); ++p)
     {
@@ -226,18 +227,10 @@ void SerialMemory::Cmd_Read(ostream& out, const vector<string>& arguments) const
             << " 0x" << setw(16) << p->address << " | "
             << setfill(' ') << setw(4) << dec << p->data.size << " | ";
 
-        if (p->data.tag.cid == INVALID_CID) {
-            out << " N/A  | ";
-        } else {
-            out << setw(5) << p->data.tag.cid << " | ";
-        }
-
         if (p->write) {
-            out << "Data write";
-        } else if (p->data.tag.cid != INVALID_CID) {
-            out << "Cache-line";
+            out << "Write";
         } else {
-            out << "Data read ";
+            out << "Read ";
         }
         out << " | ";
 
