@@ -66,7 +66,6 @@ struct Family
         };
     }            parent;         // Parent thread/family
     bool         hasDependency;  // Does this family use shareds?
-    bool         killed;         // Has this family been killed?
     Dependencies dependencies;   // The dependencies for termination and cleanup
     ThreadQueue  members;        // Queue of all threads in this family
     LFID         next;           // Next family in the empty or active family queue

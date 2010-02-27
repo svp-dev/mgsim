@@ -691,7 +691,6 @@ bool Allocator::SynchronizeFamily(LFID fid, Family& family, ExitCode code)
         UpdateContextAvailability();
     }
     
-    //COMMIT{ family.killed = true; }
     if (family.parent.gpid != INVALID_GPID) {
         // Killed a delegated family
         DebugSimWrite("Killed delegated F%u (parent: F%u@CPU%u)", (unsigned)fid, (unsigned)family.parent.fid, (unsigned)family.parent.gpid);
@@ -825,12 +824,6 @@ bool Allocator::OnMemoryRead(LFID fid)
 
 bool Allocator::DecreaseThreadDependency(LFID fid, TID tid, ThreadDependency dep)
 {
-    if (m_familyTable[fid].killed)
-    {
-        // Do nothing if the family has been killed
-        return true;
-    }
-    
     // We work on a copy unless we're committing
     Thread::Dependencies tmp_deps;
     Thread::Dependencies* deps = &tmp_deps;
@@ -1216,7 +1209,6 @@ void Allocator::InitializeFamily(LFID fid, Family::Type type) const
         PSize   placeSize = m_parent.GetPlaceSize();
         
         family.members.head = INVALID_TID;
-        family.killed       = false;
         family.state        = (type == Family::DELEGATED) ? FST_DELEGATED : FST_IDLE;
         family.next         = INVALID_LFID;
         family.type         = type;

@@ -150,8 +150,8 @@ void FamilyTable::Cmd_Read(ostream& out, const vector<string>& arguments) const
         return;
     }
 
-    out << "    |         PC         |   Allocated    | P/N/A/Rd/Sh |   Parent  | Prev | Next | State     | Symbol" << endl;
-    out << "----+--------------------+----------------+-------------+-----------+------+------+-----------+--------" << endl;
+    out << "    |         PC         |   Allocated    | P/N/A/Rd/Sh |   Parent  | Prev | Next | State         | Symbol" << endl;
+    out << "----+--------------------+----------------+-------------+-----------+------+------+---------------+--------" << endl;
     for (set<LFID>::const_iterator p = fids.begin(); p != fids.end(); ++p)
     {
         const Family& family = m_families[*p];
@@ -229,8 +229,13 @@ void FamilyTable::Cmd_Read(ostream& out, const vector<string>& arguments) const
                     out << "  - ";
                 }
             }
-            out << " | " << left << setw(9) << setfill(' ') << FamilyStates[family.state]
-                << " | " << GetKernel()->GetSymbolTable()[family.pc];
+            out << " | " << left << setw(13) << setfill(' ') << FamilyStates[family.state]
+                << " | ";
+            
+            if (family.state != FST_ALLOCATED)
+            {
+                out << GetKernel()->GetSymbolTable()[family.pc];
+            }
         }
         out << endl;
     }

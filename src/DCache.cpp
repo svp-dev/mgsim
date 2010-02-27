@@ -423,28 +423,23 @@ Result DCache::DoCompletedReads()
             }
 
             // Ignore the request if the family has been killed
-            const Family& family = m_familyTable[value.m_memory.fid];
-            if (!family.killed)
+            state.value = UnserializeRegister(line.waiting.type, &line.data[value.m_memory.offset], value.m_memory.size);
+            if (value.m_memory.sign_extend)
             {
-                state.value = UnserializeRegister(line.waiting.type, &line.data[value.m_memory.offset], value.m_memory.size);
-
-                if (value.m_memory.sign_extend)
-                {
-                    // Sign-extend the value
-                    assert(value.m_memory.size < sizeof(Integer));
-                    int shift = (sizeof(state.value) - value.m_memory.size) * 8;
-                    state.value = (int64_t)(state.value << shift) >> shift;
-                }
-
-                state.fid    = value.m_memory.fid;
-                state.addr   = line.waiting;
-                state.next   = value.m_memory.next;
-                state.offset = 0;
-
-                // Number of registers that we're writing (must be a power of two)
-                state.size = (value.m_memory.size + sizeof(Integer) - 1) / sizeof(Integer);
-                assert((state.size & (state.size - 1)) == 0);
+                // Sign-extend the value
+                assert(value.m_memory.size < sizeof(Integer));
+                int shift = (sizeof(state.value) - value.m_memory.size) * 8;
+                state.value = (int64_t)(state.value << shift) >> shift;
             }
+
+            state.fid    = value.m_memory.fid;
+            state.addr   = line.waiting;
+            state.next   = value.m_memory.next;
+            state.offset = 0;
+
+            // Number of registers that we're writing (must be a power of two)
+            state.size = (value.m_memory.size + sizeof(Integer) - 1) / sizeof(Integer);
+            assert((state.size & (state.size - 1)) == 0);
         }
         else
         {
@@ -634,6 +629,17 @@ void DCache::Cmd_Read(std::ostream& out, const std::vector<std::string>& /*argum
         out << endl;
         out << ((i + 1) % m_assoc == 0 ? "----" : "    ");
         out << "+---------------------+-------------------------------------------------+" << endl;
+    }
+    
+    out << endl << "Outgoing requests:" << endl << endl
+        << "      Address      | Size | Type  |" << endl
+        << "-------------------+------+-------+" << endl;
+    for (Buffer<Request>::const_iterator p = m_outgoing.begin(); p != m_outgoing.end(); ++p)
+    {
+        out << hex << "0x" << setw(16) << setfill('0') << p->address << " | "
+            << dec << setw(4) << right << setfill(' ') << p->data.size << " | "
+            << (p->write ? "Write" : "Read ") << " | "
+            << endl;
     }
 }
 
