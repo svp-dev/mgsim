@@ -11,7 +11,7 @@
 #include <set>
 #include <map>
 #include <cstdio>
-#ifdef ENABLE_COMA
+#ifdef ENABLE_COMA_ZL
 #include "coma/simlink/th.h"
 #endif
 
@@ -176,7 +176,7 @@ RunState Kernel::Step(CycleNo cycles)
         m_aborted = false;
         for (CycleNo i = 0; !m_aborted && !idle && (cycles == INFINITE_CYCLES || i < cycles); ++i)
         {
-#ifdef ENABLE_COMA
+#ifdef ENABLE_COMA_ZL
             sem_post(&thpara.sem_sync);
             sem_wait(&thpara.sem_mgs);
 #endif

@@ -116,9 +116,9 @@ AC_LANG_PUSH([C++])
 AC_LANG_POP
 
 if test "x$have_sysc" = "xno"; then
-  AC_MSG_WARN([COMA simulation not available])
+  AC_MSG_WARN([ZL's COMA simulation not available])
 fi
-AM_CONDITIONAL([ENABLE_COMA], [test "x$have_sysc" = "xyes"])
+AM_CONDITIONAL([ENABLE_COMA_ZL], [test "x$have_sysc" = "xyes"])
 
 AC_CONFIG_FILES([
 	Makefile

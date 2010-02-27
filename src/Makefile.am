@@ -13,7 +13,7 @@ FLAGS_COMMON = -W -Wall -Wwrite-strings -Wno-unused \
 #       -Wshorten-64-to-32 -Wextra
 #       -Weffc++ -Woverloaded-virtual 
 
-FLAGS_COMA = -DENABLE_COMA=1 -DTARGET_ARCH=ARCH_ALPHA
+FLAGS_COMA = -DENABLE_COMA_ZL=1 -DTARGET_ARCH=ARCH_ALPHA
 
 
 COMA_LDADD = $(SC_LIBS)
@@ -178,7 +178,7 @@ if ENABLE_USE_SDL
 GFX_FLAGS = $(SDL_CFLAGS) -DUSE_SDL=1 
 endif
 
-if ENABLE_COMA
+if ENABLE_COMA_ZL
 noinst_LIBRARIES += libsimlink.a libsimlink_g.a
 
 libsimlink_g_a_SOURCES = $(SIMLINK_SRC)
@@ -220,7 +220,7 @@ mgsim_alpha_dbg_SOURCES = $(SPECIAL_SRC)
 mgsim_alpha_dbg_CXXFLAGS = $(FLAGS_ALPHA) $(FLAGS_DEBUG) $(FLAGS_COMMON) $(FLAGS_SPECIAL)
 mgsim_alpha_dbg_LDADD = libalpha_g.a
 
-if ENABLE_COMA
+if ENABLE_COMA_ZL
 bin_PROGRAMS += simx-alpha simx-alpha.dbg
 dist_man1_MANS += simx-alpha.1
 
@@ -273,7 +273,7 @@ mgsim_sparc_dbg_SOURCES = $(SPECIAL_SRC)
 mgsim_sparc_dbg_CXXFLAGS = $(FLAGS_SPARC) $(FLAGS_DEBUG) $(FLAGS_COMMON) $(FLAGS_SPECIAL)
 mgsim_sparc_dbg_LDADD = libsparc_g.a
 
-# if ENABLE_COMA
+# if ENABLE_COMA_ZL
 # bin_PROGRAMS += simx-sparc simx-sparc.dbg
 # dist_man1_MANS += simx-sparc.1
 
