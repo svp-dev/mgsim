@@ -3,6 +3,7 @@ set -e
 ARCH=${1:?}
 TEST=${3:?}
 sim=${MGSIM:?}
+simx=${SIMX:?}
 timeout=${2:?}
 
 fail=0
@@ -11,9 +12,10 @@ dotest() {
   local i extraarg extradesc
   extraarg=$1
   extradesc=$2
+  thesim=$3
   i=1
   for i in $cpuconf; do
-      cmd="$sim $SIMARGS -o NumProcessors=$i $extraarg $TEST"
+      cmd="$thesim $SIMARGS -o NumProcessors=$i $extraarg $TEST"
       printf "%s" "TEST: $TEST: CPUS=$i $extradesc -> "
       set +e
       exec 3>&2 2>/dev/null
@@ -39,6 +41,15 @@ dotest() {
   done
 }
 
+domemtest() {
+    for mem in SERIAL PARALLEL BANKED RANDOMBANKED COMA; do
+        dotest "-o MemoryType=$mem $1" "MemType=$mem $2" "$sim"
+    done
+    if $simx --version >/dev/null 2>&1; then
+        dotest "$1" "MemType=COMA_ZL $2" "$simx"
+    fi
+}
+
 rdata=$(strings <"$TEST"|grep "TEST_INPUTS"|head -n1)
 pdata=$(strings <"$TEST"|grep "PLACES"|head -n1|cut -d: -f2-)
 if test -n "$pdata"; then
@@ -51,13 +62,11 @@ if test -n "$rdata"; then
     reg=$(echo "$rdata"|cut -d: -f2)
     vals=$(echo "$rdata"|cut -d: -f3)
     for val in $vals; do
-	dotest "-$reg $val" "$reg=$val"
+	domemtest "-$reg $val" "$reg=$val" 
     done
 else
-    dotest "" ""
+    domemtest "" ""
 fi
 
-
 exit $fail
-
 
