@@ -189,7 +189,7 @@ void ProcessorTOK::BehaviorMem()
     }
 
     // get feedback
-    ST_request* req;
+    ST_request* req = 0;
     if (!m_pfifoFeedback.nb_read(req))
     {
         abort();
