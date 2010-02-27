@@ -8,6 +8,7 @@
 #include "Memory.h"
 #include "config.h"
 #include "symtable.h"
+#include "breakpoints.h"
 
 #include <vector>
 #include <utility>
@@ -21,10 +22,11 @@ namespace Simulator {
         std::vector<FPU*>       m_fpus;
         std::vector<Object*>    m_objects;
         std::vector<PlaceInfo*> m_places;
+        SymbolTable        m_symtable;
+        BreakPoints        m_breakpoints;
         Kernel             m_kernel;
         IMemoryAdmin*      m_memory;
         void*              m_pmemory;  // Will be used by CMLink if COMA is enabled.
-        SymbolTable        m_symtable;
         std::string        m_objdump_cmd;
         std::string        m_program;
         enum {

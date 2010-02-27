@@ -432,6 +432,7 @@ Object* MGSystem::GetComponent(const string& path)
 // Steps the entire system this many cycles
 void MGSystem::Step(CycleNo nCycles)
 {
+    m_breakpoints.Resume();
     RunState state = GetKernel().Step(nCycles);
     if (state == STATE_IDLE)
     {
@@ -471,7 +472,7 @@ void MGSystem::Step(CycleNo nCycles)
             num_regs += m_procs[i]->GetNumSuspendedRegisters();
         }
 
-        stringstream ss;
+        ostringstream ss;
         ss << "Deadlock!" << endl
            << "(" << num_stalled << " processes stalled;  " << num_running << " processes running; "
            << num_regs << " registers waited on)";
@@ -480,8 +481,15 @@ void MGSystem::Step(CycleNo nCycles)
 
     if (state == STATE_ABORTED)
     {
-        // The simulation was aborted, because the user interrupted it.
-        throw runtime_error("Interrupted!");
+        if (m_breakpoints.NewBreaksDetected())
+        {
+            ostringstream ss;
+            m_breakpoints.ReportBreaks(ss);
+            throw runtime_error(ss.str());
+        }
+        else
+            // The simulation was aborted, because the user interrupted it.
+            throw runtime_error("Interrupted!");
     }
 }
 
@@ -510,7 +518,8 @@ MGSystem::MGSystem(const Config& config, Display& display, const string& program
                    const vector<pair<RegAddr, string> >& loads,
                    bool quiet)
     : Object("system", m_kernel),
-      m_kernel(display, m_symtable),
+      m_breakpoints(m_kernel),
+      m_kernel(display, m_symtable, m_breakpoints),
       m_program(program)
 {
     const vector<PSize> placeSizes = config.getIntegerList<PSize>("NumProcessors");

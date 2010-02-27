@@ -10,6 +10,7 @@
 #include <cassert>
 
 class SymbolTable;
+class BreakPoints;
 
 namespace Simulator
 {
@@ -106,6 +107,7 @@ private:
     CycleNo      m_cycle;             ///< Current cycle of the simulation.
     Display&     m_display;           ///< The display to manage.
     SymbolTable& m_symtable;          ///< The symbol table for debugging.
+    BreakPoints& m_breakpoints;       ///< The breakpoint checker for debugging.
     CyclePhase   m_phase;             ///< Current sub-cycle phase of the simulation.
     Process*     m_process;           ///< The currently executing process.
     bool         m_debugging;         ///< Are we in a debug trace?
@@ -116,7 +118,7 @@ private:
 
     bool UpdateStorages();
 public:
-    Kernel(Display& display, SymbolTable& symtable);
+    Kernel(Display& display, SymbolTable& symtable, BreakPoints& breakpoints);
     ~Kernel();
     
     /**
@@ -211,6 +213,7 @@ public:
 
     inline Display& GetDisplay() const { return m_display; }
     inline SymbolTable& GetSymbolTable() const { return m_symtable; }
+    inline BreakPoints& GetBreakPoints() const { return m_breakpoints; }
 };
 
 /**

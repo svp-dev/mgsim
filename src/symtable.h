@@ -22,6 +22,8 @@ public:
 
     void Write(std::ostream& o, const std::string& pat = "*") const;
 
+    bool LookUp(const std::string& sym, Simulator::MemAddr &addr, bool recurse = true) const;
+
     const std::string& operator[](Simulator::MemAddr addr);
     const std::string operator[](Simulator::MemAddr addr) const;
     

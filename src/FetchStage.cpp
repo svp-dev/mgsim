@@ -1,6 +1,7 @@
 #include "Pipeline.h"
 #include "Processor.h"
 #include "config.h"
+#include "breakpoints.h"
 #include <cassert>
 using namespace std;
 
@@ -37,6 +38,10 @@ Pipeline::PipeAction Pipeline::FetchStage::OnCycle()
         pc = thread.pc;
         if (!family.legacy && pc % m_controlBlockSize == 0)
         {
+            // We need to check for breakpoints on the control
+            // word here.
+            GetKernel()->GetBreakPoints().Check(BreakPoints::EXEC, pc, *this);
+
             // Skip the control word
             pc += sizeof(Instruction);
         }
@@ -94,6 +99,9 @@ Pipeline::PipeAction Pipeline::FetchStage::OnCycle()
         m_output.pc           = pc;
         m_output.pc_dbg       = pc;
         m_output.instr        = UnserializeInstruction(&instrs[iInstr]);
+
+        // Check for breakpoints
+        GetKernel()->GetBreakPoints().Check(BreakPoints::EXEC, pc, *this);
 
         // Update the PC and switched state
         m_pc       = next_pc;

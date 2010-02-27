@@ -225,7 +225,7 @@ void HandleCommandLine(CommandLineReader& clr,
         {
             PrintHelp(cout);
         }
-        else if (command == "r" || command == "run" || command == "s" || command == "step")
+        else if (command == "r" || command == "run" || command == "s" || command == "step" || command == "c" || command == "continue")
         {
             // Step of run
             CycleNo nCycles = INFINITE_CYCLES;
@@ -247,6 +247,65 @@ void HandleCommandLine(CommandLineReader& clr,
             {
                 PrintException(cerr, e);
             }
+        }
+        else if (command == "b" || command == "break")
+        {
+            if (!args.empty())
+            {
+                int offset = 0;
+#if TARGET_ARCH == ARCH_ALPHA
+                // skip 8 bytes for the ldgp instruction
+                offset = 8;
+#endif
+                sys.GetKernel().GetBreakPoints().AddBreakPoint(args[0], offset);
+            }
+            else
+                sys.GetKernel().GetBreakPoints().ReportBreaks(cout);
+        }
+        else if(command == "bp" && !args.empty())
+        {
+            BreakPoints& bp = sys.GetKernel().GetBreakPoints();
+            if (args[0] == "add" && args.size() == 3)
+            {
+                int mode = 0;
+                for (string::const_iterator i = args[2].begin(); i != args[2].end(); ++i)
+                {
+                    if (toupper(*i) == 'R') mode |= BreakPoints::READ;
+                    if (toupper(*i) == 'W') mode |= BreakPoints::WRITE;
+                    if (toupper(*i) == 'X') mode |= BreakPoints::EXEC;
+                }
+                if (mode == 0)
+                    cout << "Invalid breakpoint mode:" << args[2] << endl;
+                else
+                    bp.AddBreakPoint(args[1], 0, mode);                
+            }
+            else if (args.size() == 1)
+            {
+                if (args[0] == "list")
+                    bp.ListBreakPoints(std::cout);
+                else if (args[0] == "on")
+                    bp.EnableCheck();
+                else if (args[0] == "off")
+                    bp.DisableCheck();
+                else if (args[0] == "clear")
+                    bp.ClearAllBreakPoints();
+                else
+                    cout << "Unknown command" << endl;
+            }
+            else if (args.size() == 2)
+            {
+                unsigned id = strtoul(args[1].c_str(), 0, 0);
+                if (args[0] == "del")
+                    bp.DeleteBreakPoint(id);
+                else if (args[0] == "enable")
+                    bp.EnableBreakPoint(id);
+                else if (args[0] == "disable")
+                    bp.DisableBreakPoint(id);
+                else
+                    cout << "Unknown command" << endl;
+            }
+            else
+                cout << "Unknown command" << endl;
         }
         else if (command == "p" || command == "print")
         {
@@ -363,21 +422,32 @@ void PrintHelp(ostream& out)
     out <<
         "Available commands:\n"
         "-------------------\n"
-        "(h)elp           Print this help text.\n"
-        "(p)rint          Print all components in the system.\n"
-        "(s)tep           Advance the system one clock cycle.\n"
-        "(r)un            Run the system until it is idle or deadlocks.\n"
-        "                 Livelocks will not be reported.\n"
-        "(f)ind <addr>    Find the symbol nearest to the specified address.\n"
-        "(d)isasm <addr>  Disassemble program from this address.\n"
-        "(l)ist [PAT]     List symbols matching PAT (default *).\n"
-        "state            Shows the state of the system. Idle components\n"
-        "                 are left out.\n"
-        "debug [mode]     Show debug mode or set debug mode\n"
-        "                 Debug mode can be: SIM, PROG, DEADLOCK or NONE.\n"
-        "                 ALL is short for SIM and PROG\n"
-        "help <component> Show the supported methods and options for this\n"
-        "                 component.\n"
+        "(h)elp               Print this help text.\n"
+        "(p)rint              Print all components in the system.\n"
+        "(s)tep               Advance the system one clock cycle.\n"
+        "(r)un/(c)ontinue     Run the system until it is idle or deadlocks.\n"
+        "                     Livelocks will not be reported.\n"
+        "(f)ind <addr>        Find the symbol nearest to the specified address.\n"
+        "(d)isasm <addr>      Disassemble program from this address.\n"
+        "(l)ist [PAT]         List symbols matching PAT (default *).\n"
+        "\n"
+        "(b)reak <addr>       Set exec breakpoint at this address.\n"
+        "bp on/off            Enable/disable breakpoint checking.\n"
+        "bp add <addr> <mode> Add a breakpoint for this address.\n"
+        "                     Mode is a combination of R, W, or X.\n"
+        "bp list              List existing breakpoints.\n"
+        "bp disable <id>      Disable specified breakpoint.\n"
+        "bp enable <id>       Enable specified breakpoint.\n"
+        "bp del <id>          Delete specified breakpoint.\n"
+        "bp clear             Delete all breakpoints.\n"
+        "\n"
+        "state                Shows the state of the system. Idle components\n"
+        "                     are left out.\n"
+        "debug [mode]         Show debug mode or set debug mode\n"
+        "                     Debug mode can be: SIM, PROG, DEADLOCK or NONE.\n"
+        "                     ALL is short for SIM and PROG\n"
+        "help <component>     Show the supported methods and options for this\n"
+        "                     component.\n"
         << endl;
 }
 

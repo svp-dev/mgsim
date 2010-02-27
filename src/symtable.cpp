@@ -138,14 +138,35 @@ void SymbolTable::Write(std::ostream& o, const std::string& pat) const
 {
     for (table_t::const_iterator i = m_entries.begin(); i != m_entries.end(); ++i) 
     {
-        if (!fnmatch(pat.c_str(), i->second.second.c_str(), 0)) 
+        if (!fnmatch(pat.c_str(), entry_sym(*i).c_str(), 0)) 
         {
-            o << hex << i->first << ' ' << i->second.second;
-            if (i->second.first)
-                o << " (" << dec << i->second.first << ')';
+            o << hex << entry_addr(*i) << ' ' << entry_sym(*i);
+            if (entry_sz(*i))
+                o << " (" << dec << entry_sz(*i) << ')';
             o << endl;
         }
     }
+}
+
+bool SymbolTable::LookUp(const std::string& sym, MemAddr &addr, bool recurse) const
+{
+    for (table_t::const_iterator i = m_entries.begin(); i != m_entries.end(); ++i)
+        if (entry_sym(*i) == sym)
+        {
+            addr = entry_addr(*i);
+            return true;
+        }
+
+    for (cache_t::const_iterator i = m_cache.begin(); i != m_cache.end(); ++i)
+        if (i->second == sym)
+        {
+            addr = i->first;
+            return true;
+        }
+
+    if (recurse)
+        return LookUp('<' + sym + '>', addr, false);
+    return false;
 }
 
 void SymbolTable::AddSymbol(MemAddr addr, const std::string& name, size_t sz)

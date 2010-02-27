@@ -117,6 +117,8 @@ COMMON_SRC = \
 	VirtualMemory.cpp \
 	VirtualMemory.h \
 	WritebackStage.cpp \
+	breakpoints.cpp \
+	breakpoints.h \
 	config.cpp \
 	config.h \
 	delegate.h \
