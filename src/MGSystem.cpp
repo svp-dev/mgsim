@@ -28,14 +28,141 @@ using namespace std;
 using namespace MemSim;
 #endif
 
+// WriteConfiguration()
+
+// This function exposes the Microgrid configuration to simulated
+// programs through the memory interface. The configuration data
+// starts at the address given by local register 2 in the first
+// thread created on the system.
+
+// The configuration is composed of data blocks, each block
+// composed of 32-bit words. The first word in each block is a
+// "block type/size" tag indicating the type and size of the
+// current block. 
+
+// A tag set to 0 indicates the end of the configuration data. 
+// A non-zero tag is a word with bits 31-16 set to the block type
+// and bits 15-0 are set to the block size (number of words to
+// next block).
+// From each tag, the address of the tag for the next block is (in
+// words) A_next = A_cur + size.
+
+// Current block types:
+
+// - architecture type v1, organized as follows:
+//     - word 0 after tag: architecture model (1 for simulated microgrid, others TBD)
+//     - word 1: ISA type (1 = alpha, 2 = sparc)
+//     - word 2: number of FPUs (0 = no FPU)
+//     - word 3: memory type (0 = unknown, for other values see enum MEMTYPE in MGSystem.h)
+
+// - timing words v1, organized as follows:
+//     - word 0 after tag: core frequency (in MHz)
+//     - word 1 after tag: external memory bandwidth (in 10^6bytes/s)
+
+// - cache parameters words v1, organized as follows:
+//     - word 0 after tag: cache line size (in bytes)
+//     - word 1: L1 I-cache size (in bytes)
+//     - word 2: L1 D-cache size (in bytes)
+//     - word 3: number of L2 caches 
+//     - word 4: L2 cache size per cache (in bytes)
+
+// - concurrency resource words v1, organized as follows:
+//     - word 0 after tag: number of family entries per core
+//     - word 1: number of thread entries per core
+//     - word 2: number of registers in int register file
+//     - word 3: number of registers in float register file
+
+// - place layout v1, organized as follows:
+//     - word 0 after tag: number of cores (P)
+//     - word 1 ... P: (ringID << 16) | (coreID << 0) 
+//     (future layout configuration formats may include topology information)
+
+#define CONFTAG_ARCH_V1    1
+#define CONFTAG_TIMINGS_V1 2
+#define CONFTAG_CACHE_V1   3
+#define CONFTAG_CONC_V1    4
+#define CONFTAG_LAYOUT_V1  5
+#define MAKE_TAG(Type, Size) (uint32_t)(((Type) << 16) | ((Size) & 0xffff))
+
+struct ConfWords
+{
+    vector<uint32_t> data;
+    
+    ConfWords& operator<<(uint32_t val) 
+    {
+        uint32_t repr;
+        SerializeRegister(RT_INTEGER, val, &repr, sizeof(repr));
+        data.push_back(repr);
+        return *this;
+    }
+};
+
 MemAddr MGSystem::WriteConfiguration(const Config& config)
 {
+
+    uint32_t cl_sz = config.getInteger<uint32_t>("CacheLineSize", 0);
+
+    ConfWords words;
+
+    // configuration words for architecture type v1
+
+    words << MAKE_TAG(CONFTAG_ARCH_V1, 4)
+          << 1 // simulated microgrid
+#if TARGET_ARCH == ARCH_ALPHA
+          << 1 // alpha
+#else
+          << 2 // sparc
+#endif    
+          << m_fpus.size()
+          << m_memorytype
+
+    
+    // timing words v1
+
+          << MAKE_TAG(CONFTAG_TIMINGS_V1, 2)
+          << config.getInteger<uint32_t>("CoreFreq", 0)
+          << ((m_memorytype == MEMTYPE_COMA_ZL || m_memorytype == MEMTYPE_COMA_ML) ? 
+              config.getInteger<uint32_t>("DDRMemoryFreq", 0) 
+              * config.getInteger<uint32_t>("NumRootDirectories", 0)
+              * 3 /* DDR3 = triple rate */ 
+              * 8 /* 64 bit = 8 bytes per transfer */
+              : 0 /* no timing information if memory system is not COMA */)
+        
+    // cache parameter words v1
+    
+          << MAKE_TAG(CONFTAG_CACHE_V1, 5)
+          << cl_sz
+          << (cl_sz 
+              * config.getInteger<uint32_t>("ICacheAssociativity", 0)
+              * config.getInteger<uint32_t>("ICacheNumSets", 0))
+          << (cl_sz
+              * config.getInteger<uint32_t>("DCacheAssociativity", 0)
+              * config.getInteger<uint32_t>("DCacheNumSets", 0));
+    if (m_memorytype == MEMTYPE_COMA_ZL || m_memorytype == MEMTYPE_COMA_ML)
+        words << (m_procs.size()
+                  / config.getInteger<uint32_t>("NumProcessorsPerCache", 0)) // FIXME: COMA?
+              << (cl_sz
+                  * config.getInteger<uint32_t>("L2CacheAssociativity", 0)
+                  * config.getInteger<uint32_t>("L2CacheNumSets", 0));
+    else
+        words << 0 << 0;
+
+    // concurrency resources v1
+    
+    words << MAKE_TAG(CONFTAG_CONC_V1, 4)
+          << config.getInteger<uint32_t>("NumFamilies", 0)
+          << config.getInteger<uint32_t>("NumThreads", 0)
+          << config.getInteger<uint32_t>("NumIntRegisters", 0)
+          << config.getInteger<uint32_t>("NumFltRegisters", 0)
+
+        ;
+
+    // place layout v1
+
     const vector<PSize>& placeSizes = config.getIntegerList<PSize>("NumProcessors");
 
-    vector<uint32_t> data(1 + m_procs.size());
-
-    // Store the number of cores
-    SerializeRegister(RT_INTEGER, m_procs.size(), &data[0], sizeof data[0]);
+    words << MAKE_TAG(CONFTAG_LAYOUT_V1, m_procs.size() + 1)
+          << m_procs.size();
 
     // Store the cores, per place
     PSize first = 0;
@@ -45,17 +172,20 @@ MemAddr MGSystem::WriteConfiguration(const Config& config)
         for (size_t i = 0; i < placeSize; ++i)
         {
             PSize pid = first + i;
-            SerializeRegister(RT_INTEGER, (p << 16) | (pid << 0), &data[1 + pid], sizeof data[0]);
+            words << ((p << 16) | (pid << 0));
         }
         first += placeSize;
     }
 
+    // after last block
+    words << 0 << 0;
+
     MemAddr base;
-    if (!m_memory->Allocate(data.size() * sizeof data[0], IMemory::PERM_READ, base))
+    if (!m_memory->Allocate(words.data.size() * sizeof words.data[0], IMemory::PERM_READ, base))
     {
         throw runtime_error("Unable to allocate memory to store configuration data");
     }
-    m_memory->Write(base, &data[0], data.size() * sizeof data[0]);
+    m_memory->Write(base, &words.data[0], words.data.size() * sizeof words.data[0]);
     return base;
 }
 
@@ -421,8 +551,9 @@ MGSystem::MGSystem(const Config& config, Display& display, const string& program
     m_objects.resize(numProcessors * 2 + numFPUs);
     CMLink** &m_pmemory = (CMLink**&)this->m_pmemory;
     m_pmemory = new CMLink*[LinkMGS::s_oLinkConfig.m_nProcs];
+    m_memorytype = MEMTYPE_COMA_ZL;
 #else
-    string memory_type = config.getString("MemoryType", "");
+    std::string memory_type = config.getString("MemoryType", "");
     std::transform(memory_type.begin(), memory_type.end(), memory_type.begin(), ::toupper);
 
     m_objects.resize(numProcessors + numFPUs + 1);
@@ -430,18 +561,22 @@ MGSystem::MGSystem(const Config& config, Display& display, const string& program
         SerialMemory* memory = new SerialMemory("memory", *this, config);
         m_objects.back() = memory;
         m_memory = memory;
+        m_memorytype = MEMTYPE_SERIAL;
     } else if (memory_type == "PARALLEL") {
         ParallelMemory* memory = new ParallelMemory("memory", *this, config);
         m_objects.back() = memory;
         m_memory = memory;
+        m_memorytype = MEMTYPE_PARALLEL;
     } else if (memory_type == "BANKED") {
         BankedMemory* memory = new BankedMemory("memory", *this, config);
         m_objects.back() = memory;
         m_memory = memory;
+        m_memorytype = MEMTYPE_BANKED;
     } else if (memory_type == "RANDOMBANKED") {
         RandomBankedMemory* memory = new RandomBankedMemory("memory", *this, config);
         m_objects.back() = memory;
         m_memory = memory;
+        m_memorytype = MEMTYPE_RANDOMBANKED;
     } else {
         throw std::runtime_error("Unknown memory type specified in configuration");
     }

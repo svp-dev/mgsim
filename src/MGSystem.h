@@ -27,6 +27,14 @@ namespace Simulator {
         SymbolTable        m_symtable;
         std::string        m_objdump_cmd;
         std::string        m_program;
+        enum {
+            MEMTYPE_SERIAL = 1,
+            MEMTYPE_PARALLEL = 2,
+            MEMTYPE_BANKED = 3,
+            MEMTYPE_RANDOMBANKED = 4,
+            MEMTYPE_COMA_ZL = 5,
+            MEMTYPE_COMA_ML = 6
+        } m_memorytype; // for WriteConfiguration
 
         // Writes the current configuration into memory and returns its address
         MemAddr WriteConfiguration(const Config& config);
