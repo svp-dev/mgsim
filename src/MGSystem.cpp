@@ -9,6 +9,7 @@
 # include "ParallelMemory.h"
 # include "BankedMemory.h"
 # include "RandomBankedMemory.h"
+# include "coma/COMA.h"
 #endif
 
 #include "loader.h"
@@ -577,6 +578,11 @@ MGSystem::MGSystem(const Config& config, Display& display, const string& program
         m_objects.back() = memory;
         m_memory = memory;
         m_memorytype = MEMTYPE_RANDOMBANKED;
+    } else if (memory_type == "COMA") {
+        COMA* memory = new COMA("memory", *this, config);
+        m_objects.back() = memory;
+        m_memory = memory;
+        m_memorytype = MEMTYPE_COMA_ML;
     } else {
         throw std::runtime_error("Unknown memory type specified in configuration");
     }

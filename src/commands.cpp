@@ -7,6 +7,10 @@
 # include "ParallelMemory.h"
 # include "BankedMemory.h"
 # include "RandomBankedMemory.h"
+# include "coma/COMA.h"
+# include "coma/Cache.h"
+# include "coma/Directory.h"
+# include "coma/RootDirectory.h"
 #endif
 
 #include <csignal>
@@ -86,6 +90,10 @@ static const struct
     {"help", new bind_cmd_C<ParallelMemory    >(&ParallelMemory    ::Cmd_Help) },
     {"help", new bind_cmd_C<RandomBankedMemory>(&RandomBankedMemory::Cmd_Help) },
     {"help", new bind_cmd_C<BankedMemory      >(&BankedMemory      ::Cmd_Help) },
+    {"help", new bind_cmd_C<COMA              >(&COMA               ::Cmd_Help) },
+    {"help", new bind_cmd_C<COMA::Cache       >(&COMA::Cache        ::Cmd_Help) },
+    {"help", new bind_cmd_C<COMA::Directory   >(&COMA::Directory    ::Cmd_Help) },
+    {"help", new bind_cmd_C<COMA::RootDirectory>(&COMA::RootDirectory::Cmd_Help) },
 #endif
     {"help", new bind_cmd_C<FPU               >(&FPU               ::Cmd_Help) },
     {"info", new bind_cmd_C<VirtualMemory     >(&VirtualMemory     ::Cmd_Info) },
@@ -103,6 +111,9 @@ static const struct
     {"read", new bind_cmd_C<ParallelMemory    >(&ParallelMemory    ::Cmd_Read) },
     {"read", new bind_cmd_C<RandomBankedMemory>(&RandomBankedMemory::Cmd_Read) },
     {"read", new bind_cmd_C<BankedMemory      >(&BankedMemory      ::Cmd_Read) },
+    {"read", new bind_cmd_C<COMA::Cache       >(&COMA::Cache        ::Cmd_Read) },
+    {"read", new bind_cmd_C<COMA::Directory   >(&COMA::Directory    ::Cmd_Read) },
+    {"read", new bind_cmd_C<COMA::RootDirectory>(&COMA::RootDirectory::Cmd_Read) },
 #endif
     {"read", new bind_cmd_C<VirtualMemory     >(&VirtualMemory     ::Cmd_Read) },
     {"read", new bind_cmd_C<FPU               >(&FPU               ::Cmd_Read) },

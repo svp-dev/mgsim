@@ -134,7 +134,19 @@ COMMON_SRC = \
 	symtable.h \
 	symtable.cpp \
 	storage.h \
-	types.h
+	types.h \
+	coma/COMA.h \
+	coma/COMA.cpp \
+	coma/Cache.h \
+	coma/Cache.cpp \
+	coma/Directory.h \
+	coma/Directory.cpp \
+	coma/Node.h \
+	coma/Node.cpp \
+	coma/RootDirectory.h \
+	coma/RootDirectory.cpp \
+	coma/DDR.h \
+	coma/DDR.cpp
 
 SPECIAL_SRC = \
 	ExecuteStage.cpp \
