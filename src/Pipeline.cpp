@@ -336,12 +336,13 @@ void Pipeline::Cmd_Read(std::ostream& out, const std::vector<std::string>& /*arg
     else
     {
         PrintLatchCommon(out, m_drLatch);
+        out  << hex << setfill('0')
 #if TARGET_ARCH == ARCH_ALPHA
-        out  << " | Opcode:       0x" << setw(2) << (unsigned)m_drLatch.opcode << endl
+             << " | Opcode:       0x" << setw(2) << (unsigned)m_drLatch.opcode << endl
              << " | Function:     0x" << setw(4) << m_drLatch.function << endl
              << " | Displacement: 0x" << setw(8) << m_drLatch.displacement << endl
 #elif TARGET_ARCH == ARCH_SPARC
-        out  << " | Op1:          0x" << setw(2) << (unsigned)m_drLatch.op1
+             << " | Op1:          0x" << setw(2) << (unsigned)m_drLatch.op1
              << "    Op2: 0x" << setw(2) << (unsigned)m_drLatch.op2
              << "    Op3: 0x" << setw(2) << (unsigned)m_drLatch.op3 << endl
              << " | Function:     0x" << setw(4) << m_drLatch.function << endl
