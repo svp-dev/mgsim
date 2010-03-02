@@ -683,7 +683,7 @@ bool COMA::Cache::OnResponseReceived(Message* msg)
                 
                 COMMIT
                 {
-                    if (hops > 1 + line->hops)
+                    if (hops > line->hops)
                     {
                         // The current forwarding cache is closer than the desired cache.
                         // We need to forward the message to the other cache with new update info.
