@@ -117,6 +117,7 @@ static const struct
 #endif
     {"read", new bind_cmd_C<VirtualMemory     >(&VirtualMemory     ::Cmd_Read) },
     {"read", new bind_cmd_C<FPU               >(&FPU               ::Cmd_Read) },
+    {"trace", new bind_cmd_NC<COMA             >(&COMA              ::Cmd_Trace) },
     {NULL, NULL}
 };
 
