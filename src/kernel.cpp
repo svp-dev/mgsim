@@ -93,13 +93,13 @@ void Object::OutputWrite_(const char* msg, ...) const
 
     string name = GetFQN();
     transform(name.begin(), name.end(), name.begin(), ::toupper);
-    cout << "[" << right << dec << setfill('0') << setw(8) << m_kernel.GetCycleNo() << ":" << name << "] ";
+    cerr << "[" << right << dec << setfill('0') << setw(8) << m_kernel.GetCycleNo() << ":" << name << "] ";
 
     va_start(args, msg);
-    vprintf(msg, args);
+    vfprintf(stderr, msg, args);
     va_end(args);
         
-    cout << endl;
+    cerr << endl;
 }
 
 void Object::DeadlockWrite_(const char* msg, ...) const
@@ -108,19 +108,19 @@ void Object::DeadlockWrite_(const char* msg, ...) const
         
     if (!m_kernel.m_debugging) {
         const Process* process = m_kernel.GetActiveProcess(); 
-        cout << endl << process->GetName() << ":" << endl;
+        cerr << endl << process->GetName() << ":" << endl;
         m_kernel.m_debugging = true;
     }
 
     string name = GetFQN();
     transform(name.begin(), name.end(), name.begin(), ::toupper);
-    cout << "[" << right << dec << setfill('0') << setw(8) << m_kernel.GetCycleNo() << ":" << name << "] ";
+    cerr << "[" << right << dec << setfill('0') << setw(8) << m_kernel.GetCycleNo() << ":" << name << "] ";
 
     va_start(args, msg);
-    vprintf(msg, args);
+    vfprintf(stderr, msg, args);
     va_end(args);
 
-    cout << endl;
+    cerr << endl;
 }
 
 void Object::DebugSimWrite_(const char* msg, ...) const
@@ -129,13 +129,13 @@ void Object::DebugSimWrite_(const char* msg, ...) const
 
     string name = GetFQN();
     transform(name.begin(), name.end(), name.begin(), ::toupper);
-    cout << "[" << right << dec << setfill('0') << setw(8) << m_kernel.GetCycleNo() << ":" << name << "] ";
+    cerr << "[" << right << dec << setfill('0') << setw(8) << m_kernel.GetCycleNo() << ":" << name << "] ";
 
     va_start(args, msg);
-    vprintf(msg, args);
+    vfprintf(stderr, msg, args);
     va_end(args);
 
-    cout << endl;
+    cerr << endl;
 }
 
 void Object::DebugProgWrite_(const char* msg, ...) const
@@ -144,13 +144,13 @@ void Object::DebugProgWrite_(const char* msg, ...) const
 
     string name = GetFQN();
     transform(name.begin(), name.end(), name.begin(), ::toupper);
-    cout << "[" << right << dec << setfill('0') << setw(8) << m_kernel.GetCycleNo() << ":" << name << "] ";
+    cerr << "[" << right << dec << setfill('0') << setw(8) << m_kernel.GetCycleNo() << ":" << name << "] ";
 
     va_start(args, msg);
-    vprintf(msg, args);
+    vfprintf(stderr, msg, args);
     va_end(args);
 
-    cout << endl;
+    cerr << endl;
 }
 
 //
