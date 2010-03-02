@@ -188,6 +188,11 @@ public:
         return AddRequest(m_incoming, request, request.write);
     }
 
+    bool HasRequests(void) const
+    {
+        return !(m_incoming.Empty() && m_outgoing.Empty() && !m_busy.IsSet());
+    }
+
     void Print(ostream& out)
     {
         out << GetName() << ":" << endl;
@@ -437,7 +442,10 @@ void BankedMemory::Cmd_Read(ostream& out, const vector<string>& arguments) const
 
     for (size_t i = 0; i < m_banks.size(); ++i)
     {
-        m_banks[i]->Print(out);
+        if (m_banks[i]->HasRequests())
+        {
+            m_banks[i]->Print(out);
+        }
     }    
 }
 
