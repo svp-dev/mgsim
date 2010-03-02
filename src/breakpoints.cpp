@@ -9,7 +9,7 @@ using namespace Simulator;
 
 void BreakPoints::CheckEnabled()
 {
-    bool someenabled;
+    bool someenabled = false;
     for (breakpoints_t::const_iterator i = m_breakpoints.begin();
          i != m_breakpoints.end(); ++i)
         if (i->second.enabled)
@@ -43,7 +43,7 @@ void BreakPoints::ListBreakPoints(std::ostream& out) const
         out << "no breakpoints defined." << endl;
     else 
     {
-        out << "Id   | PC                 | Symbol               | Mode | Status    " << endl
+        out << "Id   | Address            | Symbol               | Mode | Status    " << endl
             << "-----+--------------------+----------------------+------+-----------" << endl
             << setfill(' ') << left;
         for (breakpoints_t::const_iterator i = m_breakpoints.begin();
@@ -56,6 +56,8 @@ void BreakPoints::ListBreakPoints(std::ostream& out) const
                 mode += 'W';
             if (i->second.type & EXEC)
                 mode += 'X';
+            if (i->second.type & TRACEONLY)
+                mode += 'T';
             
             out << setw(4) << dec << i->second.id << " | "
                 << setw(18) << hex << showbase << i->first << " | " 
@@ -74,13 +76,27 @@ void BreakPoints::Resume(void)
     m_activebreaks.clear();
 }
 
+std::string BreakPoints::GetModeName(int type)
+{
+    std::string mode;
+    if (type & READ)
+        mode += 'R';
+    if (type & WRITE)
+        mode += 'W';
+    if (type & EXEC)
+        mode += 'X';
+    if (type & TRACEONLY)
+        mode += 'T';
+    return mode;
+}
+
 void BreakPoints::ReportBreaks(std::ostream& out) const
 {
     if (m_activebreaks.empty())
         return;
 
     out << "Breakpoints reached:" << endl << endl
-        << "Id   | PC                 | Symbol               | Mode | Component      " << endl
+        << "Id   | Address            | Symbol               | Mode | Component      " << endl
         << "-----+--------------------+----------------------+------+----------------" << endl
         << setfill(' ') << left;
 
@@ -90,18 +106,10 @@ void BreakPoints::ReportBreaks(std::ostream& out) const
         if (b == m_breakpoints.end())
             continue;
 
-        std::string mode;
-        if (i->type & READ)
-            mode += 'R';
-        if (i->type & WRITE)
-            mode += 'W';
-        if (i->type & EXEC)
-            mode += 'X';
-
         out << setw(4) << dec << b->second.id << " | "
             << setw(18) << hex << showbase << i->addr << " | " 
             << setw(20) << m_kernel.GetSymbolTable()[i->addr] << " | "
-            << setw(4) << mode << " | "
+            << setw(4) << GetModeName(i->type) << " | "
             << i->obj->GetFQN()
             << endl;
     }
@@ -163,6 +171,11 @@ void BreakPoints::AddBreakPoint(MemAddr addr, int type)
     info.enabled = true;
     info.id = m_counter++;
     info.type = type;
+
+    breakpoints_t::const_iterator i = m_breakpoints.find(addr);
+    if (i != m_breakpoints.end())
+        info.type |= i->second.type;
+
     m_breakpoints[addr] = info;
     m_enabled = true;
 }
@@ -189,8 +202,21 @@ void BreakPoints::CheckMore(int type, MemAddr addr, Object& obj)
     breakpoints_t::const_iterator i = m_breakpoints.find(addr);
     if (i != m_breakpoints.end() && i->second.enabled && (i->second.type & type) != 0) 
     {
-        ActiveBreak ab(addr, obj, i->second.type & type);
-        m_activebreaks.insert(ab);
-        m_kernel.Abort();
+        if (i->second.type & TRACEONLY)
+        {
+            if (m_kernel.GetCyclePhase() == PHASE_COMMIT)
+            {
+                obj.DebugSimWrite_("Trace point %d reached: 0x%.*llx (%s, %s)", 
+                                   i->second.id, (int)sizeof(addr)*2, (unsigned long long)addr, 
+                                   m_kernel.GetSymbolTable()[addr].c_str(), 
+                                   GetModeName(i->second.type & type).c_str());
+            }
+        }
+        else
+        {
+            ActiveBreak ab(addr, obj, i->second.type & type);
+            m_activebreaks.insert(ab);
+            m_kernel.Abort();
+        }
     }
 }

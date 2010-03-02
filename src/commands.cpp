@@ -273,6 +273,7 @@ void HandleCommandLine(CommandLineReader& clr,
                     if (toupper(*i) == 'R') mode |= BreakPoints::READ;
                     if (toupper(*i) == 'W') mode |= BreakPoints::WRITE;
                     if (toupper(*i) == 'X') mode |= BreakPoints::EXEC;
+                    if (toupper(*i) == 'T') mode |= BreakPoints::TRACEONLY;
                 }
                 if (mode == 0)
                     cout << "Invalid breakpoint mode:" << args[2] << endl;

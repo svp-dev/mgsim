@@ -13,7 +13,7 @@
 class BreakPoints
 {
 public:
-    enum BreakPointType { EXEC = 1, READ = 2, WRITE = 4 };
+    enum BreakPointType { EXEC = 1, READ = 2, WRITE = 4, TRACEONLY = 8 };
 
 private:
     struct BreakPointInfo {
@@ -53,6 +53,7 @@ private:
     void CheckMore(int type, Simulator::MemAddr addr, Simulator::Object& obj);
     void CheckEnabled(void);
 
+    static std::string GetModeName(int);
 public:
     BreakPoints(Simulator::Kernel& kernel) 
         : m_counter(0), m_enabled(false), m_kernel(kernel) {}
