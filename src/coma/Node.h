@@ -16,8 +16,9 @@ namespace Simulator
  */
 #define TraceWrite(addr, fmt, ...) do { \
         const COMA::TraceMap& traces = m_parent.GetTraces(); \
-        if (!traces.empty() && traces.find((addr)) != traces.end()) { \
-            OutputWrite(("0x%llx: " fmt), (unsigned long long)(addr), ##__VA_ARGS__); \
+        MemAddr __addr = (addr) / m_lineSize * m_lineSize; \
+        if (!traces.empty() && traces.find((__addr)) != traces.end()) { \
+            OutputWrite(("0x%llx: " fmt), (unsigned long long)(__addr), ##__VA_ARGS__); \
         } \
     } while (false)
 

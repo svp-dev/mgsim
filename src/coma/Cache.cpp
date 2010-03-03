@@ -213,7 +213,7 @@ bool COMA::Cache::EvictLine(Line* line, const Request& req)
     size_t set = (line - &m_lines[0]) / m_assoc;
     MemAddr address = (line->tag * m_sets + set) * m_lineSize;
     
-    TraceWrite(address, "Evicting with %d tokens due to read miss for 0x%llx", line->tokens, (unsigned long long)req.address);
+    TraceWrite(address, "Evicting with %d tokens due to miss for 0x%llx", line->tokens, (unsigned long long)req.address);
     
     Message* msg = NULL;
     COMMIT
@@ -434,6 +434,7 @@ bool COMA::Cache::OnRequestReceived(Message* msg)
             if (line == NULL)
             {
                 // No, just forward it
+                std::string name = GetFQN();
                 COMMIT{ msg->hops++; }
             }
             else
@@ -441,24 +442,38 @@ bool COMA::Cache::OnRequestReceived(Message* msg)
                 // Yes, place the line there and send out a token kill request
                 COMMIT
                 {
-                    // This line moved over by 'hops + 1' caches, so add that many tokens
                     line->state    = LINE_FULL;
                     line->tag      = (msg->address / m_lineSize) / m_sets;
-                    line->tokens   = msg->tokens + msg->hops + 1;
+                    line->tokens   = msg->tokens;
                     line->forward  = false; 
                     line->dirty    = msg->dirty;
                     line->updating = 0;
                     line->access   = GetKernel()->GetCycleNo();
                     std::fill(line->valid, line->valid + MAX_MEMORY_OPERATION_SIZE, true);
                     memcpy(line->data, msg->data.data, msg->data.size);
-                    
-                    // Also send out a kill request to the next cache for the created tokens
-                    msg->type   = Message::REQUEST_KILL_TOKENS;
-                    msg->tokens = msg->hops + 1;
-                    msg->hops   = 0;
                 }
-
-                TraceWrite(msg->address, "Storing Evict Request. Sending Token Kill Request for %u tokens", msg->tokens);
+                
+                if (line->tokens != m_numCaches)
+                {
+                    COMMIT
+                    {
+                        // This line moved over by 'hops + 1' caches, so add that many tokens
+                        line->tokens += msg->hops + 1;
+                    
+                        // Also send out a kill request to the next cache for the created tokens
+                        msg->type   = Message::REQUEST_KILL_TOKENS;
+                        msg->tokens = msg->hops + 1;
+                        msg->hops   = 0;
+                    }
+                    
+                    TraceWrite(msg->address, "Storing Evict Request. Sending Token Kill Request for %u tokens", msg->tokens);
+                }
+                else
+                {
+                    TraceWrite(msg->address, "Storing Evict Request");
+                    COMMIT{ delete msg; }
+                    return true;
+                }
             }
             
             if (!m_next.Send(msg))
@@ -808,6 +823,8 @@ Result COMA::Cache::OnWriteRequest(const Request& req)
             return DELAYED;
         }
 
+        TraceWrite(req.address, "Processing Bus Write Request: Miss; Sending Read Request");
+        
         // Reset the line
         COMMIT
         {
@@ -846,6 +863,8 @@ Result COMA::Cache::OnWriteRequest(const Request& req)
     if (line->state == LINE_FULL && line->tokens == (int)m_numCaches)
     {
         // We have all the tokens, notify the sender client immediately
+        TraceWrite(req.address, "Processing Bus Write Request: Exclusive Hit");
+        
         if (!m_clients[req.client]->OnMemoryWriteCompleted(req.tid))
         {
             return FAILED;
@@ -854,6 +873,8 @@ Result COMA::Cache::OnWriteRequest(const Request& req)
     else
     {
         // There are other copies out there, send out an update message
+        TraceWrite(req.address, "Processing Bus Write Request: Shared Hit; Sending Update");
+        
         Message* msg = NULL;
         COMMIT
         {
@@ -861,6 +882,7 @@ Result COMA::Cache::OnWriteRequest(const Request& req)
             msg->address   = req.address;
             msg->type      = Message::REQUEST_UPDATE;
             msg->hops      = 0;
+            msg->tokens    = 0;
             msg->client    = req.client;
             msg->tid       = req.tid;
             msg->data.size = req.size;
