@@ -20,10 +20,11 @@ struct ParallelMemory::Request
 
 class ParallelMemory::Port : public Object
 {
-    ParallelMemory&  m_memory;
-    Buffer<Request>  m_requests;
-    CycleNo          m_nextdone;
-    Process          p_Requests;
+    ParallelMemory&   m_memory;
+    ArbitratedService p_requests;
+    Buffer<Request>   m_requests;
+    CycleNo           m_nextdone;
+    Process           p_Requests;
 
     Result DoRequests()
     {
@@ -113,12 +114,27 @@ public:
     
     bool AddRequest(const Request& request)
     {
+        if (!p_requests.Invoke())
+        {
+            return false;
+        }
+        
         return m_requests.Push(request);
+    }
+    
+    // Register the processes that can access this port
+    void AddProcesses(const Process* processes[])
+    {
+        for (size_t i = 0; processes[i] != NULL; ++i)
+        {
+            p_requests.AddProcess(*processes[i]);
+        }
     }
 
     Port(const std::string& name, ParallelMemory& memory, BufferSize buffersize)
         : Object(name, memory),
           m_memory(memory),
+          p_requests(*this, "p_requests"),
           m_requests(*memory.GetKernel(), buffersize), m_nextdone(0),
           p_Requests("port", delegate::create<Port, &Port::DoRequests>(*this))
     {
@@ -138,11 +154,13 @@ CycleNo ParallelMemory::GetMemoryDelay(size_t data_size) const
     return m_baseRequestTime + m_timePerLine * (data_size + m_sizeOfLine - 1) / m_sizeOfLine;
 }
 
-void ParallelMemory::RegisterClient(PSize pid, IMemoryCallback& callback, const Process* /*processes*/[])
+void ParallelMemory::RegisterClient(PSize pid, IMemoryCallback& callback, const Process* processes[])
 {
     ClientInfo& client = m_clients[pid];
     assert(client.callback == NULL);
     client.callback = &callback;
+    
+    client.port->AddProcesses(processes);
 }
 
 void ParallelMemory::UnregisterClient(PSize pid)
