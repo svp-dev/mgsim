@@ -484,14 +484,18 @@ public:
     
     // Sets our single input
     void Set(unsigned id) {
-        COMMIT{ m_inputs[id] = true; }
-        RegisterUpdate();
+        COMMIT{
+            m_inputs[id] = true;
+            RegisterUpdate();
+        }
     }
 
     // Clears our single input
     void Clear(unsigned id) {
-        COMMIT{ m_inputs[id] = false; }
-        RegisterUpdate();
+        COMMIT{
+            m_inputs[id] = false;
+            RegisterUpdate();
+        }
     }
     
     CombinedFlag(Kernel& kernel, PSize num_writers)
