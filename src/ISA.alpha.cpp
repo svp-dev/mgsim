@@ -888,7 +888,7 @@ Pipeline::PipeAction Pipeline::ExecuteStage::ExecuteInstruction()
             }
 
             // Conditional and unconditional branches
-            if (BranchTaken(m_input.opcode, m_input.Rav))
+            if (target != next && BranchTaken(m_input.opcode, m_input.Rav))
             {
                 COMMIT
                 {
