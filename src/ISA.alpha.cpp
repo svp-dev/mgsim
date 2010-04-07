@@ -888,7 +888,7 @@ Pipeline::PipeAction Pipeline::ExecuteStage::ExecuteInstruction()
             }
 
             // Conditional and unconditional branches
-            if (target != next && BranchTaken(m_input.opcode, m_input.Rav))
+            if (BranchTaken(m_input.opcode, m_input.Rav))
             {
                 COMMIT
                 {
@@ -904,9 +904,16 @@ Pipeline::PipeAction Pipeline::ExecuteStage::ExecuteInstruction()
                         m_output.Rcv.m_integer = retaddr;
                         m_output.Rcv.m_state   = RST_FULL;
                     }
-                    m_output.pc   = target;
-                    m_output.swch = true;
-                    m_output.kill = false;
+                }
+                
+                if (target != next)
+                {
+                    COMMIT
+                    {
+                        m_output.pc   = target;
+                        m_output.swch = true;
+                        m_output.kill = false;
+                    }
                 }
                 return PIPE_FLUSH;
             }
