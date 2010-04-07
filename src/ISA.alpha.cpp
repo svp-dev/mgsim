@@ -914,8 +914,8 @@ Pipeline::PipeAction Pipeline::ExecuteStage::ExecuteInstruction()
                         m_output.swch = true;
                         m_output.kill = false;
                     }
+                    return PIPE_FLUSH;
                 }
-                return PIPE_FLUSH;
             }
         }
         break;
