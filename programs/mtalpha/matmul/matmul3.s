@@ -20,20 +20,10 @@
     .ent main
     .globl main
 main:
-    ldah $29, 0($27)    !gpdisp!1
-    lda  $29, 0($29)    !gpdisp!1
+    ldgp $29, 0($27)
     
-	clr      $4
-	allocate $4, 0, 0, 0, 0
+	allocate $31, $4
 	
-	ldah $0, A($29)     !gprelhigh
-	lda  $0, A($0)      !gprellow
-	ldah $1, B($29)     !gprelhigh
-	lda  $1, B($1)      !gprellow
-	ldah $2, C($29)     !gprelhigh
-	lda  $2, C($2)      !gprellow
-	mov  $10, $3
-
 	#	create (fam1; 0; N;)
 	setlimit $4, $10
 	swch
@@ -42,28 +32,37 @@ main:
 	.endif
 	cred $4, thread1
 	
+	ldah    $0, A($29)      !gprelhigh
+	lda     $0, A($0)       !gprellow
+	putg    $0, $4, 0       # $g0 = A
+	
+	ldah    $1, B($29)      !gprelhigh
+	lda     $1, B($1)       !gprellow
+	putg    $1, $4, 1       # $g1 = B
+	
+	ldah    $2, C($29)      !gprelhigh
+	lda     $2, C($2)       !gprellow
+	putg    $2, $4, 2       # $g2 = C
+	
+	putg    $10, $4, 3      # $g3 = N
+
 	#	sync(fam1);
-	mov $4, $31
+	sync    $4, $0
+	release $4
+	mov     $0, $31
 	end
 	.end main
 
 
     .ent thread1
-    # $g0 = matrixA 
-    # $g1 = matrixB
-    # $g2 = matrixC
+    # $g0 = A 
+    # $g1 = B
+    # $g2 = C
     # $g3 = N
     # $l0 = i
 	.registers 4 0 5  0 0 0	    # GR,SR,LR, GF,SF,LF
 thread1:
-    clr      $l4
-	allocate $l4, 0, 0, 0, 0
-	
-	mull    $l0, $g3, $l0;      # $l0 = i*N
-	s4addl  $l0, $g2, $l2;      # $l2 = &C[i*N]
-	s4addl  $l0, $g0, $l0;      # $l0 = &A[i*N]
-	mov     $g1, $l1
-	mov     $g3, $l3
+	allocate $31, $l4
 	
 	setlimit $l4, $g3
 	swch
@@ -71,7 +70,20 @@ thread1:
 	setblock $l4, BLOCK2
 	.endif
 	cred $l4, thread2
-	mov $l4, $31
+	
+	putg    $g1, $l4, 1         # $g1 = B
+	putg    $g3, $l4, 3         # $g3 = N
+
+	mull    $l0, $g3, $l0       # $l0 = i*N
+	s4addl  $l0, $g2, $l2 
+	putg    $l2, $l4, 2         # $g2 = &C[i*N]
+	
+	s4addl  $l0, $g0, $l0
+	putg    $l0, $l4, 0         # $g0 = &A[i*N]
+	
+	sync    $l4, $l0
+	release $l4
+	mov     $l0, $31
 	end
 	.end thread1
 
@@ -82,25 +94,27 @@ thread1:
     # $g2 = &C[i*N]
     # $g3 = N
     # $l0 = j
-	.registers 4 0 6  0 0 0	    # GR,SR,LR, GF,SF,LF
+	.registers 4 0 3  0 0 0	    # GR,SR,LR, GF,SF,LF
 thread2:
-	clr      $l4
-    allocate $l4, 0, 0, 0, 0
-
-	s4addl  $l0, $g2, $l5       # $l5 = &C[i*N+j]
-	s4addl  $l0, $g1, $l1       # $l1 = &B[j]
-    mov     $g0, $l0            # $l0 = &A[i*N]
-	mov     $g3, $l2            # $l2 = N
-	clr     $l3                 # $l3 = sum = 0
-
-    setlimit $l4, $g3
+    allocate $31, $l2
+    setlimit $l2, $g3
     swch
-    cred $l4, thread3
+    cred $l2, thread3
     
-    mov     $l4, $31
+    putg    $g0, $l2, 0         # {$g0} = &A[i*N]
+	s4addl  $l0, $g1, $l1
+    putg    $l1, $l2, 1         # {$g1} = &B[j]
+    putg    $g3, $l2, 2         # {$g2} = N
+    puts    $31, $l2, 0         # {$d0} = sum = 0
+    
+	s4addl  $l0, $g2, $l1       # $l5 = &C[i*N+j]
+	
+    sync    $l2, $l0
+    mov     $l0, $31
     swch
-    
-	stl     $l3, 0($l5)         # C[i*N+j] = sum
+    gets    $l2, 0, $l0         # $l0 = {$s0}
+    release $l2
+	stl     $l0, 0($l1)         # C[i*N+j] = sum
 	end
 	.end thread2
 	

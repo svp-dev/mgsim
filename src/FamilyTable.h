@@ -17,64 +17,92 @@ struct Family
     {
         LOCAL,
         GROUP,
-        DELEGATED,
     };
 
     struct RegInfo
     {   
-        RegIndex parent_globals; // Base address of the globals in the parent thread
-        RegIndex parent_shareds; // Base address of the shareds in the parent thread
-        RegsNo   count;          // Number of globals, locals and shareds
-        RegIndex base;           // Base address of this family's register block
-        RegSize  size;           // Size of the allocated registers (could be calculated from other values)
+        RegsNo   count;            // Number of globals, locals and shareds
+        RegIndex base;             // Base address of this family's register block
+        RegSize  size;             // Size of the allocated registers (could be calculated from other values)
+        RegIndex last_shareds;     // Address of the last allocated thread's shareds
+        RegIndex first_dependents; // Address of the dependents of the first thread in the block
     };
     
-    // Groups all dependencies that need to be resolved before termination and cleanup
+    // Groups all dependencies that need to be resolved before termination and/or cleanup
     struct Dependencies
     {
-        bool         allocationDone;      // We are done allocating threads
-        bool         prevSynchronized;    // Family has synchronized on the previous processor
-        bool         nextTerminated;      // Family has terminated on the next processor
-        TSize        numThreadsAllocated; // Number of threads currently allocated (0 <= allocated <= physBlockSize)
-        unsigned int numPendingReads;     // Number of outstanding memory reads
-        unsigned int numPendingShareds;   // Number of parent shareds still needing to be transmitted
+        /*
+         All threads in the family must have been allocated before the family is done
+        */
+        bool allocationDone;
+        
+        /*
+         The parent threads needs to be notified of the termination of the
+         family. This is done by having each family notify the family on the
+         next core once itself and its predecessor has terminated. This flag
+         indicates the family has terminated on all preceding cores.
+         Eventually this will cause this flag to be set on the family on the
+         parent core.
+        */
+        bool prevSynchronized;
+        
+        /*
+         After synchronizing on the family's termination, the parent thread
+         can still read the final shareds back from the last thread's context.
+         Therefore, we cannot cleanup a family until the parent has
+         explicitely detached from it.
+        */
+        bool detached;
+        
+        /*
+         All allocated threads (0 <= allocated <= physBlockSize) must have
+         been cleaned up before the family has terminated.
+        */
+        TSize numThreadsAllocated;
+        
+        /*
+         FIXME:
+         Maybe this can be generalized to a thread not being cleaned up
+         before all pending operations made by it have completed. Then
+         this dependency becomes implicit in the numThreadsAllocated
+         dependency.
+        */
+        unsigned int numPendingReads;
 	};
 
     Type         type;           // The type of the family
+    FCapability  capability;     // Capability value for security
     MemAddr      pc;             // Initial PC for newly created threads
-	bool         legacy;		 // Consists of a single thread of legacy code?
-	bool         created;	     // Has the family entry been used in a create yet?
+	bool         legacy;		  // Consists of a single thread of legacy code?
     Integer      virtBlockSize;  // Virtual block size
     TSize        physBlockSize;  // Physical block size, <= Virtual block size, depending on the amount of free registers
     SInteger     start;          // Start index of the family
     SInteger     step;           // Step size of the family
-	PlaceID      place;		     // Place where the family is to be created
+	PlaceType    place;		  // Place type of this family
 	bool         infinite;       // Is this an infinite family?
 	union {
 	    Integer  nThreads;       // Number of threads we need to allocate
 		SInteger limit;		     // Limit of the family
 	};
     Integer      index;          // Index of the next to be allocated thread (0, 1, 2... nThreads-1)
-    struct
-    {
-        LPID lpid;               // Parent core in group
-        GPID gpid;               // Remote parent core (for delegated creates only)
-        union
-        {
-            TID  tid;            // Parent thread during create for security validation
-            LFID fid;            // Family on parent core (group & delegated)
-        };
-    }            parent;         // Parent thread/family
+    LPID         parent_lpid;    // Parent core in group
     bool         hasDependency;  // Does this family use shareds?
     Dependencies dependencies;   // The dependencies for termination and cleanup
     ThreadQueue  members;        // Queue of all threads in this family
-    LFID         next;           // Next family in the empty or active family queue
     LFID         link_next;      // The LFID of the matching family on the next CPU
     LFID         link_prev;      // The LFID of the matching family on the previous CPU
+    bool         hasLastThread;  // Does this core have the last thread of this family?
+    bool         prevCleanedUp;  // Last thread has been cleaned up
     
-    RegIndex     exitCodeReg;
+    struct
+    {
+        ExitCode code;           // The exit code of the family
+        GPID     pid;            // The core that's synchronising
+        RegIndex reg;            // The exit code register on the core
+    }            sync;           // Synchronisation information
+    
     TID          lastAllocated;
-    TID          lastThreadInBlock;
+    bool         lastAllocatedIsLastThreadInBlock;
     TID          firstThreadInBlock;
 
     RegInfo      regs[NUM_REG_TYPES];    // Register information
@@ -98,6 +126,7 @@ public:
     
     FSize GetNumFreeFamilies()  const;
     bool  IsEmpty()             const;
+    bool  IsExclusive(LFID fid) const { return fid + 1 == m_families.size(); }
     bool  IsExclusiveUsed()     const { return m_free[CONTEXT_EXCLUSIVE] == 0; }
     
     // Admin functions

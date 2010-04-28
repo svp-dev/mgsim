@@ -11,18 +11,13 @@
 main:
     ! First we get a free entry in the Family Table.
     ! Will write back asynchronously if there is no free entry.
-    clr      %4
-    allocate %4, 0, 0, 0,0 
+    allocate %0, %4
     
     ! Get N - 1 as the loop limit
     sub     %11, 1, %11
 
-    ! Write 0 and 1 into the first two locals (%0 is Read As Zero)
-    mov     0, %1
-    mov     1, %2
-    
     ! Set the loop limit on the allocated FT entry
-    ! We tag this instruction with SWCH because %3 is the result
+    ! We tag this instruction with SWCH because %4 is the result
     ! of a possibly long latency operation (allocate)
     setlimit %4, %11
     swch
@@ -31,14 +26,25 @@ main:
     ! allocated FT entry.
     cred    fibonacci, %4
     
-    ! This is the sync, we just read %3 and ignore it
-    ! We tag it with SWCH because %3 is a long-latency result
-    mov     %4, %0
+    ! Write 0 and 1 into the first two locals (%0 is Read As Zero)
+    mov      0, %1
+    puts    %1, %4, 0
+    mov      1, %1
+    puts    %1, %4, 1
+    
+    ! This is the sync, we just read %1 and ignore it
+    ! We tag it with SWCH because %1 is a long-latency result
+    sync    %4, %1
+    mov     %1, %0
     swch
     
+    ! Get the final value
+    gets    %4, 0, %1
+    release %4
+
     ! Print the final value
     ! We tag it with END because it's the last instruction
-    print   %2, %0
+    print   %1, %0
     end
 
     ! This thread uses 2 shared integers, nothing more

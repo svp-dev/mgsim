@@ -27,22 +27,27 @@
     .globl main
     .ent main
 main:
-    ldah    $29, 0($27)     !gpdisp!1
-    lda     $29, 0($29)     !gpdisp!1
+    ldgp    $29, 0($27)
     
-    ldah    $0, X($29)      !gprelhigh
-    lda     $0, X($0)       !gprellow   # $0 = X
-    ldah    $1, Y($29)      !gprelhigh
-    lda     $1, Y($1)       !gprellow   # $1 = Y
-    clr     $2                          # $2 = token
-    
-    mov      2, $4      # place = LOCAL
-    allocate $4, 0, 0, 0, 0
+    allocate 2, $4          #place = LOCAL
     setstart $4, 1
     setlimit $4, $10
     setblock $4, 2
     cred    $4, outer
-    mov     $4, $31
+    
+    ldah    $0, X($29)      !gprelhigh
+    lda     $0, X($0)       !gprellow
+    putg    $0, $4, 0       # $g0 = X
+
+    ldah    $0, Y($29)      !gprelhigh
+    lda     $0, Y($0)       !gprellow
+    putg    $0, $4, 1       # $g1 = Y
+    
+    puts    $31, $4, 0      # $d0 = token
+    
+    sync    $4, $0
+    release $4
+    mov     $0, $31
     end
     .end main
     
@@ -57,20 +62,30 @@ main:
     .ent outer
     .registers 2 1 6 0 0 2    
 outer:
-    clr      $l3
-    allocate $l3, 0, 0, 0, 0
-
-    s8addq  $l0,  $g1, $l1  # $l1 = &Y[0][i]
-    mov     $g0,  $l2       # $l2 = X
-    fclr    $lf0            # $lf0 = sum = 0
-    
+    allocate $31, $l3
     setlimit $l3, $l0; swch
     mov     $d0, $31; swch
     cred    $l3, inner
+    
+    putg    $l0, $l3, 0     # $g0  = i
+    swch
+
+    s8addq  $l0,  $g1, $l1
+    putg    $l1, $l3, 1     # $g1  = &Y[0][i]
+    
+    putg    $g0, $l3, 2     # $g2  = X
+    
+    fputs   $f31, $l3, 0    # $df0 = sum = 0.0
+    
     s8addq  $l0, $g0, $l4   # $l4 = &X[i]
     ldt     $lf1, 0($l4)
-    mov     $l3, $31
-    addt    $lf1, $lf0, $lf0; swch # $lf0 = X[i] + sum
+    
+    sync    $l3, $l0
+    mov     $l0, $31
+    fgets   $l3, 0, $lf0    # $sf0
+    release $l3
+    
+    addt    $lf1, $lf0, $lf0; swch  # $lf0 = X[i] + sum
     stt     $lf0, 0($l4); swch
     wmb
     clr     $s0
@@ -98,7 +113,8 @@ inner:
     ldt     $lf1, 0($l0)        # $lf1 = Y[j][i]
     
     mult    $lf0, $lf1, $lf0; swch
-    addt    $lf0, $df0, $sf0
+    addt    $lf0, $df0, $lf0; swch
+    fmov    $lf0, $sf0
     end
     .end inner
     

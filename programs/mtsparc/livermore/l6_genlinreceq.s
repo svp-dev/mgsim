@@ -26,17 +26,21 @@
     .globl main
     .align 64
 main:
-    set     X, %1           ! %1 = X
-    set     Y, %2           ! %2 = Y
-    clr     %3              ! %3 = token
-    
-    mov      2, %5      ! Local
-    allocate %5, 0, 0, 0, 0
+    allocate 2, %5      ! Local
     setstart %5, 1
     setlimit %5, %11
     setblock %5, 2
     cred    outer, %5
-    mov     %5, %0
+
+    set     X, %1           ! %1 = X
+    set     Y, %2           ! %2 = Y
+    putg    %1, %5, 0
+    putg    %2, %5, 1
+    puts    %0, %5, 0       ! %3 = token
+    
+    sync    %5, %1
+    release %5
+    mov     %1, %0
     end
     
 !
@@ -51,22 +55,31 @@ main:
     .align 64
     .registers 2 1 5 0 0 4    
 outer:
-    clr      %l3
-    allocate %l3, 0, 0, 0, 0
+    allocate %0, %l3
 
     sll     %l0,    3, %l1
     add     %l1,  %g1, %l1  ! %l1 = &Y[0][i]
-    mov     %g0,  %l2       ! %l2 = X
-    fmovs   %f0, %lf0
-    fmovs   %f0, %lf1       ! %lf0,%lf1 = sum = 0
     
     setlimit %l3, %l0; swch
     mov     %d0, %0
     cred    inner, %l3
+
+    putg    %l0, %l3, 0
+    putg    %l1, %l3, 1
+    putg    %g0, %l3, 2     ! %g2 = X
+    fputs   %f0, %l3, 0
+    fputs   %f0, %l3, 1     ! %lf0,%lf1 = sum = 0
+
     sll     %l0,   3, %l4
     add     %l4, %g0, %l4   ! %l4 = &X[i]
     ldd     [%l4], %lf2
-    mov     %l3, %0
+    
+    sync    %l3, %l0
+    mov     %l0, %0
+    fgets   %l3, 0, %lf0
+    fgets   %l3, 1, %lf1
+    release %l3
+    
     faddd   %lf2, %lf0, %lf0; swch  ! %lf0,%lf1 = X[i] + sum
     std     %lf0, [%l4]
     stbar
@@ -96,7 +109,9 @@ inner:
     ldd     [%l0], %lf2         ! %lf2,%lf3 = Y[i][j]
     
     fmuld   %lf0, %lf2, %lf0; swch
-    faddd   %lf0, %df0, %sf0
+    faddd   %lf0, %df0, %lf0; swch
+    fmovs   %lf0, %sf0; swch
+    fmovs   %lf1, %sf1
     end
     
     .section .bss

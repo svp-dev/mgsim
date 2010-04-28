@@ -171,8 +171,8 @@ void ThreadTable::Cmd_Read(ostream& out, const vector<string>& arguments) const
         return;
     }
 
-    out << "    |         PC         | Fam | Index | Prev | Next | Int. | Flt. | Flags | WR | State     | Symbol" << endl;
-    out << "----+--------------------+-----+-------+------+------+------+------+-------+----+-----------+--------" << endl;
+    out << "    |         PC         | Fam | Index | Next | Flags | WR | State     | Symbol" << endl;
+    out << "----+--------------------+-----+-------+------+-------+----+-----------+--------" << endl;
     for (set<TID>::const_iterator p = tids.begin(); p != tids.end(); ++p)
     {
         out << right << dec << setw(3) << setfill(' ') << *p << " | ";
@@ -183,24 +183,14 @@ void ThreadTable::Cmd_Read(ostream& out, const vector<string>& arguments) const
             out << setw(18) << setfill(' ') << hex << showbase << thread.pc << " | ";
             out << "F" << setfill('0') << dec << noshowbase << setw(2) << thread.family << " | ";
             out << setw(5) << dec << setfill(' ') << thread.index << " | ";
-            if (thread.prevInBlock != INVALID_TID) out << dec << setw(4) << setfill(' ') << thread.prevInBlock; else out << "   -";
-            out << " | ";
+            //if (thread.prevInBlock != INVALID_TID) out << dec << setw(4) << setfill(' ') << thread.prevInBlock; else out << "   -";
+            //out << " | ";
             if (thread.nextInBlock != INVALID_TID) out << dec << setw(4) << setfill(' ') << thread.nextInBlock; else out << "   -";
             out << " | ";
-
-            for (RegType type = 0; type < NUM_REG_TYPES; ++type)
-            {
-                if (thread.regs[type].base != INVALID_REG_INDEX)
-                    out << setw(4) << setfill('0') << hex << thread.regs[type].base;
-                else
-                    out << "  - ";
-                out << " | ";
-            }
             out << dec;
-
-            out << (thread.dependencies.prevCleanedUp ? 'P' : '.')
+            out << " "
+                << (thread.dependencies.prevCleanedUp ? 'P' : '.')
                 << (thread.dependencies.killed        ? 'K' : '.')
-                << (thread.dependencies.nextKilled    ? 'N' : '.')
                 << (thread.isLastThreadInBlock        ? 'L' : '.')
                 << "  | "
                 << setw(2) << setfill(' ') << thread.dependencies.numPendingWrites

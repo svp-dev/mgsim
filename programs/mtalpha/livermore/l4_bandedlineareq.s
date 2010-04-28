@@ -32,13 +32,24 @@
     .globl main
     .ent main
 main:
-    ldah    $29, 0($27)     !gpdisp!1
-    lda     $29, 0($29)     !gpdisp!1
+    ldgp    $29, 0($27)
+    
+    lda     $4,    M
+    lda     $5, 1001
+    
+    allocate $31, $3
+    setstart $3, 6
+    setlimit $3, $5
+    setstep  $3, $4
+    cred    $3, outer
     
     ldah    $0, X($29)      !gprelhigh
-    lda     $0, X($0)       !gprellow   # $0 = X
-    ldah    $1, Y($29)      !gprelhigh
-    lda     $1, Y($1)       !gprellow   # $1 = Y
+    lda     $0, X($0)       !gprellow
+    putg    $0, $3, 0       # $g0 = X
+
+    ldah    $0, Y($29)      !gprelhigh
+    lda     $0, Y($0)       !gprellow
+    putg    $0, $3, 1       # $g1 = Y
     
     #
     # Calculate N / 5
@@ -55,18 +66,12 @@ main:
     mulq    $10, $2,  $2
     srl     $10,  2, $10
     addq    $10, $2,  $2
-    srl     $2, 32,  $2     # $2 = N / 5
+    srl     $2,  32,  $2
+    putg    $2,  $3,   2     # $g2 = N/5
     
-    lda     $4,    M($31)
-    lda     $5, 1001($31)
-    
-    clr      $3
-    allocate $3, 0, 0, 0, 0
-    setstart $3, 6
-    setlimit $3, $5
-    setstep  $3, $4
-    cred    $3, outer
-    mov     $3, $31
+    sync    $3, $0
+    release $3
+    mov     $0, $31
     end
     
     .end main
@@ -82,19 +87,24 @@ main:
     .ent outer
     .registers 3 0 5 0 0 3
 outer:
-    clr      $l3
-    allocate $l3, 0, 0, 0, 0
-    mov      $g0, $l1       # $l1 = X
-    mov      $g1, $l2       # $l2 = Y
-    fclr     $lf0           # $lf0 = temp = 0
+    allocate $31, $l3
     setlimit $l3, $g2; swch
     cred     $l3, inner
     
-    s8addq  $l0, $g0, $l4   # $l4 = &X[i]
-    ldt     $lf1, -8($l4)   # $lf1 = X[i-1]
-    ldt     $lf2, 32($g1)   # $lf2 = Y[4]
+    putg    $l0, $l3, 0; swch   # $g0  = i
+    putg    $g0, $l3, 1         # $g1  = X
+    putg    $g1, $l3, 2         # $g2  = Y
+    fputs   $f31, $l3, 0        # $df0 = temp = 0.0
     
-    mov     $l3, $31; swch
+    s8addq  $l0, $g0, $l4       # $l4 = &X[i]
+    ldt     $lf1, -8($l4)       # $lf1 = X[i-1]
+    ldt     $lf2, 32($g1)       # $lf2 = Y[4]
+    
+    sync    $l3, $l0
+    mov     $l0, $31; swch
+    fgets   $l3, 0, $lf0        # $sf0
+    release $l3
+    
     subt    $lf1, $lf0, $lf1; swch   # $lf1 = X[i-1] - temp
     mult    $lf2, $lf1, $lf2; swch
     stt     $lf2, -8($l4)
@@ -123,7 +133,8 @@ inner:
     ldt     $lf0, 32($l0)   # $lf0 = Y[j * 5 + 4];
     
     mult    $lf0, $lf1, $lf0; swch
-    addt    $df0, $lf0, $sf0
+    addt    $df0, $lf0, $lf0; swch
+    fmov    $lf0, $sf0
     end
     .end inner
 

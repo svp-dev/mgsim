@@ -32,18 +32,23 @@
     .global main
     .align 64
 main:
-    set     X, %1           ! %1 = X
-    set     V, %2           ! %2 = V
-    mov     1, %3           ! %3 = 1
-    clr     %4              ! %4 = 0
-    
-    clr      %5
-    allocate %5, 0, 0, 0, 0
+    allocate %0, %5
     setstart %5, %11
     setlimit %5, -1
     setstep  %5, -1
     cred    outer, %5
-    mov     %5, %0
+
+    set     X, %1           ! %1 = X
+    set     V, %2           ! %2 = V
+    mov     1, %3           ! %3 = 1
+    putg   %1, %5, 0
+    putg   %2, %5, 1
+    putg   %3, %5, 2
+    puts   %0, %5, 0
+    
+    sync    %5, %1
+    mov     %1, %0
+    release %5
     end
 
 !
@@ -57,21 +62,27 @@ main:
 !
     .globl outer
     .align 64
-    .registers 3 1 5 0 0 0
+    .registers 3 1 3 0 0 0
 outer:
-    clr      %l4
-    allocate %l4, 0, 0, 0, 0
-    mov      %g1, %l1            ! %l1 = V
-    sll      %g2, %l0, %l2       ! %l2 = ii
-    setlimit %l4, %l2; swch
-    setstart %l4, 1
-    setstep  %l4, 2
-    mov      %g0, %l0            ! %l0 = X
-    add      %d0, %l2, %l2; swch ! %l2 = ipntp + ii
-    cred     inner, %l4
-    mov      %d0, %l3            ! %l3 = ipnt
-    mov      %l4, %0; swch
-    mov      %l2, %s0            ! %s0 = ipntp + ii
+    allocate %0, %l2
+    sll      %g2, %l0, %l0       ! %l0 = ii
+    setlimit %l2, %l0; swch
+    setstart %l2, 1
+    setstep  %l2, 2
+
+    add      %d0, %l0, %l0; swch ! %l0 = ipntp + ii
+    cred     inner, %l2
+
+    putg     %g0, %l2, 0; swch   ! %g0 = X
+    putg     %g1, %l2, 1         ! %g1 = V
+    putg     %l0, %l2, 2         ! %g2 = ipntp
+    putg     %d0, %l2, 3         ! %g3 = ipnt
+
+    sync     %l2, %l1
+    mov      %l1, %0; swch
+    release  %l2
+    
+    mov      %l0, %s0            ! %s0 = ipntp + ii
     end
 
 !

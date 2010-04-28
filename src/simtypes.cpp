@@ -13,10 +13,12 @@ const char* GetRemoteRegisterTypeString(RemoteRegType type)
 {
     switch (type)
     {
-    case RRT_GLOBAL:            return "global";
-    case RRT_PARENT_SHARED:     return "parent shared";
-    case RRT_LAST_SHARED:
-    case RRT_FIRST_DEPENDENT:   return "shared";
+    case RRT_RAW:             return "raw";
+    case RRT_GLOBAL:          return "global";
+    case RRT_NEXT_DEPENDENT:  return "shared";
+    case RRT_FIRST_DEPENDENT: return "first shared";
+    case RRT_LAST_SHARED:     return "last shared";
+    default:                  assert(false); break;
     }
     return "unknown";
 }

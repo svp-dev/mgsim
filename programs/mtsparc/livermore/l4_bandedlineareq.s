@@ -38,14 +38,19 @@ main:
     set     M, %5       ! %5 = M
     set     1001, %6    ! %6 = 1001
     
-    clr      %4
-    clr      %4
-    allocate %4, 0, 0, 0, 0
+    allocate %0, %4
     setstart %4, 6
     setlimit %4, %6
     setstep  %4, %5
     cred    outer, %4
-    mov     %4, %0
+    
+    putg    %1, %4, 0
+    putg    %2, %4, 1
+    putg    %3, %4, 2
+    
+    sync    %4, %1
+    release %4
+    mov     %1, %0
     end
     
 !
@@ -57,26 +62,31 @@ main:
 ! %l0 = i
 !
     .align 64
-    .registers 3 0 5 0 0 6
+    .registers 3 0 3 0 0 6
 outer:
-    clr      %l3
-    allocate %l3, 0, 0, 0, 0
-    mov      %g0, %l1    ! %l1 = X
-    mov      %g1, %l2    ! %l2 = Y
-    fmovs    %f0, %lf0
-    fmovs    %f0, %lf1   ! %lf0,%lf1 = temp = 0
-    setlimit %l3, %g2; swch
-    cred     inner, %l3
+    allocate %0, %l1
+    setlimit %l1, %g2; swch
+    cred     inner, %l1
     
-    sll     %l0, 3, %l4
-    add     %l4, %g0, %l4    ! %l5 = &X[i]
-    ldd     [%l4-8],  %lf2   ! %lf2,%lf3 = X[i-1]
+    putg     %l0, %l1, 0     ! %g0 = i
+    putg     %g0, %l1, 1     ! %g1 = X
+    putg     %g1, %l1, 2     ! %g2 = Y
+    fputs    %f0, %l1, 0
+    fputs    %f0, %l1, 1     ! %df0,%df1 = temp = 0
+    
+    sll     %l0, 3, %l2
+    add     %l2, %g0, %l2    ! %l5 = &X[i]
+    ldd     [%l2-8],  %lf2   ! %lf2,%lf3 = X[i-1]
     ldd     [%g1+32], %lf4   ! %lf4,%lf6 = Y[4]
     
-    mov     %l3, %0; swch
+    sync    %l1, %l0
+    mov     %l0, %0; swch
+    fgets   %l1, 0, %lf0
+    fgets   %l1, 1, %lf1
+    release %l1
     fsubd   %lf2, %lf0, %lf2; swch   ! %lf2,%lf3 = X[i-1] - temp
     fmuld   %lf4, %lf2, %lf4; swch
-    std     %lf4, [%l4-8]
+    std     %lf4, [%l2-8]
     end
 
 !
@@ -85,7 +95,7 @@ outer:
 ! %g0 = i
 ! %g1 = X
 ! %g2 = Y
-! %d0 = temp
+! %df0,df1 = temp
 ! %l0 = j
 !
     .align 64
@@ -103,7 +113,9 @@ inner:
     ldd     [%l0+32], %lf0  ! %lf0,%lf1 = Y[j * 5 + 4];
     
     fmuld   %lf0, %lf2, %lf0; swch
-    faddd   %df0, %lf0, %sf0
+    faddd   %df0, %lf0, %lf0; swch
+    fmovs   %lf0, %sf0; swch
+    fmovs   %lf1, %sf1
     end
 
     .section .bss

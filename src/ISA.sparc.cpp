@@ -37,10 +37,16 @@ static const int SIMM_SIZE      = 13;
 static const int SIMM_MASK      = (1 << SIMM_SIZE) - 1;
 static const int OPF_SHIFT      = 5;
 static const int OPF_MASK       = (1 << 9) - 1;
+static const int OPT_SHIFT      = 5;
+static const int OPT_MASK       = (1 << 9) - 1;
 
 // Function for getting a register's type and index within that type
 unsigned char GetRegisterClass(unsigned char addr, const RegsNo& regs, RegClass* rc)
 {
+    assert(regs.globals < 32);
+    assert(regs.shareds < 32);
+    assert(regs.locals  < 32);
+
     // SPARC has r0 as RAZ, so we flip everything around.
     addr = (unsigned char)(31 - addr);
     
@@ -110,13 +116,6 @@ void Pipeline::DecodeStage::DecodeInstruction(const Instruction& instr)
             m_output.displacement = SEXT((instr >> OP2_DISP_SHIFT) & OP2_DISP_MASK, OP2_DISP_SIZE);
             break;
 
-        case S_OP2_ALLOCATE:
-            // Allocate reads from and writes Rc
-            m_output.literal = (instr >> IMM_SHIFT) & IMM_MASK;
-            m_output.Ra      = MAKE_REGADDR(RT_INTEGER, Rc);
-            m_output.Rc      = MAKE_REGADDR(RT_INTEGER, Rc);
-            break;
-
         default:
             // We don't care about the annul bit (not supported; obviously this presents a problem with legacy code later)
             m_output.displacement = SEXT((instr >> OP2_DISP_SHIFT) & OP2_DISP_MASK, OP2_DISP_SIZE);
@@ -183,7 +182,6 @@ void Pipeline::DecodeStage::DecodeInstruction(const Instruction& instr)
             case S_OP3_STF: case S_OP3_STDF:
                 m_output.Rs     = m_output.Rc;
                 m_output.RsSize = m_output.RcSize;
-                m_output.Rrs    = m_output.Rrc;
                 m_output.Rc     = INVALID_REG;
                 break;
             default:
@@ -195,6 +193,29 @@ void Pipeline::DecodeStage::DecodeInstruction(const Instruction& instr)
         m_output.op3 = (uint8_t)((instr >> OP3_SHIFT) & OP3_MASK);
         switch (m_output.op3)
         {
+        case S_OP3_UTOP1:
+            m_output.function = (uint16_t)((instr >> OPT_SHIFT) & OPT_MASK);
+            m_output.Ra = MAKE_REGADDR(RT_INTEGER, Ra);
+            m_output.Rb = MAKE_REGADDR(RT_INTEGER, Rb);
+            m_output.Rc = MAKE_REGADDR(RT_INTEGER, Rc);
+            switch (m_output.function)
+            {
+            case S_OPT_PUTS:
+            case S_OPT_PUTG:
+                m_output.regofs = Rc;
+                m_output.Rc     = INVALID_REG;
+                break;
+                
+            case S_OPT_GETS:
+                m_output.regofs = Rb;
+                m_output.Rb     = INVALID_REG;
+                break;
+            
+            default:
+                break;
+            }
+            break;
+            
         case S_OP3_FPOP1:
         case S_OP3_FPOP2:
             // FP operation
@@ -205,6 +226,21 @@ void Pipeline::DecodeStage::DecodeInstruction(const Instruction& instr)
 
             switch (m_output.function)
             {
+            // Move to global/first dependent
+            case S_OPF_FPUTS:
+            case S_OPF_FPUTG:
+                m_output.regofs = Rc;
+                m_output.Ra     = MAKE_REGADDR(RT_INTEGER, Ra);
+                m_output.Rc     = INVALID_REG;
+                break;
+                
+            // Move from last shared
+            case S_OPF_FGETS:
+                m_output.regofs = Rb;
+                m_output.Ra     = MAKE_REGADDR(RT_INTEGER, Ra);
+                m_output.Rb     = INVALID_REG;
+                break;
+            
             // Convert Int to FP
             case S_OPF_FITOS: m_output.RaSize = m_output.RcSize =  4; break;
             case S_OPF_FITOD: m_output.RaSize = m_output.RcSize =  8; break;
@@ -492,45 +528,8 @@ Pipeline::PipeAction Pipeline::ExecuteStage::ExecuteInstruction()
         {
             // Direct create
             MemAddr target = m_input.pc + m_input.displacement * sizeof(Instruction);
-            LFID fid = LFID((size_t)m_input.Rav.m_integer.get(m_input.Rav.m_size));
+            FID fid = m_parent.GetProcessor().UnpackFID(m_input.Rav.m_integer.get(m_input.Rav.m_size));
             return ExecCreate(fid, target, m_input.Rc);
-        }
-
-        case S_OP2_ALLOCATE:
-        {
-            // Get the base for the shareds and globals in the parent thread
-            Allocator::RegisterBases bases[NUM_REG_TYPES];
-
-            uint64_t literal = m_input.Rbv.m_integer.get(m_input.Rbv.m_size);
-            for (RegType i = 0; i < NUM_REG_TYPES; i++, literal >>= 10)
-            {
-                const RegIndex locals = m_input.regs.types[i].thread.base + m_input.regs.types[i].family.count.shareds;
-                bases[i].globals = locals + (unsigned char)((literal >> 0) & 0x1F);
-                bases[i].shareds = locals + (unsigned char)((literal >> 5) & 0x1F);
-            }
-            
-            Integer place = m_input.Rav.m_integer.get(m_input.Rav.m_size);
-
-            LFID fid;
-            Result res = m_allocator.AllocateFamily(m_input.tid, m_input.Rc.index, &fid, bases, place);
-            if (res == FAILED)
-            {
-                return PIPE_STALL;
-            }
-
-            if (res == SUCCESS) {
-                COMMIT {
-                    // The entry was allocated, store it
-                    m_output.Rcv.m_state   = RST_FULL;
-                    m_output.Rcv.m_integer = fid;
-                }
-            } else {
-                COMMIT {
-                    // The request was buffered and will be written back
-                    m_output.Rcv = MAKE_PENDING_PIPEVALUE(m_output.Rcv.m_size);
-                }
-            }
-            break;
         }
 
         case S_OP2_UNIMPL:
@@ -596,30 +595,55 @@ Pipeline::PipeAction Pipeline::ExecuteStage::ExecuteInstruction()
     {
         Thread& thread = m_threadTable[m_input.tid];
         
-        if (m_input.op3 < 0x20)
+        switch (m_input.op3)
         {
-            COMMIT {
-                m_output.Rcv.m_state   = RST_FULL;
-                m_output.Rcv.m_size    = m_input.Rav.m_size;
-                m_output.Rcv.m_integer = ExecBasicInteger(
-                    m_input.op3,
-                    (uint32_t)m_input.Rav.m_integer.get(m_input.Rav.m_size),
-                    (uint32_t)m_input.Rbv.m_integer.get(m_input.Rbv.m_size),
-                    thread.Y, thread.psr);
+        case S_OP3_ALLOCATE:
+        {
+            PlaceID place = m_parent.GetProcessor().UnpackPlace(m_input.Rbv.m_integer.get(m_input.Rbv.m_size));
+            if (!ExecAllocate(place, m_input.Rc.index))
+            {
+                return PIPE_STALL;
             }
+            break;
         }
-        else switch (m_input.op3)
+
+        case S_OP3_CREI:
         {
+            // Indirect create
+            FID     fid  = m_parent.GetProcessor().UnpackFID(m_input.Rav.m_integer.get(m_input.Rav.m_size));
+            MemAddr addr = m_input.Rbv.m_integer.get(m_input.Rbv.m_size);
+            return ExecCreate(fid, addr, m_input.Rc);
+        }
+
+        case S_OP3_SYNC:   if (!ExecSync  (m_parent.GetProcessor().UnpackFID(m_input.Rav.m_integer.get(m_input.Rav.m_size)))) return PIPE_STALL; break;
+        case S_OP3_DETACH: if (!ExecDetach(m_parent.GetProcessor().UnpackFID(m_input.Rav.m_integer.get(m_input.Rav.m_size)))) return PIPE_STALL; break;
+
+        case S_OP3_UTOP1:
+            switch (m_input.function)
+            {
+            case S_OPT_PUTG: if (!MoveFamilyRegister(RRT_GLOBAL,          RT_INTEGER, m_parent.GetProcessor().UnpackFID(m_input.Rav.m_integer.get(m_input.Rav.m_size)), m_input.regofs)) return PIPE_STALL; break;
+            case S_OPT_PUTS: if (!MoveFamilyRegister(RRT_FIRST_DEPENDENT, RT_INTEGER, m_parent.GetProcessor().UnpackFID(m_input.Rav.m_integer.get(m_input.Rav.m_size)), m_input.regofs)) return PIPE_STALL; break;
+            case S_OPT_GETS: if (!MoveFamilyRegister(RRT_LAST_SHARED,     RT_INTEGER, m_parent.GetProcessor().UnpackFID(m_input.Rav.m_integer.get(m_input.Rav.m_size)), m_input.regofs)) return PIPE_STALL; break;
+            default:
+                ThrowIllegalInstructionException(*this, m_input.pc);
+                break;
+            }
+            break;
+            
         case S_OP3_FPOP1:
         case S_OP3_FPOP2:
         {
             FPUOperation fpuop = FPU_OP_NONE;
             
             COMMIT {
-                m_output.Rcv.m_size = m_input.Rcv.m_size;
+                m_output.Rcv.m_size = m_input.RcSize;
             }
             switch (m_input.function)
             {
+            case S_OPF_FPUTG: if (!MoveFamilyRegister(RRT_GLOBAL,          RT_FLOAT, m_parent.GetProcessor().UnpackFID(m_input.Rav.m_integer.get(m_input.Rav.m_size)), m_input.regofs)) return PIPE_STALL; break;
+            case S_OPF_FPUTS: if (!MoveFamilyRegister(RRT_FIRST_DEPENDENT, RT_FLOAT, m_parent.GetProcessor().UnpackFID(m_input.Rav.m_integer.get(m_input.Rav.m_size)), m_input.regofs)) return PIPE_STALL; break;
+            case S_OPF_FGETS: if (!MoveFamilyRegister(RRT_LAST_SHARED,     RT_FLOAT, m_parent.GetProcessor().UnpackFID(m_input.Rav.m_integer.get(m_input.Rav.m_size)), m_input.regofs)) return PIPE_STALL; break;
+            
             // Convert Int to FP
             case S_OPF_FITOS:
             case S_OPF_FITOD:
@@ -715,7 +739,7 @@ Pipeline::PipeAction Pipeline::ExecuteStage::ExecuteInstruction()
             if (fpuop != FPU_OP_NONE)
             {
                 // Dispatch long-latency operation to FPU
-                if (!m_fpu.QueueOperation(m_fpuSource, fpuop, m_input.Rcv.m_size,
+                if (!m_fpu.QueueOperation(m_fpuSource, fpuop, m_input.RcSize,
                     m_input.Rav.m_float.tofloat(m_input.Rav.m_size),
                     m_input.Rbv.m_float.tofloat(m_input.Rbv.m_size), m_input.Rc))
                 {
@@ -725,7 +749,6 @@ Pipeline::PipeAction Pipeline::ExecuteStage::ExecuteInstruction()
                 COMMIT
                 {
                     m_output.Rcv = MAKE_PENDING_PIPEVALUE(m_output.Rcv.m_size);
-                    m_output.Rcv.m_remote = m_input.Rrc;
 
                     // We've executed a floating point operation
                     m_flop++;
@@ -846,13 +869,14 @@ Pipeline::PipeAction Pipeline::ExecuteStage::ExecuteInstruction()
             case S_OP3_SETSTEP:  prop = FAMPROP_STEP;  break;
             case S_OP3_SETBLOCK: prop = FAMPROP_BLOCK; break;
             }
-            return SetFamilyProperty( LFID((size_t)m_input.Rav.m_integer.get(m_input.Rav.m_size)), prop, m_input.Rbv.m_integer.get(m_input.Rbv.m_size));
+            FID fid = m_parent.GetProcessor().UnpackFID(m_input.Rav.m_integer.get(m_input.Rav.m_size));
+            return SetFamilyProperty(fid, prop, m_input.Rbv.m_integer.get(m_input.Rbv.m_size));
         }
         
         case S_OP3_LDBP:
             COMMIT {
                 // TLS base pointer: base address of TLS
-                m_output.Rcv.m_integer = m_allocator.CalculateTLSAddress(m_input.fid, m_input.tid);
+                m_output.Rcv.m_integer = m_parent.GetProcessor().GetTLSAddress(m_input.fid, m_input.tid);
                 m_output.Rcv.m_state   = RST_FULL;
             }
             break;
@@ -860,8 +884,8 @@ Pipeline::PipeAction Pipeline::ExecuteStage::ExecuteInstruction()
         case S_OP3_LDFP:
             COMMIT {
                 /// TLS frame (stack) pointer: top of TLS
-                const MemAddr tls_base = m_allocator.CalculateTLSAddress(m_input.fid, m_input.tid);
-                const MemAddr tls_size = m_allocator.CalculateTLSSize();
+                const MemAddr tls_base = m_parent.GetProcessor().GetTLSAddress(m_input.fid, m_input.tid);
+                const MemAddr tls_size = m_parent.GetProcessor().GetTLSSize();
                 m_output.Rcv.m_integer = tls_base + tls_size;
                 m_output.Rcv.m_state   = RST_FULL;
             }
@@ -894,9 +918,28 @@ Pipeline::PipeAction Pipeline::ExecuteStage::ExecuteInstruction()
         case S_OP3_FLUSH:
         //case S_OP3_CPOP1:
         //case S_OP3_CPOP2:
-        default:
             // We don't support these instructions (yet?)
             ThrowIllegalInstructionException(*this, m_input.pc);
+            break;
+        
+        default:
+            if (m_input.op3 < 0x20)
+            {
+                COMMIT {
+                    m_output.Rcv.m_state   = RST_FULL;
+                    m_output.Rcv.m_size    = m_input.Rav.m_size;
+                    m_output.Rcv.m_integer = ExecBasicInteger(
+                        m_input.op3,
+                        (uint32_t)m_input.Rav.m_integer.get(m_input.Rav.m_size),
+                        (uint32_t)m_input.Rbv.m_integer.get(m_input.Rbv.m_size),
+                        thread.Y, thread.psr);
+                }
+            }
+            else
+            {
+                // Invalid instruction
+                ThrowIllegalInstructionException(*this, m_input.pc);
+            }
             break;
         }
         break;

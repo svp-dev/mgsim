@@ -31,22 +31,39 @@
 main:
     ldgp     $29, 0($27)    # $29 = GP
     
-    mov      Q, $0; itoft $0, $f0; cvtqt $f0, $f0   # $f0 = Q
-    mov      R, $0; itoft $0, $f1; cvtqt $f1, $f1   # $f1 = R
-    mov      T, $0; itoft $0, $f2; cvtqt $f2, $f2   # $f2 = T
-    
-    ldah     $0, X($29)     !gprelhigh
-    lda      $0, X($0)      !gprellow   # $0  = X
-    ldah     $1, Y($29)     !gprelhigh
-    lda      $1, Y($1)      !gprellow   # $1  = Y
-    ldah     $2, Z($29)     !gprelhigh
-    lda      $2, Z($2)      !gprellow   # $2  = Z
-    
-    clr      $3
-    allocate $3, 0, 0, 0, 0 # Start = 0, Step = 1
+    allocate $31, $3        # Start = 0, Step = 1
     setlimit $3, $10        # Limit = N
     cred     $3, loop
-    mov      $3, $31        # Sync
+
+    mov     Q, $0;
+    itoft   $0, $f0;
+    cvtqt   $f0, $f0
+    fputg   $f0, $3, 0      # $gf0 = Q
+    
+    mov     R, $0;
+    itoft   $0, $f0;
+    cvtqt   $f0, $f0
+    fputg   $f0, $3, 1      # $gf1 = R
+    
+    mov     T, $0;
+    itoft   $0, $f0;
+    cvtqt   $f0, $f0
+    fputg   $f0, $3, 2      # $gf2 = T
+    
+    ldah    $0, X($29)      !gprelhigh
+    lda     $0, X($0)       !gprellow
+    putg    $0, $3, 0       # $g0 = X
+
+    ldah    $0, Y($29)      !gprelhigh
+    lda     $0, Y($0)       !gprellow
+    putg    $0, $3, 1       # $g1 = Y
+
+    ldah    $0, Z($29)      !gprelhigh
+    lda     $0, Z($0)       !gprellow
+    putg    $0, $3, 2       # $g2 = Z
+    
+    sync     $3, $31        # Sync
+    release  $3
     end
     .end main
 

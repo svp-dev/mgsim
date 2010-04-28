@@ -75,6 +75,14 @@ public:
 	
     void OnFamilyTerminatedLocally(MemAddr pc);
 
+    // Configuration-dependent helpers
+    MemAddr     GetTLSAddress(LFID fid, TID tid) const;
+    MemSize     GetTLSSize() const;
+    PlaceID     UnpackPlace(Integer id) const;
+    FID         UnpackFID(Integer id) const;
+    Integer     PackFID(const FID& fid) const;
+    FCapability GenerateFamilyCapability() const;
+
     // All memory requests from caches go through the processor.
     // No memory callback specified, the processor will use the tag to determine where it came from.
     void ReserveTLS(MemAddr address, MemSize size);
@@ -92,6 +100,15 @@ private:
     PSize                          m_gridSize;
     PlaceInfo&                     m_place;
     FPU&                           m_fpu;
+    
+    // Bit counts for packing and unpacking configuration-dependent values
+    struct
+    {
+        unsigned int pid_bits;  ///< Number of bits for a PID (Processor ID)
+        unsigned int fid_bits;  ///< Number of bits for a LFID (Local Family ID)
+        unsigned int tid_bits;  ///< Number of bits for a TID (Thread ID)
+    } m_bits;
+    
 	
     // Statistics 
     CycleNo m_localFamilyCompletion; 

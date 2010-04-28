@@ -17,12 +17,7 @@ FamilyTable::FamilyTable(const std::string& name, Processor& parent, const Confi
 {
     for (size_t i = 0; i < m_families.size(); ++i)
     {
-        // Deny access to empty families
-        m_families[i].created     = false;
-        m_families[i].parent.lpid = INVALID_LPID;
-        m_families[i].parent.gpid = INVALID_GPID;
-        m_families[i].next        = INVALID_LFID;
-        m_families[i].state       = FST_EMPTY;
+        m_families[i].state = FST_EMPTY;
     }
     
     m_free[CONTEXT_EXCLUSIVE] = 1;
@@ -48,27 +43,32 @@ LFID FamilyTable::AllocateFamily(ContextType context)
     LFID fid = INVALID_LFID;
     if (m_free[context] > 0)
     {
-        // There is at least one free entry for this context
-        // Do an associative lookup; do not consider the exclusive family entry
-        for (size_t i = 0; i < m_families.size() - 1; ++i)
+        if (context == CONTEXT_EXCLUSIVE)
         {
-            if (m_families[i].state == FST_EMPTY)
+            fid = m_families.size() - 1;
+        }
+        else
+        {
+            // There is at least one free entry for this context
+            // Do an associative lookup; do not consider the exclusive family entry
+            for (size_t i = 0; i < m_families.size() - 1; ++i)
             {
-                fid = i;
-                break;
+                if (m_families[i].state == FST_EMPTY)
+                {
+                    fid = i;
+                    break;
+                }
             }
         }
-
-        if (fid != INVALID_LFID)
+        
+        // We've allocated a family entry
+        assert(fid != INVALID_LFID);
+        assert(m_families[fid].state == FST_EMPTY);
+        COMMIT
         {
-            // We've allocated a family entry
-            assert(m_families[fid].state == FST_EMPTY);
-            COMMIT
-            {
-                Family& family = m_families[fid];
-                family.state = FST_ALLOCATED;
-                m_free[context]--;
-            }
+            Family& family = m_families[fid];
+            family.state = FST_ALLOCATED;
+            m_free[context]--;
         }
     }
     return fid;
@@ -129,7 +129,7 @@ void FamilyTable::Cmd_Help(ostream& out, const vector<string>& /* arguments */) 
 void FamilyTable::Cmd_Read(ostream& out, const vector<string>& arguments) const
 {
     static const char* const FamilyStates[] = {
-        "", "ALLOCATED", "CREATE QUEUED", "CREATING", "DELEGATED", "IDLE", "ACTIVE", "KILLED"
+        "", "ALLOCATED", "CREATE QUEUED", "CREATING", "ACTIVE", "KILLED"
     };
 
     // Read the range
@@ -150,8 +150,8 @@ void FamilyTable::Cmd_Read(ostream& out, const vector<string>& arguments) const
         return;
     }
 
-    out << "    |         PC         |   Allocated    | P/N/A/Rd/Sh |   Parent  | Prev | Next | State         | Symbol" << endl;
-    out << "----+--------------------+----------------+-------------+-----------+------+------+---------------+--------" << endl;
+    out << "    |     Initial PC     |   Allocated    | P/A/D/Rd | Prev | Next |    Sync    |     Capability     | State         | Symbol" << endl;
+    out << "----+--------------------+----------------+----------+------+------+------------+--------------------+---------------+--------" << endl;
     for (set<LFID>::const_iterator p = fids.begin(); p != fids.end(); ++p)
     {
         const Family& family = m_families[*p];
@@ -159,62 +159,37 @@ void FamilyTable::Cmd_Read(ostream& out, const vector<string>& arguments) const
         out << dec << right << setw(3) << setfill(' ') << *p << " | ";
         if (family.state == FST_EMPTY)
         {
-            out << "                   |                |             |           |      |      |           |";
+            out << "                   |                |          |      |      |            |                    |               |";
         }
         else
         {
             if (family.state == FST_ALLOCATED)
             {
-                out << "        -          |       -        |      -      | ";
+                out << "        -          |       -        |     -    | ";
             }
             else
             {
                 out << hex << setw(18) << showbase << family.pc << " | " << dec;
-                if (family.state == FST_CREATING || family.state == FST_DELEGATED) {
-                    out << "      -       ";
+                if (family.state == FST_CREATE_QUEUED || family.state == FST_CREATING) {
+                    out << "      -        |    -    ";
                 } else {
                     out << setw(3) << family.dependencies.numThreadsAllocated << "/"
-                         << setw(3) << family.physBlockSize << " ("
-                         << setw(4) << family.virtBlockSize << ")";
-                }
-                out << " | ";
-                if (family.state == FST_CREATING) {
-                    out << "     -     ";
-                } else {
-                    out << noboolalpha
-                         << !family.dependencies.prevSynchronized << "/"
-                         << !family.dependencies.nextTerminated << "/"
-                         << !family.dependencies.allocationDone << "/"
-                         << setw(2) << family.dependencies.numPendingReads << "/"
-                         << setw(2) << family.dependencies.numPendingShareds << right;
+                        << setw(3) << family.physBlockSize << " ("
+                        << setw(4) << family.virtBlockSize << ")"
+                        << " | "
+                        << noboolalpha
+                        << !family.dependencies.prevSynchronized << "/"
+                        << !family.dependencies.allocationDone << "/"
+                        << !family.dependencies.detached << "/"
+                        << setw(2) << family.dependencies.numPendingReads
+                        << right;
                 }
                 out << " | ";
             }
-
-            // Print parent
-            if (family.parent.gpid != INVALID_GPID) {
-                // Delegated family
-                out << setfill('0')
-                     << "F"   << setw(2) << family.parent.fid
-                     << "@GP" << setw(3) << family.parent.gpid;
-            } else if (family.type == Family::GROUP) {
-                // Group family
-                out << setfill('0')
-                     << "F"   << setw(2) << family.parent.fid
-                     << "@LP" << setw(3) << family.parent.lpid;
-            } else if (family.parent.tid != INVALID_TID) {
-                // Local family
-                out << setfill('0')
-                    << "T"   << setw(3) << family.parent.tid
-                    << "     ";
-            } else {
-                out << "    -    ";
-            }
-            out << " | ";
 
             // Print prev and next FIDs
-            if (family.state == FST_ALLOCATED) {
-                out << "  -  |  -  ";
+            if (family.state == FST_ALLOCATED || family.state == FST_CREATE_QUEUED) {
+                out << "  -  |   - ";
             } else {
                 out << setfill('0') << right;
                 if (family.link_prev != INVALID_LFID) {
@@ -229,7 +204,18 @@ void FamilyTable::Cmd_Read(ostream& out, const vector<string>& arguments) const
                     out << "  - ";
                 }
             }
-            out << " | " << left << setw(13) << setfill(' ') << FamilyStates[family.state]
+            
+            // Print sync reg
+            if (family.sync.pid != INVALID_GPID) {
+                out << right << setfill('0') << noshowbase
+                    << " | R" << setw(4) << hex << family.sync.reg
+                    << "@P" << setw(3) << dec << family.sync.pid;
+            } else {
+                out << " |      -    ";
+            }
+            
+            out << " | 0x" << right << setw(16) << setfill('0') << hex << noshowbase << family.capability
+                << " | " << left  << setw(13) << setfill(' ') << FamilyStates[family.state]
                 << " | ";
             
             if (family.state != FST_ALLOCATED)

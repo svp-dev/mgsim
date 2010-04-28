@@ -246,7 +246,7 @@ void RAUnit::Cmd_Read(ostream& out, const vector<string>& /*arguments*/) const
 
             if (type.list[entry].first != 0) {
                 next = entry + type.list[entry].first;
-                out << "0x" << setw(4) << (next * type.blockSize) - 1 << ": Allocated to " << type.list[entry].second << endl;
+                out << "0x" << setw(4) << (next * type.blockSize) - 1 << ": Allocated to F" << dec << type.list[entry].second << endl;
             } else {
                 for (next = entry + 1; next < type.list.size() && type.list[next].first == 0; ++next) {}
                 out << "0x" << setw(4) << (next * type.blockSize) - 1 << ": Free" << endl;

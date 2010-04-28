@@ -26,18 +26,29 @@
 !
     .globl main
 main:
+    allocate %0, %4         ! Start = 0, Step = 1
+    setlimit %4, %11        ! Limit = N
+    cred     loop, %4
+
     set     Q, %1; ldd [%1], %f2
     set     R, %1; ldd [%1], %f4
     set     T, %1; ldd [%1], %f6
     set     X, %1
     set     Y, %2
     set     Z, %3
+    putg    %1, %4, 0
+    putg    %2, %4, 1
+    putg    %3, %4, 2
+    fputg   %f2, %4, 0
+    fputg   %f3, %4, 1
+    fputg   %f4, %4, 2
+    fputg   %f5, %4, 3
+    fputg   %f6, %4, 4
+    fputg   %f7, %4, 5
 
-    clr      %4
-    allocate %4, 0, 0, 1, 0 ! Start = 0, Step = 1
-    setlimit %4, %11        ! Limit = N
-    cred     loop, %4
-    mov      %4, %0         ! Sync
+    sync     %4, %1
+    mov      %1, %0
+    release  %4
     end
 
 !

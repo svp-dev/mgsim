@@ -287,7 +287,7 @@ void CMLink::GetMemoryStatistics(uint64_t& nr, uint64_t& nw, uint64_t& nrb, uint
 CMLink::CMLink(const std::string& name, Object& parent, const Config& config, LinkMGS* linkmgs)
   : Object(name, parent),
     p_Requests("requests", delegate::create<CMLink, &CMLink::DoRequests>(*this)),
-    m_requests(*parent.GetKernel(), config.getInteger<BufferSize>("CMBufferSize", INFINITE)),
+    m_requests(*parent.GetKernel(), config.getInteger<BufferSize>("CMBufferSize", INFINITE), 2),
     m_linkmgs(linkmgs),
     m_pimcallback(NULL)
 {

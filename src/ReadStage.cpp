@@ -33,11 +33,8 @@ static PipeValue RegToPipeValue(RegType type, const RegValue& src_value)
     case RST_WAITING:
     case RST_PENDING:
     case RST_EMPTY:
-        // We don't copy the remote information because the Writeback
-        // will fix it up.
-        dest_value.m_remote.fid = INVALID_LFID;
-        dest_value.m_waiting    = src_value.m_waiting;
-        dest_value.m_memory     = src_value.m_memory;
+        dest_value.m_waiting = src_value.m_waiting;
+        dest_value.m_memory  = src_value.m_memory;
         break;
         
     case RST_FULL:
@@ -257,7 +254,7 @@ bool Pipeline::ReadStage::ReadBypasses(OperandInfo& operand)
 }
 
 /*
- Checks if the operand is FULL and if not, writes the output (Rav/Rra) to suspend on the missing register.
+ Checks if the operand is FULL and if not, writes the output (Rav) to suspend on the missing register.
  @param [in]  operand The operand to check
  @param [in]  addr    The base address of the operand
  */
@@ -271,22 +268,13 @@ bool Pipeline::ReadStage::CheckOperandForSuspension(const OperandInfo& operand, 
             
             // Put the output value in the waiting state
             m_output.Rc                 = operand.addr;
-            m_output.Rrc.fid            = INVALID_LFID;
+            m_output.shared.offset      = -1;
             m_output.Rav                = operand.value;
             m_output.Rav.m_state        = RST_WAITING;
             m_output.Rav.m_waiting.head = m_input.tid;
             m_output.Rav.m_waiting.tail = (operand.value.m_state == RST_WAITING)
                 ? operand.value.m_waiting.tail     // The register was already waiting, append thread to list
                 : m_input.tid;                     // First thread waiting on the register
-            m_output.Rra                = operand.remote;
-            m_output.Rra.reg.index     += (operand.addr.index - addr.index);
-            
-            if (operand.value.m_state == RST_WAITING)
-            {
-                // Don't send a remote request a thread is already waiting on it
-                // because that thread has already sent the request.
-                m_output.Rra.fid = INVALID_LFID;
-            }
         }
         return true;
     }
@@ -304,10 +292,8 @@ Pipeline::PipeAction Pipeline::ReadStage::OnCycle()
         
         // Initialize the operand data
         operand1.addr         = m_input.Ra;
-        operand1.remote       = m_input.Rra;
         operand1.value.m_size = m_input.RaSize;
         operand2.addr         = m_input.Rb;
-        operand2.remote       = m_input.Rrb;
         operand2.value.m_size = m_input.RbSize;
     
 #if TARGET_ARCH == ARCH_SPARC
@@ -329,7 +315,6 @@ Pipeline::PipeAction Pipeline::ReadStage::OnCycle()
                 {
                     // Store value hasn't been read yet, so read it first
                     operand1.addr         = m_input.Rs;
-                    operand1.remote       = m_input.Rrs;
                     operand1.value.m_size = m_input.RsSize;
                     operand2.addr         = INVALID_REG;
                 }
@@ -411,14 +396,15 @@ Pipeline::PipeAction Pipeline::ReadStage::OnCycle()
         // Not suspending, output the normal stuff
         COMMIT
         {
-            m_output.Rc         = m_input.Rc;
-            m_output.Rrc        = m_input.Rrc;
-            m_output.Rcv.m_size = m_input.RcSize;
-            m_output.Rra.fid    = INVALID_LFID;
-            m_output.Rrb.fid    = INVALID_LFID;
-            m_output.Rav        = operand1.value;
-            m_output.Rbv        = operand2.value;
-            m_output.regs       = m_input.regs;
+            m_output.Rc     = m_input.Rc;
+            m_output.regofs = m_input.regofs;
+            m_output.shared = m_input.shared;
+            m_output.RcSize = m_input.RcSize;
+            m_output.Rav    = operand1.value;
+            m_output.Rbv    = operand2.value;
+            m_output.regs   = m_input.regs;
+            m_output.regofs = m_input.regofs;
+            m_output.place  = m_input.place;
         }
         
 #if TARGET_ARCH == ARCH_SPARC

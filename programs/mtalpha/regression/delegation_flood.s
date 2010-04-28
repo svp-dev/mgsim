@@ -1,7 +1,7 @@
 /*
  This test does a delegation flood.
  It creates a family locally which all do a delegation to a specific core, the delegations
- that cannot immediately succeed should run locally.
+ that cannot immediately succeed should be queued.
  */
     .file "delegation_flood.s"
     .text
@@ -9,23 +9,26 @@
     .globl main
     .ent main
 main:
-    mov      2, $1
     lda      $2, 1024($31)
-    allocate $1, 0, 0, 0, 0
+    allocate (2 << 1), $1      # Local
     setblock $1, 128
     setlimit $1, $2
     cred     $1, foo
-    mov      $1, $31
+        
+    sync     $1, $0
+    release  $1
+    mov      $0, $31
     end
     .end main
     
     .ent foo
-    .registers 0 0 1 0 0 0
+    .registers 0 0 2 0 0 0
 foo:
-    mov      (1 << 3) | (2 << 1), $l0
-    allocate $l0, 0, 0, 0, 0
+    allocate (1 << 4) | (1 << 3) | (3 << 1), $l0     # PID:1, Suspend:1, Type:Delegate, Exclusive:0
     cred     $l0, bar
-    mov      $l0, $31
+    sync     $l0, $l1
+    release  $l0
+    mov      $l1, $31
     end
     .end foo
 

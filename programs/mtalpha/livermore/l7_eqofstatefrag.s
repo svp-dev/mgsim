@@ -28,24 +28,44 @@ main:
     ldah    $29, 0($27)     !gpdisp!1
     lda     $29, 0($29)     !gpdisp!1
     
-    mov     10, $0; itoft $0, $f0; cvtqt $f0, $f0; # $f0 = Q
-    mov     20, $0; itoft $0, $f1; cvtqt $f1, $f1; # $f1 = R
-    mov     40, $0; itoft $0, $f2; cvtqt $f2, $f2; # $f2 = T
+    allocate $31, $4
+    setlimit $4, $10
+    cred    $4, loop
     
     ldah    $0, X($29)      !gprelhigh
-    lda     $0, X($0)       !gprellow   # $0 = X
+    lda     $0, X($0)       !gprellow
+    putg    $0, $4, 0       # $g0 = X
+
     ldah    $1, Y($29)      !gprelhigh
-    lda     $1, Y($1)       !gprellow   # $1 = Y
+    lda     $1, Y($1)       !gprellow
+    putg    $1, $4, 1       # $g1 = Y
+
     ldah    $2, Z($29)      !gprelhigh
-    lda     $2, Z($2)       !gprellow   # $2 = Z
+    lda     $2, Z($2)       !gprellow
+    putg    $2, $4, 2       # $g2 = Z
+
     ldah    $3, U($29)      !gprelhigh
-    lda     $3, U($3)       !gprellow   # $3 = U
+    lda     $3, U($3)       !gprellow
+    putg    $3, $4, 3       # $g3 = U
     
-    clr      $4
-    allocate $4, 0, 0, 0, 0
-    setlimit $4, $10
-    cred $4, loop
-    mov $4, $31
+    mov     10,  $0;
+    itoft   $0,  $f0;
+    cvtqt   $f0, $f0;
+    fputg   $f0, $4, 0      # $gf0 = Q
+    
+    mov     20,  $0;
+    itoft   $0,  $f1;
+    cvtqt   $f1, $f1;
+    fputg   $f1, $4, 1      # $gf1 = R
+    
+    mov     40,  $0;
+    itoft   $0,  $f2;
+    cvtqt   $f2, $f2;
+    fputg   $f2, $4, 2      # $gf2 = T
+
+    sync    $4, $0
+    release $4
+    mov     $0, $31
     end
     .end main
 

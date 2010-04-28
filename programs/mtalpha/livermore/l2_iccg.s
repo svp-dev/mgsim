@@ -35,22 +35,27 @@ main:
     ldah    $29, 0($27)     !gpdisp!1
     lda     $29, 0($29)     !gpdisp!1   # $29 = GP
     
-    ldah    $0, X($29)      !gprelhigh
-    lda     $0, X($0)       !gprellow   # $0 = X
-    ldah    $1, V($29)      !gprelhigh
-    lda     $1, V($1)       !gprellow   # $1 = V
-    
-    mov     1, $2           # $2 = 1
-    clr     $3              # $3 = 0
-    
     negq    1, $5
-    clr      $4
-    allocate $4, 0, 0, 0, 0
+    allocate $31, $4
     setstart $4, $10
     setlimit $4, $5
     setstep  $4, $5
     cred    $4, outer
-    mov     $4, $31
+    
+    ldah    $0, X($29)      !gprelhigh
+    lda     $0, X($0)       !gprellow
+    putg    $0, $4, 0       # $g0 = X
+    
+    ldah    $0, V($29)      !gprelhigh
+    lda     $0, V($0)       !gprellow
+    putg    $0, $4, 1       # $g1 = V
+    
+    putg    1,  $4, 2       # $g2 = 1
+    puts    0,  $4, 0       # $d0 = 0
+    
+    sync    $4, $0
+    release $4
+    mov     $0, $31
     end
     .end main
 
@@ -64,21 +69,23 @@ main:
 # $l0 = m
 #
     .ent outer
-    .registers 3 1 5 0 0 0
+    .registers 3 1 3 0 0 0
 outer:
-    clr      $l4
-    allocate $l4, 0, 0, 0, 0
-    mov      $g1, $l1            # $l1 = V
-    sll      $g2, $l0, $l2       # $l2 = 1 << m = ii
-    setlimit $l4, $l2; swch
-    setstart $l4, 1
-    setstep  $l4, 2
-    mov      $g0, $l0            # $l0 = X
-    addq     $d0, $l2, $l2; swch # $l2 = ipntp
-    cred     $l4, inner
-    mov      $d0, $l3            # $l3 = ipnt
-    mov      $l4, $31; swch
-    mov      $l2, $s0            # $s0 = ipntp
+    allocate $31, $l1
+    sll      $g2, $l0, $l0       # $l0 = 1 << m = ii
+    setlimit $l1, $l0; swch
+    setstart $l1, 1
+    setstep  $l1, 2
+    addq     $d0, $l0, $l0; swch # $l0 = ipntp
+    cred     $l1, inner
+    putg     $g0, $l1, 0         # $g0 = X
+    putg     $g1, $l1, 1         # $g1 = V
+    putg     $l0, $l1, 2         # $g2 = ipntp
+    putg     $d0, $l1, 3         # $g3 = ipnt
+    sync     $l1, $l2
+    release  $l1; swch
+    mov      $l2, $31; swch
+    mov      $l0, $s0            # $s0 = ipntp
     end
     .end outer
 
@@ -94,7 +101,6 @@ outer:
     .ent inner
     .registers 4 0 3 0 0 5
 inner:
-    print   $l0, 0
     addl    $g3, $l0, $l2   # $l2 = k = ipnt + i
     s8addq  $l2, $g1, $l1   # $l1 = &V[k]
     ldt     $lf1, 0($l1)    # $lf1 = V[k]

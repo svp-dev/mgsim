@@ -26,7 +26,6 @@ typedef size_t   CID;           ///< Cache index
 typedef size_t   PSize;         ///< Processor list size
 typedef size_t   TSize;         ///< Thread list size
 typedef uint64_t CycleNo;       ///< Cycle Number
-typedef uint64_t Capability;    ///< Capability
 typedef size_t   RegIndex;      ///< Index into a register file
 typedef size_t   RegSize;       ///< Size of something in the register file
 typedef size_t   FSize;         ///< Family list size
@@ -38,22 +37,6 @@ enum ContextType
     CONTEXT_RESERVED,
     CONTEXT_EXCLUSIVE,
     NUM_CONTEXT_TYPES
-};
-
-/// Place identifier
-struct PlaceID
-{
-    enum Type {
-        DEFAULT  = 0,
-        GROUP    = 0,
-        LOCAL    = 1,
-        DELEGATE = 2,
-    };
-    
-    GPID       pid;
-    Capability capability;
-    bool       exclusive;
-    Type       type;
 };
 
 /// 32-bit IEEE-754 float
@@ -121,6 +104,34 @@ typedef int32_t  SInteger;      ///< Natural integer type, signed
 typedef Float32  Float;         ///< Natural floating point type
 #define MEMSIZE_MAX UINT32_MAX
 #endif
+
+typedef Integer  FCapability;   ///< Capability for a family
+typedef Integer  PCapability;   ///< Capability for a place
+
+enum PlaceType {
+    PLACE_DEFAULT  = 0,
+    PLACE_GROUP    = 1,
+    PLACE_LOCAL    = 2,
+    PLACE_DELEGATE = 3,
+};
+    
+/// Place identifier
+struct PlaceID
+{
+    GPID        pid;
+    PCapability capability;
+    bool        exclusive;
+    bool        suspend;
+    PlaceType   type;
+};
+
+/// A globally unique family identifier
+struct FID
+{
+    GPID        pid;
+    LFID        lfid;
+    FCapability capability;
+};
 
 /// An FP value that can be of different sizes
 struct MultiFloat
@@ -275,10 +286,16 @@ enum FamilyState
 	FST_ALLOCATED,
 	FST_CREATE_QUEUED,
 	FST_CREATING,
-	FST_DELEGATED,
-    FST_IDLE,
     FST_ACTIVE,
     FST_KILLED
+};
+
+enum ExitCode
+{
+    EXITCODE_NORMAL,    ///< Family terminated normally
+    EXITCODE_KILLED,    ///< Family was terminated with a KILL
+    EXITCODE_BROKEN,    ///< Family was terminated with a BREAK
+    EXITCODE_NONE,      ///< Family hasn't terminated yet
 };
 
 std::ostream& operator << (std::ostream& output, const RegAddr& reg);
@@ -303,22 +320,23 @@ struct MemoryRequest
 /// Different types of shared classes
 enum RemoteRegType
 {
-    RRT_GLOBAL,           ///< The globals
-    RRT_FIRST_DEPENDENT,  ///< The dependents (copy) in the first thread in the block
-    RRT_LAST_SHARED,      ///< The shareds in the last thread in the block
-    RRT_PARENT_SHARED,    ///< The child-shareds in the parent thread
+    RRT_RAW,                ///< Plain register write, no family indirection
+    RRT_GLOBAL,             ///< The globals
+    RRT_FIRST_DEPENDENT,    ///< The dependents in the first thread in the family
+    RRT_NEXT_DEPENDENT,     ///< The dependents in the first thread in the block
+    RRT_LAST_SHARED,        ///< The last shareds in the family, meant for the parent
+    RRT_DETACH,             ///< Fake remote reg type. This signals family detachment
+    RRT_CLEANUP,            ///< Fake remote reg type. This signals a remote thread cleanup
 };
 
 const char* GetRemoteRegisterTypeString(RemoteRegType type);
 
-/// This structure represents a remote request for a global or shared register
+/// This structure represents a remote global or shared register
 struct RemoteRegAddr
 {
-    RemoteRegType type; ///< The type of register we're requesting
-    GPID          gpid; ///< The core we're requesting it from (INVALID_GPID for group)
-    LPID          lpid; ///< The local core we're forwarding to (for parent shareds)
+    RemoteRegType type; ///< The type of register
+    FID           fid;  ///< The global FID of the family
     RegAddr       reg;  ///< The type and (logical) index of the register
-    LFID          fid;  ///< The ID of the family containing the desired global or shared
 };
 
 enum Result
@@ -326,6 +344,13 @@ enum Result
     FAILED,
     DELAYED,
     SUCCESS
+};
+
+enum FamilyProperty {
+    FAMPROP_START,
+    FAMPROP_LIMIT,
+    FAMPROP_STEP,
+    FAMPROP_BLOCK,
 };
 
 enum RegState {
@@ -360,7 +385,6 @@ struct RegValue
 		{
 		    ThreadQueue   m_waiting;    ///< List of the threads that are waiting on the register.
 			MemoryRequest m_memory;     ///< Memory request information for pending registers.
-			RemoteRegAddr m_remote;     ///< Remote request information for shareds and globals.
 		};
     };
 };
@@ -371,17 +395,8 @@ static inline RegValue MAKE_EMPTY_REG()
     value.m_state        = RST_EMPTY;
     value.m_waiting.head = INVALID_TID;
     value.m_memory.size  = 0;
-    value.m_remote.fid   = INVALID_LFID;
     return value;
 }
-
-enum ExitCode
-{
-    EXIT_NORMAL = 0,
-    EXIT_BREAK,
-    EXIT_SQUEEZE,
-    EXIT_KILL,
-};
 
 /**
  * @brief Serialize a register
@@ -423,7 +438,7 @@ typedef uint64_t FPCR;  // Floating Point Control Register
 typedef uint32_t PSR;   // Processor State Register
 typedef uint32_t FSR;   // Floating-Point State Register
 #endif
-                                
+
 }
 #endif
 

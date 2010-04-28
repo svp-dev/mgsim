@@ -16,27 +16,32 @@
     .ent main
     .globl main
 main:
-    ldah $29, 0($27)    !gpdisp!1
-    lda  $29, 0($29)    !gpdisp!1
+    ldgp $29, 0($27)
     
-    clr      $4
-	allocate $4, 0, 0, 0, 0
-
-	ldah $0, A($29)     !gprelhigh
-	lda  $0, A($0)      !gprellow
-	ldah $1, B($29)     !gprelhigh
-	lda  $1, B($1)      !gprellow
-	ldah $2, C($29)     !gprelhigh
-	lda  $2, C($2)      !gprellow
-	mov  $10, $3
-
 	#	create (fam1; 0; N;)
+	allocate $31, $4
 	setlimit $4, $10
 	swch
-	cred $4, thread1
+	cred    $4, thread1
 	
+	ldah    $0, A($29)      !gprelhigh
+	lda     $0, A($0)       !gprellow
+	putg    $0, $4, 0       # $g0 = A
+	
+	ldah    $1, B($29)      !gprelhigh
+	lda     $1, B($1)       !gprellow
+	putg    $1, $4, 1       # $g1 = B
+	
+	ldah    $2, C($29)      !gprelhigh
+	lda     $2, C($2)       !gprellow
+	putg    $2, $4, 2       # $g2 = C
+
+	putg    $10, $4, 3      # $g3 = N
+
 	#	sync(fam1);
-	mov $4, $31
+	sync    $4, $0
+	release $4
+	mov     $0, $31
 	end
 	.end main
 

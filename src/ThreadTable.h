@@ -12,20 +12,48 @@ class Processor;
 
 struct Thread
 {
+    // Register information
     struct RegInfo
     {
-        RegIndex base;
-        RegIndex producer;
+        // The base to this thread's locals, dependents and shareds
+        RegIndex locals;
+        RegIndex dependents;
+        RegIndex shareds;
     };
     
+    // The dependencies that must be resolved before a thread can be cleaned up
     struct Dependencies
     {
-        bool         killed;
-        bool         nextKilled;
-        bool         prevCleanedUp;
+        /*
+         Obviously the thread must have terminated before it can be cleaned up.
+        */
+        bool killed;
+        
+        /*
+         Threads can terminate out of index order. This leads to problems
+         when figuring out which thread is the logical predecessor of the
+         next created thread.
+         For local creates, the family's lastAllocated field can be used
+         to find the last allocated thread, which is always the predecessor
+         of the next created thread. However, in group creates, threads must
+         be linked up across cores. The family's firstInBlock field is
+         used for this. However, if threads complete out of order,
+         thise field can be overwritten with the next block's first
+         thread, causing the border thread on the previous core to link
+         up with the wrong thread.
+         To counter this, sequential thread cleanup is enforced by introducing
+         a dependency on the previous thread's cleanup event.
+        */
+        bool prevCleanedUp;
+        
+        /*
+         All writes made by a thread are tagged with the thread's TID. Thus,
+         the thread cannot be cleaned up until those writes have been
+         confirmed by the memory system.
+        */
         unsigned int numPendingWrites;
     };
-
+    
     MemAddr      pc;
     RegInfo      regs[NUM_REG_TYPES];
     Dependencies dependencies;
@@ -33,7 +61,6 @@ struct Thread
     bool         isFirstThreadInFamily;
     bool         isLastThreadInFamily;
     bool         waitingForWrites;
-    TID          prevInBlock;
     TID          nextInBlock;
     CID          cid;
     LFID         family;

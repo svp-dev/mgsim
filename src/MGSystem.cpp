@@ -452,20 +452,17 @@ void MGSystem::Step(CycleNo nCycles)
     {
         // See how many processes are in each of the states
         unsigned int num_stalled = 0, num_running = 0;
-        /* const Kernel::ComponentList& components = m_kernel.GetComponents();
-           for (Kernel::ComponentList::const_iterator p = components.begin(); p != components.end(); ++p)
-           {
-           for (size_t i = 0; i < p->processes.size(); ++i)
-           {
-           switch (p->processes[i].state)
-           {
-           case STATE_DEADLOCK: ++num_stalled; break;
-           case STATE_RUNNING:  ++num_running; break;
-           case STATE_ABORTED:  assert(0); break;
-           }
-           }
-           }*/
-
+        
+        for (const Process* process = m_kernel.GetActiveProcesses(); process != NULL; process = process->GetNext())
+        {
+            switch (process->GetState())
+            {
+            case STATE_DEADLOCK: ++num_stalled; break;
+            case STATE_RUNNING:  ++num_running; break;
+            default:             assert(false); break;
+            }
+        }
+        
         unsigned int num_regs = 0;
         for (size_t i = 0; i < m_procs.size(); ++i)
         {

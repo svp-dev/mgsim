@@ -12,7 +12,6 @@ class Processor;
 class ICache;
 class DCache;
 class Allocator;
-class Network;
 
 /**
  * @brief Register File with R/W ports.
@@ -20,7 +19,7 @@ class Network;
  * Represents a register file with R/W ports, arbitration and wake-up semantics.
  * The register file has 2 read ports dedicated for the Read stage of the pipeline,
  * one write port from the writeback stage of the pipeline, and one asynchronous
- * read and write port for other components (network, memory, etc).
+ * read and write port for other components (memory, etc).
  */
 class RegisterFile : public Structure<RegAddr>, public Storage
 {
@@ -31,10 +30,9 @@ public:
      * @param[in] parent reference to parent processor.
      * @param[in] allocator reference to allocator used to wake up threads on
      *                      writes to waiting registers.
-     * @param[in] network reference to network used to send remote registers.
      * @param[in] config reference to the configuration data.
      */
-    RegisterFile(const std::string& name, Processor& parent, Allocator& allocator, Network& network, const Config& config);
+    RegisterFile(const std::string& name, Processor& parent, Allocator& allocator, const Config& config);
 
     /**
      * Reads a register
@@ -100,7 +98,6 @@ public:
 private:
     Processor& m_parent;    ///< Reference to parent processor
     Allocator& m_allocator; ///< Reference to the allocator
-    Network&   m_network;   ///< Reference to the network
 
     // We can have at most this many number of updates per cycle.
     // This should be equal to the number of write ports.

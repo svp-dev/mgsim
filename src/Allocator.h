@@ -20,8 +20,9 @@ class ICache;
 class Network;
 class Pipeline;
 struct Family;
-struct CreateMessage;
-struct DelegateMessage;
+struct GroupCreateMessage;
+struct RemoteCreateMessage;
+struct CreateResult;
 struct PlaceInfo;
 
 // A list of dependencies that prevent a family from being
@@ -30,9 +31,8 @@ enum FamilyDependency
 {
     FAMDEP_THREAD_COUNT,        // Number of allocated threads
     FAMDEP_OUTSTANDING_READS,   // Number of outstanding memory reads
-    FAMDEP_OUTSTANDING_SHAREDS, // Number of outstanding parent shareds
     FAMDEP_PREV_SYNCHRONIZED,   // Family has synchronized on the previous processor
-    FAMDEP_NEXT_TERMINATED,     // Family has terminated on the next processor
+    FAMDEP_DETACHED,            // Family has been detached
 	FAMDEP_ALLOCATION_DONE,     // Thread allocation is done
 };
 
@@ -42,7 +42,6 @@ enum ThreadDependency
 {
     THREADDEP_OUTSTANDING_WRITES,   // Number of outstanding memory writes
     THREADDEP_PREV_CLEANED_UP,      // Predecessor has been cleaned up
-    THREADDEP_NEXT_TERMINATED,      // Successor has terminated
     THREADDEP_TERMINATED,           // Thread has terminated
 };
 
@@ -50,20 +49,12 @@ class Allocator : public Object
 {
 public:
     typedef LinkedList< TID, ThreadTable, &Thread::nextState> ThreadList;
-    typedef LinkedList<LFID, FamilyTable, &Family::next>      FamilyList;
     
-    struct RegisterBases
-    {
-        RegIndex globals;
-        RegIndex shareds;
-    };
-
 	struct AllocRequest
 	{
-		TID           parent;               // Thread performing the allocation (for security)
-		PlaceID       place;                // Place that the create should go to
-		RegIndex      reg;                  // Register that will receive the LFID
-        RegisterBases bases[NUM_REG_TYPES]; // Bases of parent registers
+		PlaceType place;  // Type of place
+		GPID      pid;    // Core that requested the allocation
+		RegIndex  reg;    // Register (on that core) that will receive the FID
 	};
 
     // These are the different states in the state machine for
@@ -73,9 +64,11 @@ public:
 		CREATE_INITIAL,             // Waiting for a family to create
 		CREATE_LOADING_LINE,        // Waiting until the cache-line is loaded
 		CREATE_LINE_LOADED,         // The line has been loaded
+		CREATE_ALLOCATING_REGISTERS,// Allocating register space
+		CREATE_ACQUIRE_TOKEN,       // Have to request the token from the network
 		CREATE_ACQUIRING_TOKEN,     // Requesting the token from the network
 		CREATE_BROADCASTING_CREATE, // Broadcasting the create
-		CREATE_ALLOCATING_REGISTERS,// Allocating register space
+		CREATE_NOTIFY,              // Notify the parent that the context is created
 	};
 
     Allocator(const std::string& name, Processor& parent,
@@ -89,8 +82,7 @@ public:
     // Returns the physical register address for a logical register in a certain family.
     RegAddr GetRemoteRegisterAddress(const RemoteRegAddr& addr) const;
 
-    // This is used in all TCB instructions to index the family table with additional checks.
-	Family& GetWritableFamilyEntry(LFID fid, TID parent) const;
+    Family& GetFamilyChecked(LFID fid, FCapability capability) const;
 
     /*
      * Thread management
@@ -100,21 +92,18 @@ public:
     bool SuspendThread(TID tid, MemAddr pc);            // Suspends a thread at the specified PC
     bool KillThread(TID tid);                           // Kills a thread
     
-    bool   SynchronizeFamily(LFID fid, Family& family, ExitCode code);
-	Result AllocateFamily(TID parent, RegIndex reg, LFID* fid, const RegisterBases bases[], Integer place);
-    bool   SanitizeFamily(Family& family, bool hasDependency);
-    bool   QueueCreate(LFID fid, MemAddr address, TID parent, RegIndex exitCodeReg);
+    bool   SynchronizeFamily(LFID fid, Family& family);
+	Result AllocateFamily(const PlaceID& place, GPID src, RegIndex reg, FID* fid);
+    void   SanitizeFamily(Family& family, bool hasDependency);
+    bool   QueueCreate(const FID& fid, MemAddr address, RegIndex completion);
 	bool   ActivateFamily(LFID fid);
 	
-	LFID   OnGroupCreate(const CreateMessage& msg, LFID link_next);
-    Result OnDelegatedCreate(const DelegateMessage& msg);
-    bool   OnDelegationFailed(LFID fid);
+	bool   OnCreateCompleted(LFID fid, RegIndex completion);
+	LFID   OnGroupCreate(const GroupCreateMessage& msg);
+    bool   OnDelegatedCreate(const RemoteCreateMessage& msg, GPID remote_pid);
     
     bool   QueueActiveThreads(const ThreadQueue& threads);
     bool   QueueThreads(ThreadList& list, const ThreadQueue& threads, ThreadState state);
-    
-    bool   SetupFamilyPrevLink(LFID fid, LFID link_prev);
-    bool   SetupFamilyNextLink(LFID fid, LFID link_next);
     
     bool   OnMemoryRead(LFID fid);
     
@@ -128,32 +117,36 @@ public:
     // External events
 	bool OnCachelineLoaded(CID cid);
     bool OnTokenReceived();
-    bool OnRemoteThreadCompletion(LFID fid);
+    bool OnRemoteSync(LFID fid, FCapability capability, GPID remote_pid, RegIndex remote_reg);
     bool OnRemoteThreadCleanup(LFID fid);
-    bool OnRemoteSync(LFID fid, ExitCode code);
     void ReserveContext(bool self);
 
     // Helpers
 	TID     GetRegisterType(LFID fid, RegAddr addr, RegClass* group) const;
-    MemAddr CalculateTLSAddress(LFID fid, TID tid) const;
-    MemSize CalculateTLSSize() const;
     
 	// Debugging
     void Cmd_Help(std::ostream& out, const std::vector<std::string>& arguments) const;
     void Cmd_Read(std::ostream& out, const std::vector<std::string>& arguments) const;
 
 private:
-    // A queued register write
+    // A queued integer register write
     struct RegisterWrite
     {
-        RegAddr  address;   // Where to write
-        RegValue value;     // What to write
+        RegIndex address;   // Where to write
+        Integer  value;     // What to write
     };
 
-	void SetDefaultFamilyEntry(LFID fid, TID parent, const RegisterBases bases[], const PlaceID& place) const;
-	void InitializeFamily(LFID fid, Family::Type type) const;
+    /// Information for buffered creates
+    struct CreateInfo
+    {
+        LFID     fid;        ///< Family index to start create process.
+        GPID     pid;        ///< Core to send create completion to.
+        RegIndex completion; ///< Register to write on core when create completed.
+    };
+
+	FCapability InitializeFamily(LFID fid, PlaceType place) const;
+	void ReinitializeFamily(LFID fid, Family::Type type) const;
 	bool AllocateRegisters(LFID fid, ContextType type);
-	bool WriteExitCode(RegIndex reg, ExitCode code);
 
     bool AllocateThread(LFID fid, TID tid, bool isNewlyAllocated = true);
     bool PushCleanup(TID tid);
@@ -175,17 +168,17 @@ private:
 	Pipeline&	  m_pipeline;
 	PlaceInfo&    m_place;
     LPID          m_lpid;
-
-    FamilyList            m_alloc;          ///< This is the queue of families waiting for initial allocation
-    Buffer<LFID>          m_creates;        ///< Create queue
+    
+    Buffer<LFID>          m_alloc;          ///< This is the queue of families waiting for initial allocation
+    Buffer<CreateInfo>    m_creates;        ///< Create queue
     Buffer<RegisterWrite> m_registerWrites; ///< Register write queue
     Buffer<TID>           m_cleanup;        ///< Cleanup queue
 	Buffer<AllocRequest>  m_allocations;	///< Family allocation queue
 	Buffer<AllocRequest>  m_allocationsEx;  ///< Exclusive family allocation queue
-	Register<LFID>        m_createFID;      ///< Family ID of the current create
 	CreateState           m_createState;	///< State of the current state;
 	CID                   m_createLine;	   	///< Cache line that holds the register info
-    ThreadList            m_readyThreads;   ///< Queue of the threads can be activated
+    ThreadList            m_readyThreads1;  ///< Queue of the threads can be activated; from the pipeline
+    ThreadList            m_readyThreads2;  ///< Queue of the threads can be activated; from the rest
     
     Result DoThreadAllocate();
     Result DoFamilyAllocate();
@@ -203,7 +196,7 @@ public:
 
     ArbitratedService     p_allocation;     ///< Arbitrator for FamilyTable::AllocateFamily
     ArbitratedService     p_alloc;          ///< Arbitrator for m_alloc
-    ArbitratedService     p_readyThreads;   ///< Arbitrator for m_readyThreads
+    ArbitratedService     p_readyThreads;   ///< Arbitrator for m_readyThreads2
     ArbitratedService     p_activeThreads;  ///< Arbitrator for m_activeThreads
     ThreadList            m_activeThreads;  ///< Queue of the active threads
 };

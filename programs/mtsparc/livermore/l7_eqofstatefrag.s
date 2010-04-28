@@ -28,16 +28,22 @@
     .globl main
     .align 64
 main:
-    set     X, %1      ! %0 = X
-    set     Y, %2      ! %1 = Y
-    set     Z, %3      ! %2 = Z
-    set     U, %4      ! %3 = U
-    
-    clr      %5
-    allocate %5, 0, 0, 0, 0
+    allocate %0, %5
     setlimit %5, %11
     cred loop, %5
-    mov %5, %0
+
+    set     X, %1      ! %1 = X
+    set     Y, %2      ! %2 = Y
+    set     Z, %3      ! %3 = Z
+    set     U, %4      ! %4 = U
+    putg    %1, %5, 0
+    putg    %2, %5, 1
+    putg    %3, %5, 2
+    putg    %4, %5, 3
+    
+    sync %5, %1
+    mov %1, %0
+    release %5
     end
 
 !

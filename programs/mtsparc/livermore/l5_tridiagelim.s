@@ -23,18 +23,25 @@
     .globl main
     .align 64
 main:
-    set     X, %1       ! %1 = X
-    set     Y, %2       ! %2 = Y
-    set     Z, %3       ! %3 = Z
-    
-    ldd     [%1], %f2   ! %lf0,%lf1 = X[0]
-    
-    clr      %5
-    allocate %5, 0, 0, 0, 1
+    allocate %0, %5
     setstart %5, 1
     setlimit %5, %11
     cred    loop, %5
-    mov     %5, %0
+
+    set     X, %1       ! %1 = X
+    ldd     [%1], %f2   ! %f2,%f3 = X[0]
+    set     Y, %2       ! %2 = Y
+    set     Z, %3       ! %3 = Z
+    
+    putg    %1, %5, 0
+    putg    %2, %5, 1
+    putg    %3, %5, 2
+    fputs   %f2, %5, 0
+    fputs   %f3, %5, 1
+
+    sync    %5, %1
+    release %5
+    mov     %1, %0
     end
 
 !    
@@ -43,7 +50,7 @@ main:
 ! %g0 = X
 ! %g1 = Y
 ! %g2 = Z
-! %d0 = X[i-1]
+! %df0,df1 = X[i-1]
 ! %l0 = i
     .align 64
     .registers 3 0 2 0 2 4
@@ -55,8 +62,10 @@ loop:
     ldd     [%l1], %lf2             ! %lf2,%lf3 = Z[i]
     add     %l0, %g0, %l1           ! %l1 = &X[i]
     fsubd   %lf0, %df0, %lf0; swch  ! %lf0,%lf1 = Y[i] - X[i-1]
-    fmuld   %lf2, %lf0, %sf0; swch  ! %s0 = X[i]
-    std     %sf0, [%l1]
+    fmuld   %lf2, %lf0, %lf0; swch  ! %lf0,%lf1 = X[i]
+    std     %lf0, [%l1]; swch
+    fmovs   %lf0, %sf0
+    fmovs   %lf1, %sf1
     end
 
     .section .bss

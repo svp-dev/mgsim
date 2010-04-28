@@ -9,22 +9,24 @@
     .globl main
     .align 64
 main:
-    mov      2, %1
     mov      1024, %2
-    allocate %1, 0, 0, 0, 0
+    allocate 2, %1      ! Local
     setblock %1, 128
     setlimit %1, %2
     cred     foo, %1
-    mov      %1, %0
+    sync     %1, %2
+    release  %1
+    mov      %2, %0
     end
     
     .align 64
-    .registers 0 0 1 0 0 0
+    .registers 0 0 2 0 0 0
 foo:
-    mov      (1 << 3) | (2 << 1), %l0
-    allocate %l0, 0, 0, 0, 0
+    allocate (1 << 4) | (1 << 3) | (3 << 1), %l0    ! PID:1, Suspend, Delegate, Exclusive
     cred     bar, %l0
-    mov      %l0, %0
+    sync     %l0, %l1
+    release  %l0
+    mov      %l1, %0
     end
 
     .align 64

@@ -23,24 +23,31 @@
     .globl main
     .ent main
 main:
-    ldah    $29, 0($27)     !gpdisp!1
-    lda     $29, 0($29)     !gpdisp!1
+    ldgp    $29, 0($27)
     
-    ldah    $0, X($29)      !gprelhigh
-    lda     $0, X($0)       !gprellow   # $0 = X
-    ldah    $1, Y($29)      !gprelhigh
-    lda     $1, Y($1)       !gprellow   # $1 = Y
-    ldah    $2, Z($29)      !gprelhigh
-    lda     $2, Z($2)       !gprellow   # $2 = Z
-    
-    ldt     $f0, 0($0)                  # $f0 = X[0]
-    
-    clr      $4
-    allocate $4, 0, 0, 0, 0
+    allocate $31, $4
     setstart $4, 1
     setlimit $4, $10
     cred    $4, loop
-    mov     $4, $31
+    
+    ldah    $0, X($29)          !gprelhigh
+    lda     $0, X($0)           !gprellow
+    putg    $0, $4, 0           # $g0  = X
+    
+    ldah    $0, Y($29)          !gprelhigh
+    lda     $0, Y($0)           !gprellow
+    putg    $0, $4, 1           # $g1  = Y
+    
+    ldah    $0, Z($29)          !gprelhigh
+    lda     $0, Z($0)           !gprellow
+    putg    $0, $4, 2           # $g2  = Z
+
+    ldt     $f0, 0($0)
+    fputs   $f0, $4, 0; swch    # $df0 = X[0]
+    
+    sync    $4, $0
+    release $4
+    mov     $0, $31
     end
     .end main
 
@@ -61,8 +68,9 @@ loop:
     ldt     $lf1, 0($l1)            # $lf1 = Z[i]
     s8addq  $l0, $g0, $l1           # $l0 = &X[i]
     subt    $lf0, $df0, $lf0; swch  # $lf0 = Y[i] - X[i-1]
-    mult    $lf1, $lf0, $sf0; swch  # $sf0 = X[i]
-    stt     $sf0, 0($l1)
+    mult    $lf1, $lf0, $lf0; swch  # $lf0 = X[i]
+    stt     $lf0, 0($l1); swch
+    fmov    $lf0, $sf0              # $sf0 = X[i]
     end
     .end loop
 

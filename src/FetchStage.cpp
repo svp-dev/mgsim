@@ -57,16 +57,13 @@ Pipeline::PipeAction Pipeline::FetchStage::OnCycle()
         {
             m_output.tid                   = tid;
             m_output.fid                   = thread.family;
-            m_output.link_prev             = family.link_prev;
-            m_output.link_next             = family.link_next;
             m_output.isLastThreadInBlock   = thread.isLastThreadInBlock;
             m_output.isLastThreadInFamily  = thread.isLastThreadInFamily;
             m_output.isFirstThreadInFamily = thread.isFirstThreadInFamily;
             m_output.legacy                = family.legacy;
-            m_output.onParent              = (family.parent.lpid == m_lpid);
-            m_output.parent_gpid           = family.parent.gpid;
-            m_output.parent_lpid           = family.parent.lpid;
-            m_output.parent_fid            = family.parent.fid;
+            m_output.place                 = family.place;
+            m_output.onParent              = (m_lpid == family.parent_lpid);
+            m_output.onFirstCore           = (m_lpid == (family.parent_lpid + 1) % m_parent.GetProcessor().GetPlaceSize() );
 
             for (RegType i = 0; i < NUM_REG_TYPES; ++i)
             {

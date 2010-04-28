@@ -12,22 +12,28 @@ main:
     mov 42, $0
     mov  2, $1
     
-    mov      (1 << 3) | (2 << 1), $2
-    allocate $2, 0, 0, 0, 0
+    allocate (1 << 4) | (1 << 3) | (3 << 1), $2     # PID:1, Delegated,Suspend
     setlimit $2, 4
     cred $2, bar
     
+    putg    42, $2, 0
+    puts    2,  $2, 0
+    
     # Sync 
-    mov $2, $31
+    sync    $2, $0
+    mov     $0, $31
+    gets    $2, 0, $3
+    release $2
     end
     .end main
 
     .ent bar
     .registers 1 1 1 0 0 0
 bar:
-    addq $d0, $g0, $s0
+    addq $d0, $g0, $l0
     swch
-    print $s0, 0
+    print $l0, 0
+    mov   $l0, $s0
     end
     .end bar
 

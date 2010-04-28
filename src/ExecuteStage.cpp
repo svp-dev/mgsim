@@ -15,6 +15,18 @@ using namespace std;
 namespace Simulator
 {
 
+static RegValue PipeValueToRegValue(RegType type, const PipeValue& v)
+{
+    RegValue r;
+    r.m_state = RST_FULL;
+    switch (type)
+    {
+    case RT_INTEGER: r.m_integer       = v.m_integer.get(v.m_size); break;
+    case RT_FLOAT:   r.m_float.integer = v.m_float.toint(v.m_size); break;
+    }
+    return r;
+}
+
 bool Pipeline::ExecuteStage::MemoryWriteBarrier(TID tid) const
 {
     Thread& thread = m_threadTable[tid];
@@ -35,8 +47,11 @@ Pipeline::PipeAction Pipeline::ExecuteStage::OnCycle()
         (CommonData&)m_output = m_input;
 
         // Clear memory operation information
-        m_output.address     = 0;
-        m_output.size        = 0;        
+        m_output.address = 0;
+        m_output.size    = 0;
+        
+        // Clear remote information
+        m_output.Rrc.type = RemoteMessage::MSG_NONE;
     }
     
     // If we need to suspend on an operand, it'll be in Rav (by the Read Stage)
@@ -44,24 +59,13 @@ Pipeline::PipeAction Pipeline::ExecuteStage::OnCycle()
     // suspend information.
     if (m_input.Rav.m_state != RST_FULL)
     {
-        if (m_input.Rra.fid != INVALID_LFID)
-        {
-            // We need to request this register remotely
-            if (!m_network.RequestRegister(m_input.Rra, m_input.fid))
-            {
-                DeadlockWrite("Unable to request register for operand");
-                return PIPE_STALL;
-            }
-        }
-
         COMMIT
         {
             // Write Rav (with suspend info) back to Rc.
+            // The Remote Request information might contain a remote request
+            // that will be send by the Writeback stage.
             m_output.Rc  = m_input.Rc;
             m_output.Rcv = m_input.Rav;
-            
-            // Disable a potentional remote write for this instruction.
-            m_output.Rrc.fid = INVALID_LFID;
             
             // Force a thread switch
             m_output.swch    = true;
@@ -78,18 +82,37 @@ Pipeline::PipeAction Pipeline::ExecuteStage::OnCycle()
         
         // Copy input data and set some defaults
         m_output.Rc          = m_input.Rc;
-        m_output.Rrc         = m_input.Rrc;
         m_output.suspend     = SUSPEND_NONE;
         m_output.Rcv.m_state = RST_INVALID;
-        m_output.Rcv.m_size  = m_input.Rcv.m_size;
+        m_output.Rcv.m_size  = m_input.RcSize;
     }
     
     PipeAction action = ExecuteInstruction();
-    COMMIT
+    if (action != PIPE_STALL)
     {
-        if (action != PIPE_STALL)
+        // Operation succeeded
+        COMMIT
         {
-            // Operation succeeded
+            if (m_input.shared.offset != -1)
+            {
+                // Writing a shared
+                if (m_output.Rcv.m_state != RST_FULL)
+                {
+                    // Writing a non-full value to a shared, this is NOT a good thing
+                    throw SimulationException("Writing a non-full value to a shared register. Do you have a shared as target for a long-latency instruction?");
+                }
+                
+                // Compose a remote message
+                assert(m_output.Rrc.type == RemoteMessage::MSG_NONE);
+                m_output.Rrc.type = RemoteMessage::MSG_REGISTER;
+                
+                m_output.Rrc.reg.addr.type     = RRT_NEXT_DEPENDENT;
+                m_output.Rrc.reg.addr.fid.lfid = m_familyTable[m_input.fid].link_next;
+                m_output.Rrc.reg.addr.fid.pid  = INVALID_GPID;
+                m_output.Rrc.reg.addr.reg      = MAKE_REGADDR(m_input.shared.type, m_input.shared.offset);
+                m_output.Rrc.reg.value         = PipeValueToRegValue(m_input.shared.type, m_output.Rcv);
+            }            
+            
             // We've executed an instruction
             m_op++;
             if (action == PIPE_FLUSH)
@@ -104,9 +127,314 @@ Pipeline::PipeAction Pipeline::ExecuteStage::OnCycle()
     return action;
 }
 
-Pipeline::PipeAction Pipeline::ExecuteStage::ExecCreate(LFID fid, MemAddr address, RegAddr exitCodeReg)
+bool Pipeline::ExecuteStage::MoveFamilyRegister(RemoteRegType kind, RegType type, const FID& fid, unsigned char reg)
 {
-    assert(exitCodeReg.type == RT_INTEGER);
+    if (fid.pid != m_parent.GetProcessor().GetPID())
+    {
+        // Send a network message
+        assert(m_input.Rbv.m_size == sizeof(Integer));
+        
+        COMMIT
+        {
+            m_output.Rrc.type = RemoteMessage::MSG_REGISTER;
+            m_output.Rrc.reg.addr.type = kind;
+            m_output.Rrc.reg.addr.fid  = fid;
+            m_output.Rrc.reg.addr.reg  = MAKE_REGADDR(type, reg);
+            
+            if (kind == RRT_LAST_SHARED) {
+                // Register request
+                m_output.Rrc.reg.value.m_state = RST_INVALID;
+                m_output.Rrc.reg.return_addr   = m_output.Rc.index;
+                m_output.Rcv = MAKE_PENDING_PIPEVALUE(m_input.RcSize);
+            } else {
+                // Register send
+                m_output.Rrc.reg.value = PipeValueToRegValue(type, m_input.Rbv);
+            }
+        }
+        return true;        
+    }
+    
+    // Local family
+    const Family&          family = m_allocator.GetFamilyChecked(fid.lfid, fid.capability);
+    const Family::RegInfo& regs   = family.regs[type];
+
+    switch (kind)
+    {
+    case RRT_GLOBAL:
+        // Writing a global
+        if (reg >= regs.count.globals)
+        {
+            break;
+        }
+
+        COMMIT
+        {
+            if (family.type == Family::LOCAL)
+            {
+                // Write into the global space
+                m_output.Rc  = MAKE_REGADDR(type, regs.base + regs.size - regs.count.globals + reg);
+                m_output.Rcv = m_input.Rbv;
+            }
+            else if (family.type == Family::GROUP)
+            {
+                // Send a network message
+                m_output.Rrc.type = RemoteMessage::MSG_REGISTER;
+                m_output.Rrc.reg.addr.type     = kind;
+                m_output.Rrc.reg.addr.fid.pid  = INVALID_GPID;
+                m_output.Rrc.reg.addr.fid.lfid = family.link_next;
+                m_output.Rrc.reg.addr.reg      = MAKE_REGADDR(type, reg);
+                m_output.Rrc.reg.value         = PipeValueToRegValue(type, m_input.Rbv);
+            }
+        }
+        return true;
+    
+    case RRT_FIRST_DEPENDENT:
+        // Writing the first dependent
+        if (reg >= regs.count.shareds)
+        {
+            break;
+        }
+    
+        COMMIT
+        {
+            if (family.type == Family::LOCAL)
+            {
+                // Write to the family base, where the first dependents will be located
+                m_output.Rc  = MAKE_REGADDR(type, regs.base + reg);
+                m_output.Rcv = m_input.Rbv;
+            }
+            else if (family.type == Family::GROUP)
+            {
+                // Send a network message
+                m_output.Rrc.type = RemoteMessage::MSG_REGISTER;
+                m_output.Rrc.reg.addr.type     = kind;
+                m_output.Rrc.reg.addr.fid.pid  = INVALID_GPID;
+                m_output.Rrc.reg.addr.fid.lfid = family.link_next;
+                m_output.Rrc.reg.addr.reg      = MAKE_REGADDR(type, reg);
+                m_output.Rrc.reg.value         = PipeValueToRegValue(type, m_input.Rbv);
+            }
+        }
+        return true;
+    
+    case RRT_LAST_SHARED:
+        // Reading the last shared in the family
+        if (reg >= regs.count.shareds)
+        {
+            break;
+        }
+    
+        COMMIT
+        {
+            if (family.type == Family::LOCAL || family.hasLastThread)
+            {
+                /*
+                We cannot read the local register directly because we've already
+                passed the Read Stage. Instead, we turn this into a network
+                message as well. The Network logic will then read the register
+                and write it back.
+                */
+                m_output.Rrc.type = RemoteMessage::MSG_REGISTER;
+                m_output.Rrc.reg.addr.type     = kind;
+                m_output.Rrc.reg.addr.fid.pid  = m_parent.GetProcessor().GetPID();
+                m_output.Rrc.reg.addr.fid.lfid = fid.lfid;
+                m_output.Rrc.reg.addr.reg      = MAKE_REGADDR(type, reg);
+                m_output.Rrc.reg.return_addr   = m_output.Rc.index;
+                m_output.Rrc.reg.value.m_state = RST_INVALID;
+
+                m_output.Rcv = MAKE_PENDING_PIPEVALUE(m_input.RcSize);
+            }
+            else if (family.type == Family::GROUP)
+            {
+                // Send a group network message
+                m_output.Rrc.type = RemoteMessage::MSG_REGISTER;
+                m_output.Rrc.reg.addr.type     = kind;
+                m_output.Rrc.reg.addr.fid.pid  = INVALID_GPID;
+                m_output.Rrc.reg.addr.fid.lfid = family.link_next;
+                m_output.Rrc.reg.addr.reg      = MAKE_REGADDR(type, reg);
+                m_output.Rrc.reg.return_addr   = m_output.Rc.index;
+                m_output.Rrc.reg.value.m_state = RST_INVALID;
+            
+                m_output.Rcv = MAKE_PENDING_PIPEVALUE(m_input.RcSize);
+            }
+        }
+        return true;
+    
+    default:
+        break;
+    }
+    
+    DebugProgWrite("Using an invalid family register");
+    COMMIT{ m_output.Rc = INVALID_REG; }
+    return true;
+}
+
+bool Pipeline::ExecuteStage::ExecDetach(const FID& fid)
+{
+    /*
+     Tell the writeback stage to send a detachment notification
+
+     For local families we also make a network message, because detachments
+     must follow shared reads (lest the detachment overtakes the shared reads
+     and cleans up the target family).
+    */
+    if (fid.pid != m_parent.GetProcessor().GetPID())
+    {
+        COMMIT
+        {
+            m_output.Rrc.type = RemoteMessage::MSG_DETACH;
+            m_output.Rrc.detach.fid = fid;
+        }
+    }
+    else
+    {
+        Family& family = m_allocator.GetFamilyChecked(fid.lfid, fid.capability);
+        switch (family.type)
+        {
+        case Family::GROUP:
+            COMMIT
+            {
+                m_output.Rrc.type            = RemoteMessage::MSG_DETACH;
+                m_output.Rrc.detach.fid.pid  = INVALID_GPID;
+                m_output.Rrc.detach.fid.lfid = family.link_next;
+            }
+            break;
+            
+        case Family::LOCAL:
+            COMMIT
+            {
+                m_output.Rrc.type       = RemoteMessage::MSG_DETACH;
+                m_output.Rrc.detach.fid = fid;
+            }
+            break;
+            
+        default:
+            assert(false);
+            break;
+        }
+    }
+    return true;
+}
+
+bool Pipeline::ExecuteStage::ExecSync(const FID& fid)
+{
+    assert(m_input.Rc.type == RT_INTEGER);
+    
+    if (fid.pid == m_parent.GetProcessor().GetPID())
+    {
+        // Local family
+        Family& family = m_allocator.GetFamilyChecked(fid.lfid, fid.capability);
+        COMMIT
+        {
+            if (family.sync.code != EXITCODE_NONE) {
+                // The family is done, return the exit code
+                m_output.Rcv.m_state = RST_FULL;
+                m_output.Rcv.m_integer.set(family.sync.code, m_input.RcSize);
+            } else if (m_input.Rc.index != INVALID_REG_INDEX) {
+                // Buffer the request
+                family.sync.pid = m_parent.GetProcessor().GetPID();
+                family.sync.reg = m_input.Rc.index;
+                m_output.Rcv = MAKE_PENDING_PIPEVALUE(m_input.RcSize);
+            }
+        }
+    }
+    else
+    {
+        // Remote family
+        COMMIT
+        {
+            if (m_input.Rc.index != INVALID_REG_INDEX)
+            {
+                m_output.Rrc.type     = RemoteMessage::MSG_SYNC;
+                m_output.Rrc.sync.fid = fid;
+                m_output.Rrc.sync.reg = m_input.Rc.index;
+            
+                m_output.Rcv = MAKE_PENDING_PIPEVALUE(m_input.RcSize);
+            }
+        }
+    }
+    return true;
+}
+
+bool Pipeline::ExecuteStage::ExecAllocate(const PlaceID& place_, RegIndex reg)
+{
+    // Do some checking on the place
+    PlaceID place(place_);
+    switch (place.type)
+    {
+    case PLACE_DEFAULT:
+        // Inherit the parent's place
+        place.type = m_input.place;
+        break;
+
+    case PLACE_DELEGATE:
+        // Verify processor ID
+        if (place.pid >= m_parent.GetProcessor().GetGridSize())
+        {
+            throw SimulationException("Attempting to delegate to a non-existing core");
+        }
+
+        if (place.pid == m_parent.GetProcessor().GetPID())
+        {
+            // We're delegating to our own core, make it a local create instead
+            place.type = PLACE_LOCAL;
+        }
+        break;
+
+    case PLACE_LOCAL:
+    case PLACE_GROUP:
+        // Nothing to do
+        break;
+
+    default:
+        assert(false);
+        break;
+    }
+
+    if (place.type == PLACE_DELEGATE)
+    {
+        // Send a network allocation request.
+        // This will write back the FID to the specified register once the allocation
+        // has completed.
+        COMMIT
+        {
+            m_output.Rrc.type = RemoteMessage::MSG_ALLOCATE;
+            m_output.Rrc.allocate.pid        = place.pid;
+            m_output.Rrc.allocate.exclusive  = place.exclusive;
+            m_output.Rrc.allocate.suspend    = place.suspend;
+            m_output.Rrc.allocate.completion = reg;
+            
+            m_output.Rcv = MAKE_PENDING_PIPEVALUE(m_input.RcSize);
+        }
+        return true;
+    }
+    
+    // Local allocation
+    FID fid;
+    Result result = m_allocator.AllocateFamily(place, m_parent.GetProcessor().GetPID(), reg, &fid);
+    if (result == FAILED)
+    {
+        return false;
+    }
+    
+    COMMIT
+    {
+        if (result == SUCCESS)
+        {
+            m_output.Rcv.m_state   = RST_FULL;
+            m_output.Rcv.m_integer = m_parent.GetProcessor().PackFID(fid);
+        }
+        else
+        {
+            assert(result == DELAYED);
+            m_output.Rcv = MAKE_PENDING_PIPEVALUE(m_input.RcSize);
+        }
+    }
+    return true;
+}
+
+Pipeline::PipeAction Pipeline::ExecuteStage::ExecCreate(const FID& fid, MemAddr address, RegAddr completion)
+{
+    assert(completion.type == RT_INTEGER);
 
     // Direct create
     if (!MemoryWriteBarrier(m_input.tid))
@@ -123,37 +451,71 @@ Pipeline::PipeAction Pipeline::ExecuteStage::ExecCreate(LFID fid, MemAddr addres
         return PIPE_FLUSH;
     }
     
-    if (!m_allocator.QueueCreate(fid, address, m_input.tid, exitCodeReg.index))
+    COMMIT
     {
-        return PIPE_STALL;
+        m_output.Rcv = MAKE_PENDING_PIPEVALUE(m_input.RcSize);
     }
     
-    COMMIT
+    if (fid.pid == m_parent.GetProcessor().GetPID())
     {
-        m_output.Rcv = MAKE_PENDING_PIPEVALUE(m_output.Rcv.m_size);
-    }
-    return PIPE_CONTINUE;
-}
-
-Pipeline::PipeAction Pipeline::ExecuteStage::SetFamilyProperty(LFID fid, FamilyProperty property, uint64_t value)
-{
-    Family& family = m_allocator.GetWritableFamilyEntry(fid, m_input.tid);
-    COMMIT
-    {
-        switch (property)
+        // Local create, queue it
+        if (!m_allocator.QueueCreate(fid, address, completion.index))
         {
-            case FAMPROP_START: family.start         = (SInteger)value; break;
-            case FAMPROP_LIMIT: family.limit         = (SInteger)value; break;
-            case FAMPROP_STEP:  family.step          = (SInteger)value; break;
-            case FAMPROP_BLOCK: family.virtBlockSize = (TSize)value; break;
+            return PIPE_STALL;
+        }
+    }
+    else
+    {
+        // Delegated create; send the create -- no further processing required on this core
+        // We send along the completion register. This will be returned with the delegation
+        // result.
+        COMMIT
+        {
+            m_output.Rrc.type = RemoteMessage::MSG_CREATE;
+            m_output.Rrc.create.fid        = fid;
+            m_output.Rrc.create.address    = address;
+            m_output.Rrc.create.completion = completion.index;
+        
+            m_output.Rcv = MAKE_PENDING_PIPEVALUE(m_input.RcSize);
         }
     }
     return PIPE_CONTINUE;
 }
 
-Pipeline::PipeAction Pipeline::ExecuteStage::ExecBreak(Integer /* value */) { return PIPE_CONTINUE; }
-Pipeline::PipeAction Pipeline::ExecuteStage::ExecBreak(double /* value */)  { return PIPE_CONTINUE; }
-Pipeline::PipeAction Pipeline::ExecuteStage::ExecKill(LFID /* fid */)       { return PIPE_CONTINUE; }
+Pipeline::PipeAction Pipeline::ExecuteStage::SetFamilyProperty(const FID& fid, FamilyProperty property, Integer value)
+{
+    if (fid.pid == m_parent.GetProcessor().GetPID())
+    {
+        // Local family
+        Family& family = m_allocator.GetFamilyChecked(fid.lfid, fid.capability);
+        COMMIT
+        {
+            switch (property)
+            {
+                case FAMPROP_START: family.start         = (SInteger)value; break;
+                case FAMPROP_LIMIT: family.limit         = (SInteger)value; break;
+                case FAMPROP_STEP:  family.step          = (SInteger)value; break;
+                case FAMPROP_BLOCK: family.virtBlockSize = (TSize)value; break;
+                default: assert(false); break;
+            }
+        }
+    }
+    else
+    {
+        // Remote family
+        COMMIT
+        {
+            m_output.Rrc.type = RemoteMessage::MSG_SET_PROPERTY;
+            m_output.Rrc.property.fid   = fid;
+            m_output.Rrc.property.type  = property;
+            m_output.Rrc.property.value = value;
+        }
+    }
+    return PIPE_CONTINUE;
+}
+
+Pipeline::PipeAction Pipeline::ExecuteStage::ExecBreak()                    { return PIPE_CONTINUE; }
+Pipeline::PipeAction Pipeline::ExecuteStage::ExecKill(const FID& /* fid */) { return PIPE_CONTINUE; }
 
 void Pipeline::ExecuteStage::ExecDebug(Integer value, Integer stream) const
 {
@@ -304,12 +666,12 @@ void Pipeline::ExecuteStage::ExecDebug(double value, Integer stream) const
     }
 }
 
-Pipeline::ExecuteStage::ExecuteStage(Pipeline& parent, const ReadExecuteLatch& input, ExecuteMemoryLatch& output, Allocator& alloc, Network& network, ThreadTable& threadTable, FPU& fpu, size_t fpu_source, const Config& /*config*/)
+Pipeline::ExecuteStage::ExecuteStage(Pipeline& parent, const ReadExecuteLatch& input, ExecuteMemoryLatch& output, Allocator& alloc, FamilyTable& familyTable, ThreadTable& threadTable, FPU& fpu, size_t fpu_source, const Config& /*config*/)
   : Stage("execute", parent),
     m_input(input),
     m_output(output),
     m_allocator(alloc),
-    m_network(network),
+    m_familyTable(familyTable),
     m_threadTable(threadTable),
     m_fpu(fpu),
     m_fpuSource(fpu_source)

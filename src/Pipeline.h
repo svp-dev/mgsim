@@ -5,6 +5,7 @@
 #include "ThreadTable.h"
 #include "Allocator.h"
 #include "ICache.h"
+#include "Network.h"
 
 #if TARGET_ARCH == ARCH_ALPHA
 #include "ISA.alpha.h"
@@ -21,7 +22,6 @@ class DCache;
 class FamilyTable;
 class ThreadTable;
 class RegisterFile;
-class Network;
 class FPU;
 
 /// A (possibly multi-) register value in the pipeline
@@ -38,7 +38,6 @@ struct PipeValue
         {
             ThreadQueue   m_waiting;    ///< List of the threads that are waiting on the register.
             MemoryRequest m_memory;     ///< Memory request information for pending registers.
-            RemoteRegAddr m_remote;     ///< Remote request information for shareds and globals.
         };
     };
 };
@@ -50,7 +49,6 @@ static inline PipeValue MAKE_EMPTY_PIPEVALUE(unsigned int size)
     value.m_size         = size;
     value.m_waiting.head = INVALID_TID;
     value.m_memory.size  = 0;
-    value.m_remote.fid   = INVALID_LFID;
     return value;
 }
 
@@ -61,7 +59,6 @@ static inline PipeValue MAKE_PENDING_PIPEVALUE(unsigned int size)
     value.m_size         = size;
     value.m_waiting.head = INVALID_TID;
     value.m_memory.size  = 0;
-    value.m_remote.fid   = INVALID_LFID;
     return value;
 }
 
@@ -88,9 +85,8 @@ class Pipeline : public Object
         int32_t  displacement;
         
         // Memory store data source
-        RemoteRegAddr Rrs;
-        RegAddr       Rs;
-        unsigned int  RsSize;
+        RegAddr      Rs;
+        unsigned int RsSize;
     };
 
     struct ArchReadExecuteLatch : public ArchDecodeReadLatch
@@ -125,6 +121,12 @@ class Pipeline : public Object
             Thread::RegInfo thread;
         } types[NUM_REG_TYPES];
     };
+
+    struct SharedInfo
+    {
+        char    offset;
+        RegType type;
+    };
     
     //
     // Latches
@@ -158,15 +160,12 @@ class Pipeline : public Object
 
     struct FetchDecodeLatch : public Latch
     {
-        LFID            link_prev;
-        LFID            link_next;
         Instruction     instr;
         RegInfo         regs;
+        PlaceType       place;
         bool            legacy;
 		bool            onParent;
-		GPID            parent_gpid;
-		LPID            parent_lpid;
-		LFID            parent_fid;
+		bool            onFirstCore;
         bool            isLastThreadInBlock;
 		bool            isFirstThreadInFamily;
         bool            isLastThreadInFamily;
@@ -177,21 +176,35 @@ class Pipeline : public Object
         uint32_t        literal;
         RegInfo         regs;
         
+        // For [f]mov[gsd], the offset in the child family's register file
+        unsigned char   regofs;
+
+        // Shared write for next thread
+        SharedInfo      shared;
+
         // Registers addresses, types and sizes
-        RemoteRegAddr   Rra, Rrb, Rrc;
         RegAddr         Ra,  Rb,  Rc;
         unsigned int    RaSize, RbSize, RcSize;
+        
+        PlaceType       place;
     };
 
     struct ReadExecuteLatch : public Latch, public ArchReadExecuteLatch
     {
         // Registers addresses, values and types
-        RemoteRegAddr   Rra, Rrb, Rrc;
         RegAddr         Rc;
         PipeValue       Rav, Rbv;
-        PipeValue       Rcv; // Used for m_size only
+        unsigned int    RcSize;
         RegInfo         regs;
 
+        // For [f]mov[gsd], the offset in the child family's register file
+        unsigned char   regofs;
+        
+        // Shared write for next thread
+        SharedInfo      shared;
+
+        PlaceType       place;
+        
         // For debugging only
         RegAddr         Ra, Rb;
     };
@@ -206,18 +219,19 @@ class Pipeline : public Object
         bool    sign_extend;    // Sign extend sub-register loads?
 
         // To be written address and value
-        RemoteRegAddr   Rrc;
-        RegAddr         Rc;
-        PipeValue       Rcv;    // On loads, m_state = RST_INVALID and m_size is reg. size
+        RegAddr       Rc;
+        PipeValue     Rcv;      // On loads, m_state = RST_INVALID and m_size is reg. size
+        
+        RemoteMessage Rrc;
     };
 
     struct MemoryWritebackLatch : public Latch
     {
-        SuspendType suspend;
-
-        RemoteRegAddr   Rrc;
-        RegAddr         Rc;
-        PipeValue       Rcv;
+        SuspendType   suspend;
+        RegAddr       Rc;
+        PipeValue     Rcv;
+        
+        RemoteMessage Rrc;
     };
     
     //
@@ -260,7 +274,7 @@ class Pipeline : public Object
         DecodeReadLatch&        m_output;
 
         PipeAction OnCycle();
-        RegAddr TranslateRegister(uint8_t reg, RegType type, unsigned int size, RemoteRegAddr* remoteReg, bool writing) const;
+        RegAddr TranslateRegister(uint8_t reg, RegType type, unsigned int size, bool writing) const;
         void    DecodeInstruction(const Instruction& instr);
 
     public:
@@ -273,7 +287,6 @@ class Pipeline : public Object
         {
             DedicatedReadPort* port;      ///< Port on the RegFile to use for reading this operand
             RegAddr            addr;      ///< (Base) address of the operand
-            RemoteRegAddr      remote;    ///< (Base) remote address of the operand
             PipeValue          value;     ///< Final value
             int                offset;    ///< Sub-register of the operand we are currently reading
             
@@ -313,33 +326,29 @@ class Pipeline : public Object
         const ReadExecuteLatch& m_input;
         ExecuteMemoryLatch&     m_output;
         Allocator&              m_allocator;
-        Network&                m_network;
+        FamilyTable&            m_familyTable;
         ThreadTable&            m_threadTable;
 		FPU&                    m_fpu;
 		size_t                  m_fpuSource;    // Which input are we to the FPU?
         uint64_t                m_flop;         // FP operations
         uint64_t                m_op;           // Instructions
         
-        enum FamilyProperty {
-            FAMPROP_START,
-            FAMPROP_LIMIT,
-            FAMPROP_STEP,
-            FAMPROP_BLOCK,
-        };
-        
         bool       MemoryWriteBarrier(TID tid) const;
-        PipeAction SetFamilyProperty(LFID fid, FamilyProperty property, uint64_t value);
+        bool       MoveFamilyRegister(RemoteRegType kind, RegType type, const FID& fid, unsigned char ofs);
+        bool       ExecSync(const FID& fid);
+        bool       ExecDetach(const FID& fid);
+        PipeAction SetFamilyProperty(const FID& fid, FamilyProperty property, Integer value);
         PipeAction ExecuteInstruction();
-        PipeAction ExecCreate(LFID fid, MemAddr address, RegAddr exitCodeReg);
-        PipeAction ExecBreak(Integer value);
-        PipeAction ExecBreak(double value);
-        PipeAction ExecKill(LFID fid);
+        bool       ExecAllocate(const PlaceID& place, RegIndex reg);
+        PipeAction ExecCreate(const FID& fid, MemAddr address, RegAddr completion);
+        PipeAction ExecBreak();
+        PipeAction ExecKill(const FID& fid);
         void       ExecDebug(Integer value, Integer stream) const;
         void       ExecDebug(double value, Integer stream) const;
         PipeAction OnCycle();
         
     public:
-        ExecuteStage(Pipeline& parent, const ReadExecuteLatch& input, ExecuteMemoryLatch& output, Allocator& allocator, Network& network, ThreadTable& threadTable, FPU& fpu, size_t fpu_source, const Config& config);
+        ExecuteStage(Pipeline& parent, const ReadExecuteLatch& input, ExecuteMemoryLatch& output, Allocator& allocator, FamilyTable& familyTable, ThreadTable& threadTable, FPU& fpu, size_t fpu_source, const Config& config);
         
         uint64_t getFlop() const { return m_flop; }
         uint64_t getOp()   const { return m_op; }
@@ -378,14 +387,14 @@ class Pipeline : public Object
         const MemoryWritebackLatch& m_input;
         bool                        m_stall;
         RegisterFile&               m_regFile;
-        Network&                    m_network;
         Allocator&                  m_allocator;
         ThreadTable&                m_threadTable;
+        Network&                    m_network;
         int                         m_writebackOffset; // For multiple-cycle writebacks
 
         PipeAction OnCycle();
     public:
-        WritebackStage(Pipeline& parent, const MemoryWritebackLatch& input, RegisterFile& regFile, Network& network, Allocator& allocator, ThreadTable& threadTable, const Config& config);
+        WritebackStage(Pipeline& parent, const MemoryWritebackLatch& input, RegisterFile& regFile, Allocator& allocator, ThreadTable& threadTable, Network& network, const Config& config);
     };
 
     void PrintLatchCommon(std::ostream& out, const CommonData& latch) const;

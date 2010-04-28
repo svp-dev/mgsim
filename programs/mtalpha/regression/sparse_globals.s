@@ -8,15 +8,16 @@
     .globl main
     .ent main
 main:
-    mov 42, $0
-    
-    clr      $2
-    allocate $2, 0, 0, 0, 0
+    allocate $31, $2
     setlimit $2, 4
     cred $2, foo
     
+    putg 42, $2, 0
+    
     # Sync
-    mov $2, $31
+    sync    $2, $0
+    release $2
+    mov     $0, $31
     end
     .end main
 

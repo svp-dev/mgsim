@@ -8,16 +8,20 @@
     .globl main
     .ent main
 main:
-    ldgp $0, 0($27)
-    mov 0, $1
+    ldgp $29, 0($27)
     
-    mov      2, $2  # place = LOCAL
-    allocate $2, 0, 0, 0, 0
+    allocate 2, $2  # place = LOCAL
     setlimit $2, 64
-    cred $2, foo
+    cred    $2, foo
+    
+    putg    $29, $2, 0      # {$g0} = GP
+    puts    $31, $2, 0      # {$d0} = sum = 0
     
     # Sync
-    mov $2, $31; swch
+    sync    $2, $0
+    mov     $0, $31; swch
+    gets    $2, 0, $1       # $1 = {$s0}
+    release $2
 
     # Check if the result matches
     lda $2, 2080($31)
@@ -33,12 +37,16 @@ main:
     .ent foo
     .registers 1 1 3 0 0 0
 foo:
-    mov      $g0, $l0
-    mov      (1 << 3) | (2 << 1) | 1, $l2   # Delegated, exclusive
-    allocate $l2, 0, 0, 0, 0
-    swch
+    allocate (1 << 4) | (1 << 3) | (3 << 1) | 1, $l2     # PID:1, Delegated, Suspend, Exclusive
     cred     $l2, bar
-    mov      $l2, $31; swch
+    swch
+    putg     $g0, $l2, 0        # {$g0} = GP
+    swch
+    sync     $l2, $l0
+    mov      $l0, $31
+    swch
+    gets     $l2, 0, $l1        # $l1 = {$s0}
+    release  $l2
     addq     $d0, $l1, $s0
     end
     .end foo
@@ -51,8 +59,9 @@ bar:
     lda  $l0, val($g0)   !gprellow
     ldah $l0, val($l0)   !gprelhigh
     ldl  $l1, 0($l0)
-    addq $l1, 1, $s0
-    stl  $s0, 0($l0)
+    addq $l1, 1, $l1
+    stl  $l1, 0($l0)
+    mov  $l1, $s0
     end
     .end bar
 

@@ -23,21 +23,25 @@
     .globl main
     .ent main
 main:
-    ldah    $29, 0($27)     !gpdisp!1
-    lda     $29, 0($29)     !gpdisp!1
+    ldgp    $29, 0($27)
+    
+    allocate $31, $3
+    setlimit $3, $10
+    cred     $3, loop
 
     ldah    $0, X($29)      !gprelhigh
-    lda     $0, X($0)       !gprellow   # $0 = X
-    ldah    $1, Y($29)      !gprelhigh
-    lda     $1, Y($1)       !gprellow   # $1 = Y
-    fclr    $f0                         # $f0 = sum = 0
-    
-    clr      $3
-    allocate $3, 0, 0, 0, 0
-    setlimit $3, $10
-    cred    $3, loop
+    lda     $0, X($0)       !gprellow
+    putg    $0, $3, 0       # $g0 = X
 
-    mov     $3, $31
+    ldah    $0, Y($29)      !gprelhigh
+    lda     $0, Y($0)       !gprellow
+    putg    $0, $3, 1       # $g1 = Y
+    
+    fputs   $f31, $3, 0     # $df0 = sum = 0
+
+    sync     $3, $0
+    release  $3
+    mov      $0, $31
     end
     .end main
 
@@ -56,7 +60,8 @@ loop:
     s8addq  $l0, $g0, $l0
     ldt     $lf0, 0($l0)
     mult    $lf0, $lf1, $lf0; swch
-    addt    $df0, $lf0, $sf0
+    addt    $df0, $lf0, $lf0; swch
+    fmov    $lf0, $sf0
     end
     .end loop
 

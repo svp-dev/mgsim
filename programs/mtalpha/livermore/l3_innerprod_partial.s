@@ -17,31 +17,37 @@
     .globl main
     .ent main
 main:
-    ldah    $29, 0($27)     !gpdisp!1
-    lda     $29, 0($29)     !gpdisp!1
+    ldgp    $29, 0($27)
 
-    ldah    $0, X($29)      !gprelhigh
-    lda     $0, X($0)       !gprellow   # $0 = X
-    ldah    $1, Y($29)      !gprelhigh
-    lda     $1, Y($1)       !gprellow   # $1 = Y
-    
-    # Calculate N / #procs
-    getprocs $2
-    divqu    $10, $2, $2     # $2 = normal_size = N / #procs
-    
     # Family runs from [0 ... #procs - 1]
-    clr      $5
-    allocate $5, 0, 0, 0, 0
+    allocate $31, $5
     getprocs $3
     setlimit $5, $3
     
+    cred    $5, outer
+    
+    ldah    $0, X($29)      !gprelhigh
+    lda     $0, X($0)       !gprellow
+    putg    $0, $5, 0       # $g0 = X
+
+    ldah    $0, Y($29)      !gprelhigh
+    lda     $0, Y($0)       !gprellow
+    putg    $0, $5, 1       # $g1 = Y
+    
+    # Calculate N / #procs
+    divqu    $10, $3, $2
+    putg     $2,  $5, 2     # $g2 = normal_size = N / #procs
+    
     # Calculate #procs that does one more
     mull    $2,  $3, $3
-    subl    $10, $3, $3                 # $3 = num_more = N % #procs = N - normal_size * #procs
+    subl    $10, $3, $3
+    putg    $3, $5, 3       # $g3 = num_more = N % #procs = N - normal_size * #procs
     
-    fclr    $f0                         # $f0 = sum = 0.0
-    cred    $5, outer
-    mov     $5, $31
+    fputs   $f31, $5, 0     # $df0 = sum = 0.0
+    
+    sync    $5, $0
+    release $5
+    mov     $0, $31
     end
     .end main
 
@@ -67,17 +73,22 @@ outer:
     cmovge  $l3, $g2, $l2       # $l2 = actual size  (accounting for +1)
     addq    $l1, $l2, $l2       # $l2 = limit
     
-    mov      2, $l3     # place = LOCAL
-    allocate $l3, 0, 0, 0, 0
+    allocate 2, $l3             # place = LOCAL
     setstart $l3, $l1
     setlimit $l3, $l2
+    cred     $l3, loop
     
-    mov     $g0, $l0
-    mov     $g1, $l1
-    fclr    $lf0
-    cred    $l3, loop
-    mov     $l3, $31; swch
-    addt    $df0, $lf0, $sf0
+    putg $g0, $l3, 0            # $g0 = X
+    putg $g1, $l3, 1            # $g1 = Y
+    fputs $f31, $l3, 0          # $df0 = sum = 0.0
+    
+    sync    $l3, $l0
+    mov     $l0, $31; swch
+    fgets   $l3, 0, $lf0        # $lf0 = {$sf0} = sum
+    release $l3
+    addt    $df0, $lf0, $lf0
+    swch
+    fmov    $lf0, $sf0
     end
     .end outer
 
@@ -97,7 +108,8 @@ loop:
     s8addq $l0, $g0, $l0
     ldt $lf0, 0($l0)
     mult $lf0, $lf1, $lf0; swch
-    addt $df0, $lf0, $sf0
+    addt $df0, $lf0, $lf0; swch
+    fmov $lf0, $sf0
     end
     .end loop
 

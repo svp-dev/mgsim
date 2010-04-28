@@ -10,13 +10,16 @@
 main:
     mov 42, %1
     
-    clr      %2
-    allocate %2, 0, 0, 0, 0
+    allocate %0, %2
     setlimit %2, 4
     cred foo, %2
     
+    putg %1, %2, 0
+    
     ! Sync
-    mov %2, %0
+    sync %2, %1
+    release %2
+    mov %1, %0
     end
 
     .align 64

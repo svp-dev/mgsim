@@ -14,21 +14,25 @@
     .text
     .globl main
 main:
-    clr      %5
-	allocate %5, 0, 0, 0, 0
-
-    set A, %1
-    set B, %2
-    set C, %3
-	mov %11, %4
+	allocate %0, %5
 
 	!	create (fam1; 0; N;)
 	setlimit %5, %11
 	swch
 	cred thread1, %5
 	
+    set     A, %1
+    set     B, %2
+    set     C, %3
+    putg    %1,  %5, 0
+    putg    %2,  %5, 1
+    putg    %3,  %5, 2
+    putg    %11, %5, 3
+
 	!	sync(fam1);
-	mov %5, %0
+	sync    %5, %1
+	mov     %1, %0
+	release %5
 	end
 
 

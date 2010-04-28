@@ -8,6 +8,11 @@
  stage to write to the register file (otherwise the pipeline
  would get continuous priority and the memory would simply
  wake up all suspended threads).
+ 
+ 
+ Note: now that we use "putg" this scenario can no longer occur.
+ No more than one thread can wait on a memory load.
+ Maybe this regression should be deleted?
 */
     .file "inf_pipeline_wait_loop.s"
     
@@ -16,18 +21,19 @@
 main:
     ldgp $29, 0($27)
     
-    setempty $0
-    clr      $2
-    allocate $2, 0, 0, 0, 0
+    allocate $31, $2
     setlimit $2, 250
     cred $2, foo
     
     ldah $5, X($29) !gprelhigh
     lda  $5, X($5)  !gprellow
     ldl $0, 0($5)
+    putg $0, $2, 0
     
     # Sync
-    mov $2, $31
+    sync $2, $0
+    release $2
+    mov $0, $31
     end
     .end main
 

@@ -8,15 +8,17 @@
     .globl main
     .align 64
 main:
-    mov 0, %1
-    
-    mov      2, %2      ! Local
-    allocate %2, 0, 0, 0, 0
+    allocate 2, %2      ! Local
     setlimit %2, 64
     cred foo, %2
     
+    puts %0, %2, 0
+    
     ! Sync
-    mov %2, %0; swch
+    sync %2, %1
+    mov %1, %0; swch
+    gets %2, 0, %1
+    release %2
 
     ! Check if the result matches
     set 2080, %2
@@ -29,13 +31,15 @@ main:
 
 ! %s0/%d0 = accumulator
     .align 64
-    .registers 0 1 3 0 0 0
+    .registers 0 1 2 0 0 0
 foo:
-    mov     (1 << 3) | (2 << 1) | 1, %l1   ! Delegated, exclusive
-    allocate %l1, 0, 0, 0, 0
+    allocate (1 << 4) | (1 << 3) | (3 << 1) | 1, %l1   ! PID:1, Delegated, Suspend, Exclusive
     swch
     cred     bar, %l1
-    mov      %l1, %0; swch
+    sync     %l1, %l0
+    mov      %l0, %0; swch
+    gets     %l1, 0, %l0
+    release  %l1
     add      %d0, %l0, %s0
     end
     
@@ -45,8 +49,9 @@ foo:
 bar:
     set val, %l0
     ld  [%l0], %l1
-    add %l1, 1, %s0
-    st  %s0, [%l0]
+    add %l1, 1, %l1
+    mov %l1, %s0
+    st  %l1, [%l0]
     end
 
     .data

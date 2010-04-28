@@ -14,7 +14,6 @@ enum InstrFormat
     IFORMAT_BRA,
     IFORMAT_PAL,
     IFORMAT_MISC,
-    IFORMAT_SPECIAL,
     IFORMAT_INVALID
 };
 
@@ -23,7 +22,6 @@ enum InstrFormat
 
 // uThread Instructions
 #define A_OP_UTHREAD    0x01    // Generic instructions (Operate format)
-#define A_OP_ALLOCATE   0x02    // Allocate instruction (Branch format)
 #define A_OP_CREATE_I   0x03    // Create Indirect (Memory format)
 #define A_OP_CREATE_D   0x04    // Create Direct (Branch format)
 #define A_OP_UTHREADF   0x05    // FP uThread instructions (FP Operate format)
@@ -114,6 +112,7 @@ enum InstrFormat
 /*------------------ Operate Instructions Function Codes----------------------*/
 
 // UTHREAD Instructions
+#define A_UTHREAD_ALLOCATE 	 0x00
 #define A_UTHREAD_SETSTART	 0x01
 #define A_UTHREAD_SETLIMIT	 0x02
 #define A_UTHREAD_SETSTEP	 0x03
@@ -124,10 +123,17 @@ enum InstrFormat
 #define A_UTHREAD_LDFP       0x08
 #define A_UTHREAD_GETPROCS   0x09
 #define A_UTHREAD_PRINT      0x10
+#define A_UTHREAD_PUTG       0x11
+#define A_UTHREAD_PUTS       0x12
+#define A_UTHREAD_GETS       0x13
+#define A_UTHREAD_SYNC       0x14
+#define A_UTHREAD_DETACH     0x15
 
 // UTHREADF Instructions
-#define A_UTHREADF_BREAK       0x000
-#define A_UTHREADF_PRINT       0x100
+#define A_UTHREADF_PUTG      0x000
+#define A_UTHREADF_PUTS      0x001
+#define A_UTHREADF_GETS      0x002
+#define A_UTHREADF_PRINT     0x100
 
 // INTA Instructions.
 

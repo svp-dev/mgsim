@@ -18,17 +18,8 @@ main:
     ld      [%1], %f1
 
     ! Request a family table entry
-    clr      %2
-	allocate %2, 0, 0, 0, 0
+	allocate %0, %2
 
-	! Fill initial values for the family
-	mov      1, %1           ! %1  = 1 (factorial)
-	fmovs   %f1,%f2     	 ! %f2 = x (iteration)
-	fmuls   %f1,%f1,%f1 	 ! %f1 = x**2
-	fmovs   %f2,%f3     	 ! %f3 = x (power series)
-	fmovs   %f1, %f0         ! sync on mul
-	swch
-	
 	! Set up the family parameters.
 	! swch because %2 is the result of allocate.
 	setstart %2, 2
@@ -40,11 +31,23 @@ main:
 	! Create the family
 	cred    sin, %2
 	
+	! Fill initial values for the family
+	mov      1,  %1
+	puts    %1,  %2, 0       ! %d0 = 1 (factorial)
+	fputs   %f1, %2, 0     	 ! %df0 = x (iteration)
+	fputs   %f1, %2, 1     	 ! %df1 = x (power series)
+	fmuls   %f1, %f1, %f1 	 ! %f1 = x**2
+	fputg   %f1, %2, 0       ! %gf0 = x * x
+	swch
+	
 	! Sync on the family
-	mov     %2, %0
+	sync    %2, %1
+	mov     %1, %0
+	fgets   %2, 0, %f1
+	release %2
 	end
 	
-    ! [in]  %gf0 = x
+    ! [in]  %gf0 = x*x
     ! [in]  %d0  = factorial[i-1]
     ! [in]  %df0 = iter[i-1]
     ! [in]  %df1 = pow_x[i-1]
@@ -54,11 +57,11 @@ main:
     
     ! Inform the hardware how many registers we require.
     ! The assembler verifies the following instructions against this.
-    .registers 0 1 3 1 2 3		! GR,SR,LR, GF,SF,LF
+    .registers 0 1 4 1 2 3		! GR,SR,LR, GF,SF,LF
 sin:
 	! Advance the power series by multiplying the previous iteration
 	! with x. swch because we read %df1.
-	fmuls   %df1, %gf0, %lf0
+	fmuls   %df1, %gf0, %lf2
 	swch
 	
 	! Advance the factorial by multiplying with the index and the
@@ -66,18 +69,19 @@ sin:
 	umul    %d0, %l0, %l1
 	swch
 	add     %l0,   1, %l2
-	umul    %l1, %l2, %s0
+	umul    %l1, %l2, %l3
+	mov     %l3, %s0
 
 	! Copy the current power series iteration to the next thread.
 	! swch because %lf0 is the result of an FP mult.
-	fmovs   %lf0, %sf1
+	fmovs   %lf2, %sf1
 	swch
 
     ! Convert the factorial to floating point
     sll     %l0, 1, %l2
     set     scratch, %l1
     add     %l1, %l2, %l1
-    st      %s0, [%l1]
+    st      %l3, [%l1]
     ld      [%l1], %lf0
     fitos   %lf0, %lf0	    ! %lf0 = (float)factorial[i]
     swch
@@ -92,7 +96,7 @@ sin:
     ! Divide the current power series iteration with the (sign-adjusted)
     ! factorial and add the result to the running taylor series.
     ! swch because we read %df0 and %lf0 is the result of an FP div.
-	fdivs   %sf1, %lf0, %lf0
+	fdivs   %lf2, %lf0, %lf0
 	fadds   %df0, %lf0, %lf0
 	swch
 

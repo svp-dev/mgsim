@@ -9,24 +9,28 @@
     .align 64
     .globl main
 main:
-    mov 42, %1
-    mov  2, %2
-    
-    mov     (1 << 3) | (2 << 1), %3
-    allocate %3, 0, 0, 0, 0
+    allocate (1 << 4) | (1 << 3) | (3 << 1), %3 ! PID:1, Delegated, Suspend
     setlimit %3, 4
     cred bar, %3
+
+    mov 42, %1
+    mov  2, %2
+    putg %1, %3, 0
+    puts %2, %3, 0
     
     ! Sync
-    mov %3, %0
+    sync %3, %1
+    release %3
+    mov %1, %0
     end
 
     .align 64
     .registers 1 1 1 0 0 0
 bar:
-    add %d0, %g0, %s0
+    add %d0, %g0, %l0
     swch
-    print %s0, 0
+    mov %l0, %s0
+    print %l0, 0
     end
 
     .data

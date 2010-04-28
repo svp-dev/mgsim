@@ -25,15 +25,19 @@
 main:
     set     X, %1           ! %1 = X
     set     Y, %2           ! %2 = Y
-    fmovs   %f0, %f1
-    fmovs   %f0, %f2        ! %f1,%f2 = sum = 0
     
-    clr      %4
-    allocate %4, 0, 0, 0, 0
+    allocate %0, %4
     setlimit %4, %11
     cred    loop, %4
+    
+    putg    %1,  %4, 0
+    putg    %2,  %4, 1
+    fputs   %f0, %4, 0
+    fputs   %f0, %4, 1      ! %df0,%df1 = sum = 0
 
-    mov     %4, %0
+    sync    %4, %1
+    release %4
+    mov     %1, %0
     end
 
 !

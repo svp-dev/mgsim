@@ -68,7 +68,7 @@ Pipeline::Pipeline(
     std::vector<BypassInfo> bypasses;
 
     // Create the Execute stage
-    m_stages[3].stage  = new ExecuteStage(*this, m_reLatch, m_emLatch, alloc, network, threadTable, fpu, fpu.RegisterSource(regFile), config);
+    m_stages[3].stage  = new ExecuteStage(*this, m_reLatch, m_emLatch, alloc, familyTable, threadTable, fpu, fpu.RegisterSource(regFile), config);
     m_stages[3].input  = &m_reLatch;
     m_stages[3].output = &m_emLatch;
     bypasses.push_back(BypassInfo(m_emLatch.empty, m_emLatch.Rc, m_emLatch.Rcv));
@@ -100,7 +100,7 @@ Pipeline::Pipeline(
     }
     
     // Create the Writeback stage
-    m_stages.back().stage  = new WritebackStage(*this, *last_output, regFile, network, alloc, threadTable, config);
+    m_stages.back().stage  = new WritebackStage(*this, *last_output, regFile, alloc, threadTable, network, config);
     m_stages.back().input  = m_stages[m_stages.size() - 2].output;
     m_stages.back().output = NULL;
     bypasses.push_back(BypassInfo(m_mwBypass.empty, m_mwBypass.Rc, m_mwBypass.Rcv));
@@ -298,13 +298,27 @@ void Pipeline::PrintLatchCommon(std::ostream& out, const CommonData& latch) cons
     return ret;
 }
 
-static std::ostream& operator << (std::ostream& out, const RemoteRegAddr& rreg) {
-    if (rreg.fid != INVALID_LFID) {
-        out << rreg.reg.str() << ", F" << dec << rreg.fid;
-        if (rreg.gpid != INVALID_GPID) {
-            out << "@CPU" << rreg.gpid;
+static std::ostream& operator << (std::ostream& out, const RemoteRegAddr& rreg)
+{
+    if (rreg.fid.lfid != INVALID_LFID)
+    {
+        switch (rreg.type)
+        {
+        case RRT_DETACH:          out << "Detach"; break;
+        case RRT_GLOBAL:          out << "Global "          << rreg.reg.str(); break;
+        case RRT_NEXT_DEPENDENT:  out << "Next Dependent "  << rreg.reg.str(); break;
+        case RRT_FIRST_DEPENDENT: out << "First Dependent " << rreg.reg.str(); break;
+        case RRT_LAST_SHARED:     out << "Last Shared "     << rreg.reg.str(); break;
+        default:                  assert(false); break;
         }
-    } else {
+    
+        out << ", F" << dec << rreg.fid.lfid;
+        if (rreg.fid.pid != INVALID_GPID) {
+            out << "@CPU" << rreg.fid.pid;
+        }
+    }
+    else
+    {
         out << "N/A";
     }
     return out;
@@ -350,11 +364,11 @@ void Pipeline::Cmd_Read(std::ostream& out, const std::vector<std::string>& /*arg
 #endif
              << " | Literal:      0x" << setw(8) << m_drLatch.literal << endl
              << dec
-             << " | Ra:           " << m_drLatch.Ra << "/" << m_drLatch.RaSize << "    Rra: " << m_drLatch.Rra << endl
-             << " | Rb:           " << m_drLatch.Rb << "/" << m_drLatch.RbSize << "    Rrb: " << m_drLatch.Rrb << endl
-             << " | Rc:           " << m_drLatch.Rc << "/" << m_drLatch.RcSize << "    Rrc: " << m_drLatch.Rrc << endl
+             << " | Ra:           " << m_drLatch.Ra << "/" << m_drLatch.RaSize << endl
+             << " | Rb:           " << m_drLatch.Rb << "/" << m_drLatch.RbSize << endl
+             << " | Rc:           " << m_drLatch.Rc << "/" << m_drLatch.RcSize << endl
 #if TARGET_ARCH == ARCH_SPARC
-             << " | Rs:           " << m_drLatch.Rs << "/" << m_drLatch.RcSize << "    Rrs: " << m_drLatch.Rrs << endl
+             << " | Rs:           " << m_drLatch.Rs << "/" << m_drLatch.RcSize << endl
 #endif
             ;
     }
@@ -384,9 +398,7 @@ void Pipeline::Cmd_Read(std::ostream& out, const std::vector<std::string>& /*arg
 #endif
              << " | Rav:          " << MakePipeValue(m_reLatch.Ra.type, m_reLatch.Rav) << "/" << m_reLatch.Rav.m_size << endl
              << " | Rbv:          " << MakePipeValue(m_reLatch.Rb.type, m_reLatch.Rbv) << "/" << m_reLatch.Rbv.m_size << endl
-             << " | Rra:          " << m_reLatch.Rra << endl
-             << " | Rrb:          " << m_reLatch.Rrb << endl
-             << " | Rc:           " << m_reLatch.Rc << "/" << m_reLatch.Rcv.m_size << "    Rrc: " << m_reLatch.Rrc << endl;
+             << " | Rc:           " << m_reLatch.Rc << "/" << m_reLatch.RcSize << endl;
     }
     out << " v" << endl;
 
@@ -400,7 +412,7 @@ void Pipeline::Cmd_Read(std::ostream& out, const std::vector<std::string>& /*arg
     else
     {
         PrintLatchCommon(out, m_emLatch);
-        out << " | Rc:        " << m_emLatch.Rc << "/" << m_emLatch.Rcv.m_size << "    Rrc: " << m_emLatch.Rrc << endl
+        out << " | Rc:        " << m_emLatch.Rc << "/" << m_emLatch.Rcv.m_size << endl
             << " | Rcv:       " << MakePipeValue(m_emLatch.Rc.type, m_emLatch.Rcv) << endl;
         if (m_emLatch.size == 0)
         {
@@ -433,7 +445,7 @@ void Pipeline::Cmd_Read(std::ostream& out, const std::vector<std::string>& /*arg
         else
         {
             PrintLatchCommon(out, *latch);
-            out << " | Rc:  " << latch->Rc << "/" << latch->Rcv.m_size << "    Rrc: " << latch->Rrc << endl
+            out << " | Rc:  " << latch->Rc << "/" << latch->Rcv.m_size << endl
                 << " | Rcv: " << MakePipeValue(latch->Rc.type, latch->Rcv) << endl;
         }
         out << " v" << endl;

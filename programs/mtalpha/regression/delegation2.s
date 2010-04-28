@@ -9,15 +9,18 @@
     .globl main
     .ent main
 main:
-    mov 42, $0
-    
-    mov      (1 << 3) | (2 << 1), $2
-    allocate $2, 0, 0, 0, 0
+    allocate (1 << 4) | (1 << 3) | (3 << 1), $2     # PID:1, Delegated, Suspend
     setlimit $2, 4
+    swch
     cred $2, bar
     
+    putg 42, $2, 0
+    swch
+    
     # Sync 
-    mov $2, $31
+    sync    $2, $0
+    release $2
+    mov     $0, $31
     end
     .end main
 

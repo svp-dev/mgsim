@@ -40,6 +40,10 @@ static void ThrowIllegalInstructionException(Object& obj, MemAddr pc)
 // Function for getting a register's type and index within that type
 unsigned char GetRegisterClass(unsigned char addr, const RegsNo& regs, RegClass* rc)
 {
+    assert(regs.globals < 32);
+    assert(regs.shareds < 32);
+    assert(regs.locals  < 32);
+    
     if (addr < regs.globals)
     {
         *rc = RC_GLOBAL;
@@ -77,7 +81,6 @@ static InstrFormat GetInstrFormat(uint8_t opcode)
                 switch (opcode & 0xF) {
                     case 0x0: return IFORMAT_PAL;
                     case 0x1: return IFORMAT_OP;
-                    case 0x2: return IFORMAT_SPECIAL;
                     case 0x3: return IFORMAT_JUMP;
                     case 0x4: return IFORMAT_BRA;
                     case 0x5: return IFORMAT_FPOP;
@@ -199,15 +202,36 @@ void Pipeline::DecodeStage::DecodeInstruction(const Instruction& instr)
         {
             // Floating point operate instruction
             m_output.function = (uint16_t)((instr >> A_FLT_FUNC_SHIFT) & A_FLT_FUNC_MASK);
-            bool itof   = (m_output.opcode == A_OP_ITFP)     && (m_output.function == A_ITFPFUNC_ITOFT || m_output.function == A_ITFPFUNC_ITOFS || m_output.function == A_ITFPFUNC_ITOFF);
-            bool fprint = (m_output.opcode == A_OP_UTHREADF) && (m_output.function == A_UTHREADF_PRINT);
+            bool itof  = (m_output.opcode == A_OP_ITFP) && (m_output.function == A_ITFPFUNC_ITOFT || m_output.function == A_ITFPFUNC_ITOFS || m_output.function == A_ITFPFUNC_ITOFF);
+            bool utfop = (m_output.opcode == A_OP_UTHREADF);
 
-            m_output.Ra = MAKE_REGADDR(itof   ? RT_INTEGER : RT_FLOAT, Ra);
-            m_output.Rb = MAKE_REGADDR(fprint ? RT_INTEGER : RT_FLOAT, Rb);
+            m_output.Ra = MAKE_REGADDR(utfop || itof ? RT_INTEGER : RT_FLOAT, Ra);
+            m_output.Rb = MAKE_REGADDR(RT_FLOAT, Rb);
             m_output.Rc = MAKE_REGADDR(RT_FLOAT, Rc);
+
+            if (m_output.opcode == A_OP_UTHREADF)
+            {
+                // Do not translate some register, we want its index as-is.
+                switch (m_output.function)
+                {
+                case A_UTHREADF_PUTG:
+                case A_UTHREADF_PUTS:
+                    m_output.regofs = Rc;
+                    m_output.Rc     = INVALID_REG;
+                    break;
+
+                case A_UTHREADF_GETS:
+                    m_output.regofs = Rb;
+                    m_output.Rb     = INVALID_REG;
+                    break;
+
+                default:
+                    break;
+                }
+            }
             break;
         }
-
+        
         case IFORMAT_OP:
         {
             // Integer operate instruction
@@ -223,20 +247,29 @@ void Pipeline::DecodeStage::DecodeInstruction(const Instruction& instr)
                 m_output.Rb      = MAKE_REGADDR(RT_INTEGER, 31);
                 m_output.literal = (instr >> A_LITERAL_SHIFT) & A_LITERAL_MASK;
             }
+            
+            if (m_output.opcode == A_OP_UTHREAD)
+            {
+                // Do not translate some register, we want its index as-is.
+                switch (m_output.function)
+                {
+                case A_UTHREAD_PUTG:
+                case A_UTHREAD_PUTS:
+                    m_output.regofs = Rc;
+                    m_output.Rc     = INVALID_REG;
+                    break;
+                
+                case A_UTHREAD_GETS:
+                    m_output.regofs = Rb;
+                    m_output.Rb     = INVALID_REG;
+                    break;
+            
+                default:
+                    break;
+                }
+            }
             break;
         }
-        
-        case IFORMAT_SPECIAL:
-            assert(m_output.opcode == A_OP_ALLOCATE);
-            
-            // We encode the register specifiers (in branch-like displacement) in the literal
-            m_output.literal = (instr >> A_BRADISP_SHIFT) & A_BRADISP_MASK;
-            
-            // Allocate reads Ra and writes to Ra
-            m_output.Ra = MAKE_REGADDR(RT_INTEGER, Ra);
-            m_output.Rb = MAKE_REGADDR(RT_INTEGER, 31);
-            m_output.Rc = MAKE_REGADDR(RT_INTEGER, Ra);
-            break;
         
         default:
             break;
@@ -883,8 +916,7 @@ Pipeline::PipeAction Pipeline::ExecuteStage::ExecuteInstruction()
             if (m_input.opcode == A_OP_CREATE_D)
             {
                 // Direct create
-                LFID fid = LFID((size_t)Rav);
-                return ExecCreate(fid, target, m_input.Rc);
+                return ExecCreate(m_parent.GetProcessor().UnpackFID(Rav), target, m_input.Rc);
             }
 
             // Conditional and unconditional branches
@@ -927,8 +959,7 @@ Pipeline::PipeAction Pipeline::ExecuteStage::ExecuteInstruction()
             if (m_input.opcode == A_OP_CREATE_I)
             {
                 // Indirect create
-                LFID fid = LFID((size_t)Rav);
-                return ExecCreate(fid, target, m_input.Rc);
+                return ExecCreate(m_parent.GetProcessor().UnpackFID(Rav), target, m_input.Rc);
             }
 
             // Unconditional Jumps
@@ -994,45 +1025,6 @@ Pipeline::PipeAction Pipeline::ExecuteStage::ExecuteInstruction()
         }
         break;
 
-    case IFORMAT_SPECIAL:
-        if (m_input.opcode == A_OP_ALLOCATE)
-        {
-            // Get the base for the shareds and globals in the parent thread
-            Allocator::RegisterBases bases[NUM_REG_TYPES];
-
-            uint64_t literal = m_input.Rbv.m_integer.get(m_input.Rbv.m_size);
-            for (RegType i = 0; i < NUM_REG_TYPES; i++, literal >>= 10)
-            {
-                const RegIndex locals = m_input.regs.types[i].thread.base + m_input.regs.types[i].family.count.shareds;
-                bases[i].globals = locals + (unsigned char)((literal >> 0) & 0x1F);
-                bases[i].shareds = locals + (unsigned char)((literal >> 5) & 0x1F);
-            }
-
-            // Get the place from the register
-            Integer place = m_input.Rav.m_integer.get(m_input.Rav.m_size);
-            
-            LFID fid;
-            Result res = m_allocator.AllocateFamily(m_input.tid, m_input.Rc.index, &fid, bases, place);
-            if (res == FAILED)
-            {
-                return PIPE_STALL;
-            }
-
-            if (res == SUCCESS) {
-                COMMIT {
-                    // The entry was allocated, store it
-                    m_output.Rcv.m_state   = RST_FULL;
-                    m_output.Rcv.m_integer = fid;
-                }
-            } else {
-                COMMIT {
-                    // The request was buffered and will be written back
-                    m_output.Rcv = MAKE_PENDING_PIPEVALUE(m_output.Rcv.m_size);
-                }
-            }
-        }
-        break;
-        
     case IFORMAT_OP:
     case IFORMAT_FPOP:
         if (m_input.opcode == A_OP_UTHREAD)
@@ -1046,18 +1038,28 @@ Pipeline::PipeAction Pipeline::ExecuteStage::ExecuteInstruction()
                     }
                     break;
 
-                case A_UTHREAD_SETSTART: return SetFamilyProperty( LFID((size_t)Rav), FAMPROP_START, Rbv);
-                case A_UTHREAD_SETLIMIT: return SetFamilyProperty( LFID((size_t)Rav), FAMPROP_LIMIT, Rbv);
-                case A_UTHREAD_SETSTEP:  return SetFamilyProperty( LFID((size_t)Rav), FAMPROP_STEP,  Rbv);
-                case A_UTHREAD_SETBLOCK: return SetFamilyProperty( LFID((size_t)Rav), FAMPROP_BLOCK, Rbv);
+                case A_UTHREAD_ALLOCATE:
+                {
+                    PlaceID place = m_parent.GetProcessor().UnpackPlace(m_input.Rbv.m_integer.get(m_input.Rbv.m_size));
+                    if (!ExecAllocate(place, m_input.Rc.index))
+                    {
+                        return PIPE_STALL;
+                    }
+                }
+                break;
+        
+                case A_UTHREAD_SETSTART: return SetFamilyProperty(m_parent.GetProcessor().UnpackFID(Rav), FAMPROP_START, Rbv);
+                case A_UTHREAD_SETLIMIT: return SetFamilyProperty(m_parent.GetProcessor().UnpackFID(Rav), FAMPROP_LIMIT, Rbv);
+                case A_UTHREAD_SETSTEP:  return SetFamilyProperty(m_parent.GetProcessor().UnpackFID(Rav), FAMPROP_STEP,  Rbv);
+                case A_UTHREAD_SETBLOCK: return SetFamilyProperty(m_parent.GetProcessor().UnpackFID(Rav), FAMPROP_BLOCK, Rbv);
 
-                case A_UTHREAD_KILL:     return ExecKill( LFID((size_t)Rav) );
-                case A_UTHREAD_BREAK:    return ExecBreak( Rav );
+                case A_UTHREAD_KILL:     return ExecKill(m_parent.GetProcessor().UnpackFID(Rav));
+                case A_UTHREAD_BREAK:    return ExecBreak();
                 
                 case A_UTHREAD_LDBP:
                     COMMIT {
                         // TLS base pointer: base address of TLS
-                        m_output.Rcv.m_integer = m_allocator.CalculateTLSAddress(m_input.fid, m_input.tid);
+                        m_output.Rcv.m_integer = m_parent.GetProcessor().GetTLSAddress(m_input.fid, m_input.tid);
                         m_output.Rcv.m_state   = RST_FULL;
                     }
                     break;
@@ -1065,8 +1067,8 @@ Pipeline::PipeAction Pipeline::ExecuteStage::ExecuteInstruction()
                 case A_UTHREAD_LDFP:
                     COMMIT {
                         /// TLS frame (stack) pointer: top of TLS
-                        const MemAddr tls_base = m_allocator.CalculateTLSAddress(m_input.fid, m_input.tid);
-                        const MemAddr tls_size = m_allocator.CalculateTLSSize();
+                        const MemAddr tls_base = m_parent.GetProcessor().GetTLSAddress(m_input.fid, m_input.tid);
+                        const MemAddr tls_size = m_parent.GetProcessor().GetTLSSize();
                         m_output.Rcv.m_integer = tls_base + tls_size;
                         m_output.Rcv.m_state   = RST_FULL;
                     }
@@ -1078,22 +1080,31 @@ Pipeline::PipeAction Pipeline::ExecuteStage::ExecuteInstruction()
                         m_output.Rc = INVALID_REG;
                     }
                     break;
+                    
+                case A_UTHREAD_PUTG:   if (!MoveFamilyRegister(RRT_GLOBAL,          RT_INTEGER, m_parent.GetProcessor().UnpackFID(m_input.Rav.m_integer.get(m_input.Rav.m_size)), m_input.regofs)) return PIPE_STALL; break;
+                case A_UTHREAD_PUTS:   if (!MoveFamilyRegister(RRT_FIRST_DEPENDENT, RT_INTEGER, m_parent.GetProcessor().UnpackFID(m_input.Rav.m_integer.get(m_input.Rav.m_size)), m_input.regofs)) return PIPE_STALL; break;
+                case A_UTHREAD_GETS:   if (!MoveFamilyRegister(RRT_LAST_SHARED,     RT_INTEGER, m_parent.GetProcessor().UnpackFID(m_input.Rav.m_integer.get(m_input.Rav.m_size)), m_input.regofs)) return PIPE_STALL; break;
+                case A_UTHREAD_SYNC:   if (!ExecSync  (m_parent.GetProcessor().UnpackFID(m_input.Rav.m_integer.get(m_input.Rav.m_size)))) return PIPE_STALL; break;
+                case A_UTHREAD_DETACH: if (!ExecDetach(m_parent.GetProcessor().UnpackFID(m_input.Rav.m_integer.get(m_input.Rav.m_size)))) return PIPE_STALL; break;
             }
         }
         else if (m_input.opcode == A_OP_UTHREADF)
         {
             switch (m_input.function)
             {
-                case A_UTHREADF_BREAK: return ExecBreak(m_input.Rav.m_float.tofloat(m_input.Rav.m_size));
                 case A_UTHREADF_PRINT:
                     COMMIT {
                         ExecDebug(
-                            m_input.Rav.m_float.tofloat(m_input.Rav.m_size),
-                            m_input.Rbv.m_integer.get(m_input.Rbv.m_size)
+                            m_input.Rbv.m_float.tofloat(m_input.Rbv.m_size),
+                            m_input.Rav.m_integer.get(m_input.Rav.m_size)
                         );
                         m_output.Rc = INVALID_REG;
                     }
                     break;
+
+                case A_UTHREADF_PUTG: if (!MoveFamilyRegister(RRT_GLOBAL,          RT_FLOAT, m_parent.GetProcessor().UnpackFID(m_input.Rav.m_integer.get(m_input.Rav.m_size)), m_input.regofs)) return PIPE_STALL; break;
+                case A_UTHREADF_PUTS: if (!MoveFamilyRegister(RRT_FIRST_DEPENDENT, RT_FLOAT, m_parent.GetProcessor().UnpackFID(m_input.Rav.m_integer.get(m_input.Rav.m_size)), m_input.regofs)) return PIPE_STALL; break;
+                case A_UTHREADF_GETS: if (!MoveFamilyRegister(RRT_LAST_SHARED,     RT_FLOAT, m_parent.GetProcessor().UnpackFID(m_input.Rav.m_integer.get(m_input.Rav.m_size)), m_input.regofs)) return PIPE_STALL; break;
             }
         }
         else
@@ -1179,7 +1190,8 @@ Pipeline::PipeAction Pipeline::ExecuteStage::ExecuteInstruction()
                     break;
             }
 
-            PipeValue Rcv = m_input.Rcv;
+            PipeValue Rcv;
+            Rcv.m_size = m_input.RcSize;
             if ((*execfunc)(Rcv, m_input.Rav, m_input.Rbv, m_input.function))
             {
                 // Operation completed
@@ -1203,7 +1215,6 @@ Pipeline::PipeAction Pipeline::ExecuteStage::ExecuteInstruction()
                 COMMIT
                 {
                     m_output.Rcv = MAKE_PENDING_PIPEVALUE(m_output.Rcv.m_size);
-                    m_output.Rcv.m_remote = m_input.Rrc;
 
                     // We've executed a floating point operation
                     m_flop++;

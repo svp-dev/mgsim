@@ -11,15 +11,20 @@
     .ent main
     .globl main
 main:
-    clr      $3
-    allocate $3, 0, 0, 0, 0
-    mov     0, $0
-    mov     1, $1
+    allocate $31, $3
     subl    $10, 1, $10
     setlimit $3, $10
     swch
     cred    $3, fibonacci
-    mov     $3, $31
+    mov     0, $0
+    puts    $0, $3, 0
+    mov     1, $1
+    puts    $0, $3, 1
+    sync    $3, $0
+    mov     $0, $31
+    gets    $3, 0, $0
+    detach  $3
+    mov     $0, $31
     end
     .end main
 

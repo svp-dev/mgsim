@@ -123,7 +123,6 @@ Pipeline::PipeAction Pipeline::MemoryStage::OnCycle()
                 rcv.m_memory.offset      = (unsigned int)(m_input.address % m_dcache.GetLineSize());
                 rcv.m_memory.size        = (size_t)m_input.size;
                 rcv.m_memory.sign_extend = m_input.sign_extend;
-                rcv.m_remote             = m_input.Rrc;
             }
         }
 

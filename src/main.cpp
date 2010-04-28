@@ -180,6 +180,8 @@ int mgs_main(int argc, char const** argv)
     int main(int argc, char** argv)
 #endif
 {
+    srand(time(NULL));
+    
     try
     {
         // Parse command line arguments

@@ -17,14 +17,8 @@
     .text
     .globl main
 main:
-    clr      %5
-	allocate %5, 0, 0, 0, 
+	allocate %0, %5
 	
-	set A, %1
-	set B, %2
-	set C, %3
-	mov %11, %4
-
 	!	create (fam1; 0; N-1;)
 	setlimit %5, %11
 	swch
@@ -33,8 +27,18 @@ main:
 	.endif
 	cred thread1, %5
 	
+	set A, %1
+	set B, %2
+	set C, %3
+	putg %1,  %5, 0
+	putg %2,  %5, 1
+	putg %3,  %5, 2
+	putg %11, %5, 3
+
 	!	sync(fam1);
-	mov %5, %0
+	sync %5, %1
+	release %5
+	mov %1, %0
 	end
 
 
@@ -46,20 +50,23 @@ main:
     .align 64
 	.registers 4 0 5  0 0 0	    ! GR,SR,LR, GF,SF,LF
 thread1:
-    clr      %l4
-	allocate %l4, 0, 0, 0, 0
+	allocate %0, %l4
+	setlimit %l4, %g3
+	swch
+	cred thread2, %l4
 	
 	umul    %l0, %g3, %l0       ! %l0 = i*N
 	sll     %l0,   2, %l0
 	add     %l0, %g2, %l2       ! %l2 = &C[i*N]
 	add     %l0, %g0, %l0       ! %l0 = &A[i*N]
-	mov     %g1, %l1
-	mov     %g3, %l3
+	putg    %l0, %l4, 0
+	putg    %g1, %l4, 1
+	putg    %l2, %l4, 2
+	putg    %g3, %l4, 3
 	
-	setlimit %l4, %g3
-	swch
-	cred thread2, %l4
-	mov %l4, %0
+	sync %l4, %l0
+	release %l4
+	mov %l0, %0
 	end
 
 

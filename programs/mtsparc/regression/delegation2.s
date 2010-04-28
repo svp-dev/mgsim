@@ -11,13 +11,16 @@
 main:
     mov 42, %1
     
-    mov     (1 << 3) | (2 << 1), %3
-    allocate %3, 0, 0, 0, 0
+    allocate (1 << 4) | (1 << 3) | (3 << 1), %3     ! PID:1, Delegated, Suspend
     setlimit %3, 4
     cred bar, %3
     
+    putg %1, %3, 0
+    
     ! Sync
-    mov %3, %0
+    sync %3, %1
+    release %3
+    mov %1, %0
     end
 
     .align 64
