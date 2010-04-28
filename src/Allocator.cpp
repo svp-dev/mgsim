@@ -1486,7 +1486,7 @@ Result Allocator::DoFamilyCreate()
             {
                 if (regcounts[i].globals + 2 * regcounts[i].shareds + regcounts[i].locals > 31)
                 {
-                    printf("%d %d %d\n", (int)regcounts[i].globals, (int)regcounts[i].shareds, (int)regcounts[i].locals);
+                    DebugSimWrite("Invalid register counts: %d %d %d\n", (int)regcounts[i].globals, (int)regcounts[i].shareds, (int)regcounts[i].locals);
                     throw SimulationException("Too many registers specified in thread body");
                 }
             }
