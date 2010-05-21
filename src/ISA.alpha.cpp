@@ -44,6 +44,12 @@ unsigned char GetRegisterClass(unsigned char addr, const RegsNo& regs, RegClass*
     assert(regs.shareds < 32);
     assert(regs.locals  < 32);
     
+    if (addr < regs.locals)
+    {
+        *rc = RC_LOCAL;
+        return addr;
+    }
+    addr -= regs.locals;
     if (addr < regs.globals)
     {
         *rc = RC_GLOBAL;
@@ -56,12 +62,6 @@ unsigned char GetRegisterClass(unsigned char addr, const RegsNo& regs, RegClass*
         return addr;
     }
     addr -= regs.shareds;
-    if (addr < regs.locals)
-    {
-        *rc = RC_LOCAL;
-        return addr;
-    }
-    addr -= regs.locals;
     if (addr < regs.shareds)
     {
         *rc = RC_DEPENDENT;
