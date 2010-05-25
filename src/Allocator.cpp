@@ -962,12 +962,25 @@ Result Allocator::AllocateFamily(const PlaceID& place, GPID src, RegIndex reg, F
         return FAILED;
     }
 
-    LFID lfid = m_familyTable.AllocateFamily(place.exclusive ? CONTEXT_EXCLUSIVE : CONTEXT_NORMAL);
+    LFID lfid = INVALID_LFID;
+    if (place.exclusive)
+    {
+        lfid = m_familyTable.AllocateFamily(CONTEXT_EXCLUSIVE);
+    }
+    else if (IsContextAvailable())
+    {
+        // A context was available
+        lfid = m_familyTable.AllocateFamily(CONTEXT_NORMAL);
+        assert (lfid != INVALID_LFID);
+
+        m_raunit.ReserveContext();
+        m_threadTable.ReserveThread();
+
+        UpdateContextAvailability();
+    }
+    
     if (lfid != INVALID_LFID)
     {
-        // A family entry was free
-        UpdateContextAvailability();
-        
         // Construct a global FID for this family
         fid->pid        = m_parent.GetPID();
         fid->lfid       = lfid;
@@ -1283,7 +1296,7 @@ Result Allocator::DoThreadAllocate()
         // We only allocate from a special pool once:
         // for the first thread of the family.
         bool exclusive = family.dependencies.numThreadsAllocated == 0 && m_familyTable.IsExclusive(fid);
-        bool reserved  = family.dependencies.numThreadsAllocated == 0 && family.type == Family::GROUP;
+        bool reserved  = family.dependencies.numThreadsAllocated == 0;
             
         bool done = true;
         if (family.infinite || (family.nThreads > 0 && family.index < family.nThreads))
@@ -1361,15 +1374,29 @@ Result Allocator::DoFamilyAllocate()
         return FAILED;
     }
             
-    LFID lfid = m_familyTable.AllocateFamily(buffer == &m_allocationsEx ? CONTEXT_EXCLUSIVE : CONTEXT_NORMAL);
+    LFID lfid = INVALID_LFID;
+    if (buffer == &m_allocationsEx)
+    {
+        lfid = m_familyTable.AllocateFamily(CONTEXT_EXCLUSIVE);
+    }
+    else if (IsContextAvailable())
+    {
+        // A context was available
+        lfid = m_familyTable.AllocateFamily(CONTEXT_NORMAL);
+        assert (lfid != INVALID_LFID);
+
+        m_raunit.ReserveContext();
+        m_threadTable.ReserveThread();
+
+        UpdateContextAvailability();
+    }
+
     if (lfid == INVALID_LFID)
     {
-        DeadlockWrite("Unable to allocate a free family entry (target R%04x)", (unsigned)req.reg);
+        DeadlockWrite("Unable to allocate a free context (target R%04x)", (unsigned)req.reg);
         return FAILED;
     }
             
-    // A family entry was free
-    UpdateContextAvailability();
     FID fid;
     fid.lfid       = lfid;
     fid.pid        = m_parent.GetPID();
@@ -1521,7 +1548,7 @@ Result Allocator::DoFamilyCreate()
     {
         // Allocate the registers
         const Family& family = m_familyTable[info.fid];
-        if (!AllocateRegisters(info.fid, m_familyTable.IsExclusive(info.fid) ? CONTEXT_EXCLUSIVE : CONTEXT_NORMAL))
+        if (!AllocateRegisters(info.fid, m_familyTable.IsExclusive(info.fid) ? CONTEXT_EXCLUSIVE : CONTEXT_RESERVED))
         {
             DeadlockWrite("Unable to allocate registers for F%u", (unsigned)info.fid);
             return FAILED;
@@ -1931,6 +1958,8 @@ void Allocator::AllocateInitialFamily(MemAddr pc, bool legacy)
     {
         throw SimulationException("Unable to create initial family");
     }
+    
+    m_threadTable.ReserveThread();
 
     m_alloc.Push(fid);
 }
