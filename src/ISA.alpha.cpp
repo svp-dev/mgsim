@@ -938,13 +938,15 @@ Pipeline::PipeAction Pipeline::ExecuteStage::ExecuteInstruction()
                     }
                 }
                 
+                // We've branched, ignore the thread end
+                COMMIT{ m_output.kill = false; }
+                
                 if (target != next)
                 {
                     COMMIT
                     {
                         m_output.pc   = target;
                         m_output.swch = true;
-                        m_output.kill = false;
                     }
                     return PIPE_FLUSH;
                 }
