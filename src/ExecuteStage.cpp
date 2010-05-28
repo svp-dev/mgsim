@@ -372,12 +372,6 @@ bool Pipeline::ExecuteStage::ExecAllocate(const PlaceID& place_, RegIndex reg)
         {
             throw SimulationException("Attempting to delegate to a non-existing core");
         }
-
-        if (place.pid == m_parent.GetProcessor().GetPID())
-        {
-            // We're delegating to our own core, make it a local create instead
-            place.type = PLACE_LOCAL;
-        }
         break;
 
     case PLACE_LOCAL:
