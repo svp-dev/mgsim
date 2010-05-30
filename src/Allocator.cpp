@@ -807,7 +807,10 @@ Family& Allocator::GetFamilyChecked(LFID fid, FCapability capability) const
     
     if (capability != family.capability)
     {
-        throw InvalidArgumentException("Invalid Family ID: capability mismatch");
+        if (fid == 0 && capability == 0)
+            throw InvalidArgumentException("Invalid use of Family ID after allocation failure");
+        else
+            throw InvalidArgumentException("Invalid Family ID: capability mismatch");
     }
 
     return family;    
