@@ -967,6 +967,12 @@ Pipeline::PipeAction Pipeline::ExecuteStage::ExecuteInstruction()
             // Unconditional Jumps
             COMMIT
             {
+                // Store the address of the next instruction
+                if ((next & 63) == 0)
+                {
+                    // If the next PC is at a cache-line boundary, skip the control word
+                    next += sizeof(Instruction);
+                }
                 m_output.Rcv.m_integer = next;
                 m_output.Rcv.m_state   = RST_FULL;
 
