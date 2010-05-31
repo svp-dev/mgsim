@@ -10,6 +10,7 @@
 */
 
     .file "l1_hydro.s"
+    .set noat
     .arch ev6
     .text
 

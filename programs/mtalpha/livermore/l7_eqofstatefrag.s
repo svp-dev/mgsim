@@ -10,6 +10,7 @@
     }
 */
     .file "l7_eqofstatefrag.s"
+    .set noat
     .arch ev6
 
     .section .rodata

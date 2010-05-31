@@ -4,6 +4,7 @@
  Only the first thread uses the global.
  */
     .file "delegation2.s"
+    .set noat
     .text
 
     .globl main

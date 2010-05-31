@@ -1,4 +1,5 @@
     .file "sac_flat.s"
+    .set noat
     .arch ev6
     .text
     

@@ -2,6 +2,7 @@
     # sin(x), Sequential version
     #
     .file "sine_seq_o.s"
+    .set noat
     .arch ev6
     .text
 

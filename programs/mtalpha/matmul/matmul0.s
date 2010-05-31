@@ -1,4 +1,5 @@
     .file "matmul0.s"
+    .set noat
 
     .section .rodata
     .ascii "\0TEST_INPUTS:R10:4 7 10\0"

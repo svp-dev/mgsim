@@ -3,6 +3,7 @@
  It creates recursively a load of families that would, without continuations, cause deadlock.
  */
     .file "continuation.s"
+    .set noat
     .text
 
     .globl main

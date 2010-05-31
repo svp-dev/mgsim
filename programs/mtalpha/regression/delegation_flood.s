@@ -4,6 +4,7 @@
  that cannot immediately succeed should be queued.
  */
     .file "delegation_flood.s"
+    .set noat
     .text
 
     .globl main

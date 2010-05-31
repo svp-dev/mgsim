@@ -18,6 +18,7 @@
     }
 */
     .file "l2_iccg.s"
+    .set noat
 
     .section .rodata
     .ascii "\0TEST_INPUTS:R10:8\0"

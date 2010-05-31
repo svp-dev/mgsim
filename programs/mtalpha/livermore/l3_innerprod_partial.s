@@ -1,6 +1,7 @@
 # Livermore kernel 3 -- Inner product, with partial reduction
 #
     .file "l3_innerprod_partial.s"
+    .set noat
     .arch ev6
 
     .section .rodata

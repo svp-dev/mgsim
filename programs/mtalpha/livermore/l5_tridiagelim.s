@@ -9,6 +9,7 @@
     }
 */
     .file "l5_tridiagelim.s"
+    .set noat
 
     .section .rodata
     .ascii "\0TEST_INPUTS:R10:1001\0"

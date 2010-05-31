@@ -2,6 +2,7 @@
     # sin(x), Microthreaded version
     #
     .file "sine_mt_u.s"
+    .set noat
     .arch ev6
     .text
 

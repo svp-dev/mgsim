@@ -6,6 +6,7 @@
     # .equ DO_BIT_REVERSAL, 1
 
     .file "fft_mt_o.s"
+    .set noat
     .arch ev4
     .text
 

@@ -4,6 +4,7 @@
  All threads use the shared and global.
  */
     .file "delegation1.s"
+    .set noat
     .text
 
     .globl main

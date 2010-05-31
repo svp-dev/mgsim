@@ -3,6 +3,7 @@
  This is to test if a remote global request is properly forwarded.
 */
     .file "sparse_globals.s"
+    .set noat
     .text
     
     .globl main

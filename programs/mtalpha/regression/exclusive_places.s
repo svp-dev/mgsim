@@ -4,6 +4,7 @@
  result would not be correct due to overlapping increments.
  */
     .file "exclusive_places.s"
+    .set noat
     
     .globl main
     .ent main

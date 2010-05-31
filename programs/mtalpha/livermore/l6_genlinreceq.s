@@ -12,6 +12,7 @@
     }
 */
     .file "l6_genlinreceq.s"
+    .set noat
     .arch ev6
 
     .section .rodata

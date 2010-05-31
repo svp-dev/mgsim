@@ -1,4 +1,5 @@
     .file "sac_nested_group.s"
+    .set noat
     .arch ev6
     .text
     

@@ -15,6 +15,7 @@
  Maybe this regression should be deleted?
 */
     .file "inf_pipeline_wait_loop.s"
+    .set noat
     
     .globl main
     .ent main

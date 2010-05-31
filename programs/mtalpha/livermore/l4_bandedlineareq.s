@@ -15,6 +15,7 @@
     }
 */
     .file "l4_bandedlineareq.s"
+    .set noat
 
     .section .rodata
     .ascii "\0TEST_INPUTS:R10:256\0"

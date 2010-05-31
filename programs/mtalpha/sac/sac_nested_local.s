@@ -1,4 +1,5 @@
     .file "sac.s"
+    .set noat
     .arch ev6
     .text
     

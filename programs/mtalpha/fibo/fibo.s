@@ -5,6 +5,7 @@
     # Result ends up in $1
     #
     .file "fibo.s"
+    .set noat
     .arch ev6
     .text
     

@@ -4,6 +4,7 @@
  exclusive create on the source side.
  */
     .file "self_exclusive_delegate.s"
+    .set noat
     
     .globl main
     .ent main

@@ -9,6 +9,7 @@
     }
 */
     .file "l3_innerprod.s"
+    .set noat
 
     .section .rodata
     .ascii "\0TEST_INPUTS:R10:512\0"
