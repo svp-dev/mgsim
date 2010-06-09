@@ -1544,51 +1544,28 @@ Result Allocator::DoFamilyCreate()
         
         ReinitializeFamily(info.fid, family.type);
             
-        // Go to next step
-        COMMIT{ m_createState = CREATE_ALLOCATING_REGISTERS; }
-    }
-    else if (m_createState == CREATE_ALLOCATING_REGISTERS)
-    {
-        // Allocate the registers
-        const Family& family = m_familyTable[info.fid];
-        if (!AllocateRegisters(info.fid, m_familyTable.IsExclusive(info.fid) ? CONTEXT_EXCLUSIVE : CONTEXT_RESERVED))
-        {
-            DeadlockWrite("Unable to allocate registers for F%u", (unsigned)info.fid);
-            return FAILED;
-        }
-        
         // Advance to next stage
-        COMMIT{ m_createState = CREATE_ACQUIRE_TOKEN; }
-    }
-    else if (m_createState == CREATE_ACQUIRE_TOKEN)
-    {
-        const Family& family = m_familyTable[info.fid];
         if (family.type == Family::GROUP)
         {
-            // Group create, request the create token
-            if (!m_network.RequestToken())
-            {
-                DeadlockWrite("Unable to request the create token from the network for F%u", (unsigned)info.fid);
-                return FAILED;
-            }
-
-            // Advance to next stage
-            COMMIT{ m_createState = CREATE_ACQUIRING_TOKEN; }
+            COMMIT{ m_createState = CREATE_ACQUIRE_TOKEN; }
         }
         else
         {
-            assert(family.type == Family::LOCAL);
-            
-            // Local family; we can start creating threads
-            if (!ActivateFamily(info.fid))
-            {
-                DeadlockWrite("Unable to activate the family F%u", (unsigned)info.fid);
-                return FAILED;
-            }
-
-            // Advance to next stage
-            COMMIT{ m_createState = CREATE_NOTIFY; }
+            assert(family.type == Family::LOCAL);            
+            COMMIT{ m_createState = CREATE_ALLOCATING_REGISTERS; }
         }
+    }
+    else if (m_createState == CREATE_ACQUIRE_TOKEN)
+    {
+        // Group create, request the create token
+        if (!m_network.RequestToken())
+        {
+            DeadlockWrite("Unable to request the create token from the network for F%u", (unsigned)info.fid);
+            return FAILED;
+        }
+
+        // Advance to next stage
+        COMMIT{ m_createState = CREATE_ACQUIRING_TOKEN; }
     }
     else if (m_createState == CREATE_ACQUIRING_TOKEN)
     {
@@ -1605,12 +1582,6 @@ Result Allocator::DoFamilyCreate()
             DebugSimWrite("Reinitializing F%u as a local family due to lack of contexts in group", (unsigned)info.fid);
             
             ReinitializeFamily(info.fid, Family::LOCAL);
-            
-            if (!ActivateFamily(info.fid))
-            {
-                DeadlockWrite("Unable to activate the family F%u", (unsigned)info.fid);
-                return FAILED;
-            }
         }
         else
         {
@@ -1624,6 +1595,35 @@ Result Allocator::DoFamilyCreate()
         
         // We're done with the token
         m_network.ReleaseToken();
+        
+        // Advance to next stage
+        COMMIT{ m_createState = CREATE_ALLOCATING_REGISTERS; }
+    }
+    else if (m_createState == CREATE_ALLOCATING_REGISTERS)
+    {
+        // Allocate the registers
+        const Family& family = m_familyTable[info.fid];
+        if (!AllocateRegisters(info.fid, m_familyTable.IsExclusive(info.fid) ? CONTEXT_EXCLUSIVE : CONTEXT_RESERVED))
+        {
+            DeadlockWrite("Unable to allocate registers for F%u", (unsigned)info.fid);
+            return FAILED;
+        }
+        
+        // Advance to next stage
+        COMMIT{ m_createState = CREATE_ACTIVATING_FAMILY; }
+    }
+    else if (m_createState == CREATE_ACTIVATING_FAMILY)
+    {
+        const Family& family = m_familyTable[info.fid];
+        if (family.type != Family::GROUP)
+        {
+            // Local family; we can start creating threads
+            if (!ActivateFamily(info.fid))
+            {
+                DeadlockWrite("Unable to activate the family F%u", (unsigned)info.fid);
+                return FAILED;
+            }
+        }
         
         // Advance to next stage
         COMMIT{ m_createState = CREATE_NOTIFY; }
@@ -2090,6 +2090,7 @@ void Allocator::Cmd_Read(ostream& out, const vector<string>& /*arguments*/) cons
                 case CREATE_ACQUIRE_TOKEN:        out << "Acquire token"; break;
                 case CREATE_ACQUIRING_TOKEN:      out << "Acquiring token"; break;
                 case CREATE_BROADCASTING_CREATE:  out << "Broadcasting create"; break;
+                case CREATE_ACTIVATING_FAMILY:    out << "Activating family"; break;
                 case CREATE_NOTIFY:               out << "Notifying completion"; break;
             }
             out << endl;

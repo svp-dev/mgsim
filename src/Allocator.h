@@ -68,6 +68,7 @@ public:
 		CREATE_ACQUIRE_TOKEN,       // Have to request the token from the network
 		CREATE_ACQUIRING_TOKEN,     // Requesting the token from the network
 		CREATE_BROADCASTING_CREATE, // Broadcasting the create
+		CREATE_ACTIVATING_FAMILY,   // Activating the family
 		CREATE_NOTIFY,              // Notify the parent that the context is created
 	};
 
