@@ -20,7 +20,7 @@ main:
     mov     0, $0
     puts    $0, $3, 0
     mov     1, $1
-    puts    $0, $3, 1
+    puts    $1, $3, 1
     sync    $3, $0
     mov     $0, $31
     gets    $3, 0, $0
