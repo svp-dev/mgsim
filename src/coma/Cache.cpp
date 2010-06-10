@@ -291,7 +291,6 @@ bool COMA::Cache::OnRequestReceived(Message* msg)
         {
             // We have the data
             assert(line->tokens > 0);
-            const char* trace = NULL;
             if ((unsigned int)line->tokens > 1 + msg->hops)
             {
                 // We have the data and free tokens, answer the request.
@@ -339,7 +338,6 @@ bool COMA::Cache::OnRequestReceived(Message* msg)
             // When the get the data, we'll forward it.
             // Also remember how many tokens to reserve for ourselves.
             assert(line->state == LINE_LOADING);
-            const char* trace = NULL;
             if (!line->forward)
             {
                 // Set the forward flag and remember how many caches
@@ -434,7 +432,6 @@ bool COMA::Cache::OnRequestReceived(Message* msg)
             if (line == NULL)
             {
                 // No, just forward it
-                std::string name = GetFQN();
                 COMMIT{ msg->hops++; }
             }
             else
@@ -453,7 +450,7 @@ bool COMA::Cache::OnRequestReceived(Message* msg)
                     memcpy(line->data, msg->data.data, msg->data.size);
                 }
                 
-                if (line->tokens != m_numCaches)
+                if (msg->tokens != m_numCaches)
                 {
                     COMMIT
                     {
@@ -495,7 +492,7 @@ bool COMA::Cache::OnRequestReceived(Message* msg)
             
             if (!m_clients[msg->client]->OnMemoryWriteCompleted(msg->tid))
             {
-                return FAILED;
+                return false;
             }
 
             COMMIT

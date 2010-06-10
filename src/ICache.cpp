@@ -104,25 +104,21 @@ Result ICache::FindLine(MemAddr address, Line* &line, bool check_only)
     {
         line = &m_lines[set + i];
 
-        // Invalid lines are not considered for anything
-        if (line->state != LINE_INVALID)
+        if (line->state == LINE_EMPTY)
         {
-            if (line->state == LINE_EMPTY)
-            {
-                // Empty line, remember this one
-                empty = line;
-            }
-            else if (line->tag == tag)
-            {
-                // The wanted line was in the cache
-                return SUCCESS;
-            }
-            else if (line->references == 0 && (replace == NULL || line->access < replace->access))
-            {
-                // The line is available to be replaced and has a lower LRU rating,
-                // remember it for replacing
-                replace = line;
-            }
+            // Empty line, remember this one
+            empty = line;
+        }
+        else if (line->tag == tag)
+        {
+            // The wanted line was in the cache
+            return SUCCESS;
+        }
+        else if (line->state != LINE_INVALID && line->references == 0 && (replace == NULL || line->access < replace->access))
+        {
+            // The line is available to be replaced and has a lower LRU rating,
+            // remember it for replacing
+            replace = line;
         }
     }
     
@@ -381,7 +377,7 @@ bool ICache::OnMemoryInvalidated(MemAddr address)
                 // Valid lines without references are invalidated by clearing then. Simple.
                 // Otherwise, we invalidate them.
                 line->state = (line->references == 0) ? LINE_EMPTY : LINE_INVALID;
-            } else {            
+            } else if (line->state != LINE_INVALID) {
                 // Mark the line as invalidated. After it has been loaded and used it will be cleared
                 assert(line->state == LINE_LOADING);
                 line->state = LINE_INVALID;
