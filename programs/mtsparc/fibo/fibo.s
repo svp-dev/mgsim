@@ -39,12 +39,12 @@ main:
     swch
     
     ! Get the final value
-    gets    %4, 0, %1
+    gets    %4, 1, %1
     release %4
 
-    ! Print the final value
+    ! Sync on retrieving the final value
     ! We tag it with END because it's the last instruction
-    print   %1, %0
+    mov     %1, %0
     end
 
     ! This thread uses 2 shared integers, nothing more

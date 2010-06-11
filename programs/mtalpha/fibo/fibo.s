@@ -23,7 +23,7 @@ main:
     puts    $1, $3, 1
     sync    $3, $0
     mov     $0, $31
-    gets    $3, 0, $0
+    gets    $3, 1, $0
     detach  $3
     mov     $0, $31
     end
