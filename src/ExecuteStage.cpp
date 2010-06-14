@@ -5,6 +5,7 @@
 
 #include <cassert>
 #include <cmath>
+#include <cctype>
 #include <iostream>
 #include <sstream>
 #include <iomanip>
@@ -511,134 +512,270 @@ Pipeline::PipeAction Pipeline::ExecuteStage::SetFamilyProperty(const FID& fid, F
 Pipeline::PipeAction Pipeline::ExecuteStage::ExecBreak()                    { return PIPE_CONTINUE; }
 Pipeline::PipeAction Pipeline::ExecuteStage::ExecKill(const FID& /* fid */) { return PIPE_CONTINUE; }
 
-void Pipeline::ExecuteStage::ExecDebug(Integer value, Integer stream) const
+void Pipeline::ExecuteStage::ExecDebugOutput(Integer value, int command, int flags) const
 {
-    if (stream & 0x20)
+    // command:
+    //  0 -> unsigned decimal
+    //  1 -> hex
+    //  2 -> signed decimal
+    //  3 -> ASCII character
+
+    // flags: - - S S
+    // S = output stream
+    //  0 -> debug output
+    //  1 -> standard output
+    //  2 -> standard error
+    //  3 -> (undefined)
+    int outstream = flags & 3;
+
+    ostringstream stringout;
+    ostream& out = (outstream == 0) ? stringout : ((outstream == 2) ? cerr : cout);
+
+    switch (command)
     {
-        // stream: C C 1 - - - - -
-        // C = command
-        //  0 -> putpixel
-        //  1 -> resize
-        //  2 -> snapshot
-        switch ((stream >> 6) & 3)
-        {
-        case 0:
-        {
-            // put pixel
-            // stream: 0 0 1 M - - - -
-            // M = mode
-            //  0 -> pixel at (x,y)
-            //  1 -> pixel at offset
-            // value: position(16) X(4) R(4) G(4) B(4) || position(32) X(8) R(8) G(8) B(8)
-            const unsigned int  size     = sizeof value * 8;
-            const unsigned int  bits     = std::min(8U, size / 8);
-            const unsigned long position = value >> (size / 2);
-            const uint32_t data = (((value >> (0 * size / 8)) << ( 8 - bits)) & 0x0000ff) |
-                                  (((value >> (1 * size / 8)) << (16 - bits)) & 0x00ff00) |
-                                  (((value >> (2 * size / 8)) << (24 - bits)) & 0xff0000);
-            if (stream & 0x10) {
-                // position: offset(16) || offset(32)
-                GetKernel()->GetDisplay().PutPixel(position, data);
-            } else {
-                // position: x(8) y(8) || x(16) y(16)
-                const unsigned int m = (1U << (size / 4)) - 1;
-                const unsigned int y = (position >> (0 * size / 4)) & m;
-                const unsigned int x = (position >> (1 * size / 4)) & m;
-                GetKernel()->GetDisplay().PutPixel(x, y, data);
-            }
-            break;
-        }
-            
-        case 1:
-        {
-            // resize screen
-            // stream: 0 1 1 - - - - -
-            // value:  W(8) H(8) unused(16)  ||  W(16) H(16) unused(32)
-            const size_t       size = sizeof value * 8;
-            const unsigned int mask = (1U << (size / 4)) - 1;
-            const unsigned int w    = (value >> (3 * size / 4)) & mask;
-            const unsigned int h    = (value >> (2 * size / 4)) & mask;
-            GetKernel()->GetDisplay().Resize(w, h);
-            break;
-        }
-        
-        case 2:
-        {
-            // take screenshot
-            // stream: 1 0 1 T C - S S
-            // T = embed timestamp in filename
-            // C = embed thread information in picture comment
-            // S = output stream
-            //  0 -> file
-            //  1 -> standard output
-            //  2 -> standard error
-            //  3 -> (undefined)
-            // value: file identification key
-            ostringstream tinfo;
-            if (stream & 8)
-            {
-                tinfo << "print by thread 0x" 
-                      << std::hex << (unsigned)m_input.tid 
-                      << " at " << GetKernel()->GetSymbolTable()[m_input.pc]
-                      << " on cycle " << std::dec << GetKernel()->GetCycleNo();
-            }
-            
-            int outstream = stream & 3;
-            if (outstream == 0)
-            {
-                ostringstream fname;
-                fname << "gfx." << value;
-                if (stream & 0x10)
-                {
-                    fname << '.' << GetKernel()->GetCycleNo();
-                }
-                fname << ".ppm";
-                ofstream f(fname.str().c_str(), ios_base::out | ios_base::trunc);
-                GetKernel()->GetDisplay().Dump(f, value, tinfo.str());
-            }
-            else
-            {
-                ostream& out = (outstream == 2) ? cerr : cout;
-                GetKernel()->GetDisplay().Dump(out, value, tinfo.str());
-            }
-            break;
-        }
-        }
+    case 0: out << dec << value; break;
+    case 1: out << hex << value; break;
+    case 2: out << dec << (SInteger)value; break;
+    case 3: out << (char)value; break;
     }
-    else
+    out << flush;
+
+    if (outstream == 0)
     {
-        // stream: F F 0 - - - S S
-        // F = format
-        //  0 -> unsigned decimal
-        //  1 -> hex
-        //  2 -> signed decimal
-        //  3 -> ASCII character
+        DebugProgWrite("PRINT by T%u at %s: %s",
+                       (unsigned)m_input.tid, GetKernel()->GetSymbolTable()[m_input.pc].c_str(),
+                       stringout.str().c_str());
+    }
+}
+
+void Pipeline::ExecuteStage::ExecOutputGraphics(Integer value, int command, int flags) const
+{
+    // command
+    //  00 -> putpixel
+    //  01 -> resize
+    //  10 -> snapshot
+    //std::cerr << "GFX: command " << command << " flags " << std::hex << flags << " value " << value << std::dec << std::endl;
+    switch (command)
+    {
+    case 0:
+    {
+        // put pixel
+        // flags: M - - - -
+        // M = mode
+        //  0 -> pixel at (x,y)
+        //  1 -> pixel at offset
+        // value: position(16) X(4) R(4) G(4) B(4) || position(32) X(8) R(8) G(8) B(8)
+        const unsigned int  size     = sizeof value * 8;
+        const unsigned int  bits     = std::min(8U, size / 8);
+        const unsigned long position = value >> (size / 2);
+        const uint32_t data = (((value >> (0 * size / 8)) << ( 8 - bits)) & 0x0000ff) |
+            (((value >> (1 * size / 8)) << (16 - bits)) & 0x00ff00) |
+            (((value >> (2 * size / 8)) << (24 - bits)) & 0xff0000);
+        if (flags & 0x10) {
+            // position: offset(16) || offset(32)
+            GetKernel()->GetDisplay().PutPixel(position, data);
+            // std::cerr << "GFX ppfb: pos " << position << " data " << std::hex << data << std::dec << std::endl;
+        } else {
+            // position: x(8) y(8) || x(16) y(16)
+            const unsigned int m = (1U << (size / 4)) - 1;
+            const unsigned int y = (position >> (0 * size / 4)) & m;
+            const unsigned int x = (position >> (1 * size / 4)) & m;
+            GetKernel()->GetDisplay().PutPixel(x, y, data);
+            // std::cerr << "GFX ppxy: x " << x << " y " << y << " data " << std::hex << data << std::dec << std::endl;
+        }
+        break;
+    }
+            
+    case 1:
+    {
+        // resize screen
+        // value:  W(8) H(8) unused(16)  ||  W(16) H(16) unused(32)
+        const size_t       size = sizeof value * 8;
+        const unsigned int mask = (1U << (size / 4)) - 1;
+        const unsigned int w    = (value >> (3 * size / 4)) & mask;
+        const unsigned int h    = (value >> (2 * size / 4)) & mask;
+        GetKernel()->GetDisplay().Resize(w, h);
+        break;
+    }
+        
+    case 2:
+    {
+        // take screenshot
+        // flags: T C - S S
+        // T = embed timestamp in filename
+        // C = embed thread information in picture comment
         // S = output stream
-        //  0 -> debug output
+        //  0 -> file
         //  1 -> standard output
         //  2 -> standard error
         //  3 -> (undefined)
-        int outstream = stream & 3;
-
-        ostringstream stringout;
-        ostream& out = (outstream == 0) ? stringout : ((outstream == 2) ? cerr : cout);
-
-        switch ((stream >> 6) & 0x3)
+        // value: file identification key
+        ostringstream tinfo;
+        if (flags & 0x8)
         {
-        case 0: out << dec << value; break;
-        case 1: out << hex << value; break;
-        case 2: out << dec << (SInteger)value; break;
-        case 3: out << (char)value; break;
+            tinfo << "print by thread 0x" 
+                  << std::hex << (unsigned)m_input.tid 
+                  << " at " << GetKernel()->GetSymbolTable()[m_input.pc]
+                  << " on cycle " << std::dec << GetKernel()->GetCycleNo();
         }
-        out << flush;
-
+            
+        int outstream = flags & 3;
         if (outstream == 0)
         {
-            DebugProgWrite("PRINT by T%u at %s: %s",
-                           (unsigned)m_input.tid, GetKernel()->GetSymbolTable()[m_input.pc].c_str(),
-                           stringout.str().c_str());
+            ostringstream fname;
+            fname << "gfx." << value;
+            if (flags & 0x10)
+            {
+                fname << '.' << GetKernel()->GetCycleNo();
+            }
+            fname << ".ppm";
+            ofstream f(fname.str().c_str(), ios_base::out | ios_base::trunc);
+            GetKernel()->GetDisplay().Dump(f, value, tinfo.str());
         }
+        else
+        {
+            ostream& out = (outstream == 2) ? cerr : cout;
+            GetKernel()->GetDisplay().Dump(out, value, tinfo.str());
+        }
+        break;
     }
+    }
+
+}
+
+void Pipeline::ExecuteStage::ExecStatusAction(Integer value, int command, int flags) const
+{
+    // command:
+    //  00: status and continue
+    //  01: status and fail
+    //  10: status and abort
+    //  11: status and exit with code
+
+    // flags: - - S S
+    // S = output stream
+    //  0 -> debug output
+    //  1 -> standard output
+    //  2 -> standard error
+    //  3 -> (undefined)
+
+
+    int outstream = flags & 3;
+
+    ostringstream stringout;
+    ostream& out = (outstream == 0) ? stringout : ((outstream == 2) ? cerr : cout);
+
+    Integer msg = value;
+    unsigned i;
+    for (i = 0; i < sizeof(msg); ++i, msg >>= 8)
+    {
+        char byte = msg & 0xff;
+        if (std::isprint(byte)) out << byte;
+    }
+
+    if (outstream == 0)
+    {
+        DebugProgWrite("STATUS by T%u at %s: %s",
+                       (unsigned)m_input.tid, GetKernel()->GetSymbolTable()[m_input.pc].c_str(),
+                       stringout.str().c_str());
+    }
+
+    switch(command)
+    {
+    case 0: 
+        break;
+    case 1: 
+        throw SimulationException("Interrupt requested by program.");
+        break;
+    case 2:
+        abort();
+        break;
+    case 3:
+    {
+        int code = value & 0xff;
+        exit(code);
+        break;
+    }
+    }    
+}
+
+void Pipeline::ExecuteStage::ExecMemoryControl(Integer value, int command, int flags) const
+{
+    // command:
+    //  00: mmap
+    //  01: munmap
+    // flags: L L L
+    // size: 2^(L + 12)
+    
+    unsigned l = flags & 0x7;
+    MemSize req_size = 1 << (l + 12);
+    switch(command)
+    {
+    case 0:
+        m_parent.GetProcessor().MapMemory(value, req_size);
+        break;
+    case 1:
+        m_parent.GetProcessor().UnmapMemory(value, req_size);
+        break;
+    }    
+}
+
+void Pipeline::ExecuteStage::ExecDebug(Integer value, Integer stream) const
+{
+    // pattern: x x 1 x x - x x = graphics output
+
+    // pattern: 0 0 1 - - - - - =   gfx: putpixel
+    // pattern: 0 0 1 0 - - - - =     pixel at (x,y)
+    // pattern: 0 0 1 1 - - - - =     pixel at offset
+
+    // pattern: 0 1 1 - - - - - =   gfx: resize
+
+    // pattern: 1 0 1 - - - - - =   gfx: screenshot
+    // pattern: 1 0 1 0 - - - - =     without timestamp
+    // pattern: 1 0 1 1 - - - - =     with timestamp
+    // pattern: 1 0 1 - 0 - - - =     without thread info
+    // pattern: 1 0 1 - 1 - - - =     with thread info
+    // pattern: 1 0 1 - - - 0 0 =     output to file
+    // pattern: 1 0 1 - - - 0 1 =     output to stdout
+    // pattern: 1 0 1 - - - 1 0 =     output to stderr
+    // pattern: 1 0 1 - - - 0 0 =     screenshot output: (unused)
+
+    // pattern: 1 1 1 - - - - - =   gfx: (unused)
+
+    // pattern: x x 0 1 x x x x = status and action
+    // pattern: 0 0 0 1 - - - - =   status and continue
+    // pattern: 0 1 0 1 - - - - =   status and fail
+    // pattern: 1 0 0 1 - - - - =   status and abort
+    // pattern: 1 1 0 1 - - - - =   status and exit with code
+    // pattern: - - 0 1 - - 0 0 =   debug channel
+    // pattern: - - 0 1 - - 0 1 =   stdout channel
+    // pattern: - - 0 1 - - 1 0 =   stderr channel
+    // pattern: - - 0 1 - - 0 0 =   channel: (unused)
+
+    // pattern: x x 0 0 1 x x x = memory control
+    // pattern: 0 0 0 0 1 L L L =   map
+    // pattern: 0 1 0 0 1 L L L =   unmap
+
+    // pattern: x x 0 0 0 - x x = debug output
+    // pattern: 0 0 0 0 0 - - - =   output unsigned dec
+    // pattern: 0 1 0 0 0 - - - =   output hex
+    // pattern: 1 0 0 0 0 - - - =   output signed dec
+    // pattern: 1 1 0 0 0 - - - =   output ASCII byte
+    // pattern: - - 0 0 0 - 0 0 =   debug channel
+    // pattern: - - 0 0 0 - 0 1 =   stdout channel
+    // pattern: - - 0 0 0 - 1 0 =   stderr channel
+    // pattern: - - 0 0 0 - 0 0 =   channel: (unused)
+
+    // std::cerr << "CTL: stream " << std::hex << stream << " value " << value << std::dec << std::endl;
+
+    int command = (stream >> 6) & 0x3;
+    if (stream & 0x20)
+        ExecOutputGraphics(value, command, stream & 0x1B);
+    else if ((stream & 0x30) == 0x10)
+        ExecStatusAction(value, command, stream & 0xF);
+    else if ((stream & 0x38) == 0x8)
+        ExecMemoryControl(value, command, stream & 0x7);
+    else if ((stream & 0x38) == 0)
+        ExecDebugOutput(value, command, stream & 0x3);
 }
 
 void Pipeline::ExecuteStage::ExecDebug(double value, Integer stream) const

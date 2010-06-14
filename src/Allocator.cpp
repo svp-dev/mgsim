@@ -440,7 +440,7 @@ bool Allocator::AllocateThread(LFID fid, TID tid, bool isNewlyAllocated)
         // Reserve the memory (commits on use)
         const MemAddr tls_base = m_parent.GetTLSAddress(fid, tid);
         const MemSize tls_size = m_parent.GetTLSSize();
-        m_parent.ReserveTLS(tls_base, tls_size);
+        m_parent.MapMemory(tls_base+tls_size/2, tls_size/2);
     }
 
     // Write L0 to the register file
@@ -1245,7 +1245,8 @@ Result Allocator::DoThreadAllocate()
         {
             // Unreserve the TLS memory
             const MemAddr tls_base = m_parent.GetTLSAddress(fid, tid);
-            m_parent.UnreserveTLS(tls_base);
+            const MemSize tls_size = m_parent.GetTLSSize();
+            m_parent.UnmapMemory(tls_base+tls_size/2, tls_size/2);
         }
 
         if (family.dependencies.allocationDone)

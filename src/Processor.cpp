@@ -152,14 +152,15 @@ unsigned int Processor::GetNumSuspendedRegisters() const
     return num;
 }
 
-void Processor::ReserveTLS(MemAddr address, MemSize size)
+void Processor::MapMemory(MemAddr address, MemSize size)
 {
-    return m_memory.Reserve(address, size, IMemory::PERM_READ | IMemory::PERM_WRITE);
+    m_memory.Reserve(address, size, IMemory::PERM_READ | IMemory::PERM_WRITE);
 }
 
-void Processor::UnreserveTLS(MemAddr address)
+void Processor::UnmapMemory(MemAddr address, MemSize size)
 {
-    return m_memory.Unreserve(address);
+    // TODO: possibly check the size matches the reserved size
+    m_memory.Unreserve(address);
 }
 
 bool Processor::ReadMemory(MemAddr address, MemSize size)
@@ -174,7 +175,22 @@ bool Processor::WriteMemory(MemAddr address, const void* data, MemSize size, TID
 
 bool Processor::CheckPermissions(MemAddr address, MemSize size, int access) const
 {
-    return m_memory.CheckPermissions(address, size, access);
+    bool mp = m_memory.CheckPermissions(address, size, access);
+    if (!mp && (access & IMemory::PERM_READ) && (address & (1ULL << (sizeof(MemAddr) * 8 - 1))))
+    {
+        // we allow reads to the first cache line (64 bytes) of TLS to always succeed.
+
+        // find the mask for the lower bits of TLS
+        MemAddr mask = 1ULL << (sizeof(MemAddr) * 8 - (m_bits.pid_bits + m_bits.tid_bits + 1));
+        mask -= 1;
+
+        // ignore the lower 63 bytes
+        mask ^= 63;
+
+        if ((address & mask) == 0)
+            return true;
+    }
+    return mp;
 }
 
 bool Processor::OnMemoryReadCompleted(MemAddr address, const MemData& data)

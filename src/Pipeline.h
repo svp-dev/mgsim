@@ -347,6 +347,11 @@ class Pipeline : public Object
         void       ExecDebug(double value, Integer stream) const;
         PipeAction OnCycle();
         
+        void       ExecOutputGraphics(Integer value, int command, int flags) const;
+        void       ExecStatusAction(Integer value, int command, int flags) const;
+        void       ExecMemoryControl(Integer value, int command, int flags) const;
+        void       ExecDebugOutput(Integer value, int command, int flags) const;
+
     public:
         ExecuteStage(Pipeline& parent, const ReadExecuteLatch& input, ExecuteMemoryLatch& output, Allocator& allocator, FamilyTable& familyTable, ThreadTable& threadTable, FPU& fpu, size_t fpu_source, const Config& config);
         
