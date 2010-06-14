@@ -40,10 +40,31 @@ bool ThreadTable::IsEmpty() const
     return free == m_threads.size();
 }
 
+// Checks that all internal administration is sane
+void ThreadTable::CheckStateSanity() const
+{
+#ifndef NDEBUG
+    size_t used = 0;
+    for (size_t i = 0; i < m_threads.size(); ++i)
+    {
+        if (m_threads[i].state != TST_EMPTY)
+        {
+            used++;
+        }
+    }
+
+    // At most one exclusive thread free
+    assert(m_free[CONTEXT_EXCLUSIVE] <= 1);
+
+    // All counts must add up
+    assert(m_free[CONTEXT_NORMAL] + m_free[CONTEXT_RESERVED] + m_free[CONTEXT_EXCLUSIVE] + used == m_threads.size());
+#endif
+}
+
 TSize ThreadTable::GetNumFreeThreads() const
 {
     // Check that we are in a sane state
-    assert(m_free[CONTEXT_NORMAL] + m_free[CONTEXT_RESERVED] + m_free[CONTEXT_EXCLUSIVE] <= m_threads.size());
+    CheckStateSanity();
     
     return m_free[CONTEXT_NORMAL];
 }
@@ -51,7 +72,7 @@ TSize ThreadTable::GetNumFreeThreads() const
 void ThreadTable::ReserveThread()
 {
     // Check that we are in a sane state
-    assert(m_free[CONTEXT_NORMAL] + m_free[CONTEXT_RESERVED] + m_free[CONTEXT_EXCLUSIVE] <= m_threads.size());
+    CheckStateSanity();
 
     COMMIT{
         // Move one free thread from normal to reserved
@@ -63,7 +84,8 @@ void ThreadTable::ReserveThread()
 void ThreadTable::UnreserveThread()
 {
     // Check that we are in a sane state
-    assert(m_free[CONTEXT_NORMAL] + m_free[CONTEXT_RESERVED] + m_free[CONTEXT_EXCLUSIVE] <= m_threads.size());
+    CheckStateSanity();
+
     COMMIT{
         // Move one free thread from reserved back to normal
         m_free[CONTEXT_NORMAL]++;
@@ -74,7 +96,7 @@ void ThreadTable::UnreserveThread()
 TID ThreadTable::PopEmpty(ContextType context)
 {
     // Check that we are in a sane state
-    assert(m_free[CONTEXT_NORMAL] + m_free[CONTEXT_RESERVED] + m_free[CONTEXT_EXCLUSIVE] <= m_threads.size());
+    CheckStateSanity();
 
     TID tid = INVALID_TID;
     
@@ -97,7 +119,7 @@ TID ThreadTable::PopEmpty(ContextType context)
 void ThreadTable::PushEmpty(const ThreadQueue& q, ContextType context)
 {
     // Check that we are in a sane state
-    assert(m_free[CONTEXT_NORMAL] + m_free[CONTEXT_RESERVED] + m_free[CONTEXT_EXCLUSIVE] <= m_threads.size());
+    CheckStateSanity();
 
     assert(q.head != INVALID_TID);
     assert(q.tail != INVALID_TID);
@@ -154,10 +176,12 @@ void ThreadTable::Cmd_Read(ostream& out, const vector<string>& arguments) const
     };
     
     // Read the range
+    bool show_counts = false;
     set<TID> tids;
     if (!arguments.empty()) {
         tids = parse_range<TID>(arguments[0], 0, m_threads.size());
     } else {
+        show_counts = true;
         for (TID i = 0; i < m_threads.size(); ++i) {
             if (m_threads[i].state != TST_EMPTY) {
                 tids.insert(i);
@@ -168,42 +192,51 @@ void ThreadTable::Cmd_Read(ostream& out, const vector<string>& arguments) const
     if (tids.empty())
     {
         out << "No threads selected" << endl;
-        return;
     }
-
-    out << "    |         PC         | Fam | Index | Next | Flags | WR | State     | Symbol" << endl;
-    out << "----+--------------------+-----+-------+------+-------+----+-----------+--------" << endl;
-    for (set<TID>::const_iterator p = tids.begin(); p != tids.end(); ++p)
+    else
     {
-        out << right << dec << setw(3) << setfill(' ') << *p << " | ";
-        const Thread& thread = m_threads[*p];
-
-        if (thread.state != TST_EMPTY)
+        out << "    |         PC         | Fam | Index | Next | Flags | WR | State     | Symbol" << endl;
+        out << "----+--------------------+-----+-------+------+-------+----+-----------+--------" << endl;
+        for (set<TID>::const_iterator p = tids.begin(); p != tids.end(); ++p)
         {
-            out << setw(18) << setfill(' ') << hex << showbase << thread.pc << " | ";
-            out << "F" << setfill('0') << dec << noshowbase << setw(2) << thread.family << " | ";
-            out << setw(5) << dec << setfill(' ') << thread.index << " | ";
-            //if (thread.prevInBlock != INVALID_TID) out << dec << setw(4) << setfill(' ') << thread.prevInBlock; else out << "   -";
-            //out << " | ";
-            if (thread.nextInBlock != INVALID_TID) out << dec << setw(4) << setfill(' ') << thread.nextInBlock; else out << "   -";
-            out << " | ";
-            out << dec;
-            out << " "
-                << (thread.dependencies.prevCleanedUp ? 'P' : '.')
-                << (thread.dependencies.killed        ? 'K' : '.')
-                << (thread.isLastThreadInBlock        ? 'L' : '.')
-                << "  | "
-                << setw(2) << setfill(' ') << thread.dependencies.numPendingWrites
-                << " | ";
+            out << right << dec << setw(3) << setfill(' ') << *p << " | ";
+            const Thread& thread = m_threads[*p];
 
-            out << left << setfill(' ') << setw(9) <<  ThreadStates[thread.state]
-                << " | " << GetKernel()->GetSymbolTable()[thread.pc];
+            if (thread.state != TST_EMPTY)
+            {
+                out << setw(18) << setfill(' ') << hex << showbase << thread.pc << " | ";
+                out << "F" << setfill('0') << dec << noshowbase << setw(2) << thread.family << " | ";
+                out << setw(5) << dec << setfill(' ') << thread.index << " | ";
+                if (thread.nextInBlock != INVALID_TID) out << dec << setw(4) << setfill(' ') << thread.nextInBlock; else out << "   -";
+                out << " | ";
+                out << dec;
+                out << " "
+                    << (thread.dependencies.prevCleanedUp ? 'P' : '.')
+                    << (thread.dependencies.killed        ? 'K' : '.')
+                    << (thread.isLastThreadInBlock        ? 'L' : '.')
+                    << "  | "
+                    << setw(2) << setfill(' ') << thread.dependencies.numPendingWrites
+                    << " | ";
+
+                out << left << setfill(' ') << setw(9) <<  ThreadStates[thread.state]
+                    << " | " << GetKernel()->GetSymbolTable()[thread.pc];
+            }
+            else
+            {
+                out << "                   |     |       |      |       |    |           |";
+            }
+            out << endl;
         }
-        else
-        {
-            out << "                   |     |       |      |      |      |      |       |    |          |";
-        }
-        out << endl;
+    }
+    
+    if (show_counts)
+    {
+        out << endl
+            << "Free threads: " << dec
+            << m_free[CONTEXT_NORMAL] << " normal, "
+            << m_free[CONTEXT_RESERVED] << " reserved, "
+            << m_free[CONTEXT_EXCLUSIVE] << " exclusive"
+            << endl;
     }
 }
 

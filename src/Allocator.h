@@ -120,7 +120,7 @@ public:
     bool OnTokenReceived();
     bool OnRemoteSync(LFID fid, FCapability capability, GPID remote_pid, RegIndex remote_reg);
     bool OnRemoteThreadCleanup(LFID fid);
-    void ReserveContext(bool self);
+    void ReserveContext();
 
     // Helpers
 	TID     GetRegisterType(LFID fid, RegAddr addr, RegClass* group) const;

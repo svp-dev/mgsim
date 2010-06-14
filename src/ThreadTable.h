@@ -107,6 +107,8 @@ private:
     ThreadQueue         m_empty;
     std::vector<Thread> m_threads;
     TSize               m_free[NUM_CONTEXT_TYPES];
+    
+    void CheckStateSanity() const;
 };
 
 }

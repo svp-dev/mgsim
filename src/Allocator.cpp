@@ -1049,16 +1049,12 @@ bool Allocator::OnDelegatedCreate(const RemoteCreateMessage& msg, GPID remote_pi
     return true;
 }
 
-void Allocator::ReserveContext(bool self)
+void Allocator::ReserveContext()
 {
     // This should not fail
-    if (!self)
-    {
-        m_familyTable.ReserveFamily();
-        m_raunit.ReserveContext();
-    }
-    m_threadTable.ReserveThread();
-    
+    m_familyTable.ReserveFamily();
+    m_raunit.ReserveContext();
+    m_threadTable.ReserveThread();    
     UpdateContextAvailability();
 }
 

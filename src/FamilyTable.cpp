@@ -35,10 +35,34 @@ bool FamilyTable::IsEmpty() const
     return free == m_families.size();
 }
 
+// Checks that all internal administration is sane
+void FamilyTable::CheckStateSanity() const
+{
+#ifndef NDEBUG
+    size_t used = 0;
+    for (size_t i = 0; i < m_families.size(); ++i)
+    {
+        if (m_families[i].state != FST_EMPTY)
+        {
+            used++;
+        }
+    }
+    
+    // At most one exclusive context free
+    assert(m_free[CONTEXT_EXCLUSIVE] <= 1);
+    
+    // Exclusive context is only free if the entry isn't used
+    assert((m_free[CONTEXT_EXCLUSIVE] == 1) ^ (m_families.back().state != FST_EMPTY));
+    
+    // All counts must add up
+    assert(m_free[CONTEXT_NORMAL] + m_free[CONTEXT_RESERVED] + m_free[CONTEXT_EXCLUSIVE] + used == m_families.size());
+#endif
+}
+
 LFID FamilyTable::AllocateFamily(ContextType context)
 {
     // Check that we're in a sane state
-    assert(m_free[CONTEXT_NORMAL] + m_free[CONTEXT_RESERVED] + m_free[CONTEXT_EXCLUSIVE] <= m_families.size());
+    CheckStateSanity();
     
     LFID fid = INVALID_LFID;
     if (m_free[context] > 0)
@@ -78,7 +102,7 @@ LFID FamilyTable::AllocateFamily(ContextType context)
 void FamilyTable::ReserveFamily()
 {
     // Check that we're in a sane state
-    assert(m_free[CONTEXT_NORMAL] + m_free[CONTEXT_RESERVED] + m_free[CONTEXT_EXCLUSIVE] <= m_families.size());
+    CheckStateSanity();
 
     // Move a free entry from normal to reserved
     assert(m_free[CONTEXT_NORMAL] > 0);
@@ -99,10 +123,11 @@ FSize FamilyTable::GetNumFreeFamilies() const
 
 void FamilyTable::FreeFamily(LFID fid, ContextType context)
 {
-    // Check that we're in a sane state
-    assert(m_free[CONTEXT_NORMAL] + m_free[CONTEXT_RESERVED] + m_free[CONTEXT_EXCLUSIVE] < m_families.size());
     assert(fid != INVALID_LFID);
     
+    // Check that we're in a sane state
+    CheckStateSanity();
+
     COMMIT
     {
         m_families[fid].state = FST_EMPTY;
@@ -133,10 +158,12 @@ void FamilyTable::Cmd_Read(ostream& out, const vector<string>& arguments) const
     };
 
     // Read the range
+    bool show_counts = false;
     set<LFID> fids;
     if (!arguments.empty()) {
         fids = parse_range<LFID>(arguments[0], 0, m_families.size());
     } else {
+        show_counts = true;
         for (LFID i = 0; i < m_families.size(); ++i) {
             if (m_families[i].state != FST_EMPTY) {
                 fids.insert(i);
@@ -147,83 +174,94 @@ void FamilyTable::Cmd_Read(ostream& out, const vector<string>& arguments) const
     if (fids.empty())
     {
         out << "No families selected" << endl;
-        return;
     }
-
-    out << "    |     Initial PC     |   Allocated    | P/A/D/Rd | Prev | Next |    Sync    |     Capability     | State         | Symbol" << endl;
-    out << "----+--------------------+----------------+----------+------+------+------------+--------------------+---------------+--------" << endl;
-    for (set<LFID>::const_iterator p = fids.begin(); p != fids.end(); ++p)
+    else
     {
-        const Family& family = m_families[*p];
+        out << "    |     Initial PC     |   Allocated    | P/A/D/Rd | Prev | Next |    Sync    |     Capability     | State         | Symbol" << endl;
+        out << "----+--------------------+----------------+----------+------+------+------------+--------------------+---------------+--------" << endl;
+        for (set<LFID>::const_iterator p = fids.begin(); p != fids.end(); ++p)
+        {
+            const Family& family = m_families[*p];
 
-        out << dec << right << setw(3) << setfill(' ') << *p << " | ";
-        if (family.state == FST_EMPTY)
-        {
-            out << "                   |                |          |      |      |            |                    |               |";
-        }
-        else
-        {
-            if (family.state == FST_ALLOCATED)
+            out << dec << right << setw(3) << setfill(' ') << *p << " | ";
+            if (family.state == FST_EMPTY)
             {
-                out << "        -          |       -        |     -    | ";
+                out << "                   |                |          |      |      |            |                    |               |";
             }
             else
             {
-                out << hex << setw(18) << showbase << family.pc << " | " << dec;
-                if (family.state == FST_CREATE_QUEUED || family.state == FST_CREATING) {
-                    out << "      -        |    -    ";
-                } else {
-                    out << setw(3) << family.dependencies.numThreadsAllocated << "/"
-                        << setw(3) << family.physBlockSize << " ("
-                        << setw(4) << family.virtBlockSize << ")"
-                        << " | "
-                        << noboolalpha
-                        << !family.dependencies.prevSynchronized << "/"
-                        << !family.dependencies.allocationDone << "/"
-                        << !family.dependencies.detached << "/"
-                        << setw(2) << family.dependencies.numPendingReads
-                        << right;
+                if (family.state == FST_ALLOCATED)
+                {
+                    out << "        -          |       -        |     -    | ";
                 }
-                out << " | ";
-            }
+                else
+                {
+                    out << hex << setw(18) << showbase << family.pc << " | " << dec;
+                    if (family.state == FST_CREATE_QUEUED || family.state == FST_CREATING) {
+                        out << "      -        |    -    ";
+                    } else {
+                        out << setw(3) << family.dependencies.numThreadsAllocated << "/"
+                            << setw(3) << family.physBlockSize << " ("
+                            << setw(4) << family.virtBlockSize << ")"
+                            << " | "
+                            << noboolalpha
+                            << !family.dependencies.prevSynchronized << "/"
+                            << !family.dependencies.allocationDone << "/"
+                            << !family.dependencies.detached << "/"
+                            << setw(2) << family.dependencies.numPendingReads
+                            << right;
+                    }
+                    out << " | ";
+                }
 
-            // Print prev and next FIDs
-            if (family.state == FST_ALLOCATED || family.state == FST_CREATE_QUEUED) {
-                out << "  -  |   - ";
-            } else {
-                out << setfill('0') << right;
-                if (family.link_prev != INVALID_LFID) {
-                    out << " F" << setw(2) << family.link_prev;
+                // Print prev and next FIDs
+                if (family.state == FST_ALLOCATED || family.state == FST_CREATE_QUEUED) {
+                    out << "  -  |   - ";
                 } else {
-                    out << "  - ";
+                    out << setfill('0') << right;
+                    if (family.link_prev != INVALID_LFID) {
+                        out << " F" << setw(2) << family.link_prev;
+                    } else {
+                        out << "  - ";
+                    }
+                    out << " | ";
+                    if (family.link_next != INVALID_LFID) {
+                        out << " F" << setw(2) << family.link_next;
+                    } else {
+                        out << "  - ";
+                    }
                 }
-                out << " | ";
-                if (family.link_next != INVALID_LFID) {
-                    out << " F" << setw(2) << family.link_next;
+            
+                // Print sync reg
+                if (family.sync.pid != INVALID_GPID) {
+                    out << right << setfill('0') << noshowbase
+                        << " | R" << setw(4) << hex << family.sync.reg
+                        << "@P" << setw(3) << dec << family.sync.pid;
                 } else {
-                    out << "  - ";
+                    out << " |      -    ";
+                }
+            
+                out << " | 0x" << right << setw(16) << setfill('0') << hex << noshowbase << family.capability
+                    << " | " << left  << setw(13) << setfill(' ') << FamilyStates[family.state]
+                    << " | ";
+            
+                if (family.state != FST_ALLOCATED)
+                {
+                    out << GetKernel()->GetSymbolTable()[family.pc];
                 }
             }
-            
-            // Print sync reg
-            if (family.sync.pid != INVALID_GPID) {
-                out << right << setfill('0') << noshowbase
-                    << " | R" << setw(4) << hex << family.sync.reg
-                    << "@P" << setw(3) << dec << family.sync.pid;
-            } else {
-                out << " |      -    ";
-            }
-            
-            out << " | 0x" << right << setw(16) << setfill('0') << hex << noshowbase << family.capability
-                << " | " << left  << setw(13) << setfill(' ') << FamilyStates[family.state]
-                << " | ";
-            
-            if (family.state != FST_ALLOCATED)
-            {
-                out << GetKernel()->GetSymbolTable()[family.pc];
-            }
+            out << endl;
         }
-        out << endl;
+    }
+    
+    if (show_counts)
+    {
+        out << endl
+            << "Free families: " << dec
+            << m_free[CONTEXT_NORMAL] << " normal, "
+            << m_free[CONTEXT_RESERVED] << " reserved, "
+            << m_free[CONTEXT_EXCLUSIVE] << " exclusive"
+            << endl;
     }
 }
 

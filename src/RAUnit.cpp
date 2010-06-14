@@ -254,6 +254,19 @@ void RAUnit::Cmd_Read(ostream& out, const vector<string>& /*arguments*/) const
         }
         out << endl;
     }
+
+    for (RegType i = 0; i < NUM_REG_TYPES; ++i)
+    {
+        static const char* TypeName[NUM_REG_TYPES] = {"int", "flt"};
+        
+        const TypeInfo& type = m_types[i];
+        out << endl
+            << "Free " << TypeName[i] << " register contexts: " << dec
+            << type.free[CONTEXT_NORMAL] << " normal, "
+            << type.free[CONTEXT_RESERVED] << " reserved, "
+            << type.free[CONTEXT_EXCLUSIVE] << " exclusive"
+            << endl;
+    }
 }
 
 }
