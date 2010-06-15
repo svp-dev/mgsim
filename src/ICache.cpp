@@ -114,7 +114,7 @@ Result ICache::FindLine(MemAddr address, Line* &line, bool check_only)
             // The wanted line was in the cache
             return SUCCESS;
         }
-        else if (line->state != LINE_INVALID && line->references == 0 && (replace == NULL || line->access < replace->access))
+        else if (line->references == 0 && (replace == NULL || line->access < replace->access))
         {
             // The line is available to be replaced and has a lower LRU rating,
             // remember it for replacing
@@ -257,7 +257,13 @@ Result ICache::Fetch(MemAddr address, MemSize size, TID* tid, CID* cid)
     if (result == SUCCESS)
     {
         // Cache hit
-
+        if (line->state == LINE_INVALID)
+        {
+            // This line has been invalidated, we have to wait until it's cleared
+            // so we can request a new one
+            return FAILED;
+        }
+        
         // Update reference count
         COMMIT{ line->references++; }
         
@@ -270,6 +276,7 @@ Result ICache::Fetch(MemAddr address, MemSize size, TID* tid, CID* cid)
         }
         
         // The line is being fetched
+        assert(line->state == LINE_LOADING);
         COMMIT
         {
             if (tid != NULL)
@@ -535,7 +542,8 @@ void ICache::Cmd_Read(std::ostream& out, const std::vector<std::string>& /*argum
             }
             else
             {
-                out << "                                                 |     |";
+                out << "                                                 | " 
+                    << setw(3) << dec << setfill(' ') << line.references << " |";
             }
         }
         out << endl;
