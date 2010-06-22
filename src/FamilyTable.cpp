@@ -13,7 +13,8 @@ namespace Simulator
 FamilyTable::FamilyTable(const std::string& name, Processor& parent, const Config& config)
 :   Object(name, parent),
     m_parent(parent),
-    m_families(config.getInteger<size_t>("NumFamilies", 8))
+    m_families(config.getInteger<size_t>("NumFamilies", 8)),
+    m_maxalloc(0)
 {
     for (size_t i = 0; i < m_families.size(); ++i)
     {
@@ -93,6 +94,7 @@ LFID FamilyTable::AllocateFamily(ContextType context)
             Family& family = m_families[fid];
             family.state = FST_ALLOCATED;
             m_free[context]--;
+            m_maxalloc = std::max(m_maxalloc, m_families.size() - m_free[CONTEXT_RESERVED] - m_free[CONTEXT_EXCLUSIVE] - m_free[CONTEXT_NORMAL]);
         }
     }
     return fid;

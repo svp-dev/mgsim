@@ -135,10 +135,14 @@ public:
     void Cmd_Help(std::ostream& out, const std::vector<std::string>& arguments) const;
     void Cmd_Read(std::ostream& out, const std::vector<std::string>& arguments) const;
 
+    // Stats
+    FSize GetMaxAllocated() const { return m_maxalloc; }
+
 private:
     Processor&          m_parent;
     std::vector<Family> m_families;
     FSize               m_free[NUM_CONTEXT_TYPES];
+    FSize               m_maxalloc;
     
     void CheckStateSanity() const;
 };

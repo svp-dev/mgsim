@@ -65,6 +65,9 @@ public:
 	
     CycleNo GetLocalFamilyCompletion() const { return m_localFamilyCompletion; }
 
+    TSize GetMaxThreadsAllocated() const { return m_threadTable.GetMaxAllocated(); }
+    FSize GetMaxFamiliesAllocated() const { return m_familyTable.GetMaxAllocated(); }
+
     unsigned int GetNumSuspendedRegisters() const;
     
     Integer GetProfileWord(unsigned int i) const;

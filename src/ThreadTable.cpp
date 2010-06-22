@@ -12,7 +12,8 @@ namespace Simulator
 
 ThreadTable::ThreadTable(const std::string& name, Processor& parent, const Config& config)
   : Object(name, parent),
-    m_threads(config.getInteger<size_t>("NumThreads", 64))
+    m_threads(config.getInteger<size_t>("NumThreads", 64)),
+    m_maxalloc(0)
 {
     for (TID i = 0; i < m_threads.size(); ++i)
     {
@@ -111,6 +112,7 @@ TID ThreadTable::PopEmpty(ContextType context)
             m_empty.head = m_threads[tid].nextMember;
             m_threads[tid].state = TST_WAITING;
             m_free[context]--;
+            m_maxalloc = std::max(m_maxalloc, m_threads.size() - m_free[CONTEXT_RESERVED] - m_free[CONTEXT_EXCLUSIVE] - m_free[CONTEXT_NORMAL]);
         }
     }
     return tid;

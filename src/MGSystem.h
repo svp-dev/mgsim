@@ -61,6 +61,7 @@ namespace Simulator {
         void PrintPipelineIdleTime(std::ostream& os) const;
         void PrintAllFamilyCompletions(std::ostream& os) const;
         void PrintFamilyCompletions(std::ostream& os) const;
+        void PrintCoreStats(std::ostream& os) const;
         void PrintAllStatistics(std::ostream& os) const;
 
         const Kernel& GetKernel() const { return m_kernel; }

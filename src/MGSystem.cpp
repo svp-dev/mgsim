@@ -22,6 +22,7 @@
 #include <iostream>
 #include <fstream>
 #include <cmath>
+#include <climits>
 
 using namespace Simulator;
 using namespace std;
@@ -208,17 +209,163 @@ uint64_t MGSystem::GetFlop() const
     return flop;
 }
 
-void MGSystem::PrintMemoryStatistics(std::ostream& os) const {
-    uint64_t nr = 0, nrb = 0, nw = 0, nwb = 0;
+#define MAXCOUNTS 30
 
-    for (size_t i = 0; i < m_procs.size(); ++i) {
-        m_procs[i]->CollectMemOpStatistics(nr, nw, nrb, nwb);
+struct my_iomanip_i { };
+template<typename _CharT, typename _Traits>
+std::basic_ostream<_CharT, _Traits>& operator<<(std::basic_ostream<_CharT, _Traits>&os, my_iomanip_i _unused)
+{
+    os << std::left << std::fixed << std::setprecision(2) << std::setw(9);
+    return os;
+}
+
+struct my_iomanip_f { };
+template<typename _CharT, typename _Traits>
+std::basic_ostream<_CharT, _Traits>& operator<<(std::basic_ostream<_CharT, _Traits>&os, my_iomanip_f _unused)
+{
+    os << std::left << std::scientific << std::setw(11);
+    return os;
+}
+
+void MGSystem::PrintCoreStats(std::ostream& os) const {
+    struct my_iomanip_i fi;
+    struct my_iomanip_f ff;
+    const char sep = ' ';
+
+    const size_t P = m_procs.size();
+    enum ct { I, F };
+    struct dt { uint64_t i; float f; };
+    struct dt c[P][MAXCOUNTS];
+    enum ct types[MAXCOUNTS];
+    
+    size_t i, j;
+
+    // Collect the data 
+    for (i = 0; i < P; ++i) {       
+        Processor &p = *m_procs[i];
+
+        j = 0;
+        types[j] = I; c[i][j++].i = p.GetOp();
+        types[j] = I; c[i][j++].i = p.GetFlop();
+
+        types[j] = types[j+1] = types[j+2] = types[j+3] = I;
+        c[i][j].i = c[i][j+1].i = c[i][j+2].i = c[i][j+3].i = 0;
+        p.CollectMemOpStatistics(c[i][j].i, c[i][j+1].i, c[i][j+2].i, c[i][j+3].i);
+        j += 4;
+
+        types[j] = F; c[i][j++].f = p.GetRegFileAsyncPortActivity();
+        types[j] = F; c[i][j++].f = p.GetPipelineEfficiency();
+        types[j] = I; c[i][j++].i = p.GetAvgPipelineIdleTime();
+        types[j] = I; c[i][j++].i = p.GetMaxPipelineIdleTime();
+        types[j] = I; c[i][j++].i = p.GetMinPipelineIdleTime();
+        types[j] = I; c[i][j++].i = p.GetLocalFamilyCompletion();
+        types[j] = I; c[i][j++].i = p.GetMaxThreadsAllocated();
+        types[j] = I; c[i][j++].i = p.GetMaxFamiliesAllocated();
     }
 
-    os << nr << "\t# number of completed load insns." << endl
-       << nrb << "\t# number of bytes loaded by completed loads" << endl
-       << nw << "\t# number of completed store insns." << endl
-       << nwb << "\t# number of bytes stored by completed stores" << endl;
+    const size_t NC = j;
+
+    // compute min, max, total, average
+    struct dt dmin[NC];
+    struct dt dmax[NC];
+    struct dt dtotal[NC];
+    float davg[NC][2];
+    size_t activecores;
+
+    for (j = 0; j < NC; ++j)
+    {
+        dmin[j].i = UINT64_MAX; dmin[j].f = HUGE_VAL;
+        dmax[j].i = 0; dmax[j].f = -HUGE_VAL;
+        dtotal[j].i = 0; dtotal[j].f = 0.;
+    }
+    
+    for (i = 0, activecores = 0; i < P; ++i) {
+        if (c[i][0].i == 0) // core inactive; do not count
+            continue;
+
+        ++ activecores;
+        for (j = 0; j < NC; ++j) {
+            dmin[j].i = std::min(dmin[j].i, c[i][j].i);
+            dmin[j].f = std::min(dmin[j].f, c[i][j].f);
+            dmax[j].i = std::max(dmax[j].i, c[i][j].i);
+            dmax[j].f = std::max(dmax[j].f, c[i][j].f);
+            dtotal[j].i += c[i][j].i;
+            dtotal[j].f += c[i][j].f;
+        }
+    }
+
+    for (j = 0; j < NC; ++j) {
+        davg[j][0] = (float)dtotal[j].i / (float)activecores;
+        davg[j][1] = dtotal[j].f / (float)activecores;
+    } 
+    
+    // print the data
+    os << "## core statistics:" << endl
+       << "# P " << sep
+       << fi << "iops" << sep
+       << fi << "flops" << sep
+       << fi << "lds" << sep
+       << fi << "ibytes" << sep
+       << fi << "sts" << sep
+       << fi << "obytes" << sep
+       << ff << "regf_act" << sep
+       << ff << "plineeff" << sep
+       << fi << "idleavg" << sep
+       << fi << "idlemax" << sep
+       << fi << "idlemin" << sep
+       << fi << "lastend" << sep
+       << fi << "tmax" << sep
+       << fi << "fmax"
+       << endl;
+
+    os << "# minimas - all active cores" << endl
+       << std::setw(4) << activecores << sep;
+    for (j = 0; j < NC; ++j)
+        if (types[j] == I)
+            os << fi << dmin[j].i << sep;
+        else
+            os << ff << dmin[j].f << sep;
+    os << endl
+       << "# maxima - all active cores" << endl
+       << std::setw(4) << activecores << sep;
+    for (j = 0; j < NC; ++j)
+        if (types[j] == I)
+            os << fi << dmin[j].i << sep;
+        else
+            os << ff << dmin[j].f << sep;
+    os << endl
+       << "# cumulative - all active cores" << endl
+       << std::setw(4) << activecores << sep;
+    for (j = 0; j < NC; ++j)
+        if (types[j] == I)
+            os << fi << dtotal[j].i << sep;
+        else
+            os << ff << dtotal[j].f << sep;
+    os << endl
+       << "# average = cumulative/" << activecores << endl
+       << std::setw(4) << activecores << sep;
+    for (j = 0; j < NC; ++j)
+        if (types[j] == I)
+            os << fi << davg[j][0] << sep;
+        else
+            os << ff << davg[j][1] << sep;
+
+    os << endl 
+       << "# per-core values" << endl;
+    for (i = 0; i < P; ++i) {
+        if (c[i][0].i == 0)  continue; // unused core
+        os << std::setw(4) << i << sep;
+        for (j = 0; j < NC; ++j) 
+            if (types[j] == I) 
+                os << fi << c[i][j].i << sep;
+            else
+                os << ff << c[i][j].f << sep;
+        os << endl;
+    }
+}
+
+void MGSystem::PrintMemoryStatistics(std::ostream& os) const {
+    uint64_t nr = 0, nrb = 0, nw = 0, nwb = 0;
 
     m_memory->GetMemoryStatistics(nr, nw, nrb, nwb);
     os << nr << "\t# number of load reqs. from the ext. mem. interface" << endl
@@ -357,12 +504,14 @@ void MGSystem::PrintAllStatistics(std::ostream& os) const
     os << GetKernel().GetCycleNo() << "\t# cycle counter" << endl
        << GetOp() << "\t# total executed instructions" << endl
        << GetFlop() << "\t# total issued fp instructions" << endl;
+    PrintCoreStats(os);
+    os << "## memory statistics:" << endl;
     PrintMemoryStatistics(os);
-    PrintRegFileAsyncPortActivity(os);
-    PrintPipelineIdleTime(os);
-    PrintPipelineEfficiency(os);
-    PrintFamilyCompletions(os);
-    PrintAllFamilyCompletions(os);
+    // PrintRegFileAsyncPortActivity(os);
+    // PrintPipelineIdleTime(os);
+    // PrintPipelineEfficiency(os);
+    // PrintFamilyCompletions(os);
+    // PrintAllFamilyCompletions(os);
 #ifdef ENABLE_COMA_ZL
     os << LinkMGS::s_oLinkConfig.m_nProcs << "\t# COMA: number of connected cores" << endl
        << LinkMGS::s_oLinkConfig.m_nProcessorsPerCache << "\t# COMA: number of processors per L2 cache" << endl
