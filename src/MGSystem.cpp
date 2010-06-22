@@ -223,7 +223,7 @@ struct my_iomanip_f { };
 template<typename _CharT, typename _Traits>
 std::basic_ostream<_CharT, _Traits>& operator<<(std::basic_ostream<_CharT, _Traits>&os, my_iomanip_f _unused)
 {
-    os << std::left << std::scientific << std::setw(11);
+    os << std::left << std::scientific << std::setprecision(6) << std::setw(12);
     return os;
 }
 
