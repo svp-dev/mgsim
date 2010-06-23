@@ -22,7 +22,7 @@
 #include <iostream>
 #include <fstream>
 #include <cmath>
-#include <climits>
+#include <limits>
 
 using namespace Simulator;
 using namespace std;
@@ -274,8 +274,8 @@ void MGSystem::PrintCoreStats(std::ostream& os) const {
 
     for (j = 0; j < NC; ++j)
     {
-        dmin[j].i = UINT64_MAX; dmin[j].f = HUGE_VAL;
-        dmax[j].i = 0; dmax[j].f = -HUGE_VAL;
+        dmin[j].i = std::numeric_limits<uint64_t>::max(); dmin[j].f = std::numeric_limits<float>::max();
+        dmax[j].i = 0; dmax[j].f = std::numeric_limits<float>::min();
         dtotal[j].i = 0; dtotal[j].f = 0.;
     }
     
