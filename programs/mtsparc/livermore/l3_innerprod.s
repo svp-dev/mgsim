@@ -57,7 +57,9 @@ loop:
     add     %l0, %g0, %l0
     ldd     [%l0], %lf0
     fmuld   %lf0, %lf2, %lf0; swch
-    faddd   %df0, %lf0, %sf0
+    faddd   %df0, %lf0, %lf0; swch
+    fmovs   %lf0, %sf0; swch
+    fmovs   %lf1, %sf1
     end
 
     .section .bss
