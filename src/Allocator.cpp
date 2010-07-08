@@ -1742,7 +1742,21 @@ Result Allocator::DoRegWrites()
         return FAILED;
     }
 
+    // First read the register, we need to wait until it's Pending
     RegValue value;
+    if (!m_registerFile.ReadRegister(addr, value))
+    {
+        DeadlockWrite("Unable to read the queued register from %s", addr.str().c_str());
+        return FAILED;
+    }    
+    
+    if (value.m_state == RST_FULL)
+    {
+        DeadlockWrite("%s is still full; stalling", addr.str().c_str());
+        return FAILED;
+    }
+    assert(value.m_state == RST_PENDING || value.m_state == RST_WAITING);
+    
     value.m_state   = RST_FULL;
     value.m_integer = write.value;
     if (!m_registerFile.WriteRegister(addr, value, false))
