@@ -225,6 +225,8 @@ void Processor::OnFamilyTerminatedLocally(MemAddr /* pc */)
 
 Integer Processor::GetProfileWord(unsigned int i) const
 {
+    vector<Processor*>::const_iterator gi;
+
     switch (i)
     {
     case 0:
@@ -236,8 +238,13 @@ Integer Processor::GetProfileWord(unsigned int i) const
     {
         // Return the number of executed instructions on all cores
         Integer ops = 0;
-        for (size_t i = 0; i < m_grid.size(); ++i) {
-            ops += m_grid[i]->GetPipeline().GetOp();
+        for (gi = m_grid.begin(); gi != m_grid.end(); ++gi)
+        {
+            Processor* p = *gi;
+            if (&p->m_place == &m_place)
+            {
+                ops += p->GetPipeline().GetOp();
+            }
         }
         return ops;
     }
@@ -246,8 +253,13 @@ Integer Processor::GetProfileWord(unsigned int i) const
     {
         // Return the number of issued FP instructions on all cores
         Integer flops = 0;
-        for (size_t i = 0; i < m_grid.size(); ++i) {
-            flops += m_grid[i]->GetPipeline().GetFlop();
+        for (gi = m_grid.begin(); gi != m_grid.end(); ++gi)
+        {
+            Processor* p = *gi;
+            if (&p->m_place == &m_place)
+            {
+                flops += p->GetPipeline().GetFlop();
+            }
         }
         return flops;
     }
@@ -256,18 +268,28 @@ Integer Processor::GetProfileWord(unsigned int i) const
     {
         // Return the number of completed loads on all cores
         uint64_t n = 0, dummy;
-        for (size_t i = 0; i < m_grid.size(); ++i) {
-            m_grid[i]->GetPipeline().CollectMemOpStatistics(n, dummy, dummy, dummy);
+        for (gi = m_grid.begin(); gi != m_grid.end(); ++gi)
+        {
+            Processor* p = *gi;
+            if (&p->m_place == &m_place)
+            {
+                p->GetPipeline().CollectMemOpStatistics(n, dummy, dummy, dummy);
+            }
         }
         return (Integer)n;
     }
 
     case 4:
     {
-        // Return the number of completed stores on all coresp
+        // Return the number of completed stores on all cores
         uint64_t n = 0, dummy;
-        for (size_t i = 0; i < m_grid.size(); ++i) {
-            m_grid[i]->GetPipeline().CollectMemOpStatistics(dummy, n, dummy, dummy);
+        for (gi = m_grid.begin(); gi != m_grid.end(); ++gi)
+        {
+            Processor* p = *gi;
+            if (&p->m_place == &m_place)
+            {
+                p->GetPipeline().CollectMemOpStatistics(dummy, n, dummy, dummy);
+            }
         }
         return (Integer)n;
     }
@@ -276,18 +298,28 @@ Integer Processor::GetProfileWord(unsigned int i) const
     {
         // Return the number of successfully loaded bytes on all cores
         uint64_t n = 0, dummy;
-        for (size_t i = 0; i < m_grid.size(); ++i) {
-            m_grid[i]->GetPipeline().CollectMemOpStatistics(dummy, dummy, n, dummy);
+        for (gi = m_grid.begin(); gi != m_grid.end(); ++gi)
+        {
+            Processor* p = *gi;
+            if (&p->m_place == &m_place)
+            {
+                p->GetPipeline().CollectMemOpStatistics(dummy, dummy, n, dummy);
+            }
         }
         return (Integer)n;
     }
 
     case 6:
     {
-        // Return the number of successfully stored bytes on all coresp
+        // Return the number of successfully stored bytes on all cores
         uint64_t n = 0, dummy;
-        for (size_t i = 0; i < m_grid.size(); ++i) {
-            m_grid[i]->GetPipeline().CollectMemOpStatistics(dummy, dummy, dummy, n);
+        for (gi = m_grid.begin(); gi != m_grid.end(); ++gi)
+        {
+            Processor* p = *gi;
+            if (&p->m_place == &m_place)
+            {
+                p->GetPipeline().CollectMemOpStatistics(dummy, dummy, dummy, n);
+            }
         }
         return (Integer)n;
     }
@@ -307,6 +339,42 @@ Integer Processor::GetProfileWord(unsigned int i) const
         m_memory.GetMemoryStatistics(dummy, n, dummy, dummy);
         return (Integer)n;
     }
+
+    case 9:
+    {
+        return (Integer)GetPlaceSize();
+    }
+
+    case 10:
+    {
+        // Return the total cumulative allocated thread slots
+        Integer alloc = 0;
+        for (gi = m_grid.begin(); gi != m_grid.end(); ++gi)
+        {
+            Processor* p = *gi;
+            if (&p->m_place == &m_place)
+            {
+                alloc += p->GetTotalThreadsAllocated();
+            }
+        }
+        return alloc;
+    }
+
+    case 11:
+    {
+        // Return the total cumulative allocated thread slots
+        Integer alloc = 0;
+        for (gi = m_grid.begin(); gi != m_grid.end(); ++gi)
+        {
+            Processor* p = *gi;
+            if (&p->m_place == &m_place)
+            {
+                alloc += p->GetTotalFamiliesAllocated();
+            }
+        }
+        return alloc;
+    }
+
         
     default:
         return 0;
