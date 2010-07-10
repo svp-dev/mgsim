@@ -14,7 +14,7 @@ FamilyTable::FamilyTable(const std::string& name, Processor& parent, const Confi
 :   Object(name, parent),
     m_parent(parent),
     m_families(config.getInteger<size_t>("NumFamilies", 8)),
-    m_maxalloc(0)
+    m_totalalloc(0), m_maxalloc(0), m_lastcycle(0)
 {
     for (size_t i = 0; i < m_families.size(); ++i)
     {
@@ -34,6 +34,18 @@ bool FamilyTable::IsEmpty() const
         free += m_free[i];
     }
     return free == m_families.size();
+}
+
+void FamilyTable::UpdateStats()
+{
+    CycleNo cycle = GetKernel()->GetCycleNo();
+    CycleNo elapsed = cycle - m_lastcycle;
+    m_lastcycle = cycle;
+    
+    TSize cur_alloc = m_families.size() - m_free[CONTEXT_RESERVED] - m_free[CONTEXT_EXCLUSIVE] - m_free[CONTEXT_NORMAL]; 
+    
+    m_totalalloc += cur_alloc * elapsed;
+    m_maxalloc = std::max(m_maxalloc, cur_alloc);   
 }
 
 // Checks that all internal administration is sane
@@ -91,10 +103,10 @@ LFID FamilyTable::AllocateFamily(ContextType context)
         assert(m_families[fid].state == FST_EMPTY);
         COMMIT
         {
+            UpdateStats();
             Family& family = m_families[fid];
             family.state = FST_ALLOCATED;
             m_free[context]--;
-            m_maxalloc = std::max(m_maxalloc, m_families.size() - m_free[CONTEXT_RESERVED] - m_free[CONTEXT_EXCLUSIVE] - m_free[CONTEXT_NORMAL]);
         }
     }
     return fid;
@@ -109,6 +121,7 @@ void FamilyTable::ReserveFamily()
     // Move a free entry from normal to reserved
     assert(m_free[CONTEXT_NORMAL] > 0);
     COMMIT{
+        UpdateStats();
         m_free[CONTEXT_NORMAL]--;
         m_free[CONTEXT_RESERVED]++;
     }
@@ -132,6 +145,7 @@ void FamilyTable::FreeFamily(LFID fid, ContextType context)
 
     COMMIT
     {
+        UpdateStats();
         m_families[fid].state = FST_EMPTY;
         m_free[context]++;
     }

@@ -57,8 +57,6 @@ namespace Simulator {
         void PrintMemoryStatistics(std::ostream& os) const;
         void PrintState(const std::vector<std::string>& arguments) const;
         void PrintRegFileAsyncPortActivity(std::ostream& os) const;
-        void PrintPipelineEfficiency(std::ostream& os) const;
-        void PrintPipelineIdleTime(std::ostream& os) const;
         void PrintAllFamilyCompletions(std::ostream& os) const;
         void PrintFamilyCompletions(std::ostream& os) const;
         void PrintCoreStats(std::ostream& os) const;

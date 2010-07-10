@@ -413,10 +413,11 @@ public:
 
     Processor& GetProcessor()  const { return m_parent; }
     
-    uint64_t GetMaxIdleTime() const { return m_maxPipelineIdleTime; }
-    uint64_t GetMinIdleTime() const { return m_minPipelineIdleTime; }
-    uint64_t GetAvgIdleTime() const { return m_totalPipelineIdleTime / std::max<uint64_t>(1ULL, m_pipelineIdleEvents); }
+    uint64_t GetTotalBusyTime() const { return m_pipelineBusyTime; }
+    uint64_t GetNStages() const { return m_stages.size(); }
+    uint64_t GetStagesRun() const { return m_nStagesRun; }
     
+
     float    GetEfficiency() const { return (float)m_nStagesRun / m_stages.size() / (float)std::max<uint64_t>(1ULL, m_pipelineBusyTime); }
 
     uint64_t GetFlop() const { return dynamic_cast<ExecuteStage&>(*m_stages[3].stage).getFlop(); }
@@ -454,11 +455,6 @@ private:
     
     size_t   m_nStagesRunnable;
     size_t   m_nStagesRun;
-    uint64_t m_maxPipelineIdleTime;
-    uint64_t m_minPipelineIdleTime;
-    uint64_t m_totalPipelineIdleTime;
-    uint64_t m_pipelineIdleEvents;
-    uint64_t m_pipelineIdleTime;
     uint64_t m_pipelineBusyTime;   
 };
 

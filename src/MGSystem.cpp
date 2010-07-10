@@ -195,7 +195,7 @@ uint64_t MGSystem::GetOp() const
 {
     uint64_t op = 0;
     for (size_t i = 0; i < m_procs.size(); ++i) {
-        op += m_procs[i]->GetOp();
+        op += m_procs[i]->GetPipeline().GetOp();
     }
     return op;
 }
@@ -204,7 +204,7 @@ uint64_t MGSystem::GetFlop() const
 {
     uint64_t flop = 0;
     for (size_t i = 0; i < m_procs.size(); ++i) {
-        flop += m_procs[i]->GetFlop();
+        flop += m_procs[i]->GetPipeline().GetFlop();
     }
     return flop;
 }
@@ -227,13 +227,22 @@ std::basic_ostream<_CharT, _Traits>& operator<<(std::basic_ostream<_CharT, _Trai
     return os;
 }
 
+struct my_iomanip_p { };
+template<typename _CharT, typename _Traits>
+std::basic_ostream<_CharT, _Traits>& operator<<(std::basic_ostream<_CharT, _Traits>&os, my_iomanip_p _unused)
+{
+    os << std::left << std::setprecision(1) << std::setw(8);
+    return os;
+}
+
 void MGSystem::PrintCoreStats(std::ostream& os) const {
     struct my_iomanip_i fi;
     struct my_iomanip_f ff;
+    struct my_iomanip_p fp;
     const char sep = ' ';
 
     const size_t P = m_procs.size();
-    enum ct { I, F };
+    enum ct { I, F, PC };
     struct dt { uint64_t i; float f; };
     struct dt c[P][MAXCOUNTS];
     enum ct types[MAXCOUNTS];
@@ -243,24 +252,32 @@ void MGSystem::PrintCoreStats(std::ostream& os) const {
     // Collect the data 
     for (i = 0; i < P; ++i) {       
         Processor &p = *m_procs[i];
+        const Pipeline& pl = p.GetPipeline();
 
         j = 0;
-        types[j] = I; c[i][j++].i = p.GetOp();
-        types[j] = I; c[i][j++].i = p.GetFlop();
+        types[j] = I; c[i][j++].i = pl.GetOp();
+        types[j] = I; c[i][j++].i = pl.GetFlop();
 
         types[j] = types[j+1] = types[j+2] = types[j+3] = I;
         c[i][j].i = c[i][j+1].i = c[i][j+2].i = c[i][j+3].i = 0;
-        p.CollectMemOpStatistics(c[i][j].i, c[i][j+1].i, c[i][j+2].i, c[i][j+3].i);
+        pl.CollectMemOpStatistics(c[i][j].i, c[i][j+1].i, c[i][j+2].i, c[i][j+3].i);
         j += 4;
 
-        types[j] = F; c[i][j++].f = p.GetRegFileAsyncPortActivity();
-        types[j] = F; c[i][j++].f = p.GetPipelineEfficiency();
-        types[j] = I; c[i][j++].i = p.GetAvgPipelineIdleTime();
-        types[j] = I; c[i][j++].i = p.GetMaxPipelineIdleTime();
-        types[j] = I; c[i][j++].i = p.GetMinPipelineIdleTime();
+        types[j] = PC; c[i][j++].f = 100. * p.GetRegFileAsyncPortActivity();
+        types[j] = I; c[i][j++].i = pl.GetTotalBusyTime();
+        types[j] = I; c[i][j++].i = pl.GetNStages();
+        types[j] = I; c[i][j++].i = pl.GetStagesRun();
+        types[j] = PC; c[i][j++].f = 100. * pl.GetEfficiency();
+        types[j] = PC; c[i][j++].f = 100. * (float)pl.GetOp() / (float)m_kernel.GetCycleNo();
         types[j] = I; c[i][j++].i = p.GetLocalFamilyCompletion();
         types[j] = I; c[i][j++].i = p.GetMaxThreadsAllocated();
+        types[j] = I; c[i][j++].i = p.GetTotalThreadsAllocated();
+        types[j] = I; c[i][j++].i = p.GetThreadTableSize();
+        types[j] = PC; c[i][j++].f = 100. * p.GetThreadTableOccupancy();
         types[j] = I; c[i][j++].i = p.GetMaxFamiliesAllocated();
+        types[j] = I; c[i][j++].i = p.GetTotalFamiliesAllocated();
+        types[j] = I; c[i][j++].i = p.GetFamilyTableSize();
+        types[j] = PC; c[i][j++].f = 100. * p.GetFamilyTableOccupancy();
     }
 
     const size_t NC = j;
@@ -274,7 +291,8 @@ void MGSystem::PrintCoreStats(std::ostream& os) const {
 
     for (j = 0; j < NC; ++j)
     {
-        dmin[j].i = std::numeric_limits<uint64_t>::max(); dmin[j].f = std::numeric_limits<float>::max();
+        dmin[j].i = std::numeric_limits<uint64_t>::max(); 
+        dmin[j].f = std::numeric_limits<float>::max();
         dmax[j].i = 0; dmax[j].f = std::numeric_limits<float>::min();
         dtotal[j].i = 0; dtotal[j].f = 0.;
     }
@@ -300,24 +318,47 @@ void MGSystem::PrintCoreStats(std::ostream& os) const {
     } 
     
     // print the data
+
     os << "## core statistics:" << endl
        << "# P " << sep
        << fi << "iops" << sep
        << fi << "flops" << sep
        << fi << "lds" << sep
-       << fi << "ibytes" << sep
        << fi << "sts" << sep
+       << fi << "ibytes" << sep
        << fi << "obytes" << sep
-       << ff << "regf_act" << sep
-       << ff << "plineeff" << sep
-       << fi << "idleavg" << sep
-       << fi << "idlemax" << sep
-       << fi << "idlemin" << sep
+       << fp << "regf_act" << sep
+       << fi << "plbusy" << sep
+       << fi << "plstgs" << sep
+       << fi << "plstgrun" << sep
+       << fp << "pl%busy" << sep
+       << fp << "pl%eff" << sep
        << fi << "lastend" << sep
-       << fi << "tmax" << sep
-       << fi << "fmax"
+       << fi << "ttmax" << sep
+       << fi << "ttotal" << sep
+       << fi << "ttsize" << sep
+       << fp << "tt%occ" << sep
+       << fi << "ftmax" << sep
+       << fi << "ftotal" << sep
+       << fi << "ftsize" << sep
+       << fp << "ft%occ" 
        << endl;
 
+    os << "# per-core values" << endl;
+    for (i = 0; i < P; ++i) {
+        if (c[i][0].i == 0)  continue; // unused core
+        os << std::setw(4) << i << sep;
+        for (j = 0; j < NC; ++j) 
+            if (types[j] == I) 
+                os << fi << c[i][j].i << sep;
+            else if (types[j] == PC)
+                os << fp << c[i][j].f << sep;
+            else
+                os << ff << c[i][j].f << sep;
+        os << endl;
+    }
+
+/*
     os << "# minimas - all active cores" << endl
        << std::setw(4) << activecores << sep;
     for (j = 0; j < NC; ++j)
@@ -333,35 +374,54 @@ void MGSystem::PrintCoreStats(std::ostream& os) const {
             os << fi << dmin[j].i << sep;
         else
             os << ff << dmin[j].f << sep;
-    os << endl
-       << "# cumulative - all active cores" << endl
+    os << endl;
+*/
+    os << "# cumulative - all active cores" << endl
        << std::setw(4) << activecores << sep;
     for (j = 0; j < NC; ++j)
         if (types[j] == I)
             os << fi << dtotal[j].i << sep;
+        else if (types[j] == PC)
+            os << fp << dtotal[j].f << sep;
         else
             os << ff << dtotal[j].f << sep;
     os << endl
-       << "# average = cumulative/" << activecores << endl
+       << "# average per core = cumulative/" << activecores << endl
        << std::setw(4) << activecores << sep;
     for (j = 0; j < NC; ++j)
         if (types[j] == I)
             os << fi << davg[j][0] << sep;
+        else if (types[j] == PC)
+            os << fp << davg[j][1] << sep;
         else
             os << ff << davg[j][1] << sep;
 
-    os << endl 
-       << "# per-core values" << endl;
-    for (i = 0; i < P; ++i) {
-        if (c[i][0].i == 0)  continue; // unused core
-        os << std::setw(4) << i << sep;
-        for (j = 0; j < NC; ++j) 
-            if (types[j] == I) 
-                os << fi << c[i][j].i << sep;
-            else
-                os << ff << c[i][j].f << sep;
-        os << endl;
-    }
+    os << endl;
+
+    os << "## descriptions:" << endl
+       << "# P: core ID / number of active cores" << endl
+       << "# iops: number of instructions executed" << endl
+       << "# flops: number of floating-point instructions issued" << endl
+       << "# lds: number of load instructions executed" << endl
+       << "# sts: number of store instructions executed" << endl
+       << "# ibytes: number of bytes loaded from L1 cache into core" << endl
+       << "# obytes: number of bytes stored into L1 cache from core" << endl
+       << "# regf_act: register file async port activity (= 100. * ncycles_asyncport_busy / ncycles_total)" << endl
+       << "# plbusy: number of cycles the pipeline was active" << endl
+       << "# plstgs: number of pipeline stages" << endl
+       << "# plstgrun: cumulative number of cycles active in all pipeline stages" << endl
+       << "# pl%busy: pipeline efficiency while active (= 100. * plstgrun / plstgs / plbusy)" << endl
+       << "# pl%eff: pipeline efficiency total (= 100. * iops / ncycles_total)" << endl
+       << "# lastend: time of last family termination" << endl
+       << "# ttmax: maximum of thread entries simulatenously allocated" << endl
+       << "# ttotal: cumulative number of thread entries busy" << endl
+       << "# ttsize: thread table size" << endl
+       << "# tt%occ: thread table occupancy (= 100. * ttotal / ttsize / ncycles_total)" << endl
+       << "# ttmax: maximum of family entries simulatenously allocated" << endl
+       << "# ftotal: cumulative number of family entries busy" << endl
+       << "# ftsize: family table size" << endl
+       << "# ft%occ: family table occupancy (= 100. * ftotal / ftsize / ncycles_total)" << endl;
+
 }
 
 void MGSystem::PrintMemoryStatistics(std::ostream& os) const {
@@ -432,44 +492,6 @@ void MGSystem::PrintRegFileAsyncPortActivity(std::ostream& os) const
        << amax << "\t# max reg. file async port activity" << endl;
 }
 
-void MGSystem::PrintPipelineEfficiency(std::ostream& os) const
-{
-    float avg  = 0;
-    float amax = 0.0f;
-    float amin = 1.0f;
-    size_t num = 0;
-    for (size_t i = 0; i < m_procs.size(); ++i) {
-        float a = m_procs[i]->GetPipelineEfficiency();
-        if (a > 0)
-        {
-            amax = max(amax, a);
-            amin = min(amin, a);
-            avg += a;
-            num++;
-        }
-    }
-    avg /= (float)num;
-    os << avg << "\t# average pipeline efficiency" << endl
-       << amin << "\t# min pipeline efficiency" << endl
-       << amax << "\t# max pipeline efficiency" << endl;
-}
-
-void MGSystem::PrintPipelineIdleTime(std::ostream& os) const
-{
-    float    avg    = 0;
-    uint64_t amax   = 0;
-    uint64_t amin   = numeric_limits<uint64_t>::max();
-    for (size_t i = 0; i < m_procs.size(); ++i) {
-        float a = (float)m_procs[i]->GetAvgPipelineIdleTime();
-        amax    = max(amax, m_procs[i]->GetMaxPipelineIdleTime() );
-        amin    = min(amin, m_procs[i]->GetMinPipelineIdleTime() );
-        avg += a;
-    }
-    avg /= (float)m_procs.size();
-    os << avg << "\t# average pipeline idle cycles per core" << endl
-       << amin << "\t# min pipeline idle cycles per core (overall min)" << endl
-       << amax << "\t# max pipeline idle cycles per core (overall max)" << endl;
-}
 
 void MGSystem::PrintAllFamilyCompletions(std::ostream& os) const
 {

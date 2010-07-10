@@ -116,6 +116,8 @@ class FamilyTable : public Object
 public:
     FamilyTable(const std::string& name, Processor& parent, const Config& config);
 
+    FSize GetNumFamilies() const { return m_families.size(); }
+
     typedef Family value_type;
           Family& operator[](LFID fid)       { return m_families[fid]; }
 	const Family& operator[](LFID fid) const { return m_families[fid]; }
@@ -136,14 +138,18 @@ public:
     void Cmd_Read(std::ostream& out, const std::vector<std::string>& arguments) const;
 
     // Stats
-    FSize GetMaxAllocated() const { return m_maxalloc; }
+    FSize GetTotalAllocated() const { return m_totalalloc; }
+    TSize GetMaxAllocated() const { return m_maxalloc; }
 
 private:
     Processor&          m_parent;
     std::vector<Family> m_families;
     FSize               m_free[NUM_CONTEXT_TYPES];
+    FSize               m_totalalloc;
     FSize               m_maxalloc;
-    
+    CycleNo             m_lastcycle;
+
+    void UpdateStats();    
     void CheckStateSanity() const;
 };
 

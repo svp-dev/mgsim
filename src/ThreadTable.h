@@ -104,14 +104,18 @@ public:
     void Cmd_Read(std::ostream& out, const std::vector<std::string>& arguments) const;
 
     // Statistics
+    TSize GetTotalAllocated() const { return m_totalalloc; }
     TSize GetMaxAllocated() const { return m_maxalloc; }
 
 private:
     ThreadQueue         m_empty;
     std::vector<Thread> m_threads;
     TSize               m_free[NUM_CONTEXT_TYPES];
+    TSize               m_totalalloc;
     TSize               m_maxalloc;
-    
+    CycleNo             m_lastcycle;
+
+    void UpdateStats();
     void CheckStateSanity() const;
 };
 

@@ -237,7 +237,7 @@ Integer Processor::GetProfileWord(unsigned int i) const
         // Return the number of executed instructions on all cores
         Integer ops = 0;
         for (size_t i = 0; i < m_grid.size(); ++i) {
-            ops += m_grid[i]->GetOp();
+            ops += m_grid[i]->GetPipeline().GetOp();
         }
         return ops;
     }
@@ -247,7 +247,7 @@ Integer Processor::GetProfileWord(unsigned int i) const
         // Return the number of issued FP instructions on all cores
         Integer flops = 0;
         for (size_t i = 0; i < m_grid.size(); ++i) {
-            flops += m_grid[i]->GetFlop();
+            flops += m_grid[i]->GetPipeline().GetFlop();
         }
         return flops;
     }
@@ -257,7 +257,7 @@ Integer Processor::GetProfileWord(unsigned int i) const
         // Return the number of completed loads on all cores
         uint64_t n = 0, dummy;
         for (size_t i = 0; i < m_grid.size(); ++i) {
-            m_grid[i]->CollectMemOpStatistics(n, dummy, dummy, dummy);
+            m_grid[i]->GetPipeline().CollectMemOpStatistics(n, dummy, dummy, dummy);
         }
         return (Integer)n;
     }
@@ -267,7 +267,7 @@ Integer Processor::GetProfileWord(unsigned int i) const
         // Return the number of completed stores on all coresp
         uint64_t n = 0, dummy;
         for (size_t i = 0; i < m_grid.size(); ++i) {
-            m_grid[i]->CollectMemOpStatistics(dummy, n, dummy, dummy);
+            m_grid[i]->GetPipeline().CollectMemOpStatistics(dummy, n, dummy, dummy);
         }
         return (Integer)n;
     }
@@ -277,7 +277,7 @@ Integer Processor::GetProfileWord(unsigned int i) const
         // Return the number of successfully loaded bytes on all cores
         uint64_t n = 0, dummy;
         for (size_t i = 0; i < m_grid.size(); ++i) {
-            m_grid[i]->CollectMemOpStatistics(dummy, dummy, n, dummy);
+            m_grid[i]->GetPipeline().CollectMemOpStatistics(dummy, dummy, n, dummy);
         }
         return (Integer)n;
     }
@@ -287,7 +287,7 @@ Integer Processor::GetProfileWord(unsigned int i) const
         // Return the number of successfully stored bytes on all coresp
         uint64_t n = 0, dummy;
         for (size_t i = 0; i < m_grid.size(); ++i) {
-            m_grid[i]->CollectMemOpStatistics(dummy, dummy, dummy, n);
+            m_grid[i]->GetPipeline().CollectMemOpStatistics(dummy, dummy, dummy, n);
         }
         return (Integer)n;
     }

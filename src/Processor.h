@@ -48,25 +48,23 @@ public:
     PSize   GetGridSize()  const { return m_gridSize; }
     bool    IsIdle()       const;
 
-    uint64_t GetFlop()     const { return m_pipeline.GetFlop(); }
-    uint64_t GetOp()       const { return m_pipeline.GetOp(); }
-    void     CollectMemOpStatistics(uint64_t& nr, uint64_t& nw, uint64_t& nrb, uint64_t& nwb) const
-    { return m_pipeline.CollectMemOpStatistics(nr, nw, nrb, nwb); }
 
+    const Pipeline& GetPipeline() const { return m_pipeline; }
+    
     float GetRegFileAsyncPortActivity() const {
         return (float)m_registerFile.p_asyncW.GetBusyCycles() / (float)GetKernel()->GetCycleNo();
     }
 	
-    uint64_t GetMinPipelineIdleTime() const { return m_pipeline.GetMinIdleTime(); }
-    uint64_t GetMaxPipelineIdleTime() const { return m_pipeline.GetMaxIdleTime(); }
-    uint64_t GetAvgPipelineIdleTime() const { return m_pipeline.GetAvgIdleTime(); }
-	
-    float GetPipelineEfficiency() const { return m_pipeline.GetEfficiency(); }
-	
     CycleNo GetLocalFamilyCompletion() const { return m_localFamilyCompletion; }
 
     TSize GetMaxThreadsAllocated() const { return m_threadTable.GetMaxAllocated(); }
+    TSize GetTotalThreadsAllocated() const { return m_threadTable.GetTotalAllocated(); }
+    TSize GetThreadTableSize() const { return m_threadTable.GetNumThreads(); }
+    float GetThreadTableOccupancy() const { return (float)GetTotalThreadsAllocated() / (float)GetThreadTableSize() / (float)GetKernel()->GetCycleNo(); }
     FSize GetMaxFamiliesAllocated() const { return m_familyTable.GetMaxAllocated(); }
+    FSize GetTotalFamiliesAllocated() const { return m_familyTable.GetTotalAllocated(); }
+    FSize GetFamilyTableSize() const { return m_familyTable.GetNumFamilies(); }
+    float GetFamilyTableOccupancy() const { return (float)GetTotalFamiliesAllocated() / (float)GetFamilyTableSize() / (float)GetKernel()->GetCycleNo(); }
 
     unsigned int GetNumSuspendedRegisters() const;
     

@@ -13,7 +13,7 @@ namespace Simulator
 ThreadTable::ThreadTable(const std::string& name, Processor& parent, const Config& config)
   : Object(name, parent),
     m_threads(config.getInteger<size_t>("NumThreads", 64)),
-    m_maxalloc(0)
+    m_totalalloc(0), m_maxalloc(0), m_lastcycle(0)
 {
     for (TID i = 0; i < m_threads.size(); ++i)
     {
@@ -39,6 +39,18 @@ bool ThreadTable::IsEmpty() const
         free += m_free[i];
     }
     return free == m_threads.size();
+}
+
+void ThreadTable::UpdateStats()
+{
+    CycleNo cycle = GetKernel()->GetCycleNo();
+    CycleNo elapsed = cycle - m_lastcycle;
+    m_lastcycle = cycle;
+    
+    TSize cur_alloc = m_threads.size() - m_free[CONTEXT_RESERVED] - m_free[CONTEXT_EXCLUSIVE] - m_free[CONTEXT_NORMAL]; 
+    
+    m_totalalloc += cur_alloc * elapsed;
+    m_maxalloc = std::max(m_maxalloc, cur_alloc);   
 }
 
 // Checks that all internal administration is sane
@@ -76,6 +88,8 @@ void ThreadTable::ReserveThread()
     CheckStateSanity();
 
     COMMIT{
+        UpdateStats();
+
         // Move one free thread from normal to reserved
         m_free[CONTEXT_NORMAL]--;
         m_free[CONTEXT_RESERVED]++;
@@ -88,6 +102,8 @@ void ThreadTable::UnreserveThread()
     CheckStateSanity();
 
     COMMIT{
+        UpdateStats();
+
         // Move one free thread from reserved back to normal
         m_free[CONTEXT_NORMAL]++;
         m_free[CONTEXT_RESERVED]--;
@@ -109,12 +125,14 @@ TID ThreadTable::PopEmpty(ContextType context)
         assert(m_threads[tid].state == TST_EMPTY);
         COMMIT
         {
+            UpdateStats();
+
             m_empty.head = m_threads[tid].nextMember;
             m_threads[tid].state = TST_WAITING;
             m_free[context]--;
-            m_maxalloc = std::max(m_maxalloc, m_threads.size() - m_free[CONTEXT_RESERVED] - m_free[CONTEXT_EXCLUSIVE] - m_free[CONTEXT_NORMAL]);
         }
     }
+    CycleNo             m_lastcycle;
     return tid;
 }
 
@@ -128,6 +146,8 @@ void ThreadTable::PushEmpty(const ThreadQueue& q, ContextType context)
     
     COMMIT
     {
+        UpdateStats();
+
         if (m_empty.head == INVALID_TID) {
             m_empty.head = q.head;
         } else {
