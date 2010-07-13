@@ -630,12 +630,31 @@ Result Network::DoDelegationIn()
         case RRT_FIRST_DEPENDENT:
         {
             const Family& family = m_allocator.GetFamilyChecked(msg.reg.addr.fid.lfid, msg.reg.addr.fid.capability);
-            assert(family.type == Family::LOCAL);
-            
-            if (!WriteRegister(msg.reg.addr, msg.reg.value))
+
+            if (family.type == Family::LOCAL)
             {
-                return FAILED;
+                // Write to the register on this core
+                if (!WriteRegister(msg.reg.addr, msg.reg.value))
+                {
+                    return FAILED;
+                }
             }
+            else if (family.type == Family::GROUP)
+            {
+                // Forward the message to the next core
+                RemoteMessage fwd;
+                fwd.type = RemoteMessage::MSG_REGISTER;
+                fwd.reg.addr.type     = msg.reg.addr.type;
+                fwd.reg.addr.fid.pid  = INVALID_GPID;
+                fwd.reg.addr.fid.lfid = family.link_next;
+                fwd.reg.addr.reg      = msg.reg.addr.reg;
+                fwd.reg.value         = msg.reg.value;
+                
+                if (!SendMessage(fwd))
+                {
+                    return FAILED;
+                }
+            }            
             break;
         }
         

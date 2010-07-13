@@ -114,6 +114,7 @@ void Processor::Initialize(Processor& prev, Processor& next, MemAddr runAddress,
     m_network.m_delegateOut           .AddProcess(m_pipeline.p_Pipeline);        // Sending or requesting registers
     
     m_network.m_registers.out         .AddProcess(m_network.p_Registers);        // Forwarding register messages
+    m_network.m_registers.out         .AddProcess(m_network.p_DelegationIn);     // Forwarding incoming globals and shareds to next core
     m_network.m_registers.out         .AddProcess(m_pipeline.p_Pipeline);        // Pipeline write to register with remote mapping
     
     m_network.m_registers.out         .AddProcess(m_allocator.p_ThreadAllocate); // Thread cleaned up
