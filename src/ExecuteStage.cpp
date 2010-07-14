@@ -165,9 +165,10 @@ bool Pipeline::ExecuteStage::MoveFamilyRegister(RemoteRegType kind, RegType type
         // Writing a global
         if (reg >= regs.count.globals)
         {
-            DebugProgWrite("Write attempt from %s (F%u/T%u) to global %u of F%u, limit %d",
+            DebugProgWrite("Write attempt from %s (F%u/T%u) to global %u.%s of %s (F%u), limit %d",
                            GetKernel()->GetSymbolTable()[m_output.pc_dbg].c_str(), (unsigned)m_output.fid, (unsigned)m_output.tid, 
-                           reg, (unsigned)fid.lfid, (int)regs.count.globals-1);
+                           reg, type == RT_INTEGER ? "int" : "float",
+                           GetKernel()->GetSymbolTable()[family.pc].c_str(), (unsigned)fid.lfid, (int)regs.count.globals-1);
             break;
         }
 
@@ -196,9 +197,10 @@ bool Pipeline::ExecuteStage::MoveFamilyRegister(RemoteRegType kind, RegType type
         // Writing the first dependent
         if (reg >= regs.count.shareds)
         {
-            DebugProgWrite("Write attempt from %s (F%u/T%u) to shared %u of F%u, limit %d",
+            DebugProgWrite("Write attempt from %s (F%u/T%u) to shared %u.%s of %s (F%u), limit %d",
                            GetKernel()->GetSymbolTable()[m_output.pc_dbg].c_str(), (unsigned)m_output.fid, (unsigned)m_output.tid, 
-                           reg, (unsigned)fid.lfid, (int)regs.count.shareds-1);
+                           reg, type == RT_INTEGER ? "int" : "float",
+                           GetKernel()->GetSymbolTable()[family.pc].c_str(), (unsigned)fid.lfid, (int)regs.count.shareds-1);
             break;
         }
     
@@ -227,9 +229,10 @@ bool Pipeline::ExecuteStage::MoveFamilyRegister(RemoteRegType kind, RegType type
         // Reading the last shared in the family
         if (reg >= regs.count.shareds)
         {
-            DebugProgWrite("Read attempt from %s (F%u/T%u) from shared %u of F%u, limit %d",
+            DebugProgWrite("Read attempt from %s (F%u/T%u) from shared %u.%s of %s (F%u), limit %d",
                            GetKernel()->GetSymbolTable()[m_output.pc_dbg].c_str(), (unsigned)m_output.fid, (unsigned)m_output.tid, 
-                           reg, (unsigned)fid.lfid, (int)regs.count.shareds-1);
+                           reg, type == RT_INTEGER ? "int" : "float",
+                           GetKernel()->GetSymbolTable()[family.pc].c_str(), (unsigned)fid.lfid, (int)regs.count.shareds-1);
             break;
         }
     
@@ -270,7 +273,10 @@ bool Pipeline::ExecuteStage::MoveFamilyRegister(RemoteRegType kind, RegType type
         return true;
     
     default:
-        DebugProgWrite("Using an invalid family register");
+        DebugProgWrite("Invalid use of family register from %s (F%u/T%u) to %u.%s of %s (F%u), kind = %u",
+                       GetKernel()->GetSymbolTable()[m_output.pc_dbg].c_str(), (unsigned)m_output.fid, (unsigned)m_output.tid, 
+                       reg, type == RT_INTEGER ? "int" : "float",
+                       GetKernel()->GetSymbolTable()[family.pc].c_str(), (unsigned)fid.lfid, (unsigned)kind);
         break;
     }
     
