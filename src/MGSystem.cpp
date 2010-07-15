@@ -278,6 +278,10 @@ void MGSystem::PrintCoreStats(std::ostream& os) const {
         types[j] = I; c[i][j++].i = p.GetTotalFamiliesAllocated();
         types[j] = I; c[i][j++].i = p.GetFamilyTableSize();
         types[j] = PC; c[i][j++].f = 100. * p.GetFamilyTableOccupancy();
+        types[j] = I; c[i][j++].i = p.GetMaxAllocateExQueueSize();
+        types[j] = I; c[i][j++].i = p.GetTotalAllocateExQueueSize();
+        types[j] = F; c[i][j++].f = p.GetAverageAllocateExQueueSize();
+
     }
 
     const size_t NC = j;
@@ -341,7 +345,10 @@ void MGSystem::PrintCoreStats(std::ostream& os) const {
        << fi << "ftmax" << sep
        << fi << "ftotal" << sep
        << fi << "ftsize" << sep
-       << fp << "ft%occ" 
+       << fp << "ft%occ" << sep
+       << fi << "xqmax" << sep
+       << fi << "xqtot" << sep
+       << ff << "xqavg" << sep
        << endl;
 
     os << "# per-core values" << endl;
@@ -420,7 +427,10 @@ void MGSystem::PrintCoreStats(std::ostream& os) const {
        << "# ttmax: maximum of family entries simulatenously allocated" << endl
        << "# ftotal: cumulative number of family entries busy" << endl
        << "# ftsize: family table size" << endl
-       << "# ft%occ: family table occupancy (= 100. * ftotal / ftsize / ncycles_total)" << endl;
+       << "# ft%occ: family table occupancy (= 100. * ftotal / ftsize / ncycles_total)" << endl
+       << "# xqmax: high water mark of the exclusive allocate queue size" << endl
+       << "# xqtot: cumulative exclusive allocate queue size" << endl
+       << "# xqavg: average size of the exclusive allocate queue (= xqtot / ncycles_total)" << endl;
 
 }
 

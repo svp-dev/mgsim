@@ -186,7 +186,13 @@ private:
     Result DoFamilyCreate();
     Result DoThreadActivation();
     Result DoRegWrites();
-    
+
+    // Statistics
+    BufferSize m_maxallocex;
+    BufferSize m_totalallocex;
+    CycleNo    m_lastcycle;
+    void       UpdateStats();
+
 public:
     // Processes
     Process p_ThreadAllocate;
@@ -200,6 +206,10 @@ public:
     ArbitratedService     p_readyThreads;   ///< Arbitrator for m_readyThreads2
     ArbitratedService     p_activeThreads;  ///< Arbitrator for m_activeThreads
     ThreadList            m_activeThreads;  ///< Queue of the active threads
+
+    // Statistics
+    BufferSize GetTotalAllocatedEx() { UpdateStats(); return m_totalallocex; }
+    BufferSize GetMaxAllocatedEx() const { return m_maxallocex; }
 };
 
 }

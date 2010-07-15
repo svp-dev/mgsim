@@ -290,8 +290,9 @@ public:
     const_reverse_iterator rbegin() const { return m_data.rbegin(); }
     const_reverse_iterator rend()   const { return m_data.rend();   }
 
-    bool     Empty() const { return m_data.empty(); }
-    const T& Front() const { return m_data.front(); }
+    bool       Empty() const { return m_data.empty(); }
+    const T&   Front() const { return m_data.front(); }
+    BufferSize size()  const { return m_data.size(); }
 
     void Pop()
     {

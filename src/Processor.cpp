@@ -376,6 +376,21 @@ Integer Processor::GetProfileWord(unsigned int i) const
         return alloc;
     }
 
+    case 12:
+    {
+        // Return the total cumulative exclusive allocate queue size
+        Integer alloc = 0;
+        for (gi = m_grid.begin(); gi != m_grid.end(); ++gi)
+        {
+            Processor* p = *gi;
+            if (&p->m_place == &m_place)
+            {
+                alloc += p->GetTotalAllocateExQueueSize();
+            }
+        }
+        return alloc;
+    }
+
         
     default:
         return 0;

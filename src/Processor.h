@@ -65,6 +65,9 @@ public:
     FSize GetTotalFamiliesAllocated() { return m_familyTable.GetTotalAllocated(); }
     FSize GetFamilyTableSize() const { return m_familyTable.GetNumFamilies(); }
     float GetFamilyTableOccupancy() { return (float)GetTotalFamiliesAllocated() / (float)GetFamilyTableSize() / (float)GetKernel()->GetCycleNo(); }
+    BufferSize GetMaxAllocateExQueueSize() { return m_allocator.GetMaxAllocatedEx(); }
+    BufferSize GetTotalAllocateExQueueSize() { return m_allocator.GetTotalAllocatedEx(); }
+    float GetAverageAllocateExQueueSize() { return (float)GetTotalAllocateExQueueSize() / (float)GetKernel()->GetCycleNo(); }
 
     unsigned int GetNumSuspendedRegisters() const;
     
