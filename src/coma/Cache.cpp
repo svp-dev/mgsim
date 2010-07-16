@@ -9,6 +9,12 @@ using namespace std;
 namespace Simulator
 {
 
+// When we insert a message into the ring, we want at least one slots
+// available in the buffer to avoid deadlocking the ring network. This
+// is not necessary for forwarding messages.
+static const size_t MINSPACE_INSERTION = 2;
+static const size_t MINSPACE_FORWARD   = 1;
+
 void COMA::Cache::RegisterClient(PSize pid, IMemoryCallback& callback, const Process* processes[])
 {
     size_t index = pid % m_clients.size();
@@ -213,22 +219,23 @@ bool COMA::Cache::EvictLine(Line* line, const Request& req)
     size_t set = (line - &m_lines[0]) / m_assoc;
     MemAddr address = (line->tag * m_sets + set) * m_lineSize;
     
-    TraceWrite(address, "Evicting with %d tokens due to miss for 0x%llx", line->tokens, (unsigned long long)req.address);
+    TraceWrite(address, "Evicting with %u tokens due to miss for 0x%llx", line->tokens, (unsigned long long)req.address);
     
     Message* msg = NULL;
     COMMIT
     {
         msg = new Message;
-        msg->type      = Message::REQUEST_EVICT;
+        msg->type      = Message::EVICTION;
         msg->address   = address;
-        msg->hops      = 0;
+        msg->ignore    = false;
+        msg->sender    = m_id;
         msg->tokens    = line->tokens;
         msg->data.size = m_lineSize;
         msg->dirty     = line->dirty;
         memcpy(msg->data.data, line->data, m_lineSize);
     }
     
-    if (!m_next.Send(msg))
+    if (!SendMessage(msg, MINSPACE_INSERTION))
     {
         return false;
     }
@@ -254,236 +261,177 @@ bool COMA::Cache::EvictLine(Line* line, const Request& req)
 }
 
 // Called when a message has been received from the previous node in the chain
-bool COMA::Cache::OnRequestReceived(Message* msg)
+bool COMA::Cache::OnMessageReceived(Message* msg)
 {
     assert(msg != NULL);
-    
+
+    // We need to grab p_lines because it also arbitrates access to the
+    // outgoing ring buffer.    
     if (!p_lines.Invoke())
     {
         DeadlockWrite("Unable to acquire lines");
         return false;
     }
     
+    if (msg->ignore || (msg->type == Message::REQUEST_DATA_TOKEN && msg->sender != m_id))
+    {
+        // This is either
+        // * a message that should ignored, or
+        // * a read response that has not reached its origin yet
+        // Just forward it
+        if (!SendMessage(msg, MINSPACE_FORWARD))
+        {
+            DeadlockWrite("Unable to buffer request for next node");
+            return false;
+        }
+        return true;
+    }
+    
     Line* line = FindLine(msg->address);   
     switch (msg->type)
     {
-    case Message::REQUEST_READ:
+    case Message::REQUEST:
+    case Message::REQUEST_DATA:
         // Some cache had a read miss. See if we have the line.
         assert(msg->data.size == m_lineSize);
         
-        if (line == NULL)
+        if (line != NULL && line->state == LINE_FULL)
         {
-            // We don't have this line, forward the message.
-            // Increase the caches count in the message when a cache cannot service a request.
-            COMMIT
+            // We have a copy of the line
+            if (line->tokens > 1)
             {
-                msg->hops++;
-            }
-            
-            if (!m_next.Send(msg))
-            {
-                DeadlockWrite("Unable to buffer request for next node");
-                return false;
-            }
-        }
-        // We have this line
-        else if (line->state == LINE_FULL)
-        {
-            // We have the data
-            assert(line->tokens > 0);
-            if ((unsigned int)line->tokens > 1 + msg->hops)
-            {
-                // We have the data and free tokens, answer the request.
-                // We reserve one token for ourselves and every cache miss
-                // on the way back and send the rest.            
-                TraceWrite(msg->address, "Received Read Request: Full Hit; Enough tokens available; Sending Read Response");
-                
+                // We can give the request data and tokens
+                TraceWrite(msg->address, "Received Read Request; Attaching data and tokens");
+                        
                 COMMIT
                 {
-                    msg->type   = Message::RESPONSE_READ;
-                    msg->tokens = line->tokens - (1 + msg->hops);
+                    msg->type   = Message::REQUEST_DATA_TOKEN;
+                    msg->tokens = 1;
                     memcpy(msg->data.data, line->data, msg->data.size);
 
-                    // Set our token count. One for ourselves, and one for each missed cache upstream.
-                    line->tokens = 1 + msg->hops;
-                
+                    line->tokens -= msg->tokens;
+                                
                     // Also update last access time.
-                    line->access = GetKernel()->GetCycleNo();                    
+                    line->access = GetKernel()->GetCycleNo();
                 }
             }
-            else
+            else if (msg->type == Message::REQUEST)
             {
-                // We have the data, but not enough tokens. This means another cache
-                // sits between us and the requester, so send a forward response to
-                // that cache.
-                TraceWrite(msg->address, "Received Read Request: Full Hit; Not enough tokens available; Sending Forward Response");
-                
+                // We can only give the request data, not tokens
+                TraceWrite(msg->address, "Received Read Request; Attaching data");
+
                 COMMIT
                 {
-                    msg->type   = Message::RESPONSE_FORWARD;
-                    msg->tokens = line->tokens - msg->hops;
-                    msg->hops   = line->tokens - 1;
+                    msg->type = Message::REQUEST_DATA;
+                    memcpy(msg->data.data, line->data, msg->data.size);
                 }
-            }
-            
-            if (!m_prev.Send(msg))
-            {
-                DeadlockWrite("Unable to buffer request for previous node");
-                return false;
             }
         }
-        else
+
+        // Forward the message.
+        if (!SendMessage(msg, MINSPACE_FORWARD))
         {
-            // We're loading the data; don't forward the request.
-            // When the get the data, we'll forward it.
-            // Also remember how many tokens to reserve for ourselves.
-            assert(line->state == LINE_LOADING);
-            if (!line->forward)
-            {
-                // Set the forward flag and remember how many caches
-                // are between us and the next cache that wants it.
-                TraceWrite(msg->address, "Received Read Request: Loading Hit; Setting Forward flag");
-                
-                COMMIT
-                {
-                    line->forward = true;
-                    line->hops    = msg->hops;
-                    delete msg;                    
-                }
-            }
-            else
-            {
-                // Forward flag was already set. Update the cache count
-                // and send a response back indicating that the data
-                // should be forwarded.
-                TraceWrite(msg->address, "Received Read Request: Loading Hit; Forward; Sending Forward Response");
-                
-                COMMIT
-                {
-                    msg->type   = Message::RESPONSE_FORWARD;
-                    msg->tokens = line->hops - (1 + msg->hops);
-                    
-                    line->hops = msg->hops;                    
-                }
-                
-                if (!m_prev.Send(msg))
-                {
-                    DeadlockWrite("Unable to buffer response for previous node");
-                    return false;
-                }
-            }
+            DeadlockWrite("Unable to buffer request for next node");
+            return false;
         }
         break;
 
-    case Message::REQUEST_KILL_TOKENS:
-        // Just add the token count to the line.
-        // If FULL, then the line will just have less tokens.
-        // If LOADING, then the completion will use the token field to adjust
-        // the received tokens (before possibly forwarding).
+    case Message::REQUEST_DATA_TOKEN:
+        // We received a line for a previous read miss on this cache
+        assert(line != NULL);
+        assert(line->state == LINE_LOADING);
         assert(msg->tokens > 0);
-        if (line == NULL)
-        {
-            // We don't have this line, forward the message.
-            // Increase the caches count in the message when a cache cannot service a request.
-            COMMIT{ msg->hops++; }
-            
-            if (!m_next.Send(msg))
-            {
-                DeadlockWrite("Unable to buffer request for next node");
-                return false;
-            }
-        }
-        else
-        {
-            TraceWrite(msg->address, "Received Kill Request for %u tokens", msg->tokens);
-            COMMIT
-            {
-                line->tokens -= msg->tokens;
-                delete msg;
-            }
-        }
-        break;
+        assert(line->tokens == 0);
+
+        TraceWrite(msg->address, "Received Read Response with %u tokens", msg->tokens);
         
-    case Message::REQUEST_EVICT:
-        if (line != NULL)
+        COMMIT
         {
-            // We have the line, merge it.
-            TraceWrite(msg->address, "Merging Evict Request with %u tokens", msg->tokens);
-            
-            // Just add the token count to the line.
-            // If FULL, then the line will just have more tokens.
-            // If LOADING, then the completion will use the token field to adjust
-            // the received tokens (before possibly forwarding).
-            assert(msg->tokens > 0);
-            COMMIT
+            // Store the data, masked by the already-valid bitmask
+            for (size_t i = 0; i < msg->data.size; ++i)
             {
-                line->tokens += msg->tokens;
-                
-                // Combine the dirty flags
-                line->dirty = line->dirty || msg->dirty;
-                
-                delete msg;
-            }
-        }
-        else
-        {
-            // We don't have the line, see if we have an empty spot
-            line = AllocateLine(msg->address, true);
-            if (line == NULL)
-            {
-                // No, just forward it
-                COMMIT{ msg->hops++; }
-            }
-            else
-            {
-                // Yes, place the line there and send out a token kill request
-                COMMIT
+                if (!line->valid[i])
                 {
-                    line->state    = LINE_FULL;
-                    line->tag      = (msg->address / m_lineSize) / m_sets;
-                    line->tokens   = msg->tokens;
-                    line->forward  = false; 
-                    line->dirty    = msg->dirty;
-                    line->updating = 0;
-                    line->access   = GetKernel()->GetCycleNo();
-                    std::fill(line->valid, line->valid + MAX_MEMORY_OPERATION_SIZE, true);
-                    memcpy(line->data, msg->data.data, msg->data.size);
-                }
-                
-                if (msg->tokens != m_numCaches)
-                {
-                    COMMIT
-                    {
-                        // This line moved over by 'hops + 1' caches, so add that many tokens
-                        line->tokens += msg->hops + 1;
-                    
-                        // Also send out a kill request to the next cache for the created tokens
-                        msg->type   = Message::REQUEST_KILL_TOKENS;
-                        msg->tokens = msg->hops + 1;
-                        msg->hops   = 0;
-                    }
-                    
-                    TraceWrite(msg->address, "Storing Evict Request. Sending Token Kill Request for %u tokens", msg->tokens);
+                    line->data[i] = msg->data.data[i];
+                    line->valid[i] = true;
                 }
                 else
                 {
-                    TraceWrite(msg->address, "Storing Evict Request");
-                    COMMIT{ delete msg; }
-                    return true;
+                    // This byte has been overwritten by processor.
+                    // Update the message. This will ensure the response
+                    // gets the latest value, and other processors too
+                    // (which is fine, according to non-determinism).
+                    msg->data.data[i] = line->data[i];
                 }
             }
-            
-            if (!m_next.Send(msg))
+            line->state  = LINE_FULL;
+            line->tokens = msg->tokens;
+        }
+        
+        // Put the data on the bus for the processors
+        if (!OnReadCompleted(msg->address, msg->data))
+        {
+            DeadlockWrite("Unable to notify clients of read completion");
+            return false;
+        }
+        
+        COMMIT{ delete msg; }
+        break;
+    
+    case Message::EVICTION:
+        if (line != NULL)
+        {
+            if (line->state == LINE_FULL)
             {
-                DeadlockWrite("Unable to buffer request for next node");
-                return false;
+                // We have the line, merge it.
+                TraceWrite(msg->address, "Merging Evict Request with %u tokens into line with %u tokens", msg->tokens, line->tokens);
+            
+                // Just add the tokens count to the line.
+                assert(msg->tokens > 0);
+                COMMIT
+                {
+                    line->tokens += msg->tokens;
+                
+                    // Combine the dirty flags
+                    line->dirty = line->dirty || msg->dirty;
+                
+                    delete msg;
+                }
+                break;
             }
+        }
+        // We don't have the line, see if we have an empty spot
+        else if ((line = AllocateLine(msg->address, true)) != NULL)
+        {
+            // Yes, place the line there
+            TraceWrite(msg->address, "Storing Evict Request with %u tokens", msg->tokens);
+
+            COMMIT
+            {
+                line->state    = LINE_FULL;
+                line->tag      = (msg->address / m_lineSize) / m_sets;
+                line->tokens   = msg->tokens;
+                line->dirty    = msg->dirty;
+                line->updating = 0;
+                line->access   = GetKernel()->GetCycleNo();
+                std::fill(line->valid, line->valid + MAX_MEMORY_OPERATION_SIZE, true);
+                memcpy(line->data, msg->data.data, msg->data.size);
+            }
+                
+            COMMIT{ delete msg; }
+            break;
+        }
+
+        // Just forward it
+        if (!SendMessage(msg, MINSPACE_FORWARD))
+        {
+            DeadlockWrite("Unable to buffer request for next node");
+            return false;
         }
         break;
 
-    case Message::REQUEST_UPDATE:
-        assert(msg->hops <= m_numCaches);
-        if (msg->hops == m_numCaches - 1)
+    case Message::UPDATE:
+        if (msg->sender == m_id)
         {
             // The update has come full circle.
             // Notify the sender of write consistency.
@@ -512,11 +460,9 @@ bool COMA::Cache::OnRequestReceived(Message* msg)
                     memcpy(line->data + offset, msg->data.data, msg->data.size);
                     std::fill(line->valid + offset, line->valid + offset + msg->data.size, true);
                 }
-            
-                msg->hops++;
             }
             
-            if (!m_next.Send(msg))
+            if (!SendMessage(msg, MINSPACE_FORWARD))
             {
                 DeadlockWrite("Unable to buffer request for next node");
                 return false;
@@ -531,239 +477,6 @@ bool COMA::Cache::OnRequestReceived(Message* msg)
     return true;
 }
     
-// Called when a response has been received from the next node in the chain
-bool COMA::Cache::OnResponseReceived(Message* msg)
-{
-    assert(msg != NULL);
-    
-    if (msg->hops > 0)
-    {
-        // It's not for us, forward it
-        COMMIT{ msg->hops--; }
-        if (!m_prev.Send(msg))
-        {
-            DeadlockWrite("Unable to buffer response for previous node");
-            return false;
-        }
-        return true;
-    }
-
-    // It's for us, handle it
-    if (!p_lines.Invoke())
-    {
-        DeadlockWrite("Unable to acquire lines");
-        return false;
-    }
-    
-    Line* line = FindLine(msg->address);
-    
-    switch (msg->type)
-    {
-    case Message::RESPONSE_READ:
-    {
-        // We received a line for a previous read miss on this cache
-        assert(line != NULL);
-        assert(line->state == LINE_LOADING);
-        assert(msg->tokens > 0);
-        
-        COMMIT
-        {
-            // Store the data, masked by the already-valid bitmask
-            for (size_t i = 0; i < msg->data.size; ++i)
-            {
-                if (!line->valid[i])
-                {
-                    line->data[i] = msg->data.data[i];
-                    line->valid[i] = true;
-                }
-                else
-                {
-                    // This byte has been overwritten by processor.
-                    // Update the message. This will ensure the response
-                    // gets the latest value, and other processors too
-                    // (which is fine, according to non-determinism).
-                    msg->data.data[i] = line->data[i];
-                }
-            }
-            line->state = LINE_FULL;
-        }
-        
-        // Put the data on the bus for the processors
-        if (!OnReadCompleted(msg->address, msg->data))
-        {
-            DeadlockWrite("Unable to notify clients of read completion");
-            return false;
-        }
-        
-        // Before we do anything, we combine the tokens from the response
-        // with the token change from evictions and/or kills in the line.
-        // We should end up with a positive token count.
-        assert(msg->tokens + line->tokens > 0);
-        const unsigned int tokens = msg->tokens + line->tokens;
-
-        if (line->forward)
-        {
-            // We should have enough tokens for ourself and every
-            // cache between us and the cache that wants the data.
-            assert(tokens > 1 + line->hops);
-            
-            TraceWrite(msg->address, "Received Read Response with %u tokens; Forwarding %u tokens", msg->tokens, tokens - (1 + line->hops));
-            
-            // Forward the reply
-            // When we forward a copy, we keep the reserved tokens and forward the rest
-            COMMIT
-            {
-                msg->hops   = line->hops;
-                msg->tokens = tokens - (1 + line->hops);
-            
-                line->tokens = 1 + line->hops;
-            }
-            
-            if (!m_prev.Send(msg))
-            {
-                DeadlockWrite("Unable to buffer response for previous node");
-                return false;
-            }
-        }
-        else
-        {
-            TraceWrite(msg->address, "Received Read Response with %u tokens", msg->tokens);
-        
-            // Store all tokens for ourselves
-            COMMIT
-            {
-                line->tokens = tokens;
-                delete msg;
-            }
-        }
-
-        break;
-    }
-
-    case Message::RESPONSE_FORWARD:
-        if (line != NULL)
-        {
-            const unsigned int hops = msg->tokens;
-            if (line->state == LINE_FULL)
-            {
-                // We have the data, just pretend that this is a read request hit.
-                assert(line->tokens > 0);
-                if ((unsigned int)line->tokens > 1 + hops)
-                {
-                    // We have the data and free tokens, answer the request.
-                    // We reserve one token for ourselves and every cache miss
-                    // on the way back and send the rest.
-                    TraceWrite(msg->address, "Received Forward Response; Full Hit; Enough tokens available");            
-                    COMMIT
-                    {
-                        msg->type   = Message::RESPONSE_READ;
-                        msg->tokens = line->tokens - (1 + hops);
-                        memcpy(msg->data.data, line->data, msg->data.size);
-
-                        // Set our token count. One for ourselves, and one for each missed cache upstream.
-                        line->tokens = 1 + hops;
-
-                        // Also update last access time.
-                        line->access = GetKernel()->GetCycleNo();
-                    }
-                }
-                else
-                {
-                    // We have the data, but not enough tokens. This means another cache
-                    // sits between us and the requester, so send a forward response to
-                    // that cache.
-                    TraceWrite(msg->address, "Received Forward Response; Full Hit; Not enough tokens available");            
-                    COMMIT
-                    {
-                        msg->type   = Message::RESPONSE_FORWARD;
-                        msg->tokens = line->tokens - hops;
-                        msg->hops   = line->tokens - 1;
-                    }
-                }
-                
-                if (!m_prev.Send(msg))
-                {
-                    DeadlockWrite("Unable to buffer response for previous node");
-                    return false;
-                }
-            }
-            // Loading hit
-            else if (line->forward)
-            {
-                // Another cache has already gotten here and set the forward flag.
-                TraceWrite(msg->address, "Received Forward Response; Loading Hit; Sending Forward Response");            
-                
-                COMMIT
-                {
-                    if (hops > line->hops)
-                    {
-                        // The current forwarding cache is closer than the desired cache.
-                        // We need to forward the message to the other cache with new update info.
-                        msg->hops   = line->hops;
-                        msg->tokens = hops - (1 + line->hops);
-                    }
-                    else
-                    {
-                        assert(msg->hops != line->hops);
-                        // The desired cache is closer than the current forwarding cache.
-                        // We need to forward the message to the desired cache to set up a forward there.
-                        msg->hops   = hops;
-                        msg->tokens = line->hops - (1 + hops);
-                    }
-                }
-            
-                if (!m_prev.Send(msg))
-                {
-                    DeadlockWrite("Unable to buffer response for previous node");
-                    return false;
-                }
-            }
-            else
-            {
-                // Store the new hop count (in the token count) as the hop count
-                TraceWrite(msg->address, "Received Forward Response; Loading Hit; Setting Forward flag");            
-                COMMIT
-                {
-                    line->forward = true;
-                    line->hops    = msg->tokens;
-                    delete msg;
-                }
-            }
-        }
-        else
-        {
-            // The line has been evicted since. Send the response back as a read request.
-            // i.e., retry.
-            TraceWrite(msg->address, "Received Forward Response; Miss; Resending Read Request");
-            
-            // Use the message's updated token count as the hop count to the source cache.
-            // This way the message pretends to still be from the original cache.
-            COMMIT
-            {
-                msg->type   = Message::REQUEST_READ;
-                msg->hops   = msg->tokens + 1;
-                msg->tokens = 0;
-            }
-            
-            // FIXME: DANGER DANGER DANGER!!!
-            // Deadlock possibility here? Response channel depending on request channel
-            // Request channel already depends on response channel.
-            printf("Uh oh?\n");
-            if (!m_next.Send(msg))
-            {
-                DeadlockWrite("Unable to buffer request for next node");
-                return false;
-            }
-        }
-        break;
-    
-    default:
-        assert(false);
-        break;
-    }
-    return true;
-}
-
 bool COMA::Cache::OnReadCompleted(MemAddr addr, const MemData& data)
 {
     // Send the completion on the bus
@@ -828,7 +541,6 @@ Result COMA::Cache::OnWriteRequest(const Request& req)
             line->state    = LINE_LOADING;
             line->tag      = (req.address / m_lineSize) / m_sets;
             line->tokens   = 0;
-            line->forward  = false;
             line->dirty    = false;
             line->updating = 0;
             std::fill(line->valid, line->valid + MAX_MEMORY_OPERATION_SIZE, false);
@@ -839,14 +551,15 @@ Result COMA::Cache::OnWriteRequest(const Request& req)
         COMMIT
         {
             msg = new Message;
-            msg->type      = Message::REQUEST_READ;
+            msg->type      = Message::REQUEST;
             msg->address   = (req.address / m_lineSize) * m_lineSize;
+            msg->ignore    = false;
             msg->data.size = m_lineSize;
             msg->tokens    = 0;
-            msg->hops      = 0;
+            msg->sender    = m_id;
         }
             
-        if (!m_next.Send(msg))
+        if (!SendMessage(msg, MINSPACE_INSERTION))
         {
             return FAILED;
         }
@@ -857,9 +570,9 @@ Result COMA::Cache::OnWriteRequest(const Request& req)
 
     // Write hit
     // Although we may hit a loading line
-    if (line->state == LINE_FULL && line->tokens == (int)m_numCaches)
+    if (line->state == LINE_FULL && line->tokens == m_numCaches)
     {
-        // We have all the tokens, notify the sender client immediately
+        // We have all tokens, notify the sender client immediately
         TraceWrite(req.address, "Processing Bus Write Request: Exclusive Hit");
         
         if (!m_clients[req.client]->OnMemoryWriteCompleted(req.tid))
@@ -877,9 +590,9 @@ Result COMA::Cache::OnWriteRequest(const Request& req)
         {
             msg = new Message;
             msg->address   = req.address;
-            msg->type      = Message::REQUEST_UPDATE;
-            msg->hops      = 0;
-            msg->tokens    = 0;
+            msg->type      = Message::UPDATE;
+            msg->sender    = m_id;
+            msg->ignore    = false;
             msg->client    = req.client;
             msg->tid       = req.tid;
             msg->data.size = req.size;
@@ -889,7 +602,7 @@ Result COMA::Cache::OnWriteRequest(const Request& req)
             line->updating++;
         }
             
-        if (!m_next.Send(msg))
+        if (!SendMessage(msg, MINSPACE_INSERTION))
         {
             DeadlockWrite("Unable to buffer request for next node");
             return FAILED;
@@ -927,8 +640,6 @@ Result COMA::Cache::OnReadRequest(const Request& req)
 
     Line* line = FindLine(req.address);
 
-    TraceWrite(req.address, "Processing Bus Read Request: %s", (line == NULL) ? "Miss" : (line->state == LINE_LOADING) ? "Loading Hit" : "Full Hit");
-
     if (line == NULL)
     {
         // Read miss, allocate a line
@@ -942,6 +653,10 @@ Result COMA::Cache::OnReadRequest(const Request& req)
         if (line->state != LINE_EMPTY)
         {
             // We're overwriting another line, evict the old line
+            const size_t set = (line - &m_lines[0]) / m_assoc;
+            const MemAddr address = (line->tag * m_sets + set) * m_lineSize;
+            TraceWrite(req.address, "Processing Bus Read Request: Miss; Evicting 0x%llx", (unsigned long long)address);
+            
             if (!EvictLine(line, req))
             {
                 return FAILED;
@@ -949,13 +664,14 @@ Result COMA::Cache::OnReadRequest(const Request& req)
             return DELAYED;
         }
 
+        TraceWrite(req.address, "Processing Bus Read Request: Miss; Sending Read Request");
+
         // Reset the line
         COMMIT
         {
             line->state    = LINE_LOADING;
             line->tag      = (req.address / m_lineSize) / m_sets;
             line->tokens   = 0;
-            line->forward  = false;
             line->dirty    = false;
             line->updating = 0;
             line->access   = GetKernel()->GetCycleNo();
@@ -967,14 +683,15 @@ Result COMA::Cache::OnReadRequest(const Request& req)
         COMMIT
         {
             msg = new Message;
-            msg->type      = Message::REQUEST_READ;
+            msg->type      = Message::REQUEST;
             msg->address   = req.address;
+            msg->ignore    = false;
             msg->data.size = req.size;
             msg->tokens    = 0;
-            msg->hops      = 0;
+            msg->sender    = m_id;
         }
             
-        if (!m_next.Send(msg))
+        if (!SendMessage(msg, MINSPACE_INSERTION))
         {
             return FAILED;
         }
@@ -983,6 +700,7 @@ Result COMA::Cache::OnReadRequest(const Request& req)
     else if (line->state == LINE_FULL)
     {
         // Line is present and full
+        TraceWrite(req.address, "Processing Bus Read Request: Full Hit");
 
         // Return the data
         MemData data;
@@ -1000,9 +718,11 @@ Result COMA::Cache::OnReadRequest(const Request& req)
             return FAILED;
         }
     }
-    else 
+    else
     {
         // The line is already being loaded.
+        TraceWrite(req.address, "Processing Bus Read Request: Loading Hit");
+
         // We can ignore this request; the completion of the earlier load
         // will put the data on the bus so this requester will also get it.
         assert(line->state == LINE_LOADING);
@@ -1023,59 +743,19 @@ Result COMA::Cache::DoRequests()
     return (result == FAILED) ? FAILED : SUCCESS;
 }
     
-Result COMA::Cache::DoForwardNext()
-{
-    // Forward requests to next
-    assert(!m_next.outgoing.Empty());
-    Message* msg = m_next.outgoing.Front();
-    if (!m_next.node->ReceiveMessagePrev(msg))
-    {
-        DeadlockWrite("Unable to send request to next node");
-        return FAILED;
-    }
-    m_next.outgoing.Pop();
-    return SUCCESS;
-}
-
-Result COMA::Cache::DoForwardPrev()
-{
-    // Forward requests to previous
-    assert(!m_prev.outgoing.Empty());
-    Message* msg = m_prev.outgoing.Front();
-    if (!m_prev.node->ReceiveMessageNext(msg))
-    {
-        DeadlockWrite("Unable to send response to previous node");
-        return FAILED;
-    }
-    m_prev.outgoing.Pop();
-    return SUCCESS;
-}
-    
-Result COMA::Cache::DoReceivePrev()
+Result COMA::Cache::DoReceive()
 {
     // Handle received message from prev
-    assert(!m_prev.incoming.Empty());
-    if (!OnRequestReceived(m_prev.incoming.Front()))
+    assert(!m_incoming.Empty());
+    if (!OnMessageReceived(m_incoming.Front()))
     {
         return FAILED;
     }
-    m_prev.incoming.Pop();
+    m_incoming.Pop();
     return SUCCESS;
 }
 
-Result COMA::Cache::DoReceiveNext()
-{
-    // Handle received message from next
-    assert(!m_next.incoming.Empty());
-    if (!OnResponseReceived(m_next.incoming.Front()))
-    {
-        return FAILED;
-    }
-    m_next.incoming.Pop();
-    return SUCCESS;
-}
-
-COMA::Cache::Cache(const std::string& name, COMA& parent, size_t numCaches, const Config& config) :
+COMA::Cache::Cache(const std::string& name, COMA& parent, CacheID id, size_t numCaches, const Config& config) :
     Simulator::Object(name, parent),
     COMA::Object(name, parent),
     Node(name, parent),
@@ -1083,13 +763,11 @@ COMA::Cache::Cache(const std::string& name, COMA& parent, size_t numCaches, cons
     m_assoc    (config.getInteger<size_t>("COMACacheAssociativity",   4)),
     m_sets     (config.getInteger<size_t>("COMACacheNumSets",       128)),
     m_numCaches(numCaches),
+    m_id       (id),
     m_clients  (std::max<size_t>(1, config.getInteger<size_t>("NumProcessorsPerCache", 4)), NULL),
     p_lines    (*this, "p_lines"),
-    p_Requests ("requests",      delegate::create<Cache, &Cache::DoRequests   >(*this)),
-    p_OutNext  ("outgoing-next", delegate::create<Cache, &Cache::DoForwardNext>(*this)),
-    p_OutPrev  ("outgoing-prev", delegate::create<Cache, &Cache::DoForwardPrev>(*this)),
-    p_InPrev   ("incoming-prev", delegate::create<Cache, &Cache::DoReceivePrev>(*this)),
-    p_InNext   ("incoming-next", delegate::create<Cache, &Cache::DoReceiveNext>(*this)),
+    p_Requests ("requests", delegate::create<Cache, &Cache::DoRequests>(*this)),
+    p_In       ("incoming", delegate::create<Cache, &Cache::DoReceive>(*this)),
     p_bus      (*this, "p_bus"),
     m_requests (*parent.GetKernel(), config.getInteger<BufferSize>("COMACacheRequestBufferSize",  INFINITE)),
     m_responses(*parent.GetKernel(), config.getInteger<BufferSize>("COMACacheResponseBufferSize", INFINITE))
@@ -1104,24 +782,14 @@ COMA::Cache::Cache(const std::string& name, COMA& parent, size_t numCaches, cons
         line.data  = &m_data[i * m_lineSize];
     }
 
-    m_requests.     Sensitive(p_Requests);   
-    m_next.outgoing.Sensitive(p_OutNext);
-    m_prev.outgoing.Sensitive(p_OutPrev);
-    m_prev.incoming.Sensitive(p_InPrev);
-    m_next.incoming.Sensitive(p_InNext);
+    m_requests.Sensitive(p_Requests);   
+    m_incoming.Sensitive(p_In);
     
-    p_lines.AddProcess(p_InNext);
-    p_lines.AddProcess(p_InPrev);
+    p_lines.AddProcess(p_In);
     p_lines.AddProcess(p_Requests);
 
-    p_bus.AddProcess(p_InNext);
-    p_bus.AddProcess(p_InPrev);
-    p_bus.AddProcess(p_Requests);
-    
-    m_prev.arbitrator.AddProcess(p_InNext);   // Response is forwarded
-    m_prev.arbitrator.AddProcess(p_InPrev);   // Incoming request gets response
-    m_next.arbitrator.AddProcess(p_InPrev);   // Incoming request is forwarded
-    m_next.arbitrator.AddProcess(p_Requests); // Request is generated
+    p_bus.AddProcess(p_In);                   // Update triggers write completion
+    p_bus.AddProcess(p_Requests);             // Read or write hit
 }
 
 void COMA::Cache::Cmd_Help(std::ostream& out, const std::vector<std::string>& arguments) const
@@ -1153,12 +821,8 @@ void COMA::Cache::Cmd_Read(std::ostream& out, const std::vector<std::string>& ar
                 << endl;
         }
         
-        out << endl << "Interface with next node:" << endl << endl;
-        m_next.Print(out);        
-
-        out << endl << "Interface with previous node:" << endl << endl;
-        m_prev.Print(out);
-
+        out << endl << "Ring interface:" << endl << endl;
+        Print(out);        
         return;
     }
     
@@ -1195,7 +859,7 @@ void COMA::Cache::Cmd_Read(std::ostream& out, const std::vector<std::string>& ar
 
             switch (line.state)
             {
-                case LINE_LOADING: out << (line.forward ? "F" : "L"); break;
+                case LINE_LOADING: out << "L"; break;
                 default: out << " ";
             }
             out << " | " << dec << setfill(' ') << setw(6) << line.tokens << " |";

@@ -54,97 +54,95 @@ namespace Simulator
     g_FreeMessages = msg;
 }
 
-COMA::Node::Interface::Interface(const Object& object, const std::string& name)
-    : incoming(*object.GetKernel(), 2),
-      outgoing(*object.GetKernel(), 3, 2),
-      arbitrator(object, name + ".arbitrator")
-{
-}
-
-bool COMA::Node::Interface::Send(Message* message)
-{
-    if (!arbitrator.Invoke())
-    {
-        return false;
-    }
-    
-    if (!outgoing.Push(message))
-    {
-        return false;
-    }
-    
-    return true;
-}
-
-/*static*/ void COMA::Node::Interface::PrintMessage(std::ostream& out, const Message& msg)
+/*static*/ void COMA::Node::PrintMessage(std::ostream& out, const Message& msg)
 {
     switch (msg.type)
     {
-    case Message::REQUEST_READ:         out << "| Request: Read        "; break;
-    case Message::REQUEST_EVICT:        out << "| Request: Evict       "; break;
-    case Message::REQUEST_KILL_TOKENS:  out << "| Request: Kill Tokens "; break;
-    case Message::REQUEST_UPDATE:       out << "| Request: Update      "; break;
-    case Message::RESPONSE_READ:        out << "| Response: Read       "; break;
-    case Message::RESPONSE_FORWARD:     out << "| Response: Forward    "; break;
+    case Message::REQUEST:            out << "| Read Request        "; break;
+    case Message::REQUEST_DATA:       out << "| Read Request (Data) "; break;
+    case Message::REQUEST_DATA_TOKEN: out << "| Read Response       "; break;
+    case Message::EVICTION:           out << "| Eviction            "; break;
+    case Message::UPDATE:             out << "| Update              "; break;
     }
+    
     out << " | "
         << "0x" << hex << setfill('0') << setw(16) << msg.address << " | "
         << dec << setfill(' ') << right
-        << setw(6) << msg.tokens << " | "
-        << setw(4) << msg.hops << " | "
+        << setw(6);
+    
+    switch (msg.type)
+    {
+    case Message::EVICTION:
+    case Message::REQUEST_DATA_TOKEN:
+        out << msg.tokens;
+        break;
+        
+    case Message::REQUEST:
+    case Message::REQUEST_DATA:
+    case Message::UPDATE:
+        out << ""; 
+        break;        
+    }
+    
+    out << " | "
+        << setw(6) << msg.sender << " | "
         << endl;
 }
 
-void COMA::Node::Interface::Print(std::ostream& out) const
+void COMA::Node::Print(std::ostream& out) const
 {
-    static const struct {
-        const char* name;
-        const Buffer<Message*> COMA::Node::Interface::*buffer;
+    const struct {
+        const char*             name;
+        const Buffer<Message*>& buffer;
     } Buffers[2] = {
-        {"Incoming", &Interface::incoming},
-        {"Outgoing", &Interface::outgoing}
+        {"incoming", m_incoming},
+        {"outgoing", m_outgoing},
     };
-        
+    
     for (int i = 0; i < 2; ++i)
     {
         out <<
-        "+------------------------------------------------------------+\n"
-        "|                           " << Buffers[i].name << "                         |\n"
-        "+-----------------------+--------------------+--------+------+\n"
-        "|         Type          |       Address      | Tokens | Hops |\n"
-        "+-----------------------+--------------------+--------+------+\n";
+        "+-------------------------------------------------------------+\n"
+        "|                           " << Buffers[i].name << "                          |\n"
+        "+----------------------+--------------------+--------+--------+\n"
+        "|         Type         |       Address      | Tokens | Sender |\n"
+        "+----------------------+--------------------+--------+--------+\n";
         
-        const Buffer<Message*>& buffer = this->*Buffers[i].buffer;
+        const Buffer<Message*>& buffer = Buffers[i].buffer;
         for (Buffer<Message*>::const_iterator p = buffer.begin(); p != buffer.end(); ++p)
         {
             PrintMessage(out, **p);
         }
-        out << "+-----------------------+--------------------+--------+------+\n\n";
+        out << "+----------------------+--------------------+--------+--------+\n\n";
     }
 }
 
 void COMA::Node::Initialize(Node* next, Node* prev)
 {
-    m_prev.node = prev;
-    m_next.node = next;
+    m_prev = prev;
+    m_next = next;
 }
 
-// Receive a message from the previous node
-bool COMA::Node::ReceiveMessagePrev(Message* msg)
+Result COMA::Node::DoForward()
 {
-    assert(msg != NULL);
-    if (!m_prev.incoming.Push(msg))
+    // Forward requests to the next node
+    assert(!m_outgoing.Empty());
+    assert(m_next != NULL);
+    
+    if (!m_next->m_incoming.Push( m_outgoing.Front() ))
     {
-        return false;
+        DeadlockWrite("Unable to send request to next node");
+        return FAILED;
     }
-    return true;
+    m_outgoing.Pop();
+    return SUCCESS;
 }
 
-// Receive a message from the next node
-bool COMA::Node::ReceiveMessageNext(Message* msg)
+// Send a message to the next node.
+// Only succeeds if there's min_space left before the push.
+bool COMA::Node::SendMessage(Message* message, size_t min_space)
 {
-    assert(msg != NULL);
-    if (!m_next.incoming.Push(msg))
+    if (!m_outgoing.Push(message, min_space))
     {
         return false;
     }
@@ -154,10 +152,15 @@ bool COMA::Node::ReceiveMessageNext(Message* msg)
 COMA::Node::Node(const std::string& name, COMA& parent)
     : Simulator::Object(name, parent),
       COMA::Object(name, parent),
-      m_prev(*this, "m_prev"),
-      m_next(*this, "m_next")
+      m_prev(NULL),
+      m_next(NULL),
+      m_incoming(*parent.GetKernel(), 2),
+      m_outgoing(*parent.GetKernel(), 2),
+      p_Forward("forward", delegate::create<Node, &Node::DoForward>(*this))
 {
     g_References++;
+    
+    m_outgoing.Sensitive(p_Forward);
 }
 
 COMA::Node::~Node()

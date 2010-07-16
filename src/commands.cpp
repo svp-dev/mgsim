@@ -97,6 +97,9 @@ static const struct
 #endif
     {"help", new bind_cmd_C<FPU               >(&FPU               ::Cmd_Help) },
     {"info", new bind_cmd_C<VirtualMemory     >(&VirtualMemory     ::Cmd_Info) },
+#ifndef ENABLE_COMA_ZL
+    {"line", new bind_cmd_C<COMA              >(&COMA              ::Cmd_Line) },
+#endif
     {"read", new bind_cmd_C<RAUnit            >(&RAUnit            ::Cmd_Read) },
     {"read", new bind_cmd_C<ThreadTable       >(&ThreadTable       ::Cmd_Read) },
     {"read", new bind_cmd_C<FamilyTable       >(&FamilyTable       ::Cmd_Read) },

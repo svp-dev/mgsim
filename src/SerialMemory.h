@@ -48,7 +48,7 @@ class SerialMemory : public Object, public IMemoryAdmin, public VirtualMemory
 
     std::vector<IMemoryCallback*> m_clients;
     Buffer<Request>               m_requests;
-    ArbitratedService             p_requests;
+    ArbitratedService<>           p_requests;
     CycleNo                       m_baseRequestTime;
     CycleNo                       m_timePerLine;
     CycleNo                       m_sizeOfLine;

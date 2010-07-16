@@ -99,18 +99,19 @@ COMA::COMA(const std::string& name, Simulator::Object& parent, const Config& con
     {
         stringstream name;
         name << "cache" << i;
-        m_caches[i] = new Cache(name.str(), *this, m_caches.size(), config);
+        m_caches[i] = new Cache(name.str(), *this, i, m_caches.size(), config);
     }
     
     // Create the directories
     m_directories.resize( (m_caches.size() + m_numCachesPerDir - 1) / m_numCachesPerDir );
     for (size_t i = 0; i < m_directories.size(); ++i)
     {
-        size_t numCaches = std::min(m_numCachesPerDir, m_caches.size() - i * m_numCachesPerDir);
+        CacheID firstCache = i * m_numCachesPerDir;
+        CacheID lastCache  = std::min(firstCache + m_numCachesPerDir, m_caches.size()) - 1;
         
         stringstream name;
         name << "dir" << i;
-        m_directories[i] = new Directory(name.str(), *this, true, numCaches, config);
+        m_directories[i] = new Directory(name.str(), *this, firstCache, lastCache, config);
     }
     
     // Create the root directories

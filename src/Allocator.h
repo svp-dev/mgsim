@@ -201,10 +201,10 @@ public:
     Process p_ThreadActivation;
     Process p_RegWrites;
 
-    ArbitratedService     p_allocation;     ///< Arbitrator for FamilyTable::AllocateFamily
-    ArbitratedService     p_alloc;          ///< Arbitrator for m_alloc
-    ArbitratedService     p_readyThreads;   ///< Arbitrator for m_readyThreads2
-    ArbitratedService     p_activeThreads;  ///< Arbitrator for m_activeThreads
+    ArbitratedService<>   p_allocation;     ///< Arbitrator for FamilyTable::AllocateFamily
+    ArbitratedService<>   p_alloc;          ///< Arbitrator for m_alloc
+    ArbitratedService<>   p_readyThreads;   ///< Arbitrator for m_readyThreads2
+    ArbitratedService<>   p_activeThreads;  ///< Arbitrator for m_activeThreads
     ThreadList            m_activeThreads;  ///< Queue of the active threads
 
     // Statistics

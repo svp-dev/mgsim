@@ -60,7 +60,7 @@ public:
     Process p_Outgoing;
     Process p_Incoming;
 
-    ArbitratedService p_service;
+    ArbitratedService<> p_service;
     
     Result Fetch(MemAddr address, MemSize size, CID& cid);				// Initial family line fetch
     Result Fetch(MemAddr address, MemSize size, TID& tid, CID& cid);	// Thread code fetch

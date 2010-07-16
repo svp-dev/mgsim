@@ -88,7 +88,7 @@ public:
     Process p_IncomingWrites;
     Process p_Outgoing;
 
-    ArbitratedService p_service;
+    ArbitratedService<> p_service;
 
     // Public interface
     Result Read (MemAddr address, void* data, MemSize size, LFID fid, RegAddr* reg);

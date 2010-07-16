@@ -303,10 +303,13 @@ public:
         }
     }
     
-    bool Push(const T& item)
+    // Pushes the item onto the buffer. Only succeeds if at
+    // least min_space space is available before the push.
+    bool Push(const T& item, size_t min_space = 1)
     {
+        assert(min_space >= 1);
         assert(m_pushes < m_maxPushes);
-        if (m_maxSize == INFINITE || m_data.size() + m_pushes < m_maxSize)
+        if (m_maxSize == INFINITE || m_data.size() + m_pushes + min_space <= m_maxSize)
         {
             COMMIT {
                 m_new[m_pushes] = item;

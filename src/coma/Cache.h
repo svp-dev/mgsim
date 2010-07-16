@@ -27,11 +27,9 @@ public:
         MemAddr      tag;       ///< Tag of the line
         char*        data;      ///< Data of the line
         CycleNo      access;    ///< Last access time (for LRU replacement)
-        bool         forward;   ///< Loading: forward reply when received
+        unsigned int tokens;    ///< Number of tokens in this line
         bool         dirty;     ///< Dirty: line has been written to
         unsigned int updating;  ///< Number of REQUEST_UPDATEs pending on this line
-        signed   int tokens;    ///< Number of tokens held here
-        unsigned int hops;      ///< Loading, forward: Number of caches between us and the next that wants it
         bool         valid[MAX_MEMORY_OPERATION_SIZE]; ///< Validity bitmask
     };
 
@@ -48,23 +46,21 @@ private:
     size_t                        m_assoc;
     size_t                        m_sets;
     size_t                        m_numCaches;
+    CacheID                       m_id;
     std::vector<IMemoryCallback*> m_clients;
-    ArbitratedService             p_lines;
+    ArbitratedService<>           p_lines;
     std::vector<Line>             m_lines;
     std::vector<char>             m_data;
 
     // Processes
     Process p_Requests;
-    Process p_OutNext;
-    Process p_OutPrev;
-    Process p_InPrev;
-    Process p_InNext;
+    Process p_In;
 
     // Incoming requests from the processors
     // First arbitrate, then buffer (models a bus)
-    ArbitratedService p_bus;
-    Buffer<Request>   m_requests;
-    Buffer<MemData>   m_responses;
+    ArbitratedService<> p_bus;
+    Buffer<Request>     m_requests;
+    Buffer<MemData>     m_responses;
     
     Line* FindLine(MemAddr address);
     Line* AllocateLine(MemAddr address, bool empty_only);
@@ -72,18 +68,14 @@ private:
 
     // Processes
     Result DoRequests();
-    Result DoForwardNext();
-    Result DoForwardPrev();
-    Result DoReceiveNext();
-    Result DoReceivePrev();
+    Result DoReceive();
 
     Result OnReadRequest(const Request& req);
     Result OnWriteRequest(const Request& req);
-    bool OnRequestReceived(Message* msg);
-    bool OnResponseReceived(Message* msg);
+    bool OnMessageReceived(Message* msg);
     bool OnReadCompleted(MemAddr addr, const MemData& data);
 public:
-    Cache(const std::string& name, COMA& parent, size_t numCaches, const Config& config);
+    Cache(const std::string& name, COMA& parent, CacheID id, size_t numCaches, const Config& config);
     
     void Cmd_Help(std::ostream& out, const std::vector<std::string>& arguments) const;
     void Cmd_Read(std::ostream& out, const std::vector<std::string>& arguments) const;

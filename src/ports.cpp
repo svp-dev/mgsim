@@ -24,34 +24,75 @@ void ArbitratedPort::AddRequest(const Process& process)
     m_requests.push_back(&process);
 }
 
-void ArbitratedPort::Arbitrate()
+void PriorityArbitratedPort::Arbitrate()
 {
-    // Choose the request with the highest priority
     m_selected = NULL;
-
-    unsigned int highest = std::numeric_limits<unsigned int>::max();
-    for (ProcessList::const_iterator i = m_requests.begin(); i != m_requests.end(); ++i)
+    if (!m_requests.empty())
     {
-        // The position in the vector is its priority
-        unsigned int priority = std::find(&m_processes.front(), &m_processes.back() + 1, *i) - &m_processes.front();
-        assert(priority < m_processes.size());
-        if (priority < highest)
+        if (m_requests.size() == 1)
         {
-            highest    = priority;
-            m_selected = *i;
+            // Optimization for common case
+            m_selected = *m_requests.begin();
         }
-    }
-    m_requests.clear();
-    
-    if (m_selected != NULL)
-    {
+        else
+        {
+            // Choose the request with the highest priority
+            unsigned int highest = std::numeric_limits<unsigned int>::max();
+            for (ProcessList::const_iterator i = m_requests.begin(); i != m_requests.end(); ++i)
+            {
+                // The position in the vector is its priority
+                unsigned int priority = std::find(&m_processes.front(), &m_processes.back() + 1, *i) - &m_processes.front();
+                assert(priority < m_processes.size());
+                if (priority < highest)
+                {
+                    highest    = priority;
+                    m_selected = *i;
+                }
+            }
+        }
+        assert(m_selected != NULL);
+        m_requests.clear();
         m_busyCycles++;
     }
 }
 
-void ArbitratedService::OnArbitrate()
+void CyclicArbitratedPort::Arbitrate()
 {
-    Arbitrate();
+    assert(m_lastSelected <= m_processes.size());
+    
+    m_selected = NULL;
+    if (!m_requests.empty())
+    {
+        if (m_requests.size() == 1)
+        {
+            m_selected     = *m_requests.begin();
+            m_lastSelected = std::find(&m_processes.front(), &m_processes.back() + 1, m_selected) - &m_processes.front();
+            assert(m_lastSelected < m_processes.size());
+        }
+        else
+        {
+            unsigned int lowest = std::numeric_limits<unsigned int>::max();
+            for (ProcessList::const_iterator i = m_requests.begin(); i != m_requests.end(); ++i)
+            {
+                unsigned int pos = std::find(&m_processes.front(), &m_processes.back() + 1, *i) - &m_processes.front();
+                assert(pos < m_processes.size());
+        
+                // Find the distance to the last selected
+                pos = (pos + m_processes.size() - m_lastSelected) % m_processes.size();
+                if (pos != m_lastSelected && pos < lowest)
+                {
+                    lowest     = pos;
+                    m_selected = *i;
+                }
+            }
+        
+            // Remember which one we selected
+            m_lastSelected = (m_lastSelected + lowest) % m_processes.size();
+        }
+        assert(m_selected != NULL);
+        m_requests.clear();
+        m_busyCycles++;
+    }
 }
 
 //

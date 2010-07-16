@@ -20,11 +20,11 @@ struct ParallelMemory::Request
 
 class ParallelMemory::Port : public Object
 {
-    ParallelMemory&   m_memory;
-    ArbitratedService p_requests;
-    Buffer<Request>   m_requests;
-    CycleNo           m_nextdone;
-    Process           p_Requests;
+    ParallelMemory&     m_memory;
+    ArbitratedService<> p_requests;
+    Buffer<Request>     m_requests;
+    CycleNo             m_nextdone;
+    Process             p_Requests;
 
     Result DoRequests()
     {

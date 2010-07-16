@@ -85,6 +85,7 @@ public:
     {
     public:
         virtual bool OnReadCompleted(MemAddr address, const MemData& data) = 0;
+        virtual ~ICallback() {}
     };
     
 private:

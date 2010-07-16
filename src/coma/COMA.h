@@ -37,6 +37,7 @@ public:
 
 private:    
     typedef std::set<MemAddr> TraceMap;
+    typedef size_t            CacheID;
     
     size_t                      m_numProcsPerCache;
     size_t                      m_numCachesPerDir;

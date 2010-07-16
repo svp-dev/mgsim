@@ -7,6 +7,12 @@ using namespace std;
 namespace Simulator
 {
 
+// When we shortcut a message over the ring, we want at least one slots
+// available in the buffer to avoid deadlocking the ring network. This
+// is not necessary for forwarding messages.
+static const size_t MINSPACE_SHORTCUT = 2;
+static const size_t MINSPACE_FORWARD  = 1;
+
 COMA::RootDirectory::Line* COMA::RootDirectory::FindLine(MemAddr address, bool check_only)
 {
     const MemAddr tag  = (address / m_lineSize) / m_sets;
@@ -36,8 +42,9 @@ COMA::RootDirectory::Line* COMA::RootDirectory::FindLine(MemAddr address, bool c
     {
         // Reset the line
         line = empty;
-        line->tag   = tag;
-        line->state = LINE_EMPTY;
+        line->tag    = tag;
+        line->state  = LINE_EMPTY;
+        line->tokens = 0;
     }
     return line;
 }
@@ -61,114 +68,113 @@ const COMA::RootDirectory::Line* COMA::RootDirectory::FindLine(MemAddr address) 
 
 bool COMA::RootDirectory::OnReadCompleted(MemAddr address, const MemData& data)
 {
-    // We should have a loading line for this
-    Line* line = FindLine(address, true);
-    assert(line != NULL);
-    assert(line->state == LINE_LOADING);
-
-    TraceWrite(address, "Sending Read Response");
+    assert(m_activeMsg != NULL);
+    assert(m_activeMsg->address == address);
+    assert(m_activeMsg->type == Message::REQUEST);
     
-    // Since this comes from memory, the reply has all tokens
-    Message* reply = NULL;
     COMMIT
     {
-        reply = new Message;
-        reply->type    = Message::RESPONSE_READ;
-        reply->address = address;
-        reply->tokens  = m_numCaches;
-        reply->data    = data;
-        reply->hops    = line->hops;
+        m_activeMsg->type = Message::REQUEST_DATA_TOKEN;
+        m_activeMsg->data = data;
     }
     
-    if (!m_outgoing.Push(reply))
+    if (!m_responses.Push(m_activeMsg))
     {
         DeadlockWrite("Unable to push reply into send buffer");
         return false;
     }
     
-    // The line has now been read
-    COMMIT{ line->state = LINE_FULL; }   
+    // We're done with this request
+    COMMIT{ m_activeMsg = NULL; }
     return true;
 }
 
-bool COMA::RootDirectory::OnRequestReceived(Message* msg)
+bool COMA::RootDirectory::OnMessageReceived(Message* msg)
 {
     assert(msg != NULL);
+    
+    if (!p_lines.Invoke())
+    {
+        return false;
+    }
 
     switch (msg->type)
     {
-    case Message::REQUEST_READ:
+    case Message::REQUEST:
     {
         // Cache-line read request
         assert(msg->data.size == m_lineSize);
         
-        // See if a cache below this directory has the line
+        // Find or allocate the line
         Line* line = FindLine(msg->address, false);
-        if (line->state != LINE_FULL)
+        if (line->state == LINE_EMPTY)
         {
-            if (line->state == LINE_LOADING)
+            // Line has not been read yet it; queue the read
+            TraceWrite(msg->address, "Received Read Request; Miss; Queuing request");
+            if (!m_requests.Push(msg))
             {
-                // Same as a cache-hit on a loading line with forward flag.
-                // Update the hop count and send a response back indicating
-                // that the forward flag should be set.
-                TraceWrite(msg->address, "Received Read Request; Loading Hit; Sending Forward Response");
-    
-                COMMIT
-                {
-                    msg->type   = Message::RESPONSE_FORWARD;
-                    msg->tokens = line->hops - (1 + msg->hops);
-                    line->hops  = msg->hops;
-                }
-            
-                if (!m_prev.Send(msg))
-                {
-                    return false;
-                }
+                return false;
             }
-            else
+
+            COMMIT
             {
-                // Line has not been read yet it; queue the read
-                assert(line->state == LINE_EMPTY);
-
-                TraceWrite(msg->address, "Received Read Request; Miss; Queuing request");
-                MemRequest req;
-                req.address = msg->address;
-                req.data.size = 0;
-                if (!m_incoming.Push(req))
-                {
-                    return false;
-                }
-
-                COMMIT
-                {
-                    line->state = LINE_LOADING;
-                    line->hops  = msg->hops;
-                    delete msg;
-                }
+                line->state  = LINE_LOADING;
+                line->sender = msg->sender;
             }
             return true;
         }
         break;
     }
+    
+    case Message::REQUEST_DATA:
+    {
+        // We should have the line since the request already hit a copy to get the data
+        Line* line = FindLine(msg->address, true);
+        assert(line != NULL);
+        assert(line->state == LINE_FULL);
+        
+        if (line->tokens > 0)
+        {
+            // Give the request the tokens that we have
+            TraceWrite(msg->address, "Received Read Request with data; Attaching %u tokens", line->tokens);
+            COMMIT
+            {
+                msg->type    = Message::REQUEST_DATA_TOKEN;
+                msg->tokens  = line->tokens;
+                line->tokens = 0;
+            }
+        }
+        break;
+    }
 
-    case Message::REQUEST_EVICT:
-        assert(msg->tokens > 0);
-        if ((unsigned)msg->tokens == m_numCaches)
+    case Message::EVICTION:
+    {
+        Line* line = FindLine(msg->address, true);
+        assert(line != NULL);
+        assert(line->state == LINE_FULL);
+            
+        unsigned int tokens = msg->tokens + line->tokens;
+        assert(tokens <= m_numCaches);
+        
+        if (tokens < m_numCaches)
+        {
+            // We don't have all the tokens, so just store the new token count
+            TraceWrite(msg->address, "Received Evict Request; Adding its %u tokens to directory's %u tokens", msg->tokens, line->tokens);
+            COMMIT
+            {
+                line->tokens = tokens;
+                delete msg;
+            }
+        }
+        else
         {
             // Evict message with all tokens, discard and remove the line from the system.
-            Line* line = FindLine(msg->address, true);
-            assert(line != NULL);
-            assert(line->state == LINE_FULL);
-            
             if (msg->dirty)
             {
                 TraceWrite(msg->address, "Received Evict Request; All tokens; Writing back and clearing line from system");
                 
                 // Line has been modified, queue the writeback
-                MemRequest req;
-                req.address = msg->address;
-                req.data = msg->data;
-                if (!m_incoming.Push(req))
+                if (!m_requests.Push(msg))
                 {
                     return false;
                 }
@@ -176,25 +182,15 @@ bool COMA::RootDirectory::OnRequestReceived(Message* msg)
             else
             {
                 TraceWrite(msg->address, "Received Evict Request; All tokens; Clearing line from system");
-            }
-            
-            COMMIT
-            {
-                line->state = LINE_EMPTY;
-                delete msg;
-            }
-            return true;
+                COMMIT{ delete msg; }
+            }            
+            COMMIT{ line->state = LINE_EMPTY; }
         }
-        
-        // This eviction does not have all the tokens.
-        // Forward it around to be merged.
-        break;
-
-    case Message::REQUEST_KILL_TOKENS:
-        // Just forward it to be merged.
-        break;
-
-    case Message::REQUEST_UPDATE:
+        return true;
+    }
+    
+    case Message::UPDATE:
+    case Message::REQUEST_DATA_TOKEN:
         // Just forward it
         break;
                     
@@ -204,108 +200,116 @@ bool COMA::RootDirectory::OnRequestReceived(Message* msg)
     }
 
     // Forward the request
-    if (!m_next.Send(msg))
+    if (!SendMessage(msg, MINSPACE_SHORTCUT))
     {
-        DeadlockWrite("Unable to forward request");
-        return false;
+        // Can't shortcut the message, go the long way
+        COMMIT{ msg->ignore = true; }
+        if (!m_requests.Push(msg))
+        {
+            DeadlockWrite("Unable to forward request");
+            return false;
+        }
     }
     return true;
-}
-
-bool COMA::RootDirectory::OnResponseReceived(Message* msg)
-{
-    assert(msg != NULL);
-    
-    // Forward the response
-    if (!m_prev.Send(msg))
-    {
-        DeadlockWrite("Unable to forward response");
-        return false;
-    }
-    return true;
-}
-
-Result COMA::RootDirectory::DoInPrevBottom()
-{
-    // Handle incoming request on bottom ring from previous node
-    assert(!m_prev.incoming.Empty());
-    if (!OnRequestReceived(m_prev.incoming.Front()))
-    {
-        return FAILED;
-    }
-    m_prev.incoming.Pop();
-    return SUCCESS;
-}
-
-Result COMA::RootDirectory::DoInNextBottom()
-{
-    // Handle incoming response on bottom ring from next node
-    assert(!m_next.incoming.Empty());
-    if (!OnResponseReceived(m_next.incoming.Front()))
-    {
-        return FAILED;
-    }
-    m_next.incoming.Pop();
-    return SUCCESS;
-}
-
-Result COMA::RootDirectory::DoOutNextBottom()
-{
-    // Send outgoing message on bottom ring to next node
-    assert(!m_next.outgoing.Empty());
-    if (!m_next.node->ReceiveMessagePrev(m_next.outgoing.Front()))
-    {
-        return FAILED;
-    }
-    m_next.outgoing.Pop();
-    return SUCCESS;
-}
-
-Result COMA::RootDirectory::DoOutPrevBottom()
-{
-    // Send outgoing message on bottom ring to previous node
-    assert(!m_prev.outgoing.Empty());
-    if (!m_prev.node->ReceiveMessageNext(m_prev.outgoing.Front()))
-    {
-        return FAILED;
-    }
-    m_prev.outgoing.Pop();
-    return SUCCESS;
 }
 
 Result COMA::RootDirectory::DoIncoming()
 {
+    // Handle incoming message from previous node
     assert(!m_incoming.Empty());
-    const MemRequest& req = m_incoming.Front();
-    if (req.data.size == 0)
+    if (!OnMessageReceived(m_incoming.Front()))
     {
-        // It's a read
-        if (!m_memory->Read(req.address, m_lineSize))
+        return FAILED;
+    }
+    m_incoming.Pop();
+    return SUCCESS;
+}
+
+Result COMA::RootDirectory::DoRequests()
+{
+    assert(!m_requests.Empty());
+
+    if (m_activeMsg != NULL)
+    {
+        // We're currently processing a read that will produce a reply, stall
+        return FAILED;
+    }
+    
+    Message* msg = m_requests.Front();
+    if (msg->ignore)
+    {
+        // Ignore this message; put on responses queue for re-insertion into global ring
+        if (!m_responses.Push(msg))
         {
             return FAILED;
         }
     }
     else
     {
-        // It's a write
-        if (!m_memory->Write(req.address, req.data.data, req.data.size))
+        if (msg->type == Message::REQUEST)
         {
-            return FAILED;
+            // It's a read
+            if (!m_memory->Read(msg->address, m_lineSize))
+            {
+                return FAILED;
+            }
+            COMMIT{ m_activeMsg = msg; }
+        }
+        else
+        {
+            // It's a write
+            assert(msg->type == Message::EVICTION);
+            if (!m_memory->Write(msg->address, msg->data.data, msg->data.size))
+            {
+                return FAILED;
+            }
+            COMMIT{ delete msg; }
         }
     }
-    m_incoming.Pop();
+    m_requests.Pop();
     return SUCCESS;
 }
 
-Result COMA::RootDirectory::DoOutgoing()
+Result COMA::RootDirectory::DoResponses()
 {
-    assert(!m_outgoing.Empty());
-    Message* msg = m_outgoing.Front();
-    if (!m_prev.Send(msg))
+    assert(!m_responses.Empty());
+    Message* msg = m_responses.Front();
+
+    // We need this arbitrator for the output channel anyway,
+    // even if we don't need or modify any line.
+    if (!p_lines.Invoke())
     {
         return FAILED;
     }
-    m_outgoing.Pop();
+
+    if (!msg->ignore)
+    {
+        // We should have a loading line for this
+        Line* line = FindLine(msg->address, true);
+        assert(line != NULL);
+        assert(line->state == LINE_LOADING);
+
+        TraceWrite(msg->address, "Sending Read Response with %u tokens", (unsigned)m_numCaches);
+
+        COMMIT
+        {
+            // Since this comes from memory, the reply has all tokens
+            msg->tokens = m_numCaches;
+            msg->sender = line->sender;
+    
+            // The line has now been read
+            line->state = LINE_FULL;
+        }
+    }
+    
+    COMMIT{ msg->ignore = false; }
+    
+    if (!SendMessage(msg, MINSPACE_FORWARD))
+    {
+        return FAILED;
+    }
+    
+    m_responses.Pop();
     return SUCCESS;
 }
 
@@ -313,20 +317,17 @@ COMA::RootDirectory::RootDirectory(const std::string& name, COMA& parent, Virtua
     Simulator::Object(name, parent),
     COMA::Object(name, parent),
     DirectoryBottom(name, parent),
-    p_lines   (*this, "p_lines"),
     m_lineSize(config.getInteger<size_t>("CacheLineSize",           64)),
     m_assoc   (config.getInteger<size_t>("COMACacheAssociativity",   4) * numCaches),
     m_sets    (config.getInteger<size_t>("COMACacheNumSets",       128)),
     m_numCaches(numCaches),
-    m_incoming(*parent.GetKernel(), INFINITE),
-    m_outgoing(*parent.GetKernel(), INFINITE),
-
-    p_InPrevBottom ("bottom-incoming-prev", delegate::create<RootDirectory, &RootDirectory::DoInPrevBottom >(*this)),
-    p_InNextBottom ("bottom-incoming-next", delegate::create<RootDirectory, &RootDirectory::DoInNextBottom >(*this)),
-    p_OutNextBottom("bottom-outgoing-next", delegate::create<RootDirectory, &RootDirectory::DoOutNextBottom>(*this)),
-    p_OutPrevBottom("bottom-outgoing-prev", delegate::create<RootDirectory, &RootDirectory::DoOutPrevBottom>(*this)),
-    p_Incoming     ("incoming",             delegate::create<RootDirectory, &RootDirectory::DoIncoming     >(*this)),
-    p_Outgoing     ("outgoing",             delegate::create<RootDirectory, &RootDirectory::DoOutgoing     >(*this))
+    p_lines    (*this, "p_lines"),    
+    m_requests (*parent.GetKernel(), INFINITE),
+    m_responses(*parent.GetKernel(), INFINITE),
+    m_activeMsg(NULL),
+    p_Incoming ("incoming",  delegate::create<RootDirectory, &RootDirectory::DoIncoming>(*this)),
+    p_Requests ("requests",  delegate::create<RootDirectory, &RootDirectory::DoRequests>(*this)),
+    p_Responses("responses", delegate::create<RootDirectory, &RootDirectory::DoResponses>(*this))
 {
     assert(m_lineSize <= MAX_MEMORY_OPERATION_SIZE);
     
@@ -338,20 +339,12 @@ COMA::RootDirectory::RootDirectory(const std::string& name, COMA& parent, Virtua
         m_lines[i].state = LINE_EMPTY;
     }
 
-    m_prev.incoming.Sensitive(p_InPrevBottom);
-    m_next.incoming.Sensitive(p_InNextBottom);
-    m_next.outgoing.Sensitive(p_OutNextBottom);
-    m_prev.outgoing.Sensitive(p_OutPrevBottom);
     m_incoming.Sensitive(p_Incoming);
-    m_outgoing.Sensitive(p_Outgoing);
+    m_requests.Sensitive(p_Requests);
+    m_responses.Sensitive(p_Responses);
     
-    p_lines.AddProcess(p_InPrevBottom);
-    p_lines.AddProcess(p_InNextBottom);
-    
-    m_next.arbitrator.AddProcess(p_InPrevBottom);
-    m_prev.arbitrator.AddProcess(p_InPrevBottom);
-    m_prev.arbitrator.AddProcess(p_InNextBottom);
-    m_prev.arbitrator.AddProcess(p_Outgoing);
+    p_lines.AddProcess(p_Incoming);
+    p_lines.AddProcess(p_Responses);
 
     m_memory = new DDRChannel("ddr", *this, memory);
 }
@@ -379,25 +372,8 @@ void COMA::RootDirectory::Cmd_Read(std::ostream& out, const std::vector<std::str
 {
     if (!arguments.empty() && arguments[0] == "buffers")
     {
-        // Read the buffers
-        out << endl << "Interface to memory:" << endl << endl;
-        out << "+--------------------+-------+\n";
-        out << "|       Address      | Type  |\n";
-        out << "+--------------------+-------+\n";
-        for (Buffer<MemRequest>::const_iterator p = m_incoming.begin(); p != m_incoming.end(); ++p)
-        {
-            out << "| 0x" << hex << setfill('0') << setw(16) << p->address << " | "
-                << (p->data.size == 0 ? "Read " : "Write") << " |"
-                << endl;
-        }
-        out << "+--------------------+\n";
-
-        out << endl << "Interface with next node:" << endl << endl;
-        m_next.Print(out);
-
-        out << endl << "Interface with previous node:" << endl << endl;
-        m_prev.Print(out);
-
+        // Print the buffers
+        Print(out);
         return;
     }
 

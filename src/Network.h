@@ -108,7 +108,7 @@ class Network : public Object
     template <typename T>
     class Register : public Simulator::Register<T>
     {
-        ArbitratedService m_service;
+        ArbitratedService<> m_service;
 
     public:
         void AddProcess(const Process& process) {

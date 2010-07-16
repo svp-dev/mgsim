@@ -31,54 +31,29 @@ namespace Simulator
 class COMA::Node : public virtual COMA::Object
 {
 protected:
-    /***
-     * This is the message that gets sent around.
-     *
-     * Some details on the meaning of the fields for various types.
-     *
-     * 'address' always indicates the cache-line the message concerns.
-     * 
-     * For requests, the 'hops' field is incremented whenever the request
-     * misses a cache and/or directory. For responses, it designates the
-     * destination by being decremented and forwarded until it's zero.
-     * Responses are routed purely on this counter.
-     *
-     * 'data':
-     * Only has a meaning for RESPONSE_READ and holds the data that has
-     * been read.
-     * 
-     * 'tokens':
-     * For REQUEST_READ and REQUEST_UPDATE it has no meaning (should be 0).
-     * For REQUEST_EVICT it indicates how many tokens the eviction carries.
-     * For REQUEST_KILL_TOKENS it indicates how many tokens to kill.
-     * For RESPONSE_READ it indicates how many tokens the destination
-     * cache got from the sender.
-     * For RESPONSE_FORWARD it indicates how many hops are between the
-     * destination and the next cache that the destination should forward
-     * its data to.
-     */
+    /// This is the message that gets sent around
     union Message
     {
         enum Type {
-            REQUEST_READ,       ///< Read request (RR)
-            REQUEST_EVICT,      ///< Eviction request (merge tokens) (ER)
-            REQUEST_KILL_TOKENS,///< Token-Kill request (TKR)
-            REQUEST_UPDATE,     ///< Update request (UR)
-            RESPONSE_READ,      ///< Read response with data and tokens (DR)
-            RESPONSE_FORWARD,   ///< Forward-update response (FR)
+            REQUEST,            ///< Read request (RR)
+            REQUEST_DATA,       ///< Read request with data (RD)
+            REQUEST_DATA_TOKEN, ///< Read request with data and tokens (RDT)
+            EVICTION,           ///< Eviction (EV)
+            UPDATE,             ///< Update (UP)
         };
         
         /// The actual message contents that's simulated
         struct
         {
-            Type         type;      ///< Type of message
-            MemAddr      address;   ///< The address of the cache-line
-            MemData      data;      ///< The data (ER, DR)
-            bool         dirty;     ///< Is the data dirty? (ER)
-            unsigned int hops;      ///< How many caches did this message pass?
-            unsigned int tokens;    ///< Number of tokens in this message (ER, TKR, DR, FR)
-            size_t       client;    ///< Sending client (UR)
-            TID          tid;       ///< Sending thread (UR)
+            Type         type;          ///< Type of message
+            MemAddr      address;       ///< The address of the cache-line
+            CacheID      sender;        ///< ID of the sender of the message
+            bool         ignore;        ///< Just pass this message through to the top level
+            MemData      data;          ///< The data (RD, RDT, EV, UP)
+            bool         dirty;         ///< Is the data dirty? (EV)
+            unsigned int tokens;        ///< Number of tokens in this message (RDT, EV)
+            size_t       client;        ///< Sending client (UP)
+            TID          tid;           ///< Sending thread (UP)
         };
         
         /// For memory management
@@ -92,38 +67,38 @@ protected:
     private:
         Message(const Message&) {} // No copying
     };
-    
+
+private:    
     // Message management
     static Message*            g_FreeMessages;
     static std::list<Message*> g_Messages;
     static unsigned long       g_References;
 
-    class Interface
-    {
-        static void PrintMessage(std::ostream& out, const Message& msg);
+    static void PrintMessage(std::ostream& out, const Message& msg);
+
+    Node*             m_prev;           ///< Prev node in the ring
+    Node*             m_next;           ///< Next node in the ring
+protected:
+    Buffer<Message*>  m_incoming;       ///< Buffer for incoming messages from the prev node
+private:
+    Buffer<Message*>  m_outgoing;       ///< Buffer for outgoing messages to the next node
+   
+    /// Process for sending to the next node
+    Process           p_Forward;
+    Result            DoForward();
+
+protected:
+    /// Send the message to the next node
+    bool SendMessage(Message* message, size_t min_space);
     
-    public:
-        Node*             node;
-        Buffer<Message*>  incoming;
-        Buffer<Message*>  outgoing;
-        ArbitratedService arbitrator;
-        
-        bool Send(Message* message);
-        void Print(std::ostream& out) const;
-        
-        Interface(const Object& object, const std::string& name);
-    };
+    /// Print the incoming and outgoing buffers of this node
+    void Print(std::ostream& out) const;
     
-    Interface m_prev;
-    Interface m_next;
-    
+    /// Construct the node
     Node(const std::string& name, COMA& parent);
     virtual ~Node();
 
 public:
-    bool ReceiveMessagePrev(Message* msg);
-    bool ReceiveMessageNext(Message* msg);
-
     void Initialize(Node* next, Node* prev);
 };
 

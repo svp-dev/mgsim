@@ -27,51 +27,40 @@ class COMA::Directory : public COMA::DirectoryBottom, public COMA::DirectoryTop
 public:
     struct Line
     {
-        bool    valid;  ///< Valid line?
-        MemAddr tag;    ///< Tag of this line
+        bool         valid;  ///< Valid line?
+        MemAddr      tag;    ///< Tag of this line
+        unsigned int tokens; ///< Tokens in this ring
     };
     
 private:
-    ArbitratedService p_lines;      ///< Arbitrator for access to the lines
-    std::vector<Line> m_lines;      ///< The cache lines
-    size_t            m_lineSize;   ///< The size of a cache-line
-    size_t            m_assoc;      ///< Number of lines in a set
-    size_t            m_sets;       ///< Number of sets
-    bool              m_topLevel;   ///< Is this a directory in the top-level ring?
-    size_t            m_numCaches;  ///< The number of caches that lie under the directory
+    ArbitratedService<CyclicArbitratedPort> p_lines;      ///< Arbitrator for access to the lines
+    std::vector<Line>   m_lines;      ///< The cache lines
+    size_t              m_lineSize;   ///< The size of a cache-line
+    size_t              m_assoc;      ///< Number of lines in a set
+    size_t              m_sets;       ///< Number of sets
+    CacheID             m_firstCache; ///< ID of first cache in the ring
+    CacheID             m_lastCache;  ///< ID of last cache in the ring
     
     // Processes
-    Process p_InPrevBottom;
-    Process p_InNextBottom;
-    Process p_OutNextBottom;
-    Process p_OutPrevBottom;
-    Process p_InPrevTop;
-    Process p_InNextTop;
-    Process p_OutNextTop;
-    Process p_OutPrevTop;    
+    Process p_InBottom;
+    Process p_InTop;
 
     Line* FindLine(MemAddr address);
     Line* AllocateLine(MemAddr address);
-    bool  OnRequestReceivedBottom(Message* msg);
-    bool  OnRequestReceivedTop(Message* msg);
-    bool  OnResponseReceivedTop(Message* msg);
-    bool  OnResponseReceivedBottom(Message* msg);
+    bool  OnMessageReceivedBottom(Message* msg);
+    bool  OnMessageReceivedTop(Message* msg);
+    bool  IsBelow(CacheID id) const;
     
     // Processes
-    Result DoInPrevBottom();
-    Result DoInNextBottom();
-    Result DoOutNextBottom();
-    Result DoOutPrevBottom();
-    Result DoInPrevTop();
-    Result DoInNextTop();
-    Result DoOutNextTop();
-    Result DoOutPrevTop();    
+    Result DoInBottom();
+    Result DoOutBottom();
+    Result DoInTop();
+    Result DoOutTop();
 
 public:
     const Line* FindLine(MemAddr address) const;
 
-    // numCaches is the number of caches below this directory
-    Directory(const std::string& name, COMA& parent, bool top_level, size_t numCaches, const Config& config);
+    Directory(const std::string& name, COMA& parent, CacheID firstCache, CacheID lastCache, const Config& config);
     
     void Cmd_Help(std::ostream& out, const std::vector<std::string>& arguments) const;
     void Cmd_Read(std::ostream& out, const std::vector<std::string>& arguments) const;

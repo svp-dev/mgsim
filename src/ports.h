@@ -34,8 +34,6 @@ public:
 //
 class ArbitratedPort
 {
-    typedef std::vector<const Process*> ProcessList;
-
 public:
 	uint64_t GetBusyCycles() const {
 		return m_busyCycles;
@@ -45,8 +43,6 @@ public:
         m_processes.push_back(&process);
     }
 
-    void Arbitrate();
-    
 protected:
     bool HasAcquired(const Process& process) const {
         return m_selected == &process;
@@ -71,13 +67,39 @@ protected:
     ArbitratedPort(const Object& object, const std::string& name) : m_busyCycles(0), m_object(object), m_name(name) {}
     virtual ~ArbitratedPort() {}
 
-private:
+protected:
+    typedef std::vector<const Process*> ProcessList;
+
     ProcessList    m_processes;
     ProcessList    m_requests;
     const Process* m_selected;
 	uint64_t       m_busyCycles;
+
+private:
 	const Object&  m_object;
     std::string    m_name;
+};
+
+class PriorityArbitratedPort : public ArbitratedPort
+{
+public:
+    void Arbitrate();
+
+protected:
+    PriorityArbitratedPort(const Object& object, const std::string& name)
+        : ArbitratedPort(object, name) {}
+};
+
+class CyclicArbitratedPort : public ArbitratedPort
+{
+    size_t m_lastSelected;
+    
+public:
+    void Arbitrate();
+    
+protected:
+    CyclicArbitratedPort(const Object& object, const std::string& name)
+        : ArbitratedPort(object, name), m_lastSelected(0) {}
 };
 
 //
@@ -222,12 +244,12 @@ public:
 //
 // ArbitratedReadPort
 //
-class ArbitratedReadPort : public ArbitratedPort
+class ArbitratedReadPort : public PriorityArbitratedPort
 {
     IStructure& m_structure;
 public:
     ArbitratedReadPort(IStructure& structure, const std::string& name)
-        : ArbitratedPort(structure, name), m_structure(structure)
+        : PriorityArbitratedPort(structure, name), m_structure(structure)
     {
         m_structure.RegisterReadPort(*this);
     }
@@ -257,7 +279,7 @@ public:
 // ArbitratedWritePort
 //
 template <typename I>
-class ArbitratedWritePort : public ArbitratedPort, public WritePort<I>
+class ArbitratedWritePort : public PriorityArbitratedPort, public WritePort<I>
 {
     typedef std::map<const Process*, I> IndexMap;
    
@@ -266,14 +288,14 @@ class ArbitratedWritePort : public ArbitratedPort, public WritePort<I>
 
     void AddRequest(const Process& process, const I& index)
     {
-        ArbitratedPort::AddRequest(process);
+        PriorityArbitratedPort::AddRequest(process);
         m_indices[&process] = index;
     }
     
 public:
     void Arbitrate()
     {
-        ArbitratedPort::Arbitrate();
+        PriorityArbitratedPort::Arbitrate();
         const Process* process = GetSelectedProcess();
         if (process != NULL)
         {
@@ -286,7 +308,7 @@ public:
     }
 
     ArbitratedWritePort(Structure<I>& structure, const std::string& name)
-        : ArbitratedPort(structure, name), m_structure(structure)
+        : PriorityArbitratedPort(structure, name), m_structure(structure)
     {
         m_structure.RegisterArbitratedWritePort(*this);
     }
@@ -394,15 +416,19 @@ public:
 // associated service. It's purpose is to arbitrate access to a single
 // feature of a component.
 //
-class ArbitratedService : public ArbitratedPort, public Arbitrator
+template <typename Base = class PriorityArbitratedPort>
+class ArbitratedService : public Base, public Arbitrator
 {
-    void OnArbitrate();
+    void OnArbitrate()
+    {
+        this->Arbitrate();
+    }
     
 public:
     bool Invoke()
     {
         const Process& process = *m_kernel.GetActiveProcess();
-        Verify(process);
+        this->Verify(process);
         if (m_kernel.GetCyclePhase() == PHASE_ACQUIRE) {
             this->AddRequest(process);
             RequestArbitration();
@@ -413,7 +439,7 @@ public:
     }
     
     ArbitratedService(const Object& object, const std::string& name)
-        : ArbitratedPort(object, name), Arbitrator(*object.GetKernel())
+        : Base(object, name), Arbitrator(*object.GetKernel())
     {
     }
     
