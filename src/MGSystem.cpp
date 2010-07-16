@@ -701,38 +701,26 @@ MGSystem::MGSystem(const Config& config, Display& display, const string& program
       m_program(program)
 {
     const vector<PSize> placeSizes = config.getIntegerList<PSize>("NumProcessors");
-    const size_t numProcessorsPerFPU_orig = max<size_t>(1, config.getInteger<size_t>("NumProcessorsPerFPU", 1));
-
-    // Validate the #cores/FPU
-    size_t numProcessorsPerFPU = numProcessorsPerFPU_orig;
-    for (; numProcessorsPerFPU > 1; --numProcessorsPerFPU)
-    {
-        size_t i;
-        for (i = 0; i < placeSizes.size(); ++i) {
-            if (placeSizes[i] % numProcessorsPerFPU != 0) {
-                break;
-            }
-        }
-        if (i == placeSizes.size()) break;
-    }
-
-    if ((numProcessorsPerFPU != numProcessorsPerFPU_orig) && !quiet)
-        std::cerr << "Warning: #cores in at least one place cannot be divided by "
-                  << numProcessorsPerFPU_orig
-                  << " cores/FPU" << std::endl
-                  << "Value has been adjusted to "
-                  << numProcessorsPerFPU
-                  << " cores/FPU" << std::endl;
-
+    const size_t numProcessorsPerFPU = max<size_t>(1, config.getInteger<size_t>("NumProcessorsPerFPU", 1));
 
     PSize numProcessors = 0;
-    size_t numFPUs      = 0;
-    for (size_t i = 0; i < placeSizes.size(); ++i) {
-        if (placeSizes[i] % numProcessorsPerFPU != 0) {
-            throw runtime_error("#cores in at least one place cannot be divided by #cores/FPU");
+    PSize curFPUmod = 0;
+    PSize numFPUs = 0;
+    size_t i;
+    for (i = 0; i < placeSizes.size(); ++i) {
+        if (curFPUmod != 0)
+            std::cerr << "# warning: place " << i << " shares a FPU with the previous place" << std::endl;
+
+        for (size_t j = 0; j < placeSizes[i]; ++j) {            
+            ++numProcessors;
+            curFPUmod = (curFPUmod + 1) % numProcessorsPerFPU;
+            if (curFPUmod == 0) ++numFPUs;
         }
-        numProcessors += placeSizes[i];
-        numFPUs       += placeSizes[i] / numProcessorsPerFPU;
+    }
+    if (curFPUmod != 0)
+    {
+        ++numFPUs;
+        std::cerr << "# warning: last FPU in place " << i-1 << " is not shared fully" << std::endl;
     }
 
 #ifdef ENABLE_COMA_ZL
