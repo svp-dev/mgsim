@@ -13,6 +13,8 @@ FLAGS_COMMON = -W -Wall -Wwrite-strings -Wno-unused \
 #       -Wshorten-64-to-32 -Wextra
 #       -Weffc++ -Woverloaded-virtual 
 
+LIBS_COMMON =
+
 FLAGS_COMA = -DENABLE_COMA_ZL=1 -DTARGET_ARCH=ARCH_ALPHA
 
 
@@ -150,6 +152,13 @@ COMMON_SRC = \
 	coma/DDR.h \
 	coma/DDR.cpp
 
+if ENABLE_MONITOR
+COMMON_SRC += monitor.h monitor.cpp
+FLAGS_COMMON += $(PTHREAD_CFLAGS) -DENABLE_MONITOR=1
+LIBS_COMMON += $(PTHREAD_LIBS)
+endif
+
+
 SPECIAL_SRC = \
 	ExecuteStage.cpp \
 	kernel.cpp \
@@ -217,24 +226,26 @@ libalpha_g_a_CXXFLAGS = $(FLAGS_ALPHA) $(FLAGS_DEBUG) $(FLAGS_COMMON)
 mgsim_alpha_SOURCES = $(SPECIAL_SRC)
 mgsim_alpha_CXXFLAGS = $(FLAGS_ALPHA) $(FLAGS_OPT) $(FLAGS_COMMON) $(FLAGS_SPECIAL)
 mgsim_alpha_LDADD = libalpha.a
+mgsim_alpha_LDFLAGS = $(LIBS_COMMON)
 
 mgsim_alpha_dbg_SOURCES = $(SPECIAL_SRC)
 mgsim_alpha_dbg_CXXFLAGS = $(FLAGS_ALPHA) $(FLAGS_DEBUG) $(FLAGS_COMMON) $(FLAGS_SPECIAL)
 mgsim_alpha_dbg_LDADD = libalpha_g.a
+mgsim_alpha_dbg_LDFLAGS = $(LIBS_COMMON)
 
 if ENABLE_COMA_ZL
 bin_PROGRAMS += simx-alpha simx-alpha.dbg
 dist_man1_MANS += simx-alpha.1
 
 simx_alpha_SOURCES = $(SPECIAL_SRC) $(COMA_SRC)
-simx_alpha_CXXFLAGS = $(FLAGS_ALPHA) $(FLAGS_OPT) $(FLAGS_COMMON) $(FLAGS_COMA) $(FLAGS_SPECIAL)
+simx_alpha_CXXFLAGS = $(FLAGS_ALPHA) $(FLAGS_OPT) $(FLAGS_COMMON) $(FLAGS_COMA) $(FLAGS_SPECIAL) $(PTHREAD_CFLAGS)
 simx_alpha_LDADD = $(COMA_LIBS) libalpha.a $(COMA_LDADD)
-simx_alpha_LDFLAGS = -pthread
+simx_alpha_LDFLAGS = $(LIBS_COMMON) $(PTHREAD_LIBS)
 
 simx_alpha_dbg_SOURCES = $(SPECIAL_SRC) $(COMA_SRC)
-simx_alpha_dbg_CXXFLAGS = $(FLAGS_ALPHA) $(FLAGS_DEBUG) $(FLAGS_COMMON) $(FLAGS_COMA) $(FLAGS_SPECIAL)
+simx_alpha_dbg_CXXFLAGS = $(FLAGS_ALPHA) $(FLAGS_DEBUG) $(FLAGS_COMMON) $(FLAGS_COMA) $(FLAGS_SPECIAL) $(PTHREAD_CFLAGS)
 simx_alpha_dbg_LDADD = $(COMA_LIBS_G) libalpha_g.a $(COMA_LDADD_G)
-simx_alpha_dbg_LDFLAGS = -pthread
+simx_alpha_dbg_LDFLAGS = $(LIBS_COMMON) $(PTHREAD_LIBS)
 endif
 
 if ENABLE_USE_SDL
@@ -244,10 +255,12 @@ noinst_PROGRAMS += mgsim-alpha.dbg.gfx
 mgsim_alpha_gfx_SOURCES = $(SPECIAL_SRC)
 mgsim_alpha_gfx_CXXFLAGS = $(FLAGS_ALPHA) $(FLAGS_OPT) $(FLAGS_COMMON) $(GFX_FLAGS) $(FLAGS_SPECIAL)
 mgsim_alpha_gfx_LDADD = libalpha.a $(SDL_LIBS) 
+mgsim_alpha_gfx_LDFLAGS = $(LIBS_COMMON)
 
 mgsim_alpha_dbg_gfx_SOURCES = $(SPECIAL_SRC)
 mgsim_alpha_dbg_gfx_CXXFLAGS = $(FLAGS_ALPHA) $(FLAGS_DEBUG) $(FLAGS_COMMON) $(GFX_FLAGS) $(FLAGS_SPECIAL)
 mgsim_alpha_dbg_gfx_LDADD = libalpha_g.a $(SDL_LIBS)
+mgsim_alpha_dbg_gfx_LDFLAGS = $(LIBS_COMMON)
 
 endif
 
@@ -270,10 +283,12 @@ libsparc_g_a_CXXFLAGS = $(FLAGS_SPARC) $(FLAGS_DEBUG) $(FLAGS_COMMON)
 mgsim_sparc_SOURCES = $(SPECIAL_SRC)
 mgsim_sparc_CXXFLAGS = $(FLAGS_SPARC) $(FLAGS_OPT) $(FLAGS_COMMON) $(FLAGS_SPECIAL)
 mgsim_sparc_LDADD = libsparc.a
+mgsim_sparc_LDFLAGS = $(LIBS_COMMON)
 
 mgsim_sparc_dbg_SOURCES = $(SPECIAL_SRC)
 mgsim_sparc_dbg_CXXFLAGS = $(FLAGS_SPARC) $(FLAGS_DEBUG) $(FLAGS_COMMON) $(FLAGS_SPECIAL)
 mgsim_sparc_dbg_LDADD = libsparc_g.a
+mgsim_sparc_dbg_LDFLAGS = $(LIBS_COMMON)
 
 # if ENABLE_COMA_ZL
 # bin_PROGRAMS += simx-sparc simx-sparc.dbg
@@ -295,10 +310,12 @@ noinst_PROGRAMS += mgsim-sparc.dbg.gfx
 mgsim_sparc_gfx_SOURCES = $(SPECIAL_SRC)
 mgsim_sparc_gfx_CXXFLAGS = $(FLAGS_SPARC) $(FLAGS_OPT) $(FLAGS_COMMON) $(GFX_FLAGS) $(FLAGS_SPECIAL)
 mgsim_sparc_gfx_LDADD = libsparc.a $(SDL_LIBS) 
+mgsim_sparc_gfx_LDFLAGS = $(LIBS_COMMON)
 
 mgsim_sparc_dbg_gfx_SOURCES = $(SPECIAL_SRC)
 mgsim_sparc_dbg_gfx_CXXFLAGS = $(FLAGS_SPARC) $(FLAGS_DEBUG) $(FLAGS_COMMON) $(GFX_FLAGS) $(FLAGS_SPECIAL)
 mgsim_sparc_dbg_gfx_LDADD = libsparc_g.a $(SDL_LIBS)
+mgsim_sparc_dbg_gfx_LDFLAGS = $(LIBS_COMMON)
 endif
 
 endif

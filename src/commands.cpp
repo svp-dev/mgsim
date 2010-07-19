@@ -190,6 +190,9 @@ static vector<string> prevCommands;
 
 void HandleCommandLine(CommandLineReader& clr,
                        MGSystem& sys,
+#ifdef ENABLE_MONITOR
+                       Monitor& mo,
+#endif
                        bool &quit)
 {
     stringstream prompt;
@@ -245,6 +248,9 @@ void HandleCommandLine(CommandLineReader& clr,
             // bad happens in StepSystem...
             clr.CheckPointHistory();
                 
+#ifdef ENABLE_MONITOR
+            mo.start();
+#endif
             try
             {
                 StepSystem(sys, nCycles);
@@ -253,6 +259,9 @@ void HandleCommandLine(CommandLineReader& clr,
             {
                 PrintException(cerr, e);
             }
+#ifdef ENABLE_MONITOR
+            mo.stop();
+#endif
         }
         else if (command == "b" || command == "break")
         {
@@ -412,6 +421,9 @@ void PrintUsage(std::ostream& out, const char* cmd)
         "  -q, --quiet              Do not print simulation statistics after execution.\n" 
         "  -s, --symtable FILE      Read symbol from FILE. (generate with nm -P)\n"
         "  -t, --terminate          Terminate the simulator upon an exception.\n"
+#ifdef ENABLE_MONITOR
+        "  -m, --monitor FILE       Monitor the simulation and dump trace to FILE.\n"
+#endif
         "  -R<X> VALUE              Store the integer VALUE in the specified register.\n"
         "  -F<X> VALUE              Store the float VALUE in the specified FP register.\n"
         "  -L<X> FILE               Load the contents of FILE after the program in memory\n" 

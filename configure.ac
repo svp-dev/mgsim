@@ -115,10 +115,24 @@ AC_LANG_PUSH([C++])
 
 AC_LANG_POP
 
-if test "x$have_sysc" = "xno"; then
+AX_PTHREAD
+
+if test "x$ax_pthread_ok" != "xyes" -o "x$have_sysc" = "xno"; then
   AC_MSG_WARN([ZL's COMA simulation not available])
 fi
-AM_CONDITIONAL([ENABLE_COMA_ZL], [test "x$have_sysc" = "xyes"])
+AM_CONDITIONAL([ENABLE_COMA_ZL], [test "x$ax_pthread_ok" = "xyes" -a "x$have_sysc" = "xyes"])
+
+AC_ARG_ENABLE([monitor], 
+[AC_HELP_STRING([--disable-monitor], [disable support for simulation monitoring])],
+[], [enable_monitor=yes])
+
+if test "x$enable_monitor" = "xyes"; then
+  if test "x$ax_pthread_ok" != "xyes"; then
+     AC_MSG_WARN([POSIX threads not available, cannot use monitor.])
+     enable_monitor=no
+  fi
+  AM_CONDITIONAL([ENABLE_MONITOR], [test "x$enable_monitor" = "xyes"])
+fi
 
 AC_CONFIG_FILES([
 	Makefile

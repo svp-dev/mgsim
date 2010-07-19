@@ -14,6 +14,10 @@ const char* semaphore_journal = "/tmp/simx-sem-journal";
 #include "display.h"
 #include "config.h"
 
+#ifdef ENABLE_MONITOR
+# include "monitor.h"
+#endif
+
 #include <sstream>
 #include <iostream>
 #include <limits>
@@ -33,6 +37,7 @@ struct ProgramConfig
     string             m_programFile;
     string             m_configFile;
     string             m_symtableFile;
+    string             m_monitorFile;
     bool               m_interactive;
     bool               m_terminate;
     bool               m_dumpconf;
@@ -75,6 +80,7 @@ static void ParseArguments(int argc, const char ** argv, ProgramConfig& config
         else if (arg == "--version")                    { PrintVersion(std::cout); exit(0); }
         else if (arg == "-h" || arg == "--help")        { PrintUsage(std::cout, argv[0]); exit(0); }
         else if (arg == "-d" || arg == "--dumpconf")    config.m_dumpconf    = true;
+        else if (arg == "-m" || arg == "--monitor")     config.m_monitorFile = argv[++i];
         else if (arg == "-o" || arg == "--override")
         {
             if (argv[++i] == NULL) {
@@ -230,13 +236,23 @@ int mgs_main(int argc, char const** argv)
                      config.m_programFile, config.m_symtableFile,
                      config.m_regs, config.m_loads, !config.m_interactive);
 
+#ifdef ENABLE_MONITOR
+        Monitor mo(sys, configfile, config.m_monitorFile, !config.m_interactive);
+#endif
+
         bool interactive = config.m_interactive;
         if (!interactive)
         {
             // Non-interactive mode; run and dump cycle count
             try
             {
+#ifdef ENABLE_MONITOR
+                mo.start();
+#endif
                 StepSystem(sys, INFINITE_CYCLES);
+#ifdef ENABLE_MONITOR
+                mo.stop();
+#endif
                 
                 if (!config.m_quiet)
                 {
@@ -254,6 +270,9 @@ int mgs_main(int argc, char const** argv)
             }
             catch (const exception& e)
             {
+#ifdef ENABLE_MONITOR
+                mo.stop();
+#endif
                 if (config.m_terminate) 
                 {
                     // We do not want to go to interactive mode,
@@ -277,7 +296,11 @@ int mgs_main(int argc, char const** argv)
 
             for (bool quit = false; !quit; )
             {
+#ifdef ENABLE_MONITOR
+                HandleCommandLine(clr, sys, mo, quit);
+#else
                 HandleCommandLine(clr, sys, quit);
+#endif
             }
         }
     }
