@@ -3,6 +3,7 @@
 #include "FPU.h"
 #include "config.h"
 #include "symtable.h"
+#include "sampling.h"
 
 #include <limits>
 #include <cassert>
@@ -43,13 +44,18 @@ Pipeline::Pipeline(
     m_pipelineBusyTime(0)
 {
     static const size_t NUM_FIXED_STAGES = 6;
-    
+
     m_active.Sensitive(p_Pipeline);
     
     // Number of forwarding delay slots between the Memory and Writeback stage
     const size_t num_dummy_stages = config.getInteger<size_t>("NumPipelineDummyStages", 0);
     
     m_stages.resize( num_dummy_stages + NUM_FIXED_STAGES );
+
+    RegisterSampleVariableInObject(m_nStagesRunnable, SVC_LEVEL, m_stages.size());
+    RegisterSampleVariableInObject(m_nStagesRun, SVC_CUMULATIVE);
+    RegisterSampleVariableInObject(m_pipelineBusyTime, SVC_CUMULATIVE);
+    
 
     // Create the Fetch stage
     m_stages[0].stage  = new FetchStage(*this, m_fdLatch, alloc, familyTable, threadTable, icache, lpid, config);

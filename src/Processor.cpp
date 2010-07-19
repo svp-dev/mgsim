@@ -1,5 +1,7 @@
 #include "Processor.h"
 #include "FPU.h"
+#include "sampling.h"
+
 #include <cassert>
 #include <cmath>
 using namespace std;
@@ -24,6 +26,8 @@ Processor::Processor(const std::string& name, Object& parent, GPID gpid, LPID lp
     m_threadTable ("threads",   *this, config),
     m_network     ("network",   *this, place, grid, lpid, m_allocator, m_registerFile, m_familyTable)
 {
+    RegisterSampleVariableInObject(m_localFamilyCompletion, SVC_WATERMARK);
+
     const Process* sources[] = {
         &m_icache.p_Outgoing,   // Outgoing process in I-Cache
         &m_dcache.p_Outgoing,   // Outgoing process in D-Cache

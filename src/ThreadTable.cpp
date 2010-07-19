@@ -3,6 +3,7 @@
 #include "config.h"
 #include "range.h"
 #include "symtable.h"
+#include "sampling.h"
 #include <cassert>
 #include <iomanip>
 using namespace std;
@@ -15,6 +16,9 @@ ThreadTable::ThreadTable(const std::string& name, Processor& parent, const Confi
     m_threads(config.getInteger<size_t>("NumThreads", 64)),
     m_totalalloc(0), m_maxalloc(0), m_lastcycle(0)
 {
+    RegisterSampleVariableInObject(m_totalalloc, SVC_CUMULATIVE);
+    RegisterSampleVariableInObject(m_maxalloc, SVC_WATERMARK, m_threads.size());
+
     for (TID i = 0; i < m_threads.size(); ++i)
     {
         m_threads[i].nextMember = i + 1;

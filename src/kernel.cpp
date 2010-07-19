@@ -1,6 +1,7 @@
 #include "kernel.h"
 #include "storage.h"
 #include "display.h"
+#include "sampling.h"
 
 #include <cassert>
 #include <algorithm>
@@ -324,6 +325,8 @@ Kernel::Kernel(Display& display, SymbolTable& symtable, BreakPoints& breakpoints
    m_activeStorages(NULL),
    m_activeArbitrators(NULL)
 {
+    RegisterSampleVariable(m_cycle, "kernel.cycle", SVC_CUMULATIVE);
+    RegisterSampleVariable(m_phase, "kernel.phase", SVC_STATE);
 }
 
 Kernel::~Kernel()

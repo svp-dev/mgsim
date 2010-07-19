@@ -1,6 +1,8 @@
 #include "Pipeline.h"
 #include "Processor.h"
 #include "breakpoints.h"
+#include "sampling.h"
+
 #include <cassert>
 using namespace std;
 
@@ -173,6 +175,10 @@ Pipeline::MemoryStage::MemoryStage(Pipeline& parent, const ExecuteMemoryLatch& i
       m_load_bytes(0),
       m_store_bytes(0)
 {
+    RegisterSampleVariableInObject(m_loads, SVC_CUMULATIVE);
+    RegisterSampleVariableInObject(m_stores, SVC_CUMULATIVE);
+    RegisterSampleVariableInObject(m_load_bytes, SVC_CUMULATIVE);
+    RegisterSampleVariableInObject(m_store_bytes, SVC_CUMULATIVE);
 }
     
 }

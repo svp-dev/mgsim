@@ -138,7 +138,7 @@ void SymbolTable::Write(std::ostream& o, const std::string& pat) const
 {
     for (table_t::const_iterator i = m_entries.begin(); i != m_entries.end(); ++i) 
     {
-        if (!fnmatch(pat.c_str(), entry_sym(*i).c_str(), 0)) 
+        if (FNM_NOMATCH != fnmatch(pat.c_str(), entry_sym(*i).c_str(), 0)) 
         {
             o << hex << entry_addr(*i) << ' ' << entry_sym(*i);
             if (entry_sz(*i))

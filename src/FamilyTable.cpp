@@ -3,6 +3,7 @@
 #include "config.h"
 #include "range.h"
 #include "symtable.h"
+#include "sampling.h"
 #include <cassert>
 #include <iomanip>
 using namespace std;
@@ -16,6 +17,9 @@ FamilyTable::FamilyTable(const std::string& name, Processor& parent, const Confi
     m_families(config.getInteger<size_t>("NumFamilies", 8)),
     m_totalalloc(0), m_maxalloc(0), m_lastcycle(0)
 {
+    RegisterSampleVariableInObject(m_totalalloc, SVC_CUMULATIVE);
+    RegisterSampleVariableInObject(m_maxalloc, SVC_WATERMARK, m_families.size());
+
     for (size_t i = 0; i < m_families.size(); ++i)
     {
         m_families[i].state = FST_EMPTY;

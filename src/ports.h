@@ -64,7 +64,7 @@ protected:
 
     void AddRequest(const Process& process);
 
-    ArbitratedPort(const Object& object, const std::string& name) : m_busyCycles(0), m_object(object), m_name(name) {}
+    ArbitratedPort(const Object& object, const std::string& name);
     virtual ~ArbitratedPort() {}
 
 protected:

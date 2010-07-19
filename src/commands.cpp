@@ -1,4 +1,5 @@
 #include "commands.h"
+#include "sampling.h"
 
 #ifdef ENABLE_COMA_ZL
 # include "CMLink.h"
@@ -341,6 +342,17 @@ void HandleCommandLine(CommandLineReader& clr,
         {
             sys.PrintAllStatistics(std::cout);
         }
+        else if (command == "samplevars")
+        {
+            string pat = "*";
+            if (!args.empty())
+                pat = args[0];
+            ListSampleVariables(std::cout, pat);
+        }
+        else if(command == "pv" && !args.empty())
+        {
+            ShowSampleVariables(std::cout, args[0]);
+        }
         else if (command == "debug")
         {
             string state;
@@ -459,6 +471,9 @@ void PrintHelp(ostream& out)
         "bp enable <id>       Enable specified breakpoint.\n"
         "bp del <id>          Delete specified breakpoint.\n"
         "bp clear             Delete all breakpoints.\n"
+        "\n"
+        "samplevars [PAT]     List sample variables matching PAT (default *).\n"
+        "pv PAT               Show current value of variables matching PAT.\n"
         "\n"
         "state                Shows the state of the system. Idle components\n"
         "                     are left out.\n"

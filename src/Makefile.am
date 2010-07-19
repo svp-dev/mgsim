@@ -133,6 +133,8 @@ COMMON_SRC = \
 	ports.h \
 	ports.cpp \
 	range.h \
+	sampling.h \
+	sampling.cpp \
 	simtypes.cpp \
 	simtypes.h \
 	symtable.h \
