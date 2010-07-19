@@ -1,5 +1,6 @@
 #include "sampling.h"
 
+#include <algorithm>
 #include <map>
 #include <vector>
 #include <fnmatch.h>
@@ -38,32 +39,66 @@ void _RegisterSampleVariable(void *var, size_t width, const std::string& name, S
     registry[name] = vinfo;
 }
 
+static
+void ListSampleVariables_header(std::ostream& os)
+{
+    os << "# size\ttype\tdtype\tmax\taddress\tname" << std::endl;
+}
+
+static
+void ListSampleVariables_onevar(std::ostream& os, const std::string& name, const VarInfo& vinfo)
+{
+    os << vinfo.width << "\t";
+    
+    switch(vinfo.cat) 
+    {
+    case SVC_LEVEL: os << "level"; break;
+    case SVC_STATE: os << "state"; break;
+    case SVC_WATERMARK: os << "wmark"; break;
+    case SVC_CUMULATIVE: os << "cumul"; break;
+    default: os << "unknown"; break;
+    }
+    os << (const char*)((vinfo.type == SV_INTEGER) ? "\tint\t" : "\tfloat\t");
+
+    if (vinfo.cat == SVC_LEVEL || vinfo.cat == SVC_WATERMARK) 
+    {
+        const void *p = &vinfo.max[0];
+        switch(vinfo.type) {
+        case SV_INTEGER:
+            switch(vinfo.width) {
+            case 1: os << std::dec << *(uint8_t*)p; break;
+            case 2: os << std::dec << *(uint16_t*)p; break;
+            case 4: os << std::dec << *(uint32_t*)p; break;
+            case 8: os << std::dec << *(uint64_t*)p; break;
+            default: os << "<invsize>"; break;
+            }
+            break;
+        case SV_FLOAT:
+            if (vinfo.width == sizeof(float)) 
+                os << *(float*)p; 
+            else
+                os << *(double*)p;
+            break;
+        }
+    }
+    else
+        os << "N/A";
+   
+    os << '\t' << vinfo.var << '\t'
+       << name
+       << std::endl;
+}
 
 void ListSampleVariables(std::ostream& os, const std::string& pat)
 {
-    os << "# size\ttype\tdtype\taddress\tname" << std::endl;
+    ListSampleVariables_header(os);
     for (var_registry_t::const_iterator i = registry.begin();
          i != registry.end();
          ++i)
     {
         if (FNM_NOMATCH == fnmatch(pat.c_str(), i->first.c_str(), FNM_CASEFOLD))
             continue;
-        const VarInfo& vinfo = i->second;
-
-        
-        os << vinfo.width << "\t";
-
-        switch(vinfo.cat) {
-        case SVC_LEVEL: os << "level"; break;
-        case SVC_STATE: os << "state"; break;
-        case SVC_WATERMARK: os << "wmark"; break;
-        case SVC_CUMULATIVE: os << "cumul"; break;
-        default: os << "unknown"; break;
-        }
-        os << (const char*)((vinfo.type == SV_INTEGER) ? "\tint\t" : "\tfloat\t")
-           << vinfo.var << '\t'
-           << i->first
-           << std::endl;        
+        ListSampleVariables_onevar(os, i->first, i->second);
     }
 }
 
@@ -87,7 +122,7 @@ void ShowSampleVariables(std::ostream& os, const std::string& pat)
             case 2: os << std::dec << *(uint16_t*)p; break;
             case 4: os << std::dec << *(uint32_t*)p; break;
             case 8: os << std::dec << *(uint64_t*)p; break;
-            default: os << "<unknown size, cannot print>"; break;
+            default: os << "<invsize>"; break;
             }
             break;
         case SV_FLOAT:
@@ -99,4 +134,46 @@ void ShowSampleVariables(std::ostream& os, const std::string& pat)
         }
         os << std::endl;        
     }
+}
+
+typedef std::pair<const std::string*, const VarInfo*> varsel_t;
+typedef std::vector<varsel_t> varvec_t;
+
+static
+bool comparevars(const varsel_t& left, const varsel_t& right)
+{
+    return left.second->var < right.second->var;
+}
+
+BinarySampler::BinarySampler(std::ostream& os, const std::vector<std::string>& pats)
+    : m_datasize(0)
+{
+
+    varvec_t vars;
+
+    for (std::vector<std::string>::const_iterator i = pats.begin(); i != pats.end(); ++i)
+        for (var_registry_t::const_iterator j = registry.begin();
+             j != registry.end();
+             ++j)
+    {
+        if (FNM_NOMATCH == fnmatch(i->c_str(), j->first.c_str(), FNM_CASEFOLD))
+            continue;
+        vars.push_back(std::make_pair(&j->first, &j->second));
+    }
+
+    if (vars.size() >= 2)
+        // we sort everything but the first and last variables,
+        // which should be the cycle counters. The cycle counters
+        // must be sampled once before and after everything else,
+        // to evaluate how imprecise the measurement is.
+        std::sort(vars.begin()+1, vars.end()-1, comparevars);
+
+    ListSampleVariables_header(os);
+    for (varvec_t::const_iterator i = vars.begin(); i != vars.end(); ++i)
+    {
+        m_datasize += i->second->width;
+        m_vars.push_back(std::make_pair((const char*)i->second->var, i->second->width));
+        ListSampleVariables_onevar(os, *i->first, *i->second);
+    }
+    os << "# recwidth " << m_datasize << std::endl;
 }

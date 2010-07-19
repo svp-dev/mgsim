@@ -1,9 +1,11 @@
 #include "monitor.h"
+#include <ios>
 #include <iostream>
 #include <fstream>
 #include <iomanip>
 #include <cmath>
 #include <signal.h>
+#include <sys/time.h>
 
 #define pthread(Function, ...) do { if (pthread_ ## Function(__VA_ARGS__)) perror("pthread_" #Function); } while(0)
 
@@ -29,7 +31,8 @@ Monitor::Monitor(Simulator::MGSystem& sys, const Config& config, const std::stri
       m_outputfile(0),
       m_quiet(quiet),
       m_running(false),
-      m_enabled(true)
+      m_enabled(true),
+      m_sampler(0)
 {
     if (outfile.size() == 0) 
     {
@@ -38,7 +41,7 @@ Monitor::Monitor(Simulator::MGSystem& sys, const Config& config, const std::stri
         return ;
     }
 
-    m_outputfile = new std::ofstream(outfile.c_str());
+    m_outputfile = new std::ofstream(outfile.c_str(), std::ios_base::binary|std::ios_base::out|std::ios_base::trunc);
     if (!m_outputfile->good()) 
     {
         std::clog << "# warning: cannot write to file " << outfile << ". Monitoring disabled." << std::endl;
@@ -47,13 +50,24 @@ Monitor::Monitor(Simulator::MGSystem& sys, const Config& config, const std::stri
         return ;
     }
 
+
+    std::vector<std::string> pats = m_config.getIntegerList<std::string>("MonitorSampleVariables");
+    pats.insert(pats.begin(), "kernel.cycle");
+    pats.push_back("kernel.cycle");
+    m_sampler = new BinarySampler(*m_outputfile, pats);
+    *m_outputfile << "# timeval " << sizeof(((struct timeval*)(void*)0)->tv_sec) 
+                  << ' ' << sizeof(((struct timeval*)(void*)0)->tv_usec)
+                  << std::endl;
+
     float msd = m_config.getInteger<float>("MonitorSampleDelay", 0.001);
     msd = fabs(msd);
     m_tsdelay.tv_sec = msd;
     m_tsdelay.tv_nsec = (msd - (float)m_tsdelay.tv_sec) * 1000000000.;
    
     if (!m_quiet)
-        std::clog << "# monitoring enabled, sampling every "
+        std::clog << "# monitoring enabled, sampling "
+                  << m_sampler->GetBufferSize()
+                  << " bytes every "
                   << m_tsdelay.tv_sec << '.'
                   << std::setfill('0') << std::setw(9) << m_tsdelay.tv_nsec 
                   << "s to file " << outfile << std::endl;
@@ -78,6 +92,7 @@ Monitor::~Monitor()
 
         m_outputfile->flush();
         delete m_outputfile;
+        delete m_sampler;
         if (!m_quiet)
             std::clog << "# monitoring ended." << std::endl;
     }
@@ -108,11 +123,26 @@ void Monitor::run()
     if (!m_quiet)
         std::clog << "# monitor thread started." << std::endl;
 
+    const size_t datasz = m_sampler->GetBufferSize();
+    const size_t allsz = datasz + 2 * sizeof(struct timeval);
+    char *allbuf = new char[allsz];
+
+    struct timeval *tv_begin = (struct timeval*)(void*)allbuf;
+    struct timeval *tv_end = (struct timeval*)(void*)(allbuf + sizeof(struct timeval));
+    char *databuf = allbuf + 2 * sizeof(struct timeval);
+
     while (m_enabled) 
     {
         nanosleep(&m_tsdelay, 0);
+
         pthread(mutex_lock, &m_runlock);
-        
+
+        gettimeofday(tv_begin, 0);
+        m_sampler->SampleToBuffer(databuf);
+        gettimeofday(tv_end, 0);
+
+        m_outputfile->write(allbuf, allsz); 
+
         pthread(mutex_unlock, &m_runlock);
     }
 }

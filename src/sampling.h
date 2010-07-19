@@ -1,6 +1,8 @@
 #ifndef SAMPLING_H
 #define SAMPLING_H
 
+#include <vector>
+#include <utility>
 #include <string>
 #include <iostream>
 #include <cassert>
@@ -36,5 +38,25 @@ void RegisterSampleVariable(T& var, const std::string& name, SampleVariableCateg
 
 void ListSampleVariables(std::ostream& os, const std::string &pat = "*");
 void ShowSampleVariables(std::ostream& os, const std::string &pat = "*");
+
+class BinarySampler
+{
+    typedef std::vector<std::pair<const char*, size_t> > vars_t;
+
+    size_t   m_datasize;
+    vars_t   m_vars;
+
+public:
+
+    BinarySampler(std::ostream& os, const std::vector<std::string>& pats);
+
+    size_t GetBufferSize() const { return m_datasize; }
+    void   SampleToBuffer(char *buf) const
+    {
+        for (vars_t::const_iterator i = m_vars.begin(); i != m_vars.end(); ++i)
+            for (size_t j = 0; j < i->second; ++j)
+                *buf++ = i->first[j];
+    }
+};
 
 #endif
