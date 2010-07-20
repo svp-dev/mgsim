@@ -237,7 +237,7 @@ int mgs_main(int argc, char const** argv)
                      config.m_regs, config.m_loads, !config.m_interactive);
 
 #ifdef ENABLE_MONITOR
-        Monitor mo(sys, configfile, config.m_monitorFile, !config.m_interactive);
+        Monitor mo(sys, config.m_monitorFile, !config.m_interactive);
 #endif
 
         bool interactive = config.m_interactive;

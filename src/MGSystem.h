@@ -37,11 +37,31 @@ namespace Simulator {
             MEMTYPE_COMA_ZL = 5,
             MEMTYPE_COMA_ML = 6
         } m_memorytype; // for WriteConfiguration
+        const Config&            m_config;
+        std::vector<std::string> m_inputfiles;
 
         // Writes the current configuration into memory and returns its address
-        MemAddr WriteConfiguration(const Config& config);
+        MemAddr WriteConfiguration();
 
     public:
+        struct ConfWords
+        {
+            std::vector<uint32_t> data;
+            
+            ConfWords& operator<<(uint32_t val) 
+            {
+                uint32_t repr;
+                SerializeRegister(RT_INTEGER, val, &repr, sizeof(repr));
+                data.push_back(repr);
+                return *this;
+            }
+        };
+
+        const Config& GetConfig() const { return m_config; }
+        const std::string GetProgramName() const { return m_program; }
+        const std::vector<std::string> GetInputFileNames() const { return m_inputfiles; }
+        void FillConfWords(ConfWords&) const;
+
         // Get or set the debug flag
         int  GetDebugMode() const   { return m_kernel.GetDebugMode(); }
         void SetDebugMode(int mode) { m_kernel.SetDebugMode(mode); }

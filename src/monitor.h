@@ -2,19 +2,17 @@
 # define MONITOR_H
 
 #include "MGSystem.h"
-#include "config.h"
 #include "sampling.h"
 
 #include <iostream>
+#include <ctime>
 #include <pthread.h>
-#include <time.h>
 
 static void* runmonitor(void*);
 
 class Monitor
 {
     Simulator::MGSystem&  m_sys;
-    const Config&         m_config;
     std::ostream*         m_outputfile;
     bool                  m_quiet;
     struct timespec       m_tsdelay;
@@ -30,7 +28,7 @@ class Monitor
     void run();
 
 public:
-    Monitor(Simulator::MGSystem& sys, const Config& config, const std::string& outfile, bool quiet);
+    Monitor(Simulator::MGSystem& sys, const std::string& outfile, bool quiet);
     ~Monitor();
 
     void start();

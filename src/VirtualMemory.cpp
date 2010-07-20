@@ -1,6 +1,7 @@
 #include "VirtualMemory.h"
 #include "Memory.h"
 #include "except.h"
+#include "sampling.h"
 #include <cstring>
 #include <limits>
 #include <iomanip>
@@ -101,6 +102,8 @@ void VirtualMemory::Reserve(MemAddr address, MemSize size, int perm)
         range.size        = size;
         range.permissions = perm;
         m_ranges.insert(p, make_pair(address, range));
+        m_totalreserved += size;
+        ++m_nRanges;
     }
 }
 
@@ -123,6 +126,8 @@ void VirtualMemory::Unreserve(MemAddr address)
     {
         throw InvalidArgumentException("Attempting to unreserve non-reserved memory");
     }
+    m_totalreserved += p->second.size;
+    --m_nRanges;
     m_ranges.erase(p);
 }
 
@@ -196,10 +201,12 @@ void VirtualMemory::Write(MemAddr address, const void* _data, MemSize size)
     {
         // Find or insert the block
         pair<BlockMap::iterator, bool> ins = m_blocks.insert(make_pair(base, Block()));
+
         BlockMap::iterator pos = ins.first;
         if (ins.second) {
             // A new element was inserted, allocate and clear memory
             memset(pos->second.data, 0, BLOCK_SIZE);
+            m_totalallocated += BLOCK_SIZE;
         }
        
         // Number of bytes to write, initially
@@ -212,6 +219,14 @@ void VirtualMemory::Write(MemAddr address, const void* _data, MemSize size)
         base  += BLOCK_SIZE;
         offset = 0;
     }
+}
+
+VirtualMemory::VirtualMemory()
+    : m_totalreserved(0), m_totalallocated(0)
+{
+    RegisterSampleVariable(m_totalreserved, "vm.reserved", SVC_LEVEL);
+    RegisterSampleVariable(m_totalallocated, "vm.allocated", SVC_LEVEL);
+    RegisterSampleVariable(m_nRanges, "vm.nRanges", SVC_LEVEL);
 }
 
 VirtualMemory::~VirtualMemory()
@@ -261,6 +276,7 @@ void VirtualMemory::Cmd_Info(ostream& out, const vector<string>& /* arguments */
     static const char* Mods[] = { "B", "kB", "MB", "GB", "TB", "PB", "EB", "ZB", "YB" };
 
     // Print total memory reservation
+    assert(m_totalreserved == total);
     int mod;
     for(mod = 0; total >= 1024 && mod < 9; ++mod)
     {
@@ -269,11 +285,8 @@ void VirtualMemory::Cmd_Info(ostream& out, const vector<string>& /* arguments */
     out << endl << setfill(' ') << dec;
     out << "Total reserved memory:  " << setw(4) << total << " " << Mods[mod] << endl;
 
-    total = 0;
-    for (BlockMap::const_iterator p = m_blocks.begin(); p != m_blocks.end(); ++p)
-    {
-        total += BLOCK_SIZE;
-    }
+    total = m_blocks.size() * BLOCK_SIZE;
+    assert(m_totalallocated == total);
     // Print total memory usage
     for (mod = 0; total >= 1024 && mod < 4; ++mod)
     {

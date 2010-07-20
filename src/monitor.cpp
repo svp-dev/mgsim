@@ -25,9 +25,8 @@ void* runmonitor(void *arg)
     return 0;
 }
 
-Monitor::Monitor(Simulator::MGSystem& sys, const Config& config, const std::string& outfile, bool quiet)
+Monitor::Monitor(Simulator::MGSystem& sys, const std::string& outfile, bool quiet)
     : m_sys(sys), 
-      m_config(config),
       m_outputfile(0),
       m_quiet(quiet),
       m_running(false),
@@ -51,15 +50,16 @@ Monitor::Monitor(Simulator::MGSystem& sys, const Config& config, const std::stri
     }
 
 
-    std::vector<std::string> pats = m_config.getIntegerList<std::string>("MonitorSampleVariables");
+    std::vector<std::string> pats = sys.GetConfig().getIntegerList<std::string>("MonitorSampleVariables");
     pats.insert(pats.begin(), "kernel.cycle");
     pats.push_back("kernel.cycle");
-    m_sampler = new BinarySampler(*m_outputfile, pats);
-    *m_outputfile << "# timeval " << sizeof(((struct timeval*)(void*)0)->tv_sec) 
+    m_sampler = new BinarySampler(*m_outputfile, sys, pats);
+    *m_outputfile << "# tv_sizes: " << sizeof(((struct timeval*)(void*)0)->tv_sec) 
                   << ' ' << sizeof(((struct timeval*)(void*)0)->tv_usec)
-                  << std::endl;
+                  << std::endl
+                  << "# data:" << std::endl;
 
-    float msd = m_config.getInteger<float>("MonitorSampleDelay", 0.001);
+    float msd = sys.GetConfig().getInteger<float>("MonitorSampleDelay", 0.001);
     msd = fabs(msd);
     m_tsdelay.tv_sec = msd;
     m_tsdelay.tv_nsec = (msd - (float)m_tsdelay.tv_sec) * 1000000000.;

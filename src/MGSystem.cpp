@@ -86,25 +86,10 @@ using namespace MemSim;
 #define CONFTAG_LAYOUT_V1  5
 #define MAKE_TAG(Type, Size) (uint32_t)(((Type) << 16) | ((Size) & 0xffff))
 
-struct ConfWords
+
+void MGSystem::FillConfWords(ConfWords& words) const
 {
-    vector<uint32_t> data;
-    
-    ConfWords& operator<<(uint32_t val) 
-    {
-        uint32_t repr;
-        SerializeRegister(RT_INTEGER, val, &repr, sizeof(repr));
-        data.push_back(repr);
-        return *this;
-    }
-};
-
-MemAddr MGSystem::WriteConfiguration(const Config& config)
-{
-
-    uint32_t cl_sz = config.getInteger<uint32_t>("CacheLineSize", 0);
-
-    ConfWords words;
+    uint32_t cl_sz = m_config.getInteger<uint32_t>("CacheLineSize", 0);
 
     // configuration words for architecture type v1
 
@@ -122,10 +107,10 @@ MemAddr MGSystem::WriteConfiguration(const Config& config)
     // timing words v1
 
           << MAKE_TAG(CONFTAG_TIMINGS_V1, 2)
-          << config.getInteger<uint32_t>("CoreFreq", 0)
+          << m_config.getInteger<uint32_t>("CoreFreq", 0)
           << ((m_memorytype == MEMTYPE_COMA_ZL || m_memorytype == MEMTYPE_COMA_ML) ? 
-              config.getInteger<uint32_t>("DDRMemoryFreq", 0) 
-              * config.getInteger<uint32_t>("NumRootDirectories", 0)
+              m_config.getInteger<uint32_t>("DDRMemoryFreq", 0) 
+              * m_config.getInteger<uint32_t>("NumRootDirectories", 0)
               * 3 /* DDR3 = triple rate */ 
               * 8 /* 64 bit = 8 bytes per transfer */
               : 0 /* no timing information if memory system is not COMA */)
@@ -135,33 +120,33 @@ MemAddr MGSystem::WriteConfiguration(const Config& config)
           << MAKE_TAG(CONFTAG_CACHE_V1, 5)
           << cl_sz
           << (cl_sz 
-              * config.getInteger<uint32_t>("ICacheAssociativity", 0)
-              * config.getInteger<uint32_t>("ICacheNumSets", 0))
+              * m_config.getInteger<uint32_t>("ICacheAssociativity", 0)
+              * m_config.getInteger<uint32_t>("ICacheNumSets", 0))
           << (cl_sz
-              * config.getInteger<uint32_t>("DCacheAssociativity", 0)
-              * config.getInteger<uint32_t>("DCacheNumSets", 0));
+              * m_config.getInteger<uint32_t>("DCacheAssociativity", 0)
+              * m_config.getInteger<uint32_t>("DCacheNumSets", 0));
     if (m_memorytype == MEMTYPE_COMA_ZL || m_memorytype == MEMTYPE_COMA_ML)
         words << (m_procs.size()
-                  / config.getInteger<uint32_t>("NumProcessorsPerCache", 0)) // FIXME: COMA?
+                  / m_config.getInteger<uint32_t>("NumProcessorsPerCache", 0)) // FIXME: COMA?
               << (cl_sz
-                  * config.getInteger<uint32_t>("L2CacheAssociativity", 0)
-                  * config.getInteger<uint32_t>("L2CacheNumSets", 0));
+                  * m_config.getInteger<uint32_t>("L2CacheAssociativity", 0)
+                  * m_config.getInteger<uint32_t>("L2CacheNumSets", 0));
     else
         words << 0 << 0;
 
     // concurrency resources v1
     
     words << MAKE_TAG(CONFTAG_CONC_V1, 4)
-          << config.getInteger<uint32_t>("NumFamilies", 0)
-          << config.getInteger<uint32_t>("NumThreads", 0)
-          << config.getInteger<uint32_t>("NumIntRegisters", 0)
-          << config.getInteger<uint32_t>("NumFltRegisters", 0)
+          << m_config.getInteger<uint32_t>("NumFamilies", 0)
+          << m_config.getInteger<uint32_t>("NumThreads", 0)
+          << m_config.getInteger<uint32_t>("NumIntRegisters", 0)
+          << m_config.getInteger<uint32_t>("NumFltRegisters", 0)
 
         ;
 
     // place layout v1
 
-    const vector<PSize>& placeSizes = config.getIntegerList<PSize>("NumProcessors");
+    const vector<PSize>& placeSizes = m_config.getIntegerList<PSize>("NumProcessors");
 
     words << MAKE_TAG(CONFTAG_LAYOUT_V1, m_procs.size() + 1)
           << m_procs.size();
@@ -181,6 +166,14 @@ MemAddr MGSystem::WriteConfiguration(const Config& config)
 
     // after last block
     words << 0 << 0;
+
+}
+
+MemAddr MGSystem::WriteConfiguration()
+{
+
+    ConfWords words;
+    FillConfWords(words);
 
     MemAddr base;
     if (!m_memory->Allocate(words.data.size() * sizeof words.data[0], IMemory::PERM_READ, base))
@@ -698,7 +691,8 @@ MGSystem::MGSystem(const Config& config, Display& display, const string& program
     : Object("system", m_kernel),
       m_breakpoints(m_kernel),
       m_kernel(display, m_symtable, m_breakpoints),
-      m_program(program)
+      m_program(program),
+      m_config(config)
 {
     const vector<PSize> placeSizes = config.getIntegerList<PSize>("NumProcessors");
     const size_t numProcessorsPerFPU = max<size_t>(1, config.getInteger<size_t>("NumProcessorsPerFPU", 1));
@@ -844,13 +838,14 @@ MGSystem::MGSystem(const Config& config, Display& display, const string& program
 
             m_procs[0]->WriteRegister(loads[i].first, value);
             m_symtable.AddSymbol(p.first, loads[i].second, p.second);
+            m_inputfiles.push_back(loads[i].second);
         }
 
         // Load configuration
         // Store the address in local #2
         RegValue value;
         value.m_state   = RST_FULL;
-        value.m_integer = WriteConfiguration(config);
+        value.m_integer = WriteConfiguration();
         m_procs[0]->WriteRegister(MAKE_REGADDR(RT_INTEGER, 2), value);
 
 #if TARGET_ARCH == ARCH_ALPHA

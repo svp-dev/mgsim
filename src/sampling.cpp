@@ -1,9 +1,13 @@
 #include "sampling.h"
+#include "config.h"
+#include "sys_config.h"
 
 #include <algorithm>
 #include <map>
 #include <vector>
+#include <ctime>
 #include <fnmatch.h>
+#include <unistd.h>
 
 struct VarInfo 
 {
@@ -145,11 +149,16 @@ bool comparevars(const varsel_t& left, const varsel_t& right)
     return left.second->var < right.second->var;
 }
 
-BinarySampler::BinarySampler(std::ostream& os, const std::vector<std::string>& pats)
+BinarySampler::BinarySampler(std::ostream& os, const Simulator::MGSystem& sys,
+                             const std::vector<std::string>& pats)
     : m_datasize(0)
 {
 
     varvec_t vars;
+
+    //
+    // Select variables to sample
+    //
 
     for (std::vector<std::string>::const_iterator i = pats.begin(); i != pats.end(); ++i)
         for (var_registry_t::const_iterator j = registry.begin();
@@ -168,12 +177,45 @@ BinarySampler::BinarySampler(std::ostream& os, const std::vector<std::string>& p
         // to evaluate how imprecise the measurement is.
         std::sort(vars.begin()+1, vars.end()-1, comparevars);
 
-    ListSampleVariables_header(os);
+    //
+    // Generate header for output file
+    // 
+    time_t cl = time(0);
+    std::string timestr = asctime(gmtime(&cl));
+
+    os << "# date: " << timestr // asctime already embeds a newline character
+       << "# generator: " << PACKAGE_STRING << std::endl;
+
+    char hn[255];
+    if (gethostname(hn, 255) == 0)
+        os << "# host: " << hn << std::endl;
+    
+    os << "# program:" << std::endl;
+    const std::string& prog = sys.GetProgramName();
+    const std::vector<std::string> &inputs = sys.GetInputFileNames();
+    os << prog << std::endl
+       << "# inputs: " << inputs.size() << std::endl;
+    for (std::vector<std::string>::const_iterator i = inputs.begin();
+         i != inputs.end(); ++i)
+        os << *i << std::endl;
+
+    Simulator::MGSystem::ConfWords words;
+    sys.FillConfWords(words);
+    os << "# confwords: " << words.data.size() << std::endl;
+    for (std::vector<uint32_t>::const_iterator i = words.data.begin();
+         i != words.data.end(); ++i)
+    {
+        os << *i << ' ';
+    }
+    os << std::endl;
+
+    os << "# varinfo: " << vars.size() << std::endl;
+    // ListSampleVariables_header(os);
     for (varvec_t::const_iterator i = vars.begin(); i != vars.end(); ++i)
     {
         m_datasize += i->second->width;
         m_vars.push_back(std::make_pair((const char*)i->second->var, i->second->width));
         ListSampleVariables_onevar(os, *i->first, *i->second);
     }
-    os << "# recwidth " << m_datasize << std::endl;
+    os << "# recwidth: " << m_datasize << std::endl;
 }
