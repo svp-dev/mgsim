@@ -131,9 +131,17 @@ void Monitor::run()
     struct timeval *tv_end = (struct timeval*)(void*)(allbuf + sizeof(struct timeval));
     char *databuf = allbuf + 2 * sizeof(struct timeval);
 
+    Simulator::CycleNo lastCycle = 0;
+
     while (m_enabled) 
     {
         nanosleep(&m_tsdelay, 0);
+
+        Simulator::CycleNo currentCycle = m_sys.GetKernel().GetCycleNo();
+        if (currentCycle == lastCycle)
+            // nothing to do
+            continue;
+        lastCycle = currentCycle;
 
         pthread(mutex_lock, &m_runlock);
 

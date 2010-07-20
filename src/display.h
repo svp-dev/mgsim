@@ -32,6 +32,7 @@ class Display
     unsigned long         m_lastRefresh;
     SDL_Surface*          m_screen;
     unsigned int          m_max_screen_h, m_max_screen_w;
+    unsigned long         m_nGfxOps;
     
     void ResizeScreen(unsigned int w, unsigned int h);
 
@@ -48,6 +49,7 @@ public:
         {
             m_framebuffer[y * m_width + x] = data;
         }
+        ++m_nGfxOps;
     }
 
     void PutPixel(unsigned int offset, uint32_t data)
@@ -56,6 +58,7 @@ public:
         {
             m_framebuffer[offset] = data;
         }
+        ++m_nGfxOps;
     }
 
     void Resize(unsigned w, unsigned h); 

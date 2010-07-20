@@ -70,6 +70,8 @@ Pipeline::PipeAction Pipeline::MemoryStage::OnCycle()
                 rcv.m_state = RST_FULL;
                 rcv.m_size  = m_input.Rcv.m_size;
                 rcv.m_integer.set( m_parent.GetProcessor().GetProfileWord(i), rcv.m_size);
+                if (i == 0) ++ m_nCycleSampleOps; else ++ m_nOtherSampleOps;
+
                 // Check for breakpoints
                 GetKernel()->GetBreakPoints().Check(BreakPoints::READ, m_input.address, *this);
             }
@@ -173,12 +175,16 @@ Pipeline::MemoryStage::MemoryStage(Pipeline& parent, const ExecuteMemoryLatch& i
       m_loads(0),
       m_stores(0),
       m_load_bytes(0),
-      m_store_bytes(0)
+      m_store_bytes(0),
+      m_nCycleSampleOps(0), 
+      m_nOtherSampleOps(0)
 {
     RegisterSampleVariableInObject(m_loads, SVC_CUMULATIVE);
     RegisterSampleVariableInObject(m_stores, SVC_CUMULATIVE);
     RegisterSampleVariableInObject(m_load_bytes, SVC_CUMULATIVE);
     RegisterSampleVariableInObject(m_store_bytes, SVC_CUMULATIVE);
+    RegisterSampleVariableInObject(m_nCycleSampleOps, SVC_CUMULATIVE);
+    RegisterSampleVariableInObject(m_nOtherSampleOps, SVC_CUMULATIVE);
 }
     
 }
