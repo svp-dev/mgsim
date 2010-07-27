@@ -25,7 +25,7 @@ void* runmonitor(void *arg)
     return 0;
 }
 
-Monitor::Monitor(Simulator::MGSystem& sys, const std::string& outfile, bool quiet)
+Monitor::Monitor(Simulator::MGSystem& sys, bool enabled, const std::string& mdfile, const std::string& outfile, bool quiet)
     : m_sys(sys), 
       m_outputfile(0),
       m_quiet(quiet),
@@ -33,10 +33,17 @@ Monitor::Monitor(Simulator::MGSystem& sys, const std::string& outfile, bool quie
       m_enabled(true),
       m_sampler(0)
 {
-    if (outfile.size() == 0) 
+    if (!enabled)
     {
         if (!m_quiet)
             std::clog << "# monitoring disabled." << std::endl;
+        return ;
+    }
+
+    std::ofstream metadatafile(mdfile.c_str(), std::ios_base::out|std::ios_base::trunc);
+    if (!metadatafile.good())
+    {
+        std::clog << "# warning: cannot write to file " << mdfile << ". Monitoring disabled." << std::endl;
         return ;
     }
 
@@ -53,11 +60,11 @@ Monitor::Monitor(Simulator::MGSystem& sys, const std::string& outfile, bool quie
     std::vector<std::string> pats = sys.GetConfig().getIntegerList<std::string>("MonitorSampleVariables");
     pats.insert(pats.begin(), "kernel.cycle");
     pats.push_back("kernel.cycle");
-    m_sampler = new BinarySampler(*m_outputfile, sys, pats);
-    *m_outputfile << "# tv_sizes: " << sizeof(((struct timeval*)(void*)0)->tv_sec) 
-                  << ' ' << sizeof(((struct timeval*)(void*)0)->tv_usec)
-                  << std::endl
-                  << "# data:" << std::endl;
+    m_sampler = new BinarySampler(metadatafile, sys, pats);
+    metadatafile << "# tv_sizes: " << sizeof(((struct timeval*)(void*)0)->tv_sec) 
+                 << ' ' << sizeof(((struct timeval*)(void*)0)->tv_usec)
+                 << std::endl;
+    metadatafile.close();
 
     float msd = sys.GetConfig().getInteger<float>("MonitorSampleDelay", 0.001);
     msd = fabs(msd);
@@ -70,7 +77,8 @@ Monitor::Monitor(Simulator::MGSystem& sys, const std::string& outfile, bool quie
                   << " bytes every "
                   << m_tsdelay.tv_sec << '.'
                   << std::setfill('0') << std::setw(9) << m_tsdelay.tv_nsec 
-                  << "s to file " << outfile << std::endl;
+                  << "s to file " << outfile << std::endl
+                  << "# metadata output to file " << mdfile << std::endl;
 
     pthread(mutex_init, &m_runlock, 0);
     pthread(mutex_lock, &m_runlock);
@@ -90,7 +98,7 @@ Monitor::~Monitor()
         pthread(join, m_monitorthread, 0);
         pthread(mutex_destroy, &m_runlock);
 
-        m_outputfile->flush();
+        m_outputfile->close();
         delete m_outputfile;
         delete m_sampler;
         if (!m_quiet)

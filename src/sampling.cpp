@@ -27,7 +27,7 @@ var_registry_t registry;
 
 void _RegisterSampleVariable(void *var, size_t width, const std::string& name, SampleVariableDataType type, SampleVariableCategory cat, void *maxval)
 {
-    assert (registry.find(name) != registry.end()); // no duplicates allowed.
+    assert (registry.find(name) == registry.end()); // no duplicates allowed.
 
     VarInfo vinfo;
 

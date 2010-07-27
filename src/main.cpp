@@ -37,7 +37,7 @@ struct ProgramConfig
     string             m_programFile;
     string             m_configFile;
     string             m_symtableFile;
-    string             m_monitorFile;
+    bool               m_enableMonitor;
     bool               m_interactive;
     bool               m_terminate;
     bool               m_dumpconf;
@@ -55,6 +55,7 @@ static void ParseArguments(int argc, const char ** argv, ProgramConfig& config
     )
 {
     config.m_configFile = MGSIM_CONFIG_PATH;
+    config.m_enableMonitor = false;
     config.m_interactive = false;
     config.m_terminate = false;
     config.m_dumpconf = false;
@@ -80,7 +81,7 @@ static void ParseArguments(int argc, const char ** argv, ProgramConfig& config
         else if (arg == "--version")                    { PrintVersion(std::cout); exit(0); }
         else if (arg == "-h" || arg == "--help")        { PrintUsage(std::cout, argv[0]); exit(0); }
         else if (arg == "-d" || arg == "--dumpconf")    config.m_dumpconf    = true;
-        else if (arg == "-m" || arg == "--monitor")     config.m_monitorFile = argv[++i];
+        else if (arg == "-m" || arg == "--monitor")     config.m_enableMonitor = true;
         else if (arg == "-o" || arg == "--override")
         {
             if (argv[++i] == NULL) {
@@ -237,7 +238,9 @@ int mgs_main(int argc, char const** argv)
                      config.m_regs, config.m_loads, !config.m_interactive);
 
 #ifdef ENABLE_MONITOR
-        Monitor mo(sys, config.m_monitorFile, !config.m_interactive);
+        string mo_mdfile = configfile.getString("MonitorMetadataFile", "mgtrace.md");
+        string mo_tfile = configfile.getString("MonitorTraceFile", "mgtrace.out");
+        Monitor mo(sys, config.m_enableMonitor, mo_mdfile, mo_tfile, !config.m_interactive);
 #endif
 
         bool interactive = config.m_interactive;

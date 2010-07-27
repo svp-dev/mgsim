@@ -434,13 +434,13 @@ void PrintUsage(std::ostream& out, const char* cmd)
         "  -s, --symtable FILE      Read symbol from FILE. (generate with nm -P)\n"
         "  -t, --terminate          Terminate the simulator upon an exception.\n"
 #ifdef ENABLE_MONITOR
-        "  -m, --monitor FILE       Monitor the simulation and dump trace to FILE.\n"
+        "  -m, --monitor            Enable simulation monitoring.\n"
 #endif
         "  -R<X> VALUE              Store the integer VALUE in the specified register.\n"
         "  -F<X> VALUE              Store the float VALUE in the specified FP register.\n"
         "  -L<X> FILE               Load the contents of FILE after the program in memory\n" 
         "                           and store the address in the specified register.\n" 
-        "Other options:\n"
+        "Other options:\n"          
         "  -h, --help               Print this help, then exit.\n"
         "      --version            Print version information, then exit.\n"
         "\n"

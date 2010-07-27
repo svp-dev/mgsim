@@ -4,7 +4,7 @@
 #include "MGSystem.h"
 #include "sampling.h"
 
-#include <iostream>
+#include <fstream>
 #include <ctime>
 #include <pthread.h>
 
@@ -13,7 +13,7 @@ static void* runmonitor(void*);
 class Monitor
 {
     Simulator::MGSystem&  m_sys;
-    std::ostream*         m_outputfile;
+    std::ofstream*        m_outputfile;
     bool                  m_quiet;
     struct timespec       m_tsdelay;
     
@@ -28,7 +28,7 @@ class Monitor
     void run();
 
 public:
-    Monitor(Simulator::MGSystem& sys, const std::string& outfile, bool quiet);
+    Monitor(Simulator::MGSystem& sys, bool enable, const std::string& mdfile, const std::string& outfile, bool quiet);
     ~Monitor();
 
     void start();
