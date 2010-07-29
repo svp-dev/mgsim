@@ -148,6 +148,7 @@ private:
     FSize               m_totalalloc;
     FSize               m_maxalloc;
     CycleNo             m_lastcycle;
+    FSize               m_curalloc;
 
     void UpdateStats();    
     void CheckStateSanity() const;

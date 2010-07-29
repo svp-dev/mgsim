@@ -114,6 +114,7 @@ private:
     TSize               m_totalalloc;
     TSize               m_maxalloc;
     CycleNo             m_lastcycle;
+    TSize               m_curalloc;
 
     void UpdateStats();
     void CheckStateSanity() const;

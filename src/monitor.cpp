@@ -63,7 +63,7 @@ Monitor::Monitor(Simulator::MGSystem& sys, bool enabled, const std::string& mdfi
     m_sampler = new BinarySampler(metadatafile, sys, pats);
     metadatafile << "# tv_sizes: " << sizeof(((struct timeval*)(void*)0)->tv_sec) 
                  << ' ' << sizeof(((struct timeval*)(void*)0)->tv_usec)
-                 << std::endl;
+                 << ' ' << sizeof(struct timeval) << std::endl;
     metadatafile.close();
 
     float msd = sys.GetConfig().getInteger<float>("MonitorSampleDelay", 0.001);

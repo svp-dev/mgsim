@@ -134,10 +134,13 @@ if test "x$enable_monitor" = "xyes"; then
   AM_CONDITIONAL([ENABLE_MONITOR], [test "x$enable_monitor" = "xyes"])
 fi
 
+AM_PATH_PYTHON([2.6],[],[AC_MSG_WARN([The 'readtrace' utility requires Python >= 2.6.])])
+
 AC_CONFIG_FILES([
 	Makefile
 	doc/Makefile
 	src/Makefile
+        src/readtrace
         programs/aslink.sh
 	programs/Makefile
 	programs/mtalpha/Makefile

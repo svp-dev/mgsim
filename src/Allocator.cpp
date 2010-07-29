@@ -18,10 +18,10 @@ void Allocator::UpdateStats()
     CycleNo elapsed = cycle - m_lastcycle;
     m_lastcycle = cycle;
     
-    BufferSize cur_alloc = m_allocationsEx.size();
+    m_curallocex = m_allocationsEx.size();
     
-    m_totalallocex += cur_alloc * elapsed;
-    m_maxallocex = std::max(m_maxallocex, cur_alloc);       
+    m_totalallocex += m_curallocex * elapsed;
+    m_maxallocex = std::max(m_maxallocex, m_curallocex);       
 }
 
 RegAddr Allocator::GetRemoteRegisterAddress(const RemoteRegAddr& addr) const
@@ -1923,7 +1923,7 @@ Allocator::Allocator(const string& name, Processor& parent,
     m_readyThreads1 (*parent.GetKernel(), threadTable),
     m_readyThreads2 (*parent.GetKernel(), threadTable),
 
-    m_maxallocex(0), m_totalallocex(0), m_lastcycle(0),
+    m_maxallocex(0), m_totalallocex(0), m_lastcycle(0), m_curallocex(0),
 
     p_ThreadAllocate  ("thread-allocate",   delegate::create<Allocator, &Allocator::DoThreadAllocate  >(*this) ),
     p_FamilyAllocate  ("family-allocate",   delegate::create<Allocator, &Allocator::DoFamilyAllocate  >(*this) ),
@@ -1949,6 +1949,7 @@ Allocator::Allocator(const string& name, Processor& parent,
 
     RegisterSampleVariableInObject(m_totalallocex, SVC_CUMULATIVE);
     RegisterSampleVariableInObject(m_maxallocex, SVC_WATERMARK);
+    RegisterSampleVariableInObject(m_curallocex, SVC_LEVEL);
 }
 
 void Allocator::AllocateInitialFamily(MemAddr pc, bool legacy)

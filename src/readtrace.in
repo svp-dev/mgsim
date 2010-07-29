@@ -1,0 +1,410 @@
+#! @PYTHON@
+
+import sys
+import re
+import struct
+import fnmatch
+import time
+
+def logwarn(msg):
+    print >>sys.stderr, "%s:" % sys.argv[0], msg
+
+def die(msg):
+    logwarn(msg)
+    sys.exit(1)
+
+class DictWrapper(dict):
+    def __setattr__(self, n, v):
+        self[n] = v
+
+    def __getattr__(self, n):
+        return self[n]
+
+class MGConf(DictWrapper):
+    pass
+
+_mgc_arch_v1 = {
+    'archtype' : { 1: "simulated microgrid" },
+
+    'isatype' : { 1: "DEC Alpha with MT extensions",
+                  2: "SPARCV8 with MT extensions" },
+
+    'memorytype' : { 1: "serial",
+                     2: "parallel",
+                     3: "banked",
+                     4: "random banked",
+                     5: "COMA network, ZL protocol",
+                     6: "COMA network, ML protocol" }
+}
+
+def mgc_parse_arch_v1(c, words):
+    c.archtype = _mgc_arch_v1['archtype'].get(words[0], 'UNKNOWN')
+    c.isatype = _mgc_arch_v1['isatype'].get(words[1], 'UNKNOWN')
+    c.memorytype = _mgc_arch_v1['memorytype'].get(words[3], 'UNKNOWN')
+    c.nr_fpus = words[2]
+
+def mgc_parse_timings_v1(c, words):
+    c.corefreq = words[0]
+    c.extmembandwidth = words[1] * 1000000
+
+def mgc_parse_cache_v1(c, words):
+    c.cachelinesize = words[0]
+    c.l1_icachesize = words[1]
+    c.l1_dcachesize = words[2]
+    c.nr_l2_caches = words[3]
+    c.l2_cachesize = words[4]
+
+def mgc_parse_conc_v1(c, words):
+    c.ftes_per_core = words[0]
+    c.ttes_per_core = words[1]
+    c.iregs_per_core = words[2]
+    c.fregs_per_core = words[3]
+
+def mgc_parse_layout_v1(c, words):
+    # print "XXX", words
+    c.nr_cores = words[0]
+    c.places = {}
+    c.pid_to_ringid = {}
+    for w in words[1:]:
+        pid = w & 0xffff
+        rid = w >> 16
+        ring = c.places.get(rid, [])
+        ring.append(pid)
+        c.places[rid] = ring
+        c.pid_to_ringid[pid] = rid
+
+_mgconf_parsers = {
+    0 : None,
+    1 : mgc_parse_arch_v1,
+    2 : mgc_parse_timings_v1,
+    3 : mgc_parse_cache_v1,
+    4 : mgc_parse_conc_v1,
+    5 : mgc_parse_layout_v1
+}
+
+class Metadata(DictWrapper):
+    pass
+
+def parse_date(o, f, ts):
+    o.timestamp = ts
+
+def parse_generator(o, f, gen):
+    o.generator = gen
+    if not gen.startswith('mgsim'):
+        logwarn('unknown generator: ' + gen)
+
+def parse_host(o, f, h):
+    o.host = h
+
+def parse_program(o, f, _):
+    o.program = f.readline().strip()
+
+def parse_inputs(o, f, ins):
+    o.inputs = [f.readline().strip() for i in xrange(int(ins))]
+
+def parse_confwords(o, f, nc):
+    cwl = [int(x) for x in f.readline().strip().split(' ')]
+    mgconf = MGConf()
+    # print "XXX", cwl
+
+    i = 0
+    while cwl[i] != 0:
+        tag = cwl[i] >> 16
+        sz = cwl[i] & 0xffff
+        
+        data = cwl[i+1:i+1+sz]
+        parser = _mgconf_parsers[tag]
+        if parser is None:
+            break
+        # print "XXX", tag, sz, data
+        parser(mgconf, data)
+        i += sz + 1
+
+    o.mgconf = mgconf
+
+_re_vi = re.compile(r'^(?P<sz>\d+)\s+(?P<cat>\w+)\s+(?P<type>\w+)\s+\w+\s+\w+\s+(?P<name>\w+)')
+_re_nnum = re.compile(r'^(?P<name>[a-z]+)(?P<pos>\d+)$', re.I)
+
+class Vars(DictWrapper):
+
+    def set(self, longname, val, val2):
+        parts = longname.split('.')
+        path = parts[:-1]
+        var = parts[-1]
+        subtree = self
+        for part in path:
+            m = _re_nnum.match(part)
+            if m is not None:
+                name = m.group('name')
+                pos = int(m.group('pos'))
+                d = subtree.get(name, [])
+                if len(d) <= pos:
+                    d.extend((Vars() for i in xrange(pos - len(d) + 1)))
+                subtree[name] = d
+                subtree = d[pos]
+            else:
+                d = subtree.get(part, None)
+                if d is None:
+                    d = Vars()
+                subtree[part] = d
+                subtree = d
+        subtree[var] = val
+        subtree[var+'_max'] = val2
+
+def parse_varinfo(o, f, nvi):
+
+    nvi = int(nvi)
+    v = Vars()
+    vl = []
+    vd = []
+
+    for i in xrange(nvi):
+        sz, cat, t, m, _, name = f.readline().strip().lower().split('\t')
+        if t == 'float':
+            ct = float
+        else:
+            ct = int
+        if m == 'n/a':
+            m = None
+        else:
+            m = ct(m)
+
+        d = (int(sz), cat, t, m)
+        vl.append(d)
+        while name in vd:
+            name += '_'
+        vd.append(name)
+
+        v.set(name, i+4, m)
+
+    o.varnames = vd
+    o.varinfo = vl
+    o.varindexes = v
+
+def parse_recwidth(o, f, rw):
+    o.recwidth = int(rw)
+
+def parse_tv_sizes(o, f, tvs):
+    t1, t2, t3 = tvs.split(' ')
+    o.tv_sec_sz = int(t1)
+    o.tv_usec_sz = int(t2)
+    o.tv_size = int(t3)
+    o.tv_padding = o.tv_size - o.tv_sec_sz - o.tv_usec_sz
+
+    o.varnames.insert(0, ('wallclock.sec'))
+    o.varinfo.insert(0, (o.tv_sec_sz, 'cumul', 'int', None))
+    o.varindexes.set('wallclock.sec', 0, None)
+
+    o.varnames.insert(1, ('wallclock.usec'))
+    o.varinfo.insert(1, (o.tv_usec_sz, 'cumul', 'int', None))
+    o.varindexes.set('wallclock.usec', 1, None)
+
+    o.varnames.insert(2, ('wallclock.sec_'))
+    o.varinfo.insert(2, (o.tv_sec_sz, 'cumul', 'int', None))
+    o.varindexes.set('wallclock.sec_', 2, None)
+
+    o.varnames.insert(3, ('wallclock.usec_'))
+    o.varinfo.insert(3, (o.tv_usec_sz, 'cumul', 'int', None))
+    o.varindexes.set('wallclock.usec_', 3, None)
+
+def read_metadata(mfname):
+    o = Metadata()
+    with open(mfname, 'r') as f:
+        line = f.readline().rstrip()
+        while line:
+            # print "XXX %s XXX" % line
+            assert line[0] == '#'
+            key, val = line[1:].split(':',1)
+
+            globals()['parse_%s' % key.strip()](o, f, val.strip())
+            line = f.readline().rstrip()
+
+    return o
+
+fmts = { 'int' : { 1 : 'B', 2 : 'H', 4 : 'I', 8 : 'Q' },
+         'float' : { 4 : 'f', 8 : 'd' } }
+
+def make_struct_fmt(md):
+    fmt = ['=']
+    fmt.append(fmts['int'][md.tv_sec_sz])
+    fmt.append(fmts['int'][md.tv_usec_sz])
+    fmt.append('x' * md.tv_padding)
+    fmt.append(fmts['int'][md.tv_sec_sz])
+    fmt.append(fmts['int'][md.tv_usec_sz])
+    fmt.append('x' * md.tv_padding)
+    for sz, _, t, _ in md.varinfo[4:]:
+        fmt.append(fmts[t][sz])
+    return ''.join(fmt)
+
+def read_binary(fname, recwidth, format):
+    nrec = 1
+    start = time.clock()
+    with open(fname, 'rb') as df:
+        rec = df.read(recwidth)
+        while len(rec) == recwidth:
+            try:
+                yield struct.unpack_from(format, rec)
+                nrec += 1
+            except Exception, e:
+                warn('invalid record at position %d' % nrec)
+                break
+            rec = df.read(recwidth)
+    t = time.clock() - start
+    print >>sys.stderr, "%d %d-byte records read, avg %f recs/s, %f bytes/s, %f s/rec" % (
+        nrec, recwidth, nrec/t, nrec*recwidth/t, t/nrec)
+
+class Window(list):
+    def __init__(self, width, default = 0):
+        assert width > 0
+        self.width = width
+        self.pos = 0
+        self += [default] * width
+    
+    def append(self, val):
+        pos = self.pos
+        self[pos] = val
+        self.pos = (pos + 1) % self.width 
+
+def tabulate(*args):
+    if len(args) == 1 and hasattr(args[0], '__iter__'):
+        args = args[0]
+    print '\t'.join((str(x) for x in args))
+
+_defprogram = """
+wcstart = None
+
+for i in input:
+  # wall clock time at start of sample
+  wt1 = i[wallclock.sec] + .000001*i[wallclock.usec]
+  # wall clock time at end of sample
+  wt2 = i[wallclock.sec_] + .000001*i[wallclock.usec_]
+
+  # simulated time at start of sample
+  st1 = i[kernel.cycle]
+  # simulated time at end of sample
+  st2 = i[kernel.cycle_]
+
+  # compute "middle" values:
+  wc = (wt1+wt2)/2.
+  st = (st1+st2)/2.
+
+  # keep track of the initial wall clock time
+  if wcstart is None:
+     wcstart = wc-0.000001
+
+  # prepend the times to the record data
+  tabulate([wc-wcstart, st] + list(i))
+"""
+    
+def helpengines():
+    print """
+Synthesis engines are specified using a single Python source code
+file. Engines are structured as follows:
+
+   <code executed once>
+   for i in input:
+        <code executed for each record>
+        tabulate(variables...)
+
+The variable 'input' is a generator that produces the data records as
+Python tuples. The function 'tabulate()' formats its arguments into
+columns.
+
+To access individual counters in each record, the namespace from the
+input stream metadata is exposed in Python as variables that hold
+indices into the record tuple. For example, the following engine
+extracts the wall clock time and the simulated time as two columns:
+
+  for i in input:
+       tabulate(i[wallclock.sec] + .000001 * i[wallclock.usec],
+                i[kernel.cycle])
+
+The following entities are predefined:
+
+  zerorec
+     A tuple of the same width as records, filled with zeros. 
+
+  mgconf
+     A namespace populated with the Microgrid configuration
+     parameters. The list of all configuration names can
+     be obtained using "print dir(mgconf)".
+
+  select(PATTERN)
+     Return a list with the indices of all counters whose names match
+     PATTERN. This can then be used with a comprehension to perform
+     reductions. For example:
+
+         sel = select('*.threads.maxalloc')
+         for i in input:
+             maxall = sum((i[x] for x in sel))
+             tabulate(i[kernel.cycle], maxall)
+
+  window(N)
+     Define a circular buffer of N entries. Entries can be inserted
+     using the method append(). This can be used to perform sliding
+     averages as follows:
+
+         acw = window(100)
+         sel = select('*.threads.curalloc')
+         for i in input:
+             nactive = sum((1 for x in sel if i[x] != 0))
+             acw.append(nactive)
+
+             avg_nactive = sum(acw) / len(acw)
+             tabulate(i[kernel.cycle], avg_nactive)
+
+When no engine is specified, the following default is used:"""
+    print _defprogram.replace('\n', '\n  ')
+
+if __name__ == "__main__":
+    import optparse
+    parser = optparse.OptionParser(usage = "%prog [options] METADATA INPUTSTREAM",
+                                   epilog = "Report bugs and suggestions to r.c.poss@uva.nl.")
+    parser.add_option('-e', '--engine', dest="engine",
+                      help="Execute Python synthesis code from FILE.", metavar="FILE")
+    parser.add_option('--help-engines', dest="helpengines", action="store_true",
+                      help="Display some documentation about synthesis engines.")
+    (options, args) = parser.parse_args()
+
+    if options.helpengines:
+        helpengines()
+        sys.exit(0)
+
+    engine = options.engine
+    if engine is None:
+        engine = "<default>"
+        program = _defprogram
+        logwarn("no synthesis code specified, using default")
+    else:
+        program = file(engine).read()
+    code = compile(program, engine, 'exec')
+        
+    mf = sys.argv[1]
+    md = read_metadata(mf)
+    fmt = make_struct_fmt(md)
+    # print "XXX %s XXX" % fmt
+    # print md
+
+    rawdata = read_binary(sys.argv[2], md.recwidth + 2 * md.tv_size, fmt)
+
+    def select(pat):
+        pat = pat.lower()
+        vl = md.varinfo
+        rl = []
+        for i, n in enumerate(md.varnames):
+            if fnmatch.fnmatch(n, pat):
+                rl.append(i)
+        return rl
+
+    cenv = {}
+    cenv.update(md.varindexes)
+    cenv['select'] = select
+    cenv['input'] = rawdata
+    cenv['tabulate'] = tabulate
+    cenv['zerorec'] = tuple((0 for x in xrange(len(md.varnames))))
+    cenv['window'] = Window
+    cenv['mgconf'] = getattr(md, 'mgconf', None)
+
+    exec code in cenv
+
+ 

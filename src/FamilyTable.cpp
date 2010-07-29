@@ -15,10 +15,12 @@ FamilyTable::FamilyTable(const std::string& name, Processor& parent, const Confi
 :   Object(name, parent),
     m_parent(parent),
     m_families(config.getInteger<size_t>("NumFamilies", 8)),
-    m_totalalloc(0), m_maxalloc(0), m_lastcycle(0)
+    m_totalalloc(0), m_maxalloc(0), m_lastcycle(0), m_curalloc(0)
 {
     RegisterSampleVariableInObject(m_totalalloc, SVC_CUMULATIVE);
     RegisterSampleVariableInObject(m_maxalloc, SVC_WATERMARK, m_families.size());
+    RegisterSampleVariableInObject(m_curalloc, SVC_LEVEL, m_families.size());
+    RegisterSampleVariableInObject(m_lastcycle, SVC_CUMULATIVE);
 
     for (size_t i = 0; i < m_families.size(); ++i)
     {
@@ -46,10 +48,10 @@ void FamilyTable::UpdateStats()
     CycleNo elapsed = cycle - m_lastcycle;
     m_lastcycle = cycle;
     
-    TSize cur_alloc = m_families.size() - m_free[CONTEXT_RESERVED] - m_free[CONTEXT_EXCLUSIVE] - m_free[CONTEXT_NORMAL]; 
+    m_curalloc = m_families.size() - m_free[CONTEXT_RESERVED] - m_free[CONTEXT_EXCLUSIVE] - m_free[CONTEXT_NORMAL]; 
     
-    m_totalalloc += cur_alloc * elapsed;
-    m_maxalloc = std::max(m_maxalloc, cur_alloc);   
+    m_totalalloc += m_curalloc * elapsed;
+    m_maxalloc = std::max(m_maxalloc, m_curalloc);   
 }
 
 // Checks that all internal administration is sane
