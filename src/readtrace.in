@@ -359,7 +359,8 @@ When no engine is specified, the following default is used:"""
 if __name__ == "__main__":
     import optparse
     parser = optparse.OptionParser(usage = "%prog [options] METADATA INPUTSTREAM",
-                                   epilog = "Report bugs and suggestions to r.c.poss@uva.nl.")
+                                   epilog = "Report bugs and suggestions to r.c.poss@uva.nl.",
+                                   version = "%prog @PACKAGE_VERSION@")
     parser.add_option('-e', '--engine', dest="engine",
                       help="Execute Python synthesis code from FILE.", metavar="FILE")
     parser.add_option('--help-engines', dest="helpengines", action="store_true",
@@ -370,6 +371,10 @@ if __name__ == "__main__":
         helpengines()
         sys.exit(0)
 
+    if len(args) != 2:
+        parser.print_usage(sys.stderr)
+        sys.exit(1)
+
     engine = options.engine
     if engine is None:
         engine = "<default>"
@@ -378,14 +383,14 @@ if __name__ == "__main__":
     else:
         program = file(engine).read()
     code = compile(program, engine, 'exec')
-        
-    mf = sys.argv[1]
+
+    mf = args[1]
     md = read_metadata(mf)
     fmt = make_struct_fmt(md)
     # print "XXX %s XXX" % fmt
     # print md
 
-    rawdata = read_binary(sys.argv[2], md.recwidth + 2 * md.tv_size, fmt)
+    rawdata = read_binary(args[2], md.recwidth + 2 * md.tv_size, fmt)
 
     def select(pat):
         pat = pat.lower()

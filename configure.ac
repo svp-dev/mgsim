@@ -140,10 +140,10 @@ AC_CONFIG_FILES([
 	Makefile
 	doc/Makefile
 	src/Makefile
-        src/readtrace
         programs/aslink.sh
 	programs/Makefile
 	programs/mtalpha/Makefile
 	programs/mtsparc/Makefile
 ])
+AC_CONFIG_FILES([src/readtrace], [chmod +x src/readtrace])
 AC_OUTPUT
