@@ -47,6 +47,10 @@ Monitor::Monitor(Simulator::MGSystem& sys, bool enabled, const std::string& mdfi
         return ;
     }
 
+    if (outfile.empty())
+        /* only metadata was requested */
+        return ;
+
     m_outputfile = new std::ofstream(outfile.c_str(), std::ios_base::binary|std::ios_base::out|std::ios_base::trunc);
     if (!m_outputfile->good()) 
     {

@@ -428,6 +428,8 @@ void PrintUsage(std::ostream& out, const char* cmd)
         "Options:\n\n"
         "  -c, --config FILE        Read configuration from FILE.\n"
         "  -d, --dumpconf           Dump configuration to standard error prior to program startup.\n"
+        "  -D, --dumpvars           Dump list of monitor variables prior to program startup.\n"
+        "  -n, --do-nothing         Exit before the program starts, but after the system is configured.\n"
         "  -i, --interactive        Start the simulator in interactive mode.\n"
         "  -o, --override NAME=VAL  Overrides the configuration option NAME with value VAL.\n"
         "  -q, --quiet              Do not print simulation statistics after execution.\n" 

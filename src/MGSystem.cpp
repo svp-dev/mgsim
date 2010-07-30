@@ -687,7 +687,7 @@ MGSystem::MGSystem(const Config& config, Display& display, const string& program
                    const string& symtable,
                    const vector<pair<RegAddr, RegValue> >& regs,
                    const vector<pair<RegAddr, string> >& loads,
-                   bool quiet)
+                   bool quiet, bool doload)
     : Object("system", m_kernel),
       m_breakpoints(m_kernel),
       m_kernel(display, m_symtable, m_breakpoints),
@@ -802,7 +802,9 @@ MGSystem::MGSystem(const Config& config, Display& display, const string& program
     }
 
     // Load the program into memory
-    std::pair<MemAddr, bool> progdesc = LoadProgram(m_memory, program, quiet);
+    std::pair<MemAddr, bool> progdesc = make_pair(0, false);
+    if (doload)
+        progdesc = LoadProgram(m_memory, program, quiet);
 
     // Connect processors in rings
     first = 0;
@@ -819,7 +821,7 @@ MGSystem::MGSystem(const Config& config, Display& display, const string& program
         first += placeSize;
     }
 
-    if (!m_procs.empty())
+    if (doload && !m_procs.empty())
     {
         // Fill initial registers
         for (size_t i = 0; i < regs.size(); ++i)
@@ -859,7 +861,7 @@ MGSystem::MGSystem(const Config& config, Display& display, const string& program
     m_kernel.SetDebugMode(Kernel::DEBUG_PROG);
 
     // Load symbol table
-    if (!symtable.empty()) 
+    if (doload && !symtable.empty()) 
     {
         ifstream in(symtable.c_str(), ios::in);
         m_symtable.Read(in);

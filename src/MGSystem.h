@@ -97,7 +97,7 @@ namespace Simulator {
                  const std::string& symtable,
                  const std::vector<std::pair<RegAddr, RegValue> >& regs,
                  const std::vector<std::pair<RegAddr, std::string> >& loads,
-                 bool quiet);
+                 bool quiet, bool doload);
 
         ~MGSystem();
 
