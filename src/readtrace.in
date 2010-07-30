@@ -384,13 +384,13 @@ if __name__ == "__main__":
         program = file(engine).read()
     code = compile(program, engine, 'exec')
 
-    mf = args[1]
+    mf = args[0]
     md = read_metadata(mf)
     fmt = make_struct_fmt(md)
     # print "XXX %s XXX" % fmt
     # print md
 
-    rawdata = read_binary(args[2], md.recwidth + 2 * md.tv_size, fmt)
+    rawdata = read_binary(args[1], md.recwidth + 2 * md.tv_size, fmt)
 
     def select(pat):
         pat = pat.lower()
