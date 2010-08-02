@@ -47,6 +47,15 @@ Monitor::Monitor(Simulator::MGSystem& sys, bool enabled, const std::string& mdfi
         return ;
     }
 
+    std::vector<std::string> pats = sys.GetConfig().getIntegerList<std::string>("MonitorSampleVariables");
+    pats.insert(pats.begin(), "kernel.cycle");
+    pats.push_back("kernel.cycle");
+    m_sampler = new BinarySampler(metadatafile, sys, pats);
+    metadatafile << "# tv_sizes: " << sizeof(((struct timeval*)(void*)0)->tv_sec) 
+                 << ' ' << sizeof(((struct timeval*)(void*)0)->tv_usec)
+                 << ' ' << sizeof(struct timeval) << std::endl;
+    metadatafile.close();
+
     if (outfile.empty())
         /* only metadata was requested */
         return ;
@@ -59,16 +68,6 @@ Monitor::Monitor(Simulator::MGSystem& sys, bool enabled, const std::string& mdfi
         m_outputfile = 0;
         return ;
     }
-
-
-    std::vector<std::string> pats = sys.GetConfig().getIntegerList<std::string>("MonitorSampleVariables");
-    pats.insert(pats.begin(), "kernel.cycle");
-    pats.push_back("kernel.cycle");
-    m_sampler = new BinarySampler(metadatafile, sys, pats);
-    metadatafile << "# tv_sizes: " << sizeof(((struct timeval*)(void*)0)->tv_sec) 
-                 << ' ' << sizeof(((struct timeval*)(void*)0)->tv_usec)
-                 << ' ' << sizeof(struct timeval) << std::endl;
-    metadatafile.close();
 
     float msd = sys.GetConfig().getInteger<float>("MonitorSampleDelay", 0.001);
     msd = fabs(msd);
