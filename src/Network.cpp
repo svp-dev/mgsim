@@ -265,27 +265,28 @@ void Network::ReleaseToken()
 bool Network::WriteRegister(const RemoteRegAddr& raddr, const RegValue& value)
 {
     RegAddr addr = m_allocator.GetRemoteRegisterAddress(raddr);
-    assert(addr != INVALID_REG);
-
-    // Write it
-    DebugSimWrite("Writing %s register %s in F%u to %s",
-        GetRemoteRegisterTypeString(raddr.type),
-        raddr.reg.str().c_str(),
-        (unsigned)raddr.fid.lfid,
-        addr.str().c_str()
-    );
-                    
-    if (!m_regFile.p_asyncW.Write(addr))
+    if (addr != INVALID_REG)
     {
-        DeadlockWrite("Unable to acquire port to write register response to %s", addr.str().c_str());
-        return false;
+        // Write it
+        DebugSimWrite("Writing %s register %s in F%u to %s",
+            GetRemoteRegisterTypeString(raddr.type),
+            raddr.reg.str().c_str(),
+            (unsigned)raddr.fid.lfid,
+            addr.str().c_str()
+        );
+                    
+        if (!m_regFile.p_asyncW.Write(addr))
+        {
+            DeadlockWrite("Unable to acquire port to write register response to %s", addr.str().c_str());
+            return false;
+        }
+                    
+        if (!m_regFile.WriteRegister(addr, value, false))
+        {
+            DeadlockWrite("Unable to write register response to %s", addr.str().c_str());
+            return false;
+        }       
     }
-                    
-    if (!m_regFile.WriteRegister(addr, value, false))
-    {
-       DeadlockWrite("Unable to write register response to %s", addr.str().c_str());
-       return false;
-    }       
     return true;
 }
 
