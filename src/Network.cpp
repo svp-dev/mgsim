@@ -121,6 +121,21 @@ bool Network::SendMessage(const RemoteMessage& msg)
         }
         DebugSimWrite("Sending group detach message for F%u", (unsigned)msg.detach.fid.lfid);
     }
+    else if (msg.type == RemoteMessage::MSG_BRK && msg.brk.pid == INVALID_GPID)
+    {
+        RegisterMessage reg;
+        reg.addr.type       = RRT_BRK;
+        reg.value.m_integer = msg.brk.index;		
+        reg.addr.fid.lfid   = msg.brk.lfid;
+		
+        if (!m_registers.out.Write(reg))
+        {
+            DeadlockWrite("Unable to buffer group break message for F%u", (unsigned)msg.brk.lfid);
+            return false;
+        }
+
+        DebugSimWrite("Sending group break message for F%u", (unsigned)msg.brk.lfid);	
+    }
     else
     {
         // Delegated message
@@ -136,6 +151,7 @@ bool Network::SendMessage(const RemoteMessage& msg)
         case RemoteMessage::MSG_DETACH:       dmsg.dest = msg.detach.fid.pid; break;
         case RemoteMessage::MSG_SYNC:         dmsg.dest = msg.sync.fid.pid; break;
         case RemoteMessage::MSG_REGISTER:     dmsg.dest = msg.reg.addr.fid.pid; break;
+        case RemoteMessage::MSG_BRK:          dmsg.dest = msg.brk.pid; break;
         default:  assert(false);              dmsg.dest = INVALID_GPID; break;
         }
         
@@ -381,6 +397,42 @@ Result Network::DoRegisters()
         }
         break;
     
+    case RRT_BRK:	
+        DebugSimWrite("Response to remote BREAK with index %u from previous CPU",(unsigned)msg.value.m_integer);
+        if (!family.dependencies.breaked)
+        {
+            m_allocator.DecreaseFamilyDependency(msg.addr.fid.lfid,FAMDEP_BREAKED);
+            DebugSimWrite("Mark F%u BREAKED",(unsigned)msg.addr.fid.lfid);
+            
+            if (m_lpid == (family.parent_lpid + 1) % m_parent.GetPlaceSize())
+            {
+                if (msg.value.m_integer == 0)
+                {
+                    Integer index  = family.index;
+                    Integer offset = family.virtBlockSize - (family.index % family.virtBlockSize);
+                    index += offset + (m_parent.GetPlaceSize() - 1) * family.virtBlockSize;
+                    msg.value.m_integer = index;
+                    DebugSimWrite("Change index to %u",(unsigned)msg.value.m_integer);
+                }
+            }
+            
+            if (!m_allocator.OnGroupBreak(msg.addr.fid.lfid, msg.value.m_integer))
+            {
+                DeadlockWrite("Unable to break family F%u", (unsigned)msg.addr.fid.lfid);
+                return FAILED;
+            }
+        }
+        else
+        {
+            DebugSimWrite("F%u has been BREAKED,only send foward to next",(unsigned)msg.addr.fid.lfid);
+        }
+
+        if (family.parent_lpid != m_lpid)
+        {
+            forward = true;
+        }
+        break;
+	    
     default:
         assert(false);
         break;
@@ -563,6 +615,34 @@ Result Network::DoDelegationIn()
         DebugSimWrite("Detached F%u", (unsigned)msg.detach.fid.lfid);
         break;
     }
+	
+    case DelegateMessage::MSG_BRK:
+    {
+        DebugSimWrite("Response to remote BREAK from CPU%u",(unsigned)msg.src);
+		
+        const Family& family = m_familyTable[msg.brk.lfid];
+		
+        DebugSimWrite("Index of F%u is %u now ", (unsigned)msg.brk.lfid, (unsigned)family.index);
+
+        RemoteMessage msg_;
+        Integer index  = family.index;
+        Integer offset = family.virtBlockSize - (family.index % family.virtBlockSize);
+        index += offset + (m_parent.GetPlaceSize() - 1) * family.virtBlockSize;
+		
+        msg_.type       = RemoteMessage::MSG_BRK;
+        msg_.brk.lfid   = family.link_next;
+        msg_.brk.pid    = INVALID_GPID;		
+        msg_.brk.index  = (msg.src == m_lpid + 1)?index : 0 ;
+		
+        DebugSimWrite("Parent CPU%u forward BREAK to next CPU and index is %u", (unsigned)msg.brk.pid,(unsigned)msg_.brk.index);
+		
+        if (!SendMessage(msg_))
+        {
+            DeadlockWrite("Unable to send break message for Group Family");
+            return FAILED;
+        }		
+        break;
+	}
         
     case DelegateMessage::MSG_REGISTER:
         switch (msg.reg.addr.type)

@@ -327,6 +327,7 @@ enum RemoteRegType
     RRT_LAST_SHARED,        ///< The last shareds in the family, meant for the parent
     RRT_DETACH,             ///< Fake remote reg type. This signals family detachment
     RRT_CLEANUP,            ///< Fake remote reg type. This signals a remote thread cleanup
+    RRT_BRK,				///< Fake remote reg type. This signals family break
 };
 
 const char* GetRemoteRegisterTypeString(RemoteRegType type);

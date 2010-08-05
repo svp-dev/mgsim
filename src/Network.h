@@ -62,6 +62,7 @@ struct RemoteMessage
         MSG_ALLOCATE,       ///< Allocate family
         MSG_SET_PROPERTY,   ///< Set family property
         MSG_CREATE,         ///< Create family
+        MSG_BRK,            ///< Break
         MSG_DETACH,         ///< Detach family
         MSG_SYNC,           ///< Synchronise on family
         MSG_REGISTER,       ///< Register request or response
@@ -96,6 +97,12 @@ struct RemoteMessage
             FID fid;
         } detach;
 
+        struct {
+            Integer index;
+            LFID    lfid;
+            GPID    pid;
+        } brk;
+        
         RegisterMessage reg;
     };
 };

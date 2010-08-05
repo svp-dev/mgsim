@@ -33,6 +33,7 @@ enum FamilyDependency
     FAMDEP_OUTSTANDING_READS,   // Number of outstanding memory reads
     FAMDEP_PREV_SYNCHRONIZED,   // Family has synchronized on the previous processor
     FAMDEP_DETACHED,            // Family has been detached
+    FAMDEP_BREAKED,             // Family has been breaked
 	FAMDEP_ALLOCATION_DONE,     // Thread allocation is done
 };
 
@@ -120,6 +121,8 @@ public:
     bool OnTokenReceived();
     bool OnRemoteSync(LFID fid, FCapability capability, GPID remote_pid, RegIndex remote_reg);
     bool OnRemoteThreadCleanup(LFID fid);
+    bool OnGroupBreak(LFID fid, Integer index);
+    bool OnLocalBreak(LFID fid);
     void ReserveContext();
 
     // Helpers

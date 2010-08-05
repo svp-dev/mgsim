@@ -248,6 +248,74 @@ bool Allocator::OnRemoteThreadCleanup(LFID fid)
     return true;
 }
 
+// This is called by the pipeline to stop allocating threads of local family
+bool Allocator::OnLocalBreak(LFID fid)
+{
+    Family& family = m_familyTable[fid];
+
+    if (!family.dependencies.allocationDone)
+    {
+        // Stop creation at our current point
+        if (family.infinite)
+        {
+            // Set a finite family limit
+            COMMIT
+            {
+                family.infinite = false;
+                family.nThreads = family.index + 1;
+            }
+            
+            DebugSimWrite("For infinite family,set thread number to %u ",
+                (unsigned)family.index + 1);
+        }
+        else
+        {
+            assert(family.index < family.nThreads);
+
+            DebugSimWrite("For finite family with %u threads,set it to %u ",
+                (unsigned)family.nThreads, (unsigned)family.index + 1);
+
+            if (family.index + 1 < family.nThreads)
+            {
+                // Move the family limit down
+                COMMIT{ family.nThreads = family.index + 1; }
+            }
+        }
+    }
+    return true;
+}
+
+// This is called by network to stop allocating threads of group family
+bool Allocator::OnGroupBreak(LFID lfid, Integer index)
+{
+    Family& family = m_familyTable[lfid];
+    assert(index > family.index);
+
+    // Get the remainder of threads in the block
+    Integer remainder = (family.virtBlockSize - (family.index % family.virtBlockSize)) % family.virtBlockSize;
+
+    if (family.infinite)
+    {
+        COMMIT
+        {
+            family.infinite = false;
+            family.nThreads = family.hasDependency ? index : (family.index + remainder);
+        }
+        
+        DebugSimWrite("Change F%u to be Finite, set its thread number to %u",
+            (unsigned)lfid, (unsigned)family.nThreads);
+    }
+    else if (index < family.nThreads)
+    {
+        COMMIT
+        {
+            family.nThreads = family.hasDependency ? index : (family.index + remainder);
+        }
+        DebugSimWrite("Set thread number of F%u to %u", (unsigned)lfid, (unsigned)family.nThreads);
+    }
+    return true;
+}
+
 //
 // This is called by various components (RegisterFile, Pipeline, ...) to
 // add the threads to the ready queue.
@@ -537,7 +605,7 @@ bool Allocator::AllocateThread(LFID fid, TID tid, bool isNewlyAllocated)
             // There are no more blocks for us
             if (!DecreaseFamilyDependency(fid, *family, FAMDEP_ALLOCATION_DONE))
             {
-                DeadlockWrite("Unable to mark ALLOACTION_DONE in family");
+                DeadlockWrite("Unable to mark ALLOCATION_DONE in family");
                 return false;
             }
         }
@@ -669,6 +737,7 @@ bool Allocator::DecreaseFamilyDependency(LFID fid, Family& family, FamilyDepende
     case FAMDEP_PREV_SYNCHRONIZED: assert(!deps->prevSynchronized);       deps->prevSynchronized = true; break;
     case FAMDEP_ALLOCATION_DONE:   assert(!deps->allocationDone);         deps->allocationDone   = true; break;
     case FAMDEP_DETACHED:          assert(!deps->detached);               deps->detached         = true; break;
+    case FAMDEP_BREAKED:           assert(!deps->breaked);                deps->breaked          = true; break;
     }
 
     switch (dep)
@@ -730,6 +799,9 @@ bool Allocator::DecreaseFamilyDependency(LFID fid, Family& family, FamilyDepende
             DebugSimWrite("Cleaned up F%u", (unsigned)fid);
         }
         break;
+        
+	case FAMDEP_BREAKED:
+	    break;
     }
 
     return true;
@@ -883,6 +955,7 @@ FCapability Allocator::InitializeFamily(LFID fid, PlaceType place) const
         family.virtBlockSize = 0;
         family.physBlockSize = 0;
         family.parent_lpid   = m_lpid;
+        family.parent_lfid   = fid;
         family.place         = place;
         family.link_prev     = INVALID_LFID;
         family.link_next     = INVALID_LFID;
@@ -901,6 +974,7 @@ FCapability Allocator::InitializeFamily(LFID fid, PlaceType place) const
         family.dependencies.numPendingReads     = 0;
         family.dependencies.numThreadsAllocated = 0;
         family.dependencies.detached            = false;
+        family.dependencies.breaked             = false;
         
         Family::Type type;
         switch (place)
@@ -1096,6 +1170,7 @@ LFID Allocator::OnGroupCreate(const GroupCreateMessage& msg)
     family.step          = msg.step;
     family.nThreads      = msg.nThreads;
     family.parent_lpid   = msg.parent_lpid;
+    family.parent_lfid   = msg.first_fid;
     family.virtBlockSize = msg.virtBlockSize;
     family.physBlockSize = msg.physBlockSize;
     family.pc            = msg.address;
@@ -1989,6 +2064,7 @@ void Allocator::AllocateInitialFamily(MemAddr pc, bool legacy)
     
     // The main family starts off detached
     family.dependencies.detached = true;
+    family.dependencies.breaked  = false;
 
     if (!AllocateRegisters(fid, CONTEXT_NORMAL))
     {

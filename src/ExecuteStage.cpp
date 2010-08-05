@@ -525,7 +525,42 @@ Pipeline::PipeAction Pipeline::ExecuteStage::SetFamilyProperty(const FID& fid, F
     return PIPE_CONTINUE;
 }
 
-Pipeline::PipeAction Pipeline::ExecuteStage::ExecBreak()                    { return PIPE_CONTINUE; }
+Pipeline::PipeAction Pipeline::ExecuteStage::ExecBreak()
+{ 
+    TID  tid         = m_input.tid;
+    Thread& thread   = m_threadTable[tid];
+    LFID lfid        = thread.family;
+    Family& family   = m_familyTable[lfid];
+
+    DebugSimWrite("Execute BREAK from Thread T%u (index %u). Family index is %u now ",
+        (unsigned)tid, (unsigned)thread.index,(unsigned)family.index);
+	
+    if (family.dependencies.breaked)				   
+    {
+        DebugSimWrite("F%u has been BREAKED, ignore this break ", (unsigned)lfid);
+    }
+    else if (family.type == Family::GROUP)
+    {
+        // Group family, send a message to the parent core
+        COMMIT
+        {
+            m_output.Rrc.type      = RemoteMessage::MSG_BRK;
+            m_output.Rrc.brk.index = family.index;
+            m_output.Rrc.brk.pid   = family.parent_lpid;
+            m_output.Rrc.brk.lfid  = family.parent_lfid;
+				
+            DebugSimWrite("Generate remote message for BREAK from Thread T%u target F%u on parent CPU%u",
+                (unsigned)tid, (unsigned)family.parent_lfid,(unsigned)family.parent_lpid);
+        }
+    }
+    // Local family
+    else if (!m_allocator.OnLocalBreak(lfid))
+    {
+        return PIPE_STALL;
+    }  
+    return PIPE_CONTINUE; 
+}
+
 Pipeline::PipeAction Pipeline::ExecuteStage::ExecKill(const FID& /* fid */) { return PIPE_CONTINUE; }
 
 void Pipeline::ExecuteStage::ExecDebugOutput(Integer value, int command, int flags) const

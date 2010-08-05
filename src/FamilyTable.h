@@ -53,6 +53,11 @@ struct Family
          explicitely detached from it.
         */
         bool detached;
+		
+        /*
+         The family has been the target of a break operation.
+        */
+        bool breaked;
         
         /*
          All allocated threads (0 <= allocated <= physBlockSize) must have
@@ -86,6 +91,7 @@ struct Family
 	};
     Integer      index;          // Index of the next to be allocated thread (0, 1, 2... nThreads-1)
     LPID         parent_lpid;    // Parent core in group
+    LFID         parent_lfid;    // lfid on parent core in group
     bool         hasDependency;  // Does this family use shareds?
     Dependencies dependencies;   // The dependencies for termination and cleanup
     ThreadQueue  members;        // Queue of all threads in this family
