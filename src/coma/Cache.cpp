@@ -337,6 +337,7 @@ bool COMA::Cache::OnMessageReceived(Message* msg)
         break;
 
     case Message::REQUEST_DATA_TOKEN:
+    {
         // We received a line for a previous read miss on this cache
         assert(line != NULL);
         assert(line->state == LINE_LOADING);
@@ -368,8 +369,28 @@ bool COMA::Cache::OnMessageReceived(Message* msg)
             line->tokens = msg->tokens;
         }
         
-        // Put the data on the bus for the processors
-        if (!OnReadCompleted(msg->address, msg->data))
+        /*
+         Put the data on the bus for the processors.
+         Merge with pending writes first so we don't accidentally give some
+         other processor on the bus old data after its write.
+         This is kind of a hack; it's feasibility in hardware in a single cycle
+         is questionable.
+        */
+        MemData data(msg->data);
+        COMMIT
+        {
+            for (Buffer<Request>::const_iterator p = m_requests.begin(); p != m_requests.end(); ++p)
+            {
+                unsigned int offset = p->address % m_lineSize;
+                if (p->write && p->address - offset == msg->address)
+                {
+                    // This is a write to the same line, merge it
+                    std::copy(p->data, p->data + p->size, data.data + offset);
+                }
+            }
+        }
+
+        if (!OnReadCompleted(msg->address, data))
         {
             DeadlockWrite("Unable to notify clients of read completion");
             return false;
@@ -377,6 +398,7 @@ bool COMA::Cache::OnMessageReceived(Message* msg)
         
         COMMIT{ delete msg; }
         break;
+    }
     
     case Message::EVICTION:
         if (line != NULL)
@@ -452,13 +474,26 @@ bool COMA::Cache::OnMessageReceived(Message* msg)
         else
         {
             // Update the line, if we have it, and forward the message
-            COMMIT
+            if (line != NULL)
             {
-                if (line != NULL)
+                COMMIT
                 {
                     unsigned int offset = msg->address % m_lineSize;
                     memcpy(line->data + offset, msg->data.data, msg->data.size);
                     std::fill(line->valid + offset, line->valid + offset + msg->data.size, true);
+                }
+            
+                // Send the write as a snoop to the processors
+                for (size_t i = 0; i < m_clients.size(); ++i)
+                {
+                    if (m_clients[i] != NULL)
+                    {
+                        if (!m_clients[i]->OnMemorySnooped(msg->address, msg->data))
+                        {
+                            DeadlockWrite("Unable to snoop update to cache clients");
+                            return false;
+                        }
+                    }
                 }
             }
             

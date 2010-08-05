@@ -285,7 +285,7 @@ Result DCache::Write(MemAddr address, void* data, MemSize size, LFID fid, TID ti
     {
         assert(line->state != LINE_EMPTY);
 
-        if (line->state == LINE_LOADING)
+        if (line->state == LINE_LOADING || line->state == LINE_INVALID)
         {
             // We cannot write into a loading line or we might violate the
             // sequential semantics of a single thread because pending reads
