@@ -218,7 +218,7 @@ public:
     Bank(const std::string& name, BankedMemory& memory, BufferSize buffersize)
         : Object(name, memory),
           m_memory  (memory),
-          p_incoming(memory, "incoming"),
+          p_incoming(memory, name + ".incoming"),
           m_incoming(*memory.GetKernel(), buffersize),
           m_outgoing(*memory.GetKernel(), buffersize),
           m_busy    (*memory.GetKernel(), false),
