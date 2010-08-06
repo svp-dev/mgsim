@@ -620,12 +620,13 @@ void DCache::Cmd_Read(std::ostream& out, const std::vector<std::string>& /*argum
 
     const size_t num_sets = m_lines.size() / m_assoc;
 
-    out << "Set |       Address       |                       Data                      |" << endl;
-    out << "----+---------------------+-------------------------------------------------+" << endl;
+    out << "Set |       Address       |                       Data                      | Waiting Registers" << endl;
+    out << "----+---------------------+-------------------------------------------------+-------------------" << endl;
     for (size_t i = 0; i < m_lines.size(); ++i)
     {
         const size_t set = i / m_assoc;
         const Line& line = m_lines[i];
+
         if (i % m_assoc == 0) {
             out << setw(3) << setfill(' ') << dec << right << set;
         } else {
@@ -646,9 +647,37 @@ void DCache::Cmd_Read(std::ostream& out, const std::vector<std::string>& /*argum
             }
             out << " |";
 
+            // Get the waiting registers
+            std::vector<RegAddr> waiting;
+            RegAddr reg = line.waiting;
+            while (reg != INVALID_REG)
+            {
+                waiting.push_back(reg);
+                RegValue value;
+                m_regFile.ReadRegister(reg, value);
+                
+                if (value.m_state == RST_FULL || value.m_memory.size == 0)
+                {
+                    // Rare case: the request info is still in the pipeline, stall!
+                    waiting.push_back(INVALID_REG);
+                    break;
+                }
+
+                if (value.m_state != RST_PENDING && value.m_state != RST_WAITING)
+                {
+                    // We're too fast, wait!
+                    waiting.push_back(INVALID_REG);
+                    break;
+                }
+
+                reg = value.m_memory.next;
+            }
+
             // Print the data
             out << hex << setfill('0');
             static const int BYTES_PER_LINE = 16;
+            const int nLines = (m_lineSize + BYTES_PER_LINE + 1) / BYTES_PER_LINE;
+            const int nWaitingPerLine = (waiting.size() + nLines + 1) / nLines;
             for (size_t y = 0; y < m_lineSize; y += BYTES_PER_LINE)
             {
                 for (size_t x = y; x < y + BYTES_PER_LINE; ++x) {
@@ -661,6 +690,20 @@ void DCache::Cmd_Read(std::ostream& out, const std::vector<std::string>& /*argum
                 }
 
                 out << " |";
+                
+                // Print waiting registers for this line
+                for (int w = 0; w < nWaitingPerLine; ++w)
+                {
+                    size_t index = y / BYTES_PER_LINE * nWaitingPerLine + w;
+                    if (index < waiting.size())
+                    {
+                        RegAddr reg = waiting[index];
+                        out << " ";
+                        if (reg == INVALID_REG) out << "[...]"; // And possibly others
+                        else out << reg.str();
+                    }
+                }
+                
                 if (y + BYTES_PER_LINE < m_lineSize) {
                     // This was not yet the last line
                     out << endl << "    |                     |";
@@ -669,7 +712,7 @@ void DCache::Cmd_Read(std::ostream& out, const std::vector<std::string>& /*argum
         }
         out << endl;
         out << ((i + 1) % m_assoc == 0 ? "----" : "    ");
-        out << "+---------------------+-------------------------------------------------+" << endl;
+        out << "+---------------------+-------------------------------------------------+-------------------" << endl;
     }
 
     out << endl << "Outgoing requests:" << endl << endl
