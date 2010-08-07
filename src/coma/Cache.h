@@ -51,6 +51,10 @@ private:
     ArbitratedService<>           p_lines;
     std::vector<Line>             m_lines;
     std::vector<char>             m_data;
+    
+    // Statistics
+    uint64_t                      m_numHits;
+    uint64_t                      m_numMisses;
 
     // Processes
     Process p_Requests;

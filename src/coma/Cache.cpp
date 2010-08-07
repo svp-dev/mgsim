@@ -1,5 +1,6 @@
 #include "Cache.h"
 #include "../config.h"
+#include "../sampling.h"
 #include <cassert>
 #include <cstring>
 #include <cstdio>
@@ -711,6 +712,8 @@ Result COMA::Cache::OnReadRequest(const Request& req)
             line->updating = 0;
             line->access   = GetKernel()->GetCycleNo();
             std::fill(line->valid, line->valid + MAX_MEMORY_OPERATION_SIZE, false);
+
+            m_numMisses++;
         }
         
         // Send a request out
@@ -746,6 +749,8 @@ Result COMA::Cache::OnReadRequest(const Request& req)
 
             // Update LRU information
             line->access = GetKernel()->GetCycleNo();
+            
+            m_numHits++;
         }
 
         if (!OnReadCompleted(req.address, data))
@@ -761,6 +766,9 @@ Result COMA::Cache::OnReadRequest(const Request& req)
         // We can ignore this request; the completion of the earlier load
         // will put the data on the bus so this requester will also get it.
         assert(line->state == LINE_LOADING);
+        
+        // Counts as a miss because we have to wait
+        COMMIT{ m_numMisses++; }
     }
     return SUCCESS;
 }
@@ -801,12 +809,17 @@ COMA::Cache::Cache(const std::string& name, COMA& parent, CacheID id, size_t num
     m_id       (id),
     m_clients  (std::max<size_t>(1, config.getInteger<size_t>("NumProcessorsPerCache", 4)), NULL),
     p_lines    (*this, "p_lines"),
+    m_numHits  (0),
+    m_numMisses(0),
     p_Requests ("requests", delegate::create<Cache, &Cache::DoRequests>(*this)),
     p_In       ("incoming", delegate::create<Cache, &Cache::DoReceive>(*this)),
     p_bus      (*this, "p_bus"),
     m_requests (*parent.GetKernel(), config.getInteger<BufferSize>("COMACacheRequestBufferSize",  INFINITE)),
     m_responses(*parent.GetKernel(), config.getInteger<BufferSize>("COMACacheResponseBufferSize", INFINITE))
 {
+    RegisterSampleVariableInObject(m_numHits, SVC_CUMULATIVE);
+    RegisterSampleVariableInObject(m_numMisses, SVC_CUMULATIVE);
+
     // Create the cache lines
     m_lines.resize(m_assoc * m_sets);
     m_data.resize(m_lines.size() * m_lineSize);
@@ -870,8 +883,15 @@ void COMA::Cache::Cmd_Read(std::ostream& out, const std::vector<std::string>& ar
         out << dec << m_assoc << "-way set associative" << endl;
     }
 
-    out << "Cache size:      " << dec << (m_lineSize * m_lines.size()) << " bytes" << endl;
-    out << "Cache line size: " << dec << m_lineSize << " bytes" << endl;
+    out << "Cache size:       " << dec << (m_lineSize * m_lines.size()) << " bytes" << endl;
+    out << "Cache line size:  " << dec << m_lineSize << " bytes" << endl;
+    out << "Current hit rate: ";
+    if (m_numHits + m_numMisses > 0) {
+        out << setprecision(2) << fixed << m_numHits * 100.0f / (m_numHits + m_numMisses) << "%";
+    } else {
+        out << "N/A";
+    }
+    out << " (" << dec << m_numHits << " hits, " << m_numMisses << " misses)" << endl;
     out << endl;
 
     out << "Set |       Address       | Tokens |                       Data                      |" << endl;
