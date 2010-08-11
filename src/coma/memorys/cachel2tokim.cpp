@@ -499,7 +499,7 @@ void CacheL2TOKIM::OnAcquireTokenRem(ST_request* req)
     }
 
     assert(line->state != CLS_INVALID);
-    assert(req->getlineaddress() == line->getlineaddress(CacheIndex(req->getlineaddress()), lg2(m_nSet)));
+    assert(req->getlineaddress() == line->getlineaddress(CacheIndex(req->getlineaddress()), ilog2(m_nSet)));
 
     // diffferent algorithm will determine the performance.  JXXX
     // this is the very first plan, by providing tokens as much as requested, if possible
@@ -668,7 +668,7 @@ void CacheL2TOKIM::OnAcquireTokenRet(ST_request* req)
 
     // handle other states
     assert(line->state!=CLS_INVALID);
-    assert(req->getlineaddress() == line->getlineaddress(CacheIndex(req->getlineaddress()), lg2(m_nSet)));
+    assert(req->getlineaddress() == line->getlineaddress(CacheIndex(req->getlineaddress()), ilog2(m_nSet)));
 
     if (!line->pending) // non-pending states   // S, E, O, M
     {
@@ -849,7 +849,7 @@ void CacheL2TOKIM::OnAcquireTokenDataRem(ST_request* req)
     }
 
     assert(line->state != CLS_INVALID);
-    assert(req->getlineaddress() == line->getlineaddress(CacheIndex(req->getlineaddress()), lg2(m_nSet)));
+    assert(req->getlineaddress() == line->getlineaddress(CacheIndex(req->getlineaddress()), ilog2(m_nSet)));
 
     // diffferent algorithm will determine the performance.  JXXX
     // this is the very first plan, by providing tokens as much as requested, if possible

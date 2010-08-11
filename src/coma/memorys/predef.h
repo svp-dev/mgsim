@@ -11,6 +11,7 @@
 #include <map>
 #include "simcontrol.h"
 #include <stdint.h>
+#include "log2.h"
 
 using namespace std;
 
@@ -337,8 +338,6 @@ struct dir_set_t
 {
     dir_line_t *lines;
 };
-
-int lg2(int n);
 
 // request->data always starts from the line-aligned address
 // so the request data may actually start from the middle

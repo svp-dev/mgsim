@@ -99,17 +99,17 @@ public:
         unsigned int tCWL = config.getInteger<int>("DDR_tCWL", 0);
         unsigned int tRCD = config.getInteger<int>("DDR_tRCD", 0);
         unsigned int tRAS = config.getInteger<int>("DDR_tRAS", 0);
-        unsigned int nCellSizeBits  = lg2(config.getInteger<int>("DDR_CellSize", 0)); 
+        unsigned int nCellSizeBits  = ilog2(config.getInteger<int>("DDR_CellSize", 0)); 
         unsigned int nDevicePerRank = config.getInteger<int>("DDR_DevicesPerRank", 0);
         unsigned int nBurstLength   = config.getInteger<int>("DDR_BurstLength", 0);
         
         m_nDataPathBits = (1 << nCellSizeBits) * nDevicePerRank;
 
         // address mapping
-        unsigned int ndp   = lg2(m_nDataPathBits / 8);
-        unsigned int nbbs  = ndp   + lg2(m_nColumns);
-        unsigned int nbros = nbbs  + lg2(m_nBanks);
-        unsigned int nbras = nbros + lg2(m_nRows);
+        unsigned int ndp   = ilog2(m_nDataPathBits / 8);
+        unsigned int nbbs  = ndp   + ilog2(m_nColumns);
+        unsigned int nbros = nbbs  + ilog2(m_nBanks);
+        unsigned int nbras = nbros + ilog2(m_nRows);
                 
         m_nRankBitStart   = nbras;
         m_nBankBitStart   = nbbs;

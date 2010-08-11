@@ -1034,7 +1034,7 @@ ST_request* CacheL2TOK::NewEVorWBRequest(ST_request* req, cache_line_t* pline, b
     else
         reqnew->tokenrequested = GetTotalTokenNum();
 
-    reqnew->addresspre = pline->getlineaddress(CacheIndex(req->getlineaddress()), lg2(m_nSet)) / g_nCacheLineSize;
+    reqnew->addresspre = pline->getlineaddress(CacheIndex(req->getlineaddress()), ilog2(m_nSet)) / g_nCacheLineSize;
     reqnew->offset = 0;
     reqnew->nsize = g_nCacheLineSize;
     reqnew->Conform2BitVecFormat();
@@ -1134,7 +1134,7 @@ ST_request* CacheL2TOK::NewDisseminateTokenRequest(ST_request* req, cache_line_t
         assert(bpriority == false);
 
     reqdt->type = MemoryState::REQUEST_DISSEMINATE_TOKEN_DATA;
-    reqdt->addresspre = line->getlineaddress(CacheIndex(req->getlineaddress()), lg2(m_nSet)) / g_nCacheLineSize;
+    reqdt->addresspre = line->getlineaddress(CacheIndex(req->getlineaddress()), ilog2(m_nSet)) / g_nCacheLineSize;
     reqdt->offset = 0;
     reqdt->nsize = g_nCacheLineSize;
     reqdt->Conform2BitVecFormat();
@@ -1191,7 +1191,7 @@ void CacheL2TOK::PostDisseminateTokenRequest(cache_line_t* line, ST_request* pdi
 void CacheL2TOK::AcquireTokenFromLine(ST_request* req, cache_line_t* line, unsigned int ntoken)
 {
     // make sure they have the same address
-    assert(req->getlineaddress() == line->getlineaddress(CacheIndex(req->getlineaddress()), lg2(m_nSet)));
+    assert(req->getlineaddress() == line->getlineaddress(CacheIndex(req->getlineaddress()), ilog2(m_nSet)));
 
     // make desision what to do 
 

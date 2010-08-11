@@ -1,9 +1,10 @@
 #include "Processor.h"
 #include "FPU.h"
 #include "sampling.h"
+#include "log2.h"
 
 #include <cassert>
-#include <cmath>
+
 using namespace std;
 
 namespace Simulator
@@ -38,9 +39,9 @@ Processor::Processor(const std::string& name, Object& parent, GPID gpid, LPID lp
 
     // Get the size, in bits, of various identifiers.
     // This is used for packing and unpacking various fields.
-    m_bits.pid_bits = (unsigned int)ceil(log2(GetGridSize()));
-    m_bits.fid_bits = (unsigned int)ceil(log2(m_familyTable.GetFamilies().size()));
-    m_bits.tid_bits = (unsigned int)ceil(log2(m_threadTable.GetNumThreads()));
+    m_bits.pid_bits = ilog2(GetGridSize());
+    m_bits.fid_bits = ilog2(m_familyTable.GetFamilies().size());
+    m_bits.tid_bits = ilog2(m_threadTable.GetNumThreads());
 }
 
 Processor::~Processor()

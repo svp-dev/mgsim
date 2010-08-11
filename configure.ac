@@ -26,6 +26,10 @@ AC_PROG_CXX
 AC_PROG_RANLIB
 AC_LIB_READLINE
 
+AC_LANG_PUSH([C])
+AC_CHECK_FUNCS([log2])
+AC_LANG_POP([C])
+
 AC_ARG_ENABLE([softfpu],
 [AC_HELP_STRING([--enable-softfpu], [enable software emulation of IEEE 754 (default is disabled)])]],
 [], [enable_softfpu=no])
