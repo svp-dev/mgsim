@@ -632,7 +632,7 @@ Result Network::DoDelegationIn()
         msg_.type       = RemoteMessage::MSG_BRK;
         msg_.brk.lfid   = family.link_next;
         msg_.brk.pid    = INVALID_GPID;		
-        msg_.brk.index  = (msg.src == m_lpid + 1)?index : 0 ;
+        msg_.brk.index  = (msg.src == m_parent.GetPID() + 1)?index : 0 ;
 		
         DebugSimWrite("Parent CPU%u forward BREAK to next CPU and index is %u", (unsigned)msg.brk.pid,(unsigned)msg_.brk.index);
 		

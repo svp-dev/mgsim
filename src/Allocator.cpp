@@ -289,7 +289,7 @@ bool Allocator::OnLocalBreak(LFID fid)
 bool Allocator::OnGroupBreak(LFID lfid, Integer index)
 {
     Family& family = m_familyTable[lfid];
-    assert(index > family.index);
+    assert(index >= family.index);
 
     // Get the remainder of threads in the block
     Integer remainder = (family.virtBlockSize - (family.index % family.virtBlockSize)) % family.virtBlockSize;
@@ -1337,6 +1337,15 @@ Result Allocator::DoThreadAllocate()
             const MemSize tls_size = m_parent.GetTLSSize();
             m_parent.UnmapMemory(tls_base+tls_size/2, tls_size/2);
         }
+		
+		if( family.nThreads <= family.index && !family.infinite && !family.dependencies.allocationDone)
+		{
+			if (!DecreaseFamilyDependency(fid, FAMDEP_ALLOCATION_DONE))
+			{
+				DeadlockWrite("Unable to mark ALLOCATION_DONE for F%u",(unsigned)fid);
+				return FAILED;
+			}
+		}
 
         if (family.dependencies.allocationDone)
         {
@@ -1355,6 +1364,7 @@ Result Allocator::DoThreadAllocate()
             DebugSimWrite("Cleaned up T%u for F%u (index %llu)",
                 (unsigned)tid, (unsigned)fid, (unsigned long long)thread.index);
         }
+		
         else
         {
             // Reallocate thread

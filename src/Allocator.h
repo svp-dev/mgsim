@@ -127,7 +127,7 @@ public:
 
     // Helpers
 	TID     GetRegisterType(LFID fid, RegAddr addr, RegClass* group) const;
-    
+    LPID	GetLPID() const {return m_lpid;};
 	// Debugging
     void Cmd_Help(std::ostream& out, const std::vector<std::string>& arguments) const;
     void Cmd_Read(std::ostream& out, const std::vector<std::string>& arguments) const;

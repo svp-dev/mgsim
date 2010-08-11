@@ -546,7 +546,7 @@ Pipeline::PipeAction Pipeline::ExecuteStage::ExecBreak()
         {
             m_output.Rrc.type      = RemoteMessage::MSG_BRK;
             m_output.Rrc.brk.index = family.index;
-            m_output.Rrc.brk.pid   = family.parent_lpid;
+            m_output.Rrc.brk.pid   = family.parent_lpid - m_allocator.GetLPID() + m_parent.GetProcessor().GetPID();
             m_output.Rrc.brk.lfid  = family.parent_lfid;
 				
             DebugSimWrite("Generate remote message for BREAK from Thread T%u target F%u on parent CPU%u",
