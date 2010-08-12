@@ -117,7 +117,7 @@ TopologyS::TopologyS()
     m_pNet->ConnectNetwork();
 
     m_pBSMem = new BusSwitch("membusswitch", *m_pclkroot, cf.m_nNumRootDirs, cf.m_nMemoryChannels,
-        (int)ceil(log2(cf.m_nLineSize)) | ((int)(ceil(log2(cf.m_nMemoryChannels)))<<8) );
+        ilog2(cf.m_nLineSize) | (ilog2(cf.m_nMemoryChannels)<<8) );
 
     for (unsigned int i = 0; i < cf.m_nNumRootDirs; i++)
     {
