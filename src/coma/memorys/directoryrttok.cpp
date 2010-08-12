@@ -1,5 +1,4 @@
 #include "directoryrttok.h"
-#include "../simlink/memstat.h"
 #include "../simlink/linkmgs.h"
 
 using namespace MemSim;
@@ -62,11 +61,7 @@ void DirectoryRTTOK::ProcessRequestNET()
 // send net request to memory
 bool DirectoryRTTOK::SendRequestNETtoBUS(ST_request* req)
 {
-    // send request
-    if (!port_bus->request(req))
-    {
-        return false;
-    }
+    m_pfifoMemory.push(req);
     req->bqueued = false;
     return true;
 }
@@ -74,11 +69,7 @@ bool DirectoryRTTOK::SendRequestNETtoBUS(ST_request* req)
 // send net to next node
 bool DirectoryRTTOK::SendRequestNETtoNET(ST_request* req)
 {
-    // send request 
-    if (!RequestNetwork(req))
-    {
-        return false;
-    }
+    SendRequest(req);
     req->bqueued = false;
     return true;
 }
@@ -204,7 +195,7 @@ void DirectoryRTTOK::BehaviorNET()
         m_pReqCurNET2Bus = NULL;
 
         // fetch request from incoming buffer or from the deferred queue
-        req_incoming = FetchRequestNet();
+        req_incoming = ReceiveRequest();
         m_pReqCurNET = m_pPipelineNET.shift(req_incoming);
 
         // processrequest should never send requests, but only store them in net2bus or net2net buffer
@@ -227,7 +218,7 @@ void DirectoryRTTOK::BehaviorNET()
         if (m_pPipelineNET.top() == NULL)
         {
             // fetch request from incoming buffer or from the deferred queue
-            req_incoming = FetchRequestNet();
+            req_incoming = ReceiveRequest();
             
             // only shift
             m_pPipelineNET.shift(req_incoming);
@@ -268,11 +259,7 @@ void DirectoryRTTOK::ProcessRequestBUS()
 void DirectoryRTTOK::SendRequestBUStoNet()
 {
     // try send the bus transaction to network
-    if (!RequestNetwork(m_pReqCurBUS2Net))
-    {
-        m_nStateBUS = STATE_BUS_RETRY_TO_NET;
-        return;
-    }
+    SendRequest(m_pReqCurBUS2Net);
 
     // cycle done
     m_nStateBUS = STATE_BUS_PROCESSING;
@@ -283,22 +270,17 @@ void DirectoryRTTOK::SendRequestBUStoNet()
 // then the line can be appended without going through the pipeline stages
 void DirectoryRTTOK::BehaviorBUS()
 {
-    ST_request* req_incoming=NULL;
+    ST_request* req_incoming = NULL;
 
     switch (m_nStateBUS)
     {
     case STATE_BUS_PROCESSING:
         // check whether any request available
-        if (m_pfifoFeedback.num_available_fast() > 0)
+        if (!m_pfifoFeedback.empty())
         {
-            if (!m_pfifoFeedback.nb_read(req_incoming))
-            {
-                abort();
-                return;
-            }
+            req_incoming = m_pfifoFeedback.front();
+            m_pfifoFeedback.pop();
         }
-        else
-            req_incoming = NULL;
 
         // get request from the pipeline
         m_pReqCurBUS = m_pPipelineBUS.shift(req_incoming);
@@ -313,17 +295,11 @@ void DirectoryRTTOK::BehaviorBUS()
         if (m_pPipelineBUS.top() == NULL)
         {
             // check whether any request available
-            if (m_pfifoFeedback.num_available_fast() > 0)
+            if (!m_pfifoFeedback.empty())
             {
-                if (!m_pfifoFeedback.nb_read(req_incoming))
-                {
-                    abort();
-                    return;
-                }
+                req_incoming = m_pfifoFeedback.front();
+                m_pfifoFeedback.pop();
             }
-            else
-                req_incoming = NULL;
-
             m_pPipelineBUS.shift(req_incoming);
         }
 
@@ -372,12 +348,12 @@ dir_line_t* DirectoryRTTOK::GetReplacementLine(__address_t address)
 
 unsigned int DirectoryRTTOK::DirIndex(__address_t address)
 {
-    return ((address / m_nLineSize) / m_nRootDirCount) % m_nSet;
+    return (address / m_nLineSize) % m_nSet;
 }
 
 uint64 DirectoryRTTOK::DirTag(__address_t address)
 {
-    return ((address / m_nLineSize) / m_nRootDirCount) / m_nSet;
+    return (address / m_nLineSize) / m_nSet;
 }
 
 void DirectoryRTTOK::FixDirLine(dir_line_t* line)
@@ -398,41 +374,6 @@ void DirectoryRTTOK::FixDirLine(dir_line_t* line)
         m_srqSusReqQ.NormalizeLineAux(line);
     }
 }
-
-ST_request* DirectoryRTTOK::FetchRequestNet()
-{
-    //////////////////////////////////////////////////////////////////////////
-    // network request always has priority
-    // it can be handled in a different manner though by giving a slack 
-    // maybe a check where to fetch function could help define where to fetch the line      // JXXX
-
-    ST_request* req_incoming = NULL;
-
-    //////////////////////////////////////////////////////////////////////////
-    // fetch request from the input buffer if any
-    if (GetNetworkFifo().num_available_fast() > 0)
-    {
-        if (!GetNetworkFifo().nb_read(req_incoming))
-        {
-            abort();
-            return NULL;
-        }
-
-        // We may have multiple root directories, check if this is for us
-        if (m_nRootDirID != (req_incoming->getlineaddress() / m_nLineSize) % m_nRootDirCount)
-        {
-            // It's not for us, forward it
-            m_lstReqNET2Net.push_back(req_incoming);
-            req_incoming = NULL;
-        }
-        // CHKS: possible optimization by inserting a small matching buffer to judge whether the request is at deferred lines
-        // and if the maching succeed, the put it directly in to the queue and acquire another request from the active queue buffer
-        // return req_incoming; // JNEWXXX
-    }
-
-    return req_incoming;
-}
-
 
 ST_request* DirectoryRTTOK::PrefetchDeferredRequest()
 {

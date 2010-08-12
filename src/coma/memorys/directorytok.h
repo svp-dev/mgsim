@@ -4,10 +4,7 @@
 // normal directory
 
 #include "predef.h"
-#include "busst_slave_if.h"
-#include "busst_master.h"
-#include "networkbelow_if.h"
-#include "networkabove_if.h"
+#include "network_node.h"
 #include "suspendedrequestqueue.h"
 #include "evicteddirlinebuffer.h"
 
@@ -32,8 +29,15 @@ namespace MemSim
 //
 // 2. use suspended request queues...
 
+class NetworkBelow_Node : public Network_Node
+{
+};
 
-class DirectoryTOK : public sc_module, public CacheState, public NetworkBelow_if, public NetworkAbove_if
+class NetworkAbove_Node : public Network_Node
+{
+};
+
+class DirectoryTOK : public sc_module, public CacheState,  public NetworkBelow_Node, public NetworkAbove_Node
 {
 public:
     // queue constant numbers
@@ -137,9 +141,9 @@ public:
 	// directory should be defined large enough to hold all the information in the hierarchy below
 	SC_HAS_PROCESS(DirectoryTOK);
 	
-	DirectoryTOK(sc_module_name nm, sc_clock& clock, unsigned int nset, unsigned int nassoc, unsigned int nlinesize, UINT latency = 5) 
+	DirectoryTOK(sc_module_name nm, sc_clock& clock, unsigned int nset, unsigned int nassoc, unsigned int nlinesize, unsigned int latency = 5) 
       : sc_module(nm),
-	    m_nLineSize(nlinesize),
+        m_nLineSize(nlinesize),
 	    m_nSet(nset),
 	    m_nAssociativity(nassoc),
         m_nStateABO(STATE_ABOVE_PROCESSING),
@@ -148,6 +152,16 @@ public:
         m_pPipelineBEL(latency)
 	{
 	    ST_request::s_nRequestAlignedSize = nlinesize;
+	    
+        // forward below interface
+        declare_method_process(BehaviorNodeBelow_handle, "BehaviorNodeBelow", SC_CURRENT_USER_MODULE, NetworkBelow_Node::BehaviorNode);
+        sensitive << clock.negedge_event();
+        dont_initialize();
+
+        // forward above interface
+        declare_method_process(BehaviorNodeAbove_handle, "BehaviorNodeAbove", SC_CURRENT_USER_MODULE, NetworkAbove_Node::BehaviorNode);
+        sensitive << clock.negedge_event();
+        dont_initialize();
 	    
         // handle below interface
 		SC_METHOD(BehaviorBelowNet);
@@ -168,9 +182,6 @@ public:
             free(m_pSet[i].lines);
         free(m_pSet);
     }
-
-	NetworkBelow_if& GetBelowIF() { return *this; };
-	NetworkAbove_if& GetAboveIF() { return *this; };
 };
 
 }

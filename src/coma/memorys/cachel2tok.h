@@ -1,9 +1,7 @@
 #ifndef _CACHEL2_TOK_H
 #define _CACHEL2_TOK_H
 
-#include "cachest.h"
-#include "busst_slave_if.h"
-#include "networkbelow_if.h"
+#include "network_node.h"
 #include "processortok.h"
 #include "fabuffer.h"
 #include "mergestorebuffer.h"
@@ -13,9 +11,37 @@ using namespace std;
 namespace MemSim
 {
 
-class CacheL2TOK : public CacheST, public BusST_Slave_if, public NetworkBelow_if
+class CacheL2TOK : public sc_module, public Network_Node, public CacheState, virtual public SimObj
 {
-protected:
+    struct cache_set_t
+    {
+        cache_line_t *lines;
+    };
+
+    unsigned int   m_lineSize;
+    unsigned int   m_nSets;           // Cache set count
+    unsigned int   m_assoc;           // Cache associativity
+    cache_set_t   *m_sets;            // The sets
+    char *         m_pBufData;        // data buffer
+
+    // inline cache set index function
+    unsigned int CacheIndex(__address_t address)
+    {
+        return (address / m_lineSize) % m_nSets;
+    }
+
+    // inline cache line tag function
+    uint64 CacheTag(__address_t address)
+    {
+        return (address / m_lineSize) / m_nSets;
+    }
+
+    __address_t AlignAddress4Cacheline(__address_t address)
+    {
+        // align address to the starting of the cacheline
+        return (address / m_lineSize) * m_lineSize;
+    }
+
     // constant numbers
     static const unsigned int EOQ;
     static const unsigned int QueueBufferSize;
@@ -151,15 +177,31 @@ protected:
     // Injection policy
     INJECTION_POLICY m_nInjectionPolicy;
     
+    bool SendAsSlave(ST_request* req);
 public:
+    std::set<ProcessorTOK*> m_processors;     // The processors connected to this cache
+    std::queue<ST_request*> m_requests;       // Incoming from processors
+
+    void RegisterProcessor(ProcessorTOK& processor)
+    {
+        m_processors.insert(&processor);
+    }
+
+    void UnregisterProcessor(ProcessorTOK& processor)
+    {
+        m_processors.erase(&processor);
+    }
+
 	SC_HAS_PROCESS(CacheL2TOK);
 	
     CacheL2TOK(sc_module_name nm, sc_clock& clock,
         unsigned int nset, unsigned int nassoc, unsigned int nlinesize,
         INJECTION_POLICY nIP = IP_NONE,
-        UINT latency = 5,
+        unsigned int latency = 5,
 		unsigned int nGlobalFIFOSize = 0x100)
-      : CacheST(nm, nset, nassoc, nlinesize),
+      : sc_module(nm),
+        m_lineSize(nlinesize),
+        m_nSets(nset), m_assoc(nassoc),
         m_nStateINI(STATE_INI_PROCESSING),
         m_nStatePAS(STATE_PAS_PROCESSING),
         m_pPipelineINI(latency-1),
@@ -169,7 +211,41 @@ public:
         m_msbModule(3),
         m_nInjectionPolicy(nIP)
 	{
+        ST_request::s_nRequestAlignedSize = nlinesize;
+
+        // allocate all the data buffer
+        unsigned int nByte = m_nSets * m_assoc * m_lineSize;
+        m_pBufData = (char*)calloc(nByte, sizeof(char));
+
+        // allocate sets
+        m_sets = (cache_set_t*)malloc(m_nSets * sizeof(cache_set_t));
+
+        // allocate lines
+        for (unsigned int i = 0; i < m_nSets; ++i)
+        {
+            m_sets[i].lines = (cache_line_t*)malloc(m_assoc * sizeof(cache_line_t));
+            for (unsigned int j = 0; j < m_assoc; ++j)
+            {
+                m_sets[i].lines[j].state = CLS_INVALID;
+                m_sets[i].lines[j].tokencount = 0;
+                m_sets[i].lines[j].invalidated = false;
+                m_sets[i].lines[j].priority = false;
+                m_sets[i].lines[j].pending = false;
+                m_sets[i].lines[j].tlock = false;
+                m_sets[i].lines[j].llock = false;
+                m_sets[i].lines[j].breserved = false;
+                m_sets[i].lines[j].data = &m_pBufData[(i * m_assoc + j) * m_lineSize];
+
+                for (unsigned int k = 0;k<CACHE_BIT_MASK_WIDTH/8;k++)
+                    m_sets[i].lines[j].bitmask[k] = 0;
+            }
+        }
+
         assert(latency > 1);
+
+        SC_METHOD(BehaviorNode);
+        sensitive << clock.negedge_event();
+        dont_initialize();
 
         SC_METHOD(BehaviorIni);
         sensitive << clock.posedge_event();
@@ -191,47 +267,53 @@ public:
         // initialize the global queue
         m_bBufferPriority = false;
 	}
+
+    ~CacheL2TOK()
+    {
+        free(m_pBufData);
+        for (unsigned int i = 0; i < m_nSets; i++)
+        {
+            free(m_sets[i].lines);
+        }
+        free(m_sets);
+    }
 	
-	virtual void BehaviorIni();
-	virtual void BehaviorNet();
+	void BehaviorIni();
+	void BehaviorNet();
 
 protected:
     // transactions handler
     // initiative
-    virtual void ProcessInitiative();
+    void ProcessInitiative();
 
-    virtual bool SendAsNodeINI(ST_request* req);
-    virtual bool SendAsSlaveINI(ST_request* req);
+    bool SendAsNodeINI(ST_request* req);
+    bool SendAsSlaveINI(ST_request* req);
 
-    virtual void SendFromINI();
+    void SendFromINI();
 
-    void PrefetchINI();
     ST_request* FetchRequestINI();
     ST_request* FetchRequestINIFromQueue();
 
     // cleansing pipeline requests, if any of them are seeking the same line 
-    virtual void CleansingPipelineINI(ST_request* req);
+    void CleansingPipelineINI(ST_request* req);
     // cleansing pipeline and insert request into queue
-    virtual void CleansingAndInsert(ST_request* req);       // ONLY FOR INI
+    void CleansingAndInsert(ST_request* req);       // ONLY FOR INI
 
     // passive
-    virtual void ProcessPassive();
+    void ProcessPassive();
 
-    virtual bool SendAsNodePAS(ST_request* req);
-    virtual bool SendAsSlavePAS(ST_request* req);
-    virtual void SendFromPAS();
-    //virtual void SetAvailablePAS();
-    virtual ST_request* FetchRequestPAS();
-    virtual void FinishCyclePAS();
+    bool SendAsNodePAS(ST_request* req);
+    bool SendAsSlavePAS(ST_request* req);
+    void SendFromPAS();
+    void FinishCyclePAS();
     // skip this cycle without shifting the pipeline
-    virtual void Postpone();
+    void Postpone();
 
     //////////////////////////////////////////////////////////////////////////
-    // pure virtual handler
     // initiative request handlers
-    virtual void OnLocalRead(ST_request*) = 0;
-    virtual void OnLocalWrite(ST_request*) = 0;
-    virtual void OnInvalidateRet(ST_request*) = 0;
+    void OnLocalRead(ST_request*);
+    void OnLocalWrite(ST_request*);
+    void OnInvalidateRet(ST_request*);
 
     // facilitating functions
 private:
@@ -242,31 +324,41 @@ public:
     void Modify2AcquireTokenRequestRead(ST_request*);
     void Modify2AcquireTokenRequestWrite(ST_request*, bool reqdate);
     void Modify2AcquireTokenRequestWrite(ST_request*, cache_line_t*, bool reqdate);
-    ST_request* NewDisseminateTokenRequest(ST_request*, cache_line_t*);
     void PostDisseminateTokenRequest(cache_line_t*, ST_request*);
-    void AcquireTokenFromLine(ST_request*, cache_line_t*, unsigned int);
-
 
     // passive request handlers
-    virtual void OnAcquireTokenRem(ST_request*) = 0;
-    virtual void OnAcquireTokenRet(ST_request*) = 0;
-    virtual void OnAcquireTokenDataRem(ST_request*) = 0;
-    virtual void OnAcquireTokenDataRet(ST_request*) = 0;
-    virtual void OnDisseminateTokenData(ST_request*) = 0;
-    virtual void OnDirNotification(ST_request* req) = 0;
+    void OnAcquireTokenRem(ST_request*);
+    void OnAcquireTokenRet(ST_request*);
+    void OnAcquireTokenDataRem(ST_request*);
+    void OnAcquireTokenDataRet(ST_request*);
+    void OnDisseminateTokenData(ST_request*);
+    void OnDirNotification(ST_request* req);
 
-    cache_line_t* LocateLineEx(__address_t);
+    cache_line_t* LocateLine(__address_t);
     cache_line_t* GetEmptyLine(__address_t);
+
+    void OnPostAcquirePriorityToken(cache_line_t*, ST_request*);
+
+    // replacement
+    // return   NULL    : if all the lines are occupied by locked states
+    //          !NULL   : if any normal line is found
+    //                    in case the line found is not empty,
+    //                    then additional request will be sent out
+    //                    as EVICT request and WRITEBACK request in caller function.
+    //                    fail to send any of those request will leave
+    //                    the cache in DB_RETRY_AS_NODE state in the function.
+    //                    success in sending the request will change the
+    //                    state of the cache to RETRY_AS_NODE in the function.
+    //                    the caller will need to prepare the next request to send,
+    //                    but no sending action should be taken.
+    //                    In summary the sending action should only be taken in caller func.
+    cache_line_t* GetReplacementLine(__address_t);
 
 public:
     // cacheline, request update method
-    virtual void UpdateCacheLine(cache_line_t* line, ST_request* req, CACHE_LINE_STATE state, unsigned int token, bool pending, bool invalidated, bool priority, bool tlock, LINE_UPDATE_METHOD lum, bool bupdatetime = true);
-    virtual void IVUpdateCacheLine(cache_line_t* line, ST_request* req, CACHE_LINE_STATE state, unsigned int token, bool pending, bool invalidated, bool priority, bool tlock, LINE_UPDATE_METHOD lum, bool bupdatetime = true);
-    virtual void UpdateRequest(ST_request* req, cache_line_t* line, MemoryState::REQUEST requesttype, __address_t address, bool bdataavailable=false, bool bpriority=false, bool btransient=false, unsigned int ntokenacquired=0xffff, REQUEST_UPDATE_METHOD rum = RUM_ALL);
-
-    virtual char* GenerateMaskFromRequest(ST_request* req){return NULL;};
-    virtual bool CheckLineValidness(cache_line_t* line, bool bwholeline = true, char* pmask = NULL);   // check the details into the bit-mask rather states
-    //virtual void UpdateRequestPartial();
+    void UpdateCacheLine(cache_line_t* line, ST_request* req, CACHE_LINE_STATE state, unsigned int token, bool pending, bool invalidated, bool priority, bool tlock, LINE_UPDATE_METHOD lum, bool bupdatetime = true);
+    void IVUpdateCacheLine(cache_line_t* line, ST_request* req, CACHE_LINE_STATE state, unsigned int token, bool pending, bool invalidated, bool priority, bool tlock, LINE_UPDATE_METHOD lum, bool bupdatetime = true);
+    void UpdateRequest(ST_request* req, cache_line_t* line, MemoryState::REQUEST requesttype, __address_t address, bool bdataavailable=false, bool bpriority=false, bool btransient=false, unsigned int ntokenacquired=0xffff, REQUEST_UPDATE_METHOD rum = RUM_ALL);
 
     //////////////////////////////////////////////////////////////////////////
     // Global Queue
@@ -406,19 +498,6 @@ public:
             }
         }
         return false;
-    }
-
-    //////////////////////////////////////////////////////////////////////////
-    // if bProcessing is set then m_pReqCurINI will be set
-    // otherwise m_pReqCurINI will remain the same, and simply shift the pipeline
-    void AdvancePipelineINI(bool bProcessing = false)
-    {
-        ST_request* req_incoming = FetchRequestINI();   // NULL or something
-
-        if (bProcessing)    // get request from pipeline
-            m_pReqCurINI = m_pPipelineINI.shift(req_incoming);
-        else    // simply shift
-            m_pPipelineINI.shift(req_incoming);
     }
 
 	// insert a request to the outstanding request structure

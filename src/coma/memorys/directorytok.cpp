@@ -38,10 +38,7 @@ void DirectoryTOK::InitializeDirLines()
 
 bool DirectoryTOK::SendRequestBELtoBelow(ST_request* req)
 {
-    if (!GetBelowIF().RequestNetwork(req))
-    {
-        return false;
-    }
+    NetworkBelow_Node::SendRequest(req);
     return true;
 }
 
@@ -49,11 +46,7 @@ bool DirectoryTOK::SendRequestBELtoBelow(ST_request* req)
 bool DirectoryTOK::SendRequestBELtoAbove(ST_request* req)
 {
     // send reply through the network above interface
-    if (!GetAboveIF().RequestNetwork(req))
-    {
-        return false;
-    }
-
+    NetworkAbove_Node::SendRequest(req);
     return true;
 }
 
@@ -195,19 +188,11 @@ void DirectoryTOK::BehaviorBelowNet()
 // fetch request from below or above interface dictated by below
 ST_request* DirectoryTOK::FetchRequestNet(bool below)
 {
-    Network_if* nif = below?((Network_if*)&GetBelowIF()):((Network_if*)&GetAboveIF());   
-    if (nif->GetNetworkFifo().num_available_fast() > 0)
-    {
-        ST_request* reqinc = NULL;
-        if (!nif->GetNetworkFifo().nb_read(reqinc))
-        {
-            abort();
-        }
-        return reqinc;
+    if (below) {
+        return NetworkBelow_Node::ReceiveRequest();
     }
-    return NULL;
+    return NetworkAbove_Node::ReceiveRequest();
 }
-
 
 void DirectoryTOK::ProcessRequestABO()
 {
@@ -671,20 +656,14 @@ bool DirectoryTOK::IsRequestLocal(ST_request* req, bool recvfrombelow)
 bool DirectoryTOK::SendRequestABOtoBelow(ST_request* req)
 {
     // send reply through the network below interface
-    if (!GetBelowIF().RequestNetwork(req))
-    {
-        return false;
-    }
+    NetworkBelow_Node::SendRequest(req);
     return true;
 }
 
 bool DirectoryTOK::SendRequestABOtoAbove(ST_request* req)
 {
     // send reply through the network above interface
-    if (!GetAboveIF().RequestNetwork(req))
-    {
-        return false;
-    }
+    NetworkAbove_Node::SendRequest(req);
     return true;
 }
 

@@ -2,10 +2,10 @@
 #define _DDR_MEMORY_SYS_H
 
 #include "predef.h"
-#include "busst_slave_if.h"
 #include "../../VirtualMemory.h"
 #include "memschedulepipeline.h"
 #include "../../config.h"
+#include <queue>
 
 namespace MemSim
 {
@@ -99,17 +99,17 @@ public:
         unsigned int tCWL = config.getInteger<int>("DDR_tCWL", 0);
         unsigned int tRCD = config.getInteger<int>("DDR_tRCD", 0);
         unsigned int tRAS = config.getInteger<int>("DDR_tRAS", 0);
-        unsigned int nCellSizeBits  = ilog2(config.getInteger<int>("DDR_CellSize", 0)); 
+        unsigned int nCellSizeBits  = lg2(config.getInteger<int>("DDR_CellSize", 0)); 
         unsigned int nDevicePerRank = config.getInteger<int>("DDR_DevicesPerRank", 0);
         unsigned int nBurstLength   = config.getInteger<int>("DDR_BurstLength", 0);
         
         m_nDataPathBits = (1 << nCellSizeBits) * nDevicePerRank;
 
         // address mapping
-        unsigned int ndp   = ilog2(m_nDataPathBits / 8);
-        unsigned int nbbs  = ndp   + ilog2(m_nColumns);
-        unsigned int nbros = nbbs  + ilog2(m_nBanks);
-        unsigned int nbras = nbros + ilog2(m_nRows);
+        unsigned int ndp   = lg2(m_nDataPathBits / 8);
+        unsigned int nbbs  = ndp   + lg2(m_nColumns);
+        unsigned int nbros = nbbs  + lg2(m_nBanks);
+        unsigned int nbras = nbros + lg2(m_nRows);
                 
         m_nRankBitStart   = nbras;
         m_nBankBitStart   = nbbs;
@@ -162,7 +162,7 @@ public:
 };
 
 
-class DDRMemorySys : public sc_module, public MemoryState, public BusST_Slave_if, virtual public SimObj
+class DDRMemorySys : public sc_module, public MemoryState, virtual public SimObj
 {
 private:
     DDRChannel m_channel;
@@ -170,7 +170,10 @@ private:
     void Behavior();
 public:
     SC_HAS_PROCESS(DDRMemorySys);
-
+    
+    std::queue<ST_request*> m_pfifoReqIn;
+    std::queue<ST_request*> channel_fifo_slave;
+    
     DDRMemorySys(sc_module_name nm, sc_clock& clock, Simulator::VirtualMemory& pMemoryDataContainer, const Config& config)
       : sc_module(nm), m_channel(pMemoryDataContainer, config)
     {

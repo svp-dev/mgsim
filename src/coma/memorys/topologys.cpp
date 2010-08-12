@@ -6,6 +6,8 @@ static const int MAX_NAME_SIZE = 0x30;
 
 extern Config* g_Config;
 
+std::vector<MemSim::ProcessorTOK*> g_Links;
+
 TopologyS::TopologyS()
 {
     // parsed config
@@ -13,7 +15,6 @@ TopologyS::TopologyS()
     const Config& config = *g_Config;
 
     g_nCacheLineSize       = cf.m_nLineSize;
-    g_pMemoryDataContainer = this;
 
     assert(cf.m_nProcessorsPerCache > 0);
     assert(cf.m_nCachesPerDirectory > 0);
@@ -21,115 +22,73 @@ TopologyS::TopologyS()
     // temporary names
     char tempname[MAX_NAME_SIZE];
 
-    m_pclk     = new sc_clock("clk",     cf.m_nCycleTimeCore, SC_PS);
     m_pclkroot = new sc_clock("clkroot", cf.m_nCycleTimeCore, SC_PS);
     m_pclkmem  = new sc_clock("clkmem",  cf.m_nCycleTimeMemory, SC_PS);
 
     // Create L2 caches
     m_ppCacheL2.resize((cf.m_nProcs + cf.m_nProcessorsPerCache - 1) / cf.m_nProcessorsPerCache);
-    m_ppBus.resize(m_ppCacheL2.size());
     for (unsigned int i = 0; i < m_ppCacheL2.size(); i++)
     {
         sprintf(tempname, "cache%d", i);
-        m_ppCacheL2[i] = new CacheL2TOKIM(tempname, *m_pclk,
+        m_ppCacheL2[i] = new CacheL2TOK(tempname, *m_pclkroot,
             cf.m_nCacheSet,
             cf.m_nCacheAssociativity,
             cf.m_nLineSize,
             (CacheState::INJECTION_POLICY)cf.m_nInject,
             cf.m_nCacheAccessTime );
-
-        sprintf(tempname, "bus%d", i);
-        m_ppBus[i] = new BusST(tempname, *m_pclk, *m_ppCacheL2[i]);
     }
 
     // set total token number
     CacheState::SetTotalTokenNum( m_ppCacheL2.size() );
 
     // Create processor links
-    g_pLinks = (LinkMGS**)malloc(cf.m_nProcs * sizeof(LinkMGS*));
+    g_Links.resize(cf.m_nProcs);
     m_ppProcessors.resize(cf.m_nProcs);
     for (unsigned int i = 0; i < cf.m_nProcs; i++)
     {
-        sprintf(tempname, "p%d", i);
-        g_pLinks[i] = m_ppProcessors[i] = new ProcessorTOK(tempname, *m_pclk, i);
-        
-        // Bind to L2 cache bus
-        m_ppBus[i / cf.m_nProcessorsPerCache]->BindMaster(*m_ppProcessors[i]);
+        g_Links[i] = m_ppProcessors[i] = new ProcessorTOK(*m_ppCacheL2[i / cf.m_nProcessorsPerCache]);
     }
-
-    m_ppMem.resize(cf.m_nMemoryChannels);
-    m_ppDirectoryRoot.resize(cf.m_nNumRootDirs);
-
-    m_pNet = new Network(*m_pclkroot);
 
     // create level0 network
     m_ppDirectoryL0.resize((m_ppCacheL2.size() + cf.m_nCachesPerDirectory - 1) / cf.m_nCachesPerDirectory);
-    m_ppNetL0.resize(m_ppDirectoryL0.size());
     for (unsigned int i = 0; i < m_ppDirectoryL0.size(); i++)
     {
-        // creating lower level network
-        m_ppNetL0[i] = new Network(*m_pclk);
-
-        sprintf(tempname, "dir-l0-%d", i);
-        m_ppDirectoryL0[i] = new DirectoryTOK(tempname, *m_pclkroot,
+        std::stringstream name;
+        name << "dir" << i;
+        m_ppDirectoryL0[i] = new DirectoryTOK(name.str().c_str(), *m_pclkroot,
            cf.m_nCacheSet,
            cf.m_nCacheAssociativity * cf.m_nCachesPerDirectory,
            cf.m_nLineSize,
            cf.m_nCacheAccessTime );
 
-        // bind directory to network
-        (*m_ppNetL0[i])(m_ppDirectoryL0[i]->GetBelowIF());
-    }        
-    
-    // Connect the caches to the networks
-    for (unsigned int i = 0; i < m_ppCacheL2.size(); ++i)
-    {
-        (*m_ppNetL0[i / cf.m_nCachesPerDirectory])(*m_ppCacheL2[i]);
-    }
-
-    // connect directories to the root-networks
-    // create top level rings
-    for (unsigned int i = 0; i < m_ppDirectoryL0.size(); i++)
-    {
-        // connect with root-level network
-        unsigned int index = cf.m_nNumRootDirs * i / m_ppDirectoryL0.size();
-        if (m_ppDirectoryRoot[index] == NULL)
+        // Connect this ring
+        unsigned int first = i * cf.m_nCachesPerDirectory;
+        unsigned int last  = first + cf.m_nCachesPerDirectory - 1;
+        
+        static_cast<NetworkBelow_Node*>(m_ppDirectoryL0[i])->SetNext(m_ppCacheL2[first]);
+        for (unsigned int j = first; j < last; j++)
         {
-            sprintf(tempname, "split-root-%d", index);
-            m_ppDirectoryRoot[index] = new DirectoryRTTOK(tempname, *m_pclkroot,
-                cf.m_nCacheSet / cf.m_nNumRootDirs,
-                cf.m_nCacheAssociativity * m_ppCacheL2.size(),
-                cf.m_nLineSize,
-                index,
-                cf.m_nNumRootDirs,
-                cf.m_nCacheAccessTime );
-            (*m_pNet)(*m_ppDirectoryRoot[index]);
+            m_ppCacheL2[j]->SetNext(m_ppCacheL2[j+1]);
         }
+        m_ppCacheL2[last]->SetNext(static_cast<NetworkBelow_Node*>(m_ppDirectoryL0[i]));
 
-        (*m_pNet)(m_ppDirectoryL0[i]->GetAboveIF());
     }
     
-    // Connect networks
-    for (unsigned int i = 0; i < m_ppDirectoryL0.size(); i++)
-    {
-        m_ppNetL0[i]->ConnectNetwork();
-    }
-    m_pNet->ConnectNetwork();
+    // Create root directory
+    m_pMem = new DDRMemorySys("ddr", *m_pclkmem, *this, config);
+    m_pDirectoryRoot = new DirectoryRTTOK("dir-root", *m_pclkroot, *m_pMem,
+        cf.m_nCacheSet,
+        cf.m_nCacheAssociativity * m_ppCacheL2.size(),
+        cf.m_nLineSize,
+        cf.m_nCacheAccessTime );
 
-    m_pBSMem = new BusSwitch("membusswitch", *m_pclkroot, cf.m_nNumRootDirs, cf.m_nMemoryChannels,
-        (int)ceil(log2(cf.m_nLineSize)) | ((int)(ceil(log2(cf.m_nMemoryChannels)))<<8) );
-
-    for (unsigned int i = 0; i < cf.m_nNumRootDirs; i++)
+    // Connect top-level ring
+    m_pDirectoryRoot->SetNext(static_cast<NetworkAbove_Node*>(m_ppDirectoryL0[0]));
+    for (unsigned int i = 0; i < m_ppDirectoryL0.size() - 1; i++)
     {
-        m_pBSMem->BindMaster(*m_ppDirectoryRoot[i]);
+        static_cast<NetworkAbove_Node*>(m_ppDirectoryL0[i])->SetNext(static_cast<NetworkAbove_Node*>(m_ppDirectoryL0[i+1]));
     }
-
-    for (unsigned int i = 0;i < cf.m_nMemoryChannels; i++)
-    {
-        sprintf(tempname, "ddrmem-ch-%d", i); 
-        m_ppMem[i] = new DDRMemorySys(tempname, *m_pclkmem, *this, config);
-        m_pBSMem->BindSlave(*m_ppMem[i]);
-    }
+    static_cast<NetworkAbove_Node*>(m_ppDirectoryL0.back())->SetNext(m_pDirectoryRoot);
 }
 
 
@@ -139,22 +98,11 @@ TopologyS::~TopologyS()
         delete m_ppProcessors[i];
 
     for (size_t i = 0; i < m_ppCacheL2.size(); ++i)
-    {
-        delete m_ppBus[i];
         delete m_ppCacheL2[i];
-    }
 
-    delete m_pNet;
-
-    for (size_t i = 0; i < m_ppDirectoryRoot.size(); ++i)
-        delete m_ppDirectoryRoot[i];
-
-    for (size_t i = 0; i < m_ppMem.size(); ++i)
-        delete m_ppMem[i];
-
-    delete m_pBSMem;
-
-    delete m_pclk;
+    delete m_pDirectoryRoot;
+    delete m_pMem;
+    
     delete m_pclkroot;
     delete m_pclkmem;
 }

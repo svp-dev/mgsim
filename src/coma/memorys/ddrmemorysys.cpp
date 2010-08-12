@@ -1,5 +1,4 @@
 #include "ddrmemorysys.h"
-#include "../simlink/memstat.h"
 
 using namespace MemSim;
 
@@ -125,12 +124,9 @@ void DDRChannel::ProcessRequest(ST_request *req)
     switch (reqtype)
     {
     case MemoryState::REQUEST_ACQUIRE_TOKEN_DATA:
-        g_uMemoryAccessesL++;
         FunRead(req);
         break;
     case MemoryState::REQUEST_DISSEMINATE_TOKEN_DATA:
-        g_uMemoryAccessesS++;
-
         FunWrite(req);
         break;
     default:
@@ -189,7 +185,13 @@ void DDRChannel::ExecuteCycle()
 void DDRMemorySys::Behavior()
 {
     // check incoming request
-    ST_request* req_incoming = (m_pfifoReqIn.num_available_fast() <= 0)?NULL:(m_pfifoReqIn.read());
+    ST_request* req_incoming = NULL;
+    if (!m_pfifoReqIn.empty())
+    {
+        req_incoming = m_pfifoReqIn.front();
+        m_pfifoReqIn.pop();
+    }
+    
     if (req_incoming != NULL)
     {
         // dispatch it to the channel
@@ -204,10 +206,8 @@ void DDRMemorySys::Behavior()
     if (req != NULL)
     {
         // send reply transaction
-        if (channel_fifo_slave.nb_write(req))
-        {
-            m_channel.PopOutputRequest();
-        }
+        channel_fifo_slave.push(req);
+        m_channel.PopOutputRequest();
     }
 }
 

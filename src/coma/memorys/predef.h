@@ -3,7 +3,6 @@
 
 #include <systemc.h>
 #include <cassert>
-#include "../simlink/smdatatype.h"
 #include <iomanip>
 #include <vector>
 #include <set>
@@ -11,7 +10,6 @@
 #include <map>
 #include "simcontrol.h"
 #include <stdint.h>
-#include "log2.h"
 
 using namespace std;
 
@@ -329,15 +327,12 @@ struct dir_line_t
     unsigned int setid;     // just to make it simpler to find set id;
 };
 
-struct cache_set_t
-{
-    cache_line_t *lines;
-};
-
 struct dir_set_t
 {
     dir_line_t *lines;
 };
+
+int lg2(int n);
 
 // request->data always starts from the line-aligned address
 // so the request data may actually start from the middle
@@ -347,8 +342,8 @@ struct ST_request
     {
         data = (char*)calloc(s_nRequestAlignedSize, sizeof(char));
         curinitiator = 0;
-        ref = NULL;
         bqueued=false;
+        msbcopy=NULL;
         bprocessed=false;
         tokenrequested=0;
         tokenacquired=0;
@@ -368,8 +363,8 @@ struct ST_request
         memcpy(data, req->data, s_nRequestAlignedSize);
         memcpy(initiatortable, req->initiatortable, INITIATOR_TABLE_SIZE*sizeof(SimObj*));
         curinitiator = req->curinitiator;
-        ref=NULL;
         bqueued=false;
+        msbcopy=NULL;
         bpriority=false;
         btransient=false;
     };
@@ -399,7 +394,8 @@ struct ST_request
     char bitmask[CACHE_BIT_MASK_WIDTH/8];       // bit mask to identify the valid data segments of a request
     
     char *data;         // line size alert
-    unsigned long* ref; // reference point to the request in MG simulator
+    std::vector<ST_request*>* msbcopy;
+    unsigned long tid;          // Thread ID in case of writes
     bool    bqueued;    // JXXX this property is only used for cache fetching and queueing purpose
                         // it should not be a part of the request
                         // this property should be initialized as false
@@ -417,7 +413,6 @@ struct ST_request
     bool btransient;    // represents that token request has has only transient tokens
     bool bmerged;       // merged request only used for msb
 
-    double starttime;   // for statistics
     unsigned int tokenacquired;     // normally means token acquired
                                     // for EV, WB request, it means token held by request
     unsigned int tokenrequested;    // normally means token requested

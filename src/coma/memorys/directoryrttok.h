@@ -1,18 +1,16 @@
 #ifndef _DIRECTORYRT_TOK_H
 #define _DIRECTORYRT_TOK_H
 
-// root directory
 #include "predef.h"
-#include "busst_slave_if.h"
-#include "busst_master.h"
-#include "networkbelow_if.h"
+#include "network_node.h"
 #include "suspendedrequestqueue.h"
 #include "evicteddirlinebuffer.h"
+#include "ddrmemorysys.h"
 
 namespace MemSim
 {
 
-class DirectoryRTTOK : public sc_module, public CacheState, public NetworkBelow_if, public BusST_Master
+class DirectoryRTTOK : public sc_module, public Network_Node, public CacheState
 {
     // Directory parameters
     unsigned int m_nLineSize;
@@ -49,22 +47,19 @@ class DirectoryRTTOK : public sc_module, public CacheState, public NetworkBelow_
     pipeline_t m_pPipelineNET;
     pipeline_t m_pPipelineBUS;
 
-    // current map, line bits, set bits, split dir bits, then tabs
-    unsigned int m_nRootDirCount;
-    unsigned int m_nRootDirID;
-
     // evicted dirline buffer
     EvictedDirLineBuffer m_evictedlinebuffer;
+
+    std::queue<ST_request*>& m_pfifoFeedback;
+    std::queue<ST_request*>& m_pfifoMemory;
 
 public:
 	// directory should be defined large enough to hold all the information in the hierarchy below
 	SC_HAS_PROCESS(DirectoryRTTOK);
-	DirectoryRTTOK(sc_module_name nm, sc_clock& clock, unsigned int nset, unsigned int nassoc, 
+	DirectoryRTTOK(sc_module_name nm, sc_clock& clock, DDRMemorySys& memory, unsigned int nset, unsigned int nassoc, 
 		       unsigned int nlinesize,
-		       unsigned int nRootDirID,
-		       unsigned int nRootDirCount,
 		       int latency)
-      : sc_module(nm), 
+      : sc_module(nm),
         m_nLineSize(nlinesize),
   	    m_nSet(nset), 
 	    m_nAssociativity(nassoc), 
@@ -73,11 +68,15 @@ public:
         m_nStateBUS(STATE_BUS_PROCESSING),
         m_pPipelineNET(latency),
         m_pPipelineBUS(latency),
-        m_nRootDirCount(nRootDirCount),
-        m_nRootDirID(nRootDirID)
+        m_pfifoFeedback(memory.channel_fifo_slave),
+        m_pfifoMemory(memory.m_pfifoReqIn)
 	{
         ST_request::s_nRequestAlignedSize = nlinesize;
         
+		SC_METHOD(BehaviorNode);
+		sensitive << clock.negedge_event();
+		dont_initialize();
+
 		SC_METHOD(BehaviorNET);
 		sensitive << clock.posedge_event();
 		dont_initialize();
@@ -96,7 +95,7 @@ public:
     	    free(m_pSet[i].lines);
         free(m_pSet);
     }
-
+    
 	void InitializeDirLines();
 
 	void BehaviorNET();
@@ -130,10 +129,6 @@ public:
     // queue handling
 
     // CHKS potential optimization, queued request probably can bypass 
-
-    // fetch request from input buffer
-    // [JNEW] the fetched request from the input buffer will get into to the pipeline
-    ST_request* FetchRequestNet();
 
     // prefetch deferred request head,
     // if the request can be passed directly it will be popped

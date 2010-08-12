@@ -24,46 +24,29 @@ COMA_LDADD_G = $(SC_LIBS)
 COMA_LIBS = libmemorys.a libsimlink.a  
 COMA_LIBS_G = libmemorys_g.a libsimlink_g.a 
 COMA_SRC = \
-	CMLink.cpp \
-	CMLink.h 
+	coma/ZLCOMA.h \
+	coma/ZLCOMA.cpp
 
 MEMORYS_SRC = \
-	coma/memorys/busswitch.h \
-	coma/memorys/busswitch.cpp \
-	coma/memorys/busst.cpp \
-	coma/memorys/busst.h \
-	coma/memorys/busst_if.h \
-	coma/memorys/busst_master.h \
-	coma/memorys/busst_slave_if.h \
 	coma/memorys/cachel2tok.cpp \
 	coma/memorys/cachel2tok.h \
-	coma/memorys/cachel2tokim.cpp \
-	coma/memorys/cachel2tokim.h \
-	coma/memorys/cachest.cpp \
-	coma/memorys/cachest.h \
 	coma/memorys/ddrmemorysys.cpp \
 	coma/memorys/ddrmemorysys.h \
 	coma/memorys/directoryrttok.cpp \
 	coma/memorys/directoryrttok.h \
 	coma/memorys/directorytok.cpp \
 	coma/memorys/directorytok.h \
-	coma/memorys/drv_clk.h \
 	coma/memorys/evicteddirlinebuffer.h \
 	coma/memorys/fabuffer.h \
 	coma/memorys/memory_main.cpp \
 	coma/memorys/memschedulepipeline.h \
 	coma/memorys/mergestorebuffer.cpp \
 	coma/memorys/mergestorebuffer.h \
-	coma/memorys/network.h \
-	coma/memorys/network_if.h \
 	coma/memorys/network_node.h \
-	coma/memorys/networkabove_if.h \
-	coma/memorys/networkbelow_if.h \
 	coma/memorys/predef.cpp \
 	coma/memorys/predef.h \
 	coma/memorys/processortok.cpp \
 	coma/memorys/processortok.h \
-	coma/memorys/requestmergebufferst.h \
 	coma/memorys/simcontrol.h \
 	coma/memorys/suspendedrequestqueue.cpp \
 	coma/memorys/suspendedrequestqueue.h \
@@ -72,10 +55,7 @@ MEMORYS_SRC = \
 
 SIMLINK_SRC = \
 	coma/simlink/linkmgs.h \
-	coma/simlink/linkprocs.cpp \
 	coma/simlink/linkrealization.h \
-	coma/simlink/memstat.h \
-	coma/simlink/smdatatype.h \
 	coma/simlink/th.h
 
 
@@ -131,7 +111,6 @@ COMMON_SRC = \
 	kernel.h \
 	loader.cpp \
 	loader.h \
-	log2.h \
 	ports.h \
 	ports.cpp \
 	range.h \

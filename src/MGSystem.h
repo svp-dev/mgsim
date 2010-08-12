@@ -26,7 +26,6 @@ namespace Simulator {
         BreakPoints        m_breakpoints;
         Kernel             m_kernel;
         IMemoryAdmin*      m_memory;
-        void*              m_pmemory;  // Will be used by CMLink if COMA is enabled.
         std::string        m_objdump_cmd;
         std::string        m_program;
         enum {

@@ -8,7 +8,6 @@
 #include "th.h"
 
 Simulator::VirtualMemory* g_pMemoryDataContainer;
-LinkMGS** g_pLinks;
 LinkConfig LinkMGS::s_oLinkConfig;
 
 th_t thpara;

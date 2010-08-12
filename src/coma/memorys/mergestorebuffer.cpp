@@ -161,8 +161,7 @@ void MergeStoreBuffer::DuplicateRequestQueue(__address_t address, ST_request* re
     {
         pvec->push_back((*m_pvecRequestQueue[index])[i]);
     }
-
-    reqrev->ref = (unsigned long*)pvec;
+    reqrev->msbcopy = pvec;
 }
 
 ST_request* MergeStoreBuffer::GetMergedRequest(__address_t address)

@@ -126,7 +126,7 @@ void VirtualMemory::Unreserve(MemAddr address)
     {
         throw InvalidArgumentException("Attempting to unreserve non-reserved memory");
     }
-    m_totalreserved += p->second.size;
+    m_totalreserved -= p->second.size;
     --m_nRanges;
     m_ranges.erase(p);
 }

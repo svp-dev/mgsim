@@ -2,59 +2,57 @@
 #define _NETWORK_NODE_H
 
 #include "predef.h"
-#include "network_if.h"
+#include <queue>
 
 namespace MemSim
 {
 
-class Network_Node : public sc_module
+class Network_Node
 {
-public:
-	// port for input and output
-	sc_fifo<ST_request*> m_fifoIn;
-
-	sc_fifo<ST_request*> &m_fifoNetIn;
-	sc_fifo_out<ST_request*> m_fifoNetOut;
-
-private:
-    ST_request* m_pReqCurINI;
-
-	void BehaviorIni()
-	{
-        if (m_pReqCurINI == NULL)
-        {
-            // Get a request
-            if (m_fifoIn.num_available_fast() > 0)
-            {
-                m_fifoIn.nb_read(m_pReqCurINI);
-            }
-        }
-
-        if (m_pReqCurINI != NULL)
-        {
-            // Forward transaction to the next node
-            if (m_fifoNetOut.nb_write(m_pReqCurINI))
-            {
-                m_pReqCurINI = NULL;
-            }
-        }
-	}
-   
-public:
-	SC_HAS_PROCESS(Network_Node);
+	std::queue<ST_request*> m_fifoinNetwork;   // Input buffer from previous node
+	std::queue<ST_request*> m_fifooutNetwork;  // Output buffer for next node
+	Network_Node*           m_next;
 	
-	Network_Node(sc_module_name nm, sc_clock& clock, sc_fifo<ST_request*>& fifonetin, sc_fifo_out<ST_request*>& fifonetout)
-	  : sc_module(nm),
-	    m_fifoNetIn(fifonetin),
-	    m_pReqCurINI(NULL)
+public:
+	void BehaviorNode()
 	{
-		// process for requests from CPU
-		SC_METHOD(BehaviorIni);
-		sensitive << clock.negedge_event();
-		dont_initialize();
-		
-		fifonetout(m_fifoIn);
+	    // Send outgoing requests to next node
+	    if (!m_fifooutNetwork.empty())
+	    {
+            m_next->m_fifoinNetwork.push(m_fifooutNetwork.front());
+	        m_fifooutNetwork.pop();
+        }
 	}
+	
+	void SendRequest(ST_request* req)
+	{
+	    m_fifooutNetwork.push(req);
+	}
+	
+	ST_request* ReceiveRequest()
+	{
+	    if (m_fifoinNetwork.empty())
+	    {
+	        return NULL;
+	    }
+	    ST_request* req = m_fifoinNetwork.front();
+	    m_fifoinNetwork.pop();
+	    return req;
+	}
+	
+	Network_Node()//sc_module_name nm, sc_clock& clock)
+	  : /*sc_module(nm),*/ m_next(NULL)
+	{
+		//SC_METHOD(NetworkNode::BehaviorIni);
+		//sensitive << clock.negedge_event();
+		//dont_initialize();
+	}
+
+	void SetNext(Network_Node* next)
+	{
+	    assert(m_next == NULL);
+	    m_next = next;
+	}	
 };
 
 }

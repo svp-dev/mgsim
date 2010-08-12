@@ -1,18 +1,14 @@
 #include "commands.h"
 #include "sampling.h"
 
-#ifdef ENABLE_COMA_ZL
-# include "CMLink.h"
-#else
-# include "SerialMemory.h"
-# include "ParallelMemory.h"
-# include "BankedMemory.h"
-# include "RandomBankedMemory.h"
-# include "coma/COMA.h"
-# include "coma/Cache.h"
-# include "coma/Directory.h"
-# include "coma/RootDirectory.h"
-#endif
+#include "SerialMemory.h"
+#include "ParallelMemory.h"
+#include "BankedMemory.h"
+#include "RandomBankedMemory.h"
+#include "coma/COMA.h"
+#include "coma/Cache.h"
+#include "coma/Directory.h"
+#include "coma/RootDirectory.h"
 
 #include <csignal>
 #include <sstream>
@@ -86,7 +82,6 @@ static const struct
     {"help", new bind_cmd_C<DCache            >(&DCache            ::Cmd_Help) },
     {"help", new bind_cmd_C<Pipeline          >(&Pipeline          ::Cmd_Help) },
     {"help", new bind_cmd_C<Allocator         >(&Allocator         ::Cmd_Help) },
-#ifndef ENABLE_COMA_ZL
     {"help", new bind_cmd_C<SerialMemory      >(&SerialMemory      ::Cmd_Help) },
     {"help", new bind_cmd_C<ParallelMemory    >(&ParallelMemory    ::Cmd_Help) },
     {"help", new bind_cmd_C<RandomBankedMemory>(&RandomBankedMemory::Cmd_Help) },
@@ -95,12 +90,9 @@ static const struct
     {"help", new bind_cmd_C<COMA::Cache       >(&COMA::Cache        ::Cmd_Help) },
     {"help", new bind_cmd_C<COMA::Directory   >(&COMA::Directory    ::Cmd_Help) },
     {"help", new bind_cmd_C<COMA::RootDirectory>(&COMA::RootDirectory::Cmd_Help) },
-#endif
     {"help", new bind_cmd_C<FPU               >(&FPU               ::Cmd_Help) },
     {"info", new bind_cmd_C<VirtualMemory     >(&VirtualMemory     ::Cmd_Info) },
-#ifndef ENABLE_COMA_ZL
     {"line", new bind_cmd_C<COMA              >(&COMA              ::Cmd_Line) },
-#endif
     {"read", new bind_cmd_C<RAUnit            >(&RAUnit            ::Cmd_Read) },
     {"read", new bind_cmd_C<ThreadTable       >(&ThreadTable       ::Cmd_Read) },
     {"read", new bind_cmd_C<FamilyTable       >(&FamilyTable       ::Cmd_Read) },
@@ -110,7 +102,6 @@ static const struct
     {"read", new bind_cmd_C<DCache            >(&DCache            ::Cmd_Read) },
     {"read", new bind_cmd_C<Pipeline          >(&Pipeline          ::Cmd_Read) },
     {"read", new bind_cmd_C<Allocator         >(&Allocator         ::Cmd_Read) },
-#ifndef ENABLE_COMA_ZL
     {"read", new bind_cmd_C<SerialMemory      >(&SerialMemory      ::Cmd_Read) },
     {"read", new bind_cmd_C<ParallelMemory    >(&ParallelMemory    ::Cmd_Read) },
     {"read", new bind_cmd_C<RandomBankedMemory>(&RandomBankedMemory::Cmd_Read) },
@@ -118,12 +109,9 @@ static const struct
     {"read", new bind_cmd_C<COMA::Cache       >(&COMA::Cache        ::Cmd_Read) },
     {"read", new bind_cmd_C<COMA::Directory   >(&COMA::Directory    ::Cmd_Read) },
     {"read", new bind_cmd_C<COMA::RootDirectory>(&COMA::RootDirectory::Cmd_Read) },
-#endif
     {"read", new bind_cmd_C<VirtualMemory     >(&VirtualMemory     ::Cmd_Read) },
     {"read", new bind_cmd_C<FPU               >(&FPU               ::Cmd_Read) },
-#ifndef ENABLE_COMA_ZL
     {"trace", new bind_cmd_NC<COMA             >(&COMA              ::Cmd_Trace) },
-#endif
     {NULL, NULL}
 };
 
