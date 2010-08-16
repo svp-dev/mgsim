@@ -80,13 +80,13 @@ Result DDRChannel::DoRequest()
     }
     
     // We read from m_nDevicesPerRank devices, each providing m_nBurstLength bytes in the burst.
-    const unsigned burst_size = m_nBurstSize;
+    const unsigned burst_size = m_ddrconfig.m_nBurstSize;
     
     // Decode the burst address and offset-within-burst
     const MemAddr      address = (m_request.address + m_request.offset) / burst_size;
     const unsigned int offset  = (m_request.address + m_request.offset) % burst_size;
-    const unsigned int rank    = GET_BITS(address, m_nRankStart, m_nRankBits),
-                       row     = GET_BITS(address, m_nRowStart,  m_nRowBits);
+    const unsigned int rank    = GET_BITS(address, m_ddrconfig.m_nRankStart, m_ddrconfig.m_nRankBits),
+                       row     = GET_BITS(address, m_ddrconfig.m_nRowStart,  m_ddrconfig.m_nRowBits);
 
     if (m_currentRow[rank] != row)
     {
@@ -95,7 +95,7 @@ Result DDRChannel::DoRequest()
             // Precharge (close) the currently active row
             COMMIT
             {
-                m_next_command = std::max(m_next_precharge, now) + m_tRP;
+                m_next_command = std::max(m_next_precharge, now) + m_ddrconfig.m_tRP;
                 m_currentRow[rank] = INVALID_ROW;
             }
             return SUCCESS;
@@ -104,8 +104,8 @@ Result DDRChannel::DoRequest()
         // Activate (open) the desired row
         COMMIT
         {
-            m_next_command   = now + m_tRCD;
-            m_next_precharge = now + m_tRAS;
+            m_next_command   = now + m_ddrconfig.m_tRCD;
+            m_next_precharge = now + m_ddrconfig.m_tRAS;
             
             m_currentRow[rank] = row;
         }
@@ -123,8 +123,8 @@ Result DDRChannel::DoRequest()
             // Update address to reflect written portion
             m_request.offset += size;
 
-            m_next_command   = now + m_tCWL;
-            m_next_precharge = now + m_tWR;
+            m_next_command   = now + m_ddrconfig.m_tCWL;
+            m_next_precharge = now + m_ddrconfig.m_tWR;
         }
 
         if (size < remainder)
@@ -139,10 +139,10 @@ Result DDRChannel::DoRequest()
         {
             // Update address to reflect read portion
             m_request.offset += size;
-            m_request.done    = now + m_tCL;
+            m_request.done    = now + m_ddrconfig.m_tCL;
             
             // Schedule next read
-            m_next_command = now + m_tCCD;
+            m_next_command = now + m_ddrconfig.m_tCCD;
         }
     
         if (size < remainder)
@@ -183,20 +183,7 @@ Result DDRChannel::DoPipeline()
     return SUCCESS;
 }
 
-DDRChannel::DDRChannel(const std::string& name, Object& parent, VirtualMemory& memory, const Config& config)
-    : Object(name, parent),
-      // Initialize each rank at 'no row selected'
-      m_currentRow(1 << m_nRankBits, INVALID_ROW),
-
-      m_memory(memory),
-      m_callback(dynamic_cast<ICallback&>(parent)),
-      m_pipeline(*parent.GetKernel(), 0),
-      m_busy(*parent.GetKernel(), false),
-      m_next_command(0),
-      m_next_precharge(0),
-    
-      p_Request ("request",  delegate::create<DDRChannel, &DDRChannel::DoRequest >(*this)),
-      p_Pipeline("pipeline", delegate::create<DDRChannel, &DDRChannel::DoPipeline>(*this))
+DDRChannel::DDRConfig::DDRConfig(const Config& config)
 {
     // DDR 3
     m_nBurstLength = config.getInteger<size_t> ("DDR_BurstLength", 8);
@@ -243,12 +230,28 @@ DDRChannel::DDRChannel(const std::string& name, Object& parent, VirtualMemory& m
     m_nColumnStart = 0;
     m_nRowStart = m_nColumnStart + m_nColumnBits;
     m_nRankStart = m_nRowStart + m_nRowBits;
+}
 
+DDRChannel::DDRChannel(const std::string& name, Object& parent, VirtualMemory& memory, const Config& config)
+    : Object(name, parent),
+      m_ddrconfig(config),
+      // Initialize each rank at 'no row selected'
+      m_currentRow(1 << m_ddrconfig.m_nRankBits, INVALID_ROW),
+
+      m_memory(memory),
+      m_callback(dynamic_cast<ICallback&>(parent)),
+      m_pipeline(*parent.GetKernel(), m_ddrconfig.m_tCL),
+      m_busy(*parent.GetKernel(), false),
+      m_next_command(0),
+      m_next_precharge(0),
+    
+      p_Request ("request",  delegate::create<DDRChannel, &DDRChannel::DoRequest >(*this)),
+      p_Pipeline("pipeline", delegate::create<DDRChannel, &DDRChannel::DoPipeline>(*this))
+{
     m_busy.Sensitive(p_Request);
-    m_pipeline.SetMaxSize(m_tCL);
     m_pipeline.Sensitive(p_Pipeline);
 }
-                                                                                                                                                                                
+
 DDRChannel::~DDRChannel()
 {
 }

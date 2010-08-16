@@ -98,7 +98,8 @@ private:
         bool         write;     ///< A write or read
         CycleNo      done;      ///< When this request is done
     };
-    
+
+    struct DDRConfig {
     unsigned int m_nBurstLength;    ///< Size of a single burst
 
     // Timing configuration
@@ -121,7 +122,11 @@ private:
     
     unsigned int m_nBurstSize;
 
+    DDRConfig(const Config&);
+    };
+
     // Runtime parameters
+    DDRConfig                  m_ddrconfig;      ///< DDR Configuration parameters
     std::vector<unsigned long> m_currentRow;     ///< Currently selected row, for each rank
     VirtualMemory&             m_memory;         ///< The backing store with data
     ICallback&                 m_callback;       ///< The callback to notify for completion
