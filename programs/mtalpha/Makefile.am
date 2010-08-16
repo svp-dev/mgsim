@@ -26,12 +26,12 @@ TEST_SOURCES = \
 	regression/self_exclusive_delegate.s \
 	regression/sparse_globals.s
 
+ARCH = alpha
+
 if ENABLE_MTALPHA_TESTS
-TESTS = $(TEST_SOURCES:.s=.bin)
-CLEANFILES = $(TESTS)
+TEST_BINS = $(TEST_SOURCES:.s=.bin)
 endif
 
-ARCH = alpha
 include $(srcdir)/../tests.mk
 
 
