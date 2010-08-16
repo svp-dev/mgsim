@@ -329,6 +329,8 @@ public:
     {
         assert(maxPushes <= MAX_PUSHES);
     }
+
+    void SetMaxSize(BufferSize sz) { m_maxSize = sz; }
 };
 
 template <typename T>

@@ -1,5 +1,7 @@
 #include "DDR.h"
 #include "VirtualMemory.h"
+#include "../config.h"
+#include "../log2.h"
 #include <limits>
 #include <cstdio>
 
@@ -77,8 +79,8 @@ Result DDRChannel::DoRequest()
         return SUCCESS;
     }
     
-    // We read from m_nDevicePerRank devices, each providing m_nBurstLength bytes in the burst.
-    const unsigned int burst_size = (m_nDevicePerRank * m_nBurstLength);
+    // We read from m_nDevicesPerRank devices, each providing m_nBurstLength bytes in the burst.
+    const unsigned burst_size = m_nBurstSize;
     
     // Decode the burst address and offset-within-burst
     const MemAddr      address = (m_request.address + m_request.offset) / burst_size;
@@ -93,7 +95,7 @@ Result DDRChannel::DoRequest()
             // Precharge (close) the currently active row
             COMMIT
             {
-                m_next_command = /* std::max(m_next_precharge, now) */ now  + m_tRP;
+                m_next_command = std::max(m_next_precharge, now) + m_tRP;
                 m_currentRow[rank] = INVALID_ROW;
             }
             return SUCCESS;
@@ -181,56 +183,69 @@ Result DDRChannel::DoPipeline()
     return SUCCESS;
 }
 
-DDRChannel::DDRChannel(const std::string& name, Object& parent, VirtualMemory& memory)
-  : Object(name, parent),
+DDRChannel::DDRChannel(const std::string& name, Object& parent, VirtualMemory& memory, const Config& config)
+    : Object(name, parent),
+      // Initialize each rank at 'no row selected'
+      m_currentRow(1 << m_nRankBits, INVALID_ROW),
 
-    // DDR 3
-    m_tBusMult(4),
-    m_nBurstLength(m_tBusMult * 2),
+      m_memory(memory),
+      m_callback(dynamic_cast<ICallback&>(parent)),
+      m_pipeline(*parent.GetKernel(), 0),
+      m_busy(*parent.GetKernel(), false),
+      m_next_command(0),
+      m_next_precharge(0),
     
-    // Default values for DDR3-1600 (200 MHz clock).
-    // Latencies expressed in tCK (cycle) for a 800 MHz I/O clock.
-    // Configuration based on the Micron MT41J128M8.
-    /*m_tRCD(11),
-    m_tRP(11),
-    m_tCL(11),
-    m_tWR(8),
-    m_tCCD(4),
-    m_tCWL(8),
-    m_tRAS(28),*/
-    
-    m_tRCD(22),
-    m_tRP(22),
-    m_tCL(22),
-    m_tWR(16),
-    m_tCCD(8),
-    m_tCWL(16),
-    m_tRAS(56),
-    
-    // Address bit mapping.
-    // One row bit added for a 4GB DIMM.
-    m_nDevicePerRank(8),
-    m_nRankBits(1),
-    m_nRowBits(18),
-    m_nColumnBits(10),
-    m_nRankStart(28),
-    m_nRowStart(10),
-    m_nColumnStart(0),
-
-    // Initialize each rank at 'no row selected'
-    m_currentRow(1 << m_nRankBits, INVALID_ROW),
-    
-    m_memory(memory),
-    m_callback(dynamic_cast<ICallback&>(parent)),
-    
-    m_pipeline(*parent.GetKernel(), m_tCL),
-    m_busy(*parent.GetKernel(), false),
-    m_next_precharge(0),
-    
-    p_Request ("request",  delegate::create<DDRChannel, &DDRChannel::DoRequest >(*this)),
-    p_Pipeline("pipeline", delegate::create<DDRChannel, &DDRChannel::DoPipeline>(*this))
+      p_Request ("request",  delegate::create<DDRChannel, &DDRChannel::DoRequest >(*this)),
+      p_Pipeline("pipeline", delegate::create<DDRChannel, &DDRChannel::DoPipeline>(*this))
 {
+    // DDR 3
+    m_nBurstLength = config.getInteger<size_t> ("DDR_BurstLength", 8);
+    if (m_nBurstLength != 8)
+        throw SimulationException("This implementaiton only supports m_nBurstLength = 8");
+    size_t cellsize = config.getInteger<size_t> ("DDR_CellSize", 8);
+    if (cellsize != 8)
+        throw SimulationException("This implementation only supports DDR_CellSize = 8");
+
+    float memfreq = config.getInteger<float>("DDRMemoryFreq", 800);
+    float corefreq = config.getInteger<float> ("CoreFreq", 1000);
+    float coremem_ratio =  corefreq / memfreq;
+    if (coremem_ratio < 1.0)
+        throw SimulationException("This implementation only supports DDRMemoryFreq <= CoreFreq");
+
+    // Default values for DDR3-1600 (200 MHz clock).
+    // Configuration based on the Micron MT41J128M8.
+    // Latencies in DDR specs are expressed in tCK (I/O cycles).
+    // In the simulator, they must be expressed in Core cycles, thus
+    // the ratio between memI/O and core freq must be used.
+    m_tCL = (float)config.getInteger<unsigned> ("DDR_tCL", 11) * coremem_ratio;
+    m_tRCD = (float)config.getInteger<unsigned> ("DDR_tRCD", 11) * coremem_ratio;
+    m_tRP = (float)config.getInteger<unsigned> ("DDR_tRP", 11) * coremem_ratio;
+    m_tRAS = (float)config.getInteger<unsigned> ("DDR_tRAS", 28) * coremem_ratio;
+
+    m_tCWL = (float)config.getInteger<unsigned> ("DDR_tCWL", 8) * coremem_ratio;
+    m_tCCD = (float)config.getInteger<unsigned> ("DDR_tCCD", 4) * coremem_ratio;
+    
+    // tWR is expressed in DDR specs in nanoseconds, see 
+    // http://www.samsung.com/global/business/semiconductor/products/dram/downloads/applicationnote/tWR.pdf
+    // corefreq is in MHz
+    // so multiplier = 1E6 * 1E-9 = 1E-3
+    m_tWR = corefreq * 1E-3 * (float)config.getInteger<unsigned> ("DDR_tWR", 15);
+
+    // Address bit mapping.
+    // One row bit added for a 4GB DIMM with ECC.
+    m_nDevicesPerRank = config.getInteger<size_t> ("DDR_DevicesPerRank", 8);
+    m_nRankBits = ilog2(config.getInteger<size_t> ("DDR_Ranks", 2));
+    m_nRowBits = config.getInteger<size_t> ("DDR_RowBits", 15);
+    m_nColumnBits = config.getInteger<size_t> ("DDR_ColumnBits", 10);
+    m_nBurstSize = m_nDevicesPerRank * m_nBurstLength;
+
+    // ordering of bits in address:
+    m_nColumnStart = 0;
+    m_nRowStart = m_nColumnStart + m_nColumnBits;
+    m_nRankStart = m_nRowStart + m_nRowBits;
+
     m_busy.Sensitive(p_Request);
+    m_pipeline.SetMaxSize(m_tCL);
     m_pipeline.Sensitive(p_Pipeline);
 }
                                                                                                                                                                                 

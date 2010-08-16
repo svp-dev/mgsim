@@ -346,7 +346,7 @@ COMA::RootDirectory::RootDirectory(const std::string& name, COMA& parent, Virtua
     p_lines.AddProcess(p_Incoming);
     p_lines.AddProcess(p_Responses);
 
-    m_memory = new DDRChannel("ddr", *this, memory);
+    m_memory = new DDRChannel("ddr", *this, memory, config);
 }
 
 COMA::RootDirectory::~RootDirectory()
