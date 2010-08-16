@@ -23,6 +23,7 @@ dotest() {
       x=$?
       exec 2>&3 1>&4
       set -e
+      rekill=
       if test $x = 0; then
 	    echo "**PASS**"
       else
@@ -31,7 +32,8 @@ dotest() {
         elif test $x = 134; then
             echo "**ABORT**"
         elif test $x -ge 128; then
-            kill -$(($x - 128)) $$
+            echo "**SIGNAL ($x)**"
+            rekill=1
 	else
     	    echo "**FAIL**"
 	fi
@@ -40,7 +42,11 @@ dotest() {
         printf "\n  Exit status: %d\n\n" $x
 	fail=1
       fi
-      
+      rm -f "$$.out"
+
+      if test -n "$rekill"; then
+          kill -$(($x - 128)) $$
+      fi
   done
 }
 

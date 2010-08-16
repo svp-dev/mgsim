@@ -30,7 +30,10 @@ TESTS = \
 	$(TEST_BINS:.bin=.parallel) \
 	$(TEST_BINS:.bin=.banked) \
 	$(TEST_BINS:.bin=.randombanked) \
-	$(TEST_BINS:.bin=.coma) \
-	$(TEST_BINS:.bin=.zlcoma)
+	$(TEST_BINS:.bin=.coma) 
 
-CLEANFILES = $(TESTS)
+if ENABLE_COMA_ZL
+TESTS += $(TEST_BINS:.bin=.zlcoma)
+endif
+
+CLEANFILES = $(TESTS) *.out
