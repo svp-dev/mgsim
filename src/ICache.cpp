@@ -40,24 +40,24 @@ ICache::ICache(const std::string& name, Processor& parent, Allocator& alloc, con
     // These things must be powers of two
     if (!IsPowerOfTwo(m_assoc))
     {
-        throw InvalidArgumentException("Instruction cache associativity is not a power of two");
+        throw exceptf<InvalidArgumentException>(*this, "ICacheAssociativity = %zd is not a power of two", m_assoc);
     }
 
     const size_t sets = config.getInteger<size_t>("ICacheNumSets", 4);
     if (!IsPowerOfTwo(sets))
     {
-        throw InvalidArgumentException("Number of sets in instruction cache is not a power of two");
+        throw exceptf<InvalidArgumentException>(*this, "ICacheNumSets = %zd is not a power of two", sets);
     }
 
     if (!IsPowerOfTwo(m_lineSize))
     {
-        throw InvalidArgumentException("Instruction cache line size is not a power of two");
+        throw exceptf<InvalidArgumentException>(*this, "CacheLineSize = %zd is not a power of two", m_lineSize);
     }
 
     // At least a complete register value has to fit in a line
     if (m_lineSize < 8)
     {
-        throw InvalidArgumentException("Instruction cache line size cannot be less than 8.");
+        throw exceptf<InvalidArgumentException>(*this, "CacheLineSize = %zd cannot be less than 8.", m_lineSize);
     }
 
     // Initialize the cache lines
@@ -132,7 +132,7 @@ Result ICache::FindLine(MemAddr address, Line* &line, bool check_only)
     if (line == NULL)
     {
         // No available line
-        DeadlockWrite("Unable to allocate a cache-line for the request to 0x%016llx (set %u)",
+        DeadlockWrite("Unable to allocate a cache-line for the request to %#016llx (set %u)",
             (unsigned long long)address, (unsigned)(set / m_assoc));
         return FAILED;
     }
@@ -174,19 +174,22 @@ bool ICache::Read(CID cid, MemAddr address, void* data, MemSize size) const
 
     if (offset + size > m_lineSize)
     {
-        throw InvalidArgumentException("Address range crosses over cache line boundary");
+        throw exceptf<InvalidArgumentException>(*this, "Read (%#016llx, %zd): Address range crosses over cache line boundary", 
+                                                (unsigned long long)address, (size_t)size);
     }
 
 #if MEMSIZE_MAX >= SIZE_MAX
     if (size > SIZE_MAX)
     {
-        throw InvalidArgumentException("Size argument too big");
+        throw exceptf<InvalidArgumentException>(*this, "Read (%#016llx, %zd): Size argument too big", 
+                                                (unsigned long long)address, (size_t)size);
     }
 #endif
 
     if (m_lines[cid].state == LINE_EMPTY || m_lines[cid].tag != tag)
     {
-        throw InvalidArgumentException("Attempting to read from an invalid cache line");
+        throw exceptf<InvalidArgumentException>(*this, "Read (%#016llx, %zd): Attempting to read from an invalid cache line",
+                                                (unsigned long long)address, (size_t)size);
     }
 
     const Line& line = m_lines[cid];
@@ -215,20 +218,23 @@ Result ICache::Fetch(MemAddr address, MemSize size, TID* tid, CID* cid)
     // Check that we're fetching executable memory
     if (!m_parent.CheckPermissions(address, size, IMemory::PERM_EXECUTE))
     {
-        throw SecurityException("Attempting to execute from non-executable memory", *this);
+        throw exceptf<SecurityException>(*this, "Fetch (%#016llx, %zd): Attempting to execute from non-executable memory",
+                                         (unsigned long long)address, (size_t)size);
     }
 
     // Validate input
     size_t offset = (size_t)(address % m_lineSize);
     if (offset + size > m_lineSize)
     {
-        throw InvalidArgumentException("Address range crosses over cache line boundary");
+        throw exceptf<InvalidArgumentException>(*this, "Fetch (%#016llx, %zd): Address range crosses over cache line boundary",
+                                                (unsigned long long)address, (size_t)size);
     }
 
 #if MEMSIZE_MAX >= SIZE_MAX
     if (size > SIZE_MAX)
     {
-        throw InvalidArgumentException("Size argument too big");
+        throw exceptf<InvalidArgumentException>(*this, "Fetch (%#016llx, %zd): Size argument too big",
+                                                (unsigned long long)address, (size_t)size);
     }
 #endif
 
@@ -406,7 +412,7 @@ Result ICache::DoOutgoing()
     if (!m_parent.ReadMemory(address, m_lineSize))
     {
         // The fetch failed
-        DeadlockWrite("Unable to read 0x%016llx from memory", (unsigned long long)address);
+        DeadlockWrite("Unable to read %#016llx from memory", (unsigned long long)address);
         return FAILED;
     }
     m_outgoing.Pop();

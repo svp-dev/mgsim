@@ -80,6 +80,7 @@ enum CyclePhase {
 // Define these methods as macros to allow for optimizations
 #define DebugSimWrite(msg, ...)  do { if ((GetKernel()->GetDebugMode() & Kernel::DEBUG_SIM ) && GetKernel()->GetCyclePhase() == PHASE_COMMIT) DebugSimWrite_((msg), ##__VA_ARGS__); } while(false)
 #define DebugProgWrite(msg, ...) do { if ((GetKernel()->GetDebugMode() & Kernel::DEBUG_PROG) && GetKernel()->GetCyclePhase() == PHASE_COMMIT) DebugProgWrite_((msg), ##__VA_ARGS__); } while(false)
+#define DebugFlowWrite(msg, ...) do { if ((GetKernel()->GetDebugMode() & Kernel::DEBUG_FLOW) && GetKernel()->GetCyclePhase() == PHASE_COMMIT) DebugProgWrite_((msg), ##__VA_ARGS__); } while(false)
 #define DeadlockWrite(msg, ...)  do { if (GetKernel()->GetDebugMode() & Kernel::DEBUG_DEADLOCK) DeadlockWrite_((msg), ##__VA_ARGS__); } while(false)
 #define OutputWrite(msg, ...)    do { if (GetKernel()->GetCyclePhase() == PHASE_COMMIT) OutputWrite_((msg), ##__VA_ARGS__); } while(false)
 
@@ -99,6 +100,7 @@ public:
         DEBUG_SIM      = 1, ///< Debug the simulator 
         DEBUG_PROG     = 2, ///< Debug the program
         DEBUG_DEADLOCK = 4, ///< Debug deadlocks
+        DEBUG_FLOW     = 8, ///< Debug control flow
     };
     
 private:

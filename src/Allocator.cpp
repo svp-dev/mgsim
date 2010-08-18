@@ -881,21 +881,21 @@ Family& Allocator::GetFamilyChecked(LFID fid, FCapability capability) const
 {
     if (fid >= m_familyTable.GetFamilies().size())
     {
-        throw InvalidArgumentException("Invalid Family ID: index out of range");
+        throw InvalidArgumentException(*this, "Invalid Family ID: index out of range");
     }
     
     Family& family = m_familyTable[fid];
     if (family.state == FST_EMPTY)
     {
-        throw InvalidArgumentException("Invalid Family ID: family entry is empty");
+        throw InvalidArgumentException(*this, "Invalid Family ID: family entry is empty");
     }
     
     if (capability != family.capability)
     {
         if (fid == 0 && capability == 0)
-            throw InvalidArgumentException("Invalid use of Family ID after allocation failure");
+            throw InvalidArgumentException(*this, "Invalid use of Family ID after allocation failure");
         else
-            throw InvalidArgumentException("Invalid Family ID: capability mismatch");
+            throw InvalidArgumentException(*this, "Invalid Family ID: capability mismatch");
     }
 
     return family;    
@@ -1615,7 +1615,7 @@ Result Allocator::DoFamilyCreate()
                 if (regcounts[i].globals + 2 * regcounts[i].shareds + regcounts[i].locals > 31)
                 {
                     DebugSimWrite("Invalid register counts: %d %d %d\n", (int)regcounts[i].globals, (int)regcounts[i].shareds, (int)regcounts[i].locals);
-                    throw SimulationException("Too many registers specified in thread body");
+                    throw InvalidArgumentException(*this, "Too many registers specified in thread body");
                 }
             }
         }
@@ -2044,7 +2044,7 @@ void Allocator::AllocateInitialFamily(MemAddr pc, bool legacy)
     LFID fid = m_familyTable.AllocateFamily(CONTEXT_NORMAL);
     if (fid == INVALID_LFID)
     {
-        throw SimulationException("Unable to create initial family");
+        throw SimulationException("Unable to create initial family", *this);
     }
     UpdateContextAvailability();
 
@@ -2078,7 +2078,7 @@ void Allocator::AllocateInitialFamily(MemAddr pc, bool legacy)
 
     if (!AllocateRegisters(fid, CONTEXT_NORMAL))
     {
-        throw SimulationException("Unable to create initial family");
+        throw SimulationException("Unable to create initial family", *this);
     }
     
     m_threadTable.ReserveThread();

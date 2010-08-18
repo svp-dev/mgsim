@@ -365,6 +365,7 @@ void HandleCommandLine(CommandLineReader& clr,
             if (state == "SIM")      sys.ToggleDebugMode(Kernel::DEBUG_SIM);
             else if (state == "PROG")     sys.ToggleDebugMode(Kernel::DEBUG_PROG);
             else if (state == "DEADLOCK") sys.ToggleDebugMode(Kernel::DEBUG_DEADLOCK);
+            else if (state == "FLOW")     sys.ToggleDebugMode(Kernel::DEBUG_FLOW);
             else if (state == "ALL")      sys.SetDebugMode(-1);
             else if (state == "NONE")     sys.SetDebugMode(0);
                 
@@ -373,6 +374,7 @@ void HandleCommandLine(CommandLineReader& clr,
             if (m & Kernel::DEBUG_PROG)     debugStr += " program";
             if (m & Kernel::DEBUG_SIM)      debugStr += " simulator";
             if (m & Kernel::DEBUG_DEADLOCK) debugStr += " deadlocks";
+            if (m & Kernel::DEBUG_FLOW)     debugStr += " flow";
             if (!debugStr.size()) debugStr = " (nothing)";
             cout << "Debugging:" << debugStr << endl;
         }

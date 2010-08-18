@@ -48,23 +48,23 @@ DCache::DCache(const std::string& name, Processor& parent, Allocator& alloc, Fam
     // These things must be powers of two
     if (m_assoc == 0 || !IsPowerOfTwo(m_assoc))
     {
-        throw InvalidArgumentException("Data cache associativity is not a power of two");
+        throw exceptf<InvalidArgumentException>(*this, "DCacheAssociativity = %zd is not a power of two", (size_t)m_assoc);
     }
 
     if (m_sets == 0 || !IsPowerOfTwo(m_sets))
     {
-        throw InvalidArgumentException("Number of sets in data cache is not a power of two");
+        throw exceptf<InvalidArgumentException>(*this, "DCacheNumSets = %zd is not a power of two", (size_t)m_sets);
     }
 
     if (m_lineSize == 0 || !IsPowerOfTwo(m_lineSize))
     {
-        throw InvalidArgumentException("Data cache line size is not a power of two");
+        throw exceptf<InvalidArgumentException>(*this, "CacheLineSize = %zd is not a power of two", (size_t)m_lineSize);
     }
 
     // At least a complete register value has to fit in a line
     if (m_lineSize < 8)
     {
-        throw InvalidArgumentException("Data cache line size is less than 8.");
+        throw exceptf<InvalidArgumentException>(*this, "CacheLineSize = %zd is less than 8.", (size_t)m_lineSize);
     }
 
     m_lines.resize(m_sets * m_assoc);
@@ -151,25 +151,30 @@ Result DCache::Read(MemAddr address, void* data, MemSize size, LFID /* fid */, R
     size_t offset = (size_t)(address % m_lineSize);
     if (offset + size > m_lineSize)
     {
-        throw InvalidArgumentException("Address range crosses over cache line boundary");
+        throw exceptf<InvalidArgumentException>(*this, "Read (%#016llx, %zd): Address range crosses over cache line boundary", 
+                                                (unsigned long long)address, (size_t)size);
     }
 
 #if MEMSIZE_MAX >= SIZE_MAX
     if (size > SIZE_MAX)
     {
-        throw InvalidArgumentException("Size argument too big");
+        throw exceptf<InvalidArgumentException>(*this, "Read (%#016llx, %zd): Size argument too big",
+                                                (unsigned long long)address, (size_t)size);
     }
 #endif
 
     // Check that we're reading readable memory
     if (!m_parent.CheckPermissions(address, size, IMemory::PERM_READ))
     {
-        throw SecurityException("Attempting to read from non-readable memory", *this);
+        throw exceptf<SecurityException>(*this, "Read (%#016llx, %zd): Attempting to read from non-readable memory",
+                                         (unsigned long long)address, (size_t)size);
     }
 
     if (!p_service.Invoke())
     {
-        DeadlockWrite("Unable to acquire port for D-Cache access");
+        DeadlockWrite("Unable to acquire port for D-Cache read access (%#016llx, %zd)",
+                      (unsigned long long)address, (size_t)size);
+
         return FAILED;
     }
 
@@ -258,25 +263,29 @@ Result DCache::Write(MemAddr address, void* data, MemSize size, LFID fid, TID ti
     size_t offset = (size_t)(address % m_lineSize);
     if (offset + size > m_lineSize)
     {
-        throw InvalidArgumentException("Address range crosses over cache line boundary");
+        throw exceptf<InvalidArgumentException>(*this, "Write (%#016llx, %zd): Address range crosses over cache line boundary", 
+                                                (unsigned long long)address, (size_t)size);
     }
 
 #if MEMSIZE_MAX >= SIZE_MAX
     if (size > SIZE_MAX)
     {
-        throw InvalidArgumentException("Size argument too big");
+        throw exceptf<InvalidArgumentException>(*this, "Write (%#016llx, %zd): Size argument too big",
+                                                (unsigned long long)address, (size_t)size);
     }
 #endif
 
     // Check that we're writing writable memory
     if (!m_parent.CheckPermissions(address, size, IMemory::PERM_WRITE))
     {
-        throw SecurityException("Attempting to write to non-writable memory", *this);
+        throw exceptf<SecurityException>(*this, "Write (%#016llx, %zd): Attempting to write to non-writable memory",
+                                         (unsigned long long)address, (size_t)size);
     }
 
     if (!p_service.Invoke())
     {
-        DeadlockWrite("Unable to acquire port for D-Cache access");
+        DeadlockWrite("Unable to acquire port for D-Cache write access (%#016llx, %zd)",
+                      (unsigned long long)address, (size_t)size);
         return FAILED;
     }
     
