@@ -52,6 +52,10 @@ Pipeline::PipeAction Pipeline::MemoryStage::OnCycle()
 
             // Prepare for count increment
             instore = m_input.size;
+
+            DebugMemWrite("Store by %s (F%u/T%u): *%#016llx <- %#016llx (%zd)",
+                          GetKernel()->GetSymbolTable()[m_input.pc].c_str(), (unsigned)m_input.fid, (unsigned)m_input.tid,
+                          (unsigned long long)m_input.address, (unsigned long long)value, (size_t)m_input.size);
         }
         // Memory read
         else if (m_input.address >= 4 && m_input.address < 256)
@@ -117,6 +121,9 @@ Pipeline::PipeAction Pipeline::MemoryStage::OnCycle()
                 case RT_FLOAT:   rcv.m_float.fromint(value, rcv.m_size); break;
                 default:         assert(0);
                 }
+                DebugMemWrite("Load by %s (F%u/T%u): *%#016llx -> %#016llx (%zd)",
+                              GetKernel()->GetSymbolTable()[m_input.pc].c_str(), (unsigned)m_input.fid, (unsigned)m_input.tid,
+                              (unsigned long long)m_input.address, (unsigned long long)value, (size_t)m_input.size); 
             }
             else
             {
@@ -127,6 +134,10 @@ Pipeline::PipeAction Pipeline::MemoryStage::OnCycle()
                 rcv.m_memory.offset      = (unsigned int)(m_input.address % m_dcache.GetLineSize());
                 rcv.m_memory.size        = (size_t)m_input.size;
                 rcv.m_memory.sign_extend = m_input.sign_extend;
+                DebugMemWrite("Load by %s: *%#016llx -> delayed %s (%zd)",
+                              GetKernel()->GetSymbolTable()[m_input.pc].c_str(), 
+                              (unsigned long long)m_input.address, 
+                              m_input.Rc.str().c_str(), (size_t)m_input.size); 
             }
         }
 

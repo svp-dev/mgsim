@@ -139,21 +139,6 @@ void Object::DebugSimWrite_(const char* msg, ...) const
     cerr << endl;
 }
 
-void Object::DebugProgWrite_(const char* msg, ...) const
-{
-    va_list args;
-
-    string name = GetFQN();
-    transform(name.begin(), name.end(), name.begin(), ::toupper);
-    cerr << "[" << right << dec << setfill('0') << setw(8) << m_kernel.GetCycleNo() << ":" << name << "] ";
-
-    va_start(args, msg);
-    vfprintf(stderr, msg, args);
-    va_end(args);
-
-    cerr << endl;
-}
-
 //
 // Kernel class
 //

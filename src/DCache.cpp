@@ -515,6 +515,9 @@ Result DCache::DoCompletedReads()
         const Integer data = state.value >> (state.offset * sizeof(Integer) * 8);
 #endif
 
+        DebugMemWrite("Completed load: %#016llx -> %s",
+                      (unsigned long long)data, state.addr.str().c_str());
+
         switch (state.addr.type) {
             case RT_INTEGER: reg.m_integer       = data; break;
             case RT_FLOAT:   reg.m_float.integer = data; break;
