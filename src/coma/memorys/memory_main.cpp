@@ -14,28 +14,23 @@ using namespace MemSim;
 
 int mgs_main(int argc, const char* argv[]);
 
+static int SUCCESS = 0;
+
 void* thread_proc(void*)
 {
-	mgs_main(thpara.argc, (const char**)thpara.argv);
-	exit(0);
-}
+	int ret = mgs_main(thpara.argc, (const char**)thpara.argv);
 
+    // Stop the simulation
+    thpara.bterm = true;
+    sem_post(&thpara.sem_sync);
 
-void init_journal_name()
-{
-#ifdef USE_IPC_SEMS
-    static char buf[128];
-    snprintf(buf, sizeof(buf), "%s-%d", semaphore_journal, getuid());
-    semaphore_journal = buf;
-#endif
+	return &SUCCESS + ret;
 }
 
 int sc_main(int argc, char* argv[] )
 {
 	//////////////////////////////////////////////////////////////////////////
 	// create thread for processor simulator
-
-    init_journal_name();
 
 	cerr << "# SCM: starting MGSim thread..." << endl;
 
@@ -45,8 +40,8 @@ int sc_main(int argc, char* argv[] )
 	thpara.bterm = false;
 
 	// thread creation and semaphore initialization
-	sem_init(&thpara.sem_mgs, 0, 0);
-	sem_init(&thpara.sem_sync, 0, 0);
+	sem_init(&thpara.sem_mgs);
+	sem_init(&thpara.sem_sync);
 
 	pthread_t pTh;
 	int thret = pthread_create(&pTh, NULL, thread_proc, NULL);
@@ -70,7 +65,7 @@ int sc_main(int argc, char* argv[] )
         top = new TopologyS();
     } catch(std::exception& e) {
         cerr << e.what() << endl;
-        exit(1);
+        return 1;
     }
 
 	//////////////////////////////////////////////////////////////////////////
@@ -84,7 +79,7 @@ int sc_main(int argc, char* argv[] )
 	// start the simulation
 
 	sc_start(0, SC_PS);
-	while(1)
+	while(!thpara.bterm)
 	{
 		sem_wait(&thpara.sem_sync);
 		if (thpara.bterm)
@@ -95,10 +90,12 @@ int sc_main(int argc, char* argv[] )
 
 	sc_stop();
 
+    void* ret;
+    pthread_join(pTh, &ret);
+    
     sem_destroy(&thpara.sem_mgs);
     sem_destroy(&thpara.sem_sync);
     
-    pthread_join(pTh, NULL);
     delete top;
-	return 0;
+	return (int*)ret - &SUCCESS;
 }

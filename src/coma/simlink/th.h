@@ -3,53 +3,44 @@
 
 #include <pthread.h>
 
-#define USE_IPC_SEMS
-#ifdef USE_IPC_SEMS
-#include <cstdio>
-#include <cstdlib>
-#include <sys/errno.h>
-#include <sys/sem.h>
-#include <sys/stat.h>
+struct sem_t
+{
+    pthread_mutex_t mutex;
+    pthread_cond_t cond;
+    int signaled;
+};
 
-     union semun_ipc {
-             int     val;            /* value for SETVAL */
-             struct  semid_ds *buf;  /* buffer for IPC_STAT & IPC_SET */
-             unsigned short *array;         /* array for GETALL & SETALL */
-     };
+static inline void sem_init(sem_t* sem)
+{
+    pthread_mutex_init(&sem->mutex, NULL);
+    pthread_cond_init(&sem->cond, NULL);
+    sem->signaled = 0;
+}
 
-extern const char* semaphore_journal;
+static inline void sem_post(sem_t* sem)
+{
+    pthread_mutex_lock(&sem->mutex);
+    sem->signaled++;
+    pthread_cond_signal(&sem->cond);
+    pthread_mutex_unlock(&sem->mutex);
+}
 
+static inline void sem_wait(sem_t* sem)
+{
+    pthread_mutex_lock(&sem->mutex);
+    while (sem->signaled == 0)
+    {
+        pthread_cond_wait(&sem->cond, &sem->mutex);
+    }
+    sem->signaled--;
+    pthread_mutex_unlock(&sem->mutex);
+}
 
-#define sem_init(Sem, Shared, Val) do {					\
-    if (-1 == (*(Sem) = semget(IPC_PRIVATE, 1, 0600|IPC_CREAT))) { perror("semget"); abort(); } \
-    FILE *jf = fopen(semaphore_journal, "a");				\
-    if (jf == 0) { perror("fopen"); abort(); }				\
-    fprintf(jf, "%ld %lu\n", (long)(*(Sem)), (unsigned long)getpid());		\
-    fclose(jf);								\
-    union semun_ipc arg; arg.val = (Val);				\
-    if (-1 == semctl(*(Sem), 0, SETVAL, arg)) { perror("semctl"); abort(); } \
-  } while(0)
-#define sem_post(Sem) do {					\
-    struct sembuf sop = { 0, 1, 0 };					\
-    int semop_ret;							\
-    while (-1 == (semop_ret = semop(*(Sem), &sop, 1)) && errno == EINTR) {}; \
-    if (-1 == semop_ret) { if (errno == EIDRM || errno == EINVAL) pthread_exit(0); perror("semop"); abort(); } \
-  } while(0)
-#define sem_wait(Sem) do {	  \
-    struct sembuf sop = { 0, -1, 0 };					\
-    int semop_ret;							\
-    while (-1 == (semop_ret = semop(*(Sem), &sop, 1)) && errno == EINTR) {}; \
-    if (-1 == semop_ret) { if (errno == EIDRM || errno == EINVAL) pthread_exit(0); perror("semop"); abort(); } \
-  } while(0)
-#define sem_destroy(Sem) do {	 \
-    semctl(*(Sem), IPC_RMID, 0); \
-  } while(0)
-typedef int sem_t;
-
-#else
-#include <semaphore.h>
-#endif
-
+static inline void sem_destroy(sem_t* sem)
+{
+    pthread_cond_destroy(&sem->cond);
+    pthread_mutex_destroy(&sem->mutex);
+}
 
 typedef struct _th_t{
     int argc;
