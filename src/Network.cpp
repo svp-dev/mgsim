@@ -157,12 +157,24 @@ bool Network::SendMessage(const RemoteMessage& msg)
         
         assert(dmsg.dest != INVALID_GPID);
 
-        if (!m_delegateOut.Write(dmsg))
+        if (dmsg.dest == dmsg.src)
         {
-            DeadlockWrite("Unable to buffer remote network message for CPU%u", (unsigned)dmsg.dest);
-            return false;
+            if (!m_delegateIn.Write(dmsg))
+            {
+                DeadlockWrite("Unable to buffer local network message to loopback");
+                return false;
+            }
+            DebugSimWrite("Sending local network message to loopback");
         }
-        DebugSimWrite("Sending remote network message to CPU%u", (unsigned)dmsg.dest);
+        else
+        {
+            if (!m_delegateOut.Write(dmsg))
+            {
+                DeadlockWrite("Unable to buffer remote network message for CPU%u", (unsigned)dmsg.dest);
+                return false;
+            }
+            DebugSimWrite("Sending remote network message to CPU%u", (unsigned)dmsg.dest);
+        }
     }
     return true;
 }
@@ -510,6 +522,7 @@ Result Network::DoDelegationOut()
     assert(!m_delegateOut.Empty());
     const DelegateMessage& msg = m_delegateOut.Read();
     assert(msg.src == m_parent.GetPID());
+    assert(msg.dest != m_parent.GetPID());
 
     // Send to destination (could be ourselves)
     if (!m_grid[msg.dest]->GetNetwork().m_delegateIn.Write(msg))

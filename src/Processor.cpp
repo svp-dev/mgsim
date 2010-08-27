@@ -102,6 +102,7 @@ void Processor::Initialize(Processor& prev, Processor& next, MemAddr runAddress,
     
     m_registerFile.p_pipelineW .SetProcess(m_pipeline.p_Pipeline);          // Pipeline writeback stage
     
+    m_network.m_delegateIn.AddProcess(m_pipeline.p_Pipeline);               // Sending local messages
     for (size_t i = 0; i < m_grid.size(); i++)
     {
         // Every core can send delegation messages here
