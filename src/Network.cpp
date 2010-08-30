@@ -571,6 +571,26 @@ Result Network::DoDelegationIn()
             ret.reg.addr.reg        = MAKE_REGADDR(RT_INTEGER, msg.allocate.completion);
             ret.reg.value.m_state   = RST_FULL;
             ret.reg.value.m_integer = m_parent.PackFID(fid);
+
+            if (msg.src == m_parent.GetPID())
+            {
+                /*
+                This response is meant for us. To avoid having to go to the output buffer,
+                and then into this input buffer again, we forcibly overwrite the contents
+                of the input register with the response.
+                This is also necessary to avoid a circular dependency on the output buffer.
+                */
+                DelegateMessage dmsg;
+                (RemoteMessage&)dmsg = ret;
+                dmsg.type = DelegateMessage::MSG_REGISTER;
+                dmsg.src  = msg.src;
+                dmsg.dest = msg.src;
+                m_delegateIn.Simulator::Register<DelegateMessage>::Write(dmsg);
+
+                // Return here to avoid clearing the input buffer. We want to process this
+                // response next cycle.
+                return SUCCESS;
+            }
             
             if (!SendMessage(ret))
             {
