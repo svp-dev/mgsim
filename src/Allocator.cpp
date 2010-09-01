@@ -1423,7 +1423,7 @@ Result Allocator::DoThreadAllocate()
         else
         {
             // We don't have any threads to run
-            if (reserved)
+            if (reserved && !exclusive)
             {
                 // We've reserved a thread for the create but aren't using it.
                 // Unreserve it.
