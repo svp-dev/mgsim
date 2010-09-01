@@ -107,7 +107,7 @@ bool COMA::RootDirectory::OnMessageReceived(Message* msg)
         
         // Find or allocate the line
         Line* line = FindLine(msg->address, false);
-        if (line->state == LINE_EMPTY)
+        if (line != NULL && line->state == LINE_EMPTY)
         {
             // Line has not been read yet it; queue the read
             TraceWrite(msg->address, "Received Read Request; Miss; Queuing request");
