@@ -47,7 +47,7 @@ def mgc_parse_timings_v1(c, words):
     c.corefreq = words[0]
     c.extmembandwidth = int((words[1] / 3.) * 2 * 1000000)
 
-def mgc_parse_timings_v1(c, words):
+def mgc_parse_timings_v2(c, words):
     c.masterfreq = words[0]
     c.corefreq = words[1]
     c.memfreq = words[2]
@@ -86,7 +86,7 @@ _mgconf_parsers = {
     2 : mgc_parse_timings_v1,
     3 : mgc_parse_cache_v1,
     4 : mgc_parse_conc_v1,
-    5 : mgc_parse_layout_v1
+    5 : mgc_parse_layout_v1,
     6 : mgc_parse_timings_v2
 }
 
