@@ -49,6 +49,7 @@ class BankedMemory : public Object, public IMemoryAdmin, public VirtualMemory
     }	
 
 protected:
+    Clock&                  m_clock;
     std::vector<ClientInfo> m_clients;
     std::vector<Bank*>      m_banks;
     CycleNo                 m_baseRequestTime;
@@ -63,7 +64,7 @@ protected:
     uint64_t m_nwrite_bytes;
 
 public:
-    BankedMemory(const std::string& name, Object& parent, const Config& config);
+    BankedMemory(const std::string& name, Object& parent, Clock& clock, const Config& config);
     ~BankedMemory();
     
     // Debugging

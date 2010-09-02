@@ -18,16 +18,16 @@ static bool IsPowerOfTwo(const T& x)
     return (x & (x - 1)) == 0;
 }
 
-DCache::DCache(const std::string& name, Processor& parent, Allocator& alloc, FamilyTable& familyTable, RegisterFile& regFile, const Config& config)
-:   Object(name, parent), m_parent(parent),
+DCache::DCache(const std::string& name, Processor& parent, Clock& clock, Allocator& alloc, FamilyTable& familyTable, RegisterFile& regFile, const Config& config)
+:   Object(name, parent, clock), m_parent(parent),
     m_allocator(alloc), m_familyTable(familyTable), m_regFile(regFile),
 
     m_assoc          (config.getInteger<size_t>("DCacheAssociativity", 4)),
     m_sets           (config.getInteger<size_t>("DCacheNumSets", 4)),
     m_lineSize       (config.getInteger<size_t>("CacheLineSize", 64)),
-    m_returned       (*parent.GetKernel(), m_sets * m_assoc),
-    m_completedWrites(*parent.GetKernel(), config.getInteger<BufferSize>("DCacheCompletedWriteBufferSize", INFINITE)),
-    m_outgoing       (*parent.GetKernel(), config.getInteger<BufferSize>("DCacheOutgoingBufferSize", 1)),
+    m_returned       (clock, m_sets * m_assoc),
+    m_completedWrites(clock, config.getInteger<BufferSize>("DCacheCompletedWriteBufferSize", INFINITE)),
+    m_outgoing       (clock, config.getInteger<BufferSize>("DCacheOutgoingBufferSize", 1)),
     m_numHits        (0),
     m_numMisses      (0),
 
@@ -35,7 +35,7 @@ DCache::DCache(const std::string& name, Processor& parent, Allocator& alloc, Fam
     p_IncomingWrites("completed-writes", delegate::create<DCache, &DCache::DoCompletedWrites >(*this) ),
     p_Outgoing      ("outgoing",         delegate::create<DCache, &DCache::DoOutgoingRequests>(*this) ),
 
-    p_service        (*this, "p_service")
+    p_service        (*this, clock, "p_service")
 {
     RegisterSampleVariableInObject(m_numHits, SVC_CUMULATIVE);
     RegisterSampleVariableInObject(m_numMisses, SVC_CUMULATIVE);

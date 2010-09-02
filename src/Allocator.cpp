@@ -624,34 +624,6 @@ bool Allocator::AllocateThread(LFID fid, TID tid, bool isNewlyAllocated)
     return true;
 }
 
-// Called by the network when the create has come all the way around.
-// Every core now has a family entry and register context allocated.
-bool Allocator::OnCreateCompleted(LFID lfid, RegIndex completion)
-{
-    Family& family = m_familyTable[lfid];
-    assert(family.type        == Family::GROUP);
-    assert(family.parent_lpid == m_lpid);
-    
-    // Write back the FID so the parent thread can continue
-    FID fid;
-    fid.lfid       = lfid;
-    fid.pid        = m_parent.GetPID();
-    fid.capability = family.capability;
-    
-    RegisterWrite write;
-    write.address = completion;
-    write.value   = m_parent.PackFID(fid);
-
-    if (!m_registerWrites.Push(write))
-    {
-        DeadlockWrite("Unable to queue register write for completion");
-        return false;
-    }
-    
-    DebugSimWrite("Writing create completion for F%u to R%04x", (unsigned)lfid, (unsigned)completion);
-    return true;
-}
-
 bool Allocator::SynchronizeFamily(LFID fid, Family& family)
 {
     assert(family.sync.code != EXITCODE_NONE);
@@ -1505,12 +1477,20 @@ Result Allocator::DoFamilyAllocate()
     if (req.pid == m_parent.GetPID())
     {
         // Writeback the FID to the local register file
-        RegisterWrite write;
-        write.address = req.reg;
-        write.value   = m_parent.PackFID(fid);
-        if (!m_registerWrites.Push(write))
+        RegAddr addr = MAKE_REGADDR(RT_INTEGER, req.reg);
+        RegValue value;
+        value.m_state = RST_FULL;
+        value.m_integer = m_parent.PackFID(fid);
+        
+        if (!m_registerFile.p_asyncW.Write(addr))
         {
-            DeadlockWrite("Unable to queue write to register R%04x", (unsigned)req.reg);
+            DeadlockWrite("Unable to acquire port to write allocation result to %s", addr.str().c_str());
+            return FAILED;
+        }
+        
+        if (!m_registerFile.WriteRegister(addr, value, false))
+        {
+            DeadlockWrite("Unable to write allocation result to %s", addr.str().c_str());
             return FAILED;
         }
     }
@@ -1692,7 +1672,11 @@ Result Allocator::DoFamilyCreate()
         }
         
         // We're done with the token
-        m_network.ReleaseToken();
+        if (!m_network.ReleaseToken())
+        {
+            DeadlockWrite("Unable to release the token");
+            return FAILED;
+        }
         
         // Advance to next stage
         COMMIT{ m_createState = CREATE_ALLOCATING_REGISTERS; }
@@ -1759,13 +1743,20 @@ Result Allocator::DoFamilyCreate()
             else
             {
                 // Local create
-                RegisterWrite write;
-                write.address = info.completion;
-                write.value   = m_parent.PackFID(fid);
+                RegAddr addr = MAKE_REGADDR(RT_INTEGER, info.completion);
+                RegValue value;
+                value.m_state = RST_FULL;
+                value.m_integer = m_parent.PackFID(fid);
 
-                if (!m_registerWrites.Push(write))
+                if (!m_registerFile.p_asyncW.Write(addr))
                 {
-                    DeadlockWrite("Unable to write back create completion to R%u", (unsigned)info.completion);
+                    DeadlockWrite("Unable to acquire port to write create completion to %s", addr.str().c_str());
+                    return FAILED;
+                }
+
+                if (!m_registerFile.WriteRegister(addr, value, false))
+                {
+                    DeadlockWrite("Unable to write create completion to %s", addr.str().c_str());
                     return FAILED;
                 }
             }
@@ -1991,22 +1982,22 @@ bool Allocator::QueueCreate(const FID& fid, MemAddr address, RegIndex completion
     return true;
 }
 
-Allocator::Allocator(const string& name, Processor& parent,
+Allocator::Allocator(const string& name, Processor& parent, Clock& clock,
     FamilyTable& familyTable, ThreadTable& threadTable, RegisterFile& registerFile, RAUnit& raunit, ICache& icache, Network& network, Pipeline& pipeline,
     PlaceInfo& place, LPID lpid, const Config& config)
 :
-    Object(name, parent),
+    Object(name, parent, clock),
     m_parent(parent), m_familyTable(familyTable), m_threadTable(threadTable), m_registerFile(registerFile), m_raunit(raunit), m_icache(icache), m_network(network), m_pipeline(pipeline),
     m_place(place), m_lpid(lpid),
-    m_alloc         (*parent.GetKernel(), config.getInteger<BufferSize>("NumFamilies", 8)),
-    m_creates       (*parent.GetKernel(), config.getInteger<BufferSize>("LocalCreatesQueueSize",          INFINITE), 3),
-    m_registerWrites(*parent.GetKernel(), config.getInteger<BufferSize>("RegisterWritesQueueSize",        INFINITE), 2),
-    m_cleanup       (*parent.GetKernel(), config.getInteger<BufferSize>("ThreadCleanupQueueSize",         INFINITE), 4),
-    m_allocations   (*parent.GetKernel(), config.getInteger<BufferSize>("FamilyAllocationQueueSize",      INFINITE)),
-    m_allocationsEx (*parent.GetKernel(), config.getInteger<BufferSize>("FamilyAllocationExclusiveQueueSize", INFINITE)),
+    m_alloc         (clock, config.getInteger<BufferSize>("NumFamilies", 8)),
+    m_creates       (clock, config.getInteger<BufferSize>("LocalCreatesQueueSize",          INFINITE), 3),
+    m_registerWrites(clock, config.getInteger<BufferSize>("RegisterWritesQueueSize",        INFINITE), 2),
+    m_cleanup       (clock, config.getInteger<BufferSize>("ThreadCleanupQueueSize",         INFINITE), 4),
+    m_allocations   (clock, config.getInteger<BufferSize>("FamilyAllocationQueueSize",      INFINITE)),
+    m_allocationsEx (clock, config.getInteger<BufferSize>("FamilyAllocationExclusiveQueueSize", INFINITE)),
     m_createState   (CREATE_INITIAL),
-    m_readyThreads1 (*parent.GetKernel(), threadTable),
-    m_readyThreads2 (*parent.GetKernel(), threadTable),
+    m_readyThreads1 (clock, threadTable),
+    m_readyThreads2 (clock, threadTable),
 
     m_maxallocex(0), m_totalallocex(0), m_lastcycle(0), m_curallocex(0),
 
@@ -2016,11 +2007,11 @@ Allocator::Allocator(const string& name, Processor& parent,
     p_ThreadActivation("thread-activation", delegate::create<Allocator, &Allocator::DoThreadActivation>(*this) ),
     p_RegWrites       ("reg-write-queue",   delegate::create<Allocator, &Allocator::DoRegWrites       >(*this) ),
     
-    p_allocation    (*this, "p_allocation"),
-    p_alloc         (*this, "p_alloc"),
-    p_readyThreads  (*this, "p_readyThreads"),
-    p_activeThreads (*this, "p_activeThreads"),
-    m_activeThreads (*parent.GetKernel(), threadTable)
+    p_allocation    (*this, clock, "p_allocation"),
+    p_alloc         (*this, clock, "p_alloc"),
+    p_readyThreads  (*this, clock, "p_readyThreads"),
+    p_activeThreads (*this, clock, "p_activeThreads"),
+    m_activeThreads (clock, threadTable)
 {
     m_alloc         .Sensitive(p_ThreadAllocate);
     m_creates       .Sensitive(p_FamilyCreate);

@@ -53,7 +53,7 @@ class ICache : public Object
     size_t            m_assoc;
     
 public:
-    ICache(const std::string& name, Processor& parent, Allocator& allocator, const Config& config);
+    ICache(const std::string& name, Processor& parent, Clock& clock, Allocator& allocator, const Config& config);
     ~ICache();
     
     // Processes

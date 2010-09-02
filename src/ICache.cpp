@@ -18,18 +18,18 @@ static bool IsPowerOfTwo(const T& x)
     return (x & (x - 1)) == 0;
 }
 
-ICache::ICache(const std::string& name, Processor& parent, Allocator& alloc, const Config& config)
-:   Object(name, parent),
+ICache::ICache(const std::string& name, Processor& parent, Clock& clock, Allocator& alloc, const Config& config)
+:   Object(name, parent, clock),
     m_parent(parent), m_allocator(alloc),
-    m_outgoing(*parent.GetKernel(), config.getInteger<BufferSize>("ICacheOutgoingBufferSize", 1)),
-    m_incoming(*parent.GetKernel(), config.getInteger<BufferSize>("ICacheIncomingBufferSize", 1)),
+    m_outgoing(clock, config.getInteger<BufferSize>("ICacheOutgoingBufferSize", 1)),
+    m_incoming(clock, config.getInteger<BufferSize>("ICacheIncomingBufferSize", 1)),
     m_numHits(0),
     m_numMisses(0),
     m_lineSize(config.getInteger<size_t>("CacheLineSize", 64)),
     m_assoc   (config.getInteger<size_t>("ICacheAssociativity", 4)),
     p_Outgoing("outgoing", delegate::create<ICache, &ICache::DoOutgoing>(*this)),
     p_Incoming("incoming", delegate::create<ICache, &ICache::DoIncoming>(*this)),
-    p_service(*this, "p_service")
+    p_service(*this, clock, "p_service")
 {
     RegisterSampleVariableInObject(m_numHits, SVC_CUMULATIVE);
     RegisterSampleVariableInObject(m_numMisses, SVC_CUMULATIVE);

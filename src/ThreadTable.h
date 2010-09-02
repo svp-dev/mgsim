@@ -84,7 +84,7 @@ struct Thread
 class ThreadTable : public Object
 {
 public:
-    ThreadTable(const std::string& name, Processor& parent, const Config& config);
+    ThreadTable(const std::string& name, Processor& parent, Clock& clock, const Config& config);
 
     TSize GetNumThreads() const { return m_threads.size(); }
 

@@ -37,7 +37,10 @@ bool DDRChannel::Read(MemAddr address, MemSize size)
     // Get the actual data
     m_memory.Read(address, m_request.data.data, size);
     
-    m_busy.Set();
+    if (!m_busy.Set())
+    {
+        return false;
+    }
     return true;
 }
 
@@ -63,7 +66,10 @@ bool DDRChannel::Write(MemAddr address, const void* data, MemSize size)
     // Write the actual data
     m_memory.Write(address, data, size);
     
-    m_busy.Set();
+    if (!m_busy.Set())
+    {
+        return false;
+    }
     return true;
 }
 
@@ -72,7 +78,7 @@ Result DDRChannel::DoRequest()
 {
     assert(m_busy.IsSet());
     
-    const CycleNo now = GetKernel()->GetCycleNo();
+    const CycleNo now = m_clock.GetCycleNo();
     if (now < m_next_command)
     {
         // Can't continue yet
@@ -161,14 +167,17 @@ Result DDRChannel::DoRequest()
     }
 
     // We've completed this request
-    m_busy.Clear();
+    if (!m_busy.Clear())
+    {
+        return FAILED;
+    }
     return SUCCESS;
 }
 
 Result DDRChannel::DoPipeline()
 {
     assert(!m_pipeline.Empty());
-    const CycleNo  now     = GetKernel()->GetCycleNo();
+    const CycleNo  now     = m_clock.GetCycleNo();
     const Request& request = m_pipeline.Front();
     if (request.done >= now)
     {
@@ -183,40 +192,30 @@ Result DDRChannel::DoPipeline()
     return SUCCESS;
 }
 
-DDRChannel::DDRConfig::DDRConfig(const Config& config)
+DDRChannel::DDRConfig::DDRConfig(const Clock& clock, const Config& config)
 {
     // DDR 3
     m_nBurstLength = config.getInteger<size_t> ("DDR_BurstLength", 8);
     if (m_nBurstLength != 8)
-        throw SimulationException("This implementaiton only supports m_nBurstLength = 8");
+        throw SimulationException("This implementation only supports m_nBurstLength = 8");
     size_t cellsize = config.getInteger<size_t> ("DDR_CellSize", 8);
     if (cellsize != 8)
         throw SimulationException("This implementation only supports DDR_CellSize = 8");
 
-    float memfreq = config.getInteger<float>("DDRMemoryFreq", 800);
-    float corefreq = config.getInteger<float> ("CoreFreq", 1000);
-    float coremem_ratio =  corefreq / memfreq;
-    if (coremem_ratio < 1.0)
-        throw SimulationException("This implementation only supports DDRMemoryFreq <= CoreFreq");
-
     // Default values for DDR3-1600 (200 MHz clock).
     // Configuration based on the Micron MT41J128M8.
     // Latencies in DDR specs are expressed in tCK (I/O cycles).
-    // In the simulator, they must be expressed in Core cycles, thus
-    // the ratio between memI/O and core freq must be used.
-    m_tCL = (float)config.getInteger<unsigned> ("DDR_tCL", 11) * coremem_ratio;
-    m_tRCD = (float)config.getInteger<unsigned> ("DDR_tRCD", 11) * coremem_ratio;
-    m_tRP = (float)config.getInteger<unsigned> ("DDR_tRP", 11) * coremem_ratio;
-    m_tRAS = (float)config.getInteger<unsigned> ("DDR_tRAS", 28) * coremem_ratio;
-
-    m_tCWL = (float)config.getInteger<unsigned> ("DDR_tCWL", 8) * coremem_ratio;
-    m_tCCD = (float)config.getInteger<unsigned> ("DDR_tCCD", 4) * coremem_ratio;
+    m_tCL  = config.getInteger<unsigned> ("DDR_tCL",  11);
+    m_tRCD = config.getInteger<unsigned> ("DDR_tRCD", 11);
+    m_tRP  = config.getInteger<unsigned> ("DDR_tRP",  11);
+    m_tRAS = config.getInteger<unsigned> ("DDR_tRAS", 28);
+    m_tCWL = config.getInteger<unsigned> ("DDR_tCWL",  8);
+    m_tCCD = config.getInteger<unsigned> ("DDR_tCCD",  4);
     
     // tWR is expressed in DDR specs in nanoseconds, see 
     // http://www.samsung.com/global/business/semiconductor/products/dram/downloads/applicationnote/tWR.pdf
-    // corefreq is in MHz
-    // so multiplier = 1E6 * 1E-9 = 1E-3
-    m_tWR = corefreq * 1E-3 * (float)config.getInteger<unsigned> ("DDR_tWR", 15);
+    // Frequency is in MHz.
+    m_tWR = config.getInteger<unsigned> ("DDR_tWR", 15) / 1e3 * clock.GetFrequency();
 
     // Address bit mapping.
     // One row bit added for a 4GB DIMM with ECC.
@@ -232,16 +231,17 @@ DDRChannel::DDRConfig::DDRConfig(const Config& config)
     m_nRankStart = m_nRowStart + m_nRowBits;
 }
 
-DDRChannel::DDRChannel(const std::string& name, Object& parent, VirtualMemory& memory, const Config& config)
-    : Object(name, parent),
-      m_ddrconfig(config),
+DDRChannel::DDRChannel(const std::string& name, Object& parent, Clock& clock, VirtualMemory& memory, const Config& config)
+    : Object(name, parent, clock),
+      m_clock(clock),
+      m_ddrconfig(clock, config),
       // Initialize each rank at 'no row selected'
       m_currentRow(1 << m_ddrconfig.m_nRankBits, INVALID_ROW),
 
       m_memory(memory),
       m_callback(dynamic_cast<ICallback&>(parent)),
-      m_pipeline(*parent.GetKernel(), m_ddrconfig.m_tCL),
-      m_busy(*parent.GetKernel(), false),
+      m_pipeline(clock, m_ddrconfig.m_tCL),
+      m_busy(clock, false),
       m_next_command(0),
       m_next_precharge(0),
     

@@ -15,18 +15,29 @@ class Storage
 {
     friend class Kernel;
 
-    Kernel&               m_kernel;      ///< The kernel that controls us
     bool                  m_activated;   ///< Has the storage already been activated this cycle?
     Storage*              m_next;        ///< Next pointer in the list of storages that require updates
     
 protected:
+    Clock&                m_clock;       ///< The clock that controls this storage's updates
+    
+    // The process using this storage should run with the same clock as this storage
+    void CheckClocks() {
+#ifndef NDEBUG
+        const Process* process = m_clock.GetKernel().GetActiveProcess();
+        if (process != NULL) {
+            assert(&process->GetObject()->GetClock() == &m_clock);
+        }
+#endif
+    }
+        
     bool IsCommitting() const {
-        return m_kernel.GetCyclePhase() == PHASE_COMMIT;
+        return m_clock.GetKernel().GetCyclePhase() == PHASE_COMMIT;
     }
     
     void RegisterUpdate() {
         if (!m_activated) {
-            m_next = m_kernel.ActivateStorage(*this);
+            m_next = m_clock.ActivateStorage(*this);
             m_activated = true;
         }
     }
@@ -37,21 +48,20 @@ protected:
 public:
     virtual void Update() = 0;
 
-    Storage(Kernel& kernel)
-        : m_kernel(kernel), m_activated(false)
+    Storage(Clock& clock)
+        : m_activated(false), m_next(NULL), m_clock(clock)
     {}
 };
 
-class SingleSensitivity
+class SingleSensitivityStorage : virtual public Storage
 {
-    Kernel&  m_kernel;  ///< The kernel to use
     Process* m_process; ///< The process that is sensitive on this storage object
 
 protected:
     void Notify()
     {
         assert(m_process != NULL);
-        m_kernel.ActivateProcess(*m_process);
+        m_clock.ActivateProcess(*m_process);
     }
 
     void Unnotify()
@@ -67,15 +77,14 @@ public:
         m_process = &process;
     }
 
-    SingleSensitivity(Kernel& kernel)
-      : m_kernel(kernel), m_process(NULL)
+    SingleSensitivityStorage(Clock& clock)
+      : Storage(clock), m_process(NULL)
     {
     }
 };
 
-class MultipleSensitivity
+class MultipleSensitivityStorage : virtual public Storage
 {
-    Kernel&               m_kernel;    ///< The kernel to use
     std::vector<Process*> m_processes; ///< The processes that are sensitive on this storage object
 
 protected:
@@ -83,7 +92,7 @@ protected:
     {
         for (std::vector<Process*>::const_iterator p = m_processes.begin(); p != m_processes.end(); ++p)
         {
-            m_kernel.ActivateProcess(**p);
+            m_clock.ActivateProcess(**p);
         }
     }
 
@@ -101,7 +110,7 @@ public:
         m_processes.push_back(&process);
     }
 
-    MultipleSensitivity(Kernel& kernel) : m_kernel(kernel)
+    MultipleSensitivityStorage(Clock& clock) : Storage(clock)
     {
     }
 };
@@ -111,7 +120,7 @@ template <
     typename          L, ///< The lookup table type
     T L::value_type::*N  ///< The next field in the table's element type
 >
-class LinkedList : public SingleSensitivity, public Storage
+class LinkedList : public SingleSensitivityStorage
 {
     L&   m_table;     ///< The table to dereference to form the linked list
     bool m_empty;     ///< Whether this list is empty
@@ -214,6 +223,7 @@ public:
     /// Appends the passed list to this list
     void Append(const T& first, const T& last)
     {
+        CheckClocks();        
         assert(!m_pushed);  // We can only push once in a cycle
         COMMIT {
             m_first  = first;
@@ -226,6 +236,7 @@ public:
     /// Removes the front item from this list
     void Pop()
     {
+        CheckClocks();
         assert(!m_empty);   // We can't pop from an empty list
         assert(!m_popped);  // We can only pop once in a cycle
         COMMIT {
@@ -236,15 +247,15 @@ public:
     }
     
     /// Construct an empty list with a sensitive component
-    LinkedList(Kernel& kernel, L& table)
-        : SingleSensitivity(kernel), Storage(kernel),
+    LinkedList(Clock& clock, L& table)
+        : Storage(clock), SingleSensitivityStorage(clock),
           m_table(table), m_empty(true), m_popped(false), m_pushed(false)
     {
     }
 };
 
 template <typename T>
-class Buffer : public SingleSensitivity, public Storage
+class Buffer : public SingleSensitivityStorage
 {
     // Maximum for m_maxPushes
     // In hardware it can be possible to support multiple pushes
@@ -296,6 +307,7 @@ public:
 
     void Pop()
     {
+        CheckClocks();
         assert(!m_popped);  // We can only pop once in a cycle
         COMMIT {
             m_popped = true;
@@ -308,7 +320,21 @@ public:
     bool Push(const T& item, size_t min_space = 1)
     {
         assert(min_space >= 1);
-        assert(m_pushes < m_maxPushes);
+        if (m_maxPushes != 1)
+        {
+            // We only support buffers with multiple pushes if the
+            // buffer and the pushers are in the same clock domain.
+            CheckClocks();
+            assert(m_pushes < m_maxPushes);
+        }
+        else if (m_pushes == 1)
+        {
+            // We've already pushed.
+            // This *COULD* be a bug, or a process trying to push to a buffer
+            // that is in a different clock domain and hasn't been updated yet.
+            return false;
+        }
+        
         if (m_maxSize == INFINITE || m_data.size() + m_pushes + min_space <= m_maxSize)
         {
             COMMIT {
@@ -323,8 +349,8 @@ public:
         return false;
     }
 
-    Buffer(Kernel& kernel, BufferSize maxSize, size_t maxPushes = 1)
-        : SingleSensitivity(kernel), Storage(kernel),
+    Buffer(Clock& clock, BufferSize maxSize, size_t maxPushes = 1)
+        : Storage(clock), SingleSensitivityStorage(clock),
           m_maxSize(maxSize), m_maxPushes(maxPushes), m_popped(false), m_pushes(0)
     {
         assert(maxPushes <= MAX_PUSHES);
@@ -332,7 +358,7 @@ public:
 };
 
 template <typename T>
-class Register : public SingleSensitivity, public Storage
+class Register : public SingleSensitivityStorage
 {
     bool m_empty;
     T    m_cur;
@@ -373,6 +399,7 @@ public:
     }
     
     void Clear() {
+        CheckClocks();
         assert(!m_cleared);     // We can only clear once in a cycle
         assert(!m_empty);       // And we should only clear a full register
         COMMIT {
@@ -382,6 +409,7 @@ public:
     }
     
     void Write(const T& data) {
+        CheckClocks();
         assert(!m_assigned);    // We can only write once in a cycle
         COMMIT {
             m_new      = data;
@@ -390,14 +418,14 @@ public:
         }
     }
     
-    Register(Kernel& kernel)
-        : SingleSensitivity(kernel), Storage(kernel),
+    Register(Clock& clock)
+        : Storage(clock), SingleSensitivityStorage(clock),
           m_empty(true), m_cleared(false), m_assigned(false)
     {
     }
 };
 
-class Flag : public Storage
+class Flag : virtual public Storage
 {
 protected:
     bool m_set;
@@ -414,26 +442,32 @@ public:
         return m_set;
     }
 
-    void Set() {
-        assert(!m_updated);
-        COMMIT {
-            m_new     = true;
-            m_updated = true;
-            RegisterUpdate();
+    bool Set() {
+        if (!m_updated) {
+            COMMIT {
+                m_new     = true;
+                m_updated = true;
+                RegisterUpdate();
+            }
+            return true;
         }
+        return false;
     }
     
-    void Clear() {
-        assert(!m_updated);
-        COMMIT {
-            m_new     = false;
-            m_updated = true;
-            RegisterUpdate();
+    bool Clear() {
+        if (!m_updated) {
+            COMMIT {
+                m_new     = false;
+                m_updated = true;
+                RegisterUpdate();
+            }
+            return true;
         }
+        return false;
     }
     
-    Flag(Kernel& kernel, bool set)
-        : Storage(kernel),
+    Flag(Clock& clock, bool set)
+        : Storage(clock),
           m_set(false), m_updated(false), m_new(set)
     {
         if (set) {
@@ -442,7 +476,7 @@ public:
     }
 };
 
-class SingleFlag : public Flag, public SingleSensitivity
+class SingleFlag : public Flag, public SingleSensitivityStorage
 {
     void Update() {
         if (m_new && !m_set) {
@@ -453,12 +487,13 @@ class SingleFlag : public Flag, public SingleSensitivity
         Flag::Update();
     }
 public:
-    SingleFlag(Kernel& kernel, bool set)
-      : Flag(kernel, set), SingleSensitivity(kernel)
+    SingleFlag(Clock& clock, bool set)
+      : Storage(clock),
+        Flag(clock, set), SingleSensitivityStorage(clock)
     {}
 };
 
-class MultiFlag : public Flag, public MultipleSensitivity
+class MultiFlag : public Flag, public MultipleSensitivityStorage
 {
     void Update() {
         if (m_new && !m_set) {
@@ -469,8 +504,9 @@ class MultiFlag : public Flag, public MultipleSensitivity
         Flag::Update();
     }
 public:
-    MultiFlag(Kernel& kernel, bool set)
-      : Flag(kernel, set), MultipleSensitivity(kernel)
+    MultiFlag(Clock& clock, bool set)
+      : Storage(clock),
+        Flag(clock, set), MultipleSensitivityStorage(clock)
     {}
 };
 
@@ -478,7 +514,7 @@ public:
  A combined boolean signal that each writer can contribute to.
  The combined signal is the result of OR-ing all inputs.
  */
-class CombinedFlag : public MultipleSensitivity, public Storage
+class CombinedFlag : public MultipleSensitivityStorage, virtual public Storage
 {
 public:
     // Gets the combined signal
@@ -488,6 +524,7 @@ public:
     
     // Sets our single input
     void Set(unsigned id) {
+        CheckClocks();
         COMMIT{
             m_inputs[id] = true;
             RegisterUpdate();
@@ -496,14 +533,16 @@ public:
 
     // Clears our single input
     void Clear(unsigned id) {
+        CheckClocks();
         COMMIT{
             m_inputs[id] = false;
             RegisterUpdate();
         }
     }
     
-    CombinedFlag(Kernel& kernel, PSize num_writers)
-        : MultipleSensitivity(kernel), Storage(kernel),
+    CombinedFlag(Clock& clock, PSize num_writers)
+        : Storage(clock),
+          MultipleSensitivityStorage(clock),
           m_inputs(num_writers, false), m_resolved(false)
     {
     }

@@ -15,8 +15,8 @@ static bool IsPowerOfTwo(const T& x)
     return (x & (x - 1)) == 0;
 }
 
-RAUnit::RAUnit(const std::string& name, Processor& parent, const RegisterFile& regFile, const Config& config)
-    : Object(name, parent)
+RAUnit::RAUnit(const std::string& name, Processor& parent, Clock& clock, const RegisterFile& regFile, const Config& config)
+    : Object(name, parent, clock)
 {
     static struct RegTypeInfo {
         const char* blocksize_name;

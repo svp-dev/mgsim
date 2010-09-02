@@ -73,7 +73,7 @@ public:
 		CREATE_NOTIFY,              // Notify the parent that the context is created
 	};
 
-    Allocator(const std::string& name, Processor& parent,
+    Allocator(const std::string& name, Processor& parent, Clock& clock,
         FamilyTable& familyTable, ThreadTable& threadTable, RegisterFile& registerFile, RAUnit& raunit, ICache& icache, Network& network, Pipeline& pipeline,
         PlaceInfo& place, LPID lpid, const Config& config);
 
@@ -100,7 +100,6 @@ public:
     bool   QueueCreate(const FID& fid, MemAddr address, RegIndex completion);
 	bool   ActivateFamily(LFID fid);
 	
-	bool   OnCreateCompleted(LFID fid, RegIndex completion);
 	LFID   OnGroupCreate(const GroupCreateMessage& msg);
     bool   OnDelegatedCreate(const RemoteCreateMessage& msg, GPID remote_pid);
     

@@ -13,13 +13,13 @@ namespace Simulator
 class COMA::DirectoryTop : public COMA::Node
 {
 protected:
-    DirectoryTop(const std::string& name, COMA& parent);
+    DirectoryTop(const std::string& name, COMA& parent, Clock& clock);
 };
 
 class COMA::DirectoryBottom : public COMA::Node
 {
 protected:
-    DirectoryBottom(const std::string& name, COMA& parent);
+    DirectoryBottom(const std::string& name, COMA& parent, Clock& clock);
 };
 
 class COMA::Directory : public COMA::DirectoryBottom, public COMA::DirectoryTop
@@ -60,7 +60,7 @@ private:
 public:
     const Line* FindLine(MemAddr address) const;
 
-    Directory(const std::string& name, COMA& parent, CacheID firstCache, CacheID lastCache, const Config& config);
+    Directory(const std::string& name, COMA& parent, Clock& clock, CacheID firstCache, CacheID lastCache, const Config& config);
     
     void Cmd_Help(std::ostream& out, const std::vector<std::string>& arguments) const;
     void Cmd_Read(std::ostream& out, const std::vector<std::string>& arguments) const;

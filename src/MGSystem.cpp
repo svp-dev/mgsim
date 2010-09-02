@@ -23,6 +23,7 @@
 #include <fstream>
 #include <cmath>
 #include <limits>
+#include <cxxabi.h>
 
 using namespace Simulator;
 using namespace std;
@@ -84,6 +85,7 @@ using namespace MemSim;
 #define CONFTAG_CACHE_V1   3
 #define CONFTAG_CONC_V1    4
 #define CONFTAG_LAYOUT_V1  5
+#define CONFTAG_TIMINGS_V2 6
 #define MAKE_TAG(Type, Size) (uint32_t)(((Type) << 16) | ((Size) & 0xffff))
 
 
@@ -104,17 +106,15 @@ void MGSystem::FillConfWords(ConfWords& words) const
           << m_memorytype
 
     
-    // timing words v1
-
-          << MAKE_TAG(CONFTAG_TIMINGS_V1, 2)
+    // timing words v2
+          << MAKE_TAG(CONFTAG_TIMINGS_V2, 4)
+          << m_kernel.GetMasterFrequency()
           << m_config.getInteger<uint32_t>("CoreFreq", 0)
+          << m_config.getInteger<uint32_t>("MemoryFreq", 0)
           << ((m_memorytype == MEMTYPE_COMA_ZL || m_memorytype == MEMTYPE_COMA_ML) ? 
-              m_config.getInteger<uint32_t>("DDRMemoryFreq", 0) 
-              * m_config.getInteger<uint32_t>("NumRootDirectories", 0)
-              * 3 /* DDR3 = triple rate */ 
-              * 8 /* 64 bit = 8 bytes per transfer */
+              m_config.getInteger<uint32_t>("DDRMemoryFreq", 0)
               : 0 /* no timing information if memory system is not COMA */)
-        
+
     // cache parameter words v1
     
           << MAKE_TAG(CONFTAG_CACHE_V1, 5)
@@ -226,6 +226,55 @@ std::basic_ostream<_CharT, _Traits>& operator<<(std::basic_ostream<_CharT, _Trai
 {
     os << std::left << std::setprecision(1) << std::setw(8);
     return os;
+}
+
+static string GetClassName(const type_info& info)
+{
+    const char* name = info.name();
+
+    // __cxa_demangle requires an output buffer
+    // allocated with malloc(). Provide it.
+    size_t len = 1024;
+    char *buf = (char*)malloc(len);
+    assert(buf != 0);
+
+    int status;
+
+    char *res = abi::__cxa_demangle(name, buf, &len, &status);
+
+    if (res && status == 0)
+    {
+        string ret = res;
+        free(res);
+        return ret;
+    }
+    else
+    {
+        if (res) free(res);
+        else free(buf);
+        return name;
+    }
+}
+
+// Print all components that are a child of root
+static void PrintComponents(std::ostream& out, const Object* cur, const string& indent)
+{
+    for (unsigned int i = 0; i < cur->GetNumChildren(); ++i)
+    {
+        const Object* child = cur->GetChild(i);
+        string str = indent + child->GetName();
+
+        out << str << " ";
+        for (size_t len = str.length(); len < 30; ++len) cout << " ";
+        out << GetClassName(typeid(*child)) << endl;
+
+        PrintComponents(out, child, indent + "  ");
+    }
+}
+
+void MGSystem::PrintComponents(std::ostream& out) const
+{
+    ::PrintComponents(out, &m_root, "");
 }
 
 void MGSystem::PrintCoreStats(std::ostream& os) const {
@@ -442,33 +491,52 @@ void MGSystem::PrintState(const vector<string>& arguments) const
 {
     typedef map<string, RunState> StateMap;
 
-    StateMap   states;
-    streamsize length = 0;
-
     // This should be all non-idle processes
-    for (const Process* process = m_kernel.GetActiveProcesses(); process != NULL; process = process->GetNext())
+    for (const Clock* clock = m_kernel.GetActiveClocks(); clock != NULL; clock = clock->GetNext())
     {
-        const std::string name = process->GetName();
-        states[name] = process->GetState();
-        length = std::max(length, (streamsize)name.length());
-    }
-
-    cout << left << setfill(' ');
-    for (StateMap::const_iterator p = states.begin(); p != states.end(); ++p)
-    {
-        cout << setw(length) << p->first << ": ";
-        switch (p->second)
+        StateMap   states;
+        streamsize length = 0;
+        
+        if (clock->GetActiveProcesses() != NULL || clock->GetActiveStorages() != NULL || clock->GetActiveArbitrators() != NULL) 
         {
-        case STATE_IDLE:     assert(0); break;
-        case STATE_ACTIVE:   cout << "active"; break;
-        case STATE_DEADLOCK: cout << "stalled"; break;
-        case STATE_RUNNING:  cout << "running"; break;
-        case STATE_ABORTED:  assert(0); break;
-        }
-        cout << endl;
-    }
-    cout << endl;
+            cout << clock->GetFrequency() << " MHz clock (next tick at cycle " << dec << clock->GetNextTick() << "):" << endl;
 
+            for (const Process* process = clock->GetActiveProcesses(); process != NULL; process = process->GetNext())
+            {
+                const std::string name = process->GetName();
+                states[name] = process->GetState();
+                length = std::max(length, (streamsize)name.length());
+            }
+
+            cout << left << setfill(' ');
+            for (StateMap::const_iterator p = states.begin(); p != states.end(); ++p)
+            {
+                cout << "- " << setw(length) << p->first << ": ";
+                switch (p->second)
+                {
+                case STATE_IDLE:     assert(0); break;
+                case STATE_ACTIVE:   cout << "active"; break;
+                case STATE_DEADLOCK: cout << "stalled"; break;
+                case STATE_RUNNING:  cout << "running"; break;
+                case STATE_ABORTED:  assert(0); break;
+                }
+                cout << endl;
+            }
+            
+            if (clock->GetActiveStorages() != NULL)
+            {
+                cout << "- One or more storages need updating" << endl;
+            }
+
+            if (clock->GetActiveArbitrators() != NULL)
+            {
+                cout << "- One or more arbitrators need updating" << endl;
+            }
+            
+            cout << endl;
+        }
+    }
+        
     int width = (int)log10(m_procs.size()) + 1;
     for (size_t i = 0; i < m_procs.size(); ++i)
     {
@@ -580,13 +648,13 @@ void MGSystem::PrintAllStatistics(std::ostream& os) const
 // Returns NULL when the component is not found
 Object* MGSystem::GetComponent(const string& path)
 {
-    Object* cur = this;
+    // Split path into components
     vector<string> names = Tokenize(path, ".");
+    Object* cur = &m_root;
     for (vector<string>::iterator p = names.begin(); cur != NULL && p != names.end(); ++p)
     {
-        transform(p->begin(), p->end(), p->begin(), ::toupper);
-
         Object* next = NULL;
+        transform(p->begin(), p->end(), p->begin(), ::toupper);
         for (unsigned int i = 0; i < cur->GetNumChildren(); ++i)
         {
             Object* child = cur->GetChild(i);
@@ -627,13 +695,16 @@ void MGSystem::Step(CycleNo nCycles)
         // See how many processes are in each of the states
         unsigned int num_stalled = 0, num_running = 0;
         
-        for (const Process* process = m_kernel.GetActiveProcesses(); process != NULL; process = process->GetNext())
+        for (const Clock* clock = m_kernel.GetActiveClocks(); clock != NULL; clock = clock->GetNext())
         {
-            switch (process->GetState())
+            for (const Process* process = clock->GetActiveProcesses(); process != NULL; process = process->GetNext())
             {
-            case STATE_DEADLOCK: ++num_stalled; break;
-            case STATE_RUNNING:  ++num_running; break;
-            default:             assert(false); break;
+                switch (process->GetState())
+                {
+                case STATE_DEADLOCK: ++num_stalled; break;
+                case STATE_RUNNING:  ++num_running; break;
+                default:             assert(false); break;
+                }
             }
         }
         
@@ -688,9 +759,10 @@ MGSystem::MGSystem(const Config& config, Display& display, const string& program
                    const vector<pair<RegAddr, RegValue> >& regs,
                    const vector<pair<RegAddr, string> >& loads,
                    bool quiet, bool doload)
-    : Object("system", m_kernel),
+    : m_kernel(display, m_symtable, m_breakpoints),
+      m_clock(m_kernel.CreateClock( (unsigned long long)(config.getInteger<float>("CoreFreq", 1000)) )),
+      m_root("system", m_clock),
       m_breakpoints(m_kernel),
-      m_kernel(display, m_symtable, m_breakpoints),
       m_program(program),
       m_config(config)
 {
@@ -716,7 +788,7 @@ MGSystem::MGSystem(const Config& config, Display& display, const string& program
         ++numFPUs;
         std::cerr << "# warning: last FPU in place " << i-1 << " is not shared fully" << std::endl;
     }
-
+    
 #ifdef ENABLE_COMA_ZL
     m_objects.resize(numProcessors * 2 + numFPUs);
     CMLink** &m_pmemory = (CMLink**&)this->m_pmemory;
@@ -726,29 +798,31 @@ MGSystem::MGSystem(const Config& config, Display& display, const string& program
     std::string memory_type = config.getString("MemoryType", "");
     std::transform(memory_type.begin(), memory_type.end(), memory_type.begin(), ::toupper);
 
+    Clock& memclock = m_kernel.CreateClock( config.getInteger<size_t>("MemoryFreq", 1000));
+    
     m_objects.resize(numProcessors + numFPUs + 1);
     if (memory_type == "SERIAL") {
-        SerialMemory* memory = new SerialMemory("memory", *this, config);
+        SerialMemory* memory = new SerialMemory("memory", m_root, memclock, config);
         m_objects.back() = memory;
         m_memory = memory;
         m_memorytype = MEMTYPE_SERIAL;
     } else if (memory_type == "PARALLEL") {
-        ParallelMemory* memory = new ParallelMemory("memory", *this, config);
+        ParallelMemory* memory = new ParallelMemory("memory", m_root, memclock, config);
         m_objects.back() = memory;
         m_memory = memory;
         m_memorytype = MEMTYPE_PARALLEL;
     } else if (memory_type == "BANKED") {
-        BankedMemory* memory = new BankedMemory("memory", *this, config);
+        BankedMemory* memory = new BankedMemory("memory", m_root, memclock, config);
         m_objects.back() = memory;
         m_memory = memory;
         m_memorytype = MEMTYPE_BANKED;
     } else if (memory_type == "RANDOMBANKED") {
-        RandomBankedMemory* memory = new RandomBankedMemory("memory", *this, config);
+        RandomBankedMemory* memory = new RandomBankedMemory("memory", m_root, memclock, config);
         m_objects.back() = memory;
         m_memory = memory;
         m_memorytype = MEMTYPE_RANDOMBANKED;
     } else if (memory_type == "COMA") {
-        COMA* memory = new COMA("memory", *this, config);
+        COMA* memory = new COMA("memory", m_root, memclock, config);
         m_objects.back() = memory;
         m_memory = memory;
         m_memorytype = MEMTYPE_COMA_ML;
@@ -763,7 +837,7 @@ MGSystem::MGSystem(const Config& config, Display& display, const string& program
     {
         stringstream name;
         name << "fpu" << f;
-        m_fpus[f] = new FPU(name.str(), *this, config, numProcessorsPerFPU);
+        m_fpus[f] = new FPU(name.str(), m_root, m_clock, config, numProcessorsPerFPU);
     }
 
     // Create processor grid
@@ -774,7 +848,7 @@ MGSystem::MGSystem(const Config& config, Display& display, const string& program
     PSize first = 0;
     for (size_t p = 0; p < placeSizes.size(); ++p)
     {
-        m_places[p] = new PlaceInfo(m_kernel, placeSizes[p]);
+        m_places[p] = new PlaceInfo(m_clock, placeSizes[p]);
         for (size_t i = 0; i < m_places[p]->m_size; ++i)
         {
             PSize pid = (first + i);
@@ -785,15 +859,15 @@ MGSystem::MGSystem(const Config& config, Display& display, const string& program
 #ifdef ENABLE_COMA_ZL
             stringstream namem;
             namem << "memory" << pid;
-            m_pmemory[pid] = new CMLink(namem.str(), *this, config, g_pLinks[i]);
+            m_pmemory[pid] = new CMLink(namem.str(), m_root, m_clock, config, g_pLinks[i]);
             if (pid == 0)
                 m_memory = m_pmemory[0];
-            m_procs[pid]   = new Processor(name.str(), *this, pid, i, m_procs, m_procs.size(), 
+            m_procs[pid]   = new Processor(name.str(), m_root, m_clock, pid, i, m_procs, m_procs.size(), 
                                            *m_places[p], *m_pmemory[pid], fpu, config);
             m_pmemory[pid]->SetProcessor(m_procs[pid]);
             m_objects[pid+numProcessors] = m_pmemory[pid];
 #else
-            m_procs[pid]   = new Processor(name.str(), *this, pid, i, m_procs, m_procs.size(), 
+            m_procs[pid]   = new Processor(name.str(), m_root, m_clock, pid, i, m_procs, m_procs.size(), 
                                            *m_places[p], *m_memory, fpu, config);
 #endif
             m_objects[pid] = m_procs[pid];
@@ -879,6 +953,18 @@ MGSystem::MGSystem(const Config& config, Display& display, const string& program
     const char *v = getenv(objdump_var);
     if (!v) v = default_objdump;
     m_objdump_cmd = v;
+    
+    if (!quiet)
+    {
+        static char const qual[] = {'M', 'G', 'T', 'P', 'E', 'Z', 'Y'};
+        unsigned long long freq = m_kernel.GetMasterFrequency();
+        unsigned int q;
+        for (q = 0; freq % 1000 == 0 && q < sizeof(qual)/sizeof(qual[0]); ++q)
+        {
+            freq /= 1000;
+        }
+        cout << "Created Microgrid; simulation running at " << dec << freq << " " << qual[q] << "Hz" << endl;
+    }
 }
 
 MGSystem::~MGSystem()

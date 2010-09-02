@@ -122,10 +122,11 @@ private:
     
     unsigned int m_nBurstSize;
 
-    DDRConfig(const Config&);
+    DDRConfig(const Clock& clock, const Config&);
     };
 
     // Runtime parameters
+    Clock&                     m_clock;
     DDRConfig                  m_ddrconfig;      ///< DDR Configuration parameters
     std::vector<unsigned long> m_currentRow;     ///< Currently selected row, for each rank
     VirtualMemory&             m_memory;         ///< The backing store with data
@@ -147,7 +148,7 @@ public:
     bool Read(MemAddr address, MemSize size);
     bool Write(MemAddr address, const void* data, MemSize size);
     
-    DDRChannel(const std::string& name, Object& parent, VirtualMemory& memory, const Config& config);
+    DDRChannel(const std::string& name, Object& parent, Clock& clock, VirtualMemory& memory, const Config& config);
     ~DDRChannel();
 };
 

@@ -177,8 +177,8 @@ Pipeline::PipeAction Pipeline::MemoryStage::OnCycle()
     return PIPE_CONTINUE;
 }
 
-Pipeline::MemoryStage::MemoryStage(Pipeline& parent, const ExecuteMemoryLatch& input, MemoryWritebackLatch& output, DCache& dcache, Allocator& alloc, const Config& /*config*/)
-    : Stage("memory", parent),
+Pipeline::MemoryStage::MemoryStage(Pipeline& parent, Clock& clock, const ExecuteMemoryLatch& input, MemoryWritebackLatch& output, DCache& dcache, Allocator& alloc, const Config& /*config*/)
+    : Stage("memory", parent, clock),
       m_input(input),
       m_output(output),
       m_allocator(alloc),

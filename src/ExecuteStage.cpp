@@ -857,8 +857,8 @@ void Pipeline::ExecuteStage::ExecDebug(double value, Integer stream) const
     }
 }
 
-Pipeline::ExecuteStage::ExecuteStage(Pipeline& parent, const ReadExecuteLatch& input, ExecuteMemoryLatch& output, Allocator& alloc, FamilyTable& familyTable, ThreadTable& threadTable, FPU& fpu, size_t fpu_source, const Config& /*config*/)
-  : Stage("execute", parent),
+Pipeline::ExecuteStage::ExecuteStage(Pipeline& parent, Clock& clock, const ReadExecuteLatch& input, ExecuteMemoryLatch& output, Allocator& alloc, FamilyTable& familyTable, ThreadTable& threadTable, FPU& fpu, size_t fpu_source, const Config& /*config*/)
+  : Stage("execute", parent, clock),
     m_input(input),
     m_output(output),
     m_allocator(alloc),

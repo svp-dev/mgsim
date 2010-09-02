@@ -27,7 +27,7 @@ public:
         bool                bconflict;   
     };
         
-    CMLink(const std::string& name, Object& parent, const Config& config, LinkMGS* linkmgs);
+    CMLink(const std::string& name, Object& parent, Clock& clock, const Config& config, LinkMGS* linkmgs);
 
     void RegisterClient(PSize pid, IMemoryCallback& callback, const Process* processes[]);
     void UnregisterClient(PSize pid);

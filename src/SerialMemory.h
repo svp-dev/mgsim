@@ -46,6 +46,7 @@ class SerialMemory : public Object, public IMemoryAdmin, public VirtualMemory
         nwrite_bytes = m_nwrite_bytes;
     }
 
+    Clock&                        m_clock;
     std::vector<IMemoryCallback*> m_clients;
     Buffer<Request>               m_requests;
     ArbitratedService<>           p_requests;
@@ -65,7 +66,7 @@ class SerialMemory : public Object, public IMemoryAdmin, public VirtualMemory
     Result DoRequests();
     
 public:
-    SerialMemory(const std::string& name, Object& parent, const Config& config);
+    SerialMemory(const std::string& name, Object& parent, Clock& clock, const Config& config);
 
     // Debugging
     void Cmd_Help(std::ostream& out, const std::vector<std::string>& arguments) const;

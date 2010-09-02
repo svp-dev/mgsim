@@ -108,8 +108,8 @@ Pipeline::PipeAction Pipeline::FetchStage::OnCycle()
     return PIPE_CONTINUE;
 }
 
-Pipeline::FetchStage::FetchStage(Pipeline& parent, FetchDecodeLatch& output, Allocator& alloc, FamilyTable& familyTable, ThreadTable& threadTable, ICache& icache, LPID lpid, const Config& config)
-  : Stage("fetch", parent),
+Pipeline::FetchStage::FetchStage(Pipeline& parent, Clock& clock, FetchDecodeLatch& output, Allocator& alloc, FamilyTable& familyTable, ThreadTable& threadTable, ICache& icache, LPID lpid, const Config& config)
+  : Stage("fetch", parent, clock),
     m_output(output),
     m_allocator(alloc),
     m_familyTable(familyTable),

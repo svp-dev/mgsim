@@ -164,7 +164,7 @@ public:
      * @param parent parent object.
      * @param name name of the object.
      */
-    IStructure(const std::string& name, Object& parent);
+    IStructure(const std::string& name, Object& parent, Clock& clock);
 
     void RegisterReadPort(ArbitratedReadPort& port);
     void UnregisterReadPort(ArbitratedReadPort& port);
@@ -228,7 +228,7 @@ class Structure : public IStructure
     PriorityMap             m_priorities;
 
 public:
-    Structure(const std::string& name, Object& parent) : IStructure(name, parent) {}
+    Structure(const std::string& name, Object& parent, Clock& clock) : IStructure(name, parent, clock) {}
 
     void AddPort(WritePort<I>& port)
     {
@@ -427,9 +427,10 @@ class ArbitratedService : public Base, public Arbitrator
 public:
     bool Invoke()
     {
-        const Process& process = *m_kernel.GetActiveProcess();
+        Kernel& kernel = m_clock.GetKernel();
+        const Process& process = *kernel.GetActiveProcess();
         this->Verify(process);
-        if (m_kernel.GetCyclePhase() == PHASE_ACQUIRE) {
+        if (kernel.GetCyclePhase() == PHASE_ACQUIRE) {
             this->AddRequest(process);
             RequestArbitration();
         } else if (!this->HasAcquired(process)) {
@@ -438,8 +439,8 @@ public:
         return true;
     }
     
-    ArbitratedService(const Object& object, const std::string& name)
-        : Base(object, name), Arbitrator(*object.GetKernel())
+    ArbitratedService(const Object& object, Clock& clock, const std::string& name)
+        : Base(object, name), Arbitrator(clock)
     {
     }
     
