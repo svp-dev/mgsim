@@ -78,7 +78,7 @@ FPU::Result FPU::CalculateResult(const Operation& op) const
 
 bool FPU::OnCompletion(unsigned int unit, const Result& res) const
 {
-    const CycleNo now = GetKernel()->GetCycleNo();
+    const CycleNo now = GetCycleNo();
     
     if (res.source->last_write == now && res.source->last_unit != unit)
     {

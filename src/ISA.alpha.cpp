@@ -1265,7 +1265,7 @@ Pipeline::PipeAction Pipeline::ExecuteStage::ExecuteInstruction()
                 // extra precision from the cycle counter. 
                 COMMIT {
                     m_output.Rcv.m_state   = RST_FULL;
-                    m_output.Rcv.m_integer = GetKernel()->GetCycleNo();
+                    m_output.Rcv.m_integer = GetCycleNo();
                 }
                 break;
         }

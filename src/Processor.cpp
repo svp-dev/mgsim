@@ -233,7 +233,7 @@ bool Processor::OnMemoryInvalidated(MemAddr addr)
 
 void Processor::OnFamilyTerminatedLocally(MemAddr /* pc */)
 {
-    m_localFamilyCompletion = GetKernel()->GetCycleNo();
+    m_localFamilyCompletion = GetCycleNo();
 }
 
 Integer Processor::GetProfileWord(unsigned int i) const

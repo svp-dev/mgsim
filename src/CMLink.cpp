@@ -68,7 +68,7 @@ bool CMLink::Read(PSize pid, MemAddr address, MemSize size)
     requestact.write     = false;
     // FIXME: the following 3 were initialized, is this correct?
     requestact.done = false;
-    requestact.starttime = GetKernel()->GetCycleNo();
+    requestact.starttime = GetCycleNo();
     requestact.bconflict = false;
 
     m_requests.Push(requestact);
@@ -88,7 +88,7 @@ bool CMLink::Read(PSize pid, MemAddr address, MemSize size)
         prequest->data.size = size;
         prequest->done      = 0;
         prequest->write     = false;
-        prequest->starttime = GetKernel()->GetCycleNo();
+        prequest->starttime = GetCycleNo();
         prequest->bconflict = false;
 
         m_nTotalReq++;
@@ -120,7 +120,7 @@ bool CMLink::Write(PSize pid, MemAddr address, const void* data, MemSize size, T
     requestact.write     = true;
     // FIXME: the following 3 were not initialized! is this correct?
     requestact.done = false;
-    requestact.starttime = GetKernel()->GetCycleNo();
+    requestact.starttime = GetCycleNo();
     requestact.bconflict = false;
 
     m_requests.Push(requestact);
@@ -142,7 +142,7 @@ bool CMLink::Write(PSize pid, MemAddr address, const void* data, MemSize size, T
         prequest->tid       = tid;
         prequest->done      = 0;
         prequest->write     = true;
-        prequest->starttime = GetKernel()->GetCycleNo();
+        prequest->starttime = GetCycleNo();
         prequest->bconflict = false;
         memcpy(prequest->data.data, data, (size_t)size);
 
@@ -223,20 +223,20 @@ Result CMLink::DoRequests()
             if (preq->write)
             {
                 write_count --;
-                g_uAccessDelayS += (GetKernel()->GetCycleNo() - preq->starttime);
+                g_uAccessDelayS += (GetCycleNo() - preq->starttime);
                 if (preq->bconflict)
                 {
-                    g_uConflictDelayS += (GetKernel()->GetCycleNo() - preq->starttime);
+                    g_uConflictDelayS += (GetCycleNo() - preq->starttime);
                     g_uConflictS ++;
                 }
             }
             else
             {
                 read_count --;
-                g_uAccessDelayL += (GetKernel()->GetCycleNo() - preq->starttime);
+                g_uAccessDelayL += (GetCycleNo() - preq->starttime);
                 if (preq->bconflict)
                 {
-                    g_uConflictDelayL += (GetKernel()->GetCycleNo() - preq->starttime);
+                    g_uConflictDelayL += (GetCycleNo() - preq->starttime);
                     g_uConflictL ++;
                 }
             }

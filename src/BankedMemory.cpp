@@ -29,7 +29,6 @@ struct BankedMemory::Request
 class BankedMemory::Bank : public Object
 {
     BankedMemory&       m_memory;
-    Clock&              m_clock;
     ArbitratedService<> p_incoming;
     Buffer<Request>     m_incoming;
     Buffer<Request>     m_outgoing;
@@ -44,7 +43,7 @@ class BankedMemory::Bank : public Object
         COMMIT
         {
             const std::pair<CycleNo, CycleNo> delay = m_memory.GetMessageDelay(data ? request.data.size : 0);
-            const CycleNo                     now   = m_clock.GetCycleNo();
+            const CycleNo                     now   = GetCycleNo();
             
             // Get the arrival time of the first bits
             request.done = now + delay.first;
@@ -73,7 +72,7 @@ class BankedMemory::Bank : public Object
         // Handle incoming requests
         assert(!m_incoming.Empty());
         
-        const CycleNo  now     = m_clock.GetCycleNo();
+        const CycleNo  now     = GetCycleNo();
         const Request& request = m_incoming.Front();
         if (now >= request.done)
         {
@@ -100,7 +99,7 @@ class BankedMemory::Bank : public Object
         // Handle outgoing requests
         assert(!m_outgoing.Empty());
         
-        const CycleNo  now     = m_clock.GetCycleNo();
+        const CycleNo  now     = GetCycleNo();
         const Request& request = m_outgoing.Front();
         if (now >= request.done)
         {
@@ -129,7 +128,7 @@ class BankedMemory::Bank : public Object
     {
         // Process the bank itself
         assert(m_busy.IsSet());
-        if (m_clock.GetCycleNo() >= m_request.done)
+        if (GetCycleNo() >= m_request.done)
         {
             // This bank is done serving the request
             if (m_request.write) {
@@ -225,7 +224,6 @@ public:
     Bank(const std::string& name, BankedMemory& memory, Clock& clock, BufferSize buffersize)
         : Object(name, memory, clock),
           m_memory  (memory),
-          m_clock   (clock),
           p_incoming(memory, clock, name + ".incoming"),
           m_incoming(clock, buffersize),
           m_outgoing(clock, buffersize),

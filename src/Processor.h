@@ -52,7 +52,7 @@ public:
     Pipeline& GetPipeline() { return m_pipeline; }
     
     float GetRegFileAsyncPortActivity() const {
-        return (float)m_registerFile.p_asyncW.GetBusyCycles() / (float)GetKernel()->GetCycleNo();
+        return (float)m_registerFile.p_asyncW.GetBusyCycles() / (float)GetCycleNo();
     }
 	
     CycleNo GetLocalFamilyCompletion() const { return m_localFamilyCompletion; }

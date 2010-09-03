@@ -21,7 +21,6 @@ struct ParallelMemory::Request
 class ParallelMemory::Port : public Object
 {
     ParallelMemory&     m_memory;
-    Clock&              m_clock;
     ArbitratedService<> p_requests;
     Buffer<Request>     m_requests;
     CycleNo             m_nextdone;
@@ -32,7 +31,7 @@ class ParallelMemory::Port : public Object
         assert(!m_requests.Empty());
     
         const Request& request = m_requests.Front();
-        const CycleNo  now     = m_clock.GetCycleNo();
+        const CycleNo  now     = GetCycleNo();
 
         if (m_nextdone == 0)
         {
@@ -135,7 +134,6 @@ public:
     Port(const std::string& name, ParallelMemory& memory, Clock& clock, BufferSize buffersize)
         : Object(name, memory, clock),
           m_memory(memory),
-          m_clock(clock),
           p_requests(*this, clock, "p_requests"),
           m_requests(clock, buffersize), m_nextdone(0),
           p_Requests("port", delegate::create<Port, &Port::DoRequests>(*this))

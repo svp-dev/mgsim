@@ -257,7 +257,7 @@ Result ICache::Fetch(MemAddr address, MemSize size, TID* tid, CID* cid)
     }
 
     // Update access time
-    COMMIT{ line->access = m_parent.GetKernel()->GetCycleNo(); }
+    COMMIT{ line->access = GetCycleNo(); }
 
     // If the caller wants the line index, give it
     if (cid != NULL)

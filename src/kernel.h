@@ -355,6 +355,8 @@ public:
     Object*            GetChild(int i)  const { return m_children[i]; }
     /// Get the object name. @return the object name.
     const std::string& GetName()   const { return m_name; }
+    /// Get the current cycle counter of this object's clock
+    CycleNo            GetCycleNo() const { return m_clock.GetCycleNo(); }
     
     /**
      * @brief Get the object's Fully Qualified Name.

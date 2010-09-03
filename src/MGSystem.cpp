@@ -310,7 +310,7 @@ void MGSystem::PrintCoreStats(std::ostream& os) const {
         types[j] = I; c[i][j++].i = pl.GetNStages();
         types[j] = I; c[i][j++].i = pl.GetStagesRun();
         types[j] = PC; c[i][j++].f = 100. * pl.GetEfficiency();
-        types[j] = PC; c[i][j++].f = 100. * (float)pl.GetOp() / (float)m_kernel.GetCycleNo();
+        types[j] = PC; c[i][j++].f = 100. * (float)pl.GetOp() / (float)m_root.GetCycleNo();
         types[j] = I; c[i][j++].i = p.GetLocalFamilyCompletion();
         types[j] = I; c[i][j++].i = p.GetMaxThreadsAllocated();
         types[j] = I; c[i][j++].i = p.GetTotalThreadsAllocated();
@@ -455,24 +455,24 @@ void MGSystem::PrintCoreStats(std::ostream& os) const {
        << "# sts: number of store instructions executed" << endl
        << "# ibytes: number of bytes loaded from L1 cache into core" << endl
        << "# obytes: number of bytes stored into L1 cache from core" << endl
-       << "# regf_act: register file async port activity (= 100. * ncycles_asyncport_busy / ncycles_total)" << endl
-       << "# plbusy: number of cycles the pipeline was active" << endl
+       << "# regf_act: register file async port activity (= 100. * ncycles_asyncport_busy / ncorecycles_total)" << endl
+       << "# plbusy: number of corecycles the pipeline was active" << endl
        << "# plstgs: number of pipeline stages" << endl
-       << "# plstgrun: cumulative number of cycles active in all pipeline stages" << endl
+       << "# plstgrun: cumulative number of corecycles active in all pipeline stages" << endl
        << "# pl%busy: pipeline efficiency while active (= 100. * plstgrun / plstgs / plbusy)" << endl
-       << "# pl%eff: pipeline efficiency total (= 100. * iops / ncycles_total)" << endl
-       << "# lastend: time of last family termination" << endl
+       << "# pl%eff: pipeline efficiency total (= 100. * iops / ncorecycles_total)" << endl
+       << "# lastend: coretime of last family termination" << endl
        << "# ttmax: maximum of thread entries simulatenously allocated" << endl
-       << "# ttotal: cumulative number of thread entries busy" << endl
+       << "# ttotal: cumulative number of thread entries busy (over mastertime)" << endl
        << "# ttsize: thread table size" << endl
-       << "# tt%occ: thread table occupancy (= 100. * ttotal / ttsize / ncycles_total)" << endl
+       << "# tt%occ: thread table occupancy (= 100. * ttotal / ttsize / nmastercycles_total)" << endl
        << "# ttmax: maximum of family entries simulatenously allocated" << endl
-       << "# ftotal: cumulative number of family entries busy" << endl
+       << "# ftotal: cumulative number of family entries busy (over mastertime)" << endl
        << "# ftsize: family table size" << endl
-       << "# ft%occ: family table occupancy (= 100. * ftotal / ftsize / ncycles_total)" << endl
+       << "# ft%occ: family table occupancy (= 100. * ftotal / ftsize / nmastercycles_total)" << endl
        << "# xqmax: high water mark of the exclusive allocate queue size" << endl
-       << "# xqtot: cumulative exclusive allocate queue size" << endl
-       << "# xqavg: average size of the exclusive allocate queue (= xqtot / ncycles_total)" << endl;
+       << "# xqtot: cumulative exclusive allocate queue size (over mastertime)" << endl
+       << "# xqavg: average size of the exclusive allocate queue (= xqtot / nmastercycles_total)" << endl;
 
 }
 
@@ -587,14 +587,14 @@ void MGSystem::PrintFamilyCompletions(std::ostream& os) const
             last  = max(last,  cycle);
         }
     }
-    os << first << "\t# cycle counter at first family completion" << endl
-       << last << "\t# cycle counter at last family completion" << endl;
+    os << first << "\t# corecycle counter at first family completion" << endl
+       << last << "\t# corecycle counter at last family completion" << endl;
 }
 
 void MGSystem::PrintAllStatistics(std::ostream& os) const
 {
     os << dec;
-    os << GetKernel().GetCycleNo() << "\t# cycle counter" << endl
+    os << GetKernel().GetCycleNo() << "\t# mastercycle counter" << endl
        << GetOp() << "\t# total executed instructions" << endl
        << GetFlop() << "\t# total issued fp instructions" << endl;
     PrintCoreStats(os);
@@ -620,21 +620,21 @@ void MGSystem::PrintAllStatistics(std::ostream& os) const
        << g_fLatency
        << "\t# COMA: accumulated latency of mem. reqs (total, in seconds)" << endl
        << ((double)g_uAccessDelayL)/g_uAccessL
-       << "\t# COMA: average latency of mem. loads (in cycles)" << endl
+       << "\t# COMA: average latency of mem. loads (in memcycles)" << endl
        << g_uAccessL
        << "\t# COMA: number of mem. load reqs sent from cores (total)" << endl
        << ((double)g_uAccessDelayS)/g_uAccessS
-       << "\t# COMA: average latency of mem. stores (in cycles)" << endl
+       << "\t# COMA: average latency of mem. stores (in memcycles)" << endl
        << g_uAccessS
        << "\t# COMA: number of mem. store reqs sent from cores (total)" << endl
        <<  ((double)g_uConflictDelayL)/g_uConflictL
-       << "\t# COMA: average latency of mem. load conflicts (in cycles)" << endl
+       << "\t# COMA: average latency of mem. load conflicts (in memcycles)" << endl
        << g_uConflictL
        << "\t# COMA: number of mem. load conflicts from cores (total)" << endl
        << g_uConflictAddL
        << "\t# COMA: number of load conflicts in L2 caches (total)" << endl
        << ((double)g_uConflictDelayS)/g_uConflictS
-       << "\t# COMA: average latency of mem. store conflicts (in cycles)" << endl
+       << "\t# COMA: average latency of mem. store conflicts (in memcycles)" << endl
        << g_uConflictS
        << "\t# COMA: number of mem. store conflicts from cores (total)" << endl
        << g_uConflictAddS

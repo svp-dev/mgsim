@@ -191,7 +191,7 @@ Result DCache::Read(MemAddr address, void* data, MemSize size, LFID /* fid */, R
     }
     
     // Update last line access
-    COMMIT{ line->access = m_parent.GetKernel()->GetCycleNo(); }
+    COMMIT{ line->access = GetCycleNo(); }
 
     if (result == DELAYED)
     {
