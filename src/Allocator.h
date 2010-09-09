@@ -182,6 +182,7 @@ private:
 	CID                   m_createLine;	   	///< Cache line that holds the register info
     ThreadList            m_readyThreads1;  ///< Queue of the threads can be activated; from the pipeline
     ThreadList            m_readyThreads2;  ///< Queue of the threads can be activated; from the rest
+    ThreadList*           m_prevReadyList;  ///< Which ready list was used last cycle. For round-robin prioritization.
     
     Result DoThreadAllocate();
     Result DoFamilyAllocate();

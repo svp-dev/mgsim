@@ -1772,13 +1772,15 @@ Result Allocator::DoFamilyCreate()
 Result Allocator::DoThreadActivation()
 {
     TID tid;
-    if (!m_readyThreads1.Empty()) {
+    if ((m_prevReadyList == &m_readyThreads2 || m_readyThreads2.Empty()) && !m_readyThreads1.Empty()) {
         tid = m_readyThreads1.Front();
         m_readyThreads1.Pop();
+        COMMIT{ m_prevReadyList = &m_readyThreads1; }
     } else {
         assert(!m_readyThreads2.Empty());
         tid = m_readyThreads2.Front();
         m_readyThreads2.Pop();
+        COMMIT{ m_prevReadyList = &m_readyThreads2; }
     }
     
     {
@@ -1998,6 +2000,7 @@ Allocator::Allocator(const string& name, Processor& parent, Clock& clock,
     m_createState   (CREATE_INITIAL),
     m_readyThreads1 (clock, threadTable),
     m_readyThreads2 (clock, threadTable),
+    m_prevReadyList (NULL),
 
     m_maxallocex(0), m_totalallocex(0), m_lastcycle(0), m_curallocex(0),
 
