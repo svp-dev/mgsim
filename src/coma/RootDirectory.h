@@ -43,6 +43,7 @@ private:
     DDRChannel*       m_memory;    ///< DDR memory channel
     Buffer<Message*>  m_requests;  ///< Requests to memory
     Buffer<Message*>  m_responses; ///< Responses from memory
+    Flag              m_memready;  ///< Memory ready to receive another request
     Message*          m_activeMsg; ///< Currently active message to the memory
     
     // Processes
@@ -60,7 +61,7 @@ private:
     Result DoResponses();
 
 public:
-    RootDirectory(const std::string& name, COMA& parent, VirtualMemory& memory, size_t numCaches, const Config& config);
+    RootDirectory(const std::string& name, COMA& parent, Clock& clock, VirtualMemory& memory, size_t numCaches, const Config& config);
     ~RootDirectory();
     
     // Administrative

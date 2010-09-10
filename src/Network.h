@@ -132,7 +132,7 @@ class Network : public Object
         }
 
         Register(const Object& object, const std::string& name)
-            : Simulator::Register<T>(*object.GetKernel()), m_service(object, name)
+            : Storage(object.GetClock()), Simulator::Register<T>(object.GetClock()), m_service(object, object.GetClock(), name)
         {
         }
     };
@@ -190,14 +190,14 @@ class Network : public Object
 	};
 	
 public:
-    Network(const std::string& name, Processor& parent, PlaceInfo& place, const std::vector<Processor*>& grid, LPID lpid, Allocator& allocator, RegisterFile& regFile, FamilyTable& familyTable);
+    Network(const std::string& name, Processor& parent, Clock& clock, PlaceInfo& place, const std::vector<Processor*>& grid, LPID lpid, Allocator& allocator, RegisterFile& regFile, FamilyTable& familyTable);
     void Initialize(Network& prev, Network& next);
 
     bool SendMessage(const RemoteMessage& msg);
     
     bool SendGroupCreate(LFID fid, RegIndex completion);
     bool RequestToken();
-    void ReleaseToken();
+    bool ReleaseToken();
     bool SendThreadCleanup(LFID fid);
     bool SendFamilySynchronization(LFID fid);
     bool SendAllocation(const PlaceID& place, RegIndex reg);

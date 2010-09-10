@@ -22,10 +22,10 @@ TEST_SOURCES = \
     regression/sparse_globals.s \
     regression/multi_shareds.s
 
+ARCH = sparc
+
 if ENABLE_MTSPARC_TESTS
-TESTS = $(TEST_SOURCES:.s=.bin)
-CLEANFILES = $(TESTS)
+TEST_BINS = $(TEST_SOURCES:.s=.bin)
 endif
 
-ARCH = sparc
 include $(srcdir)/../tests.mk

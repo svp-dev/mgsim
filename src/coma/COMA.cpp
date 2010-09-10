@@ -84,10 +84,10 @@ static size_t GetNumProcessors(const Config& config)
     return numProcessors;
 }
 
-COMA::COMA(const std::string& name, Simulator::Object& parent, const Config& config) :
+COMA::COMA(const std::string& name, Simulator::Object& parent, Clock& clock, const Config& config) :
     // Note that the COMA class is just a container for caches and directories.
     // It has no processes of its own.
-    Simulator::Object(name, parent),
+    Simulator::Object(name, parent, clock),
     m_numProcsPerCache(std::max<size_t>(1, config.getInteger<size_t>("NumProcessorsPerCache", 4))),
     m_numCachesPerDir (std::max<size_t>(1, config.getInteger<size_t>("NumCachesPerDirectory", 4))),
     
@@ -106,7 +106,7 @@ COMA::COMA(const std::string& name, Simulator::Object& parent, const Config& con
     {
         stringstream name;
         name << "cache" << i;
-        m_caches[i] = new Cache(name.str(), *this, i, m_caches.size(), config);
+        m_caches[i] = new Cache(name.str(), *this, clock, i, m_caches.size(), config);
     }
     
     // Create the directories
@@ -118,12 +118,12 @@ COMA::COMA(const std::string& name, Simulator::Object& parent, const Config& con
         
         stringstream name;
         name << "dir" << i;
-        m_directories[i] = new Directory(name.str(), *this, firstCache, lastCache, config);
+        m_directories[i] = new Directory(name.str(), *this, clock, firstCache, lastCache, config);
     }
     
     // Create the root directories
     m_roots.resize(1);
-    m_roots[0] = new RootDirectory("rootdir", *this, *this, m_caches.size(), config);
+    m_roots[0] = new RootDirectory("rootdir", *this, clock, *this, m_caches.size(), config);
     
     // Initialize the caches
     for (size_t i = 0; i < m_caches.size(); ++i)

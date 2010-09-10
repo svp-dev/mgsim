@@ -13,19 +13,19 @@ namespace Simulator
 //
 // Processor implementation
 //
-Processor::Processor(const std::string& name, Object& parent, GPID gpid, LPID lpid, const vector<Processor*>& grid, PSize gridSize, PlaceInfo& place, IMemory& memory, FPU& fpu, const Config& config)
-:   Object(name, parent),
+Processor::Processor(const std::string& name, Object& parent, Clock& clock, GPID gpid, LPID lpid, const vector<Processor*>& grid, PSize gridSize, PlaceInfo& place, IMemory& memory, FPU& fpu, const Config& config)
+:   Object(name, parent, clock),
     m_pid(gpid), m_memory(memory), m_grid(grid), m_gridSize(gridSize), m_place(place), m_fpu(fpu),
     m_localFamilyCompletion(0),
-    m_allocator   ("alloc",     *this, m_familyTable, m_threadTable, m_registerFile, m_raunit, m_icache, m_network, m_pipeline, place, lpid, config),
-    m_icache      ("icache",    *this, m_allocator, config),
-    m_dcache      ("dcache",    *this, m_allocator, m_familyTable, m_registerFile, config),
-    m_registerFile("registers", *this, m_allocator, config),
-    m_pipeline    ("pipeline",  *this, lpid, m_registerFile, m_network, m_allocator, m_familyTable, m_threadTable, m_icache, m_dcache, fpu, config),
-    m_raunit      ("rau",       *this, m_registerFile, config),
-    m_familyTable ("families",  *this, config),
-    m_threadTable ("threads",   *this, config),
-    m_network     ("network",   *this, place, grid, lpid, m_allocator, m_registerFile, m_familyTable)
+    m_allocator   ("alloc",     *this, clock, m_familyTable, m_threadTable, m_registerFile, m_raunit, m_icache, m_network, m_pipeline, place, lpid, config),
+    m_icache      ("icache",    *this, clock, m_allocator, config),
+    m_dcache      ("dcache",    *this, clock, m_allocator, m_familyTable, m_registerFile, config),
+    m_registerFile("registers", *this, clock, m_allocator, config),
+    m_pipeline    ("pipeline",  *this, clock, lpid, m_registerFile, m_network, m_allocator, m_familyTable, m_threadTable, m_icache, m_dcache, fpu, config),
+    m_raunit      ("rau",       *this, clock, m_registerFile, config),
+    m_familyTable ("families",  *this, clock, config),
+    m_threadTable ("threads",   *this, clock, config),
+    m_network     ("network",   *this, clock, place, grid, lpid, m_allocator, m_registerFile, m_familyTable)
 {
     RegisterSampleVariableInObject(m_localFamilyCompletion, SVC_WATERMARK);
 
@@ -83,6 +83,9 @@ void Processor::Initialize(Processor& prev, Processor& next, MemAddr runAddress,
     m_allocator.p_readyThreads.AddProcess(m_network.p_DelegationIn);        // Thread wakeup due to write
     m_allocator.p_readyThreads.AddProcess(m_allocator.p_ThreadAllocate);    // Thread creation
     m_allocator.p_readyThreads.AddProcess(m_allocator.p_RegWrites);         // Thread wakeup due to sync
+    m_allocator.p_readyThreads.AddProcess(m_allocator.p_FamilyAllocate);    // Thread wakeup due to family allocation
+    m_allocator.p_readyThreads.AddProcess(m_network.p_CreateResult);        // Thread wakeup due to group create completion
+    m_allocator.p_readyThreads.AddProcess(m_allocator.p_FamilyCreate);      // Thread wakeup due to local create completion
 
     m_allocator.p_activeThreads.AddProcess(m_icache.p_Incoming);            // Thread activation due to I-Cache line return
     m_allocator.p_activeThreads.AddProcess(m_allocator.p_ThreadActivation); // Thread activation due to I-Cache hit (from Ready Queue)
@@ -93,6 +96,9 @@ void Processor::Initialize(Processor& prev, Processor& next, MemAddr runAddress,
     m_registerFile.p_asyncW.AddProcess(m_network.p_DelegationIn);           // Remote register receives
     m_registerFile.p_asyncW.AddProcess(m_allocator.p_ThreadAllocate);       // Thread allocation
     m_registerFile.p_asyncW.AddProcess(m_allocator.p_RegWrites);            // Syncs
+    m_registerFile.p_asyncW.AddProcess(m_allocator.p_FamilyAllocate);       // Family allocation
+    m_registerFile.p_asyncW.AddProcess(m_network.p_CreateResult);           // Group create completion
+    m_registerFile.p_asyncW.AddProcess(m_allocator.p_FamilyCreate);         // Local create completion
     
     m_registerFile.p_asyncR.AddProcess(m_network.p_Registers);              // Remote register sends
     m_registerFile.p_asyncR.AddProcess(m_network.p_DelegationIn);           // Remote register sends
@@ -102,6 +108,7 @@ void Processor::Initialize(Processor& prev, Processor& next, MemAddr runAddress,
     
     m_registerFile.p_pipelineW .SetProcess(m_pipeline.p_Pipeline);          // Pipeline writeback stage
     
+    m_network.m_delegateIn.AddProcess(m_pipeline.p_Pipeline);               // Sending local messages
     for (size_t i = 0; i < m_grid.size(); i++)
     {
         // Every core can send delegation messages here
@@ -226,7 +233,7 @@ bool Processor::OnMemoryInvalidated(MemAddr addr)
 
 void Processor::OnFamilyTerminatedLocally(MemAddr /* pc */)
 {
-    m_localFamilyCompletion = GetKernel()->GetCycleNo();
+    m_localFamilyCompletion = GetCycleNo();
 }
 
 Integer Processor::GetProfileWord(unsigned int i) const

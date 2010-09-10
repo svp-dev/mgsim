@@ -16,8 +16,8 @@ size_t RandomBankedMemory::GetBankFromAddress(MemAddr address) const
     return address % m_banks.size();
 }
 
-RandomBankedMemory::RandomBankedMemory(const std::string& name, Object& parent, const Config& config)
-    : BankedMemory(name, parent, config)
+RandomBankedMemory::RandomBankedMemory(const std::string& name, Object& parent, Clock& clock, const Config& config)
+    : BankedMemory(name, parent, clock, config)
 {
 }
 

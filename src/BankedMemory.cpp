@@ -43,7 +43,7 @@ class BankedMemory::Bank : public Object
         COMMIT
         {
             const std::pair<CycleNo, CycleNo> delay = m_memory.GetMessageDelay(data ? request.data.size : 0);
-            const CycleNo                     now   = GetKernel()->GetCycleNo();
+            const CycleNo                     now   = GetCycleNo();
             
             // Get the arrival time of the first bits
             request.done = now + delay.first;
@@ -72,7 +72,7 @@ class BankedMemory::Bank : public Object
         // Handle incoming requests
         assert(!m_incoming.Empty());
         
-        const CycleNo  now     = GetKernel()->GetCycleNo();
+        const CycleNo  now     = GetCycleNo();
         const Request& request = m_incoming.Front();
         if (now >= request.done)
         {
@@ -84,7 +84,10 @@ class BankedMemory::Bank : public Object
                     
             m_request = request;
             m_request.done = now + m_memory.GetMemoryDelay(request.data.size);
-            m_busy.Set();
+            if (!m_busy.Set())
+            {
+                return FAILED;
+            }
             
             m_incoming.Pop();
         }
@@ -96,7 +99,7 @@ class BankedMemory::Bank : public Object
         // Handle outgoing requests
         assert(!m_outgoing.Empty());
         
-        const CycleNo  now     = GetKernel()->GetCycleNo();
+        const CycleNo  now     = GetCycleNo();
         const Request& request = m_outgoing.Front();
         if (now >= request.done)
         {
@@ -125,7 +128,7 @@ class BankedMemory::Bank : public Object
     {
         // Process the bank itself
         assert(m_busy.IsSet());
-        if (GetKernel()->GetCycleNo() >= m_request.done)
+        if (GetCycleNo() >= m_request.done)
         {
             // This bank is done serving the request
             if (m_request.write) {
@@ -140,7 +143,10 @@ class BankedMemory::Bank : public Object
                 return FAILED;
             }
             
-            m_busy.Clear();
+            if (!m_busy.Clear())
+            {
+                return FAILED;
+            }
         }
         return SUCCESS;
     }
@@ -215,13 +221,13 @@ public:
         out << endl;
     }
     
-    Bank(const std::string& name, BankedMemory& memory, BufferSize buffersize)
-        : Object(name, memory),
+    Bank(const std::string& name, BankedMemory& memory, Clock& clock, BufferSize buffersize)
+        : Object(name, memory, clock),
           m_memory  (memory),
-          p_incoming(memory, name + ".incoming"),
-          m_incoming(*memory.GetKernel(), buffersize),
-          m_outgoing(*memory.GetKernel(), buffersize),
-          m_busy    (*memory.GetKernel(), false),
+          p_incoming(memory, clock, name + ".incoming"),
+          m_incoming(clock, buffersize),
+          m_outgoing(clock, buffersize),
+          m_busy    (clock, false),
           p_Incoming("in",   delegate::create<Bank, &Bank::DoIncoming>(*this)),
           p_Outgoing("out",  delegate::create<Bank, &Bank::DoOutgoing>(*this)),
           p_Bank    ("bank", delegate::create<Bank, &Bank::DoRequest> (*this))
@@ -256,7 +262,7 @@ void BankedMemory::RegisterClient(PSize pid, IMemoryCallback& callback, const Pr
 
     stringstream name;
     name << "client" << pid;
-    client.service = new ArbitratedService<>(*this, name.str());
+    client.service = new ArbitratedService<>(*this, m_clock, name.str());
     client.callback = &callback;
         
     for (size_t i = 0; i < m_banks.size(); ++i)
@@ -372,8 +378,9 @@ bool BankedMemory::CheckPermissions(MemAddr address, MemSize size, int access) c
     return VirtualMemory::CheckPermissions(address, size, access);
 }
 
-BankedMemory::BankedMemory(const std::string& name, Object& parent, const Config& config) :
-    Object(name, parent),
+BankedMemory::BankedMemory(const std::string& name, Object& parent, Clock& clock, const Config& config) :
+    Object(name, parent, clock),
+    m_clock(clock),
     m_baseRequestTime(config.getInteger<CycleNo>("MemoryBaseRequestTime", 1)),
     m_timePerLine    (config.getInteger<CycleNo>("MemoryTimePerLine", 1)),
     m_sizeOfLine     (config.getInteger<size_t> ("MemorySizeOfLine", 8)),
@@ -405,7 +412,7 @@ BankedMemory::BankedMemory(const std::string& name, Object& parent, const Config
     {
         stringstream name;
         name << "bank" << i;
-        m_banks[i] = new Bank(name.str(), *this, buffersize);
+        m_banks[i] = new Bank(name.str(), *this, clock, buffersize);
     }
 }
 

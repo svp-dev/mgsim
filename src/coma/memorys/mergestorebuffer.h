@@ -11,7 +11,7 @@ namespace MemSim{
 //{ memory simulator namespace
 //////////////////////////////
 
-class MergeStoreBuffer : virtual public SimObj
+class MergeStoreBuffer
 {
 private:
     // the data container 

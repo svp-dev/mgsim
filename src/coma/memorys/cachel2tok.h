@@ -11,13 +11,14 @@ using namespace std;
 namespace MemSim
 {
 
-class CacheL2TOK : public sc_module, public Network_Node, public CacheState, virtual public SimObj
+class CacheL2TOK : public sc_module, public Network_Node, public CacheState
 {
     struct cache_set_t
     {
         cache_line_t *lines;
     };
 
+    CacheID        m_id;
     unsigned int   m_lineSize;
     unsigned int   m_nSets;           // Cache set count
     unsigned int   m_assoc;           // Cache associativity
@@ -71,9 +72,6 @@ class CacheL2TOK : public sc_module, public Network_Node, public CacheState, vir
     ST_request*        m_pReqCurPASasSlaveX;
     queue<ST_request*> m_queReqPASasNode;
     queue<ST_request*> m_queReqPASasSlave;
-
-    static const unsigned int MAX_PREFETCHBUFFERSIZE = 8;
-    std::list<ST_request*> m_prefetchBuffer;
 
     STATE_INI m_nStateINI;
     STATE_PAS m_nStatePAS;
@@ -194,12 +192,13 @@ public:
 
 	SC_HAS_PROCESS(CacheL2TOK);
 	
-    CacheL2TOK(sc_module_name nm, sc_clock& clock,
+    CacheL2TOK(sc_module_name nm, sc_clock& clock, CacheID id,
         unsigned int nset, unsigned int nassoc, unsigned int nlinesize,
         INJECTION_POLICY nIP = IP_NONE,
         unsigned int latency = 5,
 		unsigned int nGlobalFIFOSize = 0x100)
       : sc_module(nm),
+        m_id(id),
         m_lineSize(nlinesize),
         m_nSets(nset), m_assoc(nassoc),
         m_nStateINI(STATE_INI_PROCESSING),
@@ -236,8 +235,7 @@ public:
                 m_sets[i].lines[j].breserved = false;
                 m_sets[i].lines[j].data = &m_pBufData[(i * m_assoc + j) * m_lineSize];
 
-                for (unsigned int k = 0;k<CACHE_BIT_MASK_WIDTH/8;k++)
-                    m_sets[i].lines[j].bitmask[k] = 0;
+                std::fill(m_sets[i].lines[j].bitmask, m_sets[i].lines[j].bitmask + CACHE_BIT_MASK_WIDTH, false);
             }
         }
 
@@ -277,6 +275,17 @@ public:
         }
         free(m_sets);
     }
+    
+    void BehaviorNode()
+    {
+        Network_Node::BehaviorNode();
+
+        // At the end of every cycle, check the MGSim/SystemC interface
+        for (set<ProcessorTOK*>::iterator iter = m_processors.begin(); iter != m_processors.end(); ++iter)
+        {
+            (*iter)->OnCycleEnd();
+        }
+    }
 	
 	void BehaviorIni();
 	void BehaviorNet();
@@ -291,7 +300,6 @@ protected:
 
     void SendFromINI();
 
-    ST_request* FetchRequestINI();
     ST_request* FetchRequestINIFromQueue();
 
     // cleansing pipeline requests, if any of them are seeking the same line 
@@ -305,21 +313,17 @@ protected:
     bool SendAsNodePAS(ST_request* req);
     bool SendAsSlavePAS(ST_request* req);
     void SendFromPAS();
-    void FinishCyclePAS();
     // skip this cycle without shifting the pipeline
-    void Postpone();
 
     //////////////////////////////////////////////////////////////////////////
     // initiative request handlers
     void OnLocalRead(ST_request*);
     void OnLocalWrite(ST_request*);
-    void OnInvalidateRet(ST_request*);
 
     // facilitating functions
 private:
     void Modify2AcquireTokenRequest(ST_request*, unsigned int);
-    // transfer ntoken tokens from line to req, transfer tokens, transfer priority to the req if line has any.
-    ST_request* NewDisseminateTokenRequest(ST_request*, cache_line_t*, unsigned int, bool bpriority);
+    ST_request* NewDisseminateTokenRequest(ST_request*, cache_line_t*);
 public:
     void Modify2AcquireTokenRequestRead(ST_request*);
     void Modify2AcquireTokenRequestWrite(ST_request*, bool reqdate);
@@ -355,9 +359,6 @@ public:
     cache_line_t* GetReplacementLine(__address_t);
 
 public:
-    // cacheline, request update method
-    void UpdateCacheLine(cache_line_t* line, ST_request* req, CACHE_LINE_STATE state, unsigned int token, bool pending, bool invalidated, bool priority, bool tlock, LINE_UPDATE_METHOD lum, bool bupdatetime = true);
-    void IVUpdateCacheLine(cache_line_t* line, ST_request* req, CACHE_LINE_STATE state, unsigned int token, bool pending, bool invalidated, bool priority, bool tlock, LINE_UPDATE_METHOD lum, bool bupdatetime = true);
     void UpdateRequest(ST_request* req, cache_line_t* line, MemoryState::REQUEST requesttype, __address_t address, bool bdataavailable=false, bool bpriority=false, bool btransient=false, unsigned int ntokenacquired=0xffff, REQUEST_UPDATE_METHOD rum = RUM_ALL);
 
     //////////////////////////////////////////////////////////////////////////
@@ -506,10 +507,6 @@ public:
 	// remove a request from the outstanding request structure
 	ST_request* RemoveOutstandingRequest(__address_t addr);
 
-    // create new eviction or write back request: 
-    // bINI: is creating EV/WB from INI interface
-    ST_request* NewEVorWBRequest(ST_request* req, cache_line_t* pline, bool beviction, bool bINI=true);
-
     // $$$ optimization $$$
     // victim line implementation and optimization
 
@@ -524,7 +521,7 @@ public:
         {
             assert(m_pReqCurPASasSlaveX == NULL);
             ST_request *newreq = new ST_request(req);
-            ADD_INITIATOR(newreq, (void*)NULL);
+            newreq->source = m_id;
             newreq->type = REQUEST_INVALIDATE_BR;
             InsertSlaveReturnRequest(false, newreq);
         }
@@ -551,39 +548,39 @@ public:
     void InsertPASNodeRequest(ST_request* req);
 
     // get a slave request if none on the spot
-    void AutoFillSlaveReturnRequest(bool ini)
+    ST_request* GetSlaveReturnRequest(bool ini)
     {
+        ST_request* req = NULL;
         if (ini) 
         {
-            if (m_pReqCurINIasSlaveX == NULL)
+            if (!m_queReqINIasSlave.empty())
             {
-	            if (!m_queReqINIasSlave.empty())
-                {
-                    m_pReqCurINIasSlaveX = m_queReqINIasSlave.front();
-                    m_queReqINIasSlave.pop();
-                }
-                else
-                    m_pReqCurINIasSlaveX = NULL;
+                req = m_queReqINIasSlave.front();
+                m_queReqINIasSlave.pop();
             }
         }
         else
         {
-            if (m_pReqCurPASasSlaveX == NULL)
+            if (!m_queReqPASasSlave.empty())
             {
-                if (!m_queReqPASasSlave.empty())
-                {
-                    m_pReqCurPASasSlaveX = m_queReqPASasSlave.front();
-                    m_queReqPASasSlave.pop();
-                }
-                else
-                    m_pReqCurPASasSlaveX = NULL;
+                req = m_queReqPASasSlave.front();
+                m_queReqPASasSlave.pop();
             }
         }
-
+        return req;
     }
 
     // get a pas node request if none on the spot
-    void AutoFillPASNodeRequest();
+    ST_request* GetPASNodeRequest()
+    {
+        ST_request* req = NULL;
+        if (!m_queReqPASasNode.empty())
+        {
+            req = m_queReqPASasNode.front();
+            m_queReqPASasNode.pop();
+        }
+        return req;
+    }
 };
 
 }

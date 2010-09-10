@@ -40,20 +40,16 @@ unsigned int lg2(unsigned int n)
 void ST_request::Conform2BitVecFormat()
 {
     // initialize bit vector
-    for (unsigned int i = 0; i < CACHE_BIT_MASK_WIDTH / 8; ++i)
-        bitmask[i] = 0;
+    std::fill(bitmask, bitmask + CACHE_BIT_MASK_WIDTH, false);
 
     // alignment is required 
     assert(nsize != 0);
-    assert(offset % CACHE_REQUEST_ALIGNMENT == 0);
 
-    for (unsigned int i = 0; i < g_nCacheLineSize; i += CACHE_REQUEST_ALIGNMENT)
+    for (unsigned int i = 0; i < g_nCacheLineSize; i++)
     {
         if (i >= offset && i < offset + nsize)
         {
-            unsigned int maskhigh = i / (8*CACHE_REQUEST_ALIGNMENT);
-            unsigned int masklow  = i % (8*CACHE_REQUEST_ALIGNMENT);
-            bitmask[maskhigh] |= (1 << masklow);
+            bitmask[i] = true;
         }
     }
 }
@@ -67,12 +63,9 @@ void ST_request::Conform2SizeFormat()
 
     // 00 -> 10 -> 01 -> 01 | error
     // check whether the mask is valid to transform
-    for (unsigned int i = 0; i < g_nCacheLineSize; i += CACHE_REQUEST_ALIGNMENT)
+    for (unsigned int i = 0; i < g_nCacheLineSize; i++)
     {
-        unsigned int maskhigh = i / (8*CACHE_REQUEST_ALIGNMENT);
-        unsigned int masklow  = i % (8*CACHE_REQUEST_ALIGNMENT);
-
-        if (bitmask[maskhigh] & (1 << masklow))
+        if (bitmask[i])
         {
 	        assert(!bsegend);
             if (!bsegstart)
@@ -100,10 +93,7 @@ unsigned int CacheState::s_nTotalToken = 0;
 
 bool ST_request::IsRequestWithCompleteData()
 {
-    if (  ((type == MemoryState::REQUEST_ACQUIRE_TOKEN_DATA)&&(tokenacquired > 0)) || ((type == MemoryState::REQUEST_DISSEMINATE_TOKEN_DATA)&&(tokenacquired > 0)) )
-        return true;
-
-    return false;
+    return (type == MemoryState::REQUEST_ACQUIRE_TOKEN_DATA || type == MemoryState::REQUEST_DISSEMINATE_TOKEN_DATA) && (tokenacquired > 0);
 }
 
 bool ST_request::IsRequestWithNoData()
@@ -127,21 +117,15 @@ bool ST_request::IsRequestWithModifiedData()
 
 bool cache_line_t::IsLineAtCompleteState()
 {
-    if ( (state == CacheState::CLS_INVALID) /*|| (tokencount == 0)*/ )   // JXXX maybe not good for some policies. !!! 
+    if (state == CacheState::CLS_INVALID)
         return false;
 
-    if ((state == CacheState::CLS_SHARER)&&(pending))
+    if (state == CacheState::CLS_SHARER && pending)
     {
-        for (unsigned int i=0;i<CACHE_BIT_MASK_WIDTH/8;i++)
-            if (((unsigned char)bitmask[i]) != 0xff)
-                return false;
+        return !contains(bitmask, bitmask + CACHE_BIT_MASK_WIDTH, false);
     }
-    else if ((state == CacheState::CLS_OWNER)&&(tokencount == 0))
-    {
-        return false;
-    }
-
-    return true;
+    
+    return (state != CacheState::CLS_OWNER || tokencount != 0);
 }
 
 }

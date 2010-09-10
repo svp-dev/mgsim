@@ -156,7 +156,9 @@ void DirectoryTOK::BehaviorBelowNet()
         m_pReqCurBEL = m_pPipelineBEL.shift(req_incoming);
 
         if (m_pReqCurBEL != NULL)
+        {
             ProcessRequestBEL();
+        }
 
         if (m_pReqCurBEL2a != NULL || m_pReqCurBEL2b != NULL)
             SendRequestFromBEL();
@@ -352,7 +354,7 @@ void DirectoryTOK::Update_RequestRipsLineTokens(bool requestbelongstolocal, bool
                         UpdateDirLine(line, req, line->state, 0, newlinetokenline, newlinetokenrem, false, newgrouppriority, line->breserved);
 
                         // even stay in local, it will be regarded as a remote request from now
-                        ADD_INITIATOR(req, this);
+                        //req->source = this;
                     }
                     else
                     {
@@ -389,7 +391,7 @@ void DirectoryTOK::Update_RequestRipsLineTokens(bool requestbelongstolocal, bool
             {
                 if (!req->btransient)
                 {
-                    int newlinetokenline = line->ntokenline - req->gettokenpermanent();
+                    int newlinetokenline = line->ntokenline - req->tokenacquired;
                     bool newgrouppriority = (!(req->bpriority || line->priority)) && line->grouppriority;
 
                     UpdateRequest(req, line, req->tokenacquired + line->tokencount, req->bpriority||line->priority);
@@ -412,10 +414,6 @@ void DirectoryTOK::Update_RequestRipsLineTokens(bool requestbelongstolocal, bool
                     UpdateDirLine(line, req, line->state, 0, newlinetokenline, line->ntokenrem, line->priority, newgrouppriority, line->breserved);
 
                 }
-
-                // add initiator for naive solution
-                ADD_INITIATOR(req, this);
-
             }
         }
         else
@@ -426,7 +424,7 @@ void DirectoryTOK::Update_RequestRipsLineTokens(bool requestbelongstolocal, bool
             if (!req->btransient)
             {
                 unsigned int newreqtoken = req->tokenacquired + line->tokencount;
-                int newlinetokenline = line->ntokenline - req->gettokenpermanent();
+                int newlinetokenline = line->ntokenline - req->tokenacquired;
 
                 bool newgrouppriority = (!(req->bpriority||line->priority)) && line->grouppriority;
 
@@ -435,14 +433,10 @@ void DirectoryTOK::Update_RequestRipsLineTokens(bool requestbelongstolocal, bool
             }
             else
             {
-                assert(req->gettokenpermanent() == 0);
-                int newlinetokenrem = line->ntokenrem - req->gettokenpermanent();
+                int newlinetokenrem = line->ntokenrem;
                 bool newgrouppriority = (!(req->bpriority||line->priority)) && line->grouppriority;
                 UpdateDirLine(line, req, line->state, line->tokencount, line->ntokenline, newlinetokenrem, line->priority, newgrouppriority, line->breserved);
             }
-
-            // pop out the initiator
-            pop_initiator(req);
         }
 
     }
@@ -457,7 +451,7 @@ void DirectoryTOK::Update_RequestRipsLineTokens(bool requestbelongstolocal, bool
                 // rips the token off the line
                 unsigned int newreqtoken = req->tokenacquired + line->tokencount;
                 // group token count
-                int newlinetokenline = line->ntokenline + req->gettokenpermanent();
+                int newlinetokenline = line->ntokenline + req->tokenacquired;
 
                 bool newgrouppriority = req->bpriority || line->priority || line->grouppriority;
 
@@ -484,33 +478,26 @@ void DirectoryTOK::Update_RequestRipsLineTokens(bool requestbelongstolocal, bool
                 UpdateDirLine(line, req, line->state, 0, newlinetokenline, line->ntokenrem, false, newgrouppriority, line->breserved);
 
             }
-
-            pop_initiator(req);
         }
         else    // if (requestbelongstolocal)
         {
             if (requesttolocal)
             {
-                if (req->btransient)
+                if (req->btransient && line->priority)
                 {
-                    if (line->priority)
-                    {
-                        line->priority = false;
-                        req->btransient = false;
-                        req->bpriority = true;
-                    }
+                    line->priority = false;
+                    req->btransient = false;
+                    req->bpriority = true;
                 }
 
-                unsigned int newreqtoken = req->tokenacquired + (req->btransient?0:line->tokencount);
-                unsigned int newlinetoken = (req->btransient?line->tokencount:0);
-                int newlinetokenrem = line->ntokenrem + req->gettokenpermanent() + (req->btransient?0:line->tokencount);
+                unsigned int newreqtoken = req->tokenacquired + (req->btransient ? 0 : line->tokencount);
+                unsigned int newlinetoken = (req->btransient ? line->tokencount : 0);
+                int newlinetokenrem = line->ntokenrem + req->gettokenpermanent() + (req->btransient ? 0 : line->tokencount);
                 bool newgrouppriority = line->priority || req->bpriority || line->grouppriority;
                 bool newreqpriority = req->bpriority || line->priority;
 
                 UpdateRequest(req, line, newreqtoken, newreqpriority);
                 UpdateDirLine(line, req, line->state, newlinetoken, line->ntokenline, newlinetokenrem, false, newgrouppriority, line->breserved);
-
-                ADD_INITIATOR(req, this);
             }
             else    // if (requesttolocal)
             {
@@ -646,11 +633,9 @@ void DirectoryTOK::PostUpdateDirLine(dir_line_t* line, ST_request* req, bool bel
 }
 
 // this probably only works with current naive configuration
-bool DirectoryTOK::IsRequestLocal(ST_request* req, bool recvfrombelow)
+bool DirectoryTOK::IsBelow(CacheID id) const
 {
-    return (recvfrombelow)
-        ? !(IS_INITIATOR(req, this))
-        :   IS_INITIATOR(req, this);
+    return (id >= m_firstCache) && (id <= m_lastCache);
 }
 
 bool DirectoryTOK::SendRequestABOtoBelow(ST_request* req)
@@ -759,7 +744,7 @@ void DirectoryTOK::OnBELAcquireTokenData(ST_request* req)
     // evicted line buffer
     bool evictedhit = m_evictedlinebuffer.FindEvictedLine(req->getlineaddress());
 
-    if (IsRequestLocal(req, true))
+    if (IsBelow(req->source))
     {
         if (req->tokenacquired > 0)
         {
@@ -784,9 +769,6 @@ void DirectoryTOK::OnBELAcquireTokenData(ST_request* req)
 
             if (evictedhit)
                 m_evictedlinebuffer.DumpEvictedLine2Line(req->getlineaddress(), line);
-
-            // prepare the request to send to upper level
-            ADD_INITIATOR(req, this);
 
             // save the request
             m_lstReqB2a.push_back(req);
@@ -862,9 +844,6 @@ void DirectoryTOK::OnBELAcquireTokenData(ST_request* req)
 
         assert (evictedhit);
         m_evictedlinebuffer.UpdateEvictedLine(req->getlineaddress(), false, req->gettokenpermanent(), req->bpriority);
-
-        // pop initiator
-        pop_initiator(req);
     }
     else
     {
@@ -892,7 +871,7 @@ void DirectoryTOK::OnBELAcquireToken(ST_request* req)
     bool evictedhit = m_evictedlinebuffer.FindEvictedLine(req->getlineaddress());
 
 
-    if (IsRequestLocal(req, true))
+    if (IsBelow(req->source))
     {
         if (req->tokenacquired > 0)
             assert(line != NULL);
@@ -917,9 +896,6 @@ void DirectoryTOK::OnBELAcquireToken(ST_request* req)
 
             if (evictedhit)
                 m_evictedlinebuffer.DumpEvictedLine2Line(req->getlineaddress(), line);
-
-            // prepare the request to send to upper level
-            ADD_INITIATOR(req, this);
 
             // save the request
             m_lstReqB2a.push_back(req);
@@ -969,10 +945,6 @@ void DirectoryTOK::OnBELAcquireToken(ST_request* req)
 
             assert (evictedhit);
 	        m_evictedlinebuffer.UpdateEvictedLine(req->getlineaddress(), false, req->gettokenpermanent(), req->bpriority);
-
-            // pop initiator
-            pop_initiator(req);
-
             return;
         }
 
@@ -1001,7 +973,7 @@ void DirectoryTOK::OnBELDisseminateTokenData(ST_request* req)
     (void)evictedhit;
 
 
-    if (IsRequestLocal(req, true))
+    if (IsBelow(req->source))
     {
         if (line == NULL)
         {
@@ -1094,12 +1066,9 @@ void DirectoryTOK::OnBELDirNotification(ST_request* req)
 
     // locate certain line
     dir_line_t* line = LocateLine(address);
-
     // evicted line buffer
-
     // the line must be existing
     assert(line != NULL);
-
     line->ntokenline += req->tokenacquired;
 
     // terminate the request
@@ -1121,7 +1090,7 @@ void DirectoryTOK::OnABOAcquireTokenData(ST_request* req)
     // evicted line buffer
     bool evictedhit = m_evictedlinebuffer.FindEvictedLine(req->getlineaddress());
 
-    if (IsRequestLocal(req, false))
+    if (IsBelow(req->source))
     {
         assert (line != NULL);
 
@@ -1130,7 +1099,6 @@ void DirectoryTOK::OnABOAcquireTokenData(ST_request* req)
             // always go local
             m_lstReqA2b.push_back(req);
 
-            // pop the initiator/dir in the update function
             // Update the dir
             Update_RequestRipsLineTokens(true, false, true, req, line, 0, -1);
         }
@@ -1139,7 +1107,6 @@ void DirectoryTOK::OnABOAcquireTokenData(ST_request* req)
             // always go local
             m_lstReqA2b.push_back(req);
 
-            // pop the initiator/dir in the update function
             // Update the dir
             Update_RequestRipsLineTokens(true, false, true, req, line, 0, -1);
         }
@@ -1157,7 +1124,6 @@ void DirectoryTOK::OnABOAcquireTokenData(ST_request* req)
         {
             // get in lower level, but update the evicted buffer
             m_evictedlinebuffer.UpdateEvictedLine(req->getlineaddress(), true, req->gettokenpermanent(), req->bpriority);
-            ADD_INITIATOR(req, this);
         }
         else
         {
@@ -1181,18 +1147,13 @@ void DirectoryTOK::OnABOAcquireToken(ST_request* req)
     // evicted line buffer
     bool evictedhit = m_evictedlinebuffer.FindEvictedLine(req->getlineaddress());
 
-    if (IsRequestLocal(req, false))
+    if (IsBelow(req->source))
     {
-        if (req->tokenacquired > 0)
-            assert(line != NULL);
-
-        assert (line != NULL);
-
+        assert(line != NULL);
 
         // always go local
         m_lstReqA2b.push_back(req);
 
-        // pop the initiator/dir in the update function
         // Update the dir
         Update_RequestRipsLineTokens(true, false, true, req, line, 0, -1);
     }
@@ -1205,8 +1166,6 @@ void DirectoryTOK::OnABOAcquireToken(ST_request* req)
             {
                 // get in lower level, but update the evicted buffer
                 m_evictedlinebuffer.UpdateEvictedLine(req->getlineaddress(), true, req->gettokenpermanent(), req->bpriority);
-
-                ADD_INITIATOR(req, this);
 
                 // get in local level
                 m_lstReqA2b.push_back(req);
@@ -1223,8 +1182,6 @@ void DirectoryTOK::OnABOAcquireToken(ST_request* req)
             {
                 // get in lower level, but update the evicted buffer
                 m_evictedlinebuffer.UpdateEvictedLine(req->getlineaddress(), true, req->gettokenpermanent(), req->bpriority);
-
-                ADD_INITIATOR(req, this);
             }
             else
             {

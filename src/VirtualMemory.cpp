@@ -84,7 +84,8 @@ void VirtualMemory::Reserve(MemAddr address, MemSize size, int perm)
             if (p->first == address || (address < p->first && address + size > p->first))
             {
                 // The range overlaps with an existing range after it
-                throw InvalidArgumentException("Overlap in memory reservation");
+                throw exceptf<InvalidArgumentException>("Overlap in memory reservation (%#016llx, %zd)",
+                                                        (unsigned long long)address, (size_t)size);
             }
         
             if (p != m_ranges.begin())
@@ -93,7 +94,8 @@ void VirtualMemory::Reserve(MemAddr address, MemSize size, int perm)
                 if (q->first < address && q->first > address - q->second.size)
                 {
                     // The range overlaps with an existing range before it
-                    throw InvalidArgumentException("Overlap in memory reservation");
+                    throw exceptf<InvalidArgumentException>("Overlap in memory reservation (%#016llx, %zd)",
+                                                            (unsigned long long)address, (size_t)size);
                 }
             }
         }
@@ -124,7 +126,8 @@ void VirtualMemory::Unreserve(MemAddr address)
     RangeMap::iterator p = m_ranges.find(address);
     if (p == m_ranges.end())
     {
-        throw InvalidArgumentException("Attempting to unreserve non-reserved memory");
+        throw exceptf<InvalidArgumentException>("Attempting to unreserve non-reserved memory (%#016llx)", 
+                                                (unsigned long long)address);
     }
     m_totalreserved -= p->second.size;
     --m_nRanges;
@@ -136,7 +139,8 @@ bool VirtualMemory::CheckPermissions(MemAddr address, MemSize size, int access) 
 #if MEMSIZE_MAX >= SIZE_MAX
     if (size > SIZE_MAX)
     {
-        throw InvalidArgumentException("Size argument too big");
+        throw exceptf<InvalidArgumentException>("CheckPerm (%#016llx, %zd): Size argument too big",
+                                                (unsigned long long)address, (size_t)size);
     }
 #endif
 
@@ -149,7 +153,8 @@ void VirtualMemory::Read(MemAddr address, void* _data, MemSize size) const
 #if MEMSIZE_MAX >= SIZE_MAX
     if (size > SIZE_MAX)
     {
-        throw InvalidArgumentException("Size argument too big");
+        throw exceptf<InvalidArgumentException>("Read (%#016llx, %zd): Size argument too big", 
+                                                (unsigned long long)address, (size_t)size);
     }
 #endif
 
@@ -189,7 +194,8 @@ void VirtualMemory::Write(MemAddr address, const void* _data, MemSize size)
 #if MEMSIZE_MAX >= SIZE_MAX
     if (size > SIZE_MAX)
     {
-        throw InvalidArgumentException("Size argument too big");
+        throw exceptf<InvalidArgumentException>("Write (%#016llx, %zd): Size argument too big",
+                                                (unsigned long long)address, (size_t)size);
     }
 #endif
 

@@ -162,7 +162,7 @@ public:
 };
 
 
-class DDRMemorySys : public sc_module, public MemoryState, virtual public SimObj
+class DDRMemorySys : public sc_module, public MemoryState
 {
 private:
     DDRChannel m_channel;

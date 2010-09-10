@@ -269,13 +269,6 @@ int mgs_main(int argc, char const** argv)
                     sys.PrintAllStatistics(clog);
                     clog << "### end end-of-simulation statistics" << endl;
                 }
-#ifdef ENABLE_COMA_ZL
-                // stop the systemc and unlock the signal if it's locked
-                thpara.bterm = true;
-                sem_post(&thpara.sem_sync);
-                sem_wait(&thpara.sem_mgs);
-#endif
-
             }
             catch (const exception& e)
             {
@@ -316,7 +309,8 @@ int mgs_main(int argc, char const** argv)
     catch (const exception& e)
     {
         PrintException(cerr, e);
-        exit(1);
+        return 1;
     }
-    exit(0);
+    
+    return 0;
 }

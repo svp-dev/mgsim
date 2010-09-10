@@ -13,7 +13,6 @@ void ProcessorTOK::PutRequest(ST_request* req)
     assert(req->nsize <= ST_request::s_nRequestAlignedSize);
 
     req->Conform2BitVecFormat();
-    ADD_INITIATOR(req, this);
     
     m_cache.m_requests.push(req);
 }
@@ -37,10 +36,11 @@ void ProcessorTOK::RemoveReply()
         delete req;
     }
     m_responses.pop();
+    m_popped = true;
 }
 
 ProcessorTOK::ProcessorTOK(CacheL2TOK& cache)
-  : m_cache(cache)
+  : m_cache(cache), m_pushed(false)
 {
     m_cache.RegisterProcessor(*this);
 }

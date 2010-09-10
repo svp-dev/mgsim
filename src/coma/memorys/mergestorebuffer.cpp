@@ -63,19 +63,15 @@ bool MergeStoreBuffer::LoadBuffer(ST_request* req, cache_line_t *linecache)
         return false;
     }
 
-    //unsigned int maskoffset = req->offset/CACHE_REQUEST_ALIGNMENT;
-    for (unsigned int i=0;i<CACHE_BIT_MASK_WIDTH;i++)
+    for (unsigned int i = 0; i < CACHE_BIT_MASK_WIDTH; i++)
     {
-        unsigned int maskhigh = i/8;
-        unsigned int masklow = i%8;
-        char masknow = 1 << masklow;
-        if (line->bitmask[maskhigh] == masknow)
+        if (line->bitmask[i])
         {
-            memcpy(&req->data[i*CACHE_REQUEST_ALIGNMENT], &line->data[i*CACHE_REQUEST_ALIGNMENT], CACHE_REQUEST_ALIGNMENT);
+            req->data[i] = line->data[i];
         }
-        else if (linecache->bitmask[maskhigh] == masknow)
+        else if (linecache->bitmask[i])
         {
-            memcpy(&req->data[i*CACHE_REQUEST_ALIGNMENT], &linecache->data[i*CACHE_REQUEST_ALIGNMENT], CACHE_REQUEST_ALIGNMENT);
+            req->data[i] = linecache->data[i];
         }
         else
         {
@@ -128,18 +124,14 @@ void MergeStoreBuffer::UpdateMergedRequest(__address_t address, cache_line_t* li
     cache_line_t* line = m_fabLines.FindBufferItem(addrline, index);
     assert(line != NULL);
 
-    for (unsigned int i=0;i<CACHE_BIT_MASK_WIDTH;i++)
+    for (unsigned int i = 0; i < CACHE_BIT_MASK_WIDTH; i++)
     {
-        unsigned int maskhigh = i/8;
-        unsigned int masklow = i % 8;
-        char testchar = 1 << masklow;
-
-        if (reqpas->bitmask[maskhigh] & testchar)
+        if (reqpas->bitmask[i])
         {
-            m_ppMergedRequest[index]->bitmask[maskhigh] |= testchar;
-            line->bitmask[maskhigh] |= testchar;
-            memcpy(&m_ppMergedRequest[index]->data[i*CACHE_REQUEST_ALIGNMENT], &reqpas->data[i*CACHE_REQUEST_ALIGNMENT], CACHE_REQUEST_ALIGNMENT);
-            memcpy(&line->data[i*CACHE_REQUEST_ALIGNMENT], &reqpas->data[i*CACHE_REQUEST_ALIGNMENT], CACHE_REQUEST_ALIGNMENT);
+            m_ppMergedRequest[index]->bitmask[i] = true;
+            line->bitmask[i] = true;
+            m_ppMergedRequest[index]->data[i] = reqpas->data[i];
+            line->data[i] = reqpas->data[i];
         }
     }
 
@@ -194,12 +186,7 @@ bool MergeStoreBuffer::CleanSlot(__address_t address)
         // clean the merged request
         m_ppMergedRequest[index]->type = MemoryState::REQUEST_NONE;
 
-        m_ppMergedRequest[index]->curinitiator = 0;
-
-        for (unsigned int i=0;i<CACHE_BIT_MASK_WIDTH/8;i++)
-        {
-            m_ppMergedRequest[index]->bitmask[i] = 0;
-        }
+        std::fill(m_ppMergedRequest[index]->bitmask, m_ppMergedRequest[index]->bitmask + CACHE_BIT_MASK_WIDTH, false);
 
         // clean the request queue
         m_pvecRequestQueue[index]->clear();
@@ -234,11 +221,8 @@ bool MergeStoreBuffer::AllocateSlot(__address_t address, int& index)
 
     line->llock = false;
 
-    for (unsigned int k = 0;k<CACHE_BIT_MASK_WIDTH/8;k++)
-    {
-        line->bitmask[k] = 0;
-        m_ppMergedRequest[index]->bitmask[k] = 0;
-    }
+    std::fill(line->bitmask, line->bitmask + CACHE_BIT_MASK_WIDTH, false);
+    std::fill(m_ppMergedRequest[index]->bitmask, m_ppMergedRequest[index]->bitmask + CACHE_BIT_MASK_WIDTH, false);
 
     line->data = m_ppData[ind];
 
@@ -252,9 +236,6 @@ bool MergeStoreBuffer::AllocateSlot(__address_t address, int& index)
     assert(AddressSlotPosition(address) == ind);
 
     free(line);
-
-    m_ppMergedRequest[index]->curinitiator = 0;
-    ADD_INITIATOR(m_ppMergedRequest[index], this);
 
     return true;
 }
@@ -271,44 +252,26 @@ bool MergeStoreBuffer::UpdateSlot(ST_request* req)
 
     {
         // update data and bit-mask
-
         assert(line->data == m_ppData[index]);
 
+        bool maskchar[CACHE_BIT_MASK_WIDTH];
+        std::fill(maskchar, maskchar + CACHE_BIT_MASK_WIDTH, false);
 
-        unsigned int offset = req->offset;
-
-        char maskchar[CACHE_BIT_MASK_WIDTH/8];
-        for (unsigned int i=0;i<CACHE_BIT_MASK_WIDTH/8;i++)
-            maskchar[i] = 0;
-
-        unsigned int maskoffset = offset/CACHE_REQUEST_ALIGNMENT;
-        for (unsigned int i = 0;i<req->nsize;i+=CACHE_REQUEST_ALIGNMENT)
+        for (unsigned int i = req->offset; i < req->offset + req->nsize; i++)
         {
-            unsigned int currentpos = i + offset;
-
-            memcpy(&line->data[currentpos], &req->data[currentpos], CACHE_REQUEST_ALIGNMENT);
-
-            unsigned int maskhigh = maskoffset / 8;
-            unsigned int masklow = maskoffset % 8;
-
-            maskchar[maskhigh] |= (1 << masklow);
-            maskoffset++;
+            line->data[i] = req->data[i];
+            maskchar[i] = true;
         }
 
-        for (unsigned int i=0;i<CACHE_BIT_MASK_WIDTH/8;i++)
-            line->bitmask[i] |= maskchar[i];
+        for (unsigned int i = 0; i <CACHE_BIT_MASK_WIDTH; i++)
+            line->bitmask[i] = maskchar[i];
 
-        for (unsigned int i=0;i<g_nCacheLineSize;i+=CACHE_REQUEST_ALIGNMENT)
+        for (unsigned int i=0; i < g_nCacheLineSize; i++)
         {
-            unsigned int maskhigh = i / (8*CACHE_REQUEST_ALIGNMENT);
-            unsigned int masklow = i % (8*CACHE_REQUEST_ALIGNMENT);
-
-            char testchar = 1 << masklow;
-
-            if ((req->bitmask[maskhigh]&testchar) != 0)
+            if (req->bitmask[i])
             {
-                line->bitmask[maskhigh] |= testchar;
-                memcpy(&line->data[i], &req->data[i], CACHE_REQUEST_ALIGNMENT);
+                line->bitmask[i] = true;
+                line->data[i] = req->data[i];
             }
         }
 

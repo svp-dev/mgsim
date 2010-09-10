@@ -49,7 +49,7 @@ private:
     uint64_t                    m_nreads, m_nwrites, m_nread_bytes, m_nwrite_bytes;
     
 public:
-    COMA(const std::string& name, Simulator::Object& parent, const Config& config);
+    COMA(const std::string& name, Simulator::Object& parent, Clock& clock, const Config& config);
     ~COMA();
 
     const TraceMap& GetTraces() const { return m_traces; }

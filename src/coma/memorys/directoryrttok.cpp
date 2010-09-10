@@ -427,8 +427,6 @@ void DirectoryRTTOK::OnNETAcquireTokenData(ST_request* req)
         {
             // redirect the request to the main memory
             // prepare the request but without sending
-            ADD_INITIATOR(req, this);
-            get_initiator(req);
 
             // append the request to the queue
             if (!m_srqSusReqQ.AppendRequest2Line(req, line))
@@ -444,8 +442,6 @@ void DirectoryRTTOK::OnNETAcquireTokenData(ST_request* req)
             req->bprocessed = false;
 
             // redirect the request to the main memory
-            ADD_INITIATOR(req, this);
-            get_initiator(req);
 
             // save the request
             m_pReqCurNET2Bus = req;
@@ -457,8 +453,6 @@ void DirectoryRTTOK::OnNETAcquireTokenData(ST_request* req)
     else
     {
         // line can be found in the group, just pass the request
-
-// ???         //assert( ((!req->bqueued)&&(line->queuehead != EOQ)) == false );
 
         // line must be at cached state
         // update info
@@ -476,17 +470,11 @@ void DirectoryRTTOK::OnNETAcquireTokenData(ST_request* req)
             else
             {
                 req->tokenacquired += line->tokencount;
-                line->tokencount = 0;
                 req->bpriority = req->bpriority || line->priority;
-                line->priority = false;
                 line->tokencount = 0;
+                line->priority = false;
 
-                if (req->bpriority)
-                {
-                    req->btransient = false;
-                }
-
-                assert(req->gettokenpermanent() <= GetTotalTokenNum());
+                assert(req->tokenacquired <= GetTotalTokenNum());
             }
         }
 
@@ -505,18 +493,12 @@ void DirectoryRTTOK::OnNETAcquireTokenData(ST_request* req)
             {
                 // just alert, to check whether this really happen
                 assert(((req->gettokenpermanent() == GetTotalTokenNum())&&(!req->dataavailable)) == false);
-
-                // append the request to the queue
-                // if (!m_srqSusReqQ.AppendRequest2Line(req, line))
-                //     abort();
             }
             else
             {
                 m_srqSusReqQ.StartLoading(line);
 
                 // redirect the request to the main memory
-                ADD_INITIATOR(req, this);
-                get_initiator(req);
 
                 // save the request
                 m_pReqCurNET2Bus = req;
@@ -566,8 +548,10 @@ void DirectoryRTTOK::OnNETAcquireToken(ST_request* req)
         // counter should be set to 1
         line->counter = 1;
     }
-    else if (line->state == DLS_CACHED)
+    else 
     {
+        assert(line->state == DLS_CACHED);
+    
         // update info
         line->time = sc_time_stamp();
 
@@ -596,10 +580,6 @@ void DirectoryRTTOK::OnNETAcquireToken(ST_request* req)
 
         line->tokencount = 0;
     }
-    else // never reached
-    {
-        abort();
-    }
 
     if (m_srqSusReqQ.HasOutstandingRequest(line))
     {
@@ -627,9 +607,8 @@ void DirectoryRTTOK::OnNETDisseminateTokenData(ST_request* req)
     // locate certain set
     dir_line_t* line = LocateLine(address);
     assert(line != NULL);
-
-    if (line->state == DLS_CACHED)
-    {
+    assert(line->state == DLS_CACHED);
+    
         if (req->tokenrequested == 0)    // EV
         {
             if (m_srqSusReqQ.HasOutstandingRequest(line))
@@ -657,8 +636,10 @@ void DirectoryRTTOK::OnNETDisseminateTokenData(ST_request* req)
                 
             }
         }
-        else if (req->tokenrequested == GetTotalTokenNum())  // WB
+        else 
         {
+            assert(req->tokenrequested == GetTotalTokenNum());  // WB
+
             if (m_srqSusReqQ.HasOutstandingRequest(line))
             {     
                 // append request
@@ -686,23 +667,10 @@ void DirectoryRTTOK::OnNETDisseminateTokenData(ST_request* req)
                 else
                 {
                     // redirect the request to the main memory
-                    ADD_INITIATOR(req, this);
-                    get_initiator(req);
 
                     // save the request
                     m_pReqCurNET2Bus = req;
                 }
-
-                return;
             }
         }
-        else
-        {
-	        abort();
-        }
-    }
-    else // not reachable
-    {
-        abort();
-    }
 }

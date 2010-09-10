@@ -72,6 +72,7 @@ MHz and the memory clock 100 MHz). Together with a 64-bit wide databus and
 #include "../Memory.h"
 #include "../storage.h"
 
+class Config;
 namespace Simulator
 {
 
@@ -97,8 +98,8 @@ private:
         bool         write;     ///< A write or read
         CycleNo      done;      ///< When this request is done
     };
-    
-    unsigned int m_tBusMult;        ///< I/O Bus clock multiplier
+
+    struct DDRConfig {
     unsigned int m_nBurstLength;    ///< Size of a single burst
 
     // Timing configuration
@@ -111,15 +112,22 @@ private:
     unsigned int m_tRAS;    ///< Row Active Time (min time after row open before row close)
 
     // Address configuration
-    unsigned int m_nDevicePerRank;  ///< Number of devices per rank
+    unsigned int m_nDevicesPerRank; ///< Number of devices per rank
     unsigned int m_nRankBits;       ///< Log number of ranks on DIMM (only one active per DIMM)
     unsigned int m_nRowBits;        ///< Log number of rows
     unsigned int m_nColumnBits;     ///< Log number of columns
     unsigned int m_nRankStart;      ///< Start position of the rank bits
     unsigned int m_nRowStart;       ///< Start position of the row bits
     unsigned int m_nColumnStart;    ///< Start position of the column bits
+    
+    unsigned int m_nBurstSize;
+
+    DDRConfig(const Clock& clock, const Config&);
+    };
 
     // Runtime parameters
+    Clock&                     m_clock;
+    DDRConfig                  m_ddrconfig;      ///< DDR Configuration parameters
     std::vector<unsigned long> m_currentRow;     ///< Currently selected row, for each rank
     VirtualMemory&             m_memory;         ///< The backing store with data
     ICallback&                 m_callback;       ///< The callback to notify for completion
@@ -140,7 +148,7 @@ public:
     bool Read(MemAddr address, MemSize size);
     bool Write(MemAddr address, const void* data, MemSize size);
     
-    DDRChannel(const std::string& name, Object& parent, VirtualMemory& memory);
+    DDRChannel(const std::string& name, Object& parent, Clock& clock, VirtualMemory& memory, const Config& config);
     ~DDRChannel();
 };
 

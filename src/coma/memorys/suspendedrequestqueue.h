@@ -2,7 +2,6 @@
 #define SUSPENDED_REQUEST_QUEUE_H
 
 #include "predef.h"
-#include "simcontrol.h"
 
 namespace MemSim
 {

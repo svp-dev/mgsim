@@ -11,8 +11,8 @@ using namespace std;
 namespace Simulator
 {
 
-FamilyTable::FamilyTable(const std::string& name, Processor& parent, const Config& config)
-:   Object(name, parent),
+FamilyTable::FamilyTable(const std::string& name, Processor& parent, Clock& clock, const Config& config)
+:   Object(name, parent, clock),
     m_parent(parent),
     m_families(config.getInteger<size_t>("NumFamilies", 8)),
     m_totalalloc(0), m_maxalloc(0), m_lastcycle(0), m_curalloc(0)

@@ -12,7 +12,7 @@ class Config;
 namespace Simulator
 {
 
-class ZLCOMA : public Object, public IMemoryAdmin, public VirtualMemory
+class ZLCOMA : public Object, public IMemoryAdmin/*, public VirtualMemory*/
 {
     class Link;
     
@@ -20,7 +20,7 @@ class ZLCOMA : public Object, public IMemoryAdmin, public VirtualMemory
     uint64_t           m_nreads, m_nwrites, m_nread_bytes, m_nwrite_bytes;
     
 public:
-    ZLCOMA(const std::string& name, Simulator::Object& parent, const Config& config);
+    ZLCOMA(const std::string& name, Simulator::Object& parent, Clock& clock, const Config& config);
     ~ZLCOMA();
 
     // IMemory

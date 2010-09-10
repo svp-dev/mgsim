@@ -12,6 +12,7 @@ namespace Simulator
 Network::Network(
     const std::string&        name,
     Processor&                parent,
+    Clock&                    clock,
     PlaceInfo&                place,
     const vector<Processor*>& grid,
     LPID                      lpid,
@@ -19,7 +20,7 @@ Network::Network(
     RegisterFile&             regFile,
     FamilyTable&              familyTable
 ) :
-    Object(name, parent),
+    Object(name, parent, clock),
     
     m_parent     (parent),
     m_regFile    (regFile),
@@ -42,9 +43,9 @@ Network::Network(
     CONSTRUCT_REGISTER(m_delegateIn),
 #undef CONTRUCT_REGISTER
 
-    m_hasToken      (*parent.GetKernel(),  lpid == 0), // CPU #0 starts out with the token
-    m_wantToken     (*parent.GetKernel(), false),
-    m_tokenBusy     (*parent.GetKernel(), false),
+    m_hasToken      (clock,  lpid == 0), // CPU #0 starts out with the token
+    m_wantToken     (clock, false),
+    m_tokenBusy     (clock, false),
 
     p_Registers    ("registers",      delegate::create<Network, &Network::DoRegisters    >(*this)),
     p_Creation     ("creation",       delegate::create<Network, &Network::DoCreation     >(*this)),
@@ -157,12 +158,24 @@ bool Network::SendMessage(const RemoteMessage& msg)
         
         assert(dmsg.dest != INVALID_GPID);
 
-        if (!m_delegateOut.Write(dmsg))
+        if (dmsg.dest == dmsg.src)
         {
-            DeadlockWrite("Unable to buffer remote network message for CPU%u", (unsigned)dmsg.dest);
-            return false;
+            if (!m_delegateIn.Write(dmsg))
+            {
+                DeadlockWrite("Unable to buffer local network message to loopback");
+                return false;
+            }
+            DebugSimWrite("Sending local network message to loopback");
         }
-        DebugSimWrite("Sending remote network message to CPU%u", (unsigned)dmsg.dest);
+        else
+        {
+            if (!m_delegateOut.Write(dmsg))
+            {
+                DeadlockWrite("Unable to buffer remote network message for CPU%u", (unsigned)dmsg.dest);
+                return false;
+            }
+            DebugSimWrite("Sending remote network message to CPU%u", (unsigned)dmsg.dest);
+        }
     }
     return true;
 }
@@ -252,7 +265,10 @@ bool Network::SendGroupCreate(LFID fid, RegIndex completion)
     
     // Set the global context reservation signal
     assert(!m_place.m_reserve_context.IsSet());
-    m_place.m_reserve_context.Set();
+    if (!m_place.m_reserve_context.Set())
+    {
+        return false;
+    }
     
     DebugSimWrite("Sending group create for F%u", (unsigned)fid);
     return true;
@@ -261,21 +277,31 @@ bool Network::SendGroupCreate(LFID fid, RegIndex completion)
 /// Called by the Allocator when it wants to do a group create
 bool Network::RequestToken()
 {
-    m_wantToken.Set();
+    if (!m_wantToken.Set())
+    {
+        return false;
+    }
     m_place.m_want_token.Set(m_lpid);
     return true;
 }
 
 bool Network::OnTokenReceived()
 {
-    m_hasToken.Set();
+    if (!m_hasToken.Set())
+    {
+        return false;
+    }
     return true;
 }
 
-void Network::ReleaseToken()
+bool Network::ReleaseToken()
 {
     assert(m_hasToken.IsSet());
-    m_tokenBusy.Clear();
+    if (!m_tokenBusy.Clear())
+    {
+        return false;
+    }
+    return true;
 }
 
 bool Network::WriteRegister(const RemoteRegAddr& raddr, const RegValue& value)
@@ -510,6 +536,7 @@ Result Network::DoDelegationOut()
     assert(!m_delegateOut.Empty());
     const DelegateMessage& msg = m_delegateOut.Read();
     assert(msg.src == m_parent.GetPID());
+    assert(msg.dest != m_parent.GetPID());
 
     // Send to destination (could be ourselves)
     if (!m_grid[msg.dest]->GetNetwork().m_delegateIn.Write(msg))
@@ -558,7 +585,47 @@ Result Network::DoDelegationIn()
             ret.reg.addr.reg        = MAKE_REGADDR(RT_INTEGER, msg.allocate.completion);
             ret.reg.value.m_state   = RST_FULL;
             ret.reg.value.m_integer = m_parent.PackFID(fid);
+
+            if (msg.src == m_parent.GetPID())
+            {
+                /*
+                This response is meant for us. To avoid having to go to the output buffer,
+                and then into this input buffer again, we forcibly overwrite the contents
+                of the input register with the response.
+                This is also necessary to avoid a circular dependency on the output buffer.
+                */
+                DelegateMessage dmsg;
+                (RemoteMessage&)dmsg = ret;
+                dmsg.type = DelegateMessage::MSG_REGISTER;
+                dmsg.src  = msg.src;
+                dmsg.dest = msg.src;
+                m_delegateIn.Simulator::Register<DelegateMessage>::Write(dmsg);
+
+                // Return here to avoid clearing the input buffer. We want to process this
+                // response next cycle.
+                return SUCCESS;
+            }
             
+            if (msg.src == m_parent.GetPID())
+            {
+                /*
+                This response is meant for us. To avoid having to go to the output buffer,
+                and then into this input buffer again, we forcibly overwrite the contents
+                of the input register with the response.
+                This is also necessary to avoid a circular dependency on the output buffer.
+                */
+                DelegateMessage dmsg;
+                (RemoteMessage&)dmsg = ret;
+                dmsg.type = DelegateMessage::MSG_REGISTER;
+                dmsg.src  = msg.src;
+                dmsg.dest = msg.src;
+                m_delegateIn.Simulator::Register<DelegateMessage>::Write(dmsg);
+            
+                // Return here to avoid clearing the input buffer. We want to process this
+                // response next cycle.
+                return SUCCESS;
+            }
+
             if (!SendMessage(ret))
             {
                 DeadlockWrite("Unable to return FID for remote allocation");
@@ -845,8 +912,19 @@ Result Network::DoCreation()
                 DeadlockWrite("Unable to continue group create with token");
                 return FAILED;
             }
-            m_tokenBusy.Set();
-            m_wantToken.Clear();
+            
+            if (!m_tokenBusy.Set())
+            {
+                DeadlockWrite("Unable to set busy flag");
+                return FAILED;
+            }
+            
+            if (!m_wantToken.Clear())
+            {
+                DeadlockWrite("Unable to clear want-token flag");
+                return FAILED;
+            }
+            
             m_place.m_want_token.Clear(m_lpid);
         }
         else if (m_place.m_want_token.IsSet())
@@ -866,7 +944,11 @@ Result Network::DoCreation()
                 return FAILED;
             }
             
-            m_hasToken.Clear();
+            if (!m_hasToken.Clear())
+            {
+                DeadlockWrite("Unable to clear token flag");
+                return FAILED;
+            }
         }
         return SUCCESS;
     }
@@ -949,17 +1031,37 @@ Result Network::DoCreateResult()
     else
     {
         // This is the parent core
-        assert(family.link_prev == INVALID_LFID);
+        assert(family.link_prev   == INVALID_LFID);
+        assert(family.type        == Family::GROUP);
+        assert(family.parent_lpid == m_lpid);
 
         // Set up the previous link to the FID of the family on the last core.
         COMMIT{ family.link_prev = result.fid_last; }
         
-        // Notify of create completion
-        if (!m_allocator.OnCreateCompleted(result.fid_parent, result.completion))
+        // Write back the FID so the parent thread can continue
+        FID fid;
+        fid.lfid       = result.fid_parent;
+        fid.pid        = m_parent.GetPID();
+        fid.capability = family.capability;
+
+        RegAddr addr = MAKE_REGADDR(RT_INTEGER, result.completion);
+        RegValue value;
+        value.m_state = RST_FULL;
+        value.m_integer = m_parent.PackFID(fid);
+
+        if (!m_regFile.p_asyncW.Write(addr))
         {
-            DeadlockWrite("Unable to process create result for F%u", (unsigned)result.fid_parent);
+            DeadlockWrite("Unable to acquire port to write create completion to %s", addr.str().c_str());
             return FAILED;
         }
+
+        if (!m_regFile.WriteRegister(addr, value, false))
+        {
+            DeadlockWrite("Unable to write create completion to %s", addr.str().c_str());
+            return FAILED;
+        }
+
+        DebugSimWrite("Wrote create completion for F%u to %s", (unsigned)fid.lfid, addr.str().c_str());
     }
     
     m_createResult.in.Clear();

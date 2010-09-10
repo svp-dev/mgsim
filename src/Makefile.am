@@ -1,7 +1,6 @@
 # PROGRAMS is redefined below.
 bin_PROGRAMS = 
 bin_SCRIPTS = readtrace
-dist_bin_SCRIPTS = simx-cleanup-sems.sh
 noinst_PROGRAMS = 
 noinst_LIBRARIES =
 dist_man1_MANS =

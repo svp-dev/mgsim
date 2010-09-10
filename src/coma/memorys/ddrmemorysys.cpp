@@ -57,17 +57,11 @@ void DDRChannel::FunRead(ST_request* req)
     // update
     if ((req->type == REQUEST_ACQUIRE_TOKEN_DATA) && (req->tokenrequested == CacheState::GetTotalTokenNum()))
     {
-        for (unsigned int i=0;i<CACHE_BIT_MASK_WIDTH;i++)
+        for (unsigned int i = 0; i < CACHE_BIT_MASK_WIDTH; i++)
         {
-            unsigned int maskhigh = i/8;
-            unsigned int masklow = i%8;
-
-            char testchar = 1 << masklow;
-
-            if ((req->bitmask[maskhigh]&testchar) != 0)
+            if (req->bitmask[i])
             {
-                
-                memcpy(&tempdata[i*CACHE_REQUEST_ALIGNMENT], &req->data[i*CACHE_REQUEST_ALIGNMENT], CACHE_REQUEST_ALIGNMENT);
+                tempdata[i] = req->data[i];
             }
 
         }

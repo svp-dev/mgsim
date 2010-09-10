@@ -149,13 +149,13 @@ bool COMA::Node::SendMessage(Message* message, size_t min_space)
     return true;
 }
 
-COMA::Node::Node(const std::string& name, COMA& parent)
+COMA::Node::Node(const std::string& name, COMA& parent, Clock& clock)
     : Simulator::Object(name, parent),
       COMA::Object(name, parent),
       m_prev(NULL),
       m_next(NULL),
-      m_incoming(*parent.GetKernel(), 2),
-      m_outgoing(*parent.GetKernel(), 2),
+      m_incoming(clock, 2),
+      m_outgoing(clock, 2),
       p_Forward("forward", delegate::create<Node, &Node::DoForward>(*this))
 {
     g_References++;

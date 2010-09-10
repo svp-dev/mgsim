@@ -1,6 +1,7 @@
 #include "Pipeline.h"
 #include "Processor.h"
 #include "FPU.h"
+#include "symtable.h"
 #include <cassert>
 #include <cmath>
 #include <sstream>
@@ -485,6 +486,9 @@ Pipeline::PipeAction Pipeline::ExecuteStage::ExecuteInstruction()
             m_output.Rcv.m_integer = m_input.pc;
             m_output.Rcv.m_state   = RST_FULL;
             m_output.Rcv.m_size    = sizeof(Integer);
+            DebugFlowWrite("Call from %s to %s",
+                           GetKernel()->GetSymbolTable()[m_input.pc].c_str(),
+                           GetKernel()->GetSymbolTable()[m_output.pc].c_str());
         }
         return PIPE_FLUSH;
         
@@ -518,6 +522,9 @@ Pipeline::PipeAction Pipeline::ExecuteStage::ExecuteInstruction()
                 // Branch was taken; note that we don't annul
                 COMMIT {
                     m_output.pc = m_input.pc + m_input.displacement * sizeof(Instruction);
+                    DebugFlowWrite("Branch from %s to %s",
+                                   GetKernel()->GetSymbolTable()[m_input.pc].c_str(),
+                                   GetKernel()->GetSymbolTable()[m_output.pc].c_str());
                 }
                 return PIPE_FLUSH;
             }
@@ -853,6 +860,9 @@ Pipeline::PipeAction Pipeline::ExecuteStage::ExecuteInstruction()
                 m_output.pc   = target;
                 m_output.Rcv.m_integer = m_input.pc;
                 m_output.Rcv.m_state   = RST_FULL;
+                DebugFlowWrite("Long jump from %s to %s",
+                               GetKernel()->GetSymbolTable()[m_input.pc].c_str(),
+                               GetKernel()->GetSymbolTable()[m_output.pc].c_str());
             }
             return PIPE_FLUSH;
         }

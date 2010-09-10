@@ -23,6 +23,7 @@
 #include <fstream>
 #include <cmath>
 #include <limits>
+#include <cxxabi.h>
 
 using namespace Simulator;
 using namespace std;
@@ -81,6 +82,7 @@ using namespace std;
 #define CONFTAG_CACHE_V1   3
 #define CONFTAG_CONC_V1    4
 #define CONFTAG_LAYOUT_V1  5
+#define CONFTAG_TIMINGS_V2 6
 #define MAKE_TAG(Type, Size) (uint32_t)(((Type) << 16) | ((Size) & 0xffff))
 
 
@@ -101,17 +103,15 @@ void MGSystem::FillConfWords(ConfWords& words) const
           << m_memorytype
 
     
-    // timing words v1
-
-          << MAKE_TAG(CONFTAG_TIMINGS_V1, 2)
+    // timing words v2
+          << MAKE_TAG(CONFTAG_TIMINGS_V2, 4)
+          << m_kernel.GetMasterFrequency()
           << m_config.getInteger<uint32_t>("CoreFreq", 0)
+          << m_config.getInteger<uint32_t>("MemoryFreq", 0)
           << ((m_memorytype == MEMTYPE_COMA_ZL || m_memorytype == MEMTYPE_COMA_ML) ? 
-              m_config.getInteger<uint32_t>("DDRMemoryFreq", 0) 
-              * m_config.getInteger<uint32_t>("NumRootDirectories", 0)
-              * 3 /* DDR3 = triple rate */ 
-              * 8 /* 64 bit = 8 bytes per transfer */
+              m_config.getInteger<uint32_t>("DDRMemoryFreq", 0)
               : 0 /* no timing information if memory system is not COMA */)
-        
+
     // cache parameter words v1
     
           << MAKE_TAG(CONFTAG_CACHE_V1, 5)
@@ -225,6 +225,55 @@ std::basic_ostream<_CharT, _Traits>& operator<<(std::basic_ostream<_CharT, _Trai
     return os;
 }
 
+static string GetClassName(const type_info& info)
+{
+    const char* name = info.name();
+
+    // __cxa_demangle requires an output buffer
+    // allocated with malloc(). Provide it.
+    size_t len = 1024;
+    char *buf = (char*)malloc(len);
+    assert(buf != 0);
+
+    int status;
+
+    char *res = abi::__cxa_demangle(name, buf, &len, &status);
+
+    if (res && status == 0)
+    {
+        string ret = res;
+        free(res);
+        return ret;
+    }
+    else
+    {
+        if (res) free(res);
+        else free(buf);
+        return name;
+    }
+}
+
+// Print all components that are a child of root
+static void PrintComponents(std::ostream& out, const Object* cur, const string& indent)
+{
+    for (unsigned int i = 0; i < cur->GetNumChildren(); ++i)
+    {
+        const Object* child = cur->GetChild(i);
+        string str = indent + child->GetName();
+
+        out << str << " ";
+        for (size_t len = str.length(); len < 30; ++len) cout << " ";
+        out << GetClassName(typeid(*child)) << endl;
+
+        PrintComponents(out, child, indent + "  ");
+    }
+}
+
+void MGSystem::PrintComponents(std::ostream& out) const
+{
+    ::PrintComponents(out, &m_root, "");
+}
+
 void MGSystem::PrintCoreStats(std::ostream& os) const {
     struct my_iomanip_i fi;
     struct my_iomanip_f ff;
@@ -258,7 +307,7 @@ void MGSystem::PrintCoreStats(std::ostream& os) const {
         types[j] = I; c[i][j++].i = pl.GetNStages();
         types[j] = I; c[i][j++].i = pl.GetStagesRun();
         types[j] = PC; c[i][j++].f = 100. * pl.GetEfficiency();
-        types[j] = PC; c[i][j++].f = 100. * (float)pl.GetOp() / (float)m_kernel.GetCycleNo();
+        types[j] = PC; c[i][j++].f = 100. * (float)pl.GetOp() / (float)m_root.GetCycleNo();
         types[j] = I; c[i][j++].i = p.GetLocalFamilyCompletion();
         types[j] = I; c[i][j++].i = p.GetMaxThreadsAllocated();
         types[j] = I; c[i][j++].i = p.GetTotalThreadsAllocated();
@@ -403,24 +452,24 @@ void MGSystem::PrintCoreStats(std::ostream& os) const {
        << "# sts: number of store instructions executed" << endl
        << "# ibytes: number of bytes loaded from L1 cache into core" << endl
        << "# obytes: number of bytes stored into L1 cache from core" << endl
-       << "# regf_act: register file async port activity (= 100. * ncycles_asyncport_busy / ncycles_total)" << endl
-       << "# plbusy: number of cycles the pipeline was active" << endl
+       << "# regf_act: register file async port activity (= 100. * ncycles_asyncport_busy / ncorecycles_total)" << endl
+       << "# plbusy: number of corecycles the pipeline was active" << endl
        << "# plstgs: number of pipeline stages" << endl
-       << "# plstgrun: cumulative number of cycles active in all pipeline stages" << endl
+       << "# plstgrun: cumulative number of corecycles active in all pipeline stages" << endl
        << "# pl%busy: pipeline efficiency while active (= 100. * plstgrun / plstgs / plbusy)" << endl
-       << "# pl%eff: pipeline efficiency total (= 100. * iops / ncycles_total)" << endl
-       << "# lastend: time of last family termination" << endl
+       << "# pl%eff: pipeline efficiency total (= 100. * iops / ncorecycles_total)" << endl
+       << "# lastend: coretime of last family termination" << endl
        << "# ttmax: maximum of thread entries simulatenously allocated" << endl
-       << "# ttotal: cumulative number of thread entries busy" << endl
+       << "# ttotal: cumulative number of thread entries busy (over mastertime)" << endl
        << "# ttsize: thread table size" << endl
-       << "# tt%occ: thread table occupancy (= 100. * ttotal / ttsize / ncycles_total)" << endl
+       << "# tt%occ: thread table occupancy (= 100. * ttotal / ttsize / nmastercycles_total)" << endl
        << "# ttmax: maximum of family entries simulatenously allocated" << endl
-       << "# ftotal: cumulative number of family entries busy" << endl
+       << "# ftotal: cumulative number of family entries busy (over mastertime)" << endl
        << "# ftsize: family table size" << endl
-       << "# ft%occ: family table occupancy (= 100. * ftotal / ftsize / ncycles_total)" << endl
+       << "# ft%occ: family table occupancy (= 100. * ftotal / ftsize / nmastercycles_total)" << endl
        << "# xqmax: high water mark of the exclusive allocate queue size" << endl
-       << "# xqtot: cumulative exclusive allocate queue size" << endl
-       << "# xqavg: average size of the exclusive allocate queue (= xqtot / ncycles_total)" << endl;
+       << "# xqtot: cumulative exclusive allocate queue size (over mastertime)" << endl
+       << "# xqavg: average size of the exclusive allocate queue (= xqtot / nmastercycles_total)" << endl;
 
 }
 
@@ -439,33 +488,52 @@ void MGSystem::PrintState(const vector<string>& arguments) const
 {
     typedef map<string, RunState> StateMap;
 
-    StateMap   states;
-    streamsize length = 0;
-
     // This should be all non-idle processes
-    for (const Process* process = m_kernel.GetActiveProcesses(); process != NULL; process = process->GetNext())
+    for (const Clock* clock = m_kernel.GetActiveClocks(); clock != NULL; clock = clock->GetNext())
     {
-        const std::string name = process->GetName();
-        states[name] = process->GetState();
-        length = std::max(length, (streamsize)name.length());
-    }
-
-    cout << left << setfill(' ');
-    for (StateMap::const_iterator p = states.begin(); p != states.end(); ++p)
-    {
-        cout << setw(length) << p->first << ": ";
-        switch (p->second)
+        StateMap   states;
+        streamsize length = 0;
+        
+        if (clock->GetActiveProcesses() != NULL || clock->GetActiveStorages() != NULL || clock->GetActiveArbitrators() != NULL) 
         {
-        case STATE_IDLE:     assert(0); break;
-        case STATE_ACTIVE:   cout << "active"; break;
-        case STATE_DEADLOCK: cout << "stalled"; break;
-        case STATE_RUNNING:  cout << "running"; break;
-        case STATE_ABORTED:  assert(0); break;
-        }
-        cout << endl;
-    }
-    cout << endl;
+            cout << clock->GetFrequency() << " MHz clock (next tick at cycle " << dec << clock->GetNextTick() << "):" << endl;
 
+            for (const Process* process = clock->GetActiveProcesses(); process != NULL; process = process->GetNext())
+            {
+                const std::string name = process->GetName();
+                states[name] = process->GetState();
+                length = std::max(length, (streamsize)name.length());
+            }
+
+            cout << left << setfill(' ');
+            for (StateMap::const_iterator p = states.begin(); p != states.end(); ++p)
+            {
+                cout << "- " << setw(length) << p->first << ": ";
+                switch (p->second)
+                {
+                case STATE_IDLE:     assert(0); break;
+                case STATE_ACTIVE:   cout << "active"; break;
+                case STATE_DEADLOCK: cout << "stalled"; break;
+                case STATE_RUNNING:  cout << "running"; break;
+                case STATE_ABORTED:  assert(0); break;
+                }
+                cout << endl;
+            }
+            
+            if (clock->GetActiveStorages() != NULL)
+            {
+                cout << "- One or more storages need updating" << endl;
+            }
+
+            if (clock->GetActiveArbitrators() != NULL)
+            {
+                cout << "- One or more arbitrators need updating" << endl;
+            }
+            
+            cout << endl;
+        }
+    }
+        
     int width = (int)log10(m_procs.size()) + 1;
     for (size_t i = 0; i < m_procs.size(); ++i)
     {
@@ -516,14 +584,14 @@ void MGSystem::PrintFamilyCompletions(std::ostream& os) const
             last  = max(last,  cycle);
         }
     }
-    os << first << "\t# cycle counter at first family completion" << endl
-       << last << "\t# cycle counter at last family completion" << endl;
+    os << first << "\t# corecycle counter at first family completion" << endl
+       << last << "\t# corecycle counter at last family completion" << endl;
 }
 
 void MGSystem::PrintAllStatistics(std::ostream& os) const
 {
     os << dec;
-    os << GetKernel().GetCycleNo() << "\t# cycle counter" << endl
+    os << GetKernel().GetCycleNo() << "\t# mastercycle counter" << endl
        << GetOp() << "\t# total executed instructions" << endl
        << GetFlop() << "\t# total issued fp instructions" << endl;
     PrintCoreStats(os);
@@ -540,13 +608,13 @@ void MGSystem::PrintAllStatistics(std::ostream& os) const
 // Returns NULL when the component is not found
 Object* MGSystem::GetComponent(const string& path)
 {
-    Object* cur = this;
+    // Split path into components
     vector<string> names = Tokenize(path, ".");
+    Object* cur = &m_root;
     for (vector<string>::iterator p = names.begin(); cur != NULL && p != names.end(); ++p)
     {
-        transform(p->begin(), p->end(), p->begin(), ::toupper);
-
         Object* next = NULL;
+        transform(p->begin(), p->end(), p->begin(), ::toupper);
         for (unsigned int i = 0; i < cur->GetNumChildren(); ++i)
         {
             Object* child = cur->GetChild(i);
@@ -587,13 +655,16 @@ void MGSystem::Step(CycleNo nCycles)
         // See how many processes are in each of the states
         unsigned int num_stalled = 0, num_running = 0;
         
-        for (const Process* process = m_kernel.GetActiveProcesses(); process != NULL; process = process->GetNext())
+        for (const Clock* clock = m_kernel.GetActiveClocks(); clock != NULL; clock = clock->GetNext())
         {
-            switch (process->GetState())
+            for (const Process* process = clock->GetActiveProcesses(); process != NULL; process = process->GetNext())
             {
-            case STATE_DEADLOCK: ++num_stalled; break;
-            case STATE_RUNNING:  ++num_running; break;
-            default:             assert(false); break;
+                switch (process->GetState())
+                {
+                case STATE_DEADLOCK: ++num_stalled; break;
+                case STATE_RUNNING:  ++num_running; break;
+                default:             assert(false); break;
+                }
             }
         }
         
@@ -648,9 +719,10 @@ MGSystem::MGSystem(const Config& config, Display& display, const string& program
                    const vector<pair<RegAddr, RegValue> >& regs,
                    const vector<pair<RegAddr, string> >& loads,
                    bool quiet, bool doload)
-    : Object("system", m_kernel),
+    : m_kernel(display, m_symtable, m_breakpoints),
+      m_clock(m_kernel.CreateClock( (unsigned long long)(config.getInteger<float>("CoreFreq", 1000)) )),
+      m_root("system", m_clock),
       m_breakpoints(m_kernel),
-      m_kernel(display, m_symtable, m_breakpoints),
       m_program(program),
       m_config(config)
 {
@@ -676,10 +748,10 @@ MGSystem::MGSystem(const Config& config, Display& display, const string& program
         ++numFPUs;
         std::cerr << "# warning: last FPU in place " << i-1 << " is not shared fully" << std::endl;
     }
-
+    
 #ifdef ENABLE_COMA_ZL
     m_objects.resize(numProcessors + numFPUs + 1);
-    ZLCOMA* memory = new ZLCOMA("memory", *this, config);
+    ZLCOMA* memory = new ZLCOMA("memory", m_root, m_clock, config);
     m_objects.back() = memory;
     m_memory = memory;
     m_memorytype = MEMTYPE_COMA_ZL;
@@ -687,29 +759,31 @@ MGSystem::MGSystem(const Config& config, Display& display, const string& program
     std::string memory_type = config.getString("MemoryType", "");
     std::transform(memory_type.begin(), memory_type.end(), memory_type.begin(), ::toupper);
 
+    Clock& memclock = m_kernel.CreateClock( config.getInteger<size_t>("MemoryFreq", 1000));
+    
     m_objects.resize(numProcessors + numFPUs + 1);
     if (memory_type == "SERIAL") {
-        SerialMemory* memory = new SerialMemory("memory", *this, config);
+        SerialMemory* memory = new SerialMemory("memory", m_root, memclock, config);
         m_objects.back() = memory;
         m_memory = memory;
         m_memorytype = MEMTYPE_SERIAL;
     } else if (memory_type == "PARALLEL") {
-        ParallelMemory* memory = new ParallelMemory("memory", *this, config);
+        ParallelMemory* memory = new ParallelMemory("memory", m_root, memclock, config);
         m_objects.back() = memory;
         m_memory = memory;
         m_memorytype = MEMTYPE_PARALLEL;
     } else if (memory_type == "BANKED") {
-        BankedMemory* memory = new BankedMemory("memory", *this, config);
+        BankedMemory* memory = new BankedMemory("memory", m_root, memclock, config);
         m_objects.back() = memory;
         m_memory = memory;
         m_memorytype = MEMTYPE_BANKED;
     } else if (memory_type == "RANDOMBANKED") {
-        RandomBankedMemory* memory = new RandomBankedMemory("memory", *this, config);
+        RandomBankedMemory* memory = new RandomBankedMemory("memory", m_root, memclock, config);
         m_objects.back() = memory;
         m_memory = memory;
         m_memorytype = MEMTYPE_RANDOMBANKED;
     } else if (memory_type == "COMA") {
-        COMA* memory = new COMA("memory", *this, config);
+        COMA* memory = new COMA("memory", m_root, memclock, config);
         m_objects.back() = memory;
         m_memory = memory;
         m_memorytype = MEMTYPE_COMA_ML;
@@ -724,7 +798,7 @@ MGSystem::MGSystem(const Config& config, Display& display, const string& program
     {
         stringstream name;
         name << "fpu" << f;
-        m_fpus[f] = new FPU(name.str(), *this, config, numProcessorsPerFPU);
+        m_fpus[f] = new FPU(name.str(), m_root, m_clock, config, numProcessorsPerFPU);
     }
 
     // Create processor grid
@@ -735,7 +809,7 @@ MGSystem::MGSystem(const Config& config, Display& display, const string& program
     PSize first = 0;
     for (size_t p = 0; p < placeSizes.size(); ++p)
     {
-        m_places[p] = new PlaceInfo(m_kernel, placeSizes[p]);
+        m_places[p] = new PlaceInfo(m_clock, placeSizes[p]);
         for (size_t i = 0; i < m_places[p]->m_size; ++i)
         {
             PSize pid = (first + i);
@@ -743,7 +817,7 @@ MGSystem::MGSystem(const Config& config, Display& display, const string& program
 
             stringstream name;
             name << "cpu" << pid;
-            m_procs[pid]   = new Processor(name.str(), *this, pid, i, m_procs, m_procs.size(), 
+            m_procs[pid]   = new Processor(name.str(), m_root, m_clock, pid, i, m_procs, m_procs.size(), 
                                            *m_places[p], *m_memory, fpu, config);
             m_objects[pid] = m_procs[pid];
         }
@@ -828,6 +902,18 @@ MGSystem::MGSystem(const Config& config, Display& display, const string& program
     const char *v = getenv(objdump_var);
     if (!v) v = default_objdump;
     m_objdump_cmd = v;
+    
+    if (!quiet)
+    {
+        static char const qual[] = {'M', 'G', 'T', 'P', 'E', 'Z', 'Y'};
+        unsigned long long freq = m_kernel.GetMasterFrequency();
+        unsigned int q;
+        for (q = 0; freq % 1000 == 0 && q < sizeof(qual)/sizeof(qual[0]); ++q)
+        {
+            freq /= 1000;
+        }
+        cout << "Created Microgrid; simulation running at " << dec << freq << " " << qual[q] << "Hz" << endl;
+    }
 }
 
 MGSystem::~MGSystem()

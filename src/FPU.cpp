@@ -78,7 +78,7 @@ FPU::Result FPU::CalculateResult(const Operation& op) const
 
 bool FPU::OnCompletion(unsigned int unit, const Result& res) const
 {
-    const CycleNo now = GetKernel()->GetCycleNo();
+    const CycleNo now = GetCycleNo();
     
     if (res.source->last_write == now && res.source->last_unit != unit)
     {
@@ -245,9 +245,9 @@ Result FPU::DoPipeline()
     return (num_units_failed == num_units_active && num_sources_failed == num_sources_active) ? FAILED : SUCCESS;
 }
 
-FPU::FPU(const std::string& name, Object& parent, const Config& config, size_t num_inputs)
-    : Object(name, parent),
-      m_active(*parent.GetKernel()),
+FPU::FPU(const std::string& name, Object& parent, Clock& clock, const Config& config, size_t num_inputs)
+    : Object(name, parent, clock),
+      m_active(clock),
       p_Pipeline("pipeline", delegate::create<FPU, &FPU::DoPipeline>(*this) )
 {
     m_active.Sensitive(p_Pipeline);
@@ -301,7 +301,7 @@ FPU::FPU(const std::string& name, Object& parent, const Config& config, size_t n
         for (size_t i = 0; i < num_inputs; ++i)
         {
             m_sources.push_back(NULL);
-            Source* source = new Source(*parent.GetKernel(), input_buffer_size);
+            Source* source = new Source(clock, input_buffer_size);
             source->inputs.Sensitive(p_Pipeline);
             m_sources.back() = source;
         }       

@@ -85,6 +85,10 @@ bool COMA::RootDirectory::OnReadCompleted(MemAddr address, const MemData& data)
     }
     
     // We're done with this request
+    if (!m_memready.Set())
+    {
+        return false;
+    }
     COMMIT{ m_activeMsg = NULL; }
     return true;
 }
@@ -107,7 +111,7 @@ bool COMA::RootDirectory::OnMessageReceived(Message* msg)
         
         // Find or allocate the line
         Line* line = FindLine(msg->address, false);
-        if (line->state == LINE_EMPTY)
+        if (line != NULL && line->state == LINE_EMPTY)
         {
             // Line has not been read yet it; queue the read
             TraceWrite(msg->address, "Received Read Request; Miss; Queuing request");
@@ -229,11 +233,12 @@ Result COMA::RootDirectory::DoRequests()
 {
     assert(!m_requests.Empty());
 
-    if (m_activeMsg != NULL)
+    if (!m_memready.IsSet())
     {
         // We're currently processing a read that will produce a reply, stall
         return FAILED;
     }
+    assert(m_activeMsg == NULL);
     
     Message* msg = m_requests.Front();
     if (msg->ignore)
@@ -250,6 +255,11 @@ Result COMA::RootDirectory::DoRequests()
         {
             // It's a read
             if (!m_memory->Read(msg->address, m_lineSize))
+            {
+                return FAILED;
+            }
+            
+            if (!m_memready.Clear())
             {
                 return FAILED;
             }
@@ -313,17 +323,18 @@ Result COMA::RootDirectory::DoResponses()
     return SUCCESS;
 }
 
-COMA::RootDirectory::RootDirectory(const std::string& name, COMA& parent, VirtualMemory& memory, size_t numCaches, const Config& config) :
+COMA::RootDirectory::RootDirectory(const std::string& name, COMA& parent, Clock& clock, VirtualMemory& memory, size_t numCaches, const Config& config) :
     Simulator::Object(name, parent),
     COMA::Object(name, parent),
-    DirectoryBottom(name, parent),
+    DirectoryBottom(name, parent, clock),
     m_lineSize(config.getInteger<size_t>("CacheLineSize",           64)),
     m_assoc   (config.getInteger<size_t>("COMACacheAssociativity",   4) * numCaches),
     m_sets    (config.getInteger<size_t>("COMACacheNumSets",       128)),
     m_numCaches(numCaches),
-    p_lines    (*this, "p_lines"),    
-    m_requests (*parent.GetKernel(), INFINITE),
-    m_responses(*parent.GetKernel(), INFINITE),
+    p_lines    (*this, clock, "p_lines"),    
+    m_requests (clock, INFINITE),
+    m_responses(clock, INFINITE),
+    m_memready (clock, true),
     m_activeMsg(NULL),
     p_Incoming ("incoming",  delegate::create<RootDirectory, &RootDirectory::DoIncoming>(*this)),
     p_Requests ("requests",  delegate::create<RootDirectory, &RootDirectory::DoRequests>(*this)),
@@ -346,7 +357,8 @@ COMA::RootDirectory::RootDirectory(const std::string& name, COMA& parent, Virtua
     p_lines.AddProcess(p_Incoming);
     p_lines.AddProcess(p_Responses);
 
-    m_memory = new DDRChannel("ddr", *this, memory);
+    Clock& ddrclock = GetKernel()->CreateClock( config.getInteger<size_t>("DDRMemoryFreq", 800));
+    m_memory = new DDRChannel("ddr", *this, ddrclock, memory, config);
 }
 
 COMA::RootDirectory::~RootDirectory()

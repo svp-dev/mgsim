@@ -13,9 +13,9 @@ namespace Simulator
 // RegisterFile implementation
 //
 
-RegisterFile::RegisterFile(const std::string& name, Processor& parent, Allocator& alloc, const Config& config)
-  : Structure<RegAddr>(name, parent),
-    Storage(*parent.GetKernel()),
+RegisterFile::RegisterFile(const std::string& name, Processor& parent, Clock& clock, Allocator& alloc, const Config& config)
+  : Structure<RegAddr>(name, parent, clock),
+    Storage(clock),
     p_pipelineR1(*this, "p_pipelineR1"),
     p_pipelineR2(*this, "p_pipelineR2"),
     p_pipelineW (*this, "p_pipelineW"),

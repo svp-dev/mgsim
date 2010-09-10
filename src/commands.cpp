@@ -13,7 +13,6 @@
 #include <csignal>
 #include <sstream>
 #include <iomanip>
-#include <cxxabi.h>
 
 using namespace Simulator;
 using namespace std;
@@ -314,7 +313,7 @@ void HandleCommandLine(CommandLineReader& clr,
         }
         else if (command == "p" || command == "print")
         {
-            PrintComponents(std::cout, &sys);
+            sys.PrintComponents(std::cout);
         }
         else if (command == "exit" || command == "quit")
         {
@@ -353,6 +352,8 @@ void HandleCommandLine(CommandLineReader& clr,
             if (state == "SIM")      sys.ToggleDebugMode(Kernel::DEBUG_SIM);
             else if (state == "PROG")     sys.ToggleDebugMode(Kernel::DEBUG_PROG);
             else if (state == "DEADLOCK") sys.ToggleDebugMode(Kernel::DEBUG_DEADLOCK);
+            else if (state == "FLOW")     sys.ToggleDebugMode(Kernel::DEBUG_FLOW);
+            else if (state == "MEM")      sys.ToggleDebugMode(Kernel::DEBUG_MEM);
             else if (state == "ALL")      sys.SetDebugMode(-1);
             else if (state == "NONE")     sys.SetDebugMode(0);
                 
@@ -361,6 +362,8 @@ void HandleCommandLine(CommandLineReader& clr,
             if (m & Kernel::DEBUG_PROG)     debugStr += " program";
             if (m & Kernel::DEBUG_SIM)      debugStr += " simulator";
             if (m & Kernel::DEBUG_DEADLOCK) debugStr += " deadlocks";
+            if (m & Kernel::DEBUG_FLOW)     debugStr += " flow";
+            if (m & Kernel::DEBUG_MEM)      debugStr += " memory";
             if (!debugStr.size()) debugStr = " (nothing)";
             cout << "Debugging:" << debugStr << endl;
         }
@@ -490,51 +493,6 @@ void PrintException(ostream& out, const exception& e)
         }
     }
 }
-
-static string GetClassName(const type_info& info)
-{
-    const char* name = info.name();
-
-    // __cxa_demangle requires an output buffer 
-    // allocated with malloc(). Provide it.
-    size_t len = 1024;
-    char *buf = (char*)malloc(len);
-    assert(buf != 0);
-
-    int status;
-
-    char *res = abi::__cxa_demangle(name, buf, &len, &status);
-
-    if (res && status == 0)
-    {
-        string ret = res;
-        free(res);
-        return ret;
-    }
-    else
-    {
-        if (res) free(res);
-        else free(buf);
-        return name;
-    }
-}
-
-// Print all components that are a child of root
-void PrintComponents(std::ostream& out, const Object* root, const string& indent)
-{
-    for (unsigned int i = 0; i < root->GetNumChildren(); ++i)
-    {
-        const Object* child = root->GetChild(i);
-        string str = indent + child->GetName();
-
-        out << str << " ";
-        for (size_t len = str.length(); len < 30; ++len) cout << " ";
-        out << GetClassName(typeid(*child)) << endl;
-
-        PrintComponents(out, child, indent + "  ");
-    }
-}
-
 
 /// The currently active system, for the signal handler
 static MGSystem* active_system = NULL;

@@ -18,10 +18,15 @@ namespace Simulator
 
 void ArbitratedPort::AddRequest(const Process& process)
 {
-    // A process should not request a port more than once
-    // in a cycle or Bad Things (TM) could happen
-    assert(find(m_requests.begin(), m_requests.end(), &process) == m_requests.end());
-
+    if (std::find(m_requests.begin(), m_requests.end(), &process) != m_requests.end())
+    {
+        // A process can request more than once in a cycle if the requester is in a higher frequency
+        // domain than the arbitrator.
+        
+        // But obviously the clocks should differ, or else it's a bug.
+        assert(&process.GetObject()->GetClock() != &m_object.GetClock());
+        return;
+    }
     m_requests.push_back(&process);
 }
 
@@ -108,8 +113,8 @@ void CyclicArbitratedPort::Arbitrate()
 //
 // IStructure class
 //
-IStructure::IStructure(const std::string& name, Object& parent)
-    : Object(name, parent), Arbitrator(*parent.GetKernel())
+IStructure::IStructure(const std::string& name, Object& parent, Clock& clock)
+    : Object(name, parent, clock), Arbitrator(clock)
 {
 }
 

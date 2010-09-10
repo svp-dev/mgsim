@@ -15,6 +15,7 @@ TopologyS::TopologyS()
     const Config& config = *g_Config;
 
     g_nCacheLineSize       = cf.m_nLineSize;
+    g_pMemoryDataContainer = this;
 
     assert(cf.m_nProcessorsPerCache > 0);
     assert(cf.m_nCachesPerDirectory > 0);
@@ -26,11 +27,11 @@ TopologyS::TopologyS()
     m_pclkmem  = new sc_clock("clkmem",  cf.m_nCycleTimeMemory, SC_PS);
 
     // Create L2 caches
-    m_ppCacheL2.resize((cf.m_nProcs + cf.m_nProcessorsPerCache - 1) / cf.m_nProcessorsPerCache);
+    m_ppCacheL2.resize( std::max(2U, (cf.m_nProcs + cf.m_nProcessorsPerCache - 1) / cf.m_nProcessorsPerCache) );
     for (unsigned int i = 0; i < m_ppCacheL2.size(); i++)
     {
         sprintf(tempname, "cache%d", i);
-        m_ppCacheL2[i] = new CacheL2TOK(tempname, *m_pclkroot,
+        m_ppCacheL2[i] = new CacheL2TOK(tempname, *m_pclkroot, i,
             cf.m_nCacheSet,
             cf.m_nCacheAssociativity,
             cf.m_nLineSize,
@@ -53,18 +54,19 @@ TopologyS::TopologyS()
     m_ppDirectoryL0.resize((m_ppCacheL2.size() + cf.m_nCachesPerDirectory - 1) / cf.m_nCachesPerDirectory);
     for (unsigned int i = 0; i < m_ppDirectoryL0.size(); i++)
     {
+        unsigned int first = i * cf.m_nCachesPerDirectory;
+        unsigned int last  = std::min(first + cf.m_nCachesPerDirectory, (unsigned)m_ppCacheL2.size()) - 1;
+        
         std::stringstream name;
         name << "dir" << i;
         m_ppDirectoryL0[i] = new DirectoryTOK(name.str().c_str(), *m_pclkroot,
+           first, last,
            cf.m_nCacheSet,
            cf.m_nCacheAssociativity * cf.m_nCachesPerDirectory,
            cf.m_nLineSize,
            cf.m_nCacheAccessTime );
 
         // Connect this ring
-        unsigned int first = i * cf.m_nCachesPerDirectory;
-        unsigned int last  = first + cf.m_nCachesPerDirectory - 1;
-        
         static_cast<NetworkBelow_Node*>(m_ppDirectoryL0[i])->SetNext(m_ppCacheL2[first]);
         for (unsigned int j = first; j < last; j++)
         {

@@ -2,6 +2,7 @@
 #include "ISA.alpha.h"
 #include "Processor.h"
 #include "FPU.h"
+#include "symtable.h"
 #include <cassert>
 #include <sstream>
 #include <iomanip>
@@ -945,6 +946,9 @@ Pipeline::PipeAction Pipeline::ExecuteStage::ExecuteInstruction()
                 {
                     COMMIT
                     {
+                        DebugFlowWrite("Branch from %s to %s",
+                                       GetKernel()->GetSymbolTable()[m_output.pc].c_str(),
+                                       GetKernel()->GetSymbolTable()[target].c_str());
                         m_output.pc   = target;
                         m_output.swch = true;
                     }
@@ -967,6 +971,10 @@ Pipeline::PipeAction Pipeline::ExecuteStage::ExecuteInstruction()
             // Unconditional Jumps
             COMMIT
             {
+                DebugFlowWrite("Branch from %s to %s",
+                               GetKernel()->GetSymbolTable()[m_output.pc].c_str(),
+                               GetKernel()->GetSymbolTable()[target].c_str());
+
                 // Store the address of the next instruction
                 if ((next & 63) == 0)
                 {
@@ -1257,7 +1265,7 @@ Pipeline::PipeAction Pipeline::ExecuteStage::ExecuteInstruction()
                 // extra precision from the cycle counter. 
                 COMMIT {
                     m_output.Rcv.m_state   = RST_FULL;
-                    m_output.Rcv.m_integer = GetKernel()->GetCycleNo();
+                    m_output.Rcv.m_integer = GetCycleNo();
                 }
                 break;
         }

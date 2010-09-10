@@ -120,7 +120,7 @@ struct Family
 class FamilyTable : public Object
 {
 public:
-    FamilyTable(const std::string& name, Processor& parent, const Config& config);
+    FamilyTable(const std::string& name, Processor& parent, Clock& clock, const Config& config);
 
     FSize GetNumFamilies() const { return m_families.size(); }
 

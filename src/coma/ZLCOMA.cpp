@@ -12,10 +12,11 @@ namespace Simulator
 
 class ZLCOMA::Link : public Object
 {
-    SingleFlag            m_active;
+    SingleFlag            m_active1;
+    SingleFlag            m_active2;
     IMemoryCallback*      m_callback;
-    unsigned int          m_nRequests;
     MemSim::ProcessorTOK& m_link;
+    std::set<MemSim::ST_request*> m_requests;
     Process               p_Requests;
     unsigned int          m_nPID;
     
@@ -54,11 +55,6 @@ class ZLCOMA::Link : public Object
                 return SUCCESS;
             }
 
-            if (req->bbackinv) {
-                // Pop the initiator if the WR is actually broadcasted, instead of directly sent
-                COMMIT{ pop_initiator(req); }
-            }
-
             if (!m_callback->OnMemoryWriteCompleted(req->tid))
             {
                 return FAILED;
@@ -79,14 +75,18 @@ class ZLCOMA::Link : public Object
 
         if (req->type != MemSim::MemoryState::REQUEST_INVALIDATE_BR)
         {
-            // Decrement the request counter
-            assert(m_nRequests > 0);
-            if (m_nRequests == 1)
+            size_t left = m_requests.size();
+            if (m_requests.find(req) != m_requests.end())
+            {
+                COMMIT{ m_requests.erase(req); }
+                left--;
+            }
+            
+            if (left == 0)
             {
                 // This was the last pending request
-               m_active.Clear();
+                m_active1.Clear();
             }
-            COMMIT{ m_nRequests--; }
         }
             
         // We've handled the reply, remove it
@@ -126,10 +126,10 @@ public:
             req->type       = MemSim::MemoryState::REQUEST_READ;
             m_link.PutRequest(req);
 
-            m_nRequests++;
+            m_requests.insert(req);
         }
 
-        m_active.Set();
+        m_active1.Set();
     }
 
     void Write(PSize pid, MemAddr address, const void* data, MemSize size, TID tid)
@@ -153,22 +153,24 @@ public:
             memcpy(&req->data[req->offset], data, size);
             m_link.PutRequest(req);
 
-            m_nRequests++;
+            m_requests.insert(req);
         }
 
-        m_active.Set();
+        m_active1.Set();
     }
     
     Link(Object& parent, unsigned int nPID, MemSim::ProcessorTOK& link)
       : Object("link", parent),
-        m_active(*parent.GetKernel(), false),
+        m_active1(GetClock(), false),
+        m_active2(GetClock(), false),
         m_callback(NULL),
-        m_nRequests(0),
         m_link(link),
         p_Requests("requests", delegate::create<Link, &Link::DoRequests>(*this)),
         m_nPID(nPID)
     {
-        m_active.Sensitive(p_Requests);
+        link.m_active = &m_active2;
+        m_active1.Sensitive(p_Requests);
+        m_active2.Sensitive(p_Requests);
     }
 };
 
@@ -212,32 +214,38 @@ bool ZLCOMA::Write(PSize pid, MemAddr address, const void* data, MemSize size, T
 
 void ZLCOMA::Reserve(MemAddr address, MemSize size, int perm)
 {
-    return VirtualMemory::Reserve(address, size, perm);
+    return g_pMemoryDataContainer->Reserve(address, size, perm);
+    //return VirtualMemory::Reserve(address, size, perm);
 }
 
 void ZLCOMA::Unreserve(MemAddr address)
 {
-    return VirtualMemory::Unreserve(address);
+    return g_pMemoryDataContainer->Unreserve(address);
+    //return VirtualMemory::Unreserve(address);
 }
 
 bool ZLCOMA::Allocate(MemSize size, int perm, MemAddr& address)
 {
-    return VirtualMemory::Allocate(size, perm, address);
+    return g_pMemoryDataContainer->Allocate(size, perm, address);
+    //return VirtualMemory::Allocate(size, perm, address);
 }
 
 void ZLCOMA::Read(MemAddr address, void* data, MemSize size)
 {
-    return VirtualMemory::Read(address, data, size);
+    return g_pMemoryDataContainer->Read(address, data, size);
+    //return VirtualMemory::Read(address, data, size);
 }
 
 void ZLCOMA::Write(MemAddr address, const void* data, MemSize size)
 {
-	return VirtualMemory::Write(address, data, size);
+    return g_pMemoryDataContainer->Write(address, data, size);
+	//return VirtualMemory::Write(address, data, size);
 }
 
 bool ZLCOMA::CheckPermissions(MemAddr address, MemSize size, int access) const
 {
-	return VirtualMemory::CheckPermissions(address, size, access);
+    return g_pMemoryDataContainer->CheckPermissions(address, size, access);
+	//return VirtualMemory::CheckPermissions(address, size, access);
 }
 
 static size_t GetNumProcessors(const Config& config)
@@ -250,8 +258,8 @@ static size_t GetNumProcessors(const Config& config)
     return numProcessors;
 }
 
-ZLCOMA::ZLCOMA(const std::string& name, Simulator::Object& parent, const Config& config) :
-    Object(name, parent),
+ZLCOMA::ZLCOMA(const std::string& name, Simulator::Object& parent, Clock& clock, const Config& config) :
+    Object(name, parent, clock),
     m_links(GetNumProcessors(config), NULL),
     m_nreads(0), m_nwrites(0), m_nread_bytes(0), m_nwrite_bytes(0)
 {
@@ -264,8 +272,6 @@ ZLCOMA::ZLCOMA(const std::string& name, Simulator::Object& parent, const Config&
     {
         m_links[i] = new Link(*this, i, *g_Links[i]);
     }
-    
-    g_pMemoryDataContainer = this;
 }
 
 ZLCOMA::~ZLCOMA()

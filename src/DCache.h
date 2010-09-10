@@ -80,7 +80,7 @@ private:
     Result DoOutgoingRequests();
 
 public:
-    DCache(const std::string& name, Processor& parent, Allocator& allocator, FamilyTable& familyTable, RegisterFile& regFile, const Config& config);
+    DCache(const std::string& name, Processor& parent, Clock& clock, Allocator& allocator, FamilyTable& familyTable, RegisterFile& regFile, const Config& config);
     ~DCache();
     
     // Processes

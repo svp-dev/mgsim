@@ -46,6 +46,8 @@ public:
     static const unsigned int LINEQUEUESIZE;
 
 private:
+    CacheID      m_firstCache;
+    CacheID      m_lastCache;
     unsigned int m_nLineSize;
 	unsigned int m_nSet;
 	unsigned int m_nAssociativity;
@@ -127,8 +129,7 @@ private:
     void OnBELDisseminateTokenData(ST_request *);
     void OnBELDirNotification(ST_request *);
 
-    // judge whether the request is from local ring or upper level
-    bool IsRequestLocal(ST_request* req, bool recvfrombelow);
+    bool IsBelow(CacheID id) const;
     
     //////////////////////////////////////////////////////////////////////////
     // cache interfaces
@@ -137,12 +138,23 @@ private:
     unsigned int DirIndex(__address_t);
     uint64 DirTag(__address_t);
 
+    void BehaviorNodeAbove()
+    {
+        NetworkAbove_Node::BehaviorNode();
+    }
+
+    void BehaviorNodeBelow()
+    {
+        NetworkBelow_Node::BehaviorNode();
+    }
 public:
 	// directory should be defined large enough to hold all the information in the hierarchy below
 	SC_HAS_PROCESS(DirectoryTOK);
 	
-	DirectoryTOK(sc_module_name nm, sc_clock& clock, unsigned int nset, unsigned int nassoc, unsigned int nlinesize, unsigned int latency = 5) 
+	DirectoryTOK(sc_module_name nm, sc_clock& clock, CacheID firstCache, CacheID lastCache, unsigned int nset, unsigned int nassoc, unsigned int nlinesize, unsigned int latency = 5) 
       : sc_module(nm),
+        m_firstCache(firstCache),
+        m_lastCache(lastCache),
         m_nLineSize(nlinesize),
 	    m_nSet(nset),
 	    m_nAssociativity(nassoc),
@@ -154,12 +166,12 @@ public:
 	    ST_request::s_nRequestAlignedSize = nlinesize;
 	    
         // forward below interface
-        declare_method_process(BehaviorNodeBelow_handle, "BehaviorNodeBelow", SC_CURRENT_USER_MODULE, NetworkBelow_Node::BehaviorNode);
+        SC_METHOD(BehaviorNodeBelow);
         sensitive << clock.negedge_event();
         dont_initialize();
 
         // forward above interface
-        declare_method_process(BehaviorNodeAbove_handle, "BehaviorNodeAbove", SC_CURRENT_USER_MODULE, NetworkAbove_Node::BehaviorNode);
+        SC_METHOD(BehaviorNodeAbove);
         sensitive << clock.negedge_event();
         dont_initialize();
 	    

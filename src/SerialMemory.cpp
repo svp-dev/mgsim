@@ -123,7 +123,7 @@ Result SerialMemory::DoRequests()
     assert(!m_requests.Empty());
 
     const Request& request = m_requests.Front();
-    const CycleNo  now     = GetKernel()->GetCycleNo();
+    const CycleNo  now     = GetCycleNo();
         
     if (m_nextdone > 0)
     {
@@ -170,10 +170,11 @@ Result SerialMemory::DoRequests()
     return SUCCESS;
 }
 
-SerialMemory::SerialMemory(const std::string& name, Object& parent, const Config& config) :
-    Object(name, parent),
-    m_requests       (*parent.GetKernel(), config.getInteger<BufferSize>("MemoryBufferSize", INFINITE)),
-    p_requests       (*this, "m_requests"),
+SerialMemory::SerialMemory(const std::string& name, Object& parent, Clock& clock, const Config& config) :
+    Object(name, parent, clock),
+    m_clock          (clock),
+    m_requests       (clock, config.getInteger<BufferSize>("MemoryBufferSize", INFINITE)),
+    p_requests       (*this, clock, "m_requests"),
     m_baseRequestTime(config.getInteger<CycleNo>   ("MemoryBaseRequestTime", 1)),
     m_timePerLine    (config.getInteger<CycleNo>   ("MemoryTimePerLine", 1)),
     m_sizeOfLine     (config.getInteger<CycleNo>   ("MemorySizeOfLine", 8)),

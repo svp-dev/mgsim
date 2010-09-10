@@ -73,7 +73,7 @@ public:
 		CREATE_NOTIFY,              // Notify the parent that the context is created
 	};
 
-    Allocator(const std::string& name, Processor& parent,
+    Allocator(const std::string& name, Processor& parent, Clock& clock,
         FamilyTable& familyTable, ThreadTable& threadTable, RegisterFile& registerFile, RAUnit& raunit, ICache& icache, Network& network, Pipeline& pipeline,
         PlaceInfo& place, LPID lpid, const Config& config);
 
@@ -100,7 +100,6 @@ public:
     bool   QueueCreate(const FID& fid, MemAddr address, RegIndex completion);
 	bool   ActivateFamily(LFID fid);
 	
-	bool   OnCreateCompleted(LFID fid, RegIndex completion);
 	LFID   OnGroupCreate(const GroupCreateMessage& msg);
     bool   OnDelegatedCreate(const RemoteCreateMessage& msg, GPID remote_pid);
     
@@ -183,6 +182,7 @@ private:
 	CID                   m_createLine;	   	///< Cache line that holds the register info
     ThreadList            m_readyThreads1;  ///< Queue of the threads can be activated; from the pipeline
     ThreadList            m_readyThreads2;  ///< Queue of the threads can be activated; from the rest
+    ThreadList*           m_prevReadyList;  ///< Which ready list was used last cycle. For round-robin prioritization.
     
     Result DoThreadAllocate();
     Result DoFamilyAllocate();

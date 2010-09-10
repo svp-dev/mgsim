@@ -24,11 +24,11 @@ struct PlaceInfo
     MultiFlag    m_reserve_context; ///< Place-global flag for reserving a context
     CombinedFlag m_want_token;      ///< Place-global signal for token request
 
-    PlaceInfo(Kernel& kernel, unsigned int size)
+    PlaceInfo(Clock& clock, unsigned int size)
         : m_size(size),
-          m_full_context(kernel, size),
-          m_reserve_context(kernel, false),
-          m_want_token(kernel, size)
+          m_full_context(clock, size),
+          m_reserve_context(clock, false),
+          m_want_token(clock, size)
     {
     }
 };
@@ -38,7 +38,7 @@ class FPU;
 class Processor : public Object, public IMemoryCallback
 {
 public:
-    Processor(const std::string& name, Object& parent, GPID pid, LPID lpid, const std::vector<Processor*>& grid, PSize gridSize, PlaceInfo& place, IMemory& m_memory, FPU& fpu, const Config& config);
+    Processor(const std::string& name, Object& parent, Clock& clock, GPID pid, LPID lpid, const std::vector<Processor*>& grid, PSize gridSize, PlaceInfo& place, IMemory& m_memory, FPU& fpu, const Config& config);
     ~Processor();
     
     void Initialize(Processor& prev, Processor& next, MemAddr runAddress, bool legacy);
@@ -52,7 +52,7 @@ public:
     Pipeline& GetPipeline() { return m_pipeline; }
     
     float GetRegFileAsyncPortActivity() const {
-        return (float)m_registerFile.p_asyncW.GetBusyCycles() / (float)GetKernel()->GetCycleNo();
+        return (float)m_registerFile.p_asyncW.GetBusyCycles() / (float)GetCycleNo();
     }
 	
     CycleNo GetLocalFamilyCompletion() const { return m_localFamilyCompletion; }

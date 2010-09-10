@@ -102,13 +102,12 @@ public:
         return true;
     }
 
-    // find the item in the matching buffer
     Td* FindBufferItem(const Tk& key) const
     {
         int index;
         return FindBufferItem(key, index);
     }
-    
+
     // find the item in the matching buffer
     Td* FindBufferItem(const Tk& key, int &index) const
     {

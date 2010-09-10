@@ -8,23 +8,15 @@
 #include <set>
 #include <list>
 #include <map>
-#include "simcontrol.h"
 #include <stdint.h>
+#include <algorithm>
 
 using namespace std;
 
 namespace MemSim
 {
 
-#define INITIATOR_TABLE_SIZE    7
-
-#define ADD_INITIATOR(req, a) \
-    assert(req->curinitiator < INITIATOR_TABLE_SIZE); \
-    req->initiatortable[req->curinitiator] = (SimObj*)(a); \
-    req->curinitiator++
-
-#define IS_INITIATOR(req, a)   (get_initiator(req)  == (SimObj*)(a))
-
+typedef unsigned int CacheID;
 
 // NOTE:
 // 1. about bitmaks, token, state, dataavailable, IsLineAtCompleteState()
@@ -153,12 +145,17 @@ public:
 
 // for a 64 X 1 byte cacheline
 #define CACHE_BIT_MASK_WIDTH    64      // for totally 128 bits are used for the mask
-#define CACHE_REQUEST_ALIGNMENT 1       // 1-byte alignment
 
 // the line size of the cacheline
 extern unsigned int g_nCacheLineSize;
 
 struct ST_request;
+
+template<class InputIterator, class EqualityComparable>
+static inline bool contains(InputIterator first, InputIterator last, const EqualityComparable& value)
+{
+    return std::find(first, last, value) != last;
+}
 
 struct cache_line_t
 {
@@ -167,48 +164,15 @@ struct cache_line_t
     CacheState::CACHE_LINE_STATE state;
 
     char *data;
-    char  bitmask[CACHE_BIT_MASK_WIDTH/8];      // bit mask is defined to hold written data before reply comes back
-                                                // it does not always represent the validness of word segment within the line
-                                                // for WP states, bitmask only indicates the newly written data. 
-
-    __address_t getlineaddress(unsigned int nset, unsigned int nsetbits) const
-    {
-        return ((tag << nsetbits) + nset) * g_nCacheLineSize;
-    };
-    
-    bool islinecomplete() const
-    {
-        for (int i = 0; i < CACHE_BIT_MASK_WIDTH/8; ++i) 
-            if (bitmask[i] != (char)0xff)
-                return false;
-        return true;
-    };
-    
-    void removemask()
-    {
-        for(int i = 0; i < CACHE_BIT_MASK_WIDTH/8; ++i)
-            bitmask[i] = 0;
-    };
+    bool  bitmask[CACHE_BIT_MASK_WIDTH];    // bit mask is defined to hold written data before reply comes back
+                                            // it does not always represent the validness of word segment within the line
+                                            // for WP states, bitmask only indicates the newly written data. 
 
     unsigned int tokencount;
     
     unsigned int gettokenglobalvisible() const
     {
-        if (invalidated) return 0;
-        if (tlock) return 0;
-        return tokencount;
-    }
-
-    unsigned int gettokenlocalvisible() const
-    {
-        return tokencount;
-    }
-
-    unsigned int gettokenlocked() const
-    {
-        if (tlock)
-            return tokencount;
-        return 0;
+        return (invalidated || tlock) ? 0 : tokencount;
     }
 
     // invalidated is focusing on state
@@ -341,7 +305,6 @@ struct ST_request
     ST_request()
     {
         data = (char*)calloc(s_nRequestAlignedSize, sizeof(char));
-        curinitiator = 0;
         bqueued=false;
         msbcopy=NULL;
         bprocessed=false;
@@ -351,9 +314,8 @@ struct ST_request
         bpriority=false;
         btransient=false;
         bmerged=false;
-        for (unsigned int i=0;i<CACHE_BIT_MASK_WIDTH/8;i++) bitmask[i]=0;
+        std::fill(bitmask, bitmask + CACHE_BIT_MASK_WIDTH, false);
         ndirection=0xff;
-        bbackinv=false;
     };
 
     ST_request(struct ST_request* req)
@@ -361,8 +323,6 @@ struct ST_request
         *this = *req;
         data = (char*)malloc(s_nRequestAlignedSize);
         memcpy(data, req->data, s_nRequestAlignedSize);
-        memcpy(initiatortable, req->initiatortable, INITIATOR_TABLE_SIZE*sizeof(SimObj*));
-        curinitiator = req->curinitiator;
         bqueued=false;
         msbcopy=NULL;
         bpriority=false;
@@ -380,8 +340,7 @@ struct ST_request
     __address_t getreqaddress(unsigned nlinebit) { return (addresspre << nlinebit)+offset; };
     __address_t getreqaddress() { return addresspre * g_nCacheLineSize + offset; };
 
-    SimObj* initiatortable[INITIATOR_TABLE_SIZE];
-    unsigned int curinitiator;
+    CacheID source;
     unsigned int pid;
     MemoryState::REQUEST type;
 
@@ -391,7 +350,7 @@ struct ST_request
     unsigned int offset;    // number of 32-bit words
 
     // request on the network uses addresspre, nsize, offset to determine the address range 
-    char bitmask[CACHE_BIT_MASK_WIDTH/8];       // bit mask to identify the valid data segments of a request
+    bool bitmask[CACHE_BIT_MASK_WIDTH];       // bit mask to identify the valid data segments of a request
     
     char *data;         // line size alert
     std::vector<ST_request*>* msbcopy;
@@ -402,8 +361,6 @@ struct ST_request
 
     bool    bprocessed; // this flag represent the request is preprocessed 
                         // *** in COUTING mechanism, the flag is representing repeated access requests
-
-    bool    bbackinv;   // this flag also used for WRITE_REPLY backward broadcast decision
 
     unsigned char refcount; // reference counter for broadcasting requests IB/WR_BR
 
@@ -485,18 +442,6 @@ public:
     {
     }
 };
-
-static SimObj* get_initiator(ST_request* req)
-{
-    assert(req->curinitiator > 0);
-    return req->initiatortable[req->curinitiator - 1];
-}
-
-static void pop_initiator(ST_request* req)
-{
-    assert(req->curinitiator > 0);
-    --req->curinitiator;
-}
 
 }
 
