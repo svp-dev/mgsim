@@ -1,12 +1,10 @@
 #ifndef _DIRECTORYTOK_H
 #define _DIRECTORYTOK_H
 
-// normal directory
-
 #include "predef.h"
 #include "network_node.h"
-#include "suspendedrequestqueue.h"
 #include "evicteddirlinebuffer.h"
+#include <list>
 
 namespace MemSim
 {
@@ -39,38 +37,61 @@ class NetworkAbove_Node : public Network_Node
 
 class DirectoryTOK : public sc_module, public CacheState,  public NetworkBelow_Node, public NetworkAbove_Node
 {
-public:
-    // queue constant numbers
-    static const unsigned int EOQ;
-    static const unsigned int REQUESTQUEUESIZE;
-    static const unsigned int LINEQUEUESIZE;
+    struct dir_line_t
+    {
+        bool valid;
+        MemAddr tag;
 
-private:
+        unsigned int tokencount;    // the number of tokens that the directory itself has
+    
+        bool priority;              // represent the priority token
+
+        unsigned int nrequestin;    // remote request in local level
+                                    // with remote request inside the local level,
+                                    // the directory line can still be evicted.
+                                    // * DD will not be counted in any way
+                                    // * since it might never get out the directory.
+                                    // * to avoid inform the directory when consumed, it will not be counted
+                                    
+        unsigned int nrequestout;   // local requests in global level
+
+        int ntokenline;     // tokens inside on the lines
+                            // *** in naive directory scheme
+                            // *** the tokencount represent the token directory hold,
+                            // *** token group holds the tokens that local caches has
+                            // *** the two have no intersections in local directory.
+
+        int ntokenrem;     // tokens inside from remote request
+    };
+
+    struct dir_set_t
+    {
+        dir_line_t *lines;
+    };
+
     CacheID      m_firstCache;
     CacheID      m_lastCache;
     unsigned int m_nLineSize;
 	unsigned int m_nSet;
 	unsigned int m_nAssociativity;
-	unsigned int m_nSetBits;
 	dir_set_t   *m_pSet;
 
     // evicted dirline buffer
     EvictedDirLineBuffer m_evictedlinebuffer;
 
     // current request
-    ST_request* m_pPrefetchDeferredReq;
-    ST_request* m_pReqCurABO;
-    ST_request* m_pReqCurBEL;
+    Message* m_pReqCurABO;
+    Message* m_pReqCurBEL;
 
-    list<ST_request*>   m_lstReqB2a;
-    list<ST_request*>   m_lstReqB2b;
-    list<ST_request*>   m_lstReqA2a;
-    list<ST_request*>   m_lstReqA2b;
+    std::list<Message*>   m_lstReqB2a;
+    std::list<Message*>   m_lstReqB2b;
+    std::list<Message*>   m_lstReqA2a;
+    std::list<Message*>   m_lstReqA2b;
 
-    ST_request* m_pReqCurABO2a;
-    ST_request* m_pReqCurABO2b;
-    ST_request* m_pReqCurBEL2a;
-    ST_request* m_pReqCurBEL2b;
+    Message* m_pReqCurABO2a;
+    Message* m_pReqCurABO2b;
+    Message* m_pReqCurBEL2a;
+    Message* m_pReqCurBEL2b;
 
     // state
     enum STATE_ABOVE{
@@ -90,53 +111,28 @@ private:
     pipeline_t m_pPipelineABO;
     pipeline_t m_pPipelineBEL;
 
-    void InitializeDirLines();
-
-    ST_request* FetchRequestNet(bool below);
-
 	void BehaviorBelowNet();
 	void BehaviorAboveNet();
 
     void ProcessRequestBEL();
     void ProcessRequestABO();
 
-    bool SendRequestBELtoBelow(ST_request*);
-    bool SendRequestBELtoAbove(ST_request*);
     void SendRequestFromBEL();
-
-    bool SendRequestABOtoBelow(ST_request*);
-    bool SendRequestABOtoAbove(ST_request*);
     void SendRequestFromABO();
 
-    // whether a local request should go upper level 
-    bool ShouldLocalReqGoGlobal(ST_request*req, dir_line_t* line);
+    void OnABOAcquireToken(Message *);
+    void OnABOAcquireTokenData(Message *);
+    void OnABODisseminateTokenData(Message *);
 
-    // update dirline and request
-    void UpdateDirLine(dir_line_t* line, ST_request* req, DIR_LINE_STATE state, unsigned int tokencount, int tokenline, int tokenrem, bool priority, bool grouppriority, bool reserved);
-
-    void UpdateRequest(ST_request* req, dir_line_t* line, unsigned int tokenacquired, bool priority);
-    void Update_RequestRipsLineTokens(bool requestbelongstolocal, bool requestfromlocal, bool requesttolocal, ST_request* req, dir_line_t* line, int increqin=0, int increqout=0);
-    void PostUpdateDirLine(dir_line_t* line, ST_request* req, bool belongstolocal, bool fromlocal, bool tolocal);
-
-    //////////////////////////////////////////////////////////////////////////
-	// transaction handler
-    void OnABOAcquireToken(ST_request *);
-    void OnABOAcquireTokenData(ST_request *);
-    void OnABODisseminateTokenData(ST_request *);
-
-    void OnBELAcquireToken(ST_request *);
-    void OnBELAcquireTokenData(ST_request *);
-    void OnBELDisseminateTokenData(ST_request *);
-    void OnBELDirNotification(ST_request *);
+    void OnBELAcquireToken(Message *);
+    void OnBELAcquireTokenData(Message *);
+    void OnBELDisseminateTokenData(Message *);
+    void OnBELDirNotification(Message *);
 
     bool IsBelow(CacheID id) const;
     
-    //////////////////////////////////////////////////////////////////////////
-    // cache interfaces
-    dir_line_t* LocateLine(__address_t);
-    dir_line_t* GetReplacementLine(__address_t);
-    unsigned int DirIndex(__address_t);
-    uint64 DirTag(__address_t);
+    dir_line_t* LocateLine(MemAddr);
+    dir_line_t* GetEmptyLine(MemAddr);
 
     void BehaviorNodeAbove()
     {
@@ -163,7 +159,7 @@ public:
         m_pPipelineABO(latency),
         m_pPipelineBEL(latency)
 	{
-	    ST_request::s_nRequestAlignedSize = nlinesize;
+	    Message::s_nRequestAlignedSize = nlinesize;
 	    
         // forward below interface
         SC_METHOD(BehaviorNodeBelow);
@@ -185,14 +181,31 @@ public:
 		sensitive << clock.posedge_event();
 		dont_initialize();
 
-		// allocate space for all cache lines
-		InitializeDirLines();
+        // allocate sets
+        m_pSet = new dir_set_t[m_nSet];
+
+        // Allocate lines
+        for (unsigned int i = 0; i < m_nSet; ++i)
+        {
+            m_pSet[i].lines = new dir_line_t[m_nAssociativity];
+            for (unsigned int j = 0; j < m_nAssociativity; ++j)
+            {
+                m_pSet[i].lines[j].valid = false;
+                m_pSet[i].lines[j].tokencount = 0;
+                m_pSet[i].lines[j].priority = false;
+                m_pSet[i].lines[j].nrequestin = 0;
+                m_pSet[i].lines[j].nrequestout = 0;
+                m_pSet[i].lines[j].ntokenline = 0;
+                m_pSet[i].lines[j].ntokenrem = 0;
+            }
+        }
 	}
 
-    ~DirectoryTOK(){
-        for (unsigned int i=0;i<m_nSet;i++)
-            free(m_pSet[i].lines);
-        free(m_pSet);
+    ~DirectoryTOK()
+    {
+        for (unsigned int i = 0; i < m_nSet; ++i)
+            delete[] m_pSet[i].lines;
+        delete[] m_pSet;
     }
 };
 

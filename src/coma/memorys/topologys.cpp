@@ -35,7 +35,7 @@ TopologyS::TopologyS()
             cf.m_nCacheSet,
             cf.m_nCacheAssociativity,
             cf.m_nLineSize,
-            (CacheState::INJECTION_POLICY)cf.m_nInject,
+            cf.m_nInject,
             cf.m_nCacheAccessTime );
     }
 
@@ -81,8 +81,7 @@ TopologyS::TopologyS()
     m_pDirectoryRoot = new DirectoryRTTOK("dir-root", *m_pclkroot, *m_pMem,
         cf.m_nCacheSet,
         cf.m_nCacheAssociativity * m_ppCacheL2.size(),
-        cf.m_nLineSize,
-        cf.m_nCacheAccessTime );
+        cf.m_nLineSize );
 
     // Connect top-level ring
     m_pDirectoryRoot->SetNext(static_cast<NetworkAbove_Node*>(m_ppDirectoryL0[0]));

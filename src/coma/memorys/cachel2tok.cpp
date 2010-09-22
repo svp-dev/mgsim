@@ -1,15 +1,12 @@
 #include "cachel2tok.h"
 #include "../simlink/linkmgs.h"
+using namespace std;
 
-using namespace MemSim;
 
 namespace MemSim
 {
-const unsigned int CacheL2TOK::EOQ = 0xffffffff;
-const unsigned int CacheL2TOK::QueueBufferSize = 0x100;
       unsigned int CacheL2TOK::s_nGlobalFIFOUpperMargin = 1;    // UPPER Margin
 const unsigned int CacheL2TOK::s_nGlobalFIFOLowerMargin = 0x100;    // LOWER Margin
-}
 
 // process an initiative request from processor side
 void CacheL2TOK::ProcessInitiative()
@@ -18,20 +15,12 @@ void CacheL2TOK::ProcessInitiative()
     // the requests arrive here should be only local read and local write
     switch (m_pReqCurINI->type)
     {
-    case MemoryState::REQUEST_READ:
-        // $$$ optimization for victim buffer $$$
-        // check the victim buffer first
-        if (!OnLocalReadVictimBuffer(m_pReqCurINI))
-        {
-            OnLocalRead(m_pReqCurINI);
-        }
+    case Message::READ:
+        OnLocalRead(m_pReqCurINI);
         break;
-
-    case MemoryState::REQUEST_WRITE:
+    
+    case Message::WRITE:
         OnLocalWrite(m_pReqCurINI);
-        // $$$ optimization for victim buffer $$$
-        // remove the item from victim buffer on local write
-        m_fabEvictedLine.RemoveBufferItem(m_pReqCurINI->getlineaddress());
         break;
 
     default:
@@ -39,42 +28,7 @@ void CacheL2TOK::ProcessInitiative()
     }
 }
 
-// $$$ optimization for victim buffer $$$
-// Load from the victim buffer
-bool CacheL2TOK::OnLocalReadVictimBuffer(ST_request* req)
-{
-    // CHKS: double check the validness of the victim buffer in relation to the cache content
-    char *data = m_fabEvictedLine.FindBufferItem(req->getlineaddress());
-    if (data != NULL)
-    {
-        // get the data
-        // update request 
-        memcpy(req->data, data, g_nCacheLineSize);
-        req->type = MemoryState::REQUEST_READ_REPLY;
-
-        // save request 
-        InsertSlaveReturnRequest(true, req);
-
-        // return the reply to the processor side
-        return true;
-    }
-
-    return false;
-}
-
-bool CacheL2TOK::SendAsNodeINI(ST_request* req)
-{
-    // reset the queued property
-    req->bqueued = false;
-
-    // send request to memory
-    SendRequest(req);
-
-    // change the state to free
-    return true;
-}
-
-bool CacheL2TOK::SendAsSlave(ST_request* req)
+bool CacheL2TOK::SendAsSlave(Message* req)
 {
     // Send the feedback to all masters
 
@@ -100,30 +54,6 @@ bool CacheL2TOK::SendAsSlave(ST_request* req)
     return true;
 }
 
-bool CacheL2TOK::SendAsSlaveINI(ST_request* req)
-{
-    // reset the queued property
-    req->bqueued = false;
-
-    // send reply transaction
-    SendAsSlave(req);
-
-    // succeed in sending to slave interface
-    if (req->type == REQUEST_READ_REPLY)
-    {
-        m_fabInvalidation.RemoveBufferItem(req->getlineaddress());
-    }
-    else if (req->type == REQUEST_WRITE_REPLY)
-    {
-        if (m_fabInvalidation.FindBufferItem(req->getlineaddress()) == NULL)
-        {
-        }
-    }
-
-    // change the state to free
-    return true;
-}
-
 void CacheL2TOK::SendFromINI()
 {
     if (m_pReqCurINIasSlaveX == NULL)
@@ -133,14 +63,22 @@ void CacheL2TOK::SendFromINI()
     
     if (m_pReqCurINIasNodeDB != NULL)
     {
-        if (SendAsNodeINI(m_pReqCurINIasNodeDB))
+        // reset the queued property
+        m_pReqCurINIasNodeDB->bqueued = false;
+
+        // send request to memory
+        if (SendRequest(m_pReqCurINIasNodeDB))
         {
             m_pReqCurINIasNodeDB = NULL;
         }
     }
     else if (m_pReqCurINIasNode != NULL)
     {
-        if (SendAsNodeINI(m_pReqCurINIasNode))
+        // reset the queued property
+        m_pReqCurINIasNode->bqueued = false;
+
+        // send request to memory
+        if (SendRequest(m_pReqCurINIasNode))
         {
             m_pReqCurINIasNode = NULL;
         }
@@ -148,7 +86,11 @@ void CacheL2TOK::SendFromINI()
 
     if (m_pReqCurINIasSlaveX != NULL)
     {
-        if (SendAsSlaveINI(m_pReqCurINIasSlaveX))
+        // reset the queued property
+        m_pReqCurINIasSlaveX->bqueued = false;
+
+        // send reply transaction
+        if (SendAsSlave(m_pReqCurINIasSlaveX))
         {
             m_pReqCurINIasSlaveX = NULL;
         }
@@ -159,37 +101,54 @@ void CacheL2TOK::SendFromINI()
         : STATE_INI_RETRY;
 }
 
-ST_request* CacheL2TOK::FetchRequestINIFromQueue()
+Message* CacheL2TOK::FetchRequestINIFromQueue()
 {
-    CheckThreshold4GlobalFIFO();
+    assert(m_pGlobalFIFOLIST.size() < m_nGlobalFIFOSize);
+
+    if (m_nGlobalFIFOSize - m_pGlobalFIFOLIST.size() <= s_nGlobalFIFOUpperMargin)
+    {
+        m_bBufferPriority = true;
+    }
+    else if (m_nGlobalFIFOSize - m_pGlobalFIFOLIST.size() >= s_nGlobalFIFOLowerMargin)
+    {
+        m_bBufferPriority = false;
+    }
 
     if (!m_bBufferPriority)
     {
         // Check input queue
         if (!m_requests.empty())
         {
-            ST_request* ret = m_requests.front();
+            Message* ret = m_requests.front();
             m_requests.pop();
 
-            if (DoesFIFOSeekSameLine(ret))
+            // Check whether the request can be found in the queue
+            for (list<Message*>::const_iterator iter = m_pGlobalFIFOLIST.begin(); iter != m_pGlobalFIFOLIST.end(); ++iter)
             {
-                InsertRequest2GlobalFIFO(ret);
-                return NULL;
+                if ((*iter)->address / m_lineSize == ret->address / m_lineSize)
+                {
+                    // Same line
+                    InsertRequest2GlobalFIFO(ret);
+                    return NULL;
+                }
             }
-
+    
             return ret;
         }
     }
     
     // Check FIFO buffer
-    if (!GlobalFIFOEmpty())
+    assert(m_pGlobalFIFOLIST.size() < m_nGlobalFIFOSize);
+    if (!m_pGlobalFIFOLIST.empty())
     {
-        return PopQueuedRequest();
+        Message* ret = m_pGlobalFIFOLIST.front();
+        m_pGlobalFIFOLIST.pop_front();
+        return ret;
     }
     return NULL;
 }
 
-void CacheL2TOK::CleansingPipelineINI(ST_request* req)
+void CacheL2TOK::CleansingAndInsert(Message* req)
 {
     //////////////////////////////////////////////////////////////////////////
     // two passes:
@@ -198,10 +157,8 @@ void CacheL2TOK::CleansingPipelineINI(ST_request* req)
     // second pass, will process the pipeline registers check all the previously non-queued requests
     // they will be removed from the pipeline, and pushed directly from the back as the order they are in the pipeline
 
-    __address_t lineaddr = req->getlineaddress();
-
     // temp request vector
-    vector<ST_request*> vecreq;
+    vector<Message*> vecreq;
 
     //////////////////////////////////////////////////////////////////////////
     // dump all the stuff to the vector
@@ -214,9 +171,9 @@ void CacheL2TOK::CleansingPipelineINI(ST_request* req)
     // queued requests: reversely check every register
     for (int i=vecreq.size()-1;i>=0;i--)
     {
-        ST_request* reqtemp = vecreq[i];
+        Message* reqtemp = vecreq[i];
 
-        if ((reqtemp != NULL)&&(reqtemp->bqueued)&&(reqtemp->getlineaddress() == lineaddr))
+        if (reqtemp != NULL && reqtemp->bqueued && reqtemp->address / m_lineSize == req->address / m_lineSize)
         {
             // reversely push back from the front side to the global queue 
             InsertRequest2GlobalFIFO(reqtemp);
@@ -231,9 +188,9 @@ void CacheL2TOK::CleansingPipelineINI(ST_request* req)
     // non-queued requests
     for (unsigned int i=0;i<vecreq.size();i++)
     {
-        ST_request* reqtemp = vecreq[i];
+        Message* reqtemp = vecreq[i];
 
-        if ((reqtemp != NULL)&&(!reqtemp->bqueued)&&(reqtemp->getlineaddress() == lineaddr))
+        if (reqtemp != NULL && !reqtemp->bqueued && reqtemp->address / m_lineSize == req->address / m_lineSize)
         {
             // this is unlikely to happen for now
             // CHKS: might need some other check since there are already requests put in to queue in the first pass ...
@@ -249,13 +206,6 @@ void CacheL2TOK::CleansingPipelineINI(ST_request* req)
     //////////////////////////////////////////////////////////////////////////
     // dump back to the pipeline 
     m_pPipelineINI.reset(vecreq);
-}
-
-// cleansing pipeline and insert request into queue
-void CacheL2TOK::CleansingAndInsert(ST_request* req)
-{
-    // cleansing the pipeline
-    CleansingPipelineINI(req);
 
     // put the current request in the global queue
     if (!InsertRequest2GlobalFIFO(req))
@@ -320,7 +270,7 @@ void CacheL2TOK::BehaviorIni()
 void CacheL2TOK::ProcessPassive()
 {
     // JXXX maybe do the same with INI?
-    if (m_pReqCurPAS != NULL && m_pReqCurINI != NULL && m_pReqCurPAS->getlineaddress() == m_pReqCurINI->getlineaddress())
+    if (m_pReqCurPAS != NULL && m_pReqCurINI != NULL && m_pReqCurPAS->address / m_lineSize == m_pReqCurINI->address / m_lineSize)
     {
         assert(m_nStatePAS == STATE_PAS_PROCESSING || m_nStatePAS == STATE_PAS_POSTPONE);
         m_nStatePAS = STATE_PAS_POSTPONE;
@@ -328,73 +278,39 @@ void CacheL2TOK::ProcessPassive()
     }
     
     m_nStatePAS = STATE_PAS_PROCESSING;
-    ST_request* req = m_pReqCurPAS;
+    Message* req = m_pReqCurPAS;
     switch(req->type)
     {
-    case MemoryState::REQUEST_ACQUIRE_TOKEN:
+    case Message::ACQUIRE_TOKEN:
 		if (req->source == m_id)
 			OnAcquireTokenRet(req);
 		else
 			OnAcquireTokenRem(req);
         break;
 
-    case MemoryState::REQUEST_ACQUIRE_TOKEN_DATA:
+    case Message::ACQUIRE_TOKEN_DATA:
 		if (req->source == m_id)
 			OnAcquireTokenDataRet(req);
 		else
 			OnAcquireTokenDataRem(req);
         break;
 
-    case MemoryState::REQUEST_DISSEMINATE_TOKEN_DATA:
+    case Message::DISSEMINATE_TOKEN_DATA:
         OnDisseminateTokenData(req);
         break;
 
-    case Request_LOCALDIR_NOTIFICATION:
-        OnDirNotification(req);
+    case Message::LOCALDIR_NOTIFICATION:
+        // Request is meant for directory, we shouldn't receive it again
+        assert(req->source != m_id);
+    
+        // Just pass it on
+        InsertPASNodeRequest(req);
         break;
 
     default:
         break;
     }
 }
-
-bool CacheL2TOK::SendAsNodePAS(ST_request* req)
-{
-    // check colliding request
-    if ((m_nStateINI == STATE_INI_RETRY && m_pReqCurINIasNode   != NULL && req->getlineaddress() == m_pReqCurINIasNode  ->getlineaddress()) ||
-        (m_nStateINI == STATE_INI_RETRY && m_pReqCurINIasNodeDB != NULL && req->getlineaddress() == m_pReqCurINIasNodeDB->getlineaddress()))
-    {
-        // it's already retrying for the INI request on the same address, suspend the network request for this cycle, and send INI request instead.
-        return false;
-    }
-
-    // send request to memory
-    SendRequest(req);
-    return true;
-}
-
-
-bool CacheL2TOK::SendAsSlavePAS(ST_request* req)
-{
-    // send reply transaction
-    SendAsSlave(req);
-
-    // succeed in sending to slave interface
-    if (req->type == REQUEST_READ_REPLY)
-    {
-        m_fabInvalidation.RemoveBufferItem(req->getlineaddress());
-    }
-    else if (req->type == REQUEST_WRITE_REPLY)
-    {
-        if (m_fabInvalidation.FindBufferItem(req->getlineaddress()) == NULL)
-        {
-        }
-    }
-
-    // interface is free to process next req
-    return true;
-}
-
 
 void CacheL2TOK::SendFromPAS()
 {
@@ -421,7 +337,7 @@ void CacheL2TOK::SendFromPAS()
 
     if (m_pReqCurPASasSlaveX != NULL)
     {
-        if (SendAsSlavePAS(m_pReqCurPASasSlaveX))
+        if (SendAsSlave(m_pReqCurPASasSlaveX))
         {
             m_pReqCurPASasSlaveX = NULL;
         }
@@ -429,12 +345,18 @@ void CacheL2TOK::SendFromPAS()
 
     if (m_pReqCurPASasNodeX != NULL)
     {
-        if (SendAsNodePAS(m_pReqCurPASasNodeX))
+        // check colliding request
+        if (!((m_nStateINI == STATE_INI_RETRY && m_pReqCurINIasNode   != NULL && m_pReqCurPASasNodeX->address / m_lineSize == m_pReqCurINIasNode  ->address / m_lineSize) ||
+              (m_nStateINI == STATE_INI_RETRY && m_pReqCurINIasNodeDB != NULL && m_pReqCurPASasNodeX->address / m_lineSize == m_pReqCurINIasNodeDB->address / m_lineSize)))
         {
-            m_pReqCurPASasNodeX = NULL;
+            // send request to memory
+            if (SendRequest(m_pReqCurPASasNodeX))
+            {
+                m_pReqCurPASasNodeX = NULL;
+            }
         }
     }
-
+    
     m_nStatePAS = (m_pReqCurPASasNodeX == NULL && m_pReqCurPASasSlaveX == NULL && m_queReqPASasNode.empty())
         ? STATE_PAS_PROCESSING
         : STATE_PAS_RETRY;
@@ -449,7 +371,7 @@ void CacheL2TOK::BehaviorNet()
         (*iter)->OnCycleStart();
     }
 
-    ST_request* req_incoming;
+    Message* req_incoming;
 
     switch (m_nStatePAS)
     {
@@ -473,24 +395,16 @@ void CacheL2TOK::BehaviorNet()
 
             break;
         }
+        // Fall-through
 
-        // processing the reply request
+    case STATE_PAS_POSTPONE:
+        // Processing the reply request
         ProcessPassive();
-
+        
         if (m_nStatePAS != STATE_PAS_POSTPONE)
         {
             SendFromPAS();
         }
-        break;
-
-    case STATE_PAS_POSTPONE:
-        ProcessPassive();
-
-        if (m_nStatePAS == STATE_PAS_POSTPONE)
-            break;
-
-        SendFromPAS();
-
         break;
 
     case STATE_PAS_RETRY:
@@ -511,196 +425,98 @@ void CacheL2TOK::BehaviorNet()
     }
 }
 
-cache_line_t* CacheL2TOK::LocateLine(__address_t address)
+cache_line_t* CacheL2TOK::LocateLine(MemAddr address)
 {
-    cache_line_t* line;
-    unsigned int index = CacheIndex(address);
-    uint64 tag = CacheTag(address);
+    const MemAddr tag  = (address / m_lineSize) / m_nSets;
+    const size_t  set  = (size_t)((address / m_lineSize) % m_nSets) * m_assoc;
 
-    line = &(m_sets[index].lines[0]);
-
-    for (unsigned int i=0; i<m_assoc;i++, line++)
+    // Find the line
+    for (size_t i = 0; i < m_assoc; ++i)
     {
-        if ((line->state != CLS_INVALID) && (line->tag == tag))
-            return line;
+        cache_line_t& line = m_lines[set + i];
+        if (line.valid && line.tag == tag)
+        {
+            // The wanted line was in the cache
+            return &line;
+        }
     }
-
-    // miss
     return NULL;
 }
 
-cache_line_t* CacheL2TOK::GetEmptyLine(__address_t address)
+cache_line_t* CacheL2TOK::GetEmptyLine(MemAddr address)
 {
-    cache_line_t* line = &(m_sets[CacheIndex(address)].lines[0]);
- 
-    for (unsigned int i=0; i<m_assoc; i++, line++)
-    {
-        // return the first found empty one
-        if (line->state == CLS_INVALID)
-            return line;
-    }
+    const size_t set = (size_t)((address / m_lineSize) % m_nSets) * m_assoc;
 
+    // Return the first found empty line
+    for (size_t i = 0; i < m_assoc; ++i)
+    {
+        cache_line_t& line = m_lines[set + i];
+        if (!line.valid)
+        {
+            return &line;
+        }
+    }
     return NULL;
 }
 
-void CacheL2TOK::UpdateRequest(ST_request* req, cache_line_t* line, MemoryState::REQUEST requesttype, __address_t address, bool bdataavailable, bool bpriority, bool btransient, unsigned int ntokenacquired, REQUEST_UPDATE_METHOD rum)
+// function for find replacement line
+cache_line_t* CacheL2TOK::GetReplacementLine(MemAddr address)
 {
-    req->type = requesttype;
-    req->tokenacquired = ntokenacquired;
-    req->dataavailable = bdataavailable;
-    req->bpriority = bpriority;
-    req->btransient = btransient;
+    cache_line_t *linelruw = NULL; // replacement line for write-back request
+    cache_line_t *linelrue = NULL; // replacement line for eviction request
 
-    if (req->bpriority)
-        assert(!req->btransient);
-    if (ntokenacquired == 0)
-        assert(!bpriority);
-    else if (ntokenacquired == GetTotalTokenNum())
-        assert(bpriority);
-
-    if (requesttype == REQUEST_READ || requesttype == REQUEST_WRITE || requesttype == REQUEST_READ_REPLY || requesttype == REQUEST_WRITE_REPLY || requesttype == REQUEST_INVALIDATE_BR)
+    const size_t set  = (size_t)((address / m_lineSize) % m_nSets) * m_assoc;
+    for (unsigned int i = 0; i < m_assoc; i++)
     {
-        assert(bpriority == false);
-        assert(ntokenacquired == 0xffff);
-    }
+        cache_line_t& line = m_lines[set + i];
+        
+        // Return the first found empty one
+        if (!line.valid)
+            return &line;
 
-    assert(line != NULL);
-    assert(line->state != CLS_INVALID);
-
-    // if nothing to be updated
-    if (rum == RUM_NONE)
-        return;
-
-    if (rum == RUM_ALL)
-        req->dataavailable = true;
-
-    bool blinecomplete = line->IsLineAtCompleteState();
-    
-    // check the whole line with mask bits and update the request according to the cacheline
-    for (unsigned int i = 0; i < CACHE_BIT_MASK_WIDTH; i++)
-    {
-        if (line->bitmask[i] || blinecomplete)
-   		if (rum != RUM_MASK     ||  req->bitmask[i])
-		if (rum != RUM_NON_MASK || !req->bitmask[i])
-		{
-            req->data[i] = line->data[i];
-
-            // update read request bitmaks, write request bitmask will not be updated. 
-            if (requesttype == REQUEST_ACQUIRE_TOKEN_DATA && req->tokenrequested != GetTotalTokenNum())
+        // Pending lines don't count as normal replacable lines
+        if (!line.pending)
+        {
+            if (!line.dirty)
             {
-                req->bitmask[i] = true;
+                if (linelrue == NULL || line.time < linelrue->time)
+                    linelrue = &line;
+            }
+            else
+            {
+                if (linelruw == NULL || line.time < linelruw->time)
+                    linelruw = &line;
             }
         }
     }
+    return (linelrue != NULL) ? linelrue : linelruw;
 }
 
-bool CacheL2TOK::InsertOutstandingRequest(ST_request* req)
+// Disseminate a number of tokens
+void CacheL2TOK::EvictLine(cache_line_t* line)
 {
-	__address_t alignedaddr = AlignAddress4Cacheline(req->getlineaddress());
-	return m_mapPendingRequests.insert(pair<__address_t, ST_request*>(alignedaddr, req)).second;
-}
-
-ST_request* CacheL2TOK::RemoveOutstandingRequest(__address_t address)
-{
-	__address_t alignedaddr = AlignAddress4Cacheline(address);
-
-	map<__address_t, ST_request*>::iterator iter = m_mapPendingRequests.find(alignedaddr);
-	if (iter == m_mapPendingRequests.end())
-		return NULL;
-
-	ST_request* ret = iter->second;
-	m_mapPendingRequests.erase(iter);
-
-	return ret;
-}
-
-// ntoken is the token required
-void CacheL2TOK::Modify2AcquireTokenRequest(ST_request* req, unsigned int ntoken)
-{
-    req->source = m_id;
-    req->tokenrequested = ntoken;
-    req->dataavailable = false;
-}
-
-void CacheL2TOK::Modify2AcquireTokenRequestRead(ST_request* req)
-{
-    assert((req->type != MemoryState::REQUEST_ACQUIRE_TOKEN)&&(req->type != MemoryState::REQUEST_ACQUIRE_TOKEN_DATA));
-
-    req->type = MemoryState::REQUEST_ACQUIRE_TOKEN_DATA;
-    // clear request bitmask
-    std::fill(req->bitmask, req->bitmask + CACHE_BIT_MASK_WIDTH, false);
-
-    Modify2AcquireTokenRequest(req, 1);
-}
-
-void CacheL2TOK::Modify2AcquireTokenRequestWrite(ST_request* req, bool reqdata)
-{
-    assert((req->type != MemoryState::REQUEST_ACQUIRE_TOKEN)&&(req->type != MemoryState::REQUEST_ACQUIRE_TOKEN_DATA));
-
-    if (reqdata)
-        req->type = MemoryState::REQUEST_ACQUIRE_TOKEN_DATA;
-    else
-        req->type = MemoryState::REQUEST_ACQUIRE_TOKEN;
-
-    Modify2AcquireTokenRequest(req, GetTotalTokenNum());
-}
-
-void CacheL2TOK::Modify2AcquireTokenRequestWrite(ST_request* req, cache_line_t* line, bool reqdata)
-{
-    assert((req->type != MemoryState::REQUEST_ACQUIRE_TOKEN)&&(req->type != MemoryState::REQUEST_ACQUIRE_TOKEN_DATA));
-
-    if (reqdata)
-        req->type = MemoryState::REQUEST_ACQUIRE_TOKEN_DATA;
-    else
-        req->type = MemoryState::REQUEST_ACQUIRE_TOKEN;
-
-    Modify2AcquireTokenRequest(req, GetTotalTokenNum());
-}
-
-// disseminate a number of tokens
-ST_request* CacheL2TOK::NewDisseminateTokenRequest(ST_request* req, cache_line_t* line)
-{
-    assert(line->state != CLS_INVALID);
+    assert(line->valid);
     
-    unsigned int set = CacheIndex(req->getlineaddress());
-    __address_t address = (line->tag * m_nSets + set) * g_nCacheLineSize;
+    size_t  set     = (line - &m_lines[0]) / m_assoc;
+    MemAddr address = (line->tag * m_nSets + set) * m_lineSize;
      
-    ST_request* reqdt = new ST_request();
-    reqdt->type = MemoryState::REQUEST_DISSEMINATE_TOKEN_DATA;
-    reqdt->addresspre = address / g_nCacheLineSize;
+    Message* reqdt = new Message();
+    reqdt->type    = Message::DISSEMINATE_TOKEN_DATA;
+    reqdt->address = address;
+    reqdt->size    = m_lineSize;
     
-    reqdt->offset = 0;
-    reqdt->nsize = g_nCacheLineSize;
-    reqdt->Conform2BitVecFormat();
+    std::fill(reqdt->bitmask, reqdt->bitmask + m_lineSize, true);
     reqdt->dataavailable = true;
     reqdt->bpriority = line->priority;
-    reqdt->tokenrequested = (line->state == CLS_SHARER) ? 0 : GetTotalTokenNum();
+    reqdt->tokenrequested = (line->dirty ? GetTotalTokenNum() : 0);
     reqdt->tokenacquired = line->tokencount;
-    memcpy(reqdt->data, line->data, g_nCacheLineSize);
+    memcpy(reqdt->data, line->data, m_lineSize);
     reqdt->source = m_id;
-
-    line->priority = false;
-    line->tokencount = 0;
-
-    PostDisseminateTokenRequest(line, reqdt);
-    return reqdt;
+    
+    m_pReqCurINIasNodeDB = reqdt;
 }
 
-void CacheL2TOK::PostDisseminateTokenRequest(cache_line_t* line, ST_request* pdisseminatetokenreq)
-{
-    if (line->tokencount == 0)
-    {
-        line->state = CLS_INVALID;
-        line->pending = false;
-        line->invalidated = false;
-        line->priority = false;
-
-        // $$$ optimization for victim line buffer $$$
-        m_fabEvictedLine.InsertItem2Buffer(pdisseminatetokenreq->getlineaddress(), pdisseminatetokenreq->data, g_nCacheLineSize);
-    }
-}
-
-void CacheL2TOK::InsertSlaveReturnRequest(bool ini, ST_request *req)
+void CacheL2TOK::InsertSlaveReturnRequest(bool ini, Message *req)
 {
     assert(req != NULL);
     if (ini)
@@ -723,7 +539,7 @@ void CacheL2TOK::InsertSlaveReturnRequest(bool ini, ST_request *req)
     }
 }
 
-void CacheL2TOK::InsertPASNodeRequest(ST_request* req)
+void CacheL2TOK::InsertPASNodeRequest(Message* req)
 {
     m_queReqPASasNode.push(req);
     if (m_pReqCurPASasNodeX == NULL)
@@ -733,449 +549,248 @@ void CacheL2TOK::InsertPASNodeRequest(ST_request* req)
     }
 }
 
-//////////////////////////////////////////////////////////////////////////
-// initiative request handling
-//////////////////////////////////////////////////////////////////////////
-    
-// write almost always has the priority, 
-// in case the RS/SR passes a W,P,U state, 
-// 1. RS/SR passes W, P states, the line will always keeps all the permanent tokens.
-// 2. RS/SR passes U state, if either req or the line has the priority token, 
-// the line will transform it's locked token to unlocked state and acquire all the tokens request has
-// if none of the has the priority token, still the line will take all the tokens, 
-// but this time the request should have no tokens at all...
-
-// ***
-// be careful about the incre_update and incre_overwrite 
-// only the one has priority token should do overwrite otherwise update
-
-// Local Read 
-void CacheL2TOK::OnLocalRead(ST_request* req)
+// Local Read from a memory client on the bus
+void CacheL2TOK::OnLocalRead(Message* req)
 {
-    __address_t address = req->getreqaddress();
-
-    //DEBUG_TEST_XXX
-
-    // locate certain set
-    cache_line_t* line = LocateLine(address);
-
-    // check whether it's a hit on the MSB
-    bool hitonmsb = m_msbModule.IsAddressPresent(address);
-
-    // check whether the line is already locked
-    bool lockonmsb = hitonmsb?m_msbModule.IsSlotLocked(address, req):false;
-
-    // handling INVALID state
-    if (line == NULL)	// invalid
+    cache_line_t* line = LocateLine(req->address);
+    if (line == NULL)
     {
-        assert(!hitonmsb);
-        // find an appropriate line for replacement,
-        // change states to LNWRITEPENDINGI or LWWRITEPENDINGM
-        // broadcast invalidate or RE request
-        // may need to suspend the request in to the global fifo queue,
-        // since there's a possibility that all the lines might be occupied by the locked states
-
-        // get the line for data
-        line = GetReplacementLine(address);
+        // We don't have the line; allocate a line and fetch the data
+        line = GetReplacementLine(req->address);
         if (line == NULL)
         {
-            // All the cachelines are locked for now.
-            // Cleansing the pipeline and insert the request to the global FIFO.
+            // No cache line available; suspend request
             CleansingAndInsert(req);
             return;
         }
 
-        if (line->state == CLS_INVALID)
+        if (line->valid)
         {
-            // check the size of the write request
-            assert(req->nsize + req->offset <= m_lineSize);
-
-            // update line info
-            line->tag         = CacheTag(req->getlineaddress());
-            line->time        = sc_time_stamp();
-            line->state       = CLS_SHARER;
-            line->tokencount  = 0;
-            line->pending     = true;
-            line->invalidated = false;
-            line->priority    = false;
-            line->tlock       = false;
+            // Line is already in use; evict it
+            EvictLine(line);
             
-            // modify request
-            Modify2AcquireTokenRequestRead(req);
-
-            // save the current request
-            m_pReqCurINIasNode = req;
-            // try to send the request to network           
+            line->valid = false;
         }
-        else
-        {
-            assert(!line->pending);    // non-pending lines
 
-            // disseminate line tokens
-            ST_request* reqdd = NewDisseminateTokenRequest(req, line);
+        // Reset the cache-line
+        line->tag         = (req->address / m_lineSize) / m_nSets;
+        line->time        = sc_time_stamp();
+        line->valid       = true;
+        line->dirty       = false;
+        line->tokencount  = 0;
+        line->pending     = true;
+        line->invalidated = false;
+        line->priority    = false;
+        line->tlock       = false;
+        std::fill(line->bitmask, line->bitmask + m_lineSize, false);
 
-            // save the request for double node sending
-            m_pReqCurINIasNodeDB = reqdd;
+        // Send request for data and a token
+        req->type = Message::ACQUIRE_TOKEN_DATA;
+        req->source = m_id;
+        req->tokenrequested = 1;
+        req->dataavailable = false;
+        std::fill(req->bitmask, req->bitmask + m_lineSize, false);
 
-            // remove mask
-            std::fill(line->bitmask, line->bitmask + CACHE_BIT_MASK_WIDTH, false);
-
-            // update cacheline
-            // erase the previous values and store the new data with LNWRITEPENDINGI state
-            line->tag = CacheTag(req->getlineaddress());
-            line->time = sc_time_stamp();
-            line->state = CLS_SHARER;
-            line->tokencount = 0;
-            line->pending = true;
-            line->invalidated = false;
-            line->priority = false;
-            line->tlock = false;
-
-            // modify request
-            Modify2AcquireTokenRequestRead(req);
-
-            // save this as a normal request
-            m_pReqCurINIasNode = req;
-
-            // the normal request will be sent out in later cycles
-        }
+        m_pReqCurINIasNode = req;
         return;
     }
 
-    // the line state must be something here
-    assert(line->state != CLS_INVALID);
-
-    if ((line->tokencount > 0)&&(!lockonmsb)&&(line->IsLineAtCompleteState()))   // have valid data available    // WPE with valid data might have some token
+    // check whether the line is already locked
+    if (m_msbModule.IsSlotLocked(req->address))
     {
-        // update time for REPLACE_POLICY_LRU
-        line->tag = CacheTag(req->getlineaddress());
+        // Suspend the request
+        CleansingAndInsert(req);
+        return;
+    }
+
+    if (line->tokencount > 0 && line->IsLineAtCompleteState())
+    {
+        // have valid data available
         line->time = sc_time_stamp();
          
-        // write data back
-        UpdateRequest(req, line, MemoryState::REQUEST_READ_REPLY, address, true);
-
-        if (hitonmsb)
+        // Send data to clients
+        for (unsigned int i = 0; i < m_lineSize; i++)
         {
-            m_msbModule.LoadBuffer(req, line);
+            req->data[i] = line->data[i];
         }
 
-        // save request
-        InsertSlaveReturnRequest(true, req);
+        // Merge with made writes, if any
+        m_msbModule.LoadBuffer(req, *line);
     }
-    else   // data is not available yet
+    else
     {
+        // The data is not available in the cache-line
         assert(line->pending);
-
-        if (lockonmsb)
+        
+        // See if we can grab the data from the MSB instead
+        if (!m_msbModule.LoadBuffer(req, *line))
         {
-            // cleansing the pipeline and insert the request to the global FIFO
+            // No, suspend the request
             CleansingAndInsert(req);
-            // pipeline done
-        }
-        else
-        {
-            // X-Token protocol ======
-            if (hitonmsb)
-            {
-                if (m_msbModule.LoadBuffer(req, line))
-                {
-                    // succeed
-                    // save request 
-                    InsertSlaveReturnRequest(true, req);
-                    return;
-                }
-                else
-                {
-                    assert(line->pending);
-
-                    // cleansing the pipeline and insert the request to the global FIFO
-                    CleansingAndInsert(req);
-                    // pipeline done
-                }
-            }
-            else if (line->tokencount > 0 && line->IsLineAtCompleteState())
-            {
-                // update time for REPLACE_POLICY_LRU
-                line->tag = CacheTag(req->getlineaddress());
-                line->time = sc_time_stamp();
-
-                // write data back
-                UpdateRequest(req, line, MemoryState::REQUEST_READ_REPLY, address, true);
-
-                // save request 
-                InsertSlaveReturnRequest(true, req);
-            }
-            else
-            {
-                // cleansing the pipeline and insert the request to the global FIFO
-                CleansingAndInsert(req);
-            }
+            return;
         }
     }
+    
+    req->type = Message::READ_REPLY;
+    
+    // Return reply to memory clients
+    InsertSlaveReturnRequest(true, req);
 }
 
-// local Write
-void CacheL2TOK::OnLocalWrite(ST_request* req)
+// Local Write from a memory client on the bus
+void CacheL2TOK::OnLocalWrite(Message* req)
 {
-    __address_t address = req->getreqaddress();
-
-    //DEBUG_TEST_XXX
-
-    // locate certain set
-    cache_line_t* line = LocateLine(address);
-    // __address_t value = req->data[0];
-
-    // check whether it's a hit on the MSB
-    bool hitonmsb = m_msbModule.IsAddressPresent(address);
-
-    // check whether the line is already locked
-    bool lockonmsb = hitonmsb?m_msbModule.IsSlotLocked(address, req):false;
-
-    // handling INVALID state
-    if (line == NULL)	// invalid
+    cache_line_t* line = LocateLine(req->address);
+    if (line == NULL)
     {
-        assert(!hitonmsb);
-        // find an appropriate line for replacement,
-        // change states to LNWRITEPENDINGI or LWWRITEPENDINGM
-        // broadcast invalidate or RE request
-        // may need to suspend the request in to the global fifo queue,
-        // since there's a possibility that all the lines might be occupied by the locked states
-
-        // get the line for data
-        line = GetReplacementLine(address);
-
-        // if all the cachelines are locked for now
+        // We don't have the line; allocate a line
+        line = GetReplacementLine(req->address);
         if (line == NULL)
-        {// put the current request in the global queue
-
-            // cleansing the pipeline and insert the request to the global FIFO
+        {
+            // No line available; suspend request
             CleansingAndInsert(req);
-
-            // pipeline done
             return;
         }
 
-        if (line->state == CLS_INVALID)
+        if (line->valid)
         {
-            // check the size of the write request
-            assert(req->offset + req->nsize <= m_lineSize);
-
-            // update line info
-            if (!line->pending)
-            {
-                // clear the bitmask
-                std::fill(line->bitmask, line->bitmask + CACHE_BIT_MASK_WIDTH, false);
-            }
-
-            line->tag = CacheTag(req->getlineaddress());
-            line->time = sc_time_stamp();
-            line->state = CLS_OWNER;
-            line->tokencount = 0;
-            line->pending = true;
-            line->invalidated = false;
-            line->priority = false;
-            line->tlock = false;
-             
-            for (unsigned int i = 0; i < g_nCacheLineSize; i++)
-            {
-                if (req->IsRequestWithCompleteData() || req->bitmask[i])
-                {
-                    line->bitmask[i] = true;
-                    line->data[i] = req->data[i];
-                }
-            }
-
-            // modify request
-            Modify2AcquireTokenRequestWrite(req, true);
-
-            // save the current request
-            m_pReqCurINIasNode = req;
+            // Line is already in use; evict it
+            EvictLine(line);
+            
+			line->valid = false;
         }
-        else 
+        
+        // Initialize cacheline 
+        line->tag         = (req->address / m_lineSize) / m_nSets;
+        line->time        = sc_time_stamp();
+        line->valid       = true;
+        line->dirty       = true;
+        line->tokencount  = 0;
+        line->pending     = true;
+        line->invalidated = false;
+        line->priority    = false;
+        line->tlock       = false;
+        std::fill(line->bitmask, line->bitmask + m_lineSize, false);
+        
+        // Write data into the line
+        for (unsigned int i = 0; i < m_lineSize; i++)
         {
-            // non-pending lines
-            assert(!line->pending);
-
-            // disseminate line tokens
-            ST_request *reqdd = NewDisseminateTokenRequest(req, line);
-
-            // save the request for double node sending
-            m_pReqCurINIasNodeDB = reqdd;
-
-			// remove the bit mask!
-			std::fill(line->bitmask, line->bitmask + CACHE_BIT_MASK_WIDTH, false);
-
-            // update cacheline 
-            line->tag = CacheTag(req->getlineaddress());
-            line->time = sc_time_stamp();
-            line->state = CLS_OWNER;
-            line->tokencount = 0;
-            line->pending = true;
-            line->invalidated = false;
-            line->priority = false;
-            line->tlock = false;
-
-            for (unsigned int i = 0; i < g_nCacheLineSize; i++)
+            if (req->bitmask[i])
             {
-                if (req->IsRequestWithCompleteData() || req->bitmask[i])
-                {
-                    line->bitmask[i] = true;
-                    line->data[i] = req->data[i];
-                }
+                line->bitmask[i] = true;
+                line->data[i] = req->data[i];
             }
-
-            // modify request
-            Modify2AcquireTokenRequestWrite(req, true);
-
-            // save this as a normal request
-            m_pReqCurINIasNode = req;
         }
+        
+        // Send a request for all tokens and data
+        req->type = Message::ACQUIRE_TOKEN_DATA;
+        req->source = m_id;
+        req->tokenrequested = GetTotalTokenNum();
+        req->dataavailable = false;
+
+        m_pReqCurINIasNode = req;
+        return;
     }
-    else if (!line->pending)   // non-pending state
+
+    if (!line->pending)   // non-pending state
     {
         assert(!line->invalidated);
         assert(!line->tlock);
+        assert(line->tokencount > 0);
 
-        if (line->gettokenglobalvisible() < GetTotalTokenNum())  // non-exclusive
+        // Update LRU time
+        line->time = sc_time_stamp();
+        
+        // Write data into the line
+        line->dirty = true;
+        
+        std::fill(line->bitmask, line->bitmask + m_lineSize, false);
+        for (unsigned int i = 0; i < m_lineSize; i++)
         {
-            // data is non-exclusive
-            // 1. change states to Pending, and it will later change to modified
-            // 2. acquire the rest of tokens
+            if (req->bitmask[i])
+            {
+                line->bitmask[i] = true;
+                line->data[i] = req->data[i];
+            }
+        }
 
-            // update line
-            // clear the bitmask
-            std::fill(line->bitmask, line->bitmask + CACHE_BIT_MASK_WIDTH, false);
-
-            line->tag = CacheTag(req->getlineaddress());
-            line->time = sc_time_stamp();
-            line->state = CLS_OWNER;
+        if (line->tokencount < GetTotalTokenNum())
+        {
+            // Non-exclusive data; acquire the rest of the tokens
             line->pending = true;
 
-            for (unsigned int i = 0; i < g_nCacheLineSize; i++)
-            {
-                if (req->IsRequestWithCompleteData() || req->bitmask[i])
-                {
-                    line->bitmask[i] = true;
-                    line->data[i] = req->data[i];
-                }
-            }
+            // Send a request for all tokens
+            req->type = Message::ACQUIRE_TOKEN;
+            req->source = m_id;
+            req->tokenrequested = GetTotalTokenNum();
+            req->dataavailable = false;
 
-            assert(!hitonmsb);
-
-            // modify request
-            Modify2AcquireTokenRequestWrite(req, line, false);
-
-            // REVIST
+            // If the line has the priority token, give it to the request
             if (line->priority)
             {
-                assert(line->tokencount > 0);
-
-                // make request priority, if possible
-                req->bpriority = line->priority;
+                req->bpriority      = line->priority;
                 req->tokenacquired += 1;
 
-                // update line
-                line->tag = CacheTag(req->getlineaddress());
-                line->time = sc_time_stamp();
-                line->state = CLS_OWNER;
                 line->tokencount = line->tokencount - 1;
-                line->pending = true;
-                line->priority = false;
-                    
-                for (unsigned int i = 0; i < g_nCacheLineSize; i++)
-                {
-                    if (req->IsRequestWithCompleteData() || req->bitmask[i])
-                    {
-                        line->bitmask[i] = true;
-                        line->data[i] = req->data[i];
-                    }
-                }
+                line->priority   = false;
             }
 
-            // save the current request
             m_pReqCurINIasNode = req;
-        }
-        else    // exclusive
-        {
-            // can write directly at exclusive or modified lines
-
-            // update time for REPLACE_POLICY_LRU
-            // clear the bitmask
-            std::fill(line->bitmask, line->bitmask + CACHE_BIT_MASK_WIDTH, false);
-
-            line->tag = CacheTag(req->getlineaddress());
-            line->time = sc_time_stamp();
-            line->state = CLS_OWNER;
-            line->pending = false;
-
-            for (unsigned int i = 0; i < g_nCacheLineSize; i++)
-            {
-                if (req->IsRequestWithCompleteData() || req->bitmask[i])
-                {
-                    line->bitmask[i] = true;
-                    line->data[i] = req->data[i];
-                }
-            }
-
-            // change reply
-            UpdateRequest(req, line, MemoryState::REQUEST_WRITE_REPLY, address, false, false, false, 0xffff, RUM_NONE);
-
-            // save request 
-            InsertSlaveReturnRequest(true, req);
-            // return the reply to the processor side
-        }
-    }
-    else    // pending request
-    {
-        if (lockonmsb)
-        {
-            // always suspend on them   // JXXX maybe treat exclusive/available data differently
-            // cleansing the pipeline and insert the request to the global FIFO
-            CleansingAndInsert(req);
         }
         else
         {
-            // X-Token MSB implementation
-            if (line->state == CLS_SHARER && line->priority)
+            // Exclusive; can write directly at exclusive or modified lines
+
+            // Send write acknowledgement
+            req->type = Message::WRITE_REPLY;
+            InsertSlaveReturnRequest(true, req);
+        }
+    }
+    // Line with pending requests
+    else if (m_msbModule.IsSlotLocked(req->address))
+    {
+        // MSB is locked; suspend request
+        CleansingAndInsert(req);
+    }
+    // X-Token MSB implementation
+    else if (!line->dirty && line->priority)
+    {
+        // Read pending with priority token
+        assert(line->tokencount > 0);
+        assert(!line->tlock);
+        assert(!line->invalidated);
+
+        // Update LRU time
+        line->time = sc_time_stamp();
+        line->dirty = true;
+
+        for (unsigned int i = 0; i < m_lineSize; i++)
+        {
+            if (req->bitmask[i])
             {
-                // Read pending with priority token
-                assert(line->tokencount > 0);
-                assert(!line->tlock);
-                assert(!line->invalidated);
-
-                // write directly to the line and change line state to W
-                line->tag = CacheTag(req->getlineaddress());
-                line->time = sc_time_stamp();
-                line->state = CLS_OWNER;
-
-                for (unsigned int i = 0; i < g_nCacheLineSize; i++)
-                {
-                    if (req->IsRequestWithCompleteData() || req->bitmask[i])
-                    {
-                        line->bitmask[i] = true;
-                        line->data[i] = req->data[i];
-                    }
-                }
-
-                // modify request
-                Modify2AcquireTokenRequestWrite(req, line, false);
-
-                // save the current request
-                m_pReqCurINIasNode = req;
-            }
-            else
-            {
-                // try to write to the buffer
-                if (!m_msbModule.WriteBuffer(req))
-                {
-                    return;
-                }
-
-                // always suspend on them   // JXXX maybe treat exclusive/available data differently
-                // cleansing the pipeline and insert the request to the global FIFO
-                CleansingAndInsert(req);
+                line->bitmask[i] = true;
+                line->data[i] = req->data[i];
             }
         }
+
+        // Send request to acquire all tokens
+        req->type = Message::ACQUIRE_TOKEN;
+        req->source = m_id;
+        req->tokenrequested = GetTotalTokenNum();
+        req->dataavailable = false;
+
+        m_pReqCurINIasNode = req;
+    }
+    else
+    {
+        // Try to write to the buffer
+        if (!m_msbModule.WriteBuffer(req))
+        {
+            return;
+        }
+
+        // Suspend request
+        CleansingAndInsert(req);
     }
 }
 
@@ -1183,15 +798,13 @@ void CacheL2TOK::OnLocalWrite(ST_request* req)
 // passive request handling
 //////////////////////////////////////////////////////////////////////////
 
-// network remote request to acquire token - invalidates/IV
-void CacheL2TOK::OnAcquireTokenRem(ST_request* req)
+// Network remote request to acquire all tokens - invalidates/IV
+void CacheL2TOK::OnAcquireTokenRem(Message* req)
 {
-	__address_t address = req->getreqaddress();
-
-	cache_line_t* line = LocateLine(address);
+	cache_line_t* line = LocateLine(req->address);
     if (line == NULL)
     {
-		// save the current request
+        // We don't have the line, forward message
         InsertPASNodeRequest(req);
 		return;
     }
@@ -1200,64 +813,70 @@ void CacheL2TOK::OnAcquireTokenRem(ST_request* req)
     if (!line->pending) // non-pending states   // S, E, O, M
     {
         // data is already available but needs to give token to the request
-
         assert(line->tokencount > 0);
-        assert(req->tokenrequested > 0);
         assert(line->tlock == false);
-
-        assert(line->gettokenglobalvisible() <= req->tokenrequested - req->tokenacquired);   // will need to clean up line
-
-        // just_to_check
+        assert(req->tokenrequested > 0);
         assert(req->btransient == false);
 
-        // update request
-        UpdateRequest(req, line, req->type, address, true, req->bpriority||line->priority, req->btransient, req->tokenacquired+line->gettokenglobalvisible(), RUM_NON_MASK);    // ??? JONYXXX data availabe ?= true
+        // will need to clean up line
+        assert(line->gettokenglobalvisible() <= req->tokenrequested - req->tokenacquired);
 
-        // update line
-        line->tag = CacheTag(req->getlineaddress());
-        line->time = sc_time_stamp();
-        line->state = CLS_INVALID;
-        line->tokencount = 0;
-        line->pending = false;
-        line->invalidated = false;
-        line->priority = false;
-        line->tlock = false;
-        std::fill(line->bitmask, line->bitmask + CACHE_BIT_MASK_WIDTH, false);
+        // Give line's tokens to the request
+        req->tokenacquired += line->gettokenglobalvisible();
+        req->dataavailable  = true;
+        req->bpriority      = req->bpriority || line->priority;
 
-        // save the current request
-        InsertPASNodeRequest(req);
+        // check the whole line with mask bits and update the request according to the cacheline
+        for (unsigned int i = 0; i < m_lineSize; i++)
+        {
+            if (!req->bitmask[i])
+            {
+                req->data[i] = line->data[i];
+            }
+        }
+
+        // Clear line
+        line->valid = false;
     }
-    else    // pending reqeust      // R, T, P, M, U
+    else    // pending request      // R, T, P, M, U
     {
-        //assert(req->tokenrequested == GetTotalTokenNum());
-
         // the line must have less token than required, since request require all the tokens
         assert(line->tokencount <= req->tokenrequested - req->tokenacquired);
 
-        if (line->state == CLS_SHARER)  // reading, before  // R, T
+        if (!line->dirty)  // reading, before  // R, T
         {
-            // get tokens if any. set invalidated flag
-            // if the line already has the priority token then take the priority token as well.
-            // no matter what, the line will be invalidated
+            // Get tokens from the line, if any, and set invalidated flag.
+            // If the line already has the priority token then take the priority token as well.
+            // No matter what, the line will be invalidated.
 
-            // make sure that when AT arrives with transient tokens, no tokens are in the line
+            // Make sure that when if a request arrives with transient tokens, there are no tokens in the line.
             if (req->btransient)
                 assert(line->tokencount == 0);
 
-            // update request
-            UpdateRequest(req, line, req->type, address, true, req->bpriority||line->priority, req->btransient, req->tokenacquired+line->gettokenglobalvisible());
-
-            // update line  ??? no update?
-            line->tag = CacheTag(req->getlineaddress());
-            line->time = sc_time_stamp();
+            // Transfer line tokens to request
+            req->tokenacquired += line->gettokenglobalvisible();
+            req->bpriority = req->bpriority || line->priority;
+    
             line->tokencount = 0;
-            line->invalidated = true;
             line->priority = false;
+            
+            // check the whole line with mask bits and update the request according to the cacheline
+            req->dataavailable = true;
+            for (unsigned int i = 0; i < m_lineSize; i++)
+            {
+                if (line->bitmask[i])
+                {
+                    req->data[i] = line->data[i];
+                }
+            }
+
+            line->time = sc_time_stamp();
+            line->invalidated = true;
             line->tlock = false;
 
-            for (unsigned int i = 0 ; i < g_nCacheLineSize; ++i)
+            for (unsigned int i = 0; i < m_lineSize; ++i)
             {
-                if (req->IsRequestWithCompleteData() || req->bitmask[i])
+                if (req->bitmask[i])
                 {
                     line->bitmask[i] = true;
                     line->data[i] = req->data[i];
@@ -1266,6 +885,8 @@ void CacheL2TOK::OnAcquireTokenRem(ST_request* req)
         }
         else    // writing, before      // P, M, U
         {
+            int newtokenline;
+            
             // 1. req has pt
             // req will get all the tokens
             if (req->bpriority)
@@ -1273,59 +894,35 @@ void CacheL2TOK::OnAcquireTokenRem(ST_request* req)
                 assert(req->btransient == false);   // check the paper
                 assert(line->priority == false); 
 
-                unsigned int newtokenline=0;
-                unsigned int newtokenreq=0;
-
                 if (line->tlock)
                 {
                     assert(line->invalidated);
                     // locked tokens are unlocked and released to the request
-                    newtokenreq = req->tokenacquired + line->tokencount;
+                    req->tokenacquired += line->tokencount;
                     newtokenline = 0;
                     line->tlock = false;
                 }
                 else if (line->invalidated)
                 {
-                    newtokenreq = req->tokenacquired;
                     newtokenline = line->tokencount;
                 }
                 else
                 {
-                    newtokenreq = req->tokenacquired + line->gettokenglobalvisible();
+                    req->tokenacquired += line->gettokenglobalvisible();
                     newtokenline = 0;
                 }
 
-                // update request
-                UpdateRequest(req, line, req->type, address, true, req->bpriority, req->btransient, newtokenreq);
+                req->dataavailable = true;
 
-                // update line, change the invalidated flag, but keep the token available
-                //IVUpdateCacheLine(line, req, line->state, newtokenline, line->pending, true, line->priority, line->tlock, LUM_RAC_FEEDBACK_UPDATE);
-                bool bupdatealldata = (line->state == CLS_OWNER && line->pending && line->tokencount == 0 && newtokenline > 0);
-
-                line->time = sc_time_stamp();
-                line->tokencount = newtokenline;
                 line->invalidated = true;
 
-                // update the cacheline with the dirty data in the request
-                // start from the offset and update the size from the offset
-                for (unsigned int i = 0; i < g_nCacheLineSize; i++)
+                // check the whole line with mask bits and update the request according to the cacheline
+                for (unsigned int i = 0; i < m_lineSize; i++)
                 {
-                    // if not all the data needs to be updated. then skip the unnecessary parts, only update if required
-                    if (!req->bitmask[i])
+                    if (line->bitmask[i] || line->tokencount != 0)
                     {
-                        if (!line->bitmask[i] && bupdatealldata)
-                        {
-                            line->data[i] = req->data[i];
-                        }
+                        req->data[i] = line->data[i];
                     }
-                    // if the mask is already on there in the cache line then dont update
-                    // otherwise update
-                    else if (!line->bitmask[i] || bupdatealldata)
-                    {
-                        line->data[i] = req->data[i];
-                        line->bitmask[i] = true;
-                    }
-                    //// we dont care about the cacheline bit mask, we just write the updated data.
                 }
             }
             else if (line->priority)
@@ -1337,166 +934,118 @@ void CacheL2TOK::OnAcquireTokenRem(ST_request* req)
                 // transient tokens will be changed to permanent tokens
                 req->btransient = false;
 
-                unsigned int newtokenline = line->tokencount + req->tokenacquired;
-                unsigned int newtokenreq = 0;
+                newtokenline = line->tokencount + req->tokenacquired;
 
-                // update request, rip the available token off to the request
-                UpdateRequest(req, line, req->type, address, true, req->bpriority, req->btransient, newtokenreq, RUM_NON_MASK);
+                // update request, rip the available token off the request
+                req->tokenacquired = 0;
+                req->dataavailable = true;
 
-                // update line, and keep the state, and 
-                //IVUpdateCacheLine(line, req, line->state, newtokenline, line->pending, line->invalidated, line->priority, line->tlock, LUM_RAC_FEEDBACK_UPDATE);
-                bool bupdatealldata = (line->state == CLS_OWNER && line->pending && line->tokencount == 0 && newtokenline > 0);
-
-                line->time = sc_time_stamp();
-                line->tokencount = newtokenline;
-
-                // update the cacheline with the dirty data in the request
-                // start from the offset and update the size from the offset
-                for (unsigned int i = 0; i < g_nCacheLineSize; i++)
+                // check the whole line with mask bits and update the request according to the cacheline
+                for (unsigned int i = 0; i < m_lineSize; i++)
                 {
-                    // if not all the data needs to be updated. then skip the unnecessary parts, only update if required
+                    if (line->bitmask[i] || line->tokencount != 0)
                     if (!req->bitmask[i])
                     {
-                        if (!line->bitmask[i] && bupdatealldata)
-                        {
-                            line->data[i] = req->data[i];
-                        }
+                        req->data[i] = line->data[i];
                     }
-                    // if the mask is already on there in the cache line then dont update
-                    // otherwise update
-                    else if (!line->bitmask[i] || bupdatealldata)
-                    {
-                        line->data[i] = req->data[i];
-                        line->bitmask[i] = true;
-                    }
-                    //// we dont care about the cacheline bit mask, we just write the updated data.
                 }
             }
             else
             {
-                // both will get the same number of tokens, req will be at transient situation
-                // and line will have the tokens locked
-                // all of them are only visible locally, cannot be transfered.
-                // transient tokens can later be transformed into permanent tokens by priority tokens in the line
-                // locked tokesn can be unlocked by priority tokens
-                // permament tokens can later by transfered or used remotely.
- 
-                assert(!req->bpriority);
-                assert(!line->priority);
+                // Both the request and the line will get the same number of tokens, but the request
+                // will have its tokens transient and line will have the tokens locked.
+                // Transient tokens can be transformed into permanent tokens by priority tokens
+                // in the line. Locked tokens can be unlocked by priority tokens.
+                newtokenline = req->tokenacquired + line->tokencount;
 
-                unsigned int newtokenline = req->tokenacquired + line->tokencount;
-                unsigned int newtokenreq = req->tokenacquired + line->gettokenglobalvisible();
+                req->tokenacquired = req->tokenacquired + line->tokencount;
+                req->dataavailable = true;
+                req->btransient = true;
 
-                // update request, rip the available token off to the request
-                UpdateRequest(req, line, req->type, address, true, req->bpriority, true, newtokenreq, RUM_NON_MASK);
-
-
-                // update line, and keep the state, and 
-                //IVUpdateCacheLine(line, req, line->state, newtokenline, line->pending, true, line->priority, true, LUM_RAC_FEEDBACK_UPDATE);
-                bool bupdatealldata = (line->state == CLS_OWNER && line->pending && line->tokencount == 0 && newtokenline > 0);
-
-                line->time = sc_time_stamp();
-                line->tokencount = newtokenline;
                 line->invalidated = true;
                 line->tlock = true;
 
-                // update the cacheline with the dirty data in the request
-                // start from the offset and update the size from the offset
-                for (unsigned int i = 0; i < g_nCacheLineSize; i++)
+                // check the whole line with mask bits and update the request according to the cacheline
+                for (unsigned int i = 0; i < m_lineSize; i++)
                 {
-                    // if not all the data needs to be updated. then skip the unnecessary parts, only update if required
+                    if (line->bitmask[i] || line->tokencount != 0)
                     if (!req->bitmask[i])
                     {
-                        if (!line->bitmask[i] && bupdatealldata)
-                        {
-                            line->data[i] = req->data[i];
-                        }
+                        req->data[i] = line->data[i];
                     }
-                    // if the mask is already on there in the cache line then dont update
-                    // otherwise update
-                    else if (!line->bitmask[i] || bupdatealldata)
-                    {
-                        line->data[i] = req->data[i];
-                        line->bitmask[i] = true;
-                    }
-                    //// we dont care about the cacheline bit mask, we just write the updated data.
                 }
             }
-        }
 
-        // save the current request
-        InsertPASNodeRequest(req);
+            bool bupdatealldata = (line->tokencount == 0 && newtokenline > 0);
+
+            line->time = sc_time_stamp();
+            line->tokencount = newtokenline;
+
+            // update the cacheline with the dirty data in the request
+            // start from the offset and update the size from the offset
+            for (unsigned int i = 0; i < m_lineSize; i++)
+            {
+                // if not all the data needs to be updated. then skip the unnecessary parts, only update if required
+                if (!req->bitmask[i])
+                {
+                    if (!line->bitmask[i] && bupdatealldata)
+                    {
+                        line->data[i] = req->data[i];
+                    }
+                }
+                // if the mask is already on there in the cache line then dont update
+                // otherwise update
+                else if (!line->bitmask[i] || bupdatealldata)
+                {
+                    line->data[i] = req->data[i];
+                    line->bitmask[i] = true;
+                }
+                //// we dont care about the cacheline bit mask, we just write the updated data.
+            }
+        }
     }
+
+    // Forward message
+    InsertPASNodeRequest(req);
 }
 
 // network return request to acquire token - IV return or DE
-void CacheL2TOK::OnAcquireTokenRet(ST_request* req)
+void CacheL2TOK::OnAcquireTokenRet(Message* req)
 {
-    __address_t address = req->getreqaddress();
-
-    cache_line_t* line = LocateLine(address);
+    cache_line_t* line = LocateLine(req->address);
     assert(line != NULL);
     assert(line->pending);
-    assert(line->state != CLS_SHARER);
+    assert(line->dirty);
 
     // check whether the line is already invalidated or not
     // or say, false sharing or races situation
     if (line->invalidated)
     {
         assert(!line->priority);
-        if (req->bpriority)
+        
+        if (!req->bpriority)
         {
-            // all locked tokens are unclocked
-            assert(!req->btransient);
-            assert(!line->priority);
-
-            line->tlock = false;
-            line->invalidated = false;
-        }
-
-        unsigned int newtokenline = line->gettokenglobalvisible() + req->gettokenpermanent();    // this can be zero
-        unsigned int newtokenreq = 0;
-
-        // continue_here
-        UpdateRequest(req, line, REQUEST_WRITE_REPLY, address, false, false, false, 0xffff, RUM_NONE);
-
-        if (newtokenline == 0)
-        {
-            // extra line invalidation method
-            LineInvalidationExtra(req, false);
-            // CHKS: assume no needs for the same update again. this might leave the value from another write
-            line->tag = CacheTag(req->getlineaddress());
-            line->time = sc_time_stamp();
-            line->state = CLS_INVALID;
+            // We did not got the priority token, clear the locked tokens
             line->tokencount = 0;
-            line->pending = false;
-            line->invalidated = false;
-            line->priority = false;
-            line->tlock = false;
-            std::fill(line->bitmask, line->bitmask + CACHE_BIT_MASK_WIDTH, false);
-        }
-        else
-        {
-            assert(newtokenline == GetTotalTokenNum());
-
-            line->tag = CacheTag(req->getlineaddress());
-            line->time = sc_time_stamp();
-            line->state = CLS_OWNER;
-            line->tokencount = newtokenline;
-            line->pending = false;
-            line->invalidated = false;
-            line->priority = true;
-            line->tlock = false;
         }
 
-        // save reply request
-        InsertSlaveReturnRequest(false, req);
+        line->tokencount += req->gettokenpermanent();
+        line->time = sc_time_stamp();
+        line->pending = false;
+        line->invalidated = false;
+        line->priority = true;
+        line->tlock = false;
+        
+        if (line->tokencount == 0) {
+            // We have no tokens left; clear line
+            line->valid = false;
+        } else {
+            // Otherwise, we should have all tokens now
+            assert(line->tokencount == GetTotalTokenNum());
+        }
     }
     else
     {
-        // CHKS: double check the request and the line get all the tokens
-        unsigned int tokennotify = (req->btransient) ? req->tokenacquired : 0;
-
         // the request can have transient request, 
         // in case during the false-sharing the current line has the priority token
         if (req->btransient)
@@ -1506,12 +1055,12 @@ void CacheL2TOK::OnAcquireTokenRet(ST_request* req)
             // transfer the transient tokens
             req->btransient = false;
 
-            if (tokennotify > 0)
+            if (req->tokenacquired > 0)
             {
-                ST_request *reqnotify = new ST_request(req);
+                Message *reqnotify = new Message(req);
                 reqnotify->source = m_id;
-                reqnotify->type = Request_LOCALDIR_NOTIFICATION;
-                reqnotify->tokenacquired = tokennotify;
+                reqnotify->type = Message::LOCALDIR_NOTIFICATION;
+                reqnotify->tokenacquired = req->tokenacquired;
 
                 InsertPASNodeRequest(reqnotify); 
             }
@@ -1531,39 +1080,32 @@ void CacheL2TOK::OnAcquireTokenRet(ST_request* req)
 
         req->bprocessed = false;
 
-        assert((line->tokencount + req->gettokenpermanent()) == GetTotalTokenNum());
+        assert(line->tokencount + req->tokenacquired == GetTotalTokenNum());
         assert(line->tlock == false);
 
-        // CHKS: assume no needs for the same update again. this might leave the value from another write
-        // update TAG
-        line->tag = CacheTag(req->getlineaddress());
         line->time = sc_time_stamp();
-        line->tokencount = line->gettokenglobalvisible() + req->gettokenpermanent();
+        line->tokencount += req->tokenacquired;
         line->pending = false;
         line->invalidated = false;
         line->priority = true;
-        line->tlock = false;
-
-        UpdateRequest(req, line, REQUEST_WRITE_REPLY, address, false, false, false, 0xffff, RUM_NONE);
-
-        // save reply request
-        InsertSlaveReturnRequest(false, req);
     }
+
+    // Acknowledge the write
+    req->type = Message::WRITE_REPLY;
+    InsertSlaveReturnRequest(false, req);
 
     OnPostAcquirePriorityToken(line, req);
 }
 
 // network remote request to acquire token and data     // RE, RS, SR, ER
-void CacheL2TOK::OnAcquireTokenDataRem(ST_request* req)
+void CacheL2TOK::OnAcquireTokenDataRem(Message* req)
 {
-	__address_t address = req->getreqaddress();
-
     assert(req->tokenrequested <= GetTotalTokenNum());
 
-	// locate certain set
-	cache_line_t* line = LocateLine(address);
+	cache_line_t* line = LocateLine(req->address);
     if (line == NULL)
     {
+        // We do not have the line, forward message
         InsertPASNodeRequest(req);
 		return;
     }
@@ -1577,65 +1119,75 @@ void CacheL2TOK::OnAcquireTokenDataRem(ST_request* req)
         assert(line->tlock == false);
         assert(line->invalidated == false);
 
-        if (line->gettokenglobalvisible() <= (req->tokenrequested - req->tokenacquired))   // line tokens are not enough; will need to clean up line
+        if (line->gettokenglobalvisible() <= (req->tokenrequested - req->tokenacquired))
         {
+            // line tokens are not enough; will need to clean up line
             if (!req->btransient)
             {
                 // if the request is read which requires only one token and the line has only one token, 
                 // this may work only when total token number == cache number
-                if ((req->tokenrequested == 1)&&(req->tokenacquired == 0))
+                if (req->tokenrequested == 1 && req->tokenacquired == 0)
                 {
-                    UpdateRequest(req, line, req->type, address, true, req->bpriority, req->btransient, req->tokenacquired);
-
+                    req->dataavailable = true;
+                    for (unsigned int i = 0; i < m_lineSize; i++)
+                    {
+                        req->data[i] = line->data[i];
+                        req->bitmask[i] = true;
+                    }
                     // JOYING distinguish about modified data and normal data
                 }
                 else
                 {
-                    // extra line invalidation method
-                    // JONY ALSERT
-                    //LineInvalidationExtra(req, true);
+                    // Update request
+                    req->tokenacquired += line->gettokenglobalvisible();
+                    req->dataavailable = true;
+                    req->bpriority = req->bpriority || line->priority;
 
-                    // update request
-                    UpdateRequest(req, line, req->type, address, true, req->bpriority||line->priority, req->btransient, req->tokenacquired+line->gettokenglobalvisible(), RUM_NON_MASK);
+                    for (unsigned int i = 0; i < m_lineSize; i++)
+                    {
+                        if (!req->bitmask[i])
+                        {
+                            req->data[i] = line->data[i];
 
-                    // update line
-                    line->tag = CacheTag(req->getlineaddress());
-                    line->time = sc_time_stamp();
-                    line->state = CLS_INVALID;
-                    line->tokencount = 0;
-                    line->pending = false;
-                    line->invalidated = false;
-                    line->priority = false;
-                    line->tlock = false;
-                    std::fill(line->bitmask, line->bitmask + CACHE_BIT_MASK_WIDTH, false);
+                            // update read request bitmaks, write request bitmask will not be updated.
+                            if (req->tokenrequested != GetTotalTokenNum())
+                            {
+                                req->bitmask[i] = true;
+                            }
+                        }
+                    }
+
+                    // Clear line
+                    line->valid = false;
                 }
             }
             else
             {
                 assert(line->priority == true);
 
-                // extra line invalidation method
-                //LineInvalidationExtra(req, true);
-                // JONY ALSERT
+                // update request
+                req->tokenacquired += line->gettokenglobalvisible();
+                req->dataavailable = true;
+                req->btransient = false;
+                req->bpriority = req->bpriority || line->priority;
 
-                if (line->priority == true)
+                // check the whole line with mask bits and update the request according to the cacheline
+                for (unsigned int i = 0; i < m_lineSize; i++)
                 {
-                    req->btransient = false;
+                    if (line->bitmask[i])
+                    {
+                        req->data[i] = line->data[i];
+
+                        // update read request bitmaks, write request bitmask will not be updated.
+                        if (req->tokenrequested != GetTotalTokenNum())
+                        {
+                            req->bitmask[i] = true;
+                        }
+                    }
                 }
 
-                // update request
-                UpdateRequest(req, line, req->type, address, true, req->bpriority||line->priority, req->btransient, req->tokenacquired+line->gettokenglobalvisible());
-
-                // update line
-                line->tag = CacheTag(req->getlineaddress());
-                line->time = sc_time_stamp();
-                line->state = CLS_INVALID;
-                line->tokencount = 0;
-                line->pending = false;
-                line->invalidated = false;
-                line->priority = false;
-                line->tlock = false;
-                std::fill(line->bitmask, line->bitmask + CACHE_BIT_MASK_WIDTH, false);
+                // Clear line
+                line->valid = false;
             }
         }
         else    // only give out some tokens 
@@ -1645,11 +1197,25 @@ void CacheL2TOK::OnAcquireTokenDataRem(ST_request* req)
             unsigned int newlinetoken = line->gettokenglobalvisible() - req->tokenrequested + req->tokenacquired;
 
             // update request
-            UpdateRequest(req, line, req->type, address, true, req->bpriority, req->btransient, req->tokenrequested);
+            req->tokenacquired = req->tokenrequested;
+            req->dataavailable = true;
+
+            for (unsigned int i = 0; i < m_lineSize; i++)
+            {
+                if (line->bitmask[i])
+                {
+                    req->data[i] = line->data[i];
+    
+                    // update read request bitmaks, write request bitmask will not be updated.
+                    if (req->tokenrequested != GetTotalTokenNum())
+                    {
+                        req->bitmask[i] = true;
+                    }
+                }
+            }
 
             // update line  ??
             // check the update request and line data about the consistency !!!! XXXX JXXX !!!???
-            line->tag = CacheTag(req->getlineaddress());
             line->time = sc_time_stamp();
             line->tokencount = newlinetoken;
         }
@@ -1657,168 +1223,76 @@ void CacheL2TOK::OnAcquireTokenDataRem(ST_request* req)
         // save the current request
         InsertPASNodeRequest(req);
     }
-    else    // pending reqeust      // R, T, P, W, U
+    // pending request      // R, T, P, W, U
+    else if (req->tokenrequested < GetTotalTokenNum())
     {
-        if (req->tokenrequested < GetTotalTokenNum())  // read  // RS, SR
+        // read  // RS, SR
+        assert(req->btransient == false);
+
+        if (!line->dirty)  // reading, before  // R, T
         {
-            if (line->state == CLS_SHARER)  // reading, before  // R, T
+            assert(line->tlock == false);
+            
+            if (line->invalidated)  // T 
             {
-                if (line->invalidated)  // T 
+                assert(line->priority == false);
+                
+                // the line has only ghost token for local use not anytoken can be acquired or invalidated
+                // get the data if available, and token if possible. otherwise go on
+                // CHKS: ALERT: some policy needs to be made to accelerate the process                 
+
+                // update request
+                req->dataavailable = true;
+
+                // check the whole line with mask bits and update the request according to the cacheline
+                for (unsigned int i = 0; i < m_lineSize; i++)
                 {
-                    assert(line->priority == false);
-                    assert(line->tlock == false);
-                    assert(req->btransient == false);
-                    // the line has only ghost token for local use not anytoken can be acquired or invalidated
-
-                    // get the data if available, and token if possible. otherwise go on
-
-                    // CHKS: ALERT: some policy needs to be made to accelerate the process                 
-                    unsigned int ntokenlinenew = line->tokencount;
-                    unsigned int ntokentoacq = 0;
-
-                    // update request
-                    UpdateRequest(req, line, req->type, address, line->IsLineAtCompleteState() || req->dataavailable, req->bpriority, req->btransient, req->tokenacquired+ntokentoacq);
-
-                    // update line  ??? no update?
-                    line->tag = CacheTag(req->getlineaddress());
-                    line->time = sc_time_stamp();
-                    line->tokencount = ntokenlinenew;
-                    
-                    if (req->dataavailable && !line->IsLineAtCompleteState())
+                    if (line->bitmask[i])
                     {
-                        for (unsigned int i = 0; i < CACHE_BIT_MASK_WIDTH; ++i)
-                        {
-                            if (!line->bitmask[i])
-                            {
-                                line->data[i] = req->data[i];
-                                line->bitmask[i] = true;
-                            }
-                        }
-                    }
-                }
-                else    // R
-                {
-                    // get the data if available, and token if possible. otherwise go on
-                    assert(req->btransient == false);
-                    assert(line->tlock == false);
-
-                    int ntokentoacqmore = 0;
-                    unsigned int ntokenlinenew = 0;
-
-                    // CHKS: ALERT: JONYX some policy needs to be made to accelerate the process
-                    assert(req->tokenrequested > 0);
-                    if (req->tokenacquired > req->tokenrequested)
-                    {
-                        ntokentoacqmore = (line->tokencount>0)?0:-1;
-                        ntokenlinenew = (line->tokencount>0)?line->tokencount:1;
-                    }
-                    else if (req->tokenacquired == req->tokenrequested)
-                    {
-                        ntokentoacqmore = 0;
-                        ntokenlinenew = line->tokencount;
+                        req->data[i] = line->data[i];
+                        req->bitmask[i] = true;
                     }
                     else
                     {
-                        ntokentoacqmore = (line->tokencount>1)?1:0;
-                        ntokenlinenew = (line->tokencount>1)?(line->tokencount-1):line->tokencount;
-                    }
-
-                    // update request
-                    UpdateRequest(req, line, req->type, address, (req->dataavailable||(line->IsLineAtCompleteState()?true:false)), req->bpriority, req->btransient, req->tokenacquired+ntokentoacqmore, (line->IsLineAtCompleteState()?RUM_ALL:RUM_NONE));
-
-                    line->tag = CacheTag(req->getlineaddress());
-                    line->time = sc_time_stamp();
-                    line->tokencount = ntokenlinenew;
-
-                    if (req->dataavailable && !line->IsLineAtCompleteState())
-                    {
-                        for (unsigned int i = 0; i < CACHE_BIT_MASK_WIDTH; ++i)
-                        {
-                            if (!line->bitmask[i])
-                            {
-                                line->data[i] = req->data[i];
-                                line->bitmask[i] = true;
-                            }
-                        }
+                        line->data[i] = req->data[i];
+                        line->bitmask[i] = true;
                     }
                 }
-            }
-            else    // writing, before, // P, W, U
-            {
-                unsigned int newtokenline=0;
-                unsigned int newtokenreq=0;
-
-                assert(req->btransient == false);
-
-                bool acquiredp = false;
-                bool oldpriority = line->priority;
-
-                if (line->invalidated) // cool stuff here
-                {
-                    assert(line->priority == false);
-
-                    // the reqeust might have the priority, 
-                    // in this case all locked tokens in the line will be unlocked
-                    // the line should be un-invalidated and get all the tokens
-
-                    if (req->bpriority)
-                    {
-                        // mkae the req transfer the priority token to the line
-                        // get rid of the invalidated flag
-                        // no lines are locked
-                        line->priority = true;
-                        req->bpriority = false;
-
-                        newtokenline = req->gettokenpermanent();
-                        if (line->tlock)
-                        {
-                            newtokenline += line->tokencount;
-                        }
-                        newtokenreq = 0;
-
-                        line->invalidated = false;
-                        line->tlock = false;
-                        acquiredp = true;
-                    }
-                    else
-                    {
-                        // there willl be nothing to lose in this case
-                        assert(req->tokenacquired == 0);        // label_tokenacquired_always_zero
-                        assert(req->btransient == false);
-                        newtokenline = req->tokenacquired + line->tokencount;
-                        newtokenreq = 0;
-                    }
-                }
-                else
-                {
-                    // the line will get all the tokens anyway
-                    
-                    newtokenline = line->tokencount + req->gettokenpermanent();
-                    newtokenreq = 0;
-                    line->priority = line->priority||req->bpriority;
-                    req->bpriority = false;
-                }
-
-                if (!oldpriority && line->priority)
-                    acquiredp = true;
-
-                // get the data if available, and no token will be granted.
-                // update request, get more token or get own tokens ripped off
-                UpdateRequest(req, line, req->type, address, (req->dataavailable||(line->IsLineAtCompleteState())?true:false), req->bpriority, req->btransient, newtokenreq, (line->IsLineAtCompleteState()?RUM_ALL:RUM_NONE));
-                assert(req->bpriority == false);
-                assert(req->btransient == false);
 
                 // update line  ??? no update?
-                if (line->tlock)
-                    assert(newtokenline == line->tokencount);
-
-                line->tag = CacheTag(req->getlineaddress());
                 line->time = sc_time_stamp();
-                line->tokencount = newtokenline;
+            }
+            else    // R
+            {
+                // get the data if available, and token if possible. otherwise go on
+                assert(req->tokenrequested > 0);
 
-                if (req->dataavailable && !line->IsLineAtCompleteState())
+                if (req->tokenacquired > req->tokenrequested && line->tokencount == 0)
                 {
-                    for (unsigned int i = 0; i < CACHE_BIT_MASK_WIDTH; ++i)
+                    // Request has more than enough tokens, give one to the line
+                    req->tokenacquired--;
+                    line->tokencount++;
+                }
+                else if (req->tokenacquired < req->tokenrequested && line->tokencount > 1)
+                {
+                    // Line has more than enough tokens, give one to the request
+                    req->tokenacquired++;
+                    line->tokencount--;
+                }
+
+                if (!contains(line->bitmask, line->bitmask + m_lineSize, false))
+                {
+                    req->dataavailable = true;
+
+                    for (unsigned int i = 0; i < m_lineSize; i++)
+                    {
+                        req->data[i] = line->data[i];
+                        req->bitmask[i] = true;
+                    }
+                }
+                else if (req->dataavailable)
+                {
+                    for (unsigned int i = 0; i < m_lineSize; ++i)
                     {
                         if (!line->bitmask[i])
                         {
@@ -1828,1045 +1302,740 @@ void CacheL2TOK::OnAcquireTokenDataRem(ST_request* req)
                     }
                 }
 
-                if (acquiredp)
-                    OnPostAcquirePriorityToken(line, req);
+                line->time = sc_time_stamp();
+            }
+        }
+        else    // writing, before, // P, W, U
+        {
+            unsigned int newtokenline;
+
+            bool oldpriority = line->priority;
+
+            if (line->invalidated)
+            {
+                assert(line->priority == false);
+
+                // the request might have the priority, 
+                // in this case all locked tokens in the line will be unlocked
+                // the line should be un-invalidated and get all the tokens
+
+                if (req->bpriority)
+                {
+                    // mkae the req transfer the priority token to the line
+                    // get rid of the invalidated flag
+                    // no lines are locked
+                    newtokenline = req->tokenacquired;
+                    if (line->tlock)
+                    {
+                        newtokenline += line->tokencount;
+                    }
+
+                    line->invalidated = false;
+                    line->tlock = false;
+                }
+                else
+                {
+                    // there willl be nothing to lose in this case
+                    assert(req->tokenacquired == 0);
+                    newtokenline = line->tokencount;
+                }
+            }
+            else
+            {
+                // the line will get all the tokens anyway
+                newtokenline = line->tokencount + req->tokenacquired;
+            }
+            
+            line->priority = line->priority || req->bpriority;
+            req->bpriority = false;
+
+            bool acquiredp = (!oldpriority && line->priority);
+
+            // get the data if available, and no token will be granted.
+            // update request, get more token or get own tokens ripped off
+            req->tokenacquired = 0;
+
+            // if nothing to be updated
+            if (line->tokencount != 0)
+            {
+                req->dataavailable = true;
+
+                // check the whole line with mask bits and update the request according to the cacheline
+                for (unsigned int i = 0; i < m_lineSize; i++)
+                {
+                    if (line->bitmask[i])
+                    {
+                        req->data[i] = line->data[i];
+                        req->bitmask[i] = true;
+                    }
+                }
             }
 
-            // save the current request
-            InsertPASNodeRequest(req);
-        }
-        else    // write        // RE, ER
-        {
-            unsigned int newtokenline=0;
-            unsigned int newtokenreq = 0;
+            // update line  ??? no update?
+            if (line->tlock)
+                assert(newtokenline == line->tokencount);
 
-            // the line must have less token than required, since request require all the thokens
-            assert(line->tokencount <= (req->tokenrequested - req->tokenacquired));
+            line->tokencount = newtokenline;
 
-            if (line->state == CLS_SHARER)  // reading, before  // R, T
+            if (req->dataavailable && line->tokencount != 0)
             {
-                assert(!line->tlock);
-
-                // get tokens if any. set invalidated flag
-                if (req->btransient)
+                for (unsigned int i = 0; i < m_lineSize; ++i)
                 {
-                    // in this case the line must be already invalidated, 
-                    // so the tokens can be acquired here is absolutely 0
-                    assert(line->invalidated);
+                    if (!line->bitmask[i])
+                    {
+                        line->data[i] = req->data[i];
+                        line->bitmask[i] = true;
+                    }
+                }
+            }
+
+            if (acquiredp)
+                OnPostAcquirePriorityToken(line, req);
+                
+            line->time = sc_time_stamp();
+        }
+
+        // save the current request
+        InsertPASNodeRequest(req);
+    }
+    else    // write        // RE, ER
+    {
+        unsigned int newtokenline=0;
+        unsigned int newtokenreq = 0;
+
+        // the line must have less token than required, since request require all the thokens
+        assert(line->tokencount <= req->tokenrequested - req->tokenacquired);
+
+        if (!line->dirty)  // reading, before  // R, T
+        {
+            assert(!line->tlock);
+
+            // get tokens if any. set invalidated flag
+            if (req->btransient)
+            {
+                // in this case the line must be already invalidated, 
+                // so the tokens can be acquired here is absolutely 0
+                assert(line->invalidated);
+            }
+
+            // the gettokenpermanent in the case above will return 0
+            newtokenreq = req->gettokenpermanent() + line->tokencount;
+            newtokenline = 0;
+            //newtokenline = line->tokencount;
+            line->invalidated = true;
+
+            // update request
+            req->tokenacquired = newtokenreq;
+            req->dataavailable = true;
+            req->bpriority = req->bpriority || line->priority;
+
+            if (line->IsLineAtCompleteState())
+            {
+                // check the whole line with mask bits and update the request according to the cacheline
+                for (unsigned int i = 0; i < m_lineSize; i++)
+                {
+                    if (line->bitmask[i])
+                    {
+                        req->data[i] = line->data[i];
+                    }
+                }
+            }
+
+            // update line
+            line->time = sc_time_stamp();
+            line->tokencount = newtokenline;
+            line->invalidated = true;
+            line->priority = false;
+
+            for (unsigned int i = 0 ; i < m_lineSize; ++i)
+            {
+                if (req->tokenacquired > 0 || req->bitmask[i])
+                {
+                    line->bitmask[i] = true;
+                    line->data[i] = req->data[i];
+                }
+            }
+        }
+        else    // writing, before      // P, W, U
+        {
+            bool bupdatealldata;
+            bool blinecomplete = (line->tokencount != 0);
+            
+            line->time = sc_time_stamp();
+
+            // 1. req has priority token
+            // req will get all the tokens
+            if (req->bpriority)
+            {
+                bupdatealldata = false;
+                
+                assert(req->btransient == false);
+                assert(line->priority == false);
+
+                if (line->tlock || !line->invalidated)
+                {
+                    // Tokens are transfered to request and unlocked, if necessary
+                    req->tokenacquired += line->tokencount;
+                    line->tlock = false;
                 }
 
-                // the gettokenpermanent in the case above will return 0
-                newtokenreq = req->gettokenpermanent() + line->tokencount;
-                newtokenline = 0;
-                //newtokenline = line->tokencount;
+                req->dataavailable = true;
+
+                line->tokencount = 0;
                 line->invalidated = true;
+            }
+            // 2. line has the priority, then the line will take all 
+            else if (line->priority)
+            {
+                bupdatealldata = (line->tokencount == 0 && req->tokenacquired > 0);
 
-                // update request
-                UpdateRequest(req, line, req->type, address, true, req->bpriority||line->priority, req->btransient, newtokenreq, (line->IsLineAtCompleteState()?RUM_ALL:RUM_NON_MASK));
+                assert(line->invalidated == false);
+                assert(line->tlock == false);
 
-                // update line
-                line->tag = CacheTag(req->getlineaddress());
-                line->time = sc_time_stamp();
-                line->tokencount = newtokenline;
+                req->tokenacquired = 0;
+                req->dataavailable = true;
+                req->btransient = false;
+
+                line->tokencount += req->tokenacquired;
+            }
+            else
+            {
+                bupdatealldata = (line->tokencount == 0 && req->tokenacquired > 0);
+
+                // both will get the same number of tokens, req will be at transient situation
+                // and line will have the tokens locked.
+                // All of them are only visible locally, cannot be transfered.
+                // Transient tokens can later be transformed into permanent tokens by priority tokens in the line
+                // locked tokesn can be unlocked by priority tokens.
+                // Permanent tokens can later by transfered or used remotely.
+                req->tokenacquired = req->tokenacquired + line->tokencount;
+                req->dataavailable = true;
+                req->btransient = true;
+
+                line->tokencount = req->tokenacquired;
                 line->invalidated = true;
-                line->priority = false;
-
-                for (unsigned int i = 0 ; i < g_nCacheLineSize; ++i)
+                line->tlock = true;
+            }
+            
+            // check the whole line with mask bits and update the request according to the cacheline
+            for (unsigned int i = 0; i < m_lineSize; i++)
+            {
+                if (line->bitmask[i] || blinecomplete)
+                if (!req->bitmask[i])
                 {
-                    if (req->IsRequestWithCompleteData() || req->bitmask[i])
+                    req->data[i] = line->data[i];
+                }
+            }
+            
+            // update the cacheline with the dirty data in the request
+            // start from the offset and update the size from the offset
+            for (unsigned int i = 0; i < m_lineSize; i++)
+            {
+                // if not all the data needs to be updated. then skip the unnecessary parts, only update if required
+                if (!req->bitmask[i])
+                {
+                    if (!line->bitmask[i] && bupdatealldata)
+                    {
+                        line->data[i] = req->data[i];
+                    }
+                }
+                // if the mask is already on there in the cache line then dont update
+                // otherwise update
+                else if (!line->bitmask[i] || bupdatealldata)
+                {
+                    line->data[i] = req->data[i];
+                    line->bitmask[i] = true;
+                }
+                //// we dont care about the cacheline bit mask, we just write the updated data.
+            }
+        }
+
+        // save the current request
+        InsertPASNodeRequest(req);
+    }
+}
+
+// network request return, with token and data  // RS, SR, RE, ER
+void CacheL2TOK::OnAcquireTokenDataRet(Message* req)
+{
+    cache_line_t* line = LocateLine(req->address);
+    assert(line != NULL);
+    assert(line->pending);     // non-pending states   // S, E, O, M
+
+    // pending states       // R, T, P, U, W
+    if (req->tokenrequested < GetTotalTokenNum())   // read, // RS, SR
+    {
+        if (!line->dirty)  // reading, before  // R, T
+        {
+            // resolve evicted lines short of data problem in directory configuration
+            // need to resend the request again
+            // REVISIT JXXX, maybe better solutions
+            if (!req->dataavailable && !contains(line->bitmask, line->bitmask + m_lineSize, false))
+            {
+                req->bprocessed = true;
+
+                // just send it again
+                InsertPASNodeRequest(req);
+                return;
+            }
+
+            assert(req->btransient == false);
+
+            req->bprocessed = false;
+
+            unsigned int tokenlinenew = line->tokencount + req->tokenacquired;
+            bool newlinepriority = line->priority || req->bpriority;
+            unsigned int evictthereturnedtokens = (line->invalidated) ? req->tokenacquired : 0;
+
+            // instead of updating the cache line, the request should be updated first
+            // update request from the line
+            req->type = Message::READ_REPLY;
+            if (!contains(line->bitmask, line->bitmask + m_lineSize, false))
+            {
+                // check the whole line with mask bits and update the request according to the cacheline
+                for (unsigned int i = 0; i < m_lineSize; i++)
+                {
+                    if (line->bitmask[i])
+                    {
+                        req->data[i] = line->data[i];
+                    }
+                }
+            }
+
+            // update time and state
+            if (line->invalidated || tokenlinenew == 0)
+            {
+                line->valid = false;
+                // TOFIX JXXX backward invalidate L1 caches.
+
+                // in multi-level configuration, there's a chance that an AD request could travel twice(first time reload), and return at invalidated state with non-transient tokens. 
+                // in this case, the non-transient tokens should be dispatched again with disseminate request
+                if (evictthereturnedtokens > 0)
+                {
+                    Message *reqevresend = new Message(req);
+                    reqevresend->type    = Message::DISSEMINATE_TOKEN_DATA;
+                    reqevresend->address = req->address;
+                    reqevresend->size    = m_lineSize;
+                    std::fill(reqevresend->bitmask, reqevresend->bitmask + m_lineSize, true);
+                    reqevresend->dataavailable = true;
+                    memcpy(reqevresend->data, req->data, m_lineSize);
+                    reqevresend->source = m_id;
+
+                    reqevresend->tokenacquired = evictthereturnedtokens;
+                    if (evictthereturnedtokens == GetTotalTokenNum())
+                    {
+                        reqevresend->tokenrequested = GetTotalTokenNum();
+                        reqevresend->bpriority = true;
+                    }
+                    else
+                    {
+                        reqevresend->tokenrequested = 0;
+                        reqevresend->bpriority = false;
+                    }
+
+                    InsertPASNodeRequest(reqevresend); 
+                }
+            }
+            else
+            {
+                if (line->tokencount == 0 || contains(line->bitmask, line->bitmask + m_lineSize, false))
+                {
+                    assert(!line->breserved);
+                    for (unsigned int i = 0 ; i < m_lineSize; ++i)
+                    {
+                        if (req->bitmask[i])
+                        {
+                            line->bitmask[i] = true;
+                            line->data[i] = req->data[i];
+                        }
+                    }
+                }
+                else if (line->breserved)
+                {
+                    line->dirty = true;
+                }
+                
+                line->time = sc_time_stamp();
+                line->tokencount = tokenlinenew;
+                line->pending = false;
+                line->invalidated = false;
+                line->priority = newlinepriority;
+                line->tlock = false;
+            }
+
+            line->breserved = false;
+
+            OnPostAcquirePriorityToken(line, req);
+            InsertSlaveReturnRequest(false, req);
+        }
+        else    // writing, before  // P, U, W
+        {
+            // just collect the tokens, 
+            // it must be because an EV request dispatched a owner-ev to the R,T line
+            assert(line->priority);
+            assert(req->btransient == false);
+            assert(!req->bpriority);
+
+            unsigned int tokenlinenew = line->tokencount + req->tokenacquired;
+            bool newlinepriority = line->priority || req->bpriority;
+
+
+            line->tag = (req->address / m_lineSize) / m_nSets;
+            line->time = sc_time_stamp();
+            line->tokencount = tokenlinenew;
+            line->priority = newlinepriority;
+            line->tlock = false;
+                                                    
+            // instead of updating the cache line, the request should be updated first
+            // update request from the line
+            req->type = Message::READ_REPLY;
+            if (line->tokencount != 0)
+            {
+                // check the whole line with mask bits and update the request according to the cacheline
+                for (unsigned int i = 0; i < m_lineSize; i++)
+                {
+                    if (line->bitmask[i])
+                    {
+                        req->data[i] = line->data[i];
+                    }
+                }
+            }
+
+            line->breserved = false;
+
+            // save reply request
+            InsertSlaveReturnRequest(false, req);
+        }
+    }
+    // write, // RE, ER, (or maybe RS, SR when GetTotalTokenNum() == 1)
+    else if (!line->dirty)  // actually reading, before  // R, T
+    {
+        assert(GetTotalTokenNum() == 1);
+        // line is shared but also exclusive (not dirty not owner)
+           
+        assert(!line->invalidated); 
+        assert(line->tlock == false);
+        assert(req->btransient == false);
+
+        // update time and state
+        assert(line->tokencount == 0);
+        line->time = sc_time_stamp();
+        line->tokencount += req->tokenacquired;
+        line->pending = false;
+        line->invalidated = false;
+        line->priority = true;
+        line->tlock = false;
+
+        for (unsigned int i = 0 ; i < m_lineSize; ++i)
+        {
+            if (req->tokenacquired > 0 || req->bitmask[i])
+            {
+                line->bitmask[i] = true;
+                line->data[i] = req->data[i];
+            }
+        }
+
+        // instead of updating the cache line, the reqeust should be updated first
+        // update request from the line
+        req->type = Message::READ_REPLY;
+        for (unsigned int i = 0; i < m_lineSize; i++)
+        {
+            if (line->bitmask[i])
+            {
+                req->data[i] = line->data[i];
+            }
+        }
+
+        // save reply request
+        InsertSlaveReturnRequest(false, req);
+        OnPostAcquirePriorityToken(line, req);
+    }
+    else    // writing, before  // P, U, W
+    {
+        unsigned int newtokenline = 0;
+        unsigned int newtokenreq  = 0;
+        unsigned int tokennotify  = (req->btransient) ? req->tokenacquired : 0;
+
+         // check whether the line is already invalidated or not
+        // or say, false sharing or races situation
+        if (line->invalidated) // U state
+        {
+            assert(!line->priority);
+            if (req->bpriority)
+            {
+                // all locked tokens are unclocked
+                assert(!req->btransient);
+
+                line->tlock = false;
+                line->invalidated = false;
+            }
+
+            newtokenline = line->gettokenglobalvisible() + req->gettokenpermanent();    // this can be zero
+            newtokenreq = 0;
+
+            line->time = sc_time_stamp();
+            
+            // continue_here
+            if (newtokenline == 0)
+            {
+                // Clear line
+                line->valid = false;
+            }
+            else
+            {
+                assert(newtokenline == GetTotalTokenNum());
+                
+                if (line->tokencount == 0)
+                {
+                    for (unsigned int i = 0 ; i < m_lineSize; ++i)
+                    {
+                        if (req->tokenacquired > 0 || req->bitmask[i])
+                        {
+                            line->bitmask[i] = true;
+                            line->data[i] = req->data[i];
+                        }
+                    }
+                }
+
+                line->dirty = true;
+                line->tokencount = newtokenline;
+                line->pending = false;
+                line->invalidated = false;
+                line->priority = true;
+                line->tlock = false;
+            }
+            
+            req->type = Message::WRITE_REPLY;
+        }
+        else
+        {
+            // resolve evicted lines short of data problem in directory configuration
+            // need to resend the request again
+            // REVISIT JXXX, maybe better solutions
+            // JOYING or maybe just delay a little bit
+            if (line->tokencount + req->tokenacquired < GetTotalTokenNum())
+            {
+                req->bprocessed = true;
+
+                // just send it again
+                InsertPASNodeRequest(req);
+                return;
+            }
+
+            req->bprocessed = false;
+
+            // double check the request and the line get all the tokens
+            assert(line->tokencount + req->tokenacquired == GetTotalTokenNum());
+            assert(line->tlock == false);
+            if (req->btransient)
+                assert(line->priority);
+
+            if (line->tokencount == 0)
+            {
+                for (unsigned int i = 0 ; i < m_lineSize; ++i)
+                {
+                    if (req->tokenacquired > 0 || req->bitmask[i])
                     {
                         line->bitmask[i] = true;
                         line->data[i] = req->data[i];
                     }
                 }
             }
-            else    // writing, before      // P, W, U
-            {
-                // 1. req has priority token
-                // req will get all the tokens
-                if (req->bpriority)
-                {
-                    assert(req->btransient == false);
-                    assert(line->priority == false);
+            
+            line->time = sc_time_stamp();
+            line->tokencount += req->tokenacquired;
+            line->pending = false;
+            line->invalidated = false;
+            line->priority = true;
+            line->tlock = false;
 
-                    if (line->tlock)
-                    {
-                        assert(line->invalidated);
-
-                        // locked tokens are unlocked and transfered to request
-                        newtokenreq = req->tokenacquired + line->tokencount;
-                        newtokenline = 0;
-                        line->tlock = false;
-                    }
-                    else if (line->invalidated)
-                    {
-                        assert(line->gettokenglobalvisible() == 0);
-                        newtokenreq = req->tokenacquired + line->gettokenglobalvisible();
-                        newtokenline = 0;
-                    }
-                    else
-                    {
-                        newtokenreq = req->tokenacquired + line->gettokenglobalvisible();
-                        newtokenline = 0;
-                    }
-
-                    // Update request
-                    UpdateRequest(req, line, req->type, address, true, req->bpriority, req->btransient, newtokenreq, RUM_NON_MASK);
-
-                    // updateline
-                    //IVUpdateCacheLine(line, req, line->state, newtokenline, line->pending, true, line->priority, line->tlock, LUM_RAC_FEEDBACK_UPDATE);
-                    bool bupdatealldata = (line->state == CLS_OWNER && line->pending && line->tokencount == 0 && newtokenline > 0);
-
-                    line->time = sc_time_stamp();
-                    line->tokencount = newtokenline;
-                    line->invalidated = true;
-
-                    // update the cacheline with the dirty data in the request
-                    // start from the offset and update the size from the offset
-                    for (unsigned int i = 0; i < g_nCacheLineSize; i++)
-                    {
-                        // if not all the data needs to be updated. then skip the unnecessary parts, only update if required
-                        if (!req->bitmask[i])
-                        {
-                            if (!line->bitmask[i] && bupdatealldata)
-                            {
-                                line->data[i] = req->data[i];
-                            }
-                        }
-                        // if the mask is already on there in the cache line then dont update
-                        // otherwise update
-                        else if (!line->bitmask[i] || bupdatealldata)
-                        {
-                            line->data[i] = req->data[i];
-                            line->bitmask[i] = true;
-                        }
-                        //// we dont care about the cacheline bit mask, we just write the updated data.
-                    }
-                }
-                // 2. line has the priority, then the line will take all 
-                else if (line->priority)
-                {
-                    assert(line->invalidated == false);
-                    assert(line->tlock == false);
-                    assert(req->bpriority == false);
-
-                    // transient tokens will be changed to permanent tokens
-                    req->btransient = false;
-
-                    newtokenline = line->tokencount + req->tokenacquired;
-                    newtokenreq = 0;
-
-                    // update request, rip the available token off to the request
-                    UpdateRequest(req, line, req->type, address, true, req->bpriority, req->btransient, newtokenreq, RUM_NON_MASK);
-
-                    // update line, and keep the state, and 
-                    //IVUpdateCacheLine(line, req, line->state, newtokenline, line->pending, line->invalidated, line->priority, line->tlock, LUM_RAC_FEEDBACK_UPDATE);
-                    bool bupdatealldata = (line->state == CLS_OWNER && line->pending && line->tokencount == 0 && newtokenline > 0);
-
-                    line->time = sc_time_stamp();
-                    line->tokencount = newtokenline;
-
-                    // update the cacheline with the dirty data in the request
-                    // start from the offset and update the size from the offset
-                    for (unsigned int i = 0; i < g_nCacheLineSize; i++)
-                    {
-                        // if not all the data needs to be updated. then skip the unnecessary parts, only update if required
-                        if (!req->bitmask[i])
-                        {
-                            if (!line->bitmask[i] && bupdatealldata)
-                            {
-                                line->data[i] = req->data[i];
-                            }
-                        }
-                        // if the mask is already on there in the cache line then dont update
-                        // otherwise update
-                        else if (!line->bitmask[i] || bupdatealldata)
-                        {
-                            line->data[i] = req->data[i];
-                            line->bitmask[i] = true;
-                        }
-                        //// we dont care about the cacheline bit mask, we just write the updated data.
-                    }
-                }
-                else
-                {
-                    // both will get the same number of tokens, req will be at transient situation
-                    // and line will have the tokens locked
-                    // all of them are only visible locally, cannot be transfered.
-                    // transient tokens can later be transformed into permanent tokens by priority tokens in the line
-                    // locked tokesn can be unlocked by priority tokens
-                    // permament tokens can later by transfered or used remotely.
-     
-                    assert(req->bpriority == false);
-                    assert(line->priority == false);
-                    newtokenline = req->tokenacquired + line->tokencount;
-                    newtokenreq = req->tokenacquired + line->tokencount;
-
-                    // update request, rip the available token off to the request
-                    UpdateRequest(req, line, req->type, address, true, req->bpriority, true, newtokenreq, RUM_NON_MASK);
-
-                    // update line, and keep the state, and 
-                    //IVUpdateCacheLine(line, req, line->state, newtokenline, line->pending, true, line->priority, true, LUM_RAC_FEEDBACK_UPDATE);
-                    bool bupdatealldata = (line->state == CLS_OWNER && line->pending && line->tokencount == 0 && newtokenline > 0);
-
-                    line->time = sc_time_stamp();
-                    line->tokencount = newtokenline;
-                    line->invalidated = true;
-                    line->tlock = true;
-
-                    // update the cacheline with the dirty data in the request
-                    // start from the offset and update the size from the offset
-                    for (unsigned int i = 0; i < g_nCacheLineSize; i++)
-                    {
-                        // if not all the data needs to be updated. then skip the unnecessary parts, only update if required
-                        if (!req->bitmask[i])
-                        {
-                            if (!line->bitmask[i] && bupdatealldata)
-                            {
-                                line->data[i] = req->data[i];
-                            }
-                        }
-                        // if the mask is already on there in the cache line then dont update
-                        // otherwise update
-                        else if (!line->bitmask[i] || bupdatealldata)
-                        {
-                            line->data[i] = req->data[i];
-                            line->bitmask[i] = true;
-                        }
-                        //// we dont care about the cacheline bit mask, we just write the updated data.
-                    }
-                }
-
-            }
-
-            // save the current request
-            InsertPASNodeRequest(req);
-            //m_pReqCurPASasNode = req;
+            req->type = Message::WRITE_REPLY;
         }
-    }
-}
 
-// network request return, with token and data  // RS, SR, RE, ER
-void CacheL2TOK::OnAcquireTokenDataRet(ST_request* req)
-{
-    __address_t address = req->getreqaddress();
-
-    //DEBUG_TEST_XXX
-
-    // locate certain set
-    cache_line_t* line = LocateLine(address);
-    assert(line != NULL);
-    assert(line->state != CLS_INVALID);
-    assert(line->pending);     // non-pending states   // S, E, O, M
-
-        // pending states       // R, T, P, U, W
-    {
-        if (req->tokenrequested < GetTotalTokenNum())   // read, // RS, SR
+        if (req->bmerged)
         {
-            if (line->state == CLS_SHARER)  // reading, before  // R, T
+            for (unsigned int i = 0; i < req->msbcopy.size(); ++i)
             {
-                // resolve evicted lines short of data problem in directory configuration
-                // need to resend the request again
-                // REVISIT JXXX, maybe better solutions
-                if (!req->dataavailable && !line->IsLineAtCompleteState())
-                {
-                    req->bprocessed = true;
-
-                    // just send it again
-                    InsertPASNodeRequest(req);
-                    return;
-                }
-
-                req->bprocessed = false;
-
-                assert(req->btransient == false);
-                unsigned int tokenlinenew = line->tokencount + req->tokenacquired;
-                bool newlinepriority = line->priority || req->bpriority;
-
-                bool evictthereturnedtokens = 0;
-                if (line->invalidated && !req->btransient && req->tokenacquired > 0)
-                {
-                    evictthereturnedtokens = req->tokenacquired;
-                }
-
-                // instead of updating the cache line, the reqeust should be updated first
-                // update request from the line
-                //UpdateRequest(req, line, MemoryState::REQUEST_READ_REPLY_X, address);
-                UpdateRequest(req, line, MemoryState::REQUEST_READ_REPLY, address, true, false, false, 0xffff, (line->IsLineAtCompleteState()?RUM_ALL:RUM_NONE));
-
-                // update time and state
-                if ((line->invalidated)||(tokenlinenew == 0))
-                {
-                    //assert(tokenlinenew == 0);
-                    line->tag = CacheTag(req->getlineaddress());
-                    line->time = sc_time_stamp();
-                    line->state = CLS_INVALID;
-                    line->tokencount = 0;
-                    line->pending = false;
-                    line->invalidated = false;
-                    line->priority = false;
-                    line->tlock = false;
-                    // TOFIX JXXX backward invalidate L1 caches.
-
-                    // in multi-level configuration, there's a chance that an AD request could travel twice(first time reload), and return at invalidated state with non-transient tokens. 
-                    // in this case, the non-transient tokens should be dispatched again with disseminate request
-                    if (evictthereturnedtokens > 0)
-                    {
-                        ST_request *reqevresend = new ST_request(req);
-                        reqevresend->type = REQUEST_DISSEMINATE_TOKEN_DATA;
-                        reqevresend->addresspre = req->addresspre;
-                        reqevresend->offset = 0;
-                        reqevresend->nsize = g_nCacheLineSize;
-                        reqevresend->Conform2BitVecFormat();
-                        reqevresend->dataavailable = true;
-                        memcpy(reqevresend->data, req->data, g_nCacheLineSize);
-                        reqevresend->source = m_id;
-
-                        reqevresend->tokenacquired = evictthereturnedtokens;
-                        if (evictthereturnedtokens==GetTotalTokenNum())
-                        {
-                            reqevresend->tokenrequested = GetTotalTokenNum();
-                            reqevresend->bpriority = true;
-                        }
-                        else
-                        {
-                            reqevresend->tokenrequested = 0;
-                            reqevresend->bpriority = false;
-                        }
-
-                        InsertPASNodeRequest(reqevresend); 
-                    }
-                }
-                else if (line->tokencount == 0 || !line->IsLineAtCompleteState())
-                {
-                    assert(!line->breserved);   // just alert, may not be error
-                    line->tag = CacheTag(req->getlineaddress());
-                    line->time = sc_time_stamp();
-                    line->tokencount = tokenlinenew;
-                    line->pending = false;
-                    line->invalidated = false;
-                    line->priority = newlinepriority;
-                    line->tlock = false;
-
-                    for (unsigned int i = 0 ; i < g_nCacheLineSize; ++i)
-                    {
-                        if (req->IsRequestWithCompleteData() || req->bitmask[i])
-                        {
-                            line->bitmask[i] = true;
-                            line->data[i] = req->data[i];
-                        }
-                    }
-                }
-                else
-                {
-                    line->tag = CacheTag(req->getlineaddress());
-                    line->time = sc_time_stamp();
-                    if (line->breserved)
-                    {
-                        line->state = CLS_OWNER;
-                    }
-                    line->tokencount = tokenlinenew;
-                    line->pending = false;
-                    line->invalidated = false;
-                    line->priority = newlinepriority;
-                    line->tlock = false;
-                }
-
-                line->breserved = false;
-
-                OnPostAcquirePriorityToken(line, req);
-
-                // save reply request
-                InsertSlaveReturnRequest(false, req);
-                //m_pReqCurPASasSlave = req;
-
+                InsertSlaveReturnRequest(false, req->msbcopy[i]);
             }
-            else    // writing, before  // P, U, W
-            {
-                // just collect the tokens, 
-                // it must be because an EV request dispatched a owner-ev to the R,T line
-                assert(line->priority);
-                assert(line->IsLineAtCompleteState());
-                assert(req->btransient == false);
-                assert(!req->bpriority);
-
-                unsigned int tokenlinenew = line->tokencount + req->tokenacquired;
-                bool newlinepriority = line->priority || req->bpriority;
-
-
-                line->tag = CacheTag(req->getlineaddress());
-                line->time = sc_time_stamp();
-                line->tokencount = tokenlinenew;
-                line->priority = newlinepriority;
-                line->tlock = false;
-                                                        
-                // instead of updating the cache line, the reqeust should be updated first
-                // update request from the line
-                //UpdateRequest(req, line, MemoryState::REQUEST_READ_REPLY_X, address);
-                UpdateRequest(req, line, MemoryState::REQUEST_READ_REPLY, address, true, false, false, 0xffff, (line->IsLineAtCompleteState()?RUM_ALL:RUM_NONE));
-
-                line->breserved = false;
-
-                //OnPostAcquirePriorityToken(line, req);
-
-                // save reply request
-                InsertSlaveReturnRequest(false, req);
-                //m_pReqCurPASasSlave = req;
-
-            }
+            OnPostAcquirePriorityToken(line, req);
+            delete req;
         }
-        else    // write, // RE, ER, (or maybe RS, SR when GetTotalTokenNum() == 1)
+        else
         {
-	  
-	        if (line->state == CLS_SHARER)  // actually reading, before  // R, T
-            {
-	            assert(GetTotalTokenNum() == 1);
-                {
-                    // line is shared but also exclusive (not dirty not owner)
-                   
-                    assert(!line->invalidated); 
-                    assert(line->tlock == false);
-                    assert(req->btransient == false);
-
-                    unsigned int tokenlinenew = line->tokencount + req->tokenacquired;
-
-                    // update time and state
-		            assert (line->tokencount == 0);
-                    line->tag = CacheTag(req->getlineaddress());
-                    line->time = sc_time_stamp();
-                    line->state = line->state;
-                    line->tokencount = tokenlinenew;
-                    line->pending = false;
-                    line->invalidated = false;
-                    line->priority = true;
-                    line->tlock = false;
-
-                    for (unsigned int i = 0 ; i < g_nCacheLineSize; ++i)
-                    {
-                        if (req->IsRequestWithCompleteData() || req->bitmask[i])
-                        {
-                            line->bitmask[i] = true;
-                            line->data[i] = req->data[i];
-                        }
-                    }
-
-                    // instead of updating the cache line, the reqeust should be updated first
-                    // update request from the line
-                    //UpdateRequest(req, line, MemoryState::REQUEST_READ_REPLY_X, address);
-                    UpdateRequest(req, line, MemoryState::REQUEST_READ_REPLY, address, true, false, false, 0xffff);       // ALERT
-
-                    // save reply request
-                    InsertSlaveReturnRequest(false, req);
-                    //m_pReqCurPASasSlave = req;
-
-                    OnPostAcquirePriorityToken(line, req);
-                }
-            }
-            else    // writing, before  // P, U, W
-            {
-                unsigned int newtokenline=0;
-                unsigned int newtokenreq=0;
-
-                unsigned int tokennotify = (req->btransient) ? req->tokenacquired : 0;
-
-                 // check whether the line is already invalidated or not
-                // or say, false sharing or races situation
-                if (line->invalidated) // U state
-                {
-                    assert(!line->priority);
-                    if (req->bpriority)
-                    {
-                        // all locked tokens are unclocked
-                        assert(!req->btransient);
-                        assert(!line->priority);
-
-                        line->tlock = false;
-                        line->invalidated = false;
-                    }
-
-                    newtokenline = line->gettokenglobalvisible() + req->gettokenpermanent();    // this can be zero
-                    newtokenreq = 0;
-
-
-                    // continue_here
-                    if (newtokenline == 0)
-                    {
-                        UpdateRequest(req, line, REQUEST_WRITE_REPLY, address, false, false, false, 0xffff, RUM_NONE);
-
-                        // extra line invalidation method
-                        LineInvalidationExtra(req, false);
-                        // CHKS: assume no needs for the same update again. this might leave the value from another write
-                        line->tag = CacheTag(req->getlineaddress());
-                        line->time = sc_time_stamp();
-                        line->state = CLS_INVALID;;
-                        line->tokencount = 0;
-                        line->pending = false;
-                        line->invalidated = false;
-                        line->priority = false;
-                        line->tlock = false;
-                    }
-                    else
-                    {
-                        assert(newtokenline == GetTotalTokenNum());
-                        
-                        if (line->tokencount == 0)
-                        {
-                            for (unsigned int i = 0 ; i < g_nCacheLineSize; ++i)
-                            {
-                                if (req->IsRequestWithCompleteData() || req->bitmask[i])
-                                {
-                                    line->bitmask[i] = true;
-                                    line->data[i] = req->data[i];
-                                }
-                            }
-                        }
-
-                        line->tag = CacheTag(req->getlineaddress());
-                        line->time = sc_time_stamp();
-                        line->state = CLS_OWNER;
-                        line->tokencount = newtokenline;
-                        line->pending = false;
-                        line->invalidated = false;
-                        line->priority = true;
-                        line->tlock = false;
-                        
-                        UpdateRequest(req, line, REQUEST_WRITE_REPLY, address, false, false, false, 0xffff, RUM_NONE);
-                     }
-
-                    // save reply request
-                    if (req->bmerged)
-                    {
-                        assert(req->msbcopy != NULL);
-                        vector<ST_request*>* pvec = req->msbcopy;
-                        for (unsigned int i=0;i<pvec->size();i++)
-                        {
-                            InsertSlaveReturnRequest(false, (*pvec)[i]);
-                        }
-
-                        pvec->clear();
-                        delete pvec;
-
-                        OnPostAcquirePriorityToken(line, req);
-
-                        delete req;
-                    }
-                    else
-                    {
-                        InsertSlaveReturnRequest(false, req);
-
-                        OnPostAcquirePriorityToken(line, req);
-                    }
-                    //m_pReqCurPASasSlave = req;
-                }
-                else
-                {
-                    // resolve evicted lines short of data problem in directory configuration
-                    // need to resend the request again
-                    // REVISIT JXXX, maybe better solutions
-                    // JOYING or maybe just delay a little bit
-                    if (line->tokencount + req->tokenacquired < GetTotalTokenNum())
-                    {
-                        req->bprocessed = true;
-
-                        // just send it again
-                        InsertPASNodeRequest(req);
-                        return;
-                    }
-
-                    req->bprocessed = false;
-
-                    // double check the request and the line get all the tokens
-                    assert((line->tokencount + req->tokenacquired) == GetTotalTokenNum());
-                    assert(line->tlock == false);
-                    if (req->btransient)
-                        assert(line->priority);
-
-                    if (line->tokencount == 0)
-                    {
-                        for (unsigned int i = 0 ; i < g_nCacheLineSize; ++i)
-                        {
-                            if (req->IsRequestWithCompleteData() || req->bitmask[i])
-                            {
-                                line->bitmask[i] = true;
-                                line->data[i] = req->data[i];
-                            }
-                        }
-                    }
-                    
-                    line->tag = CacheTag(req->getlineaddress());
-                    line->time = sc_time_stamp();
-                    line->tokencount += req->tokenacquired;
-                    line->pending = false;
-                    line->invalidated = false;
-                    line->priority = true;
-                    line->tlock = false;
-
-                    // save reply request
-                    UpdateRequest(req, line, REQUEST_WRITE_REPLY, address, false, false, false, 0xffff, RUM_NONE);
-
-                    req->type = REQUEST_WRITE_REPLY;
-
-                    if (req->bmerged)
-                    {
-                        assert(req->msbcopy != NULL);
-                        vector<ST_request*>* pvec = req->msbcopy;
-                        for (unsigned int i=0;i<pvec->size();i++)
-                        {
-                            InsertSlaveReturnRequest(false, (*pvec)[i]);
-                        }
-
-                        pvec->clear();
-                        delete pvec;
-
-                        OnPostAcquirePriorityToken(line, req);
-
-                        delete req;
-                    }
-                    else
-                    {
-                        InsertSlaveReturnRequest(false, req);
-
-                        OnPostAcquirePriorityToken(line, req);
-                    }
-                }
-            }
+            InsertSlaveReturnRequest(false, req);
+            OnPostAcquirePriorityToken(line, req);
         }
     }
 }
 
 // network disseminate token and data, EV, WB, include IJ
-void CacheL2TOK::OnDisseminateTokenData(ST_request* req)
+void CacheL2TOK::OnDisseminateTokenData(Message* req)
 {
-    __address_t address = req->getreqaddress();
+    cache_line_t* line = LocateLine(req->address);
 
-    //DEBUG_TEST_XXX
-
-    // locate line
-    cache_line_t* line = LocateLine(address);
-
-    // handle INVALID state
     if (line == NULL)
     {
-        switch (m_nInjectionPolicy)
+        // We don't have the line
+        if (!m_inject)
         {
-        case IP_NONE:
-            // pass the transaction down 
-            // this can change according to different strategies
-            // JXXX
-
-            // save the current request
+            // Do not try to inject
             InsertPASNodeRequest(req);
-
-            // request will be passed to the next node
-            break;
-            
-        case IP_EMPTY_1EJ:
-            line = GetEmptyLine(address);
-            if (line == NULL)
-            {
-                // save the current request
-                InsertPASNodeRequest(req);
-            }
-            else
-            {
-                // update line info
-
-                line->tag = CacheTag(req->getlineaddress());
-                line->time = sc_time_stamp();
-                line->state = (req->tokenrequested == GetTotalTokenNum()) ? CLS_OWNER : CLS_SHARER;
-                line->tokencount = req->tokenacquired;
-                line->pending = false;
-                line->invalidated = false;
-                line->priority = req->bpriority;
-                line->tlock = false;
-
-                for (unsigned int i = 0; i < CACHE_BIT_MASK_WIDTH; i++)
-                {
-                    if (!line->bitmask[i])
-                    {
-                        line->data[i] = req->data[i];
-                    }
-                }
-                std::fill(line->bitmask, line->bitmask + CACHE_BIT_MASK_WIDTH, true);
-
-                // terminate request
-                delete req;
-            }
-            break;
-            
-        default:
-	        // invalid case
-	        assert(false);
-	        break;
+            return;
         }
+        
+        // Try to allocate an empty line to inject the evicted line
+        line = GetEmptyLine(req->address);
+        if (line == NULL)
+        {
+            // No free line
+            InsertPASNodeRequest(req);
+            return;
+        }
+        
+        // Store evicted line in the allocated line
+        line->tag = (req->address / m_lineSize) / m_nSets;
+        line->time = sc_time_stamp();
+        line->dirty = (req->tokenrequested == GetTotalTokenNum());
+        line->tokencount = req->tokenacquired;
+        line->pending = false;
+        line->invalidated = false;
+        line->priority = req->bpriority;
+        line->tlock = false;
+
+        for (unsigned int i = 0; i < m_lineSize; i++)
+        {
+            if (!line->bitmask[i])
+            {
+                line->data[i] = req->data[i];
+            }
+        }
+        std::fill(line->bitmask, line->bitmask + m_lineSize, true);
+
+        delete req;
         return;
     }
-
-    // handling other states
-    assert(line->state != CLS_INVALID);
+    
+    // We have the line
 
     if (!line->pending)     // non-pending states   // S, E, O, M
     {
         // give the token of the request to the line 
-        // new policy possible JXXX
-        //unsigned int tokenlinenew = line->tokencount + req->tokenacquired;
-
-        // JXXX policy maybe changed 
-        bool acquiredp = false;
-        if ((req->bpriority)&&(!line->priority))
-            acquiredp = true;
-
         assert(line->tlock == false);
-        line->tag = CacheTag(req->getlineaddress());
+        
         line->time = sc_time_stamp();
         if (req->tokenrequested == GetTotalTokenNum())
         {
-            line->state = CLS_OWNER;
+            line->dirty = true;
         }
         line->tokencount += req->tokenacquired;
-        if (req->bpriority)
+        if (req->bpriority && !line->priority)
         {
             line->priority = true;
-        }
-
-        if (acquiredp)
             OnPostAcquirePriorityToken(line, req);
-
-        // terminate the request
+        }
         delete req;
-
-        // do not send anything away anymore
     }
-    else    // pending states       // R, T, P, U, W
+    // pending states       // R, T, P, U, W
+    else if (line->invalidated)      // T, U
     {
-        if (line->invalidated)      // T, U
+        // do not give the tokens to the T line, but U will decide whether the line should stay
+        // the situation will never happen, check the label : label_tokenacquired_always_zero
+        //
+        // [the original line sent out the DD should have already had been invalidated if the line is U]
+        // or [the DD will met a non-invalidated line first, as P, W] 
+        assert(!line->dirty);
+
+        InsertPASNodeRequest(req);
+    }
+    else
+    {
+        // R, P, W
+        assert(line->tlock == false);
+
+        if (line->tokencount == 0)
         {
-            // do not give the tokens to the T line, but U will decide whether the line should stay
-            // the situation will never happen, check the label : label_tokenacquired_always_zero
-            //
-            // [the original line sent out the DD should have already had been invalidated if the line is U]
-            // or [the DD will met a non-invalidated line first, as P, W]
- 
-	        assert (line->state != CLS_OWNER);
-
-            InsertPASNodeRequest(req);
+            for (unsigned int i = 0; i < m_lineSize; i++)
+            {
+                if (!line->bitmask[i])
+                {
+                    line->data[i] = req->data[i];
+                }
+            }
+            std::fill(line->bitmask, line->bitmask + m_lineSize, true);
         }
-        else                        // R, P, W
+
+        // give all the tokens of the request to the line
+        line->time = sc_time_stamp();
+        line->tokencount += req->tokenacquired;
+
+        if (req->bpriority && !line->priority)
         {
-            if (line->state == CLS_SHARER)  // reading, before  // R
-            {
-                // give all the tokens of the request to the line
-                unsigned int tokenlinenew = line->tokencount + req->tokenacquired;
-
-                assert(tokenlinenew <= GetTotalTokenNum());
-
-                assert(line->tlock == false);
-
-                bool acquiredp = false;
-                if ((req->bpriority)&&(!line->priority))
-                    acquiredp = true;
-
-                if (line->tokencount == 0)
-                {
-                    for (unsigned int i = 0; i < CACHE_BIT_MASK_WIDTH; i++)
-                    {
-                        if (!line->bitmask[i])
-                        {
-                            line->data[i] = req->data[i];
-                        }
-                    }
-                    std::fill(line->bitmask, line->bitmask + CACHE_BIT_MASK_WIDTH, true);
-                }
-
-                line->tag = CacheTag(req->getlineaddress());
-                line->time = sc_time_stamp();
-                line->tokencount = tokenlinenew;
-                if (req->bpriority)
-                {
-                    line->priority = true;
-                }
-
-                // special case to reserve the line to be trasfered to owner line after reply received.
-                // RESERVED
-                if (req->tokenrequested == GetTotalTokenNum())
-                    line->breserved = true;
-
-                if (acquiredp)
-                    OnPostAcquirePriorityToken(line, req);
-
-                // JXXX policy maybe changed 
-
-                // terminate the request
-                delete req;
-
-                // do not send anything away anymore
-            }
-            else    // writing, before  // P, W
-            {
-                assert(line->tlock == false);
-                // give all the tokens of the request to the line
-                unsigned int tokenlinenew = line->tokencount + req->tokenacquired;
-
-                assert(tokenlinenew<=GetTotalTokenNum());
-
-                bool acquiredp = false;
-                if ((req->bpriority)&&(!line->priority))
-                    acquiredp = true;
-
-                if (line->tokencount == 0)
-                {
-                    for (unsigned int i = 0; i < CACHE_BIT_MASK_WIDTH; i++)
-                    {
-                        if (!line->bitmask[i])
-                        {
-                            line->data[i] = req->data[i];
-                        }
-                    }
-                    std::fill(line->bitmask, line->bitmask + CACHE_BIT_MASK_WIDTH, true);
-                }
-
-                line->tag = CacheTag(req->getlineaddress());
-                line->time = sc_time_stamp();
-                line->tokencount = tokenlinenew;
-                if (req->bpriority)
-                {
-                    line->priority = true;
-                }
-
-                if (acquiredp)
-                    OnPostAcquirePriorityToken(line, req);
-
-                // JXXX policy maybe changed 
-                // terminate the request
-                delete req;
-
-                // do not send anything away anymore
-            }
+            line->priority = true;
+            OnPostAcquirePriorityToken(line, req);
         }
+
+        if (!line->dirty && req->tokenrequested == GetTotalTokenNum())
+        {
+            // Special case to reserve the line to be transferred to owner line after reply received.
+            line->breserved = true;
+        }
+        delete req;
     }
 }
 
-
-void CacheL2TOK::OnPostAcquirePriorityToken(cache_line_t* line, ST_request* req)
+void CacheL2TOK::OnPostAcquirePriorityToken(cache_line_t* line, Message* req)
 {
-    __address_t address = req->getreqaddress();
-    
-    if (!m_msbModule.IsAddressPresent(address))
+    assert(line->invalidated == false);
+
+    if (!m_msbModule.IsAddressPresent(req->address))
     {
         return;
     }
     
-    ///////////////////////////
-    // deal with merged request 
-    ST_request* mergedreq = m_msbModule.GetMergedRequest(address);
-    ST_request* merge2send = NULL;
+    const Message&          mergedreq      = m_msbModule.GetMergedRequest(req->address);
+    const vector<Message*>& queuedrequests = m_msbModule.GetQueuedRequestVector(req->address);
 
-    // queued request list
-    vector<ST_request*>* queuedrequests = m_msbModule.GetQueuedRequestVector(address);
-
-    assert(line->invalidated == false);
-
-    // if the merged request can be handled directly. 
-    if (line->state == CLS_OWNER)
+    // Merge the change from the buffer back into the line
+    for (unsigned int i = 0; i < m_lineSize; i++)
     {
-        assert(line->tokencount != 0);
-        if (!line->pending)
+        if (mergedreq.bitmask[i])
         {
-            assert(line->tokencount == GetTotalTokenNum());
-
-            // then carry out the request 
-            line->tag = CacheTag(mergedreq->getlineaddress());
-            line->time = sc_time_stamp();
-            for (unsigned int i = 0; i < g_nCacheLineSize; i++)
-            {
-                if (mergedreq->IsRequestWithCompleteData() || mergedreq->bitmask[i])
-                {
-                    line->bitmask[i] = true;
-                    line->data[i] = mergedreq->data[i];
-                }
-            }
-
-            // and append all the queued request on the msb slot to a return buffer
-            for (unsigned int i = 0; i < queuedrequests->size(); i++)
-            {
-                InsertSlaveReturnRequest(false, (*queuedrequests)[i]);
-            }
-
-            // remove the merged request, remove the msb slot
-            m_msbModule.CleanSlot(address);
-        }
-        else
-        {
-            // CHKS, alert
-            // the line might not be able to write directly if they are from differnt families. 
-            line->tag = CacheTag(mergedreq->getlineaddress());
-            line->time = sc_time_stamp();
-            for (unsigned int i = 0; i < g_nCacheLineSize; i++)
-            {
-                if (mergedreq->IsRequestWithCompleteData() || mergedreq->bitmask[i])
-                {
-                    line->bitmask[i] = true;
-                    line->data[i] = mergedreq->data[i];
-                }
-            }
-
-            // and append all the queued request on the msb slot to a return buffer
-            for (unsigned int i = 0; i < queuedrequests->size(); i++)
-            {
-                InsertSlaveReturnRequest(false, (*queuedrequests)[i]);
-            }
-
-            // remove the merged request, remove the msb slot
-            m_msbModule.CleanSlot(address);
+            line->bitmask[i] = true;
+            line->data[i] = mergedreq.data[i];
         }
     }
-    else if (line->state == CLS_SHARER)
+    
+    // if the merged request can be handled directly. 
+    if (line->dirty)
     {
-        if (line->tokencount != GetTotalTokenNum())
+        assert(line->tokencount != 0);
+
+        // Acknowledge all buffered writes immediately
+        for (size_t i = 0; i < queuedrequests.size(); i++)
         {
-            assert(!line->pending);
-            assert(!line->invalidated);
-            assert(!line->tlock);
-
-            // now read reply already received, go out and acquire the rest of the tokens
-            line->tag = CacheTag(mergedreq->getlineaddress());
-            line->time = sc_time_stamp();
-            line->state = CLS_OWNER;
-            line->pending = true;
-            line->invalidated = false;
-            line->tlock = false;
-            for (unsigned int i = 0; i < g_nCacheLineSize; i++)
-            {
-                if (mergedreq->IsRequestWithCompleteData() || mergedreq->bitmask[i])
-                {
-                    line->bitmask[i] = true;
-                    line->data[i] = mergedreq->data[i];
-                }
-            }
-
-            merge2send = new ST_request(mergedreq);
-            merge2send->source = m_id;
-
-            // associate the merged request with a request queue
-            // dumplicate request queue
-            m_msbModule.DuplicateRequestQueue(address, merge2send);
-
-            // remove the msb slot
-            m_msbModule.CleanSlot(address);
-
-
+            InsertSlaveReturnRequest(false, queuedrequests[i]);
         }
-        else
-        {
-            assert(line->pending == false);
-
-            // in case the merged request cannot be handled directly, 
-            line->tag = CacheTag(mergedreq->getlineaddress());
-            line->time = sc_time_stamp();
-            line->state = CLS_OWNER;
-            line->pending = true;
-            for (unsigned int i = 0; i < g_nCacheLineSize; i++)
-            {
-                if (mergedreq->IsRequestWithCompleteData() || mergedreq->bitmask[i])
-                {
-                    line->bitmask[i] = true;
-                    line->data[i] = mergedreq->data[i];
-                }
-            }
-
-            // then send it from the network interface
-            // Duplicate the merged request
-
-            merge2send = new ST_request(mergedreq);
-            merge2send->source = m_id;
-
-            // associate the merged request with a request queue
-            // dumplicate request queue
-            m_msbModule.DuplicateRequestQueue(address, merge2send);
-
-            // remove the msb slot
-            m_msbModule.CleanSlot(address);
-        }
-
     }
     else
     {
-        assert(line->tokencount == 0);
-
-        line->tag = CacheTag(mergedreq->getlineaddress());
-        line->time = sc_time_stamp();
-        line->state = CLS_OWNER;
+        assert(line->pending == false);
+        
+        line->dirty = true;
         line->pending = true;
-        line->invalidated = false;
-        line->priority = false;
-        line->tlock = false;
-        for (unsigned int i = 0; i < g_nCacheLineSize; i++)
-        {
-            if (mergedreq->IsRequestWithCompleteData() || mergedreq->bitmask[i])
-            {
-                line->bitmask[i] = true;
-                line->data[i] = mergedreq->data[i];
-            }
-        }
 
-        merge2send = new ST_request(mergedreq);
-        merge2send->source = m_id;
+        // Make a copy of the request and attach the write acknowledgements.
+        // When the request comes back, the acknowledgements will be sent to the clients.
+        Message* merge2send = NULL;
+        merge2send = new Message(&mergedreq);
+        merge2send->source  = m_id;
+        merge2send->msbcopy = queuedrequests;
 
-        // associate the merged request with a request queue
-        // dumplicate request queue
-        m_msbModule.DuplicateRequestQueue(address, merge2send);
-
-        // remove the msb slot
-        m_msbModule.CleanSlot(address);
-    }
-
-    // send request if any
-    if (merge2send != NULL)
-    {
         InsertPASNodeRequest(merge2send);
     }
-    // when the merged request comes back. the queue will be added to the return buffer
-    // in the middle other reuqest can still be queued in msb or queue to the line
+
+    // Remove the merged request, remove the msb slot
+    m_msbModule.CleanSlot(req->address);
 }
 
-void CacheL2TOK::OnDirNotification(ST_request* req)
-{
-    // request meant for directory, shouldn't receive it again
-    assert (req->source != m_id);
-    // just pass it by
-    InsertPASNodeRequest(req);
-    //m_pReqCurPASasNode = req;
-}
-
-// function for find replacement line
-cache_line_t* CacheL2TOK::GetReplacementLine(__address_t address)
-{
-    cache_line_t *linelruw = NULL; // replacement line for write-back request
-    cache_line_t *linelrue = NULL; // replacement line for eviction request
-    unsigned int index = CacheIndex(address);
-
-    for (unsigned int i = 0; i < m_assoc; i++)
-    {
-        cache_line_t& line = m_sets[index].lines[i];
-        
-        // Return the first found empty one
-        if (line.state == CLS_INVALID)
-            return &line;
-
-        // Pending lines don't count as normal replacable lines
-        if (!line.pending)
-        {
-            if (line.state == CLS_SHARER)
-            {
-                if (linelrue == NULL || line.time < linelrue->time)
-                    linelrue = &line;
-            }
-            else if (line.state == CLS_OWNER)
-            {
-                if (linelruw == NULL || line.time < linelruw->time)
-                    linelruw = &line;
-            }
-        }
-    }
-    return (linelrue != NULL) ? linelrue : linelruw;
 }

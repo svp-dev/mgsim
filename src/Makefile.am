@@ -36,7 +36,6 @@ MEMORYS_SRC = \
 	coma/memorys/directorytok.cpp \
 	coma/memorys/directorytok.h \
 	coma/memorys/evicteddirlinebuffer.h \
-	coma/memorys/fabuffer.h \
 	coma/memorys/memory_main.cpp \
 	coma/memorys/memschedulepipeline.h \
 	coma/memorys/mergestorebuffer.cpp \
@@ -46,9 +45,6 @@ MEMORYS_SRC = \
 	coma/memorys/predef.h \
 	coma/memorys/processortok.cpp \
 	coma/memorys/processortok.h \
-	coma/memorys/simcontrol.h \
-	coma/memorys/suspendedrequestqueue.cpp \
-	coma/memorys/suspendedrequestqueue.h \
 	coma/memorys/topologys.cpp \
 	coma/memorys/topologys.h
 

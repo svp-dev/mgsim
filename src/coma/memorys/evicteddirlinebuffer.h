@@ -3,12 +3,7 @@
 
 #include "predef.h"
 #include <map>
-#include <ostream>
-using namespace std;
-
-// designed for local directory
-// the matching buffer is for locating the evicted lines with incoming request within the local group
-// check predef::dir_line_t::requestin and directortok for detail
+#include <utility>
 
 namespace MemSim
 {
@@ -19,41 +14,39 @@ class EvictedDirLineBuffer
     {
         unsigned int nrequestin;
         unsigned int ntokenrem;
-        bool grouppriority;
     };
 
-    std::map<__address_t, EDL_Content> m_mapEDL;
+    std::map<MemAddr, EDL_Content> m_mapEDL;
 
 public:
-    void AddEvictedLine(__address_t lineaddr, unsigned int requestin, unsigned int tokenrem, bool grouppriority)
+    void AddEvictedLine(MemAddr lineaddr, unsigned int requestin, unsigned int tokenrem)
     {
-        EDL_Content ec = {requestin, tokenrem, grouppriority};
-        m_mapEDL.insert(pair<__address_t, EDL_Content>(lineaddr, ec));
+        EDL_Content ec = {requestin, tokenrem};
+        m_mapEDL.insert(std::pair<MemAddr, EDL_Content>(lineaddr, ec));
     }
 
-    bool FindEvictedLine(__address_t lineaddr, unsigned int& requestin, unsigned int& tokenrem, bool& grouppriority) const
+    bool FindEvictedLine(MemAddr lineaddr, unsigned int& requestin, unsigned int& tokenrem) const
     {
-        map<__address_t, EDL_Content>::const_iterator iter = m_mapEDL.find(lineaddr);
+        std::map<MemAddr, EDL_Content>::const_iterator iter = m_mapEDL.find(lineaddr);
         if (iter != m_mapEDL.end())
         {
-            requestin     = iter->second.nrequestin;
-            tokenrem      = iter->second.ntokenrem;
-            grouppriority = iter->second.grouppriority;
+            requestin = iter->second.nrequestin;
+            tokenrem  = iter->second.ntokenrem;
             return true;
         }
         return false;
     }
 
-    bool FindEvictedLine(__address_t lineaddr) const
+    bool FindEvictedLine(MemAddr lineaddr) const
     {
         return m_mapEDL.find(lineaddr) != m_mapEDL.end();
     }
 
     // incoming : true  - incoming request
     //            false - outgoing request
-    bool UpdateEvictedLine(__address_t lineaddr, bool incoming, unsigned int reqtoken, bool reqpriority, bool eviction=false)
+    bool UpdateEvictedLine(MemAddr lineaddr, bool incoming, unsigned int reqtoken, bool eviction=false)
     {
-        map<__address_t, EDL_Content>::iterator iter = m_mapEDL.find(lineaddr);
+        std::map<MemAddr, EDL_Content>::iterator iter = m_mapEDL.find(lineaddr);
         if (iter != m_mapEDL.end())
         {
             if (incoming)
@@ -61,19 +54,16 @@ public:
                 if (!eviction)
                     iter->second.nrequestin++;
                 iter->second.ntokenrem += reqtoken;
-                iter->second.grouppriority |= reqpriority;
             }
             else
             {
                 if (!eviction)
                     iter->second.nrequestin--;
                 iter->second.ntokenrem -= reqtoken;
-                iter->second.grouppriority &= (!reqpriority);
             }
     
-            if ((iter->second.nrequestin == 0) && (iter->second.ntokenrem == 0))
+            if (iter->second.nrequestin == 0 && iter->second.ntokenrem == 0)
             {
-                assert(iter->second.grouppriority == false);
                 m_mapEDL.erase(iter);
             }
             return true;
@@ -81,16 +71,14 @@ public:
         return false;
     }
 
-    bool DumpEvictedLine2Line(__address_t lineaddr, dir_line_t* line)
+    bool DumpEvictedLine2Line(MemAddr lineaddr, unsigned int& requestin, unsigned int& tokenrem)
     {
-        map<__address_t, EDL_Content>::iterator iter = m_mapEDL.find(lineaddr);
+        std::map<MemAddr, EDL_Content>::iterator iter = m_mapEDL.find(lineaddr);
         if (iter != m_mapEDL.end())
         {
-            line->nrequestin += iter->second.nrequestin;
-            line->ntokenrem += iter->second.ntokenrem;
-            line->grouppriority |= iter->second.grouppriority;
+            requestin = iter->second.nrequestin;
+            tokenrem  = iter->second.ntokenrem;
 
-            // remote the buffer slot
             m_mapEDL.erase(iter);
             return true;
         }
@@ -98,8 +86,6 @@ public:
     }
 };
 
-
 }
-
 
 #endif

@@ -3,75 +3,58 @@
 
 #include "predef.h"
 #include "network_node.h"
-#include "suspendedrequestqueue.h"
 #include "evicteddirlinebuffer.h"
 #include "ddrmemorysys.h"
+#include <queue>
+#include <list>
 
 namespace MemSim
 {
 
 class DirectoryRTTOK : public sc_module, public Network_Node, public CacheState
 {
+    struct dir_line_t
+    {
+        bool         valid;                 // is this line used?
+        MemAddr  tag;                   // tag of the address of the line that's stored
+        bool         reserved;              // the cacheline cannot be processed immediately
+        unsigned int tokens;                // the number of tokens that the directory itself has
+        bool         priority;              // represent the priority token
+        std::queue<Message*> requests;   // Suspended requests
+    };
+
+    struct dir_set_t
+    {
+        dir_line_t *lines;
+    };
+
     // Directory parameters
     unsigned int m_nLineSize;
 	unsigned int m_nSet;
 	unsigned int m_nAssociativity;
-	unsigned int m_nSetBits;
 	dir_set_t   *m_pSet;
 	
-    SuspendedRequestQueue m_srqSusReqQ;
+	std::queue<dir_line_t*> m_activelines;
+    Message*             m_pReqCurNET2Net;
+    Message*             m_pReqCurNET2Bus;
+    EvictedDirLineBuffer    m_evictedlinebuffer;
 
-    // current request
-    ST_request* m_pPrefetchDeferredReq;
-    ST_request* m_pReqCurNET;
-    ST_request* m_pReqCurBUS;
-
-    list<ST_request*> m_lstReqNET2Net;
-    ST_request*       m_pReqCurNET2Net;
-    ST_request*       m_pReqCurNET2Bus;
-    ST_request*       m_pReqCurBUS2Net;
-
-    // state
-    enum STATE_NET {
-        STATE_NET_PROCESSING,
-        STATE_NET_RETRY
-    };
-
-    enum STATE_BUS {
-        STATE_BUS_PROCESSING,
-        STATE_BUS_RETRY_TO_NET
-    };
-
-    STATE_NET  m_nStateNET;
-    STATE_BUS  m_nStateBUS;
-    pipeline_t m_pPipelineNET;
-    pipeline_t m_pPipelineBUS;
-
-    // evicted dirline buffer
-    EvictedDirLineBuffer m_evictedlinebuffer;
-
-    std::queue<ST_request*>& m_pfifoFeedback;
-    std::queue<ST_request*>& m_pfifoMemory;
+    // Request queue from and to memory
+    std::queue<Message*>& m_pfifoFeedback;
+    std::queue<Message*>& m_pfifoMemory;
 
 public:
-	// directory should be defined large enough to hold all the information in the hierarchy below
 	SC_HAS_PROCESS(DirectoryRTTOK);
-	DirectoryRTTOK(sc_module_name nm, sc_clock& clock, DDRMemorySys& memory, unsigned int nset, unsigned int nassoc, 
-		       unsigned int nlinesize,
-		       int latency)
+	
+	DirectoryRTTOK(sc_module_name nm, sc_clock& clock, DDRMemorySys& memory, unsigned int nset, unsigned int nassoc, unsigned int nlinesize)
       : sc_module(nm),
         m_nLineSize(nlinesize),
   	    m_nSet(nset), 
 	    m_nAssociativity(nassoc), 
-	    m_srqSusReqQ(0x200, 0x100),
-        m_nStateNET(STATE_NET_PROCESSING),
-        m_nStateBUS(STATE_BUS_PROCESSING),
-        m_pPipelineNET(latency),
-        m_pPipelineBUS(latency),
         m_pfifoFeedback(memory.channel_fifo_slave),
         m_pfifoMemory(memory.m_pfifoReqIn)
 	{
-        ST_request::s_nRequestAlignedSize = nlinesize;
+        Message::s_nRequestAlignedSize = nlinesize;
         
 		SC_METHOD(BehaviorNode);
 		sensitive << clock.negedge_event();
@@ -86,84 +69,43 @@ public:
 		sensitive << clock.posedge_event();
 		dont_initialize();
 
-		// allocate space for all cache lines
-		InitializeDirLines();
+        // Allocate lines
+        m_pSet = new dir_set_t[m_nSet];
+        for (unsigned int i = 0; i < m_nSet; ++i)
+        {
+            m_pSet[i].lines = new dir_line_t[m_nAssociativity];
+            for (unsigned int j = 0; j < m_nAssociativity; ++j)
+            {
+                m_pSet[i].lines[j].valid = false;
+            }
+        }
     }
 
-    ~DirectoryRTTOK(){
-        for (unsigned int i=0;i<m_nSet;i++)
-    	    free(m_pSet[i].lines);
-        free(m_pSet);
+    ~DirectoryRTTOK()
+    {
+        for (unsigned int i = 0; i < m_nSet; ++i)
+    	    delete[] m_pSet[i].lines;
+        delete[] m_pSet;
     }
-    
+
+private:    
     void BehaviorNode()
     {
         Network_Node::BehaviorNode();
     }
 
-	void InitializeDirLines();
-
 	void BehaviorNET();
     void BehaviorBUS();
 
-    void ProcessRequestNET();
-    void ProcessRequestBUS();
+    void ProcessRequestNET(Message* req);
 
-    bool SendRequestNETtoNET(ST_request*);
-    bool SendRequestNETtoBUS(ST_request*);
-    void SendRequestFromNET();
+    bool SendRequestNETtoBUS(Message*);
 
-    void SendRequestBUStoNet();
-
-	// transactions
-    void OnNETAcquireToken(ST_request *);
-    void OnNETAcquireTokenData(ST_request *);
-    void OnNETDisseminateTokenData(ST_request *);
-
-    //////////////////////////////////////////////////////////////////////////
-    // cache interfaces
-	dir_line_t* LocateLine(__address_t);
-	dir_line_t* GetReplacementLine(__address_t);
-	unsigned int DirIndex(__address_t);
-	uint64 DirTag(__address_t);
-
-    // fix the directory line states
-    void FixDirLine(dir_line_t* line);
-
-    //////////////////////////////////////////////////////////////////////////
-    // queue handling
-
-    // CHKS potential optimization, queued request probably can bypass 
-
-    // prefetch deferred request head,
-    // if the request can be passed directly it will be popped
-    // otherwise, no pop action will be taken 
-    // [JNEw] the fetched request from the deferred buffer should be stored in m_pPrefetchDeferredReq from caller
-    // [JNEW] and the deferred request will be processed through the bus or network
-    ST_request* PrefetchDeferredRequest();
-
-    //// pop out the deferred request head
-    //// * popdeferredrequest will set the AUXSTATE to NONE, which could be incorrect, since sometimes it should be loading
-    //// ** the auxstate should always be modified after calling pop
-    // ST_request* PopDeferredRequest(dir_line_t*&line);
-
-    // pop out the deferred request head
-    // * popdeferredrequest will set the AUXSTATE to NONE, which could be incorrect, since sometimes it should be loading
-    // ** the auxstate should always be modified after calling pop
-    // *** when bRem == true, the line will be removed from the line queue, otherwise, keep the line there. 
-    // ST_request* PopDeferredRequest(bool bRem = false);
-    ST_request* PopDeferredRequest();
-
-    //////////////////////////////////////////////////////////////////////////
-    // 1. network request always has priority   // JXXX adjusted a bit, but almost always 
-    // 2. when processing a previously non-queued request, find the line has queue associated, 
-    //    it will be added to the end of queue, it will be added to the end of the queue, no matter what
-    // 3. when processing a previously non-queued request, find the line has no queue, then do whatever correct
-    // 4. when processing a previously queued request, find the line has queue associated,
-    //    a cleansing method will be used, and all the previously queued request will be reversely pushed into the queue reversely
-    //    all the previously non-queued request will be pushed into the queue
-    // 5. when processing a previously queued request, find the line has no queue associated, do whatever appropriate
-    //////////////////////////////////////////////////////////////////////////
+	dir_line_t* LocateLine(MemAddr);
+	dir_line_t* GetEmptyLine(MemAddr);
+	
+	unsigned int DirIndex(MemAddr);
+	uint64 DirTag(MemAddr);
 };
 
 }

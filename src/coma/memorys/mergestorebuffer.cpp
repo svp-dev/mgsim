@@ -1,285 +1,200 @@
 #include "mergestorebuffer.h"
+using namespace std;
 
 namespace MemSim
 {
 
-// write to the buffer
-bool MergeStoreBuffer::WriteBuffer(ST_request* req)
+struct MergeStoreBuffer::Entry
 {
-    __address_t address = req->getlineaddress();
-    if (m_fabLines.FindBufferItem(address) != NULL)
-    {
-        // update the current merged line
-        if (IsSlotLocked(address, req))
-        {
+    bool                  valid;
+    bool                  locked;
+    MemAddr               tag;
+    char                  data   [MAX_MEMORY_OPERATION_SIZE];
+    bool                  bitmask[MAX_MEMORY_OPERATION_SIZE];
+    std::vector<Message*> request_queue;
+    Message               merged_request;
+};
 
+MergeStoreBuffer::MergeStoreBuffer(unsigned int size)
+    : m_entries(size)
+{
+    for (size_t i = 0; i < m_entries.size(); ++i)
+    {
+        m_entries[i].valid = false;
+        m_entries[i].merged_request.type = Message::NONE;
+    }
+}
+
+MergeStoreBuffer::~MergeStoreBuffer()
+{
+}
+
+// Write to the buffer
+bool MergeStoreBuffer::WriteBuffer(Message* req)
+{
+    // Only write requests hould come here
+    assert(req->type == Message::WRITE);
+
+    Entry* line = FindBufferItem(req->address);
+    if (line == NULL)
+    {
+        // Allocate a new line
+        line = GetEmptyLine();
+        if (line == NULL)
+        {
             return false;
         }
 
-        // proceed update
-        UpdateSlot(req);
+        line->valid  = true;
+        line->tag    = req->address / g_nCacheLineSize;
+        line->locked = false;
+        std::fill(line->bitmask, line->bitmask + g_nCacheLineSize, false);
+        std::fill(line->data,    line->data    + g_nCacheLineSize, 0);
+        std::fill(line->merged_request.bitmask, line->merged_request.bitmask + g_nCacheLineSize, false);
     }
-    else
+    else if (line->locked)
     {
-        // allocate a new line for the incoming request
-        int retfree = IsFreeSlotAvailable();
-        if (retfree != -1)
+        // Line is locked
+        return false;
+    }
+    
+    // Merge request data into line and merged request
+    for (unsigned int i = 0; i < g_nCacheLineSize; i++)
+    {
+        if (req->bitmask[i])
         {
-            // proceed allocating
-            int index;
-            AllocateSlot(address, index);
-
-            // Update Slot
-            UpdateSlot(req);
-        }
-        else
-        {
-
-            return false;
+            line->merged_request.bitmask[i] = line->bitmask[i] = true;
+            line->merged_request.data[i]    = line->data[i]    = req->data[i];
         }
     }
+
+    line->merged_request.type = Message::ACQUIRE_TOKEN_DATA;           // NEED TO CHANGE, JONY XXXXXXX
+    line->merged_request.tokenacquired = 0;
+    line->merged_request.tokenrequested = CacheState::GetTotalTokenNum();
+    line->merged_request.address = (req->address / g_nCacheLineSize) * g_nCacheLineSize;
+    line->merged_request.size = 4;            /// NEED TO CHANGE  JONY XXXXXXX
+    line->merged_request.bmerged = true;
+
+    line->request_queue.push_back(req);
 
     // Update Request to return type
-    req->type = MemoryState::REQUEST_WRITE_REPLY;
-
-    //UpdateMergedRequest(address, NULL, NULL);
-    UpdateMergedRequest(address, NULL, req);
+    req->type = Message::WRITE_REPLY;
 
     return true;
 }
 
 // load from the buffer
-//virtual bool LoadBuffer(__address_t address, char* data, ST_request* req)
-bool MergeStoreBuffer::LoadBuffer(ST_request* req, cache_line_t *linecache)
+bool MergeStoreBuffer::LoadBuffer(Message* req, const cache_line_t& linecache)
 {
-    //__address_t address = req->getreqaddress();
-    __address_t addrline = req->getlineaddress();
+    assert(req->size == g_nCacheLineSize);
 
-    assert(req->nsize == g_nCacheLineSize);
-
-    cache_line_t* line = m_fabLines.FindBufferItem(addrline);
+    Entry* line = FindBufferItem(req->address);
     if (line == NULL)
     {
         return false;
     }
 
-    for (unsigned int i = 0; i < CACHE_BIT_MASK_WIDTH; i++)
+    for (unsigned int i = 0; i < MAX_MEMORY_OPERATION_SIZE; i++)
     {
         if (line->bitmask[i])
         {
             req->data[i] = line->data[i];
         }
-        else if (linecache->bitmask[i])
+        else if (linecache.bitmask[i])
         {
-            req->data[i] = linecache->data[i];
+            req->data[i] = linecache.data[i];
         }
         else
         {
             // lock the line 
-            line->llock = true;
+            line->locked = true;
             return false;
         }
     }
-
-    req->type = MemoryState::REQUEST_READ_REPLY;
-    req->dataavailable = true;
-
     return true;
 }
 
-// return -1 : failed, nothing is free
-// return  n : succeed, n == index
-int MergeStoreBuffer::IsFreeSlotAvailable()
+bool MergeStoreBuffer::IsAddressPresent(MemAddr address) const
 {
-    return m_fabLines.IsEmptySlotAvailable();
+    return FindBufferItem(address) != NULL;
 }
 
-bool MergeStoreBuffer::IsAddressPresent(__address_t address)
+bool MergeStoreBuffer::IsSlotLocked(MemAddr address) const
 {
-    address = (address / g_nCacheLineSize) * g_nCacheLineSize;
-    return m_fabLines.FindBufferItem(address) != NULL;
+    const Entry* line = FindBufferItem(address);
+    return line != NULL && line->locked;
 }
 
-int MergeStoreBuffer::AddressSlotPosition(__address_t address)
+MergeStoreBuffer::Entry* MergeStoreBuffer::FindBufferItem(MemAddr address)
 {
-    int index = -1;
-    address = (address / g_nCacheLineSize) * g_nCacheLineSize;
-    m_fabLines.FindBufferItem(address, index);
-    return index;
-}
-
-bool MergeStoreBuffer::IsSlotLocked(__address_t address, ST_request* req)
-{
-    address = (address / g_nCacheLineSize) * g_nCacheLineSize;
-    cache_line_t* line = m_fabLines.FindBufferItem(address);
-    return line != NULL && line->llock;
-}
-
-void MergeStoreBuffer::UpdateMergedRequest(__address_t address, cache_line_t* linecache, ST_request* reqpas)
-{
-    assert(reqpas != NULL);
-
-    int index = -1;
-    __address_t addrline = (address / g_nCacheLineSize) * g_nCacheLineSize;
-    cache_line_t* line = m_fabLines.FindBufferItem(addrline, index);
-    assert(line != NULL);
-
-    for (unsigned int i = 0; i < CACHE_BIT_MASK_WIDTH; i++)
+    MemAddr tag = address / g_nCacheLineSize;
+    for (unsigned int i = 0; i < m_entries.size(); ++i)
     {
-        if (reqpas->bitmask[i])
+        if (m_entries[i].valid && m_entries[i].tag == tag)
         {
-            m_ppMergedRequest[index]->bitmask[i] = true;
-            line->bitmask[i] = true;
-            m_ppMergedRequest[index]->data[i] = reqpas->data[i];
-            line->data[i] = reqpas->data[i];
+            return &m_entries[i];
         }
     }
-
-    m_ppMergedRequest[index]->type = MemoryState::REQUEST_ACQUIRE_TOKEN_DATA;           // NEED TO CHANGE, JONY XXXXXXX
-    m_ppMergedRequest[index]->tokenacquired = 0;
-    m_ppMergedRequest[index]->tokenrequested = CacheState::GetTotalTokenNum();
-    m_ppMergedRequest[index]->addresspre = address / g_nCacheLineSize;
-    m_ppMergedRequest[index]->offset = 0;
-    m_ppMergedRequest[index]->nsize = 4;            /// NEED TO CHANGE  JONY XXXXXXX
-    m_ppMergedRequest[index]->bmerged = true;
+    return NULL;
 }
 
-void MergeStoreBuffer::DuplicateRequestQueue(__address_t address, ST_request* reqrev)
+const MergeStoreBuffer::Entry* MergeStoreBuffer::FindBufferItem(MemAddr address) const
 {
-    int index = AddressSlotPosition(address);
-    // duplicate
-    vector<ST_request*>* pvec = new vector<ST_request*>();
-    for (unsigned int i=0;i<m_pvecRequestQueue[index]->size();i++)
+    MemAddr tag = address / g_nCacheLineSize;
+    for (unsigned int i = 0; i < m_entries.size(); ++i)
     {
-        pvec->push_back((*m_pvecRequestQueue[index])[i]);
+        if (m_entries[i].valid && m_entries[i].tag == tag)
+        {
+            return &m_entries[i];
+        }
     }
-    reqrev->msbcopy = pvec;
+    return NULL;
 }
 
-ST_request* MergeStoreBuffer::GetMergedRequest(__address_t address)
+MergeStoreBuffer::Entry* MergeStoreBuffer::GetEmptyLine()
 {
-    int index = AddressSlotPosition(address);
-    if (index == -1)
-        return NULL;
-
-    return m_ppMergedRequest[index];
-}
-
-vector<ST_request*>* MergeStoreBuffer::GetQueuedRequestVector(__address_t address)
-{
-    int index = AddressSlotPosition(address);
-    if (index == -1)
-        return NULL;
-
-    return m_pvecRequestQueue[index];
-}
-
-bool MergeStoreBuffer::CleanSlot(__address_t address)
-{
-    int index;
-    address = (address / g_nCacheLineSize) * g_nCacheLineSize;
-    if (m_fabLines.FindBufferItem(address, index) != NULL)
+    for (unsigned int i = 0 ; i < m_entries.size(); ++i)
     {
-        // clean slot with data
-        m_fabLines.RemoveBufferItem(address);
+        if (!m_entries[i].valid)
+        {
+            return &m_entries[i];
+        }
+    }
+    return NULL;
+}
+
+const Message& MergeStoreBuffer::GetMergedRequest(MemAddr address) const
+{
+    const Entry* line = FindBufferItem(address);
+    assert(line != NULL);
+    return line->merged_request;
+}
+
+const std::vector<Message*>& MergeStoreBuffer::GetQueuedRequestVector(MemAddr address) const
+{
+    const Entry* line = FindBufferItem(address);
+    assert(line != NULL);
+    return line->request_queue;
+}
+
+bool MergeStoreBuffer::CleanSlot(MemAddr address)
+{
+    Entry* line = FindBufferItem(address);
+    if (line != NULL)
+    {
+        // Invalidate the line
+        line->valid = false;
 
         // clean the merged request
-        m_ppMergedRequest[index]->type = MemoryState::REQUEST_NONE;
+        line->merged_request.type = Message::NONE;
 
-        std::fill(m_ppMergedRequest[index]->bitmask, m_ppMergedRequest[index]->bitmask + CACHE_BIT_MASK_WIDTH, false);
+        std::fill(line->merged_request.bitmask, line->merged_request.bitmask + MAX_MEMORY_OPERATION_SIZE, false);
 
         // clean the request queue
-        m_pvecRequestQueue[index]->clear();
-
-        assert(!m_fabLines.FindBufferItem(address));
+        line->request_queue.clear();
         return true;
     }
     return false;
-}
-
-// return false : no allocation
-// return  treu : allocated
-// index always return the current/allocated index, -1 represent total failure
-bool MergeStoreBuffer::AllocateSlot(__address_t address, int& index)
-{
-    address = (address / g_nCacheLineSize) * g_nCacheLineSize;
-    int ind = AddressSlotPosition(address);
-
-    if (ind != -1)
-    {
-        index = ind;
-        return false;
-    }
-
-    ind = IsFreeSlotAvailable();
-    index = ind;
-
-    if (ind == -1)
-        return false;
-
-    cache_line_t* line = (cache_line_t*)malloc(sizeof(cache_line_t));
-
-    line->llock = false;
-
-    std::fill(line->bitmask, line->bitmask + CACHE_BIT_MASK_WIDTH, false);
-    std::fill(m_ppMergedRequest[index]->bitmask, m_ppMergedRequest[index]->bitmask + CACHE_BIT_MASK_WIDTH, false);
-
-    line->data = m_ppData[ind];
-
-    // initialize again
-    for (unsigned int i=0;i<g_nCacheLineSize;i++)
-        line->data[i] = (char)0;
-
-    m_fabLines.InsertItem2Buffer(address, line, 1);
-
-    // verify...
-    assert(AddressSlotPosition(address) == ind);
-
-    free(line);
-
-    return true;
-}
-
-// req should be only write request
-bool MergeStoreBuffer::UpdateSlot(ST_request* req)
-{
-    assert(req->type == MemoryState::REQUEST_WRITE);
-    __address_t address = req->getlineaddress();
-
-    int index =0;
-    cache_line_t* line = m_fabLines.FindBufferItem(address, index);
-    assert(line != NULL);
-
-    {
-        // update data and bit-mask
-        assert(line->data == m_ppData[index]);
-
-        bool maskchar[CACHE_BIT_MASK_WIDTH];
-        std::fill(maskchar, maskchar + CACHE_BIT_MASK_WIDTH, false);
-
-        for (unsigned int i = req->offset; i < req->offset + req->nsize; i++)
-        {
-            line->data[i] = req->data[i];
-            maskchar[i] = true;
-        }
-
-        for (unsigned int i = 0; i <CACHE_BIT_MASK_WIDTH; i++)
-            line->bitmask[i] = maskchar[i];
-
-        for (unsigned int i=0; i < g_nCacheLineSize; i++)
-        {
-            if (req->bitmask[i])
-            {
-                line->bitmask[i] = true;
-                line->data[i] = req->data[i];
-            }
-        }
-
-        // update request queue
-        m_pvecRequestQueue[index]->push_back(req);
-    }
-
-    return true;
 }
 
 }

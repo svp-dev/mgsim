@@ -13,7 +13,7 @@ namespace MemSim
 // the requests moved out of the pipeline can be returned immediately
 class MemorySchedulePipeline
 {
-    std::vector<ST_request*> m_pipeline;
+    std::vector<Message*> m_pipeline;
     unsigned int             m_nHead;            // head of the buffer
     unsigned int             m_nPointer;         // pointing to the next empty slot to the last scheduled request
     int                      m_nLastReqPosition; // last request position, 
@@ -28,7 +28,7 @@ public:
     {
     }
 
-    bool ScheduleNext(ST_request * req, unsigned int gap, unsigned int delay)
+    bool ScheduleNext(Message * req, unsigned int gap, unsigned int delay)
     {
         assert(delay + 1 < m_pipeline.size());
        
@@ -54,9 +54,9 @@ public:
 
     // eventid : 0 - nothing
     //           1 - row close
-    ST_request* AdvancePipeline(unsigned int& eventid)
+    Message* AdvancePipeline(unsigned int& eventid)
     {
-        ST_request* req = NULL;
+        Message* req = NULL;
         if (m_nPointer != m_nHead)
         {
             req = m_pipeline[m_nHead];

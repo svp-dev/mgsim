@@ -5,20 +5,14 @@
 namespace MemSim
 {
 
-// Issue a new request from the processor
-void ProcessorTOK::PutRequest(ST_request* req)
+// issue a new reqeuest
+void ProcessorTOK::PutRequest(Message* req)
 {
-    // Make sure the size matches
-    assert(req->offset + req->nsize <= g_nCacheLineSize);
-    assert(req->nsize <= ST_request::s_nRequestAlignedSize);
-
-    req->Conform2BitVecFormat();
-    
     m_cache.m_requests.push(req);
 }
 
 // check the request and give a reply is available
-ST_request* ProcessorTOK::GetReply()
+Message* ProcessorTOK::GetReply()
 {
     if (m_responses.empty())
     {
@@ -30,7 +24,7 @@ ST_request* ProcessorTOK::GetReply()
 void ProcessorTOK::RemoveReply()
 {
     assert(!m_responses.empty());
-    ST_request* req = m_responses.front();
+    Message* req = m_responses.front();
     if (--req->refcount == 0)
     {
         delete req;

@@ -3,75 +3,48 @@
 
 #include "network_node.h"
 #include "processortok.h"
-#include "fabuffer.h"
 #include "mergestorebuffer.h"
 #include <queue>
-using namespace std;
+#include <set>
 
 namespace MemSim
 {
 
 class CacheL2TOK : public sc_module, public Network_Node, public CacheState
 {
-    struct cache_set_t
-    {
-        cache_line_t *lines;
-    };
-
     CacheID        m_id;
     unsigned int   m_lineSize;
     unsigned int   m_nSets;           // Cache set count
     unsigned int   m_assoc;           // Cache associativity
-    cache_set_t   *m_sets;            // The sets
-    char *         m_pBufData;        // data buffer
-
-    // inline cache set index function
-    unsigned int CacheIndex(__address_t address)
-    {
-        return (address / m_lineSize) % m_nSets;
-    }
-
-    // inline cache line tag function
-    uint64 CacheTag(__address_t address)
-    {
-        return (address / m_lineSize) / m_nSets;
-    }
-
-    __address_t AlignAddress4Cacheline(__address_t address)
-    {
-        // align address to the starting of the cacheline
-        return (address / m_lineSize) * m_lineSize;
-    }
-
-    // constant numbers
-    static const unsigned int EOQ;
-    static const unsigned int QueueBufferSize;
+    cache_line_t  *m_lines;           // The lines
 
     // states
-    enum STATE_INI{
+    enum STATE_INI
+    {
         STATE_INI_PROCESSING,
         STATE_INI_RETRY,
     };
 
-    enum STATE_PAS{
+    enum STATE_PAS
+    {
         STATE_PAS_PROCESSING,
         STATE_PAS_POSTPONE,
         STATE_PAS_RETRY,
     };
 
     // current request
-    ST_request* m_pReqCurINI;
-    ST_request* m_pReqCurPAS;
+    Message* m_pReqCurINI;
+    Message* m_pReqCurPAS;
 
-    ST_request*        m_pReqCurINIasNodeDB;   // the one needs double retry
-    ST_request*        m_pReqCurINIasNode;
-    ST_request*        m_pReqCurINIasSlaveX;
-    queue<ST_request*> m_queReqINIasSlave;
+    Message*        m_pReqCurINIasNodeDB;   // the one needs double retry
+    Message*        m_pReqCurINIasNode;
+    Message*        m_pReqCurINIasSlaveX;
+    std::queue<Message*> m_queReqINIasSlave;
 
-    ST_request*        m_pReqCurPASasNodeX;
-    ST_request*        m_pReqCurPASasSlaveX;
-    queue<ST_request*> m_queReqPASasNode;
-    queue<ST_request*> m_queReqPASasSlave;
+    Message*        m_pReqCurPASasNodeX;
+    Message*        m_pReqCurPASasSlaveX;
+    std::queue<Message*> m_queReqPASasNode;
+    std::queue<Message*> m_queReqPASasSlave;
 
     STATE_INI m_nStateINI;
     STATE_PAS m_nStatePAS;
@@ -97,34 +70,10 @@ class CacheL2TOK : public sc_module, public Network_Node, public CacheState
     //////////////////////////////////////////////////////////////////////////
     bool              m_bBufferPriority;
 	unsigned int      m_nGlobalFIFOSize;
-    list<ST_request*> m_pGlobalFIFOLIST;
+    std::list<Message*> m_pGlobalFIFOLIST;
 
     static unsigned int s_nGlobalFIFOUpperMargin;     // UPPER Margin (corresponding to size since it will compared with free buffer size)
     static const unsigned int s_nGlobalFIFOLowerMargin;     // LOWER Margin (corresponding to size since it will compared with free buffer size)
-
-    // fully associative Invalidation matching buffer for BR requests
-    // BR request are sent to L1 cache or processor for Backward Broadcast Invalidation. 
-    // With BBI_LAZY method, sometimes a number of backward invalidations might happen to the same line continuously
-    // this might slow down the L1/Processor or saturate the shared bus connecting L2 cache
-    // With the matching buffer, the some latest BR requests can be buffered and cleared according to the situation:
-    // a BR is added to the buffer when a BR is sent to L1/Processor
-    // a BR is removed from the buffer when a RR is delivered to the L1/Processor
-
-    // Fully Associative Invalidation Matching Buffer for BR requests
-    // the data is not necessary in this invalidation buffer, use char or anytype to save spaces
-    FABuffer<__address_t, char> m_fabInvalidation;
-
-
-    // fully associative Victim line matching buffer for LR requests
-    // currently this is to investigate the effectiveness of a victim cache or eviction buffer
-    // evicted lines matching buffer
-    FABuffer<__address_t, char> m_fabEvictedLine;
-
-	//// semaphore for FIFO buffer retry
-	//// semaphore can make increments when a reply has been received
-	//// when semaphore is larger than 0, the buffer always has higher priority than the input. 
-	//// thus the global FIFO will be processed. 
-	//// otherwise, the FIFO is only processed when the processor is idle (the input buffer from processor is empty)
 
     // Merge Store Buffer Implementation
     // 0. pending line can lock the line itself itself by further access (any further accesses or specific access -- decided by llock TBD)
@@ -166,19 +115,13 @@ class CacheL2TOK : public sc_module, public Network_Node, public CacheState
     // Merge Store buffer module provide the merge capability on stores on the pending lines
     MergeStoreBuffer m_msbModule;
 
-	// Outstanding request structure
-	// later will be replaced by a pending request cache
-	// currently a vector is used instead
-	// the map is sorted with aligned addresses in the cachelines
-	map<__address_t, ST_request*>	m_mapPendingRequests;
-
-    // Injection policy
-    INJECTION_POLICY m_nInjectionPolicy;
+    // Try to inject evicted lines?
+    bool m_inject;
     
-    bool SendAsSlave(ST_request* req);
+    bool SendAsSlave(Message* req);
 public:
     std::set<ProcessorTOK*> m_processors;     // The processors connected to this cache
-    std::queue<ST_request*> m_requests;       // Incoming from processors
+    std::queue<Message*> m_requests;       // Incoming from processors
 
     void RegisterProcessor(ProcessorTOK& processor)
     {
@@ -194,7 +137,7 @@ public:
 	
     CacheL2TOK(sc_module_name nm, sc_clock& clock, CacheID id,
         unsigned int nset, unsigned int nassoc, unsigned int nlinesize,
-        INJECTION_POLICY nIP = IP_NONE,
+        bool inject,
         unsigned int latency = 5,
 		unsigned int nGlobalFIFOSize = 0x100)
       : sc_module(nm),
@@ -205,38 +148,18 @@ public:
         m_nStatePAS(STATE_PAS_PROCESSING),
         m_pPipelineINI(latency-1),
         m_pPipelinePAS(latency),
-        m_fabInvalidation(0x20),
-        m_fabEvictedLine (0x40),
         m_msbModule(3),
-        m_nInjectionPolicy(nIP)
+        m_inject(inject)
 	{
-        ST_request::s_nRequestAlignedSize = nlinesize;
+	    assert(m_lineSize <= MAX_MEMORY_OPERATION_SIZE);
+	    
+        Message::s_nRequestAlignedSize = nlinesize;
 
-        // allocate all the data buffer
-        unsigned int nByte = m_nSets * m_assoc * m_lineSize;
-        m_pBufData = (char*)calloc(nByte, sizeof(char));
-
-        // allocate sets
-        m_sets = (cache_set_t*)malloc(m_nSets * sizeof(cache_set_t));
-
-        // allocate lines
-        for (unsigned int i = 0; i < m_nSets; ++i)
+        // Allocate lines
+        m_lines = new cache_line_t[m_nSets * m_assoc];
+        for (unsigned int i = 0; i < m_nSets * m_assoc; ++i)
         {
-            m_sets[i].lines = (cache_line_t*)malloc(m_assoc * sizeof(cache_line_t));
-            for (unsigned int j = 0; j < m_assoc; ++j)
-            {
-                m_sets[i].lines[j].state = CLS_INVALID;
-                m_sets[i].lines[j].tokencount = 0;
-                m_sets[i].lines[j].invalidated = false;
-                m_sets[i].lines[j].priority = false;
-                m_sets[i].lines[j].pending = false;
-                m_sets[i].lines[j].tlock = false;
-                m_sets[i].lines[j].llock = false;
-                m_sets[i].lines[j].breserved = false;
-                m_sets[i].lines[j].data = &m_pBufData[(i * m_assoc + j) * m_lineSize];
-
-                std::fill(m_sets[i].lines[j].bitmask, m_sets[i].lines[j].bitmask + CACHE_BIT_MASK_WIDTH, false);
-            }
+            m_lines[i].valid = false;
         }
 
         assert(latency > 1);
@@ -268,20 +191,16 @@ public:
 
     ~CacheL2TOK()
     {
-        free(m_pBufData);
-        for (unsigned int i = 0; i < m_nSets; i++)
-        {
-            free(m_sets[i].lines);
-        }
-        free(m_sets);
+        delete[] m_lines;
     }
-    
+
+private:    
     void BehaviorNode()
     {
         Network_Node::BehaviorNode();
 
         // At the end of every cycle, check the MGSim/SystemC interface
-        for (set<ProcessorTOK*>::iterator iter = m_processors.begin(); iter != m_processors.end(); ++iter)
+        for (std::set<ProcessorTOK*>::iterator iter = m_processors.begin(); iter != m_processors.end(); ++iter)
         {
             (*iter)->OnCycleEnd();
         }
@@ -290,58 +209,37 @@ public:
 	void BehaviorIni();
 	void BehaviorNet();
 
-protected:
     // transactions handler
     // initiative
     void ProcessInitiative();
 
-    bool SendAsNodeINI(ST_request* req);
-    bool SendAsSlaveINI(ST_request* req);
-
     void SendFromINI();
 
-    ST_request* FetchRequestINIFromQueue();
+    Message* FetchRequestINIFromQueue();
 
-    // cleansing pipeline requests, if any of them are seeking the same line 
-    void CleansingPipelineINI(ST_request* req);
     // cleansing pipeline and insert request into queue
-    void CleansingAndInsert(ST_request* req);       // ONLY FOR INI
+    void CleansingAndInsert(Message* req);
 
     // passive
     void ProcessPassive();
-
-    bool SendAsNodePAS(ST_request* req);
-    bool SendAsSlavePAS(ST_request* req);
     void SendFromPAS();
-    // skip this cycle without shifting the pipeline
 
-    //////////////////////////////////////////////////////////////////////////
-    // initiative request handlers
-    void OnLocalRead(ST_request*);
-    void OnLocalWrite(ST_request*);
+    void OnLocalRead(Message*);
+    void OnLocalWrite(Message*);
 
-    // facilitating functions
-private:
-    void Modify2AcquireTokenRequest(ST_request*, unsigned int);
-    ST_request* NewDisseminateTokenRequest(ST_request*, cache_line_t*);
-public:
-    void Modify2AcquireTokenRequestRead(ST_request*);
-    void Modify2AcquireTokenRequestWrite(ST_request*, bool reqdate);
-    void Modify2AcquireTokenRequestWrite(ST_request*, cache_line_t*, bool reqdate);
-    void PostDisseminateTokenRequest(cache_line_t*, ST_request*);
+    void EvictLine(cache_line_t*);
 
     // passive request handlers
-    void OnAcquireTokenRem(ST_request*);
-    void OnAcquireTokenRet(ST_request*);
-    void OnAcquireTokenDataRem(ST_request*);
-    void OnAcquireTokenDataRet(ST_request*);
-    void OnDisseminateTokenData(ST_request*);
-    void OnDirNotification(ST_request* req);
+    void OnAcquireTokenRem(Message*);
+    void OnAcquireTokenRet(Message*);
+    void OnAcquireTokenDataRem(Message*);
+    void OnAcquireTokenDataRet(Message*);
+    void OnDisseminateTokenData(Message*);
 
-    cache_line_t* LocateLine(__address_t);
-    cache_line_t* GetEmptyLine(__address_t);
+    cache_line_t* LocateLine(MemAddr);
+    cache_line_t* GetEmptyLine(MemAddr);
 
-    void OnPostAcquirePriorityToken(cache_line_t*, ST_request*);
+    void OnPostAcquirePriorityToken(cache_line_t*, Message*);
 
     // replacement
     // return   NULL    : if all the lines are occupied by locked states
@@ -356,10 +254,7 @@ public:
     //                    the caller will need to prepare the next request to send,
     //                    but no sending action should be taken.
     //                    In summary the sending action should only be taken in caller func.
-    cache_line_t* GetReplacementLine(__address_t);
-
-public:
-    void UpdateRequest(ST_request* req, cache_line_t* line, MemoryState::REQUEST requesttype, __address_t address, bool bdataavailable=false, bool bpriority=false, bool btransient=false, unsigned int ntokenacquired=0xffff, REQUEST_UPDATE_METHOD rum = RUM_ALL);
+    cache_line_t* GetReplacementLine(MemAddr);
 
     //////////////////////////////////////////////////////////////////////////
     // Global Queue
@@ -372,185 +267,41 @@ public:
     // 5. the previously non-queued requests should be pushed from the back 
     // JXXX potential optimization, queued request probably can bypass 
 
-    // Number Free
-    unsigned int GlobalFIFONumberFree()
-    {
-        assert(m_pGlobalFIFOLIST.size() < m_nGlobalFIFOSize);
-        return m_nGlobalFIFOSize - m_pGlobalFIFOLIST.size();
-    }
-
-    unsigned int GlobalFIFONumberAvailable()
-    {
-        assert(m_pGlobalFIFOLIST.size() < m_nGlobalFIFOSize);
-
-        return m_pGlobalFIFOLIST.size();
-    }
-
-    bool GlobalFIFOEmpty() {
-        assert(m_pGlobalFIFOLIST.size() < m_nGlobalFIFOSize);
-	return m_pGlobalFIFOLIST.empty();
-    }
-
-    // ONLY USED TO PUSH PREVIOUSLY QUEUED REQUESTS
-    bool GlobalFIFOReversePush(ST_request* req)
-    {
-        assert(m_pGlobalFIFOLIST.size() < m_nGlobalFIFOSize);
-        assert(req->bqueued == true);
-
-        if (GlobalFIFONumberFree() == 0)
-            return false;
-
-        m_pGlobalFIFOLIST.push_front(req);
-        
-        return true;
-    }
-
-
-    // Check Buffer Threshold
-    void CheckThreshold4GlobalFIFO()
-    {
-        assert(m_pGlobalFIFOLIST.size() < m_nGlobalFIFOSize);
-
-        if (GlobalFIFONumberFree() <= s_nGlobalFIFOUpperMargin)
-        {
-            m_bBufferPriority = true;
-        }
-        else if (GlobalFIFONumberFree() >= s_nGlobalFIFOLowerMargin)
-        {
-            m_bBufferPriority = false;
-        }
-    }
-
     // USED TO INSERT BOTH PREVIOUSLY QUEUED AND NON-QUEUED REQUESTS
 	// operation insert about global FIFO
 	// if the FIFO is full return false;
 	// otherwise return true;
-	bool InsertRequest2GlobalFIFO(ST_request* req)
+	bool InsertRequest2GlobalFIFO(Message* req)
 	{
         assert(m_pGlobalFIFOLIST.size() < m_nGlobalFIFOSize);
 
-        if (GlobalFIFONumberFree() == 0)
+        if (m_nGlobalFIFOSize == m_pGlobalFIFOLIST.size())
             return false;
 
         if (req->bqueued)
-            return GlobalFIFOReversePush(req);
-        
-        // the request will be a queued request
-        req->bqueued = true;
-        m_pGlobalFIFOLIST.push_back(req);
-
-		return true;
-	}
-
-    // $$$ optimization $$$
-    // according to location consistency, the request can be reversely pushed deeper than just to the top
-    // the request from the same location can be sorted to the bottom of the queue
-    // the reversely pushed request will be packed with other requests for the same line sink to the bottom of the global queue
-    // the sorting method should only be used after a cleansing (including reverse push is happend)
-    void SortGlobalFIFOAfterReversePush(ST_request* req)
-    {
-        assert(m_pGlobalFIFOLIST.size() < m_nGlobalFIFOSize);
-
-        __address_t addr = req->getlineaddress();
-        list<ST_request*>::iterator iter;
-        vector<ST_request*> vecreq, vecother;
-
-        for (iter=m_pGlobalFIFOLIST.begin();iter!=m_pGlobalFIFOLIST.end();iter++)
         {
-            ST_request* reqtemp = *iter;
-
-            if (reqtemp->getlineaddress() == addr)
-                vecreq.push_back(reqtemp);
-            else
-                vecother.push_back(reqtemp);
-        }
-
-        // clean list
-        m_pGlobalFIFOLIST.clear();
-
-        // push back other requests
-        for (unsigned int i=0;i<vecother.size();i++)
-            m_pGlobalFIFOLIST.push_back(vecother[i]);
-
-        // push back all the requests matchs the current address
-        for (unsigned int i=0;i<vecreq.size();i++)
-            m_pGlobalFIFOLIST.push_back(vecreq[i]);
-    }
-    
-    // check queued request, from the queue register or the queue
-    ST_request* PopQueuedRequest()      // the same as NBRead
-    {
-        assert(m_pGlobalFIFOLIST.size() < m_nGlobalFIFOSize);
-        assert(!m_pGlobalFIFOLIST.empty());
-        ST_request* ret = m_pGlobalFIFOLIST.front();
-        m_pGlobalFIFOLIST.pop_front();
-        return ret;
-    }
-
-    // check whether the request can be found in the queue
-    bool DoesFIFOSeekSameLine(ST_request* req) const
-    {
-        assert(m_pGlobalFIFOLIST.size() < m_nGlobalFIFOSize);
-        for (list<ST_request*>::const_iterator iter = m_pGlobalFIFOLIST.begin();iter != m_pGlobalFIFOLIST.end(); ++iter)
-        {
-            if ((*iter)->getlineaddress() == req->getlineaddress())
-            {
-                return true;
-            }
-        }
-        return false;
-    }
-
-	// insert a request to the outstanding request structure
-	bool InsertOutstandingRequest(ST_request* req);
-
-	// remove a request from the outstanding request structure
-	ST_request* RemoveOutstandingRequest(__address_t addr);
-
-    // $$$ optimization $$$
-    // victim line implementation and optimization
-
-    // THIS METHOD SHOULD BE PERFORMED BEFORE INVALIDATION CARRIED OUT !!!
-    // supplement line invalidation, this function does not perform real invalidation action
-    // it only perform additional actions in addition to the invalidation (probably including optimizations)
-    // bremote represent whether the request is a remote request invalidates a cacheline at normal state (RE_rem, IV_rem, ER_rem), 
-    // or reply request (RS_ret@RPI, RE_ret@WPE, SR_ret@RPI, ER_ret@WPE, DE@WPE)
-    void LineInvalidationExtra(ST_request* req, bool bremote)
-    {
-        if (bremote)    // remote
-        {
-            assert(m_pReqCurPASasSlaveX == NULL);
-            ST_request *newreq = new ST_request(req);
-            newreq->source = m_id;
-            newreq->type = REQUEST_INVALIDATE_BR;
-            InsertSlaveReturnRequest(false, newreq);
+            // ONLY USED TO PUSH PREVIOUSLY QUEUED REQUESTS
+            m_pGlobalFIFOLIST.push_front(req);
         }
         else
         {
-            // add backward broadcast flag into reply request   JXXX ???
-            if (req->type == REQUEST_READ_REPLY)
-                req->bprocessed = true;
-            // send procedure will deal with the processed flag for WR
-        }
-
-        // $$$ optimization victime buffer $$$
-        m_fabEvictedLine.RemoveBufferItem(req->getlineaddress());
-    }
-
-    // $$$ optimization for victim buffer $$$
-    // Load from the victim buffer
-    bool OnLocalReadVictimBuffer(ST_request* req);
+            // the request will be a queued request
+            req->bqueued = true;
+            m_pGlobalFIFOLIST.push_back(req);
+		}
+        return true;
+	}
 
     // insert Slave return request for either INIasSlave or PASasSlave request
-    void InsertSlaveReturnRequest(bool ini, ST_request *req);
+    void InsertSlaveReturnRequest(bool ini, Message *req);
 
     // insert network request for PAS interface
-    void InsertPASNodeRequest(ST_request* req);
+    void InsertPASNodeRequest(Message* req);
 
     // get a slave request if none on the spot
-    ST_request* GetSlaveReturnRequest(bool ini)
+    Message* GetSlaveReturnRequest(bool ini)
     {
-        ST_request* req = NULL;
+        Message* req = NULL;
         if (ini) 
         {
             if (!m_queReqINIasSlave.empty())
@@ -571,9 +322,9 @@ public:
     }
 
     // get a pas node request if none on the spot
-    ST_request* GetPASNodeRequest()
+    Message* GetPASNodeRequest()
     {
-        ST_request* req = NULL;
+        Message* req = NULL;
         if (!m_queReqPASasNode.empty())
         {
             req = m_queReqPASasNode.front();

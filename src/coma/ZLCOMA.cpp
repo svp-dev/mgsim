@@ -16,7 +16,7 @@ class ZLCOMA::Link : public Object
     SingleFlag            m_active2;
     IMemoryCallback*      m_callback;
     MemSim::ProcessorTOK& m_link;
-    std::set<MemSim::ST_request*> m_requests;
+    std::set<MemSim::Message*> m_requests;
     Process               p_Requests;
     unsigned int          m_nPID;
     
@@ -24,7 +24,7 @@ class ZLCOMA::Link : public Object
     {
         assert(m_callback != NULL);
 
-        MemSim::ST_request* req = m_link.GetReply();
+        MemSim::Message* req = m_link.GetReply();
         if (req == NULL)
         {
             // No replies yet
@@ -34,20 +34,20 @@ class ZLCOMA::Link : public Object
         // We have a reply, handle it
         switch (req->type)
         {
-        case MemSim::MemoryState::REQUEST_READ_REPLY:
+        case MemSim::Message::READ_REPLY:
         {
             // Read response, return the data
             MemData data;
-            data.size = req->nsize;
-            memcpy(data.data, &req->data[req->offset], req->nsize);
-            if (!m_callback->OnMemoryReadCompleted(req->getlineaddress(), data))
+            data.size = req->size;
+            memcpy(data.data, &req->data[req->address % MemSim::g_nCacheLineSize], req->size);
+            if (!m_callback->OnMemoryReadCompleted(req->address, data))
             {
                 return FAILED;
             }
             break;
         }
                 
-        case MemSim::MemoryState::REQUEST_WRITE_REPLY:
+        case MemSim::Message::WRITE_REPLY:
             // Write response, notify for thread
             if (req->pid != m_nPID) {
                 // This WR is not for us, ignore it
@@ -60,33 +60,22 @@ class ZLCOMA::Link : public Object
                 return FAILED;
             }
 
-        case MemSim::MemoryState::REQUEST_INVALIDATE_BR:
-            // Invalidation
-            if (!m_callback->OnMemoryInvalidated(req->getlineaddress()))
-            {
-                return FAILED;
-            }
-            break;
-
         default:
             assert(false);
             break;
         }
 
-        if (req->type != MemSim::MemoryState::REQUEST_INVALIDATE_BR)
+        size_t left = m_requests.size();
+        if (m_requests.find(req) != m_requests.end())
         {
-            size_t left = m_requests.size();
-            if (m_requests.find(req) != m_requests.end())
-            {
-                COMMIT{ m_requests.erase(req); }
-                left--;
-            }
+            COMMIT{ m_requests.erase(req); }
+            left--;
+        }
             
-            if (left == 0)
-            {
-                // This was the last pending request
-                m_active1.Clear();
-            }
+        if (left == 0)
+        {
+            // This was the last pending request
+            m_active1.Clear();
         }
             
         // We've handled the reply, remove it
@@ -110,6 +99,8 @@ public:
     void Read(PSize pid, MemAddr address, MemSize size)
     {
         assert(m_callback != NULL);
+        assert(size == MemSim::g_nCacheLineSize);
+        assert(address % MemSim::g_nCacheLineSize == 0);
 
         if (size > SIZE_MAX)
         {
@@ -118,12 +109,12 @@ public:
 
         COMMIT
         {
-            MemSim::ST_request *req = new MemSim::ST_request();
-            req->pid        = m_nPID;
-            req->addresspre = address / MemSim::g_nCacheLineSize;
-            req->offset     = address % MemSim::g_nCacheLineSize;
-            req->nsize      = size;
-            req->type       = MemSim::MemoryState::REQUEST_READ;
+            MemSim::Message *req = new MemSim::Message();
+            req->pid     = m_nPID;
+            req->address = address;
+            req->size    = size;
+            req->type    = MemSim::Message::READ;
+            std::fill(req->bitmask, req->bitmask + MemSim::g_nCacheLineSize, true);
             m_link.PutRequest(req);
 
             m_requests.insert(req);
@@ -134,7 +125,11 @@ public:
 
     void Write(PSize pid, MemAddr address, const void* data, MemSize size, TID tid)
     {
+        unsigned int offset = address % MemSim::g_nCacheLineSize;
+
         assert(m_callback != NULL);
+        assert(size <= MemSim::g_nCacheLineSize);
+        assert(offset + size <= MemSim::g_nCacheLineSize);
 
         if (size > SIZE_MAX)
         {
@@ -143,14 +138,15 @@ public:
 
         COMMIT
         {
-            MemSim::ST_request *req = new MemSim::ST_request();
-            req->pid        = m_nPID;
-            req->addresspre = address / MemSim::g_nCacheLineSize;
-            req->offset     = address % MemSim::g_nCacheLineSize;
-            req->nsize      = size;
-            req->tid        = tid;
-            req->type       = MemSim::MemoryState::REQUEST_WRITE;
-            memcpy(&req->data[req->offset], data, size);
+            MemSim::Message *req = new MemSim::Message();
+            req->pid     = m_nPID;
+            req->address = address;
+            req->size    = size;
+            req->tid     = tid;
+            req->type    = MemSim::Message::WRITE;
+            memcpy(&req->data[offset], data, size);
+            std::fill(req->bitmask, req->bitmask + MemSim::g_nCacheLineSize, false);
+            std::fill(req->bitmask + offset, req->bitmask + offset + size, true);
             m_link.PutRequest(req);
 
             m_requests.insert(req);

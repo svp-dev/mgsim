@@ -1,18 +1,17 @@
 #include "ddrmemorysys.h"
 
-using namespace MemSim;
+namespace MemSim
+{
 
-namespace MemSim{
-
-bool DDRChannel::ScheduleRequest(ST_request* req)
+bool DDRChannel::ScheduleRequest(Message* req)
 {
     assert(req != NULL);
-    __address_t addr = req->getlineaddress();
+    MemAddr addr = req->address;
     bool bwrite=false;
 
-    if (req->type == MemoryState::REQUEST_DISSEMINATE_TOKEN_DATA)
+    if (req->type == Message::DISSEMINATE_TOKEN_DATA)
         bwrite = true;
-    else if (req->type == MemoryState::REQUEST_ACQUIRE_TOKEN_DATA)
+    else if (req->type == Message::ACQUIRE_TOKEN_DATA)
         bwrite = false;
     else assert(false);
 
@@ -47,80 +46,75 @@ bool DDRChannel::ScheduleRequest(ST_request* req)
 }
 
 
-void DDRChannel::FunRead(ST_request* req)
+void DDRChannel::FunRead(Message* req)
 {
-    // always fetch the whole line size
-    char * tempdata = (char*)malloc(g_nCacheLineSize);
-    m_pMemoryDataContainer.Read(req->getlineaddress(), tempdata, g_nCacheLineSize);
+    // Always fetch the whole line size
+    char tempdata[MAX_MEMORY_OPERATION_SIZE];
+    m_pMemoryDataContainer.Read(req->address, tempdata, g_nCacheLineSize);
 
     // JXXX JONY ?? should update the memory data if it's read exclusive?
     // update
-    if ((req->type == REQUEST_ACQUIRE_TOKEN_DATA) && (req->tokenrequested == CacheState::GetTotalTokenNum()))
+    if ((req->type == Message::ACQUIRE_TOKEN_DATA) && (req->tokenrequested == CacheState::GetTotalTokenNum()))
     {
-        for (unsigned int i = 0; i < CACHE_BIT_MASK_WIDTH; i++)
+        for (unsigned int i = 0; i < MAX_MEMORY_OPERATION_SIZE; i++)
         {
             if (req->bitmask[i])
             {
                 tempdata[i] = req->data[i];
             }
-
         }
     }
 
     memcpy(req->data, tempdata, g_nCacheLineSize);
 
-    if ((req->type == REQUEST_ACQUIRE_TOKEN_DATA) && (req->tokenrequested < CacheState::GetTotalTokenNum()))
+    if (req->type == Message::ACQUIRE_TOKEN_DATA && req->tokenrequested < CacheState::GetTotalTokenNum())
     {
-        req->offset = 0;
-        req->nsize = g_nCacheLineSize;
-
+        // Align to cache line
+        req->address = (req->address / g_nCacheLineSize) * g_nCacheLineSize;
+        req->size    = g_nCacheLineSize;
     }
 
-    req->Conform2BitVecFormat();
-
-
-    free(tempdata);
+    unsigned int offset = req->address % g_nCacheLineSize;
+    for (unsigned int i = 0; i < g_nCacheLineSize; i++)
+    {
+        req->bitmask[i] = (i >= offset && i < offset + req->size);
+    }
 
     if (req->bprocessed)
     {
         assert(!req->dataavailable);
-
         req->dataavailable = true;
     }
     else
-	     assert (req->type == REQUEST_ACQUIRE_TOKEN_DATA);
+	     assert (req->type == Message::ACQUIRE_TOKEN_DATA);
     {
         // if (req->tokenacquired > 0)
         // no data but sometoken, two situations, 
         // 1. already got all the token, but nodata when in directory, so go down here
         // 2. already returned to initiator once, but no data acquired. 
-        req->tokenacquired = (req->tokenacquired > 0)?req->tokenacquired:CacheState::GetTotalTokenNum();
+        req->tokenacquired = (req->tokenacquired > 0) ? req->tokenacquired : CacheState::GetTotalTokenNum();
         req->dataavailable = true;
         req->bpriority = true;
     }
 }
 
-void DDRChannel::FunWrite(ST_request* req)
+void DDRChannel::FunWrite(Message* req)
 {
-    assert (req->nsize <= g_nCacheLineSize);
-    assert(req->type == REQUEST_DISSEMINATE_TOKEN_DATA);
-    assert(req->nsize == g_nCacheLineSize);
+    assert(req->type == Message::DISSEMINATE_TOKEN_DATA);
+    assert(req->size == g_nCacheLineSize);
 
-    m_pMemoryDataContainer.Write(req->getlineaddress(), req->data, req->nsize); // 32 bit alert
+    m_pMemoryDataContainer.Write(req->address, req->data, req->size);
 }
 
 
-void DDRChannel::ProcessRequest(ST_request *req)
+void DDRChannel::ProcessRequest(Message *req)
 {
-    MemoryState::REQUEST reqtype = req->type;
-
-    // handle request
-    switch (reqtype)
+    switch (req->type)
     {
-    case MemoryState::REQUEST_ACQUIRE_TOKEN_DATA:
+    case Message::ACQUIRE_TOKEN_DATA:
         FunRead(req);
         break;
-    case MemoryState::REQUEST_DISSEMINATE_TOKEN_DATA:
+    case Message::DISSEMINATE_TOKEN_DATA:
         FunWrite(req);
         break;
     default:
@@ -136,7 +130,7 @@ void DDRChannel::ExecuteCycle()
     if (!m_lstReq.empty())
     {
         // get request in the queue
-        ST_request* req_incoming = m_lstReq.front();
+        Message* req_incoming = m_lstReq.front();
 
         if (ScheduleRequest(req_incoming))
         {
@@ -146,7 +140,7 @@ void DDRChannel::ExecuteCycle()
 
     // Advance pipeline 
     unsigned int eventid;
-    ST_request* req = m_pMSP->AdvancePipeline(eventid);
+    Message* req = m_pMSP->AdvancePipeline(eventid);
 
     // row close
     if (eventid == 1)
@@ -163,7 +157,7 @@ void DDRChannel::ExecuteCycle()
         // Process request
         ProcessRequest(req);
 
-        if (req->type == MemoryState::REQUEST_DISSEMINATE_TOKEN_DATA)
+        if (req->type == Message::DISSEMINATE_TOKEN_DATA)
         {
             // terminate and delete the eviction request
             delete req;
@@ -179,7 +173,7 @@ void DDRChannel::ExecuteCycle()
 void DDRMemorySys::Behavior()
 {
     // check incoming request
-    ST_request* req_incoming = NULL;
+    Message* req_incoming = NULL;
     if (!m_pfifoReqIn.empty())
     {
         req_incoming = m_pfifoReqIn.front();
@@ -196,7 +190,7 @@ void DDRMemorySys::Behavior()
     m_channel.ExecuteCycle();
 
     // get the reply request. and send them over network interface
-    ST_request* req = m_channel.GetOutputRequest();
+    Message* req = m_channel.GetOutputRequest();
     if (req != NULL)
     {
         // send reply transaction

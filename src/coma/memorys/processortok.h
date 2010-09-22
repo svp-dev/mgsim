@@ -9,12 +9,12 @@ namespace MemSim
 {
 
 class CacheL2TOK;
-class ST_request;
+class Message;
 
 class ProcessorTOK : public LinkMGS
 {
     CacheL2TOK&             m_cache;        // The cache we're connected to
-    std::queue<ST_request*> m_responses;    // Responses from cache
+    std::queue<Message*> m_responses;    // Responses from cache
     bool                    m_pushed;
     bool                    m_popped;
 
@@ -43,7 +43,7 @@ public:
         return true;
     }
 
-    bool SendFeedback(ST_request* req)
+    bool SendFeedback(Message* req)
     {
         m_responses.push(req);
         if (!m_pushed)
@@ -55,7 +55,7 @@ public:
     }
 
     // issue a new reqeuest
-    void PutRequest(ST_request* req);
+    void PutRequest(Message* req);
     
     size_t NumReplies() const
     {
@@ -63,7 +63,7 @@ public:
     }
 
     // check the request and give a reply is available
-    ST_request* GetReply();
+    Message* GetReply();
 
 	// remove the replied request
 	void RemoveReply();
