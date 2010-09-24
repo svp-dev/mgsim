@@ -1,11 +1,11 @@
-#ifndef EVICTED_DIR_LINE_BUFFER_H
-#define EVICTED_DIR_LINE_BUFFER_H
+#ifndef ZLCOMA_EVICTEDDIRLINEBUFFER_H
+#define ZLCOMA_EVICTEDDIRLINEBUFFER_H
 
-#include "predef.h"
+#include "COMA.h"
 #include <map>
 #include <utility>
 
-namespace MemSim
+namespace Simulator
 {
 
 class EvictedDirLineBuffer

@@ -1,41 +1,38 @@
 #include "mergestorebuffer.h"
+#include <cstring>
 using namespace std;
 
-namespace MemSim
+namespace Simulator
 {
 
-struct MergeStoreBuffer::Entry
+struct ZLCOMA::Cache::MergeStoreBuffer::Entry
 {
-    bool                  valid;
-    bool                  locked;
-    MemAddr               tag;
-    char                  data   [MAX_MEMORY_OPERATION_SIZE];
-    bool                  bitmask[MAX_MEMORY_OPERATION_SIZE];
-    std::vector<Message*> request_queue;
-    Message               merged_request;
+    bool    valid;
+    MemAddr tag;
+    bool    locked;
+    char    data   [MAX_MEMORY_OPERATION_SIZE];
+    bool    bitmask[MAX_MEMORY_OPERATION_SIZE];
+    
+    std::vector<WriteAck> ack_queue;
 };
 
-MergeStoreBuffer::MergeStoreBuffer(unsigned int size)
-    : m_entries(size)
+ZLCOMA::Cache::MergeStoreBuffer::MergeStoreBuffer(unsigned int size, size_t lineSize)
+    : m_entries(size), m_lineSize(lineSize)
 {
     for (size_t i = 0; i < m_entries.size(); ++i)
     {
         m_entries[i].valid = false;
-        m_entries[i].merged_request.type = Message::NONE;
     }
 }
 
-MergeStoreBuffer::~MergeStoreBuffer()
+ZLCOMA::Cache::MergeStoreBuffer::~MergeStoreBuffer()
 {
 }
 
 // Write to the buffer
-bool MergeStoreBuffer::WriteBuffer(Message* req)
+bool ZLCOMA::Cache::MergeStoreBuffer::WriteBuffer(MemAddr address, const MemData& data, const WriteAck& ack)
 {
-    // Only write requests hould come here
-    assert(req->type == Message::WRITE);
-
-    Entry* line = FindBufferItem(req->address);
+    Entry* line = FindBufferItem(address);
     if (line == NULL)
     {
         // Allocate a new line
@@ -46,11 +43,10 @@ bool MergeStoreBuffer::WriteBuffer(Message* req)
         }
 
         line->valid  = true;
-        line->tag    = req->address / g_nCacheLineSize;
+        line->tag    = address / m_lineSize;
         line->locked = false;
-        std::fill(line->bitmask, line->bitmask + g_nCacheLineSize, false);
-        std::fill(line->data,    line->data    + g_nCacheLineSize, 0);
-        std::fill(line->merged_request.bitmask, line->merged_request.bitmask + g_nCacheLineSize, false);
+        std::fill(line->bitmask, line->bitmask + MAX_MEMORY_OPERATION_SIZE, false);
+        std::fill(line->data,    line->data    + MAX_MEMORY_OPERATION_SIZE, 0);
     }
     else if (line->locked)
     {
@@ -58,51 +54,34 @@ bool MergeStoreBuffer::WriteBuffer(Message* req)
         return false;
     }
     
+    size_t offset = address % m_lineSize;
+
     // Merge request data into line and merged request
-    for (unsigned int i = 0; i < g_nCacheLineSize; i++)
-    {
-        if (req->bitmask[i])
-        {
-            line->merged_request.bitmask[i] = line->bitmask[i] = true;
-            line->merged_request.data[i]    = line->data[i]    = req->data[i];
-        }
-    }
-
-    line->merged_request.type = Message::ACQUIRE_TOKEN_DATA;           // NEED TO CHANGE, JONY XXXXXXX
-    line->merged_request.tokenacquired = 0;
-    line->merged_request.tokenrequested = CacheState::GetTotalTokenNum();
-    line->merged_request.address = (req->address / g_nCacheLineSize) * g_nCacheLineSize;
-    line->merged_request.size = 4;            /// NEED TO CHANGE  JONY XXXXXXX
-    line->merged_request.bmerged = true;
-
-    line->request_queue.push_back(req);
-
-    // Update Request to return type
-    req->type = Message::WRITE_REPLY;
-
+    std::copy(data.data, data.data + data.size, line->data + offset);
+    std::fill(line->bitmask + offset, line->bitmask + offset + data.size, true);
+    
+    line->ack_queue.push_back(ack);
     return true;
 }
 
 // load from the buffer
-bool MergeStoreBuffer::LoadBuffer(Message* req, const cache_line_t& linecache)
+bool ZLCOMA::Cache::MergeStoreBuffer::LoadBuffer(MemAddr address, MemData& data, const Line& linecache)
 {
-    assert(req->size == g_nCacheLineSize);
-
-    Entry* line = FindBufferItem(req->address);
+    Entry* line = FindBufferItem(address);
     if (line == NULL)
     {
         return false;
     }
 
-    for (unsigned int i = 0; i < MAX_MEMORY_OPERATION_SIZE; i++)
+    for (unsigned int i = 0; i < data.size; i++)
     {
         if (line->bitmask[i])
         {
-            req->data[i] = line->data[i];
+            data.data[i] = line->data[i];
         }
         else if (linecache.bitmask[i])
         {
-            req->data[i] = linecache.data[i];
+            data.data[i] = linecache.data[i];
         }
         else
         {
@@ -114,20 +93,15 @@ bool MergeStoreBuffer::LoadBuffer(Message* req, const cache_line_t& linecache)
     return true;
 }
 
-bool MergeStoreBuffer::IsAddressPresent(MemAddr address) const
-{
-    return FindBufferItem(address) != NULL;
-}
-
-bool MergeStoreBuffer::IsSlotLocked(MemAddr address) const
+bool ZLCOMA::Cache::MergeStoreBuffer::IsSlotLocked(MemAddr address) const
 {
     const Entry* line = FindBufferItem(address);
     return line != NULL && line->locked;
 }
 
-MergeStoreBuffer::Entry* MergeStoreBuffer::FindBufferItem(MemAddr address)
+ZLCOMA::Cache::MergeStoreBuffer::Entry* ZLCOMA::Cache::MergeStoreBuffer::FindBufferItem(MemAddr address)
 {
-    MemAddr tag = address / g_nCacheLineSize;
+    MemAddr tag = address / m_lineSize;
     for (unsigned int i = 0; i < m_entries.size(); ++i)
     {
         if (m_entries[i].valid && m_entries[i].tag == tag)
@@ -138,9 +112,9 @@ MergeStoreBuffer::Entry* MergeStoreBuffer::FindBufferItem(MemAddr address)
     return NULL;
 }
 
-const MergeStoreBuffer::Entry* MergeStoreBuffer::FindBufferItem(MemAddr address) const
+const ZLCOMA::Cache::MergeStoreBuffer::Entry* ZLCOMA::Cache::MergeStoreBuffer::FindBufferItem(MemAddr address) const
 {
-    MemAddr tag = address / g_nCacheLineSize;
+    MemAddr tag = address / m_lineSize;
     for (unsigned int i = 0; i < m_entries.size(); ++i)
     {
         if (m_entries[i].valid && m_entries[i].tag == tag)
@@ -151,7 +125,7 @@ const MergeStoreBuffer::Entry* MergeStoreBuffer::FindBufferItem(MemAddr address)
     return NULL;
 }
 
-MergeStoreBuffer::Entry* MergeStoreBuffer::GetEmptyLine()
+ZLCOMA::Cache::MergeStoreBuffer::Entry* ZLCOMA::Cache::MergeStoreBuffer::GetEmptyLine()
 {
     for (unsigned int i = 0 ; i < m_entries.size(); ++i)
     {
@@ -163,35 +137,19 @@ MergeStoreBuffer::Entry* MergeStoreBuffer::GetEmptyLine()
     return NULL;
 }
 
-const Message& MergeStoreBuffer::GetMergedRequest(MemAddr address) const
-{
-    const Entry* line = FindBufferItem(address);
-    assert(line != NULL);
-    return line->merged_request;
-}
-
-const std::vector<Message*>& MergeStoreBuffer::GetQueuedRequestVector(MemAddr address) const
-{
-    const Entry* line = FindBufferItem(address);
-    assert(line != NULL);
-    return line->request_queue;
-}
-
-bool MergeStoreBuffer::CleanSlot(MemAddr address)
+bool ZLCOMA::Cache::MergeStoreBuffer::DumpMergedLine(MemAddr address, char* data, bool* bitmask, std::vector<WriteAck>& ack_queue)
 {
     Entry* line = FindBufferItem(address);
     if (line != NULL)
     {
+        // Return the merged line
+        std::copy(line->data,    line->data    + MAX_MEMORY_OPERATION_SIZE, data);
+        std::copy(line->bitmask, line->bitmask + MAX_MEMORY_OPERATION_SIZE, bitmask);
+        ack_queue.clear();
+        ack_queue.swap(line->ack_queue);
+
         // Invalidate the line
         line->valid = false;
-
-        // clean the merged request
-        line->merged_request.type = Message::NONE;
-
-        std::fill(line->merged_request.bitmask, line->merged_request.bitmask + MAX_MEMORY_OPERATION_SIZE, false);
-
-        // clean the request queue
-        line->request_queue.clear();
         return true;
     }
     return false;

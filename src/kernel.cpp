@@ -12,9 +12,6 @@
 #include <set>
 #include <map>
 #include <cstdio>
-#ifdef ENABLE_COMA_ZL
-#include "coma/simlink/th.h"
-#endif
 
 using namespace std;
 
@@ -245,12 +242,6 @@ RunState Kernel::Step(CycleNo cycles)
         {
             // We start each cycle being idle, and see if we did something this cycle
             idle = true;
-
-#ifdef ENABLE_COMA_ZL
-            m_phase = PHASE_COMMIT;
-            sem_post(&thpara.sem_sync);
-            sem_wait(&thpara.sem_mgs);
-#endif
 
             //
             // Acquire phase

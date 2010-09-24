@@ -1,16 +1,11 @@
 #include "MGSystem.h"
 
-#ifdef ENABLE_COMA_ZL
-# include "coma/ZLCOMA.h"
-# include "coma/simlink/th.h"
-# include "coma/simlink/linkmgs.h"
-#else
-# include "SerialMemory.h"
-# include "ParallelMemory.h"
-# include "BankedMemory.h"
-# include "RandomBankedMemory.h"
-# include "coma/COMA.h"
-#endif
+#include "SerialMemory.h"
+#include "ParallelMemory.h"
+#include "BankedMemory.h"
+#include "RandomBankedMemory.h"
+#include "coma/COMA.h"
+#include "coma/memorys/COMA.h"
 
 #include "loader.h"
 
@@ -749,13 +744,6 @@ MGSystem::MGSystem(const Config& config, Display& display, const string& program
         std::cerr << "# warning: last FPU in place " << i-1 << " is not shared fully" << std::endl;
     }
     
-#ifdef ENABLE_COMA_ZL
-    m_objects.resize(numProcessors + numFPUs + 1);
-    ZLCOMA* memory = new ZLCOMA("memory", m_root, m_clock, config);
-    m_objects.back() = memory;
-    m_memory = memory;
-    m_memorytype = MEMTYPE_COMA_ZL;
-#else
     std::string memory_type = config.getString("MemoryType", "");
     std::transform(memory_type.begin(), memory_type.end(), memory_type.begin(), ::toupper);
 
@@ -787,10 +775,14 @@ MGSystem::MGSystem(const Config& config, Display& display, const string& program
         m_objects.back() = memory;
         m_memory = memory;
         m_memorytype = MEMTYPE_COMA_ML;
+    } else if (memory_type == "ZLCOMA") {
+        ZLCOMA* memory = new ZLCOMA("memory", m_root, memclock, config);
+        m_objects.back() = memory;
+        m_memory = memory;
+        m_memorytype = MEMTYPE_COMA_ZL;
     } else {
         throw std::runtime_error("Unknown memory type specified in configuration");
     }
-#endif
 
     // Create the FPUs
     m_fpus.resize(numFPUs);

@@ -1,271 +1,138 @@
-#include "directorytok.h"
+#include "Directory.h"
+#include "../../config.h"
+#include <cassert>
+#include <cstring>
+#include <cstdio>
+#include <iomanip>
 using namespace std;
 
-namespace MemSim
+namespace Simulator
 {
 
-void DirectoryTOK::SendRequestFromBEL()
+// When we shortcut a message over the ring, we want at least one slots
+// available in the buffer to avoid deadlocking the ring network. This
+// is not necessary for forwarding messages onto the lower ring.
+static const size_t MINSPACE_SHORTCUT = 2;
+static const size_t MINSPACE_FORWARD  = 1;
+
+ZLCOMA::DirectoryTop::DirectoryTop(const std::string& name, ZLCOMA& parent, Clock& clock)
+  : Simulator::Object(name, parent),
+    ZLCOMA::Object(name, parent),
+    Node(name, parent, clock)
 {
-    if (m_pReqCurBEL2a != NULL)
-    {
-        if (NetworkAbove_Node::SendRequest(m_pReqCurBEL2a))
-        {
-            m_pReqCurBEL2a = NULL;
-        }
-    }
-
-    if (m_pReqCurBEL2b != NULL)
-    {
-        if (NetworkBelow_Node::SendRequest(m_pReqCurBEL2b))
-        {
-            m_pReqCurBEL2b = NULL;
-        }
-    }
-
-    m_nStateBEL = (m_pReqCurBEL2a == NULL && m_pReqCurBEL2b == NULL)
-        ? STATE_BELOW_PROCESSING
-        : STATE_BELOW_RETRY;
 }
 
-
-void DirectoryTOK::ProcessRequestBEL()
+ZLCOMA::DirectoryBottom::DirectoryBottom(const std::string& name, ZLCOMA& parent, Clock& clock)
+  : Simulator::Object(name, parent),
+    ZLCOMA::Object(name, parent),
+    Node(name, parent, clock)
 {
-    Message* req = m_pReqCurBEL;
-    assert(req->bqueued == false);
-
-    switch(req->type)
-    {
-    case Message::ACQUIRE_TOKEN:
-        OnBELAcquireToken(req);
-        break;
-        
-    case Message::ACQUIRE_TOKEN_DATA:
-        OnBELAcquireTokenData(req);
-        break;
-        
-    case Message::DISSEMINATE_TOKEN_DATA:
-        OnBELDisseminateTokenData(req);
-        break;
-        
-    case Message::LOCALDIR_NOTIFICATION:
-        OnBELDirNotification(req);
-        break;
-
-    default:
-        // Error
-        abort();
-        break;
-    }
-}
-
-void DirectoryTOK::BehaviorBelowNet()
-{
-    Message* req_incoming = NULL;
-
-    // initialize
-    m_pReqCurBEL = NULL;
-
-    switch (m_nStateBEL)
-    {
-    // free to processor any request from below interface
-    case STATE_BELOW_PROCESSING:
-        m_pReqCurBEL2a = NULL;
-        m_pReqCurBEL2b = NULL;
-
-        if (!m_lstReqB2a.empty())
-        {
-            m_pReqCurBEL2a = m_lstReqB2a.front();
-            m_lstReqB2a.pop_front();
-        }
-
-        if (!m_lstReqB2b.empty())
-        {
-            m_pReqCurBEL2b = m_lstReqB2b.front();
-            m_lstReqB2b.pop_front();
-        }
-
-        // fetch the request from the correct interface
-        req_incoming = NetworkBelow_Node::ReceiveRequest();
-        m_pReqCurBEL = m_pPipelineBEL.shift(req_incoming);
-
-        if (m_pReqCurBEL != NULL)
-        {
-            ProcessRequestBEL();
-        }
-
-        if (m_pReqCurBEL2a != NULL || m_pReqCurBEL2b != NULL)
-            SendRequestFromBEL();
-
-        break;
-
-    case STATE_BELOW_RETRY:
-        if (m_pPipelineBEL.top() == NULL)
-        {
-            // fetch request from incoming buffer
-            req_incoming = NetworkBelow_Node::ReceiveRequest();
-
-            // only shift
-            m_pPipelineBEL.shift(req_incoming);
-
-        }
-
-        assert(m_pReqCurBEL2b != NULL || m_pReqCurBEL2a != NULL);
-        SendRequestFromBEL();
-        break;
-
-    default:
-        abort();
-        break;
-    }
-}
-
-void DirectoryTOK::ProcessRequestABO()
-{
-    Message* req = m_pReqCurABO;
-    assert(req->bqueued == false);
-
-    switch (req->type)
-    {
-    case Message::ACQUIRE_TOKEN:
-        OnABOAcquireToken(req);
-        break;
-        
-    case Message::ACQUIRE_TOKEN_DATA:
-        OnABOAcquireTokenData(req);
-        break;
-        
-    case Message::DISSEMINATE_TOKEN_DATA:
-        OnABODisseminateTokenData(req);
-        break;
-
-    default:
-        // Error
-        abort();
-        break;
-    }
-}
-
-void DirectoryTOK::BehaviorAboveNet()
-{
-    Message* req_incoming = NULL;
-
-    m_pReqCurABO = NULL;
-
-    switch (m_nStateABO)
-    {
-    // if the cache is available to process the request from above interface
-    case STATE_ABOVE_PROCESSING:
-        m_pReqCurABO2a = NULL;
-        m_pReqCurABO2b = NULL;
-
-        if (!m_lstReqA2a.empty())
-        {
-            m_pReqCurABO2a = m_lstReqA2a.front();
-            m_lstReqA2a.pop_front();
-        }
-
-        if (!m_lstReqA2b.empty())
-        {
-            m_pReqCurABO2b = m_lstReqA2b.front();
-            m_lstReqA2b.pop_front();
-        }
-
-        // fetch the request from the correct interface
-        req_incoming = NetworkAbove_Node::ReceiveRequest();
-        m_pReqCurABO = m_pPipelineABO.shift(req_incoming);
-
-        if (m_pReqCurABO != NULL)
-            ProcessRequestABO();
-
-        if (m_pReqCurABO2a != NULL || m_pReqCurABO2b != NULL)
-            SendRequestFromABO();
-
-        break;
-
-    case STATE_ABOVE_RETRY:
-        if (m_pPipelineABO.top() == NULL)
-        {
-            // fetch request from incoming buffer
-            req_incoming = NetworkAbove_Node::ReceiveRequest();
-
-            // only shift
-            m_pPipelineABO.shift(req_incoming);
-        }
-
-        assert(m_pReqCurABO2b != NULL || m_pReqCurABO2a != NULL);
-        SendRequestFromABO();
-        break;
-
-    default:
-        abort();
-        break;
-    }
 }
 
 // this probably only works with current naive configuration
-bool DirectoryTOK::IsBelow(CacheID id) const
+bool ZLCOMA::Directory::IsBelow(CacheID id) const
 {
     return (id >= m_firstCache) && (id <= m_lastCache);
 }
 
-void DirectoryTOK::SendRequestFromABO()
+ZLCOMA::Directory::Line* ZLCOMA::Directory::FindLine(MemAddr address)
 {
-    if (m_pReqCurABO2a != NULL)
+    const MemAddr tag  = (address / m_lineSize) / m_sets;
+    const size_t  set  = (size_t)((address / m_lineSize) % m_sets) * m_assoc;
+
+    // Find the line
+    for (size_t i = 0; i < m_assoc; ++i)
     {
-        if (NetworkAbove_Node::SendRequest(m_pReqCurABO2a))
+        Line* line = &m_lines[set + i];
+        if (line->valid && line->tag == tag)
         {
-            m_pReqCurABO2a = NULL;
-        }
-    }
-
-    if (m_pReqCurABO2b != NULL)
-    {
-        if (NetworkBelow_Node::SendRequest(m_pReqCurABO2b))
-        {
-            m_pReqCurABO2b = NULL;
-        }
-    }
-
-    m_nStateABO = (m_pReqCurABO2a == NULL && m_pReqCurABO2b == NULL) 
-        ? STATE_ABOVE_PROCESSING
-        : STATE_ABOVE_RETRY;
-}
-
-DirectoryTOK::dir_line_t* DirectoryTOK::LocateLine(MemAddr address)
-{
-    unsigned int index = (address / m_nLineSize) % m_nSet;
-    MemAddr  tag   = (address / m_nLineSize) / m_nSet;
-
-    dir_line_t* set = &m_pSet[index].lines[0];
-    for (unsigned int i = 0; i < m_nAssociativity; ++i)
-    {
-    	if (set[i].valid && set[i].tag == tag)
-    	{
-    		return &set[i];
+            return line;
         }
     }
     return NULL;
 }
 
-DirectoryTOK::dir_line_t* DirectoryTOK::GetEmptyLine(MemAddr address)
+const ZLCOMA::Directory::Line* ZLCOMA::Directory::FindLine(MemAddr address) const
 {
-    unsigned int index = (address / m_nLineSize) % m_nSet;
+    const MemAddr tag  = (address / m_lineSize) / m_sets;
+    const size_t  set  = (size_t)((address / m_lineSize) % m_sets) * m_assoc;
 
-    dir_line_t* set = &m_pSet[index].lines[0];
-    for (unsigned int i = 0; i < m_nAssociativity; ++i)
+    // Find the line
+    for (size_t i = 0; i < m_assoc; ++i)
     {
-    	if (!set[i].valid)
-    	{
-    		return &set[i];
+        const Line* line = &m_lines[set + i];
+        if (line->valid && line->tag == tag)
+        {
+            return line;
         }
     }
     return NULL;
 }
 
-void DirectoryTOK::OnBELAcquireTokenData(Message* req)
+ZLCOMA::Directory::Line* ZLCOMA::Directory::GetEmptyLine(MemAddr address)
+{
+    const size_t  set  = (size_t)((address / m_lineSize) % m_sets) * m_assoc;
+
+    for (size_t i = 0; i < m_assoc; ++i)
+    {
+        Line* line = &m_lines[set + i];
+        if (!line->valid)
+        {
+            return line;
+        }
+    }
+    return NULL;
+}
+
+bool ZLCOMA::Directory::OnMessageReceivedBottom(Message* req)
+{
+    switch(req->type)
+    {
+    case Message::ACQUIRE_TOKEN:
+        return OnBELAcquireToken(req);
+        
+    case Message::ACQUIRE_TOKEN_DATA:
+        return OnBELAcquireTokenData(req);
+        
+    case Message::DISSEMINATE_TOKEN_DATA:
+        return OnBELDisseminateTokenData(req);
+        
+    case Message::LOCALDIR_NOTIFICATION:
+        return OnBELDirNotification(req);
+
+    default:
+        // Error
+        abort();
+        break;
+    }
+    return false;
+}
+
+bool ZLCOMA::Directory::OnMessageReceivedTop(Message* req)
+{
+    switch (req->type)
+    {
+    case Message::ACQUIRE_TOKEN:
+        return OnABOAcquireToken(req);
+        
+    case Message::ACQUIRE_TOKEN_DATA:
+        return OnABOAcquireTokenData(req);
+        
+    case Message::DISSEMINATE_TOKEN_DATA:
+        return OnABODisseminateTokenData(req);
+
+    default:
+        // Error
+        abort();
+        break;
+    }
+    return false;
+}
+
+bool ZLCOMA::Directory::OnBELAcquireTokenData(Message* req)
 {
     // locate certain set
-    dir_line_t* line = LocateLine(req->address);
+    Line* line = FindLine(req->address);
 
     // evicted line buffer
     bool evictedhit = m_evictedlinebuffer.FindEvictedLine(req->address);
@@ -286,7 +153,7 @@ void DirectoryTOK::OnBELAcquireTokenData(Message* req)
             assert(line != NULL);
 
             // update line info
-            line->tag = (req->address / m_nLineSize) / m_nSet;
+            line->tag = (req->address / m_lineSize) / m_sets;
             line->valid = true;
             line->tokencount = 0;
             line->ntokenline = 0;
@@ -307,37 +174,36 @@ void DirectoryTOK::OnBELAcquireTokenData(Message* req)
             }
 
             // save the request
-            m_lstReqB2a.push_back(req);
             line->nrequestout++;
-            return;
+            
+            if (!DirectoryTop::SendMessage(req, MINSPACE_FORWARD))
+            {
+                return false;
+            }
+            return true;
         }
 
         // make sure that no buffer hit
         assert(evictedhit == false);
 
-        if (req->tokenrequested < GetTotalTokenNum())  // read: RS, SR
+        if (req->tokenrequested < m_numTokens)  // read: RS, SR
         {
-            if (line->ntokenline + line->ntokenrem <= 0 || req->bprocessed)
+            assert(req->transient == false);
+            
+            if (line->ntokenline + line->ntokenrem <= 0 || req->processed)
             {
                 // no token in local level, the line must be acquiring tokens from somewhere else
 
                 // transfer tokens to request, if any.
                 line->nrequestout++;
-                if (req->btransient && line->priority)
-                {
-                    req->btransient = false;
-                    req->bpriority  = true;
-                    line->priority  = false;
-                }
-
-                int  newlinetokenline = line->ntokenline - req->gettokenpermanent();
-
+                
+                line->ntokenline   -= req->tokenacquired;
+                
                 req->tokenacquired += line->tokencount;
-                req->bpriority = req->bpriority || line->priority;
+                req->priority       = req->priority || line->priority;
 
-                line->tokencount    = 0;
-                line->ntokenline    = newlinetokenline;
-                line->priority      = false;
+                line->tokencount  = 0;
+                line->priority    = false;
 
                 // REVISIT
                 if (line->ntokenrem < 0)
@@ -376,7 +242,10 @@ void DirectoryTOK::OnBELAcquireTokenData(Message* req)
                 }
 
                 // send the request to upper level
-                m_lstReqB2a.push_back(req);
+                if (!DirectoryTop::SendMessage(req, MINSPACE_FORWARD))
+                {
+                    return false;
+                }
             }
             else
             {
@@ -385,12 +254,10 @@ void DirectoryTOK::OnBELAcquireTokenData(Message* req)
                 // if directory has tokens, hand them over to the reqeust.
                 if (line->tokencount > 0)
                 {
-		            assert(!req->btransient);  // RS/SR cannot be transient request
-
-                    line->ntokenline += line->tokencount;
+                    line->ntokenline   += line->tokencount;
 
                     req->tokenacquired += line->tokencount;
-                    req->bpriority      = req->bpriority || line->priority;
+                    req->priority      = req->priority || line->priority;
 
                     line->tokencount    = 0;
                     line->priority      = false;
@@ -433,28 +300,31 @@ void DirectoryTOK::OnBELAcquireTokenData(Message* req)
                 }
 
                 // save the reqeust 
-                m_lstReqB2b.push_back(req);
+                if (!DirectoryBottom::SendMessage(req, MINSPACE_FORWARD))
+                {
+                    return false;
+                }
             }
         }
         // RE, ER
-        else if (line->tokencount + line->ntokenline + line->ntokenrem != GetTotalTokenNum() || line->nrequestin != 0 || line->nrequestout != 0)
+        else if (line->tokencount + line->ntokenline + line->ntokenrem != m_numTokens || line->nrequestin != 0 || line->nrequestout != 0)
         {
             // need to go out the local level
 
             // Update request and line
             line->nrequestout++;
 
-            if (req->btransient && line->priority)
+            if (req->transient && line->priority)
             {
-                req->btransient = false;
-                req->bpriority  = true;
+                req->transient = false;
+                req->priority  = true;
                 line->priority  = false;
             }
             
-            int newlinetokenline = line->ntokenline - req->gettokenpermanent();
+            int newlinetokenline = line->ntokenline - (req->transient ? 0 : req->tokenacquired);
 
             req->tokenacquired += line->tokencount;
-            req->bpriority      = req->bpriority || line->priority;
+            req->priority      = req->priority || line->priority;
 
             line->tokencount    = 0;
             line->ntokenline    = newlinetokenline;
@@ -497,7 +367,10 @@ void DirectoryTOK::OnBELAcquireTokenData(Message* req)
                 line->valid = false;
             }
 
-            m_lstReqB2a.push_back(req);
+            if (!DirectoryTop::SendMessage(req, MINSPACE_FORWARD))
+            {
+                return false;
+            }
         }
         else
         {
@@ -507,9 +380,9 @@ void DirectoryTOK::OnBELAcquireTokenData(Message* req)
             assert(line->ntokenline + line->ntokenrem > 0);
 
             req->tokenacquired += line->tokencount;
-            req->bpriority      = req->bpriority || line->priority;
+            req->priority      = req->priority || line->priority;
             
-            if (!req->btransient)
+            if (!req->transient)
             {
                 line->ntokenline += line->tokencount;
                 line->tokencount  = 0;
@@ -553,7 +426,10 @@ void DirectoryTOK::OnBELAcquireTokenData(Message* req)
                 line->valid = false;
             }
 
-            m_lstReqB2b.push_back(req);
+            if (!DirectoryBottom::SendMessage(req, MINSPACE_FORWARD))
+            {
+                return false;
+            }
         }
     }
     else if (line == NULL)
@@ -563,7 +439,10 @@ void DirectoryTOK::OnBELAcquireTokenData(Message* req)
         m_evictedlinebuffer.UpdateEvictedLine(req->address, false, req->gettokenpermanent());
 
         // Send the request to the upper level
-        m_lstReqB2a.push_back(req);
+        if (!DirectoryTop::SendMessage(req, MINSPACE_FORWARD))
+        {
+            return false;
+        }
     }
     else
     {
@@ -573,12 +452,12 @@ void DirectoryTOK::OnBELAcquireTokenData(Message* req)
         line->nrequestin--;
 
         // Send the request to upper level
-        if (!req->btransient)
+        if (!req->transient)
         {
             int newlinetokenline = line->ntokenline - req->tokenacquired;
 
             req->tokenacquired += line->tokencount;
-            req->bpriority      = req->bpriority || line->priority;
+            req->priority      = req->priority || line->priority;
 
             line->tokencount = 0;
             line->ntokenline = newlinetokenline;
@@ -620,16 +499,20 @@ void DirectoryTOK::OnBELAcquireTokenData(Message* req)
         }
 
         // remote request is going out anyway
-        m_lstReqB2a.push_back(req);
+        if (!DirectoryTop::SendMessage(req, MINSPACE_FORWARD))
+        {
+            return false;
+        }
     }
+    return true;
 }
 
 
-void DirectoryTOK::OnBELAcquireToken(Message* req)
+bool ZLCOMA::Directory::OnBELAcquireToken(Message* req)
 {
-    assert(req->tokenrequested == GetTotalTokenNum());
+    assert(req->tokenrequested == m_numTokens);
 
-    dir_line_t* line = LocateLine(req->address);
+    Line* line = FindLine(req->address);
 
     bool evictedhit = m_evictedlinebuffer.FindEvictedLine(req->address);
 
@@ -645,7 +528,7 @@ void DirectoryTOK::OnBELAcquireToken(Message* req)
             assert(line != NULL);
 
             // update line info
-            line->tag = (req->address / m_nLineSize) / m_nSet;
+            line->tag = (req->address / m_lineSize) / m_sets;
             line->valid = true;
             line->tokencount = 0;
             line->ntokenline = 0;
@@ -665,7 +548,10 @@ void DirectoryTOK::OnBELAcquireToken(Message* req)
             }
 
             // save the request
-            m_lstReqB2a.push_back(req);
+            if (!DirectoryTop::SendMessage(req, MINSPACE_FORWARD))
+            {
+                return false;
+            }
 
             line->nrequestout++;
         }
@@ -675,22 +561,22 @@ void DirectoryTOK::OnBELAcquireToken(Message* req)
             assert(req->tokenacquired > 0);
 
             // request is IV
-            if (line->tokencount + line->ntokenline + line->ntokenrem != GetTotalTokenNum() || line->nrequestin != 0 || line->nrequestout != 0)
+            if (line->tokencount + line->ntokenline + line->ntokenrem != m_numTokens || line->nrequestin != 0 || line->nrequestout != 0)
             {
                 // need to go out the local level
 
                 // Update request and line
                 line->nrequestout++;
-                if (req->btransient && line->priority)
+                if (req->transient && line->priority)
                 {
-                    req->btransient = false;
-                    req->bpriority  = true;
+                    req->transient = false;
+                    req->priority  = true;
                     line->priority  = false;
                 }
                 int newlinetokenline = line->ntokenline - req->gettokenpermanent();
 
                 req->tokenacquired += line->tokencount;
-                req->bpriority      = req->bpriority || line->priority;
+                req->priority      = req->priority || line->priority;
 
                 line->tokencount    = 0;
                 line->ntokenline    = newlinetokenline;
@@ -738,7 +624,10 @@ void DirectoryTOK::OnBELAcquireToken(Message* req)
                     line->valid = false;
                 }
 
-                m_lstReqB2a.push_back(req);
+                if (!DirectoryTop::SendMessage(req, MINSPACE_FORWARD))
+                {
+                    return false;
+                }
             }
             else // all tokens are in local level
             {
@@ -749,9 +638,9 @@ void DirectoryTOK::OnBELAcquireToken(Message* req)
 
                 // Update request and line
                 req->tokenacquired += line->tokencount;
-                req->bpriority      = req->bpriority || line->priority;
+                req->priority      = req->priority || line->priority;
                     
-                if (!req->btransient)
+                if (!req->transient)
                 {
                     line->ntokenline += line->tokencount;                    
                     line->tokencount  = 0;
@@ -795,7 +684,10 @@ void DirectoryTOK::OnBELAcquireToken(Message* req)
                     line->valid = false;
                 }
 
-                m_lstReqB2b.push_back(req);
+                if (!DirectoryBottom::SendMessage(req, MINSPACE_FORWARD))
+                {
+                    return false;
+                }
             }
         }
     }
@@ -806,7 +698,10 @@ void DirectoryTOK::OnBELAcquireToken(Message* req)
             // prepare the request to send to upper level
 
             // just go out
-            m_lstReqB2a.push_back(req);
+            if (!DirectoryTop::SendMessage(req, MINSPACE_FORWARD))
+            {
+                return false;
+            }
 
             assert (evictedhit);
 	        m_evictedlinebuffer.UpdateEvictedLine(req->address, false, req->gettokenpermanent());
@@ -819,12 +714,12 @@ void DirectoryTOK::OnBELAcquireToken(Message* req)
             line->nrequestin--;
 
             // Send the request to upper level
-            if (!req->btransient)
+            if (!req->transient)
             {
                 int newlinetokenline = line->ntokenline - req->tokenacquired;
 
                 req->tokenacquired += line->tokencount;
-                req->bpriority      = req->bpriority || line->priority;
+                req->priority      = req->priority || line->priority;
 
                 line->tokencount = 0;
                 line->ntokenline = newlinetokenline;
@@ -867,28 +762,35 @@ void DirectoryTOK::OnBELAcquireToken(Message* req)
             }
 
             // remote request is going out anyway
-            m_lstReqB2a.push_back(req);
+            if (!DirectoryTop::SendMessage(req, MINSPACE_FORWARD))
+            {
+                return false;
+            }
         }
     }
+    return true;
 }
 
-void DirectoryTOK::OnBELDisseminateTokenData(Message* req)
+bool ZLCOMA::Directory::OnBELDisseminateTokenData(Message* req)
 {
+    assert(req->tokenacquired > 0);     // Should have tokens
+    assert(req->transient == false);    // EV/WB can never have transient tokens
+
     // EV request will always terminate at directory
-    assert(req->tokenacquired > 0);
 
-    dir_line_t* line = LocateLine(req->address);
-
-    // evicted line buffer
     bool evictedhit = m_evictedlinebuffer.FindEvictedLine(req->address);
 
+    Line* line = FindLine(req->address);
     if (line == NULL)
     {
-        // send the request to upper level
+        // We don't have the line, it must have been evicted.
         assert(evictedhit);
-        m_evictedlinebuffer.UpdateEvictedLine(req->address, false, req->gettokenpermanent(), true);
-        m_lstReqB2a.push_back(req);
-        return;
+        m_evictedlinebuffer.UpdateEvictedLine(req->address, false, req->tokenacquired, true);
+        if (!DirectoryTop::SendMessage(req, MINSPACE_FORWARD))
+        {
+            return false;
+        }
+        return true;
     }
     assert(!evictedhit);
 
@@ -915,47 +817,26 @@ void DirectoryTOK::OnBELDisseminateTokenData(Message* req)
                 // just stack, no ripping
                 line->ntokenline -= req->tokenacquired;
                 line->tokencount += req->tokenacquired;
-                line->priority    = line->priority || req->bpriority;
+                line->priority    = line->priority || req->priority;
                 delete req;
-                return;
+                return true;
             }
 
             // WB
-            assert(req->tokenrequested == GetTotalTokenNum());
+            assert(req->tokenrequested == m_numTokens);
         }
-
-        // send out
-        // should always go global
-        if (req->btransient && line->priority)
-        {
-            req->btransient = false;
-            req->bpriority = true;
-            line->priority = false;
-        }
-
-        int newlinetokenline = line->ntokenline - req->gettokenpermanent();
-
-        req->tokenacquired += line->tokencount;
-        req->bpriority      = req->bpriority || line->priority;
-
-        line->tokencount    = 0;
-        line->ntokenline    = newlinetokenline;
-        line->priority      = false;
     }
-    // Send the request to upper level
-    else if (!req->btransient)
-    {
-        int newlinetokenline = line->ntokenline - req->gettokenpermanent();
-        
-        req->tokenacquired += line->tokencount;
-        req->bpriority      = req->bpriority || line->priority;
-
-        line->tokencount    = 0;
-        line->ntokenline    = newlinetokenline;
-        line->priority      = false;
-    }
+    
+    line->ntokenline   -= req->tokenacquired;
+    req->tokenacquired += line->tokencount;
+    req->priority       = req->priority || line->priority;
+    line->tokencount    = 0;
+    line->priority      = false;
  
-    m_lstReqB2a.push_back(req);
+    if (!DirectoryTop::SendMessage(req, MINSPACE_FORWARD))
+    {
+        return false;
+    }
 
     // REVISIT
     if (line->ntokenrem < 0)
@@ -990,13 +871,13 @@ void DirectoryTOK::OnBELDisseminateTokenData(Message* req)
 
         line->valid = false;
     }
+    return true;
 }
 
-
-void DirectoryTOK::OnBELDirNotification(Message* req)
+bool ZLCOMA::Directory::OnBELDirNotification(Message* req)
 {
     // We should have this line
-    dir_line_t* line = LocateLine(req->address);
+    Line* line = FindLine(req->address);
     assert(line != NULL);
     
     // Add the tokens
@@ -1004,16 +885,13 @@ void DirectoryTOK::OnBELDirNotification(Message* req)
 
     // Terminate the request
     delete req;
+    return true;
 }
 
-//////////////////////////////////////////////////////////////////////////
-// ABOVE PROTOCOL TRANSACTION HANDLER
-
-void DirectoryTOK::OnABOAcquireTokenData(Message* req)
+bool ZLCOMA::Directory::OnABOAcquireTokenData(Message* req)
 {
-    dir_line_t* line = LocateLine(req->address);
+    Line* line = FindLine(req->address);
 
-    // evicted line buffer
     bool evictedhit = m_evictedlinebuffer.FindEvictedLine(req->address);
 
     if (IsBelow(req->source))
@@ -1024,12 +902,12 @@ void DirectoryTOK::OnABOAcquireTokenData(Message* req)
         line->nrequestout--;
 
         // Send the request to local
-        if (!req->btransient)
+        if (!req->transient)
         {
             int newlinetokenline = line->ntokenline + req->tokenacquired;
 
             req->tokenacquired += line->tokencount;
-            req->bpriority      = req->bpriority || line->priority;
+            req->priority      = req->priority || line->priority;
 
             line->ntokenline    = newlinetokenline;
         }
@@ -1037,17 +915,15 @@ void DirectoryTOK::OnABOAcquireTokenData(Message* req)
         {
             if (line->priority)
             {
-                req->btransient = false;
-                req->bpriority  = true;
+                req->transient = false;
+                req->priority  = true;
                 line->priority  = false;
+                
+                line->ntokenline += req->tokenacquired;
             }
 
-            int newlinetokenline  = line->ntokenline + (req->btransient ? 0 : req->tokenacquired);
-
             req->tokenacquired += line->tokencount;
-            req->bpriority      = req->bpriority || line->priority;
-
-            line->ntokenline    = newlinetokenline;
+            req->priority       = req->priority || line->priority;
         }
 
         line->priority = false;
@@ -1078,7 +954,10 @@ void DirectoryTOK::OnABOAcquireTokenData(Message* req)
         }
 
         // always go local
-        m_lstReqA2b.push_back(req);
+        if (!DirectoryBottom::SendMessage(req, MINSPACE_FORWARD))
+        {
+            return false;
+        }
     }
     // remote request
     // somehting inside lower level, just always get in
@@ -1088,33 +967,39 @@ void DirectoryTOK::OnABOAcquireTokenData(Message* req)
         m_evictedlinebuffer.UpdateEvictedLine(req->address, true, req->gettokenpermanent());
 
         // get in lower level
-        m_lstReqA2b.push_back(req);
+        if (!DirectoryBottom::SendMessage(req, MINSPACE_FORWARD))
+        {
+            return false;
+        }
     }
     // as long as the line exist, the requet, no matter RS or RE, has to get in
     else if (line == NULL)
     {
         // This line is not below this directory; forward request onto upper ring
-        m_lstReqA2a.push_back(req);
+        if (!DirectoryTop::SendMessage(req, MINSPACE_FORWARD))
+        {
+            return false;
+        }
     }
     else
     {
         line->nrequestin++;
 
-        if (req->btransient && line->priority)
+        if (req->transient && line->priority)
         {
             line->priority = false;
-            req->btransient = false;
-            req->bpriority = true;
+            req->transient = false;
+            req->priority = true;
         }
 
-        if (!req->btransient)
+        if (!req->transient)
         {
             req->tokenacquired += line->tokencount;
             line->tokencount    = 0;
             line->ntokenrem    += req->tokenacquired;
         }
 
-        req->bpriority = req->bpriority || line->priority;
+        req->priority = req->priority || line->priority;
         line->priority = false;
 
         // REVISIT
@@ -1142,14 +1027,17 @@ void DirectoryTOK::OnABOAcquireTokenData(Message* req)
         }
 
         // get in lower level
-        m_lstReqA2b.push_back(req);
+        if (!DirectoryBottom::SendMessage(req, MINSPACE_FORWARD))
+        {
+            return false;
+        }
     }
+    return true;
 }
 
-
-void DirectoryTOK::OnABOAcquireToken(Message* req)
+bool ZLCOMA::Directory::OnABOAcquireToken(Message* req)
 {
-    dir_line_t* line = LocateLine(req->address);
+    Line* line = FindLine(req->address);
 
     // evicted line buffer
     bool evictedhit = m_evictedlinebuffer.FindEvictedLine(req->address);
@@ -1162,19 +1050,21 @@ void DirectoryTOK::OnABOAcquireToken(Message* req)
         line->nrequestout--;
 
         // Send the request to local
-        if (req->btransient && line->priority)
+        if (req->transient)
         {
-            req->btransient = false;
-            req->bpriority = true;
-            line->priority = false;
+            if (line->priority) {
+                req->transient = false;
+                req->priority  = true;
+                line->priority = false;
+            } else {
+                line->ntokenline += req->tokenacquired;
+            }
         }
 
-        line->ntokenline   += (req->btransient ? 0 : req->tokenacquired);
-
-        req->bpriority      = req->bpriority || line->priority;        
+        req->priority       = req->priority || line->priority;        
         req->tokenacquired += line->tokencount;
 
-        line->priority = false;
+        line->priority   = false;
         line->tokencount = 0;
 
         // REVISIT
@@ -1202,7 +1092,10 @@ void DirectoryTOK::OnABOAcquireToken(Message* req)
         }
 
         // always go local
-        m_lstReqA2b.push_back(req);
+        if (!DirectoryBottom::SendMessage(req, MINSPACE_FORWARD))
+        {
+            return false;
+        }
     }
     // remote request
     else if (evictedhit)
@@ -1211,32 +1104,38 @@ void DirectoryTOK::OnABOAcquireToken(Message* req)
         m_evictedlinebuffer.UpdateEvictedLine(req->address, true, req->gettokenpermanent());
 
         // Put request on lower ring
-        m_lstReqA2b.push_back(req);
+        if (!DirectoryBottom::SendMessage(req, MINSPACE_FORWARD))
+        {
+            return false;
+        }
     }
     else if (line == NULL)
     {
         // The line does not exist below this directory; forward message on upper ring
-        m_lstReqA2a.push_back(req);
+        if (!DirectoryTop::SendMessage(req, MINSPACE_FORWARD))
+        {
+            return false;
+        }
     }
     else    // somehting inside lower level, just always get in
     {
         line->nrequestin++;
 
-        if (req->btransient && line->priority)
+        if (req->transient && line->priority)
         {
             line->priority = false;
-            req->btransient = false;
-            req->bpriority = true;
+            req->transient = false;
+            req->priority = true;
         }
 
-        if (!req->btransient)
+        if (!req->transient)
         {
             req->tokenacquired += line->tokencount;
             line->ntokenrem    += req->tokenacquired;
             line->tokencount    = 0;
         }
         
-        req->bpriority = req->bpriority || line->priority;
+        req->priority = req->priority || line->priority;
 
         line->priority = false;
 
@@ -1265,17 +1164,21 @@ void DirectoryTOK::OnABOAcquireToken(Message* req)
         }
 
         // Put message on lower ring
-        m_lstReqA2b.push_back(req);
+        if (!DirectoryBottom::SendMessage(req, MINSPACE_FORWARD))
+        {
+            return false;
+        }
     }
+    return true;
 }
 
-
-void DirectoryTOK::OnABODisseminateTokenData(Message* req)
+bool ZLCOMA::Directory::OnABODisseminateTokenData(Message* req)
 {
     // EV request will always terminate at directory
     assert(req->tokenacquired > 0);
+    assert(req->transient == false);
 
-    dir_line_t* line = LocateLine(req->address);
+    Line* line = FindLine(req->address);
 
     // evicted line buffer
     unsigned int requestin = 0;
@@ -1284,7 +1187,7 @@ void DirectoryTOK::OnABODisseminateTokenData(Message* req)
 
     // does not matter whether the request is from local level or not
 
-    // issue: disemminated token if send to lower level, 
+    // issue: disseminated token if send to lower level, 
     // the replaced request from the evicted line can bypass the evicted token, 
     // which lead to insufficient lines in root directory
     // solution & analysis:
@@ -1299,44 +1202,44 @@ void DirectoryTOK::OnABODisseminateTokenData(Message* req)
         if (requestin == 0)
         {
             // skip the local group to next group
-            m_lstReqA2a.push_back(req);
+            if (!DirectoryTop::SendMessage(req, MINSPACE_FORWARD))
+            {
+                return false;
+            }
         }
         else
         {
             // get in lower level, but update the evicted buffer
-            m_evictedlinebuffer.UpdateEvictedLine(req->address, true, req->gettokenpermanent(), true);
+            m_evictedlinebuffer.UpdateEvictedLine(req->address, true, req->tokenacquired, true);
 
             // lower level
-            m_lstReqA2b.push_back(req);
+            if (!DirectoryBottom::SendMessage(req, MINSPACE_FORWARD))
+            {
+                return false;
+            }
         }
     }
     else if (line == NULL)
     {
         // skip the local level and pass it on
-        m_lstReqA2a.push_back(req);
+        if (!DirectoryTop::SendMessage(req, MINSPACE_FORWARD))
+        {
+            return false;
+        }
     }
     else if (line->nrequestin != 0 || line->nrequestout != 0)
     {
         // lower level
-        m_lstReqA2b.push_back(req);
-
-        // assume it's from outside not local,
-        if (req->btransient && line->priority)
+        if (!DirectoryBottom::SendMessage(req, MINSPACE_FORWARD))
         {
-            line->priority = false;
-            req->btransient = false;
-            req->bpriority = true;
+            return false;
         }
 
-        if (!req->btransient)
-        {
-            req->tokenacquired += line->tokencount;
-            line->tokencount    = 0;
-            line->ntokenrem    += req->tokenacquired;
-        }
-
-        req->bpriority = req->bpriority || line->priority;
-        line->priority = false;
+        req->tokenacquired += line->tokencount;
+        line->tokencount    = 0;
+        line->ntokenrem    += req->tokenacquired;
+        req->priority       = req->priority || line->priority;
+        line->priority      = false;
 
         // REVISIT
         if (line->ntokenrem < 0)
@@ -1368,11 +1271,144 @@ void DirectoryTOK::OnABODisseminateTokenData(Message* req)
         // leave the tokens on the line. without getting in or send to the next node
 
         // notgoing anywhere, just terminate the request
-        assert(req->tokenacquired < GetTotalTokenNum());
+        assert(req->tokenacquired < m_numTokens);
         line->tokencount += req->tokenacquired;
-        line->priority = line->priority || req->bpriority;
+        line->priority = line->priority || req->priority;
 
         delete req;
+    }
+    return true;
+}
+
+Result ZLCOMA::Directory::DoInBottom()
+{
+    // Handle incoming message on bottom ring from previous node
+    assert(!DirectoryBottom::m_incoming.Empty());
+    if (!OnMessageReceivedBottom(DirectoryBottom::m_incoming.Front()))
+    {
+        return FAILED;
+    }
+    DirectoryBottom::m_incoming.Pop();
+    return SUCCESS;
+}
+
+Result ZLCOMA::Directory::DoInTop()
+{
+    // Handle incoming message on top ring from previous node
+    assert(!DirectoryTop::m_incoming.Empty());
+    if (!OnMessageReceivedTop(DirectoryTop::m_incoming.Front()))
+    {
+        return FAILED;
+    }
+    DirectoryTop::m_incoming.Pop();
+    return SUCCESS;
+}
+
+ZLCOMA::Directory::Directory(const std::string& name, ZLCOMA& parent, Clock& clock, size_t numTokens, CacheID firstCache, CacheID lastCache, const Config& config) :
+    Simulator::Object(name, parent),
+    ZLCOMA::Object(name, parent),
+    DirectoryBottom(name + "-bottom", parent, clock),
+    DirectoryTop(name + "-top", parent, clock),
+    p_lines     (*this, clock, "p_lines"),
+    m_lineSize  (config.getInteger<size_t>("CacheLineSize",           64)),
+    m_assoc     (config.getInteger<size_t>("COMACacheAssociativity",   4) * (lastCache - firstCache + 1)),
+    m_sets      (config.getInteger<size_t>("COMACacheNumSets",       128)),
+    m_numTokens (numTokens),
+    m_firstCache(firstCache),
+    m_lastCache (lastCache),
+    p_InBottom  ("bottom-incoming", delegate::create<Directory, &Directory::DoInBottom >(*this)),
+    p_InTop     ("top-incoming",    delegate::create<Directory, &Directory::DoInTop    >(*this))
+{
+    // Create the cache lines
+    // We need as many cache lines in a directory to cover all caches below it
+    m_lines.resize(m_assoc * m_sets);
+    for (size_t i = 0; i < m_lines.size(); ++i)
+    {
+        Line& line = m_lines[i];
+        line.valid = false;
+    }
+
+    DirectoryBottom::m_incoming.Sensitive(p_InBottom);
+    DirectoryTop   ::m_incoming.Sensitive(p_InTop);
+
+    p_lines.AddProcess(p_InTop);
+    p_lines.AddProcess(p_InBottom);
+}
+
+void ZLCOMA::Directory::Cmd_Help(std::ostream& out, const std::vector<std::string>& arguments) const
+{
+    out <<
+    "The Directory in a COMA system is connected via other nodes in the COMA\n"
+    "system via a ring network.\n\n"
+    "Supported operations:\n"
+    "- read <component>\n"
+    "  Reads and displays the directory lines, and global information such as hit-rate\n"
+    "  and directory configuration.\n"
+    "- read <component> buffers\n"
+    "  Reads and displays the buffers in the directory\n";
+}
+
+void ZLCOMA::Directory::Cmd_Read(std::ostream& out, const std::vector<std::string>& arguments) const
+{
+    if (!arguments.empty() && arguments[0] == "buffers")
+    {
+        // Read the buffers
+        out << endl << "Top ring interface:" << endl << endl;
+        DirectoryTop::Print(out);
+
+        out << endl << "Bottom ring interface:" << endl << endl;
+        DirectoryBottom::Print(out);
+
+        return;
+    }
+
+    out << "Cache type:  ";
+    if (m_assoc == 1) {
+        out << "Direct mapped" << endl;
+    } else if (m_assoc == m_lines.size()) {
+        out << "Fully associative" << endl;
+    } else {
+        out << dec << m_assoc << "-way set associative" << endl;
+    }
+    out << "Cache range: " << m_firstCache << " - " << m_lastCache << endl;
+    out << endl;
+
+    // No more than 4 columns per row and at most 1 set per row
+    const size_t width = std::min<size_t>(m_assoc, 4);
+
+    out << "Set |";
+    for (size_t i = 0; i < width; ++i) out << "       Address      | Tokens |";
+    out << endl << "----";
+    std::string seperator = "+";
+    for (size_t i = 0; i < width; ++i) seperator += "--------------------+--------+";
+    out << seperator << endl;
+
+    for (size_t i = 0; i < m_lines.size() / width; ++i)
+    {
+        const size_t index = (i * width);
+        const size_t set   = index / m_assoc;
+
+        if (index % m_assoc == 0) {
+            out << setw(3) << setfill(' ') << dec << right << set;
+        } else {
+            out << "   ";
+        }
+
+        out << " | ";
+        for (size_t j = 0; j < width; ++j)
+        {
+            const Line& line = m_lines[index + j];
+            if (line.valid) {
+                out << hex << "0x" << setw(16) << setfill('0') << (line.tag * m_sets + set) * m_lineSize << " | "
+                    << dec << setfill(' ') << setw(6) << line.tokencount;
+            } else {
+                out << "                   |       ";
+            }
+            out << " | ";
+        }
+        out << endl
+            << ((index + width) % m_assoc == 0 ? "----" : "    ")
+            << seperator << endl;
     }
 }
 

@@ -9,6 +9,10 @@
 #include "coma/Cache.h"
 #include "coma/Directory.h"
 #include "coma/RootDirectory.h"
+#include "coma/memorys/COMA.h"
+#include "coma/memorys/Cache.h"
+#include "coma/memorys/Directory.h"
+#include "coma/memorys/RootDirectory.h"
 
 #include <csignal>
 #include <sstream>
@@ -89,9 +93,14 @@ static const struct
     {"help", new bind_cmd_C<COMA::Cache       >(&COMA::Cache        ::Cmd_Help) },
     {"help", new bind_cmd_C<COMA::Directory   >(&COMA::Directory    ::Cmd_Help) },
     {"help", new bind_cmd_C<COMA::RootDirectory>(&COMA::RootDirectory::Cmd_Help) },
+    {"help", new bind_cmd_C<ZLCOMA              >(&ZLCOMA               ::Cmd_Help) },
+    {"help", new bind_cmd_C<ZLCOMA::Cache       >(&ZLCOMA::Cache        ::Cmd_Help) },
+    {"help", new bind_cmd_C<ZLCOMA::Directory   >(&ZLCOMA::Directory    ::Cmd_Help) },
+    {"help", new bind_cmd_C<ZLCOMA::RootDirectory>(&ZLCOMA::RootDirectory::Cmd_Help) },
     {"help", new bind_cmd_C<FPU               >(&FPU               ::Cmd_Help) },
     {"info", new bind_cmd_C<VirtualMemory     >(&VirtualMemory     ::Cmd_Info) },
     {"line", new bind_cmd_C<COMA              >(&COMA              ::Cmd_Line) },
+    {"line", new bind_cmd_C<ZLCOMA            >(&ZLCOMA            ::Cmd_Line) },
     {"read", new bind_cmd_C<RAUnit            >(&RAUnit            ::Cmd_Read) },
     {"read", new bind_cmd_C<ThreadTable       >(&ThreadTable       ::Cmd_Read) },
     {"read", new bind_cmd_C<FamilyTable       >(&FamilyTable       ::Cmd_Read) },
@@ -108,9 +117,13 @@ static const struct
     {"read", new bind_cmd_C<COMA::Cache       >(&COMA::Cache        ::Cmd_Read) },
     {"read", new bind_cmd_C<COMA::Directory   >(&COMA::Directory    ::Cmd_Read) },
     {"read", new bind_cmd_C<COMA::RootDirectory>(&COMA::RootDirectory::Cmd_Read) },
+    {"read", new bind_cmd_C<ZLCOMA::Cache       >(&ZLCOMA::Cache        ::Cmd_Read) },
+    {"read", new bind_cmd_C<ZLCOMA::Directory   >(&ZLCOMA::Directory    ::Cmd_Read) },
+    {"read", new bind_cmd_C<ZLCOMA::RootDirectory>(&ZLCOMA::RootDirectory::Cmd_Read) },
     {"read", new bind_cmd_C<VirtualMemory     >(&VirtualMemory     ::Cmd_Read) },
     {"read", new bind_cmd_C<FPU               >(&FPU               ::Cmd_Read) },
-    {"trace", new bind_cmd_NC<COMA             >(&COMA              ::Cmd_Trace) },
+    {"trace", new bind_cmd_NC<COMA            >(&COMA              ::Cmd_Trace) },
+    {"trace", new bind_cmd_NC<ZLCOMA          >(&ZLCOMA            ::Cmd_Trace) },
     {NULL, NULL}
 };
 
@@ -410,9 +423,6 @@ void PrintUsage(std::ostream& out, const char* cmd)
 {
     out <<
         "Microgrid Simulator"
-#ifdef ENABLE_COMA_ZL
-        " with ZL's COMA memory enabled"
-#endif
         ".\n"
         "Each simulated core implements the " CORE_ISA_NAME " ISA.\n\n"
         "Usage: " << cmd << " [ARG]...\n\n"
