@@ -311,7 +311,6 @@ void MGSystem::PrintCoreStats(std::ostream& os) const {
         types[j] = I; c[i][j++].i = pl.GetStagesRun();
         types[j] = PC; c[i][j++].f = 100. * pl.GetEfficiency();
         types[j] = PC; c[i][j++].f = 100. * (float)pl.GetOp() / (float)m_root.GetCycleNo();
-        types[j] = I; c[i][j++].i = p.GetLocalFamilyCompletion();
         types[j] = I; c[i][j++].i = p.GetMaxThreadsAllocated();
         types[j] = I; c[i][j++].i = p.GetTotalThreadsAllocated();
         types[j] = I; c[i][j++].i = p.GetThreadTableSize();
@@ -546,51 +545,6 @@ void MGSystem::PrintState(const vector<string>& arguments) const
     }
 }
 
-void MGSystem::PrintRegFileAsyncPortActivity(std::ostream& os) const
-{
-    float avg  = 0;
-    float amax = 0.0f;
-    float amin = 1.0f;
-    for (size_t i = 0; i < m_procs.size(); ++i) {
-        float a = m_procs[i]->GetRegFileAsyncPortActivity();
-        amax = max(amax, a);
-        amin = min(amin, a);
-        avg += a;
-    }
-    avg /= (float)m_procs.size();
-    os << avg << "\t# average reg. file async port activity" << endl
-       << amin << "\t# min reg. file async port activity" << endl
-       << amax << "\t# max reg. file async port activity" << endl;
-}
-
-
-void MGSystem::PrintAllFamilyCompletions(std::ostream& os) const
-{
-    for (PSize i = 0; i < m_procs.size(); i++) {
-        CycleNo last = m_procs[i]->GetLocalFamilyCompletion();
-        if (last != 0)
-            os << m_procs[i]->GetLocalFamilyCompletion()
-               << "\t# cycle counter at last family completion on core " << i
-               << endl;
-    }
-}
-
-void MGSystem::PrintFamilyCompletions(std::ostream& os) const
-{
-    CycleNo first = numeric_limits<CycleNo>::max();
-    CycleNo last  = 0;
-    for (size_t i = 0; i < m_procs.size(); ++i) {
-        CycleNo cycle = m_procs[i]->GetLocalFamilyCompletion();
-        if (cycle != 0)
-        {
-            first = min(first, cycle);
-            last  = max(last,  cycle);
-        }
-    }
-    os << first << "\t# corecycle counter at first family completion" << endl
-       << last << "\t# corecycle counter at last family completion" << endl;
-}
-
 void MGSystem::PrintAllStatistics(std::ostream& os) const
 {
     os << dec;
@@ -600,11 +554,6 @@ void MGSystem::PrintAllStatistics(std::ostream& os) const
     PrintCoreStats(os);
     os << "## memory statistics:" << endl;
     PrintMemoryStatistics(os);
-    // PrintRegFileAsyncPortActivity(os);
-    // PrintPipelineIdleTime(os);
-    // PrintPipelineEfficiency(os);
-    // PrintFamilyCompletions(os);
-    // PrintAllFamilyCompletions(os);
 #ifdef ENABLE_COMA_ZL
     os << LinkMGS::s_oLinkConfig.m_nProcs << "\t# COMA: number of connected cores" << endl
        << LinkMGS::s_oLinkConfig.m_nProcessorsPerCache << "\t# COMA: number of processors per L2 cache" << endl

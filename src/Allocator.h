@@ -49,7 +49,7 @@ enum ThreadDependency
 class Allocator : public Object
 {
 public:
-    typedef LinkedList< TID, ThreadTable, &Thread::nextState> ThreadList;
+    typedef LinkedList< TID, ThreadTable, &Thread::next> ThreadList;
     
 	struct AllocRequest
 	{
@@ -158,8 +158,8 @@ private:
     void UpdateContextAvailability();
 
     // Thread queue manipulation
-    void Push(ThreadQueue& queue, TID tid, TID Thread::*link = &Thread::nextState);
-    TID  Pop (ThreadQueue& queue, TID Thread::*link = &Thread::nextState);
+    void Push(ThreadQueue& queue, TID tid);
+    TID  Pop (ThreadQueue& queue);
 
     Processor&    m_parent;
     FamilyTable&  m_familyTable;

@@ -16,7 +16,6 @@ namespace Simulator
 Processor::Processor(const std::string& name, Object& parent, Clock& clock, GPID gpid, LPID lpid, const vector<Processor*>& grid, PSize gridSize, PlaceInfo& place, IMemory& memory, FPU& fpu, const Config& config)
 :   Object(name, parent, clock),
     m_pid(gpid), m_memory(memory), m_grid(grid), m_gridSize(gridSize), m_place(place), m_fpu(fpu),
-    m_localFamilyCompletion(0),
     m_allocator   ("alloc",     *this, clock, m_familyTable, m_threadTable, m_registerFile, m_raunit, m_icache, m_network, m_pipeline, place, lpid, config),
     m_icache      ("icache",    *this, clock, m_allocator, config),
     m_dcache      ("dcache",    *this, clock, m_allocator, m_familyTable, m_registerFile, config),
@@ -27,8 +26,6 @@ Processor::Processor(const std::string& name, Object& parent, Clock& clock, GPID
     m_threadTable ("threads",   *this, clock, config),
     m_network     ("network",   *this, clock, place, grid, lpid, m_allocator, m_registerFile, m_familyTable)
 {
-    RegisterSampleVariableInObject(m_localFamilyCompletion, SVC_WATERMARK);
-
     const Process* sources[] = {
         &m_icache.p_Outgoing,   // Outgoing process in I-Cache
         &m_dcache.p_Outgoing,   // Outgoing process in D-Cache
@@ -229,11 +226,6 @@ bool Processor::OnMemoryInvalidated(MemAddr addr)
 {
     return m_dcache.OnMemoryInvalidated(addr) &&
            m_icache.OnMemoryInvalidated(addr);
-}
-
-void Processor::OnFamilyTerminatedLocally(MemAddr /* pc */)
-{
-    m_localFamilyCompletion = GetCycleNo();
 }
 
 Integer Processor::GetProfileWord(unsigned int i) const

@@ -23,18 +23,16 @@ ThreadTable::ThreadTable(const std::string& name, Processor& parent, Clock& cloc
 
     for (TID i = 0; i < m_threads.size(); ++i)
     {
-        m_threads[i].nextMember = i + 1;
-        m_threads[i].nextState  = INVALID_TID;
-        m_threads[i].state      = TST_EMPTY;
+        m_threads[i].next  = i + 1;
+        m_threads[i].state = TST_EMPTY;
     }
-    m_threads[m_threads.size() - 1].nextMember = INVALID_TID;
+    m_threads.back().next = INVALID_TID;
     
     m_free[CONTEXT_NORMAL]    = m_threads.size() - 1;
     m_free[CONTEXT_RESERVED]  = 0;
     m_free[CONTEXT_EXCLUSIVE] = 1;
 
-    m_empty.head = 0;
-    m_empty.tail = m_threads.size() - 1;
+    m_empty = 0;
 }
 
 bool ThreadTable::IsEmpty() const
@@ -135,14 +133,14 @@ TID ThreadTable::PopEmpty(ContextType context)
     // See if we have a free entry
     if (m_free[context] > 0)
     {
-        tid = m_empty.head;
+        tid = m_empty;
         assert(tid != INVALID_TID);
         assert(m_threads[tid].state == TST_EMPTY);
         COMMIT
         {
             UpdateStats();
 
-            m_empty.head = m_threads[tid].nextMember;
+            m_empty = m_threads[tid].next;
             m_threads[tid].state = TST_WAITING;
             m_free[context]--;
         }
@@ -153,43 +151,24 @@ TID ThreadTable::PopEmpty(ContextType context)
     return tid;
 }
 
-void ThreadTable::PushEmpty(const ThreadQueue& q, ContextType context)
+void ThreadTable::PushEmpty(TID tid, ContextType context)
 {
     // Check that we are in a sane state
     CheckStateSanity();
 
-    assert(q.head != INVALID_TID);
-    assert(q.tail != INVALID_TID);
+    assert(tid != INVALID_TID);
     
     COMMIT
     {
         UpdateStats();
 
-        if (m_empty.head == INVALID_TID) {
-            m_empty.head = q.head;
-        } else {
-            m_threads[m_empty.tail].nextMember = q.head;
-        }
-        m_empty.tail = q.tail;
-        m_threads[q.tail].nextMember = INVALID_TID;
+        m_threads[tid].next = m_empty;
+        m_empty = tid;
 
-        // Admin, set states to empty
-        TSize size = 0;
-        for (TID cur = q.head; cur != INVALID_TID; cur = m_threads[cur].nextMember)
-        {
-            m_threads[cur].state = TST_EMPTY;
-            size++;
-        }
-        
-        if (context != CONTEXT_NORMAL)
-        {
-            // We used a special context, add one there
-            m_free[context]++;
-            // The rest go to the normal pool
-            size--;
-        }
-        
-        m_free[CONTEXT_NORMAL] += size;
+        // Admin, set state to empty
+        m_threads[tid].state = TST_EMPTY;
+
+        m_free[context]++;
     }
 
     // Check that we leave a sane state

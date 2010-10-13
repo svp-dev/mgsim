@@ -161,7 +161,7 @@ bool Allocator::QueueThreads(ThreadList& list, const ThreadQueue& threads, Threa
         do
         {
             cur = next;
-            next = m_threadTable[cur].nextState;
+            next = m_threadTable[cur].next;
             m_threadTable[cur].state = state;
             ++count;
         } while (cur != threads.tail);
@@ -393,7 +393,7 @@ bool Allocator::RescheduleThread(TID tid, MemAddr pc)
     COMMIT
     {
         thread.pc = pc;
-        thread.nextState = INVALID_TID;
+        thread.next = INVALID_TID;
     }
     
     if (!m_icache.ReleaseCacheLine(thread.cid))
@@ -469,7 +469,7 @@ bool Allocator::AllocateThread(LFID fid, TID tid, bool isNewlyAllocated)
     thread->index                 = family->index;
     thread->nextInBlock           = INVALID_TID;
     thread->waitingForWrites      = false;
-    thread->nextState             = INVALID_TID;
+    thread->next                  = INVALID_TID;
 
     // Initialize dependencies:
     // These dependencies only hold for non-border threads in dependent families that are global or have more than one thread running.
@@ -548,10 +548,6 @@ bool Allocator::AllocateThread(LFID fid, TID tid, bool isNewlyAllocated)
     if (isNewlyAllocated)
     {
         assert(family->dependencies.numThreadsAllocated < family->physBlockSize);
-
-        // Add the thread to the family's member queue
-        thread->nextMember = INVALID_TID;
-        Push(family->members, tid, &Thread::nextMember);
 
         // Increase the allocation count
         family->dependencies.numThreadsAllocated++;
@@ -673,13 +669,6 @@ bool Allocator::SynchronizeFamily(LFID fid, Family& family)
         }
     }
 
-    // Release member threads, if any
-    if (family.members.head != INVALID_TID)
-    {
-        m_threadTable.PushEmpty(family.members, m_familyTable.IsExclusive(fid) ? CONTEXT_EXCLUSIVE : CONTEXT_NORMAL);
-        UpdateContextAvailability();
-    }
-    
     DebugSimWrite("Killed F%u", (unsigned)fid);
     return true;
 }
@@ -722,13 +711,6 @@ bool Allocator::DecreaseFamilyDependency(LFID fid, Family& family, FamilyDepende
             COMMIT
             {
                 family.state = FST_KILLED;
-
-                if (family.members.head != INVALID_TID)
-                {
-                    // We executed threads, so notify CPU of family termination (for statistics).
-                    // The Family PC identifies the thread.
-                    m_parent.OnFamilyTerminatedLocally(family.pc);
-                }
             }
         }
         // Fall through
@@ -934,7 +916,6 @@ FCapability Allocator::InitializeFamily(LFID fid, PlaceType place) const
         family.sync.code     = EXITCODE_NONE;
         family.sync.pid      = INVALID_GPID;
         family.hasLastThread = false;        
-        family.members.head  = INVALID_TID;
         family.hasDependency      = false;
         family.firstThreadInBlock = INVALID_TID;
         family.lastAllocated      = INVALID_TID;
@@ -1321,11 +1302,12 @@ Result Allocator::DoThreadAllocate()
 
         if (family.dependencies.allocationDone)
         {
-            // With cleanup we don't do anything to the thread. We just forget about it.
-            // It will be recycled once the family terminates.
-            COMMIT{ thread.state = TST_UNUSED; }
-
-            // Cleanup
+            // Release the thread.
+            // We release the last thread in an exclusive family as an exclusive thread.
+            ContextType context = (m_familyTable.IsExclusive(fid) && family.dependencies.numThreadsAllocated == 1) ? CONTEXT_EXCLUSIVE : CONTEXT_NORMAL;
+            m_threadTable.PushEmpty(tid, context);
+            UpdateContextAvailability();
+    
             if (!DecreaseFamilyDependency(fid, FAMDEP_THREAD_COUNT))
             {
                 DeadlockWrite("Unable to decrease thread count during cleanup of T%u in F%u",
@@ -1807,8 +1789,8 @@ Result Allocator::DoThreadActivation()
             // Mark the thread as waiting
             COMMIT
             {
-                thread.nextState = next;
-                thread.state     = TST_WAITING;
+                thread.next  = next;
+                thread.state = TST_WAITING;
             }
         }
         else
@@ -2080,25 +2062,25 @@ void Allocator::AllocateInitialFamily(MemAddr pc, bool legacy)
     m_alloc.Push(fid);
 }
 
-void Allocator::Push(ThreadQueue& q, TID tid, TID Thread::*link)
+void Allocator::Push(ThreadQueue& q, TID tid)
 {
     COMMIT
     {
         if (q.head == INVALID_TID) {
             q.head = tid;
         } else {
-            m_threadTable[q.tail].*link = tid;
+            m_threadTable[q.tail].next = tid;
         }
         q.tail = tid;
     }
 }
 
-TID Allocator::Pop(ThreadQueue& q, TID Thread::*link)
+TID Allocator::Pop(ThreadQueue& q)
 {
     TID tid = q.head;
     if (q.head != INVALID_TID)
     {
-        q.head = m_threadTable[tid].*link;
+        q.head = m_threadTable[tid].next;
     }
     return tid;
 }

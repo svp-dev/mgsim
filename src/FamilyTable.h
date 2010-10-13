@@ -94,7 +94,6 @@ struct Family
     LFID         parent_lfid;    // lfid on parent core in group
     bool         hasDependency;  // Does this family use shareds?
     Dependencies dependencies;   // The dependencies for termination and cleanup
-    ThreadQueue  members;        // Queue of all threads in this family
     LFID         link_next;      // The LFID of the matching family on the next CPU
     LFID         link_prev;      // The LFID of the matching family on the previous CPU
     bool         hasLastThread;  // Does this core have the last thread of this family?
