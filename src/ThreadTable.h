@@ -58,7 +58,6 @@ struct Thread
     RegInfo      regs[NUM_REG_TYPES];
     Dependencies dependencies;
     bool         isLastThreadInBlock;
-    bool         isFirstThreadInFamily;
     bool         isLastThreadInFamily;
     bool         waitingForWrites;
     TID          nextInBlock;

@@ -460,7 +460,6 @@ bool Allocator::AllocateThread(LFID fid, TID tid, bool isNewlyAllocated)
     }
     
     // Initialize thread
-    thread->isFirstThreadInFamily = (family->index == 0);
     thread->isLastThreadInFamily  = (!family->infinite != 0 && family->index + 1 == family->nThreads);
     thread->isLastThreadInBlock   = (family->type == Family::GROUP && (family->index % family->virtBlockSize) == family->virtBlockSize - 1);
     thread->cid                   = INVALID_CID;
@@ -474,7 +473,7 @@ bool Allocator::AllocateThread(LFID fid, TID tid, bool isNewlyAllocated)
     // Initialize dependencies:
     // These dependencies only hold for non-border threads in dependent families that are global or have more than one thread running.
     // So we already set them in the other cases.
-    thread->dependencies.prevCleanedUp    = family->prevCleanedUp || !family->hasDependency || thread->isFirstThreadInFamily || (family->type == Family::LOCAL && family->physBlockSize == 1);
+    thread->dependencies.prevCleanedUp    = family->prevCleanedUp || !family->hasDependency || family->index == 0 || (family->type == Family::LOCAL && family->physBlockSize == 1);
     thread->dependencies.killed           = false;
     thread->dependencies.numPendingWrites = 0;
     

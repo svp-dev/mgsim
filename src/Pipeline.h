@@ -167,7 +167,6 @@ class Pipeline : public Object
 		bool            onParent;
 		bool            onFirstCore;
         bool            isLastThreadInBlock;
-		bool            isFirstThreadInFamily;
         bool            isLastThreadInFamily;
     };
 

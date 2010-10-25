@@ -59,7 +59,6 @@ Pipeline::PipeAction Pipeline::FetchStage::OnCycle()
             m_output.fid                   = thread.family;
             m_output.isLastThreadInBlock   = thread.isLastThreadInBlock;
             m_output.isLastThreadInFamily  = thread.isLastThreadInFamily;
-            m_output.isFirstThreadInFamily = thread.isFirstThreadInFamily;
             m_output.legacy                = family.legacy;
             m_output.place                 = family.place;
             m_output.onParent              = (m_lpid == family.parent_lpid);
