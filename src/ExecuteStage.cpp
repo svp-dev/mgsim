@@ -515,7 +515,7 @@ Pipeline::PipeAction Pipeline::ExecuteStage::SetFamilyProperty(const FID& fid, F
                 case FAMPROP_START: family.start         = (SInteger)value; break;
                 case FAMPROP_LIMIT: family.limit         = (SInteger)value; break;
                 case FAMPROP_STEP:  family.step          = (SInteger)value; break;
-                case FAMPROP_BLOCK: family.virtBlockSize = (TSize)value; break;
+                case FAMPROP_BLOCK: family.physBlockSize = (TSize)value; break;
                 default: assert(false); break;
             }
         }

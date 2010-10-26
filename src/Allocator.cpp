@@ -1859,14 +1859,14 @@ bool Allocator::OnTokenReceived()
 void Allocator::SanitizeFamily(Family& family, bool hasDependency)
 {
     // Sanitize the family entry
-    Integer nBlock;
-    Integer nThreads = 0;
-    Integer step;
-    if (family.step != 0)
+    if (family.step == 0)
     {
-        // Finite family
+        throw SimulationException("Step cannot be zero", *this);
+    }
 
-        Integer diff = 0;
+    COMMIT
+    {
+        Integer diff = 0, step;
         if (family.step > 0)
         {
             if (family.limit > family.start) {
@@ -1880,52 +1880,19 @@ void Allocator::SanitizeFamily(Family& family, bool hasDependency)
             step = -family.step;
         }
 
-        nThreads = (diff + step - 1) / step;
-
-        if (family.virtBlockSize == 0 || !hasDependency)
+        if (family.physBlockSize == 0)
         {
-            // Balance threads as best as possible
-            PSize placeSize = m_parent.GetPlaceSize();
-            nBlock = (family.type == Family::GROUP)
-                ? (nThreads + placeSize - 1) / placeSize  // Group family, divide threads evenly (round up)
-                : nThreads;                               // Local family, take as many as possible
-        }
-        else
-        {
-            nBlock = family.virtBlockSize;
+            // Default block size, use the maximum: the thread table size
+            family.physBlockSize = m_threadTable.GetNumThreads();
         }
 
-        nBlock = std::min<Integer>(nBlock, nThreads);
-        nBlock = std::max<Integer>(nBlock, 1);
-        step   = family.step;
-    }
-    else
-    {
-        // Infinite family
-        nBlock = (family.virtBlockSize > 0)
-            ? family.virtBlockSize
-            : m_threadTable.GetNumThreads();
-
-        // Use the limit as step
-        step = family.limit;
-    }
-
-    COMMIT
-    {
-        assert(nBlock > 0);
-
-        family.infinite = (family.step == 0);
-        family.step     = step;
-
-        family.physBlockSize = nBlock;
-        if (family.virtBlockSize > 0 && !hasDependency && family.virtBlockSize < nBlock)
-        {
-            // For independent families, use the original virtual block size
-            // as physical block size, if it is smaller.
-            family.physBlockSize = family.virtBlockSize;
-        }
-        family.virtBlockSize = nBlock;
-        family.nThreads      = nThreads;
+        // Divide threads evenly over the cores
+        const PSize nCores = (family.type == Family::GROUP) ? m_parent.GetPlaceSize() : 1;
+        
+        family.nThreads      = (diff + step - 1) / step;
+        family.virtBlockSize = std::max<Integer>(1, (family.nThreads + nCores - 1) / nCores);
+        family.physBlockSize = std::min<Integer>(family.physBlockSize, family.virtBlockSize);
+        family.infinite      = false;
     }
 }
 

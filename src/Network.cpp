@@ -645,7 +645,7 @@ Result Network::DoDelegationIn()
                 case FAMPROP_START: family.start         = (SInteger)msg.property.value; break;
                 case FAMPROP_LIMIT: family.limit         = (SInteger)msg.property.value; break;
                 case FAMPROP_STEP:  family.step          = (SInteger)msg.property.value; break;
-                case FAMPROP_BLOCK: family.virtBlockSize = (TSize)msg.property.value; break;
+                case FAMPROP_BLOCK: family.physBlockSize = (TSize)msg.property.value; break;
                 default: assert(false); break;
             }
         }
