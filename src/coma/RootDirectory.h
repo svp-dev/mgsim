@@ -36,7 +36,9 @@ private:
     size_t            m_lineSize;   ///< The size of a cache-line
     size_t            m_assoc;      ///< Number of lines in a set
     size_t            m_sets;       ///< Number of sets
-    size_t            m_numCaches;
+    size_t            m_numCaches;  ///< Number of caches in the COMA system
+    size_t            m_id;         ///< Which root directory we are (0 <= m_id < m_numRoots)
+    size_t            m_numRoots;   ///< Number of root directories on the top-level ring
     
     ArbitratedService<> p_lines;      ///< Arbitrator for lines and output
     
@@ -61,7 +63,7 @@ private:
     Result DoResponses();
 
 public:
-    RootDirectory(const std::string& name, COMA& parent, Clock& clock, VirtualMemory& memory, size_t numCaches, const Config& config);
+    RootDirectory(const std::string& name, COMA& parent, Clock& clock, VirtualMemory& memory, size_t numCaches, size_t id, size_t numRoots, const Config& config);
     ~RootDirectory();
     
     // Administrative

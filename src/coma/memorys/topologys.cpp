@@ -87,26 +87,41 @@ TopologyS::TopologyS()
         (*m_ppNetL0[i / cf.m_nCachesPerDirectory])(*m_ppCacheL2[i]);
     }
 
+    m_pBSMem = new BusSwitch("membusswitch", *m_pclkroot, cf.m_nNumRootDirs, cf.m_nMemoryChannels,
+        ilog2(cf.m_nLineSize) | (ilog2(cf.m_nMemoryChannels)<<8) );
+
+    for (unsigned int i = 0; i < cf.m_nNumRootDirs; i++)
+    {
+        sprintf(tempname, "split-root-%d", i);
+        m_ppDirectoryRoot[i] = new DirectoryRTTOK(tempname, *m_pclkroot,
+            cf.m_nCacheSet / cf.m_nNumRootDirs,
+            cf.m_nCacheAssociativity * m_ppCacheL2.size(),
+            cf.m_nLineSize,
+            i,
+            cf.m_nNumRootDirs,
+            cf.m_nCacheAccessTime );
+        m_pBSMem->BindMaster(*m_ppDirectoryRoot[i]);
+    }
+
     // connect directories to the root-networks
     // create top level rings
+    unsigned int prev_index = -1;
     for (unsigned int i = 0; i < m_ppDirectoryL0.size(); i++)
     {
-        // connect with root-level network
         unsigned int index = cf.m_nNumRootDirs * i / m_ppDirectoryL0.size();
-        if (m_ppDirectoryRoot[index] == NULL)
+        if (prev_index != index)
         {
-            sprintf(tempname, "split-root-%d", index);
-            m_ppDirectoryRoot[index] = new DirectoryRTTOK(tempname, *m_pclkroot,
-                cf.m_nCacheSet / cf.m_nNumRootDirs,
-                cf.m_nCacheAssociativity * m_ppCacheL2.size(),
-                cf.m_nLineSize,
-                index,
-                cf.m_nNumRootDirs,
-                cf.m_nCacheAccessTime );
+            // Connect with root-level network
             (*m_pNet)(*m_ppDirectoryRoot[index]);
+            prev_index = index;
         }
-
         (*m_pNet)(m_ppDirectoryL0[i]->GetAboveIF());
+    }
+    
+    // Connect the remaining root dirs
+    for (unsigned int i = prev_index + 1; i < cf.m_nNumRootDirs; ++i)
+    {
+        (*m_pNet)(*m_ppDirectoryRoot[i]);
     }
     
     // Connect networks
@@ -115,14 +130,6 @@ TopologyS::TopologyS()
         m_ppNetL0[i]->ConnectNetwork();
     }
     m_pNet->ConnectNetwork();
-
-    m_pBSMem = new BusSwitch("membusswitch", *m_pclkroot, cf.m_nNumRootDirs, cf.m_nMemoryChannels,
-        ilog2(cf.m_nLineSize) | (ilog2(cf.m_nMemoryChannels)<<8) );
-
-    for (unsigned int i = 0; i < cf.m_nNumRootDirs; i++)
-    {
-        m_pBSMem->BindMaster(*m_ppDirectoryRoot[i]);
-    }
 
     for (unsigned int i = 0;i < cf.m_nMemoryChannels; i++)
     {
