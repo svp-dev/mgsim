@@ -330,10 +330,10 @@ Result COMA::RootDirectory::DoResponses()
 COMA::RootDirectory::RootDirectory(const std::string& name, COMA& parent, Clock& clock, VirtualMemory& memory, size_t numCaches, size_t id, size_t numRoots, const Config& config) :
     Simulator::Object(name, parent),
     COMA::Object(name, parent),
-    DirectoryBottom(name, parent, clock),
+    DirectoryBottom(name, parent, clock, config),
     m_lineSize(config.getInteger<size_t>("CacheLineSize",           64)),
-    m_assoc   (config.getInteger<size_t>("COMACacheAssociativity",   4) * numCaches),
-    m_sets    (config.getInteger<size_t>("COMACacheNumSets",       128)),
+    m_assoc   (config.getInteger<size_t>("L2CacheAssociativity",     4) * numCaches),
+    m_sets    (config.getInteger<size_t>("L2CacheNumSets",         128)),
     m_numCaches(numCaches),
     m_id       (id),
     m_numRoots (numRoots),

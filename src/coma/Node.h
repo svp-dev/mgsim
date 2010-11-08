@@ -95,7 +95,7 @@ protected:
     void Print(std::ostream& out) const;
     
     /// Construct the node
-    Node(const std::string& name, COMA& parent, Clock& clock);
+    Node(const std::string& name, COMA& parent, Clock& clock, const Config& config);
     virtual ~Node();
 
 public:

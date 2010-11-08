@@ -801,10 +801,10 @@ Result COMA::Cache::DoReceive()
 COMA::Cache::Cache(const std::string& name, COMA& parent, Clock& clock, CacheID id, size_t numCaches, const Config& config) :
     Simulator::Object(name, parent),
     COMA::Object(name, parent),
-    Node(name, parent, clock),
+    Node(name, parent, clock, config),
     m_lineSize (config.getInteger<size_t>("CacheLineSize",           64)),
-    m_assoc    (config.getInteger<size_t>("COMACacheAssociativity",   4)),
-    m_sets     (config.getInteger<size_t>("COMACacheNumSets",       128)),
+    m_assoc    (config.getInteger<size_t>("L2CacheAssociativity",     4)),
+    m_sets     (config.getInteger<size_t>("L2CacheNumSets",         128)),
     m_numCaches(numCaches),
     m_id       (id),
     m_clients  (std::max<size_t>(1, config.getInteger<size_t>("NumProcessorsPerCache", 4)), NULL),
@@ -814,8 +814,8 @@ COMA::Cache::Cache(const std::string& name, COMA& parent, Clock& clock, CacheID 
     p_Requests ("requests", delegate::create<Cache, &Cache::DoRequests>(*this)),
     p_In       ("incoming", delegate::create<Cache, &Cache::DoReceive>(*this)),
     p_bus      (*this, clock, "p_bus"),
-    m_requests (clock, config.getInteger<BufferSize>("COMACacheRequestBufferSize",  INFINITE)),
-    m_responses(clock, config.getInteger<BufferSize>("COMACacheResponseBufferSize", INFINITE))
+    m_requests (clock, config.getInteger<BufferSize>("L2CacheRequestBufferSize",  INFINITE)),
+    m_responses(clock, config.getInteger<BufferSize>("L2CacheResponseBufferSize", INFINITE))
 {
     RegisterSampleVariableInObject(m_numHits, SVC_CUMULATIVE);
     RegisterSampleVariableInObject(m_numMisses, SVC_CUMULATIVE);
