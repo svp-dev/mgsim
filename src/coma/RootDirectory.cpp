@@ -135,15 +135,33 @@ bool COMA::RootDirectory::OnMessageReceived(Message* msg)
     
         case Message::REQUEST_DATA:
         {
-            // We should have the line since the request already hit a copy to get the data
-            Line* line = FindLine(msg->address, true);
+            // Cache-line read request with data
+            assert(msg->data.size == m_lineSize);
+            
+            // Find or allocate the line. This should not fail.
+            Line* line = FindLine(msg->address, false);
             assert(line != NULL);
-            assert(line->state == LINE_FULL);
-        
-            if (line->tokens > 0)
+            
+            if (line->state == LINE_EMPTY)
+            {
+                // It's possible that a read request with data grabs data from the last copy of a cache-line,
+                // which is then evicted from the system before this request comes to the root directory.
+                // In that case, we simply reintroduce the tokens into the system (the data is already in
+                // the system, so no need to read it from memory).
+                TraceWrite(msg->address, "Received Read Request with data; Miss; Introducing and attaching %u tokens", (unsigned)m_numCaches);
+                
+                COMMIT
+                {
+                    msg->type   = Message::REQUEST_DATA_TOKEN;
+                    msg->tokens = m_numCaches;
+                    line->state = LINE_FULL;
+                }
+            }
+            else if (line->tokens > 0)
             {
                 // Give the request the tokens that we have
-                TraceWrite(msg->address, "Received Read Request with data; Attaching %u tokens", line->tokens);
+                TraceWrite(msg->address, "Received Read Request with data; Hit; Attaching %u tokens", line->tokens);
+                
                 COMMIT
                 {
                     msg->type    = Message::REQUEST_DATA_TOKEN;
