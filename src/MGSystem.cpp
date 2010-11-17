@@ -62,6 +62,19 @@ using namespace MemSim;
 //     - word 0 after tag: core frequency (in MHz)
 //     - word 1 after tag: external memory bandwidth (in 10^6bytes/s)
 
+// - timing words v2, organized as follows:
+//     - word 0 after tag: master frequency (in MHz)
+//     - word 1 after tag: core frequency (in MHz)
+//     - word 2 after tag: memory frequency (in MHz)
+//     - word 3 after tag: DDR frequency (in MHz)
+
+// - timing words v3, organized as follows:
+//     - word 0 after tag: master frequency (in MHz)
+//     - word 1 after tag: core frequency (in MHz)
+//     - word 2 after tag: memory frequency (in MHz)
+//     - word 3 after tag: DDR frequency (in MHz)
+//     - word 4 after tag: number of DDR channels
+
 // - cache parameters words v1, organized as follows:
 //     - word 0 after tag: cache line size (in bytes)
 //     - word 1: L1 I-cache size (in bytes)
@@ -86,6 +99,7 @@ using namespace MemSim;
 #define CONFTAG_CONC_V1    4
 #define CONFTAG_LAYOUT_V1  5
 #define CONFTAG_TIMINGS_V2 6
+#define CONFTAG_TIMINGS_V3 7
 #define MAKE_TAG(Type, Size) (uint32_t)(((Type) << 16) | ((Size) & 0xffff))
 
 
@@ -106,14 +120,17 @@ void MGSystem::FillConfWords(ConfWords& words) const
           << m_memorytype
 
     
-    // timing words v2
-          << MAKE_TAG(CONFTAG_TIMINGS_V2, 4)
+    // timing words v3
+          << MAKE_TAG(CONFTAG_TIMINGS_V3, 5)
           << m_kernel.GetMasterFrequency()
           << m_config.getInteger<uint32_t>("CoreFreq", 0)
           << m_config.getInteger<uint32_t>("MemoryFreq", 0)
           << ((m_memorytype == MEMTYPE_COMA_ZL || m_memorytype == MEMTYPE_COMA_ML) ? 
               m_config.getInteger<uint32_t>("DDRMemoryFreq", 0)
               : 0 /* no timing information if memory system is not COMA */)
+          << ((m_memorytype == MEMTYPE_COMA_ZL || m_memorytype == MEMTYPE_COMA_ML) ?
+              m_config.getInteger<uint32_t>("NumRootDirectories", 0)
+              : 0 /* no DDR channels */)
 
     // cache parameter words v1
     

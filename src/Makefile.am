@@ -5,7 +5,11 @@ noinst_PROGRAMS =
 noinst_LIBRARIES =
 dist_man1_MANS =
 
-FLAGS_OPT = -O3 -DNDEBUG 
+FLAGS_OPT = -O3 -DNDEBUG -march=core2 
+#-fgcse-sm -fgcse-las -fgcse-after-reload -funsafe-loop-optimizations \
+#       -fno-math-errno -fassociative-math -freciprocal-math -fno-signed-zeros -fno-trapping-math \
+#       -ffunction-sections -fdata-sections -fbranch-target-load-optimize -fbranch-target-load-optimize2 -fprofile-use
+
 FLAGS_DEBUG = -g -DDEBUG 
 
 FLAGS_COMMON = -W -Wall -Wwrite-strings -Wno-unused \
