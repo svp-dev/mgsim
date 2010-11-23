@@ -55,15 +55,10 @@ Pipeline::PipeAction Pipeline::FetchStage::OnCycle()
 
         COMMIT
         {
-            m_output.tid                   = tid;
-            m_output.fid                   = thread.family;
-            m_output.isLastThreadInBlock   = thread.isLastThreadInBlock;
-            m_output.isLastThreadInFamily  = thread.isLastThreadInFamily;
-            m_output.isFirstThreadInFamily = thread.isFirstThreadInFamily;
-            m_output.legacy                = family.legacy;
-            m_output.place                 = family.place;
-            m_output.onParent              = (m_lpid == family.parent_lpid);
-            m_output.onFirstCore           = (m_lpid == (family.parent_lpid + 1) % m_parent.GetProcessor().GetPlaceSize() );
+            m_output.tid       = tid;
+            m_output.fid       = thread.family;
+            m_output.legacy    = family.legacy;
+            m_output.placeSize = family.placeSize;
 
             for (RegType i = 0; i < NUM_REG_TYPES; ++i)
             {
@@ -108,14 +103,13 @@ Pipeline::PipeAction Pipeline::FetchStage::OnCycle()
     return PIPE_CONTINUE;
 }
 
-Pipeline::FetchStage::FetchStage(Pipeline& parent, Clock& clock, FetchDecodeLatch& output, Allocator& alloc, FamilyTable& familyTable, ThreadTable& threadTable, ICache& icache, LPID lpid, const Config& config)
+Pipeline::FetchStage::FetchStage(Pipeline& parent, Clock& clock, FetchDecodeLatch& output, Allocator& alloc, FamilyTable& familyTable, ThreadTable& threadTable, ICache& icache, const Config& config)
   : Stage("fetch", parent, clock),
     m_output(output),
     m_allocator(alloc),
     m_familyTable(familyTable),
     m_threadTable(threadTable),
     m_icache(icache),
-    m_lpid(lpid),
     m_controlBlockSize(config.getInteger<size_t>("ControlBlockSize", 64)),
     m_switched(true)
 {

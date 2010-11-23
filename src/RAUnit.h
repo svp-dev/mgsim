@@ -42,10 +42,13 @@ public:
     void Free(RegIndex indices[NUM_REG_TYPES], ContextType context);
     
     /// Returns the maximum number of contexts still available
-    BlockSize GetNumFreeContexts() const;
+    BlockSize GetNumFreeContexts(ContextType type) const;
     
     /// Reserves a context for future allocation
     void ReserveContext();
+
+    /// Unreserves a reserved context
+    void UnreserveContext();
 
     // Interaction functions
     void Cmd_Help(std::ostream& out, const std::vector<std::string>& arguments) const;

@@ -18,7 +18,7 @@ main:
     ld      [%1], %f1
 
     ! Request a family table entry
-	allocate %0, %2
+	allocate %0, %2         ! Default
 
 	! Set up the family parameters.
 	! swch because %2 is the result of allocate.

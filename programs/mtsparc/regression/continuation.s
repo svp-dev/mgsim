@@ -8,7 +8,7 @@
     .align 64
     .globl main
 main:
-    allocate (1 << 3) | (0 << 1), %2        ! Suspend, Default
+    allocates %0, %2        ! Default
     cred     bar, %2
     mov      255, %1
     putg     %1, %2, 0
@@ -25,7 +25,7 @@ bar:
     end
 1:    
 
-    allocate (1 << 3) | (0 << 1), %l0        ! Suspend, Default
+    allocates %0, %l0        ! Default
     cred     bar, %l0
     swch
     sub      %g0, 1, %l1    ! Pass on %g0 - 1
@@ -43,4 +43,4 @@ bar:
     end
 
     .data
-    .ascii "PLACES: 1,2,3,4\0"
+    .ascii "PLACES: 16\0"

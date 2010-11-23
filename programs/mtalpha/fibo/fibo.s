@@ -12,7 +12,7 @@
     .ent main
     .globl main
 main:
-    allocate $31, $3
+    allocate/s $31, $3
     subl    $10, 1, $10
     setlimit $3, $10
     swch

@@ -715,28 +715,9 @@ MGSystem::MGSystem(const Config& config, Display& display, const string& program
       m_program(program),
       m_config(config)
 {
-    const vector<PSize> placeSizes = config.getIntegerList<PSize>("NumProcessors");
+    const PSize  numProcessors       = config.getInteger<PSize>("NumProcessors", 1);
     const size_t numProcessorsPerFPU = max<size_t>(1, config.getInteger<size_t>("NumProcessorsPerFPU", 1));
-
-    PSize numProcessors = 0;
-    PSize curFPUmod = 0;
-    PSize numFPUs = 0;
-    size_t i;
-    for (i = 0; i < placeSizes.size(); ++i) {
-        if (curFPUmod != 0)
-            std::cerr << "# warning: place " << i << " shares a FPU with the previous place" << std::endl;
-
-        for (size_t j = 0; j < placeSizes[i]; ++j) {            
-            ++numProcessors;
-            curFPUmod = (curFPUmod + 1) % numProcessorsPerFPU;
-            if (curFPUmod == 0) ++numFPUs;
-        }
-    }
-    if (curFPUmod != 0)
-    {
-        ++numFPUs;
-        std::cerr << "# warning: last FPU in place " << i-1 << " is not shared fully" << std::endl;
-    }
+    const PSize  numFPUs             = (numProcessors + numProcessorsPerFPU - 1) / numProcessorsPerFPU;
     
 #ifdef ENABLE_COMA_ZL
     m_objects.resize(numProcessors * 2 + numFPUs);
@@ -791,37 +772,25 @@ MGSystem::MGSystem(const Config& config, Display& display, const string& program
 
     // Create processor grid
     m_procs.resize(numProcessors);
-    m_places.resize(placeSizes.size());
-
-
-    PSize first = 0;
-    for (size_t p = 0; p < placeSizes.size(); ++p)
+    for (size_t i = 0; i < numProcessors; ++i)
     {
-        m_places[p] = new PlaceInfo(m_clock, placeSizes[p]);
-        for (size_t i = 0; i < m_places[p]->m_size; ++i)
-        {
-            PSize pid = (first + i);
-            FPU&  fpu = *m_fpus[pid / numProcessorsPerFPU];
+        FPU& fpu = *m_fpus[i / numProcessorsPerFPU];
 
-            stringstream name;
-            name << "cpu" << pid;
+        stringstream name;
+        name << "cpu" << i;
 #ifdef ENABLE_COMA_ZL
-            stringstream namem;
-            namem << "memory" << pid;
-            m_pmemory[pid] = new CMLink(namem.str(), m_root, m_clock, config, g_pLinks[i]);
-            if (pid == 0)
-                m_memory = m_pmemory[0];
-            m_procs[pid]   = new Processor(name.str(), m_root, m_clock, pid, i, m_procs, m_procs.size(), 
-                                           *m_places[p], *m_pmemory[pid], fpu, config);
-            m_pmemory[pid]->SetProcessor(m_procs[pid]);
-            m_objects[pid+numProcessors] = m_pmemory[pid];
+        stringstream namem;
+        namem << "memory" << i;
+        m_pmemory[i] = new CMLink(namem.str(), m_root, m_clock, config, g_pLinks[i]);
+        if (i == 0)
+            m_memory = m_pmemory[0];
+        m_procs[i]   = new Processor(name.str(), m_root, m_clock, i, m_procs, *m_pmemory[i], fpu, config);
+        m_pmemory[i]->SetProcessor(m_procs[i]);
+        m_objects[i+numProcessors] = m_pmemory[i];
 #else
-            m_procs[pid]   = new Processor(name.str(), m_root, m_clock, pid, i, m_procs, m_procs.size(), 
-                                           *m_places[p], *m_memory, fpu, config);
+        m_procs[i]   = new Processor(name.str(), m_root, m_clock, i, m_procs, *m_memory, fpu, config);
 #endif
-            m_objects[pid] = m_procs[pid];
-        }
-        first += m_places[p]->m_size;
+        m_objects[i] = m_procs[i];
     }
 
     // Load the program into memory
@@ -829,19 +798,12 @@ MGSystem::MGSystem(const Config& config, Display& display, const string& program
     if (doload)
         progdesc = LoadProgram(m_memory, program, quiet);
 
-    // Connect processors in rings
-    first = 0;
-    for (size_t p = 0; p < placeSizes.size(); ++p)
+    // Connect processors in the link
+    for (size_t i = 0; i < numProcessors; ++i)
     {
-        PSize placeSize = placeSizes[p];
-        for (size_t i = 0; i < placeSize; ++i)
-        {
-            PSize pid = (first + i);
-            LPID prev = (i + placeSize - 1) % placeSize;
-            LPID next = (i + 1) % placeSize;
-            m_procs[pid]->Initialize(*m_procs[first + prev], *m_procs[first + next], progdesc.first, progdesc.second);
-        }
-        first += placeSize;
+        Processor* prev = (i == 0)                 ? NULL : m_procs[i - 1];
+        Processor* next = (i == numProcessors - 1) ? NULL : m_procs[i + 1];
+        m_procs[i]->Initialize(prev, next, progdesc.first, progdesc.second);
     }
 
     if (doload && !m_procs.empty())
@@ -921,10 +883,6 @@ MGSystem::~MGSystem()
     for (size_t i = 0; i < m_procs.size(); ++i)
     {
         delete m_procs[i];
-    }
-    for (size_t i = 0; i < m_places.size(); ++i)
-    {
-        delete m_places[i];
     }
     for (size_t i = 0; i < m_fpus.size(); ++i)
     {

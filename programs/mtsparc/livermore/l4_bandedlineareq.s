@@ -38,7 +38,7 @@ main:
     set     M, %5       ! %5 = M
     set     1001, %6    ! %6 = 1001
     
-    allocate %0, %4
+    allocates %0, %4
     setstart %4, 6
     setlimit %4, %6
     setstep  %4, %5
@@ -64,7 +64,7 @@ main:
     .align 64
     .registers 3 0 3 0 0 6
 outer:
-    allocate %0, %l1
+    allocates %0, %l1
     setlimit %l1, %g2; swch
     cred     inner, %l1
     

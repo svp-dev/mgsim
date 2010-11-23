@@ -23,7 +23,7 @@
     .globl main
     .align 64
 main:
-    allocate %0, %5
+    allocates %0, %5
     setstart %5, 1
     setlimit %5, %11
     cred    loop, %5

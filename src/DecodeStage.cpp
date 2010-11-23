@@ -66,24 +66,6 @@ RegAddr Pipeline::DecodeStage::TranslateRegister(unsigned char reg, RegType type
                 throw IllegalInstruction();
             }
             
-            /*
-             If this is the last thread in the block, set the remote register info
-             instead, because we need to forward the shared value to the next CPU.
-             The last thread in the family doesn't do it, as the last shareds are
-             pulled by the parent thread.
-                 
-             Obviously, this isn't necessary for local families, but then
-             isLastThreadInBlock is never set.
-            */
-            if (m_input.isLastThreadInBlock && !m_input.isLastThreadInFamily)
-            {
-                m_output.shared.offset = reg;
-                m_output.shared.type   = type;
-
-                // When we're forwarding shareds, we don't have a local copy
-                return INVALID_REG;
-            }
-
             // Use the thread's shareds
             return MAKE_REGADDR(type, thread.shareds + reg);
             
@@ -124,7 +106,7 @@ Pipeline::PipeAction Pipeline::DecodeStage::OnCycle()
         // Copy common latch data
         (CommonData&)m_output = m_input;
         m_output.regs         = m_input.regs;
-        m_output.place        = m_input.place;
+        m_output.placeSize    = m_input.placeSize;
         
         try
         {
@@ -133,8 +115,6 @@ Pipeline::PipeAction Pipeline::DecodeStage::OnCycle()
             m_output.RbSize = sizeof(Integer);
             m_output.RcSize = sizeof(Integer);
             
-            m_output.shared.offset = -1;
-
             DecodeInstruction(m_input.instr);
             
             // Translate registers from window to full register file

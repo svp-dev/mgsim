@@ -21,7 +21,7 @@ main:
     ldgp    $29, 0($27)
 
     # Family runs from [0 ... #procs - 1]
-    allocate $31, $5
+    allocate/s $31, $5
     getprocs $3
     setlimit $5, $3
     
@@ -74,7 +74,7 @@ outer:
     cmovge  $l3, $g2, $l2       # $l2 = actual size  (accounting for +1)
     addq    $l1, $l2, $l2       # $l2 = limit
     
-    allocate 2, $l3             # place = LOCAL
+    allocate/s 2, $l3             # place = LOCAL
     setstart $l3, $l1
     setlimit $l3, $l2
     cred     $l3, loop

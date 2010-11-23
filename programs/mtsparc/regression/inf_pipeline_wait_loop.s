@@ -9,7 +9,7 @@
     .globl main
     .align 64
 main:
-    allocate 0, %2
+    allocates %0, %2
     setlimit %2, 250
     cred foo, %2
     

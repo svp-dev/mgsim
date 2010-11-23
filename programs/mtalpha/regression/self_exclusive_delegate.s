@@ -9,7 +9,7 @@
     .globl main
     .ent main
 main:
-    allocate (0 << 4) | (1 << 3) | (3 << 1) | 1, $2     # PID:0, Delegate, Suspend, Exclusive
+    allocate/x (0 << 1) | 1, $2     # PID:0, Size=1
     cred     $2, foo
     
     # Sync

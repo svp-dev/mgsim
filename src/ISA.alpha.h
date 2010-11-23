@@ -113,6 +113,8 @@ enum InstrFormat
 
 // UTHREAD Instructions
 #define A_UTHREAD_ALLOCATE 	 0x00
+#define A_UTHREAD_ALLOCATE_S 0x20   // Suspend
+#define A_UTHREAD_ALLOCATE_E 0x60   // Exclusive
 #define A_UTHREAD_SETSTART	 0x01
 #define A_UTHREAD_SETLIMIT	 0x02
 #define A_UTHREAD_SETSTEP	 0x03

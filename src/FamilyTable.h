@@ -13,19 +13,13 @@ class Processor;
 
 struct Family
 {
-    enum Type
-    {
-        LOCAL,
-        GROUP,
-    };
-
     struct RegInfo
     {   
         RegsNo   count;            // Number of globals, locals and shareds
         RegIndex base;             // Base address of this family's register block
         RegSize  size;             // Size of the allocated registers (could be calculated from other values)
         RegIndex last_shareds;     // Address of the last allocated thread's shareds
-        RegIndex first_dependents; // Address of the dependents of the first thread in the block
+        //RegIndex first_dependents; // Address of the dependents of the first thread in the block
     };
     
     // Groups all dependencies that need to be resolved before termination and/or cleanup
@@ -55,11 +49,6 @@ struct Family
         bool detached;
 		
         /*
-         The family has been the target of a break operation.
-        */
-        bool breaked;
-        
-        /*
          All allocated threads (0 <= allocated <= physBlockSize) must have
          been cleaned up before the family has terminated.
         */
@@ -75,40 +64,32 @@ struct Family
         unsigned int numPendingReads;
 	};
 
-    Type         type;           // The type of the family
+    PSize        placeSize;      // Number of cores this family wanted to run on.
+    PSize        numCores;       // Number of cores this family is actually running on (1 <= numCores <= placeSize).
     FCapability  capability;     // Capability value for security
     MemAddr      pc;             // Initial PC for newly created threads
-	bool         legacy;		  // Consists of a single thread of legacy code?
-    Integer      virtBlockSize;  // Virtual block size
+	bool         legacy;		 // Consists of a single thread of legacy code?
     TSize        physBlockSize;  // Physical block size, <= Virtual block size, depending on the amount of free registers
-    SInteger     start;          // Start index of the family
+    SInteger     start;          // Start index of the family (on this core)
     SInteger     step;           // Step size of the family
-	PlaceType    place;		  // Place type of this family
-	bool         infinite;       // Is this an infinite family?
 	union {
-	    Integer  nThreads;       // Number of threads we need to allocate
 		SInteger limit;		     // Limit of the family
+	    Integer  nThreads;       // Number of threads we still need to run (on this core)
 	};
-    Integer      index;          // Index of the next to be allocated thread (0, 1, 2... nThreads-1)
-    LPID         parent_lpid;    // Parent core in group
-    LFID         parent_lfid;    // lfid on parent core in group
-    bool         hasDependency;  // Does this family use shareds?
+    bool         hasShareds;     // Does this family use shareds?
     Dependencies dependencies;   // The dependencies for termination and cleanup
-    LFID         link_next;      // The LFID of the matching family on the next CPU
-    LFID         link_prev;      // The LFID of the matching family on the previous CPU
-    bool         hasLastThread;  // Does this core have the last thread of this family?
+    LFID         first_lfid;     // The LFID of the matching family on the first CPU (used for break)
+    LFID         link;           // The LFID of the matching family on the next CPU (prev during allocate)
     bool         prevCleanedUp;  // Last thread has been cleaned up
     
     struct
     {
-        ExitCode code;           // The exit code of the family
-        GPID     pid;            // The core that's synchronising
+        bool     done;           // Whether the family is done or not
+        PID      pid;            // The core that's synchronising
         RegIndex reg;            // The exit code register on the core
     }            sync;           // Synchronisation information
     
     TID          lastAllocated;
-    bool         lastAllocatedIsLastThreadInBlock;
-    TID          firstThreadInBlock;
 
     RegInfo      regs[NUM_REG_TYPES];    // Register information
 
@@ -129,9 +110,8 @@ public:
 
 	LFID  AllocateFamily(ContextType type);
     void  FreeFamily(LFID fid, ContextType context);
-    void  ReserveFamily();
     
-    FSize GetNumFreeFamilies()  const;
+    FSize GetNumFreeFamilies(ContextType type) const;
     bool  IsEmpty()             const;
     bool  IsExclusive(LFID fid) const { return fid + 1 == m_families.size(); }
     bool  IsExclusiveUsed()     const { return m_free[CONTEXT_EXCLUSIVE] == 0; }

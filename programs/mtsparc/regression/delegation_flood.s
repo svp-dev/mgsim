@@ -10,7 +10,8 @@
     .align 64
 main:
     mov      1024, %2
-    allocate 2, %1      ! Local
+    mov      (0 << 1) | 1, %1
+    allocates %1, %1
     setblock %1, 128
     setlimit %1, %2
     cred     foo, %1
@@ -22,7 +23,8 @@ main:
     .align 64
     .registers 0 0 2 0 0 0
 foo:
-    allocate (1 << 4) | (1 << 3) | (3 << 1), %l0    ! PID:1, Suspend, Delegate, Exclusive
+    mov (1 << 1) | 1, %l0   ! PID:1, Size:1
+    allocatee %l0, %l0
     cred     bar, %l0
     sync     %l0, %l1
     release  %l0
@@ -40,4 +42,4 @@ bar:
     end
 
     .data
-    .ascii "PLACES: 1,1\0"
+    .ascii "PLACES: 2\0"

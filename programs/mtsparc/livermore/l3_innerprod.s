@@ -26,7 +26,7 @@ main:
     set     X, %1           ! %1 = X
     set     Y, %2           ! %2 = Y
     
-    allocate %0, %4
+    allocates %0, %4
     setlimit %4, %11
     cred    loop, %4
     

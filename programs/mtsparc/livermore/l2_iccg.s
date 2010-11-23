@@ -32,7 +32,7 @@
     .global main
     .align 64
 main:
-    allocate %0, %5
+    allocates %0, %5
     setstart %5, %11
     setlimit %5, -1
     setstep  %5, -1
@@ -64,7 +64,7 @@ main:
     .align 64
     .registers 3 1 3 0 0 0
 outer:
-    allocate %0, %l2
+    allocates %0, %l2
     sll      %g2, %l0, %l0       ! %l0 = ii
     setlimit %l2, %l0; swch
     setstart %l2, 1

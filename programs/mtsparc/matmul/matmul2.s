@@ -17,7 +17,8 @@
     .text
     .globl main
 main:
-	allocate (1 << 3), %5
+    
+	allocates %0, %5            ! Default
 	
 	!	create (fam1; 0; N-1;)
 	setlimit %5, %11
@@ -50,7 +51,7 @@ main:
     .align 64
 	.registers 4 0 5  0 0 0	    ! GR,SR,LR, GF,SF,LF
 thread1:
-	allocate (1 << 3), %l4
+	allocates %l0, %l4          ! Default
 	setlimit %l4, %g3
 	swch
 	cred thread2, %l4

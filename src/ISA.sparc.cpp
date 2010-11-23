@@ -192,6 +192,7 @@ void Pipeline::DecodeStage::DecodeInstruction(const Instruction& instr)
             
     case S_OP1_OTHER:
         m_output.op3 = (uint8_t)((instr >> OP3_SHIFT) & OP3_MASK);
+        m_output.asi = (uint8_t)((instr >> ASI_SHIFT) & ASI_MASK);
         switch (m_output.op3)
         {
         case S_OP3_UTOP1:
@@ -536,7 +537,7 @@ Pipeline::PipeAction Pipeline::ExecuteStage::ExecuteInstruction()
             // Direct create
             MemAddr target = m_input.pc + m_input.displacement * sizeof(Instruction);
             FID fid = m_parent.GetProcessor().UnpackFID(m_input.Rav.m_integer.get(m_input.Rav.m_size));
-            return ExecCreate(fid, target, m_input.Rc);
+            return ExecCreate(fid, target, m_input.Rc.index);
         }
 
         case S_OP2_UNIMPL:
@@ -607,7 +608,7 @@ Pipeline::PipeAction Pipeline::ExecuteStage::ExecuteInstruction()
         case S_OP3_ALLOCATE:
         {
             PlaceID place = m_parent.GetProcessor().UnpackPlace(m_input.Rbv.m_integer.get(m_input.Rbv.m_size));
-            if (!ExecAllocate(place, m_input.Rc.index))
+            if (!ExecAllocate(place, m_input.Rc.index, m_input.asi & 3, m_input.asi & 2))
             {
                 return PIPE_STALL;
             }
@@ -619,7 +620,7 @@ Pipeline::PipeAction Pipeline::ExecuteStage::ExecuteInstruction()
             // Indirect create
             FID     fid  = m_parent.GetProcessor().UnpackFID(m_input.Rav.m_integer.get(m_input.Rav.m_size));
             MemAddr addr = m_input.Rbv.m_integer.get(m_input.Rbv.m_size);
-            return ExecCreate(fid, addr, m_input.Rc);
+            return ExecCreate(fid, addr, m_input.Rc.index);
         }
 
         case S_OP3_SYNC:   if (!ExecSync  (m_parent.GetProcessor().UnpackFID(m_input.Rav.m_integer.get(m_input.Rav.m_size)))) return PIPE_STALL; break;

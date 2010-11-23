@@ -8,7 +8,8 @@
     .globl main
     .align 64
 main:
-    allocate (0 << 4) | (1 << 3) | (3 << 1) | 1, %2  ! PID:0, Delegate, Suspend, Exclusive
+    mov (0 << 1) | 1, %2    ! PID:0, Size:1
+    allocatee %2, %2
     cred foo, %2
     
     ! Sync

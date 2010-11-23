@@ -14,7 +14,7 @@
     .text
     .globl main
 main:
-	allocate %0, %5
+	allocates %0, %5            ! Default
 
 	!	create (fam1; 0; N;)
 	setlimit %5, %11

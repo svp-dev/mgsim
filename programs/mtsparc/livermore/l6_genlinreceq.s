@@ -26,7 +26,7 @@
     .globl main
     .align 64
 main:
-    allocate 2, %5      ! Local
+    allocates %0, %5
     setstart %5, 1
     setlimit %5, %11
     setblock %5, 2
@@ -55,7 +55,7 @@ main:
     .align 64
     .registers 2 1 5 0 0 4    
 outer:
-    allocate %0, %l3
+    allocates %0, %l3
 
     sll     %l0,    3, %l1
     add     %l1,  %g1, %l1  ! %l1 = &Y[0][i]

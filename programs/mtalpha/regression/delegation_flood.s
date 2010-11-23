@@ -11,7 +11,7 @@
     .ent main
 main:
     lda      $2, 1024($31)
-    allocate (2 << 1), $1      # Local
+    allocate/s (2 << 1), $1      # Local
     setblock $1, 128
     setlimit $1, $2
     cred     $1, foo
@@ -25,7 +25,7 @@ main:
     .ent foo
     .registers 0 0 2 0 0 0
 foo:
-    allocate (1 << 4) | (1 << 3) | (3 << 1), $l0     # PID:1, Suspend:1, Type:Delegate, Exclusive:0
+    allocate/s (1 << 1) | 1, $l0     # PID:1, Size=1, Suspend:1, Exclusive:0
     cred     $l0, bar
     sync     $l0, $l1
     release  $l0
@@ -44,4 +44,4 @@ bar:
     .end bar
 
     .data
-    .ascii "PLACES: 1,1\0"
+    .ascii "PLACES: 2\0"

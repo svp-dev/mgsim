@@ -26,7 +26,7 @@
 main:
     ldgp    $29, 0($27)
     
-    allocate $31, $4
+    allocate/s $31, $4
     setstart $4, 1
     setlimit $4, $10
     cred    $4, loop

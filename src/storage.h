@@ -11,6 +11,7 @@ namespace Simulator
 typedef size_t  BufferSize; // Size of buffer, in elements
 static const    BufferSize INFINITE = (size_t)-1;
 
+/// A storage element that needs cycle-accurate update semantics
 class Storage
 {
     friend class Kernel;
@@ -53,7 +54,8 @@ public:
     {}
 };
 
-class SingleSensitivityStorage : virtual public Storage
+/// A storage element that a process is sensitive on
+class SensitiveStorage : virtual public Storage
 {
     Process* m_process; ///< The process that is sensitive on this storage object
 
@@ -77,40 +79,8 @@ public:
         m_process = &process;
     }
 
-    SingleSensitivityStorage(Clock& clock)
+    SensitiveStorage(Clock& clock)
       : Storage(clock), m_process(NULL)
-    {
-    }
-};
-
-class MultipleSensitivityStorage : virtual public Storage
-{
-    std::vector<Process*> m_processes; ///< The processes that are sensitive on this storage object
-
-protected:
-    void Notify()
-    {
-        for (std::vector<Process*>::const_iterator p = m_processes.begin(); p != m_processes.end(); ++p)
-        {
-            m_clock.ActivateProcess(**p);
-        }
-    }
-
-    void Unnotify()
-    {
-        for (std::vector<Process*>::const_iterator p = m_processes.begin(); p != m_processes.end(); ++p)
-        {
-            (*p)->Deactivate();
-        }
-    }
-
-public:
-    void Sensitive(Process& process)
-    {
-        m_processes.push_back(&process);
-    }
-
-    MultipleSensitivityStorage(Clock& clock) : Storage(clock)
     {
     }
 };
@@ -120,7 +90,7 @@ template <
     typename          L, ///< The lookup table type
     T L::value_type::*N  ///< The next field in the table's element type
 >
-class LinkedList : public SingleSensitivityStorage
+class LinkedList : public SensitiveStorage
 {
     L&   m_table;     ///< The table to dereference to form the linked list
     bool m_empty;     ///< Whether this list is empty
@@ -248,14 +218,15 @@ public:
     
     /// Construct an empty list with a sensitive component
     LinkedList(Clock& clock, L& table)
-        : Storage(clock), SingleSensitivityStorage(clock),
+        : Storage(clock), SensitiveStorage(clock),
           m_table(table), m_empty(true), m_popped(false), m_pushed(false)
     {
     }
 };
 
+/// A FIFO storage queue
 template <typename T>
-class Buffer : public SingleSensitivityStorage
+class Buffer : public SensitiveStorage
 {
     // Maximum for m_maxPushes
     // In hardware it can be possible to support multiple pushes
@@ -350,15 +321,16 @@ public:
     }
 
     Buffer(Clock& clock, BufferSize maxSize, size_t maxPushes = 1)
-        : Storage(clock), SingleSensitivityStorage(clock),
+        : Storage(clock), SensitiveStorage(clock),
           m_maxSize(maxSize), m_maxPushes(maxPushes), m_popped(false), m_pushes(0)
     {
         assert(maxPushes <= MAX_PUSHES);
     }
 };
 
+/// A full/empty single-value storage element
 template <typename T>
-class Register : public SingleSensitivityStorage
+class Register : public SensitiveStorage
 {
     bool m_empty;
     T    m_cur;
@@ -419,12 +391,13 @@ public:
     }
     
     Register(Clock& clock)
-        : Storage(clock), SingleSensitivityStorage(clock),
+        : Storage(clock), SensitiveStorage(clock),
           m_empty(true), m_cleared(false), m_assigned(false)
     {
     }
 };
 
+/// A single-bit storage element
 class Flag : virtual public Storage
 {
 protected:
@@ -476,7 +449,7 @@ public:
     }
 };
 
-class SingleFlag : public Flag, public SingleSensitivityStorage
+class SingleFlag : public Flag, public SensitiveStorage
 {
     void Update() {
         if (m_new && !m_set) {
@@ -489,87 +462,8 @@ class SingleFlag : public Flag, public SingleSensitivityStorage
 public:
     SingleFlag(Clock& clock, bool set)
       : Storage(clock),
-        Flag(clock, set), SingleSensitivityStorage(clock)
+        Flag(clock, set), SensitiveStorage(clock)
     {}
-};
-
-class MultiFlag : public Flag, public MultipleSensitivityStorage
-{
-    void Update() {
-        if (m_new && !m_set) {
-            this->Notify();
-        } else if (m_set && !m_new) {
-            this->Unnotify();
-        }
-        Flag::Update();
-    }
-public:
-    MultiFlag(Clock& clock, bool set)
-      : Storage(clock),
-        Flag(clock, set), MultipleSensitivityStorage(clock)
-    {}
-};
-
-/*
- A combined boolean signal that each writer can contribute to.
- The combined signal is the result of OR-ing all inputs.
- */
-class CombinedFlag : public MultipleSensitivityStorage, virtual public Storage
-{
-public:
-    // Gets the combined signal
-    bool IsSet() const {
-        return m_resolved;
-    }
-    
-    // Sets our single input
-    void Set(unsigned id) {
-        CheckClocks();
-        COMMIT{
-            m_inputs[id] = true;
-            RegisterUpdate();
-        }
-    }
-
-    // Clears our single input
-    void Clear(unsigned id) {
-        CheckClocks();
-        COMMIT{
-            m_inputs[id] = false;
-            RegisterUpdate();
-        }
-    }
-    
-    CombinedFlag(Clock& clock, PSize num_writers)
-        : Storage(clock),
-          MultipleSensitivityStorage(clock),
-          m_inputs(num_writers, false), m_resolved(false)
-    {
-    }
-
-private:
-    std::vector<bool> m_inputs;
-    bool              m_resolved;
-    
-    void Update()
-    {
-        bool resolved = false;
-        for (std::vector<bool>::const_iterator p = m_inputs.begin(); p != m_inputs.end(); ++p)
-        {
-            if (*p)
-            {
-                resolved = true;
-                break;
-            }
-        }
-        
-        if (resolved && !m_resolved) {
-            Notify();
-        } else if (!resolved && m_resolved) {
-            Unnotify();
-        }
-        m_resolved = resolved;
-    }
 };
 
 }

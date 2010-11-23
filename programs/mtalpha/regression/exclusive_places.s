@@ -11,7 +11,7 @@
 main:
     ldgp $29, 0($27)
     
-    allocate 2, $2  # place = LOCAL
+    allocate/s (0 << 1) | 1, $2          # PID=0, Size=1
     setlimit $2, 64
     cred    $2, foo
     
@@ -38,7 +38,7 @@ main:
     .ent foo
     .registers 1 1 3 0 0 0
 foo:
-    allocate (1 << 4) | (1 << 3) | (3 << 1) | 1, $l2     # PID:1, Delegated, Suspend, Exclusive
+    allocate/x (1 << 1) | 1, $l2     # PID:1, Size=1
     cred     $l2, bar
     swch
     putg     $g0, $l2, 0        # {$g0} = GP
@@ -70,4 +70,4 @@ bar:
 val:
     .int 0
 
-    .ascii "PLACES: 1,{1,2,3,4}\0"
+    .ascii "PLACES: 16\0"

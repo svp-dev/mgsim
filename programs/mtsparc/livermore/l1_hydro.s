@@ -26,7 +26,7 @@
 !
     .globl main
 main:
-    allocate %0, %4         ! Start = 0, Step = 1
+    allocates %0, %4         ! Start = 0, Step = 1
     setlimit %4, %11        ! Limit = N
     cred     loop, %4
 

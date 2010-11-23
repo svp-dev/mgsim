@@ -9,7 +9,7 @@
     .globl main
     .ent main
 main:
-    allocate $31, $2
+    allocate/s $31, $2
     setlimit $2, 4
     cred $2, foo
     

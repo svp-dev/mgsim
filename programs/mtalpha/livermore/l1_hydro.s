@@ -32,7 +32,7 @@
 main:
     ldgp     $29, 0($27)    # $29 = GP
     
-    allocate $31, $3        # Start = 0, Step = 1
+    allocate/s $31, $3        # Start = 0, Step = 1
     setlimit $3, $10        # Limit = N
     cred     $3, loop
 
