@@ -19,7 +19,6 @@ struct Family
         RegIndex base;             // Base address of this family's register block
         RegSize  size;             // Size of the allocated registers (could be calculated from other values)
         RegIndex last_shareds;     // Address of the last allocated thread's shareds
-        //RegIndex first_dependents; // Address of the dependents of the first thread in the block
     };
     
     // Groups all dependencies that need to be resolved before termination and/or cleanup
@@ -89,7 +88,7 @@ struct Family
         RegIndex reg;            // The exit code register on the core
     }            sync;           // Synchronisation information
     
-    TID          lastAllocated;
+    TID          lastAllocated;  // Last thread that has been allocated
 
     RegInfo      regs[NUM_REG_TYPES];    // Register information
 

@@ -715,7 +715,13 @@ MGSystem::MGSystem(const Config& config, Display& display, const string& program
       m_program(program),
       m_config(config)
 {
-    const PSize  numProcessors       = config.getInteger<PSize>("NumProcessors", 1);
+    const vector<PSize>& placeSizes = m_config.getIntegerList<PSize>("NumProcessors");
+    PSize numProcessors = 0;
+    for (size_t i = 0; i < placeSizes.size(); ++i)
+    {
+        numProcessors += placeSizes[i];
+    }
+    
     const size_t numProcessorsPerFPU = max<size_t>(1, config.getInteger<size_t>("NumProcessorsPerFPU", 1));
     const PSize  numFPUs             = (numProcessors + numProcessorsPerFPU - 1) / numProcessorsPerFPU;
     
