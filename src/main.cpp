@@ -104,7 +104,10 @@ static void ParseArguments(int argc, const char ** argv, ProgramConfig& config
         }
         else if (toupper(arg[1]) == 'L')  
         { 
-            string filename(argv[++i]); 
+            if (argv[++i] == NULL) {
+                throw runtime_error("Error: expected filename");
+            }
+            string filename(argv[i]);
             char* endptr; 
             RegAddr  addr; 
             unsigned long index = strtoul(&arg[2], &endptr, 0); 
@@ -116,8 +119,11 @@ static void ParseArguments(int argc, const char ** argv, ProgramConfig& config
         } 
         else if (toupper(arg[1]) == 'R' || toupper(arg[1]) == 'F')
         {
+            if (argv[++i] == NULL) {
+                throw runtime_error("Error: expected register value");
+            }
             stringstream value;
-            value << argv[++i];
+            value << argv[i];
 
             RegAddr  addr;
             RegValue val;
