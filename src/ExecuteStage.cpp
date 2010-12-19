@@ -294,41 +294,47 @@ bool Pipeline::ExecuteStage::ExecDetach(const FID& fid)
      must follow shared reads (lest the detachment overtakes the shared reads
      and cleans up the target family).
     */
-    if (fid.pid != m_parent.GetProcessor().GetPID())
+    
+    if (fid.capability == 0 && fid.pid == 0 && fid.lfid == 0)
     {
-        COMMIT
-        {
-            m_output.Rrc.type = RemoteMessage::MSG_DETACH;
-            m_output.Rrc.detach.fid = fid;
-        }
+        /* No-op */
     }
     else
-    {
-        Family& family = m_allocator.GetFamilyChecked(fid.lfid, fid.capability);
-        switch (family.type)
+        if (fid.pid != m_parent.GetProcessor().GetPID())
         {
-        case Family::GROUP:
             COMMIT
             {
-                m_output.Rrc.type            = RemoteMessage::MSG_DETACH;
-                m_output.Rrc.detach.fid.pid  = INVALID_GPID;
-                m_output.Rrc.detach.fid.lfid = family.link_next;
-            }
-            break;
-            
-        case Family::LOCAL:
-            COMMIT
-            {
-                m_output.Rrc.type       = RemoteMessage::MSG_DETACH;
+                m_output.Rrc.type = RemoteMessage::MSG_DETACH;
                 m_output.Rrc.detach.fid = fid;
             }
-            break;
-            
-        default:
-            assert(false);
-            break;
         }
-    }
+        else
+        {
+            Family& family = m_allocator.GetFamilyChecked(fid.lfid, fid.capability);
+            switch (family.type)
+            {
+            case Family::GROUP:
+                COMMIT
+                {
+                    m_output.Rrc.type            = RemoteMessage::MSG_DETACH;
+                    m_output.Rrc.detach.fid.pid  = INVALID_GPID;
+                    m_output.Rrc.detach.fid.lfid = family.link_next;
+                }
+                break;
+                
+            case Family::LOCAL:
+                COMMIT
+                {
+                    m_output.Rrc.type       = RemoteMessage::MSG_DETACH;
+                    m_output.Rrc.detach.fid = fid;
+                }
+                break;
+                
+            default:
+                assert(false);
+                break;
+            }
+        }
     DebugFlowWrite("Detach from %s to CPU%zd/F%zd",
                    GetKernel()->GetSymbolTable()[m_input.pc].c_str(), fid.pid, fid.lfid);
     return true;
@@ -338,39 +344,49 @@ bool Pipeline::ExecuteStage::ExecSync(const FID& fid)
 {
     assert(m_input.Rc.type == RT_INTEGER);
     
-    if (fid.pid == m_parent.GetProcessor().GetPID())
+
+    if (fid.capability == 0 && fid.pid == 0 && fid.lfid == 0)
     {
-        // Local family
-        Family& family = m_allocator.GetFamilyChecked(fid.lfid, fid.capability);
         COMMIT
         {
-            if (family.sync.code != EXITCODE_NONE) {
-                // The family is done, return the exit code
-                m_output.Rcv.m_state = RST_FULL;
-                m_output.Rcv.m_integer.set(family.sync.code, m_input.RcSize);
-            } else if (m_input.Rc.index != INVALID_REG_INDEX) {
-                // Buffer the request
-                family.sync.pid = m_parent.GetProcessor().GetPID();
-                family.sync.reg = m_input.Rc.index;
-                m_output.Rcv = MAKE_PENDING_PIPEVALUE(m_input.RcSize);
-            }
+            m_output.Rcv.m_state = RST_FULL;
+            m_output.Rcv.m_integer.set(0, m_input.RcSize);
         }
     }
     else
-    {
-        // Remote family
-        COMMIT
+        if (fid.pid == m_parent.GetProcessor().GetPID())
         {
-            if (m_input.Rc.index != INVALID_REG_INDEX)
+            // Local family
+            Family& family = m_allocator.GetFamilyChecked(fid.lfid, fid.capability);
+            COMMIT
             {
-                m_output.Rrc.type     = RemoteMessage::MSG_SYNC;
-                m_output.Rrc.sync.fid = fid;
-                m_output.Rrc.sync.reg = m_input.Rc.index;
-            
-                m_output.Rcv = MAKE_PENDING_PIPEVALUE(m_input.RcSize);            
+                if (family.sync.code != EXITCODE_NONE) {
+                    // The family is done, return the exit code
+                    m_output.Rcv.m_state = RST_FULL;
+                    m_output.Rcv.m_integer.set(family.sync.code, m_input.RcSize);
+                } else if (m_input.Rc.index != INVALID_REG_INDEX) {
+                    // Buffer the request
+                    family.sync.pid = m_parent.GetProcessor().GetPID();
+                    family.sync.reg = m_input.Rc.index;
+                    m_output.Rcv = MAKE_PENDING_PIPEVALUE(m_input.RcSize);
+                }
             }
         }
-    }
+        else
+        {
+            // Remote family
+            COMMIT
+            {
+                if (m_input.Rc.index != INVALID_REG_INDEX)
+                {
+                    m_output.Rrc.type     = RemoteMessage::MSG_SYNC;
+                    m_output.Rrc.sync.fid = fid;
+                    m_output.Rrc.sync.reg = m_input.Rc.index;
+                    
+                    m_output.Rcv = MAKE_PENDING_PIPEVALUE(m_input.RcSize);            
+                }
+            }
+        }
     
     DebugFlowWrite("Sync from %s to CPU%zd/F%zd",
                    GetKernel()->GetSymbolTable()[m_input.pc].c_str(), fid.pid, fid.lfid);
