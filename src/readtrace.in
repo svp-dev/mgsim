@@ -54,6 +54,15 @@ def mgc_parse_timings_v2(c, words):
     c.ddrfreq = words[3]
     c.extmembandwidth = words[3] * 16 * 1000000
 
+def mgc_parse_timings_v3(c, words):
+    c.masterfreq = words[0]
+    c.corefreq = words[1]
+    c.memfreq = words[2]
+    c.ddrfreq = words[3]
+    c.ddrchans = words[4]
+    c.extmembandwidth = words[3] * words[4] * 16 * 1000000
+    c.intmembandwidth = words[2] * 64 * 1000000
+
 def mgc_parse_cache_v1(c, words):
     c.cachelinesize = words[0]
     c.l1_icachesize = words[1]
@@ -87,7 +96,8 @@ _mgconf_parsers = {
     3 : mgc_parse_cache_v1,
     4 : mgc_parse_conc_v1,
     5 : mgc_parse_layout_v1,
-    6 : mgc_parse_timings_v2
+    6 : mgc_parse_timings_v2,
+    7 : mgc_parse_timings_v3
 }
 
 class Metadata(DictWrapper):
