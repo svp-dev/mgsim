@@ -445,7 +445,6 @@ void PrintUsage(std::ostream& out, const char* cmd)
         "  -F<X> VALUE              Store the float VALUE in the specified FP register.\n"
         "  -L<X> FILE               Load the contents of FILE after the program in memory\n" 
         "                           and store the address in the specified register.\n" 
-        "  -A<X> FILE               Attach FILE to the dummy I/O device X.\n"
         "Other options:\n"          
         "  -h, --help               Print this help, then exit.\n"
         "      --version            Print version information, then exit.\n"

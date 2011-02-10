@@ -11,7 +11,6 @@ namespace Simulator
 
 Pipeline::PipeAction Pipeline::MemoryStage::OnCycle()
 {
-    char data[MAX_MEMORY_OPERATION_SIZE];
     PipeValue rcv = m_input.Rcv;
 
     unsigned inload = 0;
@@ -30,67 +29,39 @@ Pipeline::PipeAction Pipeline::MemoryStage::OnCycle()
             // Check for breakpoints
             GetKernel()->GetBreakPoints().Check(BreakPoints::WRITE, m_input.address, *this);
 
+            // Serialize and store data
+            char data[MAX_MEMORY_OPERATION_SIZE];
+
             uint64_t value = 0;
             switch (m_input.Rc.type) {
             case RT_INTEGER: value = m_input.Rcv.m_integer.get(m_input.Rcv.m_size); break;
             case RT_FLOAT:   value = m_input.Rcv.m_float.toint(m_input.Rcv.m_size); break;
             default: assert(0);
             }
+            
+            SerializeRegister(m_input.Rc.type, value, data, (size_t)m_input.size);
 
-            if (m_input.address >= 256 && m_input.address < 1024)
+            if ((result = m_dcache.Write(m_input.address, data, m_input.size, m_input.fid, m_input.tid)) == FAILED)
             {
-                // Special range. Rather hackish.
-                // 3 addresses are used: two "control words" then
-                // a 512-byte I/O buffer. We place control words
-                // at addresses 256 and 264, and the I/O buffer
-                // at address 512.
-                if (m_input.address < 256+sizeof(Integer))
-                {
-                    COMMIT {
-                        GetKernel()->GetDummyIO().Command(value);
-                    }
-                }
-                else if (m_input.address < 256+2*sizeof(Integer))
-                    GetKernel()->GetDummyIO().SetDevice(value);
-                else if (m_input.address >= 512)
-                {
-                    size_t offset = m_input.address - 512;
-                    SerializeRegister(m_input.Rc.type, value, data, (size_t)m_input.size);
-                    GetKernel()->GetDummyIO().SetData(offset, data, m_input.size);
-                }
-                DebugMemWrite("Store by %s (F%u/T%u): *%#016llx <- %#016llx (%zd)",
-                              GetKernel()->GetSymbolTable()[m_input.pc].c_str(), (unsigned)m_input.fid, (unsigned)m_input.tid,
-                              (unsigned long long)m_input.address, (unsigned long long)value, (size_t)m_input.size);
-            }
-            else
-            {
-                // Normal memory write.
-                SerializeRegister(m_input.Rc.type, value, data, (size_t)m_input.size);
-
-                if ((result = m_dcache.Write(m_input.address, data, m_input.size, m_input.fid, m_input.tid)) == FAILED)
-                {
-                    // Stall
-                    return PIPE_STALL;
-                }
-
-                // Prepare for count increment
-                instore = m_input.size;
-
-                DebugMemWrite("Store by %s (F%u/T%u): *%#016llx <- %#016llx (%zd)",
-                              GetKernel()->GetSymbolTable()[m_input.pc].c_str(), (unsigned)m_input.fid, (unsigned)m_input.tid,
-                              (unsigned long long)m_input.address, (unsigned long long)value, (size_t)m_input.size);
+                // Stall
+                return PIPE_STALL;
             }
 
-            // In all cases clear the register state so it won't get
-            // written to the register file.
+            // Clear the register state so it won't get written to the register file
             rcv.m_state = RST_INVALID;
+
+            // Prepare for count increment
+            instore = m_input.size;
+
+            DebugMemWrite("Store by %s (F%u/T%u): *%#016llx <- %#016llx (%zd)",
+                          GetKernel()->GetSymbolTable()[m_input.pc].c_str(), (unsigned)m_input.fid, (unsigned)m_input.tid,
+                          (unsigned long long)m_input.address, (unsigned long long)value, (size_t)m_input.size);
         }
         // Memory read
-        else if (m_input.address >= 4 && m_input.address < 1024)
+        else if (m_input.address >= 4 && m_input.address < 256)
         {
             // Special range. Rather hackish.
             // Note that we exclude address 0 from this so NULL pointers are still invalid.
-
             if (m_input.address < 8)
             {
                 // Invalid address; don't send request, just clear register
@@ -98,45 +69,17 @@ Pipeline::PipeAction Pipeline::MemoryStage::OnCycle()
             }
             else
             {
-                // Check for breakpoints
-                GetKernel()->GetBreakPoints().Check(BreakPoints::READ, m_input.address, *this);
-
-                Integer val = 0;
-
-                if (m_input.address < 256)
-                {
-                    // Profiling information
-                    unsigned int i = (m_input.address - 8) / sizeof(Integer);
-                    val = m_parent.GetProcessor().GetProfileWord(i);
-                    if (i == 0) ++ m_nCycleSampleOps; else ++ m_nOtherSampleOps;
-                }
-                else
-                {
-                    if (m_input.address < 256+sizeof(Integer))
-                        val = GetKernel()->GetDummyIO().GetStatus();
-                    else if (m_input.address < 256+2*sizeof(Integer))
-                        val = GetKernel()->GetDummyIO().GetDevice();
-                    else if (m_input.address >= 512)
-                    {
-                        size_t offset = m_input.address - 512;
-                        GetKernel()->GetDummyIO().GetData(offset, data, m_input.size);
-                        val = UnserializeRegister(m_input.Rc.type, data, (size_t)m_input.size);
-                        if (m_input.sign_extend)
-                        {
-                            // Sign-extend the value
-                            size_t shift = (sizeof(val) - (size_t)m_input.size) * 8;
-                            val = (int64_t)(val << shift) >> shift;
-                        }
-                    }
-                    DebugMemWrite("Load by %s (F%u/T%u): *%#016llx -> %#016llx (%zd)",
-                                  GetKernel()->GetSymbolTable()[m_input.pc].c_str(), (unsigned)m_input.fid, (unsigned)m_input.tid,
-                                  (unsigned long long)m_input.address, (unsigned long long)val, (size_t)m_input.size); 
-                }
-
+                // Profiling information
+                unsigned int i = (m_input.address - 8) / sizeof(Integer);
                 rcv.m_state = RST_FULL;
                 rcv.m_size  = m_input.Rcv.m_size;
-                rcv.m_integer.set(val, rcv.m_size);
+                rcv.m_integer.set( m_parent.GetProcessor().GetProfileWord(i), rcv.m_size);
+                if (i == 0) ++ m_nCycleSampleOps; else ++ m_nOtherSampleOps;
+
+                // Check for breakpoints
+                GetKernel()->GetBreakPoints().Check(BreakPoints::READ, m_input.address, *this);
             }
+
             // We don't count pseudo-loads
             // inload = 1;
         }
@@ -147,6 +90,7 @@ Pipeline::PipeAction Pipeline::MemoryStage::OnCycle()
             // Check for breakpoints
             GetKernel()->GetBreakPoints().Check(BreakPoints::READ, m_input.address, *this);
 
+            char data[MAX_MEMORY_OPERATION_SIZE];
             RegAddr reg = m_input.Rc;
             if ((result = m_dcache.Read(m_input.address, data, m_input.size, m_input.fid, &reg)) == FAILED)
             {

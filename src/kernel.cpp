@@ -456,20 +456,19 @@ void Kernel::ToggleDebugMode(int flags)
     m_debugMode ^= flags;
 }
 
-Kernel::Kernel(Display& display, SymbolTable& symtable, BreakPoints& breakpoints, DummyIO& dummyio)
+Kernel::Kernel(Display& display, SymbolTable& symtable, BreakPoints& breakpoints)
  : m_debugMode(0),
    m_cycle(0),
    m_display(display),
    m_symtable(symtable),
    m_breakpoints(breakpoints),
-   m_dummyio(dummyio),
    m_phase(PHASE_COMMIT),
    m_master_freq(0),
    m_process(NULL),
    m_activeClocks(NULL)
 {
-   RegisterSampleVariable(m_cycle, "kernel.cycle", SVC_CUMULATIVE);
-   RegisterSampleVariable(m_phase, "kernel.phase", SVC_STATE);
+    RegisterSampleVariable(m_cycle, "kernel.cycle", SVC_CUMULATIVE);
+    RegisterSampleVariable(m_phase, "kernel.phase", SVC_STATE);
 }
 
 Kernel::~Kernel()

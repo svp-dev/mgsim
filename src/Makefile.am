@@ -124,8 +124,6 @@ COMMON_SRC = \
 	config.cpp \
 	config.h \
 	delegate.h \
-	dummy_io.h \
-	dummy_io.cpp \
 	elf.h \
 	except.h \
 	except.cpp \
