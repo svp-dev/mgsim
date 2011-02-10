@@ -25,6 +25,7 @@ class Storage;
 class IRegister;
 class Display;
 class Process;
+class DummyIO;
 
 /*
  * A clock class to place processes in a frequency domain.
@@ -181,6 +182,7 @@ private:
     Display&            m_display;      ///< The display to manage.
     SymbolTable&        m_symtable;     ///< The symbol table for debugging.
     BreakPoints&        m_breakpoints;  ///< The breakpoint checker for debugging.
+    DummyIO&            m_dummyio;      ///< The interface for dummy block-like I/O.
     CyclePhase          m_phase;        ///< Current sub-cycle phase of the simulation.
     unsigned long long  m_master_freq;  ///< Master frequency
     Process*            m_process;      ///< The currently executing process.
@@ -191,7 +193,7 @@ private:
     bool UpdateStorages();
     
 public:
-    Kernel(Display& display, SymbolTable& symtable, BreakPoints& breakpoints);
+    Kernel(Display& display, SymbolTable& symtable, BreakPoints& breakpoints, DummyIO& dummyio);
     ~Kernel();
 
     void ActivateClock(Clock& clock);
@@ -274,6 +276,7 @@ public:
     inline Display& GetDisplay() const { return m_display; }
     inline SymbolTable& GetSymbolTable() const { return m_symtable; }
     inline BreakPoints& GetBreakPoints() const { return m_breakpoints; }
+    inline DummyIO& GetDummyIO() const { return m_dummyio; }
 };
 
 inline CycleNo Clock::GetCycleNo() const

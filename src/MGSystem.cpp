@@ -722,13 +722,15 @@ void MGSystem::Disassemble(MemAddr addr, size_t sz) const
 
 MGSystem::MGSystem(const Config& config, Display& display, const string& program,
                    const string& symtable,
+                   bool openworld, bool writablefs,
                    const vector<pair<RegAddr, RegValue> >& regs,
                    const vector<pair<RegAddr, string> >& loads,
                    bool quiet, bool doload)
-    : m_kernel(display, m_symtable, m_breakpoints),
+    : m_kernel(display, m_symtable, m_breakpoints, m_dummyio),
       m_clock(m_kernel.CreateClock( (unsigned long long)(config.getInteger<float>("CoreFreq", 1000)) )),
       m_root("system", m_clock),
       m_breakpoints(m_kernel),
+      m_dummyio(openworld, writablefs),
       m_program(program),
       m_config(config)
 {

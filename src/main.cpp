@@ -45,6 +45,8 @@ struct ProgramConfig
     bool               m_dumpvars;
     bool               m_earlyquit;
     map<string,string> m_overrides;
+    bool               m_openworld;
+    bool               m_iowrite;
     
     vector<pair<RegAddr, RegValue> > m_regs;
     vector<pair<RegAddr, string> >   m_loads;
@@ -64,6 +66,8 @@ static void ParseArguments(int argc, const char ** argv, ProgramConfig& config
     config.m_quiet = false;
     config.m_dumpvars = false;
     config.m_earlyquit = false;
+    config.m_openworld = false;
+    config.m_iowrite = false;
 
     for (int i = 1; i < argc; ++i)
     {
@@ -77,17 +81,19 @@ static void ParseArguments(int argc, const char ** argv, ProgramConfig& config
             else 
                 config.m_programFile = arg;
         }
-        else if (arg == "-c" || arg == "--config")      config.m_configFile    = argv[++i];
-        else if (arg == "-i" || arg == "--interactive") config.m_interactive   = true;
-        else if (arg == "-t" || arg == "--terminate")   config.m_terminate     = true;
-        else if (arg == "-q" || arg == "--quiet")       config.m_quiet         = true;
-        else if (arg == "-s" || arg == "--symtable")    config.m_symtableFile  = argv[++i];
-        else if (arg == "--version")                    { PrintVersion(std::cout); exit(0); }
-        else if (arg == "-h" || arg == "--help")        { PrintUsage(std::cout, argv[0]); exit(0); }
-        else if (arg == "-d" || arg == "--dumpconf")    config.m_dumpconf      = true;
-        else if (arg == "-m" || arg == "--monitor")     config.m_enableMonitor = true;
-        else if (arg == "-D" || arg == "--dumpvars")    config.m_dumpvars      = true;
-        else if (arg == "-n" || arg == "--do-nothing")  config.m_earlyquit     = true;
+        else if (arg == "-c" || arg == "--config")        config.m_configFile    = argv[++i];
+        else if (arg == "-i" || arg == "--interactive")   config.m_interactive   = true;
+        else if (arg == "-t" || arg == "--terminate")     config.m_terminate     = true;
+        else if (arg == "-q" || arg == "--quiet")         config.m_quiet         = true;
+        else if (arg == "-s" || arg == "--symtable")      config.m_symtableFile  = argv[++i];
+        else if (arg == "--version")                      { PrintVersion(std::cout); exit(0); }
+        else if (arg == "-h" || arg == "--help")          { PrintUsage(std::cout, argv[0]); exit(0); }
+        else if (arg == "-d" || arg == "--dumpconf")      config.m_dumpconf      = true;
+        else if (arg == "-m" || arg == "--monitor")       config.m_enableMonitor = true;
+        else if (arg == "-D" || arg == "--dumpvars")      config.m_dumpvars      = true;
+        else if (arg == "-n" || arg == "--do-nothing")    config.m_earlyquit     = true;
+        else if (arg == "-w" || arg == "--allow-writes")  config.m_iowrite       = true;
+        else if (arg == "-e" || arg == "--allow-escapes") config.m_openworld     = true;
         else if (arg == "-o" || arg == "--override")
         {
             if (argv[++i] == NULL) {
@@ -102,7 +108,7 @@ static void ParseArguments(int argc, const char ** argv, ProgramConfig& config
             transform(name.begin(), name.end(), name.begin(), ::toupper);
             config.m_overrides[name] = arg.substr(eq + 1);
         }
-        else if (toupper(arg[1]) == 'L')  
+        else if (arg[1] == 'L')  
         { 
             if (argv[++i] == NULL) {
                 throw runtime_error("Error: expected filename");
@@ -117,7 +123,7 @@ static void ParseArguments(int argc, const char ** argv, ProgramConfig& config
             addr = MAKE_REGADDR(RT_INTEGER, index);                      
             config.m_loads.push_back(make_pair(addr, filename)); 
         } 
-        else if (toupper(arg[1]) == 'R' || toupper(arg[1]) == 'F')
+        else if (arg[1] == 'R' || arg[1] == 'F')
         {
             if (argv[++i] == NULL) {
                 throw runtime_error("Error: expected register value");
@@ -134,7 +140,7 @@ static void ParseArguments(int argc, const char ** argv, ProgramConfig& config
                 throw runtime_error("Error: invalid register specifier in option");
             }
                 
-            if (toupper(arg[1]) == 'R') {
+            if (arg[1] == 'R') {
                 value >> *(signed Integer*)&val.m_integer;
                 addr = MAKE_REGADDR(RT_INTEGER, index);
             } else {
@@ -246,7 +252,7 @@ int mgs_main(int argc, char const** argv)
 
         // Create the system
         MGSystem sys(configfile, display, 
-                     config.m_programFile, config.m_symtableFile,
+                     config.m_programFile, config.m_symtableFile, config.m_openworld, config.m_iowrite,
                      config.m_regs, config.m_loads, !config.m_interactive, !config.m_earlyquit);
 
 #ifdef ENABLE_MONITOR
