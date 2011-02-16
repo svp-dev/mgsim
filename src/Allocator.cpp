@@ -1735,6 +1735,19 @@ Result Allocator::DoFamilyCreate()
                     return FAILED;
                 }
 
+                RegValue old_value;
+                if (!m_registerFile.ReadRegister(addr, old_value))
+                {
+                    DeadlockWrite("Unable to read for create completion from %s", addr.str().c_str());
+                    return FAILED;
+                }
+                
+                if (old_value.m_state == RST_FULL)
+                {
+                    DeadlockWrite("%s is not yet pending in create completion writeback", addr.str().c_str());
+                    return FAILED;
+                }
+                
                 if (!m_registerFile.WriteRegister(addr, value, false))
                 {
                     DeadlockWrite("Unable to write create completion to %s", addr.str().c_str());
