@@ -13,13 +13,13 @@ namespace Simulator
 class COMA::DirectoryTop : public COMA::Node
 {
 protected:
-    DirectoryTop(const std::string& name, COMA& parent, Clock& clock);
+    DirectoryTop(const std::string& name, COMA& parent, Clock& clock, const Config& config);
 };
 
 class COMA::DirectoryBottom : public COMA::Node
 {
 protected:
-    DirectoryBottom(const std::string& name, COMA& parent, Clock& clock);
+    DirectoryBottom(const std::string& name, COMA& parent, Clock& clock, const Config& config);
 };
 
 class COMA::Directory : public COMA::DirectoryBottom, public COMA::DirectoryTop

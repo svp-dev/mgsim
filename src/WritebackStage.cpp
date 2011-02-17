@@ -137,7 +137,7 @@ Pipeline::PipeAction Pipeline::WritebackStage::OnCycle()
                             // We're suspending because we're waiting on a non-full register.
                             // Since we support multiple threads waiting on a register, update the
                             // next field in the thread table to the next waiting thread.
-                            m_threadTable[m_input.tid].nextState = old_value.m_waiting.head;
+                            m_threadTable[m_input.tid].next = old_value.m_waiting.head;
                         }
                     }
                 }

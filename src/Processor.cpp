@@ -4,6 +4,8 @@
 #include "log2.h"
 
 #include <cassert>
+#include <sys/time.h>
+#include <ctime>
 
 using namespace std;
 
@@ -16,7 +18,6 @@ namespace Simulator
 Processor::Processor(const std::string& name, Object& parent, Clock& clock, GPID gpid, LPID lpid, const vector<Processor*>& grid, PSize gridSize, PlaceInfo& place, IMemory& memory, FPU& fpu, const Config& config)
 :   Object(name, parent, clock),
     m_pid(gpid), m_memory(memory), m_grid(grid), m_gridSize(gridSize), m_place(place), m_fpu(fpu),
-    m_localFamilyCompletion(0),
     m_allocator   ("alloc",     *this, clock, m_familyTable, m_threadTable, m_registerFile, m_raunit, m_icache, m_network, m_pipeline, place, lpid, config),
     m_icache      ("icache",    *this, clock, m_allocator, config),
     m_dcache      ("dcache",    *this, clock, m_allocator, m_familyTable, m_registerFile, config),
@@ -27,8 +28,6 @@ Processor::Processor(const std::string& name, Object& parent, Clock& clock, GPID
     m_threadTable ("threads",   *this, clock, config),
     m_network     ("network",   *this, clock, place, grid, lpid, m_allocator, m_registerFile, m_familyTable)
 {
-    RegisterSampleVariableInObject(m_localFamilyCompletion, SVC_WATERMARK);
-
     const Process* sources[] = {
         &m_icache.p_Outgoing,   // Outgoing process in I-Cache
         &m_dcache.p_Outgoing,   // Outgoing process in D-Cache
@@ -76,9 +75,9 @@ void Processor::Initialize(Processor& prev, Processor& next, MemAddr runAddress,
     m_allocator.p_alloc.AddProcess(m_network.p_Creation);               // Last group creates
     m_allocator.p_alloc.AddProcess(m_allocator.p_FamilyCreate);         // Local creates
     
-    m_allocator.p_readyThreads.AddProcess(m_fpu.p_Pipeline);                // Thread wakeup due to FP completion
     m_allocator.p_readyThreads.AddProcess(m_dcache.p_IncomingReads);        // Thread wakeup due to load completion
     m_allocator.p_readyThreads.AddProcess(m_dcache.p_IncomingWrites);       // Thread wakeup due to write completion
+    m_allocator.p_readyThreads.AddProcess(m_fpu.p_Pipeline);                // Thread wakeup due to FP completion
     m_allocator.p_readyThreads.AddProcess(m_network.p_Registers);           // Thread wakeup due to write
     m_allocator.p_readyThreads.AddProcess(m_network.p_DelegationIn);        // Thread wakeup due to write
     m_allocator.p_readyThreads.AddProcess(m_allocator.p_ThreadAllocate);    // Thread creation
@@ -90,8 +89,8 @@ void Processor::Initialize(Processor& prev, Processor& next, MemAddr runAddress,
     m_allocator.p_activeThreads.AddProcess(m_icache.p_Incoming);            // Thread activation due to I-Cache line return
     m_allocator.p_activeThreads.AddProcess(m_allocator.p_ThreadActivation); // Thread activation due to I-Cache hit (from Ready Queue)
 
-    m_registerFile.p_asyncW.AddProcess(m_fpu.p_Pipeline);                   // FPU Op writebacks
     m_registerFile.p_asyncW.AddProcess(m_dcache.p_IncomingReads);           // Mem Load writebacks
+    m_registerFile.p_asyncW.AddProcess(m_fpu.p_Pipeline);                   // FPU Op writebacks
     m_registerFile.p_asyncW.AddProcess(m_network.p_Registers);              // Group register receives
     m_registerFile.p_asyncW.AddProcess(m_network.p_DelegationIn);           // Remote register receives
     m_registerFile.p_asyncW.AddProcess(m_allocator.p_ThreadAllocate);       // Thread allocation
@@ -229,11 +228,6 @@ bool Processor::OnMemoryInvalidated(MemAddr addr)
 {
     return m_dcache.OnMemoryInvalidated(addr) &&
            m_icache.OnMemoryInvalidated(addr);
-}
-
-void Processor::OnFamilyTerminatedLocally(MemAddr /* pc */)
-{
-    m_localFamilyCompletion = GetCycleNo();
 }
 
 Integer Processor::GetProfileWord(unsigned int i) const
@@ -403,6 +397,39 @@ Integer Processor::GetProfileWord(unsigned int i) const
         return alloc;
     }
 
+    case 13:
+    {
+        // Return the Unix time
+        return (Integer)time(0);
+    }
+
+    case 14:
+    {
+        // Return the local date as a packed struct
+        // bits 0-4: day in month
+        // bits 5-8: month in year
+        // bits 9-31: year from 1900
+        time_t c = time(0);
+        struct tm * tm = gmtime(&c);
+        return (Integer)tm->tm_mday |
+            ((Integer)tm->tm_mon << 5) |
+            ((Integer)tm->tm_year << 9);
+    }
+    case 15:
+    {
+        // Return the local time as a packed struct
+        // bits 0-14 = microseconds / 2^17  (topmost 15 bits)
+        // bits 15-20 = seconds
+        // bits 21-26 = minutes
+        // bits 27-31 = hours
+        struct timeval tv;
+        gettimeofday(&tv, 0);
+        struct tm * tm = gmtime(&tv.tv_sec);
+
+        // get topmost 15 bits of precision of the usec field
+        Integer usec = (tv.tv_usec >> (32-15)) & 0x7fff;
+        return usec | (tm->tm_sec << 15) | (tm->tm_min << 21) | (tm->tm_hour << 27);
+    }       
         
     default:
         return 0;

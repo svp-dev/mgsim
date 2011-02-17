@@ -1,4 +1,5 @@
 #include "Node.h"
+#include "../config.h"
 #include <iostream>
 #include <iomanip>
 #include <cstring>
@@ -149,13 +150,13 @@ bool COMA::Node::SendMessage(Message* message, size_t min_space)
     return true;
 }
 
-COMA::Node::Node(const std::string& name, COMA& parent, Clock& clock)
+COMA::Node::Node(const std::string& name, COMA& parent, Clock& clock, const Config& config)
     : Simulator::Object(name, parent),
       COMA::Object(name, parent),
       m_prev(NULL),
       m_next(NULL),
-      m_incoming(clock, 2),
-      m_outgoing(clock, 2),
+      m_incoming(clock, config.getInteger<BufferSize>("COMA_NodeBufferSize", 2)),
+      m_outgoing(clock, config.getInteger<BufferSize>("COMA_NodeBufferSize", 2)),
       p_Forward("forward", delegate::create<Node, &Node::DoForward>(*this))
 {
     g_References++;

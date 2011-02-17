@@ -54,6 +54,19 @@ using namespace std;
 //     - word 0 after tag: core frequency (in MHz)
 //     - word 1 after tag: external memory bandwidth (in 10^6bytes/s)
 
+// - timing words v2, organized as follows:
+//     - word 0 after tag: master frequency (in MHz)
+//     - word 1 after tag: core frequency (in MHz)
+//     - word 2 after tag: memory frequency (in MHz)
+//     - word 3 after tag: DDR frequency (in MHz)
+
+// - timing words v3, organized as follows:
+//     - word 0 after tag: master frequency (in MHz)
+//     - word 1 after tag: core frequency (in MHz)
+//     - word 2 after tag: memory frequency (in MHz)
+//     - word 3 after tag: DDR frequency (in MHz)
+//     - word 4 after tag: number of DDR channels
+
 // - cache parameters words v1, organized as follows:
 //     - word 0 after tag: cache line size (in bytes)
 //     - word 1: L1 I-cache size (in bytes)
@@ -78,6 +91,7 @@ using namespace std;
 #define CONFTAG_CONC_V1    4
 #define CONFTAG_LAYOUT_V1  5
 #define CONFTAG_TIMINGS_V2 6
+#define CONFTAG_TIMINGS_V3 7
 #define MAKE_TAG(Type, Size) (uint32_t)(((Type) << 16) | ((Size) & 0xffff))
 
 
@@ -98,14 +112,17 @@ void MGSystem::FillConfWords(ConfWords& words) const
           << m_memorytype
 
     
-    // timing words v2
-          << MAKE_TAG(CONFTAG_TIMINGS_V2, 4)
+    // timing words v3
+          << MAKE_TAG(CONFTAG_TIMINGS_V3, 5)
           << m_kernel.GetMasterFrequency()
           << m_config.getInteger<uint32_t>("CoreFreq", 0)
           << m_config.getInteger<uint32_t>("MemoryFreq", 0)
           << ((m_memorytype == MEMTYPE_COMA_ZL || m_memorytype == MEMTYPE_COMA_ML) ? 
               m_config.getInteger<uint32_t>("DDRMemoryFreq", 0)
               : 0 /* no timing information if memory system is not COMA */)
+          << ((m_memorytype == MEMTYPE_COMA_ZL || m_memorytype == MEMTYPE_COMA_ML) ?
+              m_config.getInteger<uint32_t>("NumRootDirectories", 0)
+              : 0 /* no DDR channels */)
 
     // cache parameter words v1
     
@@ -303,7 +320,6 @@ void MGSystem::PrintCoreStats(std::ostream& os) const {
         types[j] = I; c[i][j++].i = pl.GetStagesRun();
         types[j] = PC; c[i][j++].f = 100. * pl.GetEfficiency();
         types[j] = PC; c[i][j++].f = 100. * (float)pl.GetOp() / (float)m_root.GetCycleNo();
-        types[j] = I; c[i][j++].i = p.GetLocalFamilyCompletion();
         types[j] = I; c[i][j++].i = p.GetMaxThreadsAllocated();
         types[j] = I; c[i][j++].i = p.GetTotalThreadsAllocated();
         types[j] = I; c[i][j++].i = p.GetThreadTableSize();
@@ -538,51 +554,6 @@ void MGSystem::PrintState(const vector<string>& arguments) const
     }
 }
 
-void MGSystem::PrintRegFileAsyncPortActivity(std::ostream& os) const
-{
-    float avg  = 0;
-    float amax = 0.0f;
-    float amin = 1.0f;
-    for (size_t i = 0; i < m_procs.size(); ++i) {
-        float a = m_procs[i]->GetRegFileAsyncPortActivity();
-        amax = max(amax, a);
-        amin = min(amin, a);
-        avg += a;
-    }
-    avg /= (float)m_procs.size();
-    os << avg << "\t# average reg. file async port activity" << endl
-       << amin << "\t# min reg. file async port activity" << endl
-       << amax << "\t# max reg. file async port activity" << endl;
-}
-
-
-void MGSystem::PrintAllFamilyCompletions(std::ostream& os) const
-{
-    for (PSize i = 0; i < m_procs.size(); i++) {
-        CycleNo last = m_procs[i]->GetLocalFamilyCompletion();
-        if (last != 0)
-            os << m_procs[i]->GetLocalFamilyCompletion()
-               << "\t# cycle counter at last family completion on core " << i
-               << endl;
-    }
-}
-
-void MGSystem::PrintFamilyCompletions(std::ostream& os) const
-{
-    CycleNo first = numeric_limits<CycleNo>::max();
-    CycleNo last  = 0;
-    for (size_t i = 0; i < m_procs.size(); ++i) {
-        CycleNo cycle = m_procs[i]->GetLocalFamilyCompletion();
-        if (cycle != 0)
-        {
-            first = min(first, cycle);
-            last  = max(last,  cycle);
-        }
-    }
-    os << first << "\t# corecycle counter at first family completion" << endl
-       << last << "\t# corecycle counter at last family completion" << endl;
-}
-
 void MGSystem::PrintAllStatistics(std::ostream& os) const
 {
     os << dec;
@@ -592,11 +563,6 @@ void MGSystem::PrintAllStatistics(std::ostream& os) const
     PrintCoreStats(os);
     os << "## memory statistics:" << endl;
     PrintMemoryStatistics(os);
-    // PrintRegFileAsyncPortActivity(os);
-    // PrintPipelineIdleTime(os);
-    // PrintPipelineEfficiency(os);
-    // PrintFamilyCompletions(os);
-    // PrintAllFamilyCompletions(os);
 }
 
 // Find a component in the system given its path

@@ -7,7 +7,7 @@ noinst_PROGRAMS =
 noinst_LIBRARIES =
 dist_man1_MANS =
 
-FLAGS_OPT = -O3 -DNDEBUG 
+FLAGS_OPT = -O3 -DNDEBUG
 FLAGS_DEBUG = -g -DDEBUG 
 
 FLAGS_COMMON = -W -Wall -Wwrite-strings -Wno-unused \

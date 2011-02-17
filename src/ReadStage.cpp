@@ -296,29 +296,27 @@ Pipeline::PipeAction Pipeline::ReadStage::OnCycle()
         operand2.addr         = m_input.Rb;
         operand2.value.m_size = m_input.RbSize;
     
+        m_RaNotPending = m_input.RaNotPending;
+        
 #if TARGET_ARCH == ARCH_SPARC
-        m_isMemoryStore = false;
+        m_isMemoryOp = false;
         if (m_input.op1 == S_OP1_MEMORY)
         {
-            switch (m_input.op3)
+            // Memory ops on the Sparc require at least two cycles. First cycle we
+            // read the value to check or store. After that the two registers for
+            // the address.
+            m_isMemoryOp = true;
+            if (m_rsv.m_state == RST_INVALID)
             {
-            case S_OP3_STB: case S_OP3_STBA:
-            case S_OP3_STH: case S_OP3_STHA:
-            case S_OP3_ST:  case S_OP3_STA:
-            case S_OP3_STD: case S_OP3_STDA:
-            case S_OP3_STF: case S_OP3_STDF:
-                // Stores on the Sparc require at least two cycles. First cycle we
-                // read the value to store. After that the two registers for
-                // the address.
-                m_isMemoryStore = true;
-                if (m_rsv.m_state == RST_INVALID)
-                {
-                    // Store value hasn't been read yet, so read it first
-                    operand1.addr         = m_input.Rs;
-                    operand1.value.m_size = m_input.RsSize;
-                    operand2.addr         = INVALID_REG;
-                }
-                break;
+                // Check/Store value hasn't been read yet, so read it first
+                operand1.addr         = m_input.Rs;
+                operand1.value.m_size = m_input.RsSize;
+                operand2.addr         = INVALID_REG;
+            }
+            else
+            {
+                // RaNotPending doesn't hold for the other two operands
+                m_RaNotPending = false;
             }
         }
 #endif
@@ -390,6 +388,18 @@ Pipeline::PipeAction Pipeline::ReadStage::OnCycle()
         m_operand2.offset = -2;
     }
 
+    if (m_RaNotPending)
+    {
+        // Since we can possible wait on this register, it can't be waiting
+        assert(operand1.value.m_state != RST_WAITING);
+        
+        if (operand1.value.m_state == RST_EMPTY)
+        {
+            // If it's empty, it's fine too; just set it to FULL. The contents does not matter
+            operand1.value.m_state = RST_FULL;
+        }
+    }
+    
     if (!CheckOperandForSuspension(operand1, m_input.Ra))  // Suspending on operand #1?
     if (!CheckOperandForSuspension(operand2, m_input.Rb))  // Suspending on operand #2?
     {
@@ -408,10 +418,10 @@ Pipeline::PipeAction Pipeline::ReadStage::OnCycle()
         }
         
 #if TARGET_ARCH == ARCH_SPARC
-        // On the Sparc, memory stores take longer because three registers
+        // On the Sparc, memory ops take longer because three registers
         // need to be read. We do this by first reading the value to store
         // and then the two address registers in the next cycle.
-        if (m_isMemoryStore)
+        if (m_isMemoryOp)
         {
             if (m_rsv.m_state != RST_FULL)
             {
@@ -456,7 +466,7 @@ Pipeline::ReadStage::ReadStage(Pipeline& parent, Clock& clock, const DecodeReadL
     m_bypasses(bypasses)
 {
 #if TARGET_ARCH == ARCH_SPARC
-    m_isMemoryStore = false;
+    m_isMemoryOp = false;
     m_rsv.m_state = RST_INVALID;
 #endif
     m_operand1.port = &m_regFile.p_pipelineR1;

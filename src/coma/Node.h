@@ -50,7 +50,7 @@ protected:
             CacheID      sender;        ///< ID of the sender of the message
             bool         ignore;        ///< Just pass this message through to the top level
             MemData      data;          ///< The data (RD, RDT, EV, UP)
-            bool         dirty;         ///< Is the data dirty? (EV)
+            bool         dirty;         ///< Is the data dirty? (EV, RD, RDT)
             unsigned int tokens;        ///< Number of tokens in this message (RDT, EV)
             size_t       client;        ///< Sending client (UP)
             TID          tid;           ///< Sending thread (UP)
@@ -95,7 +95,7 @@ protected:
     void Print(std::ostream& out) const;
     
     /// Construct the node
-    Node(const std::string& name, COMA& parent, Clock& clock);
+    Node(const std::string& name, COMA& parent, Clock& clock, const Config& config);
     virtual ~Node();
 
 public:

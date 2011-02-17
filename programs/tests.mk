@@ -24,6 +24,7 @@ SUFFIXES = .s .bin .coma .zlcoma .serial .parallel .banked .randombanked
 .bin.randombanked:
 	echo "$<" >"$@"
 
+check_DATA = $(TEST_BINS)
 TESTS = \
 	$(TEST_BINS:.bin=.serial) \
 	$(TEST_BINS:.bin=.parallel) \

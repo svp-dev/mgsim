@@ -15,17 +15,17 @@ namespace Simulator
 static const size_t MINSPACE_SHORTCUT = 2;
 static const size_t MINSPACE_FORWARD  = 1;
 
-COMA::DirectoryTop::DirectoryTop(const std::string& name, COMA& parent, Clock& clock)
+COMA::DirectoryTop::DirectoryTop(const std::string& name, COMA& parent, Clock& clock, const Config& config)
   : Simulator::Object(name, parent),
     COMA::Object(name, parent),
-    Node(name, parent, clock)
+    Node(name, parent, clock, config)
 {
 }
 
-COMA::DirectoryBottom::DirectoryBottom(const std::string& name, COMA& parent, Clock& clock)
+COMA::DirectoryBottom::DirectoryBottom(const std::string& name, COMA& parent, Clock& clock, const Config& config)
   : Simulator::Object(name, parent),
     COMA::Object(name, parent),
-    Node(name, parent, clock)
+    Node(name, parent, clock, config)
 {
 }
 
@@ -256,12 +256,12 @@ Result COMA::Directory::DoInTop()
 COMA::Directory::Directory(const std::string& name, COMA& parent, Clock& clock, CacheID firstCache, CacheID lastCache, const Config& config) :
     Simulator::Object(name, parent),
     COMA::Object(name, parent),
-    DirectoryBottom(name + "-bottom", parent, clock),
-    DirectoryTop(name + "-top", parent, clock),
+    DirectoryBottom(name + "-bottom", parent, clock, config),
+    DirectoryTop(name + "-top", parent, clock, config),
     p_lines     (*this, clock, "p_lines"),
     m_lineSize  (config.getInteger<size_t>("CacheLineSize",           64)),
-    m_assoc     (config.getInteger<size_t>("COMACacheAssociativity",   4) * (lastCache - firstCache + 1)),
-    m_sets      (config.getInteger<size_t>("COMACacheNumSets",       128)),
+    m_assoc     (config.getInteger<size_t>("L2CacheAssociativity",     4) * (lastCache - firstCache + 1)),
+    m_sets      (config.getInteger<size_t>("L2CacheNumSets",         128)),
     m_firstCache(firstCache),
     m_lastCache (lastCache),
     p_InBottom  ("bottom-incoming", delegate::create<Directory, &Directory::DoInBottom >(*this)),

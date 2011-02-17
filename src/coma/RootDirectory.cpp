@@ -97,112 +97,134 @@ bool COMA::RootDirectory::OnMessageReceived(Message* msg)
 {
     assert(msg != NULL);
     
-    if (!p_lines.Invoke())
+    if (((msg->address / m_lineSize) % m_numRoots) == m_id)
     {
-        return false;
-    }
-
-    switch (msg->type)
-    {
-    case Message::REQUEST:
-    {
-        // Cache-line read request
-        assert(msg->data.size == m_lineSize);
-        
-        // Find or allocate the line
-        Line* line = FindLine(msg->address, false);
-        if (line != NULL && line->state == LINE_EMPTY)
+        // This message is for us
+        if (!p_lines.Invoke())
         {
-            // Line has not been read yet it; queue the read
-            TraceWrite(msg->address, "Received Read Request; Miss; Queuing request");
-            if (!m_requests.Push(msg))
-            {
-                return false;
-            }
-
-            COMMIT
-            {
-                line->state  = LINE_LOADING;
-                line->sender = msg->sender;
-            }
-            return true;
+            return false;
         }
-        break;
-    }
-    
-    case Message::REQUEST_DATA:
-    {
-        // We should have the line since the request already hit a copy to get the data
-        Line* line = FindLine(msg->address, true);
-        assert(line != NULL);
-        assert(line->state == LINE_FULL);
-        
-        if (line->tokens > 0)
-        {
-            // Give the request the tokens that we have
-            TraceWrite(msg->address, "Received Read Request with data; Attaching %u tokens", line->tokens);
-            COMMIT
-            {
-                msg->type    = Message::REQUEST_DATA_TOKEN;
-                msg->tokens  = line->tokens;
-                line->tokens = 0;
-            }
-        }
-        break;
-    }
 
-    case Message::EVICTION:
-    {
-        Line* line = FindLine(msg->address, true);
-        assert(line != NULL);
-        assert(line->state == LINE_FULL);
-            
-        unsigned int tokens = msg->tokens + line->tokens;
-        assert(tokens <= m_numCaches);
+        switch (msg->type)
+        {
+        case Message::REQUEST:
+        {
+            // Cache-line read request
+            assert(msg->data.size == m_lineSize);
         
-        if (tokens < m_numCaches)
-        {
-            // We don't have all the tokens, so just store the new token count
-            TraceWrite(msg->address, "Received Evict Request; Adding its %u tokens to directory's %u tokens", msg->tokens, line->tokens);
-            COMMIT
+            // Find or allocate the line
+            Line* line = FindLine(msg->address, false);
+            if (line != NULL && line->state == LINE_EMPTY)
             {
-                line->tokens = tokens;
-                delete msg;
-            }
-        }
-        else
-        {
-            // Evict message with all tokens, discard and remove the line from the system.
-            if (msg->dirty)
-            {
-                TraceWrite(msg->address, "Received Evict Request; All tokens; Writing back and clearing line from system");
-                
-                // Line has been modified, queue the writeback
+                // Line has not been read yet it; queue the read
+                TraceWrite(msg->address, "Received Read Request; Miss; Queuing request");
                 if (!m_requests.Push(msg))
                 {
                     return false;
                 }
+
+                COMMIT
+                {
+                    line->state  = LINE_LOADING;
+                    line->sender = msg->sender;
+                }
+                return true;
+            }
+            break;
+        }
+    
+        case Message::REQUEST_DATA:
+        {
+            // Cache-line read request with data
+            assert(msg->data.size == m_lineSize);
+            
+            // Find or allocate the line. This should not fail.
+            Line* line = FindLine(msg->address, false);
+            assert(line != NULL);
+            
+            if (line->state == LINE_EMPTY)
+            {
+                // It's possible that a read request with data grabs data from the last copy of a cache-line,
+                // which is then evicted from the system before this request comes to the root directory.
+                // In that case, we simply reintroduce the tokens into the system (the data is already in
+                // the system, so no need to read it from memory).
+                TraceWrite(msg->address, "Received Read Request with data; Miss; Introducing and attaching %u tokens", (unsigned)m_numCaches);
+                
+                COMMIT
+                {
+                    msg->type   = Message::REQUEST_DATA_TOKEN;
+                    msg->tokens = m_numCaches;
+                    line->state = LINE_FULL;
+                }
+            }
+            else if (line->tokens > 0)
+            {
+                // Give the request the tokens that we have
+                TraceWrite(msg->address, "Received Read Request with data; Hit; Attaching %u tokens", line->tokens);
+                
+                COMMIT
+                {
+                    msg->type    = Message::REQUEST_DATA_TOKEN;
+                    msg->tokens  = line->tokens;
+                    line->tokens = 0;
+                }
+            }
+            break;
+        }
+
+        case Message::EVICTION:
+        {
+            Line* line = FindLine(msg->address, true);
+            assert(line != NULL);
+            assert(line->state == LINE_FULL);
+            
+            unsigned int tokens = msg->tokens + line->tokens;
+            assert(tokens <= m_numCaches);
+        
+            if (tokens < m_numCaches)
+            {
+                // We don't have all the tokens, so just store the new token count
+                TraceWrite(msg->address, "Received Evict Request; Adding its %u tokens to directory's %u tokens", msg->tokens, line->tokens);
+                COMMIT
+                {
+                    line->tokens = tokens;
+                    delete msg;
+                }
             }
             else
             {
-                TraceWrite(msg->address, "Received Evict Request; All tokens; Clearing line from system");
-                COMMIT{ delete msg; }
-            }            
-            COMMIT{ line->state = LINE_EMPTY; }
+                // Evict message with all tokens, discard and remove the line from the system.
+                if (msg->dirty)
+                {
+                    TraceWrite(msg->address, "Received Evict Request; All tokens; Writing back and clearing line from system");
+                
+                    // Line has been modified, queue the writeback
+                    if (!m_requests.Push(msg))
+                    {
+                        return false;
+                    }
+                }
+                else
+                {
+                    TraceWrite(msg->address, "Received Evict Request; All tokens; Clearing line from system");
+                    COMMIT{ delete msg; }
+                }            
+                COMMIT{ line->state = LINE_EMPTY; }
+            }
+            return true;
         }
-        return true;
+    
+        case Message::UPDATE:
+        case Message::REQUEST_DATA_TOKEN:
+            // Just forward it
+            break;
+                    
+        default:
+            assert(false);
+            break;
+        }
     }
     
-    case Message::UPDATE:
-    case Message::REQUEST_DATA_TOKEN:
-        // Just forward it
-        break;
-                    
-    default:
-        assert(false);
-        break;
-    }
-
     // Forward the request
     if (!SendMessage(msg, MINSPACE_SHORTCUT))
     {
@@ -323,14 +345,16 @@ Result COMA::RootDirectory::DoResponses()
     return SUCCESS;
 }
 
-COMA::RootDirectory::RootDirectory(const std::string& name, COMA& parent, Clock& clock, VirtualMemory& memory, size_t numCaches, const Config& config) :
+COMA::RootDirectory::RootDirectory(const std::string& name, COMA& parent, Clock& clock, VirtualMemory& memory, size_t numCaches, size_t id, size_t numRoots, const Config& config) :
     Simulator::Object(name, parent),
     COMA::Object(name, parent),
-    DirectoryBottom(name, parent, clock),
+    DirectoryBottom(name, parent, clock, config),
     m_lineSize(config.getInteger<size_t>("CacheLineSize",           64)),
-    m_assoc   (config.getInteger<size_t>("COMACacheAssociativity",   4) * numCaches),
-    m_sets    (config.getInteger<size_t>("COMACacheNumSets",       128)),
+    m_assoc   (config.getInteger<size_t>("L2CacheAssociativity",     4) * numCaches),
+    m_sets    (config.getInteger<size_t>("L2CacheNumSets",         128)),
     m_numCaches(numCaches),
+    m_id       (id),
+    m_numRoots (numRoots),
     p_lines    (*this, clock, "p_lines"),    
     m_requests (clock, INFINITE),
     m_responses(clock, INFINITE),
