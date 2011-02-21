@@ -196,8 +196,8 @@ bool Processor::CheckPermissions(MemAddr address, MemSize size, int access) cons
         MemAddr mask = 1ULL << (sizeof(MemAddr) * 8 - (m_bits.pid_bits + m_bits.tid_bits + 1));
         mask -= 1;
 
-        // ignore the lower 63 bytes
-        mask ^= 63;
+        // ignore the lower 1K of TLS heap
+        mask ^= 1023;
 
         if ((address & mask) == 0)
             return true;
