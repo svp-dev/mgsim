@@ -92,9 +92,6 @@ COMMON_SRC = \
 	coma/memorys/RootDirectory.cpp \
 	coma/memorys/DDR.h \
 	coma/memorys/DDR.cpp \
-    coma/memorys/evicteddirlinebuffer.h \
-    coma/memorys/mergestorebuffer.cpp \
-    coma/memorys/mergestorebuffer.h \
 	coma/COMA.h \
 	coma/COMA.cpp \
 	coma/Cache.h \

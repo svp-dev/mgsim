@@ -39,69 +39,45 @@ protected:
     {
         enum Type
         {
-            ACQUIRE_TOKEN,              // AT: acquire token
-            ACQUIRE_TOKEN_DATA,         // AD: acquire token & data
-            DISSEMINATE_TOKEN_DATA,     // DD: disseminate token
+            READ,                       // RR: read request
+            ACQUIRE_TOKENS,             // AT: acquire all tokens (and optionally, data)
+            EVICTION,                   // EV: disseminate token
             LOCALDIR_NOTIFICATION,      // the notification is used for caches to notify local directory the changes in the token status in the cache
         };
 
         /// The actual message contents that's simulated
         struct
         {
-            //
-            // The following fields are never changed after the message is created:
-            //
-            
             Type            type;       // Type of the message
             MemAddr         address;    // Address of the concerned cache-line
             CacheID         source;     // ID of the originating cache
-            size_t          client;     // Sending client (writes)
-            TID             tid;        // Sending thread (writes)
+            bool            dirty;      // Is the data in this message 'dirty'?
             
-            // Number of tokens requested.
-            // Possible values: 0 (non-dirty eviction), 1 (read), TotalTokens (write/dirty eviction)
-            unsigned int tokenrequested;
-
-            //
-            // These fields can change:
-            //
-
-            MemData         data;
+            // Message data and validity bitmask
+            char            data   [MAX_MEMORY_OPERATION_SIZE];
             bool            bitmask[MAX_MEMORY_OPERATION_SIZE];
 
             // To avoid deadlock, messages sometimes have to be routed the long way.
             // This flag, when set, causes all relevant clients to ignore the message in such a case.
             bool ignore;
 
-            std::vector<WriteAck>* msbcopy;
-            
-            // Is the request preprocessed?
-            bool processed;
-
             // Does the request have the priority token?
             bool priority;
 
-            // If set, this request has transient tokens (tokenacquired).
-            // This can only ever be true for requests of type:
-            // * ACQUIRE_TOKEN (which always has tokenrequested == TotalTokens), or
-            // * ACQUIRE_TOKEN_DATA with tokenrequested == TotalTokens
+            // If set, this request has transient tokens.
+            // This can only ever be true for ACQUIRE_TOKENS messages.
+            // If priority is true, transient cannot be.
             bool transient;
 
-            // Is this a merged request (from the MergeStoreBuffer)?
-            bool merged;
-
-            // Number of tokens acquired/held by this request
-            unsigned int tokenacquired;
-
-            // Is this message a reply?
-            bool dataavailable;
+            // Number of tokens held by this request
+            unsigned int tokens;
         };
 
         // transient tokens cannot be grabbed by anybody, but can be transformed into permanent token by priority token
         // permanent tokens can be stored and grabed by the lines.
         unsigned int gettokenpermanent() const
         {
-            return transient ? 0 : tokenacquired;
+            return transient ? 0 : tokens;
         }
 
         /// For memory management
@@ -111,8 +87,7 @@ protected:
         static void * operator new (size_t size);
         static void operator delete (void *p, size_t size);
 
-        Message() { msbcopy = NULL; }
-        ~Message() { delete msbcopy; }
+        Message() {};
     private:
         Message(const Message&) {} // No copying
     };

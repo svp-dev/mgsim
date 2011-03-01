@@ -9,6 +9,12 @@ using namespace std;
 namespace Simulator
 {
 
+template <typename T>
+static bool IsPowerOfTwo(const T& x)
+{
+    return (x & (x - 1)) == 0;
+}
+
 void ZLCOMA::RegisterClient(PSize pid, IMemoryCallback& callback, const Process* processes[])
 {
     // Forward the registration to the cache associated with the processor
@@ -122,9 +128,19 @@ ZLCOMA::ZLCOMA(const std::string& name, Simulator::Object& parent, Clock& clock,
     }
     
     // Create the root directories
-    m_roots.resize(1);
-    m_roots[0] = new RootDirectory("rootdir", *this, clock, *this, m_caches.size(), config);
-    
+    m_roots.resize( std::max<size_t>(1, config.getInteger<size_t>("NumRootDirectories", 1)) );
+    if (!IsPowerOfTwo(m_roots.size()))
+    {
+        throw InvalidArgumentException("NumRootDirectories is not a power of two");
+    }
+
+    for (size_t i = 0; i < m_roots.size(); ++i)
+    {
+        stringstream name;
+        name << "rootdir" << i;
+        m_roots[i] = new RootDirectory(name.str(), *this, clock, *this, m_caches.size(), i, m_roots.size(), config);
+    }
+
     // Initialize the caches
     for (size_t i = 0; i < m_caches.size(); ++i)
     {
@@ -136,24 +152,44 @@ ZLCOMA::ZLCOMA(const std::string& name, Simulator::Object& parent, Clock& clock,
             last  ? dir : static_cast<Node*>(m_caches[i+1]) );
     }
     
-    // Initialize the directories
+    // Connect the directories to the cache rings
     for (size_t i = 0; i < m_directories.size(); ++i)
     {
-        Node* root = m_roots[0];
-        const bool first = (i == 0);
-        const bool last  = (i == m_directories.size() - 1);
-        m_directories[i]->DirectoryTop::Initialize(
-            first ? root : static_cast<DirectoryTop*>(m_directories[i-1]),
-            last  ? root : static_cast<DirectoryTop*>(m_directories[i+1]) );
         m_directories[i]->DirectoryBottom::Initialize(
             m_caches[std::min(i * m_numCachesPerDir + m_numCachesPerDir, m_caches.size()) - 1],
             m_caches[i * m_numCachesPerDir] );
     }
-    
-    // Initialize the root directories
-    m_roots[0]->Initialize(
-        static_cast<DirectoryTop*>(m_directories.back ()),
-        static_cast<DirectoryTop*>(m_directories.front()) );
+
+    //
+    // Figure out the layout of the top-level ring
+    //
+    std::vector<Node*> nodes(m_roots.size() + m_directories.size(), NULL);
+
+    // First place root directories in their place in the ring.
+    for (size_t i = 0; i < m_roots.size(); ++i)
+    {
+        // Do an even (as possible) distribution
+        size_t pos = i * m_directories.size() / m_roots.size() + i;
+
+        // In case we map to an already used spot (for uneven distributions), find the next free spot
+        while (nodes[pos] != NULL) pos = (pos + 1) % nodes.size();
+        nodes[pos] = m_roots[i];
+    }
+
+    // Then fill up the gaps with the directories
+    for (size_t p = 0, i = 0; i < m_directories.size(); ++i, ++p)
+    {
+        while (nodes[p] != NULL) ++p;
+        nodes[p] = static_cast<DirectoryTop*>(m_directories[i]);
+    }
+
+    // Now connect everything on the top-level ring
+    for (size_t i = 0; i < nodes.size(); ++i)
+    {
+        nodes[i]->Initialize(
+            nodes[(i == 0 ? nodes.size() : i) - 1],
+            nodes[(i + 1) % nodes.size()] );
+    }
 }
 
 ZLCOMA::~ZLCOMA()
@@ -252,7 +288,7 @@ void ZLCOMA::Cmd_Line(ostream& out, const vector<string>& arguments) const
         if (line != NULL)
         {
             const char* state = "present";
-            out << (*p)->GetFQN() << ": " << state << ", " << line->tokencount << " tokens" << endl;
+            out << (*p)->GetFQN() << ": " << state << ", " << line->tokens << " tokens" << endl;
             printed = true;
         }
     }

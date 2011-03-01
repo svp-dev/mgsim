@@ -69,7 +69,7 @@ const ZLCOMA::Directory::Line* ZLCOMA::Directory::FindLine(MemAddr address) cons
     return NULL;
 }
 
-ZLCOMA::Directory::Line* ZLCOMA::Directory::GetEmptyLine(MemAddr address)
+ZLCOMA::Directory::Line* ZLCOMA::Directory::AllocateLine(MemAddr address)
 {
     const size_t  set  = (size_t)((address / m_lineSize) % m_sets) * m_assoc;
 
@@ -78,1204 +78,155 @@ ZLCOMA::Directory::Line* ZLCOMA::Directory::GetEmptyLine(MemAddr address)
         Line* line = &m_lines[set + i];
         if (!line->valid)
         {
+            line->tag    = (address / m_lineSize) / m_sets;
+            line->valid  = true;
+            line->tokens = 0;
             return line;
         }
     }
+    assert(false);
     return NULL;
 }
 
 bool ZLCOMA::Directory::OnMessageReceivedBottom(Message* req)
 {
-    switch(req->type)
+    if (!p_lines.Invoke())
     {
-    case Message::ACQUIRE_TOKEN:
-        return OnBELAcquireToken(req);
-        
-    case Message::ACQUIRE_TOKEN_DATA:
-        return OnBELAcquireTokenData(req);
-        
-    case Message::DISSEMINATE_TOKEN_DATA:
-        return OnBELDisseminateTokenData(req);
-        
-    case Message::LOCALDIR_NOTIFICATION:
-        return OnBELDirNotification(req);
-
-    default:
-        // Error
-        abort();
-        break;
-    }
-    return false;
-}
-
-bool ZLCOMA::Directory::OnMessageReceivedTop(Message* req)
-{
-    switch (req->type)
-    {
-    case Message::ACQUIRE_TOKEN:
-        return OnABOAcquireToken(req);
-        
-    case Message::ACQUIRE_TOKEN_DATA:
-        return OnABOAcquireTokenData(req);
-        
-    case Message::DISSEMINATE_TOKEN_DATA:
-        return OnABODisseminateTokenData(req);
-
-    default:
-        // Error
-        abort();
-        break;
-    }
-    return false;
-}
-
-bool ZLCOMA::Directory::OnBELAcquireTokenData(Message* req)
-{
-    // locate certain set
-    Line* line = FindLine(req->address);
-
-    // evicted line buffer
-    bool evictedhit = m_evictedlinebuffer.FindEvictedLine(req->address);
-
-    if (IsBelow(req->source))
-    {
-        if (req->tokenacquired > 0)
-        {
-            assert(line != NULL || evictedhit);
-        }
-        
-        if (line == NULL)
-        {
-            // need to fetch a outside the subring
-
-            // Allocate a space, must succeed
-            line = GetEmptyLine(req->address);
-            assert(line != NULL);
-
-            // update line info
-            line->tag = (req->address / m_lineSize) / m_sets;
-            line->valid = true;
-            line->tokencount = 0;
-            line->ntokenline = 0;
-            line->ntokenrem = 0;
-            line->nrequestin = 0;
-            line->nrequestout = 0;
-            line->priority = false;
-
-            if (evictedhit)
-            {
-                // Merge with the evicted line
-                unsigned int nrequestin = 0, ntokenrem = 0;
-                
-                m_evictedlinebuffer.DumpEvictedLine2Line(req->address, nrequestin, ntokenrem);
-                
-                line->nrequestin += nrequestin;
-                line->ntokenrem  += ntokenrem;
-            }
-
-            // save the request
-            line->nrequestout++;
-            
-            if (!DirectoryTop::SendMessage(req, MINSPACE_FORWARD))
-            {
-                return false;
-            }
-            return true;
-        }
-
-        // make sure that no buffer hit
-        assert(evictedhit == false);
-
-        if (req->tokenrequested < m_numTokens)  // read: RS, SR
-        {
-            assert(req->transient == false);
-            
-            if (line->ntokenline + line->ntokenrem <= 0 || req->processed)
-            {
-                // no token in local level, the line must be acquiring tokens from somewhere else
-
-                // transfer tokens to request, if any.
-                line->nrequestout++;
-                
-                line->ntokenline   -= req->tokenacquired;
-                
-                req->tokenacquired += line->tokencount;
-                req->priority       = req->priority || line->priority;
-
-                line->tokencount  = 0;
-                line->priority    = false;
-
-                // REVISIT
-                if (line->ntokenrem < 0)
-                {
-                    assert(line->ntokenline > 0);
-                    line->ntokenline += line->ntokenrem;
-                    line->ntokenrem = 0;
-                }
-
-                // means that some previous DD has been absorbed by lines,
-                // current states are not so precise, thus reorganize
-                if (line->ntokenline < 0)
-                {
-                    assert(line->ntokenrem > 0);
-                    line->ntokenrem += line->ntokenline;
-                    line->ntokenline = 0;
-                }
-                assert(line->ntokenline >= 0);
-
-                // Do not care when remote request come in, mind only the cases that local to local or local to global
-                if (line->ntokenline == 0 && line->nrequestout == 0)
-                {
-                    // Evict line
-                    assert(line->ntokenrem >= 0);
-                    assert(line->nrequestout == 0);
-
-                    if (line->ntokenrem > 0 || line->nrequestin > 0)
-                    {
-                        // Need to check out and deal with it, REVISIT
-                        // Put the information to the evicted line buffer.
-                        assert(m_evictedlinebuffer.FindEvictedLine(req->address) == false);
-                        m_evictedlinebuffer.AddEvictedLine(req->address, line->nrequestin, line->ntokenrem);
-                    }
-
-                    line->valid = false;
-                }
-
-                // send the request to upper level
-                if (!DirectoryTop::SendMessage(req, MINSPACE_FORWARD))
-                {
-                    return false;
-                }
-            }
-            else
-            {
-                // If there are lines in the same level then let the request stay in the same level
-                
-                // if directory has tokens, hand them over to the reqeust.
-                if (line->tokencount > 0)
-                {
-                    line->ntokenline   += line->tokencount;
-
-                    req->tokenacquired += line->tokencount;
-                    req->priority      = req->priority || line->priority;
-
-                    line->tokencount    = 0;
-                    line->priority      = false;
-
-                    // REVISIT
-                    if (line->ntokenrem < 0)
-                    {
-                        assert(line->ntokenline > 0);
-                        line->ntokenline += line->ntokenrem;
-                        line->ntokenrem = 0;
-                    }
-
-                    // means that some previous DD has been absorbed by lines,
-                    // current states are not so precise, thus reorganize
-                    if (line->ntokenline < 0)
-                    {
-                        assert(line->ntokenrem > 0);
-
-                        line->ntokenrem += line->ntokenline;
-                        line->ntokenline = 0;
-                    }
-                    assert(line->ntokenline >= 0);
-
-                    if (line->ntokenline == 0 && line->nrequestout == 0)
-                    {
-                        // Evict line
-                        assert(line->ntokenrem >= 0);
-                        assert(line->nrequestout == 0);
-
-                        if (line->ntokenrem > 0 || line->nrequestin > 0)
-                        {
-                            // need to check out and deal with it, REVISIT
-                            // Put the information in the evicted line buffer.
-                            assert(m_evictedlinebuffer.FindEvictedLine(req->address) == false);
-                            m_evictedlinebuffer.AddEvictedLine(req->address, line->nrequestin, line->ntokenrem);
-                        }
-
-                        line->valid = false;
-                    }
-                }
-
-                // save the reqeust 
-                if (!DirectoryBottom::SendMessage(req, MINSPACE_FORWARD))
-                {
-                    return false;
-                }
-            }
-        }
-        // RE, ER
-        else if (line->tokencount + line->ntokenline + line->ntokenrem != m_numTokens || line->nrequestin != 0 || line->nrequestout != 0)
-        {
-            // need to go out the local level
-
-            // Update request and line
-            line->nrequestout++;
-
-            if (req->transient && line->priority)
-            {
-                req->transient = false;
-                req->priority  = true;
-                line->priority  = false;
-            }
-            
-            int newlinetokenline = line->ntokenline - (req->transient ? 0 : req->tokenacquired);
-
-            req->tokenacquired += line->tokencount;
-            req->priority      = req->priority || line->priority;
-
-            line->tokencount    = 0;
-            line->ntokenline    = newlinetokenline;
-            line->priority      = false;
-
-            // REVISIT
-            if (line->ntokenrem < 0)
-            {
-                assert(line->ntokenline > 0);
-                line->ntokenline += line->ntokenrem;
-                line->ntokenrem = 0;
-            }
-
-            // means that some previous DD has been absorbed by lines,
-            // current states are not so precise, thus reorganize
-            if (line->ntokenline < 0)
-            {
-                assert(line->ntokenrem > 0);
-
-                line->ntokenrem += line->ntokenline;
-                line->ntokenline = 0;
-            }
-            assert(line->ntokenline >= 0);
-
-            if (line->ntokenline == 0 && line->nrequestout == 0)
-            {
-                // Evict line
-                assert(line->ntokenrem >= 0);
-                assert(line->nrequestout == 0);
-                
-                if (line->ntokenrem > 0 || line->nrequestin > 0)
-                {
-                    // need to check out and deal with it, REVISIT
-
-                    // Put the information in the evicted line buffer
-                    assert(m_evictedlinebuffer.FindEvictedLine(req->address) == false);
-                    m_evictedlinebuffer.AddEvictedLine(req->address, line->nrequestin, line->ntokenrem);
-                }
-
-                line->valid = false;
-            }
-
-            if (!DirectoryTop::SendMessage(req, MINSPACE_FORWARD))
-            {
-                return false;
-            }
-        }
-        else
-        {
-            // All tokens are in local level; not necessary to go outside.
-            
-            // Make sure at least some cache has the data.
-            assert(line->ntokenline + line->ntokenrem > 0);
-
-            req->tokenacquired += line->tokencount;
-            req->priority      = req->priority || line->priority;
-            
-            if (!req->transient)
-            {
-                line->ntokenline += line->tokencount;
-                line->tokencount  = 0;
-            }
-            line->priority = false;
-
-            // REVISIT
-            if (line->ntokenrem < 0)
-            {
-                assert(line->ntokenline > 0);
-                line->ntokenline += line->ntokenrem;
-                line->ntokenrem = 0;
-            }
-
-            // means that some previous DD has been absorbed by lines,
-            // current states are not so precise, thus reorganize
-            if (line->ntokenline < 0)
-            {
-                assert(line->ntokenrem > 0);
-
-                line->ntokenrem += line->ntokenline;
-                line->ntokenline = 0;
-            }
-            assert(line->ntokenline >= 0);
-
-            if (line->ntokenline == 0 && line->nrequestout == 0)
-            {
-                // Evict line
-                assert(line->ntokenrem >= 0);
-                assert(line->nrequestout == 0);
-                
-                if (line->ntokenrem > 0 || line->nrequestin > 0)
-                {
-                    // need to check out and deal with it, REVISIT
-
-                    // Put the information in the evicted line buffer
-                    assert(m_evictedlinebuffer.FindEvictedLine(req->address) == false);
-                    m_evictedlinebuffer.AddEvictedLine(req->address, line->nrequestin, line->ntokenrem);
-                }
-
-                line->valid = false;
-            }
-
-            if (!DirectoryBottom::SendMessage(req, MINSPACE_FORWARD))
-            {
-                return false;
-            }
-        }
-    }
-    else if (line == NULL)
-    {
-        // Probably there should be remote request inside local level in this case
-        assert(evictedhit);
-        m_evictedlinebuffer.UpdateEvictedLine(req->address, false, req->gettokenpermanent());
-
-        // Send the request to the upper level
-        if (!DirectoryTop::SendMessage(req, MINSPACE_FORWARD))
-        {
-            return false;
-        }
-    }
-    else
-    {
-        assert(evictedhit == false);
-
-        // get token from the directory if any        
-        line->nrequestin--;
-
-        // Send the request to upper level
-        if (!req->transient)
-        {
-            int newlinetokenline = line->ntokenline - req->tokenacquired;
-
-            req->tokenacquired += line->tokencount;
-            req->priority      = req->priority || line->priority;
-
-            line->tokencount = 0;
-            line->ntokenline = newlinetokenline;
-            line->priority = false;
-        }
-
-        // REVISIT
-        if (line->ntokenrem < 0)
-        {
-            assert(line->ntokenline > 0);
-            line->ntokenline += line->ntokenrem;
-            line->ntokenrem = 0;
-        }
-
-        // means that some previous DD has been absorbed by lines,
-        // current states are not so precise, thus reorganize
-        if (line->ntokenline < 0)
-        {
-            assert(line->ntokenrem > 0);
-
-            line->ntokenrem += line->ntokenline;
-            line->ntokenline = 0;
-        }
-        assert(line->ntokenline >= 0);
-
-        if (line->ntokenline == 0 && line->nrequestout == 0)
-        {
-            // Evict line
-            assert(line->ntokenrem >= 0);
-            assert(line->nrequestout == 0);
-            
-            if (line->ntokenrem > 0 || line->nrequestin > 0)
-            {
-                assert(m_evictedlinebuffer.FindEvictedLine(req->address) == false);
-                m_evictedlinebuffer.AddEvictedLine(req->address, line->nrequestin, line->ntokenrem);
-            }
-
-            line->valid = false;
-        }
-
-        // remote request is going out anyway
-        if (!DirectoryTop::SendMessage(req, MINSPACE_FORWARD))
-        {
-            return false;
-        }
-    }
-    return true;
-}
-
-
-bool ZLCOMA::Directory::OnBELAcquireToken(Message* req)
-{
-    assert(req->tokenrequested == m_numTokens);
-
-    Line* line = FindLine(req->address);
-
-    bool evictedhit = m_evictedlinebuffer.FindEvictedLine(req->address);
-
-    if (IsBelow(req->source))
-    {
-        if (line == NULL)
-        {
-            assert(req->tokenacquired == 0);
-            // need to fetch a outside the subring
-
-            // Allocate a space, must succeed
-            line = GetEmptyLine(req->address);
-            assert(line != NULL);
-
-            // update line info
-            line->tag = (req->address / m_lineSize) / m_sets;
-            line->valid = true;
-            line->tokencount = 0;
-            line->ntokenline = 0;
-            line->ntokenrem = 0;
-            line->nrequestin = 0;
-            line->nrequestout = 0;
-            line->priority = false;
-
-            if (evictedhit)
-            {
-                unsigned int nrequestin = 0, ntokenrem = 0;
-                
-                m_evictedlinebuffer.DumpEvictedLine2Line(req->address, nrequestin, ntokenrem);
-                
-                line->nrequestin += nrequestin;
-                line->ntokenrem += ntokenrem;
-            }
-
-            // save the request
-            if (!DirectoryTop::SendMessage(req, MINSPACE_FORWARD))
-            {
-                return false;
-            }
-
-            line->nrequestout++;
-        }
-        else
-        {
-            assert(evictedhit == false);
-            assert(req->tokenacquired > 0);
-
-            // request is IV
-            if (line->tokencount + line->ntokenline + line->ntokenrem != m_numTokens || line->nrequestin != 0 || line->nrequestout != 0)
-            {
-                // need to go out the local level
-
-                // Update request and line
-                line->nrequestout++;
-                if (req->transient && line->priority)
-                {
-                    req->transient = false;
-                    req->priority  = true;
-                    line->priority  = false;
-                }
-                int newlinetokenline = line->ntokenline - req->gettokenpermanent();
-
-                req->tokenacquired += line->tokencount;
-                req->priority      = req->priority || line->priority;
-
-                line->tokencount    = 0;
-                line->ntokenline    = newlinetokenline;
-                line->priority      = false;
-
-                // REVISIT
-                if (line->ntokenrem < 0)
-                {
-                    assert(line->ntokenline > 0);
-                    line->ntokenline += line->ntokenrem;
-                    line->ntokenrem = 0;
-                }
-
-                // means that some previous DD has been absorbed by lines,
-                // current states are not so precise, thus reorganize
-                if (line->ntokenline < 0)
-                {
-                    assert(line->ntokenrem > 0);
-
-                    line->ntokenrem += line->ntokenline;
-                    line->ntokenline = 0;
-                }
-                assert(line->ntokenline >= 0);
-
-                if (line->ntokenline == 0 && line->nrequestout == 0)
-                {
-                    if (line->ntokenrem > 0 || line->nrequestin > 0)
-                    {
-                        // need to check out and deal with it, REVISIT
-                        assert(line->nrequestout == 0);
-
-                        // evict the line, and put the info in evicted line buffer in advance
-                        // add the information to the evicted line buffer
-                        bool evictedhit = m_evictedlinebuffer.FindEvictedLine(req->address);
-                        assert(evictedhit == false);
-                        m_evictedlinebuffer.AddEvictedLine(req->address, line->nrequestin, line->ntokenrem);
-                    }
-                    else
-                    {
-                        assert(line->ntokenrem >= 0);
-                        assert(line->nrequestout == 0);
-                    }
-
-                    // evict line
-                    line->valid = false;
-                }
-
-                if (!DirectoryTop::SendMessage(req, MINSPACE_FORWARD))
-                {
-                    return false;
-                }
-            }
-            else // all tokens are in local level
-            {
-                //no necessary to go outside
-
-                // make sure at least some cache has the data
-                assert(line->ntokenline + line->ntokenrem > 0);
-
-                // Update request and line
-                req->tokenacquired += line->tokencount;
-                req->priority      = req->priority || line->priority;
-                    
-                if (!req->transient)
-                {
-                    line->ntokenline += line->tokencount;                    
-                    line->tokencount  = 0;
-                }
-                line->priority = false;
-
-                // REVISIT
-                if (line->ntokenrem < 0)
-                {
-                    assert(line->ntokenline > 0);
-                    line->ntokenline += line->ntokenrem;
-                    line->ntokenrem = 0;
-                }
-
-                // means that some previous DD has been absorbed by lines,
-                // current states are not so precise, thus reorganize
-                if (line->ntokenline < 0)
-                {
-                    assert(line->ntokenrem > 0);
-
-                    line->ntokenrem += line->ntokenline;
-                    line->ntokenline = 0;
-                }
-                assert(line->ntokenline >= 0);
-
-                if (line->ntokenline == 0 && line->nrequestout == 0)
-                {
-                    // Evict line
-                    assert(line->ntokenrem >= 0);
-                    assert(line->nrequestout == 0);
-                    
-                    if (line->ntokenrem > 0 || line->nrequestin > 0)
-                    {
-                        // need to check out and deal with it, REVISIT
-
-                        // Put the information in the evicted line buffer
-                        assert(m_evictedlinebuffer.FindEvictedLine(req->address) == false);
-                        m_evictedlinebuffer.AddEvictedLine(req->address, line->nrequestin, line->ntokenrem);
-                    }
-
-                    line->valid = false;
-                }
-
-                if (!DirectoryBottom::SendMessage(req, MINSPACE_FORWARD))
-                {
-                    return false;
-                }
-            }
-        }
-    }
-    else
-    {
-        if (line == NULL)
-        {
-            // prepare the request to send to upper level
-
-            // just go out
-            if (!DirectoryTop::SendMessage(req, MINSPACE_FORWARD))
-            {
-                return false;
-            }
-
-            assert (evictedhit);
-	        m_evictedlinebuffer.UpdateEvictedLine(req->address, false, req->gettokenpermanent());
-        }
-        else
-        {
-            assert(evictedhit == false);
-
-            // get token from the directory if any        
-            line->nrequestin--;
-
-            // Send the request to upper level
-            if (!req->transient)
-            {
-                int newlinetokenline = line->ntokenline - req->tokenacquired;
-
-                req->tokenacquired += line->tokencount;
-                req->priority      = req->priority || line->priority;
-
-                line->tokencount = 0;
-                line->ntokenline = newlinetokenline;
-                line->priority = false;
-            }
-
-            // REVISIT
-            if (line->ntokenrem < 0)
-            {
-                assert(line->ntokenline > 0);
-                line->ntokenline += line->ntokenrem;
-                line->ntokenrem = 0;
-            }
-
-            // means that some previous DD has been absorbed by lines,
-            // current states are not so precise, thus reorganize
-            if (line->ntokenline < 0)
-            {
-                assert(line->ntokenrem > 0);
-
-                line->ntokenrem += line->ntokenline;
-                line->ntokenline = 0;
-            }
-            assert(line->ntokenline >= 0);
-
-            if (line->ntokenline == 0 && line->nrequestout == 0)
-            {
-                // Evict line
-                assert(line->ntokenrem >= 0);
-                assert(line->nrequestout == 0);
-                
-                if (line->ntokenrem > 0 || line->nrequestin > 0)
-                {
-                    // need to check out and deal with it, REVISIT
-                    assert(m_evictedlinebuffer.FindEvictedLine(req->address) == false);
-                    m_evictedlinebuffer.AddEvictedLine(req->address, line->nrequestin, line->ntokenrem);
-                }
-
-                line->valid = false;
-            }
-
-            // remote request is going out anyway
-            if (!DirectoryTop::SendMessage(req, MINSPACE_FORWARD))
-            {
-                return false;
-            }
-        }
-    }
-    return true;
-}
-
-bool ZLCOMA::Directory::OnBELDisseminateTokenData(Message* req)
-{
-    assert(req->tokenacquired > 0);     // Should have tokens
-    assert(req->transient == false);    // EV/WB can never have transient tokens
-
-    // EV request will always terminate at directory
-
-    bool evictedhit = m_evictedlinebuffer.FindEvictedLine(req->address);
-
-    Line* line = FindLine(req->address);
-    if (line == NULL)
-    {
-        // We don't have the line, it must have been evicted.
-        assert(evictedhit);
-        m_evictedlinebuffer.UpdateEvictedLine(req->address, false, req->tokenacquired, true);
-        if (!DirectoryTop::SendMessage(req, MINSPACE_FORWARD))
-        {
-            return false;
-        }
-        return true;
-    }
-    assert(!evictedhit);
-
-    if (IsBelow(req->source))
-    {
-        // issue: the eviction request might go around the local network, in turn change the request sequence.
-        // this might generate leave the root directory without sufficient space
-        // solution: stack the request tokens on the directory line 
-        // if there are request in or out, then go global, since stacking the token might lost data
-        // if nothing in or out, and there are tokens locally, then stack them on the line
-        // if all the tokens are stacked on the line, then request will be delievered to outside 
-        // otherwise deleted
-        // NOT IMPLEMENTED YET
-        //
-        // Possible issue: sacrifice locality. for example, if locally another line is request, while all the
-        // tokens are evicted to outside. without evicted to the same level and informing the request line,
-        // locality might be suffered. JXXX, REVISIT
-        //
-        // possibly, deal with rquest out differently as well, REVISIT JXXX
-        if (line->nrequestin == 0 && line->nrequestout == 0 && (int)req->tokenacquired < line->ntokenline)
-        {
-            if (req->tokenrequested == 0)   // EV
-            {
-                // just stack, no ripping
-                line->ntokenline -= req->tokenacquired;
-                line->tokencount += req->tokenacquired;
-                line->priority    = line->priority || req->priority;
-                delete req;
-                return true;
-            }
-
-            // WB
-            assert(req->tokenrequested == m_numTokens);
-        }
-    }
-    
-    line->ntokenline   -= req->tokenacquired;
-    req->tokenacquired += line->tokencount;
-    req->priority       = req->priority || line->priority;
-    line->tokencount    = 0;
-    line->priority      = false;
- 
-    if (!DirectoryTop::SendMessage(req, MINSPACE_FORWARD))
-    {
+        DeadlockWrite("Unable to get access to lines");
         return false;
     }
 
-    // REVISIT
-    if (line->ntokenrem < 0)
+    if (!req->ignore)
     {
-        assert(line->ntokenline > 0);
-        line->ntokenline += line->ntokenrem;
-        line->ntokenrem = 0;
-    }
+        Line* line = FindLine(req->address);
+        switch(req->type)
+        {
+        case Message::READ:
+            assert(req->transient == false);
+            break;
 
-    // means that some previous DD has been absorbed by lines,
-    // current states are not so precise, thus reorganize
-    if (line->ntokenline < 0)
-    {
-        assert(line->ntokenrem > 0);
-
-        line->ntokenrem += line->ntokenline;
-        line->ntokenline = 0;
-    }
-    assert(line->ntokenline >= 0);
-
-    if (line->ntokenline == 0 && line->nrequestout == 0)
-    {
-        // Evict line
-        assert(line->ntokenrem >= 0);
-        assert(line->nrequestout == 0);
+        case Message::ACQUIRE_TOKENS:
+            break;        
         
-        if (line->ntokenrem > 0 || line->nrequestin > 0)
-        {
-            // need to check out and deal with it, REVISIT
-            m_evictedlinebuffer.AddEvictedLine(req->address, line->nrequestin, line->ntokenrem);
-        }
+        case Message::EVICTION:
+            assert(req->tokens > 0);            // Should have tokens
+            assert(req->transient == false);    // Evictions never have transient tokens
+            assert(IsBelow(req->source));       // Evictions never go down into a group
+            break;
+        
+        case Message::LOCALDIR_NOTIFICATION:
+            // Transient tokens have been made permanent in this group
+            assert(line != NULL);
 
-        line->valid = false;
-    }
-    return true;
-}
-
-bool ZLCOMA::Directory::OnBELDirNotification(Message* req)
-{
-    // We should have this line
-    Line* line = FindLine(req->address);
-    assert(line != NULL);
-    
-    // Add the tokens
-    line->ntokenline += req->tokenacquired;
-
-    // Terminate the request
-    delete req;
-    return true;
-}
-
-bool ZLCOMA::Directory::OnABOAcquireTokenData(Message* req)
-{
-    Line* line = FindLine(req->address);
-
-    bool evictedhit = m_evictedlinebuffer.FindEvictedLine(req->address);
-
-    if (IsBelow(req->source))
-    {
-        assert (line != NULL);
-
-        // Update the dir
-        line->nrequestout--;
-
-        // Send the request to local
-        if (!req->transient)
-        {
-            int newlinetokenline = line->ntokenline + req->tokenacquired;
-
-            req->tokenacquired += line->tokencount;
-            req->priority      = req->priority || line->priority;
-
-            line->ntokenline    = newlinetokenline;
-        }
-        else
-        {
-            if (line->priority)
+            // Add the tokens and terminate request
+            COMMIT
             {
-                req->transient = false;
-                req->priority  = true;
-                line->priority  = false;
-                
-                line->ntokenline += req->tokenacquired;
+                line->tokens += req->tokens;
+                delete req;
             }
+            return true;
 
-            req->tokenacquired += line->tokencount;
-            req->priority       = req->priority || line->priority;
+        default:
+            assert(false);
+            break;
         }
-
-        line->priority = false;
-        line->tokencount = 0;
-
-        // REVISIT
-        if (line->ntokenrem < 0)
+    
+        if (req->tokens > 0 && !req->transient)
         {
-            assert(line->ntokenline > 0);
-            line->ntokenline += line->ntokenrem;
-            line->ntokenrem = 0;
-        }
-
-        // means that some previous DD has been absorbed by lines,
-        // current states are not so precise, thus reorganize
-        if (line->ntokenline < 0)
-        {
-            assert(line->ntokenrem > 0);
-
-            line->ntokenrem += line->ntokenline;
-            line->ntokenline = 0;
-        }
-        assert(line->ntokenline >= 0);
-
-        if (line->nrequestin == 0 && line->nrequestout == 0 && line->tokencount == 0 && line->ntokenline  == 0 && line->ntokenrem == 0)
-        {
-            line->valid = false;
-        }
-
-        // always go local
-        if (!DirectoryBottom::SendMessage(req, MINSPACE_FORWARD))
-        {
-            return false;
+            // If we're losing tokens, we should have the line
+            assert(line != NULL);
+    
+            // There's tokens leaving the group
+            COMMIT
+            {
+                line->tokens -= req->tokens;
+                if (line->tokens == 0)
+                {
+                    // Clear line
+                    line->valid = false;
+                }
+            }
         }
     }
-    // remote request
-    // somehting inside lower level, just always get in
-    else if (evictedhit)
+            
+    // We can stop ignoring it now
+    COMMIT{ req->ignore = false; }
+    
+    // Forward request onto upper ring
+    if (!DirectoryTop::SendMessage(req, MINSPACE_FORWARD))
     {
-        // get in lower level, but update the evicted buffer
-        m_evictedlinebuffer.UpdateEvictedLine(req->address, true, req->gettokenpermanent());
-
-        // get in lower level
-        if (!DirectoryBottom::SendMessage(req, MINSPACE_FORWARD))
-        {
-            return false;
-        }
-    }
-    // as long as the line exist, the requet, no matter RS or RE, has to get in
-    else if (line == NULL)
-    {
-        // This line is not below this directory; forward request onto upper ring
-        if (!DirectoryTop::SendMessage(req, MINSPACE_FORWARD))
-        {
-            return false;
-        }
-    }
-    else
-    {
-        line->nrequestin++;
-
-        if (req->transient && line->priority)
-        {
-            line->priority = false;
-            req->transient = false;
-            req->priority = true;
-        }
-
-        if (!req->transient)
-        {
-            req->tokenacquired += line->tokencount;
-            line->tokencount    = 0;
-            line->ntokenrem    += req->tokenacquired;
-        }
-
-        req->priority = req->priority || line->priority;
-        line->priority = false;
-
-        // REVISIT
-        if (line->ntokenrem < 0)
-        {
-            assert(line->ntokenline > 0);
-            line->ntokenline += line->ntokenrem;
-            line->ntokenrem = 0;
-        }
-
-        // means that some previous DD has been absorbed by lines,
-        // current states are not so precise, thus reorganize
-        if (line->ntokenline < 0)
-        {
-            assert(line->ntokenrem > 0);
-
-            line->ntokenrem += line->ntokenline;
-            line->ntokenline = 0;
-        }
-        assert(line->ntokenline >= 0);
-
-        if (line->nrequestin == 0 && line->nrequestout == 0 && line->tokencount == 0 && line->ntokenline == 0 && line->ntokenrem == 0)
-        {
-            line->valid = false;
-        }
-
-        // get in lower level
-        if (!DirectoryBottom::SendMessage(req, MINSPACE_FORWARD))
-        {
-            return false;
-        }
+        DeadlockWrite("Unable to buffer request for next node on top ring");
+        return false;
     }
     return true;
 }
 
-bool ZLCOMA::Directory::OnABOAcquireToken(Message* req)
+
+bool ZLCOMA::Directory::OnMessageReceivedTop(Message* req)
 {
-    Line* line = FindLine(req->address);
+    if (!p_lines.Invoke())
+    {
+        DeadlockWrite("Unable to get access to lines");
+        return false;
+    }
 
-    // evicted line buffer
-    bool evictedhit = m_evictedlinebuffer.FindEvictedLine(req->address);
+    Line* line = NULL;
+    switch (req->type)
+    {
+    case Message::READ:
+        assert(req->transient == false);
+        line = FindLine(req->address);
+        if (IsBelow(req->source) && line == NULL)
+        {
+            line = AllocateLine(req->address);
+        }    
+        break;
 
-    if (IsBelow(req->source))
+    case Message::ACQUIRE_TOKENS:
+        line = FindLine(req->address);
+        if (IsBelow(req->source) && line == NULL)
+        {
+            line = AllocateLine(req->address);
+        }   
+        break;
+        
+    case Message::EVICTION:
+        assert(req->tokens > 0);
+        assert(req->transient == false);
+        // Evictions are always forwarded
+        break;
+
+    default:
+        assert(false);
+        break;
+    }
+
+    if (IsBelow(req->source) && !req->transient)
     {
         assert(line != NULL);
-
-        // Update the dir
-        line->nrequestout--;
-
-        // Send the request to local
-        if (req->transient)
-        {
-            if (line->priority) {
-                req->transient = false;
-                req->priority  = true;
-                line->priority = false;
-            } else {
-                line->ntokenline += req->tokenacquired;
-            }
-        }
-
-        req->priority       = req->priority || line->priority;        
-        req->tokenacquired += line->tokencount;
-
-        line->priority   = false;
-        line->tokencount = 0;
-
-        // REVISIT
-        if (line->ntokenrem < 0)
-        {
-            assert(line->ntokenline > 0);
-            line->ntokenline += line->ntokenrem;
-            line->ntokenrem = 0;
-        }
-
-        // means that some previous DD has been absorbed by lines,
-        // current states are not so precise, thus reorganize
-        if (line->ntokenline < 0)
-        {
-            assert(line->ntokenrem > 0);
-
-            line->ntokenrem += line->ntokenline;
-            line->ntokenline = 0;
-        }
-        assert(line->ntokenline >= 0);
-
-        if (line->nrequestin == 0 && line->nrequestout == 0 && line->tokencount == 0 && line->ntokenline  == 0 && line->ntokenrem == 0)
-        {
-            line->valid = false;
-        }
-
-        // always go local
-        if (!DirectoryBottom::SendMessage(req, MINSPACE_FORWARD))
-        {
-            return false;
-        }
+        COMMIT{ line->tokens += req->tokens; }
     }
-    // remote request
-    else if (evictedhit)
+    
+    if (line == NULL)
     {
-        // Update the evicted buffer
-        m_evictedlinebuffer.UpdateEvictedLine(req->address, true, req->gettokenpermanent());
-
-        // Put request on lower ring
-        if (!DirectoryBottom::SendMessage(req, MINSPACE_FORWARD))
+        // Forward request onto upper ring
+        if (!DirectoryTop::SendMessage(req, MINSPACE_SHORTCUT))
         {
-            return false;
-        }
-    }
-    else if (line == NULL)
-    {
-        // The line does not exist below this directory; forward message on upper ring
-        if (!DirectoryTop::SendMessage(req, MINSPACE_FORWARD))
-        {
-            return false;
-        }
-    }
-    else    // somehting inside lower level, just always get in
-    {
-        line->nrequestin++;
-
-        if (req->transient && line->priority)
-        {
-            line->priority = false;
-            req->transient = false;
-            req->priority = true;
-        }
-
-        if (!req->transient)
-        {
-            req->tokenacquired += line->tokencount;
-            line->ntokenrem    += req->tokenacquired;
-            line->tokencount    = 0;
-        }
-        
-        req->priority = req->priority || line->priority;
-
-        line->priority = false;
-
-        // REVISIT
-        if (line->ntokenrem < 0)
-        {
-            assert(line->ntokenline > 0);
-            line->ntokenline += line->ntokenrem;
-            line->ntokenrem = 0;
-        }
-
-        // means that some previous DD has been absorbed by lines,
-        // current states are not so precise, thus reorganize
-        if (line->ntokenline < 0)
-        {
-            assert(line->ntokenrem > 0);
-
-            line->ntokenrem += line->ntokenline;
-            line->ntokenline = 0;
-        }
-        assert(line->ntokenline >= 0);
-
-        if (line->nrequestin == 0 && line->nrequestout == 0 && line->tokencount == 0 && line->ntokenline  == 0 && line->ntokenrem == 0)
-        {
-            line->valid = false;
-        }
-
-        // Put message on lower ring
-        if (!DirectoryBottom::SendMessage(req, MINSPACE_FORWARD))
-        {
-            return false;
-        }
-    }
-    return true;
-}
-
-bool ZLCOMA::Directory::OnABODisseminateTokenData(Message* req)
-{
-    // EV request will always terminate at directory
-    assert(req->tokenacquired > 0);
-    assert(req->transient == false);
-
-    Line* line = FindLine(req->address);
-
-    // evicted line buffer
-    unsigned int requestin = 0;
-    unsigned int tokenrem;
-    bool evictedhit = m_evictedlinebuffer.FindEvictedLine(req->address, requestin, tokenrem);
-
-    // does not matter whether the request is from local level or not
-
-    // issue: disseminated token if send to lower level, 
-    // the replaced request from the evicted line can bypass the evicted token, 
-    // which lead to insufficient lines in root directory
-    // solution & analysis:
-    // if tokens available in the lowerlevel, and they are not evicted to upper level yet, it's safe
-    // if tokens not avaialbe, then skip the group and move to next group
-    // if tokens are avaialbe, there are request in or out, then go in, it's safe
-    // if tokens are avaible in evicted buffer, if there are request in, then get in, otherwise, skip to next group
-    // if tokens are available in the line, there are no request in or out, then the line can be there or evicted. and lines should be or ever be in normal state. thus, leave the tokens and priority flag and other stuff directly in the directory is fine. in this case, the request should be terminated here.
-
-    if (evictedhit) // REVIST, JXXX, this may not be necessary
-    {
-        if (requestin == 0)
-        {
-            // skip the local group to next group
-            if (!DirectoryTop::SendMessage(req, MINSPACE_FORWARD))
-            {
-                return false;
-            }
-        }
-        else
-        {
-            // get in lower level, but update the evicted buffer
-            m_evictedlinebuffer.UpdateEvictedLine(req->address, true, req->tokenacquired, true);
-
-            // lower level
+            COMMIT{ req->ignore = true; }
             if (!DirectoryBottom::SendMessage(req, MINSPACE_FORWARD))
             {
+                DeadlockWrite("Unable to buffer request for next node on top ring");
                 return false;
             }
-        }
-    }
-    else if (line == NULL)
-    {
-        // skip the local level and pass it on
-        if (!DirectoryTop::SendMessage(req, MINSPACE_FORWARD))
-        {
-            return false;
-        }
-    }
-    else if (line->nrequestin != 0 || line->nrequestout != 0)
-    {
-        // lower level
-        if (!DirectoryBottom::SendMessage(req, MINSPACE_FORWARD))
-        {
-            return false;
-        }
-
-        req->tokenacquired += line->tokencount;
-        line->tokencount    = 0;
-        line->ntokenrem    += req->tokenacquired;
-        req->priority       = req->priority || line->priority;
-        line->priority      = false;
-
-        // REVISIT
-        if (line->ntokenrem < 0)
-        {
-            assert(line->ntokenline > 0);
-            line->ntokenline += line->ntokenrem;
-            line->ntokenrem = 0;
-        }
-
-        // means that some previous DD has been absorbed by lines,
-        // current states are not so precise, thus reorganize
-        if (line->ntokenline < 0)
-        {
-            assert(line->ntokenrem > 0);
-
-            line->ntokenrem += line->ntokenline;
-            line->ntokenline = 0;
-        }
-        assert(line->ntokenline >= 0);
-
-        if (line->nrequestin == 0 && line->nrequestout == 0 && line->tokencount == 0 && line->ntokenline  == 0 && line->ntokenrem == 0)
-        {
-            line->valid = false;
         }
     }
     else
     {
-        assert(line->ntokenline + line->ntokenrem > 0);
-        // leave the tokens on the line. without getting in or send to the next node
-
-        // notgoing anywhere, just terminate the request
-        assert(req->tokenacquired < m_numTokens);
-        line->tokencount += req->tokenacquired;
-        line->priority = line->priority || req->priority;
-
-        delete req;
+        if (!DirectoryBottom::SendMessage(req, MINSPACE_FORWARD))
+        {
+            DeadlockWrite("Unable to buffer request for next node on bottom ring");
+            return false;
+        }
     }
     return true;
 }
@@ -1400,7 +351,7 @@ void ZLCOMA::Directory::Cmd_Read(std::ostream& out, const std::vector<std::strin
             const Line& line = m_lines[index + j];
             if (line.valid) {
                 out << hex << "0x" << setw(16) << setfill('0') << (line.tag * m_sets + set) * m_lineSize << " | "
-                    << dec << setfill(' ') << setw(6) << line.tokencount;
+                    << dec << setfill(' ') << setw(6) << 0;//line.tokens;
             } else {
                 out << "                   |       ";
             }

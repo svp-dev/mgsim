@@ -56,37 +56,20 @@ namespace Simulator
 
 /*static*/ void ZLCOMA::Node::PrintMessage(std::ostream& out, const Message& msg)
 {
-    /*switch (msg.type)
-    {
-    case Message::REQUEST:            out << "| Read Request        "; break;
-    case Message::REQUEST_DATA:       out << "| Read Request (Data) "; break;
-    case Message::REQUEST_DATA_TOKEN: out << "| Read Response       "; break;
-    case Message::EVICTION:           out << "| Eviction            "; break;
-    case Message::UPDATE:             out << "| Update              "; break;
-    }
-    
-    out << " | "
-        << "0x" << hex << setfill('0') << setw(16) << msg.address << " | "
-        << dec << setfill(' ') << right
-        << setw(6);
-    
     switch (msg.type)
     {
-    case Message::EVICTION:
-    case Message::REQUEST_DATA_TOKEN:
-        out << msg.tokens;
-        break;
-        
-    case Message::REQUEST:
-    case Message::REQUEST_DATA:
-    case Message::UPDATE:
-        out << ""; 
-        break;        
+    case Message::READ:                   out << "| Read Request        "; break;
+    case Message::ACQUIRE_TOKENS:         out << "| Acquire Tokens      "; break;
+    case Message::EVICTION:               out << "| Eviction            "; break;
+    case Message::LOCALDIR_NOTIFICATION:  out << "| Local Dir. Notify   "; break;
     }
     
     out << " | "
-        << setw(6) << msg.sender << " | "
-        << endl;*/
+        << "0x"  << hex << setfill('0') << setw(16) << msg.address << " | "
+        << right << dec << setfill(' ') << setw( 5) << msg.tokens
+        << (msg.priority ? "P" : " ") << " | "
+        << setw(6) << msg.source << " | "
+        << endl;
 }
 
 void ZLCOMA::Node::Print(std::ostream& out) const

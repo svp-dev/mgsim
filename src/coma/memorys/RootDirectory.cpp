@@ -67,12 +67,13 @@ bool ZLCOMA::RootDirectory::OnReadCompleted(MemAddr address, const MemData& data
 {
     assert(m_activeMsg != NULL);
     assert(m_activeMsg->address == address);
-    assert(m_activeMsg->type == Message::ACQUIRE_TOKEN_DATA);
+    assert(m_activeMsg->type == Message::READ);
 
+    // Attach data to message, give all tokens and send
     COMMIT
     {
-        m_activeMsg->type = Message::ACQUIRE_TOKEN_DATA;
-        m_activeMsg->data = data;
+        std::copy(data.data, data.data + MAX_MEMORY_OPERATION_SIZE, m_activeMsg->data);
+        std::fill(m_activeMsg->bitmask, m_activeMsg->bitmask + MAX_MEMORY_OPERATION_SIZE, true);
     }
 
     if (!m_responses.Push(m_activeMsg))
@@ -95,159 +96,207 @@ bool ZLCOMA::RootDirectory::OnMessageReceived(Message* req)
 {
     assert(req != NULL);
 
-    if (!p_lines.Invoke())
+    if (((req->address / m_lineSize) % m_numRoots) == m_id)
     {
-        return false;
-    }
-
-    // Find the line for the request
-    Line* line = FindLine(req->address);
-    
-    switch (req->type)
-    {
-    case Message::ACQUIRE_TOKEN_DATA:
-        // Request for tokens and data
-        if (line == NULL)
+        // This message is for us
+        if (!p_lines.Invoke())
         {
-            // Need to fetch a line off-chip
-            line = GetEmptyLine(req->address);
-            assert(line != NULL);
-
-            // Initialize line
-            line->tag      = (req->address / m_lineSize) / m_sets;
-            line->valid    = true;
-            line->tokens   = 0;
-            line->priority = false;
-            line->reserved = true;
-            
-            // JOYING revisit, this is to resolve the reload bug
-            req->processed = false;
-            if (!m_requests.Push(req))
-            {
-                return false;
-            }
+            return false;
         }
-        else
+
+        // Find the line for the request
+        Line* line = FindLine(req->address);    
+        switch (req->type)
         {
-            // Line can be found in the group, just pass the request.
-        
+        case Message::READ:
+            // Request for tokens and data
+            assert(req->transient == false);
+            if (line == NULL)
+            {
+                // Need to fetch a line off-chip
+                line = GetEmptyLine(req->address);
+                assert(line != NULL);
+            
+                assert(req->tokens == 0);
+                assert(req->priority == false);
+
+                TraceWrite(req->address, "Received Read Request; Miss; Queuing request");
+            
+                // Initialize line
+                COMMIT
+                {
+                    line->tag      = (req->address / m_lineSize) / m_sets;
+                    line->valid    = true;
+                    line->data     = false;
+                    line->tokens   = 0;
+                    line->priority = false;
+                    line->loading  = true;
+
+                    // Introduce all tokens as well
+                    req->tokens   = m_numTokens;
+                    req->priority = true;
+                }
+            
+                if (!m_requests.Push(req))
+                {
+                    return false;
+                }
+                return true;
+            }
+            
+            if (!line->data)
+            {
+                // We have the line, but not the data, read it
+                // Also add any tokens we may have.
+                TraceWrite(req->address, "Received Read Request; Reading and attaching %u tokens", line->tokens);
+
+                COMMIT
+                {
+                    req->tokens += line->tokens;
+                    req->priority = req->priority || line->priority;
+                
+                    line->tokens = 0;
+                    line->priority = false;
+
+                    line->loading = true;
+                }
+
+                if (!m_requests.Push(req))
+                {
+                    return false;
+                }
+                return true;
+            }
+            
+            TraceWrite(req->address, "Received Read Request; Attaching %u tokens", line->tokens);
+            
+            COMMIT
+            {
+                req->tokens += line->tokens;
+                req->priority = req->priority || line->priority;
+                    
+                line->tokens = 0;
+                line->priority = false;
+            }
+
+            // Note that if the line is currently being loaded, the request
+            // can go all the way around without finding anything. Eventually,
+            // though the line will be loaded and this request will hit a cache
+            // that has the data.
+            // Theoretically we could buffer all additional requests for loading
+            // lines, but that's a bit unfeasible. The network is the buffer now.
+            break;
+
+        case Message::ACQUIRE_TOKENS:
             // Transfer any tokens that we have to the request only when
             // the request is not a request with transient tokens.
             if (!req->transient)
             {
-                assert(req->tokenacquired + line->tokens <= m_numTokens);
+                if (line == NULL)
+                {
+                    // Line didn't exist yet
+                    line = GetEmptyLine(req->address);
+                    assert(line != NULL);
+                
+                    assert(req->tokens == 0);
+                    assert(req->priority == false);
+                
+                    TraceWrite(req->address, "Received Token Request; Miss; Introducing %u tokens", (unsigned)m_numTokens);
+
+                    // Introduce all tokens into the system, but don't read the data from memory
+                    COMMIT
+                    {
+                        line->tag      = (req->address / m_lineSize) / m_sets;
+                        line->valid    = true;
+                        line->data     = false;
+                        line->tokens   = 0;
+                        line->priority = false;
+                        line->loading  = false;
+                    
+                        req->tokens = m_numTokens;
+                        req->priority = true;
+                    }
+                }
+                else if (line->tokens > 0)
+                {
+                    TraceWrite(req->address, "Received Token Request; Attaching %u tokens", line->tokens);
             
-                req->tokenacquired += line->tokens;
-                req->priority      = req->priority || line->priority;
-                line->tokens        = 0;
-                line->priority      = false;
-            }
-
-            // REVISIT, will this cause too much additional traffic?
-            if (!line->reserved && !req->dataavailable && (req->gettokenpermanent() == m_numTokens || req->processed))
-            {
-                // Send request off-chip
-                line->reserved = true;
-                if (!m_requests.Push(req))
-                {
-                    return false;
+                    COMMIT
+                    {
+                        req->tokens += line->tokens;
+                        req->priority = req->priority || line->priority;
+                
+                        line->tokens = 0;
+                        line->priority = false;
+                    }
                 }
             }
-            else if (line->reserved)
-            {
-                // Append request to line
-                line->requests.push(req);
-            }
-            else
-            {
-                // Forward request on network
-                if (!SendMessage(req, MINSPACE_FORWARD))
-                {
-                    return false;
-                }
-            }
-        }
-        break;
-
-    case Message::ACQUIRE_TOKEN:
-        // Request for tokens. We should have the line.
-        assert(line != NULL);
-    
-        // Transfer any tokens that we have to the request only when
-        // the request is not a request with transient tokens.
-        if (!req->transient)
-        {
-            assert(req->tokenacquired + line->tokens <= m_numTokens);
         
-            req->tokenacquired += line->tokens;
-            req->priority      = req->priority || line->priority;
-            line->tokens        = 0;
-            line->priority      = false;
-        }
+            // Note that if the line is currently being loaded, the request
+            // can go all the way around without finding anything. Eventually,
+            // though the line will be loaded and this request will hit a cache
+            // that has the data.
+            // Theoretically we could buffer all additional requests for loading
+            // lines, but that's a bit unfeasible. The network is the buffer now.
+            break;
 
-        line->tokens = 0;
+        case Message::EVICTION:
+            // Eviction. We should have the line.
+            // Since we're evicting a line, we should've already loaded the line.
+            // Evictions always terminate at the root directory.
+            assert(line != NULL);
+            assert(!line->loading);
+            assert(req->tokens > 0);
 
-        if (line->reserved)
-        {
-            // Append request to line
-            line->requests.push(req);
-        }
-        else
-        {
-            // Forward request on network
-            if (!SendMessage(req, MINSPACE_FORWARD))
+            // Add the tokens in the eviction to the line
+            COMMIT
+            {
+                line->tokens += req->tokens;
+                line->priority = line->priority || req->priority;
+            
+                if (line->tokens == m_numTokens)
+                {
+                    TraceWrite(req->address, "Received Evict Request; All tokens; Clearing line from system");
+                
+                    // We have all the tokens now; clear the line
+                    assert(line->priority);
+                    line->valid = false;
+                }
+                else
+                {
+                    TraceWrite(req->address, "Received Evict Request; Adding its %u tokens to directory's %u tokens", req->tokens, line->tokens);
+                }
+            }
+        
+            if (!req->dirty)
+            {
+                // Non-dirty data; we don't have to write back
+                COMMIT{ delete req; }
+            }
+            // Dirty data; write back the data to memory
+            else if (!m_requests.Push(req))
             {
                 return false;
             }
-        }
-        break;
-
-    case Message::DISSEMINATE_TOKEN_DATA:
-        // Eviction. We should have the line
-        assert(line != NULL);
-    
-        assert(req->tokenacquired > 0);
-
-        // Evictions always terminate at the root directory.
-        if (line->reserved)
-        {
-            line->requests.push(req);
-        }
-        else
-        {
-            // Add the tokens in the eviction to the line
-            line->tokens  += req->tokenacquired;
-            line->priority = line->priority || req->priority;
-
-            if (line->tokens == m_numTokens)
-            {
-                // We have all the tokens now; clear the line
-                line->valid = false;
-            }
-
-            if (req->tokenrequested == 0)
-            {
-                // Non-dirty data; we don't have to write back
-                assert(req->transient == false);
-                delete req;
-            }
-            else 
-            {
-                // Dirty data; write back the data to memory
-                assert(req->tokenrequested == m_numTokens);
-                if (!m_requests.Push(req))
-                {
-                    return false;
-                }
-            }
-        }
-        break;
+            return true;
         
-    default:
-        assert(false);
-        break;
+        default:
+            assert(false);
+            break;
+        }
     }
 
+    // Forward the request
+    if (!SendMessage(req, MINSPACE_SHORTCUT))
+    {
+        // Can't shortcut the message, go the long way
+        COMMIT{ req->ignore = true; }
+        if (!m_requests.Push(req))
+        {
+            DeadlockWrite("Unable to forward request");
+            return false;
+        }
+    }
     return true;
 }
 
@@ -285,7 +334,7 @@ Result ZLCOMA::RootDirectory::DoRequests()
     }
     else
     {
-        if (msg->type == Message::ACQUIRE_TOKEN_DATA)
+        if (msg->type == Message::READ)
         {
             // It's a read
             if (!m_memory->Read(msg->address, m_lineSize))
@@ -302,8 +351,8 @@ Result ZLCOMA::RootDirectory::DoRequests()
         else
         {
             // It's a write
-            assert(msg->type == Message::DISSEMINATE_TOKEN_DATA);
-            if (!m_memory->Write(msg->address, msg->data.data, msg->data.size))
+            assert(msg->type == Message::EVICTION);
+            if (!m_memory->Write(msg->address, msg->data, m_lineSize))
             {
                 return FAILED;
             }
@@ -331,18 +380,15 @@ Result ZLCOMA::RootDirectory::DoResponses()
         // We should have a loading line for this
         Line* line = FindLine(msg->address);
         assert(line != NULL);
-        //assert(line->state == LINE_LOADING);
+        assert(line->loading);
 
         TraceWrite(msg->address, "Sending Read Response with %u tokens", (unsigned)m_numTokens);
 
         COMMIT
         {
-            // Since this comes from memory, the reply has all tokens
-            msg->tokenacquired = m_numTokens;
-            msg->source        = line->source;
-
             // The line has now been read
-            //line->state = LINE_FULL;
+            line->loading = false;
+            line->data    = true;
         }
     }
 
@@ -357,7 +403,7 @@ Result ZLCOMA::RootDirectory::DoResponses()
     return SUCCESS;
 }
 
-ZLCOMA::RootDirectory::RootDirectory(const std::string& name, ZLCOMA& parent, Clock& clock, VirtualMemory& memory, size_t numCaches, const Config& config) :
+ZLCOMA::RootDirectory::RootDirectory(const std::string& name, ZLCOMA& parent, Clock& clock, VirtualMemory& memory, size_t numCaches, size_t id, size_t numRoots, const Config& config) :
     Simulator::Object(name, parent),
     ZLCOMA::Object(name, parent),
     DirectoryBottom(name, parent, clock),
@@ -365,6 +411,8 @@ ZLCOMA::RootDirectory::RootDirectory(const std::string& name, ZLCOMA& parent, Cl
     m_assoc   (config.getInteger<size_t>("COMACacheAssociativity",   4) * numCaches),
     m_sets    (config.getInteger<size_t>("COMACacheNumSets",       128)),
     m_numTokens(numCaches),
+    m_id       (id),
+    m_numRoots (numRoots),
     p_lines    (*this, clock, "p_lines"),
     m_requests (clock, INFINITE),
     m_responses(clock, INFINITE),
@@ -462,9 +510,9 @@ void ZLCOMA::RootDirectory::Cmd_Read(std::ostream& out, const std::vector<std::s
                 out << "                    ";
             } else {
                 out << hex << "0x" << setw(16) << setfill('0') << (line.tag * m_sets + set) * m_lineSize;
-                /*if (line.state == LINE_LOADING) {
+                if (line.loading) {
                     out << " L";
-                } else*/ {
+                } else {
                     out << "  ";
                 }
             }
