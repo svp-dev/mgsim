@@ -1,3 +1,5 @@
+AUTOMAKE_OPTIONS = subdir-objects
+
 # PROGRAMS is redefined below.
 bin_PROGRAMS = 
 bin_SCRIPTS = readtrace
@@ -14,69 +16,6 @@ FLAGS_COMMON = -W -Wall -Wwrite-strings -Wno-unused \
 #       -Weffc++ -Woverloaded-virtual 
 
 LIBS_COMMON =
-
-FLAGS_COMA = -DENABLE_COMA_ZL=1 -DTARGET_ARCH=ARCH_ALPHA
-
-
-COMA_LDADD = $(SC_LIBS)
-COMA_LDADD_G = $(SC_LIBS)
-COMA_LIBS = libmemorys.a libsimlink.a  
-COMA_LIBS_G = libmemorys_g.a libsimlink_g.a 
-COMA_SRC = \
-	CMLink.cpp \
-	CMLink.h 
-
-MEMORYS_SRC = \
-	coma/memorys/busswitch.h \
-	coma/memorys/busswitch.cpp \
-	coma/memorys/busst.cpp \
-	coma/memorys/busst.h \
-	coma/memorys/busst_if.h \
-	coma/memorys/busst_master.h \
-	coma/memorys/busst_slave_if.h \
-	coma/memorys/cachel2tok.cpp \
-	coma/memorys/cachel2tok.h \
-	coma/memorys/cachel2tokim.cpp \
-	coma/memorys/cachel2tokim.h \
-	coma/memorys/cachest.cpp \
-	coma/memorys/cachest.h \
-	coma/memorys/ddrmemorysys.cpp \
-	coma/memorys/ddrmemorysys.h \
-	coma/memorys/directoryrttok.cpp \
-	coma/memorys/directoryrttok.h \
-	coma/memorys/directorytok.cpp \
-	coma/memorys/directorytok.h \
-	coma/memorys/drv_clk.h \
-	coma/memorys/evicteddirlinebuffer.h \
-	coma/memorys/fabuffer.h \
-	coma/memorys/memory_main.cpp \
-	coma/memorys/memschedulepipeline.h \
-	coma/memorys/mergestorebuffer.cpp \
-	coma/memorys/mergestorebuffer.h \
-	coma/memorys/network.h \
-	coma/memorys/network_if.h \
-	coma/memorys/network_node.h \
-	coma/memorys/networkabove_if.h \
-	coma/memorys/networkbelow_if.h \
-	coma/memorys/predef.cpp \
-	coma/memorys/predef.h \
-	coma/memorys/processortok.cpp \
-	coma/memorys/processortok.h \
-	coma/memorys/requestmergebufferst.h \
-	coma/memorys/simcontrol.h \
-	coma/memorys/suspendedrequestqueue.cpp \
-	coma/memorys/suspendedrequestqueue.h \
-	coma/memorys/topologys.cpp \
-	coma/memorys/topologys.h
-
-SIMLINK_SRC = \
-	coma/simlink/linkmgs.h \
-	coma/simlink/linkprocs.cpp \
-	coma/simlink/linkrealization.h \
-	coma/simlink/memstat.h \
-	coma/simlink/smdatatype.h \
-	coma/simlink/th.h
-
 
 COMMON_SRC = \
 	Allocator.cpp \
@@ -130,7 +69,6 @@ COMMON_SRC = \
 	kernel.h \
 	loader.cpp \
 	loader.h \
-	log2.h \
 	ports.h \
 	ports.cpp \
 	range.h \
@@ -142,6 +80,18 @@ COMMON_SRC = \
 	symtable.cpp \
 	storage.h \
 	types.h \
+	zlcoma/COMA.h \
+	zlcoma/COMA.cpp \
+	zlcoma/Cache.h \
+	zlcoma/Cache.cpp \
+	zlcoma/Directory.h \
+	zlcoma/Directory.cpp \
+	zlcoma/Node.h \
+	zlcoma/Node.cpp \
+	zlcoma/RootDirectory.h \
+	zlcoma/RootDirectory.cpp \
+	zlcoma/DDR.h \
+	zlcoma/DDR.cpp \
 	coma/COMA.h \
 	coma/COMA.cpp \
 	coma/Cache.h \
@@ -192,26 +142,6 @@ if ENABLE_USE_SDL
 GFX_FLAGS = $(SDL_CFLAGS) -DUSE_SDL=1 
 endif
 
-if ENABLE_COMA_ZL
-noinst_LIBRARIES += libsimlink.a libsimlink_g.a
-
-libsimlink_g_a_SOURCES = $(SIMLINK_SRC)
-libsimlink_g_a_CXXFLAGS = $(FLAGS_COMMON) $(FLAGS_DEBUG) $(FLAGS_COMA)
-
-libsimlink_a_SOURCES = $(SIMLINK_SRC)
-libsimlink_a_CXXFLAGS = $(FLAGS_COMMON) $(FLAGS_OPT) $(FLAGS_COMA)
-
-noinst_LIBRARIES += libmemorys.a libmemorys_g.a
-
-libmemorys_g_a_SOURCES = $(MEMORYS_SRC)
-libmemorys_g_a_CXXFLAGS = $(FLAGS_COMMON) $(FLAGS_DEBUG) $(FLAGS_COMA)
-
-libmemorys_a_SOURCES = $(MEMORYS_SRC)
-libmemorys_a_CXXFLAGS = $(FLAGS_COMMON) $(FLAGS_OPT) $(FLAGS_COMA)
-
-endif
-
-
 if ENABLE_MTALPHA
 
 bin_PROGRAMS += mgsim-alpha
@@ -235,21 +165,6 @@ mgsim_alpha_dbg_SOURCES = $(SPECIAL_SRC)
 mgsim_alpha_dbg_CXXFLAGS = $(FLAGS_ALPHA) $(FLAGS_DEBUG) $(FLAGS_COMMON) $(FLAGS_SPECIAL)
 mgsim_alpha_dbg_LDADD = libalpha_g.a
 mgsim_alpha_dbg_LDFLAGS = $(LIBS_COMMON)
-
-if ENABLE_COMA_ZL
-bin_PROGRAMS += simx-alpha simx-alpha.dbg
-dist_man1_MANS += simx-alpha.1
-
-simx_alpha_SOURCES = $(SPECIAL_SRC) $(COMA_SRC)
-simx_alpha_CXXFLAGS = $(FLAGS_ALPHA) $(FLAGS_OPT) $(FLAGS_COMMON) $(FLAGS_COMA) $(FLAGS_SPECIAL) $(PTHREAD_CFLAGS)
-simx_alpha_LDADD = $(COMA_LIBS) libalpha.a $(COMA_LDADD)
-simx_alpha_LDFLAGS = $(LIBS_COMMON) $(PTHREAD_LIBS)
-
-simx_alpha_dbg_SOURCES = $(SPECIAL_SRC) $(COMA_SRC)
-simx_alpha_dbg_CXXFLAGS = $(FLAGS_ALPHA) $(FLAGS_DEBUG) $(FLAGS_COMMON) $(FLAGS_COMA) $(FLAGS_SPECIAL) $(PTHREAD_CFLAGS)
-simx_alpha_dbg_LDADD = $(COMA_LIBS_G) libalpha_g.a $(COMA_LDADD_G)
-simx_alpha_dbg_LDFLAGS = $(LIBS_COMMON) $(PTHREAD_LIBS)
-endif
 
 if ENABLE_USE_SDL
 bin_PROGRAMS += mgsim-alpha.gfx
@@ -292,19 +207,6 @@ mgsim_sparc_dbg_SOURCES = $(SPECIAL_SRC)
 mgsim_sparc_dbg_CXXFLAGS = $(FLAGS_SPARC) $(FLAGS_DEBUG) $(FLAGS_COMMON) $(FLAGS_SPECIAL)
 mgsim_sparc_dbg_LDADD = libsparc_g.a
 mgsim_sparc_dbg_LDFLAGS = $(LIBS_COMMON)
-
-# if ENABLE_COMA_ZL
-# bin_PROGRAMS += simx-sparc simx-sparc.dbg
-# dist_man1_MANS += simx-sparc.1
-
-# simx_sparc_SOURCES = $(SPECIAL_SRC) $(COMA_SRC)
-# simx_sparc_CXXFLAGS = $(FLAGS_SPARC) $(FLAGS_OPT) $(FLAGS_COMMON) $(FLAGS_COMA)
-# simx_sparc_LDADD = $(COMA_LIBS) libsparc.a $(COMA_LDADD)
-
-# simx_sparc_dbg_SOURCES = $(SPECIAL_SRC) $(COMA_SRC)
-# simx_sparc_dbg_CXXFLAGS = $(FLAGS_SPARC) $(FLAGS_DEBUG) $(FLAGS_COMMON) $(FLAGS_COMA)
-# simx_sparc_dbg_LDADD = $(COMA_LIBS_G) libsparc_g.a $(COMA_LDADD)
-# endif
 
 if ENABLE_USE_SDL
 bin_PROGRAMS += mgsim-sparc.gfx
