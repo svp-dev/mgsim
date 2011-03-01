@@ -69,6 +69,7 @@ COMMON_SRC = \
 	kernel.h \
 	loader.cpp \
 	loader.h \
+	log2.h \
 	ports.h \
 	ports.cpp \
 	range.h \
