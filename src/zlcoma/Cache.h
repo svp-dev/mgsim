@@ -2,7 +2,7 @@
 #define ZLCOMA_CACHE_H
 
 #include "Node.h"
-#include "../../ports.h"
+#include "../ports.h"
 #include <queue>
 #include <set>
 

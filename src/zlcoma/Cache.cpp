@@ -1,6 +1,6 @@
 #include "Cache.h"
-#include "../../config.h"
-#include "../../sampling.h"
+#include "../config.h"
+#include "../sampling.h"
 #include <cassert>
 #include <cstring>
 #include <cstdio>

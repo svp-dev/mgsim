@@ -1,5 +1,5 @@
 #include "Directory.h"
-#include "../../config.h"
+#include "../config.h"
 #include <cassert>
 #include <cstring>
 #include <cstdio>

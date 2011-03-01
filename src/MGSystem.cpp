@@ -5,7 +5,7 @@
 #include "BankedMemory.h"
 #include "RandomBankedMemory.h"
 #include "coma/COMA.h"
-#include "coma/memorys/COMA.h"
+#include "zlcoma/COMA.h"
 
 #include "loader.h"
 

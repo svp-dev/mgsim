@@ -80,18 +80,18 @@ COMMON_SRC = \
 	symtable.cpp \
 	storage.h \
 	types.h \
-	coma/COMA.h \
-	coma/memorys/COMA.cpp \
-	coma/memorys/Cache.h \
-	coma/memorys/Cache.cpp \
-	coma/memorys/Directory.h \
-	coma/memorys/Directory.cpp \
-	coma/memorys/Node.h \
-	coma/memorys/Node.cpp \
-	coma/memorys/RootDirectory.h \
-	coma/memorys/RootDirectory.cpp \
-	coma/memorys/DDR.h \
-	coma/memorys/DDR.cpp \
+	zlcoma/COMA.h \
+	zlcoma/COMA.cpp \
+	zlcoma/Cache.h \
+	zlcoma/Cache.cpp \
+	zlcoma/Directory.h \
+	zlcoma/Directory.cpp \
+	zlcoma/Node.h \
+	zlcoma/Node.cpp \
+	zlcoma/RootDirectory.h \
+	zlcoma/RootDirectory.cpp \
+	zlcoma/DDR.h \
+	zlcoma/DDR.cpp \
 	coma/COMA.h \
 	coma/COMA.cpp \
 	coma/Cache.h \
