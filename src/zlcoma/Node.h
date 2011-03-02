@@ -1,5 +1,5 @@
-#ifndef COMA_NODE_H
-#define COMA_NODE_H
+#ifndef ZLCOMA_NODE_H
+#define ZLCOMA_NODE_H
 
 #include "COMA.h"
 
@@ -11,11 +11,14 @@ namespace Simulator
  *
  * Note: The argument for 'fmt' has to be a string literal.
  *
- * For use in COMA::Object instances. Writes out a message
+ * For use in ZLCOMA::Object instances. Writes out a message
  * if the specified address is being traced.
  */
+#ifdef TraceWrite
+#undef TraceWrite
+#endif
 #define TraceWrite(addr, fmt, ...) do { \
-        const COMA::TraceMap& traces = m_parent.GetTraces(); \
+        const ZLCOMA::TraceMap& traces = m_parent.GetTraces(); \
         MemAddr __addr = (addr) / m_lineSize * m_lineSize; \
         if (!traces.empty() && traces.find((__addr)) != traces.end()) { \
             OutputWrite(("0x%llx: " fmt), (unsigned long long)(__addr), ##__VA_ARGS__); \
@@ -28,42 +31,63 @@ namespace Simulator
  * COMA hierarchy can be easily composed, since no element needs to know the
  * exact type of its neighbour.
  */
-class COMA::Node : public virtual COMA::Object
+class ZLCOMA::Node : public virtual ZLCOMA::Object
 {
 protected:
     /// This is the message that gets sent around
     union Message
     {
-        enum Type {
-            REQUEST,            ///< Read request (RR)
-            REQUEST_DATA,       ///< Read request with data (RD)
-            REQUEST_DATA_TOKEN, ///< Read request with data and tokens (RDT)
-            EVICTION,           ///< Eviction (EV)
-            UPDATE,             ///< Update (UP)
+        enum Type
+        {
+            READ,                       // RR: read request
+            ACQUIRE_TOKENS,             // AT: acquire all tokens (and optionally, data)
+            EVICTION,                   // EV: disseminate token
+            LOCALDIR_NOTIFICATION,      // the notification is used for caches to notify local directory the changes in the token status in the cache
         };
-        
+
         /// The actual message contents that's simulated
         struct
         {
-            Type         type;          ///< Type of message
-            MemAddr      address;       ///< The address of the cache-line
-            CacheID      sender;        ///< ID of the sender of the message
-            bool         ignore;        ///< Just pass this message through to the top level
-            MemData      data;          ///< The data (RD, RDT, EV, UP)
-            bool         dirty;         ///< Is the data dirty? (EV, RD, RDT)
-            unsigned int tokens;        ///< Number of tokens in this message (RDT, EV)
-            size_t       client;        ///< Sending client (UP)
-            TID          tid;           ///< Sending thread (UP)
+            Type            type;       // Type of the message
+            MemAddr         address;    // Address of the concerned cache-line
+            CacheID         source;     // ID of the originating cache
+            bool            dirty;      // Is the data in this message 'dirty'?
+            
+            // Message data and validity bitmask
+            char            data   [MAX_MEMORY_OPERATION_SIZE];
+            bool            bitmask[MAX_MEMORY_OPERATION_SIZE];
+
+            // To avoid deadlock, messages sometimes have to be routed the long way.
+            // This flag, when set, causes all relevant clients to ignore the message in such a case.
+            bool ignore;
+
+            // Does the request have the priority token?
+            bool priority;
+
+            // If set, this request has transient tokens.
+            // This can only ever be true for ACQUIRE_TOKENS messages.
+            // If priority is true, transient cannot be.
+            bool transient;
+
+            // Number of tokens held by this request
+            unsigned int tokens;
         };
-        
+
+        // transient tokens cannot be grabbed by anybody, but can be transformed into permanent token by priority token
+        // permanent tokens can be stored and grabed by the lines.
+        unsigned int gettokenpermanent() const
+        {
+            return transient ? 0 : tokens;
+        }
+
         /// For memory management
         Message* next;
 
         // Overload allocation for efficiency
         static void * operator new (size_t size);
         static void operator delete (void *p, size_t size);
-        
-        Message() {}
+
+        Message() {};
     private:
         Message(const Message&) {} // No copying
     };
@@ -95,7 +119,7 @@ protected:
     void Print(std::ostream& out) const;
     
     /// Construct the node
-    Node(const std::string& name, COMA& parent, Clock& clock, const Config& config);
+    Node(const std::string& name, ZLCOMA& parent, Clock& clock);
     virtual ~Node();
 
 public:

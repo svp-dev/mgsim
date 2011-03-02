@@ -107,6 +107,7 @@ Pipeline::PipeAction Pipeline::DecodeStage::OnCycle()
         (CommonData&)m_output = m_input;
         m_output.regs         = m_input.regs;
         m_output.placeSize    = m_input.placeSize;
+        m_output.RaNotPending = false;
         
         try
         {

@@ -1,16 +1,11 @@
 #include "MGSystem.h"
 
-#ifdef ENABLE_COMA_ZL
-# include "CMLink.h"
-# include "coma/simlink/th.h"
-# include "coma/simlink/linkmgs.h"
-#else
-# include "SerialMemory.h"
-# include "ParallelMemory.h"
-# include "BankedMemory.h"
-# include "RandomBankedMemory.h"
-# include "coma/COMA.h"
-#endif
+#include "SerialMemory.h"
+#include "ParallelMemory.h"
+#include "BankedMemory.h"
+#include "RandomBankedMemory.h"
+#include "coma/COMA.h"
+#include "zlcoma/COMA.h"
 
 #include "loader.h"
 
@@ -27,9 +22,6 @@
 
 using namespace Simulator;
 using namespace std;
-#ifdef ENABLE_COMA_ZL
-using namespace MemSim;
-#endif
 
 // WriteConfiguration()
 
@@ -62,6 +54,19 @@ using namespace MemSim;
 //     - word 0 after tag: core frequency (in MHz)
 //     - word 1 after tag: external memory bandwidth (in 10^6bytes/s)
 
+// - timing words v2, organized as follows:
+//     - word 0 after tag: master frequency (in MHz)
+//     - word 1 after tag: core frequency (in MHz)
+//     - word 2 after tag: memory frequency (in MHz)
+//     - word 3 after tag: DDR frequency (in MHz)
+
+// - timing words v3, organized as follows:
+//     - word 0 after tag: master frequency (in MHz)
+//     - word 1 after tag: core frequency (in MHz)
+//     - word 2 after tag: memory frequency (in MHz)
+//     - word 3 after tag: DDR frequency (in MHz)
+//     - word 4 after tag: number of DDR channels
+
 // - cache parameters words v1, organized as follows:
 //     - word 0 after tag: cache line size (in bytes)
 //     - word 1: L1 I-cache size (in bytes)
@@ -86,6 +91,7 @@ using namespace MemSim;
 #define CONFTAG_CONC_V1    4
 #define CONFTAG_LAYOUT_V1  5
 #define CONFTAG_TIMINGS_V2 6
+#define CONFTAG_TIMINGS_V3 7
 #define MAKE_TAG(Type, Size) (uint32_t)(((Type) << 16) | ((Size) & 0xffff))
 
 
@@ -106,14 +112,17 @@ void MGSystem::FillConfWords(ConfWords& words) const
           << m_memorytype
 
     
-    // timing words v2
-          << MAKE_TAG(CONFTAG_TIMINGS_V2, 4)
+    // timing words v3
+          << MAKE_TAG(CONFTAG_TIMINGS_V3, 5)
           << m_kernel.GetMasterFrequency()
           << m_config.getInteger<uint32_t>("CoreFreq", 0)
           << m_config.getInteger<uint32_t>("MemoryFreq", 0)
           << ((m_memorytype == MEMTYPE_COMA_ZL || m_memorytype == MEMTYPE_COMA_ML) ? 
               m_config.getInteger<uint32_t>("DDRMemoryFreq", 0)
               : 0 /* no timing information if memory system is not COMA */)
+          << ((m_memorytype == MEMTYPE_COMA_ZL || m_memorytype == MEMTYPE_COMA_ML) ?
+              m_config.getInteger<uint32_t>("NumRootDirectories", 0)
+              : 0 /* no DDR channels */)
 
     // cache parameter words v1
     
@@ -554,43 +563,6 @@ void MGSystem::PrintAllStatistics(std::ostream& os) const
     PrintCoreStats(os);
     os << "## memory statistics:" << endl;
     PrintMemoryStatistics(os);
-#ifdef ENABLE_COMA_ZL
-    os << LinkMGS::s_oLinkConfig.m_nProcs << "\t# COMA: number of connected cores" << endl
-       << LinkMGS::s_oLinkConfig.m_nProcessorsPerCache << "\t# COMA: number of processors per L2 cache" << endl
-       << LinkMGS::s_oLinkConfig.m_nCachesPerDirectory << "\t# COMA: number of L2 caches per directory" << endl
-       << g_uMemoryAccessesL << "\t# COMA: number of DDR load reqs (total)" << endl
-       << g_uMemoryAccessesS << "\t# COMA: number of DDR store reqs (total)" << endl
-       << g_uHitCountL << "\t# COMA: number of L2 cache load hits (total)" << endl
-       << g_uHitCountS << "\t# COMA: number of L2 cache store hits (total)" << endl
-       << g_uTotalL
-       << "\t# COMA: number of mem. load reqs received by L2 caches from cores (total)" << endl
-       << g_uTotalS
-       << "\t# COMA: number of mem. store reqs received by L2 caches from cores (total)" << endl
-       << g_fLatency
-       << "\t# COMA: accumulated latency of mem. reqs (total, in seconds)" << endl
-       << ((double)g_uAccessDelayL)/g_uAccessL
-       << "\t# COMA: average latency of mem. loads (in memcycles)" << endl
-       << g_uAccessL
-       << "\t# COMA: number of mem. load reqs sent from cores (total)" << endl
-       << ((double)g_uAccessDelayS)/g_uAccessS
-       << "\t# COMA: average latency of mem. stores (in memcycles)" << endl
-       << g_uAccessS
-       << "\t# COMA: number of mem. store reqs sent from cores (total)" << endl
-       <<  ((double)g_uConflictDelayL)/g_uConflictL
-       << "\t# COMA: average latency of mem. load conflicts (in memcycles)" << endl
-       << g_uConflictL
-       << "\t# COMA: number of mem. load conflicts from cores (total)" << endl
-       << g_uConflictAddL
-       << "\t# COMA: number of load conflicts in L2 caches (total)" << endl
-       << ((double)g_uConflictDelayS)/g_uConflictS
-       << "\t# COMA: average latency of mem. store conflicts (in memcycles)" << endl
-       << g_uConflictS
-       << "\t# COMA: number of mem. store conflicts from cores (total)" << endl
-       << g_uConflictAddS
-       << "\t# COMA: number of store conflicts in L2 caches (total)" << endl
-       <<  g_uProbingLocalLoad
-       << "\t# COMA: number of L2 hits by reusing invalidated cache lines (total)" << endl;
-#endif
 }
 
 // Find a component in the system given its path
@@ -725,12 +697,6 @@ MGSystem::MGSystem(const Config& config, Display& display, const string& program
     const size_t numProcessorsPerFPU = max<size_t>(1, config.getInteger<size_t>("NumProcessorsPerFPU", 1));
     const PSize  numFPUs             = (numProcessors + numProcessorsPerFPU - 1) / numProcessorsPerFPU;
     
-#ifdef ENABLE_COMA_ZL
-    m_objects.resize(numProcessors * 2 + numFPUs);
-    CMLink** &m_pmemory = (CMLink**&)this->m_pmemory;
-    m_pmemory = new CMLink*[LinkMGS::s_oLinkConfig.m_nProcs];
-    m_memorytype = MEMTYPE_COMA_ZL;
-#else
     std::string memory_type = config.getString("MemoryType", "");
     std::transform(memory_type.begin(), memory_type.end(), memory_type.begin(), ::toupper);
 
@@ -762,10 +728,14 @@ MGSystem::MGSystem(const Config& config, Display& display, const string& program
         m_objects.back() = memory;
         m_memory = memory;
         m_memorytype = MEMTYPE_COMA_ML;
+    } else if (memory_type == "ZLCOMA") {
+        ZLCOMA* memory = new ZLCOMA("memory", m_root, memclock, config);
+        m_objects.back() = memory;
+        m_memory = memory;
+        m_memorytype = MEMTYPE_COMA_ZL;
     } else {
         throw std::runtime_error("Unknown memory type specified in configuration");
     }
-#endif
 
     // Create the FPUs
     m_fpus.resize(numFPUs);
@@ -784,18 +754,7 @@ MGSystem::MGSystem(const Config& config, Display& display, const string& program
 
         stringstream name;
         name << "cpu" << i;
-#ifdef ENABLE_COMA_ZL
-        stringstream namem;
-        namem << "memory" << i;
-        m_pmemory[i] = new CMLink(namem.str(), m_root, m_clock, config, g_pLinks[i]);
-        if (i == 0)
-            m_memory = m_pmemory[0];
-        m_procs[i]   = new Processor(name.str(), m_root, m_clock, i, m_procs, *m_pmemory[i], fpu, config);
-        m_pmemory[i]->SetProcessor(m_procs[i]);
-        m_objects[i+numProcessors] = m_pmemory[i];
-#else
         m_procs[i]   = new Processor(name.str(), m_root, m_clock, i, m_procs, *m_memory, fpu, config);
-#endif
         m_objects[i] = m_procs[i];
     }
 

@@ -15,28 +15,27 @@ namespace Simulator
 static const size_t MINSPACE_SHORTCUT = 2;
 static const size_t MINSPACE_FORWARD  = 1;
 
-COMA::DirectoryTop::DirectoryTop(const std::string& name, COMA& parent, Clock& clock, const Config& config)
+ZLCOMA::DirectoryTop::DirectoryTop(const std::string& name, ZLCOMA& parent, Clock& clock)
   : Simulator::Object(name, parent),
-    COMA::Object(name, parent),
-    Node(name, parent, clock, config)
+    ZLCOMA::Object(name, parent),
+    Node(name, parent, clock)
 {
 }
 
-COMA::DirectoryBottom::DirectoryBottom(const std::string& name, COMA& parent, Clock& clock, const Config& config)
+ZLCOMA::DirectoryBottom::DirectoryBottom(const std::string& name, ZLCOMA& parent, Clock& clock)
   : Simulator::Object(name, parent),
-    COMA::Object(name, parent),
-    Node(name, parent, clock, config)
+    ZLCOMA::Object(name, parent),
+    Node(name, parent, clock)
 {
 }
 
-bool COMA::Directory::IsBelow(CacheID id) const
+// this probably only works with current naive configuration
+bool ZLCOMA::Directory::IsBelow(CacheID id) const
 {
     return (id >= m_firstCache) && (id <= m_lastCache);
 }
 
-// Performs a lookup in this directory's table to see whether
-// the wanted address exists in the ring below this directory.
-COMA::Directory::Line* COMA::Directory::FindLine(MemAddr address)
+ZLCOMA::Directory::Line* ZLCOMA::Directory::FindLine(MemAddr address)
 {
     const MemAddr tag  = (address / m_lineSize) / m_sets;
     const size_t  set  = (size_t)((address / m_lineSize) % m_sets) * m_assoc;
@@ -53,9 +52,7 @@ COMA::Directory::Line* COMA::Directory::FindLine(MemAddr address)
     return NULL;
 }
 
-// Performs a lookup in this directory's table to see whether
-// the wanted address exists in the ring below this directory.
-const COMA::Directory::Line* COMA::Directory::FindLine(MemAddr address) const
+const ZLCOMA::Directory::Line* ZLCOMA::Directory::FindLine(MemAddr address) const
 {
     const MemAddr tag  = (address / m_lineSize) / m_sets;
     const size_t  set  = (size_t)((address / m_lineSize) % m_sets) * m_assoc;
@@ -72,24 +69,18 @@ const COMA::Directory::Line* COMA::Directory::FindLine(MemAddr address) const
     return NULL;
 }
 
-// Marks the specified address as present in the directory
-COMA::Directory::Line* COMA::Directory::AllocateLine(MemAddr address)
+ZLCOMA::Directory::Line* ZLCOMA::Directory::AllocateLine(MemAddr address)
 {
-    const MemAddr tag  = (address / m_lineSize) / m_sets;
     const size_t  set  = (size_t)((address / m_lineSize) % m_sets) * m_assoc;
 
-    // Find the line
     for (size_t i = 0; i < m_assoc; ++i)
     {
         Line* line = &m_lines[set + i];
         if (!line->valid)
         {
-            COMMIT
-            {                
-                line->valid  = true;
-                line->tag    = tag;
-                line->tokens = 0;
-            }
+            line->tag    = (address / m_lineSize) / m_sets;
+            line->valid  = true;
+            line->tokens = 0;
             return line;
         }
     }
@@ -97,119 +88,132 @@ COMA::Directory::Line* COMA::Directory::AllocateLine(MemAddr address)
     return NULL;
 }
 
-bool COMA::Directory::OnMessageReceivedBottom(Message* msg)
+bool ZLCOMA::Directory::OnMessageReceivedBottom(Message* req)
 {
-    // We need to grab p_line because it arbitrates access to the outgoing
-    // buffer on the top ring as well.
     if (!p_lines.Invoke())
     {
         DeadlockWrite("Unable to get access to lines");
         return false;
     }
 
-    if (!msg->ignore)
-    {    
-        switch (msg->type)
+    if (!req->ignore)
+    {
+        Line* line = FindLine(req->address);
+        switch(req->type)
         {
+        case Message::READ:
+            assert(req->transient == false);
+            break;
+
+        case Message::ACQUIRE_TOKENS:
+            break;        
+        
         case Message::EVICTION:
-            // Evictions always come from below since they do not go down into a ring.
-            // (Except for deadlock avoidance, but then the ignore flag is set).
-            assert(IsBelow(msg->sender));
-            
-        case Message::REQUEST_DATA_TOKEN:
-        {
-            // Reduce the token count in the dir line
-            Line* line = FindLine(msg->address);
+            assert(req->tokens > 0);            // Should have tokens
+            assert(req->transient == false);    // Evictions never have transient tokens
+            assert(IsBelow(req->source));       // Evictions never go down into a group
+            break;
+        
+        case Message::LOCALDIR_NOTIFICATION:
+            // Transient tokens have been made permanent in this group
             assert(line != NULL);
-            assert(line->tokens >= msg->tokens);
-            
+
+            // Add the tokens and terminate request
             COMMIT
             {
-                line->tokens -= msg->tokens;
-                if (line->tokens == 0)
-                {
-                    // No more tokens left; clear the line too
-                    line->valid = false;
-                }
+                line->tokens += req->tokens;
+                delete req;
             }
-            break;
-        }
-            
-        case Message::REQUEST:
-        case Message::REQUEST_DATA:
-        case Message::UPDATE:
-            break;
-            
+            return true;
+
         default:
             assert(false);
             break;
         }
+    
+        if (req->tokens > 0 && !req->transient)
+        {
+            // If we're losing tokens, we should have the line
+            assert(line != NULL);
+    
+            // There's tokens leaving the group
+            COMMIT
+            {
+                line->tokens -= req->tokens;
+                if (line->tokens == 0)
+                {
+                    // Clear line
+                    line->valid = false;
+                }
+            }
+        }
     }
-    
+            
     // We can stop ignoring it now
-    COMMIT{ msg->ignore = false; }
+    COMMIT{ req->ignore = false; }
     
-    // Put the message on the higher-level ring
-    if (!DirectoryTop::SendMessage(msg, MINSPACE_FORWARD))
+    // Forward request onto upper ring
+    if (!DirectoryTop::SendMessage(req, MINSPACE_FORWARD))
     {
         DeadlockWrite("Unable to buffer request for next node on top ring");
         return false;
     }
-
     return true;
 }
 
-bool COMA::Directory::OnMessageReceivedTop(Message* msg)
+
+bool ZLCOMA::Directory::OnMessageReceivedTop(Message* req)
 {
     if (!p_lines.Invoke())
     {
         DeadlockWrite("Unable to get access to lines");
         return false;
     }
-    
-    // See if a cache below this directory has the line
+
     Line* line = NULL;
-    switch (msg->type)
+    switch (req->type)
     {
-    case Message::REQUEST:
-    case Message::REQUEST_DATA:
-    case Message::UPDATE:
-        line = FindLine(msg->address);
+    case Message::READ:
+        assert(req->transient == false);
+        line = FindLine(req->address);
+        if (IsBelow(req->source) && line == NULL)
+        {
+            line = AllocateLine(req->address);
+        }    
         break;
 
-    case Message::REQUEST_DATA_TOKEN:
-        if (IsBelow(msg->sender))
+    case Message::ACQUIRE_TOKENS:
+        line = FindLine(req->address);
+        if (IsBelow(req->source) && line == NULL)
         {
-            // This directory contains the sender cache.
-            // In case the line doesn't exist yet, allocate it.
-            line = FindLine(msg->address);
-            if (line == NULL)
-            {
-                line = AllocateLine(msg->address);
-            }
-            
-            // We now have more tokens in this ring
-            COMMIT{ line->tokens += msg->tokens; }
-        }
+            line = AllocateLine(req->address);
+        }   
         break;
         
     case Message::EVICTION:
-        // Evicts are always forwarded
+        assert(req->tokens > 0);
+        assert(req->transient == false);
+        // Evictions are always forwarded
         break;
-        
+
     default:
         assert(false);
         break;
     }
+
+    if (IsBelow(req->source) && !req->transient)
+    {
+        assert(line != NULL);
+        COMMIT{ line->tokens += req->tokens; }
+    }
     
     if (line == NULL)
     {
-        // Miss, just forward the request on the upper ring
-        if (!DirectoryTop::SendMessage(msg, MINSPACE_SHORTCUT))
+        // Forward request onto upper ring
+        if (!DirectoryTop::SendMessage(req, MINSPACE_SHORTCUT))
         {
-            // We can't shortcut on the top, send it the long way
-            COMMIT{ msg->ignore = true; }
-            if (!DirectoryBottom::SendMessage(msg, MINSPACE_FORWARD))
+            COMMIT{ req->ignore = true; }
+            if (!DirectoryBottom::SendMessage(req, MINSPACE_FORWARD))
             {
                 DeadlockWrite("Unable to buffer request for next node on top ring");
                 return false;
@@ -218,18 +222,16 @@ bool COMA::Directory::OnMessageReceivedTop(Message* msg)
     }
     else
     {
-        // We have the line; put the request on the lower ring
-        if (!DirectoryBottom::SendMessage(msg, MINSPACE_FORWARD))
+        if (!DirectoryBottom::SendMessage(req, MINSPACE_FORWARD))
         {
             DeadlockWrite("Unable to buffer request for next node on bottom ring");
             return false;
         }
     }
-    
     return true;
 }
 
-Result COMA::Directory::DoInBottom()
+Result ZLCOMA::Directory::DoInBottom()
 {
     // Handle incoming message on bottom ring from previous node
     assert(!DirectoryBottom::m_incoming.Empty());
@@ -241,7 +243,7 @@ Result COMA::Directory::DoInBottom()
     return SUCCESS;
 }
 
-Result COMA::Directory::DoInTop()
+Result ZLCOMA::Directory::DoInTop()
 {
     // Handle incoming message on top ring from previous node
     assert(!DirectoryTop::m_incoming.Empty());
@@ -253,15 +255,16 @@ Result COMA::Directory::DoInTop()
     return SUCCESS;
 }
 
-COMA::Directory::Directory(const std::string& name, COMA& parent, Clock& clock, CacheID firstCache, CacheID lastCache, const Config& config) :
+ZLCOMA::Directory::Directory(const std::string& name, ZLCOMA& parent, Clock& clock, size_t numTokens, CacheID firstCache, CacheID lastCache, const Config& config) :
     Simulator::Object(name, parent),
-    COMA::Object(name, parent),
-    DirectoryBottom(name + "-bottom", parent, clock, config),
-    DirectoryTop(name + "-top", parent, clock, config),
+    ZLCOMA::Object(name, parent),
+    DirectoryBottom(name + "-bottom", parent, clock),
+    DirectoryTop(name + "-top", parent, clock),
     p_lines     (*this, clock, "p_lines"),
     m_lineSize  (config.getInteger<size_t>("CacheLineSize",           64)),
-    m_assoc     (config.getInteger<size_t>("L2CacheAssociativity",     4) * (lastCache - firstCache + 1)),
-    m_sets      (config.getInteger<size_t>("L2CacheNumSets",         128)),
+    m_assoc     (config.getInteger<size_t>("COMACacheAssociativity",   4) * (lastCache - firstCache + 1)),
+    m_sets      (config.getInteger<size_t>("COMACacheNumSets",       128)),
+    m_numTokens (numTokens),
     m_firstCache(firstCache),
     m_lastCache (lastCache),
     p_InBottom  ("bottom-incoming", delegate::create<Directory, &Directory::DoInBottom >(*this)),
@@ -278,12 +281,12 @@ COMA::Directory::Directory(const std::string& name, COMA& parent, Clock& clock, 
 
     DirectoryBottom::m_incoming.Sensitive(p_InBottom);
     DirectoryTop   ::m_incoming.Sensitive(p_InTop);
-    
+
     p_lines.AddProcess(p_InTop);
-    p_lines.AddProcess(p_InBottom);   
+    p_lines.AddProcess(p_InBottom);
 }
 
-void COMA::Directory::Cmd_Help(std::ostream& out, const std::vector<std::string>& arguments) const
+void ZLCOMA::Directory::Cmd_Help(std::ostream& out, const std::vector<std::string>& arguments) const
 {
     out <<
     "The Directory in a COMA system is connected via other nodes in the COMA\n"
@@ -296,7 +299,7 @@ void COMA::Directory::Cmd_Help(std::ostream& out, const std::vector<std::string>
     "  Reads and displays the buffers in the directory\n";
 }
 
-void COMA::Directory::Cmd_Read(std::ostream& out, const std::vector<std::string>& arguments) const
+void ZLCOMA::Directory::Cmd_Read(std::ostream& out, const std::vector<std::string>& arguments) const
 {
     if (!arguments.empty() && arguments[0] == "buffers")
     {
@@ -306,7 +309,7 @@ void COMA::Directory::Cmd_Read(std::ostream& out, const std::vector<std::string>
 
         out << endl << "Bottom ring interface:" << endl << endl;
         DirectoryBottom::Print(out);
-        
+
         return;
     }
 
@@ -320,7 +323,7 @@ void COMA::Directory::Cmd_Read(std::ostream& out, const std::vector<std::string>
     }
     out << "Cache range: " << m_firstCache << " - " << m_lastCache << endl;
     out << endl;
-    
+
     // No more than 4 columns per row and at most 1 set per row
     const size_t width = std::min<size_t>(m_assoc, 4);
 
@@ -330,7 +333,7 @@ void COMA::Directory::Cmd_Read(std::ostream& out, const std::vector<std::string>
     std::string seperator = "+";
     for (size_t i = 0; i < width; ++i) seperator += "--------------------+--------+";
     out << seperator << endl;
-    
+
     for (size_t i = 0; i < m_lines.size() / width; ++i)
     {
         const size_t index = (i * width);
@@ -348,7 +351,7 @@ void COMA::Directory::Cmd_Read(std::ostream& out, const std::vector<std::string>
             const Line& line = m_lines[index + j];
             if (line.valid) {
                 out << hex << "0x" << setw(16) << setfill('0') << (line.tag * m_sets + set) * m_lineSize << " | "
-                    << dec << setfill(' ') << setw(6) << line.tokens;
+                    << dec << setfill(' ') << setw(6) << 0;//line.tokens;
             } else {
                 out << "                   |       ";
             }

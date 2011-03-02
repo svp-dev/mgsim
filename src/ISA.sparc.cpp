@@ -173,7 +173,13 @@ void Pipeline::DecodeStage::DecodeInstruction(const Instruction& instr)
                 break;
         }
         
-        // Stores have three operands, don't put the third one in Rc
+        // Both loads and stores have three operands.
+        // For stores Rc specifies the value to write to [Ra + Rb].
+        // For loads we must load Rc to check if we're loading a pending register (which could cause problems).
+        m_output.Rs     = m_output.Rc;
+        m_output.RsSize = m_output.RcSize;
+        
+        // However, for stores we don't actually use Rc to write
         switch (m_output.op3)
         {
             case S_OP3_STB: case S_OP3_STBA:
@@ -181,11 +187,13 @@ void Pipeline::DecodeStage::DecodeInstruction(const Instruction& instr)
             case S_OP3_ST:  case S_OP3_STA:
             case S_OP3_STD: case S_OP3_STDA:
             case S_OP3_STF: case S_OP3_STDF:
-                m_output.Rs     = m_output.Rc;
-                m_output.RsSize = m_output.RcSize;
-                m_output.Rc     = INVALID_REG;
+                // Stores
+                m_output.Rc = INVALID_REG;
                 break;
+                
             default:
+                // Loads
+                m_output.RaNotPending = true;
                 break;
         }
         break;

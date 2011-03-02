@@ -15,19 +15,19 @@ static bool IsPowerOfTwo(const T& x)
     return (x & (x - 1)) == 0;
 }
 
-void COMA::RegisterClient(PSize pid, IMemoryCallback& callback, const Process* processes[])
+void ZLCOMA::RegisterClient(PSize pid, IMemoryCallback& callback, const Process* processes[])
 {
     // Forward the registration to the cache associated with the processor
     m_caches[pid / m_numProcsPerCache]->RegisterClient(pid, callback, processes);
 }
 
-void COMA::UnregisterClient(PSize pid)
+void ZLCOMA::UnregisterClient(PSize pid)
 {
     // Forward the unregistration to the cache associated with the processor
     m_caches[pid / m_numProcsPerCache]->UnregisterClient(pid);
 }
 
-bool COMA::Read(PSize pid, MemAddr address, MemSize size)
+bool ZLCOMA::Read(PSize pid, MemAddr address, MemSize size)
 {
     COMMIT
     {
@@ -38,7 +38,7 @@ bool COMA::Read(PSize pid, MemAddr address, MemSize size)
     return m_caches[pid / m_numProcsPerCache]->Read(pid, address, size);
 }
 
-bool COMA::Write(PSize pid, MemAddr address, const void* data, MemSize size, TID tid)
+bool ZLCOMA::Write(PSize pid, MemAddr address, const void* data, MemSize size, TID tid)
 {
     // Until the write protocol is figured out, do magic coherence!
     COMMIT
@@ -50,32 +50,32 @@ bool COMA::Write(PSize pid, MemAddr address, const void* data, MemSize size, TID
     return m_caches[pid / m_numProcsPerCache]->Write(pid, address, data, size, tid);
 }
 
-void COMA::Reserve(MemAddr address, MemSize size, int perm)
+void ZLCOMA::Reserve(MemAddr address, MemSize size, int perm)
 {
     return VirtualMemory::Reserve(address, size, perm);
 }
 
-void COMA::Unreserve(MemAddr address)
+void ZLCOMA::Unreserve(MemAddr address)
 {
     return VirtualMemory::Unreserve(address);
 }
 
-bool COMA::Allocate(MemSize size, int perm, MemAddr& address)
+bool ZLCOMA::Allocate(MemSize size, int perm, MemAddr& address)
 {
     return VirtualMemory::Allocate(size, perm, address);
 }
 
-void COMA::Read(MemAddr address, void* data, MemSize size)
+void ZLCOMA::Read(MemAddr address, void* data, MemSize size)
 {
     return VirtualMemory::Read(address, data, size);
 }
 
-void COMA::Write(MemAddr address, const void* data, MemSize size)
+void ZLCOMA::Write(MemAddr address, const void* data, MemSize size)
 {
 	return VirtualMemory::Write(address, data, size);
 }
 
-bool COMA::CheckPermissions(MemAddr address, MemSize size, int access) const
+bool ZLCOMA::CheckPermissions(MemAddr address, MemSize size, int access) const
 {
 	return VirtualMemory::CheckPermissions(address, size, access);
 }
@@ -90,7 +90,7 @@ static size_t GetNumProcessors(const Config& config)
     return numProcessors;
 }
 
-COMA::COMA(const std::string& name, Simulator::Object& parent, Clock& clock, const Config& config) :
+ZLCOMA::ZLCOMA(const std::string& name, Simulator::Object& parent, Clock& clock, const Config& config) :
     // Note that the COMA class is just a container for caches and directories.
     // It has no processes of its own.
     Simulator::Object(name, parent, clock),
@@ -124,7 +124,7 @@ COMA::COMA(const std::string& name, Simulator::Object& parent, Clock& clock, con
         
         stringstream name;
         name << "dir" << i;
-        m_directories[i] = new Directory(name.str(), *this, clock, firstCache, lastCache, config);
+        m_directories[i] = new Directory(name.str(), *this, clock, m_caches.size(), firstCache, lastCache, config);
     }
     
     // Create the root directories
@@ -133,14 +133,14 @@ COMA::COMA(const std::string& name, Simulator::Object& parent, Clock& clock, con
     {
         throw InvalidArgumentException("NumRootDirectories is not a power of two");
     }
-    
+
     for (size_t i = 0; i < m_roots.size(); ++i)
     {
         stringstream name;
         name << "rootdir" << i;
         m_roots[i] = new RootDirectory(name.str(), *this, clock, *this, m_caches.size(), i, m_roots.size(), config);
     }
-    
+
     // Initialize the caches
     for (size_t i = 0; i < m_caches.size(); ++i)
     {
@@ -170,19 +170,19 @@ COMA::COMA(const std::string& name, Simulator::Object& parent, Clock& clock, con
     {
         // Do an even (as possible) distribution
         size_t pos = i * m_directories.size() / m_roots.size() + i;
-        
+
         // In case we map to an already used spot (for uneven distributions), find the next free spot
         while (nodes[pos] != NULL) pos = (pos + 1) % nodes.size();
         nodes[pos] = m_roots[i];
     }
-    
+
     // Then fill up the gaps with the directories
     for (size_t p = 0, i = 0; i < m_directories.size(); ++i, ++p)
     {
         while (nodes[p] != NULL) ++p;
         nodes[p] = static_cast<DirectoryTop*>(m_directories[i]);
     }
-    
+
     // Now connect everything on the top-level ring
     for (size_t i = 0; i < nodes.size(); ++i)
     {
@@ -192,7 +192,7 @@ COMA::COMA(const std::string& name, Simulator::Object& parent, Clock& clock, con
     }
 }
 
-COMA::~COMA()
+ZLCOMA::~ZLCOMA()
 {
     for (size_t i = 0; i < m_caches.size(); ++i)
     {
@@ -210,7 +210,7 @@ COMA::~COMA()
     }
 }
 
-void COMA::GetMemoryStatistics(uint64_t& nreads, uint64_t& nwrites, uint64_t& nread_bytes, uint64_t& nwrite_bytes) const
+void ZLCOMA::GetMemoryStatistics(uint64_t& nreads, uint64_t& nwrites, uint64_t& nread_bytes, uint64_t& nwrite_bytes) const
 {
     nreads = m_nreads;
     nwrites = m_nwrites;
@@ -218,7 +218,7 @@ void COMA::GetMemoryStatistics(uint64_t& nreads, uint64_t& nwrites, uint64_t& nr
     nwrite_bytes = m_nwrite_bytes;
 }
 
-void COMA::Cmd_Help(ostream& out, const vector<string>& /*arguments*/) const
+void ZLCOMA::Cmd_Help(ostream& out, const vector<string>& /*arguments*/) const
 {
     out <<
     "The COMA Memory represents a hierarchical ring-based network of caches where each\n"
@@ -237,7 +237,7 @@ void COMA::Cmd_Help(ostream& out, const vector<string>& /*arguments*/) const
     "  Sets or clears tracing for the specified address\n";
 }
 
-void COMA::Cmd_Line(ostream& out, const vector<string>& arguments) const
+void ZLCOMA::Cmd_Line(ostream& out, const vector<string>& arguments) const
 {
     // Parse argument
     MemAddr address = 0;
@@ -260,7 +260,7 @@ void COMA::Cmd_Line(ostream& out, const vector<string>& arguments) const
         const RootDirectory::Line* line = static_cast<const RootDirectory*>(*p)->FindLine(address);
         if (line != NULL)
         {
-            const char* state = (line->state == RootDirectory::LINE_LOADING) ? "loading" : "loaded";
+            const char* state = "present";
             out << (*p)->GetFQN() << ": " << state << endl;
             printed = true;
         }
@@ -287,7 +287,7 @@ void COMA::Cmd_Line(ostream& out, const vector<string>& arguments) const
         const Cache::Line* line = static_cast<const Cache*>(*p)->FindLine(address);
         if (line != NULL)
         {
-            const char* state = (line->state == Cache::LINE_LOADING) ? "loading" : "loaded";
+            const char* state = "present";
             out << (*p)->GetFQN() << ": " << state << ", " << line->tokens << " tokens" << endl;
             printed = true;
         }
@@ -295,7 +295,7 @@ void COMA::Cmd_Line(ostream& out, const vector<string>& arguments) const
     if (printed) out << endl;
 }
 
-void COMA::Cmd_Trace(ostream& out, const vector<string>& arguments)
+void ZLCOMA::Cmd_Trace(ostream& out, const vector<string>& arguments)
 {
     // Parse argument
     MemAddr address;

@@ -1,18 +1,18 @@
 #include "commands.h"
 #include "sampling.h"
 
-#ifdef ENABLE_COMA_ZL
-# include "CMLink.h"
-#else
-# include "SerialMemory.h"
-# include "ParallelMemory.h"
-# include "BankedMemory.h"
-# include "RandomBankedMemory.h"
-# include "coma/COMA.h"
-# include "coma/Cache.h"
-# include "coma/Directory.h"
-# include "coma/RootDirectory.h"
-#endif
+#include "SerialMemory.h"
+#include "ParallelMemory.h"
+#include "BankedMemory.h"
+#include "RandomBankedMemory.h"
+#include "coma/COMA.h"
+#include "coma/Cache.h"
+#include "coma/Directory.h"
+#include "coma/RootDirectory.h"
+#include "zlcoma/COMA.h"
+#include "zlcoma/Cache.h"
+#include "zlcoma/Directory.h"
+#include "zlcoma/RootDirectory.h"
 
 #include <csignal>
 #include <sstream>
@@ -85,7 +85,6 @@ static const struct
     {"help", new bind_cmd_C<DCache            >(&DCache            ::Cmd_Help) },
     {"help", new bind_cmd_C<Pipeline          >(&Pipeline          ::Cmd_Help) },
     {"help", new bind_cmd_C<Allocator         >(&Allocator         ::Cmd_Help) },
-#ifndef ENABLE_COMA_ZL
     {"help", new bind_cmd_C<SerialMemory      >(&SerialMemory      ::Cmd_Help) },
     {"help", new bind_cmd_C<ParallelMemory    >(&ParallelMemory    ::Cmd_Help) },
     {"help", new bind_cmd_C<RandomBankedMemory>(&RandomBankedMemory::Cmd_Help) },
@@ -94,12 +93,14 @@ static const struct
     {"help", new bind_cmd_C<COMA::Cache       >(&COMA::Cache        ::Cmd_Help) },
     {"help", new bind_cmd_C<COMA::Directory   >(&COMA::Directory    ::Cmd_Help) },
     {"help", new bind_cmd_C<COMA::RootDirectory>(&COMA::RootDirectory::Cmd_Help) },
-#endif
+    {"help", new bind_cmd_C<ZLCOMA              >(&ZLCOMA               ::Cmd_Help) },
+    {"help", new bind_cmd_C<ZLCOMA::Cache       >(&ZLCOMA::Cache        ::Cmd_Help) },
+    {"help", new bind_cmd_C<ZLCOMA::Directory   >(&ZLCOMA::Directory    ::Cmd_Help) },
+    {"help", new bind_cmd_C<ZLCOMA::RootDirectory>(&ZLCOMA::RootDirectory::Cmd_Help) },
     {"help", new bind_cmd_C<FPU               >(&FPU               ::Cmd_Help) },
     {"info", new bind_cmd_C<VirtualMemory     >(&VirtualMemory     ::Cmd_Info) },
-#ifndef ENABLE_COMA_ZL
     {"line", new bind_cmd_C<COMA              >(&COMA              ::Cmd_Line) },
-#endif
+    {"line", new bind_cmd_C<ZLCOMA            >(&ZLCOMA            ::Cmd_Line) },
     {"read", new bind_cmd_C<RAUnit            >(&RAUnit            ::Cmd_Read) },
     {"read", new bind_cmd_C<ThreadTable       >(&ThreadTable       ::Cmd_Read) },
     {"read", new bind_cmd_C<FamilyTable       >(&FamilyTable       ::Cmd_Read) },
@@ -109,7 +110,6 @@ static const struct
     {"read", new bind_cmd_C<DCache            >(&DCache            ::Cmd_Read) },
     {"read", new bind_cmd_C<Pipeline          >(&Pipeline          ::Cmd_Read) },
     {"read", new bind_cmd_C<Allocator         >(&Allocator         ::Cmd_Read) },
-#ifndef ENABLE_COMA_ZL
     {"read", new bind_cmd_C<SerialMemory      >(&SerialMemory      ::Cmd_Read) },
     {"read", new bind_cmd_C<ParallelMemory    >(&ParallelMemory    ::Cmd_Read) },
     {"read", new bind_cmd_C<RandomBankedMemory>(&RandomBankedMemory::Cmd_Read) },
@@ -117,12 +117,13 @@ static const struct
     {"read", new bind_cmd_C<COMA::Cache       >(&COMA::Cache        ::Cmd_Read) },
     {"read", new bind_cmd_C<COMA::Directory   >(&COMA::Directory    ::Cmd_Read) },
     {"read", new bind_cmd_C<COMA::RootDirectory>(&COMA::RootDirectory::Cmd_Read) },
-#endif
+    {"read", new bind_cmd_C<ZLCOMA::Cache       >(&ZLCOMA::Cache        ::Cmd_Read) },
+    {"read", new bind_cmd_C<ZLCOMA::Directory   >(&ZLCOMA::Directory    ::Cmd_Read) },
+    {"read", new bind_cmd_C<ZLCOMA::RootDirectory>(&ZLCOMA::RootDirectory::Cmd_Read) },
     {"read", new bind_cmd_C<VirtualMemory     >(&VirtualMemory     ::Cmd_Read) },
     {"read", new bind_cmd_C<FPU               >(&FPU               ::Cmd_Read) },
-#ifndef ENABLE_COMA_ZL
-    {"trace", new bind_cmd_NC<COMA             >(&COMA              ::Cmd_Trace) },
-#endif
+    {"trace", new bind_cmd_NC<COMA            >(&COMA              ::Cmd_Trace) },
+    {"trace", new bind_cmd_NC<ZLCOMA          >(&ZLCOMA            ::Cmd_Trace) },
     {NULL, NULL}
 };
 
@@ -422,9 +423,6 @@ void PrintUsage(std::ostream& out, const char* cmd)
 {
     out <<
         "Microgrid Simulator"
-#ifdef ENABLE_COMA_ZL
-        " with ZL's COMA memory enabled"
-#endif
         ".\n"
         "Each simulated core implements the " CORE_ISA_NAME " ISA.\n\n"
         "Usage: " << cmd << " [ARG]...\n\n"

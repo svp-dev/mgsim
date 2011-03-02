@@ -4,6 +4,8 @@
 #include "log2.h"
 
 #include <cassert>
+#include <sys/time.h>
+#include <ctime>
 
 using namespace std;
 
@@ -71,9 +73,9 @@ void Processor::Initialize(Processor* prev, Processor* next, MemAddr runAddress,
     m_allocator.p_alloc.AddProcess(m_network.p_Link);                   // Place-wide create
     m_allocator.p_alloc.AddProcess(m_allocator.p_FamilyCreate);         // Local creates
     
-    m_allocator.p_readyThreads.AddProcess(m_fpu.p_Pipeline);                // Thread wakeup due to FP completion
     m_allocator.p_readyThreads.AddProcess(m_dcache.p_IncomingReads);        // Thread wakeup due to load completion
     m_allocator.p_readyThreads.AddProcess(m_dcache.p_IncomingWrites);       // Thread wakeup due to write completion
+    m_allocator.p_readyThreads.AddProcess(m_fpu.p_Pipeline);                // Thread wakeup due to FP completion
     m_allocator.p_readyThreads.AddProcess(m_network.p_Link);                // Thread wakeup due to write
     m_allocator.p_readyThreads.AddProcess(m_network.p_DelegationIn);        // Thread wakeup due to write
     m_allocator.p_readyThreads.AddProcess(m_allocator.p_ThreadAllocate);    // Thread creation
@@ -83,8 +85,8 @@ void Processor::Initialize(Processor* prev, Processor* next, MemAddr runAddress,
     m_allocator.p_activeThreads.AddProcess(m_icache.p_Incoming);            // Thread activation due to I-Cache line return
     m_allocator.p_activeThreads.AddProcess(m_allocator.p_ThreadActivation); // Thread activation due to I-Cache hit (from Ready Queue)
 
-    m_registerFile.p_asyncW.AddProcess(m_fpu.p_Pipeline);                   // FPU Op writebacks
     m_registerFile.p_asyncW.AddProcess(m_dcache.p_IncomingReads);           // Mem Load writebacks
+    m_registerFile.p_asyncW.AddProcess(m_fpu.p_Pipeline);                   // FPU Op writebacks
     m_registerFile.p_asyncW.AddProcess(m_network.p_Link);                   // Place register receives
     m_registerFile.p_asyncW.AddProcess(m_network.p_DelegationIn);           // Remote register receives
     m_registerFile.p_asyncW.AddProcess(m_allocator.p_ThreadAllocate);       // Thread allocation
@@ -187,8 +189,8 @@ bool Processor::CheckPermissions(MemAddr address, MemSize size, int access) cons
         MemAddr mask = 1ULL << (sizeof(MemAddr) * 8 - (m_bits.pid_bits + m_bits.tid_bits + 1));
         mask -= 1;
 
-        // ignore the lower 63 bytes
-        mask ^= 63;
+        // ignore the lower 1K of TLS heap
+        mask ^= 1023;
 
         if ((address & mask) == 0)
             return true;
@@ -353,6 +355,39 @@ Integer Processor::GetProfileWord(unsigned int i, PSize placeSize) const
         return alloc;
     }
 
+    case 13:
+    {
+        // Return the Unix time
+        return (Integer)time(0);
+    }
+
+    case 14:
+    {
+        // Return the local date as a packed struct
+        // bits 0-4: day in month
+        // bits 5-8: month in year
+        // bits 9-31: year from 1900
+        time_t c = time(0);
+        struct tm * tm = gmtime(&c);
+        return (Integer)tm->tm_mday |
+            ((Integer)tm->tm_mon << 5) |
+            ((Integer)tm->tm_year << 9);
+    }
+    case 15:
+    {
+        // Return the local time as a packed struct
+        // bits 0-14 = microseconds / 2^17  (topmost 15 bits)
+        // bits 15-20 = seconds
+        // bits 21-26 = minutes
+        // bits 27-31 = hours
+        struct timeval tv;
+        gettimeofday(&tv, 0);
+        struct tm * tm = gmtime(&tv.tv_sec);
+
+        // get topmost 15 bits of precision of the usec field
+        Integer usec = (tv.tv_usec >> (32-15)) & 0x7fff;
+        return usec | (tm->tm_sec << 15) | (tm->tm_min << 21) | (tm->tm_hour << 27);
+    }       
         
     default:
         return 0;

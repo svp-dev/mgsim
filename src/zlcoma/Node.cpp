@@ -1,5 +1,4 @@
 #include "Node.h"
-#include "../config.h"
 #include <iostream>
 #include <iomanip>
 #include <cstring>
@@ -9,11 +8,11 @@ namespace Simulator
 {
 
 // Memory management data
-/*static*/ unsigned long                   COMA::Node::g_References   = 0;
-/*static*/ COMA::Node::Message*            COMA::Node::g_FreeMessages = NULL;
-/*static*/ std::list<COMA::Node::Message*> COMA::Node::g_Messages;
+/*static*/ unsigned long                     ZLCOMA::Node::g_References   = 0;
+/*static*/ ZLCOMA::Node::Message*            ZLCOMA::Node::g_FreeMessages = NULL;
+/*static*/ std::list<ZLCOMA::Node::Message*> ZLCOMA::Node::g_Messages;
 
-/*static*/ void* COMA::Node::Message::operator new(size_t size)
+/*static*/ void* ZLCOMA::Node::Message::operator new(size_t size)
 {
     // We allocate this many messages at once
     static const size_t ALLOCATE_SIZE = 1024;
@@ -40,7 +39,7 @@ namespace Simulator
     return msg;
 }
 
-/*static*/ void COMA::Node::Message::operator delete(void *p, size_t size)
+/*static*/ void ZLCOMA::Node::Message::operator delete(void *p, size_t size)
 {
     assert(size == sizeof(Message));
     Message* msg = static_cast<Message*>(p);
@@ -55,42 +54,25 @@ namespace Simulator
     g_FreeMessages = msg;
 }
 
-/*static*/ void COMA::Node::PrintMessage(std::ostream& out, const Message& msg)
+/*static*/ void ZLCOMA::Node::PrintMessage(std::ostream& out, const Message& msg)
 {
     switch (msg.type)
     {
-    case Message::REQUEST:            out << "| Read Request        "; break;
-    case Message::REQUEST_DATA:       out << "| Read Request (Data) "; break;
-    case Message::REQUEST_DATA_TOKEN: out << "| Read Response       "; break;
-    case Message::EVICTION:           out << "| Eviction            "; break;
-    case Message::UPDATE:             out << "| Update              "; break;
+    case Message::READ:                   out << "| Read Request        "; break;
+    case Message::ACQUIRE_TOKENS:         out << "| Acquire Tokens      "; break;
+    case Message::EVICTION:               out << "| Eviction            "; break;
+    case Message::LOCALDIR_NOTIFICATION:  out << "| Local Dir. Notify   "; break;
     }
     
     out << " | "
-        << "0x" << hex << setfill('0') << setw(16) << msg.address << " | "
-        << dec << setfill(' ') << right
-        << setw(6);
-    
-    switch (msg.type)
-    {
-    case Message::EVICTION:
-    case Message::REQUEST_DATA_TOKEN:
-        out << msg.tokens;
-        break;
-        
-    case Message::REQUEST:
-    case Message::REQUEST_DATA:
-    case Message::UPDATE:
-        out << ""; 
-        break;        
-    }
-    
-    out << " | "
-        << setw(6) << msg.sender << " | "
+        << "0x"  << hex << setfill('0') << setw(16) << msg.address << " | "
+        << right << dec << setfill(' ') << setw( 5) << msg.tokens
+        << (msg.priority ? "P" : " ") << " | "
+        << setw(6) << msg.source << " | "
         << endl;
 }
 
-void COMA::Node::Print(std::ostream& out) const
+void ZLCOMA::Node::Print(std::ostream& out) const
 {
     const struct {
         const char*             name;
@@ -118,13 +100,13 @@ void COMA::Node::Print(std::ostream& out) const
     }
 }
 
-void COMA::Node::Initialize(Node* next, Node* prev)
+void ZLCOMA::Node::Initialize(Node* next, Node* prev)
 {
     m_prev = prev;
     m_next = next;
 }
 
-Result COMA::Node::DoForward()
+Result ZLCOMA::Node::DoForward()
 {
     // Forward requests to the next node
     assert(!m_outgoing.Empty());
@@ -141,7 +123,7 @@ Result COMA::Node::DoForward()
 
 // Send a message to the next node.
 // Only succeeds if there's min_space left before the push.
-bool COMA::Node::SendMessage(Message* message, size_t min_space)
+bool ZLCOMA::Node::SendMessage(Message* message, size_t min_space)
 {
     if (!m_outgoing.Push(message, min_space))
     {
@@ -150,13 +132,13 @@ bool COMA::Node::SendMessage(Message* message, size_t min_space)
     return true;
 }
 
-COMA::Node::Node(const std::string& name, COMA& parent, Clock& clock, const Config& config)
+ZLCOMA::Node::Node(const std::string& name, ZLCOMA& parent, Clock& clock)
     : Simulator::Object(name, parent),
-      COMA::Object(name, parent),
+      ZLCOMA::Object(name, parent),
       m_prev(NULL),
       m_next(NULL),
-      m_incoming(clock, config.getInteger<BufferSize>("COMA_NodeBufferSize", 2)),
-      m_outgoing(clock, config.getInteger<BufferSize>("COMA_NodeBufferSize", 2)),
+      m_incoming(clock, 2),
+      m_outgoing(clock, 2),
       p_Forward("forward", delegate::create<Node, &Node::DoForward>(*this))
 {
     g_References++;
@@ -164,7 +146,7 @@ COMA::Node::Node(const std::string& name, COMA& parent, Clock& clock, const Conf
     m_outgoing.Sensitive(p_Forward);
 }
 
-COMA::Node::~Node()
+ZLCOMA::Node::~Node()
 {
     assert(g_References > 0);
     if (--g_References == 0)

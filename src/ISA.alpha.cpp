@@ -148,11 +148,14 @@ void Pipeline::DecodeStage::DecodeInstruction(const Instruction& instr)
             uint32_t disp  = (instr >> A_MEMDISP_SHIFT) & A_MEMDISP_MASK;
             RegType  type  = (m_output.opcode >= 0x20 && m_output.opcode <= 0x27) ? RT_FLOAT : RT_INTEGER;
 
+            // Note that for a load we also load the destination register (Ra) to ensure that we don't
+            // load to a pending register (which causes problems).
             m_output.Rc           = MAKE_REGADDR(type, (m_output.format == IFORMAT_MEM_STORE) ? 31 : Ra);
-            m_output.Ra           = MAKE_REGADDR(type, (m_output.format == IFORMAT_MEM_STORE) ? Ra : 31);
+            m_output.Ra           = MAKE_REGADDR(type, (m_output.opcode <= 0x0a) ? 31 : Ra); // Don't load Ra for LDA and LDAH
             m_output.Rb           = MAKE_REGADDR(RT_INTEGER, Rb);
             m_output.displacement = (int32_t)(int16_t)disp;
             m_output.function     = (uint16_t)disp;
+            m_output.RaNotPending = (m_output.format != IFORMAT_MEM_STORE);
 
             if (m_output.opcode == A_OP_LDQ_U && disp == 0 && Ra == 31)
             {
