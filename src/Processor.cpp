@@ -333,17 +333,17 @@ Integer Processor::GetProfileWord(unsigned int i) const
 
     case 7:
     {
-        // Return the number of external memory loads (cache lines)
+        // Return the number of memory loads overall from L1 to L2 (cache lines)
         uint64_t n, dummy;
-        m_memory.GetMemoryStatistics(n, dummy, dummy, dummy);
+        m_memory.GetMemoryStatistics(n, dummy, dummy, dummy, dummy, dummy);
         return (Integer)n;
     }
 
     case 8:
     {
-        // Return the number of external memory stores (cache lines)
+        // Return the number of memory stores overall from L1 to L2 (cache lines)
         uint64_t n, dummy;
-        m_memory.GetMemoryStatistics(dummy, n, dummy, dummy);
+        m_memory.GetMemoryStatistics(dummy, n, dummy, dummy, dummy, dummy);
         return (Integer)n;
     }
 
@@ -431,6 +431,22 @@ Integer Processor::GetProfileWord(unsigned int i) const
         return usec | (tm->tm_sec << 15) | (tm->tm_min << 21) | (tm->tm_hour << 27);
     }       
         
+    case 16:
+    {
+        // Return the number of memory loads overall from external memory (cache lines)
+        uint64_t n, dummy;
+        m_memory.GetMemoryStatistics(dummy, dummy, dummy, dummy, n, dummy);
+        return (Integer)n;
+    }
+
+    case 17:
+    {
+        // Return the number of memory stores overall to external memory (cache lines)
+        uint64_t n, dummy;
+        m_memory.GetMemoryStatistics(dummy, dummy, dummy, dummy, dummy, n);
+        return (Integer)n;
+    }
+
     default:
         return 0;
     }

@@ -210,12 +210,20 @@ COMA::~COMA()
     }
 }
 
-void COMA::GetMemoryStatistics(uint64_t& nreads, uint64_t& nwrites, uint64_t& nread_bytes, uint64_t& nwrite_bytes) const
+void COMA::GetMemoryStatistics(uint64_t& nreads, uint64_t& nwrites, uint64_t& nread_bytes, uint64_t& nwrite_bytes, uint64_t& nreads_ext, uint64_t& nwrites_ext) const
 {
     nreads = m_nreads;
     nwrites = m_nwrites;
     nread_bytes = m_nread_bytes;
     nwrite_bytes = m_nwrite_bytes;
+
+    uint64_t nre = 0, nwe = 0;
+    for (size_t i = 0; i < m_roots.size(); ++i)
+    {
+        m_roots[i]->GetMemoryStatistics(nre, nwe);
+        nreads_ext += nre;
+        nwrites_ext += nwe;
+    }
 }
 
 void COMA::Cmd_Help(ostream& out, const vector<string>& /*arguments*/) const

@@ -285,7 +285,10 @@ Result COMA::RootDirectory::DoRequests()
             {
                 return FAILED;
             }
-            COMMIT{ m_activeMsg = msg; }
+            COMMIT{ 
+                ++m_nreads;
+                m_activeMsg = msg; 
+            }
         }
         else
         {
@@ -295,7 +298,10 @@ Result COMA::RootDirectory::DoRequests()
             {
                 return FAILED;
             }
-            COMMIT{ delete msg; }
+            COMMIT { 
+                ++m_nwrites;
+                delete msg;
+            }
         }
     }
     m_requests.Pop();
@@ -356,13 +362,15 @@ COMA::RootDirectory::RootDirectory(const std::string& name, COMA& parent, Clock&
     m_id       (id),
     m_numRoots (numRoots),
     p_lines    (*this, clock, "p_lines"),    
-    m_requests (clock, INFINITE),
-    m_responses(clock, INFINITE),
+    m_requests (clock, config.getInteger<size_t>("RootDirectoryExternalOutputQueueSize", INFINITE)),
+    m_responses(clock, config.getInteger<size_t>("RootDirectoryExternalInputQueueSize", INFINITE)),
     m_memready (clock, true),
     m_activeMsg(NULL),
     p_Incoming ("incoming",  delegate::create<RootDirectory, &RootDirectory::DoIncoming>(*this)),
     p_Requests ("requests",  delegate::create<RootDirectory, &RootDirectory::DoRequests>(*this)),
-    p_Responses("responses", delegate::create<RootDirectory, &RootDirectory::DoResponses>(*this))
+    p_Responses("responses", delegate::create<RootDirectory, &RootDirectory::DoResponses>(*this)),
+    m_nreads(0),
+    m_nwrites(0)
 {
     assert(m_lineSize <= MAX_MEMORY_OPERATION_SIZE);
     

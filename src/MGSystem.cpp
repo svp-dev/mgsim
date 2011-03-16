@@ -485,13 +485,15 @@ void MGSystem::PrintCoreStats(std::ostream& os) const {
 }
 
 void MGSystem::PrintMemoryStatistics(std::ostream& os) const {
-    uint64_t nr = 0, nrb = 0, nw = 0, nwb = 0;
+    uint64_t nr = 0, nrb = 0, nw = 0, nwb = 0, nrext = 0, nwext = 0;
 
-    m_memory->GetMemoryStatistics(nr, nw, nrb, nwb);
-    os << nr << "\t# number of load reqs. from the ext. mem. interface" << endl
-       << nrb << "\t# number of bytes loaded from the ext. mem. interface" << endl
-       << nw << "\t# number of store reqs. to the ext. mem. interface" << endl
-       << nwb << "\t# number of bytes stored to the ext. mem. interface" << endl;
+    m_memory->GetMemoryStatistics(nr, nw, nrb, nwb, nrext, nwext);
+    os << nr << "\t# number of load reqs. by the L1 cache from L2" << endl
+       << nrb << "\t# number of bytes loaded by the L1 cache from L2" << endl
+       << nw << "\t# number of store reqs. by the L1 cache to L2" << endl
+       << nwb << "\t# number of bytes stored by the L1 cache to L2" << endl
+       << nrext << "\t# number of cache lines read from the ext. mem. interface" << endl
+       << nwext << "\t# number of cache lines written to the ext. mem. interface" << endl;
 
 }
 

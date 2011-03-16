@@ -39,7 +39,7 @@ private:
     size_t            m_numCaches;  ///< Number of caches in the COMA system
     size_t            m_id;         ///< Which root directory we are (0 <= m_id < m_numRoots)
     size_t            m_numRoots;   ///< Number of root directories on the top-level ring
-    
+
     ArbitratedService<> p_lines;      ///< Arbitrator for lines and output
     
     DDRChannel*       m_memory;    ///< DDR memory channel
@@ -62,6 +62,10 @@ private:
     Result DoRequests();
     Result DoResponses();
 
+    // Statistics
+    uint64_t          m_nreads;
+    uint64_t          m_nwrites;
+    
 public:
     RootDirectory(const std::string& name, COMA& parent, Clock& clock, VirtualMemory& memory, size_t numCaches, size_t id, size_t numRoots, const Config& config);
     ~RootDirectory();
@@ -71,6 +75,14 @@ public:
 
     void Cmd_Help(std::ostream& out, const std::vector<std::string>& arguments) const;
     void Cmd_Read(std::ostream& out, const std::vector<std::string>& arguments) const;
+
+
+    // Statistics
+    void GetMemoryStatistics(uint64_t& nreads_ext, uint64_t& nwrites_ext) const
+    {
+        nreads_ext = m_nreads;
+        nwrites_ext = m_nwrites;
+    }
 };
 
 }
