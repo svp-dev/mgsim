@@ -28,7 +28,7 @@ namespace Simulator
  * COMA hierarchy can be easily composed, since no element needs to know the
  * exact type of its neighbour.
  */
-class COMA::Node : public virtual COMA::Object
+class COMA::Node : public COMA::Object
 {
 protected:
     /// This is the message that gets sent around

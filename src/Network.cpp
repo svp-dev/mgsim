@@ -43,9 +43,9 @@ Network::Network(
     CONSTRUCT_REGISTER(m_delegateIn),
 #undef CONTRUCT_REGISTER
 
-    m_hasToken      (clock,  lpid == 0), // CPU #0 starts out with the token
-    m_wantToken     (clock, false),
-    m_tokenBusy     (clock, false),
+    m_hasToken      ("f_hasToken", *this, clock,  lpid == 0), // CPU #0 starts out with the token
+    m_wantToken     ("f_wantToken", *this, clock, false),
+    m_tokenBusy     ("f_tokenBusy", *this, clock, false),
 
     p_Registers    ("registers",      delegate::create<Network, &Network::DoRegisters    >(*this)),
     p_Creation     ("creation",       delegate::create<Network, &Network::DoCreation     >(*this)),

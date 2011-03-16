@@ -1,7 +1,9 @@
 #ifndef SAMPLING_H
 #define SAMPLING_H
 
-#include "MGSystem.h"
+namespace Simulator {
+    class MGSystem;
+}
 
 #include <vector>
 #include <utility>

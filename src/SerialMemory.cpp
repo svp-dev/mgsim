@@ -173,7 +173,7 @@ Result SerialMemory::DoRequests()
 SerialMemory::SerialMemory(const std::string& name, Object& parent, Clock& clock, const Config& config) :
     Object(name, parent, clock),
     m_clock          (clock),
-    m_requests       (clock, config.getInteger<BufferSize>("MemoryBufferSize", INFINITE)),
+    m_requests       ("b_requests", *this, clock, config.getInteger<BufferSize>("MemoryBufferSize", INFINITE)),
     p_requests       (*this, clock, "m_requests"),
     m_baseRequestTime(config.getInteger<CycleNo>   ("MemoryBaseRequestTime", 1)),
     m_timePerLine    (config.getInteger<CycleNo>   ("MemoryTimePerLine", 1)),

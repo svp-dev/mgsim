@@ -25,9 +25,9 @@ DCache::DCache(const std::string& name, Processor& parent, Clock& clock, Allocat
     m_assoc          (config.getInteger<size_t>("DCacheAssociativity", 4)),
     m_sets           (config.getInteger<size_t>("DCacheNumSets", 4)),
     m_lineSize       (config.getInteger<size_t>("CacheLineSize", 64)),
-    m_returned       (clock, m_sets * m_assoc),
-    m_completedWrites(clock, config.getInteger<BufferSize>("DCacheCompletedWriteBufferSize", INFINITE)),
-    m_outgoing       (clock, config.getInteger<BufferSize>("DCacheOutgoingBufferSize", 1)),
+    m_returned       ("b_returned", *this, clock, m_sets * m_assoc),
+    m_completedWrites("b_completedWrites", *this, clock, config.getInteger<BufferSize>("DCacheCompletedWriteBufferSize", INFINITE)),
+    m_outgoing       ("b_outgoing", *this, clock, config.getInteger<BufferSize>("DCacheOutgoingBufferSize", 1)),
     m_numHits        (0),
     m_numMisses      (0),
 

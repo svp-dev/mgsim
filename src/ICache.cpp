@@ -21,8 +21,8 @@ static bool IsPowerOfTwo(const T& x)
 ICache::ICache(const std::string& name, Processor& parent, Clock& clock, Allocator& alloc, const Config& config)
 :   Object(name, parent, clock),
     m_parent(parent), m_allocator(alloc),
-    m_outgoing(clock, config.getInteger<BufferSize>("ICacheOutgoingBufferSize", 1)),
-    m_incoming(clock, config.getInteger<BufferSize>("ICacheIncomingBufferSize", 1)),
+    m_outgoing("b_outgoing", *this, clock, config.getInteger<BufferSize>("ICacheOutgoingBufferSize", 1)),
+    m_incoming("b_incoming", *this, clock, config.getInteger<BufferSize>("ICacheIncomingBufferSize", 1)),
     m_numHits(0),
     m_numMisses(0),
     m_lineSize(config.getInteger<size_t>("CacheLineSize", 64)),

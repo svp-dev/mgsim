@@ -17,18 +17,19 @@ class Config;
 namespace Simulator
 {
 
-struct PlaceInfo
+struct PlaceInfo : public Object
 {
     PSize        m_size;            ///< Number of processors in the place
     CombinedFlag m_full_context;    ///< Place-global signal for free context identification
     MultiFlag    m_reserve_context; ///< Place-global flag for reserving a context
     CombinedFlag m_want_token;      ///< Place-global signal for token request
 
-    PlaceInfo(Clock& clock, unsigned int size)
-        : m_size(size),
-          m_full_context(clock, size),
-          m_reserve_context(clock, false),
-          m_want_token(clock, size)
+    PlaceInfo(const std::string& name, Clock& clock, Object& parent, unsigned int size)
+        : Object(name, parent, clock),
+        m_size(size),
+        m_full_context("f_fullContext", *this, clock, size),
+        m_reserve_context("f_reserveContext", *this, clock, false),
+        m_want_token("f_wantToken", *this, clock, size)
     {
     }
 };

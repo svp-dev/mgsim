@@ -247,7 +247,7 @@ Result FPU::DoPipeline()
 
 FPU::FPU(const std::string& name, Object& parent, Clock& clock, const Config& config, size_t num_inputs)
     : Object(name, parent, clock),
-      m_active(clock),
+      m_active("r_active", *this, clock),
       p_Pipeline("pipeline", delegate::create<FPU, &FPU::DoPipeline>(*this) )
 {
     m_active.Sensitive(p_Pipeline);
@@ -300,8 +300,12 @@ FPU::FPU(const std::string& name, Object& parent, Clock& clock, const Config& co
         const BufferSize input_buffer_size = config.getInteger<BufferSize>("FPUBufferSize", INFINITE);
         for (size_t i = 0; i < num_inputs; ++i)
         {
+            stringstream sname;
+            sname << "source" << i;
+            string name = sname.str();
+
             m_sources.push_back(NULL);
-            Source* source = new Source(clock, input_buffer_size);
+            Source* source = new Source(name, *this, clock, input_buffer_size);
             source->inputs.Sensitive(p_Pipeline);
             m_sources.back() = source;
         }       

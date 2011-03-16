@@ -353,7 +353,7 @@ Result COMA::RootDirectory::DoResponses()
 
 COMA::RootDirectory::RootDirectory(const std::string& name, COMA& parent, Clock& clock, VirtualMemory& memory, size_t numCaches, size_t id, size_t numRoots, const Config& config) :
     Simulator::Object(name, parent),
-    COMA::Object(name, parent),
+    //COMA::Object(name, parent),
     DirectoryBottom(name, parent, clock, config),
     m_lineSize(config.getInteger<size_t>("CacheLineSize",           64)),
     m_assoc   (config.getInteger<size_t>("L2CacheAssociativity",     4) * numCaches),
@@ -362,9 +362,9 @@ COMA::RootDirectory::RootDirectory(const std::string& name, COMA& parent, Clock&
     m_id       (id),
     m_numRoots (numRoots),
     p_lines    (*this, clock, "p_lines"),    
-    m_requests (clock, config.getInteger<size_t>("RootDirectoryExternalOutputQueueSize", INFINITE)),
-    m_responses(clock, config.getInteger<size_t>("RootDirectoryExternalInputQueueSize", INFINITE)),
-    m_memready (clock, true),
+    m_requests ("b_requests", *this, clock, config.getInteger<size_t>("RootDirectoryExternalOutputQueueSize", INFINITE)),
+    m_responses("b_responses", *this, clock, config.getInteger<size_t>("RootDirectoryExternalInputQueueSize", INFINITE)),
+    m_memready ("f_memready", *this, clock, true),
     m_activeMsg(NULL),
     p_Incoming ("incoming",  delegate::create<RootDirectory, &RootDirectory::DoIncoming>(*this)),
     p_Requests ("requests",  delegate::create<RootDirectory, &RootDirectory::DoRequests>(*this)),

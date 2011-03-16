@@ -131,8 +131,11 @@ class Network : public Object
             return true;
         }
 
-        Register(const Object& object, const std::string& name)
-            : Storage(object.GetClock()), Simulator::Register<T>(object.GetClock()), m_service(object, object.GetClock(), name)
+        Register(Object& object, const std::string& name)
+            : Object(name, object, object.GetClock()),
+              Storage(name, object, object.GetClock()), 
+              Simulator::Register<T>(name + ".reg", object, object.GetClock()), 
+              m_service(object, object.GetClock(), name + ".p_service")
         {
         }
     };

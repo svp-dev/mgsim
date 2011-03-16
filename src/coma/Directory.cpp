@@ -16,15 +16,15 @@ static const size_t MINSPACE_SHORTCUT = 2;
 static const size_t MINSPACE_FORWARD  = 1;
 
 COMA::DirectoryTop::DirectoryTop(const std::string& name, COMA& parent, Clock& clock, const Config& config)
-  : Simulator::Object(name, parent),
-    COMA::Object(name, parent),
+    : Simulator::Object(name, parent),
+    // COMA::Object(name, parent),
     Node(name, parent, clock, config)
 {
 }
 
 COMA::DirectoryBottom::DirectoryBottom(const std::string& name, COMA& parent, Clock& clock, const Config& config)
-  : Simulator::Object(name, parent),
-    COMA::Object(name, parent),
+    : Simulator::Object(name, parent),
+    // COMA::Object(name, parent),
     Node(name, parent, clock, config)
 {
 }
@@ -150,7 +150,7 @@ bool COMA::Directory::OnMessageReceivedBottom(Message* msg)
     COMMIT{ msg->ignore = false; }
     
     // Put the message on the higher-level ring
-    if (!DirectoryTop::SendMessage(msg, MINSPACE_FORWARD))
+    if (!m_top.SendMessage(msg, MINSPACE_FORWARD))
     {
         DeadlockWrite("Unable to buffer request for next node on top ring");
         return false;
@@ -205,11 +205,11 @@ bool COMA::Directory::OnMessageReceivedTop(Message* msg)
     if (line == NULL)
     {
         // Miss, just forward the request on the upper ring
-        if (!DirectoryTop::SendMessage(msg, MINSPACE_SHORTCUT))
+        if (!m_top.SendMessage(msg, MINSPACE_SHORTCUT))
         {
             // We can't shortcut on the top, send it the long way
             COMMIT{ msg->ignore = true; }
-            if (!DirectoryBottom::SendMessage(msg, MINSPACE_FORWARD))
+            if (!m_bottom.SendMessage(msg, MINSPACE_FORWARD))
             {
                 DeadlockWrite("Unable to buffer request for next node on top ring");
                 return false;
@@ -219,7 +219,7 @@ bool COMA::Directory::OnMessageReceivedTop(Message* msg)
     else
     {
         // We have the line; put the request on the lower ring
-        if (!DirectoryBottom::SendMessage(msg, MINSPACE_FORWARD))
+        if (!m_bottom.SendMessage(msg, MINSPACE_FORWARD))
         {
             DeadlockWrite("Unable to buffer request for next node on bottom ring");
             return false;
@@ -232,40 +232,40 @@ bool COMA::Directory::OnMessageReceivedTop(Message* msg)
 Result COMA::Directory::DoInBottom()
 {
     // Handle incoming message on bottom ring from previous node
-    assert(!DirectoryBottom::m_incoming.Empty());
-    if (!OnMessageReceivedBottom(DirectoryBottom::m_incoming.Front()))
+    assert(!m_bottom.m_incoming.Empty());
+    if (!OnMessageReceivedBottom(m_bottom.m_incoming.Front()))
     {
         return FAILED;
     }
-    DirectoryBottom::m_incoming.Pop();
+    m_bottom.m_incoming.Pop();
     return SUCCESS;
 }
 
 Result COMA::Directory::DoInTop()
 {
     // Handle incoming message on top ring from previous node
-    assert(!DirectoryTop::m_incoming.Empty());
-    if (!OnMessageReceivedTop(DirectoryTop::m_incoming.Front()))
+    assert(!m_top.m_incoming.Empty());
+    if (!OnMessageReceivedTop(m_top.m_incoming.Front()))
     {
         return FAILED;
     }
-    DirectoryTop::m_incoming.Pop();
+    m_top.m_incoming.Pop();
     return SUCCESS;
 }
 
 COMA::Directory::Directory(const std::string& name, COMA& parent, Clock& clock, CacheID firstCache, CacheID lastCache, const Config& config) :
     Simulator::Object(name, parent),
     COMA::Object(name, parent),
-    DirectoryBottom(name + "-bottom", parent, clock, config),
-    DirectoryTop(name + "-top", parent, clock, config),
+    m_bottom(name + ".bottom", parent, clock, config),
+    m_top(name + ".top", parent, clock, config),
     p_lines     (*this, clock, "p_lines"),
     m_lineSize  (config.getInteger<size_t>("CacheLineSize",           64)),
     m_assoc     (config.getInteger<size_t>("L2CacheAssociativity",     4) * (lastCache - firstCache + 1)),
     m_sets      (config.getInteger<size_t>("L2CacheNumSets",         128)),
     m_firstCache(firstCache),
     m_lastCache (lastCache),
-    p_InBottom  ("bottom-incoming", delegate::create<Directory, &Directory::DoInBottom >(*this)),
-    p_InTop     ("top-incoming",    delegate::create<Directory, &Directory::DoInTop    >(*this))
+    p_InBottom  ("bottom_incoming", delegate::create<Directory, &Directory::DoInBottom >(*this)),
+    p_InTop     ("top_incoming",    delegate::create<Directory, &Directory::DoInTop    >(*this))
 {
     // Create the cache lines
     // We need as many cache lines in a directory to cover all caches below it
@@ -276,8 +276,8 @@ COMA::Directory::Directory(const std::string& name, COMA& parent, Clock& clock, 
         line.valid = false;
     }
 
-    DirectoryBottom::m_incoming.Sensitive(p_InBottom);
-    DirectoryTop   ::m_incoming.Sensitive(p_InTop);
+    m_bottom.m_incoming.Sensitive(p_InBottom);
+    m_top.m_incoming.Sensitive(p_InTop);
     
     p_lines.AddProcess(p_InTop);
     p_lines.AddProcess(p_InBottom);   
@@ -302,10 +302,10 @@ void COMA::Directory::Cmd_Read(std::ostream& out, const std::vector<std::string>
     {
         // Read the buffers
         out << endl << "Top ring interface:" << endl << endl;
-        DirectoryTop::Print(out);
+        m_top.Print(out);
 
         out << endl << "Bottom ring interface:" << endl << endl;
-        DirectoryBottom::Print(out);
+        m_bottom.Print(out);
         
         return;
     }

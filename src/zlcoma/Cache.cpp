@@ -1175,8 +1175,8 @@ ZLCOMA::Cache::Cache(const std::string& name, ZLCOMA& parent, Clock& clock, Cach
     p_Requests ("requests", delegate::create<Cache, &Cache::DoRequests>(*this)),
     p_In       ("incoming", delegate::create<Cache, &Cache::DoReceive>(*this)),
     p_bus      (*this, clock, "p_bus"),
-    m_requests (clock, config.getInteger<BufferSize>("COMACacheRequestBufferSize",  INFINITE)),
-    m_responses(clock, config.getInteger<BufferSize>("COMACacheResponseBufferSize", INFINITE))
+    m_requests ("b_requests", *this, clock, config.getInteger<BufferSize>("COMACacheRequestBufferSize",  INFINITE)),
+    m_responses("b_responses", *this, clock, config.getInteger<BufferSize>("COMACacheResponseBufferSize", INFINITE))
 {
     RegisterSampleVariableInObject(m_numHits, SVC_CUMULATIVE);
     RegisterSampleVariableInObject(m_numMisses, SVC_CUMULATIVE);

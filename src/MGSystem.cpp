@@ -769,7 +769,11 @@ MGSystem::MGSystem(const Config& config, Display& display, const string& program
     PSize first = 0;
     for (size_t p = 0; p < placeSizes.size(); ++p)
     {
-        m_places[p] = new PlaceInfo(m_clock, placeSizes[p]);
+        {
+            stringstream name;
+            name << "place" << p;
+            m_places[p] = new PlaceInfo(name.str(), m_clock, m_root, placeSizes[p]);
+        }
         for (size_t i = 0; i < m_places[p]->m_size; ++i)
         {
             PSize pid = (first + i);

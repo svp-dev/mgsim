@@ -240,8 +240,8 @@ ZLCOMA::DDRChannel::DDRChannel(const std::string& name, Object& parent, Clock& c
 
       m_memory(memory),
       m_callback(dynamic_cast<ICallback&>(parent)),
-      m_pipeline(clock, m_ddrconfig.m_tCL),
-      m_busy(clock, false),
+      m_pipeline("b_pipeline", *this, clock, m_ddrconfig.m_tCL),
+      m_busy("f_busy", *this, clock, false),
       m_next_command(0),
       m_next_precharge(0),
     

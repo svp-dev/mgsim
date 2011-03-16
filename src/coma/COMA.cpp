@@ -144,7 +144,7 @@ COMA::COMA(const std::string& name, Simulator::Object& parent, Clock& clock, con
     // Initialize the caches
     for (size_t i = 0; i < m_caches.size(); ++i)
     {
-        DirectoryBottom* dir = m_directories[i / m_numCachesPerDir];
+        DirectoryBottom* dir = &m_directories[i / m_numCachesPerDir]->m_bottom;
         const bool first = (i % m_numCachesPerDir == 0);
         const bool last  = (i % m_numCachesPerDir == m_numCachesPerDir - 1) || (i == m_caches.size() - 1);
         m_caches[i]->Initialize(
@@ -155,7 +155,7 @@ COMA::COMA(const std::string& name, Simulator::Object& parent, Clock& clock, con
     // Connect the directories to the cache rings
     for (size_t i = 0; i < m_directories.size(); ++i)
     {
-        m_directories[i]->DirectoryBottom::Initialize(
+        m_directories[i]->m_bottom.Initialize(
             m_caches[std::min(i * m_numCachesPerDir + m_numCachesPerDir, m_caches.size()) - 1],
             m_caches[i * m_numCachesPerDir] );
     }
@@ -180,7 +180,7 @@ COMA::COMA(const std::string& name, Simulator::Object& parent, Clock& clock, con
     for (size_t p = 0, i = 0; i < m_directories.size(); ++i, ++p)
     {
         while (nodes[p] != NULL) ++p;
-        nodes[p] = static_cast<DirectoryTop*>(m_directories[i]);
+        nodes[p] = &m_directories[i]->m_top;
     }
     
     // Now connect everything on the top-level ring

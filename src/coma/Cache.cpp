@@ -803,7 +803,7 @@ Result COMA::Cache::DoReceive()
 
 COMA::Cache::Cache(const std::string& name, COMA& parent, Clock& clock, CacheID id, size_t numCaches, const Config& config) :
     Simulator::Object(name, parent),
-    COMA::Object(name, parent),
+    //COMA::Object(name, parent),
     Node(name, parent, clock, config),
     m_lineSize (config.getInteger<size_t>("CacheLineSize",           64)),
     m_assoc    (config.getInteger<size_t>("L2CacheAssociativity",     4)),
@@ -817,8 +817,8 @@ COMA::Cache::Cache(const std::string& name, COMA& parent, Clock& clock, CacheID 
     p_Requests ("requests", delegate::create<Cache, &Cache::DoRequests>(*this)),
     p_In       ("incoming", delegate::create<Cache, &Cache::DoReceive>(*this)),
     p_bus      (*this, clock, "p_bus"),
-    m_requests (clock, config.getInteger<BufferSize>("L2CacheRequestBufferSize",  INFINITE)),
-    m_responses(clock, config.getInteger<BufferSize>("L2CacheResponseBufferSize", INFINITE))
+    m_requests ("b_requests", *this, clock, config.getInteger<BufferSize>("L2CacheRequestBufferSize",  INFINITE)),
+    m_responses("b_responses", *this, clock, config.getInteger<BufferSize>("L2CacheResponseBufferSize", INFINITE))
 {
     RegisterSampleVariableInObject(m_numHits, SVC_CUMULATIVE);
     RegisterSampleVariableInObject(m_numMisses, SVC_CUMULATIVE);

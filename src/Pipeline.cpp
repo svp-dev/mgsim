@@ -39,7 +39,7 @@ Pipeline::Pipeline(
     p_Pipeline("pipeline", delegate::create<Pipeline, &Pipeline::DoPipeline>(*this)),
     m_parent(parent),
     
-    m_active(clock),
+    m_active("f_active", *this, clock),
     
     m_nStagesRunnable(0), m_nStagesRun(0),
     m_pipelineBusyTime(0)
