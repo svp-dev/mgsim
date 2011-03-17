@@ -1160,7 +1160,6 @@ Result ZLCOMA::Cache::DoReceive()
 
 ZLCOMA::Cache::Cache(const std::string& name, ZLCOMA& parent, Clock& clock, CacheID id, size_t numTokens, const Config& config) :
     Simulator::Object(name, parent),
-    ZLCOMA::Object(name, parent),
     Node(name, parent, clock),
     m_lineSize (config.getInteger<size_t>("CacheLineSize",           64)),
     m_assoc    (config.getInteger<size_t>("COMACacheAssociativity",   4)),

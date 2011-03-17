@@ -411,7 +411,6 @@ Result ZLCOMA::RootDirectory::DoResponses()
 
 ZLCOMA::RootDirectory::RootDirectory(const std::string& name, ZLCOMA& parent, Clock& clock, VirtualMemory& memory, size_t numCaches, size_t id, size_t numRoots, const Config& config) :
     Simulator::Object(name, parent),
-    ZLCOMA::Object(name, parent),
     DirectoryBottom(name, parent, clock),
     m_lineSize(config.getInteger<size_t>("CacheLineSize",           64)),
     m_assoc   (config.getInteger<size_t>("COMACacheAssociativity",   4) * numCaches),

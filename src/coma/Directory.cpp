@@ -17,14 +17,12 @@ static const size_t MINSPACE_FORWARD  = 1;
 
 COMA::DirectoryTop::DirectoryTop(const std::string& name, COMA& parent, Clock& clock, const Config& config)
     : Simulator::Object(name, parent),
-    // COMA::Object(name, parent),
     Node(name, parent, clock, config)
 {
 }
 
 COMA::DirectoryBottom::DirectoryBottom(const std::string& name, COMA& parent, Clock& clock, const Config& config)
     : Simulator::Object(name, parent),
-    // COMA::Object(name, parent),
     Node(name, parent, clock, config)
 {
 }
