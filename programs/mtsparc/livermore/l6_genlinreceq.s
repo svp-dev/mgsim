@@ -26,10 +26,10 @@
     .globl main
     .align 64
 main:
-    allocate 2, %5      ! Local
-    setstart %5, 1
-    setlimit %5, %11
-    setblock %5, 2
+    allocateng 2, %5      ! Local
+    setstartng %5, 1
+    setlimitng %5, %11
+    setblockng %5, 2
     cred    outer, %5
 
     set     X, %1           ! %1 = X
@@ -46,72 +46,72 @@ main:
 !
 ! Outer loop
 !
-! %g0  = X
-! %g1  = Y
-! %d0  = token
-! %l0  = i
+! %tg0  = X
+! %tg1  = Y
+! %td0  = token
+! %tl0  = i
 !
     .globl outer
     .align 64
     .registers 2 1 5 0 0 4    
 outer:
-    allocate %0, %l3
+    allocateng %0, %tl3
 
-    sll     %l0,    3, %l1
-    add     %l1,  %g1, %l1  ! %l1 = &Y[0][i]
+    sll     %tl0,    3, %tl1
+    add     %tl1,  %tg1, %tl1  ! %tl1 = &Y[0][i]
     
-    setlimit %l3, %l0; swch
-    mov     %d0, %0
-    cred    inner, %l3
+    setlimitng %tl3, %tl0; swch
+    mov     %td0, %0
+    cred    inner, %tl3
 
-    putg    %l0, %l3, 0
-    putg    %l1, %l3, 1
-    putg    %g0, %l3, 2     ! %g2 = X
-    fputs   %f0, %l3, 0
-    fputs   %f0, %l3, 1     ! %lf0,%lf1 = sum = 0
+    putg    %tl0, %tl3, 0
+    putg    %tl1, %tl3, 1
+    putg    %tg0, %tl3, 2     ! %tg2 = X
+    fputs   %f0, %tl3, 0
+    fputs   %f0, %tl3, 1     ! %tlf0,%tlf1 = sum = 0
 
-    sll     %l0,   3, %l4
-    add     %l4, %g0, %l4   ! %l4 = &X[i]
-    ldd     [%l4], %lf2
+    sll     %tl0,   3, %tl4
+    add     %tl4, %tg0, %tl4   ! %tl4 = &X[i]
+    ldd     [%tl4], %tlf2
     
-    sync    %l3, %l0
-    mov     %l0, %0
-    fgets   %l3, 0, %lf0
-    fgets   %l3, 1, %lf1
-    release %l3
+    sync    %tl3, %tl0
+    mov     %tl0, %0
+    fgets   %tl3, 0, %tlf0
+    fgets   %tl3, 1, %tlf1
+    release %tl3
     
-    faddd   %lf2, %lf0, %lf0; swch  ! %lf0,%lf1 = X[i] + sum
-    std     %lf0, [%l4]
+    faddd   %tlf2, %tlf0, %tlf0; swch  ! %tlf0,%tlf1 = X[i] + sum
+    std     %tlf0, [%tl4]
     stbar
-    clr     %s0
+    clr     %ts0
     end
     
 !
 ! Inner loop
 !
-! %g0  = i
-! %g1  = &Y[i]
-! %g2  = X
-! %df0,%df1 = sum
-! %l0  = j
+! %tg0  = i
+! %tg1  = &Y[i]
+! %tg2  = X
+! %tdf0,%tdf1 = sum
+! %tl0  = j
 !
     .globl inner
     .align 64
     .registers 3 0 2 0 2 4
 inner:
-    sub     %g0,  %l0, %l1
-    sll     %l1,    3, %l1
-    add     %l1,  %g2, %l1
-    ldd     [%l1-8], %lf0       ! %lf0,%lf1 = X[i - j - 1]
+    sub     %tg0,  %tl0, %tl1
+    sll     %tl1,    3, %tl1
+    add     %tl1,  %tg2, %tl1
+    ldd     [%tl1-8], %tlf0       ! %tlf0,%tlf1 = X[i - j - 1]
     
-    sll     %l0,   9, %l0
-    add     %l0, %g1, %l0
-    ldd     [%l0], %lf2         ! %lf2,%lf3 = Y[i][j]
+    sll     %tl0,   9, %tl0
+    add     %tl0, %tg1, %tl0
+    ldd     [%tl0], %tlf2         ! %tlf2,%tlf3 = Y[i][j]
     
-    fmuld   %lf0, %lf2, %lf0; swch
-    faddd   %lf0, %df0, %lf0; swch
-    fmovs   %lf0, %sf0; swch
-    fmovs   %lf1, %sf1
+    fmuld   %tlf0, %tlf2, %tlf0; swch
+    faddd   %tlf0, %tdf0, %tlf0; swch
+    fmovs   %tlf0, %tsf0; swch
+    fmovs   %tlf1, %tsf1
     end
     
     .section .bss

@@ -38,14 +38,14 @@ _FFT:
     
     .ifdef DO_BIT_REVERSAL	
     clr      %8
-	allocate %8, 0, 0, 0, 0
+	allocateng %8, 0, 0, 0, 0
 	add      %1, 16, %9
-	setstart %8, %9		    ! start = &X[1]
+	setstartng %8, %9		    ! start = &X[1]
 	sll      %6,  4, %9
 	add	     %9, %1, %9
-	setlimit %8, %9 		! limit = &X[N - 1]
-	setstep  %8, 16 		! step  = 16
-	setblock %8, BLOCK_POST
+	setlimitng %8, %9 		! limit = &X[N - 1]
+	setstepng  %8, 16 		! step  = 16
+	setblockng %8, BLOCK_POST
 	
 	mov     %2, %3	        ! %3 = j = N / 2
 	cred    _FFT_POST, %8
@@ -54,16 +54,16 @@ _FFT:
 	.endif
 
     mov      2, %8          ! place = LOCAL
-	allocate %8, 0, 0, 0, 0
+	allocateng %8, 0, 0, 0, 0
 
 	sll     %2,     4, %2   ! %2 = (N / 2) * 16;
 	set      _cos_sin, %3   ! %3 = _cos_sin
     sll     %4, MAX_M, %5   ! %5 = MAX_N
 
 	! create and sync
-	setstart %8, %4		    ! start = 1
+	setstartng %8, %4		    ! start = 1
 	add      %11, 1, %11
-	setlimit %8, %11	    ! limit = M + 1
+	setlimitng %8, %11	    ! limit = M + 1
 	cred     _FFT_1, %8
 	mov      %8, %1
 	end
@@ -75,160 +75,160 @@ _FFT:
 !
 ! for (i = 0; i < N - 1; i++) {
 !
-! %g0 = X
-! %g1 = N / 2
-! %s0 = j
-! %l0 = &X[i]
+! %tg0 = X
+! %tg1 = N / 2
+! %ts0 = j
+! %tl0 = &X[i]
 !
     .align 64
 	.registers 2 1 7  0 0 0	    ! GR,SR,LR, GF,SF,LF	
 _FFT_POST:
-	clr      %l3
-	allocate %l3, 0, 0, 0, 0
-							    ! %l0 = &X[i]
-	mov %d0, %l1; swch	    ! %l1 = j
-	mov %g0, %l2		        ! %l2 = X
-	cred _FFT_POST_SWAP, %l3
+	clr      %tl3
+	allocateng %tl3, 0, 0, 0, 0
+							    ! %tl0 = &X[i]
+	mov %td0, %tl1; swch	    ! %tl1 = j
+	mov %tg0, %tl2		        ! %tl2 = X
+	cred _FFT_POST_SWAP, %tl3
 	
     ! k = N / 2;
-    mov %g1, %l4		        ! %l4 = k
-    mov %l1, %l5		        ! %l5 = j
+    mov %tg1, %tl4		        ! %tl4 = k
+    mov %tl1, %tl5		        ! %tl5 = j
     
     ! while (k <= j) {
     ba 2f
 1:
     	! j = j - k;
-    	sub %l5, %l4, %l5
+    	sub %tl5, %tl4, %tl5
     	
     	! k = k / 2;
-    	srl %l4, 1, %l4
+    	srl %tl4, 1, %tl4
     !
     ! }
 2:
-    cmp %l4, %l5
+    cmp %tl4, %tl5
     ble 1b; swch
     
     ! j = j + k;
-    add %l5, %l4, %s0
+    add %tl5, %tl4, %ts0
     
     ! sync
-    mov %l3, %0
+    mov %tl3, %0
 	end
 
 
     !
-    ! %g0 = &X[i];
-    ! %g1 = j
-    ! %g2 = X
+    ! %tg0 = &X[i];
+    ! %tg1 = j
+    ! %tg2 = X
     !
     .align 64
 	.registers 3 0 2  0 0 8
 _FFT_POST_SWAP:
-	sll  %g1,  4, %l0
-	add %l0, %g2, %l0	! %l0 = &X[j]
+	sll  %tg1,  4, %tl0
+	add %tl0, %tg2, %tl0	! %tl0 = &X[j]
 	
 	! if (i < j) {
-	cmp %g0, %l0
+	cmp %tg0, %tl0
 	blt 1f
 	end
 
 1:
 	! Swap X[i] and X[j]
-    ldd [%g0+0], %lf0
-    ldd [%g0+8], %lf2
-    ldd [%l0+0], %lf4
-    ldd [%l0+8], %lf6
-    std %lf0, [%l0+0]; swch
-    std %lf2, [%l0+8]; swch
-    std %lf4, [%g0+0]; swch
-    std %lf6, [%g0+8]
+    ldd [%tg0+0], %tlf0
+    ldd [%tg0+8], %tlf2
+    ldd [%tl0+0], %tlf4
+    ldd [%tl0+8], %tlf6
+    std %tlf0, [%tl0+0]; swch
+    std %tlf2, [%tl0+8]; swch
+    std %tlf4, [%tg0+0]; swch
+    std %tlf6, [%tg0+8]
 	end
     .endif
 
 /*
  * for (int k = 1; k <= M; k++) {
  *
- * %g0 = X
- * %g1 = (N / 2) * 16
- * %g2 = _cos_sin
- * %g3 = 1
- * %g4 = MAX_N
- * %s0 = token
- * %l0 = k
+ * %tg0 = X
+ * %tg1 = (N / 2) * 16
+ * %tg2 = _cos_sin
+ * %tg3 = 1
+ * %tg4 = MAX_N
+ * %ts0 = token
+ * %tl0 = k
  */
     .align 64
 	.registers 5 1 5  0 0 0	    ! GR,SR,LR, GF,SF,LF	
 _FFT_1:
-	clr      %l4
-	allocate %l4, 0, 0, 0, 0	! start = 0
-	setlimit %l4, %g1		    ! limit = (N / 2) * 16
-	setstep  %l4, 16			! step  = 16
-	! setblock %l4, %g4
+	clr      %tl4
+	allocateng %tl4, 0, 0, 0, 0	! start = 0
+	setlimitng %tl4, %tg1		    ! limit = (N / 2) * 16
+	setstepng  %tl4, 16			! step  = 16
+	! setblockng %tl4, %tg4
 	
-	srl  %g4, %l0, %l3		! %l3 = Z = (MAX_N >> k);
-    mov  %g0, %l2		    ! %l2 = X
-    mov  %g2, %l1		    ! %l1 = _cos_sin
-	sll  %g3, %l0, %l0
-	sll  %l0,   3, %l0
-	sub  %l0,   1, %l0		! %l0 = LE2 * 16 - 1
+	srl  %tg4, %tl0, %tl3		! %tl3 = Z = (MAX_N >> k);
+    mov  %tg0, %tl2		    ! %tl2 = X
+    mov  %tg2, %tl1		    ! %tl1 = _cos_sin
+	sll  %tg3, %tl0, %tl0
+	sll  %tl0,   3, %tl0
+	sub  %tl0,   1, %tl0		! %tl0 = LE2 * 16 - 1
 	
-    mov  %d0, %0; swch      ! wait for token
-	cred _FFT_2, %l4
-	mov  %l4, %s0 		    ! sync and write token
+    mov  %td0, %0; swch      ! wait for token
+	cred _FFT_2, %tl4
+	mov  %tl4, %ts0 		    ! sync and write token
 	end;
 
 /*
  * for (i = 0; i < N / 2; i++) {
  *
- * %g0 = LE2 * 16 - 1
- * %g1 = _cos_sin
- * %g2 = X
- * %g3 = Z
- * %l0 = i * 16
+ * %tg0 = LE2 * 16 - 1
+ * %tg1 = _cos_sin
+ * %tg2 = X
+ * %tg3 = Z
+ * %tl0 = i * 16
  */
     .align 64
 	.registers 4 0 3  0 0 16    ! GR,SR,LR, GF,SF,LF
 _FFT_2:	
-	and  %l0, %g0, %l1	    ! %l1 = w
-	sub  %l0, %l1, %l0
-	sll  %l0,   1, %l0
-	add  %l0, %l1, %l0	    ! %l0 = j
+	and  %tl0, %tg0, %tl1	    ! %tl1 = w
+	sub  %tl0, %tl1, %tl0
+	sll  %tl0,   1, %tl0
+	add  %tl0, %tl1, %tl0	    ! %tl0 = j
 	
-	add %l0, %g0, %l2       ! %l2 = ip;
-	add %l2, %g2, %l2	    ! %l2 = &X[ip] - 1;
-	ldd [%l2+1], %lf4
-	ldd [%l2+9], %lf6		! %LF4, %LF6 = X[ip]
+	add %tl0, %tg0, %tl2       ! %tl2 = ip;
+	add %tl2, %tg2, %tl2	    ! %tl2 = &X[ip] - 1;
+	ldd [%tl2+1], %tlf4
+	ldd [%tl2+9], %tlf6		! %LF4, %LF6 = X[ip]
 	
-	umul %l1, %g3, %l1
-	add  %l1, %g1, %l1	    ! %l1 = &_cos_sin[w * Z];
-	ldd  [%l1+0], %lf8
-	ldd  [%l1+8], %lf10		! %LF8, %LF10 = U
+	umul %tl1, %tg3, %tl1
+	add  %tl1, %tg1, %tl1	    ! %tl1 = &_cos_sin[w * Z];
+	ldd  [%tl1+0], %tlf8
+	ldd  [%tl1+8], %tlf10		! %LF8, %LF10 = U
 				
-	add %l0, %g2, %l0       ! %l0 = &X[j];
+	add %tl0, %tg2, %tl0       ! %tl0 = &X[j];
 
-	ldd [%l0+0], %lf0
-	ldd [%l0+8], %lf2		! %LF0, %LF2 = X[j]
+	ldd [%tl0+0], %tlf0
+	ldd [%tl0+8], %tlf2		! %LF0, %LF2 = X[j]
 
 	! complex T = U * X[ip];
-	fmuld %lf8,  %lf4,  %lf12; swch
-	fmuld %lf10, %lf6,  %lf14; swch
-	fmuld %lf10, %lf4,  %lf4
-	fmuld %lf8,  %lf6,  %lf6
+	fmuld %tlf8,  %tlf4,  %tlf12; swch
+	fmuld %tlf10, %tlf6,  %tlf14; swch
+	fmuld %tlf10, %tlf4,  %tlf4
+	fmuld %tlf8,  %tlf6,  %tlf6
 	
-	fsubd %lf12, %lf14, %lf12; swch
-	faddd %lf4,  %lf6,  %lf14; swch	! %LF12, %LF14 = T
+	fsubd %tlf12, %tlf14, %tlf12; swch
+	faddd %tlf4,  %tlf6,  %tlf14; swch	! %LF12, %LF14 = T
 	
 	! X[ip] = X[j] - T
 	! X[j]  = X[j] + T
-	fsubd %lf0, %lf12, %lf4; swch
-	faddd %lf0, %lf12, %lf0
-	fsubd %lf2, %lf14, %lf6; swch
-	faddd %lf2, %lf14, %lf2
+	fsubd %tlf0, %tlf12, %tlf4; swch
+	faddd %tlf0, %tlf12, %tlf0
+	fsubd %tlf2, %tlf14, %tlf6; swch
+	faddd %tlf2, %tlf14, %tlf2
 	
-	std %lf4, [%l2+1]; swch
-	std %lf6, [%l2+9]; swch
-	std %lf0, [%l0+0]; swch
-	std %lf2, [%l0+8]
+	std %tlf4, [%tl2+1]; swch
+	std %tlf6, [%tl2+9]; swch
+	std %tlf0, [%tl0+0]; swch
+	std %tlf2, [%tl0+8]
 	
 	end
 

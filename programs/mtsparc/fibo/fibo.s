@@ -11,19 +11,19 @@
 main:
     ! First we get a free entry in the Family Table.
     ! Will write back asynchronously if there is no free entry.
-    allocate %0, %4
+    allocateng %0, %4
     
     ! Get N - 1 as the loop limit
     sub     %11, 1, %11
 
-    ! Set the loop limit on the allocated FT entry
+    ! Set the loop limit on the allocatengd FT entry
     ! We tag this instruction with SWCH because %4 is the result
-    ! of a possibly long latency operation (allocate)
-    setlimit %4, %11
+    ! of a possibly long latency operation (allocateng)
+    setlimitng %4, %11
     swch
     
     ! Here we issue a direct (label operand) create with the
-    ! allocated FT entry.
+    ! allocatengd FT entry.
     cred    fibonacci, %4
     
     ! Write 0 and 1 into the first two locals (%0 is Read As Zero)
@@ -51,14 +51,14 @@ main:
     .registers 0 2 0 0 0 0    
 fibonacci:
     ! We add the first two dependents into the second shared
-    ! Tagged with a SWCH because %d0 and %d1 are both not
+    ! Tagged with a SWCH because %td0 and %td1 are both not
     ! guaranteed to be there at time of execution.
-    add %d0, %d1, %s1
+    add %td0, %td1, %ts1
     swch
     
     ! We copy the second dependent into the first shared.
     ! We tag it with END because it's the last instruction
-    mov %d1, %s0
+    mov %td1, %ts0
     end
 
     .section .rodata

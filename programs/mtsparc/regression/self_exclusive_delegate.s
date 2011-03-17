@@ -8,7 +8,7 @@
     .globl main
     .align 64
 main:
-    allocate (0 << 4) | (1 << 3) | (3 << 1) | 1, %2  ! PID:0, Delegate, Suspend, Exclusive
+    allocateng (0 << 4) | (1 << 3) | (3 << 1) | 1, %2  ! PID:0, Delegate, Suspend, Exclusive
     cred foo, %2
     
     ! Sync
@@ -20,7 +20,7 @@ main:
     .align 64
     .registers 0 0 1 0 0 0
 foo:
-    print %l0, 0
+    print %tl0, 0
     end
 
     .ascii "PLACES: 1\0"

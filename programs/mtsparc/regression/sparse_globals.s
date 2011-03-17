@@ -10,8 +10,8 @@
 main:
     mov 42, %1
     
-    allocate %0, %2
-    setlimit %2, 4
+    allocateng %0, %2
+    setlimitng %2, 4
     cred foo, %2
     
     putg %1, %2, 0
@@ -25,9 +25,9 @@ main:
     .align 64
     .registers 1 0 2 0 0 0
 foo:
-    cmp %l0, 2
+    cmp %tl0, 2
     bne 1f
-    print %g0, 0
+    print %tg0, 0
 1:  nop
     end
     

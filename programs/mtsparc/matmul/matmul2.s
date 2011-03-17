@@ -17,13 +17,13 @@
     .text
     .globl main
 main:
-	allocate (1 << 3), %5
+	allocateng (1 << 3), %5
 	
 	!	create (fam1; 0; N-1;)
-	setlimit %5, %11
+	setlimitng %5, %11
 	swch
 	.ifdef BLOCK1
-	setblock %5, BLOCK1
+	setblockng %5, BLOCK1
 	.endif
 	cred thread1, %5
 	
@@ -42,76 +42,76 @@ main:
 	end
 
 
-    ! %g0 = A 
-    ! %g1 = B
-    ! %g2 = C
-    ! %g3 = N
-    ! %l0 = i
+    ! %tg0 = A 
+    ! %tg1 = B
+    ! %tg2 = C
+    ! %tg3 = N
+    ! %tl0 = i
     .align 64
 	.registers 4 0 5  0 0 0	    ! GR,SR,LR, GF,SF,LF
 thread1:
-	allocate (1 << 3), %l4
-	setlimit %l4, %g3
+	allocateng (1 << 3), %tl4
+	setlimitng %tl4, %tg3
 	swch
-	cred thread2, %l4
+	cred thread2, %tl4
 	
-	umul    %l0, %g3, %l0       ! %l0 = i*N
-	sll     %l0,   2, %l0
-	add     %l0, %g2, %l2       ! %l2 = &C[i*N]
-	add     %l0, %g0, %l0       ! %l0 = &A[i*N]
-	putg    %l0, %l4, 0
-	putg    %g1, %l4, 1
-	putg    %l2, %l4, 2
-	putg    %g3, %l4, 3
+	umul    %tl0, %tg3, %tl0       ! %tl0 = i*N
+	sll     %tl0,   2, %tl0
+	add     %tl0, %tg2, %tl2       ! %tl2 = &C[i*N]
+	add     %tl0, %tg0, %tl0       ! %tl0 = &A[i*N]
+	putg    %tl0, %tl4, 0
+	putg    %tg1, %tl4, 1
+	putg    %tl2, %tl4, 2
+	putg    %tg3, %tl4, 3
 	
-	sync %l4, %l0
-	release %l4
-	mov %l0, %0
+	sync %tl4, %tl0
+	release %tl4
+	mov %tl0, %0
 	end
 
 
-    ! %g0 = &A[i*N]
-    ! %g1 = B
-    ! %g2 = &C[i*N]
-    ! %g3 = N
-    ! %l0 = j
+    ! %tg0 = &A[i*N]
+    ! %tg1 = B
+    ! %tg2 = &C[i*N]
+    ! %tg3 = N
+    ! %tl0 = j
     .align 64
 	.registers 4 0 6  0 0 0	    ! GR,SR,LR, GF,SF,LF
 thread2:
-    sll     %l0,   2, %l1
-	add     %l1, %g1, %l1       ! %l1 = &B[j]
-	clr     %l2                 ! %l2 = sum = 0
+    sll     %tl0,   2, %tl1
+	add     %tl1, %tg1, %tl1       ! %tl1 = &B[j]
+	clr     %tl2                 ! %tl2 = sum = 0
 
     !
 	! for (int k = 0; k < N; k++) {
 	!
-    clr %l3                     ! %l3 = k
+    clr %tl3                     ! %tl3 = k
     ba L2e
     swch
 L2s:
-    sll     %l3,   2, %l4
-    add     %l4, %g0, %l4       ! %l4 = &A[i*N+k]
-    ld      [%l4], %l4          ! %l4 =  A[i*N+k]
-    sll     %g3,   2, %l5
-    add     %l5, %l1, %l5       ! %l5 = &B[k*N+j]
-    ld      [%l5], %l5          ! %l5 =  B[k*N+j]
+    sll     %tl3,   2, %tl4
+    add     %tl4, %tg0, %tl4       ! %tl4 = &A[i*N+k]
+    ld      [%tl4], %tl4          ! %tl4 =  A[i*N+k]
+    sll     %tg3,   2, %tl5
+    add     %tl5, %tl1, %tl5       ! %tl5 = &B[k*N+j]
+    ld      [%tl5], %tl5          ! %tl5 =  B[k*N+j]
     
-    smul    %l4, %l5, %l4       ! %l4 = A[i*N+k] * B[k*N+j]
+    smul    %tl4, %tl5, %tl4       ! %tl4 = A[i*N+k] * B[k*N+j]
     swch
     
-    add     %l2, %l4, %l2       ! %l2 = sum = sum + A[i*N+k] * B[k*N+j]
+    add     %tl2, %tl4, %tl2       ! %tl2 = sum = sum + A[i*N+k] * B[k*N+j]
     
     !
     ! }
     !
-    inc     %l3
-L2e:cmp     %l3, %g3
+    inc     %tl3
+L2e:cmp     %tl3, %tg3
 	blt     L2s
 	swch
 	
-	sll     %l0,   2, %l0
-	add     %l0, %g2, %l0       ! %l0 = &C[i*N+j]
-	st      %l2, [%l0]          ! C[i*N+j] = sum
+	sll     %tl0,   2, %tl0
+	add     %tl0, %tg2, %tl0       ! %tl0 = &C[i*N+j]
+	st      %tl2, [%tl0]          ! C[i*N+j] = sum
 	end
 
 !

@@ -9,8 +9,8 @@
     .align 64
     .globl main
 main:
-    allocate (1 << 4) | (1 << 3) | (3 << 1), %3 ! PID:1, Delegated, Suspend
-    setlimit %3, 4
+    allocateng (1 << 4) | (1 << 3) | (3 << 1), %3 ! PID:1, Delegated, Suspend
+    setlimitng %3, 4
     cred bar, %3
 
     mov 42, %1
@@ -27,10 +27,10 @@ main:
     .align 64
     .registers 1 1 1 0 0 0
 bar:
-    add %d0, %g0, %l0
+    add %td0, %tg0, %tl0
     swch
-    mov %l0, %s0
-    print %l0, 0
+    mov %tl0, %ts0
+    print %tl0, 0
     end
 
     .data

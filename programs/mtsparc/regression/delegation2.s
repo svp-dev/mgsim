@@ -11,8 +11,8 @@
 main:
     mov 42, %1
     
-    allocate (1 << 4) | (1 << 3) | (3 << 1), %3     ! PID:1, Delegated, Suspend
-    setlimit %3, 4
+    allocateng (1 << 4) | (1 << 3) | (3 << 1), %3     ! PID:1, Delegated, Suspend
+    setlimitng %3, 4
     cred bar, %3
     
     putg %1, %3, 0
@@ -26,10 +26,10 @@ main:
     .align 64
     .registers 1 0 1 0 0 0
 bar:
-    cmp %l0, 0
+    cmp %tl0, 0
     bne 1f
     swch
-    print %g0, 0
+    print %tg0, 0
 1:  nop
     end
 

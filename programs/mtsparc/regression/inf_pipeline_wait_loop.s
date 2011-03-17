@@ -9,8 +9,8 @@
     .globl main
     .align 64
 main:
-    allocate 0, %2
-    setlimit %2, 250
+    allocateng 0, %2
+    setlimitng %2, 250
     cred foo, %2
     
     set X, %5
@@ -26,7 +26,7 @@ main:
     .align 64
     .registers 1 0 0 0 0 0
 foo:
-    print %g0, 0
+    print %tg0, 0
     end
 
     .data

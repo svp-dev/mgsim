@@ -26,8 +26,8 @@
 !
     .globl main
 main:
-    allocate %0, %4         ! Start = 0, Step = 1
-    setlimit %4, %11        ! Limit = N
+    allocateng %0, %4         ! Start = 0, Step = 1
+    setlimitng %4, %11        ! Limit = N
     cred     loop, %4
 
     set     Q, %1; ldd [%1], %f2
@@ -55,33 +55,33 @@ main:
 ! Loop thread:
 ! x[i] = Q + Y[i] * (R * Z[i + 10] + T * Z[i + 11]);
 !
-! %g0       = X
-! %g1       = Y
-! %g2       = Z
-! %gf0,%gf1 = Q
-! %gf2,%gf3 = R
-! %gf4,%gf5 = T
-! %l0       = i
+! %tg0       = X
+! %tg1       = Y
+! %tg2       = Z
+! %tgf0,%tgf1 = Q
+! %tgf2,%tgf3 = R
+! %tgf4,%tgf5 = T
+! %tl0       = i
 !
     .align 64
     .registers 3 0 2  6 0 6     ! GR,SR,LR, GF,SF,LF
 loop:
-    sll     %l0,   3, %l1
-    add     %l1, %g2, %l1   ! %l1 = &Z[i]
-    ldd     [%l1+80], %lf2  ! %lf2, %lf3 = Z[i + 10]
-    ldd     [%l1+88], %lf4  ! %lf4, %lf5 = Z[i + 11]
-    sll     %l0,   3, %l1
-    add     %l1, %g1, %l1   ! %l1 = &Y[i]
-    ldd     [%l1],    %lf0  ! %lf0,%lf1 = Y[i]
-    sll     %l0,   3, %l0
-    add     %l0, %g0, %l0   ! %l0 = &X[i]
+    sll     %tl0,   3, %tl1
+    add     %tl1, %tg2, %tl1   ! %tl1 = &Z[i]
+    ldd     [%tl1+80], %tlf2  ! %tlf2, %tlf3 = Z[i + 10]
+    ldd     [%tl1+88], %tlf4  ! %tlf4, %tlf5 = Z[i + 11]
+    sll     %tl0,   3, %tl1
+    add     %tl1, %tg1, %tl1   ! %tl1 = &Y[i]
+    ldd     [%tl1],    %tlf0  ! %tlf0,%tlf1 = Y[i]
+    sll     %tl0,   3, %tl0
+    add     %tl0, %tg0, %tl0   ! %tl0 = &X[i]
 
-    fmuld   %lf2, %gf2, %lf2; swch
-    fmuld   %lf4, %gf4, %lf4; swch
-    faddd   %lf2, %lf4, %lf2; swch
-    fmuld   %lf0, %lf2, %lf0; swch
-    faddd   %lf0, %gf0, %lf0; swch
-    std     %lf0, [%l0]
+    fmuld   %tlf2, %tgf2, %tlf2; swch
+    fmuld   %tlf4, %tgf4, %tlf4; swch
+    faddd   %tlf2, %tlf4, %tlf2; swch
+    fmuld   %tlf0, %tlf2, %tlf0; swch
+    faddd   %tlf0, %tgf0, %tlf0; swch
+    std     %tlf0, [%tl0]
     end
 
     .section .rodata
