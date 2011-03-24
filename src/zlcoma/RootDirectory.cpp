@@ -346,7 +346,10 @@ Result ZLCOMA::RootDirectory::DoRequests()
             {
                 return FAILED;
             }
-            COMMIT{ m_activeMsg = msg; }
+            COMMIT{ 
+                ++m_nreads;
+                m_activeMsg = msg; 
+            }
         }
         else
         {
@@ -356,7 +359,10 @@ Result ZLCOMA::RootDirectory::DoRequests()
             {
                 return FAILED;
             }
-            COMMIT{ delete msg; }
+            COMMIT{
+                ++m_nwrites;
+                delete msg; 
+            }
         }
     }
     m_requests.Pop();
@@ -405,7 +411,6 @@ Result ZLCOMA::RootDirectory::DoResponses()
 
 ZLCOMA::RootDirectory::RootDirectory(const std::string& name, ZLCOMA& parent, Clock& clock, VirtualMemory& memory, size_t numCaches, size_t id, size_t numRoots, const Config& config) :
     Simulator::Object(name, parent),
-    ZLCOMA::Object(name, parent),
     DirectoryBottom(name, parent, clock),
     m_lineSize(config.getInteger<size_t>("CacheLineSize",           64)),
     m_assoc   (config.getInteger<size_t>("COMACacheAssociativity",   4) * numCaches),
@@ -414,13 +419,15 @@ ZLCOMA::RootDirectory::RootDirectory(const std::string& name, ZLCOMA& parent, Cl
     m_id       (id),
     m_numRoots (numRoots),
     p_lines    (*this, clock, "p_lines"),
-    m_requests (clock, INFINITE),
-    m_responses(clock, INFINITE),
-    m_memready (clock, true),
+    m_requests ("b_requests", *this, clock, config.getInteger<size_t>("RootDirectoryExternalOutputQueueSize", INFINITE)),
+    m_responses("b_responses", *this, clock, config.getInteger<size_t>("RootDirectoryExternalInputQueueSize", INFINITE)),
+    m_memready ("f_memready", *this, clock, true),
     m_activeMsg(NULL),
     p_Incoming ("incoming",  delegate::create<RootDirectory, &RootDirectory::DoIncoming>(*this)),
     p_Requests ("requests",  delegate::create<RootDirectory, &RootDirectory::DoRequests>(*this)),
-    p_Responses("responses", delegate::create<RootDirectory, &RootDirectory::DoResponses>(*this))
+    p_Responses("responses", delegate::create<RootDirectory, &RootDirectory::DoResponses>(*this)),
+    m_nreads(0),
+    m_nwrites(0)
 {
     assert(m_lineSize <= MAX_MEMORY_OPERATION_SIZE);
 

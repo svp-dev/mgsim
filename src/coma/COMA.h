@@ -63,7 +63,9 @@ public:
     bool Write(PSize pid, MemAddr address, const void* data, MemSize size, TID tid);
     bool CheckPermissions(MemAddr address, MemSize size, int access) const;
 
-    void GetMemoryStatistics(uint64_t& nreads, uint64_t& nwrites, uint64_t& nread_bytes, uint64_t& nwrite_bytes) const;
+    void GetMemoryStatistics(uint64_t& nreads, uint64_t& nwrites, 
+                             uint64_t& nread_bytes, uint64_t& nwrite_bytes,
+                             uint64_t& nreads_ext, uint64_t& nwrites_ext) const;
 
     void Cmd_Help (std::ostream& out, const std::vector<std::string>& arguments) const;
     void Cmd_Line (std::ostream& out, const std::vector<std::string>& arguments) const;

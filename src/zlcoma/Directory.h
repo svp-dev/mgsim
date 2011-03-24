@@ -12,16 +12,20 @@ namespace Simulator
 class ZLCOMA::DirectoryTop : public ZLCOMA::Node
 {
 protected:
+    friend class ZLCOMA;
+    friend class ZLCOMA::Directory;
     DirectoryTop(const std::string& name, ZLCOMA& parent, Clock& clock);
 };
 
 class ZLCOMA::DirectoryBottom : public ZLCOMA::Node
 {
 protected:
+    friend class ZLCOMA;
+    friend class ZLCOMA::Directory;
     DirectoryBottom(const std::string& name, ZLCOMA& parent, Clock& clock);
 };
 
-class ZLCOMA::Directory : public ZLCOMA::DirectoryBottom, public ZLCOMA::DirectoryTop
+class ZLCOMA::Directory : public ZLCOMA::Object
 {
 public:
     struct Line
@@ -31,7 +35,14 @@ public:
         unsigned int tokens;     ///< Tokens in the caches in the group
     };
 
+protected:
+    friend class ZLCOMA;
+    ZLCOMA::DirectoryBottom m_bottom;
+    ZLCOMA::DirectoryTop    m_top;
+
 private:
+    typedef ZLCOMA::Node::Message Message;
+
     ArbitratedService<CyclicArbitratedPort> p_lines;      ///< Arbitrator for access to the lines
     std::vector<Line>   m_lines;      ///< The cache lines
     size_t              m_lineSize;   ///< The size of a cache-line

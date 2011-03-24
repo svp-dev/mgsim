@@ -12,34 +12,34 @@ main:
     cred     bar, %2
     mov      255, %1
     putg     %1, %2, 0
-    detach   %2
+    release  %2
     end
 
     .align 64
     .registers 1 0 2 0 0 0
 bar:
-    ! Stop if %g0 is 0
-    cmp      %g0, 0
+    ! Stop if %tg0 is 0
+    cmp      %tg0, 0
     bne      1f
     nop
     end
 1:    
 
-    allocates %0, %l0        ! Default
-    cred     bar, %l0
+    allocates %0, %tl0        ! Default
+    cred     bar, %tl0
     swch
-    sub      %g0, 1, %l1    ! Pass on %g0 - 1
-    putg     %l1, %l0, 0
+    sub      %tg0, 1, %tl1    ! Pass on %tg0 - 1
+    putg     %tl1, %tl0, 0
     swch
     
-    ! Delay for %l1 loops to tie up resources
-2:  cmp %l1, 0
+    ! Delay for %tl1 loops to tie up resources
+2:  cmp %tl1, 0
     beq 3f
-    dec %l1
+    dec %tl1
     ba 2b
 3:
 
-    detach   %l0
+    release   %tl0
     end
 
     .data

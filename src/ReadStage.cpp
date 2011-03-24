@@ -236,13 +236,13 @@ bool Pipeline::ReadStage::ReadBypasses(OperandInfo& operand)
         {
         case RT_INTEGER:
             operand.value.m_integer.set(
-                operand.value.m_integer.get(operand.value.m_size) | (value.m_integer << shift),
+                operand.value.m_integer.get(operand.value.m_size) | ((uint64_t)value.m_integer << shift),
                 operand.value.m_size);
             break;
             
         case RT_FLOAT:
             operand.value.m_float.fromint(
-                operand.value.m_float.toint(operand.value.m_size) | (value.m_float.integer << shift),
+                operand.value.m_float.toint(operand.value.m_size) | ((uint64_t)value.m_float.integer << shift),
                 operand.value.m_size);
             break;
         }

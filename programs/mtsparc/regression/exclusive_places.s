@@ -29,30 +29,30 @@ main:
 1:  nop
     end
 
-! %s0/%d0 = accumulator
+! %ts0/%td0 = accumulator
     .align 64
     .registers 0 1 2 0 0 0
 foo:
-    mov (1 << 1) | 1, %l1
-    allocatee %l1, %l1      ! PID:1, Size:1, Exclusive
+    mov (1 << 1) | 1, %tl1
+    allocatee %tl1, %tl1      ! PID:1, Size:1, Exclusive
     swch
-    cred     bar, %l1
-    sync     %l1, %l0
-    mov      %l0, %0; swch
-    gets     %l1, 0, %l0
-    release  %l1
-    add      %d0, %l0, %s0
+    cred     bar, %tl1
+    sync     %tl1, %tl0
+    mov      %tl0, %0; swch
+    gets     %tl1, 0, %tl0
+    release  %tl1
+    add      %td0, %tl0, %ts0
     end
     
-! %s0 = return value
+! %ts0 = return value
     .align 64
     .registers 0 1 2 0 0 0
 bar:
-    set val, %l0
-    ld  [%l0], %l1
-    add %l1, 1, %l1
-    mov %l1, %s0
-    st  %l1, [%l0]
+    set val, %tl0
+    ld  [%tl0], %tl1
+    add %tl1, 1, %tl1
+    mov %tl1, %ts0
+    st  %tl1, [%tl0]
     end
 
     .data

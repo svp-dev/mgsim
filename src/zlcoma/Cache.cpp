@@ -1160,7 +1160,6 @@ Result ZLCOMA::Cache::DoReceive()
 
 ZLCOMA::Cache::Cache(const std::string& name, ZLCOMA& parent, Clock& clock, CacheID id, size_t numTokens, const Config& config) :
     Simulator::Object(name, parent),
-    ZLCOMA::Object(name, parent),
     Node(name, parent, clock),
     m_lineSize (config.getInteger<size_t>("CacheLineSize",           64)),
     m_assoc    (config.getInteger<size_t>("COMACacheAssociativity",   4)),
@@ -1175,8 +1174,8 @@ ZLCOMA::Cache::Cache(const std::string& name, ZLCOMA& parent, Clock& clock, Cach
     p_Requests ("requests", delegate::create<Cache, &Cache::DoRequests>(*this)),
     p_In       ("incoming", delegate::create<Cache, &Cache::DoReceive>(*this)),
     p_bus      (*this, clock, "p_bus"),
-    m_requests (clock, config.getInteger<BufferSize>("COMACacheRequestBufferSize",  INFINITE)),
-    m_responses(clock, config.getInteger<BufferSize>("COMACacheResponseBufferSize", INFINITE))
+    m_requests ("b_requests", *this, clock, config.getInteger<BufferSize>("COMACacheRequestBufferSize",  INFINITE)),
+    m_responses("b_responses", *this, clock, config.getInteger<BufferSize>("COMACacheResponseBufferSize", INFINITE))
 {
     RegisterSampleVariableInObject(m_numHits, SVC_CUMULATIVE);
     RegisterSampleVariableInObject(m_numMisses, SVC_CUMULATIVE);

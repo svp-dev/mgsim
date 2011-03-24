@@ -23,21 +23,21 @@ main:
     .align 64
     .registers 0 0 2 0 0 0
 foo:
-    mov (1 << 1) | 1, %l0   ! PID:1, Size:1
-    allocatee %l0, %l0
-    cred     bar, %l0
-    sync     %l0, %l1
-    release  %l0
-    mov      %l1, %0
+    mov (1 << 1) | 1, %tl0   ! PID:1, Size:1
+    allocatee %tl0, %tl0
+    cred     bar, %tl0
+    sync     %tl0, %tl1
+    release  %tl0
+    mov      %tl1, %0
     end
 
     .align 64
     .registers 0 0 1 0 0 0
 bar:
     ! Do some work to tie up the resource
-    mov 32, %l0
-1:  dec %l0
-    cmp %l0, 0
+    mov 32, %tl0
+1:  dec %tl0
+    cmp %tl0, 0
     bne 1b
     end
 

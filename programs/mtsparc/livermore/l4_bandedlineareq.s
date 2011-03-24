@@ -56,66 +56,66 @@ main:
 !
 ! Outer loop thread
 !
-! %g0 = X
-! %g1 = Y
-! %g2 = N/5
-! %l0 = i
+! %tg0 = X
+! %tg1 = Y
+! %tg2 = N/5
+! %tl0 = i
 !
     .align 64
     .registers 3 0 3 0 0 6
 outer:
-    allocates %0, %l1
-    setlimit %l1, %g2; swch
-    cred     inner, %l1
+    allocates %0, %tl1
+    setlimit %tl1, %tg2; swch
+    cred     inner, %tl1
     
-    putg     %l0, %l1, 0     ! %g0 = i
-    putg     %g0, %l1, 1     ! %g1 = X
-    putg     %g1, %l1, 2     ! %g2 = Y
-    fputs    %f0, %l1, 0
-    fputs    %f0, %l1, 1     ! %df0,%df1 = temp = 0
+    putg     %tl0, %tl1, 0     ! %tg0 = i
+    putg     %tg0, %tl1, 1     ! %tg1 = X
+    putg     %tg1, %tl1, 2     ! %tg2 = Y
+    fputs    %f0, %tl1, 0
+    fputs    %f0, %tl1, 1     ! %tdf0,%tdf1 = temp = 0
     
-    sll     %l0, 3, %l2
-    add     %l2, %g0, %l2    ! %l5 = &X[i]
-    ldd     [%l2-8],  %lf2   ! %lf2,%lf3 = X[i-1]
-    ldd     [%g1+32], %lf4   ! %lf4,%lf6 = Y[4]
+    sll     %tl0, 3, %tl2
+    add     %tl2, %tg0, %tl2    ! %tl5 = &X[i]
+    ldd     [%tl2-8],  %tlf2   ! %tlf2,%tlf3 = X[i-1]
+    ldd     [%tg1+32], %tlf4   ! %tlf4,%tlf6 = Y[4]
     
-    sync    %l1, %l0
-    mov     %l0, %0; swch
-    fgets   %l1, 0, %lf0
-    fgets   %l1, 1, %lf1
-    release %l1
-    fsubd   %lf2, %lf0, %lf2; swch   ! %lf2,%lf3 = X[i-1] - temp
-    fmuld   %lf4, %lf2, %lf4; swch
-    std     %lf4, [%l2-8]
+    sync    %tl1, %tl0
+    mov     %tl0, %0; swch
+    fgets   %tl1, 0, %tlf0
+    fgets   %tl1, 1, %tlf1
+    release %tl1
+    fsubd   %tlf2, %tlf0, %tlf2; swch   ! %tlf2,%tlf3 = X[i-1] - temp
+    fmuld   %tlf4, %tlf2, %tlf4; swch
+    std     %tlf4, [%tl2-8]
     end
 
 !
 ! Inner loop thread
 !
-! %g0 = i
-! %g1 = X
-! %g2 = Y
-! %df0,df1 = temp
-! %l0 = j
+! %tg0 = i
+! %tg1 = X
+! %tg2 = Y
+! %tdf0,df1 = temp
+! %tl0 = j
 !
     .align 64
     .registers 3 0 2 0 2 4
 inner:
-    add     %g0, %l0, %l1   ! %l1 = i + j
-    sll     %l1,   3, %l1
-    add     %l1, %g1, %l1   ! %l1 = &X[i + j];
-    ldd     [%l1-48], %lf2  ! %lf2,%lf3 = X[i + j - 6];
+    add     %tg0, %tl0, %tl1   ! %tl1 = i + j
+    sll     %tl1,   3, %tl1
+    add     %tl1, %tg1, %tl1   ! %tl1 = &X[i + j];
+    ldd     [%tl1-48], %tlf2  ! %tlf2,%tlf3 = X[i + j - 6];
     
-    sll     %l0,   2, %l1
-    add     %l1, %l0, %l0   ! %l0 = j * 5;
-    sll     %l0,   3, %l0
-    add     %l0, %g2, %l0   ! %l0 = &Y[j * 5];
-    ldd     [%l0+32], %lf0  ! %lf0,%lf1 = Y[j * 5 + 4];
+    sll     %tl0,   2, %tl1
+    add     %tl1, %tl0, %tl0   ! %tl0 = j * 5;
+    sll     %tl0,   3, %tl0
+    add     %tl0, %tg2, %tl0   ! %tl0 = &Y[j * 5];
+    ldd     [%tl0+32], %tlf0  ! %tlf0,%tlf1 = Y[j * 5 + 4];
     
-    fmuld   %lf0, %lf2, %lf0; swch
-    faddd   %df0, %lf0, %lf0; swch
-    fmovs   %lf0, %sf0; swch
-    fmovs   %lf1, %sf1
+    fmuld   %tlf0, %tlf2, %tlf0; swch
+    faddd   %tdf0, %tlf0, %tlf0; swch
+    fmovs   %tlf0, %tsf0; swch
+    fmovs   %tlf1, %tsf1
     end
 
     .section .bss

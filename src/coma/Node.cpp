@@ -155,8 +155,8 @@ COMA::Node::Node(const std::string& name, COMA& parent, Clock& clock, const Conf
       COMA::Object(name, parent),
       m_prev(NULL),
       m_next(NULL),
-      m_incoming(clock, config.getInteger<BufferSize>("COMA_NodeBufferSize", 2)),
-      m_outgoing(clock, config.getInteger<BufferSize>("COMA_NodeBufferSize", 2)),
+      m_incoming("b_incoming", *this, clock, config.getInteger<BufferSize>("COMA_NodeBufferSize", 2)),
+      m_outgoing("b_outgoing", *this, clock, config.getInteger<BufferSize>("COMA_NodeBufferSize", 2)),
       p_Forward("forward", delegate::create<Node, &Node::DoForward>(*this))
 {
     g_References++;

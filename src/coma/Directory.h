@@ -10,19 +10,24 @@ class Config;
 namespace Simulator
 {
 
+
 class COMA::DirectoryTop : public COMA::Node
 {
 protected:
+    friend class COMA;
+    friend class COMA::Directory;
     DirectoryTop(const std::string& name, COMA& parent, Clock& clock, const Config& config);
 };
 
 class COMA::DirectoryBottom : public COMA::Node
 {
 protected:
+    friend class COMA;
+    friend class COMA::Directory;
     DirectoryBottom(const std::string& name, COMA& parent, Clock& clock, const Config& config);
 };
 
-class COMA::Directory : public COMA::DirectoryBottom, public COMA::DirectoryTop
+class COMA::Directory : public COMA::Object
 {
 public:
     struct Line
@@ -31,8 +36,15 @@ public:
         MemAddr      tag;    ///< Tag of this line
         unsigned int tokens; ///< Tokens in this ring
     };
+
+protected:
+    friend class COMA;
+    COMA::DirectoryBottom m_bottom;
+    COMA::DirectoryTop    m_top;
     
 private:
+    typedef COMA::Node::Message Message;
+
     ArbitratedService<CyclicArbitratedPort> p_lines;      ///< Arbitrator for access to the lines
     std::vector<Line>   m_lines;      ///< The cache lines
     size_t              m_lineSize;   ///< The size of a cache-line

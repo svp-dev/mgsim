@@ -29,10 +29,10 @@ main:
     .align 64
     .registers 1 1 1 0 0 0
 bar:
-    add %d0, %g0, %l0
+    add %td0, %tg0, %tl0
     swch
-    mov %l0, %s0
-    print %l0, 0
+    mov %tl0, %ts0
+    print %tl0, 0
     end
 
     .data

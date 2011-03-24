@@ -51,14 +51,14 @@ main:
     .registers 0 2 0 0 0 0    
 fibonacci:
     ! We add the first two dependents into the second shared
-    ! Tagged with a SWCH because %d0 and %d1 are both not
+    ! Tagged with a SWCH because %td0 and %td1 are both not
     ! guaranteed to be there at time of execution.
-    add %d0, %d1, %s1
+    add %td0, %td1, %ts1
     swch
     
     ! We copy the second dependent into the first shared.
     ! We tag it with END because it's the last instruction
-    mov %d1, %s0
+    mov %td1, %ts0
     end
 
     .section .rodata

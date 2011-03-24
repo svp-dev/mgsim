@@ -43,89 +43,89 @@ main:
 	end
 
 
-    ! %g0 = A 
-    ! %g1 = B
-    ! %g2 = C
-    ! %g3 = N
-    ! %l0 = i
+    ! %tg0 = A 
+    ! %tg1 = B
+    ! %tg2 = C
+    ! %tg3 = N
+    ! %tl0 = i
     .align 64
 	.registers 4 0 5  0 0 0	    ! GR,SR,LR, GF,SF,LF
 thread1:
-	allocates %0, %l4            ! Default
-	setlimit %l4, %g3
+	allocates %0, %tl4            ! Default
+	setlimit %tl4, %tg3
 	swch
 	.ifdef BLOCK2
-	setblock %l4, BLOCK2
+	setblock %tl4, BLOCK2
 	.endif
-	cred thread2, %l4
+	cred thread2, %tl4
 	
-	umul    %l0, %g3, %l0       ! %l0 = i*N
-	sll     %l0,   2, %l0
-	add     %l0, %g2, %l2       ! %l2 = &C[i*N]
-	add     %l0, %g0, %l0       ! %l0 = &A[i*N]
-	putg    %l0, %l4, 0
-	putg    %g1, %l4, 1
-	putg    %l2, %l4, 2
-	putg    %g3, %l4, 3
+	umul    %tl0, %tg3, %tl0       ! %tl0 = i*N
+	sll     %tl0,   2, %tl0
+	add     %tl0, %tg2, %tl2       ! %tl2 = &C[i*N]
+	add     %tl0, %tg0, %tl0       ! %tl0 = &A[i*N]
+	putg    %tl0, %tl4, 0
+	putg    %tg1, %tl4, 1
+	putg    %tl2, %tl4, 2
+	putg    %tg3, %tl4, 3
 	
-	sync    %l4, %l0
-	release %l4
-	mov     %l0, %0
+	sync    %tl4, %tl0
+	release %tl4
+	mov     %tl0, %0
 	end
 
 
-    ! %g0 = &A[i*N]
-    ! %g1 = B
-    ! %g2 = &C[i*N]
-    ! %g3 = N
-    ! %l0 = j
+    ! %tg0 = &A[i*N]
+    ! %tg1 = B
+    ! %tg2 = &C[i*N]
+    ! %tg3 = N
+    ! %tl0 = j
     .align 64
 	.registers 4 0 6  0 0 0	    ! GR,SR,LR, GF,SF,LF
 thread2:
-    allocates %0, %l4
-    setlimit %l4, %g3
+    allocates %0, %tl4
+    setlimit %tl4, %tg3
     swch
-    cred thread3, %l4
+    cred thread3, %tl4
    
-    sll     %l0,   2, %l1
-	add     %l1, %g2, %l5       ! %l5 = &C[i*N+j]
-	add     %l1, %g1, %l1       ! %g1 = &B[j]
-    putg    %g0, %l4, 0         ! %g0 = &A[i*N]
-    putg    %l1, %l4, 1         ! %g1 = &B[j]
-	putg    %g3, %l4, 2         ! %g2 = N
+    sll     %tl0,   2, %tl1
+	add     %tl1, %tg2, %tl5       ! %tl5 = &C[i*N+j]
+	add     %tl1, %tg1, %tl1       ! %tg1 = &B[j]
+    putg    %tg0, %tl4, 0         ! %tg0 = &A[i*N]
+    putg    %tl1, %tl4, 1         ! %tg1 = &B[j]
+	putg    %tg3, %tl4, 2         ! %tg2 = N
 	
-	puts    %0, %l4, 0          ! %d0 = sum = 0
+	puts    %0, %tl4, 0          ! %td0 = sum = 0
 
-    sync    %l4, %l0
-    mov     %l0, %0
+    sync    %tl4, %tl0
+    mov     %tl0, %0
     swch
-    gets    %l4, 0, %l3
-    release %l4
+    gets    %tl4, 0, %tl3
+    release %tl4
     
-	st      %l3, [%l5]         ! C[i*N+j] = sum
+	st      %tl3, [%tl5]         ! C[i*N+j] = sum
 	end
 	
 	
-	! %g0 = &A[i*N]
-	! %g1 = &B[j]
-	! %g2 = N
-	! %s0 = sum
-	! %l0 = k
+	! %tg0 = &A[i*N]
+	! %tg1 = &B[j]
+	! %tg2 = N
+	! %ts0 = sum
+	! %tl0 = k
     .align 64
 	.registers 3 1 2  0 0 0	    ! GR,SR,LR, GF,SF,LF
 thread3:
-	sll     %l0,   2, %l1
-    add     %l1, %g0, %l1       ! %l1 = &A[i*N+k]
-    ld      [%l1], %l1          ! %l1 =  A[i*N+k]
+	sll     %tl0,   2, %tl1
+    add     %tl1, %tg0, %tl1       ! %tl1 = &A[i*N+k]
+    ld      [%tl1], %tl1          ! %tl1 =  A[i*N+k]
     
-    umul    %l0, %g2, %l0       ! %l0 =  k*N
-    sll     %l0,   2, %l0
-    add     %l0, %g1, %l0       ! %l0 = &B[k*N+j]
-    ld      [%l0], %l0          ! %l0 =  B[k*N+j]
+    umul    %tl0, %tg2, %tl0       ! %tl0 =  k*N
+    sll     %tl0,   2, %tl0
+    add     %tl0, %tg1, %tl0       ! %tl0 = &B[k*N+j]
+    ld      [%tl0], %tl0          ! %tl0 =  B[k*N+j]
     
-    smul    %l1, %l0, %l0
+    smul    %tl1, %tl0, %tl0
     swch
-    add     %d0, %l0, %s0
+    add     %td0, %tl0, %ts0
 	end
 
 !

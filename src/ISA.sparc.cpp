@@ -378,16 +378,16 @@ static uint32_t ExecBasicInteger(int opcode, uint32_t Rav, uint32_t Rbv, uint32_
         case S_OP3_XNOR:    Rcv = Rav ^ ~Rbv; break;
 
         // Addition & Subtraction
-        case S_OP3_ADD:     Rcv = (int64_t)Rav + (int64_t)Rbv; break;
-        case S_OP3_ADDX:    Rcv = (int64_t)Rav + (int64_t)Rbv + (psr & PSR_ICC_C ? 1 : 0); break;
-        case S_OP3_SUB:     Rcv = (int64_t)Rav - (int64_t)Rbv; break;
-        case S_OP3_SUBX:    Rcv = (int64_t)Rav - (int64_t)Rbv - (psr & PSR_ICC_C ? 1 : 0); break;
+        case S_OP3_ADD:     Rcv = (int64_t)(int32_t)Rav + (int64_t)(int32_t)Rbv; break;
+        case S_OP3_ADDX:    Rcv = (int64_t)(int32_t)Rav + (int64_t)(int32_t)Rbv + (psr & PSR_ICC_C ? 1 : 0); break;
+        case S_OP3_SUB:     Rcv = (int64_t)(int32_t)Rav - (int64_t)(int32_t)Rbv; break;
+        case S_OP3_SUBX:    Rcv = (int64_t)(int32_t)Rav - (int64_t)(int32_t)Rbv - (psr & PSR_ICC_C ? 1 : 0); break;
 
         // Multiplication & Division
-        case S_OP3_UMUL:    Rcv =          Rav *          Rbv; Y = (uint32_t)(Rcv >> 32); break;
-        case S_OP3_SMUL:    Rcv = (int64_t)Rav * (int64_t)Rbv; Y = (uint32_t)(Rcv >> 32); break;
-        case S_OP3_UDIV:    Rcv =          (((uint64_t)Y << 32) | Rav) /          Rbv; break;
-        case S_OP3_SDIV:    Rcv = (int64_t)(((uint64_t)Y << 32) | Rav) / (int64_t)Rbv; break;
+        case S_OP3_UMUL:    Rcv =                   Rav *                   Rbv; Y = (uint32_t)(Rcv >> 32); break;
+        case S_OP3_SMUL:    Rcv = (int64_t)(int32_t)Rav * (int64_t)(int32_t)Rbv; Y = (uint32_t)(Rcv >> 32); break;
+        case S_OP3_UDIV:    Rcv =          (((uint64_t)Y << 32) | Rav) /                   Rbv; break;
+        case S_OP3_SDIV:    Rcv = (int64_t)(((uint64_t)Y << 32) | Rav) / (int64_t)(int32_t)Rbv; break;
     }
     
     if (opcode & 0x10)

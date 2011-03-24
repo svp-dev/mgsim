@@ -25,9 +25,9 @@ main:
     .align 64
     .registers 1 0 2 0 0 0
 foo:
-    cmp %l0, 2
+    cmp %tl0, 2
     bne 1f
-    print %g0, 0
+    print %tg0, 0
 1:  nop
     end
     

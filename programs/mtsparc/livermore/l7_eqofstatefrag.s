@@ -48,51 +48,51 @@ main:
 
 !
 ! Loop thread
-! %g0 = X
-! %g1 = Y
-! %g2 = Z
-! %g3 = U
-! %l0 = i
+! %tg0 = X
+! %tg1 = Y
+! %tg2 = Z
+! %tg3 = U
+! %tl0 = i
 !
     .globl loop
     .align 64
     .registers 4 0 10 0 0 0
 loop:
-    sll     %l0,   2, %l0
-    add     %l0, %g3, %l1   ! %l1 = &u[i]
-    ld      [%l1+16], %l2   ! %l2 = u[i+4]
-    ld      [%l1+20], %l3   ! %l3 = u[i+5]   
-    ld      [%l1+24], %l4   ! %l4 = u[i+6]
-    ld      [%l1+ 4], %l5   ! %l5 = u[i+1]
-    ld      [%l1+ 8], %l6   ! %l6 = u[i+2]
-    ld      [%l1+12], %l7   ! %l7 = u[i+3]
-    add     %l0, %g1, %l8
-    ld      [%l8], %l8      ! %l8 = y[i]
-    add     %l0, %g2, %l9
-    ld      [%l9], %l9      ! %l9 = z[i]
-    add     %l0, %g0, %l0   ! %l0 = &x[i]
-    ld      [%l1], %l1      ! %l1 = u[i+0]
+    sll     %tl0,   2, %tl0
+    add     %tl0, %tg3, %tl1   ! %tl1 = &u[i]
+    ld      [%tl1+16], %tl2   ! %tl2 = u[i+4]
+    ld      [%tl1+20], %tl3   ! %tl3 = u[i+5]   
+    ld      [%tl1+24], %tl4   ! %tl4 = u[i+6]
+    ld      [%tl1+ 4], %tl5   ! %tl5 = u[i+1]
+    ld      [%tl1+ 8], %tl6   ! %tl6 = u[i+2]
+    ld      [%tl1+12], %tl7   ! %tl7 = u[i+3]
+    add     %tl0, %tg1, %tl8
+    ld      [%tl8], %tl8      ! %tl8 = y[i]
+    add     %tl0, %tg2, %tl9
+    ld      [%tl9], %tl9      ! %tl9 = z[i]
+    add     %tl0, %tg0, %tl0   ! %tl0 = &x[i]
+    ld      [%tl1], %tl1      ! %tl1 = u[i+0]
     
-    smul    %l2,   Q, %l2; swch
-    add     %l2, %l3, %l2; swch
-    smul    %l2,   Q, %l2
-    add     %l2, %l4, %l2; swch
-    smul    %l2,   T, %l2
+    smul    %tl2,   Q, %tl2; swch
+    add     %tl2, %tl3, %tl2; swch
+    smul    %tl2,   Q, %tl2
+    add     %tl2, %tl4, %tl2; swch
+    smul    %tl2,   T, %tl2
     
-    smul    %l5,   R, %l5; swch
-    add     %l5, %l6, %l5; swch
-    smul    %l5,   R, %l5
-    add     %l5, %l2, %l2
-    add     %l2, %l7, %l2; swch
-    smul    %l2,   T, %l2
+    smul    %tl5,   R, %tl5; swch
+    add     %tl5, %tl6, %tl5; swch
+    smul    %tl5,   R, %tl5
+    add     %tl5, %tl2, %tl2
+    add     %tl2, %tl7, %tl2; swch
+    smul    %tl2,   T, %tl2
     
-    smul    %l8,   R, %l8; swch
-    add     %l8, %l9, %l8; swch
-    smul    %l8,   R, %l8
-    add     %l8, %l2, %l2
-    add     %l2, %l1, %l1; swch
+    smul    %tl8,   R, %tl8; swch
+    add     %tl8, %tl9, %tl8; swch
+    smul    %tl8,   R, %tl8
+    add     %tl8, %tl2, %tl2
+    add     %tl2, %tl1, %tl1; swch
     
-    st      %l1, [%l0]
+    st      %tl1, [%tl0]
     end
 
     .section .bss

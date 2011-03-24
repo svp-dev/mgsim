@@ -75,10 +75,10 @@ AC_ARG_ENABLE([mtsparc-tests],
 [], [enable_mtsparc_tests=yes])
 
 AC_ARG_VAR([AS_MTSPARC], [Location of the `as' utility configured for the MT-Sparc binary format.])
-AC_PATH_PROG([AS_MTSPARC], [mtsparc-leon-linux-as], [no], [$prefix/bin$PATH_SEPARATOR$PATH])
+AC_PATH_PROG([AS_MTSPARC], [mtsparc-linux-gnu-as], [no], [$prefix/bin$PATH_SEPARATOR$PATH])
 
 AC_ARG_VAR([LD_MTSPARC], [Location of the `ld' utility configured for the MT-Sparc binary format.])
-AC_PATH_PROG([LD_MTSPARC], [mtsparc-leon-linux-ld], [no], [$prefix/bin$PATH_SEPARATOR$PATH])
+AC_PATH_PROG([LD_MTSPARC], [mtsparc-linux-gnu-ld], [no], [$prefix/bin$PATH_SEPARATOR$PATH])
 
 if test "x$enable_mtsparc" = "xyes"; then
   if test "x$AS_MTSPARC" = "xno" \
@@ -98,29 +98,7 @@ if test "x$no_sdl" = xyes; then
 fi
 AM_CONDITIONAL([ENABLE_USE_SDL], [test "x$no_sdl" = x])
 
-AC_LANG_PUSH([C++])
- AC_MSG_CHECKING([for SystemC])
- save_LIBS=$LIBS
- have_sysc=no
- for SC_LIBS in "-lsystemc" "-lsystemc -pthread" "-lsystemc -lpthread"; do
-  LIBS="$LIBS $SC_LIBS"
-  AC_LINK_IFELSE([AC_LANG_PROGRAM([[#include <systemc>]],
-                                 [[return (int)sc_dt::UINT64_ONE;]])],
-                [have_sysc=yes])
-  LIBS=$save_LIBS
-  if test x"$have_sysc" = xyes; then break; fi
- done
- AC_MSG_RESULT([$have_sysc])
- AC_SUBST([SC_LIBS])
-
-AC_LANG_POP
-
 AX_PTHREAD
-
-if test "x$ax_pthread_ok" != "xyes" -o "x$have_sysc" = "xno"; then
-  AC_MSG_WARN([ZL's COMA simulation not available])
-fi
-AM_CONDITIONAL([ENABLE_COMA_ZL], [test "x$ax_pthread_ok" = "xyes" -a "x$have_sysc" = "xyes"])
 
 AC_ARG_ENABLE([monitor], 
 [AC_HELP_STRING([--disable-monitor], [disable support for simulation monitoring])],

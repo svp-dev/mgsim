@@ -33,7 +33,7 @@ main:
     putg    %1,  %4, 0
     putg    %2,  %4, 1
     fputs   %f0, %4, 0
-    fputs   %f0, %4, 1      ! %df0,%df1 = sum = 0
+    fputs   %f0, %4, 1      ! %tdf0,%tdf1 = sum = 0
 
     sync    %4, %1
     release %4
@@ -43,23 +43,23 @@ main:
 !
 ! Loop thread
 !
-! %g0 = X
-! %g1 = Y
-! %d0 = sum
-! %l0 = i
+! %tg0 = X
+! %tg1 = Y
+! %td0 = sum
+! %tl0 = i
     .globl loop
     .align 64
     .registers 2 0 2 0 2 4
 loop:
-    sll     %l0, 3, %l0
-    add     %l0, %g1, %l1
-    ldd     [%l1], %lf2
-    add     %l0, %g0, %l0
-    ldd     [%l0], %lf0
-    fmuld   %lf0, %lf2, %lf0; swch
-    faddd   %df0, %lf0, %lf0; swch
-    fmovs   %lf0, %sf0; swch
-    fmovs   %lf1, %sf1
+    sll     %tl0, 3, %tl0
+    add     %tl0, %tg1, %tl1
+    ldd     [%tl1], %tlf2
+    add     %tl0, %tg0, %tl0
+    ldd     [%tl0], %tlf0
+    fmuld   %tlf0, %tlf2, %tlf0; swch
+    faddd   %tdf0, %tlf0, %tlf0; swch
+    fmovs   %tlf0, %tsf0; swch
+    fmovs   %tlf1, %tsf1
     end
 
     .section .bss

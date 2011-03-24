@@ -31,7 +31,7 @@ namespace Simulator
  * COMA hierarchy can be easily composed, since no element needs to know the
  * exact type of its neighbour.
  */
-class ZLCOMA::Node : public virtual ZLCOMA::Object
+class ZLCOMA::Node : public ZLCOMA::Object
 {
 protected:
     /// This is the message that gets sent around

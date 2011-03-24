@@ -40,12 +40,15 @@ class BankedMemory : public Object, public IMemoryAdmin, public VirtualMemory
     void Write(MemAddr address, const void* data, MemSize size);
 
     void GetMemoryStatistics(uint64_t& nreads, uint64_t& nwrites, 
-                             uint64_t& nread_bytes, uint64_t& nwrite_bytes) const
+                             uint64_t& nread_bytes, uint64_t& nwrite_bytes,
+                             uint64_t& nreads_ext, uint64_t& nwrites_ext) const
     {
         nreads = m_nreads;
-        nread_bytes = m_nread_bytes;
         nwrites = m_nwrites;
+        nread_bytes = m_nread_bytes;
         nwrite_bytes = m_nwrite_bytes;
+        nreads_ext = m_nreads;
+        nwrites_ext = m_nwrites;
     }	
 
 protected:

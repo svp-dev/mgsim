@@ -27,10 +27,10 @@ main:
     .align 64
     .registers 1 0 1 0 0 0
 bar:
-    cmp %l0, 0
+    cmp %tl0, 0
     bne 1f
     swch
-    print %g0, 0
+    print %tg0, 0
 1:  nop
     end
 

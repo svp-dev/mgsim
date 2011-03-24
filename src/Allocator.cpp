@@ -1571,17 +1571,17 @@ Allocator::Allocator(const string& name, Processor& parent, Clock& clock,
     const Config& config)
  :  Object(name, parent, clock),
     m_parent(parent), m_familyTable(familyTable), m_threadTable(threadTable), m_registerFile(registerFile), m_raunit(raunit), m_icache(icache), m_network(network), m_pipeline(pipeline),
-    m_alloc         (clock, config.getInteger<BufferSize>("NumFamilies", 8)),
-    m_creates       (clock, config.getInteger<BufferSize>("LocalCreatesQueueSize",          INFINITE), 3),
-    m_cleanup       (clock, config.getInteger<BufferSize>("ThreadCleanupQueueSize",         INFINITE), 4),
+    m_alloc         ("b_alloc",          *this, clock, config.getInteger<BufferSize>("NumFamilies", 8)),
+    m_creates       ("b_creates",        *this, clock, config.getInteger<BufferSize>("LocalCreatesQueueSize",          INFINITE), 3),
+    m_cleanup       ("b_cleanup",        *this, clock, config.getInteger<BufferSize>("ThreadCleanupQueueSize",         INFINITE), 4),
     m_createState   (CREATE_INITIAL),
-    m_readyThreads1 (clock, threadTable),
-    m_readyThreads2 (clock, threadTable),
+    m_readyThreads1 ("q_readyThreads1", *this, clock, threadTable),
+    m_readyThreads2 ("q_readyThreads2", *this, clock, threadTable),
     m_prevReadyList (NULL),
 
-    m_allocRequestsSuspend  (clock, config.getInteger<BufferSize>("FamilyAllocationSuspendQueueSize",   INFINITE)),
-    m_allocRequestsNoSuspend(clock, config.getInteger<BufferSize>("FamilyAllocatioNoSuspendQueueSize",  INFINITE)),
-    m_allocRequestsExclusive(clock, config.getInteger<BufferSize>("FamilyAllocationExclusiveQueueSize", INFINITE)),
+    m_allocRequestsSuspend  ("b_allocRequestsSuspend",   *this, clock, config.getInteger<BufferSize>("FamilyAllocationSuspendQueueSize",   INFINITE)),
+    m_allocRequestsNoSuspend("b_allocRequestsNoSuspend", *this, clock, config.getInteger<BufferSize>("FamilyAllocatioNoSuspendQueueSize",  INFINITE)),
+    m_allocRequestsExclusive("b_allocRequestsExclusive", *this, clock, config.getInteger<BufferSize>("FamilyAllocationExclusiveQueueSize", INFINITE)),
 
     m_maxallocex(0), m_totalallocex(0), m_lastcycle(0), m_curallocex(0),
 
@@ -1594,7 +1594,7 @@ Allocator::Allocator(const string& name, Processor& parent, Clock& clock,
     p_alloc         (*this, clock, "p_alloc"),
     p_readyThreads  (*this, clock, "p_readyThreads"),
     p_activeThreads (*this, clock, "p_activeThreads"),
-    m_activeThreads (clock, threadTable)
+    m_activeThreads ("q_threadList", *this, clock, threadTable)
 {
     m_alloc         .Sensitive(p_ThreadAllocate);
     m_creates       .Sensitive(p_FamilyCreate);

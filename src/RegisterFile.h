@@ -21,7 +21,7 @@ class Allocator;
  * one write port from the writeback stage of the pipeline, and one asynchronous
  * read and write port for other components (memory, etc).
  */
-class RegisterFile : public Structure<RegAddr>, public Storage
+class RegisterFile : public virtual Structure<RegAddr>, public virtual Storage
 {
 public:
     /**
@@ -89,6 +89,8 @@ public:
 
     void Cmd_Help(std::ostream& out, const std::vector<std::string>& arguments) const;
     void Cmd_Read(std::ostream& out, const std::vector<std::string>& arguments) const;
+
+    Object* GetParent() const { return Structure<RegAddr>::GetParent(); }
 
     DedicatedReadPort            p_pipelineR1; ///< Read port #1 for the pipeline
     DedicatedReadPort            p_pipelineR2; ///< Read port #2 for the pipeline

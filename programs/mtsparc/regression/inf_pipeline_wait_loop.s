@@ -26,7 +26,7 @@ main:
     .align 64
     .registers 1 0 0 0 0 0
 foo:
-    print %g0, 0
+    print %tg0, 0
     end
 
     .data

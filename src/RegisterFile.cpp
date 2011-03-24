@@ -14,8 +14,9 @@ namespace Simulator
 //
 
 RegisterFile::RegisterFile(const std::string& name, Processor& parent, Clock& clock, Allocator& alloc, const Config& config)
-  : Structure<RegAddr>(name, parent, clock),
-    Storage(clock),
+  : Object(name, parent, clock),
+    Structure<RegAddr>(name, parent, clock),
+    Storage("storage", *this, clock),
     p_pipelineR1(*this, "p_pipelineR1"),
     p_pipelineR2(*this, "p_pipelineR2"),
     p_pipelineW (*this, "p_pipelineW"),
@@ -79,7 +80,7 @@ bool RegisterFile::Clear(const RegAddr& addr, RegSize size)
         throw SimulationException("A component attempted to clear a non-existing register", *this);
     }
 
-    if (Object::IsCommitting())
+    COMMIT
     {
         const RegValue value = MAKE_EMPTY_REG();
         for (RegSize i = 0; i < size; ++i)

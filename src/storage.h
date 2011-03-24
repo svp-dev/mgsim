@@ -3,6 +3,8 @@
 
 #include "delegate.h"
 #include "ports.h"
+#include "kernel.h"
+#include "sampling.h"
 #include <deque>
 
 namespace Simulator
@@ -12,33 +14,28 @@ typedef size_t  BufferSize; // Size of buffer, in elements
 static const    BufferSize INFINITE = (size_t)-1;
 
 /// A storage element that needs cycle-accurate update semantics
-class Storage
+class Storage : public virtual Object
 {
     friend class Kernel;
 
     bool                  m_activated;   ///< Has the storage already been activated this cycle?
     Storage*              m_next;        ///< Next pointer in the list of storages that require updates
-    
+
 protected:
-    Clock&                m_clock;       ///< The clock that controls this storage's updates
     
     // The process using this storage should run with the same clock as this storage
     void CheckClocks() {
 #ifndef NDEBUG
-        const Process* process = m_clock.GetKernel().GetActiveProcess();
+        const Process* process = GetKernel()->GetActiveProcess();
         if (process != NULL) {
-            assert(&process->GetObject()->GetClock() == &m_clock);
+            assert(&process->GetObject()->GetClock() == &GetClock());
         }
 #endif
     }
         
-    bool IsCommitting() const {
-        return m_clock.GetKernel().GetCyclePhase() == PHASE_COMMIT;
-    }
-    
     void RegisterUpdate() {
         if (!m_activated) {
-            m_next = m_clock.ActivateStorage(*this);
+            m_next = GetClock().ActivateStorage(*this);
             m_activated = true;
         }
     }
@@ -49,8 +46,8 @@ protected:
 public:
     virtual void Update() = 0;
 
-    Storage(Clock& clock)
-        : m_activated(false), m_next(NULL), m_clock(clock)
+    Storage(const std::string& name, Object& parent, Clock& clock)
+        : Object(name, clock), m_activated(false), m_next(NULL)
     {}
 };
 
@@ -63,7 +60,7 @@ protected:
     void Notify()
     {
         assert(m_process != NULL);
-        m_clock.ActivateProcess(*m_process);
+        GetClock().ActivateProcess(*m_process);
     }
 
     void Unnotify()
@@ -79,8 +76,8 @@ public:
         m_process = &process;
     }
 
-    SensitiveStorage(Clock& clock)
-      : Storage(clock), m_process(NULL)
+    SensitiveStorage(const std::string& name, Object& parent, Clock& clock)
+      : Object(name, parent, clock), Storage(name, parent, clock), m_process(NULL)
     {
     }
 };
@@ -217,11 +214,12 @@ public:
     }
     
     /// Construct an empty list with a sensitive component
-    LinkedList(Clock& clock, L& table)
-        : Storage(clock), SensitiveStorage(clock),
+    LinkedList(const std::string& name, Object& parent, Clock& clock, L& table)
+        : Object(name, parent, clock),
+          Storage(name, parent, clock),
+          SensitiveStorage(name, parent, clock),
           m_table(table), m_empty(true), m_popped(false), m_pushed(false)
-    {
-    }
+    {}
 };
 
 /// A FIFO storage queue
@@ -239,6 +237,13 @@ class Buffer : public SensitiveStorage
     size_t        m_pushes;          ///< Number of items Push()'d this cycle
     T             m_new[MAX_PUSHES]; ///< The items being pushed (when m_pushes > 0)
 
+    // Statistics
+    uint64_t      m_stalls;         ///< Number of stalls so far
+    CycleNo       m_lastcycle;      ///< Cycle no of last event
+    uint64_t      m_totalsize;      ///< Cumulated current size * cycle no
+    BufferSize    m_maxsize;        ///< Maximum effective queue size reached
+    BufferSize    m_cursize;        ///< Current size
+
     void Update()
     {
         // Effect the changes made in this cycle
@@ -251,7 +256,7 @@ class Buffer : public SensitiveStorage
                 m_data.push_back(m_new[i]);
             }
         }
-        
+
         if (m_popped) {
             m_data.pop_front();
             if (m_data.empty()) {
@@ -261,6 +266,16 @@ class Buffer : public SensitiveStorage
         }
         m_pushes = 0;
         m_popped = false;
+
+        COMMIT{
+            // Update statistics
+            CycleNo cycle = GetKernel()->GetCycleNo();
+            CycleNo elapsed = cycle - m_lastcycle;
+            m_lastcycle = cycle;
+            m_cursize = m_data.size();
+            m_totalsize += (uint64_t)m_cursize * elapsed;
+            m_maxsize = std::max(m_maxsize, m_cursize);
+        }
     }
     
 public:
@@ -317,15 +332,31 @@ public:
             }
             return true;
         }
+        
+        // Accumulate for statistics. We don't want
+        // to register multiple stalls so only test during acquire.
+        if (IsAcquiring())
+        {
+            ++m_stalls;
+        }
+
         return false;
     }
 
-    Buffer(Clock& clock, BufferSize maxSize, size_t maxPushes = 1)
-        : Storage(clock), SensitiveStorage(clock),
-          m_maxSize(maxSize), m_maxPushes(maxPushes), m_popped(false), m_pushes(0)
+    Buffer(const std::string& name, Object& parent, Clock& clock, BufferSize maxSize, size_t maxPushes = 1)
+        : Object(name, parent, clock),
+          Storage(name, parent, clock),
+          SensitiveStorage(name, parent, clock),
+          m_maxSize(maxSize), m_maxPushes(maxPushes), m_popped(false), m_pushes(0),
+          m_stalls(0), m_lastcycle(0), m_totalsize(0), m_maxsize(0)
     {
+        RegisterSampleVariableInObject(m_totalsize, SVC_CUMULATIVE);
+        RegisterSampleVariableInObject(m_maxsize, SVC_WATERMARK, maxSize);
+        RegisterSampleVariableInObject(m_cursize, SVC_LEVEL);
+        RegisterSampleVariableInObject(m_stalls, SVC_CUMULATIVE);
         assert(maxPushes <= MAX_PUSHES);
     }
+
 };
 
 /// A full/empty single-value storage element
@@ -390,11 +421,12 @@ public:
         }
     }
     
-    Register(Clock& clock)
-        : Storage(clock), SensitiveStorage(clock),
+    Register(const std::string& name, Object& parent, Clock& clock)
+        : Object(name, parent, clock),
+          Storage(name, parent, clock),
+          SensitiveStorage(name, parent, clock),
           m_empty(true), m_cleared(false), m_assigned(false)
-    {
-    }
+    {}
 };
 
 /// A single-bit storage element
@@ -439,8 +471,8 @@ public:
         return false;
     }
     
-    Flag(Clock& clock, bool set)
-        : Storage(clock),
+    Flag(const std::string& name, Object& parent, Clock& clock, bool set)
+        : Object(name, parent, clock), Storage(name, parent, clock),
           m_set(false), m_updated(false), m_new(set)
     {
         if (set) {
@@ -460,9 +492,11 @@ class SingleFlag : public Flag, public SensitiveStorage
         Flag::Update();
     }
 public:
-    SingleFlag(Clock& clock, bool set)
-      : Storage(clock),
-        Flag(clock, set), SensitiveStorage(clock)
+    SingleFlag(const std::string& name, Object& parent, Clock& clock, bool set)
+        : Object(name, parent, clock),
+        Storage(name, parent, clock), 
+        Flag(name, parent, clock, set), 
+        SensitiveStorage(name, parent, clock)
     {}
 };
 

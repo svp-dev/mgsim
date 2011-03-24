@@ -3,7 +3,6 @@ set -e
 ARCH=${1:?}
 TESTd=${3:?}
 sim=${MGSIM:?}
-simx=${SIMX:?}
 timeout=${2:?}
 
 fail=0
@@ -60,33 +59,16 @@ else
   cpuconf="1 2 4 8"
 fi
 
-memargs=
-memdesc=
-thesim=
 mem=${TESTd##*.}
-if test $mem = zlcoma; then
-    if $simx --version >/dev/null 2>&1; then
-        memdesc="MemType=COMA_ZL"
-        thesim=$simx
-    else
-        echo "$simx not compiled or not usable, skipping test." >&2
-        exit 77 # Automake will ignore this test in count
-    fi
-else
-    memargs="-o MemoryType=$mem"
-    memdesc="MemType=$mem"
-    thesim=$sim
-fi        
-    
 
 if test -n "$rdata"; then
     reg=$(echo "$rdata"|cut -d: -f2)
     vals=$(echo "$rdata"|cut -d: -f3)
     for val in $vals; do
-	dotest "$memargs -$reg $val" "$memdesc $reg=$val" "$thesim"
+	dotest "-o MemoryType=$mem -$reg $val" "MemType=$mem $reg=$val" "$sim"
     done
 else
-    dotest "$memargs" "$memdesc" "$thesim"
+    dotest "-o MemoryType=$mem" "MemType=$mem" "$sim"
 fi
 
 exit $fail

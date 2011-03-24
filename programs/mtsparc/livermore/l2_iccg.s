@@ -54,68 +54,68 @@ main:
 !
 ! Outer thread
 !
-! %g0 = X
-! %g1 = V
-! %g2 = 1
-! %d0 = ipntp
-! %l0 = m
+! %tg0 = X
+! %tg1 = V
+! %tg2 = 1
+! %td0 = ipntp
+! %tl0 = m
 !
     .globl outer
     .align 64
     .registers 3 1 3 0 0 0
 outer:
-    allocates %0, %l2
-    sll      %g2, %l0, %l0       ! %l0 = ii
-    setlimit %l2, %l0; swch
-    setstart %l2, 1
-    setstep  %l2, 2
+    allocates %0, %tl2
+    sll      %tg2, %tl0, %tl0       ! %tl0 = ii
+    setlimit %tl2, %tl0; swch
+    setstart %tl2, 1
+    setstep  %tl2, 2
 
-    add      %d0, %l0, %l0; swch ! %l0 = ipntp + ii
-    cred     inner, %l2
+    add      %td0, %tl0, %tl0; swch ! %tl0 = ipntp + ii
+    cred     inner, %tl2
 
-    putg     %g0, %l2, 0; swch   ! %g0 = X
-    putg     %g1, %l2, 1         ! %g1 = V
-    putg     %l0, %l2, 2         ! %g2 = ipntp
-    putg     %d0, %l2, 3         ! %g3 = ipnt
+    putg     %tg0, %tl2, 0; swch   ! %tg0 = X
+    putg     %tg1, %tl2, 1         ! %tg1 = V
+    putg     %tl0, %tl2, 2         ! %tg2 = ipntp
+    putg     %td0, %tl2, 3         ! %tg3 = ipnt
 
-    sync     %l2, %l1
-    mov      %l1, %0; swch
-    release  %l2
+    sync     %tl2, %tl1
+    mov      %tl1, %0; swch
+    release  %tl2
     
-    mov      %l0, %s0            ! %s0 = ipntp + ii
+    mov      %tl0, %ts0            ! %ts0 = ipntp + ii
     end
 
 !
 ! Inner thread
 !
-! %g0 = X
-! %g1 = V
-! %g2 = ipntp
-! %g3 = ipnt
-! %l0 = i
+! %tg0 = X
+! %tg1 = V
+! %tg2 = ipntp
+! %tg3 = ipnt
+! %tl0 = i
 !
     .global inner
     .align 64
     .registers 4 0 3 0 0 10
 inner:
-    add     %g3, %l0, %l2   ! %l2 = k = ipnt + i
-    sll     %l2,   3, %l2
-    add     %l2, %g1, %l1   ! %l1 = &V[k]
-    ldd     [%l1], %lf2     ! %lf2,%lf3 = V[k]
-    add     %l2, %g0, %l2   ! %l2 = &X[k]
-    ldd     [%l2-8], %lf8   ! %lf8,%lf9 = X[k-1]
-    ldd     [%l1+8], %lf4   ! %lf4,%lf5 = V[k+1]
-    ldd     [%l2+8], %lf6   ! %lf6,%lf7 = X[k+1]
-    ldd     [%l2+0], %lf0   ! %lf0,%lf1 = X[k]
-    srl     %l0,   1, %l0
-    add     %g2, %l0, %l0
-    sll     %l0,   3, %l0
-    add     %l0, %g0, %l0   ! %l0 = &X[ipntp + i / 2]
-    fmuld   %lf2, %lf8, %lf2; swch
-    fmuld   %lf4, %lf6, %lf4; swch
-    faddd   %lf2, %lf4, %lf2; swch
-    fsubd   %lf0, %lf2, %lf2; swch
-    std     %lf2, [%l0]
+    add     %tg3, %tl0, %tl2   ! %tl2 = k = ipnt + i
+    sll     %tl2,   3, %tl2
+    add     %tl2, %tg1, %tl1   ! %tl1 = &V[k]
+    ldd     [%tl1], %tlf2     ! %tlf2,%tlf3 = V[k]
+    add     %tl2, %tg0, %tl2   ! %tl2 = &X[k]
+    ldd     [%tl2-8], %tlf8   ! %tlf8,%tlf9 = X[k-1]
+    ldd     [%tl1+8], %tlf4   ! %tlf4,%tlf5 = V[k+1]
+    ldd     [%tl2+8], %tlf6   ! %tlf6,%tlf7 = X[k+1]
+    ldd     [%tl2+0], %tlf0   ! %tlf0,%tlf1 = X[k]
+    srl     %tl0,   1, %tl0
+    add     %tg2, %tl0, %tl0
+    sll     %tl0,   3, %tl0
+    add     %tl0, %tg0, %tl0   ! %tl0 = &X[ipntp + i / 2]
+    fmuld   %tlf2, %tlf8, %tlf2; swch
+    fmuld   %tlf4, %tlf6, %tlf4; swch
+    faddd   %tlf2, %tlf4, %tlf2; swch
+    fsubd   %tlf0, %tlf2, %tlf2; swch
+    std     %tlf2, [%tl0]
     end
 
     .section .bss

@@ -85,6 +85,12 @@ using namespace std;
 //     - word 1 ... P: (ringID << 16) | (coreID << 0) 
 //     (future layout configuration formats may include topology information)
 
+// - place layout v2, organized as follows:
+//     - word 0 after tag: number of cores (P)
+//     - word 1 ... P: (y << 24) | (x << 16) | (coreType)
+//     coreType:
+//      0: Normal core
+
 #define CONFTAG_ARCH_V1    1
 #define CONFTAG_TIMINGS_V1 2
 #define CONFTAG_CACHE_V1   3
@@ -92,6 +98,7 @@ using namespace std;
 #define CONFTAG_LAYOUT_V1  5
 #define CONFTAG_TIMINGS_V2 6
 #define CONFTAG_TIMINGS_V3 7
+#define CONFTAG_LAYOUT_V2  8
 #define MAKE_TAG(Type, Size) (uint32_t)(((Type) << 16) | ((Size) & 0xffff))
 
 
@@ -153,24 +160,19 @@ void MGSystem::FillConfWords(ConfWords& words) const
 
         ;
 
-    // place layout v1
+    // place layout v2
+    PSize numProcessors = m_config.getInteger<PSize>("NumProcessors", 1);
 
-    const vector<PSize>& placeSizes = m_config.getIntegerList<PSize>("NumProcessors");
+    words << MAKE_TAG(CONFTAG_LAYOUT_V2, numProcessors + 1)
+          << numProcessors;
 
-    words << MAKE_TAG(CONFTAG_LAYOUT_V1, m_procs.size() + 1)
-          << m_procs.size();
-
-    // Store the cores, per place
-    PSize first = 0;
-    for (size_t p = 0; p < placeSizes.size(); ++p)
+    // Store the core information
+    for (size_t i = 0; i < numProcessors; ++i)
     {
-        PSize placeSize = placeSizes[p];
-        for (size_t i = 0; i < placeSize; ++i)
-        {
-            PSize pid = first + i;
-            words << ((p << 16) | (pid << 0));
-        }
-        first += placeSize;
+        unsigned int y = 0;
+        unsigned int x = i;
+        unsigned int type = 0; // Normal core
+        words << ((y << 24) | (x << 16) | type);
     }
 
     // after last block
@@ -485,13 +487,15 @@ void MGSystem::PrintCoreStats(std::ostream& os) const {
 }
 
 void MGSystem::PrintMemoryStatistics(std::ostream& os) const {
-    uint64_t nr = 0, nrb = 0, nw = 0, nwb = 0;
+    uint64_t nr = 0, nrb = 0, nw = 0, nwb = 0, nrext = 0, nwext = 0;
 
-    m_memory->GetMemoryStatistics(nr, nw, nrb, nwb);
-    os << nr << "\t# number of load reqs. from the ext. mem. interface" << endl
-       << nrb << "\t# number of bytes loaded from the ext. mem. interface" << endl
-       << nw << "\t# number of store reqs. to the ext. mem. interface" << endl
-       << nwb << "\t# number of bytes stored to the ext. mem. interface" << endl;
+    m_memory->GetMemoryStatistics(nr, nw, nrb, nwb, nrext, nwext);
+    os << nr << "\t# number of load reqs. by the L1 cache from L2" << endl
+       << nrb << "\t# number of bytes loaded by the L1 cache from L2" << endl
+       << nw << "\t# number of store reqs. by the L1 cache to L2" << endl
+       << nwb << "\t# number of bytes stored by the L1 cache to L2" << endl
+       << nrext << "\t# number of cache lines read from the ext. mem. interface" << endl
+       << nwext << "\t# number of cache lines written to the ext. mem. interface" << endl;
 
 }
 
@@ -687,12 +691,7 @@ MGSystem::MGSystem(const Config& config, Display& display, const string& program
       m_program(program),
       m_config(config)
 {
-    const vector<PSize>& placeSizes = m_config.getIntegerList<PSize>("NumProcessors");
-    PSize numProcessors = 0;
-    for (size_t i = 0; i < placeSizes.size(); ++i)
-    {
-        numProcessors += placeSizes[i];
-    }
+    PSize numProcessors = m_config.getInteger<PSize>("NumProcessors", 1);
     
     const size_t numProcessorsPerFPU = max<size_t>(1, config.getInteger<size_t>("NumProcessorsPerFPU", 1));
     const PSize  numFPUs             = (numProcessors + numProcessorsPerFPU - 1) / numProcessorsPerFPU;

@@ -225,9 +225,9 @@ public:
         : Object(name, memory, clock),
           m_memory  (memory),
           p_incoming(memory, clock, name + ".incoming"),
-          m_incoming(clock, buffersize),
-          m_outgoing(clock, buffersize),
-          m_busy    (clock, false),
+          m_incoming("b_incoming", *this, clock, buffersize),
+          m_outgoing("b_outgoing", *this, clock, buffersize),
+          m_busy    ("f_busy", *this, clock, false),
           p_Incoming("in",   delegate::create<Bank, &Bank::DoIncoming>(*this)),
           p_Outgoing("out",  delegate::create<Bank, &Bank::DoOutgoing>(*this)),
           p_Bank    ("bank", delegate::create<Bank, &Bank::DoRequest> (*this))

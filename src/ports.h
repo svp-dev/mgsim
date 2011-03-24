@@ -144,7 +144,7 @@ public:
 //
 
 /// Base class for all structures
-class IStructure : public Object, private Arbitrator
+class IStructure : public virtual Object, private Arbitrator
 {
     typedef std::set<ArbitratedReadPort*> ReadPortList;
 
@@ -228,7 +228,8 @@ class Structure : public IStructure
     PriorityMap             m_priorities;
 
 public:
-    Structure(const std::string& name, Object& parent, Clock& clock) : IStructure(name, parent, clock) {}
+    Structure(const std::string& name, Object& parent, Clock& clock) 
+        : Object(name, parent, clock), IStructure(name, parent, clock) {}
 
     void AddPort(WritePort<I>& port)
     {

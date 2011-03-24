@@ -17,14 +17,12 @@ static const size_t MINSPACE_FORWARD  = 1;
 
 ZLCOMA::DirectoryTop::DirectoryTop(const std::string& name, ZLCOMA& parent, Clock& clock)
   : Simulator::Object(name, parent),
-    ZLCOMA::Object(name, parent),
     Node(name, parent, clock)
 {
 }
 
 ZLCOMA::DirectoryBottom::DirectoryBottom(const std::string& name, ZLCOMA& parent, Clock& clock)
   : Simulator::Object(name, parent),
-    ZLCOMA::Object(name, parent),
     Node(name, parent, clock)
 {
 }
@@ -153,7 +151,7 @@ bool ZLCOMA::Directory::OnMessageReceivedBottom(Message* req)
     COMMIT{ req->ignore = false; }
     
     // Forward request onto upper ring
-    if (!DirectoryTop::SendMessage(req, MINSPACE_FORWARD))
+    if (!m_top.SendMessage(req, MINSPACE_FORWARD))
     {
         DeadlockWrite("Unable to buffer request for next node on top ring");
         return false;
@@ -210,10 +208,10 @@ bool ZLCOMA::Directory::OnMessageReceivedTop(Message* req)
     if (line == NULL)
     {
         // Forward request onto upper ring
-        if (!DirectoryTop::SendMessage(req, MINSPACE_SHORTCUT))
+        if (!m_top.SendMessage(req, MINSPACE_SHORTCUT))
         {
             COMMIT{ req->ignore = true; }
-            if (!DirectoryBottom::SendMessage(req, MINSPACE_FORWARD))
+            if (!m_bottom.SendMessage(req, MINSPACE_FORWARD))
             {
                 DeadlockWrite("Unable to buffer request for next node on top ring");
                 return false;
@@ -222,7 +220,7 @@ bool ZLCOMA::Directory::OnMessageReceivedTop(Message* req)
     }
     else
     {
-        if (!DirectoryBottom::SendMessage(req, MINSPACE_FORWARD))
+        if (!m_bottom.SendMessage(req, MINSPACE_FORWARD))
         {
             DeadlockWrite("Unable to buffer request for next node on bottom ring");
             return false;
@@ -234,32 +232,32 @@ bool ZLCOMA::Directory::OnMessageReceivedTop(Message* req)
 Result ZLCOMA::Directory::DoInBottom()
 {
     // Handle incoming message on bottom ring from previous node
-    assert(!DirectoryBottom::m_incoming.Empty());
-    if (!OnMessageReceivedBottom(DirectoryBottom::m_incoming.Front()))
+    assert(!m_bottom.m_incoming.Empty());
+    if (!OnMessageReceivedBottom(m_bottom.m_incoming.Front()))
     {
         return FAILED;
     }
-    DirectoryBottom::m_incoming.Pop();
+    m_bottom.m_incoming.Pop();
     return SUCCESS;
 }
 
 Result ZLCOMA::Directory::DoInTop()
 {
     // Handle incoming message on top ring from previous node
-    assert(!DirectoryTop::m_incoming.Empty());
-    if (!OnMessageReceivedTop(DirectoryTop::m_incoming.Front()))
+    assert(!m_top.m_incoming.Empty());
+    if (!OnMessageReceivedTop(m_top.m_incoming.Front()))
     {
         return FAILED;
     }
-    DirectoryTop::m_incoming.Pop();
+    m_top.m_incoming.Pop();
     return SUCCESS;
 }
 
 ZLCOMA::Directory::Directory(const std::string& name, ZLCOMA& parent, Clock& clock, size_t numTokens, CacheID firstCache, CacheID lastCache, const Config& config) :
     Simulator::Object(name, parent),
     ZLCOMA::Object(name, parent),
-    DirectoryBottom(name + "-bottom", parent, clock),
-    DirectoryTop(name + "-top", parent, clock),
+    m_bottom(name + ".bottom", parent, clock),
+    m_top(name + ".top", parent, clock),
     p_lines     (*this, clock, "p_lines"),
     m_lineSize  (config.getInteger<size_t>("CacheLineSize",           64)),
     m_assoc     (config.getInteger<size_t>("COMACacheAssociativity",   4) * (lastCache - firstCache + 1)),
@@ -267,8 +265,8 @@ ZLCOMA::Directory::Directory(const std::string& name, ZLCOMA& parent, Clock& clo
     m_numTokens (numTokens),
     m_firstCache(firstCache),
     m_lastCache (lastCache),
-    p_InBottom  ("bottom-incoming", delegate::create<Directory, &Directory::DoInBottom >(*this)),
-    p_InTop     ("top-incoming",    delegate::create<Directory, &Directory::DoInTop    >(*this))
+    p_InBottom  ("bottom_incoming", delegate::create<Directory, &Directory::DoInBottom >(*this)),
+    p_InTop     ("top_incoming",    delegate::create<Directory, &Directory::DoInTop    >(*this))
 {
     // Create the cache lines
     // We need as many cache lines in a directory to cover all caches below it
@@ -279,8 +277,8 @@ ZLCOMA::Directory::Directory(const std::string& name, ZLCOMA& parent, Clock& clo
         line.valid = false;
     }
 
-    DirectoryBottom::m_incoming.Sensitive(p_InBottom);
-    DirectoryTop   ::m_incoming.Sensitive(p_InTop);
+    m_bottom.m_incoming.Sensitive(p_InBottom);
+    m_top.m_incoming.Sensitive(p_InTop);
 
     p_lines.AddProcess(p_InTop);
     p_lines.AddProcess(p_InBottom);
@@ -305,10 +303,10 @@ void ZLCOMA::Directory::Cmd_Read(std::ostream& out, const std::vector<std::strin
     {
         // Read the buffers
         out << endl << "Top ring interface:" << endl << endl;
-        DirectoryTop::Print(out);
+        m_top.Print(out);
 
         out << endl << "Bottom ring interface:" << endl << endl;
-        DirectoryBottom::Print(out);
+        m_bottom.Print(out);
 
         return;
     }

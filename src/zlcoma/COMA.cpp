@@ -144,7 +144,7 @@ ZLCOMA::ZLCOMA(const std::string& name, Simulator::Object& parent, Clock& clock,
     // Initialize the caches
     for (size_t i = 0; i < m_caches.size(); ++i)
     {
-        DirectoryBottom* dir = m_directories[i / m_numCachesPerDir];
+        DirectoryBottom* dir = &m_directories[i / m_numCachesPerDir]->m_bottom;
         const bool first = (i % m_numCachesPerDir == 0);
         const bool last  = (i % m_numCachesPerDir == m_numCachesPerDir - 1) || (i == m_caches.size() - 1);
         m_caches[i]->Initialize(
@@ -155,7 +155,7 @@ ZLCOMA::ZLCOMA(const std::string& name, Simulator::Object& parent, Clock& clock,
     // Connect the directories to the cache rings
     for (size_t i = 0; i < m_directories.size(); ++i)
     {
-        m_directories[i]->DirectoryBottom::Initialize(
+        m_directories[i]->m_bottom.Initialize(
             m_caches[std::min(i * m_numCachesPerDir + m_numCachesPerDir, m_caches.size()) - 1],
             m_caches[i * m_numCachesPerDir] );
     }
@@ -180,7 +180,7 @@ ZLCOMA::ZLCOMA(const std::string& name, Simulator::Object& parent, Clock& clock,
     for (size_t p = 0, i = 0; i < m_directories.size(); ++i, ++p)
     {
         while (nodes[p] != NULL) ++p;
-        nodes[p] = static_cast<DirectoryTop*>(m_directories[i]);
+        nodes[p] = &m_directories[i]->m_top;
     }
 
     // Now connect everything on the top-level ring
@@ -210,12 +210,20 @@ ZLCOMA::~ZLCOMA()
     }
 }
 
-void ZLCOMA::GetMemoryStatistics(uint64_t& nreads, uint64_t& nwrites, uint64_t& nread_bytes, uint64_t& nwrite_bytes) const
+void ZLCOMA::GetMemoryStatistics(uint64_t& nreads, uint64_t& nwrites, uint64_t& nread_bytes, uint64_t& nwrite_bytes, uint64_t& nreads_ext, uint64_t& nwrites_ext) const
 {
     nreads = m_nreads;
     nwrites = m_nwrites;
     nread_bytes = m_nread_bytes;
     nwrite_bytes = m_nwrite_bytes;
+
+    uint64_t nre = 0, nwe = 0;
+    for (size_t i = 0; i < m_roots.size(); ++i)
+    {
+        m_roots[i]->GetMemoryStatistics(nre, nwe);
+        nreads_ext += nre;
+        nwrites_ext += nwe;
+    }
 }
 
 void ZLCOMA::Cmd_Help(ostream& out, const vector<string>& /*arguments*/) const
