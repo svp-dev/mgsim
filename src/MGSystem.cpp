@@ -319,7 +319,7 @@ void MGSystem::PrintCoreStats(std::ostream& os) const {
         types[j] = I; c[i][j++].i = pl.GetNStages();
         types[j] = I; c[i][j++].i = pl.GetStagesRun();
         types[j] = PC; c[i][j++].f = 100. * pl.GetEfficiency();
-        types[j] = PC; c[i][j++].f = 100. * (float)pl.GetOp() / (float)m_root.GetCycleNo();
+        types[j] = PC; c[i][j++].f = 100. * (float)pl.GetOp() / (float)pl.GetCycleNo();
         types[j] = I; c[i][j++].i = p.GetMaxThreadsAllocated();
         types[j] = I; c[i][j++].i = p.GetTotalThreadsAllocated();
         types[j] = I; c[i][j++].i = p.GetThreadTableSize();
@@ -387,7 +387,6 @@ void MGSystem::PrintCoreStats(std::ostream& os) const {
        << fi << "plstgrun" << sep
        << fp << "pl%busy" << sep
        << fp << "pl%eff" << sep
-       << fi << "lastend" << sep
        << fi << "ttmax" << sep
        << fi << "ttotal" << sep
        << fi << "ttsize" << sep
@@ -469,7 +468,6 @@ void MGSystem::PrintCoreStats(std::ostream& os) const {
        << "# plstgrun: cumulative number of corecycles active in all pipeline stages" << endl
        << "# pl%busy: pipeline efficiency while active (= 100. * plstgrun / plstgs / plbusy)" << endl
        << "# pl%eff: pipeline efficiency total (= 100. * iops / ncorecycles_total)" << endl
-       << "# lastend: coretime of last family termination" << endl
        << "# ttmax: maximum of thread entries simulatenously allocated" << endl
        << "# ttotal: cumulative number of thread entries busy (over mastertime)" << endl
        << "# ttsize: thread table size" << endl
