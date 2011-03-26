@@ -361,7 +361,7 @@ void Pipeline::Cmd_Read(std::ostream& out, const std::vector<std::string>& /*arg
              << " | Rb:           " << m_drLatch.Rb << "/" << m_drLatch.RbSize << endl
              << " | Rc:           " << m_drLatch.Rc << "/" << m_drLatch.RcSize << endl
 #if TARGET_ARCH == ARCH_SPARC
-             << " | Rs:           " << m_drLatch.Rs << "/" << m_drLatch.RcSize << endl
+             << " | Rs:           " << m_drLatch.Rs << "/" << m_drLatch.RsSize << endl
 #endif
             ;
     }
@@ -383,9 +383,9 @@ void Pipeline::Cmd_Read(std::ostream& out, const std::vector<std::string>& /*arg
              << " | Function:     0x" << setw(4) << m_reLatch.function << endl
              << " | Displacement: 0x" << setw(8) << m_reLatch.displacement << endl
 #elif TARGET_ARCH == ARCH_SPARC
-             << " | Op1:          0x" << setw(2) << (unsigned)m_drLatch.op1
-             << "    Op2: 0x" << setw(2) << (unsigned)m_drLatch.op2 
-             << "    Op3: 0x" << setw(2) << (unsigned)m_drLatch.op3 << endl
+             << " | Op1:          0x" << setw(2) << (unsigned)m_reLatch.op1
+             << "    Op2: 0x" << setw(2) << (unsigned)m_reLatch.op2 
+             << "    Op3: 0x" << setw(2) << (unsigned)m_reLatch.op3 << endl
              << " | Function:     0x" << setw(4) << m_reLatch.function << endl
              << " | Displacement: 0x" << setw(8) << m_reLatch.displacement << endl
 #endif
