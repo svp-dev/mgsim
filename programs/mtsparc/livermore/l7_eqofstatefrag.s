@@ -28,9 +28,11 @@
     .globl main
     .align 64
 main:
-    allocates %0, %5
+    clr %5
+    allocates %5
     setlimit %5, %11
-    cred loop, %5
+    set  loop, %1
+    crei %1, %5
 
     set     X, %1      ! %1 = X
     set     Y, %2      ! %2 = Y

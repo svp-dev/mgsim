@@ -18,7 +18,8 @@ main:
     ld      [%1], %f1
 
     ! Request a family table entry
-	allocate %0, %2         ! Default
+    clr %2
+	allocate %2
 
 	! Set up the family parameters.
 	! swch because %2 is the result of allocate.
@@ -29,7 +30,8 @@ main:
 	setblock %2, 1
 	
 	! Create the family
-	cred    sin, %2
+	set     sin, %1
+	crei    %1, %2
 	
 	! Fill initial values for the family
 	mov      1,  %1

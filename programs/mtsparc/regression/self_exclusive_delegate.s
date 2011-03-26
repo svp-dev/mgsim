@@ -9,8 +9,9 @@
     .align 64
 main:
     mov (0 << 1) | 1, %2    ! PID:0, Size:1
-    allocatee %2, %2
-    cred foo, %2
+    allocatex %2
+    set foo, %1
+    crei %1, %2
     
     ! Sync
     sync %2, %1

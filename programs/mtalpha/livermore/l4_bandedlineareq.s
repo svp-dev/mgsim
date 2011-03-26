@@ -38,7 +38,7 @@ main:
     lda     $4,    M
     lda     $5, 1001
     
-    allocate/s $31, $3
+    allocate/s $31, 0, $3
     setstart $3, 6
     setlimit $3, $5
     setstep  $3, $4
@@ -88,7 +88,7 @@ main:
     .ent outer
     .registers 3 0 5 0 0 3
 outer:
-    allocate/s $31, $l3
+    allocate/s $31, 0, $l3
     setlimit $l3, $g2; swch
     cred     $l3, inner
     

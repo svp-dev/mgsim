@@ -13,7 +13,8 @@ main:
     mov 42, $0
     mov  2, $1
     
-    allocate/s (4 << 1) | 4, $2     # PID:4, Size=4, Suspend
+    mov (4 << 1) | 4, $2        # PID:4, Size=4
+    allocate/s $2, 0, $2
     setlimit $2, 4
     cred $2, bar
     

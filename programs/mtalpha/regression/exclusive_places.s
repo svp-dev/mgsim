@@ -11,7 +11,8 @@
 main:
     ldgp $29, 0($27)
     
-    allocate/s (0 << 1) | 1, $2          # PID=0, Size=1
+    mov (0 << 1) | 1, $2           # PID=0, Size=1
+    allocate/s $2, 0, $2
     setlimit $2, 64
     cred    $2, foo
     
@@ -38,7 +39,8 @@ main:
     .ent foo
     .registers 1 1 3 0 0 0
 foo:
-    allocate/x (1 << 1) | 1, $l2     # PID:1, Size=1
+    mov (1 << 1) | 1, $l2       # PID:1, Size=1
+    allocate/x $l2, 0, $l2
     cred     $l2, bar
     swch
     putg     $g0, $l2, 0        # {$g0} = GP

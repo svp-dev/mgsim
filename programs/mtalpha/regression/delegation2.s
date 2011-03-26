@@ -10,7 +10,8 @@
     .globl main
     .ent main
 main:
-    allocate/s (4 << 1) | 4, $2     # PID:4, Size=4, Suspend
+    mov (4 << 1) | 4, $2       # PID:4, Size=4
+    allocate/s $2, 0, $2
     setlimit $2, 4
     swch
     cred $2, bar

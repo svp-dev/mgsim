@@ -22,7 +22,7 @@
 main:
     ldgp $29, 0($27)
     
-    allocate/s $31, $2
+    allocate/s $31, 0, $2
     setlimit $2, 250
     cred $2, foo
     

@@ -14,12 +14,14 @@
     .text
     .globl main
 main:
-	allocates %0, %5            ! Default
+    clr %5
+	allocates %5            ! Default
 
 	!	create (fam1; 0; N;)
 	setlimit %5, %11
 	swch
-	cred thread1, %5
+	set  thread1, %1
+	crei %1, %5
 	
     set     A, %1
     set     B, %2

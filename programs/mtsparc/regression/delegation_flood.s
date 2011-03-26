@@ -11,10 +11,11 @@
 main:
     mov      1024, %2
     mov      (0 << 1) | 1, %1
-    allocates %1, %1
+    allocates %1
     setblock %1, 128
     setlimit %1, %2
-    cred     foo, %1
+    set      foo, %2
+    crei     %2, %1
     sync     %1, %2
     release  %1
     mov      %2, %0
@@ -24,8 +25,9 @@ main:
     .registers 0 0 2 0 0 0
 foo:
     mov (1 << 1) | 1, %tl0   ! PID:1, Size:1
-    allocatee %tl0, %tl0
-    cred     bar, %tl0
+    allocatex %tl0
+    set      bar, %tl1
+    crei     %tl1, %tl0
     sync     %tl0, %tl1
     release  %tl0
     mov      %tl1, %0

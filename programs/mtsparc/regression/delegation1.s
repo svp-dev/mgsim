@@ -11,9 +11,10 @@
 main:
     
     mov (4 << 1) | 4, %3
-    allocates %3, %3         ! PID:4, Size:4
+    allocates %3         ! PID:4, Size:4
     setlimit %3, 4
-    cred bar, %3
+    set bar, %1
+    crei %1, %3
 
     mov 42, %1
     mov  2, %2

@@ -17,8 +17,8 @@
     .text
     .globl main
 main:
-    
-	allocates %0, %5            ! Default
+    clr %5
+	allocates %5            ! Default
 	
 	!	create (fam1; 0; N-1;)
 	setlimit %5, %11
@@ -26,7 +26,8 @@ main:
 	.ifdef BLOCK1
 	setblock %5, BLOCK1
 	.endif
-	cred thread1, %5
+	set thread1, %1
+	crei %1, %5
 	
 	set A, %1
 	set B, %2
@@ -51,10 +52,12 @@ main:
     .align 64
 	.registers 4 0 5  0 0 0	    ! GR,SR,LR, GF,SF,LF
 thread1:
-	allocates %tl0, %tl4          ! Default
+    clr %tl4
+	allocates %tl4          ! Default
 	setlimit %tl4, %tg3
 	swch
-	cred thread2, %tl4
+	set thread2, %tl2
+	crei %tl2, %tl4
 	
 	umul    %tl0, %tg3, %tl0       ! %tl0 = i*N
 	sll     %tl0,   2, %tl0

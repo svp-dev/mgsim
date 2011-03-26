@@ -11,7 +11,8 @@
 main:
     ! First we get a free entry in the Family Table.
     ! Will write back asynchronously if there is no free entry.
-    allocate %0, %4
+    clr %4
+    allocate %4
     
     ! Get N - 1 as the loop limit
     sub     %11, 1, %11
@@ -22,9 +23,9 @@ main:
     setlimit %4, %11
     swch
     
-    ! Here we issue a direct (label operand) create with the
-    ! allocated FT entry.
-    cred    fibonacci, %4
+    ! Here we issue an indirect create with the allocated FT entry.
+    set fibonacci, %1
+    crei %1, %4
     
     ! Write 0 and 1 into the first two locals (%0 is Read As Zero)
     mov      0, %1

@@ -9,7 +9,7 @@
     .ent main
     .globl main 
 main:
-    allocate/s $31, $2    # Group create
+    allocate/s $31, 0, $2    # Group create
     setlimit $2,10
     setblock $2,2
     swch

@@ -20,7 +20,7 @@ main:
     ldgp $29, 0($27)
     
 	#	create (fam1; 0; N;)
-	allocate/s $31, $4
+	allocate/s $31, 0, $4
 	setlimit $4, $10
 	swch
 	cred    $4, thread1

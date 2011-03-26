@@ -8,9 +8,11 @@
     .globl main
     .align 64
 main:
-    allocate %0, %2
+    clr %2
+    allocate %2
     setlimit %2, 64
-    cred foo, %2
+    set foo, %1
+    crei %1, %2
     
     puts %0, %2, 0
     
@@ -33,10 +35,11 @@ main:
     .align 64
     .registers 0 1 2 0 0 0
 foo:
-    mov (1 << 1) | 1, %tl1
-    allocatee %tl1, %tl1      ! PID:1, Size:1, Exclusive
+    mov (1 << 1) | 1, %tl1    ! PID:1, Size:1 
+    allocatex %tl1
     swch
-    cred     bar, %tl1
+    set      bar, %tl0
+    crei     %tl0, %tl1
     sync     %tl1, %tl0
     mov      %tl0, %0; swch
     gets     %tl1, 0, %tl0

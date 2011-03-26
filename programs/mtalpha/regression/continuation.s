@@ -9,7 +9,7 @@
     .globl main
     .ent main
 main:
-    allocate/s $31, $2        # Default
+    allocate/s $31, 0, $2        # Default
     cred     $2, bar
     putg     255, $2, 0
     detach   $2
@@ -25,7 +25,7 @@ bar:
     end
 1:    
 
-    allocate/s $31, $l0       # Default
+    allocate/s $31, 0, $l0       # Default
     cred     $l0, bar
     swch
     subq     $g0, 1, $l1    # Pass on $g0 - 1

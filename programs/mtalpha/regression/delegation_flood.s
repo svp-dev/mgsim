@@ -11,7 +11,10 @@
     .ent main
 main:
     lda      $2, 1024($31)
-    allocate/s (2 << 1), $1      # Local
+    getcid   $1
+    sll      $1, 1, $1
+    or       $1, 1, $1  # Local
+    allocate/s $1, 0, $1
     setblock $1, 128
     setlimit $1, $2
     cred     $1, foo
@@ -25,7 +28,8 @@ main:
     .ent foo
     .registers 0 0 2 0 0 0
 foo:
-    allocate/s (1 << 1) | 1, $l0     # PID:1, Size=1, Suspend:1, Exclusive:0
+    mov (1 << 1) | 1, $l0      # PID:1, Size=1
+    allocate/s $l0, 0, $l0
     cred     $l0, bar
     sync     $l0, $l1
     release  $l0
