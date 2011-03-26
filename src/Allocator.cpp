@@ -890,7 +890,7 @@ bool Allocator::QueueFamilyAllocation(const RemoteMessage& msg, PID src)
     request.first_fid      = INVALID_LFID;
     request.prev_fid       = INVALID_LFID;
     request.placeSize      = msg.allocate.place.size;
-    request.exact          = msg.allocate.place.exact;
+    request.exact          = msg.allocate.exact;
     request.completion_reg = msg.allocate.completion_reg;
     request.completion_pid = src;
     
@@ -903,7 +903,7 @@ bool Allocator::QueueFamilyAllocation(const RemoteMessage& msg, PID src)
         return false;
     }
     
-    DebugSimWrite("Queued remote allocation for %u cores (exact: %s)", (unsigned)msg.allocate.place.size, msg.allocate.place.exact ? "yes" : "no");
+    DebugSimWrite("Queued remote allocation for %u cores (exact: %s)", (unsigned)msg.allocate.place.size, msg.allocate.exact ? "yes" : "no");
     return true;
 }
 

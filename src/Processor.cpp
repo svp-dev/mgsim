@@ -12,6 +12,12 @@ using namespace std;
 namespace Simulator
 {
 
+template <typename T>
+static bool IsPowerOfTwo(const T& x)
+{
+    return (x & (x - 1)) == 0;
+}
+
 //
 // Processor implementation
 //
@@ -453,15 +459,22 @@ FCapability Processor::GenerateFamilyCapability() const
     return GenerateCapability(sizeof(Integer) * 8 - m_bits.pid_bits - m_bits.fid_bits);
 }
 
+Integer Processor::PackPlace(const PlaceID& place) const
+{
+    assert(IsPowerOfTwo(place.size));
+    assert(place.pid % place.size == 0);
+    
+    return place.capability << (m_bits.pid_bits + 1) | (place.pid << 1) | place.size;
+}
+
 PlaceID Processor::UnpackPlace(Integer id) const
 {
-    // Unpack the place value: <Capability:N, Exact:1, PID*2|Size:P+1>
+    // Unpack the place value: <Capability:N, PID*2|Size:P+1>
     PlaceID place;
     
     place.size       = 0;
     place.pid        = 0;
-    place.exact      = (id >> (m_bits.pid_bits + 1)) & 1;
-    place.capability = id >> (m_bits.pid_bits + 2);
+    place.capability = id >> (m_bits.pid_bits + 1);
 
     // Clear the capability bits
     id &= (2ULL << m_bits.pid_bits) - 1;

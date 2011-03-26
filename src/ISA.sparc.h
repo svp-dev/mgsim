@@ -12,7 +12,6 @@ namespace Simulator
 
 // op2 (op1 is S_OP1_BRANCH)
 #define S_OP2_UNIMPL     0
-#define S_OP2_CRED       1      // uT
 #define S_OP2_BRANCH_INT 2
 #define S_OP2_SETHI      4
 #define S_OP2_BRANCH_FLT 6
@@ -28,11 +27,9 @@ namespace Simulator
 #define S_OP3_ORN       0x06
 #define S_OP3_XNOR      0x07
 #define S_OP3_ADDX      0x08
-#define S_OP3_ALLOCATE  0x09    // uT
 #define S_OP3_UMUL      0x0A
 #define S_OP3_SMUL      0x0B
 #define S_OP3_SUBX      0x0C
-#define S_OP3_SYNC      0x0D    // uT
 #define S_OP3_UDIV      0x0E
 #define S_OP3_SDIV      0x0F
 #define S_OP3_ADDcc     0x10
@@ -44,11 +41,9 @@ namespace Simulator
 #define S_OP3_ORNcc     0x16
 #define S_OP3_XNORcc    0x17
 #define S_OP3_ADDXcc    0x18
-#define S_OP3_CREI      0x19    // uT
 #define S_OP3_UMULcc    0x1A
 #define S_OP3_SMULcc    0x1B
 #define S_OP3_SUBXcc    0x1C
-#define S_OP3_DETACH    0x1D    // uT
 #define S_OP3_UDIVcc    0x1E
 #define S_OP3_SDIVcc    0x1F
 #define S_OP3_TADDcc    0x20
@@ -59,32 +54,24 @@ namespace Simulator
 #define S_OP3_SLL       0x25
 #define S_OP3_SRL       0x26
 #define S_OP3_SRA       0x27
-#define S_OP3_RDSR      0x28
+#define S_OP3_RDASR     0x28
 #define S_OP3_RDPSR     0x29
 #define S_OP3_RDWIM     0x2A
 #define S_OP3_RDTBR     0x2B
-#define S_OP3_SETSTART  0x2C    // uT
-#define S_OP3_SETLIMIT  0x2D    // uT
-#define S_OP3_SETSTEP   0x2E    // uT
-#define S_OP3_SETBLOCK  0x2F    // uT
-#define S_OP3_WRSR      0x30
+#define S_OP3_WRASR     0x30
 #define S_OP3_WRPSR     0x31
 #define S_OP3_WRWIM     0x32
 #define S_OP3_WRTBR     0x33
 #define S_OP3_FPOP1     0x34
 #define S_OP3_FPOP2     0x35
-//#define S_OP3_CPOP1     0x36
-//#define S_OP3_CPOP2     0x37
-#define S_OP3_UTOP1     0x36    // uT
-#define S_OP3_PRINT     0x37    // uT
+#define S_OP3_CPOP1     0x36
+#define S_OP3_CPOP2     0x37
 #define S_OP3_JMPL      0x38
 #define S_OP3_RETT      0x39
 #define S_OP3_Ticc      0x3A
 #define S_OP3_FLUSH     0x3B
 #define S_OP3_SAVE      0x3C
 #define S_OP3_RESTORE   0x3D
-#define S_OP3_LDBP      0x3E    // uT
-#define S_OP3_LDFP      0x3F    // uT
 
 // op3 (op1 is S_OP1_MEMORY)
 #define S_OP3_LD      0x00
@@ -172,10 +159,33 @@ namespace Simulator
 #define S_OPF_FDTOI   0xd2
 #define S_OPF_FQTOI   0xd3
 
-// opt (op1 is S_OP1_OTHER, op3 is S_OP3_UTOP1)
-#define S_OPT_PUTS    0x01
-#define S_OPT_PUTG    0x02
-#define S_OPT_GETS    0x03
+// opt (op1 is S_OP1_OTHER, op3 is S_OP3_RDASR, rs1=20)
+#define S_OPT_ALLOCATE  0x01
+#define S_OPT_SYNC      0x02
+#define S_OPT_GETTID    0x03
+#define S_OPT_GETFID    0x04
+#define S_OPT_GETPID    0x05
+#define S_OPT_GETCID    0x06
+#define S_OPT_LDBP      0x07
+#define S_OPT_LDFP      0x08
+#define S_OPT_ALLOCATES 0x09
+#define S_OPT_ALLOCATEX 0x0A
+#define S_OPT_GETS      0x0B
+#define S_OPT_FGETS     0x0C
+
+// opt (op1 is S_OP1_OTHER, op3 is S_OP3_WRASR, rd=20)
+#define S_OPT_SETSTART  0x02
+#define S_OPT_SETLIMIT  0x03
+#define S_OPT_SETSTEP   0x04
+#define S_OPT_SETBLOCK  0x05
+#define S_OPT_CREATE    0x06
+#define S_OPT_PUTG      0x07
+#define S_OPT_PUTS      0x08
+#define S_OPT_DETACH    0x09
+#define S_OPT_BREAK     0x0A
+#define S_OPT_PRINT     0x0B
+#define S_OPT_FPUTG     0x0C
+#define S_OPT_FPUTS     0x0D
 
 // Processor State Register flags
 static const PSR PSR_CWP   = 0x0000001FUL; // Current Window Pointer

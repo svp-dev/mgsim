@@ -62,6 +62,7 @@ public:
     MemAddr     GetTLSAddress(LFID fid, TID tid) const;
     MemSize     GetTLSSize() const;
     PlaceID     UnpackPlace(Integer id) const;
+    Integer     PackPlace(const PlaceID& id) const;
     FID         UnpackFID(Integer id) const;
     Integer     PackFID(const FID& fid) const;
     FCapability GenerateFamilyCapability() const;

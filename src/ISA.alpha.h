@@ -123,13 +123,16 @@ enum InstrFormat
 #define A_UTHREAD_BREAK      0x06
 #define A_UTHREAD_LDBP       0x07
 #define A_UTHREAD_LDFP       0x08
-#define A_UTHREAD_GETPROCS   0x09
 #define A_UTHREAD_PRINT      0x10
 #define A_UTHREAD_PUTG       0x11
 #define A_UTHREAD_PUTS       0x12
 #define A_UTHREAD_GETS       0x13
 #define A_UTHREAD_SYNC       0x14
 #define A_UTHREAD_DETACH     0x15
+#define A_UTHREAD_GETTID     0x17
+#define A_UTHREAD_GETFID     0x18
+#define A_UTHREAD_GETPID     0x19
+#define A_UTHREAD_GETCID     0x1A
 
 // UTHREADF Instructions
 #define A_UTHREADF_PUTG      0x000

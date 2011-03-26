@@ -325,7 +325,7 @@ class Pipeline : public Object
         bool       ExecDetach(const FID& fid);
         PipeAction SetFamilyProperty(const FID& fid, FamilyProperty property, Integer value);
         PipeAction ExecuteInstruction();
-        bool       ExecAllocate(PlaceID place, RegIndex reg, bool suspend, bool exclusive);
+        bool       ExecAllocate(PlaceID place, RegIndex reg, bool suspend, bool exclusive, bool exact);
         PipeAction ExecCreate(const FID& fid, MemAddr address, RegIndex completion);
         PipeAction ExecBreak();
         PipeAction ExecKill(const PlaceID& place);
@@ -337,6 +337,11 @@ class Pipeline : public Object
         void       ExecStatusAction(Integer value, int command, int flags) const;
         void       ExecMemoryControl(Integer value, int command, int flags) const;
         void       ExecDebugOutput(Integer value, int command, int flags) const;
+
+#if TARGET_ARCH == ARCH_SPARC
+        PipeAction ExecReadASR20(uint8_t func);
+        PipeAction ExecWriteASR20(uint8_t func);
+#endif
 
     public:
         ExecuteStage(Pipeline& parent, Clock& clock, const ReadExecuteLatch& input, ExecuteMemoryLatch& output, Allocator& allocator, FamilyTable& familyTable, ThreadTable& threadTable, FPU& fpu, size_t fpu_source, const Config& config);

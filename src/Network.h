@@ -35,6 +35,7 @@ struct RemoteMessage
             PlaceID  place;         ///< The place to allocate at
             bool     suspend;       ///< Queue request if no context available?
             bool     exclusive;     ///< Allocate the exclusive context?
+            bool     exact;         ///< Allocate exactly the desired amount of cores?
             RegIndex completion_reg;///< Register to write FID back to
         } allocate;
             

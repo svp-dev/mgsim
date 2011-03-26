@@ -115,6 +115,9 @@ Pipeline::PipeAction Pipeline::DecodeStage::OnCycle()
             m_output.RaSize = sizeof(Integer);
             m_output.RbSize = sizeof(Integer);
             m_output.RcSize = sizeof(Integer);
+#if TARGET_ARCH == ARCH_SPARC
+            m_output.RsSize = sizeof(Integer);
+#endif
             
             DecodeInstruction(m_input.instr);
             
