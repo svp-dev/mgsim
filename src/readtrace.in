@@ -280,6 +280,7 @@ def read_binary(fname, recwidth, format):
                 break
             rec = df.read(recwidth)
     t = time.clock() - start
+    if t == 0: t = float('nan')
     print >>sys.stderr, "%d %d-byte records read, avg %f recs/s, %f bytes/s, %f s/rec" % (
         nrec, recwidth, nrec/t, nrec*recwidth/t, t/nrec)
 
