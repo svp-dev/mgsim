@@ -89,6 +89,17 @@ def mgc_parse_layout_v1(c, words):
         c.places[rid] = ring
         c.pid_to_ringid[pid] = rid
 
+def mgc_parse_layout_v2(c, words):
+    c.nr_cores = words[0]
+    c.cores = []
+    for w in words[1:]:
+        class core(object): __slots__ = ('x','y','type')
+        tc = core()
+        tc.y = (w >> 24) & 0xff
+        tc.x = (w >> 16) & 0xff
+        tc.type = w & 0xffff
+        c.cores.append(tc)
+
 _mgconf_parsers = {
     0 : None,
     1 : mgc_parse_arch_v1,
@@ -97,7 +108,8 @@ _mgconf_parsers = {
     4 : mgc_parse_conc_v1,
     5 : mgc_parse_layout_v1,
     6 : mgc_parse_timings_v2,
-    7 : mgc_parse_timings_v3
+    7 : mgc_parse_timings_v3,
+    8 : mgc_parse_layout_v2
 }
 
 class Metadata(DictWrapper):
