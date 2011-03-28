@@ -267,12 +267,12 @@ FPU::FPU(const std::string& name, Object& parent, Clock& clock, const Config& co
             set<FPUOperation> ops;
                 
             // Get ops for this unit
-            string strops = config.getString(name + "Ops", "");
-            transform(strops.begin(), strops.end(), strops.begin(), ::toupper);
-            stringstream ss(strops);
-            while (getline(ss, strops, ',')) {
+            vector<string> strops = config.getValueList<string>(name + "Ops");
+            for (vector<string>::iterator p = strops.begin(); p != strops.end(); ++p)
+            {
+                transform(p->begin(), p->end(), p->begin(), ::toupper);
                 for (int j = 0; j < FPU_NUM_OPS; ++j) {
-                    if (strops.compare(Names[j]) == 0) {
+                    if (p->compare(Names[j]) == 0) {
                         ops.insert( (FPUOperation)j );
                         break;
                     }
@@ -291,13 +291,13 @@ FPU::FPU(const std::string& name, Object& parent, Clock& clock, const Config& co
             }
 
             Unit unit;
-            unit.latency   = config.getInteger<CycleNo>( name + "Latency",   1);
-            unit.pipelined = config.getBoolean         ( name + "Pipelined", false);            
+            unit.latency   = config.getValue<CycleNo>( name + "Latency",   1);
+            unit.pipelined = config.getValue<bool>   ( name + "Pipelined", false);
             m_units.push_back(unit);
         }
         
         // Construct the sources
-        const BufferSize input_buffer_size = config.getInteger<BufferSize>("FPUBufferSize", INFINITE);
+        const BufferSize input_buffer_size = config.getValue<BufferSize>("FPUBufferSize", INFINITE);
         for (size_t i = 0; i < num_inputs; ++i)
         {
             stringstream sname;

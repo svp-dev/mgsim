@@ -35,7 +35,7 @@ RAUnit::RAUnit(const std::string& name, Processor& parent, Clock& clock, const R
         // Contexts must be a power of two
         assert(IsPowerOfTwo(info.context_size));
         
-        type.blockSize = config.getInteger<size_t>(info.blocksize_name, info.blocksize_def);
+        type.blockSize = config.getValue<size_t>(info.blocksize_name, info.blocksize_def);
         if (type.blockSize == 0 || !IsPowerOfTwo(type.blockSize))
         {
             throw InvalidArgumentException("Allocation block size is not a power of two");

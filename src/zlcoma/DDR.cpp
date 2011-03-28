@@ -195,34 +195,34 @@ Result ZLCOMA::DDRChannel::DoPipeline()
 ZLCOMA::DDRChannel::DDRConfig::DDRConfig(const Clock& clock, const Config& config)
 {
     // DDR 3
-    m_nBurstLength = config.getInteger<size_t> ("DDR_BurstLength", 8);
+    m_nBurstLength = config.getValue<size_t> ("DDR_BurstLength", 8);
     if (m_nBurstLength != 8)
         throw SimulationException("This implementation only supports m_nBurstLength = 8");
-    size_t cellsize = config.getInteger<size_t> ("DDR_CellSize", 8);
+    size_t cellsize = config.getValue<size_t> ("DDR_CellSize", 8);
     if (cellsize != 8)
         throw SimulationException("This implementation only supports DDR_CellSize = 8");
 
     // Default values for DDR3-1600 (200 MHz clock).
     // Configuration based on the Micron MT41J128M8.
     // Latencies in DDR specs are expressed in tCK (I/O cycles).
-    m_tCL  = config.getInteger<unsigned> ("DDR_tCL",  11);
-    m_tRCD = config.getInteger<unsigned> ("DDR_tRCD", 11);
-    m_tRP  = config.getInteger<unsigned> ("DDR_tRP",  11);
-    m_tRAS = config.getInteger<unsigned> ("DDR_tRAS", 28);
-    m_tCWL = config.getInteger<unsigned> ("DDR_tCWL",  8);
-    m_tCCD = config.getInteger<unsigned> ("DDR_tCCD",  4);
+    m_tCL  = config.getValue<unsigned> ("DDR_tCL",  11);
+    m_tRCD = config.getValue<unsigned> ("DDR_tRCD", 11);
+    m_tRP  = config.getValue<unsigned> ("DDR_tRP",  11);
+    m_tRAS = config.getValue<unsigned> ("DDR_tRAS", 28);
+    m_tCWL = config.getValue<unsigned> ("DDR_tCWL",  8);
+    m_tCCD = config.getValue<unsigned> ("DDR_tCCD",  4);
     
     // tWR is expressed in DDR specs in nanoseconds, see 
     // http://www.samsung.com/global/business/semiconductor/products/dram/downloads/applicationnote/tWR.pdf
     // Frequency is in MHz.
-    m_tWR = config.getInteger<unsigned> ("DDR_tWR", 15) / 1e3 * clock.GetFrequency();
+    m_tWR = config.getValue<unsigned> ("DDR_tWR", 15) / 1e3 * clock.GetFrequency();
 
     // Address bit mapping.
     // One row bit added for a 4GB DIMM with ECC.
-    m_nDevicesPerRank = config.getInteger<size_t> ("DDR_DevicesPerRank", 8);
-    m_nRankBits = ilog2(config.getInteger<size_t> ("DDR_Ranks", 2));
-    m_nRowBits = config.getInteger<size_t> ("DDR_RowBits", 15);
-    m_nColumnBits = config.getInteger<size_t> ("DDR_ColumnBits", 10);
+    m_nDevicesPerRank = config.getValue<size_t> ("DDR_DevicesPerRank", 8);
+    m_nRankBits = ilog2(config.getValue<size_t> ("DDR_Ranks", 2));
+    m_nRowBits = config.getValue<size_t> ("DDR_RowBits", 15);
+    m_nColumnBits = config.getValue<size_t> ("DDR_ColumnBits", 10);
     m_nBurstSize = m_nDevicesPerRank * m_nBurstLength;
 
     // ordering of bits in address:

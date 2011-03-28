@@ -9,11 +9,11 @@ namespace Simulator {
 Display::Display(const Config& config)
     : m_width(0), m_height(0),
       m_enabled(false),
-      m_scalex_orig(1.0f / std::max(1U, config.getInteger<unsigned int>("GfxHorizScale", 2))),
+      m_scalex_orig(1.0f / std::max(1U, config.getValue<unsigned int>("GfxHorizScale", 2))),
       m_scalex(m_scalex_orig),
-      m_scaley_orig(1.0f / std::max(1U, config.getInteger<unsigned int>("GfxVertScale",  2))),
+      m_scaley_orig(1.0f / std::max(1U, config.getValue<unsigned int>("GfxVertScale",  2))),
       m_scaley(m_scaley_orig),
-      m_refreshDelay_orig(config.getInteger<unsigned int>("GfxRefreshDelay", 30)),
+      m_refreshDelay_orig(config.getValue<unsigned int>("GfxRefreshDelay", 30)),
       m_refreshDelay(m_refreshDelay_orig),
       m_screen(NULL),
       m_max_screen_h(768), m_max_screen_w(1024),
@@ -28,7 +28,7 @@ Display::Display(const Config& config)
     RegisterSampleVariable(m_nGfxOps, "display.nGfxOps", SVC_CUMULATIVE);
     
 #ifdef USE_SDL
-    if (config.getBoolean("GfxEnableOutput", false))
+    if (config.getValue<bool>("GfxEnableOutput", false))
     {
         if (SDL_Init(SDL_INIT_VIDEO) < 0) {
             std::cerr << "Unable to initialize SDL: " << SDL_GetError() << std::endl;

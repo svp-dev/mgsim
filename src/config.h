@@ -16,23 +16,22 @@ class Config
     const ConfigMap& m_overrides;
 
 public:
-    bool getBoolean(const std::string& name, const bool def) const;
     
     template <typename T>
-    T getInteger(const std::string& name, const T& def) const
+    T getValue(const std::string& name, const T& def) const
     {
         T val;
         std::stringstream stream;
-        stream << getString(name, "");
+        stream << getValue<std::string>(name, "");
         stream >> val;
         return (!stream.fail() && stream.eof()) ? val : def;
     }
 
     template <typename T>
-    std::vector<T> getIntegerList(const std::string& name) const
+    std::vector<T> getValueList(const std::string& name) const
     {
         std::vector<T> vals;
-	std::string str = getString(name,"");
+        std::string str = getValue<std::string>(name,"");
         std::istringstream stream(str);
         std::string token = "";
         while (getline(stream, token, ','))
@@ -53,7 +52,7 @@ public:
         T val;
         std::string strmult;
         std::stringstream stream;
-        stream << getString(name, "");
+        stream << getValue<std::string>(name, "");
         stream >> val;
         stream >> strmult;
         if (!strmult.empty())
@@ -78,12 +77,15 @@ public:
         return (!stream.fail() && stream.eof()) ? val : def;
     }
 
-    std::string getString(std::string name, const std::string& def) const;
-
     void dumpConfiguration(std::ostream& os, const std::string& cf) const;
 
     Config(const std::string& filename, const ConfigMap& overrides);
 };
 
-#endif
+template <>
+bool Config::getValue<bool>(const std::string& name, const bool& def) const;
 
+template <>
+std::string Config::getValue<std::string>(const std::string& name, const std::string& def) const;
+
+#endif

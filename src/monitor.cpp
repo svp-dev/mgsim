@@ -47,7 +47,7 @@ Monitor::Monitor(Simulator::MGSystem& sys, bool enabled, const std::string& mdfi
         return ;
     }
 
-    std::vector<std::string> pats = sys.GetConfig().getIntegerList<std::string>("MonitorSampleVariables");
+    std::vector<std::string> pats = sys.GetConfig().getValueList<std::string>("MonitorSampleVariables");
     pats.insert(pats.begin(), "kernel.cycle");
     pats.push_back("kernel.cycle");
     m_sampler = new BinarySampler(metadatafile, sys, pats);
@@ -69,7 +69,7 @@ Monitor::Monitor(Simulator::MGSystem& sys, bool enabled, const std::string& mdfi
         return ;
     }
 
-    float msd = sys.GetConfig().getInteger<float>("MonitorSampleDelay", 0.001);
+    float msd = sys.GetConfig().getValue<float>("MonitorSampleDelay", 0.001);
     msd = fabs(msd);
     m_tsdelay.tv_sec = msd;
     m_tsdelay.tv_nsec = (msd - (float)m_tsdelay.tv_sec) * 1000000000.;

@@ -48,7 +48,7 @@ Pipeline::Pipeline(
     m_active.Sensitive(p_Pipeline);
     
     // Number of forwarding delay slots between the Memory and Writeback stage
-    const size_t num_dummy_stages = config.getInteger<size_t>("NumPipelineDummyStages", 0);
+    const size_t num_dummy_stages = config.getValue<size_t>("NumPipelineDummyStages", 0);
     
     m_stages.resize( num_dummy_stages + NUM_FIXED_STAGES );
 

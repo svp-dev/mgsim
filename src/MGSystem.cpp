@@ -104,7 +104,7 @@ using namespace std;
 
 void MGSystem::FillConfWords(ConfWords& words) const
 {
-    uint32_t cl_sz = m_config.getInteger<uint32_t>("CacheLineSize", 0);
+    uint32_t cl_sz = m_config.getValue<uint32_t>("CacheLineSize", 0);
 
     // configuration words for architecture type v1
 
@@ -122,13 +122,13 @@ void MGSystem::FillConfWords(ConfWords& words) const
     // timing words v3
           << MAKE_TAG(CONFTAG_TIMINGS_V3, 5)
           << m_kernel.GetMasterFrequency()
-          << m_config.getInteger<uint32_t>("CoreFreq", 0)
-          << m_config.getInteger<uint32_t>("MemoryFreq", 0)
+          << m_config.getValue<uint32_t>("CoreFreq", 0)
+          << m_config.getValue<uint32_t>("MemoryFreq", 0)
           << ((m_memorytype == MEMTYPE_COMA_ZL || m_memorytype == MEMTYPE_COMA_ML) ? 
-              m_config.getInteger<uint32_t>("DDRMemoryFreq", 0)
+              m_config.getValue<uint32_t>("DDRMemoryFreq", 0)
               : 0 /* no timing information if memory system is not COMA */)
           << ((m_memorytype == MEMTYPE_COMA_ZL || m_memorytype == MEMTYPE_COMA_ML) ?
-              m_config.getInteger<uint32_t>("NumRootDirectories", 0)
+              m_config.getValue<uint32_t>("NumRootDirectories", 0)
               : 0 /* no DDR channels */)
 
     // cache parameter words v1
@@ -136,32 +136,32 @@ void MGSystem::FillConfWords(ConfWords& words) const
           << MAKE_TAG(CONFTAG_CACHE_V1, 5)
           << cl_sz
           << (cl_sz 
-              * m_config.getInteger<uint32_t>("ICacheAssociativity", 0)
-              * m_config.getInteger<uint32_t>("ICacheNumSets", 0))
+              * m_config.getValue<uint32_t>("ICacheAssociativity", 0)
+              * m_config.getValue<uint32_t>("ICacheNumSets", 0))
           << (cl_sz
-              * m_config.getInteger<uint32_t>("DCacheAssociativity", 0)
-              * m_config.getInteger<uint32_t>("DCacheNumSets", 0));
+              * m_config.getValue<uint32_t>("DCacheAssociativity", 0)
+              * m_config.getValue<uint32_t>("DCacheNumSets", 0));
     if (m_memorytype == MEMTYPE_COMA_ZL || m_memorytype == MEMTYPE_COMA_ML)
         words << (m_procs.size()
-                  / m_config.getInteger<uint32_t>("NumProcessorsPerCache", 0)) // FIXME: COMA?
+                  / m_config.getValue<uint32_t>("NumProcessorsPerCache", 0)) // FIXME: COMA?
               << (cl_sz
-                  * m_config.getInteger<uint32_t>("L2CacheAssociativity", 0)
-                  * m_config.getInteger<uint32_t>("L2CacheNumSets", 0));
+                  * m_config.getValue<uint32_t>("L2CacheAssociativity", 0)
+                  * m_config.getValue<uint32_t>("L2CacheNumSets", 0));
     else
         words << 0 << 0;
 
     // concurrency resources v1
     
     words << MAKE_TAG(CONFTAG_CONC_V1, 4)
-          << m_config.getInteger<uint32_t>("NumFamilies", 0)
-          << m_config.getInteger<uint32_t>("NumThreads", 0)
-          << m_config.getInteger<uint32_t>("NumIntRegisters", 0)
-          << m_config.getInteger<uint32_t>("NumFltRegisters", 0)
+          << m_config.getValue<uint32_t>("NumFamilies", 0)
+          << m_config.getValue<uint32_t>("NumThreads", 0)
+          << m_config.getValue<uint32_t>("NumIntRegisters", 0)
+          << m_config.getValue<uint32_t>("NumFltRegisters", 0)
 
         ;
 
     // place layout v2
-    PSize numProcessors = m_config.getInteger<PSize>("NumProcessors", 1);
+    PSize numProcessors = m_config.getValue<PSize>("NumProcessors", 1);
 
     words << MAKE_TAG(CONFTAG_LAYOUT_V2, numProcessors + 1)
           << numProcessors;
@@ -685,21 +685,21 @@ MGSystem::MGSystem(const Config& config, Display& display, const string& program
                    const vector<pair<RegAddr, string> >& loads,
                    bool quiet, bool doload)
     : m_kernel(display, m_symtable, m_breakpoints),
-      m_clock(m_kernel.CreateClock( (unsigned long long)(config.getInteger<float>("CoreFreq", 1000)) )),
+      m_clock(m_kernel.CreateClock( (unsigned long long)(config.getValue<float>("CoreFreq", 1000)) )),
       m_root("system", m_clock),
       m_breakpoints(m_kernel),
       m_program(program),
       m_config(config)
 {
-    PSize numProcessors = m_config.getInteger<PSize>("NumProcessors", 1);
+    PSize numProcessors = m_config.getValue<PSize>("NumProcessors", 1);
     
-    const size_t numProcessorsPerFPU = max<size_t>(1, config.getInteger<size_t>("NumProcessorsPerFPU", 1));
+    const size_t numProcessorsPerFPU = max<size_t>(1, config.getValue<size_t>("NumProcessorsPerFPU", 1));
     const PSize  numFPUs             = (numProcessors + numProcessorsPerFPU - 1) / numProcessorsPerFPU;
     
-    std::string memory_type = config.getString("MemoryType", "");
+    std::string memory_type = config.getValue<std::string>("MemoryType", "");
     std::transform(memory_type.begin(), memory_type.end(), memory_type.begin(), ::toupper);
 
-    Clock& memclock = m_kernel.CreateClock( config.getInteger<size_t>("MemoryFreq", 1000));
+    Clock& memclock = m_kernel.CreateClock( config.getValue<size_t>("MemoryFreq", 1000));
     
     m_objects.resize(numProcessors + numFPUs + 1);
     if (memory_type == "SERIAL") {

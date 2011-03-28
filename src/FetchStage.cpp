@@ -110,7 +110,7 @@ Pipeline::FetchStage::FetchStage(Pipeline& parent, Clock& clock, FetchDecodeLatc
     m_familyTable(familyTable),
     m_threadTable(threadTable),
     m_icache(icache),
-    m_controlBlockSize(config.getInteger<size_t>("ControlBlockSize", 64)),
+    m_controlBlockSize(config.getValue<size_t>("ControlBlockSize", 64)),
     m_switched(true)
 {
     if ((m_controlBlockSize & ~(m_controlBlockSize - 1)) != m_controlBlockSize)
