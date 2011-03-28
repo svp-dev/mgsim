@@ -1078,7 +1078,7 @@ Pipeline::PipeAction Pipeline::ExecuteStage::ExecuteInstruction()
                 case A_UTHREAD_ALLOCATE_S:  // Suspend
                 case A_UTHREAD_ALLOCATE_E:  // Exclusive
                 {
-                    Integer flags = m_input.Rav.m_integer.get(m_input.Rbv.m_size);
+                    Integer flags = m_input.Rbv.m_integer.get(m_input.Rbv.m_size);
                     PlaceID place = m_parent.GetProcessor().UnpackPlace(m_input.Rav.m_integer.get(m_input.Rav.m_size));
                     bool suspend   = (m_input.function == A_UTHREAD_ALLOCATE_S || m_input.function == A_UTHREAD_ALLOCATE_E);
                     bool exclusive = (m_input.function == A_UTHREAD_ALLOCATE_E);
