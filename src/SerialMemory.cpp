@@ -173,6 +173,7 @@ Result SerialMemory::DoRequests()
 SerialMemory::SerialMemory(const std::string& name, Object& parent, Clock& clock, const Config& config) :
     Object(name, parent, clock),
     m_clock          (clock),
+    m_clients        (config.getInteger<size_t>("NumProcessors", 1), NULL),
     m_requests       ("b_requests", *this, clock, config.getInteger<BufferSize>("MemoryBufferSize", INFINITE)),
     p_requests       (*this, clock, "m_requests"),
     m_baseRequestTime(config.getInteger<CycleNo>   ("MemoryBaseRequestTime", 1)),
@@ -187,14 +188,6 @@ SerialMemory::SerialMemory(const std::string& name, Object& parent, Clock& clock
     p_Requests("requests", delegate::create<SerialMemory, &SerialMemory::DoRequests>(*this) )
 {
     m_requests.Sensitive( p_Requests );
-
-    // Get number of processors
-    const vector<PSize> places = config.getIntegerList<PSize>("NumProcessors");
-    PSize numProcs = 0;
-    for (size_t i = 0; i < places.size(); ++i) {
-        numProcs += places[i];
-    }
-    m_clients.resize(numProcs, NULL);
 }
 
 void SerialMemory::Cmd_Help(ostream& out, const vector<string>& /*arguments*/) const
