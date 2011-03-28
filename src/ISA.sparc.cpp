@@ -273,10 +273,10 @@ void Pipeline::DecodeStage::DecodeInstruction(const Instruction& instr)
             switch (m_output.function)
             {
             case S_OPT_CREATE:
-                // Special case, Ra is output as well
+                // Special case, Rc is output as well
                 m_output.Rc = MAKE_REGADDR(RT_INTEGER, Ra);
                 break;
-                
+
             case S_OPT_FPUTS:
             case S_OPT_FPUTG:
                 m_output.Rb = MAKE_REGADDR(RT_FLOAT, Rb);
@@ -302,6 +302,14 @@ void Pipeline::DecodeStage::DecodeInstruction(const Instruction& instr)
             
             switch (m_output.function)
             {
+            case S_OPT_ALLOCATE:
+            case S_OPT_ALLOCATES:
+            case S_OPT_ALLOCATEX:
+                // Special case, Rc is input as well
+                m_output.Ra = MAKE_REGADDR(RT_INTEGER, Rc);
+                m_output.Rc = MAKE_REGADDR(RT_INTEGER, Rc);
+                break;
+
             case S_OPT_FGETS:
                 m_output.Rc = MAKE_REGADDR(RT_FLOAT, Rc);
                 break;
@@ -499,8 +507,8 @@ Pipeline::PipeAction Pipeline::ExecuteStage::ExecReadASR20(uint8_t func)
         case S_OPT_ALLOCATES:
         case S_OPT_ALLOCATEX:
         {
-            PlaceID place = m_parent.GetProcessor().UnpackPlace(Rbv);
-            if (!ExecAllocate(place, m_input.Rc.index, func != S_OPT_ALLOCATE, func == S_OPT_ALLOCATEX, Rav & 1))
+            PlaceID place = m_parent.GetProcessor().UnpackPlace(Rav);
+            if (!ExecAllocate(place, m_input.Rc.index, func != S_OPT_ALLOCATE, func == S_OPT_ALLOCATEX, Rbv & 1))
             {
                 return PIPE_STALL;
             }
