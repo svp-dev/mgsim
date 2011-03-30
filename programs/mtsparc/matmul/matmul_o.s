@@ -18,7 +18,7 @@ main:
     lda  $29, 0($29)    !gpdisp!1
     
     clr      $6
-	allocateng $6
+	allocate $6
 	
 	ldah $0, A($29)      !gprelhigh
 	lda  $0, A( $0)      !gprellow
@@ -34,9 +34,9 @@ main:
 
     mull $3,  $3, $7
     subl $7,   1, $7
-	setlimitng $6,  $7          ! limit = N * N - 1    
+	setlimit $6,  $7          ! limit = N * N - 1    
 	swch
-	setblockng $6, $11
+	setblock $6, $11
 	cred $6, outer
 	
 	mov $6, $31
@@ -55,7 +55,7 @@ main:
 outer:
 	.registers 6 0 6  0 0 0	    ! GR,SR,LR, GF,SF,LF
 	mov      2, $l4             ! Local
-	allocateng $l4
+	allocate $l4
 	
 	s4addl $l0, $g2, $l5        ! $l5 = &C[i][j]
 	
@@ -68,9 +68,9 @@ outer:
 	mov    $g3, $l2             ! $l2 = N
 	clr    $l3                  ! $l3 = 0 (s)
 	
-	setlimitng $l4, $g5
+	setlimit $l4, $g5
 	swch
-	setstepng  $l4, 4
+	setstep  $l4, 4
 	cred $l4, inner
 	mov $l4, $31
 	swch

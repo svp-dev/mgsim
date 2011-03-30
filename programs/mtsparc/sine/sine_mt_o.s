@@ -18,18 +18,20 @@ main:
     ld      [%1], %f1
 
     ! Request a family table entry
-	allocateng %0, %2
+    clr %2
+	allocate %2
 
 	! Set up the family parameters.
-	! swch because %2 is the result of allocateng.
-	setstartng %2, 2
+	! swch because %2 is the result of allocate.
+	setstart %2, 2
 	swch
-	setlimitng %2, TAYLOR_ITERATIONS * 2
-	setstepng  %2, 2
-	setblockng %2, 1
+	setlimit %2, TAYLOR_ITERATIONS * 2
+	setstep  %2, 2
+	setblock %2, 1
 	
 	! Create the family
-	cred    sin, %2
+	set     sin, %1
+	crei    %1, %2
 	
 	! Fill initial values for the family
 	mov      1,  %1

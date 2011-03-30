@@ -10,7 +10,8 @@
     .globl main
     .ent main
 main:
-    allocate (1 << 4) | (1 << 3) | (3 << 1), $2     # PID:1, Delegated, Suspend
+    mov (4 << 1) | 4, $2       # PID:4, Size=4
+    allocate/s $2, 0, $2
     setlimit $2, 4
     swch
     cred $2, bar
@@ -36,5 +37,5 @@ bar:
     .end bar
 
     .data
-    .ascii "PLACES: 1,{1,2,3,4}\0"
+    .ascii "PLACES: 16\0"
 

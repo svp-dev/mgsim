@@ -355,15 +355,15 @@ COMA::RootDirectory::RootDirectory(const std::string& name, COMA& parent, Clock&
     Simulator::Object(name, parent),
     //COMA::Object(name, parent),
     DirectoryBottom(name, parent, clock, config),
-    m_lineSize(config.getInteger<size_t>("CacheLineSize",           64)),
-    m_assoc   (config.getInteger<size_t>("L2CacheAssociativity",     4) * numCaches),
-    m_sets    (config.getInteger<size_t>("L2CacheNumSets",         128)),
+    m_lineSize(config.getValue<size_t>("CacheLineSize",           64)),
+    m_assoc   (config.getValue<size_t>("L2CacheAssociativity",     4) * numCaches),
+    m_sets    (config.getValue<size_t>("L2CacheNumSets",         128)),
     m_numCaches(numCaches),
     m_id       (id),
     m_numRoots (numRoots),
     p_lines    (*this, clock, "p_lines"),    
-    m_requests ("b_requests", *this, clock, config.getInteger<size_t>("RootDirectoryExternalOutputQueueSize", INFINITE)),
-    m_responses("b_responses", *this, clock, config.getInteger<size_t>("RootDirectoryExternalInputQueueSize", INFINITE)),
+    m_requests ("b_requests", *this, clock, config.getValue<size_t>("RootDirectoryExternalOutputQueueSize", INFINITE)),
+    m_responses("b_responses", *this, clock, config.getValue<size_t>("RootDirectoryExternalInputQueueSize", INFINITE)),
     m_memready ("f_memready", *this, clock, true),
     m_activeMsg(NULL),
     p_Incoming ("incoming",  delegate::create<RootDirectory, &RootDirectory::DoIncoming>(*this)),
@@ -389,7 +389,7 @@ COMA::RootDirectory::RootDirectory(const std::string& name, COMA& parent, Clock&
     p_lines.AddProcess(p_Incoming);
     p_lines.AddProcess(p_Responses);
 
-    Clock& ddrclock = GetKernel()->CreateClock( config.getInteger<size_t>("DDRMemoryFreq", 800));
+    Clock& ddrclock = GetKernel()->CreateClock( config.getValue<size_t>("DDRMemoryFreq", 800));
     m_memory = new DDRChannel("ddr", *this, ddrclock, memory, config);
 }
 

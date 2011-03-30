@@ -80,22 +80,12 @@ bool ZLCOMA::CheckPermissions(MemAddr address, MemSize size, int access) const
 	return VirtualMemory::CheckPermissions(address, size, access);
 }
 
-static size_t GetNumProcessors(const Config& config)
-{
-    const vector<PSize> placeSizes = config.getIntegerList<PSize>("NumProcessors");
-    PSize numProcessors = 0;
-    for (size_t i = 0; i < placeSizes.size(); ++i) {
-        numProcessors += placeSizes[i];
-    }
-    return numProcessors;
-}
-
 ZLCOMA::ZLCOMA(const std::string& name, Simulator::Object& parent, Clock& clock, const Config& config) :
     // Note that the COMA class is just a container for caches and directories.
     // It has no processes of its own.
     Simulator::Object(name, parent, clock),
-    m_numProcsPerCache(std::max<size_t>(1, config.getInteger<size_t>("NumProcessorsPerCache", 4))),
-    m_numCachesPerDir (std::max<size_t>(1, config.getInteger<size_t>("NumCachesPerDirectory", 4))),
+    m_numProcsPerCache(std::max<size_t>(1, config.getValue<size_t>("NumProcessorsPerCache", 4))),
+    m_numCachesPerDir (std::max<size_t>(1, config.getValue<size_t>("NumCachesPerDirectory", 4))),
     
     m_nreads(0), m_nwrites(0), m_nread_bytes(0), m_nwrite_bytes(0)
 {
@@ -106,7 +96,7 @@ ZLCOMA::ZLCOMA(const std::string& name, Simulator::Object& parent, Clock& clock,
     RegisterSampleVariableInObject(m_nwrite_bytes, SVC_CUMULATIVE);
 
     // Create the caches
-    size_t numProcs = GetNumProcessors(config);
+    size_t numProcs = config.getValue<size_t>("NumProcessors", 1);
     m_caches.resize( (numProcs + m_numProcsPerCache - 1) / m_numProcsPerCache );
     for (size_t i = 0; i < m_caches.size(); ++i)
     {
@@ -128,7 +118,7 @@ ZLCOMA::ZLCOMA(const std::string& name, Simulator::Object& parent, Clock& clock,
     }
     
     // Create the root directories
-    m_roots.resize( std::max<size_t>(1, config.getInteger<size_t>("NumRootDirectories", 1)) );
+    m_roots.resize( std::max<size_t>(1, config.getValue<size_t>("NumRootDirectories", 1)) );
     if (!IsPowerOfTwo(m_roots.size()))
     {
         throw InvalidArgumentException("NumRootDirectories is not a power of two");

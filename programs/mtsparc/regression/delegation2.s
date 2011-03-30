@@ -11,9 +11,11 @@
 main:
     mov 42, %1
     
-    allocateng (1 << 4) | (1 << 3) | (3 << 1), %3     ! PID:1, Delegated, Suspend
-    setlimitng %3, 4
-    cred bar, %3
+    mov (4 << 1) | 4, %3
+    allocates %3         ! PID:4, Size:4
+    setlimit %3, 4
+    set bar, %1
+    crei %1, %3
     
     putg %1, %3, 0
     
@@ -34,5 +36,5 @@ bar:
     end
 
     .data
-    .ascii "PLACES: 1,{1,2,3,4}\0"
+    .ascii "PLACES: 16\0"
 

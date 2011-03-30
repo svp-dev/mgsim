@@ -11,20 +11,21 @@
 main:
     ! First we get a free entry in the Family Table.
     ! Will write back asynchronously if there is no free entry.
-    allocateng %0, %4
+    clr %4
+    allocate %4
     
     ! Get N - 1 as the loop limit
     sub     %11, 1, %11
 
-    ! Set the loop limit on the allocatengd FT entry
+    ! Set the loop limit on the allocated FT entry
     ! We tag this instruction with SWCH because %4 is the result
-    ! of a possibly long latency operation (allocateng)
-    setlimitng %4, %11
+    ! of a possibly long latency operation (allocate)
+    setlimit %4, %11
     swch
     
-    ! Here we issue a direct (label operand) create with the
-    ! allocatengd FT entry.
-    cred    fibonacci, %4
+    ! Here we issue an indirect create with the allocated FT entry.
+    set fibonacci, %1
+    crei %1, %4
     
     ! Write 0 and 1 into the first two locals (%0 is Read As Zero)
     mov      0, %1

@@ -56,7 +56,7 @@ pdata=$(strings <"$TEST"|grep "PLACES"|head -n1|cut -d: -f2-)
 if test -n "$pdata"; then
   cpuconf=$(eval "echo $pdata")
 else
-  cpuconf="1 2 3 4"
+  cpuconf="1 2 4 8"
 fi
 
 mem=${TESTd##*.}

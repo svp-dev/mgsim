@@ -26,11 +26,13 @@
     .globl main
     .align 64
 main:
-    allocateng 2, %5      ! Local
-    setstartng %5, 1
-    setlimitng %5, %11
-    setblockng %5, 2
-    cred    outer, %5
+    clr %5
+    allocates %5
+    setstart %5, 1
+    setlimit %5, %11
+    setblock %5, 2
+    set     outer, %1
+    crei    %1, %5
 
     set     X, %1           ! %1 = X
     set     Y, %2           ! %2 = Y
@@ -53,16 +55,18 @@ main:
 !
     .globl outer
     .align 64
-    .registers 2 1 5 0 0 4    
+    .registers 2 1 5 0 0 5
 outer:
-    allocateng %0, %tl3
+    clr %tl3
+    allocates %tl3
 
     sll     %tl0,    3, %tl1
     add     %tl1,  %tg1, %tl1  ! %tl1 = &Y[0][i]
     
-    setlimitng %tl3, %tl0; swch
+    setlimit %tl3, %tl0; swch
     mov     %td0, %0
-    cred    inner, %tl3
+    set     inner, %tl4
+    crei    %tl4, %tl3
 
     putg    %tl0, %tl3, 0
     putg    %tl1, %tl3, 1
@@ -72,16 +76,16 @@ outer:
 
     sll     %tl0,   3, %tl4
     add     %tl4, %tg0, %tl4   ! %tl4 = &X[i]
-    ldd     [%tl4], %tlf2
+    ldd     [%tl4], %tlf3
     
     sync    %tl3, %tl0
     mov     %tl0, %0
-    fgets   %tl3, 0, %tlf0
-    fgets   %tl3, 1, %tlf1
+    fgets   %tl3, 0, %tlf1
+    fgets   %tl3, 1, %tlf2
     release %tl3
     
-    faddd   %tlf2, %tlf0, %tlf0; swch  ! %tlf0,%tlf1 = X[i] + sum
-    std     %tlf0, [%tl4]
+    faddd   %tlf3, %tlf1, %tlf1; swch  ! %tlf1,%tlf2 = X[i] + sum
+    std     %tlf1, [%tl4]
     stbar
     clr     %ts0
     end
@@ -97,21 +101,21 @@ outer:
 !
     .globl inner
     .align 64
-    .registers 3 0 2 0 2 4
+    .registers 3 0 2 0 2 5
 inner:
     sub     %tg0,  %tl0, %tl1
     sll     %tl1,    3, %tl1
     add     %tl1,  %tg2, %tl1
-    ldd     [%tl1-8], %tlf0       ! %tlf0,%tlf1 = X[i - j - 1]
+    ldd     [%tl1-8], %tlf1       ! %tlf1,%tlf2 = X[i - j - 1]
     
     sll     %tl0,   9, %tl0
     add     %tl0, %tg1, %tl0
-    ldd     [%tl0], %tlf2         ! %tlf2,%tlf3 = Y[i][j]
+    ldd     [%tl0], %tlf3         ! %tlf3,%tlf4 = Y[i][j]
     
-    fmuld   %tlf0, %tlf2, %tlf0; swch
-    faddd   %tlf0, %tdf0, %tlf0; swch
-    fmovs   %tlf0, %tsf0; swch
-    fmovs   %tlf1, %tsf1
+    fmuld   %tlf1, %tlf3, %tlf1; swch
+    faddd   %tlf1, %tdf0, %tlf1; swch
+    fmovs   %tlf1, %tsf0; swch
+    fmovs   %tlf2, %tsf1
     end
     
     .section .bss

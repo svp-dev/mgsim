@@ -10,62 +10,20 @@ class Processor;
 class RegisterFile;
 class Allocator;
 class FamilyTable;
-struct PlaceInfo;
 
-/// Message for remote creates
-struct RemoteCreateMessage
-{
-	MemAddr  address;            ///< Address of the family
-    FID      fid;                ///< FID of the family to create
-    RegIndex completion;         ///< Register on remote processor to write completion back to
-};
-
-/// Network message for completed creates
-struct CreateResult
-{
-    LFID     fid_parent;
-    LFID     fid_remote;
-    LFID     fid_last;
-    RegIndex completion;
-};
-
-/// Network message for group creates
-struct GroupCreateMessage
-{
-    LFID      first_fid;            ///< FID of the family on the creating CPU
-    LFID      link_prev;            ///< FID to use for the next CPU's family's link_prev
-    bool      infinite;             ///< Infinite create?
-	SInteger  start;                ///< Index start
-	SInteger  step;                 ///< Index step size
-	Integer   nThreads;             ///< Number of threads in the family
-	Integer   virtBlockSize;        ///< Virtual block size
-	TSize     physBlockSize;        ///< Physical block size
-	MemAddr   address;			    ///< Initial address of new threads
-	LPID      parent_lpid;          ///< Parent core
-    RegIndex  completion;           ///< Register in parent thread to write on completion
-    RegsNo    regsNo[NUM_REG_TYPES];///< Register counts
-};
-
-/// Register messages over the group
-struct RegisterMessage
-{
-    RemoteRegAddr addr;        ///< Address of the register to read or write
-    RegValue      value;       ///< The value of the register to write
-    RegIndex      return_addr; ///< Register address to write back to (RRT_LAST_SHARED only)
-};
-    
 struct RemoteMessage
 {
     enum Type
     {
-        MSG_NONE,           ///< Invalid message
+        MSG_NONE,           ///< No message
         MSG_ALLOCATE,       ///< Allocate family
         MSG_SET_PROPERTY,   ///< Set family property
         MSG_CREATE,         ///< Create family
-        MSG_BRK,            ///< Break
-        MSG_DETACH,         ///< Detach family
         MSG_SYNC,           ///< Synchronise on family
-        MSG_REGISTER,       ///< Register request or response
+        MSG_DETACH,         ///< Detach family
+        MSG_BREAK,          ///< Break
+        MSG_RAW_REGISTER,   ///< Raw register response
+        MSG_FAM_REGISTER,   ///< Family register request or response
     };
         
     Type type;      ///< Type of the message
@@ -74,38 +32,146 @@ struct RemoteMessage
     union
     {
         struct {
-            GPID     pid;
-            bool     exclusive;
-            bool     suspend;
-            RegIndex completion;
+            PlaceID  place;         ///< The place to allocate at
+            bool     suspend;       ///< Queue request if no context available?
+            bool     exclusive;     ///< Allocate the exclusive context?
+            bool     exact;         ///< Allocate exactly the desired amount of cores?
+            RegIndex completion_reg;///< Register to write FID back to
         } allocate;
             
         struct {
-            FID            fid;
-            FamilyProperty type;
-            Integer        value;
+            FID            fid;     ///< Family to set the property of
+            FamilyProperty type;    ///< The property to set
+            Integer        value;   ///< The new value of the property
         } property;
             
-        RemoteCreateMessage create;
+        struct {
+            FID      fid;           ///< Family to start creation of
+        	MemAddr  address;       ///< Address of the family
+        	RegIndex completion_reg;///< Register to write create-completion to
+        } create;
             
         struct {
-            FID      fid;
-            RegIndex reg;
+            FID      fid;           ///< Family to sync on
+            RegIndex completion_reg;///< Register to write sync-completion to
         } sync;
             
         struct {
-            FID fid;
+            FID fid;                ///< Family to detach
         } detach;
 
         struct {
-            Integer index;
-            LFID    lfid;
-            GPID    pid;
+            PID  pid;               ///< Core to send break to
+            LFID fid;               ///< Family to break
         } brk;
         
-        RegisterMessage reg;
+        struct
+        {
+            PID      pid;
+            RegAddr  addr;
+            RegValue value;
+        } rawreg;
+
+        struct
+        {
+            FID           fid;
+            RemoteRegType kind;
+            RegAddr       addr;
+            union
+            {
+                RegValue  value;
+                RegIndex  completion_reg;
+            };
+        } famreg;
     };
 };
+
+struct LinkMessage
+{
+    enum Type
+    {
+        MSG_ALLOCATE,       ///< Allocate family
+        MSG_SET_PROPERTY,   ///< Set family property
+        MSG_CREATE,         ///< Create family
+        MSG_DONE,           ///< Family has finished on previous core
+        MSG_SYNC,           ///< Synchronise on family
+        MSG_DETACH,         ///< Detach family
+        MSG_BREAK,          ///< Break
+        MSG_GLOBAL,         ///< Global register data
+    };
+        
+    Type type;      ///< Type of the message
+        
+    /// The message contents
+    union
+    {
+        struct
+        {
+            LFID     first_fid;      ///< FID on the first core of the matching family
+            LFID     prev_fid;       ///< FID on the previous core (sender) of allocated family
+            PSize    size;           ///< Size of the place
+            bool     exact;          ///< Allocate exactly 'size' cores
+            bool     suspend;        ///< Suspend until we get a context (only if exact)
+            PID      completion_pid; ///< PID where the thread runs that issued the allocate
+            RegIndex completion_reg; ///< Reg on parent_pid of the completion register
+        } allocate;
+    
+        struct
+        {
+            LFID           fid;
+            FamilyProperty type;    ///< The property to set
+            Integer        value;   ///< The new value of the property
+        } property;
+        
+        struct
+        {
+            LFID     fid;
+            PSize    numCores;
+            MemAddr  address;
+            RegsNo   regs[NUM_REG_TYPES];
+        } create;
+        
+        struct
+        {
+            LFID fid;
+        } done;
+
+        struct
+        {
+            LFID     fid;
+            PID      completion_pid;
+            RegIndex completion_reg;
+        } sync;
+        
+        struct
+        {
+            LFID fid;
+        } detach;
+
+        struct {
+            LFID fid;               ///< Family to break
+        } brk;
+        
+        struct
+        {
+            LFID     fid;
+            RegAddr  addr;
+            RegValue value;
+        } global;
+    };
+};
+
+/// Allocation response (going backwards)
+struct AllocResponse
+{
+    PSize    numCores;  ///< Number of cores actually allocated (0 for failed)
+    bool     exact;     ///< If the allocate was exact, unwind all the way
+    LFID     prev_fid;  ///< FID of the family on the previous (receiver) core
+    LFID     next_fid;  ///< FID of the family on the next (sender) core if !failed
+        
+    PID      completion_pid; ///< PID where the thread runs that issued the allocate
+    RegIndex completion_reg; ///< Reg on parent_pid of the completion register
+};   
 
 class Network : public Object
 {
@@ -193,39 +259,32 @@ class Network : public Object
 	};
 	
 public:
-    Network(const std::string& name, Processor& parent, Clock& clock, PlaceInfo& place, const std::vector<Processor*>& grid, LPID lpid, Allocator& allocator, RegisterFile& regFile, FamilyTable& familyTable);
-    void Initialize(Network& prev, Network& next);
+    Network(const std::string& name, Processor& parent, Clock& clock, const std::vector<Processor*>& grid, Allocator& allocator, RegisterFile& regFile, FamilyTable& familyTable);
+    void Initialize(Network* prev, Network* next);
 
     bool SendMessage(const RemoteMessage& msg);
-    
-    bool SendGroupCreate(LFID fid, RegIndex completion);
-    bool RequestToken();
-    bool ReleaseToken();
-    bool SendThreadCleanup(LFID fid);
-    bool SendFamilySynchronization(LFID fid);
-    bool SendAllocation(const PlaceID& place, RegIndex reg);
-    
+    bool SendMessage(const LinkMessage& msg);
+    bool SendAllocResponse(const AllocResponse& msg);
+
     void Cmd_Help(std::ostream& out, const std::vector<std::string>& arguments) const;
     void Cmd_Read(std::ostream& out, const std::vector<std::string>& arguments) const;
 
 private:
     struct DelegateMessage : public RemoteMessage
     {
-        GPID src;  ///< Source processor
-        GPID dest; ///< Destination processor
+        PID src;  ///< Source processor
+        PID dest; ///< Destination processor
     };
     
-    bool OnTokenReceived();
-    bool ReadLastShared(const RemoteRegAddr& addr, RegValue& value);
-    bool WriteRegister(const RemoteRegAddr& addr, const RegValue& value);
+    bool ReadLastShared(LFID fid, const RegAddr& addr, RegValue& value);
+    bool WriteRegister(LFID fid, RemoteRegType kind, const RegAddr& raddr, const RegValue& value);
+    bool OnDetach(LFID fid);
+    bool OnBreak(LFID fid);
+    bool OnSync(LFID fid, PID completion_pid, RegIndex completion_reg);
     
     // Processes
-    Result DoRegisters();
-    Result DoCreation();
-    Result DoThreadCleanup();
-    Result DoFamilySync();
-    Result DoReserveFamily();
-    Result DoCreateResult();
+    Result DoLink();
+    Result DoAllocResponse();
     Result DoDelegationOut();
     Result DoDelegationIn();
 
@@ -233,48 +292,22 @@ private:
     RegisterFile&                  m_regFile;
     FamilyTable&                   m_familyTable;
     Allocator&                     m_allocator;
-    PlaceInfo&                     m_place;
     Network*                       m_prev;
     Network*                       m_next;
-    LPID                           m_lpid;
     const std::vector<Processor*>& m_grid;
 
 public:
-	struct RemoteSync
-	{
-	    GPID     pid;
-	    LFID     fid;
-	    ExitCode code;
-	};
-	
-	// Group creates
-    Register<GroupCreateMessage>   m_createLocal;    ///< Outgoing group create
-	Register<GroupCreateMessage>   m_createRemote;   ///< Incoming group create
-
-	// Inter-core messages
-    RegisterPair<LFID>         m_synchronizedFamily; ///< Notification: Family synchronized
-    RegisterPair<CreateResult> m_createResult;       ///< Create result
-    
-	// Register communication
-    RegisterPair<RegisterMessage> m_registers;  ///< Group registers channel
-	
     // Delegation network
-    Register<DelegateMessage> m_delegateOut;    ///< Outgoing delegation messages
-    Register<DelegateMessage> m_delegateIn;     ///< Incoming delegation messages
+    Register<DelegateMessage>   m_delegateOut;    ///< Outgoing delegation messages
+    Register<DelegateMessage>   m_delegateIn;     ///< Incoming delegation messages
+    RegisterPair<LinkMessage>   m_link;           ///< Forward link through the cores
+    RegisterPair<AllocResponse> m_allocResponse;  ///< Backward link for allocation unroll/commit
 
-	// Token management
-    Flag       m_hasToken;    ///< We have the token
-    SingleFlag m_wantToken;   ///< We want the token
-    Flag       m_tokenBusy;   ///< Is the token still in use?
-    
     // Processes
-    Process p_Registers;
-    Process p_Creation;
-    Process p_FamilySync;
-    Process p_ReserveFamily;
-    Process p_CreateResult;
     Process p_DelegationOut;
     Process p_DelegationIn;
+    Process p_Link;
+    Process p_AllocResponse;
 };
 
 }

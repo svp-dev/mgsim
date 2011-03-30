@@ -23,7 +23,7 @@
 main:
     ldgp $29, 0($27)
     
-	allocate (1 << 3), $4
+	allocate/s $31, 0, $4
 	
 	#	create (fam1; 0; N;)
 	setlimit $4, $10
@@ -63,7 +63,7 @@ main:
     # $l0 = i
 	.registers 4 0 5  0 0 0	    # GR,SR,LR, GF,SF,LF
 thread1:
-	allocate (1 << 3), $l4
+	allocate/s $31, 0, $l4
 	
 	setlimit $l4, $g3
 	swch
@@ -97,7 +97,7 @@ thread1:
     # $l0 = j
 	.registers 4 0 3  0 0 0	    # GR,SR,LR, GF,SF,LF
 thread2:
-    allocate (1 << 3), $l2
+    allocate/s $31, 0, $l2
     setlimit $l2, $g3
     swch
     cred $l2, thread3

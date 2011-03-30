@@ -8,9 +8,11 @@
     .globl main
     .align 64
 main:
-    allocateng 2, %2      ! Local
-    setlimitng %2, 64
-    cred foo, %2
+    clr %2
+    allocate %2
+    setlimit %2, 64
+    set foo, %1
+    crei %1, %2
     
     puts %0, %2, 0
     
@@ -33,9 +35,11 @@ main:
     .align 64
     .registers 0 1 2 0 0 0
 foo:
-    allocateng (1 << 4) | (1 << 3) | (3 << 1) | 1, %tl1   ! PID:1, Delegated, Suspend, Exclusive
+    mov (1 << 1) | 1, %tl1    ! PID:1, Size:1 
+    allocatex %tl1
     swch
-    cred     bar, %tl1
+    set      bar, %tl0
+    crei     %tl0, %tl1
     sync     %tl1, %tl0
     mov      %tl0, %0; swch
     gets     %tl1, 0, %tl0
@@ -59,4 +63,4 @@ bar:
 val:
     .int 0
 
-    .ascii "PLACES: 1,{1,2,3,4}\0"
+    .ascii "PLACES: 16\0"

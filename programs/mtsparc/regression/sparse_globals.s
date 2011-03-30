@@ -10,9 +10,11 @@
 main:
     mov 42, %1
     
-    allocateng %0, %2
-    setlimitng %2, 4
-    cred foo, %2
+    clr %2
+    allocate %2
+    setlimit %2, 4
+    set foo, %3
+    crei %3, %2
     
     putg %1, %2, 0
     

@@ -29,7 +29,7 @@ main:
     ldah    $29, 0($27)     !gpdisp!1
     lda     $29, 0($29)     !gpdisp!1
     
-    allocate $31, $4
+    allocate/s $31, 0, $4
     setlimit $4, $10
     cred    $4, loop
     

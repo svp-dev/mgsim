@@ -18,15 +18,17 @@
     .text
     .globl main
 main:
-	allocateng (1 << 3), %5
+    clr %5
+	allocates %5             ! Default
 	
 	!	create (fam1; 0; N-1;)
-	setlimitng %5, %11
+	setlimit %5, %11
 	swch
 	.ifdef BLOCK1
-	setblockng %5, BLOCK1
+	setblock %5, BLOCK1
 	.endif
-	cred thread1, %5
+	set thread1, %1
+	crei %1, %5
 	
 	set A, %1
 	set B, %2
@@ -51,13 +53,15 @@ main:
     .align 64
 	.registers 4 0 5  0 0 0	    ! GR,SR,LR, GF,SF,LF
 thread1:
-	allocateng (1 << 3), %tl4
-	setlimitng %tl4, %tg3
+    clr %tl4
+	allocates %tl4            ! Default
+	setlimit %tl4, %tg3
 	swch
 	.ifdef BLOCK2
-	setblockng %tl4, BLOCK2
+	setblock %tl4, BLOCK2
 	.endif
-	cred thread2, %tl4
+	set thread2, %tl2
+	crei %tl2, %tl4
 	
 	umul    %tl0, %tg3, %tl0       ! %tl0 = i*N
 	sll     %tl0,   2, %tl0
@@ -82,10 +86,12 @@ thread1:
     .align 64
 	.registers 4 0 6  0 0 0	    ! GR,SR,LR, GF,SF,LF
 thread2:
-    allocateng (1 << 3), %tl4
-    setlimitng %tl4, %tg3
+    clr %tl4
+    allocates %tl4
+    setlimit %tl4, %tg3
     swch
-    cred thread3, %tl4
+    set thread3, %tl1
+    crei %tl1, %tl4
    
     sll     %tl0,   2, %tl1
 	add     %tl1, %tg2, %tl5       ! %tl5 = &C[i*N+j]

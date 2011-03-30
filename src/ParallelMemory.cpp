@@ -263,23 +263,16 @@ void ParallelMemory::Write(MemAddr address, const void* data, MemSize size)
 
 ParallelMemory::ParallelMemory(const std::string& name, Object& parent, Clock& clock, const Config& config) :
     Object(name, parent, clock),
-    m_baseRequestTime(config.getInteger<CycleNo>("MemoryBaseRequestTime", 1)),
-    m_timePerLine    (config.getInteger<CycleNo>("MemoryTimePerLine", 1)),
-    m_sizeOfLine     (config.getInteger<size_t> ("MemorySizeOfLine", 8)),
+    m_clients        (config.getValue<size_t> ("NumProcessors", 1)),
+    m_baseRequestTime(config.getValue<CycleNo>("MemoryBaseRequestTime", 1)),
+    m_timePerLine    (config.getValue<CycleNo>("MemoryTimePerLine", 1)),
+    m_sizeOfLine     (config.getValue<size_t> ("MemorySizeOfLine", 8)),
     m_nreads         (0),
     m_nread_bytes    (0),
     m_nwrites        (0),
     m_nwrite_bytes   (0)
 {
-    const BufferSize buffersize = config.getInteger<BufferSize>("MemoryBufferSize", INFINITE);
-
-    // Get number of processors as number of ports
-    const vector<PSize> places = config.getIntegerList<PSize>("NumProcessors");
-    PSize numProcs = 0;
-    for (size_t i = 0; i < places.size(); ++i) {
-        numProcs += places[i];
-    }
-    m_clients.resize(numProcs);
+    const BufferSize buffersize = config.getValue<BufferSize>("MemoryBufferSize", INFINITE);
 
     for (size_t i = 0; i < m_clients.size(); ++i)
     {

@@ -32,11 +32,13 @@
     .global main
     .align 64
 main:
-    allocateng %0, %5
-    setstartng %5, %11
-    setlimitng %5, -1
-    setstepng  %5, -1
-    cred    outer, %5
+    clr %5
+    allocates %5
+    setstart %5, %11
+    setlimit %5, -1
+    setstep  %5, -1
+    set     outer, %1
+    crei    %1, %5
 
     set     X, %1           ! %1 = X
     set     V, %2           ! %2 = V
@@ -64,14 +66,16 @@ main:
     .align 64
     .registers 3 1 3 0 0 0
 outer:
-    allocateng %0, %tl2
+    clr %tl2
+    allocates %tl2
     sll      %tg2, %tl0, %tl0       ! %tl0 = ii
-    setlimitng %tl2, %tl0; swch
-    setstartng %tl2, 1
-    setstepng  %tl2, 2
+    setlimit %tl2, %tl0; swch
+    setstart %tl2, 1
+    setstep  %tl2, 2
 
     add      %td0, %tl0, %tl0; swch ! %tl0 = ipntp + ii
-    cred     inner, %tl2
+    set      inner, %tl1
+    crei     %tl1, %tl2
 
     putg     %tg0, %tl2, 0; swch   ! %tg0 = X
     putg     %tg1, %tl2, 1         ! %tg1 = V
@@ -96,26 +100,26 @@ outer:
 !
     .global inner
     .align 64
-    .registers 4 0 3 0 0 10
+    .registers 4 0 3 0 0 11
 inner:
     add     %tg3, %tl0, %tl2   ! %tl2 = k = ipnt + i
     sll     %tl2,   3, %tl2
     add     %tl2, %tg1, %tl1   ! %tl1 = &V[k]
-    ldd     [%tl1], %tlf2     ! %tlf2,%tlf3 = V[k]
+    ldd     [%tl1], %tlf3     ! %tlf3,%tlf4 = V[k]
     add     %tl2, %tg0, %tl2   ! %tl2 = &X[k]
-    ldd     [%tl2-8], %tlf8   ! %tlf8,%tlf9 = X[k-1]
-    ldd     [%tl1+8], %tlf4   ! %tlf4,%tlf5 = V[k+1]
-    ldd     [%tl2+8], %tlf6   ! %tlf6,%tlf7 = X[k+1]
-    ldd     [%tl2+0], %tlf0   ! %tlf0,%tlf1 = X[k]
+    ldd     [%tl2-8], %tlf9   ! %tlf9,%tlf10 = X[k-1]
+    ldd     [%tl1+8], %tlf5   ! %tlf5,%tlf6 = V[k+1]
+    ldd     [%tl2+8], %tlf7   ! %tlf7,%tlf8 = X[k+1]
+    ldd     [%tl2+0], %tlf1   ! %tlf1,%tlf2 = X[k]
     srl     %tl0,   1, %tl0
     add     %tg2, %tl0, %tl0
     sll     %tl0,   3, %tl0
     add     %tl0, %tg0, %tl0   ! %tl0 = &X[ipntp + i / 2]
-    fmuld   %tlf2, %tlf8, %tlf2; swch
-    fmuld   %tlf4, %tlf6, %tlf4; swch
-    faddd   %tlf2, %tlf4, %tlf2; swch
-    fsubd   %tlf0, %tlf2, %tlf2; swch
-    std     %tlf2, [%tl0]
+    fmuld   %tlf3, %tlf9, %tlf3; swch
+    fmuld   %tlf5, %tlf7, %tlf5; swch
+    faddd   %tlf3, %tlf5, %tlf3; swch
+    fsubd   %tlf1, %tlf3, %tlf3; swch
+    std     %tlf3, [%tl0]
     end
 
     .section .bss

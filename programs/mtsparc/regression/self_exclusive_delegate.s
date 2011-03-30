@@ -8,8 +8,10 @@
     .globl main
     .align 64
 main:
-    allocateng (0 << 4) | (1 << 3) | (3 << 1) | 1, %2  ! PID:0, Delegate, Suspend, Exclusive
-    cred foo, %2
+    mov (0 << 1) | 1, %2    ! PID:0, Size:1
+    allocatex %2
+    set foo, %1
+    crei %1, %2
     
     ! Sync
     sync %2, %1

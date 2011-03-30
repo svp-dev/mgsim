@@ -21,12 +21,12 @@ static bool IsPowerOfTwo(const T& x)
 ICache::ICache(const std::string& name, Processor& parent, Clock& clock, Allocator& alloc, const Config& config)
 :   Object(name, parent, clock),
     m_parent(parent), m_allocator(alloc),
-    m_outgoing("b_outgoing", *this, clock, config.getInteger<BufferSize>("ICacheOutgoingBufferSize", 1)),
-    m_incoming("b_incoming", *this, clock, config.getInteger<BufferSize>("ICacheIncomingBufferSize", 1)),
+    m_outgoing("b_outgoing", *this, clock, config.getValue<BufferSize>("ICacheOutgoingBufferSize", 1)),
+    m_incoming("b_incoming", *this, clock, config.getValue<BufferSize>("ICacheIncomingBufferSize", 1)),
     m_numHits(0),
     m_numMisses(0),
-    m_lineSize(config.getInteger<size_t>("CacheLineSize", 64)),
-    m_assoc   (config.getInteger<size_t>("ICacheAssociativity", 4)),
+    m_lineSize(config.getValue<size_t>("CacheLineSize", 64)),
+    m_assoc   (config.getValue<size_t>("ICacheAssociativity", 4)),
     p_Outgoing("outgoing", delegate::create<ICache, &ICache::DoOutgoing>(*this)),
     p_Incoming("incoming", delegate::create<ICache, &ICache::DoIncoming>(*this)),
     p_service(*this, clock, "p_service")
@@ -43,7 +43,7 @@ ICache::ICache(const std::string& name, Processor& parent, Clock& clock, Allocat
         throw exceptf<InvalidArgumentException>(*this, "ICacheAssociativity = %zd is not a power of two", m_assoc);
     }
 
-    const size_t sets = config.getInteger<size_t>("ICacheNumSets", 4);
+    const size_t sets = config.getValue<size_t>("ICacheNumSets", 4);
     if (!IsPowerOfTwo(sets))
     {
         throw exceptf<InvalidArgumentException>(*this, "ICacheNumSets = %zd is not a power of two", sets);

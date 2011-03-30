@@ -43,12 +43,12 @@ _FFT:
 	add   %3,  %1, %3    	! %3 = &X[N]
 	
 	clr      %7
-	allocateng %7, 0, 0, 0, 0
-	setstartng %7, %11    	! start = M
+	allocate %7, 0, 0, 0, 0
+	setstart %7, %11    	! start = M
     swch
-	setlimitng %7, 0    		! limit = 0
-	setstepng  %7, -1
-	setblockng %7, 2
+	setlimit %7, 0    		! limit = 0
+	setstep  %7, -1
+	setblock %7, 2
 	cred      _FFT_1, %7
 	mov      %7, %0
 
@@ -56,13 +56,13 @@ _FFT:
     swch
 
     clr      %8
-	allocateng %8, 0, 0, 0, 0
+	allocate %8, 0, 0, 0, 0
 	sub      %3, 16, %3
-	setlimitng %8, %3	    	! limit = &X[N - 1]
+	setlimit %8, %3	    	! limit = &X[N - 1]
     swch
-    setblockng %8, BLOCK_POST
-	setstartng %8, %1	    	! start = &X[0]
-	setstepng  %8, 16	    	! step  = 16
+    setblock %8, BLOCK_POST
+	setstart %8, %1	    	! start = &X[0]
+	setstep  %8, 16	    	! step  = 16
 	
 							! %1 = X
 	srl     %10,  1, %2	    ! %2 = N / 2
@@ -94,7 +94,7 @@ _FFT_POST:
 	mov %tg0, %tl2        	! %tl2 = X
 
     clr      %tl3
-	allocateng %tl3, 0, 0, 0, 0
+	allocate %tl3, 0, 0, 0, 0
 	cred _FFT_POST_SWAP, %tl3
     swch
 
@@ -188,10 +188,10 @@ _FFT_1:
     mov  %tg2, %tl1	        	! %LR1 = &X[N]
     
     clr      %tl4
-	allocateng %tl4, 0, 0, 0, 0
-	setlimitng %tl4, %tl3	    	! limit = &X[LE2]
-	setstartng %tl4, %tg0	    	! start = &X[0]
-	setstepng  %tl4, 16	    	! step  = 16
+	allocate %tl4, 0, 0, 0, 0
+	setlimit %tl4, %tl3	    	! limit = &X[LE2]
+	setstart %tl4, %tg0	    	! start = &X[0]
+	setstep  %tl4, 16	    	! step  = 16
 	
     mov   %tg0,  %tl0;	        ! %tl0 = X
 	fcmps %tlf0, %tlf2    		! Wait for S
@@ -218,10 +218,10 @@ _FFT_1:
 	.registers 4 0 2  4 4 12	! GR,SR,LR, GF,SF,LF
 _FFT_2:
     clr      %tl1
-	allocateng %tl1, 0, 0, 0, 0
-	setstartng %tl1, %tl0		! start = &X[j];
-	setlimitng %tl1, %tg1		! limit = &X[N];
-	setstepng  %tl1, %tg2		! step = LE * 16;
+	allocate %tl1, 0, 0, 0, 0
+	setstart %tl1, %tl0		! start = &X[j];
+	setlimit %tl1, %tg1		! limit = &X[N];
+	setstep  %tl1, %tg2		! step = LE * 16;
 	
 	srl  %tg2, 1, %tl0		! %tl0 = LE2 * 16 (= LE * 16 / 2)
 	fmovs %tdf0, %tlf0

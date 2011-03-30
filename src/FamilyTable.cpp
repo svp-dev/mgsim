@@ -14,7 +14,7 @@ namespace Simulator
 FamilyTable::FamilyTable(const std::string& name, Processor& parent, Clock& clock, const Config& config)
 :   Object(name, parent, clock),
     m_parent(parent),
-    m_families(config.getInteger<size_t>("NumFamilies", 8)),
+    m_families(config.getValue<size_t>("NumFamilies", 8)),
     m_totalalloc(0), m_maxalloc(0), m_lastcycle(0), m_curalloc(0)
 {
     RegisterSampleVariableInObject(m_totalalloc, SVC_CUMULATIVE);
@@ -29,7 +29,6 @@ FamilyTable::FamilyTable(const std::string& name, Processor& parent, Clock& cloc
     
     m_free[CONTEXT_EXCLUSIVE] = 1;
     m_free[CONTEXT_NORMAL]    = m_families.size() - 1;
-    m_free[CONTEXT_RESERVED]  = 0;
 }
 
 bool FamilyTable::IsEmpty() const
@@ -48,7 +47,7 @@ void FamilyTable::UpdateStats()
     CycleNo elapsed = cycle - m_lastcycle;
     m_lastcycle = cycle;
     
-    m_curalloc = m_families.size() - m_free[CONTEXT_RESERVED] - m_free[CONTEXT_EXCLUSIVE] - m_free[CONTEXT_NORMAL]; 
+    m_curalloc = m_families.size() - m_free[CONTEXT_EXCLUSIVE] - m_free[CONTEXT_NORMAL]; 
     
     m_totalalloc += m_curalloc * elapsed;
     m_maxalloc = std::max(m_maxalloc, m_curalloc);   
@@ -74,7 +73,7 @@ void FamilyTable::CheckStateSanity() const
     assert((m_free[CONTEXT_EXCLUSIVE] == 1) ^ (m_families.back().state != FST_EMPTY));
     
     // All counts must add up
-    assert(m_free[CONTEXT_NORMAL] + m_free[CONTEXT_RESERVED] + m_free[CONTEXT_EXCLUSIVE] + used == m_families.size());
+    assert(m_free[CONTEXT_NORMAL] + m_free[CONTEXT_EXCLUSIVE] + used == m_families.size());
 #endif
 }
 
@@ -118,28 +117,12 @@ LFID FamilyTable::AllocateFamily(ContextType context)
     return fid;
 }
 
-// Reserves an entry for a group create that will come later
-void FamilyTable::ReserveFamily()
+FSize FamilyTable::GetNumFreeFamilies(ContextType type) const
 {
     // Check that we're in a sane state
-    CheckStateSanity();
+    assert(m_free[CONTEXT_NORMAL] + m_free[CONTEXT_EXCLUSIVE] <= m_families.size());
 
-    // Move a free entry from normal to reserved
-    assert(m_free[CONTEXT_NORMAL] > 0);
-    COMMIT{
-        UpdateStats();
-        m_free[CONTEXT_NORMAL]--;
-        m_free[CONTEXT_RESERVED]++;
-    }
-}
-
-FSize FamilyTable::GetNumFreeFamilies() const
-{
-    // Check that we're in a sane state
-    assert(m_free[CONTEXT_NORMAL] + m_free[CONTEXT_RESERVED] + m_free[CONTEXT_EXCLUSIVE] <= m_families.size());
-
-    // We do not count reserved or exclusive entries to general free entries
-    return m_free[CONTEXT_NORMAL];
+    return m_free[type];
 }
 
 void FamilyTable::FreeFamily(LFID fid, ContextType context)
@@ -199,8 +182,8 @@ void FamilyTable::Cmd_Read(ostream& out, const vector<string>& arguments) const
     }
     else
     {
-        out << "    |     Initial PC     |   Allocated    | P/A/D/Rd | Prev | Next |    Sync    |     Capability     | State         | Symbol" << endl;
-        out << "----+--------------------+----------------+----------+------+------+------------+--------------------+---------------+--------" << endl;
+        out << "    |     Initial PC     | Allocated | Threads | P/A/D/Rd |  Cores  | Link |    Sync    |     Capability     | State         | Symbol" << endl;
+        out << "----+--------------------+-----------+---------+----------+---------+------+------------+--------------------+---------------+--------" << endl;
         for (set<LFID>::const_iterator p = fids.begin(); p != fids.end(); ++p)
         {
             const Family& family = m_families[*p];
@@ -208,13 +191,13 @@ void FamilyTable::Cmd_Read(ostream& out, const vector<string>& arguments) const
             out << dec << right << setw(3) << setfill(' ') << *p << " | ";
             if (family.state == FST_EMPTY)
             {
-                out << "                   |                |          |      |      |            |                    |               |";
+                out << "                   |           |         |          |         |      |            |                    |               |";
             }
             else
             {
                 if (family.state == FST_ALLOCATED)
                 {
-                    out << "        -          |       -        |     -    | ";
+                    out << "        -          |     -     |    -    |     -    | ";
                 }
                 else
                 {
@@ -222,9 +205,10 @@ void FamilyTable::Cmd_Read(ostream& out, const vector<string>& arguments) const
                     if (family.state == FST_CREATE_QUEUED || family.state == FST_CREATING) {
                         out << "      -        |    -    ";
                     } else {
-                        out << setw(3) << family.dependencies.numThreadsAllocated << "/"
-                            << setw(3) << family.physBlockSize << " ("
-                            << setw(4) << family.virtBlockSize << ")"
+                        out << setw(4) << right << family.dependencies.numThreadsAllocated << "/"
+                            << setw(4) << left  << family.physBlockSize
+                            << " | "
+                            << setw(7) << right << family.nThreads
                             << " | "
                             << noboolalpha
                             << !family.dependencies.prevSynchronized << "/"
@@ -236,26 +220,21 @@ void FamilyTable::Cmd_Read(ostream& out, const vector<string>& arguments) const
                     out << " | ";
                 }
 
-                // Print prev and next FIDs
-                if (family.state == FST_ALLOCATED || family.state == FST_CREATE_QUEUED) {
-                    out << "  -  |   - ";
+                // Print cores
+                out << setfill(' ') 
+                    << setw(3) << right << family.numCores << "/"
+                    << setw(3) << left  << family.placeSize << " | ";
+                    
+                // Print link
+                out << setfill('0') << right;
+                if (family.link != INVALID_LFID) {
+                    out << " F" << setw(2) << family.link;
                 } else {
-                    out << setfill('0') << right;
-                    if (family.link_prev != INVALID_LFID) {
-                        out << " F" << setw(2) << family.link_prev;
-                    } else {
-                        out << "  - ";
-                    }
-                    out << " | ";
-                    if (family.link_next != INVALID_LFID) {
-                        out << " F" << setw(2) << family.link_next;
-                    } else {
-                        out << "  - ";
-                    }
+                    out << "  - ";
                 }
             
                 // Print sync reg
-                if (family.sync.pid != INVALID_GPID) {
+                if (family.sync.pid != INVALID_PID) {
                     out << right << setfill('0') << noshowbase
                         << " | R" << setw(4) << hex << family.sync.reg
                         << "@P" << setw(3) << dec << family.sync.pid;
@@ -281,7 +260,6 @@ void FamilyTable::Cmd_Read(ostream& out, const vector<string>& arguments) const
         out << endl
             << "Free families: " << dec
             << m_free[CONTEXT_NORMAL] << " normal, "
-            << m_free[CONTEXT_RESERVED] << " reserved, "
             << m_free[CONTEXT_EXCLUSIVE] << " exclusive"
             << endl;
     }

@@ -9,12 +9,13 @@
     .ent main
     .globl main 
 main:
-    allocate (1 << 1), $2    # Group create
+    allocate/s $31, 0, $2    # Group create
     setlimit $2,10
     setblock $2,2
     swch
     cred     $2, test
     puts     $10,$2,0
+    swch
     sync     $2,$1
     mov      $1,$31
     gets     $2,0,$0

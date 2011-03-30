@@ -19,10 +19,13 @@
     .ent main
 main:
     ldgp    $29, 0($27)
-
+    
     # Family runs from [0 ... #procs - 1]
-    allocate $31, $5
-    getprocs $3
+    allocate/s $31, 0, $5
+    
+    getpid   $3
+    negq     $3, $4
+    and      $3, $4, $3     # $3 = place.size
     setlimit $5, $3
     
     cred    $5, outer
@@ -63,18 +66,26 @@ main:
 # $l0  = i (0.. #procs - 1)
     .globl outer
     .ent outer
-    .registers 4 0 4 0 1 1
+    .registers 4 0 5 0 1 1
 outer:
     mulq    $l0, $g2, $l1       # $l1 = start
     addq    $g2,   1, $l2       # $l2 = more_size = normal_size + 1
     
-    subq    $l0, $g3, $l3
-    cmovgt  $l3, $g3, $l0       # $l0 = min(i, num_more)
-    addq    $l1, $l0, $l1       # $l1 = actual start (accounting for +1)
+    mov     $l0, $l4
+    subq    $l4, $g3, $l3
+    cmovgt  $l3, $g3, $l4       # $l4 = min(i, num_more)
+    addq    $l1, $l4, $l1       # $l1 = actual start (accounting for +1)
     cmovge  $l3, $g2, $l2       # $l2 = actual size  (accounting for +1)
     addq    $l1, $l2, $l2       # $l2 = limit
     
-    allocate 2, $l3             # place = LOCAL
+    getpid  $l3
+    subq    $l3, 1, $l4
+    and     $l3, $l4, $l3
+    sll     $l0, 1, $l0
+    or      $l3, $l0
+    or      $l3, 1, $l3         # $l3 = PID for i-th core in the place
+    
+    allocate/s $l3, 0, $l3
     setstart $l3, $l1
     setlimit $l3, $l2
     cred     $l3, loop

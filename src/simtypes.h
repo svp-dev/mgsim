@@ -19,8 +19,7 @@ namespace Simulator
 #define ARCH_ENDIANNESS ARCH_BIG_ENDIAN
 #endif
 
-typedef size_t   GPID;          ///< Global (grid) processor index
-typedef size_t   LPID;          ///< Local (group) Processor index
+typedef size_t   PID;           ///< Processor index
 typedef size_t   TID;           ///< Thread index
 typedef size_t   CID;           ///< Cache index
 typedef size_t   PSize;         ///< Processor list size
@@ -108,27 +107,18 @@ typedef Float32  Float;         ///< Natural floating point type
 typedef Integer  FCapability;   ///< Capability for a family
 typedef Integer  PCapability;   ///< Capability for a place
 
-enum PlaceType {
-    PLACE_DEFAULT  = 0,
-    PLACE_GROUP    = 1,
-    PLACE_LOCAL    = 2,
-    PLACE_DELEGATE = 3,
-};
-    
 /// Place identifier
 struct PlaceID
 {
-    GPID        pid;
+    PID         pid;
+    PSize       size;
     PCapability capability;
-    bool        exclusive;
-    bool        suspend;
-    PlaceType   type;
 };
 
 /// A globally unique family identifier
 struct FID
 {
-    GPID        pid;
+    PID         pid;
     LFID        lfid;
     FCapability capability;
 };
@@ -300,8 +290,7 @@ enum ExitCode
 
 std::ostream& operator << (std::ostream& output, const RegAddr& reg);
 
-static const GPID    INVALID_GPID = GPID(-1);
-static const LPID    INVALID_LPID = LPID(-1);
+static const PID     INVALID_PID  = PID (-1);
 static const LFID    INVALID_LFID = LFID(-1);
 static const TID     INVALID_TID  = TID (-1);
 static const CID     INVALID_CID  = CID (-1);
@@ -323,10 +312,8 @@ enum RemoteRegType
     RRT_RAW,                ///< Plain register write, no family indirection
     RRT_GLOBAL,             ///< The globals
     RRT_FIRST_DEPENDENT,    ///< The dependents in the first thread in the family
-    RRT_NEXT_DEPENDENT,     ///< The dependents in the first thread in the block
     RRT_LAST_SHARED,        ///< The last shareds in the family, meant for the parent
     RRT_DETACH,             ///< Fake remote reg type. This signals family detachment
-    RRT_CLEANUP,            ///< Fake remote reg type. This signals a remote thread cleanup
     RRT_BRK,				///< Fake remote reg type. This signals family break
 };
 

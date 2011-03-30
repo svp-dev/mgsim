@@ -46,7 +46,7 @@ _FFT:
     
     .ifdef DO_BIT_REVERSAL	
     clr      $7
-	allocate $7, 0, 0, 0, 0
+	allocate/s $7, 0, 0, 0, 0
 	addq     $0, 16, $8
 	setstart $7, $8		    # start = &X[1]
 	sll      $5,  4, $8
@@ -62,7 +62,7 @@ _FFT:
 	.endif
 	
 	mov      2, $7      # place = LOCAL
-	allocate $7, 0, 0, 0, 0
+	allocate/s $7, 0, 0, 0, 0
 
 	sll     $1,   4, $1		                # $1 = (N / 2) * 16;
 	ldah    $2, _cos_sin($29)   !gprelhigh
@@ -94,7 +94,7 @@ _FFT:
 	.registers 2 1 7  0 0 0	    # GR,SR,LR, GF,SF,LF
 _FFT_POST:	
 	clr      $l3
-	allocate $l3, 0, 0, 0, 0
+	allocate/s $l3, 0, 0, 0, 0
 								# $l0 = &X[i]
 	mov $d0, $l1; swch	        # $l1 = j
 	mov $g0, $l2		        # $l2 = X
@@ -172,7 +172,7 @@ _FFT_POST_SWAP:
 	.registers 5 1 5  0 0 0	    # GR,SR,LR, GF,SF,LF	
 _FFT_1:
 	clr      $lr4
-	allocate $lr4, 0, 0, 0, 0	# start = 0
+	allocate/s $lr4, 0, 0, 0, 0	# start = 0
 	setlimit $lr4, $gr1		    # limit = (N / 2) * 16
 	setstep  $lr4, 16			# step  = 16
 	# setblock $lr4, $gr4

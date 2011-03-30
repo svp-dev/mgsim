@@ -35,7 +35,7 @@ RAUnit::RAUnit(const std::string& name, Processor& parent, Clock& clock, const R
         // Contexts must be a power of two
         assert(IsPowerOfTwo(info.context_size));
         
-        type.blockSize = config.getInteger<size_t>(info.blocksize_name, info.blocksize_def);
+        type.blockSize = config.getValue<size_t>(info.blocksize_name, info.blocksize_def);
         if (type.blockSize == 0 || !IsPowerOfTwo(type.blockSize))
         {
             throw InvalidArgumentException("Allocation block size is not a power of two");
@@ -67,27 +67,39 @@ RAUnit::RAUnit(const std::string& name, Processor& parent, Clock& clock, const R
     }
 }
 
-RAUnit::BlockSize RAUnit::GetNumFreeContexts() const
+RAUnit::BlockSize RAUnit::GetNumFreeContexts(ContextType type) const
 {
     // Return the smallest number of free contexts.
-    // We do not consider exclusive or reserved contexts.
-    BlockSize free = m_types[0].free[CONTEXT_NORMAL];
+    BlockSize free = m_types[0].free[type];
     for (RegType i = 1; i < NUM_REG_TYPES; ++i)
     {
-        free = std::min(free, m_types[i].free[CONTEXT_NORMAL]);
+        free = std::min(free, m_types[i].free[type]);
     }
     return free;
 }
 
 void RAUnit::ReserveContext()
 {
-    // Move a free context from normal to reserved
+    // Move a normal context to reserved
     for (RegType i = 0; i < NUM_REG_TYPES; ++i)
     {
         assert(m_types[i].free[CONTEXT_NORMAL] > 0);
         COMMIT{
             m_types[i].free[CONTEXT_NORMAL]--;
             m_types[i].free[CONTEXT_RESERVED]++;
+        }
+    }
+}
+
+void RAUnit::UnreserveContext()
+{
+    // Move a reserved context to normal
+    for (RegType i = 0; i < NUM_REG_TYPES; ++i)
+    {
+        assert(m_types[i].free[CONTEXT_RESERVED] > 0);
+        COMMIT{
+            m_types[i].free[CONTEXT_RESERVED]--;
+            m_types[i].free[CONTEXT_NORMAL]++;
         }
     }
 }

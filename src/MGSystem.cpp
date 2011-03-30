@@ -85,6 +85,12 @@ using namespace std;
 //     - word 1 ... P: (ringID << 16) | (coreID << 0) 
 //     (future layout configuration formats may include topology information)
 
+// - place layout v2, organized as follows:
+//     - word 0 after tag: number of cores (P)
+//     - word 1 ... P: (y << 24) | (x << 16) | (coreType)
+//     coreType:
+//      0: Normal core
+
 #define CONFTAG_ARCH_V1    1
 #define CONFTAG_TIMINGS_V1 2
 #define CONFTAG_CACHE_V1   3
@@ -92,12 +98,13 @@ using namespace std;
 #define CONFTAG_LAYOUT_V1  5
 #define CONFTAG_TIMINGS_V2 6
 #define CONFTAG_TIMINGS_V3 7
+#define CONFTAG_LAYOUT_V2  8
 #define MAKE_TAG(Type, Size) (uint32_t)(((Type) << 16) | ((Size) & 0xffff))
 
 
 void MGSystem::FillConfWords(ConfWords& words) const
 {
-    uint32_t cl_sz = m_config.getInteger<uint32_t>("CacheLineSize", 0);
+    uint32_t cl_sz = m_config.getValue<uint32_t>("CacheLineSize", 0);
 
     // configuration words for architecture type v1
 
@@ -115,13 +122,13 @@ void MGSystem::FillConfWords(ConfWords& words) const
     // timing words v3
           << MAKE_TAG(CONFTAG_TIMINGS_V3, 5)
           << m_kernel.GetMasterFrequency()
-          << m_config.getInteger<uint32_t>("CoreFreq", 0)
-          << m_config.getInteger<uint32_t>("MemoryFreq", 0)
+          << m_config.getValue<uint32_t>("CoreFreq", 0)
+          << m_config.getValue<uint32_t>("MemoryFreq", 0)
           << ((m_memorytype == MEMTYPE_COMA_ZL || m_memorytype == MEMTYPE_COMA_ML) ? 
-              m_config.getInteger<uint32_t>("DDRMemoryFreq", 0)
+              m_config.getValue<uint32_t>("DDRMemoryFreq", 0)
               : 0 /* no timing information if memory system is not COMA */)
           << ((m_memorytype == MEMTYPE_COMA_ZL || m_memorytype == MEMTYPE_COMA_ML) ?
-              m_config.getInteger<uint32_t>("NumRootDirectories", 0)
+              m_config.getValue<uint32_t>("NumRootDirectories", 0)
               : 0 /* no DDR channels */)
 
     // cache parameter words v1
@@ -129,48 +136,43 @@ void MGSystem::FillConfWords(ConfWords& words) const
           << MAKE_TAG(CONFTAG_CACHE_V1, 5)
           << cl_sz
           << (cl_sz 
-              * m_config.getInteger<uint32_t>("ICacheAssociativity", 0)
-              * m_config.getInteger<uint32_t>("ICacheNumSets", 0))
+              * m_config.getValue<uint32_t>("ICacheAssociativity", 0)
+              * m_config.getValue<uint32_t>("ICacheNumSets", 0))
           << (cl_sz
-              * m_config.getInteger<uint32_t>("DCacheAssociativity", 0)
-              * m_config.getInteger<uint32_t>("DCacheNumSets", 0));
+              * m_config.getValue<uint32_t>("DCacheAssociativity", 0)
+              * m_config.getValue<uint32_t>("DCacheNumSets", 0));
     if (m_memorytype == MEMTYPE_COMA_ZL || m_memorytype == MEMTYPE_COMA_ML)
         words << (m_procs.size()
-                  / m_config.getInteger<uint32_t>("NumProcessorsPerCache", 0)) // FIXME: COMA?
+                  / m_config.getValue<uint32_t>("NumProcessorsPerCache", 0)) // FIXME: COMA?
               << (cl_sz
-                  * m_config.getInteger<uint32_t>("L2CacheAssociativity", 0)
-                  * m_config.getInteger<uint32_t>("L2CacheNumSets", 0));
+                  * m_config.getValue<uint32_t>("L2CacheAssociativity", 0)
+                  * m_config.getValue<uint32_t>("L2CacheNumSets", 0));
     else
         words << 0 << 0;
 
     // concurrency resources v1
     
     words << MAKE_TAG(CONFTAG_CONC_V1, 4)
-          << m_config.getInteger<uint32_t>("NumFamilies", 0)
-          << m_config.getInteger<uint32_t>("NumThreads", 0)
-          << m_config.getInteger<uint32_t>("NumIntRegisters", 0)
-          << m_config.getInteger<uint32_t>("NumFltRegisters", 0)
+          << m_config.getValue<uint32_t>("NumFamilies", 0)
+          << m_config.getValue<uint32_t>("NumThreads", 0)
+          << m_config.getValue<uint32_t>("NumIntRegisters", 0)
+          << m_config.getValue<uint32_t>("NumFltRegisters", 0)
 
         ;
 
-    // place layout v1
+    // place layout v2
+    PSize numProcessors = m_config.getValue<PSize>("NumProcessors", 1);
 
-    const vector<PSize>& placeSizes = m_config.getIntegerList<PSize>("NumProcessors");
+    words << MAKE_TAG(CONFTAG_LAYOUT_V2, numProcessors + 1)
+          << numProcessors;
 
-    words << MAKE_TAG(CONFTAG_LAYOUT_V1, m_procs.size() + 1)
-          << m_procs.size();
-
-    // Store the cores, per place
-    PSize first = 0;
-    for (size_t p = 0; p < placeSizes.size(); ++p)
+    // Store the core information
+    for (size_t i = 0; i < numProcessors; ++i)
     {
-        PSize placeSize = placeSizes[p];
-        for (size_t i = 0; i < placeSize; ++i)
-        {
-            PSize pid = first + i;
-            words << ((p << 16) | (pid << 0));
-        }
-        first += placeSize;
+        unsigned int y = 0;
+        unsigned int x = i;
+        unsigned int type = 0; // Normal core
+        words << ((y << 24) | (x << 16) | type);
     }
 
     // after last block
@@ -681,39 +683,21 @@ MGSystem::MGSystem(const Config& config, Display& display, const string& program
                    const vector<pair<RegAddr, string> >& loads,
                    bool quiet, bool doload)
     : m_kernel(display, m_symtable, m_breakpoints),
-      m_clock(m_kernel.CreateClock( (unsigned long long)(config.getInteger<float>("CoreFreq", 1000)) )),
+      m_clock(m_kernel.CreateClock( (unsigned long long)(config.getValue<float>("CoreFreq", 1000)) )),
       m_root("system", m_clock),
       m_breakpoints(m_kernel),
       m_program(program),
       m_config(config)
 {
-    const vector<PSize> placeSizes = config.getIntegerList<PSize>("NumProcessors");
-    const size_t numProcessorsPerFPU = max<size_t>(1, config.getInteger<size_t>("NumProcessorsPerFPU", 1));
-
-    PSize numProcessors = 0;
-    PSize curFPUmod = 0;
-    PSize numFPUs = 0;
-    size_t i;
-    for (i = 0; i < placeSizes.size(); ++i) {
-        if (curFPUmod != 0)
-            std::cerr << "# warning: place " << i << " shares a FPU with the previous place" << std::endl;
-
-        for (size_t j = 0; j < placeSizes[i]; ++j) {            
-            ++numProcessors;
-            curFPUmod = (curFPUmod + 1) % numProcessorsPerFPU;
-            if (curFPUmod == 0) ++numFPUs;
-        }
-    }
-    if (curFPUmod != 0)
-    {
-        ++numFPUs;
-        std::cerr << "# warning: last FPU in place " << i-1 << " is not shared fully" << std::endl;
-    }
+    PSize numProcessors = m_config.getValue<PSize>("NumProcessors", 1);
     
-    std::string memory_type = config.getString("MemoryType", "");
+    const size_t numProcessorsPerFPU = max<size_t>(1, config.getValue<size_t>("NumProcessorsPerFPU", 1));
+    const PSize  numFPUs             = (numProcessors + numProcessorsPerFPU - 1) / numProcessorsPerFPU;
+    
+    std::string memory_type = config.getValue<std::string>("MemoryType", "");
     std::transform(memory_type.begin(), memory_type.end(), memory_type.begin(), ::toupper);
 
-    Clock& memclock = m_kernel.CreateClock( config.getInteger<size_t>("MemoryFreq", 1000));
+    Clock& memclock = m_kernel.CreateClock( config.getValue<size_t>("MemoryFreq", 1000));
     
     m_objects.resize(numProcessors + numFPUs + 1);
     if (memory_type == "SERIAL") {
@@ -761,29 +745,14 @@ MGSystem::MGSystem(const Config& config, Display& display, const string& program
 
     // Create processor grid
     m_procs.resize(numProcessors);
-    m_places.resize(placeSizes.size());
-
-
-    PSize first = 0;
-    for (size_t p = 0; p < placeSizes.size(); ++p)
+    for (size_t i = 0; i < numProcessors; ++i)
     {
-        {
-            stringstream name;
-            name << "place" << p;
-            m_places[p] = new PlaceInfo(name.str(), m_clock, m_root, placeSizes[p]);
-        }
-        for (size_t i = 0; i < m_places[p]->m_size; ++i)
-        {
-            PSize pid = (first + i);
-            FPU&  fpu = *m_fpus[pid / numProcessorsPerFPU];
+        FPU& fpu = *m_fpus[i / numProcessorsPerFPU];
 
-            stringstream name;
-            name << "cpu" << pid;
-            m_procs[pid]   = new Processor(name.str(), m_root, m_clock, pid, i, m_procs, m_procs.size(), 
-                                           *m_places[p], *m_memory, fpu, config);
-            m_objects[pid] = m_procs[pid];
-        }
-        first += m_places[p]->m_size;
+        stringstream name;
+        name << "cpu" << i;
+        m_procs[i]   = new Processor(name.str(), m_root, m_clock, i, m_procs, *m_memory, fpu, config);
+        m_objects[i] = m_procs[i];
     }
 
     // Load the program into memory
@@ -791,19 +760,12 @@ MGSystem::MGSystem(const Config& config, Display& display, const string& program
     if (doload)
         progdesc = LoadProgram(m_memory, program, quiet);
 
-    // Connect processors in rings
-    first = 0;
-    for (size_t p = 0; p < placeSizes.size(); ++p)
+    // Connect processors in the link
+    for (size_t i = 0; i < numProcessors; ++i)
     {
-        PSize placeSize = placeSizes[p];
-        for (size_t i = 0; i < placeSize; ++i)
-        {
-            PSize pid = (first + i);
-            LPID prev = (i + placeSize - 1) % placeSize;
-            LPID next = (i + 1) % placeSize;
-            m_procs[pid]->Initialize(*m_procs[first + prev], *m_procs[first + next], progdesc.first, progdesc.second);
-        }
-        first += placeSize;
+        Processor* prev = (i == 0)                 ? NULL : m_procs[i - 1];
+        Processor* next = (i == numProcessors - 1) ? NULL : m_procs[i + 1];
+        m_procs[i]->Initialize(prev, next, progdesc.first, progdesc.second);
     }
 
     if (doload && !m_procs.empty())
@@ -883,10 +845,6 @@ MGSystem::~MGSystem()
     for (size_t i = 0; i < m_procs.size(); ++i)
     {
         delete m_procs[i];
-    }
-    for (size_t i = 0; i < m_places.size(); ++i)
-    {
-        delete m_places[i];
     }
     for (size_t i = 0; i < m_fpus.size(); ++i)
     {

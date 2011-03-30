@@ -8,8 +8,10 @@
     .align 64
     .globl main
 main:
-    allocateng (1 << 3) | (0 << 1), %2        ! Suspend, Default
-    cred     bar, %2
+    clr %2
+    allocates %2
+    set      bar, %1
+    crei     %1, %2
     mov      255, %1
     putg     %1, %2, 0
     release  %2
@@ -23,10 +25,11 @@ bar:
     bne      1f
     nop
     end
-1:    
-
-    allocateng (1 << 3) | (0 << 1), %tl0        ! Suspend, Default
-    cred     bar, %tl0
+1:
+    clr %tl0
+    allocates %tl0        ! Default
+    set      bar, %tl1
+    crei     %tl1, %tl0
     swch
     sub      %tg0, 1, %tl1    ! Pass on %tg0 - 1
     putg     %tl1, %tl0, 0
@@ -43,4 +46,4 @@ bar:
     end
 
     .data
-    .ascii "PLACES: 1,2,3,4\0"
+    .ascii "PLACES: 16\0"

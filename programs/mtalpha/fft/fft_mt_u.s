@@ -51,7 +51,7 @@ _FFT:
 	addq  $2,  $0, $2    	# $2 = &X[N]
 	
 	clr      $6
-	allocate $6, 0, 0, 0, 0
+	allocate/s $6, 0, 0, 0, 0
 	setstart $6, $10    	# start = M
     swch
 	setlimit $6, 0    		# limit = 0
@@ -65,7 +65,7 @@ _FFT:
     swch
 
     clr      $7
-	allocate $7, 0, 0, 0, 0
+	allocate/s $7, 0, 0, 0, 0
 	subq     $2, 16, $2
 	setlimit $7, $2	    	# limit = &X[N - 1]
     swch
@@ -104,7 +104,7 @@ _FFT_POST:
 	mov $g0, $l2        	# $LR2 = X
 
     clr      $l3
-	allocate $l3, 0, 0, 0, 0
+	allocate/s $l3, 0, 0, 0, 0
 	cred $l3, _FFT_POST_SWAP
     swch
 
@@ -200,7 +200,7 @@ _FFT_1:
     mov  $g2, $l1	        	# $LR1 = &X[N]
     
     clr      $l4
-	allocate $l4, 0, 0, 0, 0
+	allocate/s $l4, 0, 0, 0, 0
 	setlimit $l4, $l3	    	# limit = &X[LE2]
 	setstart $l4, $g0	    	# start = &X[0]
 	setstep  $l4, 16	    	# step  = 16
@@ -230,7 +230,7 @@ _FFT_1:
 	.registers 4 0 2  2 2 6 	# GR,SR,LR, GF,SF,LF
 _FFT_2:
     clr      $l1
-	allocate $l1, 0, 0, 0, 0
+	allocate/s $l1, 0, 0, 0, 0
 	setstart $l1, $l0		# start = &X[j];
 	setlimit $l1, $g1		# limit = &X[N];
 	setstep  $l1, $g2		# step = LE * 16;

@@ -38,14 +38,14 @@ _FFT:
     
     .ifdef DO_BIT_REVERSAL	
     clr      %8
-	allocateng %8, 0, 0, 0, 0
+	allocate %8, 0, 0, 0, 0
 	add      %1, 16, %9
-	setstartng %8, %9		    ! start = &X[1]
+	setstart %8, %9		    ! start = &X[1]
 	sll      %6,  4, %9
 	add	     %9, %1, %9
-	setlimitng %8, %9 		! limit = &X[N - 1]
-	setstepng  %8, 16 		! step  = 16
-	setblockng %8, BLOCK_POST
+	setlimit %8, %9 		! limit = &X[N - 1]
+	setstep  %8, 16 		! step  = 16
+	setblock %8, BLOCK_POST
 	
 	mov     %2, %3	        ! %3 = j = N / 2
 	cred    _FFT_POST, %8
@@ -54,16 +54,16 @@ _FFT:
 	.endif
 
     mov      2, %8          ! place = LOCAL
-	allocateng %8, 0, 0, 0, 0
+	allocate %8, 0, 0, 0, 0
 
 	sll     %2,     4, %2   ! %2 = (N / 2) * 16;
 	set      _cos_sin, %3   ! %3 = _cos_sin
     sll     %4, MAX_M, %5   ! %5 = MAX_N
 
 	! create and sync
-	setstartng %8, %4		    ! start = 1
+	setstart %8, %4		    ! start = 1
 	add      %11, 1, %11
-	setlimitng %8, %11	    ! limit = M + 1
+	setlimit %8, %11	    ! limit = M + 1
 	cred     _FFT_1, %8
 	mov      %8, %1
 	end
@@ -84,7 +84,7 @@ _FFT:
 	.registers 2 1 7  0 0 0	    ! GR,SR,LR, GF,SF,LF	
 _FFT_POST:
 	clr      %tl3
-	allocateng %tl3, 0, 0, 0, 0
+	allocate %tl3, 0, 0, 0, 0
 							    ! %tl0 = &X[i]
 	mov %td0, %tl1; swch	    ! %tl1 = j
 	mov %tg0, %tl2		        ! %tl2 = X
@@ -160,10 +160,10 @@ _FFT_POST_SWAP:
 	.registers 5 1 5  0 0 0	    ! GR,SR,LR, GF,SF,LF	
 _FFT_1:
 	clr      %tl4
-	allocateng %tl4, 0, 0, 0, 0	! start = 0
-	setlimitng %tl4, %tg1		    ! limit = (N / 2) * 16
-	setstepng  %tl4, 16			! step  = 16
-	! setblockng %tl4, %tg4
+	allocate %tl4, 0, 0, 0, 0	! start = 0
+	setlimit %tl4, %tg1		    ! limit = (N / 2) * 16
+	setstep  %tl4, 16			! step  = 16
+	! setblock %tl4, %tg4
 	
 	srl  %tg4, %tl0, %tl3		! %tl3 = Z = (MAX_N >> k);
     mov  %tg0, %tl2		    ! %tl2 = X

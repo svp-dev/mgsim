@@ -12,7 +12,7 @@
     .ent main
     .globl main
 main:
-	allocate $31, $2
+	allocate/s $31, 0, $2
 
     # Calculate the sine of 2 (in radians)
     mov     2, $0

@@ -12,21 +12,27 @@ using namespace std;
 namespace Simulator
 {
 
+template <typename T>
+static bool IsPowerOfTwo(const T& x)
+{
+    return (x & (x - 1)) == 0;
+}
+
 //
 // Processor implementation
 //
-Processor::Processor(const std::string& name, Object& parent, Clock& clock, GPID gpid, LPID lpid, const vector<Processor*>& grid, PSize gridSize, PlaceInfo& place, IMemory& memory, FPU& fpu, const Config& config)
+Processor::Processor(const std::string& name, Object& parent, Clock& clock, PID pid, const vector<Processor*>& grid, IMemory& memory, FPU& fpu, const Config& config)
 :   Object(name, parent, clock),
-    m_pid(gpid), m_memory(memory), m_grid(grid), m_gridSize(gridSize), m_place(place), m_fpu(fpu),
-    m_allocator   ("alloc",     *this, clock, m_familyTable, m_threadTable, m_registerFile, m_raunit, m_icache, m_network, m_pipeline, place, lpid, config),
+    m_pid(pid), m_memory(memory), m_grid(grid), m_fpu(fpu),
+    m_allocator   ("alloc",     *this, clock, m_familyTable, m_threadTable, m_registerFile, m_raunit, m_icache, m_network, m_pipeline, config),
     m_icache      ("icache",    *this, clock, m_allocator, config),
     m_dcache      ("dcache",    *this, clock, m_allocator, m_familyTable, m_registerFile, config),
     m_registerFile("registers", *this, clock, m_allocator, config),
-    m_pipeline    ("pipeline",  *this, clock, lpid, m_registerFile, m_network, m_allocator, m_familyTable, m_threadTable, m_icache, m_dcache, fpu, config),
+    m_pipeline    ("pipeline",  *this, clock, m_registerFile, m_network, m_allocator, m_familyTable, m_threadTable, m_icache, m_dcache, fpu, config),
     m_raunit      ("rau",       *this, clock, m_registerFile, config),
     m_familyTable ("families",  *this, clock, config),
     m_threadTable ("threads",   *this, clock, config),
-    m_network     ("network",   *this, clock, place, grid, lpid, m_allocator, m_registerFile, m_familyTable)
+    m_network     ("network",   *this, clock, grid, m_allocator, m_registerFile, m_familyTable)
 {
     const Process* sources[] = {
         &m_icache.p_Outgoing,   // Outgoing process in I-Cache
@@ -48,9 +54,9 @@ Processor::~Processor()
     m_memory.UnregisterClient(m_pid);
 }
 
-void Processor::Initialize(Processor& prev, Processor& next, MemAddr runAddress, bool legacy)
+void Processor::Initialize(Processor* prev, Processor* next, MemAddr runAddress, bool legacy)
 {
-    m_network.Initialize(prev.m_network, next.m_network);
+    m_network.Initialize(prev != NULL ? &prev->m_network : NULL, next != NULL ? &next->m_network : NULL);
 
     //
     // Set port priorities and connections on all components.
@@ -67,23 +73,19 @@ void Processor::Initialize(Processor& prev, Processor& next, MemAddr runAddress,
     m_dcache.p_service.AddProcess(m_pipeline.p_Pipeline);       // Memory read/write
 
     m_allocator.p_allocation.AddProcess(m_pipeline.p_Pipeline);         // ALLOCATE instruction
-    m_allocator.p_allocation.AddProcess(m_network.p_Creation);          // Group create
     m_allocator.p_allocation.AddProcess(m_network.p_DelegationIn);      // Delegated non-exclusive create
     m_allocator.p_allocation.AddProcess(m_allocator.p_FamilyAllocate);  // Delayed ALLOCATE instruction
     
-    m_allocator.p_alloc.AddProcess(m_network.p_CreateResult);           // Non-last group creates
-    m_allocator.p_alloc.AddProcess(m_network.p_Creation);               // Last group creates
+    m_allocator.p_alloc.AddProcess(m_network.p_Link);                   // Place-wide create
     m_allocator.p_alloc.AddProcess(m_allocator.p_FamilyCreate);         // Local creates
     
     m_allocator.p_readyThreads.AddProcess(m_dcache.p_IncomingReads);        // Thread wakeup due to load completion
     m_allocator.p_readyThreads.AddProcess(m_dcache.p_IncomingWrites);       // Thread wakeup due to write completion
     m_allocator.p_readyThreads.AddProcess(m_fpu.p_Pipeline);                // Thread wakeup due to FP completion
-    m_allocator.p_readyThreads.AddProcess(m_network.p_Registers);           // Thread wakeup due to write
+    m_allocator.p_readyThreads.AddProcess(m_network.p_Link);                // Thread wakeup due to write
     m_allocator.p_readyThreads.AddProcess(m_network.p_DelegationIn);        // Thread wakeup due to write
     m_allocator.p_readyThreads.AddProcess(m_allocator.p_ThreadAllocate);    // Thread creation
-    m_allocator.p_readyThreads.AddProcess(m_allocator.p_RegWrites);         // Thread wakeup due to sync
     m_allocator.p_readyThreads.AddProcess(m_allocator.p_FamilyAllocate);    // Thread wakeup due to family allocation
-    m_allocator.p_readyThreads.AddProcess(m_network.p_CreateResult);        // Thread wakeup due to group create completion
     m_allocator.p_readyThreads.AddProcess(m_allocator.p_FamilyCreate);      // Thread wakeup due to local create completion
 
     m_allocator.p_activeThreads.AddProcess(m_icache.p_Incoming);            // Thread activation due to I-Cache line return
@@ -91,22 +93,31 @@ void Processor::Initialize(Processor& prev, Processor& next, MemAddr runAddress,
 
     m_registerFile.p_asyncW.AddProcess(m_dcache.p_IncomingReads);           // Mem Load writebacks
     m_registerFile.p_asyncW.AddProcess(m_fpu.p_Pipeline);                   // FPU Op writebacks
-    m_registerFile.p_asyncW.AddProcess(m_network.p_Registers);              // Group register receives
+    m_registerFile.p_asyncW.AddProcess(m_network.p_Link);                   // Place register receives
     m_registerFile.p_asyncW.AddProcess(m_network.p_DelegationIn);           // Remote register receives
     m_registerFile.p_asyncW.AddProcess(m_allocator.p_ThreadAllocate);       // Thread allocation
-    m_registerFile.p_asyncW.AddProcess(m_allocator.p_RegWrites);            // Syncs
-    m_registerFile.p_asyncW.AddProcess(m_allocator.p_FamilyAllocate);       // Family allocation
-    m_registerFile.p_asyncW.AddProcess(m_network.p_CreateResult);           // Group create completion
-    m_registerFile.p_asyncW.AddProcess(m_allocator.p_FamilyCreate);         // Local create completion
     
-    m_registerFile.p_asyncR.AddProcess(m_network.p_Registers);              // Remote register sends
-    m_registerFile.p_asyncR.AddProcess(m_network.p_DelegationIn);           // Remote register sends
+    m_registerFile.p_asyncR.AddProcess(m_network.p_DelegationIn);           // Remote register requests
     
     m_registerFile.p_pipelineR1.SetProcess(m_pipeline.p_Pipeline);          // Pipeline read stage
     m_registerFile.p_pipelineR2.SetProcess(m_pipeline.p_Pipeline);          // Pipeline read stage
     
     m_registerFile.p_pipelineW .SetProcess(m_pipeline.p_Pipeline);          // Pipeline writeback stage
     
+    m_network.m_allocResponse.out.AddProcess(m_network.p_AllocResponse);    // Forwarding allocation response
+    m_network.m_allocResponse.out.AddProcess(m_allocator.p_FamilyAllocate); // Sending allocation response
+
+    m_network.m_link.out.AddProcess(m_network.p_Link);                      // Forwarding link messages
+    m_network.m_link.out.AddProcess(m_network.p_DelegationIn);              // Delegation message forwards onto link
+    m_network.m_link.out.AddProcess(m_allocator.p_FamilyAllocate);          // Allocate process sending place-wide allocate
+    m_network.m_link.out.AddProcess(m_allocator.p_FamilyCreate);            // Create process sends place-wide create
+    m_network.m_link.out.AddProcess(m_allocator.p_ThreadAllocate);          // Thread cleanup causes sync
+    
+    m_network.m_delegateIn.AddProcess(m_network.p_Link);                    // Link messages causes remote 
+    m_network.m_delegateIn.AddProcess(m_allocator.p_ThreadAllocate);        // Allocate process completes family sync
+    m_network.m_delegateIn.AddProcess(m_allocator.p_FamilyAllocate);        // Allocate process returning FID
+    m_network.m_delegateIn.AddProcess(m_allocator.p_FamilyCreate);          // Create process returning FID
+    m_network.m_delegateIn.AddProcess(m_network.p_AllocResponse);           // Allocate response writing back to parent
     m_network.m_delegateIn.AddProcess(m_pipeline.p_Pipeline);               // Sending local messages
     for (size_t i = 0; i < m_grid.size(); i++)
     {
@@ -114,25 +125,13 @@ void Processor::Initialize(Processor& prev, Processor& next, MemAddr runAddress,
         m_network.m_delegateIn.AddProcess(m_grid[i]->m_network.p_DelegationOut);
     }
     
-    m_network.m_createLocal           .AddProcess(m_allocator.p_FamilyCreate);   // Create process broadcasts create
-    m_network.m_createRemote          .AddProcess(prev.m_network.p_Creation);    // Forward of group create
-    m_network.m_createResult.out      .AddProcess(m_network.p_CreateResult);     // Forward create result
-    m_network.m_createResult.out      .AddProcess(m_network.p_Creation);         // Group create triggers result
-    
-    m_network.m_delegateOut           .AddProcess(m_network.p_DelegationIn);     // Returning registers
-    m_network.m_delegateOut           .AddProcess(m_allocator.p_FamilyCreate);   // Create process sends delegated create
-    m_network.m_delegateOut           .AddProcess(m_allocator.p_FamilyAllocate); // Allocation process sends FID
-    m_network.m_delegateOut           .AddProcess(m_pipeline.p_Pipeline);        // Sending or requesting registers
-    
-    m_network.m_registers.out         .AddProcess(m_network.p_Registers);        // Forwarding register messages
-    m_network.m_registers.out         .AddProcess(m_network.p_DelegationIn);     // Forwarding incoming globals and shareds to next core
-    m_network.m_registers.out         .AddProcess(m_pipeline.p_Pipeline);        // Pipeline write to register with remote mapping
-    
-    m_network.m_registers.out         .AddProcess(m_allocator.p_ThreadAllocate); // Thread cleaned up
-    m_network.m_synchronizedFamily.out.AddProcess(m_network.p_FamilySync);       // Forwarding
-    m_network.m_synchronizedFamily.out.AddProcess(m_allocator.p_ThreadAllocate); // Dependencies resolved
-    m_network.m_synchronizedFamily.out.AddProcess(m_network.p_CreateResult);     // Create completion on next core causes family synch
-    m_network.m_delegateOut           .AddProcess(m_allocator.p_ThreadAllocate); // Thread administration caused sync
+    m_network.m_delegateOut.AddProcess(m_pipeline.p_Pipeline);        // Sending or requesting registers
+    m_network.m_delegateOut.AddProcess(m_network.p_DelegationIn);     // Returning registers
+    m_network.m_delegateOut.AddProcess(m_network.p_Link);             // Place sync causes final sync
+    m_network.m_delegateOut.AddProcess(m_network.p_AllocResponse);    // Allocate response writing back to parent
+    m_network.m_delegateOut.AddProcess(m_allocator.p_FamilyAllocate); // Allocation process sends FID
+    m_network.m_delegateOut.AddProcess(m_allocator.p_FamilyCreate);   // Create process sends delegated create
+    m_network.m_delegateOut.AddProcess(m_allocator.p_ThreadAllocate); // Thread cleanup caused sync
 
     if (m_pid == 0)
     {
@@ -230,9 +229,10 @@ bool Processor::OnMemoryInvalidated(MemAddr addr)
            m_icache.OnMemoryInvalidated(addr);
 }
 
-Integer Processor::GetProfileWord(unsigned int i) const
+Integer Processor::GetProfileWord(unsigned int i, PSize placeSize) const
 {
-    vector<Processor*>::const_iterator gi;
+    const size_t placeStart = (m_pid / placeSize) * placeSize;
+    const size_t placeEnd   = placeStart + placeSize;
 
     switch (i)
     {
@@ -245,13 +245,9 @@ Integer Processor::GetProfileWord(unsigned int i) const
     {
         // Return the number of executed instructions on all cores
         Integer ops = 0;
-        for (gi = m_grid.begin(); gi != m_grid.end(); ++gi)
+        for (size_t i = placeStart; i < placeEnd; ++i)
         {
-            Processor* p = *gi;
-            if (&p->m_place == &m_place)
-            {
-                ops += p->GetPipeline().GetOp();
-            }
+            ops += m_grid[i]->GetPipeline().GetOp();
         }
         return ops;
     }
@@ -260,13 +256,9 @@ Integer Processor::GetProfileWord(unsigned int i) const
     {
         // Return the number of issued FP instructions on all cores
         Integer flops = 0;
-        for (gi = m_grid.begin(); gi != m_grid.end(); ++gi)
+        for (size_t i = placeStart; i < placeEnd; ++i)
         {
-            Processor* p = *gi;
-            if (&p->m_place == &m_place)
-            {
-                flops += p->GetPipeline().GetFlop();
-            }
+            flops += m_grid[i]->GetPipeline().GetFlop();
         }
         return flops;
     }
@@ -275,13 +267,9 @@ Integer Processor::GetProfileWord(unsigned int i) const
     {
         // Return the number of completed loads on all cores
         uint64_t n = 0, dummy;
-        for (gi = m_grid.begin(); gi != m_grid.end(); ++gi)
+        for (size_t i = placeStart; i < placeEnd; ++i)
         {
-            Processor* p = *gi;
-            if (&p->m_place == &m_place)
-            {
-                p->GetPipeline().CollectMemOpStatistics(n, dummy, dummy, dummy);
-            }
+            m_grid[i]->GetPipeline().CollectMemOpStatistics(n, dummy, dummy, dummy);
         }
         return (Integer)n;
     }
@@ -290,13 +278,9 @@ Integer Processor::GetProfileWord(unsigned int i) const
     {
         // Return the number of completed stores on all cores
         uint64_t n = 0, dummy;
-        for (gi = m_grid.begin(); gi != m_grid.end(); ++gi)
+        for (size_t i = placeStart; i < placeEnd; ++i)
         {
-            Processor* p = *gi;
-            if (&p->m_place == &m_place)
-            {
-                p->GetPipeline().CollectMemOpStatistics(dummy, n, dummy, dummy);
-            }
+            m_grid[i]->GetPipeline().CollectMemOpStatistics(dummy, n, dummy, dummy);
         }
         return (Integer)n;
     }
@@ -305,13 +289,9 @@ Integer Processor::GetProfileWord(unsigned int i) const
     {
         // Return the number of successfully loaded bytes on all cores
         uint64_t n = 0, dummy;
-        for (gi = m_grid.begin(); gi != m_grid.end(); ++gi)
+        for (size_t i = placeStart; i < placeEnd; ++i)
         {
-            Processor* p = *gi;
-            if (&p->m_place == &m_place)
-            {
-                p->GetPipeline().CollectMemOpStatistics(dummy, dummy, n, dummy);
-            }
+            m_grid[i]->GetPipeline().CollectMemOpStatistics(dummy, dummy, n, dummy);
         }
         return (Integer)n;
     }
@@ -320,13 +300,9 @@ Integer Processor::GetProfileWord(unsigned int i) const
     {
         // Return the number of successfully stored bytes on all cores
         uint64_t n = 0, dummy;
-        for (gi = m_grid.begin(); gi != m_grid.end(); ++gi)
+        for (size_t i = placeStart; i < placeEnd; ++i)
         {
-            Processor* p = *gi;
-            if (&p->m_place == &m_place)
-            {
-                p->GetPipeline().CollectMemOpStatistics(dummy, dummy, dummy, n);
-            }
+            m_grid[i]->GetPipeline().CollectMemOpStatistics(dummy, dummy, dummy, n);
         }
         return (Integer)n;
     }
@@ -349,20 +325,16 @@ Integer Processor::GetProfileWord(unsigned int i) const
 
     case 9:
     {
-        return (Integer)GetPlaceSize();
+        return (Integer)placeSize;
     }
 
     case 10:
     {
         // Return the total cumulative allocated thread slots
         Integer alloc = 0;
-        for (gi = m_grid.begin(); gi != m_grid.end(); ++gi)
+        for (size_t i = placeStart; i < placeEnd; ++i)
         {
-            Processor* p = *gi;
-            if (&p->m_place == &m_place)
-            {
-                alloc += p->GetTotalThreadsAllocated();
-            }
+            alloc += m_grid[i]->GetTotalThreadsAllocated();
         }
         return alloc;
     }
@@ -371,13 +343,9 @@ Integer Processor::GetProfileWord(unsigned int i) const
     {
         // Return the total cumulative allocated thread slots
         Integer alloc = 0;
-        for (gi = m_grid.begin(); gi != m_grid.end(); ++gi)
+        for (size_t i = placeStart; i < placeEnd; ++i)
         {
-            Processor* p = *gi;
-            if (&p->m_place == &m_place)
-            {
-                alloc += p->GetTotalFamiliesAllocated();
-            }
+            alloc += m_grid[i]->GetTotalFamiliesAllocated();
         }
         return alloc;
     }
@@ -386,13 +354,9 @@ Integer Processor::GetProfileWord(unsigned int i) const
     {
         // Return the total cumulative exclusive allocate queue size
         Integer alloc = 0;
-        for (gi = m_grid.begin(); gi != m_grid.end(); ++gi)
+        for (size_t i = placeStart; i < placeEnd; ++i)
         {
-            Processor* p = *gi;
-            if (&p->m_place == &m_place)
-            {
-                alloc += p->GetTotalAllocateExQueueSize();
-            }
+            alloc += m_grid[i]->GetTotalAllocateExQueueSize();
         }
         return alloc;
     }
@@ -495,15 +459,34 @@ FCapability Processor::GenerateFamilyCapability() const
     return GenerateCapability(sizeof(Integer) * 8 - m_bits.pid_bits - m_bits.fid_bits);
 }
 
+Integer Processor::PackPlace(const PlaceID& place) const
+{
+    assert(IsPowerOfTwo(place.size));
+    assert(place.pid % place.size == 0);
+    
+    return place.capability << (m_bits.pid_bits + 1) | (place.pid << 1) | place.size;
+}
+
 PlaceID Processor::UnpackPlace(Integer id) const
 {
-    // Unpack the place value: <Capability:N, PID:P, Suspend:1, Type:2, Exclusive:1>
+    // Unpack the place value: <Capability:N, PID*2|Size:P+1>
     PlaceID place;
-    place.exclusive  = (((id >> 0) & 1) != 0);
-    place.type       = (PlaceType)((id >> 1) & 3);
-    place.suspend    = (((id >> 3) & 1) != 0) || place.exclusive;
-    place.pid        = (GPID)((id >> 4) & ((1ULL << m_bits.pid_bits) - 1));
-    place.capability = id >> (m_bits.pid_bits + 4);
+    
+    place.size       = 0;
+    place.pid        = 0;
+    place.capability = id >> (m_bits.pid_bits + 1);
+
+    // Clear the capability bits
+    id &= (2ULL << m_bits.pid_bits) - 1;
+    
+    // "Default" place is encoded as size = 0
+    if (id != 0)
+    {
+        // Find the lowest bit that's set to 1
+        unsigned int bits = __builtin_ctz(id);
+        place.size = (1 << bits);           // That bit is the size
+        place.pid  = (id - place.size) / 2; // Clear bit and shift to get base
+    }
     return place;
 }
 
@@ -511,8 +494,8 @@ FID Processor::UnpackFID(Integer id) const
 {
     // Unpack the FID: <Capability:N, LFID:F, PID:P>
     FID fid;
-    fid.pid        = (GPID)((id >>               0) & ((1ULL << m_bits.pid_bits) - 1));
-    fid.lfid       = (GPID)((id >> m_bits.pid_bits) & ((1ULL << m_bits.fid_bits) - 1));
+    fid.pid        =  (PID)((id >>               0) & ((1ULL << m_bits.pid_bits) - 1));
+    fid.lfid       = (LFID)((id >> m_bits.pid_bits) & ((1ULL << m_bits.fid_bits) - 1));
     fid.capability = id >> (m_bits.pid_bits + m_bits.fid_bits);
     return fid;
 }

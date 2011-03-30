@@ -186,8 +186,8 @@ int main(int argc, char** argv)
                      config.m_regs, config.m_loads, !config.m_interactive, !config.m_earlyquit);
 
 #ifdef ENABLE_MONITOR
-        string mo_mdfile = configfile.getString("MonitorMetadataFile", "mgtrace.md");
-        string mo_tfile = configfile.getString("MonitorTraceFile", "mgtrace.out");
+        string mo_mdfile = configfile.getValue<string>("MonitorMetadataFile", "mgtrace.md");
+        string mo_tfile = configfile.getValue<string>("MonitorTraceFile", "mgtrace.out");
         Monitor mo(sys, config.m_enableMonitor, 
                    mo_mdfile, config.m_earlyquit ? "" : mo_tfile, !config.m_interactive);
 #endif

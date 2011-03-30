@@ -37,7 +37,7 @@ main:
 
     # Create family
     clr      $2
-    allocate $2, 0, 0, 0, 0
+    allocate/s $2, 0, 0, 0, 0
     setlimit $2, $10; swch
     setblock $2, 1
     cred    $2, with_0_set_0
@@ -47,7 +47,7 @@ main:
  /*   
     # Call print
     clr      $2
-    allocate $2, 0, 0, 0, 0
+    allocate/s $2, 0, 0, 0, 0
     cred    $2, print
     mov     $2, $31         # Sync
     end
@@ -69,7 +69,7 @@ with_0_set_0:
     mov     $g1, $l2
     ldl     $l3, 16($g0)
     clr      $l4
-    allocate $l4, 0, 0, 0, 0
+    allocate/s $l4, 0, 0, 0, 0
     setlimit $l4, $l3; swch
     setblock $l4, 1
     cred    $l4, fun

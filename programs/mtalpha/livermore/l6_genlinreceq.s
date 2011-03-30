@@ -30,7 +30,7 @@
 main:
     ldgp    $29, 0($27)
     
-    allocate 2, $4          #place = LOCAL
+    allocate/s $31, 0, $4
     setstart $4, 1
     setlimit $4, $10
     setblock $4, 2
@@ -63,7 +63,7 @@ main:
     .ent outer
     .registers 2 1 6 0 0 2    
 outer:
-    allocate $31, $l3
+    allocate/s $31, 0, $l3
     setlimit $l3, $l0; swch
     mov     $d0, $31; swch
     cred    $l3, inner

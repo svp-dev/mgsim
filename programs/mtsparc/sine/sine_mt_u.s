@@ -12,7 +12,7 @@
     .globl main
 main:
     clr      $2
-	allocateng $2
+	allocate $2
 	
     # Calculate the sine of 2 (in radians)
     addq    $31, 2, $0
@@ -24,10 +24,10 @@ main:
 	cpys    $f0, $f0, $f0	# $f0 = x
 	cpys    $f0, $f0, $f1	# $f1 = x (iteration)
 	cpys    $f0, $f0, $f2	# $f2 = x (power series)
-	setstartng $2, 2; swch
-	setlimitng $2, TAYLOR_ITERATIONS * 2
-	setstepng  $2, 2
-	setblockng $2, 2
+	setstart $2, 2; swch
+	setlimit $2, TAYLOR_ITERATIONS * 2
+	setstep  $2, 2
+	setblock $2, 2
 	cred    $2, sin
 	mov     $2, $31
 	end

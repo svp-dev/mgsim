@@ -24,7 +24,6 @@ namespace Simulator {
         std::vector<Processor*> m_procs;
         std::vector<FPU*>       m_fpus;
         std::vector<Object*>    m_objects;
-        std::vector<PlaceInfo*> m_places;
         SymbolTable        m_symtable;
         BreakPoints        m_breakpoints;
         IMemoryAdmin*      m_memory;

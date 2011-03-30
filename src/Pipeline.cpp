@@ -24,7 +24,6 @@ Pipeline::Pipeline(
     const std::string&  name,
     Processor&          parent,
     Clock&              clock,
-    LPID                lpid,
     RegisterFile&       regFile,
     Network&            network,
     Allocator&          alloc,
@@ -49,7 +48,7 @@ Pipeline::Pipeline(
     m_active.Sensitive(p_Pipeline);
     
     // Number of forwarding delay slots between the Memory and Writeback stage
-    const size_t num_dummy_stages = config.getInteger<size_t>("NumPipelineDummyStages", 0);
+    const size_t num_dummy_stages = config.getValue<size_t>("NumPipelineDummyStages", 0);
     
     m_stages.resize( num_dummy_stages + NUM_FIXED_STAGES );
 
@@ -59,7 +58,7 @@ Pipeline::Pipeline(
     
 
     // Create the Fetch stage
-    m_stages[0].stage  = new FetchStage(*this, clock, m_fdLatch, alloc, familyTable, threadTable, icache, lpid, config);
+    m_stages[0].stage  = new FetchStage(*this, clock, m_fdLatch, alloc, familyTable, threadTable, icache, config);
     m_stages[0].input  = NULL;
     m_stages[0].output = &m_fdLatch;
 
@@ -301,14 +300,13 @@ static std::ostream& operator << (std::ostream& out, const RemoteRegAddr& rreg)
         {
         case RRT_DETACH:          out << "Detach"; break;
         case RRT_GLOBAL:          out << "Global "          << rreg.reg.str(); break;
-        case RRT_NEXT_DEPENDENT:  out << "Next Dependent "  << rreg.reg.str(); break;
         case RRT_FIRST_DEPENDENT: out << "First Dependent " << rreg.reg.str(); break;
         case RRT_LAST_SHARED:     out << "Last Shared "     << rreg.reg.str(); break;
         default:                  assert(false); break;
         }
     
         out << ", F" << dec << rreg.fid.lfid;
-        if (rreg.fid.pid != INVALID_GPID) {
+        if (rreg.fid.pid != INVALID_PID) {
             out << "@CPU" << rreg.fid.pid;
         }
     }
@@ -363,7 +361,7 @@ void Pipeline::Cmd_Read(std::ostream& out, const std::vector<std::string>& /*arg
              << " | Rb:           " << m_drLatch.Rb << "/" << m_drLatch.RbSize << endl
              << " | Rc:           " << m_drLatch.Rc << "/" << m_drLatch.RcSize << endl
 #if TARGET_ARCH == ARCH_SPARC
-             << " | Rs:           " << m_drLatch.Rs << "/" << m_drLatch.RcSize << endl
+             << " | Rs:           " << m_drLatch.Rs << "/" << m_drLatch.RsSize << endl
 #endif
             ;
     }
@@ -385,9 +383,9 @@ void Pipeline::Cmd_Read(std::ostream& out, const std::vector<std::string>& /*arg
              << " | Function:     0x" << setw(4) << m_reLatch.function << endl
              << " | Displacement: 0x" << setw(8) << m_reLatch.displacement << endl
 #elif TARGET_ARCH == ARCH_SPARC
-             << " | Op1:          0x" << setw(2) << (unsigned)m_drLatch.op1
-             << "    Op2: 0x" << setw(2) << (unsigned)m_drLatch.op2 
-             << "    Op3: 0x" << setw(2) << (unsigned)m_drLatch.op3 << endl
+             << " | Op1:          0x" << setw(2) << (unsigned)m_reLatch.op1
+             << "    Op2: 0x" << setw(2) << (unsigned)m_reLatch.op2 
+             << "    Op3: 0x" << setw(2) << (unsigned)m_reLatch.op3 << endl
              << " | Function:     0x" << setw(4) << m_reLatch.function << endl
              << " | Displacement: 0x" << setw(8) << m_reLatch.displacement << endl
 #endif

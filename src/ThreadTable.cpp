@@ -13,7 +13,7 @@ namespace Simulator
 
 ThreadTable::ThreadTable(const std::string& name, Processor& parent, Clock& clock, const Config& config)
   : Object(name, parent, clock),
-    m_threads(config.getInteger<size_t>("NumThreads", 64)),
+    m_threads(config.getValue<size_t>("NumThreads", 64)),
     m_totalalloc(0), m_maxalloc(0), m_lastcycle(0), m_curalloc(0)
 {
     RegisterSampleVariableInObject(m_totalalloc, SVC_CUMULATIVE);
@@ -81,12 +81,12 @@ void ThreadTable::CheckStateSanity() const
 #endif
 }
 
-TSize ThreadTable::GetNumFreeThreads() const
+TSize ThreadTable::GetNumFreeThreads(ContextType type) const
 {
     // Check that we are in a sane state
     CheckStateSanity();
     
-    return m_free[CONTEXT_NORMAL];
+    return m_free[type];
 }
 
 void ThreadTable::ReserveThread()
@@ -234,8 +234,7 @@ void ThreadTable::Cmd_Read(ostream& out, const vector<string>& arguments) const
                 out << " "
                     << (thread.dependencies.prevCleanedUp ? 'P' : '.')
                     << (thread.dependencies.killed        ? 'K' : '.')
-                    << (thread.isLastThreadInBlock        ? 'L' : '.')
-                    << "  | "
+                    << "   | "
                     << setw(2) << setfill(' ') << thread.dependencies.numPendingWrites
                     << " | ";
 

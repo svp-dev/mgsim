@@ -17,37 +17,19 @@ class Config;
 namespace Simulator
 {
 
-struct PlaceInfo : public Object
-{
-    PSize        m_size;            ///< Number of processors in the place
-    CombinedFlag m_full_context;    ///< Place-global signal for free context identification
-    MultiFlag    m_reserve_context; ///< Place-global flag for reserving a context
-    CombinedFlag m_want_token;      ///< Place-global signal for token request
-
-    PlaceInfo(const std::string& name, Clock& clock, Object& parent, unsigned int size)
-        : Object(name, parent, clock),
-        m_size(size),
-        m_full_context("f_fullContext", *this, clock, size),
-        m_reserve_context("f_reserveContext", *this, clock, false),
-        m_want_token("f_wantToken", *this, clock, size)
-    {
-    }
-};
-
 class FPU;
 
 class Processor : public Object, public IMemoryCallback
 {
 public:
-    Processor(const std::string& name, Object& parent, Clock& clock, GPID pid, LPID lpid, const std::vector<Processor*>& grid, PSize gridSize, PlaceInfo& place, IMemory& m_memory, FPU& fpu, const Config& config);
+    Processor(const std::string& name, Object& parent, Clock& clock, PID pid, const std::vector<Processor*>& grid, IMemory& m_memory, FPU& fpu, const Config& config);
     ~Processor();
     
-    void Initialize(Processor& prev, Processor& next, MemAddr runAddress, bool legacy);
+    void Initialize(Processor* prev, Processor* next, MemAddr runAddress, bool legacy);
 
-    GPID    GetPID()       const { return m_pid; }
-    PSize   GetPlaceSize() const { return m_place.m_size; }
-    PSize   GetGridSize()  const { return m_gridSize; }
-    bool    IsIdle()       const;
+    PID   GetPID()      const { return m_pid; }
+    PSize GetGridSize() const { return m_grid.size(); }
+    bool  IsIdle()      const;
 
 
     Pipeline& GetPipeline() { return m_pipeline; }
@@ -70,7 +52,7 @@ public:
 
     unsigned int GetNumSuspendedRegisters() const;
     
-    Integer GetProfileWord(unsigned int i) const;
+    Integer GetProfileWord(unsigned int i, PSize placeSize) const;
 	
     void WriteRegister(const RegAddr& addr, const RegValue& value) {
         m_registerFile.WriteRegister(addr, value);
@@ -80,6 +62,7 @@ public:
     MemAddr     GetTLSAddress(LFID fid, TID tid) const;
     MemSize     GetTLSSize() const;
     PlaceID     UnpackPlace(Integer id) const;
+    Integer     PackPlace(const PlaceID& id) const;
     FID         UnpackFID(Integer id) const;
     Integer     PackFID(const FID& fid) const;
     FCapability GenerateFamilyCapability() const;
@@ -95,11 +78,9 @@ public:
     Network& GetNetwork() { return m_network; }
 
 private:
-    GPID                           m_pid;
+    PID                            m_pid;
     IMemory&	                   m_memory;
     const std::vector<Processor*>& m_grid;
-    PSize                          m_gridSize;
-    PlaceInfo&                     m_place;
     FPU&                           m_fpu;
     
     // Bit counts for packing and unpacking configuration-dependent values
@@ -116,7 +97,7 @@ private:
     bool OnMemoryInvalidated(MemAddr addr);
     bool OnMemorySnooped(MemAddr addr, const MemData& data);
 
-    // The components on the chip
+    // The components on the core
     Allocator       m_allocator;
     ICache          m_icache;
     DCache          m_dcache;

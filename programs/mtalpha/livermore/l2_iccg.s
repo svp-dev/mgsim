@@ -37,7 +37,7 @@ main:
     lda     $29, 0($29)     !gpdisp!1   # $29 = GP
     
     negq    1, $5
-    allocate $31, $4
+    allocate/s $31, 0, $4
     setstart $4, $10
     setlimit $4, $5
     setstep  $4, $5
@@ -72,7 +72,7 @@ main:
     .ent outer
     .registers 3 1 3 0 0 0
 outer:
-    allocate $31, $l1
+    allocate/s $31, 0, $l1
     sll      $g2, $l0, $l0       # $l0 = 1 << m = ii
     setlimit $l1, $l0; swch
     setstart $l1, 1

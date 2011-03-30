@@ -8,9 +8,10 @@
 using namespace std;
 using namespace Simulator;
 
-bool Config::getBoolean(const string& name, const bool def) const
+template <>
+bool Config::getValue<bool>(const std::string& name, const bool& def) const
 {
-    string val = getString(name, def ? "true" : "false");
+    string val = getValue<std::string>(name, def ? "true" : "false");
     transform(val.begin(), val.end(), val.begin(), ::toupper);
 
     // Check for the boolean values
@@ -24,8 +25,10 @@ bool Config::getBoolean(const string& name, const bool def) const
     return (!stream.fail() && stream.eof()) ? i != 0 : def;
 }
 
-string Config::getString(string name, const string& def) const
+template <>
+std::string Config::getValue<std::string>(const std::string& name_, const std::string& def) const
 {
+    std::string name(name_);
     transform(name.begin(), name.end(), name.begin(), ::toupper);
     ConfigMap::const_iterator p = m_overrides.find(name);
     if (p != m_overrides.end())

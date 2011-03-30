@@ -73,7 +73,7 @@ Pipeline::PipeAction Pipeline::MemoryStage::OnCycle()
                 unsigned int i = (m_input.address - 8) / sizeof(Integer);
                 rcv.m_state = RST_FULL;
                 rcv.m_size  = m_input.Rcv.m_size;
-                rcv.m_integer.set( m_parent.GetProcessor().GetProfileWord(i), rcv.m_size);
+                rcv.m_integer.set( m_parent.GetProcessor().GetProfileWord(i, m_input.placeSize), rcv.m_size);
                 if (i == 0) ++ m_nCycleSampleOps; else ++ m_nOtherSampleOps;
 
                 // Check for breakpoints

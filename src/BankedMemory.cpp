@@ -381,25 +381,18 @@ bool BankedMemory::CheckPermissions(MemAddr address, MemSize size, int access) c
 BankedMemory::BankedMemory(const std::string& name, Object& parent, Clock& clock, const Config& config) :
     Object(name, parent, clock),
     m_clock(clock),
-    m_baseRequestTime(config.getInteger<CycleNo>("MemoryBaseRequestTime", 1)),
-    m_timePerLine    (config.getInteger<CycleNo>("MemoryTimePerLine", 1)),
-    m_sizeOfLine     (config.getInteger<size_t> ("MemorySizeOfLine", 8)),
-    m_cachelineSize  (config.getInteger<size_t> ("CacheLineSize", 64)),
+    m_clients        (config.getValue<size_t>("NumProcessors", 1)),
+    m_banks          (config.getValue<size_t>("MemoryBanks", config.getValue<size_t>("NumProcessors", 1))),
+    m_baseRequestTime(config.getValue<CycleNo>("MemoryBaseRequestTime", 1)),
+    m_timePerLine    (config.getValue<CycleNo>("MemoryTimePerLine", 1)),
+    m_sizeOfLine     (config.getValue<size_t> ("MemorySizeOfLine", 8)),
+    m_cachelineSize  (config.getValue<size_t> ("CacheLineSize", 64)),
     m_nreads         (0),
     m_nread_bytes    (0),
     m_nwrites        (0),
     m_nwrite_bytes   (0)
 {
-    const BufferSize buffersize = config.getInteger<BufferSize>("MemoryBufferSize", INFINITE);
-
-    // Get the number of banks
-    const vector<PSize> placeSizes = config.getIntegerList<PSize>("NumProcessors");
-    PSize numProcessors = 0;
-    for (size_t i = 0; i < placeSizes.size(); ++i) {
-        numProcessors += placeSizes[i];
-    }
-    m_clients.resize(numProcessors);
-    m_banks.resize(config.getInteger<size_t>("MemoryBanks", numProcessors));
+    const BufferSize buffersize = config.getValue<BufferSize>("MemoryBufferSize", INFINITE);
     
     // Initialize client info
     for (size_t i = 0; i < m_clients.size(); ++i)

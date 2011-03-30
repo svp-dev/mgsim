@@ -9,9 +9,11 @@
     .globl main
     .align 64
 main:
-    allocateng 0, %2
-    setlimitng %2, 250
-    cred foo, %2
+    clr %2
+    allocates %2
+    setlimit %2, 250
+    set foo, %5
+    crei %5, %2
     
     set X, %5
     ld  [%5], %1

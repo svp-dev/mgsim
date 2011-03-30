@@ -16,30 +16,33 @@ static const int RC_SHIFT       = 25;
 static const int REG_MASK       = 0x1F;
 static const int OP1_SHIFT      = 30;
 static const int OP1_MASK       = 0x3;
-static const int OP1_DISP_SHIFT = 0;
-static const int OP1_DISP_SIZE  = 30;
-static const int OP1_DISP_MASK  = (1 << OP1_DISP_SIZE) - 1;
 static const int OP2_SHIFT      = 22;
 static const int OP2_MASK       = 0x7;
-static const int OP2_DISP_SHIFT = 0;
-static const int OP2_DISP_SIZE  = 22;
-static const int OP2_DISP_MASK  = (1 << OP2_DISP_SIZE) - 1;
-static const int IMM_SHIFT      = 0;
-static const int IMM_MASK       = 0x3FFFFF;
-static const int COND_SHIFT     = 25;
-static const int COND_MASK      = 0xF;
 static const int OP3_SHIFT      = 19;
 static const int OP3_MASK       = 0x3F;
+static const int COND_SHIFT     = 25;
+static const int COND_MASK      = 0xF;
 static const int ASI_SHIFT      = 5;
 static const int ASI_MASK       = 0xFF;
-static const int IMMEDIATE      = (1 << 13);
-static const int SIMM_SHIFT     = 0;
-static const int SIMM_SIZE      = 13;
-static const int SIMM_MASK      = (1 << SIMM_SIZE) - 1;
+static const int UTASI_SHIFT    = 5;
+static const int UTASI_MASK     = 0xF;
+static const int BIT_IMMEDIATE  = (1 << 13);
+static const int IMM30_SHIFT    = 0;
+static const int IMM30_SIZE     = 30;
+static const int IMM30_MASK     = (1 << IMM30_SIZE) - 1;
+static const int IMM22_SHIFT    = 0;
+static const int IMM22_SIZE     = 22;
+static const int IMM22_MASK     = (1 << IMM22_SIZE) - 1;
+static const int IMM13_SHIFT    = 0;
+static const int IMM13_SIZE     = 13;
+static const int IMM13_MASK     = (1 << IMM13_SIZE) - 1;
+static const int IMM9_SHIFT     = 0;
+static const int IMM9_SIZE      = 9;
+static const int IMM9_MASK      = (1 << IMM9_SIZE) - 1;
 static const int OPF_SHIFT      = 5;
 static const int OPF_MASK       = (1 << 9) - 1;
-static const int OPT_SHIFT      = 5;
-static const int OPT_MASK       = (1 << 9) - 1;
+static const int OPT_SHIFT      = 9;
+static const int OPT_MASK       = (1 << 4) - 1;
 
 // Function for getting a register's type and index within that type
 unsigned char GetRegisterClass(unsigned char addr, const RegsNo& regs, RegClass* rc)
@@ -48,31 +51,32 @@ unsigned char GetRegisterClass(unsigned char addr, const RegsNo& regs, RegClass*
     assert(regs.shareds < 32);
     assert(regs.locals  < 32);
 
-    // SPARC has r0 as RAZ, so we flip everything around.
-    addr = (unsigned char)(31 - addr);
-    
-    if (addr < regs.globals)
+    if (addr > 0)
     {
-        *rc = RC_GLOBAL;
-        return (unsigned char)(regs.globals - 1 - addr);
-    }
-    addr -= regs.globals;
-    if (addr < regs.shareds)
-    {
-        *rc = RC_SHARED;
-        return (unsigned char)(regs.shareds - 1 - addr);
-    }
-    addr -= regs.shareds;
-    if (addr < regs.locals)
-    {
-        *rc = RC_LOCAL;
-        return (unsigned char)(regs.locals - 1 - addr);
-    }
-    addr -= regs.locals;
-    if (addr < regs.shareds)
-    {
-        *rc = RC_DEPENDENT;
-        return (unsigned char)(regs.shareds - 1 - addr);
+        addr--;
+        if (addr < regs.locals)
+        {
+            *rc = RC_LOCAL;
+            return addr;
+        }
+        addr -= regs.locals;
+        if (addr < regs.globals)
+        {
+            *rc = RC_GLOBAL;
+            return addr;
+        }
+        addr -= regs.globals;
+        if (addr < regs.shareds)
+        {
+            *rc = RC_SHARED;
+            return addr;
+        }
+        addr -= regs.shareds;
+        if (addr < regs.shareds)
+        {
+            *rc = RC_DEPENDENT;
+            return addr;
+        }
     }
     *rc = RC_RAZ;
     return 0;
@@ -106,35 +110,28 @@ void Pipeline::DecodeStage::DecodeInstruction(const Instruction& instr)
         {
         case S_OP2_SETHI:
             // We need to read it first
-            m_output.literal = (instr >> IMM_SHIFT) & IMM_MASK;
+            m_output.literal = (instr >> IMM22_SHIFT) & IMM22_MASK;
             m_output.Rc      = MAKE_REGADDR(RT_INTEGER, Rc);
-            break;
-
-        case S_OP2_CRED:
-            // Create reads and writes Rc
-            m_output.Ra = MAKE_REGADDR(RT_INTEGER, Rc);
-            m_output.Rc = MAKE_REGADDR(RT_INTEGER, Rc);
-            m_output.displacement = SEXT((instr >> OP2_DISP_SHIFT) & OP2_DISP_MASK, OP2_DISP_SIZE);
             break;
 
         default:
             // We don't care about the annul bit (not supported; obviously this presents a problem with legacy code later)
-            m_output.displacement = SEXT((instr >> OP2_DISP_SHIFT) & OP2_DISP_MASK, OP2_DISP_SIZE);
+            m_output.displacement = SEXT((instr >> IMM22_SHIFT) & IMM22_MASK, IMM22_SIZE);
             m_output.function     = (uint16_t)((instr >> COND_SHIFT) & COND_MASK);
             break;
         }
         break;
         
     case S_OP1_CALL:
-        m_output.displacement = SEXT((instr >> OP1_DISP_SHIFT) & OP1_DISP_MASK, OP1_DISP_SIZE);
+        m_output.displacement = SEXT((instr >> IMM30_SHIFT) & IMM30_MASK, IMM30_SIZE);
         m_output.Rc = MAKE_REGADDR(RT_INTEGER, 15);
         break;
 
     case S_OP1_MEMORY:
         m_output.op3 = (uint8_t)((instr >> OP3_SHIFT) & OP3_MASK);
         m_output.Ra  = MAKE_REGADDR(RT_INTEGER, Ra);
-        if (instr & IMMEDIATE) {
-            m_output.literal = SEXT((instr >> SIMM_SHIFT) & SIMM_MASK, SIMM_SIZE);
+        if (instr & BIT_IMMEDIATE) {
+            m_output.literal = SEXT((instr >> IMM13_SHIFT) & IMM13_MASK, IMM13_SIZE);
         } else  {
             m_output.asi = (uint8_t)((instr >> ASI_SHIFT) & ASI_MASK);
             m_output.Rb  = MAKE_REGADDR(RT_INTEGER, Rb);
@@ -200,31 +197,9 @@ void Pipeline::DecodeStage::DecodeInstruction(const Instruction& instr)
             
     case S_OP1_OTHER:
         m_output.op3 = (uint8_t)((instr >> OP3_SHIFT) & OP3_MASK);
+        m_output.asi = (uint8_t)((instr >> ASI_SHIFT) & ASI_MASK);
         switch (m_output.op3)
         {
-        case S_OP3_UTOP1:
-            m_output.function = (uint16_t)((instr >> OPT_SHIFT) & OPT_MASK);
-            m_output.Ra = MAKE_REGADDR(RT_INTEGER, Ra);
-            m_output.Rb = MAKE_REGADDR(RT_INTEGER, Rb);
-            m_output.Rc = MAKE_REGADDR(RT_INTEGER, Rc);
-            switch (m_output.function)
-            {
-            case S_OPT_PUTS:
-            case S_OPT_PUTG:
-                m_output.regofs = Rc;
-                m_output.Rc     = INVALID_REG;
-                break;
-                
-            case S_OPT_GETS:
-                m_output.regofs = Rb;
-                m_output.Rb     = INVALID_REG;
-                break;
-            
-            default:
-                break;
-            }
-            break;
-            
         case S_OP3_FPOP1:
         case S_OP3_FPOP2:
             // FP operation
@@ -235,21 +210,6 @@ void Pipeline::DecodeStage::DecodeInstruction(const Instruction& instr)
 
             switch (m_output.function)
             {
-            // Move to global/first dependent
-            case S_OPF_FPUTS:
-            case S_OPF_FPUTG:
-                m_output.regofs = Rc;
-                m_output.Ra     = MAKE_REGADDR(RT_INTEGER, Ra);
-                m_output.Rc     = INVALID_REG;
-                break;
-                
-            // Move from last shared
-            case S_OPF_FGETS:
-                m_output.regofs = Rb;
-                m_output.Ra     = MAKE_REGADDR(RT_INTEGER, Ra);
-                m_output.Rb     = INVALID_REG;
-                break;
-            
             // Convert Int to FP
             case S_OPF_FITOS: m_output.RaSize = m_output.RcSize =  4; break;
             case S_OPF_FITOD: m_output.RaSize = m_output.RcSize =  8; break;
@@ -294,27 +254,78 @@ void Pipeline::DecodeStage::DecodeInstruction(const Instruction& instr)
             }
             break;
             
-        case S_OP3_WRSR:
+        case S_OP3_WRASR:
             // This instruction needs the Rc specifier, but we can't put it in the literal,
             // so we abuse the displacement field so the EX stage can use it
             m_output.Ra = MAKE_REGADDR(RT_INTEGER, Ra);
-            m_output.Rb = MAKE_REGADDR(RT_INTEGER, Rb);
             m_output.displacement = Rc;
+            m_output.function = (uint16_t)((instr >> OPT_SHIFT) & OPT_MASK);
+            m_output.asi = (instr >> UTASI_SHIFT) & UTASI_MASK;
+
+            if (instr & BIT_IMMEDIATE) {
+                m_output.literal = (Rc == 0x14)
+                    ? SEXT((instr >> IMM9_SHIFT ) & IMM9_MASK , IMM9_SIZE)
+                    : SEXT((instr >> IMM13_SHIFT) & IMM13_MASK, IMM13_SIZE);
+            } else {
+                m_output.Rb = MAKE_REGADDR(RT_INTEGER, Rb);
+            }           
+
+            switch (m_output.function)
+            {
+            case S_OPT_CREATE:
+                // Special case, Rc is output as well
+                m_output.Rc = MAKE_REGADDR(RT_INTEGER, Ra);
+                break;
+
+            case S_OPT_FPUTS:
+            case S_OPT_FPUTG:
+                m_output.Rb = MAKE_REGADDR(RT_FLOAT, Rb);
+                break;
+
+            default:
+                break;
+            }
             break;
 
-        case S_OP3_RDSR:
+        case S_OP3_RDASR:
             // This instruction needs the Ra specifier, so we put it in the
-            // displacement just like for WRSR.
-            m_output.Rc = MAKE_REGADDR(RT_INTEGER, Rc);
+            // displacement just like for WRASR.
             m_output.displacement = Ra;
+            m_output.function = (uint16_t)((instr >> OPT_SHIFT) & OPT_MASK);
+            m_output.asi = (instr >> UTASI_SHIFT) & UTASI_MASK;
+
+            if (instr & BIT_IMMEDIATE) {
+                m_output.literal = SEXT((instr >> IMM9_SHIFT) & IMM9_MASK, IMM9_SIZE);
+            } else {
+                m_output.Rb  = MAKE_REGADDR(RT_INTEGER, Rb);
+            }
+            
+            switch (m_output.function)
+            {
+            case S_OPT_ALLOCATE:
+            case S_OPT_ALLOCATES:
+            case S_OPT_ALLOCATEX:
+                // Special case, Rc is input as well
+                m_output.Ra = MAKE_REGADDR(RT_INTEGER, Rc);
+                m_output.Rc = MAKE_REGADDR(RT_INTEGER, Rc);
+                break;
+
+            case S_OPT_FGETS:
+                m_output.Rc = MAKE_REGADDR(RT_FLOAT, Rc);
+                break;
+                
+            default:
+                m_output.Rc = MAKE_REGADDR(RT_INTEGER, Rc);
+                break;
+            }
             break;
             
         default:
             // Integer operation
             m_output.Ra = MAKE_REGADDR(RT_INTEGER, Ra);
             m_output.Rc = MAKE_REGADDR(RT_INTEGER, Rc);
-            if (instr & IMMEDIATE) {
-                m_output.literal = SEXT((instr >> SIMM_SHIFT) & SIMM_MASK, SIMM_SIZE);
+            if (instr & BIT_IMMEDIATE) {
+                m_output.literal = SEXT((instr >> IMM13_SHIFT) & IMM13_MASK, IMM13_SIZE);
             } else {
                 m_output.Rb  = MAKE_REGADDR(RT_INTEGER, Rb);
             }
@@ -483,6 +494,172 @@ static void ThrowIllegalInstructionException(Object& obj, MemAddr pc)
     throw IllegalInstructionException(obj, error.str());
 }
 
+Pipeline::PipeAction Pipeline::ExecuteStage::ExecReadASR20(uint8_t func)
+{
+    assert(m_input.Rav.m_size == sizeof(Integer));
+    assert(m_input.Rbv.m_size == sizeof(Integer));
+    Integer Rav = m_input.Rav.m_integer.get(m_input.Rav.m_size);
+    Integer Rbv = m_input.Rbv.m_integer.get(m_input.Rbv.m_size);
+
+    switch (func)
+    {
+        case S_OPT_ALLOCATE:
+        case S_OPT_ALLOCATES:
+        case S_OPT_ALLOCATEX:
+        {
+            PlaceID place = m_parent.GetProcessor().UnpackPlace(Rav);
+            if (!ExecAllocate(place, m_input.Rc.index, func != S_OPT_ALLOCATE, func == S_OPT_ALLOCATEX, Rbv & 1))
+            {
+                return PIPE_STALL;
+            }
+            break;
+        }
+        
+        case S_OPT_SYNC:
+            if (!ExecSync(m_parent.GetProcessor().UnpackFID(Rbv))) {
+                return PIPE_STALL;
+            }
+            break;
+            
+        case S_OPT_GETTID:
+        case S_OPT_GETFID:
+        case S_OPT_GETPID:
+        case S_OPT_GETCID:
+            COMMIT {
+                m_output.Rcv.m_state   = RST_FULL;
+                switch (m_input.function)
+                {
+                case S_OPT_GETFID: m_output.Rcv.m_integer = m_input.fid; break;
+                case S_OPT_GETTID: m_output.Rcv.m_integer = m_input.tid; break;
+                case S_OPT_GETCID: m_output.Rcv.m_integer = m_parent.GetProcessor().GetPID(); break;
+                case S_OPT_GETPID:
+                {
+                    PlaceID place;
+                    place.size = m_input.placeSize;
+                    place.pid  = m_parent.GetProcessor().GetPID();
+                    place.capability = 0;
+                    m_output.Rcv.m_integer = m_parent.GetProcessor().PackPlace(place);
+                    break;
+                }
+                }
+            }
+            break;
+
+        case S_OPT_LDBP:
+            COMMIT {
+                // TLS base pointer: base address of TLS
+                m_output.Rcv.m_integer = m_parent.GetProcessor().GetTLSAddress(m_input.fid, m_input.tid);
+                m_output.Rcv.m_state   = RST_FULL;
+            }
+            break;
+
+        case S_OPT_LDFP:
+            COMMIT {
+                /// TLS frame (stack) pointer: top of TLS
+                const MemAddr tls_base = m_parent.GetProcessor().GetTLSAddress(m_input.fid, m_input.tid);
+                const MemAddr tls_size = m_parent.GetProcessor().GetTLSSize();
+                m_output.Rcv.m_integer = tls_base + tls_size;
+                m_output.Rcv.m_state   = RST_FULL;
+            }
+            break;
+        
+        case S_OPT_GETS:
+            if (!MoveFamilyRegister(RRT_LAST_SHARED, RT_INTEGER, m_parent.GetProcessor().UnpackFID(Rbv), m_input.asi)) {
+                return PIPE_STALL;
+            }
+            break;
+
+        case S_OPT_FGETS:
+            if (!MoveFamilyRegister(RRT_LAST_SHARED, RT_FLOAT, m_parent.GetProcessor().UnpackFID(Rbv), m_input.asi)) {
+                return PIPE_STALL;
+            }
+            break;
+            
+        default:
+            ThrowIllegalInstructionException(*this, m_input.pc);
+            break;
+    }
+    return PIPE_CONTINUE;
+}
+
+Pipeline::PipeAction Pipeline::ExecuteStage::ExecWriteASR20(uint8_t func)
+{
+    assert(m_input.Rav.m_size == sizeof(Integer));
+    assert(m_input.Rbv.m_size == sizeof(Integer));
+    Integer Rav = m_input.Rav.m_integer.get(m_input.Rav.m_size);
+    Integer Rbv = m_input.Rbv.m_integer.get(m_input.Rbv.m_size);
+    
+    switch (func)
+    {
+        case S_OPT_SETSTART: case S_OPT_SETLIMIT: case S_OPT_SETSTEP: case S_OPT_SETBLOCK:
+        {
+            FamilyProperty prop;
+            switch (func)
+            {
+            default:
+            case S_OPT_SETSTART: prop = FAMPROP_START; break;
+            case S_OPT_SETLIMIT: prop = FAMPROP_LIMIT; break;
+            case S_OPT_SETSTEP:  prop = FAMPROP_STEP;  break;
+            case S_OPT_SETBLOCK: prop = FAMPROP_BLOCK; break;
+            }
+            FID fid = m_parent.GetProcessor().UnpackFID(Rav);
+            return SetFamilyProperty(fid, prop, Rbv);
+        }
+
+        case S_OPT_CREATE:
+        {
+            FID     fid  = m_parent.GetProcessor().UnpackFID(Rav);
+            MemAddr addr = Rbv;
+            return ExecCreate(fid, addr, m_input.Rc.index);
+        }
+
+        case S_OPT_PUTG:
+            if (!MoveFamilyRegister(RRT_GLOBAL, RT_INTEGER, m_parent.GetProcessor().UnpackFID(Rav), m_input.asi)) {
+                return PIPE_STALL;
+            }
+            break;
+            
+        case S_OPT_PUTS:
+            if (!MoveFamilyRegister(RRT_FIRST_DEPENDENT, RT_INTEGER, m_parent.GetProcessor().UnpackFID(Rav), m_input.asi)) {
+                return PIPE_STALL;
+            }
+            break;
+        
+        case S_OPT_FPUTG:
+            if (!MoveFamilyRegister(RRT_GLOBAL, RT_FLOAT, m_parent.GetProcessor().UnpackFID(Rav), m_input.asi)) {
+                return PIPE_STALL;
+            }
+            break;
+            
+        case S_OPT_FPUTS:
+            if (!MoveFamilyRegister(RRT_FIRST_DEPENDENT, RT_FLOAT, m_parent.GetProcessor().UnpackFID(Rav), m_input.asi)) {
+                return PIPE_STALL;
+            }
+            break;
+            
+        case S_OPT_DETACH:
+            if (!ExecDetach(m_parent.GetProcessor().UnpackFID(Rav))) {
+                return PIPE_STALL;
+            }
+            break;
+            
+        case S_OPT_BREAK:
+            return ExecBreak();
+
+        case S_OPT_PRINT:
+            COMMIT {
+                ExecDebug(Rav, Rbv);
+                m_output.Rc = INVALID_REG;
+            }
+            break;
+
+        default:
+            ThrowIllegalInstructionException(*this, m_input.pc);
+            break;
+    }
+    return PIPE_CONTINUE;
+}
+
 Pipeline::PipeAction Pipeline::ExecuteStage::ExecuteInstruction()
 {
     switch (m_input.op1)
@@ -537,14 +714,6 @@ Pipeline::PipeAction Pipeline::ExecuteStage::ExecuteInstruction()
                 return PIPE_FLUSH;
             }
             break;
-        }
-
-        case S_OP2_CRED:
-        {
-            // Direct create
-            MemAddr target = m_input.pc + m_input.displacement * sizeof(Instruction);
-            FID fid = m_parent.GetProcessor().UnpackFID(m_input.Rav.m_integer.get(m_input.Rav.m_size));
-            return ExecCreate(fid, target, m_input.Rc);
         }
 
         case S_OP2_UNIMPL:
@@ -612,39 +781,6 @@ Pipeline::PipeAction Pipeline::ExecuteStage::ExecuteInstruction()
         
         switch (m_input.op3)
         {
-        case S_OP3_ALLOCATE:
-        {
-            PlaceID place = m_parent.GetProcessor().UnpackPlace(m_input.Rbv.m_integer.get(m_input.Rbv.m_size));
-            if (!ExecAllocate(place, m_input.Rc.index))
-            {
-                return PIPE_STALL;
-            }
-            break;
-        }
-
-        case S_OP3_CREI:
-        {
-            // Indirect create
-            FID     fid  = m_parent.GetProcessor().UnpackFID(m_input.Rav.m_integer.get(m_input.Rav.m_size));
-            MemAddr addr = m_input.Rbv.m_integer.get(m_input.Rbv.m_size);
-            return ExecCreate(fid, addr, m_input.Rc);
-        }
-
-        case S_OP3_SYNC:   if (!ExecSync  (m_parent.GetProcessor().UnpackFID(m_input.Rav.m_integer.get(m_input.Rav.m_size)))) return PIPE_STALL; break;
-        case S_OP3_DETACH: if (!ExecDetach(m_parent.GetProcessor().UnpackFID(m_input.Rav.m_integer.get(m_input.Rav.m_size)))) return PIPE_STALL; break;
-
-        case S_OP3_UTOP1:
-            switch (m_input.function)
-            {
-            case S_OPT_PUTG: if (!MoveFamilyRegister(RRT_GLOBAL,          RT_INTEGER, m_parent.GetProcessor().UnpackFID(m_input.Rav.m_integer.get(m_input.Rav.m_size)), m_input.regofs)) return PIPE_STALL; break;
-            case S_OPT_PUTS: if (!MoveFamilyRegister(RRT_FIRST_DEPENDENT, RT_INTEGER, m_parent.GetProcessor().UnpackFID(m_input.Rav.m_integer.get(m_input.Rav.m_size)), m_input.regofs)) return PIPE_STALL; break;
-            case S_OPT_GETS: if (!MoveFamilyRegister(RRT_LAST_SHARED,     RT_INTEGER, m_parent.GetProcessor().UnpackFID(m_input.Rav.m_integer.get(m_input.Rav.m_size)), m_input.regofs)) return PIPE_STALL; break;
-            default:
-                ThrowIllegalInstructionException(*this, m_input.pc);
-                break;
-            }
-            break;
-            
         case S_OP3_FPOP1:
         case S_OP3_FPOP2:
         {
@@ -655,10 +791,6 @@ Pipeline::PipeAction Pipeline::ExecuteStage::ExecuteInstruction()
             }
             switch (m_input.function)
             {
-            case S_OPF_FPUTG: if (!MoveFamilyRegister(RRT_GLOBAL,          RT_FLOAT, m_parent.GetProcessor().UnpackFID(m_input.Rav.m_integer.get(m_input.Rav.m_size)), m_input.regofs)) return PIPE_STALL; break;
-            case S_OPF_FPUTS: if (!MoveFamilyRegister(RRT_FIRST_DEPENDENT, RT_FLOAT, m_parent.GetProcessor().UnpackFID(m_input.Rav.m_integer.get(m_input.Rav.m_size)), m_input.regofs)) return PIPE_STALL; break;
-            case S_OPF_FGETS: if (!MoveFamilyRegister(RRT_LAST_SHARED,     RT_FLOAT, m_parent.GetProcessor().UnpackFID(m_input.Rav.m_integer.get(m_input.Rav.m_size)), m_input.regofs)) return PIPE_STALL; break;
-            
             // Convert Int to FP
             case S_OPF_FITOS:
             case S_OPF_FITOD:
@@ -786,7 +918,7 @@ Pipeline::PipeAction Pipeline::ExecuteStage::ExecuteInstruction()
             }
             break;
             
-        case S_OP3_RDSR:
+        case S_OP3_RDASR:
             // The displacement field holds the original Ra specifier
             if (m_input.displacement == 0) {
                 // RDY: Read Y Register
@@ -813,6 +945,8 @@ Pipeline::PipeAction Pipeline::ExecuteStage::ExecuteInstruction()
                     }
                 }
                 return PIPE_FLUSH;
+            } else if (m_input.displacement == 20) {
+                return ExecReadASR20(m_input.function);
             } else if (m_input.displacement < 15) {
                 // RDASR: Read Ancillary State Register
                 // We don't support this yet
@@ -824,14 +958,15 @@ Pipeline::PipeAction Pipeline::ExecuteStage::ExecuteInstruction()
             }
             break;
 
-        case S_OP3_WRSR:
+        case S_OP3_WRASR:
         {
-            uint32_t value = (uint32_t)(m_input.Rav.m_integer.get(m_input.Rav.m_size) ^ m_input.Rbv.m_integer.get(m_input.Rbv.m_size));
             if (m_input.displacement == 0) {
                 // WRY: Write Y Register
                 COMMIT {
-                    thread.Y = value;
+                    thread.Y = (uint32_t)(m_input.Rav.m_integer.get(m_input.Rav.m_size) ^ m_input.Rbv.m_integer.get(m_input.Rbv.m_size));
                 }
+            } else if (m_input.displacement == 20) {
+                return ExecWriteASR20(m_input.function);
             } else if (m_input.displacement < 16) {
                 // WRASR: Write Ancillary State Register
                 // We don't support this yet
@@ -875,52 +1010,6 @@ Pipeline::PipeAction Pipeline::ExecuteStage::ExecuteInstruction()
             return PIPE_FLUSH;
         }
         
-        case S_OP3_SETSTART: case S_OP3_SETLIMIT: case S_OP3_SETSTEP:
-        case S_OP3_SETBLOCK:
-        {
-            FamilyProperty prop;
-            switch (m_input.op3)
-            {
-            default:
-            case S_OP3_SETSTART: prop = FAMPROP_START; break;
-            case S_OP3_SETLIMIT: prop = FAMPROP_LIMIT; break;
-            case S_OP3_SETSTEP:  prop = FAMPROP_STEP;  break;
-            case S_OP3_SETBLOCK: prop = FAMPROP_BLOCK; break;
-            }
-            FID fid = m_parent.GetProcessor().UnpackFID(m_input.Rav.m_integer.get(m_input.Rav.m_size));
-            return SetFamilyProperty(fid, prop, m_input.Rbv.m_integer.get(m_input.Rbv.m_size));
-        }
-        
-        case S_OP3_LDBP:
-            COMMIT {
-                // TLS base pointer: base address of TLS
-                m_output.Rcv.m_integer = m_parent.GetProcessor().GetTLSAddress(m_input.fid, m_input.tid);
-                m_output.Rcv.m_state   = RST_FULL;
-            }
-            break;
-
-        case S_OP3_LDFP:
-            COMMIT {
-                /// TLS frame (stack) pointer: top of TLS
-                const MemAddr tls_base = m_parent.GetProcessor().GetTLSAddress(m_input.fid, m_input.tid);
-                const MemAddr tls_size = m_parent.GetProcessor().GetTLSSize();
-                m_output.Rcv.m_integer = tls_base + tls_size;
-                m_output.Rcv.m_state   = RST_FULL;
-            }
-            break;
-        
-        case S_OP3_PRINT:
-            assert(m_input.Rav.m_size == sizeof(Integer));
-            assert(m_input.Rbv.m_size == sizeof(Integer));
-            COMMIT {
-                ExecDebug(
-                    (Integer)m_input.Rav.m_integer.get(m_input.Rav.m_size),
-                    (Integer)m_input.Rbv.m_integer.get(m_input.Rbv.m_size)
-                    );
-                m_output.Rc = INVALID_REG;
-            }
-            break;
-
         case S_OP3_RDPSR:
         case S_OP3_RDWIM:
         case S_OP3_RDTBR:
@@ -934,8 +1023,8 @@ Pipeline::PipeAction Pipeline::ExecuteStage::ExecuteInstruction()
         case S_OP3_RETT:
         case S_OP3_Ticc:
         case S_OP3_FLUSH:
-        //case S_OP3_CPOP1:
-        //case S_OP3_CPOP2:
+        case S_OP3_CPOP1:
+        case S_OP3_CPOP2:
             // We don't support these instructions (yet?)
             ThrowIllegalInstructionException(*this, m_input.pc);
             break;

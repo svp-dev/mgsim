@@ -7,9 +7,11 @@
     .globl main
     .align 64
 main:
-    allocateng %0, %2
-    setlimitng %2, 37
-    cred foo, %2
+    clr %2
+    allocate %2
+    setlimit %2, 37
+    set foo, %1
+    crei %1, %2
     
     fputs %f0, %2, 0
     fputs %f0, %2, 1
@@ -21,9 +23,9 @@ main:
     end
 
     .align 64
-    .registers 0 0 0 0 2 2
+    .registers 0 0 0 0 2 3
 foo:
-    faddd %tdf0, %tdf0, %tlf0
-    fmovs %tlf0, %tsf0; swch
-    fmovs %tlf1, %tsf1
+    faddd %tdf0, %tdf0, %tlf1
+    fmovs %tlf1, %tsf0; swch
+    fmovs %tlf2, %tsf1
     end
