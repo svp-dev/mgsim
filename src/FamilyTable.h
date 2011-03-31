@@ -111,6 +111,7 @@ public:
     void  FreeFamily(LFID fid, ContextType context);
     
     FSize GetNumFreeFamilies(ContextType type) const;
+    FSize GetNumUsedFamilies(ContextType type) const;
     bool  IsEmpty()             const;
     bool  IsExclusive(LFID fid) const { return fid + 1 == m_families.size(); }
     bool  IsExclusiveUsed()     const { return m_free[CONTEXT_EXCLUSIVE] == 0; }

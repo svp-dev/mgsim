@@ -1083,7 +1083,8 @@ Pipeline::PipeAction Pipeline::ExecuteStage::ExecuteInstruction()
                     bool suspend   = (m_input.function == A_UTHREAD_ALLOCATE_S || m_input.function == A_UTHREAD_ALLOCATE_E);
                     bool exclusive = (m_input.function == A_UTHREAD_ALLOCATE_E);
                     bool exact     = flags & 1;
-                    if (!ExecAllocate(place, m_input.Rc.index, suspend, exclusive, exact))
+                    bool balance   = flags & 2;
+                    if (!ExecAllocate(place, m_input.Rc.index, suspend, exclusive, exact, balance))
                     {
                         return PIPE_STALL;
                     }

@@ -325,7 +325,7 @@ class Pipeline : public Object
         bool       ExecDetach(const FID& fid);
         PipeAction SetFamilyProperty(const FID& fid, FamilyProperty property, Integer value);
         PipeAction ExecuteInstruction();
-        bool       ExecAllocate(PlaceID place, RegIndex reg, bool suspend, bool exclusive, bool exact);
+        bool       ExecAllocate(PlaceID place, RegIndex reg, bool suspend, bool exclusive, bool exact, bool balance);
         PipeAction ExecCreate(const FID& fid, MemAddr address, RegIndex completion);
         PipeAction ExecBreak();
         PipeAction ExecKill(const PlaceID& place);

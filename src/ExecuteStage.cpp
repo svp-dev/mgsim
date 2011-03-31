@@ -116,7 +116,7 @@ Pipeline::PipeAction Pipeline::ExecuteStage::OnCycle()
     return action;
 }
 
-bool Pipeline::ExecuteStage::ExecAllocate(PlaceID place, RegIndex reg, bool suspend, bool exclusive, bool exact)
+bool Pipeline::ExecuteStage::ExecAllocate(PlaceID place, RegIndex reg, bool suspend, bool exclusive, bool exact, bool balance)
 {
     if (place.size == 0)
     {
@@ -145,6 +145,8 @@ bool Pipeline::ExecuteStage::ExecAllocate(PlaceID place, RegIndex reg, bool susp
         m_output.Rrc.allocate.suspend        = suspend;
         m_output.Rrc.allocate.exclusive      = exclusive;
         m_output.Rrc.allocate.exact          = exact;
+        m_output.Rrc.allocate.balance        = balance;
+        m_output.Rrc.allocate.completion_pid = m_parent.GetProcessor().GetPID();
         m_output.Rrc.allocate.completion_reg = reg;
             
         m_output.Rcv = MAKE_PENDING_PIPEVALUE(m_input.RcSize);
