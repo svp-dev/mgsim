@@ -1065,7 +1065,7 @@ Pipeline::PipeAction Pipeline::ExecuteStage::ExecuteInstruction()
                         {
                             PlaceID place;
                             place.size = m_input.placeSize;
-                            place.pid  = m_parent.GetProcessor().GetPID();
+                            place.pid  = m_parent.GetProcessor().GetPID() & -place.size;
                             place.capability = 0;
                             m_output.Rcv.m_integer = m_parent.GetProcessor().PackPlace(place);
                             break;
