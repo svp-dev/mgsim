@@ -1127,7 +1127,7 @@ Result Allocator::DoFamilyAllocate()
         msg.allocate.prev_fid       = lfid;
         msg.allocate.size           = req.placeSize;
         msg.allocate.exact          = req.exact;
-        msg.allocate.suspend        = (buffer != &m_allocRequestsNoSuspend);
+        msg.allocate.suspend        = req.exact && (buffer != &m_allocRequestsNoSuspend);
         msg.allocate.completion_pid = req.completion_pid;
         msg.allocate.completion_reg = req.completion_reg;
         
