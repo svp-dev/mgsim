@@ -389,13 +389,16 @@ bool Network::OnDetach(LFID fid)
 
 bool Network::OnBreak(LFID fid)
 {
-    if (!m_allocator.DecreaseFamilyDependency(fid, FAMDEP_ALLOCATION_DONE))
+    const Family& family = m_familyTable[fid];
+    if (!family.dependencies.allocationDone)
     {
-        DeadlockWrite("Unable to mark allocation done of F%u", (unsigned)fid);
-        return false;
+        if (!m_allocator.DecreaseFamilyDependency(fid, FAMDEP_ALLOCATION_DONE))
+        {
+            DeadlockWrite("Unable to mark allocation done of F%u", (unsigned)fid);
+            return false;
+        }
     }
     
-    const Family& family = m_familyTable[fid];
     if (family.link != INVALID_LFID)
     {
         LinkMessage msg;

@@ -14,6 +14,8 @@ TEST_SOURCES = \
     matmul/matmul3.s \
     regression/inf_pipeline_wait_loop.s \
     regression/continuation.s \
+    regression/break.s \
+    regression/conc_break.s \
     regression/exclusive_places.s \
     regression/delegation1.s \
     regression/delegation2.s \
