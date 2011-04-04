@@ -135,6 +135,15 @@ bool Pipeline::ExecuteStage::ExecAllocate(PlaceID place, RegIndex reg, bool susp
         throw SimulationException("Attempting to delegate to a non-existing core");
     }
     
+    AllocationType type = (AllocationType)(flags & 3);
+    if (exclusive && type == ALLOCATE_BALANCED)
+    {
+        type = ALLOCATE_SINGLE;
+        
+        OutputWrite("Exclusive single allocate changed at %llx (%s) to exclusive single allocate",
+            (unsigned long long)m_input.pc, GetKernel()->GetSymbolTable()[m_input.pc].c_str() );
+    }
+        
     // Send an allocation request.
     // This will write back the FID to the specified register once the allocation
     // has completed. Even for creates to this core, we do this. Simplifies things.
@@ -144,7 +153,7 @@ bool Pipeline::ExecuteStage::ExecAllocate(PlaceID place, RegIndex reg, bool susp
         m_output.Rrc.allocate.place          = place;
         m_output.Rrc.allocate.suspend        = suspend;
         m_output.Rrc.allocate.exclusive      = exclusive;
-        m_output.Rrc.allocate.type           = (AllocationType)(flags & 3);
+        m_output.Rrc.allocate.type           = type;
         m_output.Rrc.allocate.completion_pid = m_parent.GetProcessor().GetPID();
         m_output.Rrc.allocate.completion_reg = reg;
             
