@@ -195,7 +195,7 @@ Result Network::DoAllocResponse()
         msg.next_fid = lfid;
     }
     
-    if (numCores == 1)
+    if (msg.prev_fid == INVALID_LFID)
     {
         // We're back at the first core, acknowledge allocate or fail
         FID fid;
@@ -448,7 +448,7 @@ Result Network::DoDelegationIn()
     switch (msg.type)
     {
     case DelegateMessage::MSG_ALLOCATE:
-        if (msg.allocate.balance && msg.allocate.place.size > 1)
+        if (msg.allocate.type == ALLOCATE_BALANCED && msg.allocate.place.size > 1)
         {
             unsigned used_contexts = m_familyTable.GetNumUsedFamilies(CONTEXT_NORMAL);
             if (used_contexts >= m_loadBalanceThreshold)
@@ -471,7 +471,7 @@ Result Network::DoDelegationIn()
             }
             
             // We're below the threshold; allocate here as a place of one
-            msg.allocate.place.size = 1;
+            msg.allocate.type = ALLOCATE_SINGLE;
         }
 
         if (!m_allocator.QueueFamilyAllocation(msg))
@@ -695,11 +695,10 @@ Result Network::DoLink()
         
         // Send a remote allocate as a place of one
         rmsg.type = RemoteMessage::MSG_ALLOCATE;
-        rmsg.allocate.place.size     = 1;
+        rmsg.allocate.place.size     = msg.ballocate.size;
         rmsg.allocate.suspend        = msg.ballocate.suspend;
         rmsg.allocate.exclusive      = false;
-        rmsg.allocate.exact          = false;
-        rmsg.allocate.balance        = false;
+        rmsg.allocate.type           = ALLOCATE_SINGLE;
         rmsg.allocate.completion_pid = msg.ballocate.completion_pid;
         rmsg.allocate.completion_reg = msg.ballocate.completion_reg;
         if (!SendMessage(rmsg))

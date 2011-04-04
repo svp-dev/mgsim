@@ -34,13 +34,12 @@ struct RemoteMessage
     union
     {
         struct {
-            PlaceID  place;         ///< The place to allocate at
-            bool     suspend;       ///< Queue request if no context available?
-            bool     exclusive;     ///< Allocate the exclusive context?
-            bool     exact;         ///< Allocate exactly the desired amount of cores?
-            bool     balance;       ///< Allocate a context on the best core in the place.
-            PID      completion_pid;///< PID where the thread runs that issued the allocate
-            RegIndex completion_reg;///< Register to write FID back to
+            PlaceID        place;         ///< The place to allocate at
+            bool           suspend;       ///< Queue request if no context available?
+            bool           exclusive;     ///< Allocate the exclusive context?
+            AllocationType type;          ///< Type of the allocation
+            PID            completion_pid;///< PID where the thread runs that issued the allocate
+            RegIndex       completion_reg;///< Register to write FID back to
         } allocate;
             
         struct {

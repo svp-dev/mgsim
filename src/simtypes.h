@@ -123,6 +123,15 @@ struct FID
     FCapability capability;
 };
 
+/// Program-specified allocation type for a place allocation
+enum AllocationType
+{
+    ALLOCATE_NORMAL = 0,    ///< Allocate over the entire place, or less
+    ALLOCATE_EXACT,         ///< Allocate over the entire place exactly
+    ALLOCATE_BALANCED,      ///< Allocate a single context on the best core in the place
+    ALLOCATE_SINGLE,        ///< Allocate a single context on the first core in the place
+};
+
 /// An FP value that can be of different sizes
 struct MultiFloat
 {

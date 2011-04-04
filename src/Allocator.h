@@ -50,12 +50,12 @@ public:
     
 	struct AllocRequest
 	{
-	    LFID      first_fid;      ///< FID of the family on the first core
-	    LFID      prev_fid;       ///< FID of the family on the previous core
-		PSize     placeSize;      ///< Number of cores to allocate on
-		bool      exact;          ///< Allocate exactly placeSize cores
-		PID       completion_pid; ///< Core that requested the allocation
-		RegIndex  completion_reg; ///< Register (on that core) that will receive the FID
+	    LFID           first_fid;      ///< FID of the family on the first core
+	    LFID           prev_fid;       ///< FID of the family on the previous core
+		PSize          placeSize;      ///< Number of cores to allocate on
+		AllocationType type;           ///< Type of the allocation
+		PID            completion_pid; ///< Core that requested the allocation
+		RegIndex       completion_reg; ///< Register (on that core) that will receive the FID
 	};
 
     // These are the different states in the state machine for
