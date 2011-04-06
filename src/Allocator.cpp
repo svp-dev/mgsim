@@ -1073,7 +1073,7 @@ Result Allocator::DoFamilyAllocate()
         Family& family = m_familyTable[lfid];
         COMMIT
         {
-            family.numCores = 1;
+            family.numCores = req.placeSize;
             family.link     = INVALID_LFID;
         }
 
