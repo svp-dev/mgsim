@@ -144,6 +144,12 @@ bool ZLCOMA::RootDirectory::OnMessageReceived(Message* req)
                 return true;
             }
             
+            if (line->loading)
+            {
+                // The line ia lready being loaded, just continue and try again later
+                break;
+            }
+            
             if (!line->data)
             {
                 // We have the line, but not the data, read it
