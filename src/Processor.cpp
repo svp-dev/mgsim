@@ -2,6 +2,7 @@
 #include "FPU.h"
 #include "sampling.h"
 #include "log2.h"
+#include "config.h"
 
 #include <cassert>
 
@@ -32,7 +33,9 @@ Processor::Processor(const std::string& name, Object& parent, Clock& clock, PID 
     m_threadTable ("threads",   *this, clock, config),
     m_network     ("network",   *this, clock, grid, m_allocator, m_registerFile, m_familyTable),
     m_mmio        ("mmio",      *this, clock, config),
-    m_perfcounters(m_mmio)
+    m_perfcounters(m_mmio),
+    m_lpout("stdout", m_mmio, std::cout),
+    m_lperr("stderr", m_mmio, std::cerr)
 {
     const Process* sources[] = {
         &m_icache.p_Outgoing,   // Outgoing process in I-Cache
@@ -48,8 +51,13 @@ Processor::Processor(const std::string& name, Object& parent, Clock& clock, PID 
     m_bits.fid_bits = ilog2(m_familyTable.GetFamilies().size());
     m_bits.tid_bits = ilog2(m_threadTable.GetNumThreads());
 
-    // Register the pseudo I/O component for reading performance counters
-    m_mmio.RegisterComponent(8, 256-8, MMIOInterface::READ, m_perfcounters);
+    // Register the pseudo I/O components
+    m_mmio.RegisterComponent(config.getValue<MemAddr>("PerformanceCountersBaseAddr", 8), 
+                             m_perfcounters.GetSize(), MMIOInterface::READ, m_perfcounters);
+    m_mmio.RegisterComponent(config.getValue<MemAddr>("DebugLinePrintOutBaseAddr", 512), 
+                             m_lpout.GetSize(), MMIOInterface::WRITE, m_lpout);
+    m_mmio.RegisterComponent(config.getValue<MemAddr>("DebugLinePrintErrBaseAddr", 512 + m_lpout.GetSize()), 
+                             m_lperr.GetSize(), MMIOInterface::WRITE, m_lperr);
 }
 
 Processor::~Processor()

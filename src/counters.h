@@ -11,6 +11,8 @@ class Processor;
 class PerfCounters : public MMIOComponent
 {
 public:
+
+    size_t GetSize() const;
     Result Read (MemAddr address, void* data, MemSize size, LFID fid, TID tid);
     Result Write(MemAddr address, const void* data, MemSize size, LFID fid, TID tid) { return FAILED; };
     

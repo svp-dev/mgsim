@@ -65,6 +65,9 @@ public:
 
     MMIOInterface& GetInterface() { return *static_cast<MMIOInterface*>(GetParent()); }
 
+    virtual size_t GetSize() const = 0;
+
+
     virtual Result Read (MemAddr address, void* data, MemSize size, LFID fid, TID tid) = 0;
     virtual Result Write(MemAddr address, const void* data, MemSize size, LFID fid, TID tid) = 0;
 

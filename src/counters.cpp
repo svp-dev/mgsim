@@ -6,6 +6,8 @@
 namespace Simulator
 {
 
+size_t PerfCounters::GetSize() const { return  18 * sizeof(Integer);  }
+
 Result PerfCounters::Read(MemAddr address, void *data, MemSize size, LFID fid, TID tid)
 {
     if (size != sizeof(Integer))
