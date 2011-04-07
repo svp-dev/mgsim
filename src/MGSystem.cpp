@@ -747,6 +747,29 @@ MGSystem::MGSystem(const Config& config, Display& display, const string& program
         m_procs[i]   = new Processor(name.str(), m_root, m_clock, i, m_procs, *m_memory, fpu, config);
     }
 
+    // Create the LCD outputs
+    m_lcds.resize(2);
+
+    m_lcds[0] = new LCD("lcd", m_procs[0]->GetMMIOInterface(), 
+                        config.getValue<size_t>("LCDDisplayWidth", 16),
+                        config.getValue<size_t>("LCDDisplayHeight", 2),
+                        config.getValue<size_t>("LCDOutputRow", 10),
+                        config.getValue<size_t>("LCDOutputColumn", 32),
+                        config.getValue<unsigned>("LCDBackgroundColor", 2),
+                        config.getValue<unsigned>("LCDForegroundColor", 0));
+    m_procs[0]->GetMMIOInterface().RegisterComponent(config.getValue<MemAddr>("LCDBaseAddr", 1024),
+                                                     m_lcds[0]->GetSize(), MMIOInterface::WRITE, *m_lcds[0]);
+
+    m_lcds[1] = new LCD("console", m_procs[0]->GetMMIOInterface(), 
+                        config.getValue<size_t>("ConsoleDisplayWidth", 80),
+                        config.getValue<size_t>("ConsoleDisplayHeight", 25),
+                        config.getValue<size_t>("ConsoleOutputRow", 1),
+                        config.getValue<size_t>("ConsoleOutputColumn", 1),
+                        config.getValue<unsigned>("ConsoleBackgroundColor", 0),
+                        config.getValue<unsigned>("ConsoleForegroundColor", 7));
+    m_procs[0]->GetMMIOInterface().RegisterComponent(config.getValue<MemAddr>("ConsoleBaseAddr", 2048),
+                                                     m_lcds[1]->GetSize(), MMIOInterface::WRITE, *m_lcds[1]);
+
     // Load the program into memory
     std::pair<MemAddr, bool> progdesc = make_pair(0, false);
     if (doload)
@@ -812,7 +835,7 @@ MGSystem::MGSystem(const Config& config, Display& display, const string& program
     const char *objdump_var = "MTALPHA_OBJDUMP";
 #endif
 #if TARGET_ARCH == ARCH_SPARC
-    const char *default_objdump = "mtsparc-leon-linux-objdump";
+    const char *default_objdump = "mtsparc-linux-gnu-objdump";
     const char *objdump_var = "MTSPARC_OBJDUMP";
 #endif
     const char *v = getenv(objdump_var);
@@ -841,6 +864,10 @@ MGSystem::~MGSystem()
     for (size_t i = 0; i < m_fpus.size(); ++i)
     {
         delete m_fpus[i];
+    }
+    for (size_t i = 0; i < m_lcds.size(); ++i)
+    {
+        delete m_lcds[i];
     }
     delete m_memory;
 }

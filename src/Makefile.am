@@ -71,6 +71,8 @@ COMMON_SRC = \
 	except.h \
 	except.cpp \
 	kernel.h \
+	lcd.cpp \
+	lcd.h \
 	lineprinter.cpp \
 	lineprinter.h \
 	loader.cpp \
