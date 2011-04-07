@@ -37,16 +37,19 @@ RegAddr Allocator::GetRemoteRegisterAddress(LFID fid, RemoteRegType kind, const 
     assert(family.state != FST_EMPTY);
     
     RegIndex base;
+    RegSize  size;
     switch (kind)
     {
         case RRT_GLOBAL:
             base = regs.base + regs.size - regs.count.globals;
+            size = regs.count.globals;
             break;
             
         case RRT_LAST_SHARED:
             // Get the last allocated thread's shareds
             assert(regs.last_shareds != INVALID_REG_INDEX);
             base = regs.last_shareds;
+            size = regs.count.shareds;
             break;
         
         case RRT_FIRST_DEPENDENT:
@@ -54,13 +57,14 @@ RegAddr Allocator::GetRemoteRegisterAddress(LFID fid, RemoteRegType kind, const 
             // This is simply the base of the family's registers.
             // This is the first allocated thread's dependents.
             base = regs.base;
+            size = regs.count.shareds;
             break;
             
         default:
             assert(false);
             return INVALID_REG;
     }
-    return MAKE_REGADDR(addr.type, base + addr.index);
+    return (addr.index < size) ? MAKE_REGADDR(addr.type, base + addr.index) : INVALID_REG;
 }
 
 // Administrative function for getting a register's type and thread mapping
