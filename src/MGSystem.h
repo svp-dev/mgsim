@@ -9,6 +9,7 @@
 #include "config.h"
 #include "symtable.h"
 #include "breakpoints.h"
+#include "MMIO.h"
 
 #include <vector>
 #include <utility>
@@ -18,17 +19,16 @@ namespace Simulator {
 
     class MGSystem
     {
-        Kernel                  m_kernel;
-        Clock&                  m_clock;    ///< Master clock for the system
-        Object                  m_root;     ///< Root object for the system
-        std::vector<Processor*> m_procs;
-        std::vector<FPU*>       m_fpus;
-        std::vector<Object*>    m_objects;
-        SymbolTable        m_symtable;
-        BreakPoints        m_breakpoints;
-        IMemoryAdmin*      m_memory;
-        std::string        m_objdump_cmd;
-        std::string        m_program;
+        Kernel                      m_kernel;
+        Clock&                      m_clock;    ///< Master clock for the system
+        Object                      m_root;     ///< Root object for the system
+        std::vector<Processor*>     m_procs;
+        std::vector<FPU*>           m_fpus;
+        SymbolTable                 m_symtable;
+        BreakPoints                 m_breakpoints;
+        IMemoryAdmin*               m_memory;
+        std::string                 m_objdump_cmd;
+        std::string                 m_program;
         enum {
             MEMTYPE_SERIAL = 1,
             MEMTYPE_PARALLEL = 2,

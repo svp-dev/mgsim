@@ -699,35 +699,28 @@ MGSystem::MGSystem(const Config& config, Display& display, const string& program
 
     Clock& memclock = m_kernel.CreateClock( config.getValue<size_t>("MemoryFreq", 1000));
     
-    m_objects.resize(numProcessors + numFPUs + 1);
     if (memory_type == "SERIAL") {
         SerialMemory* memory = new SerialMemory("memory", m_root, memclock, config);
-        m_objects.back() = memory;
         m_memory = memory;
         m_memorytype = MEMTYPE_SERIAL;
     } else if (memory_type == "PARALLEL") {
         ParallelMemory* memory = new ParallelMemory("memory", m_root, memclock, config);
-        m_objects.back() = memory;
         m_memory = memory;
         m_memorytype = MEMTYPE_PARALLEL;
     } else if (memory_type == "BANKED") {
         BankedMemory* memory = new BankedMemory("memory", m_root, memclock, config);
-        m_objects.back() = memory;
         m_memory = memory;
         m_memorytype = MEMTYPE_BANKED;
     } else if (memory_type == "RANDOMBANKED") {
         RandomBankedMemory* memory = new RandomBankedMemory("memory", m_root, memclock, config);
-        m_objects.back() = memory;
         m_memory = memory;
         m_memorytype = MEMTYPE_RANDOMBANKED;
     } else if (memory_type == "COMA") {
         COMA* memory = new COMA("memory", m_root, memclock, config);
-        m_objects.back() = memory;
         m_memory = memory;
         m_memorytype = MEMTYPE_COMA_ML;
     } else if (memory_type == "ZLCOMA") {
         ZLCOMA* memory = new ZLCOMA("memory", m_root, memclock, config);
-        m_objects.back() = memory;
         m_memory = memory;
         m_memorytype = MEMTYPE_COMA_ZL;
     } else {
@@ -752,7 +745,6 @@ MGSystem::MGSystem(const Config& config, Display& display, const string& program
         stringstream name;
         name << "cpu" << i;
         m_procs[i]   = new Processor(name.str(), m_root, m_clock, i, m_procs, *m_memory, fpu, config);
-        m_objects[i] = m_procs[i];
     }
 
     // Load the program into memory

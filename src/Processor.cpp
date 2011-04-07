@@ -4,8 +4,6 @@
 #include "log2.h"
 
 #include <cassert>
-#include <sys/time.h>
-#include <ctime>
 
 using namespace std;
 
@@ -32,7 +30,9 @@ Processor::Processor(const std::string& name, Object& parent, Clock& clock, PID 
     m_raunit      ("rau",       *this, clock, m_registerFile, config),
     m_familyTable ("families",  *this, clock, config),
     m_threadTable ("threads",   *this, clock, config),
-    m_network     ("network",   *this, clock, grid, m_allocator, m_registerFile, m_familyTable)
+    m_network     ("network",   *this, clock, grid, m_allocator, m_registerFile, m_familyTable),
+    m_mmio        ("mmio",      *this, clock, config),
+    m_perfcounters(m_mmio)
 {
     const Process* sources[] = {
         &m_icache.p_Outgoing,   // Outgoing process in I-Cache
@@ -47,6 +47,9 @@ Processor::Processor(const std::string& name, Object& parent, Clock& clock, PID 
     m_bits.pid_bits = ilog2(GetGridSize());
     m_bits.fid_bits = ilog2(m_familyTable.GetFamilies().size());
     m_bits.tid_bits = ilog2(m_threadTable.GetNumThreads());
+
+    // Register the pseudo I/O component for reading performance counters
+    m_mmio.RegisterComponent(8, 256-8, MMIOInterface::READ, m_perfcounters);
 }
 
 Processor::~Processor()
@@ -229,192 +232,6 @@ bool Processor::OnMemoryInvalidated(MemAddr addr)
            m_icache.OnMemoryInvalidated(addr);
 }
 
-Integer Processor::GetProfileWord(unsigned int i, PSize placeSize) const
-{
-    const size_t placeStart = (m_pid / placeSize) * placeSize;
-    const size_t placeEnd   = placeStart + placeSize;
-
-    switch (i)
-    {
-    case 0:
-    {
-        // Return the number of elapsed cycles
-        return (Integer)GetKernel()->GetCycleNo();
-    }
-    case 1:
-    {
-        // Return the number of executed instructions on all cores
-        Integer ops = 0;
-        for (size_t i = placeStart; i < placeEnd; ++i)
-        {
-            ops += m_grid[i]->GetPipeline().GetOp();
-        }
-        return ops;
-    }
-    
-    case 2:
-    {
-        // Return the number of issued FP instructions on all cores
-        Integer flops = 0;
-        for (size_t i = placeStart; i < placeEnd; ++i)
-        {
-            flops += m_grid[i]->GetPipeline().GetFlop();
-        }
-        return flops;
-    }
-
-    case 3:
-    {
-        // Return the number of completed loads on all cores
-        uint64_t n = 0, dummy;
-        for (size_t i = placeStart; i < placeEnd; ++i)
-        {
-            m_grid[i]->GetPipeline().CollectMemOpStatistics(n, dummy, dummy, dummy);
-        }
-        return (Integer)n;
-    }
-
-    case 4:
-    {
-        // Return the number of completed stores on all cores
-        uint64_t n = 0, dummy;
-        for (size_t i = placeStart; i < placeEnd; ++i)
-        {
-            m_grid[i]->GetPipeline().CollectMemOpStatistics(dummy, n, dummy, dummy);
-        }
-        return (Integer)n;
-    }
-
-    case 5:
-    {
-        // Return the number of successfully loaded bytes on all cores
-        uint64_t n = 0, dummy;
-        for (size_t i = placeStart; i < placeEnd; ++i)
-        {
-            m_grid[i]->GetPipeline().CollectMemOpStatistics(dummy, dummy, n, dummy);
-        }
-        return (Integer)n;
-    }
-
-    case 6:
-    {
-        // Return the number of successfully stored bytes on all cores
-        uint64_t n = 0, dummy;
-        for (size_t i = placeStart; i < placeEnd; ++i)
-        {
-            m_grid[i]->GetPipeline().CollectMemOpStatistics(dummy, dummy, dummy, n);
-        }
-        return (Integer)n;
-    }
-
-    case 7:
-    {
-        // Return the number of memory loads overall from L1 to L2 (cache lines)
-        uint64_t n, dummy;
-        m_memory.GetMemoryStatistics(n, dummy, dummy, dummy, dummy, dummy);
-        return (Integer)n;
-    }
-
-    case 8:
-    {
-        // Return the number of memory stores overall from L1 to L2 (cache lines)
-        uint64_t n, dummy;
-        m_memory.GetMemoryStatistics(dummy, n, dummy, dummy, dummy, dummy);
-        return (Integer)n;
-    }
-
-    case 9:
-    {
-        return (Integer)placeSize;
-    }
-
-    case 10:
-    {
-        // Return the total cumulative allocated thread slots
-        Integer alloc = 0;
-        for (size_t i = placeStart; i < placeEnd; ++i)
-        {
-            alloc += m_grid[i]->GetTotalThreadsAllocated();
-        }
-        return alloc;
-    }
-
-    case 11:
-    {
-        // Return the total cumulative allocated thread slots
-        Integer alloc = 0;
-        for (size_t i = placeStart; i < placeEnd; ++i)
-        {
-            alloc += m_grid[i]->GetTotalFamiliesAllocated();
-        }
-        return alloc;
-    }
-
-    case 12:
-    {
-        // Return the total cumulative exclusive allocate queue size
-        Integer alloc = 0;
-        for (size_t i = placeStart; i < placeEnd; ++i)
-        {
-            alloc += m_grid[i]->GetTotalAllocateExQueueSize();
-        }
-        return alloc;
-    }
-
-    case 13:
-    {
-        // Return the Unix time
-        return (Integer)time(0);
-    }
-
-    case 14:
-    {
-        // Return the local date as a packed struct
-        // bits 0-4: day in month
-        // bits 5-8: month in year
-        // bits 9-31: year from 1900
-        time_t c = time(0);
-        struct tm * tm = gmtime(&c);
-        return (Integer)tm->tm_mday |
-            ((Integer)tm->tm_mon << 5) |
-            ((Integer)tm->tm_year << 9);
-    }
-    case 15:
-    {
-        // Return the local time as a packed struct
-        // bits 0-14 = microseconds / 2^17  (topmost 15 bits)
-        // bits 15-20 = seconds
-        // bits 21-26 = minutes
-        // bits 27-31 = hours
-        struct timeval tv;
-        gettimeofday(&tv, 0);
-        struct tm * tm = gmtime(&tv.tv_sec);
-
-        // get topmost 15 bits of precision of the usec field
-        Integer usec = (tv.tv_usec >> (32-15)) & 0x7fff;
-        return usec | (tm->tm_sec << 15) | (tm->tm_min << 21) | (tm->tm_hour << 27);
-    }       
-        
-    case 16:
-    {
-        // Return the number of memory loads overall from external memory (cache lines)
-        uint64_t n, dummy;
-        m_memory.GetMemoryStatistics(dummy, dummy, dummy, dummy, n, dummy);
-        return (Integer)n;
-    }
-
-    case 17:
-    {
-        // Return the number of memory stores overall to external memory (cache lines)
-        uint64_t n, dummy;
-        m_memory.GetMemoryStatistics(dummy, dummy, dummy, dummy, dummy, n);
-        return (Integer)n;
-    }
-
-    default:
-        return 0;
-    }
-}
 
 //
 // Below are the various functions that construct configuration-dependent values

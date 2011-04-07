@@ -36,6 +36,8 @@ COMMON_SRC = \
 	ICache.h \
 	Memory.h \
 	MemoryStage.cpp \
+	MMIO.h \
+	MMIO.cpp \
 	Network.cpp \
 	Network.h \
 	ParallelMemory.cpp \
@@ -62,6 +64,8 @@ COMMON_SRC = \
 	breakpoints.h \
 	config.cpp \
 	config.h \
+	counters.h \
+	counters.cpp \
 	delegate.h \
 	elf.h \
 	except.h \

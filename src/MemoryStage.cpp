@@ -2,6 +2,7 @@
 #include "Processor.h"
 #include "breakpoints.h"
 #include "sampling.h"
+#include "MMIO.h"
 
 #include <cassert>
 using namespace std;
@@ -38,13 +39,32 @@ Pipeline::PipeAction Pipeline::MemoryStage::OnCycle()
             case RT_FLOAT:   value = m_input.Rcv.m_float.toint(m_input.Rcv.m_size); break;
             default: assert(0);
             }
+
+            
             
             SerializeRegister(m_input.Rc.type, value, data, (size_t)m_input.size);
 
-            if ((result = m_dcache.Write(m_input.address, data, m_input.size, m_input.fid, m_input.tid)) == FAILED)
+            MMIOInterface& mmio = m_parent.GetProcessor().GetMMIOInterface();
+            if (mmio.IsRegisteredWriteAddress(m_input.address, m_input.size))
             {
-                // Stall
-                return PIPE_STALL;
+                result = mmio.Write(m_input.address, data, m_input.size, m_input.fid, m_input.tid);
+
+                if (!result)
+                {
+                    throw exceptf<VirtualIOException>(*this, "Failed I/O write by %s (F%u/T%u): %#016llx (%zd)",
+                                                      GetKernel()->GetSymbolTable()[m_input.pc].c_str(),
+                                                      (unsigned)m_input.fid, (unsigned)m_input.tid,
+                                                      (unsigned long long)m_input.address, (size_t)m_input.size);
+                }
+            }
+            else
+            {
+                // Normal request to memory
+                if ((result = m_dcache.Write(m_input.address, data, m_input.size, m_input.fid, m_input.tid)) == FAILED)
+                {
+                    // Stall
+                    return PIPE_STALL;
+                }
             }
 
             // Clear the register state so it won't get written to the register file
@@ -58,30 +78,13 @@ Pipeline::PipeAction Pipeline::MemoryStage::OnCycle()
                           (unsigned long long)m_input.address, (unsigned long long)value, (size_t)m_input.size);
         }
         // Memory read
-        else if (m_input.address >= 4 && m_input.address < 256)
+        else if (m_input.address >= 4 && m_input.address < 8)
         {
             // Special range. Rather hackish.
             // Note that we exclude address 0 from this so NULL pointers are still invalid.
-            if (m_input.address < 8)
-            {
-                // Invalid address; don't send request, just clear register
-                rcv = MAKE_EMPTY_PIPEVALUE(rcv.m_size);
-            }
-            else
-            {
-                // Profiling information
-                unsigned int i = (m_input.address - 8) / sizeof(Integer);
-                rcv.m_state = RST_FULL;
-                rcv.m_size  = m_input.Rcv.m_size;
-                rcv.m_integer.set( m_parent.GetProcessor().GetProfileWord(i, m_input.placeSize), rcv.m_size);
-                if (i == 0) ++ m_nCycleSampleOps; else ++ m_nOtherSampleOps;
 
-                // Check for breakpoints
-                GetKernel()->GetBreakPoints().Check(BreakPoints::READ, m_input.address, *this);
-            }
-
-            // We don't count pseudo-loads
-            // inload = 1;
+            // Invalid address; don't send request, just clear register
+            rcv = MAKE_EMPTY_PIPEVALUE(rcv.m_size);
         }
         else if (m_input.Rc.valid())
         {
@@ -92,10 +95,30 @@ Pipeline::PipeAction Pipeline::MemoryStage::OnCycle()
 
             char data[MAX_MEMORY_OPERATION_SIZE];
             RegAddr reg = m_input.Rc;
-            if ((result = m_dcache.Read(m_input.address, data, m_input.size, m_input.fid, &reg)) == FAILED)
+
+            MMIOInterface& mmio = m_parent.GetProcessor().GetMMIOInterface();
+            if (mmio.IsRegisteredReadAddress(m_input.address, m_input.size))
             {
-                // Stall
-                return PIPE_STALL;
+                result = mmio.Read(m_input.address, data, m_input.size, m_input.fid, m_input.tid);
+
+                // We do not support async reads yet with MMIO, so just fail.
+                if (!result)
+                {
+                    throw exceptf<VirtualIOException>(*this, "Failed I/O read by %s (F%u/T%u): %#016llx (%zd)",
+                                                      GetKernel()->GetSymbolTable()[m_input.pc].c_str(),
+                                                      (unsigned)m_input.fid, (unsigned)m_input.tid,
+                                                      (unsigned long long)m_input.address, (size_t)m_input.size);
+                }
+            }
+            else
+            {
+                // Normal read from memory.
+
+                if ((result = m_dcache.Read(m_input.address, data, m_input.size, m_input.fid, &reg)) == FAILED)
+                {
+                    // Stall
+                    return PIPE_STALL;
+                }
             }
 
             // Prepare for counter increment
