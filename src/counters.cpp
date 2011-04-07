@@ -11,6 +11,8 @@ Result PerfCounters::Read(MemAddr address, void *data, MemSize size, LFID fid, T
     if (size != sizeof(Integer))
         return FAILED;
 
+    address /= sizeof(Integer);
+
     Processor& cpu = GetInterface().GetProcessor();
 
     const size_t placeSize  = cpu.m_familyTable[fid].placeSize;
@@ -25,6 +27,7 @@ Result PerfCounters::Read(MemAddr address, void *data, MemSize size, LFID fid, T
         // Return the number of elapsed cycles
         value = (Integer)GetKernel()->GetCycleNo();
     }
+    break;
     case 1:
     {
         // Return the number of executed instructions on all cores
@@ -35,7 +38,7 @@ Result PerfCounters::Read(MemAddr address, void *data, MemSize size, LFID fid, T
         }
         value = ops;
     }
-    
+    break;    
     case 2:
     {
         // Return the number of issued FP instructions on all cores
@@ -46,7 +49,7 @@ Result PerfCounters::Read(MemAddr address, void *data, MemSize size, LFID fid, T
         }
         value = flops;
     }
-
+    break;
     case 3:
     {
         // Return the number of completed loads on all cores
@@ -57,7 +60,7 @@ Result PerfCounters::Read(MemAddr address, void *data, MemSize size, LFID fid, T
         }
         value = (Integer)n;
     }
-
+    break;
     case 4:
     {
         // Return the number of completed stores on all cores
@@ -68,7 +71,7 @@ Result PerfCounters::Read(MemAddr address, void *data, MemSize size, LFID fid, T
         }
         value = (Integer)n;
     }
-
+    break;
     case 5:
     {
         // Return the number of successfully loaded bytes on all cores
@@ -79,7 +82,7 @@ Result PerfCounters::Read(MemAddr address, void *data, MemSize size, LFID fid, T
         }
         value = (Integer)n;
     }
-
+    break;
     case 6:
     {
         // Return the number of successfully stored bytes on all cores
@@ -90,7 +93,7 @@ Result PerfCounters::Read(MemAddr address, void *data, MemSize size, LFID fid, T
         }
         value = (Integer)n;
     }
-
+    break;
     case 7:
     {
         // Return the number of memory loads overall from L1 to L2 (cache lines)
@@ -98,7 +101,7 @@ Result PerfCounters::Read(MemAddr address, void *data, MemSize size, LFID fid, T
         cpu.m_memory.GetMemoryStatistics(n, dummy, dummy, dummy, dummy, dummy);
         value = (Integer)n;
     }
-
+    break;
     case 8:
     {
         // Return the number of memory stores overall from L1 to L2 (cache lines)
@@ -106,12 +109,12 @@ Result PerfCounters::Read(MemAddr address, void *data, MemSize size, LFID fid, T
         cpu.m_memory.GetMemoryStatistics(dummy, n, dummy, dummy, dummy, dummy);
         value = (Integer)n;
     }
-
+    break;
     case 9:
     {
         value = (Integer)placeSize;
     }
-
+    break;
     case 10:
     {
         // Return the total cumulative allocated thread slots
@@ -122,7 +125,7 @@ Result PerfCounters::Read(MemAddr address, void *data, MemSize size, LFID fid, T
         }
         value = alloc;
     }
-
+    break;
     case 11:
     {
         // Return the total cumulative allocated thread slots
@@ -133,7 +136,7 @@ Result PerfCounters::Read(MemAddr address, void *data, MemSize size, LFID fid, T
         }
         value = alloc;
     }
-
+    break;
     case 12:
     {
         // Return the total cumulative exclusive allocate queue size
@@ -144,13 +147,13 @@ Result PerfCounters::Read(MemAddr address, void *data, MemSize size, LFID fid, T
         }
         value = alloc;
     }
-
+    break;
     case 13:
     {
         // Return the Unix time
         value = (Integer)time(0);
     }
-
+    break;
     case 14:
     {
         // Return the local date as a packed struct
@@ -163,6 +166,7 @@ Result PerfCounters::Read(MemAddr address, void *data, MemSize size, LFID fid, T
             ((Integer)tm->tm_mon << 5) |
             ((Integer)tm->tm_year << 9);
     }
+    break;
     case 15:
     {
         // Return the local time as a packed struct
@@ -178,7 +182,7 @@ Result PerfCounters::Read(MemAddr address, void *data, MemSize size, LFID fid, T
         Integer usec = (tv.tv_usec >> (32-15)) & 0x7fff;
         value = usec | (tm->tm_sec << 15) | (tm->tm_min << 21) | (tm->tm_hour << 27);
     }       
-        
+    break;        
     case 16:
     {
         // Return the number of memory loads overall from external memory (cache lines)
@@ -186,7 +190,7 @@ Result PerfCounters::Read(MemAddr address, void *data, MemSize size, LFID fid, T
         cpu.m_memory.GetMemoryStatistics(dummy, dummy, dummy, dummy, n, dummy);
         value = (Integer)n;
     }
-
+    break;
     case 17:
     {
         // Return the number of memory stores overall to external memory (cache lines)
@@ -194,10 +198,15 @@ Result PerfCounters::Read(MemAddr address, void *data, MemSize size, LFID fid, T
         cpu.m_memory.GetMemoryStatistics(dummy, dummy, dummy, dummy, dummy, n);
         value = (Integer)n;
     }
-
+    break;
     default:
         value = 0;
     }
+
+    DebugIOWrite("Read counter %u by F%u/T%u: %#016llx (%llu)",
+                 (unsigned)address, (unsigned)fid, (unsigned)tid, 
+                 (unsigned long long)value, (unsigned long long)value);
+
 
     SerializeRegister(RT_INTEGER, value, data, sizeof(Integer));
 
