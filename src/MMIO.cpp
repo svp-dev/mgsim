@@ -85,7 +85,7 @@ Result MMIOInterface::Read (MemAddr address, void* data, MemSize size, LFID fid,
 {
     RangeMap::const_iterator interface = FindInterface(address, size);
     assert(interface != m_ranges.end());
-    assert(interface->second.mode == AccessMode::READ || interface->second.mode == AccessMode::READWRITE);
+    assert(interface->second.mode == READ || interface->second.mode == READWRITE);
     
     MemAddr base = interface->first;
     MemAddr offset = address - base;
@@ -97,7 +97,7 @@ Result MMIOInterface::Write(MemAddr address, const void* data, MemSize size, LFI
 {
     RangeMap::const_iterator interface = FindInterface(address, size);
     assert(interface != m_ranges.end());
-    assert(interface->second.mode == AccessMode::WRITE || interface->second.mode == AccessMode::READWRITE);
+    assert(interface->second.mode == WRITE || interface->second.mode == READWRITE);
     
     MemAddr base = interface->first;
     MemAddr offset = address - base;
