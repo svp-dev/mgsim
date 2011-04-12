@@ -114,6 +114,11 @@ fi
 
 AM_PATH_PYTHON([2.6],[],[AC_MSG_WARN([The 'readtrace' utility requires Python >= 2.6.])])
 
+if test "x$ac_cv_lib_readline" = xno; then
+     AC_MSG_WARN([The readline library or development header could not be found.])
+     AC_MSG_WARN([The simulator prompt will not support advanced command editing.])
+fi
+
 AC_CONFIG_FILES([
 	Makefile
 	doc/Makefile

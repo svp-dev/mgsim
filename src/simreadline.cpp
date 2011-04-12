@@ -1,6 +1,7 @@
 #include "simreadline.h"
 #include <sys/time.h>
 #include <sstream>
+#include <string>
 #include <cstdlib>
 
 #if defined(HAVE_LIBREADLINE) && !defined(HAVE_READLINE_READLINE_H)
@@ -40,35 +41,54 @@ int CommandLineReader::ReadLineHook(void) {
 
 CommandLineReader::CommandLineReader(Display& d)  {
     m_display = &d;
+#ifdef HAVE_LIBREADLINE
     rl_event_hook = &ReadLineHook;
-#ifdef HAVE_READLINE_HISTORY
+# ifdef HAVE_READLINE_HISTORY
     ostringstream os;
     os << getenv("HOME") << "/.mgsim_history";
     m_histfilename = os.str();
     read_history(m_histfilename.c_str());
+# endif
 #endif
 }
 
 CommandLineReader::~CommandLineReader() {
+#ifdef HAVE_LIBREADLINE
     rl_event_hook = 0;
+#endif
     m_display = 0;
     CheckPointHistory();
 }
 
 char* CommandLineReader::GetCommandLine(const string& prompt)
 {
+#ifdef HAVE_LIBREADLINE
     char* str = readline(prompt.c_str());
-#ifdef HAVE_READLINE_HISTORY
+# ifdef HAVE_READLINE_HISTORY
     if (str != NULL && *str != '\0')
     {
         add_history(str);
     }
+# endif
+#else // !HAVE_LIBREADLINE
+    std::string line;
+
+    std::cout << prompt;
+    std::cout.flush();
+
+    std::getline(std::cin, line);
+    if (std::cin.fail())
+        return 0;
+    
+    char *str = (char*)malloc(line.size() + 1);
+    assert(str != 0);
+    strcpy(str, line.c_str());
 #endif
     return str;
 }
 
 void CommandLineReader::CheckPointHistory() {
-#ifdef HAVE_READLINE_HISTORY
+#if defined(HAVE_LIBREADLINE) && defined(HAVE_READLINE_HISTORY)
     write_history(m_histfilename.c_str());
 #endif
 }
