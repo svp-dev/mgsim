@@ -310,7 +310,7 @@ Integer Processor::GetProfileWord(unsigned int i, PSize placeSize) const
     case 7:
     {
         // Return the number of memory loads overall from L1 to L2 (cache lines)
-        uint64_t n, dummy;
+        uint64_t n = 0, dummy;
         m_memory.GetMemoryStatistics(n, dummy, dummy, dummy, dummy, dummy);
         return (Integer)n;
     }
@@ -318,7 +318,7 @@ Integer Processor::GetProfileWord(unsigned int i, PSize placeSize) const
     case 8:
     {
         // Return the number of memory stores overall from L1 to L2 (cache lines)
-        uint64_t n, dummy;
+        uint64_t n = 0, dummy;
         m_memory.GetMemoryStatistics(dummy, n, dummy, dummy, dummy, dummy);
         return (Integer)n;
     }
@@ -398,7 +398,7 @@ Integer Processor::GetProfileWord(unsigned int i, PSize placeSize) const
     case 16:
     {
         // Return the number of memory loads overall from external memory (cache lines)
-        uint64_t n, dummy;
+        uint64_t n = 0, dummy;
         m_memory.GetMemoryStatistics(dummy, dummy, dummy, dummy, n, dummy);
         return (Integer)n;
     }
@@ -406,7 +406,7 @@ Integer Processor::GetProfileWord(unsigned int i, PSize placeSize) const
     case 17:
     {
         // Return the number of memory stores overall to external memory (cache lines)
-        uint64_t n, dummy;
+        uint64_t n = 0, dummy;
         m_memory.GetMemoryStatistics(dummy, dummy, dummy, dummy, dummy, n);
         return (Integer)n;
     }
