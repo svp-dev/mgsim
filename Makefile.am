@@ -1,6 +1,6 @@
 SUBDIRS = . doc src programs
 
-ACLOCAL_AMFLAGS = -I m4
+ACLOCAL_AMFLAGS = -I build-aux
 
 ##
 ## Version number management
