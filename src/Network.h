@@ -1,15 +1,9 @@
 #ifndef NETWORK_H
 #define NETWORK_H
 
-#include "storage.h"
-
-namespace Simulator
-{
-
-class Processor;
-class RegisterFile;
-class Allocator;
-class FamilyTable;
+#ifndef PROCESSOR_H
+#error This file should be included in Processor.h
+#endif
 
 struct RemoteMessage
 {
@@ -310,6 +304,5 @@ public:
     Process p_AllocResponse;
 };
 
-}
 #endif
 

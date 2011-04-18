@@ -1,7 +1,4 @@
-#include "Network.h"
-#include "Allocator.h"
 #include "Processor.h"
-#include "FamilyTable.h"
 #include <cassert>
 #include <iostream>
 using namespace std;
@@ -15,7 +12,7 @@ static bool IsPowerOfTwo(const T& x)
     return (x & (x - 1)) == 0;
 }
 
-Network::Network(
+Processor::Network::Network(
     const std::string&        name,
     Processor&                parent,
     Clock&                    clock,
@@ -42,10 +39,10 @@ Network::Network(
     CONSTRUCT_REGISTER(m_allocResponse),
 #undef CONTRUCT_REGISTER
 
-    p_DelegationOut("delegation-out", delegate::create<Network, &Network::DoDelegationOut>(*this)),
-    p_DelegationIn ("delegation-in",  delegate::create<Network, &Network::DoDelegationIn >(*this)),
-    p_Link         ("link",           delegate::create<Network, &Network::DoLink         >(*this)),
-    p_AllocResponse("alloc-response", delegate::create<Network, &Network::DoAllocResponse>(*this))
+    p_DelegationOut("delegation-out", delegate::create<Network, &Processor::Network::DoDelegationOut>(*this)),
+    p_DelegationIn ("delegation-in",  delegate::create<Network, &Processor::Network::DoDelegationIn >(*this)),
+    p_Link         ("link",           delegate::create<Network, &Processor::Network::DoLink         >(*this)),
+    p_AllocResponse("alloc-response", delegate::create<Network, &Processor::Network::DoAllocResponse>(*this))
 {
     m_delegateOut.Sensitive(p_DelegationOut);
     m_delegateIn .Sensitive(p_DelegationIn);
@@ -55,7 +52,7 @@ Network::Network(
     m_allocResponse.in.Sensitive(p_AllocResponse);
 }
 
-void Network::Initialize(Network* prev, Network* next)
+void Processor::Network::Initialize(Network* prev, Network* next)
 {
     m_prev = prev;
     m_next = next;
@@ -71,7 +68,7 @@ void Network::Initialize(Network* prev, Network* next)
 #undef INITIALIZE
 }
 
-bool Network::SendMessage(const RemoteMessage& msg)
+bool Processor::Network::SendMessage(const RemoteMessage& msg)
 {
     assert(msg.type != RemoteMessage::MSG_NONE);
     
@@ -133,7 +130,7 @@ bool Network::SendMessage(const RemoteMessage& msg)
     return true;
 }
 
-bool Network::SendMessage(const LinkMessage& msg)
+bool Processor::Network::SendMessage(const LinkMessage& msg)
 {
     assert(m_next != NULL);
     if (!m_link.out.Write(msg))
@@ -144,7 +141,7 @@ bool Network::SendMessage(const LinkMessage& msg)
     return true;
 }
 
-bool Network::SendAllocResponse(const AllocResponse& msg)
+bool Processor::Network::SendAllocResponse(const AllocResponse& msg)
 {
     if (!m_allocResponse.out.Write(msg))
     {
@@ -153,7 +150,7 @@ bool Network::SendAllocResponse(const AllocResponse& msg)
     return true;
 }
 
-Result Network::DoAllocResponse()
+Result Processor::Network::DoAllocResponse()
 {
     assert(!m_allocResponse.in.Empty());
     AllocResponse msg = m_allocResponse.in.Read();
@@ -239,7 +236,7 @@ Result Network::DoAllocResponse()
     return SUCCESS;
 }
 
-bool Network::ReadLastShared(LFID fid, const RegAddr& raddr, RegValue& value)
+bool Processor::Network::ReadLastShared(LFID fid, const RegAddr& raddr, RegValue& value)
 {
     const RegAddr addr = m_allocator.GetRemoteRegisterAddress(fid, RRT_LAST_SHARED, raddr);
     assert(addr != INVALID_REG);
@@ -287,7 +284,7 @@ bool Network::ReadLastShared(LFID fid, const RegAddr& raddr, RegValue& value)
     return true;
 }
 
-bool Network::WriteRegister(LFID fid, RemoteRegType kind, const RegAddr& raddr, const RegValue& value)
+bool Processor::Network::WriteRegister(LFID fid, RemoteRegType kind, const RegAddr& raddr, const RegValue& value)
 {
     RegAddr addr = m_allocator.GetRemoteRegisterAddress(fid, kind, raddr);
     if (addr != INVALID_REG)
@@ -316,7 +313,7 @@ bool Network::WriteRegister(LFID fid, RemoteRegType kind, const RegAddr& raddr, 
 }
 
 
-bool Network::OnSync(LFID fid, PID completion_pid, RegIndex completion_reg)
+bool Processor::Network::OnSync(LFID fid, PID completion_pid, RegIndex completion_reg)
 {
     Family& family = m_familyTable[fid];
     if (family.link != INVALID_LFID)
@@ -363,7 +360,7 @@ bool Network::OnSync(LFID fid, PID completion_pid, RegIndex completion_reg)
     return true;
 }
 
-bool Network::OnDetach(LFID fid)
+bool Processor::Network::OnDetach(LFID fid)
 {
     if (!m_allocator.DecreaseFamilyDependency(fid, FAMDEP_DETACHED))
     {
@@ -387,7 +384,7 @@ bool Network::OnDetach(LFID fid)
     return true;
 }
 
-bool Network::OnBreak(LFID fid)
+bool Processor::Network::OnBreak(LFID fid)
 {
     const Family& family = m_familyTable[fid];
     if (!family.dependencies.allocationDone)
@@ -415,7 +412,7 @@ bool Network::OnBreak(LFID fid)
     return true;
 }
 
-Result Network::DoDelegationOut()
+Result Processor::Network::DoDelegationOut()
 {
     // Send outgoing message over the delegation network
     assert(!m_delegateOut.Empty());
@@ -434,7 +431,7 @@ Result Network::DoDelegationOut()
     return SUCCESS;
 }
 
-Result Network::DoDelegationIn()
+Result Processor::Network::DoDelegationIn()
 {
     // Handle incoming message from the delegation network
     // Note that we make a copy here, because we want to clear it before
@@ -616,7 +613,7 @@ Result Network::DoDelegationIn()
     return SUCCESS;
 }
     
-Result Network::DoLink()
+Result Processor::Network::DoLink()
 {
     // Handle incoming message from the link
     assert(!m_link.in.Empty());
@@ -751,7 +748,7 @@ Result Network::DoLink()
     return SUCCESS;
 }
 
-void Network::Cmd_Help(ostream& out, const vector<string>& /* arguments */) const
+void Processor::Network::Cmd_Help(ostream& out, const vector<string>& /* arguments */) const
 {
     out <<
     "The network component manages all inter-processor communication such as\n"
@@ -763,7 +760,7 @@ void Network::Cmd_Help(ostream& out, const vector<string>& /* arguments */) cons
     "  Reads and displays the various registers and buffers from the component.\n";
 }
 
-void Network::Cmd_Read(ostream& out, const vector<string>& /* arguments */) const
+void Processor::Network::Cmd_Read(ostream& out, const vector<string>& /* arguments */) const
 {
     const struct {
         const char*                      name;

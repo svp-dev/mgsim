@@ -1,69 +1,56 @@
 #ifndef PIPELINE_H
 #define PIPELINE_H
 
-#include "FamilyTable.h"
-#include "ThreadTable.h"
-#include "Allocator.h"
-#include "ICache.h"
-#include "Network.h"
+#ifndef PROCESSOR_H
+#error This file should be included in Processor.h
+#endif
 
+class Pipeline : public Object
+{
 #if TARGET_ARCH == ARCH_ALPHA
 #include "ISA.alpha.h"
 #elif TARGET_ARCH == ARCH_SPARC
 #include "ISA.sparc.h"
 #endif
 
-namespace Simulator
-{
-
-class Processor;
-class Allocator;
-class DCache;
-class FamilyTable;
-class ThreadTable;
-class RegisterFile;
-class FPU;
-
-/// A (possibly multi-) register value in the pipeline
-struct PipeValue
-{
-    RegState     m_state;   ///< State of the register.
-    unsigned int m_size;    ///< Size of the value, in bytes
-    union
+    /// A (possibly multi-) register value in the pipeline
+    struct PipeValue
     {
-        MultiFloat   m_float;    ///< Value of the register, if it is an FP register.
-        MultiInteger m_integer;  ///< Value of the register, if it is an integer register.
-
-        struct
+        RegState     m_state;   ///< State of the register.
+        unsigned int m_size;    ///< Size of the value, in bytes
+        union
         {
-            ThreadQueue   m_waiting;    ///< List of the threads that are waiting on the register.
-            MemoryRequest m_memory;     ///< Memory request information for pending registers.
+            MultiFloat   m_float;    ///< Value of the register, if it is an FP register.
+            MultiInteger m_integer;  ///< Value of the register, if it is an integer register.
+
+            struct
+            {
+                ThreadQueue   m_waiting;    ///< List of the threads that are waiting on the register.
+                MemoryRequest m_memory;     ///< Memory request information for pending registers.
+            };
         };
     };
-};
 
-static inline PipeValue MAKE_EMPTY_PIPEVALUE(unsigned int size)
-{
-    PipeValue value;
-    value.m_state        = RST_EMPTY;
-    value.m_size         = size;
-    value.m_waiting.head = INVALID_TID;
-    value.m_memory.size  = 0;
-    return value;
-}
+    static inline PipeValue MAKE_EMPTY_PIPEVALUE(unsigned int size)
+    {
+        PipeValue value;
+        value.m_state        = RST_EMPTY;
+        value.m_size         = size;
+        value.m_waiting.head = INVALID_TID;
+        value.m_memory.size  = 0;
+        return value;
+    }
 
-static inline PipeValue MAKE_PENDING_PIPEVALUE(unsigned int size)
-{
-    PipeValue value;
-    value.m_state        = RST_PENDING;
-    value.m_size         = size;
-    value.m_waiting.head = INVALID_TID;
-    value.m_memory.size  = 0;
-    return value;
-}
+    static inline PipeValue MAKE_PENDING_PIPEVALUE(unsigned int size)
+    {
+        PipeValue value;
+        value.m_state        = RST_PENDING;
+        value.m_size         = size;
+        value.m_waiting.head = INVALID_TID;
+        value.m_memory.size  = 0;
+        return value;
+    }
 
-class Pipeline : public Object
-{
 #if TARGET_ARCH == ARCH_ALPHA
     struct ArchDecodeReadLatch
     {
@@ -262,6 +249,9 @@ class Pipeline : public Object
         RegAddr TranslateRegister(uint8_t reg, RegType type, unsigned int size, bool writing) const;
         void    DecodeInstruction(const Instruction& instr);
 
+#if TARGET_ARCH == ARCH_ALPHA
+        static InstrFormat GetInstrFormat(uint8_t opcode);
+#endif
     public:
         DecodeStage(Pipeline& parent, Clock& clock, const FetchDecodeLatch& input, DecodeReadLatch& output, const Config& config);
     };
@@ -301,6 +291,7 @@ class Pipeline : public Object
         PipeValue m_rsv;
 #endif
 
+        static PipeValue RegToPipeValue(RegType type, const RegValue& src_value);
     public:
         ReadStage(Pipeline& parent, Clock& clock, const DecodeReadLatch& input, ReadExecuteLatch& output, RegisterFile& regFile,
             const std::vector<BypassInfo>& bypasses,
@@ -338,11 +329,27 @@ class Pipeline : public Object
         void       ExecMemoryControl(Integer value, int command, int flags) const;
         void       ExecDebugOutput(Integer value, int command, int flags) const;
 
-#if TARGET_ARCH == ARCH_SPARC
+#if TARGET_ARCH == ARCH_ALPHA
+        static bool BranchTaken(uint8_t opcode, const PipeValue& value);
+        static bool ExecuteINTA(PipeValue& Rcv, const PipeValue& Rav, const PipeValue& Rbv, int func);
+        static bool ExecuteINTL(PipeValue& Rcv, const PipeValue& Rav, const PipeValue& Rbv, int func);
+        static bool ExecuteINTS(PipeValue& Rcv, const PipeValue& Rav, const PipeValue& Rbv, int func);
+        static bool ExecuteINTM(PipeValue& Rcv, const PipeValue& Rav, const PipeValue& Rbv, int func);
+        static bool ExecuteFLTV(PipeValue& Rcv, const PipeValue& Rav, const PipeValue& Rbv, int func);
+        static bool ExecuteFLTI(PipeValue& Rcv, const PipeValue& Rav, const PipeValue& Rbv, int func);
+        static bool ExecuteFLTL(PipeValue& Rcv, const PipeValue& Rav, const PipeValue& Rbv, int func);
+        static bool ExecuteITFP(PipeValue& Rcv, const PipeValue& Rav, const PipeValue& Rbv, int func);
+        static bool ExecuteFPTI(PipeValue& Rcv, const PipeValue& Rav, const PipeValue& Rbv, int func);
+#elif TARGET_ARCH == ARCH_SPARC
+        static bool BranchTakenInt(int cond, uint32_t psr);
+        static bool BranchTakenFlt(int cond, uint32_t fsr);
+        static uint32_t ExecBasicInteger(int opcode, uint32_t Rav, uint32_t Rbv, uint32_t& Y, PSR& psr);
+        static uint32_t ExecOtherInteger(int opcode, uint32_t Rav, uint32_t Rbv, uint32_t& Y, PSR& psr);
         PipeAction ExecReadASR20(uint8_t func);
         PipeAction ExecWriteASR20(uint8_t func);
 #endif
 
+        static RegValue PipeValueToRegValue(RegType type, const PipeValue& v);
     public:
         ExecuteStage(Pipeline& parent, Clock& clock, const ReadExecuteLatch& input, ExecuteMemoryLatch& output, Allocator& allocator, FamilyTable& familyTable, ThreadTable& threadTable, FPU& fpu, size_t fpu_source, const Config& config);
         
@@ -451,6 +458,5 @@ private:
     uint64_t m_pipelineBusyTime;   
 };
 
-}
 #endif
 

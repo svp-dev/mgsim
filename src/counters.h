@@ -1,12 +1,9 @@
 #ifndef COUNTERS_H
 #define COUNTERS_H
 
-#include "MMIO.h"
-
-namespace Simulator
-{
-
-class Processor;
+#ifndef PROCESSOR_H
+#error This file should be included in Processor.h
+#endif
 
 class PerfCounters : public MMIOComponent
 {
@@ -20,8 +17,5 @@ public:
 
     ~PerfCounters() {}
 };
-
-
-}
 
 #endif

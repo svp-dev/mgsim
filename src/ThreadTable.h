@@ -1,14 +1,9 @@
 #ifndef THREADTABLE_H
 #define THREADTABLE_H
 
-#include "ports.h"
-
-class Config;
-
-namespace Simulator
-{
-
-class Processor;
+#ifndef PROCESSOR_H
+#error This file should be included in Processor.h
+#endif
 
 struct Thread
 {
@@ -116,6 +111,5 @@ private:
     void CheckStateSanity() const;
 };
 
-}
 #endif
 

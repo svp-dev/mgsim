@@ -1,191 +1,204 @@
 #ifndef ISA_SPARC_H
 #define ISA_SPARC_H
 
-namespace Simulator
-{
+#ifndef PIPELINE_H
+#error This file should be included in Pipeline.h
+#endif
 
 // op1
-#define S_OP1_BRANCH 0
-#define S_OP1_CALL   1
-#define S_OP1_OTHER  2
-#define S_OP1_MEMORY 3
+enum {
+    S_OP1_BRANCH = 0,
+    S_OP1_CALL   = 1,
+    S_OP1_OTHER  = 2,
+    S_OP1_MEMORY = 3,
+};
 
 // op2 (op1 is S_OP1_BRANCH)
-#define S_OP2_UNIMPL     0
-#define S_OP2_BRANCH_INT 2
-#define S_OP2_SETHI      4
-#define S_OP2_BRANCH_FLT 6
-#define S_OP2_BRANCH_COP 7
+enum {
+    S_OP2_UNIMPL     = 0,
+    S_OP2_BRANCH_INT = 2,
+    S_OP2_SETHI      = 4,
+    S_OP2_BRANCH_FLT = 6,
+    S_OP2_BRANCH_COP = 7,
+};
 
 // op3 (op1 is S_OP1_OTHER)
-#define S_OP3_ADD       0x00
-#define S_OP3_AND       0x01
-#define S_OP3_OR        0x02
-#define S_OP3_XOR       0x03
-#define S_OP3_SUB       0x04
-#define S_OP3_ANDN      0x05
-#define S_OP3_ORN       0x06
-#define S_OP3_XNOR      0x07
-#define S_OP3_ADDX      0x08
-#define S_OP3_UMUL      0x0A
-#define S_OP3_SMUL      0x0B
-#define S_OP3_SUBX      0x0C
-#define S_OP3_UDIV      0x0E
-#define S_OP3_SDIV      0x0F
-#define S_OP3_ADDcc     0x10
-#define S_OP3_ANDcc     0x11
-#define S_OP3_ORcc      0x12
-#define S_OP3_XORcc     0x13
-#define S_OP3_SUBcc     0x14
-#define S_OP3_ANDNcc    0x15
-#define S_OP3_ORNcc     0x16
-#define S_OP3_XNORcc    0x17
-#define S_OP3_ADDXcc    0x18
-#define S_OP3_UMULcc    0x1A
-#define S_OP3_SMULcc    0x1B
-#define S_OP3_SUBXcc    0x1C
-#define S_OP3_UDIVcc    0x1E
-#define S_OP3_SDIVcc    0x1F
-#define S_OP3_TADDcc    0x20
-#define S_OP3_TSUBcc    0x21
-#define S_OP3_TADDccTV  0x22
-#define S_OP3_TSUBccTV  0x23
-#define S_OP3_MULScc    0x24
-#define S_OP3_SLL       0x25
-#define S_OP3_SRL       0x26
-#define S_OP3_SRA       0x27
-#define S_OP3_RDASR     0x28
-#define S_OP3_RDPSR     0x29
-#define S_OP3_RDWIM     0x2A
-#define S_OP3_RDTBR     0x2B
-#define S_OP3_WRASR     0x30
-#define S_OP3_WRPSR     0x31
-#define S_OP3_WRWIM     0x32
-#define S_OP3_WRTBR     0x33
-#define S_OP3_FPOP1     0x34
-#define S_OP3_FPOP2     0x35
-#define S_OP3_CPOP1     0x36
-#define S_OP3_CPOP2     0x37
-#define S_OP3_JMPL      0x38
-#define S_OP3_RETT      0x39
-#define S_OP3_Ticc      0x3A
-#define S_OP3_FLUSH     0x3B
-#define S_OP3_SAVE      0x3C
-#define S_OP3_RESTORE   0x3D
+enum {
+    S_OP3_ADD       = 0x00,
+    S_OP3_AND       = 0x01,
+    S_OP3_OR        = 0x02,
+    S_OP3_XOR       = 0x03,
+    S_OP3_SUB       = 0x04,
+    S_OP3_ANDN      = 0x05,
+    S_OP3_ORN       = 0x06,
+    S_OP3_XNOR      = 0x07,
+    S_OP3_ADDX      = 0x08,
+    S_OP3_UMUL      = 0x0A,
+    S_OP3_SMUL      = 0x0B,
+    S_OP3_SUBX      = 0x0C,
+    S_OP3_UDIV      = 0x0E,
+    S_OP3_SDIV      = 0x0F,
+    S_OP3_ADDcc     = 0x10,
+    S_OP3_ANDcc     = 0x11,
+    S_OP3_ORcc      = 0x12,
+    S_OP3_XORcc     = 0x13,
+    S_OP3_SUBcc     = 0x14,
+    S_OP3_ANDNcc    = 0x15,
+    S_OP3_ORNcc     = 0x16,
+    S_OP3_XNORcc    = 0x17,
+    S_OP3_ADDXcc    = 0x18,
+    S_OP3_UMULcc    = 0x1A,
+    S_OP3_SMULcc    = 0x1B,
+    S_OP3_SUBXcc    = 0x1C,
+    S_OP3_UDIVcc    = 0x1E,
+    S_OP3_SDIVcc    = 0x1F,
+    S_OP3_TADDcc    = 0x20,
+    S_OP3_TSUBcc    = 0x21,
+    S_OP3_TADDccTV  = 0x22,
+    S_OP3_TSUBccTV  = 0x23,
+    S_OP3_MULScc    = 0x24,
+    S_OP3_SLL       = 0x25,
+    S_OP3_SRL       = 0x26,
+    S_OP3_SRA       = 0x27,
+    S_OP3_RDASR     = 0x28,
+    S_OP3_RDPSR     = 0x29,
+    S_OP3_RDWIM     = 0x2A,
+    S_OP3_RDTBR     = 0x2B,
+    S_OP3_WRASR     = 0x30,
+    S_OP3_WRPSR     = 0x31,
+    S_OP3_WRWIM     = 0x32,
+    S_OP3_WRTBR     = 0x33,
+    S_OP3_FPOP1     = 0x34,
+    S_OP3_FPOP2     = 0x35,
+    S_OP3_CPOP1     = 0x36,
+    S_OP3_CPOP2     = 0x37,
+    S_OP3_JMPL      = 0x38,
+    S_OP3_RETT      = 0x39,
+    S_OP3_Ticc      = 0x3A,
+    S_OP3_FLUSH     = 0x3B,
+    S_OP3_SAVE      = 0x3C,
+    S_OP3_RESTORE   = 0x3D,
 
 // op3 (op1 is S_OP1_MEMORY)
-#define S_OP3_LD      0x00
-#define S_OP3_LDUB    0x01
-#define S_OP3_LDUH    0x02
-#define S_OP3_LDD     0x03
-#define S_OP3_ST      0x04
-#define S_OP3_STB     0x05
-#define S_OP3_STH     0x06
-#define S_OP3_STD     0x07
-#define S_OP3_LDSB    0x09
-#define S_OP3_LDSH    0x0A
-#define S_OP3_LDSTUB  0x0D
-#define S_OP3_SWAP    0x0F
-#define S_OP3_LDA     0x10
-#define S_OP3_LDUBA   0x11
-#define S_OP3_LDUHA   0x12
-#define S_OP3_LDDA    0x13
-#define S_OP3_STA     0x14
-#define S_OP3_STBA    0x15
-#define S_OP3_STHA    0x16
-#define S_OP3_STDA    0x17
-#define S_OP3_LDSBA   0x19
-#define S_OP3_LDSHA   0x1A
-#define S_OP3_LDSTUBA 0x1D
-#define S_OP3_SWAPA   0x1F
-#define S_OP3_LDF     0x20
-#define S_OP3_LDFSR   0x21
-#define S_OP3_LDDF    0x23
-#define S_OP3_STF     0x24
-#define S_OP3_STFSR   0x25
-#define S_OP3_STDFQ   0x26
-#define S_OP3_STDF    0x27
-#define S_OP3_LDC     0x30
-#define S_OP3_LDCSR   0x31
-#define S_OP3_LDDC    0x33
-#define S_OP3_STC     0x34
-#define S_OP3_STCSR   0x35
-#define S_OP3_STDCQ   0x36
-#define S_OP3_STDC    0x37
+    S_OP3_LD      = 0x00,
+    S_OP3_LDUB    = 0x01,
+    S_OP3_LDUH    = 0x02,
+    S_OP3_LDD     = 0x03,
+    S_OP3_ST      = 0x04,
+    S_OP3_STB     = 0x05,
+    S_OP3_STH     = 0x06,
+    S_OP3_STD     = 0x07,
+    S_OP3_LDSB    = 0x09,
+    S_OP3_LDSH    = 0x0A,
+    S_OP3_LDSTUB  = 0x0D,
+    S_OP3_SWAP    = 0x0F,
+    S_OP3_LDA     = 0x10,
+    S_OP3_LDUBA   = 0x11,
+    S_OP3_LDUHA   = 0x12,
+    S_OP3_LDDA    = 0x13,
+    S_OP3_STA     = 0x14,
+    S_OP3_STBA    = 0x15,
+    S_OP3_STHA    = 0x16,
+    S_OP3_STDA    = 0x17,
+    S_OP3_LDSBA   = 0x19,
+    S_OP3_LDSHA   = 0x1A,
+    S_OP3_LDSTUBA = 0x1D,
+    S_OP3_SWAPA   = 0x1F,
+    S_OP3_LDF     = 0x20,
+    S_OP3_LDFSR   = 0x21,
+    S_OP3_LDDF    = 0x23,
+    S_OP3_STF     = 0x24,
+    S_OP3_STFSR   = 0x25,
+    S_OP3_STDFQ   = 0x26,
+    S_OP3_STDF    = 0x27,
+    S_OP3_LDC     = 0x30,
+    S_OP3_LDCSR   = 0x31,
+    S_OP3_LDDC    = 0x33,
+    S_OP3_STC     = 0x34,
+    S_OP3_STCSR   = 0x35,
+    S_OP3_STDCQ   = 0x36,
+    S_OP3_STDC    = 0x37,
+};
 
 // opf (op1 is S_OP1_OTHER, op3 is S_OP3_FPOP1/2)
-#define S_OPF_FMOV    0x01
-#define S_OPF_FPRINTS 0x02
-#define S_OPF_FPRINTD 0x03
-#define S_OPF_FPRINTQ 0x04
-#define S_OPF_FNEG    0x05
-#define S_OPF_FPUTS   0x06
-#define S_OPF_FPUTG   0x07
-#define S_OPF_FGETS   0x08
-#define S_OPF_FABS    0x09
-#define S_OPF_FSQRTS  0x29
-#define S_OPF_FSQRTD  0x2a
-#define S_OPF_FSQRTQ  0x2b
-#define S_OPF_FADDS   0x41
-#define S_OPF_FADDD   0x42
-#define S_OPF_FADDQ   0x43
-#define S_OPF_FSUBS   0x45
-#define S_OPF_FSUBD   0x46
-#define S_OPF_FSUBQ   0x47
-#define S_OPF_FMULS   0x49
-#define S_OPF_FMULD   0x4a
-#define S_OPF_FMULQ   0x4b
-#define S_OPF_FDIVS   0x4d
-#define S_OPF_FDIVD   0x4e
-#define S_OPF_FDIVQ   0x4f
-#define S_OPF_FCMPS   0x51
-#define S_OPF_FCMPD   0x52
-#define S_OPF_FCMPQ   0x53
-#define S_OPF_FCMPES  0x55
-#define S_OPF_FCMPED  0x56
-#define S_OPF_FCMPEQ  0x57
-#define S_OPF_FSMULD  0x69
-#define S_OPF_FDMULQ  0x6e
-#define S_OPF_FITOS   0xc4
-#define S_OPF_FDTOS   0xc6
-#define S_OPF_FQTOS   0xc7
-#define S_OPF_FITOD   0xc8
-#define S_OPF_FSTOD   0xc9
-#define S_OPF_FQTOD   0xcb
-#define S_OPF_FITOQ   0xcc
-#define S_OPF_FSTOQ   0xcd
-#define S_OPF_FDTOQ   0xce
-#define S_OPF_FSTOI   0xd1
-#define S_OPF_FDTOI   0xd2
-#define S_OPF_FQTOI   0xd3
+enum {
+    S_OPF_FMOV    = 0x01,
+    S_OPF_FPRINTS = 0x02,
+    S_OPF_FPRINTD = 0x03,
+    S_OPF_FPRINTQ = 0x04,
+    S_OPF_FNEG    = 0x05,
+    S_OPF_FPUTS   = 0x06,
+    S_OPF_FPUTG   = 0x07,
+    S_OPF_FGETS   = 0x08,
+    S_OPF_FABS    = 0x09,
+    S_OPF_FSQRTS  = 0x29,
+    S_OPF_FSQRTD  = 0x2a,
+    S_OPF_FSQRTQ  = 0x2b,
+    S_OPF_FADDS   = 0x41,
+    S_OPF_FADDD   = 0x42,
+    S_OPF_FADDQ   = 0x43,
+    S_OPF_FSUBS   = 0x45,
+    S_OPF_FSUBD   = 0x46,
+    S_OPF_FSUBQ   = 0x47,
+    S_OPF_FMULS   = 0x49,
+    S_OPF_FMULD   = 0x4a,
+    S_OPF_FMULQ   = 0x4b,
+    S_OPF_FDIVS   = 0x4d,
+    S_OPF_FDIVD   = 0x4e,
+    S_OPF_FDIVQ   = 0x4f,
+    S_OPF_FCMPS   = 0x51,
+    S_OPF_FCMPD   = 0x52,
+    S_OPF_FCMPQ   = 0x53,
+    S_OPF_FCMPES  = 0x55,
+    S_OPF_FCMPED  = 0x56,
+    S_OPF_FCMPEQ  = 0x57,
+    S_OPF_FSMULD  = 0x69,
+    S_OPF_FDMULQ  = 0x6e,
+    S_OPF_FITOS   = 0xc4,
+    S_OPF_FDTOS   = 0xc6,
+    S_OPF_FQTOS   = 0xc7,
+    S_OPF_FITOD   = 0xc8,
+    S_OPF_FSTOD   = 0xc9,
+    S_OPF_FQTOD   = 0xcb,
+    S_OPF_FITOQ   = 0xcc,
+    S_OPF_FSTOQ   = 0xcd,
+    S_OPF_FDTOQ   = 0xce,
+    S_OPF_FSTOI   = 0xd1,
+    S_OPF_FDTOI   = 0xd2,
+    S_OPF_FQTOI   = 0xd3,
+};
 
 // opt (op1 is S_OP1_OTHER, op3 is S_OP3_RDASR, rs1=20)
-#define S_OPT_ALLOCATE  0x01
-#define S_OPT_SYNC      0x02
-#define S_OPT_GETTID    0x03
-#define S_OPT_GETFID    0x04
-#define S_OPT_GETPID    0x05
-#define S_OPT_GETCID    0x06
-#define S_OPT_LDBP      0x07
-#define S_OPT_LDFP      0x08
-#define S_OPT_ALLOCATES 0x09
-#define S_OPT_ALLOCATEX 0x0A
-#define S_OPT_GETS      0x0B
-#define S_OPT_FGETS     0x0C
+enum {
+    S_OPT_ALLOCATE  = 0x01,
+    S_OPT_SYNC      = 0x02,
+    S_OPT_GETTID    = 0x03,
+    S_OPT_GETFID    = 0x04,
+    S_OPT_GETPID    = 0x05,
+    S_OPT_GETCID    = 0x06,
+    S_OPT_LDBP      = 0x07,
+    S_OPT_LDFP      = 0x08,
+    S_OPT_ALLOCATES = 0x09,
+    S_OPT_ALLOCATEX = 0x0A,
+    S_OPT_GETS      = 0x0B,
+    S_OPT_FGETS     = 0x0C,
+};
 
 // opt (op1 is S_OP1_OTHER, op3 is S_OP3_WRASR, rd=20)
-#define S_OPT_SETSTART  0x02
-#define S_OPT_SETLIMIT  0x03
-#define S_OPT_SETSTEP   0x04
-#define S_OPT_SETBLOCK  0x05
-#define S_OPT_CREATE    0x06
-#define S_OPT_PUTG      0x07
-#define S_OPT_PUTS      0x08
-#define S_OPT_DETACH    0x09
-#define S_OPT_BREAK     0x0A
-#define S_OPT_PRINT     0x0B
-#define S_OPT_FPUTG     0x0C
-#define S_OPT_FPUTS     0x0D
+enum {
+    S_OPT_SETSTART  = 0x02,
+    S_OPT_SETLIMIT  = 0x03,
+    S_OPT_SETSTEP   = 0x04,
+    S_OPT_SETBLOCK  = 0x05,
+    S_OPT_CREATE    = 0x06,
+    S_OPT_PUTG      = 0x07,
+    S_OPT_PUTS      = 0x08,
+    S_OPT_DETACH    = 0x09,
+    S_OPT_BREAK     = 0x0A,
+    S_OPT_PRINT     = 0x0B,
+    S_OPT_FPUTG     = 0x0C,
+    S_OPT_FPUTS     = 0x0D,
+};
 
 // Processor State Register flags
 static const PSR PSR_CWP   = 0x0000001FUL; // Current Window Pointer
@@ -221,8 +234,5 @@ static const FSR FSR_RD_NEAR = 0x00000000UL; // RD: Nearest
 static const FSR FSR_RD_ZERO = 0x40000000UL; // RD: Zero
 static const FSR FSR_RD_PINF = 0x80000000UL; // RD: +infinity
 static const FSR FSR_RD_NINF = 0xC0000000UL; // RD: -infinity
-
-
-}
 
 #endif 

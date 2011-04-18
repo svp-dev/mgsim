@@ -305,7 +305,7 @@ void MGSystem::PrintCoreStats(std::ostream& os) const {
     // Collect the data 
     for (i = 0; i < P; ++i) {       
         Processor &p = *m_procs[i];
-        const Pipeline& pl = p.GetPipeline();
+        const Processor::Pipeline& pl = p.GetPipeline();
 
         j = 0;
         types[j] = I; c[i][j++].i = pl.GetOp();

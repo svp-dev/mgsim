@@ -1,7 +1,7 @@
 #ifndef FPU_H
 #define FPU_H
 
-#include "storage.h"
+#include "Processor.h"
 #include <deque>
 #include <map>
 
@@ -9,9 +9,6 @@ class Config;
 
 namespace Simulator
 {
-
-class Processor;
-class RegisterFile;
 
 /**
  * The different kinds of floating point operations that the FPU can perform
@@ -47,10 +44,10 @@ class FPU : public Object
     /// Represents a source for this FPU    
 	struct Source
 	{
-	    Buffer<Operation> inputs;     ///< Input queue for operations from this source
-	    RegisterFile*     regfile;    ///< Register file to write back results for this source
-	    CycleNo           last_write; ///< Last time an FPU pipe wrote back to this source
-	    unsigned int      last_unit;  ///< Unit that did the last (or current) write
+	    Buffer<Operation>        inputs;     ///< Input queue for operations from this source
+	    Processor::RegisterFile* regfile;    ///< Register file to write back results for this source
+	    CycleNo                  last_write; ///< Last time an FPU pipe wrote back to this source
+	    unsigned int             last_unit;  ///< Unit that did the last (or current) write
 	    
             Source(const std::string& name, Object& parent, Clock& clock, BufferSize bufferSize)
                : inputs(name + ".b_source", parent, clock, bufferSize), regfile(NULL), last_write(0) {}
@@ -116,7 +113,7 @@ public:
 	 * @param regfile [in] the register file to use to write back results for this source
 	 * @return the unique for this source to be passed to QueueOperation
 	 */
-	size_t RegisterSource(RegisterFile& regfile);
+	size_t RegisterSource(Processor::RegisterFile& regfile);
 	
     /**
      * @brief Queues an FP operation.

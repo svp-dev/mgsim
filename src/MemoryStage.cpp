@@ -1,16 +1,12 @@
-#include "Pipeline.h"
 #include "Processor.h"
 #include "breakpoints.h"
 #include "sampling.h"
-#include "MMIO.h"
-
 #include <cassert>
-using namespace std;
 
 namespace Simulator
 {
 
-Pipeline::PipeAction Pipeline::MemoryStage::OnCycle()
+Processor::Pipeline::PipeAction Processor::Pipeline::MemoryStage::OnCycle()
 {
     PipeValue rcv = m_input.Rcv;
 
@@ -200,7 +196,7 @@ Pipeline::PipeAction Pipeline::MemoryStage::OnCycle()
     return PIPE_CONTINUE;
 }
 
-Pipeline::MemoryStage::MemoryStage(Pipeline& parent, Clock& clock, const ExecuteMemoryLatch& input, MemoryWritebackLatch& output, DCache& dcache, Allocator& alloc, const Config& /*config*/)
+Processor::Pipeline::MemoryStage::MemoryStage(Pipeline& parent, Clock& clock, const ExecuteMemoryLatch& input, MemoryWritebackLatch& output, DCache& dcache, Allocator& alloc, const Config& /*config*/)
     : Stage("memory", parent, clock),
       m_input(input),
       m_output(output),

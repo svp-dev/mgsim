@@ -1,4 +1,3 @@
-#include "FamilyTable.h"
 #include "Processor.h"
 #include "config.h"
 #include "range.h"
@@ -11,7 +10,7 @@ using namespace std;
 namespace Simulator
 {
 
-FamilyTable::FamilyTable(const std::string& name, Processor& parent, Clock& clock, const Config& config)
+Processor::FamilyTable::FamilyTable(const std::string& name, Processor& parent, Clock& clock, const Config& config)
 :   Object(name, parent, clock),
     m_parent(parent),
     m_families(config.getValue<size_t>("NumFamilies", 8)),
@@ -31,7 +30,7 @@ FamilyTable::FamilyTable(const std::string& name, Processor& parent, Clock& cloc
     m_free[CONTEXT_NORMAL]    = m_families.size() - 1;
 }
 
-bool FamilyTable::IsEmpty() const
+bool Processor::FamilyTable::IsEmpty() const
 {
     FSize free = 0;
     for (int i = 0; i < NUM_CONTEXT_TYPES; ++i)
@@ -41,7 +40,7 @@ bool FamilyTable::IsEmpty() const
     return free == m_families.size();
 }
 
-void FamilyTable::UpdateStats()
+void Processor::FamilyTable::UpdateStats()
 {
     CycleNo cycle = GetKernel()->GetCycleNo();
     CycleNo elapsed = cycle - m_lastcycle;
@@ -54,7 +53,7 @@ void FamilyTable::UpdateStats()
 }
 
 // Checks that all internal administration is sane
-void FamilyTable::CheckStateSanity() const
+void Processor::FamilyTable::CheckStateSanity() const
 {
 #ifndef NDEBUG
     size_t used = 0;
@@ -77,7 +76,7 @@ void FamilyTable::CheckStateSanity() const
 #endif
 }
 
-LFID FamilyTable::AllocateFamily(ContextType context)
+LFID Processor::FamilyTable::AllocateFamily(ContextType context)
 {
     // Check that we're in a sane state
     CheckStateSanity();
@@ -117,7 +116,7 @@ LFID FamilyTable::AllocateFamily(ContextType context)
     return fid;
 }
 
-FSize FamilyTable::GetNumFreeFamilies(ContextType type) const
+FSize Processor::FamilyTable::GetNumFreeFamilies(ContextType type) const
 {
     // Check that we're in a sane state
     assert(m_free[CONTEXT_NORMAL] + m_free[CONTEXT_EXCLUSIVE] <= m_families.size());
@@ -125,7 +124,7 @@ FSize FamilyTable::GetNumFreeFamilies(ContextType type) const
     return m_free[type];
 }
 
-void FamilyTable::FreeFamily(LFID fid, ContextType context)
+void Processor::FamilyTable::FreeFamily(LFID fid, ContextType context)
 {
     assert(fid != INVALID_LFID);
     
@@ -140,7 +139,7 @@ void FamilyTable::FreeFamily(LFID fid, ContextType context)
     }
 }
 
-void FamilyTable::Cmd_Help(ostream& out, const vector<string>& /* arguments */) const
+void Processor::FamilyTable::Cmd_Help(ostream& out, const vector<string>& /* arguments */) const
 {
     out <<
     "The Family Table is the storage area in a processor that stores all family's\n"
@@ -156,7 +155,7 @@ void FamilyTable::Cmd_Help(ostream& out, const vector<string>& /* arguments */) 
 }
 
 // Read the global and local family table
-void FamilyTable::Cmd_Read(ostream& out, const vector<string>& arguments) const
+void Processor::FamilyTable::Cmd_Read(ostream& out, const vector<string>& arguments) const
 {
     static const char* const FamilyStates[] = {
         "", "ALLOCATED", "CREATE QUEUED", "CREATING", "ACTIVE", "KILLED"

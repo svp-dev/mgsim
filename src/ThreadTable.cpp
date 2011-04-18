@@ -1,4 +1,3 @@
-#include "ThreadTable.h"
 #include "Processor.h"
 #include "config.h"
 #include "range.h"
@@ -11,7 +10,7 @@ using namespace std;
 namespace Simulator
 {
 
-ThreadTable::ThreadTable(const std::string& name, Processor& parent, Clock& clock, const Config& config)
+Processor::ThreadTable::ThreadTable(const std::string& name, Processor& parent, Clock& clock, const Config& config)
   : Object(name, parent, clock),
     m_threads(config.getValue<size_t>("NumThreads", 64)),
     m_totalalloc(0), m_maxalloc(0), m_lastcycle(0), m_curalloc(0)
@@ -35,7 +34,7 @@ ThreadTable::ThreadTable(const std::string& name, Processor& parent, Clock& cloc
     m_empty = 0;
 }
 
-bool ThreadTable::IsEmpty() const
+bool Processor::ThreadTable::IsEmpty() const
 {
     TSize free = 0;
     for (int i = 0; i < NUM_CONTEXT_TYPES; ++i)
@@ -45,7 +44,7 @@ bool ThreadTable::IsEmpty() const
     return free == m_threads.size();
 }
 
-void ThreadTable::UpdateStats()
+void Processor::ThreadTable::UpdateStats()
 {
     CycleNo cycle = GetKernel()->GetCycleNo();
     CycleNo elapsed = cycle - m_lastcycle;
@@ -58,7 +57,7 @@ void ThreadTable::UpdateStats()
 }
 
 // Checks that all internal administration is sane
-void ThreadTable::CheckStateSanity() const
+void Processor::ThreadTable::CheckStateSanity() const
 {
 #ifndef NDEBUG
     size_t used = 0;
@@ -81,7 +80,7 @@ void ThreadTable::CheckStateSanity() const
 #endif
 }
 
-TSize ThreadTable::GetNumFreeThreads(ContextType type) const
+TSize Processor::ThreadTable::GetNumFreeThreads(ContextType type) const
 {
     // Check that we are in a sane state
     CheckStateSanity();
@@ -89,7 +88,7 @@ TSize ThreadTable::GetNumFreeThreads(ContextType type) const
     return m_free[type];
 }
 
-void ThreadTable::ReserveThread()
+void Processor::ThreadTable::ReserveThread()
 {
     // Check that we are in a sane state
     CheckStateSanity();
@@ -106,7 +105,7 @@ void ThreadTable::ReserveThread()
     CheckStateSanity();
 }
 
-void ThreadTable::UnreserveThread()
+void Processor::ThreadTable::UnreserveThread()
 {
     // Check that we are in a sane state
     CheckStateSanity();
@@ -123,7 +122,7 @@ void ThreadTable::UnreserveThread()
     CheckStateSanity();
 }
 
-TID ThreadTable::PopEmpty(ContextType context)
+TID Processor::ThreadTable::PopEmpty(ContextType context)
 {
     // Check that we are in a sane state
     CheckStateSanity();
@@ -151,7 +150,7 @@ TID ThreadTable::PopEmpty(ContextType context)
     return tid;
 }
 
-void ThreadTable::PushEmpty(TID tid, ContextType context)
+void Processor::ThreadTable::PushEmpty(TID tid, ContextType context)
 {
     // Check that we are in a sane state
     CheckStateSanity();
@@ -175,7 +174,7 @@ void ThreadTable::PushEmpty(TID tid, ContextType context)
     CheckStateSanity();
 }
 
-void ThreadTable::Cmd_Help(ostream& out, const vector<string>& /* arguments */) const
+void Processor::ThreadTable::Cmd_Help(ostream& out, const vector<string>& /* arguments */) const
 {
     out <<
     "The Thread Table is the storage area in a processor that stores all thread's\n"
@@ -190,7 +189,7 @@ void ThreadTable::Cmd_Help(ostream& out, const vector<string>& /* arguments */) 
     "  \"1\", \"1-4,15,7-8\", \"all\"\n";
 }
 
-void ThreadTable::Cmd_Read(ostream& out, const vector<string>& arguments) const
+void Processor::ThreadTable::Cmd_Read(ostream& out, const vector<string>& arguments) const
 {
     static const char* const ThreadStates[] = {
         "", "WAITING", "READY", "ACTIVE", "RUNNING", "SUSPENDED", "UNUSED", "KILLED"

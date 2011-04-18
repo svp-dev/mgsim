@@ -1,12 +1,10 @@
-#include "Pipeline.h"
 #include "Processor.h"
 #include <cassert>
-using namespace std;
 
 namespace Simulator
 {
 
-Pipeline::PipeAction Pipeline::WritebackStage::OnCycle()
+Processor::Pipeline::PipeAction Processor::Pipeline::WritebackStage::OnCycle()
 {
     int  writebackOffset  = m_writebackOffset;
     int  size             = -1;
@@ -256,7 +254,7 @@ Pipeline::PipeAction Pipeline::WritebackStage::OnCycle()
         : PIPE_DELAY;       // We still have data to write back next cycle
 }
 
-Pipeline::WritebackStage::WritebackStage(Pipeline& parent, Clock& clock, const MemoryWritebackLatch& input, RegisterFile& regFile, Allocator& alloc, ThreadTable& threadTable, Network& network, const Config& /*config*/)
+Processor::Pipeline::WritebackStage::WritebackStage(Pipeline& parent, Clock& clock, const MemoryWritebackLatch& input, RegisterFile& regFile, Allocator& alloc, ThreadTable& threadTable, Network& network, const Config& /*config*/)
   : Stage("writeback", parent, clock),
     m_input(input),
     m_stall(false),

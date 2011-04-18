@@ -1,4 +1,3 @@
-#include "Pipeline.h"
 #include "Processor.h"
 #include "FPU.h"
 #include "config.h"
@@ -14,13 +13,13 @@ using namespace std;
 namespace Simulator
 {
 
-Pipeline::Stage::Stage(const std::string& name, Pipeline& parent, Clock& clock)
+Processor::Pipeline::Stage::Stage(const std::string& name, Pipeline& parent, Clock& clock)
 :   Object(name, parent, clock),
     m_parent(parent)
 {
 }
 
-Pipeline::Pipeline(
+Processor::Pipeline::Pipeline(
     const std::string&  name,
     Processor&          parent,
     Clock&              clock,
@@ -35,7 +34,7 @@ Pipeline::Pipeline(
     const Config&       config)
 :
     Object(name, parent, clock),
-    p_Pipeline("pipeline", delegate::create<Pipeline, &Pipeline::DoPipeline>(*this)),
+    p_Pipeline("pipeline", delegate::create<Pipeline, &Processor::Pipeline::DoPipeline>(*this)),
     m_parent(parent),
     
     m_active("f_active", *this, clock),
@@ -113,7 +112,7 @@ Pipeline::Pipeline(
     m_stages[2].stage = new ReadStage(*this, clock, m_drLatch, m_reLatch, regFile, bypasses, config);
 }
 
-Pipeline::~Pipeline()
+Processor::Pipeline::~Pipeline()
 {
     for (vector<StageInfo>::const_iterator p = m_stages.begin(); p != m_stages.end(); ++p)
     {
@@ -121,7 +120,7 @@ Pipeline::~Pipeline()
     }
 }
 
-Result Pipeline::DoPipeline()
+Result Processor::Pipeline::DoPipeline()
 {
     if (IsAcquiring())
     {
@@ -244,7 +243,7 @@ Result Pipeline::DoPipeline()
     return result;
 }
 
-void Pipeline::Cmd_Help(std::ostream& out, const std::vector<std::string>& /*arguments*/) const
+void Processor::Pipeline::Cmd_Help(std::ostream& out, const std::vector<std::string>& /*arguments*/) const
 {
     out <<
     "The pipeline reads instructions, loads operands, computes their results and/or\n"
@@ -255,7 +254,7 @@ void Pipeline::Cmd_Help(std::ostream& out, const std::vector<std::string>& /*arg
     "  Reads and displays the stages and latches.\n";
 }
 
-void Pipeline::PrintLatchCommon(std::ostream& out, const CommonData& latch) const
+void Processor::Pipeline::PrintLatchCommon(std::ostream& out, const CommonData& latch) const
 {
     out << " | LFID: F"  << dec << latch.fid
         << "    TID: T"  << dec << latch.tid << right
@@ -265,7 +264,7 @@ void Pipeline::PrintLatchCommon(std::ostream& out, const CommonData& latch) cons
 }
 
 // Construct a string representation of a pipeline register value
-/*static*/ std::string Pipeline::MakePipeValue(const RegType& type, const PipeValue& value)
+/*static*/ std::string Processor::Pipeline::MakePipeValue(const RegType& type, const PipeValue& value)
 {
     std::stringstream ss;
 
@@ -317,7 +316,7 @@ static std::ostream& operator << (std::ostream& out, const RemoteRegAddr& rreg)
     return out;
 }
 
-void Pipeline::Cmd_Read(std::ostream& out, const std::vector<std::string>& /*arguments*/) const
+void Processor::Pipeline::Cmd_Read(std::ostream& out, const std::vector<std::string>& /*arguments*/) const
 {
     // Fetch stage
     out << "Fetch stage" << endl

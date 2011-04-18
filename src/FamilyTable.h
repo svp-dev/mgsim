@@ -1,15 +1,9 @@
 #ifndef FAMILYTABLE_H
 #define FAMILYTABLE_H
 
-#include "ports.h"
-#include <queue>
-
-class Config;
-
-namespace Simulator
-{
-
-class Processor;
+#ifndef PROCESSOR_H
+#error This file should be included in Processor.h
+#endif
 
 struct Family
 {
@@ -138,6 +132,5 @@ private:
     void CheckStateSanity() const;
 };
 
-}
 #endif
 

@@ -1,12 +1,9 @@
-#include "Pipeline.h"
 #include "Processor.h"
-#include <cassert>
-using namespace std;
 
 namespace Simulator
 {
 
-Pipeline::PipeAction Pipeline::DummyStage::OnCycle()
+Processor::Pipeline::PipeAction Processor::Pipeline::DummyStage::OnCycle()
 {
     COMMIT
     {
@@ -19,7 +16,7 @@ Pipeline::PipeAction Pipeline::DummyStage::OnCycle()
     return PIPE_CONTINUE;
 }
 
-Pipeline::DummyStage::DummyStage(const std::string& name, Pipeline& parent, Clock& clock, const MemoryWritebackLatch& input, MemoryWritebackLatch& output, const Config& /*config*/)
+Processor::Pipeline::DummyStage::DummyStage(const std::string& name, Pipeline& parent, Clock& clock, const MemoryWritebackLatch& input, MemoryWritebackLatch& output, const Config& /*config*/)
   : Stage(name, parent, clock),
     m_input(input),
     m_output(output)

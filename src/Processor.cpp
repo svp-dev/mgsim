@@ -103,9 +103,9 @@ void Processor::Initialize(Processor* prev, Processor* next, MemAddr runAddress,
     m_allocator.p_activeThreads.AddProcess(m_allocator.p_ThreadActivation); // Thread activation due to I-Cache hit (from Ready Queue)
 
     m_registerFile.p_asyncW.AddProcess(m_dcache.p_IncomingReads);           // Mem Load writebacks
-    m_registerFile.p_asyncW.AddProcess(m_fpu.p_Pipeline);                   // FPU Op writebacks
     m_registerFile.p_asyncW.AddProcess(m_network.p_Link);                   // Place register receives
     m_registerFile.p_asyncW.AddProcess(m_network.p_DelegationIn);           // Remote register receives
+    m_registerFile.p_asyncW.AddProcess(m_fpu.p_Pipeline);                   // FPU Op writebacks
     m_registerFile.p_asyncW.AddProcess(m_allocator.p_ThreadAllocate);       // Thread allocation
     
     m_registerFile.p_asyncR.AddProcess(m_network.p_DelegationIn);           // Remote register requests
@@ -120,11 +120,13 @@ void Processor::Initialize(Processor* prev, Processor* next, MemAddr runAddress,
 
     m_network.m_link.out.AddProcess(m_network.p_Link);                      // Forwarding link messages
     m_network.m_link.out.AddProcess(m_network.p_DelegationIn);              // Delegation message forwards onto link
+    m_network.m_link.out.AddProcess(m_dcache.p_IncomingReads);              // Completed read causes sync
     m_network.m_link.out.AddProcess(m_allocator.p_FamilyAllocate);          // Allocate process sending place-wide allocate
     m_network.m_link.out.AddProcess(m_allocator.p_FamilyCreate);            // Create process sends place-wide create
     m_network.m_link.out.AddProcess(m_allocator.p_ThreadAllocate);          // Thread cleanup causes sync
     
     m_network.m_delegateIn.AddProcess(m_network.p_Link);                    // Link messages causes remote 
+    m_network.m_delegateIn.AddProcess(m_dcache.p_IncomingReads);            // Completed read causes sync
     m_network.m_delegateIn.AddProcess(m_allocator.p_ThreadAllocate);        // Allocate process completes family sync
     m_network.m_delegateIn.AddProcess(m_allocator.p_FamilyAllocate);        // Allocate process returning FID
     m_network.m_delegateIn.AddProcess(m_allocator.p_FamilyCreate);          // Create process returning FID
@@ -139,6 +141,7 @@ void Processor::Initialize(Processor* prev, Processor* next, MemAddr runAddress,
     m_network.m_delegateOut.AddProcess(m_pipeline.p_Pipeline);        // Sending or requesting registers
     m_network.m_delegateOut.AddProcess(m_network.p_DelegationIn);     // Returning registers
     m_network.m_delegateOut.AddProcess(m_network.p_Link);             // Place sync causes final sync
+    m_network.m_delegateOut.AddProcess(m_dcache.p_IncomingReads);     // Completed read causes sync
     m_network.m_delegateOut.AddProcess(m_network.p_AllocResponse);    // Allocate response writing back to parent
     m_network.m_delegateOut.AddProcess(m_allocator.p_FamilyAllocate); // Allocation process sends FID
     m_network.m_delegateOut.AddProcess(m_allocator.p_FamilyCreate);   // Create process sends delegated create

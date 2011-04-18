@@ -1,15 +1,9 @@
 #ifndef RAUNIT_H
 #define RAUNIT_H
 
-#include "kernel.h"
-
-class Config;
-
-namespace Simulator
-{
-
-class Processor;
-class RegisterFile;
+#ifndef PROCESSOR_H
+#error This file should be included in Processor.h
+#endif
 
 class RAUnit : public Object
 {
@@ -62,8 +56,6 @@ private:
         BlockSize free[NUM_CONTEXT_TYPES];  ///< Number of free blocks
     };
     TypeInfo m_types[NUM_REG_TYPES];
-};
-
 };
 
 #endif

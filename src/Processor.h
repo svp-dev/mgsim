@@ -1,19 +1,10 @@
 #ifndef PROCESSOR_H
 #define PROCESSOR_H
 
-#include "kernel.h"
-#include "Allocator.h"
-#include "ICache.h"
-#include "DCache.h"
-#include "RegisterFile.h"
-#include "Pipeline.h"
-#include "Network.h"
-#include "FamilyTable.h"
-#include "ThreadTable.h"
-#include "RAUnit.h"
 #include "MMIO.h"
-#include "counters.h"
 #include "lineprinter.h"
+#include "Memory.h"
+#include "storage.h"
 
 class Config;
 
@@ -21,11 +12,23 @@ namespace Simulator
 {
 
 class FPU;
-class PerfCounters;
 
 class Processor : public Object, public IMemoryCallback
 {
 public:
+    class Allocator;
+
+#include "FamilyTable.h"
+#include "ThreadTable.h"
+#include "RegisterFile.h"
+#include "Network.h"
+#include "ICache.h"
+#include "DCache.h"
+#include "Pipeline.h"
+#include "RAUnit.h"
+#include "Allocator.h"
+#include "counters.h"
+
     Processor(const std::string& name, Object& parent, Clock& clock, PID pid, const std::vector<Processor*>& grid, IMemory& m_memory, FPU& fpu, const Config& config);
     ~Processor();
     

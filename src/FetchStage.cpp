@@ -1,4 +1,3 @@
-#include "Pipeline.h"
 #include "Processor.h"
 #include "config.h"
 #include "breakpoints.h"
@@ -8,7 +7,7 @@ using namespace std;
 namespace Simulator
 {
 
-void Pipeline::FetchStage::Clear(TID tid)
+void Processor::Pipeline::FetchStage::Clear(TID tid)
 {
     if (m_output.tid == tid)
     {
@@ -16,7 +15,7 @@ void Pipeline::FetchStage::Clear(TID tid)
     }
 }
 
-Pipeline::PipeAction Pipeline::FetchStage::OnCycle()
+Processor::Pipeline::PipeAction Processor::Pipeline::FetchStage::OnCycle()
 {
     MemAddr pc = m_pc;
     if (m_switched)
@@ -103,7 +102,7 @@ Pipeline::PipeAction Pipeline::FetchStage::OnCycle()
     return PIPE_CONTINUE;
 }
 
-Pipeline::FetchStage::FetchStage(Pipeline& parent, Clock& clock, FetchDecodeLatch& output, Allocator& alloc, FamilyTable& familyTable, ThreadTable& threadTable, ICache& icache, const Config& config)
+Processor::Pipeline::FetchStage::FetchStage(Pipeline& parent, Clock& clock, FetchDecodeLatch& output, Allocator& alloc, FamilyTable& familyTable, ThreadTable& threadTable, ICache& icache, const Config& config)
   : Stage("fetch", parent, clock),
     m_output(output),
     m_allocator(alloc),
@@ -131,7 +130,7 @@ Pipeline::FetchStage::FetchStage(Pipeline& parent, Clock& clock, FetchDecodeLatc
     m_buffer = new char[m_icache.GetLineSize()];
 }
 
-Pipeline::FetchStage::~FetchStage()
+Processor::Pipeline::FetchStage::~FetchStage()
 {
     delete[] m_buffer;
 }

@@ -1,14 +1,13 @@
+#include "Processor.h"
 #include <sys/time.h>
 #include <ctime>
-#include "counters.h"
-#include "Processor.h"
 
 namespace Simulator
 {
 
-size_t PerfCounters::GetSize() const { return  18 * sizeof(Integer);  }
+size_t Processor::PerfCounters::GetSize() const { return  18 * sizeof(Integer);  }
 
-Result PerfCounters::Read(MemAddr address, void *data, MemSize size, LFID fid, TID tid)
+Result Processor::PerfCounters::Read(MemAddr address, void *data, MemSize size, LFID fid, TID tid)
 {
     if (size != sizeof(Integer))
         return FAILED;
@@ -215,7 +214,7 @@ Result PerfCounters::Read(MemAddr address, void *data, MemSize size, LFID fid, T
     return SUCCESS;
 }
 
-PerfCounters::PerfCounters(MMIOInterface& parent)
+Processor::PerfCounters::PerfCounters(MMIOInterface& parent)
     : MMIOComponent("perfcounters", parent, parent.GetProcessor().GetClock())
 {
 }

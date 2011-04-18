@@ -1,4 +1,3 @@
-#include "Pipeline.h"
 #include "Processor.h"
 #include "FPU.h"
 #include "symtable.h"
@@ -89,7 +88,7 @@ static int32_t SEXT(uint32_t value, int bits)
     return (int32_t)(value << bits) >> bits;
 }
 
-void Pipeline::DecodeStage::DecodeInstruction(const Instruction& instr)
+void Processor::Pipeline::DecodeStage::DecodeInstruction(const Instruction& instr)
 {
     m_output.op1 = (uint8_t)((instr >> OP1_SHIFT) & OP1_MASK);
     RegIndex Ra  = (instr >> RA_SHIFT) & REG_MASK;
@@ -335,7 +334,8 @@ void Pipeline::DecodeStage::DecodeInstruction(const Instruction& instr)
     }
 }
 
-static bool BranchTakenInt(int cond, uint32_t psr)
+/*static*/
+bool Processor::Pipeline::ExecuteStage::BranchTakenInt(int cond, uint32_t psr)
 {
     const bool n = (psr & PSR_ICC_N) != 0; // Negative
     const bool z = (psr & PSR_ICC_Z) != 0; // Zero
@@ -357,7 +357,8 @@ static bool BranchTakenInt(int cond, uint32_t psr)
     return (cond & 8) ? !b : b;
 }
 
-static bool BranchTakenFlt(int cond, uint32_t fsr)
+/*static*/
+bool Processor::Pipeline::ExecuteStage::BranchTakenFlt(int cond, uint32_t fsr)
 {
     const bool e = (fsr & FSR_FCC) == FSR_FCC_EQ; // Equal
     const bool l = (fsr & FSR_FCC) == FSR_FCC_LT; // Less than
@@ -374,7 +375,8 @@ static bool BranchTakenFlt(int cond, uint32_t fsr)
     return b;
 }
 
-static uint32_t ExecBasicInteger(int opcode, uint32_t Rav, uint32_t Rbv, uint32_t& Y, PSR& psr)
+/*static*/
+uint32_t Processor::Pipeline::ExecuteStage::ExecBasicInteger(int opcode, uint32_t Rav, uint32_t Rbv, uint32_t& Y, PSR& psr)
 {
     uint64_t Rcv = 0;
     switch (opcode & 0xF)
@@ -452,7 +454,8 @@ static uint32_t ExecBasicInteger(int opcode, uint32_t Rav, uint32_t Rbv, uint32_
     return (uint32_t)Rcv;
 }
 
-static uint32_t ExecOtherInteger(int opcode, uint32_t Rav, uint32_t Rbv, uint32_t& Y, PSR& psr)
+/*static*/
+uint32_t Processor::Pipeline::ExecuteStage::ExecOtherInteger(int opcode, uint32_t Rav, uint32_t Rbv, uint32_t& Y, PSR& psr)
 {
     switch (opcode)
     {
@@ -494,7 +497,7 @@ static void ThrowIllegalInstructionException(Object& obj, MemAddr pc)
     throw IllegalInstructionException(obj, error.str());
 }
 
-Pipeline::PipeAction Pipeline::ExecuteStage::ExecReadASR20(uint8_t func)
+Processor::Pipeline::PipeAction Processor::Pipeline::ExecuteStage::ExecReadASR20(uint8_t func)
 {
     assert(m_input.Rav.m_size == sizeof(Integer));
     assert(m_input.Rbv.m_size == sizeof(Integer));
@@ -582,7 +585,7 @@ Pipeline::PipeAction Pipeline::ExecuteStage::ExecReadASR20(uint8_t func)
     return PIPE_CONTINUE;
 }
 
-Pipeline::PipeAction Pipeline::ExecuteStage::ExecWriteASR20(uint8_t func)
+Processor::Pipeline::PipeAction Processor::Pipeline::ExecuteStage::ExecWriteASR20(uint8_t func)
 {
     assert(m_input.Rav.m_size == sizeof(Integer));
     assert(m_input.Rbv.m_size == sizeof(Integer));
@@ -660,7 +663,7 @@ Pipeline::PipeAction Pipeline::ExecuteStage::ExecWriteASR20(uint8_t func)
     return PIPE_CONTINUE;
 }
 
-Pipeline::PipeAction Pipeline::ExecuteStage::ExecuteInstruction()
+Processor::Pipeline::PipeAction Processor::Pipeline::ExecuteStage::ExecuteInstruction()
 {
     switch (m_input.op1)
     {
@@ -867,9 +870,9 @@ Pipeline::PipeAction Pipeline::ExecuteStage::ExecuteInstruction()
                     const double Ra = m_input.Rav.m_float.tofloat(m_input.Rav.m_size);
                     const double Rb = m_input.Rbv.m_float.tofloat(m_input.Rbv.m_size);
                     thread.fsr = (thread.fsr & ~FSR_FCC) |
-                        isunordered(Ra, Rb) ? FSR_FCC_UO :
-                        isgreater  (Ra, Rb) ? FSR_FCC_GT :
-                        isless     (Ra, Rb) ? FSR_FCC_LT : FSR_FCC_EQ;
+                        isunordered(Ra, Rb) ? +FSR_FCC_UO :
+                        isgreater  (Ra, Rb) ? +FSR_FCC_GT :
+                        isless     (Ra, Rb) ? +FSR_FCC_LT : +FSR_FCC_EQ;
                 }
                 break;
 
