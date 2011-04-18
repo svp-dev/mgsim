@@ -1122,47 +1122,11 @@ Pipeline::PipeAction Pipeline::ExecuteStage::ExecuteInstruction()
                     }
                     break;
                     
-                case A_UTHREAD_PUTG:   
-                    if (!MoveFamilyRegister(RRT_GLOBAL,          RT_INTEGER, m_parent.GetProcessor().UnpackFID(m_input.Rav.m_integer.get(m_input.Rav.m_size)), m_input.regofs)) return PIPE_STALL; break;
-                case A_UTHREAD_PUTS:   
-                    if (!MoveFamilyRegister(RRT_FIRST_DEPENDENT, RT_INTEGER, m_parent.GetProcessor().UnpackFID(m_input.Rav.m_integer.get(m_input.Rav.m_size)), m_input.regofs)) return PIPE_STALL; break;
-                case A_UTHREAD_GETS:   
-                    if (!MoveFamilyRegister(RRT_LAST_SHARED,     RT_INTEGER, m_parent.GetProcessor().UnpackFID(m_input.Rav.m_integer.get(m_input.Rav.m_size)), m_input.regofs)) return PIPE_STALL; break;
-
-                case A_UTHREAD_SYNC: 
-                {
-                    Integer fid_arg = m_input.Rav.m_integer.get(m_input.Rav.m_size);
-                    if (fid_arg == 0)
-                    {
-                        COMMIT {
-                            m_output.Rcv.m_integer = 0;
-                            m_output.Rcv.m_state   = RST_FULL;
-                        }
-                    }
-                    else
-                    {
-                        if (!ExecSync(m_parent.GetProcessor().UnpackFID(fid_arg)))
-                            return PIPE_STALL;
-                    }
-                    break;
-                }
-                case A_UTHREAD_DETACH: 
-                {
-                    Integer fid_arg = m_input.Rav.m_integer.get(m_input.Rav.m_size);
-                    if (fid_arg == 0)
-                    {
-                        COMMIT {
-                            m_output.Rcv.m_integer = 0;
-                            m_output.Rcv.m_state   = RST_FULL;
-                        }
-                    }
-                    else
-                    {
-                        if (!ExecDetach(m_parent.GetProcessor().UnpackFID(fid_arg)))
-                            return PIPE_STALL;
-                    }
-                    break;
-                }
+                case A_UTHREAD_PUTG:   if (!MoveFamilyRegister(RRT_GLOBAL,          RT_INTEGER, m_parent.GetProcessor().UnpackFID(m_input.Rav.m_integer.get(m_input.Rav.m_size)), m_input.regofs)) return PIPE_STALL; break;
+                case A_UTHREAD_PUTS:   if (!MoveFamilyRegister(RRT_FIRST_DEPENDENT, RT_INTEGER, m_parent.GetProcessor().UnpackFID(m_input.Rav.m_integer.get(m_input.Rav.m_size)), m_input.regofs)) return PIPE_STALL; break;
+                case A_UTHREAD_GETS:   if (!MoveFamilyRegister(RRT_LAST_SHARED,     RT_INTEGER, m_parent.GetProcessor().UnpackFID(m_input.Rav.m_integer.get(m_input.Rav.m_size)), m_input.regofs)) return PIPE_STALL; break;
+                case A_UTHREAD_SYNC:   if (!ExecSync(m_parent.GetProcessor().UnpackFID(m_input.Rav.m_integer.get(m_input.Rav.m_size)))) return PIPE_STALL; break;
+                case A_UTHREAD_DETACH: if (!ExecDetach(m_parent.GetProcessor().UnpackFID(m_input.Rav.m_integer.get(m_input.Rav.m_size)))) return PIPE_STALL; break;
             }
         }
         else if (m_input.opcode == A_OP_UTHREADF)

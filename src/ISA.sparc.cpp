@@ -516,17 +516,9 @@ Pipeline::PipeAction Pipeline::ExecuteStage::ExecReadASR20(uint8_t func)
         }
         
         case S_OPT_SYNC:
-            if (Rbv == 0)
+            if (!ExecSync(m_parent.GetProcessor().UnpackFID(Rbv))) 
             {
-                m_output.Rcv.m_integer = 0;
-                m_output.Rcv.m_state   = RST_FULL;
-            }
-            else
-            {
-                if (!ExecSync(m_parent.GetProcessor().UnpackFID(Rbv))) 
-                {
-                    return PIPE_STALL;
-                }
+                return PIPE_STALL;
             }
             break;
 
@@ -647,17 +639,9 @@ Pipeline::PipeAction Pipeline::ExecuteStage::ExecWriteASR20(uint8_t func)
             break;
             
         case S_OPT_DETACH:
-            if (Rav == 0)
+            if (!ExecDetach(m_parent.GetProcessor().UnpackFID(Rav))) 
             {
-                m_output.Rcv.m_integer = 0;
-                m_output.Rcv.m_state   = RST_FULL;
-            }
-            else
-            {
-                if (!ExecDetach(m_parent.GetProcessor().UnpackFID(Rav))) 
-                {
-                    return PIPE_STALL;
-                }
+                return PIPE_STALL;
             }
             break;
             
