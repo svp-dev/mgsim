@@ -14,6 +14,7 @@
 #include "zlcoma/Directory.h"
 #include "zlcoma/RootDirectory.h"
 
+#include <cerrno>
 #include <csignal>
 #include <sstream>
 #include <iomanip>
@@ -383,6 +384,16 @@ void HandleCommandLine(CommandLineReader& clr,
         else if ((command == "d" || command == "dis" || command == "disasm") && !args.empty())
         {
             MemAddr addr = strtoull(args[0].c_str(), 0, 0);
+            if (errno == EINVAL)
+            {
+                bool check = sys.GetKernel().GetSymbolTable().LookUp(args[0], addr, true);
+                if (!check)
+                {
+                    cout << "invalid address: " << args[0] << endl;
+                    break;
+                }
+            }
+
             size_t sz = 0;
             if (args.size() > 1)
                 sz = strtoul(args[1].c_str(), 0, 0);
