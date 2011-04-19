@@ -34,6 +34,55 @@ string RegAddr::str() const
     return "N/A  ";
 }
 
+string ThreadQueue::str() const
+{
+    stringstream ss;
+
+    ss << "TQ(" << head << ',' << tail << ')';
+
+    return ss.str();
+}
+
+
+string MemoryRequest::str() const
+{
+    stringstream ss;
+
+    ss << "MReq:";
+    if (size == 0)
+        ss << "(none)";
+    else
+        ss << "(F" << fid 
+           << ',' << offset 
+           << ',' << size 
+           << ',' << sign_extend
+           << ',' << next.str()
+           << ')';
+
+    return ss.str();
+}
+
+string RegValue::str(RegType type) const
+{
+    switch (m_state)
+    {
+    case RST_INVALID: return "Invalid  "; 
+    case RST_EMPTY:   return "Empty    "; 
+    case RST_PENDING: return "Pending: " + m_memory.str(); 
+    case RST_WAITING: return "Waiting: " + m_memory.str() + ", " + m_waiting.str();
+    case RST_FULL:{
+        stringstream ss;
+        ss << "Full:    " << setw(sizeof(Integer) * 2) << setfill('0') << hex;
+        if (type == RT_FLOAT)
+            ss << m_float.integer;
+        else
+            ss << m_integer;
+        return ss.str();
+    }
+    }
+    return "(unknown register state)";
+}
+
 ostream& operator << (ostream& output, const RegAddr& reg)
 {
     output << reg.str();

@@ -57,6 +57,7 @@ bool RegisterFile::ReadRegister(const RegAddr& addr, RegValue& data) const
         throw SimulationException("A component attempted to read from a non-existing register", *this);
     }
     data = regs[addr.index];
+    DebugRegWrite("Read from %s: %s", addr.str().c_str(), data.str(addr.type).c_str());
     return true;
 }
 
@@ -66,6 +67,7 @@ bool RegisterFile::WriteRegister(const RegAddr& addr, const RegValue& data)
     vector<RegValue>& regs = (addr.type == RT_FLOAT) ? m_floats : m_integers;
     if (addr.index < regs.size())
     {
+        DebugRegWrite("Write to  %s: %s becomes %s", addr.str().c_str(), regs[ addr.index ].str(addr.type).c_str(), data.str(addr.type).c_str());
         regs[addr.index] = data;
         return true;
     }
@@ -99,7 +101,7 @@ bool RegisterFile::WriteRegister(const RegAddr& addr, const RegValue& data, bool
     {
         throw SimulationException("A component attempted to write to a non-existing register", *this);
     }
-    
+
     assert(data.m_state == RST_EMPTY || data.m_state == RST_PENDING || data.m_state == RST_WAITING || data.m_state == RST_FULL);
     
     if (data.m_state == RST_EMPTY || data.m_state == RST_PENDING)
@@ -112,7 +114,7 @@ bool RegisterFile::WriteRegister(const RegAddr& addr, const RegValue& data, bool
     {
         if (value.m_state == RST_WAITING && data.m_state == RST_EMPTY)
         {
-            throw SimulationException("Resetting a waiting register", *this);
+            throw exceptf<SimulationException>(*this, "Invalid reset of %s: %s becomes %s", addr.str().c_str(), value.str(addr.type).c_str(), data.str(addr.type).c_str());
         }
 
         if (value.m_memory.size != 0)
@@ -128,7 +130,7 @@ bool RegisterFile::WriteRegister(const RegAddr& addr, const RegValue& data, bool
                 if (!from_memory)
                 {
                     // Only the memory can change memory-pending registers
-                    throw SimulationException("Writing to a memory-load destination register", *this);
+                    throw exceptf<SimulationException>(*this, "Invalid reset of pending load %s: %s becomes %s", addr.str().c_str(), value.str(addr.type).c_str(), data.str(addr.type).c_str());
                 }
             }
         }        
@@ -140,14 +142,14 @@ bool RegisterFile::WriteRegister(const RegAddr& addr, const RegValue& data, bool
                 // This write caused a reschedule
                 if (!m_allocator.ActivateThreads(value.m_waiting))
                 {
-                    DeadlockWrite("Unable to wake up threads from %s", addr.str().c_str());
+                    DeadlockWrite("Unable to wake up threads after write of %s: %s becomes %s", addr.str().c_str(), value.str(addr.type).c_str(), data.str(addr.type).c_str());
                     return false;
                 }
             }
         }
     }
     
-    if (Object::IsCommitting())
+    COMMIT
     {
 #ifndef NDEBUG
         // Paranoid sanity check:
@@ -175,8 +177,11 @@ void RegisterFile::Update()
     assert(m_nUpdates > 0);
     for (unsigned int i = 0; i < m_nUpdates; ++i)
     {
-        vector<RegValue>& regs = (m_updates[i].first.type == RT_FLOAT) ? m_floats : m_integers;
-        regs[ m_updates[i].first.index ] = m_updates[i].second;
+        RegAddr& addr = m_updates[i].first;
+        RegType type = addr.type;
+        vector<RegValue>& regs = (type == RT_FLOAT) ? m_floats : m_integers;
+        DebugRegWrite("Write to  %s: %s becomes %s", addr.str().c_str(), regs[ addr.index ].str(type).c_str(), m_updates[i].second.str(type).c_str());
+        regs[ addr.index ] = m_updates[i].second;
     }
     m_nUpdates = 0;
 }
@@ -258,55 +263,20 @@ void RegisterFile::Cmd_Read(std::ostream& out, const std::vector<std::string>& a
         }
     }
 
-    static const char* RegisterStateNames[5] = {
-        "", "Empty", "Pending", "Waiting", "Full"
-    };
 
-    out << "      |  State  | M |       Value      | Fam | Thread | Type" << endl;
-    out << "------+---------+---+------------------+-----+--------+----------------" << endl;
+    out << "Addr  | Fam | Thread | Role      | State / Value" << endl
+        << "------+-----+--------+-----------+--------------------------------" << endl;
     for (set<RegIndex>::const_reverse_iterator p = indices.rbegin(); p != indices.rend(); ++p)
     {
         RegAddr  addr = MAKE_REGADDR(type, *p);
         LFID     fid  = regs[*p];
         RegValue value;
         ReadRegister(addr, value);
-        out << addr << " | " << setw(7) << setfill(' ') << RegisterStateNames[value.m_state] << " | ";
-        if (value.m_state != RST_FULL)
-        {
-            out << (value.m_memory.size != 0 ? 'M' : ' ');
-        }
-        else
-        {
-            out << " ";
-        }
-        out << " | ";
 
-        stringstream ss;
-        switch (value.m_state)
-        {
-        case RST_FULL:
-            switch (type)
-            {
-            case RT_INTEGER: ss << setw(16 - sizeof(Integer) * 2) << setfill(' ') << ""
-                                << setw(     sizeof(Integer) * 2) << setfill('0') << hex << value.m_integer; break;
-            case RT_FLOAT:   ss << setw(16 - sizeof(Integer) * 2) << setfill(' ') << ""
-                                << setw(     sizeof(Integer) * 2) << setfill('0') << hex << value.m_float.integer; break;
-            }
-            break;
+        out << addr << " | ";
 
-        case RST_WAITING:
-            ss << "   " << setfill(' ') << dec << setw(4) << value.m_waiting.head << " - " << setw(4) << value.m_waiting.tail << "  "; break;
-            break;
-
-        case RST_INVALID:
-        case RST_PENDING:
-        case RST_EMPTY:
-            ss << setw(16) << " ";
-            break;
-        }
-
-        out << ss.str().substr(0, 16) << " | ";
         if (fid != INVALID_LFID) out << "F" << setw(2) << setfill('0') << dec << fid; else out << "   ";
+
         out << " |  ";
 
         RegClass group = RC_LOCAL;
@@ -316,18 +286,24 @@ void RegisterFile::Cmd_Read(std::ostream& out, const std::vector<std::string>& a
         } else {
             out << "  -  ";
         }
+
         out << " | ";
+
+        const char *groupstr = "    -   ";
         switch (group)
         {
-            case RC_GLOBAL:    out << "Global"; break;
-            case RC_DEPENDENT: out << "Dependent"; break;
-            case RC_SHARED:    out << "Shared"; break;
+            case RC_GLOBAL:    groupstr = "Global"; break;
+            case RC_DEPENDENT: groupstr = "Dependent"; break;
+            case RC_SHARED:    groupstr = "Shared"; break;
             case RC_LOCAL:
-                if (tid != INVALID_TID) out << "Local";
+                if (tid != INVALID_TID) groupstr = "Local";
                 break;
             case RC_RAZ: break;
         }
-        out << endl;
+        out << setw(9) << setfill(' ') << left << groupstr << right
+            << " | "
+            << value.str(type)
+            << endl;
     }
 }
 

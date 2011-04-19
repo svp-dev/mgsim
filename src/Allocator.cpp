@@ -1178,6 +1178,8 @@ bool Allocator::QueueCreate(const LinkMessage& msg)
     
     Integer nThreads = CalculateThreadCount(family);
     CalculateDistribution(family, nThreads, family.numCores);
+    DebugSimWrite("QueueCreate: F%u (%u threads) distributed on %u cores: here starts at thread %u",
+                  (unsigned)msg.create.fid, (unsigned)family.nThreads, (unsigned)family.numCores, (unsigned)family.start);            
     
     if (!AllocateRegisters(msg.create.fid, CONTEXT_RESERVED))
     {

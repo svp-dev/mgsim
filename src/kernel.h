@@ -151,6 +151,7 @@ enum CyclePhase {
 #define DebugProgWrite(msg, ...) do { if ((GetKernel()->GetDebugMode() & Kernel::DEBUG_PROG) && GetKernel()->GetCyclePhase() == PHASE_COMMIT) DebugSimWrite_((msg), ##__VA_ARGS__); } while(false)
 #define DebugFlowWrite(msg, ...) do { if ((GetKernel()->GetDebugMode() & Kernel::DEBUG_FLOW) && GetKernel()->GetCyclePhase() == PHASE_COMMIT) DebugSimWrite_((msg), ##__VA_ARGS__); } while(false)
 #define DebugMemWrite(msg, ...)  do { if ((GetKernel()->GetDebugMode() & Kernel::DEBUG_MEM ) && GetKernel()->GetCyclePhase() == PHASE_COMMIT) DebugSimWrite_((msg), ##__VA_ARGS__); } while(false)
+#define DebugRegWrite(msg, ...)  do { if ((GetKernel()->GetDebugMode() & Kernel::DEBUG_REG ) && GetKernel()->GetCyclePhase() == PHASE_COMMIT) DebugSimWrite_((msg), ##__VA_ARGS__); } while(false)
 #define DeadlockWrite(msg, ...)  do { if (GetKernel()->GetDebugMode() & Kernel::DEBUG_DEADLOCK) DeadlockWrite_((msg), ##__VA_ARGS__); } while(false)
 #define OutputWrite(msg, ...)    do { if (GetKernel()->GetCyclePhase() == PHASE_COMMIT) OutputWrite_((msg), ##__VA_ARGS__); } while(false)
 
@@ -171,7 +172,8 @@ public:
         DEBUG_PROG     = 2, ///< Debug the program
         DEBUG_DEADLOCK = 4, ///< Debug deadlocks
         DEBUG_FLOW     = 8, ///< Debug control flow
-        DEBUG_MEM      = 16, ///< Debug memory stores
+        DEBUG_MEM      = 16, ///< Debug memory accesses
+        DEBUG_REG      = 32, ///< Debug register accesses
     };
     
 private:
