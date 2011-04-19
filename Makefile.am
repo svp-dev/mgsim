@@ -1,4 +1,4 @@
-SUBDIRS = . doc src programs
+SUBDIRS = . arch cli doc sim programs tools
 
 ACLOCAL_AMFLAGS = -I build-aux
 

@@ -12,7 +12,7 @@ AC_INIT([mgsim],
 AC_CONFIG_AUX_DIR([build-aux])
 AC_CONFIG_HEADERS([src/sys_config.h])
 
-AM_INIT_AUTOMAKE([1.11 tar-ustar no-define foreign dist-bzip2 
+AM_INIT_AUTOMAKE([1.11 tar-ustar no-define foreign dist-bzip2 subdir-objects
                   parallel-tests color-tests silent-rules])
 AM_SILENT_RULES([yes])
 
@@ -92,11 +92,18 @@ fi
 AM_CONDITIONAL([ENABLE_MTSPARC], [test x$enable_mtsparc = xyes])
 AM_CONDITIONAL([ENABLE_MTSPARC_TESTS], [test x$enable_mtsparc_tests = xyes])
 
-AM_PATH_SDL
-if test "x$no_sdl" = xyes; then
-  AC_MSG_WARN([SDL not found, disabling support for graphics output])
+AC_ARG_ENABLE([sdl],
+[AC_HELP_STRING([--enable-sdl], [enable support for graphics output])],
+[enable_sdl=yes])
+
+if test "x$enable_sdl" = "xyes"; then
+  AM_PATH_SDL
+  if test "x$no_sdl" = xyes; then
+    AC_MSG_ERROR([SDL not found])
+    enable_sdl=no
+  fi
 fi
-AM_CONDITIONAL([ENABLE_USE_SDL], [test "x$no_sdl" = x])
+AM_CONDITIONAL([ENABLE_SDL], [test "x$enable_sdl" = "xyes"])
 
 AX_PTHREAD
 
@@ -109,8 +116,8 @@ if test "x$enable_monitor" = "xyes"; then
      AC_MSG_WARN([POSIX threads not available, cannot use monitor.])
      enable_monitor=no
   fi
-  AM_CONDITIONAL([ENABLE_MONITOR], [test "x$enable_monitor" = "xyes"])
 fi
+AM_CONDITIONAL([ENABLE_MONITOR], [test "x$enable_monitor" = "xyes"])
 
 AM_PATH_PYTHON([2.6],[],[AC_MSG_WARN([The 'readtrace' utility requires Python >= 2.6.])])
 
@@ -121,12 +128,15 @@ fi
 
 AC_CONFIG_FILES([
 	Makefile
+	arch/Makefile
+	cli/Makefile
 	doc/Makefile
-	src/Makefile
-        programs/aslink.sh
+	sim/Makefile
+	tools/Makefile
+    programs/aslink.sh
 	programs/Makefile
 	programs/mtalpha/Makefile
 	programs/mtsparc/Makefile
 ])
-AC_CONFIG_FILES([src/readtrace], [chmod +x src/readtrace])
+AC_CONFIG_FILES([tools/readtrace], [chmod +x tools/readtrace])
 AC_OUTPUT
