@@ -1,11 +1,3 @@
-noinst_LIBRARIES =
-
-FLAGS_OPT = -O3 -DNDEBUG
-FLAGS_DEBUG = -g -DDEBUG 
-
-FLAGS_COMMON = -W -Wall -Wwrite-strings -Wno-unused \
-       -DMGSIM_CONFIG_PATH=\"$(pkgdatadir)/config.ini\"
-
 MEMORY_SRC = \
 	mem/BankedMemory.cpp \
 	mem/BankedMemory.h \
@@ -57,6 +49,7 @@ COMMON_SRC = \
     $(MEMORY_SRC) \
     $(DEVICE_SRC) \
     $(PROCESSOR_SRC) \
+    Archures.h \
 	elf.h \
 	FPU.cpp \
 	FPU.h \
@@ -67,100 +60,51 @@ COMMON_SRC = \
 	MGSystem.cpp \
 	loader.cpp \
 	loader.h \
+	simtypes.h \
+	simtypes.cpp \
+	symtable.h \
+	symtable.cpp \
 	VirtualMemory.cpp \
 	VirtualMemory.h
 
 ZLCOMA_SRC = \
-	zlcoma/COMA.h \
-	zlcoma/COMA.cpp \
-	zlcoma/Cache.h \
-	zlcoma/Cache.cpp \
-	zlcoma/Directory.h \
-	zlcoma/Directory.cpp \
-	zlcoma/Node.h \
-	zlcoma/Node.cpp \
-	zlcoma/RootDirectory.h \
-	zlcoma/RootDirectory.cpp \
-	zlcoma/DDR.h \
-	zlcoma/DDR.cpp
+	mem/zlcoma/COMA.h \
+	mem/zlcoma/COMA.cpp \
+	mem/zlcoma/Cache.h \
+	mem/zlcoma/Cache.cpp \
+	mem/zlcoma/Directory.h \
+	mem/zlcoma/Directory.cpp \
+	mem/zlcoma/Node.h \
+	mem/zlcoma/Node.cpp \
+	mem/zlcoma/RootDirectory.h \
+	mem/zlcoma/RootDirectory.cpp \
+	mem/zlcoma/DDR.h \
+	mem/zlcoma/DDR.cpp
 
 MLCOMA_SRC = \
-	coma/COMA.h \
-	coma/COMA.cpp \
-	coma/Cache.h \
-	coma/Cache.cpp \
-	coma/Directory.h \
-	coma/Directory.cpp \
-	coma/Node.h \
-	coma/Node.cpp \
-	coma/RootDirectory.h \
-	coma/RootDirectory.cpp \
-	coma/DDR.h \
-	coma/DDR.cpp
+	mem/coma/COMA.h \
+	mem/coma/COMA.cpp \
+	mem/coma/Cache.h \
+	mem/coma/Cache.cpp \
+	mem/coma/Directory.h \
+	mem/coma/Directory.cpp \
+	mem/coma/Node.h \
+	mem/coma/Node.cpp \
+	mem/coma/RootDirectory.h \
+	mem/coma/RootDirectory.cpp \
+	mem/coma/DDR.h \
+	mem/coma/DDR.cpp
 
 ALPHA_SRC = $(COMMON_SRC) \
-	ISA.alpha.h \
-	ISA.alpha.cpp
+	proc/ISA.alpha.h \
+	proc/ISA.alpha.cpp
 
 SPARC_SRC = $(COMMON_SRC) \
-	ISA.sparc.h \
-	ISA.sparc.cpp
+	proc/ISA.sparc.h \
+	proc/ISA.sparc.cpp
 
-FLAGS_ALPHA = -DTARGET_ARCH=ARCH_ALPHA
-FLAGS_SPARC = -DTARGET_ARCH=ARCH_SPARC
-
-if ENABLE_MTALPHA
-ALPHA_LIBS = \
-    libalpha.a \
-	libalpha_zlcoma.a \
-	libalpha_mlcoma.a
+noinst_LIBRARIES = libarch.a libarch_mlcoma.a libarch_zlcoma.a
 	
-ALPHA_LIBS_G = \
-    libalpha_g.a \
-	libalpha_zlcoma_g.a \
-	libalpha_mlcoma_g.a
-
-noinst_LIBRARIES += $(ALPHA_LIBS) $(ALPHA_LIBS_G)
-
-libalpha_zlcoma_a_SOURCES = $(ZLCOMA_SRC)
-libalpha_zlcoma_a_CXXFLAGS = $(FLAGS_ALPHA) $(FLAGS_OPT) $(FLAGS_COMMON)
-libalpha_mlcoma_a_SOURCES = $(MLCOMA_SRC)
-libalpha_mlcoma_a_CXXFLAGS = $(FLAGS_ALPHA) $(FLAGS_OPT) $(FLAGS_COMMON)
-libalpha_a_SOURCES = $(COMMON_SRC) $(ALPHA_SRC)
-libalpha_a_CXXFLAGS = $(FLAGS_ALPHA) $(FLAGS_OPT) $(FLAGS_COMMON)
-
-libalpha_zlcoma_g_a_SOURCES = $(ZLCOMA_SRC)
-libalpha_zlcoma_g_a_CXXFLAGS = $(FLAGS_ALPHA) $(FLAGS_DEBUG) $(FLAGS_COMMON)
-libalpha_mlcoma_g_a_SOURCES = $(MLCOMA_SRC)
-libalpha_mlcoma_g_a_CXXFLAGS = $(FLAGS_ALPHA) $(FLAGS_DEBUG) $(FLAGS_COMMON)
-libalpha_g_a_SOURCES = $(COMMON_SRC) $(ALPHA_SRC)
-libalpha_g_a_CXXFLAGS = $(FLAGS_ALPHA) $(FLAGS_DEBUG) $(FLAGS_COMMON)
-endif
-
-if ENABLE_MTSPARC
-SPARC_LIBS = \
-    libsparc.a \
-	libsparc_zlcoma.a \
-	libsparc_mlcoma.a
-	
-SPARC_LIBS_G = \
-    libsparc_g.a \
-	libsparc_zlcoma_g.a \
-	libsparc_mlcoma_g.a
-
-noinst_LIBRARIES += $(SPARC_LIBS) $(SPARC_LIBS_G)
-
-libsparc_zlcoma_a_SOURCES = $(ZLCOMA_SRC)
-libsparc_zlcoma_a_CXXFLAGS = $(FLAGS_SPARC) $(FLAGS_OPT) $(FLAGS_COMMON)
-libsparc_mlcoma_a_SOURCES = $(MLCOMA_SRC)
-libsparc_mlcoma_a_CXXFLAGS = $(FLAGS_SPARC) $(FLAGS_OPT) $(FLAGS_COMMON)
-libsparc_a_SOURCES = $(COMMON_SRC) $(SPARC_SRC)
-libsparc_a_CXXFLAGS = $(FLAGS_SPARC) $(FLAGS_OPT) $(FLAGS_COMMON)
-
-libsparc_zlcoma_g_a_SOURCES = $(ZLCOMA_SRC)
-libsparc_zlcoma_g_a_CXXFLAGS = $(FLAGS_SPARC) $(FLAGS_DEBUG) $(FLAGS_COMMON)
-libsparc_mlcoma_g_a_SOURCES = $(MLCOMA_SRC)
-libsparc_mlcoma_g_a_CXXFLAGS = $(FLAGS_SPARC) $(FLAGS_DEBUG) $(FLAGS_COMMON)
-libsparc_g_a_SOURCES = $(COMMON_SRC) $(SPARC_SRC)
-libsparc_g_a_CXXFLAGS = $(FLAGS_SPARC) $(FLAGS_DEBUG) $(FLAGS_COMMON)
-endif
+libarch_zlcoma_a_SOURCES = $(ZLCOMA_SRC)
+libarch_mlcoma_a_SOURCES = $(MLCOMA_SRC)
+libarch_a_SOURCES = $(COMMON_SRC) $(ALPHA_SRC)

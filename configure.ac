@@ -10,7 +10,7 @@ AC_INIT([mgsim],
         m4_esyscmd([build-aux/version-gen build-aux/tarball-version build-aux/package-version]), 
         [m.lankamp@uva.nl])
 AC_CONFIG_AUX_DIR([build-aux])
-AC_CONFIG_HEADERS([src/sys_config.h])
+AC_CONFIG_HEADERS([sys_config.h])
 
 AM_INIT_AUTOMAKE([1.11 tar-ustar no-define foreign dist-bzip2 subdir-objects
                   parallel-tests color-tests silent-rules])
@@ -18,26 +18,30 @@ AM_SILENT_RULES([yes])
 
 AC_CHECK_PROGS([HELP2MAN], [help2man], [$am_aux_dir/missing help2man])
 
-# Override the default CXXFLAGS since
-# Makefile.am applies new values.
-CXXFLAGS=''
-
 AC_PROG_CXX
 AC_PROG_RANLIB
 AC_LIB_READLINE
+AC_HEADER_ASSERT
+
+AM_CPPFLAGS="$AM_CPPFLAGS -I\$(top_srcdir) -W -Wall -Wwrite-strings -Wno-unused"
+AC_SUBST([AM_CPPFLAGS])
+
+AC_DEFINE(TARGET_ARCH, ARCH_ALPHA,
+  [Define to the target architecture that the simulator is being built for.])
 
 AC_ARG_ENABLE([softfpu],
 [AC_HELP_STRING([--enable-softfpu], [enable software emulation of IEEE 754 (default is disabled)])]],
 [], [enable_softfpu=no])
 if test "x$enable_softfpu" = "xyes"; then
-   CXXFLAGS="$CPPFLAGS -DEMULATE_IEEE754"
+  AC_DEFINE(EMULATE_IEEE754, 1,
+    [Define to 1 if IEEE 754 software emulation should be used])
 fi
 
 AC_ARG_ENABLE([profile],
 [AC_HELP_STRING([--enable-profile], [enable profiling during execution (default is disabled)])],
 [], [enable_profile=no])
 if test "x$enable_profile" = "xyes"; then
-   CXXFLAGS="$CXXFLAGS -pg"
+  AM_CXXFLAGS="$AM_CXXFLAGS -pg"
 fi
 
 AC_ARG_ENABLE([mtalpha], 

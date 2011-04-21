@@ -1,9 +1,8 @@
 #ifndef BANKEDMEMORY_H
 #define BANKEDMEMORY_H
 
-#include "Memory.h"
-#include "storage.h"
-#include "VirtualMemory.h"
+#include "arch/Memory.h"
+#include "arch/VirtualMemory.h"
 #include <queue>
 #include <set>
 

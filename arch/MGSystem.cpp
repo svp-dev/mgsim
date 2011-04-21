@@ -1,16 +1,13 @@
 #include "MGSystem.h"
 
-#include "SerialMemory.h"
-#include "ParallelMemory.h"
-#include "BankedMemory.h"
-#include "RandomBankedMemory.h"
-#include "coma/COMA.h"
-#include "zlcoma/COMA.h"
+#include "mem/SerialMemory.h"
+#include "mem/ParallelMemory.h"
+#include "mem/BankedMemory.h"
+#include "mem/RandomBankedMemory.h"
+#include "mem/coma/COMA.h"
+#include "mem/zlcoma/COMA.h"
 
 #include "loader.h"
-
-// For Tokenize:
-#include "simreadline.h"
 
 #include <cstdlib>
 #include <iomanip>
@@ -101,6 +98,24 @@ using namespace std;
 #define CONFTAG_LAYOUT_V2  8
 #define MAKE_TAG(Type, Size) (uint32_t)(((Type) << 16) | ((Size) & 0xffff))
 
+static vector<string> Tokenize(const string& str, const string& sep)
+{
+    vector<string> tokens;
+    for (size_t next, pos = str.find_first_not_of(sep); pos != string::npos; pos = next)
+    {
+        next = str.find_first_of(sep, pos);
+        if (next == string::npos)
+        {
+            tokens.push_back(str.substr(pos));
+        }
+        else
+        {
+            tokens.push_back(str.substr(pos, next - pos));
+            next = str.find_first_not_of(sep, next);
+        }
+    }
+    return tokens;
+}
 
 void MGSystem::FillConfWords(ConfWords& words) const
 {

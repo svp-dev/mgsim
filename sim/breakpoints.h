@@ -4,10 +4,9 @@
 #include <map>
 #include <string>
 
-#include "kernel.h"
-#include "simtypes.h"
-#include "symtable.h"
-#include "except.h"
+#include "sim/kernel.h"
+#include "arch/symtable.h"
+#include "sim/except.h"
 #include <iostream>
 
 class BreakPoints

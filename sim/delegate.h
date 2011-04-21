@@ -1,13 +1,19 @@
 #ifndef DELEGATE_H
 #define DELEGATE_H
 
-#include "simtypes.h"
 #include <cassert>
 
 namespace Simulator
 {
 
 class Object;
+
+enum Result
+{
+    FAILED,
+    DELAYED,
+    SUCCESS
+};
 
 class delegate
 {

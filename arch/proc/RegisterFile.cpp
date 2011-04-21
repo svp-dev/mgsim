@@ -1,6 +1,6 @@
 #include "Processor.h"
-#include "config.h"
-#include "range.h"
+#include "sim/config.h"
+#include "sim/range.h"
 #include <cassert>
 #include <iomanip>
 using namespace std;

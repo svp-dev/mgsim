@@ -1,10 +1,9 @@
 #ifndef PROCESSOR_H
 #define PROCESSOR_H
 
-#include "MMIO.h"
-#include "lineprinter.h"
-#include "Memory.h"
-#include "storage.h"
+#include "arch/MMIO.h"
+#include "arch/Memory.h"
+#include "arch/dev/lineprinter.h"
 
 class Config;
 

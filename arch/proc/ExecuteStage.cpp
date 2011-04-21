@@ -1,7 +1,7 @@
 #include "Processor.h"
-#include "display.h"
 #include "symtable.h"
-#include "sampling.h"
+#include "sim/sampling.h"
+#include "sim/display.h"
 
 #include <cassert>
 #include <cmath>

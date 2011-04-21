@@ -1,6 +1,6 @@
 #include "Processor.h"
-#include "config.h"
-#include "breakpoints.h"
+#include "sim/config.h"
+#include "sim/breakpoints.h"
 #include <cassert>
 using namespace std;
 

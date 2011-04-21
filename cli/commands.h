@@ -2,10 +2,10 @@
 #define COMMANDS_H
 
 #ifdef ENABLE_MONITOR
-# include "monitor.h"
+# include "sim/monitor.h"
 #endif
 #include "simreadline.h"
-#include "MGSystem.h"
+#include "arch/MGSystem.h"
 #include <vector>
 #include <string>
 

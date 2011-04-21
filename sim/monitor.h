@@ -1,7 +1,7 @@
 #ifndef MONITOR_H
 # define MONITOR_H
 
-#include "MGSystem.h"
+#include "arch/MGSystem.h"
 #include "sampling.h"
 
 #include <fstream>

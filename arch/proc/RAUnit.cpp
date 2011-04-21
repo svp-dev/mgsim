@@ -1,5 +1,5 @@
 #include "Processor.h"
-#include "config.h"
+#include "sim/config.h"
 #include <cassert>
 #include <iomanip>
 using namespace std;

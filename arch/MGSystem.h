@@ -1,16 +1,12 @@
 #ifndef MGSYSTEM_H
 #define MGSYSTEM_H
 
-#include "Processor.h"
-#include "FPU.h"
-#include "kernel.h"
-#include "Allocator.h"
-#include "Memory.h"
-#include "config.h"
-#include "symtable.h"
-#include "breakpoints.h"
-#include "MMIO.h"
-#include "lcd.h"
+#include "arch/proc/Processor.h"
+#include "arch/FPU.h"
+#include "arch/symtable.h"
+#include "arch/dev/lcd.h"
+#include "sim/breakpoints.h"
+#include "sim/config.h"
 
 #include <vector>
 #include <utility>

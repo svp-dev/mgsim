@@ -1,7 +1,7 @@
 #include "DDR.h"
 #include "VirtualMemory.h"
-#include "../config.h"
-#include "../log2.h"
+#include "sim/config.h"
+#include "sim/log2.h"
 #include <limits>
 #include <cstdio>
 
@@ -16,7 +16,7 @@ static T GET_BITS(const T& value, unsigned int offset, unsigned int size)
 
 static const unsigned long INVALID_ROW = std::numeric_limits<unsigned long>::max();
 
-bool DDRChannel::Read(MemAddr address, MemSize size)
+bool COMA::DDRChannel::Read(MemAddr address, MemSize size)
 {
     if (m_busy.IsSet())
     {
@@ -44,7 +44,7 @@ bool DDRChannel::Read(MemAddr address, MemSize size)
     return true;
 }
 
-bool DDRChannel::Write(MemAddr address, const void* data, MemSize size)
+bool COMA::DDRChannel::Write(MemAddr address, const void* data, MemSize size)
 {
     if (m_busy.IsSet())
     {
@@ -74,7 +74,7 @@ bool DDRChannel::Write(MemAddr address, const void* data, MemSize size)
 }
 
 // Main process for timing the current active request
-Result DDRChannel::DoRequest()
+Result COMA::DDRChannel::DoRequest()
 {
     assert(m_busy.IsSet());
     
@@ -174,7 +174,7 @@ Result DDRChannel::DoRequest()
     return SUCCESS;
 }
 
-Result DDRChannel::DoPipeline()
+Result COMA::DDRChannel::DoPipeline()
 {
     assert(!m_pipeline.Empty());
     const CycleNo  now     = m_clock.GetCycleNo();
@@ -192,7 +192,7 @@ Result DDRChannel::DoPipeline()
     return SUCCESS;
 }
 
-DDRChannel::DDRConfig::DDRConfig(const Clock& clock, const Config& config)
+COMA::DDRChannel::DDRConfig::DDRConfig(const Clock& clock, const Config& config)
 {
     // DDR 3
     m_nBurstLength = config.getValue<size_t> ("DDR_BurstLength", 8);
@@ -231,7 +231,7 @@ DDRChannel::DDRConfig::DDRConfig(const Clock& clock, const Config& config)
     m_nRankStart = m_nRowStart + m_nRowBits;
 }
 
-DDRChannel::DDRChannel(const std::string& name, Object& parent, Clock& clock, VirtualMemory& memory, const Config& config)
+COMA::DDRChannel::DDRChannel(const std::string& name, Object& parent, Clock& clock, VirtualMemory& memory, const Config& config)
     : Object(name, parent, clock),
       m_clock(clock),
       m_ddrconfig(clock, config),
@@ -245,14 +245,14 @@ DDRChannel::DDRChannel(const std::string& name, Object& parent, Clock& clock, Vi
       m_next_command(0),
       m_next_precharge(0),
     
-      p_Request ("request",  delegate::create<DDRChannel, &DDRChannel::DoRequest >(*this)),
-      p_Pipeline("pipeline", delegate::create<DDRChannel, &DDRChannel::DoPipeline>(*this))
+      p_Request ("request",  delegate::create<DDRChannel, &COMA::DDRChannel::DoRequest >(*this)),
+      p_Pipeline("pipeline", delegate::create<DDRChannel, &COMA::DDRChannel::DoPipeline>(*this))
 {
     m_busy.Sensitive(p_Request);
     m_pipeline.Sensitive(p_Pipeline);
 }
 
-DDRChannel::~DDRChannel()
+COMA::DDRChannel::~DDRChannel()
 {
 }
 

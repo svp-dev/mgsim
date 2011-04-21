@@ -1,4 +1,4 @@
-SUBDIRS = . arch cli doc sim programs tools
+SUBDIRS = . sim arch cli tools programs doc
 
 ACLOCAL_AMFLAGS = -I build-aux
 

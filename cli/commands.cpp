@@ -1,19 +1,19 @@
 #include "commands.h"
-#include "sampling.h"
+#include "sim/sampling.h"
 
-#include "SerialMemory.h"
-#include "ParallelMemory.h"
-#include "BankedMemory.h"
-#include "RandomBankedMemory.h"
-#include "coma/COMA.h"
-#include "coma/Cache.h"
-#include "coma/Directory.h"
-#include "coma/RootDirectory.h"
-#include "zlcoma/COMA.h"
-#include "zlcoma/Cache.h"
-#include "zlcoma/Directory.h"
-#include "zlcoma/RootDirectory.h"
-#include "MMIO.h"
+#include "arch/mem/SerialMemory.h"
+#include "arch/mem/ParallelMemory.h"
+#include "arch/mem/BankedMemory.h"
+#include "arch/mem/RandomBankedMemory.h"
+#include "arch/mem/coma/COMA.h"
+#include "arch/mem/coma/Cache.h"
+#include "arch/mem/coma/Directory.h"
+#include "arch/mem/coma/RootDirectory.h"
+#include "arch/mem/zlcoma/COMA.h"
+#include "arch/mem/zlcoma/Cache.h"
+#include "arch/mem/zlcoma/Directory.h"
+#include "arch/mem/zlcoma/RootDirectory.h"
+#include "arch/MMIO.h"
 
 #include <csignal>
 #include <sstream>
@@ -427,9 +427,7 @@ void PrintVersion(std::ostream& out)
 void PrintUsage(std::ostream& out, const char* cmd)
 {
     out <<
-        "Microgrid Simulator"
-        ".\n"
-        "Each simulated core implements the " CORE_ISA_NAME " ISA.\n\n"
+        "Microgrid Simulator.\n\n"
         "Usage: " << cmd << " [ARG]...\n\n"
         "Options:\n\n"
         "  -c, --config FILE        Read configuration from FILE.\n"

@@ -1,6 +1,6 @@
 #include "Processor.h"
-#include "breakpoints.h"
-#include "sampling.h"
+#include "sim/breakpoints.h"
+#include "sim/sampling.h"
 #include <cassert>
 
 namespace Simulator

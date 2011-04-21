@@ -1,7 +1,7 @@
 #include "VirtualMemory.h"
 #include "Memory.h"
-#include "except.h"
-#include "sampling.h"
+#include "sim/except.h"
+#include "sim/sampling.h"
 #include <cstring>
 #include <limits>
 #include <iomanip>

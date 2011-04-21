@@ -2,7 +2,7 @@
 #define MMIO_H
 
 #include "simtypes.h"
-#include "kernel.h"
+#include "sim/kernel.h"
 #include <map>
 #include <string>
 #include <iostream>

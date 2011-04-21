@@ -1,7 +1,7 @@
 #ifndef LINEPRINTER_H
 #define LINEPRINTER_H
 
-#include "MMIO.h"
+#include "arch/MMIO.h"
 
 namespace Simulator
 {

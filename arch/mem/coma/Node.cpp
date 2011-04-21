@@ -1,5 +1,5 @@
 #include "Node.h"
-#include "../config.h"
+#include "sim/config.h"
 #include <iostream>
 #include <iomanip>
 #include <cstring>

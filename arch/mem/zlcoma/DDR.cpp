@@ -1,7 +1,7 @@
 #include "DDR.h"
-#include "../VirtualMemory.h"
-#include "../config.h"
-#include "../log2.h"
+#include "VirtualMemory.h"
+#include "sim/config.h"
+#include "sim/log2.h"
 #include <limits>
 #include <cstdio>
 

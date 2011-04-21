@@ -1,9 +1,8 @@
 #ifndef SERIALMEMORY_H
 #define SERIALMEMORY_H
 
-#include "Memory.h"
-#include "storage.h"
-#include "VirtualMemory.h"
+#include "arch/Memory.h"
+#include "arch/VirtualMemory.h"
 #include <deque>
 #include <set>
 

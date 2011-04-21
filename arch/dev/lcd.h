@@ -1,7 +1,7 @@
 #ifndef LCD_H
 #define LCD_H
 
-#include "MMIO.h"
+#include "arch/MMIO.h"
 
 namespace Simulator
 {

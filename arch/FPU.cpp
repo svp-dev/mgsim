@@ -1,6 +1,5 @@
 #include "FPU.h"
-#include "Processor.h"
-#include "config.h"
+#include "sim/config.h"
 #include <cassert>
 #include <cmath>
 #include <iomanip>

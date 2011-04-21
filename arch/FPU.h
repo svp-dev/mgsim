@@ -1,7 +1,7 @@
 #ifndef FPU_H
 #define FPU_H
 
-#include "Processor.h"
+#include "proc/Processor.h"
 #include <deque>
 #include <map>
 

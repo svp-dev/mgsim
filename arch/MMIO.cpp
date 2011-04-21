@@ -1,7 +1,5 @@
 #include <iomanip>
-#include "MMIO.h"
-#include "kernel.h"
-#include "Processor.h"
+#include "proc/Processor.h"
 
 namespace Simulator
 {

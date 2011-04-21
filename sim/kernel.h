@@ -3,6 +3,7 @@
 
 #include "except.h"
 #include "delegate.h"
+#include "types.h"
 
 #include <vector>
 #include <map>
@@ -25,6 +26,12 @@ class Storage;
 class IRegister;
 class Display;
 class Process;
+
+/// Cycle Number
+typedef uint64_t CycleNo;
+
+/// Value representing forever (infinite cycles)
+static const CycleNo INFINITE_CYCLES = (CycleNo)-1;
 
 /*
  * A clock class to place processes in a frequency domain.

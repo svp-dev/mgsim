@@ -1,5 +1,5 @@
 #include "BankedMemory.h"
-#include "config.h"
+#include "sim/config.h"
 #include <sstream>
 #include <cassert>
 #include <cmath>

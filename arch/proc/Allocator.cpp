@@ -1,7 +1,7 @@
 #include "Processor.h"
-#include "config.h"
+#include "sim/config.h"
+#include "sim/sampling.h"
 #include "symtable.h"
-#include "sampling.h"
 #include <cassert>
 #include <iomanip>
 using namespace std;
