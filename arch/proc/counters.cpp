@@ -209,14 +209,27 @@ Result Processor::PerfCounters::Read(MemAddr address, void *data, MemSize size, 
                  (unsigned long long)value, (unsigned long long)value);
 
 
+    if (address == 0)
+    {
+        ++m_nCycleSampleOps;
+    }
+    else
+    {
+        ++m_nOtherSampleOps;
+    }
+
     SerializeRegister(RT_INTEGER, value, data, sizeof(Integer));
 
     return SUCCESS;
 }
 
 Processor::PerfCounters::PerfCounters(MMIOInterface& parent)
-    : MMIOComponent("perfcounters", parent, parent.GetProcessor().GetClock())
+    : MMIOComponent("perfcounters", parent, parent.GetProcessor().GetClock()),
+      m_nCycleSampleOps(0),
+      m_nOtherSampleOps(0)
 {
+    RegisterSampleVariableInObject(m_nCycleSampleOps, SVC_CUMULATIVE);
+    RegisterSampleVariableInObject(m_nOtherSampleOps, SVC_CUMULATIVE);
 }
 
 }

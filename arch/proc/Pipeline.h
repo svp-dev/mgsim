@@ -367,8 +367,6 @@ class Pipeline : public Object
         uint64_t                  m_stores;        // nr of successful stores
         uint64_t                  m_load_bytes;    // nr of successfully loaded bytes
         uint64_t                  m_store_bytes;   // nr of successfully stored bytes
-        uint64_t                  m_nCycleSampleOps; // nr of samplings of the cycle counter by program
-        uint64_t                  m_nOtherSampleOps; // nr of samplings of other counters
 
         PipeAction OnCycle();
     public:

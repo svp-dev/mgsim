@@ -205,16 +205,12 @@ Processor::Pipeline::MemoryStage::MemoryStage(Pipeline& parent, Clock& clock, co
       m_loads(0),
       m_stores(0),
       m_load_bytes(0),
-      m_store_bytes(0),
-      m_nCycleSampleOps(0), 
-      m_nOtherSampleOps(0)
+      m_store_bytes(0)
 {
     RegisterSampleVariableInObject(m_loads, SVC_CUMULATIVE);
     RegisterSampleVariableInObject(m_stores, SVC_CUMULATIVE);
     RegisterSampleVariableInObject(m_load_bytes, SVC_CUMULATIVE);
     RegisterSampleVariableInObject(m_store_bytes, SVC_CUMULATIVE);
-    RegisterSampleVariableInObject(m_nCycleSampleOps, SVC_CUMULATIVE);
-    RegisterSampleVariableInObject(m_nOtherSampleOps, SVC_CUMULATIVE);
 }
     
 }
