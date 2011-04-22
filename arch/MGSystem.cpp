@@ -760,7 +760,7 @@ MGSystem::MGSystem(const Config& config, Display& display, const string& program
 
         stringstream name;
         name << "cpu" << i;
-        m_procs[i]   = new Processor(name.str(), m_root, m_clock, i, m_procs, *m_memory, fpu, config);
+        m_procs[i]   = new Processor(name.str(), m_root, m_clock, i, m_procs, *m_memory, fpu, 0, config);
     }
 
     // Create the LCD outputs

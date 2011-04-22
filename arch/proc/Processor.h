@@ -1,6 +1,7 @@
 #ifndef PROCESSOR_H
 #define PROCESSOR_H
 
+#include "arch/IOBus.h"
 #include "arch/MMIO.h"
 #include "arch/Memory.h"
 #include "arch/dev/lineprinter.h"
@@ -23,13 +24,14 @@ public:
 #include "AncillaryRegisterFile.h"
 #include "Network.h"
 #include "ICache.h"
+#include "IOInterface.h"
 #include "DCache.h"
 #include "Pipeline.h"
 #include "RAUnit.h"
 #include "Allocator.h"
 #include "counters.h"
 
-    Processor(const std::string& name, Object& parent, Clock& clock, PID pid, const std::vector<Processor*>& grid, IMemory& m_memory, FPU& fpu, const Config& config);
+    Processor(const std::string& name, Object& parent, Clock& clock, PID pid, const std::vector<Processor*>& grid, IMemory& m_memory, FPU& fpu, IIOBus *iobus, const Config& config);
     ~Processor();
     
     void Initialize(Processor* prev, Processor* next, MemAddr runAddress, bool legacy);
@@ -108,18 +110,21 @@ private:
     ICache                m_icache;
     DCache                m_dcache;
     RegisterFile          m_registerFile;
-    AncillaryRegisterFile m_ancillaryRegisterFile;
     Pipeline              m_pipeline;
     RAUnit                m_raunit;
     FamilyTable           m_familyTable;
     ThreadTable           m_threadTable;
     Network               m_network;
-    MMIOInterface         m_mmio;
 
-    // Pseudo I/O devices
+    // Local MMIO devices
+    MMIOInterface         m_mmio;
     PerfCounters          m_perfcounters;
+    AncillaryRegisterFile m_ancillaryRegisterFile;
     LinePrinter           m_lpout;
     LinePrinter           m_lperr;
+
+    // External I/O interface, optional
+    IOInterface           *m_io_if;
 
     friend class PerfCounters;
 };

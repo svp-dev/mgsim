@@ -20,14 +20,13 @@ static bool IsPowerOfTwo(const T& x)
 //
 // Processor implementation
 //
-Processor::Processor(const std::string& name, Object& parent, Clock& clock, PID pid, const vector<Processor*>& grid, IMemory& memory, FPU& fpu, const Config& config)
+Processor::Processor(const std::string& name, Object& parent, Clock& clock, PID pid, const vector<Processor*>& grid, IMemory& memory, FPU& fpu, IIOBus *iobus, const Config& config)
 :   Object(name, parent, clock),
     m_pid(pid), m_memory(memory), m_grid(grid), m_fpu(fpu),
     m_allocator   ("alloc",         *this, clock, m_familyTable, m_threadTable, m_registerFile, m_raunit, m_icache, m_network, m_pipeline, config),
     m_icache      ("icache",        *this, clock, m_allocator, config),
     m_dcache      ("dcache",        *this, clock, m_allocator, m_familyTable, m_registerFile, config),
     m_registerFile("registers",     *this, clock, m_allocator, config),
-    m_ancillaryRegisterFile("acrs", *this, clock, config),
     m_pipeline    ("pipeline",      *this, clock, m_registerFile, m_network, m_allocator, m_familyTable, m_threadTable, m_icache, m_dcache, fpu, config),
     m_raunit      ("rau",           *this, clock, m_registerFile, config),
     m_familyTable ("families",      *this, clock, config),
@@ -35,6 +34,7 @@ Processor::Processor(const std::string& name, Object& parent, Clock& clock, PID 
     m_network     ("network",       *this, clock, grid, m_allocator, m_registerFile, m_familyTable),
     m_mmio        ("mmio",          *this, clock, config),
     m_perfcounters(m_mmio),
+    m_ancillaryRegisterFile("acrs", *this, clock, config),
     m_lpout("stdout", m_mmio, std::cout),
     m_lperr("stderr", m_mmio, std::cerr)
 {
@@ -59,6 +59,13 @@ Processor::Processor(const std::string& name, Object& parent, Clock& clock, PID 
                              m_lpout.GetSize(), MMIOInterface::WRITE, m_lpout);
     m_mmio.RegisterComponent(config.getValue<MemAddr>("DebugLinePrintErrBaseAddr", 512 + m_lpout.GetSize()), 
                              m_lperr.GetSize(), MMIOInterface::WRITE, m_lperr);
+
+    if (iobus != NULL)
+    {
+        // This processor also supports I/O
+        m_io_if = new IOInterface("io_if", *this, clock, m_registerFile, *iobus, config);
+    }
+
 }
 
 Processor::~Processor()
