@@ -301,6 +301,7 @@ struct MemoryRequest
 	size_t       size;		  ///< Size of data, in bytes
 	bool         sign_extend; ///< Sign-extend the loaded value into the register?
 	RegAddr      next;	 	  ///< Next register waiting on the cache-line
+        std::string  str() const;
 };
 
 /// Different types of shared classes
@@ -343,6 +344,7 @@ struct ThreadQueue
 {
     TID head;
     TID tail;
+    std::string str() const;
 };
 
 struct FamilyQueue
@@ -365,6 +367,7 @@ struct RegValue
 			MemoryRequest m_memory;     ///< Memory request information for pending registers.
 		};
     };
+    std::string str(RegType t) const;
 };
 
 static inline RegValue MAKE_EMPTY_REG()
