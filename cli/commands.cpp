@@ -13,6 +13,7 @@
 #include "arch/mem/zlcoma/Cache.h"
 #include "arch/mem/zlcoma/Directory.h"
 #include "arch/mem/zlcoma/RootDirectory.h"
+#include "arch/dev/NullIO.h"
 #include "arch/MMIO.h"
 
 #include <cerrno>
@@ -126,6 +127,7 @@ static const struct
     {"read", new bind_cmd_C<ZLCOMA::RootDirectory>(&ZLCOMA::RootDirectory::Cmd_Read) },
     {"read", new bind_cmd_C<VirtualMemory>(&VirtualMemory::Cmd_Read) },
     {"read", new bind_cmd_C<FPU>(&FPU::Cmd_Read) },
+    {"read", new bind_cmd_C<NullIO>(&NullIO::Cmd_Read) },
     {"trace", new bind_cmd_NC<COMA>(&COMA::Cmd_Trace) },
     {"trace", new bind_cmd_NC<ZLCOMA>(&ZLCOMA::Cmd_Trace) },
     {NULL, NULL}

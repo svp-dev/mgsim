@@ -9,6 +9,8 @@ MEMORY_SRC = \
 	mem/SerialMemory.h
 
 DEVICE_SRC = \
+	dev/NullIO.cpp \
+	dev/NullIO.h \
 	dev/lcd.cpp \
 	dev/lcd.h \
 	dev/lineprinter.cpp \
@@ -53,6 +55,7 @@ COMMON_SRC = \
 	elf.h \
 	FPU.cpp \
 	FPU.h \
+	IOBus.h \
 	Memory.h \
 	MMIO.h \
 	MMIO.cpp \
