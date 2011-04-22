@@ -19,6 +19,8 @@ DEVICE_SRC = \
 PROCESSOR_SRC = \
 	proc/Allocator.cpp \
 	proc/Allocator.h \
+	proc/AncillaryRegisterFile.cpp \
+	proc/AncillaryRegisterFile.h \
 	proc/DCache.cpp \
 	proc/DCache.h \
 	proc/DecodeStage.cpp \
@@ -107,7 +109,6 @@ SPARC_SRC = $(COMMON_SRC) \
 	proc/ISA.sparc.cpp
 
 noinst_LIBRARIES = libarch.a libarch_mlcoma.a libarch_zlcoma.a
-	
 libarch_zlcoma_a_SOURCES = $(ZLCOMA_SRC)
 libarch_mlcoma_a_SOURCES = $(MLCOMA_SRC)
 libarch_a_SOURCES = $(COMMON_SRC) $(ALPHA_SRC)

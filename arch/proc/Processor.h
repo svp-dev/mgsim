@@ -20,6 +20,7 @@ public:
 #include "FamilyTable.h"
 #include "ThreadTable.h"
 #include "RegisterFile.h"
+#include "AncillaryRegisterFile.h"
 #include "Network.h"
 #include "ICache.h"
 #include "DCache.h"
@@ -103,21 +104,22 @@ private:
     bool OnMemorySnooped(MemAddr addr, const MemData& data);
 
     // The components on the core
-    Allocator       m_allocator;
-    ICache          m_icache;
-    DCache          m_dcache;
-    RegisterFile    m_registerFile;
-    Pipeline        m_pipeline;
-    RAUnit          m_raunit;
-    FamilyTable     m_familyTable;
-    ThreadTable     m_threadTable;
-    Network         m_network;
-    MMIOInterface   m_mmio;
+    Allocator             m_allocator;
+    ICache                m_icache;
+    DCache                m_dcache;
+    RegisterFile          m_registerFile;
+    AncillaryRegisterFile m_ancillaryRegisterFile;
+    Pipeline              m_pipeline;
+    RAUnit                m_raunit;
+    FamilyTable           m_familyTable;
+    ThreadTable           m_threadTable;
+    Network               m_network;
+    MMIOInterface         m_mmio;
 
     // Pseudo I/O devices
-    PerfCounters    m_perfcounters;
-    LinePrinter     m_lpout;
-    LinePrinter     m_lperr;
+    PerfCounters          m_perfcounters;
+    LinePrinter           m_lpout;
+    LinePrinter           m_lperr;
 
     friend class PerfCounters;
 };
