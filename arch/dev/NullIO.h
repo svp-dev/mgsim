@@ -29,6 +29,7 @@ namespace Simulator
         bool SendReadResponse(IODeviceID from, IODeviceID to, const IOData& data);
         bool SendWriteRequest(IODeviceID from, IODeviceID to, MemAddr address, const IOData& data);
         bool SendInterruptRequest(IODeviceID from, IODeviceID to);
+        bool SendInterruptAck(IODeviceID from, IODeviceID to);
 
         /* debug */
         void Cmd_Read(std::ostream& out, const std::vector<std::string>& arguments) const;

@@ -66,6 +66,12 @@ namespace Simulator
         return m_clients[to]->OnInterruptRequestReceived(from);
     }
 
+    bool NullIO::SendInterruptAck(IODeviceID from, IODeviceID to)
+    {
+        CheckEndPoints(from, to);
+        return m_clients[to]->OnInterruptAckReceived(from);
+    }
+
     void NullIO::Cmd_Read(std::ostream& out, const std::vector<std::string>& arguments) const
     {
         out << "   ID   | Name" << endl
