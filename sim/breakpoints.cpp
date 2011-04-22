@@ -186,7 +186,7 @@ void BreakPoints::AddBreakPoint(const std::string& sym, int offset, int type)
     MemAddr addr = strtoul(sym.c_str(), 0, 0);
     if (errno == EINVAL)
     {
-        bool check = m_kernel.GetSymbolTable().LookUp(sym, addr);
+        bool check = m_kernel.GetSymbolTable().LookUp(sym, addr, true);
         if (!check)
         {
             cerr << "invalid address: " << sym << endl;

@@ -689,6 +689,7 @@ void MGSystem::Disassemble(MemAddr addr, size_t sz) const
 
     cmd << m_objdump_cmd << " -d -r --prefix-addresses --show-raw-insn --start-address=" << addr
         << " --stop-address=" << addr + sz << " " << m_program;
+    std::clog << "Running " << cmd.str() << "..." << std::endl;
     system(cmd.str().c_str());
 }
 
