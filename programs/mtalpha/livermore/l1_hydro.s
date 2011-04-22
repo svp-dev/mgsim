@@ -63,8 +63,9 @@ main:
     lda     $0, Z($0)       !gprellow
     putg    $0, $3, 2       # $g2 = Z
     
-    sync     $3, $31        # Sync
+    sync     $3, $0        # Sync
     release  $3
+    mov      $0, $31
     end
     .end main
 
