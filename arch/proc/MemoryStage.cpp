@@ -62,6 +62,11 @@ Processor::Pipeline::PipeAction Processor::Pipeline::MemoryStage::OnCycle()
                     // Stall
                     return PIPE_STALL;
                 }
+
+                if (!m_allocator.IncreaseThreadDependency(m_input.tid, THREADDEP_OUTSTANDING_WRITES))
+                {
+                    return PIPE_STALL;
+                }
             }
 
             // Clear the register state so it won't get written to the register file
@@ -132,19 +137,6 @@ Processor::Pipeline::PipeAction Processor::Pipeline::MemoryStage::OnCycle()
 
                 case DELAYED:
 
-                    // Increase the outstanding memory count for the family
-                    if (m_input.Rcv.m_state == RST_FULL)
-                    {
-                        if (!m_allocator.IncreaseThreadDependency(m_input.tid, THREADDEP_OUTSTANDING_WRITES))
-                        {
-                            return PIPE_STALL;
-                        }
-                    }
-                    else if (!m_allocator.OnMemoryRead(m_input.fid))
-                    {
-                        return PIPE_STALL;
-                    }
-                    
                     // Remember request data
                     rcv = MAKE_PENDING_PIPEVALUE(rcv.m_size);
                     rcv.m_memory.fid         = m_input.fid;
@@ -152,6 +144,14 @@ Processor::Pipeline::PipeAction Processor::Pipeline::MemoryStage::OnCycle()
                     rcv.m_memory.offset      = (unsigned int)(m_input.address % m_dcache.GetLineSize());
                     rcv.m_memory.size        = (size_t)m_input.size;
                     rcv.m_memory.sign_extend = m_input.sign_extend;
+
+                    // Increase the outstanding memory count for the family
+                    if (!m_allocator.OnMemoryRead(m_input.fid))
+                    {
+                        return PIPE_STALL;
+                    }
+                    
+
                     DebugMemWrite("Load by %s: *%#016llx -> delayed %s (%zd)",
                                   GetKernel()->GetSymbolTable()[m_input.pc].c_str(), 
                                   (unsigned long long)m_input.address, 
