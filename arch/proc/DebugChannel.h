@@ -12,7 +12,7 @@ class DebugChannel : public MMIOComponent
     unsigned       m_floatprecision;
 
 public:
-    DebugChannel(const std::string& name, IOMatchUnit& parent, std::ostream& output);
+    DebugChannel(const std::string& name, Object& parent, std::ostream& output);
 
     size_t GetSize() const;
 

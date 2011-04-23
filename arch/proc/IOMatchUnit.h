@@ -41,7 +41,7 @@ public:
     Result Read (MemAddr address, void* data, MemSize size, LFID fid, TID tid, const RegAddr& writeback);
     Result Write(MemAddr address, const void* data, MemSize size, LFID fid, TID tid);
 
-    void RegisterComponent(MemAddr base, MemSize size, AccessMode mode, MMIOComponent& component);    
+    void RegisterComponent(MemAddr base, AccessMode mode, MMIOComponent& component);    
 
     // Debugging
     void Cmd_Help(std::ostream& out, const std::vector<std::string>& arguments) const;
@@ -52,9 +52,7 @@ public:
 class MMIOComponent : public Object
 {
 public:
-    MMIOComponent(const std::string& name, IOMatchUnit& parent, Clock& clock);
-
-    IOMatchUnit& GetMatchUnit() { return *static_cast<IOMatchUnit*>(GetParent()); }
+    MMIOComponent(const std::string& name, Object& parent, Clock& clock);
 
     virtual size_t GetSize() const = 0;
 

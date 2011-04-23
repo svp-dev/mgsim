@@ -10,8 +10,9 @@ Processor& Processor::IOMatchUnit::GetProcessor() const
 }
 
 void
-Processor::IOMatchUnit::RegisterComponent(MemAddr address, MemSize size, AccessMode mode, MMIOComponent& component)
+Processor::IOMatchUnit::RegisterComponent(MemAddr address, AccessMode mode, MMIOComponent& component)
 {
+    MemSize size = component.GetSize();
     assert(size > 0);
 
     // Check that there is no overlap
@@ -115,9 +116,6 @@ void Processor::IOMatchUnit::Cmd_Help(std::ostream& out, const std::vector<std::
 
 void Processor::IOMatchUnit::Cmd_Info(std::ostream& out, const std::vector<std::string>& /*arguments*/) const
 {
-    out << "Memory-mapped I/O components:" << std::endl
-        << "-----------------------------" << std::endl;
-
     RangeMap::const_iterator p = m_ranges.begin();
 
     if (p == m_ranges.end())
@@ -126,7 +124,9 @@ void Processor::IOMatchUnit::Cmd_Info(std::ostream& out, const std::vector<std::
     }
     else
     {
-        out << std::hex << std::setfill('0');
+        out << "Start address    | End address      | RW | Name" << std::endl
+            << "-----------------+------------------+----+--------------------" << std::endl
+            << std::hex << std::setfill('0');
         
         for ( ;
              p != m_ranges.end();
@@ -156,7 +156,7 @@ Processor::IOMatchUnit::IOMatchUnit(const std::string& name, Processor& parent, 
     // config not yet used here
 }
 
-Processor::MMIOComponent::MMIOComponent(const std::string& name, Processor::IOMatchUnit& parent, Clock& clock)
+Processor::MMIOComponent::MMIOComponent(const std::string& name, Object& parent, Clock& clock)
     : Object(name, parent, clock)
 { }
 

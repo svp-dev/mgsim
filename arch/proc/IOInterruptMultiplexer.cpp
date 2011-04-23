@@ -5,15 +5,13 @@
 namespace Simulator
 {
 
-Processor::IOInterruptMultiplexer::IOInterruptMultiplexer(const std::string& name, Object& parent, Clock& clock, RegisterFile& rf, IOBusInterface& iobus, const Config& config)
+Processor::IOInterruptMultiplexer::IOInterruptMultiplexer(const std::string& name, Object& parent, Clock& clock, RegisterFile& rf, IOBusInterface& iobus, size_t numDevices)
     : Object(name, parent, clock),
       m_regFile(rf),
       m_iobus(iobus),
       m_lastNotified(0),
       p_IncomingInterrupts("received-interrupts", delegate::create<IOInterruptMultiplexer, &Processor::IOInterruptMultiplexer::DoReceivedInterrupts>(*this))
 {
-    size_t numDevices = config.getValue<size_t>("AsyncIONumDeviceSlots", 16);
-
     m_writebacks.resize(numDevices, 0);
     m_interrupts.resize(numDevices, 0);
     for (size_t i = 0; i < numDevices; ++i)

@@ -19,7 +19,7 @@ private:
     size_t                          m_lastNotified;
 
 public:
-    IOInterruptMultiplexer(const std::string& name, Object& parent, Clock& clock, RegisterFile& rf, IOBusInterface& iobus, const Config& config);
+    IOInterruptMultiplexer(const std::string& name, Object& parent, Clock& clock, RegisterFile& rf, IOBusInterface& iobus, size_t numDevices);
 
     // sent by device select upon an I/O read from the processor
     bool SetWriteBackAddress(IODeviceID dev, const RegAddr& addr);

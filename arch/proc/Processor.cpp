@@ -33,10 +33,10 @@ Processor::Processor(const std::string& name, Object& parent, Clock& clock, PID 
     m_threadTable ("threads",       *this, clock, config),
     m_network     ("network",       *this, clock, grid, m_allocator, m_registerFile, m_familyTable),
     m_mmio        ("mmio",          *this, clock, config),
-    m_perfcounters(m_mmio),
+    m_perfcounters(*this),
     m_ancillaryRegisterFile("acrs", *this, clock, config),
-    m_lpout("stdout", m_mmio, std::cout),
-    m_lperr("stderr", m_mmio, std::cerr)
+    m_lpout("stdout", *this, std::cout),
+    m_lperr("stderr", *this, std::cerr)
 {
     const Process* sources[] = {
         &m_icache.p_Outgoing,   // Outgoing process in I-Cache
@@ -54,18 +54,24 @@ Processor::Processor(const std::string& name, Object& parent, Clock& clock, PID 
 
     // Register the pseudo I/O components
     m_mmio.RegisterComponent(config.getValue<MemAddr>("PerformanceCountersBaseAddr", 8), 
-                             m_perfcounters.GetSize(), IOMatchUnit::READ, m_perfcounters);
-    m_mmio.RegisterComponent(config.getValue<MemAddr>("DebugLinePrintOutBaseAddr", 512), 
-                             m_lpout.GetSize(), IOMatchUnit::WRITE, m_lpout);
-    m_mmio.RegisterComponent(config.getValue<MemAddr>("DebugLinePrintErrBaseAddr", 512 + m_lpout.GetSize()), 
-                             m_lperr.GetSize(), IOMatchUnit::WRITE, m_lperr);
+                             IOMatchUnit::READ, m_perfcounters);
+    m_mmio.RegisterComponent(config.getValue<MemAddr>("DebugChannelStdoutBaseAddr", 512), 
+                             IOMatchUnit::WRITE, m_lpout);
+    m_mmio.RegisterComponent(config.getValue<MemAddr>("DebugChannelStderrBaseAddr", 512 + m_lpout.GetSize()), 
+                             IOMatchUnit::WRITE, m_lperr);
 
     if (iobus != NULL)
     {
         // This processor also supports I/O
         m_io_if = new IOInterface("io_if", *this, clock, m_registerFile, *iobus, config);
 
-        
+        MMIOComponent& async_if = m_io_if->GetAsyncIOInterface();
+        MMIOComponent& pic_if = m_io_if->GetPICInterface();
+
+        m_mmio.RegisterComponent(config.getValue<MemAddr>("AsyncIOBaseAddr", 0x40000000),
+                                 IOMatchUnit::READWRITE, async_if);
+        m_mmio.RegisterComponent(config.getValue<MemAddr>("PICBaseAddr", 0x3fffff00),
+                                 IOMatchUnit::READ, pic_if);
     }
 
 }
@@ -73,6 +79,7 @@ Processor::Processor(const std::string& name, Object& parent, Clock& clock, PID 
 Processor::~Processor()
 {
     m_memory.UnregisterClient(m_pid);
+    delete m_io_if;
 }
 
 void Processor::Initialize(Processor* prev, Processor* next, MemAddr runAddress, bool legacy)

@@ -56,8 +56,8 @@ PROCESSOR_SRC = \
 	proc/ThreadTable.cpp \
 	proc/ThreadTable.h \
 	proc/WritebackStage.cpp \
-	proc/counters.h \
-	proc/counters.cpp
+	proc/PerfCounters.h \
+	proc/PerfCounters.cpp
 
 COMMON_SRC = \
     $(MEMORY_SRC) \

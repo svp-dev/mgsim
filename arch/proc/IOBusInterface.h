@@ -8,7 +8,7 @@
 class IOResponseMultiplexer;
 class IOInterruptMultiplexer;
 
-class IOBusInterface : public IIOBusClientCallback, public Object
+class IOBusInterface : public IIOBusClient, public Object
 {
 public:
     struct IORequest

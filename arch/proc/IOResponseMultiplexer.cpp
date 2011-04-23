@@ -5,7 +5,7 @@
 namespace Simulator
 {
 
-Processor::IOResponseMultiplexer::IOResponseMultiplexer(const std::string& name, Object& parent, Clock& clock, RegisterFile& rf, const Config& config)
+Processor::IOResponseMultiplexer::IOResponseMultiplexer(const std::string& name, Object& parent, Clock& clock, RegisterFile& rf, size_t numDevices, const Config& config)
     : Object(name, parent, clock),
       m_regFile(rf),
       m_incoming("b_incoming", *this, clock, config.getValue<BufferSize>("AsyncIOReadResponseQueueSize", 1)),
@@ -13,8 +13,6 @@ Processor::IOResponseMultiplexer::IOResponseMultiplexer(const std::string& name,
 {
     m_incoming.Sensitive(p_IncomingReadResponses);
 
-
-    size_t numDevices = config.getValue<size_t>("AsyncIONumDeviceSlots", 16);
     BufferSize wbqsize = config.getValue<BufferSize>("AsyncIOWritebackQueueSize", 1);
 
     m_wb_buffers.resize(numDevices, 0);

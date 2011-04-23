@@ -29,7 +29,7 @@ public:
 #include "Pipeline.h"
 #include "RAUnit.h"
 #include "Allocator.h"
-#include "counters.h"
+#include "PerfCounters.h"
 
     Processor(const std::string& name, Object& parent, Clock& clock, PID pid, const std::vector<Processor*>& grid, IMemory& m_memory, FPU& fpu, IIOBus *iobus, const Config& config);
     ~Processor();

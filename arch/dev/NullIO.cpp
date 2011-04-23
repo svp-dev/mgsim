@@ -26,7 +26,7 @@ namespace Simulator
 
     }
   
-    bool NullIO::RegisterClient(IODeviceID id, IIOBusClientCallback& client)
+    bool NullIO::RegisterClient(IODeviceID id, IIOBusClient& client)
     {
         if (id >= m_clients.size())
         {

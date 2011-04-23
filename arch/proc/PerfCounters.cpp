@@ -14,7 +14,7 @@ Result Processor::PerfCounters::Read(MemAddr address, void *data, MemSize size, 
 
     address /= sizeof(Integer);
 
-    Processor& cpu = GetMatchUnit().GetProcessor();
+    Processor& cpu = *static_cast<Processor*>(GetParent());
 
     const size_t placeSize  = cpu.m_familyTable[fid].placeSize;
     const size_t placeStart = (cpu.m_pid / placeSize) * placeSize;
@@ -223,8 +223,8 @@ Result Processor::PerfCounters::Read(MemAddr address, void *data, MemSize size, 
     return SUCCESS;
 }
 
-Processor::PerfCounters::PerfCounters(IOMatchUnit& parent)
-    : Processor::MMIOComponent("perfcounters", parent, parent.GetProcessor().GetClock()),
+Processor::PerfCounters::PerfCounters(Processor& parent)
+    : Processor::MMIOComponent("perfcounters", parent, parent.GetClock()),
       m_nCycleSampleOps(0),
       m_nOtherSampleOps(0)
 {

@@ -18,7 +18,7 @@ struct IOData
     MemSize size;
 };
 
-class IIOBusClientCallback
+class IIOBusClient
 {
 public:
     virtual bool OnReadRequestReceived(IODeviceID from, MemAddr address, MemSize size) = 0;
@@ -30,13 +30,13 @@ public:
     /* for debugging */
     virtual std::string GetIODeviceName() const = 0;
 
-    virtual ~IIOBusClientCallback() {}
+    virtual ~IIOBusClient() {}
 };
 
 class IIOBus
 {
 public:
-    virtual bool RegisterClient(IODeviceID id, IIOBusClientCallback& client) = 0;
+    virtual bool RegisterClient(IODeviceID id, IIOBusClient& client) = 0;
 
     virtual bool SendReadRequest(IODeviceID from, IODeviceID to, MemAddr address, MemSize size) = 0;
     virtual bool SendWriteRequest(IODeviceID from, IODeviceID to, MemAddr address, const IOData& data) = 0;
