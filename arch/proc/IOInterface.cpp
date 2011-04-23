@@ -4,16 +4,15 @@
 
 namespace Simulator
 {
-    Processor::IOInterface::IOInterface(const std::string& name, Object& parent, Clock& clock, RegisterFile& rf, IIOBus& iobus, const Config& config)
+    Processor::IOInterface::IOInterface(const std::string& name, Object& parent, Clock& clock, RegisterFile& rf, IIOBus& iobus, IODeviceID devid, const Config& config)
         : Object(name, parent, clock),
           m_numDevices(config.getValue<size_t>("AsyncIONumDeviceSlots", 16)),
           m_async_io("aio",    *this, clock, m_numDevices, config),
           m_pic     ("pic",    *this, clock, m_numDevices, config),
           m_rrmux   ("rrmux",  *this, clock, rf, m_numDevices, config),
           m_intmux  ("intmux", *this, clock, rf, m_iobus_if, m_numDevices),
-          m_iobus_if("bus_if", *this, clock, m_rrmux, m_intmux, iobus, config)
+          m_iobus_if("bus_if", *this, clock, m_rrmux, m_intmux, iobus, devid, config)
     {
-        iobus.RegisterClient(0, m_iobus_if);
     }
     
     bool Processor::IOInterface::Read(IODeviceID dev, MemAddr address, MemSize size, const RegAddr& writeback)

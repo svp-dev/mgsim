@@ -23,12 +23,13 @@ private:
     IOResponseMultiplexer&  m_rrmux;
     IOInterruptMultiplexer& m_intmux;
     IIOBus&                 m_iobus;
+    IODeviceID              m_hostid;
 
     Buffer<IORequest>       m_outgoing_reqs;
     Buffer<IODeviceID>      m_outgoing_acks;
 
 public:
-    IOBusInterface(const std::string& name, Object& parent, Clock& clock, IOResponseMultiplexer& rrmux, IOInterruptMultiplexer& intmux, IIOBus& iobus, const Config& config);
+    IOBusInterface(const std::string& name, Object& parent, Clock& clock, IOResponseMultiplexer& rrmux, IOInterruptMultiplexer& intmux, IIOBus& iobus, IODeviceID devid, const Config& config);
 
     bool SendInterruptAck(IODeviceID to);
 

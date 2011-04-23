@@ -72,7 +72,7 @@ namespace Simulator
         return m_clients[to]->OnInterruptAckReceived(from);
     }
 
-    void NullIO::Cmd_Read(std::ostream& out, const std::vector<std::string>& arguments) const
+    void NullIO::Cmd_Info(std::ostream& out, const std::vector<std::string>& arguments) const
     {
         out << "   ID   | Name" << endl
             << "--------+------------------" << endl;

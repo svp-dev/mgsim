@@ -16,6 +16,7 @@
 #include <cmath>
 #include <limits>
 #include <cxxabi.h>
+#include <fnmatch.h>
 
 using namespace Simulator;
 using namespace std;
@@ -30,9 +31,9 @@ using namespace std;
 // The configuration is composed of data blocks, each block
 // composed of 32-bit words. The first word in each block is a
 // "block type/size" tag indicating the type and size of the
-// current block. 
+// current block.
 
-// A tag set to 0 indicates the end of the configuration data. 
+// A tag set to 0 indicates the end of the configuration data.
 // A non-zero tag is a word with bits 31-16 set to the block type
 // and bits 15-0 are set to the block size (number of words to
 // next block).
@@ -68,7 +69,7 @@ using namespace std;
 //     - word 0 after tag: cache line size (in bytes)
 //     - word 1: L1 I-cache size (in bytes)
 //     - word 2: L1 D-cache size (in bytes)
-//     - word 3: number of L2 caches 
+//     - word 3: number of L2 caches
 //     - word 4: L2 cache size per cache (in bytes)
 
 // - concurrency resource words v1, organized as follows:
@@ -79,7 +80,7 @@ using namespace std;
 
 // - place layout v1, organized as follows:
 //     - word 0 after tag: number of cores (P)
-//     - word 1 ... P: (ringID << 16) | (coreID << 0) 
+//     - word 1 ... P: (ringID << 16) | (coreID << 0)
 //     (future layout configuration formats may include topology information)
 
 // - place layout v2, organized as follows:
@@ -129,17 +130,17 @@ void MGSystem::FillConfWords(ConfWords& words) const
           << 1 // alpha
 #else
           << 2 // sparc
-#endif    
+#endif
           << m_fpus.size()
           << m_memorytype
 
-    
+
     // timing words v3
           << MAKE_TAG(CONFTAG_TIMINGS_V3, 5)
           << m_kernel.GetMasterFrequency()
           << m_config.getValue<uint32_t>("CoreFreq", 0)
           << m_config.getValue<uint32_t>("MemoryFreq", 0)
-          << ((m_memorytype == MEMTYPE_COMA_ZL || m_memorytype == MEMTYPE_COMA_ML) ? 
+          << ((m_memorytype == MEMTYPE_COMA_ZL || m_memorytype == MEMTYPE_COMA_ML) ?
               m_config.getValue<uint32_t>("DDRMemoryFreq", 0)
               : 0 /* no timing information if memory system is not COMA */)
           << ((m_memorytype == MEMTYPE_COMA_ZL || m_memorytype == MEMTYPE_COMA_ML) ?
@@ -147,10 +148,10 @@ void MGSystem::FillConfWords(ConfWords& words) const
               : 0 /* no DDR channels */)
 
     // cache parameter words v1
-    
+
           << MAKE_TAG(CONFTAG_CACHE_V1, 5)
           << cl_sz
-          << (cl_sz 
+          << (cl_sz
               * m_config.getValue<uint32_t>("ICacheAssociativity", 0)
               * m_config.getValue<uint32_t>("ICacheNumSets", 0))
           << (cl_sz
@@ -166,7 +167,7 @@ void MGSystem::FillConfWords(ConfWords& words) const
         words << 0 << 0;
 
     // concurrency resources v1
-    
+
     words << MAKE_TAG(CONFTAG_CONC_V1, 4)
           << m_config.getValue<uint32_t>("NumFamilies", 0)
           << m_config.getValue<uint32_t>("NumThreads", 0)
@@ -186,7 +187,14 @@ void MGSystem::FillConfWords(ConfWords& words) const
     {
         unsigned int y = 0;
         unsigned int x = i;
-        unsigned int type = 0; // Normal core
+        unsigned int type = 0;
+
+        if (m_procbusmapping.find(i) != m_procbusmapping.end())
+        {
+            // The processor is connected to an I/O bus
+            type = 1;
+        }
+
         words << ((y << 24) | (x << 16) | type);
     }
 
@@ -283,24 +291,41 @@ static string GetClassName(const type_info& info)
 }
 
 // Print all components that are a child of root
-static void PrintComponents(std::ostream& out, const Object* cur, const string& indent)
+static void PrintComponents(std::ostream& out, const Object* cur, const string& indent, const string& pat, size_t levels, size_t cur_level, bool cur_printing)
 {
     for (unsigned int i = 0; i < cur->GetNumChildren(); ++i)
     {
         const Object* child = cur->GetChild(i);
-        string str = indent + child->GetName();
+        string childname = child->GetName();
+        string newindent = indent;
+        bool new_printing = cur_printing;
 
-        out << str << " ";
-        for (size_t len = str.length(); len < 30; ++len) cout << " ";
-        out << GetClassName(typeid(*child)) << endl;
+        if (!new_printing)
+        {
+            if (FNM_NOMATCH != fnmatch(pat.c_str(), childname.c_str(), 0))
+            {
+                new_printing = true;
+            }
+        }
 
-        PrintComponents(out, child, indent + "  ");
+        if (new_printing && (levels == 0 || cur_level < levels))
+        {
+            string str = indent + child->GetName();
+            
+            out << str << " ";
+            for (size_t len = str.length(); len < 30; ++len) cout << " ";
+            out << GetClassName(typeid(*child)) << endl;
+
+            newindent += "  ";
+        }
+
+        PrintComponents(out, child, newindent, pat, levels, cur_level+1, new_printing);
     }
 }
 
-void MGSystem::PrintComponents(std::ostream& out) const
+void MGSystem::PrintComponents(std::ostream& out, const string& pat, size_t levels) const
 {
-    ::PrintComponents(out, &m_root, "");
+    ::PrintComponents(out, &m_root, "", pat, levels, 0, false);
 }
 
 void MGSystem::PrintCoreStats(std::ostream& os) const {
@@ -314,11 +339,11 @@ void MGSystem::PrintCoreStats(std::ostream& os) const {
     struct dt { uint64_t i; float f; };
     struct dt c[P][MAXCOUNTS];
     enum ct types[MAXCOUNTS];
-    
+
     size_t i, j;
 
-    // Collect the data 
-    for (i = 0; i < P; ++i) {       
+    // Collect the data
+    for (i = 0; i < P; ++i) {
         Processor &p = *m_procs[i];
         const Processor::Pipeline& pl = p.GetPipeline();
 
@@ -362,12 +387,12 @@ void MGSystem::PrintCoreStats(std::ostream& os) const {
 
     for (j = 0; j < NC; ++j)
     {
-        dmin[j].i = std::numeric_limits<uint64_t>::max(); 
+        dmin[j].i = std::numeric_limits<uint64_t>::max();
         dmin[j].f = std::numeric_limits<float>::max();
         dmax[j].i = 0; dmax[j].f = std::numeric_limits<float>::min();
         dtotal[j].i = 0; dtotal[j].f = 0.;
     }
-    
+
     for (i = 0, activecores = 0; i < P; ++i) {
         if (c[i][0].i == 0) // core inactive; do not count
             continue;
@@ -386,8 +411,8 @@ void MGSystem::PrintCoreStats(std::ostream& os) const {
     for (j = 0; j < NC; ++j) {
         davg[j][0] = (float)dtotal[j].i / (float)activecores;
         davg[j][1] = dtotal[j].f / (float)activecores;
-    } 
-    
+    }
+
     // print the data
 
     os << "## core statistics:" << endl
@@ -421,8 +446,8 @@ void MGSystem::PrintCoreStats(std::ostream& os) const {
     for (i = 0; i < P; ++i) {
         if (c[i][0].i == 0)  continue; // unused core
         os << std::setw(4) << i << sep;
-        for (j = 0; j < NC; ++j) 
-            if (types[j] == I) 
+        for (j = 0; j < NC; ++j)
+            if (types[j] == I)
                 os << fi << c[i][j].i << sep;
             else if (types[j] == PC)
                 os << fp << c[i][j].f << sep;
@@ -521,8 +546,8 @@ void MGSystem::PrintState(const vector<string>& arguments) const
     {
         StateMap   states;
         streamsize length = 0;
-        
-        if (clock->GetActiveProcesses() != NULL || clock->GetActiveStorages() != NULL || clock->GetActiveArbitrators() != NULL) 
+
+        if (clock->GetActiveProcesses() != NULL || clock->GetActiveStorages() != NULL || clock->GetActiveArbitrators() != NULL)
         {
             cout << clock->GetFrequency() << " MHz clock (next tick at cycle " << dec << clock->GetNextTick() << "):" << endl;
 
@@ -547,7 +572,7 @@ void MGSystem::PrintState(const vector<string>& arguments) const
                 }
                 cout << endl;
             }
-            
+
             if (clock->GetActiveStorages() != NULL)
             {
                 cout << "- One or more storages need updating" << endl;
@@ -557,11 +582,11 @@ void MGSystem::PrintState(const vector<string>& arguments) const
             {
                 cout << "- One or more arbitrators need updating" << endl;
             }
-            
+
             cout << endl;
         }
     }
-        
+
     int width = (int)log10(m_procs.size()) + 1;
     for (size_t i = 0; i < m_procs.size(); ++i)
     {
@@ -632,7 +657,7 @@ void MGSystem::Step(CycleNo nCycles)
     {
         // See how many processes are in each of the states
         unsigned int num_stalled = 0, num_running = 0;
-        
+
         for (const Clock* clock = m_kernel.GetActiveClocks(); clock != NULL; clock = clock->GetNext())
         {
             for (const Process* process = clock->GetActiveProcesses(); process != NULL; process = process->GetNext())
@@ -645,7 +670,7 @@ void MGSystem::Step(CycleNo nCycles)
                 }
             }
         }
-        
+
         unsigned int num_regs = 0;
         for (size_t i = 0; i < m_procs.size(); ++i)
         {
@@ -706,15 +731,15 @@ MGSystem::MGSystem(const Config& config, Display& display, const string& program
       m_config(config)
 {
     PSize numProcessors = m_config.getValue<PSize>("NumProcessors", 1);
-    
+
     const size_t numProcessorsPerFPU = max<size_t>(1, config.getValue<size_t>("NumProcessorsPerFPU", 1));
     const PSize  numFPUs             = (numProcessors + numProcessorsPerFPU - 1) / numProcessorsPerFPU;
-    
+
     std::string memory_type = config.getValue<std::string>("MemoryType", "");
     std::transform(memory_type.begin(), memory_type.end(), memory_type.begin(), ::toupper);
 
     Clock& memclock = m_kernel.CreateClock( config.getValue<size_t>("MemoryFreq", 1000));
-    
+
     if (memory_type == "SERIAL") {
         SerialMemory* memory = new SerialMemory("memory", m_root, memclock, config);
         m_memory = memory;
@@ -740,7 +765,26 @@ MGSystem::MGSystem(const Config& config, Display& display, const string& program
         m_memory = memory;
         m_memorytype = MEMTYPE_COMA_ZL;
     } else {
-        throw std::runtime_error("Unknown memory type specified in configuration");
+        throw std::runtime_error("Unknown memory type: " + memory_type);
+    }
+
+    Clock& ioclock = m_kernel.CreateClock(config.getValue<size_t>("IOFreq", 1000));
+
+    // Create the I/O Buses
+    const size_t numIOBuses = config.getValue<size_t>("NumIOBuses", 0);
+    m_iobuses.resize(numIOBuses);
+    for (size_t b = 0; b < numIOBuses; ++b)
+    {
+        stringstream ss;
+        ss << "iobus" << b;
+        string name = ss.str();
+
+        string bus_type = config.getValue<string>(name + "type", "");
+        if (bus_type == "NULLIO") {
+            m_iobuses[b] = new NullIO(name, m_root, ioclock);
+        } else {
+            throw std::runtime_error("Unknown I/O bus type for " + name + ": " + bus_type);
+        }
     }
 
     // Create the FPUs
@@ -758,33 +802,64 @@ MGSystem::MGSystem(const Config& config, Display& display, const string& program
     {
         FPU& fpu = *m_fpus[i / numProcessorsPerFPU];
 
-        stringstream name;
-        name << "cpu" << i;
-        m_procs[i]   = new Processor(name.str(), m_root, m_clock, i, m_procs, *m_memory, fpu, 0, config);
+        stringstream ss;
+        ss << "cpu" << i;
+        string name = ss.str();
+
+        IIOBus* iobus = NULL;
+        if (config.getValue<bool>(name + "EnableIO", false))
+        {
+            size_t busid = config.getValue<size_t>(name + "BusID", 0);
+            if (busid >= m_iobuses.size())
+            {
+                throw std::runtime_error("Processor " + name + " set to connect to non-existent bus");
+            }
+
+            m_procbusmapping[i] = busid;
+            iobus = m_iobuses[busid];
+        }
+
+        m_procs[i]   = new Processor(name, m_root, m_clock, i, m_procs, *m_memory, fpu, iobus, config);
     }
 
-    // // Create the LCD outputs
-    // m_lcds.resize(2);
+    // Create the I/O devices
+    size_t numIODevices = config.getValue<size_t>("NumIODevices", 0);
 
-    // m_lcds[0] = new LCD("lcd", m_procs[0]->GetMMIOInterface(), 
-    //                     config.getValue<size_t>("LCDDisplayWidth", 16),
-    //                     config.getValue<size_t>("LCDDisplayHeight", 2),
-    //                     config.getValue<size_t>("LCDOutputRow", 10),
-    //                     config.getValue<size_t>("LCDOutputColumn", 32),
-    //                     config.getValue<unsigned>("LCDBackgroundColor", 2),
-    //                     config.getValue<unsigned>("LCDForegroundColor", 0));
-    // m_procs[0]->GetM().RegisterComponent(config.getValue<MemAddr>("LCDBaseAddr", 1024),
-    //                                                  m_lcds[0]->GetSize(), MMIOInterface::WRITE, *m_lcds[0]);
+    m_devices.resize(numIODevices);
+    for (size_t i = 0; i < numIODevices; ++i)
+    {
+        stringstream ss;
+        ss << "iodev" << i;
+        string name = ss.str();
 
-    // m_lcds[1] = new LCD("console", m_procs[0]->GetMMIOInterface(), 
-    //                     config.getValue<size_t>("ConsoleDisplayWidth", 80),
-    //                     config.getValue<size_t>("ConsoleDisplayHeight", 25),
-    //                     config.getValue<size_t>("ConsoleOutputRow", 1),
-    //                     config.getValue<size_t>("ConsoleOutputColumn", 1),
-    //                     config.getValue<unsigned>("ConsoleBackgroundColor", 0),
-    //                     config.getValue<unsigned>("ConsoleForegroundColor", 7));
-    // m_procs[0]->GetMMIOInterface().RegisterComponent(config.getValue<MemAddr>("ConsoleBaseAddr", 2048),
-    //                                                  m_lcds[1]->GetSize(), MMIOInterface::WRITE, *m_lcds[1]);
+        size_t busid = config.getValue<size_t>(name + "BusID", 0);
+
+        if (busid >= m_iobuses.size())
+        {
+            throw std::runtime_error("Device " + name + " set to connect to non-existent bus");
+        }
+        
+        IIOBus& iobus = *m_iobuses[busid];
+
+        size_t devid = config.getValue<size_t>(name + "DeviceID", 0);
+        string dev_type = config.getValue<string>(name + "Type", "");
+        string cfg = config.getValue<string>(name + "Config", dev_type);
+
+        if (dev_type == "LCD") {
+            LCD *lcd = new LCD(name, m_root,
+                               config.getValue<size_t>(cfg + "DisplayWidth", 16),
+                               config.getValue<size_t>(cfg + "DisplayHeight", 2),
+                               config.getValue<size_t>(cfg + "OutputRow", 10),
+                               config.getValue<size_t>(cfg + "OutputColumn", 32),
+                               config.getValue<unsigned>(cfg + "BackgroundColor", 2),
+                               config.getValue<unsigned>(cfg + "ForegroundColor", 0));
+            iobus.RegisterClient(devid, *lcd);
+            m_devices[i] = lcd;
+        } else {
+            throw std::runtime_error("Unknown I/O device type: " + dev_type);
+        }
+
+    }
 
     // Load the program into memory
     std::pair<MemAddr, bool> progdesc = make_pair(0, false);
@@ -839,7 +914,7 @@ MGSystem::MGSystem(const Config& config, Display& display, const string& program
     m_kernel.SetDebugMode(Kernel::DEBUG_PROG);
 
     // Load symbol table
-    if (doload && !symtable.empty()) 
+    if (doload && !symtable.empty())
     {
         ifstream in(symtable.c_str(), ios::in);
         m_symtable.Read(in);
@@ -857,7 +932,7 @@ MGSystem::MGSystem(const Config& config, Display& display, const string& program
     const char *v = getenv(objdump_var);
     if (!v) v = default_objdump;
     m_objdump_cmd = v;
-    
+
     if (!quiet)
     {
         static char const qual[] = {'M', 'G', 'T', 'P', 'E', 'Z', 'Y'};
@@ -873,6 +948,14 @@ MGSystem::MGSystem(const Config& config, Display& display, const string& program
 
 MGSystem::~MGSystem()
 {
+    for (size_t i = 0; i < m_iobuses.size(); ++i)
+    {
+        delete m_iobuses[i];
+    }
+    for (size_t i = 0; i < m_devices.size(); ++i)
+    {
+        delete m_devices[i];
+    }
     for (size_t i = 0; i < m_procs.size(); ++i)
     {
         delete m_procs[i];

@@ -60,7 +60,7 @@ private:
     bool WaitForNotification(IODeviceID dev, const RegAddr& writeback);
 
 public:
-    IOInterface(const std::string& name, Object& parent, Clock& clock, RegisterFile& rf, IIOBus& iobus, const Config& config);
+    IOInterface(const std::string& name, Object& parent, Clock& clock, RegisterFile& rf, IIOBus& iobus, IODeviceID devid, const Config& config);
 
     MMIOComponent& GetAsyncIOInterface() { return m_async_io; }
     MMIOComponent& GetPICInterface() { return m_pic; }

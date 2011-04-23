@@ -104,6 +104,7 @@ static const struct
     {"help", new bind_cmd_C<Processor::IOMatchUnit>(&Processor::IOMatchUnit::Cmd_Help) },
     {"info", new bind_cmd_C<VirtualMemory>(&VirtualMemory::Cmd_Info) },
     {"info", new bind_cmd_C<Processor::IOMatchUnit>(&Processor::IOMatchUnit::Cmd_Info) },
+    {"info", new bind_cmd_C<NullIO>(&NullIO::Cmd_Info) },
     {"line", new bind_cmd_C<COMA>(&COMA::Cmd_Line) },
     {"line", new bind_cmd_C<ZLCOMA>(&ZLCOMA::Cmd_Line) },
     {"read", new bind_cmd_C<Processor::RAUnit>(&Processor::RAUnit::Cmd_Read) },
@@ -129,7 +130,6 @@ static const struct
     {"read", new bind_cmd_C<ZLCOMA::RootDirectory>(&ZLCOMA::RootDirectory::Cmd_Read) },
     {"read", new bind_cmd_C<VirtualMemory>(&VirtualMemory::Cmd_Read) },
     {"read", new bind_cmd_C<FPU>(&FPU::Cmd_Read) },
-    {"read", new bind_cmd_C<NullIO>(&NullIO::Cmd_Read) },
     {"trace", new bind_cmd_NC<COMA>(&COMA::Cmd_Trace) },
     {"trace", new bind_cmd_NC<ZLCOMA>(&ZLCOMA::Cmd_Trace) },
     {NULL, NULL}
@@ -334,7 +334,15 @@ void HandleCommandLine(CommandLineReader& clr,
         }
         else if (command == "p" || command == "print")
         {
-            sys.PrintComponents(std::cout);
+            string pat = "*";
+            if (!args.empty())
+                pat = args[0];
+            size_t levels = 0;
+            if (args.size() > 1)
+            {
+                levels = strtoul(args[1].c_str(), 0, 0);
+            }
+            sys.PrintComponents(std::cout, pat, levels);
         }
         else if (command == "exit" || command == "quit")
         {

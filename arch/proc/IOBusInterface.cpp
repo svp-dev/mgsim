@@ -5,16 +5,18 @@
 namespace Simulator
 {
 
-    Processor::IOBusInterface::IOBusInterface(const std::string& name, Object& parent, Clock& clock, IOResponseMultiplexer& rrmux, IOInterruptMultiplexer& intmux, IIOBus& iobus, const Config& config)
+    Processor::IOBusInterface::IOBusInterface(const std::string& name, Object& parent, Clock& clock, IOResponseMultiplexer& rrmux, IOInterruptMultiplexer& intmux, IIOBus& iobus, IODeviceID devid, const Config& config)
         : Object(name, parent, clock),
           m_rrmux(rrmux),
           m_intmux(intmux),
           m_iobus(iobus),
+          m_hostid(devid),
           m_outgoing_reqs("b_outgoing_reqs", *this, clock, config.getValue<BufferSize>("AsyncIORequestQueueSize", 1)),
           m_outgoing_acks("b_outgoing_acks", *this, clock, config.getValue<BufferSize>("AsyncIOInterruptAckQueueSize", 1)),
           p_OutgoingRequests("outgoing-requests", delegate::create<IOBusInterface, &Processor::IOBusInterface::DoOutgoingRequests>(*this)),
           p_OutgoingInterruptAcks("outgoing-acks", delegate::create<IOBusInterface, &Processor::IOBusInterface::DoOutgoingInterruptAcks>(*this))
     {
+        iobus.RegisterClient(devid, *this);
         m_outgoing_reqs.Sensitive(p_OutgoingRequests);
         m_outgoing_acks.Sensitive(p_OutgoingInterruptAcks);
     }
@@ -37,7 +39,7 @@ namespace Simulator
 
         if (req.write)
         {
-            if (!m_iobus.SendWriteRequest(0, req.device, req.address, req.data))
+            if (!m_iobus.SendWriteRequest(m_hostid, req.device, req.address, req.data))
             {
                 DeadlockWrite("Unable to send I/O write request to %u:%016llx (%u)",
                               (unsigned)req.device, (unsigned long long)req.address, (unsigned)req.data.size);
@@ -46,7 +48,7 @@ namespace Simulator
         }
         else
         {
-            if (!m_iobus.SendReadRequest(0, req.device, req.address, req.data.size))
+            if (!m_iobus.SendReadRequest(m_hostid, req.device, req.address, req.data.size))
             {
                 DeadlockWrite("Unable to send I/O read request to %u:%016llx (%u)",
                               (unsigned)req.device, (unsigned long long)req.address, (unsigned)req.data.size);
@@ -64,7 +66,7 @@ namespace Simulator
 
         IODeviceID dev = m_outgoing_acks.Front();
 
-        if (!m_iobus.SendInterruptAck(0, dev))
+        if (!m_iobus.SendInterruptAck(m_hostid, dev))
         {
             DeadlockWrite("Unable to send interrupt acknowledgement to device %u", (unsigned)dev);
             return FAILED;

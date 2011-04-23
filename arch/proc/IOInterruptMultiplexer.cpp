@@ -18,13 +18,13 @@ Processor::IOInterruptMultiplexer::IOInterruptMultiplexer(const std::string& nam
     {
         {
             std::stringstream ss;
-            ss << "wb" << i;
+            ss << "int_wb" << i;
             m_writebacks[i] = new Register<RegAddr>(ss.str(), *this, clock);
             m_writebacks[i]->Sensitive(p_IncomingInterrupts);
         }
         {
             std::stringstream ss;
-            ss << "int" << i;
+            ss << "int_latch" << i;
             m_interrupts[i] = new SingleFlag(ss.str(), *this, clock, false);
             m_interrupts[i]->Sensitive(p_IncomingInterrupts);
         }
