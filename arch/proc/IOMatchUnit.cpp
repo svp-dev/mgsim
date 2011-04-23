@@ -1,16 +1,16 @@
+#include "Processor.h"
 #include <iomanip>
-#include "proc/Processor.h"
 
 namespace Simulator
 {
 
-Processor& MMIOInterface::GetProcessor() const
+Processor& Processor::IOMatchUnit::GetProcessor() const
 {
     return *static_cast<Processor*>(GetParent());
 }
 
 void
-MMIOInterface::RegisterComponent(MemAddr address, MemSize size, AccessMode mode, MMIOComponent& component)
+Processor::IOMatchUnit::RegisterComponent(MemAddr address, MemSize size, AccessMode mode, MMIOComponent& component)
 {
     assert(size > 0);
 
@@ -45,8 +45,8 @@ MMIOInterface::RegisterComponent(MemAddr address, MemSize size, AccessMode mode,
     m_ranges.insert(p, std::make_pair(address, ci));
 }
 
-MMIOInterface::RangeMap::const_iterator
-MMIOInterface::FindInterface(MemAddr address, MemSize size) const
+Processor::IOMatchUnit::RangeMap::const_iterator
+Processor::IOMatchUnit::FindInterface(MemAddr address, MemSize size) const
 {
     RangeMap::const_iterator p = m_ranges.lower_bound(address);
     if (p != m_ranges.begin() && (p == m_ranges.end() || p->first > address))
@@ -65,21 +65,21 @@ MMIOInterface::FindInterface(MemAddr address, MemSize size) const
     }
 }
 
-bool MMIOInterface::IsRegisteredReadAddress(MemAddr address, MemSize size) const
+bool Processor::IOMatchUnit::IsRegisteredReadAddress(MemAddr address, MemSize size) const
 {
     RangeMap::const_iterator interface = FindInterface(address, size);
     return (interface != m_ranges.end() && 
             ((int)interface->second.mode & 1) != 0);
 }
 
-bool MMIOInterface::IsRegisteredWriteAddress(MemAddr address, MemSize size) const
+bool Processor::IOMatchUnit::IsRegisteredWriteAddress(MemAddr address, MemSize size) const
 {
     RangeMap::const_iterator interface = FindInterface(address, size);
     return (interface != m_ranges.end() && 
             ((int)interface->second.mode & 2) != 0);
 }
 
-Result MMIOInterface::Read (MemAddr address, void* data, MemSize size, LFID fid, TID tid)
+Result Processor::IOMatchUnit::Read (MemAddr address, void* data, MemSize size, LFID fid, TID tid, const RegAddr& writeback)
 {
     RangeMap::const_iterator interface = FindInterface(address, size);
     assert(interface != m_ranges.end());
@@ -88,10 +88,10 @@ Result MMIOInterface::Read (MemAddr address, void* data, MemSize size, LFID fid,
     MemAddr base = interface->first;
     MemAddr offset = address - base;
 
-    return interface->second.component->Read(offset, data, size, fid, tid);
+    return interface->second.component->Read(offset, data, size, fid, tid, writeback);
 }
 
-Result MMIOInterface::Write(MemAddr address, const void* data, MemSize size, LFID fid, TID tid)
+Result Processor::IOMatchUnit::Write(MemAddr address, const void* data, MemSize size, LFID fid, TID tid)
 {
     RangeMap::const_iterator interface = FindInterface(address, size);
     assert(interface != m_ranges.end());
@@ -103,7 +103,7 @@ Result MMIOInterface::Write(MemAddr address, const void* data, MemSize size, LFI
     return interface->second.component->Write(offset, data, size, fid, tid);
 }
 
-void MMIOInterface::Cmd_Help(std::ostream& out, const std::vector<std::string>& /*arguments*/) const
+void Processor::IOMatchUnit::Cmd_Help(std::ostream& out, const std::vector<std::string>& /*arguments*/) const
 {
     out <<
         "The memory-mapped I/O interface intercepts memory operations at the memory stage\n"
@@ -113,7 +113,7 @@ void MMIOInterface::Cmd_Help(std::ostream& out, const std::vector<std::string>& 
         "  Lists the registered I/O components.\n";
 }
 
-void MMIOInterface::Cmd_Info(std::ostream& out, const std::vector<std::string>& /*arguments*/) const
+void Processor::IOMatchUnit::Cmd_Info(std::ostream& out, const std::vector<std::string>& /*arguments*/) const
 {
     out << "Memory-mapped I/O components:" << std::endl
         << "-----------------------------" << std::endl;
@@ -150,13 +150,13 @@ void MMIOInterface::Cmd_Info(std::ostream& out, const std::vector<std::string>& 
     }
 }
     
-MMIOInterface::MMIOInterface(const std::string& name, Processor& parent, Clock& clock, const Config& config)
+Processor::IOMatchUnit::IOMatchUnit(const std::string& name, Processor& parent, Clock& clock, const Config& config)
     : Object(name, parent, clock)
 {
     // config not yet used here
 }
 
-MMIOComponent::MMIOComponent(const std::string& name, MMIOInterface& parent, Clock& clock)
+Processor::MMIOComponent::MMIOComponent(const std::string& name, Processor::IOMatchUnit& parent, Clock& clock)
     : Object(name, parent, clock)
 { }
 

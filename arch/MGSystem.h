@@ -4,6 +4,7 @@
 #include "arch/proc/Processor.h"
 #include "arch/FPU.h"
 #include "arch/symtable.h"
+#include "arch/dev/NullIO.h"
 #include "arch/dev/lcd.h"
 #include "sim/breakpoints.h"
 #include "sim/config.h"
@@ -21,7 +22,7 @@ namespace Simulator {
         Object                      m_root;     ///< Root object for the system
         std::vector<Processor*>     m_procs;
         std::vector<FPU*>           m_fpus;
-        std::vector<LCD*>           m_lcds;
+
         SymbolTable                 m_symtable;
         BreakPoints                 m_breakpoints;
         IMemoryAdmin*               m_memory;

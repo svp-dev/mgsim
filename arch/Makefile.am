@@ -12,9 +12,7 @@ DEVICE_SRC = \
 	dev/NullIO.cpp \
 	dev/NullIO.h \
 	dev/lcd.cpp \
-	dev/lcd.h \
-	dev/lineprinter.cpp \
-	dev/lineprinter.h
+	dev/lcd.h 
 
 PROCESSOR_SRC = \
 	proc/Allocator.cpp \
@@ -23,6 +21,8 @@ PROCESSOR_SRC = \
 	proc/AncillaryRegisterFile.h \
 	proc/DCache.cpp \
 	proc/DCache.h \
+	proc/DebugChannel.h \
+	proc/DebugChannel.cpp \
 	proc/DecodeStage.cpp \
 	proc/DummyStage.cpp \
 	proc/ExecuteStage.cpp \
@@ -39,6 +39,8 @@ PROCESSOR_SRC = \
 	proc/IOBusInterface.cpp \
 	proc/IOInterface.h \
 	proc/IOInterface.cpp \
+	proc/IOMatchUnit.h \
+	proc/IOMatchUnit.cpp \
 	proc/MemoryStage.cpp \
 	proc/Network.cpp \
 	proc/Network.h \
@@ -67,8 +69,6 @@ COMMON_SRC = \
 	FPU.h \
 	IOBus.h \
 	Memory.h \
-	MMIO.h \
-	MMIO.cpp \
 	MGSystem.h \
 	MGSystem.cpp \
 	loader.cpp \

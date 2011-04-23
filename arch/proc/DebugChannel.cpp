@@ -1,5 +1,5 @@
+#include "Processor.h"
 #include <iomanip>
-#include "lineprinter.h"
 
 namespace Simulator
 {
@@ -14,10 +14,10 @@ namespace Simulator
  * - offset 5*word, size word: output float decimal
  */
 
-size_t LinePrinter::GetSize() const { return  6 * sizeof(Integer);  }
+size_t Processor::DebugChannel::GetSize() const { return  6 * sizeof(Integer);  }
 
 
-Result LinePrinter::Write(MemAddr address, const void *data, MemSize size, LFID fid, TID tid)
+Result Processor::DebugChannel::Write(MemAddr address, const void *data, MemSize size, LFID fid, TID tid)
 {
     address /= sizeof(Integer);
 
@@ -58,7 +58,7 @@ Result LinePrinter::Write(MemAddr address, const void *data, MemSize size, LFID 
         m_output.flush();
         
         
-        DebugIOWrite("Line printer output by F%u/T%u: %#016llx (%llu) -> register %u",
+        DebugIOWrite("Debug output by F%u/T%u: %#016llx (%llu) -> channel %u",
                      (unsigned)fid, (unsigned)tid, 
                      (unsigned long long)value, (unsigned long long)value,
                      (unsigned)address);
@@ -66,8 +66,8 @@ Result LinePrinter::Write(MemAddr address, const void *data, MemSize size, LFID 
     return SUCCESS;
 }
 
-LinePrinter::LinePrinter(const std::string& name, MMIOInterface& parent, std::ostream& output)
-    : MMIOComponent("lp" + name, parent, parent.GetClock()),
+Processor::DebugChannel::DebugChannel(const std::string& name, IOMatchUnit& parent, std::ostream& output)
+    : Processor::MMIOComponent("lp" + name, parent, parent.GetClock()),
       m_output(output),
       m_floatprecision(6)
 {

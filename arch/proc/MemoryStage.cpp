@@ -40,17 +40,18 @@ Processor::Pipeline::PipeAction Processor::Pipeline::MemoryStage::OnCycle()
             
             SerializeRegister(m_input.Rc.type, value, data, (size_t)m_input.size);
 
-            MMIOInterface& mmio = m_parent.GetProcessor().GetMMIOInterface();
+            IOMatchUnit& mmio = m_parent.GetProcessor().GetIOMatchUnit();
             if (mmio.IsRegisteredWriteAddress(m_input.address, m_input.size))
             {
                 result = mmio.Write(m_input.address, data, m_input.size, m_input.fid, m_input.tid);
 
-                if (!result)
+                if (result == FAILED)
                 {
-                    throw exceptf<VirtualIOException>(*this, "Failed I/O write by %s (F%u/T%u): %#016llx (%zd)",
-                                                      GetKernel()->GetSymbolTable()[m_input.pc].c_str(),
-                                                      (unsigned)m_input.fid, (unsigned)m_input.tid,
-                                                      (unsigned long long)m_input.address, (size_t)m_input.size);
+                    DeadlockWrite("Failed I/O write by %s (F%u/T%u): %#016llx (%zd)",
+                                  GetKernel()->GetSymbolTable()[m_input.pc].c_str(),
+                                  (unsigned)m_input.fid, (unsigned)m_input.tid,
+                                  (unsigned long long)m_input.address, (size_t)m_input.size);
+                    return PIPE_STALL;
                 }
             }
             else
@@ -92,28 +93,73 @@ Processor::Pipeline::PipeAction Processor::Pipeline::MemoryStage::OnCycle()
             char data[MAX_MEMORY_OPERATION_SIZE];
             RegAddr reg = m_input.Rc;
 
-            MMIOInterface& mmio = m_parent.GetProcessor().GetMMIOInterface();
+            IOMatchUnit& mmio = m_parent.GetProcessor().GetIOMatchUnit();
             if (mmio.IsRegisteredReadAddress(m_input.address, m_input.size))
             {
-                result = mmio.Read(m_input.address, data, m_input.size, m_input.fid, m_input.tid);
+                result = mmio.Read(m_input.address, data, m_input.size, m_input.fid, m_input.tid, m_input.Rc);
 
-                // We do not support async reads yet with MMIO, so just fail.
-                if (!result)
+                switch(result)
                 {
-                    throw exceptf<VirtualIOException>(*this, "Failed I/O read by %s (F%u/T%u): %#016llx (%zd)",
-                                                      GetKernel()->GetSymbolTable()[m_input.pc].c_str(),
-                                                      (unsigned)m_input.fid, (unsigned)m_input.tid,
-                                                      (unsigned long long)m_input.address, (size_t)m_input.size);
+                case FAILED:
+                    DeadlockWrite("Failed I/O read by %s (F%u/T%u): %#016llx (%zd)",
+                                  GetKernel()->GetSymbolTable()[m_input.pc].c_str(),
+                                  (unsigned)m_input.fid, (unsigned)m_input.tid,
+                                  (unsigned long long)m_input.address, (size_t)m_input.size);
+                    return PIPE_STALL;
+
+                case DELAYED:
+                    rcv = MAKE_EMPTY_PIPEVALUE(rcv.m_size);
+                    DebugIOWrite("I/O read by %s: *%#016llx -> delayed %s (%zd)",
+                                  GetKernel()->GetSymbolTable()[m_input.pc].c_str(), 
+                                  (unsigned long long)m_input.address, 
+                                  m_input.Rc.str().c_str(), (size_t)m_input.size); 
+                    break;
+
+                case SUCCESS:
+                    break;
                 }
             }
             else
             {
                 // Normal read from memory.
-
-                if ((result = m_dcache.Read(m_input.address, data, m_input.size, m_input.fid, &reg)) == FAILED)
+                result = m_dcache.Read(m_input.address, data, m_input.size, m_input.fid, &reg);
+                
+                switch(result)
                 {
+                case FAILED:
                     // Stall
                     return PIPE_STALL;
+
+                case DELAYED:
+
+                    // Increase the outstanding memory count for the family
+                    if (m_input.Rcv.m_state == RST_FULL)
+                    {
+                        if (!m_allocator.IncreaseThreadDependency(m_input.tid, THREADDEP_OUTSTANDING_WRITES))
+                        {
+                            return PIPE_STALL;
+                        }
+                    }
+                    else if (!m_allocator.OnMemoryRead(m_input.fid))
+                    {
+                        return PIPE_STALL;
+                    }
+                    
+                    // Remember request data
+                    rcv = MAKE_PENDING_PIPEVALUE(rcv.m_size);
+                    rcv.m_memory.fid         = m_input.fid;
+                    rcv.m_memory.next        = reg;
+                    rcv.m_memory.offset      = (unsigned int)(m_input.address % m_dcache.GetLineSize());
+                    rcv.m_memory.size        = (size_t)m_input.size;
+                    rcv.m_memory.sign_extend = m_input.sign_extend;
+                    DebugMemWrite("Load by %s: *%#016llx -> delayed %s (%zd)",
+                                  GetKernel()->GetSymbolTable()[m_input.pc].c_str(), 
+                                  (unsigned long long)m_input.address, 
+                                  m_input.Rc.str().c_str(), (size_t)m_input.size); 
+
+                    break;
+                case SUCCESS:
+                    break;
                 }
             }
 
@@ -140,39 +186,10 @@ Processor::Pipeline::PipeAction Processor::Pipeline::MemoryStage::OnCycle()
                 case RT_FLOAT:   rcv.m_float.fromint(value, rcv.m_size); break;
                 default:         assert(0);
                 }
+
                 DebugMemWrite("Load by %s (F%u/T%u): *%#016llx -> %#016llx (%zd)",
                               GetKernel()->GetSymbolTable()[m_input.pc].c_str(), (unsigned)m_input.fid, (unsigned)m_input.tid,
                               (unsigned long long)m_input.address, (unsigned long long)value, (size_t)m_input.size); 
-            }
-            else
-            {
-                // Remember request data
-                rcv = MAKE_PENDING_PIPEVALUE(rcv.m_size);
-                rcv.m_memory.fid         = m_input.fid;
-                rcv.m_memory.next        = reg;
-                rcv.m_memory.offset      = (unsigned int)(m_input.address % m_dcache.GetLineSize());
-                rcv.m_memory.size        = (size_t)m_input.size;
-                rcv.m_memory.sign_extend = m_input.sign_extend;
-                DebugMemWrite("Load by %s: *%#016llx -> delayed %s (%zd)",
-                              GetKernel()->GetSymbolTable()[m_input.pc].c_str(), 
-                              (unsigned long long)m_input.address, 
-                              m_input.Rc.str().c_str(), (size_t)m_input.size); 
-            }
-        }
-
-        if (result == DELAYED)
-        {
-            // Increase the outstanding memory count for the family
-            if (m_input.Rcv.m_state == RST_FULL)
-            {
-                if (!m_allocator.IncreaseThreadDependency(m_input.tid, THREADDEP_OUTSTANDING_WRITES))
-                {
-                    return PIPE_STALL;
-                }
-            }
-            else if (!m_allocator.OnMemoryRead(m_input.fid))
-            {
-                return PIPE_STALL;
             }
         }
     }

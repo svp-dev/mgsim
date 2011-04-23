@@ -54,16 +54,18 @@ Processor::Processor(const std::string& name, Object& parent, Clock& clock, PID 
 
     // Register the pseudo I/O components
     m_mmio.RegisterComponent(config.getValue<MemAddr>("PerformanceCountersBaseAddr", 8), 
-                             m_perfcounters.GetSize(), MMIOInterface::READ, m_perfcounters);
+                             m_perfcounters.GetSize(), IOMatchUnit::READ, m_perfcounters);
     m_mmio.RegisterComponent(config.getValue<MemAddr>("DebugLinePrintOutBaseAddr", 512), 
-                             m_lpout.GetSize(), MMIOInterface::WRITE, m_lpout);
+                             m_lpout.GetSize(), IOMatchUnit::WRITE, m_lpout);
     m_mmio.RegisterComponent(config.getValue<MemAddr>("DebugLinePrintErrBaseAddr", 512 + m_lpout.GetSize()), 
-                             m_lperr.GetSize(), MMIOInterface::WRITE, m_lperr);
+                             m_lperr.GetSize(), IOMatchUnit::WRITE, m_lperr);
 
     if (iobus != NULL)
     {
         // This processor also supports I/O
         m_io_if = new IOInterface("io_if", *this, clock, m_registerFile, *iobus, config);
+
+        
     }
 
 }

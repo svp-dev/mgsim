@@ -1,22 +1,13 @@
-#ifndef MMIO_H
-#define MMIO_H
+#ifndef IOMATCHUNIT_H
+#define IOMATCHUNIT_H
 
-#include "simtypes.h"
-#include "sim/kernel.h"
-#include <map>
-#include <string>
-#include <iostream>
-#include <vector>
-
-class Config;
-
-namespace Simulator
-{
+#ifndef PROCESSOR_H
+#error This file should be included in Processor.h
+#endif
 
 class MMIOComponent;
-class Processor;
 
-class MMIOInterface : public Object
+class IOMatchUnit : public Object
 {    
 public:
     enum AccessMode
@@ -40,19 +31,19 @@ protected:
     RangeMap::const_iterator FindInterface(MemAddr address, MemSize size) const;
 
 public:
-    MMIOInterface(const std::string& name, Processor& parent, Clock& clock, const Config& config);
+    IOMatchUnit(const std::string& name, Processor& parent, Clock& clock, const Config& config);
 
     Processor& GetProcessor() const;
 
     bool IsRegisteredReadAddress(MemAddr address, MemSize size) const;
     bool IsRegisteredWriteAddress(MemAddr address, MemSize size) const;
 
-    Result Read (MemAddr address, void* data, MemSize size, LFID fid, TID tid);
+    Result Read (MemAddr address, void* data, MemSize size, LFID fid, TID tid, const RegAddr& writeback);
     Result Write(MemAddr address, const void* data, MemSize size, LFID fid, TID tid);
 
     void RegisterComponent(MemAddr base, MemSize size, AccessMode mode, MMIOComponent& component);    
 
-    // Debuggin
+    // Debugging
     void Cmd_Help(std::ostream& out, const std::vector<std::string>& arguments) const;
     void Cmd_Info(std::ostream& out, const std::vector<std::string>& arguments) const;
 };
@@ -61,22 +52,20 @@ public:
 class MMIOComponent : public Object
 {
 public:
-    MMIOComponent(const std::string& name, MMIOInterface& parent, Clock& clock);
+    MMIOComponent(const std::string& name, IOMatchUnit& parent, Clock& clock);
 
-    MMIOInterface& GetInterface() { return *static_cast<MMIOInterface*>(GetParent()); }
+    IOMatchUnit& GetMatchUnit() { return *static_cast<IOMatchUnit*>(GetParent()); }
 
     virtual size_t GetSize() const = 0;
 
 
-    virtual Result Read (MemAddr address, void* data, MemSize size, LFID fid, TID tid) = 0;
+    virtual Result Read (MemAddr address, void* data, MemSize size, LFID fid, TID tid, const RegAddr& writeback) = 0;
     virtual Result Write(MemAddr address, const void* data, MemSize size, LFID fid, TID tid) = 0;
 
     virtual ~MMIOComponent() {};
 };
 
 
-
-}
 
 
 #endif

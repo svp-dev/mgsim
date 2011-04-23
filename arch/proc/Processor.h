@@ -2,9 +2,7 @@
 #define PROCESSOR_H
 
 #include "arch/IOBus.h"
-#include "arch/MMIO.h"
 #include "arch/Memory.h"
-#include "arch/dev/lineprinter.h"
 
 class Config;
 
@@ -24,7 +22,9 @@ public:
 #include "AncillaryRegisterFile.h"
 #include "Network.h"
 #include "ICache.h"
+#include "IOMatchUnit.h"
 #include "IOInterface.h"
+#include "DebugChannel.h"
 #include "DCache.h"
 #include "Pipeline.h"
 #include "RAUnit.h"
@@ -42,7 +42,7 @@ public:
 
 
     Pipeline& GetPipeline() { return m_pipeline; }
-    MMIOInterface& GetMMIOInterface() { return m_mmio; }
+    IOMatchUnit& GetIOMatchUnit() { return m_mmio; }
     
     float GetRegFileAsyncPortActivity() const {
         return (float)m_registerFile.p_asyncW.GetBusyCycles() / (float)GetCycleNo();
@@ -117,11 +117,11 @@ private:
     Network               m_network;
 
     // Local MMIO devices
-    MMIOInterface         m_mmio;
+    IOMatchUnit           m_mmio;
     PerfCounters          m_perfcounters;
     AncillaryRegisterFile m_ancillaryRegisterFile;
-    LinePrinter           m_lpout;
-    LinePrinter           m_lperr;
+    DebugChannel          m_lpout;
+    DebugChannel          m_lperr;
 
     // External I/O interface, optional
     IOInterface           *m_io_if;

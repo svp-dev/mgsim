@@ -28,7 +28,7 @@ public:
     virtual bool OnInterruptAckReceived(IODeviceID from) = 0;
 
     /* for debugging */
-    virtual std::string GetIODeviceName() = 0;
+    virtual std::string GetIODeviceName() const = 0;
 
     virtual ~IIOBusClientCallback() {}
 };
