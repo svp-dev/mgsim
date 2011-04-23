@@ -369,6 +369,10 @@ void HandleCommandLine(CommandLineReader& clr,
         {
             ShowSampleVariables(std::cout, args[0]);
         }
+        else if(command == "devicedb")
+        {
+            DeviceDatabase::GetDatabase().Print(std::cout);
+        }
         else if (command == "debug")
         {
             string state;

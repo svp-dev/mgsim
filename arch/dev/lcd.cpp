@@ -26,6 +26,14 @@ LCD::LCD(const std::string& name, Object& parent,
     memset(m_buffer, ' ', width * height);
 }
 
+void LCD::GetDeviceIdentity(IODeviceIdentification& id) const
+{
+    if (!DeviceDatabase::GetDatabase().FindDeviceByName("MGSim", "LCD", id))
+    {
+        throw InvalidArgumentException(*this, "Device identity not registered");
+    }    
+}
+
 bool LCD::OnWriteRequestReceived(IODeviceID from, MemAddr address, const IOData& data)
 {
     if (data.size < 1)

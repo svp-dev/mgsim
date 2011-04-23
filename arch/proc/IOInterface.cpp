@@ -6,11 +6,12 @@ namespace Simulator
 {
     Processor::IOInterface::IOInterface(const std::string& name, Object& parent, Clock& clock, RegisterFile& rf, IIOBus& iobus, IODeviceID devid, const Config& config)
         : Object(name, parent, clock),
-          m_numDevices(config.getValue<size_t>("AsyncIONumDeviceSlots", 16)),
+          m_numDevices(config.getValue<size_t>("AsyncIONumDeviceSlots", 8)),
+          m_numInterrupts(config.getValue<size_t>("AsyncIONumInterruptChannels", 8)),
           m_async_io("aio",    *this, clock, m_numDevices, config),
-          m_pic     ("pic",    *this, clock, m_numDevices, config),
+          m_pic     ("pic",    *this, clock, m_numInterrupts, config),
           m_rrmux   ("rrmux",  *this, clock, rf, m_numDevices, config),
-          m_intmux  ("intmux", *this, clock, rf, m_iobus_if, m_numDevices),
+          m_intmux  ("intmux", *this, clock, rf, m_numInterrupts),
           m_iobus_if("bus_if", *this, clock, m_rrmux, m_intmux, iobus, devid, config)
     {
     }
@@ -127,9 +128,9 @@ namespace Simulator
         return SUCCESS;
     }
 
-    Processor::IOInterface::PICInterface::PICInterface(const std::string& name, Processor::IOInterface& parent, Clock& clock, size_t numDevices, const Config& config)
+    Processor::IOInterface::PICInterface::PICInterface(const std::string& name, Processor::IOInterface& parent, Clock& clock, size_t numInterrupts, const Config& config)
         : MMIOComponent(name, parent, clock),
-          m_numDeviceSlots(numDevices)
+          m_numInterrupts(numInterrupts)
     {
     }
 
@@ -141,18 +142,18 @@ namespace Simulator
 
     size_t Processor::IOInterface::PICInterface::GetSize() const
     {
-        return m_numDeviceSlots * sizeof(Integer);
+        return m_numInterrupts * sizeof(Integer);
     }
 
     Result Processor::IOInterface::PICInterface::Read(MemAddr address, void* data, MemSize size, LFID fid, TID tid, const RegAddr& writeback)
     {
-        IODeviceID dev = address / sizeof(Integer);
-        if (dev > m_numDeviceSlots)
+        IOInterruptID which = address / sizeof(Integer);
+        if (which > m_numInterrupts)
         {
-            throw exceptf<SimulationException>("Invalid wait to non-existent device %u by F%u/T%u", (unsigned)dev, (unsigned)fid, (unsigned)tid);
+            throw exceptf<SimulationException>("Invalid wait to non-existent interrupt channel %u by F%u/T%u", (unsigned)which, (unsigned)fid, (unsigned)tid);
         }
         
-        if (!GetInterface().WaitForNotification(dev, writeback))
+        if (!GetInterface().WaitForNotification(which, writeback))
         {
             return FAILED;
         }

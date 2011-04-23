@@ -16,12 +16,12 @@ namespace Simulator
     {
         if (from >= m_clients.size() || m_clients[from] == NULL)
         {
-            throw exceptf<SimulationException>(*this, "Read by non-existent device %u", (unsigned)from);
+            throw exceptf<SimulationException>(*this, "I/O from non-existent device %u", (unsigned)from);
         }
 
         if (to >= m_clients.size() || m_clients[to] == NULL)
         {
-            throw exceptf<SimulationException>(*this, "Read by device %u to non-existence device %u", (unsigned)from, (unsigned)to);
+            throw exceptf<SimulationException>(*this, "I/O from device %u to non-existence device %u", (unsigned)from, (unsigned)to);
         }
 
     }
@@ -60,28 +60,50 @@ namespace Simulator
         return m_clients[to]->OnWriteRequestReceived(from, address, data);
     }
 
-    bool NullIO::SendInterruptRequest(IODeviceID from, IODeviceID to)
+    bool NullIO::SendInterruptRequest(IODeviceID from, IOInterruptID which)
     {
-        CheckEndPoints(from, to);
-        return m_clients[to]->OnInterruptRequestReceived(from);
+        if (from >= m_clients.size() || m_clients[from] == NULL)
+        {
+            throw exceptf<SimulationException>(*this, "I/O from non-existent device %u", (unsigned)from);
+        }
+
+        bool res = true;
+        for (size_t to = 0; to < m_clients.size(); ++to)
+        {
+            if (m_clients[to] != NULL)
+                res = res & m_clients[to]->OnInterruptRequestReceived(which);
+        }
+        return res;
     }
 
-    bool NullIO::SendInterruptAck(IODeviceID from, IODeviceID to)
+    void NullIO::GetDeviceIdentity(IODeviceID which, IODeviceIdentification &id) const
     {
-        CheckEndPoints(from, to);
-        return m_clients[to]->OnInterruptAckReceived(from);
+        if (which >= m_clients.size() || m_clients[which] == NULL)
+        {
+            throw exceptf<SimulationException>(*this, "I/O to non-existent device %u", (unsigned)which);
+        }
+        m_clients[which]->GetDeviceIdentity(id);
     }
 
     void NullIO::Cmd_Info(std::ostream& out, const std::vector<std::string>& arguments) const
     {
-        out << "   ID   | Name" << endl
-            << "--------+------------------" << endl;
+        out << "  ID  |  P  / M  / R   | Name" << endl
+            << "------+----------------+-----------" << endl;
         for (size_t i = 0; i < m_clients.size(); ++i)
         {
             if (m_clients[i] != NULL)
             {
-                out << setw(6) << setfill(' ') << i 
-                    << " | " 
+                IODeviceIdentification id;
+                m_clients[i]->GetDeviceIdentity(id);
+
+                out << setw(5) << setfill(' ') << i
+                    << " | "
+                    << setw(4) << setfill('0') << hex << id.provider
+                    << '/'
+                    << setw(4) << setfill('0') << hex << id.model
+                    << '/'
+                    << setw(4) << setfill('0') << hex << id.revision
+                    << " | "
                     << m_clients[i]->GetIODeviceName()
                     << endl;
             }

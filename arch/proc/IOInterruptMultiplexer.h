@@ -11,7 +11,6 @@ class IOInterruptMultiplexer : public Object
 {
 private:
     RegisterFile&                   m_regFile;
-    IOBusInterface&                 m_iobus;
 
     std::vector<Register<RegAddr>*> m_writebacks;
     std::vector<SingleFlag*>        m_interrupts;
@@ -19,13 +18,13 @@ private:
     size_t                          m_lastNotified;
 
 public:
-    IOInterruptMultiplexer(const std::string& name, Object& parent, Clock& clock, RegisterFile& rf, IOBusInterface& iobus, size_t numDevices);
+    IOInterruptMultiplexer(const std::string& name, Object& parent, Clock& clock, RegisterFile& rf, size_t numInterrupts);
 
     // sent by device select upon an I/O read from the processor
-    bool SetWriteBackAddress(IODeviceID dev, const RegAddr& addr);
+    bool SetWriteBackAddress(IOInterruptID which, const RegAddr& addr);
 
     // triggered by the IOBusInterface
-    bool OnInterruptRequestReceived(IODeviceID from);
+    bool OnInterruptRequestReceived(IOInterruptID which);
 
     Process p_IncomingInterrupts;
     

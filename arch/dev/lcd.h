@@ -34,10 +34,11 @@ public:
     bool OnReadRequestReceived(IODeviceID from, MemAddr address, MemSize size) { return false; }
     bool OnReadResponseReceived(IODeviceID from, const IOData& data) { return false; }
 
-    bool OnInterruptRequestReceived(IODeviceID from) { return false; }
-    bool OnInterruptAckReceived(IODeviceID from) { return false; }
+    bool OnInterruptRequestReceived(IOInterruptID which) { return true; }
 
     bool OnWriteRequestReceived(IODeviceID from, MemAddr address, const IOData& data);
+
+    void GetDeviceIdentity(IODeviceIdentification& id) const;
 
     std::string GetIODeviceName() const { return GetFQN(); }
 

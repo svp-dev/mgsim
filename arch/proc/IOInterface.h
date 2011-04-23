@@ -13,6 +13,7 @@ class IOInterface : public Object
 {
 private:
     size_t                      m_numDevices;
+    size_t                      m_numInterrupts;
 
     class AsyncIOInterface : public MMIOComponent
     {
@@ -36,11 +37,11 @@ private:
     class PICInterface : public MMIOComponent
     {
     private:
-        size_t                  m_numDeviceSlots;
+        size_t                  m_numInterrupts;
 
         IOInterface&  GetInterface();
     public:
-        PICInterface(const std::string& name, IOInterface& parent, Clock& clock, size_t numDevices, const Config& config);
+        PICInterface(const std::string& name, IOInterface& parent, Clock& clock, size_t numInterrupts, const Config& config);
 
         size_t GetSize() const;
 
@@ -57,7 +58,7 @@ private:
 
     bool Read(IODeviceID dev, MemAddr address, MemSize size, const RegAddr& writeback);
     bool Write(IODeviceID dev, MemAddr address, const IOData& data);
-    bool WaitForNotification(IODeviceID dev, const RegAddr& writeback);
+    bool WaitForNotification(IOInterruptID dev, const RegAddr& writeback);
 
 public:
     IOInterface(const std::string& name, Object& parent, Clock& clock, RegisterFile& rf, IIOBus& iobus, IODeviceID devid, const Config& config);

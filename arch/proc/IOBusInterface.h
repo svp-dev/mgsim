@@ -26,7 +26,6 @@ private:
     IODeviceID              m_hostid;
 
     Buffer<IORequest>       m_outgoing_reqs;
-    Buffer<IODeviceID>      m_outgoing_acks;
 
 public:
     IOBusInterface(const std::string& name, Object& parent, Clock& clock, IOResponseMultiplexer& rrmux, IOInterruptMultiplexer& intmux, IIOBus& iobus, IODeviceID devid, const Config& config);
@@ -36,18 +35,19 @@ public:
     bool SendRequest(const IORequest& request);
     
     Process p_OutgoingRequests;
-    Process p_OutgoingInterruptAcks;
 
     Result DoOutgoingRequests();
-    Result DoOutgoingInterruptAcks();
 
 
     /* From IIOBusClientCallBack */
     bool OnReadRequestReceived(IODeviceID from, MemAddr address, MemSize size);
     bool OnWriteRequestReceived(IODeviceID from, MemAddr address, const IOData& data);
     bool OnReadResponseReceived(IODeviceID from, const IOData& data);
-    bool OnInterruptRequestReceived(IODeviceID from);
-    bool OnInterruptAckReceived(IODeviceID from);
+    bool OnInterruptRequestReceived(IOInterruptID which);
+
+    void GetDeviceIdentity(IODeviceIdentification& id) const;
+    
+
 
     /* for debugging */
     std::string GetIODeviceName() const { return GetFQN(); };

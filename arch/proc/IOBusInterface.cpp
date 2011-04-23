@@ -4,7 +4,7 @@
 
 namespace Simulator
 {
-
+    
     Processor::IOBusInterface::IOBusInterface(const std::string& name, Object& parent, Clock& clock, IOResponseMultiplexer& rrmux, IOInterruptMultiplexer& intmux, IIOBus& iobus, IODeviceID devid, const Config& config)
         : Object(name, parent, clock),
           m_rrmux(rrmux),
@@ -12,20 +12,12 @@ namespace Simulator
           m_iobus(iobus),
           m_hostid(devid),
           m_outgoing_reqs("b_outgoing_reqs", *this, clock, config.getValue<BufferSize>("AsyncIORequestQueueSize", 1)),
-          m_outgoing_acks("b_outgoing_acks", *this, clock, config.getValue<BufferSize>("AsyncIOInterruptAckQueueSize", 1)),
-          p_OutgoingRequests("outgoing-requests", delegate::create<IOBusInterface, &Processor::IOBusInterface::DoOutgoingRequests>(*this)),
-          p_OutgoingInterruptAcks("outgoing-acks", delegate::create<IOBusInterface, &Processor::IOBusInterface::DoOutgoingInterruptAcks>(*this))
+          p_OutgoingRequests("outgoing-requests", delegate::create<IOBusInterface, &Processor::IOBusInterface::DoOutgoingRequests>(*this))
     {
         iobus.RegisterClient(devid, *this);
         m_outgoing_reqs.Sensitive(p_OutgoingRequests);
-        m_outgoing_acks.Sensitive(p_OutgoingInterruptAcks);
     }
 
-    bool Processor::IOBusInterface::SendInterruptAck(IODeviceID to)
-    {
-        return m_outgoing_acks.Push(to);
-    }
-    
     bool Processor::IOBusInterface::SendRequest(const IORequest& request)
     {
         return m_outgoing_reqs.Push(request);
@@ -60,22 +52,6 @@ namespace Simulator
         return SUCCESS;
     }
 
-    Result Processor::IOBusInterface::DoOutgoingInterruptAcks()
-    {
-        assert(!m_outgoing_acks.Empty());
-
-        IODeviceID dev = m_outgoing_acks.Front();
-
-        if (!m_iobus.SendInterruptAck(m_hostid, dev))
-        {
-            DeadlockWrite("Unable to send interrupt acknowledgement to device %u", (unsigned)dev);
-            return FAILED;
-        }
-
-        m_outgoing_acks.Pop();
-        return SUCCESS;
-    }
-
     bool Processor::IOBusInterface::OnReadRequestReceived(IODeviceID from, MemAddr address, MemSize size)
     {
         // FIXME: This should go to direct cache access
@@ -95,14 +71,17 @@ namespace Simulator
         return m_rrmux.OnReadResponseReceived(from, data);
     }
 
-    bool Processor::IOBusInterface::OnInterruptRequestReceived(IODeviceID from)
+    bool Processor::IOBusInterface::OnInterruptRequestReceived(IOInterruptID which)
     {
-        return m_intmux.OnInterruptRequestReceived(from);
+        return m_intmux.OnInterruptRequestReceived(which);
     }
 
-    bool Processor::IOBusInterface::OnInterruptAckReceived(IODeviceID from)
+    void Processor::IOBusInterface::GetDeviceIdentity(IODeviceIdentification& id) const
     {
-        throw exceptf<SimulationException>(*this, "Unexpected interrupt acknowledgement from device %u", (unsigned)from);
+        if (!DeviceDatabase::GetDatabase().FindDeviceByName("MGSim", "CPU", id))
+        {
+            throw InvalidArgumentException(*this, "Device identity not registered");
+        }    
     }
 
 }

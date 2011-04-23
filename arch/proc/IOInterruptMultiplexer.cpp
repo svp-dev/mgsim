@@ -5,16 +5,15 @@
 namespace Simulator
 {
 
-Processor::IOInterruptMultiplexer::IOInterruptMultiplexer(const std::string& name, Object& parent, Clock& clock, RegisterFile& rf, IOBusInterface& iobus, size_t numDevices)
+Processor::IOInterruptMultiplexer::IOInterruptMultiplexer(const std::string& name, Object& parent, Clock& clock, RegisterFile& rf, size_t numInterrupts)
     : Object(name, parent, clock),
       m_regFile(rf),
-      m_iobus(iobus),
       m_lastNotified(0),
       p_IncomingInterrupts("received-interrupts", delegate::create<IOInterruptMultiplexer, &Processor::IOInterruptMultiplexer::DoReceivedInterrupts>(*this))
 {
-    m_writebacks.resize(numDevices, 0);
-    m_interrupts.resize(numDevices, 0);
-    for (size_t i = 0; i < numDevices; ++i)
+    m_writebacks.resize(numInterrupts, 0);
+    m_interrupts.resize(numInterrupts, 0);
+    for (size_t i = 0; i < numInterrupts; ++i)
     {
         {
             std::stringstream ss;
@@ -32,22 +31,22 @@ Processor::IOInterruptMultiplexer::IOInterruptMultiplexer(const std::string& nam
 
 }
 
-bool Processor::IOInterruptMultiplexer::SetWriteBackAddress(IODeviceID dev, const RegAddr& addr)
+bool Processor::IOInterruptMultiplexer::SetWriteBackAddress(IOInterruptID which, const RegAddr& addr)
 {
-    assert(dev < m_writebacks.size());
+    assert(which < m_writebacks.size());
 
-    if (!m_writebacks[dev]->Empty())
+    if (!m_writebacks[which]->Empty())
     {
         // some thread is already waiting, do not
         // allow another one to wait as well!
         return false;
     }
 
-    m_writebacks[dev]->Write(addr);
+    m_writebacks[which]->Write(addr);
     return true;
 }
 
-bool Processor::IOInterruptMultiplexer::OnInterruptRequestReceived(IODeviceID from)
+bool Processor::IOInterruptMultiplexer::OnInterruptRequestReceived(IOInterruptID from)
 {
     assert(from < m_interrupts.size());
     
@@ -131,13 +130,7 @@ Result Processor::IOInterruptMultiplexer::DoReceivedInterrupts()
         return FAILED;
     }
     
-    if (!m_iobus.SendInterruptAck(i))
-    {
-        DeadlockWrite("Unable to send interrupt acknowledgement to device %zu", i);
-        return FAILED;
-    }
-
-    DebugIOWrite("Completed interrupt notification from device %zu to %s",
+    DebugIOWrite("Completed notification of interrupt %zu to %s",
                  i, addr.str().c_str());
 
     m_writebacks[i]->Clear();

@@ -9,6 +9,8 @@ MEMORY_SRC = \
 	mem/SerialMemory.h
 
 DEVICE_SRC = \
+	dev/IODeviceDatabase.h \
+	dev/IODeviceDatabase.cpp \
 	dev/NullIO.cpp \
 	dev/NullIO.h \
 	dev/lcd.cpp \
