@@ -41,8 +41,6 @@ public:
     void GetDeviceIdentity(IODeviceIdentification& id) const;
 
     std::string GetIODeviceName() const { return GetFQN(); }
-
-    ~LCD() {}
 };
 
 

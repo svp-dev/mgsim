@@ -4,8 +4,7 @@
 #include "arch/proc/Processor.h"
 #include "arch/FPU.h"
 #include "arch/symtable.h"
-#include "arch/dev/NullIO.h"
-#include "arch/dev/lcd.h"
+#include "arch/IOBus.h"
 #include "sim/breakpoints.h"
 #include "sim/config.h"
 

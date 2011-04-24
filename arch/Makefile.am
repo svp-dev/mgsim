@@ -13,6 +13,8 @@ DEVICE_SRC = \
 	dev/IODeviceDatabase.cpp \
 	dev/NullIO.cpp \
 	dev/NullIO.h \
+	dev/RTC.h \
+	dev/RTC.cpp \
 	dev/lcd.cpp \
 	dev/lcd.h 
 
