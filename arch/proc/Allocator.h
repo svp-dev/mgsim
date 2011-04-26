@@ -25,7 +25,7 @@ enum ThreadDependency
     THREADDEP_TERMINATED,           // Thread has terminated
 };
 
-class Allocator : public Object
+class Allocator : public Object, public Inspect::Interface<Inspect::Read>
 {
 public:
     typedef LinkedList< TID, ThreadTable, &Thread::next> ThreadList;

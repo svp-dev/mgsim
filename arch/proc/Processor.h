@@ -1,9 +1,9 @@
 #ifndef PROCESSOR_H
 #define PROCESSOR_H
 
-#include "arch/MMIO.h"
+#include "sim/inspect.h"
+#include "arch/IOBus.h"
 #include "arch/Memory.h"
-#include "arch/dev/lineprinter.h"
 
 class Config;
 
@@ -20,15 +20,19 @@ public:
 #include "FamilyTable.h"
 #include "ThreadTable.h"
 #include "RegisterFile.h"
+#include "AncillaryRegisterFile.h"
 #include "Network.h"
 #include "ICache.h"
+#include "IOMatchUnit.h"
+#include "IOInterface.h"
+#include "DebugChannel.h"
 #include "DCache.h"
 #include "Pipeline.h"
 #include "RAUnit.h"
 #include "Allocator.h"
-#include "counters.h"
+#include "PerfCounters.h"
 
-    Processor(const std::string& name, Object& parent, Clock& clock, PID pid, const std::vector<Processor*>& grid, IMemory& m_memory, FPU& fpu, const Config& config);
+    Processor(const std::string& name, Object& parent, Clock& clock, PID pid, const std::vector<Processor*>& grid, IMemory& m_memory, FPU& fpu, IIOBus *iobus, const Config& config);
     ~Processor();
     
     void Initialize(Processor* prev, Processor* next, MemAddr runAddress, bool legacy);
@@ -39,7 +43,7 @@ public:
 
 
     Pipeline& GetPipeline() { return m_pipeline; }
-    MMIOInterface& GetMMIOInterface() { return m_mmio; }
+    IOMatchUnit& GetIOMatchUnit() { return m_mmio; }
     
     float GetRegFileAsyncPortActivity() const {
         return (float)m_registerFile.p_asyncW.GetBusyCycles() / (float)GetCycleNo();
@@ -103,21 +107,25 @@ private:
     bool OnMemorySnooped(MemAddr addr, const MemData& data);
 
     // The components on the core
-    Allocator       m_allocator;
-    ICache          m_icache;
-    DCache          m_dcache;
-    RegisterFile    m_registerFile;
-    Pipeline        m_pipeline;
-    RAUnit          m_raunit;
-    FamilyTable     m_familyTable;
-    ThreadTable     m_threadTable;
-    Network         m_network;
-    MMIOInterface   m_mmio;
+    Allocator             m_allocator;
+    ICache                m_icache;
+    DCache                m_dcache;
+    RegisterFile          m_registerFile;
+    Pipeline              m_pipeline;
+    RAUnit                m_raunit;
+    FamilyTable           m_familyTable;
+    ThreadTable           m_threadTable;
+    Network               m_network;
 
-    // Pseudo I/O devices
-    PerfCounters    m_perfcounters;
-    LinePrinter     m_lpout;
-    LinePrinter     m_lperr;
+    // Local MMIO devices
+    IOMatchUnit           m_mmio;
+    PerfCounters          m_perfcounters;
+    AncillaryRegisterFile m_ancillaryRegisterFile;
+    DebugChannel          m_lpout;
+    DebugChannel          m_lperr;
+
+    // External I/O interface, optional
+    IOInterface           *m_io_if;
 
     friend class PerfCounters;
 };

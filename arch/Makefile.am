@@ -9,16 +9,24 @@ MEMORY_SRC = \
 	mem/SerialMemory.h
 
 DEVICE_SRC = \
+	dev/IODeviceDatabase.h \
+	dev/IODeviceDatabase.cpp \
+	dev/NullIO.cpp \
+	dev/NullIO.h \
+	dev/RTC.h \
+	dev/RTC.cpp \
 	dev/lcd.cpp \
-	dev/lcd.h \
-	dev/lineprinter.cpp \
-	dev/lineprinter.h
+	dev/lcd.h 
 
 PROCESSOR_SRC = \
 	proc/Allocator.cpp \
 	proc/Allocator.h \
+	proc/AncillaryRegisterFile.cpp \
+	proc/AncillaryRegisterFile.h \
 	proc/DCache.cpp \
 	proc/DCache.h \
+	proc/DebugChannel.h \
+	proc/DebugChannel.cpp \
 	proc/DecodeStage.cpp \
 	proc/DummyStage.cpp \
 	proc/ExecuteStage.cpp \
@@ -27,6 +35,16 @@ PROCESSOR_SRC = \
 	proc/FetchStage.cpp \
 	proc/ICache.cpp \
 	proc/ICache.h \
+	proc/IOResponseMultiplexer.h \
+	proc/IOResponseMultiplexer.cpp \
+	proc/IOInterruptMultiplexer.h \
+	proc/IOInterruptMultiplexer.cpp \
+	proc/IOBusInterface.h \
+	proc/IOBusInterface.cpp \
+	proc/IOInterface.h \
+	proc/IOInterface.cpp \
+	proc/IOMatchUnit.h \
+	proc/IOMatchUnit.cpp \
 	proc/MemoryStage.cpp \
 	proc/Network.cpp \
 	proc/Network.h \
@@ -42,8 +60,8 @@ PROCESSOR_SRC = \
 	proc/ThreadTable.cpp \
 	proc/ThreadTable.h \
 	proc/WritebackStage.cpp \
-	proc/counters.h \
-	proc/counters.cpp
+	proc/PerfCounters.h \
+	proc/PerfCounters.cpp
 
 COMMON_SRC = \
     $(MEMORY_SRC) \
@@ -53,9 +71,8 @@ COMMON_SRC = \
 	elf.h \
 	FPU.cpp \
 	FPU.h \
+	IOBus.h \
 	Memory.h \
-	MMIO.h \
-	MMIO.cpp \
 	MGSystem.h \
 	MGSystem.cpp \
 	loader.cpp \
@@ -104,7 +121,7 @@ SPARC_SRC = $(COMMON_SRC) \
 	proc/ISA.sparc.cpp
 
 noinst_LIBRARIES = libarch.a libarch_mlcoma.a libarch_zlcoma.a
-	
+
 libarch_zlcoma_a_SOURCES = $(ZLCOMA_SRC)
 libarch_mlcoma_a_SOURCES = $(MLCOMA_SRC)
 libarch_a_SOURCES = $(COMMON_SRC) $(ALPHA_SRC)

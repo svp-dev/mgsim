@@ -2,6 +2,7 @@
 #define FPU_H
 
 #include "proc/Processor.h"
+#include "sim/inspect.h"
 #include <deque>
 #include <map>
 
@@ -30,7 +31,7 @@ enum FPUOperation
  * This component accepts floating point operations, executes them asynchronously and writes them
  * back once calculated. It has several pipelines, assuming every operation of equal delay can be pipelined.
  */
-class FPU : public Object
+class FPU : public Object, public Inspect::Interface<Inspect::Read>
 {
     /// Represents an FP operation
     struct Operation

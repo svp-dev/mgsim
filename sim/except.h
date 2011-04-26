@@ -22,6 +22,7 @@ public:
     void AddDetails(const std::string& msg) { m_details.push_back(msg); }
     SimulationException(const std::string& msg) : std::runtime_error(msg) {}
     SimulationException(const std::string& msg, const Object& object);
+    SimulationException(const Object& object, const std::string& msg);
     virtual ~SimulationException() throw() {}
 };
 

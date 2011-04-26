@@ -519,11 +519,12 @@ Processor::Pipeline::PipeAction Processor::Pipeline::ExecuteStage::ExecReadASR20
         }
         
         case S_OPT_SYNC:
-            if (!ExecSync(m_parent.GetProcessor().UnpackFID(Rbv))) {
+            if (!ExecSync(m_parent.GetProcessor().UnpackFID(Rbv))) 
+            {
                 return PIPE_STALL;
             }
             break;
-            
+
         case S_OPT_GETTID:
         case S_OPT_GETFID:
         case S_OPT_GETPID:
@@ -641,7 +642,8 @@ Processor::Pipeline::PipeAction Processor::Pipeline::ExecuteStage::ExecWriteASR2
             break;
             
         case S_OPT_DETACH:
-            if (!ExecDetach(m_parent.GetProcessor().UnpackFID(Rav))) {
+            if (!ExecDetach(m_parent.GetProcessor().UnpackFID(Rav))) 
+            {
                 return PIPE_STALL;
             }
             break;

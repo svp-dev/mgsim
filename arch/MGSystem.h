@@ -4,13 +4,14 @@
 #include "arch/proc/Processor.h"
 #include "arch/FPU.h"
 #include "arch/symtable.h"
-#include "arch/dev/lcd.h"
+#include "arch/IOBus.h"
 #include "sim/breakpoints.h"
 #include "sim/config.h"
 
 #include <vector>
 #include <utility>
 #include <string>
+#include <map>
 
 namespace Simulator {
 
@@ -21,7 +22,10 @@ namespace Simulator {
         Object                      m_root;     ///< Root object for the system
         std::vector<Processor*>     m_procs;
         std::vector<FPU*>           m_fpus;
-        std::vector<LCD*>           m_lcds;
+        std::vector<IIOBus*>        m_iobuses;
+        std::vector<Object*>        m_devices;
+        std::map<size_t, size_t>    m_procbusmapping;
+
         SymbolTable                 m_symtable;
         BreakPoints                 m_breakpoints;
         IMemoryAdmin*               m_memory;
@@ -71,7 +75,7 @@ namespace Simulator {
         std::string GetSymbol(MemAddr addr) const;
 
         void Disassemble(MemAddr addr, size_t sz = 64) const;
-        void PrintComponents(std::ostream& os) const;
+        void PrintComponents(std::ostream& os, const std::string& pat = "*", size_t levels = 0) const;
         void PrintAllSymbols(std::ostream& os, const std::string& pat = "*") const;
         void PrintMemoryStatistics(std::ostream& os) const;
         void PrintState(const std::vector<std::string>& arguments) const;

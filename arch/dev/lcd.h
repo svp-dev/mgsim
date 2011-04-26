@@ -1,12 +1,13 @@
 #ifndef LCD_H
 #define LCD_H
 
-#include "arch/MMIO.h"
+#include "arch/IOBus.h"
+#include "sim/kernel.h"
 
 namespace Simulator
 {
 
-class LCD : public MMIOComponent
+class LCD : public IIOBusClient, public Object
 {
     char*     m_buffer;
 
@@ -22,19 +23,24 @@ class LCD : public MMIOComponent
     size_t    m_curx;
     size_t    m_cury;
 
+    void Refresh(unsigned firstrow, unsigned lastrow) const;
+
 public:
-    LCD(const std::string& name, MMIOInterface& parent,
+    LCD(const std::string& name, Object& parent,
         size_t width, size_t height,
         size_t startrow, size_t startcolumn,
         unsigned bgcolor, unsigned fgcolor);
 
-    size_t GetSize() const;
-    Result Read (MemAddr address, void* data, MemSize size, LFID fid, TID tid) { return FAILED; }
-    Result Write(MemAddr address, const void* data, MemSize size, LFID fid, TID tid);
-    
-    void Refresh(unsigned firstrow, unsigned lastrow) const;
+    bool OnReadRequestReceived(IODeviceID from, MemAddr address, MemSize size) { return false; }
+    bool OnReadResponseReceived(IODeviceID from, const IOData& data) { return false; }
 
-    ~LCD() {}
+    bool OnInterruptRequestReceived(IOInterruptID which) { return true; }
+
+    bool OnWriteRequestReceived(IODeviceID from, MemAddr address, const IOData& data);
+
+    void GetDeviceIdentity(IODeviceIdentification& id) const;
+
+    std::string GetIODeviceName() const { return GetFQN(); }
 };
 
 

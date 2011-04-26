@@ -226,8 +226,21 @@ bool Processor::Pipeline::ExecuteStage::ExecSync(const FID& fid)
 {
     assert(m_input.Rc.type == RT_INTEGER);
     
-    if (m_input.Rc.index != INVALID_REG_INDEX)
+    if (m_input.Rc.index == INVALID_REG_INDEX)
     {
+        throw exceptf<InvalidArgumentException>(*this, "Invalid target register for SYNC in T%u (%s)", (unsigned)m_input.tid, GetKernel()->GetSymbolTable()[m_input.pc].c_str());
+    }
+
+    if (fid.pid == 0 && fid.lfid == 0 && fid.capability == 0)
+    {
+        COMMIT {
+            m_output.Rcv.m_integer = 0;
+            m_output.Rcv.m_state   = RST_FULL;
+        }
+    }
+    else
+    {
+        // Send the sync message
         COMMIT
         {
             m_output.Rrc.type                = RemoteMessage::MSG_SYNC;
@@ -236,25 +249,30 @@ bool Processor::Pipeline::ExecuteStage::ExecSync(const FID& fid)
             
             m_output.Rcv = MAKE_PENDING_PIPEVALUE(m_input.RcSize);            
         }
+        DebugFlowWrite("Sync from %s to CPU%zd/F%zd",
+                       GetKernel()->GetSymbolTable()[m_input.pc].c_str(), fid.pid, fid.lfid);
     }
-    
-    DebugFlowWrite("Sync from %s to CPU%zd/F%zd",
-                   GetKernel()->GetSymbolTable()[m_input.pc].c_str(), fid.pid, fid.lfid);
 
     return true;
 }
 
 bool Processor::Pipeline::ExecuteStage::ExecDetach(const FID& fid)
 {
-    // Send the detach message
-    COMMIT
+    if (fid.pid == 0 && fid.lfid == 0 && fid.capability == 0)
     {
-        m_output.Rrc.type = RemoteMessage::MSG_DETACH;
-        m_output.Rrc.detach.fid = fid;
+        /* no-op */
     }
-
-    DebugFlowWrite("Detach from %s to CPU%zd/F%zd",
-                   GetKernel()->GetSymbolTable()[m_input.pc].c_str(), fid.pid, fid.lfid);
+    else
+    {
+        // Send the detach message
+        COMMIT
+        {
+            m_output.Rrc.type = RemoteMessage::MSG_DETACH;
+            m_output.Rrc.detach.fid = fid;
+        }
+        DebugFlowWrite("Detach from %s to CPU%zd/F%zd",
+                       GetKernel()->GetSymbolTable()[m_input.pc].c_str(), fid.pid, fid.lfid);
+    }
 
     return true;
 }

@@ -7,14 +7,14 @@ namespace Simulator
 
 size_t Processor::PerfCounters::GetSize() const { return  18 * sizeof(Integer);  }
 
-Result Processor::PerfCounters::Read(MemAddr address, void *data, MemSize size, LFID fid, TID tid)
+Result Processor::PerfCounters::Read(MemAddr address, void *data, MemSize size, LFID fid, TID tid, const RegAddr& writeback)
 {
     if (size != sizeof(Integer))
         return FAILED;
 
     address /= sizeof(Integer);
 
-    Processor& cpu = GetInterface().GetProcessor();
+    Processor& cpu = *static_cast<Processor*>(GetParent());
 
     const size_t placeSize  = cpu.m_familyTable[fid].placeSize;
     const size_t placeStart = (cpu.m_pid / placeSize) * placeSize;
@@ -209,14 +209,27 @@ Result Processor::PerfCounters::Read(MemAddr address, void *data, MemSize size, 
                  (unsigned long long)value, (unsigned long long)value);
 
 
+    if (address == 0)
+    {
+        ++m_nCycleSampleOps;
+    }
+    else
+    {
+        ++m_nOtherSampleOps;
+    }
+
     SerializeRegister(RT_INTEGER, value, data, sizeof(Integer));
 
     return SUCCESS;
 }
 
-Processor::PerfCounters::PerfCounters(MMIOInterface& parent)
-    : MMIOComponent("perfcounters", parent, parent.GetProcessor().GetClock())
+Processor::PerfCounters::PerfCounters(Processor& parent)
+    : Processor::MMIOComponent("perfcounters", parent, parent.GetClock()),
+      m_nCycleSampleOps(0),
+      m_nOtherSampleOps(0)
 {
+    RegisterSampleVariableInObject(m_nCycleSampleOps, SVC_CUMULATIVE);
+    RegisterSampleVariableInObject(m_nOtherSampleOps, SVC_CUMULATIVE);
 }
 
 }

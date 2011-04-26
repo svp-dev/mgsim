@@ -167,7 +167,7 @@ struct AllocResponse
     RegIndex completion_reg; ///< Reg on parent_pid of the completion register
 };   
 
-class Network : public Object
+class Network : public Object, public Inspect::Interface<Inspect::Read>
 {
     /*
      A specialization of the generic register to implement arbitration

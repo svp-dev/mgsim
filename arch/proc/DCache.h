@@ -5,7 +5,7 @@
 #error This file should be included in Processor.h
 #endif
 
-class DCache : public Object
+class DCache : public Object, public Inspect::Interface<Inspect::Read>
 {
 public:
     /// The state of a cache-line

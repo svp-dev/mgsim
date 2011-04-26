@@ -362,18 +362,32 @@ bool Processor::Allocator::AllocateThread(LFID fid, TID tid, bool isNewlyAllocat
     {
         RegAddr  addr = MAKE_REGADDR(RT_INTEGER, thread->regs[RT_INTEGER].locals);
         RegValue data;
-        data.m_state   = RST_FULL;
-        data.m_integer = family->start;
 
         if (!m_registerFile.p_asyncW.Write(addr))
         {
-            DeadlockWrite("Unable to acquire Register File port");
+            DeadlockWrite("Unable to acquire RF port for writing %s", addr.str().c_str());
             return false;
         }
 
+        if (!m_registerFile.ReadRegister(addr, data))
+        {
+            DeadlockWrite("Unable to read index register %s", addr.str().c_str());
+            return false;
+        }
+
+        assert(data.m_state != RST_WAITING);
+        if (data.m_state == RST_PENDING)
+        {
+            DeadlockWrite("Waiting for memory completion of index register %s", addr.str().c_str());
+            return false;
+        }
+
+        data.m_state   = RST_FULL;
+        data.m_integer = family->start;
+
         if (!m_registerFile.WriteRegister(addr, data, false))
         {
-            DeadlockWrite("Unable to write L0 register");
+            DeadlockWrite("Unable to write index register %s", addr.str().c_str());
             return false;
         }
     }
@@ -1166,6 +1180,8 @@ bool Processor::Allocator::QueueCreate(const LinkMessage& msg)
     
     Integer nThreads = CalculateThreadCount(family);
     CalculateDistribution(family, nThreads, family.numCores);
+    DebugSimWrite("QueueCreate: F%u (%u threads) distributed on %u cores: here starts at thread %u",
+                  (unsigned)msg.create.fid, (unsigned)family.nThreads, (unsigned)family.numCores, (unsigned)family.start);            
     
     if (!AllocateRegisters(msg.create.fid, CONTEXT_RESERVED))
     {

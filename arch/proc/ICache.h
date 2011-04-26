@@ -5,7 +5,7 @@
 #error This file should be included in Processor.h
 #endif
 
-class ICache : public Object
+class ICache : public Object, public Inspect::Interface<Inspect::Read>
 {
     enum LineState
     {

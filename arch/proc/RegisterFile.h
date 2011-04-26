@@ -13,7 +13,7 @@
  * one write port from the writeback stage of the pipeline, and one asynchronous
  * read and write port for other components (memory, etc).
  */
-class RegisterFile : public virtual Structure<RegAddr>, public virtual Storage
+class RegisterFile : public virtual Structure<RegAddr>, public virtual Storage, public Inspect::Interface<Inspect::Read>
 {
 public:
     /**

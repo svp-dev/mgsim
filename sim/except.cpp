@@ -18,4 +18,10 @@ SimulationException::SimulationException(const std::string& msg, const Object& o
     
 }
 
+SimulationException::SimulationException(const Object& object, const std::string& msg)
+    : std::runtime_error(MakeMessage(object, msg))
+{
+    
+}
+
 }

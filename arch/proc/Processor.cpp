@@ -20,22 +20,23 @@ static bool IsPowerOfTwo(const T& x)
 //
 // Processor implementation
 //
-Processor::Processor(const std::string& name, Object& parent, Clock& clock, PID pid, const vector<Processor*>& grid, IMemory& memory, FPU& fpu, const Config& config)
+Processor::Processor(const std::string& name, Object& parent, Clock& clock, PID pid, const vector<Processor*>& grid, IMemory& memory, FPU& fpu, IIOBus *iobus, const Config& config)
 :   Object(name, parent, clock),
     m_pid(pid), m_memory(memory), m_grid(grid), m_fpu(fpu),
-    m_allocator   ("alloc",     *this, clock, m_familyTable, m_threadTable, m_registerFile, m_raunit, m_icache, m_network, m_pipeline, config),
-    m_icache      ("icache",    *this, clock, m_allocator, config),
-    m_dcache      ("dcache",    *this, clock, m_allocator, m_familyTable, m_registerFile, config),
-    m_registerFile("registers", *this, clock, m_allocator, config),
-    m_pipeline    ("pipeline",  *this, clock, m_registerFile, m_network, m_allocator, m_familyTable, m_threadTable, m_icache, m_dcache, fpu, config),
-    m_raunit      ("rau",       *this, clock, m_registerFile, config),
-    m_familyTable ("families",  *this, clock, config),
-    m_threadTable ("threads",   *this, clock, config),
-    m_network     ("network",   *this, clock, grid, m_allocator, m_registerFile, m_familyTable),
-    m_mmio        ("mmio",      *this, clock, config),
-    m_perfcounters(m_mmio),
-    m_lpout("stdout", m_mmio, std::cout),
-    m_lperr("stderr", m_mmio, std::cerr)
+    m_allocator   ("alloc",         *this, clock, m_familyTable, m_threadTable, m_registerFile, m_raunit, m_icache, m_network, m_pipeline, config),
+    m_icache      ("icache",        *this, clock, m_allocator, config),
+    m_dcache      ("dcache",        *this, clock, m_allocator, m_familyTable, m_registerFile, config),
+    m_registerFile("registers",     *this, clock, m_allocator, config),
+    m_pipeline    ("pipeline",      *this, clock, m_registerFile, m_network, m_allocator, m_familyTable, m_threadTable, m_icache, m_dcache, fpu, config),
+    m_raunit      ("rau",           *this, clock, m_registerFile, config),
+    m_familyTable ("families",      *this, clock, config),
+    m_threadTable ("threads",       *this, clock, config),
+    m_network     ("network",       *this, clock, grid, m_allocator, m_registerFile, m_familyTable),
+    m_mmio        ("mmio",          *this, clock, config),
+    m_perfcounters(*this),
+    m_ancillaryRegisterFile("acrs", *this, clock, config),
+    m_lpout("stdout", *this, std::cout),
+    m_lperr("stderr", *this, std::cerr)
 {
     const Process* sources[] = {
         &m_icache.p_Outgoing,   // Outgoing process in I-Cache
@@ -53,16 +54,34 @@ Processor::Processor(const std::string& name, Object& parent, Clock& clock, PID 
 
     // Register the pseudo I/O components
     m_mmio.RegisterComponent(config.getValue<MemAddr>("PerformanceCountersBaseAddr", 8), 
-                             m_perfcounters.GetSize(), MMIOInterface::READ, m_perfcounters);
-    m_mmio.RegisterComponent(config.getValue<MemAddr>("DebugLinePrintOutBaseAddr", 512), 
-                             m_lpout.GetSize(), MMIOInterface::WRITE, m_lpout);
-    m_mmio.RegisterComponent(config.getValue<MemAddr>("DebugLinePrintErrBaseAddr", 512 + m_lpout.GetSize()), 
-                             m_lperr.GetSize(), MMIOInterface::WRITE, m_lperr);
+                             IOMatchUnit::READ, m_perfcounters);
+    m_mmio.RegisterComponent(config.getValue<MemAddr>("DebugChannelStdoutBaseAddr", 512), 
+                             IOMatchUnit::WRITE, m_lpout);
+    m_mmio.RegisterComponent(config.getValue<MemAddr>("DebugChannelStderrBaseAddr", 512 + m_lpout.GetSize()), 
+                             IOMatchUnit::WRITE, m_lperr);
+
+    if (iobus != NULL)
+    {
+        // This processor also supports I/O
+        IODeviceID devid = config.getValue<IODeviceID>(name + "DeviceID", 0);
+
+        m_io_if = new IOInterface("io_if", *this, clock, m_registerFile, *iobus, devid, config);
+
+        MMIOComponent& async_if = m_io_if->GetAsyncIOInterface();
+        MMIOComponent& pic_if = m_io_if->GetPICInterface();
+
+        m_mmio.RegisterComponent(config.getValue<MemAddr>("AsyncIOBaseAddr", 0x40000000),
+                                 IOMatchUnit::READWRITE, async_if);
+        m_mmio.RegisterComponent(config.getValue<MemAddr>("PICBaseAddr", 0x3fffff00),
+                                 IOMatchUnit::READ, pic_if);
+    }
+
 }
 
 Processor::~Processor()
 {
     m_memory.UnregisterClient(m_pid);
+    delete m_io_if;
 }
 
 void Processor::Initialize(Processor* prev, Processor* next, MemAddr runAddress, bool legacy)
@@ -90,11 +109,17 @@ void Processor::Initialize(Processor* prev, Processor* next, MemAddr runAddress,
     m_allocator.p_alloc.AddProcess(m_network.p_Link);                   // Place-wide create
     m_allocator.p_alloc.AddProcess(m_allocator.p_FamilyCreate);         // Local creates
     
+    if (m_io_if != NULL)
+    {
+        m_allocator.p_readyThreads.AddProcess(m_io_if->GetInterruptMultiplexer().p_IncomingInterrupts); // Thread wakeup due to interrupt completed
+        m_allocator.p_readyThreads.AddProcess(m_io_if->GetReadResponseMultiplexer().p_IncomingReadResponses); // Thread wakeup due to I/O read completion
+    }
+
+    m_allocator.p_readyThreads.AddProcess(m_network.p_Link);                // Thread wakeup due to write
+    m_allocator.p_readyThreads.AddProcess(m_network.p_DelegationIn);        // Thread wakeup due to write
     m_allocator.p_readyThreads.AddProcess(m_dcache.p_IncomingReads);        // Thread wakeup due to load completion
     m_allocator.p_readyThreads.AddProcess(m_dcache.p_IncomingWrites);       // Thread wakeup due to write completion
     m_allocator.p_readyThreads.AddProcess(m_fpu.p_Pipeline);                // Thread wakeup due to FP completion
-    m_allocator.p_readyThreads.AddProcess(m_network.p_Link);                // Thread wakeup due to write
-    m_allocator.p_readyThreads.AddProcess(m_network.p_DelegationIn);        // Thread wakeup due to write
     m_allocator.p_readyThreads.AddProcess(m_allocator.p_ThreadAllocate);    // Thread creation
     m_allocator.p_readyThreads.AddProcess(m_allocator.p_FamilyAllocate);    // Thread wakeup due to family allocation
     m_allocator.p_readyThreads.AddProcess(m_allocator.p_FamilyCreate);      // Thread wakeup due to local create completion
@@ -102,9 +127,17 @@ void Processor::Initialize(Processor* prev, Processor* next, MemAddr runAddress,
     m_allocator.p_activeThreads.AddProcess(m_icache.p_Incoming);            // Thread activation due to I-Cache line return
     m_allocator.p_activeThreads.AddProcess(m_allocator.p_ThreadActivation); // Thread activation due to I-Cache hit (from Ready Queue)
 
-    m_registerFile.p_asyncW.AddProcess(m_dcache.p_IncomingReads);           // Mem Load writebacks
+    if (m_io_if != NULL)
+    {
+        m_registerFile.p_asyncW.AddProcess(m_io_if->GetInterruptMultiplexer().p_IncomingInterrupts); // I/O interrupt notifications
+        m_registerFile.p_asyncW.AddProcess(m_io_if->GetReadResponseMultiplexer().p_IncomingReadResponses); // I/O read requests
+    }
+    m_registerFile.p_asyncW.AddProcess(m_allocator.p_ThreadAllocate);       // Thread allocation
+
     m_registerFile.p_asyncW.AddProcess(m_network.p_Link);                   // Place register receives
     m_registerFile.p_asyncW.AddProcess(m_network.p_DelegationIn);           // Remote register receives
+    m_registerFile.p_asyncW.AddProcess(m_dcache.p_IncomingReads);           // Mem Load writebacks
+
     m_registerFile.p_asyncW.AddProcess(m_fpu.p_Pipeline);                   // FPU Op writebacks
     m_registerFile.p_asyncW.AddProcess(m_allocator.p_ThreadAllocate);       // Thread allocation
     
@@ -126,7 +159,9 @@ void Processor::Initialize(Processor* prev, Processor* next, MemAddr runAddress,
     m_network.m_link.out.AddProcess(m_allocator.p_ThreadAllocate);          // Thread cleanup causes sync
     
     m_network.m_delegateIn.AddProcess(m_network.p_Link);                    // Link messages causes remote 
-    m_network.m_delegateIn.AddProcess(m_dcache.p_IncomingReads);            // Completed read causes sync
+
+    m_network.m_delegateIn.AddProcess(m_dcache.p_IncomingReads);            // Read completion causes sync
+
     m_network.m_delegateIn.AddProcess(m_allocator.p_ThreadAllocate);        // Allocate process completes family sync
     m_network.m_delegateIn.AddProcess(m_allocator.p_FamilyAllocate);        // Allocate process returning FID
     m_network.m_delegateIn.AddProcess(m_allocator.p_FamilyCreate);          // Create process returning FID
@@ -141,7 +176,9 @@ void Processor::Initialize(Processor* prev, Processor* next, MemAddr runAddress,
     m_network.m_delegateOut.AddProcess(m_pipeline.p_Pipeline);        // Sending or requesting registers
     m_network.m_delegateOut.AddProcess(m_network.p_DelegationIn);     // Returning registers
     m_network.m_delegateOut.AddProcess(m_network.p_Link);             // Place sync causes final sync
-    m_network.m_delegateOut.AddProcess(m_dcache.p_IncomingReads);     // Completed read causes sync
+
+    m_network.m_delegateOut.AddProcess(m_dcache.p_IncomingReads);     // Read completion causes sync
+
     m_network.m_delegateOut.AddProcess(m_network.p_AllocResponse);    // Allocate response writing back to parent
     m_network.m_delegateOut.AddProcess(m_allocator.p_FamilyAllocate); // Allocation process sends FID
     m_network.m_delegateOut.AddProcess(m_allocator.p_FamilyCreate);   // Create process sends delegated create

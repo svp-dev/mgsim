@@ -2,6 +2,7 @@
 #define COMA_CACHE_H
 
 #include "Node.h"
+#include "sim/inspect.h"
 #include <queue>
 #include <set>
 
@@ -10,7 +11,7 @@ class Config;
 namespace Simulator
 {
 
-class COMA::Cache : public COMA::Node
+class COMA::Cache : public COMA::Node, public Inspect::Interface<Inspect::Read>
 {
 public:
     enum LineState
