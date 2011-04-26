@@ -9,6 +9,7 @@ Processor::IOResponseMultiplexer::IOResponseMultiplexer(const std::string& name,
     : Object(name, parent, clock),
       m_regFile(rf),
       m_incoming("b_incoming", *this, clock, config.getValue<BufferSize>("AsyncIOReadResponseQueueSize", 1)),
+      p_dummy("dummy-process", delegate::create<IOResponseMultiplexer, &Processor::IOResponseMultiplexer::DoNothing>(*this)),
       p_IncomingReadResponses("completed-reads", delegate::create<IOResponseMultiplexer, &Processor::IOResponseMultiplexer::DoReceivedReadResponses>(*this))
 {
     m_incoming.Sensitive(p_IncomingReadResponses);
@@ -21,6 +22,7 @@ Processor::IOResponseMultiplexer::IOResponseMultiplexer(const std::string& name,
         std::stringstream ss;
         ss << "b_writeback" << i;
         m_wb_buffers[i] = new WriteBackQueue(ss.str(), *this, clock, wbqsize);
+        m_wb_buffers[i]->Sensitive(p_dummy);
     }
 
 }
@@ -74,7 +76,7 @@ Result Processor::IOResponseMultiplexer::DoReceivedReadResponses()
         return FAILED;
     }
     
-    if (regvalue.m_state == RST_FULL || regvalue.m_memory.size == 0)
+    if (regvalue.m_state == RST_FULL)
     {
         // Rare case: the request info is still in the pipeline, stall!
         DeadlockWrite("Register %s is not yet written for read completion", addr.str().c_str());

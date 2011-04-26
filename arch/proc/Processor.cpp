@@ -109,6 +109,12 @@ void Processor::Initialize(Processor* prev, Processor* next, MemAddr runAddress,
     m_allocator.p_alloc.AddProcess(m_network.p_Link);                   // Place-wide create
     m_allocator.p_alloc.AddProcess(m_allocator.p_FamilyCreate);         // Local creates
     
+    if (m_io_if != NULL)
+    {
+        m_allocator.p_readyThreads.AddProcess(m_io_if->GetInterruptMultiplexer().p_IncomingInterrupts); // Thread wakeup due to interrupt completed
+        m_allocator.p_readyThreads.AddProcess(m_io_if->GetReadResponseMultiplexer().p_IncomingReadResponses); // Thread wakeup due to I/O read completion
+    }
+
     m_allocator.p_readyThreads.AddProcess(m_network.p_Link);                // Thread wakeup due to write
     m_allocator.p_readyThreads.AddProcess(m_network.p_DelegationIn);        // Thread wakeup due to write
     m_allocator.p_readyThreads.AddProcess(m_dcache.p_IncomingReads);        // Thread wakeup due to load completion
@@ -120,6 +126,13 @@ void Processor::Initialize(Processor* prev, Processor* next, MemAddr runAddress,
 
     m_allocator.p_activeThreads.AddProcess(m_icache.p_Incoming);            // Thread activation due to I-Cache line return
     m_allocator.p_activeThreads.AddProcess(m_allocator.p_ThreadActivation); // Thread activation due to I-Cache hit (from Ready Queue)
+
+    if (m_io_if != NULL)
+    {
+        m_registerFile.p_asyncW.AddProcess(m_io_if->GetInterruptMultiplexer().p_IncomingInterrupts); // I/O interrupt notifications
+        m_registerFile.p_asyncW.AddProcess(m_io_if->GetReadResponseMultiplexer().p_IncomingReadResponses); // I/O read requests
+    }
+    m_registerFile.p_asyncW.AddProcess(m_allocator.p_ThreadAllocate);       // Thread allocation
 
     m_registerFile.p_asyncW.AddProcess(m_network.p_Link);                   // Place register receives
     m_registerFile.p_asyncW.AddProcess(m_network.p_DelegationIn);           // Remote register receives

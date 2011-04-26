@@ -102,7 +102,7 @@ Result Processor::IOInterruptMultiplexer::DoReceivedInterrupts()
         return FAILED;
     }
     
-    if (regvalue.m_state == RST_FULL || regvalue.m_memory.size == 0)
+    if (regvalue.m_state == RST_FULL)
     {
         // Rare case: the request info is still in the pipeline, stall!
         DeadlockWrite("Register %s is not yet written for read completion", addr.str().c_str());

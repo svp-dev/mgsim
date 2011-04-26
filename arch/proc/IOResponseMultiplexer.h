@@ -20,6 +20,9 @@ private:
     typedef Buffer<RegAddr>       WriteBackQueue;
     std::vector<WriteBackQueue*>  m_wb_buffers;
 
+    Process p_dummy;
+    Result DoNothing() { return SUCCESS; }
+
 public:
     IOResponseMultiplexer(const std::string& name, Object& parent, Clock& clock, RegisterFile& rf, size_t numDevices, const Config& config);
 
