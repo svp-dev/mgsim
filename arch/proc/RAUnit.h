@@ -5,7 +5,7 @@
 #error This file should be included in Processor.h
 #endif
 
-class RAUnit : public Object
+class RAUnit : public Object, public Inspect::Interface<Inspect::Read>
 {
     friend class RegisterFile;
     

@@ -18,7 +18,7 @@
 
 /* The interface is shared between ancillary core registers and
    performance counters. */
-class AncillaryRegisterInterface : public Object
+class AncillaryRegisterInterface : public Object, public Inspect::Interface<Inspect::Read>
 {
 public:
     AncillaryRegisterInterface(const std::string& name, Object& parent, Clock& clock)
@@ -27,9 +27,9 @@ public:
     virtual size_t GetNumRegisters() const = 0;
     virtual bool ReadRegister(size_t addr, Integer& data) const = 0;
     virtual bool WriteRegister(size_t addr, Integer data) = 0;
-    
+
+    void Cmd_Help(std::ostream& out, const std::vector<std::string>& arguments) const;
     void Cmd_Read(std::ostream& out, const std::vector<std::string>& arguments) const;
-    
 
     virtual ~AncillaryRegisterInterface() {}
 };
@@ -46,7 +46,7 @@ public:
 
     bool ReadRegister(size_t addr, Integer& data) const;
     bool WriteRegister(size_t addr, Integer data);
-
+    
 };
 
 

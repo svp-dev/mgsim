@@ -5,7 +5,7 @@
 #error This file should be included in Processor.h
 #endif
 
-class Pipeline : public Object
+class Pipeline : public Object, public Inspect::Interface<Inspect::Read>
 {
 #if TARGET_ARCH == ARCH_ALPHA
 #include "ISA.alpha.h"

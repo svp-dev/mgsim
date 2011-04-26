@@ -85,6 +85,12 @@ namespace Simulator
         m_clients[which]->GetDeviceIdentity(id);
     }
 
+    void NullIO::Cmd_Help(std::ostream& out, const std::vector<std::string>& arguments) const
+    {
+        out << "The Null I/O bus implements a zero-latency bus between\n"
+            << "the components connected to it. Use 'info' to list the devices.\n";
+    }
+
     void NullIO::Cmd_Info(std::ostream& out, const std::vector<std::string>& arguments) const
     {
         out << "  ID  |  P  / M  / R   | Name" << endl

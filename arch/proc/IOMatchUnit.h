@@ -7,7 +7,7 @@
 
 class MMIOComponent;
 
-class IOMatchUnit : public Object
+class IOMatchUnit : public Object, public Inspect::Interface<Inspect::Info>
 {    
 public:
     enum AccessMode

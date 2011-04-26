@@ -13,7 +13,7 @@ namespace Simulator
 
 class DDRChannel;
 
-class COMA::RootDirectory : public COMA::DirectoryBottom, public DDRChannel::ICallback
+class COMA::RootDirectory : public COMA::DirectoryBottom, public DDRChannel::ICallback, public Inspect::Interface<Inspect::Read>
 {
 public:    
     enum LineState

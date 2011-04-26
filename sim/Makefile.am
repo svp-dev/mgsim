@@ -10,6 +10,8 @@ SOURCES = \
 	display.cpp \
 	except.h \
 	except.cpp \
+	inspect.h \
+	inspect.cpp \
 	kernel.h \
 	kernel.cpp \
 	log2.h \

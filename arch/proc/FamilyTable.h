@@ -90,7 +90,7 @@ struct Family
     FamilyState  state;          // Family state
 };
 
-class FamilyTable : public Object
+class FamilyTable : public Object, public Inspect::Interface<Inspect::Read>
 {
 public:
     FamilyTable(const std::string& name, Processor& parent, Clock& clock, const Config& config);

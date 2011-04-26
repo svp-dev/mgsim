@@ -73,6 +73,25 @@ namespace Simulator
         return true;
     }
 
+    void Processor::IOInterface::Cmd_Help(ostream& out, const vector<string>& args) const
+    {
+        out << "This I/O interface is composed of the following components:" << endl
+            << m_async_io.GetFQN() << endl
+            << m_pic.GetFQN() << endl
+            << m_rrmux.GetFQN() << endl
+            << m_intmux.GetFQN() << endl;
+    }
+
+    void Processor::IOInterface::Cmd_Info(ostream& out, const vector<string>& args) const
+    {
+        out << m_async_io.GetFQN() << ':' << endl;
+        m_async_io.Cmd_Info(out, args);
+        out << endl
+            << m_pic.GetFQN() << ':' << endl;
+        m_pic.Cmd_Info(out, args);
+        out << endl;
+    }
+
     Processor::IOInterface::AsyncIOInterface::AsyncIOInterface(const string& name, Processor::IOInterface& parent, Clock& clock, size_t numDevices, const Config& config)
         : MMIOComponent(name, parent, clock),
           m_devAddrBits(config.getValue<unsigned>("AsyncIODeviceAddressBits", 24)),
@@ -131,6 +150,14 @@ namespace Simulator
         return SUCCESS;
     }
 
+    void Processor::IOInterface::AsyncIOInterface::Cmd_Help(ostream& out, const vector<string>& args) const
+    {
+        out << 
+            "The asynchronous I/O interface accepts read and write commands from\n"
+            "the processor and forwards them to the I/O bus. Each device is mapped\n"
+            "to a fixed range in the memory address space. Use 'info' to list the\n"
+            "mapped devices.\n";
+    }
 
     void Processor::IOInterface::AsyncIOInterface::Cmd_Info(ostream& out, const vector<string>& args) const
     {
@@ -181,6 +208,16 @@ namespace Simulator
             return FAILED;
         }
         return DELAYED;
+    }
+
+
+    void Processor::IOInterface::PICInterface::Cmd_Help(ostream& out, const vector<string>& args) const
+    {
+        out << 
+            "The PIC interface accepts read commands from the processor and \n"
+            "configures the I/O interface to wait for an interrupt request coming\n"
+            "from the I/O Bus. Each interrupt channel is mapped to a fixed range\n"
+            "in the memory address space. Use 'info' to list the mapped devices.\n";
     }
 
     void Processor::IOInterface::PICInterface::Cmd_Info(ostream& out, const vector<string>& args) const

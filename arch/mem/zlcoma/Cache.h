@@ -2,13 +2,14 @@
 #define ZLCOMA_CACHE_H
 
 #include "Node.h"
+#include "sim/inspect.h"
 #include <queue>
 #include <set>
 
 namespace Simulator
 {
 
-class ZLCOMA::Cache : public ZLCOMA::Node
+class ZLCOMA::Cache : public ZLCOMA::Node, public Inspect::Interface<Inspect::Read>
 {
 public:
     struct Line

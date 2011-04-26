@@ -2,6 +2,7 @@
 #define ZLCOMA_DIRECTORY_H
 
 #include "Node.h"
+#include "sim/inspect.h"
 #include <list>
 
 class Config;
@@ -25,7 +26,7 @@ protected:
     DirectoryBottom(const std::string& name, ZLCOMA& parent, Clock& clock);
 };
 
-class ZLCOMA::Directory : public ZLCOMA::Object
+class ZLCOMA::Directory : public ZLCOMA::Object, public Inspect::Interface<Inspect::Read>
 {
 public:
     struct Line

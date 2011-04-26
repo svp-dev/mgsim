@@ -6,6 +6,13 @@ using namespace std;
 
 namespace Simulator
 {
+    void Processor::AncillaryRegisterInterface::Cmd_Help(std::ostream& out, const std::vector<std::string>& /*arguments*/) const
+    {
+        out <<
+            "The ancillary registers hold information common to all threads on a processor.\n"
+            "They allow for faster (1-cycle) access to commonly used information.\n";
+    }
+
     void Processor::AncillaryRegisterInterface::Cmd_Read(std::ostream& out, const std::vector<std::string>& /*arguments*/) const
     {
         out << " Register | Value" << endl

@@ -3,6 +3,7 @@
 
 #include "arch/Memory.h"
 #include "arch/VirtualMemory.h"
+#include "sim/inspect.h"
 #include <deque>
 #include <set>
 

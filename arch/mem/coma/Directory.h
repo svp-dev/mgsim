@@ -2,6 +2,7 @@
 #define COMA_DIRECTORY_H
 
 #include "Node.h"
+#include "sim/inspect.h"
 #include <queue>
 #include <set>
 
@@ -27,7 +28,7 @@ protected:
     DirectoryBottom(const std::string& name, COMA& parent, Clock& clock, const Config& config);
 };
 
-class COMA::Directory : public COMA::Object
+class COMA::Directory : public COMA::Object, public Inspect::Interface<Inspect::Read>
 {
 public:
     struct Line

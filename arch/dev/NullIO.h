@@ -3,6 +3,8 @@
 
 #include "arch/IOBus.h"
 #include "sim/kernel.h"
+#include "sim/inspect.h"
+
 #include <vector>
 
 namespace Simulator
@@ -13,7 +15,7 @@ namespace Simulator
      * - Devices are numbered from 0 to N with no holes.
      * - requests to invalid devices fault the simulation.
      */
-    class NullIO : public IIOBus, public Object
+    class NullIO : public IIOBus, public Object, public Inspect::Interface<Inspect::Info>
     {
         std::vector<IIOBusClient*> m_clients;
 
@@ -35,6 +37,7 @@ namespace Simulator
 
         /* debug */
         void Cmd_Info(std::ostream& out, const std::vector<std::string>& arguments) const;
+        void Cmd_Help(std::ostream& out, const std::vector<std::string>& arguments) const;
         
     };
 }

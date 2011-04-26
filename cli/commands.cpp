@@ -1,6 +1,8 @@
 #include "commands.h"
 #include "sim/sampling.h"
 
+#include "sim/inspect.h"
+
 #include "arch/mem/SerialMemory.h"
 #include "arch/mem/ParallelMemory.h"
 #include "arch/mem/BankedMemory.h"
@@ -35,166 +37,50 @@ static string Trim(const string& str)
     return "";
 }
 
-class bind_cmd
+template<unsigned Type>
+void ExecuteCommand_(std::ostream& out, MGSystem& sys, const string& cmd, vector<string>& args)
 {
-public:
-    virtual bool call(std::ostream& out, Object* obj, const std::vector<std::string>& arguments) const = 0;
-    virtual ~bind_cmd() {}
-};
-
-// Const version
-template <typename T>
-class bind_cmd_C : public bind_cmd
-{
-    typedef void (T::*func_t)(std::ostream& out, const std::vector<std::string>& arguments) const;
-    func_t m_func;
-public:
-    bool call(std::ostream& out, Object* obj, const std::vector<std::string>& arguments) const {
-        const T* o = dynamic_cast<T*>(obj);
-        if (o == NULL) return false;
-        (o->*m_func)(out, arguments);
-        return true;
+    if (args.size() == 0)
+    {
+        out << "Please specify a component. Use \"print\" for a list of all components" << endl;
+        return;
     }
-    bind_cmd_C(const func_t& func) : m_func(func) {}
-};
-
-// Non-const version
-template <typename T>
-class bind_cmd_NC : public bind_cmd
-{
-    typedef void (T::*func_t)(std::ostream& out, const std::vector<std::string>& arguments);
-    func_t m_func;
-public:
-    bool call(std::ostream& out, Object* obj, const std::vector<std::string>& arguments) const {
-        T* o = dynamic_cast<T*>(obj);
-        if (o == NULL) return false;
-        (o->*m_func)(out, arguments);
-        return true;
+    
+    string name = args.front();
+    Object* obj = sys.GetComponent(name);
+    if (obj == NULL)
+    {
+        out << "Component not found: " << name << endl;
+        return;
     }
-    bind_cmd_NC(const func_t& func) : m_func(func) {}
-};
-
-static const struct
-{
-    const char*     name;
-    const bind_cmd* func;
-} _Commands[] = {
-    {"help", new bind_cmd_C<Processor::RAUnit>(&Processor::RAUnit::Cmd_Help) },
-    {"help", new bind_cmd_C<Processor::ThreadTable>(&Processor::ThreadTable::Cmd_Help) },
-    {"help", new bind_cmd_C<Processor::FamilyTable>(&Processor::FamilyTable::Cmd_Help) },
-    {"help", new bind_cmd_C<Processor::Network>(&Processor::Network::Cmd_Help) },
-    {"help", new bind_cmd_C<Processor::RegisterFile>(&Processor::RegisterFile::Cmd_Help) },
-    {"help", new bind_cmd_C<Processor::ICache>(&Processor::ICache::Cmd_Help) },
-    {"help", new bind_cmd_C<Processor::DCache>(&Processor::DCache::Cmd_Help) },
-    {"help", new bind_cmd_C<Processor::Pipeline>(&Processor::Pipeline::Cmd_Help) },
-    {"help", new bind_cmd_C<Processor::Allocator>(&Processor::Allocator::Cmd_Help) },
-    {"help", new bind_cmd_C<SerialMemory>(&SerialMemory::Cmd_Help) },
-    {"help", new bind_cmd_C<ParallelMemory>(&ParallelMemory::Cmd_Help) },
-    {"help", new bind_cmd_C<RandomBankedMemory>(&RandomBankedMemory::Cmd_Help) },
-    {"help", new bind_cmd_C<BankedMemory>(&BankedMemory::Cmd_Help) },
-    {"help", new bind_cmd_C<COMA>(&COMA::Cmd_Help) },
-    {"help", new bind_cmd_C<COMA::Cache>(&COMA::Cache::Cmd_Help) },
-    {"help", new bind_cmd_C<COMA::Directory>(&COMA::Directory::Cmd_Help) },
-    {"help", new bind_cmd_C<COMA::RootDirectory>(&COMA::RootDirectory::Cmd_Help) },
-    {"help", new bind_cmd_C<ZLCOMA>(&ZLCOMA::Cmd_Help) },
-    {"help", new bind_cmd_C<ZLCOMA::Cache>(&ZLCOMA::Cache::Cmd_Help) },
-    {"help", new bind_cmd_C<ZLCOMA::Directory>(&ZLCOMA::Directory::Cmd_Help) },
-    {"help", new bind_cmd_C<ZLCOMA::RootDirectory>(&ZLCOMA::RootDirectory::Cmd_Help) },
-    {"help", new bind_cmd_C<FPU>(&FPU::Cmd_Help) },
-    {"help", new bind_cmd_C<Processor::IOMatchUnit>(&Processor::IOMatchUnit::Cmd_Help) },
-    {"info", new bind_cmd_C<VirtualMemory>(&VirtualMemory::Cmd_Info) },
-    {"info", new bind_cmd_C<Processor::IOMatchUnit>(&Processor::IOMatchUnit::Cmd_Info) },
-    {"info", new bind_cmd_C<Processor::IOInterface::AsyncIOInterface>(&Processor::IOInterface::AsyncIOInterface::Cmd_Info) },
-    {"info", new bind_cmd_C<Processor::IOInterface::PICInterface>(&Processor::IOInterface::PICInterface::Cmd_Info) },
-    {"info", new bind_cmd_C<NullIO>(&NullIO::Cmd_Info) },
-    {"line", new bind_cmd_C<COMA>(&COMA::Cmd_Line) },
-    {"line", new bind_cmd_C<ZLCOMA>(&ZLCOMA::Cmd_Line) },
-    {"read", new bind_cmd_C<Processor::RAUnit>(&Processor::RAUnit::Cmd_Read) },
-    {"read", new bind_cmd_C<Processor::ThreadTable>(&Processor::ThreadTable::Cmd_Read) },
-    {"read", new bind_cmd_C<Processor::FamilyTable>(&Processor::FamilyTable::Cmd_Read) },
-    {"read", new bind_cmd_C<Processor::Network>(&Processor::Network::Cmd_Read) },
-    {"read", new bind_cmd_C<Processor::RegisterFile>(&Processor::RegisterFile::Cmd_Read) },
-    {"read", new bind_cmd_C<Processor::AncillaryRegisterInterface>(&Processor::AncillaryRegisterInterface::Cmd_Read) },
-    {"read", new bind_cmd_C<Processor::Allocator>(&Processor::Allocator::Cmd_Read) },
-    {"read", new bind_cmd_C<Processor::ICache>(&Processor::ICache::Cmd_Read) },
-    {"read", new bind_cmd_C<Processor::DCache>(&Processor::DCache::Cmd_Read) },
-    {"read", new bind_cmd_C<Processor::Pipeline>(&Processor::Pipeline::Cmd_Read) },
-    {"read", new bind_cmd_C<Processor::Allocator>(&Processor::Allocator::Cmd_Read) },
-    {"read", new bind_cmd_C<SerialMemory>(&SerialMemory::Cmd_Read) },
-    {"read", new bind_cmd_C<ParallelMemory>(&ParallelMemory::Cmd_Read) },
-    {"read", new bind_cmd_C<RandomBankedMemory>(&RandomBankedMemory::Cmd_Read) },
-    {"read", new bind_cmd_C<BankedMemory>(&BankedMemory::Cmd_Read) },
-    {"read", new bind_cmd_C<COMA::Cache>(&COMA::Cache::Cmd_Read) },
-    {"read", new bind_cmd_C<COMA::Directory>(&COMA::Directory::Cmd_Read) },
-    {"read", new bind_cmd_C<COMA::RootDirectory>(&COMA::RootDirectory::Cmd_Read) },
-    {"read", new bind_cmd_C<ZLCOMA::Cache>(&ZLCOMA::Cache::Cmd_Read) },
-    {"read", new bind_cmd_C<ZLCOMA::Directory>(&ZLCOMA::Directory::Cmd_Read) },
-    {"read", new bind_cmd_C<ZLCOMA::RootDirectory>(&ZLCOMA::RootDirectory::Cmd_Read) },
-    {"read", new bind_cmd_C<VirtualMemory>(&VirtualMemory::Cmd_Read) },
-    {"read", new bind_cmd_C<FPU>(&FPU::Cmd_Read) },
-    {"trace", new bind_cmd_NC<COMA>(&COMA::Cmd_Trace) },
-    {"trace", new bind_cmd_NC<ZLCOMA>(&ZLCOMA::Cmd_Trace) },
-    {NULL, NULL}
-};
-
-void ExecuteCommand(MGSystem& sys, const string& command, const vector<string>& _args)
-{
-    // Backup stream state before command
-    vector<string> args = _args;
+    
+    Inspect::Interface_<Type> * interface = dynamic_cast<Inspect::Interface_<Type>*>(obj);
+    if (interface == NULL)
+    {
+        out << "Component " << name << " does not support command \"" << cmd << '"' << endl;
+        return;
+    }
+    
+    args.erase(args.begin());
+    
     stringstream backup;
     backup.copyfmt(cout);
     
-    // See if the command exists
-    int i;
-    for (i = 0; _Commands[i].name != NULL; ++i)
-    {
-        if (_Commands[i].name == command)
-        {
-            if (args.size() == 0)
-            {
-                cout << "Please specify a component. Use \"print\" for a list of all components" << endl;
-                break;
-            }
-
-            // Pop component name
-            Object* obj = sys.GetComponent(args.front());
-            args.erase(args.begin());
-
-            if (obj == NULL)
-            {
-                cout << "Invalid component name" << endl;
-            }
-            else
-            {
-                // See if the object type matches
-                int j;
-                for (j = i; _Commands[j].name != NULL && _Commands[j].name == command; ++j)
-                {
-                    if (_Commands[j].func->call(cout, obj, args))
-                    {
-                        cout << endl;
-                        break;
-                    }
-                }
-
-                if (_Commands[j].name == NULL || _Commands[j].name != command)
-                {
-                    cout << "Invalid argument type for command" << endl;
-                }
-            }
-            break;
-        }
-    }
-
-    if (_Commands[i].name == NULL)
-    {
-        // Command does not exist
-        cout << "Unknown command" << endl;
-    }
+    interface->DoCommand(out, args);
     
-    // Restore stream state
+    out << endl;
+    
+    if (Type == Inspect::Help)
+    {
+        out << "Supported commands: ";
+        Inspect::ListCommands *lc = dynamic_cast<Inspect::ListCommands*>(obj);
+        assert(lc != NULL);
+        lc->ListSupportedCommands(out);
+        out << endl;
+    }
     cout.copyfmt(backup);
 }
+
 
 static vector<string> prevCommands;
 
@@ -438,9 +324,14 @@ void HandleCommandLine(CommandLineReader& clr,
         {
             cout << sys.GetSymbol(static_cast<MemAddr>(strtoull(args[0].c_str(), 0, 0))) << endl;
         }
+        else if (command == "help") { ExecuteCommand_<Inspect::Help>(cout, sys, command, args); }
+        else if (command == "read") { ExecuteCommand_<Inspect::Read>(cout, sys, command, args); }
+        else if (command == "info") { ExecuteCommand_<Inspect::Info>(cout, sys, command, args); }
+        else if (command == "line") { ExecuteCommand_<Inspect::Line>(cout, sys, command, args); }
+        else if (command == "trace") { ExecuteCommand_<Inspect::Trace>(cout, sys, command, args); }
         else
         {
-            ExecuteCommand(sys, command, args);
+            cerr << "Unknown command: " << command << endl;
         }
     }
 }

@@ -3,6 +3,7 @@
 
 #include "arch/Memory.h"
 #include "arch/VirtualMemory.h"
+#include "sim/inspect.h"
 #include <queue>
 #include <set>
 
@@ -11,7 +12,7 @@ class Config;
 namespace Simulator
 {
 
-class COMA : public Object, public IMemoryAdmin, public VirtualMemory
+class COMA : public Object, public IMemoryAdmin, public VirtualMemory, public Inspect::Interface<Inspect::Line|Inspect::Trace>
 {
     class DDRChannel;
 public:

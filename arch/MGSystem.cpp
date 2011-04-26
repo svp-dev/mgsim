@@ -316,9 +316,20 @@ static void PrintComponents(std::ostream& out, const Object* cur, const string& 
         {
             string str = indent + child->GetName();
             
-            out << str << " ";
-            for (size_t len = str.length(); len < 30; ++len) cout << " ";
-            out << GetClassName(typeid(*child)) << endl;
+            out << setfill(' ') << setw(30) << left << str << right << " ";
+
+            const Inspect::ListCommands *lc = dynamic_cast<const Inspect::ListCommands*>(child);
+            if (lc != NULL)
+            {
+                lc->ListSupportedCommands(out);
+            }
+            else
+            {
+                out << "          ";
+            }
+
+            out << " "
+                << GetClassName(typeid(*child)) << endl;
 
             newindent += "  ";
         }

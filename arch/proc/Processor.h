@@ -1,6 +1,7 @@
 #ifndef PROCESSOR_H
 #define PROCESSOR_H
 
+#include "sim/inspect.h"
 #include "arch/IOBus.h"
 #include "arch/Memory.h"
 

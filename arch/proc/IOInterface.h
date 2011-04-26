@@ -9,10 +9,10 @@
 #include "IOInterruptMultiplexer.h"
 #include "IOBusInterface.h"
 
-class IOInterface : public Object
+class IOInterface : public Object, public Inspect::Interface<Inspect::Info>
 {
 public:
-    class AsyncIOInterface : public MMIOComponent
+    class AsyncIOInterface : public MMIOComponent, public Inspect::Interface<Inspect::Info>
     {
     private:
         unsigned                m_devAddrBits;
@@ -28,9 +28,10 @@ public:
         Result Write(MemAddr address, const void* data, MemSize size, LFID fid, TID tid);
 
         void Cmd_Info(std::ostream& out, const std::vector<std::string>& args) const;
+        void Cmd_Help(std::ostream& out, const std::vector<std::string>& args) const;
     };
 
-    class PICInterface : public MMIOComponent
+    class PICInterface : public MMIOComponent, public Inspect::Interface<Inspect::Info>
     {
     private:
         size_t                  m_numInterrupts;
@@ -45,6 +46,7 @@ public:
         Result Write(MemAddr address, const void* data, MemSize size, LFID fid, TID tid);
 
         void Cmd_Info(std::ostream& out, const std::vector<std::string>& args) const;
+        void Cmd_Help(std::ostream& out, const std::vector<std::string>& args) const;
     };
     
 
@@ -75,7 +77,9 @@ public:
     IOResponseMultiplexer& GetReadResponseMultiplexer() { return m_rrmux; }
     IOInterruptMultiplexer& GetInterruptMultiplexer() { return m_intmux; }
     
-
+    // Debugging
+    void Cmd_Info(std::ostream& out, const std::vector<std::string>& args) const;
+    void Cmd_Help(std::ostream& out, const std::vector<std::string>& args) const;
 };
 
 
