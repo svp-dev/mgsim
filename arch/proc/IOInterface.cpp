@@ -1,10 +1,13 @@
 #include "Processor.h"
 #include "sim/config.h"
 #include <sstream>
+#include <iomanip>
+
+using namespace std;
 
 namespace Simulator
 {
-    Processor::IOInterface::IOInterface(const std::string& name, Object& parent, Clock& clock, RegisterFile& rf, IIOBus& iobus, IODeviceID devid, const Config& config)
+    Processor::IOInterface::IOInterface(const string& name, Object& parent, Clock& clock, RegisterFile& rf, IIOBus& iobus, IODeviceID devid, const Config& config)
         : Object(name, parent, clock),
           m_numDevices(config.getValue<size_t>("AsyncIONumDeviceSlots", 8)),
           m_numInterrupts(config.getValue<size_t>("AsyncIONumInterruptChannels", 8)),
@@ -70,7 +73,7 @@ namespace Simulator
         return true;
     }
 
-    Processor::IOInterface::AsyncIOInterface::AsyncIOInterface(const std::string& name, Processor::IOInterface& parent, Clock& clock, size_t numDevices, const Config& config)
+    Processor::IOInterface::AsyncIOInterface::AsyncIOInterface(const string& name, Processor::IOInterface& parent, Clock& clock, size_t numDevices, const Config& config)
         : MMIOComponent(name, parent, clock),
           m_devAddrBits(config.getValue<unsigned>("AsyncIODeviceAddressBits", 24)),
           m_numDeviceSlots(numDevices)
@@ -128,7 +131,27 @@ namespace Simulator
         return SUCCESS;
     }
 
-    Processor::IOInterface::PICInterface::PICInterface(const std::string& name, Processor::IOInterface& parent, Clock& clock, size_t numInterrupts, const Config& config)
+
+    void Processor::IOInterface::AsyncIOInterface::Cmd_Info(ostream& out, const vector<string>& args) const
+    {
+        out << "Start address    | End address      | Description" << std::endl
+            << "-----------------+------------------+-------------------------" << std::endl
+            << hex << setfill('0');
+        MemAddr size = 1ULL << m_devAddrBits;
+        for (size_t i = 0; i < m_numDeviceSlots; ++i)
+        {
+            MemAddr begin = i << m_devAddrBits;
+            MemAddr end = begin + size - 1;
+            out << setw(16) << begin
+                << " | "
+                << setw(16) << begin + size - 1
+                << " | async. I/O range for device " << dec << i << hex
+                << endl;
+        }
+        
+    }
+
+    Processor::IOInterface::PICInterface::PICInterface(const string& name, Processor::IOInterface& parent, Clock& clock, size_t numInterrupts, const Config& config)
         : MMIOComponent(name, parent, clock),
           m_numInterrupts(numInterrupts)
     {
@@ -158,6 +181,21 @@ namespace Simulator
             return FAILED;
         }
         return DELAYED;
+    }
+
+    void Processor::IOInterface::PICInterface::Cmd_Info(ostream& out, const vector<string>& args) const
+    {
+        out << "Address          | Description" << std::endl
+            << "-----------------+----------------------" << std::endl
+            << hex << setfill('0');
+        for (size_t i = 0; i < m_numInterrupts; ++i)
+        {
+            MemAddr begin = i * sizeof(Integer);
+            out << setw(16) << begin
+                << " | wait address for interrupt channel " << dec << i << hex
+                << endl;
+        }
+        
     }
 
     Result Processor::IOInterface::PICInterface::Write(MemAddr address, const void* data, MemSize size, LFID fid, TID tid)

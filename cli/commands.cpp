@@ -104,6 +104,8 @@ static const struct
     {"help", new bind_cmd_C<Processor::IOMatchUnit>(&Processor::IOMatchUnit::Cmd_Help) },
     {"info", new bind_cmd_C<VirtualMemory>(&VirtualMemory::Cmd_Info) },
     {"info", new bind_cmd_C<Processor::IOMatchUnit>(&Processor::IOMatchUnit::Cmd_Info) },
+    {"info", new bind_cmd_C<Processor::IOInterface::AsyncIOInterface>(&Processor::IOInterface::AsyncIOInterface::Cmd_Info) },
+    {"info", new bind_cmd_C<Processor::IOInterface::PICInterface>(&Processor::IOInterface::PICInterface::Cmd_Info) },
     {"info", new bind_cmd_C<NullIO>(&NullIO::Cmd_Info) },
     {"line", new bind_cmd_C<COMA>(&COMA::Cmd_Line) },
     {"line", new bind_cmd_C<ZLCOMA>(&ZLCOMA::Cmd_Line) },
