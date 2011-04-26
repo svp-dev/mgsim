@@ -861,8 +861,7 @@ MGSystem::MGSystem(const Config& config, Display& display, const string& program
             m_devices[i] = lcd;
         } else if (dev_type == "RTC") {
             Clock& rtcclock = m_kernel.CreateClock(config.getValue<size_t>(cfg + "UpdateInterval", 1));
-            RTC *rtc = new RTC(name, m_root, rtcclock, iobus, devid, config);
-            iobus.RegisterClient(devid, *rtc);
+            RTC *rtc = new RTC(name, m_root, rtcclock, ioclock, iobus, devid, config);
             m_devices[i] = rtc;
         } else {
             throw std::runtime_error("Unknown I/O device type: " + dev_type);

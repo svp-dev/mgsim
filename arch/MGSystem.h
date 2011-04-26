@@ -23,7 +23,7 @@ namespace Simulator {
         std::vector<Processor*>     m_procs;
         std::vector<FPU*>           m_fpus;
         std::vector<IIOBus*>        m_iobuses;
-        std::vector<IIOBusClient*>  m_devices;
+        std::vector<Object*>        m_devices;
         std::map<size_t, size_t>    m_procbusmapping;
 
         SymbolTable                 m_symtable;

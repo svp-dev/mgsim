@@ -64,18 +64,44 @@ namespace Simulator
         }
     }
 
-    RTC::RTC(const string& name, Object& parent, Clock& clock, IIOBus& iobus, IODeviceID devid, const Config& config)
+    RTC::RTCInterface::RTCInterface(const std::string& name, RTC& parent, Clock& clock, IIOBus& iobus, IODeviceID devid)
         : Object(name, parent, clock),
           m_devid(devid),
           m_iobus(iobus),
-          m_timerTicked(false),
+          m_doNotify("f_interruptTriggered", *this, clock, false),
           m_interruptNumber(0),
+          p_notifyTime("notify-time", delegate::create<RTCInterface, &RTCInterface::DoNotifyTime>(*this))
+    {
+        iobus.RegisterClient(devid, *this);
+        m_doNotify.Sensitive(p_notifyTime);
+    }
+
+    RTC::RTC(const string& name, Object& parent, Clock& rtcclock, Clock& busclock, IIOBus& iobus, IODeviceID devid, const Config& config)
+        : Object(name, parent, rtcclock),
+          m_timerTicked(false),
           m_timeOfLastInterrupt(0),
           m_triggerDelay(0),
-          m_deliverAllEvents(false),
-          p_checkTime("clock-update", delegate::create<RTC, &RTC::DoCheckTime>(*this))
+          m_deliverAllEvents(true),
+          m_enableCheck("f_checkTime", *this, rtcclock, false),
+          m_businterface("if", *this, busclock, iobus, devid),
+          p_checkTime("time-update", delegate::create<RTC, &RTC::DoCheckTime>(*this))
     {
         setup_clocks(config);
+        ++clockListeners;
+        m_enableCheck.Sensitive(p_checkTime);
+    }
+
+    Result RTC::RTCInterface::DoNotifyTime()
+    {
+        if (!m_iobus.SendInterruptRequest(m_devid, m_interruptNumber))
+        {
+            DeadlockWrite("Cannot send timer interrupt to I/O bus");
+            return FAILED;
+        }
+        COMMIT {
+            m_doNotify.Clear();
+        }
+        return SUCCESS;
     }
 
     Result RTC::DoCheckTime()
@@ -88,28 +114,21 @@ namespace Simulator
         
         if (m_timerTicked)
         {
-            if (m_triggerDelay != 0)
+            // The clock is configured to deliver interrupts. Check
+            // for this.
+            if (m_timeOfLastInterrupt + m_triggerDelay <= currentTime)
             {
-                // The clock is configured to deliver interrupts. Check
-                // for this.
-                if (m_timeOfLastInterrupt + m_triggerDelay <= currentTime)
-                {
-                    // Time for an interrupt.
-                    if (!m_iobus.SendInterruptRequest(m_devid, m_interruptNumber))
+                // Time for an interrupt.
+                m_businterface.m_doNotify.Set();
+                
+                COMMIT {
+                    if (m_deliverAllEvents)
                     {
-                        DeadlockWrite("Cannot send timer interrupt to I/O bus");
-                        return FAILED;
+                        m_timeOfLastInterrupt += m_triggerDelay;
                     }
-
-                    COMMIT {
-                        if (m_deliverAllEvents)
-                        {
-                            m_timeOfLastInterrupt += m_triggerDelay;
-                        }
-                        else
-                        {
-                            m_timeOfLastInterrupt = currentTime;
-                        }
+                    else
+                    {
+                        m_timeOfLastInterrupt = currentTime;
                     }
                 }
             }
@@ -120,7 +139,7 @@ namespace Simulator
         return SUCCESS;
     }
 
-    void RTC::GetDeviceIdentity(IODeviceIdentification& id) const
+    void RTC::RTCInterface::GetDeviceIdentity(IODeviceIdentification& id) const
     {
         if (!DeviceDatabase::GetDatabase().FindDeviceByName("MGSim", "RTC", id))
         {
@@ -159,7 +178,7 @@ namespace Simulator
         }
     }
 
-    bool RTC::OnWriteRequestReceived(IODeviceID from, MemAddr address, const IOData& data)
+    bool RTC::RTCInterface::OnWriteRequestReceived(IODeviceID from, MemAddr address, const IOData& data)
     {
         unsigned word = address / 4;
 
@@ -173,19 +192,33 @@ namespace Simulator
         }
         
         Integer value = UnserializeRegister(RT_INTEGER, data.data, data.size);
+        RTC& rtc = GetRTC();
         
         COMMIT{
             switch(word)
             {
-            case 1:   m_triggerDelay = value; break;
+            case 1:   
+            {
+                if (value != 0)
+                {
+                    rtc.m_timeOfLastInterrupt = currentTime;
+                    rtc.m_enableCheck.Set();
+                }
+                else
+                {
+                    rtc.m_enableCheck.Clear();
+                }
+                rtc.m_triggerDelay = value; 
+                break;
+            }
             case 2:   m_interruptNumber = value; break;
-            case 3:   m_deliverAllEvents = value; break;
+            case 3:   rtc.m_deliverAllEvents = value; break;
             }
         }
-        return SUCCESS;
+        return true;
     }
 
-    bool RTC::OnReadRequestReceived(IODeviceID from, MemAddr address, MemSize size)
+    bool RTC::RTCInterface::OnReadRequestReceived(IODeviceID from, MemAddr address, MemSize size)
     {
         // the clock uses 32-bit control words 
         // word 0: resolution (microseconds)
@@ -210,13 +243,15 @@ namespace Simulator
             throw exceptf<SimulationException>(*this, "Read from invalid RTC address: %u", word);
         }
 
+        RTC& rtc = GetRTC();
+
         COMMIT{
             switch(word)
             {
             case 0:   value = clockResolution; break;
-            case 1:   value = m_triggerDelay; break;
+            case 1:   value = rtc.m_triggerDelay; break;
             case 2:   value = m_interruptNumber; break;
-            case 3:   value = (int)m_deliverAllEvents; break;
+            case 3:   value = (int)rtc.m_deliverAllEvents; break;
             case 4:   value = currentTime % 1000000; break;
             case 5:   value = currentTime / 1000000; break;
             case 6: case 7:
@@ -243,9 +278,9 @@ namespace Simulator
         if (!m_iobus.SendReadResponse(m_devid, from, iodata))
         {
             DeadlockWrite("Cannot send RTC read response to I/O bus");
-            return FAILED;
+            return false;
         }
-        return SUCCESS;
+        return true;
     }
 
 
