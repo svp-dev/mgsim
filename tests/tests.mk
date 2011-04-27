@@ -1,10 +1,9 @@
-EXTRA_DIST = $(TEST_SOURCES)
-
 LOG_COMPILER = \
    MGSIM="$(top_builddir)/mgsim -c $(top_srcdir)/programs/config.ini -t" \
-   $(SHELL) $(top_srcdir)/programs/runtest.sh $(top_srcdir)/programs/timeout
+   $(SHELL) $(srcdir)/runtest.sh $(top_srcdir)/tools/timeout
 
-ASLINK = $(SHELL) $(top_builddir)/programs/aslink.sh $(TEST_ARCH)
+ASLINK = $(SHELL) $(top_builddir)/tools/aslink $(TEST_ARCH)
+
 SUFFIXES = .s .bin .coma .zlcoma .serial .parallel .banked .randombanked
 
 .s.bin:

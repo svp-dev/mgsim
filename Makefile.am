@@ -5,7 +5,7 @@ EXTRA_DIST =
 
 include $(srcdir)/Makefile.inc
 
-SUBDIRS = . tools programs doc
+SUBDIRS = . tools tests programs doc
 
 DISTCHECK_CONFIGURE_FLAGS = --target=mtalpha
 ACLOCAL_AMFLAGS = -I build-aux

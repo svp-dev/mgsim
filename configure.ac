@@ -140,12 +140,12 @@ AC_CONFIG_LINKS([arch/proc/ISA.h:arch/proc/ISA.$target_cpu.h
 
 AC_CONFIG_FILES([
 	Makefile
-	doc/Makefile
 	tools/Makefile
-	programs/aslink.sh
+        tests/Makefile
 	programs/Makefile
-	programs/mtalpha/Makefile
-	programs/mtsparc/Makefile
+	doc/Makefile
 ])
 AC_CONFIG_FILES([tools/readtrace], [chmod +x tools/readtrace])
+AC_CONFIG_FILES([tools/aslink], [chmod +x tools/aslink])
+
 AC_OUTPUT
