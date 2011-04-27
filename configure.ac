@@ -23,7 +23,10 @@ AC_PROG_RANLIB
 AC_LIB_READLINE
 AC_HEADER_ASSERT
 
-AM_CPPFLAGS="$AM_CPPFLAGS -I\$(top_srcdir) -W -Wall -Wwrite-strings -Wno-unused"
+AM_CPPFLAGS="$AM_CPPFLAGS -I\$(top_srcdir)"
+if test "x$GCC" = xyes; then
+  AM_CPPFLAGS="$AM_CPPFLAGS -W -Wall -Wwrite-strings -Wno-unused"
+fi
 AC_SUBST([AM_CPPFLAGS])
 
 AC_DEFINE(TARGET_ARCH, ARCH_ALPHA,
@@ -109,13 +112,12 @@ if test "x$enable_sdl" = "xyes"; then
 fi
 AM_CONDITIONAL([ENABLE_SDL], [test "x$enable_sdl" = "xyes"])
 
-AX_PTHREAD
-
 AC_ARG_ENABLE([monitor], 
 [AC_HELP_STRING([--disable-monitor], [disable support for simulation monitoring])],
 [], [enable_monitor=yes])
 
 if test "x$enable_monitor" = "xyes"; then
+  AX_PTHREAD
   if test "x$ax_pthread_ok" != "xyes"; then
      AC_MSG_WARN([POSIX threads not available, cannot use monitor.])
      enable_monitor=no
