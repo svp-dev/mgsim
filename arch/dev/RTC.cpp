@@ -2,6 +2,7 @@
 #include <sys/time.h>
 #include <csignal>
 #include <cerrno>
+#include <cstring>
 
 using namespace std;
 

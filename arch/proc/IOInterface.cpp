@@ -2,6 +2,7 @@
 #include "sim/config.h"
 #include <sstream>
 #include <iomanip>
+#include <cstring>
 
 using namespace std;
 
