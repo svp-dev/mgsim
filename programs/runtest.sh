@@ -1,9 +1,8 @@
 #! /bin/bash
 set -e
-ARCH=${1:?}
-TESTd=${3:?}
 sim=${MGSIM:?}
-timeout=${2:?}
+timeout=${1:?}
+TESTd=${2:?}
 
 fail=0
 

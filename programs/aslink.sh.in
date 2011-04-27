@@ -1,19 +1,19 @@
 #! /bin/sh
 set -e
-ARCH=${1:?}
+TEST_ARCH=${1:?}
 shift
 
-case $ARCH in
-  alpha)
+case $TEST_ARCH in
+  mtalpha)
     AS=@AS_MTALPHA@
     LD=@LD_MTALPHA@
     ;;
-  sparc)
+  mtsparc)
     AS=@AS_MTSPARC@
     LD=@LD_MTSPARC@
     ;;
   *)
-    echo "$0: $ARCH: unknown architecture" >&2; exit 1 ;;
+    echo "$0: $TEST_ARCH: unknown architecture" >&2; exit 1 ;;
 esac
 
 src=
@@ -52,8 +52,8 @@ trap cleanup 0 ERR INT TERM QUIT
 for f in $src; do
   of=$(echo $(dirname "$f")/$(basename "$f" .s)|tr '/.:' '___').o
   toclean="$toclean $of"
-  $AS -o "$of" "$f"
+  "$AS" -o "$of" "$f"
   obj="$obj $of"
 done
 
-$LD -e main -Ttext 0x10000 -o "$target" $obj
+"$LD" -e main -Ttext 0x10000 -o "$target" $obj
