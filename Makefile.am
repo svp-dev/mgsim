@@ -11,6 +11,37 @@ DISTCHECK_CONFIGURE_FLAGS = --target=mtalpha
 ACLOCAL_AMFLAGS = -I build-aux
 
 ##
+## Multi-way distcheck
+##
+check-mtsparc:
+	mkdir -p build-mtsparc && \
+	  cdir=`cd $(top_srcdir) && pwd` && \
+	  cd build-mtsparc && \
+	  $$cdir/configure --target=mtsparc && \
+	  $(MAKE) $(AM_MAKEFLAGS) check
+
+check-mtalpha:
+	mkdir -p build-mtalpha && \
+	  cdir=`cd $(top_srcdir) && pwd` && \
+	  cd build-mtalpha && \
+	  $$cdir/configure --target=mtalpha && \
+	  $(MAKE) $(AM_MAKEFLAGS) check
+
+check-all: check-mtsparc check-mtalpha
+
+distcheck-mtsparc:
+	$(MAKE) $(AM_MAKEFLAGS) distcheck DISTCHECK_CONFIGURE_FLAGS='--target=mtsparc --disable-sdl'
+	$(MAKE) $(AM_MAKEFLAGS) distcheck DISTCHECK_CONFIGURE_FLAGS='--target=mtsparc --enable-sdl'
+
+distcheck-mtalpha:
+	$(MAKE) $(AM_MAKEFLAGS) distcheck DISTCHECK_CONFIGURE_FLAGS='--target=mtalpha --disable-sdl'
+	$(MAKE) $(AM_MAKEFLAGS) distcheck DISTCHECK_CONFIGURE_FLAGS='--target=mtalpha --enable-sdl'
+
+distcheck-all: distcheck-mtsparc distcheck-mtalpha
+
+.PHONY: check-all distcheck-all
+
+##
 ## Version number management
 ##
 
@@ -38,3 +69,5 @@ check-version:
 
 _version:
 	cd $(srcdir) && rm -rf autom4te.cache .version && $${AUTORECONF:-autoreconf}
+	$(MAKE) $(AM_MAKEFLAGS) .version
+
