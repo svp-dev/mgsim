@@ -132,7 +132,6 @@ void Processor::Initialize(Processor* prev, Processor* next, MemAddr runAddress,
         m_registerFile.p_asyncW.AddProcess(m_io_if->GetInterruptMultiplexer().p_IncomingInterrupts); // I/O interrupt notifications
         m_registerFile.p_asyncW.AddProcess(m_io_if->GetReadResponseMultiplexer().p_IncomingReadResponses); // I/O read requests
     }
-    m_registerFile.p_asyncW.AddProcess(m_allocator.p_ThreadAllocate);       // Thread allocation
 
     m_registerFile.p_asyncW.AddProcess(m_network.p_Link);                   // Place register receives
     m_registerFile.p_asyncW.AddProcess(m_network.p_DelegationIn);           // Remote register receives
