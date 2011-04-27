@@ -12,6 +12,12 @@ namespace Simulator
 
 class Object;
 
+class DeadlockException : public std::runtime_error
+{
+public:
+    DeadlockException(const std::string& msg) : std::runtime_error(msg) {}
+};
+
 // Base exception class
 class SimulationException : public std::runtime_error
 {

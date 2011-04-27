@@ -90,7 +90,6 @@ void Object::OutputWrite_(const char* msg, ...) const
     va_list args;
 
     string name = GetFQN();
-    transform(name.begin(), name.end(), name.begin(), ::toupper);
     cerr << "[" << right << dec << setfill('0') << setw(8) << m_kernel.GetCycleNo() << ":" << name << "] ";
 
     va_start(args, msg);
@@ -111,7 +110,6 @@ void Object::DeadlockWrite_(const char* msg, ...) const
     }
 
     string name = GetFQN();
-    transform(name.begin(), name.end(), name.begin(), ::toupper);
     cerr << "[" << right << dec << setfill('0') << setw(8) << m_kernel.GetCycleNo() << ":" << name << "] ";
 
     va_start(args, msg);
@@ -126,7 +124,6 @@ void Object::DebugSimWrite_(const char* msg, ...) const
     va_list args;
 
     string name = GetFQN();
-    transform(name.begin(), name.end(), name.begin(), ::toupper);
     cerr << "[" << right << dec << setfill('0') << setw(8) << m_kernel.GetCycleNo() << ":" << name << "] ";
 
     va_start(args, msg);

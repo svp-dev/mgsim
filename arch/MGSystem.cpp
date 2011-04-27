@@ -670,6 +670,16 @@ void MGSystem::Step(CycleNo nCycles)
 
     if (state == STATE_DEADLOCK)
     {
+        cerr << "Replaying the last cycle:" << endl;
+
+        int savemode = GetDebugMode();
+        SetDebugMode(-1);
+        state = GetKernel().Step(1);
+        SetDebugMode(savemode);
+
+        ostringstream ss;
+        ss << "Stalled processes:" << endl;
+
         // See how many processes are in each of the states
         unsigned int num_stalled = 0, num_running = 0;
 
@@ -679,24 +689,36 @@ void MGSystem::Step(CycleNo nCycles)
             {
                 switch (process->GetState())
                 {
-                case STATE_DEADLOCK: ++num_stalled; break;
-                case STATE_RUNNING:  ++num_running; break;
-                default:             assert(false); break;
+                case STATE_DEADLOCK: 
+                    ss << "  " << process->GetName() << endl;
+                    ++num_stalled; 
+                    break;
+                case STATE_RUNNING:  
+                    ++num_running; 
+                    break;
+                default: 
+                    assert(false); 
+                    break;
                 }
             }
         }
 
+        ss << "Suspended registers:" << endl;
+
         unsigned int num_regs = 0;
         for (size_t i = 0; i < m_procs.size(); ++i)
         {
-            num_regs += m_procs[i]->GetNumSuspendedRegisters();
+            unsigned suspended = m_procs[i]->GetNumSuspendedRegisters();
+            if (suspended)
+                ss << "  " << m_procs[i]->GetFQN() << ": " << suspended << endl;
+            num_regs += suspended;
         }
 
-        ostringstream ss;
-        ss << "Deadlock!" << endl
+        ss << endl
+           << "Deadlock! (at cycle " << m_kernel.GetCycleNo() << ')' << endl
            << "(" << num_stalled << " processes stalled;  " << num_running << " processes running; "
            << num_regs << " registers waited on)";
-        throw runtime_error(ss.str());
+        throw DeadlockException(ss.str());
     }
 
     if (state == STATE_ABORTED)
