@@ -134,12 +134,9 @@ fi
 
 AC_CONFIG_FILES([
 	Makefile
-	arch/Makefile
-	cli/Makefile
 	doc/Makefile
-	sim/Makefile
 	tools/Makefile
-    programs/aslink.sh
+	programs/aslink.sh
 	programs/Makefile
 	programs/mtalpha/Makefile
 	programs/mtsparc/Makefile

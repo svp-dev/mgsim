@@ -1,4 +1,10 @@
-SUBDIRS = . sim arch cli tools programs doc
+bin_PROGRAMS =
+dist_man1_MANS = 
+MAINTAINERCLEANFILES =
+
+include $(srcdir)/Makefile.inc
+
+SUBDIRS = . tools programs doc
 
 ACLOCAL_AMFLAGS = -I build-aux
 
