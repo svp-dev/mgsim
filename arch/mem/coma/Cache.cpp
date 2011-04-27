@@ -843,7 +843,7 @@ COMA::Cache::Cache(const std::string& name, COMA& parent, Clock& clock, CacheID 
     p_bus.AddProcess(p_Requests);             // Read or write hit
 }
 
-void COMA::Cache::Cmd_Help(std::ostream& out, const std::vector<std::string>& arguments) const
+void COMA::Cache::Cmd_Info(std::ostream& out, const std::vector<std::string>& arguments) const
 {
     out <<
     "The L2 Cache in a COMA system is connected to the processors with a bus and to\n"

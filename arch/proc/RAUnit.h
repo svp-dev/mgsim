@@ -45,7 +45,7 @@ public:
     void UnreserveContext();
 
     // Interaction functions
-    void Cmd_Help(std::ostream& out, const std::vector<std::string>& arguments) const;
+    void Cmd_Info(std::ostream& out, const std::vector<std::string>& arguments) const;
     void Cmd_Read(std::ostream& out, const std::vector<std::string>& arguments) const;
 
 private:

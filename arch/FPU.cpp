@@ -329,7 +329,7 @@ FPU::~FPU()
     Cleanup();
 }
 
-void FPU::Cmd_Help(std::ostream& out, const std::vector<std::string>& /*arguments*/) const
+void FPU::Cmd_Info(std::ostream& out, const std::vector<std::string>& /*arguments*/) const
 {
     out <<
     "The Floating-Point Unit executes floating-point operations asynchronously and\n"

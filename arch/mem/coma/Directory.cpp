@@ -281,7 +281,7 @@ COMA::Directory::Directory(const std::string& name, COMA& parent, Clock& clock, 
     p_lines.AddProcess(p_InBottom);   
 }
 
-void COMA::Directory::Cmd_Help(std::ostream& out, const std::vector<std::string>& arguments) const
+void COMA::Directory::Cmd_Info(std::ostream& out, const std::vector<std::string>& arguments) const
 {
     out <<
     "The Directory in a COMA system is connected via other nodes in the COMA\n"

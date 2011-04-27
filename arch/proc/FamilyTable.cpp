@@ -139,7 +139,7 @@ void Processor::FamilyTable::FreeFamily(LFID fid, ContextType context)
     }
 }
 
-void Processor::FamilyTable::Cmd_Help(ostream& out, const vector<string>& /* arguments */) const
+void Processor::FamilyTable::Cmd_Info(ostream& out, const vector<string>& /* arguments */) const
 {
     out <<
     "The Family Table is the storage area in a processor that stores all family's\n"

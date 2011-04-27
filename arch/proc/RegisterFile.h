@@ -79,7 +79,7 @@ public:
     RegSize GetSize(RegType type) const;
 
 
-    void Cmd_Help(std::ostream& out, const std::vector<std::string>& arguments) const;
+    void Cmd_Info(std::ostream& out, const std::vector<std::string>& arguments) const;
     void Cmd_Read(std::ostream& out, const std::vector<std::string>& arguments) const;
 
     Object* GetParent() const { return Structure<RegAddr>::GetParent(); }

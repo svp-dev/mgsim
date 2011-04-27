@@ -174,7 +174,7 @@ void Processor::ThreadTable::PushEmpty(TID tid, ContextType context)
     CheckStateSanity();
 }
 
-void Processor::ThreadTable::Cmd_Help(ostream& out, const vector<string>& /* arguments */) const
+void Processor::ThreadTable::Cmd_Info(ostream& out, const vector<string>& /* arguments */) const
 {
     out <<
     "The Thread Table is the storage area in a processor that stores all thread's\n"

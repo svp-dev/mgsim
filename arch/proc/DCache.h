@@ -93,7 +93,7 @@ public:
     bool OnMemoryInvalidated(MemAddr addr);
 
     // Debugging
-    void Cmd_Help(std::ostream& out, const std::vector<std::string>& arguments) const;
+    void Cmd_Info(std::ostream& out, const std::vector<std::string>& arguments) const;
     void Cmd_Read(std::ostream& out, const std::vector<std::string>& arguments) const;
 
     size_t GetAssociativity() const { return m_assoc; }

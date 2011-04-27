@@ -216,7 +216,7 @@ void COMA::GetMemoryStatistics(uint64_t& nreads, uint64_t& nwrites, uint64_t& nr
     }
 }
 
-void COMA::Cmd_Help(ostream& out, const vector<string>& /*arguments*/) const
+void COMA::Cmd_Info(ostream& out, const vector<string>& /*arguments*/) const
 {
     out <<
     "The COMA Memory represents a hierarchical ring-based network of caches where each\n"

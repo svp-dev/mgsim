@@ -106,7 +106,7 @@ private:
 public:
     Cache(const std::string& name, ZLCOMA& parent, Clock& clock, CacheID id, size_t numCaches, const Config& config);
 
-    void Cmd_Help(std::ostream& out, const std::vector<std::string>& arguments) const;
+    void Cmd_Info(std::ostream& out, const std::vector<std::string>& arguments) const;
     void Cmd_Read(std::ostream& out, const std::vector<std::string>& arguments) const;
     const Line* FindLine(MemAddr address) const;
 

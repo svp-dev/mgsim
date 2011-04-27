@@ -292,7 +292,7 @@ ParallelMemory::~ParallelMemory()
     }
 }
 
-void ParallelMemory::Cmd_Help(ostream& out, const vector<string>& /*arguments*/) const
+void ParallelMemory::Cmd_Info(ostream& out, const vector<string>& /*arguments*/) const
 {
     out <<
     "The Parallel Memory is an extension on the Ideal Memory in that every CPU has a\n"

@@ -1695,7 +1695,7 @@ TID Processor::Allocator::Pop(ThreadQueue& q)
     return tid;
 }
 
-void Processor::Allocator::Cmd_Help(ostream& out, const vector<string>& /* arguments */) const
+void Processor::Allocator::Cmd_Info(ostream& out, const vector<string>& /* arguments */) const
 {
     out <<
     "The Allocator is where most of the thread and family management takes place.\n"

@@ -748,7 +748,7 @@ Result Processor::Network::DoLink()
     return SUCCESS;
 }
 
-void Processor::Network::Cmd_Help(ostream& out, const vector<string>& /* arguments */) const
+void Processor::Network::Cmd_Info(ostream& out, const vector<string>& /* arguments */) const
 {
     out <<
     "The network component manages all inter-processor communication such as\n"

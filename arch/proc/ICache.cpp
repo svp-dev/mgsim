@@ -463,7 +463,7 @@ Result Processor::ICache::DoIncoming()
     return SUCCESS;
 }        
 
-void Processor::ICache::Cmd_Help(std::ostream& out, const std::vector<std::string>& /*arguments*/) const
+void Processor::ICache::Cmd_Info(std::ostream& out, const std::vector<std::string>& /*arguments*/) const
 {
     out <<
     "The Instruction Cache stores data from memory that contains instructions for\n"

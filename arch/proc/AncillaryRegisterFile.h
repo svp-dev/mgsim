@@ -28,7 +28,7 @@ public:
     virtual bool ReadRegister(size_t addr, Integer& data) const = 0;
     virtual bool WriteRegister(size_t addr, Integer data) = 0;
 
-    void Cmd_Help(std::ostream& out, const std::vector<std::string>& arguments) const;
+    void Cmd_Info(std::ostream& out, const std::vector<std::string>& arguments) const;
     void Cmd_Read(std::ostream& out, const std::vector<std::string>& arguments) const;
 
     virtual ~AncillaryRegisterInterface() {}

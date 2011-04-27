@@ -417,7 +417,7 @@ BankedMemory::~BankedMemory()
     }
 }
 
-void BankedMemory::Cmd_Help(ostream& out, const vector<string>& /*arguments*/) const
+void BankedMemory::Cmd_Info(ostream& out, const vector<string>& /*arguments*/) const
 {
     out <<
     "The Banked Memory represents a switched memory network between P processors and N\n"

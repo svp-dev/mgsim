@@ -595,7 +595,7 @@ Result Processor::DCache::DoOutgoingRequests()
     return SUCCESS;
 }
 
-void Processor::DCache::Cmd_Help(std::ostream& out, const std::vector<std::string>& /*arguments*/) const
+void Processor::DCache::Cmd_Info(std::ostream& out, const std::vector<std::string>& /*arguments*/) const
 {
     out <<
     "The Data Cache stores data from memory that has been used in loads and stores\n"

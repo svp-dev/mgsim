@@ -461,7 +461,7 @@ ZLCOMA::RootDirectory::~RootDirectory()
     delete m_memory;
 }
 
-void ZLCOMA::RootDirectory::Cmd_Help(std::ostream& out, const std::vector<std::string>& arguments) const
+void ZLCOMA::RootDirectory::Cmd_Info(std::ostream& out, const std::vector<std::string>& arguments) const
 {
     out <<
     "The Root Directory in a COMA system is connected via other nodes in the COMA\n"

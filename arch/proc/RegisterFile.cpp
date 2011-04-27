@@ -185,7 +185,7 @@ void Processor::RegisterFile::Update()
     m_nUpdates = 0;
 }
 
-void Processor::RegisterFile::Cmd_Help(std::ostream& out, const std::vector<std::string>& /*arguments*/) const
+void Processor::RegisterFile::Cmd_Info(std::ostream& out, const std::vector<std::string>& /*arguments*/) const
 {
     out <<
     "The Register File stores the register for all threads running on a processor.\n"

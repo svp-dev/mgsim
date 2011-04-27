@@ -104,18 +104,13 @@ Result Processor::IOMatchUnit::Write(MemAddr address, const void* data, MemSize 
     return interface->second.component->Write(offset, data, size, fid, tid);
 }
 
-void Processor::IOMatchUnit::Cmd_Help(std::ostream& out, const std::vector<std::string>& /*arguments*/) const
+void Processor::IOMatchUnit::Cmd_Info(std::ostream& out, const std::vector<std::string>& /*arguments*/) const
 {
     out <<
         "The memory-mapped I/O interface intercepts memory operations at the memory stage\n"
         "in the pipeline and redirects them to a processor-local I/O bus.\n\n"
-        "Supported operations:\n"
-        "- info <component>\n"
-        "  Lists the registered I/O components.\n";
-}
+        "Components recognized by this interface:\n";
 
-void Processor::IOMatchUnit::Cmd_Info(std::ostream& out, const std::vector<std::string>& /*arguments*/) const
-{
     RangeMap::const_iterator p = m_ranges.begin();
 
     if (p == m_ranges.end())

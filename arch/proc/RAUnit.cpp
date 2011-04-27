@@ -226,7 +226,7 @@ void Processor::RAUnit::Free(RegIndex indices[NUM_REG_TYPES], ContextType contex
     }
 }
 
-void Processor::RAUnit::Cmd_Help(ostream& out, const std::vector<std::string>& /*arguments*/) const
+void Processor::RAUnit::Cmd_Info(ostream& out, const std::vector<std::string>& /*arguments*/) const
 {
     out <<
         "The Register Allocation Unit is the component that manages the allocation\n"

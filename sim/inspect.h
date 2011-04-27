@@ -10,11 +10,10 @@ namespace Inspect
     enum InterfaceTypes
     {
         None = 0,
-        Help = 1,
-        Info = 2,
-        Read = 4,
-        Trace = 8,
-        Line = 16,
+        Info = 1,
+        Read = 2,
+        Trace = 4,
+        Line = 8,
         LastType = Line
     };
 
@@ -38,7 +37,7 @@ namespace Inspect
 
     template<unsigned V>
         class Interface :
-        public Parent_<V|Help, LastType>
+        public Parent_<V|Info, LastType>
     {
     public:
         virtual ~Interface() {}
@@ -51,15 +50,6 @@ namespace Inspect
         virtual ~Interface_() {}
     };
     
-    template<>
-        class Interface_<Help>
-    {
-    public:
-        virtual void Cmd_Help(std::ostream&, const std::vector<std::string>&) const = 0;
-        virtual ~Interface_() {}
-        void DoCommand(std::ostream& s, const std::vector<std::string>& v) const { return Cmd_Help(s, v); }
-    };
-
     template<>
         class Interface_<Info>
     {

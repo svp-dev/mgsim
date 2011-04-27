@@ -21,7 +21,7 @@ RandomBankedMemory::RandomBankedMemory(const std::string& name, Object& parent, 
 {
 }
 
-void RandomBankedMemory::Cmd_Help(std::ostream& out, const std::vector<std::string>& /*arguments*/) const
+void RandomBankedMemory::Cmd_Info(std::ostream& out, const std::vector<std::string>& /*arguments*/) const
 {
     out <<
     "The Random Banked Memory represents a switched memory network between P\n"

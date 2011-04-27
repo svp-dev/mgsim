@@ -284,7 +284,7 @@ ZLCOMA::Directory::Directory(const std::string& name, ZLCOMA& parent, Clock& clo
     p_lines.AddProcess(p_InBottom);
 }
 
-void ZLCOMA::Directory::Cmd_Help(std::ostream& out, const std::vector<std::string>& arguments) const
+void ZLCOMA::Directory::Cmd_Info(std::ostream& out, const std::vector<std::string>& arguments) const
 {
     out <<
     "The Directory in a COMA system is connected via other nodes in the COMA\n"

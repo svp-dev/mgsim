@@ -28,7 +28,6 @@ public:
         Result Write(MemAddr address, const void* data, MemSize size, LFID fid, TID tid);
 
         void Cmd_Info(std::ostream& out, const std::vector<std::string>& args) const;
-        void Cmd_Help(std::ostream& out, const std::vector<std::string>& args) const;
     };
 
     class PICInterface : public MMIOComponent, public Inspect::Interface<Inspect::Info>
@@ -46,7 +45,6 @@ public:
         Result Write(MemAddr address, const void* data, MemSize size, LFID fid, TID tid);
 
         void Cmd_Info(std::ostream& out, const std::vector<std::string>& args) const;
-        void Cmd_Help(std::ostream& out, const std::vector<std::string>& args) const;
     };
     
 
@@ -79,7 +77,6 @@ public:
     
     // Debugging
     void Cmd_Info(std::ostream& out, const std::vector<std::string>& args) const;
-    void Cmd_Help(std::ostream& out, const std::vector<std::string>& args) const;
 };
 
 

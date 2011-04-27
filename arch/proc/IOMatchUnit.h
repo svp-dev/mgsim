@@ -44,7 +44,6 @@ public:
     void RegisterComponent(MemAddr base, AccessMode mode, MMIOComponent& component);    
 
     // Debugging
-    void Cmd_Help(std::ostream& out, const std::vector<std::string>& arguments) const;
     void Cmd_Info(std::ostream& out, const std::vector<std::string>& arguments) const;
 };
 

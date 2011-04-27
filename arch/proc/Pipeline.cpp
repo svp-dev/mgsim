@@ -243,7 +243,7 @@ Result Processor::Pipeline::DoPipeline()
     return result;
 }
 
-void Processor::Pipeline::Cmd_Help(std::ostream& out, const std::vector<std::string>& /*arguments*/) const
+void Processor::Pipeline::Cmd_Info(std::ostream& out, const std::vector<std::string>& /*arguments*/) const
 {
     out <<
     "The pipeline reads instructions, loads operands, computes their results and/or\n"

@@ -1197,7 +1197,7 @@ ZLCOMA::Cache::Cache(const std::string& name, ZLCOMA& parent, Clock& clock, Cach
     p_bus.AddProcess(p_Requests);             // Read or write hit
 }
 
-void ZLCOMA::Cache::Cmd_Help(std::ostream& out, const std::vector<std::string>& arguments) const
+void ZLCOMA::Cache::Cmd_Info(std::ostream& out, const std::vector<std::string>& arguments) const
 {
     out <<
     "The L2 Cache in a COMA system is connected to the processors with a bus and to\n"

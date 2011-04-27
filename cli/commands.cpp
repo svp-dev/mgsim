@@ -70,7 +70,7 @@ void ExecuteCommand_(std::ostream& out, MGSystem& sys, const string& cmd, vector
     
     out << endl;
     
-    if (Type == Inspect::Help)
+    if (Type == Inspect::Info)
     {
         out << "Supported commands: ";
         Inspect::ListCommands *lc = dynamic_cast<Inspect::ListCommands*>(obj);
@@ -324,12 +324,11 @@ void HandleCommandLine(CommandLineReader& clr,
         {
             cout << sys.GetSymbol(static_cast<MemAddr>(strtoull(args[0].c_str(), 0, 0))) << endl;
         }
-        else if (command == "help") { ExecuteCommand_<Inspect::Help>(cout, sys, command, args); }
-        else if (command == "read") { ExecuteCommand_<Inspect::Read>(cout, sys, command, args); }
-        else if (command == "info") { ExecuteCommand_<Inspect::Info>(cout, sys, command, args); }
-        else if (command == "line") { ExecuteCommand_<Inspect::Line>(cout, sys, command, args); }
-        else if (command == "trace") { ExecuteCommand_<Inspect::Trace>(cout, sys, command, args); }
-        else
+        else if (command == "read") { ExecuteCommand_<Inspect::Read>(cout, sys, command, args); } // -> read
+        else if (command == "info") { ExecuteCommand_<Inspect::Info>(cout, sys, command, args); } // -> info
+        else if (command == "line") { ExecuteCommand_<Inspect::Line>(cout, sys, command, args); } // -> trace line
+        else if (command == "trace") { ExecuteCommand_<Inspect::Trace>(cout, sys, command, args); } // -> trace mem
+        else 
         {
             cerr << "Unknown command: " << command << endl;
         }

@@ -419,7 +419,7 @@ public:
     void     CollectMemOpStatistics(uint64_t& nr, uint64_t& nw, uint64_t& nrb, uint64_t& nwb) const 
     { return dynamic_cast<MemoryStage&>(*m_stages[4].stage).addMemStatistics(nr, nw, nrb, nwb); }
     
-    void Cmd_Help(std::ostream& out, const std::vector<std::string>& arguments) const;
+    void Cmd_Info(std::ostream& out, const std::vector<std::string>& arguments) const;
     void Cmd_Read(std::ostream& out, const std::vector<std::string>& arguments) const;
 
     // Processes

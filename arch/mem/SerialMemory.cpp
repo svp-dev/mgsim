@@ -190,7 +190,7 @@ SerialMemory::SerialMemory(const std::string& name, Object& parent, Clock& clock
     m_requests.Sensitive( p_Requests );
 }
 
-void SerialMemory::Cmd_Help(ostream& out, const vector<string>& /*arguments*/) const
+void SerialMemory::Cmd_Info(ostream& out, const vector<string>& /*arguments*/) const
 {
     out <<
     "The Serial Memory is a simplified memory implementation that has no contention\n"

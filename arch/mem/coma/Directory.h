@@ -75,7 +75,7 @@ public:
 
     Directory(const std::string& name, COMA& parent, Clock& clock, CacheID firstCache, CacheID lastCache, const Config& config);
     
-    void Cmd_Help(std::ostream& out, const std::vector<std::string>& arguments) const;
+    void Cmd_Info(std::ostream& out, const std::vector<std::string>& arguments) const;
     void Cmd_Read(std::ostream& out, const std::vector<std::string>& arguments) const;
 };
 

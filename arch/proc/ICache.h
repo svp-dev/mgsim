@@ -66,7 +66,7 @@ public:
     size_t GetLineSize() const { return m_lineSize; }
     
     // Debugging
-    void Cmd_Help(std::ostream& out, const std::vector<std::string>& arguments) const;
+    void Cmd_Info(std::ostream& out, const std::vector<std::string>& arguments) const;
     void Cmd_Read(std::ostream& out, const std::vector<std::string>& arguments) const;
 };
 
