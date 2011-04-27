@@ -343,11 +343,11 @@ void Processor::Pipeline::Cmd_Read(std::ostream& out, const std::vector<std::str
     {
         PrintLatchCommon(out, m_drLatch);
         out  << hex << setfill('0')
-#if TARGET_ARCH == ARCH_ALPHA
+#if defined(TARGET_MTALPHA)
              << " | Opcode:       0x" << setw(2) << (unsigned)m_drLatch.opcode << endl
              << " | Function:     0x" << setw(4) << m_drLatch.function << endl
              << " | Displacement: 0x" << setw(8) << m_drLatch.displacement << endl
-#elif TARGET_ARCH == ARCH_SPARC
+#elif defined(TARGET_MTSPARC)
              << " | Op1:          0x" << setw(2) << (unsigned)m_drLatch.op1
              << "    Op2: 0x" << setw(2) << (unsigned)m_drLatch.op2
              << "    Op3: 0x" << setw(2) << (unsigned)m_drLatch.op3 << endl
@@ -359,7 +359,7 @@ void Processor::Pipeline::Cmd_Read(std::ostream& out, const std::vector<std::str
              << " | Ra:           " << m_drLatch.Ra << "/" << m_drLatch.RaSize << endl
              << " | Rb:           " << m_drLatch.Rb << "/" << m_drLatch.RbSize << endl
              << " | Rc:           " << m_drLatch.Rc << "/" << m_drLatch.RcSize << endl
-#if TARGET_ARCH == ARCH_SPARC
+#if defined(TARGET_MTSPARC)
              << " | Rs:           " << m_drLatch.Rs << "/" << m_drLatch.RsSize << endl
 #endif
             ;
@@ -377,11 +377,11 @@ void Processor::Pipeline::Cmd_Read(std::ostream& out, const std::vector<std::str
     {
         PrintLatchCommon(out, m_reLatch);
         out  << hex << setfill('0')
-#if TARGET_ARCH == ARCH_ALPHA
+#if defined(TARGET_MTALPHA)
              << " | Opcode:       0x" << setw(2) << (unsigned)m_reLatch.opcode << endl
              << " | Function:     0x" << setw(4) << m_reLatch.function << endl
              << " | Displacement: 0x" << setw(8) << m_reLatch.displacement << endl
-#elif TARGET_ARCH == ARCH_SPARC
+#elif defined(TARGET_MTSPARC)
              << " | Op1:          0x" << setw(2) << (unsigned)m_reLatch.op1
              << "    Op2: 0x" << setw(2) << (unsigned)m_reLatch.op2 
              << "    Op3: 0x" << setw(2) << (unsigned)m_reLatch.op3 << endl

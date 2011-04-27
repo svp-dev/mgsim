@@ -293,7 +293,7 @@ Processor::Pipeline::PipeAction Processor::Pipeline::ReadStage::OnCycle()
     
         m_RaNotPending = m_input.RaNotPending;
         
-#if TARGET_ARCH == ARCH_SPARC
+#if defined(TARGET_MTSPARC)
         m_isMemoryOp = false;
         if (m_input.op1 == S_OP1_MEMORY)
         {
@@ -411,7 +411,7 @@ Processor::Pipeline::PipeAction Processor::Pipeline::ReadStage::OnCycle()
             m_output.placeSize = m_input.placeSize;
         }
         
-#if TARGET_ARCH == ARCH_SPARC
+#if defined(TARGET_MTSPARC)
         // On the Sparc, memory ops take longer because three registers
         // need to be read. We do this by first reading the value to store
         // and then the two address registers in the next cycle.
@@ -459,7 +459,7 @@ Processor::Pipeline::ReadStage::ReadStage(Pipeline& parent, Clock& clock, const 
     m_output(output),
     m_bypasses(bypasses)
 {
-#if TARGET_ARCH == ARCH_SPARC
+#if defined(TARGET_MTSPARC)
     m_isMemoryOp = false;
     m_rsv.m_state = RST_INVALID;
 #endif

@@ -114,7 +114,7 @@ Processor::Pipeline::PipeAction Processor::Pipeline::DecodeStage::OnCycle()
             m_output.RaSize = sizeof(Integer);
             m_output.RbSize = sizeof(Integer);
             m_output.RcSize = sizeof(Integer);
-#if TARGET_ARCH == ARCH_SPARC
+#if defined(TARGET_MTSPARC)
             m_output.RsSize = sizeof(Integer);
 #endif
             
@@ -124,7 +124,7 @@ Processor::Pipeline::PipeAction Processor::Pipeline::DecodeStage::OnCycle()
             m_output.Ra = TranslateRegister((unsigned char)m_output.Ra.index, m_output.Ra.type, m_output.RaSize, false);
             m_output.Rb = TranslateRegister((unsigned char)m_output.Rb.index, m_output.Rb.type, m_output.RbSize, false);
             m_output.Rc = TranslateRegister((unsigned char)m_output.Rc.index, m_output.Rc.type, m_output.RcSize, true);
-#if TARGET_ARCH == ARCH_SPARC
+#if defined(TARGET_MTSPARC)
             m_output.Rs = TranslateRegister((unsigned char)m_output.Rs.index, m_output.Rs.type, m_output.RsSize, false);
 #endif
         }

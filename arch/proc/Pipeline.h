@@ -7,11 +7,7 @@
 
 class Pipeline : public Object, public Inspect::Interface<Inspect::Read>
 {
-#if TARGET_ARCH == ARCH_ALPHA
-#include "ISA.alpha.h"
-#elif TARGET_ARCH == ARCH_SPARC
-#include "ISA.sparc.h"
-#endif
+#include "ISA.h"
 
     /// A (possibly multi-) register value in the pipeline
     struct PipeValue
@@ -51,7 +47,7 @@ class Pipeline : public Object, public Inspect::Interface<Inspect::Read>
         return value;
     }
 
-#if TARGET_ARCH == ARCH_ALPHA
+#if defined(TARGET_MTALPHA)
     struct ArchDecodeReadLatch
     {
         InstrFormat format;
@@ -63,7 +59,7 @@ class Pipeline : public Object, public Inspect::Interface<Inspect::Read>
     struct ArchReadExecuteLatch : public ArchDecodeReadLatch
     {
     };
-#elif TARGET_ARCH == ARCH_SPARC
+#elif defined(TARGET_MTSPARC)
     struct ArchDecodeReadLatch
     {
         uint8_t  op1, op2, op3;
@@ -249,7 +245,7 @@ class Pipeline : public Object, public Inspect::Interface<Inspect::Read>
         RegAddr TranslateRegister(uint8_t reg, RegType type, unsigned int size, bool writing) const;
         void    DecodeInstruction(const Instruction& instr);
 
-#if TARGET_ARCH == ARCH_ALPHA
+#if defined(TARGET_MTALPHA)
         static InstrFormat GetInstrFormat(uint8_t opcode);
 #endif
     public:
@@ -284,7 +280,7 @@ class Pipeline : public Object, public Inspect::Interface<Inspect::Read>
         OperandInfo                 m_operand1, m_operand2;
         bool                        m_RaNotPending;
         
-#if TARGET_ARCH == ARCH_SPARC
+#if defined(TARGET_MTSPARC)
         // Sparc memory stores require three registers so takes two cycles.
         // First cycle calculates the address and stores it here.
         bool      m_isMemoryOp;
@@ -329,7 +325,7 @@ class Pipeline : public Object, public Inspect::Interface<Inspect::Read>
         void       ExecMemoryControl(Integer value, int command, int flags) const;
         void       ExecDebugOutput(Integer value, int command, int flags) const;
 
-#if TARGET_ARCH == ARCH_ALPHA
+#if defined(TARGET_MTALPHA)
         static bool BranchTaken(uint8_t opcode, const PipeValue& value);
         static bool ExecuteINTA(PipeValue& Rcv, const PipeValue& Rav, const PipeValue& Rbv, int func);
         static bool ExecuteINTL(PipeValue& Rcv, const PipeValue& Rav, const PipeValue& Rbv, int func);
@@ -340,7 +336,7 @@ class Pipeline : public Object, public Inspect::Interface<Inspect::Read>
         static bool ExecuteFLTL(PipeValue& Rcv, const PipeValue& Rav, const PipeValue& Rbv, int func);
         static bool ExecuteITFP(PipeValue& Rcv, const PipeValue& Rav, const PipeValue& Rbv, int func);
         static bool ExecuteFPTI(PipeValue& Rcv, const PipeValue& Rav, const PipeValue& Rbv, int func);
-#elif TARGET_ARCH == ARCH_SPARC
+#elif defined(TARGET_MTSPARC)
         static bool BranchTakenInt(int cond, uint32_t psr);
         static bool BranchTakenFlt(int cond, uint32_t fsr);
         static uint32_t ExecBasicInteger(int opcode, uint32_t Rav, uint32_t Rbv, uint32_t& Y, PSR& psr);

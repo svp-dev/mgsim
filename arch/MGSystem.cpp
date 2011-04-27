@@ -130,7 +130,7 @@ void MGSystem::FillConfWords(ConfWords& words) const
 
     words << MAKE_TAG(CONFTAG_ARCH_V1, 4)
           << 1 // simulated microgrid
-#if TARGET_ARCH == ARCH_ALPHA
+#if defined(TARGET_MTALPHA)
           << 1 // alpha
 #else
           << 2 // sparc
@@ -922,7 +922,7 @@ MGSystem::MGSystem(const Config& config, Display& display, const string& program
         value.m_integer = WriteConfiguration();
         m_procs[0]->WriteRegister(MAKE_REGADDR(RT_INTEGER, 2), value);
 
-#if TARGET_ARCH == ARCH_ALPHA
+#if defined(TARGET_MTALPHA)
         // The Alpha expects the function address in $27
         value.m_integer = progdesc.first;
         m_procs[0]->WriteRegister(MAKE_REGADDR(RT_INTEGER, 27), value);
@@ -940,11 +940,11 @@ MGSystem::MGSystem(const Config& config, Display& display, const string& program
     }
 
     // Find objdump command
-#if TARGET_ARCH == ARCH_ALPHA
+#if defined(TARGET_MTALPHA)
     const char *default_objdump = "mtalpha-linux-gnu-objdump";
     const char *objdump_var = "MTALPHA_OBJDUMP";
 #endif
-#if TARGET_ARCH == ARCH_SPARC
+#if defined(TARGET_MTSPARC)
     const char *default_objdump = "mtsparc-linux-gnu-objdump";
     const char *objdump_var = "MTSPARC_OBJDUMP";
 #endif

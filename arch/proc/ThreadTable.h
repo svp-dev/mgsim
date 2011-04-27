@@ -59,9 +59,9 @@ struct Thread
     TID          next;
 
     // Architecture specific per-thread stuff
-#if TARGET_ARCH == ARCH_ALPHA
+#if defined(TARGET_MTALPHA)
 	FPCR         fpcr;
-#elif TARGET_ARCH == ARCH_SPARC
+#elif defined(TARGET_MTSPARC)
     PSR          psr;
     FSR          fsr;
     uint32_t     Y;

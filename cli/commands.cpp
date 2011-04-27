@@ -165,7 +165,7 @@ void HandleCommandLine(CommandLineReader& clr,
             if (!args.empty())
             {
                 int offset = 0;
-#if TARGET_ARCH == ARCH_ALPHA
+#if defined(TARGET_MTALPHA)
                 // skip 8 bytes for the ldgp instruction
                 offset = 8;
 #endif

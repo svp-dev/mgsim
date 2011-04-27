@@ -13,7 +13,7 @@ namespace Simulator
 #define ARCH_LITTLE_ENDIAN 1
 #define ARCH_BIG_ENDIAN    2
 
-#if TARGET_ARCH == ARCH_ALPHA
+#if defined(TARGET_MTALPHA)
 #define ARCH_ENDIANNESS ARCH_LITTLE_ENDIAN
 #else
 #define ARCH_ENDIANNESS ARCH_BIG_ENDIAN
@@ -85,7 +85,7 @@ struct Float64
 #endif
 };
 
-#if TARGET_ARCH == ARCH_ALPHA
+#if defined(TARGET_MTALPHA)
 typedef uint64_t MemAddr;       ///< Address into memory
 typedef uint64_t MemSize;       ///< Size of something in memory
 typedef uint32_t Instruction;   ///< Instruction bits
@@ -93,7 +93,7 @@ typedef uint64_t Integer;       ///< Natural integer type
 typedef int64_t  SInteger;      ///< Natural integer type, signed
 typedef Float64  Float;         ///< Natural floating point type
 #define MEMSIZE_MAX UINT64_MAX
-#elif TARGET_ARCH == ARCH_SPARC
+#elif defined(TARGET_MTSPARC)
 typedef uint32_t MemAddr;       ///< Address into memory
 typedef uint32_t MemSize;       ///< Size of something in memory
 typedef uint32_t Instruction;   ///< Instruction bits
@@ -413,9 +413,9 @@ Instruction UnserializeInstruction(const void* data);
 //
 // Architecture specific global types
 //
-#if TARGET_ARCH == ARCH_ALPHA
+#if defined(TARGET_MTALPHA)
 typedef uint64_t FPCR;  // Floating Point Control Register
-#elif TARGET_ARCH == ARCH_SPARC
+#elif defined(TARGET_MTSPARC)
 typedef uint32_t PSR;   // Processor State Register
 typedef uint32_t FSR;   // Floating-Point State Register
 #endif

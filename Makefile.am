@@ -1,18 +1,20 @@
 bin_PROGRAMS =
 dist_man1_MANS = 
 MAINTAINERCLEANFILES =
+EXTRA_DIST =
 
 include $(srcdir)/Makefile.inc
 
 SUBDIRS = . tools programs doc
 
+DISTCHECK_CONFIGURE_FLAGS = --target=mtalpha
 ACLOCAL_AMFLAGS = -I build-aux
 
 ##
 ## Version number management
 ##
 
-EXTRA_DIST = .version build-aux/version-gen build-aux/package-version build-aux/config.sub.patch
+EXTRA_DIST += .version build-aux/version-gen build-aux/package-version build-aux/config.sub.patch
 BUILT_SOURCES = $(top_srcdir)/.version
 
 $(top_srcdir)/.version:
