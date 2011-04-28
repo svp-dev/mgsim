@@ -206,3 +206,14 @@ void SymbolTable::Read(std::istream& i)
     m_cache.clear();
 }
 
+SymbolTable::match_t SymbolTable::FindSymbols(const std::string& pat) const
+{
+    match_t ret;
+
+    for (table_t::const_iterator i = m_entries.begin(); i != m_entries.end(); ++i)
+    {
+        ret[i->second.second] = make_pair(i->first, i->second.first);
+    }
+
+    return ret;
+}

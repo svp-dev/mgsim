@@ -23,6 +23,9 @@ public:
     void Write(std::ostream& o, const std::string& pat = "*") const;
 
     bool LookUp(const std::string& sym, Simulator::MemAddr &addr, bool recurse = true) const;
+    
+    typedef std::map<std::string, std::pair<Simulator::MemAddr, size_t> > match_t;
+    match_t FindSymbols(const std::string& pat = "*") const;
 
     const std::string& operator[](Simulator::MemAddr addr);
     const std::string operator[](Simulator::MemAddr addr) const;
