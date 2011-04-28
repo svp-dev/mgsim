@@ -291,6 +291,8 @@ public:
     const T&   Front() const { return m_data.front(); }
     BufferSize size()  const { return m_data.size(); }
 
+    BufferSize GetMaxSize() const { return m_maxSize; }
+
     void Pop()
     {
         CheckClocks();
