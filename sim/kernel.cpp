@@ -46,19 +46,27 @@ void Process::Deactivate()
 // Object class
 //
 Object::Object(const std::string& name, Clock& clock)
-    : m_parent(NULL), m_name(name), m_clock(clock), m_kernel(clock.GetKernel())
+    : m_parent(NULL), m_name(name), m_fqn(name), m_clock(clock), m_kernel(clock.GetKernel())
 {
 }
 
 Object::Object(const std::string& name, Object& parent)
-    : m_parent(&parent), m_name(name), m_clock(parent.m_clock), m_kernel(m_clock.GetKernel())
+    : m_parent(&parent), 
+      m_name(name), 
+      m_fqn(parent.GetFQN() + '.' + name),
+      m_clock(parent.m_clock), 
+      m_kernel(m_clock.GetKernel())
 {
     // Add ourself to the parent's children array
     parent.m_children.push_back(this);
 }
 
 Object::Object(const std::string& name, Object& parent, Clock& clock)
-    : m_parent(&parent), m_name(name), m_clock(clock), m_kernel(clock.GetKernel())
+    : m_parent(&parent), 
+      m_name(name), 
+      m_fqn(parent.GetFQN() + '.' + name),
+      m_clock(clock), 
+      m_kernel(clock.GetKernel())
 {
     // Add ourself to the parent's children array
     parent.m_children.push_back(this);
@@ -78,11 +86,6 @@ Object::~Object()
             }
         }
     }
-}
-
-const string Object::GetFQN() const
-{
-    return (m_parent != NULL) ? m_parent->GetFQN() + "." + GetName() : GetName();
 }
 
 void Object::OutputWrite_(const char* msg, ...) const
