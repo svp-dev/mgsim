@@ -319,8 +319,7 @@ static std::ostream& operator << (std::ostream& out, const RemoteRegAddr& rreg)
 void Processor::Pipeline::Cmd_Read(std::ostream& out, const std::vector<std::string>& /*arguments*/) const
 {
     // Fetch stage
-    out << "Fetch stage" << endl
-        << " |" << endl;
+    out << "Stage: fetch" << endl;
     if (m_fdLatch.empty)
     {
         out << " | (Empty)" << endl;
@@ -333,8 +332,7 @@ void Processor::Pipeline::Cmd_Read(std::ostream& out, const std::vector<std::str
     out << " v" << endl;
 
     // Decode stage
-    out << "Decode stage" << endl
-        << " |" << endl;
+    out << "Stage: decode" << endl;
     if (m_drLatch.empty)
     {
         out << " | (Empty)" << endl;
@@ -344,17 +342,15 @@ void Processor::Pipeline::Cmd_Read(std::ostream& out, const std::vector<std::str
         PrintLatchCommon(out, m_drLatch);
         out  << hex << setfill('0')
 #if defined(TARGET_MTALPHA)
-             << " | Opcode:       0x" << setw(2) << (unsigned)m_drLatch.opcode << endl
-             << " | Function:     0x" << setw(4) << m_drLatch.function << endl
-             << " | Displacement: 0x" << setw(8) << m_drLatch.displacement << endl
+             << " | Opcode:       0x" << setw(2) << (unsigned)m_drLatch.opcode 
 #elif defined(TARGET_MTSPARC)
              << " | Op1:          0x" << setw(2) << (unsigned)m_drLatch.op1
-             << "    Op2: 0x" << setw(2) << (unsigned)m_drLatch.op2
-             << "    Op3: 0x" << setw(2) << (unsigned)m_drLatch.op3 << endl
-             << " | Function:     0x" << setw(4) << m_drLatch.function << endl
-             << " | Displacement: 0x" << setw(8) << m_drLatch.displacement << endl
+             << "   Op2: 0x" << setw(2) << (unsigned)m_drLatch.op2
+             << "   Op3: 0x" << setw(2) << (unsigned)m_drLatch.op3
 #endif
-             << " | Literal:      0x" << setw(8) << m_drLatch.literal << endl
+             << "         Function: 0x" << setw(4) << m_drLatch.function << endl
+             << " | Displacement: 0x" << setw(8) << m_drLatch.displacement
+             << "   Literal:  0x" << setw(8) << m_drLatch.literal << endl
              << dec
              << " | Ra:           " << m_drLatch.Ra << "/" << m_drLatch.RaSize << endl
              << " | Rb:           " << m_drLatch.Rb << "/" << m_drLatch.RbSize << endl
@@ -367,8 +363,7 @@ void Processor::Pipeline::Cmd_Read(std::ostream& out, const std::vector<std::str
     out << " v" << endl;
 
     // Read stage
-    out << "Read stage" << endl
-        << " |" << endl;
+    out << "Stage: read" << endl;
     if (m_reLatch.empty)
     {
         out << " | (Empty)" << endl;
@@ -378,16 +373,15 @@ void Processor::Pipeline::Cmd_Read(std::ostream& out, const std::vector<std::str
         PrintLatchCommon(out, m_reLatch);
         out  << hex << setfill('0')
 #if defined(TARGET_MTALPHA)
-             << " | Opcode:       0x" << setw(2) << (unsigned)m_reLatch.opcode << endl
-             << " | Function:     0x" << setw(4) << m_reLatch.function << endl
-             << " | Displacement: 0x" << setw(8) << m_reLatch.displacement << endl
+             << " | Opcode:       0x" << setw(2) << (unsigned)m_reLatch.opcode
+             << "         Function:     0x" << setw(4) << m_reLatch.function << endl
 #elif defined(TARGET_MTSPARC)
              << " | Op1:          0x" << setw(2) << (unsigned)m_reLatch.op1
-             << "    Op2: 0x" << setw(2) << (unsigned)m_reLatch.op2 
-             << "    Op3: 0x" << setw(2) << (unsigned)m_reLatch.op3 << endl
-             << " | Function:     0x" << setw(4) << m_reLatch.function << endl
-             << " | Displacement: 0x" << setw(8) << m_reLatch.displacement << endl
+             << "   Op2: 0x" << setw(2) << (unsigned)m_reLatch.op2 
+             << "   Op3: 0x" << setw(2) << (unsigned)m_reLatch.op3
+             << "         Function:     0x" << setw(4) << m_reLatch.function << endl
 #endif
+             << " | Displacement: 0x" << setw(8) << m_reLatch.displacement << endl
              << " | Rav:          " << MakePipeValue(m_reLatch.Ra.type, m_reLatch.Rav) << "/" << m_reLatch.Rav.m_size << endl
              << " | Rbv:          " << MakePipeValue(m_reLatch.Rb.type, m_reLatch.Rbv) << "/" << m_reLatch.Rbv.m_size << endl
              << " | Rc:           " << m_reLatch.Rc << "/" << m_reLatch.RcSize << endl;
@@ -395,8 +389,7 @@ void Processor::Pipeline::Cmd_Read(std::ostream& out, const std::vector<std::str
     out << " v" << endl;
 
     // Execute stage
-    out << "Execute stage" << endl
-        << " |" << endl;
+    out << "Stage: execute" << endl;
     if (m_emLatch.empty)
     {
         out << " | (Empty)" << endl;
@@ -424,8 +417,7 @@ void Processor::Pipeline::Cmd_Read(std::ostream& out, const std::vector<std::str
     out << " v" << endl;
 
     // Memory stage
-    out << "Memory stage" << endl
-        << " |" << endl;
+    out << "Stage: memory" << endl;
     
     const MemoryWritebackLatch* latch = &m_mwLatch;
     for (size_t i = 0; i <= m_dummyLatches.size(); ++i)
@@ -444,14 +436,14 @@ void Processor::Pipeline::Cmd_Read(std::ostream& out, const std::vector<std::str
         
         if (i < m_dummyLatches.size())
         {
-            out << "Dummy Stage" << endl
+            out << "Stage: extra" << endl
                 << " |" << endl;
             latch = &m_dummyLatches[i];
         }
     }
     
     // Writeback stage
-    out << "Writeback stage" << endl;
+    out << "Stage: writeback" << endl;
 }
 
 }
