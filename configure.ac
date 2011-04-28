@@ -20,11 +20,11 @@ AM_SILENT_RULES([yes])
 
 AC_PROG_CXX
 
-AM_CPPFLAGS="$AM_CPPFLAGS -I\$(top_srcdir)"
+WARN_CXXFLAGS=
 if test "x$GCC" = xyes; then
-  AM_CPPFLAGS="$AM_CPPFLAGS -W -Wall -Wwrite-strings -Wno-unused"
+  WARN_CXXFLAGS="-W -Wall -Wwrite-strings -Wno-unused"
 fi
-AC_SUBST([AM_CPPFLAGS])
+AC_SUBST([WARN_CXXFLAGS])
 
 AC_CHECK_PROGS([HELP2MAN], [help2man], [$am_aux_dir/missing help2man])
 

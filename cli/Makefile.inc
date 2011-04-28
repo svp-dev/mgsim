@@ -16,5 +16,5 @@ CLI_SOURCES = \
 	cli/simreadline.cpp \
 	cli/main.cpp
 
-CLI_EXTRA_CPPFLAGS = -I$(srcdir)/cli -DMGSIM_CONFIG_PATH=\"$(pkgdatadir)/config.ini\"
+CLI_EXTRA_CPPFLAGS = -I$(srcdir)/cli
 
