@@ -468,10 +468,10 @@ void ZLCOMA::RootDirectory::Cmd_Info(std::ostream& out, const std::vector<std::s
     "system via a ring network. It acts as memory controller for a DDR channel which\n"
     "serves as the backing store.\n\n"
     "Supported operations:\n"
-    "- read <component>\n"
+    "- inspect <component>\n"
     "  Reads and displays the directory lines, and global information such as hit-rate\n"
     "  and directory configuration.\n"
-    "- read <component> buffers\n"
+    "- inspect <component> buffers\n"
     "  Reads and displays the buffers in the directory\n";
 }
 

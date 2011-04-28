@@ -146,7 +146,7 @@ void Processor::FamilyTable::Cmd_Info(ostream& out, const vector<string>& /* arg
     "information. It contains information about the family's state, threads and \n"
     "much more.\n\n"
     "Supported operations:\n"
-    "- read <component> [range]\n"
+    "- inspect <component> [range]\n"
     "  Reads and displays the used family table entries. Note that not all\n"
     "  information is displayed; only the most important data.\n"
     "  An optional range argument can be given to only read those families. The\n"

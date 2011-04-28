@@ -290,10 +290,10 @@ void ZLCOMA::Directory::Cmd_Info(std::ostream& out, const std::vector<std::strin
     "The Directory in a COMA system is connected via other nodes in the COMA\n"
     "system via a ring network.\n\n"
     "Supported operations:\n"
-    "- read <component>\n"
+    "- inspect <component>\n"
     "  Reads and displays the directory lines, and global information such as hit-rate\n"
     "  and directory configuration.\n"
-    "- read <component> buffers\n"
+    "- inspect <component> buffers\n"
     "  Reads and displays the buffers in the directory\n";
 }
 

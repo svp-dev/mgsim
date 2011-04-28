@@ -294,6 +294,28 @@ static string GetClassName(const type_info& info)
     }
 }
 
+static
+void GetComponents(map<string, Object*>& ret, Object *cur, const std::string& pat)
+{
+    for (unsigned int i = 0; i < cur->GetNumChildren(); ++i)
+    {
+        Object* child = cur->GetChild(i);
+        string childname = child->GetFQN();
+        if (FNM_NOMATCH != fnmatch(pat.c_str(), childname.c_str(), 0))
+        {
+            ret[childname] = child;
+        }
+        GetComponents(ret, child, pat);
+    }
+}
+
+map<string, Object*> MGSystem::GetComponents(const std::string& pat)
+{
+    map<string, Object*> ret;
+    ::GetComponents(ret, &m_root, pat);
+    return ret;
+}
+
 // Print all components that are a child of root
 static void PrintComponents(std::ostream& out, const Object* cur, const string& indent, const string& pat, size_t levels, size_t cur_level, bool cur_printing)
 {
@@ -325,7 +347,7 @@ static void PrintComponents(std::ostream& out, const Object* cur, const string& 
             }
             else
             {
-                out << "          ";
+                out << "        ";
             }
 
             out << " "
@@ -622,33 +644,6 @@ void MGSystem::PrintAllStatistics(std::ostream& os) const
     PrintMemoryStatistics(os);
 }
 
-// Find a component in the system given its path
-// Returns NULL when the component is not found
-Object* MGSystem::GetComponent(const string& path)
-{
-    // Split path into components
-    vector<string> names = Tokenize(path, ".");
-    Object* cur = &m_root;
-    for (vector<string>::iterator p = names.begin(); cur != NULL && p != names.end(); ++p)
-    {
-        Object* next = NULL;
-        transform(p->begin(), p->end(), p->begin(), ::toupper);
-        for (unsigned int i = 0; i < cur->GetNumChildren(); ++i)
-        {
-            Object* child = cur->GetChild(i);
-            string name   = child->GetName();
-            transform(name.begin(), name.end(), name.begin(), ::toupper);
-            if (name == *p)
-            {
-                next = child;
-                break;
-            }
-        }
-        cur = next;
-    }
-    return cur;
-}
-
 // Steps the entire system this many cycles
 void MGSystem::Step(CycleNo nCycles)
 {
@@ -733,16 +728,6 @@ void MGSystem::Step(CycleNo nCycles)
             // The simulation was aborted, because the user interrupted it.
             throw runtime_error("Interrupted!");
     }
-}
-
-string MGSystem::GetSymbol(MemAddr addr) const
-{
-    return m_symtable[addr];
-}
-
-void MGSystem::PrintAllSymbols(ostream& o, const string& pat) const
-{
-    m_symtable.Write(o, pat);
 }
 
 void MGSystem::Disassemble(MemAddr addr, size_t sz) const

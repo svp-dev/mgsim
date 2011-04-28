@@ -31,10 +31,10 @@ void RandomBankedMemory::Cmd_Info(std::ostream& out, const std::vector<std::stri
     "Supported operations:\n"
     "- info <component>\n"
     "  Displays the currently reserved and allocated memory ranges\n\n"
-    "- read <component> <start> <size>\n"
+    "- inspect <component> <start> <size>\n"
     "  Reads the specified number of bytes of raw data from memory from the\n"
     "  specified address\n\n"
-    "- read <component> requests\n"
+    "- inspect <component> requests\n"
     "  Reads the banks' requests buffers and queues\n";
 }
 

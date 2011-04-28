@@ -1701,7 +1701,7 @@ void Processor::Allocator::Cmd_Info(ostream& out, const vector<string>& /* argum
     "The Allocator is where most of the thread and family management takes place.\n"
     "\n"
     "Supported operations:\n"
-    "- read <component> [range]\n"
+    "- inspect <component> [range]\n"
     "  Reads and displays the various queues and registers in the Allocator.\n";
 }
 

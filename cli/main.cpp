@@ -248,15 +248,13 @@ int main(int argc, char** argv)
             // Command loop
             cout << endl;
             CommandLineReader clr(display);
-
-            for (bool quit = false; !quit; )
-            {
+            cli_context ctx = { clr, sys
 #ifdef ENABLE_MONITOR
-                HandleCommandLine(clr, sys, mo, quit);
-#else
-                HandleCommandLine(clr, sys, quit);
+                                , mo };
 #endif
-            }
+            
+            while (HandleCommandLine(ctx) == false)
+                /* just loop */;
         }
     }
     catch (const exception& e)

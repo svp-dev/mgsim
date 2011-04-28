@@ -756,7 +756,7 @@ void Processor::Network::Cmd_Info(ostream& out, const vector<string>& /* argumen
     "connects each processor to the delegation network.\n"
     "For communication within the group it uses a ring network exclusively.\n\n"
     "Supported operations:\n"
-    "- read <component>\n"
+    "- inspect <component>\n"
     "  Reads and displays the various registers and buffers from the component.\n";
 }
 

@@ -181,7 +181,7 @@ void Processor::ThreadTable::Cmd_Info(ostream& out, const vector<string>& /* arg
     "information. It contains information about the thread's state, execution\n"
     "context, dependencies and much more.\n\n"
     "Supported operations:\n"
-    "- read <component> [range]\n"
+    "- inspect <component> [range]\n"
     "  Reads and displays the used thread table entries. Note that not all\n"
     "  information is displayed; only the most important data.\n"
     "  An optional range argument can be given to only read those threads. The\n"

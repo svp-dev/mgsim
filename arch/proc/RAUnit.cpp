@@ -235,7 +235,7 @@ void Processor::RAUnit::Cmd_Info(ostream& out, const std::vector<std::string>& /
         "This component is used during family creation to allocate a block of\n"
         "registers for the new family.\n\n"
         "Supported operations:\n"
-        "- read <component>\n"
+        "- inspect <component>\n"
         "  Reads the administration from the register allocation unit. Use this to\n"
         "  quickly see which registers are allocated to which family.\n";
 }

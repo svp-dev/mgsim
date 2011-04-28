@@ -602,7 +602,7 @@ void Processor::DCache::Cmd_Info(std::ostream& out, const std::vector<std::strin
     "for faster access. Compared to a traditional cache, this D-Cache is extended\n"
     "with several fields to support the multiple threads and asynchronous operation.\n\n"
     "Supported operations:\n"
-    "- read <component>\n"
+    "- inspect <component>\n"
     "  Reads and displays the cache-lines, and global information such as hit-rate\n"
     "  and cache configuration.\n";
 }

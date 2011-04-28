@@ -191,7 +191,7 @@ void Processor::RegisterFile::Cmd_Info(std::ostream& out, const std::vector<std:
     "The Register File stores the register for all threads running on a processor.\n"
     "Each register consists of data and state bits.\n\n"
     "Supported operations:\n"
-    "- read <component> [type] [range]\n"
+    "- inspect <component> [type] [range]\n"
     "  Reads and displays the used registers. The optional type argument can be\n"
     "  used to select between the integer (\"int\") and floating-point (\"float\")\n"
     "  Register Files.\n"

@@ -336,7 +336,7 @@ void FPU::Cmd_Info(std::ostream& out, const std::vector<std::string>& /*argument
     "can be shared among multiple processors. Results are written back asynchronously\n"
     "to the original processor's register file.\n\n"
     "Supported operations:\n"
-    "- read <component>\n"
+    "- inspect <component>\n"
     "  Reads and displays the FPU's queues and pipelines.\n";
 }
 

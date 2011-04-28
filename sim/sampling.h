@@ -41,7 +41,7 @@ void RegisterSampleVariable(T& var, const std::string& name, SampleVariableCateg
     RegisterSampleVariable(var, GetFQN() + '.' + name, cat, ##__VA_ARGS__)
 
 void ListSampleVariables(std::ostream& os, const std::string &pat = "*");
-void ShowSampleVariables(std::ostream& os, const std::string &pat = "*");
+void ReadSampleVariables(std::ostream& os, const std::string &pat = "*");
 
 class BinarySampler
 {

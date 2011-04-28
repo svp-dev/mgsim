@@ -301,10 +301,10 @@ void ParallelMemory::Cmd_Info(ostream& out, const vector<string>& /*arguments*/)
     "Supported operations:\n"
     "- info <component>\n"
     "  Displays the currently reserved and allocated memory ranges\n\n"
-    "- read <component> <start> <size>\n"
+    "- inspect <component> <start> <size>\n"
     "  Reads the specified number of bytes of raw data from memory from the\n"
     "  specified address\n\n"
-    "- read <component> requests\n"
+    "- inspect <component> requests\n"
     "  Reads the ports' requests buffers\n";
 }
 

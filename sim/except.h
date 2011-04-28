@@ -107,6 +107,9 @@ Except exceptf(const Object& obj, const char* fmt, ...)
     return Except(obj, std::string(buf));
 }
 
+void PrintException(std::ostream& out, const std::exception& e);
+
+
 
 }
 #endif

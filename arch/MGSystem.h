@@ -72,11 +72,13 @@ namespace Simulator {
         uint64_t GetOp() const;
         uint64_t GetFlop() const;
 
-        std::string GetSymbol(MemAddr addr) const;
-
         void Disassemble(MemAddr addr, size_t sz = 64) const;
+
+        typedef std::map<std::string, Object*> object_map_t;
+        object_map_t GetComponents(const std::string& pat = "*");
+
         void PrintComponents(std::ostream& os, const std::string& pat = "*", size_t levels = 0) const;
-        void PrintAllSymbols(std::ostream& os, const std::string& pat = "*") const;
+
         void PrintMemoryStatistics(std::ostream& os) const;
         void PrintState(const std::vector<std::string>& arguments) const;
         void PrintRegFileAsyncPortActivity(std::ostream& os) const;
@@ -88,9 +90,7 @@ namespace Simulator {
         const Kernel& GetKernel() const { return m_kernel; }
         Kernel& GetKernel()       { return m_kernel; }
 
-        // Find a component in the system given its path
-        // Returns NULL when the component is not found
-        Object* GetComponent(const std::string& path);
+        const SymbolTable& GetSymTable() const { return m_symtable; }
 
         // Steps the entire system this many cycles
         void Step(CycleNo nCycles);

@@ -470,7 +470,7 @@ void Processor::ICache::Cmd_Info(std::ostream& out, const std::vector<std::strin
     "active threads for faster access. Compared to a traditional cache, this I-Cache\n"
     "is extended with several fields to support the multiple threads.\n\n"
     "Supported operations:\n"
-    "- read <component>\n"
+    "- inspect <component>\n"
     "  Reads and displays the cache-lines, and global information such as hit-rate\n"
     "  and cache configuration.\n";
 }

@@ -107,7 +107,7 @@ void ListSampleVariables(std::ostream& os, const std::string& pat)
     }
 }
 
-void ShowSampleVariables(std::ostream& os, const std::string& pat)
+void ReadSampleVariables(std::ostream& os, const std::string& pat)
 {
     for (var_registry_t::const_iterator i = registry.begin();
          i != registry.end();

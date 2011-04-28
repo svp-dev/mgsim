@@ -1203,10 +1203,10 @@ void ZLCOMA::Cache::Cmd_Info(std::ostream& out, const std::vector<std::string>& 
     "The L2 Cache in a COMA system is connected to the processors with a bus and to\n"
     "the rest of the COMA system via a ring network.\n\n"
     "Supported operations:\n"
-    "- read <component>\n"
+    "- inspect <component>\n"
     "  Reads and displays the cache-lines, and global information such as hit-rate\n"
     "  and cache configuration.\n"
-    "- read <component> buffers\n"
+    "- inspect <component> buffers\n"
     "  Reads and displays the buffers in the cache\n";
 }
 

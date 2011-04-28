@@ -250,7 +250,7 @@ void Processor::Pipeline::Cmd_Info(std::ostream& out, const std::vector<std::str
     "dispatches asynchronous operations such as memory loads or FPU operations and\n"
     "finally writes back the result.\n\n"
     "Supported operations:\n"
-    "- read <component>\n"
+    "- inspect <component>\n"
     "  Reads and displays the stages and latches.\n";
 }
 
