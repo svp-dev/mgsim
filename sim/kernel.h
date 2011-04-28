@@ -24,7 +24,6 @@ class Kernel;
 class Arbitrator;
 class Storage;
 class IRegister;
-class Display;
 class Process;
 
 /// Cycle Number
@@ -189,7 +188,6 @@ private:
     bool                m_aborted;      ///< Should the run be aborted?
     int	                m_debugMode;    ///< Bit mask of enabled debugging modes.
     CycleNo             m_cycle;        ///< Current cycle of the simulation.
-    Display&            m_display;      ///< The display to manage.
     SymbolTable&        m_symtable;     ///< The symbol table for debugging.
     BreakPoints&        m_breakpoints;  ///< The breakpoint checker for debugging.
     CyclePhase          m_phase;        ///< Current sub-cycle phase of the simulation.
@@ -202,7 +200,7 @@ private:
     bool UpdateStorages();
     
 public:
-    Kernel(Display& display, SymbolTable& symtable, BreakPoints& breakpoints);
+    Kernel(SymbolTable& symtable, BreakPoints& breakpoints);
     ~Kernel();
 
     void ActivateClock(Clock& clock);
@@ -282,7 +280,6 @@ public:
      */
 	//const ComponentList& GetComponents() const { return m_components; }
 
-    inline Display& GetDisplay() const { return m_display; }
     inline SymbolTable& GetSymbolTable() const { return m_symtable; }
     inline BreakPoints& GetBreakPoints() const { return m_breakpoints; }
 };

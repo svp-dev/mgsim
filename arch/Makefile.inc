@@ -16,7 +16,9 @@ DEVICE_SRC = \
 	arch/dev/RTC.h \
 	arch/dev/RTC.cpp \
 	arch/dev/lcd.cpp \
-	arch/dev/lcd.h 
+	arch/dev/lcd.h \
+        arch/dev/Display.h \
+        arch/dev/Display.cpp
 
 PROCESSOR_SRC = \
 	arch/proc/Allocator.cpp \

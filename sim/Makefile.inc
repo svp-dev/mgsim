@@ -4,8 +4,6 @@ SIM_SOURCES = \
 	sim/config.cpp \
 	sim/config.h \
 	sim/delegate.h \
-	sim/display.h \
-	sim/display.cpp \
 	sim/except.h \
 	sim/except.cpp \
 	sim/inspect.h \

@@ -1,7 +1,6 @@
 #include "Processor.h"
 #include "symtable.h"
 #include "sim/sampling.h"
-#include "sim/display.h"
 
 #include <cassert>
 #include <cmath>
@@ -334,100 +333,6 @@ void Processor::Pipeline::ExecuteStage::ExecDebugOutput(Integer value, int comma
     }
 }
 
-void Processor::Pipeline::ExecuteStage::ExecOutputGraphics(Integer value, int command, int flags) const
-{
-    // command
-    //  00 -> putpixel
-    //  01 -> resize
-    //  10 -> snapshot
-    //std::cerr << "GFX: command " << command << " flags " << std::hex << flags << " value " << value << std::dec << std::endl;
-    switch (command)
-    {
-    case 0:
-    {
-        // put pixel
-        // flags: M - - - -
-        // M = mode
-        //  0 -> pixel at (x,y)
-        //  1 -> pixel at offset
-        // value: position(16) X(4) R(4) G(4) B(4) || position(32) X(8) R(8) G(8) B(8)
-        const unsigned int  size     = sizeof value * 8;
-        const unsigned int  bits     = std::min(8U, size / 8);
-        const unsigned long position = value >> (size / 2);
-        const uint32_t data = (((value >> (0 * size / 8)) << ( 8 - bits)) & 0x0000ff) |
-            (((value >> (1 * size / 8)) << (16 - bits)) & 0x00ff00) |
-            (((value >> (2 * size / 8)) << (24 - bits)) & 0xff0000);
-        if (flags & 0x10) {
-            // position: offset(16) || offset(32)
-            GetKernel()->GetDisplay().PutPixel(position, data);
-            // std::cerr << "GFX ppfb: pos " << position << " data " << std::hex << data << std::dec << std::endl;
-        } else {
-            // position: x(8) y(8) || x(16) y(16)
-            const unsigned int m = (1U << (size / 4)) - 1;
-            const unsigned int y = (position >> (0 * size / 4)) & m;
-            const unsigned int x = (position >> (1 * size / 4)) & m;
-            GetKernel()->GetDisplay().PutPixel(x, y, data);
-            // std::cerr << "GFX ppxy: x " << x << " y " << y << " data " << std::hex << data << std::dec << std::endl;
-        }
-        break;
-    }
-            
-    case 1:
-    {
-        // resize screen
-        // value:  W(8) H(8) unused(16)  ||  W(16) H(16) unused(32)
-        const size_t       size = sizeof value * 8;
-        const unsigned int mask = (1U << (size / 4)) - 1;
-        const unsigned int w    = (value >> (3 * size / 4)) & mask;
-        const unsigned int h    = (value >> (2 * size / 4)) & mask;
-        GetKernel()->GetDisplay().Resize(w, h);
-        break;
-    }
-        
-    case 2:
-    {
-        // take screenshot
-        // flags: T C - S S
-        // T = embed timestamp in filename
-        // C = embed thread information in picture comment
-        // S = output stream
-        //  0 -> file
-        //  1 -> standard output
-        //  2 -> standard error
-        //  3 -> (undefined)
-        // value: file identification key
-        ostringstream tinfo;
-        if (flags & 0x8)
-        {
-            tinfo << "print by thread 0x" 
-                  << std::hex << (unsigned)m_input.tid 
-                  << " at " << GetKernel()->GetSymbolTable()[m_input.pc]
-                  << " on cycle " << std::dec << GetKernel()->GetCycleNo();
-        }
-            
-        int outstream = flags & 3;
-        if (outstream == 0)
-        {
-            ostringstream fname;
-            fname << "gfx." << value;
-            if (flags & 0x10)
-            {
-                fname << '.' << GetKernel()->GetCycleNo();
-            }
-            fname << ".ppm";
-            ofstream f(fname.str().c_str(), ios_base::out | ios_base::trunc);
-            GetKernel()->GetDisplay().Dump(f, value, tinfo.str());
-        }
-        else
-        {
-            ostream& out = (outstream == 2) ? cerr : cout;
-            GetKernel()->GetDisplay().Dump(out, value, tinfo.str());
-        }
-        break;
-    }
-    }
-
-}
 
 void Processor::Pipeline::ExecuteStage::ExecStatusAction(Integer value, int command, int flags) const
 {
@@ -507,26 +412,6 @@ void Processor::Pipeline::ExecuteStage::ExecMemoryControl(Integer value, int com
 
 void Processor::Pipeline::ExecuteStage::ExecDebug(Integer value, Integer stream) const
 {
-    // pattern: x x 1 x x - x x = graphics output
-
-    // pattern: 0 0 1 - - - - - =   gfx: putpixel
-    // pattern: 0 0 1 0 - - - - =     pixel at (x,y)
-    // pattern: 0 0 1 1 - - - - =     pixel at offset
-
-    // pattern: 0 1 1 - - - - - =   gfx: resize
-
-    // pattern: 1 0 1 - - - - - =   gfx: screenshot
-    // pattern: 1 0 1 0 - - - - =     without timestamp
-    // pattern: 1 0 1 1 - - - - =     with timestamp
-    // pattern: 1 0 1 - 0 - - - =     without thread info
-    // pattern: 1 0 1 - 1 - - - =     with thread info
-    // pattern: 1 0 1 - - - 0 0 =     output to file
-    // pattern: 1 0 1 - - - 0 1 =     output to stdout
-    // pattern: 1 0 1 - - - 1 0 =     output to stderr
-    // pattern: 1 0 1 - - - 0 0 =     screenshot output: (unused)
-
-    // pattern: 1 1 1 - - - - - =   gfx: (unused)
-
     // pattern: x x 0 1 x x x x = status and action
     // pattern: 0 0 0 1 - - - - =   status and continue
     // pattern: 0 1 0 1 - - - - =   status and fail
@@ -554,9 +439,7 @@ void Processor::Pipeline::ExecuteStage::ExecDebug(Integer value, Integer stream)
     // std::cerr << "CTL: stream " << std::hex << stream << " value " << value << std::dec << std::endl;
 
     int command = (stream >> 6) & 0x3;
-    if (stream & 0x20)
-        ExecOutputGraphics(value, command, stream & 0x1B);
-    else if ((stream & 0x30) == 0x10)
+    if ((stream & 0x30) == 0x10)
         ExecStatusAction(value, command, stream & 0xF);
     else if ((stream & 0x38) == 0x8)
         ExecMemoryControl(value, command, stream & 0x7);

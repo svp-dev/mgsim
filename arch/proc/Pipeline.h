@@ -320,7 +320,6 @@ class Pipeline : public Object, public Inspect::Interface<Inspect::Read>
         void       ExecDebug(double value, Integer stream) const;
         PipeAction OnCycle();
         
-        void       ExecOutputGraphics(Integer value, int command, int flags) const;
         void       ExecStatusAction(Integer value, int command, int flags) const;
         void       ExecMemoryControl(Integer value, int command, int flags) const;
         void       ExecDebugOutput(Integer value, int command, int flags) const;

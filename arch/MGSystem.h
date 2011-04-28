@@ -96,7 +96,7 @@ namespace Simulator {
         void Step(CycleNo nCycles);
         void Abort() { GetKernel().Abort(); }
     
-        MGSystem(const Config& config, Display& display, const std::string& program,
+        MGSystem(const Config& config, const std::string& program,
                  const std::string& symtable,
                  const std::vector<std::pair<RegAddr, RegValue> >& regs,
                  const std::vector<std::pair<RegAddr, std::string> >& loads,

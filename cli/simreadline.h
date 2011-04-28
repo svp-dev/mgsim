@@ -41,17 +41,15 @@ extern "C" {
 #endif /* HAVE_LIBREADLINE */
 
 
-#include "sim/display.h"
 #include <string>
 #include <vector>
 
 class CommandLineReader {
     std::string   m_histfilename;
-    static Simulator::Display* m_display;
 
     static int ReadLineHook(void);
 public:
-    CommandLineReader(Simulator::Display& d);
+    CommandLineReader();
     ~CommandLineReader();
 
     char* GetCommandLine(const std::string& prompt);

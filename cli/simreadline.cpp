@@ -1,4 +1,5 @@
 #include "simreadline.h"
+#include "arch/dev/Display.h"
 #include <sys/time.h>
 #include <sstream>
 #include <string>
@@ -14,8 +15,8 @@ using namespace Simulator;
 using namespace std;
 
 int CommandLineReader::ReadLineHook(void) {
-#ifdef CHECK_DISPLAY_EVENTS
-    if (!m_display) 
+    Display *display = Display::GetDisplay();
+    if (!display) 
         return 0;
 
     // readline is annoying: the documentation says the event
@@ -32,15 +33,13 @@ int CommandLineReader::ReadLineHook(void) {
     long current = tv.tv_sec * 10 + tv.tv_usec / 100000;
     if (current - last_check)
     {
-        m_display->CheckEvents();
+        display->CheckEvents();
         last_check = current;
     }
-#endif
     return 0;
 }
 
-CommandLineReader::CommandLineReader(Display& d)  {
-    m_display = &d;
+CommandLineReader::CommandLineReader()  {
 #ifdef HAVE_LIBREADLINE
     rl_event_hook = &ReadLineHook;
 # ifdef HAVE_READLINE_HISTORY
@@ -56,7 +55,6 @@ CommandLineReader::~CommandLineReader() {
 #ifdef HAVE_LIBREADLINE
     rl_event_hook = 0;
 #endif
-    m_display = 0;
     CheckPointHistory();
 }
 
@@ -93,8 +91,6 @@ void CommandLineReader::CheckPointHistory() {
 #endif
 }
 
-
-Display* CommandLineReader::m_display = 0;
 
 vector<string> Tokenize(const string& str, const string& sep)
 {
