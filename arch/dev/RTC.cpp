@@ -249,7 +249,7 @@ namespace Simulator
         }
         if (word > 9)
         {
-            throw exceptf<SimulationException>(*this, "Read from invalid RTC address: %u", word);
+            throw exceptf<SimulationException>(*this, "Read from invalid RTC word: %u", word);
         }
 
         RTC& rtc = GetRTC();
