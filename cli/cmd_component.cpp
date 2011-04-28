@@ -27,5 +27,6 @@ bool cmd_inspect(const vector<string>& command, vector<string>& args, cli_contex
     if (args.empty())
         ReadSampleVariables(cout, pat);
     DoObjectCommand<Inspect::Read>(cout, ctx.sys, pat, args);    
+    return false;
 }
 
