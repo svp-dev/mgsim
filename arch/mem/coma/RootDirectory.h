@@ -67,7 +67,7 @@ private:
     uint64_t          m_nwrites;
     
 public:
-    RootDirectory(const std::string& name, COMA& parent, Clock& clock, VirtualMemory& memory, size_t numCaches, size_t id, size_t numRoots, const Config& config);
+    RootDirectory(const std::string& name, COMA& parent, Clock& clock, VirtualMemory& memory, size_t numCaches, size_t id, size_t numRoots, Config& config);
     ~RootDirectory();
     
     // Administrative

@@ -58,7 +58,7 @@ private:
     uint64_t                    m_nreads, m_nwrites, m_nread_bytes, m_nwrite_bytes;
     
 public:
-    ZLCOMA(const std::string& name, Simulator::Object& parent, Clock& clock, const Config& config);
+    ZLCOMA(const std::string& name, Simulator::Object& parent, Clock& clock, Config& config);
     ~ZLCOMA();
 
     const TraceMap& GetTraces() const { return m_traces; }

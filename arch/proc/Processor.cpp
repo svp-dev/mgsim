@@ -20,7 +20,7 @@ static bool IsPowerOfTwo(const T& x)
 //
 // Processor implementation
 //
-Processor::Processor(const std::string& name, Object& parent, Clock& clock, PID pid, const vector<Processor*>& grid, IMemory& memory, FPU& fpu, IIOBus *iobus, const Config& config)
+Processor::Processor(const std::string& name, Object& parent, Clock& clock, PID pid, const vector<Processor*>& grid, IMemory& memory, FPU& fpu, IIOBus *iobus, Config& config)
 :   Object(name, parent, clock),
     m_pid(pid), m_memory(memory), m_grid(grid), m_fpu(fpu),
     m_allocator   ("alloc",         *this, clock, m_familyTable, m_threadTable, m_registerFile, m_raunit, m_icache, m_network, m_pipeline, config),

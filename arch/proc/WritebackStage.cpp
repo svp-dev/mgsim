@@ -254,7 +254,7 @@ Processor::Pipeline::PipeAction Processor::Pipeline::WritebackStage::OnCycle()
         : PIPE_DELAY;       // We still have data to write back next cycle
 }
 
-Processor::Pipeline::WritebackStage::WritebackStage(Pipeline& parent, Clock& clock, const MemoryWritebackLatch& input, RegisterFile& regFile, Allocator& alloc, ThreadTable& threadTable, Network& network, const Config& /*config*/)
+Processor::Pipeline::WritebackStage::WritebackStage(Pipeline& parent, Clock& clock, const MemoryWritebackLatch& input, RegisterFile& regFile, Allocator& alloc, ThreadTable& threadTable, Network& network, Config& /*config*/)
   : Stage("writeback", parent, clock),
     m_input(input),
     m_stall(false),

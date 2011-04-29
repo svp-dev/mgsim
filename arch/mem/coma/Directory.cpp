@@ -15,13 +15,13 @@ namespace Simulator
 static const size_t MINSPACE_SHORTCUT = 2;
 static const size_t MINSPACE_FORWARD  = 1;
 
-COMA::DirectoryTop::DirectoryTop(const std::string& name, COMA& parent, Clock& clock, const Config& config)
+COMA::DirectoryTop::DirectoryTop(const std::string& name, COMA& parent, Clock& clock, Config& config)
     : Simulator::Object(name, parent),
     Node(name, parent, clock, config)
 {
 }
 
-COMA::DirectoryBottom::DirectoryBottom(const std::string& name, COMA& parent, Clock& clock, const Config& config)
+COMA::DirectoryBottom::DirectoryBottom(const std::string& name, COMA& parent, Clock& clock, Config& config)
     : Simulator::Object(name, parent),
     Node(name, parent, clock, config)
 {
@@ -251,7 +251,7 @@ Result COMA::Directory::DoInTop()
     return SUCCESS;
 }
 
-COMA::Directory::Directory(const std::string& name, COMA& parent, Clock& clock, CacheID firstCache, CacheID lastCache, const Config& config) :
+COMA::Directory::Directory(const std::string& name, COMA& parent, Clock& clock, CacheID firstCache, CacheID lastCache, Config& config) :
     Simulator::Object(name, parent),
     COMA::Object(name, parent),
     m_bottom(name + ".bottom", parent, clock, config),

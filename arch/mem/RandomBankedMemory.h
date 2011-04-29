@@ -12,7 +12,7 @@ class RandomBankedMemory : public BankedMemory
     size_t GetBankFromAddress(MemAddr address) const;
         
 public:
-    RandomBankedMemory(const std::string& name, Object& parent, Clock& clock, const Config& config);
+    RandomBankedMemory(const std::string& name, Object& parent, Clock& clock, Config& config);
     
     void Cmd_Info(std::ostream& out, const std::vector<std::string>& arguments) const;
 };

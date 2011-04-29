@@ -192,7 +192,7 @@ Result COMA::DDRChannel::DoPipeline()
     return SUCCESS;
 }
 
-COMA::DDRChannel::DDRConfig::DDRConfig(const Clock& clock, const Config& config)
+COMA::DDRChannel::DDRConfig::DDRConfig(const Clock& clock, Config& config)
 {
     // DDR 3
     m_nBurstLength = config.getValue<size_t> ("DDR_BurstLength", 8);
@@ -231,7 +231,7 @@ COMA::DDRChannel::DDRConfig::DDRConfig(const Clock& clock, const Config& config)
     m_nRankStart = m_nRowStart + m_nRowBits;
 }
 
-COMA::DDRChannel::DDRChannel(const std::string& name, Object& parent, Clock& clock, VirtualMemory& memory, const Config& config)
+COMA::DDRChannel::DDRChannel(const std::string& name, Object& parent, Clock& clock, VirtualMemory& memory, Config& config)
     : Object(name, parent, clock),
       m_clock(clock),
       m_ddrconfig(clock, config),

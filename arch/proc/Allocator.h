@@ -56,7 +56,7 @@ public:
 
     Allocator(const std::string& name, Processor& parent, Clock& clock,
         FamilyTable& familyTable, ThreadTable& threadTable, RegisterFile& registerFile, RAUnit& raunit, ICache& icache, Network& network, Pipeline& pipeline,
-        const Config& config);
+        Config& config);
 
     // Allocates the initial family consisting of a single thread on the first CPU.
     // Typically called before tha actual simulation starts.

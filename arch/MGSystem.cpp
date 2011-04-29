@@ -741,7 +741,7 @@ void MGSystem::Disassemble(MemAddr addr, size_t sz) const
     system(cmd.str().c_str());
 }
 
-MGSystem::MGSystem(const Config& config, const string& program,
+MGSystem::MGSystem(Config& config, const string& program,
                    const string& symtable,
                    const vector<pair<RegAddr, RegValue> >& regs,
                    const vector<pair<RegAddr, string> >& loads,

@@ -17,7 +17,7 @@ static bool IsPowerOfTwo(const T& x)
     return (x & (x - 1)) == 0;
 }
 
-Processor::DCache::DCache(const std::string& name, Processor& parent, Clock& clock, Allocator& alloc, FamilyTable& familyTable, RegisterFile& regFile, const Config& config)
+Processor::DCache::DCache(const std::string& name, Processor& parent, Clock& clock, Allocator& alloc, FamilyTable& familyTable, RegisterFile& regFile, Config& config)
 :   Object(name, parent, clock), m_parent(parent),
     m_allocator(alloc), m_familyTable(familyTable), m_regFile(regFile),
 

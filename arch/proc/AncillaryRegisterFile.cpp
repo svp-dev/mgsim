@@ -59,7 +59,7 @@ namespace Simulator
     }
 
 
-    Processor::AncillaryRegisterFile::AncillaryRegisterFile(const std::string& name, Processor& parent, Clock& clock, const Config& config)
+    Processor::AncillaryRegisterFile::AncillaryRegisterFile(const std::string& name, Processor& parent, Clock& clock, Config& config)
         : AncillaryRegisterInterface(name, parent, clock),
           m_numRegisters(config.getValue<size_t>("NumAncillaryRegisters", 8))
     {

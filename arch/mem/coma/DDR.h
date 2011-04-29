@@ -122,7 +122,7 @@ private:
     
     unsigned int m_nBurstSize;
 
-    DDRConfig(const Clock& clock, const Config&);
+    DDRConfig(const Clock& clock, Config&);
     };
 
     // Runtime parameters
@@ -148,7 +148,7 @@ public:
     bool Read(MemAddr address, MemSize size);
     bool Write(MemAddr address, const void* data, MemSize size);
     
-    DDRChannel(const std::string& name, Object& parent, Clock& clock, VirtualMemory& memory, const Config& config);
+    DDRChannel(const std::string& name, Object& parent, Clock& clock, VirtualMemory& memory, Config& config);
     ~DDRChannel();
 };
 

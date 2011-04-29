@@ -138,7 +138,7 @@ Processor::Pipeline::PipeAction Processor::Pipeline::DecodeStage::OnCycle()
     return PIPE_CONTINUE;
 }
 
-Processor::Pipeline::DecodeStage::DecodeStage(Pipeline& parent, Clock& clock, const FetchDecodeLatch& input, DecodeReadLatch& output, const Config& /*config*/)
+Processor::Pipeline::DecodeStage::DecodeStage(Pipeline& parent, Clock& clock, const FetchDecodeLatch& input, DecodeReadLatch& output, Config& /*config*/)
   : Stage("decode", parent, clock),
     m_input(input),
     m_output(output)

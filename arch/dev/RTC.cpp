@@ -43,7 +43,7 @@ namespace Simulator
         set_time();
     }
 
-    static void setup_clocks(const Config& config)
+    static void setup_clocks(Config& config)
     {
         static bool initialized = false;
         if (!initialized)
@@ -84,7 +84,7 @@ namespace Simulator
         m_doNotify.Sensitive(p_notifyTime);
     }
 
-    RTC::RTC(const string& name, Object& parent, Clock& rtcclock, Clock& busclock, IIOBus& iobus, IODeviceID devid, const Config& config)
+    RTC::RTC(const string& name, Object& parent, Clock& rtcclock, Clock& busclock, IIOBus& iobus, IODeviceID devid, Config& config)
         : Object(name, parent, rtcclock),
           m_timerTicked(false),
           m_timeOfLastInterrupt(0),

@@ -378,7 +378,7 @@ bool BankedMemory::CheckPermissions(MemAddr address, MemSize size, int access) c
     return VirtualMemory::CheckPermissions(address, size, access);
 }
 
-BankedMemory::BankedMemory(const std::string& name, Object& parent, Clock& clock, const Config& config) :
+BankedMemory::BankedMemory(const std::string& name, Object& parent, Clock& clock, Config& config) :
     Object(name, parent, clock),
     m_clock(clock),
     m_clients        (config.getValue<size_t>("NumProcessors", 1)),

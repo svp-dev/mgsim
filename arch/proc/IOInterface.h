@@ -19,7 +19,7 @@ public:
 
         IOInterface&  GetInterface() const;
     public:
-        AsyncIOInterface(const std::string& name, IOInterface& parent, Clock& clock, const Config& config);
+        AsyncIOInterface(const std::string& name, IOInterface& parent, Clock& clock, Config& config);
 
         size_t GetSize() const;
 
@@ -35,7 +35,7 @@ public:
         IOInterface&  GetInterface() const;
 
     public:
-        PICInterface(const std::string& name, IOInterface& parent, Clock& clock, const Config& config);
+        PICInterface(const std::string& name, IOInterface& parent, Clock& clock, Config& config);
 
         size_t GetSize() const;
 
@@ -65,7 +65,7 @@ private:
     bool WaitForNotification(IOInterruptID dev, const RegAddr& writeback);
 
 public:
-    IOInterface(const std::string& name, Object& parent, Clock& clock, RegisterFile& rf, IIOBus& iobus, IODeviceID devid, const Config& config);
+    IOInterface(const std::string& name, Object& parent, Clock& clock, RegisterFile& rf, IIOBus& iobus, IODeviceID devid, Config& config);
 
     MMIOComponent& GetAsyncIOInterface() { return m_async_io; }
     MMIOComponent& GetPICInterface() { return m_pic; }

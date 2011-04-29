@@ -7,28 +7,42 @@
 #include <string>
 #include <vector>
 #include <ostream>
+#include "kernel.h"
 
 class Config
 {
-    typedef std::map<std::string,std::string> ConfigMap;
+    // a sequence of (pattern, value) pairs 
+    typedef std::vector<std::pair<std::string,std::string> > ConfigMap;
     
-    ConfigMap        m_data;
-    const ConfigMap& m_overrides;
+    // a cache of (key, (value, origin pattern)) pairs
+    typedef std::map<std::string,std::pair<std::string,std::string> > ConfigCache;
+    
+    ConfigMap         m_data;
+    const ConfigMap&  m_overrides;
+    ConfigCache       m_cache;
 
 public:
-    
+
     template <typename T>
-    T getValue(const std::string& name, const T& def) const
+    T getValue(const std::string& name, const T& def) 
     {
         T val;
+        std::stringstream defv;
+        defv << def;
         std::stringstream stream;
-        stream << getValue<std::string>(name, "");
+        stream << getValue<std::string>(name, defv.str());
         stream >> val;
         return (!stream.fail() && stream.eof()) ? val : def;
     }
 
     template <typename T>
-    std::vector<T> getValueList(const std::string& name) const
+    T getValue(const Simulator::Object& obj, const std::string& name, const T& def)
+    {
+        return getValue(obj.GetFQN() + '.' + name, def);
+    }
+
+    template <typename T>
+    std::vector<T> getValueList(const std::string& name) 
     {
         std::vector<T> vals;
         std::string str = getValue<std::string>(name,"");
@@ -47,12 +61,20 @@ public:
     }
 
     template <typename T>
-    T getSize(const std::string& name, const T& def) const
+    std::vector<T> getValueList(const Simulator::Object& obj, const std::string& name)
+    {
+        return getValueList<T>(obj.GetFQN() + '.' + name);
+    }
+
+    template <typename T>
+    T getSize(const std::string& name, const T& def)
     {
         T val;
+        std::stringstream defv;
+        defv << def;
         std::string strmult;
         std::stringstream stream;
-        stream << getValue<std::string>(name, "");
+        stream << getValue<std::string>(name, defv.str());
         stream >> val;
         stream >> strmult;
         if (!strmult.empty())
@@ -77,15 +99,21 @@ public:
         return (!stream.fail() && stream.eof()) ? val : def;
     }
 
+    template <typename T>
+    T getSize(const Simulator::Object& obj, const std::string& name, const T& def)
+    {
+        return getValueSize(obj.GetFQN() + '.' + name, def);
+    }
+
     void dumpConfiguration(std::ostream& os, const std::string& cf) const;
 
     Config(const std::string& filename, const ConfigMap& overrides);
 };
 
 template <>
-bool Config::getValue<bool>(const std::string& name, const bool& def) const;
+bool Config::getValue<bool>(const std::string& name, const bool& def);
 
 template <>
-std::string Config::getValue<std::string>(const std::string& name, const std::string& def) const;
+std::string Config::getValue<std::string>(const std::string& name, const std::string& def);
 
 #endif

@@ -46,7 +46,7 @@ class ICache : public Object, public Inspect::Interface<Inspect::Read>
     size_t            m_assoc;
     
 public:
-    ICache(const std::string& name, Processor& parent, Clock& clock, Allocator& allocator, const Config& config);
+    ICache(const std::string& name, Processor& parent, Clock& clock, Allocator& allocator, Config& config);
     ~ICache();
     
     // Processes

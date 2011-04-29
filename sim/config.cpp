@@ -4,12 +4,13 @@
 #include <fstream>
 #include <iostream>
 #include <set>
+#include <fnmatch.h>
 
 using namespace std;
 using namespace Simulator;
 
 template <>
-bool Config::getValue<bool>(const std::string& name, const bool& def) const
+bool Config::getValue<bool>(const std::string& name, const bool& def)
 {
     string val = getValue<std::string>(name, def ? "true" : "false");
     transform(val.begin(), val.end(), val.begin(), ::toupper);
@@ -26,39 +27,75 @@ bool Config::getValue<bool>(const std::string& name, const bool& def) const
 }
 
 template <>
-std::string Config::getValue<std::string>(const std::string& name_, const std::string& def) const
+std::string Config::getValue<std::string>(const std::string& name_, const std::string& def)
 {
     std::string name(name_);
+    std::string val, pat;
     transform(name.begin(), name.end(), name.begin(), ::toupper);
-    ConfigMap::const_iterator p = m_overrides.find(name);
-    if (p != m_overrides.end())
+
+    ConfigCache::const_iterator p = m_cache.find(name);
+    if (p != m_cache.end())
+        return p->second.first;
+
+    bool found = false;
+    for (ConfigMap::const_iterator p = m_overrides.begin(); p != m_overrides.end(); ++p)
     {
-        // Return the overriden value
-        return p->second;
+        pat = p->first;
+        // std::cerr << "Lookup " << name << ": checking override " << pat << std::endl;
+        if (FNM_NOMATCH != fnmatch(pat.c_str(), name.c_str(), 0))
+        {
+            // Return the overriden value
+            val = p->second;
+            found = true;
+            break;
+        }
     }
     
-    p = m_data.find(name);
-    if (p != m_data.end())
+    if (!found)
     {
-        // Return the configuration value
-        return p->second;
+        for (ConfigMap::const_iterator p = m_data.begin(); p != m_data.end(); ++p)
+        {
+            pat = p->first;
+            //std::cerr << "Lookup " << name << ": checking config " << pat << std::endl;
+            if (FNM_NOMATCH != fnmatch(pat.c_str(), name.c_str(), 0))
+            {
+                // Return the configuration value
+                val = p->second;
+                found = true;
+                break;
+            }
+        }
     }
-    return def;
+    if (!found)
+    {
+        pat = "default";
+        val = def;
+        found = true;
+    }
+
+    if (found)
+    {
+        m_cache[name] = std::make_pair(val, pat);
+    }
+    return val;
 }
 
 void Config::dumpConfiguration(ostream& os, const string& cf) const
 {
     os << "### begin simulator configuration" << endl;
-    set<string> seen;
-    for (ConfigMap::const_iterator p = m_overrides.begin(); p != m_overrides.end(); ++p)
-    {
-        seen.insert(p->first);
-        os << "# -o " << p->first << "=" << p->second << endl;
-    }
-    os << "# (from " << cf << ')' << endl;
-    for (ConfigMap::const_iterator p = m_data.begin(); p != m_data.end(); ++p)
-        if (seen.find(p->first) == seen.end())
-            os << "# -o " << p->first << "=" << p->second << endl;
+    for (ConfigCache::const_iterator p = m_cache.begin(); p != m_cache.end(); ++p)
+        os << "# -o " << p->first << " = " << p->second.first << " # set by " << p->second.second << endl;
+
+    // set<string> seen;
+    // for (ConfigMap::const_iterator p = m_overrides.begin(); p != m_overrides.end(); ++p)
+    // {
+    //     seen.insert(p->first);
+    //     os << "# -o " << p->first << "=" << p->second << endl;
+    // }
+    // os << "# (from " << cf << ')' << endl;
+    // for (ConfigMap::const_iterator p = m_data.begin(); p != m_data.end(); ++p)
+    //     if (seen.find(p->first) == seen.end())
+    //         os << "# -o " << p->first << "=" << p->second << endl;
     os << "### end simulator configuration" << endl;
 }
 
@@ -98,7 +135,7 @@ Config::Config(const string& filename, const ConfigMap& overrides)
             {
                 state = STATE_COMMENT;
             }
-            else if (isalpha(c) || c == '_')
+            else if (isalpha(c) || c == '_' || c == '*' || c == '.')
             {
                 state = STATE_NAME;
                 name = (char)c;
@@ -113,7 +150,7 @@ Config::Config(const string& filename, const ConfigMap& overrides)
         }
         else if (state == STATE_NAME)
         {
-            if (isalnum(c) || c == '_') name += (char)c;
+            if (isalnum(c) || c == '_' || c == '*' || c == '.') name += (char)c;
             else 
             {
                 transform(name.begin(), name.end(), name.begin(), ::toupper);
@@ -140,7 +177,7 @@ Config::Config(const string& filename, const ConfigMap& overrides)
                         value.erase(pos + 1);
                     }
                     
-                    m_data.insert(make_pair(name,value));
+                    m_data.push_back(make_pair(name,value));
                     name.clear();
                     value.clear();
                 }
@@ -155,7 +192,7 @@ Config::Config(const string& filename, const ConfigMap& overrides)
     
     if (value != "")
     {
-        m_data.insert(make_pair(name,value));
+        m_data.push_back(make_pair(name,value));
     }
 }
 

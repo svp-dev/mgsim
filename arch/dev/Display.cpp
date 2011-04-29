@@ -200,9 +200,9 @@ namespace Simulator
     }
 
 
-    Display::Display(const std::string& name, Object& parent, Clock& busclock, IIOBus& iobus, IODeviceID ctldevid, IODeviceID fbdevid, const Config& config)
+    Display::Display(const std::string& name, Object& parent, Clock& busclock, IIOBus& iobus, IODeviceID ctldevid, IODeviceID fbdevid, Config& config)
         : Object(name, parent),
-          m_framebuffer(config.getValue<size_t>("GfxFrameBufferSize", 4*1024*1280), 0),
+          m_framebuffer(config.getSize<size_t>("GfxFrameBufferSize", 4*1024*1280), 0),
           m_palette(256, 0),
           m_indexed(false),
           m_bpp(8),

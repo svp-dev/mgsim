@@ -24,7 +24,7 @@ private:
     Result DoNothing() { return SUCCESS; }
 
 public:
-    IOResponseMultiplexer(const std::string& name, Object& parent, Clock& clock, RegisterFile& rf, size_t numDevices, const Config& config);
+    IOResponseMultiplexer(const std::string& name, Object& parent, Clock& clock, RegisterFile& rf, size_t numDevices, Config& config);
 
     // sent by device select upon an I/O read from the processor
     bool QueueWriteBackAddress(IODeviceID dev, const RegAddr& addr);

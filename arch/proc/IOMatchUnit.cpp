@@ -145,7 +145,7 @@ void Processor::IOMatchUnit::Cmd_Info(std::ostream& out, const std::vector<std::
     }
 }
     
-Processor::IOMatchUnit::IOMatchUnit(const std::string& name, Processor& parent, Clock& clock, const Config& config)
+Processor::IOMatchUnit::IOMatchUnit(const std::string& name, Processor& parent, Clock& clock, Config& config)
     : Object(name, parent, clock)
 {
     // config not yet used here

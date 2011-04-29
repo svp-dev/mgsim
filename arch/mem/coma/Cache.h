@@ -79,7 +79,7 @@ private:
     bool OnMessageReceived(Message* msg);
     bool OnReadCompleted(MemAddr addr, const MemData& data);
 public:
-    Cache(const std::string& name, COMA& parent, Clock& clock, CacheID id, size_t numCaches, const Config& config);
+    Cache(const std::string& name, COMA& parent, Clock& clock, CacheID id, size_t numCaches, Config& config);
     
     void Cmd_Info(std::ostream& out, const std::vector<std::string>& arguments) const;
     void Cmd_Read(std::ostream& out, const std::vector<std::string>& arguments) const;

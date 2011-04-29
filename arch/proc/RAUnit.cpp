@@ -13,7 +13,7 @@ static bool IsPowerOfTwo(const T& x)
     return (x & (x - 1)) == 0;
 }
 
-Processor::RAUnit::RAUnit(const std::string& name, Processor& parent, Clock& clock, const RegisterFile& regFile, const Config& config)
+Processor::RAUnit::RAUnit(const std::string& name, Processor& parent, Clock& clock, const RegisterFile& regFile, Config& config)
     : Object(name, parent, clock)
 {
     static struct RegTypeInfo {

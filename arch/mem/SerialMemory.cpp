@@ -170,7 +170,7 @@ Result SerialMemory::DoRequests()
     return SUCCESS;
 }
 
-SerialMemory::SerialMemory(const std::string& name, Object& parent, Clock& clock, const Config& config) :
+SerialMemory::SerialMemory(const std::string& name, Object& parent, Clock& clock, Config& config) :
     Object(name, parent, clock),
     m_clock          (clock),
     m_clients        (config.getValue<size_t>("NumProcessors", 1), NULL),

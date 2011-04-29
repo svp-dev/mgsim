@@ -28,7 +28,7 @@ private:
     Buffer<IORequest>       m_outgoing_reqs;
 
 public:
-    IOBusInterface(const std::string& name, Object& parent, Clock& clock, IOResponseMultiplexer& rrmux, IOInterruptMultiplexer& intmux, IIOBus& iobus, IODeviceID devid, const Config& config);
+    IOBusInterface(const std::string& name, Object& parent, Clock& clock, IOResponseMultiplexer& rrmux, IOInterruptMultiplexer& intmux, IIOBus& iobus, IODeviceID devid, Config& config);
 
     bool SendInterruptAck(IODeviceID to);
 

@@ -63,7 +63,7 @@ class ParallelMemory : public Object, public IMemoryAdmin, public VirtualMemory
     uint64_t m_nwrite_bytes;
 
 public:
-    ParallelMemory(const std::string& name, Object& parent, Clock& clock, const Config& config);
+    ParallelMemory(const std::string& name, Object& parent, Clock& clock, Config& config);
     ~ParallelMemory();
 
     // Debugging

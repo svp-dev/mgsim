@@ -1585,7 +1585,7 @@ void Processor::Allocator::CalculateDistribution(Family& family, Integer nThread
 
 Processor::Allocator::Allocator(const string& name, Processor& parent, Clock& clock,
     FamilyTable& familyTable, ThreadTable& threadTable, RegisterFile& registerFile, RAUnit& raunit, ICache& icache, Network& network, Pipeline& pipeline,
-    const Config& config)
+    Config& config)
  :  Object(name, parent, clock),
     m_parent(parent), m_familyTable(familyTable), m_threadTable(threadTable), m_registerFile(registerFile), m_raunit(raunit), m_icache(icache), m_network(network), m_pipeline(pipeline),
     m_alloc         ("b_alloc",          *this, clock, config.getValue<BufferSize>("NumFamilies", 8)),

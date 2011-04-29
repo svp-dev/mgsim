@@ -801,7 +801,7 @@ Result COMA::Cache::DoReceive()
     return SUCCESS;
 }
 
-COMA::Cache::Cache(const std::string& name, COMA& parent, Clock& clock, CacheID id, size_t numCaches, const Config& config) :
+COMA::Cache::Cache(const std::string& name, COMA& parent, Clock& clock, CacheID id, size_t numCaches, Config& config) :
     Simulator::Object(name, parent),
     //COMA::Object(name, parent),
     Node(name, parent, clock, config),

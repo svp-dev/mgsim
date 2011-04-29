@@ -82,7 +82,7 @@ namespace Simulator
         friend class FrameBufferInterface;
         
     public:
-        Display(const std::string& name, Object& parent, Clock& busclock, IIOBus& iobus, IODeviceID ctldevid, IODeviceID fbdevid, const Config& config);
+        Display(const std::string& name, Object& parent, Clock& busclock, IIOBus& iobus, IODeviceID ctldevid, IODeviceID fbdevid, Config& config);
 
         ~Display();
 

@@ -1158,7 +1158,7 @@ Result ZLCOMA::Cache::DoReceive()
     return (result == FAILED) ? FAILED : SUCCESS;
 }
 
-ZLCOMA::Cache::Cache(const std::string& name, ZLCOMA& parent, Clock& clock, CacheID id, size_t numTokens, const Config& config) :
+ZLCOMA::Cache::Cache(const std::string& name, ZLCOMA& parent, Clock& clock, CacheID id, size_t numTokens, Config& config) :
     Simulator::Object(name, parent),
     Node(name, parent, clock),
     m_lineSize (config.getValue<size_t>("CacheLineSize",           64)),

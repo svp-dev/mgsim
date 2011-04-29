@@ -415,7 +415,7 @@ Result ZLCOMA::RootDirectory::DoResponses()
     return SUCCESS;
 }
 
-ZLCOMA::RootDirectory::RootDirectory(const std::string& name, ZLCOMA& parent, Clock& clock, VirtualMemory& memory, size_t numCaches, size_t id, size_t numRoots, const Config& config) :
+ZLCOMA::RootDirectory::RootDirectory(const std::string& name, ZLCOMA& parent, Clock& clock, VirtualMemory& memory, size_t numCaches, size_t id, size_t numRoots, Config& config) :
     Simulator::Object(name, parent),
     DirectoryBottom(name, parent, clock),
     m_lineSize(config.getValue<size_t>("CacheLineSize",           64)),

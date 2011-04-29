@@ -261,7 +261,7 @@ void ParallelMemory::Write(MemAddr address, const void* data, MemSize size)
     return VirtualMemory::Write(address, data, size);
 }
 
-ParallelMemory::ParallelMemory(const std::string& name, Object& parent, Clock& clock, const Config& config) :
+ParallelMemory::ParallelMemory(const std::string& name, Object& parent, Clock& clock, Config& config) :
     Object(name, parent, clock),
     m_clients        (config.getValue<size_t> ("NumProcessors", 1)),
     m_baseRequestTime(config.getValue<CycleNo>("MemoryBaseRequestTime", 1)),

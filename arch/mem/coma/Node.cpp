@@ -150,7 +150,7 @@ bool COMA::Node::SendMessage(Message* message, size_t min_space)
     return true;
 }
 
-COMA::Node::Node(const std::string& name, COMA& parent, Clock& clock, const Config& config)
+COMA::Node::Node(const std::string& name, COMA& parent, Clock& clock, Config& config)
     : Simulator::Object(name, parent),
       COMA::Object(name, parent),
       m_prev(NULL),

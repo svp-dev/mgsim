@@ -31,7 +31,7 @@ Processor::Pipeline::Pipeline(
     ICache&             icache,
     DCache&             dcache,
     FPU&                fpu,
-    const Config&       config)
+    Config&       config)
 :
     Object(name, parent, clock),
     p_Pipeline("pipeline", delegate::create<Pipeline, &Processor::Pipeline::DoPipeline>(*this)),

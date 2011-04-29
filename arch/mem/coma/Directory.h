@@ -17,7 +17,7 @@ class COMA::DirectoryTop : public COMA::Node
 protected:
     friend class COMA;
     friend class COMA::Directory;
-    DirectoryTop(const std::string& name, COMA& parent, Clock& clock, const Config& config);
+    DirectoryTop(const std::string& name, COMA& parent, Clock& clock, Config& config);
 };
 
 class COMA::DirectoryBottom : public COMA::Node
@@ -25,7 +25,7 @@ class COMA::DirectoryBottom : public COMA::Node
 protected:
     friend class COMA;
     friend class COMA::Directory;
-    DirectoryBottom(const std::string& name, COMA& parent, Clock& clock, const Config& config);
+    DirectoryBottom(const std::string& name, COMA& parent, Clock& clock, Config& config);
 };
 
 class COMA::Directory : public COMA::Object, public Inspect::Interface<Inspect::Read>
@@ -73,7 +73,7 @@ private:
 public:
     const Line* FindLine(MemAddr address) const;
 
-    Directory(const std::string& name, COMA& parent, Clock& clock, CacheID firstCache, CacheID lastCache, const Config& config);
+    Directory(const std::string& name, COMA& parent, Clock& clock, CacheID firstCache, CacheID lastCache, Config& config);
     
     void Cmd_Info(std::ostream& out, const std::vector<std::string>& arguments) const;
     void Cmd_Read(std::ostream& out, const std::vector<std::string>& arguments) const;

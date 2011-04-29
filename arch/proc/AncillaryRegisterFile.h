@@ -40,7 +40,7 @@ class AncillaryRegisterFile : public AncillaryRegisterInterface
     std::vector<Integer>          m_registers;
 
 public:
-    AncillaryRegisterFile(const std::string& name, Processor& parent, Clock& clock, const Config& config);
+    AncillaryRegisterFile(const std::string& name, Processor& parent, Clock& clock, Config& config);
     
     size_t GetNumRegisters() const { return m_numRegisters; }
 

@@ -451,7 +451,7 @@ void Processor::Pipeline::ReadStage::Clear(TID tid)
 
 Processor::Pipeline::ReadStage::ReadStage(Pipeline& parent, Clock& clock, const DecodeReadLatch& input, ReadExecuteLatch& output, RegisterFile& regFile,
     const vector<BypassInfo>& bypasses,
-    const Config& /*config*/
+    Config& /*config*/
   )
   : Stage("read", parent, clock),
     m_regFile(regFile),

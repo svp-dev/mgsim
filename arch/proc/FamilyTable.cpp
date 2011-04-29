@@ -10,7 +10,7 @@ using namespace std;
 namespace Simulator
 {
 
-Processor::FamilyTable::FamilyTable(const std::string& name, Processor& parent, Clock& clock, const Config& config)
+Processor::FamilyTable::FamilyTable(const std::string& name, Processor& parent, Clock& clock, Config& config)
 :   Object(name, parent, clock),
     m_parent(parent),
     m_families(config.getValue<size_t>("NumFamilies", 8)),

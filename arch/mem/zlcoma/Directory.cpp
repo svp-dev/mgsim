@@ -253,7 +253,7 @@ Result ZLCOMA::Directory::DoInTop()
     return SUCCESS;
 }
 
-ZLCOMA::Directory::Directory(const std::string& name, ZLCOMA& parent, Clock& clock, size_t numTokens, CacheID firstCache, CacheID lastCache, const Config& config) :
+ZLCOMA::Directory::Directory(const std::string& name, ZLCOMA& parent, Clock& clock, size_t numTokens, CacheID firstCache, CacheID lastCache, Config& config) :
     Simulator::Object(name, parent),
     ZLCOMA::Object(name, parent),
     m_bottom(name + ".bottom", parent, clock),

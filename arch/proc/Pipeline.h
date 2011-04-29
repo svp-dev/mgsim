@@ -232,7 +232,7 @@ class Pipeline : public Object, public Inspect::Interface<Inspect::Read>
         void Clear(TID tid);    
         PipeAction OnCycle();
     public:
-        FetchStage(Pipeline& parent, Clock& clock, FetchDecodeLatch& output, Allocator& allocator, FamilyTable& familyTable, ThreadTable& threadTable, ICache &icache, const Config& config);
+        FetchStage(Pipeline& parent, Clock& clock, FetchDecodeLatch& output, Allocator& allocator, FamilyTable& familyTable, ThreadTable& threadTable, ICache &icache, Config& config);
         ~FetchStage();
     };
 
@@ -249,7 +249,7 @@ class Pipeline : public Object, public Inspect::Interface<Inspect::Read>
         static InstrFormat GetInstrFormat(uint8_t opcode);
 #endif
     public:
-        DecodeStage(Pipeline& parent, Clock& clock, const FetchDecodeLatch& input, DecodeReadLatch& output, const Config& config);
+        DecodeStage(Pipeline& parent, Clock& clock, const FetchDecodeLatch& input, DecodeReadLatch& output, Config& config);
     };
 
     class ReadStage : public Stage
@@ -291,7 +291,7 @@ class Pipeline : public Object, public Inspect::Interface<Inspect::Read>
     public:
         ReadStage(Pipeline& parent, Clock& clock, const DecodeReadLatch& input, ReadExecuteLatch& output, RegisterFile& regFile,
             const std::vector<BypassInfo>& bypasses,
-            const Config& config);
+            Config& config);
     };
     
     class ExecuteStage : public Stage
@@ -346,7 +346,7 @@ class Pipeline : public Object, public Inspect::Interface<Inspect::Read>
 
         static RegValue PipeValueToRegValue(RegType type, const PipeValue& v);
     public:
-        ExecuteStage(Pipeline& parent, Clock& clock, const ReadExecuteLatch& input, ExecuteMemoryLatch& output, Allocator& allocator, FamilyTable& familyTable, ThreadTable& threadTable, FPU& fpu, size_t fpu_source, const Config& config);
+        ExecuteStage(Pipeline& parent, Clock& clock, const ReadExecuteLatch& input, ExecuteMemoryLatch& output, Allocator& allocator, FamilyTable& familyTable, ThreadTable& threadTable, FPU& fpu, size_t fpu_source, Config& config);
         
         uint64_t getFlop() const { return m_flop; }
         uint64_t getOp()   const { return m_op; }
@@ -365,7 +365,7 @@ class Pipeline : public Object, public Inspect::Interface<Inspect::Read>
 
         PipeAction OnCycle();
     public:
-        MemoryStage(Pipeline& parent, Clock& clock, const ExecuteMemoryLatch& input, MemoryWritebackLatch& output, DCache& dcache, Allocator& allocator, const Config& config);
+        MemoryStage(Pipeline& parent, Clock& clock, const ExecuteMemoryLatch& input, MemoryWritebackLatch& output, DCache& dcache, Allocator& allocator, Config& config);
         void addMemStatistics(uint64_t& nr, uint64_t& nw, uint64_t& nrb, uint64_t& nwb) const 
         { nr += m_loads; nw += m_stores; nrb += m_load_bytes; nwb += m_store_bytes; }
     };
@@ -377,7 +377,7 @@ class Pipeline : public Object, public Inspect::Interface<Inspect::Read>
 
         PipeAction OnCycle();
     public:
-        DummyStage(const std::string& name, Pipeline& parent, Clock& clock, const MemoryWritebackLatch& input, MemoryWritebackLatch& output, const Config& config);
+        DummyStage(const std::string& name, Pipeline& parent, Clock& clock, const MemoryWritebackLatch& input, MemoryWritebackLatch& output, Config& config);
     };
 
     class WritebackStage : public Stage
@@ -392,14 +392,14 @@ class Pipeline : public Object, public Inspect::Interface<Inspect::Read>
 
         PipeAction OnCycle();
     public:
-        WritebackStage(Pipeline& parent, Clock& clock, const MemoryWritebackLatch& input, RegisterFile& regFile, Allocator& allocator, ThreadTable& threadTable, Network& network, const Config& config);
+        WritebackStage(Pipeline& parent, Clock& clock, const MemoryWritebackLatch& input, RegisterFile& regFile, Allocator& allocator, ThreadTable& threadTable, Network& network, Config& config);
     };
 
     void PrintLatchCommon(std::ostream& out, const CommonData& latch) const;
     static std::string MakePipeValue(const RegType& type, const PipeValue& value);
     
 public:
-    Pipeline(const std::string& name, Processor& parent, Clock& clock, RegisterFile& regFile, Network& network, Allocator& allocator, FamilyTable& familyTable, ThreadTable& threadTable, ICache& icache, DCache& dcache, FPU& fpu, const Config& config);
+    Pipeline(const std::string& name, Processor& parent, Clock& clock, RegisterFile& regFile, Network& network, Allocator& allocator, FamilyTable& familyTable, ThreadTable& threadTable, ICache& icache, DCache& dcache, FPU& fpu, Config& config);
     ~Pipeline();
 
     Result DoPipeline();

@@ -244,7 +244,7 @@ Result FPU::DoPipeline()
     return (num_units_failed == num_units_active && num_sources_failed == num_sources_active) ? FAILED : SUCCESS;
 }
 
-FPU::FPU(const std::string& name, Object& parent, Clock& clock, const Config& config, size_t num_inputs)
+FPU::FPU(const std::string& name, Object& parent, Clock& clock, Config& config, size_t num_inputs)
     : Object(name, parent, clock),
       m_active("r_active", *this, clock),
       p_Pipeline("pipeline", delegate::create<FPU, &FPU::DoPipeline>(*this) )

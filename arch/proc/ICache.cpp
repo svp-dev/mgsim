@@ -17,7 +17,7 @@ static bool IsPowerOfTwo(const T& x)
     return (x & (x - 1)) == 0;
 }
 
-Processor::ICache::ICache(const std::string& name, Processor& parent, Clock& clock, Allocator& alloc, const Config& config)
+Processor::ICache::ICache(const std::string& name, Processor& parent, Clock& clock, Allocator& alloc, Config& config)
 :   Object(name, parent, clock),
     m_parent(parent), m_allocator(alloc),
     m_outgoing("b_outgoing", *this, clock, config.getValue<BufferSize>("ICacheOutgoingBufferSize", 1)),

@@ -75,7 +75,7 @@ struct Thread
 class ThreadTable : public Object, public Inspect::Interface<Inspect::Read>
 {
 public:
-    ThreadTable(const std::string& name, Processor& parent, Clock& clock, const Config& config);
+    ThreadTable(const std::string& name, Processor& parent, Clock& clock, Config& config);
 
     TSize GetNumThreads() const { return m_threads.size(); }
 

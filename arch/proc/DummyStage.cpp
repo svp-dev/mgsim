@@ -16,7 +16,7 @@ Processor::Pipeline::PipeAction Processor::Pipeline::DummyStage::OnCycle()
     return PIPE_CONTINUE;
 }
 
-Processor::Pipeline::DummyStage::DummyStage(const std::string& name, Pipeline& parent, Clock& clock, const MemoryWritebackLatch& input, MemoryWritebackLatch& output, const Config& /*config*/)
+Processor::Pipeline::DummyStage::DummyStage(const std::string& name, Pipeline& parent, Clock& clock, const MemoryWritebackLatch& input, MemoryWritebackLatch& output, Config& /*config*/)
   : Stage(name, parent, clock),
     m_input(input),
     m_output(output)

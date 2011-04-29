@@ -8,7 +8,7 @@ using namespace std;
 
 namespace Simulator
 {
-    Processor::IOInterface::IOInterface(const string& name, Object& parent, Clock& clock, RegisterFile& rf, IIOBus& iobus, IODeviceID devid, const Config& config)
+    Processor::IOInterface::IOInterface(const string& name, Object& parent, Clock& clock, RegisterFile& rf, IIOBus& iobus, IODeviceID devid, Config& config)
         : Object(name, parent, clock),
           m_numDevices(config.getValue<size_t>("AsyncIONumDeviceSlots", 8)),
           m_numInterrupts(config.getValue<size_t>("AsyncIONumInterruptChannels", 8)),
@@ -84,7 +84,7 @@ namespace Simulator
             << "Use 'info' on the individual components for more details." << endl;
     }
 
-    Processor::IOInterface::AsyncIOInterface::AsyncIOInterface(const string& name, Processor::IOInterface& parent, Clock& clock, const Config& config)
+    Processor::IOInterface::AsyncIOInterface::AsyncIOInterface(const string& name, Processor::IOInterface& parent, Clock& clock, Config& config)
         : MMIOComponent(name, parent, clock),
           m_devAddrBits(config.getValue<unsigned>("AsyncIODeviceAddressBits", 24))
     {
@@ -166,7 +166,7 @@ namespace Simulator
         
     }
 
-    Processor::IOInterface::PICInterface::PICInterface(const string& name, Processor::IOInterface& parent, Clock& clock, const Config& config)
+    Processor::IOInterface::PICInterface::PICInterface(const string& name, Processor::IOInterface& parent, Clock& clock, Config& config)
         : MMIOComponent(name, parent, clock)
     {
     }

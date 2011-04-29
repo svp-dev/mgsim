@@ -69,7 +69,7 @@ class SerialMemory : public Object, public IMemoryAdmin, public VirtualMemory
     Result DoRequests();
     
 public:
-    SerialMemory(const std::string& name, Object& parent, Clock& clock, const Config& config);
+    SerialMemory(const std::string& name, Object& parent, Clock& clock, Config& config);
 
     // Debugging
     void Cmd_Info(std::ostream& out, const std::vector<std::string>& arguments) const;

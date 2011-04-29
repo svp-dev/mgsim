@@ -80,7 +80,7 @@ bool COMA::CheckPermissions(MemAddr address, MemSize size, int access) const
 	return VirtualMemory::CheckPermissions(address, size, access);
 }
 
-COMA::COMA(const std::string& name, Simulator::Object& parent, Clock& clock, const Config& config) :
+COMA::COMA(const std::string& name, Simulator::Object& parent, Clock& clock, Config& config) :
     // Note that the COMA class is just a container for caches and directories.
     // It has no processes of its own.
     Simulator::Object(name, parent, clock),

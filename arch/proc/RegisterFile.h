@@ -25,7 +25,7 @@ public:
      *                      writes to waiting registers.
      * @param[in] config reference to the configuration data.
      */
-    RegisterFile(const std::string& name, Processor& parent, Clock& clock, Allocator& allocator, const Config& config);
+    RegisterFile(const std::string& name, Processor& parent, Clock& clock, Allocator& allocator, Config& config);
 
     /**
      * Reads a register

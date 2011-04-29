@@ -66,7 +66,7 @@ private:
     uint64_t          m_nwrites;
 
 public:
-    RootDirectory(const std::string& name, ZLCOMA& parent, Clock& clock, VirtualMemory& memory, size_t numTokens, size_t id, size_t numRoots, const Config& config);
+    RootDirectory(const std::string& name, ZLCOMA& parent, Clock& clock, VirtualMemory& memory, size_t numTokens, size_t id, size_t numRoots, Config& config);
     ~RootDirectory();
 
     // Administrative

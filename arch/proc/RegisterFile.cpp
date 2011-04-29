@@ -12,7 +12,7 @@ namespace Simulator
 // RegisterFile implementation
 //
 
-Processor::RegisterFile::RegisterFile(const std::string& name, Processor& parent, Clock& clock, Allocator& alloc, const Config& config)
+Processor::RegisterFile::RegisterFile(const std::string& name, Processor& parent, Clock& clock, Allocator& alloc, Config& config)
   : Object(name, parent, clock),
     Structure<RegAddr>(name, parent, clock),
     Storage("storage", *this, clock),
