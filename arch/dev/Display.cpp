@@ -202,16 +202,16 @@ namespace Simulator
 
     Display::Display(const std::string& name, Object& parent, Clock& busclock, IIOBus& iobus, IODeviceID ctldevid, IODeviceID fbdevid, Config& config)
         : Object(name, parent),
-          m_framebuffer(config.getSize<size_t>("GfxFrameBufferSize", 4*1024*1280), 0),
+          m_framebuffer(config.getSize<size_t>(*this, "FrameBufferSize", 0), 0),
           m_palette(256, 0),
           m_indexed(false),
           m_bpp(8),
           m_width(640), m_height(400),
-          m_scalex_orig(1.0f / std::max(1U, config.getValue<unsigned int>("GfxHorizScale", 2))),
+          m_scalex_orig(1.0f / std::max(1U, config.getValue<unsigned int>("SDLHorizScale", 2))),
           m_scalex(m_scalex_orig),
-          m_scaley_orig(1.0f / std::max(1U, config.getValue<unsigned int>("GfxVertScale",  2))),
+          m_scaley_orig(1.0f / std::max(1U, config.getValue<unsigned int>("SDLVertScale",  2))),
           m_scaley(m_scaley_orig),
-          m_refreshDelay_orig(config.getValue<unsigned int>("GfxRefreshDelay", 1000000)),
+          m_refreshDelay_orig(config.getValue<unsigned int>("SDLRefreshDelay", 1000000)),
           m_refreshDelay(m_refreshDelay_orig),
           m_lastUpdate(0),
           m_screen(NULL),
@@ -220,12 +220,8 @@ namespace Simulator
           m_ctlinterface("ctl", *this, busclock, iobus, ctldevid),
           m_fbinterface("fb", *this, busclock, iobus, fbdevid)
     {
-        if (m_singleton != NULL)
-            throw InvalidArgumentException(*this, "Only one Display device is allowed.");
-        m_singleton = this;
-
         if (m_framebuffer.size() < 640*400)
-            throw exceptf<InvalidArgumentException>(*this, "Framebuffer too small for minimum resolution 640x400");
+            throw exceptf<InvalidArgumentException>(*this, "FrameBufferSize not set or too small for minimum resolution 640x400: %zu", m_framebuffer.size());
 
         RegisterSampleVariable(m_width, "display.width", SVC_LEVEL);
         RegisterSampleVariable(m_height, "display.height", SVC_LEVEL);
@@ -235,8 +231,12 @@ namespace Simulator
         RegisterSampleVariable(m_lastUpdate, "display.lastUpdate", SVC_CUMULATIVE);
 
 #ifdef USE_SDL
-        if (config.getValue<bool>("GfxEnableOutput", false))
+        if (config.getValue<bool>(*this, "EnableSDLOutput", false))
         {
+            if (m_singleton != NULL)
+                throw InvalidArgumentException(*this, "Only one Display device can output to SDL.");
+            m_singleton = this;
+
             if (SDL_Init(SDL_INIT_VIDEO) < 0) {
                 std::cerr << "Unable to initialize SDL: " << SDL_GetError() << std::endl;
             } else {
