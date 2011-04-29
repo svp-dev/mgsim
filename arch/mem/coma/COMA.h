@@ -14,7 +14,6 @@ namespace Simulator
 
 class COMA : public Object, public IMemoryAdmin, public VirtualMemory, public Inspect::Interface<Inspect::Line|Inspect::Trace>
 {
-    class DDRChannel;
 public:
     class Node;
     class DirectoryTop;

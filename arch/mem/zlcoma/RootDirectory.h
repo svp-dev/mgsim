@@ -2,7 +2,7 @@
 #define ZLCOMA_ROOTDIRECTORY_H
 
 #include "Directory.h"
-#include "DDR.h"
+#include "mem/DDR.h"
 #include <queue>
 #include <set>
 
@@ -10,8 +10,6 @@ class Config;
 
 namespace Simulator
 {
-
-class DDRChannel;
 
 class ZLCOMA::RootDirectory : public ZLCOMA::DirectoryBottom, public DDRChannel::ICallback, public Inspect::Interface<Inspect::Read>
 {

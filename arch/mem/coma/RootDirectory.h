@@ -2,7 +2,7 @@
 #define COMA_ROOTDIRECTORY_H
 
 #include "Directory.h"
-#include "DDR.h"
+#include "mem/DDR.h"
 #include <queue>
 #include <set>
 

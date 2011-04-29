@@ -6,7 +6,9 @@ MEMORY_SRC = \
 	arch/mem/RandomBankedMemory.cpp \
 	arch/mem/RandomBankedMemory.h \
 	arch/mem/SerialMemory.cpp \
-	arch/mem/SerialMemory.h
+	arch/mem/SerialMemory.h \
+        arch/mem/DDR.cpp \
+        arch/mem/DDR.h
 
 DEVICE_SRC = \
 	arch/dev/IODeviceDatabase.h \
@@ -95,9 +97,7 @@ ZLCOMA_SRC = \
 	arch/mem/zlcoma/Node.h \
 	arch/mem/zlcoma/Node.cpp \
 	arch/mem/zlcoma/RootDirectory.h \
-	arch/mem/zlcoma/RootDirectory.cpp \
-	arch/mem/zlcoma/DDR.h \
-	arch/mem/zlcoma/DDR.cpp
+	arch/mem/zlcoma/RootDirectory.cpp 
 
 MLCOMA_SRC = \
 	arch/mem/coma/COMA.h \
@@ -109,9 +109,7 @@ MLCOMA_SRC = \
 	arch/mem/coma/Node.h \
 	arch/mem/coma/Node.cpp \
 	arch/mem/coma/RootDirectory.h \
-	arch/mem/coma/RootDirectory.cpp \
-	arch/mem/coma/DDR.h \
-	arch/mem/coma/DDR.cpp
+	arch/mem/coma/RootDirectory.cpp 
 
 EXTRA_DIST += \
 	arch/proc/ISA.mtalpha.h \

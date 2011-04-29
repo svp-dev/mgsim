@@ -1,5 +1,5 @@
-#ifndef COMA_DDR_H
-#define COMA_DDR_H
+#ifndef DDR_H
+#define DDR_H
 /*
 === Overview of DDR (Double Data Rate) SDRAM ===
 
@@ -69,7 +69,8 @@ DDR3-800 means the data rate is 800 MHz (thus, the I/O bus frequency is 400
 MHz and the memory clock 100 MHz). Together with a 64-bit wide databus and
 2 transfers/cycle, DDR3-800 can support up to 6.4 GB/s.
 */   
-#include "COMA.h"
+#include "kernel.h"
+#include "Memory.h"
 
 class Config;
 
@@ -79,7 +80,7 @@ namespace Simulator
 class VirtualMemory;
 
 /// Double-Data Rate Memory
-class COMA::DDRChannel : public Simulator::Object
+class DDRChannel : public Object
 {
 public:
     class ICallback

@@ -1,5 +1,5 @@
 #include "RootDirectory.h"
-#include "DDR.h"
+#include "mem/DDR.h"
 #include "sim/config.h"
 #include <iomanip>
 using namespace std;
