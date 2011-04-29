@@ -16,11 +16,10 @@ public:
     {
     private:
         unsigned                m_devAddrBits;
-        size_t                  m_numDeviceSlots;
 
-        IOInterface&  GetInterface();
+        IOInterface&  GetInterface() const;
     public:
-        AsyncIOInterface(const std::string& name, IOInterface& parent, Clock& clock, size_t numDevices, const Config& config);
+        AsyncIOInterface(const std::string& name, IOInterface& parent, Clock& clock, const Config& config);
 
         size_t GetSize() const;
 
@@ -33,11 +32,10 @@ public:
     class PICInterface : public MMIOComponent, public Inspect::Interface<Inspect::Info>
     {
     private:
-        size_t                  m_numInterrupts;
+        IOInterface&  GetInterface() const;
 
-        IOInterface&  GetInterface();
     public:
-        PICInterface(const std::string& name, IOInterface& parent, Clock& clock, size_t numInterrupts, const Config& config);
+        PICInterface(const std::string& name, IOInterface& parent, Clock& clock, const Config& config);
 
         size_t GetSize() const;
 

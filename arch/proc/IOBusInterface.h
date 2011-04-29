@@ -47,7 +47,7 @@ public:
 
     void GetDeviceIdentity(IODeviceIdentification& id) const;
     
-
+    IODeviceID GetHostID() const { return m_hostid; }
 
     /* for debugging */
     std::string GetIODeviceName() const { return GetFQN(); };

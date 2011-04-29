@@ -87,7 +87,14 @@ namespace Simulator
         ~Display();
 
         void CheckEvents(void);
-        void OnCycle(CycleNo cycle);
+        void OnCycle(CycleNo cycle)
+        {
+            if (m_lastUpdate + m_refreshDelay > cycle)
+                return;
+            
+            m_lastUpdate = cycle;
+            CheckEvents();
+        }
 
         static Display* GetDisplay() { return m_singleton; }
 

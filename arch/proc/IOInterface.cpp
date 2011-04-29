@@ -12,8 +12,8 @@ namespace Simulator
         : Object(name, parent, clock),
           m_numDevices(config.getValue<size_t>("AsyncIONumDeviceSlots", 8)),
           m_numInterrupts(config.getValue<size_t>("AsyncIONumInterruptChannels", 8)),
-          m_async_io("aio",    *this, clock, m_numDevices, config),
-          m_pic     ("pic",    *this, clock, m_numInterrupts, config),
+          m_async_io("aio",    *this, clock, config),
+          m_pic     ("pic",    *this, clock, config),
           m_rrmux   ("rrmux",  *this, clock, rf, m_numDevices, config),
           m_intmux  ("intmux", *this, clock, rf, m_numInterrupts),
           m_iobus_if("bus_if", *this, clock, m_rrmux, m_intmux, iobus, devid, config)
@@ -84,35 +84,36 @@ namespace Simulator
             << "Use 'info' on the individual components for more details." << endl;
     }
 
-    Processor::IOInterface::AsyncIOInterface::AsyncIOInterface(const string& name, Processor::IOInterface& parent, Clock& clock, size_t numDevices, const Config& config)
+    Processor::IOInterface::AsyncIOInterface::AsyncIOInterface(const string& name, Processor::IOInterface& parent, Clock& clock, const Config& config)
         : MMIOComponent(name, parent, clock),
-          m_devAddrBits(config.getValue<unsigned>("AsyncIODeviceAddressBits", 24)),
-          m_numDeviceSlots(numDevices)
+          m_devAddrBits(config.getValue<unsigned>("AsyncIODeviceAddressBits", 24))
     {
         
     }
 
     Processor::IOInterface&
-    Processor::IOInterface::AsyncIOInterface::GetInterface()
+    Processor::IOInterface::AsyncIOInterface::GetInterface() const
     {
         return *static_cast<IOInterface*>(GetParent());
     }
 
     size_t Processor::IOInterface::AsyncIOInterface::GetSize() const
     {
-        return m_numDeviceSlots << m_devAddrBits;
+        return GetInterface().m_numDevices << m_devAddrBits;
     }
 
     Result Processor::IOInterface::AsyncIOInterface::Read(MemAddr address, void* data, MemSize size, LFID fid, TID tid, const RegAddr& writeback)
     {
         IODeviceID dev = address >> m_devAddrBits;
-        if (dev > m_numDeviceSlots)
+        IOInterface& iface = GetInterface();
+
+        if (dev > iface.m_numDevices)
         {
             throw exceptf<SimulationException>("Invalid I/O read to non-existent device %u by F%u/T%u", (unsigned)dev, (unsigned)fid, (unsigned)tid);
         }
         
         MemAddr devaddr = address & ((1ULL << m_devAddrBits) - 1);
-        
+
         if (!GetInterface().Read(dev, devaddr, size, writeback))
         {
             return FAILED;
@@ -123,7 +124,7 @@ namespace Simulator
     Result Processor::IOInterface::AsyncIOInterface::Write(MemAddr address, const void* data, MemSize size, LFID fid, TID tid)
     {
         IODeviceID dev = address >> m_devAddrBits;
-        if (dev > m_numDeviceSlots)
+        if (dev > GetInterface().m_numDevices)
         {
             throw exceptf<SimulationException>("Invalid I/O read to non-existent device %u by F%u/T%u", (unsigned)dev, (unsigned)fid, (unsigned)tid);
         }
@@ -152,7 +153,7 @@ namespace Simulator
             "-----------------+------------------+-------------------------\n"
             << hex << setfill('0');
         MemAddr size = 1ULL << m_devAddrBits;
-        for (size_t i = 0; i < m_numDeviceSlots; ++i)
+        for (size_t i = 0; i < GetInterface().m_numDevices; ++i)
         {
             MemAddr begin = i << m_devAddrBits;
             MemAddr end = begin + size - 1;
@@ -165,27 +166,26 @@ namespace Simulator
         
     }
 
-    Processor::IOInterface::PICInterface::PICInterface(const string& name, Processor::IOInterface& parent, Clock& clock, size_t numInterrupts, const Config& config)
-        : MMIOComponent(name, parent, clock),
-          m_numInterrupts(numInterrupts)
+    Processor::IOInterface::PICInterface::PICInterface(const string& name, Processor::IOInterface& parent, Clock& clock, const Config& config)
+        : MMIOComponent(name, parent, clock)
     {
     }
 
     Processor::IOInterface&
-    Processor::IOInterface::PICInterface::GetInterface()
+    Processor::IOInterface::PICInterface::GetInterface() const
     {
         return *static_cast<IOInterface*>(GetParent());
     }
 
     size_t Processor::IOInterface::PICInterface::GetSize() const
     {
-        return m_numInterrupts * sizeof(Integer);
+        return GetInterface().m_numInterrupts * sizeof(Integer);
     }
 
     Result Processor::IOInterface::PICInterface::Read(MemAddr address, void* data, MemSize size, LFID fid, TID tid, const RegAddr& writeback)
     {
         IOInterruptID which = address / sizeof(Integer);
-        if (which > m_numInterrupts)
+        if (which > GetInterface().m_numInterrupts)
         {
             throw exceptf<SimulationException>("Invalid wait to non-existent interrupt channel %u by F%u/T%u", (unsigned)which, (unsigned)fid, (unsigned)tid);
         }
@@ -208,7 +208,7 @@ namespace Simulator
             "Address          | Description\n"
             "-----------------+----------------------\n"
             << hex << setfill('0');
-        for (size_t i = 0; i < m_numInterrupts; ++i)
+        for (size_t i = 0; i < GetInterface().m_numInterrupts; ++i)
         {
             MemAddr begin = i * sizeof(Integer);
             out << setw(16) << begin
