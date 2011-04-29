@@ -84,9 +84,9 @@ COMA::COMA(const std::string& name, Simulator::Object& parent, Clock& clock, Con
     // Note that the COMA class is just a container for caches and directories.
     // It has no processes of its own.
     Simulator::Object(name, parent, clock),
-    m_numProcsPerCache(std::max<size_t>(1, config.getValue<size_t>("NumProcessorsPerCache", 4))),
-    m_numCachesPerDir (std::max<size_t>(1, config.getValue<size_t>("NumCachesPerDirectory", 4))),
-    
+    m_numProcsPerCache(config.getValue<size_t>("NumProcessorsPerL2Cache", 0)),
+    m_numCachesPerDir (config.getValue<size_t>(*this, "NumL2CachesPerDirectory", 0)),
+    m_ddr("ddr", *this, *this, config),
     m_nreads(0), m_nwrites(0), m_nread_bytes(0), m_nwrite_bytes(0)
 {
 
@@ -118,7 +118,7 @@ COMA::COMA(const std::string& name, Simulator::Object& parent, Clock& clock, Con
     }
     
     // Create the root directories
-    m_roots.resize( std::max<size_t>(1, config.getValue<size_t>("NumRootDirectories", 1)) );
+    m_roots.resize(config.getValue<size_t>(*this, "NumRootDirectories", 0));
     if (!IsPowerOfTwo(m_roots.size()))
     {
         throw InvalidArgumentException("NumRootDirectories is not a power of two");
@@ -128,7 +128,7 @@ COMA::COMA(const std::string& name, Simulator::Object& parent, Clock& clock, Con
     {
         stringstream name;
         name << "rootdir" << i;
-        m_roots[i] = new RootDirectory(name.str(), *this, clock, *this, m_caches.size(), i, m_roots.size(), config);
+        m_roots[i] = new RootDirectory(name.str(), *this, clock, *this, m_caches.size(), i, m_roots.size(), m_ddr, config);
     }
     
     // Initialize the caches

@@ -3,6 +3,7 @@
 
 #include "arch/Memory.h"
 #include "arch/VirtualMemory.h"
+#include "mem/DDR.h"
 #include <queue>
 #include <set>
 
@@ -53,6 +54,7 @@ private:
     std::vector<Directory*>     m_directories;        ///< List of directories
     std::vector<RootDirectory*> m_roots;              ///< List of root directories
     TraceMap                    m_traces;             ///< Active traces
+    DDRChannelRegistry          m_ddr;                ///< List of DDR channels
     
     uint64_t                    m_nreads, m_nwrites, m_nread_bytes, m_nwrite_bytes;
     

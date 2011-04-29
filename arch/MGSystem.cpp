@@ -198,7 +198,7 @@ void MGSystem::FillConfWords(ConfWords& words) const
               * m_config.getValue<uint32_t>("DCacheNumSets", 0));
     if (m_memorytype == MEMTYPE_COMA_ZL || m_memorytype == MEMTYPE_COMA_ML)
         words << (m_procs.size()
-                  / m_config.getValue<uint32_t>("NumProcessorsPerCache", 0)) // FIXME: COMA?
+                  / m_config.getValue<uint32_t>("NumProcessorsPerL2Cache", 0)) // FIXME: COMA?
               << (cl_sz
                   * m_config.getValue<uint32_t>("L2CacheAssociativity", 0)
                   * m_config.getValue<uint32_t>("L2CacheNumSets", 0));

@@ -71,6 +71,7 @@ MHz and the memory clock 100 MHz). Together with a 64-bit wide databus and
 */   
 #include "kernel.h"
 #include "Memory.h"
+#include <vector>
 
 class Config;
 
@@ -100,38 +101,38 @@ private:
         CycleNo      done;      ///< When this request is done
     };
 
-    struct DDRConfig {
-    unsigned int m_nBurstLength;    ///< Size of a single burst
-
-    // Timing configuration
-    unsigned int m_tRCD;    ///< RAS to CAS Delay (row open)
-    unsigned int m_tRP;     ///< Row Precharge Delay (row close)
-    unsigned int m_tCL;     ///< CAS latency (delay of column read)
-    unsigned int m_tWR;     ///< Write Recovery delay (min time after write before row close)
-    unsigned int m_tCCD;    ///< CAS to CAS Delay (time between read commands)
-    unsigned int m_tCWL;    ///< CAS Write Latency (time for a write command)
-    unsigned int m_tRAS;    ///< Row Active Time (min time after row open before row close)
-
-    // Address configuration
-    unsigned int m_nDevicesPerRank; ///< Number of devices per rank
-    unsigned int m_nRankBits;       ///< Log number of ranks on DIMM (only one active per DIMM)
-    unsigned int m_nRowBits;        ///< Log number of rows
-    unsigned int m_nColumnBits;     ///< Log number of columns
-    unsigned int m_nRankStart;      ///< Start position of the rank bits
-    unsigned int m_nRowStart;       ///< Start position of the row bits
-    unsigned int m_nColumnStart;    ///< Start position of the column bits
-    
-    unsigned int m_nBurstSize;
-
-    DDRConfig(const Clock& clock, Config&);
+    class DDRConfig : public Object {
+    public:
+        unsigned int m_nBurstLength;    ///< Size of a single burst
+        
+        // Timing configuration
+        unsigned int m_tRCD;    ///< RAS to CAS Delay (row open)
+        unsigned int m_tRP;     ///< Row Precharge Delay (row close)
+        unsigned int m_tCL;     ///< CAS latency (delay of column read)
+        unsigned int m_tWR;     ///< Write Recovery delay (min time after write before row close)
+        unsigned int m_tCCD;    ///< CAS to CAS Delay (time between read commands)
+        unsigned int m_tCWL;    ///< CAS Write Latency (time for a write command)
+        unsigned int m_tRAS;    ///< Row Active Time (min time after row open before row close)
+        
+        // Address configuration
+        unsigned int m_nDevicesPerRank; ///< Number of devices per rank
+        unsigned int m_nRankBits;       ///< Log number of ranks on DIMM (only one active per DIMM)
+        unsigned int m_nRowBits;        ///< Log number of rows
+        unsigned int m_nColumnBits;     ///< Log number of columns
+        unsigned int m_nRankStart;      ///< Start position of the rank bits
+        unsigned int m_nRowStart;       ///< Start position of the row bits
+        unsigned int m_nColumnStart;    ///< Start position of the column bits
+        
+        unsigned int m_nBurstSize;
+        
+        DDRConfig(const std::string& name, Object& parent, Clock& clock, Config&);
     };
 
     // Runtime parameters
-    Clock&                     m_clock;
-    DDRConfig                  m_ddrconfig;      ///< DDR Configuration parameters
+    DDRConfig                  m_ddrconfig;      ///< DDR virtual chip parameters
     std::vector<unsigned long> m_currentRow;     ///< Currently selected row, for each rank
     VirtualMemory&             m_memory;         ///< The backing store with data
-    ICallback&                 m_callback;       ///< The callback to notify for completion
+    ICallback*                 m_callback;       ///< The callback to notify for completion
     Request                    m_request;        ///< The current request
     Buffer<Request>            m_pipeline;       ///< Pipelined reads
     SingleFlag                 m_busy;           ///< Trigger for process
@@ -146,11 +147,19 @@ private:
     Result DoPipeline();
     
 public:
+    void Connect(ICallback& cb);
     bool Read(MemAddr address, MemSize size);
     bool Write(MemAddr address, const void* data, MemSize size);
     
     DDRChannel(const std::string& name, Object& parent, Clock& clock, VirtualMemory& memory, Config& config);
     ~DDRChannel();
+};
+
+class DDRChannelRegistry : public Object, public std::vector<DDRChannel*>
+{
+public:
+    DDRChannelRegistry(const std::string& name, Object& parent, VirtualMemory& memory, Config& config);
+    ~DDRChannelRegistry();
 };
 
 }

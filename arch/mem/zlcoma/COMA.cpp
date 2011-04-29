@@ -84,9 +84,9 @@ ZLCOMA::ZLCOMA(const std::string& name, Simulator::Object& parent, Clock& clock,
     // Note that the COMA class is just a container for caches and directories.
     // It has no processes of its own.
     Simulator::Object(name, parent, clock),
-    m_numProcsPerCache(std::max<size_t>(1, config.getValue<size_t>("NumProcessorsPerCache", 4))),
-    m_numCachesPerDir (std::max<size_t>(1, config.getValue<size_t>("NumCachesPerDirectory", 4))),
-    
+    m_numProcsPerCache(config.getValue<size_t>("NumProcessorsPerL2Cache", 0)),
+    m_numCachesPerDir (config.getValue<size_t>(*this, "NumL2CachesPerDirectory", 0)),
+    m_ddr("ddr", *this, *this, config),
     m_nreads(0), m_nwrites(0), m_nread_bytes(0), m_nwrite_bytes(0)
 {
 
@@ -96,7 +96,7 @@ ZLCOMA::ZLCOMA(const std::string& name, Simulator::Object& parent, Clock& clock,
     RegisterSampleVariableInObject(m_nwrite_bytes, SVC_CUMULATIVE);
 
     // Create the caches
-    size_t numProcs = config.getValue<size_t>("NumProcessors", 1);
+    size_t numProcs = config.getValue<size_t>("NumProcessors", 0);
     m_caches.resize( (numProcs + m_numProcsPerCache - 1) / m_numProcsPerCache );
     for (size_t i = 0; i < m_caches.size(); ++i)
     {
@@ -116,7 +116,7 @@ ZLCOMA::ZLCOMA(const std::string& name, Simulator::Object& parent, Clock& clock,
         name << "dir" << i;
         m_directories[i] = new Directory(name.str(), *this, clock, m_caches.size(), firstCache, lastCache, config);
     }
-    
+
     // Create the root directories
     m_roots.resize( std::max<size_t>(1, config.getValue<size_t>("NumRootDirectories", 1)) );
     if (!IsPowerOfTwo(m_roots.size()))
@@ -128,7 +128,7 @@ ZLCOMA::ZLCOMA(const std::string& name, Simulator::Object& parent, Clock& clock,
     {
         stringstream name;
         name << "rootdir" << i;
-        m_roots[i] = new RootDirectory(name.str(), *this, clock, *this, m_caches.size(), i, m_roots.size(), config);
+        m_roots[i] = new RootDirectory(name.str(), *this, clock, *this, m_caches.size(), i, m_roots.size(), m_ddr, config);
     }
 
     // Initialize the caches

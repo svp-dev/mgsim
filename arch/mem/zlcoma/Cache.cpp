@@ -1161,21 +1161,21 @@ Result ZLCOMA::Cache::DoReceive()
 ZLCOMA::Cache::Cache(const std::string& name, ZLCOMA& parent, Clock& clock, CacheID id, size_t numTokens, Config& config) :
     Simulator::Object(name, parent),
     Node(name, parent, clock),
-    m_lineSize (config.getValue<size_t>("CacheLineSize",           64)),
-    m_assoc    (config.getValue<size_t>("COMACacheAssociativity",   4)),
-    m_sets     (config.getValue<size_t>("COMACacheNumSets",       128)),
+    m_lineSize (config.getValue<size_t>("CacheLineSize", 0)),
+    m_assoc    (config.getValue<size_t>(parent, "L2CacheAssociativity", 0)),
+    m_sets     (config.getValue<size_t>(parent, "L2CacheNumSets", 0)),
     m_numTokens(numTokens),
-    m_inject   (config.getValue<bool>("EnableCacheInjection", true)),
+    m_inject   (config.getValue<bool>(parent, "EnableCacheInjection", false)),
     m_id       (id),
-    m_clients  (std::max<size_t>(1, config.getValue<size_t>("NumProcessorsPerCache", 4)), NULL),
+    m_clients  (config.getValue<size_t>("NumProcessorsPerL2Cache", 0), NULL),
     p_lines    (*this, clock, "p_lines"),
     m_numHits  (0),
     m_numMisses(0),
     p_Requests ("requests", delegate::create<Cache, &Cache::DoRequests>(*this)),
     p_In       ("incoming", delegate::create<Cache, &Cache::DoReceive>(*this)),
     p_bus      (*this, clock, "p_bus"),
-    m_requests ("b_requests", *this, clock, config.getValue<BufferSize>("COMACacheRequestBufferSize",  INFINITE)),
-    m_responses("b_responses", *this, clock, config.getValue<BufferSize>("COMACacheResponseBufferSize", INFINITE))
+    m_requests ("b_requests", *this, clock, config.getValue<BufferSize>(*this, "RequestBufferSize",  INFINITE)),
+    m_responses("b_responses", *this, clock, config.getValue<BufferSize>(*this, "ResponseBufferSize", INFINITE))
 {
     RegisterSampleVariableInObject(m_numHits, SVC_CUMULATIVE);
     RegisterSampleVariableInObject(m_numMisses, SVC_CUMULATIVE);

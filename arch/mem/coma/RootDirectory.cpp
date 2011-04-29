@@ -351,19 +351,19 @@ Result COMA::RootDirectory::DoResponses()
     return SUCCESS;
 }
 
-COMA::RootDirectory::RootDirectory(const std::string& name, COMA& parent, Clock& clock, VirtualMemory& memory, size_t numCaches, size_t id, size_t numRoots, Config& config) :
+COMA::RootDirectory::RootDirectory(const std::string& name, COMA& parent, Clock& clock, VirtualMemory& memory, size_t numCaches, size_t id, size_t numRoots, const DDRChannelRegistry& ddr, Config& config) :
     Simulator::Object(name, parent),
     //COMA::Object(name, parent),
     DirectoryBottom(name, parent, clock, config),
-    m_lineSize(config.getValue<size_t>("CacheLineSize",           64)),
-    m_assoc   (config.getValue<size_t>("L2CacheAssociativity",     4) * numCaches),
-    m_sets    (config.getValue<size_t>("L2CacheNumSets",         128)),
+    m_lineSize(config.getValue<size_t>("CacheLineSize", 0)),
+    m_assoc   (config.getValue<size_t>(parent, "L2CacheAssociativity", 0) * numCaches),
+    m_sets    (config.getValue<size_t>(parent, "L2CacheNumSets", 0)),
     m_numCaches(numCaches),
     m_id       (id),
     m_numRoots (numRoots),
     p_lines    (*this, clock, "p_lines"),    
-    m_requests ("b_requests", *this, clock, config.getValue<size_t>("RootDirectoryExternalOutputQueueSize", INFINITE)),
-    m_responses("b_responses", *this, clock, config.getValue<size_t>("RootDirectoryExternalInputQueueSize", INFINITE)),
+    m_requests ("b_requests", *this, clock, config.getValue<size_t>(*this, "ExternalOutputQueueSize", 0)),
+    m_responses("b_responses", *this, clock, config.getValue<size_t>(*this, "ExternalInputQueueSize", 0)),
     m_memready ("f_memready", *this, clock, true),
     m_activeMsg(NULL),
     p_Incoming ("incoming",  delegate::create<RootDirectory, &RootDirectory::DoIncoming>(*this)),
@@ -389,13 +389,13 @@ COMA::RootDirectory::RootDirectory(const std::string& name, COMA& parent, Clock&
     p_lines.AddProcess(p_Incoming);
     p_lines.AddProcess(p_Responses);
 
-    Clock& ddrclock = GetKernel()->CreateClock( config.getValue<size_t>("DDRMemoryFreq", 800));
-    m_memory = new DDRChannel("ddr", *this, ddrclock, memory, config);
-}
-
-COMA::RootDirectory::~RootDirectory()
-{
-    delete m_memory;
+    size_t ddrid = config.getValue<size_t>(*this, "DDRChannelID", id);
+    if (ddrid >= ddr.size())
+    {
+        throw exceptf<InvalidArgumentException>(*this, "Invalid DDR channel ID: %zu", ddrid);
+    }
+    m_memory = ddr[ddrid];
+    m_memory->Connect(*this);
 }
 
 void COMA::RootDirectory::Cmd_Info(std::ostream& out, const std::vector<std::string>& arguments) const
