@@ -53,6 +53,9 @@ class MMIOComponent : public Object
 public:
     MMIOComponent(const std::string& name, Object& parent, Clock& clock);
 
+    void Connect(IOMatchUnit& mmio, IOMatchUnit::AccessMode mode, Config& config);
+
+
     virtual size_t GetSize() const = 0;
 
 

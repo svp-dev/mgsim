@@ -53,17 +53,9 @@ Processor::Processor(const std::string& name, Object& parent, Clock& clock, PID 
     m_bits.tid_bits = ilog2(m_threadTable.GetNumThreads());
 
     // Configure the MMIO interface for the common devices
-    MemAddr pc_base = config.getValue<MemAddr>("PerformanceCountersBaseAddr", 0),
-        stdout_base = config.getValue<MemAddr>("DebugChannelStdoutBaseAddr", 0),
-        stderr_base = config.getValue<MemAddr>("DebugChannelStderrBaseAddr", 0);
-
-    
-    if (pc_base != 0)
-        m_mmio.RegisterComponent(pc_base, IOMatchUnit::READ, m_perfcounters);
-    if (stdout_base != 0)
-        m_mmio.RegisterComponent(stdout_base, IOMatchUnit::WRITE, m_lpout);
-    if (stderr_base != 0)
-        m_mmio.RegisterComponent(stderr_base, IOMatchUnit::WRITE, m_lperr);
+    m_perfcounters.Connect(m_mmio, IOMatchUnit::READ, config);
+    m_lpout.Connect(m_mmio, IOMatchUnit::WRITE, config);
+    m_lperr.Connect(m_mmio, IOMatchUnit::WRITE, config);
 
     if (iobus != NULL)
     {
@@ -72,18 +64,10 @@ Processor::Processor(const std::string& name, Object& parent, Clock& clock, PID 
 
         m_io_if = new IOInterface("io_if", *this, clock, m_registerFile, *iobus, devid, config);
 
-        MemAddr aio_base = config.getValue<MemAddr>(name + "AsyncIOBaseAddr", 0);
-        if (aio_base != 0)
-        {
-            MMIOComponent& async_if = m_io_if->GetAsyncIOInterface();
-            m_mmio.RegisterComponent(aio_base, IOMatchUnit::READWRITE, async_if);
-        }
-        MemAddr pic_base = config.getValue<MemAddr>(name + "PICBaseAddr", 0);
-        if (pic_base != 0)
-        {
-            MMIOComponent& pic_if = m_io_if->GetPICInterface();
-            m_mmio.RegisterComponent(pic_base, IOMatchUnit::READ, pic_if);
-        }
+        MMIOComponent& async_if = m_io_if->GetAsyncIOInterface();
+        async_if.Connect(m_mmio, IOMatchUnit::READWRITE, config);
+        MMIOComponent& pic_if = m_io_if->GetPICInterface();
+        pic_if.Connect(m_mmio, IOMatchUnit::READ, config);
     }
 
 

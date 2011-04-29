@@ -67,7 +67,7 @@ Result Processor::DebugChannel::Write(MemAddr address, const void *data, MemSize
 }
 
 Processor::DebugChannel::DebugChannel(const std::string& name, Object& parent, std::ostream& output)
-    : Processor::MMIOComponent("simdebug_" + name, parent, parent.GetClock()),
+    : Processor::MMIOComponent("debug_" + name, parent, parent.GetClock()),
       m_output(output),
       m_floatprecision(6)
 {

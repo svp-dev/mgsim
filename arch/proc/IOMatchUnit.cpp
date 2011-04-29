@@ -1,4 +1,5 @@
 #include "Processor.h"
+#include "config.h"
 #include <iomanip>
 
 namespace Simulator
@@ -7,6 +8,19 @@ namespace Simulator
 Processor& Processor::IOMatchUnit::GetProcessor() const
 {
     return *static_cast<Processor*>(GetParent());
+}
+
+void Processor::MMIOComponent::Connect(IOMatchUnit& mmio, IOMatchUnit::AccessMode mode, Config& config)
+{
+    MemAddr base = config.getValue<MemAddr>(*this, "MMIO_BaseAddr", 0);
+    if (base == 0)
+    {
+        std::cerr << "warning: " << GetFQN() << " not mapped to the I/O address space." << std::endl;
+    }
+    else
+    {
+        mmio.RegisterComponent(base, mode, *this);
+    }
 }
 
 void
