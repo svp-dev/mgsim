@@ -93,15 +93,49 @@ using namespace std;
 //     - word 1 ... P: (y << 24) | (x << 16) | (coreType)
 //     coreType:
 //      0: Normal core
+//      1: I/O core
 
-#define CONFTAG_ARCH_V1    1
-#define CONFTAG_TIMINGS_V1 2
-#define CONFTAG_CACHE_V1   3
-#define CONFTAG_CONC_V1    4
-#define CONFTAG_LAYOUT_V1  5
-#define CONFTAG_TIMINGS_V2 6
-#define CONFTAG_TIMINGS_V3 7
-#define CONFTAG_LAYOUT_V2  8
+// - Core information v1 - shared by all cores
+//     - word 0 after tag: number of configurable ancillary core registers
+//     - word 1: number of performance counters supported
+//     - word 2: low bits of base address of perf counters
+//     - word 3: high bits bits of base address of perf counters
+//     - word 4: low bits base address of debug stdout channel (0 if not supported)
+//     - word 5: high bits base address of debug stdout channel (0 if not supported)
+//     - word 6: low bits base address of debug stderr channel (0 if not supported)
+//     - word 7: high bits base address of debug stderr channel (0 if not supported)
+
+// - I/O core information v1
+//     - word 0: core ID on grid
+//     - word 1: (number of interrupts channels supported << 16) | (number of devices supported)
+//     - word 2: (bus ID << 16) | (device ID of core on bus)
+//     - word 3: address space bits per device
+//     - word 4: low bits of PIC address space
+//     - word 5: high bits of PIC address space
+//     - word 6: low bits of async I/O address space
+//     - word 7: high bits of async I/O address space
+
+// - I/O bus information v1
+//     - word 0: bus ID
+//     - word 1: bus type (0 for unknown)
+//     - word 2: I/O bus frequency
+
+// - I/O device information v1
+//     - word 0: (bus ID << 16) | (device ID on bus)
+//     - word 1: (vendor << 16) | (model)
+//     - word 2: revision
+
+#define CONFTAG_ARCH_V1       1
+#define CONFTAG_TIMINGS_V1    2
+#define CONFTAG_CACHE_V1      3
+#define CONFTAG_CONC_V1       4
+#define CONFTAG_LAYOUT_V1     5
+#define CONFTAG_TIMINGS_V2    6
+#define CONFTAG_TIMINGS_V3    7
+#define CONFTAG_LAYOUT_V2     8
+#define CONFTAG_COREINFO_V1   9
+#define CONFTAG_IOCOREINFO_V1 10
+#define CONFTAG_IODEVINFO_V1  11
 #define MAKE_TAG(Type, Size) (uint32_t)(((Type) << 16) | ((Size) & 0xffff))
 
 static vector<string> Tokenize(const string& str, const string& sep)
@@ -203,6 +237,22 @@ void MGSystem::FillConfWords(ConfWords& words) const
         words << ((y << 24) | (x << 16) | type);
     }
 
+    // core information
+    MemAddr pcbase = m_config.getValue<MemAddr>("PerformanceCountersBaseAddr", 0),
+        stderrbase = m_config.getValue<MemAddr>("DebugChannelStderrBaseAddr", 0),
+        stdoutbase = m_config.getValue<MemAddr>("DebugChannelStdoutBaseAddr", 0);
+
+    // I/O core information
+    words << MAKE_TAG(CONFTAG_COREINFO_V1, 8)
+          << 0 // FIXME: number of ancillary core registers
+          << Processor::PerfCounters::numCounters
+          << (pcbase & 0xffffffff)
+          << (pcbase >> 32)
+          << (stdoutbase & 0xffffffff)
+          << (stdoutbase >> 32)
+          << (stderrbase & 0xffffffff)
+          << (stderrbase >> 32);
+        
     // after last block
     words << 0 << 0;
 
