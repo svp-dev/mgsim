@@ -80,9 +80,15 @@ namespace Simulator
     {
         if (which >= m_clients.size() || m_clients[which] == NULL)
         {
-            throw exceptf<SimulationException>(*this, "I/O to non-existent device %u", (unsigned)which);
+            DebugIOWrite("I/O identification request to non-existent device %u", (unsigned)which);
+            id.provider = 0;
+            id.model = 0;
+            id.revision = 0;
         }
-        m_clients[which]->GetDeviceIdentity(id);
+        else
+        {
+            m_clients[which]->GetDeviceIdentity(id);
+        }
     }
 
     void NullIO::Cmd_Info(std::ostream& out, const std::vector<std::string>& arguments) const
