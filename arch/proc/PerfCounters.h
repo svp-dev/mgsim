@@ -13,6 +13,8 @@ class PerfCounters : public MMIOComponent
 
 public:
 
+    static const size_t numCounters;
+
     size_t GetSize() const;
 
     Result Read (MemAddr address, void* data, MemSize size, LFID fid, TID tid, const RegAddr& writeback);
