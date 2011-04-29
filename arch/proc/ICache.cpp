@@ -20,12 +20,12 @@ static bool IsPowerOfTwo(const T& x)
 Processor::ICache::ICache(const std::string& name, Processor& parent, Clock& clock, Allocator& alloc, Config& config)
 :   Object(name, parent, clock),
     m_parent(parent), m_allocator(alloc),
-    m_outgoing("b_outgoing", *this, clock, config.getValue<BufferSize>("ICacheOutgoingBufferSize", 1)),
-    m_incoming("b_incoming", *this, clock, config.getValue<BufferSize>("ICacheIncomingBufferSize", 1)),
+    m_outgoing("b_outgoing", *this, clock, config.getValue<BufferSize>(*this, "OutgoingBufferSize", 0)),
+    m_incoming("b_incoming", *this, clock, config.getValue<BufferSize>(*this, "IncomingBufferSize", 0)),
     m_numHits(0),
     m_numMisses(0),
     m_lineSize(config.getValue<size_t>("CacheLineSize", 64)),
-    m_assoc   (config.getValue<size_t>("ICacheAssociativity", 4)),
+    m_assoc   (config.getValue<size_t>(*this, "Associativity", 4)),
     p_Outgoing("outgoing", delegate::create<ICache, &Processor::ICache::DoOutgoing>(*this)),
     p_Incoming("incoming", delegate::create<ICache, &Processor::ICache::DoIncoming>(*this)),
     p_service(*this, clock, "p_service")
@@ -39,13 +39,13 @@ Processor::ICache::ICache(const std::string& name, Processor& parent, Clock& clo
     // These things must be powers of two
     if (!IsPowerOfTwo(m_assoc))
     {
-        throw exceptf<InvalidArgumentException>(*this, "ICacheAssociativity = %zd is not a power of two", m_assoc);
+        throw exceptf<InvalidArgumentException>(*this, "Associativity = %zd is not a power of two", m_assoc);
     }
 
-    const size_t sets = config.getValue<size_t>("ICacheNumSets", 4);
+    const size_t sets = config.getValue<size_t>(*this, "NumSets", 4);
     if (!IsPowerOfTwo(sets))
     {
-        throw exceptf<InvalidArgumentException>(*this, "ICacheNumSets = %zd is not a power of two", sets);
+        throw exceptf<InvalidArgumentException>(*this, "NumSets = %zd is not a power of two", sets);
     }
 
     if (!IsPowerOfTwo(m_lineSize))
@@ -54,9 +54,9 @@ Processor::ICache::ICache(const std::string& name, Processor& parent, Clock& clo
     }
 
     // At least a complete register value has to fit in a line
-    if (m_lineSize < 8)
+    if (m_lineSize < sizeof(Integer))
     {
-        throw exceptf<InvalidArgumentException>(*this, "CacheLineSize = %zd cannot be less than 8.", m_lineSize);
+        throw exceptf<InvalidArgumentException>(*this, "CacheLineSize = %zd cannot be less than a word.", m_lineSize);
     }
 
     // Initialize the cache lines
