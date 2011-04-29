@@ -10,8 +10,8 @@ namespace Simulator
 {
     Processor::IOInterface::IOInterface(const string& name, Processor& parent, Clock& clock, RegisterFile& rf, IIOBus& iobus, IODeviceID devid, Config& config)
         : Object(name, parent, clock),
-          m_numDevices(config.getValue<size_t>(parent.GetName() + "AsyncIONumDeviceSlots", 0)),
-          m_numInterrupts(config.getValue<size_t>(parent.GetName() + "AsyncIONumInterruptChannels", 0)),
+          m_numDevices(config.getValue<size_t>(*this, "NumDeviceSlots", 0)),
+          m_numInterrupts(config.getValue<size_t>(*this, "NumInterruptChannels", 0)),
           m_async_io("aio",    *this, clock, config),
           m_pic     ("pic",    *this, clock, config),
           m_rrmux   ("rrmux",  *this, clock, rf, m_numDevices, config),
@@ -20,11 +20,11 @@ namespace Simulator
     {
         if (m_numDevices == 0)
         {
-            throw InvalidArgumentException(*this, "AsyncIONumDeviceSlots not specified or zero");
+            throw InvalidArgumentException(*this, "NumDeviceSlots not specified or zero");
         }
         if (m_numInterrupts == 0)
         {
-            throw InvalidArgumentException(*this, "AsyncIONumInterruptChannels not specified or zero");
+            throw InvalidArgumentException(*this, "NumInterruptChannels not specified or zero");
         }
     }
     
@@ -94,11 +94,11 @@ namespace Simulator
 
     Processor::IOInterface::AsyncIOInterface::AsyncIOInterface(const string& name, Processor::IOInterface& parent, Clock& clock, Config& config)
         : MMIOComponent(name, parent, clock),
-          m_devAddrBits(config.getValue<unsigned>(parent.GetProcessor().GetName() + "AsyncIODeviceAddressBits", 0))
+          m_devAddrBits(config.getValue<unsigned>(*this, "DeviceAddressBits", 0))
     {
         if (m_devAddrBits == 0)
         {
-            throw InvalidArgumentException(*this, "AsyncIODeviceAddressBits not set or zero");
+            throw InvalidArgumentException(*this, "DeviceAddressBits not set or zero");
         }
     }
 

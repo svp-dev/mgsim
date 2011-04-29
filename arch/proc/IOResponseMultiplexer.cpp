@@ -8,16 +8,16 @@ namespace Simulator
 Processor::IOResponseMultiplexer::IOResponseMultiplexer(const std::string& name, Object& parent, Clock& clock, RegisterFile& rf, size_t numDevices, Config& config)
     : Object(name, parent, clock),
       m_regFile(rf),
-      m_incoming("b_incoming", *this, clock, config.getValue<BufferSize>(*this, "AsyncIOReadResponseQueueSize", 1)),
+      m_incoming("b_incoming", *this, clock, config.getValue<BufferSize>(*this, "IncomingQueueSize", 0)),
       p_dummy("dummy-process", delegate::create<IOResponseMultiplexer, &Processor::IOResponseMultiplexer::DoNothing>(*this)),
       p_IncomingReadResponses("completed-reads", delegate::create<IOResponseMultiplexer, &Processor::IOResponseMultiplexer::DoReceivedReadResponses>(*this))
 {
     m_incoming.Sensitive(p_IncomingReadResponses);
 
-    BufferSize wbqsize = config.getValue<BufferSize>(*this, "AsyncIOWritebackQueueSize", 0); 
+    BufferSize wbqsize = config.getValue<BufferSize>(*this, "WritebackQueueSize", 0); 
     if (wbqsize < 3)
     {
-        throw InvalidArgumentException(*this, "AsyncIOWritebackQueueSize must be at least 3 to accomodate pipeline hazards");
+        throw InvalidArgumentException(*this, "WritebackQueueSize must be at least 3 to accomodate pipeline hazards");
     }
 
     m_wb_buffers.resize(numDevices, 0);
