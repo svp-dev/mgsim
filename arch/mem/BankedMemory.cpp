@@ -381,18 +381,20 @@ bool BankedMemory::CheckPermissions(MemAddr address, MemSize size, int access) c
 BankedMemory::BankedMemory(const std::string& name, Object& parent, Clock& clock, Config& config) :
     Object(name, parent, clock),
     m_clock(clock),
-    m_clients        (config.getValue<size_t>("NumProcessors", 1)),
-    m_banks          (config.getValue<size_t>("MemoryBanks", config.getValue<size_t>("NumProcessors", 1))),
-    m_baseRequestTime(config.getValue<CycleNo>("MemoryBaseRequestTime", 1)),
-    m_timePerLine    (config.getValue<CycleNo>("MemoryTimePerLine", 1)),
-    m_sizeOfLine     (config.getValue<size_t> ("MemorySizeOfLine", 8)),
-    m_cachelineSize  (config.getValue<size_t> ("CacheLineSize", 64)),
+    m_clients        (config.getValue<size_t>("NumClients", 
+                                              config.getValue<size_t>("NumProcessors", 0))),
+    m_banks          (config.getValue<size_t>(*this, "NumBanks", 
+                                              config.getValue<size_t>("NumProcessors", 0))),
+    m_baseRequestTime(config.getValue<CycleNo>(*this, "BaseRequestTime", 0)),
+    m_timePerLine    (config.getValue<CycleNo>(*this, "TimePerLine", 0)),
+    m_sizeOfLine     (config.getValue<size_t> (*this, "LineSize", 0)),
+    m_cachelineSize  (config.getValue<size_t> ("CacheLineSize", 0)),
     m_nreads         (0),
     m_nread_bytes    (0),
     m_nwrites        (0),
     m_nwrite_bytes   (0)
 {
-    const BufferSize buffersize = config.getValue<BufferSize>("MemoryBufferSize", INFINITE);
+    const BufferSize buffersize = config.getValue<BufferSize>(*this, "BufferSize", 0);
     
     // Initialize client info
     for (size_t i = 0; i < m_clients.size(); ++i)
