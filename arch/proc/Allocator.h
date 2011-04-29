@@ -142,7 +142,7 @@ private:
     Network&      m_network;
 	Pipeline&	  m_pipeline;
     
-    Buffer<LFID>          m_alloc;                   ///< This is the queue of families waiting for initial allocation
+    Buffer<LFID>          m_alloc;                   ///< This is the queue of families waiting for initial thread allocation
     Buffer<CreateInfo>    m_creates;                 ///< Create queue
     Buffer<TID>           m_cleanup;                 ///< Cleanup queue
 	CreateState           m_createState;	         ///< State of the current state;
