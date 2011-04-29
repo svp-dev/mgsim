@@ -63,9 +63,10 @@ private:
     bool Read(IODeviceID dev, MemAddr address, MemSize size, const RegAddr& writeback);
     bool Write(IODeviceID dev, MemAddr address, const IOData& data);
     bool WaitForNotification(IOInterruptID dev, const RegAddr& writeback);
+    Processor& GetProcessor() const;
 
 public:
-    IOInterface(const std::string& name, Object& parent, Clock& clock, RegisterFile& rf, IIOBus& iobus, IODeviceID devid, Config& config);
+    IOInterface(const std::string& name, Processor& parent, Clock& clock, RegisterFile& rf, IIOBus& iobus, IODeviceID devid, Config& config);
 
     MMIOComponent& GetAsyncIOInterface() { return m_async_io; }
     MMIOComponent& GetPICInterface() { return m_pic; }

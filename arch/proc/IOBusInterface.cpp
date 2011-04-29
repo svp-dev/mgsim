@@ -11,7 +11,7 @@ namespace Simulator
           m_intmux(intmux),
           m_iobus(iobus),
           m_hostid(devid),
-          m_outgoing_reqs("b_outgoing_reqs", *this, clock, config.getValue<BufferSize>("AsyncIORequestQueueSize", 3)),
+          m_outgoing_reqs("b_outgoing_reqs", *this, clock, config.getValue<BufferSize>(*this,"AsyncIORequestQueueSize", 0)),
           p_OutgoingRequests("outgoing-requests", delegate::create<IOBusInterface, &Processor::IOBusInterface::DoOutgoingRequests>(*this))
     {
         if (m_outgoing_reqs.GetMaxSize() < 3)

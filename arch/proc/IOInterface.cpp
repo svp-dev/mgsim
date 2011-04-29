@@ -8,16 +8,24 @@ using namespace std;
 
 namespace Simulator
 {
-    Processor::IOInterface::IOInterface(const string& name, Object& parent, Clock& clock, RegisterFile& rf, IIOBus& iobus, IODeviceID devid, Config& config)
+    Processor::IOInterface::IOInterface(const string& name, Processor& parent, Clock& clock, RegisterFile& rf, IIOBus& iobus, IODeviceID devid, Config& config)
         : Object(name, parent, clock),
-          m_numDevices(config.getValue<size_t>("AsyncIONumDeviceSlots", 8)),
-          m_numInterrupts(config.getValue<size_t>("AsyncIONumInterruptChannels", 8)),
+          m_numDevices(config.getValue<size_t>(parent.GetName() + "AsyncIONumDeviceSlots", 0)),
+          m_numInterrupts(config.getValue<size_t>(parent.GetName() + "AsyncIONumInterruptChannels", 0)),
           m_async_io("aio",    *this, clock, config),
           m_pic     ("pic",    *this, clock, config),
           m_rrmux   ("rrmux",  *this, clock, rf, m_numDevices, config),
           m_intmux  ("intmux", *this, clock, rf, m_numInterrupts),
           m_iobus_if("bus_if", *this, clock, m_rrmux, m_intmux, iobus, devid, config)
     {
+        if (m_numDevices == 0)
+        {
+            throw InvalidArgumentException(*this, "AsyncIONumDeviceSlots not specified or zero");
+        }
+        if (m_numInterrupts == 0)
+        {
+            throw InvalidArgumentException(*this, "AsyncIONumInterruptChannels not specified or zero");
+        }
     }
     
     bool Processor::IOInterface::Read(IODeviceID dev, MemAddr address, MemSize size, const RegAddr& writeback)
@@ -86,9 +94,18 @@ namespace Simulator
 
     Processor::IOInterface::AsyncIOInterface::AsyncIOInterface(const string& name, Processor::IOInterface& parent, Clock& clock, Config& config)
         : MMIOComponent(name, parent, clock),
-          m_devAddrBits(config.getValue<unsigned>("AsyncIODeviceAddressBits", 24))
+          m_devAddrBits(config.getValue<unsigned>(parent.GetProcessor().GetName() + "AsyncIODeviceAddressBits", 0))
     {
-        
+        if (m_devAddrBits == 0)
+        {
+            throw InvalidArgumentException(*this, "AsyncIODeviceAddressBits not set or zero");
+        }
+    }
+
+    Processor&
+    Processor::IOInterface::GetProcessor() const
+    {
+        return *static_cast<Processor*>(GetParent());
     }
 
     Processor::IOInterface&

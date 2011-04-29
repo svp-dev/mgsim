@@ -52,13 +52,18 @@ Processor::Processor(const std::string& name, Object& parent, Clock& clock, PID 
     m_bits.fid_bits = ilog2(m_familyTable.GetFamilies().size());
     m_bits.tid_bits = ilog2(m_threadTable.GetNumThreads());
 
-    // Register the pseudo I/O components
-    m_mmio.RegisterComponent(config.getValue<MemAddr>("PerformanceCountersBaseAddr", 8), 
-                             IOMatchUnit::READ, m_perfcounters);
-    m_mmio.RegisterComponent(config.getValue<MemAddr>("DebugChannelStdoutBaseAddr", 512), 
-                             IOMatchUnit::WRITE, m_lpout);
-    m_mmio.RegisterComponent(config.getValue<MemAddr>("DebugChannelStderrBaseAddr", 512 + m_lpout.GetSize()), 
-                             IOMatchUnit::WRITE, m_lperr);
+    // Configure the MMIO interface for the common devices
+    MemAddr pc_base = config.getValue<MemAddr>("PerformanceCountersBaseAddr", 0),
+        stdout_base = config.getValue<MemAddr>("DebugChannelStdoutBaseAddr", 0),
+        stderr_base = config.getValue<MemAddr>("DebugChannelStderrBaseAddr", 0);
+
+    
+    if (pc_base != 0)
+        m_mmio.RegisterComponent(pc_base, IOMatchUnit::READ, m_perfcounters);
+    if (stdout_base != 0)
+        m_mmio.RegisterComponent(stdout_base, IOMatchUnit::WRITE, m_lpout);
+    if (stderr_base != 0)
+        m_mmio.RegisterComponent(stderr_base, IOMatchUnit::WRITE, m_lperr);
 
     if (iobus != NULL)
     {
@@ -67,14 +72,20 @@ Processor::Processor(const std::string& name, Object& parent, Clock& clock, PID 
 
         m_io_if = new IOInterface("io_if", *this, clock, m_registerFile, *iobus, devid, config);
 
-        MMIOComponent& async_if = m_io_if->GetAsyncIOInterface();
-        MMIOComponent& pic_if = m_io_if->GetPICInterface();
-
-        m_mmio.RegisterComponent(config.getValue<MemAddr>("AsyncIOBaseAddr", 0x40000000),
-                                 IOMatchUnit::READWRITE, async_if);
-        m_mmio.RegisterComponent(config.getValue<MemAddr>("PICBaseAddr", 0x3fffff00),
-                                 IOMatchUnit::READ, pic_if);
+        MemAddr aio_base = config.getValue<MemAddr>(name + "AsyncIOBaseAddr", 0);
+        if (aio_base != 0)
+        {
+            MMIOComponent& async_if = m_io_if->GetAsyncIOInterface();
+            m_mmio.RegisterComponent(aio_base, IOMatchUnit::READWRITE, async_if);
+        }
+        MemAddr pic_base = config.getValue<MemAddr>(name + "PICBaseAddr", 0);
+        if (pic_base != 0)
+        {
+            MMIOComponent& pic_if = m_io_if->GetPICInterface();
+            m_mmio.RegisterComponent(pic_base, IOMatchUnit::READ, pic_if);
+        }
     }
+
 
 }
 
