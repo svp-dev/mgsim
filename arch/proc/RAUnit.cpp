@@ -18,11 +18,10 @@ Processor::RAUnit::RAUnit(const std::string& name, Processor& parent, Clock& clo
 {
     static struct RegTypeInfo {
         const char* blocksize_name;
-        size_t      blocksize_def;
         RegSize     context_size;
     } RegTypeInfos[NUM_REG_TYPES] = {
-        {"IntRegistersBlockSize", 32, 32},
-        {"FltRegistersBlockSize", 32, 32}
+        {"IntRegistersBlockSize", 32},
+        {"FltRegistersBlockSize", 32}
     };
     
     for (RegType i = 0; i < NUM_REG_TYPES; ++i)
@@ -33,28 +32,28 @@ Processor::RAUnit::RAUnit(const std::string& name, Processor& parent, Clock& clo
         // Contexts must be a power of two
         assert(IsPowerOfTwo(info.context_size));
         
-        type.blockSize = config.getValue<size_t>(info.blocksize_name, info.blocksize_def);
+        type.blockSize = config.getValue<size_t>(*this, info.blocksize_name, 0);
         if (type.blockSize == 0 || !IsPowerOfTwo(type.blockSize))
         {
-            throw InvalidArgumentException("Allocation block size is not a power of two");
+            throw exceptf<InvalidArgumentException>(*this, "%s is not a power of two", info.blocksize_name);
         }
 
         // A block must be able to fit at least a context
         if (type.blockSize < info.context_size)
         {
-            throw InvalidArgumentException("Allocation block size is smaller than a context");
+            throw exceptf<InvalidArgumentException>(*this, "%s is smaller than a context", info.blocksize_name);
         }
 
         const RegSize size = regFile.GetSize(i); 
         if (size % type.blockSize != 0)
         {
-            throw InvalidArgumentException("Allocation block size does not divide the register file size");
+            throw exceptf<InvalidArgumentException>(*this, "%s does not divide the register file size", info.blocksize_name);
         }
     
         const BlockSize free_blocks = size / type.blockSize;        
         if (free_blocks < 2)
         {
-            throw InvalidArgumentException("There must be at least two allocation blocks of registers");
+            throw exceptf<InvalidArgumentException>(*this, "%s: there must be at least two allocation blocks of registers", info.blocksize_name);
         }
 
         type.free[CONTEXT_NORMAL]    = free_blocks - 1;
