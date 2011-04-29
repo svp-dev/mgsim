@@ -244,6 +244,14 @@ Result FPU::DoPipeline()
     return (num_units_failed == num_units_active && num_sources_failed == num_sources_active) ? FAILED : SUCCESS;
 }
 
+FPU::Source::Source(const std::string& name, Object& parent, Clock& clock, Config& config)
+    : Object(name, parent, clock),
+      inputs("b_source", *this, clock, config.getValue<BufferSize>(*this, "InputQueueSize", 1)), 
+      regfile(NULL), 
+      last_write(0) 
+{}
+
+
 FPU::FPU(const std::string& name, Object& parent, Clock& clock, Config& config, size_t num_inputs)
     : Object(name, parent, clock),
       m_active("r_active", *this, clock),
@@ -257,16 +265,21 @@ FPU::FPU(const std::string& name, Object& parent, Clock& clock, Config& config, 
         };
         
         // Construct the FP units
-        for (int i = 1;; ++i)
+        size_t nUnits = config.getValue<size_t>(*this, "NumUnits", 0);
+        if (nUnits == 0)
+        {
+            throw InvalidArgumentException(*this, "NumUnits not set or zero");
+        }
+        for (int i = 0; i < nUnits; ++i)
         {
             stringstream ssname;
-            ssname << "FPUUnit" << i;
+            ssname << "Unit" << i;
             string name = ssname.str();
         
             set<FPUOperation> ops;
                 
             // Get ops for this unit
-            vector<string> strops = config.getValueList<string>(name + "Ops");
+            vector<string> strops = config.getValueList<string>(*this, name + "Ops");
             for (vector<string>::iterator p = strops.begin(); p != strops.end(); ++p)
             {
                 transform(p->begin(), p->end(), p->begin(), ::toupper);
@@ -277,10 +290,9 @@ FPU::FPU(const std::string& name, Object& parent, Clock& clock, Config& config, 
                     }
                 }
             }
-        
             if (ops.empty())
             {
-                break;
+                throw exceptf<InvalidArgumentException>(*this, "No operation specified for unit %d", i);
             }
  
             // Add this unit into the mapping table for the ops it implements
@@ -290,13 +302,12 @@ FPU::FPU(const std::string& name, Object& parent, Clock& clock, Config& config, 
             }
 
             Unit unit;
-            unit.latency   = config.getValue<CycleNo>( name + "Latency",   1);
-            unit.pipelined = config.getValue<bool>   ( name + "Pipelined", false);
+            unit.latency   = config.getValue<CycleNo>(*this, name+"Latency",   1);
+            unit.pipelined = config.getValue<bool>   (*this, name+"Pipelined", false);
             m_units.push_back(unit);
         }
         
         // Construct the sources
-        const BufferSize input_buffer_size = config.getValue<BufferSize>("FPUBufferSize", INFINITE);
         for (size_t i = 0; i < num_inputs; ++i)
         {
             stringstream sname;
@@ -304,7 +315,7 @@ FPU::FPU(const std::string& name, Object& parent, Clock& clock, Config& config, 
             string name = sname.str();
 
             m_sources.push_back(NULL);
-            Source* source = new Source(name, *this, clock, input_buffer_size);
+            Source* source = new Source(name, *this, clock, config);
             source->inputs.Sensitive(p_Pipeline);
             m_sources.back() = source;
         }       

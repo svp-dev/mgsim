@@ -43,15 +43,17 @@ class FPU : public Object, public Inspect::Interface<Inspect::Read>
     };
 
     /// Represents a source for this FPU    
-	struct Source
+        class Source : public Object
 	{
+        private:
 	    Buffer<Operation>        inputs;     ///< Input queue for operations from this source
 	    Processor::RegisterFile* regfile;    ///< Register file to write back results for this source
 	    CycleNo                  last_write; ///< Last time an FPU pipe wrote back to this source
 	    unsigned int             last_unit;  ///< Unit that did the last (or current) write
-	    
-            Source(const std::string& name, Object& parent, Clock& clock, BufferSize bufferSize)
-               : inputs(name + ".b_source", parent, clock, bufferSize), regfile(NULL), last_write(0) {}
+	   
+            friend class FPU;
+        public:
+            Source(const std::string& name, Object& parent, Clock& clock, Config& config);
 	};
 	
     /// Represents the result of an FP operation
