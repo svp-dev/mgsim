@@ -7,6 +7,9 @@
 #include <string>
 #include <vector>
 #include <ostream>
+#include <cerrno>
+#include <cstring>
+#include <inttypes.h>
 #include "kernel.h"
 
 class Config
@@ -26,13 +29,43 @@ public:
     template <typename T>
     T getValue(const std::string& name, const T& def) 
     {
-        T val;
-        std::stringstream defv;
+        /* general version for numbers. The version for strings and bools is specialized below. */
+
+        // convert the default value to string
+        std::stringstream defv; 
         defv << def;
-        std::stringstream stream;
-        stream << getValue<std::string>(name, defv.str());
-        stream >> val;
-        return (!stream.fail() && stream.eof()) ? val : def;
+        // get the string value back
+        std::string s = getValue<std::string>(name, defv.str());
+        const char *start = s.c_str();
+        char *end;
+        T val;
+
+        val = strtoumax(start, &end, 0);
+        if (errno == EINVAL)
+        {
+            val = strtoimax(start, &end, 0);
+            if (errno == EINVAL)
+                return def;
+        }
+        if (*end != '\0')
+        {
+            // a prefix is specified, maybe a multiplier?
+            if (strcmp(end, "GiB"))
+                val *= 1024ULL*1024*1024;
+            else if (strcmp(end, "GB"))
+                val *= 1000000000ULL;
+            else if (strcmp(end, "MiB"))
+                val *= 1024*1024;
+            else if (strcmp(end, "MB"))
+                val *= 1000000;
+            else if (strcmp(end, "KiB"))
+                val *= 1024;
+            else if (strcmp(end, "KB"))
+                val *= 1000;
+            else
+                return def;
+        }
+        return val;
     }
 
     template <typename T>
@@ -41,30 +74,8 @@ public:
         return getValue(obj.GetFQN() + '.' + name, def);
     }
 
-    template <typename T>
-    std::vector<T> getValueList(const std::string& name) 
-    {
-        std::vector<T> vals;
-        std::string str = getValue<std::string>(name,"");
-        std::istringstream stream(str);
-        std::string token = "";
-        while (getline(stream, token, ','))
-        {
-            std::stringstream ss;
-            T val;
-            ss << token;
-            ss >> val;
-            if (ss.fail()) break;
-            vals.push_back(val);
-        }
-        return vals;
-    }
-
-    template <typename T>
-    std::vector<T> getValueList(const Simulator::Object& obj, const std::string& name)
-    {
-        return getValueList<T>(obj.GetFQN() + '.' + name);
-    }
+    std::vector<std::string> getWordList(const std::string& name); 
+    std::vector<std::string> getWordList(const Simulator::Object& obj, const std::string& name);
 
     template <typename T>
     T getSize(const std::string& name, const T& def)

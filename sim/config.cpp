@@ -86,18 +86,26 @@ void Config::dumpConfiguration(ostream& os, const string& cf) const
     for (ConfigCache::const_iterator p = m_cache.begin(); p != m_cache.end(); ++p)
         os << "# -o " << p->first << " = " << p->second.first << " # set by " << p->second.second << endl;
 
-    // set<string> seen;
-    // for (ConfigMap::const_iterator p = m_overrides.begin(); p != m_overrides.end(); ++p)
-    // {
-    //     seen.insert(p->first);
-    //     os << "# -o " << p->first << "=" << p->second << endl;
-    // }
-    // os << "# (from " << cf << ')' << endl;
-    // for (ConfigMap::const_iterator p = m_data.begin(); p != m_data.end(); ++p)
-    //     if (seen.find(p->first) == seen.end())
-    //         os << "# -o " << p->first << "=" << p->second << endl;
     os << "### end simulator configuration" << endl;
 }
+
+vector<string> Config::getWordList(const string& name)
+{
+    vector<string> vals;
+    istringstream stream(getValue<string>(name,""));
+    string token = "";
+    while (getline(stream, token, ','))
+    {
+        vals.push_back(token);
+    }
+    return vals;
+}
+
+vector<string> Config::getWordList(const Simulator::Object& obj, const string& name)
+{
+    return getWordList(obj.GetFQN() + '.' + name);
+}
+
 
 Config::Config(const string& filename, const ConfigMap& overrides)
     : m_overrides(overrides)

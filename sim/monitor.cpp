@@ -47,7 +47,7 @@ Monitor::Monitor(Simulator::MGSystem& sys, bool enabled, const std::string& mdfi
         return ;
     }
 
-    std::vector<std::string> pats = sys.GetConfig().getValueList<std::string>("MonitorSampleVariables");
+    std::vector<std::string> pats = sys.GetConfig().getWordList("MonitorSampleVariables");
     pats.insert(pats.begin(), "kernel.cycle");
     pats.push_back("kernel.cycle");
     m_sampler = new BinarySampler(metadatafile, sys, pats);

@@ -279,7 +279,7 @@ FPU::FPU(const std::string& name, Object& parent, Clock& clock, Config& config, 
             set<FPUOperation> ops;
                 
             // Get ops for this unit
-            vector<string> strops = config.getValueList<string>(*this, name + "Ops");
+            vector<string> strops = config.getWordList(*this, name + "Ops");
             for (vector<string>::iterator p = strops.begin(); p != strops.end(); ++p)
             {
                 transform(p->begin(), p->end(), p->begin(), ::toupper);
