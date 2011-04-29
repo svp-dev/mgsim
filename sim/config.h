@@ -76,25 +76,26 @@ public:
         std::stringstream stream;
         stream << getValue<std::string>(name, defv.str());
         stream >> val;
+        if (stream.fail())
+            return def;
+        if (stream.eof())
+            return val;
         stream >> strmult;
-        if (!strmult.empty())
+        if (strmult.size() == 2)
         {
-            if (strmult.size() == 2)
+            switch (toupper(strmult[0]))
             {
-                switch (toupper(strmult[0]))
-                {
-                    default: return def;
-                    case 'G': val = val * 1024;
-                    case 'M': val = val * 1024;
-                    case 'K': val = val * 1024;
-                }                
-                strmult = strmult.substr(1);
-            }
-
-            if (strmult.size() != 1 || toupper(strmult[0]) != 'B')
-            {
-                return def;
-            }
+            default: return def;
+            case 'G': val = val * 1024;
+            case 'M': val = val * 1024;
+            case 'K': val = val * 1024;
+            }                
+            strmult = strmult.substr(1);
+        }
+        
+        if (strmult.size() != 1 || toupper(strmult[0]) != 'B')
+        {
+            return def;
         }
         return (!stream.fail() && stream.eof()) ? val : def;
     }
@@ -102,7 +103,7 @@ public:
     template <typename T>
     T getSize(const Simulator::Object& obj, const std::string& name, const T& def)
     {
-        return getValueSize(obj.GetFQN() + '.' + name, def);
+        return getSize(obj.GetFQN() + '.' + name, def);
     }
 
     void dumpConfiguration(std::ostream& os, const std::string& cf) const;
