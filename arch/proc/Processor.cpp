@@ -36,7 +36,8 @@ Processor::Processor(const std::string& name, Object& parent, Clock& clock, PID 
     m_perfcounters(*this),
     m_ancillaryRegisterFile("acrs", *this, clock, config),
     m_lpout("stdout", *this, std::cout),
-    m_lperr("stderr", *this, std::cerr)
+    m_lperr("stderr", *this, std::cerr),
+    m_io_if(NULL)
 {
     const Process* sources[] = {
         &m_icache.p_Outgoing,   // Outgoing process in I-Cache

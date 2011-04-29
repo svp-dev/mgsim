@@ -30,6 +30,14 @@ Processor::IOResponseMultiplexer::IOResponseMultiplexer(const std::string& name,
     }
 
 }
+
+Processor::IOResponseMultiplexer::~IOResponseMultiplexer()
+{
+    for (size_t i = 0; i < m_wb_buffers.size(); ++i)
+    {
+        delete m_wb_buffers[i];
+    }
+}
       
 bool Processor::IOResponseMultiplexer::QueueWriteBackAddress(IODeviceID dev, const RegAddr& addr)
 {

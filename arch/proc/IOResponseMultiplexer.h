@@ -25,6 +25,7 @@ private:
 
 public:
     IOResponseMultiplexer(const std::string& name, Object& parent, Clock& clock, RegisterFile& rf, size_t numDevices, Config& config);
+    ~IOResponseMultiplexer();
 
     // sent by device select upon an I/O read from the processor
     bool QueueWriteBackAddress(IODeviceID dev, const RegAddr& addr);

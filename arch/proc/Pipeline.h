@@ -25,6 +25,7 @@ class Pipeline : public Object, public Inspect::Interface<Inspect::Read>
                 MemoryRequest m_memory;     ///< Memory request information for pending registers.
             };
         };
+    PipeValue() : m_state(RST_INVALID), m_size(0) {}
     };
 
     static inline PipeValue MAKE_EMPTY_PIPEVALUE(unsigned int size)
@@ -54,6 +55,8 @@ class Pipeline : public Object, public Inspect::Interface<Inspect::Read>
         uint8_t     opcode;
         uint16_t    function;
         int32_t     displacement;
+
+    ArchDecodeReadLatch() : format(IFORMAT_INVALID), opcode(0), function(0), displacement(0) {}
     };
 
     struct ArchReadExecuteLatch : public ArchDecodeReadLatch
@@ -70,6 +73,8 @@ class Pipeline : public Object, public Inspect::Interface<Inspect::Read>
         // Memory store data source
         RegAddr      Rs;
         unsigned int RsSize;
+
+    ArchDecodeReadLatch() : op1(0), op2(0), op3(0), function(0), asi(0), displacement(0), RsSize(0) {}
     };
 
     struct ArchReadExecuteLatch : public ArchDecodeReadLatch
@@ -126,6 +131,7 @@ class Pipeline : public Object, public Inspect::Interface<Inspect::Read>
         LFID    fid;
         bool    swch;
         bool    kill;
+    CommonData() : tid(0), pc(0), pc_dbg(0), fid(0), swch(false), kill(false) {}
     };
 
     struct Latch : public CommonData
@@ -141,6 +147,8 @@ class Pipeline : public Object, public Inspect::Interface<Inspect::Read>
         RegInfo     regs;
         bool        legacy;
         PSize       placeSize;
+
+    FetchDecodeLatch() : instr(0), legacy(false), placeSize(0) {}
     };
 
     struct DecodeReadLatch : public Latch, public ArchDecodeReadLatch
@@ -157,6 +165,8 @@ class Pipeline : public Object, public Inspect::Interface<Inspect::Read>
         bool            RaNotPending; // Ra is only used to check for Not Pending
         
         PSize           placeSize;
+
+    DecodeReadLatch() : literal(0), regofs(0), RaSize(0), RbSize(0), RcSize(0), RaNotPending(false), placeSize(0) {}
     };
 
     struct ReadExecuteLatch : public Latch, public ArchReadExecuteLatch
@@ -174,6 +184,8 @@ class Pipeline : public Object, public Inspect::Interface<Inspect::Read>
         
         // For debugging only
         RegAddr         Ra, Rb;
+
+    ReadExecuteLatch() : RcSize(0), regofs(0), placeSize(0) {}
     };
 
     struct ExecuteMemoryLatch : public Latch
@@ -192,6 +204,8 @@ class Pipeline : public Object, public Inspect::Interface<Inspect::Read>
         PSize         placeSize;
         
         RemoteMessage Rrc;
+
+    ExecuteMemoryLatch() : suspend(SUSPEND_NONE), address(0), size(0), sign_extend(false), placeSize(0) {}
     };
 
     struct MemoryWritebackLatch : public Latch
@@ -201,6 +215,8 @@ class Pipeline : public Object, public Inspect::Interface<Inspect::Read>
         PipeValue     Rcv;
         
         RemoteMessage Rrc;
+
+    MemoryWritebackLatch() : suspend(SUSPEND_NONE) {}
     };
     
     //

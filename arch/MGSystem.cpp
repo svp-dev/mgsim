@@ -22,6 +22,7 @@
 #include <limits>
 #include <cxxabi.h>
 #include <fnmatch.h>
+#include <cstring>
 
 using namespace Simulator;
 using namespace std;
@@ -429,6 +430,8 @@ void MGSystem::PrintCoreStats(std::ostream& os) const {
     enum ct types[MAXCOUNTS];
 
     size_t i, j;
+    
+    memset(c, 0, sizeof(struct dt)*P*MAXCOUNTS);
 
     // Collect the data
     for (i = 0; i < P; ++i) {

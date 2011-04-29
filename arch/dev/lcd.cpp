@@ -26,6 +26,11 @@ LCD::LCD(const std::string& name, Object& parent,
     memset(m_buffer, ' ', width * height);
 }
 
+LCD::~LCD()
+{
+    delete[] m_buffer;
+}
+
 void LCD::GetDeviceIdentity(IODeviceIdentification& id) const
 {
     if (!DeviceDatabase::GetDatabase().FindDeviceByName("MGSim", "LCD", id))

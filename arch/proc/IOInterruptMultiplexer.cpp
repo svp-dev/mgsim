@@ -31,6 +31,15 @@ Processor::IOInterruptMultiplexer::IOInterruptMultiplexer(const std::string& nam
 
 }
 
+Processor::IOInterruptMultiplexer::~IOInterruptMultiplexer()
+{
+    for (size_t i = 0; i < m_writebacks.size(); ++i)
+    {
+        delete m_writebacks[i];
+        delete m_interrupts[i];
+    }
+}
+
 bool Processor::IOInterruptMultiplexer::SetWriteBackAddress(IOInterruptID which, const RegAddr& addr)
 {
     assert(which < m_writebacks.size());

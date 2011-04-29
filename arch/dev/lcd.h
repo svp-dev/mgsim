@@ -30,6 +30,7 @@ public:
         size_t width, size_t height,
         size_t startrow, size_t startcolumn,
         unsigned bgcolor, unsigned fgcolor);
+    ~LCD();
 
     bool OnReadRequestReceived(IODeviceID from, MemAddr address, MemSize size) { return false; }
     bool OnReadResponseReceived(IODeviceID from, const IOData& data) { return false; }

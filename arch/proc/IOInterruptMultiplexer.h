@@ -19,6 +19,7 @@ private:
 
 public:
     IOInterruptMultiplexer(const std::string& name, Object& parent, Clock& clock, RegisterFile& rf, size_t numInterrupts);
+    ~IOInterruptMultiplexer();
 
     // sent by device select upon an I/O read from the processor
     bool SetWriteBackAddress(IOInterruptID which, const RegAddr& addr);

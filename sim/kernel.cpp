@@ -464,6 +464,10 @@ Kernel::Kernel(SymbolTable& symtable, BreakPoints& breakpoints)
 
 Kernel::~Kernel()
 {
+    for (size_t i = 0; i < m_clocks.size(); ++i)
+    {
+        delete m_clocks[i];
+    }
 }
 
 }
