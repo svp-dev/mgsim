@@ -61,11 +61,11 @@ namespace Simulator
 
     Processor::AncillaryRegisterFile::AncillaryRegisterFile(const std::string& name, Processor& parent, Clock& clock, Config& config)
         : AncillaryRegisterInterface(name, parent, clock),
-          m_numRegisters(config.getValue<size_t>("NumAncillaryRegisters", 8))
+          m_numRegisters(config.getValue<size_t>(*this, "NumAncillaryRegisters", 0))
     {
         if (m_numRegisters == 0)
         {
-            throw InvalidArgumentException("NumAncillaryRegisters must be 1 or larger");
+            throw InvalidArgumentException(*this, "NumAncillaryRegisters must be 1 or larger");
         }
 
         m_registers.resize(m_numRegisters, 0);
