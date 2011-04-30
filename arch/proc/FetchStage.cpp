@@ -117,7 +117,7 @@ Processor::Pipeline::FetchStage::FetchStage(Pipeline& parent, Clock& clock, Fetc
         throw InvalidArgumentException("Control block size is not a power of two");
     }
 
-    if (m_controlBlockSize > (sizeof(Instruction)*sizeof(Instruction)*8/2)
+    if (m_controlBlockSize > (sizeof(Instruction)*sizeof(Instruction)*8/2))
     {
         throw InvalidArgumentException("Control block size causes control word to be larger than an instruction");
     }
