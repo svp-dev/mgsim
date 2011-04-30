@@ -162,14 +162,14 @@ unsigned long long lcm(unsigned long long a, unsigned long long b)
     return (a * b / gcd(a,b));
 }
 
-Clock& Kernel::CreateClock(unsigned long long frequency)
+Clock& Kernel::CreateClock(unsigned long frequency)
 {
     // We only allow creating clocks before the simulation starts
     assert(m_cycle == 0);
 
     // Gotta be at least 1 MHz
     assert(frequency > 0);
-    frequency = std::max(1ULL, frequency);
+    frequency = std::max(1UL, frequency);
 
     /*
      Calculate new master frequency:

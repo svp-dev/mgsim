@@ -208,7 +208,7 @@ public:
     /**
      * @brief Creates a clock at the specified frequency (in MHz).
      */    
-    Simulator::Clock& CreateClock(unsigned long long mhz);
+    Simulator::Clock& CreateClock(unsigned long mhz);
     
     /**
      * @brief Returns the master frequency for the simulation, in MHz

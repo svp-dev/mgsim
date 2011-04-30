@@ -11,32 +11,23 @@
 #include <cstring>
 #include <inttypes.h>
 #include "kernel.h"
+#include "except.h"
 
 class Config
 {
     // a sequence of (pattern, value) pairs 
     typedef std::vector<std::pair<std::string,std::string> > ConfigMap;
     
-    // a cache of (key, (value, origin pattern)) pairs
     typedef std::map<std::string,std::pair<std::string,std::string> > ConfigCache;
     
     ConfigMap         m_data;
     const ConfigMap&  m_overrides;
     ConfigCache       m_cache;
 
-public:
-
-    template <typename T>
-    T getValue(const std::string& name, const T& def) 
+    template<typename T>
+    static T convertToNumber(const std::string& name, const std::string& value)
     {
-        /* general version for numbers. The version for strings and bools is specialized below. */
-
-        // convert the default value to string
-        std::stringstream defv; 
-        defv << def;
-        // get the string value back
-        std::string s = getValue<std::string>(name, defv.str());
-        const char *start = s.c_str();
+        const char *start = value.c_str();
         char *end;
         T val;
 
@@ -44,78 +35,75 @@ public:
         if (errno == EINVAL)
         {
             val = strtoimax(start, &end, 0);
-            if (errno == EINVAL)
-                return def;
+        }
+        if (errno == EINVAL)
+        {
+            throw Simulator::exceptf<Simulator::SimulationException>("Configuration value for %s is not a number: %s", name.c_str(), start); 
         }
         if (*end != '\0')
         {
             // a prefix is specified, maybe a multiplier?
-            if (strcmp(end, "GiB"))
+            if (0 == strcmp(end, "GiB"))
                 val *= 1024ULL*1024*1024;
-            else if (strcmp(end, "GB"))
+            else if (0 == strcmp(end, "GB"))
                 val *= 1000000000ULL;
-            else if (strcmp(end, "MiB"))
+            else if (0 == strcmp(end, "MiB"))
                 val *= 1024*1024;
-            else if (strcmp(end, "MB"))
+            else if (0 == strcmp(end, "MB"))
                 val *= 1000000;
-            else if (strcmp(end, "KiB"))
+            else if (0 == strcmp(end, "KiB"))
                 val *= 1024;
-            else if (strcmp(end, "KB"))
+            else if (0 == strcmp(end, "KB"))
                 val *= 1000;
             else
-                return def;
+                throw Simulator::exceptf<Simulator::SimulationException>("Configuration value for %s has an invalid suffix: %s", name.c_str(), start); 
         }
         return val;
+    }
+
+    bool lookup(const std::string& name, std::string& result, const std::string& def, bool allow_default);
+
+    template <typename T>
+    T lookupValue(const std::string& name, const T& def, bool fail_if_not_found) 
+    {
+        /* general version for numbers. The version for strings and bools is specialized below. */
+
+        std::stringstream ss;
+        ss << def;
+        std::string val = lookupValue<std::string>(name, ss.str(), fail_if_not_found);
+        
+        // get the string value back
+        return convertToNumber<T>(name, val);
+    }
+
+public:
+
+    template <typename T>
+    T getValue(const std::string& name, const T& def)
+    {
+        return lookupValue<T>(name, def, false);
     }
 
     template <typename T>
     T getValue(const Simulator::Object& obj, const std::string& name, const T& def)
     {
-        return getValue(obj.GetFQN() + '.' + name, def);
+        return lookupValue<T>(obj.GetFQN() + '.' + name, def, false);
+    }
+
+    template <typename T>
+    T getValue(const std::string& name)
+    {
+        return lookupValue<T>(name, T(), true);
+    }
+
+    template <typename T>
+    T getValue(const Simulator::Object& obj, const std::string& name)
+    {
+        return lookupValue<T>(obj.GetFQN() + '.' + name, T(), true);
     }
 
     std::vector<std::string> getWordList(const std::string& name); 
     std::vector<std::string> getWordList(const Simulator::Object& obj, const std::string& name);
-
-    template <typename T>
-    T getSize(const std::string& name, const T& def)
-    {
-        T val;
-        std::stringstream defv;
-        defv << def;
-        std::string strmult;
-        std::stringstream stream;
-        stream << getValue<std::string>(name, defv.str());
-        stream >> val;
-        if (stream.fail())
-            return def;
-        if (stream.eof())
-            return val;
-        stream >> strmult;
-        if (strmult.size() == 2)
-        {
-            switch (toupper(strmult[0]))
-            {
-            default: return def;
-            case 'G': val = val * 1024;
-            case 'M': val = val * 1024;
-            case 'K': val = val * 1024;
-            }                
-            strmult = strmult.substr(1);
-        }
-        
-        if (strmult.size() != 1 || toupper(strmult[0]) != 'B')
-        {
-            return def;
-        }
-        return (!stream.fail() && stream.eof()) ? val : def;
-    }
-
-    template <typename T>
-    T getSize(const Simulator::Object& obj, const std::string& name, const T& def)
-    {
-        return getSize(obj.GetFQN() + '.' + name, def);
-    }
 
     void dumpConfiguration(std::ostream& os, const std::string& cf) const;
 
@@ -123,9 +111,15 @@ public:
 };
 
 template <>
-bool Config::getValue<bool>(const std::string& name, const bool& def);
+std::string Config::lookupValue<std::string>(const std::string& name, const std::string& def, bool fail_if_not_found);
+
+template<>
+double Config::convertToNumber<double>(const std::string& name, const std::string& value);
+
+template<>
+float Config::convertToNumber<float>(const std::string& name, const std::string& value);
 
 template <>
-std::string Config::getValue<std::string>(const std::string& name, const std::string& def);
+bool Config::convertToNumber<bool>(const std::string& name, const std::string& value);
 
 #endif

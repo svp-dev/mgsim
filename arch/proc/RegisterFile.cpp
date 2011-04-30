@@ -23,8 +23,8 @@ Processor::RegisterFile::RegisterFile(const std::string& name, Processor& parent
     p_asyncW    (*this, "p_asyncW"),
     m_parent(parent), m_allocator(alloc),
     m_nUpdates(0),
-    m_integers(config.getValue<size_t>(*this, "NumIntRegisters", 0)),
-    m_floats  (config.getValue<size_t>(*this, "NumFltRegisters", 0))
+    m_integers(config.getValue<size_t>(*this, "NumIntRegisters")),
+    m_floats  (config.getValue<size_t>(*this, "NumFltRegisters"))
 {
     // Initialize all registers to empty
     for (RegSize i = 0; i < m_integers.size(); ++i)

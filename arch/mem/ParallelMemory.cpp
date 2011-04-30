@@ -264,16 +264,16 @@ void ParallelMemory::Write(MemAddr address, const void* data, MemSize size)
 ParallelMemory::ParallelMemory(const std::string& name, Object& parent, Clock& clock, Config& config) :
     Object(name, parent, clock),
     m_clients        (config.getValue<size_t> (*this, "NumClients", 
-                                               config.getValue<size_t>("NumProcessors", 0))),
-    m_baseRequestTime(config.getValue<CycleNo>(*this, "BaseRequestTime", 0)),
-    m_timePerLine    (config.getValue<CycleNo>(*this, "TimePerLine", 0)),
-    m_sizeOfLine     (config.getValue<size_t> (*this, "LineSize", 0)),
+                                               config.getValue<size_t>("NumProcessors"))),
+    m_baseRequestTime(config.getValue<CycleNo>(*this, "BaseRequestTime")),
+    m_timePerLine    (config.getValue<CycleNo>(*this, "TimePerLine")),
+    m_sizeOfLine     (config.getValue<size_t> (*this, "LineSize")),
     m_nreads         (0),
     m_nread_bytes    (0),
     m_nwrites        (0),
     m_nwrite_bytes   (0)
 {
-    const BufferSize buffersize = config.getValue<BufferSize>(*this, "BufferSize", 0);
+    const BufferSize buffersize = config.getValue<BufferSize>(*this, "BufferSize");
 
     for (size_t i = 0; i < m_clients.size(); ++i)
     {

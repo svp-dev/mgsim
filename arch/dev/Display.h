@@ -41,7 +41,7 @@ namespace Simulator
             Display&        GetDisplay() { return *dynamic_cast<Display*>(GetParent()); }
 
         public:
-            FrameBufferInterface(const std::string& name, Display& parent, Clock &busclock, IIOBus& iobus, IODeviceID devid);
+            FrameBufferInterface(const std::string& name, Display& parent, IIOBus& iobus, IODeviceID devid);
 
             friend class Display;
 
@@ -63,7 +63,7 @@ namespace Simulator
             Display&        GetDisplay() { return *dynamic_cast<Display*>(GetParent()); }
 
         public:
-            ControlInterface(const std::string& name, Display& parent, Clock &busclock, IIOBus& iobus, IODeviceID devid);
+            ControlInterface(const std::string& name, Display& parent, IIOBus& iobus, IODeviceID devid);
 
             friend class Display;
 
@@ -82,7 +82,7 @@ namespace Simulator
         friend class FrameBufferInterface;
         
     public:
-        Display(const std::string& name, Object& parent, Clock& busclock, IIOBus& iobus, IODeviceID ctldevid, IODeviceID fbdevid, Config& config);
+        Display(const std::string& name, Object& parent, IIOBus& iobus, IODeviceID ctldevid, IODeviceID fbdevid, Config& config);
 
         ~Display();
 

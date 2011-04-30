@@ -4,26 +4,32 @@
 #include <cctype>
 #include <cassert>
 #include "lcd.h"
+#include "config.h"
+#include "except.h"
 
 namespace Simulator
 {
 
 // size_t LCD::GetSize() const { return m_width * m_height + 1; }
 
-LCD::LCD(const std::string& name, Object& parent, 
-         size_t width, size_t height,
-         size_t startrow, size_t startcolumn,
-         unsigned bgcolor, unsigned fgcolor)
+LCD::LCD(const std::string& name, Object& parent, Config& config)
     : Object(name, parent, parent.GetClock()),
       m_buffer(0),
-      m_width(width), m_height(height),
-      m_startrow(startrow), m_startcolumn(startcolumn),
-      m_bgcolor(bgcolor % 10), m_fgcolor(fgcolor % 10),
-      m_curx(0), m_cury(0)
+      m_width(config.getValue<size_t>(*this, "LCDDisplayWidth")), 
+      m_height(config.getValue<size_t>(*this, "LCDDisplayHeight")),
+      m_startrow(config.getValue<size_t>(*this, "LCDOutputRow")), 
+      m_startcolumn(config.getValue<size_t>(*this, "LCDOutputColumn")),
+      m_bgcolor(config.getValue<size_t>(*this, "LCDBackgroundColor") % 10), 
+      m_fgcolor(config.getValue<size_t>(*this, "LCDForegroundColor") % 10),
+      m_curx(0), 
+      m_cury(0)
 {
-    assert(width * height > 0);
-    m_buffer = new char[width * height];
-    memset(m_buffer, ' ', width * height);
+    if (m_width * m_height == 0)
+    {
+        throw exceptf<InvalidArgumentException>(*this, "Invalid size specification: %zux%zu", m_width, m_height);
+    }
+    m_buffer = new char[m_width * m_height];
+    memset(m_buffer, ' ', m_width * m_height);
 }
 
 LCD::~LCD()

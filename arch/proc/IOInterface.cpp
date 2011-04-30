@@ -10,8 +10,8 @@ namespace Simulator
 {
     Processor::IOInterface::IOInterface(const string& name, Processor& parent, Clock& clock, RegisterFile& rf, IIOBus& iobus, IODeviceID devid, Config& config)
         : Object(name, parent, clock),
-          m_numDevices(config.getValue<size_t>(*this, "NumDeviceSlots", 0)),
-          m_numInterrupts(config.getValue<size_t>(*this, "NumInterruptChannels", 0)),
+          m_numDevices(config.getValue<size_t>(*this, "NumDeviceSlots")),
+          m_numInterrupts(config.getValue<size_t>(*this, "NumInterruptChannels")),
           m_async_io("aio",    *this, clock, config),
           m_pic     ("pic",    *this, clock, config),
           m_rrmux   ("rrmux",  *this, clock, rf, m_numDevices, config),
@@ -94,7 +94,7 @@ namespace Simulator
 
     Processor::IOInterface::AsyncIOInterface::AsyncIOInterface(const string& name, Processor::IOInterface& parent, Clock& clock, Config& config)
         : MMIOComponent(name, parent, clock),
-          m_devAddrBits(config.getValue<unsigned>(*this, "DeviceAddressBits", 0))
+          m_devAddrBits(config.getValue<unsigned>(*this, "DeviceAddressBits"))
     {
         if (m_devAddrBits == 0)
         {

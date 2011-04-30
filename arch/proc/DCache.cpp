@@ -21,12 +21,12 @@ Processor::DCache::DCache(const std::string& name, Processor& parent, Clock& clo
 :   Object(name, parent, clock), m_parent(parent),
     m_allocator(alloc), m_familyTable(familyTable), m_regFile(regFile),
 
-    m_assoc          (config.getValue<size_t>(*this, "Associativity", 4)),
-    m_sets           (config.getValue<size_t>(*this, "NumSets", 4)),
-    m_lineSize       (config.getValue<size_t>("CacheLineSize", 0)),
+    m_assoc          (config.getValue<size_t>(*this, "Associativity")),
+    m_sets           (config.getValue<size_t>(*this, "NumSets")),
+    m_lineSize       (config.getValue<size_t>("CacheLineSize")),
     m_returned       ("b_returned", *this, clock, m_sets * m_assoc),
-    m_completedWrites("b_completedWrites", *this, clock, config.getValue<BufferSize>(*this, "CompletedWriteBufferSize", 0)),
-    m_outgoing       ("b_outgoing", *this, clock, config.getValue<BufferSize>(*this, "OutgoingBufferSize", 0)),
+    m_completedWrites("b_completedWrites", *this, clock, config.getValue<BufferSize>(*this, "CompletedWriteBufferSize")),
+    m_outgoing       ("b_outgoing", *this, clock, config.getValue<BufferSize>(*this, "OutgoingBufferSize")),
     m_numHits        (0),
     m_numMisses      (0),
 

@@ -10,9 +10,44 @@ using namespace std;
 using namespace Simulator;
 
 template <>
-bool Config::getValue<bool>(const std::string& name, const bool& def)
+string Config::lookupValue<string>(const string& name, const string& def, bool fail_if_not_found)
 {
-    string val = getValue<std::string>(name, def ? "true" : "false");
+    string val;
+    bool found = lookup(name, val, def, !fail_if_not_found);
+    if (!found)
+    {
+        if (fail_if_not_found)
+            throw exceptf<SimulationException>("No configuration key matches: %s", name.c_str());
+        else
+            return def;
+    }
+    return val;
+}
+
+template<>
+double Config::convertToNumber<double>(const string& name, const string& value)
+{
+    const char *start = value.c_str();
+    char *end;
+
+    double val = strtod(start, &end);
+    if (*end != '\0')
+    {
+        throw exceptf<SimulationException>("Configuration value for %s is not a floating-point number: %s", name.c_str(), start); 
+    }
+    return val;
+}
+
+template<>
+float Config::convertToNumber<float>(const string& name, const string& value)
+{
+    return convertToNumber<double>(name, value);
+}
+
+template <>
+bool Config::convertToNumber<bool>(const string& name, const string& value)
+{
+    string val = value;
     transform(val.begin(), val.end(), val.begin(), ::toupper);
 
     // Check for the boolean values
@@ -20,32 +55,34 @@ bool Config::getValue<bool>(const std::string& name, const bool& def)
     if (val == "FALSE" || val == "NO") return false;
     
     // Otherwise, try to interpret as an integer
-    int i;
-    stringstream stream(val);
-    stream >> i;
-    return (!stream.fail() && stream.eof()) ? i != 0 : def;
+    int i = convertToNumber<int>(name, val);
+    return i != 0;
 }
 
-template <>
-std::string Config::getValue<std::string>(const std::string& name_, const std::string& def)
+
+
+bool Config::lookup(const string& name_, string& result, const string &def, bool allow_default)
 {
-    std::string name(name_);
-    std::string val, pat;
-    transform(name.begin(), name.end(), name.begin(), ::toupper);
+    string name(name_);
+
+    string pat;
+    // transform(name.begin(), name.end(), name.begin(), ::toupper);
 
     ConfigCache::const_iterator p = m_cache.find(name);
     if (p != m_cache.end())
-        return p->second.first;
+    {
+        result = p->second.first;
+        return true;
+    }
 
     bool found = false;
     for (ConfigMap::const_iterator p = m_overrides.begin(); p != m_overrides.end(); ++p)
     {
         pat = p->first;
-        // std::cerr << "Lookup " << name << ": checking override " << pat << std::endl;
-        if (FNM_NOMATCH != fnmatch(pat.c_str(), name.c_str(), 0))
+        if (FNM_NOMATCH != fnmatch(pat.c_str(), name.c_str(), FNM_CASEFOLD))
         {
             // Return the overriden value
-            val = p->second;
+            result = p->second;
             found = true;
             break;
         }
@@ -56,43 +93,47 @@ std::string Config::getValue<std::string>(const std::string& name_, const std::s
         for (ConfigMap::const_iterator p = m_data.begin(); p != m_data.end(); ++p)
         {
             pat = p->first;
-            //std::cerr << "Lookup " << name << ": checking config " << pat << std::endl;
-            if (FNM_NOMATCH != fnmatch(pat.c_str(), name.c_str(), 0))
+            if (FNM_NOMATCH != fnmatch(pat.c_str(), name.c_str(), FNM_CASEFOLD))
             {
                 // Return the configuration value
-                val = p->second;
+                result = p->second;
                 found = true;
                 break;
             }
         }
     }
-    if (!found)
+    if (!found && allow_default)
     {
         pat = "default";
-        val = def;
+        result = def;
         found = true;
     }
-
     if (found)
     {
-        m_cache[name] = std::make_pair(val, pat);
+        m_cache[name] = make_pair(result, pat);
     }
-    return val;
+    return found;
 }
 
 void Config::dumpConfiguration(ostream& os, const string& cf) const
 {
-    os << "### begin simulator configuration" << endl;
+    os << "### begin simulator configuration" << endl
+       << "# overrides from command line:" << endl;
+    for (size_t i = 0; i < m_overrides.size(); ++i)
+        os << "# -o " << m_overrides[i].first << " = " << m_overrides[i].second << endl;
+    os << "# configuration file: " << cf << endl;
+    for (size_t i = 0; i < m_data.size(); ++i)
+        os << "# -o " << m_data[i].first << " = " << m_data[i].second << endl;
+    os << "# lookup matches:" << endl;
     for (ConfigCache::const_iterator p = m_cache.begin(); p != m_cache.end(); ++p)
-        os << "# -o " << p->first << " = " << p->second.first << " # set by " << p->second.second << endl;
-
+        os << "# " << p->first << " = " << p->second.first << " (matches " << p->second.second << ')' << endl;
     os << "### end simulator configuration" << endl;
 }
 
 vector<string> Config::getWordList(const string& name)
 {
     vector<string> vals;
-    istringstream stream(getValue<string>(name,""));
+    istringstream stream(getValue<string>(name));
     string token = "";
     while (getline(stream, token, ','))
     {
@@ -101,7 +142,7 @@ vector<string> Config::getWordList(const string& name)
     return vals;
 }
 
-vector<string> Config::getWordList(const Simulator::Object& obj, const string& name)
+vector<string> Config::getWordList(const Object& obj, const string& name)
 {
     return getWordList(obj.GetFQN() + '.' + name);
 }
@@ -161,7 +202,7 @@ Config::Config(const string& filename, const ConfigMap& overrides)
             if (isalnum(c) || c == '_' || c == '*' || c == '.') name += (char)c;
             else 
             {
-                transform(name.begin(), name.end(), name.begin(), ::toupper);
+                // transform(name.begin(), name.end(), name.begin(), ::toupper);
                 state = STATE_EQUALS;
             }
         }

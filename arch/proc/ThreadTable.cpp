@@ -12,7 +12,7 @@ namespace Simulator
 
 Processor::ThreadTable::ThreadTable(const std::string& name, Processor& parent, Clock& clock, Config& config)
   : Object(name, parent, clock),
-    m_threads(config.getValue<size_t>(*this, "NumEntries", 0)),
+    m_threads(config.getValue<size_t>(*this, "NumEntries")),
     m_totalalloc(0), m_maxalloc(0), m_lastcycle(0), m_curalloc(0)
 {
     RegisterSampleVariableInObject(m_totalalloc, SVC_CUMULATIVE);

@@ -8,13 +8,13 @@ namespace Simulator
 Processor::IOResponseMultiplexer::IOResponseMultiplexer(const std::string& name, Object& parent, Clock& clock, RegisterFile& rf, size_t numDevices, Config& config)
     : Object(name, parent, clock),
       m_regFile(rf),
-      m_incoming("b_incoming", *this, clock, config.getValue<BufferSize>(*this, "IncomingQueueSize", 0)),
+      m_incoming("b_incoming", *this, clock, config.getValue<BufferSize>(*this, "IncomingQueueSize")),
       p_dummy("dummy-process", delegate::create<IOResponseMultiplexer, &Processor::IOResponseMultiplexer::DoNothing>(*this)),
       p_IncomingReadResponses("completed-reads", delegate::create<IOResponseMultiplexer, &Processor::IOResponseMultiplexer::DoReceivedReadResponses>(*this))
 {
     m_incoming.Sensitive(p_IncomingReadResponses);
 
-    BufferSize wbqsize = config.getValue<BufferSize>(*this, "WritebackQueueSize", 0); 
+    BufferSize wbqsize = config.getValue<BufferSize>(*this, "WritebackQueueSize"); 
     if (wbqsize < 3)
     {
         throw InvalidArgumentException(*this, "WritebackQueueSize must be at least 3 to accomodate pipeline hazards");

@@ -9,8 +9,8 @@ namespace Simulator
 {
     Display * Display::m_singleton = NULL;
 
-    Display::FrameBufferInterface::FrameBufferInterface(const std::string& name, Display& parent, Clock& clock, IIOBus& iobus, IODeviceID devid)
-        : Object(name, parent, clock),
+    Display::FrameBufferInterface::FrameBufferInterface(const std::string& name, Display& parent, IIOBus& iobus, IODeviceID devid)
+        : Object(name, parent, iobus.GetClock()),
           m_devid(devid),
           m_iobus(iobus)
     {
@@ -66,8 +66,8 @@ namespace Simulator
         }    
     }
     
-    Display::ControlInterface::ControlInterface(const std::string& name, Display& parent, Clock& clock, IIOBus& iobus, IODeviceID devid)
-        : Object(name, parent, clock),
+    Display::ControlInterface::ControlInterface(const std::string& name, Display& parent, IIOBus& iobus, IODeviceID devid)
+        : Object(name, parent, iobus.GetClock()),
           m_devid(devid),
           m_iobus(iobus),
           m_control(3, 0)
@@ -201,25 +201,25 @@ namespace Simulator
     }
 
 
-    Display::Display(const std::string& name, Object& parent, Clock& busclock, IIOBus& iobus, IODeviceID ctldevid, IODeviceID fbdevid, Config& config)
+    Display::Display(const std::string& name, Object& parent, IIOBus& iobus, IODeviceID ctldevid, IODeviceID fbdevid, Config& config)
         : Object(name, parent),
-          m_framebuffer(config.getSize<size_t>(*this, "FrameBufferSize", 0), 0),
+          m_framebuffer(config.getValue<size_t>(*this, "GfxFrameBufferSize"), 0),
           m_palette(256, 0),
           m_indexed(false),
           m_bpp(8),
           m_width(640), m_height(400),
-          m_scalex_orig(1.0f / std::max(1U, config.getValue<unsigned int>("SDLHorizScale", 2))),
+          m_scalex_orig(1.0f / std::max(1U, config.getValue<unsigned int>("SDLHorizScale"))),
           m_scalex(m_scalex_orig),
-          m_scaley_orig(1.0f / std::max(1U, config.getValue<unsigned int>("SDLVertScale",  2))),
+          m_scaley_orig(1.0f / std::max(1U, config.getValue<unsigned int>("SDLVertScale"))),
           m_scaley(m_scaley_orig),
-          m_refreshDelay_orig(config.getValue<unsigned int>("SDLRefreshDelay", 1000000)),
+          m_refreshDelay_orig(config.getValue<unsigned int>("SDLRefreshDelay")),
           m_refreshDelay(m_refreshDelay_orig),
           m_lastUpdate(0),
           m_screen(NULL),
           m_max_screen_h(1024), m_max_screen_w(1280),
           m_enabled(false),
-          m_ctlinterface("ctl", *this, busclock, iobus, ctldevid),
-          m_fbinterface("fb", *this, busclock, iobus, fbdevid)
+          m_ctlinterface("ctl", *this, iobus, ctldevid),
+          m_fbinterface("fb", *this, iobus, fbdevid)
     {
         if (m_framebuffer.size() < 640*400)
             throw exceptf<InvalidArgumentException>(*this, "FrameBufferSize not set or too small for minimum resolution 640x400: %zu", m_framebuffer.size());
@@ -232,7 +232,7 @@ namespace Simulator
         RegisterSampleVariable(m_lastUpdate, "display.lastUpdate", SVC_CUMULATIVE);
 
 #ifdef USE_SDL
-        if (config.getValue<bool>(*this, "EnableSDLOutput", false))
+        if (config.getValue<bool>(*this, "GfxEnableSDLOutput"))
         {
             if (m_singleton != NULL)
                 throw InvalidArgumentException(*this, "Only one Display device can output to SDL.");

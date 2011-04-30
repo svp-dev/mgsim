@@ -32,7 +32,7 @@ Processor::RAUnit::RAUnit(const std::string& name, Processor& parent, Clock& clo
         // Contexts must be a power of two
         assert(IsPowerOfTwo(info.context_size));
         
-        type.blockSize = config.getValue<size_t>(*this, info.blocksize_name, 0);
+        type.blockSize = config.getValue<size_t>(*this, info.blocksize_name);
         if (type.blockSize == 0 || !IsPowerOfTwo(type.blockSize))
         {
             throw exceptf<InvalidArgumentException>(*this, "%s is not a power of two", info.blocksize_name);

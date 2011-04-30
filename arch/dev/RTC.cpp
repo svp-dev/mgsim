@@ -51,7 +51,7 @@ namespace Simulator
             set_time(); // need to have a non-zero value before the RTC starts
 
             // update delay in microseconds
-            clockResolution = config.getValue<clock_delay_t>("RTCMeatSpaceUpdateInterval", 20000);
+            clockResolution = config.getValue<clock_delay_t>("RTCMeatSpaceUpdateInterval");
 
             if (SIG_ERR == signal(SIGALRM, alarm_handler))
             {
@@ -72,11 +72,11 @@ namespace Simulator
         }
     }
 
-    RTC::RTCInterface::RTCInterface(const std::string& name, RTC& parent, Clock& clock, IIOBus& iobus, IODeviceID devid)
-        : Object(name, parent, clock),
+    RTC::RTCInterface::RTCInterface(const std::string& name, RTC& parent, IIOBus& iobus, IODeviceID devid)
+        : Object(name, parent, iobus.GetClock()),
           m_devid(devid),
           m_iobus(iobus),
-          m_doNotify("f_interruptTriggered", *this, clock, false),
+          m_doNotify("f_interruptTriggered", *this, iobus.GetClock(), false),
           m_interruptNumber(0),
           p_notifyTime("notify-time", delegate::create<RTCInterface, &RTCInterface::DoNotifyTime>(*this))
     {
@@ -84,14 +84,14 @@ namespace Simulator
         m_doNotify.Sensitive(p_notifyTime);
     }
 
-    RTC::RTC(const string& name, Object& parent, Clock& rtcclock, Clock& busclock, IIOBus& iobus, IODeviceID devid, Config& config)
+    RTC::RTC(const string& name, Object& parent, Clock& rtcclock, IIOBus& iobus, IODeviceID devid, Config& config)
         : Object(name, parent, rtcclock),
           m_timerTicked(false),
           m_timeOfLastInterrupt(0),
           m_triggerDelay(0),
           m_deliverAllEvents(true),
           m_enableCheck("f_checkTime", *this, rtcclock, false),
-          m_businterface("if", *this, busclock, iobus, devid),
+          m_businterface("if", *this, iobus, devid),
           p_checkTime("time-update", delegate::create<RTC, &RTC::DoCheckTime>(*this))
     {
         setup_clocks(config);

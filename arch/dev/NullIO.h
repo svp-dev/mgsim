@@ -33,7 +33,8 @@ namespace Simulator
         bool SendInterruptRequest(IODeviceID from, IOInterruptID which);
 
         void GetDeviceIdentity(IODeviceID which, IODeviceIdentification& id) const;
-       
+
+        Clock& GetClock() { return Object::GetClock(); }
 
         /* debug */
         void Cmd_Info(std::ostream& out, const std::vector<std::string>& arguments) const;

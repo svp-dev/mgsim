@@ -246,7 +246,7 @@ Result FPU::DoPipeline()
 
 FPU::Source::Source(const std::string& name, Object& parent, Clock& clock, Config& config)
     : Object(name, parent, clock),
-      inputs("b_source", *this, clock, config.getValue<BufferSize>(*this, "InputQueueSize", 1)), 
+      inputs("b_source", *this, clock, config.getValue<BufferSize>(*this, "InputQueueSize")), 
       regfile(NULL), 
       last_write(0) 
 {}
@@ -265,7 +265,7 @@ FPU::FPU(const std::string& name, Object& parent, Clock& clock, Config& config, 
         };
         
         // Construct the FP units
-        size_t nUnits = config.getValue<size_t>(*this, "NumUnits", 0);
+        size_t nUnits = config.getValue<size_t>(*this, "NumUnits");
         if (nUnits == 0)
         {
             throw InvalidArgumentException(*this, "NumUnits not set or zero");
@@ -302,8 +302,8 @@ FPU::FPU(const std::string& name, Object& parent, Clock& clock, Config& config, 
             }
 
             Unit unit;
-            unit.latency   = config.getValue<CycleNo>(*this, name+"Latency",   1);
-            unit.pipelined = config.getValue<bool>   (*this, name+"Pipelined", false);
+            unit.latency   = config.getValue<CycleNo>(*this, name+"Latency");
+            unit.pipelined = config.getValue<bool>   (*this, name+"Pipelined");
             m_units.push_back(unit);
         }
         

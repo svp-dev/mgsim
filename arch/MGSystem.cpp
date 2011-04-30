@@ -160,7 +160,7 @@ static vector<string> Tokenize(const string& str, const string& sep)
 
 void MGSystem::FillConfWords(ConfWords& words) const
 {
-    uint32_t cl_sz = m_config.getValue<uint32_t>("CacheLineSize", 0);
+    uint32_t cl_sz = m_config.getValue<uint32_t>("CacheLineSize");
 
     // configuration words for architecture type v1
 
@@ -178,13 +178,13 @@ void MGSystem::FillConfWords(ConfWords& words) const
     // timing words v3
           << MAKE_TAG(CONFTAG_TIMINGS_V3, 5)
           << m_kernel.GetMasterFrequency()
-          << m_config.getValue<uint32_t>("CoreFreq", 0)
-          << m_config.getValue<uint32_t>("MemoryFreq", 0)
+          << m_config.getValue<uint32_t>("CoreFreq")
+          << m_config.getValue<uint32_t>("MemoryFreq")
           << ((m_memorytype == MEMTYPE_COMA_ZL || m_memorytype == MEMTYPE_COMA_ML) ?
-              m_config.getValue<uint32_t>("DDRMemoryFreq", 0)
+              m_config.getValue<uint32_t>("*.DDR.Channel*.Freq")
               : 0 /* no timing information if memory system is not COMA */)
           << ((m_memorytype == MEMTYPE_COMA_ZL || m_memorytype == MEMTYPE_COMA_ML) ?
-              m_config.getValue<uint32_t>("NumRootDirectories", 0)
+              m_config.getValue<uint32_t>("*.Memory.NumRootDirectories")
               : 0 /* no DDR channels */)
 
     // cache parameter words v1
@@ -192,32 +192,32 @@ void MGSystem::FillConfWords(ConfWords& words) const
           << MAKE_TAG(CONFTAG_CACHE_V1, 5)
           << cl_sz
           << (cl_sz
-              * m_config.getValue<uint32_t>("ICacheAssociativity", 0)
-              * m_config.getValue<uint32_t>("ICacheNumSets", 0))
+              * m_config.getValue<uint32_t>("*.CPU*.ICache.Associativity")
+              * m_config.getValue<uint32_t>("*.CPU*.ICache.NumSets"))
           << (cl_sz
-              * m_config.getValue<uint32_t>("DCacheAssociativity", 0)
-              * m_config.getValue<uint32_t>("DCacheNumSets", 0));
+              * m_config.getValue<uint32_t>("*.CPU*.DCache.Associativity")
+              * m_config.getValue<uint32_t>("*.CPU*.DCache.NumSets"));
     if (m_memorytype == MEMTYPE_COMA_ZL || m_memorytype == MEMTYPE_COMA_ML)
         words << (m_procs.size()
-                  / m_config.getValue<uint32_t>("NumProcessorsPerL2Cache", 0)) // FIXME: COMA?
+                  / m_config.getValue<uint32_t>("NumProcessorsPerL2Cache")) // FIXME: COMA?
               << (cl_sz
-                  * m_config.getValue<uint32_t>("L2CacheAssociativity", 0)
-                  * m_config.getValue<uint32_t>("L2CacheNumSets", 0));
+                  * m_config.getValue<uint32_t>("*.Memory.L2CacheAssociativity")
+                  * m_config.getValue<uint32_t>("*.Memory.L2CacheNumSets"));
     else
         words << 0 << 0;
 
     // concurrency resources v1
 
     words << MAKE_TAG(CONFTAG_CONC_V1, 4)
-          << m_config.getValue<uint32_t>("NumFamilies", 0)
-          << m_config.getValue<uint32_t>("NumThreads", 0)
-          << m_config.getValue<uint32_t>("NumIntRegisters", 0)
-          << m_config.getValue<uint32_t>("NumFltRegisters", 0)
+          << m_config.getValue<uint32_t>("*.CPU*.Families.NumEntries")
+          << m_config.getValue<uint32_t>("*.CPU*.Threads.NumEntries")
+          << m_config.getValue<uint32_t>("*.CPU*.Registers.NumIntRegisters")
+          << m_config.getValue<uint32_t>("*.CPU*.Registers.NumFltRegisters")
 
         ;
 
     // place layout v2
-    PSize numProcessors = m_config.getValue<PSize>("NumProcessors", 1);
+    PSize numProcessors = m_config.getValue<PSize>("NumProcessors");
 
     words << MAKE_TAG(CONFTAG_LAYOUT_V2, numProcessors + 1)
           << numProcessors;
@@ -239,9 +239,9 @@ void MGSystem::FillConfWords(ConfWords& words) const
     }
 
     // core information
-    MemAddr pcbase = m_config.getValue<MemAddr>("PerformanceCountersBaseAddr", 0),
-        stderrbase = m_config.getValue<MemAddr>("DebugChannelStderrBaseAddr", 0),
-        stdoutbase = m_config.getValue<MemAddr>("DebugChannelStdoutBaseAddr", 0);
+    MemAddr pcbase = m_config.getValue<MemAddr>("*.CPU*.PerfCounters.MMIO_BaseAddr"),
+        stderrbase = m_config.getValue<MemAddr>("*.CPU*.Debug_Stderr.MMIO_BaseAddr"),
+        stdoutbase = m_config.getValue<MemAddr>("*.CPU*.Debug_Stdout.MMIO_BaseAddr");
 
     // I/O core information
     words << MAKE_TAG(CONFTAG_COREINFO_V1, 8)
@@ -800,21 +800,21 @@ MGSystem::MGSystem(Config& config, const string& program,
                    const vector<pair<RegAddr, string> >& loads,
                    bool quiet, bool doload)
     : m_kernel(m_symtable, m_breakpoints),
-      m_clock(m_kernel.CreateClock( (unsigned long long)(config.getValue<float>("CoreFreq", 1000)) )),
+      m_clock(m_kernel.CreateClock(config.getValue<unsigned long>("CoreFreq"))),
       m_root("system", m_clock),
       m_breakpoints(m_kernel),
       m_program(program),
       m_config(config)
 {
-    PSize numProcessors = m_config.getValue<PSize>("NumProcessors", 1);
+    PSize numProcessors = m_config.getValue<PSize>("NumProcessors");
 
-    const size_t numProcessorsPerFPU = max<size_t>(1, config.getValue<size_t>("NumProcessorsPerFPU", 1));
+    const size_t numProcessorsPerFPU = config.getValue<size_t>("NumProcessorsPerFPU");
     const PSize  numFPUs             = (numProcessors + numProcessorsPerFPU - 1) / numProcessorsPerFPU;
 
-    std::string memory_type = config.getValue<std::string>("MemoryType", "");
+    std::string memory_type = config.getValue<std::string>("MemoryType");
     std::transform(memory_type.begin(), memory_type.end(), memory_type.begin(), ::toupper);
 
-    Clock& memclock = m_kernel.CreateClock( config.getValue<size_t>("MemoryFreq", 1000));
+    Clock& memclock = m_kernel.CreateClock(config.getValue<size_t>("MemoryFreq"));
 
     if (memory_type == "SERIAL") {
         SerialMemory* memory = new SerialMemory("memory", m_root, memclock, config);
@@ -844,10 +844,8 @@ MGSystem::MGSystem(Config& config, const string& program,
         throw std::runtime_error("Unknown memory type: " + memory_type);
     }
 
-    Clock& ioclock = m_kernel.CreateClock(config.getValue<size_t>("IOFreq", 1000));
-
     // Create the I/O Buses
-    const size_t numIOBuses = config.getValue<size_t>("NumIOBuses", 0);
+    const size_t numIOBuses = config.getValue<size_t>("NumIOBuses");
     m_iobuses.resize(numIOBuses);
     for (size_t b = 0; b < numIOBuses; ++b)
     {
@@ -855,7 +853,9 @@ MGSystem::MGSystem(Config& config, const string& program,
         ss << "iobus" << b;
         string name = ss.str();
 
-        string bus_type = config.getValue<string>(name + "type", "");
+        string bus_type = config.getValue<string>(m_root, name + ".Type");
+        Clock& ioclock = m_kernel.CreateClock(config.getValue<unsigned long>(m_root, name + ".Freq"));
+
         if (bus_type == "NULLIO") {
             m_iobuses[b] = new NullIO(name, m_root, ioclock);
         } else {
@@ -883,9 +883,9 @@ MGSystem::MGSystem(Config& config, const string& program,
         string name = ss.str();
 
         IIOBus* iobus = NULL;
-        if (config.getValue<bool>(name + "EnableIO", false))
+        if (config.getValue<bool>(m_root, name + ".EnableIO", false)) // I/O disabled unless specified
         {
-            size_t busid = config.getValue<size_t>(name + "BusID", 0);
+            size_t busid = config.getValue<size_t>(name + ".BusID");
             if (busid >= m_iobuses.size())
             {
                 throw std::runtime_error("Processor " + name + " set to connect to non-existent bus");
@@ -899,7 +899,7 @@ MGSystem::MGSystem(Config& config, const string& program,
     }
 
     // Create the I/O devices
-    size_t numIODevices = config.getValue<size_t>("NumIODevices", 0);
+    size_t numIODevices = config.getValue<size_t>("NumIODevices");
 
     m_devices.resize(numIODevices);
     for (size_t i = 0; i < numIODevices; ++i)
@@ -908,7 +908,7 @@ MGSystem::MGSystem(Config& config, const string& program,
         ss << "iodev" << i;
         string name = ss.str();
 
-        size_t busid = config.getValue<size_t>(name + "BusID", 0);
+        size_t busid = config.getValue<size_t>(m_root, name + ".BusID");
 
         if (busid >= m_iobuses.size())
         {
@@ -917,27 +917,20 @@ MGSystem::MGSystem(Config& config, const string& program,
         
         IIOBus& iobus = *m_iobuses[busid];
 
-        size_t devid = config.getValue<size_t>(name + "DeviceID", 0);
-        string dev_type = config.getValue<string>(name + "Type", "");
-        string cfg = config.getValue<string>(name + "Config", dev_type);
+        size_t devid = config.getValue<size_t>(m_root, name + ".DeviceID");
+        string dev_type = config.getValue<string>(m_root, name + ".Type");
 
         if (dev_type == "LCD") {
-            LCD *lcd = new LCD(name, m_root,
-                               config.getValue<size_t>(cfg + "DisplayWidth", 16),
-                               config.getValue<size_t>(cfg + "DisplayHeight", 2),
-                               config.getValue<size_t>(cfg + "OutputRow", 10),
-                               config.getValue<size_t>(cfg + "OutputColumn", 32),
-                               config.getValue<unsigned>(cfg + "BackgroundColor", 2),
-                               config.getValue<unsigned>(cfg + "ForegroundColor", 0));
+            LCD *lcd = new LCD(name, m_root, config);
             iobus.RegisterClient(devid, *lcd);
             m_devices[i] = lcd;
         } else if (dev_type == "RTC") {
-            Clock& rtcclock = m_kernel.CreateClock(config.getValue<size_t>(cfg + "UpdateFreq", 1));
-            RTC *rtc = new RTC(name, m_root, rtcclock, ioclock, iobus, devid, config);
+            Clock& rtcclock = m_kernel.CreateClock(config.getValue<size_t>(m_root, name + ".RTCUpdateFreq"));
+            RTC *rtc = new RTC(name, m_root, rtcclock, iobus, devid, config);
             m_devices[i] = rtc;
         } else if (dev_type == "GFX") {
-            size_t fbdevid = config.getValue<size_t>(cfg + "FrameBufferDeviceID", devid + 1);
-            Display *disp = new Display(name, m_root, ioclock, iobus, devid, fbdevid, config);
+            size_t fbdevid = config.getValue<size_t>(m_root, name + ".GfxFrameBufferDeviceID", devid + 1);
+            Display *disp = new Display(name, m_root, iobus, devid, fbdevid, config);
             m_devices[i] = disp;
         } else {
             throw std::runtime_error("Unknown I/O device type: " + dev_type);
