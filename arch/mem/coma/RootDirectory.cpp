@@ -76,6 +76,7 @@ bool COMA::RootDirectory::OnReadCompleted(MemAddr address, const MemData& data)
     {
         m_activeMsg->type = Message::REQUEST_DATA_TOKEN;
         m_activeMsg->data = data;
+        m_activeMsg->dirty = false;
     }
     
     if (!m_responses.Push(m_activeMsg))

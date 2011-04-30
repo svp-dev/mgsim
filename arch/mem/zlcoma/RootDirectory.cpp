@@ -74,6 +74,7 @@ bool ZLCOMA::RootDirectory::OnReadCompleted(MemAddr address, const MemData& data
     {
         std::copy(data.data, data.data + MAX_MEMORY_OPERATION_SIZE, m_activeMsg->data);
         std::fill(m_activeMsg->bitmask, m_activeMsg->bitmask + MAX_MEMORY_OPERATION_SIZE, true);
+        m_activeMsg->dirty = false;
     }
 
     if (!m_responses.Push(m_activeMsg))
