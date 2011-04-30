@@ -102,24 +102,19 @@ Processor::Pipeline::PipeAction Processor::Pipeline::FetchStage::OnCycle()
     return PIPE_CONTINUE;
 }
 
-Processor::Pipeline::FetchStage::FetchStage(Pipeline& parent, Clock& clock, FetchDecodeLatch& output, Allocator& alloc, FamilyTable& familyTable, ThreadTable& threadTable, ICache& icache, Config& config)
+Processor::Pipeline::FetchStage::FetchStage(Pipeline& parent, Clock& clock, FetchDecodeLatch& output, Allocator& alloc, FamilyTable& familyTable, ThreadTable& threadTable, ICache& icache, Config& /*config*/)
   : Stage("fetch", parent, clock),
     m_output(output),
     m_allocator(alloc),
     m_familyTable(familyTable),
     m_threadTable(threadTable),
     m_icache(icache),
-    m_controlBlockSize(config.getValue<size_t>("ControlBlockSize")),
+    m_controlBlockSize(sizeof(Instruction) * sizeof(Instruction)*8 / 2),
     m_switched(true)
 {
     if ((m_controlBlockSize & ~(m_controlBlockSize - 1)) != m_controlBlockSize)
     {
         throw InvalidArgumentException("Control block size is not a power of two");
-    }
-
-    if (m_controlBlockSize > 64)
-    {
-        throw InvalidArgumentException("Control block size is larger than 64");
     }
 
     if (m_controlBlockSize > m_icache.GetLineSize())
