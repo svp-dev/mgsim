@@ -67,8 +67,8 @@ Processor::Processor(const std::string& name, Object& parent, Clock& clock, PID 
 
         MMIOComponent& async_if = m_io_if->GetAsyncIOInterface();
         async_if.Connect(m_mmio, IOMatchUnit::READWRITE, config);
-        MMIOComponent& pic_if = m_io_if->GetPICInterface();
-        pic_if.Connect(m_mmio, IOMatchUnit::READ, config);
+        MMIOComponent& pnc_if = m_io_if->GetPNCInterface();
+        pnc_if.Connect(m_mmio, IOMatchUnit::READ, config);
     }
 
 
@@ -107,7 +107,7 @@ void Processor::Initialize(Processor* prev, Processor* next, MemAddr runAddress,
     
     if (m_io_if != NULL)
     {
-        m_allocator.p_readyThreads.AddProcess(m_io_if->GetInterruptMultiplexer().p_IncomingInterrupts); // Thread wakeup due to interrupt completed
+        m_allocator.p_readyThreads.AddProcess(m_io_if->GetNotificationMultiplexer().p_IncomingNotifications); // Thread wakeup due to notification 
         m_allocator.p_readyThreads.AddProcess(m_io_if->GetReadResponseMultiplexer().p_IncomingReadResponses); // Thread wakeup due to I/O read completion
     }
 
@@ -125,7 +125,7 @@ void Processor::Initialize(Processor* prev, Processor* next, MemAddr runAddress,
 
     if (m_io_if != NULL)
     {
-        m_registerFile.p_asyncW.AddProcess(m_io_if->GetInterruptMultiplexer().p_IncomingInterrupts); // I/O interrupt notifications
+        m_registerFile.p_asyncW.AddProcess(m_io_if->GetNotificationMultiplexer().p_IncomingNotifications); // I/O notifications
         m_registerFile.p_asyncW.AddProcess(m_io_if->GetReadResponseMultiplexer().p_IncomingReadResponses); // I/O read requests
     }
 

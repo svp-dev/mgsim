@@ -41,8 +41,8 @@ PROCESSOR_SRC = \
 	arch/proc/ICache.h \
 	arch/proc/IOResponseMultiplexer.h \
 	arch/proc/IOResponseMultiplexer.cpp \
-	arch/proc/IOInterruptMultiplexer.h \
-	arch/proc/IOInterruptMultiplexer.cpp \
+	arch/proc/IONotificationMultiplexer.h \
+	arch/proc/IONotificationMultiplexer.cpp \
 	arch/proc/IOBusInterface.h \
 	arch/proc/IOBusInterface.cpp \
 	arch/proc/IOInterface.h \

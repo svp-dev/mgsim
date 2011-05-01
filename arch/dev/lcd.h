@@ -35,6 +35,7 @@ public:
     bool OnReadResponseReceived(IODeviceID from, const IOData& data) { return false; }
 
     bool OnInterruptRequestReceived(IOInterruptID which) { return true; }
+    bool OnNotificationReceived(IOInterruptID which, Integer tag) { return true; }
 
     bool OnWriteRequestReceived(IODeviceID from, MemAddr address, const IOData& data);
 

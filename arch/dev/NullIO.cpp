@@ -76,6 +76,22 @@ namespace Simulator
         return res;
     }
 
+    bool NullIO::SendNotification(IODeviceID from, IOInterruptID which, Integer tag)
+    {
+        if (from >= m_clients.size() || m_clients[from] == NULL)
+        {
+            throw exceptf<SimulationException>(*this, "I/O from non-existent device %u", (unsigned)from);
+        }
+
+        bool res = true;
+        for (size_t to = 0; to < m_clients.size(); ++to)
+        {
+            if (m_clients[to] != NULL)
+                res = res & m_clients[to]->OnNotificationReceived(which, tag);
+        }
+        return res;
+    }
+
     void NullIO::GetDeviceIdentity(IODeviceID which, IODeviceIdentification &id) const
     {
         if (which >= m_clients.size() || m_clients[which] == NULL)

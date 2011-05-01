@@ -11,20 +11,20 @@ namespace Simulator
     Processor::IOInterface::IOInterface(const string& name, Processor& parent, Clock& clock, RegisterFile& rf, IIOBus& iobus, IODeviceID devid, Config& config)
         : Object(name, parent, clock),
           m_numDevices(config.getValue<size_t>(*this, "NumDeviceSlots")),
-          m_numInterrupts(config.getValue<size_t>(*this, "NumInterruptChannels")),
+          m_numChannels(config.getValue<size_t>(*this, "NumNotificationChannels")),
           m_async_io("aio",    *this, clock, config),
-          m_pic     ("pic",    *this, clock, config),
+          m_pnc     ("pnc",    *this, clock, config),
           m_rrmux   ("rrmux",  *this, clock, rf, m_numDevices, config),
-          m_intmux  ("intmux", *this, clock, rf, m_numInterrupts),
-          m_iobus_if("bus_if", *this, clock, m_rrmux, m_intmux, iobus, devid, config)
+          m_nmux    ("nmux",   *this, clock, rf, m_numChannels, config),
+          m_iobus_if("bus_if", *this, clock, m_rrmux, m_nmux, iobus, devid, config)
     {
         if (m_numDevices == 0)
         {
             throw InvalidArgumentException(*this, "NumDeviceSlots not specified or zero");
         }
-        if (m_numInterrupts == 0)
+        if (m_numChannels == 0)
         {
-            throw InvalidArgumentException(*this, "NumInterruptChannels not specified or zero");
+            throw InvalidArgumentException(*this, "NumNotificationChannels not specified or zero");
         }
     }
     
@@ -73,7 +73,7 @@ namespace Simulator
 
     bool Processor::IOInterface::WaitForNotification(IODeviceID dev, const RegAddr& writeback)
     {
-        if (!m_intmux.SetWriteBackAddress(dev, writeback))
+        if (!m_nmux.SetWriteBackAddress(dev, writeback))
         {
             DeadlockWrite("Unable to set the writeback address %s for wait on device %u",
                           writeback.str().c_str(), (unsigned)dev);
@@ -86,9 +86,9 @@ namespace Simulator
     {
         out << "This I/O interface is composed of the following components:" << endl
             << "- " << m_async_io.GetFQN() << endl
-            << "- " << m_pic.GetFQN() << endl
+            << "- " << m_pnc.GetFQN() << endl
             << "- " << m_rrmux.GetFQN() << endl
-            << "- " << m_intmux.GetFQN() << endl
+            << "- " << m_nmux.GetFQN() << endl
             << "Use 'info' on the individual components for more details." << endl;
     }
 
@@ -183,28 +183,28 @@ namespace Simulator
         
     }
 
-    Processor::IOInterface::PICInterface::PICInterface(const string& name, Processor::IOInterface& parent, Clock& clock, Config& config)
+    Processor::IOInterface::PNCInterface::PNCInterface(const string& name, Processor::IOInterface& parent, Clock& clock, Config& config)
         : MMIOComponent(name, parent, clock)
     {
     }
 
     Processor::IOInterface&
-    Processor::IOInterface::PICInterface::GetInterface() const
+    Processor::IOInterface::PNCInterface::GetInterface() const
     {
         return *static_cast<IOInterface*>(GetParent());
     }
 
-    size_t Processor::IOInterface::PICInterface::GetSize() const
+    size_t Processor::IOInterface::PNCInterface::GetSize() const
     {
-        return GetInterface().m_numInterrupts * sizeof(Integer);
+        return GetInterface().m_numChannels * sizeof(Integer);
     }
 
-    Result Processor::IOInterface::PICInterface::Read(MemAddr address, void* data, MemSize size, LFID fid, TID tid, const RegAddr& writeback)
+    Result Processor::IOInterface::PNCInterface::Read(MemAddr address, void* data, MemSize size, LFID fid, TID tid, const RegAddr& writeback)
     {
         IOInterruptID which = address / sizeof(Integer);
-        if (which > GetInterface().m_numInterrupts)
+        if (which > GetInterface().m_numChannels)
         {
-            throw exceptf<SimulationException>("Invalid wait to non-existent interrupt channel %u by F%u/T%u", (unsigned)which, (unsigned)fid, (unsigned)tid);
+            throw exceptf<SimulationException>("Invalid wait to non-existent notification/interrupt channel %u by F%u/T%u", (unsigned)which, (unsigned)fid, (unsigned)tid);
         }
         
         if (!GetInterface().WaitForNotification(which, writeback))
@@ -215,17 +215,17 @@ namespace Simulator
     }
 
 
-    void Processor::IOInterface::PICInterface::Cmd_Info(ostream& out, const vector<string>& args) const
+    void Processor::IOInterface::PNCInterface::Cmd_Info(ostream& out, const vector<string>& args) const
     {
         out << 
-            "The PIC interface accepts read commands from the processor and \n"
-            "configures the I/O interface to wait for an interrupt request coming\n"
-            "from the I/O Bus. Each interrupt channel is mapped to a fixed range\n"
-            "in the memory address space.\n"
+            "The PNC interface accepts read commands from the processor and \n"
+            "configures the I/O interface to wait for a notification or interrupt\n"
+            "request coming from the I/O Bus. Each notification/interrupt channel\n"
+            "is mapped to a fixed range in the memory address space.\n"
             "Address          | Description\n"
             "-----------------+----------------------\n"
             << hex << setfill('0');
-        for (size_t i = 0; i < GetInterface().m_numInterrupts; ++i)
+        for (size_t i = 0; i < GetInterface().m_numChannels; ++i)
         {
             MemAddr begin = i * sizeof(Integer);
             out << setw(16) << begin
@@ -235,7 +235,7 @@ namespace Simulator
         
     }
 
-    Result Processor::IOInterface::PICInterface::Write(MemAddr address, const void* data, MemSize size, LFID fid, TID tid)
+    Result Processor::IOInterface::PNCInterface::Write(MemAddr address, const void* data, MemSize size, LFID fid, TID tid)
     { 
         return FAILED;
     }

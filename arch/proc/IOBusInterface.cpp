@@ -5,10 +5,10 @@
 namespace Simulator
 {
     
-    Processor::IOBusInterface::IOBusInterface(const std::string& name, Object& parent, Clock& clock, IOResponseMultiplexer& rrmux, IOInterruptMultiplexer& intmux, IIOBus& iobus, IODeviceID devid, Config& config)
+    Processor::IOBusInterface::IOBusInterface(const std::string& name, Object& parent, Clock& clock, IOResponseMultiplexer& rrmux, IONotificationMultiplexer& nmux, IIOBus& iobus, IODeviceID devid, Config& config)
         : Object(name, parent, clock),
           m_rrmux(rrmux),
-          m_intmux(intmux),
+          m_nmux(nmux),
           m_iobus(iobus),
           m_hostid(devid),
           m_outgoing_reqs("b_outgoing_reqs", *this, clock, config.getValue<BufferSize>(*this, "OutgoingRequestQueueSize")),
@@ -77,7 +77,12 @@ namespace Simulator
 
     bool Processor::IOBusInterface::OnInterruptRequestReceived(IOInterruptID which)
     {
-        return m_intmux.OnInterruptRequestReceived(which);
+        return m_nmux.OnInterruptRequestReceived(which);
+    }
+
+    bool Processor::IOBusInterface::OnNotificationReceived(IOInterruptID which, Integer tag)
+    {
+        return m_nmux.OnNotificationReceived(which, tag);
     }
 
     void Processor::IOBusInterface::GetDeviceIdentity(IODeviceIdentification& id) const

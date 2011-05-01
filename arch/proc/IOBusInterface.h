@@ -6,7 +6,7 @@
 #endif
 
 class IOResponseMultiplexer;
-class IOInterruptMultiplexer;
+class IONotificationMultiplexer;
 
 class IOBusInterface : public IIOBusClient, public Object
 {
@@ -20,15 +20,15 @@ public:
     };
 
 private:
-    IOResponseMultiplexer&  m_rrmux;
-    IOInterruptMultiplexer& m_intmux;
-    IIOBus&                 m_iobus;
-    IODeviceID              m_hostid;
+    IOResponseMultiplexer&     m_rrmux;
+    IONotificationMultiplexer& m_nmux;
+    IIOBus&                    m_iobus;
+    IODeviceID                 m_hostid;
 
-    Buffer<IORequest>       m_outgoing_reqs;
+    Buffer<IORequest>          m_outgoing_reqs;
 
 public:
-    IOBusInterface(const std::string& name, Object& parent, Clock& clock, IOResponseMultiplexer& rrmux, IOInterruptMultiplexer& intmux, IIOBus& iobus, IODeviceID devid, Config& config);
+    IOBusInterface(const std::string& name, Object& parent, Clock& clock, IOResponseMultiplexer& rrmux, IONotificationMultiplexer& nmux, IIOBus& iobus, IODeviceID devid, Config& config);
 
     bool SendInterruptAck(IODeviceID to);
 
@@ -44,6 +44,7 @@ public:
     bool OnWriteRequestReceived(IODeviceID from, MemAddr address, const IOData& data);
     bool OnReadResponseReceived(IODeviceID from, const IOData& data);
     bool OnInterruptRequestReceived(IOInterruptID which);
+    bool OnNotificationReceived(IOInterruptID which, Integer tag);
 
     void GetDeviceIdentity(IODeviceIdentification& id) const;
     

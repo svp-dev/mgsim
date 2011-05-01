@@ -27,6 +27,7 @@ public:
     virtual bool OnWriteRequestReceived(IODeviceID from, MemAddr address, const IOData& data) = 0;
     virtual bool OnReadResponseReceived(IODeviceID from, const IOData& data) = 0;
     virtual bool OnInterruptRequestReceived(IOInterruptID which) = 0;
+    virtual bool OnNotificationReceived(IOInterruptID which, Integer tag) = 0;
 
     virtual void GetDeviceIdentity(IODeviceIdentification& id) const = 0;
 
@@ -47,6 +48,7 @@ public:
     virtual bool SendWriteRequest(IODeviceID from, IODeviceID to, MemAddr address, const IOData& data) = 0;
     virtual bool SendReadResponse(IODeviceID from, IODeviceID to, const IOData& data) = 0;
     virtual bool SendInterruptRequest(IODeviceID from, IOInterruptID which) = 0;
+    virtual bool SendNotification(IODeviceID from, IOInterruptID which, Integer tag) = 0;
 
     virtual void GetDeviceIdentity(IODeviceID which, IODeviceIdentification& id) const = 0;
 

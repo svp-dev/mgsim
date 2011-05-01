@@ -31,6 +31,7 @@ namespace Simulator
         bool SendReadResponse(IODeviceID from, IODeviceID to, const IOData& data);
         bool SendWriteRequest(IODeviceID from, IODeviceID to, MemAddr address, const IOData& data);
         bool SendInterruptRequest(IODeviceID from, IOInterruptID which);
+        bool SendNotification(IODeviceID from, IOInterruptID which, Integer tag);
 
         void GetDeviceIdentity(IODeviceID which, IODeviceIdentification& id) const;
 
