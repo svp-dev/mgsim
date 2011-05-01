@@ -885,7 +885,7 @@ MGSystem::MGSystem(Config& config, const string& program,
         IIOBus* iobus = NULL;
         if (config.getValue<bool>(m_root, name + ".EnableIO", false)) // I/O disabled unless specified
         {
-            size_t busid = config.getValue<size_t>(name + ".BusID");
+            size_t busid = config.getValue<size_t>(m_root, name + ".BusID");
             if (busid >= m_iobuses.size())
             {
                 throw std::runtime_error("Processor " + name + " set to connect to non-existent bus");
