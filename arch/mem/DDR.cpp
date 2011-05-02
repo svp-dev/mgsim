@@ -250,8 +250,12 @@ DDRChannel::DDRChannel(const std::string& name, Object& parent, Clock& clock, Vi
     m_pipeline.Sensitive(p_Pipeline);
 }
 
-void DDRChannel::Connect(ICallback& cb)
+void DDRChannel::SetClient(ICallback& cb)
 {
+    if (m_callback != NULL)
+    {
+        throw InvalidArgumentException(*this, "DDR channel can be connected to at most one root directory.");
+    }
     m_callback = &cb;
 }
 

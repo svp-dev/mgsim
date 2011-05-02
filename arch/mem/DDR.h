@@ -147,7 +147,7 @@ private:
     Result DoPipeline();
     
 public:
-    void Connect(ICallback& cb);
+    void SetClient(ICallback& cb);
     bool Read(MemAddr address, MemSize size);
     bool Write(MemAddr address, const void* data, MemSize size);
     

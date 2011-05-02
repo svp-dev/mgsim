@@ -459,7 +459,7 @@ ZLCOMA::RootDirectory::RootDirectory(const std::string& name, ZLCOMA& parent, Cl
         throw exceptf<InvalidArgumentException>(*this, "Invalid DDR channel ID: %zu", ddrid);
     }
     m_memory = ddr[ddrid];
-    m_memory->Connect(*this);
+    m_memory->SetClient(*this);
 }
 
 void ZLCOMA::RootDirectory::Cmd_Info(std::ostream& out, const std::vector<std::string>& arguments) const
