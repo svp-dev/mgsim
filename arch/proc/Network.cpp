@@ -35,7 +35,7 @@ Processor::Network::Network(
     m_next(NULL),
     m_grid(grid),
     
-    m_loadBalanceThreshold(config.getValue<unsigned>("LoadBalanceThreshold",1)),
+    m_loadBalanceThreshold(config.getValue<unsigned>(*this, "LoadBalanceThreshold")),
 
 #define CONSTRUCT_REGISTER(name) name(*this, #name)
     CONSTRUCT_REGISTER(m_delegateOut),
