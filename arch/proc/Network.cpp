@@ -1,4 +1,6 @@
 #include "Processor.h"
+#include "FamilyTable.h"
+#include "config.h"
 #include <cassert>
 #include <iostream>
 using namespace std;
@@ -19,7 +21,8 @@ Processor::Network::Network(
     const vector<Processor*>& grid,
     Allocator&                alloc,
     RegisterFile&             regFile,
-    FamilyTable&              familyTable
+    FamilyTable&              familyTable,
+    Config&                   config
 ) :
     Object(name, parent, clock),
     
@@ -31,6 +34,8 @@ Processor::Network::Network(
     m_prev(NULL),
     m_next(NULL),
     m_grid(grid),
+    
+    m_loadBalanceThreshold(config.getValue<unsigned>("LoadBalanceThreshold",1)),
 
 #define CONSTRUCT_REGISTER(name) name(*this, #name)
     CONSTRUCT_REGISTER(m_delegateOut),
@@ -188,7 +193,7 @@ Result Processor::Network::DoAllocResponse()
         msg.next_fid = lfid;
     }
     
-    if (numCores == 1)
+    if (msg.prev_fid == INVALID_LFID)
     {
         // We're back at the first core, acknowledge allocate or fail
         FID fid;
@@ -437,14 +442,40 @@ Result Processor::Network::DoDelegationIn()
     // Note that we make a copy here, because we want to clear it before
     // we process it, because we may overwrite the entry during processing.
     assert(!m_delegateIn.Empty());
-    const DelegateMessage msg = m_delegateIn.Read();
+    DelegateMessage msg = m_delegateIn.Read();
     m_delegateIn.Clear();
     assert(msg.dest == m_parent.GetPID());
     
     switch (msg.type)
     {
     case DelegateMessage::MSG_ALLOCATE:
-        if (!m_allocator.QueueFamilyAllocation(msg, msg.src))
+        if (msg.allocate.type == ALLOCATE_BALANCED && msg.allocate.place.size > 1)
+        {
+            unsigned used_contexts = m_familyTable.GetNumUsedFamilies(CONTEXT_NORMAL);
+            if (used_contexts >= m_loadBalanceThreshold)
+            {
+                // Forward on link network
+                LinkMessage fwd;
+                fwd.type = LinkMessage::MSG_BALLOCATE;
+                fwd.ballocate.min_contexts   = used_contexts;
+                fwd.ballocate.min_pid        = m_parent.GetPID();
+                fwd.ballocate.size           = msg.allocate.place.size;
+                fwd.ballocate.suspend        = msg.allocate.suspend;
+                fwd.ballocate.completion_pid = msg.allocate.completion_pid;
+                fwd.ballocate.completion_reg = msg.allocate.completion_reg;
+                
+                if (!SendMessage(fwd))
+                {
+                    return FAILED;
+                }
+                break;
+            }
+            
+            // We're below the threshold; allocate here as a place of one
+            msg.allocate.type = ALLOCATE_SINGLE;
+        }
+
+        if (!m_allocator.QueueFamilyAllocation(msg))
         {
             DeadlockWrite("Unable to process family allocation request");
             return FAILED;
@@ -628,6 +659,56 @@ Result Processor::Network::DoLink()
             return FAILED;
         }
         break;
+
+    case LinkMessage::MSG_BALLOCATE:
+    {
+        RemoteMessage rmsg;
+        rmsg.allocate.place.pid = m_parent.GetPID();
+
+        unsigned used_contexts = m_familyTable.GetNumUsedFamilies(CONTEXT_NORMAL);
+        if (used_contexts >= m_loadBalanceThreshold)
+        {
+            if ((m_parent.GetPID() + 1) % msg.ballocate.size != 0)
+            {
+                // Not the last core yet; forward the message
+                LinkMessage fwd(msg);
+                if (used_contexts <= fwd.ballocate.min_contexts)
+                {
+                    // This core's the new minimum
+                    fwd.ballocate.min_contexts = used_contexts;
+                    fwd.ballocate.min_pid      = m_parent.GetPID();
+                }
+                
+                if (!SendMessage(fwd))
+                {
+                    return FAILED;
+                }
+                break;
+            }
+            
+            // Last core and we haven't met threshold, allocate on minimum
+            if (used_contexts > msg.ballocate.min_contexts)
+            {
+                // Minimum is not on this core, send it to the minimum
+                rmsg.allocate.place.pid = msg.ballocate.min_pid;
+            }
+        }
+        
+        // Send a remote allocate as a place of one
+        rmsg.type = RemoteMessage::MSG_ALLOCATE;
+        rmsg.allocate.place.size     = msg.ballocate.size;
+        rmsg.allocate.suspend        = msg.ballocate.suspend;
+        rmsg.allocate.exclusive      = false;
+        rmsg.allocate.type           = ALLOCATE_SINGLE;
+        rmsg.allocate.completion_pid = msg.ballocate.completion_pid;
+        rmsg.allocate.completion_reg = msg.ballocate.completion_reg;
+        if (!SendMessage(rmsg))
+        {
+            return FAILED;
+        }
+
+        break;
+    }
     
     case LinkMessage::MSG_SET_PROPERTY:
     {

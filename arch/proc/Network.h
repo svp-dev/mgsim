@@ -26,11 +26,12 @@ struct RemoteMessage
     union
     {
         struct {
-            PlaceID  place;         ///< The place to allocate at
-            bool     suspend;       ///< Queue request if no context available?
-            bool     exclusive;     ///< Allocate the exclusive context?
-            bool     exact;         ///< Allocate exactly the desired amount of cores?
-            RegIndex completion_reg;///< Register to write FID back to
+            PlaceID        place;         ///< The place to allocate at
+            bool           suspend;       ///< Queue request if no context available?
+            bool           exclusive;     ///< Allocate the exclusive context?
+            AllocationType type;          ///< Type of the allocation
+            PID            completion_pid;///< PID where the thread runs that issued the allocate
+            RegIndex       completion_reg;///< Register to write FID back to
         } allocate;
             
         struct {
@@ -85,6 +86,7 @@ struct LinkMessage
     enum Type
     {
         MSG_ALLOCATE,       ///< Allocate family
+        MSG_BALLOCATE,      ///< Balanced allocate
         MSG_SET_PROPERTY,   ///< Set family property
         MSG_CREATE,         ///< Create family
         MSG_DONE,           ///< Family has finished on previous core
@@ -109,6 +111,16 @@ struct LinkMessage
             PID      completion_pid; ///< PID where the thread runs that issued the allocate
             RegIndex completion_reg; ///< Reg on parent_pid of the completion register
         } allocate;
+
+        struct
+        {
+            unsigned min_contexts;   ///< Minimum of contexts found so far
+            PID      min_pid;        ///< Core where the minimum was found
+            PSize    size;           ///< Size of the place
+            bool     suspend;        ///< Suspend until we get a context (only if exact)
+            PID      completion_pid; ///< PID where the thread runs that issued the allocate
+            RegIndex completion_reg; ///< Reg on parent_pid of the completion register
+        } ballocate;
     
         struct
         {
@@ -253,7 +265,7 @@ class Network : public Object, public Inspect::Interface<Inspect::Read>
 	};
 	
 public:
-    Network(const std::string& name, Processor& parent, Clock& clock, const std::vector<Processor*>& grid, Allocator& allocator, RegisterFile& regFile, FamilyTable& familyTable);
+    Network(const std::string& name, Processor& parent, Clock& clock, const std::vector<Processor*>& grid, Allocator& allocator, RegisterFile& regFile, FamilyTable& familyTable, Config& config);
     void Initialize(Network* prev, Network* next);
 
     bool SendMessage(const RemoteMessage& msg);
@@ -289,6 +301,7 @@ private:
     Network*                       m_prev;
     Network*                       m_next;
     const std::vector<Processor*>& m_grid;
+    unsigned int                   m_loadBalanceThreshold;
 
 public:
     // Delegation network

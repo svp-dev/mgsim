@@ -328,7 +328,7 @@ class Pipeline : public Object, public Inspect::Interface<Inspect::Read>
         bool       ExecDetach(const FID& fid);
         PipeAction SetFamilyProperty(const FID& fid, FamilyProperty property, Integer value);
         PipeAction ExecuteInstruction();
-        bool       ExecAllocate(PlaceID place, RegIndex reg, bool suspend, bool exclusive, bool exact);
+        bool       ExecAllocate(PlaceID place, RegIndex reg, bool suspend, bool exclusive, Integer flags);
         PipeAction ExecCreate(const FID& fid, MemAddr address, RegIndex completion);
         PipeAction ExecBreak();
         PipeAction ExecKill(const PlaceID& place);

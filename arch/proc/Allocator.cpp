@@ -9,6 +9,11 @@ using namespace std;
 namespace Simulator
 {
 
+/// String representation for the AllocationType enumeration
+static const char* const AllocationTypes[] = {
+    "Normal", "Exact", "Balanced", "Single"
+};
+
 void Processor::Allocator::UpdateStats()
 {
     CycleNo cycle = GetKernel()->GetCycleNo();
@@ -898,16 +903,20 @@ Result Processor::Allocator::DoThreadAllocate()
 }
 
 /// Queues an allocation request for a family entry and context
-bool Processor::Allocator::QueueFamilyAllocation(const RemoteMessage& msg, PID src)
+bool Processor::Allocator::QueueFamilyAllocation(const RemoteMessage& msg)
 {
+    // Can't be balanced; that should have been handled by
+    // the network before it gets here.
+    assert(msg.allocate.type != ALLOCATE_BALANCED);
+    
     // Place the request in the appropriate buffer
     AllocRequest request;
     request.first_fid      = INVALID_LFID;
     request.prev_fid       = INVALID_LFID;
     request.placeSize      = msg.allocate.place.size;
-    request.exact          = msg.allocate.exact;
+    request.type           = msg.allocate.type;
     request.completion_reg = msg.allocate.completion_reg;
-    request.completion_pid = src;
+    request.completion_pid = msg.allocate.completion_pid;
     
     Buffer<AllocRequest>& allocations = msg.allocate.exclusive
         ? m_allocRequestsExclusive
@@ -918,7 +927,7 @@ bool Processor::Allocator::QueueFamilyAllocation(const RemoteMessage& msg, PID s
         return false;
     }
     
-    DebugSimWrite("Queued remote allocation for %u cores (exact: %s)", (unsigned)msg.allocate.place.size, msg.allocate.exact ? "yes" : "no");
+    DebugSimWrite("Queued remote allocation for %u cores (type: %s)", (unsigned)msg.allocate.place.size, AllocationTypes[msg.allocate.type]);
     return true;
 }
 
@@ -930,7 +939,7 @@ bool Processor::Allocator::QueueFamilyAllocation(const LinkMessage& msg)
     request.first_fid      = msg.allocate.first_fid;
     request.prev_fid       = msg.allocate.prev_fid;
     request.placeSize      = msg.allocate.size;
-    request.exact          = msg.allocate.exact;
+    request.type           = msg.allocate.exact ? ALLOCATE_EXACT : ALLOCATE_NORMAL;
     request.completion_reg = msg.allocate.completion_reg;
     request.completion_pid = msg.allocate.completion_pid;
     
@@ -1043,7 +1052,7 @@ Result Processor::Allocator::DoFamilyAllocate()
     if (lfid == INVALID_LFID)
     {
         // No family entry was available and we don't want to suspend until one is.
-        if (req.placeSize == 1)
+        if (req.prev_fid == INVALID_LFID)
         {
             // Return 0 as FID to indicate failure.
             FID fid;
@@ -1069,7 +1078,7 @@ Result Processor::Allocator::DoFamilyAllocate()
             // Unwind
             AllocResponse ret;
             ret.numCores       = 0;
-            ret.exact          = req.exact;
+            ret.exact          = (req.type == ALLOCATE_EXACT);
             ret.prev_fid       = req.prev_fid;
             ret.next_fid       = INVALID_LFID;
             ret.completion_pid = req.completion_pid;
@@ -1082,17 +1091,17 @@ Result Processor::Allocator::DoFamilyAllocate()
         }
     }
     // Allocation succeeded
-    else if ((m_parent.GetPID() + 1) % req.placeSize == 0)
+    else if (req.type == ALLOCATE_SINGLE || (m_parent.GetPID() + 1) % req.placeSize == 0)
     {
         // We've grabbed the last context that we wanted in the place
         Family& family = m_familyTable[lfid];
         COMMIT
         {
-            family.numCores = req.placeSize;
+            family.numCores = (req.type == ALLOCATE_SINGLE) ? 1 : req.placeSize;
             family.link     = INVALID_LFID;
         }
 
-        if (req.placeSize == 1)
+        if (req.prev_fid == INVALID_LFID)
         {
             // We're the only core in the family
             // Construct a global FID for this family
@@ -1119,7 +1128,7 @@ Result Processor::Allocator::DoFamilyAllocate()
             // Commit the allocations for this place
             AllocResponse ret;
             ret.numCores       = req.placeSize;
-            ret.exact          = req.exact;
+            ret.exact          = (req.type == ALLOCATE_EXACT);
             ret.prev_fid       = req.prev_fid;
             ret.next_fid       = lfid;
             ret.completion_pid = req.completion_pid;
@@ -1141,8 +1150,8 @@ Result Processor::Allocator::DoFamilyAllocate()
         msg.allocate.first_fid      = lfid;
         msg.allocate.prev_fid       = lfid;
         msg.allocate.size           = req.placeSize;
-        msg.allocate.exact          = req.exact;
-        msg.allocate.suspend        = req.exact && (buffer != &m_allocRequestsNoSuspend);
+        msg.allocate.exact          = (req.type == ALLOCATE_EXACT);
+        msg.allocate.suspend        = (req.type == ALLOCATE_EXACT) && (buffer != &m_allocRequestsNoSuspend);
         msg.allocate.completion_pid = req.completion_pid;
         msg.allocate.completion_reg = req.completion_reg;
         
@@ -1562,7 +1571,9 @@ void Processor::Allocator::CalculateDistribution(Family& family, Integer nThread
 {
     Integer threadsPerCore = std::max<Integer>(1, (nThreads + numCores - 1) / numCores);    
 
-    Integer nThreadsSkipped = threadsPerCore * (m_parent.GetPID() % family.placeSize);
+    // If the numCores is 1, the family can start inside a place, so we can't use
+    // placeSize to calculate the skip. The skip is 0 in that case.
+    Integer nThreadsSkipped = (numCores > 1) ? threadsPerCore * (m_parent.GetPID() % family.placeSize) : 0;
         
     // Calculate number of threads to run on this core
     nThreads = std::min(std::max(nThreads, nThreadsSkipped) - nThreadsSkipped, threadsPerCore);
@@ -1729,10 +1740,8 @@ void Processor::Allocator::Cmd_Read(ostream& out, const vector<string>& /*argume
             {
                 for (Buffer<AllocRequest>::const_iterator p = allocations.begin(); p != allocations.end(); )
                 {
-                    if (p->exact)
-                        out << "Exactly ";
                     out << p->placeSize << " cores (R" << hex << uppercase << setw(4) << setfill('0') << p->completion_reg
-                        << "@P" << dec << nouppercase << p->completion_pid << ")";
+                        << "@P" << dec << nouppercase << p->completion_pid << "); type: " << AllocationTypes[p->type];
                     if (++p != allocations.end()) {
                         out << "; ";
                     }

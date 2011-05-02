@@ -1094,8 +1094,7 @@ Processor::Pipeline::PipeAction Processor::Pipeline::ExecuteStage::ExecuteInstru
                     PlaceID place = m_parent.GetProcessor().UnpackPlace(m_input.Rav.m_integer.get(m_input.Rav.m_size));
                     bool suspend   = (m_input.function == A_UTHREAD_ALLOCATE_S || m_input.function == A_UTHREAD_ALLOCATE_E);
                     bool exclusive = (m_input.function == A_UTHREAD_ALLOCATE_E);
-                    bool exact     = flags & 1;
-                    if (!ExecAllocate(place, m_input.Rc.index, suspend, exclusive, exact))
+                    if (!ExecAllocate(place, m_input.Rc.index, suspend, exclusive, flags))
                     {
                         return PIPE_STALL;
                     }

@@ -511,7 +511,7 @@ Processor::Pipeline::PipeAction Processor::Pipeline::ExecuteStage::ExecReadASR20
         case S_OPT_ALLOCATEX:
         {
             PlaceID place = m_parent.GetProcessor().UnpackPlace(Rav);
-            if (!ExecAllocate(place, m_input.Rc.index, func != S_OPT_ALLOCATE, func == S_OPT_ALLOCATEX, Rbv & 1))
+            if (!ExecAllocate(place, m_input.Rc.index, func != S_OPT_ALLOCATE, func == S_OPT_ALLOCATEX, Rbv))
             {
                 return PIPE_STALL;
             }

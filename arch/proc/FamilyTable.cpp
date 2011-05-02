@@ -124,6 +124,16 @@ FSize Processor::FamilyTable::GetNumFreeFamilies(ContextType type) const
     return m_free[type];
 }
 
+FSize Processor::FamilyTable::GetNumUsedFamilies(ContextType type) const
+{
+    // Check that we're in a sane state
+    assert(m_free[CONTEXT_NORMAL] + m_free[CONTEXT_EXCLUSIVE] <= m_families.size());
+
+    size_t total = (type != CONTEXT_EXCLUSIVE) ? m_families.size() - 1 : 1;
+    return total - m_free[type];
+}
+
+
 void Processor::FamilyTable::FreeFamily(LFID fid, ContextType context)
 {
     assert(fid != INVALID_LFID);

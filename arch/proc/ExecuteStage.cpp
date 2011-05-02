@@ -115,7 +115,7 @@ Processor::Pipeline::PipeAction Processor::Pipeline::ExecuteStage::OnCycle()
     return action;
 }
 
-bool Processor::Pipeline::ExecuteStage::ExecAllocate(PlaceID place, RegIndex reg, bool suspend, bool exclusive, bool exact)
+bool Processor::Pipeline::ExecuteStage::ExecAllocate(PlaceID place, RegIndex reg, bool suspend, bool exclusive, Integer flags)
 {
     if (place.size == 0)
     {
@@ -134,6 +134,15 @@ bool Processor::Pipeline::ExecuteStage::ExecAllocate(PlaceID place, RegIndex reg
         throw SimulationException("Attempting to delegate to a non-existing core");
     }
     
+    AllocationType type = (AllocationType)(flags & 3);
+    if (exclusive && type == ALLOCATE_BALANCED)
+    {
+        type = ALLOCATE_SINGLE;
+        
+        OutputWrite("Exclusive single allocate changed at %llx (%s) to exclusive single allocate",
+            (unsigned long long)m_input.pc, GetKernel()->GetSymbolTable()[m_input.pc].c_str() );
+    }
+        
     // Send an allocation request.
     // This will write back the FID to the specified register once the allocation
     // has completed. Even for creates to this core, we do this. Simplifies things.
@@ -143,7 +152,8 @@ bool Processor::Pipeline::ExecuteStage::ExecAllocate(PlaceID place, RegIndex reg
         m_output.Rrc.allocate.place          = place;
         m_output.Rrc.allocate.suspend        = suspend;
         m_output.Rrc.allocate.exclusive      = exclusive;
-        m_output.Rrc.allocate.exact          = exact;
+        m_output.Rrc.allocate.type           = type;
+        m_output.Rrc.allocate.completion_pid = m_parent.GetProcessor().GetPID();
         m_output.Rrc.allocate.completion_reg = reg;
             
         m_output.Rcv = MAKE_PENDING_PIPEVALUE(m_input.RcSize);
@@ -283,8 +293,13 @@ Processor::Pipeline::PipeAction Processor::Pipeline::ExecuteStage::ExecBreak()
     // Send message to the family on the first core
     COMMIT
     {
+        PID pid = m_parent.GetProcessor().GetPID();
+        
+        // If the numCores is 1, the family can start inside a place,
+        // so we can't use placeSize to calculate the start of the
+        // family. The start is ourselves in that case.
         m_output.Rrc.type    = RemoteMessage::MSG_BREAK;
-        m_output.Rrc.brk.pid = (m_parent.GetProcessor().GetPID() / family.placeSize) * family.placeSize;
+        m_output.Rrc.brk.pid = (family.numCores > 1) ? pid & -family.placeSize : pid;
         m_output.Rrc.brk.fid = family.first_lfid;
     }
     return PIPE_CONTINUE; 
