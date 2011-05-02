@@ -107,14 +107,14 @@ private:
     bool OnMemorySnooped(MemAddr addr, const MemData& data);
 
     // The components on the core
+    FamilyTable           m_familyTable;
+    ThreadTable           m_threadTable;
+    RegisterFile          m_registerFile;
+    RAUnit                m_raunit;
     Allocator             m_allocator;
     ICache                m_icache;
     DCache                m_dcache;
-    RegisterFile          m_registerFile;
     Pipeline              m_pipeline;
-    RAUnit                m_raunit;
-    FamilyTable           m_familyTable;
-    ThreadTable           m_threadTable;
     Network               m_network;
 
     // Local MMIO devices
