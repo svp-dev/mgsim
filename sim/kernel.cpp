@@ -379,7 +379,8 @@ RunState Kernel::Step(CycleNo cycles)
     {
         // Add information about what component/state we were executing
         stringstream details;
-        details << "While executing process " << m_process->GetName() << endl;
+        details << "While executing process " << m_process->GetName() << endl
+                << "At master cycle " << m_cycle << endl;
         e.AddDetails(details.str());
         throw;
     }
