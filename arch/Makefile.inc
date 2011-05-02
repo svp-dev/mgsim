@@ -17,8 +17,8 @@ DEVICE_SRC = \
 	arch/dev/NullIO.h \
 	arch/dev/RTC.h \
 	arch/dev/RTC.cpp \
-	arch/dev/lcd.cpp \
-	arch/dev/lcd.h \
+	arch/dev/LCD.cpp \
+	arch/dev/LCD.h \
         arch/dev/Display.h \
         arch/dev/Display.cpp
 
