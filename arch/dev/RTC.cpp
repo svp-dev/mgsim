@@ -215,6 +215,7 @@ namespace Simulator
                 }
                 else
                 {
+                    m_doNotify.Clear(); // cancel sending the current interrupt if currently ongoing.
                     rtc.m_enableCheck.Clear();
                 }
                 rtc.m_triggerDelay = value; 
