@@ -1,0 +1,61 @@
+Real-time clock
+===============
+
+The MG RTC device allows to sample real time (outside of the
+simulation environment) and signal asynchronous events to the
+Microgrid at configurable time periods.
+
+The RTC device presents itself to the I/O bus as a single device. It
+must be accessed using 32-bit I/O operations. Its device address space
+is as follows:
+
+============= ======= ===========================================
+32-bit word   Mode    Description
+============= ======= ===========================================
+0             R       Clock resolution in microseconds of real time
+1             R/W     Notification delay (in microseconds, set to 0 to disable notifications)
+2             R/W     Notification channel to use for notifications
+3             R/W     Boolean: whether to deliver all events
+4             R       Microseconds part of the current Greenwich time since Jan 1, 1970
+5             R       Seconds part of the current Greenwich time since Jan 1, 1970
+6             R       Packed UTC time/date (part 1, see below)
+7             R       Packed UTC time/date (part 2, see below)
+8             R       Packed local time/date (part 1, see below)
+9             R       Packed local time/date (part 2, see below)
+============= ======= ===========================================
+
+To change the notification channel number, it is recommended to first
+disable notifications (set the delay to 0), so as to cancel any
+pending notification to the old channel number.
+
+Notifications
+-------------
+
+When enabled, the RTC device will deliver an I/O notification
+(interrupt request) at the specified time period. If the I/O bus is
+busy it is possible that the notification cannot be sent for an entire
+period. In this case, the value of word 3 determines whether
+intermediate notifications are skipped or whether they will be
+delivered eventually.
+
+Packed time
+-----------
+
+Words 6-9 provide a broken-down description of the current time and
+date, analogous to ``struct tm`` in C. The format is as follows:
+
+==== ======= =======================
+Word Bits    Description
+==== ======= =======================
+6,8  0-5     Seconds (0-59)
+6,8  6-11    Minutes (0-59)
+6,8  12-16   Hours (0-23)
+6,8  17-21   Day in month (0-30)
+6,8  22-25   Month in year (0-11)
+6,8  26-31   Number of years since 1970 (0-63)
+7,9  0-3     Day of week (Sunday = 0)
+7,9  4-12    Day of year (0-365)
+7,9  13      Whether summer time is in effect
+7,9  14-31   Offset from UTC in seconds (0-86399)
+==== ======= =======================
+
