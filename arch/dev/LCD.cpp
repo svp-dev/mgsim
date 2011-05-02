@@ -1,4 +1,6 @@
+#include <fstream>
 #include <sstream>
+#include <iomanip>
 #include <unistd.h>
 #include <cstring>
 #include <cctype>
@@ -12,8 +14,9 @@ namespace Simulator
 
 // size_t LCD::GetSize() const { return m_width * m_height + 1; }
 
-LCD::LCD(const std::string& name, Object& parent, Config& config)
+LCD::LCD(const std::string& name, Object& parent, IIOBus& iobus, IODeviceID devid, Config& config)
     : Object(name, parent, parent.GetClock()),
+      m_devid(devid), m_iobus(iobus),
       m_buffer(0),
       m_width(config.getValue<size_t>(*this, "LCDDisplayWidth")), 
       m_height(config.getValue<size_t>(*this, "LCDDisplayHeight")),
@@ -22,7 +25,8 @@ LCD::LCD(const std::string& name, Object& parent, Config& config)
       m_bgcolor(config.getValue<size_t>(*this, "LCDBackgroundColor") % 10), 
       m_fgcolor(config.getValue<size_t>(*this, "LCDForegroundColor") % 10),
       m_curx(0), 
-      m_cury(0)
+      m_cury(0),
+      m_tracefile(NULL)
 {
     if (m_width * m_height == 0)
     {
@@ -30,11 +34,27 @@ LCD::LCD(const std::string& name, Object& parent, Config& config)
     }
     m_buffer = new char[m_width * m_height];
     memset(m_buffer, ' ', m_width * m_height);
+
+    std::string tfname = config.getValue<std::string>(*this, "LCDTraceFile", "");
+    if (!tfname.empty())
+    {
+        m_tracefile = new std::ofstream;
+        m_tracefile->open(tfname.c_str(), std::ios::out | std::ios::app | std::ios::binary);
+        if (!m_tracefile->is_open())
+        {
+            throw exceptf<InvalidArgumentException>(*this, "Cannot open trace file: %s", tfname.c_str());
+        }
+    }
 }
 
 LCD::~LCD()
 {
     delete[] m_buffer;
+    if (m_tracefile != NULL)
+    {
+        m_tracefile->close();
+        delete m_tracefile;
+    }
 }
 
 void LCD::GetDeviceIdentity(IODeviceIdentification& id) const
@@ -43,6 +63,27 @@ void LCD::GetDeviceIdentity(IODeviceIdentification& id) const
     {
         throw InvalidArgumentException(*this, "Device identity not registered");
     }    
+}
+
+bool LCD::OnReadRequestReceived(IODeviceID from, MemAddr address, MemSize size)
+{
+    if (address != 0 || size != 4)
+    {
+        throw exceptf<SimulationException>(*this, "Invalid I/O read to %#016llx/%u", (unsigned long long)address, (unsigned)size);
+    }
+
+    uint32_t value = (uint32_t)m_width << 16 | (uint32_t)m_height;
+
+    IOData iodata;
+    SerializeRegister(RT_INTEGER, value, iodata.data, 4);
+    iodata.size = 4;
+
+    if (!m_iobus.SendReadResponse(m_devid, from, iodata))
+    {
+        DeadlockWrite("Cannot send LCD read response to I/O bus");
+        return false;
+    }
+    return true;
 }
 
 bool LCD::OnWriteRequestReceived(IODeviceID from, MemAddr address, const IOData& data)
@@ -55,6 +96,10 @@ bool LCD::OnWriteRequestReceived(IODeviceID from, MemAddr address, const IOData&
         {
             /* print with autoscroll */
             char thebyte = ((const char*)data.data)[0];
+
+            if (m_tracefile)
+                (*m_tracefile) << thebyte << std::flush;
+
             if (std::isprint(thebyte))
             {
                 m_buffer[m_cury * m_width + m_curx++] = thebyte;
@@ -115,9 +160,17 @@ bool LCD::OnWriteRequestReceived(IODeviceID from, MemAddr address, const IOData&
         }
         else
         {
+            if (address + data.size >= (m_width * m_height))
+            {
+                throw exceptf<SimulationException>(*this, "Invalid I/O write to %#016llx/%u", (unsigned long long)address, (unsigned)data.size);
+            }
             for (size_t i = 0; i < data.size; ++i)
             {
                 char thebyte = ((const char*)data.data)[i];
+
+                if (m_tracefile)
+                    (*m_tracefile) << thebyte << std::flush;
+
                 m_buffer[address + i] = std::isprint(thebyte) ? thebyte : ' ';
                 
                 DebugIOWrite("LCD output by device %u: %u -> %ux%u",

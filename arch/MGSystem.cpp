@@ -921,7 +921,7 @@ MGSystem::MGSystem(Config& config, const string& program,
         string dev_type = config.getValue<string>(m_root, name + ".Type");
 
         if (dev_type == "LCD") {
-            LCD *lcd = new LCD(name, m_root, config);
+            LCD *lcd = new LCD(name, m_root, iobus, devid, config);
             iobus.RegisterClient(devid, *lcd);
             m_devices[i] = lcd;
         } else if (dev_type == "RTC") {
