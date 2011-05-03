@@ -84,31 +84,47 @@ bool Processor::IONotificationMultiplexer::OnNotificationReceived(IOInterruptID 
 Result Processor::IONotificationMultiplexer::DoReceivedNotifications()
 {
     size_t i;
-    bool   found = false;
+    bool   notification_ready = false;
+    bool   pending_notifications = false;
 
-    /* Search for a notification to signal back to the processor */
+    /* Search for a notification to signal back to the processor.
+     The following two loops implement a circular lookup through
+    all devices -- round robin delivery to ensure fairness. */
     for (i = m_lastNotified; i < m_interrupts.size(); ++i)
     {
-        if ((m_interrupts[i]->IsSet() || !m_notifications[i]->Empty()) && !m_writebacks[i]->Empty())
+        if (m_interrupts[i]->IsSet() || !m_notifications[i]->Empty())
         {
-            found = true;
-            break;
-        }
-    }
-    if (!found)
-    {
-        for (i = 0; i < m_lastNotified; ++i)
-        {
-            if ((m_interrupts[i]->IsSet() || !m_notifications[i]->Empty()) && !m_writebacks[i]->Empty())
+            pending_notifications = true;
+            if (!m_writebacks[i]->Empty())
             {
-                found = true;
+                notification_ready = true;
                 break;
             }
         }
     }
-    
-    if (!found)
+    if (!notification_ready)
     {
+        for (i = 0; i < m_lastNotified; ++i)
+        {
+            if (m_interrupts[i]->IsSet() || !m_notifications[i]->Empty())
+            {
+                pending_notifications = true;
+                if (!m_writebacks[i]->Empty())
+                {
+                    notification_ready = true;
+                    break;
+                }
+            }
+        }
+    }
+    
+    if (!notification_ready)
+    {
+        if (pending_notifications)
+        {
+            DebugIOWrite("Some notification is ready but no active listener exists.");
+        }
+
         // Nothing to do
         return SUCCESS;
     }
@@ -182,7 +198,9 @@ Result Processor::IONotificationMultiplexer::DoReceivedNotifications()
         m_notifications[i]->Pop();
     }
 
-    m_lastNotified = i;
+    COMMIT {
+        m_lastNotified = i;
+    }
 
     return SUCCESS;
 }
