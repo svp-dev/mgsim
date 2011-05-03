@@ -347,7 +347,7 @@ static string GetClassName(const type_info& info)
 }
 
 static
-void GetComponents(map<string, Object*>& ret, Object *cur, const std::string& pat)
+void GetComponents(map<string, Object*>& ret, Object *cur, const string& pat)
 {
     for (unsigned int i = 0; i < cur->GetNumChildren(); ++i)
     {
@@ -361,7 +361,7 @@ void GetComponents(map<string, Object*>& ret, Object *cur, const std::string& pa
     }
 }
 
-map<string, Object*> MGSystem::GetComponents(const std::string& pat)
+map<string, Object*> MGSystem::GetComponents(const string& pat)
 {
     map<string, Object*> ret;
     ::GetComponents(ret, &m_root, pat);
@@ -369,7 +369,7 @@ map<string, Object*> MGSystem::GetComponents(const std::string& pat)
 }
 
 // Print all components that are a child of root
-static void PrintComponents(std::ostream& out, const Object* cur, const string& indent, const string& pat, size_t levels, size_t cur_level, bool cur_printing)
+static void PrintComponents(ostream& out, const Object* cur, const string& indent, const string& pat, size_t levels, size_t cur_level, bool cur_printing)
 {
     for (unsigned int i = 0; i < cur->GetNumChildren(); ++i)
     {
@@ -412,12 +412,12 @@ static void PrintComponents(std::ostream& out, const Object* cur, const string& 
     }
 }
 
-void MGSystem::PrintComponents(std::ostream& out, const string& pat, size_t levels) const
+void MGSystem::PrintComponents(ostream& out, const string& pat, size_t levels) const
 {
     ::PrintComponents(out, &m_root, "", pat, levels, 0, false);
 }
 
-void MGSystem::PrintCoreStats(std::ostream& os) const {
+void MGSystem::PrintCoreStats(ostream& os) const {
     struct my_iomanip_i fi;
     struct my_iomanip_f ff;
     struct my_iomanip_p fp;
@@ -478,9 +478,9 @@ void MGSystem::PrintCoreStats(std::ostream& os) const {
 
     for (j = 0; j < NC; ++j)
     {
-        dmin[j].i = std::numeric_limits<uint64_t>::max();
-        dmin[j].f = std::numeric_limits<float>::max();
-        dmax[j].i = 0; dmax[j].f = std::numeric_limits<float>::min();
+        dmin[j].i = numeric_limits<uint64_t>::max();
+        dmin[j].f = numeric_limits<float>::max();
+        dmax[j].i = 0; dmax[j].f = numeric_limits<float>::min();
         dtotal[j].i = 0; dtotal[j].f = 0.;
     }
 
@@ -490,10 +490,10 @@ void MGSystem::PrintCoreStats(std::ostream& os) const {
 
         ++ activecores;
         for (j = 0; j < NC; ++j) {
-            dmin[j].i = std::min(dmin[j].i, c[i][j].i);
-            dmin[j].f = std::min(dmin[j].f, c[i][j].f);
-            dmax[j].i = std::max(dmax[j].i, c[i][j].i);
-            dmax[j].f = std::max(dmax[j].f, c[i][j].f);
+            dmin[j].i = min(dmin[j].i, c[i][j].i);
+            dmin[j].f = min(dmin[j].f, c[i][j].f);
+            dmax[j].i = max(dmax[j].i, c[i][j].i);
+            dmax[j].f = max(dmax[j].f, c[i][j].f);
             dtotal[j].i += c[i][j].i;
             dtotal[j].f += c[i][j].f;
         }
@@ -536,7 +536,7 @@ void MGSystem::PrintCoreStats(std::ostream& os) const {
     os << "# per-core values" << endl;
     for (i = 0; i < P; ++i) {
         if (c[i][0].i == 0)  continue; // unused core
-        os << std::setw(4) << i << sep;
+        os << setw(4) << i << sep;
         for (j = 0; j < NC; ++j)
             if (types[j] == I)
                 os << fi << c[i][j].i << sep;
@@ -549,7 +549,7 @@ void MGSystem::PrintCoreStats(std::ostream& os) const {
 
 /*
     os << "# minimas - all active cores" << endl
-       << std::setw(4) << activecores << sep;
+       << setw(4) << activecores << sep;
     for (j = 0; j < NC; ++j)
         if (types[j] == I)
             os << fi << dmin[j].i << sep;
@@ -557,7 +557,7 @@ void MGSystem::PrintCoreStats(std::ostream& os) const {
             os << ff << dmin[j].f << sep;
     os << endl
        << "# maxima - all active cores" << endl
-       << std::setw(4) << activecores << sep;
+       << setw(4) << activecores << sep;
     for (j = 0; j < NC; ++j)
         if (types[j] == I)
             os << fi << dmin[j].i << sep;
@@ -566,7 +566,7 @@ void MGSystem::PrintCoreStats(std::ostream& os) const {
     os << endl;
 */
     os << "# cumulative - all active cores" << endl
-       << std::setw(4) << activecores << sep;
+       << setw(4) << activecores << sep;
     for (j = 0; j < NC; ++j)
         if (types[j] == I)
             os << fi << dtotal[j].i << sep;
@@ -576,7 +576,7 @@ void MGSystem::PrintCoreStats(std::ostream& os) const {
             os << ff << dtotal[j].f << sep;
     os << endl
        << "# average per core = cumulative/" << activecores << endl
-       << std::setw(4) << activecores << sep;
+       << setw(4) << activecores << sep;
     for (j = 0; j < NC; ++j)
         if (types[j] == I)
             os << fi << davg[j][0] << sep;
@@ -615,7 +615,7 @@ void MGSystem::PrintCoreStats(std::ostream& os) const {
 
 }
 
-void MGSystem::PrintMemoryStatistics(std::ostream& os) const {
+void MGSystem::PrintMemoryStatistics(ostream& os) const {
     uint64_t nr = 0, nrb = 0, nw = 0, nwb = 0, nrext = 0, nwext = 0;
 
     m_memory->GetMemoryStatistics(nr, nw, nrb, nwb, nrext, nwext);
@@ -644,9 +644,9 @@ void MGSystem::PrintState(const vector<string>& arguments) const
 
             for (const Process* process = clock->GetActiveProcesses(); process != NULL; process = process->GetNext())
             {
-                const std::string name = process->GetName();
+                const string name = process->GetName();
                 states[name] = process->GetState();
-                length = std::max(length, (streamsize)name.length());
+                length = max(length, (streamsize)name.length());
             }
 
             cout << left << setfill(' ');
@@ -687,7 +687,7 @@ void MGSystem::PrintState(const vector<string>& arguments) const
     }
 }
 
-void MGSystem::PrintAllStatistics(std::ostream& os) const
+void MGSystem::PrintAllStatistics(ostream& os) const
 {
     os << dec;
     os << GetKernel().GetCycleNo() << "\t# mastercycle counter" << endl
@@ -790,7 +790,7 @@ void MGSystem::Disassemble(MemAddr addr, size_t sz) const
 
     cmd << m_objdump_cmd << " -d -r --prefix-addresses --show-raw-insn --start-address=" << addr
         << " --stop-address=" << addr + sz << " " << m_program;
-    std::clog << "Running " << cmd.str() << "..." << std::endl;
+    clog << "Running " << cmd.str() << "..." << endl;
     system(cmd.str().c_str());
 }
 
@@ -811,8 +811,8 @@ MGSystem::MGSystem(Config& config, const string& program,
     const size_t numProcessorsPerFPU = config.getValue<size_t>("NumProcessorsPerFPU");
     const PSize  numFPUs             = (numProcessors + numProcessorsPerFPU - 1) / numProcessorsPerFPU;
 
-    std::string memory_type = config.getValue<std::string>("MemoryType");
-    std::transform(memory_type.begin(), memory_type.end(), memory_type.begin(), ::toupper);
+    string memory_type = config.getValue<string>("MemoryType");
+    transform(memory_type.begin(), memory_type.end(), memory_type.begin(), ::toupper);
 
     Clock& memclock = m_kernel.CreateClock(config.getValue<size_t>("MemoryFreq"));
 
@@ -841,7 +841,7 @@ MGSystem::MGSystem(Config& config, const string& program,
         m_memory = memory;
         m_memorytype = MEMTYPE_COMA_ZL;
     } else {
-        throw std::runtime_error("Unknown memory type: " + memory_type);
+        throw runtime_error("Unknown memory type: " + memory_type);
     }
 
     // Create the I/O Buses
@@ -859,7 +859,7 @@ MGSystem::MGSystem(Config& config, const string& program,
         if (bus_type == "NULLIO") {
             m_iobuses[b] = new NullIO(name, m_root, ioclock);
         } else {
-            throw std::runtime_error("Unknown I/O bus type for " + name + ": " + bus_type);
+            throw runtime_error("Unknown I/O bus type for " + name + ": " + bus_type);
         }
     }
 
@@ -888,7 +888,7 @@ MGSystem::MGSystem(Config& config, const string& program,
             size_t busid = config.getValue<size_t>(m_root, name + ".BusID");
             if (busid >= m_iobuses.size())
             {
-                throw std::runtime_error("Processor " + name + " set to connect to non-existent bus");
+                throw runtime_error("Processor " + name + " set to connect to non-existent bus");
             }
 
             m_procbusmapping[i] = busid;
@@ -912,7 +912,7 @@ MGSystem::MGSystem(Config& config, const string& program,
 
         if (busid >= m_iobuses.size())
         {
-            throw std::runtime_error("Device " + name + " set to connect to non-existent bus");
+            throw runtime_error("Device " + name + " set to connect to non-existent bus");
         }
         
         IIOBus& iobus = *m_iobuses[busid];
@@ -933,13 +933,13 @@ MGSystem::MGSystem(Config& config, const string& program,
             Display *disp = new Display(name, m_root, iobus, devid, fbdevid, config);
             m_devices[i] = disp;
         } else {
-            throw std::runtime_error("Unknown I/O device type: " + dev_type);
+            throw runtime_error("Unknown I/O device type: " + dev_type);
         }
 
     }
 
     // Load the program into memory
-    std::pair<MemAddr, bool> progdesc = make_pair(0, false);
+    pair<MemAddr, bool> progdesc = make_pair(0, false);
     if (doload)
         progdesc = LoadProgram(m_memory, program, quiet);
 
