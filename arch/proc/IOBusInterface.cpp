@@ -70,9 +70,9 @@ namespace Simulator
                                            (unsigned)from, (unsigned long long)address, (unsigned)data.size);
     }
 
-    bool Processor::IOBusInterface::OnReadResponseReceived(IODeviceID from, const IOData& data)
+    bool Processor::IOBusInterface::OnReadResponseReceived(IODeviceID from, MemAddr address, const IOData& data)
     {
-        return m_rrmux.OnReadResponseReceived(from, data);
+        return m_rrmux.OnReadResponseReceived(from, address, data);
     }
 
     bool Processor::IOBusInterface::OnInterruptRequestReceived(IOInterruptID which)

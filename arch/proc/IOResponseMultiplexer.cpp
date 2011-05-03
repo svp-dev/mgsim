@@ -46,10 +46,11 @@ bool Processor::IOResponseMultiplexer::QueueWriteBackAddress(IODeviceID dev, con
     return m_wb_buffers[dev]->Push(addr);
 }
 
-bool Processor::IOResponseMultiplexer::OnReadResponseReceived(IODeviceID from, const IOData& data)
+bool Processor::IOResponseMultiplexer::OnReadResponseReceived(IODeviceID from, MemAddr address, const IOData& data)
 {
     assert(from < m_wb_buffers.size());
 
+    // the responses come in order the read were issued, so we do not need to match for addresses.
     IOResponse response = { from, data };
 
     return m_incoming.Push(response);

@@ -42,7 +42,7 @@ public:
     /* From IIOBusClientCallBack */
     bool OnReadRequestReceived(IODeviceID from, MemAddr address, MemSize size);
     bool OnWriteRequestReceived(IODeviceID from, MemAddr address, const IOData& data);
-    bool OnReadResponseReceived(IODeviceID from, const IOData& data);
+    bool OnReadResponseReceived(IODeviceID from, MemAddr address, const IOData& data);
     bool OnInterruptRequestReceived(IOInterruptID which);
     bool OnNotificationReceived(IOInterruptID which, Integer tag);
 

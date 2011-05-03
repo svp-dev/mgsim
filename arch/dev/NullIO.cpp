@@ -47,11 +47,11 @@ namespace Simulator
         return m_clients[to]->OnReadRequestReceived(from, address, size);
     }
 
-    bool NullIO::SendReadResponse(IODeviceID from, IODeviceID to, const IOData& data)
+    bool NullIO::SendReadResponse(IODeviceID from, IODeviceID to, MemAddr address, const IOData& data)
     {
         CheckEndPoints(from, to);
 
-        return m_clients[to]->OnReadResponseReceived(from, data);
+        return m_clients[to]->OnReadResponseReceived(from, address, data);
     }
 
     bool NullIO::SendWriteRequest(IODeviceID from, IODeviceID to, MemAddr address, const IOData& data)

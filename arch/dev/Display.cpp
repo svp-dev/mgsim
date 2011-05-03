@@ -33,7 +33,7 @@ namespace Simulator
         
         DebugIOWrite("FB read: %#016llx/%u", (unsigned long long)address, (unsigned)size);
 
-        if (!m_iobus.SendReadResponse(m_devid, from, iodata))
+        if (!m_iobus.SendReadResponse(m_devid, from, address, iodata))
         {
             DeadlockWrite("Cannot send FB read response to I/O bus");
             return false;
@@ -191,7 +191,7 @@ namespace Simulator
         SerializeRegister(RT_INTEGER, value, iodata.data, 4);
         iodata.size = 4;
         
-        if (!m_iobus.SendReadResponse(m_devid, from, iodata))
+        if (!m_iobus.SendReadResponse(m_devid, from, address, iodata))
         {
             DeadlockWrite("Cannot send GfxCtl read response to I/O bus");
             return false;

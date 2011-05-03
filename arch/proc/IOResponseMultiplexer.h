@@ -31,7 +31,7 @@ public:
     bool QueueWriteBackAddress(IODeviceID dev, const RegAddr& addr);
 
     // triggered by the IOBusInterface
-    bool OnReadResponseReceived(IODeviceID from, const IOData& data);
+    bool OnReadResponseReceived(IODeviceID from, MemAddr address, const IOData& data);
 
     Process p_IncomingReadResponses;
     

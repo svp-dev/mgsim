@@ -78,7 +78,7 @@ bool LCD::OnReadRequestReceived(IODeviceID from, MemAddr address, MemSize size)
     SerializeRegister(RT_INTEGER, value, iodata.data, 4);
     iodata.size = 4;
 
-    if (!m_iobus.SendReadResponse(m_devid, from, iodata))
+    if (!m_iobus.SendReadResponse(m_devid, from, address, iodata))
     {
         DeadlockWrite("Cannot send LCD read response to I/O bus");
         return false;
