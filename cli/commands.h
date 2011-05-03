@@ -75,6 +75,8 @@ void DoObjectCommand(std::ostream& out, Simulator::MGSystem& sys, const std::str
         Inspect::Interface_<Type> * interface = dynamic_cast<Inspect::Interface_<Type>*>(i->second);
         if (interface != NULL)
         {
+            if (some)
+                out << std::endl;
             out << i->first << ':' << std::endl;
 
             interface->DoCommand(out, args);

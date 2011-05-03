@@ -107,8 +107,9 @@ void ListSampleVariables(std::ostream& os, const std::string& pat)
     }
 }
 
-void ReadSampleVariables(std::ostream& os, const std::string& pat)
+bool ReadSampleVariables(std::ostream& os, const std::string& pat)
 {
+    bool some = false;
     for (var_registry_t::const_iterator i = registry.begin();
          i != registry.end();
          ++i)
@@ -138,7 +139,9 @@ void ReadSampleVariables(std::ostream& os, const std::string& pat)
             break;
         }
         os << std::endl;        
+        some = true;
     }
+    return some;
 }
 
 typedef std::pair<const std::string*, const VarInfo*> varsel_t;

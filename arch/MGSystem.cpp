@@ -365,6 +365,14 @@ map<string, Object*> MGSystem::GetComponents(const string& pat)
 {
     map<string, Object*> ret;
     ::GetComponents(ret, &m_root, pat);
+
+    if (ret.empty())
+    {
+        // try to match with the system name inserted as prefix.
+        string syspat = m_root.GetName() + '.' + pat;
+        ::GetComponents(ret, &m_root, syspat);
+    }
+    
     return ret;
 }
 

@@ -25,7 +25,13 @@ bool cmd_inspect(const vector<string>& command, vector<string>& args, cli_contex
     args.erase(args.begin());
 
     if (args.empty())
-        ReadSampleVariables(cout, pat);
+    {
+        bool match = ReadSampleVariables(cout, pat);
+        if (!match)
+            match = ReadSampleVariables(cout, "system." + pat);
+        if (!match)
+            cout << "No variables found." << endl;
+    }
     DoObjectCommand<Inspect::Read>(cout, ctx.sys, pat, args);    
     return false;
 }
