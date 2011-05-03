@@ -5,7 +5,7 @@
 #include <cstring>
 #include <cctype>
 #include <cassert>
-#include "lcd.h"
+#include "LCD.h"
 #include "config.h"
 #include "except.h"
 

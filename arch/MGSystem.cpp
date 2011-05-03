@@ -8,7 +8,7 @@
 #include "mem/zlcoma/COMA.h"
 
 #include "arch/dev/NullIO.h"
-#include "arch/dev/lcd.h"
+#include "arch/dev/LCD.h"
 #include "arch/dev/RTC.h"
 #include "arch/dev/Display.h"
 
