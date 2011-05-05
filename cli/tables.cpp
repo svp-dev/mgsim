@@ -84,6 +84,7 @@ command_alias alias_table[] =
     { "cont"    , { "run",  0 } },
     { "continue", { "run",  0 } },
     { "d"       , { "disassemble", 0 } },
+    { "debug"   , { "trace", 0 } },
     { "dis"     , { "disassemble", 0 } },
     { "exit"    , { "quit", 0 } },
     { "h"       , { "help", 0 } },
