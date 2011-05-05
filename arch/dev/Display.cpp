@@ -203,7 +203,7 @@ namespace Simulator
 
     Display::Display(const std::string& name, Object& parent, IIOBus& iobus, IODeviceID ctldevid, IODeviceID fbdevid, Config& config)
         : Object(name, parent),
-          m_framebuffer(config.getValue<size_t>(*this, "GfxFrameBufferSize"), 0),
+          m_framebuffer(config.getValue<size_t>(*this, "GfxFrameSize"), 0),
           m_palette(256, 0),
           m_indexed(false),
           m_bpp(8),

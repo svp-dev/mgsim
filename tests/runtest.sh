@@ -2,7 +2,9 @@
 set -e
 sim=${MGSIM:?}
 timeout=${1:?}
-TESTd=${2:?}
+cfg1=${2:?}
+cfg2=${3:?}
+TESTd=${4:?}
 
 fail=0
 
@@ -60,15 +62,17 @@ fi
 
 mem=${TESTd##*.}
 
-if test -n "$rdata"; then
+for cfg in "$cfg1" "$cfg2"; do
+ cfgname=`basename "$cfg"`
+ if test -n "$rdata"; then
     reg=$(echo "$rdata"|cut -d: -f2)
     vals=$(echo "$rdata"|cut -d: -f3)
     for val in $vals; do
-	dotest "-o MemoryType=$mem -$reg $val" "MemType=$mem $reg=$val" "$sim"
+	dotest "-c $cfg -t -o MemoryType=$mem -$reg $val" "config=$cfgname MemType=$mem $reg=$val" "$sim"
     done
-else
-    dotest "-o MemoryType=$mem" "MemType=$mem" "$sim"
-fi
-
+ else
+    dotest "-c $cfg -t -o MemoryType=$mem" "MemType=$mem" "$sim"
+ fi
+done
 exit $fail
 

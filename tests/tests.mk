@@ -1,6 +1,8 @@
 LOG_COMPILER = \
-   MGSIM="$(top_builddir)/mgsim -c $(top_srcdir)/programs/config.ini -t" \
-   $(SHELL) $(srcdir)/runtest.sh $(top_srcdir)/tools/timeout
+   MGSIM=$(top_builddir)/mgsim $(SHELL) $(srcdir)/runtest.sh \
+	$(top_srcdir)/tools/timeout \
+	$(top_srcdir)/programs/config.ini \
+	`test -f ../programs/nobounds.ini || echo '$(srcdir)/'`../programs/nobounds.ini
 
 ASLINK = $(SHELL) $(top_builddir)/tools/aslink $(TEST_ARCH)
 
