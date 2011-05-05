@@ -58,8 +58,8 @@ if test "x$enable_profile" = "xyes"; then
 fi
 
 AC_ARG_ENABLE([sdl],
-              [AC_HELP_STRING([--enable-sdl],  
-                              [enable support for graphics output using SDL])],
+              [AC_HELP_STRING([--disable-sdl],  
+                              [disable support for graphics output using SDL (default is try to enable)])],
               [], [enable_sdl=yes])
 if test "x$enable_sdl" = "xyes"; then
   AM_PATH_SDL
