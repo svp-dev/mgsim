@@ -49,6 +49,8 @@ PROCESSOR_SRC = \
 	arch/proc/IOInterface.cpp \
 	arch/proc/IOMatchUnit.h \
 	arch/proc/IOMatchUnit.cpp \
+        arch/proc/IODirectCacheAccess.h \
+        arch/proc/IODirectCacheAccess.cpp \
         arch/proc/ISA.h \
         arch/proc/ISA.cpp \
 	arch/proc/MemoryStage.cpp \

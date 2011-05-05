@@ -5,10 +5,11 @@
 namespace Simulator
 {
     
-    Processor::IOBusInterface::IOBusInterface(const std::string& name, Object& parent, Clock& clock, IOResponseMultiplexer& rrmux, IONotificationMultiplexer& nmux, IIOBus& iobus, IODeviceID devid, Config& config)
+    Processor::IOBusInterface::IOBusInterface(const std::string& name, Object& parent, Clock& clock, IOResponseMultiplexer& rrmux, IONotificationMultiplexer& nmux, IODirectCacheAccess& dca, IIOBus& iobus, IODeviceID devid, Config& config)
         : Object(name, parent, clock),
           m_rrmux(rrmux),
           m_nmux(nmux),
+          m_dca(dca),
           m_iobus(iobus),
           m_hostid(devid),
           m_outgoing_reqs("b_outgoing_reqs", *this, clock, config.getValue<BufferSize>(*this, "OutgoingRequestQueueSize")),
@@ -33,24 +34,33 @@ namespace Simulator
 
         const IORequest& req = m_outgoing_reqs.Front();
 
-        if (req.write)
+        switch(req.type)
         {
+        case REQ_WRITE:
             if (!m_iobus.SendWriteRequest(m_hostid, req.device, req.address, req.data))
             {
                 DeadlockWrite("Unable to send I/O write request to %u:%016llx (%u)",
                               (unsigned)req.device, (unsigned long long)req.address, (unsigned)req.data.size);
                 return FAILED;
             }
-        }
-        else
-        {
+            break;
+        case REQ_READ:
             if (!m_iobus.SendReadRequest(m_hostid, req.device, req.address, req.data.size))
             {
                 DeadlockWrite("Unable to send I/O read request to %u:%016llx (%u)",
                               (unsigned)req.device, (unsigned long long)req.address, (unsigned)req.data.size);
                 return FAILED;
             }
-        }
+            break;
+        case REQ_READRESPONSE:
+            if (!m_iobus.SendReadResponse(m_hostid, req.device, req.address, req.data))
+            {
+                DeadlockWrite("Unable to send DCA read response to %u:%016llx (%u)",
+                              (unsigned)req.device, (unsigned long long)req.address, (unsigned)req.data.size);
+                return FAILED;
+            }
+            break;
+        };
         
         m_outgoing_reqs.Pop();
         return SUCCESS;
@@ -58,16 +68,29 @@ namespace Simulator
 
     bool Processor::IOBusInterface::OnReadRequestReceived(IODeviceID from, MemAddr address, MemSize size)
     {
-        // FIXME: This should go to direct cache access
-        throw exceptf<SimulationException>(*this, "Unsupported I/O read request from device %u: %016llx (%u)", 
-                                           (unsigned)from, (unsigned long long)address, (unsigned) size);
+        IODirectCacheAccess::Request req;
+        req.client = from;
+        req.address = address;
+        req.write = false;
+        req.data.size = size;
+        return m_dca.QueueRequest(req);
     }
 
     bool Processor::IOBusInterface::OnWriteRequestReceived(IODeviceID from, MemAddr address, const IOData& data)
     {
-        // FIXME: This should go to direct cache access
-        throw exceptf<SimulationException>(*this, "Unsupported I/O write request from device %u: %016llx (%u)", 
-                                           (unsigned)from, (unsigned long long)address, (unsigned)data.size);
+        if (data.size > MAX_MEMORY_OPERATION_SIZE)
+        {
+            throw exceptf<InvalidArgumentException>(*this, "Write request for %#016llx/%u from client %u is too large", 
+                                                    (unsigned long long)address, (unsigned)data.size, (unsigned)from);
+        }
+
+        IODirectCacheAccess::Request req;
+        req.client = from;
+        req.address = address;
+        req.write = true;
+        memcpy(req.data.data, data.data, data.size);
+        req.data.size = data.size;
+        return m_dca.QueueRequest(req);
     }
 
     bool Processor::IOBusInterface::OnReadResponseReceived(IODeviceID from, MemAddr address, const IOData& data)

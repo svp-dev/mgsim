@@ -8,6 +8,7 @@
 #include "IOResponseMultiplexer.h"
 #include "IONotificationMultiplexer.h"
 #include "IOBusInterface.h"
+#include "IODirectCacheAccess.h"
 
 class IOInterface : public Object, public Inspect::Interface<Inspect::Info>
 {
@@ -59,6 +60,7 @@ private:
     IOResponseMultiplexer       m_rrmux;
     IONotificationMultiplexer   m_nmux;
     IOBusInterface              m_iobus_if;
+    IODirectCacheAccess         m_dca;
 
     bool Read(IODeviceID dev, MemAddr address, MemSize size, const RegAddr& writeback);
     bool Write(IODeviceID dev, MemAddr address, const IOData& data);
@@ -73,6 +75,7 @@ public:
 
     IOResponseMultiplexer& GetReadResponseMultiplexer() { return m_rrmux; }
     IONotificationMultiplexer& GetNotificationMultiplexer() { return m_nmux; }
+    IODirectCacheAccess& GetDirectCacheAccess() { return m_dca; }
     
     // Debugging
     void Cmd_Info(std::ostream& out, const std::vector<std::string>& args) const;

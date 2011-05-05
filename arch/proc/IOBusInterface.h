@@ -7,30 +7,37 @@
 
 class IOResponseMultiplexer;
 class IONotificationMultiplexer;
+class IODirectCacheAccess;
 
 class IOBusInterface : public IIOBusClient, public Object
 {
 public:
+    enum IORequestType
+    {
+        REQ_READ,
+        REQ_WRITE,
+        REQ_READRESPONSE
+    };
+
     struct IORequest
     {
-        IODeviceID  device;
-        MemAddr     address;    // for reads&writes
-        bool        write;
-        IOData      data;       // for writes
+        IODeviceID    device;
+        IORequestType type;
+        MemAddr       address;    // for all types
+        IOData        data;       // for writes & read responses
     };
 
 private:
     IOResponseMultiplexer&     m_rrmux;
     IONotificationMultiplexer& m_nmux;
+    IODirectCacheAccess&       m_dca;
     IIOBus&                    m_iobus;
     IODeviceID                 m_hostid;
 
     Buffer<IORequest>          m_outgoing_reqs;
 
 public:
-    IOBusInterface(const std::string& name, Object& parent, Clock& clock, IOResponseMultiplexer& rrmux, IONotificationMultiplexer& nmux, IIOBus& iobus, IODeviceID devid, Config& config);
-
-    bool SendInterruptAck(IODeviceID to);
+    IOBusInterface(const std::string& name, Object& parent, Clock& clock, IOResponseMultiplexer& rrmux, IONotificationMultiplexer& nmux, IODirectCacheAccess& dca, IIOBus& iobus, IODeviceID devid, Config& config);
 
     bool SendRequest(const IORequest& request);
     

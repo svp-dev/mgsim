@@ -39,14 +39,6 @@ Processor::Processor(const std::string& name, Object& parent, Clock& clock, PID 
     m_lperr("stderr", *this, std::cerr),
     m_io_if(NULL)
 {
-    const Process* sources[] = {
-        &m_icache.p_Outgoing,   // Outgoing process in I-Cache
-        &m_dcache.p_Outgoing,   // Outgoing process in D-Cache
-        NULL
-    };
-    
-    m_memory.RegisterClient(m_pid, *this, sources);
-
     // Get the size, in bits, of various identifiers.
     // This is used for packing and unpacking various fields.
     m_bits.pid_bits = ilog2(GetGridSize());
@@ -57,6 +49,13 @@ Processor::Processor(const std::string& name, Object& parent, Clock& clock, PID 
     m_perfcounters.Connect(m_mmio, IOMatchUnit::READ, config);
     m_lpout.Connect(m_mmio, IOMatchUnit::WRITE, config);
     m_lperr.Connect(m_mmio, IOMatchUnit::WRITE, config);
+
+    const Process* mem_sources[] = {
+        &m_icache.p_Outgoing,   // Outgoing process in I-Cache
+        &m_dcache.p_Outgoing,   // Outgoing process in D-Cache
+        NULL,
+        NULL
+    };
 
     if (iobus != NULL)
     {
@@ -69,9 +68,11 @@ Processor::Processor(const std::string& name, Object& parent, Clock& clock, PID 
         async_if.Connect(m_mmio, IOMatchUnit::READWRITE, config);
         MMIOComponent& pnc_if = m_io_if->GetPNCInterface();
         pnc_if.Connect(m_mmio, IOMatchUnit::READ, config);
+
+        mem_sources[2] = &m_io_if->GetDirectCacheAccess().p_MemoryOutgoing;   // Outgoing process in DCA
     }
-
-
+    
+    m_memory.RegisterClient(m_pid, *this, mem_sources);
 }
 
 Processor::~Processor()
@@ -253,26 +254,32 @@ bool Processor::CheckPermissions(MemAddr address, MemSize size, int access) cons
 bool Processor::OnMemoryReadCompleted(MemAddr address, const MemData& data)
 {
     // Notify I-Cache and D-Cache (they both snoop: they're on a bus)
-    return m_dcache.OnMemoryReadCompleted(address, data) && 
-           m_icache.OnMemoryReadCompleted(address, data);
+    return
+        m_dcache.OnMemoryReadCompleted(address, data) && 
+        m_icache.OnMemoryReadCompleted(address, data) &&
+        (m_io_if == NULL || m_io_if->GetDirectCacheAccess().OnMemoryReadCompleted(address, data));
 }
 
 bool Processor::OnMemoryWriteCompleted(TID tid)
 {
     // Dispatch result to D-Cache
-    return m_dcache.OnMemoryWriteCompleted(tid);
+    return m_dcache.OnMemoryWriteCompleted(tid) &&
+        (m_io_if == NULL || m_io_if->GetDirectCacheAccess().OnMemoryWriteCompleted(tid));
 }
 
 bool Processor::OnMemorySnooped(MemAddr addr, const MemData& data)
 {
-    return m_dcache.OnMemorySnooped(addr, data) &&
-           m_icache.OnMemorySnooped(addr, data);
+    return 
+        m_dcache.OnMemorySnooped(addr, data) &&
+        m_icache.OnMemorySnooped(addr, data) &&
+        (m_io_if == NULL || m_io_if->GetDirectCacheAccess().OnMemorySnooped(addr, data));
 }
 
 bool Processor::OnMemoryInvalidated(MemAddr addr)
 {
     return m_dcache.OnMemoryInvalidated(addr) &&
-           m_icache.OnMemoryInvalidated(addr);
+           m_icache.OnMemoryInvalidated(addr) &&
+        (m_io_if == NULL || m_io_if->GetDirectCacheAccess().OnMemoryInvalidated(addr));        
 }
 
 //
