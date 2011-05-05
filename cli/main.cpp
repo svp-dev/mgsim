@@ -33,6 +33,7 @@ struct ProgramConfig
     bool                             m_dumpconf;
     bool                             m_quiet;
     bool                             m_dumpvars;
+    vector<string>                   m_printvars;
     bool                             m_earlyquit;
     vector<pair<string,string> >     m_overrides;
     
@@ -72,7 +73,14 @@ static void ParseArguments(int argc, const char ** argv, ProgramConfig& config)
         else if (arg == "-h" || arg == "--help")        { PrintUsage(std::cout, argv[0]); exit(0); }
         else if (arg == "-d" || arg == "--dumpconf")    config.m_dumpconf      = true;
         else if (arg == "-m" || arg == "--monitor")     config.m_enableMonitor = true;
-        else if (arg == "-D" || arg == "--dumpvars")    config.m_dumpvars      = true;
+        else if (arg == "-l" || arg == "--list-mvars")  config.m_dumpvars      = true;
+        else if (arg == "-p" || arg == "--print-final-mvars")
+        {
+            if (argv[++i] == NULL) {
+                throw runtime_error("Error: expected variable name");
+            }
+            config.m_printvars.push_back(argv[i]);
+        }
         else if (arg == "-n" || arg == "--do-nothing")  config.m_earlyquit     = true;
         else if (arg == "-o" || arg == "--override")
         {
@@ -88,7 +96,7 @@ static void ParseArguments(int argc, const char ** argv, ProgramConfig& config)
             transform(name.begin(), name.end(), name.begin(), ::toupper);
             config.m_overrides.push_back(make_pair(name, arg.substr(eq + 1)));
         }
-        else if (toupper(arg[1]) == 'L')  
+        else if (arg[1] == 'L')  
         { 
             if (argv[++i] == NULL) {
                 throw runtime_error("Error: expected filename");
@@ -103,7 +111,7 @@ static void ParseArguments(int argc, const char ** argv, ProgramConfig& config)
             addr = MAKE_REGADDR(RT_INTEGER, index);                      
             config.m_loads.push_back(make_pair(addr, filename)); 
         } 
-        else if (toupper(arg[1]) == 'R' || toupper(arg[1]) == 'F')
+        else if (arg[1] == 'R' || arg[1] == 'F')
         {
             if (argv[++i] == NULL) {
                 throw runtime_error("Error: expected register value");
@@ -120,7 +128,7 @@ static void ParseArguments(int argc, const char ** argv, ProgramConfig& config)
                 throw runtime_error("Error: invalid register specifier in option");
             }
                 
-            if (toupper(arg[1]) == 'R') {
+            if (arg[1] == 'R') {
                 value >> *(signed Integer*)&val.m_integer;
                 addr = MAKE_REGADDR(RT_INTEGER, index);
             } else {
@@ -142,6 +150,17 @@ static void ParseArguments(int argc, const char ** argv, ProgramConfig& config)
         throw runtime_error("Error: no program file specified");
     }
 
+}
+
+void PrintFinalVariables(const ProgramConfig& cfg)
+{
+    if (!cfg.m_printvars.empty())
+    {
+        std::cout << "### begin end-of-simulation variables" << std::endl;
+        for (size_t i = 0; i < cfg.m_printvars.size(); ++i)
+            ReadSampleVariables(cout, cfg.m_printvars[i]);
+        std::cout << "### end end-of-simulation variables" << std::endl;
+    }
 }
 
 #ifdef USE_SDL
@@ -224,6 +243,7 @@ int main(int argc, char** argv)
                 {
                     // We do not want to go to interactive mode,
                     // rethrow so it abort the program.
+                    PrintFinalVariables(config);
                     throw;
                 }
                 
@@ -249,6 +269,8 @@ int main(int argc, char** argv)
             while (HandleCommandLine(ctx) == false)
                 /* just loop */;
         }
+
+        PrintFinalVariables(config);
     }
     catch (const exception& e)
     {
