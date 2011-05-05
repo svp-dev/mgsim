@@ -376,6 +376,22 @@ map<string, Object*> MGSystem::GetComponents(const string& pat)
     return ret;
 }
 
+static string StringReplace(string arg, string pat, string repl)
+{
+    string res;
+    for (size_t i = 0; i < arg.size(); ++i)
+    {
+        if (arg.compare(i, pat.size(), pat) == 0)
+        {
+            res += repl;
+            i += pat.size() - 1;
+        }
+        else
+            res += arg[i];
+    }
+    return res;
+}
+
 // Print all components that are a child of root
 static void PrintComponents(ostream& out, const Object* cur, const string& indent, const string& pat, size_t levels, size_t cur_level, bool cur_printing)
 {
@@ -411,7 +427,7 @@ static void PrintComponents(ostream& out, const Object* cur, const string& inden
             }
 
             out << " "
-                << GetClassName(typeid(*child)) << endl;
+                << StringReplace(GetClassName(typeid(*child)), "Simulator::", "") << endl;
 
             newindent += "  ";
         }
