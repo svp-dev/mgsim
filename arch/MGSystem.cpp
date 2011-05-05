@@ -743,7 +743,7 @@ void MGSystem::Step(CycleNo nCycles)
 
     if (state == STATE_DEADLOCK)
     {
-        cerr << "Replaying the last cycle:" << endl;
+        cerr << "Deadlock at cycle " << GetKernel().GetCycleNo() << "; replaying the last cycle:" << endl;
 
         int savemode = GetDebugMode();
         SetDebugMode(-1);
