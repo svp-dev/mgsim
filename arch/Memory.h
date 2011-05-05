@@ -34,9 +34,11 @@ public:
 class IMemory
 {
 public:
-	static const int PERM_EXECUTE = 1;
-	static const int PERM_WRITE   = 2;
-	static const int PERM_READ    = 4;
+    enum Permissions {
+        PERM_EXECUTE = 1,
+	PERM_WRITE   = 2,
+	PERM_READ    = 4
+    };
 
     virtual void Reserve(MemAddr address, MemSize size, int perm) = 0;
     virtual void Unreserve(MemAddr address) = 0;
