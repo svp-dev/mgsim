@@ -44,6 +44,9 @@ namespace Simulator
             return false;
         }
 
+        DebugIOWrite("Queued DCA request (%#016llx/%u, dev %u, write %d)",
+                     (unsigned long long)req.address, (unsigned)req.data.size, (unsigned)req.client, (int)req.write);
+
         return true;
     }
 

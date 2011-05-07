@@ -121,6 +121,12 @@ namespace Simulator
         return GetInterface().m_numDevices << m_devAddrBits;
     }
 
+    MemAddr Processor::IOInterface::AsyncIOInterface::GetDeviceBaseAddress(IODeviceID dev) const
+    {
+        assert(dev < GetInterface().m_numDevices);
+        return dev << m_devAddrBits;
+    }
+
     Result Processor::IOInterface::AsyncIOInterface::Read(MemAddr address, void* data, MemSize size, LFID fid, TID tid, const RegAddr& writeback)
     {
         IODeviceID dev = address >> m_devAddrBits;

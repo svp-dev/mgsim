@@ -28,6 +28,9 @@ public:
         Result Write(MemAddr address, const void* data, MemSize size, LFID fid, TID tid);
 
         void Cmd_Info(std::ostream& out, const std::vector<std::string>& args) const;
+
+        // for boot sequence
+        MemAddr GetDeviceBaseAddress(IODeviceID dev) const;
     };
 
     class PNCInterface : public MMIOComponent, public Inspect::Interface<Inspect::Info>
@@ -77,6 +80,8 @@ public:
     IONotificationMultiplexer& GetNotificationMultiplexer() { return m_nmux; }
     IODirectCacheAccess& GetDirectCacheAccess() { return m_dca; }
     
+    MemAddr GetDeviceBaseAddress(IODeviceID dev) const { return m_async_io.GetDeviceBaseAddress(dev); }
+
     // Debugging
     void Cmd_Info(std::ostream& out, const std::vector<std::string>& args) const;
 };

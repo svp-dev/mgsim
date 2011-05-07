@@ -123,6 +123,7 @@ Result Processor::IONotificationMultiplexer::DoReceivedNotifications()
         if (pending_notifications)
         {
             DebugIOWrite("Some notification is ready but no active listener exists.");
+            p_IncomingNotifications.Deactivate();
         }
 
         // Nothing to do
