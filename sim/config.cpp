@@ -115,19 +115,30 @@ bool Config::lookup(const string& name_, string& result, const string &def, bool
     return found;
 }
 
-void Config::dumpConfiguration(ostream& os, const string& cf) const
+void Config::dumpConfiguration(ostream& os, const string& cf, bool raw) const
 {
-    os << "### begin simulator configuration" << endl
-       << "# overrides from command line:" << endl;
-    for (size_t i = 0; i < m_overrides.size(); ++i)
-        os << "# -o " << m_overrides[i].first << " = " << m_overrides[i].second << endl;
-    os << "# configuration file: " << cf << endl;
-    for (size_t i = 0; i < m_data.size(); ++i)
-        os << "# -o " << m_data[i].first << " = " << m_data[i].second << endl;
-    os << "# lookup matches:" << endl;
-    for (ConfigCache::const_iterator p = m_cache.begin(); p != m_cache.end(); ++p)
-        os << "# " << p->first << " = " << p->second.first << " (matches " << p->second.second << ')' << endl;
-    os << "### end simulator configuration" << endl;
+    if (raw)
+    {
+        os << "MGSimVersion=" << PACKAGE_VERSION << endl;
+        for (size_t i = 0; i < m_overrides.size(); ++i)
+            os << m_overrides[i].first << "=" << m_overrides[i].second << endl;
+        for (ConfigCache::const_iterator p = m_cache.begin(); p != m_cache.end(); ++p)
+            os << p->first << "=" << p->second.first << endl;
+    }
+    else
+    {
+        os << "### begin simulator configuration" << endl
+           << "# overrides from command line:" << endl;
+        for (size_t i = 0; i < m_overrides.size(); ++i)
+            os << "# -o " << m_overrides[i].first << " = " << m_overrides[i].second << endl;
+        os << "# configuration file: " << cf << endl;
+        for (size_t i = 0; i < m_data.size(); ++i)
+            os << "# -o " << m_data[i].first << " = " << m_data[i].second << endl;
+        os << "# lookup matches:" << endl;
+        for (ConfigCache::const_iterator p = m_cache.begin(); p != m_cache.end(); ++p)
+            os << "# " << p->first << " = " << p->second.first << " (matches " << p->second.second << ')' << endl;
+        os << "### end simulator configuration" << endl;
+    }
 }
 
 vector<string> Config::getWordList(const string& name)

@@ -153,7 +153,7 @@ bool comparevars(const varsel_t& left, const varsel_t& right)
     return left.second->var < right.second->var;
 }
 
-BinarySampler::BinarySampler(std::ostream& os, const Simulator::MGSystem& sys,
+BinarySampler::BinarySampler(std::ostream& os, const Config& config,
                              const std::vector<std::string>& pats)
     : m_datasize(0)
 {
@@ -194,24 +194,8 @@ BinarySampler::BinarySampler(std::ostream& os, const Simulator::MGSystem& sys,
     if (gethostname(hn, 255) == 0)
         os << "# host: " << hn << std::endl;
     
-    os << "# program:" << std::endl;
-    const std::string& prog = sys.GetProgramName();
-    const std::vector<std::string> &inputs = sys.GetInputFileNames();
-    os << prog << std::endl
-       << "# inputs: " << inputs.size() << std::endl;
-    for (std::vector<std::string>::const_iterator i = inputs.begin();
-         i != inputs.end(); ++i)
-        os << *i << std::endl;
-
-    Simulator::MGSystem::ConfWords words;
-    sys.FillConfWords(words);
-    os << "# confwords: " << words.data.size() << std::endl;
-    for (std::vector<uint32_t>::const_iterator i = words.data.begin();
-         i != words.data.end(); ++i)
-    {
-        os << *i << ' ';
-    }
-    os << std::endl;
+    os << "# configuration:" << std::endl;
+    config.dumpConfiguration(os, "", true);
 
     os << "# varinfo: " << vars.size() << std::endl;
     // ListSampleVariables_header(os);

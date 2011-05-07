@@ -50,7 +50,7 @@ Monitor::Monitor(Simulator::MGSystem& sys, bool enabled, const std::string& mdfi
     std::vector<std::string> pats = sys.GetConfig().getWordList("MonitorSampleVariables");
     pats.insert(pats.begin(), "kernel.cycle");
     pats.push_back("kernel.cycle");
-    m_sampler = new BinarySampler(metadatafile, sys, pats);
+    m_sampler = new BinarySampler(metadatafile, sys.GetConfig(), pats);
     metadatafile << "# tv_sizes: " << sizeof(((struct timeval*)(void*)0)->tv_sec) 
                  << ' ' << sizeof(((struct timeval*)(void*)0)->tv_usec)
                  << ' ' << sizeof(struct timeval) << std::endl;

@@ -105,7 +105,7 @@ public:
     std::vector<std::string> getWordList(const std::string& name); 
     std::vector<std::string> getWordList(const Simulator::Object& obj, const std::string& name);
 
-    void dumpConfiguration(std::ostream& os, const std::string& cf) const;
+    void dumpConfiguration(std::ostream& os, const std::string& cf, bool raw = false) const;
 
     Config(const std::string& filename, const ConfigMap& overrides);
 };
