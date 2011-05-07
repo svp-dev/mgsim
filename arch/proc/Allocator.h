@@ -60,7 +60,7 @@ public:
 
     // Allocates the initial family consisting of a single thread on the first CPU.
     // Typically called before tha actual simulation starts.
-    void AllocateInitialFamily(MemAddr pc, bool legacy);
+    void AllocateInitialFamily(MemAddr pc, bool legacy, PSize placeSize, SInteger startIndex);
 
     /// Allocates a contexts and sets the family's 'link' field to prev_fid
     LFID AllocateContext(ContextType type, LFID prev_fid, PSize placeSize);

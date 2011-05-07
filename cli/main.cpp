@@ -24,7 +24,6 @@ using namespace std;
 
 struct ProgramConfig
 {
-    string                           m_programFile;
     string                           m_configFile;
     string                           m_symtableFile;
     bool                             m_enableMonitor;
@@ -57,12 +56,8 @@ static void ParseArguments(int argc, const char ** argv, ProgramConfig& config)
         const string arg = argv[i];
         if (arg[0] != '-')
         {
-            if (config.m_programFile != "")
-                cerr << "Warning: program already set ("
-                     << config.m_programFile
-                     << "), ignoring extra arg: " << arg << endl;
-            else 
-                config.m_programFile = arg;
+            cerr << "Warning: converting extra argument to -o *.ROMFileName=" << arg << endl;
+            config.m_overrides.push_back(make_pair("*.ROMFileName", arg));
         }
         else if (arg == "-c" || arg == "--config")      config.m_configFile    = argv[++i];
         else if (arg == "-i" || arg == "--interactive") config.m_interactive   = true;
@@ -144,12 +139,6 @@ static void ParseArguments(int argc, const char ** argv, ProgramConfig& config)
             config.m_regs.push_back(make_pair(addr, val));
         }
     }
-
-    if (config.m_programFile.empty())
-    {
-        throw runtime_error("Error: no program file specified");
-    }
-
 }
 
 void PrintFinalVariables(const ProgramConfig& cfg)
@@ -187,7 +176,7 @@ int main(int argc, char** argv)
         
         // Create the system
         MGSystem sys(configfile, 
-                     config.m_programFile, config.m_symtableFile,
+                     config.m_symtableFile,
                      config.m_regs, config.m_loads, !config.m_interactive, !config.m_earlyquit);
 
 #ifdef ENABLE_MONITOR

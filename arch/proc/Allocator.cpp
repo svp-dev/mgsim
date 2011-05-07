@@ -1640,7 +1640,7 @@ Processor::Allocator::Allocator(const string& name, Processor& parent, Clock& cl
     RegisterSampleVariableInObject(m_curallocex, SVC_LEVEL);
 }
 
-void Processor::Allocator::AllocateInitialFamily(MemAddr pc, bool legacy)
+void Processor::Allocator::AllocateInitialFamily(MemAddr pc, bool legacy, PSize placeSize, SInteger startIndex)
 {
     static const unsigned char InitialRegisters[NUM_REG_TYPES] = {31, 31};
 
@@ -1654,13 +1654,14 @@ void Processor::Allocator::AllocateInitialFamily(MemAddr pc, bool legacy)
     
     Family& family = m_familyTable[fid];
     family.numCores      = 1;
-    family.placeSize     = m_parent.GetGridSize();
+    family.placeSize     = placeSize;
     family.nThreads      = 1;
     //family.virtBlockSize = 1;
     family.physBlockSize = 1;
     family.legacy        = legacy;
     family.pc            = pc;
     family.state         = FST_ACTIVE;
+    family.start         = startIndex;
 
     for (RegType i = 0; i < NUM_REG_TYPES; i++)
     {

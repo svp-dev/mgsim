@@ -35,7 +35,8 @@ public:
     Processor(const std::string& name, Object& parent, Clock& clock, PID pid, const std::vector<Processor*>& grid, IMemory& memory, IMemoryAdmin& admin, FPU& fpu, IIOBus *iobus, Config& config);
     ~Processor();
     
-    void Initialize(Processor* prev, Processor* next, MemAddr runAddress, bool legacy);
+    void Initialize(Processor* prev, Processor* next);
+    void Boot(MemAddr runAddress, bool legacy, PSize placeSize, SInteger startIndex);
 
     PID   GetPID()      const { return m_pid; }
     PSize GetGridSize() const { return m_grid.size(); }
@@ -44,6 +45,7 @@ public:
 
     Pipeline& GetPipeline() { return m_pipeline; }
     IOMatchUnit& GetIOMatchUnit() { return m_mmio; }
+    MemAddr GetDeviceBaseAddress(IODeviceID dev) const;
     
     float GetRegFileAsyncPortActivity() const {
         return (float)m_registerFile.p_asyncW.GetBusyCycles() / (float)GetCycleNo();

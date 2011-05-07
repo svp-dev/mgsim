@@ -11,8 +11,8 @@
 #include "arch/dev/LCD.h"
 #include "arch/dev/RTC.h"
 #include "arch/dev/Display.h"
-
-#include "loader.h"
+#include "arch/dev/ActiveROM.h"
+#include "arch/dev/SMC.h"
 
 #include <cstdlib>
 #include <iomanip>
@@ -26,118 +26,6 @@
 
 using namespace Simulator;
 using namespace std;
-
-// WriteConfiguration()
-
-// This function exposes the Microgrid configuration to simulated
-// programs through the memory interface. The configuration data
-// starts at the address given by local register 2 in the first
-// thread created on the system.
-
-// The configuration is composed of data blocks, each block
-// composed of 32-bit words. The first word in each block is a
-// "block type/size" tag indicating the type and size of the
-// current block.
-
-// A tag set to 0 indicates the end of the configuration data.
-// A non-zero tag is a word with bits 31-16 set to the block type
-// and bits 15-0 are set to the block size (number of words to
-// next block).
-// From each tag, the address of the tag for the next block is (in
-// words) A_next = A_cur + size.
-
-// Current block types:
-
-// - architecture type v1, organized as follows:
-//     - word 0 after tag: architecture model (1 for simulated microgrid, others TBD)
-//     - word 1: ISA type (1 = alpha, 2 = sparc)
-//     - word 2: number of FPUs (0 = no FPU)
-//     - word 3: memory type (0 = unknown, for other values see enum MEMTYPE in MGSystem.h)
-
-// - timing words v1, organized as follows:
-//     - word 0 after tag: core frequency (in MHz)
-//     - word 1 after tag: external memory bandwidth (in 10^6bytes/s)
-
-// - timing words v2, organized as follows:
-//     - word 0 after tag: master frequency (in MHz)
-//     - word 1 after tag: core frequency (in MHz)
-//     - word 2 after tag: memory frequency (in MHz)
-//     - word 3 after tag: DDR frequency (in MHz)
-
-// - timing words v3, organized as follows:
-//     - word 0 after tag: master frequency (in MHz)
-//     - word 1 after tag: core frequency (in MHz)
-//     - word 2 after tag: memory frequency (in MHz)
-//     - word 3 after tag: DDR frequency (in MHz)
-//     - word 4 after tag: number of DDR channels
-
-// - cache parameters words v1, organized as follows:
-//     - word 0 after tag: cache line size (in bytes)
-//     - word 1: L1 I-cache size (in bytes)
-//     - word 2: L1 D-cache size (in bytes)
-//     - word 3: number of L2 caches
-//     - word 4: L2 cache size per cache (in bytes)
-
-// - concurrency resource words v1, organized as follows:
-//     - word 0 after tag: number of family entries per core
-//     - word 1: number of thread entries per core
-//     - word 2: number of registers in int register file
-//     - word 3: number of registers in float register file
-
-// - place layout v1, organized as follows:
-//     - word 0 after tag: number of cores (P)
-//     - word 1 ... P: (ringID << 16) | (coreID << 0)
-//     (future layout configuration formats may include topology information)
-
-// - place layout v2, organized as follows:
-//     - word 0 after tag: number of cores (P)
-//     - word 1 ... P: (y << 24) | (x << 16) | (coreType)
-//     coreType:
-//      0: Normal core
-//      1: I/O core
-
-// - Core information v1 - shared by all cores
-//     - word 0 after tag: number of configurable ancillary core registers
-//     - word 1: number of performance counters supported
-//     - word 2: low bits of base address of perf counters
-//     - word 3: high bits bits of base address of perf counters
-//     - word 4: low bits base address of debug stdout channel (0 if not supported)
-//     - word 5: high bits base address of debug stdout channel (0 if not supported)
-//     - word 6: low bits base address of debug stderr channel (0 if not supported)
-//     - word 7: high bits base address of debug stderr channel (0 if not supported)
-
-// - I/O core information v1
-//     - word 0: core ID on grid
-//     - word 1: (number of interrupts channels supported << 16) | (number of devices supported)
-//     - word 2: (bus ID << 16) | (device ID of core on bus)
-//     - word 3: address space bits per device
-//     - word 4: low bits of PIC address space
-//     - word 5: high bits of PIC address space
-//     - word 6: low bits of async I/O address space
-//     - word 7: high bits of async I/O address space
-
-// - I/O bus information v1
-//     - word 0: bus ID
-//     - word 1: bus type (0 for unknown)
-//     - word 2: I/O bus frequency
-
-// - I/O device information v1
-//     - word 0: (bus ID << 16) | (device ID on bus)
-//     - word 1: (vendor << 16) | (model)
-//     - word 2: revision
-
-#define CONFTAG_ARCH_V1       1
-#define CONFTAG_TIMINGS_V1    2
-#define CONFTAG_CACHE_V1      3
-#define CONFTAG_CONC_V1       4
-#define CONFTAG_LAYOUT_V1     5
-#define CONFTAG_TIMINGS_V2    6
-#define CONFTAG_TIMINGS_V3    7
-#define CONFTAG_LAYOUT_V2     8
-#define CONFTAG_COREINFO_V1   9
-#define CONFTAG_IOCOREINFO_V1 10
-#define CONFTAG_IODEVINFO_V1  11
-#define MAKE_TAG(Type, Size) (uint32_t)(((Type) << 16) | ((Size) & 0xffff))
 
 static vector<string> Tokenize(const string& str, const string& sep)
 {
@@ -156,122 +44,6 @@ static vector<string> Tokenize(const string& str, const string& sep)
         }
     }
     return tokens;
-}
-
-void MGSystem::FillConfWords(ConfWords& words) const
-{
-    uint32_t cl_sz = m_config.getValue<uint32_t>("CacheLineSize");
-
-    // configuration words for architecture type v1
-
-    words << MAKE_TAG(CONFTAG_ARCH_V1, 4)
-          << 1 // simulated microgrid
-#if defined(TARGET_MTALPHA)
-          << 1 // alpha
-#else
-          << 2 // sparc
-#endif
-          << m_fpus.size()
-          << m_memorytype
-
-
-    // timing words v3
-          << MAKE_TAG(CONFTAG_TIMINGS_V3, 5)
-          << m_kernel.GetMasterFrequency()
-          << m_config.getValue<uint32_t>("CoreFreq")
-          << m_config.getValue<uint32_t>("MemoryFreq")
-          << ((m_memorytype == MEMTYPE_COMA_ZL || m_memorytype == MEMTYPE_COMA_ML) ?
-              m_config.getValue<uint32_t>("*.DDR.Channel*.Freq")
-              : 0 /* no timing information if memory system is not COMA */)
-          << ((m_memorytype == MEMTYPE_COMA_ZL || m_memorytype == MEMTYPE_COMA_ML) ?
-              m_config.getValue<uint32_t>("*.Memory.NumRootDirectories")
-              : 0 /* no DDR channels */)
-
-    // cache parameter words v1
-
-          << MAKE_TAG(CONFTAG_CACHE_V1, 5)
-          << cl_sz
-          << (cl_sz
-              * m_config.getValue<uint32_t>("*.CPU*.ICache.Associativity")
-              * m_config.getValue<uint32_t>("*.CPU*.ICache.NumSets"))
-          << (cl_sz
-              * m_config.getValue<uint32_t>("*.CPU*.DCache.Associativity")
-              * m_config.getValue<uint32_t>("*.CPU*.DCache.NumSets"));
-    if (m_memorytype == MEMTYPE_COMA_ZL || m_memorytype == MEMTYPE_COMA_ML)
-        words << (m_procs.size()
-                  / m_config.getValue<uint32_t>("NumProcessorsPerL2Cache")) // FIXME: COMA?
-              << (cl_sz
-                  * m_config.getValue<uint32_t>("*.Memory.L2CacheAssociativity")
-                  * m_config.getValue<uint32_t>("*.Memory.L2CacheNumSets"));
-    else
-        words << 0 << 0;
-
-    // concurrency resources v1
-
-    words << MAKE_TAG(CONFTAG_CONC_V1, 4)
-          << m_config.getValue<uint32_t>("*.CPU*.Families.NumEntries")
-          << m_config.getValue<uint32_t>("*.CPU*.Threads.NumEntries")
-          << m_config.getValue<uint32_t>("*.CPU*.Registers.NumIntRegisters")
-          << m_config.getValue<uint32_t>("*.CPU*.Registers.NumFltRegisters")
-
-        ;
-
-    // place layout v2
-    PSize numProcessors = m_config.getValue<PSize>("NumProcessors");
-
-    words << MAKE_TAG(CONFTAG_LAYOUT_V2, numProcessors + 1)
-          << numProcessors;
-
-    // Store the core information
-    for (size_t i = 0; i < numProcessors; ++i)
-    {
-        unsigned int y = 0;
-        unsigned int x = i;
-        unsigned int type = 0;
-
-        if (m_procbusmapping.find(i) != m_procbusmapping.end())
-        {
-            // The processor is connected to an I/O bus
-            type = 1;
-        }
-
-        words << ((y << 24) | (x << 16) | type);
-    }
-
-    // core information
-    MemAddr pcbase = m_config.getValue<MemAddr>("*.CPU*.PerfCounters.MMIO_BaseAddr"),
-        stderrbase = m_config.getValue<MemAddr>("*.CPU*.Debug_Stderr.MMIO_BaseAddr"),
-        stdoutbase = m_config.getValue<MemAddr>("*.CPU*.Debug_Stdout.MMIO_BaseAddr");
-
-    // I/O core information
-    words << MAKE_TAG(CONFTAG_COREINFO_V1, 8)
-          << 0 // FIXME: number of ancillary core registers
-          << Processor::PerfCounters::numCounters
-          << (pcbase & 0xffffffff)
-          << (pcbase >> 32)
-          << (stdoutbase & 0xffffffff)
-          << (stdoutbase >> 32)
-          << (stderrbase & 0xffffffff)
-          << (stderrbase >> 32);
-        
-    // after last block
-    words << 0 << 0;
-
-}
-
-MemAddr MGSystem::WriteConfiguration()
-{
-
-    ConfWords words;
-    FillConfWords(words);
-
-    MemAddr base;
-    if (!m_memory->Allocate(words.data.size() * sizeof words.data[0], IMemory::PERM_READ, base))
-    {
-        throw runtime_error("Unable to allocate memory to store configuration data");
-    }
-    m_memory->Write(base, &words.data[0], words.data.size() * sizeof words.data[0]);
-    return base;
 }
 
 uint64_t MGSystem::GetOp() const
@@ -813,12 +585,12 @@ void MGSystem::Disassemble(MemAddr addr, size_t sz) const
     ostringstream cmd;
 
     cmd << m_objdump_cmd << " -d -r --prefix-addresses --show-raw-insn --start-address=" << addr
-        << " --stop-address=" << addr + sz << " " << m_program;
+        << " --stop-address=" << addr + sz << " " << m_bootrom->GetProgramName();
     clog << "Running " << cmd.str() << "..." << endl;
     system(cmd.str().c_str());
 }
 
-MGSystem::MGSystem(Config& config, const string& program,
+MGSystem::MGSystem(Config& config,
                    const string& symtable,
                    const vector<pair<RegAddr, RegValue> >& regs,
                    const vector<pair<RegAddr, string> >& loads,
@@ -827,8 +599,8 @@ MGSystem::MGSystem(Config& config, const string& program,
       m_clock(m_kernel.CreateClock(config.getValue<unsigned long>("CoreFreq"))),
       m_root("system", m_clock),
       m_breakpoints(m_kernel),
-      m_program(program),
-      m_config(config)
+      m_config(config),
+      m_bootrom(NULL)
 {
     PSize numProcessors = m_config.getValue<PSize>("NumProcessors");
 
@@ -917,6 +689,11 @@ MGSystem::MGSystem(Config& config, const string& program,
 
             m_procbusmapping[i] = busid;
             iobus = m_iobuses[busid];
+
+            if (!quiet)
+            {
+                cout << "Placing processor " << i << " on I/O bus " << busid << endl;
+            }
         }
 
         m_procs[i]   = new Processor(name, m_root, m_clock, i, m_procs, *m_memory, *m_memory, fpu, iobus, config);
@@ -925,7 +702,7 @@ MGSystem::MGSystem(Config& config, const string& program,
     // Create the I/O devices
     size_t numIODevices = config.getValue<size_t>("NumIODevices");
 
-    m_devices.resize(numIODevices);
+    m_devices.resize(numIODevices + 1);
     for (size_t i = 0; i < numIODevices; ++i)
     {
         stringstream ss;
@@ -944,6 +721,11 @@ MGSystem::MGSystem(Config& config, const string& program,
         size_t devid = config.getValue<size_t>(m_root, name + ".DeviceID");
         string dev_type = config.getValue<string>(m_root, name + ".Type");
 
+        if (!quiet)
+        {
+            cout << "Configuring device " << devid << " on I/O bus " << busid << ": " << dev_type << endl;
+        }
+
         if (dev_type == "LCD") {
             LCD *lcd = new LCD(name, m_root, iobus, devid, config);
             iobus.RegisterClient(devid, *lcd);
@@ -956,10 +738,20 @@ MGSystem::MGSystem(Config& config, const string& program,
             size_t fbdevid = config.getValue<size_t>(m_root, name + ".GfxFrameBufferDeviceID", devid + 1);
             Display *disp = new Display(name, m_root, iobus, devid, fbdevid, config);
             m_devices[i] = disp;
+        } else if (dev_type == "AROM") {
+            ActiveROM *rom = new ActiveROM(name, m_root, *m_memory, iobus, devid, config);
+            if (rom->IsBootable())
+            {
+                if (m_bootrom != NULL)
+                {
+                    throw runtime_error("More than one bootable ROM detected: " + name + ", " + m_bootrom->GetFQN());
+                }
+                m_bootrom = rom;
+            }
+            m_devices[i] = rom;
         } else {
             throw runtime_error("Unknown I/O device type: " + dev_type);
         }
-
     }
 
     // Set up the initial memory ranges
@@ -984,53 +776,50 @@ MGSystem::MGSystem(Config& config, const string& program,
         m_memory->Reserve(address, size, perm);
     }
 
-    // Load the program into memory
-    pair<MemAddr, bool> progdesc = make_pair(0, false);
-    if (doload)
-        progdesc = LoadProgram(m_memory, program, quiet);
-
     // Connect processors in the link
     for (size_t i = 0; i < numProcessors; ++i)
     {
         Processor* prev = (i == 0)                 ? NULL : m_procs[i - 1];
         Processor* next = (i == numProcessors - 1) ? NULL : m_procs[i + 1];
-        m_procs[i]->Initialize(prev, next, progdesc.first, progdesc.second);
+        m_procs[i]->Initialize(prev, next);
     }
 
-    if (doload && !m_procs.empty())
+    if (m_bootrom == NULL)
     {
-        // Fill initial registers
-        for (size_t i = 0; i < regs.size(); ++i)
+        cerr << "Warning: No bootable ROM configured." << endl;
+    }
+    if (doload && !m_procs.empty() && m_bootrom != NULL)
+    {
+        // Initialize the SMC device
+
+        size_t procid = config.getValue<size_t>("BootProcessor", 0);
+        if (procid >= m_procs.size())
         {
-            m_procs[0]->WriteRegister(regs[i].first, regs[i].second);
+            throw runtime_error("BootProcessor references a non-existent processor");
+        }
+        Processor* boot_core = m_procs[procid];
+        
+        string name = "smc";
+        size_t busid = config.getValue<size_t>(m_root, name + ".BusID");
+        if (busid >= m_iobuses.size())
+        {
+            throw runtime_error("Device " + name + " set to connect to non-existent bus");
+        }
+        IIOBus& iobus = *m_iobuses[busid];
+        size_t devid = config.getValue<size_t>(m_root, name + ".DeviceID");
+
+        if (!quiet)
+        {
+            cout << "Configuring SMC as device " << devid << " on I/O bus " << busid << endl;
         }
 
-        // Load data files
-        for (size_t i = 0; i < loads.size(); ++i)
-        {
-            RegValue value;
-            value.m_state   = RST_FULL;
+        SMC *smc = new SMC("smc", m_root, iobus, devid, regs, *boot_core, *m_bootrom, config);
 
-            pair<MemAddr, size_t> p = LoadDataFile(m_memory, loads[i].second, quiet);
-            value.m_integer = p.first;
+        // smc->Initialize should be called after all the devices have been connected to the bus.
+        smc->Initialize(iobus.GetLastDeviceID());
 
-            m_procs[0]->WriteRegister(loads[i].first, value);
-            m_symtable.AddSymbol(p.first, loads[i].second, p.second);
-            m_inputfiles.push_back(loads[i].second);
-        }
-
-        // Load configuration
-        // Store the address in local #2
-        RegValue value;
-        value.m_state   = RST_FULL;
-        value.m_integer = WriteConfiguration();
-        m_procs[0]->WriteRegister(MAKE_REGADDR(RT_INTEGER, 2), value);
-
-#if defined(TARGET_MTALPHA)
-        // The Alpha expects the function address in $27
-        value.m_integer = progdesc.first;
-        m_procs[0]->WriteRegister(MAKE_REGADDR(RT_INTEGER, 27), value);
-#endif
+        m_devices[numIODevices] = smc;
+        
     }
 
     // Set program debugging per default

@@ -23,8 +23,8 @@ namespace Simulator
         { {   1,  2,  1 }, "RTC" },
         { {   1,  3,  1 }, "GfxFB" },
         { {   1,  4,  1 }, "GfxCtl" },
-        { {   1,  5,  1 }, "UART" },
-        { {   1,  6,  1 }, "Timer" },
+        { {   1,  5,  1 }, "ActiveROM" },
+        { {   1,  6,  1 }, "SMC" },
 
         { {   0,  0,  0 }, NULL }
     };

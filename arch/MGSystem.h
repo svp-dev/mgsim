@@ -15,6 +15,8 @@
 
 namespace Simulator {
 
+    class ActiveROM;
+
     class MGSystem
     {
         Kernel                      m_kernel;
@@ -30,7 +32,6 @@ namespace Simulator {
         BreakPoints                 m_breakpoints;
         IMemoryAdmin*               m_memory;
         std::string                 m_objdump_cmd;
-        std::string                 m_program;
         enum {
             MEMTYPE_SERIAL = 1,
             MEMTYPE_PARALLEL = 2,
@@ -40,7 +41,7 @@ namespace Simulator {
             MEMTYPE_COMA_ML = 6
         } m_memorytype; // for WriteConfiguration
         Config&            m_config;
-        std::vector<std::string> m_inputfiles;
+        ActiveROM*         m_bootrom;
 
         // Writes the current configuration into memory and returns its address
         MemAddr WriteConfiguration();
@@ -60,9 +61,6 @@ namespace Simulator {
         };
 
         Config& GetConfig() const { return m_config; }
-        const std::string GetProgramName() const { return m_program; }
-        const std::vector<std::string> GetInputFileNames() const { return m_inputfiles; }
-        void FillConfWords(ConfWords&) const;
 
         // Get or set the debug flag
         int  GetDebugMode() const   { return m_kernel.GetDebugMode(); }
@@ -96,7 +94,7 @@ namespace Simulator {
         void Step(CycleNo nCycles);
         void Abort() { GetKernel().Abort(); }
     
-        MGSystem(Config& config, const std::string& program,
+        MGSystem(Config& config,
                  const std::string& symtable,
                  const std::vector<std::pair<RegAddr, RegValue> >& regs,
                  const std::vector<std::pair<RegAddr, std::string> >& loads,

@@ -20,7 +20,14 @@ DEVICE_SRC = \
 	arch/dev/LCD.cpp \
 	arch/dev/LCD.h \
         arch/dev/Display.h \
-        arch/dev/Display.cpp
+        arch/dev/Display.cpp \
+        arch/dev/ELF.h \
+        arch/dev/ELFLoader.h \
+        arch/dev/ELFLoader.cpp \
+        arch/dev/ActiveROM.h \
+        arch/dev/ActiveROM.cpp \
+        arch/dev/SMC.h \
+        arch/dev/SMC.cpp
 
 PROCESSOR_SRC = \
 	arch/proc/Allocator.cpp \
@@ -73,7 +80,6 @@ PROCESSOR_SRC = \
 
 COMMON_SRC = \
 	arch/Archures.h \
-	arch/elf.h \
 	arch/FPU.cpp \
 	arch/FPU.h \
 	arch/IOBus.h \
@@ -81,8 +87,6 @@ COMMON_SRC = \
 	arch/Memory.h \
 	arch/MGSystem.h \
 	arch/MGSystem.cpp \
-	arch/loader.cpp \
-	arch/loader.h \
 	arch/simtypes.h \
 	arch/simtypes.cpp \
 	arch/symtable.h \
