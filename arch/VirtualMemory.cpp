@@ -7,6 +7,7 @@
 #include <iomanip>
 #include <iostream>
 #include <cstdlib>
+#include <sstream>
 
 using namespace std;
 
@@ -73,6 +74,16 @@ bool VirtualMemory::Allocate(MemSize size, int perm, MemAddr& address)
     return false;
 }
 
+void VirtualMemory::ReportOverlap(MemAddr address, MemSize size) const
+{
+    std::ostringstream os;
+    VirtualMemory::Cmd_Info(os, std::vector<std::string>());
+    InvalidArgumentException e = exceptf<InvalidArgumentException>("Overlap in memory reservation (%#016llx, %zd)",
+                                                                   (unsigned long long)address, (size_t)size);
+    e.AddDetails(os.str());
+    throw e;
+}
+
 void VirtualMemory::Reserve(MemAddr address, MemSize size, int perm)
 {
     if (size != 0)
@@ -84,8 +95,7 @@ void VirtualMemory::Reserve(MemAddr address, MemSize size, int perm)
             if (p->first == address || (address < p->first && address + size > p->first))
             {
                 // The range overlaps with an existing range after it
-                throw exceptf<InvalidArgumentException>("Overlap in memory reservation (%#016llx, %zd)",
-                                                        (unsigned long long)address, (size_t)size);
+                ReportOverlap(address, size);
             }
         
             if (p != m_ranges.begin())
@@ -94,8 +104,7 @@ void VirtualMemory::Reserve(MemAddr address, MemSize size, int perm)
                 if (q->first < address && q->first > address - q->second.size)
                 {
                     // The range overlaps with an existing range before it
-                    throw exceptf<InvalidArgumentException>("Overlap in memory reservation (%#016llx, %zd)",
-                                                            (unsigned long long)address, (size_t)size);
+                    ReportOverlap(address, size);
                 }
             }
         }

@@ -48,7 +48,7 @@ public:
     void Cmd_Read(std::ostream& out, const std::vector<std::string>& arguments) const;
 private:
     RangeMap::const_iterator GetReservationRange(MemAddr address, MemSize size) const;
-    
+    void ReportOverlap(MemAddr address, MemSize size) const;
 
     BlockMap m_blocks;
     RangeMap m_ranges;
