@@ -369,10 +369,13 @@ bool Processor::DCache::OnMemoryReadCompleted(MemAddr addr, const MemData& data)
 bool Processor::DCache::OnMemoryWriteCompleted(TID tid)
 {
     // Data has been written
-    if (!m_completedWrites.Push(tid))
+    if (tid != INVALID_TID) // otherwise for DCA
     {
-        DeadlockWrite("Unable to push write completion to buffer");
-        return false;
+        if (!m_completedWrites.Push(tid))
+        {
+            DeadlockWrite("Unable to push write completion to buffer");
+            return false;
+        }
     }
     return true;
 }

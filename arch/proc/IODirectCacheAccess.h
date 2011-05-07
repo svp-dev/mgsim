@@ -9,12 +9,19 @@ class IODirectCacheAccess : public Object
 {
 public:
 
+    enum RequestType
+    {
+        READ = 0,
+        WRITE = 1,
+        FLUSH = 2
+    };
+
     struct Request 
     {
-        IODeviceID client;
-        MemAddr    address;
-        bool       write;
-        MemData    data;
+        IODeviceID  client;
+        MemAddr     address;
+        RequestType type;
+        MemData     data;
     };
 
 private:
@@ -37,6 +44,9 @@ private:
     MemAddr              m_outstanding_address;
     MemSize              m_outstanding_size;
 
+    bool                 m_flushing;
+    size_t               m_pending_writes;
+
 public:
     IODirectCacheAccess(const std::string& name, Object& parent, Clock& clock, Clock& busclock, Processor& proc, IOBusInterface& busif, Config& config);
 
@@ -51,9 +61,9 @@ public:
     Result DoBusOutgoing();
 
     bool OnMemoryReadCompleted(MemAddr addr, const MemData& data) ;
-    bool OnMemoryWriteCompleted(TID tid) { return true; }
-    bool OnMemoryInvalidated(MemAddr addr) { return true; }
+    bool OnMemoryWriteCompleted(TID tid);
     bool OnMemorySnooped(MemAddr addr, const MemData& data) { return true; }
+    bool OnMemoryInvalidated(MemAddr addr) { return true; }
 
 };
 

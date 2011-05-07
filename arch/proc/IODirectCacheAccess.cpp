@@ -12,6 +12,7 @@ namespace Simulator
           m_requests("b_requests", *this, clock, config.getValue<BufferSize>(*this, "RequestQueueSize")),
           m_responses("b_responses", *this, busclock, config.getValue<BufferSize>(*this, "ResponseQueueSize")),
           m_has_outstanding_request(false),
+          m_pending_writes(0),
           p_MemoryOutgoing("send-memory-requests", delegate::create<IODirectCacheAccess, &Processor::IODirectCacheAccess::DoMemoryOutgoing>(*this)),
           p_BusOutgoing("send-bus-responses", delegate::create<IODirectCacheAccess, &Processor::IODirectCacheAccess::DoBusOutgoing>(*this)),
           p_service(*this, clock, "p_service")
@@ -27,29 +28,44 @@ namespace Simulator
         size_t offset = (size_t)(req.address % m_lineSize);
         if (offset + req.data.size > m_lineSize)
         {
-            throw exceptf<InvalidArgumentException>(*this, "DCA request for %#016llx/%u (dev %u, write %d) crosses over cache line boundary", 
-                                                    (unsigned long long)req.address, (unsigned)req.data.size, (unsigned)req.client, (int)req.write);
+            throw exceptf<InvalidArgumentException>(*this, "DCA request for %#016llx/%u (dev %u, type %d) crosses over cache line boundary", 
+                                                    (unsigned long long)req.address, (unsigned)req.data.size, (unsigned)req.client, (int)req.type);
         }
 
-        if (!m_cpu.CheckPermissions(req.address, req.data.size, req.write ? IMemory::PERM_DCA_WRITE : IMemory::PERM_DCA_READ))
+        if (req.type != FLUSH && !m_cpu.CheckPermissions(req.address, req.data.size, (req.type == WRITE) ? IMemory::PERM_DCA_WRITE : IMemory::PERM_DCA_READ))
         {
-            throw exceptf<SecurityException>(*this, "Invalid access in DCA request for %#016llx/%u (dev %u, write %d)",
-                                             (unsigned long long)req.address, (unsigned)req.data.size, (unsigned)req.client, (int)req.write);
+            throw exceptf<SecurityException>(*this, "Invalid access in DCA request for %#016llx/%u (dev %u, type %d)",
+                                             (unsigned long long)req.address, (unsigned)req.data.size, (unsigned)req.client, (int)req.type);
         }
 
         if (!m_requests.Push(req))
         {
-            DeadlockWrite("Unable to queue DCA request (%#016llx/%u, dev %u, write %d",
-                          (unsigned long long)req.address, (unsigned)req.data.size, (unsigned)req.client, (int)req.write);
+            DeadlockWrite("Unable to queue DCA request (%#016llx/%u, dev %u, type %d",
+                          (unsigned long long)req.address, (unsigned)req.data.size, (unsigned)req.client, (int)req.type);
             return false;
         }
 
-        DebugIOWrite("Queued DCA request (%#016llx/%u, dev %u, write %d)",
-                     (unsigned long long)req.address, (unsigned)req.data.size, (unsigned)req.client, (int)req.write);
+        DebugIOWrite("Queued DCA request (%#016llx/%u, dev %u, type %d)",
+                     (unsigned long long)req.address, (unsigned)req.data.size, (unsigned)req.client, (int)req.type);
 
         return true;
     }
 
+    bool Processor::IODirectCacheAccess::OnMemoryWriteCompleted(TID tid)
+    {
+        if (tid == INVALID_TID) // otherwise for D-Cache
+        {
+            Response res;
+            res.address = 0;
+            res.data.size = 0;
+            if (!m_responses.Push(res))
+            {
+                DeadlockWrite("Unable to push memory write response");
+                return false;
+            }
+        }
+        return true;
+    }
 
     bool Processor::IODirectCacheAccess::OnMemoryReadCompleted(MemAddr addr, const MemData& data)
     {
@@ -82,6 +98,30 @@ namespace Simulator
             return FAILED;
         }
 
+        if (res.address == 0 && res.data.size == 0)
+        {
+            // write response
+            assert(m_pending_writes > 0);
+            
+            if (m_pending_writes == 1 && m_flushing == true)
+            { 
+                COMMIT { 
+                    --m_pending_writes;
+                    m_flushing = false; 
+                }
+                // the flush response will be sent below.
+            }
+            else
+            {
+                COMMIT { 
+                    --m_pending_writes; 
+                }
+                // one or more outstanding write left, no flush response needed
+                m_responses.Pop();
+                return SUCCESS;
+            }
+        }
+
         if (m_has_outstanding_request 
             && res.address <= m_outstanding_address
             && res.address + res.data.size >= m_outstanding_address + m_outstanding_size)
@@ -99,6 +139,9 @@ namespace Simulator
                               (unsigned)req.device, (unsigned long long)req.address, (unsigned)req.data.size);
                 return FAILED;
             }
+
+            DebugIOWrite("Sent DCA read response to client %u for %#016llx/%u",
+                         (unsigned)req.device, (unsigned long long)req.address, (unsigned)req.data.size);
             
             COMMIT {
                 m_has_outstanding_request = false;
@@ -114,10 +157,54 @@ namespace Simulator
     {
         const Request& req = m_requests.Front();
 
-        if (!req.write)
+        switch(req.type)
+        {
+        case FLUSH:
+        {
+            if (!p_service.Invoke())
+            {
+                DeadlockWrite("Unable to acquire port for DCA flush");                
+                return FAILED;
+            }
+
+            if (m_has_outstanding_request)
+            {
+                // some request is already queued, so we just stall
+                DeadlockWrite("Will not send additional DCA flush request from client %u, already waiting for request for dev %u",
+                              (unsigned)req.client, (unsigned)m_outstanding_client);
+                return FAILED;
+            }
+
+            if (m_pending_writes == 0)
+            {
+                // no outstanding write, fake one and then 
+                // acknowledge immediately
+
+                COMMIT { ++m_pending_writes; }
+
+                Response res;
+                res.address = 0;
+                res.data.size = 0;
+                if (!m_responses.Push(res))
+                {
+                    DeadlockWrite("Unable to push DCA flush response");
+                    return FAILED;
+                }
+            }
+
+            COMMIT {
+                m_flushing = true;
+                m_has_outstanding_request = true;
+                m_outstanding_client = req.client;
+                m_outstanding_address = 0;
+                m_outstanding_size = 0;
+            }
+            
+            break;
+        }
+        case READ:
         {
             // this is a read request coming from the bus.
-
             if (!p_service.Invoke())
             {
                 DeadlockWrite("Unable to acquire port for DCA read (%#016llx, %u)",
@@ -149,10 +236,20 @@ namespace Simulator
                 m_outstanding_address = req.address;
                 m_outstanding_size = req.data.size;
             }
+
+            break;
         }
-        else
+        case WRITE:
         {
-            // write operation: just write through
+            // write operation
+
+            if (!p_service.Invoke())
+            {
+                DeadlockWrite("Unable to acquire port for DCA write (%#016llx, %u)",
+                              (unsigned long long)req.address, (unsigned)req.data.size);
+                
+                return FAILED;
+            }
 
             if (!m_cpu.WriteMemory(req.address, req.data.data, req.data.size, INVALID_TID))
             {
@@ -160,6 +257,10 @@ namespace Simulator
                 return FAILED;
             }
 
+            COMMIT { ++m_pending_writes; }
+
+            break;
+        }
         }
 
         m_requests.Pop();
