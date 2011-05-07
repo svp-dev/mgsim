@@ -90,15 +90,18 @@ namespace Simulator
           m_client(config.getValue<IODeviceID>(*this, "DCATargetID")),
           m_completionTarget(config.getValue<IOInterruptID>(*this, "DCANotificationChannel")),
           m_loading("f_loading", *this, iobus.GetClock(), false),
+          m_flushing("f_flushing", *this, iobus.GetClock(), false),
           m_notifying("f_notifying", *this, iobus.GetClock(), false),
           m_currentRange(0),
           m_currentOffset(0),
           p_Load("load", delegate::create<ActiveROM, &ActiveROM::DoLoad>(*this)),
+          p_Flush("flush", delegate::create<ActiveROM, &ActiveROM::DoFlush>(*this)),
           p_Notify("notify", delegate::create<ActiveROM, &ActiveROM::DoNotify>(*this))
     {
         iobus.RegisterClient(devid, *this);
         m_loading.Sensitive(p_Load);
         m_notifying.Sensitive(p_Notify);
+        m_flushing.Sensitive(p_Flush);
         
         if (m_lineSize == 0)
         {
@@ -160,6 +163,24 @@ namespace Simulator
         return SUCCESS;
     }
     
+    bool ActiveROM::OnReadResponseReceived(IODeviceID from, MemAddr address, const IOData& data)
+    {
+        assert(from == m_client && address == 0);
+        m_notifying.Set();
+        return true;
+    }
+
+    Result ActiveROM::DoFlush()
+    {
+        if (!m_iobus.SendReadRequest(m_devid, m_client, 0, 0))
+        {
+            DeadlockWrite("Unable to send DCA flush request");
+            return FAILED;
+        }
+        m_flushing.Clear();
+        return SUCCESS;
+    }
+    
     Result ActiveROM::DoLoad()
     {      
         LoadableRange& r = m_loadable[m_currentRange];
@@ -192,7 +213,7 @@ namespace Simulator
         }
         else
         {
-            m_notifying.Set();
+            m_flushing.Set();
             m_loading.Clear();
         }
         return SUCCESS;
@@ -228,8 +249,12 @@ namespace Simulator
         {
             throw exceptf<SimulationException>(*this, "Invalid I/O read to %#016llx/%u", (unsigned long long)address, (unsigned)data.size);
         }
-        m_notifying.Clear();
-        m_loading.Set();
+        if (!m_loadable.empty())
+        {
+            m_notifying.Clear();
+            m_flushing.Clear();
+            m_loading.Set();
+        }
     }
 
     void ActiveROM::GetDeviceIdentity(IODeviceIdentification& id) const

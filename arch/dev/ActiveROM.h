@@ -43,6 +43,7 @@ namespace Simulator
         IOInterruptID      m_completionTarget;
                            
         SingleFlag         m_loading;
+        SingleFlag         m_flushing;
         SingleFlag         m_notifying;
 
         size_t             m_currentRange;
@@ -57,9 +58,11 @@ namespace Simulator
         ~ActiveROM();
 
         Process p_Load;
+        Process p_Flush;
         Process p_Notify;
 
         Result DoLoad();
+        Result DoFlush();
         Result DoNotify();
 
         bool IsBootable() const { return m_bootable; }
@@ -69,6 +72,7 @@ namespace Simulator
 
         bool OnReadRequestReceived(IODeviceID from, MemAddr address, MemSize size);
         bool OnWriteRequestReceived(IODeviceID from, MemAddr address, const IOData& data);
+        bool OnReadResponseReceived(IODeviceID from, MemAddr address, const IOData& data);
         
 
         void GetDeviceIdentity(IODeviceIdentification& id) const;

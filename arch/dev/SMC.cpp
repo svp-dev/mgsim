@@ -79,11 +79,16 @@ namespace Simulator
             return FAILED;
         }
         m_start_dca.Clear();
+
+        DebugIOWrite("Sent ROM DCA trigger to device %u", (unsigned)m_romid);
+
         return SUCCESS;
     }
 
     Result SMC::DoBoot()
     {
+        DebugIOWrite("Sending boot signal to processor %s", m_cpu.GetName().c_str());
+
         COMMIT {
             MemAddr prog_start;
             bool legacy;
@@ -107,6 +112,8 @@ namespace Simulator
         {
             COMMIT { m_enable_dca = false; }
             m_doboot.Set();
+
+            DebugIOWrite("ROM DCA transfer finished, ready to boot processor %s", m_cpu.GetName().c_str());
         }
         return true;
     }
