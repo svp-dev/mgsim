@@ -18,6 +18,7 @@
     .globl main
 main:
     # Load GP register
+    ldpc $27
 	ldah $29,0($27)     !gpdisp!1
 	lda  $29,0($29)     !gpdisp!1
 	

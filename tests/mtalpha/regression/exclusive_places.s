@@ -9,6 +9,7 @@
     .globl main
     .ent main
 main:
+    ldpc     $27
     ldgp $29, 0($27)
     
     mov (0 << 1) | 1, $2           # PID=0, Size=1

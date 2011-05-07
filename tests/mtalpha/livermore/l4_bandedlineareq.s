@@ -33,6 +33,7 @@
     .globl main
     .ent main
 main:
+    ldpc     $27
     ldgp    $29, 0($27)
     
     lda     $4,    M

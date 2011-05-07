@@ -21,6 +21,7 @@
     .ent main
     .globl main
 main:
+    ldpc     $27
     ldgp $29, 0($27)
     
 	allocate/s $31, 0, $4

@@ -17,6 +17,7 @@
     .ent main
     .globl main
 main:
+    ldpc     $27
     ldgp $29, 0($27)
     
 	#	create (fam1; 0; N;)

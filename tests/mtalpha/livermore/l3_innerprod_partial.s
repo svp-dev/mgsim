@@ -18,6 +18,7 @@
     .globl main
     .ent main
 main:
+    ldpc     $27
     ldgp    $29, 0($27)
     
     # Family runs from [0 ... #procs - 1]

@@ -30,6 +30,7 @@
     .globl main
     .ent main
 main:
+    ldpc     $27
     ldgp     $29, 0($27)    # $29 = GP
     
     allocate/s $31, 0, $3   # Start = 0, Step = 1
