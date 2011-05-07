@@ -23,18 +23,18 @@ struct IOData
 class IIOBusClient
 {
 public:
-    virtual bool OnReadRequestReceived(IODeviceID from, MemAddr address, MemSize size) = 0;
-    virtual bool OnWriteRequestReceived(IODeviceID from, MemAddr address, const IOData& data) = 0;
-    virtual bool OnReadResponseReceived(IODeviceID from, MemAddr address, const IOData& data) = 0;
-    virtual bool OnInterruptRequestReceived(IOInterruptID which) = 0;
-    virtual bool OnNotificationReceived(IOInterruptID which, Integer tag) = 0;
+    virtual bool OnReadRequestReceived(IODeviceID from, MemAddr address, MemSize size);
+    virtual bool OnWriteRequestReceived(IODeviceID from, MemAddr address, const IOData& data);
+    virtual bool OnReadResponseReceived(IODeviceID from, MemAddr address, const IOData& data);
+    virtual bool OnInterruptRequestReceived(IOInterruptID which);
+    virtual bool OnNotificationReceived(IOInterruptID which, Integer tag);
 
     virtual void GetDeviceIdentity(IODeviceIdentification& id) const = 0;
 
     /* for debugging */
     virtual std::string GetIODeviceName() const = 0;
 
-    virtual ~IIOBusClient() {}
+    virtual ~IIOBusClient();
 };
 
 class Clock;
@@ -54,7 +54,7 @@ public:
 
     virtual Clock& GetClock() = 0;
 
-    virtual ~IIOBus() {}
+    virtual ~IIOBus();
 };
 
 }

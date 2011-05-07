@@ -46,9 +46,6 @@ namespace Simulator
             friend class Display;
 
             bool OnReadRequestReceived(IODeviceID from, MemAddr address, MemSize size);
-            bool OnReadResponseReceived(IODeviceID from, MemAddr address, const IOData& data) { return false; }
-            bool OnInterruptRequestReceived(IOInterruptID which) { return true; }
-            bool OnNotificationReceived(IOInterruptID which, Integer tag) { return true; }
             bool OnWriteRequestReceived(IODeviceID from, MemAddr address, const IOData& data);
             void GetDeviceIdentity(IODeviceIdentification& id) const;
             
@@ -69,9 +66,6 @@ namespace Simulator
             friend class Display;
 
             bool OnReadRequestReceived(IODeviceID from, MemAddr address, MemSize size);
-            bool OnReadResponseReceived(IODeviceID from, MemAddr address, const IOData& data) { return false; }
-            bool OnInterruptRequestReceived(IOInterruptID which) { return true; }
-            bool OnNotificationReceived(IOInterruptID which, Integer tag) { return true; }
             bool OnWriteRequestReceived(IODeviceID from, MemAddr address, const IOData& data);
             void GetDeviceIdentity(IODeviceIdentification& id) const;
             

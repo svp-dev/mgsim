@@ -77,6 +77,7 @@ COMMON_SRC = \
 	arch/FPU.cpp \
 	arch/FPU.h \
 	arch/IOBus.h \
+        arch/IOBus.cpp \
 	arch/Memory.h \
 	arch/MGSystem.h \
 	arch/MGSystem.cpp \
