@@ -962,6 +962,28 @@ MGSystem::MGSystem(Config& config, const string& program,
 
     }
 
+    // Set up the initial memory ranges
+    size_t numRanges = config.getValue<size_t>("NumMemoryRanges");
+    for (size_t i = 0; i < numRanges; ++i)
+    {
+        stringstream ss;
+        ss << "MemoryRange" << i;
+        string name = ss.str();
+
+        MemAddr address = config.getValue<MemAddr>(name + ".Address");
+        MemSize size = config.getValue<MemSize>(name + ".Size");
+        string mode = config.getValue<string>(name + ".Mode");
+        int perm = 0;
+        if (mode.find("R") != string::npos)
+            perm |= IMemory::PERM_READ;
+        if (mode.find("W") != string::npos)
+            perm |= IMemory::PERM_WRITE;
+        if (mode.find("X") != string::npos)
+            perm |= IMemory::PERM_EXECUTE;
+
+        m_memory->Reserve(address, size, perm);
+    }
+
     // Load the program into memory
     pair<MemAddr, bool> progdesc = make_pair(0, false);
     if (doload)
