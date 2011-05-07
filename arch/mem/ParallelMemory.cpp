@@ -293,14 +293,18 @@ ParallelMemory::~ParallelMemory()
     }
 }
 
-void ParallelMemory::Cmd_Info(ostream& out, const vector<string>& /*arguments*/) const
+void ParallelMemory::Cmd_Info(ostream& out, const vector<string>& arguments) const
 {
+    if (!arguments.empty() && arguments[0] == "ranges")
+    {
+        return VirtualMemory::Cmd_Info(out, arguments);
+    }
     out <<
     "The Parallel Memory is an extension on the Ideal Memory in that every CPU has a\n"
     "dedicated port into memory. Internally, there are no conflicts between ports so\n"
     "every CPU can issue memory operations fully independent of all other CPUs.\n\n"
     "Supported operations:\n"
-    "- info <component>\n"
+    "- info <component> ranges\n"
     "  Displays the currently reserved and allocated memory ranges\n\n"
     "- inspect <component> <start> <size>\n"
     "  Reads the specified number of bytes of raw data from memory from the\n"

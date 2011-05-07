@@ -45,7 +45,7 @@ command_descriptor command_table[] =
     { { "breakpoint", "state", 0  },  0, 0,  cmd_bp_state,   "breakpoint state",  "Report which breakpoints have been reached." },
     { { "disassemble", 0 },           1, 2,  cmd_disas,      "disassemble ADDR [SZ]", "Disassemble the program from address ADDR." },
     { { "help", 0 },                  0, 1,  cmd_help,       "help [COMMAND]",    "Print the help text for COMMAND, or this text if no command is specified." },
-    { { "info", 0 },                  1, 1,  cmd_info,       "info COMPONENT",    "Show help/configuration/layout for COMPONENT." },
+    { { "info", 0 },                  1, -1, cmd_info,       "info COMPONENT [ARGS...]",    "Show help/configuration/layout for COMPONENT." },
     { { "line", 0 },                  2, 2,  cmd_line,       "line COMPONENT ADDR", "Lookup the memory line at address ADDR in the memory system COMPONENT." },
     { { "lookup", 0 },                1, 1,  cmd_lookup,     "lookup ADDR",       "Look up the program symbol closest to address ADDR." },
     { { "quit", 0 },                  0, 0,  cmd_quit,       "quit",              "Exit the simulation." },

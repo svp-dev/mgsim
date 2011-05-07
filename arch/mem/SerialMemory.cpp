@@ -191,13 +191,17 @@ SerialMemory::SerialMemory(const std::string& name, Object& parent, Clock& clock
     m_requests.Sensitive( p_Requests );
 }
 
-void SerialMemory::Cmd_Info(ostream& out, const vector<string>& /*arguments*/) const
+void SerialMemory::Cmd_Info(ostream& out, const vector<string>& arguments) const
 {
+    if (!arguments.empty() && arguments[0] == "ranges")
+    {
+        return VirtualMemory::Cmd_Info(out, arguments);
+    }
     out <<
     "The Serial Memory is a simplified memory implementation that has no contention\n"
     "on accesses and simply queues all requests in a single queue.\n\n"
     "Supported operations:\n"
-    "- info <component>\n"
+    "- info <component> ranges\n"
     "  Displays the currently reserved and allocated memory ranges\n\n"
     "- inspect <component> <start> <size>\n"
     "  Reads the specified number of bytes of raw data from memory from the\n"

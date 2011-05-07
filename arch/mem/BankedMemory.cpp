@@ -419,14 +419,18 @@ BankedMemory::~BankedMemory()
     }
 }
 
-void BankedMemory::Cmd_Info(ostream& out, const vector<string>& /*arguments*/) const
+void BankedMemory::Cmd_Info(ostream& out, const vector<string>& arguments) const
 {
+    if (!arguments.empty() && arguments[0] == "ranges")
+    {
+        return VirtualMemory::Cmd_Info(out, arguments);
+    }
     out <<
     "The Banked Memory represents a switched memory network between P processors and N\n"
     "memory banks. Requests are sequentialized on each bank and the cache line-to-bank\n"
     "mapping is a simple modulo.\n\n"
     "Supported operations:\n"
-    "- info <component>\n"
+    "- info <component> ranges\n"
     "  Displays the currently reserved and allocated memory ranges\n\n"
     "- inspect <component> <start> <size>\n"
     "  Reads the specified number of bytes of raw data from memory from the\n"

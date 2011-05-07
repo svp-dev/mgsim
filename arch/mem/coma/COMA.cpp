@@ -216,15 +216,19 @@ void COMA::GetMemoryStatistics(uint64_t& nreads, uint64_t& nwrites, uint64_t& nr
     }
 }
 
-void COMA::Cmd_Info(ostream& out, const vector<string>& /*arguments*/) const
+void COMA::Cmd_Info(ostream& out, const vector<string>& arguments) const
 {
+    if (!arguments.empty() && arguments[0] == "ranges")
+    {
+        return VirtualMemory::Cmd_Info(out, arguments);
+    }
     out <<
     "The COMA Memory represents a hierarchical ring-based network of caches where each\n"
     "cache services several processors. Rings of caches are connected via directories\n"
     "to higher-level rings. One or more root directories at the top provide access to\n"
-    "to off-chip storage."
+    "to off-chip storage.\n"
     "Supported operations:\n"
-    "- info <component>\n"
+    "- info <component> ranges\n"
     "  Displays the currently reserved and allocated memory ranges\n\n"
     "- inspect <component> <start> <size>\n"
     "  Reads the specified number of bytes of raw data from memory from the\n"
