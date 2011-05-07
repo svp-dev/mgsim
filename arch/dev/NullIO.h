@@ -33,6 +33,7 @@ namespace Simulator
         bool SendInterruptRequest(IODeviceID from, IOInterruptID which);
         bool SendNotification(IODeviceID from, IOInterruptID which, Integer tag);
 
+        IODeviceID GetLastDeviceID() const;
         void GetDeviceIdentity(IODeviceID which, IODeviceIdentification& id) const;
 
         Clock& GetClock() { return Object::GetClock(); }

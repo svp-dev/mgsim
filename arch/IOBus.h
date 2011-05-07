@@ -50,6 +50,7 @@ public:
     virtual bool SendInterruptRequest(IODeviceID from, IOInterruptID which) = 0;
     virtual bool SendNotification(IODeviceID from, IOInterruptID which, Integer tag) = 0;
 
+    virtual IODeviceID GetLastDeviceID() const = 0;
     virtual void GetDeviceIdentity(IODeviceID which, IODeviceIdentification& id) const = 0;
 
     virtual Clock& GetClock() = 0;

@@ -92,6 +92,10 @@ namespace Simulator
         return res;
     }
 
+    IODeviceID NullIO::GetLastDeviceID() const
+    {
+        return m_clients.size();
+    };
     void NullIO::GetDeviceIdentity(IODeviceID which, IODeviceIdentification &id) const
     {
         if (which >= m_clients.size() || m_clients[which] == NULL)
