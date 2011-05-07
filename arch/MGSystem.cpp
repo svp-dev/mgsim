@@ -919,7 +919,7 @@ MGSystem::MGSystem(Config& config, const string& program,
             iobus = m_iobuses[busid];
         }
 
-        m_procs[i]   = new Processor(name, m_root, m_clock, i, m_procs, *m_memory, fpu, iobus, config);
+        m_procs[i]   = new Processor(name, m_root, m_clock, i, m_procs, *m_memory, *m_memory, fpu, iobus, config);
     }
 
     // Create the I/O devices

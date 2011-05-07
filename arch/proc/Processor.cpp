@@ -20,9 +20,9 @@ static bool IsPowerOfTwo(const T& x)
 //
 // Processor implementation
 //
-Processor::Processor(const std::string& name, Object& parent, Clock& clock, PID pid, const vector<Processor*>& grid, IMemory& memory, FPU& fpu, IIOBus *iobus, Config& config)
+Processor::Processor(const std::string& name, Object& parent, Clock& clock, PID pid, const vector<Processor*>& grid, IMemory& memory, IMemoryAdmin& admin, FPU& fpu, IIOBus *iobus, Config& config)
 :   Object(name, parent, clock),
-    m_pid(pid), m_memory(memory), m_grid(grid), m_fpu(fpu),
+    m_pid(pid), m_memory(memory), m_memadmin(admin), m_grid(grid), m_fpu(fpu),
     m_familyTable ("families",      *this, clock, config),
     m_threadTable ("threads",       *this, clock, config),
     m_registerFile("registers",     *this, clock, m_allocator, config),
@@ -212,13 +212,13 @@ unsigned int Processor::GetNumSuspendedRegisters() const
 
 void Processor::MapMemory(MemAddr address, MemSize size)
 {
-    m_memory.Reserve(address, size, IMemory::PERM_READ | IMemory::PERM_WRITE);
+    m_memadmin.Reserve(address, size, IMemory::PERM_READ | IMemory::PERM_WRITE);
 }
 
 void Processor::UnmapMemory(MemAddr address, MemSize size)
 {
     // TODO: possibly check the size matches the reserved size
-    m_memory.Unreserve(address);
+    m_memadmin.Unreserve(address);
 }
 
 bool Processor::ReadMemory(MemAddr address, MemSize size)
@@ -233,7 +233,7 @@ bool Processor::WriteMemory(MemAddr address, const void* data, MemSize size, TID
 
 bool Processor::CheckPermissions(MemAddr address, MemSize size, int access) const
 {
-    bool mp = m_memory.CheckPermissions(address, size, access);
+    bool mp = m_memadmin.CheckPermissions(address, size, access);
     if (!mp && (access & IMemory::PERM_READ) && (address & (1ULL << (sizeof(MemAddr) * 8 - 1))))
     {
         // we allow reads to the first cache line (64 bytes) of TLS to always succeed.

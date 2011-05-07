@@ -32,7 +32,7 @@ public:
 #include "Allocator.h"
 #include "PerfCounters.h"
 
-    Processor(const std::string& name, Object& parent, Clock& clock, PID pid, const std::vector<Processor*>& grid, IMemory& m_memory, FPU& fpu, IIOBus *iobus, Config& config);
+    Processor(const std::string& name, Object& parent, Clock& clock, PID pid, const std::vector<Processor*>& grid, IMemory& memory, IMemoryAdmin& admin, FPU& fpu, IIOBus *iobus, Config& config);
     ~Processor();
     
     void Initialize(Processor* prev, Processor* next, MemAddr runAddress, bool legacy);
@@ -88,7 +88,8 @@ public:
 
 private:
     PID                            m_pid;
-    IMemory&	                   m_memory;
+    IMemory&                       m_memory;
+    IMemoryAdmin&                  m_memadmin;
     const std::vector<Processor*>& m_grid;
     FPU&                           m_fpu;
     
