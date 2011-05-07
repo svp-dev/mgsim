@@ -154,7 +154,7 @@ namespace Simulator
         {
             // write operation: just write through
 
-            if (!m_cpu.WriteMemory(req.address, req.data.data, req.data.size, 0))
+            if (!m_cpu.WriteMemory(req.address, req.data.data, req.data.size, INVALID_TID))
             {
                 DeadlockWrite("Unable to send DCA write to %#016llx/%u to memory", (unsigned long long)req.address, (unsigned)req.data.size);
                 return FAILED;
