@@ -31,7 +31,7 @@ namespace Simulator
                                                     (unsigned long long)req.address, (unsigned)req.data.size, (unsigned)req.client, (int)req.write);
         }
 
-        if (!m_cpu.CheckPermissions(req.address, req.data.size, req.write ? IMemory::PERM_WRITE : IMemory::PERM_READ))
+        if (!m_cpu.CheckPermissions(req.address, req.data.size, req.write ? IMemory::PERM_DCA_WRITE : IMemory::PERM_DCA_READ))
         {
             throw exceptf<SecurityException>(*this, "Invalid access in DCA request for %#016llx/%u (dev %u, write %d)",
                                              (unsigned long long)req.address, (unsigned)req.data.size, (unsigned)req.client, (int)req.write);

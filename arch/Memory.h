@@ -35,9 +35,11 @@ class IMemory
 {
 public:
     enum Permissions {
-        PERM_EXECUTE = 1,
-	PERM_WRITE   = 2,
-	PERM_READ    = 4
+        PERM_EXECUTE   = 1,
+	PERM_WRITE     = 2,
+	PERM_READ      = 4,
+        PERM_DCA_READ  = 8,
+        PERM_DCA_WRITE = 16
     };
 
     virtual void RegisterClient  (PSize pid, IMemoryCallback& callback, const Process* processes[]) = 0;

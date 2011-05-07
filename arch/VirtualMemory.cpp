@@ -264,10 +264,14 @@ void VirtualMemory::Cmd_Info(ostream& out, const vector<string>& /* arguments */
             if (p == m_ranges.end() || p->first > begin + size || p->second.permissions != perm)
             {
                 // Different block, or end of blocks
-                out << setw(16) << begin << " - " << setw(16) << begin + size - 1 << ": ";
-                out << (perm & IMemory::PERM_READ    ? "R" : ".");
-                out << (perm & IMemory::PERM_WRITE   ? "W" : ".");
-                out << (perm & IMemory::PERM_EXECUTE ? "X" : ".") << endl;
+                out << setw(16) << begin << " - " << setw(16) << begin + size - 1 << ": "
+                    << (perm & IMemory::PERM_READ    ? "R" : ".")
+                    << (perm & IMemory::PERM_WRITE   ? "W" : ".")
+                    << (perm & IMemory::PERM_EXECUTE ? "X" : ".") 
+                    << ' '
+                    << (perm & IMemory::PERM_DCA_READ ? "DR" : "..")
+                    << (perm & IMemory::PERM_DCA_WRITE ? "DW" : "..")
+                    << endl;
                 if (p != m_ranges.end())
                 {
                     // Different block
