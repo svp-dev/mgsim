@@ -39,6 +39,7 @@ public:
 };
 
 class Clock;
+class Object;
 
 class IIOBus
 {
@@ -57,7 +58,8 @@ public:
     virtual void Initialize() = 0;
     virtual IODeviceID GetLastDeviceID() const = 0;
     virtual IODeviceID GetNextAvailableDeviceID() const = 0;
-    virtual IODeviceID GetDeviceByName(const std::string& objname) const = 0;
+    virtual IODeviceID GetDeviceIDByName(const std::string& objname) const = 0;
+    virtual Object& GetDeviceByName(const std::string& objname) const = 0;
     virtual void GetDeviceIdentity(IODeviceID which, IODeviceIdentification& id) const = 0;
 
     virtual ~IIOBus();

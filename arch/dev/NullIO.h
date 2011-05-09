@@ -35,7 +35,8 @@ namespace Simulator
 
         void Initialize();
         IODeviceID GetLastDeviceID() const;
-        IODeviceID GetDeviceByName(const std::string& objname) const;
+        IODeviceID GetDeviceIDByName(const std::string& objname) const;
+        Object& GetDeviceByName(const std::string& objname) const;
         void GetDeviceIdentity(IODeviceID which, IODeviceIdentification& id) const;
         IODeviceID GetNextAvailableDeviceID() const;
 

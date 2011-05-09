@@ -22,13 +22,13 @@ namespace Simulator
 
         const std::vector<std::pair<RegAddr, RegValue> >& m_regs;
         const std::vector<std::pair<RegAddr, std::string> >& m_loads;
-        Processor& m_cpu;
+        Processor* m_cpu;
 
-        ActiveROM& m_rom;
+        ActiveROM* m_rom;
         IODeviceID m_romid;
 
-        bool       m_atboot;
-        bool       m_enable_dca;
+        bool       m_enable_boot;   // whether to boot the linked processor
+        bool       m_enable_dca;    // whether to do the initial DCA
         SingleFlag m_start_dca;
         SingleFlag m_doboot;
 
@@ -36,8 +36,6 @@ namespace Simulator
         SMC(const std::string& name, Object& parent, IIOBus& iobus, IODeviceID devid, 
             const std::vector<std::pair<RegAddr, RegValue> >& regs,
             const std::vector<std::pair<RegAddr, std::string> >& loads,
-            Processor& proc, 
-            ActiveROM& rom, 
             Config& config);
 
         ~SMC();

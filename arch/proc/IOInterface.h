@@ -37,6 +37,7 @@ public:
     class PNCInterface : public MMIOComponent, public Inspect::Interface<Inspect::Info>
     {
     private:
+        MemAddr                 m_baseAddr;
         IOInterface&  GetInterface() const;
 
     public:
@@ -48,6 +49,9 @@ public:
         Result Write(MemAddr address, const void* data, MemSize size, LFID fid, TID tid);
 
         void Cmd_Info(std::ostream& out, const std::vector<std::string>& args) const;
+
+        // for boot sequence
+        MemAddr GetDeviceBaseAddress(IODeviceID dev) const;
     };
     
 
@@ -82,6 +86,9 @@ public:
     IODirectCacheAccess& GetDirectCacheAccess() { return m_dca; }
     
     MemAddr GetDeviceBaseAddress(IODeviceID dev) const { return m_async_io.GetDeviceBaseAddress(dev); }
+
+    // At core initialization, triggered by the SMC
+    void Initialize(IODeviceID smcid);
 
     // Debugging
     void Cmd_Info(std::ostream& out, const std::vector<std::string>& args) const;

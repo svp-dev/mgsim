@@ -706,8 +706,6 @@ MGSystem::MGSystem(Config& config,
     copy(cfg_names.begin(), cfg_names.end(), back_inserter(dev_names));
     size_t numIODevices = dev_names.size();
 
-    SMC *smc = NULL;
-
     m_devices.resize(numIODevices);
     for (size_t i = 0; i < numIODevices; ++i)
     {
@@ -758,21 +756,7 @@ MGSystem::MGSystem(Config& config,
             }
             m_devices[i] = rom;
         } else if (dev_type == "SMC") {
-            if (m_bootrom == NULL)
-            {
-                throw runtime_error("No bootable ROM configured before the SMC.");
-            }
-            if (smc != NULL)
-            {
-                throw runtime_error("More than one SMC configured.");
-            }
-            size_t procid = config.getValue<size_t>(m_root, name + ".BootProcessor");
-            if (procid >= m_procs.size())
-            {
-                throw runtime_error(name + ": BootProcessor references a non-existent processor");
-            }
-            Processor* boot_core = m_procs[procid];
-            smc = new SMC("smc", m_root, iobus, devid, regs, loads, *boot_core, *m_bootrom, config);
+            SMC * smc = new SMC(name, m_root, iobus, devid, regs, loads, config);
             m_devices[i] = smc;
         } else {
             throw runtime_error("Unknown I/O device type: " + dev_type);
@@ -819,12 +803,6 @@ MGSystem::MGSystem(Config& config,
     {
         cerr << "Warning: No bootable ROM configured." << endl;
     }
-
-    if (smc == NULL)
-    {
-        cerr << "Warning: No SMC configured." << endl;
-    }
-
 
     // Set program debugging per default
     m_kernel.SetDebugMode(Kernel::DEBUG_PROG);

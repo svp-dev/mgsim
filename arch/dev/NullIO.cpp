@@ -116,12 +116,22 @@ namespace Simulator
         }
     }
 
-    IODeviceID NullIO::GetDeviceByName(const std::string& name) const
+    IODeviceID NullIO::GetDeviceIDByName(const std::string& name) const
     {
         for (size_t i = 0; i < m_clients.size(); ++i)
         {
             if (m_clients[i] != NULL && FNM_NOMATCH != fnmatch(name.c_str(), m_clients[i]->GetIODeviceName().c_str(), FNM_CASEFOLD))
                 return i;
+        }
+        throw exceptf<InvalidArgumentException>(*this, "No such device: %s", name.c_str());
+    }
+
+    Object& NullIO::GetDeviceByName(const std::string& name) const
+    {
+        for (size_t i = 0; i < m_clients.size(); ++i)
+        {
+            if (m_clients[i] != NULL && FNM_NOMATCH != fnmatch(name.c_str(), m_clients[i]->GetIODeviceName().c_str(), FNM_CASEFOLD))
+                return dynamic_cast<Object&>(*m_clients[i]);
         }
         throw exceptf<InvalidArgumentException>(*this, "No such device: %s", name.c_str());
     }

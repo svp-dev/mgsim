@@ -91,6 +91,7 @@ public:
     bool CheckPermissions(MemAddr address, MemSize size, int access) const;
 	
     Network& GetNetwork() { return m_network; }
+    IOInterface* GetIOInterface() { return m_io_if; }
 
 private:
     PID                            m_pid;
