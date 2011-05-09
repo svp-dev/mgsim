@@ -34,7 +34,8 @@ Processor::Processor(const std::string& name, Object& parent, Clock& clock, PID 
     m_network     ("network",       *this, clock, grid, m_allocator, m_registerFile, m_familyTable, config),
     m_mmio        ("mmio",          *this, clock, config),
     m_perfcounters(*this),
-    m_ancillaryRegisterFile("acrs", *this, clock, config),
+    m_apr_file("aprs", *this, clock, config),
+    m_asr_file("asrs", *this, clock, config),
     m_lpout("stdout", *this, std::cout),
     m_lperr("stderr", *this, std::cerr),
     m_io_if(NULL)

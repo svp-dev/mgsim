@@ -65,9 +65,13 @@ public:
 
     unsigned int GetNumSuspendedRegisters() const;
     
-    void WriteRegister(const RegAddr& addr, const RegValue& value) {
-        m_registerFile.WriteRegister(addr, value);
-    }
+    void WriteRegister(const RegAddr& addr, const RegValue& value) { m_registerFile.WriteRegister(addr, value); }
+    void WriteASR(ARAddr which, Integer data) {  m_asr_file.WriteRegister(which, data); }
+    Integer ReadASR(ARAddr which) const { m_asr_file.ReadRegister(which); }
+    void WriteAPR(ARAddr which, Integer data) {  m_apr_file.WriteRegister(which, data); }
+    Integer ReadAPR(ARAddr which) const { m_apr_file.ReadRegister(which); }
+
+
 	
     // Configuration-dependent helpers
     MemAddr     GetTLSAddress(LFID fid, TID tid) const;
@@ -123,7 +127,8 @@ private:
     // Local MMIO devices
     IOMatchUnit           m_mmio;
     PerfCounters          m_perfcounters;
-    AncillaryRegisterFile m_ancillaryRegisterFile;
+    AncillaryRegisterFile m_apr_file;
+    AncillaryRegisterFile m_asr_file;
     DebugChannel          m_lpout;
     DebugChannel          m_lperr;
 

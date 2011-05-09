@@ -954,10 +954,18 @@ Processor::Pipeline::PipeAction Processor::Pipeline::ExecuteStage::ExecuteInstru
                 return ExecReadASR20(m_input.function);
             } else if (m_input.displacement < 15) {
                 // RDASR: Read Ancillary State Register
-                // We don't support this yet
-                ThrowIllegalInstructionException(*this, m_input.pc);
+                COMMIT {
+                    m_output.Rcv.m_integer = GetParent().GetProcessor().ReadASR(m_input.displacement - 1); // number 0 is %y
+                    m_output.Rcv.m_state   = RST_FULL;
+                }
+            } else if (m_input.displacement >= 21) {
+                // Read implementation dependent State Register >= 21
+                COMMIT {
+                    m_output.Rcv.m_integer = GetParent().GetProcessor().ReadAPR(m_input.displacement - 21);
+                    m_output.Rcv.m_state   = RST_FULL;
+                }
             } else {
-                // Read implementation dependent State Register
+                // Read implementation dependent State Register > 15, < 20
                 // We don't support this yet
                 ThrowIllegalInstructionException(*this, m_input.pc);
             }

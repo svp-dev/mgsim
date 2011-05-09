@@ -1066,6 +1066,8 @@ Processor::Pipeline::PipeAction Processor::Pipeline::ExecuteStage::ExecuteInstru
                 case A_UTHREAD_GETTID:
                 case A_UTHREAD_GETPID:
                 case A_UTHREAD_GETCID:
+                case A_UTHREAD_GETASR:
+                case A_UTHREAD_GETAPR:
                     COMMIT {
                         m_output.Rcv.m_state   = RST_FULL;
                         switch (m_input.function)
@@ -1082,6 +1084,8 @@ Processor::Pipeline::PipeAction Processor::Pipeline::ExecuteStage::ExecuteInstru
                             m_output.Rcv.m_integer = m_parent.GetProcessor().PackPlace(place);
                             break;
                         }
+                        case A_UTHREAD_GETASR: m_output.Rcv.m_integer = m_parent.GetProcessor().ReadASR(Rbv); break;
+                        case A_UTHREAD_GETAPR: m_output.Rcv.m_integer = m_parent.GetProcessor().ReadAPR(Rbv); break;
                         }
                     }
                     break;

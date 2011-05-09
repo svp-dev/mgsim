@@ -6,14 +6,14 @@ using namespace std;
 
 namespace Simulator
 {
-    void Processor::AncillaryRegisterInterface::Cmd_Info(std::ostream& out, const std::vector<std::string>& /*arguments*/) const
+    void Processor::AncillaryRegisterFile::Cmd_Info(std::ostream& out, const std::vector<std::string>& /*arguments*/) const
     {
         out <<
             "The ancillary registers hold information common to all threads on a processor.\n"
             "They allow for faster (1-cycle) access to commonly used information.\n";
     }
 
-    void Processor::AncillaryRegisterInterface::Cmd_Read(std::ostream& out, const std::vector<std::string>& /*arguments*/) const
+    void Processor::AncillaryRegisterFile::Cmd_Read(std::ostream& out, const std::vector<std::string>& /*arguments*/) const
     {
         out << " Register | Value" << endl
             << "----------+----------------------" << endl;
@@ -21,47 +21,38 @@ namespace Simulator
         size_t numRegisters = GetNumRegisters();
         for (size_t i = 0; i < numRegisters; ++i)
         {
-            Integer value;
-            ReadRegister(i, value);
+            Integer value = ReadRegister(i);
             out << setw(9) << setfill(' ') << right << i << left
                 << " | "
                 << setw(16 - sizeof(Integer) * 2) << setfill(' ') << ""
-                << setw(     sizeof(Integer) * 2) << setfill('0') << hex << value
+                << setw(     sizeof(Integer) * 2) << setfill('0') << hex << right << value << left
                 << endl;
         }
     }
 
 
-    bool Processor::AncillaryRegisterFile::ReadRegister(size_t addr, Integer& data) const
+    Integer Processor::AncillaryRegisterFile::ReadRegister(ARAddr addr) const
     {
-        if (addr < m_numRegisters)
+        if (addr >= m_numRegisters)
         {
-            data = m_registers[addr];
-            return true;
+            throw exceptf<InvalidArgumentException>(*this, "Invalid ancillary register number: %u", (unsigned)addr);
         }
-        else
-        {
-            return false;
-        }
+        return m_registers[addr];
     }
     
-    bool Processor::AncillaryRegisterFile::WriteRegister(size_t addr, Integer data)
+    void Processor::AncillaryRegisterFile::WriteRegister(ARAddr addr, Integer data)
     {
-        if (addr < m_numRegisters)
+        if (addr >= m_numRegisters)
         {
-            m_registers[addr] = data;
-            return true;
+            throw exceptf<InvalidArgumentException>(*this, "Invalid ancillary register number: %u", (unsigned)addr);
         }
-        else
-        {
-            return false;
-        }
+        m_registers[addr] = data;
     }
 
 
     Processor::AncillaryRegisterFile::AncillaryRegisterFile(const std::string& name, Processor& parent, Clock& clock, Config& config)
-        : AncillaryRegisterInterface(name, parent, clock),
-          m_numRegisters(config.getValue<size_t>(*this, "NumAncillaryRegisters"))
+        : Object(name, parent, clock),
+          m_numRegisters(name == "aprs" ? config.getValue<size_t>(*this, "NumAncillaryRegisters") : NUM_ASRS)
     {
         if (m_numRegisters == 0)
         {
@@ -69,6 +60,11 @@ namespace Simulator
         }
 
         m_registers.resize(m_numRegisters, 0);
+
+        if (name == "asrs")
+        {
+            WriteRegister(ASR_SYSTEM_VERSION, ASR_SYSTEM_VERSION_VALUE);
+        }
     }
 
 

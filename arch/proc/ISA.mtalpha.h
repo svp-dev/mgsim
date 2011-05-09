@@ -122,7 +122,7 @@ enum {
     A_UTHREAD_ALLOCATE_E = 0x60,   // Exclusive
     A_UTHREAD_SETSTART   = 0x01,
     A_UTHREAD_SETLIMIT   = 0x02,
-    A_UTHREAD_SETSTEP	   = 0x03,
+    A_UTHREAD_SETSTEP	 = 0x03,
     A_UTHREAD_SETBLOCK   = 0x04,
     A_UTHREAD_KILL       = 0x05,
     A_UTHREAD_BREAK      = 0x06,
@@ -138,6 +138,8 @@ enum {
     A_UTHREAD_GETFID     = 0x18,
     A_UTHREAD_GETPID     = 0x19,
     A_UTHREAD_GETCID     = 0x1A,
+    A_UTHREAD_GETASR     = 0x1B,
+    A_UTHREAD_GETAPR     = 0x1C,
 };
 
 // UTHREADF Instructions
