@@ -33,9 +33,9 @@ Processor::Processor(const std::string& name, Object& parent, Clock& clock, PID 
     m_pipeline    ("pipeline",      *this, clock, m_registerFile, m_network, m_allocator, m_familyTable, m_threadTable, m_icache, m_dcache, fpu, config),
     m_network     ("network",       *this, clock, grid, m_allocator, m_registerFile, m_familyTable, config),
     m_mmio        ("mmio",          *this, clock, config),
-    m_perfcounters(*this),
     m_apr_file("aprs", *this, clock, config),
     m_asr_file("asrs", *this, clock, config),
+    m_perfcounters(*this, config),
     m_lpout("stdout", *this, std::cout),
     m_lperr("stderr", *this, std::cerr),
     m_io_if(NULL)

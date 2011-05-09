@@ -126,9 +126,9 @@ private:
 
     // Local MMIO devices
     IOMatchUnit           m_mmio;
-    PerfCounters          m_perfcounters;
     AncillaryRegisterFile m_apr_file;
     AncillaryRegisterFile m_asr_file;
+    PerfCounters          m_perfcounters;
     DebugChannel          m_lpout;
     DebugChannel          m_lperr;
 

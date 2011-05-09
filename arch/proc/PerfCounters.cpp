@@ -1,17 +1,23 @@
 #include "Processor.h"
+#include "sim/config.h"
 
 namespace Simulator
 {
 
-const size_t Processor::PerfCounters::numCounters = 18;
+#define NUM_COUNTERS 18
 
-size_t Processor::PerfCounters::GetSize() const { return numCounters * sizeof(Integer);  }
+size_t Processor::PerfCounters::GetSize() const { return NUM_COUNTERS * sizeof(Integer);  }
 
 Result Processor::PerfCounters::Read(MemAddr address, void *data, MemSize size, LFID fid, TID tid, const RegAddr& writeback)
 {
-    if (size != sizeof(Integer))
+    if ()
         return FAILED;
 
+    if (size != sizeof(Integer) || address % sizeof(Integer) != 0 || address / sizeof(Integer) >= NUM_COUNTERS)
+    {
+        throw exceptf<InvalidArgumentException>(*this, "Invalid read to performance counter address by F%u/T%u: %#016llx/%u",
+                                                (unsigned)fid, (unsigned)tid, (unsigned long long)address, (unsigned)size);
+    }
     address /= sizeof(Integer);
 
     Processor& cpu = *static_cast<Processor*>(GetParent());
@@ -194,11 +200,14 @@ Result Processor::PerfCounters::Read(MemAddr address, void *data, MemSize size, 
     return SUCCESS;
 }
 
-Processor::PerfCounters::PerfCounters(Processor& parent)
+Processor::PerfCounters::PerfCounters(Processor& parent, Config& config)
     : Processor::MMIOComponent("perfcounters", parent, parent.GetClock()),
       m_nCycleSampleOps(0),
       m_nOtherSampleOps(0)
 {
+    parent.WriteASR(ASR_NUM_PERFCOUNTERS, NUM_COUNTERS);
+    parent.WriteASR(ASR_PERFCOUNTERS_BASE, config.getValue<MemAddr>(*this, "MMIO_BaseAddr"));
+ 
     RegisterSampleVariableInObject(m_nCycleSampleOps, SVC_CUMULATIVE);
     RegisterSampleVariableInObject(m_nOtherSampleOps, SVC_CUMULATIVE);
 }
