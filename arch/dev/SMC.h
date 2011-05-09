@@ -21,6 +21,7 @@ namespace Simulator
         IODeviceID m_devid;
 
         const std::vector<std::pair<RegAddr, RegValue> >& m_regs;
+        const std::vector<std::pair<RegAddr, std::string> >& m_loads;
         Processor& m_cpu;
 
         ActiveROM& m_rom;
@@ -34,13 +35,14 @@ namespace Simulator
     public:
         SMC(const std::string& name, Object& parent, IIOBus& iobus, IODeviceID devid, 
             const std::vector<std::pair<RegAddr, RegValue> >& regs,
+            const std::vector<std::pair<RegAddr, std::string> >& loads,
             Processor& proc, 
             ActiveROM& rom, 
             Config& config);
 
         ~SMC();
 
-        void Initialize(size_t numDevices);
+        void Initialize();
 
         Process p_StartDCA;
         Process p_Boot;

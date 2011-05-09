@@ -594,6 +594,7 @@ MGSystem::MGSystem(Config& config,
                    const string& symtable,
                    const vector<pair<RegAddr, RegValue> >& regs,
                    const vector<pair<RegAddr, string> >& loads,
+                   const vector<string>& extradevs,
                    bool quiet, bool doload)
     : m_kernel(m_symtable, m_breakpoints),
       m_clock(m_kernel.CreateClock(config.getValue<unsigned long>("CoreFreq"))),
@@ -700,55 +701,79 @@ MGSystem::MGSystem(Config& config,
     }
 
     // Create the I/O devices
-    size_t numIODevices = config.getValue<size_t>("NumIODevices");
+    vector<string> dev_names = extradevs;
+    vector<string> cfg_names = config.getWordList("IODevices");
+    copy(cfg_names.begin(), cfg_names.end(), back_inserter(dev_names));
+    size_t numIODevices = dev_names.size();
+    
+    SMC *smc = NULL;
 
-    m_devices.resize(numIODevices + 1);
+    m_devices.resize(numIODevices);
     for (size_t i = 0; i < numIODevices; ++i)
     {
-        stringstream ss;
-        ss << "iodev" << i;
-        string name = ss.str();
+        string name = dev_names[i];
 
         size_t busid = config.getValue<size_t>(m_root, name + ".BusID");
-        size_t devid = config.getValue<size_t>(m_root, name + ".DeviceID");
+        size_t devid = config.getValue<size_t>(m_root, name + ".DeviceID", (size_t)-1);
         string dev_type = config.getValue<string>(m_root, name + ".Type");
-        string cfg_name = config.getValue<string>(m_root, name + ".Name", name);
 
         if (busid >= m_iobuses.size())
         {
-            throw runtime_error("Device " + cfg_name + " set to connect to non-existent bus");
+            throw runtime_error("Device " + name + " set to connect to non-existent bus");
         }
         
         IIOBus& iobus = *m_iobuses[busid];
 
+        if (devid == (size_t)-1)
+        {
+            devid = iobus.GetNextAvailableDeviceID();
+        }
+
         if (!quiet)
         {
-            cout << cfg_name << ": device " << devid << " on " << dynamic_cast<Object&>(iobus).GetName() << ": " << dev_type << endl;
+            cout << name << ": device " << dec << devid << " on " << dynamic_cast<Object&>(iobus).GetName() << " (type " << dev_type << ')' << endl;
         }
 
         if (dev_type == "LCD") {
-            LCD *lcd = new LCD(cfg_name, m_root, iobus, devid, config);
+            LCD *lcd = new LCD(name, m_root, iobus, devid, config);
             iobus.RegisterClient(devid, *lcd);
             m_devices[i] = lcd;
         } else if (dev_type == "RTC") {
-            Clock& rtcclock = m_kernel.CreateClock(config.getValue<size_t>(m_root, cfg_name + ".RTCUpdateFreq"));
-            RTC *rtc = new RTC(cfg_name, m_root, rtcclock, iobus, devid, config);
+            Clock& rtcclock = m_kernel.CreateClock(config.getValue<size_t>(m_root, name + ".RTCUpdateFreq"));
+            RTC *rtc = new RTC(name, m_root, rtcclock, iobus, devid, config);
             m_devices[i] = rtc;
         } else if (dev_type == "GFX") {
-            size_t fbdevid = config.getValue<size_t>(m_root, cfg_name + ".GfxFrameBufferDeviceID", devid + 1);
-            Display *disp = new Display(cfg_name, m_root, iobus, devid, fbdevid, config);
+            size_t fbdevid = config.getValue<size_t>(m_root, name + ".GfxFrameBufferDeviceID", devid + 1);
+            Display *disp = new Display(name, m_root, iobus, devid, fbdevid, config);
             m_devices[i] = disp;
         } else if (dev_type == "AROM") {
-            ActiveROM *rom = new ActiveROM(cfg_name, m_root, *m_memory, iobus, devid, config);
+            ActiveROM *rom = new ActiveROM(name, m_root, *m_memory, iobus, devid, config);
             if (rom->IsBootable())
             {
                 if (m_bootrom != NULL)
                 {
-                    throw runtime_error("More than one bootable ROM detected: " + cfg_name + ", " + m_bootrom->GetFQN());
+                    throw runtime_error("More than one bootable ROM detected: " + name + ", " + m_bootrom->GetFQN());
                 }
                 m_bootrom = rom;
             }
             m_devices[i] = rom;
+        } else if (dev_type == "SMC") {
+            if (m_bootrom == NULL)
+            {
+                throw runtime_error("No bootable ROM configured before the SMC.");
+            }
+            if (smc != NULL)
+            {
+                throw runtime_error("More than one SMC configured.");
+            }
+            size_t procid = config.getValue<size_t>(m_root, name + ".BootProcessor");
+            if (procid >= m_procs.size())
+            {
+                throw runtime_error(name + ": BootProcessor references a non-existent processor");
+            }
+            Processor* boot_core = m_procs[procid];
+            smc = new SMC("smc", m_root, iobus, devid, regs, loads, *boot_core, *m_bootrom, config);
+            m_devices[i] = smc;
         } else {
             throw runtime_error("Unknown I/O device type: " + dev_type);
         }
@@ -788,38 +813,10 @@ MGSystem::MGSystem(Config& config,
     {
         cerr << "Warning: No bootable ROM configured." << endl;
     }
+
     if (doload && !m_procs.empty() && m_bootrom != NULL)
     {
-        // Initialize the SMC device
-
-        size_t procid = config.getValue<size_t>("BootProcessor");
-        if (procid >= m_procs.size())
-        {
-            throw runtime_error("BootProcessor references a non-existent processor");
-        }
-        Processor* boot_core = m_procs[procid];
-        
-        string name = "smc";
-        size_t busid = config.getValue<size_t>(m_root, name + ".BusID");
-        if (busid >= m_iobuses.size())
-        {
-            throw runtime_error("Device " + name + " set to connect to non-existent bus");
-        }
-        IIOBus& iobus = *m_iobuses[busid];
-        size_t devid = config.getValue<size_t>(m_root, name + ".DeviceID");
-
-        if (!quiet)
-        {
-            cout << name << ": device " << devid << " on " << dynamic_cast<Object&>(iobus).GetName() << endl;
-        }
-
-        SMC *smc = new SMC("smc", m_root, iobus, devid, regs, *boot_core, *m_bootrom, config);
-
-        // smc->Initialize should be called after all the devices have been connected to the bus.
-        smc->Initialize(iobus.GetLastDeviceID());
-
-        m_devices[numIODevices] = smc;
-        
+        smc->Initialize();
     }
 
     // Set program debugging per default

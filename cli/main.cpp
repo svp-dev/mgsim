@@ -35,9 +35,9 @@ struct ProgramConfig
     vector<string>                   m_printvars;
     bool                             m_earlyquit;
     vector<pair<string,string> >     m_overrides;
-    
-    vector<pair<RegAddr, RegValue> > m_regs;
+    vector<string>                   m_extradevs;    
     vector<pair<RegAddr, string> >   m_loads;
+    vector<pair<RegAddr, RegValue> > m_regs;
 };
 
 static void ParseArguments(int argc, const char ** argv, ProgramConfig& config)
@@ -85,7 +85,7 @@ static void ParseArguments(int argc, const char ** argv, ProgramConfig& config)
             string arg = argv[i];
             string::size_type eq = arg.find_first_of("=");
             if (eq == string::npos) {
-                throw runtime_error("Error: malformed configuration override syntax");
+                throw runtime_error("Error: malformed configuration override syntax: " + arg);
             }
             string name = arg.substr(0, eq);
             config.m_overrides.push_back(make_pair(name, arg.substr(eq + 1)));
@@ -96,14 +96,21 @@ static void ParseArguments(int argc, const char ** argv, ProgramConfig& config)
                 throw runtime_error("Error: expected filename");
             }
             string filename(argv[i]);
+            string regnum(arg, 2, arg.size());
             char* endptr; 
-            RegAddr  addr; 
-            unsigned long index = strtoul(&arg[2], &endptr, 0); 
+            unsigned long index = strtoul(regnum.c_str(), &endptr, 0); 
             if (*endptr != '\0') { 
-                throw runtime_error("Error: invalid register specifier in option"); 
+                throw runtime_error("Error: invalid register specifier in option: " + arg); 
             } 
-            addr = MAKE_REGADDR(RT_INTEGER, index);                      
-            config.m_loads.push_back(make_pair(addr, filename)); 
+            RegAddr  regaddr = MAKE_REGADDR(RT_INTEGER, index);
+
+            string devname = "file" + regnum;
+            config.m_extradevs.push_back(devname);
+            string cfgprefix = "*." + devname + ".";
+            config.m_overrides.push_back(make_pair(cfgprefix + "Type", "AROM"));
+            config.m_overrides.push_back(make_pair(cfgprefix + "ROMContentSource", "RAW"));
+            config.m_overrides.push_back(make_pair(cfgprefix + "ROMFileName", filename));
+            config.m_loads.push_back(make_pair(regaddr, "*." + devname)); 
         } 
         else if (arg[1] == 'R' || arg[1] == 'F')
         {
@@ -181,7 +188,11 @@ int main(int argc, char** argv)
         // Create the system
         MGSystem sys(configfile, 
                      config.m_symtableFile,
-                     config.m_regs, config.m_loads, !config.m_interactive, !config.m_earlyquit);
+                     config.m_regs, 
+                     config.m_loads, 
+                     config.m_extradevs, 
+                     !config.m_interactive, 
+                     !config.m_earlyquit);
 
 #ifdef ENABLE_MONITOR
         string mo_mdfile = configfile.getValue<string>("MonitorMetadataFile", "mgtrace.md");
