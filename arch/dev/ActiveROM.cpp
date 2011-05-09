@@ -14,19 +14,25 @@ namespace Simulator
         config.dumpConfiguration(os, "", true);
         std::string data = os.str();
         
-        size_t romsize = data.size() + 1;
+        size_t romsize = data.size() + m_lineSize;
         
         m_numLines = romsize / m_lineSize;
         m_numLines = (romsize % m_lineSize == 0) ? m_numLines : (m_numLines + 1);
         
         m_data = new char [m_numLines * m_lineSize];
         memcpy(m_data, data.c_str(), data.size());
-        m_data[romsize-1] = '\0';
+        memset(m_data + data.size(), 0, m_numLines * m_lineSize - data.size());
+
+        if (m_verboseload)
+        {
+            cout << GetName() << ": configuration data: " << dec << romsize << " bytes generated" << endl;
+        }
+
     }
 
-    void ActiveROM::LoadFile(const std::string& fname)
+    void ActiveROM::LoadFile(const string& fname)
     {
-        std::ifstream is;
+        ifstream is;
         is.open(fname.c_str(), ios::binary);
         
         if (!is.good())
@@ -62,6 +68,13 @@ namespace Simulator
         }
         
         is.close();
+
+        if (m_verboseload)
+        {
+            cout << GetName() << ": loaded " << dec << length << " bytes from " << fname << endl;
+        }
+
+
     }
 
     void ActiveROM::PrepareRanges()
@@ -69,20 +82,20 @@ namespace Simulator
         for (size_t i = 0; i < m_loadable.size(); ++i)
         {
             const LoadableRange& r = m_loadable[i];
-            m_memory.Reserve(r.vaddr, r.size, r.perm | IMemory::PERM_DCA_WRITE);
+            m_memory.Reserve(r.vaddr, r.vsize, r.perm | IMemory::PERM_DCA_WRITE);
             if (m_verboseload)
             {
-                cout << GetName() << ": reserved " << dec << r.size << " bytes in main memory at 0x" 
+                cout << GetName() << ": reserved " << dec << r.vsize << " bytes in main memory at 0x" 
                      << hex << setfill('0') << setw(16) << r.vaddr 
                      << " - 0x" 
-                     << hex << setfill('0') << setw(16) << r.vaddr + r.size - 1 ;
+                     << hex << setfill('0') << setw(16) << r.vaddr + r.vsize - 1 ;
             }
             if (m_preloaded_at_boot)
             {                
-                m_memory.Write(r.vaddr, m_data + r.rom_offset, r.size);
+                m_memory.Write(r.vaddr, m_data + r.rom_offset, r.rom_size);
                 if (m_verboseload)
                 {
-                    cout << ", preloaded to DRAM from ROM offset 0x" << hex << r.rom_offset;
+                    cout << ", preloaded " << dec << r.rom_size << " bytes to DRAM from ROM offset 0x" << hex << r.rom_offset;
                 }
             }
             if (m_verboseload)
@@ -92,7 +105,7 @@ namespace Simulator
         }
     }
 
-    ActiveROM::ActiveROM(const std::string& name, Object& parent, IMemoryAdmin& mem, IIOBus& iobus, IODeviceID devid, Config& config)
+    ActiveROM::ActiveROM(const string& name, Object& parent, IMemoryAdmin& mem, IIOBus& iobus, IODeviceID devid, Config& config)
         : Object(name, parent, iobus.GetClock()),
           m_memory(mem),
           m_data(NULL),
@@ -126,10 +139,10 @@ namespace Simulator
             throw exceptf<InvalidArgumentException>(*this, "ROMLineSize cannot be zero");
         }
 
-        std::string source = config.getValue<std::string>(*this, "ROMContentSource");
+        string source = config.getValue<string>(*this, "ROMContentSource");
         if (source == "RAW" || source == "ELF")
         {
-            m_filename = config.getValue<std::string>(*this, "ROMFileName");
+            m_filename = config.getValue<string>(*this, "ROMFileName");
             LoadFile(m_filename);
         }
         else if (source == "CONFIG")
@@ -143,17 +156,21 @@ namespace Simulator
 
         if (source == "CONFIG" || source == "RAW")
         {
-            LoadableRange r;
-            r.rom_offset = 0;
-            r.vaddr = config.getValue<MemAddr>(*this, "ROMBaseAddr");
-            r.size = m_numLines * m_lineSize;
-            r.perm = IMemory::PERM_READ;
-
-            m_loadable.push_back(r);
+            MemAddr addr = config.getValue<MemAddr>(*this, "ROMBaseAddr", 0);
+            if (addr != 0)
+            {
+                LoadableRange r;
+                r.vaddr = addr;
+                r.rom_offset = 0;
+                r.vsize = r.rom_size = m_numLines * m_lineSize;
+                r.perm = IMemory::PERM_READ;
+                
+                m_loadable.push_back(r);
+            }
         }
         else if (source == "ELF")
         {
-            std::pair<MemAddr, bool> res = LoadProgram(name, m_loadable, m_memory, m_data, m_numLines * m_lineSize, m_verboseload);
+            pair<MemAddr, bool> res = LoadProgram(name, m_loadable, m_memory, m_data, m_numLines * m_lineSize, m_verboseload);
             m_bootable = true;
             m_start_address = res.first;
             m_legacy = res.second;
@@ -204,7 +221,7 @@ namespace Simulator
         size_t voffset = r.vaddr + m_currentOffset;
         
         IOData data;
-        data.size = min((MemSize)(r.size - m_currentOffset), (MemSize)m_lineSize);
+        data.size = min((MemSize)(r.rom_size - m_currentOffset), (MemSize)m_lineSize);
         memcpy(data.data, m_data + offset, data.size);
 
         if (!m_iobus.SendWriteRequest(m_devid, m_client, voffset, data))
@@ -214,13 +231,13 @@ namespace Simulator
             return FAILED;
         }
 
-        if (m_currentOffset + m_lineSize < r.size)
+        if (m_currentOffset + m_lineSize < r.rom_size)
         {
             COMMIT {
                 m_currentOffset += m_lineSize;
             }
         }
-        else if (m_currentOffset + m_lineSize >= r.size && m_currentRange + 1 < m_loadable.size())
+        else if (m_currentOffset + m_lineSize >= r.rom_size && m_currentRange + 1 < m_loadable.size())
         {
             COMMIT {
                 ++m_currentRange;
@@ -250,7 +267,7 @@ namespace Simulator
 
         IOData iodata;
         iodata.size = size;
-        memcpy(iodata.data, m_data, size);
+        memcpy(iodata.data, m_data + address, size);
         if (!m_iobus.SendReadResponse(m_devid, from, address, iodata))
         {
             DeadlockWrite("Unable to send ROM read response to I/O bus");
@@ -281,9 +298,113 @@ namespace Simulator
         }    
     }
 
-    std::string ActiveROM::GetIODeviceName() const 
+    string ActiveROM::GetIODeviceName() const 
     { 
         return GetFQN(); 
     }
+
+    void ActiveROM::Cmd_Info(ostream& out, const vector<string>& /* args */) const
+    {
+        out << "The Active ROM is a combination of a read-only memory and a DMA controller." << endl
+            << endl
+            << "ROM size: " << m_numLines * m_lineSize << " bytes in " << m_numLines << " lines." << endl
+            << "Bootable: " << (m_bootable ? "yes" : "no") << endl
+            << "Preloaded to DRAM: " << (m_preloaded_at_boot ? "yes" : "no") << endl;
+        if (!m_loadable.empty())
+        {
+            out << "Virtual ranges:" << endl
+                << "ROM start | Bytes    | Virtual start    | Virtual end" << endl
+                << "----------+----------+------------------+-----------------" << endl;
+            for (size_t i = 0; i < m_loadable.size(); ++i)
+            {
+                const LoadableRange& r = m_loadable[i];
+                out << setfill('0') << hex << setw(8) << r.rom_offset
+                    << "  | "
+                    << dec << setfill(' ') << setw(8) << r.rom_size
+                    << " | "
+                    << hex << setfill('0') << hex << setw(16) << r.vaddr
+                    << " | "
+                    << hex << setfill('0') << hex << setw(16) << r.vaddr + r.vsize - 1
+                    << endl;
+            }
+        }
+        else
+        {
+            out << "No loadable DRAM ranges." << endl;
+        }
+    }
+
+    void ActiveROM::Cmd_Read(ostream& out, const vector<string>& arguments) const
+    {
+        MemAddr addr = 0;
+        MemSize size = 0;
+        char* endptr = NULL;
+    
+        if (arguments.size() == 2)
+        {
+            addr = (MemAddr)strtoull( arguments[0].c_str(), &endptr, 0 );
+            if (*endptr == '\0')
+            {
+                size = strtoul( arguments[1].c_str(), &endptr, 0 );
+            }
+        }
+
+        if (arguments.size() != 2 || *endptr != '\0')
+        {
+            out << "Usage: read <mem> <address> <count>" << endl;
+            return;
+        }
+
+        if (addr + size > m_numLines * m_lineSize)
+        {
+            out << "Read past ROM boundary" << endl;
+            return;
+        }
+
+        static const unsigned int BYTES_PER_LINE = 16;
+
+        // Calculate aligned start and end addresses
+        MemAddr start = addr / BYTES_PER_LINE * BYTES_PER_LINE;
+        MemAddr end   = (addr + size + BYTES_PER_LINE - 1) / BYTES_PER_LINE * BYTES_PER_LINE;
+
+
+        // Read the data
+        vector<uint8_t> buf((size_t)size);
+        memcpy(&buf[0], m_data + addr, size);
+
+        // Print it
+        for (MemAddr y = start; y < end; y += BYTES_PER_LINE)
+        {
+            // The address
+            out << setw(8) << hex << setfill('0') << y << " | ";
+
+            // The bytes
+            for (MemAddr x = y; x < y + BYTES_PER_LINE; ++x)
+            {
+                if (x >= addr && x < addr + size)
+                    out << setw(2) << (unsigned int)buf[(size_t)(x - addr)];
+                else
+                    out << "  ";
+                    
+                // Print some space at half the grid
+                if ((x - y) == BYTES_PER_LINE / 2 - 1) out << "  ";
+                out << " ";
+            }
+            out << "| ";
+
+            // The bytes, as characters
+            for (MemAddr x = y; x < y + BYTES_PER_LINE; ++x)
+            {
+                char c = ' ';
+                if (x >= addr && x < addr + size) {
+                    c = buf[(size_t)(x - addr)];
+                    c = (isprint(c) ? c : '.');
+                }
+                out << c;
+            }
+            out << endl;
+        }
+    }
+
 
 }

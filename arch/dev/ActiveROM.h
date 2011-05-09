@@ -6,18 +6,20 @@
 #include "sim/kernel.h"
 #include "sim/config.h"
 #include "sim/storage.h"
+#include "sim/inspect.h"
 #include <map>
 
 namespace Simulator
 {
-    class ActiveROM : public IIOBusClient, public Object
+    class ActiveROM : public IIOBusClient, public Object, public Inspect::Interface<Inspect::Info|Inspect::Read>
     {
     public:
         struct LoadableRange
         {
             size_t               rom_offset;
+            MemSize              rom_size;
             MemAddr              vaddr;
-            MemSize              size;
+            MemSize              vsize;
             IMemory::Permissions perm;
         };
     private:
@@ -81,6 +83,9 @@ namespace Simulator
         void GetDeviceIdentity(IODeviceIdentification& id) const;
         std::string GetIODeviceName() const;
 
+        /* debug */
+        void Cmd_Read(std::ostream& out, const std::vector<std::string>& arguments) const;
+        void Cmd_Info(std::ostream& out, const std::vector<std::string>& arguments) const;
     };
 
 

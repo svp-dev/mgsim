@@ -100,17 +100,26 @@ LoadProgram(const std::string& msg_prefix, vector<ActiveROM::LoadableRange>& ran
 
                 ActiveROM::LoadableRange r;
                 r.rom_offset = phdr[i].p_offset;
+                r.rom_size = phdr[i].p_filesz;
                 r.vaddr = phdr[i].p_vaddr;
-                r.size = phdr[i].p_filesz;
+                r.vsize = phdr[i].p_memsz;
                 r.perm = (IMemory::Permissions)perm;
                 ranges.push_back(r);
 
                 // We do not reserve here because this
                 // will be taken care of by the ActiveROM during loading.
+                if (verbose)
+                {
+                    cout << msg_prefix << ": " << dec << phdr[i].p_filesz << " bytes loadable at virtual address 0x" << hex << phdr[i].p_vaddr << endl;
+                }
             }
             else
             {
                 memory.Reserve(phdr[i].p_vaddr, phdr[i].p_memsz, perm);
+                if (verbose)
+                {
+                    cout << msg_prefix << ": " << dec << phdr[i].p_memsz << " bytes reserved at virtual address 0x" << hex << phdr[i].p_vaddr << endl;
+                }
             }
         }
     }
@@ -121,7 +130,7 @@ LoadProgram(const std::string& msg_prefix, vector<ActiveROM::LoadableRange>& ran
             ? "legacy"
             : "microthreaded";
             
-        cout << msg_prefix + ": loaded " << type << " ELF binary with virtual base address 0x" << hex << base
+        cout << msg_prefix << ": loaded " << type << " ELF binary with virtual base address 0x" << hex << base
              << ", entry point at 0x" << hex << ehdr.e_entry << endl;
     }
     return make_pair(ehdr.e_entry, ehdr.e_machine == MACHINE_LEGACY);
