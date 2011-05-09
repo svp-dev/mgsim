@@ -13,7 +13,8 @@
 // - elf_image_size: size of raw ELF data
 // - quiet: set to true to enable verbose reporting of the ELF loading process
 std::pair<Simulator::MemAddr, bool>
-    LoadProgram(std::vector<Simulator::ActiveROM::LoadableRange>& ranges, 
+    LoadProgram(const std::string& msg_prefix,
+                std::vector<Simulator::ActiveROM::LoadableRange>& ranges, 
                 Simulator::IMemoryAdmin& memory,
                 char *elf_image_data,
                 Simulator::MemSize elf_image_size,

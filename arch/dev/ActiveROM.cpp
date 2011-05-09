@@ -2,6 +2,7 @@
 #include "ELFLoader.h"
 #include <iostream>
 #include <fstream>
+#include <iomanip>
 
 using namespace std;
 
@@ -63,15 +64,30 @@ namespace Simulator
         is.close();
     }
 
-    void ActiveROM::PrepareRanges(bool load_to_memory)
+    void ActiveROM::PrepareRanges()
     {
         for (size_t i = 0; i < m_loadable.size(); ++i)
         {
             const LoadableRange& r = m_loadable[i];
             m_memory.Reserve(r.vaddr, r.size, r.perm | IMemory::PERM_DCA_WRITE);
-            if (load_to_memory)
+            if (m_verboseload)
             {
+                cout << GetName() << ": reserved " << dec << r.size << " bytes in main memory at 0x" 
+                     << hex << setfill('0') << setw(16) << r.vaddr 
+                     << " - 0x" 
+                     << hex << setfill('0') << setw(16) << r.vaddr + r.size - 1 ;
+            }
+            if (m_preloaded_at_boot)
+            {                
                 m_memory.Write(r.vaddr, m_data + r.rom_offset, r.size);
+                if (m_verboseload)
+                {
+                    cout << ", preloaded to DRAM from ROM offset 0x" << hex << r.rom_offset;
+                }
+            }
+            if (m_verboseload)
+            {
+                cout << endl;
             }
         }
     }
@@ -82,6 +98,8 @@ namespace Simulator
           m_data(NULL),
           m_lineSize(config.getValue<size_t>(*this, "ROMLineSize", config.getValue<size_t>("CacheLineSize"))),
           m_numLines(0),
+          m_verboseload(config.getValue<bool>(*this, "ROMVerboseLoad")),
+          m_preloaded_at_boot(config.getValue<bool>(*this, "PreloadROMToRAM")),
           m_bootable(false),
           m_start_address(0),
           m_legacy(false),
@@ -135,15 +153,13 @@ namespace Simulator
         }
         else if (source == "ELF")
         {
-            bool verbose = config.getValue<bool>(*this, "VerboseELFLoad");
-            std::pair<MemAddr, bool> res = LoadProgram(m_loadable, m_memory, m_data, m_numLines * m_lineSize, verbose);
+            std::pair<MemAddr, bool> res = LoadProgram(name, m_loadable, m_memory, m_data, m_numLines * m_lineSize, m_verboseload);
             m_bootable = true;
             m_start_address = res.first;
             m_legacy = res.second;
         }
 
-        bool preload = config.getValue<bool>(*this, "PreloadROMToRAM");
-        PrepareRanges(preload);
+        PrepareRanges();
     }
 
     void ActiveROM::GetBootInfo(MemAddr& start, bool& legacy) const

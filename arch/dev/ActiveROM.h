@@ -30,9 +30,11 @@ namespace Simulator
         std::vector<LoadableRange> m_loadable;
 
         std::string        m_filename;
+        const bool         m_verboseload;
         bool               m_bootable;
         MemAddr            m_start_address;
         bool               m_legacy;
+        const bool         m_preloaded_at_boot;
 
         // DCA parameters
 
@@ -51,7 +53,7 @@ namespace Simulator
 
         void LoadConfig(const Config& config);
         void LoadFile(const std::string& filename);
-        void PrepareRanges(bool load_to_memory);
+        void PrepareRanges();
 
     public:
         ActiveROM(const std::string& name, Object& parent, IMemoryAdmin& mem, IIOBus& iobus, IODeviceID devid, Config& config);
@@ -66,6 +68,7 @@ namespace Simulator
         Result DoNotify();
 
         bool IsBootable() const { return m_bootable; }
+        bool IsPreloaded() const { return m_preloaded_at_boot; }
         void GetBootInfo(MemAddr& start, bool& legacy) const;
         const std::string& GetProgramName() const { return m_filename; }
         IODeviceID GetDeviceID() const { return m_devid; }

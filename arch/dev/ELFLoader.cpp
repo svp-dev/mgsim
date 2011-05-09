@@ -11,16 +11,14 @@ using namespace Simulator;
 static const int PAGE_SIZE = 4096;
 
 // Throws an exception if the expression is false
-static void Verify(bool expr, const char* error)
-{
-    if (!expr) {
-        throw runtime_error(error);
+#define Verify(Expr, Message)                                      \
+    if (!(Expr)) {                                                 \
+        throw runtime_error(msg_prefix + ": " + (Message));        \
     }
-}
 
 // Load the program image into the memory
 std::pair<MemAddr, bool> 
-LoadProgram(vector<ActiveROM::LoadableRange>& ranges, IMemoryAdmin& memory, char* data, MemSize size, bool verbose)
+LoadProgram(const std::string& msg_prefix, vector<ActiveROM::LoadableRange>& ranges, IMemoryAdmin& memory, char* data, MemSize size, bool verbose)
 {
     Verify(size >= sizeof(Elf_Ehdr), "ELF file too short or truncated");
 
@@ -123,8 +121,8 @@ LoadProgram(vector<ActiveROM::LoadableRange>& ranges, IMemoryAdmin& memory, char
             ? "legacy"
             : "microthreaded";
             
-        cout << "Loaded " << type << " ELF binary with virtual base address 0x" << hex << base << endl;
-        cout << "Entry point: 0x" << hex << ehdr.e_entry << endl;
+        cout << msg_prefix + ": loaded " << type << " ELF binary with virtual base address 0x" << hex << base
+             << ", entry point at 0x" << hex << ehdr.e_entry << endl;
     }
     return make_pair(ehdr.e_entry, ehdr.e_machine == MACHINE_LEGACY);
 }

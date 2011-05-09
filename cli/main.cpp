@@ -88,7 +88,6 @@ static void ParseArguments(int argc, const char ** argv, ProgramConfig& config)
                 throw runtime_error("Error: malformed configuration override syntax");
             }
             string name = arg.substr(0, eq);
-            transform(name.begin(), name.end(), name.begin(), ::toupper);
             config.m_overrides.push_back(make_pair(name, arg.substr(eq + 1)));
         }
         else if (arg[1] == 'L')  
@@ -138,6 +137,11 @@ static void ParseArguments(int argc, const char ** argv, ProgramConfig& config)
             val.m_state = RST_FULL;
             config.m_regs.push_back(make_pair(addr, val));
         }
+    }
+
+    if (config.m_quiet)
+    {
+        config.m_overrides.push_back(make_pair("*.ROMVerboseLoad", "false"));
     }
 }
 

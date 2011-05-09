@@ -22,7 +22,7 @@ namespace Simulator
           m_rom(rom),
           m_romid(rom.GetDeviceID()),
           m_atboot(true),
-          m_enable_dca(!config.getValue<bool>(*this, "SkipDCA")),
+          m_enable_dca(!rom.IsPreloaded()),
           m_start_dca("f_start_dca", *this, iobus.GetClock(), false),
           m_doboot("f_doboot", *this, iobus.GetClock(), false),
           p_StartDCA("start-dca", delegate::create<SMC, &SMC::DoStartDCA>(*this)),
