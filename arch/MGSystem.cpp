@@ -705,7 +705,7 @@ MGSystem::MGSystem(Config& config,
     vector<string> cfg_names = config.getWordList("IODevices");
     copy(cfg_names.begin(), cfg_names.end(), back_inserter(dev_names));
     size_t numIODevices = dev_names.size();
-    
+
     SMC *smc = NULL;
 
     m_devices.resize(numIODevices);
@@ -809,15 +809,22 @@ MGSystem::MGSystem(Config& config,
         m_procs[i]->Initialize(prev, next);
     }
 
+    // Initialize the buses. This initializes the devices as well.
+    for (size_t i = 0; i < m_iobuses.size(); ++i)
+    {
+        m_iobuses[i]->Initialize();
+    }
+
     if (m_bootrom == NULL)
     {
         cerr << "Warning: No bootable ROM configured." << endl;
     }
 
-    if (doload && !m_procs.empty() && m_bootrom != NULL)
+    if (smc == NULL)
     {
-        smc->Initialize();
+        cerr << "Warning: No SMC configured." << endl;
     }
+
 
     // Set program debugging per default
     m_kernel.SetDebugMode(Kernel::DEBUG_PROG);

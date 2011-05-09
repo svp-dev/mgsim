@@ -29,10 +29,11 @@ public:
     virtual bool OnInterruptRequestReceived(IOInterruptID which);
     virtual bool OnNotificationReceived(IOInterruptID which, Integer tag);
 
-    virtual void GetDeviceIdentity(IODeviceIdentification& id) const = 0;
 
-    /* for debugging */
+    // Admin
+    virtual void Initialize();
     virtual std::string GetIODeviceName() const = 0;
+    virtual void GetDeviceIdentity(IODeviceIdentification& id) const = 0;
 
     virtual ~IIOBusClient();
 };
@@ -53,6 +54,7 @@ public:
     virtual Clock& GetClock() = 0;
 
     // Admin
+    virtual void Initialize() = 0;
     virtual IODeviceID GetLastDeviceID() const = 0;
     virtual IODeviceID GetNextAvailableDeviceID() const = 0;
     virtual IODeviceID GetDeviceByName(const std::string& objname) const = 0;

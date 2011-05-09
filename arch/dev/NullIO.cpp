@@ -105,6 +105,17 @@ namespace Simulator
         return m_clients.size();
     }
 
+    void NullIO::Initialize()
+    {
+        for (size_t i = 0; i < m_clients.size(); ++i)
+        {
+            if (m_clients[i] != NULL)
+            {
+                m_clients[i]->Initialize();
+            }
+        }
+    }
+
     IODeviceID NullIO::GetDeviceByName(const std::string& name) const
     {
         for (size_t i = 0; i < m_clients.size(); ++i)

@@ -9,6 +9,9 @@ namespace Simulator
     IIOBus::~IIOBus()
     { }
 
+    void IIOBusClient::Initialize()
+    { }
+
     bool IIOBusClient::OnReadRequestReceived(IODeviceID from, MemAddr address, MemSize size)
     {
         throw exceptf<SimulationException>("Unsupported read request received from device %u", (unsigned)from);
