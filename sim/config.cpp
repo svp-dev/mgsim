@@ -5,6 +5,7 @@
 #include <iostream>
 #include <set>
 #include <fnmatch.h>
+#include <cctype>
 
 using namespace std;
 using namespace Simulator;
@@ -148,6 +149,7 @@ vector<string> Config::getWordList(const string& name)
     string token = "";
     while (getline(stream, token, ','))
     {
+        token.erase(remove(token.begin(), token.end(), ' '), token.end());
         vals.push_back(token);
     }
     return vals;
