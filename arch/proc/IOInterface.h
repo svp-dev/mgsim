@@ -16,6 +16,7 @@ public:
     class AsyncIOInterface : public MMIOComponent, public Inspect::Interface<Inspect::Info>
     {
     private:
+        MemAddr                 m_baseAddr;
         unsigned                m_devAddrBits;
 
         IOInterface&  GetInterface() const;

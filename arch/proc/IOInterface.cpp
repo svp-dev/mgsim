@@ -96,6 +96,7 @@ namespace Simulator
 
     Processor::IOInterface::AsyncIOInterface::AsyncIOInterface(const string& name, Processor::IOInterface& parent, Clock& clock, Config& config)
         : MMIOComponent(name, parent, clock),
+          m_baseAddr(config.getValue<unsigned>(*this, "MMIO_BaseAddr")),
           m_devAddrBits(config.getValue<unsigned>(*this, "DeviceAddressBits"))
     {
         if (m_devAddrBits == 0)
@@ -124,7 +125,7 @@ namespace Simulator
     MemAddr Processor::IOInterface::AsyncIOInterface::GetDeviceBaseAddress(IODeviceID dev) const
     {
         assert(dev < GetInterface().m_numDevices);
-        return dev << m_devAddrBits;
+        return m_baseAddr | (dev << m_devAddrBits);
     }
 
     Result Processor::IOInterface::AsyncIOInterface::Read(MemAddr address, void* data, MemSize size, LFID fid, TID tid, const RegAddr& writeback)
