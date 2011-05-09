@@ -34,7 +34,9 @@ namespace Simulator
         bool SendNotification(IODeviceID from, IOInterruptID which, Integer tag);
 
         IODeviceID GetLastDeviceID() const;
+        IODeviceID GetDeviceByName(const std::string& objname) const;
         void GetDeviceIdentity(IODeviceID which, IODeviceIdentification& id) const;
+        IODeviceID GetNextAvailableDeviceID() const;
 
         Clock& GetClock() { return Object::GetClock(); }
 
