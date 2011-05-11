@@ -8,7 +8,7 @@ bool cmd_help(const vector<string>& command, vector<string>& args, cli_context& 
     cout << left;
     for (const command_descriptor *p = &command_table[0]; p->prefix[0] != 0; ++p)
     {
-        cout << setw(35) << p->use_format << " " << p->short_help << endl;
+        cout << setw(35) << setfill(' ') << p->use_format << " " << p->short_help << endl;
     }
     return false;
 }
