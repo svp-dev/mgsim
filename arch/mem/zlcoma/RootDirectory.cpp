@@ -450,8 +450,8 @@ ZLCOMA::RootDirectory::RootDirectory(const std::string& name, ZLCOMA& parent, Cl
     m_requests.Sensitive(p_Requests);
     m_responses.Sensitive(p_Responses);
 
-    p_lines.AddProcess(p_Incoming);
     p_lines.AddProcess(p_Responses);
+    p_lines.AddProcess(p_Incoming);
 
     size_t ddrid = config.getValue<size_t>(*this, "DDRChannelID", id);
     if (ddrid >= ddr.size())
