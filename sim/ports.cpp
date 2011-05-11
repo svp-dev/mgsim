@@ -94,7 +94,7 @@ void CyclicArbitratedPort::Arbitrate()
         
                 // Find the distance to the last selected
                 pos = (pos + m_processes.size() - m_lastSelected) % m_processes.size();
-                if (pos != m_lastSelected && pos < lowest)
+                if (pos != 0 && pos < lowest)
                 {
                     lowest     = pos;
                     m_selected = *i;
