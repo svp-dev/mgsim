@@ -877,12 +877,12 @@ Result ZLCOMA::Cache::OnReadRem(Message* req)
     // Exchange data between line and request
     for (unsigned int i = 0; i < m_lineSize; i++)
     {
-        if (line->bitmask[i] && !req->bitmask[i])
+        if (line->bitmask[i])
         {
             req->data[i] = line->data[i];
             req->bitmask[i] = true;
         }
-        else if (req->bitmask[i] && !line->bitmask[i])
+        else if (req->bitmask[i])
         {
             line->data[i] = req->data[i];
             line->bitmask[i] = true;

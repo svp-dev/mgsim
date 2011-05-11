@@ -72,8 +72,14 @@ bool ZLCOMA::RootDirectory::OnReadCompleted(MemAddr address, const MemData& data
     // Attach data to message, give all tokens and send
     COMMIT
     {
-        std::copy(data.data, data.data + MAX_MEMORY_OPERATION_SIZE, m_activeMsg->data);
-        std::fill(m_activeMsg->bitmask, m_activeMsg->bitmask + MAX_MEMORY_OPERATION_SIZE, true);
+        for (size_t i = 0; i < m_lineSize; ++i)
+        {
+            if (!m_activeMsg->bitmask[i])
+            {
+                m_activeMsg->data[i] = data.data[i];
+                m_activeMsg->bitmask[i] = true;
+            }
+        }
         m_activeMsg->dirty = false;
     }
 
@@ -151,7 +157,17 @@ bool ZLCOMA::RootDirectory::OnMessageReceived(Message* req)
                 break;
             }
             
-            if (!line->data)
+            if (!contains(req->bitmask, req->bitmask + m_lineSize, false))
+            {
+                // The message itself contains all data, which means it already exists in the system
+                // without going through the root directory (i.e., writes).
+                // Mark the line as having data and forward the message.
+                //
+                // (This is an optimization to avoid the read to external memory only to discard
+                // the data during the merge).
+                COMMIT { line->data = true; }
+            }
+            else if (!line->data)
             {
                 // We have the line, but not the data, read it
                 // Also add any tokens we may have.
