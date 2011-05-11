@@ -27,6 +27,7 @@ Processor::FamilyTable::FamilyTable(const std::string& name, Processor& parent, 
     }
     
     m_free[CONTEXT_EXCLUSIVE] = 1;
+    m_free[CONTEXT_RESERVED]  = 0;
     m_free[CONTEXT_NORMAL]    = m_families.size() - 1;
 }
 
