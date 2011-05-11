@@ -10,9 +10,6 @@ size_t Processor::PerfCounters::GetSize() const { return NUM_COUNTERS * sizeof(I
 
 Result Processor::PerfCounters::Read(MemAddr address, void *data, MemSize size, LFID fid, TID tid, const RegAddr& writeback)
 {
-    if ()
-        return FAILED;
-
     if (size != sizeof(Integer) || address % sizeof(Integer) != 0 || address / sizeof(Integer) >= NUM_COUNTERS)
     {
         throw exceptf<InvalidArgumentException>(*this, "Invalid read to performance counter address by F%u/T%u: %#016llx/%u",
