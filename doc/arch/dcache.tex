@@ -1,0 +1,124 @@
+\chapter{Data Cache}
+
+
+\section{Overview}
+The data cache is an N-way set associative lock-up free \cite{Kroft} cache which uses the destination register as the miss information/status holding registers (MSHR) instead of defining a separate and dedicated register file. This allows an outstanding memory read to every register without blocking the pipeline or cache.
+
+\begin{figure}
+ \begin{center}
+  \input{images/dcache-overview}
+  \caption{Overview of the data cache. Shown are the cache entries, buffers to and from memory, the hardware processes that handle the buffer items (P$_r$, P$_w$ and P$_o$) and the connections to the Memory stage in the pipeline (MEM), Register File (RF) and Thread Table (TT).}
+  \label{fig:dcache-overview}
+ \end{center}
+\end{figure}
+
+Figure~\ref{fig:dcache-overview} shows a conceptual layout of the data cache. It receives read and write operations from the memory stage of the pipeline. It can either return the data right away, or buffer a request to the external memory system. This requests in this buffer are put on the memory bus by a hardware process. Replies and messages from other caches (currently, only writes are snooped) are received and handled. Read responses write the data into the cache immediately. The responses (minus the data) are buffered into separate queues for reads and writes. The read-response queue is handled by a hardware process which completes any pending writes of the returned cache-lines. The write-acknowledgement queue is handled by another hardware process which sends the acknowledgement on to the relevant parts of the core.
+
+
+\section{Cache-line contents}
+\begin{table}
+\begin{center}
+\begin{tabular}{|l|l|c|}
+\hline
+Name & Purpose & Bits \\
+\hline
+\hline
+state & State of the line & 2 \\
+tag & The address tag of the line stored in this entry & \ldots \\
+data & The data of the line & 8 $\cdot$ Cache-line size \\
+valid & Byte-granular bitmask of valid data & Cache-line size / 8 \\
+access & Last access time of this line & \ldots \\
+waiting & The first register in the list of pending registers & $\lceil \log_2($\#Registers$) \rceil$ \\
+processing & Processing waiting queue? & 1 \\
+\hline
+\end{tabular}
+\caption{Contents of a Data-cache line}
+\label{table:dcache_contents}
+\end{center}
+\end{table}
+
+Table~\ref{table:dcache_contents} lists the fields in each entry in the data-cache. It is essentially a traditional cache-line extended with extra fields.
+The \emph{tag} field is used as usual, to find the wanted cache-line in a set. The \emph{state} field can be one of the following values:
+
+\begin{description}
+\item[{\tt Empty}]
+This state indicates that the entry is not being used.
+
+\item[{\tt Loading}]
+This state indicates that a read request has been sent to the memory. Note that the entry may or may not have data in it. Writes from the pipeline and writes snooped from the bus may result in data being written to the cache-line. The bytes that have valid data is indicated by the entry's \emph{valid} field and can be used to satisfy subsequent memory loads requests before the cache-line has been fetched from memory. 
+
+\item[{\tt Invalid}]
+This state indicates that the entry has registers that still need to be processed, but it has been invalidated by the memory hierarchy. It cannot be cleared until the pending read requests have been processed. Although the line can still be used to service new local read requests, it should not be used to service local writes. If a write to the D-Cache hits an {\tt Invalid} (or {\tt Loading}) line, the write must stall, for the following reasons:
+\begin{itemize}
+  \item A write into a {\tt Loading} (or {\tt Invalid}) entry might violate the sequential semantics of a single thread because pending reads might get the later write's data (WAR hazard). For instance, a read to location $A$ misses the cache, allocates an entry and sets the state to Loading. A subsequent write (from the same thread) to $A$ hits the cache and writes its data into the entry. The read completes and processes the pending reads. The register now gets the data from \emph{after} the write, instead of before, as the thread would expect.
+  \item The write cannot simply write-through while ignoring the entry because subsequent reads should get the new data and not the old, so the entry must be updated.
+  \item The entry cannot be invalidated and a new line allocated, because read responses from the memory bus hit cache entries on address, and then there would be multiple valid lines of the same address. Read responses cannot identify cache lines by index, since this would put an unnecessary and undesirable strain on the design the higher memory architecture, where it would have to track cache-line indices of reads, which are most likely different for each cache on the memory bus.
+\end{itemize}
+
+\item[{\tt Full}]
+This state indicates that the entry contains all data for a cache-line and no read requests are pending. The data in the entry can be used for reads and writes.
+\end{description}
+
+Figure~\ref{fig:dcache-states} illustrates the states and their changes for a cache-line entry.
+
+\begin{figure}
+ \begin{center}
+  \input{images/dcache-states}
+  \caption{State transitions for a data cache entry}
+  \label{fig:dcache-states}
+ \end{center}
+\end{figure}
+
+\section{Registers}
+When a memory load from the pipeline results in a miss, the cache-line stores the destination register in the cache line's \emph{waiting} field and returns the field's previous value to the pipeline. The pipeline will mark the destination register as \emph{Pending} and fill out the {MSHR} part of the register. These fields, as listed in table~\ref{table:mshr_contents} store all the information about the memory load which will be used by the data cache after the line has been fetched from memory. The cache line's previous value of the \emph{waiting} field is stored in the register's \emph{next} field. This mechanism effectively creates a linked list of pending registers, where each memory load that misses the cache attaches its destination register to the front of this list.
+
+\begin{table}
+\begin{center}
+\begin{tabular}{|l|l|c|}
+\hline
+Name & Purpose & Bits \\
+\hline
+\hline
+fid & Index of family whose thread issued the load & $\lceil \log_2($\#Families$) \rceil$ \\
+ofs & The byte-offset in the cache-line to read from & $\lceil \log_2($Cache-line size$) \rceil$ \\
+size & The number of consecutive bytes to read & $\lceil \log_2($Register size$) \rceil$ \\
+sext & Sign-extend the result? & 1 \\
+next & The next register in the linked list & $\lceil \log_2($\#Registers$) \rceil$ \\
+\hline
+\end{tabular}
+\caption{Contents of the MSHR part of registers}
+\label{table:mshr_contents}
+\end{center}
+\end{table}
+
+\section{Timing issues}
+There is a possibility that the cache line is fetched from memory before the memory load instruction that caused the miss has propagated through the writeback stage. When the data cache tries to read the \emph{next} field from the register identifies by the line's \emph{waiting} field, it will contain invalid data. To counter this, the data-cache, when reading this register, must stall if the register is not in the \emph{Pending} state, or without correct information in the {MSHR} fields (e.g. the \emph{size} field is 0).
+
+\section{Bus messages}
+This section describes the messages that can occur on the memory bus and how the data cache reacts to them.
+
+\subsection{Write}
+When the data cache snoops a write on the bus made by another cache it writes the data into its own copy of the line (and marks it as valid), if it has it. This will ensure cache consistency between the caches sharing a single bus. It does not matter if the snooped write overwrite a local write, even when the entry is in the Loading state. The microthreading's memory consistency model states that independent writes made by different thread (and thus, since threads do not migrate, different cores) have non-deterministic consistency.
+
+\subsection{Read Response}
+If the higher memory returns a cache-line for a read, all caches on the bus use this response to store the data in their copy of the cache-line, if they have it. Only the invalid parts of the entry are updated with the data returned from memory. This guarantees that writes made after the read will not get overwritten by the read response. Note that because every cache uses the response, a cache may see a read response on the bus for a cache-line that is in the Full state. In such a case, the response is ignored.
+
+\subsection{Invalidate}
+Depending on the higher memory's implementation, it can be required that all copies of the cache-line in the L1 caches should be invalidated. When this message is observed on the bus, and if it has the relevant line, the data cache will immediately clear the line if its state is Full. If the line's state is Loading, it will be set to Invalid, which will be set to Empty when the data-cache has finished processing all pending requests from that line.
+
+
+\section{Processes}
+This section describes the hardware processes in the data cache and what their responsibilities are.
+
+\subsection{Outgoing requests}
+All outgoing reads (i.e., those that miss the cache) and writes (i.e., all writes, because the data cache is write-through) are buffered to cope with stalls in the higher memory and contention on the bus. A hardware process is responsible for putting the requests from this buffer onto the memory bus.
+
+\subsection{Completed writes}
+Write completion notifications observed on the bus are buffered in the ``write completion buffer'' so that the memory bus is not unnecessarily occupied when the notification cannot be handled immediately by the core. A hardware process removes these notifications from the queue and passes them on to the core, which involves decrementing a counter in the thread table and acting when it's reached zero. This can be:
+\begin{itemize}
+  \item{} waking up the thread if its thread table entry indicates it is waiting on a memory write barrier.
+  \item{} cleaning up the thread if all other dependencies have already been satisfied.
+\end{itemize}
+
+\subsection{Completed reads}
+Read responses observed on the bus are merged in their cache entry immediately (they could be buffered first, but since there is data attached, significantly more space would be required). The index of this entry is then pushed on the ``returned reads'' queue. A hardware process handles these lines one by one. It takes the entry from the head of the queue and resolves pending reads from this entry's \emph{waiting} list of registers. When all registers have been handled and the list is empty, the entry's index is popped from the queue.

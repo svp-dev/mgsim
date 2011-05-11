@@ -1,0 +1,42 @@
+\begin{tikzpicture}[auto,thick,text badly centered]
+
+	\node (pl) {};
+	\begin{scope}[every node/.style={draw,rectangle,minimum height=1cm, very thick}]
+		\node (p0) at (pl.east) [right=2cm] {Core};
+		\node (p1) at (p0.east) [right=2cm] {Core};
+		\node (p2) at (p1.east) [right=2cm] {Core};
+		\node (p3) at (p2.east) [right=2cm] {Core};
+	\end{scope}
+	\node (pr) at (p3.east) [right=2cm] {};
+	\node (sender) at (p0.south) [below=1.5cm] {};
+	
+	\begin{scope}[every node/.style={draw,circle}]
+		\draw[<->] (sender) -- (p0);
+		\begin{scope}[line width=2pt]
+			\draw[<->] (pl) -- (p0);
+			\draw[<->] (p0) -- (p1);
+			\draw[<->] (p1) -- (p2);
+			\draw[<->] (p2) -- (p3);
+			\draw[<->] (p3) -- (pr);
+		\end{scope}
+
+		\node (s1) at (sender.north) [above left=0.25cm] {1};
+		\node (s2) at (p0.east) [above right=0.25cm] {2};
+		\node (s3) at (p1.east) [above right=0.25cm] {3};
+		\node (s4) at (p2.east) [above right=0.25cm] {4};
+		\node (s5) at (p3.west) [below left=0.25cm] {5};
+		\node (s6) at (p2.west) [below left=0.25cm] {6};
+		\node (s7) at (p1.west) [below left=0.25cm] {7};
+		\node (s8) at (p0.south) [below right=0.25cm] {8};
+		
+		\draw[->] (s1) -- +(0,0.75);
+		\draw[->] (s2) -- +(0.75,0);
+		\draw[->] (s3) -- +(0.75,0);
+		\draw[->] (s4) -- +(0.75,0);
+		\draw[->] (s5) -- +(-0.75,0);
+		\draw[->] (s6) -- +(-0.75,0);
+		\draw[->] (s7) -- +(-0.75,0);
+		\draw[->] (s8) -- +(0,-0.75);
+	\end{scope}
+	
+\end{tikzpicture}

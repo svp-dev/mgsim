@@ -1,0 +1,59 @@
+\begin{tikzpicture}[auto,>=stealth,thick]
+
+  % Outgoing queue
+  \node[draw,rectangle,minimum width=0.6cm,minimum height=1.2cm] (outgoing) at (0.3,4) {};
+  \draw (outgoing.south west)+(0,0.3) -- +(0.6,0.3);
+  \draw (outgoing.south west)+(0,0.6) -- +(0.6,0.6);
+  \draw (outgoing.south west)+(0,0.9) -- +(0.6,0.9);
+
+  % Incoming queue
+  \node[draw,rectangle,minimum width=0.6cm,minimum height=0.9cm,label=right:completions] (incoming) at (5.6,4.3) {};
+  \draw (incoming.south west)+(0,0.3) -- +(0.6,0.3);
+  \draw (incoming.south west)+(0,0.6) -- +(0.6,0.6);
+ 
+  % The cache lines
+  \node[draw,rectangle,minimum width=3cm,minimum height=1.5cm] (lines) at (3,3) {};
+  \draw	(lines.south west)+(0,0.3) -- +(3,0.3);
+  \draw	(lines.south west)+(0,0.6) -- +(3,0.6);
+  \draw	(lines.south west)+(0,0.9) -- +(3,0.9);
+  \draw	(lines.south west)+(0,1.2) -- +(3,1.2);
+  \draw	(lines.south west)+(0.5,0) -- +(0.5,1.5);
+  \draw	(lines.south west)+(1.5,0) -- +(1.5,1.5);
+  
+  % Processes
+  \node[draw,circle,minimum size=0.5cm,inner sep=0cm] (p_out) [above of=outgoing, node distance=1.5cm] {\footnotesize P$_o$};
+  \node[draw,circle,minimum size=0.5cm,inner sep=0cm] (p_in) at (incoming.south |- lines.east) {\footnotesize P$_i$};
+  
+  \draw [->] (outgoing.north) -- (p_out.south);
+  \draw [->] (incoming.south) -- (p_in.north);
+  \draw [->] (p_in.west) -- (lines.east);
+
+  % Cache container
+  \node[draw,rectangle,very thick,minimum width=9cm,minimum height=4.25cm] (container) at (4,4) {};
+  
+  % Processor components
+  \node[draw,rectangle,minimum width=2cm] (scheduler) [below of=outgoing, node distance=4.25cm] {SCHED};
+  \node[draw,rectangle,minimum width=2cm] (create) at (scheduler.south) [below] {CREATE};
+  \node[draw,rectangle] (pipeline) [below of=lines, node distance=2.25cm] {PIPELINE};
+  
+  \draw [->] (pipeline.north |- container.south) -- (lines.south);
+  \draw [->] (pipeline.north |- container.south) -- node[right]{read} (pipeline.north);
+  \draw (scheduler.north) -- node[right]{fetch} (scheduler.north |- container.south);
+  \draw [->] (scheduler.north |- container.south) -- (outgoing.south);
+  \draw [->] (scheduler.north |- container.south) |- (lines.west);
+  \draw (p_in) -- (p_in |- create);
+  \draw [->] (p_in |- scheduler) -- node[above]{activate threads} (scheduler.east);
+  \draw [->] (p_in |- create)    -- node[below]{wakeup} (create);
+  
+ 
+  % Memory bus
+  \node[minimum width=9cm, minimum height=0.75cm] (memorybus) at (container.north) [above=0.5cm] {Memory Bus};
+  \draw[decoration={zigzag,segment length=0.25cm,amplitude=0.1cm}]
+  	(memorybus.north east) decorate {-- (memorybus.south east)} --
+  	(memorybus.south west) decorate {-- (memorybus.north west)} -- cycle;
+
+  \draw[->] ($(incoming.north)+(0,0.75)$) -| node[left]{data} (lines.north);
+
+  \draw[->] (p_out.north) -- (p_out.north |- memorybus.south);
+  \draw[<-] (incoming.north) -- (incoming.north |- memorybus.south);
+\end{tikzpicture}

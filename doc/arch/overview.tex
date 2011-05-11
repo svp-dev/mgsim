@@ -1,0 +1,78 @@
+\chapter{Overview}
+
+The Microgrid is a manycore system-on-chip that has been designed to achieve performance through multithreading, latency hiding and scalability of hardware and software. The core architecture is a result of more than a decade of research, originating in 1996 as a latency-tolerant processor architecture called DRISC \cite{DRISC96}. This architecture has since been adapted and improved into a full system-on-chip with network, suited memory protocol and I/O interfaces.
+
+The architecture is built on several concepts \cite{ILP06} which will be explained below.
+
+\section{Families of threads}
+
+Programs written for the Microgrid are concurrent compositions of families of threads where a family of threads is an ordered set of identical threads. Each family is a unit of work that can have certain properties which determine how and where it is run on the microgrid.
+
+A family is created by a thread and can have arguments and produce results communicated from and to this thread. Family termination defines a synchronization points with respect to results, whereas the arguments can be calculated after the family has been created to obtain maximum concurrency. Within a family, threads can synchronize with each other on local items of data. These forms of synchronized communication allow a family to encapsulate both regularity and locality. Analogies to the family in the sequential programming model are loops and function calls, which both capture regularity and locality in that model. All threads within a family are allowed to create families of their own, thus allowing microgrid programs to capture concurrency at many levels by creating a hierarchy of families, a \emph{concurrency tree}, as illustrated in figure~\ref{fig:concurrency-tree}.
+
+\begin{figure}
+ \begin{center}
+  \input{images/concurrency-tree}
+  \caption{Concurrency tree in an microgrid program}
+  \label{fig:concurrency-tree}
+ \end{center}
+\end{figure}
+
+This concurrency tree will evolve dynamically in an application and can capture concurrency at all levels, e.g. at the task level and, due to the threads' blocking nature, even at the instruction level. With a family being an ordered set of identical threads, and each thread within a family knowing its own index in that order, both homogeneous and heterogeneous computation can be defined. The latter can be achieved by using the index value to control the statically defined actions of a thread (e.g. by branching to different control paths on the index). The index values are defined by a sequence specified by a start index, a constant difference between successive index values and an optional maximum index value.
+
+Each thread is a sequence of operations defined on a collection of registers, which form the thread's context in a synchronizing memory. Dependencies between threads in the same family are defined on this context. The index value of a thread is also part of this context and is set for each thread automatically.
+
+\subsection{\label{sec:index-sequence}Index sequence}
+
+When a program creates a family, it specifies the start, limit and step of the index sequence of the family as signed integers. These indices work exactly as in a for-loop in C; a positive step defines one thread per iteration from \emph{start} up to \emph{limit} and a negative step defines one thread per iteration from \emph{start} down to \emph{limit}. In both cases, the limit is excluded and a limit that lies below or above the start index, respectively, causes no threads to be created. Following are some examples of traditional C loops and their start, limit, step equivalents.
+
+\vspace{1em}\noindent\begin{tabular}{l|l|l|l}
+{\bf C loop} & {\bf Start} & {\bf Limit} & {\bf Step} \\
+\hline
+{\tt for (i = 0; i < 10; i++)} & 0 & 10 & 1 \\
+{\tt for (i = 14; i > 3; i-=2)} & 14 & 3 & -2 \\
+\end{tabular}
+
+\subsection{Block size}
+To avoid rampant resource usage when creating families with a large number of threads, a \emph{block} size can be specified during family creation. This value specifies the upper limit for the number of threads created on a single execution core. By properly choosing a value during family creation, a program can allocate few resources to a family, leaving more resources available for other, perhaps more important families. Without specifying a block size, every execution core will attempt to fill up all its resources with threads from the family.
+
+\subsection{\label{sec:synchronization}Family synchronization}
+
+A thread can synchronize on a family of threads, meaning the thread suspends, if necessary, until the family has terminated. This means that all threads of the target family have terminated and any side-effects of those threads are made consistent across the microgrid. Threads in a family terminate by executing a special kind of thread termination instruction (see section~\ref{sec:control-stream}). When a family has terminated, all of its dynamic synchronizing state is lost and all of the \emph{shared memory state} (see section~\ref{sec:shared-memory}) that it has modified becomes defined. 
+
+\subsection{Breaking a family}
+
+Any thread may \emph{break} its own family (and that family only). When a break on a family has been issued by one of its threads, the creation of new threads ceases and all currently active threads are allows to finish. This mechanism allows families to be halted before its index sequence has been iterated over and is useful for implementing loops with dynamic exit conditions as a family of threads.
+
+\section{Synchronizing Registers}
+
+Every thread has a context of registers which are special in that they are \emph{synchronizing registers}. These registers, besides providing the temporary storage for threads to store their intermediate results, proviede the mechanism by which threads in a family can synchronize with each other, their creating thread and themselves. Each thread is allocated a context of synchronizing registers when it is created; when the thread terminates, its context is discarded. Each synchronizing register provides dataflow-like synchronization with blocking reads and non-blocking writes. Dependencies between operations in the same or different threads are enforced by this synchronizing memory; an operation cannot proceed unless its operands are defined, i.e. have been written as a result of executing other operations, including loads from shared memory.
+
+Synchronization between threads in the same families is effected through these synchronizing registers by overlapping contexts for communicating threads, causing the sharing of synchronizing registers, creating a communication channel. However, a constraint is imposed on this mechanism, which arises from the combined requirements of locality, speed of operation and deadlock freedom. A thread may only have a dependency on values produced by one other thread: its predecessor in the family's index sequence. This constraint ensures that dependencies between operations in a family of threads can be represented as an acyclic graph, which in turn ensures freedom from communication deadlock in the model. These acyclic dependency graphs are initialized by the creating thread, and values generated by the last thread are available to the creating thread after the family's termination.
+
+\section{\label{sec:shared-memory}Shared memory}
+
+To store or pass large amounts of data, the microgrid offers a persistent shared memory which can be read and written by all threads (see figure~\ref{fig:shared-memory-view}). This memory, however, is weakly consistent and is only defined using bulk synchronization on family creation and termination. At any other time, because the microgrid is a potentially asynchronous concurrent system, there can always be locations in the shared memory whose state cannot be unambigiously determined. Values written by threads in a family are guaranteed to be well defined only on termination of that family. Thus, arguments passed via shared memory must be defined before the family is created and the family's results are only defined when the family signals termination.
+
+\begin{figure}
+ \begin{center}
+  \input{images/shared-memory-view}
+  \caption{Shared memory from the point of view of an microgrid program}
+  \label{fig:shared-memory-view}
+ \end{center}
+\end{figure}
+
+\section{Places}
+
+A place on the microgrid is a collection of one or more cores where families can be executed. When a thread creates a family, it can specify the place where to create that family. Creating families on different places has several uses: first, it allows programs to avoid resource deadlock by creating a unit of work on a different set of resources. Second, since a place also holds one or more mutually exclusive states, families can be created on a place in a mutually exclusive manner---this guarantees that of all families created on the same place, only one will run at any time, allowing it to operate on shared data. The act of creating a family on a different places is called ``delegation''.
+
+\section{Network}
+Figure~\ref{fig:microgrid} shows an example layout of a microgrid. A microgrid consists of a set of cores, each supporting an extended RISC ISA to implement hardware support for creating and managing families. The cores in a microgrid communicate with each other via two networks. A global point-to-point packet routed network (the ``delegation network'') and a single static network that links all together in a single chain (the ``link network''). Several cores are connected to an L2 cache via a bus, and the L2 caches are connected via a hierarchical ring network to one or more external memory channels. I/O occurs via dedicated cores that have an I/O controller attached to them that communicates with the I/O channel.
+
+\begin{figure}
+ \begin{center}
+  \input{images/microgrid}
+  \caption{Overview of an example microgrid consisting of 64 cores, 32 FPUs, 16 L2 caches, 2 external I/O busses and 1 external memory bus. Not shown is the mesh network that connects all cores together. The cores are also connected via an optimized link network that connects them via a Moore curve, optimized for neighbour-to-neighbour communication. Components are not to scale.}
+  \label{fig:microgrid}
+ \end{center}
+\end{figure}

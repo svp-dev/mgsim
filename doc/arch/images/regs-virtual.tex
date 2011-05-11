@@ -1,0 +1,23 @@
+\begin{tikzpicture}[auto,thick,text badly centered]
+
+	\begin{scope}[every node/.style={draw,rectangle,minimum width=3cm,outer sep=0cm}]
+		\node[minimum height=2.0cm] (locals)                                   {Locals};
+		\node[minimum height=1.0cm] (globals)    at (locals.north)     [above] {Globals};
+		\node[minimum height=1.5cm] (shareds)    at (globals.north)    [above] {Shareds};
+		\node[minimum height=1.5cm] (dependents) at (shareds.north)    [above] {Dependents};
+		\node[minimum height=1.0cm] (zero)       at (dependents.north) [above] {0};
+	\end{scope}
+	
+	\node at (locals.south west)     [above left, anchor=base east] {\tt \$r0};
+	\node at (globals.south west)    [above left, anchor=base east] {\tt \$r8};
+	\node at (shareds.south west)    [above left, anchor=base east] {\tt \$r12};
+	\node at (dependents.south west) [above left, anchor=base east] {\tt \$r18};
+	\node at (zero.south west)       [above left, anchor=base east] {\tt \$r24};
+	\node at (zero.north west)       [below left] {\tt \$r31};
+	
+	\node at (locals.south east)     [above right, anchor=base west] {\tt \$l0};
+	\node at (globals.south east)    [above right, anchor=base west] {\tt \$g0};
+	\node at (shareds.south east)    [above right, anchor=base west] {\tt \$s0};
+	\node at (dependents.south east) [above right, anchor=base west] {\tt \$d0};
+	
+\end{tikzpicture}

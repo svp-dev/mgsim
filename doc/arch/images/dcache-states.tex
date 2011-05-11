@@ -1,0 +1,21 @@
+\begin{tikzpicture}[
+  auto,>=stealth,thick,
+  state/.style={draw,rectangle,rounded corners=0.55cm,text badly centered,text width=2cm,minimum height=1.1cm,minimum width=2cm}
+]
+
+  \node[state,initial](E)  at (  0, 4) {Empty};
+  \node[state]        (L)  at ( 10, 4) {Loading};
+  \node[state] 		  (IP) at (2.5, 2) {Invalid,\\ Processing};
+  \node[state]        (I)  at (7.5, 2) {Invalid};
+  \node[state] 		  (FP) at ( 10, 0) {Full,\\ Processing};
+  \node[state]        (F)  at (  0, 0) {Full};
+  
+  \path[->] (E)  edge node       {read miss} (L)
+  			(I)  edge node[swap] {read completes} (IP)
+  			(IP) edge node[swap] {processing complete} (E)
+  			(L)  edge node[swap] {invalidation} (I)
+  				 edge node       {read completes} (FP)
+  			(FP) edge node       {processing complete} (F)
+  			     edge node       {invalidation} (IP)
+  			(F)  edge node       {invalidation/replacement} (E);
+\end{tikzpicture}

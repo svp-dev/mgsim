@@ -1,0 +1,46 @@
+\begin{tikzpicture}[auto,>=stealth,thick,text badly centered]
+
+\begin{scope}
+  % Active list
+  \node[draw,rectangle] (active1)                                               {AL1};
+  \node[draw,rectangle] (active2) at (active1.east) [right=1.5cm,anchor=center] {AL2};
+  \node                 (active3) at ($0.5*(active1)+0.5*(active2)$)            {};
+  
+  % Inputs
+  \node (in_icache) at (active1) [above=1.5cm,anchor=base] {I-Cache};
+  \node (in_ready)  at (active2) [above=1.5cm,anchor=base] {Ready List};
+
+  % Pipeline
+  \node (pipeline) at (active3) [below=1cm] {Pipeline};
+
+  \draw[->] (in_icache) -- (active1.north);
+  \draw[->] (in_ready)  -- (active2.north);
+  \draw[->] (active1.south) -- (pipeline);
+  \draw[->] (active2.south) -- (pipeline);
+  
+  % Container
+  \draw ($(active1)+(-0.75,-0.5)$) rectangle ($(active2)+(0.75,0.75)$);
+\end{scope}
+  
+\begin{scope}[xshift=8cm]
+  % Active list
+  \node                 (active1)                                               {};
+  \node                 (active2) at (active1.east) [right=1.5cm,anchor=center] {};
+  \node[draw,rectangle] (active3) at ($0.5*(active1)+0.5*(active2)$)            {AL};
+  
+  % Inputs
+  \node (in_icache) at (active1) [above=1.5cm,anchor=base] {I-Cache};
+  \node (in_ready)  at (active2) [above=1.5cm,anchor=base] {Ready List};
+
+  % Pipeline
+  \node (pipeline) at (active3) [below=1cm] {Pipeline};
+  
+  \draw[<-] (active3.north) -- +(0,0.3) -| (in_icache);
+  \draw[<-] (active3.north) -- +(0,0.3) -| (in_ready);
+  \draw[->] (active3.south) -- (pipeline);
+  
+  % Container
+  \draw ($(active1)+(-0.75,-0.5)$) rectangle ($(active2)+(0.75,0.75)$);
+\end{scope}
+  
+\end{tikzpicture}

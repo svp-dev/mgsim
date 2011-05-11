@@ -1,0 +1,16 @@
+\begin{tikzpicture}[
+  auto,>=stealth,thick,
+  state/.style={draw,rectangle,rounded corners=0.55cm,text badly centered,text width=2cm,minimum height=1.1cm,minimum width=2cm}
+]
+
+  \node[state]        (I)  at ( 5, 0) {Invalid};
+  \node[state,initial](E)  at ( 0, 2) {Empty};
+  \node[state]        (L)  at (10, 2) {Loading};
+  \node[state]        (F)  at ( 5, 4) {Full};
+  
+  \path[->] (E)  edge node       {read miss} (L)
+  			(I)  edge node       {read completes} (E)
+  			(L)  edge node       {invalidation} (I)
+  				 edge node[swap] {read completes} (F)
+  			(F)  edge node[swap] {invalidation/replacement} (E);
+\end{tikzpicture}

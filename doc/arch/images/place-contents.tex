@@ -1,0 +1,14 @@
+\begin{tikzpicture}[auto,thick,text badly centered]
+
+	\begin{scope}[every node/.style={draw,rectangle,outer sep=0cm,minimum height=2em}]
+		\node[minimum width=21.0em] (capability) {Capability};
+		\node[minimum width=11.0em] (pidsize) at (capability.east) [right] {PID/Size};
+	\end{scope}
+	
+	\node at (capability.north) [above] {N};
+	\node at (pidsize.north) [above] {A+1};
+	
+	\node at (pidsize.south east) [below] {0};
+	\node at (capability.south west) [below] {64};
+	
+\end{tikzpicture}

@@ -1,0 +1,40 @@
+\begin{tikzpicture}[auto,>=stealth,thick,text badly centered]
+
+	\begin{scope}[every node/.style={ellipse,fill=gray!20}]
+		\node[draw]      (thread0) {thread};
+		\node[fill=none] (thread1) at (thread0.east) [right=1em] {\ldots};
+		\node[draw]      (thread2) at (thread1.east) [right=1em] {thread};
+		\node[draw]      (thread3) at (thread2.east) [right=1cm] {thread};
+		\node[fill=none] (thread4) at (thread3.east) [right=1em] {\ldots};
+		\node[draw]      (thread5) at (thread4.east) [right=1em] {thread};
+	\end{scope}
+		
+	\begin{scope}[every node/.style={rectangle,fill=gray!20,minimum height=3em}]
+		\node[draw,minimum width=12cm] (async) at ($0.5*(thread2)+0.5*(thread3)$) [above=1.5cm] {Asynchronous Shared Memory};
+		\node[draw,minimum width=5.5cm] (sync0) at (thread1) [below=1.5cm] {Synchronizing Memory};
+		\node[draw,minimum width=5.5cm] (sync1) at (thread4) [below=1.5cm] {Synchronizing Memory};
+	\end{scope}
+	
+	\begin{scope}[every node/.style={ellipse,minimum width=5.7cm,minimum height=2cm}]
+		\node[draw] (fam0) at (thread1) {};
+		\node[draw] (fam1) at (thread4) {};
+	\end{scope}
+	\node at (fam0.north) [below=4pt] {Family};
+	\node at (fam1.north) [below=4pt] {Family};
+	
+	\begin{scope}[ultra thick]
+		\draw[<->] (sync0) -- (sync1);
+		\draw[<->] (thread0) -- (sync0.north -| thread0);
+		\draw[<->] (thread2) -- (sync0.north -| thread2);
+		\draw[<->] (thread3) -- (sync1.north -| thread3);
+		\draw[<->] (thread5) -- (sync1.north -| thread5);
+	
+		\draw[<->] (thread0) -- (async.south -| thread0);
+		\draw[<->] (thread2) -- (async.south -| thread2);
+		\draw[<->] (thread3) -- (async.south -| thread3);
+		\draw[<->] (thread5) -- (async.south -| thread5);
+	
+		\draw[->] (fam1.north west) -- node[midway,above] {create} (fam0.north east);
+	\end{scope}
+	
+\end{tikzpicture}

@@ -1,0 +1,115 @@
+\chapter{Family Table}
+
+The family table is a conceptual table on every core, where every rows contains the information for a family that has been created on that core. In practice, its different fields are used by different components and therefore the family table will most likely be split up into distinct parts and located near the core components that use them. This document describes the family table in its conceptual form. Its contents is listed in table~\ref{table:family_contents}. The rest of this chapter describes, in detail, the rationale and uses of the fields.
+
+\begin{table}
+\begin{center}
+\begin{tabularx}{\textwidth}{|l|X|c|}
+\hline
+Name & Purpose & Bits\\
+\hline
+\hline
+$\log_2$ place\_size & Number of cores that this family wanted to run on & $\lceil \log_2 \lceil \log_2($\#Cores$)\rceil \rceil$ \\
+$\log_2$ num\_cores & Number of cores that this family is running on & $\lceil \log_2 \lceil \log_2($\#Cores$)\rceil \rceil$ \\
+capability & Capability of the family & N \\
+pc & Program counter for new threads & 62 \\
+block\_size & Maximum number of threads to have allocated on this core & $\lceil \log_2($\#Threads$)\rceil$ \\
+start & Start/Current index & 64 \\
+step & Index step & 64 \\
+limit & End index / Number of threads left to allocate & 64 \\
+first\_lfid & Index of this family on the first core in the place & $\lceil \log_2($\#Families$)\rceil$ \\
+has\_link & Is there a family on the next core (link valid)? & 1 \\
+link & Index of the associated family on the next core & $\lceil \log_2($\#Families$)\rceil$ \\
+prev\_cleaned\_up & Has the last allocated thread been cleaned up? & 1 \\
+sync\_done & Has the family completed for synchronization? & 1 \\
+sync\_waiting & Is there a thread waiting for sync (sync\_pid and sync\_reg valid)? & 1 \\
+sync\_pid & Address of the core containing the synchronizing thread & $\lceil \log_2($\#Cores$)\rceil$ \\
+sync\_reg & Register offset on the sync\_pid core that should receive the sync\_code & $\lceil \log_2($\#Registers$)\rceil$ \\
+alloc\_last & Index of the last allocated thread in the family & $\lceil \log_2($\#Threads$)\rceil$ \\
+alloc\_done & Is the family done allocating threads? & 1 \\
+prev\_synced & Has the associated family on the previous core synchronized? & 1 \\
+detached & Has the parent thread detached from the family? & 1 \\
+alloc\_count & Number of threads allocated to the family & $\lceil \log_2($\#Threads$)\rceil$ \\
+pending\_reads & Number of pending reads made by threads in this family & $\lceil \log_2($\#Registers$)\rceil$ \\
+int\_count\_globals & Number of globals in the threads's integer context & 5 \\
+int\_count\_shareds & Number of shareds in the threads's integer context & 5 \\
+int\_count\_locals & Number of locals in the threads's integer context & 5 \\
+int\_base & Register file offset of the family's allocated integer registers & $\lceil \log_2($\#Registers$)\rceil$ \\
+int\_shareds & Register file offset of the alloc\_last's integer shareds & $\lceil \log_2($\#Registers$)\rceil$ \\
+flt\_count\_globals & Number of globals in the threads's FP context & 5 \\
+flt\_count\_shareds & Number of shareds in the threads's FP context & 5 \\
+flt\_count\_locals & Number of locals in the threads's FP context & 5 \\
+flt\_base & Register file offset of the family's allocated FP registers & $\lceil \log_2($\#Registers$)\rceil$ \\
+flt\_shareds & Register file offset of the alloc\_last's FP shareds & $\lceil \log_2($\#Registers$)\rceil$ \\
+\hline
+\end{tabularx}
+\caption{Contents of a family table entry}
+\label{table:family_contents}
+\end{center}
+\end{table}
+
+\section{Registers}
+This section covers \emph{int\_count\_globals}, \emph{int\_count\_shareds}, \emph{int\_count\_locals}, \emph{int\_base}, \emph{int\_shareds}, \emph{flt\_count\_globals}, \emph{flt\_count\_shareds}, \emph{flt\_count\_locals}, \emph{flt\_base} and \emph{flt\_shareds}.
+
+Every thread in a family has the same number of globals, shared and local registers in its context. These counts are stored in the family table in the \emph{int\_count\_*} and \emph{flt\_count\_*} fields. During the family create process, these fields are loaded from the first cache-line of the thread, where they are stored in the second word of the cache-line (the first word contains the control word, as described in section~\ref{sec:control-stream}).
+
+Using these fields, together with the index sequence that has been set up before the create, the number of registers required to run a number of threads concurrently is calculated. These registers are allocated and the base address to the consecutive block of registers stored in the \emph{int\_base} and \emph{flt\_base} fields.
+
+When a family has shareds, a newly allocated thread must map its dependent registers to the shared registers of the previous thread in the index sequence, i.e., the last allocated thread in that family. To enable this, the family entry stores the address of these shareds in the \emph{int\_shareds} and \emph{flt\_shareds} fields. Thus, when creating a new thread, these fields can be copied to the thread table as the address of the thread's dependents, and the thread's shareds address copied into these fields.
+
+\section{Multi-core}
+This section covers \emph{place\_size}, \emph{num\_cores}, \emph{first\_lfid}, \emph{has\_link} and \emph{link}.
+
+A family is created on a place, a consecutive set of cores. However, under certain circumstances, the family uses fewer cores than given to it in the place identifier. Since the place size is a property of a family that is inherited when threads in that family create additional families with the ``default'' place identifier, the place size is stored for each family in the \emph{place\_size} field.
+
+The actual number of cores that the family is distributed over is stored in the family's \emph{num\_cores} field. This value is guaranteed to be less than the place size, and also a power of two. This field is used to determine the distribution of threads when the family is created. Note that only the number of cores is stored in the family table. The address of the first core does not need to be stored as it can be inferred from the place size. Given that the address of the first core in a place is always a multiple of the place size (see section~\ref{sec:pid-size}), the address of the first core in a family on any core can always be determined by aligning the address of the core in question down to the highest multiple of the family's place size. Given that the place size is always a power of two, this operation is a simple shift and mask.
+
+When a family is distributed across several cores, the family allocation protocol will allocate an entry on every core that the family will run on. Since this entry may not have the same index in the family table on every core, each family entry identifies the index in the family table of the family's corresponding entry on the next core with the \emph{link} field. Since all communication (except break, which will be discussed shortly) strictly moves into one direction on this chain (starting at the first core), the end of the chain must be somehow identified. The \emph{has\_link} field serves this purpose. If set, that core is the last core in the chain onto which that family is distributed.
+
+As mentioned, all communication is strictly down the chain of cores, except for break. When a thread in a family issues the {\tt break} instruction, a message needs to be sent to the first core of the family, referring to the family entry on that core. Given that only the core address can be inferred from the core from which the break is issued, the index in the family table is explicitely stored in the family table on each core, in the \emph{first\_lfid} field\footnote{Alternatively, this field can be removed if a software solution can be adopted where the parent sends the family identifier as a global to the family, which the break operation can then use. This would then also allow for breaks from outside the family.}.
+
+\section{Security}
+This section covers \emph{capability}.
+
+To prevent unauthorized access to family table entries, each family entry is assigned a (pseudo)random value that is generated when it is allocated. This value is returned to the thread that issued the original allocate, as part of the Family ID. Every request from programs that operates on a family is passed a Family ID. If the capability in the Family ID does not match the capability in the family entry, the request must not be fulfilled. Depending on the implementation, a security violation may be raised as well.
+
+\section{Thread Allocation}
+This section covers \emph{pc}, \emph{start}, \emph{step}, \emph{limit}, \emph{block\_size}, \emph{alloc\_count}, \emph{alloc\_last} and \emph{prev\_cleaned\_up}.
+
+Once a family has been allocated, setup, created and initialized, its threads have to be allocated. This is done by a special hardware process as described in section~\ref{sec:thread-alloc}. When this process has to initialize a thread for execution, it uses the fields described in this section as follows:
+
+The \emph{pc} field in the family table is copied to the \emph{pc} field in the thread table, thereby pointing the new thread to its first instruction. After thread creation, the I-Cache will use the thread's \emph{pc} to fetch its instructions from memory.
+
+The \emph{start} field indicates the index of the next thread. Upon thread creation, this value is written to the first local integer register of the thread, if any, and incremented by the \emph{step} value. For distributed families, the family creation process will adjust the \emph{start} field to the index of the first thread that is to be created on the core (see section~\ref{sec:family-setup-finalization}).
+
+The \emph{limit} field is setup by the parent thread as part of the family creation process. This value is used in the family creation process to determine the number of threads to create in the family. At this point, the \emph{limit} field holds the number of threads that still have to be created on the core. Whenever a thread is created in a family, the \emph{limit} field is decremented. When it has reached 0, no more threads are created on this core. Just like the \emph{start} field, this field is set by the family creation logic to reflect the number of threads that are to be created on the core in question.
+
+The \emph{block\_size} field is setup by the parent thread and indicates the maximum number of threads that can run concurrently on a single core (i.e., the maximum number of thread entries in use by a family). The thread creation process will keep allocating additional thread entries for the thread of a family on a core until either all threads in the family on that core have been created, or until the block size has been reached. This field defaults (and can be set) to 0, which will be replaced with the thread table size during family creation.
+
+The \emph{alloc\_count} field keeps track of the number of thread entries allocated to this family. It is compared with the block size on thread creation, as described above. Towards the end of a family, when all threads in a family on the core have been created, when threads complete, their entries are freed. When a thread entry is freed, the \emph{alloc\_count} field in the corresponding family's entry is decremented by one. The family entry cannot be freed until this counter has reached 0, indicating that all threads in the family have been freed.
+
+The \emph{alloc\_last} field points to the most recently allocated thread of the family. When a thread is created, and the \emph{alloc\_count} field is not zero (i.e., the new thread is not the first one), the \emph{next\_sequence} field in the thread entry indicated by the \emph{alloc\_last} field is set to the index of the new thread's entry. This way, a chain of the threads in a family is constructed.
+
+The use of the \emph{next\_sequence}, as described is section~\ref{sec:}, is to proper cleanup semantics for families with shareds. However, it is possible that when a thread completes and it wants to notify the next thread in index sequence, this thread does not yet exist. In this case, the ``cleanup'' signal is buffered in the family table in the \emph{prev\_cleaned\_up} field. Upon thread creation, this flag is copied to the new thread's \emph{prev\_cleaned} flag, which would otherwise have been set by the cleanup process of the previous thread.
+
+\section{Dependencies}
+This section covers \emph{alloc\_done}, \emph{detached} and \emph{pending\_reads}.
+
+To know when a family entry can be freed, several conditions must be met. These conditions are called the family's dependencies.
+
+First, a dependency which is mentioned in the previous section instead of this one, is the \emph{alloc\_count} field. A family entry cannot be freed until all its threads have been freed, i.e., when the \emph{alloc\_count} field is zero.
+
+Secondly, a family must wait until all of its threads have been created, as indicated by the \emph{alloc\_done} flag. Without this condition, a family could be cleaned up as soon as it is created, as all other dependencies are fullfilled at that point. This flag is either set by the thread creation process, when the \emph{limit} field has reached 0, or set by the family creation process, when the \emph{limit} field starts out at 0 (i.e., the core has no threads to run).
+
+The third dependency is that all memory reads must be completed. Either ill-written programs or programs with speculative memory loads can cause memory loads to still be pending when a thread terminates. These memory loads still have pending references to the family through the register file. As such, these loads must complete before the family entry (and its allocated registers) can be freed. The \emph{pending\_reads} field is incremented for every load that is sent to memory and decremented for every load that completes.
+
+The last dependency is that the parent thread must have detached from the family, as indicated by the \emph{detached} flag. Detaching from a family means that the thread can no longer reliably interact with the family. A thread can detach from a family at any point after executing the final family create operation. It can also detach without synchronizing on the family.
+
+\section{Synchronization}
+This section covers \emph{prev\_synced}, \emph{sync\_done}, \emph{sync\_waiting}, \emph{sync\_pid} and \emph{sync\_reg}.
+
+In order to use the results of the thread of a family, a thread can \emph{synchronize} on the completion of the family. To this end, it specifies a family to synchronize on and a register which is cleared when executing the {\tt sync} instruction and written when the synchronization has completed.
+
+The sync\_done flag is used to signal the synchronizing state of a family. When set, the family is considered 'done' and any synchronization made on the family will complete.
+
+When a thread executes a synchronization, a message is sent to the family with the core ID and register address of the specified register. Upon arrival, the sync\_done flag is checked. If set, the family is already done, and a message is sent back which will write to the specified register. Otherwise, the sync\_waiting flag is set and the core ID and register address are written into the family's sync\_pid and sync\_reg fields, respectively. When the sync\_done flag is set, the sync\_waiting flag is checked and if set, a message is sent to the core specified by sync\_pid to write to the register specified by sync\_reg. Note that, because the sync\_pid and sync\_reg fields are overwritten, if multiple syncs are executed on the same family, at least one of them will complete. The others may or may not complete, depending on the state of the family at the time of their arrival.

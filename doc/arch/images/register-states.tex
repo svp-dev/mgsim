@@ -1,0 +1,20 @@
+\begin{tikzpicture}[auto,>=stealth,thick,text badly centered]
+
+\begin{scope}[every node/.style={minimum width=1.5cm}]
+  \node[draw,circle] (E) {Empty};
+  \node[draw,circle,below left=3cm] (P) at (E) {Pending};
+  \node[draw,circle,below right=3cm] (W) at (P) {Waiting};
+  \node[draw,circle,below right=3cm] (F) at (E) {Full};
+\end{scope}
+\node[above=1cm] (I) at (E) {start};
+
+\path[->] (I) edge (E)
+				  (E) edge [bend right] node [swap] {Long latency} (P)
+					(E) edge [bend left]  node        {Write} (F)
+		      (P) edge [bend right] node [swap] {Read} (W)
+		      (W) edge [bend right] node [swap] {Write} (F)
+			    (F) edge [bend right] node [swap] {Long latency} (P)
+			    (P) edge [bend right] node [swap] {Write} (F)
+			    (F) edge [loop right] node        {Read, Write} (F);
+
+\end{tikzpicture}
