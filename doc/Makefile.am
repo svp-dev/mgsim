@@ -1,5 +1,7 @@
 dist_doc_DATA = \
-	README.txt \
+	README \
+	INSTALL \
+	AUTHORS \
 	dev-rtc.txt \
 	dev-lcd.txt \
 	dev-gfx.txt \

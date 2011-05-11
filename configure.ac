@@ -1,14 +1,14 @@
 # 
 # MGSim, the Microgrids simulator.
 # 
-# Copyright (C) 2008,2009 Universiteit van Amsterdam..
+# Copyright (C) 2008,2009,2010,2011 Universiteit van Amsterdam..
 # All rights reserved.
 # 
 
 AC_PREREQ([2.61])
 AC_INIT([mgsim], 
         m4_esyscmd([build-aux/version-gen build-aux/tarball-version build-aux/package-version]), 
-        [m.lankamp@uva.nl])
+        [microgrids@svp-home.org])
 AC_CONFIG_AUX_DIR([build-aux])
 AC_CONFIG_HEADERS([sys_config.h])
 
