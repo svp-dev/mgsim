@@ -71,3 +71,5 @@ _version:
 	cd $(srcdir) && rm -rf autom4te.cache .version && $${AUTORECONF:-autoreconf}
 	$(MAKE) $(AM_MAKEFLAGS) .version
 
+ChangeLog:
+	(cd $(srcdir) && $(PYTHON) build-aux/gitlog2changelog.py) >$@
