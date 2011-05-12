@@ -13,11 +13,16 @@
 #include "kernel.h"
 #include "except.h"
 
-class Config
+/// InputConfigRegistry: registry for configuration values provided
+/// before the simulation starts.
+
+class InputConfigRegistry
 {
+public:
     // a sequence of (pattern, value) pairs 
     typedef std::vector<std::pair<std::string,std::string> > ConfigMap;
     
+private:
     typedef std::map<std::string,std::pair<std::string,std::string> > ConfigCache;
     
     ConfigMap         m_data;
@@ -107,19 +112,152 @@ public:
 
     void dumpConfiguration(std::ostream& os, const std::string& cf, bool raw = false) const;
 
-    Config(const std::string& filename, const ConfigMap& overrides);
+    InputConfigRegistry(const std::string& filename, const ConfigMap& overrides);
+
 };
 
-template <>
-std::string Config::lookupValue<std::string>(const std::string& name, const std::string& def, bool fail_if_not_found);
-
-template<>
-double Config::convertToNumber<double>(const std::string& name, const std::string& value);
-
-template<>
-float Config::convertToNumber<float>(const std::string& name, const std::string& value);
+/// specializations for the methods in InputConfigRegistry
 
 template <>
-bool Config::convertToNumber<bool>(const std::string& name, const std::string& value);
+std::string InputConfigRegistry::lookupValue<std::string>(const std::string& name, const std::string& def, bool fail_if_not_found);
+
+template<>
+double InputConfigRegistry::convertToNumber<double>(const std::string& name, const std::string& value);
+
+template<>
+float InputConfigRegistry::convertToNumber<float>(const std::string& name, const std::string& value);
+
+template <>
+bool InputConfigRegistry::convertToNumber<bool>(const std::string& name, const std::string& value);
+
+/// ComponentModelRegistry: registry for the component structure
+/// and properties after the architecture has been set up.
+
+class ComponentModelRegistry
+{
+
+private:
+    typedef const std::string*          Symbol;
+    typedef const Simulator::Object*    ObjectRef;
+
+    struct Entity
+    {
+        enum { VOID, OBJECT, SYMBOL, UINT32, UINT64 } type;
+        union
+        {
+            uint64_t     value;
+            ObjectRef    object;
+            Symbol       symbol;
+        };
+
+        bool operator<(const Entity& right) const;
+    };
+
+    typedef const Entity*               EntityRef;
+
+    typedef std::pair<Symbol, EntityRef>  Property;  // function symbol -> value
+
+
+    std::set<std::string>              m_symbols;   // registry for strings
+    std::map<ObjectRef, Symbol>        m_objects;   // function object -> object type
+    std::set<Entity>                   m_entities;  // registry for entities
+
+    typedef std::map<ObjectRef, std::vector<Property> > objprops_t;
+    objprops_t m_objprops;  // function object -> {property}*
+
+    typedef std::map<std::pair<ObjectRef, ObjectRef>, std::vector<Property> > linkprops_t;
+    linkprops_t m_linkprops; // function (object,object) -> {property}*
+
+    void printEntity(std::ostream& os, const Entity& e) const;
+    Symbol makeSymbol(const std::string& sym);
+    ObjectRef refObject(const Simulator::Object& obj);
+    EntityRef refEntity(const ObjectRef& obj);
+    EntityRef refEntity(const Symbol& sym);
+    EntityRef refEntity(const uint32_t& val);
+    EntityRef refEntity(const uint64_t& val);
+    EntityRef refEntity(void);
+
+    std::map<ObjectRef, Symbol> m_names;
+
+    void renameObjects(void);
+
+public:
+
+    void registerObject(const Simulator::Object& obj, const std::string& objtype);
+
+    void registerProperty(const Simulator::Object& obj, const std::string& name)
+    {
+        m_objprops[refObject(obj)].push_back(std::make_pair(makeSymbol(name), refEntity()));
+    };
+
+    template<typename T>
+    void registerProperty(const Simulator::Object& obj, const std::string& name, const T& value)
+    {
+        m_objprops[refObject(obj)].push_back(std::make_pair(makeSymbol(name), refEntity(value)));
+    };
+
+    void registerRelation(const Simulator::Object& left, const Simulator::Object& right, const std::string& name)
+    {
+        m_linkprops[std::make_pair(refObject(left), refObject(right))].push_back(std::make_pair(makeSymbol(name), refEntity()));
+    }
+
+    template<typename T>
+    void registerRelation(const Simulator::Object& left, const Simulator::Object& right, const std::string& name, const T& value)
+    {
+        m_linkprops[std::make_pair(refObject(left), refObject(right))].push_back(std::make_pair(makeSymbol(name), refEntity(value)));
+    }
+
+    template<typename T, typename U>
+    void registerRelation(const T& left, const U& right, const std::string& name)
+    {
+        registerRelation(dynamic_cast<const Simulator::Object&>(left), dynamic_cast<const Simulator::Object&>(right), name);
+    }
+
+    template<typename T, typename U, typename V>
+    void registerRelation(const T& left, const U& right, const std::string& name, const V& value)
+    {
+        registerRelation(dynamic_cast<const Simulator::Object&>(left), dynamic_cast<const Simulator::Object&>(right), name, value);
+    }
+
+
+    template<typename T, typename U>
+    void registerBidiRelation(const T& left, const U& right, const std::string& name)
+    {
+        registerRelation(dynamic_cast<const Simulator::Object&>(left), dynamic_cast<const Simulator::Object&>(right), name);
+        registerRelation(dynamic_cast<const Simulator::Object&>(right), dynamic_cast<const Simulator::Object&>(left), name);
+    }
+
+    template<typename T, typename U, typename V>
+    void registerBidiRelation(const T& left, const U& right, const std::string& name, const V& value)
+    {
+        registerRelation(dynamic_cast<const Simulator::Object&>(left), dynamic_cast<const Simulator::Object&>(right), name, value);
+        registerRelation(dynamic_cast<const Simulator::Object&>(right), dynamic_cast<const Simulator::Object&>(left), name, value);
+    }
+
+
+    void dumpComponentGraph(std::ostream& out, bool display_nodeprops = true, bool display_linkprops = true);
+
+};
+
+
+template<>
+inline void ComponentModelRegistry::registerRelation<Simulator::Object>(const Simulator::Object& left, const Simulator::Object& right, const std::string& name, const Simulator::Object& value)
+{
+    m_linkprops[std::make_pair(refObject(left), refObject(right))].push_back(std::make_pair(makeSymbol(name), refEntity(refObject(value))));
+}
+
+
+/// Config class used by the simulation.
+
+
+class Config : public InputConfigRegistry, public ComponentModelRegistry
+{
+public:
+    Config(const std::string& filename, const ConfigMap& overrides)
+        : InputConfigRegistry(filename, overrides)
+    { }
+
+};
+
 
 #endif
