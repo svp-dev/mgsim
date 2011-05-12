@@ -38,6 +38,10 @@ struct ProgramConfig
     vector<string>                   m_extradevs;    
     vector<pair<RegAddr, string> >   m_loads;
     vector<pair<RegAddr, RegValue> > m_regs;
+    bool                             m_dumptopo;
+    string                           m_topofile;
+    bool                             m_dumpnodeprops;
+    bool                             m_dumpedgeprops;
 };
 
 static void ParseArguments(int argc, const char ** argv, ProgramConfig& config)
@@ -50,6 +54,9 @@ static void ParseArguments(int argc, const char ** argv, ProgramConfig& config)
     config.m_quiet = false;
     config.m_dumpvars = false;
     config.m_earlyquit = false;
+    config.m_dumptopo = false;
+    config.m_dumpnodeprops = true;
+    config.m_dumpedgeprops = true;
 
     for (int i = 1; i < argc; ++i)
     {
@@ -76,6 +83,16 @@ static void ParseArguments(int argc, const char ** argv, ProgramConfig& config)
             }
             config.m_printvars.push_back(argv[i]);
         }
+        else if (arg == "-T" || arg == "--dump-topology")
+        {
+            if (argv[++i] == NULL) {
+                throw runtime_error("Error: expected file name");
+            }
+            config.m_dumptopo = true;
+            config.m_topofile = argv[i];
+        }
+        else if (arg == "--no-node-properties") config.m_dumpnodeprops = false;
+        else if (arg == "--no-edge-properties") config.m_dumpedgeprops = false;
         else if (arg == "-n" || arg == "--do-nothing")  config.m_earlyquit     = true;
         else if (arg == "-o" || arg == "--override")
         {
@@ -212,6 +229,13 @@ int main(int argc, char** argv)
             std::cout << "### begin monitor variables" << std::endl;
             ListSampleVariables(std::cout);
             std::cout << "### end monitor variables" << std::endl;
+        }
+
+        if (config.m_dumptopo)
+        {
+            ofstream of(config.m_topofile.c_str(), ios::out);
+            configfile.dumpComponentGraph(of, config.m_dumpnodeprops, config.m_dumpedgeprops);
+            of.close();
         }
 
         if (config.m_earlyquit)
