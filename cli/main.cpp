@@ -66,7 +66,7 @@ static void ParseArguments(int argc, const char ** argv, ProgramConfig& config)
         else if (arg == "-s" || arg == "--symtable")    config.m_symtableFile  = argv[++i];
         else if (arg == "--version")                    { PrintVersion(std::cout); exit(0); }
         else if (arg == "-h" || arg == "--help")        { PrintUsage(std::cout, argv[0]); exit(0); }
-        else if (arg == "-d" || arg == "--dumpconf")    config.m_dumpconf      = true;
+        else if (arg == "-d" || arg == "--dump-configuration")    config.m_dumpconf      = true;
         else if (arg == "-m" || arg == "--monitor")     config.m_enableMonitor = true;
         else if (arg == "-l" || arg == "--list-mvars")  config.m_dumpvars      = true;
         else if (arg == "-p" || arg == "--print-final-mvars")
