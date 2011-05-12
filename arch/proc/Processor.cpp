@@ -40,6 +40,21 @@ Processor::Processor(const std::string& name, Object& parent, Clock& clock, PID 
     m_lperr("stderr", *this, std::cerr),
     m_io_if(NULL)
 {
+    config.registerObject(*this, "cpu");
+    config.registerProperty(*this, "pid", (uint32_t)pid);
+    config.registerProperty(*this, "ic.assoc", (uint32_t)m_icache.GetAssociativity());
+    config.registerProperty(*this, "ic.lsz", (uint32_t)m_icache.GetLineSize());
+    config.registerProperty(*this, "dc.assoc", (uint32_t)m_dcache.GetAssociativity());
+    config.registerProperty(*this, "dc.sets", (uint32_t)m_dcache.GetNumSets());
+    config.registerProperty(*this, "dc.lines", (uint32_t)m_dcache.GetNumLines());
+    config.registerProperty(*this, "dc.lsz", (uint32_t)m_dcache.GetLineSize());
+    config.registerProperty(*this, "threads", (uint32_t)m_threadTable.GetNumThreads());
+    config.registerProperty(*this, "families", (uint32_t)m_familyTable.GetFamilies().size());
+    config.registerProperty(*this, "iregs", (uint32_t)m_registerFile.GetSize(RT_INTEGER));
+    config.registerProperty(*this, "fpregs", (uint32_t)m_registerFile.GetSize(RT_FLOAT));
+    config.registerProperty(*this, "freq", (uint32_t)clock.GetFrequency());
+    config.registerBidiRelation(*this, fpu, "fpu");
+
     // Get the size, in bits, of various identifiers.
     // This is used for packing and unpacking various fields.
     m_bits.pid_bits = ilog2(GetGridSize());
@@ -71,6 +86,8 @@ Processor::Processor(const std::string& name, Object& parent, Clock& clock, PID 
         pnc_if.Connect(m_mmio, IOMatchUnit::READ, config);
 
         mem_sources[2] = &m_io_if->GetDirectCacheAccess().p_MemoryOutgoing;   // Outgoing process in DCA
+
+        config.registerBidiRelation(*this, *iobus, "client", (uint32_t)devid);
     }
     
     m_memory.RegisterClient(m_pid, *this, mem_sources);

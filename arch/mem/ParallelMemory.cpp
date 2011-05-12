@@ -161,6 +161,8 @@ void ParallelMemory::RegisterClient(PSize pid, IMemoryCallback& callback, const 
     client.callback = &callback;
     
     client.port->AddProcesses(processes);
+
+    m_registry.registerRelation(callback, *this, "mem");
 }
 
 void ParallelMemory::UnregisterClient(PSize pid)
@@ -263,6 +265,7 @@ void ParallelMemory::Write(MemAddr address, const void* data, MemSize size)
 
 ParallelMemory::ParallelMemory(const std::string& name, Object& parent, Clock& clock, Config& config) :
     Object(name, parent, clock),
+    m_registry       (config),
     m_clients        (config.getValue<size_t> (*this, "NumClients", 
                                                config.getValue<size_t>("NumProcessors"))),
     m_baseRequestTime(config.getValue<CycleNo>(*this, "BaseRequestTime")),
@@ -283,6 +286,8 @@ ParallelMemory::ParallelMemory(const std::string& name, Object& parent, Clock& c
         client.callback = NULL;
         client.port     = new Port(name.str(), *this, clock, buffersize);
     }
+
+    config.registerObject(*this, "pmem");
 }
 
 ParallelMemory::~ParallelMemory()

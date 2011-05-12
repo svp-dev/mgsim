@@ -282,6 +282,13 @@ ZLCOMA::Directory::Directory(const std::string& name, ZLCOMA& parent, Clock& clo
 
     p_lines.AddProcess(p_InTop);
     p_lines.AddProcess(p_InBottom);
+
+    config.registerObject(m_top, "dt");
+    config.registerProperty(m_top, "freq", clock.GetFrequency());
+    config.registerObject(m_bottom, "db");
+    config.registerProperty(m_bottom, "freq", clock.GetFrequency());
+
+    config.registerBidiRelation(m_bottom, m_top, "dir");
 }
 
 void ZLCOMA::Directory::Cmd_Info(std::ostream& out, const std::vector<std::string>& arguments) const

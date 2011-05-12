@@ -374,6 +374,9 @@ COMA::RootDirectory::RootDirectory(const std::string& name, COMA& parent, Clock&
     m_nwrites(0)
 {
     assert(m_lineSize <= MAX_MEMORY_OPERATION_SIZE);
+
+    config.registerObject(*this, "rootdir");
+    config.registerProperty(*this, "freq", (uint32_t)clock.GetFrequency());
     
     // Create the cache lines
     // We need as many cache lines in the directory to cover all caches below it

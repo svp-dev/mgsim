@@ -8,6 +8,7 @@
 #include <set>
 
 class Config;
+class ComponentModelRegistry;
 
 namespace Simulator
 {
@@ -52,6 +53,7 @@ class BankedMemory : public Object, public IMemoryAdmin, public VirtualMemory
     }	
 
 protected:
+    ComponentModelRegistry& m_registry;
     Clock&                  m_clock;
     std::vector<ClientInfo> m_clients;
     std::vector<Bank*>      m_banks;

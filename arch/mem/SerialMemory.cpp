@@ -17,6 +17,8 @@ void SerialMemory::RegisterClient(PSize pid, IMemoryCallback& callback, const Pr
     {
         p_requests.AddProcess(*processes[i]);
     }
+
+    m_registry.registerRelation(callback, *this, "mem");
 }
 
 void SerialMemory::UnregisterClient(PSize pid)
@@ -172,6 +174,7 @@ Result SerialMemory::DoRequests()
 
 SerialMemory::SerialMemory(const std::string& name, Object& parent, Clock& clock, Config& config) :
     Object(name, parent, clock),
+    m_registry       (config),
     m_clock          (clock),
     m_clients        (config.getValue<size_t>(*this, "NumClients",
                                               config.getValue<size_t>("NumProcessors")), NULL),
@@ -189,6 +192,7 @@ SerialMemory::SerialMemory(const std::string& name, Object& parent, Clock& clock
     p_Requests("requests", delegate::create<SerialMemory, &SerialMemory::DoRequests>(*this) )
 {
     m_requests.Sensitive( p_Requests );
+    config.registerObject(*this, "sermem");
 }
 
 void SerialMemory::Cmd_Info(ostream& out, const vector<string>& arguments) const

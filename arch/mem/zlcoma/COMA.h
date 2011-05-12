@@ -8,6 +8,7 @@
 #include <set>
 
 class Config;
+class ComponentModelRegistry;
 
 namespace Simulator
 {
@@ -48,6 +49,7 @@ private:
     }
 
     
+    ComponentModelRegistry&     m_registry;
     size_t                      m_numProcsPerCache;
     size_t                      m_numCachesPerDir;
     std::vector<Cache*>         m_caches;             ///< List of caches

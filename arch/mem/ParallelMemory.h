@@ -11,6 +11,7 @@
 #include <vector>
 
 class Config;
+class ComponentModelRegistry;
 
 namespace Simulator
 {
@@ -51,6 +52,7 @@ class ParallelMemory : public Object, public IMemoryAdmin, public VirtualMemory
     
     CycleNo GetMemoryDelay(size_t data_size) const;
     
+    ComponentModelRegistry&       m_registry;
     std::vector<ClientInfo> m_clients;
     
     CycleNo	m_baseRequestTime; // Config: This many cycles per request regardless of size

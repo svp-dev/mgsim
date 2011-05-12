@@ -74,6 +74,7 @@ MHz and the memory clock 100 MHz). Together with a 64-bit wide databus and
 #include <vector>
 
 class Config;
+class ComponentModelRegistry;
 
 namespace Simulator
 {
@@ -129,6 +130,7 @@ private:
     };
 
     // Runtime parameters
+    ComponentModelRegistry&    m_registry;
     DDRConfig                  m_ddrconfig;      ///< DDR virtual chip parameters
     std::vector<unsigned long> m_currentRow;     ///< Currently selected row, for each rank
     VirtualMemory&             m_memory;         ///< The backing store with data

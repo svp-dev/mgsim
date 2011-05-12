@@ -1195,6 +1195,12 @@ ZLCOMA::Cache::Cache(const std::string& name, ZLCOMA& parent, Clock& clock, Cach
 
     p_bus.AddProcess(p_In);                   // Update triggers write completion
     p_bus.AddProcess(p_Requests);             // Read or write hit
+
+    config.registerObject(*this, "cache");
+    config.registerProperty(*this, "assoc", (uint32_t)m_assoc);
+    config.registerProperty(*this, "sets", (uint32_t)m_sets);
+    config.registerProperty(*this, "lsz", (uint32_t)m_lineSize);
+    config.registerProperty(*this, "freq", (uint32_t)clock.GetFrequency());
 }
 
 void ZLCOMA::Cache::Cmd_Info(std::ostream& out, const std::vector<std::string>& arguments) const

@@ -64,6 +64,7 @@ public:
     bool   OnMemorySnooped(MemAddr addr, const MemData& data);
     bool   OnMemoryInvalidated(MemAddr addr);
     size_t GetLineSize() const { return m_lineSize; }
+    size_t GetAssociativity() const { return m_assoc; }
     
     // Debugging
     void Cmd_Info(std::ostream& out, const std::vector<std::string>& arguments) const;

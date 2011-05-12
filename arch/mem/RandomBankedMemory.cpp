@@ -1,4 +1,5 @@
 #include "RandomBankedMemory.h"
+#include "sim/config.h"
 #include <iostream>
 
 namespace Simulator
@@ -19,6 +20,7 @@ size_t RandomBankedMemory::GetBankFromAddress(MemAddr address) const
 RandomBankedMemory::RandomBankedMemory(const std::string& name, Object& parent, Clock& clock, Config& config)
     : BankedMemory(name, parent, clock, config)
 {
+    config.registerProperty(*this, "random", (uint32_t)1);
 }
 
 void RandomBankedMemory::Cmd_Info(std::ostream& out, const std::vector<std::string>& /*arguments*/) const

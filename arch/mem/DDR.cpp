@@ -228,10 +228,12 @@ DDRChannel::DDRConfig::DDRConfig(const std::string& name, Object& parent, Clock&
     m_nColumnStart = 0;
     m_nRowStart = m_nColumnStart + m_nColumnBits;
     m_nRankStart = m_nRowStart + m_nRowBits;
+
 }
 
 DDRChannel::DDRChannel(const std::string& name, Object& parent, Clock& clock, VirtualMemory& memory, Config& config)
     : Object(name, parent, clock),
+      m_registry(config),
       m_ddrconfig("config", *this, clock, config),
       // Initialize each rank at 'no row selected'
       m_currentRow(1 << m_ddrconfig.m_nRankBits, INVALID_ROW),
@@ -248,6 +250,20 @@ DDRChannel::DDRChannel(const std::string& name, Object& parent, Clock& clock, Vi
 {
     m_busy.Sensitive(p_Request);
     m_pipeline.Sensitive(p_Pipeline);
+
+    config.registerObject(*this, "ddr");
+    config.registerProperty(*this, "CL", (uint32_t)m_ddrconfig.m_tCL);
+    config.registerProperty(*this, "RCD", (uint32_t)m_ddrconfig.m_tRCD);
+    config.registerProperty(*this, "RP", (uint32_t)m_ddrconfig.m_tRP);
+    config.registerProperty(*this, "RAS", (uint32_t)m_ddrconfig.m_tRAS);
+    config.registerProperty(*this, "CWL", (uint32_t)m_ddrconfig.m_tCWL);
+    config.registerProperty(*this, "CCD", (uint32_t)m_ddrconfig.m_tCCD);
+    config.registerProperty(*this, "WR", (uint32_t)m_ddrconfig.m_tWR);
+    config.registerProperty(*this, "chips/rank", (uint32_t)m_ddrconfig.m_nDevicesPerRank);
+    config.registerProperty(*this, "ranks", (uint32_t)(1UL<<m_ddrconfig.m_nRankBits));
+    config.registerProperty(*this, "rows", (uint32_t)(1UL<<m_ddrconfig.m_nRowBits));
+    config.registerProperty(*this, "columns", (uint32_t)(1UL<<m_ddrconfig.m_nColumnBits));
+    config.registerProperty(*this, "freq", (uint32_t)clock.GetFrequency());
 }
 
 void DDRChannel::SetClient(ICallback& cb)
@@ -257,6 +273,7 @@ void DDRChannel::SetClient(ICallback& cb)
         throw InvalidArgumentException(*this, "DDR channel can be connected to at most one root directory.");
     }
     m_callback = &cb;
+    m_registry.registerBidiRelation(*this, cb, "ddr");
 }
 
 DDRChannel::~DDRChannel()

@@ -269,6 +269,8 @@ void BankedMemory::RegisterClient(PSize pid, IMemoryCallback& callback, const Pr
     {
         m_banks[i]->RegisterClient(*client.service, processes);
     }
+
+    m_registry.registerRelation(callback, *this, "mem");
 }
 
 void BankedMemory::UnregisterClient(PSize pid)
@@ -380,6 +382,7 @@ bool BankedMemory::CheckPermissions(MemAddr address, MemSize size, int access) c
 
 BankedMemory::BankedMemory(const std::string& name, Object& parent, Clock& clock, Config& config) :
     Object(name, parent, clock),
+    m_registry(config),
     m_clock(clock),
     m_clients        (config.getValue<size_t>("NumClients", 
                                               config.getValue<size_t>("NumProcessors"))),
@@ -402,12 +405,17 @@ BankedMemory::BankedMemory(const std::string& name, Object& parent, Clock& clock
         m_clients[i].callback = NULL;
     }
 
+    config.registerObject(*this, "bmem");
+        
     // Create the banks   
     for (size_t i = 0; i < m_banks.size(); ++i)
     {
         stringstream name;
         name << "bank" << i;
         m_banks[i] = new Bank(name.str(), *this, clock, buffersize);
+
+        config.registerObject(*m_banks[i], "bank");
+        config.registerRelation(*this, *m_banks[i], "bank");
     }
 }
 

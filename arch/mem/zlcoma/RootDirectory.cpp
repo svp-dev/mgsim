@@ -454,6 +454,9 @@ ZLCOMA::RootDirectory::RootDirectory(const std::string& name, ZLCOMA& parent, Cl
 {
     assert(m_lineSize <= MAX_MEMORY_OPERATION_SIZE);
 
+    config.registerObject(*this, "rootdir");
+    config.registerProperty(*this, "freq", (uint32_t)clock.GetFrequency());
+    
     // Create the cache lines
     // We need as many cache lines in the directory to cover all caches below it
     m_lines.resize(m_assoc * m_sets);

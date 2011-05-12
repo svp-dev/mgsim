@@ -641,6 +641,7 @@ MGSystem::MGSystem(Config& config,
         throw runtime_error("Unknown memory type: " + memory_type);
     }
 
+
     // Create the I/O Buses
     const size_t numIOBuses = config.getValue<size_t>("NumIOBuses");
     m_iobuses.resize(numIOBuses);
@@ -654,7 +655,10 @@ MGSystem::MGSystem(Config& config,
         Clock& ioclock = m_kernel.CreateClock(config.getValue<unsigned long>(m_root, name + ".Freq"));
 
         if (bus_type == "NULLIO") {
-            m_iobuses[b] = new NullIO(name, m_root, ioclock);
+            NullIO* bus = new NullIO(name, m_root, ioclock);
+            m_iobuses[b] = bus;
+            config.registerObject(*bus, "nullio");
+            config.registerProperty(*bus, "freq", (uint32_t)ioclock.GetFrequency());
         } else {
             throw runtime_error("Unknown I/O bus type for " + name + ": " + bus_type);
         }
@@ -667,6 +671,8 @@ MGSystem::MGSystem(Config& config,
         stringstream name;
         name << "fpu" << f;
         m_fpus[f] = new FPU(name.str(), m_root, m_clock, config, numProcessorsPerFPU);
+
+        config.registerObject(*m_fpus[f], "fpu");
     }
 
     // Create processor grid
@@ -736,14 +742,17 @@ MGSystem::MGSystem(Config& config,
             LCD *lcd = new LCD(name, m_root, iobus, devid, config);
             iobus.RegisterClient(devid, *lcd);
             m_devices[i] = lcd;
+            config.registerObject(*lcd, "lcd");
         } else if (dev_type == "RTC") {
             Clock& rtcclock = m_kernel.CreateClock(config.getValue<size_t>(m_root, name + ".RTCUpdateFreq"));
             RTC *rtc = new RTC(name, m_root, rtcclock, iobus, devid, config);
             m_devices[i] = rtc;
+            config.registerObject(*rtc, "rtc");
         } else if (dev_type == "GFX") {
             size_t fbdevid = config.getValue<size_t>(m_root, name + ".GfxFrameBufferDeviceID", devid + 1);
             Display *disp = new Display(name, m_root, iobus, devid, fbdevid, config);
             m_devices[i] = disp;
+            config.registerObject(*disp, "gfx");
         } else if (dev_type == "AROM") {
             ActiveROM *rom = new ActiveROM(name, m_root, *m_memory, iobus, devid, config);
             if (rom->IsBootable())
@@ -755,12 +764,16 @@ MGSystem::MGSystem(Config& config,
                 m_bootrom = rom;
             }
             m_devices[i] = rom;
+            config.registerObject(*rom, "arom");
         } else if (dev_type == "SMC") {
             SMC * smc = new SMC(name, m_root, iobus, devid, regs, loads, config);
             m_devices[i] = smc;
+            config.registerObject(*smc, "smc");
         } else {
             throw runtime_error("Unknown I/O device type: " + dev_type);
         }
+
+        config.registerBidiRelation(*m_devices[i], iobus, "client", (uint32_t)devid);
     }
 
     // Set up the initial memory ranges
@@ -791,6 +804,8 @@ MGSystem::MGSystem(Config& config,
         Processor* prev = (i == 0)                 ? NULL : m_procs[i - 1];
         Processor* next = (i == numProcessors - 1) ? NULL : m_procs[i + 1];
         m_procs[i]->Initialize(prev, next);
+        if (next)
+            config.registerRelation(*m_procs[i], *next, "link");
     }
 
     // Initialize the buses. This initializes the devices as well.

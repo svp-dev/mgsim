@@ -19,6 +19,8 @@ void ZLCOMA::RegisterClient(PSize pid, IMemoryCallback& callback, const Process*
 {
     // Forward the registration to the cache associated with the processor
     m_caches[pid / m_numProcsPerCache]->RegisterClient(pid, callback, processes);
+
+    m_registry.registerBidiRelation(callback, *m_caches[pid / m_numProcsPerCache], "mem");
 }
 
 void ZLCOMA::UnregisterClient(PSize pid)
@@ -84,6 +86,7 @@ ZLCOMA::ZLCOMA(const std::string& name, Simulator::Object& parent, Clock& clock,
     // Note that the COMA class is just a container for caches and directories.
     // It has no processes of its own.
     Simulator::Object(name, parent, clock),
+    m_registry(config),
     m_numProcsPerCache(config.getValue<size_t>("NumProcessorsPerL2Cache")),
     m_numCachesPerDir (config.getValue<size_t>(*this, "NumL2CachesPerDirectory")),
     m_ddr("ddr", *this, *this, config),
@@ -137,17 +140,22 @@ ZLCOMA::ZLCOMA(const std::string& name, Simulator::Object& parent, Clock& clock,
         DirectoryBottom* dir = &m_directories[i / m_numCachesPerDir]->m_bottom;
         const bool first = (i % m_numCachesPerDir == 0);
         const bool last  = (i % m_numCachesPerDir == m_numCachesPerDir - 1) || (i == m_caches.size() - 1);
-        m_caches[i]->Initialize(
-            first ? dir : static_cast<Node*>(m_caches[i-1]),
-            last  ? dir : static_cast<Node*>(m_caches[i+1]) );
+
+        Node *next = first ? dir : static_cast<Node*>(m_caches[i-1]);
+        Node *prev = last  ? dir : static_cast<Node*>(m_caches[i+1]);
+        m_caches[i]->Initialize(next, prev);
+
+        config.registerRelation(*m_caches[i], *next, "l2ring");
     }
     
     // Connect the directories to the cache rings
     for (size_t i = 0; i < m_directories.size(); ++i)
     {
-        m_directories[i]->m_bottom.Initialize(
-            m_caches[std::min(i * m_numCachesPerDir + m_numCachesPerDir, m_caches.size()) - 1],
-            m_caches[i * m_numCachesPerDir] );
+        Node *next = m_caches[std::min(i * m_numCachesPerDir + m_numCachesPerDir, m_caches.size()) - 1];
+        Node *prev = m_caches[i * m_numCachesPerDir];
+        m_directories[i]->m_bottom.Initialize(next, prev);
+
+        config.registerRelation(m_directories[i]->m_bottom, *next, "l2ring");
     }
 
     //
@@ -176,9 +184,11 @@ ZLCOMA::ZLCOMA(const std::string& name, Simulator::Object& parent, Clock& clock,
     // Now connect everything on the top-level ring
     for (size_t i = 0; i < nodes.size(); ++i)
     {
-        nodes[i]->Initialize(
-            nodes[(i == 0 ? nodes.size() : i) - 1],
-            nodes[(i + 1) % nodes.size()] );
+        Node *next = nodes[(i == 0 ? nodes.size() : i) - 1];
+        Node *prev = nodes[(i + 1) % nodes.size()];
+        nodes[i]->Initialize(next, prev);
+
+        config.registerRelation(*nodes[i], *next, "topring");
     }
 }
 

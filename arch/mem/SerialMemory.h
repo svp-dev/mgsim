@@ -8,6 +8,7 @@
 #include <set>
 
 class Config;
+class ComponentModelRegistry;
 
 namespace Simulator
 {
@@ -49,6 +50,7 @@ class SerialMemory : public Object, public IMemoryAdmin, public VirtualMemory
         nwrites_ext = m_nwrites;
     }
 
+    ComponentModelRegistry&       m_registry;
     Clock&                        m_clock;
     std::vector<IMemoryCallback*> m_clients;
     Buffer<Request>               m_requests;
