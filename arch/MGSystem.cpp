@@ -501,8 +501,9 @@ void MGSystem::Step(CycleNo nCycles)
     RunState state = GetKernel().Step(nCycles);
     if (state == STATE_IDLE)
     {
-        // An idle state might actually be deadlock if there's a suspended thread.
-        // So check all cores to see if they're really done.
+        // An idle state might actually be deadlock if there's a
+        // suspended thread.  So check all cores to see if they're
+        // really done.
         for (size_t i = 0; i < m_procs.size(); ++i)
         {
             if (!m_procs[i]->IsIdle())
@@ -511,6 +512,23 @@ void MGSystem::Step(CycleNo nCycles)
                 break;
             }
         }
+
+        // If all cores are done, but there are still some remaining
+        // processes, and all the remaining processes are stalled,
+        // then there is a deadlock too.  However since the kernel
+        // state is idle, there cannot be any running process left. So
+        // either there are no processes at all, or they are all
+        // stalled. Deadlock only exists in the latter case, so
+        // we only check for the existence of an active process.
+        if (state != STATE_DEADLOCK)
+            for (const Clock* clock = m_kernel.GetActiveClocks(); clock != NULL; clock = clock->GetNext())
+            {
+                if (clock->GetActiveProcesses() != NULL)
+                {
+                    state = STATE_DEADLOCK;
+                    break;
+                }
+            }
     }
 
     if (state == STATE_DEADLOCK)
