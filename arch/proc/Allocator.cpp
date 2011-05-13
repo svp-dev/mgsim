@@ -462,6 +462,7 @@ bool Processor::Allocator::DecreaseFamilyDependency(LFID fid, Family& family, Fa
     case FAMDEP_OUTSTANDING_READS: assert(deps->numPendingReads     > 0); deps->numPendingReads    --;  break;
     case FAMDEP_PREV_SYNCHRONIZED: assert(!deps->prevSynchronized);       deps->prevSynchronized = true; break;
     case FAMDEP_ALLOCATION_DONE:   assert(!deps->allocationDone);         deps->allocationDone   = true; break;
+    case FAMDEP_SYNC_SENT:         assert(!deps->syncSent);               deps->syncSent         = true; break;
     case FAMDEP_DETACHED:          assert(!deps->detached);               deps->detached         = true; break;
     }
 
@@ -501,18 +502,14 @@ bool Processor::Allocator::DecreaseFamilyDependency(LFID fid, Family& family, Fa
             else if (family.sync.pid != INVALID_PID)
             {
                 // A thread is synching on this family
-                assert(family.sync.reg != INVALID_REG_INDEX);
-            
-                // Remote thread, send a remote register write
-                RemoteMessage msg;
-                msg.type = RemoteMessage::MSG_RAW_REGISTER;
-                msg.rawreg.pid             = family.sync.pid;
-                msg.rawreg.addr            = MAKE_REGADDR(RT_INTEGER, family.sync.reg);
-                msg.rawreg.value.m_state   = RST_FULL;
-                msg.rawreg.value.m_integer = 0;
-            
-                if (!m_network.SendMessage(msg))
+                Network::SyncInfo info;
+                info.fid = fid;
+                info.pid = family.sync.pid;
+                info.reg = family.sync.reg;
+                
+                if (!m_network.SendSync(info))
                 {
+                    DeadlockWrite("Unable to buffer remote sync writeback");
                     return false;
                 }
             }
@@ -521,10 +518,11 @@ bool Processor::Allocator::DecreaseFamilyDependency(LFID fid, Family& family, Fa
         }
         // Fall through
 
+    case FAMDEP_SYNC_SENT:
     case FAMDEP_DETACHED:
         if (deps->numThreadsAllocated == 0 && deps->allocationDone &&
             deps->numPendingReads     == 0 && deps->prevSynchronized &&
-            deps->detached)
+            deps->detached                 && deps->syncSent)
         {
             ContextType context = m_familyTable.IsExclusive(fid) ? CONTEXT_EXCLUSIVE : CONTEXT_NORMAL;
 
@@ -670,6 +668,7 @@ FCapability Processor::Allocator::InitializeFamily(LFID fid) const
         family.dependencies.numPendingReads     = 0;
         family.dependencies.numThreadsAllocated = 0;
         family.dependencies.detached            = false;
+        family.dependencies.syncSent            = true;
     }
     
     return capability;
@@ -1673,6 +1672,7 @@ void Processor::Allocator::AllocateInitialFamily(MemAddr pc, bool legacy, PSize 
     // The main family starts off detached
     family.dependencies.prevSynchronized = true;    
     family.dependencies.detached = true;
+    family.dependencies.syncSent = true;
 
     if (!AllocateRegisters(fid, CONTEXT_NORMAL))
     {

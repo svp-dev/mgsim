@@ -40,6 +40,13 @@ struct Family
          explicitely detached from it.
         */
         bool detached;
+        
+        /*
+         After synchronizing on the family's termination, the sync even can
+         hang around in a FT-sized buffer before being sent out. Until that
+         has happened, the family cannot be reused.
+        */
+        bool syncSent;
 		
         /*
          All allocated threads (0 <= allocated <= physBlockSize) must have

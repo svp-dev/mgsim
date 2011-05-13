@@ -186,6 +186,7 @@ void Processor::Initialize(Processor* prev, Processor* next)
         // Every core can send delegation messages here
         m_network.m_delegateIn.AddProcess(m_grid[i]->m_network.p_DelegationOut);
     }
+    m_network.m_delegateIn.AddProcess(m_network.p_Syncs);             // Family sync goes to delegation
     
     m_network.m_delegateOut.AddProcess(m_pipeline.p_Pipeline);        // Sending or requesting registers
     m_network.m_delegateOut.AddProcess(m_network.p_DelegationIn);     // Returning registers
@@ -197,6 +198,7 @@ void Processor::Initialize(Processor* prev, Processor* next)
     m_network.m_delegateOut.AddProcess(m_allocator.p_FamilyAllocate); // Allocation process sends FID
     m_network.m_delegateOut.AddProcess(m_allocator.p_FamilyCreate);   // Create process sends delegated create
     m_network.m_delegateOut.AddProcess(m_allocator.p_ThreadAllocate); // Thread cleanup caused sync
+    m_network.m_delegateOut.AddProcess(m_network.p_Syncs);            // Family sync goes to delegation
 }    
 
 MemAddr Processor::GetDeviceBaseAddress(IODeviceID dev) const

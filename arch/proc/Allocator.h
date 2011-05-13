@@ -12,6 +12,7 @@ enum FamilyDependency
     FAMDEP_THREAD_COUNT,        // Number of allocated threads
     FAMDEP_OUTSTANDING_READS,   // Number of outstanding memory reads
     FAMDEP_PREV_SYNCHRONIZED,   // Family has synchronized on the previous processor
+    FAMDEP_SYNC_SENT,           // The synchronization has been sent
     FAMDEP_DETACHED,            // Family has been detached
 	FAMDEP_ALLOCATION_DONE,     // Thread allocation is done
 };

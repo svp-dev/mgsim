@@ -43,16 +43,19 @@ Processor::Network::Network(
     CONSTRUCT_REGISTER(m_link),
     CONSTRUCT_REGISTER(m_allocResponse),
 #undef CONTRUCT_REGISTER
+    m_syncs ("b_syncs", *this, clock, familyTable.GetNumFamilies(), 3 ),
 
     p_DelegationOut(*this, "delegation-out", delegate::create<Network, &Processor::Network::DoDelegationOut>(*this)),
     p_DelegationIn (*this, "delegation-in",  delegate::create<Network, &Processor::Network::DoDelegationIn >(*this)),
     p_Link         (*this, "link",           delegate::create<Network, &Processor::Network::DoLink         >(*this)),
-    p_AllocResponse(*this, "alloc-response", delegate::create<Network, &Processor::Network::DoAllocResponse>(*this))
+    p_AllocResponse(*this, "alloc-response", delegate::create<Network, &Processor::Network::DoAllocResponse>(*this)),
+    p_Syncs        (*this, "syncs",          delegate::create<Network, &Processor::Network::DoSyncs        >(*this))
 {
     m_delegateOut.Sensitive(p_DelegationOut);
     m_delegateIn .Sensitive(p_DelegationIn);
     
     m_link.in.Sensitive(p_Link);
+    m_syncs.Sensitive(p_Syncs);
     
     m_allocResponse.in.Sensitive(p_AllocResponse);
 }
@@ -153,6 +156,52 @@ bool Processor::Network::SendAllocResponse(const AllocResponse& msg)
         return false;
     }
     return true;
+}
+
+bool Processor::Network::SendSync(const SyncInfo& sync)
+{
+    if (!m_syncs.Push(sync))
+    {
+        // This shouldn't happen; the buffer should be large enough
+        // to accomodate all family events (family table size).
+        assert(false);
+        return false;
+    }
+    return true;
+}
+
+Result Processor::Network::DoSyncs()
+{
+    assert(!m_syncs.Empty());
+    const SyncInfo& info = m_syncs.Front();
+
+    // Synchronization, send remote register write
+    assert(info.fid != INVALID_LFID);
+    assert(info.pid != INVALID_PID);
+    assert(info.reg != INVALID_REG_INDEX);
+    
+    RemoteMessage msg;
+    msg.type = RemoteMessage::MSG_RAW_REGISTER;
+    msg.rawreg.pid             = info.pid;
+    msg.rawreg.addr            = MAKE_REGADDR(RT_INTEGER, info.reg);
+    msg.rawreg.value.m_state   = RST_FULL;
+    msg.rawreg.value.m_integer = 0;
+
+    if (!SendMessage(msg))
+    {
+        DeadlockWrite("Unable to buffer family event onto delegation network");
+        return FAILED;
+    }
+    
+    if (!m_allocator.DecreaseFamilyDependency(info.fid, FAMDEP_SYNC_SENT))
+    {
+        assert(false);
+        DeadlockWrite("Unable to mark sync_sent in F%u", (unsigned)info.fid);
+        return FAILED;
+    }
+    
+    m_syncs.Pop();
+    return SUCCESS;
 }
 
 Result Processor::Network::DoAllocResponse()
@@ -344,21 +393,22 @@ bool Processor::Network::OnSync(LFID fid, PID completion_pid, RegIndex completio
         {
             family.sync.pid = completion_pid;
             family.sync.reg = completion_reg;
+            family.dependencies.syncSent = false;
         }
     }
     else
     {
         // The family has already completed, send sync result back
-        RemoteMessage ret;
-        ret.type = RemoteMessage::MSG_RAW_REGISTER;
-        ret.rawreg.pid             = completion_pid;
-        ret.rawreg.addr            = MAKE_REGADDR(RT_INTEGER, completion_reg);
-        ret.rawreg.value.m_state   = RST_FULL;
-        ret.rawreg.value.m_integer = 0;
-
-        if (!SendMessage(ret))
+        SyncInfo info;
+        info.fid = fid;
+        info.pid = completion_pid;
+        info.reg = completion_reg;
+        
+        COMMIT{ family.dependencies.syncSent = false; }
+        
+        if (!SendSync(info))
         {
-            DeadlockWrite("Unable to send sync acknowledgement");
+            DeadlockWrite("Unable to buffer sync acknowledgement");
             return false;
         }
     }
@@ -959,6 +1009,13 @@ void Processor::Network::Cmd_Read(ostream& out, const vector<string>& /* argumen
         }
         out << endl;
     }
+    
+    out << "Family events:" << dec << endl;
+    for (Buffer<SyncInfo>::const_iterator p = m_syncs.begin(); p != m_syncs.end(); ++p)
+    {
+        out << "R" << p->reg << "@P" << p->pid << " ";
+    }
+    out << endl;
 }
 
 }

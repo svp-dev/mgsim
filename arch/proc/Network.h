@@ -265,12 +265,20 @@ class Network : public Object, public Inspect::Interface<Inspect::Read>
 	};
 	
 public:
+    struct SyncInfo
+    {
+        LFID     fid;
+        PID      pid;
+        RegIndex reg;
+    };
+    
     Network(const std::string& name, Processor& parent, Clock& clock, const std::vector<Processor*>& grid, Allocator& allocator, RegisterFile& regFile, FamilyTable& familyTable, Config& config);
     void Initialize(Network* prev, Network* next);
 
     bool SendMessage(const RemoteMessage& msg);
     bool SendMessage(const LinkMessage& msg);
     bool SendAllocResponse(const AllocResponse& msg);
+    bool SendSync(const SyncInfo& event);
 
     void Cmd_Info(std::ostream& out, const std::vector<std::string>& arguments) const;
     void Cmd_Read(std::ostream& out, const std::vector<std::string>& arguments) const;
@@ -293,6 +301,7 @@ private:
     Result DoAllocResponse();
     Result DoDelegationOut();
     Result DoDelegationIn();
+    Result DoSyncs();
 
     Processor&                     m_parent;
     RegisterFile&                  m_regFile;
@@ -309,12 +318,18 @@ public:
     Register<DelegateMessage>   m_delegateIn;     ///< Incoming delegation messages
     RegisterPair<LinkMessage>   m_link;           ///< Forward link through the cores
     RegisterPair<AllocResponse> m_allocResponse;  ///< Backward link for allocation unroll/commit
+    
+    // Synchronizations destined for outgoing delegation network.
+    // We need this buffer to break the circular depedency between the
+    // link and delegation network.
+    Buffer<SyncInfo> m_syncs;
 
     // Processes
     Process p_DelegationOut;
     Process p_DelegationIn;
     Process p_Link;
     Process p_AllocResponse;
+    Process p_Syncs;
 };
 
 #endif
