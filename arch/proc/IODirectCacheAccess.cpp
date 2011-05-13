@@ -17,10 +17,10 @@ namespace Simulator
           p_BusOutgoing   (*this, "send-bus-responses", delegate::create<IODirectCacheAccess, &Processor::IODirectCacheAccess::DoBusOutgoing>(*this)),
           p_service(*this, clock, "p_service")
     {
-        p_service.AddProcess(p_MemoryOutgoing);
         p_service.AddProcess(p_BusOutgoing);
-        m_requests.Sensitive(p_MemoryOutgoing);
+        p_service.AddProcess(p_MemoryOutgoing);
         m_responses.Sensitive(p_BusOutgoing);
+        m_requests.Sensitive(p_MemoryOutgoing);
     }
     
     bool Processor::IODirectCacheAccess::QueueRequest(const Request& req)
