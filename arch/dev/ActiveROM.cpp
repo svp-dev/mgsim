@@ -223,24 +223,31 @@ namespace Simulator
         size_t offset = r.rom_offset + m_currentOffset;
         size_t voffset = r.vaddr + m_currentOffset;
         
+        // transfer size:
+        // - cannot be greater than the line size
+        // - cannot be greated than the number of bytes remaining on the ROM
+        // - cannot cause the range [voffset + size] to cross over a line boundary.
+        MemSize transfer_size = min(min((MemSize)(r.rom_size - m_currentOffset), (MemSize)m_lineSize), 
+                                    (MemSize)(m_lineSize - voffset % m_lineSize));
+
         IOData data;
-        data.size = min((MemSize)(r.rom_size - m_currentOffset), (MemSize)m_lineSize);
+        data.size = transfer_size;
         memcpy(data.data, m_data + offset, data.size);
 
         if (!m_iobus.SendWriteRequest(m_devid, m_client, voffset, data))
         {
             DeadlockWrite("Unable to send DCA write for ROM data %#016llx/%u to device %u", 
-                          (unsigned long long)(voffset), (unsigned)data.size, (unsigned)m_client);
+                          (unsigned long long)(voffset), (unsigned)transfer_size, (unsigned)m_client);
             return FAILED;
         }
 
-        if (m_currentOffset + m_lineSize < r.rom_size)
+        if (m_currentOffset + transfer_size < r.rom_size)
         {
             COMMIT {
-                m_currentOffset += m_lineSize;
+                m_currentOffset += transfer_size;
             }
         }
-        else if (m_currentOffset + m_lineSize >= r.rom_size && m_currentRange + 1 < m_loadable.size())
+        else if (m_currentOffset + transfer_size >= r.rom_size && m_currentRange + 1 < m_loadable.size())
         {
             COMMIT {
                 ++m_currentRange;
@@ -291,6 +298,7 @@ namespace Simulator
             m_flushing.Clear();
             m_loading.Set();
         }
+        return true;
     }
 
     void ActiveROM::GetDeviceIdentity(IODeviceIdentification& id) const
