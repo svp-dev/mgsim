@@ -124,6 +124,7 @@ class Process
     unsigned int      m_activations;   ///< Reference count of activations of this process
     Process*          m_next;          ///< Next pointer in the list of processes that require updates
     Process**         m_pPrev;         ///< Prev pointer in the list of processes that require updates
+    uint64_t          m_stalls;        ///< Number of times the process stalled (failed).
 
     // Processes are non-copyable and non-assignable
     Process(const Process&);
@@ -137,10 +138,7 @@ public:
     
     void Deactivate();
         
-    Process(const std::string& name, const delegate& delegate)
-        : m_name(name), m_delegate(delegate), m_state(STATE_IDLE), m_activations(0)
-    {
-    }
+    Process(Object& parent, const std::string& name, const delegate& delegate);
 };
 
 /**

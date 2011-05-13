@@ -13,7 +13,7 @@ namespace Simulator
           m_iobus(iobus),
           m_hostid(devid),
           m_outgoing_reqs("b_outgoing_reqs", *this, clock, config.getValue<BufferSize>(*this, "OutgoingRequestQueueSize")),
-          p_OutgoingRequests("outgoing-requests", delegate::create<IOBusInterface, &Processor::IOBusInterface::DoOutgoingRequests>(*this))
+          p_OutgoingRequests(*this, "outgoing-requests", delegate::create<IOBusInterface, &Processor::IOBusInterface::DoOutgoingRequests>(*this))
     {
         if (m_outgoing_reqs.GetMaxSize() < 3)
         {

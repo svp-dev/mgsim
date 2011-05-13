@@ -245,8 +245,8 @@ DDRChannel::DDRChannel(const std::string& name, Object& parent, Clock& clock, Vi
       m_next_command(0),
       m_next_precharge(0),
     
-      p_Request ("request",  delegate::create<DDRChannel, &DDRChannel::DoRequest >(*this)),
-      p_Pipeline("pipeline", delegate::create<DDRChannel, &DDRChannel::DoPipeline>(*this))
+      p_Request (*this, "request",  delegate::create<DDRChannel, &DDRChannel::DoRequest >(*this)),
+      p_Pipeline(*this, "pipeline", delegate::create<DDRChannel, &DDRChannel::DoPipeline>(*this))
 {
     m_busy.Sensitive(p_Request);
     m_pipeline.Sensitive(p_Pipeline);

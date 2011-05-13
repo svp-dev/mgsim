@@ -25,8 +25,8 @@ namespace Simulator
           m_enable_dca(false),
           m_start_dca("f_start_dca", *this, iobus.GetClock(), false),
           m_doboot("f_doboot", *this, iobus.GetClock(), false),
-          p_StartDCA("start-dca", delegate::create<SMC, &SMC::DoStartDCA>(*this)),
-          p_Boot("boot", delegate::create<SMC, &SMC::DoBoot>(*this))
+          p_StartDCA(*this, "start-dca", delegate::create<SMC, &SMC::DoStartDCA>(*this)),
+          p_Boot    (*this, "boot", delegate::create<SMC, &SMC::DoBoot>(*this))
     {
         iobus.RegisterClient(devid, *this);
 

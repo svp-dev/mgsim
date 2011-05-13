@@ -228,9 +228,9 @@ public:
           m_incoming("b_incoming", *this, clock, buffersize),
           m_outgoing("b_outgoing", *this, clock, buffersize),
           m_busy    ("f_busy", *this, clock, false),
-          p_Incoming("in",   delegate::create<Bank, &Bank::DoIncoming>(*this)),
-          p_Outgoing("out",  delegate::create<Bank, &Bank::DoOutgoing>(*this)),
-          p_Bank    ("bank", delegate::create<Bank, &Bank::DoRequest> (*this))
+          p_Incoming(*this, "in",   delegate::create<Bank, &Bank::DoIncoming>(*this)),
+          p_Outgoing(*this, "out",  delegate::create<Bank, &Bank::DoOutgoing>(*this)),
+          p_Bank    (*this, "bank", delegate::create<Bank, &Bank::DoRequest> (*this))
     {
         m_incoming.Sensitive( p_Incoming );
         m_outgoing.Sensitive( p_Outgoing );

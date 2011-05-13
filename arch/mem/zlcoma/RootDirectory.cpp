@@ -446,9 +446,9 @@ ZLCOMA::RootDirectory::RootDirectory(const std::string& name, ZLCOMA& parent, Cl
     m_responses("b_responses", *this, clock, config.getValue<size_t>(*this, "ExternalInputQueueSize")),
     m_memready ("f_memready", *this, clock, true),
     m_activeMsg(NULL),
-    p_Incoming ("incoming",  delegate::create<RootDirectory, &RootDirectory::DoIncoming>(*this)),
-    p_Requests ("requests",  delegate::create<RootDirectory, &RootDirectory::DoRequests>(*this)),
-    p_Responses("responses", delegate::create<RootDirectory, &RootDirectory::DoResponses>(*this)),
+    p_Incoming (*this, "incoming",  delegate::create<RootDirectory, &RootDirectory::DoIncoming>(*this)),
+    p_Requests (*this, "requests",  delegate::create<RootDirectory, &RootDirectory::DoRequests>(*this)),
+    p_Responses(*this, "responses", delegate::create<RootDirectory, &RootDirectory::DoResponses>(*this)),
     m_nreads(0),
     m_nwrites(0)
 {

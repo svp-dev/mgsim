@@ -44,10 +44,10 @@ Processor::Network::Network(
     CONSTRUCT_REGISTER(m_allocResponse),
 #undef CONTRUCT_REGISTER
 
-    p_DelegationOut("delegation-out", delegate::create<Network, &Processor::Network::DoDelegationOut>(*this)),
-    p_DelegationIn ("delegation-in",  delegate::create<Network, &Processor::Network::DoDelegationIn >(*this)),
-    p_Link         ("link",           delegate::create<Network, &Processor::Network::DoLink         >(*this)),
-    p_AllocResponse("alloc-response", delegate::create<Network, &Processor::Network::DoAllocResponse>(*this))
+    p_DelegationOut(*this, "delegation-out", delegate::create<Network, &Processor::Network::DoDelegationOut>(*this)),
+    p_DelegationIn (*this, "delegation-in",  delegate::create<Network, &Processor::Network::DoDelegationIn >(*this)),
+    p_Link         (*this, "link",           delegate::create<Network, &Processor::Network::DoLink         >(*this)),
+    p_AllocResponse(*this, "alloc-response", delegate::create<Network, &Processor::Network::DoAllocResponse>(*this))
 {
     m_delegateOut.Sensitive(p_DelegationOut);
     m_delegateIn .Sensitive(p_DelegationIn);

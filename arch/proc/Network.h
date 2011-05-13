@@ -256,7 +256,7 @@ class Network : public Object, public Inspect::Interface<Inspect::Read>
         RegisterPair(Object& parent, const std::string& name)
             : Object(name, parent),
               remote(NULL),
-              p_Transfer("transfer", delegate::create<RegisterPair, &RegisterPair::DoTransfer>(*this)),
+              p_Transfer(*this, "transfer", delegate::create<RegisterPair, &RegisterPair::DoTransfer>(*this)),
               out(parent, name + ".out"),
               in (parent, name + ".in")
         {

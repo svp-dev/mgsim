@@ -139,7 +139,7 @@ ZLCOMA::Node::Node(const std::string& name, ZLCOMA& parent, Clock& clock)
       m_next(NULL),
       m_incoming("b_incoming", *this, clock, 2),
       m_outgoing("b_outgoing", *this, clock, 2),
-      p_Forward("forward", delegate::create<Node, &Node::DoForward>(*this))
+      p_Forward(*this, "forward", delegate::create<Node, &Node::DoForward>(*this))
 {
     g_References++;
     

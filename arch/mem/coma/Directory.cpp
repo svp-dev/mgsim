@@ -262,8 +262,8 @@ COMA::Directory::Directory(const std::string& name, COMA& parent, Clock& clock, 
     m_sets      (config.getValue<size_t>(parent, "L2CacheNumSets")),
     m_firstCache(firstCache),
     m_lastCache (lastCache),
-    p_InBottom  ("bottom_incoming", delegate::create<Directory, &Directory::DoInBottom >(*this)),
-    p_InTop     ("top_incoming",    delegate::create<Directory, &Directory::DoInTop    >(*this))
+    p_InBottom  (*this, "bottom_incoming", delegate::create<Directory, &Directory::DoInBottom >(*this)),
+    p_InTop     (*this, "top_incoming",    delegate::create<Directory, &Directory::DoInTop    >(*this))
 {
     // Create the cache lines
     // We need as many cache lines in a directory to cover all caches below it

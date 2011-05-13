@@ -136,7 +136,7 @@ public:
           m_memory(memory),
           p_requests(*this, clock, "p_requests"),
           m_requests("b_requests", *this, clock, buffersize), m_nextdone(0),
-          p_Requests("port", delegate::create<Port, &Port::DoRequests>(*this))
+          p_Requests(*this, "port", delegate::create<Port, &Port::DoRequests>(*this))
     {
         m_requests.Sensitive( p_Requests );
     }

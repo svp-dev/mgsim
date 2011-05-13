@@ -1171,8 +1171,8 @@ ZLCOMA::Cache::Cache(const std::string& name, ZLCOMA& parent, Clock& clock, Cach
     p_lines    (*this, clock, "p_lines"),
     m_numHits  (0),
     m_numMisses(0),
-    p_Requests ("requests", delegate::create<Cache, &Cache::DoRequests>(*this)),
-    p_In       ("incoming", delegate::create<Cache, &Cache::DoReceive>(*this)),
+    p_Requests (*this, "requests", delegate::create<Cache, &Cache::DoRequests>(*this)),
+    p_In       (*this, "incoming", delegate::create<Cache, &Cache::DoReceive>(*this)),
     p_bus      (*this, clock, "p_bus"),
     m_requests ("b_requests", *this, clock, config.getValue<BufferSize>(*this, "RequestBufferSize")),
     m_responses("b_responses", *this, clock, config.getValue<BufferSize>(*this, "ResponseBufferSize"))

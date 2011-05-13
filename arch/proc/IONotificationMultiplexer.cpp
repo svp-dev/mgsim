@@ -9,7 +9,7 @@ Processor::IONotificationMultiplexer::IONotificationMultiplexer(const std::strin
     : Object(name, parent, clock),
       m_regFile(rf),
       m_lastNotified(0),
-      p_IncomingNotifications("received-notifications", delegate::create<IONotificationMultiplexer, &Processor::IONotificationMultiplexer::DoReceivedNotifications>(*this))
+      p_IncomingNotifications(*this, "received-notifications", delegate::create<IONotificationMultiplexer, &Processor::IONotificationMultiplexer::DoReceivedNotifications>(*this))
 {
     m_writebacks.resize(numChannels, 0);
     m_interrupts.resize(numChannels, 0);

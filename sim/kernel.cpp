@@ -42,6 +42,13 @@ void Process::Deactivate()
     }
 }
 
+Process::Process(Object& parent, const string& name, const delegate& delegate)
+    : m_name(name), m_delegate(delegate), m_state(STATE_IDLE), m_activations(0), m_stalls(0)
+{
+    RegisterSampleVariable(m_stalls, parent.GetFQN() + '.' + name + ".stalls", SVC_CUMULATIVE);
+}
+
+
 //
 // Object class
 //
@@ -255,9 +262,15 @@ RunState Kernel::Step(CycleNo cycles)
                     m_debugging = false; // Will be used by DeadlockWrite() for process-seperating newlines
                 
                     // If we fail in the acquire stage, don't bother with the check and commit stages
-                    process->m_state = (process->m_delegate() == FAILED)
-                        ? STATE_DEADLOCK
-                        : STATE_RUNNING;
+                    if (process->m_delegate() == FAILED)
+                    {
+                        process->m_state = STATE_DEADLOCK;
+                        ++process->m_stalls;
+                    }
+                    else
+                    {
+                        process->m_state = STATE_RUNNING;
+                    }
                 }
             }
             

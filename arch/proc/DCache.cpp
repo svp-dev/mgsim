@@ -30,9 +30,9 @@ Processor::DCache::DCache(const std::string& name, Processor& parent, Clock& clo
     m_numHits        (0),
     m_numMisses      (0),
 
-    p_IncomingReads ("completed-reads",  delegate::create<DCache, &Processor::DCache::DoCompletedReads  >(*this) ),
-    p_IncomingWrites("completed-writes", delegate::create<DCache, &Processor::DCache::DoCompletedWrites >(*this) ),
-    p_Outgoing      ("outgoing",         delegate::create<DCache, &Processor::DCache::DoOutgoingRequests>(*this) ),
+    p_IncomingReads (*this, "completed-reads",  delegate::create<DCache, &Processor::DCache::DoCompletedReads  >(*this) ),
+    p_IncomingWrites(*this, "completed-writes", delegate::create<DCache, &Processor::DCache::DoCompletedWrites >(*this) ),
+    p_Outgoing      (*this, "outgoing",         delegate::create<DCache, &Processor::DCache::DoOutgoingRequests>(*this) ),
 
     p_service        (*this, clock, "p_service")
 {

@@ -1613,10 +1613,10 @@ Processor::Allocator::Allocator(const string& name, Processor& parent, Clock& cl
 
     m_maxallocex(0), m_totalallocex(0), m_lastcycle(0), m_curallocex(0),
 
-    p_ThreadAllocate  ("thread-allocate",   delegate::create<Allocator, &Processor::Allocator::DoThreadAllocate  >(*this) ),
-    p_FamilyAllocate  ("family-allocate",   delegate::create<Allocator, &Processor::Allocator::DoFamilyAllocate  >(*this) ),
-    p_FamilyCreate    ("family-create",     delegate::create<Allocator, &Processor::Allocator::DoFamilyCreate    >(*this) ),
-    p_ThreadActivation("thread-activation", delegate::create<Allocator, &Processor::Allocator::DoThreadActivation>(*this) ),
+    p_ThreadAllocate  (*this, "thread-allocate",   delegate::create<Allocator, &Processor::Allocator::DoThreadAllocate  >(*this) ),
+    p_FamilyAllocate  (*this, "family-allocate",   delegate::create<Allocator, &Processor::Allocator::DoFamilyAllocate  >(*this) ),
+    p_FamilyCreate    (*this, "family-create",     delegate::create<Allocator, &Processor::Allocator::DoFamilyCreate    >(*this) ),
+    p_ThreadActivation(*this, "thread-activation", delegate::create<Allocator, &Processor::Allocator::DoThreadActivation>(*this) ),
     
     p_allocation    (*this, clock, "p_allocation"),
     p_alloc         (*this, clock, "p_alloc"),

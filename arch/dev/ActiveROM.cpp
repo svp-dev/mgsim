@@ -124,9 +124,9 @@ namespace Simulator
           m_notifying("f_notifying", *this, iobus.GetClock(), false),
           m_currentRange(0),
           m_currentOffset(0),
-          p_Load("load", delegate::create<ActiveROM, &ActiveROM::DoLoad>(*this)),
-          p_Flush("flush", delegate::create<ActiveROM, &ActiveROM::DoFlush>(*this)),
-          p_Notify("notify", delegate::create<ActiveROM, &ActiveROM::DoNotify>(*this))
+          p_Load  (*this, "load", delegate::create<ActiveROM, &ActiveROM::DoLoad>(*this)),
+          p_Flush (*this, "flush", delegate::create<ActiveROM, &ActiveROM::DoFlush>(*this)),
+          p_Notify(*this, "notify", delegate::create<ActiveROM, &ActiveROM::DoNotify>(*this))
     {
         iobus.RegisterClient(devid, *this);
         m_loading.Sensitive(p_Load);

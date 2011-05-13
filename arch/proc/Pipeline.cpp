@@ -34,7 +34,7 @@ Processor::Pipeline::Pipeline(
     Config&       config)
 :
     Object(name, parent, clock),
-    p_Pipeline("pipeline", delegate::create<Pipeline, &Processor::Pipeline::DoPipeline>(*this)),
+    p_Pipeline(*this, "pipeline", delegate::create<Pipeline, &Processor::Pipeline::DoPipeline>(*this)),
     m_parent(parent),
     
     m_active("f_active", *this, clock),

@@ -9,8 +9,8 @@ Processor::IOResponseMultiplexer::IOResponseMultiplexer(const std::string& name,
     : Object(name, parent, clock),
       m_regFile(rf),
       m_incoming("b_incoming", *this, clock, config.getValue<BufferSize>(*this, "IncomingQueueSize")),
-      p_dummy("dummy-process", delegate::create<IOResponseMultiplexer, &Processor::IOResponseMultiplexer::DoNothing>(*this)),
-      p_IncomingReadResponses("completed-reads", delegate::create<IOResponseMultiplexer, &Processor::IOResponseMultiplexer::DoReceivedReadResponses>(*this))
+      p_dummy(*this, "dummy-process", delegate::create<IOResponseMultiplexer, &Processor::IOResponseMultiplexer::DoNothing>(*this)),
+      p_IncomingReadResponses(*this, "completed-reads", delegate::create<IOResponseMultiplexer, &Processor::IOResponseMultiplexer::DoReceivedReadResponses>(*this))
 {
     m_incoming.Sensitive(p_IncomingReadResponses);
 

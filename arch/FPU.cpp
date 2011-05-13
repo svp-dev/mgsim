@@ -255,7 +255,7 @@ FPU::Source::Source(const std::string& name, Object& parent, Clock& clock, Confi
 FPU::FPU(const std::string& name, Object& parent, Clock& clock, Config& config, size_t num_inputs)
     : Object(name, parent, clock),
       m_active("r_active", *this, clock),
-      p_Pipeline("pipeline", delegate::create<FPU, &FPU::DoPipeline>(*this) )
+      p_Pipeline(*this, "pipeline", delegate::create<FPU, &FPU::DoPipeline>(*this) )
 {
     m_active.Sensitive(p_Pipeline);
     try

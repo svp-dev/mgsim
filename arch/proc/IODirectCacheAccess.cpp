@@ -13,8 +13,8 @@ namespace Simulator
           m_responses("b_responses", *this, busclock, config.getValue<BufferSize>(*this, "ResponseQueueSize")),
           m_has_outstanding_request(false),
           m_pending_writes(0),
-          p_MemoryOutgoing("send-memory-requests", delegate::create<IODirectCacheAccess, &Processor::IODirectCacheAccess::DoMemoryOutgoing>(*this)),
-          p_BusOutgoing("send-bus-responses", delegate::create<IODirectCacheAccess, &Processor::IODirectCacheAccess::DoBusOutgoing>(*this)),
+          p_MemoryOutgoing(*this, "send-memory-requests", delegate::create<IODirectCacheAccess, &Processor::IODirectCacheAccess::DoMemoryOutgoing>(*this)),
+          p_BusOutgoing   (*this, "send-bus-responses", delegate::create<IODirectCacheAccess, &Processor::IODirectCacheAccess::DoBusOutgoing>(*this)),
           p_service(*this, clock, "p_service")
     {
         p_service.AddProcess(p_MemoryOutgoing);

@@ -26,8 +26,8 @@ Processor::ICache::ICache(const std::string& name, Processor& parent, Clock& clo
     m_numMisses(0),
     m_lineSize(config.getValue<size_t>("CacheLineSize")),
     m_assoc   (config.getValue<size_t>(*this, "Associativity")),
-    p_Outgoing("outgoing", delegate::create<ICache, &Processor::ICache::DoOutgoing>(*this)),
-    p_Incoming("incoming", delegate::create<ICache, &Processor::ICache::DoIncoming>(*this)),
+    p_Outgoing(*this, "outgoing", delegate::create<ICache, &Processor::ICache::DoOutgoing>(*this)),
+    p_Incoming(*this, "incoming", delegate::create<ICache, &Processor::ICache::DoIncoming>(*this)),
     p_service(*this, clock, "p_service")
 {
     RegisterSampleVariableInObject(m_numHits, SVC_CUMULATIVE);

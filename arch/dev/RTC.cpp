@@ -78,7 +78,7 @@ namespace Simulator
           m_iobus(iobus),
           m_doNotify("f_interruptTriggered", *this, iobus.GetClock(), false),
           m_interruptNumber(0),
-          p_notifyTime("notify-time", delegate::create<RTCInterface, &RTCInterface::DoNotifyTime>(*this))
+          p_notifyTime(*this, "notify-time", delegate::create<RTCInterface, &RTCInterface::DoNotifyTime>(*this))
     {
         iobus.RegisterClient(devid, *this);
         m_doNotify.Sensitive(p_notifyTime);
@@ -92,7 +92,7 @@ namespace Simulator
           m_deliverAllEvents(true),
           m_enableCheck("f_checkTime", *this, rtcclock, false),
           m_businterface("if", *this, iobus, devid),
-          p_checkTime("time-update", delegate::create<RTC, &RTC::DoCheckTime>(*this))
+          p_checkTime(*this, "time-update", delegate::create<RTC, &RTC::DoCheckTime>(*this))
     {
         setup_clocks(config);
         m_timeOfLastInterrupt = currentTime;
