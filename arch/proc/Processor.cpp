@@ -142,18 +142,18 @@ void Processor::Initialize(Processor* prev, Processor* next)
     m_allocator.p_activeThreads.AddProcess(m_icache.p_Incoming);            // Thread activation due to I-Cache line return
     m_allocator.p_activeThreads.AddProcess(m_allocator.p_ThreadActivation); // Thread activation due to I-Cache hit (from Ready Queue)
 
-    if (m_io_if != NULL)
-    {
-        m_registerFile.p_asyncW.AddProcess(m_io_if->GetNotificationMultiplexer().p_IncomingNotifications); // I/O notifications
-        m_registerFile.p_asyncW.AddProcess(m_io_if->GetReadResponseMultiplexer().p_IncomingReadResponses); // I/O read requests
-    }
-
     m_registerFile.p_asyncW.AddProcess(m_network.p_Link);                   // Place register receives
     m_registerFile.p_asyncW.AddProcess(m_network.p_DelegationIn);           // Remote register receives
     m_registerFile.p_asyncW.AddProcess(m_dcache.p_IncomingReads);           // Mem Load writebacks
 
     m_registerFile.p_asyncW.AddProcess(m_fpu.p_Pipeline);                   // FPU Op writebacks
     m_registerFile.p_asyncW.AddProcess(m_allocator.p_ThreadAllocate);       // Thread allocation
+
+    if (m_io_if != NULL)
+    {
+        m_registerFile.p_asyncW.AddProcess(m_io_if->GetNotificationMultiplexer().p_IncomingNotifications); // I/O notifications
+        m_registerFile.p_asyncW.AddProcess(m_io_if->GetReadResponseMultiplexer().p_IncomingReadResponses); // I/O read requests
+    }
     
     m_registerFile.p_asyncR.AddProcess(m_network.p_DelegationIn);           // Remote register requests
     
