@@ -16,6 +16,7 @@
 namespace Simulator {
 
     class ActiveROM;
+    class Selector;
 
     class MGSystem
     {
@@ -42,6 +43,7 @@ namespace Simulator {
         } m_memorytype; // for WriteConfiguration
         Config&            m_config;
         ActiveROM*         m_bootrom;
+        Selector*          m_selector;
 
         // Writes the current configuration into memory and returns its address
         MemAddr WriteConfiguration();

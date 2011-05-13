@@ -26,6 +26,8 @@ DEVICE_SRC = \
         arch/dev/ELFLoader.cpp \
         arch/dev/ActiveROM.h \
         arch/dev/ActiveROM.cpp \
+        arch/dev/Selector.h \
+        arch/dev/Selector.cpp \
         arch/dev/SMC.h \
         arch/dev/SMC.cpp
 

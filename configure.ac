@@ -34,6 +34,8 @@ AC_PROG_SED
 
 AC_HEADER_ASSERT
 
+PKG_CHECK_MODULES([LIBEVENT], [libevent >= 2.0])
+
 AC_LIB_READLINE
 if test "x$ac_cv_lib_readline" = xno; then
      AC_MSG_WARN([The readline library or development header could not be found.])
