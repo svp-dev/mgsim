@@ -955,13 +955,13 @@ Processor::Pipeline::PipeAction Processor::Pipeline::ExecuteStage::ExecuteInstru
             } else if (m_input.displacement < 15) {
                 // RDASR: Read Ancillary State Register
                 COMMIT {
-                    m_output.Rcv.m_integer = GetParent().GetProcessor().ReadASR(m_input.displacement - 1); // number 0 is %y
+                    m_output.Rcv.m_integer = m_parent.GetProcessor().ReadASR(m_input.displacement - 1); // number 0 is %y
                     m_output.Rcv.m_state   = RST_FULL;
                 }
             } else if (m_input.displacement >= 21) {
                 // Read implementation dependent State Register >= 21
                 COMMIT {
-                    m_output.Rcv.m_integer = GetParent().GetProcessor().ReadAPR(m_input.displacement - 21);
+                    m_output.Rcv.m_integer = m_parent.GetProcessor().ReadAPR(m_input.displacement - 21);
                     m_output.Rcv.m_state   = RST_FULL;
                 }
             } else {
