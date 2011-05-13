@@ -55,11 +55,6 @@ namespace Simulator
 
         m_cpu = & cpu_if->GetProcessor();
 
-        if (m_enable_boot && !m_rom->IsBootable())
-        {
-            throw exceptf<InvalidArgumentException>(*this, "LinkedROM is not bootable: %s", m_rom->GetFQN().c_str());
-        }
-
         // component processes 
 
         m_start_dca.Sensitive(p_StartDCA);
@@ -73,6 +68,11 @@ namespace Simulator
 
     void SMC::Initialize()
     {
+        if (m_enable_boot && !m_rom->IsBootable())
+        {
+            throw exceptf<InvalidArgumentException>(*this, "LinkedROM is not bootable: %s", m_rom->GetFQN().c_str());
+        }
+
         size_t numDevices = m_iobus.GetLastDeviceID();
         m_size = (numDevices + 1) * 8;
         m_enumdata = new char[m_size];
