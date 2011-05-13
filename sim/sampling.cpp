@@ -195,7 +195,9 @@ BinarySampler::BinarySampler(std::ostream& os, const Config& config,
         os << "# host: " << hn << std::endl;
     
     os << "# configuration:" << std::endl;
-    config.dumpConfiguration(os, "", true);
+    std::vector<std::pair<std::string, std::string> > rawconf = config.getRawConfiguration();
+    for (size_t i = 0; i < rawconf.size(); ++i)
+        os << "# " << rawconf[i].first << " = " << rawconf[i].second << std::endl;
 
     os << "# varinfo: " << vars.size() << std::endl;
     // ListSampleVariables_header(os);

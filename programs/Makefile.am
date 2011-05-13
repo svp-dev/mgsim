@@ -1,4 +1,4 @@
-dist_pkgdata_DATA = config.ini nobounds.ini
+dist_pkgdata_DATA = config.ini nobounds.ini mgsim.h
 
 CLEANFILES = nobounds.ini
 

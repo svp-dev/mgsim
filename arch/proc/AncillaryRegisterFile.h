@@ -17,29 +17,6 @@
 
 typedef size_t ARAddr;
 
-#define ASR_SYSTEM_VERSION    0
-// the following must be updated whenever the
-// list of ASRs below changes!
-#define ASR_SYSTEM_VERSION_VALUE  1
-
-#define ASR_CONFIG_CAPS       1
-#define ASR_DELEGATE_CAPS     2
-#define ASR_SYSCALL_BASE      3
-#define ASR_NUM_PERFCOUNTERS  4
-#define ASR_PERFCOUNTERS_BASE 5
-#define ASR_IO_PARAMS         6
-#define ASR_AIO_BASE          7
-#define ASR_PNC_BASE          8
-#define NUM_ASRS              9
-
-// Suggested:
-// #define APR_SEP                0
-// #define APR_TLSTACK_FIRST_TOP  1
-// #define APR_TLHEAP_BASE        2
-// #define APR_TLHEAP_SIZE        3
-// #define APR_GLHEAP             4
-
-
 class AncillaryRegisterFile : public Object, public Inspect::Interface<Inspect::Read>
 {
     const size_t                  m_numRegisters;

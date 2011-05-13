@@ -25,6 +25,8 @@ namespace Simulator
     private:
         IMemoryAdmin&      m_memory;
 
+        Config&            m_config;
+
         char              *m_data;
         size_t             m_lineSize;
         size_t             m_numLines;
@@ -53,13 +55,15 @@ namespace Simulator
         size_t             m_currentRange;
         size_t             m_currentOffset;
 
-        void LoadConfig(const Config& config);
+        void LoadConfig(Config& config);
         void LoadFile(const std::string& filename);
         void PrepareRanges();
 
     public:
         ActiveROM(const std::string& name, Object& parent, IMemoryAdmin& mem, IIOBus& iobus, IODeviceID devid, Config& config);
         ~ActiveROM();
+
+        void Initialize();
 
         Process p_Load;
         Process p_Flush;

@@ -8,26 +8,24 @@ using namespace std;
 
 namespace Simulator
 {
-    void ActiveROM::LoadConfig(const Config& config)
+    void ActiveROM::LoadConfig(Config& config)
     {
-        std::ostringstream os;
-        config.dumpConfiguration(os, "", true);
-        std::string data = os.str();
-        
-        size_t romsize = data.size() + m_lineSize;
-        
+        vector<uint32_t> db = config.GetConfWords();
+        size_t romsize = db.size() * sizeof(uint32_t) + m_lineSize;
+
         m_numLines = romsize / m_lineSize;
         m_numLines = (romsize % m_lineSize == 0) ? m_numLines : (m_numLines + 1);
         
         m_data = new char [m_numLines * m_lineSize];
-        memcpy(m_data, data.c_str(), data.size());
-        memset(m_data + data.size(), 0, m_numLines * m_lineSize - data.size());
+        for (size_t i = 0; i < db.size(); ++i)
+        {
+            SerializeRegister(RT_INTEGER, db[i], m_data + i * sizeof(uint32_t), sizeof(uint32_t));
+        }
 
         if (m_verboseload)
         {
             cout << GetName() << ": configuration data: " << dec << romsize << " bytes generated" << endl;
         }
-
     }
 
     void ActiveROM::LoadFile(const string& fname)
@@ -108,6 +106,7 @@ namespace Simulator
     ActiveROM::ActiveROM(const string& name, Object& parent, IMemoryAdmin& mem, IIOBus& iobus, IODeviceID devid, Config& config)
         : Object(name, parent, iobus.GetClock()),
           m_memory(mem),
+          m_config(config),
           m_data(NULL),
           m_lineSize(config.getValue<size_t>(*this, "ROMLineSize", config.getValue<size_t>("CacheLineSize"))),
           m_numLines(0),
@@ -138,16 +137,20 @@ namespace Simulator
         {
             throw exceptf<InvalidArgumentException>(*this, "ROMLineSize cannot be zero");
         }
+    }
 
-        string source = config.getValue<string>(*this, "ROMContentSource");
+    void ActiveROM::Initialize()
+    {
+        string source = m_config.getValue<string>(*this, "ROMContentSource");
+
         if (source == "RAW" || source == "ELF")
         {
-            m_filename = config.getValue<string>(*this, "ROMFileName");
+            m_filename = m_config.getValue<string>(*this, "ROMFileName");
             LoadFile(m_filename);
         }
         else if (source == "CONFIG")
         {
-            LoadConfig(config);
+            LoadConfig(m_config);
         }
         else
         {
@@ -156,7 +159,7 @@ namespace Simulator
 
         if (source == "CONFIG" || source == "RAW")
         {
-            MemAddr addr = config.getValue<MemAddr>(*this, "ROMBaseAddr", 0);
+            MemAddr addr = m_config.getValue<MemAddr>(*this, "ROMBaseAddr", 0);
             if (addr != 0)
             {
                 LoadableRange r;
@@ -170,7 +173,7 @@ namespace Simulator
         }
         else if (source == "ELF")
         {
-            pair<MemAddr, bool> res = LoadProgram(name, m_loadable, m_memory, m_data, m_numLines * m_lineSize, m_verboseload);
+            pair<MemAddr, bool> res = LoadProgram(GetName(), m_loadable, m_memory, m_data, m_numLines * m_lineSize, m_verboseload);
             m_bootable = true;
             m_start_address = res.first;
             m_legacy = res.second;
