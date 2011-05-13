@@ -70,7 +70,7 @@ command_descriptor command_table[] =
     { { "trace", "none", 0 },         0, 0,  cmd_trace_debug,  "trace none",      "Disable all traces." },
     { { "trace", "line", 0 },         2, 3,  cmd_trace_line,   "trace line COMPONENT ADDR [clear]",  "Enable/Disable tracing of the cache line at address ADDR by memory COMPONENT." },
 
-    { { 0 }, 0, 0, 0 }
+    { { 0 }, 0, 0, 0, 0, 0 }
 };
 
 const

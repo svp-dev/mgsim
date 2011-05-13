@@ -21,7 +21,7 @@ AM_SILENT_RULES([yes])
 AC_PROG_CXX
 
 WARN_CXXFLAGS=
-if test "x$GCC" = xyes; then
+if test "x$GXX" = xyes; then
   WARN_CXXFLAGS="-W -Wall -Wwrite-strings -Wno-unused"
 fi
 AC_SUBST([WARN_CXXFLAGS])

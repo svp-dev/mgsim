@@ -67,9 +67,9 @@ public:
     
     void WriteRegister(const RegAddr& addr, const RegValue& value) { m_registerFile.WriteRegister(addr, value); }
     void WriteASR(ARAddr which, Integer data) {  m_asr_file.WriteRegister(which, data); }
-    Integer ReadASR(ARAddr which) const { m_asr_file.ReadRegister(which); }
+    Integer ReadASR(ARAddr which) const { return m_asr_file.ReadRegister(which); }
     void WriteAPR(ARAddr which, Integer data) {  m_apr_file.WriteRegister(which, data); }
-    Integer ReadAPR(ARAddr which) const { m_apr_file.ReadRegister(which); }
+    Integer ReadAPR(ARAddr which) const { return m_apr_file.ReadRegister(which); }
 
 
 	

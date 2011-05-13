@@ -467,7 +467,7 @@ namespace Simulator
 
     static unsigned currentDelayScale(unsigned x)
     {
-        for (int i = 10000000; i > 0; i /= 10)
+        for (unsigned i = 10000000; i > 0; i /= 10)
             if (x > i) return i;
         return 1;
     }

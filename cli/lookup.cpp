@@ -31,9 +31,9 @@ bool DoCommand(vector<string>& args, cli_context& ctx)
         // We have a match. Check the number of arguments.
         // here i points to the first non-command argument
         size_t n_remaining_args = args.size() - i;
-        if (n_remaining_args < p->min_args)
+        if ((int)n_remaining_args < p->min_args)
             continue;
-        if (p->max_args >= 0 && n_remaining_args > p->max_args)
+        if (p->max_args >= 0 && (int)n_remaining_args > p->max_args)
             continue;
 
         // We have a match for both the command and the arguments.

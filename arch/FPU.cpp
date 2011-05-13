@@ -270,7 +270,7 @@ FPU::FPU(const std::string& name, Object& parent, Clock& clock, Config& config, 
         {
             throw InvalidArgumentException(*this, "NumUnits not set or zero");
         }
-        for (int i = 0; i < nUnits; ++i)
+        for (size_t i = 0; i < nUnits; ++i)
         {
             stringstream ssname;
             ssname << "Unit" << i;
@@ -292,7 +292,7 @@ FPU::FPU(const std::string& name, Object& parent, Clock& clock, Config& config, 
             }
             if (ops.empty())
             {
-                throw exceptf<InvalidArgumentException>(*this, "No operation specified for unit %d", i);
+                throw exceptf<InvalidArgumentException>(*this, "No operation specified for unit %zu", i);
             }
  
             // Add this unit into the mapping table for the ops it implements
