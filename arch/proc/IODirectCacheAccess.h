@@ -48,7 +48,7 @@ private:
     size_t               m_pending_writes;
 
 public:
-    IODirectCacheAccess(const std::string& name, Object& parent, Clock& clock, Clock& busclock, Processor& proc, IOBusInterface& busif, Config& config);
+    IODirectCacheAccess(const std::string& name, Object& parent, Clock& clock, Processor& proc, IOBusInterface& busif, Config& config);
 
     bool QueueRequest(const Request& req);
     

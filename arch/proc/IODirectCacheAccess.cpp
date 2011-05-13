@@ -4,13 +4,13 @@
 
 namespace Simulator
 {
-    Processor::IODirectCacheAccess::IODirectCacheAccess(const std::string& name, Object& parent, Clock& clock, Clock& busclock, Processor& proc, IOBusInterface& busif, Config& config)
+    Processor::IODirectCacheAccess::IODirectCacheAccess(const std::string& name, Object& parent, Clock& clock, Processor& proc, IOBusInterface& busif, Config& config)
         : Object(name, parent, clock),
           m_cpu(proc),
           m_busif(busif),
           m_lineSize(config.getValue<MemSize>("CacheLineSize")),
           m_requests("b_requests", *this, clock, config.getValue<BufferSize>(*this, "RequestQueueSize")),
-          m_responses("b_responses", *this, busclock, config.getValue<BufferSize>(*this, "ResponseQueueSize")),
+          m_responses("b_responses", *this, clock, config.getValue<BufferSize>(*this, "ResponseQueueSize")),
           m_has_outstanding_request(false),
           m_pending_writes(0),
           p_MemoryOutgoing(*this, "send-memory-requests", delegate::create<IODirectCacheAccess, &Processor::IODirectCacheAccess::DoMemoryOutgoing>(*this)),

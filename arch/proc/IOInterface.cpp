@@ -16,8 +16,8 @@ namespace Simulator
           m_pnc     ("pnc",    *this, clock, config),
           m_rrmux   ("rrmux",  *this, clock, rf, m_numDevices, config),
           m_nmux    ("nmux",   *this, clock, rf, m_numChannels, config),
-          m_iobus_if("bus_if", *this, clock, m_rrmux, m_nmux, m_dca, iobus, devid, config),
-          m_dca     ("dca",    *this, clock, iobus.GetClock(), parent, m_iobus_if, config)
+          m_iobus_if("bus_if", *this, iobus.GetClock(), m_rrmux, m_nmux, m_dca, iobus, devid, config),
+          m_dca     ("dca",    *this, clock, parent, m_iobus_if, config)
     {
         if (m_numDevices == 0)
         {
