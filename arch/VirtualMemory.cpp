@@ -97,15 +97,15 @@ void VirtualMemory::Reserve(MemAddr address, MemSize size, int perm)
                 // The range overlaps with an existing range after it
                 ReportOverlap(address, size);
             }
-        
-            if (p != m_ranges.begin())
+        }
+        if (p != m_ranges.begin())
+        {
+            RangeMap::iterator q = p; --q;
+            assert(q->first < address);
+            if (q->first + q->second.size > address)
             {
-                RangeMap::iterator q = p; --q;
-                if (q->first < address && q->first > address - q->second.size)
-                {
-                    // The range overlaps with an existing range before it
-                    ReportOverlap(address, size);
-                }
+                // The range overlaps with an existing range before it
+                ReportOverlap(address, size);
             }
         }
 
