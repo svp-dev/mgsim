@@ -72,7 +72,7 @@ namespace Simulator
             m_fd_in = m_fd_out = open(fin.c_str(), O_RDWR);
             ein = eout = errno;
         }
-        if (connectMode == "FILEPAIR")
+        else if (connectMode == "FILEPAIR")
         {
             fin = config.getValue<string>(*this, "UARTInputFile");
             fout = config.getValue<string>(*this, "UARTOutputFile");
@@ -82,6 +82,18 @@ namespace Simulator
             m_fd_out = open(fout.c_str(), O_WRONLY);
             eout = errno;
         }
+        else if (connectMode == "STDIO")
+        {
+            fin = "<stdin>";
+            fout = "<stdout>";
+            m_fd_in = STDIN_FILENO;
+            m_fd_out = STDOUT_FILENO;
+        }
+        else
+        {
+            throw exceptf<InvalidArgumentException>("Invalid UARTConnectMode: %s", connectMode.c_str());
+        }
+
         if (-1 == m_fd_in)
         {
             throw exceptf<InvalidArgumentException>("Unable to open file for input: %s (%s)", fin.c_str(), strerror(ein));
