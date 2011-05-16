@@ -1,15 +1,132 @@
-\chapter{I/O}
+\chapter{Input / output}
 
-The microgrid as described so far is a standalone processor architecture and execution model with volatile storage. To enable non-volatile storage and the ability to affect the environment outside the system, an I/O mechanism is required. This is implemented in the form of one or more I/O busses which are connected to one or more dedicated I/O cores, such that every I/O core controls one I/O bus. These I/O cores, while they support the general microgrid paradigm, are intended to be used for I/O communication only\footnote{As an optimization, these cores can have reduced functionality due to their dedicated nature; for instance: no FPU or a smaller thread table.}
+The microgrid as described so far is a standalone processor
+architecture and execution model with volatile storage. To enable
+non-volatile storage and the ability to affect the environment outside
+the system, an I/O mechanism is required. This is implemented in the
+form of one or more I/O busses which are connected to one or more
+dedicated I/O cores, such that every I/O core is connected to one I/O
+bus. These I/O cores, while fully microthreaded, are intended to be
+used for I/O communication only\footnote{As an optimization, these
+  cores can have reduced functionality due to their dedicated nature;
+  for instance: no FPU or a smaller thread table.}.
 
-\section{General Mechanism}
-In general, I/O is based on two forms of communication: requests and responses on the I/O bus, must like memory requests and responses, and interrupts. The former is to query or command a device. Examples include instructing a disk drive to read a sector, instructing a network controller to send a packet over the network, or querying the keyboard for the latest pressed key. Although a difference can be made between querying and commanding a device, both are essentially similar from a technical perspective; the processor sends a request over the I/O bus to the device, which replies with a response. This response can be as small as a single register, or as a big as several kilobytes of data. In the latter case, the processor usually includes a memory address in the request and the device writes the data to memory at the specified address.
+\section{General mechanisms}
 
-Opposed to the processor instructing a device, it's possible for an external event to trigger a chance in a device that the processor needs to be notified of. This is done via an interrupt, where the device signals to the processors that it's state has changed. The processor usually awaits interrupts and, when notified, queries the device to find out what has happened.
+In general, I/O is based on two general forms of communication:
+\emph{transactions} and \emph{broadcasts}. 
 
-These two core mechanisms can be combined into a single mechanism, combined with the microgrid's register suspension. One or more I/O instructions are introduced, implemented only on I/O cores, that communicate with the I/O controller that is part of the I/O core. These instructions can send a read or write to the device, or set the I/O controller up to connect a certain interrupt to the thread. A write involves specifying the address on the I/O bus to write to and a datum to write. A read involves specifying the address on the I/O bus to read from and a register in the thread's local register context to receive the datum. This register is cleared by the instruction and filled when the write completes. These two instructions, in essence, mirror memory reads and writes. The final instruction sets up the I/O controller to deliver certain interrupts to the register specified in the instruction. This register, from the thread's local register context, is cleared by the instruction and written by the I/O controller when that interrupt has been signalled.
+Transactions happen when one device performs a \emph{request} to a
+peer and expects a \emph{response} back from the peer device. This
+happens for example when a host queries a keyboard controller for the
+last pressed key. So-called ``master'' devices can perform a request
+to a host system to provide asynchronously data to an autonomous
+process, for example using DMA to fill in a disk buffer.
 
-Device access to memory is implemented by the I/O controller. Writes to memory by devices on the I/O bus are received by the I/O controller, which forwards the data as writes onto a memory bus that is connected to the memory system. In the case of the COMA memory as described in section~\ref{sec:coma}, this would send the data to an L2 cache. Similarly, reads from memory would be handled by the I/O controller as well.
+Broadcasts happen when a device \emph{notifies} one or more peers of
+some event without expecting a response back. For example an Ethernet
+interface notifies a host system of an incoming frame.
 
-\section{HyperTransport}
-The current method for implementing I/O in the Microgrid is to connect a HyperTransport 3.1\cite{hypertransport} bus to an I/O core. A HyperTransport bus is a single 32-bit daisy-chained bus of devices. The bus consists of two links between each device, one for sending data towards the host controller and one for sending data to the devices. The links operate at 3.2 GHz with DDR, and as such a maximum theoretical bandwidth on the bus of 51.2 GB/s (25.6 GB/s each direction). HyperTransport uses a packet-based protocol allowing for priority injection of small packets into a large stream of packets from downstream devices. This injection allows devices to remain responsive.
+How these forms of communication are implemented in hardware further
+depends on the hardware substrate where I/O communication is to take
+place.
+
+Traditionally, I/O was performed on a bus interface with address, data
+and interrupt lines. This type of medium encourages inefficient
+operating semantics based on polling and interrupts. For example with
+buses, a transaction entails a 5-phase operation for the client (set
+address, set data, select; wait; read) during which no other
+communication can occur. For a broadcast, the initiator raises an
+interrupt, and all ``interested'' peers then scan the bus looking for
+which device initiated the interrupt.
+
+More recently, a number of I/O transport technologies based on
+\emph{packed-based networks} have been designed, primarily to overcome
+physical limitations, and with the added benefit that they encourage
+operating semantics based on transactions and broadcasts instead of
+polling and interrupts. This is the case for example with PCI-e,
+HyperTransport and QuickPath Interconnect. With networks, a
+transaction on the network mirrors the logical transaction: the client
+can send its the request as a packet, and receive the response as
+another packet. A broadcast operation simply amounts to sending a
+packet to all peers.
+
+\section{Mapping I/O to dataflow constructs}
+
+From a dataflow perspective, the general two forms of communication entail
+distinct mechanisms. 
+
+For transactions, the initiator of a transaction
+can be seen as issuing a dataflow operation (possibly with arguments),
+and waiting for its completion (when the transaction ends). The
+assymetry thus created defines a requestor (client) and requestee
+(service). Normal operation entails that services can accept requests,
+and that they respond to clients within a bounded latency, otherwise
+the dataflow operation deadlocks.
+
+For broadcasts, the initator fires the event and does not expect an
+acknowledgement. Moreover, broacasts may be initiated unexpectedly,
+that is without a previous transaction. From a dataflow perspective,
+there are two ways to deal with this situation: either introduce a
+\emph{domain boundary} at which all broadcasts are translated to
+discrete dataflow operations to an arbitrary selected peer; or define
+a ``wait for broadcast'' operation which completes automatically as
+soon as a broadcast is received. We prefer the latter approach because
+it provides the lowest latency between the availability of an event
+and its handling by a software thread (because the software thread
+already exists and waiting when the notification is delivered).
+
+The actual implementation of the dataflow primitives in hardware
+depends on the substrate. 
+
+With a bus, the interface would be relatively straightforward although
+it entails polling the bus for a response while a dataflow request is
+pending.
+
+With the Microgrid we assume instead that the I/O substrate is a
+packet switched network. We allows both processors (cores) on the grid
+and I/O devices to initiate transactions: transactions initiated by
+cores are translated to traditional read/write request/response
+cycles, whereas transactions iniated by devices are translated to
+direct memory access (DMA) via the cache network.
+
+
+The hardware interfaces and components are described in note
+[mgsim14]. From a programmer's perspective, the I/O space is
+memory-mapped onto the address space of I/O cores. 
+
+Memory mapping means that the memory space (starting from the L1
+cache) cannot be accessed for these addresses from the I/O core. From
+a system integration perspective, either the I/O address space is
+configured to be separate from the main memory space, or address
+translation is implemented, or the software running on the I/O cores
+can use another core as a ``proxy'' for main memory.
+
+The I/O space is further partitioned in two areas: the transaction
+area and the notification area. 
+
+The transaction area is split into separate address ranges for each
+possible peer on the I/O network. When a memory load/store operation
+is performed on the transaction area, the address in the I/O core's
+address space is translated into a combination of network address and
+device address. The network address is used to direct the message to
+the correct peer. The device address is an internal address within the
+peer, for example a hardware register in a I/O device. Stores are
+translated to I/O writes and are not acknowledged. Loads are
+translated to I/O reads and complete when the response is returned
+from the peer.
+
+The notification area is split into separate addresses for each
+possible notification channel on the I/O network, one memory word per
+channel. When a load is issued on such a word, the operation is
+suspended until a broadcast is notified on that channel, or completes
+immediately if a broadcast had been received while not waiting. If two
+interrupt broadcast are received without a listener active, they are
+merged into one pending notification, such that only one interrupt is
+notified when the program eventually loads from the channel word.
+
+However next to interrupts we also assume that the I/O substrate
+supports general notification messages with a payload. This is used
+for example with SATA devices to indicate which transaction has
+completed. Instead of being merged, this type of messages are buffered
+at the I/O interface as discrete events that must be received in turn.
