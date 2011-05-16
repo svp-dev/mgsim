@@ -21,7 +21,7 @@ private:
     std::vector<WriteBackQueue*>  m_wb_buffers;
 
     Process p_dummy;
-    Result DoNothing() { return SUCCESS; }
+    Result DoNothing() { p_dummy.Deactivate(); return SUCCESS; }
 
 public:
     IOResponseMultiplexer(const std::string& name, Object& parent, Clock& clock, RegisterFile& rf, size_t numDevices, Config& config);
