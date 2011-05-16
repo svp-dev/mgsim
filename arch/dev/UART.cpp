@@ -90,16 +90,16 @@ namespace Simulator
         {
             throw exceptf<InvalidArgumentException>("Unable to open file for output: %s (%s)", fout.c_str(), strerror(eout));
         }
-/*
-        if (-1 == fcntl(m_fd_in, F_SETFL, O_NONBLOCK))
+
+        if (-1 == fcntl(m_fd_in, F_SETFL, O_NONBLOCK | fcntl(m_fd_in, F_GETFL, 0)))
         {
             throw exceptf<InvalidArgumentException>("Cannot set non-blocking I/O flag on input: %s", strerror(errno));
         }
-        if (m_fd_out != m_fd_in && -1 == fcntl(m_fd_out, F_SETFL, O_NONBLOCK))
+        if (m_fd_out != m_fd_in && -1 == fcntl(m_fd_out, F_SETFL, O_NONBLOCK | fcntl(m_fd_out, F_GETFL, 0)))
         {
             throw exceptf<InvalidArgumentException>("Cannot set non-blocking I/O flag on output: %s", strerror(errno));
         }
-*/
+
         m_fifo_out.Sensitive(p_Transmit);
         m_receiveEnable.Sensitive(p_Receive);
         m_sendEnable.Sensitive(p_Send);
@@ -492,8 +492,13 @@ namespace Simulator
                 }
                 else if (res < 0)
                 {
-                    m_error_in = errno;
-                    DebugIOWrite("error in read(): %s", strerror(errno));
+                    // we might get spurious availability events. Only
+                    // catch an error if this is one.
+                    if (errno != EAGAIN && errno != EINTR && errno != EWOULDBLOCK)
+                    {
+                        m_error_in = errno;
+                        DebugIOWrite("error in read(): %s", strerror(errno));
+                    }
                 }
                 else
                 {
@@ -501,8 +506,8 @@ namespace Simulator
                     m_hwbuf_in_full = true;
                     m_receiveEnable.Set();
                     DebugIOWrite("Acquired one byte from fd %d to input latch: %#02x", fd, (unsigned)m_hwbuf_in);
+                    active = true;
                 }
-                active = true;
             }
         }
 
@@ -513,8 +518,13 @@ namespace Simulator
                 ssize_t res = write(fd, &m_hwbuf_out, 1);
                 if (res < 0)
                 {
-                    m_error_out = errno;
-                    DebugIOWrite("error in write(): %s", strerror(errno));
+                    // we might get spurious availability events. Only
+                    // catch an error if this is one.
+                    if (errno != EAGAIN && errno != EINTR && errno != EWOULDBLOCK)
+                    {
+                        m_error_out = errno;
+                        DebugIOWrite("error in write(): %s", strerror(errno));
+                    }
                 }
                 else
                 {

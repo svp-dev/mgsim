@@ -34,7 +34,10 @@ AC_PROG_SED
 
 AC_HEADER_ASSERT
 
-PKG_CHECK_MODULES([LIBEVENT], [libevent >= 2.0])
+AC_SEARCH_LIBS([ev_version_minor], [ev])
+if test "x$ac_cv_search_ev_version_minor" = xno; then
+   AC_MSG_ERROR([Unable to find libev. Is it it installed? If necessary use CPPFLAGS=... LDFLAGS=... to specify its location.])
+fi
 
 AC_LIB_READLINE
 if test "x$ac_cv_lib_readline" = xno; then

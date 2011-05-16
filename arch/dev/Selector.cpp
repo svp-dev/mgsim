@@ -2,7 +2,7 @@
 #include "sim/except.h"
 #include <map>
 #include <iomanip>
-#include <event2/event.h>
+#include <ev++.h>
 
 using namespace std;
 
@@ -10,11 +10,12 @@ namespace Simulator
 {
     namespace Event
     {
+
         static
-        map<int, struct event*>  handlers;
-        
+        struct ev_loop *evbase;
+
         static
-        struct event_base* evbase = NULL;
+        map<int, ev::io*>  handlers;
         
         static
         bool current_result = true;
@@ -22,18 +23,18 @@ namespace Simulator
         static
         size_t handler_count;
 
-        static
-        void selector_delegate_callback(int fd, short mode, void *arg)
+        
+        void selector_delegate_callback(ev::io& io, int revents)
         {
             // cerr << "I/O ready on fd " << fd << ", mode " << mode << endl;
-            ISelectorClient* client = (ISelectorClient*)arg;
+            ISelectorClient* client = (ISelectorClient*)io.data;
             
             int st = 0;
-            if (mode & EV_READ) st |= Selector::READABLE;
-            if (mode & EV_WRITE) st |= Selector::WRITABLE;
+            if (revents & ev::READ) st |= Selector::READABLE;
+            if (revents & ev::WRITE) st |= Selector::WRITABLE;
             if (st != 0)
             {
-                current_result &= client->OnStreamReady(fd, (Selector::StreamState)st);
+                current_result &= client->OnStreamReady(io.fd, (Selector::StreamState)st);
                 ++handler_count;
             }
         }
@@ -52,48 +53,35 @@ namespace Simulator
             throw exceptf<InvalidArgumentException>(*this, "Handler already registered for fd %d", fd);
         }
 
-        struct event * &ev = Event::handlers[fd];
+        ev::io * &ev = Event::handlers[fd];
 
-        ev = event_new(Event::evbase, fd, EV_WRITE|EV_READ|EV_PERSIST, &Event::selector_delegate_callback, &callback);
-
-        int res = event_add(ev, NULL);
+        assert(Event::evbase != NULL);
         
-        if (res != 0)
-        {
-            DebugIOWrite("Unable to register handler for fd %d", fd);
-            return false;
-        }
-        else
-        {
-            if (!m_doCheckStreams.IsSet())
-                m_doCheckStreams.Set();
-            return true;
-        }
+        ev = new ev::io(Event::evbase);
+        ev->set<Event::selector_delegate_callback>(&callback);
+        ev->start(fd, EV_READ|EV_WRITE);
+        
+        if (!m_doCheckStreams.IsSet())
+            m_doCheckStreams.Set();
+        return true;
     }
 
     bool Selector::UnregisterStream(int fd)
     {
-        map<int, struct event*>::iterator i = Event::handlers.find(fd);
+        map<int, ev::io*>::iterator i = Event::handlers.find(fd);
         if (i == Event::handlers.end())
         {
             throw exceptf<InvalidArgumentException>(*this, "No handler registered for fd %d", fd);
         }
-        
-        int res = event_del(i->second);
 
-        if (res != 0)
-        {
-            DebugIOWrite("Unable to unregister handler for fd %d", fd);
-            return false;
-        }
-        else
-        {
-            event_free(i->second);
-            Event::handlers.erase(i);
-            if (Event::handlers.empty())
-                m_doCheckStreams.Clear();
-            return true;
-        }
+        // the following stops the event handler automatically
+        delete i->second;
+        Event::handlers.erase(i);
+
+        if (Event::handlers.empty())
+            m_doCheckStreams.Clear();
+
+        return true;
     }
 
     Result Selector::DoCheckStreams()
@@ -116,12 +104,12 @@ namespace Simulator
         COMMIT { 
             // in principle we should be able to run event_base_loop once per
             // kernel phase, and only actually do the I/O on the commit phase.
-            // Unfortunately, libevent/kqueue only reports writability once
+            // Unfortunately, libev/kqueue only reports writability once
             // in a while, so we end up losing opportunities to send/write by calling
             // the loop too often.
             Event::current_result = true;
             Event::handler_count = 0;
-            event_base_loop(Event::evbase, EVLOOP_ONCE | EVLOOP_NONBLOCK); 
+            ev_loop(Event::evbase, EVLOOP_NONBLOCK); 
 
             if (Event::handler_count == 0)
             {
@@ -151,19 +139,23 @@ namespace Simulator
         // event_enable_debug_mode();
 
         assert(Event::evbase == NULL);
-        Event::evbase = event_base_new();
+        Event::evbase = ev_default_loop(0);
+        if (Event::evbase == NULL)
+        {
+            throw InvalidArgumentException(*this, "Unable to initialize libev, bad LIBEV_FLAGS in environment?");
+        }
 
         m_doCheckStreams.Sensitive(p_checkStreams);
     }
 
     Selector::~Selector()
     {
-        for (map<int, struct event*>::const_iterator i = Event::handlers.begin(); i != Event::handlers.end(); ++i)
+        for (map<int,ev::io*>::const_iterator i = Event::handlers.begin(); i != Event::handlers.end(); ++i)
         {
-            // event_free automatically calls event_del
-            event_free(i->second);
+            delete i->second;
         }
-        event_base_free(Event::evbase);
+        Event::handlers.clear();
+
         m_singleton = NULL;
     }
 
@@ -174,7 +166,21 @@ namespace Simulator
             << "notifying other components when I/O is possible." << endl
             << endl
             << "Currently checking: " << (m_doCheckStreams.IsSet() ? "yes" : "no") << endl
-            << "Checking method: " << event_base_get_method(Event::evbase) << endl;
+            << "Checking method: ";
+
+        unsigned backend = ev_backend(Event::evbase);
+        switch(backend)
+        {
+        case ev::SELECT: cout << "select"; break;
+        case ev::POLL: cout << "poll"; break;
+        case ev::EPOLL: cout << "epoll"; break;
+        case ev::KQUEUE: cout << "kqueue"; break;
+        case ev::DEVPOLL: cout << "devpoll"; break;
+        case ev::PORT: cout << "port"; break;
+        default: cout << "unknown (" << backend << endl; break;
+        }
+
+        out << endl;
 
         if (Event::handlers.empty())
         {
@@ -185,9 +191,9 @@ namespace Simulator
             out << endl
                 << "FD  | Client" << endl
                 << "----+------------------" << endl;
-            for (map<int, struct event*>::const_iterator i = Event::handlers.begin(); i != Event::handlers.end(); ++i)
+            for (map<int, ev::io*>::const_iterator i = Event::handlers.begin(); i != Event::handlers.end(); ++i)
             {
-                ISelectorClient *callback = (ISelectorClient*)event_get_callback_arg(i->second);
+                ISelectorClient *callback = (ISelectorClient*)i->second->data;
                 assert(callback != NULL);
                 out << setw(3) << setfill(' ') << i->first
                     << " | "
