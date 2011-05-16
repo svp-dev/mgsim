@@ -112,6 +112,11 @@ namespace Simulator
         m_fifo_in.Sensitive(p_dummy);
         
         iobus.RegisterClient(devid, *this);
+
+        config.registerObject(*this, "uart");
+        config.registerProperty(*this, "inpfifosz", m_fifo_in.GetMaxSize());
+        config.registerProperty(*this, "outfifosz", m_fifo_out.GetMaxSize());
+        RegisterSampleVariableInObject(m_enabled, SVC_LEVEL);
     }
 
     Result UART::DoSendReadInterrupt()
@@ -307,15 +312,23 @@ namespace Simulator
             break;
 
         case 10: // extension
-            DebugIOWrite("Activating UART");
             COMMIT { 
                 if (!m_enabled)
                 {
+                    DebugIOWrite("Activating the UART");
                     Selector::GetSelector().RegisterStream(m_fd_in, *this); 
                     if (m_fd_in != m_fd_out)
                         Selector::GetSelector().RegisterStream(m_fd_out, *this); 
+                    m_enabled = true;
                 }
-                m_enabled = true;
+                else
+                {
+                    DebugIOWrite("De-activating the UART");
+                    Selector::GetSelector().UnregisterStream(m_fd_in); 
+                    if (m_fd_in != m_fd_out)
+                        Selector::GetSelector().UnregisterStream(m_fd_out); 
+                    m_enabled = false;
+                }
             }
                 
             break;
