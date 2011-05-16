@@ -47,7 +47,7 @@ Processor::Pipeline::PipeAction Processor::Pipeline::MemoryStage::OnCycle()
 
                 if (result == FAILED)
                 {
-                    DeadlockWrite("Failed I/O write by %s (F%u/T%u): %#016llx (%zd)",
+                    DeadlockWrite("Failed I/O write by %s (F%u/T%u): %#016llx (%zu)",
                                   GetKernel()->GetSymbolTable()[m_input.pc].c_str(),
                                   (unsigned)m_input.fid, (unsigned)m_input.tid,
                                   (unsigned long long)m_input.address, (size_t)m_input.size);
@@ -114,8 +114,9 @@ Processor::Pipeline::PipeAction Processor::Pipeline::MemoryStage::OnCycle()
 
                 case DELAYED:
                     rcv = MAKE_EMPTY_PIPEVALUE(rcv.m_size);
-                    DebugIOWrite("I/O read by %s: *%#016llx -> delayed %s (%zd)",
+                    DebugMemWrite("I/O read by %s (F%u/T%u): *%#016llx -> delayed %s (%zd)",
                                   GetKernel()->GetSymbolTable()[m_input.pc].c_str(), 
+                                  (unsigned)m_input.fid, (unsigned)m_input.tid,
                                   (unsigned long long)m_input.address, 
                                   m_input.Rc.str().c_str(), (size_t)m_input.size); 
                     break;
