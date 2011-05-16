@@ -88,6 +88,7 @@ namespace Simulator
             fout = "<stdout>";
             m_fd_in = STDIN_FILENO;
             m_fd_out = STDOUT_FILENO;
+            ein = eout = 0;
         }
         else
         {
