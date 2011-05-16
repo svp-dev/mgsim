@@ -280,6 +280,9 @@ COMA::Directory::Directory(const std::string& name, COMA& parent, Clock& clock, 
     p_lines.AddProcess(p_InTop);
     p_lines.AddProcess(p_InBottom);   
 
+    p_InBottom.SetStorageTraces(m_top.GetOutgoingTrace());
+    p_InTop.SetStorageTraces((m_top.GetOutgoingTrace() * opt(m_bottom.GetOutgoingTrace())) ^ m_bottom.GetOutgoingTrace());
+
     config.registerObject(m_top, "dt");
     config.registerProperty(m_top, "freq", clock.GetFrequency());
     config.registerObject(m_bottom, "db");

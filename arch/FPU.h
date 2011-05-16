@@ -47,6 +47,7 @@ class FPU : public Object, public Inspect::Interface<Inspect::Read>
 	{
         private:
 	    Buffer<Operation>        inputs;     ///< Input queue for operations from this source
+    	StorageTraceSet          outputs;    ///< Set of storage trace each output can generate
 	    Processor::RegisterFile* regfile;    ///< Register file to write back results for this source
 	    CycleNo                  last_write; ///< Last time an FPU pipe wrote back to this source
 	    unsigned int             last_unit;  ///< Unit that did the last (or current) write
@@ -89,6 +90,8 @@ class FPU : public Object, public Inspect::Interface<Inspect::Read>
 	 * @return the result of the source operation
 	 */
     Result CalculateResult(const Operation& op) const;
+    
+    StorageTraceSet CreateStoragePermutation(size_t num_sources, std::vector<bool>& visited);
 	
     Register<bool>       m_active;                ///< Process-trigger for FPU
 	std::vector<Source*> m_sources;               ///< Data for the sources for this FPU
@@ -114,9 +117,10 @@ public:
 	/**
 	 * @brief Registers a source to the FPU
 	 * @param regfile [in] the register file to use to write back results for this source
+	 * @param output [in] the storage traces that can be generated when writing the result
 	 * @return the unique for this source to be passed to QueueOperation
 	 */
-	size_t RegisterSource(Processor::RegisterFile& regfile);
+	size_t RegisterSource(Processor::RegisterFile& regfile, const StorageTraceSet& output);
 	
     /**
      * @brief Queues an FP operation.
@@ -131,6 +135,8 @@ public:
      * @return true if the operation could be queued.
      */
 	bool QueueOperation(size_t source, FPUOperation op, int size, double Rav, double Rbv, const RegAddr& Rc);
+	
+	StorageTraceSet GetSourceTrace(size_t source) const;
 
 	// Processes
 	Process p_Pipeline;

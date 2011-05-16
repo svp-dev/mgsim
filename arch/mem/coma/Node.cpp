@@ -122,6 +122,7 @@ void COMA::Node::Initialize(Node* next, Node* prev)
 {
     m_prev = prev;
     m_next = next;
+    p_Forward.SetStorageTraces(next->m_incoming);
 }
 
 Result COMA::Node::DoForward()

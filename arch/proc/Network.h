@@ -251,6 +251,7 @@ class Network : public Object, public Inspect::Interface<Inspect::Read>
 	        assert(remote == NULL);
 	        remote = &dest.in;
 	        dest.in.AddProcess(p_Transfer);
+            p_Transfer.SetStorageTraces(dest.in);
 	    }
 
         RegisterPair(Object& parent, const std::string& name)

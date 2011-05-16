@@ -13,9 +13,15 @@ private:
     RegisterFile&                   m_regFile;
 
     std::vector<Register<RegAddr>*> m_writebacks;
+
+    StorageTraceSet GetInterruptRequestTraces() const;
+    StorageTraceSet GetNotificationTraces() const;
+
+public:
     std::vector<SingleFlag*>        m_interrupts;
     std::vector<Buffer<Integer>*>   m_notifications;
 
+private:
     size_t                          m_lastNotified;
 
 public:

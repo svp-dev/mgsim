@@ -17,32 +17,38 @@ static bool IsPowerOfTwo(const T& x)
     return (x & (x - 1)) == 0;
 }
 
-Processor::DCache::DCache(const std::string& name, Processor& parent, Clock& clock, Allocator& alloc, FamilyTable& familyTable, RegisterFile& regFile, Config& config)
+Processor::DCache::DCache(const std::string& name, Processor& parent, Clock& clock, Allocator& alloc, FamilyTable& familyTable, RegisterFile& regFile, IMemory& memory, Config& config)
 :   Object(name, parent, clock), m_parent(parent),
     m_allocator(alloc), m_familyTable(familyTable), m_regFile(regFile),
+    m_memory(memory),
 
     m_assoc          (config.getValue<size_t>(*this, "Associativity")),
     m_sets           (config.getValue<size_t>(*this, "NumSets")),
     m_lineSize       (config.getValue<size_t>("CacheLineSize")),
-    m_returned       ("b_returned", *this, clock, m_sets * m_assoc),
-    m_completedWrites("b_completedWrites", *this, clock, config.getValue<BufferSize>(*this, "CompletedWriteBufferSize")),
-    m_outgoing       ("b_outgoing", *this, clock, config.getValue<BufferSize>(*this, "OutgoingBufferSize")),
+    m_completed      ("b_completed", *this, clock, m_sets * m_assoc),
+    m_incoming       ("b_incoming",  *this, clock, config.getValue<BufferSize>(*this, "IncomingBufferSize")),
+    m_outgoing       ("b_outgoing",  *this, clock, config.getValue<BufferSize>(*this, "OutgoingBufferSize")),
     m_numHits        (0),
     m_numMisses      (0),
 
-    p_IncomingReads (*this, "completed-reads",  delegate::create<DCache, &Processor::DCache::DoCompletedReads  >(*this) ),
-    p_IncomingWrites(*this, "completed-writes", delegate::create<DCache, &Processor::DCache::DoCompletedWrites >(*this) ),
-    p_Outgoing      (*this, "outgoing",         delegate::create<DCache, &Processor::DCache::DoOutgoingRequests>(*this) ),
+    p_CompletedReads(*this, "completed-reads", delegate::create<DCache, &Processor::DCache::DoCompletedReads   >(*this) ),
+    p_Incoming      (*this, "incoming",        delegate::create<DCache, &Processor::DCache::DoIncomingResponses>(*this) ),
+    p_Outgoing      (*this, "outgoing",        delegate::create<DCache, &Processor::DCache::DoOutgoingRequests >(*this) ),
 
     p_service        (*this, clock, "p_service")
 {
     RegisterSampleVariableInObject(m_numHits, SVC_CUMULATIVE);
     RegisterSampleVariableInObject(m_numMisses, SVC_CUMULATIVE);
+    
+    config.registerObject(*this, "dcache");
+    
+    StorageTraceSet traces;
+    m_mcid = m_memory.RegisterClient(*this, p_Outgoing, traces, m_incoming);
+    p_Outgoing.SetStorageTraces(traces);
 
-
-    m_returned       .Sensitive(p_IncomingReads);
-    m_completedWrites.Sensitive(p_IncomingWrites);
-    m_outgoing       .Sensitive(p_Outgoing);
+    m_completed.Sensitive(p_CompletedReads);
+    m_incoming.Sensitive(p_Incoming);
+    m_outgoing.Sensitive(p_Outgoing);
     
     // These things must be powers of two
     if (m_assoc == 0 || !IsPowerOfTwo(m_assoc))
@@ -338,7 +344,7 @@ bool Processor::DCache::OnMemoryReadCompleted(MemAddr addr, const MemData& data)
     
     // Check if we have the line and if its loading.
     // This method gets called whenever a memory read completion is put on the
-    // bus from the L2 cache, so we have to check if we actually need the data.
+    // bus from memory, so we have to check if we actually need the data.
     Line* line;
     if (FindLine(addr, line, true) == SUCCESS && line->state != LINE_FULL && !line->processing)
     {
@@ -361,7 +367,14 @@ bool Processor::DCache::OnMemoryReadCompleted(MemAddr addr, const MemData& data)
         }
     
         // Push the cache-line to the back of the queue
-        m_returned.Push(line - &m_lines[0]);
+        Response response;
+        response.write = false;
+        response.cid   = line - &m_lines[0];
+        if (!m_incoming.Push(response))
+        {
+            DeadlockWrite("Unable to push read completion to buffer");
+            return false;
+        }
     }
     return true;
 }
@@ -371,7 +384,10 @@ bool Processor::DCache::OnMemoryWriteCompleted(TID tid)
     // Data has been written
     if (tid != INVALID_TID) // otherwise for DCA
     {
-        if (!m_completedWrites.Push(tid))
+        Response response;
+        response.write = true;
+        response.tid   = tid;
+        if (!m_incoming.Push(response))
         {
             DeadlockWrite("Unable to push write completion to buffer");
             return false;
@@ -426,7 +442,7 @@ bool Processor::DCache::OnMemoryInvalidated(MemAddr address)
 
 Result Processor::DCache::DoCompletedReads()
 {
-    assert(!m_returned.Empty());
+    assert(!m_completed.Empty());
 
     if (!p_service.Invoke())
     {
@@ -435,7 +451,7 @@ Result Processor::DCache::DoCompletedReads()
     }
 
     // Process a waiting register
-    Line& line = m_lines[m_returned.Front()];
+    Line& line = m_lines[m_completed.Front()];
     assert(line.state == LINE_LOADING || line.state == LINE_INVALID);
     if (line.waiting.valid())
     {
@@ -556,21 +572,32 @@ Result Processor::DCache::DoCompletedReads()
         {
             line.state = (line.state == LINE_INVALID) ? LINE_EMPTY : LINE_FULL;
         }
-        m_returned.Pop();
+        m_completed.Pop();
     }
     return SUCCESS;
 }
         
-Result Processor::DCache::DoCompletedWrites()
+Result Processor::DCache::DoIncomingResponses()
 {
-    assert(!m_completedWrites.Empty());
-    TID tid = m_completedWrites.Front();
-    if (!m_allocator.DecreaseThreadDependency(tid, THREADDEP_OUTSTANDING_WRITES))
+    assert(!m_incoming.Empty());
+    const Response& response = m_incoming.Front();
+    if (response.write)
     {
-        DeadlockWrite("Unable to decrease outstanding writes on T%u", (unsigned)tid);
-        return FAILED;
+        if (!m_allocator.DecreaseThreadDependency(response.tid, THREADDEP_OUTSTANDING_WRITES))
+        {
+            DeadlockWrite("Unable to decrease outstanding writes on T%u", (unsigned)response.tid);
+            return FAILED;
+        }
     }
-    m_completedWrites.Pop();
+    else
+    {
+        if (!m_completed.Push(response.cid))
+        {
+            DeadlockWrite("Unable to buffer read completion to processing buffer");
+            return FAILED;
+        }
+    }
+    m_incoming.Pop();
     return SUCCESS;
 }
 
@@ -580,7 +607,7 @@ Result Processor::DCache::DoOutgoingRequests()
     const Request& request = m_outgoing.Front();
     if (request.write)
     {
-        if (!m_parent.WriteMemory(request.address, request.data.data, request.data.size, request.tid))
+        if (!m_memory.Write(m_mcid, request.address, request.data.data, request.data.size, request.tid))
         {
             DeadlockWrite("Unable to send write of %u bytes to 0x%016llx to memory", (unsigned)request.data.size, (unsigned long long)request.address);
             return FAILED;
@@ -588,7 +615,7 @@ Result Processor::DCache::DoOutgoingRequests()
     }
     else
     {
-        if (!m_parent.ReadMemory(request.address, request.data.size))
+        if (!m_memory.Read(m_mcid, request.address, request.data.size))
         {
             DeadlockWrite("Unable to send read of %u bytes to 0x%016llx to memory", (unsigned)request.data.size, (unsigned long long)request.address);
             return FAILED;

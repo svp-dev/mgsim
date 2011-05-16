@@ -34,7 +34,10 @@ private:
     IODirectCacheAccess&       m_dca;
     IIOBus&                    m_iobus;
     IODeviceID                 m_hostid;
+    
+    void Initialize();
 
+public:
     Buffer<IORequest>          m_outgoing_reqs;
 
 public:
@@ -55,6 +58,12 @@ public:
     bool OnReadResponseReceived(IODeviceID from, MemAddr address, const IOData& data);
     bool OnInterruptRequestReceived(IOInterruptID which);
     bool OnNotificationReceived(IOInterruptID which, Integer tag);
+
+    StorageTraceSet GetReadRequestTraces() const;
+    StorageTraceSet GetWriteRequestTraces() const;
+    StorageTraceSet GetReadResponseTraces() const;
+    StorageTraceSet GetInterruptRequestTraces() const;
+    StorageTraceSet GetNotificationTraces() const;
 
     void GetDeviceIdentity(IODeviceIdentification& id) const;
     

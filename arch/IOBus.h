@@ -3,6 +3,7 @@
 
 #include "simtypes.h"
 #include "arch/dev/IODeviceDatabase.h"
+#include "sim/storagetrace.h"
 
 namespace Simulator
 {
@@ -28,6 +29,12 @@ public:
     virtual bool OnReadResponseReceived(IODeviceID from, MemAddr address, const IOData& data);
     virtual bool OnInterruptRequestReceived(IOInterruptID which);
     virtual bool OnNotificationReceived(IOInterruptID which, Integer tag);
+    
+    virtual StorageTraceSet GetReadRequestTraces() const { return StorageTraceSet(); }
+    virtual StorageTraceSet GetWriteRequestTraces() const { return StorageTraceSet(); }
+    virtual StorageTraceSet GetReadResponseTraces() const { return StorageTraceSet(); }
+    virtual StorageTraceSet GetInterruptRequestTraces() const { return StorageTraceSet(); }
+    virtual StorageTraceSet GetNotificationTraces() const { return StorageTraceSet(); }
 
 
     // Admin
@@ -52,10 +59,17 @@ public:
     virtual bool SendInterruptRequest(IODeviceID from, IOInterruptID which) = 0;
     virtual bool SendNotification(IODeviceID from, IOInterruptID which, Integer tag) = 0;
 
+    virtual StorageTraceSet GetReadRequestTraces(IODeviceID from) const = 0;
+    virtual StorageTraceSet GetWriteRequestTraces() const = 0;
+    virtual StorageTraceSet GetReadResponseTraces() const = 0;
+    virtual StorageTraceSet GetInterruptRequestTraces() const = 0;
+    virtual StorageTraceSet GetNotificationTraces() const = 0;
+
     virtual Clock& GetClock() = 0;
 
     // Admin
     virtual void Initialize() = 0;
+
     virtual IODeviceID GetLastDeviceID() const = 0;
     virtual IODeviceID GetNextAvailableDeviceID() const = 0;
     virtual IODeviceID GetDeviceIDByName(const std::string& objname) const = 0;

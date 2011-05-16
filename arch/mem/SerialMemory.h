@@ -27,10 +27,10 @@ class SerialMemory : public Object, public IMemoryAdmin, public VirtualMemory
     // IMemory
     void Reserve(MemAddr address, MemSize size, int perm);
     void Unreserve(MemAddr address);
-    void RegisterClient  (PSize pid, IMemoryCallback& callback, const Process* processes[]);
-    void UnregisterClient(PSize pid);
-    bool Read (PSize pid, MemAddr address, MemSize size);
-    bool Write(PSize pid, MemAddr address, const void* data, MemSize size, TID tid);
+    MCID RegisterClient(IMemoryCallback& callback, Process& process, StorageTraceSet& traces, Storage& storage);
+    void UnregisterClient(MCID id);
+    bool Read (MCID id, MemAddr address, MemSize size);
+    bool Write(MCID id, MemAddr address, const void* data, MemSize size, TID tid);
 	bool CheckPermissions(MemAddr address, MemSize size, int access) const;
 
     // IMemoryAdmin
@@ -59,6 +59,7 @@ class SerialMemory : public Object, public IMemoryAdmin, public VirtualMemory
     CycleNo                       m_timePerLine;
     CycleNo                       m_sizeOfLine;
     CycleNo                       m_nextdone;
+    StorageTraceSet               m_storages;
 
     uint64_t m_nreads;
     uint64_t m_nread_bytes;

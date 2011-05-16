@@ -180,6 +180,12 @@ namespace Simulator
         }
 
         PrepareRanges();
+
+        p_Load.SetStorageTraces(m_iobus.GetWriteRequestTraces() * opt(m_flushing));
+        
+        p_Flush.SetStorageTraces(m_iobus.GetReadRequestTraces(m_devid));
+        
+        p_Notify.SetStorageTraces(m_iobus.GetNotificationTraces());
     }
 
     void ActiveROM::GetBootInfo(MemAddr& start, bool& legacy) const
@@ -206,6 +212,11 @@ namespace Simulator
         return true;
     }
 
+    StorageTraceSet ActiveROM::GetReadResponseTraces() const
+    {
+        return m_notifying;
+    }
+    
     Result ActiveROM::DoFlush()
     {
         if (!m_iobus.SendReadRequest(m_devid, m_client, 0, 0))
@@ -301,6 +312,11 @@ namespace Simulator
         return true;
     }
 
+    StorageTraceSet ActiveROM::GetWriteRequestTraces() const
+    {
+        return opt(m_loading);
+    }
+    
     void ActiveROM::GetDeviceIdentity(IODeviceIdentification& id) const
     {
         if (!DeviceDatabase::GetDatabase().FindDeviceByName("MGSim", "ActiveROM", id))

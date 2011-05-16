@@ -17,6 +17,7 @@ SIM_SOURCES = \
 	sim/sampling.h \
 	sim/sampling.cpp \
 	sim/storage.h \
+	sim/storagetrace.h \
 	sim/types.h
 
 if ENABLE_MONITOR

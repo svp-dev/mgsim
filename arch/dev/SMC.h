@@ -51,6 +51,8 @@ namespace Simulator
         bool OnReadRequestReceived(IODeviceID from, MemAddr address, MemSize size);
         bool OnNotificationReceived(IOInterruptID which, Integer tag);
         
+        StorageTraceSet GetNotificationTraces() const;
+
         void GetDeviceIdentity(IODeviceIdentification& id) const;
         std::string GetIODeviceName() const;
         

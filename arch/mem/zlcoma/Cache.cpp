@@ -16,28 +16,30 @@ namespace Simulator
 static const size_t MINSPACE_INSERTION = 2;
 static const size_t MINSPACE_FORWARD   = 1;
 
-void ZLCOMA::Cache::RegisterClient(PSize pid, IMemoryCallback& callback, const Process* processes[])
+void ZLCOMA::Cache::RegisterClient(MCID id, IMemoryCallback& callback, Process& process, StorageTraceSet& traces, Storage& storage)
 {
-    size_t index = pid % m_clients.size();
+    size_t index = id % m_clients.size();
     assert(m_clients[index] == NULL);
     m_clients[index] = &callback;
 
-    for (size_t i = 0; processes[i] != NULL; ++i)
-    {
-        p_bus.AddProcess(*processes[i]);
-    }
+    p_bus.AddProcess(process);
+    traces = m_requests;
+    
+    m_storages *= opt(storage);
+    p_Requests.SetStorageTraces(opt(m_storages ^ GetOutgoingTrace()));
+    p_In.SetStorageTraces(opt(m_storages ^ GetOutgoingTrace()));
 }
 
-void ZLCOMA::Cache::UnregisterClient(PSize pid)
+void ZLCOMA::Cache::UnregisterClient(MCID id)
 {
-    size_t index = pid % m_clients.size();
+    size_t index = id % m_clients.size();
     assert(m_clients[index] != NULL);
     m_clients[index] = NULL;
 }
 
 // Called from the processor on a memory read (typically a whole cache-line)
 // Just queues the request.
-bool ZLCOMA::Cache::Read(PSize pid, MemAddr address, MemSize size)
+bool ZLCOMA::Cache::Read(MCID id, MemAddr address, MemSize size)
 {
     if (size != m_lineSize)
     {
@@ -68,7 +70,7 @@ bool ZLCOMA::Cache::Read(PSize pid, MemAddr address, MemSize size)
     req.size    = size;
 
     // Client should have been registered
-    assert(m_clients[pid % m_clients.size()] != NULL);
+    assert(m_clients[id % m_clients.size()] != NULL);
 
     if (!m_requests.Push(req))
     {
@@ -82,7 +84,7 @@ bool ZLCOMA::Cache::Read(PSize pid, MemAddr address, MemSize size)
 
 // Called from the processor on a memory write (can be any size with write-through/around)
 // Just queues the request.
-bool ZLCOMA::Cache::Write(PSize pid, MemAddr address, const void* data, MemSize size, TID tid)
+bool ZLCOMA::Cache::Write(MCID id, MemAddr address, const void* data, MemSize size, TID tid)
 {
     if (size > m_lineSize || size > MAX_MEMORY_OPERATION_SIZE)
     {
@@ -107,7 +109,7 @@ bool ZLCOMA::Cache::Write(PSize pid, MemAddr address, const void* data, MemSize 
     req.address = address;
     req.write   = true;
     req.size    = size;
-    req.client  = pid % m_clients.size();
+    req.client  = id % m_clients.size();
     req.tid     = tid;
     memcpy(req.data, data, (size_t)size);
 
@@ -519,7 +521,7 @@ Result ZLCOMA::Cache::OnWriteRequest(const Request& req)
         std::fill(line->bitmask + offset, line->bitmask + offset + req.size, true);
     }
     
-    if (!newline && !line->transient && line->tokens == m_numTokens)
+    if (!newline && !line->transient && line->tokens == m_parent.GetTotalTokens())
     {
         assert(line->priority);
             
@@ -813,7 +815,7 @@ Result ZLCOMA::Cache::OnAcquireTokensRet(Message* req)
         }
     }
     
-    if (tokens < m_numTokens)
+    if (tokens < m_parent.GetTotalTokens())
     {
         // We don't have all the tokens necessary to acknowledge the pending writes.
         // Send the request again.
@@ -1158,16 +1160,15 @@ Result ZLCOMA::Cache::DoReceive()
     return (result == FAILED) ? FAILED : SUCCESS;
 }
 
-ZLCOMA::Cache::Cache(const std::string& name, ZLCOMA& parent, Clock& clock, CacheID id, size_t numTokens, Config& config) :
+ZLCOMA::Cache::Cache(const std::string& name, ZLCOMA& parent, Clock& clock, CacheID id, Config& config) :
     Simulator::Object(name, parent),
     Node(name, parent, clock),
     m_lineSize (config.getValue<size_t>("CacheLineSize")),
     m_assoc    (config.getValue<size_t>(parent, "L2CacheAssociativity")),
     m_sets     (config.getValue<size_t>(parent, "L2CacheNumSets")),
-    m_numTokens(numTokens),
     m_inject   (config.getValue<bool>(parent, "EnableCacheInjection")),
     m_id       (id),
-    m_clients  (config.getValue<size_t>("NumProcessorsPerL2Cache"), NULL),
+    m_clients  (config.getValue<size_t>("NumClientsPerL2Cache"), NULL),
     p_lines    (*this, clock, "p_lines"),
     m_numHits  (0),
     m_numMisses(0),

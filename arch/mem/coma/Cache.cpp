@@ -16,28 +16,30 @@ namespace Simulator
 static const size_t MINSPACE_INSERTION = 2;
 static const size_t MINSPACE_FORWARD   = 1;
 
-void COMA::Cache::RegisterClient(PSize pid, IMemoryCallback& callback, const Process* processes[])
+void COMA::Cache::RegisterClient(MCID id, IMemoryCallback& callback, Process& process, StorageTraceSet& traces, Storage& storage)
 {
-    size_t index = pid % m_clients.size();
+    size_t index = id % m_clients.size();
     assert(m_clients[index] == NULL);
     m_clients[index] = &callback;
     
-    for (size_t i = 0; processes[i] != NULL; ++i)
-    {
-        p_bus.AddProcess(*processes[i]);
-    }
+    p_bus.AddProcess(process);
+    traces = m_requests;
+    
+    m_storages *= opt(storage);
+    p_Requests.SetStorageTraces(m_storages ^ GetOutgoingTrace());
+    p_In.SetStorageTraces(opt(m_storages ^ GetOutgoingTrace()));
 }
 
-void COMA::Cache::UnregisterClient(PSize pid)
+void COMA::Cache::UnregisterClient(MCID id)
 {
-    size_t index = pid % m_clients.size();
+    size_t index = id % m_clients.size();
     assert(m_clients[index] != NULL);
     m_clients[index] = NULL;
 }
 
 // Called from the processor on a memory read (typically a whole cache-line)
 // Just queues the request.
-bool COMA::Cache::Read(PSize pid, MemAddr address, MemSize size)
+bool COMA::Cache::Read(MCID id, MemAddr address, MemSize size)
 {
     if (size != m_lineSize)
     {
@@ -68,7 +70,7 @@ bool COMA::Cache::Read(PSize pid, MemAddr address, MemSize size)
     req.size    = size;
     
     // Client should have been registered
-    assert(m_clients[pid % m_clients.size()] != NULL);
+    assert(m_clients[id % m_clients.size()] != NULL);
 
     if (!m_requests.Push(req))
     {
@@ -82,7 +84,7 @@ bool COMA::Cache::Read(PSize pid, MemAddr address, MemSize size)
 
 // Called from the processor on a memory write (can be any size with write-through/around)
 // Just queues the request.
-bool COMA::Cache::Write(PSize pid, MemAddr address, const void* data, MemSize size, TID tid)
+bool COMA::Cache::Write(MCID id, MemAddr address, const void* data, MemSize size, TID tid)
 {
     if (size > m_lineSize || size > MAX_MEMORY_OPERATION_SIZE)
     {
@@ -107,7 +109,7 @@ bool COMA::Cache::Write(PSize pid, MemAddr address, const void* data, MemSize si
     req.address = address;
     req.write   = true;
     req.size    = size;
-    req.client  = pid % m_clients.size();
+    req.client  = id % m_clients.size();
     req.tid     = tid;
     memcpy(req.data, data, (size_t)size);
     
@@ -609,7 +611,7 @@ Result COMA::Cache::OnWriteRequest(const Request& req)
 
     // Write hit
     // Although we may hit a loading line
-    if (line->state == LINE_FULL && line->tokens == m_numCaches)
+    if (line->state == LINE_FULL && line->tokens == m_parent.GetTotalTokens())
     {
         // We have all tokens, notify the sender client immediately
         TraceWrite(req.address, "Processing Bus Write Request: Exclusive Hit");
@@ -801,16 +803,15 @@ Result COMA::Cache::DoReceive()
     return SUCCESS;
 }
 
-COMA::Cache::Cache(const std::string& name, COMA& parent, Clock& clock, CacheID id, size_t numCaches, Config& config) :
+COMA::Cache::Cache(const std::string& name, COMA& parent, Clock& clock, CacheID id, Config& config) :
     Simulator::Object(name, parent),
     //COMA::Object(name, parent),
     Node(name, parent, clock, config),
     m_lineSize (config.getValue<size_t>("CacheLineSize")),
     m_assoc    (config.getValue<size_t>(parent, "L2CacheAssociativity")),
     m_sets     (config.getValue<size_t>(parent, "L2CacheNumSets")),
-    m_numCaches(numCaches),
     m_id       (id),
-    m_clients  (config.getValue<size_t>("NumProcessorsPerL2Cache"), NULL),
+    m_clients  (config.getValue<size_t>("NumClientsPerL2Cache"), NULL),
     p_lines    (*this, clock, "p_lines"),
     m_numHits  (0),
     m_numMisses(0),

@@ -149,7 +149,7 @@ private:
     Result DoPipeline();
     
 public:
-    void SetClient(ICallback& cb);
+    void SetClient(ICallback& cb, StorageTraceSet& sts, const StorageTraceSet& storages);
     bool Read(MemAddr address, MemSize size);
     bool Write(MemAddr address, const void* data, MemSize size);
     

@@ -5,7 +5,7 @@
 #error This file should be included in Processor.h
 #endif
 
-class IODirectCacheAccess : public Object
+class IODirectCacheAccess : public Object, public IMemoryCallback
 {
 public:
 
@@ -33,10 +33,15 @@ private:
     };
 
     Processor&           m_cpu;
+    IMemory&             m_memory;
+    MCID                 m_mcid;
     IOBusInterface&      m_busif;
     const MemSize        m_lineSize; 
 
+public:
     Buffer<Request>      m_requests; // from bus
+
+private:
     Buffer<Response>     m_responses; // from memory
 
     bool                 m_has_outstanding_request;
@@ -48,7 +53,8 @@ private:
     size_t               m_pending_writes;
 
 public:
-    IODirectCacheAccess(const std::string& name, Object& parent, Clock& clock, Processor& proc, IOBusInterface& busif, Config& config);
+    IODirectCacheAccess(const std::string& name, Object& parent, Clock& clock, Processor& proc, IMemory& memory, IOBusInterface& busif, Config& config);
+    ~IODirectCacheAccess();
 
     bool QueueRequest(const Request& req);
     

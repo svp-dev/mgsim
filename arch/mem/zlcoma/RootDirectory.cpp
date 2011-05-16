@@ -140,7 +140,7 @@ bool ZLCOMA::RootDirectory::OnMessageReceived(Message* req)
                     line->loading  = true;
 
                     // Introduce all tokens as well
-                    req->tokens   = m_numTokens;
+                    req->tokens   = m_parent.GetTotalTokens();
                     req->priority = true;
                 }
             
@@ -224,7 +224,7 @@ bool ZLCOMA::RootDirectory::OnMessageReceived(Message* req)
                     assert(req->tokens == 0);
                     assert(req->priority == false);
                 
-                    TraceWrite(req->address, "Received Token Request; Miss; Introducing %u tokens", (unsigned)m_numTokens);
+                    TraceWrite(req->address, "Received Token Request; Miss; Introducing %u tokens", (unsigned)m_parent.GetTotalTokens());
 
                     // Introduce all tokens into the system, but don't read the data from memory
                     COMMIT
@@ -236,7 +236,7 @@ bool ZLCOMA::RootDirectory::OnMessageReceived(Message* req)
                         line->priority = false;
                         line->loading  = false;
                     
-                        req->tokens = m_numTokens;
+                        req->tokens = m_parent.GetTotalTokens();
                         req->priority = true;
                     }
                 }
@@ -277,7 +277,7 @@ bool ZLCOMA::RootDirectory::OnMessageReceived(Message* req)
                 line->tokens += req->tokens;
                 line->priority = line->priority || req->priority;
             
-                if (line->tokens == m_numTokens)
+                if (line->tokens == m_parent.GetTotalTokens())
                 {
                     TraceWrite(req->address, "Received Evict Request; All tokens; Clearing line from system");
                 
@@ -411,7 +411,7 @@ Result ZLCOMA::RootDirectory::DoResponses()
         assert(line != NULL);
         assert(line->loading);
 
-        TraceWrite(msg->address, "Sending Read Response with %u tokens", (unsigned)m_numTokens);
+        TraceWrite(msg->address, "Sending Read Response with %u tokens", (unsigned)m_parent.GetTotalTokens());
 
         COMMIT
         {
@@ -432,13 +432,24 @@ Result ZLCOMA::RootDirectory::DoResponses()
     return SUCCESS;
 }
 
-ZLCOMA::RootDirectory::RootDirectory(const std::string& name, ZLCOMA& parent, Clock& clock, VirtualMemory& memory, size_t numCaches, size_t id, size_t numRoots, const DDRChannelRegistry& ddr, Config& config) :
+void ZLCOMA::RootDirectory::SetNumDirectories(size_t num_dirs)
+{
+    // Create the cache lines.
+    // We need as many cache lines in the directory to cover all caches below it.
+    m_assoc = m_assoc_dir * num_dirs;
+    m_lines.resize(m_assoc * m_sets);
+    for (size_t i = 0; i < m_lines.size(); ++i)
+    {
+        m_lines[i].valid = false;
+    }
+}
+
+ZLCOMA::RootDirectory::RootDirectory(const std::string& name, ZLCOMA& parent, Clock& clock, VirtualMemory& memory, size_t id, size_t numRoots, const DDRChannelRegistry& ddr, Config& config) :
     Simulator::Object(name, parent),
     DirectoryBottom(name, parent, clock),
     m_lineSize(config.getValue<size_t>("CacheLineSize")),
-    m_assoc   (config.getValue<size_t>(parent, "L2CacheAssociativity") * numCaches),
+    m_assoc_dir(config.getValue<size_t>(parent, "L2CacheAssociativity")),
     m_sets    (config.getValue<size_t>(parent, "L2CacheNumSets")),
-    m_numTokens(numCaches),
     m_id       (id),
     m_numRoots (numRoots),
     p_lines    (*this, clock, "p_lines"),
@@ -456,14 +467,6 @@ ZLCOMA::RootDirectory::RootDirectory(const std::string& name, ZLCOMA& parent, Cl
 
     config.registerObject(*this, "rootdir");
     config.registerProperty(*this, "freq", (uint32_t)clock.GetFrequency());
-    
-    // Create the cache lines
-    // We need as many cache lines in the directory to cover all caches below it
-    m_lines.resize(m_assoc * m_sets);
-    for (size_t i = 0; i < m_lines.size(); ++i)
-    {
-        m_lines[i].valid = false;
-    }
 
     m_incoming.Sensitive(p_Incoming);
     m_requests.Sensitive(p_Requests);
@@ -478,7 +481,13 @@ ZLCOMA::RootDirectory::RootDirectory(const std::string& name, ZLCOMA& parent, Cl
         throw exceptf<InvalidArgumentException>(*this, "Invalid DDR channel ID: %zu", ddrid);
     }
     m_memory = ddr[ddrid];
-    m_memory->SetClient(*this);
+    
+    StorageTraceSet sts;
+    m_memory->SetClient(*this, sts, m_responses * m_memready);
+    
+    p_Requests.SetStorageTraces(sts ^ m_responses);
+    p_Incoming.SetStorageTraces((GetOutgoingTrace() * opt(m_requests)) ^ m_requests);
+    p_Responses.SetStorageTraces(GetOutgoingTrace());
 }
 
 void ZLCOMA::RootDirectory::Cmd_Info(std::ostream& out, const std::vector<std::string>& arguments) const

@@ -15,21 +15,46 @@ static bool IsPowerOfTwo(const T& x)
     return (x & (x - 1)) == 0;
 }
 
-void ZLCOMA::RegisterClient(PSize pid, IMemoryCallback& callback, const Process* processes[])
+MCID ZLCOMA::RegisterClient(IMemoryCallback& callback, Process& process, StorageTraceSet& traces, Storage& storage)
 {
-    // Forward the registration to the cache associated with the processor
-    m_caches[pid / m_numProcsPerCache]->RegisterClient(pid, callback, processes);
+    if (m_numClients % m_numClientsPerCache == 0)
+    {
+        // Add a cache
+        if (m_caches.size() % m_numCachesPerDir == 0)
+        {
+            // First cache in a ring; add a directory
+            CacheID firstCache = m_caches.size();
+            CacheID lastCache  = firstCache + m_numCachesPerDir - 1;
 
-    m_registry.registerBidiRelation(callback, *m_caches[pid / m_numProcsPerCache], "mem");
+            stringstream name;
+            name << "dir" << m_directories.size();
+            Directory* dir = new Directory(name.str(), *this, GetClock(), firstCache, lastCache, m_config);
+            m_directories.push_back(dir);
+        }
+
+        stringstream name;
+        name << "cache" << m_caches.size();
+        Cache* cache = new Cache(name.str(), *this, GetClock(), m_caches.size(), m_config);
+        m_caches.push_back(cache);
+    }
+    
+    // Forward the registration to the cache associated with the processor
+    MCID id = m_numClients++;
+    m_caches[id / m_numClientsPerCache]->RegisterClient(id, callback, process, traces, storage);
+
+    m_registry.registerBidiRelation(callback, *m_caches[id / m_numClientsPerCache], "mem");
+
+    return id;
 }
 
-void ZLCOMA::UnregisterClient(PSize pid)
+void ZLCOMA::UnregisterClient(MCID id)
 {
     // Forward the unregistration to the cache associated with the processor
-    m_caches[pid / m_numProcsPerCache]->UnregisterClient(pid);
+    assert(id < m_numClients);
+    m_caches[id / m_numClientsPerCache]->UnregisterClient(id);
 }
 
-bool ZLCOMA::Read(PSize pid, MemAddr address, MemSize size)
+bool ZLCOMA::Read(MCID id, MemAddr address, MemSize size)
 {
     COMMIT
     {
@@ -37,10 +62,10 @@ bool ZLCOMA::Read(PSize pid, MemAddr address, MemSize size)
         m_nread_bytes += size;
     }
     // Forward the read to the cache associated with the callback
-    return m_caches[pid / m_numProcsPerCache]->Read(pid, address, size);
+    return m_caches[id / m_numClientsPerCache]->Read(id, address, size);
 }
 
-bool ZLCOMA::Write(PSize pid, MemAddr address, const void* data, MemSize size, TID tid)
+bool ZLCOMA::Write(MCID id, MemAddr address, const void* data, MemSize size, TID tid)
 {
     // Until the write protocol is figured out, do magic coherence!
     COMMIT
@@ -49,7 +74,7 @@ bool ZLCOMA::Write(PSize pid, MemAddr address, const void* data, MemSize size, T
         m_nwrite_bytes += size;
     }
     // Forward the write to the cache associated with the callback
-    return m_caches[pid / m_numProcsPerCache]->Write(pid, address, data, size, tid);
+    return m_caches[id / m_numClientsPerCache]->Write(id, address, data, size, tid);
 }
 
 void ZLCOMA::Reserve(MemAddr address, MemSize size, int perm)
@@ -87,8 +112,10 @@ ZLCOMA::ZLCOMA(const std::string& name, Simulator::Object& parent, Clock& clock,
     // It has no processes of its own.
     Simulator::Object(name, parent, clock),
     m_registry(config),
-    m_numProcsPerCache(config.getValue<size_t>("NumProcessorsPerL2Cache")),
-    m_numCachesPerDir (config.getValue<size_t>(*this, "NumL2CachesPerDirectory")),
+    m_numClientsPerCache(config.getValue<size_t>("NumClientsPerL2Cache")),
+    m_numCachesPerDir   (config.getValue<size_t>(*this, "NumL2CachesPerDirectory")),
+    m_numClients(0),
+    m_config(config),
     m_ddr("ddr", *this, *this, config),
     m_nreads(0), m_nwrites(0), m_nread_bytes(0), m_nwrite_bytes(0)
 {
@@ -97,28 +124,6 @@ ZLCOMA::ZLCOMA(const std::string& name, Simulator::Object& parent, Clock& clock,
     RegisterSampleVariableInObject(m_nread_bytes, SVC_CUMULATIVE);
     RegisterSampleVariableInObject(m_nwrites, SVC_CUMULATIVE);
     RegisterSampleVariableInObject(m_nwrite_bytes, SVC_CUMULATIVE);
-
-    // Create the caches
-    size_t numProcs = config.getValue<size_t>("NumProcessors");
-    m_caches.resize( (numProcs + m_numProcsPerCache - 1) / m_numProcsPerCache );
-    for (size_t i = 0; i < m_caches.size(); ++i)
-    {
-        stringstream name;
-        name << "cache" << i;
-        m_caches[i] = new Cache(name.str(), *this, clock, i, m_caches.size(), config);
-    }
-    
-    // Create the directories
-    m_directories.resize( (m_caches.size() + m_numCachesPerDir - 1) / m_numCachesPerDir );
-    for (size_t i = 0; i < m_directories.size(); ++i)
-    {
-        CacheID firstCache = i * m_numCachesPerDir;
-        CacheID lastCache  = std::min(firstCache + m_numCachesPerDir, m_caches.size()) - 1;
-        
-        stringstream name;
-        name << "dir" << i;
-        m_directories[i] = new Directory(name.str(), *this, clock, m_caches.size(), firstCache, lastCache, config);
-    }
 
     // Create the root directories
     m_roots.resize(config.getValue<size_t>(*this, "NumRootDirectories"));
@@ -131,9 +136,13 @@ ZLCOMA::ZLCOMA(const std::string& name, Simulator::Object& parent, Clock& clock,
     {
         stringstream name;
         name << "rootdir" << i;
-        m_roots[i] = new RootDirectory(name.str(), *this, clock, *this, m_caches.size(), i, m_roots.size(), m_ddr, config);
+        m_roots[i] = new RootDirectory(name.str(), *this, clock, *this, i, m_roots.size(), m_ddr, config);
     }
 
+}
+
+void ZLCOMA::Initialize()
+{
     // Initialize the caches
     for (size_t i = 0; i < m_caches.size(); ++i)
     {
@@ -145,9 +154,9 @@ ZLCOMA::ZLCOMA(const std::string& name, Simulator::Object& parent, Clock& clock,
         Node *prev = last  ? dir : static_cast<Node*>(m_caches[i+1]);
         m_caches[i]->Initialize(next, prev);
 
-        config.registerRelation(*m_caches[i], *next, "l2ring");
+        m_config.registerRelation(*m_caches[i], *next, "l2ring");
     }
-    
+
     // Connect the directories to the cache rings
     for (size_t i = 0; i < m_directories.size(); ++i)
     {
@@ -155,7 +164,7 @@ ZLCOMA::ZLCOMA(const std::string& name, Simulator::Object& parent, Clock& clock,
         Node *prev = m_caches[i * m_numCachesPerDir];
         m_directories[i]->m_bottom.Initialize(next, prev);
 
-        config.registerRelation(m_directories[i]->m_bottom, *next, "l2ring");
+        m_config.registerRelation(m_directories[i]->m_bottom, *next, "l2ring");
     }
 
     //
@@ -166,6 +175,9 @@ ZLCOMA::ZLCOMA(const std::string& name, Simulator::Object& parent, Clock& clock,
     // First place root directories in their place in the ring.
     for (size_t i = 0; i < m_roots.size(); ++i)
     {
+        // Tell the root directory how many directories there are
+        m_roots[i]->SetNumDirectories(m_directories.size());
+
         // Do an even (as possible) distribution
         size_t pos = i * m_directories.size() / m_roots.size() + i;
 
@@ -188,7 +200,7 @@ ZLCOMA::ZLCOMA(const std::string& name, Simulator::Object& parent, Clock& clock,
         Node *prev = nodes[(i + 1) % nodes.size()];
         nodes[i]->Initialize(next, prev);
 
-        config.registerRelation(*nodes[i], *next, "topring");
+        m_config.registerRelation(*nodes[i], *next, "topring");
     }
 }
 

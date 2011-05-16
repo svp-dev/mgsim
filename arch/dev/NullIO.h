@@ -33,7 +33,14 @@ namespace Simulator
         bool SendInterruptRequest(IODeviceID from, IOInterruptID which);
         bool SendNotification(IODeviceID from, IOInterruptID which, Integer tag);
 
+        StorageTraceSet GetReadRequestTraces(IODeviceID from) const;
+        StorageTraceSet GetWriteRequestTraces() const;
+        StorageTraceSet GetReadResponseTraces() const;
+        StorageTraceSet GetInterruptRequestTraces() const;
+        StorageTraceSet GetNotificationTraces() const;
+
         void Initialize();
+
         IODeviceID GetLastDeviceID() const;
         IODeviceID GetDeviceIDByName(const std::string& objname) const;
         Object& GetDeviceByName(const std::string& objname) const;

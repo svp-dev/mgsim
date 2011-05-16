@@ -31,6 +31,8 @@ public:
     virtual ~IMemoryCallback() {}
 };
 
+typedef size_t MCID;    ///< Memory Client ID
+
 class IMemory
 {
 public:
@@ -42,10 +44,12 @@ public:
         PERM_DCA_WRITE = 16
     };
 
-    virtual void RegisterClient  (PSize pid, IMemoryCallback& callback, const Process* processes[]) = 0;
-    virtual void UnregisterClient(PSize pid) = 0;
-    virtual bool Read (PSize pid, MemAddr address, MemSize size) = 0;
-    virtual bool Write(PSize pid, MemAddr address, const void* data, MemSize size, TID tid) = 0;
+    virtual MCID RegisterClient(IMemoryCallback& callback, Process& process, StorageTraceSet& traces, Storage& storage) = 0;
+    virtual void UnregisterClient(MCID id) = 0;
+    virtual bool Read (MCID id, MemAddr address, MemSize size) = 0;
+    virtual bool Write(MCID id, MemAddr address, const void* data, MemSize size, TID tid) = 0;
+    
+    virtual void Initialize() {}
 
     virtual ~IMemory() {}
 

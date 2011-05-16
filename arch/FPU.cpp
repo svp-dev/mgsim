@@ -12,13 +12,43 @@ static const char* const OperationNames[FPU_NUM_OPS] = {
     "ADD", "SUB", "MUL", "DIV", "SQRT"
 };
 
-size_t FPU::RegisterSource(Processor::RegisterFile& regfile)
+StorageTraceSet FPU::GetSourceTrace(size_t source) const
+{
+    return m_sources[source]->inputs;
+}
+
+StorageTraceSet FPU::CreateStoragePermutation(size_t num_sources, std::vector<bool>& visited)
+{
+    StorageTraceSet res;
+    for (size_t i = 0; i < num_sources; ++i)
+    {
+        if (!visited[i]) 
+        {
+            visited[i] = true;
+            StorageTraceSet perms = CreateStoragePermutation(num_sources, visited);
+            visited[i] = false;
+
+            res ^= m_sources[i]->outputs;
+            res ^= m_sources[i]->outputs * perms;
+        }
+    }
+    return res;
+}
+
+size_t FPU::RegisterSource(Processor::RegisterFile& regfile, const StorageTraceSet& output)
 {
     for (size_t i = 0; i < m_sources.size(); ++i)
     {
         if (m_sources[i]->regfile == NULL)
         {
             m_sources[i]->regfile = &regfile;
+            m_sources[i]->outputs = output;
+            
+            // Any number of outputs can be written in any order.
+            size_t num_sources = i + 1;
+            vector<bool> visited(num_sources, false);
+            StorageTraceSet outputs = CreateStoragePermutation(num_sources, visited);            
+            p_Pipeline.SetStorageTraces(opt(outputs) * opt(m_active));            
             return i;
         }
     }

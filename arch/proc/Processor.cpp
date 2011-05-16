@@ -28,8 +28,8 @@ Processor::Processor(const std::string& name, Object& parent, Clock& clock, PID 
     m_registerFile("registers",     *this, clock, m_allocator, config),
     m_raunit      ("rau",           *this, clock, m_registerFile, config),
     m_allocator   ("alloc",         *this, clock, m_familyTable, m_threadTable, m_registerFile, m_raunit, m_icache, m_network, m_pipeline, config),
-    m_icache      ("icache",        *this, clock, m_allocator, config),
-    m_dcache      ("dcache",        *this, clock, m_allocator, m_familyTable, m_registerFile, config),
+    m_icache      ("icache",        *this, clock, m_allocator, memory, config),
+    m_dcache      ("dcache",        *this, clock, m_allocator, m_familyTable, m_registerFile, memory, config),
     m_pipeline    ("pipeline",      *this, clock, m_registerFile, m_network, m_allocator, m_familyTable, m_threadTable, m_icache, m_dcache, fpu, config),
     m_network     ("network",       *this, clock, grid, m_allocator, m_registerFile, m_familyTable, config),
     m_mmio        ("mmio",          *this, clock, config),
@@ -66,36 +66,24 @@ Processor::Processor(const std::string& name, Object& parent, Clock& clock, PID 
     m_lpout.Connect(m_mmio, IOMatchUnit::WRITE, config);
     m_lperr.Connect(m_mmio, IOMatchUnit::WRITE, config);
 
-    const Process* mem_sources[] = {
-        &m_icache.p_Outgoing,   // Outgoing process in I-Cache
-        &m_dcache.p_Outgoing,   // Outgoing process in D-Cache
-        NULL,
-        NULL
-    };
-
     if (iobus != NULL)
     {
         // This processor also supports I/O
         IODeviceID devid = config.getValue<IODeviceID>(*this, "DeviceID");
 
-        m_io_if = new IOInterface("io_if", *this, clock, m_registerFile, *iobus, devid, config);
+        m_io_if = new IOInterface("io_if", *this, clock, memory, m_registerFile, *iobus, devid, config);
 
         MMIOComponent& async_if = m_io_if->GetAsyncIOInterface();
         async_if.Connect(m_mmio, IOMatchUnit::READWRITE, config);
         MMIOComponent& pnc_if = m_io_if->GetPNCInterface();
         pnc_if.Connect(m_mmio, IOMatchUnit::READ, config);
 
-        mem_sources[2] = &m_io_if->GetDirectCacheAccess().p_MemoryOutgoing;   // Outgoing process in DCA
-
         config.registerBidiRelation(*this, *iobus, "client", (uint32_t)devid);
     }
-    
-    m_memory.RegisterClient(m_pid, *this, mem_sources);
 }
 
 Processor::~Processor()
 {
-    m_memory.UnregisterClient(m_pid);
     delete m_io_if;
 }
 
@@ -114,7 +102,7 @@ void Processor::Initialize(Processor* prev, Processor* next)
 
     // Unfortunately the D-Cache needs priority here because otherwise all cache-lines can
     // remain filled and we get deadlock because the pipeline keeps wanting to do a read.
-    m_dcache.p_service.AddProcess(m_dcache.p_IncomingReads);    // Memory read returns
+    m_dcache.p_service.AddProcess(m_dcache.p_CompletedReads);    // Memory read returns
     m_dcache.p_service.AddProcess(m_pipeline.p_Pipeline);       // Memory read/write
 
     m_allocator.p_allocation.AddProcess(m_pipeline.p_Pipeline);         // ALLOCATE instruction
@@ -132,8 +120,8 @@ void Processor::Initialize(Processor* prev, Processor* next)
 
     m_allocator.p_readyThreads.AddProcess(m_network.p_Link);                // Thread wakeup due to write
     m_allocator.p_readyThreads.AddProcess(m_network.p_DelegationIn);        // Thread wakeup due to write
-    m_allocator.p_readyThreads.AddProcess(m_dcache.p_IncomingReads);        // Thread wakeup due to load completion
-    m_allocator.p_readyThreads.AddProcess(m_dcache.p_IncomingWrites);       // Thread wakeup due to write completion
+    m_allocator.p_readyThreads.AddProcess(m_dcache.p_CompletedReads);       // Thread wakeup due to load completion
+    m_allocator.p_readyThreads.AddProcess(m_dcache.p_Incoming);             // Thread wakeup due to write completion
     m_allocator.p_readyThreads.AddProcess(m_fpu.p_Pipeline);                // Thread wakeup due to FP completion
     m_allocator.p_readyThreads.AddProcess(m_allocator.p_ThreadAllocate);    // Thread creation
     m_allocator.p_readyThreads.AddProcess(m_allocator.p_FamilyAllocate);    // Thread wakeup due to family allocation
@@ -150,7 +138,7 @@ void Processor::Initialize(Processor* prev, Processor* next)
     
     m_registerFile.p_asyncW.AddProcess(m_network.p_Link);                   // Place register receives
     m_registerFile.p_asyncW.AddProcess(m_network.p_DelegationIn);           // Remote register receives
-    m_registerFile.p_asyncW.AddProcess(m_dcache.p_IncomingReads);           // Mem Load writebacks
+    m_registerFile.p_asyncW.AddProcess(m_dcache.p_CompletedReads);          // Mem Load writebacks
 
     m_registerFile.p_asyncW.AddProcess(m_fpu.p_Pipeline);                   // FPU Op writebacks
     m_registerFile.p_asyncW.AddProcess(m_allocator.p_ThreadAllocate);       // Thread allocation
@@ -167,14 +155,14 @@ void Processor::Initialize(Processor* prev, Processor* next)
 
     m_network.m_link.out.AddProcess(m_network.p_Link);                      // Forwarding link messages
     m_network.m_link.out.AddProcess(m_network.p_DelegationIn);              // Delegation message forwards onto link
-    m_network.m_link.out.AddProcess(m_dcache.p_IncomingReads);              // Completed read causes sync
+    m_network.m_link.out.AddProcess(m_dcache.p_CompletedReads);             // Completed read causes sync
     m_network.m_link.out.AddProcess(m_allocator.p_FamilyAllocate);          // Allocate process sending place-wide allocate
     m_network.m_link.out.AddProcess(m_allocator.p_FamilyCreate);            // Create process sends place-wide create
     m_network.m_link.out.AddProcess(m_allocator.p_ThreadAllocate);          // Thread cleanup causes sync
     
     m_network.m_delegateIn.AddProcess(m_network.p_Link);                    // Link messages causes remote 
 
-    m_network.m_delegateIn.AddProcess(m_dcache.p_IncomingReads);            // Read completion causes sync
+    m_network.m_delegateIn.AddProcess(m_dcache.p_CompletedReads);           // Read completion causes sync
 
     m_network.m_delegateIn.AddProcess(m_allocator.p_ThreadAllocate);        // Allocate process completes family sync
     m_network.m_delegateIn.AddProcess(m_allocator.p_FamilyAllocate);        // Allocate process returning FID
@@ -192,13 +180,116 @@ void Processor::Initialize(Processor* prev, Processor* next)
     m_network.m_delegateOut.AddProcess(m_network.p_DelegationIn);     // Returning registers
     m_network.m_delegateOut.AddProcess(m_network.p_Link);             // Place sync causes final sync
 
-    m_network.m_delegateOut.AddProcess(m_dcache.p_IncomingReads);     // Read completion causes sync
+    m_network.m_delegateOut.AddProcess(m_dcache.p_CompletedReads);    // Read completion causes sync
 
     m_network.m_delegateOut.AddProcess(m_network.p_AllocResponse);    // Allocate response writing back to parent
     m_network.m_delegateOut.AddProcess(m_allocator.p_FamilyAllocate); // Allocation process sends FID
     m_network.m_delegateOut.AddProcess(m_allocator.p_FamilyCreate);   // Create process sends delegated create
     m_network.m_delegateOut.AddProcess(m_allocator.p_ThreadAllocate); // Thread cleanup caused sync
     m_network.m_delegateOut.AddProcess(m_network.p_Syncs);            // Family sync goes to delegation
+    
+    //
+    // Set possible storage accesses per process.
+    //
+    // This is used to verify the code in the debug run-time, and can be
+    // used to proof deadlock freedom.
+    // Each process has a set of storage access traces it can perform.
+    // This set is constructed via an expression of storages, where the
+    // following operations are defined:
+    // A ^ B    multi-choice, appends two sets.
+    //          i.e., either traces from set A or B are valid.
+    // A * B    sequence, produces a (kind of) cartesian product.
+    //          i.e., first a trace from A, then a trace from B.
+    // opt(A)   optional. Appends an empty trace.
+    //          i.e., any trace from A, or no trace.
+
+    // Anything that is delegated can either go local or remote
+#define DELEGATE (m_network.m_delegateIn ^ m_network.m_delegateOut)
+
+    m_allocator.p_ThreadAllocate.SetStorageTraces(
+        /* THREADDEP_PREV_CLEANED_UP */ (opt(m_allocator.m_cleanup) * 
+        /* FAMDEP_THREAD_COUNT */        opt(m_network.m_link.out ^ m_network.m_syncs ^
+        /* AllocateThread */                 m_allocator.m_readyThreads2)) ^
+        /* FAMDEP_ALLOCATION_DONE */    (opt(m_network.m_link.out ^ m_network.m_syncs) *
+        /* AllocateThread */             opt(m_allocator.m_readyThreads2)) );
+
+    m_allocator.p_FamilyAllocate.SetStorageTraces(
+        m_network.m_allocResponse.out ^ m_network.m_link.out ^ DELEGATE );
+
+    m_allocator.p_FamilyCreate.SetStorageTraces(
+        /* CREATE_INITIAL */                opt(m_icache.m_outgoing) ^
+        /* CREATE_BROADCASTING_CREATE */    opt(m_network.m_link.out) ^
+        /* CREATE_ACTIVATING_FAMILY */      m_allocator.m_alloc ^ 
+        /* CREATE_NOTIFY */                 opt(DELEGATE) );
+
+    m_allocator.p_ThreadActivation.SetStorageTraces(
+        opt(m_allocator.m_activeThreads ^ m_icache.m_outgoing) );            
+
+    m_icache.p_Incoming.SetStorageTraces(
+        opt(m_allocator.m_activeThreads) );
+
+    // m_icache.p_Outgoing is set in the memory
+
+    m_dcache.p_Incoming.SetStorageTraces(
+        /* Writes */    opt(m_allocator.m_readyThreads2) ^ opt(m_allocator.m_cleanup) ^
+        /* Reads */     m_dcache.m_completed );
+    
+    m_dcache.p_CompletedReads.SetStorageTraces(
+        /* Thread wakeup */ opt(m_allocator.m_readyThreads2) *
+        /* Family sync */   opt(m_network.m_link.out ^ m_network.m_syncs) );
+    
+    // m_dcache.p_Outgoing is set in the memory
+
+    m_pipeline.p_Pipeline.SetStorageTraces(
+        /* Writeback */ opt(opt(DELEGATE) * opt((m_allocator.m_readyThreads1 * m_allocator.m_cleanup) ^ m_allocator.m_cleanup ^ m_allocator.m_readyThreads1)) *
+        /* Memory */    opt(m_dcache.m_outgoing /* ^ mmio.Write ^ mmio.Read*/) *
+        /* Execute */   opt(m_fpu.GetSourceTrace(m_pipeline.GetFPUSource())) *
+        m_pipeline.m_active );
+    
+    m_network.p_DelegationIn.SetStorageTraces(
+        /* MSG_ALLOCATE */          (m_network.m_link.out ^ m_allocator.m_allocRequestsExclusive ^
+                                     m_allocator.m_allocRequestsSuspend ^ m_allocator.m_allocRequestsNoSuspend) ^
+        /* MSG_SET_PROPERTY */      (m_network.m_link.out) ^
+        /* MSG_CREATE */            (m_allocator.m_creates) ^
+        /* MSG_SYNC */              opt(m_network.m_link.out ^ m_network.m_syncs) ^
+        /* MSG_DETACH */            opt(m_network.m_link.out) ^
+        /* MSG_BREAK */             (opt(m_network.m_link.out ^ DELEGATE) * opt(m_network.m_link.out)) ^
+        /* MSG_RAW_REGISTER */      m_allocator.m_readyThreads2 ^
+        /* RRT_LAST_SHARED */       (DELEGATE) ^ 
+        /* RRT_FIRST_DEPENDENT */   (m_allocator.m_readyThreads2) ^
+        /* RRT_GLOBAL */            (m_allocator.m_readyThreads2 * opt(m_network.m_link.out))
+        );
+
+    m_network.p_Link.SetStorageTraces(
+        /* MSG_ALLOCATE */          (m_allocator.m_allocRequestsExclusive ^
+                                     m_allocator.m_allocRequestsSuspend ^ m_allocator.m_allocRequestsNoSuspend) ^
+        /* MSG_BALLOCATE */         (m_network.m_link.out ^ DELEGATE) ^
+        /* MSG_SET_PROPERTY */      opt(m_network.m_link.out) ^
+        /* MSG_CREATE */            (opt(m_network.m_link.out) ^ (m_allocator.m_alloc * opt(m_network.m_link.out)) ) ^
+        /* MSG_DONE */              opt(m_network.m_link.out ^ m_network.m_syncs) ^
+        /* MSG_SYNC */              opt(m_network.m_link.out ^ m_network.m_syncs) ^
+        /* MSG_DETACH */            opt(m_network.m_link.out) ^
+        /* MSG_GLOBAL */            (m_allocator.m_readyThreads2 * opt(m_network.m_link.out)) ^
+        /* MSG_BREAK */             (opt(m_network.m_link.out ^ DELEGATE) * opt(m_network.m_link.out))
+        );
+
+    m_network.p_AllocResponse.SetStorageTraces(
+        DELEGATE ^ m_network.m_allocResponse.out );
+        
+    m_network.p_Syncs.SetStorageTraces(
+        DELEGATE );
+
+    // This core can send a message to every other core.
+    // (Except itself, that goes straight into m_delegationIn).
+    StorageTraceSet stsDelegationOut;
+    for (size_t i = 0; i < m_grid.size(); i++)
+    {
+        if (m_grid[i] != this) {
+            stsDelegationOut ^= m_grid[i]->m_network.m_delegateIn;
+        }
+    }
+    m_network.p_DelegationOut.SetStorageTraces(stsDelegationOut);   
+#undef DELEGATE
 }    
 
 MemAddr Processor::GetDeviceBaseAddress(IODeviceID dev) const
@@ -245,16 +336,6 @@ void Processor::UnmapMemory(MemAddr address, MemSize size)
     m_memadmin.Unreserve(address);
 }
 
-bool Processor::ReadMemory(MemAddr address, MemSize size)
-{
-    return m_memory.Read(m_pid, address, size);
-}
-
-bool Processor::WriteMemory(MemAddr address, const void* data, MemSize size, TID tid)
-{
-    return m_memory.Write(m_pid, address, data, size, tid);
-}
-
 bool Processor::CheckPermissions(MemAddr address, MemSize size, int access) const
 {
     bool mp = m_memadmin.CheckPermissions(address, size, access);
@@ -273,37 +354,6 @@ bool Processor::CheckPermissions(MemAddr address, MemSize size, int access) cons
             return true;
     }
     return mp;
-}
-
-bool Processor::OnMemoryReadCompleted(MemAddr address, const MemData& data)
-{
-    // Notify I-Cache and D-Cache (they both snoop: they're on a bus)
-    return
-        m_dcache.OnMemoryReadCompleted(address, data) && 
-        m_icache.OnMemoryReadCompleted(address, data) &&
-        (m_io_if == NULL || m_io_if->GetDirectCacheAccess().OnMemoryReadCompleted(address, data));
-}
-
-bool Processor::OnMemoryWriteCompleted(TID tid)
-{
-    // Dispatch result to D-Cache
-    return m_dcache.OnMemoryWriteCompleted(tid) &&
-        (m_io_if == NULL || m_io_if->GetDirectCacheAccess().OnMemoryWriteCompleted(tid));
-}
-
-bool Processor::OnMemorySnooped(MemAddr addr, const MemData& data)
-{
-    return 
-        m_dcache.OnMemorySnooped(addr, data) &&
-        m_icache.OnMemorySnooped(addr, data) &&
-        (m_io_if == NULL || m_io_if->GetDirectCacheAccess().OnMemorySnooped(addr, data));
-}
-
-bool Processor::OnMemoryInvalidated(MemAddr addr)
-{
-    return m_dcache.OnMemoryInvalidated(addr) &&
-           m_icache.OnMemoryInvalidated(addr) &&
-        (m_io_if == NULL || m_io_if->GetDirectCacheAccess().OnMemoryInvalidated(addr));        
 }
 
 //

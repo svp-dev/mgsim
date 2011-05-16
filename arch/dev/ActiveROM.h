@@ -83,6 +83,8 @@ namespace Simulator
         bool OnWriteRequestReceived(IODeviceID from, MemAddr address, const IOData& data);
         bool OnReadResponseReceived(IODeviceID from, MemAddr address, const IOData& data);
         
+        StorageTraceSet GetWriteRequestTraces() const;
+        StorageTraceSet GetReadResponseTraces() const;
 
         void GetDeviceIdentity(IODeviceIdentification& id) const;
         std::string GetIODeviceName() const;

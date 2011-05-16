@@ -22,6 +22,14 @@ namespace Simulator
         iobus.RegisterClient(devid, *this);
         m_outgoing_reqs.Sensitive(p_OutgoingRequests);
     }
+    
+    void Processor::IOBusInterface::Initialize()
+    {
+        p_OutgoingRequests.SetStorageTraces(
+            m_iobus.GetWriteRequestTraces() ^
+            m_iobus.GetReadRequestTraces(m_hostid) ^
+            m_iobus.GetReadResponseTraces() );
+    }
 
     bool Processor::IOBusInterface::SendRequest(const IORequest& request)
     {
@@ -76,6 +84,11 @@ namespace Simulator
         return m_dca.QueueRequest(req);
     }
 
+    StorageTraceSet Processor::IOBusInterface::GetReadRequestTraces() const
+    {
+        return m_dca.m_requests;
+    }
+
     bool Processor::IOBusInterface::OnWriteRequestReceived(IODeviceID from, MemAddr address, const IOData& data)
     {
         if (data.size > MAX_MEMORY_OPERATION_SIZE)
@@ -93,19 +106,49 @@ namespace Simulator
         return m_dca.QueueRequest(req);
     }
 
+    StorageTraceSet Processor::IOBusInterface::GetWriteRequestTraces() const
+    {
+        return m_dca.m_requests;
+    }
+    
     bool Processor::IOBusInterface::OnReadResponseReceived(IODeviceID from, MemAddr address, const IOData& data)
     {
         return m_rrmux.OnReadResponseReceived(from, address, data);
     }
 
+    StorageTraceSet Processor::IOBusInterface::GetReadResponseTraces() const
+    {
+        return m_rrmux.m_incoming;
+    }
+    
     bool Processor::IOBusInterface::OnInterruptRequestReceived(IOInterruptID which)
     {
         return m_nmux.OnInterruptRequestReceived(which);
     }
 
+    StorageTraceSet Processor::IOBusInterface::GetInterruptRequestTraces() const
+    {
+        StorageTraceSet res;
+        for (std::vector<SingleFlag*>::const_iterator p = m_nmux.m_interrupts.begin(); p != m_nmux.m_interrupts.end(); ++p)
+        {
+            res ^= *(*p);
+        }
+        return res;
+    }
+    
     bool Processor::IOBusInterface::OnNotificationReceived(IOInterruptID which, Integer tag)
     {
         return m_nmux.OnNotificationReceived(which, tag);
+    }
+
+    StorageTraceSet Processor::IOBusInterface::GetNotificationTraces() const
+    {
+        StorageTraceSet res;
+        for (std::vector<Buffer<Integer>*>::const_iterator p = m_nmux.m_notifications.begin(); p != m_nmux.m_notifications.end(); ++p)
+        {
+            res ^= *(*p);
+        }
+        return res;
     }
 
     void Processor::IOBusInterface::GetDeviceIdentity(IODeviceIdentification& id) const

@@ -50,8 +50,10 @@ private:
 
     
     ComponentModelRegistry&     m_registry;
-    size_t                      m_numProcsPerCache;
+    size_t                      m_numClientsPerCache;
     size_t                      m_numCachesPerDir;
+    size_t                      m_numClients;
+    Config&                     m_config;
     std::vector<Cache*>         m_caches;             ///< List of caches
     std::vector<Directory*>     m_directories;        ///< List of directories
     std::vector<RootDirectory*> m_roots;              ///< List of root directories
@@ -60,6 +62,15 @@ private:
     
     uint64_t                    m_nreads, m_nwrites, m_nread_bytes, m_nwrite_bytes;
     
+    void ConfigureTopRing();
+
+    unsigned int GetTotalTokens() const {
+        // One token per cache
+        return m_caches.size();
+    }
+    
+    void Initialize();
+
 public:
     ZLCOMA(const std::string& name, Simulator::Object& parent, Clock& clock, Config& config);
     ~ZLCOMA();
@@ -69,10 +80,10 @@ public:
     // IMemory
     void Reserve(MemAddr address, MemSize size, int perm);
     void Unreserve(MemAddr address);
-    void RegisterClient  (PSize pid, IMemoryCallback& callback, const Process* processes[]);
-    void UnregisterClient(PSize pid);
-    bool Read (PSize pid, MemAddr address, MemSize size);
-    bool Write(PSize pid, MemAddr address, const void* data, MemSize size, TID tid);
+    MCID RegisterClient(IMemoryCallback& callback, Process& process, StorageTraceSet& traces, Storage& storage);
+    void UnregisterClient(MCID id);
+    bool Read (MCID id, MemAddr address, MemSize size);
+    bool Write(MCID id, MemAddr address, const void* data, MemSize size, TID tid);
     bool CheckPermissions(MemAddr address, MemSize size, int access) const;
 
     void GetMemoryStatistics(uint64_t& nreads, uint64_t& nwrites, 

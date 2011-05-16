@@ -97,6 +97,10 @@ namespace Simulator
         {
             m_doboot.Set();
         }
+        
+        p_StartDCA.SetStorageTraces(m_iobus.GetWriteRequestTraces());
+        
+        p_Boot.SetStorageTraces(StorageTrace());
     }
 
     Result SMC::DoStartDCA()
@@ -161,6 +165,11 @@ namespace Simulator
         return true;
     }
 
+    StorageTraceSet SMC::GetNotificationTraces() const
+    {
+        return opt(m_doboot);
+    }
+    
     bool SMC::OnReadRequestReceived(IODeviceID from, MemAddr address, MemSize size)
     {
         if (address >= m_size || address + size >= m_size)

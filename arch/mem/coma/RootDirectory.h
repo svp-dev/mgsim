@@ -34,6 +34,7 @@ public:
 private:
     std::vector<Line> m_lines;      ///< The cache lines
     size_t            m_lineSize;   ///< The size of a cache-line
+    size_t            m_assoc_dir;  ///< Number of lines in a set in a directory
     size_t            m_assoc;      ///< Number of lines in a set
     size_t            m_sets;       ///< Number of sets
     size_t            m_numCaches;  ///< Number of caches in the COMA system
@@ -67,7 +68,10 @@ private:
     uint64_t          m_nwrites;
     
 public:
-    RootDirectory(const std::string& name, COMA& parent, Clock& clock, VirtualMemory& memory, size_t numCaches, size_t id, size_t numRoots, const DDRChannelRegistry& ddr, Config& config);
+    RootDirectory(const std::string& name, COMA& parent, Clock& clock, VirtualMemory& memory, size_t id, size_t numRoots, const DDRChannelRegistry& ddr, Config& config);
+    
+    // Updates the internal data structures to accomodate a system with N directories
+    void SetNumDirectories(size_t num_dirs);
     
     // Administrative
     const Line* FindLine(MemAddr address) const;

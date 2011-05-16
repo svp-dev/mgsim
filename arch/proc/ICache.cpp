@@ -17,9 +17,10 @@ static bool IsPowerOfTwo(const T& x)
     return (x & (x - 1)) == 0;
 }
 
-Processor::ICache::ICache(const std::string& name, Processor& parent, Clock& clock, Allocator& alloc, Config& config)
+Processor::ICache::ICache(const std::string& name, Processor& parent, Clock& clock, Allocator& alloc, IMemory& memory, Config& config)
 :   Object(name, parent, clock),
     m_parent(parent), m_allocator(alloc),
+    m_memory(memory),
     m_outgoing("b_outgoing", *this, clock, config.getValue<BufferSize>(*this, "OutgoingBufferSize")),
     m_incoming("b_incoming", *this, clock, config.getValue<BufferSize>(*this, "IncomingBufferSize")),
     m_numHits(0),
@@ -32,6 +33,12 @@ Processor::ICache::ICache(const std::string& name, Processor& parent, Clock& clo
 {
     RegisterSampleVariableInObject(m_numHits, SVC_CUMULATIVE);
     RegisterSampleVariableInObject(m_numMisses, SVC_CUMULATIVE);
+    
+    config.registerObject(*this, "icache");
+    
+    StorageTraceSet traces;
+    m_mcid = m_memory.RegisterClient(*this, p_Outgoing, traces, m_incoming);
+    p_Outgoing.SetStorageTraces(traces);
 
     m_outgoing.Sensitive( p_Outgoing );
     m_incoming.Sensitive( p_Incoming );
@@ -370,6 +377,13 @@ bool Processor::ICache::OnMemoryReadCompleted(MemAddr addr, const MemData& data)
     return true;
 }
 
+bool Processor::ICache::OnMemoryWriteCompleted(TID tid)
+{
+    // The I-Cache never writes
+    assert(false);
+    return false;
+}
+
 bool Processor::ICache::OnMemorySnooped(MemAddr address, const MemData& data)
 {
     Line* line;
@@ -408,7 +422,7 @@ Result Processor::ICache::DoOutgoing()
 {
     assert(!m_outgoing.Empty());
     const MemAddr& address = m_outgoing.Front();
-    if (!m_parent.ReadMemory(address, m_lineSize))
+    if (!m_memory.Read(m_mcid, address, m_lineSize))
     {
         // The fetch failed
         DeadlockWrite("Unable to read %#016llx from memory", (unsigned long long)address);

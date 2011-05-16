@@ -58,10 +58,10 @@ private:
     size_t                        m_lineSize;
     size_t                        m_assoc;
     size_t                        m_sets;
-    size_t                        m_numTokens;
     bool                          m_inject;    
     CacheID                       m_id;
     std::vector<IMemoryCallback*> m_clients;
+    StorageTraceSet               m_storages;
     ArbitratedService<>           p_lines;
     std::vector<Line>             m_lines;
     std::vector<char>             m_data;
@@ -104,16 +104,16 @@ private:
     Result DoReceive();
 
 public:
-    Cache(const std::string& name, ZLCOMA& parent, Clock& clock, CacheID id, size_t numCaches, Config& config);
+    Cache(const std::string& name, ZLCOMA& parent, Clock& clock, CacheID id, Config& config);
 
     void Cmd_Info(std::ostream& out, const std::vector<std::string>& arguments) const;
     void Cmd_Read(std::ostream& out, const std::vector<std::string>& arguments) const;
     const Line* FindLine(MemAddr address) const;
 
-    void RegisterClient  (PSize pid, IMemoryCallback& callback, const Process* processes[]);
-    void UnregisterClient(PSize pid);
-    bool Read (PSize pid, MemAddr address, MemSize size);
-    bool Write(PSize pid, MemAddr address, const void* data, MemSize size, TID tid);
+    void RegisterClient  (MCID id, IMemoryCallback& callback, Process& process, StorageTraceSet& traces, Storage& storage);
+    void UnregisterClient(MCID id);
+    bool Read (MCID id, MemAddr address, MemSize size);
+    bool Write(MCID id, MemAddr address, const void* data, MemSize size, TID tid);
 };
 
 }

@@ -28,6 +28,8 @@ enum ThreadDependency
 
 class Allocator : public Object, public Inspect::Interface<Inspect::Read>
 {
+    friend class Processor;
+    
 public:
     typedef LinkedList< TID, ThreadTable, &Thread::next> ThreadList;
     

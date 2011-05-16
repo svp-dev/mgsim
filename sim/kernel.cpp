@@ -260,7 +260,11 @@ RunState Kernel::Step(CycleNo cycles)
                 {
                     m_process   = process;
                     m_debugging = false; // Will be used by DeadlockWrite() for process-seperating newlines
-                
+                    
+                    // This process begins the cycle
+                    // This is a purely administrative function and has no simulation effect.
+                    process->OnBeginCycle();
+                            
                     // If we fail in the acquire stage, don't bother with the check and commit stages
                     Result result = process->m_delegate();
                     if (result == SUCCESS)
@@ -305,6 +309,12 @@ RunState Kernel::Step(CycleNo cycles)
                         Result result = process->m_delegate();
                         if (result == SUCCESS)
                         {
+                            // This process is done this cycle.
+                            // This is a purely administrative function and has no simulation effect.
+                            // We call this before the COMMIT phase, so that if this produces an error,
+                            // we can still inspect the state that caused it.
+                            process->OnEndCycle();
+                            
                             m_phase = PHASE_COMMIT;
                             result = process->m_delegate();
                             

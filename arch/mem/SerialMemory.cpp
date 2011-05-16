@@ -8,26 +8,29 @@ using namespace std;
 namespace Simulator
 {
 
-void SerialMemory::RegisterClient(PSize pid, IMemoryCallback& callback, const Process* processes[])
+MCID SerialMemory::RegisterClient(IMemoryCallback& callback, Process& process, StorageTraceSet& traces, Storage& storage)
 {
-    assert(m_clients[pid] == NULL);
-    m_clients[pid] = &callback;
+    assert(std::find(m_clients.begin(), m_clients.end(), &callback) == m_clients.end());
+    m_clients.push_back(&callback);
     
-    for (size_t i = 0; processes[i] != NULL; ++i)
-    {
-        p_requests.AddProcess(*processes[i]);
-    }
-
+    p_requests.AddProcess(process);
+    traces = m_requests;
+    
+    m_storages = m_storages ^ storage;
+    p_Requests.SetStorageTraces(m_storages);
+    
     m_registry.registerRelation(callback, *this, "mem");
+    
+    return m_clients.size() - 1;
 }
 
-void SerialMemory::UnregisterClient(PSize pid)
+void SerialMemory::UnregisterClient(MCID id)
 {
-    assert(m_clients[pid] != NULL);
-    m_clients[pid] = NULL;
+    assert(id < m_clients.size() && m_clients[id] != NULL);
+    m_clients[id] = NULL;
 }
 
-bool SerialMemory::Read(PSize pid, MemAddr address, MemSize size)
+bool SerialMemory::Read(MCID id, MemAddr address, MemSize size)
 {
     if (size > MAX_MEMORY_OPERATION_SIZE)
     {
@@ -39,8 +42,11 @@ bool SerialMemory::Read(PSize pid, MemAddr address, MemSize size)
         return false;
     }
 
+    // Client should have registered
+    assert(id < m_clients.size() && m_clients[id] != NULL);
+    
     Request request;
-    request.callback  = m_clients[pid];
+    request.callback  = m_clients[id];
     request.address   = address;
     request.data.size = size;
     request.write     = false;
@@ -53,7 +59,7 @@ bool SerialMemory::Read(PSize pid, MemAddr address, MemSize size)
     return true;
 }
 
-bool SerialMemory::Write(PSize pid, MemAddr address, const void* data, MemSize size, TID tid)
+bool SerialMemory::Write(MCID id, MemAddr address, const void* data, MemSize size, TID tid)
 {
     if (size > MAX_MEMORY_OPERATION_SIZE)
     {
@@ -65,8 +71,11 @@ bool SerialMemory::Write(PSize pid, MemAddr address, const void* data, MemSize s
         return false;
     }
 
+    // Client should have registered
+    assert(id < m_clients.size() && m_clients[id] != NULL);
+    
     Request request;
-    request.callback  = m_clients[pid];
+    request.callback  = m_clients[id];
     request.address   = address;
     request.data.size = size;
     request.tid       = tid;
@@ -176,8 +185,6 @@ SerialMemory::SerialMemory(const std::string& name, Object& parent, Clock& clock
     Object(name, parent, clock),
     m_registry       (config),
     m_clock          (clock),
-    m_clients        (config.getValue<size_t>(*this, "NumClients",
-                                              config.getValue<size_t>("NumProcessors")), NULL),
     m_requests       ("b_requests", *this, clock, config.getValue<BufferSize>(*this, "BufferSize")),
     p_requests       (*this, clock, "m_requests"),
     m_baseRequestTime(config.getValue<CycleNo>   (*this, "BaseRequestTime")),
@@ -193,6 +200,9 @@ SerialMemory::SerialMemory(const std::string& name, Object& parent, Clock& clock
 {
     m_requests.Sensitive( p_Requests );
     config.registerObject(*this, "sermem");
+    
+    m_storages = StorageTraceSet(StorageTrace());   // Request handler is waiting for completion
+    p_Requests.SetStorageTraces(m_storages);
 }
 
 void SerialMemory::Cmd_Info(ostream& out, const vector<string>& arguments) const

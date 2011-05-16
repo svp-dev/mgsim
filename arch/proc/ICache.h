@@ -5,8 +5,10 @@
 #error This file should be included in Processor.h
 #endif
 
-class ICache : public Object, public Inspect::Interface<Inspect::Read>
+class ICache : public Object, public IMemoryCallback, public Inspect::Interface<Inspect::Read>
 {
+    friend class Processor;
+    
     enum LineState
     {
         LINE_EMPTY,      ///< Line is not in use
@@ -36,6 +38,8 @@ class ICache : public Object, public Inspect::Interface<Inspect::Read>
 
     Processor&        m_parent;
 	Allocator&        m_allocator;
+	IMemory&          m_memory;
+    MCID              m_mcid;
     std::vector<Line> m_lines;
 	std::vector<char> m_data;
 	Buffer<MemAddr>   m_outgoing;
@@ -46,7 +50,7 @@ class ICache : public Object, public Inspect::Interface<Inspect::Read>
     size_t            m_assoc;
     
 public:
-    ICache(const std::string& name, Processor& parent, Clock& clock, Allocator& allocator, Config& config);
+    ICache(const std::string& name, Processor& parent, Clock& clock, Allocator& allocator, IMemory& memory, Config& config);
     ~ICache();
     
     // Processes
@@ -61,6 +65,7 @@ public:
     bool   ReleaseCacheLine(CID bid);
     bool   IsEmpty() const;
     bool   OnMemoryReadCompleted(MemAddr addr, const MemData& data);
+    bool   OnMemoryWriteCompleted(TID tid);
     bool   OnMemorySnooped(MemAddr addr, const MemData& data);
     bool   OnMemoryInvalidated(MemAddr addr);
     size_t GetLineSize() const { return m_lineSize; }

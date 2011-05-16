@@ -8,7 +8,7 @@ using namespace std;
 
 namespace Simulator
 {
-    Processor::IOInterface::IOInterface(const string& name, Processor& parent, Clock& clock, RegisterFile& rf, IIOBus& iobus, IODeviceID devid, Config& config)
+    Processor::IOInterface::IOInterface(const string& name, Processor& parent, Clock& clock, IMemory& memory, RegisterFile& rf, IIOBus& iobus, IODeviceID devid, Config& config)
         : Object(name, parent, clock),
           m_numDevices(config.getValue<size_t>(*this, "NumDeviceSlots")),
           m_numChannels(config.getValue<size_t>(*this, "NumNotificationChannels")),
@@ -17,7 +17,7 @@ namespace Simulator
           m_rrmux   ("rrmux",  *this, clock, rf, m_numDevices, config),
           m_nmux    ("nmux",   *this, clock, rf, m_numChannels, config),
           m_iobus_if("bus_if", *this, iobus.GetClock(), m_rrmux, m_nmux, m_dca, iobus, devid, config),
-          m_dca     ("dca",    *this, clock, parent, m_iobus_if, config)
+          m_dca     ("dca",    *this, clock, parent, memory, m_iobus_if, config)
     {
         if (m_numDevices == 0)
         {

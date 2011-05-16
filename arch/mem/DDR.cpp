@@ -266,13 +266,18 @@ DDRChannel::DDRChannel(const std::string& name, Object& parent, Clock& clock, Vi
     config.registerProperty(*this, "freq", (uint32_t)clock.GetFrequency());
 }
 
-void DDRChannel::SetClient(ICallback& cb)
+void DDRChannel::SetClient(ICallback& cb, StorageTraceSet& sts, const StorageTraceSet& storages)
 {
     if (m_callback != NULL)
     {
         throw InvalidArgumentException(*this, "DDR channel can be connected to at most one root directory.");
     }
     m_callback = &cb;
+
+    sts = m_busy;
+    p_Request.SetStorageTraces(opt(m_pipeline));
+    p_Pipeline.SetStorageTraces(opt(storages));
+
     m_registry.registerBidiRelation(*this, cb, "ddr");
 }
 

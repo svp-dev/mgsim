@@ -12,7 +12,7 @@ namespace Simulator
 
 class FPU;
 
-class Processor : public Object, public IMemoryCallback
+class Processor : public Object
 {
 public:
     class Allocator;
@@ -82,12 +82,8 @@ public:
     Integer     PackFID(const FID& fid) const;
     FCapability GenerateFamilyCapability() const;
 
-    // All memory requests from caches go through the processor.
-    // No memory callback specified, the processor will use the tag to determine where it came from.
     void MapMemory(MemAddr address, MemSize size);
     void UnmapMemory(MemAddr address, MemSize size);
-    bool ReadMemory (MemAddr address, MemSize size);
-    bool WriteMemory(MemAddr address, const void* data, MemSize size, TID tid);
     bool CheckPermissions(MemAddr address, MemSize size, int access) const;
 	
     Network& GetNetwork() { return m_network; }
@@ -108,12 +104,6 @@ private:
         unsigned int tid_bits;  ///< Number of bits for a TID (Thread ID)
     } m_bits;
     
-    // IMemoryCallback
-    bool OnMemoryReadCompleted(MemAddr addr, const MemData& data);
-    bool OnMemoryWriteCompleted(TID tid);
-    bool OnMemoryInvalidated(MemAddr addr);
-    bool OnMemorySnooped(MemAddr addr, const MemData& data);
-
     // The components on the core
     FamilyTable           m_familyTable;
     ThreadTable           m_threadTable;

@@ -4,9 +4,10 @@
 
 namespace Simulator
 {
-    Processor::IODirectCacheAccess::IODirectCacheAccess(const std::string& name, Object& parent, Clock& clock, Processor& proc, IOBusInterface& busif, Config& config)
+    Processor::IODirectCacheAccess::IODirectCacheAccess(const std::string& name, Object& parent, Clock& clock, Processor& proc, IMemory& memory, IOBusInterface& busif, Config& config)
         : Object(name, parent, clock),
           m_cpu(proc),
+          m_memory(memory),
           m_busif(busif),
           m_lineSize(config.getValue<MemSize>("CacheLineSize")),
           m_requests("b_requests", *this, clock, config.getValue<BufferSize>(*this, "RequestQueueSize")),
@@ -21,6 +22,19 @@ namespace Simulator
         p_service.AddProcess(p_MemoryOutgoing);
         m_responses.Sensitive(p_BusOutgoing);
         m_requests.Sensitive(p_MemoryOutgoing);
+        
+        config.registerObject(*this, "dca");
+        
+        StorageTraceSet traces;
+        m_mcid = m_memory.RegisterClient(*this, p_MemoryOutgoing, traces, m_responses);
+        
+        p_MemoryOutgoing.SetStorageTraces(opt(traces));
+        p_BusOutgoing.SetStorageTraces(opt(m_busif.m_outgoing_reqs));
+    }
+    
+    Processor::IODirectCacheAccess::~IODirectCacheAccess()
+    {
+        m_memory.UnregisterClient(m_mcid);
     }
     
     bool Processor::IODirectCacheAccess::QueueRequest(const Request& req)
@@ -224,7 +238,7 @@ namespace Simulator
             
             // send the request to the memory
             MemAddr line_address  = req.address & -m_lineSize;
-            if (!m_cpu.ReadMemory(line_address, m_lineSize))
+            if (!m_memory.Read(m_mcid, line_address, m_lineSize))
             {
                 DeadlockWrite("Unable to send DCA read from %#016llx/%u, dev %u to memory", (unsigned long long)req.address, (unsigned)req.data.size, (unsigned)req.client);
                 return FAILED;
@@ -251,7 +265,7 @@ namespace Simulator
                 return FAILED;
             }
 
-            if (!m_cpu.WriteMemory(req.address, req.data.data, req.data.size, INVALID_TID))
+            if (!m_memory.Write(m_mcid, req.address, req.data.data, req.data.size, INVALID_TID))
             {
                 DeadlockWrite("Unable to send DCA write to %#016llx/%u to memory", (unsigned long long)req.address, (unsigned)req.data.size);
                 return FAILED;

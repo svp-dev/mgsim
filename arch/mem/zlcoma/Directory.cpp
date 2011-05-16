@@ -253,7 +253,7 @@ Result ZLCOMA::Directory::DoInTop()
     return SUCCESS;
 }
 
-ZLCOMA::Directory::Directory(const std::string& name, ZLCOMA& parent, Clock& clock, size_t numTokens, CacheID firstCache, CacheID lastCache, Config& config) :
+ZLCOMA::Directory::Directory(const std::string& name, ZLCOMA& parent, Clock& clock, CacheID firstCache, CacheID lastCache, Config& config) :
     Simulator::Object(name, parent),
     ZLCOMA::Object(name, parent),
     m_bottom(name + ".bottom", parent, clock),
@@ -262,7 +262,6 @@ ZLCOMA::Directory::Directory(const std::string& name, ZLCOMA& parent, Clock& clo
     m_lineSize  (config.getValue<size_t>("CacheLineSize")),
     m_assoc     (config.getValue<size_t>(parent, "L2CacheAssociativity") * (lastCache - firstCache + 1)),
     m_sets      (config.getValue<size_t>(parent, "L2CacheNumSets")),
-    m_numTokens (numTokens),
     m_firstCache(firstCache),
     m_lastCache (lastCache),
     p_InBottom  (*this, "bottom_incoming", delegate::create<Directory, &Directory::DoInBottom >(*this)),
@@ -282,6 +281,9 @@ ZLCOMA::Directory::Directory(const std::string& name, ZLCOMA& parent, Clock& clo
 
     p_lines.AddProcess(p_InTop);
     p_lines.AddProcess(p_InBottom);
+
+    p_InBottom.SetStorageTraces(m_top.GetOutgoingTrace());
+    p_InTop.SetStorageTraces((m_top.GetOutgoingTrace() * opt(m_bottom.GetOutgoingTrace())) ^ m_bottom.GetOutgoingTrace());
 
     config.registerObject(m_top, "dt");
     config.registerProperty(m_top, "freq", clock.GetFrequency());

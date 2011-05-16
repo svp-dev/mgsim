@@ -19,7 +19,6 @@ namespace Simulator
 class ParallelMemory : public Object, public IMemoryAdmin, public VirtualMemory
 {
     struct Request;
-	struct ClientInfo;
 	class Port;
 
     bool AddRequest(IMemoryCallback& callback, const Request& request);
@@ -27,10 +26,10 @@ class ParallelMemory : public Object, public IMemoryAdmin, public VirtualMemory
     // IMemory
     void Reserve(MemAddr address, MemSize size, int perm);
     void Unreserve(MemAddr address);
-    void RegisterClient(PSize pid, IMemoryCallback& callback, const Process* processes[]);
-    void UnregisterClient(PSize pid);
-    bool Read (PSize pid, MemAddr address, MemSize size);
-    bool Write(PSize pid, MemAddr address, const void* data, MemSize size, TID tid);
+    MCID RegisterClient(IMemoryCallback& callback, Process& process, StorageTraceSet& traces, Storage& storage);
+    void UnregisterClient(MCID id);
+    bool Read (MCID id, MemAddr address, MemSize size);
+    bool Write(MCID id, MemAddr address, const void* data, MemSize size, TID tid);
 	bool CheckPermissions(MemAddr address, MemSize size, int access) const;
 
     // IMemoryAdmin
@@ -53,8 +52,9 @@ class ParallelMemory : public Object, public IMemoryAdmin, public VirtualMemory
     CycleNo GetMemoryDelay(size_t data_size) const;
     
     ComponentModelRegistry&       m_registry;
-    std::vector<ClientInfo> m_clients;
+    std::vector<Port*> m_ports;
     
+    BufferSize m_buffersize;   // Size of request queues
     CycleNo	m_baseRequestTime; // Config: This many cycles per request regardless of size
     CycleNo	m_timePerLine;     // Config: With this many additional cycles per line
     size_t	m_sizeOfLine;      // Config: With this many bytes per line

@@ -729,7 +729,7 @@ MGSystem::MGSystem(Config& config,
 
         m_procs[i]   = new Processor(name, m_root, m_clock, i, m_procs, *m_memory, *m_memory, fpu, iobus, config);
     }
-
+    
     // Create the I/O devices
     vector<string> dev_names = extradevs;
     vector<string> cfg_names = config.getWordList("IODevices");
@@ -797,6 +797,8 @@ MGSystem::MGSystem(Config& config,
 
         config.registerBidiRelation(*m_devices[i], iobus, "client", (uint32_t)devid);
     }
+
+    m_memory->Initialize();
 
     // Set up the initial memory ranges
     size_t numRanges = config.getValue<size_t>("NumMemoryRanges");

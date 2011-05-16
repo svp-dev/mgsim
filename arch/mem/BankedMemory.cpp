@@ -175,13 +175,15 @@ class BankedMemory::Bank : public Object
     }
 
 public:
-    void RegisterClient(ArbitratedService<>& client_arbitrator, const Process* processes[])
+    void RegisterClient(ArbitratedService<>& client_arbitrator, Process& process, StorageTraceSet& traces, const StorageTraceSet& storages)
     {
-        for (size_t i = 0; processes[i] != NULL; ++i)
-        {
-            p_incoming.AddProcess(*processes[i]);
-        }
+        p_incoming.AddProcess(process);
+        
+        p_Outgoing.SetStorageTraces(storages);
+        
         client_arbitrator.AddProcess(p_Outgoing);
+
+        traces ^= m_incoming;
     }
     
     bool AddIncomingRequest(Request& request)
@@ -235,6 +237,9 @@ public:
         m_incoming.Sensitive( p_Incoming );
         m_outgoing.Sensitive( p_Outgoing );
         m_busy    .Sensitive( p_Bank );
+        
+        p_Incoming.SetStorageTraces(opt(m_busy));
+        p_Bank.SetStorageTraces(opt(m_outgoing));
     }
 };
 
@@ -255,27 +260,39 @@ CycleNo BankedMemory::GetMemoryDelay(size_t data_size) const
     return m_baseRequestTime + m_timePerLine * (data_size + m_sizeOfLine - 1) / m_sizeOfLine;
 }
                         
-void BankedMemory::RegisterClient(PSize pid, IMemoryCallback& callback, const Process* processes[])
+MCID BankedMemory::RegisterClient(IMemoryCallback& callback, Process& process, StorageTraceSet& traces, Storage& storage)
 {
-    ClientInfo& client = m_clients[pid];
-    assert(client.callback == NULL);
+#ifndef NDEBUG
+    for (size_t i = 0; i < m_clients.size(); ++i) {
+        assert(m_clients[i].callback != &callback);
+    }
+#endif
+    
+    MCID id = m_clients.size();
 
     stringstream name;
-    name << "client" << pid;
+    name << "client" << id;
+    ClientInfo client;
     client.service = new ArbitratedService<>(*this, m_clock, name.str());
     client.callback = &callback;
-        
+    m_clients.push_back(client);
+
+    m_storages ^= storage;
+
     for (size_t i = 0; i < m_banks.size(); ++i)
     {
-        m_banks[i]->RegisterClient(*client.service, processes);
+        m_banks[i]->RegisterClient(*client.service, process, traces, opt(m_storages));
     }
 
     m_registry.registerRelation(callback, *this, "mem");
+
+    return id;
 }
 
-void BankedMemory::UnregisterClient(PSize pid)
+void BankedMemory::UnregisterClient(MCID id)
 {
-    ClientInfo& client = m_clients[pid];
+    assert(id < m_clients.size());
+    ClientInfo& client = m_clients[id];
     assert(client.callback != NULL);
     delete client.service;
     client.callback = NULL;
@@ -287,7 +304,7 @@ size_t BankedMemory::GetBankFromAddress(MemAddr address) const
     return (size_t)((address / m_cachelineSize) % m_banks.size());
 }
 
-bool BankedMemory::Read(PSize pid, MemAddr address, MemSize size)
+bool BankedMemory::Read(MCID id, MemAddr address, MemSize size)
 {
     if (size > MAX_MEMORY_OPERATION_SIZE)
     {
@@ -295,11 +312,11 @@ bool BankedMemory::Read(PSize pid, MemAddr address, MemSize size)
     }
 
     // Client should have been registered
-    assert(m_clients[pid].callback != NULL);
+    assert(id < m_clients.size() && m_clients[id].callback != NULL);
 
     Request request;
     request.address   = address;
-    request.client    = &m_clients[pid];
+    request.client    = &m_clients[id];
     request.data.size = size;
     request.write     = false;
     
@@ -313,7 +330,7 @@ bool BankedMemory::Read(PSize pid, MemAddr address, MemSize size)
     return true;
 }
 
-bool BankedMemory::Write(PSize pid, MemAddr address, const void* data, MemSize size, TID tid)
+bool BankedMemory::Write(MCID id, MemAddr address, const void* data, MemSize size, TID tid)
 {
     if (size > MAX_MEMORY_OPERATION_SIZE)
     {
@@ -321,11 +338,11 @@ bool BankedMemory::Write(PSize pid, MemAddr address, const void* data, MemSize s
     }
     
     // Client should have been registered
-    assert(m_clients[pid].callback != NULL);
+    assert(id < m_clients.size() && m_clients[id].callback != NULL);
 
     Request request;
     request.address   = address;
-    request.client    = &m_clients[pid];
+    request.client    = &m_clients[id];
     request.data.size = size;
     request.tid       = tid;
     request.write     = true;
@@ -384,8 +401,6 @@ BankedMemory::BankedMemory(const std::string& name, Object& parent, Clock& clock
     Object(name, parent, clock),
     m_registry(config),
     m_clock(clock),
-    m_clients        (config.getValue<size_t>("NumClients", 
-                                              config.getValue<size_t>("NumProcessors"))),
     m_banks          (config.getValue<size_t>(*this, "NumBanks", 
                                               config.getValue<size_t>("NumProcessors"))),
     m_baseRequestTime(config.getValue<CycleNo>(*this, "BaseRequestTime")),
@@ -399,12 +414,6 @@ BankedMemory::BankedMemory(const std::string& name, Object& parent, Clock& clock
 {
     const BufferSize buffersize = config.getValue<BufferSize>(*this, "BufferSize");
     
-    // Initialize client info
-    for (size_t i = 0; i < m_clients.size(); ++i)
-    {
-        m_clients[i].callback = NULL;
-    }
-
     config.registerObject(*this, "bmem");
         
     // Create the banks   

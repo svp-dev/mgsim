@@ -149,12 +149,12 @@ bool COMA::RootDirectory::OnMessageReceived(Message* msg)
                 // which is then evicted from the system before this request comes to the root directory.
                 // In that case, we simply reintroduce the tokens into the system (the data is already in
                 // the system, so no need to read it from memory).
-                TraceWrite(msg->address, "Received Read Request with data; Miss; Introducing and attaching %u tokens", (unsigned)m_numCaches);
+                TraceWrite(msg->address, "Received Read Request with data; Miss; Introducing and attaching %u tokens", (unsigned)m_parent.GetTotalTokens());
                 
                 COMMIT
                 {
                     msg->type   = Message::REQUEST_DATA_TOKEN;
-                    msg->tokens = m_numCaches;
+                    msg->tokens = m_parent.GetTotalTokens();
                     line->state = LINE_FULL;
                 }
             }
@@ -180,9 +180,9 @@ bool COMA::RootDirectory::OnMessageReceived(Message* msg)
             assert(line->state == LINE_FULL);
             
             unsigned int tokens = msg->tokens + line->tokens;
-            assert(tokens <= m_numCaches);
+            assert(tokens <= m_parent.GetTotalTokens());
         
-            if (tokens < m_numCaches)
+            if (tokens < m_parent.GetTotalTokens())
             {
                 // We don't have all the tokens, so just store the new token count
                 TraceWrite(msg->address, "Received Evict Request; Adding its %u tokens to directory's %u tokens", msg->tokens, line->tokens);
@@ -328,12 +328,12 @@ Result COMA::RootDirectory::DoResponses()
         assert(line != NULL);
         assert(line->state == LINE_LOADING);
 
-        TraceWrite(msg->address, "Sending Read Response with %u tokens", (unsigned)m_numCaches);
+        TraceWrite(msg->address, "Sending Read Response with %u tokens", (unsigned)m_parent.GetTotalTokens());
 
         COMMIT
         {
             // Since this comes from memory, the reply has all tokens
-            msg->tokens = m_numCaches;
+            msg->tokens = m_parent.GetTotalTokens();
             msg->sender = line->sender;
     
             // The line has now been read
@@ -352,14 +352,25 @@ Result COMA::RootDirectory::DoResponses()
     return SUCCESS;
 }
 
-COMA::RootDirectory::RootDirectory(const std::string& name, COMA& parent, Clock& clock, VirtualMemory& memory, size_t numCaches, size_t id, size_t numRoots, const DDRChannelRegistry& ddr, Config& config) :
+void COMA::RootDirectory::SetNumDirectories(size_t num_dirs)
+{
+    // Create the cache lines.
+    // We need as many cache lines in the directory to cover all caches below it.
+    m_assoc = m_assoc_dir * num_dirs;
+    m_lines.resize(m_assoc * m_sets);
+    for (size_t i = 0; i < m_lines.size(); ++i)
+    {
+        m_lines[i].state = LINE_EMPTY;
+    }
+}
+
+COMA::RootDirectory::RootDirectory(const std::string& name, COMA& parent, Clock& clock, VirtualMemory& memory, size_t id, size_t numRoots, const DDRChannelRegistry& ddr, Config& config) :
     Simulator::Object(name, parent),
     //COMA::Object(name, parent),
     DirectoryBottom(name, parent, clock, config),
     m_lineSize(config.getValue<size_t>("CacheLineSize")),
-    m_assoc   (config.getValue<size_t>(parent, "L2CacheAssociativity") * numCaches),
-    m_sets    (config.getValue<size_t>(parent, "L2CacheNumSets")),
-    m_numCaches(numCaches),
+    m_assoc_dir(config.getValue<size_t>(parent, "L2CacheAssociativity")),
+    m_sets     (config.getValue<size_t>(parent, "L2CacheNumSets")),
     m_id       (id),
     m_numRoots (numRoots),
     p_lines    (*this, clock, "p_lines"),    
@@ -378,14 +389,6 @@ COMA::RootDirectory::RootDirectory(const std::string& name, COMA& parent, Clock&
     config.registerObject(*this, "rootdir");
     config.registerProperty(*this, "freq", (uint32_t)clock.GetFrequency());
     
-    // Create the cache lines
-    // We need as many cache lines in the directory to cover all caches below it
-    m_lines.resize(m_assoc * m_sets);
-    for (size_t i = 0; i < m_lines.size(); ++i)
-    {
-        m_lines[i].state = LINE_EMPTY;
-    }
-
     m_incoming.Sensitive(p_Incoming);
     m_requests.Sensitive(p_Requests);
     m_responses.Sensitive(p_Responses);
@@ -399,7 +402,13 @@ COMA::RootDirectory::RootDirectory(const std::string& name, COMA& parent, Clock&
         throw exceptf<InvalidArgumentException>(*this, "Invalid DDR channel ID: %zu", ddrid);
     }
     m_memory = ddr[ddrid];
-    m_memory->SetClient(*this);
+    
+    StorageTraceSet sts;
+    m_memory->SetClient(*this, sts, m_responses * m_memready);
+    
+    p_Requests.SetStorageTraces(sts ^ m_responses);
+    p_Incoming.SetStorageTraces((GetOutgoingTrace() * opt(m_requests)) ^ m_requests);
+    p_Responses.SetStorageTraces(GetOutgoingTrace());
 }
 
 void COMA::RootDirectory::Cmd_Info(std::ostream& out, const std::vector<std::string>& arguments) const

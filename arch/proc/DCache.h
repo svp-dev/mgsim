@@ -5,8 +5,10 @@
 #error This file should be included in Processor.h
 #endif
 
-class DCache : public Object, public Inspect::Interface<Inspect::Read>
+class DCache : public Object, public IMemoryCallback, public Inspect::Interface<Inspect::Read>
 {
+    friend class Processor;
+    
 public:
     /// The state of a cache-line
     enum LineState
@@ -37,6 +39,15 @@ private:
         TID     tid;
     };
     
+    struct Response
+    {
+        bool write;
+        union {
+            TID tid;
+            CID cid;
+        };
+    };
+    
     // Information for multi-register writes
     struct WritebackState
     {
@@ -54,28 +65,30 @@ private:
     Allocator&			 m_allocator;       ///< Allocator component.
 	FamilyTable&		 m_familyTable;     ///< Family table .
 	RegisterFile&		 m_regFile;         ///< Register File.
+	IMemory&             m_memory;          ///< Memory
+	MCID                 m_mcid;            ///< Memory Client ID
     std::vector<Line>    m_lines;           ///< The cache-lines.
 	size_t               m_assoc;           ///< Config: Cache associativity.
 	size_t               m_sets;            ///< Config: Number of sets in the cace.
 	size_t               m_lineSize;        ///< Config: Size of a cache line, in bytes.
-    Buffer<CID>          m_returned;        ///< Returned cache-lines waiting to be processed.
-    Buffer<TID>          m_completedWrites; ///< Completed writes.
+    Buffer<CID>          m_completed;       ///< Completed cache-line reads waiting to be processed.
+    Buffer<Response>     m_incoming;        ///< Incoming buffer from memory bus.
     Buffer<Request>      m_outgoing;        ///< Outgoing buffer to memory bus.
     WritebackState       m_wbstate;         ///< Writeback state
     uint64_t             m_numHits;         ///< Number of hits so far.
     uint64_t             m_numMisses;       ///< Number of misses so far.
        
     Result DoCompletedReads();
-    Result DoCompletedWrites();
+    Result DoIncomingResponses();
     Result DoOutgoingRequests();
 
 public:
-    DCache(const std::string& name, Processor& parent, Clock& clock, Allocator& allocator, FamilyTable& familyTable, RegisterFile& regFile, Config& config);
+    DCache(const std::string& name, Processor& parent, Clock& clock, Allocator& allocator, FamilyTable& familyTable, RegisterFile& regFile, IMemory& memory, Config& config);
     ~DCache();
     
     // Processes
-    Process p_IncomingReads;
-    Process p_IncomingWrites;
+    Process p_CompletedReads;
+    Process p_Incoming;
     Process p_Outgoing;
 
     ArbitratedService<> p_service;

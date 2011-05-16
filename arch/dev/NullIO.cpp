@@ -93,6 +93,58 @@ namespace Simulator
         return res;
     }
 
+    StorageTraceSet NullIO::GetReadRequestTraces(IODeviceID from) const
+    {
+        StorageTraceSet res;
+        for (std::vector<IIOBusClient*>::const_iterator p = m_clients.begin(); p != m_clients.end(); ++p)
+        {
+            res ^= (*p)->GetReadRequestTraces() * opt(m_clients[from]->GetReadResponseTraces());
+        }
+        return res;
+    }
+    
+    StorageTraceSet NullIO::GetWriteRequestTraces() const
+    {
+        StorageTraceSet res;
+        for (std::vector<IIOBusClient*>::const_iterator p = m_clients.begin(); p != m_clients.end(); ++p)
+        {
+            res ^= (*p)->GetWriteRequestTraces();
+        }
+        return res;
+    }
+    
+    StorageTraceSet NullIO::GetReadResponseTraces() const
+    {
+        StorageTraceSet res;
+        for (std::vector<IIOBusClient*>::const_iterator p = m_clients.begin(); p != m_clients.end(); ++p)
+        {
+            res ^= (*p)->GetReadResponseTraces();
+        }
+        return res;
+    }
+    
+    StorageTraceSet NullIO::GetInterruptRequestTraces() const
+    {
+        StorageTraceSet res;
+        for (std::vector<IIOBusClient*>::const_iterator p = m_clients.begin(); p != m_clients.end(); ++p)
+        {
+            if (*p != NULL)
+                res *= (*p)->GetInterruptRequestTraces();
+        }
+        return res;
+    }
+    
+    StorageTraceSet NullIO::GetNotificationTraces() const
+    {
+        StorageTraceSet res;
+        for (std::vector<IIOBusClient*>::const_iterator p = m_clients.begin(); p != m_clients.end(); ++p)
+        {
+            if (*p != NULL)
+                res *= (*p)->GetNotificationTraces();
+        }
+        return res;
+    }
+    
     IODeviceID NullIO::GetNextAvailableDeviceID() const
     {
         for (size_t i = 0; i < m_clients.size(); ++i)

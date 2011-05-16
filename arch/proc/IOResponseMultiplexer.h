@@ -15,8 +15,11 @@ private:
         IODeviceID  device;
         IOData      data;
     };
+
+public:
     Buffer<IOResponse>            m_incoming;
 
+private:
     typedef Buffer<RegAddr>       WriteBackQueue;
     std::vector<WriteBackQueue*>  m_wb_buffers;
 
