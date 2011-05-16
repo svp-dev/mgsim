@@ -25,6 +25,7 @@ namespace Simulator
         { {   1,  4,  1 }, "GfxCtl" },
         { {   1,  5,  1 }, "ActiveROM" },
         { {   1,  6,  1 }, "SMC" },
+        { {   1,  7,  1 }, "UART" },
 
         { {   0,  0,  0 }, NULL }
     };

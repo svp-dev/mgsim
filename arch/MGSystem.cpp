@@ -14,6 +14,7 @@
 #include "arch/dev/ActiveROM.h"
 #include "arch/dev/Selector.h"
 #include "arch/dev/SMC.h"
+#include "arch/dev/UART.h"
 
 #include <cstdlib>
 #include <iomanip>
@@ -782,6 +783,10 @@ MGSystem::MGSystem(Config& config,
             m_devices[i] = rom;
             aroms.push_back(rom);
             config.registerObject(*rom, "arom");
+        } else if (dev_type == "UART") {
+            UART *uart = new UART(name, m_root, iobus, devid, config);
+            m_devices[i] = uart;
+            config.registerObject(*uart, "uart");
         } else if (dev_type == "SMC") {
             SMC * smc = new SMC(name, m_root, iobus, devid, regs, loads, config);
             m_devices[i] = smc;

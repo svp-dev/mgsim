@@ -29,7 +29,9 @@ DEVICE_SRC = \
         arch/dev/Selector.h \
         arch/dev/Selector.cpp \
         arch/dev/SMC.h \
-        arch/dev/SMC.cpp
+        arch/dev/SMC.cpp \
+        arch/dev/UART.h \
+        arch/dev/UART.cpp
 
 PROCESSOR_SRC = \
 	arch/proc/Allocator.cpp \
