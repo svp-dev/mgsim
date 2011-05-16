@@ -107,9 +107,7 @@ namespace Simulator
             DeadlockWrite("Cannot send timer interrupt to I/O bus");
             return FAILED;
         }
-        COMMIT {
-            m_doNotify.Clear();
-        }
+        m_doNotify.Clear();
         return SUCCESS;
     }
 

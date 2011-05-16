@@ -765,7 +765,6 @@ MGSystem::MGSystem(Config& config,
 
         if (dev_type == "LCD") {
             LCD *lcd = new LCD(name, m_root, iobus, devid, config);
-            iobus.RegisterClient(devid, *lcd);
             m_devices[i] = lcd;
             config.registerObject(*lcd, "lcd");
         } else if (dev_type == "RTC") {

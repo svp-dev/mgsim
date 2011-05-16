@@ -45,6 +45,8 @@ LCD::LCD(const std::string& name, Object& parent, IIOBus& iobus, IODeviceID devi
             throw exceptf<InvalidArgumentException>(*this, "Cannot open trace file: %s", tfname.c_str());
         }
     }
+
+    iobus.RegisterClient(devid, *this);
 }
 
 LCD::~LCD()
