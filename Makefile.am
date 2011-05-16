@@ -53,6 +53,12 @@ $(top_srcdir)/.version:
 
 dist-hook: check-version
 	echo $(VERSION) >$(distdir)/build-aux/tarball-version
+	##
+	## we generate sources during configuration, which confuses Automake
+	## wrt distribution. So be sure that they are not present during "make
+	## dist".
+	##
+	for f in $(CONFIG_CLEAN_FILES) $(DISTCLEANFILES); do rm -f $(distdir)/$$f; done
 
 install-recursive install-exec-recursive install-data-recursive installcheck-recursive: check-version
 
