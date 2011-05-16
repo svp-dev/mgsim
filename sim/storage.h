@@ -439,9 +439,24 @@ protected:
     bool m_updated;
     bool m_new;
 
+    // Statistics
+    uint64_t      m_stalls;         ///< Number of stalls so far
+    CycleNo       m_lastcycle;      ///< Cycle no of last event
+    uint64_t      m_totalsize;      ///< Cumulated current size * cycle no
+    BufferSize    m_maxsize;        ///< Maximum effective queue size reached
+    BufferSize    m_cursize;        ///< Current size
+
     void Update() {
         m_set     = m_new;
         m_updated = false;
+
+        COMMIT{
+            // Update statistics
+            CycleNo cycle = GetKernel()->GetCycleNo();
+            CycleNo elapsed = cycle - m_lastcycle;
+            m_lastcycle = cycle;
+            m_totalsize += (uint64_t)m_set * elapsed;
+        }
     }
     
 public:
@@ -458,6 +473,12 @@ public:
             }
             return true;
         }
+        // Accumulate for statistics. We don't want
+        // to register multiple stalls so only test during acquire.
+        if (IsAcquiring())
+        {
+            ++m_stalls;
+        }
         return false;
     }
     
@@ -470,13 +491,23 @@ public:
             }
             return true;
         }
+        // Accumulate for statistics. We don't want
+        // to register multiple stalls so only test during acquire.
+        if (IsAcquiring())
+        {
+            ++m_stalls;
+        }
         return false;
     }
     
     Flag(const std::string& name, Object& parent, Clock& clock, bool set)
         : Object(name, parent, clock), Storage(name, parent, clock),
-          m_set(false), m_updated(false), m_new(set)
+          m_set(false), m_updated(false), m_new(set),
+          m_stalls(0), m_lastcycle(0), m_totalsize(0)
     {
+        RegisterSampleVariableInObject(m_totalsize, SVC_CUMULATIVE);
+        RegisterSampleVariableInObject(m_set, SVC_LEVEL);
+        RegisterSampleVariableInObject(m_stalls, SVC_CUMULATIVE);
         if (set) {
             RegisterUpdate();
         }
