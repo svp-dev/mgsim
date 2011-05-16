@@ -3,6 +3,7 @@
 
 #include <set>
 #include <iterator>
+#include <vector>
 
 namespace Simulator
 {
@@ -29,42 +30,29 @@ class Storage;
 /// List of a storage access trace 
 class StorageTrace
 {
-    // Technically we can have any number of storages here,
-    // but practically we can limit it.
-    static const size_t MAX_STORAGES = 6;
-public:
-    size_t         m_nStorages;
-    const Storage* m_storages[MAX_STORAGES];
+    std::vector<const Storage*> m_storages;
     
 public:
     void Append(const Storage& s) {
-        assert(m_nStorages + 1 <= MAX_STORAGES);
-        m_storages[m_nStorages++] = &s;
+        m_storages.push_back(&s);
     }
     
     bool operator<(const StorageTrace& rhs) const {
-        if (m_nStorages == rhs.m_nStorages) {
-            const Storage* const * end = m_storages + m_nStorages;
-            std::pair<const Storage* const*, const Storage* const*> x = std::mismatch(m_storages, end, rhs.m_storages);
-            return x.first != end && *x.first < *x.second;
-        }
-        return m_nStorages < rhs.m_nStorages;
+        return m_storages < rhs.m_storages;
     }
     
     /// Constructs an empty trace
-    StorageTrace() : m_nStorages(0) {
+    StorageTrace() {
     }
     
     /// Constructs a trace with one element
-    StorageTrace(const Storage& a) : m_nStorages(1) {
+    StorageTrace(const Storage& a) : m_storages(1) {
         m_storages[0] = &a;
     }
     
     /// Constructs a trace from appending two traces
-    StorageTrace(const StorageTrace& a, const StorageTrace& b) : m_nStorages(a.m_nStorages + b.m_nStorages) {
-        assert(m_nStorages <= MAX_STORAGES);
-        std::copy(a.m_storages, a.m_storages + a.m_nStorages, m_storages);
-        std::copy(b.m_storages, b.m_storages + b.m_nStorages, m_storages + a.m_nStorages);
+    StorageTrace(const StorageTrace& a, const StorageTrace& b) : m_storages(a.m_storages) {
+        std::copy(b.m_storages.begin(), b.m_storages.end(), std::back_inserter(m_storages));
     }
 };
 
