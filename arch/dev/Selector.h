@@ -37,7 +37,7 @@ namespace Simulator
         bool RegisterStream(int fd, ISelectorClient& callback);
         bool UnregisterStream(int fd);
 
-        static Selector* GetSelector() { return m_singleton; };
+        static Selector& GetSelector();
 
         /* debug */
         void Cmd_Info(std::ostream& out, const std::vector<std::string>& arguments) const;
@@ -46,8 +46,8 @@ namespace Simulator
     class ISelectorClient
     {
     public:
-        virtual void OnStreamReady(int fd, Selector::StreamState state) = 0;
-        virtual std::string GetSelectorClientName() = 0;
+        virtual bool OnStreamReady(int fd, Selector::StreamState state) = 0;
+        virtual std::string GetSelectorClientName() const = 0;
         virtual ~ISelectorClient() {}
     };
 
