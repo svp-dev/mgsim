@@ -253,17 +253,17 @@ Result ZLCOMA::Directory::DoInTop()
     return SUCCESS;
 }
 
-ZLCOMA::Directory::Directory(const std::string& name, ZLCOMA& parent, Clock& clock, CacheID firstCache, CacheID lastCache, Config& config) :
+ZLCOMA::Directory::Directory(const std::string& name, ZLCOMA& parent, Clock& clock, CacheID firstCache, Config& config) :
     Simulator::Object(name, parent),
     ZLCOMA::Object(name, parent),
     m_bottom(name + ".bottom", parent, clock),
     m_top(name + ".top", parent, clock),
     p_lines     (*this, clock, "p_lines"),
     m_lineSize  (config.getValue<size_t>("CacheLineSize")),
-    m_assoc     (config.getValue<size_t>(parent, "L2CacheAssociativity") * (lastCache - firstCache + 1)),
+    m_assoc     (config.getValue<size_t>(parent, "L2CacheAssociativity") * config.getValue<size_t>(parent, "NumL2CachesPerDirectory")),
     m_sets      (config.getValue<size_t>(parent, "L2CacheNumSets")),
     m_firstCache(firstCache),
-    m_lastCache (lastCache),
+    m_lastCache (firstCache + config.getValue<size_t>(parent, "NumL2CachesPerDirectory") - 1),
     p_InBottom  (*this, "bottom_incoming", delegate::create<Directory, &Directory::DoInBottom >(*this)),
     p_InTop     (*this, "top_incoming",    delegate::create<Directory, &Directory::DoInTop    >(*this))
 {

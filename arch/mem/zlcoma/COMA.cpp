@@ -24,11 +24,10 @@ MCID ZLCOMA::RegisterClient(IMemoryCallback& callback, Process& process, Storage
         {
             // First cache in a ring; add a directory
             CacheID firstCache = m_caches.size();
-            CacheID lastCache  = firstCache + m_numCachesPerDir - 1;
 
             stringstream name;
             name << "dir" << m_directories.size();
-            Directory* dir = new Directory(name.str(), *this, GetClock(), firstCache, lastCache, m_config);
+            Directory* dir = new Directory(name.str(), *this, GetClock(), firstCache, m_config);
             m_directories.push_back(dir);
         }
 

@@ -369,7 +369,7 @@ COMA::RootDirectory::RootDirectory(const std::string& name, COMA& parent, Clock&
     //COMA::Object(name, parent),
     DirectoryBottom(name, parent, clock, config),
     m_lineSize(config.getValue<size_t>("CacheLineSize")),
-    m_assoc_dir(config.getValue<size_t>(parent, "L2CacheAssociativity")),
+    m_assoc_dir(config.getValue<size_t>(parent, "L2CacheAssociativity") * config.getValue<size_t>(parent, "NumL2CachesPerDirectory")),
     m_sets     (config.getValue<size_t>(parent, "L2CacheNumSets")),
     m_id       (id),
     m_numRoots (numRoots),
