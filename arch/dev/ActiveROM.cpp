@@ -265,7 +265,7 @@ namespace Simulator
 
     ActiveROM::~ActiveROM()
     {
-        delete m_data;
+        delete[] m_data;
     }
 
     bool ActiveROM::OnReadRequestReceived(IODeviceID from, MemAddr address, MemSize size)

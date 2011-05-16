@@ -63,7 +63,7 @@ namespace Simulator
 
     SMC::~SMC()
     {
-        delete m_enumdata;
+        delete[] m_enumdata;
     }
 
     void SMC::Initialize()
