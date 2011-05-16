@@ -253,7 +253,7 @@ void Processor::Initialize(Processor* prev, Processor* next)
         /* MSG_CREATE */            (m_allocator.m_creates) ^
         /* MSG_SYNC */              opt(m_network.m_link.out ^ m_network.m_syncs) ^
         /* MSG_DETACH */            opt(m_network.m_link.out) ^
-        /* MSG_BREAK */             (opt(m_network.m_link.out ^ DELEGATE) * opt(m_network.m_link.out)) ^
+        /* MSG_BREAK */             (opt(m_network.m_link.out ^ m_network.m_syncs) * opt(m_network.m_link.out)) ^
         /* MSG_RAW_REGISTER */      m_allocator.m_readyThreads2 ^
         /* RRT_LAST_SHARED */       (DELEGATE) ^ 
         /* RRT_FIRST_DEPENDENT */   (m_allocator.m_readyThreads2) ^
@@ -270,7 +270,7 @@ void Processor::Initialize(Processor* prev, Processor* next)
         /* MSG_SYNC */              opt(m_network.m_link.out ^ m_network.m_syncs) ^
         /* MSG_DETACH */            opt(m_network.m_link.out) ^
         /* MSG_GLOBAL */            (m_allocator.m_readyThreads2 * opt(m_network.m_link.out)) ^
-        /* MSG_BREAK */             (opt(m_network.m_link.out ^ DELEGATE) * opt(m_network.m_link.out))
+        /* MSG_BREAK */             (opt(m_network.m_link.out ^ m_network.m_syncs) * opt(m_network.m_link.out))
         );
 
     m_network.p_AllocResponse.SetStorageTraces(
