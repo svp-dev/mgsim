@@ -224,12 +224,12 @@ namespace Simulator
         if (m_framebuffer.size() < 640*400)
             throw exceptf<InvalidArgumentException>(*this, "FrameBufferSize not set or too small for minimum resolution 640x400: %zu", m_framebuffer.size());
 
-        RegisterSampleVariable(m_width, "display.width", SVC_LEVEL);
-        RegisterSampleVariable(m_height, "display.height", SVC_LEVEL);
-        RegisterSampleVariable(m_scalex, "display.scalex", SVC_LEVEL);
-        RegisterSampleVariable(m_scaley, "display.scaley", SVC_LEVEL);
-        RegisterSampleVariable(m_refreshDelay, "display.refreshDelay", SVC_LEVEL);
-        RegisterSampleVariable(m_lastUpdate, "display.lastUpdate", SVC_CUMULATIVE);
+        RegisterSampleVariableInObject(m_width,  SVC_LEVEL);
+        RegisterSampleVariableInObject(m_height, SVC_LEVEL);
+        RegisterSampleVariableInObject(m_scalex, SVC_LEVEL);
+        RegisterSampleVariableInObject(m_scaley, SVC_LEVEL);
+        RegisterSampleVariableInObject(m_refreshDelay, SVC_LEVEL);
+        RegisterSampleVariableInObject(m_lastUpdate, SVC_CUMULATIVE);
 
 #ifdef USE_SDL
         if (config.getValue<bool>(*this, "GfxEnableSDLOutput"))
