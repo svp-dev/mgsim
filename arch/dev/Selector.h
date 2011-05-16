@@ -39,6 +39,10 @@ namespace Simulator
 
         static Selector& GetSelector();
 
+        // Admin
+        void Enable();
+        void Disable();
+
         /* debug */
         void Cmd_Info(std::ostream& out, const std::vector<std::string>& arguments) const;
     };

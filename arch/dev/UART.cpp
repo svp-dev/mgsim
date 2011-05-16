@@ -104,15 +104,6 @@ namespace Simulator
             throw exceptf<InvalidArgumentException>("Unable to open file for output: %s (%s)", fout.c_str(), strerror(eout));
         }
 
-        if (-1 == fcntl(m_fd_in, F_SETFL, O_NONBLOCK | fcntl(m_fd_in, F_GETFL, 0)))
-        {
-            throw exceptf<InvalidArgumentException>("Cannot set non-blocking I/O flag on input: %s", strerror(errno));
-        }
-        if (m_fd_out != m_fd_in && -1 == fcntl(m_fd_out, F_SETFL, O_NONBLOCK | fcntl(m_fd_out, F_GETFL, 0)))
-        {
-            throw exceptf<InvalidArgumentException>("Cannot set non-blocking I/O flag on output: %s", strerror(errno));
-        }
-
         m_fifo_out.Sensitive(p_Transmit);
         m_receiveEnable.Sensitive(p_Receive);
         m_sendEnable.Sensitive(p_Send);

@@ -2,7 +2,10 @@
 #include "sim/except.h"
 #include <map>
 #include <iomanip>
+#include <cstring>
+#include <cerrno>
 #include <ev++.h>
+#include <fcntl.h>
 
 using namespace std;
 
@@ -36,6 +39,42 @@ namespace Simulator
             {
                 current_result &= client->OnStreamReady(io.fd, (Selector::StreamState)st);
                 ++handler_count;
+            }
+        }
+    }
+
+    static map<int, int> fd_flags;
+
+    void Selector::Enable()
+    {
+        for (map<int,ev::io*>::const_iterator i = Event::handlers.begin(); i != Event::handlers.end(); ++i)
+        {
+            int fd = i->second->fd;
+            int r = fcntl(fd, F_GETFL, 0);
+            if (r == -1)
+            {
+                cerr << "Unable to get fd flags for " << fd << ": " << strerror(errno) << endl;
+            }
+            fd_flags[fd] = r;
+            r = fcntl(fd, F_SETFL, r | O_NONBLOCK);
+            if (r == -1)
+            {
+                cerr << "Unable to set non-blocking flags for " << fd << ": " << strerror(errno) << endl;
+            }
+        }
+    }
+
+    void Selector::Disable()
+    {
+        for (map<int,ev::io*>::const_iterator i = Event::handlers.begin(); i != Event::handlers.end(); ++i)
+        {
+            int fd = i->second->fd;
+            if (fd_flags.find(fd) == fd_flags.end())
+                continue;
+            int r = fcntl(fd, F_SETFL, fd_flags[fd] & ~O_NONBLOCK);
+            if (r == -1)
+            {
+                cerr << "Unable to reset non-blocking flags for " << fd << ": " << strerror(errno) << endl;
             }
         }
     }
