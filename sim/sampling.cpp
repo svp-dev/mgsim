@@ -71,7 +71,7 @@ void ListSampleVariables_onevar(std::ostream& os, const std::string& name, const
         switch(vinfo.type) {
         case SV_INTEGER:
             switch(vinfo.width) {
-            case 1: os << std::dec << *(uint8_t*)p; break;
+            case 1: os << std::dec << (unsigned)*(uint8_t*)p; break;
             case 2: os << std::dec << *(uint16_t*)p; break;
             case 4: os << std::dec << *(uint32_t*)p; break;
             case 8: os << std::dec << *(uint64_t*)p; break;
@@ -124,7 +124,7 @@ bool ReadSampleVariables(std::ostream& os, const std::string& pat)
         switch(vinfo.type) {
         case SV_INTEGER:
             switch(vinfo.width) {
-            case 1: os << std::dec << *(uint8_t*)p; break;
+            case 1: os << std::dec << (unsigned)*(uint8_t*)p; break;
             case 2: os << std::dec << *(uint16_t*)p; break;
             case 4: os << std::dec << *(uint32_t*)p; break;
             case 8: os << std::dec << *(uint64_t*)p; break;
