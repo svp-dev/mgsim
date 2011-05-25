@@ -46,7 +46,7 @@ namespace Simulator
         IIOBus&            m_iobus;
                            
         IODeviceID         m_client;
-        IOInterruptID      m_completionTarget;
+        IONotificationChannelID      m_completionTarget;
                            
         SingleFlag         m_loading;
         SingleFlag         m_flushing;

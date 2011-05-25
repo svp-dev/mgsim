@@ -121,7 +121,7 @@ namespace Simulator
         return m_rrmux.m_incoming;
     }
     
-    bool Processor::IOBusInterface::OnInterruptRequestReceived(IOInterruptID which)
+    bool Processor::IOBusInterface::OnInterruptRequestReceived(IONotificationChannelID which)
     {
         return m_nmux.OnInterruptRequestReceived(which);
     }
@@ -136,7 +136,7 @@ namespace Simulator
         return res;
     }
     
-    bool Processor::IOBusInterface::OnNotificationReceived(IOInterruptID which, Integer tag)
+    bool Processor::IOBusInterface::OnNotificationReceived(IONotificationChannelID which, Integer tag)
     {
         return m_nmux.OnNotificationReceived(which, tag);
     }

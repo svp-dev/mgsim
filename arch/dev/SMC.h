@@ -49,7 +49,7 @@ namespace Simulator
         Result DoBoot();
 
         bool OnReadRequestReceived(IODeviceID from, MemAddr address, MemSize size);
-        bool OnNotificationReceived(IOInterruptID which, Integer tag);
+        bool OnNotificationReceived(IONotificationChannelID which, Integer tag);
         
         StorageTraceSet GetNotificationTraces() const;
 

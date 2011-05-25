@@ -9,7 +9,7 @@ namespace Simulator
 {
 
 typedef size_t  IODeviceID;     ///< Number of a device on an I/O Bus
-typedef size_t  IOInterruptID;  ///< Number of an interrupt channel on an I/O bus
+typedef size_t  IONotificationChannelID;  ///< Number of a notification/interrupt channel on an I/O bus
 
 /* maximum size of the data in an I/O request. */
 static const size_t MAX_IO_OPERATION_SIZE = 64;
@@ -27,8 +27,8 @@ public:
     virtual bool OnReadRequestReceived(IODeviceID from, MemAddr address, MemSize size);
     virtual bool OnWriteRequestReceived(IODeviceID from, MemAddr address, const IOData& data);
     virtual bool OnReadResponseReceived(IODeviceID from, MemAddr address, const IOData& data);
-    virtual bool OnInterruptRequestReceived(IOInterruptID which);
-    virtual bool OnNotificationReceived(IOInterruptID which, Integer tag);
+    virtual bool OnInterruptRequestReceived(IONotificationChannelID which);
+    virtual bool OnNotificationReceived(IONotificationChannelID which, Integer tag);
     
     virtual StorageTraceSet GetReadRequestTraces() const { return StorageTraceSet(); }
     virtual StorageTraceSet GetWriteRequestTraces() const { return StorageTraceSet(); }
@@ -56,8 +56,8 @@ public:
     virtual bool SendReadRequest(IODeviceID from, IODeviceID to, MemAddr address, MemSize size) = 0;
     virtual bool SendWriteRequest(IODeviceID from, IODeviceID to, MemAddr address, const IOData& data) = 0;
     virtual bool SendReadResponse(IODeviceID from, IODeviceID to, MemAddr address, const IOData& data) = 0;
-    virtual bool SendInterruptRequest(IODeviceID from, IOInterruptID which) = 0;
-    virtual bool SendNotification(IODeviceID from, IOInterruptID which, Integer tag) = 0;
+    virtual bool SendInterruptRequest(IODeviceID from, IONotificationChannelID which) = 0;
+    virtual bool SendNotification(IODeviceID from, IONotificationChannelID which, Integer tag) = 0;
 
     virtual StorageTraceSet GetReadRequestTraces(IODeviceID from) const = 0;
     virtual StorageTraceSet GetWriteRequestTraces() const = 0;

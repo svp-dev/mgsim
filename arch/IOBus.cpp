@@ -27,11 +27,11 @@ namespace Simulator
         throw exceptf<SimulationException>("Unsupported read response received from device %u", (unsigned)from);
     }
 
-    bool IIOBusClient::OnInterruptRequestReceived(IOInterruptID which)
+    bool IIOBusClient::OnInterruptRequestReceived(IONotificationChannelID which)
     {
         return true;
     }
-    bool IIOBusClient::OnNotificationReceived(IOInterruptID which, Integer tag)
+    bool IIOBusClient::OnNotificationReceived(IONotificationChannelID which, Integer tag)
     {
         return true;
     }

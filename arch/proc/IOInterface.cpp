@@ -211,7 +211,7 @@ namespace Simulator
 
     Result Processor::IOInterface::PNCInterface::Read(MemAddr address, void* data, MemSize size, LFID fid, TID tid, const RegAddr& writeback)
     {
-        IOInterruptID which = address / sizeof(Integer);
+        IONotificationChannelID which = address / sizeof(Integer);
         if (which > GetInterface().m_numChannels)
         {
             throw exceptf<SimulationException>("Invalid wait to non-existent notification/interrupt channel %u by F%u/T%u", (unsigned)which, (unsigned)fid, (unsigned)tid);

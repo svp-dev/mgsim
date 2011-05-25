@@ -29,11 +29,11 @@ public:
     ~IONotificationMultiplexer();
 
     // sent by device select upon an I/O read from the processor
-    bool SetWriteBackAddress(IOInterruptID which, const RegAddr& addr);
+    bool SetWriteBackAddress(IONotificationChannelID which, const RegAddr& addr);
 
     // triggered by the IOBusInterface
-    bool OnInterruptRequestReceived(IOInterruptID which);
-    bool OnNotificationReceived(IOInterruptID which, Integer tag);
+    bool OnInterruptRequestReceived(IONotificationChannelID which);
+    bool OnNotificationReceived(IONotificationChannelID which, Integer tag);
 
     Process p_IncomingNotifications;
     

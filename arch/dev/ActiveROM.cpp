@@ -118,7 +118,7 @@ namespace Simulator
           m_devid(devid),
           m_iobus(iobus),
           m_client(config.getValue<IODeviceID>(*this, "DCATargetID")),
-          m_completionTarget(config.getValue<IOInterruptID>(*this, "DCANotificationChannel")),
+          m_completionTarget(config.getValue<IONotificationChannelID>(*this, "DCANotificationChannel")),
           m_loading("f_loading", *this, iobus.GetClock(), false),
           m_flushing("f_flushing", *this, iobus.GetClock(), false),
           m_notifying("f_notifying", *this, iobus.GetClock(), false),

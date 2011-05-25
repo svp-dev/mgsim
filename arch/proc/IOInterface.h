@@ -72,7 +72,7 @@ private:
 
     bool Read(IODeviceID dev, MemAddr address, MemSize size, const RegAddr& writeback);
     bool Write(IODeviceID dev, MemAddr address, const IOData& data);
-    bool WaitForNotification(IOInterruptID dev, const RegAddr& writeback);
+    bool WaitForNotification(IONotificationChannelID dev, const RegAddr& writeback);
     Processor& GetProcessor() const;
 
 public:

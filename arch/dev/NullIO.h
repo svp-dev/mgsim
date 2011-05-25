@@ -30,8 +30,8 @@ namespace Simulator
         bool SendReadRequest(IODeviceID from, IODeviceID to, MemAddr address, MemSize size);
         bool SendReadResponse(IODeviceID from, IODeviceID to, MemAddr address, const IOData& data);
         bool SendWriteRequest(IODeviceID from, IODeviceID to, MemAddr address, const IOData& data);
-        bool SendInterruptRequest(IODeviceID from, IOInterruptID which);
-        bool SendNotification(IODeviceID from, IOInterruptID which, Integer tag);
+        bool SendInterruptRequest(IODeviceID from, IONotificationChannelID which);
+        bool SendNotification(IODeviceID from, IONotificationChannelID which, Integer tag);
 
         StorageTraceSet GetReadRequestTraces(IODeviceID from) const;
         StorageTraceSet GetWriteRequestTraces() const;

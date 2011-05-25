@@ -56,8 +56,8 @@ public:
     bool OnReadRequestReceived(IODeviceID from, MemAddr address, MemSize size);
     bool OnWriteRequestReceived(IODeviceID from, MemAddr address, const IOData& data);
     bool OnReadResponseReceived(IODeviceID from, MemAddr address, const IOData& data);
-    bool OnInterruptRequestReceived(IOInterruptID which);
-    bool OnNotificationReceived(IOInterruptID which, Integer tag);
+    bool OnInterruptRequestReceived(IONotificationChannelID which);
+    bool OnNotificationReceived(IONotificationChannelID which, Integer tag);
 
     StorageTraceSet GetReadRequestTraces() const;
     StorageTraceSet GetWriteRequestTraces() const;

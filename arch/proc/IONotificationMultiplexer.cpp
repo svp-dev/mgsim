@@ -51,7 +51,7 @@ Processor::IONotificationMultiplexer::~IONotificationMultiplexer()
     }
 }
 
-bool Processor::IONotificationMultiplexer::SetWriteBackAddress(IOInterruptID which, const RegAddr& addr)
+bool Processor::IONotificationMultiplexer::SetWriteBackAddress(IONotificationChannelID which, const RegAddr& addr)
 {
     assert(which < m_writebacks.size());
 
@@ -66,14 +66,14 @@ bool Processor::IONotificationMultiplexer::SetWriteBackAddress(IOInterruptID whi
     return true;
 }
 
-bool Processor::IONotificationMultiplexer::OnInterruptRequestReceived(IOInterruptID from)
+bool Processor::IONotificationMultiplexer::OnInterruptRequestReceived(IONotificationChannelID from)
 {
     assert(from < m_interrupts.size());
     
     return m_interrupts[from]->Set();
 }
 
-bool Processor::IONotificationMultiplexer::OnNotificationReceived(IOInterruptID from, Integer tag)
+bool Processor::IONotificationMultiplexer::OnNotificationReceived(IONotificationChannelID from, Integer tag)
 {
     assert(from < m_notifications.size());
 
