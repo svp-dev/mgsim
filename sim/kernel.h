@@ -104,11 +104,11 @@ public:
  */
 enum RunState
 {
+    STATE_IDLE,     ///< The component has no work.
     STATE_ACTIVE,   ///< The component has been activated.
-	STATE_RUNNING,  ///< The component is running.
-	STATE_IDLE,     ///< The component has no work.
-	STATE_DEADLOCK, ///< The component has work but cannot continue.
-	STATE_ABORTED,  ///< The simulation has been aborted.
+    STATE_RUNNING,  ///< The component is running.
+    STATE_DEADLOCK, ///< The component has work but cannot continue.
+    STATE_ABORTED,  ///< The simulation has been aborted.
 };
 
 
@@ -461,7 +461,10 @@ protected:
 public:
     ///< Callback for arbitration
     virtual void OnArbitrate() = 0;
-    
+    virtual std::string GetFQN() const = 0;
+   
+    const Arbitrator* GetNext() const { return m_next; }
+
     Arbitrator(Clock& clock)
     : m_activated(false), m_next(NULL), m_clock(clock)
     {}

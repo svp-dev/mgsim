@@ -49,6 +49,7 @@ Process::Process(Object& parent, const string& name, const delegate& delegate)
 {
     m_registry.insert(this);
     RegisterSampleVariable(m_stalls, parent.GetFQN() + ':' + name + ":stalls", SVC_CUMULATIVE);
+    RegisterSampleVariable(m_state, parent.GetFQN() + ':' + name + ":state", SVC_LEVEL);
 }
 
 Process::~Process()

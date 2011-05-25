@@ -43,6 +43,8 @@ public:
         m_processes.push_back(&process);
     }
 
+    std::string GetFQN() const { return m_object.GetFQN() + '.' + m_name; }
+
 protected:
     bool HasAcquired(const Process& process) const {
         return m_selected == &process;
@@ -168,6 +170,8 @@ public:
 
     void RegisterReadPort(ArbitratedReadPort& port);
     void UnregisterReadPort(ArbitratedReadPort& port);
+
+    std::string GetFQN() const { return Object::GetFQN(); }
 };
 
 template <typename I>
@@ -447,6 +451,10 @@ public:
     
     ~ArbitratedService() {
     }
+
+    std::string GetFQN() const { return Base::GetFQN(); }
+
+
 };
 
 }

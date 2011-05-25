@@ -441,51 +441,49 @@ void MGSystem::PrintMemoryStatistics(ostream& os) const {
 
 void MGSystem::PrintState(const vector<string>& arguments) const
 {
-    typedef map<string, RunState> StateMap;
-
     // This should be all non-idle processes
     for (const Clock* clock = m_kernel.GetActiveClocks(); clock != NULL; clock = clock->GetNext())
     {
-        StateMap   states;
-        streamsize length = 0;
-
         if (clock->GetActiveProcesses() != NULL || clock->GetActiveStorages() != NULL || clock->GetActiveArbitrators() != NULL)
         {
-            cout << clock->GetFrequency() << " MHz clock (next tick at cycle " << dec << clock->GetNextTick() << "):" << endl;
+            cout << endl
+                 << "Connected to a " << clock->GetFrequency() << " MHz clock (next tick at cycle " << dec << clock->GetNextTick() << "):" << endl;
 
-            for (const Process* process = clock->GetActiveProcesses(); process != NULL; process = process->GetNext())
+            if (clock->GetActiveProcesses() != NULL)
             {
-                const string name = process->GetName();
-                states[name] = process->GetState();
-                length = max(length, (streamsize)name.length());
-            }
-
-            cout << left << setfill(' ');
-            for (StateMap::const_iterator p = states.begin(); p != states.end(); ++p)
-            {
-                cout << "- " << setw(length) << p->first << ": ";
-                switch (p->second)
+                cout << "- the following processes are powered:" << endl;
+                for (const Process* process = clock->GetActiveProcesses(); process != NULL; process = process->GetNext())
                 {
-                case STATE_IDLE:     assert(0); break;
-                case STATE_ACTIVE:   cout << "active"; break;
-                case STATE_DEADLOCK: cout << "stalled"; break;
-                case STATE_RUNNING:  cout << "running"; break;
-                case STATE_ABORTED:  assert(0); break;
+                    cout << "  - " << process->GetName() << " (";
+                    switch (process->GetState())
+                    {
+                    case STATE_IDLE:     assert(0); break;
+                    case STATE_ACTIVE:   cout << "active"; break;
+                    case STATE_DEADLOCK: cout << "stalled"; break;
+                    case STATE_RUNNING:  cout << "running"; break;
+                    case STATE_ABORTED:  assert(0); break;
+                    }
+                    cout << ')' << endl;
                 }
-                cout << endl;
             }
 
             if (clock->GetActiveStorages() != NULL)
             {
-                cout << "- One or more storages need updating" << endl;
+                cout << "- the following storages need updating:" << endl;
+                for (const Storage* storage = clock->GetActiveStorages(); storage != NULL; storage = storage->GetNext())
+                {
+                    cout << "  - " << storage->GetFQN() << endl;
+                }
             }
 
             if (clock->GetActiveArbitrators() != NULL)
             {
-                cout << "- One or more arbitrators need updating" << endl;
+                cout << "- the following arbitrators need updating:" << endl;
+                for (const Arbitrator* arbitrator = clock->GetActiveArbitrators(); arbitrator != NULL; arbitrator = arbitrator->GetNext())
+                {
+                    cout << "  - " << arbitrator->GetFQN() << endl;
+                }
             }
-
-            cout << endl;
         }
     }
 
