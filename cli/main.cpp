@@ -64,7 +64,7 @@ static void ParseArguments(int argc, const char ** argv, ProgramConfig& config)
         if (arg[0] != '-')
         {
             cerr << "Warning: converting extra argument to -o *.ROMFileName=" << arg << endl;
-            config.m_overrides.push_back(make_pair("*.ROMFileName", arg));
+            config.m_overrides.push_back(make_pair("*:ROMFileName", arg));
         }
         else if (arg == "-c" || arg == "--config")      config.m_configFile    = argv[++i];
         else if (arg == "-i" || arg == "--interactive") config.m_interactive   = true;
@@ -123,7 +123,7 @@ static void ParseArguments(int argc, const char ** argv, ProgramConfig& config)
 
             string devname = "file" + regnum;
             config.m_extradevs.push_back(devname);
-            string cfgprefix = "*." + devname + ".";
+            string cfgprefix = "*." + devname + ":";
             config.m_overrides.push_back(make_pair(cfgprefix + "Type", "AROM"));
             config.m_overrides.push_back(make_pair(cfgprefix + "ROMContentSource", "RAW"));
             config.m_overrides.push_back(make_pair(cfgprefix + "ROMFileName", filename));
@@ -212,8 +212,8 @@ int main(int argc, char** argv)
                      !config.m_earlyquit);
 
 #ifdef ENABLE_MONITOR
-        string mo_mdfile = configfile.getValue<string>("MonitorMetadataFile", "mgtrace.md");
-        string mo_tfile = configfile.getValue<string>("MonitorTraceFile", "mgtrace.out");
+        string mo_mdfile = configfile.getValueOrDefault<string>("MonitorMetadataFile", "mgtrace.md");
+        string mo_tfile = configfile.getValueOrDefault<string>("MonitorTraceFile", "mgtrace.out");
         Monitor mo(sys, config.m_enableMonitor, 
                    mo_mdfile, config.m_earlyquit ? "" : mo_tfile, !config.m_interactive);
 #endif

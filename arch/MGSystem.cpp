@@ -687,8 +687,8 @@ MGSystem::MGSystem(Config& config,
         ss << "iobus" << b;
         string name = ss.str();
 
-        string bus_type = config.getValue<string>(m_root, name + ".Type");
-        Clock& ioclock = m_kernel.CreateClock(config.getValue<unsigned long>(m_root, name + ".Freq"));
+        string bus_type = config.getValue<string>(m_root, name, "Type");
+        Clock& ioclock = m_kernel.CreateClock(config.getValue<unsigned long>(m_root, name, "Freq"));
 
         if (bus_type == "NULLIO") {
             NullIO* bus = new NullIO(name, m_root, ioclock);
@@ -723,9 +723,9 @@ MGSystem::MGSystem(Config& config,
         string name = ss.str();
 
         IIOBus* iobus = NULL;
-        if (config.getValue<bool>(m_root, name + ".EnableIO", false)) // I/O disabled unless specified
+        if (config.getValueOrDefault<bool>(m_root, name, "EnableIO", false)) // I/O disabled unless specified
         {
-            size_t busid = config.getValue<size_t>(m_root, name + ".BusID");
+            size_t busid = config.getValue<size_t>(m_root, name, "BusID");
             if (busid >= m_iobuses.size())
             {
                 throw runtime_error("Processor " + name + " set to connect to non-existent bus");
@@ -756,9 +756,9 @@ MGSystem::MGSystem(Config& config,
     {
         string name = dev_names[i];
 
-        size_t busid = config.getValue<size_t>(m_root, name + ".BusID");
-        size_t devid = config.getValue<size_t>(m_root, name + ".DeviceID", (size_t)-1);
-        string dev_type = config.getValue<string>(m_root, name + ".Type");
+        size_t busid = config.getValue<size_t>(m_root, name, "BusID");
+        size_t devid = config.getValueOrDefault<size_t>(m_root, name, "DeviceID", (size_t)-1);
+        string dev_type = config.getValue<string>(m_root, name, "Type");
 
         if (busid >= m_iobuses.size())
         {
@@ -782,12 +782,12 @@ MGSystem::MGSystem(Config& config,
             m_devices[i] = lcd;
             config.registerObject(*lcd, "lcd");
         } else if (dev_type == "RTC") {
-            Clock& rtcclock = m_kernel.CreateClock(config.getValue<size_t>(m_root, name + ".RTCUpdateFreq"));
+            Clock& rtcclock = m_kernel.CreateClock(config.getValue<size_t>(m_root, name, "RTCUpdateFreq"));
             RTC *rtc = new RTC(name, m_root, rtcclock, iobus, devid, config);
             m_devices[i] = rtc;
             config.registerObject(*rtc, "rtc");
         } else if (dev_type == "GFX") {
-            size_t fbdevid = config.getValue<size_t>(m_root, name + ".GfxFrameBufferDeviceID", devid + 1);
+            size_t fbdevid = config.getValueOrDefault<size_t>(m_root, name, "GfxFrameBufferDeviceID", devid + 1);
             Display *disp = new Display(name, m_root, iobus, devid, fbdevid, config);
             m_devices[i] = disp;
             config.registerObject(*disp, "gfx");
@@ -821,9 +821,9 @@ MGSystem::MGSystem(Config& config,
         ss << "MemoryRange" << i;
         string name = ss.str();
 
-        MemAddr address = config.getValue<MemAddr>(name + ".Address");
-        MemSize size = config.getValue<MemSize>(name + ".Size");
-        string mode = config.getValue<string>(name + ".Mode");
+        MemAddr address = config.getValue<MemAddr>(name, "Address");
+        MemSize size = config.getValue<MemSize>(name, "Size");
+        string mode = config.getValue<string>(name, "Mode");
         int perm = 0;
         if (mode.find("R") != string::npos)
             perm |= IMemory::PERM_READ;

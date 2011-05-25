@@ -69,7 +69,7 @@ Monitor::Monitor(Simulator::MGSystem& sys, bool enabled, const std::string& mdfi
         return ;
     }
 
-    float msd = sys.GetConfig().getValue<float>("MonitorSampleDelay", 0.001);
+    float msd = sys.GetConfig().getValue<float>("MonitorSampleDelay");
     msd = fabs(msd);
     m_tsdelay.tv_sec = msd;
     m_tsdelay.tv_nsec = (msd - (float)m_tsdelay.tv_sec) * 1000000000.;

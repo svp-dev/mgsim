@@ -13,7 +13,7 @@ Processor& Processor::IOMatchUnit::GetProcessor() const
 void Processor::MMIOComponent::Connect(IOMatchUnit& mmio, IOMatchUnit::AccessMode mode, Config& config)
 {
     // we allow the base address to be set to zero to indicate it should not be mapped.
-    MemAddr base = config.getValue<MemAddr>(*this, "MMIO_BaseAddr", 0);
+    MemAddr base = config.getValueOrDefault<MemAddr>(*this, "MMIO_BaseAddr", 0);
     if (base == 0)
     {
         std::cerr << "warning: " << GetFQN() << " not mapped to the I/O address space." << std::endl;

@@ -288,14 +288,14 @@ DDRChannel::~DDRChannel()
 DDRChannelRegistry::DDRChannelRegistry(const std::string& name, Object& parent, VirtualMemory& memory, Config& config)
     : Object(name, parent)
 {
-    size_t numChannels = config.getValue<size_t>(*this, "NumChannels", 
-                                                 config.getValue<size_t>(parent, "NumRootDirectories"));
+    size_t numChannels = config.getValueOrDefault<size_t>(*this, "NumChannels", 
+                                                          config.getValue<size_t>(parent, "NumRootDirectories"));
 
     for (size_t i = 0; i < numChannels; ++i)
     {
         std::stringstream ss;
         ss << "channel" << i;
-        Clock &ddrclock = GetKernel()->CreateClock(config.getValue<size_t>(*this, ss.str() + ".Freq"));
+        Clock &ddrclock = GetKernel()->CreateClock(config.getValue<size_t>(*this, ss.str(), "Freq"));
         this->push_back(new DDRChannel(ss.str(), *this, ddrclock, memory, config));
     }
 }

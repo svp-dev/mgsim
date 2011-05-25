@@ -35,7 +35,7 @@ LCD::LCD(const std::string& name, Object& parent, IIOBus& iobus, IODeviceID devi
     m_buffer = new char[m_width * m_height];
     memset(m_buffer, ' ', m_width * m_height);
 
-    std::string tfname = config.getValue<std::string>(*this, "LCDTraceFile", "");
+    std::string tfname = config.getValueOrDefault<std::string>(*this, "LCDTraceFile", "");
     if (!tfname.empty())
     {
         m_tracefile = new std::ofstream;

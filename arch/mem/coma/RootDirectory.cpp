@@ -396,7 +396,7 @@ COMA::RootDirectory::RootDirectory(const std::string& name, COMA& parent, Clock&
     p_lines.AddProcess(p_Responses);
     p_lines.AddProcess(p_Incoming);
 
-    size_t ddrid = config.getValue<size_t>(*this, "DDRChannelID", id);
+    size_t ddrid = config.getValueOrDefault<size_t>(*this, "DDRChannelID", id);
     if (ddrid >= ddr.size())
     {
         throw exceptf<InvalidArgumentException>(*this, "Invalid DDR channel ID: %zu", ddrid);

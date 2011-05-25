@@ -85,15 +85,21 @@ private:
 public:
 
     template <typename T>
-    T getValue(const std::string& name, const T& def)
+    T getValueOrDefault(const std::string& name, const T& def)
     {
         return lookupValue<T>(name, def, false);
     }
 
     template <typename T>
-    T getValue(const Simulator::Object& obj, const std::string& name, const T& def)
+    T getValueOrDefault(const Simulator::Object& obj, const std::string& name, const T& def)
     {
-        return lookupValue<T>(obj.GetFQN() + '.' + name, def, false);
+        return lookupValue<T>(obj.GetFQN() + ':' + name, def, false);
+    }
+
+    template <typename T>
+    T getValueOrDefault(const Simulator::Object& obj, const std::string& prefix, const std::string& name, const T& def)
+    {
+        return lookupValue<T>(obj.GetFQN() + '.' + prefix + ':' + name, def, false);
     }
 
     template <typename T>
@@ -103,9 +109,21 @@ public:
     }
 
     template <typename T>
+    T getValue(const std::string& prefix, const std::string& name)
+    {
+        return lookupValue<T>(prefix + ':' + name, T(), true);
+    }
+
+    template <typename T>
     T getValue(const Simulator::Object& obj, const std::string& name)
     {
-        return lookupValue<T>(obj.GetFQN() + '.' + name, T(), true);
+        return lookupValue<T>(obj.GetFQN() + ':' + name, T(), true);
+    }
+
+    template <typename T>
+    T getValue(const Simulator::Object& obj, const std::string& prefix, const std::string& name)
+    {
+        return lookupValue<T>(obj.GetFQN() + '.' + prefix + ':' + name, T(), true);
     }
 
     std::vector<std::string> getWordList(const std::string& name); 

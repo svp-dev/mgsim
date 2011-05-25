@@ -31,10 +31,10 @@ void RegisterSampleVariable(T& var, const std::string& name, SampleVariableCateg
 }
 
 #define RegisterSampleVariableInObject(var, cat, ...)                       \
-    RegisterSampleVariable(var, GetFQN() + '.' + (#var + 2) , cat, ##__VA_ARGS__)
+    RegisterSampleVariable(var, GetFQN() + ':' + (#var + 2) , cat, ##__VA_ARGS__)
 
 #define RegisterSampleVariableInObjectWithName(var, name, cat, ...)      \
-    RegisterSampleVariable(var, GetFQN() + '.' + name, cat, ##__VA_ARGS__)
+    RegisterSampleVariable(var, GetFQN() + ':' + name, cat, ##__VA_ARGS__)
 
 void ListSampleVariables(std::ostream& os, const std::string &pat = "*");
 bool ReadSampleVariables(std::ostream& os, const std::string &pat = "*"); // returns "false" if no variables match.

@@ -108,7 +108,7 @@ namespace Simulator
           m_memory(mem),
           m_config(config),
           m_data(NULL),
-          m_lineSize(config.getValue<size_t>(*this, "ROMLineSize", config.getValue<size_t>("CacheLineSize"))),
+          m_lineSize(config.getValueOrDefault<size_t>(*this, "ROMLineSize", config.getValue<size_t>("CacheLineSize"))),
           m_numLines(0),
           m_verboseload(config.getValue<bool>(*this, "ROMVerboseLoad")),
           m_bootable(false),
@@ -159,7 +159,7 @@ namespace Simulator
 
         if (source == "CONFIG" || source == "RAW")
         {
-            MemAddr addr = m_config.getValue<MemAddr>(*this, "ROMBaseAddr", 0);
+            MemAddr addr = m_config.getValueOrDefault<MemAddr>(*this, "ROMBaseAddr", 0);
             if (addr != 0)
             {
                 LoadableRange r;

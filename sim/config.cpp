@@ -157,7 +157,7 @@ vector<string> InputConfigRegistry::getWordList(const string& name)
 
 vector<string> InputConfigRegistry::getWordList(const Object& obj, const string& name)
 {
-    return getWordList(obj.GetFQN() + '.' + name);
+    return getWordList(obj.GetFQN() + ':' + name);
 }
 
 
@@ -197,7 +197,7 @@ InputConfigRegistry::InputConfigRegistry(const string& filename, const ConfigMap
             {
                 state = STATE_COMMENT;
             }
-            else if (isalpha(c) || c == '_' || c == '*' || c == '.')
+            else if (isalpha(c) || c == '_' || c == '*' || c == '.' || c == ':')
             {
                 state = STATE_NAME;
                 name = (char)c;
@@ -212,7 +212,7 @@ InputConfigRegistry::InputConfigRegistry(const string& filename, const ConfigMap
         }
         else if (state == STATE_NAME)
         {
-            if (isalnum(c) || c == '_' || c == '*' || c == '.') name += (char)c;
+            if (isalnum(c) || c == '_' || c == '*' || c == '.' || c == ':') name += (char)c;
             else 
             {
                 // transform(name.begin(), name.end(), name.begin(), ::toupper);

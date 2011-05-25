@@ -1598,9 +1598,9 @@ Processor::Allocator::Allocator(const string& name, Processor& parent, Clock& cl
     Config& config)
  :  Object(name, parent, clock),
     m_parent(parent), m_familyTable(familyTable), m_threadTable(threadTable), m_registerFile(registerFile), m_raunit(raunit), m_icache(icache), m_network(network), m_pipeline(pipeline),
-    m_alloc         ("b_alloc",          *this, clock, config.getValue<BufferSize>(*this, "InitialThreadAllocateQueueSize", familyTable.GetNumFamilies())),
-    m_creates       ("b_creates",        *this, clock, config.getValue<BufferSize>(*this, "CreateQueueSize", familyTable.GetNumFamilies()), 3),
-    m_cleanup       ("b_cleanup",        *this, clock, config.getValue<BufferSize>(*this, "ThreadCleanupQueueSize", threadTable.GetNumThreads()), 4),
+    m_alloc         ("b_alloc",          *this, clock, config.getValueOrDefault<BufferSize>(*this, "InitialThreadAllocateQueueSize", familyTable.GetNumFamilies())),
+    m_creates       ("b_creates",        *this, clock, config.getValueOrDefault<BufferSize>(*this, "CreateQueueSize", familyTable.GetNumFamilies()), 3),
+    m_cleanup       ("b_cleanup",        *this, clock, config.getValueOrDefault<BufferSize>(*this, "ThreadCleanupQueueSize", threadTable.GetNumThreads()), 4),
     m_createState   (CREATE_INITIAL),
     m_readyThreads1 ("q_readyThreads1", *this, clock, threadTable),
     m_readyThreads2 ("q_readyThreads2", *this, clock, threadTable),

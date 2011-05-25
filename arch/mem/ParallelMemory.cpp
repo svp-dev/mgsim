@@ -271,7 +271,7 @@ void ParallelMemory::Write(MemAddr address, const void* data, MemSize size)
 ParallelMemory::ParallelMemory(const std::string& name, Object& parent, Clock& clock, Config& config) :
     Object(name, parent, clock),
     m_registry       (config),
-    m_buffersize     (config.getValue<BufferSize>(*this, "BufferSize", INFINITE)),
+    m_buffersize     (config.getValue<BufferSize>(*this, "BufferSize")),
     m_baseRequestTime(config.getValue<CycleNo>(*this, "BaseRequestTime")),
     m_timePerLine    (config.getValue<CycleNo>(*this, "TimePerLine")),
     m_sizeOfLine     (config.getValue<size_t> (*this, "LineSize")),

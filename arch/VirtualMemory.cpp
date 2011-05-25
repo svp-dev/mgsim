@@ -239,9 +239,9 @@ void VirtualMemory::Write(MemAddr address, const void* _data, MemSize size)
 VirtualMemory::VirtualMemory()
     : m_totalreserved(0), m_totalallocated(0)
 {
-    RegisterSampleVariable(m_totalreserved, "vm.reserved", SVC_LEVEL);
-    RegisterSampleVariable(m_totalallocated, "vm.allocated", SVC_LEVEL);
-    RegisterSampleVariable(m_nRanges, "vm.nRanges", SVC_LEVEL);
+    RegisterSampleVariable(m_totalreserved, "vm:reserved", SVC_LEVEL);
+    RegisterSampleVariable(m_totalallocated, "vm:allocated", SVC_LEVEL);
+    RegisterSampleVariable(m_nRanges, "vm:nRanges", SVC_LEVEL);
 }
 
 VirtualMemory::~VirtualMemory()
