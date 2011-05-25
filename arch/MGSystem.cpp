@@ -736,7 +736,7 @@ MGSystem::MGSystem(Config& config,
 
             if (!quiet)
             {
-                cout << name << ": I/O interface to " << dynamic_cast<Object*>(iobus)->GetName() << endl;
+                cout << name << ": connected to " << dynamic_cast<Object*>(iobus)->GetName() << endl;
             }
         }
 
@@ -757,8 +757,6 @@ MGSystem::MGSystem(Config& config,
         string name = dev_names[i];
 
         size_t busid = config.getValue<size_t>(m_root, name, "BusID");
-        size_t devid = config.getValueOrDefault<size_t>(m_root, name, "DeviceID", (size_t)-1);
-        string dev_type = config.getValue<string>(m_root, name, "Type");
 
         if (busid >= m_iobuses.size())
         {
@@ -767,14 +765,13 @@ MGSystem::MGSystem(Config& config,
         
         IIOBus& iobus = *m_iobuses[busid];
 
-        if (devid == (size_t)-1)
-        {
-            devid = iobus.GetNextAvailableDeviceID();
-        }
+        IODeviceID devid = config.getValueOrDefault<IODeviceID>(m_root, name, "DeviceID", iobus.GetNextAvailableDeviceID());
+
+        string dev_type = config.getValue<string>(m_root, name, "Type");
 
         if (!quiet)
         {
-            cout << name << ": device " << dec << devid << " on " << dynamic_cast<Object&>(iobus).GetName() << " (type " << dev_type << ')' << endl;
+            cout << name << ": connected to " << dynamic_cast<Object&>(iobus).GetName() << " (type " << dev_type << ", devid " << dec << devid << ')' << endl;
         }
 
         if (dev_type == "LCD") {

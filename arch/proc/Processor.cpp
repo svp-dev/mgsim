@@ -69,7 +69,7 @@ Processor::Processor(const std::string& name, Object& parent, Clock& clock, PID 
     if (iobus != NULL)
     {
         // This processor also supports I/O
-        IODeviceID devid = config.getValue<IODeviceID>(*this, "DeviceID");
+        IODeviceID devid = config.getValueOrDefault<IODeviceID>(*this, "DeviceID", iobus->GetNextAvailableDeviceID());
 
         m_io_if = new IOInterface("io_if", *this, clock, memory, m_registerFile, *iobus, devid, config);
 
