@@ -154,7 +154,14 @@ public:
     
     void OnEndCycle() const {
         // Check if the process accessed storages in a way that isn't allowed
-        assert(m_storages.Contains(m_currentStorages));
+        if (!m_storages.Contains(m_currentStorages))
+        {
+            std::cerr << std::endl
+                      << "Invalid access by " << GetName() << ": " << m_currentStorages << std::endl
+                      << "Allowed traces:" << std::endl
+                      << m_storages;
+            assert(false);
+        };
     }
     
     void OnStorageAccess(const Storage& s) {
