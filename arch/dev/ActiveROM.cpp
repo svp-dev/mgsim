@@ -24,7 +24,7 @@ namespace Simulator
 
         if (m_verboseload)
         {
-            cout << GetName() << ": configuration data: " << dec << romsize << " bytes generated" << endl;
+            clog << GetName() << ": configuration data: " << dec << romsize << " bytes generated" << endl;
         }
     }
 
@@ -69,7 +69,7 @@ namespace Simulator
 
         if (m_verboseload)
         {
-            cout << GetName() << ": loaded " << dec << length << " bytes from " << fname << endl;
+            clog << GetName() << ": loaded " << dec << length << " bytes from " << fname << endl;
         }
 
 
@@ -83,7 +83,7 @@ namespace Simulator
             m_memory.Reserve(r.vaddr, r.vsize, r.perm | IMemory::PERM_DCA_WRITE);
             if (m_verboseload)
             {
-                cout << GetName() << ": reserved " << dec << r.vsize << " bytes in main memory at 0x" 
+                clog << GetName() << ": reserved " << dec << r.vsize << " bytes in main memory at 0x" 
                      << hex << setfill('0') << setw(16) << r.vaddr 
                      << " - 0x" 
                      << hex << setfill('0') << setw(16) << r.vaddr + r.vsize - 1 ;
@@ -93,24 +93,24 @@ namespace Simulator
                 m_memory.Write(r.vaddr, m_data + r.rom_offset, r.rom_size);
                 if (m_verboseload)
                 {
-                    cout << ", preloaded " << dec << r.rom_size << " bytes to DRAM from ROM offset 0x" << hex << r.rom_offset;
+                    clog << ", preloaded " << dec << r.rom_size << " bytes to DRAM from ROM offset 0x" << hex << r.rom_offset;
                 }
             }
             if (m_verboseload)
             {
-                cout << endl;
+                clog << endl;
             }
         }
     }
 
-    ActiveROM::ActiveROM(const string& name, Object& parent, IMemoryAdmin& mem, IIOBus& iobus, IODeviceID devid, Config& config)
+    ActiveROM::ActiveROM(const string& name, Object& parent, IMemoryAdmin& mem, IIOBus& iobus, IODeviceID devid, Config& config, bool quiet)
         : Object(name, parent, iobus.GetClock()),
           m_memory(mem),
           m_config(config),
           m_data(NULL),
           m_lineSize(config.getValueOrDefault<size_t>(*this, "ROMLineSize", config.getValue<size_t>("CacheLineSize"))),
           m_numLines(0),
-          m_verboseload(config.getValue<bool>(*this, "ROMVerboseLoad")),
+          m_verboseload(!quiet),
           m_bootable(false),
           m_start_address(0),
           m_legacy(false),

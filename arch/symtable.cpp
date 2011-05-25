@@ -176,7 +176,7 @@ void SymbolTable::AddSymbol(MemAddr addr, const std::string& name, size_t sz)
     m_cache.clear();
 }
 
-void SymbolTable::Read(std::istream& i)
+void SymbolTable::Read(std::istream& i, bool quiet)
 {
     // get entries from stream
     // assume POSIX nm format: <sym> <type> <addr> <size(opt)>
@@ -197,10 +197,13 @@ void SymbolTable::Read(std::istream& i)
         ++nread;
     }
 
-    if (!nread)
-        cerr << "#warning: no symbols read." << endl;
-    else
-        clog << "# " << nread << " symbols loaded." << endl;
+    if (!quiet)
+    {
+        if (!nread)
+            cerr << "Warning: symbol table is empty (no symbols read)." << endl;
+        else
+            clog << "Symbol table: " << dec << nread << " symbols loaded." << endl;
+    }
 
     sort(m_entries.begin(), m_entries.end());
     m_cache.clear();

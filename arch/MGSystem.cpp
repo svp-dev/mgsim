@@ -636,6 +636,13 @@ MGSystem::MGSystem(Config& config,
       m_config(config),
       m_bootrom(NULL)
 {
+
+    if (!quiet)
+    {
+        clog << endl 
+             << "Instanciating components..." << endl;
+    }
+
     PSize numProcessors = m_config.getValue<PSize>("NumProcessors");
 
     const size_t numProcessorsPerFPU = config.getValue<size_t>("NumProcessorsPerFPU");
@@ -673,6 +680,10 @@ MGSystem::MGSystem(Config& config,
     } else {
         throw runtime_error("Unknown memory type: " + memory_type);
     }
+    if (!quiet)
+    {
+        clog << "memory: " << memory_type << endl;
+    }
 
     // Create the event selector
     Clock& selclock = m_kernel.CreateClock(config.getValue<unsigned long>(m_root, "EventCheckFreq"));
@@ -698,6 +709,11 @@ MGSystem::MGSystem(Config& config,
         } else {
             throw runtime_error("Unknown I/O bus type for " + name + ": " + bus_type);
         }
+
+        if (!quiet)
+        {
+            clog << name << ": " << bus_type << endl;
+        }
     }
 
     // Create the FPUs
@@ -710,6 +726,10 @@ MGSystem::MGSystem(Config& config,
 
         config.registerObject(*m_fpus[f], "fpu");
         config.registerProperty(*m_fpus[f], "freq", (uint32_t)m_clock.GetFrequency());
+    }
+    if (!quiet)
+    {
+        clog << numFPUs << " FPUs instantiated." << endl;
     }
 
     // Create processor grid
@@ -736,11 +756,15 @@ MGSystem::MGSystem(Config& config,
 
             if (!quiet)
             {
-                cout << name << ": connected to " << dynamic_cast<Object*>(iobus)->GetName() << endl;
+                clog << name << ": connected to " << dynamic_cast<Object*>(iobus)->GetName() << endl;
             }
         }
 
         m_procs[i]   = new Processor(name, m_root, m_clock, i, m_procs, *m_memory, *m_memory, fpu, iobus, config);
+    }
+    if (!quiet)
+    {
+        clog << numProcessors << " cores instantiated." << endl;
     }
     
     // Create the I/O devices
@@ -771,7 +795,7 @@ MGSystem::MGSystem(Config& config,
 
         if (!quiet)
         {
-            cout << name << ": connected to " << dynamic_cast<Object&>(iobus).GetName() << " (type " << dev_type << ", devid " << dec << devid << ')' << endl;
+            clog << name << ": connected to " << dynamic_cast<Object&>(iobus).GetName() << " (type " << dev_type << ", devid " << dec << devid << ')' << endl;
         }
 
         if (dev_type == "LCD") {
@@ -789,7 +813,7 @@ MGSystem::MGSystem(Config& config,
             m_devices[i] = disp;
             config.registerObject(*disp, "gfx");
         } else if (dev_type == "AROM") {
-            ActiveROM *rom = new ActiveROM(name, m_root, *m_memory, iobus, devid, config);
+            ActiveROM *rom = new ActiveROM(name, m_root, *m_memory, iobus, devid, config, quiet);
             m_devices[i] = rom;
             aroms.push_back(rom);
             config.registerObject(*rom, "arom");
@@ -808,29 +832,14 @@ MGSystem::MGSystem(Config& config,
         config.registerBidiRelation(*m_devices[i], iobus, "client", (uint32_t)devid);
     }
 
-    m_memory->Initialize();
-
-    // Set up the initial memory ranges
-    size_t numRanges = config.getValue<size_t>("NumMemoryRanges");
-    for (size_t i = 0; i < numRanges; ++i)
+    if (!quiet)
     {
-        stringstream ss;
-        ss << "MemoryRange" << i;
-        string name = ss.str();
-
-        MemAddr address = config.getValue<MemAddr>(name, "Address");
-        MemSize size = config.getValue<MemSize>(name, "Size");
-        string mode = config.getValue<string>(name, "Mode");
-        int perm = 0;
-        if (mode.find("R") != string::npos)
-            perm |= IMemory::PERM_READ;
-        if (mode.find("W") != string::npos)
-            perm |= IMemory::PERM_WRITE;
-        if (mode.find("X") != string::npos)
-            perm |= IMemory::PERM_EXECUTE;
-
-        m_memory->Reserve(address, size, perm);
+        clog << endl 
+             << "Initializing components..." << endl;
     }
+
+    // Initialize the memory
+    m_memory->Initialize();
 
     // Connect processors in the link
     for (size_t i = 0; i < numProcessors; ++i)
@@ -867,6 +876,34 @@ MGSystem::MGSystem(Config& config,
         cerr << "Warning: No bootable ROM configured." << endl;
     }
 
+    if (!quiet)
+    {
+        clog << endl 
+             << "Final configuration..." << endl;
+    }
+
+    // Set up the initial memory ranges
+    size_t numRanges = config.getValue<size_t>("NumMemoryRanges");
+    for (size_t i = 0; i < numRanges; ++i)
+    {
+        stringstream ss;
+        ss << "MemoryRange" << i;
+        string name = ss.str();
+
+        MemAddr address = config.getValue<MemAddr>(name, "Address");
+        MemSize size = config.getValue<MemSize>(name, "Size");
+        string mode = config.getValue<string>(name, "Mode");
+        int perm = 0;
+        if (mode.find("R") != string::npos)
+            perm |= IMemory::PERM_READ;
+        if (mode.find("W") != string::npos)
+            perm |= IMemory::PERM_WRITE;
+        if (mode.find("X") != string::npos)
+            perm |= IMemory::PERM_EXECUTE;
+
+        m_memory->Reserve(address, size, perm);
+    }
+
     // Set program debugging per default
     m_kernel.SetDebugMode(Kernel::DEBUG_PROG);
 
@@ -874,7 +911,7 @@ MGSystem::MGSystem(Config& config,
     if (doload && !symtable.empty())
     {
         ifstream in(symtable.c_str(), ios::in);
-        m_symtable.Read(in);
+        m_symtable.Read(in, quiet);
     }
 
     // Find objdump command
@@ -899,7 +936,7 @@ MGSystem::MGSystem(Config& config,
         {
             freq /= 1000;
         }
-        cout << "Created Microgrid; simulation running at " << dec << freq << " " << qual[q] << "Hz" << endl;
+        clog << "Created Microgrid; simulation running at " << dec << freq << " " << qual[q] << "Hz" << endl;
     }
 }
 
