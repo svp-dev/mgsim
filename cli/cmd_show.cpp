@@ -38,6 +38,15 @@ bool cmd_show_components(const vector<string>& command, vector<string>& args, cl
     return false;
 }
 
+bool cmd_show_processes(const vector<string>& command, vector<string>& args, cli_context& ctx)
+{
+    string pat = "*";
+    if (!args.empty())
+        pat = args[0];
+    ctx.sys.PrintProcesses(cout, pat);
+    return false;
+}
+
 
 bool cmd_show_devdb(const vector<string>& command, vector<string>& args, cli_context& ctx)
 {

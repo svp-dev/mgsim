@@ -172,6 +172,14 @@ public:
 #endif
     
     Process(Object& parent, const std::string& name, const delegate& delegate);
+    ~Process();
+
+    // for introspection
+private:
+    static std::set<const Process*> m_registry;
+
+public:
+    static const std::set<const Process*>& GetAllProcesses() { return m_registry; }
 };
 
 /**

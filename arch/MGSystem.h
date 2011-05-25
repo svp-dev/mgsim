@@ -78,6 +78,7 @@ namespace Simulator {
         object_map_t GetComponents(const std::string& pat = "*");
 
         void PrintComponents(std::ostream& os, const std::string& pat = "*", size_t levels = 0) const;
+        void PrintProcesses(std::ostream& os, const std::string& pat = "*") const;
 
         void PrintMemoryStatistics(std::ostream& os) const;
         void PrintState(const std::vector<std::string>& arguments) const;

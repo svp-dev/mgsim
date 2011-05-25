@@ -166,6 +166,19 @@ static string StringReplace(string arg, string pat, string repl)
     return res;
 }
 
+void MGSystem::PrintProcesses(ostream& out, const string& pat) const
+{
+    const std::set<const Process*>& allprocs = Process::GetAllProcesses();
+    for (std::set<const Process*>::const_iterator i = allprocs.begin(); i != allprocs.end(); ++i)
+    {
+        std::string name = (*i)->GetName();
+        if (FNM_NOMATCH != fnmatch(pat.c_str(), name.c_str(), 0))
+        {
+            out << name << endl;
+        }
+    }
+}
+
 // Print all components that are a child of root
 static void PrintComponents(ostream& out, const Object* cur, const string& indent, const string& pat, size_t levels, size_t cur_level, bool cur_printing)
 {

@@ -42,12 +42,19 @@ void Process::Deactivate()
     }
 }
 
+std::set<const Process*> Process::m_registry;
+
 Process::Process(Object& parent, const string& name, const delegate& delegate)
     : m_name(name), m_delegate(delegate), m_state(STATE_IDLE), m_activations(0), m_stalls(0)
 {
+    m_registry.insert(this);
     RegisterSampleVariable(m_stalls, parent.GetFQN() + '.' + name + ".stalls", SVC_CUMULATIVE);
 }
 
+Process::~Process()
+{
+    m_registry.erase(this);
+}
 
 //
 // Object class
