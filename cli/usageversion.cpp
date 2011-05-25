@@ -5,7 +5,7 @@ void PrintVersion(std::ostream& out)
 {
     out <<
         "mgsim (Microgrid Simulator) " PACKAGE_VERSION "\n"
-        "Copyright (C) 2009 Universiteit van Amsterdam.\n"
+        "Copyright (C) 2008,2009,2010,2011 Universiteit van Amsterdam.\n"
         "\n"
         "Written by Mike Lankamp. Contributions by Li Zhang, Raphael 'kena' Poss.\n";
 }
