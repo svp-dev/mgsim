@@ -641,6 +641,10 @@ MGSystem::MGSystem(Config& config,
              << "Instanciating components..." << endl;
     }
 
+    config.registerObject(m_root, "system");
+    config.registerProperty(m_root, "version", PACKAGE_VERSION);
+    config.registerProperty(m_root, "masterfreq", (uint32_t)m_kernel.GetMasterFrequency());
+
     PSize numProcessors = m_config.getValue<PSize>("NumProcessors");
 
     const size_t numProcessorsPerFPU = config.getValue<size_t>("NumProcessorsPerFPU");

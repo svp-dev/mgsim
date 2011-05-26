@@ -198,6 +198,8 @@ protected:
     ObjectRef refObject(const Simulator::Object& obj);
     EntityRef refEntity(const ObjectRef& obj);
     EntityRef refEntity(const Symbol& sym);
+    EntityRef refEntity(const char* &str) { return refEntity(makeSymbol(str)); }
+    EntityRef refEntity(const std::string &str) { return refEntity(makeSymbol(str)); }
     EntityRef refEntity(const uint32_t& val);
     EntityRef refEntity(void);
 
