@@ -157,10 +157,14 @@ public:
         if (!m_storages.Contains(m_currentStorages))
         {
             std::cerr << std::endl
-                      << "Invalid access by " << GetName() << ": " << m_currentStorages << std::endl
-                      << "Allowed traces:" << std::endl
+                      << "Invalid access by " << GetName() << ": " << m_currentStorages << std::endl;
+#ifdef VERBOSE_TRACE_CHECKS
+            std::cerr << "Allowed traces:" << std::endl
                       << m_storages;
+#endif
+#ifdef ABORT_ON_TRACE_FAILURE
             assert(false);
+#endif
         };
     }
     

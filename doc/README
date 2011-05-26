@@ -89,6 +89,11 @@ that are otherwise enabled automatically if possible:
 ``configure --disable-monitor``
    Disable support for asynchronous simulation monitoring.
 
+Assertion checking within the simulation is enabled by default. This
+ensures that consistency checks are performed throughout the
+simulation. It is possible to disable assertion checking with the
+parameter ``--disable-assert``.
+
 Requirements
 ============
 

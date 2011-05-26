@@ -56,6 +56,8 @@ public:
         std::copy(b.m_storages.begin(), b.m_storages.end(), std::back_inserter(m_storages));
     }
 
+    bool empty() const { return m_storages.empty(); }
+
     friend std::ostream& operator<<(std::ostream& os, const StorageTrace& st);
 };
 
@@ -99,7 +101,7 @@ public:
     }
     
     bool Contains(const StorageTrace& s) const {
-        return m_storages.find(s) != m_storages.end();
+        return (m_storages.empty() && s.empty()) || (m_storages.find(s) != m_storages.end());
     }
     
     StorageTraceSet(const Storage& a) {

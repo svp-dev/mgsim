@@ -45,6 +45,24 @@ if test "x$ac_cv_lib_readline" = xno; then
      AC_MSG_WARN([The simulator prompt will not support advanced command editing.])
 fi
 
+AC_ARG_ENABLE([verbose-trace-checks],
+              [AC_HELP_STRING([--disable-verbose-trace-checks],
+                              [disable printing of the allowed storage traces upon failed trace checks])],
+              [], [enable_verbose_trace_checks=yes])
+if test "x$enable_verbose_trace_checks" = xyes; then
+  AC_DEFINE([VERBOSE_TRACE_CHECKS], [1],
+            [Define to 1 if storage trace checks should fail verbosely])
+fi
+
+AC_ARG_ENABLE([abort-on-trace-failure],
+              [AC_HELP_STRING([--disable-abort-on-trace-failure],
+                              [do not abort the simulation upon failed trace checks])],
+              [], [enable_abort_on_trace_failure=yes])
+if test "x$enable_abort_on_trace_failure" = xyes; then
+  AC_DEFINE([ABORT_ON_TRACE_FAILURE], [1],
+            [Define to 1 if failed storage trace checks should abort the simulation])
+fi
+
 AC_ARG_ENABLE([softfpu],
               [AC_HELP_STRING([--enable-softfpu], 
                               [enable software emulation of IEEE 754 (default is disabled)])],
