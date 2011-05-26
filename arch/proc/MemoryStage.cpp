@@ -113,7 +113,19 @@ Processor::Pipeline::PipeAction Processor::Pipeline::MemoryStage::OnCycle()
                     return PIPE_STALL;
 
                 case DELAYED:
-                    rcv = MAKE_EMPTY_PIPEVALUE(rcv.m_size);
+                    rcv = MAKE_PENDING_PIPEVALUE(rcv.m_size);
+                    rcv.m_memory.fid         = m_input.fid;
+                    rcv.m_memory.next        = INVALID_REG;
+                    rcv.m_memory.offset      = 0;
+                    rcv.m_memory.size        = (size_t)m_input.size;
+                    rcv.m_memory.sign_extend = m_input.sign_extend;
+
+                    // Increase the outstanding memory count for the family
+                    if (!m_allocator.OnMemoryRead(m_input.fid))
+                    {
+                        return PIPE_STALL;
+                    }
+
                     DebugMemWrite("I/O read by %s (F%u/T%u): *%#016llx -> delayed %s (%zd)",
                                   GetKernel()->GetSymbolTable()[m_input.pc].c_str(), 
                                   (unsigned)m_input.fid, (unsigned)m_input.tid,

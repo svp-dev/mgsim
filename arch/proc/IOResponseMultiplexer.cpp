@@ -5,9 +5,10 @@
 namespace Simulator
 {
 
-Processor::IOResponseMultiplexer::IOResponseMultiplexer(const std::string& name, Object& parent, Clock& clock, RegisterFile& rf, size_t numDevices, Config& config)
+Processor::IOResponseMultiplexer::IOResponseMultiplexer(const std::string& name, Object& parent, Clock& clock, RegisterFile& rf, Allocator& alloc, size_t numDevices, Config& config)
     : Object(name, parent, clock),
       m_regFile(rf),
+      m_allocator(alloc),
       m_incoming("b_incoming", *this, clock, config.getValue<BufferSize>(*this, "IncomingQueueSize")),
       p_dummy(*this, "dummy-process", delegate::create<IOResponseMultiplexer, &Processor::IOResponseMultiplexer::DoNothing>(*this)),
       p_IncomingReadResponses(*this, "completed-reads", delegate::create<IOResponseMultiplexer, &Processor::IOResponseMultiplexer::DoReceivedReadResponses>(*this))
@@ -68,8 +69,7 @@ Result Processor::IOResponseMultiplexer::DoReceivedReadResponses()
     // pending writeback address.
     if (wbq.Empty())
     {
-        throw exceptf<SimulationException>(*this, "Unexpected read response from device %u", (unsigned)response.device);
-        
+        throw exceptf<SimulationException>(*this, "Unexpected read response from device %u", (unsigned)response.device);        
     }
 
     const RegAddr& addr = wbq.Front();
@@ -104,7 +104,16 @@ Result Processor::IOResponseMultiplexer::DoReceivedReadResponses()
     }
     
     // Now write
+    LFID fid = regvalue.m_memory.fid;
     Integer value = UnserializeRegister(addr.type, response.data.data, response.data.size);
+    if (regvalue.m_memory.sign_extend)
+    {
+        // Sign-extend the value
+        assert(regvalue.m_memory.size < sizeof(Integer));
+        int shift = (sizeof(value) - regvalue.m_memory.size) * 8;
+        value = (int64_t)(value << shift) >> shift;
+    }
+    
     regvalue.m_state = RST_FULL;
 
     switch (addr.type) {
@@ -112,12 +121,18 @@ Result Processor::IOResponseMultiplexer::DoReceivedReadResponses()
         case RT_FLOAT:   regvalue.m_float.integer = value; break;
     }
 
-    if (!m_regFile.WriteRegister(addr, regvalue, false))
+    if (!m_regFile.WriteRegister(addr, regvalue, true))
     {
         DeadlockWrite("Unable to write register %s", addr.str().c_str());
         return FAILED;
     }
     
+    if (!m_allocator.DecreaseFamilyDependency(fid, FAMDEP_OUTSTANDING_READS))
+    {
+        DeadlockWrite("Unable to decrement outstanding reads on F%u", (unsigned)fid);
+        return FAILED;
+    }
+
     DebugIOWrite("Completed I/O read: %#016llx -> %s",
                   (unsigned long long)value, addr.str().c_str());
 

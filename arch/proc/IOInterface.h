@@ -77,7 +77,7 @@ private:
     Processor& GetProcessor() const;
 
 public:
-    IOInterface(const std::string& name, Processor& parent, Clock& clock, IMemory& memory, RegisterFile& rf, IIOBus& iobus, IODeviceID devid, Config& config);
+    IOInterface(const std::string& name, Processor& parent, Clock& clock, IMemory& memory, RegisterFile& rf, Allocator& alloc, IIOBus& iobus, IODeviceID devid, Config& config);
 
     MMIOComponent& GetAsyncIOInterface() { return m_async_io; }
     MMIOComponent& GetPNCInterface() { return m_pnc; }

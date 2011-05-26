@@ -71,7 +71,7 @@ Processor::Processor(const std::string& name, Object& parent, Clock& clock, PID 
         // This processor also supports I/O
         IODeviceID devid = config.getValueOrDefault<IODeviceID>(*this, "DeviceID", iobus->GetNextAvailableDeviceID());
 
-        m_io_if = new IOInterface("io_if", *this, clock, memory, m_registerFile, *iobus, devid, config);
+        m_io_if = new IOInterface("io_if", *this, clock, memory, m_registerFile, m_allocator, *iobus, devid, config);
 
         MMIOComponent& async_if = m_io_if->GetAsyncIOInterface();
         async_if.Connect(m_mmio, IOMatchUnit::READWRITE, config);
