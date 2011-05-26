@@ -172,7 +172,7 @@ namespace Simulator
     
     bool SMC::OnReadRequestReceived(IODeviceID from, MemAddr address, MemSize size)
     {
-        if (address >= m_size || address + size >= m_size)
+        if (address + size > m_size)
         {
             throw exceptf<SimulationException>(*this, "Invalid I/O read to %#016llx/%u", (unsigned long long)address, (unsigned)size);
         }

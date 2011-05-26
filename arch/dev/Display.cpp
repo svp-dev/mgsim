@@ -20,7 +20,7 @@ namespace Simulator
     bool Display::FrameBufferInterface::OnReadRequestReceived(IODeviceID from, MemAddr address, MemSize size)
     {
         Display& disp = GetDisplay();
-        if (address >= disp.m_framebuffer.size() || address + size >= disp.m_framebuffer.size())
+        if (address + size > disp.m_framebuffer.size())
         {
             throw exceptf<SimulationException>(*this, "FB read out of bounds: %#016llx (%u)", (unsigned long long)address, (unsigned)size);
         }
