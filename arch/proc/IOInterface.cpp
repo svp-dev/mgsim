@@ -259,11 +259,14 @@ namespace Simulator
     void Processor::IOInterface::Initialize(IODeviceID smcid)
     {
         // set up the core ASR to indicate the I/O parameters.
-        // ASR_IO_PARAMS has 32 bits:
+        // ASR_IO_PARAMS1 has 32 bits:
         // bits 0-7:   number of I/O devices mapped to the AIO
         // bits 8-15:  number of notification channels mapped to the PNC
         // bits 16-23: device ID of the SMC (enumeration) device on the I/O bus
         // bits 24-31: device ID of this core on the I/O bus
+        // ASR_IO_PARAMS2 has 32 bits:
+        // bits 0-7:   log2 of the AIO address space per device
+        // bits 8-31:  (unused)
         assert(m_numDevices < 256);
         assert(m_numChannels < 256);
         assert(smcid < 256);
@@ -274,7 +277,9 @@ namespace Simulator
             m_numChannels << 8 |
             smcid << 16 |
             devid << 24;
-        GetProcessor().WriteASR(ASR_IO_PARAMS, value);
+        GetProcessor().WriteASR(ASR_IO_PARAMS1, value);
+        value = m_async_io.GetDeviceAddressBits();
+        GetProcessor().WriteASR(ASR_IO_PARAMS2, value);
         GetProcessor().WriteASR(ASR_AIO_BASE, m_async_io.GetDeviceBaseAddress(0));
         GetProcessor().WriteASR(ASR_PNC_BASE, m_pnc.GetDeviceBaseAddress(0));
     }

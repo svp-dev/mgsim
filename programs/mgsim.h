@@ -27,10 +27,11 @@
 #define ASR_SYSCALL_BASE      3
 #define ASR_NUM_PERFCOUNTERS  4
 #define ASR_PERFCOUNTERS_BASE 5
-#define ASR_IO_PARAMS         6
-#define ASR_AIO_BASE          7
-#define ASR_PNC_BASE          8
-#define NUM_ASRS              9
+#define ASR_IO_PARAMS1        6
+#define ASR_IO_PARAMS2        7
+#define ASR_AIO_BASE          8
+#define ASR_PNC_BASE          9
+#define NUM_ASRS              10
 
 /* value for ASR_SYSTEM_VERSION: to be updated whenever the list of ASRs
    changes */

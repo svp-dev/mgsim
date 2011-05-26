@@ -31,6 +31,7 @@ public:
         void Cmd_Info(std::ostream& out, const std::vector<std::string>& args) const;
 
         // for boot sequence
+        unsigned GetDeviceAddressBits() const { return m_devAddrBits; }
         MemAddr GetDeviceBaseAddress(IODeviceID dev) const;
     };
 
