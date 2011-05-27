@@ -1,5 +1,7 @@
 #include "Display.h"
 #include <cstring>
+#include <fstream>
+#include <iomanip>
 
 #ifdef USE_SDL
 #include <SDL.h>
@@ -91,7 +93,7 @@ namespace Simulator
         {
             throw exceptf<SimulationException>(*this, "Invalid unaligned GfxCtl write: %#016llx (%u)", (unsigned long long)address, (unsigned)iodata.size); 
         }
-        if ((word > 3 && word < 0x100) || word > 0x1ff)
+        if ((word > 5 && word < 0x100) || word > 0x1ff)
         {
             throw exceptf<SimulationException>(*this, "Invalid write to GfxCtl word: %u", word);
         }
@@ -99,36 +101,64 @@ namespace Simulator
         uint32_t value = UnserializeRegister(RT_INTEGER, iodata.data, iodata.size);
         Display& disp = GetDisplay();
 
+        DebugIOWrite("Ctl write to word %u: %#016lx", word, (unsigned long)value);
+
         if (word == 0)
         {
             uint32_t req_w = m_control[0], req_h = m_control[1], req_bpp = m_control[2] & 0xffff;
+            size_t act_w, act_h;
             bool req_indexed = m_control[2] >> 16;
             
             if (req_bpp != 32 && req_bpp != 24 && req_bpp != 16 && req_bpp != 8)
             { DebugIOWrite("unsupported bits per pixel: %u", (unsigned)req_bpp); return true; }
             if (req_indexed && req_bpp > 8)
             { DebugIOWrite("unsupported use of indexed mode with bpp > 8: %u", (unsigned)req_bpp); return true; }
-            if (!(req_w == 640 && req_h == 400) &&
-                !(req_w == 640 && req_h == 480) &&
-                !(req_w == 800 && req_h == 600) &&
-                !(req_w == 1024 && req_h == 768) &&
-                !(req_w == 1280 && req_h == 1024))
+
+            if      (req_w <= 10   && req_h <= 10  ) { act_w = 10  ; act_h = 10  ; }
+            else if (req_w <= 100  && req_h <= 100 ) { act_w = 100 ; act_h = 100 ; }
+            else if (req_w <= 160  && req_h <= 100 ) { act_w = 160 ; act_h = 100 ; }
+            else if (req_w <= 160  && req_h <= 120 ) { act_w = 160 ; act_h = 120 ; }
+            else if (req_w <= 320  && req_h <= 200 ) { act_w = 320 ; act_h = 200 ; }
+            else if (req_w <= 320  && req_h <= 240 ) { act_w = 320 ; act_h = 240 ; }
+            else if (req_w <= 640  && req_h <= 400 ) { act_w = 640 ; act_h = 400 ; }
+            else if (req_w <= 640  && req_h <= 480 ) { act_w = 640 ; act_h = 480 ; }
+            else if (req_w <= 800  && req_h <= 600 ) { act_w = 800 ; act_h = 600 ; }
+            else if (req_w <= 1024 && req_h <= 768 ) { act_w = 1024; act_h = 768 ; }
+            else if (req_w <= 1280 && req_h <= 1024) { act_w = 1280; act_h = 1024; }
+            else
             { DebugIOWrite("unsupported resolution: %ux%u", (unsigned)req_w, (unsigned)req_h); return true; }
-            if (req_w * req_h * req_bpp / 8 > disp.m_framebuffer.size())
-            { DebugIOWrite("resolution too large for framebuffer: %ux%ux%u", (unsigned)req_w, (unsigned)req_h, (unsigned)req_bpp); return true; }
+
+            if (act_w != req_w || act_h != req_h)
+            { DebugIOWrite("unsupported resolution: %ux%u, adjusted to %ux%u", (unsigned)req_w, (unsigned)req_h, (unsigned)act_w, (unsigned)act_h); }
+
+            if (act_w * act_h * req_bpp / 8 > disp.m_framebuffer.size())
+            { DebugIOWrite("resolution too large for framebuffer: %ux%ux%u", (unsigned)act_w, (unsigned)act_h, (unsigned)req_bpp); return true; }
             
             COMMIT {
                 disp.m_indexed = req_indexed;
                 disp.m_bpp = req_bpp;
-                disp.Resize(req_w, req_h);
+                disp.Resize(act_w, act_h);
             }
-
+            DebugIOWrite("Setting resolution to %ux%ux%u", (unsigned)act_w, (unsigned)act_h, (unsigned)req_bpp);
         }
         else if (word <= 3)
         {
             COMMIT {
                 m_control[word - 1] = value;
             }
+        }
+        else if (word == 5)
+        {
+            COMMIT {
+                m_key = value;
+            }
+        }
+        else if (word == 4)
+        {
+            COMMIT {
+                disp.DumpFrameBuffer(m_key, value & 0xff, (value >> 8) & 1);
+            }
+            DebugIOWrite("Dumping framebuffer");
         }
         else // word > 0x100
         {
@@ -146,10 +176,12 @@ namespace Simulator
         // word 1: pixel width
         // word 2: pixel height
         // word 3: low 16 = current bpp; high 16 = indexed (zero: not indexed; 1: indexed)
-        // word 4: max supported width
-        // word 5: max supported height
-        // word 6: refresh delay
-        // word 7: devid of the companion fb device
+        // word 4: (unused)
+        // word 5: next dump key
+        // word 6: max supported width
+        // word 7: max supported height
+        // word 8: refresh delay
+        // word 9: devid of the companion fb device
         // words 0x100-0x1ff: color palette (index mode only)
 
         unsigned word = address / 4;
@@ -159,14 +191,14 @@ namespace Simulator
         {
             throw exceptf<SimulationException>(*this, "Invalid unaligned GfxCtl read: %#016llx (%u)", (unsigned long long)address, (unsigned)size); 
         }
-        if ((word > 7 && word < 0x100) || word > 0x1ff)
+        if ((word > 9 && word < 0x100) || word > 0x1ff)
         {
             throw exceptf<SimulationException>(*this, "Read from invalid GfxCtl word: %u", word);
         }
         
         Display& disp = GetDisplay();
 
-        if (word <= 7)
+        if (word <= 9)
         {
             switch(word)
             {
@@ -174,10 +206,12 @@ namespace Simulator
             case 1: value = disp.m_width; break;
             case 2: value = disp.m_height; break;
             case 3: value = disp.m_bpp | ((int)disp.m_indexed << 16); break;
-            case 4: value = disp.m_max_screen_w; break;
-            case 5: value = disp.m_max_screen_h; break;
-            case 6: value = disp.m_refreshDelay; break;
-            case 7: value = disp.m_fbinterface.m_devid; break;
+            case 4: value = 0; break;
+            case 5: value = m_key; break;
+            case 6: value = disp.m_max_screen_w; break;
+            case 7: value = disp.m_max_screen_h; break;
+            case 8: value = disp.m_refreshDelay; break;
+            case 9: value = disp.m_fbinterface.m_devid; break;
             }
         }
         else
@@ -190,6 +224,8 @@ namespace Simulator
         IOData iodata;
         SerializeRegister(RT_INTEGER, value, iodata.data, 4);
         iodata.size = 4;
+
+        DebugIOWrite("Ctl read from word %u: %#016lx", word, (unsigned long)value);
         
         if (!m_iobus.SendReadResponse(m_devid, from, address, iodata))
         {
@@ -300,6 +336,53 @@ namespace Simulator
 #endif
     }
 
+    void Display::DumpFrameBuffer(unsigned key, int stream, bool gen_ts) const
+    {
+        if (m_bpp != 32)
+        {
+            throw exceptf<SimulationException>(*this, "Unable to dump the framebuffer when bpp != 32 (currently %u)", m_bpp);
+        }
+
+        std::ostream * os;
+        bool free_os = false;
+        if (stream == 0)
+        {
+            std::ostringstream fname;
+            fname << "gfx." << key;
+            if (gen_ts)
+            {
+                fname << '.' << GetKernel()->GetCycleNo();
+            }
+            fname << ".ppm";
+            os = new std::ofstream(fname.str().c_str(), std::ios_base::out | std::ios_base::trunc);
+            free_os = true;
+        }
+        else
+        {
+            os = &((stream == 2) ? std::cerr : std::cout);
+        }
+
+        *os << "P3" << std::endl
+            << std::dec
+            << "#key: " << key << std::endl
+            << "#" << std::endl
+            << m_width << ' ' << m_height << ' ' << 255 << std::endl;
+        for (unsigned y = 0; y < m_height; ++y)
+        {
+            for (unsigned x = 0; x < m_width; ++x)
+            {
+                uint32_t d = ((uint32_t*)(void*)&m_framebuffer[0])[y * m_width + x];
+                *os << ((d >> 16) & 0xff) << ' '
+                    << ((d >>  8) & 0xff) << ' '
+                    << ((d >>  0) & 0xff) << ' ';
+            }
+            *os << std::endl;
+        }
+
+
+        if (free_os)
+            delete os;
+    }
 
     void Display::Refresh() const
     {

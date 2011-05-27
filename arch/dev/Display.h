@@ -57,6 +57,7 @@ namespace Simulator
             IODeviceID      m_devid;
             IIOBus&         m_iobus;
             std::vector<uint32_t> m_control;
+            unsigned        m_key;
 
             Display&        GetDisplay() { return *dynamic_cast<Display*>(GetParent()); }
 
@@ -99,6 +100,7 @@ namespace Simulator
         void Refresh() const;
         void ResetCaption() const;
         void ResizeScreen(unsigned int w, unsigned int h);
+        void DumpFrameBuffer(unsigned key, int stream, bool gen_timestamp) const;
     };
 
 
