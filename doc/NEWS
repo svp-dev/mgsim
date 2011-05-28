@@ -1,0 +1,89 @@
+===========================================
+ Release notes for the Microgrid simulator
+===========================================
+
+This document describes major updates to the Microgrid simulator.
+
+Major "technology levels" that reflect generations of the Microgrid
+architecture (as simulated by this simulator) are documented
+separately in CSA note [svp40].
+
+Version 3.1 (Development)
+=========================
+
+New features
+------------
+
+- Allow to connect cores to I/O devices. See CSA note [mgsim14] for
+  details of the architecture; see the subdirectory ``doc`` of the
+  simulator sources for details about simulated devices.
+
+- Allow to specify a strategy for creating families, including
+  automatic load balancing. See CSA note [mgsim12] for details.
+
+Changes since version 3.1
+-------------------------
+
+- A new configuration format was implemented to allow configuring
+  individual components. See CSA notes [mgsim16] and [mgsim17] for
+  details.
+
+- Various simulated hardware buffers were (unrealistically)
+  unbounded. Bounds have been set for nearly all buffers. For now the
+  family allocation queues are still unbounded, waiting for proper
+  priority handling of suspending vs. non-suspending requests on the
+  delegation network.
+
+Version 3.0, March 2011
+=======================
+
+New features
+------------
+
+- Implements the "break" instruction to stop creating new threads in a
+  family.
+
+- Allow to monitor the simulation asynchronously during execution. See
+  CSA note [mgsim9] for details.
+
+Changes since version 2.0
+-------------------------
+
+- The architecture is modified to use a linear chain to link cores
+  instead of multiple cluster rings.
+
+- Jointly, the addressing scheme for delegations is modified: a place
+  identifier now both identifies the target core and the size of the
+  cluster for the created family. See CSA note [mgsim11] for details.
+
+Version 2.0, April 2010
+=======================
+
+New features
+------------
+
+- Allow programs to introspect performance counters. See CSA note [sl8].
+
+- Integrate the COMA memory simulation from Li Zhang.
+
+Changes since version 1.0
+-------------------------
+
+- The simulation is now event-driven: cycles which do not have
+  activity are skipped.
+
+- The ISA is changed to avoid sharing registers between parent thread
+  and child family.
+
+Version 1.0, June 2009
+======================
+
+- Simulate multiple cores and configurable memory systems. Features:
+
+  - dynamic family configuration in the ISA.
+
+  - choice between MT-Alpha and MT-SPARC ISAs.
+
+  - thread-local storage using address space partitioning.
+
+  - shared FPU pipelnes between multiple cores.

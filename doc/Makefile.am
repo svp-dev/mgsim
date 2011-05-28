@@ -2,6 +2,7 @@ dist_doc_DATA = \
 	README \
 	INSTALL \
 	AUTHORS \
+        NEWS \
 	dev-rtc.txt \
 	dev-lcd.txt \
 	dev-gfx.txt \
