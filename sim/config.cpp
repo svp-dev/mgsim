@@ -119,9 +119,6 @@ bool InputConfigRegistry::lookup(const string& name_, string& result, const stri
 vector<pair<string, string> > InputConfigRegistry::getRawConfiguration() const
 {
     vector<pair<string, string> > ret;
-    ret.push_back(make_pair("MGSimVersion", PACKAGE_VERSION));
-    for (size_t i = 0; i < m_overrides.size(); ++i)
-        ret.push_back(m_overrides[i]);
     for (ConfigCache::const_iterator p = m_cache.begin(); p != m_cache.end(); ++p)
         ret.push_back(make_pair(p->first, p->second.first));
     return ret;

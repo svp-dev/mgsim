@@ -20,98 +20,6 @@ class DictWrapper(dict):
     def __getattr__(self, n):
         return self[n]
 
-class MGConf(DictWrapper):
-    pass
-
-_mgc_arch_v1 = {
-    'archtype' : { 1: "simulated microgrid" },
-
-    'isatype' : { 1: "DEC Alpha with MT extensions",
-                  2: "SPARCV8 with MT extensions" },
-
-    'memorytype' : { 1: "serial",
-                     2: "parallel",
-                     3: "banked",
-                     4: "random banked",
-                     5: "COMA network, ZL protocol",
-                     6: "COMA network, ML protocol" }
-}
-
-def mgc_parse_arch_v1(c, words):
-    c.archtype = _mgc_arch_v1['archtype'].get(words[0], 'UNKNOWN')
-    c.isatype = _mgc_arch_v1['isatype'].get(words[1], 'UNKNOWN')
-    c.memorytype = _mgc_arch_v1['memorytype'].get(words[3], 'UNKNOWN')
-    c.nr_fpus = words[2]
-
-def mgc_parse_timings_v1(c, words):
-    c.corefreq = words[0]
-    c.extmembandwidth = int((words[1] / 3.) * 2 * 1000000)
-
-def mgc_parse_timings_v2(c, words):
-    c.masterfreq = words[0]
-    c.corefreq = words[1]
-    c.memfreq = words[2]
-    c.ddrfreq = words[3]
-    c.extmembandwidth = words[3] * 16 * 1000000
-
-def mgc_parse_timings_v3(c, words):
-    c.masterfreq = words[0]
-    c.corefreq = words[1]
-    c.memfreq = words[2]
-    c.ddrfreq = words[3]
-    c.ddrchans = words[4]
-    c.extmembandwidth = words[3] * words[4] * 16 * 1000000
-    c.intmembandwidth = words[2] * 64 * 1000000
-
-def mgc_parse_cache_v1(c, words):
-    c.cachelinesize = words[0]
-    c.l1_icachesize = words[1]
-    c.l1_dcachesize = words[2]
-    c.nr_l2_caches = words[3]
-    c.l2_cachesize = words[4]
-
-def mgc_parse_conc_v1(c, words):
-    c.ftes_per_core = words[0]
-    c.ttes_per_core = words[1]
-    c.iregs_per_core = words[2]
-    c.fregs_per_core = words[3]
-
-def mgc_parse_layout_v1(c, words):
-    # print "XXX", words
-    c.nr_cores = words[0]
-    c.places = {}
-    c.pid_to_ringid = {}
-    for w in words[1:]:
-        pid = w & 0xffff
-        rid = w >> 16
-        ring = c.places.get(rid, [])
-        ring.append(pid)
-        c.places[rid] = ring
-        c.pid_to_ringid[pid] = rid
-
-def mgc_parse_layout_v2(c, words):
-    c.nr_cores = words[0]
-    c.cores = []
-    for w in words[1:]:
-        class core(object): __slots__ = ('x','y','type')
-        tc = core()
-        tc.y = (w >> 24) & 0xff
-        tc.x = (w >> 16) & 0xff
-        tc.type = w & 0xffff
-        c.cores.append(tc)
-
-_mgconf_parsers = {
-    0 : None,
-    1 : mgc_parse_arch_v1,
-    2 : mgc_parse_timings_v1,
-    3 : mgc_parse_cache_v1,
-    4 : mgc_parse_conc_v1,
-    5 : mgc_parse_layout_v1,
-    6 : mgc_parse_timings_v2,
-    7 : mgc_parse_timings_v3,
-    8 : mgc_parse_layout_v2
-}
-
 class Metadata(DictWrapper):
     pass
 
@@ -132,32 +40,36 @@ def parse_program(o, f, _):
 def parse_inputs(o, f, ins):
     o.inputs = [f.readline().strip() for i in xrange(int(ins))]
 
-def parse_confwords(o, f, nc):
-    cwl = [int(x) for x in f.readline().strip().split(' ')]
-    mgconf = MGConf()
-    # print "XXX", cwl
-
-    i = 0
-    while cwl[i] != 0:
-        tag = cwl[i] >> 16
-        sz = cwl[i] & 0xffff
-        
-        data = cwl[i+1:i+1+sz]
-        parser = _mgconf_parsers[tag]
-        if parser is None:
-            break
-        # print "XXX", tag, sz, data
-        parser(mgconf, data)
-        i += sz + 1
-
-    o.mgconf = mgconf
-
-_re_vi = re.compile(r'^(?P<sz>\d+)\s+(?P<cat>\w+)\s+(?P<type>\w+)\s+\w+\s+\w+\s+(?P<name>\w+)')
 _re_nnum = re.compile(r'^(?P<name>[a-z]+)(?P<pos>\d+)$', re.I)
 
 class Vars(DictWrapper):
 
-    def set(self, longname, val, val2):
+    def __init__(self, tree = False):
+        if not tree:
+            self['_longvars'] = {}
+
+    def __getitem__(self, n):
+        if '.' in n and '_longvars' in self:
+            lv = dict.__getitem__(self, '_longvars')
+            if n in lv:
+                return lv[n]
+            else:
+                for k in lv:
+                    if fnmatch.fnmatch(k.lower(), n.lower()):
+                        return lv[k]
+            raise KeyError, n
+        else:
+            return dict.__getitem__(self, n)
+            
+
+    def names(self):
+        return self['_longvars'].keys()
+
+    def set(self, longname, val, val2 = None):
+        self['_longvars'][longname] = val
+        if val2 is not None:
+            self['_longvars'][longname+'_max'] = val2
+
         parts = longname.split('.')
         path = parts[:-1]
         var = parts[-1]
@@ -169,17 +81,80 @@ class Vars(DictWrapper):
                 pos = int(m.group('pos'))
                 d = subtree.get(name, [])
                 if len(d) <= pos:
-                    d.extend((Vars() for i in xrange(pos - len(d) + 1)))
+                    d.extend((Vars(tree = True) for i in xrange(pos - len(d) + 1)))
                 subtree[name] = d
                 subtree = d[pos]
             else:
                 d = subtree.get(part, None)
                 if d is None:
-                    d = Vars()
+                    d = Vars(tree = True)
                 subtree[part] = d
                 subtree = d
+
         subtree[var] = val
-        subtree[var+'_max'] = val2
+        if val2 is not None:
+            subtree[var+'_max'] = val2
+
+units = {
+    'KB'  : 1000,
+    'KiB' : 1024,
+    'MB'  : 1000*1000,
+    'MiB' : 1024*1024,
+    'GB'  : 1000*1000*1000,
+    'GiB' : 1024*1024*1024,
+    'PB'  : 1000*1000*1000*1000,
+    'PiB' : 1024*1024*1024*1024,
+}
+_re_units = re.compile(r'^(\d+)(' + '|'.join(units.keys()) + ')$', re.I)
+
+def parse_configuration(o, f, nc):
+    nc = int(nc)
+    v = Vars()
+
+    for i in xrange(nc):
+        cfgkey, val = f.readline().split('=', 1)
+        cfgkey = cfgkey.strip().replace(':', '.').lower()
+        val = val.strip().split(',')
+        if len(val) == 1:
+            val = val[0]
+
+            # boolean values: true/false
+            lval = val.lower()
+            if lval in ["true", "false"]:
+                bval = (lval == "true")
+                v.set(cfgkey, bval)
+                continue
+
+            # integers with unit: KB, KiB, etc
+            m = _re_units.match(val)
+            if m is not None:
+                ival = int(m.group(1))
+                ival *= units[m.group(2)]
+                v.set(cfgkey, ival)
+                continue
+
+            # integers
+            try:
+                ival = int(val, 0)
+                v.set(cfgkey, ival)
+                continue
+            except ValueError, e:
+                pass
+            
+            # floats
+            try:
+                fval = float(val)
+                v.set(cfgkey, fval)
+                continue
+            except ValueError, e:
+                pass
+
+        v.set(cfgkey, val)
+
+    o.mgconf = v
+        
+
+_re_vi = re.compile(r'^(?P<sz>\d+)\s+(?P<cat>\w+)\s+(?P<type>\w+)\s+\w+\s+\w+\s+(?P<name>\w+)')
 
 def parse_varinfo(o, f, nvi):
 
@@ -358,7 +333,7 @@ The following entities are predefined:
   mgconf
      A namespace populated with the Microgrid configuration
      parameters. The list of all configuration names can
-     be obtained using "print dir(mgconf)".
+     be obtained using "print mgconf.names()".
 
   select(PATTERN)
      Return a list with the indices of all counters whose names match
@@ -425,7 +400,6 @@ if __name__ == "__main__":
 
     def select(pat):
         pat = pat.lower()
-        vl = md.varinfo
         rl = []
         for i, n in enumerate(md.varnames):
             if fnmatch.fnmatch(n, pat):

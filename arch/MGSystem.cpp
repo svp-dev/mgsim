@@ -834,6 +834,14 @@ MGSystem::MGSystem(Config& config,
         config.registerBidiRelation(*m_devices[i], iobus, "client", (uint32_t)devid);
     }
 
+
+
+    // We need to register the master frequency into the
+    // configuration, because both in-program and external monitoring
+    // want to know it.
+    unsigned long long masterfreq = m_kernel.GetMasterFrequency();
+    config.getValueOrDefault("MasterFreq", masterfreq); // The lookup will set the config key as side effect
+
     if (!quiet)
     {
         clog << endl 
@@ -932,13 +940,12 @@ MGSystem::MGSystem(Config& config,
     if (!quiet)
     {
         static char const qual[] = {'M', 'G', 'T', 'P', 'E', 'Z', 'Y'};
-        unsigned long long freq = m_kernel.GetMasterFrequency();
         unsigned int q;
-        for (q = 0; freq % 1000 == 0 && q < sizeof(qual)/sizeof(qual[0]); ++q)
+        for (q = 0; masterfreq % 1000 == 0 && q < sizeof(qual)/sizeof(qual[0]); ++q)
         {
-            freq /= 1000;
+            masterfreq /= 1000;
         }
-        clog << "Created Microgrid; simulation running at " << dec << freq << " " << qual[q] << "Hz" << endl;
+        clog << "Created Microgrid; simulation running at " << dec << masterfreq << " " << qual[q] << "Hz" << endl;
     }
 }
 
