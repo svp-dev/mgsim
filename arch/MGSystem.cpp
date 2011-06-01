@@ -641,10 +641,6 @@ MGSystem::MGSystem(Config& config,
              << "Instanciating components..." << endl;
     }
 
-    config.registerObject(m_root, "system");
-    config.registerProperty(m_root, "version", PACKAGE_VERSION);
-    config.registerProperty(m_root, "masterfreq", (uint32_t)m_kernel.GetMasterFrequency());
-
     PSize numProcessors = m_config.getValue<PSize>("NumProcessors");
 
     const size_t numProcessorsPerFPU = config.getValue<size_t>("NumProcessorsPerFPU");
@@ -839,8 +835,12 @@ MGSystem::MGSystem(Config& config,
     // We need to register the master frequency into the
     // configuration, because both in-program and external monitoring
     // want to know it.
-    unsigned long long masterfreq = m_kernel.GetMasterFrequency();
+    unsigned long masterfreq = m_kernel.GetMasterFrequency();
     config.getValueOrDefault("MasterFreq", masterfreq); // The lookup will set the config key as side effect
+
+    config.registerObject(m_root, "system");
+    config.registerProperty(m_root, "version", PACKAGE_VERSION);
+    config.registerProperty(m_root, "masterfreq", (uint32_t)masterfreq);
 
     if (!quiet)
     {
