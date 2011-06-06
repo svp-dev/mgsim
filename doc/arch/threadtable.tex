@@ -1,0 +1,69 @@
+\chapter{Thread Table}
+
+The thread table is a conceptual table on every core, where every rows contains the information for a thread that has been created on that core. In practice, its different fields are used by different components and therefore the thread table will most likely be split up into distinct parts and located near the core components that use them. This document describes the thread table in its conceptual form. Its contents is listed in table~\ref{table:thread_contents}. The rest of this chapter describes, in detail, the rationale and uses of the fields.
+
+\begin{table}
+\begin{center}
+\begin{tabularx}{\textwidth}{|l|X|c|}
+\hline
+Name & Purpose & Bits\\
+\hline
+\hline
+pc & Current program counter & 62\\
+int\_locals     & Offset in the integer register file of the locals     & $\lceil \log_2$\#Registers$\rceil$\\
+int\_dependents & Offset in the integer register file of the dependents & $\lceil \log_2$\#Registers$\rceil$\\
+int\_shareds    & Offset in the integer register file of the shareds    & $\lceil \log_2$\#Registers$\rceil$\\
+flt\_locals     & Offset in the FP register file of the locals     & $\lceil \log_2$\#Registers$\rceil$\\
+flt\_dependents & Offset in the FP register file of the dependents & $\lceil \log_2$\#Registers$\rceil$\\
+flt\_shareds    & Offset in the FP register file of the shareds    & $\lceil \log_2$\#Registers$\rceil$\\
+killed & Has the thread terminated execution? & 1\\
+prev\_cleaned\_up & Has the thread's predecessor been cleaned up?& 1\\
+write\_barrier & Has the thread suspended on pending\_writes? & 1\\
+pending\_writes & Number of unacknowledged writes & N \\
+cid & Cache-line containing the thread's instructions & $\lceil \log_2$\#I-Cache lines$\rceil$\\
+family & Family index of thread's family & $\lceil \log_2$\#Families$\rceil$\\
+next\_sequence & Thread index of the thread's successor & $\lceil \log_2$\#Threads$\rceil$\\
+next & Next thread in the linked list & $\lceil \log_2$\#Threads$\rceil$\\
+\hline
+\end{tabularx}
+\caption{Contents of a thread table entry}
+\label{table:thread_contents}
+\end{center}
+\end{table}
+
+\section{Registers}
+This section covers \emph{int\_locals}, \emph{int\_dependents}, \emph{int\_shareds}, \emph{flt\_locals}, \emph{flt\_dependents} and \emph{flt\_shareds}.
+
+The address of the local, dependent and shared registers of each thread is different for each of them. Since the location of a thread within the block of allocated register does not have to be the same (modulo the block size) due to out-of-order cleanup and thread entry reuse for independent families, there is no relation that can describe the mapping of a thread's index to the location of its locals. Therefore, the address of the locals must be explicitely stored in the thread table. Similarly, any relation describing the location of the shareds and/or dependents from the thread index would be significantly complicated. It is easier to take advantage of the sequential allocation mechanism of threads and set the address of the dependents to the address of the shareds of the last allocated thread. Although the shareds of new threads (those allocated to a not-yet-used thread entry) always lie above the locals, when threads are reused, the location of these shareds no longer maintains this relationship, meaning the address of a thread's shareds also has to be stored explicitely.
+
+\section{\label{sec:thread-dependencies}Dependencies}
+This section covers \emph{killed}, \emph{prev\_cleaned}, \emph{next\_sequence} and \emph{pending\_writes}.
+
+When a thread terminates, it may not yet be able to be cleaned up or reused. The events that prevent this from happening are called the thread's dependencies.
+
+First, all of a thread's writes must be acknowledged by the data cache. If this dependency did not exist, the thread could have been cleaned up or reused when its pending writes are acknowledged by the memory system. The data cache, will adjust the pending\_writes count under the assumption that the thread might have executed a memory write barrier instruction and may want to know when its writes have completed. However, if the thread has been reused, the data cache can now potentially wrongly acknowledge writes made by the new thread. This, in turn, can make that thread assume that its writes have been acknowledged while they have not, leading to a violation of the memory consistency model. Thus, a thread cannot be cleaned up or reused until all of its pending writes have completed, i.e., until the pending\_writes counter is zero.
+
+Note that there is no technical upper bound on the number of pending writes a thread can have. In the event that issuing a memory write would overflow the counter, the memory write will have to stall. Thus, the number of bits for the pending\_writes field has to be chosen to minimize the number of stalls, which is dependent on the implementation, notably the rate of memory writes as issued by the thread and the latency of memory write completions.
+
+The second dependency of a thread is that of \emph{sequential cleanup}; in a family with a dependency (i.e., at least one shared), a thread cannot be cleaned up until its predecessor in the index sequence has been cleaned up. This dependency arises from the implementation of communication of shareds between threads. The dependents of thread $i+1$ are mapped onto the shareds of thread $i$. Given that a thread may not read all shareds that its predecessors writes, thread $i+1$ should not be cleaned up and reused before thread $i$ has terminated, guaranteeing that it will write no more shareds. The prev\_cleaned flag indicates whether the previous thread in the index sequence has been cleaned up. To enable a thread to notify the next thread in index sequence that it has been cleaned up, every thread has a next\_sequence field. If this field is invalid at the point where the thread is cleaned up (i.e., the next thread has not yet been allocated), the family's \emph{prev\_cleaned} field is set instead.
+
+The third dependency, ``killed'', simply means that the thread has terminated. This flag is necessary because a thread can terminate before the other two dependencies have been met, so its status is encoded in this flag as another `dependency'.
+
+Combined, a thread can be cleaned up (pushed onto the cleanup queue) when the logical AND of ``killed'', ``prev\_cleaned'' and ``pending\_writes = 0'' is true.
+
+\section{Scheduler}
+This section covers \emph{pc} and \emph{cid}.
+
+Since every thread can follow independent execution paths, each needs its own program counter (PC). When a thread on the active list is switched to by the pipeline, its program counter is read from the thread table. This program counter is used to read the instruction data from the instruction cache. Since threads on the active list are guaranteed to have their cache-line present in the cache-line, the associative lookup can be avoided by storing the cache-line index (CID) in the thread table as well. The pipeline uses this field to read the cache-line from the i-cache and execute the thread. The pipeline will increment the PC locally at the beginning of the pipeline while executing the thread. When the pipeline has switched to another thread, the next program counter of the thread is written back to the thread table at the end of the pipeline.
+
+\section{Management}
+This section covers \emph{family} and \emph{next}.
+
+The family field identifies the family entry (on the same core) of the family that the thread belongs to. This is used when cleaning up, reusing or scheduling a thread, since family information is required at those points.
+
+The next field allows linked lists of thread entries to be formed. Linked lists of threads are used when threads that were waiting on a single register are woken up and when threads that were waiting on a single i-cache line are woken up (see sec~\ref{sec:}).
+
+\section{Memory Write Barrier}
+This section covers \emph{write\_barrier}.
+
+This single-bit field identifies whether the thread is waiting for the ``pending\_writes = 0'' condition. This is separate from the dependency listed in the section above. When pending\_writes reaches zero and write\_barrier is set, the thread should be rescheduled. Checking the pending\_writes field and setting the memory\_barrier field is typically an atomic operation for a ``memory write barrier'' instruction. The D-Cache atomically decrements the pending\_writes field and checks the memory\_barrier field when a memory write completes. When the former hits zero and the latter is set, the thread is woken up.

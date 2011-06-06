@@ -1,0 +1,60 @@
+\chapter{\label{chapter:isa}Instruction Set}
+
+\section{Instruction list}
+
+The following instructions are the recommended instructions that can be added to a base RISC-like instruction set. They comprise the main functionality of the microgrid extensions to a RISC core.
+
+\subsection{Allocate}
+The {\tt allocate} instruction allocates a single family context the cores on a place. A family context consists of a single family table entry, one thread table entry and enough registers to accomodate one thread's worth of registers assuming worst-case register usage. This way, after the {\tt allocate} instruction has completed succesfully, the program can be sure that any family it places there will not suffer resource deadlock.
+
+The instruction has one input operand containing the identifier (see section~\ref{sec:place-identifier}) of the place where the context should be allocated, one input operand that contains flags and one output operand that will receive the family identifier (see section~\ref{sec:family-allocation}) of the allocated context, or 0 if the allocation fails.
+
+There are two variants of this instruction which the compiler can choose from based on static information at the point of compilation. The three variants are:
+\begin{itemize}
+\item Suspend (/S). This variant will not return failure. If not enough resources are available to satisfy the desired allocate, the allocate will suspend until it can satisfy the desired allocate. Note that if the \emph{exact} flag (see above) is not given, this will only suspend if no context can be allocated on the first core.
+\item Exclusive (/X). This variant will try to allocate the special \emph{exclusive} context on the first core in the specified place. A program can use this allocate to execute a family mutually exclusive with other threads that might run the same code exclusively on this place. Note that this variant implies the suspend behavior described above.
+\end{itemize}
+
+As mentioned above, the {\tt allocate} instruction also takes flags as input. These flags modify the behavior of allocate based on runtime constraints. Currently, the following flags are defined:
+\begin{itemize}
+\item Exact. By setting this flag, the instruction will try to allocate a context on \emph{exactly} as many cores as specified in the place identifier. If this variant is not used, it will allocate \emph{up to} the specified number of cores. Since a family can run on any number of cores, not using this variant provides the program with automatic flexibility in the case of high load. However, sometimes there are algorithmic constraint or optimizations such as cache-usage that require exactly as many cores used as specified. Note that if the \emph{suspend} variant of allocate is not used, the allocate will fail if no context on every core could be allocated.
+\item Single. By setting this flag, the allocate process will only allocate a context to run the entire family on the first core in the specified place. However, the family's place identifier is still set to the specified place. This allows child families of the created family to use a default place identifier (which inherits the parent's place identifier), and thus distribute across the entire place.
+\item Load balance. By setting this flag, the allocate process will find the \emph{least busy} core in the specified place and create the family on that single core. This flag is conceptually equivalent to a ``single'' allocate on the least busy core in the place. The least busy core is found by choosing the core with the least number of used family table entries. Note that this flag, when used with the ``exclusive'' variant mentioned above, has the same effect as the ``single'' flag; i.e., it does not perform load balancing.
+\end{itemize}
+
+The {\tt allocate} instruction is a long-latency instruction that clears its output register upon issuing. A reference to the register is passed along with the message to the allocate process. Once the allocate process has completed (succesfully or not), the family identifier, or 0, is written back into the register.
+
+\subsection{Set Start/Limit/Step}
+The {\tt setstart}, {\tt setlimit} and {\tt setstep} instructions setup the family index sequence (see section~\ref{sec:index-sequence}) of a successfully allocated family. Each of the three instructions has the same format, where they have two operands: one input operand containing the family identifier of the family whose index sequence to set up, and one input operand containing the value to write to the start, limit, or step field, respectively. These instructions can only be issued between the ``allocate'' and ``create'' instructions mentioned above and below, respectively. They are, however, idempotent, and can be issued multiple times to overwrite the previously set values.
+
+To allow for efficient creation of functional concurrency, the defaults of the start, limit and step and 0, 1 and 1, respectively, creating a family of one thread. Thus, a function can be started  concurrently with an {\tt allocate}, {\tt create} and one instruction per argument in between.
+
+\subsection{\label{sec:setblock}SetBlock}
+The {\tt setblock} instruction sets the block size of a successfully allocated family. The block size is explained in section~\ref{sec:block-size}. This instruction has one input operand containing the family identifier of the family whose block size to set, and one input operand containing the new value of the block size. If this instruction is not executed, the family retains its default block size, 0, which is replaced with the thread table size upon family creation. This instruction can only be issued between the ``allocate'' and ``create'' instructions mentioned above and below, respectively. It is, however, idempotent, and can be issued multiple times to overwrite the previously set value.
+
+\subsection{Create}
+The {\tt create} instruction sets the program counter of the family and signals its creation at the same time. As such, this instruction has two operands: one input operand containing the family identifier of the family to create, one input operand containing the program counter of the threads in the family and one output operand that will receive the family identifier of the family (i.e., a copy of in the input operand) when the family has been created and its arguments can be sent. This instruction both writes the program counter to the allocated context(s) and signals the family creation process (see section~\ref{sec:family-creation}) that it can begin creating the threads of this family.
+
+The {\tt create} instruction is a long-latency instruction that clears its output register upon issuing. A reference to the register is passed along with the message to the create process. Once the create process has completed; meaning the registers have been allocated and the threads can be created and the arguments written, the family identifier is written back into the register.
+
+\subsection{Put Global/Shared}
+The {\tt putg} and {\tt puts} instructions write a register value into the globals or input of the dependency chain of a created family, respectively. Both instructions have three operands: one input operand containing the family identifier of the family whose global or first dependent to write, one input operand identifying which global or shared to write and one input operand containing the value to write. These instructions can only be issued after the family has been created with the ``create'' instruction described above.
+
+The globals and initial dependencies start off as empty when the family is created, so when a thread attempts to read them, it will suspend on them. Thus, there is no time constraint for writing these arguments after the family has been created. However, after writing a global or shared, it should not be written again (with a different value) as this might produce non-deterministic behavior: the parent thread cannot know which value the child thread(s) use, this depends entirely on timing.
+
+\subsection{Synchronize}
+The {\tt sync} instruction signals a created family that the issuing thread wants to synchronize (see section~\ref{sec:synchronization}) on its termination. The instruction has an input operand, containing the family identifier of the family it wishes to synchronize upon and an output operand, which will be written when the specified family has synchronized. This instruction sends a message to the target family, notifying it of its desire to synchronize on it, along with a reference to the output register. If, upon arrival of the message, the family has already completed, a message is sent back that will write an undetermined value to the output register. Otherwise, the reference to the register is stored in the family context, so that the message can be sent when the family completes. This instruction can only be issued after the family has been created with the ``create'' instruction described above and should be issued only once for the specified family.
+
+Note that issuing this instruction will \emph{not} suspend the thread until the specified family has completed. It only notifies the specified family and sets up a reference to the output register. The thread should read this instruction's output register after issuing this instruction to actually suspend until the family has terminated.
+
+The {\tt sync} instruction is a long-latency instruction that clears its output register upon issuing. Once the specified family has completed, meaning all threads have terminated and all memory writes are consistent, the output register is written.
+
+\subsection{Get Shared}
+The {\tt gets} instruction reads the output of the dependency chain of a terminated family. The instruction has three operands: one input operand containing the family identifier of the family whose last dependent to read, one input operand identifying which shared to read and one output register that will receive the read value. This instruction can only be issued after the family has been synchronized upon with the ``sync'' instruction described above.
+
+The {\tt gets} instruction is a long-latency instruction that clears its output register upon issuing, since the act of retrieving the output of the dependency chain will most likely several cycles, depending on the distance of the family from the issuing thread. Once the value is retrieved, the output register is written.
+
+\subsection{Detach}
+The {\tt detach} instruction signals a created family that the issuing thread is no longer interested in it. This means that once the specified family has terminated, it can be cleaned up as no further requests will be made to it. This instruction has only a single input operand containing the family identifier of the family it wishes to detach from. {\tt detach} is typically the last instruction for a family to be executed, usually after the {\tt sync} and optionally {\tt gets} instructions described above. Failing to issue this instruction will cause a resource leak that could lead to deadlock or severely reduced performance once the hardware's physical resources have been exhausted.
+
+Note that this instruction can be issued immediately after the {\tt create} instruction described above. In such an event, the thread can no longer synchronize on the family's completion or read its output dependents.

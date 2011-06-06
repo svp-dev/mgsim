@@ -1,6 +1,11 @@
-dist_pkgdata_DATA = config.ini
-dist_noinst_SCRIPTS = runtest.sh timeout
+dist_pkgdata_DATA = config.ini nobounds.ini mgsim.h
 
-SUBDIRS = mtalpha mtsparc
+CLEANFILES = nobounds.ini
+
+nobounds.ini: $(srcdir)/config.ini
+	$(SED) -e 's/QueueSize.*/QueueSize = -1/g;s/BufferSize.*/BufferSize = -1/g' >$@ <$<
+
+
+
 
 

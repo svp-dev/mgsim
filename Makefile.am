@@ -1,12 +1,51 @@
-SUBDIRS = . doc src programs
+bin_PROGRAMS =
+dist_man1_MANS = 
+MAINTAINERCLEANFILES =
+EXTRA_DIST =
 
-ACLOCAL_AMFLAGS = -I m4
+include $(srcdir)/Makefile.inc
+
+SUBDIRS = . tools tests programs doc
+
+DISTCHECK_CONFIGURE_FLAGS = --target=mtalpha
+ACLOCAL_AMFLAGS = -I build-aux
+
+##
+## Multi-way distcheck
+##
+check-mtsparc:
+	mkdir -p build-mtsparc && \
+	  cdir=`cd $(top_srcdir) && pwd` && \
+	  cd build-mtsparc && \
+	  $$cdir/configure --target=mtsparc && \
+	  $(MAKE) $(AM_MAKEFLAGS) check
+
+check-mtalpha:
+	mkdir -p build-mtalpha && \
+	  cdir=`cd $(top_srcdir) && pwd` && \
+	  cd build-mtalpha && \
+	  $$cdir/configure --target=mtalpha && \
+	  $(MAKE) $(AM_MAKEFLAGS) check
+
+check-all: check-mtsparc check-mtalpha
+
+distcheck-mtsparc:
+	$(MAKE) $(AM_MAKEFLAGS) distcheck DISTCHECK_CONFIGURE_FLAGS='--target=mtsparc --disable-sdl'
+	$(MAKE) $(AM_MAKEFLAGS) distcheck DISTCHECK_CONFIGURE_FLAGS='--target=mtsparc --enable-sdl'
+
+distcheck-mtalpha:
+	$(MAKE) $(AM_MAKEFLAGS) distcheck DISTCHECK_CONFIGURE_FLAGS='--target=mtalpha --disable-sdl'
+	$(MAKE) $(AM_MAKEFLAGS) distcheck DISTCHECK_CONFIGURE_FLAGS='--target=mtalpha --enable-sdl'
+
+distcheck-all: distcheck-mtsparc distcheck-mtalpha
+
+.PHONY: check-all distcheck-all
 
 ##
 ## Version number management
 ##
 
-EXTRA_DIST = .version build-aux/version-gen build-aux/package-version
+EXTRA_DIST += .version build-aux/version-gen build-aux/package-version build-aux/config.sub.patch
 BUILT_SOURCES = $(top_srcdir)/.version
 
 $(top_srcdir)/.version:
@@ -14,6 +53,12 @@ $(top_srcdir)/.version:
 
 dist-hook: check-version
 	echo $(VERSION) >$(distdir)/build-aux/tarball-version
+	##
+	## we generate sources during configuration, which confuses Automake
+	## wrt distribution. So be sure that they are not present during "make
+	## dist".
+	##
+	for f in $(CONFIG_CLEAN_FILES) $(DISTCLEANFILES); do rm -f $(distdir)/$$f; done
 
 install-recursive install-exec-recursive install-data-recursive installcheck-recursive: check-version
 
@@ -30,3 +75,7 @@ check-version:
 
 _version:
 	cd $(srcdir) && rm -rf autom4te.cache .version && $${AUTORECONF:-autoreconf}
+	$(MAKE) $(AM_MAKEFLAGS) .version
+
+ChangeLog:
+	(cd $(srcdir) && $(PYTHON) build-aux/gitlog2changelog.py) >$@

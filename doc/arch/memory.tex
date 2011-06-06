@@ -1,0 +1,219 @@
+\chapter{Memory}
+
+The execution model (see section~\ref{sec:svp}) provides a single, flat memory space to programs with weak consistency. This memory model is currently implemented in the microgrid via a memory interface on each core to a chip-wide memory network that provides access to the single, flat address space. The current memory implementations provide global consistency (i.e., every write is guaranteed to be visible to every core at some point in the future). This model has been chosen because the current weak memory consistency model in SVP is more costly to implement in a chip-wide memory network.
+
+\section{Core Interface}
+Every core on a microgrid has a single interface to memory. The core's instruction and data caches are connected, via a bus, possibly with caches from other cores, to the memory system. The following messages are possible on the bus:
+
+\subsection{Read Request}
+When a cache needs to read data from memory, it sends out a read request to the memory system. This request is for an entire cache-line. The request simply contains the line-aligned address of the desired cache-line. Eventually, the memory system will respond with a read response, as described below. This message is usually not relevant to the other caches on the bus.
+
+\subsection{Read Response}
+If memory returns a cache-line for a read request, all caches on the bus use this response to store the data in their copy of the cache-line, if they have an entry allocated to that line. Only the invalid parts of the entry are updated with the data returned from memory. This guarantees that writes made after the read request will not get overwritten by the read response. Note that because every cache uses the response, a cache may see a read response on the bus for a cache-line that it already has the data for. In such a case, the response is ignored. Therefore, there is no strict coupling between requests and responses. If N caches on a single bus issue a request, anywhere from 1 to N responses may be returned, in any order.
+
+\subsection{Write Request}
+When a core issues a memory write, this write is written through or around the data cache to the memory bus. The request contains the byte-aligned address of the data to write, the data to write, and a tag consisting of the thread table index of the thread that made the write. Every write request is matched with a write acknowledgement (see below) that is returned by the memory system when a write has been made consistent with the rest of the system. This acknowledgement contains the same tag that was present in the write request. This mechanism allows the core to keep track of pending writes for every thread, and thus family. This feature is required because the programming model's consistency model dictates several things:
+\begin{itemize}
+\item a family cannot be considered 'complete' until all its thread's memory writes have been made consistent.
+\item a family create is an implicit memory write barrier, i.e., all preceding writes of the thread must be consistent in memory.
+\item a thread may want to issue a memory write barrier before writing a pointer to a shared to guarantee that writes to the pointed-to memory are consistent before the next thread in the family receives the pointer.
+\end{itemize}
+
+When the data cache snoops a write request on the bus made by another cache it writes the data into its own copy of the line (and marks it as valid), if it has it. This will ensure cache consistency between the caches sharing a single bus. It does not matter if the snooped write overwrite a local write, even when the entry is still being loaded. SVP's memory consistency model states that independent writes made by different thread (and thus, since threads do not migrate, different cores) have non-deterministic consistency.
+
+\subsection{Write Acknowledgement}
+Write acknowledgements are sent by the memory system in response to write requests at the time when the write request is guaranteed to be consistent for all cores in the microgrid within the rules of SVP. Write acknowledgements are targeted to the core that the corresponding write request originated from and tagged with the same tag from the write request. Upon receiving a write acknowledgement, the core can update its internal administration for the thread and family specified in the tag.
+
+Note that, since write acknowledgements are meant for one core only, the other caches on the bus must ignore acknowledgements not meant for them.
+
+\subsection{Invalidate}
+Depending on the memory system's implementation, it can be required that all copies of the cache-line in the caches should be invalidated. If a cache observes this message on the bus, and if it has the relevant line, the cache will immediately clear the line. If, however, the line is still being loaded, the cache must mark the line as invalid, which will cause the line to be cleared when the data has returned and the cache has finished processing all pending requests for that line.
+
+\section{\label{sec:coma}COMA}
+The currently implemented memory system for the Microgrid is a Cache-Only Memory Architecture, or COMA, memory system. It consists of caches (henceforth called L2 caches, considering the caches in the core are L1 caches) which are connected in a hierarchy of unidirectional rings to one or more external memory chips. Figure~\ref{fig:} shows the conceptual layout of the COMA memory system. The design of the memory system is essentially one big ring of all caches. However, since data access tends to be localized in the microgrid, it's quite feasible that large sections of caches will never have certain cache-lines, the ring is shortcut across several points (creating the hierarchy of rings) with directories to allow messages bypass entire groups of caches that do not have the cache-line that the message refers to.
+
+\subsection{Protocol}
+The COMA protocol is a token protocol. This means that every copy of the cache-line in the system, whether in transit, or in a cache, has a certain number of tokens associated with it. Based on this, there are several basic rules that govern the COMA protocol:
+\begin{itemize}
+\item When a cache-line is introduced into the COMA system (i.e., read from external system), it is given a number of tokens equal to the number of caches in the system.
+\item A cache-line must always have at least one token.
+\item In order to service a read from a core, a cache must have a copy of the cache-line with at least one token.
+\item In order to acknowledge a write from a core, a cache must have the only copy of the cache-line (with all the tokens).
+\end{itemize}
+These rules guarantee a correct consistency operation in the memory network. The protocol itself implements these rules.
+
+\subsubsection{Messages}
+\begin{table}
+\begin{center}
+\begin{tabularx}{\textwidth}{|l|X|c|}
+\hline
+Name & Purpose & Bits\\
+\hline
+\hline
+type & Type of this message & 3 \\
+address & Byte-aligned address of the cache-line this message & N \\
+sender & ID of the cache that sent this message & $\lceil \log_2($\#Caches$)\rceil$ \\
+ignore & Should this message be ignored? & 1 \\
+data & Data of the line & 512 \\
+tokens & Number of tokens held by this line copy & $\lceil \log_2($\#Caches$)\rceil$ \\
+dirty & Has this copy of the line been modified? & 1 \\
+client & Client on the sender's bus that caused the message & N \\
+tid & ID of the thread on the client that caused the message & $\lceil \log_2($\#Threads$)\rceil$ \\
+\hline
+\end{tabularx}
+\caption{Contents of a message}
+\label{table:message_contents}
+\end{center}
+\end{table}
+
+The protocol is implemented via messages on the ring network. The contents of a message is shown in table~\ref{table:message_contents} and the protocol consists of the following message types:
+\begin{itemize}
+  \item {\bf Read Request}. ({\tt RR}) This message signals a request by a cache for a copy of the specified cache-line. The request has neither data nor tokens attached to it. The request will keep going around the ring until it has acquired both.
+
+  \item {\bf Read Request, with Data}. ({\tt RD}) When a read request passes by a cache or root directory and gets the data, its type is 'promoted' to a Read Request, with Data. It keeps going around the ring until it has acquired tokens as well.
+
+  \item {\bf Read Request, with Data and Tokens}. ({\tt RDT}) When a read request with data passes by a cache or root directory and gets one or more tokens, its type is 'promoted' to a Read Request, with Data and Tokens. When this message arrives back at the sender cache, the read request is completed.
+
+  \item {\bf Update}. ({\tt UP}) A write from a client below a cache will trigger an Update message to be sent around the ring once, updating every copy of the cache-line it comes across. When this message returns to its sender cache, it has updated every cache and the message is dropped.
+
+  \item {\bf Eviction}. ({\tt EV}) When a read or write request from a client requires an entry in the cache, but none are available, an entry is chosen and evicted from the cache in an Eviction message. An eviction message will travel to the root directory, possibly injecting in other caches on the way if it can, to save the cost of writing the data back to memory or reading it from memory when required at a later time.
+\end{itemize}
+
+\begin{table}
+\begin{center}
+\begin{tabular}{|l|c|c|c|c|c|}
+\hline
+Field & RR & RD & RDT & UP & EV\\
+\hline
+type    & X & X & X & X & X \\
+address & X & X & X & X & X \\
+sender  & X & X & X & X & X \\
+ignore  & X & X & X & X & X \\
+data    &   & X & X & X & X \\
+tokens  &   &   & X &   & X \\
+dirty   &   &   &   &   & X \\
+client  &   &   &   & X &   \\
+tid     &   &   &   & X &   \\
+\hline
+\end{tabular}
+\caption{Which message fields are used for which message types}
+\label{table:message_contents_usage}
+\end{center}
+\end{table}
+
+Table~\ref{table:message_contents_usage} shows which fields are used for which message types.
+
+\subsubsection{Deadlock avoidance}
+Special care is taken to guarantee that the COMA protocol is both deadlock-free and livelock-free. The first aspect of this is to guarantee that the network never stalls. If we look at a flat ring network with caches as nodes and memory clients attached to the caches, only memory clients can insert messages into the network. The network itself can only modify, forward, or remove messages. If we had a naive implementation where, at a node, either forwarding messages or inserting messages took priority, it would be possible for the ring network to stall because all buffers filled up and no message could be handled. There exists, in essence, a cyclic dependency that can cause this deadlock.
+
+The solution to this, as proven by \cite{Brookes}, is to ensure that every node has at least two buffer entries available and only accepts 'new' messages into the ring from the memory clients when the buffer has more than one entry free. This ensures that the network is never full and messages can always be forwarded.
+
+However, a problem occurs due to the shortcuts provided by the directories. While, conceptually, the COMA network is one large ring, and the above buffering protocol can avoid deadlock on that single ring, a problem exists when considering these shortcuts. At a directory, a single output buffer can be filled by two input buffers. One from the 'upper' ring (the shortcut) and one from the 'lower' ring (the normal path). As a result, one buffer has to have priority over the other when both want to output at the same time. If the lower ring's input buffer has priority, it's possible that deadlock occurs on the upper ring. Likewise, if the upper ring's input buffer has priority, it's possible that deadlock occurs on the lower ring.
+
+To solve this issue, the COMA protocol provides deadlock-guaranteed fallback routing. If a message arrives at a directory from its upper ring, and the directory indicates that the message can continue on the upper ring (i.e., take the shortcut), and if the output buffer for that ring does not have at least 2 free entries available, the message is instead routed to the lower ring, with the {\tt ignore} flag set. This flag will cause the message to be ignored by every cache in the ring until it reaches the directory again, where it is then forwarded onto the upper ring. In other words, if the shortcut cannot be taken, the message is sent the long-way round, which has guaranteed deadlock freedom as described above.
+
+
+
+
+\subsection{Cache}
+This section describes the caches in a COMA system and how the cache reacts on messages that it can receive. The cache is the leaf in COMA's hierarchy of rings. Only caches contain data (although data can also be in transit elsewhere in the memory network), and only caches interact with the memory clients, such as processing cores.
+
+\subsubsection{Structure}
+Table~\ref{table:cache_contents} lists the fields in a single cache entry. Note that, in order to accomodate all possible lines in the memory clients below the cache, the number of entries in the L2 caches must be the sum of the cache-lines in the clients below the cache. Also note that this is achieved by maintaining the same number of sets, and adding the associativities. For example, if an L2 cache is connected with four cores, each with two 1 kB 4-way set-associative L1 caches, then the L2 cache must be at least an 8 kB, 32-way set associative cache.
+
+\begin{table}
+\begin{center}
+\begin{tabularx}{\textwidth}{|l|X|c|}
+\hline
+Name & Purpose & Bits\\
+\hline
+\hline
+state & Current state of the cache entry & 2 \\
+tag & Tag part of the address of the line & N \\
+data & Data of the line & 512 \\
+access & (Psuedo-) last access time & N \\
+tokens & Number of tokens held by this line copy & $\lceil \log_2($\#Caches$)\rceil$ \\
+dirty & Has this copy of the line been modified? & 1 \\
+updating & Number of unacknowledged update requests for this line & N \\
+valid & Data validity bitmask & 64 \\
+\hline
+\end{tabularx}
+\caption{Contents of a cache entry}
+\label{table:cache_contents}
+\end{center}
+\end{table}
+
+\subsubsection{Bus Read}
+When a client on the bus below a cache issues a cache line read, a copy of the cache-line is returned immediately if the cache has such a copy with one or more tokens. If the cache has the line, but it is still being loaded, the request is dropped, as the load completion will send a read response onto the bus, also satisfying this read.
+
+If the cache does not have the line, an entry is allocated and a Read Request send out on the ring network. If no free entries are available, a line is evicted (see section~\ref{sec:coma-cache-eviction}) and freed. The request then stalls for one cycle, causing it to be handled succesfully next cycle. This is done. If no line can be evicted, the bus read request stalls.
+
+\subsubsection{Bus Write}
+When a client on the bus below a cache issues a memory write, an update message is sent out on the bus to update all other copies of the cache-line. This message is not sent if the cache has the only copy of the cache-line (i.e., with all tokens). In that case, the write is acknowledged immediately to the memory client on the bus that sent it. If the cache does not have a copy of the cache-line, it requests a copy of the cache-line by sending out a read request. It stores the written data in the cache-line, using the entry's dirty mask to mark which bytes have been written. When the read response arrives, the dirty mask is used to prevent those bytes from being overwritten by the returned data.
+
+\subsubsection{Read Request}
+If a cache receives this mesage, it will check if it has the line. If not, the message is forwarded as-is. Otherwise, if the cache has at least two tokens in its copy, it will copy the data from its entry into the message, give the message one of its tokens, upgrade the message to \emph{Read Request, With Data and Tokens} and forward it so it can return to its sender. If the cache does not have enough tokens (i.e., just one token), it will only copy the data into the message and upgrade it to \emph{Read Request, With Data}.
+
+\subsubsection{Read Request, with Data}
+If a cache receives this message, it will check if it has the line. If not, the message is forwarded as-is. Otherwise, if the cache has at least two tokens in its copy, it will copy the data from its entry into the message, give the message one of its tokens, upgrade the message to \emph{Read Request, With Data and Tokens} and forward it so it can return to its sender. If the cache does not have enough tokens (i.e., just one token), the message if forwarded as-is.
+
+Note that the data is copied along with the tokens, even though the message already has the data. This was done to simplify the implementation, such that this request type and a simple read request can share much of the same functionality.
+
+\subsubsection{Read Request, with Data and Tokens}
+If a cache receives this message, it will check the message's {\tt sender} field to see if the message originated from (and thus, is meant for) itself. If not, the message is forwarded as-is. Otherwise, the cache will handle this message as a read response for an earlier read request. The data in the message is stored in the cache-line, but only for those bytes where the entry's {\tt valid} mask is not set. This prevents the read response from overwriting writes made after the read request was sent. Then, pending bus writes of this cache (i.e., writes from memory clients that have not yet been processed by the cache) are merged with the data and this final cache-line is sent to the memory clients as a read response. The message itself is also destroyed.
+
+\subsubsection{Update}
+If a cache receives this message, it will check the message's {\tt sender} field to see if it originated from itself. If so, it will use the message's {\tt client} and {\tt tid} fields to send a \emph{write acknowledgement} to the specified memory client. The message itself is destroyed. If the update did not originate from the cache, and if the cache has the line, the data from the message is written (in essence merging the write) to the cache-line and put on the memory client's bus so they can snoop the write and update their caches accordingly. In either case, whether the cache has the line or not, the message is forwarded as-is.
+
+\subsubsection{\label{sec:coma-cache-eviction}Eviction}
+If a cache receives this message, it will check if it has the line and/or if it has a free entry for this line. If the cache does not have the line, but has a free entry, the line's data, token count and dirty flag are copied from the message into the new entry and the message is destroyed. If the cache does not have the line, and no free entry, the message is forwarded as-is. If the cache has the line, and it is not being loaded, the cache merges the evicted line with the entry by adding the tokens in the message to the tokens in the line and combining the dirty flag in the message (via a logical OR) with the dirty flag in the entry.
+
+Note that if the eviction message is merged with the exiting cache entry, the data from the message can be ignored because any copy of the cache-line will be consistent due to the nature of the write-update part of the COMA protocol. Any write that updated the evicted entry will have also updated the entry with which it is merged.
+
+
+
+\subsection{Directory}
+This section describes the directories in a COMA system and how the directory reacts on messages that it can receive. Directories act as short-cut points on the conceptually single COMA ring. By having such short-cuts, entire sections of the ring can be skipped if the directory indicates that the ring below it does not contain a copy of the cache-line that a message is interested in. Directories do not contain data themselves, instead they only keep a light administration of the presence of cache-lines in the ring below it. Note that it is possible to have a multiple-level hierarchy, with directories at every level.
+
+\subsubsection{Structure}
+Table~\ref{table:directory_contents} lists the fields in a single directory entry. Note that, in order to accomodate all possible lines in the caches below the directry, the number of entries in the directories must be the sum of the lines in the caches below the directory. Also note that this is achieved by maintaining the same number of sets, and adding the associativities. For example, if an directory manages a ring with eight 8 kB 32-way set-associative L2 caches, then the directory must be at least an 64 kB, 128-way set associative directory.
+
+\begin{table}
+\begin{center}
+\begin{tabularx}{\textwidth}{|l|X|c|}
+\hline
+Name & Purpose & Bits\\
+\hline
+\hline
+valid & Whether this entry is in use & 2 \\
+tag & Tag part of the address of the line & N \\
+tokens & Number of tokens held by the caches in this ring for this line & $\lceil \log_2($\#Caches$)\rceil$ \\
+\hline
+\end{tabularx}
+\caption{Contents of a directory entry}
+\label{table:directory_contents}
+\end{center}
+\end{table}
+
+\subsubsection{Read Request}
+\subsubsection{Read Request, with Data}
+\subsubsection{Read Request, with Data and Tokens}
+\subsubsection{Update}
+\subsubsection{Eviction}
+
+
+
+\subsection{Root Directory}
+This section describes the root directories in a COMA system and how the root directory reacts on messages that it can receive. The root directory is both a directory, as mentioned above, as well as a memory controller. It acts as a directory in that it keeps track of the presence of cache-lines in the ring below it. Given that the root directory is located at the top-level of the COMA hierarchy, it therefore indicates whether or not a cache-line is present in the whole network, or not. Next to this, a root directory also acts as a controller or interface with external memory, e.g., DDR modules. Read or writeback requests eventually come up to the root directory, where the root directory communicates with the memory to read or write the desired data.
+
+\subsubsection{Structure}
+\subsubsection{Read Request}
+\subsubsection{Read Request, with Data}
+\subsubsection{Read Request, with Data and Tokens}
+\subsubsection{Update}
+\subsubsection{Eviction}
+
+\subsection{Virtual Memory}
+A topic that has yet remained untouched is the issue of virtual memory. In a typical microgrid, the address space is 64-bits large. It is, however, unfeasible to assume that 16 exabytes of memory storage is available. As in traditional systems, address translation has to be applied at some point to mape the 64-bit virtual address space to a reduced physical address space, possibly backed with paging memory.
+
+The current idea is to apply this translation layer at the root directories, where the off-chip communication occurs, as this seems a cheaper solution than doing address translation at the cache layer.

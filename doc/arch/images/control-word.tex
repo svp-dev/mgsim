@@ -1,0 +1,42 @@
+\begin{tikzpicture}[auto,>=stealth,thick,text badly centered]
+
+\begin{scope}[start chain, node distance=0cm,every node/.style={draw,rectangle,outer sep=0cm,minimum width=8em,minimum height=2em}]]
+  \node[on chain] (CW) {Control Word};
+  \node[on chain] (I1) {Instr$_1$};
+  \node[on chain] (I2) {Instr$_2$};
+  \node[on chain] (I3) {\ldots};
+  \node[on chain] (I15) {Instr$_{15}$};
+\end{scope}
+
+\node[above] (B0) at (CW.north west) {0};
+\node[above] at (CW.north east) {32};
+\node[above] at (I1.north east) {64};
+\node[above] at (I2.north east) {96};
+\node[above] at (I3.north east) {480};
+\node[above] at (I15.north east) {512};
+
+\node[left] at (B0.west) {bytes};
+
+\begin{scope}[start chain, node distance=0cm,every node/.style={draw,rectangle,outer sep=0cm,minimum width=8em,minimum height=2em}]]
+  \node[on chain,above=2cm,anchor=south west] (C0) at (CW.north west) {CI$_0$};
+  \node[on chain] (C1) {CI$_1$};
+  \node[on chain] (C2) {CI$_2$};
+  \node[on chain] (C3) {\ldots};
+  \node[on chain] (C15) {CI$_{15}$};
+\end{scope}
+
+\node[above] (b0) at (C0.north west) {0};
+\node[above] at (C0.north east) {2};
+\node[above] at (C1.north east) {4};
+\node[above] at (C2.north east) {6};
+\node[above] at (C3.north east) {30};
+\node[above] at (C15.north east) {32};
+
+\node[left] at (b0.west) {bits};
+
+\begin{scope}[dashed]
+  \draw (CW.north west) -- (C0.south west);
+  \draw (CW.north east) -- (C15.south east);
+\end{scope}
+
+\end{tikzpicture}

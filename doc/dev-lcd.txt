@@ -1,0 +1,43 @@
+Character matrix display
+========================
+
+The MG matrix display is text-oriented output device. It provides both
+grid addressing of individual characters and a serial interface with
+automatic management of line feeds, tabs and scrolling.
+
+The device presents itself to the I/O bus as a single device. 
+
+========== ============ ====== =============================
+Address    Access width Mode   Description
+========== ============ ====== =============================
+0          4 bytes      Read   Display size (see below)
+0 to W*H-1 (any)        Write  Grid-addressed output buffer
+W*H        1 byte       Write  Serial output
+========== ============ ====== =============================
+
+This address space can be considered as 3 separate devices:
+
+- the first 32-bit word, when read from, indicates the size of the
+  character matrix. The low-order 16 bits indicate the height, and the
+  high-order 16 bits indicate the width. This must be accessed
+  as a single 32-bit operation.
+
+- Given the matrix size WxH, the first WxH bytes of the address space
+  accessed by writes correspond to the output buffer to the
+  display. The buffer is ordered row-major, with horizontally
+  consecutive characters placed at consecutives addresses.  This
+  buffer can be accessed with any operation size (addressing with byte
+  granularity) as long as no single operation causes an access past
+  the buffer boundary.
+
+- The byte address immediately after the output buffer is the
+  serial interface. The matrix display internally maintains
+  a "current position" and handles newlines, form feeds and
+  tab characters.
+
+Unprintable characters are ignored.
+
+
+
+
+

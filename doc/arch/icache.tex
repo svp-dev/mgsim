@@ -1,0 +1,93 @@
+\chapter{Instruction Cache}
+
+
+\section{Overview}
+The instruction cache is an N-way set associative lock-up free \cite{Kroft} cache which uses the thread table entries as the miss information/status holding registers (MSHR). This allows efficient management of concurrent threads that require an instruction fetch without blocking the pipeline or cache.
+
+\begin{figure}
+ \begin{center}
+  \input{images/icache-overview}
+  \caption{Overview of the instruction cache. Shown are the cache entries, buffers to and from memory, the hardware processes that handle the buffer items (P$_i$ and P$_o$) and the connections to the core's thread scheduler (SCHED), pipeline and family creation process (CRE).}
+  \label{fig:icache-overview}
+ \end{center}
+\end{figure}
+
+Figure~\ref{fig:icache-overview} shows a conceptual layout of the instruction cache. It receives instruction fetch operations from the core's thread scheduler. It can either return the data right away, which causes the thread to be scheduled onto the active queue right away, or buffer a request to the external memory system. This requests in this buffer are put on the memory bus by a hardware process. Replies and messages from other caches (currently, only writes are snooped) are received and handled. Read responses write the data into the cache immediately. The responses (minus the data) are buffered and are handled by a hardware process which wakes up the line's suspended threads.
+
+\section{Cache-line contents}
+\begin{table}
+\begin{center}
+\begin{tabular}{|l|l|c|}
+\hline
+Name & Purpose & Bits \\
+\hline
+\hline
+state & State of the line & 2 \\
+tag & The address tag of the line stored in this entry & \ldots \\
+data & The data of the line & 8 $\cdot$ Cache-line size \\
+access & Last access time of this line & \ldots \\
+waiting & Head and tail pointer of the list of suspended threads & $2 \cdot \lceil log_2($\#Threads$) \rceil$ \\
+creation & Is the core's create process suspended on this line? & 1 \\
+references & Number of threads that need to use this cache-line. & $\lceil log_2($\#Threads+1$) \rceil$ \\
+\hline
+\end{tabular}
+\caption{Contents of an instruction-cache line}
+\label{table:icache_contents}
+\end{center}
+\end{table}
+
+Table~\ref{table:icache_contents} lists the fields in each entry in the instruction-cache. It is essentially a traditional cache-line extended with extra fields. The \emph{tag} field is used as usual, to find the wanted cache-line in a set. The \emph{state} field can be one of the following values:
+\begin{description}
+\item[{\tt Empty}]
+This state indicates that the entry is not being used.
+\item[{\tt Loading}]
+This state indicates that a read request has been sent to the memory and has no data.
+\item[{\tt Invalid}]
+This state indicates that the entry has threads that are suspended on the line, but it has been invalidated by the memory hierarchy. It cannot be cleared until the pending threads have run. To avoid a situation where the line is forever kept present due to continous instruction fetches, such fetches must stall when hitting an {\tt Invalid} line.
+\item[{\tt Full}]
+This state indicates that the entry contains all data for a cache-line. Instruction fetches to this line do not need to suspend threads.
+\end{description}
+
+Figure~\ref{fig:icache-states} illustrates the states and their changes for a cache-line entry.
+
+\begin{figure}
+ \begin{center}
+  \input{images/icache-states}
+  \caption{State transitions for an instruction-cache entry}
+  \label{fig:icache-states}
+ \end{center}
+\end{figure}
+
+\subsection{Reference Counter}
+\label{sec:icache-refcount}
+The instruction cache is used to activate threads by checking if they have their cache-line available. However, once a thread has passed the check and its cache-line is in the cache, the cache-line should not be evicted until the thread has been executed by the pipeline, and no longer needs the cache-line. To prevent this eviction, each cache entry has a reference counter that indicates how many threads still need that cache-line to be present in the cache. Lines can only be evicted if this counter is zero. The counter is incremented during thread activation when the cache is checked and decremented when the pipeline switches to another thread (the pipeline's current thread is used to index the cache).
+
+This could lead to the situation that all entries in the cache are locked. In such an event, no cache line can be evicted and whatever requests caused the eviction would have to stall or retry at a later time.
+
+\subsection{Creation flag}
+\label{sec:icache-creation-flag}
+When a family is created, the create process on the core (see section~\ref{sec:family-creation}) requires the cache-line containing the entry point of the thread in order to allocate registers for the family. Since this cache-line also contains instructions, this cache-line is fetched through the instruction cache. The {\tt creation} flag in each cache entry indicates that the core's create process is waiting for that line to be loaded. When this finally happens, the cache will send a signal to the core's create process, along with the cache-line data, indicating that the process can continue.
+
+Note that as an alternative implementation, since the create process can only suspend on one cache-line at a time, this per-entry flag could be replaced by a single register containing the index of cache-line that the create process is waiting on.
+
+\section{Bus messages}
+This section describes the messages that can occur on the memory bus and how the instruction cache reacts to them.
+
+\subsection{Write}
+When the data cache snoops a write on the bus made by another cache it writes the data into its own copy of the line (and marks it as valid), if it has it. No care has to be taken in order to guarantee proper ordering of the write with respect to locally issued reads and writes because the microgrid's memory consistency model allows a non-deterministic result between these requests.
+
+\subsection{Read Response}
+If the higher memory returns a cache-line for a read, all caches on the bus use this response to store the data in their copy of the cache-line, if they have it. The entire cache-line is updated. Note that writes snooped while the line was loading will get overwritten, which is a valid outcome according to the microgrid's memory consistency model.
+
+\subsection{Invalidate}
+Depending on the higher memory's implementation, it can be required that all copies of the cache-line in the L1 caches should be invalidated. When this message is observed on the bus, and if it has the relevant line, the instruction cache will immediately clear the line if its state is Full. If the line's state is Loading, it will be set to Invalid, which will be set to Empty when the instruction-cache has woken up all threads suspended on that line.
+
+
+\section{Processes}
+This section describes the hardware processes in the instruction cache and what their responsibilities are.
+
+\subsection{Outgoing requests}
+All outgoing reads (i.e., those that miss the cache) are buffered to cope with stalls in the higher memory and contention on the bus. A hardware process is responsible for putting the requests from this buffer onto the memory bus.
+
+\subsection{Completed reads}
+Read responses observed on the bus are merged in their cache entry immediately (they could be buffered first, but since there is data attached, significantly more space would be required). The index of this entry is then pushed on the ``returned reads'' queue. A hardware process handles these lines one by one. It takes the entry from the head of the queue, wakes up suspended threads from this entry's \emph{waiting} list, optionally wakes up the creation process, and pops the entry's index from the queue.

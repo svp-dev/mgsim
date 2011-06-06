@@ -1,0 +1,40 @@
+\begin{tikzpicture}[auto,thick,text badly centered,every node/.style={outer sep=0cm}]
+
+	\begin{scope}[every node/.style={draw, rectangle, minimum width=3cm, outer sep=0cm}]
+		\node[minimum height=0.75cm] (g)                     	{Globals};
+		\node[minimum height=0.75cm] (d)  at (g.north)  [above] {Dependents};
+		\node[minimum height=1.00cm] (l0) at (d.north)  [above] {Locals \#0};
+		\node[minimum height=0.75cm] (s0) at (l0.north) [above] {Shareds \#0};
+		\node[minimum height=1.00cm] (l1) at (s0.north) [above] {Locals \#1};
+		\node[minimum height=0.75cm] (s1) at (l1.north) [above] {Shareds \#1};
+	\end{scope}
+	
+	\begin{scope}[decoration={zigzag, segment length=0.25cm}]
+		\draw (g.south west)  -- +(0,-0.25) decorate {-- +(0,-0.75)} |- +(3,-1.0) -- +(3,-0.75) decorate {-- +(3,-0.25)} -- (g.south east);
+		\draw (s1.north west) -- +(0, 0.25) decorate {-- +(0, 0.75)} |- +(3, 1.0) -- +(3, 0.75) decorate {-- +(3, 0.25)} -- (s1.north east);
+	\end{scope}
+	
+	\node[minimum width=5cm] (rf) at (g)  [below=1.5cm] {Register File};
+	\node[minimum width=5cm] (t0) at (rf) [right=2cm] {Thread \#0};
+	\node[minimum width=5cm] (t1) at (t0) [right=1cm] {Thread \#1};
+	\node[minimum width=5cm] (t2) at (t1) [right=1cm] {Thread \#2};
+	
+	\begin{scope}[every node/.style={draw, rectangle, minimum width=3cm, outer sep=0cm}]
+		\node[minimum height=1.00cm] (t0_l) at (l0 -| t0) {Locals};
+		\node[minimum height=1.00cm] (t1_l) at (l1 -| t1) {Locals};
+		\node[minimum height=1.00cm] (t2_l) at (l0 -| t2) {Locals};
+	
+		\node[minimum height=0.75cm] (t0_s) at (s0 -| t0) {Shareds};
+		\node[minimum height=0.75cm] (t1_s) at (s1 -| t1) {Shareds};
+		\node[minimum height=0.75cm] (t2_s) at (d  -| t2) {Shareds};
+	
+		\node[minimum height=0.75cm] (t0_d) at (d  -| t0) {Dependents};
+		\node[minimum height=0.75cm] (t1_d) at (s0 -| t1) {Dependents};
+		\node[minimum height=0.75cm] (t2_d) at (s1 -| t2) {Dependents};
+	
+		\node[minimum height=0.75cm] (t0_g) at (g -| t0) {Globals};
+		\node[minimum height=0.75cm] (t1_g) at (g -| t1) {Globals};
+		\node[minimum height=0.75cm] (t2_g) at (g -| t2) {Globals};
+	\end{scope}
+	
+\end{tikzpicture}

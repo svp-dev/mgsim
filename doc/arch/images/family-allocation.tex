@@ -1,0 +1,45 @@
+\begin{tikzpicture}[auto,>=stealth,thick,text badly centered,component/.style={draw,rectangle,minimum height=2ex}]
+
+	\node[component] (network) {Network};
+	
+	\node[draw,rectangle,minimum width=0.4cm,minimum height=1cm] (faqs) at (network) [above=1.2cm] {};
+	\draw ($0.25*(faqs.south west) + 0.75*(faqs.north west)$) -- +(0.4,0);
+	\draw ($0.50*(faqs.south west) + 0.50*(faqs.north west)$) -- +(0.4,0);
+	\draw ($0.75*(faqs.south west) + 0.25*(faqs.north west)$) -- +(0.4,0);
+	
+	\node[draw,rectangle,minimum width=0.4cm,minimum height=1cm] (faqns) at (faqs.east) [right=0.1cm] {};
+	\draw ($0.25*(faqns.south west) + 0.75*(faqns.north west)$) -- +(0.4,0);
+	\draw ($0.50*(faqns.south west) + 0.50*(faqns.north west)$) -- +(0.4,0);
+	\draw ($0.75*(faqns.south west) + 0.25*(faqns.north west)$) -- +(0.4,0);
+
+	\node[draw,rectangle,minimum width=0.4cm,minimum height=1cm] (faqex) at (faqs.west) [left=0.1cm] {};
+	\draw ($0.25*(faqex.south west) + 0.75*(faqex.north west)$) -- +(0.4,0);
+	\draw ($0.50*(faqex.south west) + 0.50*(faqex.north west)$) -- +(0.4,0);
+	\draw ($0.75*(faqex.south west) + 0.25*(faqex.north west)$) -- +(0.4,0);
+	
+	\node at (faqns.east) [right] {allocation queues};
+	
+	\coordinate (faqsplit) at ($(faqs.south) + (0,-0.5)$);
+		
+	\draw (network.north) -- (faqsplit);
+	\draw[->] (faqsplit) -- (faqs.south);
+	\draw[->] (faqsplit) -| node[right] {allocation requests} (faqns.south);
+	\draw[->] (faqsplit) -| (faqex.south);
+	
+	\coordinate (faqmerge) at ($(faqs.north) + (0,0.4)$);
+	\draw (faqs.north) |- (faqmerge);
+	\draw (faqns.north) |- (faqmerge);
+	\draw (faqex.north) |- (faqmerge);
+
+	\node [draw, circle] (p_allocate) at (faqmerge) [above=0.4cm] {};
+	\draw[->] (faqmerge) -- (p_allocate);
+
+	\node[component] (ft) at (p_allocate) [right=1cm] {Family Table};
+	\node[component] (contexts) at (p_allocate) [above=0.75cm] {Context Mgr.};
+	
+	\draw[<->] (p_allocate) -- (ft);
+	\draw[<->] (p_allocate) -- (contexts);
+
+	\draw[->] (p_allocate) -- +(-1.5,0) |- node[above left] {allocation responses} (network);
+
+\end{tikzpicture}

@@ -1,0 +1,18 @@
+\begin{tikzpicture}[auto,thick,text badly centered]
+
+	\begin{scope}[every node/.style={draw,rectangle,outer sep=0cm,minimum height=2em}]
+		\node[minimum width=10.0em] (compl_a) {Compl. Address};
+		\node[minimum width=10.0em] (compl_r) at (compl_a.east) [right] {Compl. Reg. Index};
+		\node[minimum width=1.5em]  (exact) at (compl_r.east) [right] {E};
+		\node[minimum width=10.0em] (size) at (exact.east) [right] {Size};
+	\end{scope}
+	
+	\node at (compl_a.north) [above] {A};
+	\node at (compl_r.north) [above] {R};
+	\node at (exact.north) [above] {1};
+	\node at (size.north) [above] {A};
+	
+	\node at (size.south east) [below] {0};
+	\node at (compl_a.south west) [below] {31};
+	
+\end{tikzpicture}

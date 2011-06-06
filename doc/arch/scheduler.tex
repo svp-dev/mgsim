@@ -1,0 +1,122 @@
+\chapter{Thread Scheduler}
+
+The thread scheduler is the component in the core that handles thread wakeup requests and coordinates with the instruction cache to construct a list of threads that the pipeline can use whenever it performs a thread switch. This list of \emph{active} threads is guaranteed to have the cache line with their next instruction available in the instruction cache, thus avoiding stalling the pipeline when it switches to them.
+
+\section{Overview}
+
+\begin{figure}
+ \begin{center}
+  \input{images/scheduler-overview}
+  \caption{Conceptual overview of the thread scheduler. Shown is the ready list (RL), the active list (AL), the activation process (P$_a$) and the various components that supply thread information and schedule events.}
+  \label{fig:scheduler-overview}
+ \end{center}
+\end{figure}
+
+Figure~\ref{fig:scheduler-overview} shows a conceptual layout of the thread scheduler. The thread scheduler's only process, P$_a$, reads a thread from the \emph{ready list} (RL). This list hold threads that should be run by the pipeline, but are not guaranteed to have their cache-line present in the instruction cache. The scheduler then issues a fetch to the instruction cache based on the thread's program counter. If this fetch hits the cache, the scheduler appends the thread onto the \emph{active list} immediately. Otherwise, when the fetch does not hit a cache entry with the data, the cache will append the thread to the cache entry's \emph{waiting list} and allocate an entry and dispatch a request for the cache-line, if necessary. When the data returns from memory, the instruction cache will append the returned entry's list of waiting threads onto the active list. 
+
+When the pipeline performs a thread switch, it removes the first thread from the active list and fetches its information from the thread and family table, reads its instruction data from the instruction cache and commences execution of the thread. After a thread switch, the last instruction of the thread continues through the pipeline after which it will be added onto the ready list if the pipeline determined it can be executed again (e.g. on a branch). 
+
+\section{Linked Lists}
+In two situations, it's highly desirable to move multiple threads from one list to another in a single cycle. These situations are as follows:
+\begin{itemize}
+\item{} When a global register (which is visible to multiple threads in a family) has not yet been written, all threads in the family on that core can suspend on the register. This necessitates that the architecture supports a (potentionally large) list of threads waiting on a register. When the register is written, all of these threads must be moved to the ready list in order to finally enter the pipeline and resume execution.
+\item{} When a set of threads on the ready list want to move to the active list, but their cache-line is either not present, or does not yet contain data. In this case, the thread scheduler should not stall; it should be able to continue servicing other threads, and move them to the active queue so the pipeline can execute them while the first thread's cache line is being loaded. Therefore, every cache line can have one or more threads waiting on its load completion. When the cache-line is finally loaded, all these threads should be moved to the active list.
+\end{itemize}
+Since FIFO buffers cannot support moving arbitrary number of items from one to another, these two crucial use cases are supported by managing threads in these situations on a linked list. Every thread contains a {\tt next} field in its entry in the thread table and every non-full register and non-full instruction cache-line has a head and tail pointer into the list of threads that are suspended on it. Such a linked list of threads can then be appended in its entirety to any other linked list in a single cycle. This requires that the ready list and active list are linked lists as well.
+
+\subsection{Fairness}
+\label{sec:fairness}
+In the simplest linked list implementation, appended items are put on the front of the list. For the active and ready list this creates a problem in terms of fairness. A few threads could continously exist at the front of the lists, starving the threads behind it. As such, for these lists, threads should be appended to the \emph{back} of the list, creating a FIFO list. This requires both a head and tail pointer for the list. 
+
+While the same could be said of the register waiting lists and the instruction cache waiting list, fairness there is actually not as important since there is no risk of starvation. As a consequence, these lists can be optimized to be FILO linked lists, reducing the number of write ports (see next sections).
+
+\section{\label{sec:ready-list}Ready List}
+The ready list is the first list that threads enter when they are rescheduled (i.e., when they need to be run by the pipeline). The following situations can (re)schedule a thread onto a ready list:
+\begin{itemize}
+\item{} Thread creation. After a thread is created, it can immediately commence execution and is appended to the ready list.
+\item{} Write barrier completion. When a thread issues a write barrier and it still has pending (unacknowledged) writes, it sets a flag in its thread table entry indicating that it has suspended on the acknowledgement of its outstanding writes. When the data cache receives the last acknowledgement, and this flag is set, it will append the thread to the ready list.
+\item{} Register write. When a thread reads a register that is not full, it will append its ID onto the register's waiting list of threads, thus 'suspending' on it. When a write to this register fills it, this list of suspended threads is appended to the ready list.
+\item{} Thread reschedule. When the pipeline switches threads but the thread can continue with the next instruction (e.g., on a branch or crossing a cache-line boundary), the thread is appended to the ready list.
+\end{itemize}
+
+These four events could all occur at the same cycle, and since they would all access a shared state, arbitration on the ready list is required. However, this can be costly in terms of hardware or performance. A stall of either of these processes could have significant effects. Therefore, it might be worth giving some or all of these inputs their own list. Figure~\ref{fig:readylist-alts} shows two of these possible implementations of the ready list. When more than one ready list exists, the scheduler's activiation process chooses which list to activate the next thread from. For this, it uses round-robin priorization in order to avoid starving either of the lists. The tradeoff in choosing which implementation to use lies in the cost of additional hardware versus the benefit of avoiding stalls due to arbitration. 
+
+\begin{figure}
+ \begin{center}
+  \input{images/readylist-alts}
+  \caption{Some alternative implementations for the ready list. Left: every input has its own list. Right: only the pipeline has its own list.}
+  \label{fig:readylist-alts}
+ \end{center}
+\end{figure}
+
+Note that only the register file can reschedule more than one thread in a single cycle. Thus, whichever ready list the register file is connected to, should be a linked list. The others can be linked lists (which would increase the number of ports on the thread table's {\tt next} field), or a simple FIFO buffer which is bounded by the number of entries in the thread table.
+
+\section{Active List}
+The active list is the second list that threads enter when they are rescheduled. After a thread has been chosen from the ready list, it will be put on the active list if (or when) the instruction cache contains the thread's cache line. Thus, there are two events that can put threads on the active list:
+\begin{itemize}
+\item{} Reschedule with I-Cache hit. When a thread is chosen for activation from the ready list and the I-Cache lookup results in a hit, it can immediately be put on the active list.
+\item{} Cache-line load completion. If the previous case results in a miss (i.e. the line and/or data is not present), the thread suspends on the cache-line. When the cache-line returns, all threads suspended on that cache-line are put on the active list.
+\end{itemize}
+
+Similarly to the ready list, these events could all occur at the same cycle, and need either arbitration or an individual list. Figure~\ref{fig:activelist-alts} shows the two possible implementations of the active list. Since only the instruction cache file can activate more than one thread in a single cycle, its list should be a linked list. For the other list, it can either reuse the same {\tt next} field in the thread table at the cost of additional ports on this field, or use a dedicated FIFO buffer.
+
+To avoid that subsequent activations from the ready list evict a cache-line that is required by a thread in the active list (which would stall the pipeline when it switches to that thread), cache-lines needed by threads in the active list and pipeline are locked and cannot be considered for eviction. This is explained in detail in section~\ref{sec:icache-refcount}.
+
+\begin{figure}
+ \begin{center}
+  \input{images/activelist-alts}
+  \caption{The two alternative implementations for the active list. Left: both inputs have their own list. Right: both inputs share a list.}
+  \label{fig:activelist-alts}
+ \end{center}
+\end{figure}
+
+\section{Ports}
+The potentially many different linked lists of threads could create a strain on the {\tt next} field in the thread table. To analyze the number of ports required on this field, we must first define the possible operations that add or remove threads from these lists:
+\begin{enumerate}
+\item Thread creation. An empty thread is allocated, initialized and put onto the ready list.
+\item Register read. A thread must suspend on an empty register and is added to the register's \emph{waiting} list.
+\item Register write. The linked list of threads suspended on the register is appended onto the ready list.
+\item Thread activation. A thread is popped from a ready list, hits the I-Cache and is appended onto the active list.
+\item I-Cache miss. A thread is popped from a ready list, misses the I-Cache and is appended onto the line's \emph{waiting} list.
+\item I-Cache line completion. The linked list of threads suspended on the cache-line is appended onto the active list.
+\item Thread switch. The pipeline pops the first thread off the active list for execution.
+\item Thread reschedule. The pipeline pushes a thread onto the ready list for rescheduling.
+\item Write barrier completion. The D-Cache pushes a thread that was waiting for write completion onto the ready list.
+\end{enumerate}
+Note that all appends to a single list are arbitrated due to the access to the shared tail pointer of the list. Thus, one write port is required per concurrently-written list. Depending on the implementation of the ready and active lists as described in the previous sections, this could result in 4--8 write ports: 1--2 for the active list, 1--4 for the ready list, one for appending a thread to a register's waiting list and one for appending a thread to a cache-line's waiting list. 
+
+Similarly, only one process is responsible for removing items from a list, requiring only one read port per concurrently-read list. This results in 2 read ports. This number is independent from the implementation of the lists, since the alternative lists are never read at the same time and can thus share a read port on the {\tt next} field. Likewise, the two waiting lists do not need a read port on the {\tt next} field because they never have a single entry removed, but are appended in their entirety to another list, which does not require accessing their {\tt next} fields. Thus, one read port is required for removing a single thread from the active list(s) and one for the removing a single thread from the ready list(s).
+
+However, the queuing of threads assumes that the list of threads is properly terminated (i.e., the last thread's {\tt next} field is ``invalid''). If this cannot be guaranteed in any case, an additional write port is required per list to set this field. But, if we append threads to the front of those lists where there are no fairness constraints (see section~\ref{sec:fairness}), these lists are guaranteed to be a properly terminated list. Applying this to all relevant lists, operations 1, 2, 3, 5, 6 and 9 in the list above do not require an explicit termination of the list. The scenarios 4 and 8 do, resulting in two additional write ports, bringing the total up to 6--10 write ports and 2 read ports.
+
+\subsection{Splitting}
+To reduce the number of ports, this single table with the {\tt next} field can be split into different tables, each with fewer ports. This process of splitting the table is subject to the constraint that multi-thread appends can only occur between lists which use the same table for their {\tt next} field. Since there are only two situations where a multi-thread append operation occurs (cache line completion for the active list and register write for the ready list), there can be 3 different tables for the {\tt next} field:
+\begin{itemize}
+\item one for the active list and the cache lines' waiting lists, with 3--4 write ports and 1 read port.
+\item one for RL2 and the registers' waiting lists, with 2 write ports and 1 read port.
+\item one for RL1, with 2 write ports and 1 read port.
+\end{itemize}
+Although there is one read port more (because RL1 and RL2 are now split, they cannot share a read port), this division might prove better in terms of access times, area or power usage, depending on the production process.
+
+%\begin{table}
+%\begin{center}
+%\begin{tabular}{|c|ccc|ccc|}
+%\hline
+%\multirow{3}{*}{\# Write ports} & \multicolumn{3}{c|}{1 Read port} & \multicolumn{3}{c|}{2 Read ports} \\
+%\hline
+%& Area & Read energy & Access time & Area & Read energy & Access time \\
+%& (mm$^2$) & (pJ) & (ns) & (mm$^2$) & (pJ) & (ns) \\
+%\hline
+%1 & 0.00672305 & 0.91547659 & 0.43337624 & 0.01245348 & 1.03082149 & 0.45126670 \\
+%2 & 0.01119960 & 1.02671990 & 0.45121490 & 0.01678298 & 1.28923445 & 0.43046945 \\
+%3 & 0.01661697 & 1.28466296 & 0.43035113 & 0.02289694 & 1.40206073 & 0.44492191 \\
+%4 & 0.02311885 & 1.39825044 & 0.44482399 & 0.03027877 & 1.49560427 & 0.45683737 \\
+%5 & 0.03042903 & 1.49180787 & 0.45673972 & 0.03943373 & 1.61769572 & 0.46861936 \\
+%6 & 0.03951795 & 1.61401895 & 0.46852687 & 0.04883511 & 1.71459817 & 0.48046084 \\
+%7 & 0.04885168 & 1.71096159 & 0.48036943 & 0.05930777 & 1.81126577 & 0.49166241 \\
+%8 & 0.05925584 & 1.80765971 & 0.49157168 & 0.07598517 & 1.99261128 & 0.48528705 \\
+%\hline
+%\end{tabular}
+%\caption{Area, dynamic read energy and access time for an 8-bit wide, 256-element SRAM. Values obtained with {CACTI} \cite{cacti}. Settings: ITRS-HP transistors, 65nm, 330K, conservative %interconnect, semi-global type of wire.}
+%\end{center}
+%\end{table}

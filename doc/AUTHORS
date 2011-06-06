@@ -1,0 +1,49 @@
+The Microgrids Project consists of:
+
+* Mike Lankamp          m.lankamp@uva.nl
+  - Microgrid architecture investigator 2007-current,
+  - Simulation framework designer.
+
+* Chris Jesshope        c.r.jesshope@uva.nl
+  - Project manager,
+  - Theoretical mentor.
+
+* Michiel W. van Tol    mwvantol@uva.nl
+  - Instigator of the SVP model,
+  - Visionary for resource management for many core systems.
+
+* Raphael 'kena' Poss   r.c.poss@uva.nl
+  - System architecture investigator 2008-current,
+  - Software stack investigator 2008-current,
+  - Packaging and distribution maintainer.
+
+Acknowledgements
+----------------
+
+The Microgrids Project thanks and acknowledges the following people
+for their help and contributions:
+
+- Yang Qiang
+  - for his extensive architecture evaluation.
+  - for his contributions to the simulation of hardware processes on chip. 
+
+- Carl A. Joslin
+  - for his extensive testing and architecture evaluation.
+
+- Michael A. Hicks
+  - for his prototype of an I/O interface to the Microthreaded cores.
+
+- Thomas A.M. Bernard
+  - for his contribution of a first muTC compiler to the Microgrid architecture.
+
+- Li Zhang
+  - for his contribution of a first COMA network simulation.
+
+- Konstantinos Bousias
+  - for his inspiration in the design of a simulation environment.
+
+
+
+
+
+ 

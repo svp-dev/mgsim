@@ -1,0 +1,79 @@
+\begin{tikzpicture}[thick]
+
+	\begin{scope}[outer sep=0cm]
+		% Processors
+		\foreach \y in {0,1,...,7}
+		\foreach \x in {0,1,...,7}
+			\node[draw,rectangle,minimum size=1cm,fill=gray!20] (p\y\x) at ($(\x,\y) + floor((\x+1)/2)*(1,0) + floor(\x/4)*(2,0) + floor((\y+1)/2)*(0,1)$) {};
+
+		% Draw a moore curve through the processors
+		\draw[ultra thick,gray!80]
+			(p03.center) -- (p13.center) -- (p12.center) -- (p02.center) -- (p01.center) -- (p00.center) --
+			(p10.center) -- (p11.center) -- (p21.center) -- (p20.center) -- (p30.center) -- (p31.center) --
+			(p32.center) -- (p22.center) -- (p23.center) -- (p33.center) -- (p43.center) -- (p53.center) --
+			(p52.center) -- (p42.center) -- (p41.center) -- (p40.center) -- (p50.center) -- (p51.center) --
+			(p61.center) -- (p60.center) -- (p70.center) -- (p71.center) -- (p72.center) -- (p62.center) --
+			(p63.center) -- (p73.center) -- (p74.center) -- (p64.center) -- (p65.center) -- (p75.center) --
+			(p76.center) -- (p77.center) -- (p67.center) -- (p66.center) -- (p56.center) -- (p57.center) --
+			(p47.center) -- (p46.center) -- (p45.center) -- (p55.center) -- (p54.center) -- (p44.center) --
+			(p34.center) -- (p24.center) -- (p25.center) -- (p35.center) -- (p36.center) -- (p37.center) --
+			(p27.center) -- (p26.center) -- (p16.center) -- (p17.center) -- (p07.center) -- (p06.center) --
+			(p05.center) -- (p15.center) -- (p14.center) -- (p04.center);
+	
+		% FPUs
+		\foreach \y in {0,1,...,7}
+		\foreach \x in {0,2,...,7}
+			\node[draw,rectangle,minimum size=1cm,fill=green!20] (f\y\x) at (p\y\x.east) [right] {};
+	
+		% Caches
+		\foreach \y in {0,2,...,7}
+		\foreach \x in {0,2,...,7}
+			\node[draw,rectangle,minimum width=3cm,minimum height=1cm,fill=red!33] (c\y\x) at ($(p\y\x)+(1,1)$) {};
+			
+		% Directories
+		\begin{scope}[every node/.style={draw,rectangle,minimum size=0.75cm,fill=red!66}]
+			\node (d00) at (p13.north east) [right=0.25cm] {};
+			\node (d01) at (d00.east) [right] {};
+			\node (d10) at (p53.north east) [right=0.25cm] {};
+			\node (d11) at (d10.east) [right] {};
+		\end{scope}
+
+		% Root and memory
+		\node[draw,rectangle,minimum width=2cm,minimum size=1cm, fill=red] (root) at (6.5,-1) {};
+		\node[draw,minimum width=1cm,double arrow,double arrow head extend=.1cm,shape border rotate=270, minimum height=1.5cm] (membus) at (root.south) [below] {};
+		\node at (membus.south) [below] {Memory};
+	
+		% IO controllers
+		\node[draw,rectangle,minimum width=1cm,minimum height=.5cm, fill=gray!40] (ioctrl0) at (p70.north) [above] {};
+		\node[draw,minimum width=1cm,double arrow,double arrow head extend=.1cm,shape border rotate=270, minimum height=1.5cm] (iobus0) at (ioctrl0.north) [above] {};
+		\node at (iobus0.north) [above] {I/O};
+
+		\node[draw,rectangle,minimum width=1cm,minimum height=.5cm, fill=gray!40] (ioctrl1) at (p77.north) [above] {};
+		\node[draw,minimum width=1cm,double arrow,double arrow head extend=.1cm,shape border rotate=270, minimum height=1.5cm] (iobus1) at (ioctrl1.north) [above] {};
+		\node at (iobus1.north) [above] {I/O};
+	\end{scope}
+	
+	% Memory busses
+ 	\begin{scope}[red,ultra thick]
+	 	\draw[->] (d00.70) -- (d10.290);
+	 	\draw[->] (d11.250) -- (d01.110);
+	 	\draw[->] (d01.250) -- (d01.250 |- root.north);
+ 	  \draw[<-] (d00.290) -- (d00.290 |- root.north);
+ 	  
+ 	  \draw[->] (c22.east) -| (d00.110);
+ 	  \draw[->] (c62.east) -| (d10.110);
+ 	  \draw[->] (d00.250) |- (c02.east);
+ 	  \draw[->] (d10.250) |- (c42.east);
+
+ 	  \draw[<-] (c24.west) -| (d01.70);
+ 	  \draw[<-] (c64.west) -| (d11.70);
+ 	  \draw[<-] (d01.290) |- (c04.west);
+ 	  \draw[<-] (d11.290) |- (c44.west);
+ 	  
+ 	  \draw[->] (c00.west) -- +(-0.5,0) |- (c20.west);
+ 	  \draw[->] (c40.west) -- +(-0.5,0) |- (c60.west);
+ 	  \draw[<-] (c06.east) -- +(0.5,0) |- (c26.east);
+ 	  \draw[<-] (c46.east) -- +(0.5,0) |- (c66.east);
+	\end{scope}
+		
+\end{tikzpicture}

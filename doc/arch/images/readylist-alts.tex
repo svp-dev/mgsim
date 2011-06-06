@@ -1,0 +1,65 @@
+\begin{tikzpicture}[auto,>=stealth,thick,text badly centered]
+
+\begin{scope}
+  % Ready lists
+  \node[draw,rectangle] (ready1)                                 {RL1};
+  \node[draw,rectangle] (ready2) at (ready1.south) [below=0.5cm] {RL2};
+  \node[draw,rectangle] (ready3) at (ready2.south) [below=0.5cm] {RL3};
+  \node[draw,rectangle] (ready4) at (ready3.south) [below=0.5cm] {RL4};
+  
+  % Inputs
+  \node (in_create)   at (ready1) [right=1.5cm] {Allocator};
+  \node (in_dcache)   at (ready2) [right=1.5cm] {D-Cache};
+  \node (in_regfile)  at (ready3) [right=1.5cm] {Reg. File};
+  \node (in_pipeline) at (ready4) [right=1.5cm] {Pipeline};
+  
+  \draw[->] (in_create)   -- (ready1.east);
+  \draw[->] (in_dcache)   -- (ready2.east);
+  \draw[->] (in_regfile)  -- (ready3.east);
+  \draw[->] (in_pipeline) -- (ready4.east);
+  
+  % Process
+  \node[draw,circle,minimum size=0.5cm,inner sep=0cm] (p_activate) at ($0.5*(ready2.south west)+0.5*(ready3.north west)$) [left=1.5cm] {\footnotesize P$_a$};
+  \draw [->] (ready1.west) -- (p_activate);
+  \draw [->] (ready2.west) -- (p_activate);
+  \draw [->] (ready3.west) -- (p_activate);
+  \draw [->] (ready4.west) -- (p_activate);
+  \draw [->] (p_activate) -- +(-1,0);
+  
+  % Container
+  \draw ($(ready4)+(-1,-0.75)$) rectangle ($(ready1)+(1,0.75)$);
+\end{scope}
+  
+\begin{scope}[xshift=8cm]
+  % Ready lists
+  \node[rectangle]      (ready1)                                 {};
+  \node[draw,rectangle] (ready2) at (ready1.south) [below=0.5cm] {RL1};
+  \node[rectangle]      (ready3) at (ready2.south) [below=0.5cm] {};
+  \node[draw,rectangle] (ready4) at (ready3.south) [below=0.5cm] {RL2};
+
+  \coordinate (ready2_in1) at ($0.75*(ready2.north east)+0.25*(ready2.south east)$);
+  \coordinate (ready2_in2) at ($0.50*(ready2.north east)+0.50*(ready2.south east)$);
+  \coordinate (ready2_in3) at ($0.25*(ready2.north east)+0.75*(ready2.south east)$);
+  
+  % Inputs
+  \node (in_create)   at (ready1) [right=1.5cm] {Allocator};
+  \node (in_dcache)   at (ready2) [right=1.5cm] {D-Cache};
+  \node (in_regfile)  at (ready3) [right=1.5cm] {Reg. File};
+  \node (in_pipeline) at (ready4) [right=1.5cm] {Pipeline};
+  
+  \draw[->] (in_create.west)   -- +(-0.75,0) |- (ready2_in1);
+  \draw[->] (in_dcache.west)   -- (ready2_in2);
+  \draw[->] (in_regfile.west)  -- +(-0.75,0) |- (ready2_in3);
+  \draw[->] (in_pipeline.west) -- (ready4.east);
+  
+  % Process
+  \node[draw,circle,minimum size=0.5cm,inner sep=0cm] (p_activate) at ($0.5*(ready2.south west)+0.5*(ready3.north west)$) [left=1.5cm] {\footnotesize P$_a$};
+  \draw [->] (ready2.west) -- (p_activate);
+  \draw [->] (ready4.west) -- (p_activate);
+  \draw [->] (p_activate) -- +(-1,0);
+  
+  % Container
+  \draw ($(ready4)+(-1,-0.75)$) rectangle ($(ready1)+(1,0.75)$);
+\end{scope}
+  
+\end{tikzpicture}

@@ -1,0 +1,59 @@
+\begin{tikzpicture}[auto,>=stealth,thick,text badly centered]
+
+  % Pipeline
+  \node[draw,rectangle,minimum width=5cm] (pipeline) {Pipeline};
+  \coordinate (pipe_exit1) at ($0.67*(pipeline.north east)+0.33*(pipeline.south east)$);
+  \coordinate (pipe_exit2) at ($0.33*(pipeline.north east)+0.67*(pipeline.south east)$);
+  
+  % Register File
+  \node[draw,rectangle,minimum width=2cm,minimum height=3cm] (regfile) at (pipeline.east) [right=2cm] {Register File};
+
+  % Thread creation
+  \node[draw,rectangle,minimum height=1.5cm,text width=1.5cm] (create) at (regfile.north) [above=2cm] {Thread Allocator};
+  
+  % D-Cache
+  \node[draw,rectangle,minimum height=1.5cm,text width=1.5cm] (dcache) at ($0.5*(regfile.north)+0.5*(create.south)$) [right=1cm] {D-Cache};
+  
+  % Ready list
+  \node[draw,rectangle] (ready2) at (pipeline.east |- dcache) [left] {RL};
+  \coordinate (ready2_in1) at ($0.80*(ready2.north east)+0.20*(ready2.south east)$);
+  \coordinate (ready2_in2) at ($0.60*(ready2.north east)+0.40*(ready2.south east)$);
+  \coordinate (ready2_in3) at ($0.40*(ready2.north east)+0.60*(ready2.south east)$);
+  \coordinate (ready2_in4) at ($0.20*(ready2.north east)+0.80*(ready2.south east)$);
+
+  \draw [->] (pipe_exit1) -- +(1,0) |- (ready2_in4);
+  \draw [->] (pipe_exit2) -- (pipe_exit2 -| regfile.west);
+  
+  \draw [<-] (ready2_in1) -| (create.south);
+  \draw [<-] (ready2_in2) -- (ready2_in2 -| dcache.west);
+  \draw [<-] (ready2_in3) -| (regfile.north);
+
+  % Processes
+  \node[draw,circle,minimum size=0.5cm,inner sep=0cm] (p_activate) at (ready2.west) [left=1cm] {\footnotesize P$_a$};
+  \draw [->] (ready2.west) -- (p_activate);
+   
+  % Active list
+  \node[draw,rectangle] (active_queue) at (pipeline.west |- p_activate) [right] {AL};
+
+  % ICache
+  \node[draw,rectangle,minimum width=3cm,minimum height=1.5cm] (icache) at (active_queue |- create) {I-Cache};
+  \coordinate (icache_p1) at ($0.75*(icache.south west)+0.25*(icache.south east)$);
+  \coordinate (icache_p2) at ($0.50*(icache.south west)+0.50*(icache.south east)$);
+  \coordinate (icache_p3) at ($0.25*(icache.south west)+0.75*(icache.south east)$);
+  
+  \draw[->] (p_activate) -- (active_queue);
+  \draw[->] (p_activate) |- (icache.east);
+  \draw[->] (active_queue |- icache.south) -- (active_queue);
+  \draw[->] (active_queue) -- (active_queue |- pipeline.north);
+  \draw[->] (icache_p1) |- (pipeline.west);
+
+  % Thread table
+  \node[draw,rectangle,minimum size=1.5cm] (threads) at (pipeline -| icache.west) [left] {Thread Table};
+  
+  % Family table
+  \node[draw,rectangle,minimum size=1.5cm] (families) at (threads.north) [above=0.5cm] {Family Table};
+       
+  \draw (threads) -- (threads -| icache_p1);
+  \draw (families) -- (families -| icache_p1);
+  
+\end{tikzpicture}

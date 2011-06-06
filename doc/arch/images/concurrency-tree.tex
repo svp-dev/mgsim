@@ -1,0 +1,112 @@
+\begin{tikzpicture}[auto,>=stealth,text centered,thick,every node/.style={inner sep=0},decoration={snake,amplitude=.4mm}]
+
+	\node[draw,circle,minimum size=0.2cm] (d0) {};
+	\node[draw,circle,minimum size=0.2cm] (d1) at (d0.east) [right] {};
+	\node[draw,circle,minimum size=0.2cm] (d2) at (d1.east) [right] {};
+	\node[draw,circle,minimum size=0.2cm] (d3) at (d2.east) [right] {};
+	\node[draw,circle,minimum size=0.2cm] (d4) at (d3.east) [right] {};
+		
+	\node[draw,circle,minimum size=0.2cm] (e0) at (d4.east) [below=0.5cm,anchor=north west] {};
+	\node[draw,circle,minimum size=0.2cm] (e1) at (e0.east) [right] {};
+	\node[draw,circle,minimum size=0.2cm] (e2) at (e1.east) [right] {};
+	\node[draw,circle,minimum size=0.2cm] (e3) at (e2.east) [right] {};
+	\node[draw,circle,minimum size=0.2cm] (e4) at (e3.east) [right] {};
+		
+	\node[draw,circle,minimum size=0.2cm] (f0) at (e4.east) [above=0.5cm,anchor=south west] {};
+	\node[draw,circle,minimum size=0.2cm] (f1) at (f0.east) [right] {};
+	\node[draw,circle,minimum size=0.2cm] (f2) at (f1.east) [right] {};
+	\node[draw,circle,minimum size=0.2cm] (f3) at (f2.east) [right] {};
+	\node[draw,circle,minimum size=0.2cm] (f4) at (f3.east) [right] {};
+		
+	\node[draw,circle,minimum size=0.2cm] (g0) at (f4.east) [right=0.5cm] {};
+	\node[draw,circle,minimum size=0.2cm] (g1) at (g0.east) [right] {};
+	\node[draw,circle,minimum size=0.2cm] (g2) at (g1.east) [right] {};
+	\node[draw,circle,minimum size=0.2cm] (g3) at (g2.east) [right] {};
+	\node[draw,circle,minimum size=0.2cm] (g4) at (g3.east) [right] {};
+		
+	\node[draw,circle,minimum size=0.5cm] (c0) at (d2) [above=1cm] {};
+	\node[draw,circle,minimum size=0.5cm] (c1) at (e2 |- c0) {};
+	\node[draw,circle,minimum size=0.5cm] (c2) at (f2 |- c0) {};
+	\node[draw,circle,minimum size=0.5cm] (c3) at (g2 |- c0) {};
+	\node[draw,circle,minimum size=0.5cm] (c4) at (c3) [right=2cm] {};
+		
+	\node[draw,circle,minimum size=0.75cm] (b0) at (c1) [above=0.75cm] {};
+	\node[draw,circle,minimum size=0.75cm] (b1) at ($0.5*(c3)+0.5*(c4)$) [above=0.75cm] {};
+	
+	\node[draw,circle,minimum size=0.75cm] (a0) at ($0.5*(b0)+0.5*(b1)$) [above=1cm] {};
+
+	\node[draw,circle,dashed,minimum size=2.2cm] (focus) at ($0.5*(c3)+0.5*(g2)$) {};
+	
+	\node[draw,circle,minimum size=2cm] (y0) at (focus) [right=4cm] {};
+	\node[draw,circle,minimum size=2cm] (y1) at (y0) [right=3cm] {};
+	\node[draw,circle,minimum size=2cm] (x0) at ($0.5*(y0)+0.5*(y1)$) [above=1.5cm] {};
+	
+	\node at (x0.north) [above=1pt] {A};
+	\node at (y0.north) [above=1pt] {B$_1$};
+	\node at (y1.north) [above=1pt] {B$_n$};
+	
+	\draw[->] (a0) -- (b0);
+	\draw[->] (a0) -- (b1);
+	\draw[->,dashed] (b0) -- (b1);
+	\draw[->] (b0) -- (c0);
+	\draw[->] (b0) -- (c1);
+	\draw[->] (b0) -- (c2);
+	\draw[->] (b1) -- (c3);
+	\draw[->] (b1) -- (c4);
+	\draw[->] (c0) -- (d0);
+	\draw[->] (c0) -- (d1);
+	\draw[->] (c0) -- (d2);
+	\draw[->] (c0) -- (d3);
+	\draw[->] (c0) -- (d4);
+	\draw[->] (c1) -- (e0);
+	\draw[->] (c1) -- (e1);
+	\draw[->] (c1) -- (e2);
+	\draw[->] (c1) -- (e3);
+	\draw[->] (c1) -- (e4);
+	\draw[->] (c2) -- (f0);
+	\draw[->] (c2) -- (f1);
+	\draw[->] (c2) -- (f2);
+	\draw[->] (c2) -- (f3);
+	\draw[->] (c2) -- (f4);
+	\draw[->] (c3) -- (g0);
+	\draw[->] (c3) -- (g1);
+	\draw[->] (c3) -- (g2);
+	\draw[->] (c3) -- (g3);
+	\draw[->] (c3) -- (g4);
+	
+	\node[draw, single arrow, inner sep=0.2cm, minimum height=2cm] at ($0.5*(focus.east)+0.5*(y0.west)$) {};
+	%\draw[->,>=triangle 45,shorten <=10pt,shorten >=10pt,line width=4pt] (focus.east) -- (y0.west);
+	
+	\coordinate (t0s) at ($(x0.north)+(0,-0.25)$);
+	\coordinate (t1s) at ($(y0.north)+(0,-0.25)$);
+	\coordinate (t2s) at ($(y1.north)+(0,-0.25)$);
+	\coordinate (t0e) at ($(x0.south)+(0,0.25)$);
+	\coordinate (t1e) at ($(y0.south)+(0,0.25)$);
+	\coordinate (t2e) at ($(y1.south)+(0,0.25)$);
+	
+	\draw[decorate] (t0s) -- (t0e);
+	\draw[decorate] (t1s) -- (t1e);
+	\draw[decorate] (t2s) -- (t2e);
+	
+	\begin{scope}[every node/.style={fill=white,star,inner sep=0.075cm}]
+		\node[draw] (create) at (t0s) [below=0.25cm] {};
+		\node[draw] (sync)   at (t0e) [above=0.25cm] {};
+		\node[draw] (d0)     at (t1s) [below=0.15cm] {};
+		\node[draw] (d1)     at (t2s) [below=0.75cm] {};
+	\end{scope}
+	
+	\coordinate (s0) at ($(create.south)+(0,-0.15)$);
+	\coordinate (s1) at (t1s |- d1);
+	
+	\node at (create.west) [left=1pt] {\tiny Create};
+	\node at (sync.east) [right=1pt] {\tiny Sync};
+	
+	\draw[->,shorten <=1pt] (create) -- (t1s);
+	\draw[->,shorten <=1pt,dashed] (s0) -- (d0);
+	\draw[->,shorten <=1pt,dashed] (s1) -- node[midway,above=2pt,text width=1.5cm]{\tiny Dependency chain} (d1);
+	
+	\draw[dashed] (t1e) -- node[midway,below=2pt] {\tiny Barrier sync} (t2e);
+	
+	\draw[->,dashed] (sync |- t2e) to[out=120,in=-120] (sync);
+	
+\end{tikzpicture}

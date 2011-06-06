@@ -1,0 +1,30 @@
+\begin{tikzpicture}[auto,thick,text badly centered]
+
+	\begin{scope}[every node/.style={draw,rectangle,outer sep=0cm,minimum height=2em,font=\footnotesize}]
+		\node[minimum width=1em] (dummy1) {};
+		\node[minimum width=5em] (fltl) at (dummy1.east) [right] {Locals};
+		\node[minimum width=5em] (flts) at (fltl.east) [right] {Shareds};
+		\node[minimum width=5em] (fltg) at (flts.east) [right] {Globals};
+		\node[minimum width=1em] (dummy2) at (fltg.east) [right] {};
+		\node[minimum width=5em] (intl) at (dummy2.east) [right] {Locals};
+		\node[minimum width=5em] (ints) at (intl.east) [right] {Shareds};
+		\node[minimum width=5em] (intg) at (ints.east) [right] {Globals};
+	\end{scope}
+	
+	\node at (fltl.north) [above] {5};
+	\node at (flts.north) [above] {5};
+	\node at (fltg.north) [above] {5};
+	\node at (intl.north) [above] {5};
+	\node at (ints.north) [above] {5};
+	\node at (intg.north) [above] {5};
+	
+	\node at (intg.south east) [below] {0};
+	\node at (fltg.south east) [below] {16};
+	\node at (dummy1.south west) [below] {32};
+	
+	\begin{scope}[decoration=brace]
+	  \draw[decorate] (intl.north west)+(0,4ex) -- node[above=1.5ex,anchor=base]{Integers} ($(intg.north east)+(0,4ex)$);
+	  \draw[decorate] (fltl.north west)+(0,4ex) -- node[above=1.5ex,anchor=base]{Floats}   ($(fltg.north east)+(0,4ex)$);
+	\end{scope}
+	
+\end{tikzpicture}
