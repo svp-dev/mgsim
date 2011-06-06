@@ -779,6 +779,10 @@ MGSystem::MGSystem(Config& config,
     {
         string name = dev_names[i];
 
+        bool enable_dev = config.getValueOrDefault<bool>(m_root, name, "EnableDevice", true);
+        if (!enable_dev)
+            continue;
+
         size_t busid = config.getValue<size_t>(m_root, name, "BusID");
 
         if (busid >= m_iobuses.size())
