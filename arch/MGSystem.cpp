@@ -499,7 +499,8 @@ void MGSystem::PrintState(const vector<string>& arguments) const
 void MGSystem::PrintAllStatistics(ostream& os) const
 {
     os << dec;
-    os << GetKernel().GetCycleNo() << "\t# mastercycle counter" << endl
+    os << GetKernel().GetCycleNo() << "\t# master cycle counter" << endl
+       << m_clock.GetCycleNo() << "\t# core cycle counter" << endl
        << GetOp() << "\t# total executed instructions" << endl
        << GetFlop() << "\t# total issued fp instructions" << endl;
     PrintCoreStats(os);
