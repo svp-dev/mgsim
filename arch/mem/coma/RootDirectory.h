@@ -41,7 +41,7 @@ private:
     size_t            m_id;         ///< Which root directory we are (0 <= m_id < m_numRoots)
     size_t            m_numRoots;   ///< Number of root directories on the top-level ring
 
-    ArbitratedService<> p_lines;      ///< Arbitrator for lines and output
+    ArbitratedService<CyclicArbitratedPort> p_lines;      ///< Arbitrator for lines and output
     
     DDRChannel*       m_memory;    ///< DDR memory channel
     Buffer<Message*>  m_requests;  ///< Requests to memory
