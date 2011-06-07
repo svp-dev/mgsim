@@ -103,6 +103,7 @@ bool COMA::RootDirectory::OnMessageReceived(Message* msg)
         // This message is for us
         if (!p_lines.Invoke())
         {
+            DeadlockWrite("Unable to acquire lines");
             return false;
         }
 
@@ -121,6 +122,7 @@ bool COMA::RootDirectory::OnMessageReceived(Message* msg)
                 TraceWrite(msg->address, "Received Read Request; Miss; Queuing request");
                 if (!m_requests.Push(msg))
                 {
+                    DeadlockWrite("Unable to queue read request to memory");
                     return false;
                 }
 
@@ -202,6 +204,7 @@ bool COMA::RootDirectory::OnMessageReceived(Message* msg)
                     // Line has been modified, queue the writeback
                     if (!m_requests.Push(msg))
                     {
+                        DeadlockWrite("Unable to queue eviction to memory");
                         return false;
                     }
                 }
@@ -318,6 +321,7 @@ Result COMA::RootDirectory::DoResponses()
     // even if we don't need or modify any line.
     if (!p_lines.Invoke())
     {
+        DeadlockWrite("Unable to acquire lines");
         return FAILED;
     }
 
@@ -430,6 +434,8 @@ void COMA::RootDirectory::Cmd_Read(std::ostream& out, const std::vector<std::str
     if (!arguments.empty() && arguments[0] == "buffers")
     {
         // Print the buffers
+        Print(out, "external requests", m_requests);
+        Print(out, "external responses", m_responses);
         Print(out);
         return;
     }

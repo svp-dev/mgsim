@@ -72,32 +72,29 @@ namespace Simulator
         << endl;
 }
 
+/*static*/ void ZLCOMA::Node::Print(std::ostream& out, const std::string& name, const Buffer<Message*>& buffer)
+{    
+    std::string sp_left((61 - name.length()) / 2, ' ');
+    std::string sp_right(61 - sp_left.length() - name.length(), ' ');
+
+    out <<
+    "+-------------------------------------------------------------+\n"
+    "|" << sp_left << name << sp_right << "|\n"
+    "+----------------------+--------------------+--------+--------+\n"
+    "|         Type         |       Address      | Tokens | Sender |\n"
+    "+----------------------+--------------------+--------+--------+\n";
+        
+    for (Buffer<Message*>::const_iterator p = buffer.begin(); p != buffer.end(); ++p)
+    {
+        PrintMessage(out, **p);
+    }
+    out << "+----------------------+--------------------+--------+--------+\n\n";
+}
+
 void ZLCOMA::Node::Print(std::ostream& out) const
 {
-    const struct {
-        const char*             name;
-        const Buffer<Message*>& buffer;
-    } Buffers[2] = {
-        {"incoming", m_incoming},
-        {"outgoing", m_outgoing},
-    };
-    
-    for (int i = 0; i < 2; ++i)
-    {
-        out <<
-        "+-------------------------------------------------------------+\n"
-        "|                           " << Buffers[i].name << "                          |\n"
-        "+----------------------+--------------------+--------+--------+\n"
-        "|         Type         |       Address      | Tokens | Sender |\n"
-        "+----------------------+--------------------+--------+--------+\n";
-        
-        const Buffer<Message*>& buffer = Buffers[i].buffer;
-        for (Buffer<Message*>::const_iterator p = buffer.begin(); p != buffer.end(); ++p)
-        {
-            PrintMessage(out, **p);
-        }
-        out << "+----------------------+--------------------+--------+--------+\n\n";
-    }
+    Print(out, "incoming", m_incoming);
+    Print(out, "outgoing", m_outgoing);
 }
 
 void ZLCOMA::Node::Initialize(Node* next, Node* prev)

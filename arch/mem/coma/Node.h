@@ -95,6 +95,9 @@ protected:
     /// Send the message to the next node
     bool SendMessage(Message* message, size_t min_space);
     
+    /// Print a message queue
+    static void Print(std::ostream& out, const std::string& name, const Buffer<Message*>& buffer);
+    
     /// Print the incoming and outgoing buffers of this node
     void Print(std::ostream& out) const;
     
