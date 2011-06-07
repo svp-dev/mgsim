@@ -180,7 +180,7 @@ Result DDRChannel::DoPipeline()
     assert(!m_pipeline.Empty());
     const CycleNo  now     = GetClock().GetCycleNo();
     const Request& request = m_pipeline.Front();
-    if (request.done >= now)
+    if (now >= request.done)
     {
         // The last burst has completed, send the assembled data back
         assert(!request.write);
