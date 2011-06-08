@@ -40,7 +40,6 @@ Processor::Processor(const std::string& name, Object& parent, Clock& clock, PID 
     m_lperr("stderr", *this, std::cerr),
     m_io_if(NULL)
 {
-    config.registerObject(*this, "cpu");
     config.registerProperty(*this, "pid", (uint32_t)pid);
     config.registerProperty(*this, "ic.assoc", (uint32_t)m_icache.GetAssociativity());
     config.registerProperty(*this, "ic.lsz", (uint32_t)m_icache.GetLineSize());
@@ -78,7 +77,7 @@ Processor::Processor(const std::string& name, Object& parent, Clock& clock, PID 
         MMIOComponent& pnc_if = m_io_if->GetPNCInterface();
         pnc_if.Connect(m_mmio, IOMatchUnit::READ, config);
 
-        config.registerBidiRelation(*this, *iobus, "client", (uint32_t)devid);
+        config.registerBidiRelation(*iobus, *this, "client", (uint32_t)devid);
     }
 }
 

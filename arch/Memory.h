@@ -29,6 +29,9 @@ public:
     virtual bool OnMemorySnooped(MemAddr /* addr */, const MemData& /* data */) { return true; }
 
     virtual ~IMemoryCallback() {}
+
+    // For topology detection.
+    virtual Object& GetMemoryPeer() = 0;
 };
 
 typedef size_t MCID;    ///< Memory Client ID

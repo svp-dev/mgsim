@@ -40,10 +40,8 @@ Processor::DCache::DCache(const std::string& name, Processor& parent, Clock& clo
     RegisterSampleVariableInObject(m_numHits, SVC_CUMULATIVE);
     RegisterSampleVariableInObject(m_numMisses, SVC_CUMULATIVE);
     
-    config.registerObject(*this, "dcache");
-    
     StorageTraceSet traces;
-    m_mcid = m_memory.RegisterClient(*this, p_Outgoing, traces, m_incoming);
+    m_mcid = m_memory.RegisterClient(*this, p_Outgoing, traces, m_incoming, true);
     p_Outgoing.SetStorageTraces(traces);
 
     m_completed.Sensitive(p_CompletedReads);

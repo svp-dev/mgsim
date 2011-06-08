@@ -60,7 +60,8 @@ MCID COMA::RegisterClient(IMemoryCallback& callback, Process& process, StorageTr
 
     m_clientMap[id] = make_pair(cache, id_in_cache);
 
-    m_registry.registerBidiRelation(callback, *cache, "mem");
+    if (!grouped)
+        m_registry.registerBidiRelation(callback.GetMemoryPeer(), *cache, "mem");
 
     return id;
 }
@@ -172,7 +173,7 @@ void COMA::Initialize()
         Node *prev = last  ? dir : static_cast<Node*>(m_caches[i+1]);
         m_caches[i]->Initialize(next, prev);
 
-        m_config.registerRelation(*m_caches[i], *next, "l2ring");
+        m_config.registerRelation(*m_caches[i], *next, "l2ring", true);
     }
     
     // Connect the directories to the cache rings
@@ -182,7 +183,7 @@ void COMA::Initialize()
         Node *prev = m_caches[i * m_numCachesPerDir];
         m_directories[i]->m_bottom.Initialize(next, prev);
 
-        m_config.registerRelation(m_directories[i]->m_bottom, *next, "l2ring");
+        m_config.registerRelation(m_directories[i]->m_bottom, *next, "l2ring", true);
     }
 
     //
@@ -218,7 +219,7 @@ void COMA::Initialize()
         Node *prev = nodes[(i + 1) % nodes.size()];
         nodes[i]->Initialize(next, prev);
 
-        m_config.registerRelation(*nodes[i], *next, "topring");
+        m_config.registerRelation(*nodes[i], *next, "topring", true);
     }
 }
 

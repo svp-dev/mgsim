@@ -105,6 +105,9 @@ public:
     bool OnMemorySnooped(MemAddr addr, const MemData& data);
     bool OnMemoryInvalidated(MemAddr addr);
 
+    Object& GetMemoryPeer() { return m_parent; }
+
+
     // Debugging
     void Cmd_Info(std::ostream& out, const std::vector<std::string>& arguments) const;
     void Cmd_Read(std::ostream& out, const std::vector<std::string>& arguments) const;

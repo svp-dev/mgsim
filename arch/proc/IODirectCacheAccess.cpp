@@ -23,8 +23,6 @@ namespace Simulator
         m_responses.Sensitive(p_BusOutgoing);
         m_requests.Sensitive(p_MemoryOutgoing);
         
-        config.registerObject(*this, "dca");
-        
         StorageTraceSet traces;
         m_mcid = m_memory.RegisterClient(*this, p_MemoryOutgoing, traces, m_responses, true);
         

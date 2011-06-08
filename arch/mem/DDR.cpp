@@ -278,7 +278,7 @@ void DDRChannel::SetClient(ICallback& cb, StorageTraceSet& sts, const StorageTra
     p_Request.SetStorageTraces(opt(m_pipeline));
     p_Pipeline.SetStorageTraces(opt(storages));
 
-    m_registry.registerBidiRelation(*this, cb, "ddr");
+    m_registry.registerBidiRelation(cb, *this, "ddr");
 }
 
 DDRChannel::~DDRChannel()

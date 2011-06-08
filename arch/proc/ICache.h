@@ -68,6 +68,7 @@ public:
     bool   OnMemoryWriteCompleted(TID tid);
     bool   OnMemorySnooped(MemAddr addr, const MemData& data);
     bool   OnMemoryInvalidated(MemAddr addr);
+    Object& GetMemoryPeer() { return m_parent; }
     size_t GetLineSize() const { return m_lineSize; }
     size_t GetAssociativity() const { return m_assoc; }
     

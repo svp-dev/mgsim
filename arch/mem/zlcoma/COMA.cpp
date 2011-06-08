@@ -60,7 +60,8 @@ MCID ZLCOMA::RegisterClient(IMemoryCallback& callback, Process& process, Storage
 
     m_clientMap[id] = make_pair(cache, id_in_cache);
 
-    m_registry.registerBidiRelation(callback, *cache, "mem");
+    if (!grouped)
+        m_registry.registerBidiRelation(callback.GetMemoryPeer(), *cache, "mem");
 
     return id;
 }

@@ -832,7 +832,7 @@ MGSystem::MGSystem(Config& config,
             throw runtime_error("Unknown I/O device type: " + dev_type);
         }
 
-        config.registerBidiRelation(*m_devices[i], iobus, "client", (uint32_t)devid);
+        config.registerBidiRelation(iobus, *m_devices[i], "client", (uint32_t)devid);
     }
 
 
@@ -863,7 +863,7 @@ MGSystem::MGSystem(Config& config,
         Processor* next = (i == numProcessors - 1) ? NULL : m_procs[i + 1];
         m_procs[i]->Initialize(prev, next);
         if (next)
-            config.registerRelation(*m_procs[i], *next, "link");
+            config.registerRelation(*m_procs[i], *next, "link", true);
     }
 
     // Initialize the buses. This initializes the devices as well.

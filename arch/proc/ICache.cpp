@@ -33,8 +33,8 @@ Processor::ICache::ICache(const std::string& name, Processor& parent, Clock& clo
 {
     RegisterSampleVariableInObject(m_numHits, SVC_CUMULATIVE);
     RegisterSampleVariableInObject(m_numMisses, SVC_CUMULATIVE);
-    
-    config.registerObject(*this, "icache");
+
+    config.registerObject(m_parent, "cpu");
     
     StorageTraceSet traces;
     m_mcid = m_memory.RegisterClient(*this, p_Outgoing, traces, m_incoming);

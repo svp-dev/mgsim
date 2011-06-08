@@ -71,6 +71,7 @@ public:
     bool OnMemorySnooped(MemAddr addr, const MemData& data) { return true; }
     bool OnMemoryInvalidated(MemAddr addr) { return true; }
 
+    Object& GetMemoryPeer() { return m_cpu; }
 };
 
 #endif
