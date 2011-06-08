@@ -8,7 +8,7 @@ using namespace std;
 namespace Simulator
 {
 
-MCID SerialMemory::RegisterClient(IMemoryCallback& callback, Process& process, StorageTraceSet& traces, Storage& storage)
+MCID SerialMemory::RegisterClient(IMemoryCallback& callback, Process& process, StorageTraceSet& traces, Storage& storage, bool /*ignored*/)
 {
     assert(std::find(m_clients.begin(), m_clients.end(), &callback) == m_clients.end());
     m_clients.push_back(&callback);

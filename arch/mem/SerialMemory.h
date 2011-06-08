@@ -27,7 +27,7 @@ class SerialMemory : public Object, public IMemoryAdmin, public VirtualMemory
     // IMemory
     void Reserve(MemAddr address, MemSize size, int perm);
     void Unreserve(MemAddr address);
-    MCID RegisterClient(IMemoryCallback& callback, Process& process, StorageTraceSet& traces, Storage& storage);
+    MCID RegisterClient(IMemoryCallback& callback, Process& process, StorageTraceSet& traces, Storage& storage, bool /*ignored*/);
     void UnregisterClient(MCID id);
     bool Read (MCID id, MemAddr address, MemSize size);
     bool Write(MCID id, MemAddr address, const void* data, MemSize size, TID tid);

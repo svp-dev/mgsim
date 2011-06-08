@@ -16,10 +16,11 @@ namespace Simulator
 static const size_t MINSPACE_INSERTION = 2;
 static const size_t MINSPACE_FORWARD   = 1;
 
-void ZLCOMA::Cache::RegisterClient(MCID id, IMemoryCallback& callback, Process& process, StorageTraceSet& traces, Storage& storage)
+MCID ZLCOMA::Cache::RegisterClient(IMemoryCallback& callback, Process& process, StorageTraceSet& traces, Storage& storage)
 {
-    size_t index = id % m_clients.size();
-    assert(m_clients[index] == NULL);
+    MCID index = m_clients.size();
+    m_clients.resize(index + 1);
+
     m_clients[index] = &callback;
 
     p_bus.AddProcess(process);
@@ -28,13 +29,14 @@ void ZLCOMA::Cache::RegisterClient(MCID id, IMemoryCallback& callback, Process& 
     m_storages *= opt(storage);
     p_Requests.SetStorageTraces(opt(m_storages ^ GetOutgoingTrace()));
     p_In.SetStorageTraces(opt(m_storages ^ GetOutgoingTrace()));
+
+    return index;
 }
 
 void ZLCOMA::Cache::UnregisterClient(MCID id)
 {
-    size_t index = id % m_clients.size();
-    assert(m_clients[index] != NULL);
-    m_clients[index] = NULL;
+    assert(m_clients[id] != NULL);
+    m_clients[id] = NULL;
 }
 
 // Called from the processor on a memory read (typically a whole cache-line)
@@ -70,7 +72,7 @@ bool ZLCOMA::Cache::Read(MCID id, MemAddr address, MemSize size)
     req.size    = size;
 
     // Client should have been registered
-    assert(m_clients[id % m_clients.size()] != NULL);
+    assert(m_clients[id] != NULL);
 
     if (!m_requests.Push(req))
     {
@@ -109,7 +111,7 @@ bool ZLCOMA::Cache::Write(MCID id, MemAddr address, const void* data, MemSize si
     req.address = address;
     req.write   = true;
     req.size    = size;
-    req.client  = id % m_clients.size();
+    req.client  = id;
     req.tid     = tid;
     memcpy(req.data, data, (size_t)size);
 
@@ -1168,7 +1170,6 @@ ZLCOMA::Cache::Cache(const std::string& name, ZLCOMA& parent, Clock& clock, Cach
     m_sets     (config.getValue<size_t>(parent, "L2CacheNumSets")),
     m_inject   (config.getValue<bool>(parent, "EnableCacheInjection")),
     m_id       (id),
-    m_clients  (config.getValue<size_t>("NumClientsPerL2Cache"), NULL),
     p_lines    (*this, clock, "p_lines"),
     m_numHits  (0),
     m_numMisses(0),

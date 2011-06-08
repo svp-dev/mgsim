@@ -26,7 +26,7 @@ namespace Simulator
         config.registerObject(*this, "dca");
         
         StorageTraceSet traces;
-        m_mcid = m_memory.RegisterClient(*this, p_MemoryOutgoing, traces, m_responses);
+        m_mcid = m_memory.RegisterClient(*this, p_MemoryOutgoing, traces, m_responses, true);
         
         p_MemoryOutgoing.SetStorageTraces(opt(traces));
         p_BusOutgoing.SetStorageTraces(opt(m_busif.m_outgoing_reqs));

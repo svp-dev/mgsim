@@ -60,6 +60,8 @@ private:
     TraceMap                    m_traces;             ///< Active traces
     DDRChannelRegistry          m_ddr;                ///< List of DDR channels
     
+    std::vector<std::pair<Cache*,MCID> > m_clientMap; ///< Mapping of MCID to caches
+
     uint64_t                    m_nreads, m_nwrites, m_nread_bytes, m_nwrite_bytes;
     
     void ConfigureTopRing();
@@ -80,7 +82,7 @@ public:
     // IMemory
     void Reserve(MemAddr address, MemSize size, int perm);
     void Unreserve(MemAddr address);
-    MCID RegisterClient(IMemoryCallback& callback, Process& process, StorageTraceSet& traces, Storage& storage);
+    MCID RegisterClient(IMemoryCallback& callback, Process& process, StorageTraceSet& traces, Storage& storage, bool grouped);
     void UnregisterClient(MCID id);
     bool Read (MCID id, MemAddr address, MemSize size);
     bool Write(MCID id, MemAddr address, const void* data, MemSize size, TID tid);

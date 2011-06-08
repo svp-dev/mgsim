@@ -15,9 +15,24 @@ static bool IsPowerOfTwo(const T& x)
     return (x & (x - 1)) == 0;
 }
 
-MCID COMA::RegisterClient(IMemoryCallback& callback, Process& process, StorageTraceSet& traces, Storage& storage)
+MCID COMA::RegisterClient(IMemoryCallback& callback, Process& process, StorageTraceSet& traces, Storage& storage, bool grouped)
 {
-    if (m_numClients % m_numClientsPerCache == 0)
+    MCID id = m_clientMap.size();
+    m_clientMap.resize(id + 1);
+
+    size_t abstract_id;
+    if (grouped)
+    {
+        abstract_id = m_numClients - 1;
+    }
+    else
+    {
+        abstract_id = m_numClients++;
+    }
+
+    size_t cache_id = abstract_id / m_numClientsPerCache;
+
+    if (cache_id == m_caches.size())
     {
         // Add a cache
         if (m_caches.size() % m_numCachesPerDir == 0)
@@ -38,19 +53,23 @@ MCID COMA::RegisterClient(IMemoryCallback& callback, Process& process, StorageTr
     }
     
     // Forward the registration to the cache associated with the processor
-    MCID id = m_numClients++;
-    m_caches[id / m_numClientsPerCache]->RegisterClient(id, callback, process, traces, storage);
 
-    m_registry.registerBidiRelation(callback, *m_caches[id / m_numClientsPerCache], "mem");
-    
+    Cache *cache = m_caches[cache_id];
+
+    MCID id_in_cache = cache->RegisterClient(callback, process, traces, storage);
+
+    m_clientMap[id] = make_pair(cache, id_in_cache);
+
+    m_registry.registerBidiRelation(callback, *cache, "mem");
+
     return id;
 }
 
 void COMA::UnregisterClient(MCID id)
 {
     // Forward the unregistration to the cache associated with the processor
-    assert(id < m_numClients);
-    m_caches[id / m_numClientsPerCache]->UnregisterClient(id);
+    assert(id < m_clientMap.size());
+    m_clientMap[id].first->UnregisterClient(m_clientMap[id].second);
 }
 
 bool COMA::Read(MCID id, MemAddr address, MemSize size)
@@ -61,7 +80,7 @@ bool COMA::Read(MCID id, MemAddr address, MemSize size)
         m_nread_bytes += size;
     }
     // Forward the read to the cache associated with the callback
-    return m_caches[id / m_numClientsPerCache]->Read(id, address, size);
+    return m_clientMap[id].first->Read(m_clientMap[id].second, address, size);
 }
 
 bool COMA::Write(MCID id, MemAddr address, const void* data, MemSize size, TID tid)
@@ -73,7 +92,7 @@ bool COMA::Write(MCID id, MemAddr address, const void* data, MemSize size, TID t
         m_nwrite_bytes += size;
     }
     // Forward the write to the cache associated with the callback
-    return m_caches[id / m_numClientsPerCache]->Write(id, address, data, size, tid);
+    return m_clientMap[id].first->Write(m_clientMap[id].second, address, data, size, tid);
 }
 
 void COMA::Reserve(MemAddr address, MemSize size, int perm)
