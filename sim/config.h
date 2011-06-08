@@ -190,8 +190,8 @@ protected:
     typedef std::map<ObjectRef, std::vector<Property> > objprops_t;
     objprops_t m_objprops;  // function object -> {property}*
 
-    typedef std::map<std::pair<ObjectRef, ObjectRef>, std::vector<Property> > linkprops_t;
-    linkprops_t m_linkprops; // function (object,object) -> {property}*
+    typedef std::map<std::pair<ObjectRef, std::pair<ObjectRef, std::pair<bool, bool> > >, std::vector<Property> > linkprops_t;
+    linkprops_t m_linkprops; // function (object,object,(sibling,bidir)) -> {property}*
 
     void printEntity(std::ostream& os, const Entity& e) const;
     Symbol makeSymbol(const std::string& sym);
@@ -227,42 +227,43 @@ public:
         m_objprops[refObject(obj)].push_back(std::make_pair(makeSymbol(name), refEntity(value)));
     };
 
-    void registerRelation(const Simulator::Object& left, const Simulator::Object& right, const std::string& name)
+    // object-object relations
+
+    void registerRelation(const Simulator::Object& left, const Simulator::Object& right, const std::string& name, bool sibling = false, bool bidi = false)
     {
-        m_linkprops[std::make_pair(refObject(left), refObject(right))].push_back(std::make_pair(makeSymbol(name), refEntity()));
+        m_linkprops[std::make_pair(refObject(left), std::make_pair(refObject(right), std::make_pair(sibling,bidi)))].push_back(std::make_pair(makeSymbol(name), refEntity()));
     }
+
+    template<typename T, typename U>
+    void registerRelation(const T& left, const U& right, const std::string& name, bool sibling = false)
+    {
+        registerRelation(dynamic_cast<const Simulator::Object&>(left), dynamic_cast<const Simulator::Object&>(right), name, sibling);
+    }
+
+    template<typename T, typename U>
+    void registerBidiRelation(const T& left, const U& right, const std::string& name, bool sibling = false)
+    {
+        registerRelation(dynamic_cast<const Simulator::Object&>(left), dynamic_cast<const Simulator::Object&>(right), name, sibling, true);
+    }
+
+    // object-object relations with tags
 
     template<typename T>
-    void registerRelation(const Simulator::Object& left, const Simulator::Object& right, const std::string& name, const T& value)
+    void registerTaggedRelation(const Simulator::Object& left, const Simulator::Object& right, const std::string& name, const T& value, bool sibling = false, bool bidi = false)
     {
-        m_linkprops[std::make_pair(refObject(left), refObject(right))].push_back(std::make_pair(makeSymbol(name), refEntity(value)));
-    }
-
-    template<typename T, typename U>
-    void registerRelation(const T& left, const U& right, const std::string& name)
-    {
-        registerRelation(dynamic_cast<const Simulator::Object&>(left), dynamic_cast<const Simulator::Object&>(right), name);
+        m_linkprops[std::make_pair(refObject(left), std::make_pair(refObject(right), std::make_pair(sibling, bidi)))].push_back(std::make_pair(makeSymbol(name), refEntity(value)));
     }
 
     template<typename T, typename U, typename V>
-    void registerRelation(const T& left, const U& right, const std::string& name, const V& value)
+    void registerTaggedRelation(const T& left, const U& right, const std::string& name, const V& value, bool sibling = false)
     {
-        registerRelation(dynamic_cast<const Simulator::Object&>(left), dynamic_cast<const Simulator::Object&>(right), name, value);
-    }
-
-
-    template<typename T, typename U>
-    void registerBidiRelation(const T& left, const U& right, const std::string& name)
-    {
-        registerRelation(dynamic_cast<const Simulator::Object&>(left), dynamic_cast<const Simulator::Object&>(right), name);
-        registerRelation(dynamic_cast<const Simulator::Object&>(right), dynamic_cast<const Simulator::Object&>(left), name);
+        registerTaggedRelation(dynamic_cast<const Simulator::Object&>(left), dynamic_cast<const Simulator::Object&>(right), name, value, sibling);
     }
 
     template<typename T, typename U, typename V>
-    void registerBidiRelation(const T& left, const U& right, const std::string& name, const V& value)
+    void registerTaggedBidiRelation(const T& left, const U& right, const std::string& name, const V& value, bool sibling = false)
     {
-        registerRelation(dynamic_cast<const Simulator::Object&>(left), dynamic_cast<const Simulator::Object&>(right), name, value);
-        registerRelation(dynamic_cast<const Simulator::Object&>(right), dynamic_cast<const Simulator::Object&>(left), name, value);
+        registerTaggedRelation(dynamic_cast<const Simulator::Object&>(left), dynamic_cast<const Simulator::Object&>(right), name, value, sibling, true);
     }
 
 
@@ -271,9 +272,9 @@ public:
 
 
 template<>
-inline void ComponentModelRegistry::registerRelation<Simulator::Object>(const Simulator::Object& left, const Simulator::Object& right, const std::string& name, const Simulator::Object& value)
+inline void ComponentModelRegistry::registerTaggedRelation<Simulator::Object>(const Simulator::Object& left, const Simulator::Object& right, const std::string& name, const Simulator::Object& value, bool sibling, bool bidi)
 {
-    m_linkprops[std::make_pair(refObject(left), refObject(right))].push_back(std::make_pair(makeSymbol(name), refEntity(refObject(value))));
+    m_linkprops[std::make_pair(refObject(left), std::make_pair(refObject(right), std::make_pair(sibling, bidi)))].push_back(std::make_pair(makeSymbol(name), refEntity(refObject(value))));
 }
 
 
