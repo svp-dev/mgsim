@@ -491,7 +491,7 @@ ZLCOMA::RootDirectory::RootDirectory(const std::string& name, ZLCOMA& parent, Cl
     m_memory->SetClient(*this, sts, m_responses * m_memready);
     
     p_Requests.SetStorageTraces(sts ^ m_responses);
-    p_Incoming.SetStorageTraces((GetOutgoingTrace() * opt(m_requests)) ^ m_requests);
+    p_Incoming.SetStorageTraces((GetOutgoingTrace() * opt(m_requests)) ^ opt(m_requests));
     p_Responses.SetStorageTraces(GetOutgoingTrace());
 }
 
