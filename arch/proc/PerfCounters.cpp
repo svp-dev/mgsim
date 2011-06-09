@@ -182,14 +182,15 @@ Result Processor::PerfCounters::Read(MemAddr address, void *data, MemSize size, 
                  (unsigned)address, (unsigned)fid, (unsigned)tid, 
                  (unsigned long long)value, (unsigned long long)value);
 
-
-    if (address == 0)
-    {
-        ++m_nCycleSampleOps;
-    }
-    else
-    {
-        ++m_nOtherSampleOps;
+    COMMIT{
+        if (address == 0)
+        {
+            ++m_nCycleSampleOps;
+        }
+        else
+        {
+            ++m_nOtherSampleOps;
+        }
     }
 
     SerializeRegister(RT_INTEGER, value, data, sizeof(Integer));
