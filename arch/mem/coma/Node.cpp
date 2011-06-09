@@ -130,7 +130,7 @@ Result COMA::Node::DoForward()
     
     if (!m_next->m_incoming.Push( m_outgoing.Front() ))
     {
-        DeadlockWrite("Unable to send request to next node");
+        DeadlockWrite("Unable to send request to next node (%s)", m_next->GetFQN().c_str());
         return FAILED;
     }
     m_outgoing.Pop();
