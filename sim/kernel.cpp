@@ -120,15 +120,8 @@ void Object::OutputWrite_(const char* msg, ...) const
 void Object::DeadlockWrite_(const char* msg, ...) const
 {
     va_list args;
-        
-    if (!m_kernel.m_debugging) {
-        const Process* process = m_kernel.GetActiveProcess(); 
-        cerr << endl << process->GetName() << ":" << endl;
-        m_kernel.m_debugging = true;
-    }
 
-    string name = GetFQN();
-    cerr << "[" << right << dec << setfill('0') << setw(8) << m_kernel.GetCycleNo() << ":" << name << "] ";
+    cerr << "[" << right << dec << setfill('0') << setw(8) << m_kernel.GetCycleNo() << ':' << GetFQN() << "] (" << m_kernel.GetActiveProcess()->GetName() << ") ";
 
     va_start(args, msg);
     vfprintf(stderr, msg, args);
@@ -267,7 +260,6 @@ RunState Kernel::Step(CycleNo cycles)
                 for (Process* process = clock->m_activeProcesses; process != NULL; process = process->m_next)
                 {
                     m_process   = process;
-                    m_debugging = false; // Will be used by DeadlockWrite() for process-seperating newlines
                     
                     // This process begins the cycle
                     // This is a purely administrative function and has no simulation effect.
@@ -312,7 +304,6 @@ RunState Kernel::Step(CycleNo cycles)
                     {
                         m_process   = process;
                         m_phase     = PHASE_CHECK;
-                        m_debugging = false; // Will be used by DeadlockWrite() for process-seperating newlines
                 
                         Result result = process->m_delegate();
                         if (result == SUCCESS)

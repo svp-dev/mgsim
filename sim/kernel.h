@@ -243,7 +243,6 @@ private:
     CyclePhase          m_phase;        ///< Current sub-cycle phase of the simulation.
     unsigned long long  m_master_freq;  ///< Master frequency
     Process*            m_process;      ///< The currently executing process.
-    bool                m_debugging;    ///< Are we in a debug trace?
     std::vector<Clock*> m_clocks;       ///< All clocks in the system.
     Clock*              m_activeClocks; ///< The clocks that have active components
 
