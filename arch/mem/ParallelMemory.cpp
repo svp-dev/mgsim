@@ -161,7 +161,7 @@ MCID ParallelMemory::RegisterClient(IMemoryCallback& callback, Process& process,
     }
 #endif
 
-    m_registry.registerRelation(callback, *this, "mem");
+    m_registry.registerRelation(callback.GetMemoryPeer(), *this, "mem");
 
     MCID id = m_ports.size();
 

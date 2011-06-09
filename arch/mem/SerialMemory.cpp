@@ -19,7 +19,7 @@ MCID SerialMemory::RegisterClient(IMemoryCallback& callback, Process& process, S
     m_storages = m_storages ^ storage;
     p_Requests.SetStorageTraces(m_storages);
     
-    m_registry.registerRelation(callback, *this, "mem");
+    m_registry.registerRelation(callback.GetMemoryPeer(), *this, "mem");
     
     return m_clients.size() - 1;
 }

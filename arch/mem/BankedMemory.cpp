@@ -284,7 +284,7 @@ MCID BankedMemory::RegisterClient(IMemoryCallback& callback, Process& process, S
         m_banks[i]->RegisterClient(*client.service, process, traces, opt(m_storages));
     }
 
-    m_registry.registerRelation(callback, *this, "mem");
+    m_registry.registerRelation(callback.GetMemoryPeer(), *this, "mem");
 
     return id;
 }
