@@ -158,8 +158,8 @@ vector<string> InputConfigRegistry::getWordList(const Object& obj, const string&
 }
 
 
-InputConfigRegistry::InputConfigRegistry(const string& filename, const ConfigMap& overrides)
-    : m_overrides(overrides)
+InputConfigRegistry::InputConfigRegistry(const string& filename, const ConfigMap& overrides, const vector<string>& argv)
+    : m_overrides(overrides), m_argv(argv)
 {
     enum State
     {

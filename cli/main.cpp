@@ -42,6 +42,7 @@ struct ProgramConfig
     string                           m_topofile;
     bool                             m_dumpnodeprops;
     bool                             m_dumpedgeprops;
+    vector<string>                   m_argv;
 };
 
 static void ParseArguments(int argc, const char ** argv, ProgramConfig& config)
@@ -58,13 +59,19 @@ static void ParseArguments(int argc, const char ** argv, ProgramConfig& config)
     config.m_dumpnodeprops = true;
     config.m_dumpedgeprops = true;
 
+    bool ignore_args = false;
+
     for (int i = 1; i < argc; ++i)
     {
         const string arg = argv[i];
-        if (arg[0] != '-')
+        if (ignore_args || arg[0] != '-')
         {
-            cerr << "Warning: converting extra argument to -o *:ROMFileName=" << arg << endl;
-            config.m_overrides.push_back(make_pair("*:ROMFileName", arg));
+            if (config.m_argv.empty())
+            {
+                cerr << "Warning: converting first extra argument to -o *:ROMFileName=" << arg << endl;
+                config.m_overrides.push_back(make_pair("*:ROMFileName", arg));
+            }
+            config.m_argv.push_back(arg);
         }
         else if (arg == "-c" || arg == "--config")      config.m_configFile    = argv[++i];
         else if (arg == "-i" || arg == "--interactive") config.m_interactive   = true;
@@ -161,6 +168,16 @@ static void ParseArguments(int argc, const char ** argv, ProgramConfig& config)
             val.m_state = RST_FULL;
             config.m_regs.push_back(make_pair(addr, val));
         }
+        else if (arg == "--")
+        {
+            // everything after "--" should be treated as extra (program)
+            // eg to allow paths starting with "-".
+            ignore_args = true;
+        }
+        else
+        {
+            throw runtime_error("Error: unknown command-line argument: " + arg);
+        }
     }
 
     if (config.m_quiet)
@@ -200,7 +217,7 @@ int main(int argc, char** argv)
         }
 
         // Read configuration
-        Config configfile(config.m_configFile, config.m_overrides);
+        Config configfile(config.m_configFile, config.m_overrides, config.m_argv);
         
         // Create the system
         MGSystem sys(configfile, 

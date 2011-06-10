@@ -26,9 +26,10 @@ public:
 private:
     typedef std::map<std::string,std::pair<std::string,std::string> > ConfigCache;
     
-    ConfigMap         m_data;
-    const ConfigMap&  m_overrides;
-    ConfigCache       m_cache;
+    ConfigMap                m_data;
+    const ConfigMap&         m_overrides;
+    ConfigCache              m_cache;
+    std::vector<std::string> m_argv;
 
     template<typename T>
     static T convertToNumber(const std::string& name, const std::string& value)
@@ -84,6 +85,8 @@ private:
 
 public:
 
+    const std::vector<std::string>& GetArgumentVector() const { return m_argv; }
+
     template <typename T>
     T getValueOrDefault(const std::string& name, const T& def)
     {
@@ -132,7 +135,7 @@ public:
     void dumpConfiguration(std::ostream& os, const std::string& cf) const;
     std::vector<std::pair<std::string, std::string> > getRawConfiguration() const;
 
-    InputConfigRegistry(const std::string& filename, const ConfigMap& overrides);
+    InputConfigRegistry(const std::string& filename, const ConfigMap& overrides, const std::vector<std::string>& argv);
 
 };
 
@@ -284,8 +287,8 @@ inline void ComponentModelRegistry::registerTaggedRelation<Simulator::Object>(co
 class Config : public InputConfigRegistry, public ComponentModelRegistry
 {
 public:
-    Config(const std::string& filename, const ConfigMap& overrides)
-        : InputConfigRegistry(filename, overrides)
+    Config(const std::string& filename, const ConfigMap& overrides, const std::vector<std::string>& argv)
+        : InputConfigRegistry(filename, overrides, argv)
     { }
 
 

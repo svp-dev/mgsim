@@ -56,6 +56,7 @@ namespace Simulator
         size_t             m_currentOffset;
 
         void LoadConfig(Config& config);
+        void LoadArgumentVector(Config& config);
         void LoadFile(const std::string& filename);
         void PrepareRanges();
 

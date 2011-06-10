@@ -28,6 +28,35 @@ namespace Simulator
         }
     }
 
+    void ActiveROM::LoadArgumentVector(Config& config)
+    {
+        vector<char> argdata;
+        const vector<string>& argv = config.GetArgumentVector();
+        for (size_t i = 0; i < argv.size(); ++i)
+        {
+            argdata.insert(argdata.end(), argv[i].begin(), argv[i].end());
+            argdata.push_back('\0');
+        }
+        argdata.push_back('\0');
+
+        size_t romsize = argdata.size() + 3 * sizeof(uint32_t) + m_lineSize;
+
+        m_numLines = romsize / m_lineSize;
+        m_numLines = (romsize % m_lineSize == 0) ? m_numLines : (m_numLines + 1);
+        
+        m_data = new char [m_numLines * m_lineSize];
+
+        SerializeRegister(RT_INTEGER, 0x56475241, m_data, sizeof(uint32_t));
+        SerializeRegister(RT_INTEGER, argv.size(), m_data + 1 * sizeof(uint32_t), sizeof(uint32_t));
+        SerializeRegister(RT_INTEGER, argdata.size(), m_data + 2 * sizeof(uint32_t), sizeof(uint32_t));
+        memcpy(m_data + 3 * sizeof(uint32_t), &argdata[0], argdata.size());
+
+        if (m_verboseload)
+        {
+            clog << GetName() << ": argv data: " << dec << romsize << " bytes generated" << endl;
+        }
+    }
+
     void ActiveROM::LoadFile(const string& fname)
     {
         ifstream is;
@@ -151,6 +180,10 @@ namespace Simulator
         else if (source == "CONFIG")
         {
             LoadConfig(m_config);
+        }
+        else if (source == "ARGV")
+        {
+            LoadArgumentVector(m_config);
         }
         else
         {
