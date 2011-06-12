@@ -66,7 +66,7 @@ static void ParseArguments(int argc, const char ** argv, ProgramConfig& config)
         const string arg = argv[i];
         if (ignore_args || arg[0] != '-')
         {
-            if (config.m_argv.empty())
+            if (!ignore_args && config.m_argv.empty())
             {
                 cerr << "Warning: converting first extra argument to -o *:ROMFileName=" << arg << endl;
                 config.m_overrides.push_back(make_pair("*:ROMFileName", arg));
