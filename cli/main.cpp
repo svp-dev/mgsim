@@ -112,7 +112,11 @@ static void ParseArguments(int argc, const char ** argv, ProgramConfig& config)
                 throw runtime_error("Error: malformed configuration override syntax: " + arg);
             }
             string name = arg.substr(0, eq);
-            config.m_overrides.push_back(make_pair(name, arg.substr(eq + 1)));
+
+            // push overrides in inverse order, so that the latest
+            // specified in the command line has higher priority in
+            // matching.
+            config.m_overrides.insert(config.m_overrides.begin(), make_pair(name, arg.substr(eq + 1)));
         }
         else if (arg[1] == 'L')  
         { 
