@@ -961,7 +961,8 @@ Processor::Pipeline::PipeAction Processor::Pipeline::ExecuteStage::ExecuteInstru
                 {
                     COMMIT
                     {
-                        DebugFlowWrite("Branch from %s to %s",
+                        DebugFlowWrite("F%u/T%u Branch from %s to %s",
+                                       (unsigned)m_input.fid, (unsigned)m_input.tid,
                                        GetKernel()->GetSymbolTable()[m_output.pc].c_str(),
                                        GetKernel()->GetSymbolTable()[target].c_str());
                         m_output.pc   = target;
@@ -986,7 +987,8 @@ Processor::Pipeline::PipeAction Processor::Pipeline::ExecuteStage::ExecuteInstru
             // Unconditional Jumps
             COMMIT
             {
-                DebugFlowWrite("Branch from %s to %s",
+                DebugFlowWrite("F%u/T%u Branch from %s to %s",
+                               (unsigned)m_input.fid, (unsigned)m_input.tid,                               
                                GetKernel()->GetSymbolTable()[m_output.pc].c_str(),
                                GetKernel()->GetSymbolTable()[target].c_str());
 

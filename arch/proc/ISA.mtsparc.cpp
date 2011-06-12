@@ -676,7 +676,8 @@ Processor::Pipeline::PipeAction Processor::Pipeline::ExecuteStage::ExecuteInstru
             m_output.Rcv.m_integer = m_input.pc;
             m_output.Rcv.m_state   = RST_FULL;
             m_output.Rcv.m_size    = sizeof(Integer);
-            DebugFlowWrite("Call from %s to %s",
+            DebugFlowWrite("F%u/T%u Call from %s to %s",
+                           (unsigned)m_input.fid, (unsigned)m_input.tid,                               
                            GetKernel()->GetSymbolTable()[m_input.pc].c_str(),
                            GetKernel()->GetSymbolTable()[m_output.pc].c_str());
         }
@@ -712,7 +713,8 @@ Processor::Pipeline::PipeAction Processor::Pipeline::ExecuteStage::ExecuteInstru
                 // Branch was taken; note that we don't annul
                 COMMIT {
                     m_output.pc = m_input.pc + m_input.displacement * sizeof(Instruction);
-                    DebugFlowWrite("Branch from %s to %s",
+                    DebugFlowWrite("F%u/T%u Branch from %s to %s",
+                                   (unsigned)m_input.fid, (unsigned)m_input.tid,                               
                                    GetKernel()->GetSymbolTable()[m_input.pc].c_str(),
                                    GetKernel()->GetSymbolTable()[m_output.pc].c_str());
                 }
@@ -1016,7 +1018,8 @@ Processor::Pipeline::PipeAction Processor::Pipeline::ExecuteStage::ExecuteInstru
                 m_output.pc   = target;
                 m_output.Rcv.m_integer = m_input.pc;
                 m_output.Rcv.m_state   = RST_FULL;
-                DebugFlowWrite("Long jump from %s to %s",
+                DebugFlowWrite("F%u/T%u Long jump from %s to %s",
+                               (unsigned)m_input.fid, (unsigned)m_input.tid,                               
                                GetKernel()->GetSymbolTable()[m_input.pc].c_str(),
                                GetKernel()->GetSymbolTable()[m_output.pc].c_str());
             }

@@ -201,7 +201,8 @@ Processor::Pipeline::PipeAction Processor::Pipeline::ExecuteStage::ExecCreate(co
         m_output.Rcv = MAKE_PENDING_PIPEVALUE(m_input.RcSize);
     }
     
-    DebugFlowWrite("Create from %s to %s (CPU%zd/F%zd)",
+    DebugFlowWrite("F%u/T%u Create from %s to %s (CPU%zd/F%zd)",
+                   (unsigned)m_input.fid, (unsigned)m_input.tid,                               
                    GetKernel()->GetSymbolTable()[m_input.pc].c_str(),
                    GetKernel()->GetSymbolTable()[address].c_str(), fid.pid, fid.lfid);
     
@@ -258,7 +259,8 @@ bool Processor::Pipeline::ExecuteStage::ExecSync(const FID& fid)
             
             m_output.Rcv = MAKE_PENDING_PIPEVALUE(m_input.RcSize);            
         }
-        DebugFlowWrite("Sync from %s to CPU%zd/F%zd",
+        DebugFlowWrite("F%u/T%u Sync from %s to CPU%zd/F%zd",
+                       (unsigned)m_input.fid, (unsigned)m_input.tid,                               
                        GetKernel()->GetSymbolTable()[m_input.pc].c_str(), fid.pid, fid.lfid);
     }
 
@@ -279,7 +281,8 @@ bool Processor::Pipeline::ExecuteStage::ExecDetach(const FID& fid)
             m_output.Rrc.type = RemoteMessage::MSG_DETACH;
             m_output.Rrc.detach.fid = fid;
         }
-        DebugFlowWrite("Detach from %s to CPU%zd/F%zd",
+        DebugFlowWrite("F%u/T%u Detach from %s to CPU%zd/F%zd",
+                       (unsigned)m_input.fid, (unsigned)m_input.tid,                               
                        GetKernel()->GetSymbolTable()[m_input.pc].c_str(), fid.pid, fid.lfid);
     }
 
