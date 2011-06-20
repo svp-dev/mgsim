@@ -74,6 +74,7 @@ private:
     bool Read(IODeviceID dev, MemAddr address, MemSize size, const RegAddr& writeback);
     bool Write(IODeviceID dev, MemAddr address, const IOData& data);
     bool WaitForNotification(IONotificationChannelID dev, const RegAddr& writeback);
+    bool ConfigureNotificationChannel(IONotificationChannelID dev, Integer mode);
     Processor& GetProcessor() const;
 
 public:

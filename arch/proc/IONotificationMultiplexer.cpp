@@ -13,6 +13,7 @@ Processor::IONotificationMultiplexer::IONotificationMultiplexer(const std::strin
       p_IncomingNotifications(*this, "received-notifications", delegate::create<IONotificationMultiplexer, &Processor::IONotificationMultiplexer::DoReceivedNotifications>(*this))
 {
     m_writebacks.resize(numChannels, 0);
+    m_mask.resize(numChannels, false);
     m_interrupts.resize(numChannels, 0);
     m_notifications.resize(numChannels, 0);
 
@@ -52,6 +53,18 @@ Processor::IONotificationMultiplexer::~IONotificationMultiplexer()
     }
 }
 
+bool Processor::IONotificationMultiplexer::ConfigureChannel(IONotificationChannelID which, Integer mode)
+{
+    assert(which < m_writebacks.size());
+
+    m_mask[which] = !!mode;
+
+    DebugIOWrite("Configuring channel %u to state: %s", (unsigned)which, m_mask[which] ? "enabled" : "disabled");
+
+    return true;
+}
+
+
 bool Processor::IONotificationMultiplexer::SetWriteBackAddress(IONotificationChannelID which, const RegAddr& addr)
 {
     assert(which < m_writebacks.size());
@@ -70,15 +83,33 @@ bool Processor::IONotificationMultiplexer::SetWriteBackAddress(IONotificationCha
 bool Processor::IONotificationMultiplexer::OnInterruptRequestReceived(IONotificationChannelID from)
 {
     assert(from < m_interrupts.size());
-    
-    return m_interrupts[from]->Set();
+
+    if (!m_mask[from])
+    {
+        DebugIOWrite("Ignoring interrupt for disabled channel %u", (unsigned)from);
+        return true;
+    }
+    else
+    {
+        DebugIOWrite("Activating interrupt status for channel %u", (unsigned)from);
+        return m_interrupts[from]->Set();
+    }
 }
 
 bool Processor::IONotificationMultiplexer::OnNotificationReceived(IONotificationChannelID from, Integer tag)
 {
     assert(from < m_notifications.size());
 
-    return m_notifications[from]->Push(tag);
+    if (!m_mask[from])
+    {
+        DebugIOWrite("Ignoring notification for disabled channel %u (tag %#016llx)", (unsigned)from, (unsigned long long)tag);
+        return true;
+    }
+    else
+    {
+        DebugIOWrite("Queuing notification for channel %u (tag %#016llx)", (unsigned)from, (unsigned long long)tag);
+        return m_notifications[from]->Push(tag);
+    }
 }
 
 
@@ -102,6 +133,13 @@ Result Processor::IONotificationMultiplexer::DoReceivedNotifications()
                 break;
             }
         }
+        else if (!m_mask[i] && !m_writebacks[i]->Empty())
+        {
+            // channel was disabled + no pending interrupt/notification + still a listener active,
+            // so we need to release the listener otherwise it will deadlock.
+            notification_ready = true;
+            break;
+        }
     }
     if (!notification_ready)
     {
@@ -115,6 +153,13 @@ Result Processor::IONotificationMultiplexer::DoReceivedNotifications()
                     notification_ready = true;
                     break;
                 }
+            }
+            else if (!m_mask[i] && !m_writebacks[i]->Empty())
+            {
+                // channel was disabled + no pending interrupt/notification + still a listener active,
+                // so we need to release the listener otherwise it will deadlock.
+                notification_ready = true;
+                break;
             }
         }
     }
@@ -166,14 +211,22 @@ Result Processor::IONotificationMultiplexer::DoReceivedNotifications()
     LFID fid = regvalue.m_memory.fid;
     regvalue.m_state = RST_FULL;
     Integer value;
+    const char * type;
     if (m_interrupts[i]->IsSet())
     {
         // Interrupts have priority over notifications
         value = 0;
+        type = "interrupt";
+    }
+    else if (!m_notifications[i]->Empty())
+    {
+        value = m_notifications[i]->Front();
+        type = "notification";
     }
     else
     {
-        value = m_notifications[i]->Front();
+        value = 0;
+        type = "draining disabled channel";
     }
 
     switch (addr.type) {
@@ -202,7 +255,7 @@ Result Processor::IONotificationMultiplexer::DoReceivedNotifications()
     {
         m_interrupts[i]->Clear();
     }
-    else
+    else if (!m_notifications[i]->Empty())
     {
         m_notifications[i]->Pop();
     }

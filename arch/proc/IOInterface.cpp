@@ -72,12 +72,23 @@ namespace Simulator
         return true;
     }
 
-    bool Processor::IOInterface::WaitForNotification(IODeviceID dev, const RegAddr& writeback)
+    bool Processor::IOInterface::WaitForNotification(IONotificationChannelID dev, const RegAddr& writeback)
     {
         if (!m_nmux.SetWriteBackAddress(dev, writeback))
         {
             DeadlockWrite("Unable to set the writeback address %s for wait on channel %u",
                           writeback.str().c_str(), (unsigned)dev);
+            return false;
+        }
+        return true;
+    }
+
+    bool Processor::IOInterface::ConfigureNotificationChannel(IONotificationChannelID dev, Integer mode)
+    {
+        if (!m_nmux.ConfigureChannel(dev, mode))
+        {
+            DeadlockWrite("Unable to configure channel %u with mode %u",
+                          (unsigned)dev, (unsigned)mode);
             return false;
         }
         return true;
@@ -252,7 +263,24 @@ namespace Simulator
 
     Result Processor::IOInterface::PNCInterface::Write(MemAddr address, const void* data, MemSize size, LFID fid, TID tid)
     { 
-        return FAILED;
+        if (address % sizeof(Integer) != 0 || size != sizeof(Integer))
+        {
+            throw exceptf<SimulationException>("Invalid unaligned PNC read: %#016llx (%u)", (unsigned long long)address, (unsigned)size);
+        }
+
+        IONotificationChannelID which = address / sizeof(Integer);
+        if (which > GetInterface().m_numChannels)
+        {
+            throw exceptf<SimulationException>("Invalid wait to non-existent notification/interrupt channel %u by F%u/T%u", (unsigned)which, (unsigned)fid, (unsigned)tid);
+        }
+
+        Integer value = UnserializeRegister(RT_INTEGER, data, size);
+
+        if (!GetInterface().ConfigureNotificationChannel(which, value))
+        {
+            return FAILED;
+        }
+        return SUCCESS;
     }
 
     MemAddr Processor::IOInterface::PNCInterface::GetDeviceBaseAddress(IODeviceID dev) const

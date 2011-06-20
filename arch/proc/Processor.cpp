@@ -75,7 +75,7 @@ Processor::Processor(const std::string& name, Object& parent, Clock& clock, PID 
         MMIOComponent& async_if = m_io_if->GetAsyncIOInterface();
         async_if.Connect(m_mmio, IOMatchUnit::READWRITE, config);
         MMIOComponent& pnc_if = m_io_if->GetPNCInterface();
-        pnc_if.Connect(m_mmio, IOMatchUnit::READ, config);
+        pnc_if.Connect(m_mmio, IOMatchUnit::READWRITE, config);
 
         config.registerBidiRelation(*iobus, *this, "client", (uint32_t)devid);
     }

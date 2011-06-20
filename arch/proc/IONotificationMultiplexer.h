@@ -19,6 +19,7 @@ private:
     StorageTraceSet GetNotificationTraces() const;
 
 public:
+    std::vector<bool>               m_mask;
     std::vector<SingleFlag*>        m_interrupts;
     std::vector<Buffer<Integer>*>   m_notifications;
 
@@ -31,6 +32,7 @@ public:
 
     // sent by device select upon an I/O read from the processor
     bool SetWriteBackAddress(IONotificationChannelID which, const RegAddr& addr);
+    bool ConfigureChannel(IONotificationChannelID which, Integer mode);
 
     // triggered by the IOBusInterface
     bool OnInterruptRequestReceived(IONotificationChannelID which);
