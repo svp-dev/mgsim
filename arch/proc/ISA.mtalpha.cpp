@@ -1,7 +1,6 @@
 #include "Processor.h"
 #include "FPU.h"
 #include "symtable.h"
-#include "../../programs/mgsim.h"
 #include <cassert>
 #include <sstream>
 #include <iomanip>
@@ -19,7 +18,6 @@ static const int A_MEMDISP_SHIFT  = 0;
 static const int A_BRADISP_SHIFT  = 0;
 static const int A_PALCODE_SHIFT  = 0;
 static const int A_LITERAL_SHIFT  = 13;
-static const int A_JUMP_SHIFT     = 5;
 
 static const uint32_t A_OPCODE_MASK   = 0x3F;
 static const uint32_t A_REG_MASK      = 0x1F;
@@ -29,7 +27,6 @@ static const uint32_t A_PALCODE_MASK  = 0x3FFFFFF;
 static const uint32_t A_INT_FUNC_MASK = 0x7F;
 static const uint32_t A_FLT_FUNC_MASK = 0x7FF;
 static const uint32_t A_LITERAL_MASK  = 0xFF;
-static const uint32_t A_JUMP_MASK     = 0x7;
 
 static void ThrowIllegalInstructionException(Object& obj, MemAddr pc)
 {
@@ -84,7 +81,6 @@ Processor::Pipeline::InstrFormat Processor::Pipeline::DecodeStage::GetInstrForma
                 switch (opcode & 0xF) {
                     case 0x0: return IFORMAT_PAL;
                     case 0x1: return IFORMAT_OP;
-                    case 0x2:
                     case 0x3: return IFORMAT_JUMP;
                     case 0x4: return IFORMAT_BRA;
                     case 0x5: return IFORMAT_FPOP;
@@ -197,11 +193,11 @@ void Processor::Pipeline::DecodeStage::DecodeInstruction(const Instruction& inst
             // Microthreading doesn't need branch prediction, so we ignore the hints.
 
             // Create (Indirect) also reads Ra
-            uint32_t disp         = (instr >> A_JUMP_SHIFT) & A_JUMP_MASK;
-            m_output.function     = (uint16_t)disp;            
-            m_output.Ra           = MAKE_REGADDR(RT_INTEGER, Ra);
-            m_output.Rb           = MAKE_REGADDR(RT_INTEGER, Rb);
-            m_output.Rc           = MAKE_REGADDR(RT_INTEGER, Ra);
+            bool crei = (m_output.opcode == A_OP_CREATE_I);
+
+            m_output.Ra = MAKE_REGADDR(RT_INTEGER, crei ? Ra : 31);
+            m_output.Rb = MAKE_REGADDR(RT_INTEGER, Rb);
+            m_output.Rc = MAKE_REGADDR(RT_INTEGER, Ra);
             break;
         }
 
@@ -982,58 +978,11 @@ Processor::Pipeline::PipeAction Processor::Pipeline::ExecuteStage::ExecuteInstru
         {
             MemAddr next   = m_input.pc + sizeof(Instruction);
             MemAddr target = Rbv & -(MemAddr)sizeof(Instruction);
-            switch (m_input.opcode)
+            if (m_input.opcode == A_OP_CREATE_I)
             {
-                case A_OP_CREATE_B:
-                {
-                    // Bundle create
-                    
-                    RegIndex completion =  INVALID_REG_INDEX;
-                    
-                    switch(m_input.function)
-                    {
-                        
-                        case A_CREATE_B_IS:
-                        {
-                            completion   = m_input.Rc.index;
-                            m_output.Rcv = MAKE_PENDING_PIPEVALUE(m_input.RcSize);
-                        }
-                        case A_CREATE_B_I:
-                        {
-                            target += m_parent.GetProcessor().ReadASR(ASR_SYSCALL_BASE);
-                            break;
-                        }
-                        case A_CREATE_B_AS:                        
-                        {
-                            completion   = m_input.Rc.index;
-                            m_output.Rcv = MAKE_PENDING_PIPEVALUE(m_input.RcSize);
-                            break;
-                        }
-                        
-                        default: break;
-                    }          
-                    
-                    if (!m_allocator.QueueBundle(target,m_input.Rav.m_integer.get(m_input.Rav.m_size), completion))
-                    {
-                        DeadlockWrite("Unable to send bundle create to allocator");
-                        return PIPE_STALL;
-                    }
-                    return PIPE_CONTINUE;
-                    break;
-                }
-                
-                case A_OP_CREATE_I:
-                {     
-                    // Indirect create
-                    target += m_parent.GetProcessor().ReadASR(ASR_SYSCALL_BASE);
-                    return ExecCreate(m_parent.GetProcessor().UnpackFID(Rav), target, m_input.Rc.index); 
-                    break;
-                }
-                     
-                default: break;
-                  
+                // Indirect create
+                return ExecCreate(m_parent.GetProcessor().UnpackFID(Rav), target, m_input.Rc.index);
             }
-                        
 
             // Unconditional Jumps
             COMMIT

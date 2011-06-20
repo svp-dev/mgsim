@@ -24,7 +24,6 @@ enum {
 
 // uThread Instructions
     A_OP_UTHREAD    = 0x01,    // Generic instructions (Operate format)
-    A_OP_CREATE_B   = 0x02,    // Create Bundle   (Memory format)
     A_OP_CREATE_I   = 0x03,    // Create Indirect (Memory format)
     A_OP_CREATE_D   = 0x04,    // Create Direct (Branch format)
     A_OP_UTHREADF   = 0x05,    // FP uThread instructions (FP Operate format)
@@ -141,16 +140,6 @@ enum {
     A_UTHREAD_GETCID     = 0x1A,
     A_UTHREAD_GETASR     = 0x1B,
     A_UTHREAD_GETAPR     = 0x1C,
-};
-
-//UTHREAD BUNDLE CREATE
-enum {
-    
-	 A_CREATE_B_A       = 0x01,    //BR Format
-	 A_CREATE_B_AS      = 0x02,    
-	 A_CREATE_B_I       = 0x03,    
-	 A_CREATE_B_IS      = 0x04,    
-     
 };
 
 // UTHREADF Instructions

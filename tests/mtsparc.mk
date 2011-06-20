@@ -22,11 +22,7 @@ MTSPARC_TEST_SOURCES = \
     mtsparc/regression/delegation_flood.s \
     mtsparc/regression/self_exclusive_delegate.s \
     mtsparc/regression/sparse_globals.s \
-    mtsparc/regression/multi_shareds.s \
-    mtsparc/bundle/ceb_a.s \
-	mtsparc/bundle/ceb_as.s \
-	mtsparc/bundle/ceb_i.s \
-	mtsparc/bundle/ceb_is.s 
+    mtsparc/regression/multi_shareds.s
 
 
 if ENABLE_MTSPARC_TESTS
