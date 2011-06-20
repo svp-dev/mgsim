@@ -203,6 +203,11 @@ SerialMemory::SerialMemory(const std::string& name, Object& parent, Clock& clock
     
     m_storages = StorageTraceSet(StorageTrace());   // Request handler is waiting for completion
     p_Requests.SetStorageTraces(m_storages);
+
+    RegisterSampleVariableInObject(m_nreads, SVC_CUMULATIVE);
+    RegisterSampleVariableInObject(m_nread_bytes, SVC_CUMULATIVE);
+    RegisterSampleVariableInObject(m_nwrites, SVC_CUMULATIVE);
+    RegisterSampleVariableInObject(m_nwrite_bytes, SVC_CUMULATIVE);
 }
 
 void SerialMemory::Cmd_Info(ostream& out, const vector<string>& arguments) const

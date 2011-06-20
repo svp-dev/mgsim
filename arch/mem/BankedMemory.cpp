@@ -426,6 +426,11 @@ BankedMemory::BankedMemory(const std::string& name, Object& parent, Clock& clock
         config.registerObject(*m_banks[i], "bank");
         config.registerRelation(*this, *m_banks[i], "bank");
     }
+
+    RegisterSampleVariableInObject(m_nreads, SVC_CUMULATIVE);
+    RegisterSampleVariableInObject(m_nread_bytes, SVC_CUMULATIVE);
+    RegisterSampleVariableInObject(m_nwrites, SVC_CUMULATIVE);
+    RegisterSampleVariableInObject(m_nwrite_bytes, SVC_CUMULATIVE);
 }
 
 BankedMemory::~BankedMemory()

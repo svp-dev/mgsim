@@ -281,6 +281,11 @@ ParallelMemory::ParallelMemory(const std::string& name, Object& parent, Clock& c
     m_nwrite_bytes   (0)
 {
     config.registerObject(*this, "pmem");
+
+    RegisterSampleVariableInObject(m_nreads, SVC_CUMULATIVE);
+    RegisterSampleVariableInObject(m_nread_bytes, SVC_CUMULATIVE);
+    RegisterSampleVariableInObject(m_nwrites, SVC_CUMULATIVE);
+    RegisterSampleVariableInObject(m_nwrite_bytes, SVC_CUMULATIVE);
 }
 
 ParallelMemory::~ParallelMemory()
