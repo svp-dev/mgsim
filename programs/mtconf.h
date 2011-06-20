@@ -36,9 +36,11 @@ struct mg_device_id
 
 struct mg_device_info
 {
-    size_t ndevices;
+    size_t               ndevices;
     struct mg_device_id *enumeration;
     void*               *base_addrs;
+    size_t               nchannels;
+    long                *channels;
 };
 
 extern struct mg_device_info mg_devinfo;

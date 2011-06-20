@@ -382,6 +382,14 @@ void sys_detect_devs(void)
     char *aio_base;
     mgsim_read_asr(aio_base, ASR_AIO_BASE);
 
+    /* save the notification address */
+    long *pnc_base;
+    mgsim_read_asr(pnc_base, ASR_PNC_BASE);
+
+    mg_devinfo.nchannels = n_chans;
+    mg_devinfo.channels = pnc_base;
+
+
     /* try to find the SMC */
     size_t smc_id = (io_params >> 16) & 0xff;
     void *smc = aio_base + dev_as_sz * smc_id;
