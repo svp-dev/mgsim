@@ -5,9 +5,10 @@
 namespace Simulator
 {
 
-Processor::IONotificationMultiplexer::IONotificationMultiplexer(const std::string& name, Object& parent, Clock& clock, RegisterFile& rf, size_t numChannels, Config& config)
+Processor::IONotificationMultiplexer::IONotificationMultiplexer(const std::string& name, Object& parent, Clock& clock, RegisterFile& rf, Allocator& alloc, size_t numChannels, Config& config)
     : Object(name, parent, clock),
       m_regFile(rf),
+      m_allocator(alloc),
       m_lastNotified(0),
       p_IncomingNotifications(*this, "received-notifications", delegate::create<IONotificationMultiplexer, &Processor::IONotificationMultiplexer::DoReceivedNotifications>(*this))
 {
@@ -162,6 +163,7 @@ Result Processor::IONotificationMultiplexer::DoReceivedNotifications()
     }
     
     // Now write
+    LFID fid = regvalue.m_memory.fid;
     regvalue.m_state = RST_FULL;
     Integer value;
     if (m_interrupts[i]->IsSet())
@@ -179,14 +181,20 @@ Result Processor::IONotificationMultiplexer::DoReceivedNotifications()
         case RT_FLOAT:   regvalue.m_float.integer = value; break;
     }
 
-    if (!m_regFile.WriteRegister(addr, regvalue, false))
+    if (!m_regFile.WriteRegister(addr, regvalue, true))
     {
         DeadlockWrite("Unable to write register %s", addr.str().c_str());
         return FAILED;
     }
     
-    DebugIOWrite("Completed notification of channel %zu to %s",
-                 i, addr.str().c_str());
+    if (!m_allocator.DecreaseFamilyDependency(fid, FAMDEP_OUTSTANDING_READS))
+    {
+        DeadlockWrite("Unable to decrement outstanding reads on F%u", (unsigned)fid);
+        return FAILED;
+    }
+
+    DebugIOWrite("Completed notification from channel %zu (%s) to %s",
+                 i, type, addr.str().c_str());
 
     m_writebacks[i]->Clear();
 
