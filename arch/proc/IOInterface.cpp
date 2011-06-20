@@ -76,7 +76,7 @@ namespace Simulator
     {
         if (!m_nmux.SetWriteBackAddress(dev, writeback))
         {
-            DeadlockWrite("Unable to set the writeback address %s for wait on device %u",
+            DeadlockWrite("Unable to set the writeback address %s for wait on channel %u",
                           writeback.str().c_str(), (unsigned)dev);
             return false;
         }
@@ -211,6 +211,11 @@ namespace Simulator
 
     Result Processor::IOInterface::PNCInterface::Read(MemAddr address, void* data, MemSize size, LFID fid, TID tid, const RegAddr& writeback)
     {
+        if (address % sizeof(Integer) != 0 || size != sizeof(Integer))
+        {
+            throw exceptf<SimulationException>("Invalid unaligned PNC read: %#016llx (%u)", (unsigned long long)address, (unsigned)size);
+        }
+
         IONotificationChannelID which = address / sizeof(Integer);
         if (which > GetInterface().m_numChannels)
         {
