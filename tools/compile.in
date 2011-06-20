@@ -1,0 +1,19 @@
+#! /bin/sh
+set -e
+TEST_ARCH=${1:?}
+CRTASM=${2:?}
+shift
+shift
+
+case $TEST_ARCH in
+  mtalpha)
+    SLC="@SLC@ -b mta_n"
+    ;;
+  mtsparc)
+    SLC="@SLC@ -b mtsn_n"
+    ;;
+  *)
+    echo "$0: $TEST_ARCH: unknown architecture" >&2; exit 1 ;;
+esac
+
+$SLC -ffreestanding -nostdlib "$CRTASM" "$@"

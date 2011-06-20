@@ -169,6 +169,41 @@ esac
 AM_CONDITIONAL([ENABLE_MTSPARC_TESTS], [test x$enable_mtsparc_tests = xyes])
 AM_CONDITIONAL([ENABLE_MTALPHA_TESTS], [test x$enable_mtalpha_tests = xyes])
 
+enable_compiled_tests=no
+
+AC_PATH_PROG([SLC], [slc], [no], [$prefix/bin$PATH_SEPARATOR$PATH])
+if test "x$SLC" != "x:" ; then
+   case "$target_cpu" in
+        mtalpha)
+           AC_MSG_CHECKING([whether $SLC supports -b mta_n])
+           AC_LANG_CONFTEST([AC_LANG_SOURCE([int main(void) { return 0; }])])
+           if $SLC -b mta_n -c -o conftest.o conftest.c; then
+             AC_MSG_RESULT([yes])
+             enable_compiled_tests=yes
+           else
+             AC_MSG_RESULT([no])
+             AC_MSG_WARN([borked $SLC -b mta_n. Cannot run the compiled MT-Alpha test suite.])
+           fi
+           ;;
+        mtsparc)
+           AC_MSG_CHECKING([whether $SLC supports -b mtsn_n])
+           AC_LANG_CONFTEST([AC_LANG_SOURCE([int main(void) { return 0; }])])
+           if $SLC -b mtsn_n -c -o conftest.o conftest.c; then
+              AC_MSG_RESULT([yes])
+              enable_compiled_tests=yes
+           else
+              AC_MSG_RESULT([no])
+              AC_MSG_WARN([borked $SLC -b mtsn_n. Cannot run the compiled MT-Sparc test suite.])
+           fi
+           ;;
+  esac
+else
+   AC_MSG_WARN([slc not found. Cannot run the compiled test suite.])
+fi
+
+AM_CONDITIONAL([ENABLE_C_TESTS], [test x$enable_compiled_tests = xyes])
+
+
 AC_CONFIG_LINKS([arch/proc/ISA.h:arch/proc/ISA.$target_cpu.h
                  arch/proc/ISA.cpp:arch/proc/ISA.$target_cpu.cpp])
 
@@ -181,5 +216,6 @@ AC_CONFIG_FILES([
 ])
 AC_CONFIG_FILES([tools/readtrace], [chmod +x tools/readtrace])
 AC_CONFIG_FILES([tools/aslink], [chmod +x tools/aslink])
+AC_CONFIG_FILES([tools/compile], [chmod +x tools/compile])
 
 AC_OUTPUT

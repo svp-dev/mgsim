@@ -5,12 +5,20 @@ LOG_COMPILER = \
 	`test -f ../programs/nobounds.ini || echo '$(srcdir)/'`../programs/nobounds.ini
 
 ASLINK = $(SHELL) $(top_builddir)/tools/aslink $(TEST_ARCH)
+COMPILE = $(SHELL) $(top_builddir)/tools/compile $(TEST_ARCH) \
+	   $(srcdir)/$(TEST_ARCH)/crt_simple.s $(top_srcdir)/programs/mtconf.c -DMGSIM_TEST_SUITE \
+	   -I$(top_srcdir)/programs -I$(top_builddir)/programs
 
-SUFFIXES = .s .bin .coma .zlcoma .serial .parallel .banked .randombanked
+
+SUFFIXES = .c .s .bin .coma .zlcoma .serial .parallel .banked .randombanked
 
 .s.bin:
 	$(MKDIR_P) `dirname "$@"`
 	$(ASLINK) -o $@ `test -f "$<" || echo "$(srcdir)"/`$<
+
+.c.bin:
+	$(MKDIR_P) `dirname "$@"`
+	$(COMPILE) -o $@ `test -f "$<" || echo "$(srcdir)"/`$<
 
 .bin.coma:
 	echo "$<" >"$@"
