@@ -1,0 +1,171 @@
+\documentclass[a4paper,11pt]{article}
+\usepackage[hmargin=2cm,vmargin=2.5cm]{geometry}
+\usepackage{array}
+\usepackage{ulem}
+\usepackage{pdflscape}
+\usepackage{longtable}
+\usepackage{multirow}
+\usepackage{xspace}
+
+\newcommand{\leon}{{LEON3}\xspace}
+
+\title{MT-Sparc ISA Change Suggestion}
+\author{Mike Lankamp}
+\date{\today}
+
+\setlength{\parindent}{0cm}
+\setlength{\parskip}{1em}
+
+\begin{document}
+
+\maketitle
+
+\section{Introduction}
+This document describes the proposed changes in the Microthreaded Sparc ISA in order to merge the \leon ISA \cite{AppleCoreD6.3} and the Microgrid ISA such that code fragments compiled for the former are binary compatible with the latter, in order to reduce the complexity of the compiler and toolchain.
+
+\section{\leon Update}
+Since the publishing of \cite{AppleCoreD6.3}, some changes are understood to have been made to the \leon ISA. These are listed below.
+
+\subsection{Removed instructions}
+The following instructions have become obsolete in the \leon and their opcodes are assumed available for reuse:
+
+\begin{tabular}{|>{\ttfamily}l||>{\ttfamily}l|r|}
+\hline
+{\normalfont \leon} & {\normalfont Alias} & OP$_{{\mu}T}$\\
+\hline
+\hline
+\sout{setregg \%rs1, \%rs2} & wrasr \%rs1, \%rs2, \%asr20 & 1000\\
+\sout{setregg \%rs1,  imm9} & wrasr \%rs1,  imm9, \%asr20 & 1000\\
+\sout{setregs \%rs1, \%rs2} & wrasr \%rs1, \%rs2, \%asr20 & 1001\\
+\sout{setregs \%rs1,  imm9} & wrasr \%rs1,  imm9, \%asr20 & 1001\\
+\sout{regblocksize \%rs2} & wrasr \%0, \%rs2, \%asr0 & 1101 \\
+\sout{regblocksize  imm9} & wrasr \%0,  imm9, \%asr0 & 1101 \\
+\hline
+\end{tabular}
+
+\subsection{Changed instructions}
+The following instructions have changed in syntax or semantics:
+
+\subsubsection{Break}
+\begin{tabular}{ll}
+Old:&{\tt break \%rs2} \\
+New:&{\tt break} \\
+\end{tabular}
+
+The ``break'' operation in the microgrid execution model does not need a specific family identifier; it always break its own family.
+The instruction encoding remains unchanged. The rs2 specifier in the instruction word is now changed to all zeros.
+
+\section{New ISA}
+
+Table~\ref{tab:isa-merge} lists the \leon's instructions, the proposed instructions on the Microgrid, the traditional Sparc alias and the encoding of the instruction word for the instructions. The details of the merger are as follows:
+
+\subsection{Launch}
+The \leon instruction {\tt launch} has no associated instruction on the microgrid.
+
+\subsection{Allocate}
+The {\tt allocate \%rd} instruction on the \leon allocates a free family entry on the core and writes its identifier to {\tt \%rd}.
+The {\tt allocate \%rs2, \%rd} instruction on the Microgrid allocates a free context on the place identified by the place identifier in {\tt \%rd}, using flags from {\tt \%rs2}. It writes the family identifier to {\tt \%rd}, or if no resources are available, it fails and writes 0 to {\tt \%rd}.
+
+The \leon version of the instruction can actually be aliased to the Microgrid version, where {\tt \%rs1} and {\tt \%rs2} are set to {\tt \%0}. As such, an allocate meant for the \leon will be executed on the microgrid as an allocate that allocates on the current place, with no special flags, suspending until the place is available. However, because the allocate on the microgrid uses {\tt \%rd} to read the place identifier, the compiler must insert a clear of that register before the allocate when compiling for the \leon.
+
+\subsection{Setstart, Setlimit, Setstep, Setblock}
+These \leon instructions are identical in syntax and semantics to the Microgrid version, and can be mapped without problem.
+
+\subsection{Setthread}
+The {\tt setthread \%rs1, \%rs2} instruction on the \leon sets the PC in the allocated family entry. The Microgrid has no associated instruction, but considering the behavior of {\tt create} on the \leon (see next section), this instruction can be aliased with {\tt crei \%rs2, \%rs1} on the Microgrid. Both take the same operands, but the Microgrid version writes to {\tt \%rs1} as well, to signal that the family has been created.
+
+Similarly, {\tt setthread \%rs1, imm9} can be napped to {\tt cred imm9, \%rs1} on the Microgrid, although its usefulness there is limited, considering the limit range of a 9-bit absolute address.
+
+This mapping does mean, however, that setthread (although it seems interchangable with setthread, setlimit and setblock) \emph{must} be the last instruction before {\tt create} on the \leon.
+
+\subsection{Create}
+The {\tt create \%rs2, \%rd} instruction on the \leon starts the family indicates in {\tt \%rs2} and writes to {\tt \%rd} when that family has completed. In essense, it performs both the ``create'' and ``sync'' operation in one instruction. Since these operations are different instructions on the Microgrid, ``create'' has been mapped to {\tt setthread} (see previous section). The \leon's {\tt create} instruction can now be aliased with {\tt sync \%rs2, \%rd} on the Microgrid, having the exact same operands.
+
+\subsection{Argument passing}
+On the \leon, globals and shareds are passed to a family by placing them in registers, starting with the thread's first local register. The hardware will read them from those predefined register addresses. In the Microgrid, globals and shareds must be explicitely passed to the family between the ``create'' and ``sync'' operations with the {\tt putg} and {\tt puts} instructions.
+
+These two approaches can be merged by the compiler placing arguments at the registers as expected by the \leon, and emitting ``putg'' and ``puts'' instructions between the {\tt setthread} and {\t create} ({\tt crei} and {\tt sync} in the Microgrid). Those instructions will have to be interpreted as {NOPs} in the \leon.
+
+\subsection{Microgrid Instructions}
+All microgrid instructions that have no meaning in the \leon should be implemented as NOPs in the \leon.
+
+\section{References}
+\bibliographystyle{unsrt}
+\bibliography{change}
+
+\begin{landscape}
+\begin{table}
+\begin{center}{\scriptsize
+\begin{tabular}{|>{\ttfamily}l|>{\ttfamily}l|>{\ttfamily}l||c|c|c|c|c|c|c|c|}
+\hline
+\multicolumn{3}{|c||}{Mnemonic} & \multicolumn{8}{c|}{Instruction} \\
+\hline
+\multirow{2}{*}{\normalfont \leon} & \multirow{2}{*}{\normalfont Microgrid} & \multirow{2}{*}{\normalfont Alias} & \multirow{2}{*}{op1} & \multirow{2}{*}{rd} & \multirow{2}{*}{op3} & \multirow{2}{*}{rs1} & \multirow{2}{*}{i} & \multirow{2}{*}{op$_{\mu T}$} & ASI$_{\mu T}$ & rs2 \\
+\cline{10-11}
+ & & & & & & & & & \multicolumn{2}{c|}{imm9} \\
+\hline\hline
+
+launch \%rs2 & - & wrasr \%rs1, \%0, \%asr20 & 10&10100&110000&rs1&0&0001&-&00000\\
+allocate \%rd & allocate  \%rd        & rdasr \%asr20, \%0,   \%rd & 10&rd&101000&10100&0&0001&-&00000\\
+-             & allocate  \%rs2, \%rd & rdasr \%asr20, \%rs2, \%rd & 10&rd&101000&10100&0&0001&-&rs2\\
+\cline{10-11}
+-             & allocate  imm9, \%rd & rdasr \%asr20,  imm9, \%rd & 10&rd&101000&10100&1&0001&\multicolumn{2}{c|}{imm9}\\
+\cline{10-11}
+-             & allocates \%rd        & rdasr \%asr20, \%0,   \%rd & 10&rd&101000&10100&0&1001&-&00000\\
+-             & allocates \%rs2, \%rd & rdasr \%asr20, \%rs2, \%rd & 10&rd&101000&10100&0&1001&-&rs2\\
+\cline{10-11}
+-             & allocates  imm9, \%rd & rdasr \%asr20,  imm9, \%rd & 10&rd&101000&10100&1&1001&\multicolumn{2}{c|}{imm9}\\
+\cline{10-11}
+-             & allocatex \%rd        & rdasr \%asr20, \%0,   \%rd & 10&rd&101000&10100&0&1010&-&00000\\
+-             & allocatex \%rs2, \%rd & rdasr \%asr20, \%rs2, \%rd & 10&rd&101000&10100&0&1010&-&rs2\\
+\cline{10-11}
+-             & allocatex  imm9, \%rd & rdasr \%asr20,  imm9, \%rd & 10&rd&101000&10100&1&1010&\multicolumn{2}{c|}{imm9}\\
+\cline{10-11}
+setstart  \%rs1, \%rs2 & setstart \%rs1, \%rs2 & wrasr \%rs1, \%rs2, \%asr20 & 10&10100&101000&rs1&0&0010&-&rs2\\
+\cline{10-11}
+setstart  \%rs1,  imm9 & setstart \%rs1,  imm9 & wrasr \%rs1,  imm9, \%asr20 & 10&10100&101000&rs1&1&0010&\multicolumn{2}{c|}{imm9}\\
+\cline{10-11}
+setlimit  \%rs1, \%rs2 & setlimit \%rs1, \%rs2 & wrasr \%rs1, \%rs2, \%asr20 & 10&10100&101000&rs1&0&0011&-&rs2\\
+\cline{10-11}
+setlimit  \%rs1,  imm9 & setlimit \%rs1,  imm9 & wrasr \%rs1,  imm9, \%asr20 & 10&10100&101000&rs1&1&0011&\multicolumn{2}{c|}{imm9}\\
+\cline{10-11}
+setstep   \%rs1, \%rs2 & setstep  \%rs1, \%rs2 & wrasr \%rs1, \%rs2, \%asr20 & 10&10100&101000&rs1&0&0100&-&rs2\\
+\cline{10-11}
+setstep   \%rs1,  imm9 & setstep  \%rs1,  imm9 & wrasr \%rs1,  imm9, \%asr20 & 10&10100&101000&rs1&1&0100&\multicolumn{2}{c|}{imm9}\\
+\cline{10-11}
+setblock  \%rs1, \%rs2 & setblock \%rs1, \%rs2 & wrasr \%rs1, \%rs2, \%asr20 & 10&10100&101000&rs1&0&0101&-&rs2\\
+\cline{10-11}
+setblock  \%rs1,  imm9 & setblock \%rs1,  imm9 & wrasr \%rs1,  imm9, \%asr20 & 10&10100&101000&rs1&1&0101&\multicolumn{2}{c|}{imm9}\\
+\cline{10-11}
+setthread \%rs1, \%rs2 & crei \%rs2, \%rs1 & wrasr \%rs1, \%rs2, \%asr20 & 10&10100&101000&rs1&0&0110&-&rs2\\
+\cline{10-11}
+setthread \%rs1,  imm9 & cred  imm9, \%rs1 & wrasr \%rs1,  imm9, \%asr20 & 10&10100&101000&rs1&1&0110&\multicolumn{2}{c|}{imm9}\\
+\cline{10-11}
+create \%rs2, \%rd & sync \%rs2, \%rd & rdasr \%asr20, \%rs2, \%rd & 10&rd&101000&10100&0&0010&-&rs2\\
+- & putg \%rs2, \%rs1, N & wrasr \%rs1, \%rs2, \%asr20, N & 10&10100&101000&rs1&0&0111&N&rs2\\
+- & puts \%rs2, \%rs1, N & wrasr \%rs1, \%rs2, \%asr20, N & 10&10100&101000&rs1&0&1000&N&rs2\\
+- & gets \%rs2, N, \%rd & rdasr \%asr20, \%rs2, \%rd, N & 10&rd&101000&10100&0&1011&N&rs2\\
+- & fputg \%fs2, \%rs1, N & wrasr \%rs1, \%fs2, \%asr20, N & 10&10100&101000&rs1&0&1100&N&fs2\\
+- & fputs \%fs2, \%rs1, N & wrasr \%rs1, \%fs2, \%asr20, N & 10&10100&101000&rs1&0&1101&N&fs2\\
+- & fgets \%rs2, N, \%fd & rdasr \%asr20, \%rs2, \%fd, N & 10&fd&101000&10100&0&1100&N&rs2\\
+- & detach  \%rs1 & wrasr \%rs1, \%0, \%asr20 & 10&10100&101000&rs1&0&1001&-&00000\\
+- & release \%rs1 & wrasr \%rs1, \%0, \%asr20 & 10&10100&101000&rs1&0&1001&-&00000\\
+break & break & wrasr \%0, \%0, \%asr20 & 10&10100&101000&00000&0&1010&-&00000\\
+- & print \%rs1, \%rs2 & wrasr \%rs1, \%rs2, \%asr20, & 10&10100&101000&rs1&0&1011&-&rs2\\
+\cline{10-11}
+- & print \%rs1,  imm9 & wrasr \%rs1,  imm9, \%asr20, & 10&10100&101000&rs1&1&1011&\multicolumn{2}{c|}{imm9}\\
+\cline{10-11}
+gettid \%rd & gettid \%rd & rdasr \%asr20, \%0, \%rd & 10&rd&101000&10100&0&0011&-&00000\\
+getfid \%rd & getfid \%rd & rdasr \%asr20, \%0, \%rd & 10&rd&101000&10100&0&0100&-&00000\\
+- & getpid \%rd & rdasr \%asr20, \%0, \%rd & 10&rd&101000&10100&0&0101&-&00000\\
+- & getcid \%rd & rdasr \%asr20, \%0, \%rd & 10&rd&101000&10100&0&0110&-&00000\\
+- & ldbp \%rd & rdasr \%asr20, \%0, \%rd & 10&rd&101000&10100&0&0111&-&00000\\
+- & ldfp \%rd & rdasr \%asr20, \%0, \%rd & 10&rd&101000&10100&0&1000&-&00000\\
+\hline
+\end{tabular}
+\caption{\label{tab:isa-merge}ISA merger overview}
+}\end{center}
+\end{table}
+\end{landscape}
+
+\end{document}
