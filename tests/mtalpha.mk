@@ -25,7 +25,11 @@ MTALPHA_TEST_SOURCES = \
 	mtalpha/regression/delegation2.s \
 	mtalpha/regression/delegation_flood.s \
 	mtalpha/regression/self_exclusive_delegate.s \
-	mtalpha/regression/sparse_globals.s
+	mtalpha/regression/sparse_globals.s \
+	mtalpha/bundle/ceb_a.s \
+	mtalpha/bundle/ceb_as.s \
+	mtalpha/bundle/ceb_i.s \
+	mtalpha/bundle/ceb_is.s 
 
 if ENABLE_MTALPHA_TESTS
 TEST_ARCH = mtalpha

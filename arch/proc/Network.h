@@ -11,6 +11,7 @@ struct RemoteMessage
     {
         MSG_NONE,           ///< No message
         MSG_ALLOCATE,       ///< Allocate family
+        MSG_BUNDLE,            ///< Indirect creation
         MSG_SET_PROPERTY,   ///< Set family property
         MSG_CREATE,         ///< Create family
         MSG_SYNC,           ///< Synchronise on family
@@ -32,6 +33,7 @@ struct RemoteMessage
             AllocationType type;          ///< Type of the allocation
             PID            completion_pid;///< PID where the thread runs that issued the allocate
             RegIndex       completion_reg;///< Register to write FID back to
+            Bundle   	   bundle;
         } allocate;
             
         struct {
@@ -44,6 +46,10 @@ struct RemoteMessage
             FID      fid;           ///< Family to start creation of
         	MemAddr  address;       ///< Address of the family
         	RegIndex completion_reg;///< Register to write create-completion to
+            PID      completion_pid;
+            bool     bundle;
+            Integer  parameter;
+            size_t   index;
         } create;
             
         struct {

@@ -1,6 +1,7 @@
 #include "Processor.h"
 #include "FPU.h"
 #include "symtable.h"
+#include "../../programs/mgsim.h"
 #include <cassert>
 #include <cmath>
 #include <sstream>
@@ -271,8 +272,7 @@ void Processor::Pipeline::DecodeStage::DecodeInstruction(const Instruction& inst
 
             switch (m_output.function)
             {
-            case S_OPT_CREATE:
-                // Special case, Rc is output as well
+            case S_OPT_CREATE: // Special case, Rc is output as well
                 m_output.Rc = MAKE_REGADDR(RT_INTEGER, Ra);
                 break;
 
@@ -280,7 +280,7 @@ void Processor::Pipeline::DecodeStage::DecodeInstruction(const Instruction& inst
             case S_OPT_FPUTG:
                 m_output.Rb = MAKE_REGADDR(RT_FLOAT, Rb);
                 break;
-
+            
             default:
                 break;
             }
@@ -304,6 +304,9 @@ void Processor::Pipeline::DecodeStage::DecodeInstruction(const Instruction& inst
             case S_OPT_ALLOCATE:
             case S_OPT_ALLOCATES:
             case S_OPT_ALLOCATEX:
+            case S_OPT_CREBAS:
+            case S_OPT_CREBIS:
+            case S_OPT_CREI:
                 // Special case, Rc is input as well
                 m_output.Ra = MAKE_REGADDR(RT_INTEGER, Rc);
                 m_output.Rc = MAKE_REGADDR(RT_INTEGER, Rc);
@@ -311,8 +314,7 @@ void Processor::Pipeline::DecodeStage::DecodeInstruction(const Instruction& inst
 
             case S_OPT_FGETS:
                 m_output.Rc = MAKE_REGADDR(RT_FLOAT, Rc);
-                break;
-                
+                break;          
             default:
                 m_output.Rc = MAKE_REGADDR(RT_INTEGER, Rc);
                 break;
@@ -578,6 +580,24 @@ Processor::Pipeline::PipeAction Processor::Pipeline::ExecuteStage::ExecReadASR20
                 return PIPE_STALL;
             }
             break;
+        case S_OPT_CREBAS:
+        case S_OPT_CREBIS:
+            COMMIT{
+                MemAddr dest = (func == S_OPT_CREBAS )?Rbv:(Rbv + m_parent.GetProcessor().ReadASR(ASR_SYSCALL_BASE));
+                if (!m_allocator.QueueBundle(dest,Rav,m_input.Rc.index))
+                {
+                    DeadlockWrite("Unable to send synchronized synchronized bundle create to allocator");
+                    return PIPE_STALL;
+                }
+                m_output.Rcv = MAKE_PENDING_PIPEVALUE(m_input.RcSize);
+            }            
+            break;
+        case S_OPT_CREI:
+        {
+            MemAddr target = Rbv + m_parent.GetProcessor().ReadASR(ASR_SYSCALL_BASE);
+            return ExecCreate(m_parent.GetProcessor().UnpackFID(Rav), target, m_input.Ra.index);
+            break;
+        }
             
         default:
             ThrowIllegalInstructionException(*this, m_input.pc);
@@ -656,6 +676,20 @@ Processor::Pipeline::PipeAction Processor::Pipeline::ExecuteStage::ExecWriteASR2
                 ExecDebug(Rav, Rbv);
                 m_output.Rc = INVALID_REG;
             }
+            break;
+            
+        case S_OPT_CREBA:
+        case S_OPT_CREBI:
+            COMMIT{
+                
+                MemAddr dest = (m_input.function == S_OPT_CREBA )? Rav : (Rav + m_parent.GetProcessor().ReadASR(ASR_SYSCALL_BASE));            
+                if (!m_allocator.QueueBundle(dest,Rbv,INVALID_REG_INDEX))
+                {
+                    DeadlockWrite("Unable to send asynchronized bundle create to allocator");
+                    return PIPE_STALL;                
+                }       
+            
+            }            
             break;
 
         default:

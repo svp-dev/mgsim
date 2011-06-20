@@ -76,6 +76,7 @@ Processor::DCache::DCache(const std::string& name, Processor& parent, Clock& clo
         m_lines[i].state = LINE_EMPTY;
         m_lines[i].data  = new char[m_lineSize];
         m_lines[i].valid = new bool[m_lineSize];
+        m_lines[i].create= false;
     }
     
     m_wbstate.size   = 0;
@@ -253,6 +254,8 @@ Result Processor::DCache::Read(MemAddr address, void* data, MemSize size, LFID /
             line->waiting = *reg;
             *reg = old;
         }
+        else
+            line->create  = true;
         m_numMisses++;
     }
     return DELAYED;
@@ -564,6 +567,8 @@ Result Processor::DCache::DoCompletedReads()
     }
     else
     {
+    	if(line.create)
+            m_allocator.OnDCachelineLoaded(line.data);
         // We're done with this line.
         // Move the line to the FULL (or EMPTY when invalidated) state.
         COMMIT

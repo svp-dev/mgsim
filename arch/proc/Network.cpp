@@ -88,7 +88,8 @@ bool Processor::Network::SendMessage(const RemoteMessage& msg)
     // Get destination
     switch (msg.type)
     {
-    case RemoteMessage::MSG_ALLOCATE:     dmsg.dest = msg.allocate.place.pid; break;
+    case RemoteMessage::MSG_ALLOCATE:     
+    case RemoteMessage::MSG_BUNDLE:          dmsg.dest = msg.allocate.place.pid; break;     
     case RemoteMessage::MSG_SET_PROPERTY: dmsg.dest = msg.property.fid.pid; break;
     case RemoteMessage::MSG_CREATE:       dmsg.dest = msg.create.fid.pid; break;
     case RemoteMessage::MSG_DETACH:       dmsg.dest = msg.detach.fid.pid; break;
@@ -525,9 +526,17 @@ Result Processor::Network::DoDelegationIn()
             msg.allocate.type = ALLOCATE_SINGLE;
         }
 
-        if (!m_allocator.QueueFamilyAllocation(msg))
+        if (!m_allocator.QueueFamilyAllocation(msg,false))
         {
             DeadlockWrite("Unable to process family allocation request");
+            return FAILED;
+        }
+        break;
+        
+      case DelegateMessage::MSG_BUNDLE:
+		if (!m_allocator.QueueFamilyAllocation(msg,true))
+        {
+            DeadlockWrite("Unable to process received indirect create");
             return FAILED;
         }
         break;
@@ -565,13 +574,15 @@ Result Processor::Network::DoDelegationIn()
     }
         
     case DelegateMessage::MSG_CREATE:
-        // Process the received delegated create
-        if (!m_allocator.QueueCreate(msg, msg.src))
+    {    // Process the received delegated create
+        PID src = (msg.create.bundle)? msg.create.completion_pid : msg.src;
+        if (!m_allocator.QueueCreate(msg,src))
         {
             DeadlockWrite("Unable to process received delegation create");
             return FAILED;
         }
         break;
+    }
     
     case DelegateMessage::MSG_SYNC:
         // Authorize family access

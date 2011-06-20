@@ -763,12 +763,22 @@ bool Processor::Allocator::AllocateRegisters(LFID fid, ContextType type)
     return false;
 }
 
-bool Processor::Allocator::OnCachelineLoaded(CID cid)
+bool Processor::Allocator::OnICachelineLoaded(CID cid)
 {
     assert(!m_creates.Empty());
     COMMIT{
         m_createState = CREATE_LINE_LOADED;
         m_createLine  = cid;
+    }
+    return true;
+}
+
+bool Processor::Allocator::OnDCachelineLoaded(char* data)
+{
+    assert(!m_bundle.Empty());
+    COMMIT{
+        m_bundleState = BUNDLE_LINE_LOADED;
+        memcpy(m_bundleData,data,sizeof(m_bundleData));
     }
     return true;
 }
@@ -901,8 +911,26 @@ Result Processor::Allocator::DoThreadAllocate()
     }
 }
 
+
+bool Processor::Allocator::QueueBundle(const MemAddr addr, Integer parameter, RegIndex completion_reg)
+{
+    BundleInfo info;
+    info.addr  =addr;
+    info.parameter = parameter;
+    info.completion_reg = completion_reg;
+    if (!m_bundle.Push(info))
+    {
+        return false;
+    }
+    
+    DebugSimWrite("Queued bundle allocation at 0x%016llx with parameter %lld and completion register %u", 
+                  (unsigned long long)info.addr,(long long)info.parameter,(unsigned)info.completion_reg );
+    return true;
+}
+
+
 /// Queues an allocation request for a family entry and context
-bool Processor::Allocator::QueueFamilyAllocation(const RemoteMessage& msg)
+bool Processor::Allocator::QueueFamilyAllocation(const RemoteMessage& msg, bool bundle)
 {
     // Can't be balanced; that should have been handled by
     // the network before it gets here.
@@ -916,7 +944,15 @@ bool Processor::Allocator::QueueFamilyAllocation(const RemoteMessage& msg)
     request.type           = msg.allocate.type;
     request.completion_reg = msg.allocate.completion_reg;
     request.completion_pid = msg.allocate.completion_pid;
+    request.bundle         = bundle;
     
+    if(bundle)
+	{
+		request.pc             = msg.allocate.bundle.pc;
+		request.index          = msg.allocate.bundle.index_t;
+		request.parameter      = msg.allocate.bundle.parameter;
+		
+	}
     Buffer<AllocRequest>& allocations = msg.allocate.exclusive
         ? m_allocRequestsExclusive
         : (msg.allocate.suspend ? m_allocRequestsSuspend : m_allocRequestsNoSuspend);
@@ -941,7 +977,7 @@ bool Processor::Allocator::QueueFamilyAllocation(const LinkMessage& msg)
     request.type           = msg.allocate.exact ? ALLOCATE_EXACT : ALLOCATE_NORMAL;
     request.completion_reg = msg.allocate.completion_reg;
     request.completion_pid = msg.allocate.completion_pid;
-    
+    request.bundle         = false;    
     Buffer<AllocRequest>& allocations = (msg.allocate.suspend ? m_allocRequestsSuspend : m_allocRequestsNoSuspend);
     if (!allocations.Push(request))
     {
@@ -1048,7 +1084,7 @@ Result Processor::Allocator::DoFamilyAllocate()
         return FAILED;
     }
     
-    if (lfid == INVALID_LFID)
+    if ((lfid == INVALID_LFID) && (req.completion_reg != INVALID_REG_INDEX))
     {
         // No family entry was available and we don't want to suspend until one is.
         if (req.prev_fid == INVALID_LFID)
@@ -1058,9 +1094,9 @@ Result Processor::Allocator::DoFamilyAllocate()
             fid.pid        = 0;
             fid.lfid       = 0;
             fid.capability = 0;
-        
+        	
             RemoteMessage msg;
-            msg.type = RemoteMessage::MSG_RAW_REGISTER;
+           	msg.type = RemoteMessage::MSG_RAW_REGISTER;
             msg.rawreg.pid             = req.completion_pid;
             msg.rawreg.addr            = MAKE_REGADDR(RT_INTEGER, req.completion_reg);
             msg.rawreg.value.m_state   = RST_FULL;
@@ -1071,6 +1107,7 @@ Result Processor::Allocator::DoFamilyAllocate()
                 DeadlockWrite("Unable to send remote allocation writeback");
                 return FAILED;
             }
+            
         }
         else
         {
@@ -1099,46 +1136,75 @@ Result Processor::Allocator::DoFamilyAllocate()
             family.numCores = (req.type == ALLOCATE_SINGLE) ? 1 : req.placeSize;
             family.link     = INVALID_LFID;
         }
-
-        if (req.prev_fid == INVALID_LFID)
+        
+        if(req.completion_reg != INVALID_REG_INDEX)
         {
+            if (req.prev_fid == INVALID_LFID) 
+            {
             // We're the only core in the family
             // Construct a global FID for this family
+                FID fid;
+                fid.pid        = m_parent.GetPID();
+                fid.lfid       = lfid;
+                fid.capability = family.capability;
+        
+                RemoteMessage msg;
+                msg.type = RemoteMessage::MSG_RAW_REGISTER;
+                msg.rawreg.pid             = req.completion_pid;
+                msg.rawreg.addr            = MAKE_REGADDR(RT_INTEGER, req.completion_reg);
+                msg.rawreg.value.m_state   = RST_FULL;
+                msg.rawreg.value.m_integer = m_parent.PackFID(fid);
+        
+                if (!m_network.SendMessage(msg))
+                {
+                    DeadlockWrite("Unable to send remote allocation writeback");
+                    return FAILED;
+                }
+            }
+            else
+            {
+                // Commit the allocations for this place
+                AllocResponse ret;
+                ret.numCores       = req.placeSize;
+                ret.exact          = (req.type == ALLOCATE_EXACT);
+                ret.prev_fid       = req.prev_fid;
+                ret.next_fid       = lfid;
+                ret.completion_pid = req.completion_pid;
+                ret.completion_reg = req.completion_reg;
+                if (!m_network.SendAllocResponse(ret))
+                {
+                    DeadlockWrite("Unable to send allocation commit");
+                    return FAILED;
+                }
+                DebugSimWrite("Fully allocated %u cores", (unsigned)req.placeSize);
+            }
+        }
+        
+        if(req.bundle)
+		{
             FID fid;
             fid.pid        = m_parent.GetPID();
             fid.lfid       = lfid;
             fid.capability = family.capability;
-        
-            RemoteMessage msg;
-            msg.type = RemoteMessage::MSG_RAW_REGISTER;
-            msg.rawreg.pid             = req.completion_pid;
-            msg.rawreg.addr            = MAKE_REGADDR(RT_INTEGER, req.completion_reg);
-            msg.rawreg.value.m_state   = RST_FULL;
-            msg.rawreg.value.m_integer = m_parent.PackFID(fid);
-        
+            
+			RemoteMessage msg;
+            msg.type = RemoteMessage::MSG_CREATE;
+            msg.create.fid            = fid;
+            msg.create.address        = req.pc;
+            msg.create.completion_reg = req.completion_reg;
+            msg.create.bundle         = true;
+            msg.create.parameter      = req.parameter;
+            msg.create.index          = req.index;
+            msg.create.completion_pid = req.completion_pid;
+            
+            
             if (!m_network.SendMessage(msg))
             {
-                DeadlockWrite("Unable to send remote allocation writeback");
+                DeadlockWrite("Unable to send remote bundle allocation to Core%u",(unsigned)fid.pid);
                 return FAILED;
             }
-        }
-        else
-        {
-            // Commit the allocations for this place
-            AllocResponse ret;
-            ret.numCores       = req.placeSize;
-            ret.exact          = (req.type == ALLOCATE_EXACT);
-            ret.prev_fid       = req.prev_fid;
-            ret.next_fid       = lfid;
-            ret.completion_pid = req.completion_pid;
-            ret.completion_reg = req.completion_reg;
-            if (!m_network.SendAllocResponse(ret))
-            {
-                DeadlockWrite("Unable to send allocation commit");
-                return FAILED;
-            }
-            DebugSimWrite("Fully allocated %u cores", (unsigned)req.placeSize);
-        }
+			
+		}
     }
     else
     {
@@ -1154,6 +1220,7 @@ Result Processor::Allocator::DoFamilyAllocate()
         msg.allocate.completion_pid = req.completion_pid;
         msg.allocate.completion_reg = req.completion_reg;
         
+        
         if (!m_network.SendMessage(msg))
         {
             DeadlockWrite("Unable to forward family allocation requests");
@@ -1166,6 +1233,8 @@ Result Processor::Allocator::DoFamilyAllocate()
     return SUCCESS;
 }
 
+
+//For group create
 bool Processor::Allocator::QueueCreate(const LinkMessage& msg)
 {
     assert(msg.type == LinkMessage::MSG_CREATE);
@@ -1224,6 +1293,7 @@ bool Processor::Allocator::QueueCreate(const LinkMessage& msg)
     return true;
 }
 
+// For delegate/local create
 bool Processor::Allocator::QueueCreate(const RemoteMessage& msg, PID src)
 {
     assert(src                != INVALID_PID);
@@ -1244,6 +1314,14 @@ bool Processor::Allocator::QueueCreate(const RemoteMessage& msg, PID src)
     info.fid            = msg.create.fid.lfid;
     info.completion_pid = src;
     info.completion_reg = msg.create.completion_reg;
+    info.bundle         = msg.create.bundle;
+    
+    if(info.bundle)
+    {
+        info.parameter      = msg.create.parameter;
+        info.index          = msg.create.index;
+    }
+    
     
     if (!m_creates.Push(info))
     {
@@ -1253,6 +1331,90 @@ bool Processor::Allocator::QueueCreate(const RemoteMessage& msg, PID src)
     
     DebugSimWrite("Queued create at %s", GetKernel()->GetSymbolTable()[msg.create.address].c_str());
     return true;
+}
+
+
+Result Processor::Allocator::DoBundle()
+{
+    // handle system call
+    assert(!m_bundle.Empty());
+    const BundleInfo& info = m_bundle.Front();
+    if(m_bundleState == BUNDLE_INITIAL)
+    {
+        Result      result;
+        if ((result = m_dcache.Read(info.addr,m_bundleData,sizeof(Integer)+sizeof(MemAddr)+sizeof(Integer), 0,0)) == FAILED)
+        {
+            DeadlockWrite("Unable to fetch the D-Cache line for %#016llx for bundle creation", (unsigned long long)info.addr);
+            return FAILED;
+        }
+   
+        COMMIT
+        {
+            if (result == SUCCESS)
+            {
+            // Cache hit, proceed to loaded stage
+                m_bundleState = BUNDLE_LINE_LOADED;
+           
+            }
+            else
+            {
+            // Cache miss, line is being fetched.
+            // The D-Cache will notify us with onDCachelineLoaded().
+                m_bundleState = BUNDLE_LOADING_LINE;
+            }
+        }
+    
+       
+    }
+    else if (m_bundleState == BUNDLE_LOADING_LINE)
+    {
+        DeadlockWrite("Waiting for the Dcache-line to be loaded");
+        return FAILED;
+    }
+    else if (m_bundleState == BUNDLE_LINE_LOADED)
+    {
+        size_t offset = (size_t) info.addr % sizeof(m_bundleData);
+        RemoteMessage msg;
+		msg.type                       = RemoteMessage::MSG_BUNDLE;
+        
+        Integer pid = UnserializeRegister(RT_INTEGER,&m_bundleData[offset], sizeof(Integer));
+        msg.allocate.place             = m_parent.UnpackPlace(pid);
+        
+        if (msg.allocate.place.size == 0)
+        {
+             throw exceptf<SimulationException>("Invalid place size in bundle creation");
+        }
+        
+		msg.allocate.completion_reg    = info.completion_reg;
+        msg.allocate.completion_pid    = m_parent.GetPID();
+        msg.allocate.type              = ALLOCATE_EXACT;
+        msg.allocate.suspend           = true;
+        msg.allocate.exclusive         = true;
+		msg.allocate.bundle.parameter  = info.parameter;
+		msg.allocate.bundle.pc         = UnserializeRegister(RT_INTEGER, &m_bundleData[offset +sizeof(Integer)], sizeof(MemAddr));        
+		msg.allocate.bundle.index_t    = UnserializeRegister(RT_INTEGER, &m_bundleData[offset+sizeof(Integer)+sizeof(MemAddr)], sizeof(Integer));
+        
+        DebugSimWrite("Processing bundle creation for CPU%u/%u, PC %#016llx, parameter %#016llx, index %#016llx",
+                        (unsigned)msg.allocate.place.pid, (unsigned)msg.allocate.place.size,  
+                        (unsigned long long)msg.allocate.bundle.pc, 
+                        (unsigned long long)msg.allocate.bundle.parameter, 
+                        (unsigned long long)msg.allocate.bundle.index_t);
+
+        if (!m_network.SendMessage(msg))
+		{
+			DeadlockWrite("Unable to send indirect creation to CPU%u", (unsigned)msg.allocate.place.pid);
+			return FAILED;
+		}
+		
+        
+        // Reset the indirect create state
+        COMMIT{ m_bundleState == BUNDLE_INITIAL; }
+        m_bundle.Pop();
+    }
+        return SUCCESS;
+    
+       
+        
 }
 
 Result Processor::Allocator::DoFamilyCreate()
@@ -1341,6 +1503,7 @@ Result Processor::Allocator::DoFamilyCreate()
                 family.regs[i].count = regcounts[i];
             }
             family.hasShareds = hasShareds;
+            
         }
         
         // Release the cache-lined held by the create so far
@@ -1374,6 +1537,12 @@ Result Processor::Allocator::DoFamilyCreate()
 
         // We now know how many threads and cores we really have,
         // calculate and set up the thread distribution
+        
+        if(info.bundle)
+        {
+            family.start=info.index;              
+        }
+        
         CalculateDistribution(family, family.nThreads, numCores);
         
         assert(numCores > 0);
@@ -1441,6 +1610,41 @@ Result Processor::Allocator::DoFamilyCreate()
     }
     else if (m_createState == CREATE_ACTIVATING_FAMILY)
     {
+        
+        if(info.bundle)
+        {
+            Family& family = m_familyTable[info.fid];
+			RegAddr  addr = MAKE_REGADDR(RT_INTEGER, family.regs[0].last_shareds);
+			RegValue data;
+			data.m_state   = RST_FULL;
+			data.m_integer = info.parameter;
+			
+			if (!m_registerFile.p_asyncW.Write(addr))
+			{
+				DeadlockWrite("Unable to acquire Register File port");
+				return FAILED;
+			}
+			
+			if (!m_registerFile.WriteRegister(addr, data, false))
+			{
+				DeadlockWrite("Unable to write shareds for indirect creation");
+				return FAILED;
+			}
+            else
+                DebugSimWrite("Set shareds of F%u at R%u to value %lld",
+                              (unsigned)info.fid, (unsigned)family.regs[0].last_shareds, (long long)info.parameter);
+            
+            if(info.completion_reg == INVALID_REG_INDEX)
+            {
+                
+                family.dependencies.prevSynchronized = true;    
+                family.dependencies.detached = true;
+                family.dependencies.syncSent = true;
+                
+                
+            }
+            
+        }
         // We can start creating threads
         if (!ActivateFamily(info.fid))
         {
@@ -1474,7 +1678,7 @@ Result Processor::Allocator::DoFamilyCreate()
             }
         }
         
-        // Reset the create state
+               // Reset the create state
         COMMIT{ m_createState = CREATE_INITIAL; }
         m_creates.Pop();
     }
@@ -1594,10 +1798,11 @@ void Processor::Allocator::CalculateDistribution(Family& family, Integer nThread
 }
 
 Processor::Allocator::Allocator(const string& name, Processor& parent, Clock& clock,
-    FamilyTable& familyTable, ThreadTable& threadTable, RegisterFile& registerFile, RAUnit& raunit, ICache& icache, Network& network, Pipeline& pipeline,
+    FamilyTable& familyTable, ThreadTable& threadTable, RegisterFile& registerFile, RAUnit& raunit, ICache& icache,DCache& dcache, Network& network, Pipeline& pipeline,
     Config& config)
  :  Object(name, parent, clock),
-    m_parent(parent), m_familyTable(familyTable), m_threadTable(threadTable), m_registerFile(registerFile), m_raunit(raunit), m_icache(icache), m_network(network), m_pipeline(pipeline),
+    m_parent(parent), m_familyTable(familyTable), m_threadTable(threadTable), m_registerFile(registerFile), m_raunit(raunit), m_icache(icache),m_dcache(dcache), m_network(network), m_pipeline(pipeline),
+    m_bundle           ("b_indirectcreate", *this, clock, config.getValueOrDefault<BufferSize>(*this,"IndirectCreateQueueSize",8)),
     m_alloc         ("b_alloc",          *this, clock, config.getValueOrDefault<BufferSize>(*this, "InitialThreadAllocateQueueSize", familyTable.GetNumFamilies())),
     m_creates       ("b_creates",        *this, clock, config.getValueOrDefault<BufferSize>(*this, "CreateQueueSize", familyTable.GetNumFamilies()), 3),
     m_cleanup       ("b_cleanup",        *this, clock, config.getValueOrDefault<BufferSize>(*this, "ThreadCleanupQueueSize", threadTable.GetNumThreads()), 4),
@@ -1605,6 +1810,7 @@ Processor::Allocator::Allocator(const string& name, Processor& parent, Clock& cl
     m_readyThreads1 ("q_readyThreads1", *this, clock, threadTable),
     m_readyThreads2 ("q_readyThreads2", *this, clock, threadTable),
     m_prevReadyList (NULL),
+    m_bundleState(BUNDLE_INITIAL),
 
     m_allocRequestsSuspend  ("b_allocRequestsSuspend",   *this, clock, config.getValue<BufferSize>(*this, "FamilyAllocationSuspendQueueSize")),
     m_allocRequestsNoSuspend("b_allocRequestsNoSuspend", *this, clock, config.getValue<BufferSize>(*this, "FamilyAllocationNoSuspendQueueSize")),
@@ -1616,6 +1822,7 @@ Processor::Allocator::Allocator(const string& name, Processor& parent, Clock& cl
     p_FamilyAllocate  (*this, "family-allocate",   delegate::create<Allocator, &Processor::Allocator::DoFamilyAllocate  >(*this) ),
     p_FamilyCreate    (*this, "family-create",     delegate::create<Allocator, &Processor::Allocator::DoFamilyCreate    >(*this) ),
     p_ThreadActivation(*this, "thread-activation", delegate::create<Allocator, &Processor::Allocator::DoThreadActivation>(*this) ),
+    p_Bundle             (*this, "bundle-Create",   delegate::create<Allocator, &Processor::Allocator::DoBundle             >(*this) ),
     
     p_allocation    (*this, clock, "p_allocation"),
     p_alloc         (*this, clock, "p_alloc"),
@@ -1633,6 +1840,8 @@ Processor::Allocator::Allocator(const string& name, Processor& parent, Clock& cl
     m_allocRequestsSuspend  .Sensitive(p_FamilyAllocate);
     m_allocRequestsNoSuspend.Sensitive(p_FamilyAllocate);
     m_allocRequestsExclusive.Sensitive(p_FamilyAllocate);
+    
+     m_bundle.Sensitive(p_Bundle);
 
     RegisterSampleVariableInObject(m_totalallocex, SVC_CUMULATIVE);
     RegisterSampleVariableInObject(m_maxallocex, SVC_WATERMARK);

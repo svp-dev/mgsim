@@ -122,6 +122,15 @@ struct FID
     FCapability capability;
 };
 
+/// Infor for bundle creation
+struct Bundle
+{
+    MemAddr pc;
+    Integer index_t;
+    Integer parameter;
+ } ; 
+ 
+
 /// Program-specified allocation type for a place allocation
 enum AllocationType
 {
