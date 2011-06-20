@@ -32,6 +32,16 @@ AC_PROG_SED
 
 # Feature checks
 
+# non-standard POSIX functions
+AC_CHECK_FUNCS([getdtablesize fsync fdopendir])
+AC_CHECK_MEMBERS([struct dirent.d_ino],[],[],[#include <dirent.h>])
+AC_CHECK_MEMBERS([struct dirent.d_type],[],[],[#include <dirent.h>])
+AC_CHECK_MEMBERS([struct stat.st_blocks],[],[],[#include <sys/stat.h>])
+AC_CHECK_MEMBERS([struct stat.st_blksize],[],[],[#include <sys/stat.h>])
+AC_CHECK_MEMBERS([struct stat.st_atimespec],[],[],[#include <sys/stat.h>])
+AC_CHECK_MEMBERS([struct stat.st_mtimespec],[],[],[#include <sys/stat.h>])
+AC_CHECK_MEMBERS([struct stat.st_ctimespec],[],[],[#include <sys/stat.h>])
+
 AC_HEADER_ASSERT
 
 AC_SEARCH_LIBS([ev_version_minor], [ev])
