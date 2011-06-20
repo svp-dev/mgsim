@@ -26,6 +26,7 @@ namespace Simulator
         { {   1,  5,  1 }, "ActiveROM" },
         { {   1,  6,  1 }, "SMC" },
         { {   1,  7,  1 }, "UART" },
+        { {   1,  8,  1 }, "RPC" },
 
         { {   0,  0,  0 }, NULL }
     };
