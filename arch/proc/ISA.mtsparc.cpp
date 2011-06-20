@@ -933,6 +933,12 @@ Processor::Pipeline::PipeAction Processor::Pipeline::ExecuteStage::ExecuteInstru
                     m_output.Rcv.m_integer = thread.Y;
                     m_output.Rcv.m_state   = RST_FULL;
                 }
+            } else if (m_input.displacement == 4) {
+                // RDTICK: read processor cycle counter
+                COMMIT {
+                    m_output.Rcv.m_integer = GetCycleNo() & 0xffffffffUL;
+                    m_output.Rcv.m_state = RST_FULL;
+                }
             } else if (m_input.displacement == 15) {
                 // STBAR: Store Barrier
                 // Rc has to be %g0 (invalid)
