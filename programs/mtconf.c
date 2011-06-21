@@ -44,12 +44,12 @@ void *mg_gfx_fb;
 // local version of strcmp to avoid 
 // a dependency on the stdlib.
 static int
-__strcmp(const char *s1, const char *s2)
+__strcmp(const unsigned char *s1, const unsigned char *s2)
 {
 	while (*s1 == *s2++)
 		if (*s1++ == '\0')
 			return (0);
-	return (*(const unsigned char *)s1 - *(const unsigned char *)(s2 - 1));
+	return (*s1 - *(s2 - 1));
 }
 
 
