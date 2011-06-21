@@ -32,6 +32,7 @@ struct mg_device_info mg_devinfo;
 size_t mg_uart_devid = (size_t)-1;
 size_t mg_lcd_devid = (size_t)-1;
 size_t mg_rtc_devid = (size_t)-1;
+size_t mg_rpc_devid = (size_t)-1;
 size_t mg_cfgrom_devid = (size_t)-1;
 size_t mg_argvrom_devid = (size_t)-1;
 size_t mg_gfxctl_devid = (size_t)-1;
@@ -137,6 +138,23 @@ void detect_rtc(size_t devid, void *addr)
 }
 
 static
+void detect_rpc(size_t devid, void *addr)
+{
+    if (verbose_boot)
+    {
+        output_string("* rpc interface at 0x", 2);
+        output_hex(addr, 2);
+        output_char('.', 2);
+        output_ts(2);
+        output_char('\n', 2);
+    }
+    if (mg_rpc_devid == (size_t)-1)
+    {
+        mg_rpc_devid = devid; 
+    }    
+}
+
+static
 void detect_rom(size_t devid, void *addr)
 {
     uint32_t magic = *(uint32_t*)addr;
@@ -184,6 +202,7 @@ static struct
     { { 1, 4, 1 }, "gfx", &detect_gfx },
     { { 1, 5, 1 }, "rom", &detect_rom },
     { { 1, 7, 1 }, "uart", &detect_uart },
+    { { 1, 8, 1 }, "rpc", &detect_rpc },
     { { 0, 0, 0 }, 0, 0 }
 };
 
