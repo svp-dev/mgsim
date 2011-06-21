@@ -11,6 +11,8 @@
 #include <cassert>
 #include <sstream>
 #include <iomanip>
+#include "symtable.h"
+
 using namespace std;
 
 namespace Simulator
@@ -435,6 +437,13 @@ Processor::Pipeline::PipeAction Processor::Pipeline::ReadStage::OnCycle()
             }
         }
 #endif
+
+        DebugRegWrite("Read input for %s (F%u/T%u): %s, %s",
+                      GetKernel()->GetSymbolTable()[m_input.pc].c_str(),
+                      (unsigned)m_input.fid, (unsigned)m_input.tid,
+                      m_output.Rav.str(m_input.Ra.type).c_str(),
+                      m_output.Rbv.str(m_input.Rb.type).c_str());
+
     }
 
     return PIPE_CONTINUE;
