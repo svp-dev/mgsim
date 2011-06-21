@@ -78,6 +78,7 @@ enum {
     S_OP3_FLUSH     = 0x3B,
     S_OP3_SAVE      = 0x3C,
     S_OP3_RESTORE   = 0x3D,
+    
 
 // op3 (op1 is S_OP1_MEMORY)
     S_OP3_LD      = 0x00,
@@ -182,6 +183,8 @@ enum {
     S_OPT_ALLOCATEX = 0x0A,
     S_OPT_GETS      = 0x0B,
     S_OPT_FGETS     = 0x0C,
+    S_OPT_CREBAS    = 0x0E,
+    S_OPT_CREBIS    = 0x0F, 
 };
 
 // opt (op1 is S_OP1_OTHER, op3 is S_OP3_WRASR, rd=20)
@@ -198,6 +201,8 @@ enum {
     S_OPT_PRINT     = 0x0B,
     S_OPT_FPUTG     = 0x0C,
     S_OPT_FPUTS     = 0x0D,
+    S_OPT_CREBA     = 0x0E,
+    S_OPT_CREBI     = 0x0F,   
 };
 
 // Processor State Register flags

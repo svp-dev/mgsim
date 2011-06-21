@@ -27,7 +27,7 @@ Processor::Processor(const std::string& name, Object& parent, Clock& clock, PID 
     m_threadTable ("threads",       *this, clock, config),
     m_registerFile("registers",     *this, clock, m_allocator, config),
     m_raunit      ("rau",           *this, clock, m_registerFile, config),
-    m_allocator   ("alloc",         *this, clock, m_familyTable, m_threadTable, m_registerFile, m_raunit, m_icache, m_network, m_pipeline, config),
+    m_allocator   ("alloc",         *this, clock, m_familyTable, m_threadTable, m_registerFile, m_raunit, m_icache, m_dcache, m_network, m_pipeline, config),
     m_icache      ("icache",        *this, clock, m_allocator, memory, config),
     m_dcache      ("dcache",        *this, clock, m_allocator, m_familyTable, m_registerFile, memory, config),
     m_pipeline    ("pipeline",      *this, clock, m_registerFile, m_network, m_allocator, m_familyTable, m_threadTable, m_icache, m_dcache, fpu, config),
@@ -101,8 +101,9 @@ void Processor::Initialize(Processor* prev, Processor* next)
 
     // Unfortunately the D-Cache needs priority here because otherwise all cache-lines can
     // remain filled and we get deadlock because the pipeline keeps wanting to do a read.
-    m_dcache.p_service.AddProcess(m_dcache.p_CompletedReads);    // Memory read returns
-    m_dcache.p_service.AddProcess(m_pipeline.p_Pipeline);       // Memory read/write
+    m_dcache.p_service.AddProcess(m_dcache.p_CompletedReads);     // Memory read returns
+    m_dcache.p_service.AddProcess(m_pipeline.p_Pipeline);         // Memory read/write
+    m_dcache.p_service.AddProcess(m_allocator.p_Bundle);          // Indirect create read
 
     m_allocator.p_allocation.AddProcess(m_pipeline.p_Pipeline);         // ALLOCATE instruction
     m_allocator.p_allocation.AddProcess(m_network.p_DelegationIn);      // Delegated non-exclusive create
@@ -110,6 +111,8 @@ void Processor::Initialize(Processor* prev, Processor* next)
     
     m_allocator.p_alloc.AddProcess(m_network.p_Link);                   // Place-wide create
     m_allocator.p_alloc.AddProcess(m_allocator.p_FamilyCreate);         // Local creates
+    
+    
     
     if (m_io_if != NULL)
     {
@@ -140,7 +143,9 @@ void Processor::Initialize(Processor* prev, Processor* next)
     m_registerFile.p_asyncW.AddProcess(m_dcache.p_CompletedReads);          // Mem Load writebacks
 
     m_registerFile.p_asyncW.AddProcess(m_fpu.p_Pipeline);                   // FPU Op writebacks
+    m_registerFile.p_asyncW.AddProcess(m_allocator.p_FamilyCreate);         // Family creation
     m_registerFile.p_asyncW.AddProcess(m_allocator.p_ThreadAllocate);       // Thread allocation
+   
 
     m_registerFile.p_asyncR.AddProcess(m_network.p_DelegationIn);           // Remote register requests
     
@@ -165,6 +170,7 @@ void Processor::Initialize(Processor* prev, Processor* next)
 
     m_network.m_delegateIn.AddProcess(m_allocator.p_ThreadAllocate);        // Allocate process completes family sync
     m_network.m_delegateIn.AddProcess(m_allocator.p_FamilyAllocate);        // Allocate process returning FID
+    m_network.m_delegateIn.AddProcess(m_allocator.p_Bundle);                // Create process returning FID
     m_network.m_delegateIn.AddProcess(m_allocator.p_FamilyCreate);          // Create process returning FID
     m_network.m_delegateIn.AddProcess(m_network.p_AllocResponse);           // Allocate response writing back to parent
     m_network.m_delegateIn.AddProcess(m_pipeline.p_Pipeline);               // Sending local messages
@@ -183,6 +189,7 @@ void Processor::Initialize(Processor* prev, Processor* next)
 
     m_network.m_delegateOut.AddProcess(m_network.p_AllocResponse);    // Allocate response writing back to parent
     m_network.m_delegateOut.AddProcess(m_allocator.p_FamilyAllocate); // Allocation process sends FID
+    m_network.m_delegateOut.AddProcess(m_allocator.p_Bundle);         // Indirect creation sends bundle info
     m_network.m_delegateOut.AddProcess(m_allocator.p_FamilyCreate);   // Create process sends delegated create
     m_network.m_delegateOut.AddProcess(m_allocator.p_ThreadAllocate); // Thread cleanup caused sync
     m_network.m_delegateOut.AddProcess(m_network.p_Syncs);            // Family sync goes to delegation
@@ -213,7 +220,7 @@ void Processor::Initialize(Processor* prev, Processor* next)
         /* AllocateThread */             opt(m_allocator.m_readyThreads2)) );
 
     m_allocator.p_FamilyAllocate.SetStorageTraces(
-        m_network.m_allocResponse.out ^ m_network.m_link.out ^ DELEGATE );
+        m_network.m_allocResponse.out ^ m_allocator.m_creates ^ m_network.m_link.out ^ DELEGATE * opt(DELEGATE) );
 
     m_allocator.p_FamilyCreate.SetStorageTraces(
         /* CREATE_INITIAL */                opt(m_icache.m_outgoing) ^
@@ -222,7 +229,9 @@ void Processor::Initialize(Processor* prev, Processor* next)
         /* CREATE_NOTIFY */                 opt(DELEGATE) );
 
     m_allocator.p_ThreadActivation.SetStorageTraces(
-        opt(m_allocator.m_activeThreads ^ m_icache.m_outgoing) );            
+        opt(m_allocator.m_activeThreads ^ m_icache.m_outgoing) );  
+    
+    m_allocator.p_Bundle.SetStorageTraces( m_dcache.m_outgoing ^ DELEGATE );
 
     m_icache.p_Incoming.SetStorageTraces(
         opt(m_allocator.m_activeThreads) );
@@ -240,10 +249,10 @@ void Processor::Initialize(Processor* prev, Processor* next)
     // m_dcache.p_Outgoing is set in the memory
 
     m_pipeline.p_Pipeline.SetStorageTraces(
-        /* Writeback */ opt(opt(DELEGATE) * opt((m_allocator.m_readyThreads1 * m_allocator.m_cleanup) ^ m_allocator.m_cleanup ^ m_allocator.m_readyThreads1)) *
-        /* Memory */    opt(m_dcache.m_outgoing /* ^ mmio.Write ^ mmio.Read*/) *
+        /* Writeback */ opt(opt(DELEGATE) * opt(m_allocator.m_bundle ^ (m_allocator.m_readyThreads1 * m_allocator.m_cleanup) ^ m_allocator.m_cleanup ^ m_allocator.m_readyThreads1)) *
+        /* Memory */    opt(m_dcache.m_outgoing /* ^ mmio.Write ^ mmio.Read*/)*
         /* Execute */   opt(m_fpu.GetSourceTrace(m_pipeline.GetFPUSource())) *
-        m_pipeline.m_active );
+                        m_pipeline.m_active );
     
     m_network.p_DelegationIn.SetStorageTraces(
         /* MSG_ALLOCATE */          (m_network.m_link.out ^ m_allocator.m_allocRequestsExclusive ^

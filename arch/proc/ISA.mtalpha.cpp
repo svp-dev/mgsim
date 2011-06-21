@@ -1,6 +1,7 @@
 #include "Processor.h"
 #include "FPU.h"
 #include "symtable.h"
+#include "programs/mgsim.h"
 #include <cassert>
 #include <sstream>
 #include <iomanip>
@@ -192,12 +193,11 @@ void Processor::Pipeline::DecodeStage::DecodeInstruction(const Instruction& inst
             // Jumps read the target from Rb and write the current PC back to Ra.
             // Microthreading doesn't need branch prediction, so we ignore the hints.
 
-            // Create (Indirect) also reads Ra
-            bool crei = (m_output.opcode == A_OP_CREATE_I);
-
-            m_output.Ra = MAKE_REGADDR(RT_INTEGER, crei ? Ra : 31);
-            m_output.Rb = MAKE_REGADDR(RT_INTEGER, Rb);
-            m_output.Rc = MAKE_REGADDR(RT_INTEGER, Ra);
+            // Create (indirect) also reads Ra
+           
+            m_output.Ra           = MAKE_REGADDR(RT_INTEGER, Ra);
+            m_output.Rb           = MAKE_REGADDR(RT_INTEGER, Rb);
+            m_output.Rc           = MAKE_REGADDR(RT_INTEGER, Ra);
             break;
         }
 
@@ -978,12 +978,12 @@ Processor::Pipeline::PipeAction Processor::Pipeline::ExecuteStage::ExecuteInstru
         {
             MemAddr next   = m_input.pc + sizeof(Instruction);
             MemAddr target = Rbv & -(MemAddr)sizeof(Instruction);
+            
             if (m_input.opcode == A_OP_CREATE_I)
-            {
-                // Indirect create
-                return ExecCreate(m_parent.GetProcessor().UnpackFID(Rav), target, m_input.Rc.index);
-            }
-
+            {     
+                return ExecCreate(m_parent.GetProcessor().UnpackFID(Rav), target, m_input.Rc.index); 
+            }                    
+               
             // Unconditional Jumps
             COMMIT
             {
@@ -1145,6 +1145,45 @@ Processor::Pipeline::PipeAction Processor::Pipeline::ExecuteStage::ExecuteInstru
                 case A_UTHREAD_GETS:   if (!MoveFamilyRegister(RRT_LAST_SHARED,     RT_INTEGER, m_parent.GetProcessor().UnpackFID(m_input.Rav.m_integer.get(m_input.Rav.m_size)), m_input.regofs)) return PIPE_STALL; break;
                 case A_UTHREAD_SYNC:   if (!ExecSync(m_parent.GetProcessor().UnpackFID(m_input.Rav.m_integer.get(m_input.Rav.m_size)))) return PIPE_STALL; break;
                 case A_UTHREAD_DETACH: if (!ExecDetach(m_parent.GetProcessor().UnpackFID(m_input.Rav.m_integer.get(m_input.Rav.m_size)))) return PIPE_STALL; break;
+                case A_CREATE_B_A:
+                case A_CREATE_B_AS:
+                case A_CREATE_B_I:
+                case A_CREATE_B_IS:
+                    {
+                        RegIndex completion =  INVALID_REG_INDEX;
+                        MemAddr target      =  m_input.Rav.m_integer.get(m_input.Rav.m_size);
+                        switch(m_input.function)
+                        {                                
+                            case A_CREATE_B_IS:
+                            {
+                                completion = m_input.Rc.index;                                
+                            }
+                            case A_CREATE_B_I:
+                            {
+                                target += m_parent.GetProcessor().ReadASR(ASR_SYSCALL_BASE);
+                                break;
+                            }
+                            case A_CREATE_B_AS:                        
+                            {
+                                completion = m_input.Rc.index;                               
+                                break;
+                            }                            
+                            default: break;
+                        }
+                        if (!m_allocator.QueueBundle(target, m_input.Rbv.m_integer.get(m_input.Rbv.m_size), completion))
+                        {
+                            DeadlockWrite("Unable to send bundle create to allocator");
+                            return PIPE_STALL;
+                        }
+                        COMMIT {
+                            if (completion != INVALID_REG_INDEX)
+                            {
+                                m_output.Rcv = MAKE_PENDING_PIPEVALUE(m_input.RcSize);
+                            }
+                        }
+                        return PIPE_CONTINUE;                       
+                        break;
+                    }                       
             }
         }
         else if (m_input.opcode == A_OP_UTHREADF)

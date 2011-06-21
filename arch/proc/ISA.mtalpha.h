@@ -140,7 +140,12 @@ enum {
     A_UTHREAD_GETCID     = 0x1A,
     A_UTHREAD_GETASR     = 0x1B,
     A_UTHREAD_GETAPR     = 0x1C,
+    A_CREATE_B_A         = 0x30,
+    A_CREATE_B_AS        = 0x31,
+    A_CREATE_B_I         = 0x32,
+    A_CREATE_B_IS        = 0x33,
 };
+
 
 // UTHREADF Instructions
 enum {

@@ -197,6 +197,7 @@ Processor::Pipeline::PipeAction Processor::Pipeline::ExecuteStage::ExecCreate(co
         m_output.Rrc.create.fid            = fid;
         m_output.Rrc.create.address        = address;
         m_output.Rrc.create.completion_reg = completion;
+        m_output.Rrc.create.bundle         = false;
         
         m_output.Rcv = MAKE_PENDING_PIPEVALUE(m_input.RcSize);
     }

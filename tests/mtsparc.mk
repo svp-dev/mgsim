@@ -22,12 +22,17 @@ MTSPARC_TEST_SOURCES = \
     mtsparc/regression/delegation_flood.s \
     mtsparc/regression/self_exclusive_delegate.s \
     mtsparc/regression/sparse_globals.s \
-    mtsparc/regression/multi_shareds.s
+    mtsparc/regression/multi_shareds.s \
+    mtsparc/bundle/ceb_a.s \
+    mtsparc/bundle/ceb_as.s \
+    mtsparc/bundle/ceb_i.s \
+    mtsparc/bundle/ceb_is.s
 
 
 if ENABLE_MTSPARC_TESTS
-TEST_ARCH = mtsparc
-TEST_BINS += $(MTSPARC_TEST_SOURCES:.s=.bin)
+TEST_ARCH       = mtsparc
+TEST_BINS       = $(MTSPARC_TEST_SOURCES:.s=.bin)
+DISTCLEANFILES  = $(TEST_BINS)
 endif
 
-EXTRA_DIST += $(MTSPARC_TEST_SOURCES)
+EXTRA_DIST      += $(MTSPARC_TEST_SOURCES)
