@@ -9,6 +9,20 @@ using namespace std;
 namespace Simulator
 {
 
+string PlaceID::str() const
+{
+    ostringstream ss;
+    ss << "P(" << hex << capability << ':' << dec << pid << '/' << size << ')';
+    return ss.str();
+}
+
+string FID::str() const
+{
+    ostringstream ss;
+    ss << "F(" << hex << capability << ":CPU" << dec << pid << "/F" << lfid << ')';
+    return ss.str();
+}
+
 const char* GetRemoteRegisterTypeString(RemoteRegType type)
 {
     switch (type)

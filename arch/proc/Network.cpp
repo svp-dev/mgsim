@@ -3,6 +3,8 @@
 #include "config.h"
 #include <cassert>
 #include <iostream>
+#include <sstream>
+
 using namespace std;
 
 namespace Simulator
@@ -122,19 +124,19 @@ bool Processor::Network::SendMessage(const RemoteMessage& msg)
 
         if (!m_delegateIn.Write(dmsg))
         {
-            DeadlockWrite("Unable to buffer local network message to loopback");
+            DeadlockWrite("Unable to buffer local network message to loopback: %s", msg.str().c_str());
             return false;
         }
-        DebugSimWrite("Sending local network message to loopback");
+        DebugNetWrite("Sending delegation message to loopback: %s", msg.str().c_str());
     }
     else
     {
         if (!m_delegateOut.Write(dmsg))
         {
-            DeadlockWrite("Unable to buffer remote network message for CPU%u", (unsigned)dmsg.dest);
+            DeadlockWrite("Unable to buffer remote network message for CPU%u: %s", (unsigned)dmsg.dest, msg.str().c_str());
             return false;
         }
-        DebugSimWrite("Sending remote network message to CPU%u", (unsigned)dmsg.dest);
+        DebugNetWrite("Sending delegation message to CPU%u: %s", (unsigned)dmsg.dest, msg.str().c_str());
     }
     return true;
 }
@@ -144,9 +146,10 @@ bool Processor::Network::SendMessage(const LinkMessage& msg)
     assert(m_next != NULL);
     if (!m_link.out.Write(msg))
     {
-        DeadlockWrite("Unable to buffer link message");
+        DeadlockWrite("Unable to buffer link message: %s", msg.str().c_str());
         return false;
     }
+    DebugNetWrite("Sending link message: %s", msg.str().c_str());
     return true;
 }
 
@@ -496,6 +499,9 @@ Result Processor::Network::DoDelegationIn()
     DelegateMessage msg = m_delegateIn.Read();
     m_delegateIn.Clear();
     assert(msg.dest == m_parent.GetPID());
+
+    DebugNetWrite("Incoming delegation message: %s", msg.str().c_str());
+
     
     switch (msg.type)
     {
@@ -711,6 +717,8 @@ Result Processor::Network::DoLink()
     // Handle incoming message from the link
     assert(!m_link.in.Empty());
     const LinkMessage& msg = m_link.in.Read();
+
+    DebugNetWrite("Incoming link message: %s", msg.str().c_str());
     
     switch (msg.type)
     {
@@ -913,57 +921,15 @@ void Processor::Network::Cmd_Read(ostream& out, const vector<string>& /* argumen
         {"Outgoing", m_delegateOut}
     };
     
+    out << dec;
     for (size_t i = 0; i < 2; ++i)
     {
         out << Registers[i].name << " delegation network:" << endl;
-        out << dec;
         if (!Registers[i].reg.Empty()) {
             const DelegateMessage& msg = Registers[i].reg.Read();
-            switch (msg.type)
-            {
-            case DelegateMessage::MSG_ALLOCATE:
-                out << "* Allocate on CPU" << msg.dest << endl;
-                break;
-                
-            case DelegateMessage::MSG_SET_PROPERTY:
-                out << "* Setting family property for F" << msg.property.fid.lfid << " on CPU" << msg.dest
-                    << " (Capability: 0x" << hex << msg.property.fid.capability << ")" << endl;
-                break;
-                
-            case DelegateMessage::MSG_CREATE:
-                out << "* Create for F" << msg.create.fid.lfid << " on CPU" << msg.dest << " at 0x" << hex << msg.create.address
-                    << " (Capability: 0x" << hex << msg.create.fid.capability << ")" << endl;
-                break;
-                
-            case DelegateMessage::MSG_SYNC:
-                out << "* Sync for F" << msg.sync.fid.lfid << " on CPU" << msg.dest << " to R" << msg.sync.completion_reg << " on CPU" << msg.src
-                    << " (Capability: 0x" << hex << msg.sync.fid.capability << ")" << endl;
-                break;
-
-            case DelegateMessage::MSG_DETACH:
-                out << "* Detach for F" << msg.detach.fid.lfid << " on CPU" << msg.dest
-                    << " (Capability: 0x" << hex << msg.detach.fid.capability << ")" << endl;
-                break;
-                
-            case DelegateMessage::MSG_RAW_REGISTER:
-                out << "* Register write to " << msg.rawreg.addr.str() << " on CPU" << msg.dest << endl;
-                break;
-
-            case DelegateMessage::MSG_FAM_REGISTER:
-                out << "* Register for "
-                    << GetRemoteRegisterTypeString(msg.famreg.kind) << " register "
-                    << msg.famreg.addr.str()
-                    << " in F" << msg.famreg.fid.lfid
-                    << " on CPU" << msg.famreg.fid.pid
-                    << " (Capability: 0x" << hex << msg.famreg.fid.capability << ")" << endl;
-                break;
-                
-            default:
-                assert(false);
-                break;
-            }
+            out << msg.str();
         } else {
-            out << "Empty" << endl;
+            out << "Empty";
         }
         out << endl;
     }
@@ -982,42 +948,9 @@ void Processor::Network::Cmd_Read(ostream& out, const vector<string>& /* argumen
         out << dec;
         if (!LinkRegisters[i].reg.Empty()) {
             const LinkMessage& msg = LinkRegisters[i].reg.Read();
-            switch (msg.type)
-            {
-            case LinkMessage::MSG_ALLOCATE:
-                out << "* Allocate of " << msg.allocate.size << " cores (FID on prev core: F" << msg.allocate.prev_fid << ")" << endl;
-                break;
-                
-            case LinkMessage::MSG_SET_PROPERTY:
-                out << "* Setting family property for F" << msg.property.fid << endl;
-                break;
-                
-            case LinkMessage::MSG_CREATE:
-                out << "* Create for F" << msg.create.fid << " at 0x" << hex << msg.create.address << " on " << msg.create.numCores << " cores" << endl;
-                break;
-                
-            case LinkMessage::MSG_DONE:
-                out << "* Termination for F" << msg.done.fid << endl;
-                break;
-                
-            case LinkMessage::MSG_SYNC:
-                out << "* Sync for F" << msg.sync.fid << " to R" << msg.sync.completion_reg << " on CPU" << msg.sync.completion_pid << endl;
-                break;
-
-            case LinkMessage::MSG_DETACH:
-                out << "* Detach for F" << msg.detach.fid << endl;
-                break;
-                
-            case LinkMessage::MSG_GLOBAL:
-                out << "* Register write for global " << msg.global.addr.str() << " in F" << msg.global.fid << endl;
-                break;
-                
-            default:
-                assert(false);
-                break;
-            }
+            out << msg.str();
         } else {
-            out << "Empty" << endl;
+            out << "Empty";
         }
         out << endl;
     }
@@ -1028,6 +961,184 @@ void Processor::Network::Cmd_Read(ostream& out, const vector<string>& /* argumen
         out << "R" << p->reg << "@P" << p->pid << " ";
     }
     out << endl;
+}
+
+string Processor::RemoteMessage::str() const
+{
+    ostringstream ss;
+
+    switch (type)
+    {
+    case MSG_NONE: ss << "(no message)"; break;
+    case MSG_ALLOCATE: 
+        ss << "Allocate[ "
+           << " pid(" << allocate.place.str()
+           << ") susp(" << allocate.suspend
+           << ") excl(" << allocate.exclusive
+           << ") type(" << allocate.type
+           << ") cpid(" << allocate.completion_pid
+           << ") creg(" << allocate.completion_reg
+           << ") ]";
+        break;
+    case MSG_BUNDLE: 
+        ss << "Bundle[ "
+           << " pid(" << allocate.place.str()
+           << ") susp(" << allocate.suspend
+           << ") excl(" << allocate.exclusive
+           << ") type(" << allocate.type
+           << ") cpid(" << allocate.completion_pid
+           << ") creg(" << allocate.completion_reg
+           << ") pc(" << hex << "0x" << allocate.bundle.pc << dec
+           << ") idx(" << allocate.bundle.index_t
+           << ") parm(" << allocate.bundle.parameter
+           << ") ]";
+        break;
+    case MSG_SET_PROPERTY: 
+        ss << "SetProperty[ "
+           << "fid(" << property.fid.str()
+           << ") type(" << property.type
+           << ") val(" << property.value
+           << ") ]";
+        break;
+    case MSG_CREATE: 
+        ss << "Create[ "
+           << "fid(" << create.fid.str()
+           << ") pc(" << hex << "0x" << create.address << dec
+           << ") creg(" << create.completion_reg
+           << ") ]";
+            ;
+        break;
+    case MSG_SYNC: 
+        ss << "Sync[ "
+           << "fid(" << sync.fid.str()
+           << ") creg(" << sync.completion_reg
+           << ") ]";
+            ;
+        break;
+    case MSG_DETACH: 
+        ss << "Detach[ "
+           << "fid(" << detach.fid.str()
+           << ") ]";
+            ;
+        break;
+    case MSG_BREAK: 
+        ss << "Break[ "
+           << "pid(" << brk.pid
+           << ") lfid(" << brk.fid
+           << ") ]";
+            ;
+        break;
+    case MSG_RAW_REGISTER: 
+        ss << "RawRegister[ "
+           << "pid(" << rawreg.pid
+           << ") addr(" << rawreg.addr.str()
+           << ") val(" << rawreg.value.str(rawreg.addr.type)
+           << ") ]";
+            ;
+        break;
+    case MSG_FAM_REGISTER: 
+        ss << "FamRegister[ "
+           << "fid(" << famreg.fid.str()
+           << ") kind(" << GetRemoteRegisterTypeString(famreg.kind)
+           << ") addr(" << famreg.addr.str()
+            ;
+        if (famreg.kind == RRT_LAST_SHARED)
+        {
+            ss << ") creg(" << famreg.completion_reg;
+        }
+        else
+        {
+            ss << ") val(" << famreg.value.str(famreg.addr.type);
+        }
+        ss << ") ]";
+        break;
+    default:
+        assert(false); // all types should be listed here.
+    }
+
+    return ss.str();
+}
+
+string Processor::LinkMessage::str() const
+{
+    ostringstream ss;
+
+    switch (type)
+    {
+    case MSG_ALLOCATE: 
+        ss << "Allocate:    "
+           << "ffid " << allocate.first_fid
+           << "pfid " << allocate.prev_fid
+           << "psz  " << allocate.size
+           << "exct " << allocate.exact
+           << "susp " << allocate.suspend
+           << "cpid " << allocate.completion_pid
+           << "creg " << allocate.completion_reg
+            ;
+        break;
+    case MSG_BALLOCATE: 
+        ss << "BAllocate:   "
+           << "minc " << ballocate.min_contexts
+           << "minp " << ballocate.min_pid
+           << "psz  " << ballocate.size
+           << "susp " << ballocate.suspend
+           << "cpid " << ballocate.completion_pid
+           << "creg " << ballocate.completion_reg
+            ;
+        break;
+    case MSG_SET_PROPERTY: 
+        ss << "SetProperty: "
+           << "lfid " << property.fid
+           << "type " << property.type
+           << "val  " << property.value
+            ;
+        break;
+    case MSG_CREATE: 
+        ss << "Create:      "
+           << "lfid " << create.fid
+           << "psz  " << create.numCores
+           << "pc   " << hex << "0x" << create.address << dec
+           << "regs "
+            ;
+        for (size_t i = 0; i < NUM_REG_TYPES; ++i)
+            ss << create.regs[i].globals << ' '
+               << create.regs[i].shareds << ' '
+               << create.regs[i].locals << ' '
+                ;
+        break;
+    case MSG_DONE: 
+        ss << "Done:        "
+           << "lfid " << sync.fid
+            ;
+        break;
+    case MSG_SYNC: 
+        ss << "Sync:        "
+           << "lfid " << sync.fid
+           << "creg " << sync.completion_reg
+            ;
+        break;
+    case MSG_DETACH: 
+        ss << "Detach:      "
+           << "lfid " << detach.fid
+            ;
+        break;
+    case MSG_BREAK: 
+        ss << "Break:       "
+           << "lfid " << brk.fid
+            ;
+        break;
+    case MSG_GLOBAL: 
+        ss << "Global:      "
+           << "lfid " << global.fid
+           << "addr " << global.addr.str()
+           << "val  " << global.value.str(global.addr.type)
+            ;
+        break;
+    default:
+        assert(false); // all types should be listed here.
+    }
+
+    return ss.str();
 }
 
 }

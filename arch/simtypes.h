@@ -112,6 +112,7 @@ struct PlaceID
     PID         pid;
     PSize       size;
     PCapability capability;
+    std::string str() const;
 };
 
 /// A globally unique family identifier
@@ -120,6 +121,7 @@ struct FID
     PID         pid;
     LFID        lfid;
     FCapability capability;
+    std::string str() const;
 };
 
 /// Infor for bundle creation
