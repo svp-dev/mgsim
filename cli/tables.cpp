@@ -68,6 +68,7 @@ command_descriptor command_table[] =
     { { "trace", "mem", 0 },          0, 0,  cmd_trace_debug,  "trace mem",       "Toggle tracing of load/store operations." },
     { { "trace", "io", 0 },           0, 0,  cmd_trace_debug,  "trace io",        "Toggle tracing of I/O operations." },
     { { "trace", "regs", 0 },         0, 0,  cmd_trace_debug,  "trace regs",      "Toggle tracing of register updates." },
+    { { "trace", "net", 0 },          0, 0,  cmd_trace_debug,  "trace net",       "Toggle tracing of network messages (delegation/link)." },
     { { "trace", "all", 0 },          0, 0,  cmd_trace_debug,  "trace all",       "Enable all traces." },
     { { "trace", "none", 0 },         0, 0,  cmd_trace_debug,  "trace none",      "Disable all traces." },
     { { "trace", "line", 0 },         2, 3,  cmd_trace_line,   "trace line COMPONENT ADDR [clear]",  "Enable/Disable tracing of the cache line at address ADDR by memory COMPONENT." },
