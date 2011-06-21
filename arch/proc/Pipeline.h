@@ -27,7 +27,8 @@ class Pipeline : public Object, public Inspect::Interface<Inspect::Read>
                 MemoryRequest m_memory;     ///< Memory request information for pending registers.
             };
         };
-    PipeValue() : m_state(RST_INVALID), m_size(0) {}
+        PipeValue() : m_state(RST_INVALID), m_size(0) {}
+        std::string str(RegType type) const;
     };
 
     static inline PipeValue MAKE_EMPTY_PIPEVALUE(unsigned int size)

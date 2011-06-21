@@ -447,4 +447,27 @@ void Processor::Pipeline::Cmd_Read(std::ostream& out, const std::vector<std::str
     out << "Stage: writeback" << endl;
 }
 
+string Processor::Pipeline::PipeValue::str(RegType type) const
+{
+    ostringstream ss;
+    switch (m_state)
+    {
+    case RST_INVALID: return "Invalid  "; 
+    case RST_EMPTY:   return "Empty    "; 
+    case RST_PENDING: return "Pending: " + m_memory.str(); 
+    case RST_WAITING: return "Waiting: " + m_memory.str() + ", " + m_waiting.str();
+    case RST_FULL: {
+        stringstream ss;
+        ss << "Full:    " << setw(sizeof(Integer) * 2) << setfill('0') << hex;
+        if (type == RT_FLOAT)
+            ss << m_float.toint(m_size);
+        else
+            ss << m_integer.get(m_size);
+        return ss.str();
+    }
+    }
+    return "(unknown register state)";
+}
+
+
 }
