@@ -2,6 +2,10 @@
 #include "sim/breakpoints.h"
 #include "sim/sampling.h"
 #include <cassert>
+#include <sstream>
+#include <iomanip>
+
+using namespace std;
 
 namespace Simulator
 {
@@ -22,62 +26,77 @@ Processor::Pipeline::PipeAction Processor::Pipeline::MemoryStage::OnCycle()
         if (rcv.m_state == RST_FULL)
         {
             // Memory write
-
-            // Check for breakpoints
-            GetKernel()->GetBreakPoints().Check(BreakPoints::WRITE, m_input.address, *this);
-
-            // Serialize and store data
-            char data[MAX_MEMORY_OPERATION_SIZE];
-
-            uint64_t value = 0;
-            switch (m_input.Rc.type) {
-            case RT_INTEGER: value = m_input.Rcv.m_integer.get(m_input.Rcv.m_size); break;
-            case RT_FLOAT:   value = m_input.Rcv.m_float.toint(m_input.Rcv.m_size); break;
-            default: assert(0);
-            }
-
-            
-            
-            SerializeRegister(m_input.Rc.type, value, data, (size_t)m_input.size);
-
-            IOMatchUnit& mmio = m_parent.GetProcessor().GetIOMatchUnit();
-            if (mmio.IsRegisteredWriteAddress(m_input.address, m_input.size))
+            try 
             {
-                result = mmio.Write(m_input.address, data, m_input.size, m_input.fid, m_input.tid);
 
-                if (result == FAILED)
-                {
-                    DeadlockWrite("Failed I/O write by %s (F%u/T%u): %#016llx (%zu)",
-                                  GetKernel()->GetSymbolTable()[m_input.pc].c_str(),
-                                  (unsigned)m_input.fid, (unsigned)m_input.tid,
-                                  (unsigned long long)m_input.address, (size_t)m_input.size);
-                    return PIPE_STALL;
+                // Check for breakpoints
+                GetKernel()->GetBreakPoints().Check(BreakPoints::WRITE, m_input.address, *this);
+                
+                // Serialize and store data
+                char data[MAX_MEMORY_OPERATION_SIZE];
+                
+                uint64_t value = 0;
+                switch (m_input.Rc.type) {
+                case RT_INTEGER: value = m_input.Rcv.m_integer.get(m_input.Rcv.m_size); break;
+                case RT_FLOAT:   value = m_input.Rcv.m_float.toint(m_input.Rcv.m_size); break;
+                default: assert(0);
                 }
+                
+                
+                
+                SerializeRegister(m_input.Rc.type, value, data, (size_t)m_input.size);
+                
+                IOMatchUnit& mmio = m_parent.GetProcessor().GetIOMatchUnit();
+                if (mmio.IsRegisteredWriteAddress(m_input.address, m_input.size))
+                {
+                    result = mmio.Write(m_input.address, data, m_input.size, m_input.fid, m_input.tid);
+                    
+                    if (result == FAILED)
+                    {
+                        DeadlockWrite("Failed I/O write by %s (F%u/T%u): *%#016llx <- %zd bytes from %s = %s",
+                                      GetKernel()->GetSymbolTable()[m_input.pc].c_str(),
+                                      (unsigned)m_input.fid, (unsigned)m_input.tid,
+                                      (unsigned long long)m_input.address, (size_t)m_input.size, m_input.Rc.str().c_str(), m_input.Rcv.str(m_input.Rc.type).c_str());
+
+                        return PIPE_STALL;
+                    }
+                }
+                else
+                {
+                    // Normal request to memory
+                    if ((result = m_dcache.Write(m_input.address, data, m_input.size, m_input.fid, m_input.tid)) == FAILED)
+                    {
+                        // Stall
+                        return PIPE_STALL;
+                    }
+                    
+                    if (!m_allocator.IncreaseThreadDependency(m_input.tid, THREADDEP_OUTSTANDING_WRITES))
+                    {
+                        return PIPE_STALL;
+                    }
+                }
+                
+                // Clear the register state so it won't get written to the register file
+                rcv.m_state = RST_INVALID;
+                
+                // Prepare for count increment
+                instore = m_input.size;
+                
+                DebugMemWrite("Store by %s (F%u/T%u): *%#016llx <- %zd bytes from %s = %s",
+                              GetKernel()->GetSymbolTable()[m_input.pc].c_str(), (unsigned)m_input.fid, (unsigned)m_input.tid,
+                              (unsigned long long)m_input.address, (size_t)m_input.size, m_input.Rc.str().c_str(), m_input.Rcv.str(m_input.Rc.type).c_str());
             }
-            else
+            catch (SimulationException& e)
             {
-                // Normal request to memory
-                if ((result = m_dcache.Write(m_input.address, data, m_input.size, m_input.fid, m_input.tid)) == FAILED)
-                {
-                    // Stall
-                    return PIPE_STALL;
-                }
-
-                if (!m_allocator.IncreaseThreadDependency(m_input.tid, THREADDEP_OUTSTANDING_WRITES))
-                {
-                    return PIPE_STALL;
-                }
+                // Add details about store
+                stringstream details;
+                details << "While processing store: *" << GetKernel()->GetSymbolTable()[m_input.pc_dbg] 
+                        << setw(sizeof(Integer) * 2) << setfill('0') << right << hex << m_input.address << left 
+                        << " <- " << m_input.Rc.str() 
+                        << " = " << m_input.Rcv.str(m_input.Rc.type);
+                e.AddDetails(details.str());
+                throw;
             }
-
-            // Clear the register state so it won't get written to the register file
-            rcv.m_state = RST_INVALID;
-
-            // Prepare for count increment
-            instore = m_input.size;
-
-            DebugMemWrite("Store by %s (F%u/T%u): *%#016llx <- %#016llx (%zd)",
-                          GetKernel()->GetSymbolTable()[m_input.pc].c_str(), (unsigned)m_input.fid, (unsigned)m_input.tid,
-                          (unsigned long long)m_input.address, (unsigned long long)value, (size_t)m_input.size);
         }
         // Memory read
         else if (m_input.address >= 4 && m_input.address < 8)
@@ -91,121 +110,141 @@ Processor::Pipeline::PipeAction Processor::Pipeline::MemoryStage::OnCycle()
         else if (m_input.Rc.valid())
         {
             // Memory read
-
-            // Check for breakpoints
-            GetKernel()->GetBreakPoints().Check(BreakPoints::READ, m_input.address, *this);
-
-            char data[MAX_MEMORY_OPERATION_SIZE];
-            RegAddr reg = m_input.Rc;
-
-            IOMatchUnit& mmio = m_parent.GetProcessor().GetIOMatchUnit();
-            if (mmio.IsRegisteredReadAddress(m_input.address, m_input.size))
+            try 
             {
-                result = mmio.Read(m_input.address, data, m_input.size, m_input.fid, m_input.tid, m_input.Rc);
-
-                switch(result)
-                {
-                case FAILED:
-                    DeadlockWrite("Failed I/O read by %s (F%u/T%u): %#016llx (%zd)",
-                                  GetKernel()->GetSymbolTable()[m_input.pc].c_str(),
-                                  (unsigned)m_input.fid, (unsigned)m_input.tid,
-                                  (unsigned long long)m_input.address, (size_t)m_input.size);
-                    return PIPE_STALL;
-
-                case DELAYED:
-                    rcv = MAKE_PENDING_PIPEVALUE(rcv.m_size);
-                    rcv.m_memory.fid         = m_input.fid;
-                    rcv.m_memory.next        = INVALID_REG;
-                    rcv.m_memory.offset      = 0;
-                    rcv.m_memory.size        = (size_t)m_input.size;
-                    rcv.m_memory.sign_extend = m_input.sign_extend;
-
-                    // Increase the outstanding memory count for the family
-                    if (!m_allocator.OnMemoryRead(m_input.fid))
-                    {
-                        return PIPE_STALL;
-                    }
-
-                    DebugMemWrite("I/O read by %s (F%u/T%u): *%#016llx -> delayed %s (%zd)",
-                                  GetKernel()->GetSymbolTable()[m_input.pc].c_str(), 
-                                  (unsigned)m_input.fid, (unsigned)m_input.tid,
-                                  (unsigned long long)m_input.address, 
-                                  m_input.Rc.str().c_str(), (size_t)m_input.size); 
-                    break;
-
-                case SUCCESS:
-                    break;
-                }
-            }
-            else
-            {
-                // Normal read from memory.
-                result = m_dcache.Read(m_input.address, data, m_input.size, m_input.fid, &reg);
                 
-                switch(result)
+                // Check for breakpoints
+                GetKernel()->GetBreakPoints().Check(BreakPoints::READ, m_input.address, *this);
+
+                char data[MAX_MEMORY_OPERATION_SIZE];
+                RegAddr reg = m_input.Rc;
+
+                IOMatchUnit& mmio = m_parent.GetProcessor().GetIOMatchUnit();
+                if (mmio.IsRegisteredReadAddress(m_input.address, m_input.size))
                 {
-                case FAILED:
-                    // Stall
-                    return PIPE_STALL;
+                    result = mmio.Read(m_input.address, data, m_input.size, m_input.fid, m_input.tid, m_input.Rc);
 
-                case DELAYED:
-
-                    // Remember request data
-                    rcv = MAKE_PENDING_PIPEVALUE(rcv.m_size);
-                    rcv.m_memory.fid         = m_input.fid;
-                    rcv.m_memory.next        = reg;
-                    rcv.m_memory.offset      = (unsigned int)(m_input.address % m_dcache.GetLineSize());
-                    rcv.m_memory.size        = (size_t)m_input.size;
-                    rcv.m_memory.sign_extend = m_input.sign_extend;
-
-                    // Increase the outstanding memory count for the family
-                    if (!m_allocator.OnMemoryRead(m_input.fid))
+                    switch(result)
                     {
+                    case FAILED:
+                        DeadlockWrite("Failed I/O read by %s (F%u/T%u): *%#016llx, %zu bytes -> %s",
+                                      GetKernel()->GetSymbolTable()[m_input.pc].c_str(),
+                                      (unsigned)m_input.fid, (unsigned)m_input.tid,
+                                      (unsigned long long)m_input.address, (size_t)m_input.size,
+                                      m_input.Rc.str().c_str());
                         return PIPE_STALL;
+
+                    case DELAYED:
+                        rcv = MAKE_PENDING_PIPEVALUE(rcv.m_size);
+                        rcv.m_memory.fid         = m_input.fid;
+                        rcv.m_memory.next        = INVALID_REG;
+                        rcv.m_memory.offset      = 0;
+                        rcv.m_memory.size        = (size_t)m_input.size;
+                        rcv.m_memory.sign_extend = m_input.sign_extend;
+
+                        // Increase the outstanding memory count for the family
+                        if (!m_allocator.OnMemoryRead(m_input.fid))
+                        {
+                            return PIPE_STALL;
+                        }
+
+                        DebugMemWrite("I/O read by %s (F%u/T%u): *%#016llx, %zu bytes -> delayed %s",
+                                      GetKernel()->GetSymbolTable()[m_input.pc].c_str(), 
+                                      (unsigned)m_input.fid, (unsigned)m_input.tid,
+                                      (unsigned long long)m_input.address, (size_t)m_input.size,
+                                      m_input.Rc.str().c_str());
+
+                        break;
+
+                    case SUCCESS:
+                        break;
                     }
+                }
+                else
+                {
+                    // Normal read from memory.
+                    result = m_dcache.Read(m_input.address, data, m_input.size, m_input.fid, &reg);
+                
+                    switch(result)
+                    {
+                    case FAILED:
+                        // Stall
+                        return PIPE_STALL;
+
+                    case DELAYED:
+
+                        // Remember request data
+                        rcv = MAKE_PENDING_PIPEVALUE(rcv.m_size);
+                        rcv.m_memory.fid         = m_input.fid;
+                        rcv.m_memory.next        = reg;
+                        rcv.m_memory.offset      = (unsigned int)(m_input.address % m_dcache.GetLineSize());
+                        rcv.m_memory.size        = (size_t)m_input.size;
+                        rcv.m_memory.sign_extend = m_input.sign_extend;
+
+                        // Increase the outstanding memory count for the family
+                        if (!m_allocator.OnMemoryRead(m_input.fid))
+                        {
+                            return PIPE_STALL;
+                        }
                     
 
-                    DebugMemWrite("Load by %s: *%#016llx -> delayed %s (%zd)",
-                                  GetKernel()->GetSymbolTable()[m_input.pc].c_str(), 
-                                  (unsigned long long)m_input.address, 
-                                  m_input.Rc.str().c_str(), (size_t)m_input.size); 
+                        DebugMemWrite("Load by %s (F%u/T%u): *%#016llx, %zu bytes -> delayed %s",
+                                      GetKernel()->GetSymbolTable()[m_input.pc].c_str(), 
+                                      (unsigned)m_input.fid, (unsigned)m_input.tid,
+                                      (unsigned long long)m_input.address, (size_t)m_input.size,
+                                      m_input.Rc.str().c_str()); 
 
-                    break;
-                case SUCCESS:
-                    break;
+                        break;
+                    case SUCCESS:
+                        break;
+                    }
+                }
+
+                // Prepare for counter increment
+                inload = m_input.size;
+
+                rcv.m_size = m_input.Rcv.m_size;
+                if (result == SUCCESS)
+                {
+                    // Unserialize and store data
+                    uint64_t value = UnserializeRegister(m_input.Rc.type, data, (size_t)m_input.size);
+
+                    if (m_input.sign_extend)
+                    {
+                        // Sign-extend the value
+                        size_t shift = (sizeof(value) - (size_t)m_input.size) * 8;
+                        value = (int64_t)(value << shift) >> shift;
+                    }
+                
+                    rcv.m_state = RST_FULL;
+                    switch (m_input.Rc.type)
+                    {
+                    case RT_INTEGER: rcv.m_integer.set(value, rcv.m_size); break;
+                    case RT_FLOAT:   rcv.m_float.fromint(value, rcv.m_size); break;
+                    default:         assert(0);
+                    }
+
+                    // Memory read
+                    DebugMemWrite("Load by %s (F%u/T%u): *%#016llx, %zu bytes -> %s = %s",
+                                  GetKernel()->GetSymbolTable()[m_input.pc].c_str(), 
+                                  (unsigned)m_input.fid, (unsigned)m_input.tid,
+                                  (unsigned long long)m_input.address, (size_t)m_input.size,
+                                  m_input.Rc.str().c_str(), rcv.str(m_input.Rc.type).c_str());
                 }
             }
-
-            // Prepare for counter increment
-            inload = m_input.size;
-
-            rcv.m_size = m_input.Rcv.m_size;
-            if (result == SUCCESS)
+            catch (SimulationException& e)
             {
-                // Unserialize and store data
-                uint64_t value = UnserializeRegister(m_input.Rc.type, data, (size_t)m_input.size);
-
-                if (m_input.sign_extend)
-                {
-                    // Sign-extend the value
-                    size_t shift = (sizeof(value) - (size_t)m_input.size) * 8;
-                    value = (int64_t)(value << shift) >> shift;
-                }
-                
-                rcv.m_state = RST_FULL;
-                switch (m_input.Rc.type)
-                {
-                case RT_INTEGER: rcv.m_integer.set(value, rcv.m_size); break;
-                case RT_FLOAT:   rcv.m_float.fromint(value, rcv.m_size); break;
-                default:         assert(0);
-                }
-
-                DebugMemWrite("Load by %s (F%u/T%u): *%#016llx -> %#016llx (%zd)",
-                              GetKernel()->GetSymbolTable()[m_input.pc].c_str(), (unsigned)m_input.fid, (unsigned)m_input.tid,
-                              (unsigned long long)m_input.address, (unsigned long long)value, (size_t)m_input.size); 
+                // Add details about load
+                stringstream details;
+                details << "While processing load: *"
+                        << setw(sizeof(Integer) * 2) << setfill('0') << right << hex << m_input.address << left 
+                        << " -> " << m_input.Rc.str();
+                e.AddDetails(details.str());
+                throw;
             }
         }
     }
+
 
     COMMIT
     {
