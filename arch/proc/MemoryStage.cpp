@@ -90,10 +90,9 @@ Processor::Pipeline::PipeAction Processor::Pipeline::MemoryStage::OnCycle()
             {
                 // Add details about store
                 stringstream details;
-                details << "While processing store: *" << GetKernel()->GetSymbolTable()[m_input.pc_dbg] 
+                details << "While processing store: *" 
                         << setw(sizeof(Integer) * 2) << setfill('0') << right << hex << m_input.address << left 
-                        << " <- " << m_input.Rc.str() 
-                        << " = " << m_input.Rcv.str(m_input.Rc.type);
+                        << " <- " << m_input.Rcv.str(m_input.Rc.type);
                 e.AddDetails(details.str());
                 throw;
             }
