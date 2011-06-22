@@ -104,14 +104,13 @@ namespace Simulator
             throw exceptf<SimulationException>("Procedure %u requires at least 3words available in 1st memory region", (unsigned)procedure_id);
         }
 
-        uint64_t rval;
+        uint64_t rval = 0;
         errno = 0;
 
         switch(procedure_id)
         {
         case RPC_nop:
             // this syscall can be used to check the interface works.
-            rval = 0;
             break;
 
         case RPC_read:

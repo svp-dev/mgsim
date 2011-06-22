@@ -989,8 +989,8 @@ string Processor::RemoteMessage::str() const
            << ") cpid(" << allocate.completion_pid
            << ") creg(" << allocate.completion_reg
            << ") pc(" << hex << "0x" << allocate.bundle.pc << dec
-           << ") idx(" << allocate.bundle.index_t
            << ") parm(" << allocate.bundle.parameter
+           << ") idx(" << allocate.bundle.index
            << ") ]";
         break;
     case MSG_SET_PROPERTY: 

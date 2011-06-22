@@ -948,14 +948,21 @@ bool Processor::Allocator::QueueFamilyAllocation(const RemoteMessage& msg, bool 
     
     if (bundle)
     {
-		request.pc             = msg.allocate.bundle.pc;
-		request.index          = msg.allocate.bundle.index_t;
-		request.parameter      = msg.allocate.bundle.parameter;
-	}
+        request.pc         = msg.allocate.bundle.pc;
+        request.parameter  = msg.allocate.bundle.parameter;
+        request.index      = msg.allocate.bundle.index;
+    }
+    else
+    {
+        request.pc         = 0;
+        request.parameter  = 0;
+        request.index      = 0;
+    }
+     
     Buffer<AllocRequest>& allocations = msg.allocate.exclusive
         ? m_allocRequestsExclusive
         : (msg.allocate.suspend ? m_allocRequestsSuspend : m_allocRequestsNoSuspend);
-        
+    
     if (!allocations.Push(request))
     {
         return false;
@@ -976,7 +983,11 @@ bool Processor::Allocator::QueueFamilyAllocation(const LinkMessage& msg)
     request.type           = msg.allocate.exact ? ALLOCATE_EXACT : ALLOCATE_NORMAL;
     request.completion_reg = msg.allocate.completion_reg;
     request.completion_pid = msg.allocate.completion_pid;
-    request.bundle         = false;    
+    request.bundle         = false;
+    request.pc             = 0;
+    request.parameter      = 0;
+    request.index          = 0;
+
     Buffer<AllocRequest>& allocations = (msg.allocate.suspend ? m_allocRequestsSuspend : m_allocRequestsNoSuspend);
     if (!allocations.Push(request))
     {
@@ -1320,6 +1331,11 @@ bool Processor::Allocator::QueueCreate(const RemoteMessage& msg, PID src)
         info.parameter      = msg.create.parameter;
         info.index          = msg.create.index;
     }
+    else
+    {
+        info.parameter      = 0;
+        info.index          = 0;
+    }
     
     
     if (!m_creates.Push(info))
@@ -1388,15 +1404,15 @@ Result Processor::Allocator::DoBundle()
 		msg.allocate.type              = ALLOCATE_EXACT;
 		msg.allocate.suspend           = true;
 		msg.allocate.exclusive         = true;
-		msg.allocate.bundle.parameter  = info.parameter;
 		msg.allocate.bundle.pc         = UnserializeRegister(RT_INTEGER, &m_bundleData[offset + sizeof(Integer)], sizeof(MemAddr));
-		msg.allocate.bundle.index_t    = UnserializeRegister(RT_INTEGER, &m_bundleData[offset + sizeof(Integer) + sizeof(MemAddr)], sizeof(Integer));
+		msg.allocate.bundle.parameter  = info.parameter;
+		msg.allocate.bundle.index      = UnserializeRegister(RT_INTEGER, &m_bundleData[offset + sizeof(Integer) + sizeof(MemAddr)], sizeof(SInteger));
 
 		DebugSimWrite("Processing bundle creation for CPU%u/%u, PC %#016llx, parameter %#016llx, index %#016llx",
                         (unsigned)msg.allocate.place.pid, (unsigned)msg.allocate.place.size,  
                         (unsigned long long)msg.allocate.bundle.pc, 
                         (unsigned long long)msg.allocate.bundle.parameter, 
-                        (unsigned long long)msg.allocate.bundle.index_t);
+                        (unsigned long long)msg.allocate.bundle.index);
 
 		if (!m_network.SendMessage(msg))
 		{
