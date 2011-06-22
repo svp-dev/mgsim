@@ -581,14 +581,14 @@ Result Processor::Network::DoDelegationIn()
         
     case DelegateMessage::MSG_CREATE:
 	{
-		// Process the received delegated create
-		PID src = (msg.create.bundle) ? msg.create.completion_pid : msg.src;
-		if (!m_allocator.QueueCreate(msg, src))
-        {
-            DeadlockWrite("Unable to process received delegation create");
-            return FAILED;
-        }
-        break;
+            // Process the received delegated create
+            PID src = (msg.create.bundle) ? msg.create.completion_pid : msg.src;
+            if (!m_allocator.QueueCreate(msg, src))
+            {
+                DeadlockWrite("Unable to process received delegation create");
+                return FAILED;
+            }
+            break;
 	}
         
     case DelegateMessage::MSG_SYNC:

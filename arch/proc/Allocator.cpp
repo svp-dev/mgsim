@@ -25,7 +25,7 @@ void Processor::Allocator::UpdateStats()
     m_totalallocex += m_curallocex * elapsed;
     m_maxallocex = std::max(m_maxallocex, m_curallocex);
 }
-
+    
 RegAddr Processor::Allocator::GetRemoteRegisterAddress(LFID fid, RemoteRegType kind, const RegAddr& addr) const
 {
     const Family&          family = m_familyTable[fid];
@@ -851,7 +851,7 @@ Result Processor::Allocator::DoThreadAllocate()
             }
 
             DebugSimWrite("Cleaned up T%u for F%u (index %llu)",
-                (unsigned)tid, (unsigned)fid, (unsigned long long)thread.index);
+                          (unsigned)tid, (unsigned)fid, (unsigned long long)thread.index);
         }
         // Reallocate thread
         else if (!AllocateThread(fid, tid, false))
@@ -1105,13 +1105,13 @@ Result Processor::Allocator::DoFamilyAllocate()
             fid.lfid       = 0;
             fid.capability = 0;
 			
-			RemoteMessage msg;
-			msg.type                   = RemoteMessage::MSG_RAW_REGISTER;
-			msg.rawreg.pid             = req.completion_pid;
-			msg.rawreg.addr            = MAKE_REGADDR(RT_INTEGER, req.completion_reg);
-			msg.rawreg.value.m_state   = RST_FULL;
-			msg.rawreg.value.m_integer = m_parent.PackFID(fid);
-        
+            RemoteMessage msg;
+            msg.type                   = RemoteMessage::MSG_RAW_REGISTER;
+            msg.rawreg.pid             = req.completion_pid;
+            msg.rawreg.addr            = MAKE_REGADDR(RT_INTEGER, req.completion_reg);
+            msg.rawreg.value.m_state   = RST_FULL;
+            msg.rawreg.value.m_integer = m_parent.PackFID(fid);
+            
             if (!m_network.SendMessage(msg))
             {
                 DeadlockWrite("Unable to send remote allocation writeback");
@@ -1151,8 +1151,8 @@ Result Processor::Allocator::DoFamilyAllocate()
         {
             if (req.prev_fid == INVALID_LFID) 
             {
-            // We're the only core in the family
-            // Construct a global FID for this family
+                // We're the only core in the family
+                // Construct a global FID for this family
                 FID fid;
                 fid.pid        = m_parent.GetPID();
                 fid.lfid       = lfid;
@@ -1191,17 +1191,17 @@ Result Processor::Allocator::DoFamilyAllocate()
         }
         
         if (req.bundle)
-		{
+        {
             FID fid;
             fid.pid        = m_parent.GetPID();
             fid.lfid       = lfid;
             fid.capability = family.capability;
-		
-			RemoteMessage msg;
-			msg.type                  = RemoteMessage::MSG_CREATE;
-			msg.create.fid            = fid;
-			msg.create.address        = req.pc;
-			msg.create.completion_reg = req.completion_reg;
+            
+            RemoteMessage msg;
+            msg.type                  = RemoteMessage::MSG_CREATE;
+            msg.create.fid            = fid;
+            msg.create.address        = req.pc;
+            msg.create.completion_reg = req.completion_reg;
             msg.create.bundle         = true;
             msg.create.parameter      = req.parameter;
             msg.create.index          = req.index;
@@ -1213,8 +1213,8 @@ Result Processor::Allocator::DoFamilyAllocate()
                 DeadlockWrite("Unable to send remote bundle allocation to CPU%u", (unsigned)fid.pid);
                 return FAILED;
             }
-			
-		}
+            
+        }
     }
     else
     {
@@ -1398,28 +1398,28 @@ Result Processor::Allocator::DoBundle()
         {
             throw exceptf<SimulationException>("Invalid place size in bundle creation");
         }
-
-		msg.allocate.completion_reg    = info.completion_reg;
-		msg.allocate.completion_pid    = m_parent.GetPID();
-		msg.allocate.type              = ALLOCATE_EXACT;
-		msg.allocate.suspend           = true;
-		msg.allocate.exclusive         = true;
-		msg.allocate.bundle.pc         = UnserializeRegister(RT_INTEGER, &m_bundleData[offset + sizeof(Integer)], sizeof(MemAddr));
-		msg.allocate.bundle.parameter  = info.parameter;
-		msg.allocate.bundle.index      = UnserializeRegister(RT_INTEGER, &m_bundleData[offset + sizeof(Integer) + sizeof(MemAddr)], sizeof(SInteger));
-
-		DebugSimWrite("Processing bundle creation for CPU%u/%u, PC %#016llx, parameter %#016llx, index %#016llx",
-                        (unsigned)msg.allocate.place.pid, (unsigned)msg.allocate.place.size,  
-                        (unsigned long long)msg.allocate.bundle.pc, 
-                        (unsigned long long)msg.allocate.bundle.parameter, 
-                        (unsigned long long)msg.allocate.bundle.index);
-
-		if (!m_network.SendMessage(msg))
-		{
-			DeadlockWrite("Unable to send indirect creation to CPU%u", (unsigned)msg.allocate.place.pid);
-			return FAILED;
-		}
-		
+        
+        msg.allocate.completion_reg    = info.completion_reg;
+        msg.allocate.completion_pid    = m_parent.GetPID();
+        msg.allocate.type              = ALLOCATE_EXACT;
+        msg.allocate.suspend           = true;
+        msg.allocate.exclusive         = true;
+        msg.allocate.bundle.pc         = UnserializeRegister(RT_INTEGER, &m_bundleData[offset + sizeof(Integer)], sizeof(MemAddr));
+        msg.allocate.bundle.parameter  = info.parameter;
+        msg.allocate.bundle.index      = UnserializeRegister(RT_INTEGER, &m_bundleData[offset + sizeof(Integer) + sizeof(MemAddr)], sizeof(SInteger));
+        
+        DebugSimWrite("Processing bundle creation for CPU%u/%u, PC %#016llx, parameter %#016llx, index %#016llx",
+                      (unsigned)msg.allocate.place.pid, (unsigned)msg.allocate.place.size,  
+                      (unsigned long long)msg.allocate.bundle.pc, 
+                      (unsigned long long)msg.allocate.bundle.parameter, 
+                      (unsigned long long)msg.allocate.bundle.index);
+        
+        if (!m_network.SendMessage(msg))
+        {
+            DeadlockWrite("Unable to send indirect creation to CPU%u", (unsigned)msg.allocate.place.pid);
+            return FAILED;
+        }
+	
         
         // Reset the indirect create state
         COMMIT{ m_bundleState == BUNDLE_INITIAL; }
@@ -1636,14 +1636,14 @@ Result Processor::Allocator::DoFamilyCreate()
 			
 	    	if (!m_registerFile.p_asyncW.Write(addr))
 	    	{
-				DeadlockWrite("Unable to acquire Register File port");
-				return FAILED;
+                    DeadlockWrite("Unable to acquire Register File port");
+                    return FAILED;
 	    	}
-			
+		
 	    	if (!m_registerFile.WriteRegister(addr, data, false))
 	    	{
-				DeadlockWrite("Unable to write shareds for bundle creation");
-				return FAILED;
+                    DeadlockWrite("Unable to write shareds for bundle creation");
+                    return FAILED;
 	    	}
             else
             {
