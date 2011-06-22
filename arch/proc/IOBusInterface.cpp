@@ -131,7 +131,7 @@ namespace Simulator
         StorageTraceSet res;
         for (std::vector<SingleFlag*>::const_iterator p = m_nmux.m_interrupts.begin(); p != m_nmux.m_interrupts.end(); ++p)
         {
-            res ^= *(*p);
+            res ^= opt(*(*p));
         }
         return res;
     }
@@ -146,7 +146,7 @@ namespace Simulator
         StorageTraceSet res;
         for (std::vector<Buffer<Integer>*>::const_iterator p = m_nmux.m_notifications.begin(); p != m_nmux.m_notifications.end(); ++p)
         {
-            res ^= *(*p);
+            res ^= opt(*(*p));
         }
         return res;
     }
