@@ -174,7 +174,7 @@ namespace Simulator
         {
             int iflags = arg3;
             int mode = arg4;
-            int oflags;
+            int oflags = 0;
 
             // translate virtual flags (iflags) to real flags (oflags)
             if      ((iflags & VO_ACCMODE) == VO_RDONLY) oflags = O_RDONLY;
