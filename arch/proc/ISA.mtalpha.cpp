@@ -194,10 +194,11 @@ void Processor::Pipeline::DecodeStage::DecodeInstruction(const Instruction& inst
             // Microthreading doesn't need branch prediction, so we ignore the hints.
 
             // Create (indirect) also reads Ra
-           
-            m_output.Ra           = MAKE_REGADDR(RT_INTEGER, Ra);
-            m_output.Rb           = MAKE_REGADDR(RT_INTEGER, Rb);
-            m_output.Rc           = MAKE_REGADDR(RT_INTEGER, Ra);
+            bool crei = (m_output.opcode == A_OP_CREATE_I);
+            
+            m_output.Ra = MAKE_REGADDR(RT_INTEGER, crei ? Ra : 31);
+            m_output.Rb = MAKE_REGADDR(RT_INTEGER, Rb);
+            m_output.Rc = MAKE_REGADDR(RT_INTEGER, Ra);
             break;
         }
 
