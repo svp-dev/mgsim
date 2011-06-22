@@ -30,6 +30,7 @@ DEVICE_SRC = \
         arch/dev/RPC.cpp \
         arch/dev/RPC_unix.h \
         arch/dev/RPC_unix.cpp \
+        arch/dev/RPCServiceDatabase.h \
         arch/dev/Selector.h \
         arch/dev/Selector.cpp \
         arch/dev/SMC.h \
