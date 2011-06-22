@@ -7,6 +7,7 @@
 #include <fcntl.h>
 #include <sys/stat.h>
 #include <sys/types.h>
+#include <cstring>
 
 using namespace std;
 
@@ -177,9 +178,9 @@ namespace Simulator
             int oflags;
 
             // translate virtual flags (iflags) to real flags (oflags)
-            if      (iflags & VO_ACCMODE == VO_RDONLY) oflags = O_RDONLY;
-            else if (iflags & VO_ACCMODE == VO_WRONLY) oflags = O_WRONLY;
-            else if (iflags & VO_ACCMODE == VO_RDWR)   oflags = O_RDWR;
+            if      ((iflags & VO_ACCMODE) == VO_RDONLY) oflags = O_RDONLY;
+            else if ((iflags & VO_ACCMODE) == VO_WRONLY) oflags = O_WRONLY;
+            else if ((iflags & VO_ACCMODE) == VO_RDWR)   oflags = O_RDWR;
             iflags ^= VO_ACCMODE;
 
             if (iflags & VO_APPEND)   { oflags |= O_APPEND;   iflags ^= O_APPEND; }
@@ -508,9 +509,9 @@ namespace Simulator
                 vst->vst_ino_low = st.st_ino & 0xffffffffUL;
                 vst->vst_ino_high = (st.st_ino >> 32) & 0xffffffffUL;
 
-                if      (st.st_mode & S_IFMT == S_IFDIR) vst->vst_mode = VS_IFDIR;
-                else if (st.st_mode & S_IFMT == S_IFREG) vst->vst_mode = VS_IFREG;
-                else if (st.st_mode & S_IFMT == S_IFLNK) vst->vst_mode = VS_IFLNK;
+                if      ((st.st_mode & S_IFMT) == S_IFDIR) vst->vst_mode = VS_IFDIR;
+                else if ((st.st_mode & S_IFMT) == S_IFREG) vst->vst_mode = VS_IFREG;
+                else if ((st.st_mode & S_IFMT) == S_IFLNK) vst->vst_mode = VS_IFLNK;
                 else                                     vst->vst_mode = VS_IFUNKNOWN;
 
                 vst->vst_nlink = st.st_nlink;
@@ -685,7 +686,7 @@ namespace Simulator
             struct dirent *de = readdir(vd->dir);
             if (de != NULL)
             {
-                size_t namlen = de->d_namlen & 0xffff;
+                size_t namlen = strlen(de->d_name) & 0xffff;
                 size_t bytes_needed = sizeof(struct vdirent) + namlen + 1 /* extra nul byte */;
                 size_t words_needed = (bytes_needed + 4 - 1) / 4; // round up
                 if (words_needed > res2_maxsize)
