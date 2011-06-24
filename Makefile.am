@@ -1,3 +1,4 @@
+SVN = svn
 bin_PROGRAMS =
 dist_man1_MANS = 
 MAINTAINERCLEANFILES =
@@ -78,4 +79,12 @@ _version:
 	$(MAKE) $(AM_MAKEFLAGS) .version
 
 ChangeLog:
-	(cd $(srcdir) && $(PYTHON) build-aux/gitlog2changelog.py) >$@
+	cd $(srcdir); \
+	if test -e .git; then \
+	     $(PYTHON) build-aux/gitlog2changelog.py >$@ || (rm -f $@; false); \
+	elif test -e .svn; then \
+	     $(SVN) log -v --xml | $(PYTHON) build-aux/svn2log.py -p '.*/(branches/[^/]+|trunk)/' -u build-aux/users -o - >$@ || (rm -f $@; false); \
+	else \
+	     echo "No source for ChangeLog. Cannot generate." >&2; \
+	     exit 1; \
+	fi

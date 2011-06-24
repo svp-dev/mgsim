@@ -27,6 +27,7 @@ fi
 AC_SUBST([WARN_CXXFLAGS])
 
 AC_CHECK_PROGS([HELP2MAN], [help2man], [$am_aux_dir/missing help2man])
+AC_CHECK_PROGS([SVN], [svn])
 
 AC_PROG_SED
 
