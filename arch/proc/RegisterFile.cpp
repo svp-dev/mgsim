@@ -273,7 +273,7 @@ void Processor::RegisterFile::Cmd_Read(std::ostream& out, const std::vector<std:
         RegAddr  addr = MAKE_REGADDR(type, *p);
         LFID     fid  = regs[*p];
         RegValue value;
-        ReadRegister(addr, value);
+        ReadRegister(addr, value, true);
 
         out << addr << " | ";
 
