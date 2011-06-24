@@ -31,9 +31,10 @@ public:
      * Reads a register
      * @param[in]  addr the address of the register to read
      * @param[out] data the read data in the register
+     * @param[in]  quiet whether to hide debugging messages during the read
      * @return true if the register could be read
      */
-    bool ReadRegister(const RegAddr& addr, RegValue& data) const;
+    bool ReadRegister(const RegAddr& addr, RegValue& data, bool quiet = false) const;
     
     /**
      * Writes a register

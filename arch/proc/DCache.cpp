@@ -702,7 +702,7 @@ void Processor::DCache::Cmd_Read(std::ostream& out, const std::vector<std::strin
             {
                 waiting.push_back(reg);
                 RegValue value;
-                m_regFile.ReadRegister(reg, value);
+                m_regFile.ReadRegister(reg, value, true);
                 
                 if (value.m_state == RST_FULL || value.m_memory.size == 0)
                 {

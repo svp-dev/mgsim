@@ -48,7 +48,7 @@ RegSize Processor::RegisterFile::GetSize(RegType type) const
     return regs.size();
 }
 
-bool Processor::RegisterFile::ReadRegister(const RegAddr& addr, RegValue& data) const
+bool Processor::RegisterFile::ReadRegister(const RegAddr& addr, RegValue& data, bool quiet) const
 {
     const vector<RegValue>& regs = (addr.type == RT_FLOAT) ? m_floats : m_integers;
     if (addr.index >= regs.size())
@@ -56,7 +56,10 @@ bool Processor::RegisterFile::ReadRegister(const RegAddr& addr, RegValue& data) 
         throw SimulationException("A component attempted to read from a non-existing register", *this);
     }
     data = regs[addr.index];
-    DebugRegWrite("Read from %s: %s", addr.str().c_str(), data.str(addr.type).c_str());
+
+    if (!quiet)
+        DebugRegWrite("Read from %s: %s", addr.str().c_str(), data.str(addr.type).c_str());
+
     return true;
 }
 
