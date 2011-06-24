@@ -588,10 +588,10 @@ Result Processor::DCache::DoCompletedReads()
     }
     else
     {
-		if (line.create)
-		{
+        if (line.create)
+        {
             m_allocator.OnDCachelineLoaded(line.data);
-		}
+        }
         // We're done with this line.
         // Move the line to the FULL (or EMPTY when invalidated) state.
         COMMIT
