@@ -352,16 +352,35 @@ bool Processor::DCache::OnMemoryReadCompleted(MemAddr addr, const MemData& data)
     if (FindLine(addr, line, true) == SUCCESS && line->state != LINE_FULL && !line->processing)
     {
         assert(line->state == LINE_LOADING || line->state == LINE_INVALID);
-        
+
         // Registers are waiting on this data
         COMMIT
         {
+            /*        
+                      Merge with pending writes because the incoming line
+                      will not know about those yet and we don't want inconsistent
+                      content in L1.
+                      This is kind of a hack; it's feasibility in hardware in a single cycle
+                      is questionable.
+            */
+            MemData mdata(data);
+
+            for (Buffer<Request>::const_iterator p = m_outgoing.begin(); p != m_outgoing.end(); ++p)
+            {
+                unsigned int offset = p->address % m_lineSize;
+                if (p->write && p->address - offset == addr)
+                {
+                    // This is a write to the same line, merge it
+                    std::copy(p->data.data, p->data.data + p->data.size, mdata.data + offset);
+                }
+            }
+
             // Copy the data into the cache line.
             // Mask by valid bytes (don't overwrite already written data).
-            for (size_t i = 0; i < (size_t)data.size; ++i)
+            for (size_t i = 0; i < (size_t)m_lineSize; ++i)
             {
                 if (!line->valid[i]) {
-                    line->data[i]  = data.data[i];
+                    line->data[i]  = mdata.data[i];
                      line->valid[i] = true;
                 }
             }
