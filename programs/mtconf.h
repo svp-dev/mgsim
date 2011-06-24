@@ -15,6 +15,7 @@
 #ifndef MT_CONF_H
 #define MT_CONF_H
 
+#include <svp/delegate.h>
 #include <stdint.h>
 #include <stddef.h>
 #include <time.h>
@@ -43,6 +44,7 @@ struct mg_device_info
     long                *channels;
 };
 
+extern sl_place_t mg_io_place_id;
 extern struct mg_device_info mg_devinfo;
 
 extern size_t mg_uart_devid;

@@ -17,6 +17,7 @@
 #include <svp/testoutput.h>
 #include <svp/mtmalloc.h>
 #include <svp/abort.h>
+#include <svp/delegate.h>
 
 int verbose_boot = 1;
 clock_t boot_ts = 0;
@@ -26,7 +27,7 @@ confword_t mgconf_ttes_per_core = (confword_t)-1;
 confword_t mgconf_core_freq = (confword_t)-1;
 confword_t mgconf_master_freq = (confword_t)-1;
 
-
+sl_place_t mg_io_place_id;
 struct mg_device_info mg_devinfo;
 
 size_t mg_uart_devid = (size_t)-1;
@@ -407,7 +408,7 @@ void sys_detect_devs(void)
 
     mg_devinfo.nchannels = n_chans;
     mg_devinfo.channels = pnc_base;
-
+    mg_io_place_id = get_current_place();
 
     /* try to find the SMC */
     size_t smc_id = (io_params >> 16) & 0xff;
