@@ -33,14 +33,6 @@ namespace Simulator {
         BreakPoints                 m_breakpoints;
         IMemoryAdmin*               m_memory;
         std::string                 m_objdump_cmd;
-        enum {
-            MEMTYPE_SERIAL = 1,
-            MEMTYPE_PARALLEL = 2,
-            MEMTYPE_BANKED = 3,
-            MEMTYPE_RANDOMBANKED = 4,
-            MEMTYPE_COMA_ZL = 5,
-            MEMTYPE_COMA_ML = 6
-        } m_memorytype; // for WriteConfiguration
         Config&            m_config;
         ActiveROM*         m_bootrom;
         Selector*          m_selector;
