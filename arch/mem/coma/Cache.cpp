@@ -224,7 +224,7 @@ bool COMA::Cache::EvictLine(Line* line, const Request& req)
     size_t set = (line - &m_lines[0]) / m_assoc;
     MemAddr address = (line->tag * m_sets + set) * m_lineSize;
     
-    TraceWrite(address, "Evicting with %u tokens due to miss for 0x%llx", line->tokens, (unsigned long long)req.address);
+    TraceWrite(address, "Evicting with %u tokens due to miss for address %#016llx", line->tokens, (unsigned long long)req.address);
     
     Message* msg = NULL;
     COMMIT
@@ -242,6 +242,7 @@ bool COMA::Cache::EvictLine(Line* line, const Request& req)
     
     if (!SendMessage(msg, MINSPACE_INSERTION))
     {
+        DeadlockWrite("Unable to buffer eviction request for next node");
         return false;
     }
     
@@ -286,7 +287,7 @@ bool COMA::Cache::OnMessageReceived(Message* msg)
         // Just forward it
         if (!SendMessage(msg, MINSPACE_FORWARD))
         {
-            DeadlockWrite("Unable to buffer request for next node");
+            DeadlockWrite("Unable to buffer forwarded request for next node");
             return false;
         }
         return true;
@@ -455,7 +456,7 @@ bool COMA::Cache::OnMessageReceived(Message* msg)
         // Just forward it
         if (!SendMessage(msg, MINSPACE_FORWARD))
         {
-            DeadlockWrite("Unable to buffer request for next node");
+            DeadlockWrite("Unable to buffer forwarded eviction request for next node");
             return false;
         }
         break;
@@ -507,7 +508,7 @@ bool COMA::Cache::OnMessageReceived(Message* msg)
             
             if (!SendMessage(msg, MINSPACE_FORWARD))
             {
-                DeadlockWrite("Unable to buffer request for next node");
+                DeadlockWrite("Unable to buffer forwarded update request for next node");
                 return false;
             }
         }
@@ -549,6 +550,7 @@ Result COMA::Cache::OnWriteRequest(const Request& req)
 {
     if (!p_lines.Invoke())
     {
+        DeadlockWrite("Lines busy, cannot process bus write request");
         return FAILED;
     }
     
@@ -562,15 +564,19 @@ Result COMA::Cache::OnWriteRequest(const Request& req)
         line = AllocateLine(req.address, false);
         if (line == NULL)
         {
-            // Couldn't allocate a line
+            DeadlockWrite("Unable to allocate line for bus write request");
             return FAILED;
         }
 
         if (line->state != LINE_EMPTY)
         {
             // We're overwriting another line, evict the old line
+            TraceWrite(req.address, "Processing Bus Write Request: Miss; Evicting line with tag %#016llx",
+                       (unsigned long long)line->tag);
+
             if (!EvictLine(line, req))
             {
+                DeadlockWrite("Unable to evict line for bus write request");
                 return FAILED;
             }
             return DELAYED;
@@ -604,6 +610,7 @@ Result COMA::Cache::OnWriteRequest(const Request& req)
             
         if (!SendMessage(msg, MINSPACE_INSERTION))
         {
+            DeadlockWrite("Unable to buffer read request for next node");
             return FAILED;
         }
         
@@ -620,6 +627,7 @@ Result COMA::Cache::OnWriteRequest(const Request& req)
         
         if (!m_clients[req.client]->OnMemoryWriteCompleted(req.tid))
         {
+            DeadlockWrite("Unable to process bus write completion for client %u", (unsigned)req.client);
             return FAILED;
         }
     }
@@ -647,7 +655,7 @@ Result COMA::Cache::OnWriteRequest(const Request& req)
             
         if (!SendMessage(msg, MINSPACE_INSERTION))
         {
-            DeadlockWrite("Unable to buffer request for next node");
+            DeadlockWrite("Unable to buffer update request for next node");
             return FAILED;
         }
     }
@@ -678,6 +686,7 @@ Result COMA::Cache::OnReadRequest(const Request& req)
 {
     if (!p_lines.Invoke())
     {
+        DeadlockWrite("Lines busy, cannot process bus read request");
         return FAILED;
     }
 
@@ -689,19 +698,19 @@ Result COMA::Cache::OnReadRequest(const Request& req)
         line = AllocateLine(req.address, false);
         if (line == NULL)
         {
-            // Couldn't allocate a line
+            DeadlockWrite("Unable to allocate line for bus read request");
             return FAILED;
         }
 
         if (line->state != LINE_EMPTY)
         {
             // We're overwriting another line, evict the old line
-            const size_t set = (line - &m_lines[0]) / m_assoc;
-            const MemAddr address = (line->tag * m_sets + set) * m_lineSize;
-            TraceWrite(req.address, "Processing Bus Read Request: Miss; Evicting 0x%llx", (unsigned long long)address);
+            TraceWrite(req.address, "Processing Bus Read Request: Miss; Evicting line with tag %#016llx",
+                       (unsigned long long)line->tag);
             
             if (!EvictLine(line, req))
             {
+                DeadlockWrite("Unable to evict line for bus read request");
                 return FAILED;
             }
             return DELAYED;
@@ -738,6 +747,7 @@ Result COMA::Cache::OnReadRequest(const Request& req)
             
         if (!SendMessage(msg, MINSPACE_INSERTION))
         {
+            DeadlockWrite("Unable to buffer read request for next node");
             return FAILED;
         }
     }
@@ -762,6 +772,7 @@ Result COMA::Cache::OnReadRequest(const Request& req)
 
         if (!OnReadCompleted(req.address, data))
         {
+            DeadlockWrite("Unable to notify clients of read completion");
             return FAILED;
         }
     }

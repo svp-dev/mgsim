@@ -345,7 +345,7 @@ Result ZLCOMA::Cache::OnReadRequest(const Request& req)
     
     if (!p_lines.Invoke())
     {
-        DeadlockWrite("Unable to acquire lines");
+        DeadlockWrite("Lines busy, cannot process bus read request");
         return FAILED;
     }
 
@@ -356,19 +356,19 @@ Result ZLCOMA::Cache::OnReadRequest(const Request& req)
         line = GetReplacementLine(req.address);
         if (line == NULL)
         {
-            // No cache line available; stall
+            DeadlockWrite("Unable to allocate line for bus read request");
             return FAILED;
         }
 
         if (line->valid)
         {
             // Line is already in use; evict it
-            const size_t set = (line - &m_lines[0]) / m_assoc;
-            const MemAddr address = (line->tag * m_sets + set) * m_lineSize;
-            TraceWrite(req.address, "Processing Bus Read Request: Miss; Evicting 0x%llx", (unsigned long long)address);
+            TraceWrite(req.address, "Processing Bus Read Request: Miss; Evicting line with tag %#016llx", 
+                       (unsigned long long)line->tag);
 
             if (!EvictLine(line, req))
             {
+                DeadlockWrite("Unable to evict line for bus read request");
                 return FAILED;
             }
             
@@ -588,6 +588,7 @@ Result ZLCOMA::Cache::OnWriteRequest(const Request& req)
     
     if (!SendMessage(msg, MINSPACE_INSERTION))
     {
+        DeadlockWrite("Unable to buffer write request for next node");
         return FAILED;
     }
     return SUCCESS;
