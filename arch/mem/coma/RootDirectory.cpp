@@ -15,8 +15,10 @@ static const size_t MINSPACE_FORWARD  = 1;
 
 COMA::RootDirectory::Line* COMA::RootDirectory::FindLine(MemAddr address, bool check_only)
 {
-    const MemAddr tag  = (address / m_lineSize) / m_sets;
-    const size_t  set  = (size_t)((address / m_lineSize) % m_sets) * m_assoc;
+    MemAddr tag;
+    size_t setindex;
+    m_selector.Map(address / m_lineSize, tag, setindex);
+    const size_t  set  = setindex * m_assoc;
 
     // Find the line
     Line* empty = NULL;
@@ -51,8 +53,10 @@ COMA::RootDirectory::Line* COMA::RootDirectory::FindLine(MemAddr address, bool c
 
 const COMA::RootDirectory::Line* COMA::RootDirectory::FindLine(MemAddr address) const
 {
-    const MemAddr tag  = (address / m_lineSize) / m_sets;
-    const size_t  set  = (size_t)((address / m_lineSize) % m_sets) * m_assoc;
+    MemAddr tag;
+    size_t setindex;
+    m_selector.Map(address / m_lineSize, tag, setindex);
+    const size_t  set  = setindex * m_assoc;
 
     // Find the line
     for (size_t i = 0; i < m_assoc; ++i)
@@ -372,9 +376,10 @@ COMA::RootDirectory::RootDirectory(const std::string& name, COMA& parent, Clock&
     Simulator::Object(name, parent),
     //COMA::Object(name, parent),
     DirectoryBottom(name, parent, clock, config),
-    m_lineSize(config.getValue<size_t>("CacheLineSize")),
+    m_selector (parent.GetBankSelector()),
+    m_lineSize (config.getValue<size_t>("CacheLineSize")),
     m_assoc_dir(config.getValue<size_t>(parent, "L2CacheAssociativity") * config.getValue<size_t>(parent, "NumL2CachesPerDirectory")),
-    m_sets     (config.getValue<size_t>(parent, "L2CacheNumSets")),
+    m_sets     (m_selector.GetNumBanks()),
     m_id       (id),
     m_numRoots (numRoots),
     p_lines    (*this, clock, "p_lines"),    
@@ -478,7 +483,7 @@ void COMA::RootDirectory::Cmd_Read(std::ostream& out, const std::vector<std::str
             if (line.state == LINE_EMPTY) {
                 out << "                    ";
             } else {
-                out << hex << "0x" << setw(16) << setfill('0') << (line.tag * m_sets + set) * m_lineSize;
+                out << hex << "0x" << setw(16) << setfill('0') << m_selector.Unmap(line.tag, set) * m_lineSize;
                 if (line.state == LINE_LOADING) {
                     out << " L";
                 } else {

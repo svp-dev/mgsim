@@ -145,8 +145,10 @@ bool COMA::Cache::Write(MCID id, MemAddr address, const void* data, MemSize size
 // Attempts to find a line for the specified address.
 COMA::Cache::Line* COMA::Cache::FindLine(MemAddr address)
 {
-    const MemAddr tag  = (address / m_lineSize) / m_sets;
-    const size_t  set  = (size_t)((address / m_lineSize) % m_sets) * m_assoc;    
+    MemAddr tag;
+    size_t  setindex;
+    m_selector.Map(address / m_lineSize, tag, setindex);
+    const size_t  set  = setindex * m_assoc;
 
     // Find the line
     for (size_t i = 0; i < m_assoc; ++i)
@@ -164,8 +166,10 @@ COMA::Cache::Line* COMA::Cache::FindLine(MemAddr address)
 // Attempts to find a line for the specified address.
 const COMA::Cache::Line* COMA::Cache::FindLine(MemAddr address) const
 {
-    const MemAddr tag  = (address / m_lineSize) / m_sets;
-    const size_t  set  = (size_t)((address / m_lineSize) % m_sets) * m_assoc;    
+    MemAddr tag;
+    size_t  setindex;
+    m_selector.Map(address / m_lineSize, tag, setindex);
+    const size_t  set  = setindex * m_assoc;
 
     // Find the line
     for (size_t i = 0; i < m_assoc; ++i)
@@ -182,10 +186,12 @@ const COMA::Cache::Line* COMA::Cache::FindLine(MemAddr address) const
 
 // Attempts to allocate a line for the specified address.
 // If empty_only is true, only empty lines will be considered.
-COMA::Cache::Line* COMA::Cache::AllocateLine(MemAddr address, bool empty_only)
+COMA::Cache::Line* COMA::Cache::AllocateLine(MemAddr address, bool empty_only, MemAddr* ptag)
 {
-    const MemAddr tag  = (address / m_lineSize) / m_sets;
-    const size_t  set  = (size_t)((address / m_lineSize) % m_sets) * m_assoc;    
+    MemAddr tag;
+    size_t  setindex;
+    m_selector.Map(address / m_lineSize, tag, setindex);
+    const size_t  set  = setindex * m_assoc;
 
     // Find the line
     Line* empty   = NULL;
@@ -196,12 +202,17 @@ COMA::Cache::Line* COMA::Cache::AllocateLine(MemAddr address, bool empty_only)
         if (line.state == LINE_EMPTY)
         {
             // Empty, unused line, remember this one
+            DeadlockWrite("New line, tag %#016llx: allocating empty line %zu from set %zu", (unsigned long long)tag, i, setindex);
             empty = &line;
         }
         else if (!empty_only)
         {
             // We're also considering non-empty lines; use LRU
             assert(line.tag != tag);
+            DeadlockWrite("New line, tag %#016llx: considering busy line %zu from set %zu, tag %#016llx, state %u, updating %u, access %llu",
+                          (unsigned long long)tag,
+                          i, setindex,
+                          (unsigned long long)line.tag, (unsigned)line.state, (unsigned)line.updating, (unsigned long long)line.access);
             if (line.state != LINE_LOADING && line.updating == 0 && (replace == NULL || line.access < replace->access))
             {
                 // The line is available to be replaced and has a lower LRU rating,
@@ -212,6 +223,7 @@ COMA::Cache::Line* COMA::Cache::AllocateLine(MemAddr address, bool empty_only)
     }
     
     // The line could not be found, allocate the empty line or replace an existing line
+    if (ptag) *ptag = tag;
     return (empty != NULL) ? empty : replace;
 }
 
@@ -220,9 +232,9 @@ bool COMA::Cache::EvictLine(Line* line, const Request& req)
     // We never evict loading or updating lines
     assert(line->state != LINE_LOADING);
     assert(line->updating == 0);
-        
-    size_t set = (line - &m_lines[0]) / m_assoc;
-    MemAddr address = (line->tag * m_sets + set) * m_lineSize;
+
+    size_t setindex = (line - &m_lines[0]) / m_assoc;
+    MemAddr address = m_selector.Unmap(line->tag, setindex) * m_lineSize;
     
     TraceWrite(address, "Evicting with %u tokens due to miss for address %#016llx", line->tokens, (unsigned long long)req.address);
     
@@ -432,25 +444,29 @@ bool COMA::Cache::OnMessageReceived(Message* msg)
             }
         }
         // We don't have the line, see if we have an empty spot
-        else if ((line = AllocateLine(msg->address, true)) != NULL)
+        else
         {
-            // Yes, place the line there
-            TraceWrite(msg->address, "Storing Evict Request with %u tokens", msg->tokens);
-
-            COMMIT
+            MemAddr tag;
+            if ((line = AllocateLine(msg->address, true, &tag)) != NULL)
             {
-                line->state    = LINE_FULL;
-                line->tag      = (msg->address / m_lineSize) / m_sets;
-                line->tokens   = msg->tokens;
-                line->dirty    = msg->dirty;
-                line->updating = 0;
-                line->access   = GetKernel()->GetCycleNo();
-                std::fill(line->valid, line->valid + MAX_MEMORY_OPERATION_SIZE, true);
-                memcpy(line->data, msg->data.data, msg->data.size);
-            }
+                // Yes, place the line there
+                TraceWrite(msg->address, "Storing Evict Request for line %#016llx locally with %u tokens", (unsigned long long)msg->address, msg->tokens);
                 
-            COMMIT{ delete msg; }
-            break;
+                COMMIT
+                {
+                    line->state    = LINE_FULL;
+                    line->tag      = tag;
+                    line->tokens   = msg->tokens;
+                    line->dirty    = msg->dirty;
+                    line->updating = 0;
+                    line->access   = GetKernel()->GetCycleNo();
+                    std::fill(line->valid, line->valid + MAX_MEMORY_OPERATION_SIZE, true);
+                    memcpy(line->data, msg->data.data, msg->data.size);
+                }
+
+                COMMIT{ delete msg; }
+                break;
+            }
         }
 
         // Just forward it
@@ -556,12 +572,13 @@ Result COMA::Cache::OnWriteRequest(const Request& req)
     
     // Note that writes may not be of entire cache-lines
     unsigned int offset = req.address % m_lineSize;
+    MemAddr tag;
     
     Line* line = FindLine(req.address);
     if (line == NULL)
     {
         // Write miss; write-allocate
-        line = AllocateLine(req.address, false);
+        line = AllocateLine(req.address, false, &tag);
         if (line == NULL)
         {
             DeadlockWrite("Unable to allocate line for bus write request");
@@ -588,7 +605,7 @@ Result COMA::Cache::OnWriteRequest(const Request& req)
         COMMIT
         {
             line->state    = LINE_LOADING;
-            line->tag      = (req.address / m_lineSize) / m_sets;
+            line->tag      = tag;
             line->tokens   = 0;
             line->dirty    = false;
             line->updating = 0;
@@ -601,7 +618,7 @@ Result COMA::Cache::OnWriteRequest(const Request& req)
         {
             msg = new Message;
             msg->type      = Message::REQUEST;
-            msg->address   = (req.address / m_lineSize) * m_lineSize;
+            msg->address   = req.address - offset;
             msg->ignore    = false;
             msg->data.size = m_lineSize;
             msg->tokens    = 0;
@@ -691,11 +708,12 @@ Result COMA::Cache::OnReadRequest(const Request& req)
     }
 
     Line* line = FindLine(req.address);
+    MemAddr tag;
 
     if (line == NULL)
     {
         // Read miss, allocate a line
-        line = AllocateLine(req.address, false);
+        line = AllocateLine(req.address, false, &tag);
         if (line == NULL)
         {
             DeadlockWrite("Unable to allocate line for bus read request");
@@ -722,7 +740,7 @@ Result COMA::Cache::OnReadRequest(const Request& req)
         COMMIT
         {
             line->state    = LINE_LOADING;
-            line->tag      = (req.address / m_lineSize) / m_sets;
+            line->tag      = tag;
             line->tokens   = 0;
             line->dirty    = false;
             line->updating = 0;
@@ -818,11 +836,11 @@ Result COMA::Cache::DoReceive()
 
 COMA::Cache::Cache(const std::string& name, COMA& parent, Clock& clock, CacheID id, Config& config) :
     Simulator::Object(name, parent),
-    //COMA::Object(name, parent),
     Node(name, parent, clock, config),
+    m_selector (parent.GetBankSelector()),
     m_lineSize (config.getValue<size_t>("CacheLineSize")),
     m_assoc    (config.getValue<size_t>(parent, "L2CacheAssociativity")),
-    m_sets     (config.getValue<size_t>(parent, "L2CacheNumSets")),
+    m_sets     (m_selector.GetNumBanks()),
     m_id       (id),
     p_lines    (*this, clock, "p_lines"),
     m_numHits  (0),
@@ -910,6 +928,7 @@ void COMA::Cache::Cmd_Read(std::ostream& out, const std::vector<std::string>& ar
         } else {
             out << dec << m_assoc << "-way set associative" << endl;
         }
+        out << "L2 bank mapping:  " << m_selector.GetName() << endl;
         out << "Cache size:       " << dec << (m_lineSize * m_lines.size()) << " bytes" << endl;
         out << "Cache line size:  " << dec << m_lineSize << " bytes" << endl;
         out << "Current hit rate: ";
@@ -956,7 +975,7 @@ void COMA::Cache::Cmd_Read(std::ostream& out, const std::vector<std::string>& ar
         {
             const size_t set = i / m_assoc;
             const Line& line = m_lines[i];
-            MemAddr lineaddr = (line.tag * m_sets + set) * m_lineSize;
+            MemAddr lineaddr = m_selector.Unmap(line.tag, set) * m_lineSize;
             if (specific && lineaddr != seladdr)
                 continue;
             

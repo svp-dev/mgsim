@@ -130,6 +130,9 @@ ZLCOMA::ZLCOMA(const std::string& name, Simulator::Object& parent, Clock& clock,
     m_numCachesPerDir   (config.getValue<size_t>(*this, "NumL2CachesPerDirectory")),
     m_numClients(0),
     m_config(config),
+    m_selector(IBankSelector::makeSelector(*this,
+                                           config.getValueOrDefault<string>(*this, "BankSelector", "XORFOLD"),
+                                           config.getValue<size_t>(*this, "L2CacheNumSets"))),
     m_ddr("ddr", *this, *this, config),
     m_nreads(0), m_nwrites(0), m_nread_bytes(0), m_nwrite_bytes(0)
 {
@@ -157,6 +160,8 @@ ZLCOMA::ZLCOMA(const std::string& name, Simulator::Object& parent, Clock& clock,
 
 void ZLCOMA::Initialize()
 {
+    m_config.registerProperty(*this, "selector", m_selector->GetName());
+
     // Initialize the caches
     for (size_t i = 0; i < m_caches.size(); ++i)
     {
@@ -234,6 +239,8 @@ ZLCOMA::~ZLCOMA()
     {
         delete m_roots[i];
     }
+
+    delete m_selector;
 }
 
 void ZLCOMA::GetMemoryStatistics(uint64_t& nreads, uint64_t& nwrites, uint64_t& nread_bytes, uint64_t& nwrite_bytes, uint64_t& nreads_ext, uint64_t& nwrites_ext) const
@@ -263,6 +270,9 @@ void ZLCOMA::Cmd_Info(ostream& out, const vector<string>& arguments) const
     "cache services several processors. Rings of caches are connected via directories\n"
     "to higher-level rings. One or more root directories at the top provide access to\n"
     "to off-chip storage.\n"
+    "\n"
+    "This memory uses the following mapping of lines to cache sets(banks): " << m_selector->GetName() <<
+    "\n\n"
     "Supported operations:\n"
     "- info <component> ranges\n"
     "  Displays the currently reserved and allocated memory ranges\n\n"

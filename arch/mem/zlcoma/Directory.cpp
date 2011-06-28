@@ -35,8 +35,10 @@ bool ZLCOMA::Directory::IsBelow(CacheID id) const
 
 ZLCOMA::Directory::Line* ZLCOMA::Directory::FindLine(MemAddr address)
 {
-    const MemAddr tag  = (address / m_lineSize) / m_sets;
-    const size_t  set  = (size_t)((address / m_lineSize) % m_sets) * m_assoc;
+    MemAddr tag;
+    size_t setindex;
+    m_selector.Map(address / m_lineSize, tag, setindex);
+    const size_t  set  = setindex * m_assoc;
 
     // Find the line
     for (size_t i = 0; i < m_assoc; ++i)
@@ -52,8 +54,10 @@ ZLCOMA::Directory::Line* ZLCOMA::Directory::FindLine(MemAddr address)
 
 const ZLCOMA::Directory::Line* ZLCOMA::Directory::FindLine(MemAddr address) const
 {
-    const MemAddr tag  = (address / m_lineSize) / m_sets;
-    const size_t  set  = (size_t)((address / m_lineSize) % m_sets) * m_assoc;
+    MemAddr tag;
+    size_t setindex;
+    m_selector.Map(address / m_lineSize, tag, setindex);
+    const size_t  set  = setindex * m_assoc;
 
     // Find the line
     for (size_t i = 0; i < m_assoc; ++i)
@@ -69,14 +73,17 @@ const ZLCOMA::Directory::Line* ZLCOMA::Directory::FindLine(MemAddr address) cons
 
 ZLCOMA::Directory::Line* ZLCOMA::Directory::AllocateLine(MemAddr address)
 {
-    const size_t  set  = (size_t)((address / m_lineSize) % m_sets) * m_assoc;
+    MemAddr tag;
+    size_t setindex;
+    m_selector.Map(address / m_lineSize, tag, setindex);
+    const size_t  set  = setindex * m_assoc;
 
     for (size_t i = 0; i < m_assoc; ++i)
     {
         Line* line = &m_lines[set + i];
         if (!line->valid)
         {
-            line->tag    = (address / m_lineSize) / m_sets;
+            line->tag    = tag;
             line->valid  = true;
             line->tokens = 0;
             return line;
@@ -258,10 +265,11 @@ ZLCOMA::Directory::Directory(const std::string& name, ZLCOMA& parent, Clock& clo
     ZLCOMA::Object(name, parent),
     m_bottom(name + ".bottom", parent, clock),
     m_top(name + ".top", parent, clock),
+    m_selector  (parent.GetBankSelector()),
     p_lines     (*this, clock, "p_lines"),
     m_lineSize  (config.getValue<size_t>("CacheLineSize")),
     m_assoc     (config.getValue<size_t>(parent, "L2CacheAssociativity") * config.getValue<size_t>(parent, "NumL2CachesPerDirectory")),
-    m_sets      (config.getValue<size_t>(parent, "L2CacheNumSets")),
+    m_sets      (m_selector.GetNumBanks()),
     m_firstCache(firstCache),
     m_lastCache (firstCache + config.getValue<size_t>(parent, "NumL2CachesPerDirectory") - 1),
     p_InBottom  (*this, "bottom_incoming", delegate::create<Directory, &Directory::DoInBottom >(*this)),
@@ -357,7 +365,7 @@ void ZLCOMA::Directory::Cmd_Read(std::ostream& out, const std::vector<std::strin
         {
             const Line& line = m_lines[index + j];
             if (line.valid) {
-                out << hex << "0x" << setw(16) << setfill('0') << (line.tag * m_sets + set) * m_lineSize << " | "
+                out << hex << "0x" << setw(16) << setfill('0') << m_selector.Unmap(line.tag, set) * m_lineSize << " | "
                     << dec << setfill(' ') << setw(6) << 0;//line.tokens;
             } else {
                 out << "                   |       ";

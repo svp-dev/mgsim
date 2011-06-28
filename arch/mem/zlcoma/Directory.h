@@ -3,6 +3,7 @@
 
 #include "Node.h"
 #include "sim/inspect.h"
+#include "arch/BankSelector.h"
 #include <list>
 
 class Config;
@@ -44,6 +45,7 @@ protected:
 private:
     typedef ZLCOMA::Node::Message Message;
 
+    IBankSelector&      m_selector;
     ArbitratedService<CyclicArbitratedPort> p_lines;      ///< Arbitrator for access to the lines
     std::vector<Line>   m_lines;      ///< The cache lines
     size_t              m_lineSize;   ///< The size of a cache-line

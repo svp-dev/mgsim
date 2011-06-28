@@ -144,8 +144,10 @@ bool ZLCOMA::Cache::Write(MCID id, MemAddr address, const void* data, MemSize si
 
 ZLCOMA::Cache::Line* ZLCOMA::Cache::FindLine(MemAddr address)
 {
-    const MemAddr tag  = (address / m_lineSize) / m_sets;
-    const size_t  set  = (size_t)((address / m_lineSize) % m_sets) * m_assoc;
+    MemAddr tag;
+    size_t setindex;
+    m_selector.Map(address / m_lineSize, tag, setindex);
+    const size_t  set  = setindex * m_assoc;
 
     // Find the line
     for (size_t i = 0; i < m_assoc; ++i)
@@ -162,8 +164,10 @@ ZLCOMA::Cache::Line* ZLCOMA::Cache::FindLine(MemAddr address)
 
 const ZLCOMA::Cache::Line* ZLCOMA::Cache::FindLine(MemAddr address) const
 {
-    const MemAddr tag  = (address / m_lineSize) / m_sets;
-    const size_t  set  = (size_t)((address / m_lineSize) % m_sets) * m_assoc;
+    MemAddr tag;
+    size_t setindex;
+    m_selector.Map(address / m_lineSize, tag, setindex);
+    const size_t  set  = setindex * m_assoc;
 
     // Find the line
     for (size_t i = 0; i < m_assoc; ++i)
@@ -178,9 +182,11 @@ const ZLCOMA::Cache::Line* ZLCOMA::Cache::FindLine(MemAddr address) const
     return NULL;
 }
 
-ZLCOMA::Cache::Line* ZLCOMA::Cache::GetEmptyLine(MemAddr address)
+ZLCOMA::Cache::Line* ZLCOMA::Cache::GetEmptyLine(MemAddr address, MemAddr& tag)
 {
-    const size_t set = (size_t)((address / m_lineSize) % m_sets) * m_assoc;
+    size_t setindex;
+    m_selector.Map(address / m_lineSize, tag, setindex);
+    const size_t  set  = setindex * m_assoc;
 
     // Return the first found empty line
     for (size_t i = 0; i < m_assoc; ++i)
@@ -195,12 +201,15 @@ ZLCOMA::Cache::Line* ZLCOMA::Cache::GetEmptyLine(MemAddr address)
 }
 
 // function for find replacement line
-ZLCOMA::Cache::Line* ZLCOMA::Cache::GetReplacementLine(MemAddr address)
+ZLCOMA::Cache::Line* ZLCOMA::Cache::GetReplacementLine(MemAddr address, MemAddr& tag)
 {
     Line *linelruw = NULL; // replacement line for write-back request
     Line *linelrue = NULL; // replacement line for eviction request
 
-    const size_t set  = (size_t)((address / m_lineSize) % m_sets) * m_assoc;
+    size_t setindex;
+    m_selector.Map(address / m_lineSize, tag, setindex);
+    const size_t  set  = setindex * m_assoc;
+
     for (unsigned int i = 0; i < m_assoc; i++)
     {
         Line& line = m_lines[set + i];
@@ -284,7 +293,7 @@ bool ZLCOMA::Cache::ClearLine(Line* line)
     }
 
     size_t  set     = (line - &m_lines[0]) / m_assoc;
-    MemAddr address = (line->tag * m_sets + set) * m_lineSize;
+    MemAddr address = m_selector.Unmap(line->tag, set) * m_lineSize;
     
     for (std::vector<IMemoryCallback*>::const_iterator p = m_clients.begin(); p != m_clients.end(); ++p)
     {
@@ -306,7 +315,7 @@ bool ZLCOMA::Cache::EvictLine(Line* line, const Request& req)
     assert(line->valid);
     
     size_t  set     = (line - &m_lines[0]) / m_assoc;
-    MemAddr address = (line->tag * m_sets + set) * m_lineSize;
+    MemAddr address = m_selector.Unmap(line->tag, set) * m_lineSize;
      
     Message* msg = new Message();
     COMMIT
@@ -352,8 +361,10 @@ Result ZLCOMA::Cache::OnReadRequest(const Request& req)
     Line* line = FindLine(req.address);
     if (line == NULL)
     {
+        MemAddr tag;
+
         // We don't have the line; allocate a line and fetch the data
-        line = GetReplacementLine(req.address);
+        line = GetReplacementLine(req.address, tag);
         if (line == NULL)
         {
             DeadlockWrite("Unable to allocate line for bus read request");
@@ -380,7 +391,7 @@ Result ZLCOMA::Cache::OnReadRequest(const Request& req)
         // Reset the cache-line
         COMMIT
         {
-            line->tag           = (req.address / m_lineSize) / m_sets;
+            line->tag           = tag;
             line->time          = GetCycleNo();
             line->valid         = true;
             line->dirty         = false;
@@ -476,8 +487,10 @@ Result ZLCOMA::Cache::OnWriteRequest(const Request& req)
     Line* line = FindLine(req.address);
     if (line == NULL)
     {
+        MemAddr tag;
+
         // We don't have the line; allocate a line
-        line = GetReplacementLine(req.address);
+        line = GetReplacementLine(req.address, tag);
         if (line == NULL)
         {
             // No line available; stall
@@ -497,7 +510,7 @@ Result ZLCOMA::Cache::OnWriteRequest(const Request& req)
         // Reset the line
         COMMIT
         {
-            line->tag           = (req.address / m_lineSize) / m_sets;
+            line->tag           = tag;
             line->valid         = true;
             line->dirty         = false;
             line->tokens        = 0;
@@ -1043,7 +1056,8 @@ Result ZLCOMA::Cache::OnEviction(Message* req)
         }
         
         // Try to allocate an empty line to inject the evicted line
-        line = GetEmptyLine(req->address);
+        MemAddr tag;
+        line = GetEmptyLine(req->address, tag);
         if (line == NULL)
         {
             // No free line
@@ -1057,7 +1071,7 @@ Result ZLCOMA::Cache::OnEviction(Message* req)
         // Store evicted line in the allocated line
         COMMIT
         {
-            line->tag           = (req->address / m_lineSize) / m_sets;
+            line->tag           = tag;
             line->time          = GetCycleNo();
             line->dirty         = req->dirty;
             line->tokens        = req->tokens;
@@ -1166,9 +1180,10 @@ Result ZLCOMA::Cache::DoReceive()
 ZLCOMA::Cache::Cache(const std::string& name, ZLCOMA& parent, Clock& clock, CacheID id, Config& config) :
     Simulator::Object(name, parent),
     Node(name, parent, clock),
+    m_selector (parent.GetBankSelector()),
     m_lineSize (config.getValue<size_t>("CacheLineSize")),
     m_assoc    (config.getValue<size_t>(parent, "L2CacheAssociativity")),
-    m_sets     (config.getValue<size_t>(parent, "L2CacheNumSets")),
+    m_sets     (m_selector.GetNumBanks()),
     m_inject   (config.getValue<bool>(parent, "EnableCacheInjection")),
     m_id       (id),
     p_lines    (*this, clock, "p_lines"),
@@ -1276,7 +1291,7 @@ void ZLCOMA::Cache::Cmd_Read(std::ostream& out, const std::vector<std::string>& 
             out << " |                        |        |                                                 |";
         } else {
             out << " | "
-                << hex << "0x" << setw(16) << setfill('0') << (line.tag * m_sets + set) * m_lineSize
+                << hex << "0x" << setw(16) << setfill('0') << m_selector.Unmap(line.tag, set) * m_lineSize
                 << ' '
                 << (line.pending_read  ? 'R' : ' ')
                 << (line.pending_write ? 'W' : ' ')

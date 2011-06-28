@@ -26,6 +26,7 @@ public:
     };
 
 private:
+    IBankSelector&    m_selector;   ///< Mapping of cache line addresses to sets/banks
     std::vector<Line> m_lines;      ///< The cache lines
     size_t            m_lineSize;   ///< The size of a cache-line
     size_t            m_assoc_dir;  ///< Number of lines in a set per directory
@@ -50,7 +51,7 @@ private:
     Process p_Responses;
 
     Line* FindLine(MemAddr address);
-    Line* GetEmptyLine(MemAddr address);
+    Line* GetEmptyLine(MemAddr address, MemAddr& tag);
     bool  OnMessageReceived(Message* msg);
     bool  OnReadCompleted(MemAddr address, const MemData& data);
 

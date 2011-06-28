@@ -36,8 +36,10 @@ bool COMA::Directory::IsBelow(CacheID id) const
 // the wanted address exists in the ring below this directory.
 COMA::Directory::Line* COMA::Directory::FindLine(MemAddr address)
 {
-    const MemAddr tag  = (address / m_lineSize) / m_sets;
-    const size_t  set  = (size_t)((address / m_lineSize) % m_sets) * m_assoc;
+    MemAddr tag;
+    size_t setindex;
+    m_selector.Map(address / m_lineSize, tag, setindex);
+    const size_t  set  = setindex * m_assoc;
 
     // Find the line
     for (size_t i = 0; i < m_assoc; ++i)
@@ -55,8 +57,10 @@ COMA::Directory::Line* COMA::Directory::FindLine(MemAddr address)
 // the wanted address exists in the ring below this directory.
 const COMA::Directory::Line* COMA::Directory::FindLine(MemAddr address) const
 {
-    const MemAddr tag  = (address / m_lineSize) / m_sets;
-    const size_t  set  = (size_t)((address / m_lineSize) % m_sets) * m_assoc;
+    MemAddr tag;
+    size_t setindex;
+    m_selector.Map(address / m_lineSize, tag, setindex);
+    const size_t  set  = setindex * m_assoc;
 
     // Find the line
     for (size_t i = 0; i < m_assoc; ++i)
@@ -73,8 +77,10 @@ const COMA::Directory::Line* COMA::Directory::FindLine(MemAddr address) const
 // Marks the specified address as present in the directory
 COMA::Directory::Line* COMA::Directory::AllocateLine(MemAddr address)
 {
-    const MemAddr tag  = (address / m_lineSize) / m_sets;
-    const size_t  set  = (size_t)((address / m_lineSize) % m_sets) * m_assoc;
+    MemAddr tag;
+    size_t setindex;
+    m_selector.Map(address / m_lineSize, tag, setindex);
+    const size_t  set  = setindex * m_assoc;
 
     // Find the line
     for (size_t i = 0; i < m_assoc; ++i)
@@ -256,10 +262,11 @@ COMA::Directory::Directory(const std::string& name, COMA& parent, Clock& clock, 
     COMA::Object(name, parent),
     m_bottom(name + ".bottom", parent, clock, config),
     m_top(name + ".top", parent, clock, config),
+    m_selector  (parent.GetBankSelector()),
     p_lines     (*this, clock, "p_lines"),
     m_lineSize  (config.getValue<size_t>("CacheLineSize")),
     m_assoc     (config.getValue<size_t>(parent, "L2CacheAssociativity") * config.getValue<size_t>(parent, "NumL2CachesPerDirectory")),
-    m_sets      (config.getValue<size_t>(parent, "L2CacheNumSets")),
+    m_sets      (m_selector.GetNumBanks()),
     m_firstCache(firstCache),
     m_lastCache (firstCache + config.getValue<size_t>(parent, "NumL2CachesPerDirectory") - 1),
     p_InBottom  (*this, "bottom-incoming", delegate::create<Directory, &Directory::DoInBottom >(*this)),
@@ -355,7 +362,7 @@ void COMA::Directory::Cmd_Read(std::ostream& out, const std::vector<std::string>
         {
             const Line& line = m_lines[index + j];
             if (line.valid) {
-                out << hex << "0x" << setw(16) << setfill('0') << (line.tag * m_sets + set) * m_lineSize << " | "
+                out << hex << "0x" << setw(16) << setfill('0') << m_selector.Unmap(line.tag, set) * m_lineSize << " | "
                     << dec << setfill(' ') << setw(6) << line.tokens;
             } else {
                 out << "                   |       ";

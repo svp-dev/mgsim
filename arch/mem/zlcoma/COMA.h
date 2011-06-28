@@ -3,6 +3,7 @@
 
 #include "arch/Memory.h"
 #include "arch/VirtualMemory.h"
+#include "arch/BankSelector.h"
 #include "mem/DDR.h"
 #include <queue>
 #include <set>
@@ -54,6 +55,7 @@ private:
     size_t                      m_numCachesPerDir;
     size_t                      m_numClients;
     Config&                     m_config;
+    IBankSelector*              m_selector;           ///< Mapping of line addresses to set indexes
     std::vector<Cache*>         m_caches;             ///< List of caches
     std::vector<Directory*>     m_directories;        ///< List of directories
     std::vector<RootDirectory*> m_roots;              ///< List of root directories
@@ -78,6 +80,8 @@ public:
     ~ZLCOMA();
 
     const TraceMap& GetTraces() const { return m_traces; }
+
+    IBankSelector& GetBankSelector() const { return *m_selector; }
     
     // IMemory
     void Reserve(MemAddr address, MemSize size, int perm);

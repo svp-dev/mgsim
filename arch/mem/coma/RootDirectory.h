@@ -31,7 +31,8 @@ public:
         CacheID      sender;   ///< Loading: ID of the cache that requested the loading line
     };
 
-private:
+private:    
+    IBankSelector&    m_selector;   ///< Mapping of cache line addresses to sets/banks
     std::vector<Line> m_lines;      ///< The cache lines
     size_t            m_lineSize;   ///< The size of a cache-line
     size_t            m_assoc_dir;  ///< Number of lines in a set in a directory

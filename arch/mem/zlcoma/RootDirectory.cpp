@@ -15,8 +15,10 @@ static const size_t MINSPACE_FORWARD  = 1;
 
 ZLCOMA::RootDirectory::Line* ZLCOMA::RootDirectory::FindLine(MemAddr address)
 {
-    const MemAddr tag  = (address / m_lineSize) / m_sets;
-    const size_t  set  = (size_t)((address / m_lineSize) % m_sets) * m_assoc;
+    MemAddr tag;
+    size_t setindex;
+    m_selector.Map(address / m_lineSize, tag, setindex);
+    const size_t  set  = setindex * m_assoc;
 
     // Find the line
     for (size_t i = 0; i < m_assoc; ++i)
@@ -32,8 +34,10 @@ ZLCOMA::RootDirectory::Line* ZLCOMA::RootDirectory::FindLine(MemAddr address)
 
 const ZLCOMA::RootDirectory::Line* ZLCOMA::RootDirectory::FindLine(MemAddr address) const
 {
-    const MemAddr tag  = (address / m_lineSize) / m_sets;
-    const size_t  set  = (size_t)((address / m_lineSize) % m_sets) * m_assoc;
+    MemAddr tag;
+    size_t setindex;
+    m_selector.Map(address / m_lineSize, tag, setindex);
+    const size_t  set  = setindex * m_assoc;
 
     // Find the line
     for (size_t i = 0; i < m_assoc; ++i)
@@ -48,9 +52,11 @@ const ZLCOMA::RootDirectory::Line* ZLCOMA::RootDirectory::FindLine(MemAddr addre
 }
 
 // replace only invalid lines otherwise NULL
-ZLCOMA::RootDirectory::Line* ZLCOMA::RootDirectory::GetEmptyLine(MemAddr address)
+ZLCOMA::RootDirectory::Line* ZLCOMA::RootDirectory::GetEmptyLine(MemAddr address, MemAddr& tag)
 {
-    const size_t set = (size_t)((address / m_lineSize) % m_sets) * m_assoc;
+    size_t setindex;
+    m_selector.Map(address / m_lineSize, tag, setindex);
+    const size_t  set  = setindex * m_assoc;
 
     for (size_t i = 0; i < m_assoc; ++i)
     {
@@ -113,6 +119,7 @@ bool ZLCOMA::RootDirectory::OnMessageReceived(Message* req)
         }
 
         // Find the line for the request
+        MemAddr tag;
         Line* line = FindLine(req->address);    
         switch (req->type)
         {
@@ -122,7 +129,7 @@ bool ZLCOMA::RootDirectory::OnMessageReceived(Message* req)
             if (line == NULL)
             {
                 // Need to fetch a line off-chip
-                line = GetEmptyLine(req->address);
+                line = GetEmptyLine(req->address, tag);
                 assert(line != NULL);
             
                 assert(req->tokens == 0);
@@ -133,7 +140,7 @@ bool ZLCOMA::RootDirectory::OnMessageReceived(Message* req)
                 // Initialize line
                 COMMIT
                 {
-                    line->tag      = (req->address / m_lineSize) / m_sets;
+                    line->tag      = tag;
                     line->valid    = true;
                     line->data     = false;
                     line->tokens   = 0;
@@ -221,7 +228,7 @@ bool ZLCOMA::RootDirectory::OnMessageReceived(Message* req)
                 if (line == NULL)
                 {
                     // Line didn't exist yet
-                    line = GetEmptyLine(req->address);
+                    line = GetEmptyLine(req->address, tag);
                     assert(line != NULL);
                 
                     assert(req->tokens == 0);
@@ -232,7 +239,7 @@ bool ZLCOMA::RootDirectory::OnMessageReceived(Message* req)
                     // Introduce all tokens into the system, but don't read the data from memory
                     COMMIT
                     {
-                        line->tag      = (req->address / m_lineSize) / m_sets;
+                        line->tag      = tag;
                         line->valid    = true;
                         line->data     = false;
                         line->tokens   = 0;
@@ -452,9 +459,10 @@ void ZLCOMA::RootDirectory::SetNumDirectories(size_t num_dirs)
 ZLCOMA::RootDirectory::RootDirectory(const std::string& name, ZLCOMA& parent, Clock& clock, VirtualMemory& memory, size_t id, size_t numRoots, const DDRChannelRegistry& ddr, Config& config) :
     Simulator::Object(name, parent),
     DirectoryBottom(name, parent, clock),
-    m_lineSize(config.getValue<size_t>("CacheLineSize")),
+    m_selector (parent.GetBankSelector()),
+    m_lineSize (config.getValue<size_t>("CacheLineSize")),
     m_assoc_dir(config.getValue<size_t>(parent, "L2CacheAssociativity") * config.getValue<size_t>(parent, "NumL2CachesPerDirectory")),
-    m_sets    (config.getValue<size_t>(parent, "L2CacheNumSets")),
+    m_sets     (m_selector.GetNumBanks()),
     m_id       (id),
     m_numRoots (numRoots),
     p_lines    (*this, clock, "p_lines"),
@@ -558,7 +566,7 @@ void ZLCOMA::RootDirectory::Cmd_Read(std::ostream& out, const std::vector<std::s
             if (!line.valid) {
                 out << "                    ";
             } else {
-                out << hex << "0x" << setw(16) << setfill('0') << (line.tag * m_sets + set) * m_lineSize;
+                out << hex << "0x" << setw(16) << setfill('0') << m_selector.Unmap(line.tag, set) * m_lineSize;
                 if (line.loading) {
                     out << " L";
                 } else {
