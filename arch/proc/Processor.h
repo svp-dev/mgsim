@@ -4,6 +4,7 @@
 #include "sim/inspect.h"
 #include "arch/IOBus.h"
 #include "arch/Memory.h"
+#include "arch/BankSelector.h"
 
 class Config;
 

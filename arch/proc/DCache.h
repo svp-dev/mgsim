@@ -72,6 +72,7 @@ private:
 	size_t               m_assoc;           ///< Config: Cache associativity.
 	size_t               m_sets;            ///< Config: Number of sets in the cace.
 	size_t               m_lineSize;        ///< Config: Size of a cache line, in bytes.
+    IBankSelector*       m_selector;        ///< Mapping of cache line addresses to tags and set indices.
     Buffer<CID>          m_completed;       ///< Completed cache-line reads waiting to be processed.
     Buffer<Response>     m_incoming;        ///< Incoming buffer from memory bus.
     Buffer<Request>      m_outgoing;        ///< Outgoing buffer to memory bus.

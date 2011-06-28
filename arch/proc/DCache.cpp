@@ -20,6 +20,7 @@ Processor::DCache::DCache(const std::string& name, Processor& parent, Clock& clo
     m_assoc          (config.getValue<size_t>(*this, "Associativity")),
     m_sets           (config.getValue<size_t>(*this, "NumSets")),
     m_lineSize       (config.getValue<size_t>("CacheLineSize")),
+    m_selector       (IBankSelector::makeSelector(*this, config.getValue<string>(*this, "BankSelector"), m_sets)),
     m_completed      ("b_completed", *this, clock, m_sets * m_assoc),
     m_incoming       ("b_incoming",  *this, clock, config.getValue<BufferSize>(*this, "IncomingBufferSize")),
     m_outgoing       ("b_outgoing",  *this, clock, config.getValue<BufferSize>(*this, "OutgoingBufferSize")),
@@ -85,12 +86,15 @@ Processor::DCache::~DCache()
         delete[] m_lines[i].data;
         delete[] m_lines[i].valid;
     }
+    delete m_selector;
 }
 
 Result Processor::DCache::FindLine(MemAddr address, Line* &line, bool check_only)
 {
-    const MemAddr tag  = (address / m_lineSize) / m_sets;
-    const size_t  set  = (size_t)((address / m_lineSize) % m_sets) * m_assoc;
+    MemAddr tag;
+    size_t setindex;
+    m_selector->Map(address / m_lineSize, tag, setindex);
+    const size_t  set  = setindex * m_assoc;
 
     // Find the line
     Line* empty   = NULL;
@@ -699,7 +703,7 @@ void Processor::DCache::Cmd_Read(std::ostream& out, const std::vector<std::strin
             out << " |                     |                                                 |";
         } else {
             out << " | "
-                << hex << "0x" << setw(16) << setfill('0') << (line.tag * num_sets + set) * m_lineSize;
+                << hex << "0x" << setw(16) << setfill('0') << m_selector->Unmap(line.tag, set) * m_lineSize;
             
             switch (line.state)
             {
