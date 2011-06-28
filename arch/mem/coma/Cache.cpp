@@ -869,8 +869,13 @@ void COMA::Cache::Cmd_Info(std::ostream& out, const std::vector<std::string>& ar
     "the rest of the COMA system via a ring network.\n\n"
     "Supported operations:\n"
     "- inspect <component>\n"
-    "  Reads and displays the cache-lines, and global information such as hit-rate\n"
+    "  Print global information such as hit-rate\n"
     "  and cache configuration.\n"
+    "- inspect <component> lines [fmt [width [address]]]\n"
+    "  Read the cache lines themselves.\n"
+    "  * fmt can be b/w/c and indicates formatting by bytes, words, or characters.\n"
+    "  * width indicates how many bytes are printed on each line (default: entire line).\n"
+    "  * address if specified filters the output to the specified cache line.\n" 
     "- inspect <component> buffers\n"
     "  Reads and displays the buffers in the cache\n";
 }
@@ -895,77 +900,109 @@ void COMA::Cache::Cmd_Read(std::ostream& out, const std::vector<std::string>& ar
         Print(out);        
         return;
     }
-    
-    out << "Cache type:          ";
-    if (m_assoc == 1) {
-        out << "Direct mapped" << endl;
-    } else if (m_assoc == m_lines.size()) {
-        out << "Fully associative" << endl;
-    } else {
-        out << dec << m_assoc << "-way set associative" << endl;
-    }
-
-    out << "Cache size:       " << dec << (m_lineSize * m_lines.size()) << " bytes" << endl;
-    out << "Cache line size:  " << dec << m_lineSize << " bytes" << endl;
-    out << "Current hit rate: ";
-    if (m_numHits + m_numMisses > 0) {
-        out << setprecision(2) << fixed << m_numHits * 100.0f / (m_numHits + m_numMisses) << "%";
-    } else {
-        out << "N/A";
-    }
-    out << " (" << dec << m_numHits << " hits, " << m_numMisses << " misses)" << endl;
-    out << endl;
-
-    out << "Set |       Address       | Tokens |                       Data                      |" << endl;
-    out << "----+---------------------+--------+-------------------------------------------------+" << endl;
-    for (size_t i = 0; i < m_lines.size(); ++i)
+    else if (arguments.empty())
     {
-        const size_t set = i / m_assoc;
-        const Line& line = m_lines[i];
-        if (i % m_assoc == 0) {
-            out << setw(3) << setfill(' ') << dec << right << set;
+        out << "Cache type:       ";
+        if (m_assoc == 1) {
+            out << "Direct mapped" << endl;
+        } else if (m_assoc == m_lines.size()) {
+            out << "Fully associative" << endl;
         } else {
-            out << "   ";
+            out << dec << m_assoc << "-way set associative" << endl;
         }
-
-        if (line.state == LINE_EMPTY) {
-            out << " |                     |        |                                                 |";
+        out << "Cache size:       " << dec << (m_lineSize * m_lines.size()) << " bytes" << endl;
+        out << "Cache line size:  " << dec << m_lineSize << " bytes" << endl;
+        out << "Current hit rate: ";
+        if (m_numHits + m_numMisses > 0) {
+            out << setprecision(2) << fixed << m_numHits * 100.0f / (m_numHits + m_numMisses) << "%";
         } else {
-            out << " | "
-                << hex << "0x" << setw(16) << setfill('0') << (line.tag * m_sets + set) * m_lineSize;
-
-            switch (line.state)
+            out << "N/A";
+        }
+        out << " (" << dec << m_numHits << " hits, " << m_numMisses << " misses)" << endl;
+        out << endl;
+    }
+    else if (arguments[0] == "lines")
+    {
+        enum { fmt_bytes, fmt_words, fmt_chars } fmt = fmt_words;
+        size_t bytes_per_line = m_lineSize;
+        bool specific = false;
+        MemAddr seladdr = 0;
+        if (arguments.size() > 1)
+        {
+            if (arguments[1] == "b") fmt = fmt_bytes;
+            else if (arguments[1] == "w") fmt = fmt_words;
+            else if (arguments[1] == "c") fmt = fmt_chars;
+            else
             {
-                case LINE_LOADING: out << "L"; break;
-                default: out << " ";
+                out << "Invalid format: " << arguments[1] << ", expected b/w/c" << endl;
+                return;
             }
-            out << " | " << dec << setfill(' ') << setw(6) << line.tokens << " |";
-
-            // Print the data
-            out << hex << setfill('0');
-            static const int BYTES_PER_LINE = 16;
-            for (size_t y = 0; y < m_lineSize; y += BYTES_PER_LINE)
-            {
-                for (size_t x = y; x < y + BYTES_PER_LINE; ++x) {
-                    out << " ";
-                    if (line.valid[x]) {
-                        out << setw(2) << (unsigned)(unsigned char)line.data[x];
-                    } else {
-                        out << "  ";
+        }
+        if (arguments.size() > 2)
+        {
+            bytes_per_line = strtoumax(arguments[2].c_str(), 0, 0);
+        }
+        if (arguments.size() > 3)
+        {
+            seladdr = strtoumax(arguments[3].c_str(), 0, 0); 
+            if (errno != EINVAL)
+                specific = true;
+            seladdr = (seladdr / m_lineSize) * m_lineSize;
+        }
+        
+        out << "Set |       Address      | LDU   | Tokens |                       Data" << endl;
+        out << "----+--------------------+-------+--------+--------------------------------------------------" << endl;
+        for (size_t i = 0; i < m_lines.size(); ++i)
+        {
+            const size_t set = i / m_assoc;
+            const Line& line = m_lines[i];
+            MemAddr lineaddr = (line.tag * m_sets + set) * m_lineSize;
+            if (specific && lineaddr != seladdr)
+                continue;
+            
+            out << setw(3) << setfill(' ') << dec << right << set;
+            
+            if (line.state == LINE_EMPTY) {
+                out << " |                    |       |        |";
+            } else {
+                out << " | "
+                    << hex << "0x" << setw(16) << setfill('0') << lineaddr
+                    << " | "
+                    << ((line.state == LINE_LOADING) ? "L" : " ")
+                    << (line.dirty ? "D" : " ")
+                    << setw(3) << setfill(' ') << dec << line.updating
+                    << " | "
+                    << setfill(' ') << setw(6) << line.tokens << " |";
+                
+                // Print the data
+                out << hex << setfill('0');
+                static const int BYTES_PER_LINE = 64;
+                for (size_t y = 0; y < m_lineSize; y += bytes_per_line)
+                {
+                    for (size_t x = y; x < y + bytes_per_line; ++x) {
+                        if ((fmt == fmt_bytes) || ((fmt == fmt_words) && (x % sizeof(Integer) == 0))) 
+                            out << " ";
+                        
+                        if (line.valid[x]) {
+                            char byte = line.data[x];
+                            if (fmt == fmt_chars)
+                                out << (isprint(byte) ? byte : '.');
+                            else
+                                out << setw(2) << (unsigned)(unsigned char)byte;
+                        } else {
+                            out << ((fmt == fmt_chars) ? " " : "  ");
+                        }
+                    }
+                    
+                    if (y + bytes_per_line < m_lineSize) {
+                        // This was not yet the last line
+                        out << endl << "    |                    |       |        |";
                     }
                 }
-                
-                out << " | ";
-                if (y + BYTES_PER_LINE < m_lineSize) {
-                    // This was not yet the last line
-                    out << endl << "    |                     |        |";
-                }
             }
+            out << endl;
         }
-        out << endl;
-        out << ((i + 1) % m_assoc == 0 ? "----" : "    ");
-        out << "+---------------------+--------+-------------------------------------------------+" << endl;
     }
 }
-
+    
 }
