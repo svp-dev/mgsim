@@ -2,18 +2,13 @@
 #include "RootDirectory.h"
 #include "sim/config.h"
 #include "sim/sampling.h"
+#include "sim/log2.h"
 #include <cassert>
 #include <cstring>
 using namespace std;
 
 namespace Simulator
 {
-
-template <typename T>
-static bool IsPowerOfTwo(const T& x)
-{
-    return (x & (x - 1)) == 0;
-}
 
 MCID ZLCOMA::RegisterClient(IMemoryCallback& callback, Process& process, StorageTraceSet& traces, Storage& storage, bool grouped)
 {

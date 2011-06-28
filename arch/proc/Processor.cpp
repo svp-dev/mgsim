@@ -11,12 +11,6 @@ using namespace std;
 namespace Simulator
 {
 
-template <typename T>
-static bool IsPowerOfTwo(const T& x)
-{
-    return (x & (x - 1)) == 0;
-}
-
 //
 // Processor implementation
 //
