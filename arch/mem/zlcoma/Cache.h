@@ -71,6 +71,8 @@ private:
     // Statistics
     uint64_t                      m_numHits;
     uint64_t                      m_numMisses;
+    uint64_t                      m_numConflicts;
+    uint64_t                      m_numResolved;
 
     // Processes
     Process p_Requests;

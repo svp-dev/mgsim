@@ -79,6 +79,8 @@ private:
     WritebackState       m_wbstate;         ///< Writeback state
     uint64_t             m_numHits;         ///< Number of hits so far.
     uint64_t             m_numMisses;       ///< Number of misses so far.
+    uint64_t             m_numConflicts;    ///< Number of bank conflicts so far.
+    uint64_t             m_numResolved;     ///< Number of resolved conflicts (substituted lines) so far.
        
     Result DoCompletedReads();
     Result DoIncomingResponses();

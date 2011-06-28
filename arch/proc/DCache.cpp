@@ -26,6 +26,8 @@ Processor::DCache::DCache(const std::string& name, Processor& parent, Clock& clo
     m_outgoing       ("b_outgoing",  *this, clock, config.getValue<BufferSize>(*this, "OutgoingBufferSize")),
     m_numHits        (0),
     m_numMisses      (0),
+    m_numConflicts   (0),
+    m_numResolved    (0),
 
     p_CompletedReads(*this, "completed-reads", delegate::create<DCache, &Processor::DCache::DoCompletedReads   >(*this) ),
     p_Incoming      (*this, "incoming",        delegate::create<DCache, &Processor::DCache::DoIncomingResponses>(*this) ),
@@ -35,6 +37,8 @@ Processor::DCache::DCache(const std::string& name, Processor& parent, Clock& clo
 {
     RegisterSampleVariableInObject(m_numHits, SVC_CUMULATIVE);
     RegisterSampleVariableInObject(m_numMisses, SVC_CUMULATIVE);
+    RegisterSampleVariableInObject(m_numConflicts, SVC_CUMULATIVE);
+    RegisterSampleVariableInObject(m_numResolved, SVC_CUMULATIVE);
     
     StorageTraceSet traces;
     m_mcid = m_memory.RegisterClient(*this, p_Outgoing, traces, m_incoming, true);
@@ -121,7 +125,7 @@ Result Processor::DCache::FindLine(MemAddr address, Line* &line, bool check_only
             replace = line;
         }
     }
-    
+
     // The line could not be found, allocate the empty line or replace an existing line
     line = (empty != NULL) ? empty : replace;
     if (line == NULL)
@@ -139,6 +143,7 @@ Result Processor::DCache::FindLine(MemAddr address, Line* &line, bool check_only
         // Reset the line
         COMMIT
         {
+            if (empty == NULL) ++m_numResolved;
             line->processing = false;
             line->tag        = tag;
             line->waiting    = INVALID_REG;
@@ -190,6 +195,7 @@ Result Processor::DCache::Read(MemAddr address, void* data, MemSize size, LFID /
     {
         // Cache-miss and no free line
         // DeadlockWrite() is done in FindLine
+        ++m_numConflicts;
         return FAILED;
     }
     
@@ -681,14 +687,23 @@ void Processor::DCache::Cmd_Read(std::ostream& out, const std::vector<std::strin
         out << "L2 bank mapping:     " << m_selector->GetName() << endl;
         out << "Cache size:          " << dec << (m_lineSize * m_lines.size()) << " bytes" << endl;
         out << "Cache line size:     " << dec << m_lineSize << " bytes" << endl;
-        out << "Current hit rate:    ";
-        if (m_numHits + m_numMisses > 0) {
-            out << setprecision(2) << fixed << m_numHits * 100.0f / (m_numHits + m_numMisses) << "%";
-        } else {
-            out << "N/A";
+
+        if (m_numHits + m_numMisses == 0)
+            out << "No accesses so far, cannot compute hit/miss/conflict rates." << endl;
+        else
+        {
+            float factor = 100.0f / (m_numHits + m_numMisses);
+
+            out << "Current hit rate:    " << setprecision(2) << fixed << m_numHits * factor 
+                << "% (" << dec << m_numHits << " hits, " << m_numMisses << " misses)" << endl
+                << "Current soft conflict rate: "
+                << setprecision(2) << fixed << m_numResolved * factor 
+                << "% (" << dec << m_numResolved << " non-stalling conflicts)" << endl
+                << "Current hard conflict rate: "
+                << setprecision(2) << fixed << m_numConflicts * factor
+                << "% (" << dec << m_numConflicts << " stalling conflicts)"
+                << endl;
         }
-        out << " (" << dec << m_numHits << " hits, " << m_numMisses << " misses)" << endl;
-        out << endl;
         return;
     }
     else if (arguments[0] == "buffers")

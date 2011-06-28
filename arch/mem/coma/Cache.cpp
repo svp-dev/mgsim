@@ -581,6 +581,7 @@ Result COMA::Cache::OnWriteRequest(const Request& req)
         line = AllocateLine(req.address, false, &tag);
         if (line == NULL)
         {
+            ++m_numConflicts;
             DeadlockWrite("Unable to allocate line for bus write request");
             return FAILED;
         }
@@ -593,9 +594,12 @@ Result COMA::Cache::OnWriteRequest(const Request& req)
 
             if (!EvictLine(line, req))
             {
+                ++m_numConflicts;
                 DeadlockWrite("Unable to evict line for bus write request");
                 return FAILED;
             }
+
+            COMMIT { ++m_numConflicts; ++m_numResolved; }
             return DELAYED;
         }
 
@@ -716,6 +720,7 @@ Result COMA::Cache::OnReadRequest(const Request& req)
         line = AllocateLine(req.address, false, &tag);
         if (line == NULL)
         {
+            ++m_numConflicts;
             DeadlockWrite("Unable to allocate line for bus read request");
             return FAILED;
         }
@@ -728,9 +733,12 @@ Result COMA::Cache::OnReadRequest(const Request& req)
             
             if (!EvictLine(line, req))
             {
+                ++m_numConflicts;
                 DeadlockWrite("Unable to evict line for bus read request");
                 return FAILED;
             }
+
+            COMMIT { ++m_numConflicts; ++m_numResolved; }
             return DELAYED;
         }
 
@@ -845,6 +853,8 @@ COMA::Cache::Cache(const std::string& name, COMA& parent, Clock& clock, CacheID 
     p_lines    (*this, clock, "p_lines"),
     m_numHits  (0),
     m_numMisses(0),
+    m_numConflicts(0),
+    m_numResolved(0),
     p_Requests (*this, "requests", delegate::create<Cache, &Cache::DoRequests>(*this)),
     p_In       (*this, "incoming", delegate::create<Cache, &Cache::DoReceive>(*this)),
     p_bus      (*this, clock, "p_bus"),
@@ -853,6 +863,8 @@ COMA::Cache::Cache(const std::string& name, COMA& parent, Clock& clock, CacheID 
 {
     RegisterSampleVariableInObject(m_numHits, SVC_CUMULATIVE);
     RegisterSampleVariableInObject(m_numMisses, SVC_CUMULATIVE);
+    RegisterSampleVariableInObject(m_numConflicts, SVC_CUMULATIVE);
+    RegisterSampleVariableInObject(m_numResolved, SVC_CUMULATIVE);
 
     // Create the cache lines
     m_lines.resize(m_assoc * m_sets);
@@ -931,14 +943,23 @@ void COMA::Cache::Cmd_Read(std::ostream& out, const std::vector<std::string>& ar
         out << "L2 bank mapping:  " << m_selector.GetName() << endl;
         out << "Cache size:       " << dec << (m_lineSize * m_lines.size()) << " bytes" << endl;
         out << "Cache line size:  " << dec << m_lineSize << " bytes" << endl;
-        out << "Current hit rate: ";
-        if (m_numHits + m_numMisses > 0) {
-            out << setprecision(2) << fixed << m_numHits * 100.0f / (m_numHits + m_numMisses) << "%";
-        } else {
-            out << "N/A";
+
+        if (m_numHits + m_numMisses == 0)
+            out << "No accesses so far, cannot compute hit/miss/conflict rates." << endl;
+        else
+        {
+            float factor = 100.0f / (m_numHits + m_numMisses);
+
+            out << "Current hit rate:    " << setprecision(2) << fixed << m_numHits * factor 
+                << "% (" << dec << m_numHits << " hits, " << m_numMisses << " misses)" << endl
+                << "Current soft conflict rate: "
+                << setprecision(2) << fixed << m_numResolved * factor 
+                << "% (" << dec << m_numResolved << " non-stalling conflicts)" << endl
+                << "Current hard conflict rate: "
+                << setprecision(2) << fixed << m_numConflicts * factor
+                << "% (" << dec << m_numConflicts << " stalling conflicts)"
+                << endl;
         }
-        out << " (" << dec << m_numHits << " hits, " << m_numMisses << " misses)" << endl;
-        out << endl;
     }
     else if (arguments[0] == "lines")
     {
