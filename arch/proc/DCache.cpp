@@ -658,31 +658,53 @@ void Processor::DCache::Cmd_Info(std::ostream& out, const std::vector<std::strin
     "with several fields to support the multiple threads and asynchronous operation.\n\n"
     "Supported operations:\n"
     "- inspect <component>\n"
-    "  Reads and displays the cache-lines, and global information such as hit-rate\n"
-    "  and cache configuration.\n";
+    "  Display global information such as hit-rate and configuration.\n"
+    "- inspect <component> buffers\n" 
+    "  Reads and display the outgoing request buffer.\n"
+    "- inspect <component> lines\n"
+    "  Reads and displays the cache-lines.\n";
 }
 
-void Processor::DCache::Cmd_Read(std::ostream& out, const std::vector<std::string>& /*arguments*/) const
+void Processor::DCache::Cmd_Read(std::ostream& out, const std::vector<std::string>& arguments) const
 {
-    out << "Cache type:          ";
-    if (m_assoc == 1) {
-        out << "Direct mapped" << endl;
-    } else if (m_assoc == m_lines.size()) {
-        out << "Fully associative" << endl;
-    } else {
-        out << dec << m_assoc << "-way set associative" << endl;
+    if (arguments.empty())
+    {
+        out << "Cache type:          ";
+        if (m_assoc == 1) {
+            out << "Direct mapped" << endl;
+        } else if (m_assoc == m_lines.size()) {
+            out << "Fully associative" << endl;
+        } else {
+            out << dec << m_assoc << "-way set associative" << endl;
+        }
+        
+        out << "L2 bank mapping:     " << m_selector->GetName() << endl;
+        out << "Cache size:          " << dec << (m_lineSize * m_lines.size()) << " bytes" << endl;
+        out << "Cache line size:     " << dec << m_lineSize << " bytes" << endl;
+        out << "Current hit rate:    ";
+        if (m_numHits + m_numMisses > 0) {
+            out << setprecision(2) << fixed << m_numHits * 100.0f / (m_numHits + m_numMisses) << "%";
+        } else {
+            out << "N/A";
+        }
+        out << " (" << dec << m_numHits << " hits, " << m_numMisses << " misses)" << endl;
+        out << endl;
+        return;
     }
-
-    out << "Cache size:          " << dec << (m_lineSize * m_lines.size()) << " bytes" << endl;
-    out << "Cache line size:     " << dec << m_lineSize << " bytes" << endl;
-    out << "Current hit rate:    ";
-    if (m_numHits + m_numMisses > 0) {
-        out << setprecision(2) << fixed << m_numHits * 100.0f / (m_numHits + m_numMisses) << "%";
-    } else {
-        out << "N/A";
+    else if (arguments[0] == "buffers")
+    {
+        out << endl << "Outgoing requests:" << endl << endl
+            << "      Address      | Size | Type  |" << endl
+            << "-------------------+------+-------+" << endl;
+        for (Buffer<Request>::const_iterator p = m_outgoing.begin(); p != m_outgoing.end(); ++p)
+        {
+            out << hex << "0x" << setw(16) << setfill('0') << p->address << " | "
+                << dec << setw(4) << right << setfill(' ') << p->data.size << " | "
+                << (p->write ? "Write" : "Read ") << " | "
+                << endl;
+        }
+        return;
     }
-    out << " (" << dec << m_numHits << " hits, " << m_numMisses << " misses)" << endl;
-    out << endl;
 
     const size_t num_sets = m_lines.size() / m_assoc;
 
@@ -781,16 +803,6 @@ void Processor::DCache::Cmd_Read(std::ostream& out, const std::vector<std::strin
         out << "+---------------------+-------------------------------------------------+-------------------" << endl;
     }
 
-    out << endl << "Outgoing requests:" << endl << endl
-        << "      Address      | Size | Type  |" << endl
-        << "-------------------+------+-------+" << endl;
-    for (Buffer<Request>::const_iterator p = m_outgoing.begin(); p != m_outgoing.end(); ++p)
-    {
-        out << hex << "0x" << setw(16) << setfill('0') << p->address << " | "
-            << dec << setw(4) << right << setfill(' ') << p->data.size << " | "
-            << (p->write ? "Write" : "Read ") << " | "
-            << endl;
-    }
 }
 
 }
