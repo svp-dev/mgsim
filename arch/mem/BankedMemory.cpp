@@ -250,14 +250,14 @@ std::pair<CycleNo, CycleNo> BankedMemory::GetMessageDelay(size_t body_size) cons
     // Body delay depends on size, and one cycle for the header
     return make_pair(
         (CycleNo)(log((double)m_banks.size()) / log(2.0)),
-        (body_size + m_sizeOfLine - 1) / m_sizeOfLine + 1
+        (body_size + m_lineSize - 1) / m_lineSize + 1
     );
 }
 
 // Time it takes to process (read/write) a request once arrived
 CycleNo BankedMemory::GetMemoryDelay(size_t data_size) const
 {
-    return m_baseRequestTime + m_timePerLine * (data_size + m_sizeOfLine - 1) / m_sizeOfLine;
+    return m_baseRequestTime + m_timePerLine * (data_size + m_lineSize - 1) / m_lineSize;
 }
                         
 MCID BankedMemory::RegisterClient(IMemoryCallback& callback, Process& process, StorageTraceSet& traces, Storage& storage, bool /*ignored*/)
@@ -298,12 +298,6 @@ void BankedMemory::UnregisterClient(MCID id)
     client.callback = NULL;
 }
 
-size_t BankedMemory::GetBankFromAddress(MemAddr address) const
-{
-    // We work on whole cache lines
-    return (size_t)((address / m_cachelineSize) % m_banks.size());
-}
-
 bool BankedMemory::Read(MCID id, MemAddr address, MemSize size)
 {
     if (size > MAX_MEMORY_OPERATION_SIZE)
@@ -314,13 +308,18 @@ bool BankedMemory::Read(MCID id, MemAddr address, MemSize size)
     // Client should have been registered
     assert(id < m_clients.size() && m_clients[id].callback != NULL);
 
+    size_t bank_index;
+    MemAddr unused;
+    m_selector->Map(address / m_lineSize, unused, bank_index);
+
+
     Request request;
     request.address   = address;
     request.client    = &m_clients[id];
     request.data.size = size;
     request.write     = false;
     
-    Bank& bank = *m_banks[ GetBankFromAddress(address) ];
+    Bank& bank = *m_banks[ bank_index ];
     if (!bank.AddIncomingRequest(request))
     {
         return false;
@@ -357,7 +356,11 @@ bool BankedMemory::Write(MCID id, MemAddr address, const void* data, MemSize siz
         }
     }
     
-    Bank& bank = *m_banks[ GetBankFromAddress(address) ];
+    size_t bank_index;
+    MemAddr unused;
+    m_selector->Map(address / m_lineSize, unused, bank_index);
+
+    Bank& bank = *m_banks[ bank_index ];
     if (!bank.AddIncomingRequest(request))
     {
         return false;
@@ -397,24 +400,26 @@ bool BankedMemory::CheckPermissions(MemAddr address, MemSize size, int access) c
     return VirtualMemory::CheckPermissions(address, size, access);
 }
 
-BankedMemory::BankedMemory(const std::string& name, Object& parent, Clock& clock, Config& config) :
-    Object(name, parent, clock),
-    m_registry(config),
-    m_clock(clock),
-    m_banks          (config.getValueOrDefault<size_t>(*this, "NumBanks", 
-                                                       config.getValue<size_t>("NumProcessors"))),
-    m_baseRequestTime(config.getValue<CycleNo>(*this, "BaseRequestTime")),
-    m_timePerLine    (config.getValue<CycleNo>(*this, "TimePerLine")),
-    m_sizeOfLine     (config.getValue<size_t> (*this, "LineSize")),
-    m_cachelineSize  (config.getValue<size_t> ("CacheLineSize")),
-    m_nreads         (0),
-    m_nread_bytes    (0),
-    m_nwrites        (0),
-    m_nwrite_bytes   (0)
+BankedMemory::BankedMemory(const std::string& name, Object& parent, Clock& clock, Config& config, const std::string& defaultBankSelectorType) 
+    : Object(name, parent, clock),
+      m_registry(config),
+      m_clock(clock),
+      m_banks          (config.getValueOrDefault<size_t>(*this, "NumBanks", 
+                                                         config.getValue<size_t>("NumProcessors"))),
+      m_baseRequestTime(config.getValue<CycleNo>(*this, "BaseRequestTime")),
+      m_timePerLine    (config.getValue<CycleNo>(*this, "TimePerLine")),
+      m_lineSize       (config.getValue<size_t> (*this, "LineSize")),
+      m_cachelineSize  (config.getValue<size_t> ("CacheLineSize")),
+      m_selector       (IBankSelector::makeSelector(*this, config.getValueOrDefault<string>(*this, "BankSelector", defaultBankSelectorType), m_banks.size())),
+      m_nreads         (0),
+      m_nread_bytes    (0),
+      m_nwrites        (0),
+      m_nwrite_bytes   (0)
 {
     const BufferSize buffersize = config.getValue<BufferSize>(*this, "BufferSize");
     
     config.registerObject(*this, "bmem");
+    config.registerProperty(*this, "selector", m_selector->GetName());
         
     // Create the banks   
     for (size_t i = 0; i < m_banks.size(); ++i)
@@ -435,6 +440,7 @@ BankedMemory::BankedMemory(const std::string& name, Object& parent, Clock& clock
 
 BankedMemory::~BankedMemory()
 {
+    delete m_selector;
     for (size_t i = 0; i < m_banks.size(); ++i)
     {
         delete m_banks[i];
@@ -449,9 +455,9 @@ void BankedMemory::Cmd_Info(ostream& out, const vector<string>& arguments) const
     }
     out <<
     "The Banked Memory represents a switched memory network between P processors and N\n"
-    "memory banks. Requests are sequentialized on each bank and the cache line-to-bank\n"
-    "mapping is a simple modulo.\n\n"
-    "Supported operations:\n"
+    "memory banks. Requests are sequentialized on each bank.\n"
+    "This memory uses the following mapping of lines to banks: " << m_selector->GetName() <<
+    "\n\nSupported operations:\n"
     "- info <component> ranges\n"
     "  Displays the currently reserved and allocated memory ranges\n\n"
     "- inspect <component> <start> <size>\n"

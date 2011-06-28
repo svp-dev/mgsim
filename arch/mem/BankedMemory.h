@@ -1,6 +1,7 @@
 #ifndef BANKEDMEMORY_H
 #define BANKEDMEMORY_H
 
+#include "BankSelector.h"
 #include "arch/Memory.h"
 #include "arch/VirtualMemory.h"
 #include "sim/inspect.h"
@@ -20,8 +21,6 @@ class BankedMemory : public Object, public IMemoryAdmin, public VirtualMemory
     struct ClientInfo;
     struct Request;
     class Bank;
-
-    virtual size_t GetBankFromAddress(MemAddr address) const;
 
     std::pair<CycleNo, CycleNo> GetMessageDelay(size_t body_size) const;
     CycleNo                     GetMemoryDelay (size_t data_size) const;
@@ -60,9 +59,10 @@ protected:
     std::vector<Bank*>      m_banks;
     CycleNo                 m_baseRequestTime;
     CycleNo                 m_timePerLine;
-    size_t                  m_sizeOfLine;
+    size_t                  m_lineSize;
     BufferSize              m_bufferSize;
     size_t                  m_cachelineSize;
+    IBankSelector*          m_selector;
 
     uint64_t m_nreads;
     uint64_t m_nread_bytes;
@@ -70,7 +70,7 @@ protected:
     uint64_t m_nwrite_bytes;
 
 public:
-    BankedMemory(const std::string& name, Object& parent, Clock& clock, Config& config);
+    BankedMemory(const std::string& name, Object& parent, Clock& clock, Config& config, const std::string& defaultBankSelectorType);
     ~BankedMemory();
     
     // Debugging

@@ -3,8 +3,6 @@ MEMORY_SRC = \
 	arch/mem/BankedMemory.h \
 	arch/mem/ParallelMemory.cpp \
 	arch/mem/ParallelMemory.h \
-	arch/mem/RandomBankedMemory.cpp \
-	arch/mem/RandomBankedMemory.h \
 	arch/mem/SerialMemory.cpp \
 	arch/mem/SerialMemory.h \
         arch/mem/DDR.cpp \
