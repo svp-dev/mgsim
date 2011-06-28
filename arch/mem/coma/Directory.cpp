@@ -335,9 +335,9 @@ void COMA::Directory::Cmd_Read(std::ostream& out, const std::vector<std::string>
     out << "Set |";
     for (size_t i = 0; i < width; ++i) out << "       Address      | Tokens |";
     out << endl << "----";
-    std::string seperator = "+";
-    for (size_t i = 0; i < width; ++i) seperator += "--------------------+--------+";
-    out << seperator << endl;
+    std::string separator = "+";
+    for (size_t i = 0; i < width; ++i) separator += "--------------------+--------+";
+    out << separator << endl;
     
     for (size_t i = 0; i < m_lines.size() / width; ++i)
     {
@@ -364,7 +364,7 @@ void COMA::Directory::Cmd_Read(std::ostream& out, const std::vector<std::string>
         }
         out << endl
             << ((index + width) % m_assoc == 0 ? "----" : "    ")
-            << seperator << endl;
+            << separator << endl;
     }
 }
 
