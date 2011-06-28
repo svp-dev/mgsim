@@ -89,6 +89,8 @@ PROCESSOR_SRC = \
 
 COMMON_SRC = \
 	arch/Archures.h \
+        arch/BankSelector.h \
+        arch/BankSelector.cpp \
 	arch/FPU.cpp \
 	arch/FPU.h \
 	arch/IOBus.h \
