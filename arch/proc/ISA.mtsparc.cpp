@@ -800,6 +800,7 @@ Processor::Pipeline::PipeAction Processor::Pipeline::ExecuteStage::ExecuteInstru
                 case S_OP3_STF:
                 case S_OP3_STDF:
                     m_output.Rcv = m_input.Rsv;
+                    m_output.Ra = m_input.Rs; // for debugging memory only
                     break;
             }
 

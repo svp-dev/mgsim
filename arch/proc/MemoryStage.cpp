@@ -56,7 +56,7 @@ Processor::Pipeline::PipeAction Processor::Pipeline::MemoryStage::OnCycle()
                         DeadlockWrite("Failed I/O write by %s (F%u/T%u): *%#016llx <- %zd bytes from %s = %s",
                                       GetKernel()->GetSymbolTable()[m_input.pc].c_str(),
                                       (unsigned)m_input.fid, (unsigned)m_input.tid,
-                                      (unsigned long long)m_input.address, (size_t)m_input.size, m_input.Rc.str().c_str(), m_input.Rcv.str(m_input.Rc.type).c_str());
+                                      (unsigned long long)m_input.address, (size_t)m_input.size, m_input.Ra.str().c_str(), m_input.Rcv.str(m_input.Ra.type).c_str());
 
                         return PIPE_STALL;
                     }
@@ -84,7 +84,7 @@ Processor::Pipeline::PipeAction Processor::Pipeline::MemoryStage::OnCycle()
                 
                 DebugMemWrite("Store by %s (F%u/T%u): *%#016llx <- %zd bytes from %s = %s",
                               GetKernel()->GetSymbolTable()[m_input.pc].c_str(), (unsigned)m_input.fid, (unsigned)m_input.tid,
-                              (unsigned long long)m_input.address, (size_t)m_input.size, m_input.Rc.str().c_str(), m_input.Rcv.str(m_input.Rc.type).c_str());
+                              (unsigned long long)m_input.address, (size_t)m_input.size, m_input.Ra.str().c_str(), m_input.Rcv.str(m_input.Ra.type).c_str());
             }
             catch (SimulationException& e)
             {
@@ -92,7 +92,7 @@ Processor::Pipeline::PipeAction Processor::Pipeline::MemoryStage::OnCycle()
                 stringstream details;
                 details << "While processing store: *" 
                         << setw(sizeof(Integer) * 2) << setfill('0') << right << hex << m_input.address << left 
-                        << " <- " << m_input.Rcv.str(m_input.Rc.type);
+                        << " <- " << m_input.Ra.str() << " = " << m_input.Rcv.str(m_input.Ra.type);
                 e.AddDetails(details.str());
                 throw;
             }

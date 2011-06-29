@@ -1052,6 +1052,9 @@ Processor::Pipeline::PipeAction Processor::Pipeline::ExecuteStage::ExecuteInstru
                     {
                         // Put the value of Ra into Rcv for storage by memory stage
                         m_output.Rcv = m_input.Rav;
+
+                        // Also remember the source operand (for memory debugging only)
+                        m_output.Ra  = m_input.Ra; 
                     }
                 }
                 break;

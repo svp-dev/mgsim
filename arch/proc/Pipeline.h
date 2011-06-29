@@ -208,6 +208,9 @@ class Pipeline : public Object, public Inspect::Interface<Inspect::Read>
         
         RemoteMessage Rrc;
 
+        // For debugging only
+        RegAddr       Ra; // the origin of the value for a store
+
     ExecuteMemoryLatch() : suspend(SUSPEND_NONE), address(0), size(0), sign_extend(false), placeSize(0) {}
     };
 
