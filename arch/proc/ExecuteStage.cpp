@@ -1,6 +1,7 @@
 #include "Processor.h"
 #include "symtable.h"
 #include "sim/sampling.h"
+#include "sim/log2.h"
 
 #include <cassert>
 #include <cmath>

@@ -160,6 +160,7 @@ ZLCOMA::ZLCOMA(const std::string& name, Simulator::Object& parent, Clock& clock,
 
 void ZLCOMA::Initialize()
 {
+    m_config.registerObject(*this, "coma");
     m_config.registerProperty(*this, "selector", m_selector->GetName());
 
     // Initialize the caches
