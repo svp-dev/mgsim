@@ -77,10 +77,19 @@ private:
     Buffer<Response>     m_incoming;        ///< Incoming buffer from memory bus.
     Buffer<Request>      m_outgoing;        ///< Outgoing buffer to memory bus.
     WritebackState       m_wbstate;         ///< Writeback state
-    uint64_t             m_numHits;         ///< Number of hits so far.
-    uint64_t             m_numMisses;       ///< Number of misses so far.
-    uint64_t             m_numConflicts;    ///< Number of bank conflicts so far.
-    uint64_t             m_numResolved;     ///< Number of resolved conflicts (substituted lines) so far.
+    uint64_t             m_numRHits;         ///< Number of rhits so far.
+    uint64_t             m_numEmptyRMisses;  ///< Number of rmisses so far (rmiss to an empty cache line).
+    uint64_t             m_numLoadingRMisses;///< Number of rmisses so far (rmiss to a loading cache line with same tag).
+    uint64_t             m_numInvalidRMisses;///< Number of rmisses so far (rmiss to an invalid cache line with same tag).
+    uint64_t             m_numHardConflicts;///< Number of conflicts so far (rmiss to a non-empty, non-reusable cache line with different tag).
+    uint64_t             m_numResolvedConflicts;///< Number of resolved conflicts so far (rmiss to a non-empty, substitutable line with different tag).
+
+    uint64_t             m_numWHits;          ///< Number of whits so far.
+    uint64_t             m_numPassThroughWMisses;
+    uint64_t             m_numInvLoadingWMisses;///< Number of wmisses so far (wmiss to an invalid/loading line)
+
+    uint64_t             m_numStallingRMisses;///< Number of rmisses that cannot be serviced upstream
+    uint64_t             m_numStallingWMisses;///< Number of mmisses that cannot be serviced upstream
        
     Result DoCompletedReads();
     Result DoIncomingResponses();

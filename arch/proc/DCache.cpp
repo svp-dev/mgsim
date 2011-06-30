@@ -24,10 +24,17 @@ Processor::DCache::DCache(const std::string& name, Processor& parent, Clock& clo
     m_completed      ("b_completed", *this, clock, m_sets * m_assoc),
     m_incoming       ("b_incoming",  *this, clock, config.getValue<BufferSize>(*this, "IncomingBufferSize")),
     m_outgoing       ("b_outgoing",  *this, clock, config.getValue<BufferSize>(*this, "OutgoingBufferSize")),
-    m_numHits        (0),
-    m_numMisses      (0),
-    m_numConflicts   (0),
-    m_numResolved    (0),
+    m_numRHits        (0),
+    m_numEmptyRMisses (0),
+    m_numLoadingRMisses(0),
+    m_numInvalidRMisses(0),
+    m_numHardConflicts(0),
+    m_numResolvedConflicts(0),
+    m_numWHits        (0),
+    m_numPassThroughWMisses(0),
+    m_numInvLoadingWMisses(0),
+    m_numStallingRMisses(0),
+    m_numStallingWMisses(0),
 
     p_CompletedReads(*this, "completed-reads", delegate::create<DCache, &Processor::DCache::DoCompletedReads   >(*this) ),
     p_Incoming      (*this, "incoming",        delegate::create<DCache, &Processor::DCache::DoIncomingResponses>(*this) ),
@@ -35,10 +42,17 @@ Processor::DCache::DCache(const std::string& name, Processor& parent, Clock& clo
 
     p_service        (*this, clock, "p_service")
 {
-    RegisterSampleVariableInObject(m_numHits, SVC_CUMULATIVE);
-    RegisterSampleVariableInObject(m_numMisses, SVC_CUMULATIVE);
-    RegisterSampleVariableInObject(m_numConflicts, SVC_CUMULATIVE);
-    RegisterSampleVariableInObject(m_numResolved, SVC_CUMULATIVE);
+    RegisterSampleVariableInObject(m_numRHits, SVC_CUMULATIVE);
+    RegisterSampleVariableInObject(m_numEmptyRMisses, SVC_CUMULATIVE);
+    RegisterSampleVariableInObject(m_numLoadingRMisses, SVC_CUMULATIVE);
+    RegisterSampleVariableInObject(m_numInvalidRMisses, SVC_CUMULATIVE);
+    RegisterSampleVariableInObject(m_numHardConflicts, SVC_CUMULATIVE);
+    RegisterSampleVariableInObject(m_numResolvedConflicts, SVC_CUMULATIVE);
+    RegisterSampleVariableInObject(m_numWHits, SVC_CUMULATIVE);
+    RegisterSampleVariableInObject(m_numPassThroughWMisses, SVC_CUMULATIVE);
+    RegisterSampleVariableInObject(m_numInvLoadingWMisses, SVC_CUMULATIVE);
+    RegisterSampleVariableInObject(m_numStallingRMisses, SVC_CUMULATIVE);
+    RegisterSampleVariableInObject(m_numStallingWMisses, SVC_CUMULATIVE);
     
     StorageTraceSet traces;
     m_mcid = m_memory.RegisterClient(*this, p_Outgoing, traces, m_incoming, true);
@@ -143,7 +157,6 @@ Result Processor::DCache::FindLine(MemAddr address, Line* &line, bool check_only
         // Reset the line
         COMMIT
         {
-            if (empty == NULL) ++m_numResolved;
             line->processing = false;
             line->tag        = tag;
             line->waiting    = INVALID_REG;
@@ -195,7 +208,7 @@ Result Processor::DCache::Read(MemAddr address, void* data, MemSize size, LFID /
     {
         // Cache-miss and no free line
         // DeadlockWrite() is done in FindLine
-        ++m_numConflicts;
+        ++m_numHardConflicts;
         return FAILED;
     }
     
@@ -211,8 +224,17 @@ Result Processor::DCache::Read(MemAddr address, void* data, MemSize size, LFID /
         request.data.size = m_lineSize;
         if (!m_outgoing.Push(request))
         {
+            ++m_numStallingRMisses;
             DeadlockWrite("Unable to push request to outgoing buffer");
             return FAILED;
+        }
+
+        // statistics
+        COMMIT { 
+            if (line->state == LINE_EMPTY)
+                ++m_numEmptyRMisses;
+            else
+                ++m_numResolvedConflicts; 
         }
     }
     else 
@@ -234,8 +256,8 @@ Result Processor::DCache::Read(MemAddr address, void* data, MemSize size, LFID /
             // Data is entirely in the cache, copy it
             COMMIT
             {
-                memcpy(data, line->data + offset, (size_t)size);
-                m_numHits++;
+                memcpy(data, line->data + offset, (size_t)size);                
+                ++m_numRHits;
             }
             return SUCCESS;
         }
@@ -244,7 +266,12 @@ Result Processor::DCache::Read(MemAddr address, void* data, MemSize size, LFID /
         if (line->state != LINE_LOADING)
         {
             assert(line->state == LINE_INVALID);
+            ++m_numInvalidRMisses;
             return FAILED;
+        }
+        else
+        {
+            COMMIT{ ++m_numLoadingRMisses; }
         }
     }
 
@@ -263,7 +290,6 @@ Result Processor::DCache::Read(MemAddr address, void* data, MemSize size, LFID /
         {    
             line->create  = true;
         }
-        m_numMisses++;
     }
     return DELAYED;
 }
@@ -302,8 +328,9 @@ Result Processor::DCache::Write(MemAddr address, void* data, MemSize size, LFID 
         return FAILED;
     }
     
-    Line* line;
-    if (FindLine(address, line, true) == SUCCESS)
+    Line* line = NULL;
+    Result result = FindLine(address, line, true);
+    if (result == SUCCESS)
     {
         assert(line->state != LINE_EMPTY);
 
@@ -320,6 +347,7 @@ Result Processor::DCache::Write(MemAddr address, void* data, MemSize size, LFID 
             //
             
             // So for now, just stall the write
+            ++m_numInvLoadingWMisses;
             DeadlockWrite("Unable to write into loading cache line");
             return FAILED;
         }
@@ -327,8 +355,15 @@ Result Processor::DCache::Write(MemAddr address, void* data, MemSize size, LFID 
         {
             // Update the line
             assert(line->state == LINE_FULL);
-            COMMIT{ memcpy(line->data + offset, data, (size_t)size); }
+            COMMIT{ 
+                memcpy(line->data + offset, data, (size_t)size); 
+                ++m_numWHits;
+            }
         }
+    }
+    else 
+    {
+        COMMIT{ ++m_numPassThroughWMisses; }
     }
     
     // Store request for memory (pass-through)
@@ -340,6 +375,7 @@ Result Processor::DCache::Write(MemAddr address, void* data, MemSize size, LFID 
     request.tid       = tid;
     if (!m_outgoing.Push(request))
     {
+        ++m_numStallingWMisses;
         DeadlockWrite("Unable to push request to outgoing buffer");
         return FAILED;
     }
@@ -688,22 +724,49 @@ void Processor::DCache::Cmd_Read(std::ostream& out, const std::vector<std::strin
         out << "Cache size:          " << dec << (m_lineSize * m_lines.size()) << " bytes" << endl;
         out << "Cache line size:     " << dec << m_lineSize << " bytes" << endl;
 
-        if (m_numHits + m_numMisses == 0)
-            out << "No accesses so far, cannot compute hit/miss/conflict rates." << endl;
+        uint64_t numRMisses = m_numEmptyRMisses + m_numLoadingRMisses + m_numInvalidRMisses + m_numHardConflicts + m_numResolvedConflicts;
+        uint64_t numRAccesses = m_numRHits + numRMisses;
+        if (numRAccesses == 0)
+            out << "No read accesses so far, cannot compute read hit/miss/conflict rates." << endl;
         else
         {
-            float factor = 100.0f / (m_numHits + m_numMisses);
+            float factor = 100.0f / numRAccesses;
 
-            out << "Current hit rate:    " << setprecision(2) << fixed << m_numHits * factor 
-                << "% (" << dec << m_numHits << " hits, " << m_numMisses << " misses)" << endl
-                << "Current soft conflict rate: "
-                << setprecision(2) << fixed << m_numResolved * factor 
-                << "% (" << dec << m_numResolved << " non-stalling conflicts)" << endl
-                << "Current hard conflict rate: "
-                << setprecision(2) << fixed << m_numConflicts * factor
-                << "% (" << dec << m_numConflicts << " stalling conflicts)"
+            out << "Number of reads:     " << numRAccesses << endl
+                << "Read hits:           " << dec << m_numRHits << " (" << setprecision(2) << fixed << m_numRHits * factor << "%)" << endl
+                << "Read misses:         " << dec << numRMisses << " (" << setprecision(2) << fixed << numRMisses * factor << "%)" << endl
+                << "Breakdown of read misses:" << endl
+                << "  (true misses)" << endl
+                << "- to an empty line:                 " << dec << m_numEmptyRMisses << " (" << setprecision(2) << fixed << m_numEmptyRMisses * factor << "%)" << endl
+                << "- to a loading line with same tag:  " << dec << m_numLoadingRMisses << " (" << setprecision(2) << fixed << m_numLoadingRMisses * factor << "%)" << endl
+                << "- to an invalid line with same tag: " << dec << m_numInvalidRMisses << " (" << setprecision(2) << fixed << m_numInvalidRMisses * factor << "%)" << endl
+                << "  (conflicts)" << endl
+                << "- to a non-empty, non-reusable line with different tag: " << dec << m_numHardConflicts << " (" << setprecision(2) << fixed << m_numHardConflicts * factor << "%)" << endl
+                << "- to a non-empty, reusable line with different tag:     " << dec << m_numResolvedConflicts << " (" << setprecision(2) << fixed << m_numResolvedConflicts * factor << "%)" << endl
+                << "Number of miss stalls by upstream: " << dec << m_numStallingRMisses << " (" << setprecision(2) << fixed << m_numStallingRMisses * factor << "%)" << endl
                 << endl;
         }
+
+        uint64_t numWMisses = m_numPassThroughWMisses + m_numInvLoadingWMisses;
+        uint64_t numWAccesses = m_numWHits + numWMisses;
+        if (numWAccesses == 0)
+            out << "No write accesses so far, cannot compute read hit/miss/conflict rates." << endl;
+        else
+        {
+            float factor = 100.0f / numWAccesses;
+
+            out << "Number of writes:    " << numWAccesses << endl
+                << "Write hits:          " << dec << m_numWHits << " (" << setprecision(2) << fixed << m_numWHits * factor << "%)" << endl
+                << "Write misses:        " << dec << numWMisses << " (" << setprecision(2) << fixed << numWMisses * factor << "%)" << endl
+                << "Breakdown of write misses:" << endl
+                << "- to a loading or invalid line with same tag (blocking):      " 
+                << dec << m_numInvLoadingWMisses << " (" << setprecision(2) << fixed << m_numInvLoadingWMisses * factor << "%)" << endl
+                << "- to an empty line or line with different tag (pass-through): " 
+                << dec << m_numPassThroughWMisses << " (" << setprecision(2) << fixed << m_numPassThroughWMisses * factor << "%)" << endl
+                << "Number of miss stalls by upstream: " << dec << m_numStallingWMisses << " (" << setprecision(2) << fixed << m_numStallingWMisses * factor << "%)" << endl
+                << endl;
+        }
+
         return;
     }
     else if (arguments[0] == "buffers")
