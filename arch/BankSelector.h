@@ -17,7 +17,7 @@ namespace Simulator
 
         virtual std::string GetName() const = 0;
         virtual size_t GetNumBanks() const = 0;
-        ~IBankSelector() {};
+        virtual ~IBankSelector() {};
 
         static IBankSelector* makeSelector(Object& parent, const std::string& name, size_t numBanks);
     };
