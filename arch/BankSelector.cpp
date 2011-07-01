@@ -135,11 +135,11 @@ namespace Simulator
         {
             tag = address;
 #if MEMSIZE_MAX >= 4294967296
-            address = address ^ ((address >> 32) | (address << (sizeof(address)*CHAR_BIT-32)));
+            address = address ^ ((address >> 32) | (address << (sizeof(address)*8-32)));
 #endif
-            address = address ^ ((address >> 16) | (address << (sizeof(address)*CHAR_BIT-16)));
-            address = address ^ ((address >> 8) | (address << (sizeof(address)*CHAR_BIT-8)));
-            address = address ^ ((address >> 4) | (address << (sizeof(address)*CHAR_BIT-4)));
+            address = address ^ ((address >> 16) | (address << (sizeof(address)*8-16)));
+            address = address ^ ((address >> 8) | (address << (sizeof(address)*8-8)));
+            address = address ^ ((address >> 4) | (address << (sizeof(address)*8-4)));
             index = address % m_numBanks;
         }
         MemAddr Unmap(MemAddr tag, size_t index)

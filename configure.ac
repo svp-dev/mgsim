@@ -18,6 +18,16 @@ AM_INIT_AUTOMAKE([1.11 tar-ustar no-define foreign dist-bzip2 subdir-objects
                   parallel-tests color-tests silent-rules])
 AM_SILENT_RULES([yes])
 
+## extra programs
+
+AC_CHECK_PROGS([HELP2MAN], [help2man], [$am_aux_dir/missing help2man])
+AC_CHECK_PROGS([SVN], [svn])
+AC_PROG_SED
+AM_PATH_PYTHON([2.6], [], [AC_MSG_WARN([The 'readtrace' utility requires Python >= 2.6.])])
+
+## language / library tests
+
+AC_LANG_PUSH([C++])
 AC_PROG_CXX
 
 WARN_CXXFLAGS=
@@ -26,12 +36,12 @@ if test "x$GXX" = xyes; then
 fi
 AC_SUBST([WARN_CXXFLAGS])
 
-AC_CHECK_PROGS([HELP2MAN], [help2man], [$am_aux_dir/missing help2man])
-AC_CHECK_PROGS([SVN], [svn])
-
-AC_PROG_SED
-
-# Feature checks
+AC_MSG_CHECKING([for the number of bits in a char])
+AC_COMPUTE_INT([char_size], [CHAR_BIT], [#include <limits.h>], [char_size=unknown])
+AC_MSG_RESULT([$char_size])
+if test x$char_size != x8; then
+  AC_MSG_ERROR([This program requires CHAR_BIT == 8, found $char_size.])
+fi
 
 # non-standard POSIX functions
 AC_CHECK_FUNCS([getdtablesize fsync fdopendir])
@@ -43,18 +53,39 @@ AC_CHECK_MEMBERS([struct stat.st_atimespec],[],[],[#include <sys/stat.h>])
 AC_CHECK_MEMBERS([struct stat.st_mtimespec],[],[],[#include <sys/stat.h>])
 AC_CHECK_MEMBERS([struct stat.st_ctimespec],[],[],[#include <sys/stat.h>])
 
+# --enable-assert
 AC_HEADER_ASSERT
 
+# libev
 AC_SEARCH_LIBS([ev_version_minor], [ev])
 if test "x$ac_cv_search_ev_version_minor" = xno; then
    AC_MSG_ERROR([Unable to find libev. Is it it installed? If necessary use CPPFLAGS=... LDFLAGS=... to specify its location.])
 fi
 
+# libreadline / libhistory
 AC_LIB_READLINE
 if test "x$ac_cv_lib_readline" = xno; then
      AC_MSG_WARN([The readline library or development header could not be found.])
      AC_MSG_WARN([The simulator prompt will not support advanced command editing.])
 fi
+
+# libsdl
+AC_ARG_ENABLE([sdl],
+              [AC_HELP_STRING([--disable-sdl],  
+                              [disable support for graphics output using SDL (default is try to enable)])],
+              [], [enable_sdl=yes])
+if test "x$enable_sdl" = "xyes"; then
+  AM_PATH_SDL
+  if test "x$no_sdl" = xyes; then
+    AC_MSG_ERROR([SDL not found])
+    enable_sdl=no
+  fi
+fi
+AM_CONDITIONAL([ENABLE_SDL], [test "x$enable_sdl" = "xyes"])
+
+AC_LANG_POP([C++])
+
+## Feature checks
 
 AC_ARG_ENABLE([verbose-trace-checks],
               [AC_HELP_STRING([--disable-verbose-trace-checks],
@@ -91,19 +122,6 @@ if test "x$enable_profile" = "xyes"; then
   AM_CXXFLAGS="$AM_CXXFLAGS -pg"
 fi
 
-AC_ARG_ENABLE([sdl],
-              [AC_HELP_STRING([--disable-sdl],  
-                              [disable support for graphics output using SDL (default is try to enable)])],
-              [], [enable_sdl=yes])
-if test "x$enable_sdl" = "xyes"; then
-  AM_PATH_SDL
-  if test "x$no_sdl" = xyes; then
-    AC_MSG_ERROR([SDL not found])
-    enable_sdl=no
-  fi
-fi
-AM_CONDITIONAL([ENABLE_SDL], [test "x$enable_sdl" = "xyes"])
-
 AC_ARG_ENABLE([monitor], 
               [AC_HELP_STRING([--disable-monitor], [disable support for simulation monitoring])],
               [], [enable_monitor=yes])
@@ -117,9 +135,7 @@ fi
 AM_CONDITIONAL([ENABLE_MONITOR], [test "x$enable_monitor" = "xyes"])
 
 
-AM_PATH_PYTHON([2.6], [], [AC_MSG_WARN([The 'readtrace' utility requires Python >= 2.6.])])
-
-# Target selection
+## Target selection
 enable_mtalpha_tests=no
 enable_mtsparc_tests=no
 
