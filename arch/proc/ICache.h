@@ -39,13 +39,21 @@ class ICache : public Object, public IMemoryCallback, public Inspect::Interface<
     Processor&        m_parent;
 	Allocator&        m_allocator;
 	IMemory&          m_memory;
+    IBankSelector*    m_selector;
     MCID              m_mcid;
     std::vector<Line> m_lines;
 	std::vector<char> m_data;
 	Buffer<MemAddr>   m_outgoing;
 	Buffer<CID>       m_incoming;
-    uint64_t          m_numHits;
-    uint64_t          m_numMisses;
+
+    uint64_t             m_numHits;         ///< Number of hits so far.
+    uint64_t             m_numEmptyMisses;  ///< Number of misses so far (miss to an empty cache line).
+    uint64_t             m_numLoadingMisses;///< Number of misses so far (miss to a loading cache line with same tag).
+    uint64_t             m_numInvalidMisses;///< Number of misses so far (miss to an invalid cache line with same tag).
+    uint64_t             m_numHardConflicts;///< Number of conflicts so far (miss to a non-empty, non-reusable cache line with different tag).
+    uint64_t             m_numResolvedConflicts;///< Number of resolved conflicts so far (miss to a non-empty, substitutable line with different tag).
+    uint64_t             m_numStallingMisses;///< Number of miss stalls caused by busy memory
+
     size_t            m_lineSize;
     size_t            m_assoc;
     

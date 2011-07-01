@@ -16,10 +16,16 @@ Processor::ICache::ICache(const std::string& name, Processor& parent, Clock& clo
 :   Object(name, parent, clock),
     m_parent(parent), m_allocator(alloc),
     m_memory(memory),
+    m_selector(IBankSelector::makeSelector(*this, config.getValue<string>(*this, "BankSelector"), config.getValue<size_t>(*this, "NumSets"))),
     m_outgoing("b_outgoing", *this, clock, config.getValue<BufferSize>(*this, "OutgoingBufferSize")),
     m_incoming("b_incoming", *this, clock, config.getValue<BufferSize>(*this, "IncomingBufferSize")),
-    m_numHits(0),
-    m_numMisses(0),
+    m_numHits        (0),
+    m_numEmptyMisses (0),
+    m_numLoadingMisses(0),
+    m_numInvalidMisses(0),
+    m_numHardConflicts(0),
+    m_numResolvedConflicts(0),
+    m_numStallingMisses(0),
     m_lineSize(config.getValue<size_t>("CacheLineSize")),
     m_assoc   (config.getValue<size_t>(*this, "Associativity")),
     p_Outgoing(*this, "outgoing", delegate::create<ICache, &Processor::ICache::DoOutgoing>(*this)),
@@ -27,7 +33,12 @@ Processor::ICache::ICache(const std::string& name, Processor& parent, Clock& clo
     p_service(*this, clock, "p_service")
 {
     RegisterSampleVariableInObject(m_numHits, SVC_CUMULATIVE);
-    RegisterSampleVariableInObject(m_numMisses, SVC_CUMULATIVE);
+    RegisterSampleVariableInObject(m_numEmptyMisses, SVC_CUMULATIVE);
+    RegisterSampleVariableInObject(m_numLoadingMisses, SVC_CUMULATIVE);
+    RegisterSampleVariableInObject(m_numInvalidMisses, SVC_CUMULATIVE);
+    RegisterSampleVariableInObject(m_numHardConflicts, SVC_CUMULATIVE);
+    RegisterSampleVariableInObject(m_numResolvedConflicts, SVC_CUMULATIVE);
+    RegisterSampleVariableInObject(m_numStallingMisses, SVC_CUMULATIVE);
 
     config.registerObject(m_parent, "cpu");
     
@@ -44,7 +55,7 @@ Processor::ICache::ICache(const std::string& name, Processor& parent, Clock& clo
         throw exceptf<InvalidArgumentException>(*this, "Associativity = %zd is not a power of two", m_assoc);
     }
 
-    const size_t sets = config.getValue<size_t>(*this, "NumSets");
+    const size_t sets = m_selector->GetNumBanks();
     if (!IsPowerOfTwo(sets))
     {
         throw exceptf<InvalidArgumentException>(*this, "NumSets = %zd is not a power of two", sets);
@@ -77,6 +88,7 @@ Processor::ICache::ICache(const std::string& name, Processor& parent, Clock& clo
 
 Processor::ICache::~ICache()
 {
+    delete m_selector;
 }
 
 bool Processor::ICache::IsEmpty() const
@@ -99,9 +111,10 @@ bool Processor::ICache::IsEmpty() const
 //
 Result Processor::ICache::FindLine(MemAddr address, Line* &line, bool check_only)
 {
-    size_t  sets = m_lines.size() / m_assoc;
-    MemAddr tag  = (address / m_lineSize) / sets;
-    size_t  set  = (size_t)((address / m_lineSize) % sets) * m_assoc;
+    MemAddr tag;
+    size_t setindex;
+    m_selector->Map(address / m_lineSize, tag, setindex);
+    const size_t  set  = setindex * m_assoc;
 
     // Find the line
     Line* empty   = NULL;
@@ -169,8 +182,9 @@ bool Processor::ICache::ReleaseCacheLine(CID cid)
 
 bool Processor::ICache::Read(CID cid, MemAddr address, void* data, MemSize size) const
 {
-    size_t  sets   = m_lines.size() / m_assoc;
-    MemAddr tag    = (address / m_lineSize) / sets;
+    MemAddr tag;
+    size_t unused;
+    m_selector->Map(address / m_lineSize, tag, unused);
     size_t  offset = (size_t)(address % m_lineSize);
 
     if (offset + size > m_lineSize)
@@ -254,6 +268,7 @@ Result Processor::ICache::Fetch(MemAddr address, MemSize size, TID* tid, CID* ci
     {
         // No cache lines are available
         // DeadlockWrite was already called in FindLine (which has more information)
+        ++m_numHardConflicts;
         return FAILED;
     }
 
@@ -273,6 +288,7 @@ Result Processor::ICache::Fetch(MemAddr address, MemSize size, TID* tid, CID* ci
         {
             // This line has been invalidated, we have to wait until it's cleared
             // so we can request a new one
+            ++m_numInvalidMisses;
             return FAILED;
         }
         
@@ -291,6 +307,8 @@ Result Processor::ICache::Fetch(MemAddr address, MemSize size, TID* tid, CID* ci
         assert(line->state == LINE_LOADING);
         COMMIT
         {
+            ++m_numLoadingMisses;
+
             if (tid != NULL)
             {
                 // Add the thread to the queue
@@ -315,12 +333,19 @@ Result Processor::ICache::Fetch(MemAddr address, MemSize size, TID* tid, CID* ci
         if (!m_outgoing.Push(address))
         {
             DeadlockWrite("Unable to put request for I-Cache line into outgoing buffer");
+            ++m_numStallingMisses;
             return FAILED;
         }
 
         // Data is being fetched
         COMMIT
         {
+            // Statistics
+            if (line->state == LINE_EMPTY) 
+                ++m_numEmptyMisses;
+            else 
+                ++m_numResolvedConflicts; 
+
             // Initialize buffer
             line->creation   = false;
             line->references = 1;
@@ -341,7 +366,6 @@ Result Processor::ICache::Fetch(MemAddr address, MemSize size, TID* tid, CID* ci
         }
     }
 
-    COMMIT{ m_numMisses++; }
     return DELAYED;
 }
 
@@ -484,30 +508,81 @@ void Processor::ICache::Cmd_Info(std::ostream& out, const std::vector<std::strin
     "  and cache configuration.\n";
 }
 
-void Processor::ICache::Cmd_Read(std::ostream& out, const std::vector<std::string>& /*arguments*/) const
+void Processor::ICache::Cmd_Read(std::ostream& out, const std::vector<std::string>& arguments) const
 {
-    out << "Cache type:          ";
-    if (m_assoc == 1) {
-        out << "Direct mapped" << endl;
-    } else if (m_assoc == m_lines.size()) {
-        out << "Fully associative" << endl;
-    } else {
-        out << dec << m_assoc << "-way set associative" << endl;
+    if (arguments.empty())
+    {
+        out << "Cache type:          ";
+        if (m_assoc == 1) {
+            out << "Direct mapped" << endl;
+        } else if (m_assoc == m_lines.size()) {
+            out << "Fully associative" << endl;
+        } else {
+            out << dec << m_assoc << "-way set associative" << endl;
+        }
+        
+        out << "L2 bank mapping:     " << m_selector->GetName() << endl
+            << "Cache size:          " << dec << (m_lineSize * m_lines.size()) << " bytes" << endl
+            << "Cache line size:     " << dec << m_lineSize << " bytes" << endl
+            << endl;
+
+        uint64_t numMisses = m_numEmptyMisses + m_numLoadingMisses + m_numInvalidMisses + m_numHardConflicts + m_numResolvedConflicts;
+        uint64_t numAccesses = m_numHits + numMisses;
+        if (numAccesses == 0)
+            out << "No accesses so far, cannot compute hit/miss/conflict rates." << endl;
+        else
+        {
+            float factor = 100.0f / numAccesses;
+
+            out << "Number of reads:     " << numAccesses << endl
+                << "Read hits:           " << dec << m_numHits << " (" << setprecision(2) << fixed << m_numHits * factor << "%)" << endl
+                << "Read misses:         " << dec << numMisses << " (" << setprecision(2) << fixed << numMisses * factor << "%)" << endl
+                << "Breakdown of read misses:" << endl
+                << "  (true misses)" << endl
+                << "- to an empty line (async):                    " 
+                << dec << m_numEmptyMisses << " (" << setprecision(2) << fixed << m_numEmptyMisses * factor << "%)" << endl
+                << "- to a loading line with same tag (async):     " 
+                << dec << m_numLoadingMisses << " (" << setprecision(2) << fixed << m_numLoadingMisses * factor << "%)" << endl
+                << "- to an invalid line with same tag (stalling): " 
+                << dec << m_numInvalidMisses << " (" << setprecision(2) << fixed << m_numInvalidMisses * factor << "%)" << endl
+                << "  (conflicts)" << endl
+                << "- to a non-empty, reusable line with different tag (async):        " 
+                << dec << m_numResolvedConflicts << " (" << setprecision(2) << fixed << m_numResolvedConflicts * factor << "%)" << endl
+                << "- to a non-empty, non-reusable line with different tag (stalling): " 
+                << dec << m_numHardConflicts << " (" << setprecision(2) << fixed << m_numHardConflicts * factor << "%)" << endl
+                << endl
+                << "Number of miss stalls by upstream: " << dec << m_numStallingMisses << " cycles" << endl
+                << endl;
+        }
+        return;
+    }
+    else if (arguments[0] == "buffers")
+    {
+        out << endl << "Outgoing buffer:" << endl;
+        if (m_outgoing.Empty()) {
+            out << "(Empty)" << endl;
+        } else {
+            out << "     Address     " << endl;
+            out << "-----------------" << endl;
+            for (Buffer<MemAddr>::const_iterator p = m_outgoing.begin(); p != m_outgoing.end(); ++p)
+            {
+                out << setfill('0') << hex << setw(16) << *p << endl;
+            }
+        }
+        
+        out << endl << "Incoming buffer:";
+        if (m_incoming.Empty()) {
+            out << " (Empty)";
+        }
+        else for (Buffer<CID>::const_iterator p = m_incoming.begin(); p != m_incoming.end(); ++p)
+             {
+                 out << " C" << dec << *p;
+             }
+        out << endl;
     }
 
-    out << "Cache size:          " << dec << (m_lineSize * m_lines.size()) << " bytes" << endl;
-    out << "Cache line size:     " << dec << m_lineSize << " bytes" << endl;
-    out << "Current hit rate:    ";
-    if (m_numHits + m_numMisses > 0) {
-        out << setprecision(2) << fixed << m_numHits * 100.0f / (m_numHits + m_numMisses) << "%";
-    } else {
-        out << "N/A";
-    }
-    out << " (" << dec << m_numHits << " hits, " << m_numMisses << " misses)" << endl;
-    out << endl;
-    
     const size_t num_sets = m_lines.size() / m_assoc;
-
+        
     out << "Set |       Address       |                       Data                      | Ref |" << endl;
     out << "----+---------------------+-------------------------------------------------+-----+" << endl;
     for (size_t i = 0; i < m_lines.size(); ++i)
@@ -531,7 +606,7 @@ void Processor::ICache::Cmd_Read(std::ostream& out, const std::vector<std::strin
             }
             
             out << " | "
-                << hex << "0x" << setw(16) << setfill('0') << (line.tag * num_sets + set) * m_lineSize
+                << hex << "0x" << setw(16) << setfill('0') << m_selector->Unmap(line.tag, set) * m_lineSize
                 << state << " |";
             
             if (line.state == LINE_FULL)
@@ -570,27 +645,6 @@ void Processor::ICache::Cmd_Read(std::ostream& out, const std::vector<std::strin
         out << "+---------------------+-------------------------------------------------+-----+" << endl;
     }
     
-    out << endl << "Outgoing buffer:" << endl;
-    if (m_outgoing.Empty()) {
-        out << "(Empty)" << endl;
-    } else {
-        out << "     Address     " << endl;
-        out << "-----------------" << endl;
-        for (Buffer<MemAddr>::const_iterator p = m_outgoing.begin(); p != m_outgoing.end(); ++p)
-        {
-            out << setfill('0') << hex << setw(16) << *p << endl;
-        }
-    }
-        
-    out << endl << "Incoming buffer:";
-    if (m_incoming.Empty()) {
-        out << " (Empty)";
-    }
-    else for (Buffer<CID>::const_iterator p = m_incoming.begin(); p != m_incoming.end(); ++p)
-    {
-        out << " C" << dec << *p;
-    }
-    out << endl;
 }
 
 }
