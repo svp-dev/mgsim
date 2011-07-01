@@ -720,9 +720,10 @@ void Processor::DCache::Cmd_Read(std::ostream& out, const std::vector<std::strin
             out << dec << m_assoc << "-way set associative" << endl;
         }
         
-        out << "L2 bank mapping:     " << m_selector->GetName() << endl;
-        out << "Cache size:          " << dec << (m_lineSize * m_lines.size()) << " bytes" << endl;
-        out << "Cache line size:     " << dec << m_lineSize << " bytes" << endl;
+        out << "L2 bank mapping:     " << m_selector->GetName() << endl
+            << "Cache size:          " << dec << (m_lineSize * m_lines.size()) << " bytes" << endl
+            << "Cache line size:     " << dec << m_lineSize << " bytes" << endl
+            << endl;
 
         uint64_t numRMisses = m_numEmptyRMisses + m_numLoadingRMisses + m_numInvalidRMisses + m_numHardConflicts + m_numResolvedConflicts;
         uint64_t numRAccesses = m_numRHits + numRMisses;
@@ -737,13 +738,19 @@ void Processor::DCache::Cmd_Read(std::ostream& out, const std::vector<std::strin
                 << "Read misses:         " << dec << numRMisses << " (" << setprecision(2) << fixed << numRMisses * factor << "%)" << endl
                 << "Breakdown of read misses:" << endl
                 << "  (true misses)" << endl
-                << "- to an empty line:                 " << dec << m_numEmptyRMisses << " (" << setprecision(2) << fixed << m_numEmptyRMisses * factor << "%)" << endl
-                << "- to a loading line with same tag:  " << dec << m_numLoadingRMisses << " (" << setprecision(2) << fixed << m_numLoadingRMisses * factor << "%)" << endl
-                << "- to an invalid line with same tag: " << dec << m_numInvalidRMisses << " (" << setprecision(2) << fixed << m_numInvalidRMisses * factor << "%)" << endl
+                << "- to an empty line (async):                    " 
+                << dec << m_numEmptyRMisses << " (" << setprecision(2) << fixed << m_numEmptyRMisses * factor << "%)" << endl
+                << "- to a loading line with same tag (async):     " 
+                << dec << m_numLoadingRMisses << " (" << setprecision(2) << fixed << m_numLoadingRMisses * factor << "%)" << endl
+                << "- to an invalid line with same tag (stalling): " 
+                << dec << m_numInvalidRMisses << " (" << setprecision(2) << fixed << m_numInvalidRMisses * factor << "%)" << endl
                 << "  (conflicts)" << endl
-                << "- to a non-empty, non-reusable line with different tag: " << dec << m_numHardConflicts << " (" << setprecision(2) << fixed << m_numHardConflicts * factor << "%)" << endl
-                << "- to a non-empty, reusable line with different tag:     " << dec << m_numResolvedConflicts << " (" << setprecision(2) << fixed << m_numResolvedConflicts * factor << "%)" << endl
-                << "Number of miss stalls by upstream: " << dec << m_numStallingRMisses << " (" << setprecision(2) << fixed << m_numStallingRMisses * factor << "%)" << endl
+                << "- to a non-empty, reusable line with different tag (async):        " 
+                << dec << m_numResolvedConflicts << " (" << setprecision(2) << fixed << m_numResolvedConflicts * factor << "%)" << endl
+                << "- to a non-empty, non-reusable line with different tag (stalling): " 
+                << dec << m_numHardConflicts << " (" << setprecision(2) << fixed << m_numHardConflicts * factor << "%)" << endl
+                << endl
+                << "Read miss stalls by upstream: " << dec << m_numStallingRMisses << " cycles" << endl
                 << endl;
         }
 
@@ -759,11 +766,12 @@ void Processor::DCache::Cmd_Read(std::ostream& out, const std::vector<std::strin
                 << "Write hits:          " << dec << m_numWHits << " (" << setprecision(2) << fixed << m_numWHits * factor << "%)" << endl
                 << "Write misses:        " << dec << numWMisses << " (" << setprecision(2) << fixed << numWMisses * factor << "%)" << endl
                 << "Breakdown of write misses:" << endl
-                << "- to a loading or invalid line with same tag (blocking):      " 
-                << dec << m_numInvLoadingWMisses << " (" << setprecision(2) << fixed << m_numInvLoadingWMisses * factor << "%)" << endl
                 << "- to an empty line or line with different tag (pass-through): " 
                 << dec << m_numPassThroughWMisses << " (" << setprecision(2) << fixed << m_numPassThroughWMisses * factor << "%)" << endl
-                << "Number of miss stalls by upstream: " << dec << m_numStallingWMisses << " (" << setprecision(2) << fixed << m_numStallingWMisses * factor << "%)" << endl
+                << "- to a loading or invalid line with same tag (stalling):      " 
+                << dec << m_numInvLoadingWMisses << " (" << setprecision(2) << fixed << m_numInvLoadingWMisses * factor << "%)" << endl
+                << endl
+                << "Write miss stalls by upstream: " << dec << m_numStallingWMisses << " cycles" << endl
                 << endl;
         }
 
