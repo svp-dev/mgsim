@@ -11,10 +11,10 @@ namespace Simulator
     {
     public:
         virtual void Service(uint32_t procedure_id,
-                             std::vector<uint32_t>& res1, size_t res1_maxsize,
-                             std::vector<uint32_t>& res2, size_t res2_maxsize,
-                             const std::vector<uint32_t>& arg1, 
-                             const std::vector<uint32_t>& arg2, 
+                             std::vector<char>& res1, size_t res1_maxsize,
+                             std::vector<char>& res2, size_t res2_maxsize,
+                             const std::vector<char>& arg1, 
+                             const std::vector<char>& arg2, 
                              uint32_t arg3, uint32_t arg4) = 0;
 
         virtual std::string GetName() = 0;
@@ -30,9 +30,9 @@ namespace Simulator
             uint32_t                extra_arg2;
             IODeviceID              dca_device_id;
             MemAddr                 argres1_base_address;
-            MemSize                 argres1_numwords;
+            MemSize                 argres1_size;
             MemAddr                 argres2_base_address;
-            MemSize                 argres2_numwords;
+            MemSize                 argres2_size;
             IONotificationChannelID notification_channel_id;
             Integer                 completion_tag;
         };
@@ -47,8 +47,8 @@ namespace Simulator
             MemAddr                 argres2_base_address;
             IONotificationChannelID notification_channel_id;
             Integer                 completion_tag;
-            std::vector<uint32_t>   data1;
-            std::vector<uint32_t>   data2;
+            std::vector<char>       data1;
+            std::vector<char>       data2;
         };
             
         struct ProcessResponse
@@ -58,8 +58,8 @@ namespace Simulator
             MemAddr                 argres2_base_address;
             IONotificationChannelID notification_channel_id;
             Integer                 completion_tag;
-            std::vector<uint32_t>   data1;
-            std::vector<uint32_t>   data2;
+            std::vector<char>       data1;
+            std::vector<char>       data2;
         };
 
         struct CompletionNotificationRequest
@@ -94,8 +94,8 @@ namespace Simulator
         ArgumentFetchState      m_fetchState;
         MemAddr                 m_currentArgumentOffset;
         size_t                  m_numPendingDCAReads;
-        std::vector<uint32_t>   m_currentArgData1;
-        std::vector<uint32_t>   m_currentArgData2;
+        std::vector<char>       m_currentArgData1;
+        std::vector<char>       m_currentArgData2;
 
         ResponseWritebackState  m_writebackState;
         MemAddr                 m_currentResponseOffset;

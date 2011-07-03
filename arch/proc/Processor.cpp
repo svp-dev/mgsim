@@ -329,7 +329,9 @@ unsigned int Processor::GetNumSuspendedRegisters() const
 
 void Processor::MapMemory(MemAddr address, MemSize size)
 {
-    m_memadmin.Reserve(address, size, IMemory::PERM_READ | IMemory::PERM_WRITE);
+    m_memadmin.Reserve(address, size, 
+                       IMemory::PERM_READ | IMemory::PERM_WRITE | 
+                       IMemory::PERM_DCA_READ | IMemory::PERM_DCA_WRITE);
 }
 
 void Processor::UnmapMemory(MemAddr address, MemSize size)

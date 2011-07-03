@@ -16,7 +16,7 @@ namespace Simulator
 
     UnixInterface::UnixInterface(const string& name, Object& parent)
         : Object(name, parent),
-          m_vfds(1),
+          m_vfds(17),
           m_nrequests(0),
           m_nfailures(0),
           m_nstats(0),
@@ -47,7 +47,7 @@ namespace Simulator
         for (i = 0; i < m_vfds.size() && m_vfds[i].active; ++i)
             /* loop */;
         if (i == m_vfds.size())
-            m_vfds.resize(m_vfds.size() + m_vfds.size() / 2);
+            m_vfds.resize(m_vfds.size() + m_vfds.size() / 2 + 1);
         m_vfds[i].active = true;
         m_vfds[i].hfd = hfd;
         m_vfds[i].dir = 0;
@@ -80,28 +80,28 @@ namespace Simulator
 #define RequireArgs(Arg1Size, Arg2Size)                                 \
     do {                                                                \
         if ((Arg1Size) && arg1.size() < (Arg1Size))                     \
-            throw exceptf<SimulationException>("Procedure %u requires at least %zu words in 1st memory argument, %zu were provided", \
+            throw exceptf<SimulationException>("Procedure %u requires at least %zu bytes in 1st memory argument, %zu were provided", \
                                                (unsigned)procedure_id,  \
                                                (size_t)(Arg1Size),      \
                                                arg1.size());            \
         if ((Arg2Size) && arg2.size() < (Arg2Size))                     \
-            throw exceptf<SimulationException>("Procedure %u requires at least %zu words in 2nd memory argument, %zu were provided", \
+            throw exceptf<SimulationException>("Procedure %u requires at least %zu bytes in 2nd memory argument, %zu were provided", \
                                                (unsigned)procedure_id,  \
                                                (size_t)(Arg2Size),      \
                                                arg2.size());            \
     } while(0)
 
     void UnixInterface::Service(uint32_t procedure_id,
-                                vector<uint32_t>& res1, size_t res1_maxsize,
-                                vector<uint32_t>& res2, size_t res2_maxsize,
-                                const vector<uint32_t>& arg1,
-                                const vector<uint32_t>& arg2,
+                                vector<char>& res1, size_t res1_maxsize,
+                                vector<char>& res2, size_t res2_maxsize,
+                                const vector<char>& arg1,
+                                const vector<char>& arg2,
                                 uint32_t arg3,
                                 uint32_t arg4)
     {
-        if (res1_maxsize < 3)
+        if (res1_maxsize < 12)
         {
-            throw exceptf<SimulationException>("Procedure %u requires at least 3words available in 1st memory region", (unsigned)procedure_id);
+            throw exceptf<SimulationException>("Procedure %u requires at least 12 bytes available in 1st memory region", (unsigned)procedure_id);
         }
 
         uint64_t rval = 0;
@@ -125,14 +125,14 @@ namespace Simulator
 
             size_t sz = arg4;
 
-            if (sz > res2_maxsize * 4)
-                sz = res2_maxsize * 4;
-            res2.resize((sz + 4 - 1) / 4);
+            if (sz > res2_maxsize)
+                sz = res2_maxsize;
+            res2.resize(sz);
 
             ssize_t s = read(vd->hfd, &res2[0], sz);
             if (s >= 0)
             {
-                res2.resize((s + 4 - 1) / 4);
+                res2.resize(s);
 
                 ++m_nreads;
                 m_nread_bytes += s;
@@ -155,8 +155,8 @@ namespace Simulator
 
             size_t sz = arg4;
 
-            if (sz > arg2.size() * 4)
-                sz = arg2.size() * 4;
+            if (sz > arg2.size())
+                sz = arg2.size();
 
             ssize_t s = write(vd->hfd, &arg2[0], sz);
 
@@ -179,14 +179,14 @@ namespace Simulator
             // translate virtual flags (iflags) to real flags (oflags)
             if      ((iflags & VO_ACCMODE) == VO_RDONLY) oflags = O_RDONLY;
             else if ((iflags & VO_ACCMODE) == VO_WRONLY) oflags = O_WRONLY;
-            else if ((iflags & VO_ACCMODE) == VO_RDWR)   oflags = O_RDWR;
-            iflags ^= VO_ACCMODE;
+            else if ((iflags & VO_ACCMODE) == VO_RDWR)   oflags = O_RDWR;  
+            iflags &= ~VO_ACCMODE;
 
-            if (iflags & VO_APPEND)   { oflags |= O_APPEND;   iflags ^= O_APPEND; }
-            if (iflags & VO_NOFOLLOW) { oflags |= O_NOFOLLOW; iflags ^= O_APPEND; }
-            if (iflags & VO_CREAT)    { oflags |= O_CREAT;    iflags ^= O_CREAT;  }
-            if (iflags & VO_TRUNC)    { oflags |= O_TRUNC;    iflags ^= O_TRUNC;  }
-            if (iflags & VO_EXCL)     { oflags |= O_EXCL;     iflags ^= O_EXCL;   }
+            if (iflags & VO_APPEND)   { oflags |= O_APPEND;   iflags &= ~VO_APPEND; }
+            if (iflags & VO_NOFOLLOW) { oflags |= O_NOFOLLOW; iflags &= ~VO_APPEND; }
+            if (iflags & VO_CREAT)    { oflags |= O_CREAT;    iflags &= ~VO_CREAT;  }
+            if (iflags & VO_TRUNC)    { oflags |= O_TRUNC;    iflags &= ~VO_TRUNC;  }
+            if (iflags & VO_EXCL)     { oflags |= O_EXCL;     iflags &= ~VO_EXCL;   }
 
             if (iflags != 0)
             {
@@ -197,7 +197,7 @@ namespace Simulator
 
             // ensure path is nul terminated
             const char *path_start = (const char*)(const void*)&arg2[0];
-            const char *path_end = path_start + arg2.size()*4;
+            const char *path_end = path_start + arg2.size();
             int fd;
             if (find(path_start, path_end, '\0') == path_end)
             {
@@ -236,9 +236,9 @@ namespace Simulator
             RequireArgs(1, 1);
             // ensure paths are nul terminated
             const char *path1_start = (const char*)(const void*)&arg1[0];
-            const char *path1_end = path1_start + arg1.size()*4;
+            const char *path1_end = path1_start + arg1.size();
             const char *path2_start = (const char*)(const void*)&arg2[0];
-            const char *path2_end = path2_start + arg2.size()*4;
+            const char *path2_end = path2_start + arg2.size();
             if (find(path1_start, path1_end, '\0') == path1_end ||
                 find(path2_start, path2_end, '\0') == path2_end)
             {
@@ -256,7 +256,7 @@ namespace Simulator
             RequireArgs(1, 0);
             // ensure path is nul terminated
             const char *path_start = (const char*)(const void*)&arg1[0];
-            const char *path_end = path_start + arg1.size()*4;
+            const char *path_end = path_start + arg1.size();
             if (find(path_start, path_end, '\0') == path_end)
             {
                 errno = ENAMETOOLONG;
@@ -349,9 +349,9 @@ namespace Simulator
             RequireArgs(1, 1);
             // ensure paths are nul terminated
             const char *path1_start = (const char*)(const void*)&arg1[0];
-            const char *path1_end = path1_start + arg1.size()*4;
+            const char *path1_end = path1_start + arg1.size();
             const char *path2_start = (const char*)(const void*)&arg2[0];
-            const char *path2_end = path2_start + arg2.size()*4;
+            const char *path2_end = path2_start + arg2.size();
             if (find(path1_start, path1_end, '\0') == path1_end ||
                 find(path2_start, path2_end, '\0') == path2_end)
             {
@@ -369,7 +369,7 @@ namespace Simulator
             RequireArgs(1, 0);
             // ensure paths are nul terminated
             const char *path_start = (const char*)(const void*)&arg1[0];
-            const char *path_end = path_start + arg1.size()*4;
+            const char *path_end = path_start + arg1.size();
             if (find(path_start, path_end, '\0') == path_end)
             {
                 rval = -1;
@@ -386,7 +386,7 @@ namespace Simulator
             RequireArgs(1, 0);
             // ensure paths are nul terminated
             const char *path_start = (const char*)(const void*)&arg1[0];
-            const char *path_end = path_start + arg1.size()*4;
+            const char *path_end = path_start + arg1.size();
             if (find(path_start, path_end, '\0') == path_end)
             {
                 rval = -1;
@@ -400,7 +400,7 @@ namespace Simulator
 
         case RPC_pread:
         {
-            RequireArgs(2, 0);
+            RequireArgs(8, 0);
             VirtualDescriptor *vd = GetEntry(arg3);
             if (vd == NULL)
             {
@@ -409,17 +409,18 @@ namespace Simulator
                 break;
             }
 
-            off_t offset = arg1[0] | ((off_t)arg1[1] << 32);
+            off_t offset = ((off_t)UnserializeRegister(RT_INTEGER, &arg1[4], 4) << 32) |
+                UnserializeRegister(RT_INTEGER, &arg1[0], 4);
             size_t sz = arg4;
 
-            if (sz > res2_maxsize * 4)
-                sz = res2_maxsize * 4;
-            res2.resize((sz + 4 - 1) / 4);
+            if (sz > res2_maxsize)
+                sz = res2_maxsize;
+            res2.resize(sz);
 
             ssize_t s = pread(vd->hfd, &res2[0], sz, offset);
             if (s >= 0)
             {
-                res2.resize((s + 4 - 1) / 4); // round up
+                res2.resize(s);
 
                 ++m_nreads;
                 m_nread_bytes += s;
@@ -432,7 +433,7 @@ namespace Simulator
 
         case RPC_pwrite:
         {
-            RequireArgs(2, 0);
+            RequireArgs(8, 0);
             VirtualDescriptor *vd = GetEntry(arg3);
             if (vd == NULL)
             {
@@ -441,11 +442,12 @@ namespace Simulator
                 break;
             }
 
-            off_t offset = arg1[0] | ((off_t)arg1[1] << 32);
+            off_t offset = ((off_t)UnserializeRegister(RT_INTEGER, &arg1[4], 4) << 32) |
+                UnserializeRegister(RT_INTEGER, &arg1[0], 4);
             size_t sz = arg4;
 
-            if (sz > arg2.size() * 4)
-                sz = arg2.size() * 4;
+            if (sz > arg2.size())
+                sz = arg2.size();
             
             ssize_t s = pwrite(vd->hfd, &arg2[0], sz, offset);
 
@@ -484,7 +486,7 @@ namespace Simulator
                 RequireArgs(1, 0);
                 // ensure paths are nul terminated
                 const char *path_start = (const char*)(const void*)&arg1[0];
-                const char *path_end = path_start + arg1.size()*4;
+                const char *path_end = path_start + arg1.size();
                 if (find(path_start, path_end, '\0') == path_end)
                 {
                     rval = -1;
@@ -502,52 +504,53 @@ namespace Simulator
 
             if (rval == 0)
             {
-                res2.resize(sizeof(struct vstat) / 4);
+                res2.resize(sizeof(struct vstat));
                 struct vstat *vst = (struct vstat*)(void*)&res2[0];
-                vst->vst_dev = st.st_dev;
-                vst->vst_ino_low = st.st_ino & 0xffffffffUL;
-                vst->vst_ino_high = (st.st_ino >> 32) & 0xffffffffUL;
 
-                if      ((st.st_mode & S_IFMT) == S_IFDIR) vst->vst_mode = VS_IFDIR;
-                else if ((st.st_mode & S_IFMT) == S_IFREG) vst->vst_mode = VS_IFREG;
-                else if ((st.st_mode & S_IFMT) == S_IFLNK) vst->vst_mode = VS_IFLNK;
-                else                                     vst->vst_mode = VS_IFUNKNOWN;
+                SerializeRegister(RT_INTEGER, st.st_dev, &vst->vst_dev, 4);
+                SerializeRegister(RT_INTEGER, st.st_ino & 0xffffffffUL, &vst->vst_ino_low, 4);
+                SerializeRegister(RT_INTEGER, (st.st_ino >> 32) & 0xffffffffUL, &vst->vst_ino_high, 4);
 
-                vst->vst_nlink = st.st_nlink;
+                if      ((st.st_mode & S_IFMT) == S_IFDIR) SerializeRegister(RT_INTEGER, VS_IFDIR, &vst->vst_mode, 4);
+                else if ((st.st_mode & S_IFMT) == S_IFREG) SerializeRegister(RT_INTEGER, VS_IFREG, &vst->vst_mode, 4);
+                else if ((st.st_mode & S_IFMT) == S_IFLNK) SerializeRegister(RT_INTEGER, VS_IFLNK, &vst->vst_mode, 4);
+                else                                       SerializeRegister(RT_INTEGER, VS_IFUNKNOWN, &vst->vst_mode, 4);
+
+                SerializeRegister(RT_INTEGER, st.st_nlink, &vst->vst_nlink, 4);
 #ifdef HAVE_STRUCT_STAT_ST_ATIMESPEC
-                vst->vst_atime_secs = st.st_atimespec.tv_sec;
-                vst->vst_atime_nsec = st.st_atimespec.tv_nsec;
+                SerializeRegister(RT_INTEGER, st.st_atimespec.tv_sec, &vst->vst_atime_secs, 4);
+                SerializeRegister(RT_INTEGER, st.st_atimespec.tv_nsec, &vst->vst_atime_nsec, 4);
 #else
-                vst->vst_atime_secs = st.st_atime;
-                vst->vst_atime_nsec = 0;
+                SerializeRegister(RT_INTEGER, st.st_atime, &vst->vst_atime_secs, 4);
+                SerializeRegister(RT_INTEGER, 0, &vst->vst_atime_nsec, 4);
 #endif
 #ifdef HAVE_STRUCT_STAT_ST_CTIMESPEC
-                vst->vst_ctime_secs = st.st_ctimespec.tv_sec;
-                vst->vst_ctime_nsec = st.st_ctimespec.tv_nsec;
+                SerializeRegister(RT_INTEGER, st.st_ctimespec.tv_sec, &vst->vst_ctime_secs, 4);
+                SerializeRegister(RT_INTEGER, st.st_ctimespec.tv_nsec, &vst->vst_ctime_nsec, 4);
 #else
-                vst->vst_ctime_secs = st.st_ctime;
-                vst->vst_ctime_nsec = 0;
+                SerializeRegister(RT_INTEGER, st.st_ctime, &vst->vst_ctime_secs, 4);
+                SerializeRegister(RT_INTEGER, 0, &vst->vst_ctime_nsec, 4);
 #endif
 #ifdef HAVE_STRUCT_STAT_ST_MTIMESPEC
-                vst->vst_mtime_secs = st.st_mtimespec.tv_sec;
-                vst->vst_mtime_nsec = st.st_mtimespec.tv_nsec;
+                SerializeRegister(RT_INTEGER, st.st_mtimespec.tv_sec, &vst->vst_mtime_secs, 4);
+                SerializeRegister(RT_INTEGER, st.st_mtimespec.tv_nsec, &vst->vst_mtime_nsec, 4);
 #else
-                vst->vst_mtime_secs = st.st_mtime;
-                vst->vst_mtime_nsec = 0;
+                SerializeRegister(RT_INTEGER, st.st_mtime, &vst->vst_mtime_secs, 4);
+                SerializeRegister(RT_INTEGER, 0, &vst->vst_mtime_nsec, 4);
 #endif
 
-                vst->vst_size_low = st.st_size & 0xffffffffUL;
-                vst->vst_size_high = (st.st_size >> 32) & 0xffffffffUL;
+                SerializeRegister(RT_INTEGER, st.st_size & 0xffffffffUL, &vst->vst_size_low, 4);
+                SerializeRegister(RT_INTEGER, (st.st_size >> 32) & 0xffffffffUL, &vst->vst_size_high, 4);
 #if HAVE_STRUCT_STAT_ST_BLOCKS
-                vst->vst_blocks_low = st.st_blocks & 0xffffffffUL;
-                vst->vst_blocks_high = (st.st_blocks >> 32) & 0xffffffffUL;
+                SerializeRegister(RT_INTEGER, st.st_blocks & 0xffffffffUL, &vst->vst_blocks_low, 4);
+                SerializeRegister(RT_INTEGER, (st.st_blocks >> 32) & 0xffffffffUL, &vst->vst_blocks_high, 4);
 #else
-                vst->vst_blocks_low = vst->vst_blocks_high = 0;
+                SerializeRegister(RT_INTEGER, 0, &vst->vst_blocks_high, 4);
 #endif
 #if HAVE_STRUCT_STAT_ST_BLKSIZE
-                vst->vst_blksize = st.st_blksize;
+                SerializeRegister(RT_INTEGER, st.st_blksize, &vst->vst_blksize, 4);
 #else
-                vst->vst_blksize = 0;
+                SerializeRegister(RT_INTEGER, 0, &vst->vst_blksize, 4);
 #endif
 
                 ++m_nstats;
@@ -561,7 +564,7 @@ namespace Simulator
             RequireArgs(1, 0);
             // ensure paths are nul terminated
             const char *path_start = (const char*)(const void*)&arg1[0];
-            const char *path_end = path_start + arg1.size()*4;
+            const char *path_end = path_start + arg1.size();
             if (find(path_start, path_end, '\0') == path_end)
             {
                 rval = -1;
@@ -687,36 +690,37 @@ namespace Simulator
             {
                 size_t namlen = strlen(de->d_name) & 0xffff;
                 size_t bytes_needed = sizeof(struct vdirent) + namlen + 1 /* extra nul byte */;
-                size_t words_needed = (bytes_needed + 4 - 1) / 4; // round up
-                if (words_needed > res2_maxsize)
+                if (bytes_needed > res2_maxsize)
                 {
                     errno = EOVERFLOW;
                     rval = -1;
                     break;
                 }
 
-                res2.resize(words_needed);
+                res2.resize(bytes_needed);
 
                 struct vdirent *vde = (struct vdirent*)(void*)&res2;
 
 #ifdef HAVE_STRUCT_DIRENT_D_INO
-                vde->vd_ino_low = de->d_ino & 0xffffffffUL;
-                vde->vd_ino_high = (de->d_ino >> 32) & 0xffffffffUL;
+                SerializeRegister(RT_INTEGER, de->d_ino & 0xffffffffUL, &vde->vd_ino_low, 4);
+                SerializeRegister(RT_INTEGER, (de->d_ino >> 32) & 0xffffffffUL, &vde->vd_ino_high, 4);
 #else
-                vde->vd_ino_low = vde->vd_ino_high = 0;
+                SerializeRegister(RT_INTEGER, 0, &vde->vd_ino_low, 4);
+                SerializeRegister(RT_INTEGER, 0, &vde->vd_ino_high, 4);
 #endif
 
+                unsigned dt;
 #if HAVE_STRUCT_DIRENT_D_TYPE
-                if      (de->d_type == DT_DIR) vde->vd_type_namlen = VDT_DIR;
-                else if (de->d_type == DT_REG) vde->vd_type_namlen = VDT_REG;
-                else if (de->d_type == DT_LNK) vde->vd_type_namlen = VDT_LNK;
+                if      (de->d_type == DT_DIR) dt = VDT_DIR;
+                else if (de->d_type == DT_REG) dt = VDT_REG;
+                else if (de->d_type == DT_LNK) dt = VDT_LNK;
                 else
 #endif
-                    vde->vd_type_namlen = VDT_UNKNOWN;
+                    dt = VDT_UNKNOWN;
 
-                vde->vd_type_namlen |= namlen << 16;
-                memcpy(vde->vd_name, de->d_name, namlen);
-                vde->vd_name[namlen] = '\0';
+                SerializeRegister(RT_INTEGER, dt | namlen << 16, &vde->vd_type_namlen, 4);
+
+                memcpy(vde->vd_name, de->d_name, namlen + 1);
 
                 rval = 1;
             }
@@ -733,10 +737,10 @@ namespace Simulator
 
         // all unix calls returns a 64-bit value in little-endian format,
         // followed by 32-bit errno.
-        res1.resize(3);
-        res1[0] = rval & 0xffffffffUL;
-        res1[1] = (rval >> 32) & 0xffffffffUL;
-        res1[2] = errno;
+        res1.resize(12);
+        SerializeRegister(RT_INTEGER, rval & 0xffffffffUL, &res1[0], 4);
+        SerializeRegister(RT_INTEGER, (rval >> 32) & 0xffffffffUL, &res1[4], 4);
+        SerializeRegister(RT_INTEGER, errno, &res1[8], 4);
 
         ++m_nrequests;
         if (errno != 0)

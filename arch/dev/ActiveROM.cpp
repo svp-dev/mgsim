@@ -199,7 +199,7 @@ namespace Simulator
                 r.vaddr = addr;
                 r.rom_offset = 0;
                 r.vsize = r.rom_size = m_numLines * m_lineSize;
-                r.perm = IMemory::PERM_READ;
+                r.perm = (IMemory::Permissions)(IMemory::PERM_READ | IMemory::PERM_DCA_READ);
                 
                 m_loadable.push_back(r);
             }

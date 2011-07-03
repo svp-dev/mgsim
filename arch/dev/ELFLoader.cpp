@@ -90,8 +90,8 @@ LoadProgram(const std::string& msg_prefix, vector<ActiveROM::LoadableRange>& ran
             Verify(phdr[i].p_memsz >= phdr[i].p_filesz, "file has an invalid segment");
             
             int perm = 0;
-            if (phdr[i].p_flags & PF_R) perm |= IMemory::PERM_READ;
-            if (phdr[i].p_flags & PF_W) perm |= IMemory::PERM_WRITE;
+            if (phdr[i].p_flags & PF_R) perm |= IMemory::PERM_READ|IMemory::PERM_DCA_READ;
+            if (phdr[i].p_flags & PF_W) perm |= IMemory::PERM_WRITE|IMemory::PERM_DCA_WRITE;
             if (phdr[i].p_flags & PF_X) perm |= IMemory::PERM_EXECUTE;
             
             if (phdr[i].p_filesz > 0)

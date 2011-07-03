@@ -120,6 +120,7 @@ namespace Simulator
     {
         iobus.RegisterClient(devid, *this);
 
+        m_queueEnabled.Sensitive(p_queue);
         m_incoming.Sensitive(p_argumentFetch);
         m_ready.Sensitive(p_processRequests);
         m_completed.Sensitive(p_writeResponse);
@@ -150,15 +151,6 @@ namespace Simulator
         const IncomingRequest& req = m_incoming.Front();
         ArgumentFetchState s = m_fetchState;        
 
-        if (s == ARGFETCH_READING1 && (req.argres1_base_address == 0 || req.argres1_numwords == 0))
-        {
-            s = (req.argres2_base_address == 0 || req.argres2_numwords == 0) ? ARGFETCH_FINALIZE : ARGFETCH_READING2;
-        }
-        else if (s == ARGFETCH_READING2 && (req.argres2_base_address == 0 || req.argres2_numwords == 0))
-        {
-            s = ARGFETCH_FINALIZE;
-        }
-
         switch(s)
         {
         case ARGFETCH_READING1:
@@ -169,12 +161,12 @@ namespace Simulator
             if (s == ARGFETCH_READING1)
             {
                 voffset = req.argres1_base_address + m_currentArgumentOffset;
-                totalsize = req.argres1_numwords * 4;
+                totalsize = req.argres1_size;
             }
             else
             {
                 voffset = req.argres2_base_address + m_currentArgumentOffset;
-                totalsize = req.argres2_numwords * 4;
+                totalsize = req.argres2_size;
             }
 
             // transfer size:
@@ -184,14 +176,17 @@ namespace Simulator
             MemSize transfer_size = std::min(std::min((MemSize)(totalsize - m_currentArgumentOffset), (MemSize)m_lineSize), 
                                              (MemSize)(m_lineSize - voffset % m_lineSize));
 
-            if (!m_iobus.SendReadRequest(m_devid, req.dca_device_id, voffset, transfer_size))
+            if (transfer_size > 0)
             {
-                DeadlockWrite("Unable to send DCA read request for %#016llx/%u to device %u", (unsigned long long)voffset, (unsigned)transfer_size, (unsigned)req.dca_device_id);
-                return FAILED;
+                if (!m_iobus.SendReadRequest(m_devid, req.dca_device_id, voffset, transfer_size))
+                {
+                    DeadlockWrite("Unable to send DCA read request for %#016llx/%u to device %u", (unsigned long long)voffset, (unsigned)transfer_size, (unsigned)req.dca_device_id);
+                    return FAILED;
+                }
+                COMMIT { ++m_numPendingDCAReads; }
             }
 
             COMMIT {
-                ++m_numPendingDCAReads;
                 if (m_currentArgumentOffset + transfer_size < totalsize) 
                 {
                     m_currentArgumentOffset += transfer_size;
@@ -204,9 +199,10 @@ namespace Simulator
                 else
                 {
                     m_fetchState = ARGFETCH_FINALIZE;
-                    // wait until the last read completion re-activates
-                    // this process.
-                    p_argumentFetch.Deactivate();
+                    if (m_numPendingDCAReads > 0)
+                        // wait until the last read completion re-activates
+                        // this process.
+                        p_argumentFetch.Deactivate();
                 }
             }
             return SUCCESS;
@@ -224,8 +220,8 @@ namespace Simulator
                 preq.argres2_base_address = req.argres2_base_address;
                 preq.notification_channel_id = req.notification_channel_id;
                 preq.completion_tag = req.completion_tag;
-                preq.data1.insert(preq.data1.begin(), m_currentArgData1.begin(), m_currentArgData1.begin() + req.argres1_numwords);
-                preq.data2.insert(preq.data2.begin(), m_currentArgData2.begin(), m_currentArgData2.begin() + req.argres2_numwords);
+                preq.data1.insert(preq.data1.begin(), m_currentArgData1.begin(), m_currentArgData1.begin() + req.argres1_size);
+                preq.data2.insert(preq.data2.begin(), m_currentArgData2.begin(), m_currentArgData2.begin() + req.argres2_size);
             }
 
             if (!m_ready.Push(preq))
@@ -288,7 +284,7 @@ namespace Simulator
 
     Result RPCInterface::DoWriteResponse()
     {
-        assert(!m_ready.Empty());
+        assert(!m_completed.Empty());
 
         const ProcessResponse& res = m_completed.Front();
 
@@ -314,17 +310,17 @@ namespace Simulator
 
             MemAddr voffset; 
             MemSize totalsize; 
-            const uint32_t *data;
+            const char *data;
             if (s == RESULTWB_WRITING1)
             {
                 voffset = res.argres1_base_address + m_currentResponseOffset;
-                totalsize = res.data1.size() * 4;
+                totalsize = res.data1.size();
                 data = &res.data1[0];
             }
             else
             {
                 voffset = res.argres2_base_address + m_currentResponseOffset;
-                totalsize = res.data2.size() * 4;
+                totalsize = res.data2.size();
                 data = &res.data2[0];
             }
         
@@ -332,19 +328,17 @@ namespace Simulator
             // - cannot be greater than the line size
             // - cannot be greated than the number of bytes remaining on the ROM
             // - cannot cause the range [voffset + size] to cross over a line boundary.
-            MemSize transfer_size = std::min(std::min((MemSize)(totalsize - m_currentResponseOffset), (MemSize)m_lineSize), 
-                                             (MemSize)(m_lineSize - voffset % m_lineSize));
+            size_t transfer_size = std::min(std::min((size_t)(totalsize - m_currentResponseOffset), (size_t)m_lineSize), 
+                                            (size_t)(m_lineSize - voffset % m_lineSize));
 
-            size_t res_offset = m_currentResponseOffset / 4;
-            size_t num_words = transfer_size / 4;
+            size_t res_offset = m_currentResponseOffset;
 
-            DebugIOWrite("Sending response data %d for words %zu - %zu", (s == RESULTWB_WRITING1) ? 1 : 2, res_offset, res_offset + num_words - 1);
+            DebugIOWrite("Sending response data %d for offsets %zu - %zu", (s == RESULTWB_WRITING1) ? 1 : 2, res_offset, res_offset + transfer_size - 1);
             
             IOData iodata;
             iodata.size = transfer_size;
             COMMIT {
-                for (size_t i = 0; i < num_words; ++i)
-                    SerializeRegister(RT_INTEGER, data[res_offset + i], &iodata.data[i * 4], 4);
+                memcpy(iodata.data, data + res_offset, transfer_size);
             }
 
             if (!m_iobus.SendWriteRequest(m_devid, res.dca_device_id, voffset, iodata))
@@ -382,7 +376,7 @@ namespace Simulator
                 m_writebackState = RESULTWB_FINALIZE;
                 // wait until the last read completion re-activates
                 // this process.
-                p_argumentFetch.Deactivate();
+                p_writeResponse.Deactivate();
             }
 
             return SUCCESS;
@@ -446,35 +440,39 @@ namespace Simulator
 
             const IncomingRequest& req = m_incoming.Front();
          
-            size_t num_words = iodata.size / 4;
-            int anum;
-            MemAddr vbase;
-            uint32_t* vdata;
+            size_t data_size = iodata.size;
 
-            if (address > req.argres1_base_address && address < req.argres1_base_address + req.argres1_numwords)
+            // Since the two memory areas may overlap, the address
+            // range for a given read response can match both. Also,
+            // the size of the read response can exceed the size of
+            // either argument.
+
+            if (address >= req.argres1_base_address && address < req.argres1_base_address + req.argres1_size)
             {
-                vbase = req.argres1_base_address;
-                vdata = &m_currentArgData1[0];
-                anum = 1;
+                size_t arg_offset = address - req.argres1_base_address;
+
+                if (address + data_size >= req.argres1_base_address + req.argres1_size)
+                    data_size = req.argres1_base_address + req.argres1_size - address;
+
+                DebugIOWrite("Received argument data 1 for offset %zu - %zu", arg_offset, arg_offset + data_size - 1);
+                COMMIT {
+                    memcpy(&m_currentArgData1[arg_offset], iodata.data, data_size);
+                }
             }
-            else
+
+            if (address >= req.argres2_base_address && address < req.argres2_base_address + req.argres2_size)
             {
-                assert(address > req.argres2_base_address && address < req.argres2_base_address + req.argres2_numwords);
-                vbase = req.argres2_base_address;
-                vdata = &m_currentArgData2[0];
-                anum = 2;
+                size_t arg_offset = address - req.argres2_base_address;
+
+                if (address + data_size >= req.argres2_base_address + req.argres2_size)
+                    data_size = req.argres2_base_address + req.argres2_size - address;
+
+                DebugIOWrite("Received argument data 2 for offset %zu - %zu", arg_offset, arg_offset + data_size - 1);
+                COMMIT {
+                    memcpy(&m_currentArgData2[arg_offset], iodata.data, data_size);
+                }
             }
-
-            size_t arg_offset;
-
-            arg_offset = (address - vbase) / 4;
-
-            DebugIOWrite("Received argument data %d for words %zu - %zu", anum, arg_offset, arg_offset + num_words - 1);
-
-            COMMIT {
-                for (size_t i = 0; i < num_words; ++i)
-                    vdata[arg_offset + i] = UnserializeRegister(RT_INTEGER, &iodata.data[i * 4], 4);
-            }
+            
             
             if (m_fetchState == ARGFETCH_FINALIZE && m_numPendingDCAReads == 1)
             {
@@ -532,8 +530,8 @@ namespace Simulator
             case 4: m_inputLatch.completion_tag      = (m_inputLatch.completion_tag       & ~(MemAddr)0xffffffff) |           (value & 0xffffffff); break;
             case 5: m_inputLatch.completion_tag      = (m_inputLatch.completion_tag       &           0xffffffff) | ((Integer)(value & 0xffffffff) << 32); break;
 
-            case 6: m_inputLatch.argres1_numwords = value; break;
-            case 7: m_inputLatch.argres2_numwords = value; break;
+            case 6: m_inputLatch.argres1_size = value; break;
+            case 7: m_inputLatch.argres2_size = value; break;
 
             case 8: m_inputLatch.argres1_base_address = (m_inputLatch.argres1_base_address & ~(MemAddr)0xffffffff) |           (value & 0xffffffff); break;
             case 9: m_inputLatch.argres1_base_address = (m_inputLatch.argres1_base_address &           0xffffffff) | ((MemAddr)(value & 0xffffffff) << 32); break;
@@ -602,8 +600,8 @@ namespace Simulator
             case 4: value = (m_inputLatch.completion_tag             ) & 0xffffffff; break;
             case 5: value = (m_inputLatch.completion_tag        >> 32) & 0xffffffff; break;
 
-            case 6:  value = m_inputLatch.argres1_numwords; break;
-            case 7:  value = m_inputLatch.argres2_numwords; break;
+            case 6:  value = m_inputLatch.argres1_size; break;
+            case 7:  value = m_inputLatch.argres2_size; break;
 
             case 8:  value = (m_inputLatch.argres1_base_address      ) & 0xffffffff; break;
             case 9:  value = (m_inputLatch.argres1_base_address >> 32) & 0xffffffff; break;

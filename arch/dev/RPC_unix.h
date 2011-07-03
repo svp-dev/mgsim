@@ -21,6 +21,8 @@ namespace Simulator
             CycleNo     cycle_open;
             CycleNo     cycle_use;
             std::string fname;
+
+            VirtualDescriptor() : active(false), hfd(-1), dir(NULL), cycle_open(0), cycle_use(0) {}
         };
 
         std::vector<VirtualDescriptor> m_vfds;
@@ -44,10 +46,10 @@ namespace Simulator
         UnixInterface(const std::string& name, Object& parent);
 
         void Service(uint32_t procedure_id,
-                     std::vector<uint32_t>& res1, size_t res1_maxsize,
-                     std::vector<uint32_t>& res2, size_t res2_maxsize,
-                     const std::vector<uint32_t>& arg1, 
-                     const std::vector<uint32_t>& arg2, 
+                     std::vector<char>& res1, size_t res1_maxsize,
+                     std::vector<char>& res2, size_t res2_maxsize,
+                     const std::vector<char>& arg1, 
+                     const std::vector<char>& arg2, 
                      uint32_t arg3, uint32_t arg4);
         
         std::string GetName() { return GetFQN(); }
