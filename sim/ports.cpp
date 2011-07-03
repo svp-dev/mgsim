@@ -31,7 +31,8 @@ void ArbitratedPort::AddRequest(const Process& process)
 }
 
 ArbitratedPort::ArbitratedPort(const Object& object, const std::string& name) 
-  : m_busyCycles(0), 
+  : m_selected(NULL),
+    m_busyCycles(0), 
     m_object(object), 
     m_name(name) 
 {
