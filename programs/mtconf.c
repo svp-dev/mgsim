@@ -21,6 +21,7 @@
 
 int verbose_boot = 1;
 clock_t boot_ts = 0;
+time_t boot_time = 0;
 
 confword_t mgconf_ftes_per_core = (confword_t)-1;
 confword_t mgconf_ttes_per_core = (confword_t)-1;
@@ -29,11 +30,13 @@ confword_t mgconf_master_freq = (confword_t)-1;
 
 sl_place_t mg_io_place_id;
 struct mg_device_info mg_devinfo;
+uint16_t  mg_io_dca_devid;
 
 size_t mg_uart_devid = (size_t)-1;
 size_t mg_lcd_devid = (size_t)-1;
 size_t mg_rtc_devid = (size_t)-1;
 size_t mg_rpc_devid = (size_t)-1;
+size_t mg_rpc_chanid = (size_t)-1;
 size_t mg_cfgrom_devid = (size_t)-1;
 size_t mg_argvrom_devid = (size_t)-1;
 size_t mg_gfxctl_devid = (size_t)-1;
@@ -124,6 +127,7 @@ void detect_gfx(size_t devid, void *addr)
 static
 void detect_rtc(size_t devid, void *addr)
 {
+    boot_time = ((uint32_t*)addr)[5];
     if (verbose_boot)
     {
         output_string("* rtc at 0x", 2);
@@ -141,6 +145,10 @@ void detect_rtc(size_t devid, void *addr)
 static
 void detect_rpc(size_t devid, void *addr)
 {
+    volatile uint32_t* ctl = (uint32_t*)addr;
+
+    // initialize DCA channel / notification channel 1
+    ctl[1] = (1U << 16) | mg_io_dca_devid;
     if (verbose_boot)
     {
         output_string("* rpc interface at 0x", 2);
@@ -152,6 +160,7 @@ void detect_rpc(size_t devid, void *addr)
     if (mg_rpc_devid == (size_t)-1)
     {
         mg_rpc_devid = devid; 
+        mg_rpc_chanid = 1;
     }    
 }
 
@@ -394,6 +403,8 @@ void sys_detect_devs(void)
         output_ts(2);
         output_char('\n', 2);
     }    
+
+    mg_io_dca_devid = (io_params >> 24) & 0xff;
 
     uint32_t io_params2;
     mgsim_read_asr(io_params2, ASR_IO_PARAMS2);

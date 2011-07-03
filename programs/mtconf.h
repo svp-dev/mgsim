@@ -46,6 +46,7 @@ struct mg_device_info
 
 extern sl_place_t mg_io_place_id;
 extern struct mg_device_info mg_devinfo;
+extern uint16_t  mg_io_dca_devid;
 
 extern size_t mg_uart_devid;
 extern size_t mg_lcd_devid;
@@ -54,12 +55,15 @@ extern size_t mg_cfgrom_devid;
 extern size_t mg_argvrom_devid;
 extern size_t mg_gfxctl_devid;
 extern size_t mg_gfxfb_devid;
+extern size_t mg_rpc_devid;
+extern size_t mg_rpc_chanid;
 
 extern volatile uint32_t *mg_gfx_ctl;
 extern void *mg_gfx_fb;
 
-extern int verbose_boot;
+extern int     verbose_boot;
 extern clock_t boot_ts;
+extern time_t  boot_time;
 
 #define output_ts(Stream) do {                            \
         clock_t _tmp = clock();                           \
