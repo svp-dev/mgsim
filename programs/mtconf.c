@@ -393,12 +393,16 @@ void sys_detect_devs(void)
         }
         return;
     }
+
+    n_iodevs = (io_params & 0xff);
+    n_chans = ((io_params >> 8) & 0xff);
+
     if (verbose_boot)
     {
         output_string("* connected to I/O, ", 2);
-        output_uint(n_iodevs = (io_params & 0xff), 2);
+        output_uint(n_iodevs, 2);
         output_string(" devices, ", 2);
-        output_uint(n_chans = ((io_params >> 8) & 0xff), 2);
+        output_uint(n_chans, 2);
         output_string(" notification channels.", 2);
         output_ts(2);
         output_char('\n', 2);
@@ -424,13 +428,13 @@ void sys_detect_devs(void)
     /* try to find the SMC */
     size_t smc_id = (io_params >> 16) & 0xff;
     void *smc = aio_base + dev_as_sz * smc_id;
-    size_t ndevs = 0;
+    size_t ndevs = *(uint64_t*)smc;
     if (verbose_boot)
     {
         output_string("* smc at 0x", 2);
         output_hex(smc, 2);
         output_string(", enumerates ", 2);
-        output_uint(ndevs = *(uint64_t*)smc, 2);
+        output_uint(ndevs, 2);
         output_string(" devices.", 2);
         output_ts(2);
         output_char('\n', 2);
