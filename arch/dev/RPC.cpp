@@ -98,8 +98,12 @@ namespace Simulator
           m_fetchState(ARGFETCH_READING1),
           m_currentArgumentOffset(0),
           m_numPendingDCAReads(0),
-          m_currentArgData1(config.getValue<size_t>(*this, "RPCBufferSize1"), 0),
-          m_currentArgData2(config.getValue<size_t>(*this, "RPCBufferSize2"), 0),
+          m_maxArg1Size(config.getValue<size_t>(*this, "RPCBufferSize1")),
+          m_maxArg2Size(config.getValue<size_t>(*this, "RPCBufferSize2")),
+          m_maxRes1Size(m_maxArg1Size),
+          m_maxRes2Size(m_maxArg2Size),
+          m_currentArgData1(m_maxArg1Size, 0),
+          m_currentArgData2(m_maxArg2Size, 0),
 
           m_writebackState(RESULTWB_WRITING1),
           m_currentResponseOffset(0),
@@ -160,13 +164,13 @@ namespace Simulator
 
             if (s == ARGFETCH_READING1)
             {
-                voffset = req.argres1_base_address + m_currentArgumentOffset;
-                totalsize = req.argres1_size;
+                voffset = req.arg1_base_address + m_currentArgumentOffset;
+                totalsize = req.arg1_size;
             }
             else
             {
-                voffset = req.argres2_base_address + m_currentArgumentOffset;
-                totalsize = req.argres2_size;
+                voffset = req.arg2_base_address + m_currentArgumentOffset;
+                totalsize = req.arg2_size;
             }
 
             // transfer size:
@@ -216,12 +220,12 @@ namespace Simulator
                 preq.dca_device_id = req.dca_device_id;
                 preq.extra_arg1 = req.extra_arg1;
                 preq.extra_arg2 = req.extra_arg2;
-                preq.argres1_base_address = req.argres1_base_address;
-                preq.argres2_base_address = req.argres2_base_address;
+                preq.res1_base_address = req.res1_base_address;
+                preq.res2_base_address = req.res2_base_address;
                 preq.notification_channel_id = req.notification_channel_id;
                 preq.completion_tag = req.completion_tag;
-                preq.data1.insert(preq.data1.begin(), m_currentArgData1.begin(), m_currentArgData1.begin() + req.argres1_size);
-                preq.data2.insert(preq.data2.begin(), m_currentArgData2.begin(), m_currentArgData2.begin() + req.argres2_size);
+                preq.data1.insert(preq.data1.begin(), m_currentArgData1.begin(), m_currentArgData1.begin() + req.arg1_size);
+                preq.data2.insert(preq.data2.begin(), m_currentArgData2.begin(), m_currentArgData2.begin() + req.arg2_size);
             }
 
             if (!m_ready.Push(preq))
@@ -259,14 +263,14 @@ namespace Simulator
 
         COMMIT {
             res.dca_device_id = req.dca_device_id;
-            res.argres1_base_address = req.argres1_base_address;
-            res.argres2_base_address = req.argres2_base_address;
+            res.res1_base_address = req.res1_base_address;
+            res.res2_base_address = req.res2_base_address;
             res.notification_channel_id = req.notification_channel_id;
             res.completion_tag = req.completion_tag;
             
             m_provider.Service(req.procedure_id, 
-                               res.data1, m_currentArgData1.size(), 
-                               res.data2, m_currentArgData2.size(), 
+                               res.data1, m_maxRes1Size,
+                               res.data2, m_maxRes2Size,
                                req.data1, 
                                req.data2, 
                                req.extra_arg1,
@@ -293,11 +297,11 @@ namespace Simulator
         // if we are just receiving a result and there is no data, or
         // the response address is set to 0 (ignore), then shortcut to
         // notification.
-        if (s == RESULTWB_WRITING1 && (res.data1.size() == 0 || res.argres1_base_address == 0))
+        if (s == RESULTWB_WRITING1 && (res.data1.size() == 0 || res.res1_base_address == 0))
         {
-            s = (res.data2.size() == 0 || res.argres2_base_address == 0) ? RESULTWB_FINALIZE : RESULTWB_WRITING2;
+            s = (res.data2.size() == 0 || res.res2_base_address == 0) ? RESULTWB_FINALIZE : RESULTWB_WRITING2;
         }
-        else if (s == RESULTWB_WRITING2 && (res.data2.size() == 0 || res.argres2_base_address == 0))
+        else if (s == RESULTWB_WRITING2 && (res.data2.size() == 0 || res.res2_base_address == 0))
         {
             s = RESULTWB_BARRIER;
         }
@@ -313,13 +317,13 @@ namespace Simulator
             const char *data;
             if (s == RESULTWB_WRITING1)
             {
-                voffset = res.argres1_base_address + m_currentResponseOffset;
+                voffset = res.res1_base_address + m_currentResponseOffset;
                 totalsize = res.data1.size();
                 data = &res.data1[0];
             }
             else
             {
-                voffset = res.argres2_base_address + m_currentResponseOffset;
+                voffset = res.res2_base_address + m_currentResponseOffset;
                 totalsize = res.data2.size();
                 data = &res.data2[0];
             }
@@ -352,7 +356,7 @@ namespace Simulator
                 {
                     m_currentResponseOffset += transfer_size;
                 }
-                else if (s == RESULTWB_WRITING1 && (res.data2.size() != 0 && res.argres2_base_address != 0))
+                else if (s == RESULTWB_WRITING1 && (res.data2.size() != 0 && res.res2_base_address != 0))
                 {
                     m_currentResponseOffset = 0;
                     m_writebackState = RESULTWB_WRITING2;
@@ -447,12 +451,12 @@ namespace Simulator
             // the size of the read response can exceed the size of
             // either argument.
 
-            if (address >= req.argres1_base_address && address < req.argres1_base_address + req.argres1_size)
+            if (address >= req.arg1_base_address && address < req.arg1_base_address + req.arg1_size)
             {
-                size_t arg_offset = address - req.argres1_base_address;
+                size_t arg_offset = address - req.arg1_base_address;
 
-                if (address + data_size >= req.argres1_base_address + req.argres1_size)
-                    data_size = req.argres1_base_address + req.argres1_size - address;
+                if (address + data_size >= req.arg1_base_address + req.arg1_size)
+                    data_size = req.arg1_base_address + req.arg1_size - address;
 
                 DebugIOWrite("Received argument data 1 for offset %zu - %zu", arg_offset, arg_offset + data_size - 1);
                 COMMIT {
@@ -460,12 +464,12 @@ namespace Simulator
                 }
             }
 
-            if (address >= req.argres2_base_address && address < req.argres2_base_address + req.argres2_size)
+            if (address >= req.arg2_base_address && address < req.arg2_base_address + req.arg2_size)
             {
-                size_t arg_offset = address - req.argres2_base_address;
+                size_t arg_offset = address - req.arg2_base_address;
 
-                if (address + data_size >= req.argres2_base_address + req.argres2_size)
-                    data_size = req.argres2_base_address + req.argres2_size - address;
+                if (address + data_size >= req.arg2_base_address + req.arg2_size)
+                    data_size = req.arg2_base_address + req.arg2_size - address;
 
                 DebugIOWrite("Received argument data 2 for offset %zu - %zu", arg_offset, arg_offset + data_size - 1);
                 COMMIT {
@@ -497,12 +501,16 @@ namespace Simulator
         // word 5: high 32 bits of completion tag
         // word 6: number of words in 1st argument data
         // word 7: number of words in 2nd argument data
-        // word 8: low 32 bits of arg/res 1 base address
-        // word 9: high 32 bits of arg/res 1 base address
-        // word 10: low 32 bits of arg/res 2 base address
-        // word 11: high 32 bits of arg/res 2 base address
+        // word 8: low 32 bits of arg 1 base address
+        // word 9: high 32 bits of arg 1 base address
+        // word 10: low 32 bits of arg 2 base address
+        // word 11: high 32 bits of arg 2 base address
         // word 12: extra arg 1
         // word 13: extra arg 2
+        // word 14: low 32 bits of res 1 base address
+        // word 15: high 32 bits of res 1 base address
+        // word 16: low 32 bits of res 2 base address
+        // word 17: high 32 bits of res 2 base address
 
         if (address % 4 != 0 || data.size != 4)
         {
@@ -511,12 +519,12 @@ namespace Simulator
 
         unsigned word = address / 4;
 
-        if (word == 3 || word > 13)
+        if (word == 3 || word > 17)
         {
             throw exceptf<SimulationException>(*this, "Invalid RPC write to word: %u", word);
         }
 
-        Integer value = UnserializeRegister(RT_INTEGER, data.data, data.size);
+        uint32_t value = UnserializeRegister(RT_INTEGER, data.data, 4);
         COMMIT{
             switch(word)
             {
@@ -530,16 +538,21 @@ namespace Simulator
             case 4: m_inputLatch.completion_tag      = (m_inputLatch.completion_tag       & ~(MemAddr)0xffffffff) |           (value & 0xffffffff); break;
             case 5: m_inputLatch.completion_tag      = (m_inputLatch.completion_tag       &           0xffffffff) | ((Integer)(value & 0xffffffff) << 32); break;
 
-            case 6: m_inputLatch.argres1_size = value; break;
-            case 7: m_inputLatch.argres2_size = value; break;
+            case 6: m_inputLatch.arg1_size = std::min((uint32_t)m_maxArg1Size, value); break;
+            case 7: m_inputLatch.arg2_size = std::min((uint32_t)m_maxArg1Size, value); break;
 
-            case 8: m_inputLatch.argres1_base_address = (m_inputLatch.argres1_base_address & ~(MemAddr)0xffffffff) |           (value & 0xffffffff); break;
-            case 9: m_inputLatch.argres1_base_address = (m_inputLatch.argres1_base_address &           0xffffffff) | ((MemAddr)(value & 0xffffffff) << 32); break;
-            case 10: m_inputLatch.argres2_base_address = (m_inputLatch.argres2_base_address & ~(MemAddr)0xffffffff) |           (value & 0xffffffff); break;
-            case 11: m_inputLatch.argres2_base_address = (m_inputLatch.argres2_base_address &           0xffffffff) | ((MemAddr)(value & 0xffffffff) << 32); break;
+            case 8: m_inputLatch.arg1_base_address = (m_inputLatch.arg1_base_address & ~(MemAddr)0xffffffff) |           (value & 0xffffffff); break;
+            case 9: m_inputLatch.arg1_base_address = (m_inputLatch.arg1_base_address &           0xffffffff) | ((MemAddr)(value & 0xffffffff) << 32); break;
+            case 10: m_inputLatch.arg2_base_address = (m_inputLatch.arg2_base_address & ~(MemAddr)0xffffffff) |           (value & 0xffffffff); break;
+            case 11: m_inputLatch.arg2_base_address = (m_inputLatch.arg2_base_address &           0xffffffff) | ((MemAddr)(value & 0xffffffff) << 32); break;
 
             case 12: m_inputLatch.extra_arg1 = value; break;
             case 13: m_inputLatch.extra_arg2 = value; break;
+
+            case 14: m_inputLatch.res1_base_address = (m_inputLatch.res1_base_address & ~(MemAddr)0xffffffff) |           (value & 0xffffffff); break;
+            case 15: m_inputLatch.res1_base_address = (m_inputLatch.res1_base_address &           0xffffffff) | ((MemAddr)(value & 0xffffffff) << 32); break;
+            case 16: m_inputLatch.res2_base_address = (m_inputLatch.res2_base_address & ~(MemAddr)0xffffffff) |           (value & 0xffffffff); break;
+            case 17: m_inputLatch.res2_base_address = (m_inputLatch.res2_base_address &           0xffffffff) | ((MemAddr)(value & 0xffffffff) << 32); break;
 
             }
         }
@@ -558,23 +571,29 @@ namespace Simulator
         // word 5: high 32 bits of completion tag
         // word 6: number of words in area 1
         // word 7: number of words in area 2
-        // word 8: low 32 bits of area 1 base address
-        // word 9: high 32 bits of area 1 base address
-        // word 10: low 32 bits of area 2 base address
-        // word 11: high 32 bits of area 2 base address
+        // word 8: low 32 bits of arg 1 base address
+        // word 9: high 32 bits of arg 1 base address
+        // word 10: low 32 bits of arg 2 base address
+        // word 11: high 32 bits of arg 2 base address
         // word 12: extra arg 1
         // word 13: extra arg 2
+        // word 14: low 32 bits of res 1 base address
+        // word 15: high 32 bits of res 1 base address
+        // word 16: low 32 bits of res 2 base address
+        // word 17: high 32 bits of res 2 base address
         //
-        // word 16: arg/res 1 buffer size
-        // word 17: arg/res 2 buffer size
-        // word 18: current incoming queue size
-        // word 19: max incoming queue size
-        // word 20: current ready queue size
-        // word 21: max ready queue size
-        // word 22: current completed queue size
-        // word 23: max completed queue size
-        // word 24: current notification queue size
-        // word 25: max notification queue size
+        // word 64: arg 1 max size
+        // word 65: arg 2 max size
+        // word 66: res 1 max size
+        // word 67: res 2 max size
+        // word 68: current incoming queue size
+        // word 69: max incoming queue size
+        // word 70: current ready queue size
+        // word 71: max ready queue size
+        // word 72: current completed queue size
+        // word 73: max completed queue size
+        // word 74: current notification queue size
+        // word 75: max notification queue size
 
         if (address % 4 != 0 || size != 4)
         {
@@ -583,7 +602,7 @@ namespace Simulator
 
         unsigned word = address / 4;
 
-        if (word == 3 || (word > 13 && word < 16) || word > 25)
+        if (word == 3 || (word > 17 && word < 64) || word > 75)
         {
             throw exceptf<SimulationException>(*this, "Invalid RPC read from word: %u", word);
         }
@@ -600,27 +619,34 @@ namespace Simulator
             case 4: value = (m_inputLatch.completion_tag             ) & 0xffffffff; break;
             case 5: value = (m_inputLatch.completion_tag        >> 32) & 0xffffffff; break;
 
-            case 6:  value = m_inputLatch.argres1_size; break;
-            case 7:  value = m_inputLatch.argres2_size; break;
+            case 6:  value = m_inputLatch.arg1_size; break;
+            case 7:  value = m_inputLatch.arg2_size; break;
 
-            case 8:  value = (m_inputLatch.argres1_base_address      ) & 0xffffffff; break;
-            case 9:  value = (m_inputLatch.argres1_base_address >> 32) & 0xffffffff; break;
-            case 10:  value = (m_inputLatch.argres2_base_address      ) & 0xffffffff; break;
-            case 11:  value = (m_inputLatch.argres2_base_address >> 32) & 0xffffffff; break;
+            case 8:  value = (m_inputLatch.arg1_base_address      ) & 0xffffffff; break;
+            case 9:  value = (m_inputLatch.arg1_base_address >> 32) & 0xffffffff; break;
+            case 10:  value = (m_inputLatch.arg2_base_address      ) & 0xffffffff; break;
+            case 11:  value = (m_inputLatch.arg2_base_address >> 32) & 0xffffffff; break;
 
             case 12:  value = m_inputLatch.extra_arg1; break;
             case 13:  value = m_inputLatch.extra_arg2; break;
 
-            case 16: value = m_currentArgData1.size(); break;
-            case 17: value = m_currentArgData2.size(); break;
-            case 18: value = m_incoming.size(); break;
-            case 19: value = m_incoming.GetMaxSize(); break;
-            case 20: value = m_completed.size(); break;
-            case 21: value = m_ready.GetMaxSize(); break;
-            case 22: value = m_completed.size(); break;
-            case 23: value = m_completed.GetMaxSize(); break;
-            case 24: value = m_notifications.size(); break;
-            case 25: value = m_notifications.GetMaxSize(); break;
+            case 14:  value = (m_inputLatch.res1_base_address      ) & 0xffffffff; break;
+            case 15:  value = (m_inputLatch.res1_base_address >> 32) & 0xffffffff; break;
+            case 16:  value = (m_inputLatch.res2_base_address      ) & 0xffffffff; break;
+            case 17:  value = (m_inputLatch.res2_base_address >> 32) & 0xffffffff; break;
+
+            case 64: value = m_maxArg1Size; break;
+            case 65: value = m_maxArg2Size; break;
+            case 66: value = m_maxRes1Size; break;
+            case 67: value = m_maxRes2Size; break;
+            case 68: value = m_incoming.size(); break;
+            case 69: value = m_incoming.GetMaxSize(); break;
+            case 70: value = m_completed.size(); break;
+            case 71: value = m_ready.GetMaxSize(); break;
+            case 72: value = m_completed.size(); break;
+            case 73: value = m_completed.GetMaxSize(); break;
+            case 74: value = m_notifications.size(); break;
+            case 75: value = m_notifications.GetMaxSize(); break;
             }
         }
 

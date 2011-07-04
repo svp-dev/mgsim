@@ -101,7 +101,7 @@ namespace Simulator
     {
         if (res1_maxsize < 12)
         {
-            throw exceptf<SimulationException>("Procedure %u requires at least 12 bytes available in 1st memory region", (unsigned)procedure_id);
+            throw exceptf<SimulationException>("Procedure %u requires at least 12 bytes available in 1st result area", (unsigned)procedure_id);
         }
 
         uint64_t rval = 0;
@@ -155,10 +155,10 @@ namespace Simulator
 
             size_t sz = arg4;
 
-            if (sz > arg2.size())
-                sz = arg2.size();
+            if (sz > arg1.size())
+                sz = arg1.size();
 
-            ssize_t s = write(vd->hfd, &arg2[0], sz);
+            ssize_t s = write(vd->hfd, &arg1[0], sz);
 
             if (s >= 0)
             {
@@ -196,8 +196,8 @@ namespace Simulator
             }
 
             // ensure path is nul terminated
-            const char *path_start = (const char*)(const void*)&arg2[0];
-            const char *path_end = path_start + arg2.size();
+            const char *path_start = (const char*)(const void*)&arg1[0];
+            const char *path_end = path_start + arg1.size();
             int fd;
             if (find(path_start, path_end, '\0') == path_end)
             {

@@ -29,10 +29,12 @@ namespace Simulator
             uint32_t                extra_arg1;
             uint32_t                extra_arg2;
             IODeviceID              dca_device_id;
-            MemAddr                 argres1_base_address;
-            MemSize                 argres1_size;
-            MemAddr                 argres2_base_address;
-            MemSize                 argres2_size;
+            MemAddr                 arg1_base_address;
+            MemSize                 arg1_size;
+            MemAddr                 arg2_base_address;
+            MemSize                 arg2_size;
+            MemAddr                 res1_base_address;
+            MemAddr                 res2_base_address;
             IONotificationChannelID notification_channel_id;
             Integer                 completion_tag;
         };
@@ -43,8 +45,8 @@ namespace Simulator
             uint32_t                extra_arg1;
             uint32_t                extra_arg2;
             IODeviceID              dca_device_id;
-            MemAddr                 argres1_base_address;
-            MemAddr                 argres2_base_address;
+            MemAddr                 res1_base_address;
+            MemAddr                 res2_base_address;
             IONotificationChannelID notification_channel_id;
             Integer                 completion_tag;
             std::vector<char>       data1;
@@ -54,8 +56,8 @@ namespace Simulator
         struct ProcessResponse
         {
             IODeviceID              dca_device_id;
-            MemAddr                 argres1_base_address;
-            MemAddr                 argres2_base_address;
+            MemAddr                 res1_base_address;
+            MemAddr                 res2_base_address;
             IONotificationChannelID notification_channel_id;
             Integer                 completion_tag;
             std::vector<char>       data1;
@@ -94,6 +96,10 @@ namespace Simulator
         ArgumentFetchState      m_fetchState;
         MemAddr                 m_currentArgumentOffset;
         size_t                  m_numPendingDCAReads;
+        size_t                  m_maxArg1Size;
+        size_t                  m_maxArg2Size;
+        size_t                  m_maxRes1Size;
+        size_t                  m_maxRes2Size;
         std::vector<char>       m_currentArgData1;
         std::vector<char>       m_currentArgData2;
 
