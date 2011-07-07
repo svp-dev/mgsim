@@ -218,6 +218,8 @@ public:
     ArbitratedService<>   p_activeThreads;  ///< Arbitrator for m_activeThreads
     ThreadList            m_activeThreads;  ///< Queue of the active threads
 
+    size_t                m_numThreadsPerState[TST_NUMSTATES]; ///< For debugging only.
+
     // Statistics
     BufferSize GetTotalAllocatedEx() { UpdateStats(); return m_totalallocex; }
     BufferSize GetMaxAllocatedEx() const { return m_maxallocex; }

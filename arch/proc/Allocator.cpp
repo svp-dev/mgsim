@@ -130,6 +130,7 @@ TID Processor::Allocator::PopActiveThread()
     {   
         tid = m_activeThreads.Front();
         m_activeThreads.Pop();
+        COMMIT{--m_numThreadsPerState[TST_ACTIVE];}
     }
     return tid;
 }
@@ -159,6 +160,7 @@ bool Processor::Allocator::QueueThreads(ThreadList& list, const ThreadQueue& thr
             m_threadTable[cur].state = state;
             ++count;
         } while (cur != threads.tail);
+        m_numThreadsPerState[state] += count;
     }
     return true;
 }
@@ -1711,6 +1713,7 @@ Result Processor::Allocator::DoThreadActivation()
         m_readyThreads2.Pop();
         COMMIT{ m_prevReadyList = &m_readyThreads2; }
     }
+    COMMIT{ --m_numThreadsPerState[TST_READY]; }
     
     {
         Thread& thread = m_threadTable[tid];
@@ -1854,9 +1857,13 @@ Processor::Allocator::Allocator(const string& name, Processor& parent, Clock& cl
     m_allocRequestsExclusive.Sensitive(p_FamilyAllocate);    
     m_bundle                .Sensitive(p_Bundle);
 
+    std::fill(m_numThreadsPerState, m_numThreadsPerState+TST_NUMSTATES, 0);
+
     RegisterSampleVariableInObject(m_totalallocex, SVC_CUMULATIVE);
     RegisterSampleVariableInObject(m_maxallocex, SVC_WATERMARK);
     RegisterSampleVariableInObject(m_curallocex, SVC_LEVEL);
+    RegisterSampleVariableInObjectWithName(m_numThreadsPerState[TST_ACTIVE], "m_numActiveThreads", SVC_LEVEL);
+    RegisterSampleVariableInObjectWithName(m_numThreadsPerState[TST_READY], "m_numReadyThreads", SVC_LEVEL);
 }
 
 void Processor::Allocator::AllocateInitialFamily(MemAddr pc, bool legacy, PSize placeSize, SInteger startIndex)
