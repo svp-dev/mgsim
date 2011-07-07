@@ -6,17 +6,7 @@
 namespace Simulator
 {
 
-/*static*/ std::string IllegalPortAccess::ConstructString(const Object& object, const std::string& name, const Process& src)
-{
-    std::stringstream ss;
-    std::string from = src.GetName(), dest = object.GetFQN();
-    std::transform(from.begin(), from.end(), from.begin(), toupper);
-    std::transform(dest.begin(), dest.end(), dest.begin(), toupper);
-    ss << "Illegal access to " << dest << "." << name << " by " << from;
-    return ss.str();
-}
-
-void ArbitratedPort::AddRequest(const Process& process)
+void SimpleArbitratedPort::AddRequest(const Process& process)
 {
     if (std::find(m_requests.begin(), m_requests.end(), &process) != m_requests.end())
     {
@@ -39,6 +29,71 @@ ArbitratedPort::ArbitratedPort(const Object& object, const std::string& name)
     RegisterSampleVariable(m_busyCycles, object.GetFQN() + '.' + name + ".busyCycles", SVC_CUMULATIVE);
 }
 
+void PriorityCyclicArbitratedPort::Arbitrate()
+{
+    m_selected = NULL;
+    if (!m_requests.empty())
+    {
+        if (m_requests.size() == 1)
+        {
+            // Optimization for common case
+            m_selected = *m_requests.begin();
+            
+            size_t maybe_cyclic_last = std::find(m_cyclicprocesses.begin(), m_cyclicprocesses.end(), m_selected) - m_cyclicprocesses.begin();
+            if (maybe_cyclic_last < m_cyclicprocesses.size())
+                m_lastSelected = maybe_cyclic_last;
+        }
+        else
+        {
+            // Choose the request with the highest priority
+            unsigned int highest = std::numeric_limits<unsigned int>::max();
+            for (ProcessList::const_iterator i = m_requests.begin(); i != m_requests.end(); ++i)
+            {
+                // The position in the vector is its priority
+                size_t priority = std::find(m_processes.begin(), m_processes.end(), *i) - m_processes.begin();
+                if (priority == m_processes.size())
+                {
+                    // this request is for a cyclic process, don't use
+                    // it as a candidate.
+                    continue;
+                }
+                else if (priority < highest)
+                {
+                    highest    = priority;
+                    m_selected = *i;
+                }
+            }
+
+            if (m_selected == NULL)
+            {
+                // no priority process found, the request is for a cyclic process.
+                size_t lowest = std::numeric_limits<size_t>::max();
+                for (ProcessList::const_iterator i = m_requests.begin(); i != m_requests.end(); ++i)
+                {
+                    size_t pos = std::find(m_cyclicprocesses.begin(), m_cyclicprocesses.end(), *i) - m_cyclicprocesses.begin();
+                    assert(pos < m_cyclicprocesses.size());
+                    
+                    // Find the distance to the last selected
+                    pos = (pos + m_cyclicprocesses.size() - m_lastSelected) % m_cyclicprocesses.size();
+                    if (pos != 0 && pos < lowest)
+                    {
+                        lowest     = pos;
+                        m_selected = *i;
+                    }
+                }
+                
+                // Remember which one we selected
+                m_lastSelected = (m_lastSelected + lowest) % m_cyclicprocesses.size();
+
+            }
+        }
+
+        assert(m_selected != NULL);
+        m_requests.clear();
+        m_busyCycles++;
+    }
+}
+
 
 void PriorityArbitratedPort::Arbitrate()
 {
@@ -53,11 +108,11 @@ void PriorityArbitratedPort::Arbitrate()
         else
         {
             // Choose the request with the highest priority
-            unsigned int highest = std::numeric_limits<unsigned int>::max();
+            size_t highest = std::numeric_limits<size_t>::max();
             for (ProcessList::const_iterator i = m_requests.begin(); i != m_requests.end(); ++i)
             {
                 // The position in the vector is its priority
-                unsigned int priority = std::find(&m_processes.front(), &m_processes.back() + 1, *i) - &m_processes.front();
+                size_t priority = std::find(m_processes.begin(), m_processes.end(), *i) - m_processes.begin();
                 assert(priority < m_processes.size());
                 if (priority < highest)
                 {
@@ -82,15 +137,15 @@ void CyclicArbitratedPort::Arbitrate()
         if (m_requests.size() == 1)
         {
             m_selected     = *m_requests.begin();
-            m_lastSelected = std::find(&m_processes.front(), &m_processes.back() + 1, m_selected) - &m_processes.front();
+            m_lastSelected = std::find(m_processes.begin(), m_processes.end(), m_selected) - m_processes.begin();
             assert(m_lastSelected < m_processes.size());
         }
         else
         {
-            unsigned int lowest = std::numeric_limits<unsigned int>::max();
+            size_t lowest = std::numeric_limits<size_t>::max();
             for (ProcessList::const_iterator i = m_requests.begin(); i != m_requests.end(); ++i)
             {
-                unsigned int pos = std::find(&m_processes.front(), &m_processes.back() + 1, *i) - &m_processes.front();
+                size_t pos = std::find(m_processes.begin(), m_processes.end(), *i) - m_processes.begin();
                 assert(pos < m_processes.size());
         
                 // Find the distance to the last selected
