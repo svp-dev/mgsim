@@ -23,7 +23,7 @@ MCID COMA::Cache::RegisterClient(IMemoryCallback& callback, Process& process, St
 
     m_clients[index] = &callback;
     
-    p_bus.AddProcess(process);
+    p_bus.AddCyclicProcess(process);
     traces = m_requests;
     
     m_storages *= opt(storage);
@@ -57,13 +57,13 @@ bool COMA::Cache::Read(MCID id, MemAddr address, MemSize size)
         throw InvalidArgumentException("Read address is not aligned to a cache-line");
     }
     
-    // This method can get called by several 'listeners', so we need
-    // to arbitrate and store the request in a buffer to handle it.
+    // We need to arbitrate between the different processes on the cache,
+    // and then between the different clients. There are 2 arbitrators for this.
     if (!p_bus.Invoke())
     {
         // Arbitration failed
         DeadlockWrite("Unable to acquire bus for read");
-        return FAILED;
+        return false;
     }
     
     Request req;
@@ -98,8 +98,8 @@ bool COMA::Cache::Write(MCID id, MemAddr address, const void* data, MemSize size
         throw InvalidArgumentException("Write request straddles cache-line boundary");
     }
 
-    // This method can get called by several 'listeners', so we need
-    // to arbitrate and store the request in a buffer to handle it.
+    // We need to arbitrate between the different processes on the cache,
+    // and then between the different clients. There are 2 arbitrators for this.
     if (!p_bus.Invoke())
     {
         // Arbitration failed
@@ -936,8 +936,8 @@ COMA::Cache::Cache(const std::string& name, COMA& parent, Clock& clock, CacheID 
     p_lines.AddProcess(p_In);
     p_lines.AddProcess(p_Requests);
 
-    p_bus.AddProcess(p_In);                   // Update triggers write completion
-    p_bus.AddProcess(p_Requests);             // Read or write hit
+    p_bus.AddPriorityProcess(p_In);                   // Update triggers write completion
+    p_bus.AddPriorityProcess(p_Requests);             // Read or write hit
 
     config.registerObject(*this, "cache");
     config.registerProperty(*this, "assoc", (uint32_t)m_assoc);

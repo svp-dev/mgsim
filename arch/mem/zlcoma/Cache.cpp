@@ -23,7 +23,7 @@ MCID ZLCOMA::Cache::RegisterClient(IMemoryCallback& callback, Process& process, 
 
     m_clients[index] = &callback;
 
-    p_bus.AddProcess(process);
+    p_bus.AddCyclicProcess(process);
     traces = m_requests;
     
     m_storages *= opt(storage);
@@ -1223,8 +1223,8 @@ ZLCOMA::Cache::Cache(const std::string& name, ZLCOMA& parent, Clock& clock, Cach
     p_lines.AddProcess(p_In);
     p_lines.AddProcess(p_Requests);
 
-    p_bus.AddProcess(p_In);                   // Update triggers write completion
-    p_bus.AddProcess(p_Requests);             // Read or write hit
+    p_bus.AddPriorityProcess(p_In);                   // Update triggers write completion
+    p_bus.AddPriorityProcess(p_Requests);             // Read or write hit
 
     config.registerObject(*this, "cache");
     config.registerProperty(*this, "assoc", (uint32_t)m_assoc);
