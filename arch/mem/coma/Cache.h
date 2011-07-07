@@ -80,7 +80,7 @@ private:
 
     // Incoming requests from the processors
     // First arbitrate, then buffer (models a bus)
-    ArbitratedService<> p_bus;
+    ArbitratedService<CyclicArbitratedPort> p_bus;
     Buffer<Request>     m_requests;
     Buffer<MemData>     m_responses;
     

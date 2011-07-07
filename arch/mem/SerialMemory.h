@@ -54,7 +54,7 @@ class SerialMemory : public Object, public IMemoryAdmin, public VirtualMemory
     Clock&                        m_clock;
     std::vector<IMemoryCallback*> m_clients;
     Buffer<Request>               m_requests;
-    ArbitratedService<>           p_requests;
+    ArbitratedService<CyclicArbitratedPort>           p_requests;
     CycleNo                       m_baseRequestTime;
     CycleNo                       m_timePerLine;
     CycleNo                       m_sizeOfLine;

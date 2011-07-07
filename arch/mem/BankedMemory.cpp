@@ -29,7 +29,7 @@ struct BankedMemory::Request
 class BankedMemory::Bank : public Object
 {
     BankedMemory&       m_memory;
-    ArbitratedService<> p_incoming;
+    ArbitratedService<CyclicArbitratedPort> p_incoming;
     Buffer<Request>     m_incoming;
     Buffer<Request>     m_outgoing;
     SingleFlag          m_busy;
