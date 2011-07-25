@@ -194,10 +194,10 @@ class Network : public Object, public Inspect::Interface<Inspect::Read>
     /*
      A specialization of the generic register to implement arbitration
     */
-    template <typename T>
+    template <typename T, typename Arbitrator=PriorityArbitratedPort>
     class Register : public Simulator::Register<T>
     {
-        ArbitratedService<> m_service;
+        ArbitratedService<Arbitrator> m_service;
 
     public:
         void AddProcess(const Process& process) {
@@ -326,7 +326,7 @@ private:
 public:
     // Delegation network
     Register<DelegateMessage>   m_delegateOut;    ///< Outgoing delegation messages
-    Register<DelegateMessage>   m_delegateIn;     ///< Incoming delegation messages
+    Register<DelegateMessage, CyclicArbitratedPort>   m_delegateIn;     ///< Incoming delegation messages
     RegisterPair<LinkMessage>   m_link;           ///< Forward link through the cores
     RegisterPair<AllocResponse> m_allocResponse;  ///< Backward link for allocation unroll/commit
     

@@ -910,7 +910,7 @@ void Processor::Network::Cmd_Read(ostream& out, const vector<string>& /* argumen
 {
     const struct {
         const char*                      name;
-        const Register<DelegateMessage>& reg;
+        const Simulator::Register<DelegateMessage>& reg;
     } Registers[2] = {
         {"Incoming", m_delegateIn},
         {"Outgoing", m_delegateOut}
