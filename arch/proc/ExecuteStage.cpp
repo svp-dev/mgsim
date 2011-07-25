@@ -341,8 +341,8 @@ void Processor::Pipeline::ExecuteStage::ExecDebugOutput(Integer value, int comma
 
     if (outstream == 0)
     {
-        DebugProgWrite("PRINT by T%u at %s: %s",
-                       (unsigned)m_input.tid, GetKernel()->GetSymbolTable()[m_input.pc].c_str(),
+        DebugProgWrite("PRINT by F%u/T%u at %s: %s",
+                       (unsigned)m_input.fid, (unsigned)m_input.tid, GetKernel()->GetSymbolTable()[m_input.pc].c_str(),
                        stringout.str().c_str());
     }
 }
@@ -379,8 +379,8 @@ void Processor::Pipeline::ExecuteStage::ExecStatusAction(Integer value, int comm
 
     if (outstream == 0)
     {
-        DebugProgWrite("STATUS by T%u at %s: %s",
-                       (unsigned)m_input.tid, GetKernel()->GetSymbolTable()[m_input.pc].c_str(),
+        DebugProgWrite("STATUS by F%u/T%u at %s: %s",
+                       (unsigned)m_input.fid, (unsigned)m_input.tid, GetKernel()->GetSymbolTable()[m_input.pc].c_str(),
                        stringout.str().c_str());
     }
 
