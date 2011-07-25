@@ -112,7 +112,8 @@ def parse_configuration(o, f, nc):
     v = Vars()
 
     for i in xrange(nc):
-        cfgkey, val = f.readline().split('=', 1)
+        fline = f.readline()
+        cfgkey, val = fline.split('=', 1)
         cfgkey = cfgkey.strip().replace(':', '.').lower()
         val = val.strip().split(',')
         if len(val) == 1:
