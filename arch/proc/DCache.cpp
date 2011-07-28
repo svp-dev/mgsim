@@ -780,14 +780,22 @@ void Processor::DCache::Cmd_Read(std::ostream& out, const std::vector<std::strin
     else if (arguments[0] == "buffers")
     {
         out << endl << "Outgoing requests:" << endl << endl
-            << "      Address      | Size | Type  |" << endl
-            << "-------------------+------+-------+" << endl;
+            << "      Address      | Size | Type  | Value (writes)" << endl
+            << "-------------------+------+-------+-------------------------" << endl;
         for (Buffer<Request>::const_iterator p = m_outgoing.begin(); p != m_outgoing.end(); ++p)
         {
             out << hex << "0x" << setw(16) << setfill('0') << p->address << " | "
                 << dec << setw(4) << right << setfill(' ') << p->data.size << " | "
-                << (p->write ? "Write" : "Read ") << " | "
-                << endl;
+                << (p->write ? "Write" : "Read ") << " |";
+            if (p->write)
+            {
+                out << hex << setfill('0');
+                for (size_t x = 0; x < p->data.size; ++x)
+                {
+                    out << " " << setw(2) << (unsigned)(unsigned char)p->data.data[x];
+                }
+            }
+            out << dec << endl;
         }
         return;
     }

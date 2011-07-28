@@ -163,7 +163,20 @@ class BankedMemory::Bank : public Object
         } else { 
             out << "Read ";
         }
-        out << " | " << setw(8) << dec << request.done << " | ";
+        out << " | " << setw(8) << dec << request.done << " |";
+        if (request.write)
+        {
+            out << hex << setfill('0');
+            for (size_t x = 0; x < request.data.size; ++x)
+            {
+                out << " ";
+                out << setw(2) << (unsigned)(unsigned char)request.data.data[x];
+            }
+        }
+        else
+            out << "                         ";                
+
+        out << " | ";
     
         Object* obj = dynamic_cast<Object*>(request.client->callback);
         if (obj == NULL) {
@@ -171,7 +184,7 @@ class BankedMemory::Bank : public Object
         } else {
             out << obj->GetFQN();
         }
-        out << endl;
+        out << dec << endl;
     }
 
 public:
@@ -204,8 +217,8 @@ public:
     void Print(ostream& out)
     {
         out << GetName() << ":" << endl;
-        out << "        Address       | Size | Type  |   Done   | Source" << endl;
-        out << "----------------------+------+-------+----------+----------------" << endl;
+        out << "        Address       | Size | Type  |   Done   | Value(writes)            | Source" << endl;
+        out << "----------------------+------+-------+----------+--------------------------+-----------------" << endl;
 
         for (Buffer<Request>::const_reverse_iterator p = m_incoming.rbegin(); p != m_incoming.rend(); ++p)
         {
@@ -214,7 +227,7 @@ public:
         if (m_busy.IsSet()) {
             PrintRequest(out, '*', m_request);
         } else {
-            out << "*                     |      |       |          |" << endl;
+            out << "*                     |      |       |          |                          | " << endl;
         }
         for (Buffer<Request>::const_reverse_iterator p = m_outgoing.rbegin(); p != m_outgoing.rend(); ++p)
         {
