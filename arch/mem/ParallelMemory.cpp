@@ -274,7 +274,7 @@ ParallelMemory::ParallelMemory(const std::string& name, Object& parent, Clock& c
     m_buffersize     (config.getValue<BufferSize>(*this, "BufferSize")),
     m_baseRequestTime(config.getValue<CycleNo>(*this, "BaseRequestTime")),
     m_timePerLine    (config.getValue<CycleNo>(*this, "TimePerLine")),
-    m_sizeOfLine     (config.getValue<size_t> (*this, "LineSize")),
+    m_sizeOfLine     (config.getValue<size_t> ("CacheLineSize")),
     m_nreads         (0),
     m_nread_bytes    (0),
     m_nwrites        (0),

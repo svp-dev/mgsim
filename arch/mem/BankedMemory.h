@@ -61,7 +61,6 @@ protected:
     CycleNo                 m_timePerLine;
     size_t                  m_lineSize;
     BufferSize              m_bufferSize;
-    size_t                  m_cachelineSize;
     IBankSelector*          m_selector;
 
     uint64_t m_nreads;

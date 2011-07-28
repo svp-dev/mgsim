@@ -189,7 +189,7 @@ SerialMemory::SerialMemory(const std::string& name, Object& parent, Clock& clock
     p_requests       (*this, clock, "m_requests"),
     m_baseRequestTime(config.getValue<CycleNo>   (*this, "BaseRequestTime")),
     m_timePerLine    (config.getValue<CycleNo>   (*this, "TimePerLine")),
-    m_sizeOfLine     (config.getValue<CycleNo>   (*this, "LineSize")),
+    m_sizeOfLine     (config.getValue<CycleNo>   ("CacheLineSize")),
     m_nextdone(0),
     m_nreads(0),
     m_nread_bytes(0),
