@@ -24,6 +24,7 @@ using namespace std;
 
 struct ProgramConfig
 {
+    unsigned int                     m_areaTech;
     string                           m_configFile;
     string                           m_symtableFile;
     bool                             m_enableMonitor;
@@ -47,6 +48,7 @@ struct ProgramConfig
 
 static void ParseArguments(int argc, const char ** argv, ProgramConfig& config)
 {
+    config.m_areaTech = 0;
     config.m_configFile = MGSIM_CONFIG_PATH;
     config.m_enableMonitor = false;
     config.m_interactive = false;
@@ -73,11 +75,39 @@ static void ParseArguments(int argc, const char ** argv, ProgramConfig& config)
             }
             config.m_argv.push_back(arg);
         }
-        else if (arg == "-c" || arg == "--config")      config.m_configFile    = argv[++i];
+        else if (arg == "-a" || arg == "--area") 
+        {
+            if (argv[++i] == NULL) {
+                throw runtime_error("Error: expected technology size in nanometers");
+            }
+            
+            char* endptr;
+            unsigned int tech = strtoul(argv[i], &endptr, 0);
+            if (*endptr != '\0') {
+                throw runtime_error("Error: unable to parse technology size");
+            } else if (tech < 1) {
+                throw runtime_error("Error: technology size must be >= 1 nm");
+            } else {
+                config.m_areaTech = tech;
+            }
+        }
+        else if (arg == "-c" || arg == "--config")
+        {
+            if (argv[++i] == NULL) {
+                throw runtime_error("Error: expected configuration filename");
+            }
+            config.m_configFile = argv[i];
+        }
         else if (arg == "-i" || arg == "--interactive") config.m_interactive   = true;
         else if (arg == "-t" || arg == "--terminate")   config.m_terminate     = true;
         else if (arg == "-q" || arg == "--quiet")       config.m_quiet         = true;
-        else if (arg == "-s" || arg == "--symtable")    config.m_symtableFile  = argv[++i];
+        else if (arg == "-s" || arg == "--symtable")
+        {
+            if (argv[++i] == NULL) {
+                throw runtime_error("Error: expected symbol table filename");
+            }
+            config.m_symtableFile = argv[i];
+        }
         else if (arg == "--version")                    { PrintVersion(std::cout); exit(0); }
         else if (arg == "-h" || arg == "--help")        { PrintUsage(std::cout, argv[0]); exit(0); }
         else if (arg == "-d" || arg == "--dump-configuration")    config.m_dumpconf      = true;
@@ -238,7 +268,6 @@ int main(int argc, char** argv)
         Monitor mo(sys, config.m_enableMonitor, 
                    mo_mdfile, config.m_earlyquit ? "" : mo_tfile, !config.m_interactive);
 #endif
-
         if (config.m_dumpconf)
         {
             std::clog << "### simulator version: " PACKAGE_VERSION << std::endl;
@@ -250,6 +279,17 @@ int main(int argc, char** argv)
             std::clog << "### begin monitor variables" << std::endl;
             ListSampleVariables(std::clog);
             std::clog << "### end monitor variables" << std::endl;
+        }
+
+        if (config.m_areaTech > 0)
+        {
+            std::clog << "### begin area information" << std::endl;
+#ifdef ENABLE_CACTI
+            sys.DumpArea(std::cout, config.m_areaTech);
+#else
+            std::clog << "# Warning: CACTI not enabled; reconfigure with --enable-cacti" << std::endl;
+#endif
+            std::clog << "### end area information" << std::endl;
         }
 
         if (config.m_dumptopo)

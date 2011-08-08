@@ -89,6 +89,9 @@ public:
 	
     Network& GetNetwork() { return m_network; }
     IOInterface* GetIOInterface() { return m_io_if; }
+    RegisterFile& GetRegisterFile() { return m_registerFile; }
+    ICache& GetICache() { return m_icache; }
+    DCache& GetDCache() { return m_dcache; }
 
 private:
     PID                            m_pid;

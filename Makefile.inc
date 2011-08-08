@@ -1,6 +1,7 @@
 include $(srcdir)/sim/Makefile.inc
 include $(srcdir)/arch/Makefile.inc
 include $(srcdir)/cli/Makefile.inc
+include $(srcdir)/Makefile.cacti.inc
 
 bin_PROGRAMS += mgsim
 dist_man1_MANS += mgsim.1
@@ -9,6 +10,13 @@ mgsim_SOURCES = $(SIM_SOURCES) $(ARCH_SOURCES) $(CLI_SOURCES)
 mgsim_CPPFLAGS = $(SIM_EXTRA_CPPFLAGS) $(ARCH_EXTRA_CPPFLAGS) $(CLI_EXTRA_CPPFLAGS) $(AM_CPPFLAGS)  -DMGSIM_CONFIG_PATH=\"$(pkgdatadir)/config.ini\"
 mgsim_CXXFLAGS = $(WARN_CXXFLAGS) $(SIM_EXTRA_CXXFLAGS) $(ARCH_EXTRA_CXXFLAGS) $(CLI_EXTRA_CXXFLAGS) $(AM_CXXFLAGS)
 mgsim_LDADD = 
+
+if ENABLE_CACTI
+mgsim_SOURCES += $(CACTI_SOURCES)
+mgsim_CPPFLAGS += $(CACTI_EXTRA_CPPFLAGS) -DENABLE_CACTI=1
+mgsim_CXXFLAGS += $(CACTI_EXTRA_CXXFLAGS)
+mgsim_LDADD += $(PTHREAD_LIBS)
+endif
 
 if ENABLE_SDL
 mgsim_CPPFLAGS += -DUSE_SDL=1

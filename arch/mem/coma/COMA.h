@@ -75,6 +75,16 @@ public:
 
     IBankSelector& GetBankSelector() const { return *m_selector; }
     
+    size_t GetLineSize() const;
+    size_t GetNumClientsPerCache() const { return m_numClientsPerCache; }    
+    size_t GetNumCachesPerDirectory() const { return m_numCachesPerDir; }
+    size_t GetNumCaches() const { return m_caches.size(); }
+    size_t GetNumDirectories() const { return m_directories.size(); }
+    size_t GetNumRootDirectories() const { return m_roots.size(); }
+    size_t GetNumCacheSets() const;
+    size_t GetCacheAssociativity() const;
+    size_t GetDirectoryAssociativity() const;
+    
     // IMemory
     void Reserve(MemAddr address, MemSize size, int perm);
     void Unreserve(MemAddr address);

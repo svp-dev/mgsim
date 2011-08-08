@@ -134,6 +134,18 @@ if test "x$enable_monitor" = "xyes"; then
 fi
 AM_CONDITIONAL([ENABLE_MONITOR], [test "x$enable_monitor" = "xyes"])
 
+AC_ARG_ENABLE([cacti], 
+              [AC_HELP_STRING([--enable-cacti], [enable support for area calculations with CACTI])],
+              [enable_cacti=yes], [])
+if test "x$enable_cacti" = "xyes"; then
+  AX_PTHREAD
+  if test "x$ax_pthread_ok" != "xyes"; then
+     AC_MSG_WARN([POSIX threads not available, cannot use CACTI.])
+     enable_cacti=no
+  fi
+fi
+AM_CONDITIONAL([ENABLE_CACTI], [test "x$enable_cacti" = "xyes"])
+
 
 ## Target selection
 enable_mtalpha_tests=no

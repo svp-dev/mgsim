@@ -99,6 +99,10 @@ private:
 public:
     Cache(const std::string& name, COMA& parent, Clock& clock, CacheID id, Config& config);
     
+    size_t GetLineSize() const { return m_lineSize; }
+    size_t GetNumSets() const { return m_sets; }
+    size_t GetAssociativity() const { return m_assoc; }
+    
     void Cmd_Info(std::ostream& out, const std::vector<std::string>& arguments) const;
     void Cmd_Read(std::ostream& out, const std::vector<std::string>& arguments) const;
     const Line* FindLine(MemAddr address) const;

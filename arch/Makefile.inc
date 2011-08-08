@@ -86,6 +86,7 @@ PROCESSOR_SRC = \
 	arch/proc/PerfCounters.cpp
 
 COMMON_SRC = \
+    arch/area.cpp \
 	arch/Archures.h \
         arch/BankSelector.h \
         arch/BankSelector.cpp \

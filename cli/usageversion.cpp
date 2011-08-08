@@ -16,6 +16,7 @@ void PrintUsage(std::ostream& out, const char* cmd)
         "Microgrid Simulator.\n\n"
         "Usage: " << cmd << " [ARG]...\n\n"
         "Options:\n\n"
+        "  -a, --area VAL               Dump area information, assume technology is VAL nm.\n"
         "  -c, --config FILE            Read configuration from FILE.\n"
         "  -d, --dump-configuration     Dump configuration to standard error prior to program startup.\n"
         "  -i, --interactive            Start the simulator in interactive mode.\n"

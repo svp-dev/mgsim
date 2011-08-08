@@ -79,6 +79,8 @@ public:
     Object& GetMemoryPeer() { return m_parent; }
     size_t GetLineSize() const { return m_lineSize; }
     size_t GetAssociativity() const { return m_assoc; }
+    size_t GetNumLines() const { return m_lines.size(); }
+    size_t GetNumSets() const { return GetNumLines() / m_assoc; }
     
     // Debugging
     void Cmd_Info(std::ostream& out, const std::vector<std::string>& arguments) const;

@@ -244,6 +244,26 @@ COMA::~COMA()
     delete m_selector;
 }
 
+size_t COMA::GetLineSize() const
+{
+    return m_caches[0]->GetLineSize();
+}
+
+size_t COMA::GetNumCacheSets() const
+{
+    return m_caches[0]->GetNumSets();
+}
+
+size_t COMA::GetCacheAssociativity() const
+{
+    return m_caches[0]->GetAssociativity();
+}
+
+size_t COMA::GetDirectoryAssociativity() const
+{
+    return m_directories[0]->m_assoc;
+}
+
 void COMA::GetMemoryStatistics(uint64_t& nreads, uint64_t& nwrites, uint64_t& nread_bytes, uint64_t& nwrite_bytes, uint64_t& nreads_ext, uint64_t& nwrites_ext) const
 {
     nreads = m_nreads;
