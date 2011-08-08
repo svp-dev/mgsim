@@ -122,11 +122,12 @@ if test "x$enable_profile" = "xyes"; then
   AM_CXXFLAGS="$AM_CXXFLAGS -pg"
 fi
 
+AX_PTHREAD
+
 AC_ARG_ENABLE([monitor], 
-              [AC_HELP_STRING([--disable-monitor], [disable support for simulation monitoring])],
+              [AC_HELP_STRING([--disable-monitor], [disable support for simulation monitoring (default is try to enable)])],
               [], [enable_monitor=yes])
 if test "x$enable_monitor" = "xyes"; then
-  AX_PTHREAD
   if test "x$ax_pthread_ok" != "xyes"; then
      AC_MSG_WARN([POSIX threads not available, cannot use monitor.])
      enable_monitor=no
@@ -135,10 +136,13 @@ fi
 AM_CONDITIONAL([ENABLE_MONITOR], [test "x$enable_monitor" = "xyes"])
 
 AC_ARG_ENABLE([cacti], 
-              [AC_HELP_STRING([--enable-cacti], [enable support for area calculations with CACTI])],
-              [enable_cacti=yes], [])
+              [AC_HELP_STRING([--disable-cacti], [disable support for area calculations with CACTI (default is try to enable)])],
+              [], [enable_cacti=yes])
 if test "x$enable_cacti" = "xyes"; then
-  AX_PTHREAD
+  if ! test -d "$srcdir/cacti"; then
+     AC_MSG_WARN([CACTI sources not available, cannot use CACTI.])
+     enable_cacti=no
+  fi
   if test "x$ax_pthread_ok" != "xyes"; then
      AC_MSG_WARN([POSIX threads not available, cannot use CACTI.])
      enable_cacti=no
@@ -248,3 +252,31 @@ AC_CONFIG_FILES([tools/aslink], [chmod +x tools/aslink])
 AC_CONFIG_FILES([tools/compile], [chmod +x tools/compile])
 
 AC_OUTPUT
+
+cat <<EOF
+*
+* Configuration done.
+*
+* ISA target:             $target_cpu
+* 
+* SDL output:             $enable_sdl
+* Verbose trace checks:   $enable_verbose_trace_checks
+* Abort on trace failure: $enable_abort_on_trace_failure
+* Software IEEE754:       $enable_softfpu
+* Asynchronous monitor:   $enable_monitor
+* Area calculation:       $enable_cacti
+*
+* MT-Alpha tests:         $enable_mtalpha_tests
+* MT-SPARC tests:         $enable_mtsparc_tests
+* Compiled tests:         $enable_compiled_tests
+*
+* C++ compiler:           $CXX $CPPFLAGS $AM_CXXFLAGS $CXXFLAGS $LDFLAGS
+* Destination dir:        $prefix
+*
+Now run:
+
+    make all
+    make check
+
+EOF
+

@@ -2,7 +2,7 @@ SVN = svn
 bin_PROGRAMS =
 dist_man1_MANS = 
 MAINTAINERCLEANFILES =
-EXTRA_DIST =
+EXTRA_DIST = 
 
 include $(srcdir)/Makefile.inc
 
@@ -53,6 +53,10 @@ $(top_srcdir)/.version:
 	echo $(VERSION) >$@-t && mv $@-t $@
 
 dist-hook: check-version
+	## Ensure that CACTI is not bundled, as its license does not permit redistribution.
+	rm -rf $(distdir)/cacti
+
+	## prepare the version file
 	echo $(VERSION) >$(distdir)/build-aux/tarball-version
 	##
 	## we generate sources during configuration, which confuses Automake

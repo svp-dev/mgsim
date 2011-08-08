@@ -1,0 +1,20 @@
+--- io.cc	2011-08-08 22:51:50.000000000 +0200
++++ io_patched.cc	2011-08-08 22:49:32.000000000 +0200
+@@ -692,7 +692,7 @@
+     int p_input) 
+ {
+   g_ip = new InputParameter();
+-  g_ip->add_ecc_b_ = true;
++  g_ip->add_ecc_b_ = false;
+ 
+   g_ip->data_arr_ram_cell_tech_type    = data_arr_ram_cell_tech_flavor_in;
+   g_ip->data_arr_peri_global_tech_type = data_arr_peri_global_tech_flavor_in;
+@@ -821,7 +821,7 @@
+   }
+   solve(&fin_res);
+ 
+-  output_UCA(&fin_res);
++  //output_UCA(&fin_res);
+ 
+   delete (g_ip);
+   return fin_res;

@@ -94,6 +94,31 @@ ensures that consistency checks are performed throughout the
 simulation. It is possible to disable assertion checking with the
 parameter ``--disable-assert``.
 
+Area calculations with CACTI
+----------------------------
+
+The simulator can print the chip area usage of Microgrid components if
+the CACTI_ C++ library is available. To enable this feature, ensure that
+the CACTI source files are present in the ``cacti`` subdirectory of
+the MGSim sources tree before running ``configure``. For example::
+
+   $ ls ../source/dir
+   configure
+   Makefile.cacti.inc
+   cacti/README
+   cacti/io.cc
+   cacti/io.h
+   cacti/cacti_interface.h
+   ...
+   
+   $ configure ...
+
+Support for area calculation is enabled automatically if the CACTI
+sources are present. To disable this support, the parameter
+``--disable-cacti`` can be used as well.
+
+.. _CACTI: http://www.hpl.hp.com/research/cacti/
+
 Requirements
 ============
 
