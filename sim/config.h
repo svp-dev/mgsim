@@ -39,11 +39,11 @@ private:
         T val;
 
         val = strtoumax(start, &end, 0);
-        if (errno == EINVAL)
+        if (val == 0 && errno == EINVAL)
         {
             val = strtoimax(start, &end, 0);
         }
-        if (errno == EINVAL)
+        if (val == 0 && errno == EINVAL)
         {
             throw Simulator::exceptf<Simulator::SimulationException>("Configuration value for %s is not a number: %s", name.c_str(), start); 
         }
