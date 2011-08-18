@@ -38,12 +38,14 @@ private:
         char *end;
         T val;
 
+        errno = 0;
         val = strtoumax(start, &end, 0);
-        if (val == 0 && errno == EINVAL)
+        if (errno == EINVAL)
         {
+            errno = 0;
             val = strtoimax(start, &end, 0);
         }
-        if (val == 0 && errno == EINVAL)
+        if (errno == EINVAL)
         {
             throw Simulator::exceptf<Simulator::SimulationException>("Configuration value for %s is not a number: %s", name.c_str(), start); 
         }

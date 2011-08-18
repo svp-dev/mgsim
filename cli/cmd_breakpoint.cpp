@@ -41,6 +41,7 @@ bool cmd_bp_clear(const vector<string>& command, vector<string>& args, cli_conte
 
 bool cmd_bp_del(const vector<string>& command, vector<string>& args, cli_context& ctx)
 {
+    errno = 0;
     unsigned id = strtoul(args[0].c_str(), 0, 0);
     if (errno == EINVAL)
         cout << "Invalid breakpoint: " << args[0] << endl;
@@ -52,6 +53,7 @@ bool cmd_bp_del(const vector<string>& command, vector<string>& args, cli_context
 
 bool cmd_bp_enable(const vector<string>& command, vector<string>& args, cli_context& ctx)
 {
+    errno = 0;
     unsigned id = strtoul(args[0].c_str(), 0, 0);
     if (errno == EINVAL)
         cout << "Invalid breakpoint: " << args[0] << endl;
@@ -63,6 +65,7 @@ bool cmd_bp_enable(const vector<string>& command, vector<string>& args, cli_cont
 
 bool cmd_bp_disable(const vector<string>& command, vector<string>& args, cli_context& ctx)
 {
+    errno = 0;
     unsigned id = strtoul(args[0].c_str(), 0, 0);
     if (errno == EINVAL)
         cout << "Invalid breakpoint: " << args[0] << endl;

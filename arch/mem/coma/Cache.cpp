@@ -1089,6 +1089,7 @@ void COMA::Cache::Cmd_Read(std::ostream& out, const std::vector<std::string>& ar
         }
         if (arguments.size() > 3)
         {
+            errno = 0;
             seladdr = strtoumax(arguments[3].c_str(), 0, 0); 
             if (errno != EINVAL)
                 specific = true;

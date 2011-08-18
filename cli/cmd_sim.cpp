@@ -44,6 +44,7 @@ bool cmd_state(const vector<string>& command, vector<string>& args, cli_context&
 
 bool cmd_lookup(const vector<string>& command, vector<string>& args, cli_context& ctx)
 {
+    errno = 0;
     MemAddr addr = strtoull(args[0].c_str(), 0, 0);
     if (errno == EINVAL)
         cout << "Invalid address: " << args[0] << endl;
@@ -57,6 +58,7 @@ bool cmd_disas(const vector<string>& command, vector<string>& args, cli_context&
 {
     MemAddr addr = 0;
 
+    errno = 0;
     addr = strtoull(args[0].c_str(), 0, 0);
     if (errno == EINVAL)
     {
