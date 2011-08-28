@@ -210,6 +210,7 @@ enum CyclePhase {
 #define DebugIOWrite(msg, ...)   do { if ((GetKernel()->GetDebugMode() & Kernel::DEBUG_IO  ) && GetKernel()->GetCyclePhase() == PHASE_COMMIT) DebugSimWrite_((msg), ##__VA_ARGS__); } while(false)
 #define DebugRegWrite(msg, ...)  do { if ((GetKernel()->GetDebugMode() & Kernel::DEBUG_REG ) && GetKernel()->GetCyclePhase() == PHASE_COMMIT) DebugSimWrite_((msg), ##__VA_ARGS__); } while(false)
 #define DebugNetWrite(msg, ...)  do { if ((GetKernel()->GetDebugMode() & Kernel::DEBUG_NET ) && GetKernel()->GetCyclePhase() == PHASE_COMMIT) DebugSimWrite_((msg), ##__VA_ARGS__); } while(false)
+#define DebugIONetWrite(msg, ...)  do { if ((GetKernel()->GetDebugMode() & Kernel::DEBUG_IONET ) && GetKernel()->GetCyclePhase() == PHASE_COMMIT) DebugSimWrite_((msg), ##__VA_ARGS__); } while(false)
 #define DeadlockWrite(msg, ...)  do { if (GetKernel()->GetDebugMode() & Kernel::DEBUG_DEADLOCK) DeadlockWrite_((msg), ##__VA_ARGS__); } while(false)
 #define OutputWrite(msg, ...)    do { if (GetKernel()->GetCyclePhase() == PHASE_COMMIT) OutputWrite_((msg), ##__VA_ARGS__); } while(false)
 
@@ -234,6 +235,7 @@ public:
         DEBUG_IO       = 32, ///< Debug I/O requests
         DEBUG_REG      = 64, ///< Debug register accesses
         DEBUG_NET      = 128, ///< Debug network message (delegation/link)
+        DEBUG_IONET    = 256, ///< Debug I/O network message (interrupts/requests)
     };
     
 private:

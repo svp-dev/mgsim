@@ -15,6 +15,7 @@ bool cmd_trace_show(const vector<string>& command, vector<string>& args, cli_con
     if (m & Kernel::DEBUG_IO)       debugStr += " io";
     if (m & Kernel::DEBUG_REG)      debugStr += " regs";
     if (m & Kernel::DEBUG_NET)      debugStr += " net";
+    if (m & Kernel::DEBUG_IONET)      debugStr += " ionet";
     if (!debugStr.size()) debugStr = " (nothing)";
     cout << "Tracing enabled for:" << debugStr << endl;
     return false;
@@ -32,6 +33,7 @@ bool cmd_trace_debug(const vector<string>& command, vector<string>& args, cli_co
     else if (tcmd == "io")        ctx.sys.ToggleDebugMode(Kernel::DEBUG_IO);
     else if (tcmd == "regs")      ctx.sys.ToggleDebugMode(Kernel::DEBUG_REG);
     else if (tcmd == "net")       ctx.sys.ToggleDebugMode(Kernel::DEBUG_NET);
+    else if (tcmd == "ionet")     ctx.sys.ToggleDebugMode(Kernel::DEBUG_IONET);
     else if (tcmd == "all")       ctx.sys.SetDebugMode(-1);
     else if (tcmd == "none")      ctx.sys.SetDebugMode(0);
 

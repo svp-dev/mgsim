@@ -86,12 +86,12 @@ bool Processor::IONotificationMultiplexer::OnInterruptRequestReceived(IONotifica
 
     if (!m_mask[from])
     {
-        DebugIOWrite("Ignoring interrupt for disabled channel %u", (unsigned)from);
+        DebugIONetWrite("Ignoring interrupt for disabled channel %u", (unsigned)from);
         return true;
     }
     else
     {
-        DebugIOWrite("Activating interrupt status for channel %u", (unsigned)from);
+        DebugIONetWrite("Activating interrupt status for channel %u", (unsigned)from);
         return m_interrupts[from]->Set();
     }
 }
@@ -102,12 +102,12 @@ bool Processor::IONotificationMultiplexer::OnNotificationReceived(IONotification
 
     if (!m_mask[from])
     {
-        DebugIOWrite("Ignoring notification for disabled channel %u (tag %#016llx)", (unsigned)from, (unsigned long long)tag);
+        DebugIONetWrite("Ignoring notification for disabled channel %u (tag %#016llx)", (unsigned)from, (unsigned long long)tag);
         return true;
     }
     else
     {
-        DebugIOWrite("Queuing notification for channel %u (tag %#016llx)", (unsigned)from, (unsigned long long)tag);
+        DebugIONetWrite("Queuing notification for channel %u (tag %#016llx)", (unsigned)from, (unsigned long long)tag);
         return m_notifications[from]->Push(tag);
     }
 }

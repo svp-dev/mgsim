@@ -45,7 +45,7 @@ namespace Simulator
     {
         CheckEndPoints(from, to);
 
-        DebugIOWrite("Sending read request from device %u to device %u (%#016llx/%u)", (unsigned)from, (unsigned)to, (unsigned long long)address, (unsigned)size);
+        DebugIONetWrite("Sending read request from device %u to device %u (%#016llx/%u)", (unsigned)from, (unsigned)to, (unsigned long long)address, (unsigned)size);
         return m_clients[to]->OnReadRequestReceived(from, address, size);
     }
 
@@ -53,7 +53,7 @@ namespace Simulator
     {
         CheckEndPoints(from, to);
 
-        DebugIOWrite("Sending read response from device %u to device %u (%#016llx/%u)", (unsigned)from, (unsigned)to, (unsigned long long)address, (unsigned)data.size);
+        DebugIONetWrite("Sending read response from device %u to device %u (%#016llx/%u)", (unsigned)from, (unsigned)to, (unsigned long long)address, (unsigned)data.size);
         return m_clients[to]->OnReadResponseReceived(from, address, data);
     }
 
@@ -61,7 +61,7 @@ namespace Simulator
     {
         CheckEndPoints(from, to);
 
-        DebugIOWrite("Sending write request from device %u to device %u (%#016llx/%u)", (unsigned)from, (unsigned)to, (unsigned long long)address, (unsigned)data.size);
+        DebugIONetWrite("Sending write request from device %u to device %u (%#016llx/%u)", (unsigned)from, (unsigned)to, (unsigned long long)address, (unsigned)data.size);
         return m_clients[to]->OnWriteRequestReceived(from, address, data);
     }
 
@@ -72,7 +72,7 @@ namespace Simulator
             throw exceptf<SimulationException>(*this, "I/O from non-existent device %u", (unsigned)from);
         }
 
-        DebugIOWrite("Sending interrupt request from device %u to channel %u", (unsigned)from, (unsigned)which);
+        DebugIONetWrite("Sending interrupt request from device %u to channel %u", (unsigned)from, (unsigned)which);
 
         bool res = true;
         for (size_t to = 0; to < m_clients.size(); ++to)
@@ -90,7 +90,7 @@ namespace Simulator
             throw exceptf<SimulationException>(*this, "I/O from non-existent device %u", (unsigned)from);
         }
 
-        DebugIOWrite("Sending notification from device %u to channel %u (tag %#016llx)", (unsigned)from, (unsigned)which, (unsigned long long)tag);
+        DebugIONetWrite("Sending notification from device %u to channel %u (tag %#016llx)", (unsigned)from, (unsigned)which, (unsigned long long)tag);
 
         bool res = true;
         for (size_t to = 0; to < m_clients.size(); ++to)
@@ -204,7 +204,7 @@ namespace Simulator
     {
         if (which >= m_clients.size() || m_clients[which] == NULL)
         {
-            DebugIOWrite("I/O identification request to non-existent device %u", (unsigned)which);
+            DebugIONetWrite("I/O identification request to non-existent device %u", (unsigned)which);
             id.provider = 0;
             id.model = 0;
             id.revision = 0;
