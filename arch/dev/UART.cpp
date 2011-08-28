@@ -2,9 +2,30 @@
 #include "sim/config.h"
 #include <iomanip>
 #include <cstring>
+#include <cstdlib>
 #include <fcntl.h>
 
 using namespace std;
+
+#undef get_pty_master
+
+#if defined(HAVE_POSIX_TERMIOS) && defined(HAVE_TCGETATTR) && defined(HAVE_TCSETATTR) && \
+    defined(HAVE_UNLOCKPT) && defined(HAVE_GRANTPT) && defined(HAVE_PTSNAME) 
+
+#include <termios.h>
+
+# if defined(HAVE_POSIX_OPENPT)
+#  define get_pty_master() posix_openpt(O_RDWR|O_NOCTTY)
+# else
+#  if defined(HAVE_GETPT)
+#   define get_pty_master() getpt(O_RDWR|O_NOCTTY)
+#  else
+#   if defined(HAVE_DEV_PTMX)
+#     define get_pty_master() open("/dev/ptmx", O_RDWR|O_NOCTTY)
+#   endif
+#  endif
+# endif
+#endif
 
 namespace Simulator
 {
@@ -93,6 +114,47 @@ namespace Simulator
             m_fd_out = STDOUT_FILENO;
             ein = eout = 0;
         }
+#ifdef get_pty_master
+        else if (connectMode == "PTY")
+        {
+            int master_fd;
+            char *slave_name;
+
+            // Open master PTY and get name of slave side
+            if (-1 == (master_fd = get_pty_master()))
+                throw exceptf<SimulationException>("Unable to obtain pty master (%s)", strerror(errno));
+            if (-1 == grantpt(master_fd))
+                throw exceptf<SimulationException>("grantpt: %s", strerror(errno));
+            if (-1 == unlockpt(master_fd))
+                throw exceptf<SimulationException>("unlockpt: %s", strerror(errno));
+            if (NULL == (slave_name = ptsname(master_fd)))
+                throw exceptf<SimulationException>("ptsname: %s", strerror(errno));
+
+            // configure master side: disable echo, buffering, control flow etc
+            struct termios tio;
+            if (-1 == tcgetattr(master_fd, &tio))
+                throw exceptf<SimulationException>("tcgetattr: %s", strerror(errno));
+
+            tio.c_iflag &= ~(IXON|IXOFF|ICRNL|INLCR|IGNCR|IMAXBEL|ISTRIP);
+            tio.c_iflag |= IGNBRK;
+            tio.c_oflag &= ~(OPOST|ONLCR|OCRNL|ONLRET);
+            tio.c_lflag &= ~(IEXTEN|ICANON|ECHO|ECHOE|ECHONL|ECHOCTL|ECHOPRT|ECHOKE|ECHOCTL|ISIG);
+            tio.c_cc[VMIN] = 1;
+            tio.c_cc[VTIME] = 0;
+
+            if (-1 == tcsetattr(master_fd, TCSANOW, &tio))
+                throw exceptf<SimulationException>("tcsetattr: %s", strerror(errno));
+            tcflush(master_fd, TCIOFLUSH);
+
+            cerr << GetFQN() << ": slave tty at " << slave_name << endl;
+            
+            ostringstream os;
+            os << "<pty master for " << slave_name << ">";
+            fin = fout = os.str();
+            m_fd_in = m_fd_out = master_fd;
+            ein = eout = 0;
+        }
+#endif
         else
         {
             throw exceptf<InvalidArgumentException>("Invalid UARTConnectMode: %s", connectMode.c_str());

@@ -53,6 +53,23 @@ AC_CHECK_MEMBERS([struct stat.st_atimespec],[],[],[#include <sys/stat.h>])
 AC_CHECK_MEMBERS([struct stat.st_mtimespec],[],[],[#include <sys/stat.h>])
 AC_CHECK_MEMBERS([struct stat.st_ctimespec],[],[],[#include <sys/stat.h>])
 
+# support for PTYs
+AC_SYS_POSIX_TERMIOS
+AC_CHECK_FUNCS([tcsetattr tcgetattr])
+if test $ac_cv_sys_posix_termios = yes; then
+  AC_DEFINE([HAVE_POSIX_TERMIOS], [1], [Define to 1 if termios.h is available])
+fi
+
+AC_CHECK_FUNCS([posix_openpt unlockpt ptsname grantpt getpt])
+AC_MSG_CHECKING([for /dev/ptmx])
+if test -c /dev/ptmx -a -r /dev/ptmx -a -w /dev/ptmx; then
+   AC_DEFINE([HAVE_DEV_PTMX], [1], [Define to 1 if /dev/ptmx is supported])
+   have_dev_ptmx=yes
+else
+   have_dev_ptmx=no
+fi
+AC_MSG_RESULT([$have_dev_ptmx])
+
 # --enable-assert
 AC_HEADER_ASSERT
 
