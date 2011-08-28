@@ -256,7 +256,7 @@ namespace Simulator
             DebugIOWrite("Latching one byte to external stream: %#02x", (unsigned)m_hwbuf_out);
         }
             
-        if (m_writeInterruptEnable && m_fifo_out.size() - 1 < m_writeInterruptThreshold)
+        if (m_writeInterruptEnable && m_fifo_out.size() < m_writeInterruptThreshold + 1)
             m_writeInterrupt.Set();
 
         m_fifo_out.Pop();
@@ -329,7 +329,7 @@ namespace Simulator
                 COMMIT {
                     m_writeInterruptEnable = true;
                 }
-                if (m_fifo_out.size() - 1 < m_writeInterruptThreshold)
+                if (m_fifo_out.size() < m_writeInterruptThreshold + 1)
                     m_writeInterrupt.Set();
             }
             break;
@@ -413,7 +413,7 @@ namespace Simulator
     }
 
 
-    bool UART::OnReadRequestReceived(IODeviceID from, MemAddr addr, size_t size)
+    bool UART::OnReadRequestReceived(IODeviceID from, MemAddr addr, MemSize size)
     {
         if (size != 1 || addr > 10)
         {
@@ -555,8 +555,6 @@ namespace Simulator
 
     bool UART::OnStreamReady(int fd, Selector::StreamState state)
     {
-        bool active = false;
-
         // fprintf(stderr, "External fd %d is ready for I/O (state %d) in %d out %d\n", fd, (int)state, m_fd_in, m_fd_out);
 
         if (fd == m_fd_in && (state & Selector::READABLE))
@@ -590,7 +588,6 @@ namespace Simulator
                     m_hwbuf_in_full = true;
                     m_receiveEnable.Set();
                     DebugIOWrite("Acquired one byte from fd %d to input latch: %#02x", fd, (unsigned)m_hwbuf_in);
-                    active = true;
                 }
             }
         }
@@ -619,11 +616,11 @@ namespace Simulator
             }
             else
             {
-                DebugIOWrite("Output latch empty, nothing to send");
+                /* nothing to do */
+                /* DebugIOWrite("Output latch empty, nothing to send"); */
             }
-            active = true;
         }
-        return active;
+        return true;
     }
 
     string UART::GetSelectorClientName() const

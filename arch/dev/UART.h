@@ -74,7 +74,7 @@ namespace Simulator
 
 
         // from IIOBusClient
-        bool OnReadRequestReceived(IODeviceID from, MemAddr addr, size_t size);
+        bool OnReadRequestReceived(IODeviceID from, MemAddr addr, MemSize size);
         bool OnWriteRequestReceived(IODeviceID from, MemAddr addr, const IOData& data);
         void GetDeviceIdentity(IODeviceIdentification& id) const;
         std::string GetIODeviceName() const;
