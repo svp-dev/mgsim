@@ -60,6 +60,8 @@ namespace Simulator
         bool m_loopback;
         unsigned char m_scratch;
 
+        std::string m_fin_name;
+        std::string m_fout_name;
         int m_fd_in;
         int m_fd_out;
         bool m_enabled;

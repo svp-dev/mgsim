@@ -169,6 +169,8 @@ namespace Simulator
             throw exceptf<InvalidArgumentException>("Unable to open file for output: %s (%s)", fout.c_str(), strerror(eout));
         }
 
+        m_fin_name = fin;
+        m_fout_name = fout;
         m_fifo_out.Sensitive(p_Transmit);
         m_receiveEnable.Sensitive(p_Receive);
         m_sendEnable.Sensitive(p_Send);
@@ -635,6 +637,8 @@ namespace Simulator
         out << "The Universal Asynchronous Receiveir-Transmitter is a serial device." << endl
             << endl
             << "Enabled: " << (m_enabled ? "yes" : "no") << endl
+            << "Input file: " << m_fin_name << endl
+            << "Output file: " << m_fout_name << endl
             << "Transmit hold register: " << (m_sendEnable.IsSet() ? "full" : "empty") << endl
             << "Read interrupt enable: " << (m_readInterruptEnable ? "yes" : "no") << endl
             << "Read interrupt active: " << (m_readInterrupt.IsSet() ? "yes" : "no") << endl
