@@ -379,25 +379,28 @@ namespace Simulator
             break;
 
         case 10: // extension
-            COMMIT { 
-                if (!m_enabled)
-                {
-                    DebugIOWrite("Activating the UART");
-                    Selector::GetSelector().RegisterStream(m_fd_in, *this); 
-                    if (m_fd_in != m_fd_out)
-                        Selector::GetSelector().RegisterStream(m_fd_out, *this); 
-                    m_enabled = true;
-                }
-                else
-                {
-                    DebugIOWrite("De-activating the UART");
+            if (!data && m_enabled)
+            {
+                DebugIOWrite("De-activating the UART");
+                m_writeInterrupt.Clear();
+                m_readInterrupt.Clear();
+                COMMIT {
                     Selector::GetSelector().UnregisterStream(m_fd_in); 
                     if (m_fd_in != m_fd_out)
                         Selector::GetSelector().UnregisterStream(m_fd_out); 
                     m_enabled = false;
                 }
             }
-                
+            else if (data && !m_enabled)
+            {
+                DebugIOWrite("Activating the UART");
+                COMMIT {
+                    Selector::GetSelector().RegisterStream(m_fd_in, *this); 
+                    if (m_fd_in != m_fd_out)
+                        Selector::GetSelector().RegisterStream(m_fd_out, *this); 
+                    m_enabled = true;
+                }
+            }
             break;
 
 
