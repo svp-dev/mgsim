@@ -7,7 +7,7 @@
 
 class IOBusInterface;
 
-class IONotificationMultiplexer : public Object
+class IONotificationMultiplexer : public Object, public Inspect::Interface<Inspect::Read>
 {
 private:
     RegisterFile&                   m_regFile;
@@ -42,6 +42,10 @@ public:
     
     // upon interrupt received
     Result DoReceivedNotifications();
+
+    void Cmd_Info(std::ostream& out, const std::vector<std::string>& arguments) const;
+    void Cmd_Read(std::ostream& out, const std::vector<std::string>& arguments) const;
+    
 };
 
 

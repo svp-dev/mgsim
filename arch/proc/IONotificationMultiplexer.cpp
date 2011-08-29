@@ -267,5 +267,50 @@ Result Processor::IONotificationMultiplexer::DoReceivedNotifications()
     return SUCCESS;
 }
 
+
+void Processor::IONotificationMultiplexer::Cmd_Info(ostream& out, const vector<string>& args) const
+{
+    out << "I/O notification multiplexer." << endl
+        << endl
+        << "Number of channels: " << m_writebacks.size() << endl;
+}
+
+void Processor::IONotificationMultiplexer::Cmd_Read(ostream& out, const vector<string>& args) const
+{
+    out << "Channel | Enable | WB    | Int. Latch | Notifications" << endl
+        << "--------+--------+-------+------------+---------------------" << endl;
+    for (size_t i = 0; i < m_writebacks.size(); ++i)
+    {
+        out << setfill(' ') << setw(7) << i
+            << " | "
+            << setw(6) << setfill(' ')
+            << (m_mask[i] ? "yes" : "no")
+            << " | ";
+        if (m_writebacks[i]->Empty())
+        {
+            out << "  -  ";
+        }
+        else
+        {
+            out << m_writebacks[i]->Read().str();
+        }
+        out << " | " << setw(10) << setfill(' ')
+            << (m_interrupts[i]->IsSet() ? "set" : "unset")
+            << " | ";
+        if (m_notifications[i]->Empty())
+        {
+            out << "none";
+        }
+        else
+        {
+            for (Buffer<Integer>::const_iterator p = m_notifications[i]->begin(); p != m_notifications[i]->end(); ++p)
+            {
+                out << hex << *p << ' ';
+            }
+        }
+        out << dec << endl;
+    }
+}
+
     
 }
