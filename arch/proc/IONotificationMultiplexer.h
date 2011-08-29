@@ -22,6 +22,8 @@ public:
     std::vector<bool>               m_mask;
     std::vector<SingleFlag*>        m_interrupts;
     std::vector<Buffer<Integer>*>   m_notifications;
+    std::vector<ArbitratedService<>*> m_services;
+
 
 private:
     size_t                          m_lastNotified;

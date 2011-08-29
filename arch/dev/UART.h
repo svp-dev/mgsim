@@ -67,7 +67,7 @@ namespace Simulator
         bool m_enabled;
 
         Process p_dummy;
-        Result DoNothing() { p_dummy.Deactivate(); return SUCCESS; }
+        Result DoNothing() { COMMIT{ p_dummy.Deactivate(); }; return SUCCESS; }
 
     public:
         UART(const std::string& name, Object& parent, IIOBus& iobus, IODeviceID devid, Config& config);

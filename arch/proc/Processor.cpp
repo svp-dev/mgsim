@@ -110,8 +110,16 @@ void Processor::Initialize(Processor* prev, Processor* next)
     
     if (m_io_if != NULL)
     {
-        m_allocator.p_readyThreads.AddProcess(m_io_if->GetNotificationMultiplexer().p_IncomingNotifications); // Thread wakeup due to notification 
+        IONotificationMultiplexer &nmux = m_io_if->GetNotificationMultiplexer();
+
+        m_allocator.p_readyThreads.AddProcess(nmux.p_IncomingNotifications); // Thread wakeup due to notification 
         m_allocator.p_readyThreads.AddProcess(m_io_if->GetReadResponseMultiplexer().p_IncomingReadResponses); // Thread wakeup due to I/O read completion
+
+        for (size_t i = 0; i < nmux.m_services.size(); ++i)
+        {
+            nmux.m_services[i]->AddProcess(nmux.p_IncomingNotifications);
+            nmux.m_services[i]->AddProcess(m_pipeline.p_Pipeline);
+        }
     }
 
     m_allocator.p_readyThreads.AddProcess(m_network.p_Link);                // Thread wakeup due to write
