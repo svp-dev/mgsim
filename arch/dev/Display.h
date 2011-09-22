@@ -96,7 +96,7 @@ namespace Simulator
         static Display* GetDisplay() { return m_singleton; }
 
     protected:
-        void Resize(unsigned w, unsigned h); 
+        void Resize(unsigned w, unsigned h, bool erase); 
         void Refresh() const;
         void ResetCaption() const;
         void ResizeScreen(unsigned int w, unsigned int h);

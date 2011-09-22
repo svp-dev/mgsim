@@ -137,7 +137,7 @@ namespace Simulator
             COMMIT {
                 disp.m_indexed = req_indexed;
                 disp.m_bpp = req_bpp;
-                disp.Resize(act_w, act_h);
+                disp.Resize(act_w, act_h, !!value);
             }
             DebugIOWrite("Setting resolution to %ux%ux%u", (unsigned)act_w, (unsigned)act_h, (unsigned)req_bpp);
         }
@@ -644,10 +644,13 @@ namespace Simulator
     }
 
 
-    void Display::Resize(unsigned int w, unsigned int h)
+    void Display::Resize(unsigned int w, unsigned int h, bool erase)
     {
         m_width  = w;
         m_height = h;
+
+        if (erase)
+            memset(&m_framebuffer[0], 0, w * h * m_bpp / 8);
     
 #ifdef USE_SDL
         // Try to resize the screen as well

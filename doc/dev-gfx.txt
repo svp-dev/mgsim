@@ -21,12 +21,12 @@ operations. Its device address space is as follows:
 32-bit word   Mode    Description
 ============= ======= ===========================================
 0             R       Boolean: indicates whether the physical screen is connected
+0             W       Command: commit the mode configured using words 1-3, non-zero clears screen
 1             R       Current width in pixels
-2             R       Current height in pixels
-3             R       Current pixel mode (see below)
-0             W       Command: commit the mode configured using words 1-3
 1             W       Desired width in pixels
+2             R       Current height in pixels
 2             W       Desired height in pixels
+3             R       Current pixel mode (see below)
 3             W       Desired pixel mode (see below)
 4             W       Command: dump the framebuffer contents
 5             R/W     Image index (key) for the next dump       
