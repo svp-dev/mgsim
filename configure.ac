@@ -275,7 +275,8 @@ cat <<EOF
 * Configuration done.
 *
 * ISA target:             $target_cpu
-* 
+*
+* CACTI area computation: $enable_cacti 
 * SDL output:             $enable_sdl
 * Verbose trace checks:   $enable_verbose_trace_checks
 * Abort on trace failure: $enable_abort_on_trace_failure
