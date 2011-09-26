@@ -423,7 +423,7 @@ void sys_detect_devs(void)
 
     mg_devinfo.nchannels = n_chans;
     mg_devinfo.channels = pnc_base;
-    mg_io_place_id = get_current_place();
+    mg_io_place_id = get_local_place();
 
     /* try to find the SMC */
     size_t smc_id = (io_params >> 16) & 0xff;
