@@ -3,6 +3,7 @@
 #include "sim/sampling.h"
 #include "sim/log2.h"
 #include "sim/config.h"
+#include "sim/ctz.h"
 
 #include <cassert>
 
@@ -431,11 +432,11 @@ PlaceID Processor::UnpackPlace(Integer id) const
     // Clear the capability bits
     id &= (2ULL << m_bits.pid_bits) - 1;
     
-    // "Default" place is encoded as size = 0
+    // ctz below only works if id != 0
     if (id != 0)
     {
         // Find the lowest bit that's set to 1
-        unsigned int bits = __builtin_ctz(id);
+        unsigned int bits = ctz(id);
         place.size = (1 << bits);           // That bit is the size
         place.pid  = (id - place.size) / 2; // Clear bit and shift to get base
     }

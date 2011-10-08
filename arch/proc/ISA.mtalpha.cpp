@@ -1086,7 +1086,7 @@ Processor::Pipeline::PipeAction Processor::Pipeline::ExecuteStage::ExecuteInstru
                             PlaceID place;
                             place.size = m_input.placeSize;
                             place.pid  = m_parent.GetProcessor().GetPID() & -place.size;
-                            place.capability = 0;
+                            place.capability = 0x1337; // later: find a proper substitute
                             m_output.Rcv.m_integer = m_parent.GetProcessor().PackPlace(place);
                             break;
                         }

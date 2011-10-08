@@ -117,6 +117,16 @@ bool Processor::Pipeline::ExecuteStage::ExecAllocate(PlaceID place, RegIndex reg
         // Inherit the parent's place
         place.size = m_input.placeSize;
         place.pid  = (m_parent.GetProcessor().GetPID() / place.size) * place.size;
+        place.capability = 0x1337; // also later: copy the place capability from the parent.
+    } 
+    else if (place.size == 1 && place.capability == 0)
+    {
+        if (place.pid == 0)
+        {
+            // Local place
+            place.pid  = m_parent.GetProcessor().GetPID();
+        }
+        place.capability = 0x1337; // also later: copy the place capability from the parent.
     }
     
     // Size must be a power of two and ID a multiple of size.
