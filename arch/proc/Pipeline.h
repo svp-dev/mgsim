@@ -75,6 +75,7 @@ class Pipeline : public Object, public Inspect::Interface<Inspect::Read>
         
         // Memory store data source
         RegAddr      Rs;
+        bool         RsIsLocal;
         unsigned int RsSize;
 
     ArchDecodeReadLatch() : op1(0), op2(0), op3(0), function(0), asi(0), displacement(0), RsSize(0) {}
@@ -164,6 +165,7 @@ class Pipeline : public Object, public Inspect::Interface<Inspect::Read>
 
         // Registers addresses, types and sizes
         RegAddr         Ra,  Rb,  Rc;
+        bool            RaIsLocal, RbIsLocal;
         unsigned int    RaSize, RbSize, RcSize;
         bool            RaNotPending; // Ra is only used to check for Not Pending
         
@@ -264,7 +266,7 @@ class Pipeline : public Object, public Inspect::Interface<Inspect::Read>
         DecodeReadLatch&        m_output;
 
         PipeAction OnCycle();
-        RegAddr TranslateRegister(uint8_t reg, RegType type, unsigned int size, bool writing) const;
+        RegAddr TranslateRegister(uint8_t reg, RegType type, unsigned int size, bool writing, bool *islocal) const;
         void    DecodeInstruction(const Instruction& instr);
 
 #if defined(TARGET_MTALPHA)
@@ -282,6 +284,7 @@ class Pipeline : public Object, public Inspect::Interface<Inspect::Read>
             RegAddr            addr;      ///< (Base) address of the operand
             PipeValue          value;     ///< Final value
             int                offset;    ///< Sub-register of the operand we are currently reading
+            bool               islocal;   ///< Whether the operand is a local register (not channel)
             
             // Address and value as read from the register file
             // The PipeValue actually contains a RegValue, but this way the code can remain generic
@@ -291,6 +294,7 @@ class Pipeline : public Object, public Inspect::Interface<Inspect::Read>
         
         bool ReadRegister(OperandInfo& operand, uint32_t literal);
         bool ReadBypasses(OperandInfo& operand);
+        void CheckLocalOperand(OperandInfo& operand) const;
         bool CheckOperandForSuspension(const OperandInfo& operand, const RegAddr& addr);
         void Clear(TID tid);
         PipeAction OnCycle();

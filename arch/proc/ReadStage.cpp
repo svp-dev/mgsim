@@ -252,6 +252,24 @@ bool Processor::Pipeline::ReadStage::ReadBypasses(OperandInfo& operand)
 }
 
 /*
+ Checks if the operand is both EMPTY and a local register, and if so replace with zero.
+ @param [in,out]  operand The operand to check
+*/
+void Processor::Pipeline::ReadStage::CheckLocalOperand(OperandInfo& operand) const
+{
+    if (operand.value.m_state == RST_EMPTY && operand.islocal)
+    {
+        operand.value.m_state = RST_FULL;
+        switch (operand.addr.type)
+        {
+        case RT_INTEGER: operand.value.m_integer.set(0, operand.value.m_size); break;
+        case RT_FLOAT:   operand.value.m_float.fromint(0, operand.value.m_size); break;
+        default: assert(0);
+        }
+    }
+}
+
+/*
  Checks if the operand is FULL and if not, writes the output (Rav) to suspend on the missing register.
  @param [in]  operand The operand to check
  @param [in]  addr    The base address of the operand
@@ -290,8 +308,10 @@ Processor::Pipeline::PipeAction Processor::Pipeline::ReadStage::OnCycle()
         // Initialize the operand data
         operand1.addr         = m_input.Ra;
         operand1.value.m_size = m_input.RaSize;
+        operand1.islocal      = m_input.RaIsLocal;
         operand2.addr         = m_input.Rb;
         operand2.value.m_size = m_input.RbSize;
+        operand2.islocal      = m_input.RbIsLocal;
     
         m_RaNotPending = m_input.RaNotPending;
         
@@ -308,6 +328,7 @@ Processor::Pipeline::PipeAction Processor::Pipeline::ReadStage::OnCycle()
                 // Check/Store value hasn't been read yet, so read it first
                 operand1.addr         = m_input.Rs;
                 operand1.value.m_size = m_input.RsSize;
+                operand1.islocal      = m_input.RsIsLocal;
                 operand2.addr         = INVALID_REG;
             }
             else
@@ -396,6 +417,9 @@ Processor::Pipeline::PipeAction Processor::Pipeline::ReadStage::OnCycle()
             operand1.value.m_state = RST_FULL;
         }
     }
+
+    CheckLocalOperand(operand1);
+    CheckLocalOperand(operand2);
     
     if (!CheckOperandForSuspension(operand1, m_input.Ra))  // Suspending on operand #1?
     if (!CheckOperandForSuspension(operand2, m_input.Rb))  // Suspending on operand #2?
