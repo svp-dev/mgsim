@@ -3,6 +3,7 @@ SIM_SOURCES = \
 	sim/breakpoints.h \
 	sim/config.cpp \
 	sim/config.h \
+        sim/ctz.h \
 	sim/delegate.h \
 	sim/except.h \
 	sim/except.cpp \
