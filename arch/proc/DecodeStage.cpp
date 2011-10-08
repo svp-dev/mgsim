@@ -62,7 +62,7 @@ RegAddr Processor::Pipeline::DecodeStage::TranslateRegister(unsigned char reg, R
             return MAKE_REGADDR(type, family.base + family.size - family.count.globals + reg);
             
         case RC_SHARED:
-            if (reg + nRegs > family.count.shareds || !writing)
+            if (reg + nRegs > family.count.shareds)
             {
                 throw IllegalInstruction();
             }
