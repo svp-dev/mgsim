@@ -920,13 +920,16 @@ bool Processor::Allocator::QueueBundle(const MemAddr addr, Integer parameter, Re
     info.addr           = addr;
     info.parameter      = parameter;
     info.completion_reg = completion_reg;
+
     if (!m_bundle.Push(info))
     {
+        DeadlockWrite("Unable to queue bundle creation at 0x%016llx with parameter %lld and completion register %u", 
+                      (unsigned long long)addr, (long long)parameter, (unsigned)completion_reg);
         return false;
     }
     
-    DebugSimWrite("Queued bundle allocation at 0x%016llx with parameter %lld and completion register %u", 
-                  (unsigned long long)info.addr, (long long)info.parameter, (unsigned)info.completion_reg);
+    DebugSimWrite("Queued bundle creation at 0x%016llx with parameter %lld and completion register %u", 
+                  (unsigned long long)addr, (long long)parameter, (unsigned)completion_reg);
     return true;
 }
 

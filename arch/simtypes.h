@@ -332,7 +332,7 @@ enum RemoteRegType
     RRT_FIRST_DEPENDENT,    ///< The dependents in the first thread in the family
     RRT_LAST_SHARED,        ///< The last shareds in the family, meant for the parent
     RRT_DETACH,             ///< Fake remote reg type. This signals family detachment
-    RRT_BRK,				///< Fake remote reg type. This signals family break
+    RRT_BRK,                ///< Fake remote reg type. This signals family break
 };
 
 const char* GetRemoteRegisterTypeString(RemoteRegType type);

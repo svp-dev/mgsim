@@ -128,9 +128,6 @@ enum {
     S_OPF_FPRINTD = 0x03,
     S_OPF_FPRINTQ = 0x04,
     S_OPF_FNEG    = 0x05,
-    S_OPF_FPUTS   = 0x06,
-    S_OPF_FPUTG   = 0x07,
-    S_OPF_FGETS   = 0x08,
     S_OPF_FABS    = 0x09,
     S_OPF_FSQRTS  = 0x29,
     S_OPF_FSQRTD  = 0x2a,
@@ -169,41 +166,60 @@ enum {
     S_OPF_FQTOI   = 0xd3,
 };
 
-// opt (op1 is S_OP1_OTHER, op3 is S_OP3_RDASR, rs1=20)
+/* the following functions are present in the opcode for RDASR/WRASR %ASR20/%ASR19 */
+
+// opt (op1 is S_OP1_OTHER, op3 is S_OP3_RDASR, rs1=20 (0x14))
 enum {
-    S_OPT_ALLOCATE  = 0x01,
-    S_OPT_SYNC      = 0x02,
-    S_OPT_GETTID    = 0x03,
-    S_OPT_GETFID    = 0x04,
-    S_OPT_GETPID    = 0x05,
-    S_OPT_GETCID    = 0x06,
-    S_OPT_LDBP      = 0x07,
-    S_OPT_LDFP      = 0x08,
-    S_OPT_ALLOCATES = 0x09,
-    S_OPT_ALLOCATEX = 0x0A,
-    S_OPT_GETS      = 0x0B,
-    S_OPT_FGETS     = 0x0C,
-    S_OPT_CREBAS    = 0x0E,
-    S_OPT_CREBIS    = 0x0F, 
+    S_OPT1_ALLOCATE  = 0x01,
+    /* 0x02 reserved for FPGA create */
+    S_OPT1_GETTID    = 0x03,
+    S_OPT1_GETFID    = 0x04,
+    S_OPT1_GETPID    = 0x05,
+    S_OPT1_GETCID    = 0x06,
+    S_OPT1_CREATE    = 0x07,
+    S_OPT1_SYNC      = 0x08,
+    S_OPT1_ALLOCATES = 0x09,
+    S_OPT1_ALLOCATEX = 0x0A,
+    S_OPT1_GETS      = 0x0B,
+    S_OPT1_GETG      = 0x0C,   
+    S_OPT1_FGETS     = 0x0D,
+    S_OPT1_FGETG     = 0x0E,
 };
 
-// opt (op1 is S_OP1_OTHER, op3 is S_OP3_WRASR, rd=20)
+// opt (op1 is S_OP1_OTHER, op3 is S_OP3_RDASR, rs1=19 (0x13))
 enum {
-    S_OPT_SETSTART  = 0x02,
-    S_OPT_SETLIMIT  = 0x03,
-    S_OPT_SETSTEP   = 0x04,
-    S_OPT_SETBLOCK  = 0x05,
-    S_OPT_CREATE    = 0x06,
-    S_OPT_PUTG      = 0x07,
-    S_OPT_PUTS      = 0x08,
-    S_OPT_DETACH    = 0x09,
-    S_OPT_BREAK     = 0x0A,
-    S_OPT_PRINT     = 0x0B,
-    S_OPT_FPUTG     = 0x0C,
-    S_OPT_FPUTS     = 0x0D,
-    S_OPT_CREBA     = 0x0E,
-    S_OPT_CREBI     = 0x0F,   
+    S_OPT2_LDBP      = 0x01,
+    S_OPT2_LDFP      = 0x02,
+    S_OPT2_CREBAS    = 0x03,
+    S_OPT2_CREBIS    = 0x04, 
 };
+
+// opt (op1 is S_OP1_OTHER, op3 is S_OP3_WRASR, rd=20 (0x14))
+enum {
+    /* 0x01 reserved for FPGA launch */
+    S_OPT1_SETSTART  = 0x02,
+    S_OPT1_SETLIMIT  = 0x03,
+    S_OPT1_SETSTEP   = 0x04,
+    S_OPT1_SETBLOCK  = 0x05,
+    /* 0x06 reserved for FPGA setthread */
+    S_OPT1_DETACH    = 0x09,
+    S_OPT1_BREAK     = 0x0A,
+    S_OPT1_PUTS      = 0x0B,
+    S_OPT1_PUTG      = 0x0C,
+    S_OPT1_FPUTS     = 0x0D,
+    S_OPT1_FPUTG     = 0x0E,
+};
+
+// opt (op1 is S_OP1_OTHER, op3 is S_OP3_WRASR, rd=19)
+enum {
+
+    S_OPT2_CREBA     = 0x03,
+    S_OPT2_CREBI     = 0x04,   
+
+    S_OPT2_PRINT     = 0x0F,
+};
+
+
 
 // Processor State Register flags
 static const PSR PSR_CWP   = 0x0000001FUL; // Current Window Pointer

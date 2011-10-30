@@ -2,7 +2,7 @@
     .file "ceb_a.s"
     .text
 
-    .globl main   
+    .globl main
 main:
     ldfp 	%1
     set  	bar,%2

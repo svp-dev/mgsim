@@ -261,28 +261,24 @@ void Processor::Pipeline::DecodeStage::DecodeInstruction(const Instruction& inst
             m_output.displacement = Rc;
             m_output.function = (uint16_t)((instr >> OPT_SHIFT) & OPT_MASK);
             m_output.asi = (instr >> UTASI_SHIFT) & UTASI_MASK;
-
+            
             if (instr & BIT_IMMEDIATE) {
-                m_output.literal = (Rc == 0x14)
+                m_output.literal = ((Rc == 0x14/*ASR20*/) || (Rc == 0x13/*ASR19*/))
                     ? SEXT((instr >> IMM9_SHIFT ) & IMM9_MASK , IMM9_SIZE)
                     : SEXT((instr >> IMM13_SHIFT) & IMM13_MASK, IMM13_SIZE);
             } else {
                 m_output.Rb = MAKE_REGADDR(RT_INTEGER, Rb);
             }           
-
-            switch (m_output.function)
-            {
-            case S_OPT_CREATE: // Special case, Rc is output as well
-                m_output.Rc = MAKE_REGADDR(RT_INTEGER, Ra);
-                break;
-
-            case S_OPT_FPUTS:
-            case S_OPT_FPUTG:
-                m_output.Rb = MAKE_REGADDR(RT_FLOAT, Rb);
-                break;
             
-            default:
-                break;
+            if (Rc == 0x14 /*ASR20*/)
+            {
+                switch (m_output.function)
+                {
+                case S_OPT1_FPUTS:
+                case S_OPT1_FPUTG:
+                    m_output.Rb = MAKE_REGADDR(RT_FLOAT, Rb);
+                    break;
+                }
             }
             break;
 
@@ -298,28 +294,46 @@ void Processor::Pipeline::DecodeStage::DecodeInstruction(const Instruction& inst
             } else {
                 m_output.Rb  = MAKE_REGADDR(RT_INTEGER, Rb);
             }
-            
-            switch (m_output.function)
-            {
-            case S_OPT_ALLOCATE:
-            case S_OPT_ALLOCATES:
-            case S_OPT_ALLOCATEX:
-            case S_OPT_CREBAS:
-            case S_OPT_CREBIS:
-            // Special case, Rc is input as well
-                m_output.Ra = MAKE_REGADDR(RT_INTEGER, Rc);
-                m_output.Rc = MAKE_REGADDR(RT_INTEGER, Rc);
-                break;
 
-            case S_OPT_FGETS:
-                m_output.Rc = MAKE_REGADDR(RT_FLOAT, Rc);
-                break;          
-            default:
-                m_output.Rc = MAKE_REGADDR(RT_INTEGER, Rc);
-                break;
+            if (Ra == 0x13 /*ASR19*/)
+            {
+                switch(m_output.function)
+                {
+                case S_OPT2_CREBAS:
+                case S_OPT2_CREBIS:
+                    // Special case, Rc is input as well
+                    m_output.Ra = MAKE_REGADDR(RT_INTEGER, Rc);
+                    // fall through to init output Rc
+                case S_OPT2_LDFP:
+                case S_OPT2_LDBP:
+                    m_output.Rc = MAKE_REGADDR(RT_INTEGER, Rc);
+                    break;
+                }
+            }
+            else if (Ra == 0x14 /*ASR20*/)
+            {
+                switch (m_output.function)
+                {
+                case S_OPT1_ALLOCATE:
+                case S_OPT1_ALLOCATES:
+                case S_OPT1_ALLOCATEX:
+                case S_OPT1_CREATE:
+                    // Special case, Rc is input as well
+                    m_output.Ra = MAKE_REGADDR(RT_INTEGER, Rc);
+                    m_output.Rc = MAKE_REGADDR(RT_INTEGER, Rc);
+                    break;
+                    
+                case S_OPT1_FGETS:
+                case S_OPT1_FGETG:
+                    m_output.Rc = MAKE_REGADDR(RT_FLOAT, Rc);
+                    break;          
+                default:
+                    m_output.Rc = MAKE_REGADDR(RT_INTEGER, Rc);
+                    break;
+                }
             }
             break;
-            
+
         default:
             // Integer operation
             m_output.Ra = MAKE_REGADDR(RT_INTEGER, Ra);
@@ -498,6 +512,45 @@ static void ThrowIllegalInstructionException(Object& obj, MemAddr pc)
     throw IllegalInstructionException(obj, error.str());
 }
 
+Processor::Pipeline::PipeAction Processor::Pipeline::ExecuteStage::ExecReadASR19(uint8_t func)
+{
+    switch (func)
+    {
+        case S_OPT2_LDBP:
+            COMMIT {
+                // TLS base pointer: base address of TLS
+                m_output.Rcv.m_integer = m_parent.GetProcessor().GetTLSAddress(m_input.fid, m_input.tid);
+                m_output.Rcv.m_state   = RST_FULL;
+            }
+            break;
+
+        case S_OPT2_LDFP:
+            COMMIT {
+                /// TLS frame (stack) pointer: top of TLS
+                const MemAddr tls_base = m_parent.GetProcessor().GetTLSAddress(m_input.fid, m_input.tid);
+                const MemAddr tls_size = m_parent.GetProcessor().GetTLSSize();
+                m_output.Rcv.m_integer = tls_base + tls_size;
+                m_output.Rcv.m_state   = RST_FULL;
+            }
+            break;
+        
+        case S_OPT2_CREBAS:
+        case S_OPT2_CREBIS:
+        {
+            assert(m_input.Rav.m_size == sizeof(Integer));
+            assert(m_input.Rbv.m_size == sizeof(Integer));
+            Integer Rav = m_input.Rav.m_integer.get(m_input.Rav.m_size);
+            Integer Rbv = m_input.Rbv.m_integer.get(m_input.Rbv.m_size);
+            return ExecBundle(Rbv, (func == S_OPT2_CREBIS), Rav, m_input.Rc.index);
+        }
+      
+        default:
+            ThrowIllegalInstructionException(*this, m_input.pc);
+            break;
+    }
+    return PIPE_CONTINUE;
+}
+
 Processor::Pipeline::PipeAction Processor::Pipeline::ExecuteStage::ExecReadASR20(uint8_t func)
 {
     assert(m_input.Rav.m_size == sizeof(Integer));
@@ -507,37 +560,36 @@ Processor::Pipeline::PipeAction Processor::Pipeline::ExecuteStage::ExecReadASR20
 
     switch (func)
     {
-        case S_OPT_ALLOCATE:
-        case S_OPT_ALLOCATES:
-        case S_OPT_ALLOCATEX:
+        case S_OPT1_ALLOCATE:
+        case S_OPT1_ALLOCATES:
+        case S_OPT1_ALLOCATEX:
         {
             PlaceID place = m_parent.GetProcessor().UnpackPlace(Rav);
-            if (!ExecAllocate(place, m_input.Rc.index, func != S_OPT_ALLOCATE, func == S_OPT_ALLOCATEX, Rbv))
-            {
-                return PIPE_STALL;
-            }
-            break;
+            return ExecAllocate(place, m_input.Rc.index, func != S_OPT1_ALLOCATE, func == S_OPT1_ALLOCATEX, Rbv);
         }
         
-        case S_OPT_SYNC:
-            if (!ExecSync(m_parent.GetProcessor().UnpackFID(Rbv))) 
-            {
-                return PIPE_STALL;
-            }
-            break;
+        case S_OPT1_CREATE:
+        {
+            FID     fid  = m_parent.GetProcessor().UnpackFID(Rav);
+            MemAddr addr = Rbv;
+            return ExecCreate(fid, addr, m_input.Rc.index);
+        }
 
-        case S_OPT_GETTID:
-        case S_OPT_GETFID:
-        case S_OPT_GETPID:
-        case S_OPT_GETCID:
+        case S_OPT1_SYNC:
+            return ExecSync(m_parent.GetProcessor().UnpackFID(Rbv));
+
+        case S_OPT1_GETTID:
+        case S_OPT1_GETFID:
+        case S_OPT1_GETPID:
+        case S_OPT1_GETCID:
             COMMIT {
                 m_output.Rcv.m_state   = RST_FULL;
                 switch (m_input.function)
                 {
-                case S_OPT_GETFID: m_output.Rcv.m_integer = m_input.fid; break;
-                case S_OPT_GETTID: m_output.Rcv.m_integer = m_input.tid; break;
-                case S_OPT_GETCID: m_output.Rcv.m_integer = m_parent.GetProcessor().GetPID(); break;
-                case S_OPT_GETPID:
+                case S_OPT1_GETFID: m_output.Rcv.m_integer = m_input.fid; break;
+                case S_OPT1_GETTID: m_output.Rcv.m_integer = m_input.tid; break;
+                case S_OPT1_GETCID: m_output.Rcv.m_integer = m_parent.GetProcessor().GetPID(); break;
+                case S_OPT1_GETPID:
                 {
                     PlaceID place;
                     place.size = m_input.placeSize;
@@ -550,51 +602,45 @@ Processor::Pipeline::PipeAction Processor::Pipeline::ExecuteStage::ExecReadASR20
             }
             break;
 
-        case S_OPT_LDBP:
-            COMMIT {
-                // TLS base pointer: base address of TLS
-                m_output.Rcv.m_integer = m_parent.GetProcessor().GetTLSAddress(m_input.fid, m_input.tid);
-                m_output.Rcv.m_state   = RST_FULL;
-            }
-            break;
+        case S_OPT1_GETS:
+            return ReadFamilyRegister(RRT_LAST_SHARED, RT_INTEGER, m_parent.GetProcessor().UnpackFID(Rbv), m_input.asi);
 
-        case S_OPT_LDFP:
-            COMMIT {
-                /// TLS frame (stack) pointer: top of TLS
-                const MemAddr tls_base = m_parent.GetProcessor().GetTLSAddress(m_input.fid, m_input.tid);
-                const MemAddr tls_size = m_parent.GetProcessor().GetTLSSize();
-                m_output.Rcv.m_integer = tls_base + tls_size;
-                m_output.Rcv.m_state   = RST_FULL;
-            }
-            break;
-        
-        case S_OPT_GETS:
-            if (!MoveFamilyRegister(RRT_LAST_SHARED, RT_INTEGER, m_parent.GetProcessor().UnpackFID(Rbv), m_input.asi)) {
-                return PIPE_STALL;
-            }
-            break;
+        case S_OPT1_FGETS:
+            return ReadFamilyRegister(RRT_LAST_SHARED, RT_FLOAT, m_parent.GetProcessor().UnpackFID(Rbv), m_input.asi);
 
-        case S_OPT_FGETS:
-            if (!MoveFamilyRegister(RRT_LAST_SHARED, RT_FLOAT, m_parent.GetProcessor().UnpackFID(Rbv), m_input.asi)) {
-                return PIPE_STALL;
-            }
-            break;
+        case S_OPT1_GETG:
+            return ReadFamilyRegister(RRT_GLOBAL, RT_INTEGER, m_parent.GetProcessor().UnpackFID(Rbv), m_input.asi);
+
+        case S_OPT1_FGETG:
+            return ReadFamilyRegister(RRT_GLOBAL, RT_FLOAT, m_parent.GetProcessor().UnpackFID(Rbv), m_input.asi);
             
-        case S_OPT_CREBAS:
-        case S_OPT_CREBIS:
-        {
-            MemAddr dest = (func == S_OPT_CREBAS) ? Rbv : (Rbv + m_parent.GetProcessor().ReadASR(ASR_SYSCALL_BASE));
-            if (!m_allocator.QueueBundle(dest, Rav, m_input.Rc.index))
-            {
-                DeadlockWrite("Unable to send synchronized synchronized bundle create to allocator");
-                return PIPE_STALL;
-            }
+        default:
+            ThrowIllegalInstructionException(*this, m_input.pc);
+            break;
+    }
+    return PIPE_CONTINUE;
+}
+
+Processor::Pipeline::PipeAction Processor::Pipeline::ExecuteStage::ExecWriteASR19(uint8_t func)
+{
+    assert(m_input.Rav.m_size == sizeof(Integer));
+    assert(m_input.Rbv.m_size == sizeof(Integer));
+    Integer Rav = m_input.Rav.m_integer.get(m_input.Rav.m_size);
+    Integer Rbv = m_input.Rbv.m_integer.get(m_input.Rbv.m_size);
+    
+    switch (func)
+    {
+        case S_OPT2_CREBA:
+        case S_OPT2_CREBI:
+            return ExecBundle(Rav, (m_input.function == S_OPT2_CREBI), Rbv, INVALID_REG_INDEX);
+
+        case S_OPT2_PRINT:
             COMMIT {
-                m_output.Rcv = MAKE_PENDING_PIPEVALUE(m_input.RcSize);
+                ExecDebug(Rav, Rbv);
+                m_output.Rc = INVALID_REG;
             }
             break;
-        }
-               
+
         default:
             ThrowIllegalInstructionException(*this, m_input.pc);
             break;
@@ -611,80 +657,41 @@ Processor::Pipeline::PipeAction Processor::Pipeline::ExecuteStage::ExecWriteASR2
     
     switch (func)
     {
-        case S_OPT_SETSTART: case S_OPT_SETLIMIT: case S_OPT_SETSTEP: case S_OPT_SETBLOCK:
+    case S_OPT1_SETSTART: 
+    case S_OPT1_SETLIMIT: 
+    case S_OPT1_SETSTEP: 
+    case S_OPT1_SETBLOCK:
         {
             FamilyProperty prop;
             switch (func)
             {
             default:
-            case S_OPT_SETSTART: prop = FAMPROP_START; break;
-            case S_OPT_SETLIMIT: prop = FAMPROP_LIMIT; break;
-            case S_OPT_SETSTEP:  prop = FAMPROP_STEP;  break;
-            case S_OPT_SETBLOCK: prop = FAMPROP_BLOCK; break;
+            case S_OPT1_SETSTART: prop = FAMPROP_START; break;
+            case S_OPT1_SETLIMIT: prop = FAMPROP_LIMIT; break;
+            case S_OPT1_SETSTEP:  prop = FAMPROP_STEP;  break;
+            case S_OPT1_SETBLOCK: prop = FAMPROP_BLOCK; break;
             }
             FID fid = m_parent.GetProcessor().UnpackFID(Rav);
             return SetFamilyProperty(fid, prop, Rbv);
         }
 
-        case S_OPT_CREATE:
-        {
-            FID     fid  = m_parent.GetProcessor().UnpackFID(Rav);
-            MemAddr addr = Rbv;
-            return ExecCreate(fid, addr, m_input.Rc.index);
-        }
-
-        case S_OPT_PUTG:
-            if (!MoveFamilyRegister(RRT_GLOBAL, RT_INTEGER, m_parent.GetProcessor().UnpackFID(Rav), m_input.asi)) {
-                return PIPE_STALL;
-            }
-            break;
-            
-        case S_OPT_PUTS:
-            if (!MoveFamilyRegister(RRT_FIRST_DEPENDENT, RT_INTEGER, m_parent.GetProcessor().UnpackFID(Rav), m_input.asi)) {
-                return PIPE_STALL;
-            }
-            break;
-        
-        case S_OPT_FPUTG:
-            if (!MoveFamilyRegister(RRT_GLOBAL, RT_FLOAT, m_parent.GetProcessor().UnpackFID(Rav), m_input.asi)) {
-                return PIPE_STALL;
-            }
-            break;
-            
-        case S_OPT_FPUTS:
-            if (!MoveFamilyRegister(RRT_FIRST_DEPENDENT, RT_FLOAT, m_parent.GetProcessor().UnpackFID(Rav), m_input.asi)) {
-                return PIPE_STALL;
-            }
-            break;
-            
-        case S_OPT_DETACH:
-            if (!ExecDetach(m_parent.GetProcessor().UnpackFID(Rav))) 
-            {
-                return PIPE_STALL;
-            }
-            break;
-            
-        case S_OPT_BREAK:
+        case S_OPT1_BREAK:
             return ExecBreak();
-
-        case S_OPT_PRINT:
-            COMMIT {
-                ExecDebug(Rav, Rbv);
-                m_output.Rc = INVALID_REG;
-            }
-            break;
             
-        case S_OPT_CREBA:
-        case S_OPT_CREBI:
-        {              
-            MemAddr dest = (m_input.function == S_OPT_CREBA) ? Rav : (Rav + m_parent.GetProcessor().ReadASR(ASR_SYSCALL_BASE));            
-            if (!m_allocator.QueueBundle(dest, Rbv, INVALID_REG_INDEX))
-            {
-                DeadlockWrite("Unable to send asynchronized bundle create to allocator");
-                return PIPE_STALL;                
-            }
-            break;
-        }
+        case S_OPT1_PUTG:
+            return WriteFamilyRegister(RRT_GLOBAL, RT_INTEGER, m_parent.GetProcessor().UnpackFID(Rav), m_input.asi);
+            
+        case S_OPT1_PUTS:
+            return WriteFamilyRegister(RRT_FIRST_DEPENDENT, RT_INTEGER, m_parent.GetProcessor().UnpackFID(Rav), m_input.asi);
+        
+        case S_OPT1_FPUTG:
+            return WriteFamilyRegister(RRT_GLOBAL, RT_FLOAT, m_parent.GetProcessor().UnpackFID(Rav), m_input.asi);
+            
+        case S_OPT1_FPUTS:
+            return WriteFamilyRegister(RRT_FIRST_DEPENDENT, RT_FLOAT, m_parent.GetProcessor().UnpackFID(Rav), m_input.asi);
+            
+        case S_OPT1_DETACH:
+            return ExecDetach(m_parent.GetProcessor().UnpackFID(Rav));
 
         default:
             ThrowIllegalInstructionException(*this, m_input.pc);
@@ -956,19 +963,33 @@ Processor::Pipeline::PipeAction Processor::Pipeline::ExecuteStage::ExecuteInstru
             
         case S_OP3_RDASR:
             // The displacement field holds the original Ra specifier
-            if (m_input.displacement == 0) {
+            switch (m_input.displacement)
+            {
+            case 0:
                 // RDY: Read Y Register
                 COMMIT {
                     m_output.Rcv.m_integer = thread.Y;
                     m_output.Rcv.m_state   = RST_FULL;
                 }
-            } else if (m_input.displacement == 4) {
+                break;
+
+            case 4:
                 // RDTICK: read processor cycle counter
                 COMMIT {
                     m_output.Rcv.m_integer = GetCycleNo() & 0xffffffffUL;
                     m_output.Rcv.m_state = RST_FULL;
                 }
-            } else if (m_input.displacement == 15) {
+                break;
+
+            case 5:
+                // RDPC: read program counter
+                COMMIT {
+                    m_output.Rcv.m_integer = m_input.pc;
+                    m_output.Rcv.m_state = RST_FULL;
+                }
+                break;
+
+            case 15:
                 // STBAR: Store Barrier
                 // Rc has to be %g0 (invalid)
                 if (m_input.Rc.valid()) {
@@ -987,48 +1008,65 @@ Processor::Pipeline::PipeAction Processor::Pipeline::ExecuteStage::ExecuteInstru
                     }
                 }
                 return PIPE_FLUSH;
-            } else if (m_input.displacement == 20) {
+
+            case 19:
+                return ExecReadASR19(m_input.function);
+
+            case 20:
                 return ExecReadASR20(m_input.function);
-            } else if (m_input.displacement < 15) {
-                // RDASR: Read Ancillary State Register
-                COMMIT {
-                    m_output.Rcv.m_integer = m_parent.GetProcessor().ReadASR(m_input.displacement - 1); // number 0 is %y
-                    m_output.Rcv.m_state   = RST_FULL;
+
+            default:
+                if (m_input.displacement >= 7 && m_input.displacement < 15) {
+                    // Read reserved state register 7-14
+                    COMMIT {
+                        m_output.Rcv.m_integer = m_parent.GetProcessor().ReadASR(m_input.displacement - 7); 
+                        m_output.Rcv.m_state   = RST_FULL;
+                    }
+                } else if (m_input.displacement >= 21) {
+                    // Read implementation dependent State Register >= 21
+                    COMMIT {
+                        m_output.Rcv.m_integer = m_parent.GetProcessor().ReadAPR(m_input.displacement - 21);
+                        m_output.Rcv.m_state   = RST_FULL;
+                    }
+                } else {
+                    // Read implementation dependent State Register > 15, < 20
+                    // We don't support this yet
+                    ThrowIllegalInstructionException(*this, m_input.pc);
                 }
-            } else if (m_input.displacement >= 21) {
-                // Read implementation dependent State Register >= 21
-                COMMIT {
-                    m_output.Rcv.m_integer = m_parent.GetProcessor().ReadAPR(m_input.displacement - 21);
-                    m_output.Rcv.m_state   = RST_FULL;
-                }
-            } else {
-                // Read implementation dependent State Register > 15, < 20
-                // We don't support this yet
-                ThrowIllegalInstructionException(*this, m_input.pc);
+                break;
             }
             break;
 
         case S_OP3_WRASR:
-        {
-            if (m_input.displacement == 0) {
+            switch (m_input.displacement)
+            {
+            case 0:
                 // WRY: Write Y Register
                 COMMIT {
                     thread.Y = (uint32_t)(m_input.Rav.m_integer.get(m_input.Rav.m_size) ^ m_input.Rbv.m_integer.get(m_input.Rbv.m_size));
                 }
-            } else if (m_input.displacement == 20) {
+                break;
+
+            case 20:
                 return ExecWriteASR20(m_input.function);
-            } else if (m_input.displacement < 16) {
-                // WRASR: Write Ancillary State Register
-                // We don't support this yet
-                ThrowIllegalInstructionException(*this, m_input.pc);
-            } else {
-                // Write implementation dependent State Register
-                // We don't support this yet
-                ThrowIllegalInstructionException(*this, m_input.pc);
+
+            case 19:
+                return ExecWriteASR19(m_input.function);
+
+            default:
+                if (m_input.displacement < 16) {
+                    // WRASR: Write Ancillary State Register
+                    // We don't support this yet
+                    ThrowIllegalInstructionException(*this, m_input.pc);
+                } else {
+                    // Write implementation dependent State Register
+                    // We don't support this yet
+                    ThrowIllegalInstructionException(*this, m_input.pc);
+                }
+                break;
             }
             break;
-        }
-        
+
         case S_OP3_SAVE:
         case S_OP3_RESTORE:
         {

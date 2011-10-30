@@ -289,9 +289,9 @@ Result Processor::Network::DoAllocResponse()
     return SUCCESS;
 }
 
-bool Processor::Network::ReadLastShared(LFID fid, const RegAddr& raddr, RegValue& value)
+bool Processor::Network::ReadRegister(LFID fid, RemoteRegType kind, const RegAddr& raddr, RegValue& value)
 {
-    const RegAddr addr = m_allocator.GetRemoteRegisterAddress(fid, RRT_LAST_SHARED, raddr);
+    const RegAddr addr = m_allocator.GetRemoteRegisterAddress(fid, kind, raddr);
     assert(addr != INVALID_REG);
 
     // The thread of the register has been allocated, read it
@@ -311,8 +311,8 @@ bool Processor::Network::ReadLastShared(LFID fid, const RegAddr& raddr, RegValue
          It's possible that the last shared in a family hasn't been written.
          Print a warning, and return a dummy value.
         */
-        DebugProgWrite("Reading unwritten %s register %s from last thread in F%u from %s",
-            GetRemoteRegisterTypeString(RRT_LAST_SHARED),
+        DebugProgWrite("Reading unwritten %s register %s from F%u from %s",
+            GetRemoteRegisterTypeString(kind),
             raddr.str().c_str(),
             (unsigned)fid,
             addr.str().c_str()
@@ -328,7 +328,7 @@ bool Processor::Network::ReadLastShared(LFID fid, const RegAddr& raddr, RegValue
     else
     {
         DebugSimWrite("Read %s register %s in F%u from %s",
-            GetRemoteRegisterTypeString(RRT_LAST_SHARED),
+            GetRemoteRegisterTypeString(kind),
             raddr.str().c_str(),
             (unsigned)fid,
             addr.str().c_str()
@@ -634,50 +634,17 @@ Result Processor::Network::DoDelegationIn()
         break;
         
     case DelegateMessage::MSG_FAM_REGISTER:
-        switch (msg.famreg.kind)
-        {
-        case RRT_LAST_SHARED:
-        {
-            m_allocator.GetFamilyChecked(msg.famreg.fid.lfid, msg.famreg.fid.capability);
-            
-            // Create response and we're done
-            DelegateMessage response;
-            response.type        = DelegateMessage::MSG_RAW_REGISTER;
-            response.src         = m_parent.GetPID();
-            response.dest        = msg.src;
-            response.rawreg.pid  = msg.src;
-            response.rawreg.addr = MAKE_REGADDR(msg.famreg.addr.type, msg.famreg.completion_reg);
+    {
+        const Family& family = m_allocator.GetFamilyChecked(msg.famreg.fid.lfid, msg.famreg.fid.capability);
 
-            if (!ReadLastShared(msg.famreg.fid.lfid, msg.famreg.addr, response.rawreg.value))
-            {
-                return FAILED;
-            }
-
-            if (!SendMessage(response))
-            {
-                DeadlockWrite("Unable to buffer outgoing remote register response");
-                return FAILED;
-            }
-            break;
-        }
-        
-        case RRT_FIRST_DEPENDENT:
-            m_allocator.GetFamilyChecked(msg.famreg.fid.lfid, msg.famreg.fid.capability);
+        if (msg.famreg.write)
+        {
             if (!WriteRegister(msg.famreg.fid.lfid, msg.famreg.kind, msg.famreg.addr, msg.famreg.value))
             {
                 return FAILED;
             }           
-            break;
 
-        case RRT_GLOBAL:
-        {
-            const Family& family = m_allocator.GetFamilyChecked(msg.famreg.fid.lfid, msg.famreg.fid.capability);
-            if (!WriteRegister(msg.famreg.fid.lfid, msg.famreg.kind, msg.famreg.addr, msg.famreg.value))
-            {
-                return FAILED;
-            }
-            
-            if (family.link != INVALID_LFID)
+            if (msg.famreg.kind == RRT_GLOBAL && family.link != INVALID_LFID)
             {
                 // Forward on link as well
                 LinkMessage fwd;
@@ -690,14 +657,29 @@ Result Processor::Network::DoDelegationIn()
                     return FAILED;
                 }           
             }
-            break;
         }
-        
-        default:
-            assert(false);
-            break;
+        else /* register read */
+        {
+            DelegateMessage response;
+            response.type        = DelegateMessage::MSG_RAW_REGISTER;
+            response.src         = m_parent.GetPID();
+            response.dest        = msg.src;
+            response.rawreg.pid  = msg.src;
+            response.rawreg.addr = MAKE_REGADDR(msg.famreg.addr.type, msg.famreg.completion_reg);
+
+            if (!ReadRegister(msg.famreg.fid.lfid, msg.famreg.kind, msg.famreg.addr, response.rawreg.value))
+            {
+                return FAILED;
+            }
+
+            if (!SendMessage(response))
+            {
+                DeadlockWrite("Unable to buffer outgoing remote register response");
+                return FAILED;
+            }
         }
-        break;
+    }
+    break;
     
     default:
         assert(false);
@@ -1037,7 +1019,7 @@ string Processor::RemoteMessage::str() const
            << ") kind(" << GetRemoteRegisterTypeString(famreg.kind)
            << ") addr(" << famreg.addr.str()
             ;
-        if (famreg.kind == RRT_LAST_SHARED)
+        if (!famreg.write)
         {
             ss << ") creg(" << famreg.completion_reg;
         }

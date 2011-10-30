@@ -1,0 +1,206 @@
+\documentclass[a4paper,11pt]{article}
+\usepackage[hmargin=2cm,vmargin=2.5cm]{geometry}
+\usepackage{array}
+%\usepackage{ulem}
+\usepackage{pdflscape}
+\usepackage{longtable}
+\usepackage{multirow}
+%\usepackage{xspace}
+
+\newcommand{\leon}{UTLEON3}
+\newcommand{\res}{\normalfont \emph{(reserved \leon)}}
+
+\begin{document}
+
+
+\begin{table}
+\begin{center}{\scriptsize
+
+\begin{tabular}{|>{\ttfamily}l||c|c|c|c|c|c|c|c|}
+\hline
+{\normalfont Assembly pattern} & bits 26-31 & Format & bits 21-25 & bits 16-20 & bits 13-15 & bit 12 & bits 5-11 & bits 0-4 \\
+\hline \hline
+ldbp Rc                 & 0x01 & Op     & 11111 &                    11111 & 0 & 0 & 0000000 & Rc \\
+ldfp Rc                 & 0x01 & Op     & 11111 &                    11111 & 0 & 0 & 0000001 & Rc \\
+gettid Rc               & 0x01 & Op     & 11111 &                    11111 & 0 & 0 & 0000010 & Rc \\
+getfid Rc               & 0x01 & Op     & 11111 &                    11111 & 0 & 0 & 0000011 & Rc \\
+getpid Rc               & 0x01 & Op     & 11111 &                    11111 & 0 & 0 & 0000100 & Rc \\
+getcid Rc               & 0x01 & Op     & 11111 &                    11111 & 0 & 0 & 0000101 & Rc \\ \cline{5-6}
+getasr imm8, Rc         & 0x01 & Op     & 11111 & \multicolumn{2}{c|}{imm8} & 1 & 0000110 & Rc \\ \cline{5-6}
+getapr imm8, Rc         & 0x01 & Op     & 11111 & \multicolumn{2}{c|}{imm8} & 1 & 0000111 & Rc \\ \cline{5-6}
+\hline \hline
+break                   & 0x01 & Op     & 11111 &                    11111 & 0 & 0 & 0001000 & 11111 \\
+\hline\hline
+\normalfont \emph{(future local)} & 0x01 & Op & x & x & x & x & 000xxxx & x \\
+\hline\hline
+setstart Rf, Rv         & 0x01 & Op     & Rf &                    Rv & 0 & 0 & 0100000 & 11111 \\ \cline{5-6}
+setstart Rf, imm8       & 0x01 & Op     & Rf & \multicolumn{2}{c|}{imm8} & 1 & 0100000 & 11111 \\ \cline{5-6}
+setlimit Rf, Rv         & 0x01 & Op     & Rf &                    Rv & 0 & 0 & 0100001 & 11111 \\ \cline{5-6}
+setlimit Rf, imm8       & 0x01 & Op     & Rf & \multicolumn{2}{c|}{imm8} & 1 & 0100001 & 11111 \\ \cline{5-6}
+setstep  Rf, Rv         & 0x01 & Op     & Rf &                    Rv & 0 & 0 & 0100010 & 11111 \\ \cline{5-6}
+setstep  Rf, imm8       & 0x01 & Op     & Rf & \multicolumn{2}{c|}{imm8} & 1 & 0100010 & 11111 \\ \cline{5-6}
+setblock Rf, Rv         & 0x01 & Op     & Rf &                    Rv & 0 & 0 & 0100011 & 11111 \\ \cline{5-6}
+setblock Rf, imm8       & 0x01 & Op     & Rf & \multicolumn{2}{c|}{imm8} & 1 & 0100011 & 11111 \\ \cline{5-6}
+putg Rv, Rf, imm5       & 0x01 & Op     & Rf &                    Rv & 0 & 0 & 0100100 & imm5 \\ \cline{5-6}
+putg imm8, Rf, imm5     & 0x01 & Op     & Rf & \multicolumn{2}{c|}{imm8} & 1 & 0100100 & imm5 \\ \cline{5-7}
+fputg Fv, Rf, imm5      & 0x05 & FP Op  & Rf & Fv & \multicolumn{2}{c|}{0} & 0100100 & imm5 \\ \cline{5-7}
+puts Rv, Rf, imm5       & 0x01 & Op     & Rf &                    Rv & 0 & 0 & 0100101 & imm5 \\ \cline{5-6}
+puts imm8, Rf, imm5     & 0x01 & Op     & Rf & \multicolumn{2}{c|}{imm8} & 1 & 0100101 & imm5 \\ \cline{5-7}
+fputs Fv, Rf, imm5      & 0x05 & FP Op  & Rf & Fv & \multicolumn{2}{c|}{0} & 0100101 & imm5 \\ \cline{6-7}
+release  Rf             & 0x01 & Op     & Rf &                    11111 & 0 & 0 & 0101000 & 11111 \\
+\hline\hline
+\normalfont \emph{(future remote async)} & 0x01 & Op & x & x & x & x & 010xxxx & x \\
+\normalfont \emph{(future remote async)} & 0x05 & FP Op & x & x & x & x & 010xxxx & x \\
+\hline \hline
+sync Rf, Rc             & 0x01 & Op     & Rf &                    11111 & 0 & 0 & 0110000 & Rc \\
+getg Rf, imm5, Rc       & 0x01 & Op     & Rf &                  imm5 & 0 & 0 & 0110010 & Rc \\ \cline{6-7}
+fgetg  Rf, imm5, Fc     & 0x05 & FP Op  & Rf & 11111 & \multicolumn{2}{c|}{0} &   0110010 & Fc \\ \cline{6-7}
+gets Rf, imm5, Rc       & 0x01 & Op     & Rf &                  imm5 & 0 & 0 & 0110011 & Rc \\ \cline{6-7}
+fgets  Rf, imm5, Fc     & 0x05 & FP Op  & Rf & 11111 & \multicolumn{2}{c|}{0} &   0110011 & Fc \\ \cline{6-7}
+\hline\hline
+\normalfont \emph{(future remote sync)} & 0x01 & Op & x & x & x & x & 011xxxx & Rc \\
+\normalfont \emph{(future remote sync)} & 0x05 & FP Op & x & x & x & x & 011xxxx & Fc \\
+\hline \hline
+allocate Rp, Ro, Rf     & 0x01 & Op     & Rp &                    Ro & 0 & 0 & 1000000 & Rf \\ \cline{5-6}
+allocate Rp, imm8, Rf   & 0x01 & Op     & Rp & \multicolumn{2}{c|}{imm8} & 1 & 1000000 & Rf \\ \cline{5-6}
+allocate/s Rp, Ro, Rf   & 0x01 & Op     & Rp &                    Ro & 0 & 0 & 1000001 & Rf \\ \cline{5-6}
+allocate/s Rp, imm8, Rf & 0x01 & Op     & Rp & \multicolumn{2}{c|}{imm8} & 1 & 1000001 & Rf \\ \cline{5-6}
+allocate/x Rp, Ro, Rf   & 0x01 & Op     & Rp &                    Ro & 0 & 0 & 1000011 & Rf \\ \cline{5-6}
+allocate/x Rp, imm8, Rf & 0x01 & Op     & Rp & \multicolumn{2}{c|}{imm8} & 1 & 1000011 & Rf \\ \cline{5-6}
+\hline \hline
+creba/a Rs, Rv          & 0x01 & Op     & Rs &                    Rv & 0 & 0 & 1100001 & 11111 \\ \cline{5-6}
+creba/a Rs, imm8        & 0x01 & Op     & Rs & \multicolumn{2}{c|}{imm8} & 1 & 1100001 & 11111 \\ \cline{5-6}
+creba/s Rs, Rv, Rf      & 0x01 & Op     & Rs &                    Rv & 0 & 0 & 1100001 & Rf \\ \cline{5-6}
+creba/s Rs, imm8, Rf    & 0x01 & Op     & Rs & \multicolumn{2}{c|}{imm8} & 1 & 1100001 & Rf \\ \cline{5-6}
+crebi/a Rs, Rv          & 0x01 & Op     & Rs &                    Rv & 0 & 0 & 1110001 & 11111 \\ \cline{5-6}
+crebi/a Rs, imm8        & 0x01 & Op     & Rs & \multicolumn{2}{c|}{imm8} & 1 & 1110001 & 11111 \\ \cline{5-6}
+crebi/s Rs, Rv, Rf      & 0x01 & Op     & Rs &                    Rv & 0 & 0 & 1110001 & Rf \\ \cline{5-6}
+crebi/s Rs, imm8, Rf    & 0x01 & Op     & Rs & \multicolumn{2}{c|}{imm8} & 1 & 1110001 & Rf \\ \cline{5-6}
+\hline \hline
+\normalfont \emph{(future allocate)} & 0x01 & Op & x & x & x & x & 1xxxxxx & x \\
+\hline\hline
+crei  Rf, imm16(Rp)     & 0x03 & Memory & Rf & Rp & \multicolumn{4}{c|}{imm16} \\
+\hline\hline
+cred  Rf, imm21         & 0x04 & Branch & Rf & \multicolumn{5}{c|}{imm21} \\
+\hline \hline
+print Rs, Rv            & 0x01 & Op     & Rs &                    Rv & 0 & 0 & 0001111 & 11111 \\ \cline{5-6}
+print Rs, imm8          & 0x01 & Op     & Rs & \multicolumn{2}{c|}{imm8} & 1 & 0001111 & 11111 \\ \cline{5-7}
+printf Rs, Fv           & 0x05 & FP Op  & Rs & Fv & \multicolumn{2}{c|}{0} &  0001111  & 11111 \\ 
+\hline
+\end{tabular}
+\caption{MT extensions for the DEC/Alpha AXP 24264 ISA \newline Unprefixed values are in binary, values prefixed with ``0x'' in hexadecimal.}
+}\end{center}
+\end{table}
+
+
+
+\begin{table}
+\begin{center}{\scriptsize
+\begin{tabular}{|>{\ttfamily}l|>{\ttfamily}l||c|c|c|c|c|c|c|c|}
+\hline
+\multicolumn{2}{|c||}{Assembly format} & \multicolumn{8}{c|}{Encoding} \\
+\hline
+\multirow{2}{*}{\normalfont Pattern} & \multirow{2}{*}{\normalfont Overlaps/Extends} & \multirow{2}{*}{op1} & \multirow{2}{*}{rd} & \multirow{2}{*}{op3} & \multirow{2}{*}{rs1} & \multirow{2}{*}{i} & \multirow{2}{*}{op$_{\mu T}$} & ASI$_{\mu T}$ & rs2 \\ \cline{9-10}
+ & & & & & & & & \multicolumn{2}{c|}{imm9} \\
+\hline\hline
+allocate \%rd          & rdasr \%asr20, \%rd  & 10 &   rd & 101000 & 0x14 & 0 & 0x1 & - & 00000 \\
+create \%rs2, \%rd     & rdasr \%asr20, \%rd  & 10 &   rd & 101000 & 0x14 & 0 & 0x2 & - & rs2 \\
+gettid \%rd            & rdasr \%asr20, \%rd  & 10 &   rd & 101000 & 0x14 & 0 & 0x3 & - & 00000 \\
+getfid \%rd            & rdasr \%asr20, \%rd  & 10 &   rd & 101000 & 0x14 & 0 & 0x4 & - & 00000 \\
+
+\hline \hline
+launch \%rs2           & wrasr \%rs1, \%asr20 & 10 & 0x14 & 110000 &  rs1 & 0 & 0x1 & - & 00000 \\
+setstart  \%rs1, \%rs2 & wrasr \%rs1, \%asr20 & 10 & 0x14 & 110000 &  rs1 & 0 & 0x2 & - & rs2 \\ \cline{9-10}
+setstart  \%rs1,  imm9 & wrasr \%rs1, \%asr20 & 10 & 0x14 & 110000 &  rs1 & 1 & 0x2 & \multicolumn{2}{c|}{imm9} \\ \cline{9-10}
+setlimit  \%rs1, \%rs2 & wrasr \%rs1, \%asr20 & 10 & 0x14 & 110000 &  rs1 & 0 & 0x3 & - & rs2 \\ \cline{9-10}
+setlimit  \%rs1,  imm9 & wrasr \%rs1, \%asr20 & 10 & 0x14 & 110000 &  rs1 & 1 & 0x3 & \multicolumn{2}{c|}{imm9} \\ \cline{9-10}
+setstep   \%rs1, \%rs2 & wrasr \%rs1, \%asr20 & 10 & 0x14 & 110000 &  rs1 & 0 & 0x4 & - & rs2 \\ \cline{9-10}
+setstep   \%rs1,  imm9 & wrasr \%rs1, \%asr20 & 10 & 0x14 & 110000 &  rs1 & 1 & 0x4 & \multicolumn{2}{c|}{imm9} \\ \cline{9-10}
+setblock  \%rs1, \%rs2 & wrasr \%rs1, \%asr20 & 10 & 0x14 & 110000 &  rs1 & 0 & 0x5 & - & rs2 \\ \cline{9-10}
+setblock  \%rs1,  imm9 & wrasr \%rs1, \%asr20 & 10 & 0x14 & 110000 &  rs1 & 1 & 0x5 & \multicolumn{2}{c|}{imm9} \\ \cline{9-10}
+setthread \%rs1, \%rs2 & wrasr \%rs1, \%asr20 & 10 & 0x14 & 110000 &  rs1 & 0 & 0x6 & - & rs2 \\ \cline{9-10}
+setthread \%rs1,  imm9 & wrasr \%rs1, \%asr20 & 10 & 0x14 & 110000 &  rs1 & 1 & 0x6 & \multicolumn{2}{c|}{imm9} \\ \cline{9-10}
+break                  & wrasr \%g0, \%asr20  & 10 & 0x14 & 110000 & 00000 & 0 & 0xA & - & 00000 \\
+\hline
+\end{tabular}
+\caption{SPARC v8 MT extensions on \leon.}
+
+Unprefixed values are in binary, values prefixed with ``0x'' in hexadecimal.}
+\end{center}
+\end{table}
+
+\begin{table}
+\begin{center}{\scriptsize
+\begin{tabular}{|>{\ttfamily}l|>{\ttfamily}l||c|c|c|c|c|c|c|c|}
+\hline
+\multicolumn{2}{|c||}{Assembly format} & \multicolumn{8}{c|}{Encoding} \\
+\hline
+\multirow{2}{*}{\normalfont Pattern} & \multirow{2}{*}{\normalfont Overlaps/Extends} & \multirow{2}{*}{op1} & \multirow{2}{*}{rd} & \multirow{2}{*}{op3} & \multirow{2}{*}{rs1} & \multirow{2}{*}{i} & \multirow{2}{*}{op$_{\mu T}$} & ASI$_{\mu T}$ & rs2 \\
+\cline{9-10}
+ & & & & & & & & \multicolumn{2}{c|}{imm9} \\
+\hline\hline
+allocate  \%rd        & rdasr \%asr20, \%rd  & 10 &   rd & 101000 & 0x14 & 0 & 0x1 & - & 00000 \\
+allocate  \%rs2, \%rd & rdasr \%asr20, \%rd  & 10 &   rd & 101000 & 0x14 & 0 & 0x1 & - & rs2 \\ \cline{9-10}
+allocate  imm9, \%rd  & rdasr \%asr20, \%rd  & 10 &   rd & 101000 & 0x14 & 1 & 0x1 & \multicolumn{2}{c|}{imm9} \\ \cline{9-10}
+\res                  & rdasr \%asr20, \%rd  & 10 &   rd & 101000 & 0x14 & 0 & 0x2 & - & rs2 \\
+gettid \%rd           & rdasr \%asr20, \%rd  & 10 &   rd & 101000 & 0x14 & 0 & 0x3 & - & 00000 \\
+getfid \%rd           & rdasr \%asr20, \%rd  & 10 &   rd & 101000 & 0x14 & 0 & 0x4 & - & 00000 \\
+getpid \%rd           & rdasr \%asr20, \%rd  & 10 &   rd & 101000 & 0x14 & 0 & 0x5 & - & 00000 \\
+getcid \%rd           & rdasr \%asr20, \%rd  & 10 &   rd & 101000 & 0x14 & 0 & 0x6 & - & 00000 \\
+crei \%rs2, \%rs1     & rdasr \%asr20, \%rs1 & 10 &  rs1 & 101000 & 0x14 & 0 & 0x7 & - & rs2 \\ \cline{9-10}
+cred  imm9, \%rs1     & rdasr \%asr20, \%rs1 & 10 &  rs1 & 101000 & 0x14 & 1 & 0x7 & \multicolumn{2}{c|}{imm9} \\ \cline{9-10}
+sync \%rs2, \%rd      & rdasr \%asr20, \%rd  & 10 &   rd & 101000 & 0x14 & 0 & 0x8 & - & rs2 \\
+allocates \%rd        & rdasr \%asr20, \%rd  & 10 &   rd & 101000 & 0x14 & 0 & 0x9 & - & 00000 \\
+allocates \%rs2, \%rd & rdasr \%asr20, \%rd  & 10 &   rd & 101000 & 0x14 & 0 & 0x9 & - & rs2 \\ \cline{9-10}
+allocates  imm9, \%rd & rdasr \%asr20, \%rd  & 10 &   rd & 101000 & 0x14 & 1 & 0x9 & \multicolumn{2}{c|}{imm9} \\ \cline{9-10}
+allocatex \%rd        & rdasr \%asr20, \%rd  & 10 &   rd & 101000 & 0x14 & 0 & 0xA & - & 00000 \\
+allocatex \%rs2, \%rd & rdasr \%asr20, \%rd  & 10 &   rd & 101000 & 0x14 & 0 & 0xA & - & rs2 \\ \cline{9-10}
+allocatex  imm9, \%rd & rdasr \%asr20, \%rd  & 10 &   rd & 101000 & 0x14 & 1 & 0xA & \multicolumn{2}{c|}{imm9} \\ \cline{9-10}
+gets \%rs2, N, \%rd   & rdasr \%asr20, \%rd  & 10 &   rd & 101000 & 0x14 & 0 & 0xB & N & rs2 \\
+getg \%rs2, N, \%rd   & rdasr \%asr20, \%rd  & 10 &   rd & 101000 & 0x14 & 0 & 0xC & N & rs2 \\
+fgets \%rs2, N, \%fd  & rdasr \%asr20, \%fd  & 10 &   fd & 101000 & 0x14 & 0 & 0xD & N & rs2 \\
+fgetg \%rs2, N, \%fd  & rdasr \%asr20, \%fd  & 10 &   fd & 101000 & 0x14 & 0 & 0xE & N & rs2 \\
+
+\hline \hline
+ldbp \%rd             & rdasr \%asr19, \%rd  & 10 &   rd & 101000 & 0x13 & 0 & 0x1 & - & 00000 \\
+ldfp \%rd             & rdasr \%asr19, \%rd  & 10 &   rd & 101000 & 0x13 & 0 & 0x2 & - & 00000 \\
+crebas \%rs2, \%rs1   & rdasr \%asr19, \%rs1 & 10 &  rs1 & 101000 & 0x13 & 0 & 0x3 & - & rs2 \\ \cline{9-10}
+crebas  imm9, \%rs1   & rdasr \%asr19, \%rs1 & 10 &  rs1 & 101000 & 0x13 & 1 & 0x3 & \multicolumn{2}{c|}{imm9} \\ \cline{9-10}
+crebis \%rs2, \%rs1   & rdasr \%asr19, \%rs1 & 10 &  rs1 & 101000 & 0x13 & 0 & 0x4 & - & rs2 \\ \cline{9-10}
+crebis  imm9, \%rs1   & rdasr \%asr19, \%rs1 & 10 &  rs1 & 101000 & 0x13 & 1 & 0x4 & \multicolumn{2}{c|}{imm9} \\ \cline{9-10}
+
+\hline \hline
+\res                  & wrasr \%rs1, \%asr20 & 10 & 0x14 & 110000 &  rs1 & 0 & 0x1 & - & 00000 \\
+setstart \%rs1, \%rs2 & wrasr \%rs1, \%asr20 & 10 & 0x14 & 110000 &  rs1 & 0 & 0x2 & - & rs2 \\ \cline{9-10}
+setstart \%rs1,  imm9 & wrasr \%rs1, \%asr20 & 10 & 0x14 & 110000 &  rs1 & 1 & 0x2 & \multicolumn{2}{c|}{imm9} \\ \cline{9-10}
+setlimit \%rs1, \%rs2 & wrasr \%rs1, \%asr20 & 10 & 0x14 & 110000 &  rs1 & 0 & 0x3 & - & rs2 \\ \cline{9-10}
+setlimit \%rs1,  imm9 & wrasr \%rs1, \%asr20 & 10 & 0x14 & 110000 &  rs1 & 1 & 0x3 & \multicolumn{2}{c|}{imm9} \\ \cline{9-10}
+setstep  \%rs1, \%rs2 & wrasr \%rs1, \%asr20 & 10 & 0x14 & 110000 &  rs1 & 0 & 0x4 & - & rs2 \\ \cline{9-10}
+setstep  \%rs1,  imm9 & wrasr \%rs1, \%asr20 & 10 & 0x14 & 110000 &  rs1 & 1 & 0x4 & \multicolumn{2}{c|}{imm9} \\ \cline{9-10}
+setblock \%rs1, \%rs2 & wrasr \%rs1, \%asr20 & 10 & 0x14 & 110000 &  rs1 & 0 & 0x5 & - & rs2 \\ \cline{9-10}
+setblock \%rs1,  imm9 & wrasr \%rs1, \%asr20 & 10 & 0x14 & 110000 &  rs1 & 1 & 0x5 & \multicolumn{2}{c|}{imm9} \\ \cline{9-10}
+\res                  & wrasr \%rs1, \%asr20 & 10 & 0x14 & 110000 &  rs1 & 0 & 0x6 & - & rs2 \\ \cline{9-10}
+\res                  & wrasr \%rs1, \%asr20 & 10 & 0x14 & 110000 &  rs1 & 1 & 0x6 & \multicolumn{2}{c|}{imm9} \\ \cline{9-10}
+release \%rs1         & wrasr \%rs1, \%asr20 & 10 & 0x14 & 110000 &  rs1 & 0 & 0x9 & - & 00000 \\
+break                 & wrasr \%g0, \%asr20  & 10 & 0x14 & 110000 & 00000 & 0 & 0xA & - & 00000 \\
+puts \%rs2, \%rs1, N  & wrasr \%rs1, \%asr20 & 10 & 0x14 & 110000 &  rs1 & 0 & 0xB & N & rs2 \\
+putg \%rs2, \%rs1, N  & wrasr \%rs1, \%asr20 & 10 & 0x14 & 110000 &  rs1 & 0 & 0xC & N & rs2 \\
+fputg \%fs2, \%rs1, N & wrasr \%rs1, \%asr20 & 10 & 0x14 & 110000 &  rs1 & 0 & 0xD & N & fs2 \\
+fputs \%fs2, \%rs1, N & wrasr \%rs1, \%asr20 & 10 & 0x14 & 110000 &  rs1 & 0 & 0xE & N & fs2 \\
+
+\hline \hline
+creba \%rs1, \%rs2    & wrasr \%rs1, \%asr19 & 10 & 0x13 & 110000 &  rs1 & 0 & 0x3 & - & rs2 \\ \cline{9-10}
+creba \%rs1, imm9     & wrasr \%rs1, \%asr19 & 10 & 0x13 & 110000 &  rs1 & 0 & 0x3 & \multicolumn{2}{c|}{imm9} \\ \cline{9-10}
+crebi \%rs1, \%rs2    & wrasr \%rs1, \%asr19 & 10 & 0x13 & 110000 &  rs1 & 0 & 0x4 & - & rs2 \\ \cline{9-10}
+crebi \%rs1, imm9     & wrasr \%rs1, \%asr19 & 10 & 0x13 & 110000 &  rs1 & 0 & 0x4 & \multicolumn{2}{c|}{imm9} \\ \cline{9-10}
+print \%rs1, \%rs2    & wrasr \%rs1, \%asr19 & 10 & 0x13 & 110000 &  rs1 & 0 & 0xF & - & rs2 \\ \cline{9-10}
+print \%rs1,  imm9    & wrasr \%rs1, \%asr19 & 10 & 0x13 & 110000 &  rs1 & 1 & 0xF & \multicolumn{2}{c|}{imm9} \\ \cline{9-10}
+\hline
+\end{tabular}
+\caption{General MT extensions for a SPARC v8 ISA.}
+
+Unprefixed values are in binary, values prefixed with ``0x'' in hexadecimal.}
+\end{center}
+\end{table}
+
+\end{document}

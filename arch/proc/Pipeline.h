@@ -333,15 +333,16 @@ class Pipeline : public Object, public Inspect::Interface<Inspect::Read>
         uint64_t                m_op;           // Instructions
         
         bool       MemoryWriteBarrier(TID tid) const;
-        bool       MoveFamilyRegister(RemoteRegType kind, RegType type, const FID& fid, unsigned char ofs);
-        bool       ExecSync(const FID& fid);
-        bool       ExecDetach(const FID& fid);
+        PipeAction ReadFamilyRegister(RemoteRegType kind, RegType type, const FID& fid, unsigned char ofs);
+        PipeAction WriteFamilyRegister(RemoteRegType kind, RegType type, const FID& fid, unsigned char ofs);
+        PipeAction ExecSync(const FID& fid);
+        PipeAction ExecDetach(const FID& fid);
         PipeAction SetFamilyProperty(const FID& fid, FamilyProperty property, Integer value);
         PipeAction ExecuteInstruction();
-        bool       ExecAllocate(PlaceID place, RegIndex reg, bool suspend, bool exclusive, Integer flags);
+        PipeAction ExecBundle(MemAddr addr, bool indirect, Integer value, RegIndex reg);
+        PipeAction ExecAllocate(PlaceID place, RegIndex reg, bool suspend, bool exclusive, Integer flags);
         PipeAction ExecCreate(const FID& fid, MemAddr address, RegIndex completion);
         PipeAction ExecBreak();
-        PipeAction ExecKill(const PlaceID& place);
         void       ExecDebug(Integer value, Integer stream) const;
         void       ExecDebug(double value, Integer stream) const;
         PipeAction OnCycle();
@@ -366,7 +367,9 @@ class Pipeline : public Object, public Inspect::Interface<Inspect::Read>
         static bool BranchTakenFlt(int cond, uint32_t fsr);
         static uint32_t ExecBasicInteger(int opcode, uint32_t Rav, uint32_t Rbv, uint32_t& Y, PSR& psr);
         static uint32_t ExecOtherInteger(int opcode, uint32_t Rav, uint32_t Rbv, uint32_t& Y, PSR& psr);
+        PipeAction ExecReadASR19(uint8_t func);
         PipeAction ExecReadASR20(uint8_t func);
+        PipeAction ExecWriteASR19(uint8_t func);
         PipeAction ExecWriteASR20(uint8_t func);
 #endif
 

@@ -76,6 +76,7 @@ struct RemoteMessage
         struct
         {
             FID           fid;
+            bool          write;
             RemoteRegType kind;
             RegAddr       addr;
             union
@@ -301,7 +302,7 @@ private:
         PID dest; ///< Destination processor
     };
     
-    bool ReadLastShared(LFID fid, const RegAddr& addr, RegValue& value);
+    bool ReadRegister(LFID fid, RemoteRegType kind, const RegAddr& addr, RegValue& value);
     bool WriteRegister(LFID fid, RemoteRegType kind, const RegAddr& raddr, const RegValue& value);
     bool OnDetach(LFID fid);
     bool OnBreak(LFID fid);

@@ -117,43 +117,64 @@ enum {
 
 // UTHREAD Instructions
 enum {
-    A_UTHREAD_ALLOCATE   = 0x00,
-    A_UTHREAD_ALLOCATE_S = 0x20,   // Suspend
-    A_UTHREAD_ALLOCATE_E = 0x60,   // Exclusive
-    A_UTHREAD_SETSTART   = 0x01,
-    A_UTHREAD_SETLIMIT   = 0x02,
-    A_UTHREAD_SETSTEP	 = 0x03,
-    A_UTHREAD_SETBLOCK   = 0x04,
-    A_UTHREAD_KILL       = 0x05,
-    A_UTHREAD_BREAK      = 0x06,
-    A_UTHREAD_LDBP       = 0x07,
-    A_UTHREAD_LDFP       = 0x08,
-    A_UTHREAD_PRINT      = 0x10,
-    A_UTHREAD_PUTG       = 0x11,
-    A_UTHREAD_PUTS       = 0x12,
-    A_UTHREAD_GETS       = 0x13,
-    A_UTHREAD_SYNC       = 0x14,
-    A_UTHREAD_DETACH     = 0x15,
-    A_UTHREAD_GETTID     = 0x17,
-    A_UTHREAD_GETFID     = 0x18,
-    A_UTHREAD_GETPID     = 0x19,
-    A_UTHREAD_GETCID     = 0x1A,
-    A_UTHREAD_GETASR     = 0x1B,
-    A_UTHREAD_GETAPR     = 0x1C,
-    A_CREATE_B_A         = 0x30,
-    A_CREATE_B_AS        = 0x31,
-    A_CREATE_B_I         = 0x32,
-    A_CREATE_B_IS        = 0x33,
+
+    /* local operations */
+    A_UTHREAD_DC_MASK    = 0x78, 
+    A_UTHREAD_DC_VALUE   = 0x00,
+
+    A_UTHREAD_LDBP       = 0x00,
+    A_UTHREAD_LDFP       = 0x01,
+    A_UTHREAD_GETTID     = 0x02,
+    A_UTHREAD_GETFID     = 0x03,
+    A_UTHREAD_GETPID     = 0x04,
+    A_UTHREAD_GETCID     = 0x05,
+    A_UTHREAD_GETASR     = 0x06,
+    A_UTHREAD_GETAPR     = 0x07,
+
+    A_UTHREAD_DZ_MASK    = 0x78, 
+    A_UTHREAD_DZ_VALUE   = 0x08,
+
+    A_UTHREAD_BREAK      = 0x08,
+    A_UTHREAD_PRINT      = 0x0F,
+    A_UTHREADF_PRINT     = 0x00F,
+
+    /* remote, asynchronous */
+    A_UTHREAD_REMOTE_MASK  = 0x60,
+    A_UTHREAD_REMOTE_VALUE = 0x20,
+
+    A_UTHREAD_SETSTART   = 0x20,
+    A_UTHREAD_SETLIMIT   = 0x21,
+    A_UTHREAD_SETSTEP	 = 0x22,
+    A_UTHREAD_SETBLOCK   = 0x23,
+    A_UTHREAD_PUTG       = 0x24,
+    A_UTHREADF_PUTG      = 0x024,
+    A_UTHREAD_PUTS       = 0x25,
+    A_UTHREADF_PUTS      = 0x025,
+    A_UTHREAD_DETACH     = 0x28,
+
+    /* remote, synchronous */
+    A_UTHREAD_SYNC       = 0x30,
+    A_UTHREAD_GETG       = 0x32,
+    A_UTHREADF_GETG      = 0x032,
+    A_UTHREAD_GETS       = 0x33,
+    A_UTHREADF_GETS      = 0x033,
+
+    /* remote, res mgt. */
+    A_UTHREAD_ALLOC_MASK  = 0x60,
+    A_UTHREAD_ALLOC_VALUE = 0x40,
+    A_UTHREAD_ALLOC_S_MASK = 0x01,
+    A_UTHREAD_ALLOC_X_MASK = 0x02,
+
+    A_UTHREAD_ALLOCATE   = 0x40,
+    A_UTHREAD_ALLOCATE_S = 0x41,   // Suspend
+    A_UTHREAD_ALLOCATE_E = 0x43,   // Exclusive
+
+    A_UTHREAD_CREB_MASK  = 0x60,
+    A_UTHREAD_CREB_VALUE = 0x60,
+    A_CREATE_B_A         = 0x61,
+    A_CREATE_B_I         = 0x71,
 };
 
-
-// UTHREADF Instructions
-enum {
-    A_UTHREADF_PUTG      = 0x000,
-    A_UTHREADF_PUTS      = 0x001,
-    A_UTHREADF_GETS      = 0x002,
-    A_UTHREADF_PRINT     = 0x100,
-};
 
 // INTA Instructions.
 enum {

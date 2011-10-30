@@ -1,7 +1,6 @@
 #include "Processor.h"
 #include "FPU.h"
 #include "symtable.h"
-#include "programs/mgsim.h"
 #include <cassert>
 #include <sstream>
 #include <iomanip>
@@ -224,6 +223,7 @@ void Processor::Pipeline::DecodeStage::DecodeInstruction(const Instruction& inst
                     m_output.Rc     = INVALID_REG;
                     break;
 
+                case A_UTHREADF_GETG:
                 case A_UTHREADF_GETS:
                     m_output.regofs = Rb;
                     m_output.Rb     = INVALID_REG;
@@ -243,13 +243,16 @@ void Processor::Pipeline::DecodeStage::DecodeInstruction(const Instruction& inst
             bool ftoi = (m_output.opcode == A_OP_FPTI) && (m_output.function == A_FPTIFUNC_FTOIT || m_output.function == A_FPTIFUNC_FTOIS);
 
             m_output.Ra = MAKE_REGADDR(ftoi ? RT_FLOAT : RT_INTEGER, Ra);
-            m_output.Rb = MAKE_REGADDR(RT_INTEGER, Rb);
             m_output.Rc = MAKE_REGADDR(RT_INTEGER, Rc);
             if (!ftoi && instr & 0x0001000)
             {
                 // Use literal instead of Rb
                 m_output.Rb      = MAKE_REGADDR(RT_INTEGER, 31);
                 m_output.literal = (instr >> A_LITERAL_SHIFT) & A_LITERAL_MASK;
+            }
+            else // ftoi || !(instr & 0x0001000)
+            {
+                m_output.Rb = MAKE_REGADDR(RT_INTEGER, Rb);
             }
             
             if (m_output.opcode == A_OP_UTHREAD)
@@ -263,6 +266,7 @@ void Processor::Pipeline::DecodeStage::DecodeInstruction(const Instruction& inst
                     m_output.Rc     = INVALID_REG;
                     break;
                 
+                case A_UTHREAD_GETG:
                 case A_UTHREAD_GETS:
                     m_output.regofs = Rb;
                     m_output.Rb     = INVALID_REG;
@@ -1066,147 +1070,96 @@ Processor::Pipeline::PipeAction Processor::Pipeline::ExecuteStage::ExecuteInstru
     case IFORMAT_FPOP:
         if (m_input.opcode == A_OP_UTHREAD)
         {
-            switch (m_input.function)
+            if ((m_input.function & A_UTHREAD_DC_MASK) == A_UTHREAD_DC_VALUE)
             {
-                case A_UTHREAD_GETFID:
-                case A_UTHREAD_GETTID:
-                case A_UTHREAD_GETPID:
-                case A_UTHREAD_GETCID:
-                case A_UTHREAD_GETASR:
-                case A_UTHREAD_GETAPR:
-                    COMMIT {
-                        m_output.Rcv.m_state   = RST_FULL;
-                        switch (m_input.function)
-                        {
-                        case A_UTHREAD_GETFID: m_output.Rcv.m_integer = m_input.fid; break;
-                        case A_UTHREAD_GETTID: m_output.Rcv.m_integer = m_input.tid; break;
-                        case A_UTHREAD_GETCID: m_output.Rcv.m_integer = m_parent.GetProcessor().GetPID(); break;
-                        case A_UTHREAD_GETPID:
-                        {
-                            PlaceID place;
-                            place.size = m_input.placeSize;
-                            place.pid  = m_parent.GetProcessor().GetPID() & -place.size;
-                            place.capability = 0x1337; // later: find a proper substitute
-                            m_output.Rcv.m_integer = m_parent.GetProcessor().PackPlace(place);
-                            break;
-                        }
-                        case A_UTHREAD_GETASR: m_output.Rcv.m_integer = m_parent.GetProcessor().ReadASR(Rbv); break;
-                        case A_UTHREAD_GETAPR: m_output.Rcv.m_integer = m_parent.GetProcessor().ReadAPR(Rbv); break;
-                        }
-                    }
-                    break;
-
-                case A_UTHREAD_ALLOCATE:
-                case A_UTHREAD_ALLOCATE_S:  // Suspend
-                case A_UTHREAD_ALLOCATE_E:  // Exclusive
-                {
-                    Integer flags = m_input.Rbv.m_integer.get(m_input.Rbv.m_size);
-                    PlaceID place = m_parent.GetProcessor().UnpackPlace(m_input.Rav.m_integer.get(m_input.Rav.m_size));
-                    bool suspend   = (m_input.function == A_UTHREAD_ALLOCATE_S || m_input.function == A_UTHREAD_ALLOCATE_E);
-                    bool exclusive = (m_input.function == A_UTHREAD_ALLOCATE_E);
-                    if (!ExecAllocate(place, m_input.Rc.index, suspend, exclusive, flags))
+                COMMIT {
+                    m_output.Rcv.m_state   = RST_FULL;
+                    switch (m_input.function)
                     {
-                        return PIPE_STALL;
-                    }
-                }
-                break;
-        
-                case A_UTHREAD_SETSTART: return SetFamilyProperty(m_parent.GetProcessor().UnpackFID(Rav), FAMPROP_START, Rbv);
-                case A_UTHREAD_SETLIMIT: return SetFamilyProperty(m_parent.GetProcessor().UnpackFID(Rav), FAMPROP_LIMIT, Rbv);
-                case A_UTHREAD_SETSTEP:  return SetFamilyProperty(m_parent.GetProcessor().UnpackFID(Rav), FAMPROP_STEP,  Rbv);
-                case A_UTHREAD_SETBLOCK: return SetFamilyProperty(m_parent.GetProcessor().UnpackFID(Rav), FAMPROP_BLOCK, Rbv);
-
-                case A_UTHREAD_KILL:     return ExecKill(m_parent.GetProcessor().UnpackPlace(Rav));
-                case A_UTHREAD_BREAK:    return ExecBreak();
-                
-                case A_UTHREAD_LDBP:
-                    COMMIT {
-                        // TLS base pointer: base address of TLS
-                        m_output.Rcv.m_integer = m_parent.GetProcessor().GetTLSAddress(m_input.fid, m_input.tid);
-                        m_output.Rcv.m_state   = RST_FULL;
-                    }
-                    break;
-
-                case A_UTHREAD_LDFP:
-                    COMMIT {
-                        /// TLS frame (stack) pointer: top of TLS
+                    case A_UTHREAD_LDBP: m_output.Rcv.m_integer = m_parent.GetProcessor().GetTLSAddress(m_input.fid, m_input.tid); break;
+                    case A_UTHREAD_LDFP: 
+                    {
                         const MemAddr tls_base = m_parent.GetProcessor().GetTLSAddress(m_input.fid, m_input.tid);
                         const MemAddr tls_size = m_parent.GetProcessor().GetTLSSize();
                         m_output.Rcv.m_integer = tls_base + tls_size;
-                        m_output.Rcv.m_state   = RST_FULL;
-                    }
-                    break;
-
-                case A_UTHREAD_PRINT:
-                    COMMIT {
-                        ExecDebug(Rav, Rbv);
-                        m_output.Rc = INVALID_REG;
-                    }
-                    break;
-                    
-                case A_UTHREAD_PUTG:   if (!MoveFamilyRegister(RRT_GLOBAL,          RT_INTEGER, m_parent.GetProcessor().UnpackFID(m_input.Rav.m_integer.get(m_input.Rav.m_size)), m_input.regofs)) return PIPE_STALL; break;
-                case A_UTHREAD_PUTS:   if (!MoveFamilyRegister(RRT_FIRST_DEPENDENT, RT_INTEGER, m_parent.GetProcessor().UnpackFID(m_input.Rav.m_integer.get(m_input.Rav.m_size)), m_input.regofs)) return PIPE_STALL; break;
-                case A_UTHREAD_GETS:   if (!MoveFamilyRegister(RRT_LAST_SHARED,     RT_INTEGER, m_parent.GetProcessor().UnpackFID(m_input.Rav.m_integer.get(m_input.Rav.m_size)), m_input.regofs)) return PIPE_STALL; break;
-                case A_UTHREAD_SYNC:   if (!ExecSync(m_parent.GetProcessor().UnpackFID(m_input.Rav.m_integer.get(m_input.Rav.m_size)))) return PIPE_STALL; break;
-                case A_UTHREAD_DETACH: if (!ExecDetach(m_parent.GetProcessor().UnpackFID(m_input.Rav.m_integer.get(m_input.Rav.m_size)))) return PIPE_STALL; break;
-                case A_CREATE_B_A:
-                case A_CREATE_B_AS:
-                case A_CREATE_B_I:
-                case A_CREATE_B_IS:
-                    {
-                        RegIndex completion =  INVALID_REG_INDEX;
-                        MemAddr target      =  m_input.Rav.m_integer.get(m_input.Rav.m_size);
-                        switch(m_input.function)
-                        {                                
-                            case A_CREATE_B_IS:
-                            {
-                                completion = m_input.Rc.index;                                
-                            }
-                            case A_CREATE_B_I:
-                            {
-                                target += m_parent.GetProcessor().ReadASR(ASR_SYSCALL_BASE);
-                                break;
-                            }
-                            case A_CREATE_B_AS:                        
-                            {
-                                completion = m_input.Rc.index;                               
-                                break;
-                            }                            
-                            default: break;
-                        }
-                        if (!m_allocator.QueueBundle(target, m_input.Rbv.m_integer.get(m_input.Rbv.m_size), completion))
-                        {
-                            DeadlockWrite("Unable to send bundle create to allocator");
-                            return PIPE_STALL;
-                        }
-                        COMMIT {
-                            if (completion != INVALID_REG_INDEX)
-                            {
-                                m_output.Rcv = MAKE_PENDING_PIPEVALUE(m_input.RcSize);
-                            }
-                        }
-                        return PIPE_CONTINUE;                       
                         break;
-                    }                       
+                    }
+                    case A_UTHREAD_GETFID: m_output.Rcv.m_integer = m_input.fid; break;
+                    case A_UTHREAD_GETTID: m_output.Rcv.m_integer = m_input.tid; break;
+                    case A_UTHREAD_GETCID: m_output.Rcv.m_integer = m_parent.GetProcessor().GetPID(); break;
+                    case A_UTHREAD_GETPID:
+                    {
+                        PlaceID place;
+                        place.size = m_input.placeSize;
+                        place.pid  = m_parent.GetProcessor().GetPID() & -place.size;
+                        place.capability = 0x1337; // later: find a proper substitute
+                        m_output.Rcv.m_integer = m_parent.GetProcessor().PackPlace(place);
+                        break;
+                    }
+                    case A_UTHREAD_GETASR: m_output.Rcv.m_integer = m_parent.GetProcessor().ReadASR(Rbv); break;
+                    case A_UTHREAD_GETAPR: m_output.Rcv.m_integer = m_parent.GetProcessor().ReadAPR(Rbv); break;
+                    }
+                }
+            }
+            else if ((m_input.function & A_UTHREAD_DZ_MASK) == A_UTHREAD_DZ_VALUE)
+            {
+                COMMIT{ m_output.Rc = INVALID_REG; }
+                switch (m_input.function)
+                {
+                case A_UTHREAD_BREAK:    ExecBreak(); break;
+                case A_UTHREAD_PRINT:    ExecDebug(Rav, Rbv); break;
+                }
+            }
+            else if ((m_input.function & A_UTHREAD_REMOTE_MASK) == A_UTHREAD_REMOTE_VALUE)
+            {
+                const FID fid = m_parent.GetProcessor().UnpackFID(Rav);
+                switch (m_input.function)
+                {
+                case A_UTHREAD_SETSTART: return SetFamilyProperty(fid, FAMPROP_START, Rbv);
+                case A_UTHREAD_SETLIMIT: return SetFamilyProperty(fid, FAMPROP_LIMIT, Rbv);
+                case A_UTHREAD_SETSTEP:  return SetFamilyProperty(fid, FAMPROP_STEP,  Rbv);
+                case A_UTHREAD_SETBLOCK: return SetFamilyProperty(fid, FAMPROP_BLOCK, Rbv);
+                case A_UTHREAD_PUTG:     return WriteFamilyRegister(RRT_GLOBAL,          RT_INTEGER, fid, m_input.regofs); 
+                case A_UTHREAD_PUTS:     return WriteFamilyRegister(RRT_FIRST_DEPENDENT, RT_INTEGER, fid, m_input.regofs); 
+                case A_UTHREAD_DETACH:   return ExecDetach(fid); 
+
+                case A_UTHREAD_SYNC:     return ExecSync(fid);
+                case A_UTHREAD_GETG:     return ReadFamilyRegister(RRT_GLOBAL,      RT_INTEGER, fid, m_input.regofs);
+                case A_UTHREAD_GETS:     return ReadFamilyRegister(RRT_LAST_SHARED, RT_INTEGER, fid, m_input.regofs);
+                }
+            }
+            else if ((m_input.function & A_UTHREAD_ALLOC_MASK) == A_UTHREAD_ALLOC_VALUE)
+            {
+                Integer flags  = Rbv;
+                PlaceID place  = m_parent.GetProcessor().UnpackPlace(Rav);
+                bool suspend   = (m_input.function & A_UTHREAD_ALLOC_S_MASK);
+                bool exclusive = (m_input.function & A_UTHREAD_ALLOC_X_MASK);
+
+                return ExecAllocate(place, m_input.Rc.index, suspend, exclusive, flags);
+            }
+            else if ((m_input.function & A_UTHREAD_CREB_MASK) == A_UTHREAD_CREB_VALUE)
+            {
+                return ExecBundle(Rav, (m_input.function == A_CREATE_B_I), Rbv, m_input.Rc.index);
             }
         }
         else if (m_input.opcode == A_OP_UTHREADF)
         {
-            switch (m_input.function)
+            if (m_input.function == A_UTHREADF_PRINT)
             {
-                case A_UTHREADF_PRINT:
-                    COMMIT {
-                        ExecDebug(
-                            m_input.Rbv.m_float.tofloat(m_input.Rbv.m_size),
-                            m_input.Rav.m_integer.get(m_input.Rav.m_size)
-                        );
-                        m_output.Rc = INVALID_REG;
-                    }
-                    break;
-
-                case A_UTHREADF_PUTG: if (!MoveFamilyRegister(RRT_GLOBAL,          RT_FLOAT, m_parent.GetProcessor().UnpackFID(m_input.Rav.m_integer.get(m_input.Rav.m_size)), m_input.regofs)) return PIPE_STALL; break;
-                case A_UTHREADF_PUTS: if (!MoveFamilyRegister(RRT_FIRST_DEPENDENT, RT_FLOAT, m_parent.GetProcessor().UnpackFID(m_input.Rav.m_integer.get(m_input.Rav.m_size)), m_input.regofs)) return PIPE_STALL; break;
-                case A_UTHREADF_GETS: if (!MoveFamilyRegister(RRT_LAST_SHARED,     RT_FLOAT, m_parent.GetProcessor().UnpackFID(m_input.Rav.m_integer.get(m_input.Rav.m_size)), m_input.regofs)) return PIPE_STALL; break;
+                COMMIT {
+                    ExecDebug(m_input.Rbv.m_float.tofloat(m_input.Rbv.m_size), Rav);
+                }
+            }
+            else 
+            { 
+                const FID fid = m_parent.GetProcessor().UnpackFID(Rav);
+                switch(m_input.function)
+                {
+                case A_UTHREADF_PUTG: return WriteFamilyRegister(RRT_GLOBAL,          RT_FLOAT, fid, m_input.regofs);
+                case A_UTHREADF_PUTS: return WriteFamilyRegister(RRT_FIRST_DEPENDENT, RT_FLOAT, fid, m_input.regofs);
+                case A_UTHREADF_GETG: return ReadFamilyRegister(RRT_GLOBAL,           RT_FLOAT, fid, m_input.regofs);
+                case A_UTHREADF_GETS: return ReadFamilyRegister(RRT_LAST_SHARED,      RT_FLOAT, fid, m_input.regofs);
+                }
             }
         }
         else

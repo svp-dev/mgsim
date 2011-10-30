@@ -18,7 +18,7 @@ main:
     stq   	$2,-16($1)
     stq   	$5,-8($1)
     subq  	$1,24,$1
-    creba 	$1,$3
+    creba/a 	$1,$3
     end
     .end main
      

@@ -2,6 +2,7 @@
 #include "symtable.h"
 #include "sim/sampling.h"
 #include "sim/log2.h"
+#include "programs/mgsim.h"
 
 #include <cassert>
 #include <cmath>
@@ -110,7 +111,27 @@ Processor::Pipeline::PipeAction Processor::Pipeline::ExecuteStage::OnCycle()
     return action;
 }
 
-bool Processor::Pipeline::ExecuteStage::ExecAllocate(PlaceID place, RegIndex reg, bool suspend, bool exclusive, Integer flags)
+Processor::Pipeline::PipeAction Processor::Pipeline::ExecuteStage::ExecBundle(MemAddr addr, bool indirect, Integer value, RegIndex reg)
+{
+    if (indirect)
+    {
+        addr += m_parent.GetProcessor().ReadASR(ASR_SYSCALL_BASE);
+    }
+
+    if (!m_allocator.QueueBundle(addr, value, reg))
+    {
+        return PIPE_STALL;
+    }
+
+    if (reg != INVALID_REG_INDEX)
+    {
+        COMMIT { m_output.Rcv = MAKE_PENDING_PIPEVALUE(m_input.RcSize);  }
+    }
+
+    return PIPE_CONTINUE;
+}
+
+Processor::Pipeline::PipeAction Processor::Pipeline::ExecuteStage::ExecAllocate(PlaceID place, RegIndex reg, bool suspend, bool exclusive, Integer flags)
 {
     if (place.size == 0)
     {
@@ -163,7 +184,7 @@ bool Processor::Pipeline::ExecuteStage::ExecAllocate(PlaceID place, RegIndex reg
             
         m_output.Rcv = MAKE_PENDING_PIPEVALUE(m_input.RcSize);
     }
-    return true;
+    return PIPE_CONTINUE;
 }
 
 Processor::Pipeline::PipeAction Processor::Pipeline::ExecuteStage::SetFamilyProperty(const FID& fid, FamilyProperty property, Integer value)
@@ -215,30 +236,40 @@ Processor::Pipeline::PipeAction Processor::Pipeline::ExecuteStage::ExecCreate(co
     return PIPE_CONTINUE;
 }
 
-bool Processor::Pipeline::ExecuteStage::MoveFamilyRegister(RemoteRegType kind, RegType type, const FID& fid, unsigned char reg)
+Processor::Pipeline::PipeAction Processor::Pipeline::ExecuteStage::ReadFamilyRegister(RemoteRegType kind, RegType type, const FID& fid, unsigned char reg)
 {
     COMMIT
     {
         m_output.Rrc.type = RemoteMessage::MSG_FAM_REGISTER;
+        m_output.Rrc.famreg.write = false;
         m_output.Rrc.famreg.kind = kind;
         m_output.Rrc.famreg.fid  = fid;
         m_output.Rrc.famreg.addr = MAKE_REGADDR(type, reg);
             
-        if (kind == RRT_LAST_SHARED) {
-            // Register request
-            m_output.Rrc.famreg.value.m_state = RST_INVALID;
-            m_output.Rrc.famreg.completion_reg = m_output.Rc.index;
-            m_output.Rcv = MAKE_PENDING_PIPEVALUE(m_input.RcSize);
-        } else {
-            // Register send
-            assert(m_input.Rbv.m_size == sizeof(Integer));
-            m_output.Rrc.famreg.value = PipeValueToRegValue(type, m_input.Rbv);
-        }
+        m_output.Rrc.famreg.value.m_state = RST_INVALID;
+        m_output.Rrc.famreg.completion_reg = m_output.Rc.index;
+        m_output.Rcv = MAKE_PENDING_PIPEVALUE(m_input.RcSize);
     }
-    return true;
+    return PIPE_CONTINUE;
 }
 
-bool Processor::Pipeline::ExecuteStage::ExecSync(const FID& fid)
+Processor::Pipeline::PipeAction Processor::Pipeline::ExecuteStage::WriteFamilyRegister(RemoteRegType kind, RegType type, const FID& fid, unsigned char reg)
+{
+    COMMIT
+    {
+        m_output.Rrc.type = RemoteMessage::MSG_FAM_REGISTER;
+        m_output.Rrc.famreg.write = true;
+        m_output.Rrc.famreg.kind = kind;
+        m_output.Rrc.famreg.fid  = fid;
+        m_output.Rrc.famreg.addr = MAKE_REGADDR(type, reg);
+            
+        assert(m_input.Rbv.m_size == sizeof(Integer));
+        m_output.Rrc.famreg.value = PipeValueToRegValue(type, m_input.Rbv);
+    }
+    return PIPE_CONTINUE;
+}
+
+Processor::Pipeline::PipeAction Processor::Pipeline::ExecuteStage::ExecSync(const FID& fid)
 {
     assert(m_input.Rc.type == RT_INTEGER);
     
@@ -270,10 +301,10 @@ bool Processor::Pipeline::ExecuteStage::ExecSync(const FID& fid)
                        GetKernel()->GetSymbolTable()[m_input.pc].c_str(), fid.pid, fid.lfid);
     }
 
-    return true;
+    return PIPE_CONTINUE;
 }
 
-bool Processor::Pipeline::ExecuteStage::ExecDetach(const FID& fid)
+Processor::Pipeline::PipeAction Processor::Pipeline::ExecuteStage::ExecDetach(const FID& fid)
 {
     if (fid.pid == 0 && fid.lfid == 0 && fid.capability == 0)
     {
@@ -292,7 +323,7 @@ bool Processor::Pipeline::ExecuteStage::ExecDetach(const FID& fid)
                        GetKernel()->GetSymbolTable()[m_input.pc].c_str(), fid.pid, fid.lfid);
     }
 
-    return true;
+    return PIPE_CONTINUE;
 }
 
 Processor::Pipeline::PipeAction Processor::Pipeline::ExecuteStage::ExecBreak()
@@ -312,13 +343,6 @@ Processor::Pipeline::PipeAction Processor::Pipeline::ExecuteStage::ExecBreak()
         m_output.Rrc.brk.fid = family.first_lfid;
     }
     return PIPE_CONTINUE; 
-}
-
-Processor::Pipeline::PipeAction Processor::Pipeline::ExecuteStage::ExecKill(const PlaceID& /* place */)
-{
-    // Not yet implemented
-    assert(false);
-    return PIPE_CONTINUE;
 }
 
 void Processor::Pipeline::ExecuteStage::ExecDebugOutput(Integer value, int command, int flags) const
