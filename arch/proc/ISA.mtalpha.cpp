@@ -1107,7 +1107,7 @@ Processor::Pipeline::PipeAction Processor::Pipeline::ExecuteStage::ExecuteInstru
                 switch (m_input.function)
                 {
                 case A_UTHREAD_BREAK:    ExecBreak(); break;
-                case A_UTHREAD_PRINT:    ExecDebug(Rav, Rbv); break;
+                case A_UTHREAD_PRINT:    COMMIT{ ExecDebug(Rav, Rbv); }; break;
                 }
             }
             else if ((m_input.function & A_UTHREAD_REMOTE_MASK) == A_UTHREAD_REMOTE_VALUE)
