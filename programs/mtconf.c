@@ -14,8 +14,8 @@
 
 #include "mtconf.h"
 #include "mgsim.h"
+#include "malloc/mtmalloc.h"
 #include <svp/testoutput.h>
-#include <svp/mtmalloc.h>
 #include <svp/abort.h>
 #include <svp/delegate.h>
 
