@@ -1,0 +1,270 @@
+#! @PYTHON@
+
+import re
+import sys
+import cgi
+
+step = int(sys.argv[1])
+
+def get_data(log):
+    r = re.compile(r'^\[(?P<cy>\d+):(?P<c2>[^]]+)\]\s\((?P<c1>[^]]+)\)\s(?P<t>.)\s(?P<msg>.*)$')
+    for l in log:
+        m = r.match(l.rstrip())
+        if m is None:
+            continue
+        yield m.groups()
+
+def get_events(events):
+    for e in events:
+        yield (int(e[0]), ((e[2], e[1]), (e[0], e[3], e[4])))
+
+cols = {}
+def make_cols(events):
+    global cols
+    for e in events:
+        (c, ((k1, k2), v)) = e
+        if k1 not in cols:
+            cols[k1] = set()
+        if k2 not in cols[k1]:
+            cols[k1].add(k2)
+        yield e
+
+
+def group_events(events):
+    cur = None
+    for c, e in events:
+        if cur is None:
+            cur = c - c % step
+            el = (cur, [])
+        print >>sys.stderr, cur, c
+        while c >= cur + step:
+            yield el
+            cur += step
+            el = (cur, [])
+        
+        #if c < cur + step:
+        el[1].append(e)
+
+    yield el
+
+
+def group_subevents1(events):
+    for c, l in events:
+        d = {}
+        for ((k1, k2), e) in l:
+            l2 = d.get(k1, [])
+            l2.append((k2, e))
+            d[k1] = l2
+        yield (c, d)
+
+def group_subevents2(events):
+    for c, d in events:
+        for k1 in d:
+            d2 = {}
+            for k2, e in d[k1]:
+                l = d2.get(k2, [])
+                l.append(e)
+                d2[k2] = l
+            d[k1] = d2
+        yield (c, d)
+
+
+evs = list(group_subevents2(group_subevents1(group_events(make_cols(get_events(get_data(sys.stdin)))))))
+#print cols
+#evs = list(group_events(make_cols(get_events(get_data(sys.stdin)))))
+
+#for e in evs:
+#    print e
+
+print """<html>
+<head>
+<style type="text/css">
+table { empty-cells: hide; border-collapse: collapse; }
+tr { margin: 0; padding: 2px; }
+tr:hover { background: #ccc; }
+
+colgroup { 
+   border-left: 1px solid #ddd; 
+   /* border-right: 1px solid #ddd;  */
+}
+colgroup.col0 { background: #ffffff; }
+colgroup.col1 { background: #fffff0; }
+colgroup.col2 { background: #fff0ff; }
+colgroup.col3 { background: #f0ffff; }
+colgroup.col4 { background: #fff0f0; }
+colgroup.col5 { background: #f0fff0; }
+colgroup.col6 { background: #f0f0ff; }
+colgroup.col7 { background: #f0f0f0; }
+
+colgroup.newgroup {
+   border-left: 1px solid black;
+}
+
+col { width: 20px; }
+td { 
+   width: 10px; height: 20px; 
+   margin: 0; padding: 0; 
+   padding-left: 10px; 
+   /* border: 1px solid #ddd;  */
+}
+th {
+   width: 10px; height: 20px; 
+   margin: 0; padding: 0; 
+   padding-left: 10px;  
+   /*   border: 1px solid #ddd; */
+   border-top: 1px solid #ddd;
+   border-bottom: 1px solid #ddd;
+   background: blue; 
+}
+th.comp {
+   border-left: 1px solid #ddd;
+   border-right: 1px solid #ddd;
+}
+
+td.d { background: #a0a0a0; }
+
+td.x { background: #00a000; }
+
+"""
+
+nthreadcols = 16
+j = 0
+for i in xrange(0, 360, int(360./nthreadcols)):
+    print "td.x%d { background: hsl(%d, 100%%, 50%%); }" % (j, i)
+    j += 1
+
+print """
+th div { 
+   display: block; 
+   overflow: visible; 
+   position: absolute; 
+   float: left; 
+   padding: 1em;
+   width: 20em; 
+
+   font-family: monospace;
+   border: 1px solid black;
+   background: #eef;
+
+/*
+-webkit-transform: rotate(-90deg); 
+-moz-transform: rotate(-90deg);
+filter: progid:DXImageTransform.Microsoft.BasicImage(rotation=3);
+*/
+   visibility: hidden;  
+}
+th:hover div { visibility: visible; } 
+
+td div { 
+   display: block; 
+   overflow: visible; 
+   position: absolute; 
+   float: left; 
+   padding: 1em;
+   width: 60em; 
+
+   font-family: monospace;
+   border: 1px solid black;
+   background: #eef;
+
+   visibility: hidden;  
+}
+td:hover div { visibility: visible; } 
+
+</style>
+</head><body><table>
+<caption>System activity</caption>
+<colgroup span="1" />"""
+
+keys = list(cols.keys())
+keys.sort()
+
+procs = []
+cnt = 0
+prev = ""
+for k in keys:
+    n = len(cols[k])
+
+    parts = k.split('.',1)
+    h = parts[0]
+    if len(parts) > 1:
+        rest = parts[1]
+    else:
+        rest = h
+    coln = "col%d" % (hash(rest) % 8)
+    cls = coln
+
+    if h != prev:
+        prev = h
+        cnt = cnt + 1
+        cls = cls + " newgroup"
+
+    print """<colgroup span="%d" class="%s"/>""" % (n, cls)
+
+    procs.append((k, coln))
+
+
+print """
+<thead>
+<tr><th rowspan="2"><div>Cycle</div></th>"""
+
+for k in keys:
+    n = len(cols[k])
+    print """<th colspan="%d"><div>%s</div>&nbsp;</th>""" % (n, k)
+
+print """</tr><tr>"""
+
+cmap = []
+cnt = 0
+for (k1, coln) in procs:
+
+    if k1.endswith(":pipeline"):
+        d = []
+        for st in ["fetch", "decode", "read", "execute", "memory", "writeback"]:
+            for v in cols[k1]:
+                if v.endswith(st):
+                    d.append(v)
+        for v in cols[k1]:
+            if v not in d:
+                d.append(v)
+    else:
+        d = list(cols[k1])
+        d.sort()
+
+    for k2 in d:
+        cmap.append((k1,k2, coln))
+        cnt += 1
+        print """<th class="comp"><div>%s</div>&nbsp;</th>""" % k2
+
+print """</tr></thead><tbody>"""
+
+tre = re.compile('.*F\d+/T\d+\((\d+)\)')
+for c,e in evs:
+    print "<tr><td>%d</td>" % c
+
+    for k1,k2,coln in cmap:
+        l = e.get(k1, {}).get(k2, [])
+        cls = None
+        if len(l):
+            cls = 'd'
+            for (cx, t, m) in l:
+                if t != "d":
+                    if k1.endswith(":pipeline"):
+                        m = tre.match(m)
+                        if m is not None:
+                            cls = 'x%d' % (int(m.group(1)) % nthreadcols)
+                            break
+                    cls = 'x'
+                    break
+        if cls is None:
+            cls = ""
+        cls = cls + " " + coln
+
+        s = '<br/>'.join((cgi.escape(' '.join(s)) for s in l))
+        if len(s):
+            s = "<div>" + k1 + '/' + k2 + '<br/>' + s + "</div>"
+        print """<td class="%s">%s</td>""" % (cls, s)
+
+    print "</tr>"
+
+print """</tbody></table></body></html>"""

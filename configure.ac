@@ -265,6 +265,7 @@ AC_CONFIG_FILES([
 	doc/Makefile
 ])
 AC_CONFIG_FILES([tools/readtrace], [chmod +x tools/readtrace])
+AC_CONFIG_FILES([tools/viewlog], [chmod +x tools/viewlog])
 AC_CONFIG_FILES([tools/aslink], [chmod +x tools/aslink])
 AC_CONFIG_FILES([tools/compile], [chmod +x tools/compile])
 
