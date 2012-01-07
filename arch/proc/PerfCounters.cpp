@@ -186,7 +186,7 @@ Result Processor::PerfCounters::Read(MemAddr address, void *data, MemSize size, 
 
         // get topmost 15 bits of precision of the usec field
         // usec is 0-999999; so it has 20 bits of value
-        Integer usec = (tv.tv_usec >> 20-15) & 0x7fff;
+        Integer usec = (tv.tv_usec >> (20-15)) & 0x7fff;
         value = usec | (tm->tm_sec << 15) | (tm->tm_min << 21) | (tm->tm_hour << 27);
     }       
     break;        
