@@ -287,6 +287,8 @@ enum ThreadState
     TST_NUMSTATES
 };
 
+extern const char* const ThreadStateNames[TST_NUMSTATES];
+
 enum FamilyState
 {
     FST_EMPTY,

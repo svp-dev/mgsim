@@ -9,6 +9,10 @@ using namespace std;
 namespace Simulator
 {
 
+const char* const ThreadStateNames[TST_NUMSTATES] = {
+    "", "WAITING", "READY", "ACTIVE", "RUNNING", "SUSPENDED", "UNUSED", "KILLED"
+};
+
 string PlaceID::str() const
 {
     ostringstream ss;

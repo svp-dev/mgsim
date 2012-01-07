@@ -191,10 +191,6 @@ void Processor::ThreadTable::Cmd_Info(ostream& out, const vector<string>& /* arg
 
 void Processor::ThreadTable::Cmd_Read(ostream& out, const vector<string>& arguments) const
 {
-    static const char* const ThreadStates[] = {
-        "", "WAITING", "READY", "ACTIVE", "RUNNING", "SUSPENDED", "UNUSED", "KILLED"
-    };
-    
     // Read the range
     bool show_counts = false;
     set<TID> tids;
@@ -237,7 +233,7 @@ void Processor::ThreadTable::Cmd_Read(ostream& out, const vector<string>& argume
                     << setw(2) << setfill(' ') << thread.dependencies.numPendingWrites
                     << " | ";
 
-                out << left << setfill(' ') << setw(9) <<  ThreadStates[thread.state]
+                out << left << setfill(' ') << setw(9) <<  ThreadStateNames[thread.state]
                     << " | " << GetKernel()->GetSymbolTable()[thread.pc];
             }
             else
