@@ -449,24 +449,30 @@ void Processor::Pipeline::Cmd_Read(std::ostream& out, const std::vector<std::str
 
 string Processor::Pipeline::PipeValue::str(RegType type) const
 {
+    // Code similar to RegValue::str()
     ostringstream ss;
+    string tc = (type == RT_FLOAT) ? "float:" : "int:" ;
+
     switch (m_state)
     {
-    case RST_INVALID: return "Invalid  "; 
-    case RST_EMPTY:   return "Empty    "; 
-    case RST_PENDING: return "Pending: " + m_memory.str(); 
-    case RST_WAITING: return "Waiting: " + m_memory.str() + ", " + m_waiting.str();
+    case RST_INVALID: return tc + "INVALID"; 
+    case RST_EMPTY:   return tc + "[E]"; 
+    case RST_PENDING: return tc + "[P:" + m_memory.str() + "]"; 
+    case RST_WAITING: return tc + "[W:" + m_memory.str() + "," + m_waiting.str() + "]";
     case RST_FULL: {
         stringstream ss;
-        ss << "Full:    " << setw(sizeof(Integer) * 2) << setfill('0') << hex;
+        ss << tc << "[F:" << setw(sizeof(Integer) * 2) << setfill('0') << hex;
         if (type == RT_FLOAT)
             ss << m_float.toint(m_size);
         else
             ss << m_integer.get(m_size);
+        ss << ']';
         return ss.str();
     }
+    default:
+        assert(0); // can't be here
+        return "UNKNOWN";
     }
-    return "(unknown register state)";
 }
 
 
