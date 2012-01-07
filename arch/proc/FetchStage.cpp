@@ -59,6 +59,8 @@ Processor::Pipeline::PipeAction Processor::Pipeline::FetchStage::OnCycle()
             m_output.legacy    = family.legacy;
             m_output.placeSize = family.placeSize;
 
+            m_output.logical_index = thread.index; // for traces only
+
             for (RegType i = 0; i < NUM_REG_TYPES; ++i)
             {
                 m_output.regs.types[i].family = family.regs[i];
@@ -88,8 +90,17 @@ Processor::Pipeline::PipeAction Processor::Pipeline::FetchStage::OnCycle()
         const bool lastThread = m_allocator.m_activeThreads.Empty() || m_allocator.m_activeThreads.Singular();
         m_output.swch         = mustSwitch || (wantSwitch && !lastThread);
         m_output.pc           = pc;
-        m_output.pc_dbg       = pc;
         m_output.instr        = UnserializeInstruction(&instrs[iInstr]);
+
+        m_output.pc_dbg       = pc;
+        if (GetKernel()->GetDebugMode() & (Kernel::DEBUG_PIPE|Kernel::DEBUG_FLOW|Kernel::DEBUG_SIM|Kernel::DEBUG_DEADLOCK))
+        {
+            m_output.pc_sym = GetKernel()->GetSymbolTable()[m_output.pc].c_str();
+        }
+        else
+        {
+            m_output.pc_sym = "(untranslated)";
+        }
 
         // Check for breakpoints
         GetKernel()->GetBreakPoints().Check(BreakPoints::EXEC, pc, *this);

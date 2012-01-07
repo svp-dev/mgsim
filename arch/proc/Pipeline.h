@@ -131,11 +131,16 @@ class Pipeline : public Object, public Inspect::Interface<Inspect::Read>
     {
         TID     tid;
         MemAddr pc;
-        MemAddr pc_dbg; // Original, unmodified PC for debugging
         LFID    fid;
         bool    swch;
         bool    kill;
-    CommonData() : tid(0), pc(0), pc_dbg(0), fid(0), swch(false), kill(false) {}
+
+        // Admin (debugging, traces)
+        MemAddr      pc_dbg;        // Original, unmodified PC for debugging (execute can change the pc)
+        const char*  pc_sym;        // Symbolic name for PC
+        uint64_t     logical_index; // Thread logical index
+
+    CommonData() : tid(0), pc(0), fid(0), swch(false), kill(false), pc_dbg(0), pc_sym(NULL), logical_index(0) {}
     };
 
     struct Latch : public CommonData
