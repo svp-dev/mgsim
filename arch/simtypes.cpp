@@ -52,7 +52,7 @@ string ThreadQueue::str() const
 {
     stringstream ss;
 
-    ss << "TQ(" << head << ',' << tail << ')';
+    ss << "Q(T" << head << ",T" << tail << ')';
 
     return ss.str();
 }
@@ -62,11 +62,10 @@ string MemoryRequest::str() const
 {
     stringstream ss;
 
-    ss << "MReq:";
     if (size == 0)
-        ss << "(none)";
+        ss << "NoMem";
     else
-        ss << "(F" << fid 
+        ss << "Mem:(F" << fid 
            << ',' << offset 
            << ',' << size 
            << ',' << sign_extend
@@ -78,23 +77,27 @@ string MemoryRequest::str() const
 
 string RegValue::str(RegType type) const
 {
+    // Also see Pipeline::PipeValue::str()
     switch (m_state)
     {
-    case RST_INVALID: return "Invalid  "; 
-    case RST_EMPTY:   return "Empty    "; 
-    case RST_PENDING: return "Pending: " + m_memory.str(); 
-    case RST_WAITING: return "Waiting: " + m_memory.str() + ", " + m_waiting.str();
+    case RST_INVALID: return "INVALID"; 
+    case RST_EMPTY:   return "[E]"; 
+    case RST_PENDING: return "[P:" + m_memory.str() + "]"; 
+    case RST_WAITING: return "[W:" + m_memory.str() + "," + m_waiting.str() + "]";
     case RST_FULL:{
         stringstream ss;
-        ss << "Full:    " << setw(sizeof(Integer) * 2) << setfill('0') << hex;
+        ss << "[F:" << setw(sizeof(Integer) * 2) << setfill('0') << hex;
         if (type == RT_FLOAT)
             ss << m_float.integer;
         else
             ss << m_integer;
+        ss << ']';
         return ss.str();
     }
+    default:
+        assert(0); // can't be here
+        return "UNKNOWN";
     }
-    return "(unknown register state)";
 }
 
 ostream& operator << (ostream& output, const RegAddr& reg)
