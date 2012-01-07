@@ -16,7 +16,8 @@ dotest() {
   i=1
   for i in $cpuconf; do
       cmd="$thesim $SIMARGS -o NumProcessors=$i $extraarg $TEST"
-      printf "%c %s" "-" "TEST: $TEST: CPUS=$i $extradesc -> "
+      echo "- \`\`$cmd\`\`"
+      printf "%s %s" "  " "=> "
       set +e
       exec 3>&2 4>&1 >"$$.out" 2>&1
       $timeout $cmd 
