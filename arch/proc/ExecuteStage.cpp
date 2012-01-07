@@ -300,7 +300,8 @@ Processor::Pipeline::PipeAction Processor::Pipeline::ExecuteStage::ExecSync(cons
     
     if (m_input.Rc.index == INVALID_REG_INDEX)
     {
-        throw exceptf<InvalidArgumentException>(*this, "Invalid target register for SYNC in T%u (%s)", (unsigned)m_input.tid, GetKernel()->GetSymbolTable()[m_input.pc].c_str());
+        throw exceptf<InvalidArgumentException>(*this, "F%u/T%u(%llu) %s invalid target register for sync", 
+                                                (unsigned)m_input.fid, (unsigned)m_input.tid, (unsigned long long)m_input.logical_index, m_input.pc_sym);
     }
 
     if (fid.pid == 0 && fid.lfid == 0 && fid.capability == 0)
