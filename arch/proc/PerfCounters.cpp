@@ -1,5 +1,7 @@
 #include "Processor.h"
 #include "sim/config.h"
+#include <sys/time.h>
+#include <ctime>
 
 namespace Simulator
 {
@@ -153,11 +155,41 @@ Result Processor::PerfCounters::Read(MemAddr address, void *data, MemSize size, 
     }
     break;
     case 13:
+    {
+        // Return the Unix time
+        value = (Integer)time(0);
+    }
+    break;
     case 14:
+    {
+        // Return the local date as a packed struct
+        // bits 0-4: day in month
+        // bits 5-8: month in year
+        // bits 9-31: year from 1900
+        time_t c = time(0);
+        struct tm * tm = gmtime(&c);
+        value = (Integer)tm->tm_mday |
+            ((Integer)tm->tm_mon << 5) |
+            ((Integer)tm->tm_year << 9);
+    }
+    break;
     case 15:
-        // slots free to reuse
-        value = (Integer)-1;
-        break;
+    {
+        // Return the local time as a packed struct
+        // bits 0-14 = microseconds / 2^5  (topmost 15 bits)
+        // bits 15-20 = seconds
+        // bits 21-26 = minutes
+        // bits 27-31 = hours
+        struct timeval tv;
+        gettimeofday(&tv, 0);
+        struct tm * tm = gmtime(&tv.tv_sec);
+
+        // get topmost 15 bits of precision of the usec field
+        // usec is 0-999999; so it has 20 bits of value
+        Integer usec = (tv.tv_usec >> 20-15) & 0x7fff;
+        value = usec | (tm->tm_sec << 15) | (tm->tm_min << 21) | (tm->tm_hour << 27);
+    }       
+    break;        
     case 16:
     {
         // Return the number of memory loads overall from external memory (cache lines)
