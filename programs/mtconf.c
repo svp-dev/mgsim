@@ -14,10 +14,11 @@
 
 #include "mtconf.h"
 #include "mgsim.h"
-#include "malloc/mtmalloc.h"
 #include <svp/testoutput.h>
 #include <svp/abort.h>
 #include <svp/delegate.h>
+
+extern void* dlmalloc(size_t);
 
 int verbose_boot = 1;
 clock_t boot_ts = 0;
