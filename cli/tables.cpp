@@ -60,8 +60,6 @@ command_descriptor command_table[] =
     { { "state", 0 },                 0, 0,  cmd_state,       "state",            "Show the state of the system. Idle components are left out." },
     { { "statistics", 0 },            0, 0,  cmd_stats,       "statistics",       "Print the current simulation statistics." },
     { { "step", 0 },                  0, 1,  cmd_run,         "step [N]",         "Advance the system by N clock cycles (default 1)." },
-    { { "trace", "all", 0 },          0, 0,  cmd_trace_debug,  "trace all",       "Enable all traces." },
-    { { "trace", "none", 0 },         0, 0,  cmd_trace_debug,  "trace none",      "Disable all traces." },
     { { "trace", "line", 0 },         2, 3,  cmd_trace_line,   "trace line COMPONENT ADDR [clear]",  "Enable/Disable tracing of the cache line at address ADDR by memory COMPONENT." },
     { { "trace", 0 },                 0, -1, cmd_trace_debug,  "trace [FLAGS...]", "Show current traces / toggle tracing of FLAGS." },
 
