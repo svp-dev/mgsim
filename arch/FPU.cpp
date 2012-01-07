@@ -57,6 +57,16 @@ size_t FPU::RegisterSource(Processor::RegisterFile& regfile, const StorageTraceS
     return SIZE_MAX;
 }
     
+string FPU::Operation::str() const
+{
+    ostringstream ss;
+    ss << OperationNames[op] << size * 8 
+       << ' ' << setprecision(12) << Rav 
+       << ", " << setprecision(12) << Rbv
+       << ", " << Rc.str();
+    return ss.str();
+}
+
 bool FPU::QueueOperation(size_t source, FPUOperation fop, int size, double Rav, double Rbv, const RegAddr& Rc)
 {
     // The size must be a multiple of the arch's native integer size
@@ -78,7 +88,9 @@ bool FPU::QueueOperation(size_t source, FPUOperation fop, int size, double Rav, 
         return false;
     }
     
-    DebugFPUWrite("Queued FP %s operation into queue %u", OperationNames[fop], (unsigned)source);
+    DebugFPUWrite("queued %s %s", 
+                  m_sources[source]->regfile->GetParent()->GetFQN().c_str(),
+                  op.str().c_str());
     return true;
 }
 
@@ -109,19 +121,21 @@ bool FPU::OnCompletion(unsigned int unit, const Result& res) const
 {
     const CycleNo now = GetCycleNo();
     
-    if (res.source->last_write == now && res.source->last_unit != unit)
+    Source *source = m_sources[res.source];
+
+    if (source->last_write == now && source->last_unit != unit)
     {
         DeadlockWrite("Unable to write back result because another FPU pipe already wrote back this cycle");
         return false;
     }
-    res.source->last_write = now;
-    res.source->last_unit  = unit;
+    source->last_write = now;
+    source->last_unit  = unit;
     
     // Calculate the address of this register
     RegAddr addr = res.address;
     addr.index += res.index;
 
-    if (!res.source->regfile->p_asyncW.Write(addr))
+    if (!source->regfile->p_asyncW.Write(addr))
     {
         DeadlockWrite("Unable to acquire port to write back to %s", addr.str().c_str());
         return false;
@@ -129,7 +143,7 @@ bool FPU::OnCompletion(unsigned int unit, const Result& res) const
 
     // Read the old value
     RegValue value;
-    if (!res.source->regfile->ReadRegister(addr, value))
+    if (!source->regfile->ReadRegister(addr, value))
     {
         DeadlockWrite("Unable to read register %s", addr.str().c_str());
         return false;
@@ -152,13 +166,17 @@ bool FPU::OnCompletion(unsigned int unit, const Result& res) const
     value.m_state         = RST_FULL;
     value.m_float.integer = (Integer)(res.value.toint(res.size) >> (sizeof(Integer) * 8 * index));
         
-    if (!res.source->regfile->WriteRegister(addr, value, false))
+    if (!source->regfile->WriteRegister(addr, value, false))
     {
         DeadlockWrite("Unable to write register %s", addr.str().c_str());
         return false;
     }
 
-    DebugFPUWrite("Wrote FP result back to %s", addr.str().c_str());
+    DebugFPUWrite("unit %u completed %s %s <- %s", 
+                  (unsigned)unit,
+                  source->regfile->GetParent()->GetFQN().c_str(),
+                  addr.str().c_str(), 
+                  value.str(addr.type).c_str());
     return true;
 }
 
@@ -252,13 +270,15 @@ Result FPU::DoPipeline()
             // Calculate the result and store it in the unit
             COMMIT{
                 Result res = CalculateResult(op);
-                res.source = m_sources[i];
+                res.source = i;
                 unit.slots.push_back(res);
             }
             num_units_full++;
             
-            DebugFPUWrite("Put %s operation from queue %u into pipeline %u",
-                OperationNames[op.op], (unsigned)i, (unsigned)unit_index);
+            DebugFPUWrite("unit %u executing %s %s", 
+                          (unsigned)unit_index, 
+                          m_sources[i]->regfile->GetParent()->GetFQN().c_str(),
+                          op.str().c_str());
             
             // Remove the queued operation from the queue
             input.Pop();
@@ -403,20 +423,22 @@ void FPU::Cmd_Read(std::ostream& out, const std::vector<std::string>& /*argument
         if (source.inputs.begin() != source.inputs.end())
         {
             // Print the queued operations
-            out << " Op  |           A            |            B           | Dest" << endl;
-            out << "-----+------------------------+------------------------+-------" << endl;
+            out << " Op  | Sz |           A          |            B         | Dest " << endl;
+            out << "-----+----+----------------------+----------------------+------" << endl;
             for (Buffer<Operation>::const_iterator p = source.inputs.begin(); p != source.inputs.end(); ++p)
             {
                 out << setw(4) << left << OperationNames[p->op] << right << " | "
-                    << setw(20) << setprecision(12) << p->Rav << "/" << p->size << " | "
+                    << setw(2) << left << p->size * 8 << right << " | "
+                    << setw(20) << setprecision(12) << p->Rav << " | "
                     << setw(20);
                 if (p->op != FPU_OP_SQRT) { 
-                    out << setprecision(12) << fixed << p->Rbv << "/" << p->size;
+                    out << setprecision(12) << fixed << p->Rbv;
                 } else {
                     out << " ";
                 }
                 out << " | "
-                    << p->Rc.str() << endl;
+                    << p->Rc.str() 
+                    << endl;
             }
         }
         else
@@ -452,14 +474,15 @@ void FPU::Cmd_Read(std::ostream& out, const std::vector<std::string>& /*argument
         }
         else
         {
-            out << " t |         Result         |  Reg  | Destination" << endl;
-            out << "---+------------------------+-------+--------------------" << endl;
+            out << " t | Sz |        Result       |  Reg  | Destination" << endl;
+            out << "---+----+---------------------+-------+--------------------" << endl;
             for (deque<Result>::const_iterator p = unit.slots.begin(); p != unit.slots.end(); ++p)
             {
                 out << setw(2) << p->state << " | "
-                    << setw(20) << setprecision(12) << p->value.tofloat(p->size) << "/" << p->size << " | "
+                    << setw(2) << p->size * 8 << " | "
+                    << setw(20) << setprecision(12) << p->value.tofloat(p->size)  << " | "
                     << p->address.str() << " | "
-                    << p->source->regfile->GetParent()->GetFQN()
+                    << m_sources[p->source]->regfile->GetParent()->GetFQN()
                     << endl;
             }
             out << endl;

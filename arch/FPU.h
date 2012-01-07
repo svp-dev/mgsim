@@ -40,6 +40,7 @@ class FPU : public Object, public Inspect::Interface<Inspect::Read>
 	    int          size;
 	    double       Rav, Rbv;
 	    RegAddr      Rc;
+            std::string  str() const;
     };
 
     /// Represents a source for this FPU    
@@ -61,7 +62,7 @@ class FPU : public Object, public Inspect::Interface<Inspect::Read>
 	struct Result
 	{
 		RegAddr       address;     ///< Address of destination register of result.
-		Source*       source;      ///< The source of the operation
+		unsigned int  source;      ///< The source of the operation
 		MultiFloat    value;       ///< Resulting value of the operation.
 		unsigned int  size;        ///< Size of the resulting value.
 		unsigned int  state;       ///< Progression through the pipeline.
