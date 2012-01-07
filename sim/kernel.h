@@ -203,14 +203,16 @@ enum CyclePhase {
 };
 
 // Define these methods as macros to allow for optimizations
-#define DebugSimWrite(msg, ...)  do { if ((GetKernel()->GetDebugMode() & Kernel::DEBUG_SIM ) && GetKernel()->GetCyclePhase() == PHASE_COMMIT) DebugSimWrite_((msg), ##__VA_ARGS__); } while(false)
-#define DebugProgWrite(msg, ...) do { if ((GetKernel()->GetDebugMode() & Kernel::DEBUG_PROG) && GetKernel()->GetCyclePhase() == PHASE_COMMIT) DebugSimWrite_((msg), ##__VA_ARGS__); } while(false)
-#define DebugFlowWrite(msg, ...) do { if ((GetKernel()->GetDebugMode() & Kernel::DEBUG_FLOW) && GetKernel()->GetCyclePhase() == PHASE_COMMIT) DebugSimWrite_((msg), ##__VA_ARGS__); } while(false)
-#define DebugMemWrite(msg, ...)  do { if ((GetKernel()->GetDebugMode() & Kernel::DEBUG_MEM ) && GetKernel()->GetCyclePhase() == PHASE_COMMIT) DebugSimWrite_((msg), ##__VA_ARGS__); } while(false)
-#define DebugIOWrite(msg, ...)   do { if ((GetKernel()->GetDebugMode() & Kernel::DEBUG_IO  ) && GetKernel()->GetCyclePhase() == PHASE_COMMIT) DebugSimWrite_((msg), ##__VA_ARGS__); } while(false)
-#define DebugRegWrite(msg, ...)  do { if ((GetKernel()->GetDebugMode() & Kernel::DEBUG_REG ) && GetKernel()->GetCyclePhase() == PHASE_COMMIT) DebugSimWrite_((msg), ##__VA_ARGS__); } while(false)
-#define DebugNetWrite(msg, ...)  do { if ((GetKernel()->GetDebugMode() & Kernel::DEBUG_NET ) && GetKernel()->GetCyclePhase() == PHASE_COMMIT) DebugSimWrite_((msg), ##__VA_ARGS__); } while(false)
-#define DebugIONetWrite(msg, ...)  do { if ((GetKernel()->GetDebugMode() & Kernel::DEBUG_IONET ) && GetKernel()->GetCyclePhase() == PHASE_COMMIT) DebugSimWrite_((msg), ##__VA_ARGS__); } while(false)
+#define DebugSimWrite(msg, ...)  do { if ((GetKernel()->GetDebugMode() & Kernel::DEBUG_SIM ) && GetKernel()->GetCyclePhase() == PHASE_COMMIT) DebugSimWrite_(("s " msg), ##__VA_ARGS__); } while(false)
+#define DebugProgWrite(msg, ...) do { if ((GetKernel()->GetDebugMode() & Kernel::DEBUG_PROG) && GetKernel()->GetCyclePhase() == PHASE_COMMIT) DebugSimWrite_(("p " msg), ##__VA_ARGS__); } while(false)
+#define DebugFlowWrite(msg, ...) do { if ((GetKernel()->GetDebugMode() & Kernel::DEBUG_FLOW) && GetKernel()->GetCyclePhase() == PHASE_COMMIT) DebugSimWrite_(("f " msg), ##__VA_ARGS__); } while(false)
+#define DebugMemWrite(msg, ...)  do { if ((GetKernel()->GetDebugMode() & Kernel::DEBUG_MEM ) && GetKernel()->GetCyclePhase() == PHASE_COMMIT) DebugSimWrite_(("m " msg), ##__VA_ARGS__); } while(false)
+#define DebugIOWrite(msg, ...)   do { if ((GetKernel()->GetDebugMode() & Kernel::DEBUG_IO  ) && GetKernel()->GetCyclePhase() == PHASE_COMMIT) DebugSimWrite_(("i " msg), ##__VA_ARGS__); } while(false)
+#define DebugRegWrite(msg, ...)  do { if ((GetKernel()->GetDebugMode() & Kernel::DEBUG_REG ) && GetKernel()->GetCyclePhase() == PHASE_COMMIT) DebugSimWrite_(("r " msg), ##__VA_ARGS__); } while(false)
+#define DebugNetWrite(msg, ...)  do { if ((GetKernel()->GetDebugMode() & Kernel::DEBUG_NET ) && GetKernel()->GetCyclePhase() == PHASE_COMMIT) DebugSimWrite_(("n " msg), ##__VA_ARGS__); } while(false)
+#define DebugIONetWrite(msg, ...)  do { if ((GetKernel()->GetDebugMode() & Kernel::DEBUG_IONET ) && GetKernel()->GetCyclePhase() == PHASE_COMMIT) DebugSimWrite_(("b " msg), ##__VA_ARGS__); } while(false)
+#define DebugFPUWrite(msg, ...)  do { if ((GetKernel()->GetDebugMode() & Kernel::DEBUG_FPU ) && GetKernel()->GetCyclePhase() == PHASE_COMMIT) DebugSimWrite_(("f " msg), ##__VA_ARGS__); } while(false)
+
 #define DeadlockWrite(msg, ...)  do { if (GetKernel()->GetDebugMode() & Kernel::DEBUG_DEADLOCK) DeadlockWrite_((msg), ##__VA_ARGS__); } while(false)
 #define OutputWrite(msg, ...)    do { if (GetKernel()->GetCyclePhase() == PHASE_COMMIT) OutputWrite_((msg), ##__VA_ARGS__); } while(false)
 
@@ -236,6 +238,7 @@ public:
         DEBUG_REG      = 64, ///< Debug register accesses
         DEBUG_NET      = 128, ///< Debug network message (delegation/link)
         DEBUG_IONET    = 256, ///< Debug I/O network message (interrupts/requests)
+        DEBUG_FPU      = 512, ///< Debug FPU activity
     };
     
 private:

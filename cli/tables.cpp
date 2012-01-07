@@ -60,19 +60,10 @@ command_descriptor command_table[] =
     { { "state", 0 },                 0, 0,  cmd_state,       "state",            "Show the state of the system. Idle components are left out." },
     { { "statistics", 0 },            0, 0,  cmd_stats,       "statistics",       "Print the current simulation statistics." },
     { { "step", 0 },                  0, 1,  cmd_run,         "step [N]",         "Advance the system by N clock cycles (default 1)." },
-    { { "trace", 0  },                0, 0,  cmd_trace_show,  "trace",            "Show what is currently being traced." },
-    { { "trace", "prog", 0 },         0, 0,  cmd_trace_debug,  "trace prog",      "Toggle tracing of actions executed by the program." },
-    { { "trace", "sim", 0 },          0, 0,  cmd_trace_debug,  "trace sim",       "Toggle tracing of simulation events." },
-    { { "trace", "deadlocks", 0 },    0, 0,  cmd_trace_debug,  "trace deadlocks", "Toggle tracing of stall events." },
-    { { "trace", "flow", 0 },         0, 0,  cmd_trace_debug,  "trace flow",      "Toggle tracing of the program control flow." },
-    { { "trace", "mem", 0 },          0, 0,  cmd_trace_debug,  "trace mem",       "Toggle tracing of load/store operations." },
-    { { "trace", "io", 0 },           0, 0,  cmd_trace_debug,  "trace io",        "Toggle tracing of I/O operations." },
-    { { "trace", "regs", 0 },         0, 0,  cmd_trace_debug,  "trace regs",      "Toggle tracing of register updates." },
-    { { "trace", "net", 0 },          0, 0,  cmd_trace_debug,  "trace net",       "Toggle tracing of network messages (delegation/link)." },
-    { { "trace", "ionet", 0 },        0, 0,  cmd_trace_debug,  "trace ionet",     "Toggle tracing of I/O network messages (notifications/reqs)." },
     { { "trace", "all", 0 },          0, 0,  cmd_trace_debug,  "trace all",       "Enable all traces." },
     { { "trace", "none", 0 },         0, 0,  cmd_trace_debug,  "trace none",      "Disable all traces." },
     { { "trace", "line", 0 },         2, 3,  cmd_trace_line,   "trace line COMPONENT ADDR [clear]",  "Enable/Disable tracing of the cache line at address ADDR by memory COMPONENT." },
+    { { "trace", 0 },                 0, -1, cmd_trace_debug,  "trace [FLAGS...]", "Show current traces / toggle tracing of FLAGS." },
 
     { { 0 }, 0, 0, 0, 0, 0 }
 };

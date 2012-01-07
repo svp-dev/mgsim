@@ -78,7 +78,7 @@ bool FPU::QueueOperation(size_t source, FPUOperation fop, int size, double Rav, 
         return false;
     }
     
-    DebugSimWrite("Queued FP %s operation into queue %u", OperationNames[fop], (unsigned)source);
+    DebugFPUWrite("Queued FP %s operation into queue %u", OperationNames[fop], (unsigned)source);
     return true;
 }
 
@@ -158,7 +158,7 @@ bool FPU::OnCompletion(unsigned int unit, const Result& res) const
         return false;
     }
 
-    DebugSimWrite("Wrote FP result back to %s", addr.str().c_str());
+    DebugFPUWrite("Wrote FP result back to %s", addr.str().c_str());
     return true;
 }
 
@@ -257,7 +257,7 @@ Result FPU::DoPipeline()
             }
             num_units_full++;
             
-            DebugSimWrite("Put %s operation from queue %u into pipeline %u",
+            DebugFPUWrite("Put %s operation from queue %u into pipeline %u",
                 OperationNames[op.op], (unsigned)i, (unsigned)unit_index);
             
             // Remove the queued operation from the queue
