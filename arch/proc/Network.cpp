@@ -184,7 +184,7 @@ Result Processor::Network::DoSyncs()
     msg.rawreg.pid             = info.pid;
     msg.rawreg.addr            = MAKE_REGADDR(RT_INTEGER, info.reg);
     msg.rawreg.value.m_state   = RST_FULL;
-    msg.rawreg.value.m_integer = 0;
+    msg.rawreg.value.m_integer = (int)info.broken;
 
     if (!SendMessage(msg))
     {
@@ -402,6 +402,7 @@ bool Processor::Network::OnSync(LFID fid, PID completion_pid, RegIndex completio
         info.fid = fid;
         info.pid = completion_pid;
         info.reg = completion_reg;
+        info.broken = family.broken;
         
         COMMIT{ family.dependencies.syncSent = false; }
         
@@ -440,7 +441,8 @@ bool Processor::Network::OnDetach(LFID fid)
 
 bool Processor::Network::OnBreak(LFID fid)
 {
-    const Family& family = m_familyTable[fid];
+    Family& family = m_familyTable[fid];
+
     if (!family.dependencies.allocationDone)
     {
         if (!m_allocator.DecreaseFamilyDependency(fid, FAMDEP_ALLOCATION_DONE))
@@ -462,7 +464,10 @@ bool Processor::Network::OnBreak(LFID fid)
             return false;
         }
     }
-    DebugSimWrite("Broken F%u", (unsigned)fid);
+
+    COMMIT { family.broken = true; }
+
+    DebugSimWrite("F%u broken", (unsigned)fid);
     return true;
 }
 
@@ -818,13 +823,18 @@ Result Processor::Network::DoLink()
     }
     
     case LinkMessage::MSG_DONE:
+    {
+        Family& family = m_familyTable[msg.done.fid];
+
+        COMMIT { family.broken |= msg.done.broken; }
+
         if (!m_allocator.DecreaseFamilyDependency(msg.done.fid, FAMDEP_PREV_SYNCHRONIZED))
         {
             DeadlockWrite("Unable to mark family synchronization on F%u", (unsigned)msg.done.fid);
             return FAILED;
         }
         break;
-        
+    }   
     case LinkMessage::MSG_SYNC:
         if (!OnSync(msg.sync.fid, msg.sync.completion_pid, msg.sync.completion_reg))
         {
@@ -935,7 +945,7 @@ void Processor::Network::Cmd_Read(ostream& out, const vector<string>& /* argumen
     out << "Family events:" << dec << endl;
     for (Buffer<SyncInfo>::const_iterator p = m_syncs.begin(); p != m_syncs.end(); ++p)
     {
-        out << "R" << p->reg << "@P" << p->pid << " ";
+        out << "R" << p->reg << "@P" << p->pid << "(" << (int)p->broken << ") ";
     }
     out << endl;
 }

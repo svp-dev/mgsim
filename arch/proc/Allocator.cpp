@@ -492,8 +492,10 @@ bool Processor::Allocator::DecreaseFamilyDependency(LFID fid, Family& family, Fa
             {
                 // Send family termination event to next processor
                 LinkMessage msg;
-                msg.type     = LinkMessage::MSG_DONE;
-                msg.done.fid = family.link;
+                msg.type        = LinkMessage::MSG_DONE;
+                msg.done.fid    = family.link;
+                msg.done.broken = family.broken;
+
                 if (!m_network.SendMessage(msg))
                 {
                     return false;
@@ -508,6 +510,7 @@ bool Processor::Allocator::DecreaseFamilyDependency(LFID fid, Family& family, Fa
                 info.fid = fid;
                 info.pid = family.sync.pid;
                 info.reg = family.sync.reg;
+                info.broken = family.broken;
                 
                 if (!m_network.SendSync(info))
                 {
@@ -664,6 +667,7 @@ FCapability Processor::Allocator::InitializeFamily(LFID fid) const
         family.hasShareds    = false;
         family.lastAllocated = INVALID_TID;
         family.prevCleanedUp = false;
+        family.broken        = false;
 
         // Dependencies
         family.dependencies.allocationDone      = false;

@@ -149,6 +149,7 @@ struct LinkMessage
         struct
         {
             LFID fid;
+            bool broken;
         } done;
 
         struct
@@ -282,6 +283,7 @@ public:
         LFID     fid;
         PID      pid;
         RegIndex reg;
+        bool     broken;
     };
     
     Network(const std::string& name, Processor& parent, Clock& clock, const std::vector<Processor*>& grid, Allocator& allocator, RegisterFile& regFile, FamilyTable& familyTable, Config& config);

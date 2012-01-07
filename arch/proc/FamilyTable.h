@@ -81,6 +81,7 @@ struct Family
     LFID         first_lfid;     // The LFID of the matching family on the first CPU (used for break)
     LFID         link;           // The LFID of the matching family on the next CPU (prev during allocate)
     bool         prevCleanedUp;  // Last thread has been cleaned up
+    bool         broken;         // Family terminated due to break
     
     struct
     {
