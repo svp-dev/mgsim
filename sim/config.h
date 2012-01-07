@@ -104,7 +104,8 @@ public:
     template <typename T>
     T getValueOrDefault(const Simulator::Object& obj, const std::string& prefix, const std::string& name, const T& def)
     {
-        return lookupValue<T>(obj.GetFQN() + '.' + prefix + ':' + name, def, false);
+        const std::string& objname = obj.GetFQN();
+        return lookupValue<T>((objname.empty() ? objname : objname + '.') + prefix + ':' + name, def, false);
     }
 
     template <typename T>
@@ -128,7 +129,8 @@ public:
     template <typename T>
     T getValue(const Simulator::Object& obj, const std::string& prefix, const std::string& name)
     {
-        return lookupValue<T>(obj.GetFQN() + '.' + prefix + ':' + name, T(), true);
+        const std::string& objname = obj.GetFQN();
+        return lookupValue<T>((objname.empty() ? objname : objname + '.') + prefix + ':' + name, T(), true);
     }
 
     std::vector<std::string> getWordList(const std::string& name); 
