@@ -958,86 +958,86 @@ string Processor::RemoteMessage::str() const
     {
     case MSG_NONE: ss << "(no message)"; break;
     case MSG_ALLOCATE: 
-        ss << "Allocate[ "
-           << " pid(" << allocate.place.str()
-           << ") susp(" << allocate.suspend
-           << ") excl(" << allocate.exclusive
-           << ") type(" << allocate.type
-           << ") cpid(" << allocate.completion_pid
-           << ") creg(" << allocate.completion_reg
-           << ") ]";
+        ss << "[allocate"
+           << " pid " << allocate.place.str()
+           << " susp " << allocate.suspend
+           << " excl " << allocate.exclusive
+           << " type " << allocate.type
+           << " cpid " << allocate.completion_pid
+           << " creg " << allocate.completion_reg
+           << "]";
         break;
     case MSG_BUNDLE: 
-        ss << "Bundle[ "
-           << " pid(" << allocate.place.str()
-           << ") susp(" << allocate.suspend
-           << ") excl(" << allocate.exclusive
-           << ") type(" << allocate.type
-           << ") cpid(" << allocate.completion_pid
-           << ") creg(" << allocate.completion_reg
-           << ") pc(" << hex << "0x" << allocate.bundle.pc << dec
-           << ") parm(" << allocate.bundle.parameter
-           << ") idx(" << allocate.bundle.index
-           << ") ]";
+        ss << "[bundle"
+           << " pid " << allocate.place.str()
+           << " susp " << allocate.suspend
+           << " excl " << allocate.exclusive
+           << " type " << allocate.type
+           << " cpid " << allocate.completion_pid
+           << " creg " << allocate.completion_reg
+           << " pc " << hex << "0x" << allocate.bundle.pc << dec
+           << " parm " << allocate.bundle.parameter
+           << " idx " << allocate.bundle.index
+           << "]";
         break;
     case MSG_SET_PROPERTY: 
-        ss << "SetProperty[ "
-           << "fid(" << property.fid.str()
-           << ") type(" << property.type
-           << ") val(" << property.value
-           << ") ]";
+        ss << "[setproperty"
+           << " fid " << property.fid.str()
+           << " type " << property.type
+           << " val " << property.value
+           << "]";
         break;
     case MSG_CREATE: 
-        ss << "Create[ "
-           << "fid(" << create.fid.str()
-           << ") pc(" << hex << "0x" << create.address << dec
-           << ") creg(" << create.completion_reg
-           << ") ]";
+        ss << "[create"
+           << " fid " << create.fid.str()
+           << " pc " << hex << "0x" << create.address << dec
+           << " creg " << create.completion_reg
+           << "]";
             ;
         break;
     case MSG_SYNC: 
-        ss << "Sync[ "
-           << "fid(" << sync.fid.str()
-           << ") creg(" << sync.completion_reg
-           << ") ]";
+        ss << "[sync"
+           << " fid " << sync.fid.str()
+           << " creg " << sync.completion_reg
+           << "]";
             ;
         break;
     case MSG_DETACH: 
-        ss << "Detach[ "
-           << "fid(" << detach.fid.str()
-           << ") ]";
+        ss << "[detach"
+           << " fid " << detach.fid.str()
+           << "]";
             ;
         break;
     case MSG_BREAK: 
-        ss << "Break[ "
-           << "pid(" << brk.pid
-           << ") lfid(" << brk.fid
-           << ") ]";
+        ss << "[break "
+           << " pid " << brk.pid
+           << " lfid " << brk.fid
+           << "]";
             ;
         break;
     case MSG_RAW_REGISTER: 
-        ss << "RawRegister[ "
-           << "pid(" << rawreg.pid
-           << ") addr(" << rawreg.addr.str()
-           << ") val(" << rawreg.value.str(rawreg.addr.type)
-           << ") ]";
+        ss << "[rawregister"
+           << " pid " << rawreg.pid
+           << " addr " << rawreg.addr.str()
+           << " val " << rawreg.value.str(rawreg.addr.type)
+           << "]";
             ;
         break;
     case MSG_FAM_REGISTER: 
-        ss << "FamRegister[ "
-           << "fid(" << famreg.fid.str()
-           << ") kind(" << GetRemoteRegisterTypeString(famreg.kind)
-           << ") addr(" << famreg.addr.str()
+        ss << "[famregister"
+           << " fid " << famreg.fid.str()
+           << " kind " << GetRemoteRegisterTypeString(famreg.kind)
+           << " addr " << famreg.addr.str()
             ;
         if (!famreg.write)
         {
-            ss << ") creg(" << famreg.completion_reg;
+            ss << " creg " << famreg.completion_reg;
         }
         else
         {
-            ss << ") val(" << famreg.value.str(famreg.addr.type);
+            ss << " val " << famreg.value.str(famreg.addr.type);
         }
-        ss << ") ]";
+        ss << "]";
         break;
     default:
         assert(false); // all types should be listed here.
@@ -1053,72 +1053,82 @@ string Processor::LinkMessage::str() const
     switch (type)
     {
     case MSG_ALLOCATE: 
-        ss << "Allocate:    "
-           << "ffid " << allocate.first_fid
-           << "pfid " << allocate.prev_fid
-           << "psz  " << allocate.size
-           << "exct " << allocate.exact
-           << "susp " << allocate.suspend
-           << "cpid " << allocate.completion_pid
-           << "creg " << allocate.completion_reg
+        ss << "[allocate"
+           << " ffid " << allocate.first_fid
+           << " pfid " << allocate.prev_fid
+           << " psz " << allocate.size
+           << " exct " << allocate.exact
+           << " susp " << allocate.suspend
+           << " cpid " << allocate.completion_pid
+           << " creg " << allocate.completion_reg
+           << ']'
             ;
         break;
     case MSG_BALLOCATE: 
-        ss << "BAllocate:   "
-           << "minc " << ballocate.min_contexts
-           << "minp " << ballocate.min_pid
-           << "psz  " << ballocate.size
-           << "susp " << ballocate.suspend
-           << "cpid " << ballocate.completion_pid
-           << "creg " << ballocate.completion_reg
+        ss << "[ballocate"
+           << " minc " << ballocate.min_contexts
+           << " minp " << ballocate.min_pid
+           << " psz " << ballocate.size
+           << " susp " << ballocate.suspend
+           << " cpid " << ballocate.completion_pid
+           << " creg " << ballocate.completion_reg
+           << ']'
             ;
         break;
     case MSG_SET_PROPERTY: 
-        ss << "SetProperty: "
-           << "lfid " << property.fid
-           << "type " << property.type
-           << "val  " << property.value
+        ss << "[setproperty"
+           << " lfid " << property.fid
+           << " type " << property.type
+           << " val " << property.value
+           << ']'
             ;
         break;
     case MSG_CREATE: 
-        ss << "Create:      "
-           << "lfid " << create.fid
-           << "psz  " << create.numCores
-           << "pc   " << hex << "0x" << create.address << dec
-           << "regs "
+        ss << "[create"
+           << " lfid " << create.fid
+           << " psz " << create.numCores
+           << " pc " << hex << "0x" << create.address << dec
+           << " regs "
             ;
         for (size_t i = 0; i < NUM_REG_TYPES; ++i)
             ss << create.regs[i].globals << ' '
                << create.regs[i].shareds << ' '
                << create.regs[i].locals << ' '
                 ;
+        ss << ']';
         break;
     case MSG_DONE: 
-        ss << "Done:        "
-           << "lfid " << sync.fid
+        ss << "[done"
+           << " lfid " << done.fid
+           << " broken " << done.broken
+           << ']'
             ;
         break;
     case MSG_SYNC: 
-        ss << "Sync:        "
-           << "lfid " << sync.fid
-           << "creg " << sync.completion_reg
+        ss << "[sync"
+           << " lfid " << sync.fid
+           << " creg " << sync.completion_reg
+           << ']'
             ;
         break;
     case MSG_DETACH: 
-        ss << "Detach:      "
-           << "lfid " << detach.fid
+        ss << "[detach"
+           << " lfid " << detach.fid
+           << ']'
             ;
         break;
     case MSG_BREAK: 
-        ss << "Break:       "
-           << "lfid " << brk.fid
+        ss << "[break"
+           << " lfid " << brk.fid
+           << ']'
             ;
         break;
     case MSG_GLOBAL: 
-        ss << "Global:      "
-           << "lfid " << global.fid
-           << "addr " << global.addr.str()
-           << "val  " << global.value.str(global.addr.type)
+        ss << "[global"
+           << " lfid " << global.fid
+           << " addr " << global.addr.str()
+           << " val " << global.value.str(global.addr.type)
+           << ']'
             ;
         break;
     default:
