@@ -80,7 +80,8 @@ bool InputConfigRegistry::lookup(const string& name_, string& result, const stri
     for (ConfigMap::const_iterator p = m_overrides.begin(); p != m_overrides.end(); ++p)
     {
         pat = p->first;
-        if (FNM_NOMATCH != fnmatch(pat.c_str(), name.c_str(), FNM_CASEFOLD))
+        if (FNM_NOMATCH != fnmatch(pat.c_str(), name.c_str(), FNM_CASEFOLD)
+            || FNM_NOMATCH != fnmatch(pat.c_str(), ("system." + name).c_str(), FNM_CASEFOLD))
         {
             // Return the overriden value
             result = p->second;
@@ -94,7 +95,8 @@ bool InputConfigRegistry::lookup(const string& name_, string& result, const stri
         for (ConfigMap::const_iterator p = m_data.begin(); p != m_data.end(); ++p)
         {
             pat = p->first;
-            if (FNM_NOMATCH != fnmatch(pat.c_str(), name.c_str(), FNM_CASEFOLD))
+            if (FNM_NOMATCH != fnmatch(pat.c_str(), name.c_str(), FNM_CASEFOLD)
+                || FNM_NOMATCH != fnmatch(pat.c_str(), ("system." + name).c_str(), FNM_CASEFOLD))
             {
                 // Return the configuration value
                 result = p->second;

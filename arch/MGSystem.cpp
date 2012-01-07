@@ -634,7 +634,7 @@ MGSystem::MGSystem(Config& config,
                    bool quiet, bool doload)
     : m_kernel(m_symtable, m_breakpoints),
       m_clock(m_kernel.CreateClock(config.getValue<unsigned long>("CoreFreq"))),
-      m_root("system", m_clock),
+      m_root("", m_clock),
       m_breakpoints(m_kernel),
       m_config(config),
       m_bootrom(NULL)

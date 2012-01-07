@@ -168,7 +168,7 @@ static void ParseArguments(int argc, const char ** argv, ProgramConfig& config)
             config.m_overrides.push_back(make_pair(cfgprefix + "Type", "AROM"));
             config.m_overrides.push_back(make_pair(cfgprefix + "ROMContentSource", "RAW"));
             config.m_overrides.push_back(make_pair(cfgprefix + "ROMFileName", filename));
-            config.m_loads.push_back(make_pair(regaddr, "*." + devname)); 
+            config.m_loads.push_back(make_pair(regaddr, devname)); 
         } 
         else if (arg[1] == 'R' || arg[1] == 'F')
         {

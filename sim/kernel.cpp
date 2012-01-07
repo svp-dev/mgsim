@@ -68,7 +68,7 @@ Object::Object(const std::string& name, Clock& clock)
 Object::Object(const std::string& name, Object& parent)
     : m_parent(&parent), 
       m_name(name), 
-      m_fqn(parent.GetFQN() + '.' + name),
+      m_fqn(parent.GetFQN().empty() ? name : (parent.GetFQN() + '.' + name)),
       m_clock(parent.m_clock), 
       m_kernel(m_clock.GetKernel())
 {
@@ -79,7 +79,7 @@ Object::Object(const std::string& name, Object& parent)
 Object::Object(const std::string& name, Object& parent, Clock& clock)
     : m_parent(&parent), 
       m_name(name), 
-      m_fqn(parent.GetFQN() + '.' + name),
+      m_fqn(parent.GetFQN().empty() ? name : (parent.GetFQN() + '.' + name)),
       m_clock(clock), 
       m_kernel(clock.GetKernel())
 {
@@ -107,41 +107,33 @@ void Object::OutputWrite_(const char* msg, ...) const
 {
     va_list args;
 
-    string name = GetFQN();
-    cerr << "[" << right << dec << setfill('0') << setw(8) << m_kernel.GetCycleNo() << ":" << name << "] ";
-
+    fprintf(stderr, "[%08lld:%s] o ", m_kernel.GetCycleNo(), GetFQN().c_str());
     va_start(args, msg);
     vfprintf(stderr, msg, args);
     va_end(args);
-        
-    cerr << endl;
+    fputc('\n', stderr);
 }
 
 void Object::DeadlockWrite_(const char* msg, ...) const
 {
     va_list args;
 
-    cerr << "[" << right << dec << setfill('0') << setw(8) << m_kernel.GetCycleNo() << ':' << GetFQN() << "] (" << m_kernel.GetActiveProcess()->GetName() << ") ";
-
+    fprintf(stderr, "[%08lld:%s] d (%s) ", m_kernel.GetCycleNo(), GetFQN().c_str(), m_kernel.GetActiveProcess()->GetName().c_str());
     va_start(args, msg);
     vfprintf(stderr, msg, args);
     va_end(args);
-
-    cerr << endl;
+    fputc('\n', stderr);
 }
 
 void Object::DebugSimWrite_(const char* msg, ...) const
 {
     va_list args;
 
-    string name = GetFQN();
-    cerr << "[" << right << dec << setfill('0') << setw(8) << m_kernel.GetCycleNo() << ":" << name << "] ";
-
+    fprintf(stderr, "[%08lld:%s] ", m_kernel.GetCycleNo(), GetFQN().c_str());
     va_start(args, msg);
     vfprintf(stderr, msg, args);
     va_end(args);
-
-    cerr << endl;
+    fputc('\n', stderr);
 }
 
 //
