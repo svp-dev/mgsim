@@ -655,6 +655,9 @@ Result Processor::DCache::DoIncomingResponses()
             DeadlockWrite("Unable to decrease outstanding writes on T%u", (unsigned)response.tid);
             return FAILED;
         }
+
+        DebugMemWrite("T%u completed store", (unsigned)response.tid);
+
     }
     else
     {
@@ -688,6 +691,11 @@ Result Processor::DCache::DoOutgoingRequests()
             return FAILED;
         }
     }
+
+    DebugMemWrite("T%d queued outgoing %s request for %.*llx",
+                  (request.write ? (int)request.tid : -1), (request.write ? "store" : "load"),
+                  (int)(sizeof(MemAddr)*2), (unsigned long long)request.address);
+
     m_outgoing.Pop();
     return SUCCESS;
 }

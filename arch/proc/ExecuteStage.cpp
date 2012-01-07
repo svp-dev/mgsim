@@ -76,6 +76,11 @@ Processor::Pipeline::PipeAction Processor::Pipeline::ExecuteStage::OnCycle()
             m_output.kill    = false;
             m_output.suspend = SUSPEND_MISSING_DATA;
         }
+
+        DebugPipeWrite("F%u/T%u(%llu) %s suspend on non-full operand %s",
+                       (unsigned)m_input.fid, (unsigned)m_input.tid, (unsigned long long)m_input.logical_index, m_input.pc_sym,
+                       m_input.Rc.str().c_str());
+
         return PIPE_FLUSH;
     }
     
@@ -106,6 +111,14 @@ Processor::Pipeline::PipeAction Processor::Pipeline::ExecuteStage::OnCycle()
                 m_output.kill = false;
             }
         }
+
+        DebugPipeWrite("F%u/T%u(%llu) %s executed",
+                       (unsigned)m_input.fid, (unsigned)m_input.tid, (unsigned long long)m_input.logical_index, m_input.pc_sym);
+    }
+    else
+    {
+        DebugPipeWrite("F%u/T%u(%llu) %s stalled",
+                       (unsigned)m_input.fid, (unsigned)m_input.tid, (unsigned long long)m_input.logical_index, m_input.pc_sym);
     }
     
     return action;
@@ -139,6 +152,10 @@ Processor::Pipeline::PipeAction Processor::Pipeline::ExecuteStage::ExecAllocate(
         place.size = m_input.placeSize;
         place.pid  = (m_parent.GetProcessor().GetPID() / place.size) * place.size;
         place.capability = 0x1337; // also later: copy the place capability from the parent.
+
+        DebugSimWrite("F%u/T%u(%llu) %s adjusted default place -> CPU%u/%u cap 0x%lx",
+                      (unsigned)m_input.fid, (unsigned)m_input.tid, (unsigned long long)m_input.logical_index, m_input.pc_sym,
+                      (unsigned)place.pid, (unsigned)place.size, (unsigned long)place.capability);
     } 
     else if (place.size == 1 && place.capability == 0)
     {
@@ -146,8 +163,16 @@ Processor::Pipeline::PipeAction Processor::Pipeline::ExecuteStage::ExecAllocate(
         {
             // Local place
             place.pid  = m_parent.GetProcessor().GetPID();
+
+            DebugSimWrite("F%u/T%u(%llu) %s adjusted local place -> CPU%u/1",
+                          (unsigned)m_input.fid, (unsigned)m_input.tid, (unsigned long long)m_input.logical_index, m_input.pc_sym,
+                          (unsigned)place.pid);
         }
         place.capability = 0x1337; // also later: copy the place capability from the parent.
+
+        DebugSimWrite("F%u/T%u(%llu) %s adjusted sz 1 cap 0 -> 0x%lx",
+                      (unsigned)m_input.fid, (unsigned)m_input.tid, (unsigned long long)m_input.logical_index, m_input.pc_sym,
+                      (unsigned long)place.capability);
     }
     
     // Size must be a power of two and ID a multiple of size.
@@ -165,8 +190,8 @@ Processor::Pipeline::PipeAction Processor::Pipeline::ExecuteStage::ExecAllocate(
     {
         type = ALLOCATE_SINGLE;
         
-        OutputWrite("Exclusive single allocate changed at %llx (%s) to exclusive single allocate",
-            (unsigned long long)m_input.pc, GetKernel()->GetSymbolTable()[m_input.pc].c_str() );
+        DebugSimWrite("F%u/T%u(%llu) %s adjusted allocate type exclusive balanced -> exclusive single",
+                      (unsigned)m_input.fid, (unsigned)m_input.tid, (unsigned long long)m_input.logical_index, m_input.pc_sym);
     }
         
     // Send an allocation request.
@@ -228,10 +253,10 @@ Processor::Pipeline::PipeAction Processor::Pipeline::ExecuteStage::ExecCreate(co
         m_output.Rcv = MAKE_PENDING_PIPEVALUE(m_input.RcSize);
     }
     
-    DebugFlowWrite("F%u/T%u Create from %s to %s (CPU%zd/F%zd)",
-                   (unsigned)m_input.fid, (unsigned)m_input.tid,                               
-                   GetKernel()->GetSymbolTable()[m_input.pc].c_str(),
-                   GetKernel()->GetSymbolTable()[address].c_str(), fid.pid, fid.lfid);
+    DebugFlowWrite("F%u/T%u(%llu) %s create CPU%u/F%u %s",
+                   (unsigned)m_input.fid, (unsigned)m_input.tid, (unsigned long long)m_input.logical_index, m_input.pc_sym,
+                   (unsigned)fid.pid, (unsigned) fid.lfid,
+                   GetKernel()->GetSymbolTable()[address].c_str());
     
     return PIPE_CONTINUE;
 }
@@ -296,9 +321,9 @@ Processor::Pipeline::PipeAction Processor::Pipeline::ExecuteStage::ExecSync(cons
             
             m_output.Rcv = MAKE_PENDING_PIPEVALUE(m_input.RcSize);            
         }
-        DebugFlowWrite("F%u/T%u Sync from %s to CPU%zd/F%zd",
-                       (unsigned)m_input.fid, (unsigned)m_input.tid,                               
-                       GetKernel()->GetSymbolTable()[m_input.pc].c_str(), fid.pid, fid.lfid);
+        DebugFlowWrite("F%u/T%u(%llu) %s sync CPU%u/F%u",
+                       (unsigned)m_input.fid, (unsigned)m_input.tid, (unsigned long long)m_input.logical_index, m_input.pc_sym,
+                       (unsigned)fid.pid, (unsigned)fid.lfid);
     }
 
     return PIPE_CONTINUE;
@@ -318,9 +343,9 @@ Processor::Pipeline::PipeAction Processor::Pipeline::ExecuteStage::ExecDetach(co
             m_output.Rrc.type = RemoteMessage::MSG_DETACH;
             m_output.Rrc.detach.fid = fid;
         }
-        DebugFlowWrite("F%u/T%u Detach from %s to CPU%zd/F%zd",
-                       (unsigned)m_input.fid, (unsigned)m_input.tid,                               
-                       GetKernel()->GetSymbolTable()[m_input.pc].c_str(), fid.pid, fid.lfid);
+        DebugFlowWrite("F%u/T%u(%llu) %s detach CPU%u/F%u",
+                       (unsigned)m_input.fid, (unsigned)m_input.tid, (unsigned long long)m_input.logical_index, m_input.pc_sym,
+                       (unsigned)fid.pid, (unsigned)fid.lfid);
     }
 
     return PIPE_CONTINUE;
@@ -375,8 +400,8 @@ void Processor::Pipeline::ExecuteStage::ExecDebugOutput(Integer value, int comma
 
     if (outstream == 0)
     {
-        DebugProgWrite("PRINT by F%u/T%u at %s: %s",
-                       (unsigned)m_input.fid, (unsigned)m_input.tid, GetKernel()->GetSymbolTable()[m_input.pc].c_str(),
+        DebugProgWrite("F%u/T%u(%llu) %s PRINT: %s",
+                       (unsigned)m_input.fid, (unsigned)m_input.tid, (unsigned long long)m_input.logical_index, m_input.pc_sym,
                        stringout.str().c_str());
     }
 }
@@ -413,8 +438,8 @@ void Processor::Pipeline::ExecuteStage::ExecStatusAction(Integer value, int comm
 
     if (outstream == 0)
     {
-        DebugProgWrite("STATUS by F%u/T%u at %s: %s",
-                       (unsigned)m_input.fid, (unsigned)m_input.tid, GetKernel()->GetSymbolTable()[m_input.pc].c_str(),
+        DebugProgWrite("F%u/T%u(%llu) %s STATUS: %s",
+                       (unsigned)m_input.fid, (unsigned)m_input.tid, (unsigned long long)m_input.logical_index, m_input.pc_sym,
                        stringout.str().c_str());
     }
 
@@ -502,9 +527,9 @@ void Processor::Pipeline::ExecuteStage::ExecDebug(double value, Integer stream) 
     int s = stream & 3;
     switch (s) {
     case 0:
-      DebugProgWrite("PRINT by T%u at 0x%.*llx: %0.*lf",
-             (unsigned)m_input.tid, (int)sizeof(m_input.pc) * 2, (unsigned long long)m_input.pc,
-             prec, value );
+      DebugProgWrite("F%u/T%u(%llu) %s PRINT: %0.*lf",
+                     (unsigned)m_input.fid, (unsigned)m_input.tid, (unsigned long long)m_input.logical_index, m_input.pc_sym,
+                     prec, value );
       break;
     case 1:
     case 2:

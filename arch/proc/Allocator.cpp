@@ -159,6 +159,9 @@ bool Processor::Allocator::QueueThreads(ThreadList& list, const ThreadQueue& thr
             next = m_threadTable[cur].next;
             m_threadTable[cur].state = state;
             ++count;
+
+            DebugSimWrite("F%u/T%u -> %s", (unsigned)m_threadTable[cur].family, (unsigned)cur, ThreadStateNames[state]);
+
         } while (cur != threads.tail);
         m_numThreadsPerState[state] += count;
     }
@@ -219,7 +222,7 @@ bool Processor::Allocator::KillThread(TID tid)
         return false;
     }
 
-    DebugSimWrite("Killed thread T%u", (unsigned)tid);
+    DebugSimWrite("F%u/T%u(%llu) terminated", (unsigned)thread.family, (unsigned)tid, (unsigned long long)thread.index);
 
     COMMIT
     {
@@ -247,7 +250,7 @@ bool Processor::Allocator::RescheduleThread(TID tid, MemAddr pc)
     
     if (!m_icache.ReleaseCacheLine(thread.cid))
     {
-        DeadlockWrite("Unable to release I-Cache line #%u", (unsigned)thread.cid);
+        DeadlockWrite("F%u/T%u unable to release iline #%u", (unsigned)thread.family, (unsigned)tid, (unsigned)thread.cid);
         return false;
     }
 
@@ -255,11 +258,12 @@ bool Processor::Allocator::RescheduleThread(TID tid, MemAddr pc)
     ThreadQueue tq = {tid, tid};
     if (!ActivateThreads(tq))
     {
-        DeadlockWrite("Unable to reschedule T%u in F%u", (unsigned)tid, (unsigned)thread.family);
+        DeadlockWrite("F%u/T%u unable to reschedule", (unsigned)thread.family, (unsigned)tid);
         return false;
     }
 
-    DebugSimWrite("Rescheduling thread T%u in F%u to %s", (unsigned)tid, (unsigned)thread.family, 
+    DebugSimWrite("F%u/T%u(%llu) rescheduling to %s", 
+                  (unsigned)thread.family, (unsigned)tid, (unsigned long long)thread.index,
                   GetKernel()->GetSymbolTable()[pc].c_str());
     return true;
 }
@@ -364,6 +368,8 @@ bool Processor::Allocator::AllocateThread(LFID fid, TID tid, bool isNewlyAllocat
         m_parent.MapMemory(tls_base+tls_size/2, tls_size/2);
     }
 
+    SInteger logical_index = family->start;
+
     // Write L0 to the register file
     if (family->regs[RT_INTEGER].count.locals > 0)
     {
@@ -372,31 +378,43 @@ bool Processor::Allocator::AllocateThread(LFID fid, TID tid, bool isNewlyAllocat
 
         if (!m_registerFile.p_asyncW.Write(addr))
         {
-            DeadlockWrite("Unable to acquire RF port for writing %s", addr.str().c_str());
+            DeadlockWrite("F%u/T%u(%llu) %s unable to acquire RF port to write",
+                          (unsigned)fid, (unsigned)tid, (unsigned long long)logical_index,
+                          addr.str().c_str());
             return false;
         }
 
         if (!m_registerFile.ReadRegister(addr, data))
         {
-            DeadlockWrite("Unable to read index register %s", addr.str().c_str());
+            DeadlockWrite("F%u/T%u(%llu) %s unable to read index register", 
+                          (unsigned)fid, (unsigned)tid, (unsigned long long)logical_index,
+                          addr.str().c_str());
             return false;
         }
 
         assert(data.m_state != RST_WAITING);
         if (data.m_state == RST_PENDING)
         {
-            DeadlockWrite("Waiting for memory completion of index register %s", addr.str().c_str());
+            DeadlockWrite("F%u/T%u(%llu) %s index register pending", 
+                          (unsigned)fid, (unsigned)tid, (unsigned long long)logical_index,
+                          addr.str().c_str());
             return false;
         }
 
         data.m_state   = RST_FULL;
-        data.m_integer = family->start;
+        data.m_integer = logical_index;
 
         if (!m_registerFile.WriteRegister(addr, data, false))
         {
-            DeadlockWrite("Unable to write index register %s", addr.str().c_str());
+            DeadlockWrite("F%u/T%u(%llu) %s unable to write index register", 
+                          (unsigned)fid, (unsigned)tid, (unsigned long long)logical_index,
+                          addr.str().c_str());
             return false;
         }
+
+        DebugSimWrite("F%u/T%u(%llu) %s wrote index register",
+                      (unsigned)fid, (unsigned)tid, (unsigned long long)logical_index,
+                      addr.str().c_str());
     }
 
     if (isNewlyAllocated)
@@ -423,7 +441,7 @@ bool Processor::Allocator::AllocateThread(LFID fid, TID tid, bool isNewlyAllocat
         // We're done allocating threads
         if (!DecreaseFamilyDependency(fid, FAMDEP_ALLOCATION_DONE))
         {
-            DeadlockWrite("Unable to mark ALLOCATION_DONE in family");
+            DeadlockWrite("F%u unable to mark ALLOCATION_DONE", (unsigned)fid);
             return FAILED;
         }
     }
@@ -432,11 +450,13 @@ bool Processor::Allocator::AllocateThread(LFID fid, TID tid, bool isNewlyAllocat
     if (!ActivateThreads(tq))
     {
         // Abort allocation
-        DeadlockWrite("Unable to activate thread");
+        DeadlockWrite("F%u/T%u(%llu) unable to activate", 
+                      (unsigned)fid, (unsigned)tid, (unsigned long long)logical_index);
         return false;
     }
 
-    DebugSimWrite("Allocated thread for F%u at T%u", (unsigned)fid, (unsigned)tid);
+    DebugSimWrite("F%u/T%u(%llu) created",
+                  (unsigned)fid, (unsigned)tid, (unsigned long long)logical_index);
     return true;
 }
 
@@ -498,8 +518,11 @@ bool Processor::Allocator::DecreaseFamilyDependency(LFID fid, Family& family, Fa
 
                 if (!m_network.SendMessage(msg))
                 {
+                    DeadlockWrite("F%u unable to buffer termination to next processor",
+                                  (unsigned)fid);
                     return false;
                 }
+                DebugSimWrite("F%u forwarded synchronization token", (unsigned)fid);
             }
             // This is the last core of the family. All other cores have
             // finished. Write back the completion.
@@ -514,12 +537,15 @@ bool Processor::Allocator::DecreaseFamilyDependency(LFID fid, Family& family, Fa
                 
                 if (!m_network.SendSync(info))
                 {
-                    DeadlockWrite("Unable to buffer remote sync writeback");
+                    DeadlockWrite("F%u unable to buffer remote sync writeback %d to CPU%u/R%04x",
+                                  (unsigned)fid, (unsigned)info.pid, (int)info.broken, (unsigned)info.reg);
                     return false;
                 }
+                DebugSimWrite("F%u buffered termination writeback %d for CPU%u/R%04x", 
+                              (unsigned)fid, (unsigned)info.pid, (int)info.broken, (unsigned)info.reg);
             }
 
-            DebugSimWrite("Synchronized F%u", (unsigned)fid);
+            DebugSimWrite("F%u synchronized", (unsigned)fid);
         }
         // Fall through
 
@@ -542,7 +568,7 @@ bool Processor::Allocator::DecreaseFamilyDependency(LFID fid, Family& family, Fa
             // Free the family table entry
             m_familyTable.FreeFamily(fid, context);
             
-            DebugSimWrite("Cleaned up F%u", (unsigned)fid);
+            DebugSimWrite("F%u cleaned up", (unsigned)fid);
         }
         break;
     }
@@ -758,8 +784,11 @@ bool Processor::Allocator::AllocateRegisters(LFID fid, ContextType type)
                 }
             }
 
-            DebugSimWrite("Allocated %s (%u/%u threads) for F%u",
-                str.str().c_str(), (unsigned)physBlockSize, (unsigned)family.physBlockSize, (unsigned)fid);
+            DebugSimWrite("F%u allocated %s (physical block size adjusted %u -> %u)",
+                          (unsigned)fid,
+                          str.str().c_str(), 
+                          (unsigned)family.physBlockSize,
+                          (unsigned)physBlockSize);
 
             COMMIT{ family.physBlockSize = physBlockSize; }
             return true;
@@ -812,7 +841,8 @@ Result Processor::Allocator::DoThreadAllocate()
             {
                 if (!m_registerFile.Clear(MAKE_REGADDR(i, thread.regs[i].dependents), family.regs[i].count.shareds))
                 {
-                    DeadlockWrite("Unable to clear the thread's dependents");
+                    DeadlockWrite("F%u/T%u(%llu) unable to clear the dependent registers",
+                                  (unsigned)fid, (unsigned)tid, (unsigned long long)thread.index);
                     return FAILED;
                 }
             }
@@ -824,12 +854,14 @@ Result Processor::Allocator::DoThreadAllocate()
             if (thread.nextInBlock == INVALID_TID)
             {
                 COMMIT{ family.prevCleanedUp = true; }
-                DebugSimWrite("Buffering PREV_CLEANED_UP in F%u", (unsigned)fid);
+                DebugSimWrite("F%u/T%u(%llu) marking PREV_CLEANED_UP on family (no next thread)", 
+                              (unsigned)fid, (unsigned)tid, (unsigned long long)thread.index);
             }
             else if (!DecreaseThreadDependency(thread.nextInBlock, THREADDEP_PREV_CLEANED_UP))
             {
-                DeadlockWrite("Unable to mark PREV_CLEANED_UP for T%u's next thread T%u in F%u",
-                    (unsigned)tid, (unsigned)thread.nextInBlock, (unsigned)fid);
+                DeadlockWrite("F%u/T%u(%llu) marking PREV_CLEANED_UP on next T%u",
+                              (unsigned)fid, (unsigned)tid, (unsigned long long)thread.index,
+                              (unsigned)thread.nextInBlock);
                 return FAILED;
             }
         }
@@ -851,19 +883,19 @@ Result Processor::Allocator::DoThreadAllocate()
     
             if (!DecreaseFamilyDependency(fid, FAMDEP_THREAD_COUNT))
             {
-                DeadlockWrite("Unable to decrease thread count during cleanup of T%u in F%u",
-                    (unsigned)tid, (unsigned)fid);
+                DeadlockWrite("F%u/T%u(%llu) unable to decrease thread count in family during thread cleanup",
+                              (unsigned)fid, (unsigned)tid, (unsigned long long)thread.index);
                 return FAILED;
             }
 
-            DebugSimWrite("Cleaned up T%u for F%u (index %llu)",
-                          (unsigned)tid, (unsigned)fid, (unsigned long long)thread.index);
+            DebugSimWrite("F%u/T%u(%llu) cleaned up",
+                          (unsigned)fid, (unsigned)tid, (unsigned long long)thread.index);
         }
         // Reallocate thread
         else if (!AllocateThread(fid, tid, false))
         {
-            DeadlockWrite("Unable to reallocate thread T%u in F%u",
-                (unsigned)tid, (unsigned)fid);
+            DeadlockWrite("F%u/T%u unable to reactivate",
+                          (unsigned)fid, (unsigned)tid);
             return FAILED;
         }
         return SUCCESS;
@@ -879,15 +911,15 @@ Result Processor::Allocator::DoThreadAllocate()
         if (family.dependencies.numThreadsAllocated == family.physBlockSize || family.dependencies.allocationDone)
         {
             // We're done with this family
-            DebugSimWrite("Done allocating from F%u", (unsigned)fid);
+            DebugSimWrite("F%u done allocating threads", (unsigned)fid);
             m_alloc.Pop();
         }
         else if (family.nThreads == 0)
         {
-            // We're done allocating threads
+            // We're done allocating/creating threads
             if (!DecreaseFamilyDependency(fid, FAMDEP_ALLOCATION_DONE))
             {
-                DeadlockWrite("Unable to mark ALLOCATION_DONE in family");
+                DeadlockWrite("F%u unable to mark ALLOCATION_DONE", (unsigned)fid);
                 return FAILED;
             }
         }
@@ -903,13 +935,13 @@ Result Processor::Allocator::DoThreadAllocate()
             if (tid == INVALID_TID)
             {
                 assert(!exclusive && !reserved);
-                DeadlockWrite("Unable to allocate a free thread entry for F%u", (unsigned)fid);
+                DeadlockWrite("F%u unable to allocate a free thread entry", (unsigned)fid);
                 return FAILED;
             }
             
             if (!AllocateThread(fid, tid, true))
             {
-                DeadlockWrite("Unable to allocate new thread T%u for F%u", (unsigned)tid, (unsigned)fid);
+                DeadlockWrite("F%u/T%u unable to activate", (unsigned)fid, (unsigned)tid);
                 return FAILED;
             }
         }
@@ -927,13 +959,13 @@ bool Processor::Allocator::QueueBundle(const MemAddr addr, Integer parameter, Re
 
     if (!m_bundle.Push(info))
     {
-        DeadlockWrite("Unable to queue bundle creation at 0x%016llx with parameter %lld and completion register %u", 
-                      (unsigned long long)addr, (long long)parameter, (unsigned)completion_reg);
+        DeadlockWrite("unable to queue bundle 0x%016llx, %llu, R%04x", 
+                      (unsigned long long)addr, (unsigned long long)parameter, (unsigned)completion_reg);
         return false;
     }
     
-    DebugSimWrite("Queued bundle creation at 0x%016llx with parameter %lld and completion register %u", 
-                  (unsigned long long)addr, (long long)parameter, (unsigned)completion_reg);
+    DebugSimWrite("queued bundle 0x%016llx, %llu, R%04x", 
+                  (unsigned long long)addr, (unsigned long long)parameter, (unsigned)completion_reg);
     return true;
 }
 
@@ -977,7 +1009,9 @@ bool Processor::Allocator::QueueFamilyAllocation(const RemoteMessage& msg, bool 
         return false;
     }
     
-    DebugSimWrite("Queued remote allocation for %u cores (type: %s)", (unsigned)msg.allocate.place.size, AllocationTypes[msg.allocate.type]);
+    DebugSimWrite("accepted incoming allocation for %u cores (%s) for CPU%u/R%04x", 
+                  (unsigned)msg.allocate.place.size, AllocationTypes[msg.allocate.type],
+                  (unsigned)request.completion_pid, (unsigned)request.completion_reg);
     return true;
 }
 
@@ -1003,7 +1037,11 @@ bool Processor::Allocator::QueueFamilyAllocation(const LinkMessage& msg)
         return false;
     }
     
-    DebugSimWrite("Queued link allocation for %u cores (exact: %s)", (unsigned)msg.allocate.size, msg.allocate.exact ? "yes" : "no");
+    DebugSimWrite("accepted link allocation for %u cores (exact: %s) for CPU%u/R%04x first CPU%u/F%u prev CPU%u/F%u", 
+                  (unsigned)msg.allocate.size, msg.allocate.exact ? "yes" : "no",
+                  (unsigned)request.completion_pid, (unsigned)request.completion_reg,
+                  (unsigned)(m_parent.GetPID() & ~(request.placeSize-1)), (unsigned)request.first_fid, 
+                  (unsigned)(m_parent.GetPID() - 1), (unsigned)request.prev_fid);
     return true;
 }
 
@@ -1142,7 +1180,10 @@ Result Processor::Allocator::DoFamilyAllocate()
             {
                 return FAILED;
             }
-            DebugSimWrite("Unwinding allocation for %u cores", (unsigned)req.placeSize);
+            DebugSimWrite("unwinding allocation for %u cores from CPU%u/R%04x prev F%u", 
+                          (unsigned)req.placeSize,
+                          (unsigned)ret.completion_pid, (unsigned)ret.completion_reg,
+                          (unsigned)ret.prev_fid);
         }
     }
     // Allocation succeeded
@@ -1155,6 +1196,7 @@ Result Processor::Allocator::DoFamilyAllocate()
             family.numCores = (req.type == ALLOCATE_SINGLE) ? 1 : req.placeSize;
             family.link     = INVALID_LFID;
         }
+        DebugSimWrite("F%u finished allocation on %u cores", (unsigned)lfid, (unsigned)family.numCores);
         
         if (req.completion_reg != INVALID_REG_INDEX)
         {
@@ -1179,6 +1221,9 @@ Result Processor::Allocator::DoFamilyAllocate()
                     DeadlockWrite("Unable to send remote allocation writeback");
                     return FAILED;
                 }
+                DebugSimWrite("F%u sent allocation response to CPU%u/R%04x", 
+                              (unsigned)lfid,
+                              (unsigned)req.completion_pid, (unsigned)req.completion_reg);
             }
             else
             {
@@ -1195,7 +1240,10 @@ Result Processor::Allocator::DoFamilyAllocate()
                     DeadlockWrite("Unable to send allocation commit");
                     return FAILED;
                 }
-                DebugSimWrite("Fully allocated %u cores", (unsigned)req.placeSize);
+                DebugSimWrite("F%u backward link allocation response (writeback CPU%u/R%04x prev CPU%u/F%u)", 
+                              (unsigned)lfid,
+                              (unsigned)ret.completion_pid, (unsigned)ret.completion_reg,
+                              (unsigned)(m_parent.GetPID() - 1), (unsigned)ret.prev_fid);
             }
         }
         
@@ -1219,7 +1267,7 @@ Result Processor::Allocator::DoFamilyAllocate()
             
             if (!m_network.SendMessage(msg))
             {
-                DeadlockWrite("Unable to send remote bundle allocation to CPU%u", (unsigned)fid.pid);
+                DeadlockWrite("Unable to send remote bundle allocation");
                 return FAILED;
             }
             
@@ -1245,6 +1293,11 @@ Result Processor::Allocator::DoFamilyAllocate()
             DeadlockWrite("Unable to forward family allocation requests");
             return FAILED;
         }
+        // Already notified in SendMessage:
+        //DebugSimWrite("forwarding link allocation for %u cores (exact: %s) from CPU%u/R%04x local F%u",
+        //              (unsigned)req.placeSize, msg.allocate.exact ? "yes" : "no",
+        //              (unsigned)req.completion_pid, (unsigned)req.completion_reg,
+        //              (unsigned)lfid);
     }
     
     UpdateStats();
@@ -1276,18 +1329,23 @@ bool Processor::Allocator::QueueCreate(const LinkMessage& msg)
     
     Integer nThreads = CalculateThreadCount(family);
     CalculateDistribution(family, nThreads, family.numCores);
-    DebugSimWrite("QueueCreate: F%u (%u threads) distributed on %u cores: here starts at thread %u",
-                  (unsigned)msg.create.fid, (unsigned)family.nThreads, (unsigned)family.numCores, (unsigned)family.start);            
+
+    DebugSimWrite("F%u (%llu threads, place CPU%u/%u) accepted link create %s start index %llu",
+                  (unsigned)msg.create.fid, (unsigned long long)family.nThreads, 
+                  (unsigned)(m_parent.GetPID() & ~family.numCores),
+                  (unsigned)family.numCores, 
+                  GetKernel()->GetSymbolTable()[msg.create.address].c_str(),
+                  (unsigned long long)family.start);            
     
     if (!AllocateRegisters(msg.create.fid, CONTEXT_RESERVED))
     {
-        DeadlockWrite("Unable to allocate registers for F%u", (unsigned)msg.create.fid);
+        DeadlockWrite("F%u unable to allocate registers", (unsigned)msg.create.fid);
         return false;
     }
         
     if (!ActivateFamily(msg.create.fid))
     {
-        DeadlockWrite("Unable to activate the family F%u", (unsigned)msg.create.fid);
+        DeadlockWrite("F%u unable to activate", (unsigned)msg.create.fid);
         return false;
     }
         
@@ -1308,6 +1366,7 @@ bool Processor::Allocator::QueueCreate(const LinkMessage& msg)
             // Everything after this core will be cleaned up.
             COMMIT{ family.link = INVALID_LFID; }
         }
+        DebugSimWrite("F%u forwarding create", (unsigned)msg.create.fid);
     }
     return true;
 }
@@ -1353,7 +1412,10 @@ bool Processor::Allocator::QueueCreate(const RemoteMessage& msg, PID src)
         return false;
     }
     
-    DebugSimWrite("Queued create at %s", GetKernel()->GetSymbolTable()[msg.create.address].c_str());
+    DebugSimWrite("F%u queued create %s from CPU%u/R%04x", 
+                  (unsigned)info.fid, 
+                  GetKernel()->GetSymbolTable()[msg.create.address].c_str(),
+                  (unsigned)info.completion_pid, (unsigned)info.completion_reg);
     return true;
 }
 
@@ -1451,7 +1513,8 @@ Result Processor::Allocator::DoFamilyCreate()
     {
         Family& family = m_familyTable[info.fid];
             
-        DebugSimWrite("Processing create for F%u", (unsigned)info.fid);
+        DebugSimWrite("F%u start creation %s", 
+                      (unsigned)info.fid, GetKernel()->GetSymbolTable()[family.pc].c_str());
 
         // Load the register counts from the family's first cache line
         Instruction counts;
@@ -1516,7 +1579,8 @@ Result Processor::Allocator::DoFamilyCreate()
 
                 if (regcounts[i].globals + 2 * regcounts[i].shareds + regcounts[i].locals > 31)
                 {
-                    DebugSimWrite("Invalid register counts: %d %d %d\n", (int)regcounts[i].globals, (int)regcounts[i].shareds, (int)regcounts[i].locals);
+                    DebugProgWrite("Invalid register counts for type %d: %d %d %d\n", (int)i, 
+                                   (int)regcounts[i].globals, (int)regcounts[i].shareds, (int)regcounts[i].locals);
                     throw InvalidArgumentException(*this, "Too many registers specified in thread body");
                 }
             }
@@ -1541,7 +1605,9 @@ Result Processor::Allocator::DoFamilyCreate()
         // This is needed for the next step, where we calculate the number of cores
         // actually required.
         COMMIT{ family.nThreads = CalculateThreadCount(family); }
-        
+
+        DebugSimWrite("F%u (%llu threads) register counts loaded", (unsigned)info.fid, (unsigned long long)family.nThreads);
+
         // Advance to next stage
         COMMIT{ m_createState = CREATE_RESTRICTING; }
     }
@@ -1556,9 +1622,6 @@ Result Processor::Allocator::DoFamilyCreate()
             ? 1
             : std::max<Integer>(1, std::min<Integer>(family.nThreads, family.numCores));
         
-        DebugSimWrite("Family F%u has %llu threads and runs on %u cores (place size: %u)",
-            (unsigned)info.fid, (unsigned long long)family.nThreads, (unsigned)numCores, (unsigned)family.placeSize);
-
         // We now know how many threads and cores we really have,
         // calculate and set up the thread distribution
         
@@ -1572,11 +1635,10 @@ Result Processor::Allocator::DoFamilyCreate()
         assert(numCores > 0);
         
         // Log the event where we reduced the number of cores
-        if (numCores < family.numCores)
-        {
-            DebugSimWrite("Restricting F%u from %u to %u cores",
-                (unsigned)info.fid, (unsigned)family.numCores, (unsigned)numCores);            
-        }
+        DebugSimWrite("F%u (local %llu threads, start index %llu, physical block size %u) adjusted core count %u -> %u",
+                      (unsigned)info.fid, (unsigned long long)family.nThreads, 
+                      (unsigned long long)family.start, (unsigned)family.physBlockSize,
+                      (unsigned)family.numCores, (unsigned)numCores);
 
         COMMIT
         {
@@ -1673,6 +1735,7 @@ Result Processor::Allocator::DoFamilyCreate()
             DeadlockWrite("Unable to activate the family F%u", (unsigned)info.fid);
             return FAILED;
         }       
+        DebugSimWrite("F%u activated", (unsigned)info.fid);
 
         COMMIT{ m_createState = CREATE_NOTIFY; }
     }
@@ -1698,7 +1761,11 @@ Result Processor::Allocator::DoFamilyCreate()
                 DeadlockWrite("Unable to send creation completion to CPU%u", (unsigned)info.completion_pid);
                 return FAILED;
             }
+            DebugSimWrite("F%u sent create writeback to CPU%u/R%04x", 
+                          (unsigned)info.fid, (unsigned)info.completion_pid, (unsigned)info.completion_reg);
         }        
+        DebugSimWrite("F%u create notified", (unsigned)info.fid);
+
         // Reset the create state
         COMMIT{ m_createState = CREATE_INITIAL; }
         m_creates.Pop();

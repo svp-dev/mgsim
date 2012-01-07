@@ -49,6 +49,9 @@ Processor::Pipeline::PipeAction Processor::Pipeline::FetchStage::OnCycle()
         size_t offset = (size_t)(pc % m_icache.GetLineSize());   // Offset within the cacheline
         if (!m_icache.Read(thread.cid, pc - offset, m_buffer, m_icache.GetLineSize()))
         {
+            DeadlockWrite("F%u/T%u(%llu) %s fetch stall due to I-cache miss",
+                          (unsigned)thread.family, (unsigned)tid, (unsigned long long)thread.index,
+                          GetKernel()->GetSymbolTable()[pc].c_str());
             return PIPE_STALL;
         }
 
@@ -70,6 +73,10 @@ Processor::Pipeline::PipeAction Processor::Pipeline::FetchStage::OnCycle()
             // Mark the thread as running
             thread.state = TST_RUNNING;
         }
+
+        DebugSimWrite("F%u/T%u(%llu) %s switched in",
+                      (unsigned)thread.family, (unsigned)tid, (unsigned long long)thread.index,
+                      GetKernel()->GetSymbolTable()[pc].c_str());
     }
 
     COMMIT
@@ -110,6 +117,11 @@ Processor::Pipeline::PipeAction Processor::Pipeline::FetchStage::OnCycle()
         m_switched = m_output.swch;
     }
         
+    DebugPipeWrite("F%u/T%u(%llu) %s fetched 0x%.*lx (switching: %s)",
+                   (unsigned)m_output.fid, (unsigned)m_output.tid, (unsigned long long)m_output.logical_index, m_output.pc_sym,
+                   (int)(sizeof(Instruction) * 2), (unsigned long)m_output.instr,
+                   m_switched ? "yes" : "no");
+
     return PIPE_CONTINUE;
 }
 

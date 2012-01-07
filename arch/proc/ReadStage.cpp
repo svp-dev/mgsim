@@ -462,11 +462,19 @@ Processor::Pipeline::PipeAction Processor::Pipeline::ReadStage::OnCycle()
         }
 #endif
 
-        DebugRegWrite("Read input for %s (F%u/T%u): %s, %s",
-                      GetKernel()->GetSymbolTable()[m_input.pc].c_str(),
-                      (unsigned)m_input.fid, (unsigned)m_input.tid,
+        DebugPipeWrite("F%u/T%u(%llu) %s operands %s %s"
+#if defined(TARGET_MTSPARC)
+                       " %s"
+#endif
+                       ,
+                       (unsigned)m_input.fid, (unsigned)m_input.tid, (unsigned long long)m_input.logical_index, m_input.pc_sym,
                       m_output.Rav.str(m_input.Ra.type).c_str(),
-                      m_output.Rbv.str(m_input.Rb.type).c_str());
+                      m_output.Rbv.str(m_input.Rb.type).c_str()
+#if defined(TARGET_MTSPARC)
+                       , m_output.Rsv.str(m_input.Rs.type).c_str()
+#endif
+
+            );
 
     }
 

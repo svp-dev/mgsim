@@ -119,19 +119,19 @@ bool Processor::Network::SendMessage(const RemoteMessage& msg)
 
         if (!m_delegateIn.Write(dmsg))
         {
-            DeadlockWrite("Unable to buffer local network message to loopback: %s", msg.str().c_str());
+            DeadlockWrite("Unable to buffer local network message to loopback %s", msg.str().c_str());
             return false;
         }
-        DebugNetWrite("Sending delegation message to loopback: %s", msg.str().c_str());
+        DebugNetWrite("sent delegation message to loopback %s", msg.str().c_str());
     }
     else
     {
         if (!m_delegateOut.Write(dmsg))
         {
-            DeadlockWrite("Unable to buffer remote network message for CPU%u: %s", (unsigned)dmsg.dest, msg.str().c_str());
+            DeadlockWrite("Unable to buffer remote network message for CPU%u %s", (unsigned)dmsg.dest, msg.str().c_str());
             return false;
         }
-        DebugNetWrite("Sending delegation message to CPU%u: %s", (unsigned)dmsg.dest, msg.str().c_str());
+        DebugNetWrite("sent delegation message to CPU%u %s", (unsigned)dmsg.dest, msg.str().c_str());
     }
     return true;
 }
@@ -144,7 +144,7 @@ bool Processor::Network::SendMessage(const LinkMessage& msg)
         DeadlockWrite("Unable to buffer link message: %s", msg.str().c_str());
         return false;
     }
-    DebugNetWrite("Sending link message: %s", msg.str().c_str());
+    DebugNetWrite("sent link message %s", msg.str().c_str());
     return true;
 }
 
@@ -188,17 +188,20 @@ Result Processor::Network::DoSyncs()
 
     if (!SendMessage(msg))
     {
-        DeadlockWrite("Unable to buffer family event onto delegation network");
         return FAILED;
     }
     
     if (!m_allocator.DecreaseFamilyDependency(info.fid, FAMDEP_SYNC_SENT))
     {
-        assert(false);
-        DeadlockWrite("Unable to mark sync_sent in F%u", (unsigned)info.fid);
+        assert(false); // can't be there
+        DeadlockWrite("F%u unable to mark SYNC_SENT after sending writeback %u", (unsigned)info.fid, (unsigned)info.broken);
         return FAILED;
     }
     
+    DebugSimWrite("F%u sent sync writeback %u to CPU%u/R%04x",
+                  (unsigned)info.fid, (unsigned)info.broken,
+                  (unsigned)info.pid, (unsigned)info.reg);
+
     m_syncs.Pop();
     return SUCCESS;
 }
@@ -226,7 +229,7 @@ Result Processor::Network::DoAllocResponse()
         // Stop unwinding and commit.
         msg.numCores = numCores;
         
-        DebugSimWrite("Unwound allocation to %u cores", (unsigned)numCores);
+        DebugSimWrite("F%u unwound allocation to %u cores", (unsigned)lfid, (unsigned)numCores);
     }
     
     if (msg.numCores == 0)
@@ -256,7 +259,7 @@ Result Processor::Network::DoAllocResponse()
             fid.lfid       = 0;
             fid.capability = 0;
 
-            DebugSimWrite("Exact allocation failed");
+            DebugSimWrite("exact allocation failed");
         }
         else
         {
@@ -264,7 +267,7 @@ Result Processor::Network::DoAllocResponse()
             fid.lfid       = lfid;
             fid.capability = family.capability;
             
-            DebugSimWrite("Allocation succeeded: F%u@CPU%u", (unsigned)fid.lfid, (unsigned)fid.pid);
+            DebugSimWrite("F%u allocation succeeded", (unsigned)lfid);
         }
         
         RemoteMessage fwd;
@@ -276,15 +279,22 @@ Result Processor::Network::DoAllocResponse()
 
         if (!SendMessage(fwd))
         {
-            DeadlockWrite("Unable to send remote allocation writeback");
+            DeadlockWrite("F%u Unable to send remote allocation writeback", (unsigned)lfid);
             return FAILED;
         }
+        DebugSimWrite("F%u sent allocation writeback to CPU%u/R%04x", 
+                      (unsigned)lfid,
+                      (unsigned)msg.completion_pid, (unsigned)msg.completion_reg);
     }
     // Forward response
     else if (!m_allocResponse.out.Write(msg))
     {
         return FAILED;
     }
+
+    DebugSimWrite("F%u backward allocation response to CPU%u/F%u", 
+                  (unsigned)lfid, (unsigned)(m_parent.GetPID() - 1), (unsigned)msg.prev_fid);
+
     m_allocResponse.in.Clear();
     return SUCCESS;
 }
@@ -311,10 +321,10 @@ bool Processor::Network::ReadRegister(LFID fid, RemoteRegType kind, const RegAdd
          It's possible that the last shared in a family hasn't been written.
          Print a warning, and return a dummy value.
         */
-        DebugProgWrite("Reading unwritten %s register %s from F%u from %s",
+        DebugProgWrite("F%u request for unwritten %s register %s (physical %s)",
+            (unsigned)fid,
             GetRemoteRegisterTypeString(kind),
             raddr.str().c_str(),
-            (unsigned)fid,
             addr.str().c_str()
         );
             
@@ -327,11 +337,11 @@ bool Processor::Network::ReadRegister(LFID fid, RemoteRegType kind, const RegAdd
     }
     else
     {
-        DebugSimWrite("Read %s register %s in F%u from %s",
-            GetRemoteRegisterTypeString(kind),
-            raddr.str().c_str(),
-            (unsigned)fid,
-            addr.str().c_str()
+        DebugSimWrite("F%u read %s register %s (physical %s) -> %s",
+                      (unsigned)fid,
+                      GetRemoteRegisterTypeString(kind),
+                      raddr.str().c_str(),
+                      addr.str().c_str(), value.str(addr.type).c_str()
         );
     }
     return true;
@@ -343,13 +353,6 @@ bool Processor::Network::WriteRegister(LFID fid, RemoteRegType kind, const RegAd
     if (addr != INVALID_REG)
     {
         // Write it
-        DebugSimWrite("Writing %s register %s in F%u to %s",
-            GetRemoteRegisterTypeString(kind),
-            raddr.str().c_str(),
-            (unsigned)fid,
-            addr.str().c_str()
-        );
-                    
         if (!m_regFile.p_asyncW.Write(addr))
         {
             DeadlockWrite("Unable to acquire port to write register response to %s", addr.str().c_str());
@@ -361,6 +364,13 @@ bool Processor::Network::WriteRegister(LFID fid, RemoteRegType kind, const RegAd
             DeadlockWrite("Unable to write register response to %s", addr.str().c_str());
             return false;
         }       
+
+        DebugSimWrite("F%u write %s register %s (physical %s) <- %s",
+                      (unsigned)fid,
+                      GetRemoteRegisterTypeString(kind),
+                      raddr.str().c_str(),
+                      addr.str().c_str(), value.str(addr.type).c_str()
+        );
     }
     return true;
 }
@@ -383,6 +393,8 @@ bool Processor::Network::OnSync(LFID fid, PID completion_pid, RegIndex completio
             DeadlockWrite("Unable to forward sync onto link");
             return false;
         }
+        DebugSimWrite("F%u forwarding sync request from CPU%u/R%04x",
+                      (unsigned)fid, (unsigned)completion_pid, (unsigned)completion_reg);
     }
     // We're the last core in the family
     else if (!family.sync.done)
@@ -394,6 +406,8 @@ bool Processor::Network::OnSync(LFID fid, PID completion_pid, RegIndex completio
             family.sync.reg = completion_reg;
             family.dependencies.syncSent = false;
         }
+        DebugSimWrite("F%u registered sync writeback for CPU%u/R%04x",
+                      (unsigned)fid, (unsigned)completion_pid, (unsigned)completion_reg);
     }
     else
     {
@@ -411,6 +425,8 @@ bool Processor::Network::OnSync(LFID fid, PID completion_pid, RegIndex completio
             DeadlockWrite("Unable to buffer sync acknowledgement");
             return false;
         }
+        DebugSimWrite("F%u sent sync writeback %u to CPU%u/R%04x",
+                      (unsigned)fid, (unsigned)info.broken, (unsigned)completion_pid, (unsigned)completion_reg);
     }
     return true;
 }
@@ -434,8 +450,9 @@ bool Processor::Network::OnDetach(LFID fid)
         {
             return false;
         }
+        DebugSimWrite("F%u forwarding detach request", (unsigned)fid);
     }
-    DebugSimWrite("Detached F%u", (unsigned)fid);
+    DebugSimWrite("F%u detached", (unsigned)fid);
     return true;
 }
 
@@ -447,7 +464,7 @@ bool Processor::Network::OnBreak(LFID fid)
     {
         if (!m_allocator.DecreaseFamilyDependency(fid, FAMDEP_ALLOCATION_DONE))
         {
-            DeadlockWrite("Unable to mark allocation done of F%u", (unsigned)fid);
+            DeadlockWrite("F%u unable to mark ALLOCATION_DONE due to break", (unsigned)fid);
             return false;
         }
     }
@@ -460,7 +477,7 @@ bool Processor::Network::OnBreak(LFID fid)
 		
         if (!SendMessage(msg))
         {
-            DeadlockWrite("Unable to send break message");
+            DeadlockWrite("F%u unable to send break message to next processor", (unsigned)fid);
             return false;
         }
     }
@@ -500,8 +517,7 @@ Result Processor::Network::DoDelegationIn()
     m_delegateIn.Clear();
     assert(msg.dest == m_parent.GetPID());
 
-    DebugNetWrite("Incoming delegation message: %s", msg.str().c_str());
-
+    DebugNetWrite("accepted delegation message %s", msg.str().c_str());
     
     switch (msg.type)
     {
@@ -575,7 +591,15 @@ Result Processor::Network::DoDelegationIn()
             {
                 return FAILED;
             }
+            DebugSimWrite("F%u forwarded property to CPU%u/F%u",
+                          (unsigned)msg.property.fid.lfid,
+                          (unsigned)(m_parent.GetPID() + 1),
+                          (unsigned)family.link);
         }
+        DebugSimWrite("F%u set property %u %llu",
+                      (unsigned)msg.property.fid.lfid,
+                      (unsigned)msg.property.type,
+                      (unsigned long long)msg.property.value);
         break;
     }
         
@@ -635,7 +659,8 @@ Result Processor::Network::DoDelegationIn()
             return FAILED;
         }
             
-        DebugSimWrite("Written register response to %s", msg.rawreg.addr.str().c_str() );
+        DebugSimWrite("remote register write %s <- %s", 
+                      msg.rawreg.addr.str().c_str(), msg.rawreg.value.str(msg.rawreg.addr.type).c_str());
         break;
         
     case DelegateMessage::MSG_FAM_REGISTER:
@@ -700,7 +725,7 @@ Result Processor::Network::DoLink()
     assert(!m_link.in.Empty());
     const LinkMessage& msg = m_link.in.Read();
 
-    DebugNetWrite("Incoming link message: %s", msg.str().c_str());
+    DebugNetWrite("accepted link message %s", msg.str().c_str());
     
     switch (msg.type)
     {
@@ -807,10 +832,11 @@ Result Processor::Network::DoLink()
                     DeadlockWrite("Unable to forward restrict message");
                     return FAILED;
                 }
+                DebugSimWrite("F%u forwarded restrict message", (unsigned)msg.create.fid);
             }
 
             m_allocator.ReleaseContext(msg.create.fid);
-            DebugSimWrite("Cleaned up F%u due to restrict", (unsigned)msg.create.fid);
+            DebugSimWrite("F%u cleaned up (restricted due to create)", (unsigned)msg.create.fid);
         }
         // Process the received create.
         // This will forward the message.

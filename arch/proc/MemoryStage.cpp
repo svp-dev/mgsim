@@ -53,10 +53,11 @@ Processor::Pipeline::PipeAction Processor::Pipeline::MemoryStage::OnCycle()
                     
                     if (result == FAILED)
                     {
-                        DeadlockWrite("Failed I/O write by %s (F%u/T%u): *%#016llx <- %zd bytes from %s = %s",
-                                      GetKernel()->GetSymbolTable()[m_input.pc].c_str(),
-                                      (unsigned)m_input.fid, (unsigned)m_input.tid,
-                                      (unsigned long long)m_input.address, (size_t)m_input.size, m_input.Ra.str().c_str(), m_input.Rcv.str(m_input.Ra.type).c_str());
+                        DeadlockWrite("F%u/T%u(%llu) %s stall (I/O store *%#.*llx/%zd <- %s)",
+                                      (unsigned)m_input.fid, (unsigned)m_input.tid, (unsigned long long)m_input.logical_index,
+                                      m_input.pc_sym,
+                                      (int)(sizeof(MemAddr)*2), (unsigned long long)m_input.address, (size_t)m_input.size, 
+                                      m_input.Rcv.str(m_input.Rc.type).c_str());
 
                         return PIPE_STALL;
                     }
@@ -67,11 +68,20 @@ Processor::Pipeline::PipeAction Processor::Pipeline::MemoryStage::OnCycle()
                     if ((result = m_dcache.Write(m_input.address, data, m_input.size, m_input.fid, m_input.tid)) == FAILED)
                     {
                         // Stall
+                        DeadlockWrite("F%u/T%u(%llu) %s stall (L1 store *%#.*llx/%zd <- %s)",
+                                      (unsigned)m_input.fid, (unsigned)m_input.tid, (unsigned long long)m_input.logical_index,
+                                      m_input.pc_sym,
+                                      (int)(sizeof(MemAddr)*2), (unsigned long long)m_input.address, (size_t)m_input.size, 
+                                      m_input.Rcv.str(m_input.Rc.type).c_str());
+
                         return PIPE_STALL;
                     }
                     
                     if (!m_allocator.IncreaseThreadDependency(m_input.tid, THREADDEP_OUTSTANDING_WRITES))
                     {
+                        DeadlockWrite("F%u/T%u(%llu) %s unable to increase OUTSTANDING_WRITES",
+                                      (unsigned)m_input.fid, (unsigned)m_input.tid, (unsigned long long)m_input.logical_index,
+                                      m_input.pc_sym);
                         return PIPE_STALL;
                     }
                 }
@@ -82,9 +92,12 @@ Processor::Pipeline::PipeAction Processor::Pipeline::MemoryStage::OnCycle()
                 // Prepare for count increment
                 instore = m_input.size;
                 
-                DebugMemWrite("Store by %s (F%u/T%u): *%#016llx <- %zd bytes from %s = %s",
-                              GetKernel()->GetSymbolTable()[m_input.pc].c_str(), (unsigned)m_input.fid, (unsigned)m_input.tid,
-                              (unsigned long long)m_input.address, (size_t)m_input.size, m_input.Ra.str().c_str(), m_input.Rcv.str(m_input.Ra.type).c_str());
+                DebugMemWrite("F%u/T%u(%llu) %s store *%#.*llx/%zd <- %s %s",
+                              (unsigned)m_input.fid, (unsigned)m_input.tid, (unsigned long long)m_input.logical_index,
+                              m_input.pc_sym, 
+                              (int)(sizeof(MemAddr)*2),
+                              (unsigned long long)m_input.address, (size_t)m_input.size, 
+                              m_input.Ra.str().c_str(), m_input.Rcv.str(m_input.Ra.type).c_str());
             }
             catch (SimulationException& e)
             {

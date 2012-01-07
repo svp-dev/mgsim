@@ -711,9 +711,8 @@ Processor::Pipeline::PipeAction Processor::Pipeline::ExecuteStage::ExecuteInstru
             m_output.Rcv.m_integer = m_input.pc;
             m_output.Rcv.m_state   = RST_FULL;
             m_output.Rcv.m_size    = sizeof(Integer);
-            DebugFlowWrite("F%u/T%u Call from %s to %s",
-                           (unsigned)m_input.fid, (unsigned)m_input.tid,                               
-                           GetKernel()->GetSymbolTable()[m_input.pc].c_str(),
+            DebugFlowWrite("F%u/T%u(%llu) %s call %s",
+                           (unsigned)m_input.fid, (unsigned)m_input.tid, (unsigned long long)m_input.logical_index, m_input.pc_sym,
                            GetKernel()->GetSymbolTable()[m_output.pc].c_str());
         }
         return PIPE_FLUSH;
@@ -748,9 +747,8 @@ Processor::Pipeline::PipeAction Processor::Pipeline::ExecuteStage::ExecuteInstru
                 // Branch was taken; note that we don't annul
                 COMMIT {
                     m_output.pc = m_input.pc + m_input.displacement * sizeof(Instruction);
-                    DebugFlowWrite("F%u/T%u Branch from %s to %s",
-                                   (unsigned)m_input.fid, (unsigned)m_input.tid,                               
-                                   GetKernel()->GetSymbolTable()[m_input.pc].c_str(),
+                    DebugFlowWrite("F%u/T%u(%llu) %s branch %s",
+                                   (unsigned)m_input.fid, (unsigned)m_input.tid, (unsigned long long)m_input.logical_index, m_input.pc_sym,
                                    GetKernel()->GetSymbolTable()[m_output.pc].c_str());
                 }
                 return PIPE_FLUSH;
@@ -933,6 +931,9 @@ Processor::Pipeline::PipeAction Processor::Pipeline::ExecuteStage::ExecuteInstru
                     m_input.Rav.m_float.tofloat(m_input.Rav.m_size),
                     m_input.Rbv.m_float.tofloat(m_input.Rbv.m_size), m_input.Rc))
                 {
+                    DeadlockWrite("F%u/T%u(%llu) %s unable to queue FP operation %u on %s for %s",
+                                  (unsigned)m_input.fid, (unsigned)m_input.tid, (unsigned long long)m_input.logical_index, m_input.pc_sym,
+                                  (unsigned)fpuop, m_fpu.GetFQN().c_str(), m_input.Rc.str().c_str());
                     return PIPE_STALL;
                 }
 
@@ -1091,9 +1092,8 @@ Processor::Pipeline::PipeAction Processor::Pipeline::ExecuteStage::ExecuteInstru
                 m_output.pc   = target;
                 m_output.Rcv.m_integer = m_input.pc;
                 m_output.Rcv.m_state   = RST_FULL;
-                DebugFlowWrite("F%u/T%u Long jump from %s to %s",
-                               (unsigned)m_input.fid, (unsigned)m_input.tid,                               
-                               GetKernel()->GetSymbolTable()[m_input.pc].c_str(),
+                DebugFlowWrite("F%u/T%u(%llu) %s branch %s",
+                               (unsigned)m_input.fid, (unsigned)m_input.tid, (unsigned long long)m_input.logical_index, m_input.pc_sym,
                                GetKernel()->GetSymbolTable()[m_output.pc].c_str());
             }
             return PIPE_FLUSH;

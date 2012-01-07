@@ -966,9 +966,8 @@ Processor::Pipeline::PipeAction Processor::Pipeline::ExecuteStage::ExecuteInstru
                 {
                     COMMIT
                     {
-                        DebugFlowWrite("F%u/T%u Branch from %s to %s",
-                                       (unsigned)m_input.fid, (unsigned)m_input.tid,
-                                       GetKernel()->GetSymbolTable()[m_output.pc].c_str(),
+                        DebugFlowWrite("F%u/T%u(%llu) %s branch %s",
+                                       (unsigned)m_input.fid, (unsigned)m_input.tid, (unsigned long long)m_input.logical_index, m_input.pc_sym,
                                        GetKernel()->GetSymbolTable()[target].c_str());
                         m_output.pc   = target;
                         m_output.swch = true;
@@ -992,9 +991,8 @@ Processor::Pipeline::PipeAction Processor::Pipeline::ExecuteStage::ExecuteInstru
             // Unconditional Jumps
             COMMIT
             {
-                DebugFlowWrite("F%u/T%u Branch from %s to %s",
-                               (unsigned)m_input.fid, (unsigned)m_input.tid,                               
-                               GetKernel()->GetSymbolTable()[m_output.pc].c_str(),
+                DebugFlowWrite("F%u/T%u(%llu) %s branch %s",
+                               (unsigned)m_input.fid, (unsigned)m_input.tid, (unsigned long long)m_input.logical_index, m_input.pc_sym,
                                GetKernel()->GetSymbolTable()[target].c_str());
 
                 // Store the address of the next instruction
@@ -1264,6 +1262,10 @@ Processor::Pipeline::PipeAction Processor::Pipeline::ExecuteStage::ExecuteInstru
                     m_input.Rbv.m_float.tofloat(m_input.Rbv.m_size),
                     m_input.Rc))
                 {
+                    DeadlockWrite("F%u/T%u(%llu) %s unable to queue FP operation %u on %s for %s",
+                                  (unsigned)m_input.fid, (unsigned)m_input.tid, (unsigned long long)m_input.logical_index, m_input.pc_sym,
+                                  (unsigned)fpuop, m_fpu.GetFQN().c_str(), m_input.Rc.str().c_str());
+
                     return PIPE_STALL;
                 }
 

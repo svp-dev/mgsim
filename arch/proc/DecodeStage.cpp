@@ -122,6 +122,22 @@ Processor::Pipeline::PipeAction Processor::Pipeline::DecodeStage::OnCycle()
 #endif
             
             DecodeInstruction(m_input.instr);
+
+            DebugPipeWrite("F%u/T%u(%llu) %s decoded %s %s %s"
+#if defined(TARGET_MTSPARC)
+                           " %s"
+#endif
+                           " lit %lu"
+                           ,
+                           (unsigned)m_input.fid, (unsigned)m_input.tid, (unsigned long long)m_input.logical_index, m_input.pc_sym,
+                           m_output.Ra.str().c_str(),
+                           m_output.Rb.str().c_str(),
+                           m_output.Rc.str().c_str(),
+#if defined(TARGET_MTSPARC)
+                           m_output.Rs.str().c_str(),
+#endif
+                           (unsigned long)m_output.literal
+                );
             
             // Translate registers from window to full register file
             m_output.Ra = TranslateRegister((unsigned char)m_output.Ra.index, m_output.Ra.type, m_output.RaSize, false, &m_output.RaIsLocal);
@@ -135,10 +151,25 @@ Processor::Pipeline::PipeAction Processor::Pipeline::DecodeStage::OnCycle()
         catch (IllegalInstruction&)
         {
             stringstream error;
-            error << "Illegal instruction at 0x" << hex << setw(16) << setfill('0') << m_input.pc;
+            error << "F" << m_output.fid << "/T" << m_output.tid << "(" << m_input.logical_index << ") " << m_input.pc_sym
+                  << "illegal instruction";
             throw IllegalInstructionException(*this, error.str());
         }
     }
+
+    DebugPipeWrite("F%u/T%u(%llu) %s translated %s %s %s"
+#if defined(TARGET_MTSPARC)
+                   " %s"
+#endif
+                   ,
+                   (unsigned)m_input.fid, (unsigned)m_input.tid, (unsigned long long)m_input.logical_index, m_input.pc_sym,
+                   m_output.Ra.str().c_str(),
+                   m_output.Rb.str().c_str(),
+                   m_output.Rc.str().c_str()
+#if defined(TARGET_MTSPARC)
+                   , m_output.Rs.str().c_str()
+#endif
+        );
     return PIPE_CONTINUE;
 }
 

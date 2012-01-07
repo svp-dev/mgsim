@@ -58,7 +58,7 @@ bool Processor::RegisterFile::ReadRegister(const RegAddr& addr, RegValue& data, 
     data = regs[addr.index];
 
     if (!quiet)
-        DebugRegWrite("Read from %s: %s", addr.str().c_str(), data.str(addr.type).c_str());
+        DebugRegWrite("read  %s -> %s", addr.str().c_str(), data.str(addr.type).c_str());
 
     return true;
 }
@@ -69,7 +69,9 @@ bool Processor::RegisterFile::WriteRegister(const RegAddr& addr, const RegValue&
     vector<RegValue>& regs = (addr.type == RT_FLOAT) ? m_floats : m_integers;
     if (addr.index < regs.size())
     {
-        DebugRegWrite("Write to  %s: %s becomes %s", addr.str().c_str(), regs[ addr.index ].str(addr.type).c_str(), data.str(addr.type).c_str());
+        DebugRegWrite("write %s <- %s (was %s, ADMIN)", addr.str().c_str(), 
+                      data.str(addr.type).c_str(),
+                      regs[ addr.index ].str(addr.type).c_str());
         regs[addr.index] = data;
         return true;
     }
@@ -182,7 +184,11 @@ void Processor::RegisterFile::Update()
         RegAddr& addr = m_updates[i].first;
         RegType type = addr.type;
         vector<RegValue>& regs = (type == RT_FLOAT) ? m_floats : m_integers;
-        DebugRegWrite("Write to  %s: %s becomes %s", addr.str().c_str(), regs[ addr.index ].str(type).c_str(), m_updates[i].second.str(type).c_str());
+
+        DebugRegWrite("write %s <- %s (was %s)", addr.str().c_str(), 
+                      m_updates[i].second.str(type).c_str(),
+                      regs[ addr.index ].str(type).c_str());
+
         regs[ addr.index ] = m_updates[i].second;
     }
     m_nUpdates = 0;
