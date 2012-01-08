@@ -372,7 +372,7 @@ void COMA::RootDirectory::SetNumDirectories(size_t num_dirs)
     }
 }
 
-COMA::RootDirectory::RootDirectory(const std::string& name, COMA& parent, Clock& clock, VirtualMemory& memory, size_t id, size_t numRoots, const DDRChannelRegistry& ddr, Config& config) :
+COMA::RootDirectory::RootDirectory(const std::string& name, COMA& parent, Clock& clock, size_t id, size_t numRoots, const DDRChannelRegistry& ddr, Config& config) :
     Simulator::Object(name, parent),
     //COMA::Object(name, parent),
     DirectoryBottom(name, parent, clock, config),
@@ -420,7 +420,7 @@ COMA::RootDirectory::RootDirectory(const std::string& name, COMA& parent, Clock&
     p_Responses.SetStorageTraces(GetOutgoingTrace());
 }
 
-void COMA::RootDirectory::Cmd_Info(std::ostream& out, const std::vector<std::string>& arguments) const
+void COMA::RootDirectory::Cmd_Info(std::ostream& out, const std::vector<std::string>& /*args*/) const
 {
     out <<
     "The Root Directory in a COMA system is connected via other nodes in the COMA\n"

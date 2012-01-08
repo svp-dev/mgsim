@@ -41,7 +41,7 @@ namespace Simulator
         return &m_vfds[vfd];
     }
 
-    UnixInterface::VirtualFD UnixInterface::GetNewVFD(const string& fname, UnixInterface::HostFD hfd)
+    UnixInterface::VirtualFD UnixInterface::GetNewVFD(UnixInterface::HostFD hfd)
     {
         size_t i;
         for (i = 0; i < m_vfds.size() && m_vfds[i].active; ++i)
@@ -60,7 +60,7 @@ namespace Simulator
     {
         VirtualDescriptor *vd = GetEntry(original);
         assert(vd != NULL);
-        return GetNewVFD(vd->fname, new_hfd);
+        return GetNewVFD(new_hfd);
     }
 
     UnixInterface::VirtualDescriptor* UnixInterface::DuplicateVFD2(UnixInterface::VirtualFD original, UnixInterface::VirtualFD target)
@@ -198,7 +198,6 @@ namespace Simulator
             // ensure path is nul terminated
             const char *path_start = (const char*)(const void*)&arg1[0];
             const char *path_end = path_start + arg1.size();
-            int fd;
             if (find(path_start, path_end, '\0') == path_end)
             {
                 rval = -1;
@@ -208,7 +207,7 @@ namespace Simulator
 
             int hfd = open(path_start, oflags, mode);
 
-            rval = GetNewVFD(path_start, hfd);
+            rval = GetNewVFD(hfd);
         }
         break;
 
@@ -575,7 +574,7 @@ namespace Simulator
             DIR* dir = opendir(path_start);
             if (dir != NULL)
             {
-                VirtualFD vfd = GetNewVFD(path_start, dirfd(dir));
+                VirtualFD vfd = GetNewVFD(dirfd(dir));
                 VirtualDescriptor *vd = GetEntry(vfd);
                 assert(vd != NULL);
                 vd->dir = dir;

@@ -16,7 +16,7 @@ public:
 
     size_t GetSize() const;
 
-    Result Read (MemAddr address, void* data, MemSize size, LFID fid, TID tid, const RegAddr& writeback) { return FAILED; }
+    Result Read (MemAddr address, void* data, MemSize size, LFID fid, TID tid, const RegAddr& writeback);
     Result Write(MemAddr address, const void* data, MemSize size, LFID fid, TID tid);
 
 };

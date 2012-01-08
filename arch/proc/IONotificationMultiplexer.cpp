@@ -311,14 +311,14 @@ Result Processor::IONotificationMultiplexer::DoReceivedNotifications()
 }
 
 
-void Processor::IONotificationMultiplexer::Cmd_Info(ostream& out, const vector<string>& args) const
+void Processor::IONotificationMultiplexer::Cmd_Info(ostream& out, const vector<string>& /*args*/) const
 {
     out << "I/O notification multiplexer." << endl
         << endl
         << "Number of channels: " << m_writebacks.size() << endl;
 }
 
-void Processor::IONotificationMultiplexer::Cmd_Read(ostream& out, const vector<string>& args) const
+void Processor::IONotificationMultiplexer::Cmd_Read(ostream& out, const vector<string>& /*args*/) const
 {
     out << "Channel | Enable | WB    | Int. Latch | Notifications" << endl
         << "--------+--------+-------+------------+---------------------" << endl;

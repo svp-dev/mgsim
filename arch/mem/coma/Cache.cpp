@@ -946,7 +946,7 @@ COMA::Cache::Cache(const std::string& name, COMA& parent, Clock& clock, CacheID 
     config.registerProperty(*this, "freq", (uint32_t)clock.GetFrequency());
 }
 
-void COMA::Cache::Cmd_Info(std::ostream& out, const std::vector<std::string>& arguments) const
+void COMA::Cache::Cmd_Info(std::ostream& out, const std::vector<std::string>& /*args*/) const
 {
     out <<
     "The L2 Cache in a COMA system is connected to the processors with a bus and to\n"
@@ -1122,7 +1122,6 @@ void COMA::Cache::Cmd_Read(std::ostream& out, const std::vector<std::string>& ar
                 
                 // Print the data
                 out << hex << setfill('0');
-                static const int BYTES_PER_LINE = 64;
                 for (size_t y = 0; y < m_lineSize; y += bytes_per_line)
                 {
                     for (size_t x = y; x < y + bytes_per_line; ++x) {

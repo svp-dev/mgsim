@@ -456,7 +456,7 @@ void ZLCOMA::RootDirectory::SetNumDirectories(size_t num_dirs)
     }
 }
 
-ZLCOMA::RootDirectory::RootDirectory(const std::string& name, ZLCOMA& parent, Clock& clock, VirtualMemory& memory, size_t id, size_t numRoots, const DDRChannelRegistry& ddr, Config& config) :
+ZLCOMA::RootDirectory::RootDirectory(const std::string& name, ZLCOMA& parent, Clock& clock, size_t id, size_t numRoots, const DDRChannelRegistry& ddr, Config& config) :
     Simulator::Object(name, parent),
     DirectoryBottom(name, parent, clock),
     m_selector (parent.GetBankSelector()),
@@ -503,7 +503,7 @@ ZLCOMA::RootDirectory::RootDirectory(const std::string& name, ZLCOMA& parent, Cl
     p_Responses.SetStorageTraces(GetOutgoingTrace());
 }
 
-void ZLCOMA::RootDirectory::Cmd_Info(std::ostream& out, const std::vector<std::string>& arguments) const
+void ZLCOMA::RootDirectory::Cmd_Info(std::ostream& out, const std::vector<std::string>& /*args*/) const
 {
     out <<
     "The Root Directory in a COMA system is connected via other nodes in the COMA\n"

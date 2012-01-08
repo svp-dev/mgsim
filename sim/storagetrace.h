@@ -141,7 +141,7 @@ static inline StorageTraceSet operator*(StorageTraceSet& sl, const Storage& a) {
 }
 
 // Optional operator
-static StorageTraceSet opt(const StorageTraceSet& s) {
+static inline StorageTraceSet opt(const StorageTraceSet& s) {
     // Append "empty" to the combinations
     return s ^ StorageTraceSet(StorageTrace());
 }

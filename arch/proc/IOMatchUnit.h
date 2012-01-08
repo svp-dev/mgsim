@@ -31,7 +31,7 @@ protected:
     RangeMap::const_iterator FindInterface(MemAddr address, MemSize size) const;
 
 public:
-    IOMatchUnit(const std::string& name, Processor& parent, Clock& clock, Config& config);
+    IOMatchUnit(const std::string& name, Processor& parent, Clock& clock);
 
     Processor& GetProcessor() const;
 

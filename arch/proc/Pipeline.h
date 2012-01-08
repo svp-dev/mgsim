@@ -271,7 +271,7 @@ class Pipeline : public Object, public Inspect::Interface<Inspect::Read>
         DecodeReadLatch&        m_output;
 
         PipeAction OnCycle();
-        RegAddr TranslateRegister(uint8_t reg, RegType type, unsigned int size, bool writing, bool *islocal) const;
+        RegAddr TranslateRegister(uint8_t reg, RegType type, unsigned int size, bool *islocal) const;
         void    DecodeInstruction(const Instruction& instr);
 
 #if defined(TARGET_MTALPHA)
@@ -300,7 +300,7 @@ class Pipeline : public Object, public Inspect::Interface<Inspect::Read>
         bool ReadRegister(OperandInfo& operand, uint32_t literal);
         bool ReadBypasses(OperandInfo& operand);
         void CheckLocalOperand(OperandInfo& operand) const;
-        bool CheckOperandForSuspension(const OperandInfo& operand, const RegAddr& addr);
+        bool CheckOperandForSuspension(const OperandInfo& operand);
         void Clear(TID tid);
         PipeAction OnCycle();
 

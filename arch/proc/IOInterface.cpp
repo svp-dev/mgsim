@@ -94,7 +94,7 @@ namespace Simulator
         return true;
     }
 
-    void Processor::IOInterface::Cmd_Info(ostream& out, const vector<string>& args) const
+    void Processor::IOInterface::Cmd_Info(ostream& out, const vector<string>& /*args*/) const
     {
         out << "This I/O interface is composed of the following components:" << endl
             << "- " << m_async_io.GetFQN() << endl
@@ -139,7 +139,7 @@ namespace Simulator
         return m_baseAddr | (dev << m_devAddrBits);
     }
 
-    Result Processor::IOInterface::AsyncIOInterface::Read(MemAddr address, void* data, MemSize size, LFID fid, TID tid, const RegAddr& writeback)
+    Result Processor::IOInterface::AsyncIOInterface::Read(MemAddr address, void* /*data*/, MemSize size, LFID fid, TID tid, const RegAddr& writeback)
     {
         IODeviceID dev = address >> m_devAddrBits;
         IOInterface& iface = GetInterface();
@@ -180,7 +180,7 @@ namespace Simulator
         return SUCCESS;
     }
 
-    void Processor::IOInterface::AsyncIOInterface::Cmd_Info(ostream& out, const vector<string>& args) const
+    void Processor::IOInterface::AsyncIOInterface::Cmd_Info(ostream& out, const vector<string>& /*args*/) const
     {
         out << 
             "The asynchronous I/O interface accepts read and write commands from\n"
@@ -193,7 +193,6 @@ namespace Simulator
         for (size_t i = 0; i < GetInterface().m_numDevices; ++i)
         {
             MemAddr begin = i << m_devAddrBits;
-            MemAddr end = begin + size - 1;
             out << setw(16) << begin
                 << " | "
                 << setw(16) << begin + size - 1
@@ -220,7 +219,7 @@ namespace Simulator
         return GetInterface().m_numChannels * sizeof(Integer);
     }
 
-    Result Processor::IOInterface::PNCInterface::Read(MemAddr address, void* data, MemSize size, LFID fid, TID tid, const RegAddr& writeback)
+    Result Processor::IOInterface::PNCInterface::Read(MemAddr address, void* /*data*/, MemSize size, LFID fid, TID tid, const RegAddr& writeback)
     {
         if (address % sizeof(Integer) != 0 || size != sizeof(Integer))
         {
@@ -241,7 +240,7 @@ namespace Simulator
     }
 
 
-    void Processor::IOInterface::PNCInterface::Cmd_Info(ostream& out, const vector<string>& args) const
+    void Processor::IOInterface::PNCInterface::Cmd_Info(ostream& out, const vector<string>& /*args*/) const
     {
         out << 
             "The PNC interface accepts read commands from the processor and \n"

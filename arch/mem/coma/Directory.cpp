@@ -298,7 +298,7 @@ COMA::Directory::Directory(const std::string& name, COMA& parent, Clock& clock, 
     config.registerBidiRelation(m_bottom, m_top, "dir");
 }
 
-void COMA::Directory::Cmd_Info(std::ostream& out, const std::vector<std::string>& arguments) const
+void COMA::Directory::Cmd_Info(std::ostream& out, const std::vector<std::string>& /*args*/) const
 {
     out <<
     "The Directory in a COMA system is connected via other nodes in the COMA\n"

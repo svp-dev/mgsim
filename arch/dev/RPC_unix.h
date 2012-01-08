@@ -28,7 +28,7 @@ namespace Simulator
         std::vector<VirtualDescriptor> m_vfds;
 
         VirtualDescriptor* GetEntry(VirtualFD vfd);
-        VirtualFD GetNewVFD(const std::string& fname, HostFD new_hfd);
+        VirtualFD GetNewVFD(HostFD new_hfd);
         VirtualFD DuplicateVFD(VirtualFD original, HostFD new_hfd);
         VirtualDescriptor* DuplicateVFD2(VirtualFD original, VirtualFD target);
 

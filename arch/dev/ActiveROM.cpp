@@ -238,7 +238,7 @@ namespace Simulator
         return SUCCESS;
     }
     
-    bool ActiveROM::OnReadResponseReceived(IODeviceID from, MemAddr address, const IOData& data)
+    bool ActiveROM::OnReadResponseReceived(IODeviceID from, MemAddr address, const IOData& /*data*/)
     {
         assert(from == m_client && address == 0);
         m_notifying.Set();
@@ -330,11 +330,11 @@ namespace Simulator
         return true;
     }
 
-    bool ActiveROM::OnWriteRequestReceived(IODeviceID from, MemAddr address, const IOData& data)
+    bool ActiveROM::OnWriteRequestReceived(IODeviceID /*from*/, MemAddr address, const IOData& data)
     {
         if (address != 0)
         {
-            throw exceptf<SimulationException>(*this, "Invalid I/O read to %#016llx/%u", (unsigned long long)address, (unsigned)data.size);
+            throw exceptf<SimulationException>(*this, "Invalid I/O write to %#016llx/%u", (unsigned long long)address, (unsigned)data.size);
         }
         if (!m_loadable.empty())
         {

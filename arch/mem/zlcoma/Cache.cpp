@@ -1233,7 +1233,7 @@ ZLCOMA::Cache::Cache(const std::string& name, ZLCOMA& parent, Clock& clock, Cach
     config.registerProperty(*this, "freq", (uint32_t)clock.GetFrequency());
 }
 
-void ZLCOMA::Cache::Cmd_Info(std::ostream& out, const std::vector<std::string>& arguments) const
+void ZLCOMA::Cache::Cmd_Info(std::ostream& out, const std::vector<std::string>& /*args*/) const
 {
     out <<
     "The L2 Cache in a COMA system is connected to the processors with a bus and to\n"

@@ -27,7 +27,7 @@ Processor::Processor(const std::string& name, Object& parent, Clock& clock, PID 
     m_dcache      ("dcache",        *this, clock, m_allocator, m_familyTable, m_registerFile, memory, config),
     m_pipeline    ("pipeline",      *this, clock, m_registerFile, m_network, m_allocator, m_familyTable, m_threadTable, m_icache, m_dcache, fpu, config),
     m_network     ("network",       *this, clock, grid, m_allocator, m_registerFile, m_familyTable, config),
-    m_mmio        ("mmio",          *this, clock, config),
+    m_mmio        ("mmio",          *this, clock),
     m_apr_file("aprs", *this, clock, config),
     m_asr_file("asrs", *this, clock, config),
     m_perfcounters(*this, config),
@@ -343,7 +343,7 @@ void Processor::MapMemory(MemAddr address, MemSize size)
                        IMemory::PERM_DCA_READ | IMemory::PERM_DCA_WRITE);
 }
 
-void Processor::UnmapMemory(MemAddr address, MemSize size)
+void Processor::UnmapMemory(MemAddr address, MemSize /*size*/)
 {
     // TODO: possibly check the size matches the reserved size
     m_memadmin.Unreserve(address);

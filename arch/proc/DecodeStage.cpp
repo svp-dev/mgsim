@@ -23,7 +23,7 @@ struct IllegalInstruction
  \param[in] writing Indicates if this register is used in a write
  \returns the physical register address to use for the read or write
  */
-RegAddr Processor::Pipeline::DecodeStage::TranslateRegister(unsigned char reg, RegType type, unsigned int size, bool writing, bool *islocal) const
+RegAddr Processor::Pipeline::DecodeStage::TranslateRegister(unsigned char reg, RegType type, unsigned int size, bool *islocal) const
 {
     // We're always dealing with whole registers
     assert(size % sizeof(Integer) == 0);
@@ -140,12 +140,12 @@ Processor::Pipeline::PipeAction Processor::Pipeline::DecodeStage::OnCycle()
                 );
             
             // Translate registers from window to full register file
-            m_output.Ra = TranslateRegister((unsigned char)m_output.Ra.index, m_output.Ra.type, m_output.RaSize, false, &m_output.RaIsLocal);
-            m_output.Rb = TranslateRegister((unsigned char)m_output.Rb.index, m_output.Rb.type, m_output.RbSize, false, &m_output.RbIsLocal);
+            m_output.Ra = TranslateRegister((unsigned char)m_output.Ra.index, m_output.Ra.type, m_output.RaSize, &m_output.RaIsLocal);
+            m_output.Rb = TranslateRegister((unsigned char)m_output.Rb.index, m_output.Rb.type, m_output.RbSize, &m_output.RbIsLocal);
             bool dummy;
-            m_output.Rc = TranslateRegister((unsigned char)m_output.Rc.index, m_output.Rc.type, m_output.RcSize, true, &dummy);
+            m_output.Rc = TranslateRegister((unsigned char)m_output.Rc.index, m_output.Rc.type, m_output.RcSize, &dummy);
 #if defined(TARGET_MTSPARC)
-            m_output.Rs = TranslateRegister((unsigned char)m_output.Rs.index, m_output.Rs.type, m_output.RsSize, false, &m_output.RsIsLocal);
+            m_output.Rs = TranslateRegister((unsigned char)m_output.Rs.index, m_output.Rs.type, m_output.RsSize, &m_output.RsIsLocal);
 #endif
         }
         catch (IllegalInstruction&)

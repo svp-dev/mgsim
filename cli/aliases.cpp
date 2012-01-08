@@ -23,7 +23,7 @@ void ExpandAliases(vector<string>& args)
     args.insert(args.begin(), command);
 }
 
-bool cmd_aliases(const vector<string>& command, vector<string>& args, cli_context& ctx)
+bool cmd_aliases(const vector<string>& /*command*/, vector<string>& /*args*/, cli_context& /*ctx*/)
 {
     cout << "Aliases:" << endl;
     for (const command_alias *p = &alias_table[0]; p->alias != 0; ++p)

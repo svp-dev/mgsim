@@ -3,7 +3,7 @@
 using namespace Simulator;
 using namespace std;
 
-bool cmd_trace_show(const vector<string>& command, vector<string>& args, cli_context& ctx)
+bool cmd_trace_show(const vector<string>& /*command*/, vector<string>& /*args*/, cli_context& ctx)
 {
     string debugStr;
     int m = ctx.sys.GetDebugMode();
@@ -46,7 +46,7 @@ bool cmd_trace_debug(const vector<string>& command, vector<string>& args, cli_co
     return cmd_trace_show(command, args, ctx);
 }
 
-bool cmd_trace_line(const vector<string>& command, vector<string>& args, cli_context& ctx)
+bool cmd_trace_line(const vector<string>& /*command*/, vector<string>& args, cli_context& ctx)
 {
     string pat = args[0];
     args.erase(args.begin());

@@ -74,7 +74,7 @@ namespace Simulator
             tag = address;
             index = 0;
         }
-        MemAddr Unmap(MemAddr tag, size_t index)
+        MemAddr Unmap(MemAddr tag, size_t /*index*/)
         {
             return tag;
         }
@@ -142,7 +142,7 @@ namespace Simulator
             address = address ^ ((address >> 4) | (address << (sizeof(address)*8-4)));
             index = address % m_numBanks;
         }
-        MemAddr Unmap(MemAddr tag, size_t index)
+        MemAddr Unmap(MemAddr tag, size_t /*index*/)
         {
             return tag;
         }
@@ -161,7 +161,7 @@ namespace Simulator
             tag = address;
             index = (address ^ (address / m_numBanks)) % m_numBanks;
         }
-        MemAddr Unmap(MemAddr tag, size_t index)
+        MemAddr Unmap(MemAddr tag, size_t /*index*/)
         {
             return tag;
         }        
@@ -179,7 +179,7 @@ namespace Simulator
             tag = address;
             index = (address + (address / m_numBanks)) % m_numBanks;
         }
-        MemAddr Unmap(MemAddr tag, size_t index)
+        MemAddr Unmap(MemAddr tag, size_t /*index*/)
         {
             return tag;
         }
@@ -205,7 +205,7 @@ namespace Simulator
             while (address > m_numBanks);
             index = result % m_numBanks;
         }
-        MemAddr Unmap(MemAddr tag, size_t index)
+        MemAddr Unmap(MemAddr tag, size_t /*index*/)
         {
             return tag;
         }
@@ -230,7 +230,7 @@ namespace Simulator
             while (address > m_numBanks);
             index = result % m_numBanks;
         }
-        MemAddr Unmap(MemAddr tag, size_t index)
+        MemAddr Unmap(MemAddr tag, size_t /*index*/)
         {
             return tag;
         }

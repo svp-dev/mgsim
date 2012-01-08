@@ -396,7 +396,7 @@ bool Processor::ICache::OnMemoryReadCompleted(MemAddr addr, const MemData& data)
     return true;
 }
 
-bool Processor::ICache::OnMemoryWriteCompleted(TID tid)
+bool Processor::ICache::OnMemoryWriteCompleted(TID /*tid*/)
 {
     // The I-Cache never writes
     assert(false);
@@ -581,8 +581,6 @@ void Processor::ICache::Cmd_Read(std::ostream& out, const std::vector<std::strin
         out << endl;
     }
 
-    const size_t num_sets = m_lines.size() / m_assoc;
-        
     out << "Set |       Address       |                       Data                      | Ref |" << endl;
     out << "----+---------------------+-------------------------------------------------+-----+" << endl;
     for (size_t i = 0; i < m_lines.size(); ++i)

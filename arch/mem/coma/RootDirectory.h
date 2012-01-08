@@ -69,7 +69,7 @@ private:
     uint64_t          m_nwrites;
     
 public:
-    RootDirectory(const std::string& name, COMA& parent, Clock& clock, VirtualMemory& memory, size_t id, size_t numRoots, const DDRChannelRegistry& ddr, Config& config);
+    RootDirectory(const std::string& name, COMA& parent, Clock& clock, size_t id, size_t numRoots, const DDRChannelRegistry& ddr, Config& config);
     
     // Updates the internal data structures to accomodate a system with N directories
     void SetNumDirectories(size_t num_dirs);

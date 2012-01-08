@@ -33,25 +33,6 @@
 using namespace Simulator;
 using namespace std;
 
-static vector<string> Tokenize(const string& str, const string& sep)
-{
-    vector<string> tokens;
-    for (size_t next, pos = str.find_first_not_of(sep); pos != string::npos; pos = next)
-    {
-        next = str.find_first_of(sep, pos);
-        if (next == string::npos)
-        {
-            tokens.push_back(str.substr(pos));
-        }
-        else
-        {
-            tokens.push_back(str.substr(pos, next - pos));
-            next = str.find_first_not_of(sep, next);
-        }
-    }
-    return tokens;
-}
-
 uint64_t MGSystem::GetOp() const
 {
     uint64_t op = 0;
@@ -74,7 +55,7 @@ uint64_t MGSystem::GetFlop() const
 
 struct my_iomanip_i { };
 template<typename _CharT, typename _Traits>
-std::basic_ostream<_CharT, _Traits>& operator<<(std::basic_ostream<_CharT, _Traits>&os, my_iomanip_i _unused)
+std::basic_ostream<_CharT, _Traits>& operator<<(std::basic_ostream<_CharT, _Traits>&os, my_iomanip_i /*unused*/)
 {
     os << std::left << std::fixed << std::setprecision(2) << std::setw(9);
     return os;
@@ -82,7 +63,7 @@ std::basic_ostream<_CharT, _Traits>& operator<<(std::basic_ostream<_CharT, _Trai
 
 struct my_iomanip_f { };
 template<typename _CharT, typename _Traits>
-std::basic_ostream<_CharT, _Traits>& operator<<(std::basic_ostream<_CharT, _Traits>&os, my_iomanip_f _unused)
+std::basic_ostream<_CharT, _Traits>& operator<<(std::basic_ostream<_CharT, _Traits>&os, my_iomanip_f /*unused*/)
 {
     os << std::left << std::scientific << std::setprecision(6) << std::setw(12);
     return os;
@@ -90,7 +71,7 @@ std::basic_ostream<_CharT, _Traits>& operator<<(std::basic_ostream<_CharT, _Trai
 
 struct my_iomanip_p { };
 template<typename _CharT, typename _Traits>
-std::basic_ostream<_CharT, _Traits>& operator<<(std::basic_ostream<_CharT, _Traits>&os, my_iomanip_p _unused)
+std::basic_ostream<_CharT, _Traits>& operator<<(std::basic_ostream<_CharT, _Traits>&os, my_iomanip_p /*unused*/)
 {
     os << std::left << std::setprecision(1) << std::setw(8);
     return os;
@@ -443,7 +424,7 @@ void MGSystem::PrintMemoryStatistics(ostream& os) const {
 
 }
 
-void MGSystem::PrintState(const vector<string>& arguments) const
+void MGSystem::PrintState(const vector<string>& /*unused*/) const
 {
     // This should be all non-idle processes
     for (const Clock* clock = m_kernel.GetActiveClocks(); clock != NULL; clock = clock->GetNext())

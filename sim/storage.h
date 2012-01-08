@@ -58,7 +58,7 @@ public:
     const Storage* GetNext() const { return m_next; }
 
     Storage(const std::string& name, Object& parent, Clock& clock)
-        : Object(name, clock), m_activated(false), m_next(NULL)
+        : Object(name, parent, clock), m_activated(false), m_next(NULL)
     {}
 };
 

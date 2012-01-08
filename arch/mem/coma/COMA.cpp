@@ -153,7 +153,7 @@ COMA::COMA(const std::string& name, Simulator::Object& parent, Clock& clock, Con
     {
         stringstream name;
         name << "rootdir" << i;
-        m_roots[i] = new RootDirectory(name.str(), *this, clock, *this, i, m_roots.size(), m_ddr, config);
+        m_roots[i] = new RootDirectory(name.str(), *this, clock, i, m_roots.size(), m_ddr, config);
     }
     
 }

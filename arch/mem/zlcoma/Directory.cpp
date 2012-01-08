@@ -301,7 +301,7 @@ ZLCOMA::Directory::Directory(const std::string& name, ZLCOMA& parent, Clock& clo
     config.registerBidiRelation(m_bottom, m_top, "dir");
 }
 
-void ZLCOMA::Directory::Cmd_Info(std::ostream& out, const std::vector<std::string>& arguments) const
+void ZLCOMA::Directory::Cmd_Info(std::ostream& out, const std::vector<std::string>& /*args*/) const
 {
     out <<
     "The Directory in a COMA system is connected via other nodes in the COMA\n"

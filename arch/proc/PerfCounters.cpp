@@ -10,7 +10,12 @@ namespace Simulator
 
 size_t Processor::PerfCounters::GetSize() const { return NUM_COUNTERS * sizeof(Integer);  }
 
-Result Processor::PerfCounters::Read(MemAddr address, void *data, MemSize size, LFID fid, TID tid, const RegAddr& writeback)
+Result Processor::PerfCounters::Write(MemAddr /*address*/, const void * /*data*/, MemSize /*size*/, LFID /*fid*/, TID /*tid*/)
+{
+    return FAILED;
+}
+
+Result Processor::PerfCounters::Read(MemAddr address, void *data, MemSize size, LFID fid, TID tid, const RegAddr& /*writeback*/)
 {
     if (size != sizeof(Integer) || address % sizeof(Integer) != 0 || address / sizeof(Integer) >= NUM_COUNTERS)
     {

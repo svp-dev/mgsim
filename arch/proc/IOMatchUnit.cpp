@@ -160,10 +160,9 @@ void Processor::IOMatchUnit::Cmd_Info(std::ostream& out, const std::vector<std::
     }
 }
     
-Processor::IOMatchUnit::IOMatchUnit(const std::string& name, Processor& parent, Clock& clock, Config& config)
+Processor::IOMatchUnit::IOMatchUnit(const std::string& name, Processor& parent, Clock& clock)
     : Object(name, parent, clock)
 {
-    // config not yet used here
 }
 
 Processor::MMIOComponent::MMIOComponent(const std::string& name, Object& parent, Clock& clock)

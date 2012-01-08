@@ -36,13 +36,13 @@ bool cmd_run(const vector<string>& command, vector<string>& args, cli_context& c
     return false;
 }
 
-bool cmd_state(const vector<string>& command, vector<string>& args, cli_context& ctx)
+bool cmd_state(const vector<string>& /*command*/, vector<string>& args, cli_context& ctx)
 {
     ctx.sys.PrintState(args);
     return false;
 }
 
-bool cmd_lookup(const vector<string>& command, vector<string>& args, cli_context& ctx)
+bool cmd_lookup(const vector<string>& /*command*/, vector<string>& args, cli_context& ctx)
 {
     errno = 0;
     MemAddr addr = strtoull(args[0].c_str(), 0, 0);
@@ -54,7 +54,7 @@ bool cmd_lookup(const vector<string>& command, vector<string>& args, cli_context
 }
 
 
-bool cmd_disas(const vector<string>& command, vector<string>& args, cli_context& ctx)
+bool cmd_disas(const vector<string>& /*command*/, vector<string>& args, cli_context& ctx)
 {
     MemAddr addr = 0;
 
@@ -80,7 +80,7 @@ bool cmd_disas(const vector<string>& command, vector<string>& args, cli_context&
     return false;
 }
 
-bool cmd_stats(const vector<string>& command, vector<string>& args, cli_context& ctx)
+bool cmd_stats(const vector<string>& /*command*/, vector<string>& /*args*/, cli_context& ctx)
 {
     ctx.sys.PrintAllStatistics(cout);
     return false;

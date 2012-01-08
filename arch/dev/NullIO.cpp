@@ -215,7 +215,7 @@ namespace Simulator
         }
     }
 
-    void NullIO::Cmd_Info(std::ostream& out, const std::vector<std::string>& arguments) const
+    void NullIO::Cmd_Info(std::ostream& out, const std::vector<std::string>& /*args*/) const
     {
         out << 
             "The Null I/O bus implements a zero-latency bus between\n"

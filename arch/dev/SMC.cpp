@@ -149,7 +149,7 @@ namespace Simulator
         return SUCCESS;
     }
 
-    bool SMC::OnNotificationReceived(IONotificationChannelID which, Integer tag)
+    bool SMC::OnNotificationReceived(IONotificationChannelID /*which*/, Integer /*tag*/)
     {
         if (m_enable_dca)
         {

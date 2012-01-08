@@ -274,7 +274,7 @@ void Processor::Pipeline::ReadStage::CheckLocalOperand(OperandInfo& operand) con
  @param [in]  operand The operand to check
  @param [in]  addr    The base address of the operand
  */
-bool Processor::Pipeline::ReadStage::CheckOperandForSuspension(const OperandInfo& operand, const RegAddr& addr)
+bool Processor::Pipeline::ReadStage::CheckOperandForSuspension(const OperandInfo& operand)
 {
     if (operand.value.m_state != RST_FULL)
     {
@@ -421,8 +421,8 @@ Processor::Pipeline::PipeAction Processor::Pipeline::ReadStage::OnCycle()
     CheckLocalOperand(operand1);
     CheckLocalOperand(operand2);
     
-    if (!CheckOperandForSuspension(operand1, m_input.Ra))  // Suspending on operand #1?
-    if (!CheckOperandForSuspension(operand2, m_input.Rb))  // Suspending on operand #2?
+    if (!CheckOperandForSuspension(operand1))  // Suspending on operand #1?
+    if (!CheckOperandForSuspension(operand2))  // Suspending on operand #2?
     {
         // Not suspending, output the normal stuff
         COMMIT

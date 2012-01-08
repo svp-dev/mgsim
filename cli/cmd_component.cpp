@@ -3,7 +3,7 @@
 using namespace Simulator;
 using namespace std;
 
-bool cmd_line(const vector<string>& command, vector<string>& args, cli_context& ctx)
+bool cmd_line(const vector<string>& /*command*/, vector<string>& args, cli_context& ctx)
 {
     string pat = args[0];
     args.erase(args.begin());
@@ -11,7 +11,7 @@ bool cmd_line(const vector<string>& command, vector<string>& args, cli_context& 
     return false;
 }
 
-bool cmd_info(const vector<string>& command, vector<string>& args, cli_context& ctx)
+bool cmd_info(const vector<string>& /*command*/, vector<string>& args, cli_context& ctx)
 {
     string pat = args[0];
     args.erase(args.begin());
@@ -19,7 +19,7 @@ bool cmd_info(const vector<string>& command, vector<string>& args, cli_context& 
     return false;
 }
 
-bool cmd_inspect(const vector<string>& command, vector<string>& args, cli_context& ctx)
+bool cmd_inspect(const vector<string>& /*command*/, vector<string>& args, cli_context& ctx)
 {
     string pat = args[0];
     args.erase(args.begin());

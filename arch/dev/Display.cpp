@@ -43,7 +43,7 @@ namespace Simulator
         return true;
     }
 
-    bool Display::FrameBufferInterface::OnWriteRequestReceived(IODeviceID from, MemAddr address, const IOData& iodata)
+    bool Display::FrameBufferInterface::OnWriteRequestReceived(IODeviceID /*from*/, MemAddr address, const IOData& iodata)
     {
         Display& disp = GetDisplay();
         if (address >= disp.m_framebuffer.size() || address + iodata.size >= disp.m_framebuffer.size())
@@ -85,7 +85,7 @@ namespace Simulator
         }    
     }
 
-    bool Display::ControlInterface::OnWriteRequestReceived(IODeviceID from, MemAddr address, const IOData& iodata)
+    bool Display::ControlInterface::OnWriteRequestReceived(IODeviceID /*from*/, MemAddr address, const IOData& iodata)
     {
         unsigned word = address / 4;
 

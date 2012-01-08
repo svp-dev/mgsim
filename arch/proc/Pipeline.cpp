@@ -292,31 +292,6 @@ void Processor::Pipeline::PrintLatchCommon(std::ostream& out, const CommonData& 
     return ret;
 }
 
-static std::ostream& operator << (std::ostream& out, const RemoteRegAddr& rreg)
-{
-    if (rreg.fid.lfid != INVALID_LFID)
-    {
-        switch (rreg.type)
-        {
-        case RRT_DETACH:          out << "Detach"; break;
-        case RRT_GLOBAL:          out << "Global "          << rreg.reg.str(); break;
-        case RRT_FIRST_DEPENDENT: out << "First Dependent " << rreg.reg.str(); break;
-        case RRT_LAST_SHARED:     out << "Last Shared "     << rreg.reg.str(); break;
-        default:                  assert(false); break;
-        }
-    
-        out << ", F" << dec << rreg.fid.lfid;
-        if (rreg.fid.pid != INVALID_PID) {
-            out << "@CPU" << rreg.fid.pid;
-        }
-    }
-    else
-    {
-        out << "N/A";
-    }
-    return out;
-}
-
 void Processor::Pipeline::Cmd_Read(std::ostream& out, const std::vector<std::string>& /*arguments*/) const
 {
     // Fetch stage

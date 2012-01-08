@@ -185,7 +185,7 @@ namespace Simulator
         }
     }
 
-    bool RTC::RTCInterface::OnWriteRequestReceived(IODeviceID from, MemAddr address, const IOData& data)
+    bool RTC::RTCInterface::OnWriteRequestReceived(IODeviceID /*from*/, MemAddr address, const IOData& data)
     {
         unsigned word = address / 4;
 

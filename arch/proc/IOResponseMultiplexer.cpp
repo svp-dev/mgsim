@@ -47,7 +47,7 @@ bool Processor::IOResponseMultiplexer::QueueWriteBackAddress(IODeviceID dev, con
     return m_wb_buffers[dev]->Push(addr);
 }
 
-bool Processor::IOResponseMultiplexer::OnReadResponseReceived(IODeviceID from, MemAddr address, const IOData& data)
+bool Processor::IOResponseMultiplexer::OnReadResponseReceived(IODeviceID from, MemAddr /*address*/, const IOData& data)
 {
     assert(from < m_wb_buffers.size());
 

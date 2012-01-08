@@ -808,8 +808,6 @@ void Processor::DCache::Cmd_Read(std::ostream& out, const std::vector<std::strin
         return;
     }
 
-    const size_t num_sets = m_lines.size() / m_assoc;
-
     out << "Set |       Address       |                       Data                      | Waiting Registers" << endl;
     out << "----+---------------------+-------------------------------------------------+-------------------" << endl;
     for (size_t i = 0; i < m_lines.size(); ++i)

@@ -1651,7 +1651,6 @@ Result Processor::Allocator::DoFamilyCreate()
     else if (m_createState == CREATE_ALLOCATING_REGISTERS)
     {
         // Allocate the registers
-        const Family& family = m_familyTable[info.fid];
         ContextType type = m_familyTable.IsExclusive(info.fid) ? CONTEXT_EXCLUSIVE : CONTEXT_RESERVED;
         if (!AllocateRegisters(info.fid, type))
         {

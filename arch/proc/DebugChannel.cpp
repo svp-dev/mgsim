@@ -17,6 +17,12 @@ namespace Simulator
 size_t Processor::DebugChannel::GetSize() const { return  6 * sizeof(Integer);  }
 
 
+Result Processor::DebugChannel::Read (MemAddr /*address*/, void* /*data*/, MemSize /*size*/, LFID /*fid*/, TID /*tid*/, const RegAddr& /*writeback*/) 
+{
+    assert(0); // should not be here
+    return FAILED; 
+}    
+
 Result Processor::DebugChannel::Write(MemAddr address, const void *data, MemSize size, LFID fid, TID tid)
 {
     address /= sizeof(Integer);

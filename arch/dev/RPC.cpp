@@ -427,7 +427,7 @@ namespace Simulator
         return SUCCESS;
     }
 
-    bool RPCInterface::OnReadResponseReceived(IODeviceID from, MemAddr address, const IOData& iodata)
+    bool RPCInterface::OnReadResponseReceived(IODeviceID /*from*/, MemAddr address, const IOData& iodata)
     {
         if (iodata.size == 0)
         {
@@ -491,7 +491,7 @@ namespace Simulator
         return SUCCESS;
     }
 
-    bool RPCInterface::OnWriteRequestReceived(IODeviceID from, MemAddr address, const IOData& data)
+    bool RPCInterface::OnWriteRequestReceived(IODeviceID /*from*/, MemAddr address, const IOData& data)
     {
         // word size: 32 bit
         // word 0: command status (0: idle, 1: busy/queueing)

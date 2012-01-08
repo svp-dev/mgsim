@@ -4,7 +4,7 @@ using namespace Simulator;
 using namespace std;
 
 
-bool cmd_show_vars(const vector<string>& command, vector<string>& args, cli_context& ctx)
+bool cmd_show_vars(const vector<string>& /*command*/, vector<string>& args, cli_context& /*ctx*/)
 {
     string pat = "*";
     if (!args.empty())
@@ -14,7 +14,7 @@ bool cmd_show_vars(const vector<string>& command, vector<string>& args, cli_cont
 }
 
 
-bool cmd_show_syms(const vector<string>& command, vector<string>& args, cli_context& ctx)
+bool cmd_show_syms(const vector<string>& /*command*/, vector<string>& args, cli_context& ctx)
 {
     string pat = "*";
     if (!args.empty())
@@ -24,7 +24,7 @@ bool cmd_show_syms(const vector<string>& command, vector<string>& args, cli_cont
 }
 
 
-bool cmd_show_components(const vector<string>& command, vector<string>& args, cli_context& ctx)
+bool cmd_show_components(const vector<string>& /*command*/, vector<string>& args, cli_context& ctx)
 {
     string pat = "*";
     if (!args.empty())
@@ -38,7 +38,7 @@ bool cmd_show_components(const vector<string>& command, vector<string>& args, cl
     return false;
 }
 
-bool cmd_show_processes(const vector<string>& command, vector<string>& args, cli_context& ctx)
+bool cmd_show_processes(const vector<string>& /*command*/, vector<string>& args, cli_context& ctx)
 {
     string pat = "*";
     if (!args.empty())
@@ -48,7 +48,7 @@ bool cmd_show_processes(const vector<string>& command, vector<string>& args, cli
 }
 
 
-bool cmd_show_devdb(const vector<string>& command, vector<string>& args, cli_context& ctx)
+bool cmd_show_devdb(const vector<string>& /*command*/, vector<string>& /*args*/, cli_context& /*ctx*/)
 {
     DeviceDatabase::GetDatabase().Print(std::cout);
     return false;
