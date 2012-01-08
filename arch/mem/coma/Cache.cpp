@@ -838,7 +838,7 @@ Result COMA::Cache::OnReadRequest(const Request& req)
         assert(line->state == LINE_LOADING);
         
         // Counts as a miss because we have to wait
-        COMMIT{ m_numLoadingRMisses; }
+        COMMIT{ ++m_numLoadingRMisses; }
     }
     return SUCCESS;
 }
