@@ -7,7 +7,7 @@
 
 AC_PREREQ([2.61])
 AC_INIT([mgsim], 
-        m4_esyscmd([build-aux/version-gen build-aux/tarball-version build-aux/package-version]), 
+        m4_esyscmd([build-aux/git-version-gen build-aux/tarball-version s/mgsim-/v/ mgsim]), 
         [microgrids@svp-home.org])
 AC_CONFIG_AUX_DIR([build-aux])
 AC_CONFIG_HEADERS([sys_config.h])

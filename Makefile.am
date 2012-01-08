@@ -42,15 +42,7 @@ distcheck-all: distcheck-mtsparc distcheck-mtalpha
 
 .PHONY: check-all distcheck-all
 
-##
-## Version number management
-##
-
-EXTRA_DIST += .version build-aux/version-gen build-aux/package-version build-aux/config.sub.patch
-BUILT_SOURCES = $(top_srcdir)/.version
-
-$(top_srcdir)/.version:
-	echo $(VERSION) >$@-t && mv $@-t $@
+include $(srcdir)/build-aux/version.mk
 
 dist-hook: check-version
 	## Ensure that CACTI is not bundled, as its license does not permit redistribution.
@@ -65,29 +57,10 @@ dist-hook: check-version
 	##
 	for f in $(CONFIG_CLEAN_FILES) $(DISTCLEANFILES); do rm -f $(distdir)/$$f; done
 
-install-recursive install-exec-recursive install-data-recursive installcheck-recursive: check-version
-
-VERSION_GEN = (cd $(top_srcdir); build-aux/version-gen \
-	build-aux/tarball-version build-aux/package-version)
-
-.PHONY: check-version _version
-check-version:
-	set -e; \
-	if ! test "x$(VERSION)" = "x`$(VERSION_GEN)`"; then \
-	   echo "Version string not up to date: run 'make _version' first." >&2; \
-	   exit 1; \
-	fi
-
-_version:
-	cd $(srcdir) && rm -rf autom4te.cache .version && $${AUTORECONF:-autoreconf}
-	$(MAKE) $(AM_MAKEFLAGS) .version
-
 ChangeLog:
 	cd $(srcdir); \
 	if test -e .git; then \
-	     $(PYTHON) build-aux/gitlog2changelog.py >$@ || (rm -f $@; false); \
-	elif test -e .svn; then \
-	     $(SVN) log -v --xml | $(PYTHON) build-aux/svn2log.py -p '.*/(branches/[^/]+|trunk)/' -u build-aux/users -o - >$@ || (rm -f $@; false); \
+	     git log --stat --graph >$@ || (rm -f $@; false); \
 	else \
 	     echo "No source for ChangeLog. Cannot generate." >&2; \
 	     exit 1; \
