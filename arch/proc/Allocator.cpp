@@ -1493,7 +1493,7 @@ Result Processor::Allocator::DoBundle()
 	
         
         // Reset the indirect create state
-        COMMIT{ m_bundleState == BUNDLE_INITIAL; }
+        COMMIT{ m_bundleState = BUNDLE_INITIAL; }
         m_bundle.Pop();
     }
     
