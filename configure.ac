@@ -32,7 +32,7 @@ AC_PROG_CXX
 
 WARN_CXXFLAGS=
 if test "x$GXX" = xyes; then
-  WARN_CXXFLAGS="-W -Wall -Wwrite-strings -Wno-unused"
+  WARN_CXXFLAGS="-W -Wall -Wwrite-strings"
 fi
 AC_SUBST([WARN_CXXFLAGS])
 
