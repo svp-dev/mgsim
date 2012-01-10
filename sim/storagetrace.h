@@ -137,7 +137,7 @@ static inline StorageTraceSet operator*(const Storage& a, const StorageTraceSet&
 }
 
 static inline StorageTraceSet operator*(StorageTraceSet& sl, const Storage& a) {
-    return sl, StorageTraceSet(a);
+    return sl * StorageTraceSet(a);
 }
 
 // Optional operator
