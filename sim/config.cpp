@@ -80,8 +80,7 @@ bool InputConfigRegistry::lookup(const string& name_, string& result, const stri
     for (ConfigMap::const_iterator p = m_overrides.begin(); p != m_overrides.end(); ++p)
     {
         pat = p->first;
-        if (FNM_NOMATCH != fnmatch(pat.c_str(), name.c_str(), FNM_CASEFOLD)
-            || FNM_NOMATCH != fnmatch(pat.c_str(), ("system." + name).c_str(), FNM_CASEFOLD))
+        if (FNM_NOMATCH != fnmatch(pat.c_str(), name.c_str(), FNM_CASEFOLD))
         {
             // Return the overriden value
             result = p->second;
@@ -95,8 +94,7 @@ bool InputConfigRegistry::lookup(const string& name_, string& result, const stri
         for (ConfigMap::const_iterator p = m_data.begin(); p != m_data.end(); ++p)
         {
             pat = p->first;
-            if (FNM_NOMATCH != fnmatch(pat.c_str(), name.c_str(), FNM_CASEFOLD)
-                || FNM_NOMATCH != fnmatch(pat.c_str(), ("system." + name).c_str(), FNM_CASEFOLD))
+            if (FNM_NOMATCH != fnmatch(pat.c_str(), name.c_str(), FNM_CASEFOLD))
             {
                 // Return the configuration value
                 result = p->second;
@@ -135,10 +133,15 @@ void InputConfigRegistry::dumpConfiguration(ostream& os, const string& cf) const
     os << "# configuration file: " << cf << endl;
     for (size_t i = 0; i < m_data.size(); ++i)
         os << "# -o " << m_data[i].first << " = " << m_data[i].second << endl;
-    os << "# lookup matches:" << endl;
+    os << "### end simulator configuration" << endl;
+}
+
+void InputConfigRegistry::dumpConfigurationCache(ostream& os) const
+{
+    os << "### begin simulator configuration (lookup matches)" << endl;
     for (ConfigCache::const_iterator p = m_cache.begin(); p != m_cache.end(); ++p)
         os << "# " << p->first << " = " << p->second.first << " (matches " << p->second.second << ')' << endl;
-    os << "### end simulator configuration" << endl;
+    os << "### end simulator configuration (lookup matches)" << endl;
 }
 
 vector<string> InputConfigRegistry::getWordList(const string& name)

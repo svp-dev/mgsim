@@ -164,7 +164,7 @@ static void ParseArguments(int argc, const char ** argv, ProgramConfig& config)
 
             string devname = "file" + regnum;
             config.m_extradevs.push_back(devname);
-            string cfgprefix = "*." + devname + ":";
+            string cfgprefix = devname + ":";
             config.m_overrides.push_back(make_pair(cfgprefix + "Type", "AROM"));
             config.m_overrides.push_back(make_pair(cfgprefix + "ROMContentSource", "RAW"));
             config.m_overrides.push_back(make_pair(cfgprefix + "ROMFileName", filename));
@@ -252,6 +252,14 @@ int main(int argc, char** argv)
 
         // Read configuration
         Config configfile(config.m_configFile, config.m_overrides, config.m_argv);
+
+        if (config.m_dumpconf)
+        {
+            // Printing the configuration early, in case constructing the
+            // system (below) fails.
+            std::clog << "### simulator version: " PACKAGE_VERSION << std::endl;
+            configfile.dumpConfiguration(std::clog, config.m_configFile);
+        }
         
         // Create the system
         MGSystem sys(configfile, 
@@ -268,12 +276,14 @@ int main(int argc, char** argv)
         Monitor mo(sys, config.m_enableMonitor, 
                    mo_mdfile, config.m_earlyquit ? "" : mo_tfile, !config.m_interactive);
 #endif
+
         if (config.m_dumpconf)
         {
-            std::clog << "### simulator version: " PACKAGE_VERSION << std::endl;
-            configfile.dumpConfiguration(std::clog, config.m_configFile);
+            // we also print the cache, which expands all effectively
+            // looked up configuration values after the system
+            // was constructed successfully.
+            configfile.dumpConfigurationCache(std::clog);
         }
-
         if (config.m_dumpvars)
         {
             std::clog << "### begin monitor variables" << std::endl;

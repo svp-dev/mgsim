@@ -137,6 +137,8 @@ public:
     std::vector<std::string> getWordList(const Simulator::Object& obj, const std::string& name);
 
     void dumpConfiguration(std::ostream& os, const std::string& cf) const;
+    void dumpConfigurationCache(std::ostream& os) const;
+
     std::vector<std::pair<std::string, std::string> > getRawConfiguration() const;
 
     InputConfigRegistry(const std::string& filename, const ConfigMap& overrides, const std::vector<std::string>& argv);

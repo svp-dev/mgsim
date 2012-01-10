@@ -664,7 +664,7 @@ MGSystem::MGSystem(Config& config,
     }
 
     // Create the event selector
-    Clock& selclock = m_kernel.CreateClock(config.getValue<unsigned long>(m_root, "EventCheckFreq"));
+    Clock& selclock = m_kernel.CreateClock(config.getValue<unsigned long>("EventCheckFreq"));
     m_selector = new Selector("selector", m_root, selclock, config);
 
     // Create the I/O Buses
