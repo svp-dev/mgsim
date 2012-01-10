@@ -141,5 +141,15 @@ Result Processor::IOResponseMultiplexer::DoReceivedReadResponses()
 
     return SUCCESS;
 }
+
+StorageTraceSet Processor::IOResponseMultiplexer::GetWriteBackTraces() const
+{
+    StorageTraceSet res;
+    for (std::vector<WriteBackQueue*>::const_iterator p = m_wb_buffers.begin(); p != m_wb_buffers.end(); ++p)
+    {
+        res ^= opt(*(*p));
+    }
+    return res;
+}
     
 }

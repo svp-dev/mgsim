@@ -86,6 +86,7 @@ public:
     IOResponseMultiplexer& GetReadResponseMultiplexer() { return m_rrmux; }
     IONotificationMultiplexer& GetNotificationMultiplexer() { return m_nmux; }
     IODirectCacheAccess& GetDirectCacheAccess() { return m_dca; }
+    IOBusInterface&      GetIOBusInterface()    { return m_iobus_if; }
     
     MemAddr GetDeviceBaseAddress(IODeviceID dev) const { return m_async_io.GetDeviceBaseAddress(dev); }
 

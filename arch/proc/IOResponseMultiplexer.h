@@ -41,6 +41,8 @@ public:
     
     // upon data available on m_incoming
     Result DoReceivedReadResponses();
+
+    StorageTraceSet GetWriteBackTraces() const;
 };
 
 

@@ -251,12 +251,38 @@ void Processor::Initialize(Processor* prev, Processor* next)
     
     // m_dcache.p_Outgoing is set in the memory
 
+    StorageTraceSet pls_writeback = 
+        opt(DELEGATE) *
+        opt(m_allocator.m_bundle ^ /* FIXME: is the bundle creation buffer really involved here? */
+            (m_allocator.m_readyThreads1 * m_allocator.m_cleanup) ^ 
+            m_allocator.m_cleanup ^ 
+            m_allocator.m_readyThreads1);
+    StorageTraceSet pls_memory =
+        m_dcache.m_outgoing;
+
+    if (m_io_if != NULL)
+    {
+        pls_memory ^= 
+            opt(m_io_if->GetReadResponseMultiplexer().GetWriteBackTraces()) * /* I/O read, write has no writeback */
+            m_io_if->GetIOBusInterface().m_outgoing_reqs * 
+            /* in the NullIO interface, the transfer occurs in the same cycle, so we have to add the
+               receiver traces here too. This is not realistic, and should disappear with the
+               implementation of an I/O substrate with appropriate buffering. */
+            opt(m_io_if->GetIOBusInterface().GetReadResponseTraces() ^ 
+                m_io_if->GetIOBusInterface().GetInterruptRequestTraces() ^ 
+                m_io_if->GetIOBusInterface().GetNotificationTraces());
+
+    }
+
+    StorageTraceSet pls_execute = 
+        m_fpu.GetSourceTrace(m_pipeline.GetFPUSource());
+
     m_pipeline.p_Pipeline.SetStorageTraces(
-        /* Writeback */ opt(opt(DELEGATE) * opt(m_allocator.m_bundle ^ (m_allocator.m_readyThreads1 * m_allocator.m_cleanup) ^ m_allocator.m_cleanup ^ m_allocator.m_readyThreads1)) *
-        /* Memory */    opt(m_dcache.m_outgoing /* ^ mmio.Write ^ mmio.Read*/)*
-        /* Execute */   opt(m_fpu.GetSourceTrace(m_pipeline.GetFPUSource())) *
+        /* Writeback */ opt(pls_writeback) *
+        /* Memory */    opt(pls_memory) * 
+        /* Execute */   opt(pls_execute) *
                         m_pipeline.m_active );
-    
+
     m_network.p_DelegationIn.SetStorageTraces(
         /* MSG_ALLOCATE */          (m_network.m_link.out ^ m_allocator.m_allocRequestsExclusive ^
                                      m_allocator.m_allocRequestsSuspend ^ m_allocator.m_allocRequestsNoSuspend) ^
