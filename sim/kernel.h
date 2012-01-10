@@ -178,8 +178,8 @@ public:
 #else
     void OnBeginCycle() {}
     void OnEndCycle() const {}
-    void OnStorageAccess(const Storage& s) {}
-    void SetStorageTraces(const StorageTraceSet& sl) {}
+    void OnStorageAccess(const Storage& ) {}
+    void SetStorageTraces(const StorageTraceSet& ) {}
 #endif
     
     Process(Object& parent, const std::string& name, const delegate& delegate);
