@@ -355,5 +355,15 @@ void Processor::IONotificationMultiplexer::Cmd_Read(ostream& out, const vector<s
     }
 }
 
+StorageTraceSet Processor::IONotificationMultiplexer::GetWriteBackTraces() const
+{
+    StorageTraceSet res;
+    for (std::vector<Register<RegAddr>*>::const_iterator p = m_writebacks.begin(); p != m_writebacks.end(); ++p)
+    {
+        res ^= *(*p);
+    }
+    return res;
+}
+
     
 }

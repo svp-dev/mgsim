@@ -262,6 +262,11 @@ void Processor::Initialize(Processor* prev, Processor* next)
 
     if (m_io_if != NULL)
     {
+        /* I/O wait on notification */
+        pls_memory ^=
+            opt(m_io_if->GetNotificationMultiplexer().GetWriteBackTraces());
+
+        /* I/O reads / writes */
         pls_memory ^= 
             opt(m_io_if->GetReadResponseMultiplexer().GetWriteBackTraces()) * /* I/O read, write has no writeback */
             m_io_if->GetIOBusInterface().m_outgoing_reqs * 
@@ -327,6 +332,14 @@ void Processor::Initialize(Processor* prev, Processor* next)
     }
     m_network.p_DelegationOut.SetStorageTraces(stsDelegationOut);   
 #undef DELEGATE
+
+    if (m_io_if != NULL)
+    {
+        // Asynchronous events from the I/O network can wake up / terminate threads
+        // due to a register write.
+        m_io_if->GetReadResponseMultiplexer().p_IncomingReadResponses.SetStorageTraces(opt(m_allocator.m_readyThreads2) ^ opt(m_allocator.m_cleanup));
+        m_io_if->GetNotificationMultiplexer().p_IncomingNotifications.SetStorageTraces(opt(m_allocator.m_readyThreads2) ^ opt(m_allocator.m_cleanup));
+    }
 }    
 
 MemAddr Processor::GetDeviceBaseAddress(IODeviceID dev) const
