@@ -46,9 +46,11 @@ namespace Simulator
 
             bool OnReadRequestReceived(IODeviceID from, MemAddr address, MemSize size);
             bool OnWriteRequestReceived(IODeviceID from, MemAddr address, const IOData& data);
-            void GetDeviceIdentity(IODeviceIdentification& id) const;
-            
+
+            // Admin
+            void Initialize();
             std::string GetIODeviceName() const { return GetFQN(); }
+            void GetDeviceIdentity(IODeviceIdentification& id) const;
         };
 
         RTCInterface         m_businterface;

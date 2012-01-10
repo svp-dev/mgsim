@@ -84,6 +84,11 @@ namespace Simulator
         m_doNotify.Sensitive(p_notifyTime);
     }
 
+    void RTC::RTCInterface::Initialize()
+    {
+        p_notifyTime.SetStorageTraces(m_iobus.GetInterruptRequestTraces());
+    }
+
     RTC::RTC(const string& name, Object& parent, Clock& rtcclock, IIOBus& iobus, IODeviceID devid, Config& config)
         : Object(name, parent, rtcclock),
           m_timerTicked(false),
@@ -98,6 +103,8 @@ namespace Simulator
         m_timeOfLastInterrupt = currentTime;
         ++clockListeners;
         m_enableCheck.Sensitive(p_checkTime);
+
+        p_checkTime.SetStorageTraces(opt(m_businterface.m_doNotify));
     }
 
     Result RTC::RTCInterface::DoNotifyTime()
