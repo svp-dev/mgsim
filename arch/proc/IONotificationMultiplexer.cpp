@@ -131,15 +131,17 @@ bool Processor::IONotificationMultiplexer::OnNotificationReceived(IONotification
 
 Result Processor::IONotificationMultiplexer::DoReceivedNotifications()
 {
-    size_t i;
+    size_t i, j;
     bool   notification_ready = false;
     bool   pending_notifications = false;
 
     /* Search for a notification to signal back to the processor.
      The following two loops implement a circular lookup through
     all devices -- round robin delivery to ensure fairness. */
-    for (i = m_lastNotified; i < m_interrupts.size(); ++i)
+    for (j = m_lastNotified; j < m_lastNotified + m_interrupts.size(); ++j)
     {
+        i = j % m_interrupts.size();
+
         if (m_interrupts[i]->IsSet() || !m_notifications[i]->Empty())
         {
             pending_notifications = true;
@@ -155,28 +157,6 @@ Result Processor::IONotificationMultiplexer::DoReceivedNotifications()
             // so we need to release the listener otherwise it will deadlock.
             notification_ready = true;
             break;
-        }
-    }
-    if (!notification_ready)
-    {
-        for (i = 0; i < m_lastNotified; ++i)
-        {
-            if (m_interrupts[i]->IsSet() || !m_notifications[i]->Empty())
-            {
-                pending_notifications = true;
-                if (!m_mask[i] || !m_writebacks[i]->Empty())
-                {
-                    notification_ready = true;
-                    break;
-                }
-            }
-            else if (!m_mask[i] && !m_writebacks[i]->Empty())
-            {
-                // channel was disabled + no pending interrupt/notification + still a listener active,
-                // so we need to release the listener otherwise it will deadlock.
-                notification_ready = true;
-                break;
-            }
         }
     }
     
