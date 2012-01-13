@@ -227,7 +227,7 @@ bool Processor::Allocator::KillThread(TID tid)
     COMMIT
     {
         thread.cid    = INVALID_CID;
-        thread.state  = TST_KILLED;
+        thread.state  = TST_TERMINATED;
     }
     return true;
 }
@@ -494,8 +494,7 @@ bool Processor::Allocator::DecreaseFamilyDependency(LFID fid, Family& family, Fa
     case FAMDEP_ALLOCATION_DONE:
         if (deps->numThreadsAllocated == 0 && deps->allocationDone)
         {
-            // It's considered 'killed' when all threads have gone
-            COMMIT{ family.state = FST_KILLED; }
+            COMMIT{ family.state = FST_TERMINATED; }
             DebugSimWrite("F%u terminated", (unsigned)fid);
         }
         // Fall through
@@ -832,7 +831,7 @@ Result Processor::Allocator::DoThreadAllocate()
 
         m_cleanup.Pop();
 
-        assert(thread.state == TST_KILLED);
+        assert(thread.state == TST_TERMINATED);
 
         // Clear the thread's dependents, if any
         for (size_t i = 0; i < NUM_REG_TYPES; i++)
