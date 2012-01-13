@@ -240,10 +240,12 @@ Result FPU::DoPipeline()
     }
     
     size_t num_sources_failed = 0, num_sources_active = 0;
-    for (size_t i = 0; i < m_sources.size(); ++i)
+    for (size_t i = m_last_source; i < m_last_source + m_sources.size(); ++i)
     {
+        size_t source_id = i % m_sources.size();
+
         // Process an input queue
-        Buffer<Operation>& input = m_sources[i]->inputs;
+        Buffer<Operation>& input = m_sources[source_id]->inputs;
         if (!input.Empty())
         {
             num_sources_active++;
@@ -251,7 +253,7 @@ Result FPU::DoPipeline()
             const Operation& op = input.Front();
 
             // We use a fixed (with modulo) mapping from inputs to units
-            const size_t unit_index = m_mapping[op.op][ i % m_mapping[op.op].size() ];
+            const size_t unit_index = m_mapping[op.op][ source_id % m_mapping[op.op].size() ];
             Unit& unit = m_units[ unit_index ];
             
             if (!IsAcquiring())
@@ -270,20 +272,22 @@ Result FPU::DoPipeline()
             // Calculate the result and store it in the unit
             COMMIT{
                 Result res = CalculateResult(op);
-                res.source = i;
+                res.source = source_id;
                 unit.slots.push_back(res);
             }
             num_units_full++;
             
             DebugFPUWrite("unit %u executing %s %s", 
                           (unsigned)unit_index, 
-                          m_sources[i]->regfile->GetParent()->GetFQN().c_str(),
+                          m_sources[source_id]->regfile->GetParent()->GetFQN().c_str(),
                           op.str().c_str());
             
             // Remove the queued operation from the queue
             input.Pop();
         }
     }
+
+    COMMIT { m_last_source = (m_last_source + 1) % m_sources.size(); }
 
     if (num_units_full > 0) {
         m_active.Write(true);

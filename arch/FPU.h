@@ -98,7 +98,8 @@ class FPU : public Object, public Inspect::Interface<Inspect::Read>
 	std::vector<Source*> m_sources;               ///< Data for the sources for this FPU
 	std::vector<Unit>    m_units;                 ///< The execution units in the FPU
 	std::vector<size_t>  m_mapping[FPU_NUM_OPS];  ///< List of units for each FPU op
-	
+
+        size_t            m_last_source;
 	Simulator::Result DoPipeline();
 
     void Cleanup();
