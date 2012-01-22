@@ -112,8 +112,9 @@ Processor::Pipeline::PipeAction Processor::Pipeline::ExecuteStage::OnCycle()
             }
         }
 
-        DebugPipeWrite("F%u/T%u(%llu) %s executed",
-                       (unsigned)m_input.fid, (unsigned)m_input.tid, (unsigned long long)m_input.logical_index, m_input.pc_sym);
+        DebugPipeWrite("F%u/T%u(%llu) %s executed Rc %s Rcv %s",
+                       (unsigned)m_input.fid, (unsigned)m_input.tid, (unsigned long long)m_input.logical_index, m_input.pc_sym,
+                       m_output.Rc.str().c_str(), m_output.Rcv.str(m_output.Rc.type).c_str());
     }
     else
     {
