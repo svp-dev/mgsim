@@ -8,8 +8,6 @@
 #include <ctime>
 #include <pthread.h>
 
-static void* runmonitor(void*);
-
 class Monitor
 {
     Simulator::MGSystem&  m_sys;
