@@ -427,13 +427,15 @@ Processor::Pipeline::PipeAction Processor::Pipeline::ReadStage::OnCycle()
         // Not suspending, output the normal stuff
         COMMIT
         {
-            m_output.Rc        = m_input.Rc;
-            m_output.regofs    = m_input.regofs;
-            m_output.RcSize    = m_input.RcSize;
             m_output.Rav       = operand1.value;
             m_output.Rbv       = operand2.value;
-            m_output.regs      = m_input.regs;
+
             m_output.regofs    = m_input.regofs;
+
+            m_output.Rc        = m_input.Rc;
+            m_output.RcSize    = m_input.RcSize;
+
+            m_output.regs      = m_input.regs;
             m_output.placeSize = m_input.placeSize;
         }
         
