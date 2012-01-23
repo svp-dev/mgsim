@@ -253,6 +253,7 @@ Result Processor::IONotificationMultiplexer::DoReceivedNotifications()
         switch (addr.type) {
         case RT_INTEGER: regvalue.m_integer       = value; break;
         case RT_FLOAT:   regvalue.m_float.integer = value; break;
+        default: assert(0); // should not be there
         }
         
         if (!m_regFile.WriteRegister(addr, regvalue, true))

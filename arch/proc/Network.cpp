@@ -333,6 +333,7 @@ bool Processor::Network::ReadRegister(LFID fid, RemoteRegType kind, const RegAdd
         {
         case RT_FLOAT:   value.m_float.fromfloat(0.0f); break;
         case RT_INTEGER: value.m_integer = 0; break;
+        default: assert(0); // should not be here
         }
     }
     else

@@ -337,7 +337,7 @@ bool Processor::Allocator::AllocateThread(LFID fid, TID tid, bool isNewlyAllocat
     }
 
     // Set the register information for the new thread
-    for (RegType i = 0; i < NUM_REG_TYPES; i++)
+    for (size_t i = 0; i < NUM_REG_TYPES; i++)
     {
         if (isNewlyAllocated)
         {
@@ -559,7 +559,7 @@ bool Processor::Allocator::DecreaseFamilyDependency(LFID fid, Family& family, Fa
 
             // Release registers
             RegIndex indices[NUM_REG_TYPES];
-            for (RegType i = 0; i < NUM_REG_TYPES; i++)
+            for (size_t i = 0; i < NUM_REG_TYPES; i++)
             {
                 indices[i] = family.regs[i].base;
             }
@@ -740,7 +740,7 @@ bool Processor::Allocator::AllocateRegisters(LFID fid, ContextType type)
     {
         // Calculate register requirements
         RegSize sizes[NUM_REG_TYPES];
-        for (RegType i = 0; i < NUM_REG_TYPES; i++)
+        for (size_t i = 0; i < NUM_REG_TYPES; i++)
         {
             const Family::RegInfo& regs = family.regs[i];
             
@@ -754,13 +754,13 @@ bool Processor::Allocator::AllocateRegisters(LFID fid, ContextType type)
         {
             // Success, we have registers for all types
             std::stringstream str;
-            for (RegType i = 0; i < NUM_REG_TYPES; i++)
+            for (size_t i = 0; i < NUM_REG_TYPES; i++)
             {
                 RegIndex base = INVALID_REG_INDEX;
                 if (sizes[i] > 0)
                 {
                     // Clear the allocated registers
-                    m_registerFile.Clear(MAKE_REGADDR(i, indices[i]), sizes[i]);
+                    m_registerFile.Clear(MAKE_REGADDR((RegType)i, indices[i]), sizes[i]);
                     base = indices[i];
                 }
 
@@ -774,7 +774,7 @@ bool Processor::Allocator::AllocateRegisters(LFID fid, ContextType type)
                     static const char* RegTypeNames[] = {" int", " flt"};
                     str << dec << sizes[i] << RegTypeNames[i] << " regs";
                     if (sizes[i] > 0) {
-                        RegAddr addr = MAKE_REGADDR(i, indices[i]);
+                        RegAddr addr = MAKE_REGADDR((RegType)i, indices[i]);
                         str << " at " << addr.str();
                     }
                     
@@ -835,11 +835,11 @@ Result Processor::Allocator::DoThreadAllocate()
         assert(thread.state == TST_KILLED);
 
         // Clear the thread's dependents, if any
-        for (RegType i = 0; i < NUM_REG_TYPES; i++)
+        for (size_t i = 0; i < NUM_REG_TYPES; i++)
         {
             if (family.regs[i].count.shareds > 0)
             {
-                if (!m_registerFile.Clear(MAKE_REGADDR(i, thread.regs[i].dependents), family.regs[i].count.shareds))
+                if (!m_registerFile.Clear(MAKE_REGADDR((RegType)i, thread.regs[i].dependents), family.regs[i].count.shareds))
                 {
                     DeadlockWrite("F%u/T%u(%llu) unable to clear the dependent registers",
                                   (unsigned)fid, (unsigned)tid, (unsigned long long)thread.index);
@@ -1321,7 +1321,7 @@ bool Processor::Allocator::QueueCreate(const LinkMessage& msg)
         family.state = FST_CREATE_QUEUED;
     }
     
-    for (RegType i = 0; i < NUM_REG_TYPES; ++i)
+    for (size_t i = 0; i < NUM_REG_TYPES; ++i)
     {
         family.regs[i].base  = INVALID_REG_INDEX;
         family.regs[i].count = msg.create.regs[i];
@@ -1566,7 +1566,7 @@ Result Processor::Allocator::DoFamilyCreate()
         {
             RegsNo regcounts[NUM_REG_TYPES];
             bool   hasShareds = false;
-            for (RegType i = 0; i < NUM_REG_TYPES; i++)
+            for (size_t i = 0; i < NUM_REG_TYPES; i++)
             {
                 Instruction c = counts >> (i * 16);
                 regcounts[i].globals = (unsigned char)((c >>  0) & 0x1F);
@@ -1585,7 +1585,7 @@ Result Processor::Allocator::DoFamilyCreate()
                 }
             }
         
-            for (RegType i = 0; i < NUM_REG_TYPES; i++)
+            for (size_t i = 0; i < NUM_REG_TYPES; i++)
             {
                 family.regs[i].base  = INVALID_REG_INDEX;
                 family.regs[i].count = regcounts[i];
@@ -1672,7 +1672,7 @@ Result Processor::Allocator::DoFamilyCreate()
             msg.create.fid      = family.link;
             msg.create.numCores = family.numCores - 1;
             msg.create.address  = family.pc;
-            for (RegType i = 0; i < NUM_REG_TYPES; i++)
+            for (size_t i = 0; i < NUM_REG_TYPES; i++)
             {
                 msg.create.regs[i] = family.regs[i].count;
             }
@@ -1962,7 +1962,7 @@ void Processor::Allocator::AllocateInitialFamily(MemAddr pc, bool legacy, PSize 
     family.state         = FST_ACTIVE;
     family.start         = startIndex;
 
-    for (RegType i = 0; i < NUM_REG_TYPES; i++)
+    for (size_t i = 0; i < NUM_REG_TYPES; i++)
     {
         family.regs[i].count.locals  = InitialRegisters[i];
         family.regs[i].count.globals = 0;

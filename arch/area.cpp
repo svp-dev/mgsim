@@ -531,7 +531,7 @@ void Simulator::MGSystem::DumpArea(std::ostream& os, unsigned int tech) const
     cfg.bits_TSize       = ilog2(cfg.numThreads);
     cfg.bits_RegsNo      = NUM_REG_TYPES * BITS_VREG;
     cfg.bits_RegIndex    = ilog2(std::max(cfg.numIntRegisters, cfg.numFltRegisters));
-    cfg.bits_RegAddr     = cfg.bits_RegIndex + ilog2(NUM_REG_TYPES);
+    cfg.bits_RegAddr     = cfg.bits_RegIndex + ilog2((int)NUM_REG_TYPES);
     cfg.bits_RegValue    = 
     cfg.bits_SInteger    = sizeof(SInteger) * 8;
     cfg.bits_LFID        = ilog2(cfg.numFamilies);

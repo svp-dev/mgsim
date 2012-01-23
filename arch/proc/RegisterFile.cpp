@@ -44,13 +44,13 @@ Processor::RegisterFile::RegisterFile(const std::string& name, Processor& parent
 
 RegSize Processor::RegisterFile::GetSize(RegType type) const
 {
-    const vector<RegValue>& regs = (type == RT_FLOAT) ? m_floats : m_integers;
+    const vector<RegValue>& regs = PickFile(type);
     return regs.size();
 }
 
 bool Processor::RegisterFile::ReadRegister(const RegAddr& addr, RegValue& data, bool quiet) const
 {
-    const vector<RegValue>& regs = (addr.type == RT_FLOAT) ? m_floats : m_integers;
+    const vector<RegValue>& regs = PickFile(addr.type);
     if (addr.index >= regs.size())
     {
         throw SimulationException("A component attempted to read from a non-existing register", *this);
@@ -66,7 +66,7 @@ bool Processor::RegisterFile::ReadRegister(const RegAddr& addr, RegValue& data, 
 // Admin version
 bool Processor::RegisterFile::WriteRegister(const RegAddr& addr, const RegValue& data)
 {
-    vector<RegValue>& regs = (addr.type == RT_FLOAT) ? m_floats : m_integers;
+    vector<RegValue>& regs = PickFile(addr.type);
     if (addr.index < regs.size())
     {
         DebugRegWrite("write %s <- %s (was %s, ADMIN)", addr.str().c_str(), 
@@ -80,7 +80,7 @@ bool Processor::RegisterFile::WriteRegister(const RegAddr& addr, const RegValue&
 
 bool Processor::RegisterFile::Clear(const RegAddr& addr, RegSize size)
 {
-    std::vector<RegValue>& regs = (addr.type == RT_FLOAT) ? m_floats : m_integers;
+    std::vector<RegValue>& regs = PickFile(addr.type);
     if (addr.index + size > regs.size())
     {
         throw SimulationException("A component attempted to clear a non-existing register", *this);
@@ -100,7 +100,7 @@ bool Processor::RegisterFile::Clear(const RegAddr& addr, RegSize size)
 
 bool Processor::RegisterFile::WriteRegister(const RegAddr& addr, const RegValue& data, bool from_memory)
 {
-    std::vector<RegValue>& regs = (addr.type == RT_FLOAT) ? m_floats : m_integers;
+    std::vector<RegValue>& regs = PickFile(addr.type);
     if (addr.index >= regs.size())
     {
         throw SimulationException("A component attempted to write to a non-existing register", *this);
@@ -183,7 +183,7 @@ void Processor::RegisterFile::Update()
     {
         RegAddr& addr = m_updates[i].first;
         RegType type = addr.type;
-        vector<RegValue>& regs = (type == RT_FLOAT) ? m_floats : m_integers;
+        vector<RegValue>& regs = PickFile(type);
 
         DebugRegWrite("write %s <- %s (was %s)", addr.str().c_str(), 
                       m_updates[i].second.str(type).c_str(),

@@ -64,7 +64,7 @@ Processor::Pipeline::PipeAction Processor::Pipeline::FetchStage::OnCycle()
 
             m_output.logical_index = thread.index; // for traces only
 
-            for (RegType i = 0; i < NUM_REG_TYPES; ++i)
+            for (size_t i = 0; i < NUM_REG_TYPES; ++i)
             {
                 m_output.regs.types[i].family = family.regs[i];
                 m_output.regs.types[i].thread = thread.regs[i];

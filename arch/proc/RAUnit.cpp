@@ -19,7 +19,7 @@ Processor::RAUnit::RAUnit(const std::string& name, Processor& parent, Clock& clo
         {"FltRegistersBlockSize", 32}
     };
     
-    for (RegType i = 0; i < NUM_REG_TYPES; ++i)
+    for (size_t i = 0; i < NUM_REG_TYPES; ++i)
     {
         TypeInfo&          type = m_types[i];
         const RegTypeInfo& info = RegTypeInfos[i];
@@ -39,7 +39,7 @@ Processor::RAUnit::RAUnit(const std::string& name, Processor& parent, Clock& clo
             throw exceptf<InvalidArgumentException>(*this, "%s is smaller than a context", info.blocksize_name);
         }
 
-        const RegSize size = regFile.GetSize(i); 
+        const RegSize size = regFile.GetSize((RegType)i);
         if (size % type.blockSize != 0)
         {
             throw exceptf<InvalidArgumentException>(*this, "%s does not divide the register file size", info.blocksize_name);
@@ -63,7 +63,7 @@ Processor::RAUnit::BlockSize Processor::RAUnit::GetNumFreeContexts(ContextType t
 {
     // Return the smallest number of free contexts.
     BlockSize free = m_types[0].free[type];
-    for (RegType i = 1; i < NUM_REG_TYPES; ++i)
+    for (size_t i = 1; i < NUM_REG_TYPES; ++i)
     {
         free = std::min(free, m_types[i].free[type]);
     }
@@ -73,7 +73,7 @@ Processor::RAUnit::BlockSize Processor::RAUnit::GetNumFreeContexts(ContextType t
 void Processor::RAUnit::ReserveContext()
 {
     // Move a normal context to reserved
-    for (RegType i = 0; i < NUM_REG_TYPES; ++i)
+    for (size_t i = 0; i < NUM_REG_TYPES; ++i)
     {
         assert(m_types[i].free[CONTEXT_NORMAL] > 0);
         COMMIT{
@@ -86,7 +86,7 @@ void Processor::RAUnit::ReserveContext()
 void Processor::RAUnit::UnreserveContext()
 {
     // Move a reserved context to normal
-    for (RegType i = 0; i < NUM_REG_TYPES; ++i)
+    for (size_t i = 0; i < NUM_REG_TYPES; ++i)
     {
         assert(m_types[i].free[CONTEXT_RESERVED] > 0);
         COMMIT{
@@ -100,7 +100,7 @@ bool Processor::RAUnit::Alloc(const RegSize sizes[NUM_REG_TYPES], LFID fid, Cont
 {
     BlockSize blocksizes[NUM_REG_TYPES];
     
-    for (RegType i = 0; i < NUM_REG_TYPES; ++i)
+    for (size_t i = 0; i < NUM_REG_TYPES; ++i)
     {
         TypeInfo& type = m_types[i];
         
@@ -156,7 +156,7 @@ bool Processor::RAUnit::Alloc(const RegSize sizes[NUM_REG_TYPES], LFID fid, Cont
     COMMIT
     { 
         // We've found blocks for all types, commit them
-        for (RegType i = 0; i < NUM_REG_TYPES; ++i)
+        for (size_t i = 0; i < NUM_REG_TYPES; ++i)
         {
             TypeInfo& type = m_types[i];
             if (sizes[i] != 0)
@@ -192,7 +192,7 @@ bool Processor::RAUnit::Alloc(const RegSize sizes[NUM_REG_TYPES], LFID fid, Cont
 
 void Processor::RAUnit::Free(RegIndex indices[NUM_REG_TYPES], ContextType context)
 {
-    for (RegType i = 0; i < NUM_REG_TYPES; ++i)
+    for (size_t i = 0; i < NUM_REG_TYPES; ++i)
     {
         TypeInfo& type = m_types[i];
         if (indices[i] != INVALID_REG_INDEX)
@@ -238,7 +238,7 @@ void Processor::RAUnit::Cmd_Read(ostream& out, const vector<string>& /*arguments
 {
     static const char* TypeNames[NUM_REG_TYPES] = {"Integer", "Float"};
 
-    for (RegType i = 0; i < NUM_REG_TYPES; ++i)
+    for (size_t i = 0; i < NUM_REG_TYPES; ++i)
     {
         const TypeInfo& type = m_types[i];
 
@@ -259,7 +259,7 @@ void Processor::RAUnit::Cmd_Read(ostream& out, const vector<string>& /*arguments
         out << endl;
     }
 
-    for (RegType i = 0; i < NUM_REG_TYPES; ++i)
+    for (size_t i = 0; i < NUM_REG_TYPES; ++i)
     {
         static const char* TypeName[NUM_REG_TYPES] = {"int", "flt"};
         

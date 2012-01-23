@@ -45,8 +45,12 @@ string RegAddr::str() const
     if (valid())
     {
         stringstream ss;
-        ss << (type == RT_INTEGER ? 'R' : 'F')
-           << hex << uppercase << setw(4) << setfill('0') << index;
+        switch (type)
+        {
+        case RT_INTEGER: ss << 'R'; break;
+        case RT_FLOAT:   ss << 'F'; break;
+        }
+        ss << hex << uppercase << setw(4) << setfill('0') << index;
         return ss.str();
     }
     return "N/A  ";

@@ -106,6 +106,25 @@ private:
     // Applies the queued updates
     void Update();
     
+    std::vector<RegValue>& PickFile(RegType t)
+    {
+        switch(t)
+        {
+        case RT_INTEGER: return m_integers;
+        case RT_FLOAT:   return m_floats;
+        default: assert(0);
+        }
+    }
+    const std::vector<RegValue>& PickFile(RegType t) const
+    {
+        switch(t)
+        {
+        case RT_INTEGER: return m_integers;
+        case RT_FLOAT:   return m_floats;
+        default: assert(0);
+        }
+    }
+
     std::vector<RegValue> m_integers; ///< Integer register file
     std::vector<RegValue> m_floats;   ///< Floating point register file    
 };
