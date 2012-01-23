@@ -40,8 +40,8 @@ Processor::Pipeline::PipeValue Processor::Pipeline::ReadStage::RegToPipeValue(Re
             // Make bit-mask and bit-offsets
             switch (type)
             {
-            case RT_INTEGER: dest_value.m_integer.set(src_value.m_integer, dest_value.m_size);
-            case RT_FLOAT:   dest_value.m_float.fromint(src_value.m_float.integer, dest_value.m_size);
+            case RT_INTEGER: dest_value.m_integer.set(src_value.m_integer, dest_value.m_size); break;
+            case RT_FLOAT:   dest_value.m_float.fromint(src_value.m_float.integer, dest_value.m_size); break;
             }
         }
         break;
