@@ -259,7 +259,7 @@ void Processor::Pipeline::PrintLatchCommon(std::ostream& out, const CommonData& 
 {
     out << " | LFID: F"  << dec << latch.fid
         << "    TID: T"  << dec << latch.tid << right
-        << "    PC: " << GetKernel()->GetSymbolTable()[latch.pc] // "0x" << hex << setw(sizeof(MemAddr) * 2) << setfill('0') << latch.pc
+        << "    PC: "    << GetKernel()->GetSymbolTable()[latch.pc_dbg] // "0x" << hex << setw(sizeof(MemAddr) * 2) << setfill('0') << latch.pc
         << "    Annotation: " << ((latch.kill) ? "End" : (latch.swch ? "Switch" : "None")) << endl
         << " |" << endl;
 }
