@@ -16,4 +16,4 @@ case $TEST_ARCH in
     echo "$0: $TEST_ARCH: unknown architecture" >&2; exit 1 ;;
 esac
 
-$SLC -ffreestanding -nostdlib "$CRTASM" "$@"
+$SLC -nostartfiles "$CRTASM" "$@" -lmgos
