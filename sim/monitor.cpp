@@ -6,6 +6,7 @@
 #include <cmath>
 #include <signal.h>
 #include <sys/time.h>
+#include <unistd.h>
 
 #define pthread(Function, ...) do { if (pthread_ ## Function(__VA_ARGS__)) perror("pthread_" #Function); } while(0)
 
@@ -145,7 +146,13 @@ void Monitor::run()
 
     while (m_enabled) 
     {
+#if defined(HAVE_NANOSLEEP)
         nanosleep(&m_tsdelay, 0);
+#elif defined(HAVE_USLEEP)
+        usleep(m_tsdelay.tv_sec * 1000000 + m_tsdelay.tv_usec);
+#else
+#error No sub-microsecond wait available on this system.
+#endif
 
         Simulator::CycleNo currentCycle = m_sys.GetKernel().GetCycleNo();
         if (currentCycle == lastCycle)
