@@ -56,6 +56,7 @@ AC_CHECK_MEMBERS([struct stat.st_blksize],[],[],[#include <sys/stat.h>])
 AC_CHECK_MEMBERS([struct stat.st_atimespec],[],[],[#include <sys/stat.h>])
 AC_CHECK_MEMBERS([struct stat.st_mtimespec],[],[],[#include <sys/stat.h>])
 AC_CHECK_MEMBERS([struct stat.st_ctimespec],[],[],[#include <sys/stat.h>])
+AC_CHECK_MEMBERS([struct tm.tm_gmtoff],[],[],[#include <sys/types.h>])
 
 # support for PTYs
 AC_SYS_POSIX_TERMIOS

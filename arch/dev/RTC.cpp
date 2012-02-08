@@ -188,7 +188,10 @@ namespace Simulator
             return (uint32_t)tm->tm_wday
                 | ((uint32_t)tm->tm_yday << 4)
                 | ((uint32_t)!!tm->tm_isdst << 13)
-                | ((uint32_t)tm->tm_gmtoff << 14);
+#ifdef HAVE_STRUCT_TM_TM_GMTOFF
+                | ((uint32_t)tm->tm_gmtoff << 14)
+#endif
+                ;
         }
     }
 
