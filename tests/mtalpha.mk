@@ -37,7 +37,8 @@ TEST_ARCH = mtalpha
 TEST_BINS += $(MTALPHA_TEST_SOURCES:.s=.bin)
 endif
 
-EXTRA_DIST += $(MTALPHA_TEST_SOURCES)
+EXTRA_DIST += $(MTALPHA_TEST_SOURCES) \
+	mtalpha/crt_simple.s
 
 
 

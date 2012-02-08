@@ -34,4 +34,5 @@ TEST_ARCH       = mtsparc
 TEST_BINS       += $(MTSPARC_TEST_SOURCES:.s=.bin)
 endif
 
-EXTRA_DIST      += $(MTSPARC_TEST_SOURCES)
+EXTRA_DIST      += $(MTSPARC_TEST_SOURCES) \
+	mtsparc/crt_simple.s
