@@ -176,21 +176,27 @@ namespace Simulator
         }
     }
 
-    IODeviceID NullIO::GetDeviceIDByName(const std::string& name) const
+    IODeviceID NullIO::GetDeviceIDByName(const std::string& name_) const
     {
+        string name(name_);
+        transform(name.begin(), name.end(), name.begin(), ::tolower);
+        
         for (size_t i = 0; i < m_clients.size(); ++i)
         {
-            if (m_clients[i] != NULL && FNM_NOMATCH != fnmatch(name.c_str(), m_clients[i]->GetIODeviceName().c_str(), FNM_CASEFOLD))
+            if (m_clients[i] != NULL && FNM_NOMATCH != fnmatch(name.c_str(), m_clients[i]->GetIODeviceName().c_str(), 0))
                 return i;
         }
         throw exceptf<InvalidArgumentException>(*this, "No such device: %s", name.c_str());
     }
 
-    Object& NullIO::GetDeviceByName(const std::string& name) const
+    Object& NullIO::GetDeviceByName(const std::string& name_) const
     {
+        string name(name_);
+        transform(name.begin(), name.end(), name.begin(), ::tolower);
+
         for (size_t i = 0; i < m_clients.size(); ++i)
         {
-            if (m_clients[i] != NULL && FNM_NOMATCH != fnmatch(name.c_str(), m_clients[i]->GetIODeviceName().c_str(), FNM_CASEFOLD))
+            if (m_clients[i] != NULL && FNM_NOMATCH != fnmatch(name.c_str(), m_clients[i]->GetIODeviceName().c_str(), 0))
                 return dynamic_cast<Object&>(*m_clients[i]);
         }
         throw exceptf<InvalidArgumentException>(*this, "No such device: %s", name.c_str());

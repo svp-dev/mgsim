@@ -10,6 +10,20 @@
 using namespace std;
 using namespace Simulator;
 
+void ConfigMap::insert(const string& key_, const string& val)
+{
+    string key(key_);
+    transform(key.begin(), key.end(), key.begin(), ::tolower);
+    m_map.insert(m_map.begin(), make_pair(key, val));
+}
+
+void ConfigMap::append(const string& key_, const string& val)
+{
+    string key(key_);
+    transform(key.begin(), key.end(), key.begin(), ::tolower);
+    m_map.push_back(make_pair(key, val));
+}
+
 template <>
 string InputConfigRegistry::lookupValue<string>(const string& name, const string& def, bool fail_if_not_found)
 {
@@ -48,7 +62,7 @@ float InputConfigRegistry::convertToNumber<float>(const string& name, const stri
 template <>
 bool InputConfigRegistry::convertToNumber<bool>(const string& name, const string& value)
 {
-    string val = value;
+    string val(value);
     transform(val.begin(), val.end(), val.begin(), ::toupper);
 
     // Check for the boolean values
@@ -65,9 +79,8 @@ bool InputConfigRegistry::convertToNumber<bool>(const string& name, const string
 bool InputConfigRegistry::lookup(const string& name_, string& result, const string &def, bool allow_default)
 {
     string name(name_);
-
     string pat;
-    // transform(name.begin(), name.end(), name.begin(), ::toupper);
+    transform(name.begin(), name.end(), name.begin(), ::tolower);
 
     ConfigCache::const_iterator p = m_cache.find(name);
     if (p != m_cache.end())
@@ -80,7 +93,7 @@ bool InputConfigRegistry::lookup(const string& name_, string& result, const stri
     for (ConfigMap::const_iterator p = m_overrides.begin(); p != m_overrides.end(); ++p)
     {
         pat = p->first;
-        if (FNM_NOMATCH != fnmatch(pat.c_str(), name.c_str(), FNM_CASEFOLD))
+        if (FNM_NOMATCH != fnmatch(pat.c_str(), name.c_str(), 0))
         {
             // Return the overriden value
             result = p->second;
@@ -94,7 +107,7 @@ bool InputConfigRegistry::lookup(const string& name_, string& result, const stri
         for (ConfigMap::const_iterator p = m_data.begin(); p != m_data.end(); ++p)
         {
             pat = p->first;
-            if (FNM_NOMATCH != fnmatch(pat.c_str(), name.c_str(), FNM_CASEFOLD))
+            if (FNM_NOMATCH != fnmatch(pat.c_str(), name.c_str(), 0))
             {
                 // Return the configuration value
                 result = p->second;
@@ -128,19 +141,25 @@ void InputConfigRegistry::dumpConfiguration(ostream& os, const string& cf) const
 {
     os << "### begin simulator configuration" << endl
        << "# overrides from command line:" << endl;
-    for (size_t i = 0; i < m_overrides.size(); ++i)
-        os << "# -o " << m_overrides[i].first << " = " << m_overrides[i].second << endl;
+
+    for (ConfigMap::const_iterator i = m_overrides.begin(); i != m_overrides.end(); ++i)
+        os << "# -o " << i->first << " = " << i->second << endl;
+
     os << "# configuration file: " << cf << endl;
-    for (size_t i = 0; i < m_data.size(); ++i)
-        os << "# -o " << m_data[i].first << " = " << m_data[i].second << endl;
+
+    for (ConfigMap::const_iterator i = m_data.begin(); i != m_data.end(); ++i)
+        os << "# -o " << i->first << " = " << i->second << endl;
+
     os << "### end simulator configuration" << endl;
 }
 
 void InputConfigRegistry::dumpConfigurationCache(ostream& os) const
 {
     os << "### begin simulator configuration (lookup matches)" << endl;
+
     for (ConfigCache::const_iterator p = m_cache.begin(); p != m_cache.end(); ++p)
         os << "# " << p->first << " = " << p->second.first << " (matches " << p->second.second << ')' << endl;
+
     os << "### end simulator configuration (lookup matches)" << endl;
 }
 
@@ -217,7 +236,6 @@ InputConfigRegistry::InputConfigRegistry(const string& filename, const ConfigMap
             if (isalnum(c) || c == '_' || c == '*' || c == '.' || c == ':') name += (char)c;
             else 
             {
-                // transform(name.begin(), name.end(), name.begin(), ::toupper);
                 state = STATE_EQUALS;
             }
         }
@@ -241,7 +259,7 @@ InputConfigRegistry::InputConfigRegistry(const string& filename, const ConfigMap
                         value.erase(pos + 1);
                     }
                     
-                    m_data.push_back(make_pair(name,value));
+                    m_data.append(name, value);
                     name.clear();
                     value.clear();
                 }
@@ -256,7 +274,7 @@ InputConfigRegistry::InputConfigRegistry(const string& filename, const ConfigMap
     
     if (value != "")
     {
-        m_data.push_back(make_pair(name,value));
+        m_data.append(name, value);
     }
 }
 

@@ -17,12 +17,23 @@
 /// InputConfigRegistry: registry for configuration values provided
 /// before the simulation starts.
 
-class InputConfigRegistry
+class ConfigMap
 {
 public:
-    // a sequence of (pattern, value) pairs 
-    typedef std::vector<std::pair<std::string,std::string> > ConfigMap;
-    
+    typedef std::vector<std::pair<std::string,std::string> > map_t;
+    typedef map_t::const_iterator const_iterator;
+
+    void insert(const std::string& key, const std::string& value);
+    void append(const std::string& key, const std::string& value);
+
+    const_iterator begin() const { return m_map.begin(); }
+    const_iterator end() const { return m_map.end(); }
+private:
+    map_t m_map;
+};
+
+class InputConfigRegistry
+{
 private:
     typedef std::map<std::string,std::pair<std::string,std::string> > ConfigCache;
     

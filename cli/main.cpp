@@ -35,7 +35,7 @@ struct ProgramConfig
     bool                             m_dumpvars;
     vector<string>                   m_printvars;
     bool                             m_earlyquit;
-    vector<pair<string,string> >     m_overrides;
+    ConfigMap                        m_overrides;
     vector<string>                   m_extradevs;    
     vector<pair<RegAddr, string> >   m_loads;
     vector<pair<RegAddr, RegValue> > m_regs;
@@ -71,7 +71,7 @@ static void ParseArguments(int argc, const char ** argv, ProgramConfig& config)
             if (!ignore_args && config.m_argv.empty())
             {
                 cerr << "Warning: converting first extra argument to -o *:ROMFileName=" << arg << endl;
-                config.m_overrides.push_back(make_pair("*:ROMFileName", arg));
+                config.m_overrides.append("*:ROMFileName", arg);
             }
             config.m_argv.push_back(arg);
         }
@@ -146,7 +146,7 @@ static void ParseArguments(int argc, const char ** argv, ProgramConfig& config)
             // push overrides in inverse order, so that the latest
             // specified in the command line has higher priority in
             // matching.
-            config.m_overrides.insert(config.m_overrides.begin(), make_pair(name, arg.substr(eq + 1)));
+            config.m_overrides.insert(name, arg.substr(eq + 1));
         }
         else if (arg[1] == 'L')  
         { 
@@ -165,9 +165,9 @@ static void ParseArguments(int argc, const char ** argv, ProgramConfig& config)
             string devname = "file" + regnum;
             config.m_extradevs.push_back(devname);
             string cfgprefix = devname + ":";
-            config.m_overrides.push_back(make_pair(cfgprefix + "Type", "AROM"));
-            config.m_overrides.push_back(make_pair(cfgprefix + "ROMContentSource", "RAW"));
-            config.m_overrides.push_back(make_pair(cfgprefix + "ROMFileName", filename));
+            config.m_overrides.append(cfgprefix + "Type", "AROM");
+            config.m_overrides.append(cfgprefix + "ROMContentSource", "RAW");
+            config.m_overrides.append(cfgprefix + "ROMFileName", filename);
             config.m_loads.push_back(make_pair(regaddr, devname)); 
         } 
         else if (arg[1] == 'R' || arg[1] == 'F')
@@ -216,7 +216,7 @@ static void ParseArguments(int argc, const char ** argv, ProgramConfig& config)
 
     if (config.m_quiet)
     {
-        config.m_overrides.push_back(make_pair("*.ROMVerboseLoad", "false"));
+        config.m_overrides.append("*.ROMVerboseLoad", "false");
     }
 }
 
