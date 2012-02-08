@@ -64,7 +64,7 @@ AC_CHECK_MEMBERS([struct stat.st_blksize],[],[],[#include <sys/stat.h>])
 AC_CHECK_MEMBERS([struct stat.st_atimespec],[],[],[#include <sys/stat.h>])
 AC_CHECK_MEMBERS([struct stat.st_mtimespec],[],[],[#include <sys/stat.h>])
 AC_CHECK_MEMBERS([struct stat.st_ctimespec],[],[],[#include <sys/stat.h>])
-AC_CHECK_MEMBERS([struct tm.tm_gmtoff],[],[],[#include <sys/types.h>])
+AC_CHECK_MEMBERS([struct tm.tm_gmtoff],[],[],[#include <sys/time.h>])
 
 AC_SEARCH_LIBS([nanosleep], [rt])
 AC_CHECK_FUNCS([nanosleep usleep])
