@@ -47,8 +47,16 @@ if test x$char_size != x8; then
 fi
 
 # non-standard POSIX functions
-AC_CHECK_FUNCS([getdtablesize fsync fdopendir dirfd])
+AC_CHECK_FUNCS([getdtablesize fsync fdopendir])
+
+AC_MSG_CHECKING([for dirfd])
+AC_TRY_LINK([#include <dirent.h>],
+            [DIR *p; int d = dirfd(p);],
+            [AC_MSG_RESULT([yes])
+             AC_DEFINE([HAVE_DIRFD],[1],[Define to 1 if dirfd(DIR*) is available.])],
+            [AC_MSG_RESULT([no])])
 AC_CHECK_MEMBERS([DIR.d_fd],[],[],[#include <dirent.h>])
+
 AC_CHECK_MEMBERS([struct dirent.d_ino],[],[],[#include <dirent.h>])
 AC_CHECK_MEMBERS([struct dirent.d_type],[],[],[#include <dirent.h>])
 AC_CHECK_MEMBERS([struct stat.st_blocks],[],[],[#include <sys/stat.h>])
