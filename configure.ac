@@ -36,6 +36,9 @@ if test "x$GXX" = xyes; then
 fi
 AC_SUBST([WARN_CXXFLAGS])
 
+# enable extensions for the non-standard tests below
+AC_USE_SYSTEM_EXTENSIONS
+
 AC_MSG_CHECKING([for the number of bits in a char])
 AC_COMPUTE_INT([char_size], [CHAR_BIT], [#include <limits.h>], [char_size=unknown])
 AC_MSG_RESULT([$char_size])
@@ -44,7 +47,8 @@ if test x$char_size != x8; then
 fi
 
 # non-standard POSIX functions
-AC_CHECK_FUNCS([getdtablesize fsync fdopendir])
+AC_CHECK_FUNCS([getdtablesize fsync fdopendir dirfd])
+AC_CHECK_MEMBERS([DIR.d_fd],[],[],[#include <dirent.h>])
 AC_CHECK_MEMBERS([struct dirent.d_ino],[],[],[#include <dirent.h>])
 AC_CHECK_MEMBERS([struct dirent.d_type],[],[],[#include <dirent.h>])
 AC_CHECK_MEMBERS([struct stat.st_blocks],[],[],[#include <sys/stat.h>])

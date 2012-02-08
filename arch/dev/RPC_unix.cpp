@@ -574,7 +574,15 @@ namespace Simulator
             DIR* dir = opendir(path_start);
             if (dir != NULL)
             {
-                VirtualFD vfd = GetNewVFD(dirfd(dir));
+                int dfd;
+#if defined(HAVE_DIRFD)
+                dfd = dirfd(dir);
+#elif defined(HAVE_DIR_D_FD) // Solaris?
+                dfd = dir->d_fd;
+#else
+# error Unable to retrieve file descriptor from DIR pointer.
+#endif
+                VirtualFD vfd = GetNewVFD(dfd);
                 VirtualDescriptor *vd = GetEntry(vfd);
                 assert(vd != NULL);
                 vd->dir = dir;
