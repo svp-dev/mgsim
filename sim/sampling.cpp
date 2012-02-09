@@ -101,7 +101,7 @@ void ListSampleVariables(std::ostream& os, const std::string& pat)
          i != registry.end();
          ++i)
     {
-        if (FNM_NOMATCH == fnmatch(pat.c_str(), i->first.c_str(), FNM_CASEFOLD))
+        if (FNM_NOMATCH == fnmatch(pat.c_str(), i->first.c_str(), 0))
             continue;
         ListSampleVariables_onevar(os, i->first, i->second);
     }
@@ -114,7 +114,7 @@ bool ReadSampleVariables(std::ostream& os, const std::string& pat)
          i != registry.end();
          ++i)
     {
-        if (FNM_NOMATCH == fnmatch(pat.c_str(), i->first.c_str(), FNM_CASEFOLD))
+        if (FNM_NOMATCH == fnmatch(pat.c_str(), i->first.c_str(), 0))
             continue;
 
         os << i->first << " = ";
@@ -169,7 +169,7 @@ BinarySampler::BinarySampler(std::ostream& os, const Config& config,
              j != registry.end();
              ++j)
     {
-        if (FNM_NOMATCH == fnmatch(i->c_str(), j->first.c_str(), FNM_CASEFOLD))
+        if (FNM_NOMATCH == fnmatch(i->c_str(), j->first.c_str(), 0))
             continue;
         vars.push_back(std::make_pair(&j->first, &j->second));
     }
