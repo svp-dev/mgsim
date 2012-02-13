@@ -2,6 +2,7 @@
 #include "sim/except.h"
 #include <iomanip>
 #include <fnmatch.h>
+#include <algorithm>
 
 using namespace std;
 namespace Simulator
