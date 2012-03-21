@@ -3,6 +3,7 @@
 #include "mem/SerialMemory.h"
 #include "mem/ParallelMemory.h"
 #include "mem/BankedMemory.h"
+#include "mem/DDRMemory.h"
 #include "mem/coma/COMA.h"
 #include "mem/zlcoma/COMA.h"
 
@@ -648,6 +649,12 @@ MGSystem::MGSystem(Config& config,
         m_memory = memory;
     } else if (memory_type == "RANDOMBANKED") {
         BankedMemory* memory = new BankedMemory("memory", m_root, memclock, config, "RMIX");
+        m_memory = memory;
+    } else if (memory_type == "DDR") {
+        DDRMemory* memory = new DDRMemory("memory", m_root, memclock, config, "DIRECT");
+        m_memory = memory;
+    } else if (memory_type == "RANDOMDDR") {
+        DDRMemory* memory = new DDRMemory("memory", m_root, memclock, config, "RMIX");
         m_memory = memory;
     } else if (memory_type == "COMA") {
         COMA* memory = new COMA("memory", m_root, memclock, config);

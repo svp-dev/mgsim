@@ -10,7 +10,7 @@ COMPILE = $(SHELL) $(top_builddir)/tools/compile $(TEST_ARCH) \
 	   -I$(top_srcdir)/programs -I$(top_builddir)/programs
 
 
-SUFFIXES = .c .s .bin .coma .zlcoma .serial .parallel .banked .randombanked
+SUFFIXES = .c .s .bin .coma .zlcoma .serial .parallel .banked .randombanked .ddr .randomddr
 
 .s.bin:
 	$(MKDIR_P) `dirname "$@"`
@@ -32,6 +32,10 @@ SUFFIXES = .c .s .bin .coma .zlcoma .serial .parallel .banked .randombanked
 	echo "$<" >"$@"
 .bin.randombanked:
 	echo "$<" >"$@"
+.bin.ddr:
+	echo "$<" >"$@"
+.bin.randomddr:
+	echo "$<" >"$@"
 
 check_DATA = $(TEST_BINS)
 TESTS = \
@@ -39,6 +43,8 @@ TESTS = \
 	$(TEST_BINS:.bin=.parallel) \
 	$(TEST_BINS:.bin=.banked) \
 	$(TEST_BINS:.bin=.randombanked) \
+	$(TEST_BINS:.bin=.ddr) \
+	$(TEST_BINS:.bin=.randomddr) \
 	$(TEST_BINS:.bin=.coma) \
     $(TEST_BINS:.bin=.zlcoma)
 
