@@ -160,7 +160,7 @@ public:
 class DDRChannelRegistry : public Object, public std::vector<DDRChannel*>
 {
 public:
-    DDRChannelRegistry(const std::string& name, Object& parent, VirtualMemory& memory, Config& config);
+    DDRChannelRegistry(const std::string& name, Object& parent, VirtualMemory& memory, Config& config, size_t defaultNumChannels);
     ~DDRChannelRegistry();
 };
 

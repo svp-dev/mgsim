@@ -285,11 +285,10 @@ DDRChannel::~DDRChannel()
 {
 }
 
-DDRChannelRegistry::DDRChannelRegistry(const std::string& name, Object& parent, VirtualMemory& memory, Config& config)
+DDRChannelRegistry::DDRChannelRegistry(const std::string& name, Object& parent, VirtualMemory& memory, Config& config, size_t defaultNumChannels)
     : Object(name, parent)
 {
-    size_t numChannels = config.getValueOrDefault<size_t>(*this, "NumChannels", 
-                                                          config.getValue<size_t>(parent, "NumRootDirectories"));
+    size_t numChannels = config.getValueOrDefault<size_t>(*this, "NumChannels", defaultNumChannels);
 
     for (size_t i = 0; i < numChannels; ++i)
     {

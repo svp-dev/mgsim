@@ -133,7 +133,7 @@ ZLCOMA::ZLCOMA(const std::string& name, Simulator::Object& parent, Clock& clock,
     m_selector(IBankSelector::makeSelector(*this,
                                            config.getValueOrDefault<string>(*this, "BankSelector", "XORFOLD"),
                                            config.getValue<size_t>(*this, "L2CacheNumSets"))),
-    m_ddr("ddr", *this, *this, config),
+    m_ddr("ddr", *this, *this, config, config.getValue<size_t>(*this, "NumRootDirectories")),
     m_nreads(0), m_nwrites(0), m_nread_bytes(0), m_nwrite_bytes(0)
 {
 
