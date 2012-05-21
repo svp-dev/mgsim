@@ -729,7 +729,7 @@ void Processor::DCache::Cmd_Read(std::ostream& out, const std::vector<std::strin
             out << dec << m_assoc << "-way set associative" << endl;
         }
         
-        out << "L2 bank mapping:     " << m_selector->GetName() << endl
+        out << "L1 bank mapping:     " << m_selector->GetName() << endl
             << "Cache size:          " << dec << (m_lineSize * m_lines.size()) << " bytes" << endl
             << "Cache line size:     " << dec << m_lineSize << " bytes" << endl
             << endl;
