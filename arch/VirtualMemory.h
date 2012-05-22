@@ -24,17 +24,17 @@ public:
     
     struct Range
     {
-        MemSize size;
-        int     permissions;
+        MemSize   size;
+        ProcessID owner;
+        int       permissions;
     };
     
     typedef std::map<MemAddr, Block> BlockMap;
     typedef std::map<MemAddr, Range> RangeMap;
     
-    bool Allocate(MemSize size, int perm, MemAddr& address);
-    
-    void Reserve(MemAddr address, MemSize size, int perm);
-    void Unreserve(MemAddr address);
+    void Reserve(MemAddr address, MemSize size, ProcessID pid, int perm);
+    void Unreserve(MemAddr address, MemSize size);
+    void UnreserveAll(ProcessID pid);
     
     void Read (MemAddr address, void* data, MemSize size) const;
     void Write(MemAddr address, const void* data, MemSize size);

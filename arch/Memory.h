@@ -64,9 +64,9 @@ public:
 class IMemoryAdmin : public IMemory
 {
 public:
-    virtual void Reserve(MemAddr address, MemSize size, int perm) = 0;
-    virtual void Unreserve(MemAddr address) = 0;
-    virtual bool Allocate(MemSize size, int perm, MemAddr& address) = 0;
+    virtual void Reserve(MemAddr address, MemSize size, ProcessID pid, int perm) = 0;
+    virtual void Unreserve(MemAddr address, MemSize size) = 0;
+    virtual void UnreserveAll(ProcessID pid) = 0;
     virtual bool CheckPermissions(MemAddr address, MemSize size, int access) const = 0;
 
     virtual void Read (MemAddr address, void* data, MemSize size) = 0;

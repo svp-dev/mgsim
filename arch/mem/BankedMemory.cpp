@@ -383,19 +383,19 @@ bool BankedMemory::Write(MCID id, MemAddr address, const void* data, MemSize siz
     return true;
 }
 
-void BankedMemory::Reserve(MemAddr address, MemSize size, int perm)
+void BankedMemory::Reserve(MemAddr address, MemSize size, ProcessID pid, int perm)
 {
-    return VirtualMemory::Reserve(address, size, perm);
+    return VirtualMemory::Reserve(address, size, pid, perm);
 }
 
-void BankedMemory::Unreserve(MemAddr address)
+void BankedMemory::Unreserve(MemAddr address, MemSize size)
 {
-    return VirtualMemory::Unreserve(address);
+    return VirtualMemory::Unreserve(address, size);
 }
 
-bool BankedMemory::Allocate(MemSize size, int perm, MemAddr& address)
+void BankedMemory::UnreserveAll(ProcessID pid)
 {
-    return VirtualMemory::Allocate(size, perm, address);
+    return VirtualMemory::UnreserveAll(pid);
 }
 
 void BankedMemory::Read(MemAddr address, void* data, MemSize size)

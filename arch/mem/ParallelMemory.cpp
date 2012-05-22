@@ -243,21 +243,21 @@ bool ParallelMemory::CheckPermissions(MemAddr address, MemSize size, int access)
     return VirtualMemory::CheckPermissions(address, size, access);
 }
 
-void ParallelMemory::Reserve(MemAddr address, MemSize size, int perm)
+void ParallelMemory::Reserve(MemAddr address, MemSize size, ProcessID pid, int perm)
 {
-    return VirtualMemory::Reserve(address, size, perm);
+    return VirtualMemory::Reserve(address, size, pid, perm);
 }
 
-void ParallelMemory::Unreserve(MemAddr address)
+void ParallelMemory::Unreserve(MemAddr address, MemSize size)
 {
-    return VirtualMemory::Unreserve(address);
+    return VirtualMemory::Unreserve(address, size);
 }
 
-bool ParallelMemory::Allocate(MemSize size, int perm, MemAddr& address)
+void ParallelMemory::UnreserveAll(ProcessID pid)
 {
-    return VirtualMemory::Allocate(size, perm, address);
+    return VirtualMemory::UnreserveAll(pid);
 }
-    
+
 void ParallelMemory::Read (MemAddr address, void* data, MemSize size)
 {
     return VirtualMemory::Read(address, data, size);

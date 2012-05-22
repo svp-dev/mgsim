@@ -143,6 +143,33 @@ namespace Simulator
         }
         break;
 
+        case RPC_lseek:
+        {
+            RequireArgs(8, 0);
+            assert(res2_maxsize >= 8);
+
+            VirtualDescriptor *vd = GetEntry(arg3);
+            if (vd == NULL)
+            {
+                errno = EBADF;
+                rval = -1;
+                break;
+            }
+
+            int wh = arg4;
+            off_t offset_in = ((off_t)UnserializeRegister(RT_INTEGER, &arg1[4], 4) << 32) |
+                UnserializeRegister(RT_INTEGER, &arg1[0], 4);
+
+            off_t offset_out = lseek(vd->hfd, offset_in, wh);
+
+            res2.resize(8);
+            SerializeRegister(RT_INTEGER, offset_out & 0xffffffffUL, &(res2[0]), 4);
+            SerializeRegister(RT_INTEGER, (offset_out >> 32) & 0xffffffffUL, &(res2[4]), 4);
+
+            rval = 0;
+        }
+        break;
+
         case RPC_write:
         {
             VirtualDescriptor *vd = GetEntry(arg3);

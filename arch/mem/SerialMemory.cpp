@@ -99,19 +99,19 @@ bool SerialMemory::Write(MCID id, MemAddr address, const void* data, MemSize siz
     return true;
 }
 
-void SerialMemory::Reserve(MemAddr address, MemSize size, int perm)
+void SerialMemory::Reserve(MemAddr address, MemSize size, ProcessID pid, int perm)
 {
-    return VirtualMemory::Reserve(address, size, perm);
+    return VirtualMemory::Reserve(address, size, pid, perm);
 }
 
-void SerialMemory::Unreserve(MemAddr address)
+void SerialMemory::Unreserve(MemAddr address, MemSize size)
 {
-    return VirtualMemory::Unreserve(address);
+    return VirtualMemory::Unreserve(address, size);
 }
 
-bool SerialMemory::Allocate(MemSize size, int perm, MemAddr& address)
+void SerialMemory::UnreserveAll(ProcessID pid)
 {
-    return VirtualMemory::Allocate(size, perm, address);
+    return VirtualMemory::UnreserveAll(pid);
 }
 
 void SerialMemory::Read(MemAddr address, void* data, MemSize size)

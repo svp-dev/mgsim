@@ -375,17 +375,23 @@ unsigned int Processor::GetNumSuspendedRegisters() const
     return num;
 }
 
-void Processor::MapMemory(MemAddr address, MemSize size)
+void Processor::MapMemory(MemAddr address, MemSize size, ProcessID pid)
 {
-    m_memadmin.Reserve(address, size, 
+    m_memadmin.Reserve(address, size, pid,
                        IMemory::PERM_READ | IMemory::PERM_WRITE | 
                        IMemory::PERM_DCA_READ | IMemory::PERM_DCA_WRITE);
 }
 
-void Processor::UnmapMemory(MemAddr address, MemSize /*size*/)
+void Processor::UnmapMemory(MemAddr address, MemSize size)
 {
     // TODO: possibly check the size matches the reserved size
-    m_memadmin.Unreserve(address);
+    m_memadmin.Unreserve(address, size);
+}
+
+void Processor::UnmapMemory(ProcessID pid)
+{
+    // TODO: possibly check the size matches the reserved size
+    m_memadmin.UnreserveAll(pid);
 }
 
 bool Processor::CheckPermissions(MemAddr address, MemSize size, int access) const

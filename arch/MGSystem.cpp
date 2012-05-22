@@ -901,6 +901,7 @@ MGSystem::MGSystem(Config& config,
         MemAddr address = config.getValue<MemAddr>(name, "Address");
         MemSize size = config.getValue<MemSize>(name, "Size");
         string mode = config.getValue<string>(name, "Mode");
+        ProcessID pid = config.getValue<ProcessID>(name, "PID");
         int perm = 0;
         if (mode.find("R") != string::npos)
             perm |= IMemory::PERM_READ;
@@ -909,7 +910,7 @@ MGSystem::MGSystem(Config& config,
         if (mode.find("X") != string::npos)
             perm |= IMemory::PERM_EXECUTE;
 
-        m_memory->Reserve(address, size, perm);
+        m_memory->Reserve(address, size, pid, perm);
     }
 
     // Set program debugging per default

@@ -20,60 +20,6 @@ static const int BLOCK_SIZE = (1 << 12);
 // Align allocations on 64 bytes
 static const MemAddr ALIGNMENT = 64;
 
-static MemAddr ALIGN_UP(const MemAddr& a)
-{
-    return (a + ALIGNMENT - 1) / ALIGNMENT * ALIGNMENT;
-}
-
-static MemAddr ALIGN_DOWN(const MemAddr& a)
-{
-    return a / ALIGNMENT * ALIGNMENT;
-}
-
-bool VirtualMemory::Allocate(MemSize size, int perm, MemAddr& address)
-{
-    if (size == 0)
-    {
-        // No size, nothing to allocate
-        return false;
-    }
-    
-    // Find a free spot in the reservation table
-    RangeMap::const_iterator cur = m_ranges.begin();
-    if (cur == m_ranges.end())
-    {
-        // There's nothing reserved yet, just grab the lowest address
-        address = 0;
-        return true;
-    }
-    
-    RangeMap::const_iterator next = cur;
-    for (++next; next != m_ranges.end(); ++next, ++cur)
-    {
-        const MemAddr cur_end    = ALIGN_UP(cur->first + cur->second.size);
-        const MemAddr next_begin = ALIGN_DOWN(next->first);
-        if (next_begin - cur_end >= size)
-        {
-            // Found a free range
-            address = cur_end;
-            Reserve(address, size, perm);
-            return true;
-        }
-    }
-    
-    const MemAddr cur_end = ALIGN_UP(cur->first + cur->second.size);
-    if (numeric_limits<MemAddr>::max() - cur_end >= size - 1)
-    {
-        // There's room after the last reserved region
-        address = cur_end;
-        Reserve(address, size, perm);
-        return true;
-    }
-    
-    // No free range
-    return false;
-}
-
 void VirtualMemory::ReportOverlap(MemAddr address, MemSize size) const
 {
     std::ostringstream os;
@@ -84,7 +30,7 @@ void VirtualMemory::ReportOverlap(MemAddr address, MemSize size) const
     throw e;
 }
 
-void VirtualMemory::Reserve(MemAddr address, MemSize size, int perm)
+void VirtualMemory::Reserve(MemAddr address, MemSize size, ProcessID pid, int perm)
 {
     if (size != 0)
     {
@@ -111,6 +57,7 @@ void VirtualMemory::Reserve(MemAddr address, MemSize size, int perm)
 
         Range range;
         range.size        = size;
+        range.owner       = pid;
         range.permissions = perm;
         m_ranges.insert(p, make_pair(address, range));
         m_totalreserved += size;
@@ -130,7 +77,7 @@ VirtualMemory::RangeMap::const_iterator VirtualMemory::GetReservationRange(MemAd
             address <= p->first + (p->second.size - size)) ? p : m_ranges.end();
 }
 
-void VirtualMemory::Unreserve(MemAddr address)
+void VirtualMemory::Unreserve(MemAddr address, MemSize size)
 {
     RangeMap::iterator p = m_ranges.find(address);
     if (p == m_ranges.end())
@@ -138,9 +85,34 @@ void VirtualMemory::Unreserve(MemAddr address)
         throw exceptf<InvalidArgumentException>("Attempting to unreserve non-reserved memory (%#016llx)", 
                                                 (unsigned long long)address);
     }
+
+    if (size != p->second.size)
+    {
+        throw exceptf<InvalidArgumentException>("Cannot unreserve %#016llx bytes from %#016llx, reservation was for %#016llx bytes",
+                                                (unsigned long long)size,
+                                                (unsigned long long)address,
+                                                (unsigned long long)p->second.size);
+    }
     m_totalreserved -= p->second.size;
     --m_nRanges;
     m_ranges.erase(p);
+}
+
+void VirtualMemory::UnreserveAll(ProcessID pid)
+{
+    // unreserve all ranges belonging to a given process ID
+
+    for (RangeMap::iterator p = m_ranges.begin(); p != m_ranges.end(); )
+    {
+        if (p->second.owner == pid)
+        {
+            m_totalreserved -= p->second.size;
+            --m_nRanges;
+            m_ranges.erase(p++); // careful that iterator is invalidated by erase()
+        }
+        else
+            ++p;
+    }
 }
 
 bool VirtualMemory::CheckPermissions(MemAddr address, MemSize size, int access) const
@@ -250,8 +222,8 @@ VirtualMemory::~VirtualMemory()
 
 void VirtualMemory::Cmd_Info(ostream& out, const vector<string>& /* arguments */) const
 {
-    out << "Reserved memory ranges:" << endl
-        << "------------------------" << endl;
+    out << "Memory range                        | P   | DCAP | Owner PID" << endl
+        << "------------------------------------+-----+------+------------" << endl;
 
     out << hex << setfill('0');
 
@@ -261,30 +233,36 @@ void VirtualMemory::Cmd_Info(ostream& out, const vector<string>& /* arguments */
     {
         // We have at least one range, walk over all ranges and
         // coalesce neighbouring ranges with similar properties.
-        MemAddr begin = p->first;
-        int     perm  = p->second.permissions;
-        MemAddr size  = 0;
+        MemAddr   begin = p->first;
+        ProcessID owner = p->second.owner;
+        int       perm  = p->second.permissions;
+        MemAddr   size  = 0;
 
         do
         {
             size  += p->second.size;
             total += p->second.size;
             p++;
-            if (p == m_ranges.end() || p->first > begin + size || p->second.permissions != perm)
+            if (p == m_ranges.end() || p->first > begin + size 
+                || p->second.permissions != perm || p->second.owner != owner)
             {
                 // Different block, or end of blocks
-                out << setw(16) << begin << " - " << setw(16) << begin + size - 1 << ": "
+                out << setw(16) << begin << " - " << setw(16) << begin + size - 1 
+                    << " | "
                     << (perm & IMemory::PERM_READ    ? "R" : ".")
                     << (perm & IMemory::PERM_WRITE   ? "W" : ".")
                     << (perm & IMemory::PERM_EXECUTE ? "X" : ".") 
-                    << ' '
+                    << " | "
                     << (perm & IMemory::PERM_DCA_READ ? "DR" : "..")
                     << (perm & IMemory::PERM_DCA_WRITE ? "DW" : "..")
+                    << " | "
+                    << dec << owner << hex
                     << endl;
                 if (p != m_ranges.end())
                 {
                     // Different block
                     begin = p->first;
+                    owner = p->second.owner;
                     perm  = p->second.permissions;
                     size  = 0;
                 }
