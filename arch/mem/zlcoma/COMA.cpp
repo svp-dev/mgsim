@@ -91,19 +91,19 @@ bool ZLCOMA::Write(MCID id, MemAddr address, const void* data, MemSize size, TID
     return m_clientMap[id].first->Write(m_clientMap[id].second, address, data, size, tid);
 }
 
-void ZLCOMA::Reserve(MemAddr address, MemSize size, int perm)
+void ZLCOMA::Reserve(MemAddr address, MemSize size, ProcessID pid, int perm)
 {
-    return VirtualMemory::Reserve(address, size, perm);
+    return VirtualMemory::Reserve(address, size, pid, perm);
 }
 
-void ZLCOMA::Unreserve(MemAddr address)
+void ZLCOMA::Unreserve(MemAddr address, MemSize size)
 {
-    return VirtualMemory::Unreserve(address);
+    return VirtualMemory::Unreserve(address, size);
 }
 
-bool ZLCOMA::Allocate(MemSize size, int perm, MemAddr& address)
+void ZLCOMA::UnreserveAll(ProcessID pid)
 {
-    return VirtualMemory::Allocate(size, perm, address);
+    return VirtualMemory::UnreserveAll(pid);
 }
 
 void ZLCOMA::Read(MemAddr address, void* data, MemSize size)

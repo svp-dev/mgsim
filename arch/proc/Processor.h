@@ -83,8 +83,9 @@ public:
     Integer     PackFID(const FID& fid) const;
     FCapability GenerateFamilyCapability() const;
 
-    void MapMemory(MemAddr address, MemSize size);
+    void MapMemory(MemAddr address, MemSize size, ProcessID pid = 0);
     void UnmapMemory(MemAddr address, MemSize size);
+    void UnmapMemory(ProcessID pid);
     bool CheckPermissions(MemAddr address, MemSize size, int access) const;
 	
     Network& GetNetwork() { return m_network; }

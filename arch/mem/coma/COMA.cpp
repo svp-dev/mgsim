@@ -91,19 +91,19 @@ bool COMA::Write(MCID id, MemAddr address, const void* data, MemSize size, TID t
     return m_clientMap[id].first->Write(m_clientMap[id].second, address, data, size, tid);
 }
 
-void COMA::Reserve(MemAddr address, MemSize size, int perm)
+void COMA::Reserve(MemAddr address, MemSize size, ProcessID pid, int perm)
 {
-    return VirtualMemory::Reserve(address, size, perm);
+    return VirtualMemory::Reserve(address, size, pid, perm);
 }
 
-void COMA::Unreserve(MemAddr address)
+void COMA::Unreserve(MemAddr address, MemSize size)
 {
-    return VirtualMemory::Unreserve(address);
+    return VirtualMemory::Unreserve(address, size);
 }
 
-bool COMA::Allocate(MemSize size, int perm, MemAddr& address)
+void COMA::UnreserveAll(ProcessID pid)
 {
-    return VirtualMemory::Allocate(size, perm, address);
+    return VirtualMemory::UnreserveAll(pid);
 }
 
 void COMA::Read(MemAddr address, void* data, MemSize size)

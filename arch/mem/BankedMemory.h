@@ -26,16 +26,17 @@ class BankedMemory : public Object, public IMemoryAdmin, public VirtualMemory
     CycleNo                     GetMemoryDelay (size_t data_size) const;
 
     // IMemory
-    void Reserve(MemAddr address, MemSize size, int perm);
-    void Unreserve(MemAddr address);
     MCID RegisterClient(IMemoryCallback& callback, Process& process, StorageTraceSet& traces, Storage& storage, bool /*ignored*/);
     void UnregisterClient(MCID id);
     bool Read (MCID id, MemAddr address, MemSize size);
     bool Write(MCID id, MemAddr address, const void* data, MemSize size, TID tid);
-	bool CheckPermissions(MemAddr address, MemSize size, int access) const;
+    bool CheckPermissions(MemAddr address, MemSize size, int access) const;
 
     // IMemoryAdmin
-    bool Allocate(MemSize size, int perm, MemAddr& address);
+    void Reserve(MemAddr address, MemSize size, ProcessID pid, int perm);
+    void Unreserve(MemAddr address, MemSize size);
+    void UnreserveAll(ProcessID pid);
+
     void Read (MemAddr address, void* data, MemSize size);
     void Write(MemAddr address, const void* data, MemSize size);
 

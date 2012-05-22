@@ -105,6 +105,7 @@ typedef Float32  Float;         ///< Natural floating point type
 
 typedef Integer  FCapability;   ///< Capability for a family
 typedef Integer  PCapability;   ///< Capability for a place
+typedef Integer  ProcessID;     ///< Process ID bits for MMU (virtual memory)
 
 /// Place identifier
 struct PlaceID

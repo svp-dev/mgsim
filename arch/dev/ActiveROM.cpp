@@ -109,7 +109,7 @@ namespace Simulator
         for (size_t i = 0; i < m_loadable.size(); ++i)
         {
             const LoadableRange& r = m_loadable[i];
-            m_memory.Reserve(r.vaddr, r.vsize, r.perm | IMemory::PERM_DCA_WRITE);
+            m_memory.Reserve(r.vaddr, r.vsize, 0, r.perm | IMemory::PERM_DCA_WRITE);
             if (m_verboseload)
             {
                 clog << GetName() << ": reserved " << dec << r.vsize << " bytes in main memory at 0x" 

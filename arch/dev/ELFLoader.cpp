@@ -115,7 +115,7 @@ LoadProgram(const std::string& msg_prefix, vector<ActiveROM::LoadableRange>& ran
             }
             else
             {
-                memory.Reserve(phdr[i].p_vaddr, phdr[i].p_memsz, perm);
+                memory.Reserve(phdr[i].p_vaddr, phdr[i].p_memsz, 0, perm);
                 if (verbose)
                 {
                     clog << msg_prefix << ": " << dec << phdr[i].p_memsz << " bytes reserved at virtual address 0x" << hex << phdr[i].p_vaddr << endl;

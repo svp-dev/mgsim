@@ -31,7 +31,8 @@
 #define ASR_IO_PARAMS2        7
 #define ASR_AIO_BASE          8
 #define ASR_PNC_BASE          9
-#define NUM_ASRS              10
+#define ASR_PID               10
+#define NUM_ASRS              11
 
 /* value for ASR_SYSTEM_VERSION: to be updated whenever the list of ASRs
    changes */
