@@ -414,7 +414,7 @@ void Processor::Pipeline::ExecuteStage::ExecStatusAction(Integer value, int comm
 {
     // command:
     //  00: status and continue
-    //  01: status and fail
+    //  01: status and interrupt
     //  10: status and abort
     //  11: status and exit with code
 
@@ -451,7 +451,9 @@ void Processor::Pipeline::ExecuteStage::ExecStatusAction(Integer value, int comm
     case 0: 
         break;
     case 1: 
-        throw SimulationException("Interrupt requested by program.");
+        // interrupt the simulation in a way that is resumable
+        // from the interactive prompt.
+        GetKernel()->Abort();
         break;
     case 2:
         abort();
@@ -490,7 +492,7 @@ void Processor::Pipeline::ExecuteStage::ExecDebug(Integer value, Integer stream)
 {
     // pattern: x x 0 1 x x x x = status and action
     // pattern: 0 0 0 1 - - - - =   status and continue
-    // pattern: 0 1 0 1 - - - - =   status and fail
+    // pattern: 0 1 0 1 - - - - =   status and interrupt
     // pattern: 1 0 0 1 - - - - =   status and abort
     // pattern: 1 1 0 1 - - - - =   status and exit with code
     // pattern: - - 0 1 - - 0 0 =   debug channel

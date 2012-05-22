@@ -242,7 +242,7 @@ RunState Kernel::Step(CycleNo cycles)
         
         m_aborted = false;
         bool idle = false;
-        while (!m_aborted && !idle && (endcycle == INFINITE_CYCLES || m_cycle < endcycle))
+        while ((!m_aborted || (m_lastabort == m_cycle)) && !idle && (endcycle == INFINITE_CYCLES || m_cycle < endcycle))
         {
             // We start each cycle being idle, and see if we did something this cycle
             idle = true;
@@ -391,9 +391,14 @@ RunState Kernel::Step(CycleNo cycles)
         // In case we overshot the end with the last update
         m_cycle = std::min(m_cycle, endcycle);
         
-        return (m_aborted)
-            ? STATE_ABORTED
-            : idle ? STATE_IDLE : STATE_RUNNING;
+        if (m_aborted)
+        {
+            // prevent aborting on the same cycle twice 
+            // (ie allow try to resume)
+            m_lastabort = m_cycle;
+            return STATE_ABORTED;
+        }
+        return idle ? STATE_IDLE : STATE_RUNNING;
     }
     catch (SimulationException& e)
     {
@@ -470,7 +475,8 @@ void Kernel::ToggleDebugMode(int flags)
 }
 
 Kernel::Kernel(SymbolTable& symtable, BreakPoints& breakpoints)
- : m_debugMode(0),
+ : m_lastabort((CycleNo)-1),
+   m_debugMode(0),
    m_cycle(0),
    m_symtable(symtable),
    m_breakpoints(breakpoints),

@@ -245,6 +245,7 @@ public:
     
 private:
     bool                m_aborted;      ///< Should the run be aborted?
+    CycleNo             m_lastabort;    ///< Avoid aborting twice on the same cycle.
     int	                m_debugMode;    ///< Bit mask of enabled debugging modes.
     CycleNo             m_cycle;        ///< Current cycle of the simulation.
     SymbolTable&        m_symtable;     ///< The symbol table for debugging.
