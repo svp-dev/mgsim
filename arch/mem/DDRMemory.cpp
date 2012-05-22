@@ -386,19 +386,19 @@ bool DDRMemory::Write(MCID id, MemAddr address, const void* data, MemSize size, 
     return true;
 }
 
-void DDRMemory::Reserve(MemAddr address, MemSize size, int perm)
+void DDRMemory::Reserve(MemAddr address, MemSize size, ProcessID pid, int perm)
 {
-    return VirtualMemory::Reserve(address, size, perm);
+    return VirtualMemory::Reserve(address, size, pid, perm);
 }
 
-void DDRMemory::Unreserve(MemAddr address)
+void DDRMemory::Unreserve(MemAddr address, MemSize size)
 {
-    return VirtualMemory::Unreserve(address);
+    return VirtualMemory::Unreserve(address, size);
 }
 
-bool DDRMemory::Allocate(MemSize size, int perm, MemAddr& address)
+void DDRMemory::UnreserveAll(ProcessID pid)
 {
-    return VirtualMemory::Allocate(size, perm, address);
+    return VirtualMemory::UnreserveAll(pid);
 }
 
 void DDRMemory::Read(MemAddr address, void* data, MemSize size)
