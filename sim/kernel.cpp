@@ -148,6 +148,11 @@ void Kernel::Abort()
     m_aborted = true;
 }
 
+void Kernel::Stop()
+{
+    m_suspended = true;
+}
+
 // Returns the Greatest Common Denominator of a and b.
 static unsigned long long gcd(unsigned long long a, unsigned long long b)
 {
@@ -240,9 +245,9 @@ RunState Kernel::Step(CycleNo cycles)
             m_cycle = m_activeClocks->m_cycle;
         }
         
-        m_aborted = false;
+        m_aborted = m_suspended = false;
         bool idle = false;
-        while ((!m_aborted || (m_lastabort == m_cycle)) && !idle && (endcycle == INFINITE_CYCLES || m_cycle < endcycle))
+        while (!m_aborted && (!m_suspended || (m_lastsuspend == m_cycle)) && !idle && (endcycle == INFINITE_CYCLES || m_cycle < endcycle))
         {
             // We start each cycle being idle, and see if we did something this cycle
             idle = true;
@@ -391,11 +396,11 @@ RunState Kernel::Step(CycleNo cycles)
         // In case we overshot the end with the last update
         m_cycle = std::min(m_cycle, endcycle);
         
-        if (m_aborted)
+        if (m_suspended)
         {
             // prevent aborting on the same cycle twice 
             // (ie allow try to resume)
-            m_lastabort = m_cycle;
+            m_lastsuspend = m_cycle;
             return STATE_ABORTED;
         }
         return idle ? STATE_IDLE : STATE_RUNNING;
@@ -475,7 +480,7 @@ void Kernel::ToggleDebugMode(int flags)
 }
 
 Kernel::Kernel(SymbolTable& symtable, BreakPoints& breakpoints)
- : m_lastabort((CycleNo)-1),
+ : m_lastsuspend((CycleNo)-1),
    m_debugMode(0),
    m_cycle(0),
    m_symtable(symtable),
