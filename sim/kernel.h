@@ -245,7 +245,8 @@ public:
     
 private:
     bool                m_aborted;      ///< Should the run be aborted?
-    CycleNo             m_lastabort;    ///< Avoid aborting twice on the same cycle.
+    bool                m_suspended;    ///< Should the run be suspended?
+    CycleNo             m_lastsuspend;  ///< Avoid suspending twice on the same cycle.
     int	                m_debugMode;    ///< Bit mask of enabled debugging modes.
     CycleNo             m_cycle;        ///< Current cycle of the simulation.
     SymbolTable&        m_symtable;     ///< The symbol table for debugging.
@@ -327,10 +328,18 @@ public:
     
     /**
      * @brief Aborts the simulation
-     * Aborts the current simulation, in Step(). This is best called asynchronously,
-     * from a signal handler. Step() will return STATE_ABORTED.
+     * Stops the current simulation, in Step(). This is best called asynchronously,
+     * from a signal handler. Step() will return STATE_ABORTED. The simulation cannot be resumed.
      */
     void Abort();
+
+    /**
+     * @brief Suspends the simulation
+     * Stops the current simulation, in Step(). This is best called asynchronously,
+     * from a signal handler. Step() will return STATE_ABORTED. Next call to Step()
+     * will resume the simulation.
+     */
+    void Stop();
 
     /**
      * @brief Get all components.
