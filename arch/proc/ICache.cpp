@@ -19,15 +19,18 @@ Processor::ICache::ICache(const std::string& name, Processor& parent, Clock& clo
     m_selector(IBankSelector::makeSelector(*this, config.getValue<string>(*this, "BankSelector"), config.getValue<size_t>(*this, "NumSets"))),
     m_outgoing("b_outgoing", *this, clock, config.getValue<BufferSize>(*this, "OutgoingBufferSize")),
     m_incoming("b_incoming", *this, clock, config.getValue<BufferSize>(*this, "IncomingBufferSize")),
+    m_lineSize(config.getValue<size_t>("CacheLineSize")),
+    m_assoc   (config.getValue<size_t>(*this, "Associativity")),
+
     m_numHits        (0),
+    m_numDelayedReads(0),
     m_numEmptyMisses (0),
     m_numLoadingMisses(0),
     m_numInvalidMisses(0),
     m_numHardConflicts(0),
     m_numResolvedConflicts(0),
     m_numStallingMisses(0),
-    m_lineSize(config.getValue<size_t>("CacheLineSize")),
-    m_assoc   (config.getValue<size_t>(*this, "Associativity")),
+
     p_Outgoing(*this, "outgoing", delegate::create<ICache, &Processor::ICache::DoOutgoing>(*this)),
     p_Incoming(*this, "incoming", delegate::create<ICache, &Processor::ICache::DoIncoming>(*this)),
     p_service(*this, clock, "p_service")
@@ -299,7 +302,7 @@ Result Processor::ICache::Fetch(MemAddr address, MemSize size, TID* tid, CID* ci
         {
             // The line was already fetched so we're done.
             // This is 'true' hit in that we don't have to wait.
-            COMMIT{ m_numHits++; }
+            COMMIT{ ++m_numHits; }
             return SUCCESS;
         }
         
@@ -307,8 +310,6 @@ Result Processor::ICache::Fetch(MemAddr address, MemSize size, TID* tid, CID* ci
         assert(line->state == LINE_LOADING);
         COMMIT
         {
-            ++m_numLoadingMisses;
-
             if (tid != NULL)
             {
                 // Add the thread to the queue
@@ -325,6 +326,9 @@ Result Processor::ICache::Fetch(MemAddr address, MemSize size, TID* tid, CID* ci
                 assert(!line->creation);
                 line->creation = true;
             }
+
+            // Statistics
+            ++m_numLoadingMisses;
         }
     }
     else
@@ -365,6 +369,8 @@ Result Processor::ICache::Fetch(MemAddr address, MemSize size, TID* tid, CID* ci
             }
         }
     }
+
+    COMMIT{ ++m_numDelayedReads; }
 
     return DELAYED;
 }
@@ -521,38 +527,62 @@ void Processor::ICache::Cmd_Read(std::ostream& out, const std::vector<std::strin
             out << dec << m_assoc << "-way set associative" << endl;
         }
         
-        out << "L2 bank mapping:     " << m_selector->GetName() << endl
+        out << "L1 bank mapping:     " << m_selector->GetName() << endl
             << "Cache size:          " << dec << (m_lineSize * m_lines.size()) << " bytes" << endl
             << "Cache line size:     " << dec << m_lineSize << " bytes" << endl
             << endl;
 
-        uint64_t numMisses = m_numEmptyMisses + m_numLoadingMisses + m_numInvalidMisses + m_numHardConflicts + m_numResolvedConflicts;
-        uint64_t numAccesses = m_numHits + numMisses;
-        if (numAccesses == 0)
-            out << "No accesses so far, cannot compute hit/miss/conflict rates." << endl;
-        else
-        {
-            float factor = 100.0f / numAccesses;
+        uint64_t numRAccesses = m_numHits + m_numDelayedReads;
+        uint64_t numRqst = m_numEmptyMisses + m_numResolvedConflicts;
+        uint64_t numStalls = m_numHardConflicts + m_numInvalidMisses + m_numStallingMisses;
 
-            out << "Number of reads:     " << numAccesses << endl
-                << "Read hits:           " << dec << m_numHits << " (" << setprecision(2) << fixed << m_numHits * factor << "%)" << endl
-                << "Read misses:         " << dec << numMisses << " (" << setprecision(2) << fixed << numMisses * factor << "%)" << endl
-                << "Breakdown of read misses:" << endl
-                << "  (true misses)" << endl
-                << "- to an empty line (async):                    " 
-                << dec << m_numEmptyMisses << " (" << setprecision(2) << fixed << m_numEmptyMisses * factor << "%)" << endl
-                << "- to a loading line with same tag (async):     " 
-                << dec << m_numLoadingMisses << " (" << setprecision(2) << fixed << m_numLoadingMisses * factor << "%)" << endl
-                << "- to an invalid line with same tag (stalling): " 
-                << dec << m_numInvalidMisses << " (" << setprecision(2) << fixed << m_numInvalidMisses * factor << "%)" << endl
-                << "  (conflicts)" << endl
-                << "- to a non-empty, reusable line with different tag (async):        " 
-                << dec << m_numResolvedConflicts << " (" << setprecision(2) << fixed << m_numResolvedConflicts * factor << "%)" << endl
-                << "- to a non-empty, non-reusable line with different tag (stalling): " 
-                << dec << m_numHardConflicts << " (" << setprecision(2) << fixed << m_numHardConflicts * factor << "%)" << endl
+#define PRINTVAL(X, q) dec << (X) << " (" << setprecision(2) << fixed << (X) * q << "%)"
+
+        if (numRAccesses == 0)
+            out << "No accesses so far, cannot provide statistical data." << endl;
+        else
+        {           
+            out << "***********************************************************" << endl
+                << "                      Summary                              " << endl
+                << "***********************************************************" << endl
                 << endl
-                << "Number of miss stalls by upstream: " << dec << m_numStallingMisses << " cycles" << endl
+                << "Number of read requests from client: " << numRAccesses << endl
+                << "Number of request to upstream:       " << numRqst << endl
+                << "Number of stall cycles:              " << numStalls << endl
+                << endl << endl;
+                
+            float r_factor = 100.0f / numRAccesses;
+            out << "***********************************************************" << endl
+                << "                      Cache reads                          " << endl
+                << "***********************************************************" << endl
+                << endl
+                << "Number of read requests from client:                " << numRAccesses << endl
+                << "Read hits:                                          " << PRINTVAL(m_numHits, r_factor) << endl
+                << "Read misses:                                        " << PRINTVAL(m_numDelayedReads, r_factor) << endl
+                << "Breakdown of read misses:" << endl                  
+                << "- to an empty line:                                 " << PRINTVAL(m_numEmptyMisses, r_factor) << endl
+                << "- to a loading line with same tag:                  " << PRINTVAL(m_numLoadingMisses, r_factor) << endl
+                << "- to a reusable line with different tag (conflict): " << PRINTVAL(m_numResolvedConflicts, r_factor) << endl
+                << "(percentages relative to " << numRAccesses << " read requests)" << endl
                 << endl;
+            
+            if (numStalls != 0)
+            {
+                float s_factor = 100.f / numStalls;   
+                out << "***********************************************************" << endl
+                    << "                      Stall cycles                         " << endl
+                    << "***********************************************************" << endl
+                    << endl
+                    << "Number of stall cycles:               " << numStalls << endl
+                    << "Breakdown:" << endl
+                    << "- read conflict to non-reusable line: " << PRINTVAL(m_numHardConflicts, s_factor) << endl
+                    << "- read to invalidated line:           " << PRINTVAL(m_numInvalidMisses, s_factor) << endl
+                    << "- unable to send request upstream:    " << PRINTVAL(m_numStallingMisses, s_factor) << endl
+                    << "(percentages relative to " << numStalls << " stall cycles)" << endl
+                    << endl;
+            }
+
+
         }
         return;
     }
