@@ -453,7 +453,7 @@ void Processor::Pipeline::ExecuteStage::ExecStatusAction(Integer value, int comm
     case 1: 
         // interrupt the simulation in a way that is resumable
         // from the interactive prompt.
-        GetKernel()->Abort();
+        GetKernel()->Stop();
         break;
     case 2:
         abort();

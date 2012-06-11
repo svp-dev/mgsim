@@ -216,7 +216,7 @@ void BreakPoints::CheckMore(int type, MemAddr addr, Object& obj)
         {
             ActiveBreak ab(addr, obj, i->second.type & type);
             m_activebreaks.insert(ab);
-            m_kernel.Abort();
+            m_kernel.Stop();
         }
     }
 }
