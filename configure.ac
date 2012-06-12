@@ -120,6 +120,15 @@ AC_LANG_POP([C++])
 
 ## Feature checks
 
+AC_ARG_ENABLE([trace-checks],
+              [AC_HELP_STRING([--disable-trace-checks],
+                              [disable checking of the allowed storage traces upon failed trace checks])],
+              [], [enable_trace_checks=yes])
+if test "x$enable_trace_checks" = xno; then
+  AC_DEFINE([DISABLE_TRACE_CHECKS], [1],
+            [Define if storage trace checks should be disabled])  
+fi
+
 AC_ARG_ENABLE([verbose-trace-checks],
               [AC_HELP_STRING([--disable-verbose-trace-checks],
                               [disable printing of the allowed storage traces upon failed trace checks])],
@@ -295,6 +304,7 @@ cat <<EOF
 *
 * CACTI area computation: $enable_cacti 
 * SDL output:             $enable_sdl
+* Trace checks:           $enable_trace_checks
 * Verbose trace checks:   $enable_verbose_trace_checks
 * Abort on trace failure: $enable_abort_on_trace_failure
 * Software IEEE754:       $enable_softfpu
