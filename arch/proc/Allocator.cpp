@@ -1128,16 +1128,7 @@ Result Processor::Allocator::DoFamilyAllocate()
     const ContextType type = (buffer == &m_allocRequestsExclusive) ? CONTEXT_EXCLUSIVE : CONTEXT_NORMAL;
     
     const LFID lfid = AllocateContext(type, req.prev_fid, req.placeSize);
-    if (lfid != INVALID_LFID)
-    {
-        // We have the context
-        COMMIT
-        {
-            Family& family = m_familyTable[lfid];
-            family.first_lfid = (req.first_fid == INVALID_LFID) ? lfid : req.first_fid;
-        }
-    }
-    else if (buffer != &m_allocRequestsNoSuspend)
+    if ((lfid == INVALID_LFID) && (buffer != &m_allocRequestsNoSuspend))
     {
         // No family entry was available; stall
         DeadlockWrite("Unable to allocate a free context");

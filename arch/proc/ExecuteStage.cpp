@@ -356,19 +356,12 @@ Processor::Pipeline::PipeAction Processor::Pipeline::ExecuteStage::ExecDetach(co
 
 Processor::Pipeline::PipeAction Processor::Pipeline::ExecuteStage::ExecBreak()
 { 
-    const Family& family = m_familyTable[m_input.fid];
-    
-    // Send message to the family on the first core
     COMMIT
     {
-        PID pid = m_parent.GetProcessor().GetPID();
-        
-        // If the numCores is 1, the family can start inside a place,
-        // so we can't use placeSize to calculate the start of the
-        // family. The start is ourselves in that case.
+             
         m_output.Rrc.type    = RemoteMessage::MSG_BREAK;
-        m_output.Rrc.brk.pid = (family.numCores > 1) ? pid & -family.placeSize : pid;
-        m_output.Rrc.brk.fid = family.first_lfid;
+        m_output.Rrc.brk.pid = m_parent.GetProcessor().GetPID();
+        m_output.Rrc.brk.fid = m_input.fid;
     }
     return PIPE_CONTINUE; 
 }
