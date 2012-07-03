@@ -188,11 +188,11 @@ Processor::Pipeline::PipeAction Processor::Pipeline::ExecuteStage::ExecAllocate(
     }
     
     AllocationType type = (AllocationType)(flags & 3);
-    if (exclusive && type == ALLOCATE_BALANCED)
+    if (exclusive && type != ALLOCATE_SINGLE)
     {
         type = ALLOCATE_SINGLE;
         
-        DebugSimWrite("F%u/T%u(%llu) %s adjusted allocate type exclusive balanced -> exclusive single",
+        DebugSimWrite("F%u/T%u(%llu) %s adjusted allocate type exclusive -> exclusive single",
                       (unsigned)m_input.fid, (unsigned)m_input.tid, (unsigned long long)m_input.logical_index, m_input.pc_sym);
     }
         
