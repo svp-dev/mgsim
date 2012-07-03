@@ -976,6 +976,9 @@ bool Processor::Allocator::QueueFamilyAllocation(const RemoteMessage& msg, bool 
     // Can't be balanced; that should have been handled by
     // the network before it gets here.
     assert(msg.allocate.type != ALLOCATE_BALANCED);
+
+    // Can't be exclusive and non-single.
+    assert(!msg.allocate.exclusive || msg.allocate.type == ALLOCATE_SINGLE);
     
     // Place the request in the appropriate buffer
     AllocRequest request;
