@@ -1475,7 +1475,7 @@ Result Processor::Allocator::DoBundle()
         
         msg.allocate.completion_reg    = info.completion_reg;
         msg.allocate.completion_pid    = m_parent.GetPID();
-        msg.allocate.type              = ALLOCATE_EXACT;
+        msg.allocate.type              = ALLOCATE_SINGLE;
         msg.allocate.suspend           = true;
         msg.allocate.exclusive         = true;
         msg.allocate.bundle.pc         = UnserializeRegister(RT_INTEGER, &m_bundleData[offset + sizeof(Integer)], sizeof(MemAddr));
