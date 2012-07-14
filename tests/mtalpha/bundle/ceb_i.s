@@ -14,10 +14,10 @@ main:
     mov  	10,$3
     mov  	3, $4
     mov  	2, $5
-    stq   	$4,-24($1)
-    stq   	$2,-16($1)
-    stq   	$5,-8($1)
-    subq  	$1,24,$1
+    subq  	$1,64,$1
+    stq   	$4,0($1)
+    stq   	$2,8($1)
+    stq   	$5,16($1)
     crebi/a	$1,$3   
     end
    .end main
