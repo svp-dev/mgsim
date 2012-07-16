@@ -29,16 +29,18 @@ class DDRMemory::Interface : public Object, public DDRChannel::ICallback
 {
     ArbitratedService<CyclicArbitratedPort> p_service;
 
-    DDRChannel*         m_memory;    //< DDR interface
+    DDRChannel*         m_ddr;       //< DDR interface
+    StorageTraceSet     m_ddrStorageTraces;
     Buffer<Request>     m_requests;  //< incoming from system, outgoing to memory
     Buffer<Request>     m_responses; //< incoming from memory, outgoing to system
-    Flag                m_memready;
-
-    Request             m_request; //< Currently active request to the DDR interface
+    
+    std::queue<Request> m_activeRequests; //< Requests currently active in DDR
 
     // Processes
     Process             p_Requests;
     Process             p_Responses;
+    
+    VirtualMemory&      m_memory;
 
     // Statistics
     uint64_t          m_nreads;
@@ -48,25 +50,26 @@ class DDRMemory::Interface : public Object, public DDRChannel::ICallback
 public:
 
     // IMemory
-    bool  OnReadCompleted(MemAddr address, const MemData& data)
+    bool OnReadCompleted()
     {
-        assert(m_request.address == address);
-        assert(m_request.data.size == data.size);
+        assert(!m_activeRequests.empty());
+        
+        Request& request = m_activeRequests.front();
 
         COMMIT {
-            memcpy(m_request.data.data, data.data, data.size);
+            m_memory.Read(request.address, request.data.data, request.data.size);
         }
-
-        if (!m_responses.Push(m_request))
+            
+        if (!m_responses.Push(request))
         {
             DeadlockWrite("Unable to push reply into send buffer");
             return false;
         }
-        // We're done with this request
-        if (!m_memready.Set())
-        {
-            return false;
+        
+        COMMIT {
+            m_activeRequests.pop();
         }
+
         return true;
     }
 
@@ -94,44 +97,35 @@ public:
 
         assert(!m_requests.Empty());
         
-        if (!m_memready.IsSet())
-        {
-            // We're currently processing a read that will produce a reply, stall
-            return FAILED;
-        }
-    
         const Request& req = m_requests.Front();
         
         if (!req.write)
         {
             // It's a read
-            if (!m_memory->Read(req.address, req.data.size))
-            {
-                return FAILED;
-            }
-            
-            if (!m_memready.Clear())
+            if (!m_ddr->Read(req.address, req.data.size))
             {
                 return FAILED;
             }
             
             COMMIT{ 
                 ++m_nreads;
-                m_request = req;
+                m_activeRequests.push(req);
             }
         }
         else
         {
-            if (!m_memory->Write(req.address, req.data.data, req.data.size))
+            if (!m_ddr->Write(req.address, req.data.size))
             {
                 return FAILED;
             }
-
+            
             if (!req.client->callback->OnMemoryWriteCompleted(req.tid)) {
                 return FAILED;
             }
 
             COMMIT { 
+                m_memory.Write(req.address, req.data.data, req.data.size);
+
                 ++m_nwrites;
             }
         }
@@ -202,18 +196,17 @@ public:
 
     void RegisterClient(ArbitratedService<>& client_arbitrator, Process& process, StorageTraceSet& traces, const StorageTraceSet& storages)
     {
-        // XXX what is this for?
         p_service.AddProcess(process);      
         client_arbitrator.AddProcess(p_Responses);
 
-        // XXX traces?
-        // p_Requests.SetStorageTraces(storages);
-        // traces ^= m_requests;
+        p_Requests.SetStorageTraces(m_ddrStorageTraces * storages);
+        p_Responses.SetStorageTraces(storages);
+        traces ^= m_requests;
     }
     
     bool HasRequests(void) const
     {
-        return !(m_requests.Empty() && m_responses.Empty() && m_memready.IsSet());
+        return !(m_requests.Empty() && m_responses.Empty());
     }
 
     void Print(ostream& out)
@@ -226,11 +219,7 @@ public:
         {
             PrintRequest(out, '>', *p);
         }
-        if (!m_memready.IsSet()) {
-            PrintRequest(out, '*', m_request);
-        } else {
-            out << "*                     |      |       |          |                          | " << endl;
-        }
+        out << "*                     |      |       |          |                          | " << endl;
         for (Buffer<Request>::const_reverse_iterator p = m_responses.rbegin(); p != m_responses.rend(); ++p)
         {
             PrintRequest(out, '<', *p);
@@ -243,9 +232,9 @@ public:
           p_service  (*this, clock, "p_service"),
           m_requests ("b_requests", *this, clock, config.getValue<size_t>(*this, "ExternalOutputQueueSize")),
           m_responses("b_responses", *this, clock, config.getValue<size_t>(*this, "ExternalInputQueueSize")),
-          m_memready ("f_memready", *this, clock, true),
           p_Requests (*this, "requests",   delegate::create<Interface, &Interface::DoRequests>(*this)),
           p_Responses(*this, "responses",  delegate::create<Interface, &Interface::DoResponses>(*this)),
+          m_memory(parent),
           m_nreads(0),
           m_nwrites(0)
     {
@@ -263,16 +252,12 @@ public:
         {
             throw exceptf<InvalidArgumentException>(*this, "Invalid DDR channel ID: %zu", ddrid);
         }
-        m_memory = ddr[ddrid];
+        m_ddr = ddr[ddrid];
     
-        StorageTraceSet sts;
-        m_memory->SetClient(*this, sts, m_responses * m_memready);
+        m_ddr->SetClient(*this, m_ddrStorageTraces, m_responses);
 
-        // XXX: component registry relations?
-        
-        // XXX: storage traces?
-        // p_Requests.SetStorageTraces(m_requests);
-        // p_Responses.SetStorageTraces(sts);
+        //p_Requests.SetStorageTraces(m_requests);
+        //p_Responses.SetStorageTraces(sts);
     }
 };
                         
@@ -293,15 +278,14 @@ MCID DDRMemory::RegisterClient(IMemoryCallback& callback, Process& process, Stor
     client.callback = &callback;
     m_clients.push_back(client);
 
+    m_storages ^= storage;
+    
     for (size_t i = 0; i < m_ifs.size(); ++i)
     {
         m_ifs[i]->RegisterClient(*client.service, process, traces, opt(m_storages));
     }
 
     m_registry.registerRelation(callback.GetMemoryPeer(), *this, "mem");
-
-    // XXX: storage traces?
-    // XXX: component registry relations?    
 
     return id;
 }
@@ -422,7 +406,7 @@ DDRMemory::DDRMemory(const std::string& name, Object& parent, Clock& clock, Conf
       m_clock(clock),
       m_ifs       (config.getValueOrDefault<size_t>(*this, "NumInterfaces", 
                                                          config.getValue<size_t>("NumProcessors"))),
-      m_ddr            ("ddr", *this, *this, config, m_ifs.size()),
+      m_ddr            ("ddr", *this, config, m_ifs.size()),
       m_lineSize       (config.getValue<size_t> ("CacheLineSize")),
       m_selector       (IBankSelector::makeSelector(*this, config.getValueOrDefault<string>(*this, "InterfaceSelector", defaultInterfaceSelectorType), m_ifs.size())),
       m_nreads         (0),
