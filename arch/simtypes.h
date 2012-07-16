@@ -29,6 +29,7 @@ typedef size_t   RegSize;       ///< Size of something in the register file
 typedef size_t   FSize;         ///< Family list size
 typedef size_t   LFID;          ///< Local family index
 
+
 enum ContextType
 {
     CONTEXT_NORMAL = 0,
@@ -297,7 +298,7 @@ enum ThreadState
     TST_RUNNING,
     TST_SUSPENDED,
     TST_UNUSED,
-    TST_KILLED,
+    TST_TERMINATED,
     TST_NUMSTATES
 };
 
@@ -310,7 +311,7 @@ enum FamilyState
 	FST_CREATE_QUEUED,
 	FST_CREATING,
     FST_ACTIVE,
-    FST_KILLED
+    FST_TERMINATED,
 };
 
 enum ExitCode

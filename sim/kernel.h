@@ -126,7 +126,7 @@ class Process
     Process*          m_next;          ///< Next pointer in the list of processes that require updates
     Process**         m_pPrev;         ///< Prev pointer in the list of processes that require updates
     
-#ifndef NDEBUG
+#if !defined(NDEBUG) && !defined(DISABLE_TRACE_CHECKS)
     StorageTraceSet m_storages;         ///< Set of storage traces this process can have
     StorageTrace    m_currentStorages;  ///< Storage trace for this cycle
 #endif
@@ -147,7 +147,7 @@ public:
     // The following functions are for verification of storage accesses.
     // They check that the process does not violate its contract for 
     // accessing storages. The contract is set up when the system is created.
-#ifndef NDEBUG
+#if !defined(NDEBUG) && !defined(DISABLE_TRACE_CHECKS)
     void OnBeginCycle() {
         m_currentStorages = StorageTrace();
     }
