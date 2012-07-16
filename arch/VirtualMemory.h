@@ -37,7 +37,10 @@ public:
     void UnreserveAll(ProcessID pid);
     
     void Read (MemAddr address, void* data, MemSize size) const;
-    void Write(MemAddr address, const void* data, MemSize size);
+
+    // Mask indicates which bytes of the data to actually write. If mask is set
+    // to NULL, then write all bytes.
+    void Write(MemAddr address, const void* data, const bool* mask, MemSize size);
     
     bool CheckPermissions(MemAddr address, MemSize size, int access) const;
 

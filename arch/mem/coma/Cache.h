@@ -119,7 +119,7 @@ private:
     Result OnReadRequest(const Request& req);
     Result OnWriteRequest(const Request& req);
     bool OnMessageReceived(Message* msg);
-    bool OnReadCompleted(MemAddr addr, const MemData& data);
+    bool OnReadCompleted(MemAddr addr, const char * data);
 public:
     Cache(const std::string& name, COMA& parent, Clock& clock, CacheID id, Config& config);
     
@@ -133,8 +133,8 @@ public:
     
     MCID RegisterClient  (IMemoryCallback& callback, Process& process, StorageTraceSet& traces, Storage& storage);
     void UnregisterClient(MCID id);
-    bool Read (MCID id, MemAddr address, MemSize size);
-    bool Write(MCID id, MemAddr address, const void* data, MemSize size, TID tid);
+    bool Read (MCID id, MemAddr address);
+    bool Write(MCID id, MemAddr address, const MemData& data, TID tid);
 };
 
 }

@@ -41,21 +41,9 @@ void COMA::Cache::UnregisterClient(MCID id)
 
 // Called from the processor on a memory read (typically a whole cache-line)
 // Just queues the request.
-bool COMA::Cache::Read(MCID id, MemAddr address, MemSize size)
+bool COMA::Cache::Read(MCID id, MemAddr address)
 {
-    if (size != m_lineSize)
-    {
-        throw InvalidArgumentException("Read size is not a single cache-line");
-    }
-
-    assert(size <= MAX_MEMORY_OPERATION_SIZE);
     assert(address % m_lineSize == 0);
-    assert(size == m_lineSize);
-    
-    if (address % m_lineSize != 0)
-    {
-        throw InvalidArgumentException("Read address is not aligned to a cache-line");
-    }
     
     // We need to arbitrate between the different processes on the cache,
     // and then between the different clients. There are 2 arbitrators for this.
@@ -69,7 +57,6 @@ bool COMA::Cache::Read(MCID id, MemAddr address, MemSize size)
     Request req;
     req.address = address;
     req.write   = false;
-    req.size    = size;
     
     // Client should have been registered
     assert(m_clients[id] != NULL);
@@ -86,17 +73,9 @@ bool COMA::Cache::Read(MCID id, MemAddr address, MemSize size)
 
 // Called from the processor on a memory write (can be any size with write-through/around)
 // Just queues the request.
-bool COMA::Cache::Write(MCID id, MemAddr address, const void* data, MemSize size, TID tid)
+bool COMA::Cache::Write(MCID id, MemAddr address, const MemData& data, TID tid)
 {
-    if (size > m_lineSize || size > MAX_MEMORY_OPERATION_SIZE)
-    {
-        throw InvalidArgumentException("Write size is too big");
-    }
-
-    if (address / m_lineSize != (address + size - 1) / m_lineSize)
-    {
-        throw InvalidArgumentException("Write request straddles cache-line boundary");
-    }
+    assert(address % m_lineSize == 0);
 
     // We need to arbitrate between the different processes on the cache,
     // and then between the different clients. There are 2 arbitrators for this.
@@ -110,11 +89,13 @@ bool COMA::Cache::Write(MCID id, MemAddr address, const void* data, MemSize size
     Request req;
     req.address = address;
     req.write   = true;
-    req.size    = size;
     req.client  = id;
     req.tid     = tid;
-    memcpy(req.data, data, (size_t)size);
-    
+    COMMIT{
+    std::copy(data.data, data.data + m_lineSize, req.data);
+    std::copy(data.mask, data.mask + m_lineSize, req.mask);
+    }
+
     // Client should have been registered
     assert(m_clients[req.client] != NULL);
     
@@ -131,7 +112,7 @@ bool COMA::Cache::Write(MCID id, MemAddr address, const void* data, MemSize size
         IMemoryCallback* client = m_clients[i];
         if (client != NULL && i != req.client)
         {
-            if (!client->OnMemorySnooped(req.address, req))
+            if (!client->OnMemorySnooped(req.address, req.data, req.mask))
             {
                 DeadlockWrite("Unable to snoop data to cache clients");
                 return false;
@@ -247,9 +228,8 @@ bool COMA::Cache::EvictLine(Line* line, const Request& req)
         msg->ignore    = false;
         msg->sender    = m_id;
         msg->tokens    = line->tokens;
-        msg->data.size = m_lineSize;
         msg->dirty     = line->dirty;
-        memcpy(msg->data.data, line->data, m_lineSize);
+        std::copy(line->data, line->data + m_lineSize, msg->data.data);
     }
     
     if (!SendMessage(msg, MINSPACE_INSERTION))
@@ -312,9 +292,8 @@ bool COMA::Cache::OnMessageReceived(Message* msg)
     {
     case Message::REQUEST:
     case Message::REQUEST_DATA:
-        // Some cache had a read miss. See if we have the line.
-        assert(msg->data.size == m_lineSize);
-        
+        // Some cache had a read miss. See if we have the line.        
+
         if (line != NULL && line->state == LINE_FULL)
         {
             // We have a copy of the line
@@ -328,7 +307,7 @@ bool COMA::Cache::OnMessageReceived(Message* msg)
                     msg->type   = Message::REQUEST_DATA_TOKEN;
                     msg->tokens = 1;
                     msg->dirty  = line->dirty;
-                    memcpy(msg->data.data, line->data, msg->data.size);
+                    std::copy(line->data, line->data + m_lineSize, msg->data.data);
 
                     line->tokens -= msg->tokens;
                                 
@@ -345,7 +324,7 @@ bool COMA::Cache::OnMessageReceived(Message* msg)
                 {
                     msg->type  = Message::REQUEST_DATA;
                     msg->dirty = line->dirty;
-                    memcpy(msg->data.data, line->data, msg->data.size);
+                    std::copy(line->data, line->data + m_lineSize, msg->data.data);
                 }
             }
 
@@ -376,23 +355,16 @@ bool COMA::Cache::OnMessageReceived(Message* msg)
         
         COMMIT
         {
+            // Some byte may have been overwritten by processor.
+            // Update the message. This will ensure the response
+            // gets the latest value, and other processors too
+            // (which is fine, according to non-determinism).
+            line::blit(msg->data.data, line->data, line->valid, m_lineSize);
+
             // Store the data, masked by the already-valid bitmask
-            for (size_t i = 0; i < msg->data.size; ++i)
-            {
-                if (!line->valid[i])
-                {
-                    line->data[i] = msg->data.data[i];
-                    line->valid[i] = true;
-                }
-                else
-                {
-                    // This byte has been overwritten by processor.
-                    // Update the message. This will ensure the response
-                    // gets the latest value, and other processors too
-                    // (which is fine, according to non-determinism).
-                    msg->data.data[i] = line->data[i];
-                }
-            }
+            line::blitnot(line->data, msg->data.data, line->valid, m_lineSize);
+            line::setifnot(line->valid, true, line->valid, m_lineSize);
+
             line->state  = LINE_FULL;
             line->tokens = msg->tokens;
             line->dirty  = msg->dirty || line->dirty;
@@ -405,16 +377,18 @@ bool COMA::Cache::OnMessageReceived(Message* msg)
          This is kind of a hack; it's feasibility in hardware in a single cycle
          is questionable.
         */
-        MemData data(msg->data);
+        char data[m_lineSize];
+
         COMMIT
         {
+            std::copy(msg->data.data, msg->data.data + m_lineSize, data);
+
             for (Buffer<Request>::const_iterator p = m_requests.begin(); p != m_requests.end(); ++p)
             {
-                unsigned int offset = p->address % m_lineSize;
-                if (p->write && p->address - offset == msg->address)
+                if (p->write && p->address == msg->address)
                 {
                     // This is a write to the same line, merge it
-                    std::copy(p->data, p->data + p->size, data.data + offset);
+                    line::blit(data, p->data, p->mask, m_lineSize);
                 }
             }
         }
@@ -475,8 +449,8 @@ bool COMA::Cache::OnMessageReceived(Message* msg)
                     line->dirty    = msg->dirty;
                     line->updating = 0;
                     line->access   = GetKernel()->GetCycleNo();
-                    std::fill(line->valid, line->valid + MAX_MEMORY_OPERATION_SIZE, true);
-                    memcpy(line->data, msg->data.data, msg->data.size);
+                    std::fill(line->valid, line->valid + m_lineSize, true);
+                    std::copy(msg->data.data, msg->data.data + m_lineSize, line->data);
 
                     delete msg; 
 
@@ -528,9 +502,8 @@ bool COMA::Cache::OnMessageReceived(Message* msg)
             {
                 COMMIT
                 {
-                    unsigned int offset = msg->address % m_lineSize;
-                    memcpy(line->data + offset, msg->data.data, msg->data.size);
-                    std::fill(line->valid + offset, line->valid + offset + msg->data.size, true);
+                    line::blit(line->data, msg->data.data, msg->data.mask, m_lineSize);
+                    line::setif(line->valid, true, msg->data.mask, m_lineSize);
 
                     // Statistics
                     ++m_numNetworkWHits;
@@ -541,7 +514,7 @@ bool COMA::Cache::OnMessageReceived(Message* msg)
                 {
                     if (m_clients[i] != NULL)
                     {
-                        if (!m_clients[i]->OnMemorySnooped(msg->address, msg->data))
+                        if (!m_clients[i]->OnMemorySnooped(msg->address, msg->data.data, msg->data.mask))
                         {
                             DeadlockWrite("Unable to snoop update to cache clients");
                             ++m_numStallingWSnoops;
@@ -569,7 +542,7 @@ bool COMA::Cache::OnMessageReceived(Message* msg)
     return true;
 }
     
-bool COMA::Cache::OnReadCompleted(MemAddr addr, const MemData& data)
+bool COMA::Cache::OnReadCompleted(MemAddr addr, const char * data)
 {
     // Send the completion on the bus
     if (!p_bus.Invoke())
@@ -602,8 +575,6 @@ Result COMA::Cache::OnWriteRequest(const Request& req)
         return FAILED;
     }
     
-    // Note that writes may not be of entire cache-lines
-    unsigned int offset = req.address % m_lineSize;
     MemAddr tag;
     
     Line* line = FindLine(req.address);
@@ -645,7 +616,7 @@ Result COMA::Cache::OnWriteRequest(const Request& req)
             line->tokens   = 0;
             line->dirty    = false;
             line->updating = 0;
-            std::fill(line->valid, line->valid + MAX_MEMORY_OPERATION_SIZE, false);
+            std::fill(line->valid, line->valid + m_lineSize, false);
         }
         
         // Send a request out for the cache-line
@@ -654,9 +625,8 @@ Result COMA::Cache::OnWriteRequest(const Request& req)
         {
             msg = new Message;
             msg->type      = Message::REQUEST;
-            msg->address   = req.address - offset;
+            msg->address   = req.address;
             msg->ignore    = false;
-            msg->data.size = m_lineSize;
             msg->tokens    = 0;
             msg->sender    = m_id;
             
@@ -708,8 +678,8 @@ Result COMA::Cache::OnWriteRequest(const Request& req)
             msg->ignore    = false;
             msg->client    = req.client;
             msg->tid       = req.tid;
-            msg->data.size = req.size;
-            memcpy(msg->data.data, req.data, req.size);
+            std::copy(req.data, req.data + m_lineSize, msg->data.data);
+            std::copy(req.mask, req.mask + m_lineSize, msg->data.mask);
 
             // Lock the line to prevent eviction
             line->updating++;
@@ -735,10 +705,8 @@ Result COMA::Cache::OnWriteRequest(const Request& req)
     // write the data into it.
     COMMIT
     {
-        memcpy(line->data + offset, req.data, req.size);
-        
-        // Mark the written area valid
-        std::fill(line->valid + offset, line->valid + offset + req.size, true);
+        line::blit(line->data, req.data, req.mask, m_lineSize);
+        line::setif(line->valid, true, req.mask, m_lineSize);
         
         // The line is now dirty
         line->dirty = true;
@@ -803,7 +771,7 @@ Result COMA::Cache::OnReadRequest(const Request& req)
             line->dirty    = false;
             line->updating = 0;
             line->access   = GetKernel()->GetCycleNo();
-            std::fill(line->valid, line->valid + MAX_MEMORY_OPERATION_SIZE, false);
+            std::fill(line->valid, line->valid + m_lineSize, false);
         }
         
         // Send a request out
@@ -814,7 +782,6 @@ Result COMA::Cache::OnReadRequest(const Request& req)
             msg->type      = Message::REQUEST;
             msg->address   = req.address;
             msg->ignore    = false;
-            msg->data.size = req.size;
             msg->tokens    = 0;
             msg->sender    = m_id;
         }
@@ -837,11 +804,11 @@ Result COMA::Cache::OnReadRequest(const Request& req)
         TraceWrite(req.address, "Processing Bus Read Request: Full Hit");
 
         // Return the data
-        MemData data;
-        data.size = req.size;
+        char data[m_lineSize];
+
         COMMIT
         {
-            memcpy(data.data, line->data, data.size);
+            std::copy(line->data, line->data + m_lineSize, data);
 
             // Update LRU information
             line->access = GetKernel()->GetCycleNo();
@@ -1040,12 +1007,11 @@ void COMA::Cache::Cmd_Read(std::ostream& out, const std::vector<std::string>& ar
     {
         // Read the buffers
         out << "Bus requests:" << endl << endl
-            << "      Address      | Size | Type  |" << endl
-            << "-------------------+------+-------+" << endl;
+            << "      Address      | Type  |" << endl
+            << "-------------------+-------+" << endl;
         for (Buffer<Request>::const_iterator p = m_requests.begin(); p != m_requests.end(); ++p)
         {
             out << hex << "0x" << setw(16) << setfill('0') << p->address << " | "
-                << dec << setw(4) << right << setfill(' ') << p->size << " | "
                 << (p->write ? "Write" : "Read ") << " | "
                 << endl;
         }

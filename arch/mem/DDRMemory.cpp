@@ -27,6 +27,8 @@ struct DDRMemory::Request
 
 class DDRMemory::Interface : public Object, public DDRChannel::ICallback
 {
+    size_t              m_lineSize;  //< Cache line size
+
     ArbitratedService<CyclicArbitratedPort> p_service;
 
     DDRChannel*         m_ddr;       //< DDR interface
@@ -57,7 +59,7 @@ public:
         Request& request = m_activeRequests.front();
 
         COMMIT {
-            m_memory.Read(request.address, request.data.data, request.data.size);
+            m_memory.Read(request.address, request.data.data, m_lineSize);
         }
             
         if (!m_responses.Push(request))
@@ -102,7 +104,7 @@ public:
         if (!req.write)
         {
             // It's a read
-            if (!m_ddr->Read(req.address, req.data.size))
+            if (!m_ddr->Read(req.address, m_lineSize))
             {
                 return FAILED;
             }
@@ -114,7 +116,7 @@ public:
         }
         else
         {
-            if (!m_ddr->Write(req.address, req.data.size))
+            if (!m_ddr->Write(req.address, m_lineSize))
             {
                 return FAILED;
             }
@@ -124,7 +126,7 @@ public:
             }
 
             COMMIT { 
-                m_memory.Write(req.address, req.data.data, req.data.size);
+                m_memory.Write(req.address, req.data.data, req.data.mask, m_lineSize);
 
                 ++m_nwrites;
             }
@@ -150,7 +152,7 @@ public:
             return FAILED;
         }
         
-        if (!request.client->callback->OnMemoryReadCompleted(request.address, request.data)) {
+        if (!request.client->callback->OnMemoryReadCompleted(request.address, request.data.data)) {
             return FAILED;
         }
         
@@ -158,12 +160,11 @@ public:
         return SUCCESS;
     }
 
-    static void PrintRequest(ostream& out, char prefix, const Request& request)
+    static void PrintRequest(ostream& out, char prefix, const Request& request, size_t lineSize)
     {
         out << prefix << " "
             << hex << setfill('0') << right
-            << " 0x" << setw(16) << request.address << " | "
-            << setfill(' ') << setw(4) << dec << request.data.size << " | ";
+            << " 0x" << setw(16) << request.address << " | ";
 
         if (request.write) {
             out << "Write";
@@ -174,10 +175,12 @@ public:
         if (request.write)
         {
             out << hex << setfill('0');
-            for (size_t x = 0; x < request.data.size; ++x)
+            for (size_t x = 0; x < lineSize; ++x)
             {
-                out << " ";
-                out << setw(2) << (unsigned)(unsigned char)request.data.data[x];
+                if (request.data.mask[x])
+                    out << " " << setw(2) << (unsigned)(unsigned char)request.data.data[x];
+                else
+                    out << " --";
             }
         }
         else
@@ -212,23 +215,24 @@ public:
     void Print(ostream& out)
     {
         out << GetName() << ":" << endl;
-        out << "        Address       | Size | Type  | Value(writes)            | Source" << endl;
-        out << "----------------------+------+-------+--------------------------+-----------------" << endl;
+        out << "        Address       | Type  | Value(writes)            | Source" << endl;
+        out << "----------------------+-------+--------------------------+-----------------" << endl;
 
         for (Buffer<Request>::const_reverse_iterator p = m_requests.rbegin(); p != m_requests.rend(); ++p)
         {
-            PrintRequest(out, '>', *p);
+            PrintRequest(out, '>', *p, m_lineSize);
         }
-        out << "*                     |      |       |          |                          | " << endl;
+        out << "*                     |       |          |                          | " << endl;
         for (Buffer<Request>::const_reverse_iterator p = m_responses.rbegin(); p != m_responses.rend(); ++p)
         {
-            PrintRequest(out, '<', *p);
+            PrintRequest(out, '<', *p, m_lineSize);
         }
         out << endl;
     }
     
     Interface(const std::string& name, DDRMemory& parent, Clock& clock, size_t id, const DDRChannelRegistry& ddr, Config& config)
         : Object     (name, parent, clock),
+          m_lineSize (config.getValue<size_t>("CacheLineSize")),
           p_service  (*this, clock, "p_service"),
           m_requests ("b_requests", *this, clock, config.getValue<size_t>(*this, "ExternalOutputQueueSize")),
           m_responses("b_responses", *this, clock, config.getValue<size_t>(*this, "ExternalInputQueueSize")),
@@ -299,24 +303,20 @@ void DDRMemory::UnregisterClient(MCID id)
     client.callback = NULL;
 }
 
-bool DDRMemory::Read(MCID id, MemAddr address, MemSize size)
+bool DDRMemory::Read(MCID id, MemAddr address)
 {
-    if (size > MAX_MEMORY_OPERATION_SIZE)
-    {
-        throw InvalidArgumentException("Size argument too big");
-    }
+    assert(address % m_lineSize == 0);
 
     // Client should have been registered
     assert(id < m_clients.size() && m_clients[id].callback != NULL);
 
     size_t if_index;
     MemAddr unused;
-    m_selector->Map(address / m_lineSize, unused, if_index);
+    m_selector->Map(address, unused, if_index);
 
     Request request;
     request.address   = address;
     request.client    = &m_clients[id];
-    request.data.size = size;
     request.write     = false;
     
     Interface& chan = *m_ifs[ if_index ];
@@ -325,16 +325,13 @@ bool DDRMemory::Read(MCID id, MemAddr address, MemSize size)
         return false;
     }
 
-    COMMIT { ++m_nreads; m_nread_bytes += size; }
+    COMMIT { ++m_nreads; m_nread_bytes += m_lineSize; }
     return true;
 }
 
-bool DDRMemory::Write(MCID id, MemAddr address, const void* data, MemSize size, TID tid)
+bool DDRMemory::Write(MCID id, MemAddr address, const MemData& data, TID tid)
 {
-    if (size > MAX_MEMORY_OPERATION_SIZE)
-    {
-        throw InvalidArgumentException("Size argument too big");
-    }
+    assert(address % m_lineSize == 0);
     
     // Client should have been registered
     assert(id < m_clients.size() && m_clients[id].callback != NULL);
@@ -342,15 +339,17 @@ bool DDRMemory::Write(MCID id, MemAddr address, const void* data, MemSize size, 
     Request request;
     request.address   = address;
     request.client    = &m_clients[id];
-    request.data.size = size;
     request.tid       = tid;
     request.write     = true;
-    memcpy(request.data.data, data, (size_t)size);
+    COMMIT{
+    std::copy(data.data, data.data + m_lineSize, request.data.data);
+    std::copy(data.mask, data.mask + m_lineSize, request.data.mask);
+    }
 
     // Broadcast the snoop data
     for (std::vector<ClientInfo>::iterator p = m_clients.begin(); p != m_clients.end(); ++p)
     {
-        if (!p->callback->OnMemorySnooped(address, request.data))
+        if (!p->callback->OnMemorySnooped(address, request.data.data, request.data.mask))
         {
             return false;
         }
@@ -366,7 +365,7 @@ bool DDRMemory::Write(MCID id, MemAddr address, const void* data, MemSize size, 
        return false;
     }
 
-    COMMIT { ++m_nwrites; m_nwrite_bytes += size; }
+    COMMIT { ++m_nwrites; m_nwrite_bytes += m_lineSize; }
     return true;
 }
 
@@ -390,9 +389,9 @@ void DDRMemory::Read(MemAddr address, void* data, MemSize size)
     return VirtualMemory::Read(address, data, size);
 }
 
-void DDRMemory::Write(MemAddr address, const void* data, MemSize size)
+void DDRMemory::Write(MemAddr address, const void* data, const bool* mask, MemSize size)
 {
-    return VirtualMemory::Write(address, data, size);
+    return VirtualMemory::Write(address, data, mask, size);
 }
 
 bool DDRMemory::CheckPermissions(MemAddr address, MemSize size, int access) const

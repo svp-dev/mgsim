@@ -21,6 +21,7 @@ struct BankedMemory::Request
     ClientInfo* client;
     bool        write;
     MemAddr     address;
+    MemSize     size;
     MemData     data;
     TID         tid;
     CycleNo     done;
@@ -42,7 +43,7 @@ class BankedMemory::Bank : public Object
     {
         COMMIT
         {
-            const std::pair<CycleNo, CycleNo> delay = m_memory.GetMessageDelay(data ? request.data.size : 0);
+            const std::pair<CycleNo, CycleNo> delay = m_memory.GetMessageDelay(data ? request.size : 0);
             const CycleNo                     now   = GetCycleNo();
             
             // Get the arrival time of the first bits
@@ -83,7 +84,7 @@ class BankedMemory::Bank : public Object
             }
                     
             m_request = request;
-            m_request.done = now + m_memory.GetMemoryDelay(request.data.size);
+            m_request.done = now + m_memory.GetMemoryDelay(request.size);
             if (!m_busy.Set())
             {
                 return FAILED;
@@ -114,7 +115,7 @@ class BankedMemory::Bank : public Object
                     return FAILED;
                 }
             } else {
-                if (!request.client->callback->OnMemoryReadCompleted(request.address, request.data)) {
+                if (!request.client->callback->OnMemoryReadCompleted(request.address, request.data.data)) {
                     return FAILED;
                 }
             }
@@ -132,9 +133,9 @@ class BankedMemory::Bank : public Object
         {
             // This bank is done serving the request
             if (m_request.write) {
-                m_memory.Write(m_request.address, m_request.data.data, m_request.data.size);
+                m_memory.Write(m_request.address, m_request.data.data, m_request.data.mask, m_request.size);
             } else {
-                m_memory.Read(m_request.address, m_request.data.data, m_request.data.size);
+                m_memory.Read(m_request.address, m_request.data.data, m_request.size);
             }
 
             // Move it to the outgoing queue
@@ -156,7 +157,7 @@ class BankedMemory::Bank : public Object
         out << prefix << " "
             << hex << setfill('0') << right
             << " 0x" << setw(16) << request.address << " | "
-            << setfill(' ') << setw(4) << dec << request.data.size << " | ";
+            << setfill(' ') << setw(4) << dec << request.size << " | ";
 
         if (request.write) {
             out << "Write";
@@ -167,10 +168,13 @@ class BankedMemory::Bank : public Object
         if (request.write)
         {
             out << hex << setfill('0');
-            for (size_t x = 0; x < request.data.size; ++x)
+            for (size_t x = 0; x < request.size; ++x)
             {
                 out << " ";
-                out << setw(2) << (unsigned)(unsigned char)request.data.data[x];
+                if (request.data.mask[x])                    
+                    out << setw(2) << (unsigned)(unsigned char)request.data.data[x];
+                else
+                    out << "--";
             }
         }
         else
@@ -311,12 +315,9 @@ void BankedMemory::UnregisterClient(MCID id)
     client.callback = NULL;
 }
 
-bool BankedMemory::Read(MCID id, MemAddr address, MemSize size)
+bool BankedMemory::Read(MCID id, MemAddr address)
 {
-    if (size > MAX_MEMORY_OPERATION_SIZE)
-    {
-        throw InvalidArgumentException("Size argument too big");
-    }
+    assert(address % m_lineSize == 0);
 
     // Client should have been registered
     assert(id < m_clients.size() && m_clients[id].callback != NULL);
@@ -329,7 +330,7 @@ bool BankedMemory::Read(MCID id, MemAddr address, MemSize size)
     Request request;
     request.address   = address;
     request.client    = &m_clients[id];
-    request.data.size = size;
+    request.size      = m_lineSize;
     request.write     = false;
     
     Bank& bank = *m_banks[ bank_index ];
@@ -338,32 +339,32 @@ bool BankedMemory::Read(MCID id, MemAddr address, MemSize size)
         return false;
     }
 
-    COMMIT { ++m_nreads; m_nread_bytes += size; }
+    COMMIT { ++m_nreads; m_nread_bytes += m_lineSize; }
     return true;
 }
 
-bool BankedMemory::Write(MCID id, MemAddr address, const void* data, MemSize size, TID tid)
-{
-    if (size > MAX_MEMORY_OPERATION_SIZE)
-    {
-        throw InvalidArgumentException("Size argument too big");
-    }
-    
+bool BankedMemory::Write(MCID id, MemAddr address, const MemData& data, TID tid)
+{    
+    assert(address % m_lineSize == 0);
+
     // Client should have been registered
     assert(id < m_clients.size() && m_clients[id].callback != NULL);
 
     Request request;
     request.address   = address;
     request.client    = &m_clients[id];
-    request.data.size = size;
+    request.size      = m_lineSize;
     request.tid       = tid;
     request.write     = true;
-    memcpy(request.data.data, data, (size_t)size);
+    COMMIT{
+    std::copy(data.data, data.data+m_lineSize, request.data.data);
+    std::copy(data.mask, data.mask+m_lineSize, request.data.mask);
+    }
 
     // Broadcast the snoop data
     for (std::vector<ClientInfo>::iterator p = m_clients.begin(); p != m_clients.end(); ++p)
     {
-        if (!p->callback->OnMemorySnooped(request.address, request.data))
+        if (!p->callback->OnMemorySnooped(request.address, request.data.data, request.data.mask))
         {
             return false;
         }
@@ -379,7 +380,7 @@ bool BankedMemory::Write(MCID id, MemAddr address, const void* data, MemSize siz
         return false;
     }
 
-    COMMIT { ++m_nwrites; m_nwrite_bytes += size; }
+    COMMIT { ++m_nwrites; m_nwrite_bytes += m_lineSize; }
     return true;
 }
 
@@ -403,9 +404,9 @@ void BankedMemory::Read(MemAddr address, void* data, MemSize size)
     return VirtualMemory::Read(address, data, size);
 }
 
-void BankedMemory::Write(MemAddr address, const void* data, MemSize size)
+void BankedMemory::Write(MemAddr address, const void* data, const bool* mask, MemSize size)
 {
-    return VirtualMemory::Write(address, data, size);
+    return VirtualMemory::Write(address, data, mask, size);
 }
 
 bool BankedMemory::CheckPermissions(MemAddr address, MemSize size, int access) const

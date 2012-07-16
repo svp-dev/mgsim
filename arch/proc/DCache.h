@@ -122,9 +122,9 @@ public:
     size_t GetLineSize() const { return m_lineSize; }
 
     // Memory callbacks
-    bool OnMemoryReadCompleted(MemAddr addr, const MemData& data);
+    bool OnMemoryReadCompleted(MemAddr addr, const char* data);
     bool OnMemoryWriteCompleted(TID tid);
-    bool OnMemorySnooped(MemAddr addr, const MemData& data);
+    bool OnMemorySnooped(MemAddr addr, const char* data, const bool* mask);
     bool OnMemoryInvalidated(MemAddr addr);
 
     Object& GetMemoryPeer() { return m_parent; }

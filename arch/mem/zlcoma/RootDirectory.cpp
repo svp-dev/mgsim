@@ -80,14 +80,9 @@ bool ZLCOMA::RootDirectory::OnReadCompleted()
         char data[m_lineSize];
         m_parent.Read(msg->address, data, m_lineSize);
 
-        for (size_t i = 0; i < m_lineSize; ++i)
-        {
-            if (!msg->bitmask[i])
-            {
-                msg->data[i] = data[i];
-                msg->bitmask[i] = true;
-            }
-        }
+        line::blitnot(msg->data, data, msg->bitmask, m_lineSize);
+        std::fill(msg->bitmask, msg->bitmask + m_lineSize, true);
+
         msg->dirty = false;
         
         m_active.pop();
@@ -386,7 +381,7 @@ Result ZLCOMA::RootDirectory::DoRequests()
             }
             
             COMMIT{
-                m_parent.Write(msg->address, msg->data, m_lineSize);
+                m_parent.Write(msg->address, msg->data, 0, m_lineSize);
                 
                 ++m_nwrites;
                 delete msg; 

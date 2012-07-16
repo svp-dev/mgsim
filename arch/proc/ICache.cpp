@@ -375,10 +375,9 @@ Result Processor::ICache::Fetch(MemAddr address, MemSize size, TID* tid, CID* ci
     return DELAYED;
 }
 
-bool Processor::ICache::OnMemoryReadCompleted(MemAddr addr, const MemData& data)
+bool Processor::ICache::OnMemoryReadCompleted(MemAddr addr, const char *data)
 {
     // Instruction cache line returned, store in cache and Buffer
-    assert(data.size == m_lineSize);
     
     // Find the line
     Line* line;
@@ -389,7 +388,7 @@ bool Processor::ICache::OnMemoryReadCompleted(MemAddr addr, const MemData& data)
         
         COMMIT
         {
-            memcpy(line->data, data.data, (size_t)data.size);
+            std::copy(data, data + m_lineSize, line->data);
         }
     
         CID cid = line - &m_lines[0];
@@ -409,15 +408,16 @@ bool Processor::ICache::OnMemoryWriteCompleted(TID /*tid*/)
     return false;
 }
 
-bool Processor::ICache::OnMemorySnooped(MemAddr address, const MemData& data)
+bool Processor::ICache::OnMemorySnooped(MemAddr address, const char * data, const bool * mask)
 {
     Line* line;
     // Cache coherency: check if we have the same address
     if (FindLine(address, line, true) == SUCCESS)
     {
         // We do, update the data
-        size_t offset = (size_t)(address % m_lineSize);
-        memcpy(line->data + offset, data.data, (size_t)data.size);
+        COMMIT{
+            line::blit(line->data, data, mask, m_lineSize);
+        }
     }
     return true;
 }
@@ -447,7 +447,7 @@ Result Processor::ICache::DoOutgoing()
 {
     assert(!m_outgoing.Empty());
     const MemAddr& address = m_outgoing.Front();
-    if (!m_memory.Read(m_mcid, address, m_lineSize))
+    if (!m_memory.Read(m_mcid, address))
     {
         // The fetch failed
         DeadlockWrite("Unable to read %#016llx from memory", (unsigned long long)address);

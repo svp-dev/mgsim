@@ -26,8 +26,8 @@ class ParallelMemory : public Object, public IMemoryAdmin, public VirtualMemory
     // IMemory
     MCID RegisterClient(IMemoryCallback& callback, Process& process, StorageTraceSet& traces, Storage& storage, bool /*ignored*/);
     void UnregisterClient(MCID id);
-    bool Read (MCID id, MemAddr address, MemSize size);
-    bool Write(MCID id, MemAddr address, const void* data, MemSize size, TID tid);
+    bool Read (MCID id, MemAddr address);
+    bool Write(MCID id, MemAddr address, const MemData& data, TID tid);
 	bool CheckPermissions(MemAddr address, MemSize size, int access) const;
 
     // IMemoryAdmin
@@ -36,7 +36,7 @@ class ParallelMemory : public Object, public IMemoryAdmin, public VirtualMemory
     void UnreserveAll(ProcessID pid);
 
     void Read (MemAddr address, void* data, MemSize size);
-    void Write(MemAddr address, const void* data, MemSize size);
+    void Write(MemAddr address, const void* data, const bool* mask, MemSize size);
     
     void GetMemoryStatistics(uint64_t& nreads, uint64_t& nwrites, 
                              uint64_t& nread_bytes, uint64_t& nwrite_bytes,
@@ -58,7 +58,7 @@ class ParallelMemory : public Object, public IMemoryAdmin, public VirtualMemory
     BufferSize m_buffersize;   // Size of request queues
     CycleNo	m_baseRequestTime; // Config: This many cycles per request regardless of size
     CycleNo	m_timePerLine;     // Config: With this many additional cycles per line
-    size_t	m_sizeOfLine;      // Config: With this many bytes per line
+    size_t	m_lineSize;      // Config: With this many bytes per line
     
     uint64_t m_nreads;
     uint64_t m_nread_bytes;

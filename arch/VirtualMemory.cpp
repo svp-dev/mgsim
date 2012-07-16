@@ -157,10 +157,10 @@ void VirtualMemory::Read(MemAddr address, void* _data, MemSize size) const
 
         if (pos->first > base) {
             // This part of the request does not exist, fill with zero
-            fill(data, data + count, 0);
+            std::fill(data, data + count, 0);
         } else {
             // Read data
-            memcpy(data, pos->second.data + offset, count);
+            std::copy(pos->second.data + offset, pos->second.data + offset + count, data);
             ++pos;
         }
         size  -= count;
@@ -170,7 +170,7 @@ void VirtualMemory::Read(MemAddr address, void* _data, MemSize size) const
     }
 }
 
-void VirtualMemory::Write(MemAddr address, const void* _data, MemSize size)
+void VirtualMemory::Write(MemAddr address, const void* _data, const bool* mask, MemSize size)
 {
 #if MEMSIZE_MAX >= SIZE_MAX
     if (size > SIZE_MAX)
@@ -200,9 +200,14 @@ void VirtualMemory::Write(MemAddr address, const void* _data, MemSize size)
         size_t count = min( (size_t)size, (size_t)BLOCK_SIZE - offset);
 
         // Write data
-        memcpy(pos->second.data + offset, data, count);
+        for (size_t i = 0; i < count; ++i)
+            if (mask == 0 || mask[i])
+                pos->second.data[offset + i] = data[i];
+
         size  -= count;
         data  += count;
+        if (mask != 0)
+            mask  += count;
         base  += BLOCK_SIZE;
         offset = 0;
     }

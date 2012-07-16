@@ -78,7 +78,6 @@ bool COMA::RootDirectory::OnReadCompleted()
     COMMIT
     {
         msg->type = Message::REQUEST_DATA_TOKEN;
-        msg->data.size = m_lineSize;
         msg->dirty = false;
         
         m_parent.Read(msg->address, msg->data.data, m_lineSize);
@@ -113,7 +112,6 @@ bool COMA::RootDirectory::OnMessageReceived(Message* msg)
         case Message::REQUEST:
         {
             // Cache-line read request
-            assert(msg->data.size == m_lineSize);
         
             // Find or allocate the line
             Line* line = FindLine(msg->address, false);
@@ -140,7 +138,6 @@ bool COMA::RootDirectory::OnMessageReceived(Message* msg)
         case Message::REQUEST_DATA:
         {
             // Cache-line read request with data
-            assert(msg->data.size == m_lineSize);
             
             // Find or allocate the line. This should not fail.
             Line* line = FindLine(msg->address, false);
@@ -294,7 +291,6 @@ Result COMA::RootDirectory::DoRequests()
                 ++m_nreads;
 
                 msg->type = Message::REQUEST_DATA_TOKEN;
-                msg->data.size = m_lineSize;
                 msg->dirty = false;
 
                 m_parent.Read(msg->address, msg->data.data, m_lineSize);
@@ -312,13 +308,13 @@ Result COMA::RootDirectory::DoRequests()
             // It's a write
             assert(msg->type == Message::EVICTION);
 #if 0
-            if (!m_memory->Write(mem_address, msg->data.size))
+            if (!m_memory->Write(msg->address, msg->data.data, m_lineSize))
             {
                 return FAILED;
             }
 #endif
             COMMIT { 
-                m_parent.Write(msg->address, msg->data.data, msg->data.size);
+                m_parent.Write(msg->address, msg->data.data, 0, m_lineSize);
                 ++m_nwrites;
                 delete msg;
             }

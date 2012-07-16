@@ -95,7 +95,8 @@ private:
     struct Request
     {
         MemAddr      address;   ///< We want something with this address
-        MemSize      size;      ///< With this data size
+        MemSize      size;      ///< With this size
+        MemData      data;      ///< With this data
         unsigned int offset;    ///< Current offset that we're handling
         bool         write;     ///< A write or read
         CycleNo      done;      ///< When this request is done

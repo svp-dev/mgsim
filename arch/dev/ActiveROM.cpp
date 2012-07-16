@@ -119,7 +119,7 @@ namespace Simulator
             }
             if (m_preloaded_at_boot)
             {                
-                m_memory.Write(r.vaddr, m_data + r.rom_offset, r.rom_size);
+                m_memory.Write(r.vaddr, m_data + r.rom_offset, 0, r.rom_size);
                 if (m_verboseload)
                 {
                     clog << ", preloaded " << dec << r.rom_size << " bytes to DRAM from ROM offset 0x" << hex << r.rom_offset;
