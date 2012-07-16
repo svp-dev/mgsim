@@ -48,4 +48,10 @@ TESTS = \
 	$(TEST_BINS:.bin=.coma) \
     $(TEST_BINS:.bin=.zlcoma)
 
+check_%: $(TEST_BINS)
+	$(MAKE) check TESTS="$(TEST_BINS:.bin=.$*)"
+
+recheck_%: $(TEST_BINS)
+	$(MAKE) recheck TESTS="$(TEST_BINS:.bin=.$*)"
+
 CLEANFILES = $(TESTS) *.out
