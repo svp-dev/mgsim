@@ -103,6 +103,7 @@ COMA::Directory::Line* COMA::Directory::AllocateLine(MemAddr address)
 
 bool COMA::Directory::OnMessageReceivedBottom(Message* msg)
 {
+#if 0
     // We need to grab p_line because it arbitrates access to the outgoing
     // buffer on the top ring as well.
     if (!p_lines.Invoke())
@@ -152,6 +153,7 @@ bool COMA::Directory::OnMessageReceivedBottom(Message* msg)
     
     // We can stop ignoring it now
     COMMIT{ msg->ignore = false; }
+#endif
     
     // Put the message on the higher-level ring
     if (!m_top.SendMessage(msg, MINSPACE_FORWARD))
@@ -165,6 +167,7 @@ bool COMA::Directory::OnMessageReceivedBottom(Message* msg)
 
 bool COMA::Directory::OnMessageReceivedTop(Message* msg)
 {
+#if 0
     if (!p_lines.Invoke())
     {
         DeadlockWrite("Unable to get access to lines");
@@ -221,6 +224,7 @@ bool COMA::Directory::OnMessageReceivedTop(Message* msg)
         }
     }
     else
+#endif
     {
         // We have the line; put the request on the lower ring
         if (!m_bottom.SendMessage(msg, MINSPACE_FORWARD))

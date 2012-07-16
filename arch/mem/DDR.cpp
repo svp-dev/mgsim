@@ -1,5 +1,4 @@
 #include "DDR.h"
-#include "VirtualMemory.h"
 #include "sim/config.h"
 #include "sim/log2.h"
 #include <sstream>
@@ -28,15 +27,11 @@ bool DDRChannel::Read(MemAddr address, MemSize size)
     // Accept request
     COMMIT
     {
-        m_request.address   = address;
-        m_request.offset    = 0;
-        m_request.data.size = size;
-        m_request.write     = false;     
-        m_next_command = 0;
+        m_request.address = address;
+        m_request.offset  = 0;
+        m_request.size    = size;
+        m_request.write   = false;
     }
-
-    // Get the actual data
-    m_memory.Read(address, m_request.data.data, size);
     
     if (!m_busy.Set())
     {
@@ -45,7 +40,7 @@ bool DDRChannel::Read(MemAddr address, MemSize size)
     return true;
 }
 
-bool DDRChannel::Write(MemAddr address, const void* data, MemSize size)
+bool DDRChannel::Write(MemAddr address, MemSize size)
 {
     if (m_busy.IsSet())
     {
@@ -56,17 +51,12 @@ bool DDRChannel::Write(MemAddr address, const void* data, MemSize size)
     // Accept request
     COMMIT
     {
-        m_request.address   = address;
-        m_request.offset    = 0;
-        m_request.data.size = size;
-        m_request.write     = true;
-        
-        m_next_command = 0;
+        m_request.address = address;
+        m_request.offset  = 0;
+        m_request.size    = size;
+        m_request.write   = true;
     }
 
-    // Write the actual data
-    m_memory.Write(address, data, size);
-    
     if (!m_busy.Set())
     {
         return false;
@@ -90,20 +80,25 @@ Result DDRChannel::DoRequest()
     const unsigned burst_size = m_ddrconfig.m_nBurstSize;
     
     // Decode the burst address and offset-within-burst
-    const MemAddr      address = (m_request.address + m_request.offset) / burst_size;
-    const unsigned int offset  = (m_request.address + m_request.offset) % burst_size;
-    const unsigned int rank    = GET_BITS(address, m_ddrconfig.m_nRankStart, m_ddrconfig.m_nRankBits),
+    const MemAddr      address = (m_request.address + m_request.offset) / m_ddrconfig.m_nDevicesPerRank;
+    const unsigned int offset  = (m_request.address + m_request.offset) % m_ddrconfig.m_nDevicesPerRank;
+    const unsigned int bank    = GET_BITS(address, m_ddrconfig.m_nBankStart, m_ddrconfig.m_nBankBits),
+                       rank    = GET_BITS(address, m_ddrconfig.m_nRankStart, m_ddrconfig.m_nRankBits),
                        row     = GET_BITS(address, m_ddrconfig.m_nRowStart,  m_ddrconfig.m_nRowBits);
 
-    if (m_currentRow[rank] != row)
+    // Ranks and banks are analogous in this concept; each bank can be invidually pre-charged and activated,
+    // providing an array of rows * columns cells.
+    const unsigned int array  = rank * (1 << m_ddrconfig.m_nBankBits) + bank;
+    
+    if (m_currentRow[array] != row)
     {
-        if (m_currentRow[rank] != INVALID_ROW)
+        if (m_currentRow[array] != INVALID_ROW)
         {
             // Precharge (close) the currently active row
             COMMIT
             {
                 m_next_command = std::max(m_next_precharge, now) + m_ddrconfig.m_tRP;
-                m_currentRow[rank] = INVALID_ROW;
+                m_currentRow[array] = INVALID_ROW;
             }
             return SUCCESS;
         }
@@ -114,13 +109,13 @@ Result DDRChannel::DoRequest()
             m_next_command   = now + m_ddrconfig.m_tRCD;
             m_next_precharge = now + m_ddrconfig.m_tRAS;
             
-            m_currentRow[rank] = row;
+            m_currentRow[array] = row;
         }
         return SUCCESS;
     }
     
     // Process a single burst
-    unsigned int remainder = m_request.data.size - m_request.offset;
+    unsigned int remainder = m_request.size - m_request.offset;
     unsigned int size      = std::min(burst_size - offset, remainder);
 
     if (m_request.write)
@@ -184,12 +179,13 @@ Result DDRChannel::DoPipeline()
     {
         // The last burst has completed, send the assembled data back
         assert(!request.write);
-        if (!m_callback->OnReadCompleted(request.address, request.data))
+        if (!m_callback->OnReadCompleted())
         {
             return FAILED;
         }
         m_pipeline.Pop();
     }
+    COMMIT{ m_busyCycles++; }
     return SUCCESS;
 }
 
@@ -200,6 +196,7 @@ DDRChannel::DDRConfig::DDRConfig(const std::string& name, Object& parent, Clock&
     m_nBurstLength = config.getValue<size_t> (*this, "BurstLength");
     if (m_nBurstLength != 8)
         throw SimulationException(*this, "This implementation only supports m_nBurstLength = 8");
+        
     size_t cellsize = config.getValue<size_t> (*this, "CellSize");
     if (cellsize != 8)
         throw SimulationException(*this, "This implementation only supports CellSize = 8");
@@ -217,28 +214,28 @@ DDRChannel::DDRConfig::DDRConfig(const std::string& name, Object& parent, Clock&
     m_tWR = config.getValue<unsigned> (*this, "tWR") / 1e3 * clock.GetFrequency();
 
     // Address bit mapping.
-    // One row bit added for a 4GB DIMM with ECC.
     m_nDevicesPerRank = config.getValue<size_t> (*this, "DevicesPerRank");
     m_nRankBits = ilog2(config.getValue<size_t> (*this, "Ranks"));
+    m_nBankBits = ilog2(config.getValue<size_t> (*this, "Banks"));
     m_nRowBits = config.getValue<size_t> (*this, "RowBits");
     m_nColumnBits = config.getValue<size_t> (*this, "ColumnBits");
     m_nBurstSize = m_nDevicesPerRank * m_nBurstLength;
 
-    // ordering of bits in address:
+    // ordering of bits in address (after division by burst size):
     m_nColumnStart = 0;
-    m_nRowStart = m_nColumnStart + m_nColumnBits;
-    m_nRankStart = m_nRowStart + m_nRowBits;
+    m_nBankStart = m_nColumnStart + m_nColumnBits;
+    m_nRankStart = m_nBankStart + m_nBankBits;
+    m_nRowStart = m_nRankStart + m_nRankBits;
 
 }
 
-DDRChannel::DDRChannel(const std::string& name, Object& parent, Clock& clock, VirtualMemory& memory, Config& config)
+DDRChannel::DDRChannel(const std::string& name, Object& parent, Clock& clock, Config& config)
     : Object(name, parent, clock),
       m_registry(config),
       m_ddrconfig("config", *this, clock, config),
       // Initialize each rank at 'no row selected'
-      m_currentRow(1 << m_ddrconfig.m_nRankBits, INVALID_ROW),
+      m_currentRow(1 << (m_ddrconfig.m_nRankBits + m_ddrconfig.m_nBankBits), INVALID_ROW),
 
-      m_memory(memory),
       m_callback(0),
       m_pipeline("b_pipeline", *this, clock, m_ddrconfig.m_tCL),
       m_busy("f_busy", *this, clock, false),
@@ -246,7 +243,9 @@ DDRChannel::DDRChannel(const std::string& name, Object& parent, Clock& clock, Vi
       m_next_precharge(0),
     
       p_Request (*this, "request",  delegate::create<DDRChannel, &DDRChannel::DoRequest >(*this)),
-      p_Pipeline(*this, "pipeline", delegate::create<DDRChannel, &DDRChannel::DoPipeline>(*this))
+      p_Pipeline(*this, "pipeline", delegate::create<DDRChannel, &DDRChannel::DoPipeline>(*this)),
+      
+      m_busyCycles(0)
 {
     m_busy.Sensitive(p_Request);
     m_pipeline.Sensitive(p_Pipeline);
@@ -264,6 +263,8 @@ DDRChannel::DDRChannel(const std::string& name, Object& parent, Clock& clock, Vi
     config.registerProperty(*this, "rows", (uint32_t)(1UL<<m_ddrconfig.m_nRowBits));
     config.registerProperty(*this, "columns", (uint32_t)(1UL<<m_ddrconfig.m_nColumnBits));
     config.registerProperty(*this, "freq", (uint32_t)clock.GetFrequency());
+    
+    RegisterSampleVariableInObject(m_busyCycles, SVC_CUMULATIVE);
 }
 
 void DDRChannel::SetClient(ICallback& cb, StorageTraceSet& sts, const StorageTraceSet& storages)
@@ -285,7 +286,7 @@ DDRChannel::~DDRChannel()
 {
 }
 
-DDRChannelRegistry::DDRChannelRegistry(const std::string& name, Object& parent, VirtualMemory& memory, Config& config, size_t defaultNumChannels)
+DDRChannelRegistry::DDRChannelRegistry(const std::string& name, Object& parent, Config& config, size_t defaultNumChannels)
     : Object(name, parent)
 {
     size_t numChannels = config.getValueOrDefault<size_t>(*this, "NumChannels", defaultNumChannels);
@@ -295,7 +296,7 @@ DDRChannelRegistry::DDRChannelRegistry(const std::string& name, Object& parent, 
         std::stringstream ss;
         ss << "channel" << i;
         Clock &ddrclock = GetKernel()->CreateClock(config.getValue<size_t>(*this, ss.str(), "Freq"));
-        this->push_back(new DDRChannel(ss.str(), *this, ddrclock, memory, config));
+        this->push_back(new DDRChannel(ss.str(), *this, ddrclock, config));
     }
 }
 
