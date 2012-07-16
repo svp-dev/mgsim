@@ -214,10 +214,7 @@ static const structure_desc family_table = {
                                                     // R: network's link handler (break, detach, done)
                                                     // RW: DCache's read handler (decrement)
                                                     // R: Network's sync handler (dependency check)
-                                                    
-    FIELD(LFID, first_lfid, 1, 1, 0),               // W: local family allocation process (set to initial)
-                                                    // R: pipeline's execute stage (break; destination FID)
-                                                    
+                                                                                  
     FIELD(LFID, link, 4, 1, 3),                     // W: local family allocation process (set to prev FID)
                                                     // RW: network's link handler (create forward, with possible restrict)
                                                     // RW: local create process (create forward, with possible restrict)

@@ -8,8 +8,6 @@ on them. The number of devices on a module is a multiple of 8 (Non-ECC) or
 9 (ECC). The devices on a module can be grouped into 1, 2 or 4 ranks.
 Only 1 rank on a module can be active. Each device has a 4 or 8 bit data path.
 Thus, for the full 64-bit data path, 16 or 8 devices are accessed in parallel.
-A memory device is essentially several parallel-accessed banks, each a 2D
-grid of row and columns.
 
 DDR has a prefetch buffer that buffers N consecutive words in a single read
 and streams them out on the I/O bus, running at a higher frequency (a prefetch
@@ -26,7 +24,7 @@ pipelined column reads. These 64 bits are latched and returned over an 8-bit
 databus in 4 double pumped I/O bus cycles (which has a 4x multiplier w.r.t.
 the memory clock).
 
-Accessing a memory device involves the following:
+Accessing a bank in a memory device involves the following:
 * If the wrong row is opened, it must be precharged (closed) with a Row
   Precharge (RP). This has a latency of tRP cycles.
 * Opening the desired row. It takes tRCD (RAS to CAS Delay cycles before the
@@ -71,6 +69,7 @@ MHz and the memory clock 100 MHz). Together with a 64-bit wide databus and
 */   
 #include "kernel.h"
 #include "Memory.h"
+#include "sim/inspect.h"
 #include <vector>
 
 class Config;
@@ -79,8 +78,6 @@ class ComponentModelRegistry;
 namespace Simulator
 {
 
-class VirtualMemory;
-
 /// Double-Data Rate Memory
 class DDRChannel : public Object
 {
@@ -88,15 +85,17 @@ public:
     class ICallback
     {
     public:
-        virtual bool OnReadCompleted(MemAddr address, const MemData& data) = 0;
+        virtual bool OnReadCompleted() = 0;
         virtual ~ICallback() {}
     };
     
 private:
+    typedef std::set<MemAddr> TraceMap;
+
     struct Request
     {
         MemAddr      address;   ///< We want something with this address
-        MemData      data;      ///< With this data or size
+        MemSize      size;      ///< With this data size
         unsigned int offset;    ///< Current offset that we're handling
         bool         write;     ///< A write or read
         CycleNo      done;      ///< When this request is done
@@ -117,11 +116,13 @@ private:
         
         // Address configuration
         unsigned int m_nDevicesPerRank; ///< Number of devices per rank
+        unsigned int m_nBankBits;       ///< Log number of banks in a device
         unsigned int m_nRankBits;       ///< Log number of ranks on DIMM (only one active per DIMM)
         unsigned int m_nRowBits;        ///< Log number of rows
         unsigned int m_nColumnBits;     ///< Log number of columns
         unsigned int m_nRankStart;      ///< Start position of the rank bits
         unsigned int m_nRowStart;       ///< Start position of the row bits
+        unsigned int m_nBankStart;      ///< Start position of the bank bits
         unsigned int m_nColumnStart;    ///< Start position of the column bits
         
         unsigned int m_nBurstSize;
@@ -133,17 +134,20 @@ private:
     ComponentModelRegistry&    m_registry;
     DDRConfig                  m_ddrconfig;      ///< DDR virtual chip parameters
     std::vector<unsigned long> m_currentRow;     ///< Currently selected row, for each rank
-    VirtualMemory&             m_memory;         ///< The backing store with data
     ICallback*                 m_callback;       ///< The callback to notify for completion
     Request                    m_request;        ///< The current request
     Buffer<Request>            m_pipeline;       ///< Pipelined reads
     SingleFlag                 m_busy;           ///< Trigger for process
     CycleNo                    m_next_command;   ///< Minimum time for next command
     CycleNo                    m_next_precharge; ///< Minimum time for next Row Precharge
+    TraceMap                   m_traces;         ///< Active traces
     
     // Processes
     Process p_Request;
     Process p_Pipeline;
+    
+    // Statistics
+    CycleNo m_busyCycles;
     
     Result DoRequest();
     Result DoPipeline();
@@ -151,16 +155,16 @@ private:
 public:
     void SetClient(ICallback& cb, StorageTraceSet& sts, const StorageTraceSet& storages);
     bool Read(MemAddr address, MemSize size);
-    bool Write(MemAddr address, const void* data, MemSize size);
+    bool Write(MemAddr address, MemSize size);
     
-    DDRChannel(const std::string& name, Object& parent, Clock& clock, VirtualMemory& memory, Config& config);
+    DDRChannel(const std::string& name, Object& parent, Clock& clock, Config& config);
     ~DDRChannel();
 };
 
 class DDRChannelRegistry : public Object, public std::vector<DDRChannel*>
 {
 public:
-    DDRChannelRegistry(const std::string& name, Object& parent, VirtualMemory& memory, Config& config, size_t defaultNumChannels);
+    DDRChannelRegistry(const std::string& name, Object& parent, Config& config, size_t defaultNumChannels);
     ~DDRChannelRegistry();
 };
 

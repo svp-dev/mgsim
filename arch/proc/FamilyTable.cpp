@@ -169,7 +169,7 @@ void Processor::FamilyTable::Cmd_Info(ostream& out, const vector<string>& /* arg
 void Processor::FamilyTable::Cmd_Read(ostream& out, const vector<string>& arguments) const
 {
     static const char* const FamilyStates[] = {
-        "", "ALLOCATED", "CREATE QUEUED", "CREATING", "ACTIVE", "KILLED"
+        "", "ALLOCATED", "CREATE QUEUED", "CREATING", "ACTIVE", "TERMINATED"
     };
 
     // Read the range

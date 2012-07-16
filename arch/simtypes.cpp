@@ -10,7 +10,7 @@ namespace Simulator
 {
 
 const char* const ThreadStateNames[TST_NUMSTATES] = {
-    "", "WAITING", "READY", "ACTIVE", "RUNNING", "SUSPENDED", "UNUSED", "KILLED"
+    "", "WAITING", "READY", "ACTIVE", "RUNNING", "SUSPENDED", "UNUSED", "TERMINATED"
 };
 
 string PlaceID::str() const

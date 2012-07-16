@@ -70,31 +70,28 @@ const COMA::RootDirectory::Line* COMA::RootDirectory::FindLine(MemAddr address) 
     return NULL;
 }
 
-bool COMA::RootDirectory::OnReadCompleted(MemAddr address, const MemData& data)
+bool COMA::RootDirectory::OnReadCompleted()
 {
-    assert(m_activeMsg != NULL);
-    assert(m_activeMsg->address == address);
-    assert(m_activeMsg->type == Message::REQUEST);
+    assert (!m_active.empty());
     
+    Message* msg = m_active.front();
     COMMIT
     {
-        m_activeMsg->type = Message::REQUEST_DATA_TOKEN;
-        m_activeMsg->data = data;
-        m_activeMsg->dirty = false;
+        msg->type = Message::REQUEST_DATA_TOKEN;
+        msg->data.size = m_lineSize;
+        msg->dirty = false;
+        
+        m_parent.Read(msg->address, msg->data.data, m_lineSize);
+        
+        m_active.pop();
     }
     
-    if (!m_responses.Push(m_activeMsg))
+    if (!m_responses.Push(msg))
     {
         DeadlockWrite("Unable to push reply into send buffer");
         return false;
     }
     
-    // We're done with this request
-    if (!m_memready.Set())
-    {
-        return false;
-    }
-    COMMIT{ m_activeMsg = NULL; }
     return true;
 }
 
@@ -263,13 +260,6 @@ Result COMA::RootDirectory::DoRequests()
 {
     assert(!m_requests.Empty());
 
-    if (!m_memready.IsSet())
-    {
-        // We're currently processing a read that will produce a reply, stall
-        return FAILED;
-    }
-    assert(m_activeMsg == NULL);
-    
     Message* msg = m_requests.Front();
     if (msg->ignore)
     {
@@ -281,32 +271,54 @@ Result COMA::RootDirectory::DoRequests()
     }
     else
     {
+        // Since we stripe cache lines across root directories, adjust the 
+        // address before we send it to memory for timing.
+        unsigned int mem_address = (msg->address / m_lineSize) / m_numRoots * m_lineSize;
+        
         if (msg->type == Message::REQUEST)
         {
             // It's a read
-            if (!m_memory->Read(msg->address, m_lineSize))
+#if 0
+            if (!m_memory->Read(mem_address, m_lineSize))
             {
                 return FAILED;
             }
-            
-            if (!m_memready.Clear())
-            {
-                return FAILED;
-            }
+                        
             COMMIT{ 
                 ++m_nreads;
-                m_activeMsg = msg; 
+                m_active.push(msg);
             }
+#else
+            COMMIT
+            {
+                ++m_nreads;
+
+                msg->type = Message::REQUEST_DATA_TOKEN;
+                msg->data.size = m_lineSize;
+                msg->dirty = false;
+
+                m_parent.Read(msg->address, msg->data.data, m_lineSize);
+            }
+
+            if (!m_responses.Push(msg))
+            {
+                DeadlockWrite("Unable to push reply into send buffer");
+                return FAILED;
+            }
+#endif
         }
         else
         {
             // It's a write
             assert(msg->type == Message::EVICTION);
-            if (!m_memory->Write(msg->address, msg->data.data, msg->data.size))
+#if 0
+            if (!m_memory->Write(mem_address, msg->data.size))
             {
                 return FAILED;
             }
+#endif
             COMMIT { 
+                m_parent.Write(msg->address, msg->data.data, msg->data.size);
                 ++m_nwrites;
                 delete msg;
             }
@@ -385,8 +397,6 @@ COMA::RootDirectory::RootDirectory(const std::string& name, COMA& parent, Clock&
     p_lines    (*this, clock, "p_lines"),    
     m_requests ("b_requests", *this, clock, config.getValue<size_t>(*this, "ExternalOutputQueueSize")),
     m_responses("b_responses", *this, clock, config.getValue<size_t>(*this, "ExternalInputQueueSize")),
-    m_memready ("f_memready", *this, clock, true),
-    m_activeMsg(NULL),
     p_Incoming (*this, "incoming",  delegate::create<RootDirectory, &RootDirectory::DoIncoming>(*this)),
     p_Requests (*this, "requests",  delegate::create<RootDirectory, &RootDirectory::DoRequests>(*this)),
     p_Responses(*this, "responses", delegate::create<RootDirectory, &RootDirectory::DoResponses>(*this)),
@@ -413,7 +423,7 @@ COMA::RootDirectory::RootDirectory(const std::string& name, COMA& parent, Clock&
     m_memory = ddr[ddrid];
     
     StorageTraceSet sts;
-    m_memory->SetClient(*this, sts, m_responses * m_memready);
+    m_memory->SetClient(*this, sts, m_responses);
     
     p_Requests.SetStorageTraces(sts ^ m_responses);
     p_Incoming.SetStorageTraces((GetOutgoingTrace() * opt(m_requests)) ^ opt(m_requests));

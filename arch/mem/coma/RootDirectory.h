@@ -47,8 +47,7 @@ private:
     DDRChannel*       m_memory;    ///< DDR memory channel
     Buffer<Message*>  m_requests;  ///< Requests to memory
     Buffer<Message*>  m_responses; ///< Responses from memory
-    Flag              m_memready;  ///< Memory ready to receive another request
-    Message*          m_activeMsg; ///< Currently active message to the memory
+    std::queue<Message*> m_active;  ///< Messages active in DDR
     
     // Processes
     Process p_Incoming;
@@ -57,7 +56,7 @@ private:
     
     Line* FindLine(MemAddr address, bool check_only);
     bool  OnMessageReceived(Message* msg);
-    bool  OnReadCompleted(MemAddr address, const MemData& data);
+    bool  OnReadCompleted();
     
     // Processes
     Result DoIncoming();
