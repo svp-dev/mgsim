@@ -13,6 +13,7 @@ namespace Simulator
           m_requests("b_requests", *this, clock, config.getValue<BufferSize>(*this, "RequestQueueSize")),
           m_responses("b_responses", *this, clock, config.getValue<BufferSize>(*this, "ResponseQueueSize")),
           m_has_outstanding_request(false),
+          m_flushing(false),
           m_pending_writes(0),
           p_MemoryOutgoing(*this, "send-memory-requests", delegate::create<IODirectCacheAccess, &Processor::IODirectCacheAccess::DoMemoryOutgoing>(*this)),
           p_BusOutgoing   (*this, "send-bus-responses", delegate::create<IODirectCacheAccess, &Processor::IODirectCacheAccess::DoBusOutgoing>(*this)),
@@ -219,6 +220,18 @@ namespace Simulator
         case READ:
         {
             // this is a read request coming from the bus.
+
+            if (req.size > m_lineSize || req.size > MAX_MEMORY_OPERATION_SIZE)
+            {
+                throw InvalidArgumentException("Read size is too big");
+            }
+            
+            if (req.address / m_lineSize != (req.address + req.size - 1) / m_lineSize)
+            {
+                throw InvalidArgumentException("Read request straddles cache-line boundary");
+            }
+
+            
             if (!p_service.Invoke())
             {
                 DeadlockWrite("Unable to acquire port for DCA read (%#016llx, %u)",
@@ -256,6 +269,16 @@ namespace Simulator
         case WRITE:
         {
             // write operation
+
+            if (req.size > m_lineSize || req.size > MAX_MEMORY_OPERATION_SIZE)
+            {
+                throw InvalidArgumentException("Write size is too big");
+            }
+            
+            if (req.address / m_lineSize != (req.address + req.size - 1) / m_lineSize)
+            {
+                throw InvalidArgumentException("Write request straddles cache-line boundary");
+            }
 
             if (!p_service.Invoke())
             {
