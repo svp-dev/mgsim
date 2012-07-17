@@ -103,7 +103,8 @@ COMA::Directory::Line* COMA::Directory::AllocateLine(MemAddr address)
 
 bool COMA::Directory::OnMessageReceivedBottom(Message* msg)
 {
-#if 0
+#if 1 /* set to 0 to attempt to flatten the COMA ring, ie remove the shortcut across (DEBUG FEATURE ONLY) */
+
     // We need to grab p_line because it arbitrates access to the outgoing
     // buffer on the top ring as well.
     if (!p_lines.Invoke())
