@@ -107,7 +107,7 @@ void Object::OutputWrite_(const char* msg, ...) const
 {
     va_list args;
 
-    fprintf(stderr, "[%08lld:%s]\t\to ", m_kernel.GetCycleNo(), GetFQN().c_str());
+    fprintf(stderr, "[%08lld:%s]\t\to ", (unsigned long long)m_kernel.GetCycleNo(), GetFQN().c_str());
     va_start(args, msg);
     vfprintf(stderr, msg, args);
     va_end(args);
@@ -118,7 +118,7 @@ void Object::DeadlockWrite_(const char* msg, ...) const
 {
     va_list args;
 
-    fprintf(stderr, "[%08lld:%s]\t(%s)\td ", m_kernel.GetCycleNo(), GetFQN().c_str(), m_kernel.GetActiveProcess()->GetName().c_str());
+    fprintf(stderr, "[%08lld:%s]\t(%s)\td ", (unsigned long long)m_kernel.GetCycleNo(), GetFQN().c_str(), m_kernel.GetActiveProcess()->GetName().c_str());
     va_start(args, msg);
     vfprintf(stderr, msg, args);
     va_end(args);
@@ -129,7 +129,7 @@ void Object::DebugSimWrite_(const char* msg, ...) const
 {
     va_list args;
 
-    fprintf(stderr, "[%08lld:%s]\t", m_kernel.GetCycleNo(), GetFQN().c_str());
+    fprintf(stderr, "[%08lld:%s]\t", (unsigned long long)m_kernel.GetCycleNo(), GetFQN().c_str());
     const Process *p = m_kernel.GetActiveProcess();
     if (p)
         fprintf(stderr, "(%s)", p->GetName().c_str());
