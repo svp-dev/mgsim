@@ -40,7 +40,7 @@ public:
 private:    
     typedef std::set<MemAddr> TraceMap;
     typedef size_t            CacheID;
-    typedef std::pair<size_t, TID> WriteAck;
+    typedef std::pair<size_t, WClientID> WriteAck;
     
     // Helper function for checking if a value is contained in a range
     template<class InputIterator, class EqualityComparable>
@@ -88,7 +88,7 @@ public:
     MCID RegisterClient(IMemoryCallback& callback, Process& process, StorageTraceSet& traces, Storage& storage, bool grouped);
     void UnregisterClient(MCID id);
     bool Read (MCID id, MemAddr address);
-    bool Write(MCID id, MemAddr address, const MemData& data, TID tid);
+    bool Write(MCID id, MemAddr address, const MemData& data, WClientID wid);
     bool CheckPermissions(MemAddr address, MemSize size, int access) const;
 
     void GetMemoryStatistics(uint64_t& nreads, uint64_t& nwrites, 

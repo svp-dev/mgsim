@@ -23,7 +23,7 @@ struct BankedMemory::Request
     MemAddr     address;
     MemSize     size;
     MemData     data;
-    TID         tid;
+    WClientID   wid;
     CycleNo     done;
 };
 
@@ -111,7 +111,7 @@ class BankedMemory::Bank : public Object
             }
                 
             if (request.write) {
-                if (!request.client->callback->OnMemoryWriteCompleted(request.tid)) {
+                if (!request.client->callback->OnMemoryWriteCompleted(request.wid)) {
                     return FAILED;
                 }
             } else {
@@ -343,7 +343,7 @@ bool BankedMemory::Read(MCID id, MemAddr address)
     return true;
 }
 
-bool BankedMemory::Write(MCID id, MemAddr address, const MemData& data, TID tid)
+bool BankedMemory::Write(MCID id, MemAddr address, const MemData& data, WClientID wid)
 {    
     assert(address % m_lineSize == 0);
 
@@ -354,7 +354,7 @@ bool BankedMemory::Write(MCID id, MemAddr address, const MemData& data, TID tid)
     request.address   = address;
     request.client    = &m_clients[id];
     request.size      = m_lineSize;
-    request.tid       = tid;
+    request.wid       = wid;
     request.write     = true;
     COMMIT{
     std::copy(data.data, data.data+m_lineSize, request.data.data);

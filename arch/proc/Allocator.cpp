@@ -1421,7 +1421,7 @@ Result Processor::Allocator::DoBundle()
     if (m_bundleState == BUNDLE_INITIAL)
     {
         Result      result;
-        if ((result = m_dcache.Read(info.addr, m_bundleData, sizeof(Integer) * 2 + sizeof(MemAddr), 0, 0)) == FAILED)
+        if ((result = m_dcache.Read(info.addr, m_bundleData, sizeof(Integer) * 2 + sizeof(MemAddr), 0)) == FAILED)
         {
             DeadlockWrite("Unable to fetch the D-Cache line for %#016llx for bundle creation", (unsigned long long)info.addr);
             return FAILED;

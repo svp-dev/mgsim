@@ -73,7 +73,7 @@ bool COMA::Cache::Read(MCID id, MemAddr address)
 
 // Called from the processor on a memory write (can be any size with write-through/around)
 // Just queues the request.
-bool COMA::Cache::Write(MCID id, MemAddr address, const MemData& data, TID tid)
+bool COMA::Cache::Write(MCID id, MemAddr address, const MemData& data, WClientID wid)
 {
     assert(address % m_lineSize == 0);
 
@@ -90,7 +90,7 @@ bool COMA::Cache::Write(MCID id, MemAddr address, const MemData& data, TID tid)
     req.address = address;
     req.write   = true;
     req.client  = id;
-    req.tid     = tid;
+    req.wid     = wid;
     COMMIT{
     std::copy(data.data, data.data + m_lineSize, req.data);
     std::copy(data.mask, data.mask + m_lineSize, req.mask);
@@ -480,7 +480,7 @@ bool COMA::Cache::OnMessageReceived(Message* msg)
             assert(line != NULL);
             assert(line->updating > 0);
             
-            if (!m_clients[msg->client]->OnMemoryWriteCompleted(msg->tid))
+            if (!m_clients[msg->client]->OnMemoryWriteCompleted(msg->wid))
             {
                 ++m_numStallingWCompletions;
                 return false;
@@ -653,7 +653,7 @@ Result COMA::Cache::OnWriteRequest(const Request& req)
         // We have all tokens, notify the sender client immediately
         TraceWrite(req.address, "Processing Bus Write Request: Exclusive Hit");
         
-        if (!m_clients[req.client]->OnMemoryWriteCompleted(req.tid))
+        if (!m_clients[req.client]->OnMemoryWriteCompleted(req.wid))
         {
             ++m_numStallingWHits;
             DeadlockWrite("Unable to process bus write completion for client %u", (unsigned)req.client);
@@ -677,7 +677,7 @@ Result COMA::Cache::OnWriteRequest(const Request& req)
             msg->sender    = m_id;
             msg->ignore    = false;
             msg->client    = req.client;
-            msg->tid       = req.tid;
+            msg->wid       = req.wid;
             std::copy(req.data, req.data + m_lineSize, msg->data.data);
             std::copy(req.mask, req.mask + m_lineSize, msg->data.mask);
 

@@ -14,7 +14,7 @@ struct ParallelMemory::Request
     bool             write;
     MemAddr          address;
     MemData          data;
-    TID              tid;
+    WClientID        wid;
 };
 
 class ParallelMemory::Port : public Object
@@ -51,7 +51,7 @@ class ParallelMemory::Port : public Object
             if (request.write)
             {
                 m_memory.Write(request.address, request.data.data, request.data.mask, m_lineSize);
-                if (!m_callback.OnMemoryWriteCompleted(request.tid))
+                if (!m_callback.OnMemoryWriteCompleted(request.wid))
                 {
                     return FAILED;
                 }
@@ -202,7 +202,7 @@ bool ParallelMemory::Read(MCID id, MemAddr address)
     return true;
 }
 
-bool ParallelMemory::Write(MCID id, MemAddr address, const MemData& data, TID tid)
+bool ParallelMemory::Write(MCID id, MemAddr address, const MemData& data, WClientID wid)
 {
     assert(address % m_lineSize == 0);
 
@@ -211,7 +211,7 @@ bool ParallelMemory::Write(MCID id, MemAddr address, const MemData& data, TID ti
     
     Request request;
     request.address   = address;
-    request.tid       = tid;
+    request.wid       = wid;
     request.write     = true;
     COMMIT{
     std::copy(data.data, data.data + m_lineSize, request.data.data);

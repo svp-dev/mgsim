@@ -90,7 +90,7 @@ public:
     MCID RegisterClient(IMemoryCallback& callback, Process& process, StorageTraceSet& traces, Storage& storage, bool grouped);
     void UnregisterClient(MCID id);
     bool Read (MCID id, MemAddr address);
-    bool Write(MCID id, MemAddr address, const MemData& data, TID tid);
+    bool Write(MCID id, MemAddr address, const MemData& data, WClientID wid);
     bool CheckPermissions(MemAddr address, MemSize size, int access) const;
 
     void GetMemoryStatistics(uint64_t& nreads, uint64_t& nwrites, 

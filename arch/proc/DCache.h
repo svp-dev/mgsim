@@ -37,14 +37,14 @@ private:
         MemAddr address;
         bool    write;
         MemData data;
-        TID     tid;
+        WClientID wid;
     };
     
     struct Response
     {
         bool write;
         union {
-            TID tid;
+            WClientID wid;
             CID cid;
         };
     };
@@ -116,7 +116,7 @@ public:
     ArbitratedService<> p_service;
 
     // Public interface
-    Result Read (MemAddr address, void* data, MemSize size, LFID fid, RegAddr* reg);
+    Result Read (MemAddr address, void* data, MemSize size, RegAddr* reg);
     Result Write(MemAddr address, void* data, MemSize size, LFID fid, TID tid);
 
     size_t GetLineSize() const { return m_lineSize; }

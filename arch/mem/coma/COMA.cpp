@@ -79,7 +79,7 @@ bool COMA::Read(MCID id, MemAddr address)
     return m_clientMap[id].first->Read(m_clientMap[id].second, address);
 }
 
-bool COMA::Write(MCID id, MemAddr address, const MemData& data, TID tid)
+bool COMA::Write(MCID id, MemAddr address, const MemData& data, WClientID wid)
 {
     COMMIT
     {
@@ -87,7 +87,7 @@ bool COMA::Write(MCID id, MemAddr address, const MemData& data, TID tid)
         m_nwrite_bytes += m_lineSize;
     }
     // Forward the write to the cache associated with the callback
-    return m_clientMap[id].first->Write(m_clientMap[id].second, address, data, tid);
+    return m_clientMap[id].first->Write(m_clientMap[id].second, address, data, wid);
 }
 
 void COMA::Reserve(MemAddr address, MemSize size, ProcessID pid, int perm)

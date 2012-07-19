@@ -170,7 +170,9 @@ Result Processor::DCache::FindLine(MemAddr address, Line* &line, bool check_only
     return DELAYED;
 }
 
-Result Processor::DCache::Read(MemAddr address, void* data, MemSize size, LFID /* fid */, RegAddr* reg)
+
+
+Result Processor::DCache::Read(MemAddr address, void* data, MemSize size, RegAddr* reg)
 {
     size_t offset = (size_t)(address % m_lineSize);
     if (offset + size > m_lineSize)
@@ -378,7 +380,7 @@ Result Processor::DCache::Write(MemAddr address, void* data, MemSize size, LFID 
     Request request;
     request.write     = true;
     request.address   = address - offset;
-    request.tid       = tid;
+    request.wid       = tid;
 
     COMMIT{
     std::copy((char*)data, ((char*)data)+size, request.data.data+offset);
@@ -453,14 +455,14 @@ bool Processor::DCache::OnMemoryReadCompleted(MemAddr addr, const char* data)
     return true;
 }
 
-bool Processor::DCache::OnMemoryWriteCompleted(TID tid)
+bool Processor::DCache::OnMemoryWriteCompleted(WClientID wid)
 {
     // Data has been written
-    if (tid != INVALID_TID) // otherwise for DCA
+    if (wid != INVALID_WCLIENTID) // otherwise for DCA
     {
         Response response;
         response.write = true;
-        response.tid   = tid;
+        response.wid  =  wid;
         if (!m_incoming.Push(response))
         {
             DeadlockWrite("Unable to push write completion to buffer");
@@ -676,13 +678,13 @@ Result Processor::DCache::DoIncomingResponses()
     const Response& response = m_incoming.Front();
     if (response.write)
     {
-        if (!m_allocator.DecreaseThreadDependency(response.tid, THREADDEP_OUTSTANDING_WRITES))
+        if (!m_allocator.DecreaseThreadDependency((TID)response.wid, THREADDEP_OUTSTANDING_WRITES))
         {
-            DeadlockWrite("Unable to decrease outstanding writes on T%u", (unsigned)response.tid);
+            DeadlockWrite("Unable to decrease outstanding writes on T%u", (unsigned)response.wid);
             return FAILED;
         }
 
-        DebugMemWrite("T%u completed store", (unsigned)response.tid);
+        DebugMemWrite("T%u completed store", (unsigned)response.wid);
 
     }
     else
@@ -701,9 +703,10 @@ Result Processor::DCache::DoOutgoingRequests()
 {
     assert(!m_outgoing.Empty());
     const Request& request = m_outgoing.Front();
+
     if (request.write)
     {
-        if (!m_memory.Write(m_mcid, request.address, request.data, request.tid))
+        if (!m_memory.Write(m_mcid, request.address, request.data, request.wid))
         {
             DeadlockWrite("Unable to send write to 0x%016llx to memory", (unsigned long long)request.address);
             return FAILED;
@@ -718,8 +721,8 @@ Result Processor::DCache::DoOutgoingRequests()
         }
     }
 
-    DebugMemWrite("T%d queued outgoing %s request for %.*llx",
-                  (request.write ? (int)request.tid : -1), (request.write ? "store" : "load"),
+    DebugMemWrite("F%d queued outgoing %s request for %.*llx",
+                  (request.write ? (int)request.wid : -1), (request.write ? "store" : "load"),
                   (int)(sizeof(MemAddr)*2), (unsigned long long)request.address);
 
     m_outgoing.Pop();

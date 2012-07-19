@@ -73,7 +73,7 @@ bool ZLCOMA::Cache::Read(MCID id, MemAddr address)
 
 // Called from the processor on a memory write (can be any size with write-through/around)
 // Just queues the request.
-bool ZLCOMA::Cache::Write(MCID id, MemAddr address, const MemData& data, TID tid)
+bool ZLCOMA::Cache::Write(MCID id, MemAddr address, const MemData& data, WClientID wid)
 {
 
     // This method can get called by several 'listeners', so we need
@@ -89,7 +89,7 @@ bool ZLCOMA::Cache::Write(MCID id, MemAddr address, const MemData& data, TID tid
     req.address = address;
     req.write   = true;
     req.client  = id;
-    req.tid     = tid;
+    req.wid     = wid;
     COMMIT{
     std::copy(data.data, data.data + m_lineSize, req.data);
     std::copy(data.mask, data.mask + m_lineSize, req.mask);
@@ -527,7 +527,7 @@ Result ZLCOMA::Cache::OnWriteRequest(const Request& req)
         // We can acknowledge directly after writing.
         TraceWrite(req.address, "Processing Bus Write Request: Exclusive Hit");
         
-        if (!m_clients[req.client]->OnMemoryWriteCompleted(req.tid))
+        if (!m_clients[req.client]->OnMemoryWriteCompleted(req.wid))
         {
             return FAILED;
         }
@@ -536,7 +536,7 @@ Result ZLCOMA::Cache::OnWriteRequest(const Request& req)
     }
 
     // Save acknowledgement. When we get all tokens later, these will get acknowledged.
-    COMMIT{ line->ack_queue.push_back(WriteAck(req.client, req.tid)); }
+    COMMIT{ line->ack_queue.push_back(WriteAck(req.client, req.wid)); }
     
     if (line->pending_write)
     {
