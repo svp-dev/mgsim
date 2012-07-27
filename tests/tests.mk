@@ -1,5 +1,6 @@
 LOG_COMPILER = \
-   MGSIM=$(top_builddir)/mgsim $(SHELL) $(srcdir)/runtest.sh \
+   $(SHELL) $(srcdir)/runtest.sh \
+	$(top_builddir)/mgsim \
 	$(top_srcdir)/tools/timeout \
 	$(top_srcdir)/programs/config.ini \
 	`test -f ../programs/nobounds.ini || echo '$(srcdir)/'`../programs/nobounds.ini
