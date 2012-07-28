@@ -246,21 +246,29 @@ COMA::~COMA()
 
 size_t COMA::GetLineSize() const
 {
+    if (m_caches.empty())
+        return 0;
     return m_caches[0]->GetLineSize();
 }
 
 size_t COMA::GetNumCacheSets() const
 {
+    if (m_caches.empty())
+        return 0;
     return m_caches[0]->GetNumSets();
 }
 
 size_t COMA::GetCacheAssociativity() const
 {
+    if (m_caches.empty())
+        return 0;
     return m_caches[0]->GetAssociativity();
 }
 
 size_t COMA::GetDirectoryAssociativity() const
 {
+    if (m_directories.empty())
+        return 0;
     return m_directories[0]->m_assoc;
 }
 
