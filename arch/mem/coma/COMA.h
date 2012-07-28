@@ -75,8 +75,8 @@ public:
     const TraceMap& GetTraces() const { return m_traces; }
 
     IBankSelector& GetBankSelector() const { return *m_selector; }
-    
-    size_t GetLineSize() const;
+
+    size_t GetLineSize() const { return m_lineSize; }
     size_t GetNumClientsPerCache() const { return m_numClientsPerCache; }    
     size_t GetNumCachesPerDirectory() const { return m_numCachesPerDir; }
     size_t GetNumCaches() const { return m_caches.size(); }
