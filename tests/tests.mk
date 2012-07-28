@@ -21,6 +21,8 @@ SUFFIXES = .c .s .bin .coma .zlcoma .serial .parallel .banked .randombanked .ddr
 	$(MKDIR_P) `dirname "$@"`
 	$(COMPILE) -o $@ `test -f "$<" || echo "$(srcdir)"/`$<
 
+.bin.flatcoma:
+	echo "$<" >"$@"
 .bin.coma:
 	echo "$<" >"$@"
 .bin.zlcoma:
@@ -46,6 +48,7 @@ TESTS = \
 	$(TEST_BINS:.bin=.randombanked) \
 	$(TEST_BINS:.bin=.ddr) \
 	$(TEST_BINS:.bin=.randomddr) \
+	$(TEST_BINS:.bin=.flatcoma) \
 	$(TEST_BINS:.bin=.coma) \
     $(TEST_BINS:.bin=.zlcoma)
 

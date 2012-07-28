@@ -660,10 +660,13 @@ MGSystem::MGSystem(Config& config,
         DDRMemory* memory = new DDRMemory("memory", m_root, memclock, config, "RMIX");
         m_memory = memory;
     } else if (memory_type == "COMA") {
-        COMA* memory = new COMA("memory", m_root, memclock, config);
+        COMA* memory = new TwoLevelCOMA("memory", m_root, memclock, config);
         m_memory = memory;
     } else if (memory_type == "ZLCOMA") {
         ZLCOMA* memory = new ZLCOMA("memory", m_root, memclock, config);
+        m_memory = memory;
+    } else if (memory_type == "FLATCOMA") {
+        COMA* memory = new OneLevelCOMA("memory", m_root, memclock, config);
         m_memory = memory;
     } else {
         throw runtime_error("Unknown memory type: " + memory_type);
