@@ -37,14 +37,14 @@ private:
         MemAddr address;
         bool    write;
         MemData data;
-        TID     tid;
+        WClientID wid;
     };
     
     struct Response
     {
         bool write;
         union {
-            TID tid;
+            WClientID wid;
             CID cid;
         };
     };
@@ -77,19 +77,28 @@ private:
     Buffer<Response>     m_incoming;        ///< Incoming buffer from memory bus.
     Buffer<Request>      m_outgoing;        ///< Outgoing buffer to memory bus.
     WritebackState       m_wbstate;         ///< Writeback state
-    uint64_t             m_numRHits;         ///< Number of rhits so far.
-    uint64_t             m_numEmptyRMisses;  ///< Number of rmisses so far (rmiss to an empty cache line).
-    uint64_t             m_numLoadingRMisses;///< Number of rmisses so far (rmiss to a loading cache line with same tag).
-    uint64_t             m_numInvalidRMisses;///< Number of rmisses so far (rmiss to an invalid cache line with same tag).
-    uint64_t             m_numHardConflicts;///< Number of conflicts so far (rmiss to a non-empty, non-reusable cache line with different tag).
-    uint64_t             m_numResolvedConflicts;///< Number of resolved conflicts so far (rmiss to a non-empty, substitutable line with different tag).
 
-    uint64_t             m_numWHits;          ///< Number of whits so far.
+
+    // Statistics
+
+    uint64_t             m_numRHits;
+    uint64_t             m_numDelayedReads;
+    uint64_t             m_numEmptyRMisses;
+    uint64_t             m_numInvalidRMisses;
+    uint64_t             m_numLoadingRMisses;
+    uint64_t             m_numHardConflicts;
+    uint64_t             m_numResolvedConflicts;
+
+    uint64_t             m_numWAccesses;
+    uint64_t             m_numWHits;
     uint64_t             m_numPassThroughWMisses;
-    uint64_t             m_numInvLoadingWMisses;///< Number of wmisses so far (wmiss to an invalid/loading line)
+    uint64_t             m_numLoadingWMisses;
 
-    uint64_t             m_numStallingRMisses;///< Number of rmisses that cannot be serviced upstream
-    uint64_t             m_numStallingWMisses;///< Number of mmisses that cannot be serviced upstream
+    uint64_t             m_numStallingRMisses;
+    uint64_t             m_numStallingWMisses;
+
+    uint64_t             m_numSnoops;
+
        
     Result DoCompletedReads();
     Result DoIncomingResponses();
@@ -107,15 +116,15 @@ public:
     ArbitratedService<> p_service;
 
     // Public interface
-    Result Read (MemAddr address, void* data, MemSize size, LFID fid, RegAddr* reg);
+    Result Read (MemAddr address, void* data, MemSize size, RegAddr* reg);
     Result Write(MemAddr address, void* data, MemSize size, LFID fid, TID tid);
 
     size_t GetLineSize() const { return m_lineSize; }
 
     // Memory callbacks
-    bool OnMemoryReadCompleted(MemAddr addr, const MemData& data);
+    bool OnMemoryReadCompleted(MemAddr addr, const char* data);
     bool OnMemoryWriteCompleted(TID tid);
-    bool OnMemorySnooped(MemAddr addr, const MemData& data);
+    bool OnMemorySnooped(MemAddr addr, const char* data, const bool* mask);
     bool OnMemoryInvalidated(MemAddr addr);
 
     Object& GetMemoryPeer() { return m_parent; }

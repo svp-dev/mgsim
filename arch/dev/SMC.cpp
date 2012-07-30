@@ -106,8 +106,8 @@ namespace Simulator
     Result SMC::DoStartDCA()
     {
         IOData iodata;
-        iodata.size = sizeof(Integer);
-        memset(iodata.data, 0, sizeof(Integer));
+        iodata.size = 4;
+        memset(iodata.data, 0, 4);
 
         if (!m_iobus.SendWriteRequest(m_devid, m_romid, 0, iodata))
         {

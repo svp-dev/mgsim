@@ -46,16 +46,18 @@ class ICache : public Object, public IMemoryCallback, public Inspect::Interface<
 	Buffer<MemAddr>   m_outgoing;
 	Buffer<CID>       m_incoming;
 
-    uint64_t             m_numHits;         ///< Number of hits so far.
-    uint64_t             m_numEmptyMisses;  ///< Number of misses so far (miss to an empty cache line).
-    uint64_t             m_numLoadingMisses;///< Number of misses so far (miss to a loading cache line with same tag).
-    uint64_t             m_numInvalidMisses;///< Number of misses so far (miss to an invalid cache line with same tag).
-    uint64_t             m_numHardConflicts;///< Number of conflicts so far (miss to a non-empty, non-reusable cache line with different tag).
-    uint64_t             m_numResolvedConflicts;///< Number of resolved conflicts so far (miss to a non-empty, substitutable line with different tag).
-    uint64_t             m_numStallingMisses;///< Number of miss stalls caused by busy memory
-
     size_t            m_lineSize;
     size_t            m_assoc;
+
+    // Statistics:
+    uint64_t             m_numHits;
+    uint64_t             m_numDelayedReads;
+    uint64_t             m_numEmptyMisses;
+    uint64_t             m_numLoadingMisses;
+    uint64_t             m_numInvalidMisses;
+    uint64_t             m_numHardConflicts;
+    uint64_t             m_numResolvedConflicts;
+    uint64_t             m_numStallingMisses;
     
 public:
     ICache(const std::string& name, Processor& parent, Clock& clock, Allocator& allocator, IMemory& memory, Config& config);
@@ -72,9 +74,9 @@ public:
     bool   Read(CID cid, MemAddr address, void* data, MemSize size) const;
     bool   ReleaseCacheLine(CID bid);
     bool   IsEmpty() const;
-    bool   OnMemoryReadCompleted(MemAddr addr, const MemData& data);
+    bool   OnMemoryReadCompleted(MemAddr addr, const char* data);
     bool   OnMemoryWriteCompleted(TID tid);
-    bool   OnMemorySnooped(MemAddr addr, const MemData& data);
+    bool   OnMemorySnooped(MemAddr addr, const char* data, const bool* mask);
     bool   OnMemoryInvalidated(MemAddr addr);
     Object& GetMemoryPeer() { return m_parent; }
     size_t GetLineSize() const { return m_lineSize; }

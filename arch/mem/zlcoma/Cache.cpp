@@ -41,21 +41,9 @@ void ZLCOMA::Cache::UnregisterClient(MCID id)
 
 // Called from the processor on a memory read (typically a whole cache-line)
 // Just queues the request.
-bool ZLCOMA::Cache::Read(MCID id, MemAddr address, MemSize size)
+bool ZLCOMA::Cache::Read(MCID id, MemAddr address)
 {
-    if (size != m_lineSize)
-    {
-        throw InvalidArgumentException("Read size is not a single cache-line");
-    }
-
-    assert(size <= MAX_MEMORY_OPERATION_SIZE);
     assert(address % m_lineSize == 0);
-    assert(size == m_lineSize);
-
-    if (address % m_lineSize != 0)
-    {
-        throw InvalidArgumentException("Read address is not aligned to a cache-line");
-    }
 
     // This method can get called by several 'listeners', so we need
     // to arbitrate and store the request in a buffer to handle it.
@@ -69,7 +57,6 @@ bool ZLCOMA::Cache::Read(MCID id, MemAddr address, MemSize size)
     Request req;
     req.address = address;
     req.write   = false;
-    req.size    = size;
 
     // Client should have been registered
     assert(m_clients[id] != NULL);
@@ -86,17 +73,8 @@ bool ZLCOMA::Cache::Read(MCID id, MemAddr address, MemSize size)
 
 // Called from the processor on a memory write (can be any size with write-through/around)
 // Just queues the request.
-bool ZLCOMA::Cache::Write(MCID id, MemAddr address, const void* data, MemSize size, TID tid)
+bool ZLCOMA::Cache::Write(MCID id, MemAddr address, const MemData& data, WClientID wid)
 {
-    if (size > m_lineSize || size > MAX_MEMORY_OPERATION_SIZE)
-    {
-        throw InvalidArgumentException("Write size is too big");
-    }
-
-    if (address / m_lineSize != (address + size - 1) / m_lineSize)
-    {
-        throw InvalidArgumentException("Write request straddles cache-line boundary");
-    }
 
     // This method can get called by several 'listeners', so we need
     // to arbitrate and store the request in a buffer to handle it.
@@ -110,10 +88,12 @@ bool ZLCOMA::Cache::Write(MCID id, MemAddr address, const void* data, MemSize si
     Request req;
     req.address = address;
     req.write   = true;
-    req.size    = size;
     req.client  = id;
-    req.tid     = tid;
-    memcpy(req.data, data, (size_t)size);
+    req.wid     = wid;
+    COMMIT{
+    std::copy(data.data, data.data + m_lineSize, req.data);
+    std::copy(data.mask, data.mask + m_lineSize, req.mask);
+    }
 
     // Client should have been registered
     assert(m_clients[req.client] != NULL);
@@ -131,7 +111,7 @@ bool ZLCOMA::Cache::Write(MCID id, MemAddr address, const void* data, MemSize si
         IMemoryCallback* client = m_clients[i];
         if (client != NULL && i != req.client)
         {
-            if (!client->OnMemorySnooped(req.address, req))
+            if (!client->OnMemorySnooped(req.address, req.data, req.mask))
             {
                 DeadlockWrite("Unable to snoop data to cache clients");
                 return false;
@@ -350,8 +330,6 @@ bool ZLCOMA::Cache::EvictLine(Line* line, const Request& req)
 // Local Read from a memory client on the bus
 Result ZLCOMA::Cache::OnReadRequest(const Request& req)
 {
-    assert(req.size == m_lineSize);
-    
     if (!p_lines.Invoke())
     {
         DeadlockWrite("Lines busy, cannot process bus read request");
@@ -414,11 +392,10 @@ Result ZLCOMA::Cache::OnReadRequest(const Request& req)
         TraceWrite(req.address, "Processing Bus Read Request: Full Hit");
     
         // Return the data
-        MemData data;
-        data.size = m_lineSize;
+        char data[m_lineSize];
         COMMIT
         {
-            std::copy(line->data, line->data + m_lineSize, data.data);
+            std::copy(line->data, line->data + m_lineSize, data);
             
             // Update LRU time of the line
             line->time = GetCycleNo();
@@ -526,7 +503,7 @@ Result ZLCOMA::Cache::OnWriteRequest(const Request& req)
             line->priority      = false;
             line->pending_read  = false;
             line->pending_write = false;
-            std::fill(line->bitmask, line->bitmask + MAX_MEMORY_OPERATION_SIZE, false);
+            std::fill(line->bitmask, line->bitmask + m_lineSize, false);
         }
         
         newline = true;
@@ -538,10 +515,8 @@ Result ZLCOMA::Cache::OnWriteRequest(const Request& req)
         line->time = GetCycleNo();
         line->dirty = true;
         
-        unsigned int offset = req.address % m_lineSize;
-        
-        std::copy(req.data, req.data + req.size, line->data + offset);
-        std::fill(line->bitmask + offset, line->bitmask + offset + req.size, true);
+        line::blit(line->data, req.data, req.mask, m_lineSize);
+        line::setif(line->bitmask, true, req.mask, m_lineSize);
     }
     
     if (!newline && !line->transient && line->tokens == m_parent.GetTotalTokens())
@@ -552,7 +527,7 @@ Result ZLCOMA::Cache::OnWriteRequest(const Request& req)
         // We can acknowledge directly after writing.
         TraceWrite(req.address, "Processing Bus Write Request: Exclusive Hit");
         
-        if (!m_clients[req.client]->OnMemoryWriteCompleted(req.tid))
+        if (!m_clients[req.client]->OnMemoryWriteCompleted(req.wid))
         {
             return FAILED;
         }
@@ -561,7 +536,7 @@ Result ZLCOMA::Cache::OnWriteRequest(const Request& req)
     }
 
     // Save acknowledgement. When we get all tokens later, these will get acknowledged.
-    COMMIT{ line->ack_queue.push_back(WriteAck(req.client, req.tid)); }
+    COMMIT{ line->ack_queue.push_back(WriteAck(req.client, req.wid)); }
     
     if (line->pending_write)
     {
@@ -1019,14 +994,13 @@ Result ZLCOMA::Cache::OnReadRet(Message* req)
     else
     {
         // Return the data
-        MemData data;
-        data.size = m_lineSize;
+        char data[m_lineSize];
 
         COMMIT
         {
             line->pending_read = false;
 
-            std::copy(line->data, line->data + m_lineSize, data.data);            
+            std::copy(line->data, line->data + m_lineSize, data);
         }
         
         // Acknowledge the read to the memory clients
@@ -1108,14 +1082,8 @@ Result ZLCOMA::Cache::OnEviction(Message* req)
         // Merge the data and tokens from the eviction with the line
         COMMIT
         {
-            for (unsigned int i = 0; i < m_lineSize; i++)
-            {
-                if (!line->bitmask[i])
-                {
-                    line->data[i]    = req->data[i];
-                    line->bitmask[i] = req->bitmask[i];
-                }
-            }
+            line::blitnot(line->data, req->data, line->bitmask, m_lineSize);
+            line::blitnot(line->bitmask, req->bitmask, line->bitmask, m_lineSize);
 
             line->tokens += req->tokens;
             line->priority = line->priority || req->priority;
@@ -1139,7 +1107,7 @@ bool ZLCOMA::Cache::AcknowledgeQueuedWrites(Line* line)
     return true;
 }
 
-bool ZLCOMA::Cache::OnReadCompleted(MemAddr addr, const MemData& data)
+bool ZLCOMA::Cache::OnReadCompleted(MemAddr addr, const char* data)
 {
     // Send the completion on the bus
     if (!p_bus.Invoke())
@@ -1252,12 +1220,11 @@ void ZLCOMA::Cache::Cmd_Read(std::ostream& out, const std::vector<std::string>& 
     {
         // Read the buffers
         out << "Bus requests:" << endl << endl
-            << "      Address      | Size | Type  |" << endl
-            << "-------------------+------+-------+" << endl;
+            << "      Address      | Type  |" << endl
+            << "-------------------+-------+" << endl;
         for (Buffer<Request>::const_iterator p = m_requests.begin(); p != m_requests.end(); ++p)
         {
             out << hex << "0x" << setw(16) << setfill('0') << p->address << " | "
-                << dec << setw(4) << right << setfill(' ') << p->size << " | "
                 << (p->write ? "Write" : "Read ") << " | "
                 << endl;
         }

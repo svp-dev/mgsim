@@ -119,7 +119,7 @@ namespace Simulator
             }
             if (m_preloaded_at_boot)
             {                
-                m_memory.Write(r.vaddr, m_data + r.rom_offset, r.rom_size);
+                m_memory.Write(r.vaddr, m_data + r.rom_offset, 0, r.rom_size);
                 if (m_verboseload)
                 {
                     clog << ", preloaded " << dec << r.rom_size << " bytes to DRAM from ROM offset 0x" << hex << r.rom_offset;
@@ -302,6 +302,11 @@ namespace Simulator
         {
             m_flushing.Set();
             m_loading.Clear();
+
+            COMMIT{
+                m_currentRange = 0;
+                m_currentOffset = 0;
+            }
         }
         return SUCCESS;
     }
@@ -314,7 +319,7 @@ namespace Simulator
 
     bool ActiveROM::OnReadRequestReceived(IODeviceID from, MemAddr address, MemSize size)
     {
-        if (address >= m_lineSize * m_numLines)
+        if (address >= m_lineSize * m_numLines || address + size > m_lineSize * m_numLines)
         {
             throw exceptf<SimulationException>(*this, "Invalid I/O read to %#016llx/%u", (unsigned long long)address, (unsigned)size);
         }
@@ -330,17 +335,63 @@ namespace Simulator
         return true;
     }
 
-    bool ActiveROM::OnWriteRequestReceived(IODeviceID /*from*/, MemAddr address, const IOData& data)
+    bool ActiveROM::OnWriteRequestReceived(IODeviceID from, MemAddr address, const IOData& data)
     {
-        if (address != 0)
+        if (address % 4 != 0 || address > 32 || data.size != 4)
         {
-            throw exceptf<SimulationException>(*this, "Invalid I/O write to %#016llx/%u", (unsigned long long)address, (unsigned)data.size);
+            throw exceptf<SimulationException>(*this, "Invalid I/O write from device %u to %#016llx/%u", (unsigned)from, (unsigned long long)address, (unsigned)data.size);
         }
-        if (!m_loadable.empty())
+
+        Integer value = UnserializeRegister(RT_INTEGER, data.data, data.size);
+        
+        unsigned word = address / 4;
+
+        if (word >= 2)
         {
+            // ensure there is at least one loadable range
+            if (m_loadable.empty())
+            {
+                COMMIT{
+                    LoadableRange r;
+                    r.vaddr = 0;
+                    r.rom_offset = 0;
+                    r.vsize = m_numLines * m_lineSize;
+                    m_loadable.push_back(r);
+                }
+            }
+        }
+
+        switch(word)
+        {
+        case 0:
             m_notifying.Clear();
             m_flushing.Clear();
             m_loading.Set();
+            break;
+        case 1:
+            COMMIT {
+                m_client = (value & 0xffff); 
+                m_completionTarget = (value >> 16) & 0xffff;
+            }
+            break;
+        case 2:
+            COMMIT { m_loadable[0].rom_offset = m_loadable[0].rom_offset & 0xffffffff00000000ULL | value; }
+            break;
+        case 3:
+            COMMIT { m_loadable[0].rom_offset = m_loadable[0].rom_offset & 0xffffffffULL | ((unsigned long long)value << 32); }
+            break;
+        case 4:
+            COMMIT { m_loadable[0].vaddr = m_loadable[0].vaddr & 0xffffffff00000000ULL | value; }
+            break;
+        case 5:
+            COMMIT { m_loadable[0].vaddr = m_loadable[0].vaddr & 0xffffffffULL | ((unsigned long long)value << 32); }
+            break;
+        case 6:
+            COMMIT { m_loadable[0].rom_size = m_loadable[0].rom_size & 0xffffffff00000000ULL | value; }
+            break;
+        case 7:
+            COMMIT { m_loadable[0].rom_size = m_loadable[0].rom_size & 0xffffffffULL | ((unsigned long long)value << 32); }
+            break;
         }
         return true;
     }
@@ -369,6 +420,8 @@ namespace Simulator
             << endl
             << "ROM size: " << m_numLines * m_lineSize << " bytes in " << m_numLines << " lines." << endl
             << "Bootable: " << (m_bootable ? "yes" : "no") << endl
+            << "Target device for DCA: " << m_client << endl
+            << "Notification channel for DCA completions: " << m_completionTarget << endl
             << "Preloaded to DRAM: " << (m_preloaded_at_boot ? "yes" : "no") << endl;
         if (!m_loadable.empty())
         {

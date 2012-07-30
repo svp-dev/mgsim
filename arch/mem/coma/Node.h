@@ -53,7 +53,7 @@ protected:
             bool         dirty;         ///< Is the data dirty? (EV, RD, RDT)
             unsigned int tokens;        ///< Number of tokens in this message (RDT, EV)
             size_t       client;        ///< Sending client (UP)
-            TID          tid;           ///< Sending thread (UP)
+            WClientID    wid;           ///< Sending entity on client (family/thread) (UP)
         };
         
         /// For memory management

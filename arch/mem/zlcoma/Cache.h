@@ -53,7 +53,7 @@ private:
         bool         write;
         MemAddr      address;
         unsigned int client;
-        TID          tid;
+        WClientID    wid;
     };
 
     IBankSelector&                m_selector;
@@ -101,7 +101,7 @@ private:
     bool  ClearLine(Line* line);
     bool  EvictLine(Line* line, const Request& req);
     bool  AcknowledgeQueuedWrites(Line* line);
-    bool  OnReadCompleted(MemAddr addr, const MemData& data);
+    bool  OnReadCompleted(MemAddr addr, const char * data);
 
     // Processes
     Result DoRequests();
@@ -116,8 +116,8 @@ public:
 
     MCID RegisterClient  (IMemoryCallback& callback, Process& process, StorageTraceSet& traces, Storage& storage);
     void UnregisterClient(MCID id);
-    bool Read (MCID id, MemAddr address, MemSize size);
-    bool Write(MCID id, MemAddr address, const void* data, MemSize size, TID tid);
+    bool Read (MCID id, MemAddr address);
+    bool Write(MCID id, MemAddr address, const MemData& data, WClientID wid);
 };
 
 }

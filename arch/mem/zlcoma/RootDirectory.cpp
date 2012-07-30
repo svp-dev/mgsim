@@ -69,38 +69,31 @@ ZLCOMA::RootDirectory::Line* ZLCOMA::RootDirectory::GetEmptyLine(MemAddr address
     return NULL;
 }
 
-bool ZLCOMA::RootDirectory::OnReadCompleted(MemAddr address, const MemData& data)
+bool ZLCOMA::RootDirectory::OnReadCompleted()
 {
-    assert(m_activeMsg != NULL);
-    assert(m_activeMsg->address == address);
-    assert(m_activeMsg->type == Message::READ);
-
+    assert(!m_active.empty());
+    Message* msg = m_active.front();
+    
     // Attach data to message, give all tokens and send
     COMMIT
     {
-        for (size_t i = 0; i < m_lineSize; ++i)
-        {
-            if (!m_activeMsg->bitmask[i])
-            {
-                m_activeMsg->data[i] = data.data[i];
-                m_activeMsg->bitmask[i] = true;
-            }
-        }
-        m_activeMsg->dirty = false;
+        char data[m_lineSize];
+        m_parent.Read(msg->address, data, m_lineSize);
+
+        line::blitnot(msg->data, data, msg->bitmask, m_lineSize);
+        std::fill(msg->bitmask, msg->bitmask + m_lineSize, true);
+
+        msg->dirty = false;
+        
+        m_active.pop();
     }
 
-    if (!m_responses.Push(m_activeMsg))
+    if (!m_responses.Push(msg))
     {
         DeadlockWrite("Unable to push reply into send buffer");
         return false;
     }
 
-    // We're done with this request
-    if (!m_memready.Set())
-    {
-        return false;
-    }
-    COMMIT{ m_activeMsg = NULL; }
     return true;
 }
 
@@ -350,13 +343,6 @@ Result ZLCOMA::RootDirectory::DoRequests()
 {
     assert(!m_requests.Empty());
 
-    if (!m_memready.IsSet())
-    {
-        // We're currently processing a read that will produce a reply, stall
-        return FAILED;
-    }
-    assert(m_activeMsg == NULL);
-
     Message* msg = m_requests.Front();
     if (msg->ignore)
     {
@@ -368,32 +354,35 @@ Result ZLCOMA::RootDirectory::DoRequests()
     }
     else
     {
+        // Since we stripe cache lines across root directories, adjust the
+        // address before we send it to memory for timing.
+        unsigned int mem_address = (msg->address / m_lineSize) / m_numRoots * m_lineSize;
+
         if (msg->type == Message::READ)
         {
             // It's a read
-            if (!m_memory->Read(msg->address, m_lineSize))
+            if (!m_memory->Read(mem_address, m_lineSize))
             {
                 return FAILED;
             }
-
-            if (!m_memready.Clear())
-            {
-                return FAILED;
-            }
+            
             COMMIT{ 
                 ++m_nreads;
-                m_activeMsg = msg; 
+                m_active.push(msg);
             }
         }
         else
         {
             // It's a write
             assert(msg->type == Message::EVICTION);
-            if (!m_memory->Write(msg->address, msg->data, m_lineSize))
+            if (!m_memory->Write(mem_address, m_lineSize))
             {
                 return FAILED;
             }
+            
             COMMIT{
+                m_parent.Write(msg->address, msg->data, 0, m_lineSize);
+                
                 ++m_nwrites;
                 delete msg; 
             }
@@ -468,8 +457,6 @@ ZLCOMA::RootDirectory::RootDirectory(const std::string& name, ZLCOMA& parent, Cl
     p_lines    (*this, clock, "p_lines"),
     m_requests ("b_requests", *this, clock, config.getValue<size_t>(*this, "ExternalOutputQueueSize")),
     m_responses("b_responses", *this, clock, config.getValue<size_t>(*this, "ExternalInputQueueSize")),
-    m_memready ("f_memready", *this, clock, true),
-    m_activeMsg(NULL),
     p_Incoming (*this, "incoming",  delegate::create<RootDirectory, &RootDirectory::DoIncoming>(*this)),
     p_Requests (*this, "requests",  delegate::create<RootDirectory, &RootDirectory::DoRequests>(*this)),
     p_Responses(*this, "responses", delegate::create<RootDirectory, &RootDirectory::DoResponses>(*this)),
@@ -496,7 +483,7 @@ ZLCOMA::RootDirectory::RootDirectory(const std::string& name, ZLCOMA& parent, Cl
     m_memory = ddr[ddrid];
     
     StorageTraceSet sts;
-    m_memory->SetClient(*this, sts, m_responses * m_memready);
+    m_memory->SetClient(*this, sts, m_responses);
     
     p_Requests.SetStorageTraces(sts ^ m_responses);
     p_Incoming.SetStorageTraces((GetOutgoingTrace() * opt(m_requests)) ^ opt(m_requests));

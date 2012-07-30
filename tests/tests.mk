@@ -1,5 +1,6 @@
 LOG_COMPILER = \
-   MGSIM=$(top_builddir)/mgsim $(SHELL) $(srcdir)/runtest.sh \
+   $(SHELL) $(srcdir)/runtest.sh \
+	$(top_builddir)/mgsim \
 	$(top_srcdir)/tools/timeout \
 	$(top_srcdir)/programs/config.ini \
 	`test -f ../programs/nobounds.ini || echo '$(srcdir)/'`../programs/nobounds.ini
@@ -10,7 +11,7 @@ COMPILE = $(SHELL) $(top_builddir)/tools/compile $(TEST_ARCH) \
 	   -I$(top_srcdir)/programs -I$(top_builddir)/programs
 
 
-SUFFIXES = .c .s .bin .coma .zlcoma .serial .parallel .banked .randombanked
+SUFFIXES = .c .s .bin .coma .zlcoma .serial .parallel .banked .randombanked .ddr .randomddr
 
 .s.bin:
 	$(MKDIR_P) `dirname "$@"`
@@ -20,6 +21,8 @@ SUFFIXES = .c .s .bin .coma .zlcoma .serial .parallel .banked .randombanked
 	$(MKDIR_P) `dirname "$@"`
 	$(COMPILE) -o $@ `test -f "$<" || echo "$(srcdir)"/`$<
 
+.bin.flatcoma:
+	echo "$<" >"$@"
 .bin.coma:
 	echo "$<" >"$@"
 .bin.zlcoma:
@@ -32,6 +35,10 @@ SUFFIXES = .c .s .bin .coma .zlcoma .serial .parallel .banked .randombanked
 	echo "$<" >"$@"
 .bin.randombanked:
 	echo "$<" >"$@"
+.bin.ddr:
+	echo "$<" >"$@"
+.bin.randomddr:
+	echo "$<" >"$@"
 
 check_DATA = $(TEST_BINS)
 TESTS = \
@@ -39,7 +46,16 @@ TESTS = \
 	$(TEST_BINS:.bin=.parallel) \
 	$(TEST_BINS:.bin=.banked) \
 	$(TEST_BINS:.bin=.randombanked) \
+	$(TEST_BINS:.bin=.ddr) \
+	$(TEST_BINS:.bin=.randomddr) \
+	$(TEST_BINS:.bin=.flatcoma) \
 	$(TEST_BINS:.bin=.coma) \
     $(TEST_BINS:.bin=.zlcoma)
+
+check_%: $(TEST_BINS)
+	$(MAKE) check TESTS="$(TEST_BINS:.bin=.$*)"
+
+recheck_%: $(TEST_BINS)
+	$(MAKE) recheck TESTS="$(TEST_BINS:.bin=.$*)"
 
 CLEANFILES = $(TESTS) *.out

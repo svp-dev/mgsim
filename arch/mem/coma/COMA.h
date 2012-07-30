@@ -38,14 +38,15 @@ public:
         virtual ~Object() {}
     };
 
-private:    
+protected:
     typedef std::set<MemAddr> TraceMap;
     typedef size_t            CacheID;
     
     ComponentModelRegistry&     m_registry;
     size_t                      m_numClientsPerCache;
-    size_t                      m_numCachesPerDir;
+    size_t                      m_numCachesPerLowRing;
     size_t                      m_numClients;
+    size_t                      m_lineSize;
     Config&                     m_config;
     IBankSelector*              m_selector;           ///< Mapping of line addresses to set indexes
     std::vector<Cache*>         m_caches;             ///< List of caches
@@ -58,14 +59,12 @@ private:
 
     uint64_t                    m_nreads, m_nwrites, m_nread_bytes, m_nwrite_bytes;
     
-    void ConfigureTopRing();
-    
     unsigned int GetTotalTokens() const {
         // One token per cache
         return m_caches.size();
     }
     
-    void Initialize();
+    virtual void Initialize() = 0;
     
 public:
     COMA(const std::string& name, Simulator::Object& parent, Clock& clock, Config& config);
@@ -74,10 +73,10 @@ public:
     const TraceMap& GetTraces() const { return m_traces; }
 
     IBankSelector& GetBankSelector() const { return *m_selector; }
-    
-    size_t GetLineSize() const;
+
+    size_t GetLineSize() const { return m_lineSize; }
     size_t GetNumClientsPerCache() const { return m_numClientsPerCache; }    
-    size_t GetNumCachesPerDirectory() const { return m_numCachesPerDir; }
+    size_t GetNumCachesPerLowRing() const { return m_numCachesPerLowRing; }
     size_t GetNumCaches() const { return m_caches.size(); }
     size_t GetNumDirectories() const { return m_directories.size(); }
     size_t GetNumRootDirectories() const { return m_roots.size(); }
@@ -86,10 +85,10 @@ public:
     size_t GetDirectoryAssociativity() const;
     
     // IMemory
-    MCID RegisterClient(IMemoryCallback& callback, Process& process, StorageTraceSet& traces, Storage& storage, bool grouped);
+    virtual MCID RegisterClient(IMemoryCallback& callback, Process& process, StorageTraceSet& traces, Storage& storage, bool grouped) = 0;
     void UnregisterClient(MCID id);
-    bool Read (MCID id, MemAddr address, MemSize size);
-    bool Write(MCID id, MemAddr address, const void* data, MemSize size, TID tid);
+    bool Read (MCID id, MemAddr address);
+    bool Write(MCID id, MemAddr address, const MemData& data, WClientID wid);
     bool CheckPermissions(MemAddr address, MemSize size, int access) const;
 
     void GetMemoryStatistics(uint64_t& nreads, uint64_t& nwrites, 
@@ -106,7 +105,27 @@ public:
     void UnreserveAll(ProcessID pid);
 
     void Read (MemAddr address, void* data, MemSize size);
-    void Write(MemAddr address, const void* data, MemSize size);
+    void Write(MemAddr address, const void* data, const bool* mask, MemSize size);
+};
+
+class OneLevelCOMA : public COMA
+{
+public:
+    void Initialize();
+
+    MCID RegisterClient(IMemoryCallback& callback, Process& process, StorageTraceSet& traces, Storage& storage, bool grouped);
+
+    OneLevelCOMA(const std::string& name, Simulator::Object& parent, Clock& clock, Config& config);
+};
+
+class TwoLevelCOMA : public COMA
+{
+public:
+    void Initialize();
+
+    MCID RegisterClient(IMemoryCallback& callback, Process& process, StorageTraceSet& traces, Storage& storage, bool grouped);
+
+    TwoLevelCOMA(const std::string& name, Simulator::Object& parent, Clock& clock, Config& config);
 };
 
 }

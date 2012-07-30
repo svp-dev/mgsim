@@ -1,10 +1,10 @@
 #! /bin/bash
 set -e
-sim=${MGSIM:?}
-timeout=${1:?}
-cfg1=${2:?}
-cfg2=${3:?}
-TESTd=${4:?}
+sim=${1:?}
+timeout=${2:?}
+cfg1=${3:?}
+cfg2=${4:?}
+TESTd=${5:?}
 
 fail=0
 

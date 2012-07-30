@@ -30,12 +30,9 @@ void SerialMemory::UnregisterClient(MCID id)
     m_clients[id] = NULL;
 }
 
-bool SerialMemory::Read(MCID id, MemAddr address, MemSize size)
+bool SerialMemory::Read(MCID id, MemAddr address)
 {
-    if (size > MAX_MEMORY_OPERATION_SIZE)
-    {
-        throw InvalidArgumentException("Size argument too big");
-    }
+    assert(address % m_lineSize == 0);
     
     if (!p_requests.Invoke())
     {
@@ -48,7 +45,6 @@ bool SerialMemory::Read(MCID id, MemAddr address, MemSize size)
     Request request;
     request.callback  = m_clients[id];
     request.address   = address;
-    request.data.size = size;
     request.write     = false;
 
     if (!m_requests.Push(request))
@@ -59,12 +55,9 @@ bool SerialMemory::Read(MCID id, MemAddr address, MemSize size)
     return true;
 }
 
-bool SerialMemory::Write(MCID id, MemAddr address, const void* data, MemSize size, TID tid)
+bool SerialMemory::Write(MCID id, MemAddr address, const MemData& data, WClientID wid)
 {
-    if (size > MAX_MEMORY_OPERATION_SIZE)
-    {
-        throw InvalidArgumentException("Size argument too big");
-    }
+    assert(address % m_lineSize == 0);
 
     if (!p_requests.Invoke())
     {
@@ -77,10 +70,12 @@ bool SerialMemory::Write(MCID id, MemAddr address, const void* data, MemSize siz
     Request request;
     request.callback  = m_clients[id];
     request.address   = address;
-    request.data.size = size;
-    request.tid       = tid;
+    request.wid       = wid;
     request.write     = true;
-    memcpy(request.data.data, data, (size_t)size);
+    COMMIT{
+    std::copy(data.data, data.data + m_lineSize, request.data.data);
+    std::copy(data.mask, data.mask + m_lineSize, request.data.mask);
+    }
 
     if (!m_requests.Push(request))
     {
@@ -90,7 +85,7 @@ bool SerialMemory::Write(MCID id, MemAddr address, const void* data, MemSize siz
     // Broadcast the snoop data
     for (vector<IMemoryCallback*>::const_iterator p = m_clients.begin(); p != m_clients.end(); ++p)
     {
-        if (*p != NULL && !(*p)->OnMemorySnooped(request.address, request.data))
+        if (*p != NULL && !(*p)->OnMemorySnooped(request.address, request.data.data, request.data.mask))
         {
             return false;
         }
@@ -119,9 +114,9 @@ void SerialMemory::Read(MemAddr address, void* data, MemSize size)
     return VirtualMemory::Read(address, data, size);
 }
 
-void SerialMemory::Write(MemAddr address, const void* data, MemSize size)
+void SerialMemory::Write(MemAddr address, const void* data, const bool* mask, MemSize size)
 {
-    return VirtualMemory::Write(address, data, size);
+    return VirtualMemory::Write(address, data, mask, size);
 }
 
 bool SerialMemory::CheckPermissions(MemAddr address, MemSize size, int access) const
@@ -143,25 +138,29 @@ Result SerialMemory::DoRequests()
         {
             // The current request has completed
             if (request.write) {
-                VirtualMemory::Write(request.address, request.data.data, request.data.size);
-                if (!request.callback->OnMemoryWriteCompleted(request.tid))
+
+                VirtualMemory::Write(request.address, request.data.data, request.data.mask, m_lineSize);
+
+                if (!request.callback->OnMemoryWriteCompleted(request.wid))
                 {
                     return FAILED;
                 }
                 COMMIT {
                     ++m_nwrites;
-                    m_nwrite_bytes += request.data.size;
+                    m_nwrite_bytes += m_lineSize;
                 }
             } else {
-                MemData data(request.data);
-                VirtualMemory::Read(request.address, data.data, data.size);
+                char data[m_lineSize];
+
+                VirtualMemory::Read(request.address, data, m_lineSize);
+
                 if (!request.callback->OnMemoryReadCompleted(request.address, data))
                 {
                     return FAILED;
                 }
                 COMMIT {
                     ++m_nreads;
-                    m_nread_bytes += request.data.size;
+                    m_nread_bytes += m_lineSize;
                 }
             }
             m_requests.Pop();
@@ -174,7 +173,7 @@ Result SerialMemory::DoRequests()
         COMMIT
         {
             // Time the request
-            CycleNo requestTime = m_baseRequestTime + m_timePerLine * (request.data.size + m_sizeOfLine - 1) / m_sizeOfLine;
+            CycleNo requestTime = m_baseRequestTime + m_timePerLine;
             m_nextdone = now + requestTime;
         }
     }
@@ -189,7 +188,7 @@ SerialMemory::SerialMemory(const std::string& name, Object& parent, Clock& clock
     p_requests       (*this, clock, "m_requests"),
     m_baseRequestTime(config.getValue<CycleNo>   (*this, "BaseRequestTime")),
     m_timePerLine    (config.getValue<CycleNo>   (*this, "TimePerLine")),
-    m_sizeOfLine     (config.getValue<CycleNo>   ("CacheLineSize")),
+    m_lineSize       (config.getValue<CycleNo>   ("CacheLineSize")),
     m_nextdone(0),
     m_nreads(0),
     m_nread_bytes(0),
@@ -236,21 +235,21 @@ void SerialMemory::Cmd_Read(ostream& out, const vector<string>& arguments) const
         return VirtualMemory::Cmd_Read(out, arguments);
     }
     
-    out << "      Address       | Size | Type  | Source" << endl;
-    out << "--------------------+------+-------+---------------------" << endl;
+    out << "      Address       | Type  | Source               | Value(writes)" << endl;
+    out << "--------------------+-------+----------------------+----------------" << endl;
 
     for (Buffer<Request>::const_iterator p = m_requests.begin(); p != m_requests.end(); ++p)
     {
         out << hex << setfill('0') << right 
-            << " 0x" << setw(16) << p->address << " | "
-            << setfill(' ') << setw(4) << dec << p->data.size << " | ";
+            << " 0x" << setw(16) << p->address << " | ";
 
         if (p->write) {
             out << "Write";
         } else {
             out << "Read ";
         }
-        out << " | ";
+        out << " | "
+            << setw(20);
 
         Object* obj = dynamic_cast<Object*>(p->callback);
         if (obj == NULL) {
@@ -259,6 +258,19 @@ void SerialMemory::Cmd_Read(ostream& out, const vector<string>& arguments) const
             out << obj->GetFQN();
         }
 
+        out << " |"
+            << hex << setfill('0');
+        if (p->write)
+        {
+            for (size_t i = 0; i < m_lineSize; ++i)
+            {
+                out << ' ';
+                if (p->data.mask[i])
+                    out << setw(2) << (unsigned)(unsigned char)p->data.data[i];
+                else
+                    out << "--";
+            }
+        }
         out << endl;
     }
 
