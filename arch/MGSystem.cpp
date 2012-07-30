@@ -3,6 +3,7 @@
 #include "mem/SerialMemory.h"
 #include "mem/ParallelMemory.h"
 #include "mem/BankedMemory.h"
+#include "mem/DDRMemory.h"
 #include "mem/coma/COMA.h"
 #include "mem/zlcoma/COMA.h"
 
@@ -247,6 +248,7 @@ void MGSystem::PrintCoreStats(ostream& os) const {
         types[j] = I; c[i][j++].i = pl.GetTotalBusyTime();
         types[j] = I; c[i][j++].i = pl.GetNStages();
         types[j] = I; c[i][j++].i = pl.GetStagesRun();
+        types[j] = I; c[i][j++].i = pl.GetStalls();
         types[j] = PC; c[i][j++].f = 100. * pl.GetEfficiency();
         types[j] = PC; c[i][j++].f = 100. * (float)pl.GetOp() / (float)pl.GetCycleNo();
         types[j] = I; c[i][j++].i = p.GetMaxThreadsAllocated();
@@ -314,6 +316,7 @@ void MGSystem::PrintCoreStats(ostream& os) const {
        << fi << "plbusy" << sep
        << fi << "plstgs" << sep
        << fi << "plstgrun" << sep
+       << fi << "plstalls" << sep
        << fp << "pl%busy" << sep
        << fp << "pl%eff" << sep
        << fi << "ttmax" << sep
@@ -395,6 +398,7 @@ void MGSystem::PrintCoreStats(ostream& os) const {
        << "# plbusy: number of corecycles the pipeline was active" << endl
        << "# plstgs: number of pipeline stages" << endl
        << "# plstgrun: cumulative number of corecycles active in all pipeline stages" << endl
+       << "# plstalls: cumulative number of corecycles that (a part of) the pipeline stalled" << endl
        << "# pl%busy: pipeline efficiency while active (= 100. * plstgrun / plstgs / plbusy)" << endl
        << "# pl%eff: pipeline efficiency total (= 100. * iops / ncorecycles_total)" << endl
        << "# ttmax: maximum of thread entries simulatenously allocated" << endl
@@ -649,11 +653,20 @@ MGSystem::MGSystem(Config& config,
     } else if (memory_type == "RANDOMBANKED") {
         BankedMemory* memory = new BankedMemory("memory", m_root, memclock, config, "RMIX");
         m_memory = memory;
+    } else if (memory_type == "DDR") {
+        DDRMemory* memory = new DDRMemory("memory", m_root, memclock, config, "DIRECT");
+        m_memory = memory;
+    } else if (memory_type == "RANDOMDDR") {
+        DDRMemory* memory = new DDRMemory("memory", m_root, memclock, config, "RMIX");
+        m_memory = memory;
     } else if (memory_type == "COMA") {
-        COMA* memory = new COMA("memory", m_root, memclock, config);
+        COMA* memory = new TwoLevelCOMA("memory", m_root, memclock, config);
         m_memory = memory;
     } else if (memory_type == "ZLCOMA") {
         ZLCOMA* memory = new ZLCOMA("memory", m_root, memclock, config);
+        m_memory = memory;
+    } else if (memory_type == "FLATCOMA") {
+        COMA* memory = new OneLevelCOMA("memory", m_root, memclock, config);
         m_memory = memory;
     } else {
         throw runtime_error("Unknown memory type: " + memory_type);

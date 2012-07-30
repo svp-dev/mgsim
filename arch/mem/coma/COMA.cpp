@@ -10,7 +10,43 @@ using namespace std;
 namespace Simulator
 {
 
-MCID COMA::RegisterClient(IMemoryCallback& callback, Process& process, StorageTraceSet& traces, Storage& storage, bool grouped)
+MCID OneLevelCOMA::RegisterClient(IMemoryCallback& callback, Process& process, StorageTraceSet& traces, Storage& storage, bool grouped)
+{ 
+    MCID id = m_clientMap.size();
+    m_clientMap.resize(id + 1);
+
+    size_t abstract_id;
+    if (grouped)
+        abstract_id = m_numClients - 1;
+    else
+        abstract_id = m_numClients++;
+
+    size_t cache_id = abstract_id / m_numClientsPerCache;
+
+    if (cache_id == m_caches.size())
+    {
+        // Add a cache
+        stringstream name;
+        name << "cache" << m_caches.size();
+        Cache* cache = new Cache(name.str(), *this, GetClock(), m_caches.size(), m_config);
+        m_caches.push_back(cache);
+    }
+    
+    // Forward the registration to the cache associated with the processor
+
+    Cache *cache = m_caches[cache_id];
+
+    MCID id_in_cache = cache->RegisterClient(callback, process, traces, storage);
+
+    m_clientMap[id] = make_pair(cache, id_in_cache);
+
+    if (!grouped)
+        m_registry.registerBidiRelation(callback.GetMemoryPeer(), *cache, "mem");
+
+    return id;
+}
+
+MCID TwoLevelCOMA::RegisterClient(IMemoryCallback& callback, Process& process, StorageTraceSet& traces, Storage& storage, bool grouped)
 {
     MCID id = m_clientMap.size();
     m_clientMap.resize(id + 1);
@@ -30,7 +66,7 @@ MCID COMA::RegisterClient(IMemoryCallback& callback, Process& process, StorageTr
     if (cache_id == m_caches.size())
     {
         // Add a cache
-        if (m_caches.size() % m_numCachesPerDir == 0)
+        if (m_caches.size() % m_numCachesPerLowRing == 0)
         {
             // First cache in a ring; add a directory
             CacheID firstCache = m_caches.size();
@@ -68,27 +104,26 @@ void COMA::UnregisterClient(MCID id)
     m_clientMap[id].first->UnregisterClient(m_clientMap[id].second);
 }
 
-bool COMA::Read(MCID id, MemAddr address, MemSize size)
+bool COMA::Read(MCID id, MemAddr address)
 {
     COMMIT
     {
         m_nreads++;
-        m_nread_bytes += size;
+        m_nread_bytes += m_lineSize;
     }
     // Forward the read to the cache associated with the callback
-    return m_clientMap[id].first->Read(m_clientMap[id].second, address, size);
+    return m_clientMap[id].first->Read(m_clientMap[id].second, address);
 }
 
-bool COMA::Write(MCID id, MemAddr address, const void* data, MemSize size, TID tid)
+bool COMA::Write(MCID id, MemAddr address, const MemData& data, WClientID wid)
 {
-    // Until the write protocol is figured out, do magic coherence!
     COMMIT
     {
         m_nwrites++;
-        m_nwrite_bytes += size;
+        m_nwrite_bytes += m_lineSize;
     }
     // Forward the write to the cache associated with the callback
-    return m_clientMap[id].first->Write(m_clientMap[id].second, address, data, size, tid);
+    return m_clientMap[id].first->Write(m_clientMap[id].second, address, data, wid);
 }
 
 void COMA::Reserve(MemAddr address, MemSize size, ProcessID pid, int perm)
@@ -111,9 +146,9 @@ void COMA::Read(MemAddr address, void* data, MemSize size)
     return VirtualMemory::Read(address, data, size);
 }
 
-void COMA::Write(MemAddr address, const void* data, MemSize size)
+void COMA::Write(MemAddr address, const void* data, const bool* mask, MemSize size)
 {
-	return VirtualMemory::Write(address, data, size);
+    return VirtualMemory::Write(address, data, mask, size);
 }
 
 bool COMA::CheckPermissions(MemAddr address, MemSize size, int access) const
@@ -127,13 +162,15 @@ COMA::COMA(const std::string& name, Simulator::Object& parent, Clock& clock, Con
     Simulator::Object(name, parent, clock),
     m_registry(config),
     m_numClientsPerCache(config.getValue<size_t>("NumClientsPerL2Cache")),
-    m_numCachesPerDir (config.getValue<size_t>(*this, "NumL2CachesPerDirectory")),
+    m_numCachesPerLowRing(config.getValueOrDefault<size_t>(*this, "NumL2CachesPerRing", 
+                                                           config.getValue<size_t>(*this, "NumL2CachesPerDirectory"))),
     m_numClients(0),
+    m_lineSize(config.getValue<size_t>("CacheLineSize")),
     m_config(config),
     m_selector(IBankSelector::makeSelector(*this,
                                            config.getValueOrDefault<string>(*this, "BankSelector", "XORFOLD"),
                                            config.getValue<size_t>(*this, "L2CacheNumSets"))),
-    m_ddr("ddr", *this, *this, config, config.getValue<size_t>(*this, "NumRootDirectories")),
+    m_ddr("ddr", *this, config, config.getValue<size_t>(*this, "NumRootDirectories")),
     m_nreads(0), m_nwrites(0), m_nread_bytes(0), m_nwrite_bytes(0)
 {
 
@@ -158,7 +195,58 @@ COMA::COMA(const std::string& name, Simulator::Object& parent, Clock& clock, Con
     
 }
 
-void COMA::Initialize()
+OneLevelCOMA::OneLevelCOMA(const std::string& name, Simulator::Object& parent, Clock& clock, Config& config) :
+    COMA(name, parent, clock, config)
+{ };
+
+TwoLevelCOMA::TwoLevelCOMA(const std::string& name, Simulator::Object& parent, Clock& clock, Config& config) :
+    COMA(name, parent, clock, config)
+{ };
+
+
+void OneLevelCOMA::Initialize()
+{
+    m_config.registerObject(*this, "coma");
+    m_config.registerProperty(*this, "selector", m_selector->GetName());
+
+    //
+    // Figure out the layout of the top-level ring
+    //
+    std::vector<Node*> nodes(m_roots.size() + m_caches.size(), NULL);
+
+    // First place root directories in their place in the ring.
+    for (size_t i = 0; i < m_roots.size(); ++i)
+    {
+        // Tell the root directory how many rings there are
+        m_roots[i]->SetNumRings(1);
+
+        // Do an even (as possible) distribution
+        size_t pos = i * m_caches.size() / m_roots.size() + i;
+        
+        // In case we map to an already used spot (for uneven distributions), find the next free spot
+        while (nodes[pos] != NULL) pos = (pos + 1) % nodes.size();
+        nodes[pos] = m_roots[i];
+    }
+    
+    // Then fill up the gaps with the caches
+    for (size_t p = 0, i = 0; i < m_caches.size(); ++i, ++p)
+    {
+        while (nodes[p] != NULL) ++p;
+        nodes[p] = m_caches[i];
+    }
+    
+    // Now connect everything on the top-level ring
+    for (size_t i = 0; i < nodes.size(); ++i)
+    {
+        Node *next = nodes[(i == 0 ? nodes.size() : i) - 1];
+        Node *prev = nodes[(i + 1) % nodes.size()];
+        nodes[i]->Initialize(next, prev);
+
+        m_config.registerRelation(*nodes[i], *next, "topring", true);
+    }
+}
+
+void TwoLevelCOMA::Initialize()
 {
     m_config.registerObject(*this, "coma");
     m_config.registerProperty(*this, "selector", m_selector->GetName());
@@ -166,9 +254,9 @@ void COMA::Initialize()
     // Initialize the caches
     for (size_t i = 0; i < m_caches.size(); ++i)
     {
-        DirectoryBottom* dir = &m_directories[i / m_numCachesPerDir]->m_bottom;
-        const bool first = (i % m_numCachesPerDir == 0);
-        const bool last  = (i % m_numCachesPerDir == m_numCachesPerDir - 1) || (i == m_caches.size() - 1);
+        DirectoryBottom* dir = &m_directories[i / m_numCachesPerLowRing]->m_bottom;
+        const bool first = (i % m_numCachesPerLowRing == 0);
+        const bool last  = (i % m_numCachesPerLowRing == m_numCachesPerLowRing - 1) || (i == m_caches.size() - 1);
 
         Node *next = first ? dir : static_cast<Node*>(m_caches[i-1]);
         Node *prev = last  ? dir : static_cast<Node*>(m_caches[i+1]);
@@ -180,8 +268,8 @@ void COMA::Initialize()
     // Connect the directories to the cache rings
     for (size_t i = 0; i < m_directories.size(); ++i)
     {
-        Node *next = m_caches[std::min(i * m_numCachesPerDir + m_numCachesPerDir, m_caches.size()) - 1];
-        Node *prev = m_caches[i * m_numCachesPerDir];
+        Node *next = m_caches[std::min(i * m_numCachesPerLowRing + m_numCachesPerLowRing, m_caches.size()) - 1];
+        Node *prev = m_caches[i * m_numCachesPerLowRing];
         m_directories[i]->m_bottom.Initialize(next, prev);
 
         m_config.registerRelation(m_directories[i]->m_bottom, *next, "l2ring", true);
@@ -195,8 +283,8 @@ void COMA::Initialize()
     // First place root directories in their place in the ring.
     for (size_t i = 0; i < m_roots.size(); ++i)
     {
-        // Tell the root directory how many directories there are
-        m_roots[i]->SetNumDirectories(m_directories.size());
+        // Tell the root directory how many rings there are
+        m_roots[i]->SetNumRings(m_directories.size());
 
         // Do an even (as possible) distribution
         size_t pos = i * m_directories.size() / m_roots.size() + i;
@@ -244,23 +332,24 @@ COMA::~COMA()
     delete m_selector;
 }
 
-size_t COMA::GetLineSize() const
-{
-    return m_caches[0]->GetLineSize();
-}
-
 size_t COMA::GetNumCacheSets() const
 {
+    if (m_caches.empty())
+        return 0;
     return m_caches[0]->GetNumSets();
 }
 
 size_t COMA::GetCacheAssociativity() const
 {
+    if (m_caches.empty())
+        return 0;
     return m_caches[0]->GetAssociativity();
 }
 
 size_t COMA::GetDirectoryAssociativity() const
 {
+    if (m_directories.empty())
+        return 0;
     return m_directories[0]->m_assoc;
 }
 

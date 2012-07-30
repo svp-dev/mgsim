@@ -5,6 +5,8 @@ MEMORY_SRC = \
 	arch/mem/ParallelMemory.h \
 	arch/mem/SerialMemory.cpp \
 	arch/mem/SerialMemory.h \
+        arch/mem/DDRMemory.cpp \
+        arch/mem/DDRMemory.h \
         arch/mem/DDR.cpp \
         arch/mem/DDR.h
 

@@ -40,7 +40,7 @@ Processor::Pipeline::Pipeline(
     m_active("f_active", *this, clock),
     
     m_nStagesRunnable(0), m_nStagesRun(0),
-    m_pipelineBusyTime(0)
+    m_pipelineBusyTime(0), m_nStalls(0)
 {
     static const size_t NUM_FIXED_STAGES = 6;
 
@@ -54,6 +54,7 @@ Processor::Pipeline::Pipeline(
     RegisterSampleVariableInObject(m_nStagesRunnable, SVC_LEVEL, m_stages.size());
     RegisterSampleVariableInObject(m_nStagesRun, SVC_CUMULATIVE);
     RegisterSampleVariableInObject(m_pipelineBusyTime, SVC_CUMULATIVE);
+    RegisterSampleVariableInObject(m_nStalls, SVC_CUMULATIVE);
     
 
     // Create the Fetch stage
@@ -138,6 +139,9 @@ Result Processor::Pipeline::DoPipeline()
          will read the WB latch before it's been updated.
         */
         m_mwBypass = m_dummyLatches.empty() ? m_mwLatch : m_dummyLatches.back();
+
+        // We've been busy this cycle
+        m_pipelineBusyTime++;
     }
     
     Result result = FAILED;
@@ -167,6 +171,7 @@ Result Processor::Pipeline::DoPipeline()
                 if (action == PIPE_STALL)
                 {
                     stage->status = FAILED;
+                    m_nStalls++;
                     DeadlockWrite("%s stage stalled", stage->stage->GetName().c_str());
                     break;
                 }
@@ -237,7 +242,6 @@ Result Processor::Pipeline::DoPipeline()
     COMMIT
     {
         m_nStagesRun += m_nStagesRunnable;
-        m_pipelineBusyTime++;
     }
     
     m_active.Write(true);

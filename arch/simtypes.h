@@ -29,6 +29,8 @@ typedef size_t   RegSize;       ///< Size of something in the register file
 typedef size_t   FSize;         ///< Family list size
 typedef size_t   LFID;          ///< Local family index
 
+typedef size_t   WClientID; ///< Entity ID to match memory writes (either TID or LFID depending on config)
+
 enum ContextType
 {
     CONTEXT_NORMAL = 0,
@@ -297,7 +299,7 @@ enum ThreadState
     TST_RUNNING,
     TST_SUSPENDED,
     TST_UNUSED,
-    TST_KILLED,
+    TST_TERMINATED,
     TST_NUMSTATES
 };
 
@@ -310,7 +312,7 @@ enum FamilyState
 	FST_CREATE_QUEUED,
 	FST_CREATING,
     FST_ACTIVE,
-    FST_KILLED
+    FST_TERMINATED,
 };
 
 enum ExitCode
@@ -326,6 +328,7 @@ std::ostream& operator << (std::ostream& output, const RegAddr& reg);
 static const PID     INVALID_PID  = PID (-1);
 static const LFID    INVALID_LFID = LFID(-1);
 static const TID     INVALID_TID  = TID (-1);
+static const WClientID INVALID_WCLIENTID = WClientID(-1);
 static const CID     INVALID_CID  = CID (-1);
 static const RegAddr INVALID_REG  = MAKE_REGADDR(RT_INTEGER, INVALID_REG_INDEX);
 

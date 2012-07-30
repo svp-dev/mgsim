@@ -16,7 +16,8 @@ namespace Simulator
 class COMA::DirectoryTop : public COMA::Node
 {
 protected:
-    friend class COMA;
+    friend class OneLevelCOMA;
+    friend class TwoLevelCOMA;
     friend class COMA::Directory;
     DirectoryTop(const std::string& name, COMA& parent, Clock& clock, Config& config);
 };
@@ -24,7 +25,8 @@ protected:
 class COMA::DirectoryBottom : public COMA::Node
 {
 protected:
-    friend class COMA;
+    friend class OneLevelCOMA;
+    friend class TwoLevelCOMA;
     friend class COMA::Directory;
     DirectoryBottom(const std::string& name, COMA& parent, Clock& clock, Config& config);
 };
@@ -41,6 +43,8 @@ public:
 
 protected:
     friend class COMA;
+    friend class OneLevelCOMA;
+    friend class TwoLevelCOMA;
     COMA::DirectoryBottom m_bottom;
     COMA::DirectoryTop    m_top;
     

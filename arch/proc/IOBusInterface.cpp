@@ -80,7 +80,7 @@ namespace Simulator
         req.client = from;
         req.address = address;
         req.type = (address == 0 && size == 0) ? IODirectCacheAccess::FLUSH : IODirectCacheAccess::READ;
-        req.data.size = size;
+        req.size = size;
         return m_dca.QueueRequest(req);
     }
 
@@ -101,8 +101,8 @@ namespace Simulator
         req.client = from;
         req.address = address;
         req.type = IODirectCacheAccess::WRITE;
-        memcpy(req.data.data, data.data, data.size);
-        req.data.size = data.size;
+        memcpy(req.data, data.data, data.size);
+        req.size = data.size;
         return m_dca.QueueRequest(req);
     }
 

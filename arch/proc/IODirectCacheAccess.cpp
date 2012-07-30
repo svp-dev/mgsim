@@ -13,6 +13,7 @@ namespace Simulator
           m_requests("b_requests", *this, clock, config.getValue<BufferSize>(*this, "RequestQueueSize")),
           m_responses("b_responses", *this, clock, config.getValue<BufferSize>(*this, "ResponseQueueSize")),
           m_has_outstanding_request(false),
+          m_flushing(false),
           m_pending_writes(0),
           p_MemoryOutgoing(*this, "send-memory-requests", delegate::create<IODirectCacheAccess, &Processor::IODirectCacheAccess::DoMemoryOutgoing>(*this)),
           p_BusOutgoing   (*this, "send-bus-responses", delegate::create<IODirectCacheAccess, &Processor::IODirectCacheAccess::DoBusOutgoing>(*this)),
@@ -26,7 +27,7 @@ namespace Simulator
         StorageTraceSet traces;
         m_mcid = m_memory.RegisterClient(*this, p_MemoryOutgoing, traces, m_responses, true);
         
-        p_MemoryOutgoing.SetStorageTraces(opt(traces));
+        p_MemoryOutgoing.SetStorageTraces(opt(traces ^ m_responses));
         p_BusOutgoing.SetStorageTraces(opt(m_busif.m_outgoing_reqs));
     }
     
@@ -38,27 +39,27 @@ namespace Simulator
     bool Processor::IODirectCacheAccess::QueueRequest(const Request& req)
     {
         size_t offset = (size_t)(req.address % m_lineSize);
-        if (offset + req.data.size > m_lineSize)
+        if (offset + req.size > m_lineSize)
         {
             throw exceptf<InvalidArgumentException>(*this, "DCA request for %#016llx/%u (dev %u, type %d) crosses over cache line boundary", 
-                                                    (unsigned long long)req.address, (unsigned)req.data.size, (unsigned)req.client, (int)req.type);
+                                                    (unsigned long long)req.address, (unsigned)req.size, (unsigned)req.client, (int)req.type);
         }
 
-        if (req.type != FLUSH && !m_cpu.CheckPermissions(req.address, req.data.size, (req.type == WRITE) ? IMemory::PERM_DCA_WRITE : IMemory::PERM_DCA_READ))
+        if (req.type != FLUSH && !m_cpu.CheckPermissions(req.address, req.size, (req.type == WRITE) ? IMemory::PERM_DCA_WRITE : IMemory::PERM_DCA_READ))
         {
             throw exceptf<SecurityException>(*this, "Invalid access in DCA request for %#016llx/%u (dev %u, type %d)",
-                                             (unsigned long long)req.address, (unsigned)req.data.size, (unsigned)req.client, (int)req.type);
+                                             (unsigned long long)req.address, (unsigned)req.size, (unsigned)req.client, (int)req.type);
         }
 
         if (!m_requests.Push(req))
         {
             DeadlockWrite("Unable to queue DCA request (%#016llx/%u, dev %u, type %d",
-                          (unsigned long long)req.address, (unsigned)req.data.size, (unsigned)req.client, (int)req.type);
+                          (unsigned long long)req.address, (unsigned)req.size, (unsigned)req.client, (int)req.type);
             return false;
         }
 
         DebugIOWrite("Queued DCA request (%#016llx/%u, dev %u, type %d)",
-                     (unsigned long long)req.address, (unsigned)req.data.size, (unsigned)req.client, (int)req.type);
+                     (unsigned long long)req.address, (unsigned)req.size, (unsigned)req.client, (int)req.type);
 
         return true;
     }
@@ -69,7 +70,7 @@ namespace Simulator
         {
             Response res;
             res.address = 0;
-            res.data.size = 0;
+            res.size = 0;
             if (!m_responses.Push(res))
             {
                 DeadlockWrite("Unable to push memory write response");
@@ -79,18 +80,19 @@ namespace Simulator
         return true;
     }
 
-    bool Processor::IODirectCacheAccess::OnMemoryReadCompleted(MemAddr addr, const MemData& data)
+    bool Processor::IODirectCacheAccess::OnMemoryReadCompleted(MemAddr addr, const char * data)
     {
         assert(addr % m_lineSize == 0);
-        assert(data.size == m_lineSize);
 
         Response res;
         res.address = addr;
-        res.data = data;
+        res.size = m_lineSize;
+        std::copy(data, data + m_lineSize, res.data);
+
         if (!m_responses.Push(res))
         {
-            DeadlockWrite("Unable to push memory read response (%#016llx, %u)",
-                          (unsigned long long)addr, (unsigned)data.size);
+            DeadlockWrite("Unable to push memory read response (%#016llx)",
+                          (unsigned long long)addr);
             
             return false;
         }
@@ -105,12 +107,12 @@ namespace Simulator
         if (!p_service.Invoke())
         {
             DeadlockWrite("Unable to acquire port for DCA read response (%#016llx, %u)",
-                          (unsigned long long)res.address, (unsigned)res.data.size);
+                          (unsigned long long)res.address, (unsigned)res.size);
             
             return FAILED;
         }
 
-        if (res.address == 0 && res.data.size == 0)
+        if (res.address == 0 && res.size == 0)
         {
             // write response
             assert(m_pending_writes > 0);
@@ -136,14 +138,15 @@ namespace Simulator
 
         if (m_has_outstanding_request 
             && res.address <= m_outstanding_address
-            && res.address + res.data.size >= m_outstanding_address + m_outstanding_size)
+            && res.address + res.size >= m_outstanding_address + m_outstanding_size)
         {
             IOBusInterface::IORequest req;
             req.device = m_outstanding_client;
             req.type = IOBusInterface::REQ_READRESPONSE;
             req.address = m_outstanding_address;
             req.data.size = m_outstanding_size;
-            memcpy(req.data.data, res.data.data + (m_outstanding_address - res.address), m_outstanding_size);
+
+            memcpy(req.data.data, res.data + (m_outstanding_address - res.address), m_outstanding_size);
             
             if (!m_busif.SendRequest(req))
             {
@@ -196,7 +199,7 @@ namespace Simulator
 
                 Response res;
                 res.address = 0;
-                res.data.size = 0;
+                res.size = 0;
                 if (!m_responses.Push(res))
                 {
                     DeadlockWrite("Unable to push DCA flush response");
@@ -217,10 +220,22 @@ namespace Simulator
         case READ:
         {
             // this is a read request coming from the bus.
+
+            if (req.size > m_lineSize || req.size > MAX_MEMORY_OPERATION_SIZE)
+            {
+                throw InvalidArgumentException("Read size is too big");
+            }
+            
+            if (req.address / m_lineSize != (req.address + req.size - 1) / m_lineSize)
+            {
+                throw InvalidArgumentException("Read request straddles cache-line boundary");
+            }
+
+            
             if (!p_service.Invoke())
             {
                 DeadlockWrite("Unable to acquire port for DCA read (%#016llx, %u)",
-                              (unsigned long long)req.address, (unsigned)req.data.size);
+                              (unsigned long long)req.address, (unsigned)req.size);
                 
                 return FAILED;
             }
@@ -229,16 +244,16 @@ namespace Simulator
             {
                 // some request is already queued, so we just stall
                 DeadlockWrite("Will not send additional DCA read request from client %u for %#016llx/%u, already waiting for %#016llx/%u, dev %u",
-                              (unsigned)req.client, (unsigned long long)req.address, (unsigned)req.data.size, 
+                              (unsigned)req.client, (unsigned long long)req.address, (unsigned)req.size, 
                               (unsigned long long)m_outstanding_address, (unsigned)m_outstanding_size, (unsigned)m_outstanding_client);
                 return FAILED;
             }
             
             // send the request to the memory
             MemAddr line_address  = req.address & -m_lineSize;
-            if (!m_memory.Read(m_mcid, line_address, m_lineSize))
+            if (!m_memory.Read(m_mcid, line_address))
             {
-                DeadlockWrite("Unable to send DCA read from %#016llx/%u, dev %u to memory", (unsigned long long)req.address, (unsigned)req.data.size, (unsigned)req.client);
+                DeadlockWrite("Unable to send DCA read from %#016llx/%u, dev %u to memory", (unsigned long long)req.address, (unsigned)req.size, (unsigned)req.client);
                 return FAILED;
             }
 
@@ -246,7 +261,7 @@ namespace Simulator
                 m_has_outstanding_request = true;
                 m_outstanding_client = req.client;
                 m_outstanding_address = req.address;
-                m_outstanding_size = req.data.size;
+                m_outstanding_size = req.size;
             }
 
             break;
@@ -255,17 +270,38 @@ namespace Simulator
         {
             // write operation
 
+            if (req.size > m_lineSize || req.size > MAX_MEMORY_OPERATION_SIZE)
+            {
+                throw InvalidArgumentException("Write size is too big");
+            }
+            
+            if (req.address / m_lineSize != (req.address + req.size - 1) / m_lineSize)
+            {
+                throw InvalidArgumentException("Write request straddles cache-line boundary");
+            }
+
             if (!p_service.Invoke())
             {
                 DeadlockWrite("Unable to acquire port for DCA write (%#016llx, %u)",
-                              (unsigned long long)req.address, (unsigned)req.data.size);
+                              (unsigned long long)req.address, (unsigned)req.size);
                 
                 return FAILED;
             }
 
-            if (!m_memory.Write(m_mcid, req.address, req.data.data, req.data.size, INVALID_TID))
+            MemAddr line_address  = req.address & -m_lineSize;
+            size_t offset = req.address - line_address;
+
+            MemData mdata;
+            COMMIT{
+                std::copy(req.data, req.data + req.size, mdata.data + offset);
+                std::fill(mdata.mask, mdata.mask + offset, false);
+                std::fill(mdata.mask + offset, mdata.mask + offset + req.size, true);
+                std::fill(mdata.mask + offset + req.size, mdata.mask + m_lineSize, false);
+            }
+
+            if (!m_memory.Write(m_mcid, line_address, mdata, INVALID_WCLIENTID))
             {
-                DeadlockWrite("Unable to send DCA write to %#016llx/%u to memory", (unsigned long long)req.address, (unsigned)req.data.size);
+                DeadlockWrite("Unable to send DCA write to %#016llx/%u to memory", (unsigned long long)req.address, (unsigned)req.size);
                 return FAILED;
             }
 

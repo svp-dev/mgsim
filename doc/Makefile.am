@@ -3,6 +3,7 @@ dist_doc_DATA = \
 	INSTALL \
 	AUTHORS \
         NEWS \
+	dev-arom.txt \
 	dev-rtc.txt \
 	dev-lcd.txt \
 	dev-gfx.txt \

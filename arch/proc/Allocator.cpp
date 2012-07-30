@@ -227,7 +227,7 @@ bool Processor::Allocator::KillThread(TID tid)
     COMMIT
     {
         thread.cid    = INVALID_CID;
-        thread.state  = TST_KILLED;
+        thread.state  = TST_TERMINATED;
     }
     return true;
 }
@@ -494,8 +494,7 @@ bool Processor::Allocator::DecreaseFamilyDependency(LFID fid, Family& family, Fa
     case FAMDEP_ALLOCATION_DONE:
         if (deps->numThreadsAllocated == 0 && deps->allocationDone)
         {
-            // It's considered 'killed' when all threads have gone
-            COMMIT{ family.state = FST_KILLED; }
+            COMMIT{ family.state = FST_TERMINATED; }
             DebugSimWrite("F%u terminated", (unsigned)fid);
         }
         // Fall through
@@ -832,7 +831,7 @@ Result Processor::Allocator::DoThreadAllocate()
 
         m_cleanup.Pop();
 
-        assert(thread.state == TST_KILLED);
+        assert(thread.state == TST_TERMINATED);
 
         // Clear the thread's dependents, if any
         for (size_t i = 0; i < NUM_REG_TYPES; i++)
@@ -1128,16 +1127,7 @@ Result Processor::Allocator::DoFamilyAllocate()
     const ContextType type = (buffer == &m_allocRequestsExclusive) ? CONTEXT_EXCLUSIVE : CONTEXT_NORMAL;
     
     const LFID lfid = AllocateContext(type, req.prev_fid, req.placeSize);
-    if (lfid != INVALID_LFID)
-    {
-        // We have the context
-        COMMIT
-        {
-            Family& family = m_familyTable[lfid];
-            family.first_lfid = (req.first_fid == INVALID_LFID) ? lfid : req.first_fid;
-        }
-    }
-    else if (buffer != &m_allocRequestsNoSuspend)
+    if ((lfid == INVALID_LFID) && (buffer != &m_allocRequestsNoSuspend))
     {
         // No family entry was available; stall
         DeadlockWrite("Unable to allocate a free context");
@@ -1431,7 +1421,7 @@ Result Processor::Allocator::DoBundle()
     if (m_bundleState == BUNDLE_INITIAL)
     {
         Result      result;
-        if ((result = m_dcache.Read(info.addr, m_bundleData, sizeof(Integer) + sizeof(MemAddr) + sizeof(Integer), 0, 0)) == FAILED)
+        if ((result = m_dcache.Read(info.addr, m_bundleData, sizeof(Integer) * 2 + sizeof(MemAddr), 0)) == FAILED)
         {
             DeadlockWrite("Unable to fetch the D-Cache line for %#016llx for bundle creation", (unsigned long long)info.addr);
             return FAILED;
@@ -1462,11 +1452,10 @@ Result Processor::Allocator::DoBundle()
     }
     else if (m_bundleState == BUNDLE_LINE_LOADED)
     {     
-        size_t offset                  = (size_t) info.addr % sizeof(m_bundleData);   
-        
         RemoteMessage msg;
         msg.type                       = RemoteMessage::MSG_BUNDLE;
-        msg.allocate.place             = m_parent.UnpackPlace(UnserializeRegister(RT_INTEGER,&m_bundleData[offset], sizeof(Integer)));
+        
+        msg.allocate.place             = m_parent.UnpackPlace(UnserializeRegister(RT_INTEGER,&m_bundleData[0], sizeof(Integer)));
         
         if (msg.allocate.place.size == 0)
         {
@@ -1475,12 +1464,12 @@ Result Processor::Allocator::DoBundle()
         
         msg.allocate.completion_reg    = info.completion_reg;
         msg.allocate.completion_pid    = m_parent.GetPID();
-        msg.allocate.type              = ALLOCATE_EXACT;
+        msg.allocate.type              = ALLOCATE_SINGLE;
         msg.allocate.suspend           = true;
         msg.allocate.exclusive         = true;
-        msg.allocate.bundle.pc         = UnserializeRegister(RT_INTEGER, &m_bundleData[offset + sizeof(Integer)], sizeof(MemAddr));
+        msg.allocate.bundle.pc         = UnserializeRegister(RT_INTEGER, &m_bundleData[sizeof(Integer) ], sizeof(MemAddr));
         msg.allocate.bundle.parameter  = info.parameter;
-        msg.allocate.bundle.index      = UnserializeRegister(RT_INTEGER, &m_bundleData[offset + sizeof(Integer) + sizeof(MemAddr)], sizeof(SInteger));
+        msg.allocate.bundle.index      = UnserializeRegister(RT_INTEGER, &m_bundleData[sizeof(Integer) + sizeof(MemAddr)], sizeof(SInteger));
         
         DebugSimWrite("Processing bundle creation for CPU%u/%u, PC %#016llx, parameter %#016llx, index %#016llx",
                       (unsigned)msg.allocate.place.pid, (unsigned)msg.allocate.place.size,  

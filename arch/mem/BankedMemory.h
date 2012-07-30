@@ -28,8 +28,8 @@ class BankedMemory : public Object, public IMemoryAdmin, public VirtualMemory
     // IMemory
     MCID RegisterClient(IMemoryCallback& callback, Process& process, StorageTraceSet& traces, Storage& storage, bool /*ignored*/);
     void UnregisterClient(MCID id);
-    bool Read (MCID id, MemAddr address, MemSize size);
-    bool Write(MCID id, MemAddr address, const void* data, MemSize size, TID tid);
+    bool Read (MCID id, MemAddr address);
+    bool Write(MCID id, MemAddr address, const MemData& data, WClientID wid);
     bool CheckPermissions(MemAddr address, MemSize size, int access) const;
 
     // IMemoryAdmin
@@ -38,7 +38,7 @@ class BankedMemory : public Object, public IMemoryAdmin, public VirtualMemory
     void UnreserveAll(ProcessID pid);
 
     void Read (MemAddr address, void* data, MemSize size);
-    void Write(MemAddr address, const void* data, MemSize size);
+    void Write(MemAddr address, const void* data, const bool* mask, MemSize size);
 
     void GetMemoryStatistics(uint64_t& nreads, uint64_t& nwrites, 
                              uint64_t& nread_bytes, uint64_t& nwrite_bytes,

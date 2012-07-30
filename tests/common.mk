@@ -1,4 +1,5 @@
 COMMON_TEST_SOURCES = \
+    common/io.c \
 	common/mgcfg.c \
 	common/rtc.c
 

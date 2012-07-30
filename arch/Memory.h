@@ -15,18 +15,55 @@ static const size_t MAX_MEMORY_OPERATION_SIZE = 64;
 struct MemData
 {
     char    data[MAX_MEMORY_OPERATION_SIZE];
-    MemSize size;
+    bool    mask[MAX_MEMORY_OPERATION_SIZE];
 };
+
+namespace line {
+
+    // Utility functions to merge/set lines according to mask
+    template<typename T, typename M, typename S>
+    void blit(T* dst, const T* src, const M* mask, S sz)
+    {
+        for (S i = 0; i < sz; ++i)
+            if (mask[i])
+                dst[i] = src[i];
+    }
+    
+    template<typename T, typename M, typename S>
+    void blitnot(T* dst, const T* src, const M* mask, S sz)
+    {
+        for (S i = 0; i < sz; ++i)
+            if (!mask[i])
+                dst[i] = src[i];
+    }
+    
+    template<typename T, typename M, typename S>
+    void setif(T* dst, const T& src, const M* mask, S sz)
+    {
+        for (S i = 0; i < sz; ++i)
+            if (mask[i])
+                dst[i] = src;
+    }
+    
+    template<typename T, typename M, typename S>
+    void setifnot(T* dst, const T& src, const M* mask, S sz)
+    {
+        for (S i = 0; i < sz; ++i)
+            if (!mask[i])
+                dst[i] = src;
+    }
+    
+}
 
 class IMemory;
 
 class IMemoryCallback
 {
 public:
-    virtual bool OnMemoryReadCompleted(MemAddr addr, const MemData& data) = 0;
-    virtual bool OnMemoryWriteCompleted(TID tid) = 0;
+    virtual bool OnMemoryReadCompleted(MemAddr addr, const char* data) = 0;
+    virtual bool OnMemoryWriteCompleted(WClientID wid) = 0;
     virtual bool OnMemoryInvalidated(MemAddr addr) = 0;
-    virtual bool OnMemorySnooped(MemAddr /* addr */, const MemData& /* data */) { return true; }
+    virtual bool OnMemorySnooped(MemAddr /* addr */, const char* /*data*/, const bool* /*mask*/) { return true; }
 
     virtual ~IMemoryCallback() {}
 
@@ -49,8 +86,8 @@ public:
 
     virtual MCID RegisterClient(IMemoryCallback& callback, Process& process, StorageTraceSet& traces, Storage& storage, bool grouped = false) = 0;
     virtual void UnregisterClient(MCID id) = 0;
-    virtual bool Read (MCID id, MemAddr address, MemSize size) = 0;
-    virtual bool Write(MCID id, MemAddr address, const void* data, MemSize size, TID tid) = 0;
+    virtual bool Read (MCID id, MemAddr address) = 0;
+    virtual bool Write(MCID id, MemAddr address, const MemData& data, WClientID wid) = 0;
     
     virtual void Initialize() {}
 
@@ -70,7 +107,7 @@ public:
     virtual bool CheckPermissions(MemAddr address, MemSize size, int access) const = 0;
 
     virtual void Read (MemAddr address, void* data, MemSize size) = 0;
-    virtual void Write(MemAddr address, const void* data, MemSize size) = 0;
+    virtual void Write(MemAddr address, const void* data, const bool* mask, MemSize size) = 0;
 
     virtual ~IMemoryAdmin() {}
 };
