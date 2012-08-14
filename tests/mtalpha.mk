@@ -27,6 +27,7 @@ MTALPHA_TEST_SOURCES = \
 	mtalpha/regression/self_exclusive_delegate.s \
 	mtalpha/regression/sparse_globals.s \
 	mtalpha/regression/jsr.s \
+	mtalpha/regression/emptyfam.s \
 	mtalpha/bundle/ceb_a.s \
 	mtalpha/bundle/ceb_as.s \
 	mtalpha/bundle/ceb_i.s \
