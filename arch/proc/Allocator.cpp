@@ -1503,6 +1503,47 @@ Result Processor::Allocator::DoFamilyCreate()
     
     if (m_createState == CREATE_INITIAL)
     {
+        // Based on the indices, calculate the number of threads in the family
+        // This is needed for the next step, where we calculate the number of cores
+        // actually required.
+        Family& family = m_familyTable[info.fid];
+
+        // with bundle creations, the range is 1 thread starting at the
+        // specified index value.
+        Integer nThreads;
+        if (info.bundle)
+        {
+            COMMIT {
+                family.start = info.index;
+                family.limit = info.index + 1;
+            }
+            nThreads = 1;
+        }
+        else
+        {
+            nThreads = CalculateThreadCount(family.start, family.limit, family.step);
+        }
+
+        COMMIT{
+            family.nThreads = nThreads;
+
+            family.state = FST_CREATING;
+        }
+
+        if (nThreads == 0)
+        {
+            DebugSimWrite("F%u is empty, skipping loading program header", (unsigned)info.fid);
+
+            COMMIT { m_createState = CREATE_LINE_LOADED; }
+        }
+        else
+        {
+            COMMIT { m_createState = CREATE_LOAD_REGSPEC; }
+        }
+
+    }
+    else if (m_createState == CREATE_LOAD_REGSPEC)
+    {
         Family& family = m_familyTable[info.fid];
             
         DebugSimWrite("F%u start creation %s", 
@@ -1532,8 +1573,6 @@ Result Processor::Allocator::DoFamilyCreate()
                 // The I-Cache will notify us with onCachelineLoaded().
                 m_createState = CREATE_LOADING_LINE;
             }
-
-            family.state = FST_CREATING;
         }
     }
     else if (m_createState == CREATE_LOADING_LINE)
@@ -1547,12 +1586,27 @@ Result Processor::Allocator::DoFamilyCreate()
             
         // Read the register counts from the cache-line
         Instruction counts;
-        if (!m_icache.Read(m_createLine, family.pc - sizeof(Instruction), &counts, sizeof(counts)))
+
+        if (family.nThreads > 0)
         {
-            DeadlockWrite("Unable to read the I-Cache line for 0x%016llx for F%u", (unsigned long long)family.pc, (unsigned)info.fid);
-            return FAILED;
+            if (!m_icache.Read(m_createLine, family.pc - sizeof(Instruction), &counts, sizeof(counts)))
+            {
+                DeadlockWrite("Unable to read the I-Cache line for 0x%016llx for F%u", (unsigned long long)family.pc, (unsigned)info.fid);
+                return FAILED;
+            }
+            // Release the cache-lined held by the create so far
+            if (!m_icache.ReleaseCacheLine(m_createLine))
+            {
+                DeadlockWrite("Unable to release cache line for F%u", (unsigned)info.fid);
+                return FAILED;
+            }
+            counts = UnserializeInstruction(&counts);
         }
-        counts = UnserializeInstruction(&counts);
+        else
+        {
+            // Empty family, reduce all counts to 0.
+            counts = 0;
+        }
 
         COMMIT
         {
@@ -1586,18 +1640,6 @@ Result Processor::Allocator::DoFamilyCreate()
             family.hasShareds = hasShareds;            
         }
         
-        // Release the cache-lined held by the create so far
-        if (!m_icache.ReleaseCacheLine(m_createLine))
-        {
-            DeadlockWrite("Unable to release cache line for F%u", (unsigned)info.fid);
-            return FAILED;
-        }
-
-        // Based on the indices, calculate the number of threads in the family
-        // This is needed for the next step, where we calculate the number of cores
-        // actually required.
-        COMMIT{ family.nThreads = CalculateThreadCount(family.start, family.limit, family.step); }
-
         DebugSimWrite("F%u (%llu threads) register counts loaded", (unsigned)info.fid, (unsigned long long)family.nThreads);
 
         // Advance to next stage
@@ -1616,15 +1658,8 @@ Result Processor::Allocator::DoFamilyCreate()
         
         // We now know how many threads and cores we really have,
         // calculate and set up the thread distribution
-        
-        if (info.bundle)
-        {
-            family.start = info.index;              
-        }
-        
+
         CalculateDistribution(family, family.nThreads, numCores);
-        
-        assert(numCores > 0);
         
         // Log the event where we reduced the number of cores
         DebugSimWrite("F%u (local %llu threads, start index %llu, physical block size %u) adjusted core count %u -> %u",
@@ -1687,10 +1722,16 @@ Result Processor::Allocator::DoFamilyCreate()
     }
     else if (m_createState == CREATE_ACTIVATING_FAMILY)
     {
-        
+        Family& family  = m_familyTable[info.fid];
+
         if (info.bundle)
         {
-			Family& family  = m_familyTable[info.fid];
+                assert(family.nThreads > 0);
+                if (family.regs[0].count.shareds < 1)
+                {
+                    throw exceptf<SimulationException>("Program target of bundle create does not define shared registers");
+                }
+
 	    	RegAddr  addr   = MAKE_REGADDR(RT_INTEGER, family.regs[0].last_shareds);
 	    	RegValue data;
 	    	data.m_state    = RST_FULL;
@@ -1715,18 +1756,36 @@ Result Processor::Allocator::DoFamilyCreate()
             
             if(info.completion_reg == INVALID_REG_INDEX)
             {
-                family.dependencies.prevSynchronized = true;    
                 family.dependencies.detached         = true;
                 family.dependencies.syncSent         = true;              
             }            
         }
-        // We can start creating threads
-        if (!ActivateFamily(info.fid))
+
+        if (family.nThreads == 0)
         {
-            DeadlockWrite("Unable to activate the family F%u", (unsigned)info.fid);
-            return FAILED;
-        }       
-        DebugSimWrite("F%u activated", (unsigned)info.fid);
+            if (!m_familyTable.IsExclusive(info.fid))
+            {
+                DebugSimWrite("F%u is empty, deallocating reserved thread entry", (unsigned)info.fid);
+                m_threadTable.UnreserveThread();
+            }
+
+            // We're done allocating threads
+            if (!DecreaseFamilyDependency(info.fid, FAMDEP_ALLOCATION_DONE))
+            {
+                DeadlockWrite("F%u unable to mark ALLOCATION_DONE", (unsigned)info.fid);
+                return FAILED;
+            }
+        }
+        else
+        {
+            // We can start creating threads
+            if (!ActivateFamily(info.fid))
+            {
+                DeadlockWrite("Unable to activate the family F%u", (unsigned)info.fid);
+                return FAILED;
+            }
+            DebugSimWrite("F%u activated", (unsigned)info.fid);
+        }
 
         COMMIT{ m_createState = CREATE_NOTIFY; }
     }
@@ -2088,6 +2147,7 @@ void Processor::Allocator::Cmd_Read(ostream& out, const vector<string>& /*argume
             switch (m_createState)
             {
                 case CREATE_INITIAL:              out << "Initial"; break;
+                case CREATE_LOAD_REGSPEC:         out << "Looking for regspec"; break;
                 case CREATE_LOADING_LINE:         out << "Loading cache-line"; break;
                 case CREATE_LINE_LOADED:          out << "Cache-line loaded"; break;
                 case CREATE_RESTRICTING:          out << "Restricting"; break;

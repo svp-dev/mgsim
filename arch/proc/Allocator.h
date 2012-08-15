@@ -52,6 +52,7 @@ public:
 	enum CreateState
 	{
 		CREATE_INITIAL,             // Waiting for a family to create
+                CREATE_LOAD_REGSPEC,        // Load program code to look for register window specification
 		CREATE_LOADING_LINE,        // Waiting until the cache-line is loaded
 		CREATE_LINE_LOADED,         // The line has been loaded
 		CREATE_RESTRICTING,         // Check family property and restrict if necessary
