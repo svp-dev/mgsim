@@ -150,7 +150,7 @@ private:
     };
 
 
-    Integer CalculateThreadCount(const Family& family);
+    Integer CalculateThreadCount(Integer start, Integer limit, Integer step);
     void    CalculateDistribution(Family& family, Integer nThreads, PSize numCores);
     bool    AllocateRegisters(LFID fid, ContextType type);
     bool    AllocateThread(LFID fid, TID tid, bool isNewlyAllocated = true);

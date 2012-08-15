@@ -1320,7 +1320,7 @@ bool Processor::Allocator::QueueCreate(const LinkMessage& msg)
         family.regs[i].count = msg.create.regs[i];
     }
     
-    Integer nThreads = CalculateThreadCount(family);
+    Integer nThreads = CalculateThreadCount(family.start, family.limit, family.step);
     CalculateDistribution(family, nThreads, family.numCores);
 
     DebugSimWrite("F%u (%llu threads, place CPU%u/%u) accepted link create %s start index %llu",
@@ -1596,7 +1596,7 @@ Result Processor::Allocator::DoFamilyCreate()
         // Based on the indices, calculate the number of threads in the family
         // This is needed for the next step, where we calculate the number of cores
         // actually required.
-        COMMIT{ family.nThreads = CalculateThreadCount(family); }
+        COMMIT{ family.nThreads = CalculateThreadCount(family.start, family.limit, family.step); }
 
         DebugSimWrite("F%u (%llu threads) register counts loaded", (unsigned)info.fid, (unsigned long long)family.nThreads);
 
@@ -1824,26 +1824,25 @@ Result Processor::Allocator::DoThreadActivation()
 
 // Sanitizes the limit and block size.
 // Use only for non-delegated creates.
-Integer Processor::Allocator::CalculateThreadCount(const Family& family)
+Integer Processor::Allocator::CalculateThreadCount(Integer start, Integer limit, Integer step)
 {
     // Sanitize the family entry
-    if (family.step == 0)
+    if (step == 0)
     {
         throw SimulationException("Step cannot be zero", *this);
     }
 
-    Integer diff = 0, step;
-    if (family.step > 0)
+    Integer diff = 0;
+    if (step > 0)
     {
-        if (family.limit > family.start) {
-            diff = family.limit - family.start;
+        if (limit > start) {
+            diff = limit - start;
         }
-        step = family.step;
     } else {
-        if (family.limit < family.start) {
-            diff = family.start - family.limit;
+        if (limit < start) {
+            diff = start - limit;
         }
-        step = -family.step;
+        step = -step;
     }
 
     // Divide threads evenly over the cores
