@@ -203,6 +203,8 @@ private:
     BufferSize m_totalallocex;
     CycleNo    m_lastcycle;
     BufferSize m_curallocex;
+    FSize      m_numCreatedFamilies;
+    TSize      m_numCreatedThreads;
     void       UpdateStats();
 
 public:
@@ -224,6 +226,8 @@ public:
     // Statistics
     BufferSize GetTotalAllocatedEx() { UpdateStats(); return m_totalallocex; }
     BufferSize GetMaxAllocatedEx() const { return m_maxallocex; }
+    TSize GetTotalFamiliesCreated() const { return m_numCreatedFamilies; }
+    FSize GetTotalThreadsCreated() const { return m_numCreatedThreads; }
 };
 
 #endif

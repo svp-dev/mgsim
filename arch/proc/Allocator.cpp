@@ -455,6 +455,11 @@ bool Processor::Allocator::AllocateThread(LFID fid, TID tid, bool isNewlyAllocat
         return false;
     }
 
+    // Statistics
+    COMMIT{
+        ++m_numCreatedThreads;
+    }
+
     DebugSimWrite("F%u/T%u(%llu) created",
                   (unsigned)fid, (unsigned)tid, (unsigned long long)logical_index);
     return true;
@@ -724,6 +729,9 @@ bool Processor::Allocator::ActivateFamily(LFID fid)
     {
         Family& family = m_familyTable[fid];
         family.state = FST_ACTIVE;
+
+        // Statistics
+        ++m_numCreatedFamilies;
     }
     
     m_alloc.Push(fid);
@@ -1818,6 +1826,7 @@ Result Processor::Allocator::DoFamilyCreate()
 
         // Reset the create state
         COMMIT{ m_createState = CREATE_INITIAL; }
+
         m_creates.Pop();
     }
     
@@ -1955,6 +1964,8 @@ Processor::Allocator::Allocator(const string& name, Processor& parent, Clock& cl
     m_allocRequestsExclusive("b_allocRequestsExclusive", *this, clock, config.getValue<BufferSize>(*this, "FamilyAllocationExclusiveQueueSize")),
 
     m_maxallocex(0), m_totalallocex(0), m_lastcycle(0), m_curallocex(0),
+    m_numCreatedFamilies(0),
+    m_numCreatedThreads(0),
 
     p_ThreadAllocate  (*this, "thread-allocate",   delegate::create<Allocator, &Processor::Allocator::DoThreadAllocate  >(*this) ),
     p_FamilyAllocate  (*this, "family-allocate",   delegate::create<Allocator, &Processor::Allocator::DoFamilyAllocate  >(*this) ),
@@ -1985,6 +1996,8 @@ Processor::Allocator::Allocator(const string& name, Processor& parent, Clock& cl
     RegisterSampleVariableInObject(m_totalallocex, SVC_CUMULATIVE);
     RegisterSampleVariableInObject(m_maxallocex, SVC_WATERMARK);
     RegisterSampleVariableInObject(m_curallocex, SVC_LEVEL);
+    RegisterSampleVariableInObject(m_numCreatedFamilies, SVC_CUMULATIVE);
+    RegisterSampleVariableInObject(m_numCreatedThreads, SVC_CUMULATIVE);
     RegisterSampleVariableInObjectWithName(m_numThreadsPerState[TST_ACTIVE], "m_numActiveThreads", SVC_LEVEL);
     RegisterSampleVariableInObjectWithName(m_numThreadsPerState[TST_READY], "m_numReadyThreads", SVC_LEVEL);
 }

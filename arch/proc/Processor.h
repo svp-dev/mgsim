@@ -54,10 +54,12 @@ public:
 	
     TSize GetMaxThreadsAllocated() const { return m_threadTable.GetMaxAllocated(); }
     TSize GetTotalThreadsAllocated() { return m_threadTable.GetTotalAllocated(); }
+    TSize GetTotalThreadsCreated() { return m_allocator.GetTotalThreadsCreated(); }
     TSize GetThreadTableSize() const { return m_threadTable.GetNumThreads(); }
     float GetThreadTableOccupancy() { return (float)GetTotalThreadsAllocated() / (float)GetThreadTableSize() / (float)GetKernel()->GetCycleNo(); }
     FSize GetMaxFamiliesAllocated() const { return m_familyTable.GetMaxAllocated(); }
     FSize GetTotalFamiliesAllocated() { return m_familyTable.GetTotalAllocated(); }
+    FSize GetTotalFamiliesCreated() { return m_allocator.GetTotalFamiliesCreated(); }
     FSize GetFamilyTableSize() const { return m_familyTable.GetNumFamilies(); }
     float GetFamilyTableOccupancy() { return (float)GetTotalFamiliesAllocated() / (float)GetFamilyTableSize() / (float)GetKernel()->GetCycleNo(); }
     BufferSize GetMaxAllocateExQueueSize() { return m_allocator.GetMaxAllocatedEx(); }
