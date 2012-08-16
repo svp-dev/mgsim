@@ -268,10 +268,10 @@ ZLCOMA::Directory::Directory(const std::string& name, ZLCOMA& parent, Clock& clo
     m_selector  (parent.GetBankSelector()),
     p_lines     (*this, clock, "p_lines"),
     m_lineSize  (config.getValue<size_t>("CacheLineSize")),
-    m_assoc     (config.getValue<size_t>(parent, "L2CacheAssociativity") * config.getValue<size_t>(parent, "NumL2CachesPerDirectory")),
+    m_assoc     (config.getValue<size_t>(parent, "L2CacheAssociativity") * config.getValue<size_t>(parent, "NumL2CachesPerRing")),
     m_sets      (m_selector.GetNumBanks()),
     m_firstCache(firstCache),
-    m_lastCache (firstCache + config.getValue<size_t>(parent, "NumL2CachesPerDirectory") - 1),
+    m_lastCache (firstCache + config.getValue<size_t>(parent, "NumL2CachesPerRing") - 1),
     p_InBottom  (*this, "bottom_incoming", delegate::create<Directory, &Directory::DoInBottom >(*this)),
     p_InTop     (*this, "top_incoming",    delegate::create<Directory, &Directory::DoInTop    >(*this))
 {

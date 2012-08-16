@@ -5,7 +5,7 @@
     .ascii "\0TEST_INPUTS:R10:4 7 10\0"
 
     # Matrix width (only square matrices supported)
-    .equ MAX_N,    10
+    .equ MAX_N,    16
     
     # Block sizes, comment lines to not set the block size
     .equ BLOCK1,    5
@@ -63,7 +63,8 @@ main:
     # $l0 = i
 	.registers 4 0 3  0 0 0	    # GR,SR,LR, GF,SF,LF
 thread1:
-	allocate/s $31, 0, $l2
+        lda $l2, 1($31) # local place
+	allocate/s $l2, 0, $l2
 	setlimit $l2, $g3
 	swch
 	cred $l2, thread2

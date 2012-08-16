@@ -52,6 +52,7 @@ public:
 	enum CreateState
 	{
 		CREATE_INITIAL,             // Waiting for a family to create
+                CREATE_LOAD_REGSPEC,        // Load program code to look for register window specification
 		CREATE_LOADING_LINE,        // Waiting until the cache-line is loaded
 		CREATE_LINE_LOADED,         // The line has been loaded
 		CREATE_RESTRICTING,         // Check family property and restrict if necessary
@@ -150,7 +151,7 @@ private:
     };
 
 
-    Integer CalculateThreadCount(const Family& family);
+    Integer CalculateThreadCount(Integer start, Integer limit, Integer step);
     void    CalculateDistribution(Family& family, Integer nThreads, PSize numCores);
     bool    AllocateRegisters(LFID fid, ContextType type);
     bool    AllocateThread(LFID fid, TID tid, bool isNewlyAllocated = true);
@@ -202,6 +203,8 @@ private:
     BufferSize m_totalallocex;
     CycleNo    m_lastcycle;
     BufferSize m_curallocex;
+    FSize      m_numCreatedFamilies;
+    TSize      m_numCreatedThreads;
     void       UpdateStats();
 
 public:
@@ -223,6 +226,8 @@ public:
     // Statistics
     BufferSize GetTotalAllocatedEx() { UpdateStats(); return m_totalallocex; }
     BufferSize GetMaxAllocatedEx() const { return m_maxallocex; }
+    TSize GetTotalFamiliesCreated() const { return m_numCreatedFamilies; }
+    FSize GetTotalThreadsCreated() const { return m_numCreatedThreads; }
 };
 
 #endif

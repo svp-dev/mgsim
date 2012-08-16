@@ -211,6 +211,27 @@ Result Processor::PerfCounters::Read(MemAddr address, void *data, MemSize size, 
         value = (Integer)n;
     }
     break;
+    case 18:
+    {
+        // Return the number of created families
+        Integer tc = 0;
+        for (size_t i = placeStart; i < placeEnd; ++i)
+        {
+            tc += cpu.m_grid[i]->GetTotalFamiliesCreated();
+        }
+        value = tc;
+    }
+    break;
+    case 19:
+    {
+        // Return the number of created threads
+        Integer fc = 0;
+        for (size_t i = placeStart; i < placeEnd; ++i)
+        {
+            fc += cpu.m_grid[i]->GetTotalFamiliesCreated();
+        }
+        value = fc;
+    }
     default:
         value = 0;
     }

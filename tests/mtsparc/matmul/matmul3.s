@@ -86,7 +86,7 @@ thread1:
     .align 64
 	.registers 4 0 6  0 0 0	    ! GR,SR,LR, GF,SF,LF
 thread2:
-    clr %tl4
+    mov 1, %tl4 ! local place
     allocates %tl4
     setlimit %tl4, %tg3
     swch

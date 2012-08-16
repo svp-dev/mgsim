@@ -262,7 +262,8 @@ void MGSystem::PrintCoreStats(ostream& os) const {
         types[j] = I; c[i][j++].i = p.GetMaxAllocateExQueueSize();
         types[j] = I; c[i][j++].i = p.GetTotalAllocateExQueueSize();
         types[j] = F; c[i][j++].f = p.GetAverageAllocateExQueueSize();
-
+        types[j] = I; c[i][j++].i = p.GetTotalFamiliesCreated();
+        types[j] = I; c[i][j++].i = p.GetTotalThreadsCreated();
     }
 
     const size_t NC = j;
@@ -330,6 +331,8 @@ void MGSystem::PrintCoreStats(ostream& os) const {
        << fi << "xqmax" << sep
        << fi << "xqtot" << sep
        << ff << "xqavg" << sep
+       << ff << "fcreates" << sep
+       << ff << "tcreates" << sep
        << endl;
 
     os << "# per-core values" << endl;
@@ -411,7 +414,9 @@ void MGSystem::PrintCoreStats(ostream& os) const {
        << "# ft%occ: family table occupancy (= 100. * ftotal / ftsize / nmastercycles_total)" << endl
        << "# xqmax: high water mark of the exclusive allocate queue size" << endl
        << "# xqtot: cumulative exclusive allocate queue size (over mastertime)" << endl
-       << "# xqavg: average size of the exclusive allocate queue (= xqtot / nmastercycles_total)" << endl;
+       << "# xqavg: average size of the exclusive allocate queue (= xqtot / nmastercycles_total)" << endl
+       << "# fcreates: total number of local families created" << endl
+       << "# tcreates: total number of threads created" << endl;
 
 }
 

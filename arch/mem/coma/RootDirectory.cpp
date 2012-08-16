@@ -385,9 +385,7 @@ COMA::RootDirectory::RootDirectory(const std::string& name, COMA& parent, Clock&
     DirectoryBottom(name, parent, clock, config),
     m_selector (parent.GetBankSelector()),
     m_lineSize (config.getValue<size_t>("CacheLineSize")),
-    m_assoc_ring(config.getValue<size_t>(parent, "L2CacheAssociativity") * 
-                 config.getValueOrDefault<size_t>(parent, "NumL2CachesPerRing",
-                                                  config.getValue<size_t>(parent, "NumL2CachesPerDirectory"))),
+    m_assoc_ring(config.getValue<size_t>(parent, "L2CacheAssociativity") * config.getValue<size_t>(parent, "NumL2CachesPerRing")),
     m_sets     (m_selector.GetNumBanks()),
     m_id       (id),
     m_numRoots (numRoots),
