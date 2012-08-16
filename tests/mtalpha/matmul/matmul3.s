@@ -98,7 +98,8 @@ thread1:
     # $l0 = j
 	.registers 4 0 3  0 0 0	    # GR,SR,LR, GF,SF,LF
 thread2:
-    allocate/s $31, 0, $l2
+    lda $l2, 1($31) # local place only
+    allocate/s $l2, 0, $l2
     setlimit $l2, $g3
     swch
     cred $l2, thread3

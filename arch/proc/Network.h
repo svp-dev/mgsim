@@ -326,6 +326,11 @@ private:
     const std::vector<Processor*>& m_grid;
     unsigned int                   m_loadBalanceThreshold;
 
+    // Statistics
+    uint64_t                       m_numAllocates;
+    uint64_t                       m_numBundles;
+    uint64_t                       m_numCreates;
+
 public:
     // Delegation network
     Register<DelegateMessage>   m_delegateOut;    ///< Outgoing delegation messages
