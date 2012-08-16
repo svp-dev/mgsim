@@ -52,8 +52,8 @@ main:
     .align 64
 	.registers 4 0 5  0 0 0	    ! GR,SR,LR, GF,SF,LF
 thread1:
-    clr %tl4
-	allocates %tl4          ! Default
+    mov 1, %tl4 ! use local place
+	allocates %tl4
 	setlimit %tl4, %tg3
 	swch
 	set thread2, %tl2
