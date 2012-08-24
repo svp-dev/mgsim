@@ -196,11 +196,18 @@ AM_CONDITIONAL([ENABLE_CACTI], [test "x$enable_cacti" = "xyes"])
 ## Target selection
 enable_mtalpha_tests=no
 enable_mtsparc_tests=no
+enable_mips_tests=no
 
 AC_ARG_VAR([AS_MTALPHA], [Location of the `as' utility configured for the MT-Alpha binary format.])
 AC_ARG_VAR([LD_MTALPHA], [Location of the `ld' utility configured for the MT-Alpha binary format.])
 AC_ARG_VAR([AS_MTSPARC], [Location of the `as' utility configured for the MT-Sparc binary format.])
 AC_ARG_VAR([LD_MTSPARC], [Location of the `ld' utility configured for the MT-Sparc binary format.])
+AC_ARG_VAR([AS_MIPS], [Location of the `as' utility configured for the MIPS binary format.])
+AC_ARG_VAR([LD_MIPS], [Location of the `ld' utility configured for the MIPS binary format.])
+AC_ARG_VAR([AS_MIPSEL], [Location of the `as' utility configured for the MIPSel binary format.])
+AC_ARG_VAR([LD_MIPSEL], [Location of the `ld' utility configured for the MIPSel binary format.])
+
+isa_impl=$target_cpu
 
 case "$target_cpu" in
 mtalpha)
@@ -236,6 +243,40 @@ mtsparc)
             [Define when building a simulator for MT-Alpha.])
   ;;
 
+mips)
+
+  AC_PATH_PROG([AS_MIPS], [mips-linux-gnu-as], [no], [$prefix/bin$PATH_SEPARATOR$PATH])
+  AC_PATH_PROG([LD_MIPS], [mips-linux-gnu-ld], [no], [$prefix/bin$PATH_SEPARATOR$PATH])
+
+  enable_mips_tests=yes
+  if test "x$AS_MIPS" = "xno" \
+       -o "x$LD_MIPS" = "xno"; then
+     AC_MSG_WARN([Some MIPS utilities are missing. Cannot run MIPS test suite.])
+     enable_mips_tests=no
+  fi
+
+  AC_DEFINE([TARGET_MIPS32], [1],
+            [Define when building a simulator for MIPS32 (BE).])
+  ;;
+
+mipsel)
+
+  isa_impl=mips
+
+  AC_PATH_PROG([AS_MIPSEL], [mipsel-linux-gnu-as], [no], [$prefix/bin$PATH_SEPARATOR$PATH])
+  AC_PATH_PROG([LD_MIPSEL], [mipsel-linux-gnu-ld], [no], [$prefix/bin$PATH_SEPARATOR$PATH])
+
+  enable_mips_tests=yes
+  if test "x$AS_MIPSEL" = "xno" \
+       -o "x$LD_MIPSEL" = "xno"; then
+     AC_MSG_WARN([Some MIPSel utilities are missing. Cannot run MIPSel test suite.])
+     enable_mips_tests=no
+  fi
+
+  AC_DEFINE([TARGET_MIPS32EL], [1],
+            [Define when building a simulator for MIPS32 (LE).])
+  ;;
+
 *)
   AC_MSG_ERROR([Unknown simulation target: $target_cpu (did you use --target?)])
 
@@ -243,6 +284,7 @@ esac
 
 AM_CONDITIONAL([ENABLE_MTSPARC_TESTS], [test x$enable_mtsparc_tests = xyes])
 AM_CONDITIONAL([ENABLE_MTALPHA_TESTS], [test x$enable_mtalpha_tests = xyes])
+AM_CONDITIONAL([ENABLE_MIPS_TESTS], [test x$enable_mips_tests = xyes])
 
 enable_compiled_tests=no
 
@@ -279,8 +321,8 @@ fi
 AM_CONDITIONAL([ENABLE_C_TESTS], [test x$enable_compiled_tests = xyes])
 
 
-AC_CONFIG_LINKS([arch/proc/ISA.h:arch/proc/ISA.$target_cpu.h
-                 arch/proc/ISA.cpp:arch/proc/ISA.$target_cpu.cpp])
+AC_CONFIG_LINKS([arch/proc/ISA.h:arch/proc/ISA.$isa_impl.h
+                 arch/proc/ISA.cpp:arch/proc/ISA.$isa_impl.cpp])
 
 AC_CONFIG_FILES([
 	Makefile
@@ -313,6 +355,8 @@ cat <<EOF
 *
 * MT-Alpha tests:         $enable_mtalpha_tests
 * MT-SPARC tests:         $enable_mtsparc_tests
+* MIPS tests:             $enable_mips_tests
+* MIPSel tests:           $enable_mipsel_tests
 * Compiled tests:         $enable_compiled_tests
 *
 * C++ compiler:           $CXX $CPPFLAGS $AM_CXXFLAGS $CXXFLAGS $LDFLAGS

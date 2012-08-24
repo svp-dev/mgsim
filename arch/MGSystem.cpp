@@ -938,10 +938,15 @@ MGSystem::MGSystem(Config& config,
 #if defined(TARGET_MTALPHA)
     const char *default_objdump = "mtalpha-linux-gnu-objdump";
     const char *objdump_var = "MTALPHA_OBJDUMP";
-#endif
-#if defined(TARGET_MTSPARC)
+#elif defined(TARGET_MTSPARC)
     const char *default_objdump = "mtsparc-linux-gnu-objdump";
     const char *objdump_var = "MTSPARC_OBJDUMP";
+#elif defined(TARGET_MIPS32)
+    const char *default_objdump = "mips-linux-gnu-objdump";
+    const char *objdump_var = "MIPS_OBJDUMP";
+#elif defined(TARGET_MIPS32EL)
+    const char *default_objdump = "mipsel-linux-gnu-objdump";
+    const char *objdump_var = "MIPSEL_OBJDUMP";
 #endif
     const char *v = getenv(objdump_var);
     if (!v) v = default_objdump;

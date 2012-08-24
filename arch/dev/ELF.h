@@ -55,6 +55,12 @@ static const unsigned char EV_CURRENT = 1; // Current version
 #elif defined(TARGET_MTSPARC)
 #define ELFCLASS ELFCLASS32
 #define ELFDATA  ELFDATA2MSB
+#elif defined(TARGET_MIPS32EL)
+#define ELFCLASS ELFCLASS32
+#define ELFDATA  ELFDATA2LSB
+#elif defined(TARGET_MIPS32)
+#define ELFCLASS ELFCLASS32
+#define ELFDATA  ELFDATA2MSB
 #endif
 
 #if ELFDATA == ELFDATA2MSB
@@ -160,6 +166,9 @@ static const Elf_Half EM_MTSPARC     = 0xaff0; // Microthreaded Sparc V8
 #elif defined(TARGET_MTSPARC)
 #define MACHINE_NORMAL EM_MTSPARC
 #define MACHINE_LEGACY EM_SPARC
+#elif defined(TARGET_MIPS32) || defined(TARGET_MIPS32EL)
+#define MACHINE_NORMAL EM_MIPS /* no MT for now */
+#define MACHINE_LEGACY EM_MIPS
 #endif
 
 // File header

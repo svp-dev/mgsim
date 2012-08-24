@@ -701,5 +701,20 @@ static const FPCR FPCR_INVD     = 0x0002000000000000ULL;
 static const FPCR FPCR_DNZ      = 0x0001000000000000ULL;
 static const FPCR FPCR_DNOD     = 0x0000800000000000ULL;
 
+// Latch information for Pipeline
+struct ArchDecodeReadLatch
+{
+    InstrFormat format;
+    uint8_t     opcode;
+    uint16_t    function;
+    int32_t     displacement;
+
+ArchDecodeReadLatch() : format(IFORMAT_INVALID), opcode(0), function(0), displacement(0) {}
+};
+
+struct ArchReadExecuteLatch : public ArchDecodeReadLatch
+{
+};
+
 
 #endif 

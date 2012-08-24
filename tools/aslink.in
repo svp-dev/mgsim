@@ -12,6 +12,14 @@ case $TEST_ARCH in
     AS=@AS_MTSPARC@
     LD=@LD_MTSPARC@
     ;;
+  mips)
+    AS=@AS_MIPS@
+    LD=@LD_MIPS@
+    ;;
+  mipsel)
+    AS=@AS_MIPSEL@
+    LD=@LD_MIPSEL@
+    ;;
   *)
     echo "$0: $TEST_ARCH: unknown architecture" >&2; exit 1 ;;
 esac

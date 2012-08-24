@@ -4,5 +4,6 @@ DISTCLEANFILES = $(TEST_BINS)
 
 include mtalpha.mk
 include mtsparc.mk
+include mips.mk
 include common.mk
 include tests.mk

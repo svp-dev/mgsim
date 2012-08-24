@@ -65,6 +65,8 @@ struct Thread
     PSR          psr;
     FSR          fsr;
     uint32_t     Y;
+#elif defined(TARGET_MIPS32) || defined(TARGET_MIPS32EL)
+    // FIXME: FILL IN THREAD-SPECIFIC DATA FIELDS HERE
 #endif    
 
     // Admin

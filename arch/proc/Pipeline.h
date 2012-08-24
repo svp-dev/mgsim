@@ -9,8 +9,6 @@ class Pipeline : public Object, public Inspect::Interface<Inspect::Read>
 {
     friend class Processor;
     
-#include "ISA.h"
-
     /// A (possibly multi-) register value in the pipeline
     struct PipeValue
     {
@@ -31,6 +29,8 @@ class Pipeline : public Object, public Inspect::Interface<Inspect::Read>
         std::string str(RegType type) const;
     };
 
+#include "ISA.h"
+
     static inline PipeValue MAKE_EMPTY_PIPEVALUE(unsigned int size)
     {
         PipeValue value;
@@ -50,42 +50,6 @@ class Pipeline : public Object, public Inspect::Interface<Inspect::Read>
         value.m_memory.size  = 0;
         return value;
     }
-
-#if defined(TARGET_MTALPHA)
-    struct ArchDecodeReadLatch
-    {
-        InstrFormat format;
-        uint8_t     opcode;
-        uint16_t    function;
-        int32_t     displacement;
-
-    ArchDecodeReadLatch() : format(IFORMAT_INVALID), opcode(0), function(0), displacement(0) {}
-    };
-
-    struct ArchReadExecuteLatch : public ArchDecodeReadLatch
-    {
-    };
-#elif defined(TARGET_MTSPARC)
-    struct ArchDecodeReadLatch
-    {
-        uint8_t  op1, op2, op3;
-        uint16_t function;
-        uint8_t  asi;
-        int32_t  displacement;
-        
-        // Memory store data source
-        RegAddr      Rs;
-        bool         RsIsLocal;
-        unsigned int RsSize;
-
-    ArchDecodeReadLatch() : op1(0), op2(0), op3(0), function(0), asi(0), displacement(0), RsSize(0) {}
-    };
-
-    struct ArchReadExecuteLatch : public ArchDecodeReadLatch
-    {
-        PipeValue Rsv;
-    };
-#endif
 
     /// Return code from the various pipeline stages, indicates the action for the pipeline.
     enum PipeAction

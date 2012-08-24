@@ -256,4 +256,26 @@ static const FSR FSR_RD_ZERO = 0x40000000UL; // RD: Zero
 static const FSR FSR_RD_PINF = 0x80000000UL; // RD: +infinity
 static const FSR FSR_RD_NINF = 0xC0000000UL; // RD: -infinity
 
+// Latch information for Pipeline
+struct ArchDecodeReadLatch
+{
+    uint8_t  op1, op2, op3;
+    uint16_t function;
+    uint8_t  asi;
+    int32_t  displacement;
+    
+    // Memory store data source
+    RegAddr      Rs;
+    bool         RsIsLocal;
+    unsigned int RsSize;
+
+ArchDecodeReadLatch() : op1(0), op2(0), op3(0), function(0), asi(0), displacement(0), RsSize(0) {}
+};
+
+struct ArchReadExecuteLatch : public ArchDecodeReadLatch
+{
+    PipeValue Rsv;
+};
+
+
 #endif 
