@@ -8,8 +8,32 @@ Major "technology levels" that reflect generations of the Microgrid
 architecture (as simulated by this simulator) are documented
 separately in CSA note [svp40].
 
-Version 3.1 (Development)
+Version 3.2 (Development)
 =========================
+
+New features
+------------
+
+- New infrastructure to estimate the silicon area cost of
+  components using the 3rd-party package CACTI. 
+
+- New memory system "DirectDDR" where cores/L1 caches
+  are directly connected to DDR channels.
+
+- New memory system "FlatCOMA" where L2 caches and DDR channels are
+  connected in a single ring.
+
+Changes since version 3.1
+-------------------------
+
+- Fix a bug in the DDR simulation code, which caused DDR accesses to
+  appear sequential (instead of pipelined), resulting in sub-optimal
+  simulation performance.
+
+- Improved the reporting of cache access statistics.
+
+Version 3.1, May 2011
+=====================
 
 New features
 ------------
@@ -21,7 +45,7 @@ New features
 - Allow to specify a strategy for creating families, including
   automatic load balancing. See CSA note [mgsim12] for details.
 
-Changes since version 3.1
+Changes since version 3.0
 -------------------------
 
 - A new configuration format was implemented to allow configuring
