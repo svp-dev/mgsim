@@ -88,6 +88,12 @@ AC_MSG_RESULT([$have_dev_ptmx])
 # --enable-assert
 AC_HEADER_ASSERT
 
+# argp 
+AC_SEARCH_LIBS([argp_parse], [c argp])
+if test "x$ac_cv_search_argp_parse" = xno; then
+   AC_MSG_ERROR([Unable to find argp. Is it installed? If necessary use CPPFLAGS=... LDFLAGS=... to specify its location.])
+fi
+
 # libev
 AC_SEARCH_LIBS([ev_version_minor], [ev])
 if test "x$ac_cv_search_ev_version_minor" = xno; then
