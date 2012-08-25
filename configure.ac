@@ -21,7 +21,6 @@ AM_SILENT_RULES([yes])
 ## extra programs
 
 AC_CHECK_PROGS([HELP2MAN], [help2man], [$am_aux_dir/missing help2man])
-AC_CHECK_PROGS([SVN], [svn])
 AC_PROG_SED
 AM_PATH_PYTHON([2.6], [], [AC_MSG_WARN([The 'readtrace' utility requires Python >= 2.6.])])
 
