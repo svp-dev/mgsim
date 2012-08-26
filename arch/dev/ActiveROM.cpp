@@ -190,7 +190,14 @@ namespace Simulator
             throw exceptf<InvalidArgumentException>(*this, "Unrecognized ROMContentSource: %s", source.c_str());
         }
 
-        if (source == "CONFIG" || source == "RAW")
+        if (source == "ELF")
+        {
+            pair<MemAddr, bool> res = LoadProgram(GetName(), m_loadable, m_memory, m_data, m_numLines * m_lineSize, m_verboseload);
+            m_bootable = true;
+            m_start_address = res.first;
+            m_legacy = res.second;
+        }
+        else /* not ELF */
         {
             MemAddr addr = m_config.getValueOrDefault<MemAddr>(*this, "ROMBaseAddr", 0);
             if (addr != 0)
@@ -203,13 +210,6 @@ namespace Simulator
                 
                 m_loadable.push_back(r);
             }
-        }
-        else if (source == "ELF")
-        {
-            pair<MemAddr, bool> res = LoadProgram(GetName(), m_loadable, m_memory, m_data, m_numLines * m_lineSize, m_verboseload);
-            m_bootable = true;
-            m_start_address = res.first;
-            m_legacy = res.second;
         }
 
         PrepareRanges();
