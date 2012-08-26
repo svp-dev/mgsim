@@ -509,7 +509,7 @@ Inspection commands
   List processes matching PAT.
 
 ``show devicedb``
-  List the I/O device identifier database.
+  List the I/O device identifier database. See mgsimdev-smc(7) for use.
 
 ``lookup ADDR``
   Look up the program symbol closest to address ADDR.
@@ -649,6 +649,9 @@ SEE ALSO
 ========
 
 * mgsim(1), viewlog(1), readtrace(1)
+
+* mgsimdev-arom(7), mgsimdev-gfx(7), mgsimdev-lcd(7),
+  mgsimdev-uart(7), mgsimdev-rtc(7)
 
 * M5, http://www.m5sim.org/ a detailed simulator for networks.
 
