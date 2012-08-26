@@ -4,7 +4,7 @@ dist_doc_DATA = \
 	AUTHORS \
         NEWS \
 	mgsimdoc.rst \
-	dev-arom.txt \
+	mgsimdev-arom.rst \
 	dev-rtc.txt \
 	dev-lcd.txt \
 	dev-gfx.txt \
@@ -13,7 +13,8 @@ dist_doc_DATA = \
 	system-model-20110430.pdf
 
 dist_man7_MANS = \
-	mgsimdoc.7
+	mgsimdoc.7 \
+	mgsimdev-arom.7
 
 .rst.7:
 	$(AM_V_GEN)$(SED) -e "s/PACKAGE_BUGREPORT/$(PACKAGE_BUGREPORT)/g;s/PACKAGE_VERSION/$(PACKAGE_VERSION)/g" <$< | $(RST2MAN) - $@.tmp || { rm -f $@.tmp; exit 1; }
