@@ -20,9 +20,17 @@ AM_SILENT_RULES([yes])
 
 ## extra programs
 
-AC_CHECK_PROGS([HELP2MAN], [help2man], [$am_aux_dir/missing help2man])
 AC_PROG_SED
 AM_PATH_PYTHON([2.6], [], [AC_MSG_WARN([The 'readtrace' utility requires Python >= 2.6.])])
+
+m4_define([MY_OPT_PROG],
+[AC_ARG_VAR(m4_toupper([$1]), [$2])
+AC_CHECK_PROGS(m4_toupper([$1]), [m4_default([$3], [$1])],
+               [$am_aux_dir/missing $1])
+])
+
+MY_OPT_PROG([help2man], [--help output to manpage converter], [help2man])
+MY_OPT_PROG([rst2man], [reStructuredText to manpage converter], [rst2man rst2man.py])
 
 ## language / library tests
 
