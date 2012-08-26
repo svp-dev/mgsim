@@ -28,4 +28,8 @@ dist_man7_MANS = \
 	$(AM_V_GEN)$(SED) -e "s/PACKAGE_BUGREPORT/$(PACKAGE_BUGREPORT)/g;s/PACKAGE_VERSION/$(PACKAGE_VERSION)/g" <$< | $(RST2MAN) - $@.tmp || { rm -f $@.tmp; exit 1; }
 	$(AM_V_at)mv -f $@.tmp $@
 
+# extra rules for manual generation of .pdf manuals
+.7.pdf:
+	$(AM_V_GEN)tbl <$< | groff -Tps -mandoc | ps2pdf - - >$@
+
 MAINTAINERCLEANFILES = $(dist_man7_MANS)
