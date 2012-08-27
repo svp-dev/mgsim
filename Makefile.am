@@ -1,4 +1,3 @@
-SVN = svn
 bin_PROGRAMS =
 dist_man1_MANS = 
 MAINTAINERCLEANFILES =

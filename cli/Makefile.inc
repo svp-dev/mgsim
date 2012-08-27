@@ -11,7 +11,6 @@ CLI_SOURCES = \
         cli/cmd_sim.cpp \
         cli/cmd_component.cpp \
 	cli/lookup.cpp \
-        cli/usageversion.cpp \
 	cli/simreadline.h \
 	cli/simreadline.cpp \
 	cli/main.cpp

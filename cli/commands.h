@@ -55,10 +55,6 @@ bool HandleCommandLine(cli_context& ctx);
 
 void StepSystem(Simulator::MGSystem& system, Simulator::CycleNo cycles);
 
-
-void PrintVersion(std::ostream&);
-void PrintUsage(std::ostream& out, const char* cmd);
-
 template<unsigned Type>
 void DoObjectCommand(std::ostream& out, Simulator::MGSystem& sys, const std::string& pat, std::vector<std::string>& args)
 {

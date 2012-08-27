@@ -20,10 +20,17 @@ AM_SILENT_RULES([yes])
 
 ## extra programs
 
-AC_CHECK_PROGS([HELP2MAN], [help2man], [$am_aux_dir/missing help2man])
-AC_CHECK_PROGS([SVN], [svn])
 AC_PROG_SED
 AM_PATH_PYTHON([2.6], [], [AC_MSG_WARN([The 'readtrace' utility requires Python >= 2.6.])])
+
+m4_define([MY_OPT_PROG],
+[AC_ARG_VAR(m4_toupper([$1]), [$2])
+AC_CHECK_PROGS(m4_toupper([$1]), [m4_default([$3], [$1])],
+               [$am_aux_dir/missing $1])
+])
+
+MY_OPT_PROG([help2man], [--help output to manpage converter], [help2man])
+MY_OPT_PROG([rst2man], [reStructuredText to manpage converter], [rst2man rst2man.py])
 
 ## language / library tests
 
@@ -88,6 +95,12 @@ AC_MSG_RESULT([$have_dev_ptmx])
 
 # --enable-assert
 AC_HEADER_ASSERT
+
+# argp 
+AC_SEARCH_LIBS([argp_parse], [c argp])
+if test "x$ac_cv_search_argp_parse" = xno; then
+   AC_MSG_ERROR([Unable to find argp. Is it installed? If necessary use CPPFLAGS=... LDFLAGS=... to specify its location.])
+fi
 
 # libev
 AC_SEARCH_LIBS([ev_version_minor], [ev])
