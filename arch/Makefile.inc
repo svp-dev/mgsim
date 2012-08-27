@@ -131,6 +131,8 @@ MLCOMA_SRC = \
 	arch/mem/coma/RootDirectory.cpp 
 
 EXTRA_DIST += \
+	arch/proc/ISA.mips.h \
+	arch/proc/ISA.mips.cpp \
 	arch/proc/ISA.mtalpha.h \
 	arch/proc/ISA.mtalpha.cpp \
 	arch/proc/ISA.mtsparc.h \
