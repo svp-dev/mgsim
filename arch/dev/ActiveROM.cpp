@@ -265,7 +265,7 @@ namespace Simulator
     {      
         LoadableRange& r = m_loadable[m_currentRange];
         size_t offset = r.rom_offset + m_currentOffset;
-        size_t voffset = r.vaddr + m_currentOffset;
+        MemAddr voffset = r.vaddr + m_currentOffset;
         
         // transfer size:
         // - cannot be greater than the line size
@@ -375,22 +375,22 @@ namespace Simulator
             }
             break;
         case 2:
-            COMMIT { m_loadable[0].rom_offset = m_loadable[0].rom_offset & 0xffffffff00000000ULL | value; }
+            COMMIT { m_loadable[0].rom_offset = (m_loadable[0].rom_offset & 0xffffffff00000000ULL) | (MemSize)value; }
             break;
         case 3:
-            COMMIT { m_loadable[0].rom_offset = m_loadable[0].rom_offset & 0xffffffffULL | ((unsigned long long)value << 32); }
+            COMMIT { m_loadable[0].rom_offset = (m_loadable[0].rom_offset & 0xffffffffULL) | ((MemSize)value << 32); }
             break;
         case 4:
-            COMMIT { m_loadable[0].vaddr = m_loadable[0].vaddr & 0xffffffff00000000ULL | value; }
+            COMMIT { m_loadable[0].vaddr = (m_loadable[0].vaddr & 0xffffffff00000000ULL) | (MemSize)value; }
             break;
         case 5:
-            COMMIT { m_loadable[0].vaddr = m_loadable[0].vaddr & 0xffffffffULL | ((unsigned long long)value << 32); }
+            COMMIT { m_loadable[0].vaddr = (m_loadable[0].vaddr & 0xffffffffULL) | ((MemSize)value << 32); }
             break;
         case 6:
-            COMMIT { m_loadable[0].rom_size = m_loadable[0].rom_size & 0xffffffff00000000ULL | value; }
+            COMMIT { m_loadable[0].rom_size = (m_loadable[0].rom_size & 0xffffffff00000000ULL) | (MemSize)value; }
             break;
         case 7:
-            COMMIT { m_loadable[0].rom_size = m_loadable[0].rom_size & 0xffffffffULL | ((unsigned long long)value << 32); }
+            COMMIT { m_loadable[0].rom_size = (m_loadable[0].rom_size & 0xffffffffULL) | ((MemSize)value << 32); }
             break;
         }
         return true;
