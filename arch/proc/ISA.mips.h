@@ -8,17 +8,27 @@
 // Latch information for Pipeline
 struct ArchDecodeReadLatch
 {
-    uint16_t function;
-    int32_t  displacement;
+    /* the fields in this structure become buffers in the pipeline latch. */
 
-   // FIXME: FILL ADDITIONAL LATCH FIELDS HERE.
+    // examples:
+    uint16_t function; /* opcode to run in execute */
+    int32_t  displacement; /* displacement field for relative memory operations  */
 
-ArchDecodeReadLatch() : function(0), displacement(0) {}
+    // FIXME: FILL ADDITIONAL LATCH FIELDS HERE.
+
+    ArchDecodeReadLatch() : 
+    /* NB: all latch fields should be initialized here. */
+         function(0), 
+         displacement(0) 
+    {}
 };
 
 struct ArchReadExecuteLatch : public ArchDecodeReadLatch
 {
     // FIXME: FILL ADDITIONAL READ-EXECUTE LATCHES HERE (IF NECESSARY)
+
+    /* NB: the buffers in ArchDecodeReadLatch are automatically
+       propagated to the read-execute latch. */
 };
 
 
