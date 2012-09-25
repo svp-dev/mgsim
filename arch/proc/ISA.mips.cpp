@@ -12,8 +12,10 @@ unsigned char GetRegisterClass(unsigned char addr, const RegsNo& regs, RegClass*
 {
     // DO NOT CHANGE THIS
     if (addr > 0)
+    {
+        addr--;
         *rc = RC_LOCAL;
-    else
+    } else
         *rc = RC_RAZ;
     return addr;
 }
