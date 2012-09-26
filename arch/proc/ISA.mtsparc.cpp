@@ -707,7 +707,7 @@ Processor::Pipeline::PipeAction Processor::Pipeline::ExecuteStage::ExecuteInstru
     case S_OP1_CALL:
         COMMIT
         {
-            m_output.pc   = m_input.pc + m_input.displacement * sizeof(Instruction);
+            m_output.pc = m_input.pc + m_input.displacement * sizeof(Instruction);
             m_output.Rcv.m_integer = m_input.pc;
             m_output.Rcv.m_state   = RST_FULL;
             m_output.Rcv.m_size    = sizeof(Integer);

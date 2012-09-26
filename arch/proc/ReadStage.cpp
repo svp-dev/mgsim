@@ -437,6 +437,7 @@ Processor::Pipeline::PipeAction Processor::Pipeline::ReadStage::OnCycle()
 
             m_output.regs      = m_input.regs;
             m_output.placeSize = m_input.placeSize;
+            m_output.legacy    = m_input.legacy;
         }
         
 #if defined(TARGET_MTSPARC)

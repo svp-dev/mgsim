@@ -176,7 +176,9 @@ class Pipeline : public Object, public Inspect::Interface<Inspect::Read>
         
         PSize           placeSize;
 
-    DecodeReadLatch() : literal(0), regofs(0), RaSize(0), RbSize(0), RcSize(0), RaNotPending(false), placeSize(0) {}
+        bool            legacy;
+
+    DecodeReadLatch() : literal(0), regofs(0), RaSize(0), RbSize(0), RcSize(0), RaNotPending(false), placeSize(0), legacy(false) {}
     };
 
     struct ReadExecuteLatch : public Latch, public ArchReadExecuteLatch
@@ -191,11 +193,13 @@ class Pipeline : public Object, public Inspect::Interface<Inspect::Read>
         unsigned char   regofs;
         
         PSize           placeSize;
-        
+   
+        bool            legacy;
+
         // For debugging only
         RegAddr         Ra, Rb;
 
-    ReadExecuteLatch() : RcSize(0), regofs(0), placeSize(0) {}
+    ReadExecuteLatch() : RcSize(0), regofs(0), placeSize(0), legacy(false) {}
     };
 
     struct ExecuteMemoryLatch : public Latch
