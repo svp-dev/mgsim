@@ -372,7 +372,7 @@ ArbitratedWritePort(Structure<I>& structure, const std::string& name)
 class DedicatedPort
 {
 public:
-DedicatedPort(const Object& object, const std::string& name) : m_object(object), m_name(name) {}
+DedicatedPort(const Object& /*unused for now*/, const std::string& /* unused for now */) {}
     virtual ~DedicatedPort() {}
 
     void SetProcess(const Process& process) {
@@ -385,8 +385,6 @@ protected:
 
 private:
     const Process* m_process;
-    const Object&  m_object;
-    std::string    m_name;
 };
 
 //

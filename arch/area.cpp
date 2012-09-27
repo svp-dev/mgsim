@@ -572,9 +572,9 @@ void Simulator::MGSystem::DumpArea(std::ostream& os, unsigned int tech) const
     for (size_t i = 0; i < sizeof structures / sizeof structures[0]; ++i)
     {
         const structure_desc& s = *structures[i];
-        org_t i = get_structure_info(os, cfg, s);
-        std::cout << s.name << "\t(total,max)\t" << i.area*1e-6 << " " << i.access_time*1e9 << std::endl;
-        coreinfo.merge(i);
+        org_t si = get_structure_info(os, cfg, s);
+        std::cout << s.name << "\t(total,max)\t" << si.area*1e-6 << " " << si.access_time*1e9 << std::endl;
+        coreinfo.merge(si);
     }
 
     // Dump processor caches
@@ -610,9 +610,9 @@ void Simulator::MGSystem::DumpArea(std::ostream& os, unsigned int tech) const
         for (size_t i = 0; i < sizeof caches / sizeof caches[0]; ++i)
         {
             const tcache_desc& c = *caches[i];
-            org_t i = get_cache_info(c.desc, cfg.tech);
-            os << c.name << "\t\t" << i.area*1e-6 << "\t" << i.access_time*1e9 << std::endl;
-            coreinfo.merge(i);
+            org_t si = get_cache_info(c.desc, cfg.tech);
+            os << c.name << "\t\t" << si.area*1e-6 << "\t" << si.access_time*1e9 << std::endl;
+            coreinfo.merge(si);
         }
     }
     

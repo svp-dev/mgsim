@@ -194,7 +194,7 @@ static error_t mgsim_parse_opt(int key, char *arg, struct argp_state *state)
         }
                 
         if (key == 'R') {
-            value >> *(signed Integer*)&val.m_integer;
+            value >> *(SInteger*)&val.m_integer;
             addr = MAKE_REGADDR(RT_INTEGER, index);
         } else {
             double f;

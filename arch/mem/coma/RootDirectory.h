@@ -38,7 +38,6 @@ private:
     size_t            m_assoc_ring; ///< Number of lines in a set in a directory
     size_t            m_assoc;      ///< Number of lines in a set
     size_t            m_sets;       ///< Number of sets
-    size_t            m_numCaches;  ///< Number of caches in the COMA system
     size_t            m_id;         ///< Which root directory we are (0 <= m_id < m_numRoots)
     size_t            m_numRoots;   ///< Number of root directories on the top-level ring
 
