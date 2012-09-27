@@ -15,4 +15,4 @@ config.status
 *.out
 *~
 *.log
-
+sys_config.h.in
