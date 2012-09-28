@@ -138,6 +138,3 @@ EXTRA_DIST += \
 
 ARCH_SOURCES = $(COMMON_SRC) $(PROCESSOR_SRC) $(MEMORY_SRC) $(DEVICE_SRC) $(ZLCOMA_SRC) $(MLCOMA_SRC)
 
-ARCH_EXTRA_CPPFLAGS = \
-       -I$(srcdir)/arch -I$(builddir)/arch \
-       -I$(srcdir)/arch/proc -I$(builddir)/arch/proc

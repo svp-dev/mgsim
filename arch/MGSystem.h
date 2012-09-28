@@ -1,12 +1,12 @@
 #ifndef MGSYSTEM_H
 #define MGSYSTEM_H
 
-#include "arch/proc/Processor.h"
-#include "arch/FPU.h"
-#include "arch/symtable.h"
-#include "arch/IOBus.h"
-#include "sim/breakpoints.h"
-#include "sim/config.h"
+#include <arch/proc/Processor.h>
+#include <arch/FPU.h>
+#include <arch/symtable.h>
+#include <arch/IOBus.h>
+#include <sim/breakpoints.h>
+#include <sim/config.h>
 
 #include <vector>
 #include <utility>

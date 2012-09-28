@@ -1,10 +1,10 @@
 #ifndef RTC_H
 #define RTC_H
 
-#include "arch/IOBus.h"
-#include "sim/kernel.h"
-#include "sim/config.h"
-#include "sim/storage.h"
+#include <arch/IOBus.h>
+#include <sim/kernel.h>
+#include <sim/config.h>
+#include <sim/storage.h>
 
 #include <ctime>
 #include <sys/time.h>

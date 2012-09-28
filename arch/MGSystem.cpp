@@ -1,25 +1,22 @@
 #include "MGSystem.h"
 
-#include "mem/SerialMemory.h"
-#include "mem/ParallelMemory.h"
-#include "mem/BankedMemory.h"
-#include "mem/DDRMemory.h"
-#include "mem/coma/COMA.h"
-#include "mem/zlcoma/COMA.h"
+#include <arch/mem/SerialMemory.h>
+#include <arch/mem/ParallelMemory.h>
+#include <arch/mem/BankedMemory.h>
+#include <arch/mem/DDRMemory.h>
+#include <arch/mem/coma/COMA.h>
+#include <arch/mem/zlcoma/COMA.h>
 
-#include "arch/dev/NullIO.h"
-#include "arch/dev/LCD.h"
-#include "arch/dev/RTC.h"
-#include "arch/dev/Display.h"
-#include "arch/dev/ActiveROM.h"
-#include "arch/dev/Selector.h"
-#include "arch/dev/SMC.h"
-#include "arch/dev/UART.h"
-#include "arch/dev/RPC.h"
-
-// maybe replace the following if the host-guest syscall API ever
-// changes.
-#include "arch/dev/RPC_unix.h"
+#include <arch/dev/NullIO.h>
+#include <arch/dev/LCD.h>
+#include <arch/dev/RTC.h>
+#include <arch/dev/Display.h>
+#include <arch/dev/ActiveROM.h>
+#include <arch/dev/Selector.h>
+#include <arch/dev/SMC.h>
+#include <arch/dev/UART.h>
+#include <arch/dev/RPC.h>
+#include <arch/dev/RPC_unix.h>
 
 #include <cstdlib>
 #include <iomanip>

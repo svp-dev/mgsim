@@ -1,9 +1,10 @@
 #ifndef SERIALMEMORY_H
 #define SERIALMEMORY_H
 
-#include "arch/Memory.h"
-#include "arch/VirtualMemory.h"
-#include "sim/inspect.h"
+#include <arch/Memory.h>
+#include <arch/VirtualMemory.h>
+#include <sim/inspect.h>
+
 #include <deque>
 #include <set>
 

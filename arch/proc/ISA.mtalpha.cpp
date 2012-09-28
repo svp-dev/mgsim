@@ -1,6 +1,7 @@
 #include "Processor.h"
-#include "FPU.h"
-#include "symtable.h"
+#include <arch/FPU.h>
+#include <arch/symtable.h>
+
 #include <cassert>
 #include <sstream>
 #include <iomanip>

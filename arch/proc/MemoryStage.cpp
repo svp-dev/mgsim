@@ -1,6 +1,7 @@
 #include "Processor.h"
-#include "sim/breakpoints.h"
-#include "sim/sampling.h"
+#include <sim/breakpoints.h>
+#include <sim/sampling.h>
+
 #include <cassert>
 #include <sstream>
 #include <iomanip>

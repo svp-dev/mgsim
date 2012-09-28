@@ -1,4 +1,7 @@
 #include "monitor.h"
+#include "sampling.h"
+#include <arch/MGSystem.h>
+
 #include <ios>
 #include <iostream>
 #include <fstream>

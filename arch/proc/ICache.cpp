@@ -1,7 +1,7 @@
 #include "Processor.h"
-#include "sim/log2.h"
-#include "sim/config.h"
-#include "sim/sampling.h"
+#include <sim/log2.h>
+#include <sim/config.h>
+#include <sim/sampling.h>
 
 #include <cassert>
 #include <cstring>

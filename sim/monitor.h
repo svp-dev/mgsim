@@ -1,12 +1,15 @@
 #ifndef MONITOR_H
 # define MONITOR_H
 
-#include "arch/MGSystem.h"
-#include "sampling.h"
-
 #include <fstream>
 #include <ctime>
 #include <pthread.h>
+
+namespace Simulator {
+    class MGSystem;
+}
+
+class BinarySampler;
 
 class Monitor
 {

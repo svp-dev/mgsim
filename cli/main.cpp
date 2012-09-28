@@ -1,14 +1,14 @@
 #ifdef HAVE_CONFIG_H
-#include "sys_config.h"
+#include <sys_config.h>
 #endif
 
-#include "arch/MGSystem.h"
 #include "simreadline.h"
 #include "commands.h"
-#include "sim/config.h"
+#include <arch/MGSystem.h>
+#include <sim/config.h>
 
 #ifdef ENABLE_MONITOR
-# include "sim/monitor.h"
+# include <sim/monitor.h>
 #endif
 
 #include <sstream>

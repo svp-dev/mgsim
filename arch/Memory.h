@@ -2,8 +2,8 @@
 #define MEMORY_H
 
 #include "simtypes.h"
-#include "sim/ports.h"
-#include "sim/storage.h"
+#include <sim/ports.h>
+#include <sim/storage.h>
 
 namespace Simulator
 {

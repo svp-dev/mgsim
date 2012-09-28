@@ -1,8 +1,9 @@
 #ifndef VIRTUALMEMORY_H
 #define VIRTUALMEMORY_H
 
-#include "simtypes.h"
-#include "sim/inspect.h"
+#include <arch/simtypes.h>
+#include <sim/inspect.h>
+
 #include <map>
 #include <vector>
 

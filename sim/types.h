@@ -2,7 +2,7 @@
 #define TYPES_H
 
 // Include the configuration defines
-#include "sys_config.h"
+#include <sys_config.h>
 
 // Define the GCC version for checking for certain extensions
 #define GCC_VERSION (__GNUC__ * 10000 + __GNUC_MINOR__ * 100 + __GNUC_PATCHLEVEL__)

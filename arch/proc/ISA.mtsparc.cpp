@@ -1,7 +1,8 @@
 #include "Processor.h"
-#include "FPU.h"
-#include "symtable.h"
-#include "programs/mgsim.h"
+#include <arch/FPU.h>
+#include <arch/symtable.h>
+#include <programs/mgsim.h>
+
 #include <cassert>
 #include <cmath>
 #include <sstream>

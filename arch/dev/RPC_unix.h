@@ -2,7 +2,8 @@
 #define RPC_UNIX_H
 
 #include "RPC.h"
-#include "sim/inspect.h"
+#include <sim/inspect.h>
+
 #include <vector>
 #include <dirent.h>
 

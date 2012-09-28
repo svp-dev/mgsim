@@ -8,10 +8,11 @@
   File.
 */
 #include "Processor.h"
+#include <arch/symtable.h>
+
 #include <cassert>
 #include <sstream>
 #include <iomanip>
-#include "symtable.h"
 
 using namespace std;
 

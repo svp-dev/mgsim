@@ -1,7 +1,7 @@
 #ifndef SIMREADLINE_H
 #define SIMREADLINE_H
 
-#include "sys_config.h"
+#include <sys_config.h>
 
 #include <cstdio>
 

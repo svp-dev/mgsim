@@ -1,6 +1,10 @@
 #ifndef CONFIG_H
 #define CONFIG_H
 
+#include "kernel.h"
+#include "except.h"
+#include <programs/mgsim.h>
+
 #include <algorithm>
 #include <sstream>
 #include <map>
@@ -10,9 +14,6 @@
 #include <cerrno>
 #include <cstring>
 #include <inttypes.h>
-#include "kernel.h"
-#include "except.h"
-#include "programs/mgsim.h"
 
 /// InputConfigRegistry: registry for configuration values provided
 /// before the simulation starts.

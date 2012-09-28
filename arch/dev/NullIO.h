@@ -1,9 +1,9 @@
 #ifndef NULLIO_H
 #define NULLIO_H
 
-#include "arch/IOBus.h"
-#include "sim/kernel.h"
-#include "sim/inspect.h"
+#include <arch/IOBus.h>
+#include <sim/kernel.h>
+#include <sim/inspect.h>
 
 #include <vector>
 

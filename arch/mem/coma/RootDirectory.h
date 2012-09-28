@@ -2,7 +2,8 @@
 #define COMA_ROOTDIRECTORY_H
 
 #include "Directory.h"
-#include "mem/DDR.h"
+#include <arch/mem/DDR.h>
+
 #include <queue>
 #include <set>
 
@@ -12,6 +13,7 @@ namespace Simulator
 {
 
 class DDRChannel;
+class DDRChannelRegistry;
 
 class COMA::RootDirectory : public COMA::DirectoryBottom, public DDRChannel::ICallback, public Inspect::Interface<Inspect::Read>
 {

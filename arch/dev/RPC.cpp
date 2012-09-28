@@ -1,5 +1,5 @@
 #include "RPC.h"
-#include "config.h"
+#include <sim/config.h>
 
 /*
 

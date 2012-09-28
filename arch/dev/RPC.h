@@ -1,9 +1,9 @@
 #ifndef RPC_H
 #define RPC_H
 
-#include "kernel.h"
-#include "storage.h"
-#include "IOBus.h"
+#include <sim/kernel.h>
+#include <sim/storage.h>
+#include <arch/IOBus.h>
 
 namespace Simulator 
 {

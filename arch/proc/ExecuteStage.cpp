@@ -1,8 +1,8 @@
 #include "Processor.h"
-#include "symtable.h"
-#include "sim/sampling.h"
-#include "sim/log2.h"
-#include "programs/mgsim.h"
+#include <arch/symtable.h>
+#include <sim/sampling.h>
+#include <sim/log2.h>
+#include <programs/mgsim.h>
 
 #include <cassert>
 #include <cmath>

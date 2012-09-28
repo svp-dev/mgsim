@@ -1,7 +1,7 @@
 #include "sampling.h"
 #include "config.h"
-#include "sys_config.h"
-#include "arch/MGSystem.h"
+#include <sys_config.h>
+#include <arch/MGSystem.h>
 
 #include <algorithm>
 #include <map>

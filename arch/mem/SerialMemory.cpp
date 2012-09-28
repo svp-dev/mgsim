@@ -1,5 +1,6 @@
 #include "SerialMemory.h"
-#include "sim/config.h"
+#include <sim/config.h>
+
 #include <cassert>
 #include <cstring>
 #include <iomanip>

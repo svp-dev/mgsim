@@ -1,9 +1,10 @@
-#include "MGSystem.h"
+#include <arch/MGSystem.h>
 
 #ifdef ENABLE_CACTI
-#include "arch/mem/coma/COMA.h"
-#include "sim/log2.h"
-#include "cacti/cacti_interface.h"
+#include <arch/mem/coma/COMA.h>
+
+#include <sim/log2.h>
+#include <cacti/cacti_interface.h>
 
 // These values are taken from Gupta, et al.'s paper:
 // "Technology Independent Area and Delay Estimates for Microprocessor Building Blocks"

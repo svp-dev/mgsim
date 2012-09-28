@@ -1,10 +1,10 @@
 #ifndef DISPLAY_H
 #define DISPLAY_H
 
-#include "IOBus.h"
-#include "kernel.h"
-#include "storage.h"
-#include "config.h"
+#include <arch/IOBus.h>
+#include <sim/kernel.h>
+#include <sim/storage.h>
+#include <sim/config.h>
 
 struct SDL_Surface;
 
