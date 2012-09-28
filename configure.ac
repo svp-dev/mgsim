@@ -210,6 +210,7 @@ AM_CONDITIONAL([ENABLE_CACTI], [test "x$enable_cacti" = "xyes"])
 enable_mtalpha_tests=no
 enable_mtsparc_tests=no
 enable_mips_tests=no
+enable_mipsel_tests=no
 
 AC_ARG_VAR([AS_MTALPHA], [Location of the `as' utility configured for the MT-Alpha binary format.])
 AC_ARG_VAR([LD_MTALPHA], [Location of the `ld' utility configured for the MT-Alpha binary format.])
@@ -275,11 +276,11 @@ mipsel)
   AC_PATH_PROG([AS_MIPSEL], [mipsel-linux-gnu-as], [no], [$prefix/bin$PATH_SEPARATOR$PATH])
   AC_PATH_PROG([LD_MIPSEL], [mipsel-linux-gnu-ld], [no], [$prefix/bin$PATH_SEPARATOR$PATH])
 
-  enable_mips_tests=yes
+  enable_mipsel_tests=yes
   if test "x$AS_MIPSEL" = "xno" \
        -o "x$LD_MIPSEL" = "xno"; then
      AC_MSG_WARN([Some MIPSel utilities are missing. Cannot run MIPSel test suite.])
-     enable_mips_tests=no
+     enable_mipsel_tests=no
   fi
 
   AC_DEFINE([TARGET_MIPS32EL], [1],
@@ -294,6 +295,7 @@ esac
 AM_CONDITIONAL([ENABLE_MTSPARC_TESTS], [test x$enable_mtsparc_tests = xyes])
 AM_CONDITIONAL([ENABLE_MTALPHA_TESTS], [test x$enable_mtalpha_tests = xyes])
 AM_CONDITIONAL([ENABLE_MIPS_TESTS], [test x$enable_mips_tests = xyes])
+AM_CONDITIONAL([ENABLE_MIPSEL_TESTS], [test x$enable_mipsel_tests = xyes])
 
 enable_compiled_tests=no
 
