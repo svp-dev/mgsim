@@ -1,8 +1,9 @@
 #include "Processor.h"
-#include "sim/config.h"
-#include "sim/range.h"
-#include "symtable.h"
-#include "sim/sampling.h"
+#include <sim/config.h>
+#include <sim/range.h>
+#include <sim/sampling.h>
+#include <arch/symtable.h>
+
 #include <cassert>
 #include <iomanip>
 using namespace std;
@@ -12,7 +13,6 @@ namespace Simulator
 
 Processor::FamilyTable::FamilyTable(const std::string& name, Processor& parent, Clock& clock, Config& config)
 :   Object(name, parent, clock),
-    m_parent(parent),
     m_families(config.getValue<size_t>(*this, "NumEntries")),
     m_totalalloc(0), m_maxalloc(0), m_lastcycle(0), m_curalloc(0)
 {

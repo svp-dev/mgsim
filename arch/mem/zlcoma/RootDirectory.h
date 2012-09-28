@@ -2,7 +2,8 @@
 #define ZLCOMA_ROOTDIRECTORY_H
 
 #include "Directory.h"
-#include "mem/DDR.h"
+#include <arch/mem/DDR.h>
+
 #include <queue>
 #include <set>
 

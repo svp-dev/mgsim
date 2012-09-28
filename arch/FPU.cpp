@@ -1,8 +1,10 @@
 #include "FPU.h"
-#include "sim/config.h"
+#include <sim/config.h>
+
 #include <cassert>
 #include <cmath>
 #include <iomanip>
+
 using namespace std;
 
 namespace Simulator

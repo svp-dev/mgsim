@@ -1,13 +1,13 @@
 #ifndef SYMTABLE_H
 #define SYMTABLE_H
 
+#include "simtypes.h"
+
 #include <vector>
 #include <utility>
 #include <string>
 #include <map>
 #include <iostream>
-
-#include "simtypes.h"
 
 class SymbolTable 
 {

@@ -1,10 +1,11 @@
 #ifndef ZLCOMA_COMA_H
 #define ZLCOMA_COMA_H
 
-#include "arch/Memory.h"
-#include "arch/VirtualMemory.h"
-#include "arch/BankSelector.h"
-#include "mem/DDR.h"
+#include <arch/Memory.h>
+#include <arch/VirtualMemory.h>
+#include <arch/BankSelector.h>
+#include <arch/mem/DDR.h>
+
 #include <queue>
 #include <set>
 

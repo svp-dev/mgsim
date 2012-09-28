@@ -1,8 +1,8 @@
 #include "Processor.h"
-#include "FPU.h"
-#include "sim/config.h"
-#include "symtable.h"
-#include "sim/sampling.h"
+#include <arch/FPU.h>
+#include <sim/config.h>
+#include <arch/symtable.h>
+#include <sim/sampling.h>
 
 #include <limits>
 #include <cassert>

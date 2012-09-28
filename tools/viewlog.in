@@ -5,14 +5,16 @@ import sys
 import cgi
 import getopt
 
+def version():
+    print "%s @PACKAGE_VERSION@" % sys.argv[0]
+    sys.exit(0)
+
 def usage():
-    print """MGSim trace viewer.
+    print """Usage: %s [OPTIONS...] [INPUT]
 
-This utility converts a MGSim simulation trace to a HTML table.
-By default, the trace is read from the standard input. This
-can be overridden on the command line.
-
-Usage: %s [OPTIONS...] [INPUT]
+Converts a MGSim simulation trace to a HTML table.  By default, the
+trace is read from the standard input. This can be overridden on the
+command line. See mgsim(1) and mgsimdoc(7) for more details.
 
 Options:
   -o FILE             Output to FILE (default: standard output)
@@ -25,14 +27,14 @@ Options:
   --hide-messages     Do not include the trace messages in the output 
                       (default: enable).
 
-Report bugs and suggestions to microgrids@svp-home.org.""" % sys.argv[0]
+Report bugs and suggestions to @PACKAGE_BUGREPORT@.""" % sys.argv[0]
     sys.exit(0)
 
 step = 1
 skiptext = False
 skipcycles = False
 outfile = '-'
-(opts, rest) = getopt.getopt(sys.argv[1:], 'o:s:mch', ['step=', 'hide-cycles','hide-messages','help'])
+(opts, rest) = getopt.getopt(sys.argv[1:], 'o:s:mchV', ['step=', 'hide-cycles','hide-messages','help','version'])
 for (o, val) in opts:
     if o in ['-o']:
         outfile = val
@@ -44,6 +46,8 @@ for (o, val) in opts:
         skipcycles = True
     elif o in ['-h', '--help']:
         usage()
+    elif o in ['-V', '--version']:
+        version()
 
 if len(rest) and rest[0] != '-':
     print >>sys.stderr, "(reading from: %s)" % rest[0]    

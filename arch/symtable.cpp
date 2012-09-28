@@ -1,4 +1,5 @@
 #include "symtable.h"
+
 #include <algorithm>
 #include <sstream>
 #include <fnmatch.h>

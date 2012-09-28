@@ -1,9 +1,10 @@
 #ifndef PARALLELMEMORY_H
 #define PARALLELMEMORY_H
 
-#include "arch/Memory.h"
-#include "arch/VirtualMemory.h"
-#include "sim/inspect.h"
+#include <arch/Memory.h>
+#include <arch/VirtualMemory.h>
+#include <sim/inspect.h>
+
 #include <queue>
 #include <deque>
 #include <set>

@@ -1,6 +1,7 @@
 #include "Processor.h"
-#include "sim/config.h"
-#include "sim/log2.h"
+#include <sim/config.h>
+#include <sim/log2.h>
+
 #include <cassert>
 #include <iomanip>
 using namespace std;

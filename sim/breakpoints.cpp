@@ -183,7 +183,7 @@ void BreakPoints::AddBreakPoint(MemAddr addr, int type)
 void BreakPoints::AddBreakPoint(const std::string& sym, int offset, int type)
 {
     errno = 0;
-    MemAddr addr = strtoul(sym.c_str(), 0, 0);
+    MemAddr addr = strtoull(sym.c_str(), 0, 0);
     if (errno == EINVAL)
     {
         bool check = m_kernel.GetSymbolTable().LookUp(sym, addr, true);

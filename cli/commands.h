@@ -1,11 +1,13 @@
 #ifndef COMMANDS_H
 #define COMMANDS_H
 
-#ifdef ENABLE_MONITOR
-# include "sim/monitor.h"
-#endif
 #include "simreadline.h"
-#include "arch/MGSystem.h"
+
+#ifdef ENABLE_MONITOR
+# include <sim/monitor.h>
+#endif
+#include <arch/MGSystem.h>
+
 #include <vector>
 #include <string>
 
@@ -54,10 +56,6 @@ bool HandleCommandLine(cli_context& ctx);
 // Some public commands
 
 void StepSystem(Simulator::MGSystem& system, Simulator::CycleNo cycles);
-
-
-void PrintVersion(std::ostream&);
-void PrintUsage(std::ostream& out, const char* cmd);
 
 template<unsigned Type>
 void DoObjectCommand(std::ostream& out, Simulator::MGSystem& sys, const std::string& pat, std::vector<std::string>& args)

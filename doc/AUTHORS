@@ -17,15 +17,19 @@ The Microgrids Project consists of:
   - Software stack investigator 2008-current,
   - Packaging and distribution maintainer.
 
+* Qiang Yang            q.yang@uva.nl
+  - Evaluation and benchmarking,
+  - Memory system optimizations,
+  - ISA improvements.
+
+* Jian Fu               j.fu@uva.nl
+  - Fault tolerance.
+
 Acknowledgements
 ----------------
 
 The Microgrids Project thanks and acknowledges the following people
 for their help and contributions:
-
-- Yang Qiang
-  - for his extensive architecture evaluation.
-  - for his contributions to the simulation of hardware processes on chip. 
 
 - Carl A. Joslin
   - for his extensive testing and architecture evaluation.
@@ -41,9 +45,3 @@ for their help and contributions:
 
 - Konstantinos Bousias
   - for his inspiration in the design of a simulation environment.
-
-
-
-
-
- 

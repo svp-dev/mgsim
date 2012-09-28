@@ -1,9 +1,9 @@
 #include "Processor.h"
-#include "FPU.h"
-#include "sim/sampling.h"
-#include "sim/log2.h"
-#include "sim/config.h"
-#include "sim/ctz.h"
+#include <arch/FPU.h>
+#include <sim/sampling.h>
+#include <sim/log2.h>
+#include <sim/config.h>
+#include <sim/ctz.h>
 
 #include <cassert>
 

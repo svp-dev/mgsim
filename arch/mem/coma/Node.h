@@ -31,6 +31,8 @@ namespace Simulator
 class COMA::Node : public COMA::Object
 {
 protected:
+    friend class COMA::Directory;
+
     /// This is the message that gets sent around
     union Message
     {

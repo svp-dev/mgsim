@@ -1,8 +1,9 @@
 #include "Cache.h"
 #include "RootDirectory.h"
-#include "sim/config.h"
-#include "sim/sampling.h"
-#include "sim/log2.h"
+#include <sim/config.h>
+#include <sim/sampling.h>
+#include <sim/log2.h>
+
 #include <cassert>
 #include <cstring>
 using namespace std;

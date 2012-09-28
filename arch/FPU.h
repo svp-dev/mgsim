@@ -1,8 +1,9 @@
 #ifndef FPU_H
 #define FPU_H
 
-#include "proc/Processor.h"
-#include "sim/inspect.h"
+#include <arch/proc/Processor.h>
+#include <sim/inspect.h>
+
 #include <deque>
 #include <map>
 

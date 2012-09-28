@@ -132,6 +132,23 @@ please report any portability bug you may find.
 
 .. _GNU Compiler Collection (GCC): http://gcc.gnu.org/
 
+The MGSim source code in turn depends on two libraries: `libev`_ and
+`argp`_. Libev is an event handling library, used by MGSim to manage
+interactive I/O between the simulation and the outside world. Argp is
+a component of the GNU C library; if you are not using the GNU C library,
+argp can also be downloaded as a `argp standalone`_ package.
+
+.. _libev: http://software.schmorp.de/pkg/libev.html
+.. _argp: https://www.gnu.org/software/libc/manual/html_node/Argp.html
+.. _argp standalone: http://www.lysator.liu.se/~nisse/misc/
+
+To (re-)generate the manual pages from text files, you will need
+`Docutils`_ and `help2man`_. This is not necessary if you downloaded a
+pre-packaged MGSim distribution where these files are already present.
+
+.. _Docutils: http://docutils.sourceforge.net/
+.. _help2man: https://www.gnu.org/software/help2man/
+
 To assemble/link programs from assembly source, you will need a
 modified copy `GNU Binutils`_ with microthreaded extensions. The
 latest source code distribution can be found at http://dist.svp-home.org/deploy/.

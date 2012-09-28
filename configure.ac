@@ -20,10 +20,17 @@ AM_SILENT_RULES([yes])
 
 ## extra programs
 
-AC_CHECK_PROGS([HELP2MAN], [help2man], [$am_aux_dir/missing help2man])
-AC_CHECK_PROGS([SVN], [svn])
 AC_PROG_SED
 AM_PATH_PYTHON([2.6], [], [AC_MSG_WARN([The 'readtrace' utility requires Python >= 2.6.])])
+
+m4_define([MY_OPT_PROG],
+[AC_ARG_VAR(m4_toupper([$1]), [$2])
+AC_CHECK_PROGS(m4_toupper([$1]), [m4_default([$3], [$1])],
+               [$am_aux_dir/missing $1])
+])
+
+MY_OPT_PROG([help2man], [--help output to manpage converter], [help2man])
+MY_OPT_PROG([rst2man], [reStructuredText to manpage converter], [rst2man rst2man.py])
 
 ## language / library tests
 
@@ -88,6 +95,12 @@ AC_MSG_RESULT([$have_dev_ptmx])
 
 # --enable-assert
 AC_HEADER_ASSERT
+
+# argp 
+AC_SEARCH_LIBS([argp_parse], [c argp])
+if test "x$ac_cv_search_argp_parse" = xno; then
+   AC_MSG_ERROR([Unable to find argp. Is it installed? If necessary use CPPFLAGS=... LDFLAGS=... to specify its location.])
+fi
 
 # libev
 AC_SEARCH_LIBS([ev_version_minor], [ev])
@@ -181,7 +194,7 @@ AC_ARG_ENABLE([cacti],
               [AC_HELP_STRING([--disable-cacti], [disable support for area calculations with CACTI (default is try to enable)])],
               [], [enable_cacti=yes])
 if test "x$enable_cacti" = "xyes"; then
-  if ! test -d "$srcdir/cacti"; then
+  if ! test -r "$srcdir/cacti/cacti_interface.h"; then
      AC_MSG_WARN([CACTI sources not available, cannot use CACTI.])
      enable_cacti=no
   fi
@@ -216,7 +229,7 @@ mtalpha)
   fi
 
   AC_DEFINE([TARGET_MTALPHA], [1],
-            [Define when building a simulator for MT-Sparc.])
+            [Define when building a simulator for MT-Alpha.])
 
   ;;
 
@@ -233,7 +246,7 @@ mtsparc)
   fi
 
   AC_DEFINE([TARGET_MTSPARC], [1],
-            [Define when building a simulator for MT-Alpha.])
+            [Define when building a simulator for MT-SPARC.])
   ;;
 
 *)
@@ -278,14 +291,9 @@ fi
 
 AM_CONDITIONAL([ENABLE_C_TESTS], [test x$enable_compiled_tests = xyes])
 
-
-AC_CONFIG_LINKS([arch/proc/ISA.h:arch/proc/ISA.$target_cpu.h
-                 arch/proc/ISA.cpp:arch/proc/ISA.$target_cpu.cpp])
-
 AC_CONFIG_FILES([
 	Makefile
 	tools/Makefile
-        tests/Makefile
 	programs/Makefile
 	doc/Makefile
 ])

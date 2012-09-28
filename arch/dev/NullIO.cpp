@@ -1,5 +1,6 @@
 #include "NullIO.h"
-#include "sim/except.h"
+#include <sim/except.h>
+
 #include <iomanip>
 #include <fnmatch.h>
 #include <algorithm>

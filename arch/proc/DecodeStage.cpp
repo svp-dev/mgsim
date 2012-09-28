@@ -109,6 +109,7 @@ Processor::Pipeline::PipeAction Processor::Pipeline::DecodeStage::OnCycle()
         (CommonData&)m_output = m_input;
         m_output.regs         = m_input.regs;
         m_output.placeSize    = m_input.placeSize;
+        m_output.legacy       = m_input.legacy;
         m_output.RaNotPending = false;
         
         try
