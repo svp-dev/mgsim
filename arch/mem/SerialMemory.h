@@ -52,7 +52,6 @@ class SerialMemory : public Object, public IMemoryAdmin, public VirtualMemory
     }
 
     ComponentModelRegistry&       m_registry;
-    Clock&                        m_clock;
     std::vector<IMemoryCallback*> m_clients;
     Buffer<Request>               m_requests;
     ArbitratedService<CyclicArbitratedPort>           p_requests;
