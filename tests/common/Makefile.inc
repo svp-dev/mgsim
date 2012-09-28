@@ -1,7 +1,7 @@
 COMMON_TEST_SOURCES = \
-    common/io.c \
-	common/mgcfg.c \
-	common/rtc.c
+    tests/common/io.c \
+    tests/common/mgcfg.c \
+    tests/common/rtc.c
 
 if ENABLE_C_TESTS
 TEST_BINS += $(COMMON_TEST_SOURCES:.c=.bin)

@@ -298,7 +298,6 @@ AC_CONFIG_LINKS([arch/proc/ISA.h:arch/proc/ISA.$target_cpu.h
 AC_CONFIG_FILES([
 	Makefile
 	tools/Makefile
-        tests/Makefile
 	programs/Makefile
 	doc/Makefile
 ])
