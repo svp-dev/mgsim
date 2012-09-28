@@ -9,7 +9,11 @@ class Pipeline : public Object, public Inspect::Interface<Inspect::Read>
 {
     friend class Processor;
     
-#include "ISA.h"
+#if defined(TARGET_MTALPHA)
+#include "ISA.mtalpha.h"
+#elif defined(TARGET_MTSPARC)
+#include "ISA.mtsparc.h"
+#endif
 
     /// A (possibly multi-) register value in the pipeline
     struct PipeValue
