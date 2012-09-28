@@ -1,6 +1,7 @@
 #include "Processor.h"
-#include "FPU.h"
-#include "symtable.h"
+#include <arch/FPU.h>
+#include <arch/symtable.h>
+
 #include <cassert>
 #include <sstream>
 #include <iomanip>
@@ -949,9 +950,12 @@ Processor::Pipeline::PipeAction Processor::Pipeline::ExecuteStage::ExecuteInstru
                     {
                         // Store the address of the next instruction for BR and BSR
                         MemAddr retaddr = next;
-                        if ((retaddr & 63) == 0)
+                        if (!m_input.legacy && (retaddr & (m_parent.GetProcessor().GetICache().GetLineSize()-1)) == 0)
                         {
                             // If the next PC is at a cache-line boundary, skip the control word
+                            // NB: we need to adjust this here, *even though the fetch stage does it too*
+                            // because GP-addressing requires to compute GP from the real instruction
+                            // offset stored in a register.
                             retaddr += sizeof(Instruction);
                         }
                         m_output.Rcv.m_integer = retaddr;
@@ -996,9 +1000,12 @@ Processor::Pipeline::PipeAction Processor::Pipeline::ExecuteStage::ExecuteInstru
                                GetKernel()->GetSymbolTable()[target].c_str());
 
                 // Store the address of the next instruction
-                if ((next & 63) == 0)
+                if (!m_input.legacy && (next & (m_parent.GetProcessor().GetICache().GetLineSize()-1)) == 0)
                 {
-                    // If the next PC is at a cache-line boundary, skip the control word
+                    // If the next PC is at a cache-line boundary, skip the control word.
+                    // NB: we need to adjust this here, *even though the fetch stage does it too*
+                    // because GP-addressing requires to compute GP from the real instruction
+                    // offset stored in a register.
                     next += sizeof(Instruction);
                 }
                 m_output.Rcv.m_integer = next;

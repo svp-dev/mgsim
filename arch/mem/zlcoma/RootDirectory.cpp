@@ -1,6 +1,7 @@
 #include "RootDirectory.h"
-#include "mem/DDR.h"
-#include "sim/config.h"
+#include <arch/mem/DDR.h>
+#include <sim/config.h>
+
 #include <iomanip>
 using namespace std;
 

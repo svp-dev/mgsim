@@ -1,7 +1,8 @@
 #include "Processor.h"
 #include "FamilyTable.h"
-#include "sim/config.h"
-#include "sim/log2.h"
+#include <sim/config.h>
+#include <sim/log2.h>
+
 #include <cassert>
 #include <iostream>
 #include <sstream>

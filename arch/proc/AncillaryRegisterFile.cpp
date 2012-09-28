@@ -1,5 +1,6 @@
 #include "Processor.h"
-#include "sim/config.h"
+#include <sim/config.h>
+
 #include <iomanip>
 
 using namespace std;

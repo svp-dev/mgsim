@@ -1,5 +1,6 @@
 #include "simreadline.h"
-#include "arch/dev/Display.h"
+#include <arch/dev/Display.h>
+
 #include <sys/time.h>
 #include <sstream>
 #include <string>

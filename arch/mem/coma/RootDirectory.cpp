@@ -1,6 +1,7 @@
 #include "RootDirectory.h"
-#include "mem/DDR.h"
-#include "sim/config.h"
+#include <arch/mem/DDR.h>
+#include <sim/config.h>
+
 #include <iomanip>
 using namespace std;
 
@@ -275,7 +276,9 @@ Result COMA::RootDirectory::DoRequests()
         if (msg->type == Message::REQUEST)
         {
             // It's a read
-#if 0
+
+#if 1 // set to 0 to shortcut DDR
+
             if (!m_memory->Read(mem_address, m_lineSize))
             {
                 return FAILED;
@@ -307,8 +310,10 @@ Result COMA::RootDirectory::DoRequests()
         {
             // It's a write
             assert(msg->type == Message::EVICTION);
-#if 0
-            if (!m_memory->Write(msg->address, msg->data.data, m_lineSize))
+
+#if 1 // set to 0  to shortcut DDR
+
+            if (!m_memory->Write(mem_address, m_lineSize))
             {
                 return FAILED;
             }

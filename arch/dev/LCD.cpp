@@ -1,3 +1,7 @@
+#include "LCD.h"
+#include <sim/config.h>
+#include <sim/except.h>
+
 #include <fstream>
 #include <sstream>
 #include <iomanip>
@@ -5,9 +9,6 @@
 #include <cstring>
 #include <cctype>
 #include <cassert>
-#include "LCD.h"
-#include "config.h"
-#include "except.h"
 
 namespace Simulator
 {

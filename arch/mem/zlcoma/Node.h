@@ -34,6 +34,8 @@ namespace Simulator
 class ZLCOMA::Node : public ZLCOMA::Object
 {
 protected:
+    friend class ZLCOMA::Directory;
+
     /// This is the message that gets sent around
     union Message
     {

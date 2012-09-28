@@ -1,11 +1,12 @@
 #ifndef UART_H
 #define UART_H
 
-#include "arch/IOBus.h"
-#include "sim/kernel.h"
-#include "sim/storage.h"
-#include "sim/inspect.h"
 #include "Selector.h"
+
+#include <arch/IOBus.h>
+#include <sim/kernel.h>
+#include <sim/storage.h>
+#include <sim/inspect.h>
 
 class Config;
 

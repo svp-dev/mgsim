@@ -1,11 +1,13 @@
 #ifndef DDRMEMORY_H
 #define DDRMEMORY_H
 
-#include "BankSelector.h"
 #include "DDR.h"
-#include "arch/Memory.h"
-#include "arch/VirtualMemory.h"
-#include "sim/inspect.h"
+
+#include <arch/BankSelector.h>
+#include <arch/Memory.h>
+#include <arch/VirtualMemory.h>
+#include <sim/inspect.h>
+
 #include <queue>
 #include <set>
 

@@ -1,7 +1,7 @@
 #ifndef ELF_H
 #define ELF_H
 
-#include "sim/types.h"
+#include <sim/types.h>
 
 // Some ELF types
 typedef uint32_t Elf32_Addr;

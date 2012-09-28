@@ -28,5 +28,5 @@ SIM_SOURCES += \
 	sim/monitor.cpp
 endif
 
-SIM_EXTRA_CPPFLAGS = -I$(srcdir)/sim
+
 

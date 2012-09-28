@@ -1,5 +1,5 @@
 #include "RPC.h"
-#include "config.h"
+#include <sim/config.h>
 
 /*
 
@@ -641,7 +641,7 @@ namespace Simulator
             case 67: value = m_maxRes2Size; break;
             case 68: value = m_incoming.size(); break;
             case 69: value = m_incoming.GetMaxSize(); break;
-            case 70: value = m_completed.size(); break;
+            case 70: value = m_ready.size(); break;
             case 71: value = m_ready.GetMaxSize(); break;
             case 72: value = m_completed.size(); break;
             case 73: value = m_completed.GetMaxSize(); break;

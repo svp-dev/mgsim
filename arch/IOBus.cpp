@@ -1,5 +1,6 @@
 #include "IOBus.h"
-#include "except.h"
+
+#include <sim/except.h>
 
 namespace Simulator
 {

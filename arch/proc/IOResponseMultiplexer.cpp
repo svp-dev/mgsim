@@ -1,5 +1,6 @@
 #include "Processor.h"
-#include "config.h"
+#include <sim/config.h>
+
 #include <sstream>
 
 namespace Simulator

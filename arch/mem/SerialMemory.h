@@ -1,9 +1,10 @@
 #ifndef SERIALMEMORY_H
 #define SERIALMEMORY_H
 
-#include "arch/Memory.h"
-#include "arch/VirtualMemory.h"
-#include "sim/inspect.h"
+#include <arch/Memory.h>
+#include <arch/VirtualMemory.h>
+#include <sim/inspect.h>
+
 #include <deque>
 #include <set>
 
@@ -52,7 +53,6 @@ class SerialMemory : public Object, public IMemoryAdmin, public VirtualMemory
     }
 
     ComponentModelRegistry&       m_registry;
-    Clock&                        m_clock;
     std::vector<IMemoryCallback*> m_clients;
     Buffer<Request>               m_requests;
     ArbitratedService<CyclicArbitratedPort>           p_requests;

@@ -1,10 +1,11 @@
 #ifndef BANKEDMEMORY_H
 #define BANKEDMEMORY_H
 
-#include "BankSelector.h"
-#include "arch/Memory.h"
-#include "arch/VirtualMemory.h"
-#include "sim/inspect.h"
+#include <arch/BankSelector.h>
+#include <arch/Memory.h>
+#include <arch/VirtualMemory.h>
+#include <sim/inspect.h>
+
 #include <queue>
 #include <set>
 

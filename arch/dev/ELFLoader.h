@@ -1,8 +1,9 @@
 #ifndef ELFLOADER_H
 #define ELFLOADER_H
 
-#include "Memory.h"
 #include "ActiveROM.h"
+#include <arch/Memory.h>
+
 #include <algorithm>
 
 // Load the program file into the memory.

@@ -2,8 +2,9 @@
 #define COMA_CACHE_H
 
 #include "Node.h"
-#include "sim/inspect.h"
-#include "arch/BankSelector.h"
+#include <sim/inspect.h>
+#include <arch/BankSelector.h>
+
 #include <queue>
 #include <set>
 

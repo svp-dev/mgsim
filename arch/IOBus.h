@@ -1,9 +1,9 @@
 #ifndef IOBUS_H
 #define IOBUS_H
 
-#include "simtypes.h"
-#include "arch/dev/IODeviceDatabase.h"
-#include "sim/storagetrace.h"
+#include <arch/simtypes.h>
+#include <arch/dev/IODeviceDatabase.h>
+#include <sim/storagetrace.h>
 
 namespace Simulator
 {

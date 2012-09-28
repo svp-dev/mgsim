@@ -1,8 +1,9 @@
 #ifndef LCD_H
 #define LCD_H
 
-#include "arch/IOBus.h"
-#include "sim/kernel.h"
+#include <arch/IOBus.h>
+#include <sim/kernel.h>
+
 #include <fstream>
 
 class Config;
