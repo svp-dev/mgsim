@@ -194,7 +194,7 @@ AC_ARG_ENABLE([cacti],
               [AC_HELP_STRING([--disable-cacti], [disable support for area calculations with CACTI (default is try to enable)])],
               [], [enable_cacti=yes])
 if test "x$enable_cacti" = "xyes"; then
-  if ! test -d "$srcdir/cacti"; then
+  if ! test -r "$srcdir/cacti/cacti_interface.h"; then
      AC_MSG_WARN([CACTI sources not available, cannot use CACTI.])
      enable_cacti=no
   fi

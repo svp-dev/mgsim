@@ -44,4 +44,4 @@ cacti/io_patched.cc: $(srcdir)/cacti/io.cc
 	$(MKDIR_P) cacti
 	(cp -f $(srcdir)/cacti/io.cc cacti/io_patched.cc && patch cacti/io_patched.cc $(srcdir)/build-aux/cacti-io-cc.diff) || rm -f cacti/io_patched.cc
 
-CACTI_EXTRA_CPPFLAGS = -DNTHREADS=8 
+CACTI_EXTRA_CPPFLAGS = -DNTHREADS=8 -I$(srcdir)/cacti
