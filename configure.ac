@@ -194,7 +194,7 @@ AC_ARG_ENABLE([cacti],
               [AC_HELP_STRING([--disable-cacti], [disable support for area calculations with CACTI (default is try to enable)])],
               [], [enable_cacti=yes])
 if test "x$enable_cacti" = "xyes"; then
-  if ! test -d "$srcdir/cacti"; then
+  if ! test -r "$srcdir/cacti/cacti_interface.h"; then
      AC_MSG_WARN([CACTI sources not available, cannot use CACTI.])
      enable_cacti=no
   fi
@@ -220,8 +220,6 @@ AC_ARG_VAR([LD_MIPS], [Location of the `ld' utility configured for the MIPS bina
 AC_ARG_VAR([AS_MIPSEL], [Location of the `as' utility configured for the MIPSel binary format.])
 AC_ARG_VAR([LD_MIPSEL], [Location of the `ld' utility configured for the MIPSel binary format.])
 
-isa_impl=$target_cpu
-
 case "$target_cpu" in
 mtalpha)
 
@@ -236,7 +234,7 @@ mtalpha)
   fi
 
   AC_DEFINE([TARGET_MTALPHA], [1],
-            [Define when building a simulator for MT-Sparc.])
+            [Define when building a simulator for MT-Alpha.])
 
   ;;
 
@@ -253,7 +251,7 @@ mtsparc)
   fi
 
   AC_DEFINE([TARGET_MTSPARC], [1],
-            [Define when building a simulator for MT-Alpha.])
+            [Define when building a simulator for MT-SPARC.])
   ;;
 
 mips)
@@ -273,8 +271,6 @@ mips)
   ;;
 
 mipsel)
-
-  isa_impl=mips
 
   AC_PATH_PROG([AS_MIPSEL], [mipsel-linux-gnu-as], [no], [$prefix/bin$PATH_SEPARATOR$PATH])
   AC_PATH_PROG([LD_MIPSEL], [mipsel-linux-gnu-ld], [no], [$prefix/bin$PATH_SEPARATOR$PATH])
@@ -333,14 +329,9 @@ fi
 
 AM_CONDITIONAL([ENABLE_C_TESTS], [test x$enable_compiled_tests = xyes])
 
-
-AC_CONFIG_LINKS([arch/proc/ISA.h:arch/proc/ISA.$isa_impl.h
-                 arch/proc/ISA.cpp:arch/proc/ISA.$isa_impl.cpp])
-
 AC_CONFIG_FILES([
 	Makefile
 	tools/Makefile
-        tests/Makefile
 	programs/Makefile
 	doc/Makefile
 ])

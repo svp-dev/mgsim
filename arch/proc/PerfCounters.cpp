@@ -1,5 +1,6 @@
 #include "Processor.h"
-#include "sim/config.h"
+#include <sim/config.h>
+
 #include <sys/time.h>
 #include <ctime>
 

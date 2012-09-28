@@ -1,6 +1,7 @@
 #include "BankSelector.h"
-#include "sim/log2.h"
-#include "sim/except.h"
+
+#include <sim/log2.h>
+#include <sim/except.h>
 
 /*
   Mapping of cache line addresses to cache set/bank indices 

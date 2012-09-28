@@ -1,8 +1,8 @@
 #ifndef SMC_H
 #define SMC_H
 
-#include "arch/IOBus.h"
-#include "sim/storage.h"
+#include <arch/IOBus.h>
+#include <sim/storage.h>
 
 class Config;
 namespace Simulator

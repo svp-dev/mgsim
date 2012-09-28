@@ -1,11 +1,12 @@
 #ifndef COMA_COMA_H
 #define COMA_COMA_H
 
-#include "arch/Memory.h"
-#include "arch/VirtualMemory.h"
-#include "arch/BankSelector.h"
-#include "sim/inspect.h"
-#include "mem/DDR.h"
+#include <arch/Memory.h>
+#include <arch/VirtualMemory.h>
+#include <arch/BankSelector.h>
+#include <sim/inspect.h>
+#include <arch/mem/DDR.h>
+
 #include <queue>
 #include <set>
 

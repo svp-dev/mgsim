@@ -67,8 +67,10 @@ PROCESSOR_SRC = \
 	arch/proc/IOMatchUnit.cpp \
         arch/proc/IODirectCacheAccess.h \
         arch/proc/IODirectCacheAccess.cpp \
-        arch/proc/ISA.h \
         arch/proc/ISA.cpp \
+	arch/proc/ISA.mtalpha.h \
+	arch/proc/ISA.mtsparc.h \
+	arch/proc/ISA.mips.h \
 	arch/proc/MemoryStage.cpp \
 	arch/proc/Network.cpp \
 	arch/proc/Network.h \
@@ -131,15 +133,9 @@ MLCOMA_SRC = \
 	arch/mem/coma/RootDirectory.cpp 
 
 EXTRA_DIST += \
-	arch/proc/ISA.mips.h \
 	arch/proc/ISA.mips.cpp \
-	arch/proc/ISA.mtalpha.h \
 	arch/proc/ISA.mtalpha.cpp \
-	arch/proc/ISA.mtsparc.h \
 	arch/proc/ISA.mtsparc.cpp
 
 ARCH_SOURCES = $(COMMON_SRC) $(PROCESSOR_SRC) $(MEMORY_SRC) $(DEVICE_SRC) $(ZLCOMA_SRC) $(MLCOMA_SRC)
 
-ARCH_EXTRA_CPPFLAGS = \
-       -I$(srcdir)/arch -I$(builddir)/arch \
-       -I$(srcdir)/arch/proc -I$(builddir)/arch/proc

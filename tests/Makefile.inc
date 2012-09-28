@@ -1,14 +1,20 @@
-LOG_COMPILER = \
-   $(SHELL) $(srcdir)/runtest.sh \
-	$(top_builddir)/mgsim \
-	$(top_srcdir)/tools/timeout \
-	$(top_srcdir)/programs/config.ini \
-	`test -f ../programs/nobounds.ini || echo '$(srcdir)/'`../programs/nobounds.ini
+TEST_BINS =
 
-ASLINK = $(SHELL) $(top_builddir)/tools/aslink $(TEST_ARCH)
-COMPILE = $(SHELL) $(top_builddir)/tools/compile $(TEST_ARCH) \
-	   $(srcdir)/$(TEST_ARCH)/crt_simple.s $(top_srcdir)/programs/mtconf.c -DMGSIM_TEST_SUITE \
-	   -I$(top_srcdir)/programs -I$(top_builddir)/programs
+include tests/mtalpha/Makefile.inc
+include tests/mtsparc/Makefile.inc
+include tests/common/Makefile.inc
+
+LOG_COMPILER = \
+   $(SHELL) $(srcdir)/tools/runtest.sh \
+	$(builddir)/mgsim \
+	$(srcdir)/tools/timeout \
+	$(srcdir)/programs/config.ini \
+	`test -f programs/nobounds.ini || echo '$(srcdir)/'`programs/nobounds.ini
+
+ASLINK = $(SHELL) tools/aslink $(TEST_ARCH)
+COMPILE = $(SHELL) tools/compile $(TEST_ARCH) \
+	   $(srcdir)/tests/$(TEST_ARCH)/crt_simple.s $(srcdir)/programs/mtconf.c -DMGSIM_TEST_SUITE \
+	   -I$(srcdir)/programs -Iprograms
 
 
 SUFFIXES = .c .s .bin .coma .zlcoma .serial .parallel .banked .randombanked .ddr .randomddr
@@ -59,3 +65,5 @@ recheck_%: $(TEST_BINS)
 	$(MAKE) recheck TESTS="$(TEST_BINS:.bin=.$*)"
 
 CLEANFILES = $(TESTS) *.out
+DISTCLEANFILES = $(TEST_BINS)
+

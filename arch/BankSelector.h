@@ -1,8 +1,8 @@
 #ifndef BANK_SELECTION_H
 #define BANK_SELECTION_H
 
-#include "sim/kernel.h"
-#include "simtypes.h"
+#include <sim/kernel.h>
+#include <arch/simtypes.h>
 
 namespace Simulator 
 {

@@ -1,5 +1,6 @@
 #include "SerialMemory.h"
-#include "sim/config.h"
+#include <sim/config.h>
+
 #include <cassert>
 #include <cstring>
 #include <iomanip>
@@ -183,7 +184,6 @@ Result SerialMemory::DoRequests()
 SerialMemory::SerialMemory(const std::string& name, Object& parent, Clock& clock, Config& config) :
     Object(name, parent, clock),
     m_registry       (config),
-    m_clock          (clock),
     m_requests       ("b_requests", *this, clock, config.getValue<BufferSize>(*this, "BufferSize")),
     p_requests       (*this, clock, "m_requests"),
     m_baseRequestTime(config.getValue<CycleNo>   (*this, "BaseRequestTime")),

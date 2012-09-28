@@ -1,8 +1,9 @@
 #ifndef SIMTYPES_H
 #define SIMTYPES_H
 
-#include "sim/types.h"
 #include "Archures.h"
+#include <sim/types.h>
+
 #include <string>
 #include <cassert>
 

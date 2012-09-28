@@ -15,5 +15,4 @@ CLI_SOURCES = \
 	cli/simreadline.cpp \
 	cli/main.cpp
 
-CLI_EXTRA_CPPFLAGS = -I$(srcdir)/cli
 

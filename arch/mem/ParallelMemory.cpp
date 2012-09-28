@@ -1,5 +1,6 @@
 #include "ParallelMemory.h"
-#include "sim/config.h"
+#include <sim/config.h>
+
 #include <cassert>
 #include <sstream>
 #include <cstring>

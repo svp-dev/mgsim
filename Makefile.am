@@ -4,8 +4,9 @@ MAINTAINERCLEANFILES =
 EXTRA_DIST = 
 
 include $(srcdir)/Makefile.inc
+include $(srcdir)/tests/Makefile.inc
 
-SUBDIRS = . tools tests programs doc
+SUBDIRS = tools programs doc .
 
 DISTCHECK_CONFIGURE_FLAGS = --target=mtalpha
 ACLOCAL_AMFLAGS = -I build-aux

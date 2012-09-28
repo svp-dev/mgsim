@@ -1,6 +1,7 @@
 #include "DDR.h"
-#include "sim/config.h"
-#include "sim/log2.h"
+#include <sim/config.h>
+#include <sim/log2.h>
+
 #include <sstream>
 #include <limits>
 #include <cstdio>

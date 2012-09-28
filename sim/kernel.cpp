@@ -1,7 +1,7 @@
 #include "kernel.h"
 #include "storage.h"
-#include "arch/dev/Display.h"
 #include "sampling.h"
+#include <arch/dev/Display.h>
 
 #include <cassert>
 #include <algorithm>

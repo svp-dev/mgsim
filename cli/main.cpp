@@ -1,14 +1,14 @@
 #ifdef HAVE_CONFIG_H
-#include "sys_config.h"
+#include <sys_config.h>
 #endif
 
-#include "arch/MGSystem.h"
 #include "simreadline.h"
 #include "commands.h"
-#include "sim/config.h"
+#include <arch/MGSystem.h>
+#include <sim/config.h>
 
 #ifdef ENABLE_MONITOR
-# include "sim/monitor.h"
+# include <sim/monitor.h>
 #endif
 
 #include <sstream>
@@ -194,7 +194,7 @@ static error_t mgsim_parse_opt(int key, char *arg, struct argp_state *state)
         }
                 
         if (key == 'R') {
-            value >> *(signed Integer*)&val.m_integer;
+            value >> *(SInteger*)&val.m_integer;
             addr = MAKE_REGADDR(RT_INTEGER, index);
         } else {
             double f;

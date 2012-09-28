@@ -1,12 +1,12 @@
 #ifndef BREAKPOINTS_H
 #define BREAKPOINTS_H
 
+#include <sim/kernel.h>
+#include <arch/symtable.h>
+#include <sim/except.h>
+
 #include <map>
 #include <string>
-
-#include "sim/kernel.h"
-#include "arch/symtable.h"
-#include "sim/except.h"
 #include <iostream>
 
 class BreakPoints

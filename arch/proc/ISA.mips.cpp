@@ -1,5 +1,5 @@
 #include "Processor.h"
-#include "symtable.h"
+#include <arch/symtable.h>
 #include <cassert>
 #include <sstream>
 #include <iomanip>
