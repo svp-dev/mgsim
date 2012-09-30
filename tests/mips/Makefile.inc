@@ -10,3 +10,5 @@ if ENABLE_MIPSEL_TESTS
 TEST_ARCH       = mipsel
 TEST_BINS       += $(MIPS_TEST_SOURCES:.s=.bin)
 endif
+
+EXTRA_DIST += $(MIPS_TEST_SOURCES)

@@ -2,6 +2,7 @@ TEST_BINS =
 
 include tests/mtalpha/Makefile.inc
 include tests/mtsparc/Makefile.inc
+include tests/mips/Makefile.inc
 include tests/common/Makefile.inc
 
 LOG_COMPILER = \
