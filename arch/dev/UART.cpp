@@ -3,6 +3,8 @@
 #include <iomanip>
 #include <cstring>
 #include <cstdlib>
+#include <cstdio>
+#include <unistd.h>
 #include <fcntl.h>
 
 using namespace std;

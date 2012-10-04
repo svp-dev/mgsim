@@ -5,7 +5,7 @@ nodist_noinst_SCRIPTS = aslink compile
 dist_noinst_SCRIPTS = timeout runtest.sh
 
 readtrace.1: readtrace.in
-	$(AM_V_GEN)$(HELP2MAN) -N --output=$@ ./readtrace
+	$(AM_V_GEN)$(HELP2MAN) -N --output=$@ --no-discard-stderr ./readtrace
 
 viewlog.1: viewlog.in
 	$(AM_V_GEN)$(HELP2MAN) -N --output=$@ ./viewlog
