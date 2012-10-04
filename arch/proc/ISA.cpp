@@ -7,6 +7,3 @@
 #elif defined(TARGET_MIPS32) || defined(TARGET_MIPS32EL)
 #include "ISA.mips.cpp"
 #endif
-
-
-
