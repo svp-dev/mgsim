@@ -45,26 +45,28 @@ void BreakPointManager::ListBreakPoints(std::ostream& out) const
         out << "no breakpoints defined." << endl;
     else 
     {
-        out << "Id   | Address            | Symbol               | Mode | Status    " << endl
-            << "-----+--------------------+----------------------+------+-----------" << endl
+        out << "Id   | Address            | Symbol               | Mode  | Status    " << endl
+            << "-----+--------------------+----------------------+-------+-----------" << endl
             << setfill(' ') << left;
         for (breakpoints_t::const_iterator i = m_breakpoints.begin();
              i != m_breakpoints.end(); ++i)
         {
             std::string mode;
-            if (i->second.type & READ)
-                mode += 'R';
-            if (i->second.type & WRITE)
-                mode += 'W';
+            if (i->second.type & FETCH)
+                mode += 'F';
             if (i->second.type & EXEC)
                 mode += 'X';
+            if (i->second.type & MEMREAD)
+                mode += 'R';
+            if (i->second.type & MEMWRITE)
+                mode += 'W';
             if (i->second.type & TRACEONLY)
                 mode += 'T';
             
             out << setw(4) << dec << i->second.id << " | "
                 << setw(18) << hex << showbase << i->first << " | " 
                 << setw(20) << GetSymbolTable()[i->first] << " | "
-                << setw(4) << mode << " | "
+                << setw(5) << mode << " | "
                 << setw(9) << (i->second.enabled ? "enabled" : "disabled")
                 << endl;
         }
@@ -81,12 +83,14 @@ void BreakPointManager::Resume(void)
 std::string BreakPointManager::GetModeName(int type)
 {
     std::string mode;
-    if (type & READ)
-        mode += 'R';
-    if (type & WRITE)
-        mode += 'W';
+    if (type & FETCH)
+        mode += 'F';
     if (type & EXEC)
         mode += 'X';
+    if (type & MEMREAD)
+        mode += 'R';
+    if (type & MEMWRITE)
+        mode += 'W';
     if (type & TRACEONLY)
         mode += 'T';
     return mode;

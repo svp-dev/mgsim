@@ -83,9 +83,10 @@ bool cmd_bp_add(const vector<string>& /*command*/, vector<string>& args, cli_con
     {
         switch(toupper(*i))
         {
-        case 'R': mode |= BreakPointManager::READ; break;
-        case 'W': mode |= BreakPointManager::WRITE; break;
+        case 'F': mode |= BreakPointManager::FETCH; break;
         case 'X': mode |= BreakPointManager::EXEC; break;
+        case 'R': mode |= BreakPointManager::MEMREAD; break;
+        case 'W': mode |= BreakPointManager::MEMWRITE; break;
         case 'T': mode |= BreakPointManager::TRACEONLY; break;
         default: break;
         }

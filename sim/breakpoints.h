@@ -15,7 +15,13 @@ namespace Simulator
 class BreakPointManager
 {
 public:
-    enum BreakPointType { EXEC = 1, READ = 2, WRITE = 4, TRACEONLY = 8 };
+    enum BreakPointType { 
+        FETCH = 1,
+        EXEC = 2, 
+        MEMREAD = 4, 
+        MEMWRITE = 8, 
+        TRACEONLY = 16,
+    };
 
 private:
     struct BreakPointInfo {

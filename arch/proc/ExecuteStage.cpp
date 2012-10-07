@@ -4,6 +4,7 @@
 #include <sim/log2.h>
 #include <programs/mgsim.h>
 #include <arch/FPU.h>
+#include <sim/breakpoints.h>
 
 #include <cassert>
 #include <cmath>
@@ -97,6 +98,9 @@ Processor::Pipeline::PipeAction Processor::Pipeline::ExecuteStage::OnCycle()
         m_output.Rcv.m_state = RST_INVALID;
         m_output.Rcv.m_size  = m_input.RcSize;
     }
+    
+    // Check for breakpoints
+    GetKernel()->GetBreakPointManager().Check(BreakPointManager::EXEC, m_input.pc, *this);
     
     PipeAction action = ExecuteInstruction();
     if (action != PIPE_STALL)
