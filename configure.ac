@@ -49,6 +49,9 @@ AC_USE_SYSTEM_EXTENSIONS
 # check support for abi::__cxa_demangle
 AX_CXX_GCC_ABI_DEMANGLE
 
+# check support for C++11
+AX_CXX_COMPILE_STDCXX_11
+
 AC_MSG_CHECKING([for the number of bits in a char])
 AC_COMPUTE_INT([char_size], [CHAR_BIT], [#include <limits.h>], [char_size=unknown])
 AC_MSG_RESULT([$char_size])
