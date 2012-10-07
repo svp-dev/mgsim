@@ -30,7 +30,7 @@ namespace Simulator {
         std::map<size_t, size_t>    m_procbusmapping;
 
         SymbolTable                 m_symtable;
-        BreakPoints                 m_breakpoints;
+        BreakPointManager           m_breakpoints;
         IMemoryAdmin*               m_memory;
         std::string                 m_objdump_cmd;
         Config&            m_config;

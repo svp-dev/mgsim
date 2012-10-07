@@ -40,7 +40,7 @@ Processor::Pipeline::PipeAction Processor::Pipeline::FetchStage::OnCycle()
         {
             // We need to check for breakpoints on the control
             // word here.
-            GetKernel()->GetBreakPoints().Check(BreakPoints::EXEC, pc, *this);
+            GetKernel()->GetBreakPointManager().Check(BreakPointManager::EXEC, pc, *this);
 
             // Skip the control word
             pc += sizeof(Instruction);
@@ -111,7 +111,7 @@ Processor::Pipeline::PipeAction Processor::Pipeline::FetchStage::OnCycle()
         }
 
         // Check for breakpoints
-        GetKernel()->GetBreakPoints().Check(BreakPoints::EXEC, pc, *this);
+        GetKernel()->GetBreakPointManager().Check(BreakPointManager::EXEC, pc, *this);
 
         // Update the PC and switched state
         m_pc       = next_pc;

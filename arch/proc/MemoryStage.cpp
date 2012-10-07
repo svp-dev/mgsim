@@ -31,7 +31,7 @@ Processor::Pipeline::PipeAction Processor::Pipeline::MemoryStage::OnCycle()
             {
 
                 // Check for breakpoints
-                GetKernel()->GetBreakPoints().Check(BreakPoints::WRITE, m_input.address, *this);
+                GetKernel()->GetBreakPointManager().Check(BreakPointManager::WRITE, m_input.address, *this);
                 
                 // Serialize and store data
                 char data[MAX_MEMORY_OPERATION_SIZE];
@@ -115,7 +115,7 @@ Processor::Pipeline::PipeAction Processor::Pipeline::MemoryStage::OnCycle()
         else if (m_input.Rc.valid())
         {
             // Check for breakpoints
-            GetKernel()->GetBreakPoints().Check(BreakPoints::READ, m_input.address, *this);
+            GetKernel()->GetBreakPointManager().Check(BreakPointManager::READ, m_input.address, *this);
                     
             if (m_input.address >= 4 && m_input.address < 8)
             {

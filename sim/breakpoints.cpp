@@ -5,9 +5,11 @@
 #include <iomanip>
 
 using namespace std;
-using namespace Simulator;
 
-void BreakPoints::CheckEnabled()
+namespace Simulator
+{
+
+void BreakPointManager::CheckEnabled()
 {
     bool someenabled = false;
     for (breakpoints_t::const_iterator i = m_breakpoints.begin();
@@ -17,7 +19,7 @@ void BreakPoints::CheckEnabled()
     m_enabled = someenabled;
 }
 
-void BreakPoints::EnableBreakPoint(unsigned id)
+void BreakPointManager::EnableBreakPoint(unsigned id)
 {
     bool found = false;
     for (breakpoints_t::iterator i = m_breakpoints.begin();
@@ -37,7 +39,7 @@ void BreakPoints::EnableBreakPoint(unsigned id)
     }
 }
 
-void BreakPoints::ListBreakPoints(std::ostream& out) const
+void BreakPointManager::ListBreakPoints(std::ostream& out) const
 {
     if (m_breakpoints.empty())
         out << "no breakpoints defined." << endl;
@@ -71,12 +73,12 @@ void BreakPoints::ListBreakPoints(std::ostream& out) const
     out << "Breakpoint checking is " << (m_enabled ? "enabled" : "disabled") << '.' << endl;
 }
 
-void BreakPoints::Resume(void)
+void BreakPointManager::Resume(void)
 {
     m_activebreaks.clear();
 }
 
-std::string BreakPoints::GetModeName(int type)
+std::string BreakPointManager::GetModeName(int type)
 {
     std::string mode;
     if (type & READ)
@@ -90,7 +92,7 @@ std::string BreakPoints::GetModeName(int type)
     return mode;
 }
 
-void BreakPoints::ReportBreaks(std::ostream& out) const
+void BreakPointManager::ReportBreaks(std::ostream& out) const
 {
     if (m_activebreaks.empty())
         return;
@@ -115,13 +117,13 @@ void BreakPoints::ReportBreaks(std::ostream& out) const
     }
 }
 
-void BreakPoints::ClearAllBreakPoints(void)
+void BreakPointManager::ClearAllBreakPoints(void)
 {
     m_breakpoints.clear();
     m_enabled = false;
 }
 
-void BreakPoints::DisableBreakPoint(unsigned id)
+void BreakPointManager::DisableBreakPoint(unsigned id)
 {
     bool found = false;
 
@@ -143,7 +145,7 @@ void BreakPoints::DisableBreakPoint(unsigned id)
     CheckEnabled();
 }
 
-void BreakPoints::DeleteBreakPoint(unsigned id)
+void BreakPointManager::DeleteBreakPoint(unsigned id)
 {
     bool found = false;
 
@@ -165,7 +167,7 @@ void BreakPoints::DeleteBreakPoint(unsigned id)
     CheckEnabled();
 }
 
-void BreakPoints::AddBreakPoint(MemAddr addr, int type)
+void BreakPointManager::AddBreakPoint(MemAddr addr, int type)
 {
     BreakPointInfo info;
     info.enabled = true;
@@ -180,7 +182,7 @@ void BreakPoints::AddBreakPoint(MemAddr addr, int type)
     m_enabled = true;
 }
 
-void BreakPoints::AddBreakPoint(const std::string& sym, int offset, int type)
+void BreakPointManager::AddBreakPoint(const std::string& sym, int offset, int type)
 {
     errno = 0;
     MemAddr addr = strtoull(sym.c_str(), 0, 0);
@@ -197,7 +199,7 @@ void BreakPoints::AddBreakPoint(const std::string& sym, int offset, int type)
 }
 
 
-void BreakPoints::CheckMore(int type, MemAddr addr, Object& obj)
+void BreakPointManager::CheckMore(int type, MemAddr addr, Object& obj)
 {
     breakpoints_t::const_iterator i = m_breakpoints.find(addr);
     if (i != m_breakpoints.end() && i->second.enabled && (i->second.type & type) != 0) 
@@ -220,3 +222,6 @@ void BreakPoints::CheckMore(int type, MemAddr addr, Object& obj)
         }
     }
 }
+
+}
+

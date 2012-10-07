@@ -9,7 +9,10 @@
 #include <string>
 #include <iostream>
 
-class BreakPoints
+namespace Simulator
+{
+
+class BreakPointManager
 {
 public:
     enum BreakPointType { EXEC = 1, READ = 2, WRITE = 4, TRACEONLY = 8 };
@@ -54,7 +57,7 @@ private:
 
     static std::string GetModeName(int);
 public:
-    BreakPoints(Simulator::Kernel& kernel) 
+    BreakPointManager(Simulator::Kernel& kernel) 
         : m_counter(0), m_enabled(false), m_kernel(kernel) {}
 
     void EnableCheck(void) { m_enabled = true; }
@@ -84,5 +87,7 @@ public:
             CheckMore(type, addr, obj);
     }
 };
+
+}
 
 #endif
