@@ -49,9 +49,9 @@ namespace Simulator
 
     void Selector::Enable()
     {
-        for (map<int,ev::io*>::const_iterator i = Event::handlers.begin(); i != Event::handlers.end(); ++i)
+        for (auto& i : Event::handlers)
         {
-            int fd = i->second->fd;
+            int fd = i.second->fd;
             int r = fcntl(fd, F_GETFL, 0);
             if (r == -1)
             {
@@ -68,9 +68,9 @@ namespace Simulator
 
     void Selector::Disable()
     {
-        for (map<int,ev::io*>::const_iterator i = Event::handlers.begin(); i != Event::handlers.end(); ++i)
+        for (auto& i : Event::handlers)
         {
-            int fd = i->second->fd;
+            int fd = i.second->fd;
             if (fd_flags.find(fd) == fd_flags.end())
                 continue;
             int r = fcntl(fd, F_SETFL, fd_flags[fd] & ~O_NONBLOCK);
@@ -109,7 +109,7 @@ namespace Simulator
 
     bool Selector::UnregisterStream(int fd)
     {
-        map<int, ev::io*>::iterator i = Event::handlers.find(fd);
+        auto i = Event::handlers.find(fd);
         if (i == Event::handlers.end())
         {
             throw exceptf<InvalidArgumentException>(*this, "No handler registered for fd %d", fd);
@@ -158,8 +158,6 @@ namespace Simulator
             }
         }
 
-        // cerr << "res " << Event::current_result << ", count " << Event::handler_count << endl;
-
         return SUCCESS;
     }
     
@@ -191,10 +189,9 @@ namespace Simulator
 
     Selector::~Selector()
     {
-        for (map<int,ev::io*>::const_iterator i = Event::handlers.begin(); i != Event::handlers.end(); ++i)
-        {
-            delete i->second;
-        }
+        for (auto& i : Event::handlers)
+            delete i.second;
+
         Event::handlers.clear();
 
         m_singleton = NULL;
@@ -232,11 +229,11 @@ namespace Simulator
             out << endl
                 << "FD  | Client" << endl
                 << "----+------------------" << endl;
-            for (map<int, ev::io*>::const_iterator i = Event::handlers.begin(); i != Event::handlers.end(); ++i)
+            for (auto& i : Event::handlers)
             {
-                ISelectorClient *callback = (ISelectorClient*)i->second->data;
+                auto callback = (ISelectorClient*)i.second->data;
                 assert(callback != NULL);
-                out << setw(3) << setfill(' ') << i->first
+                out << setw(3) << setfill(' ') << i.first
                     << " | "
                     << callback->GetSelectorClientName()
                     << endl;

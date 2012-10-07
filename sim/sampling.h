@@ -57,9 +57,9 @@ public:
     size_t GetBufferSize() const { return m_datasize; }
     void   SampleToBuffer(char *buf) const
     {
-        for (vars_t::const_iterator i = m_vars.begin(); i != m_vars.end(); ++i)
-            for (size_t j = 0; j < i->second; ++j)
-                *buf++ = i->first[j];
+        for (auto& i : m_vars)
+            for (size_t j = 0; j < i.second; ++j)
+                *buf++ = i.first[j];
     }
 };
 

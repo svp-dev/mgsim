@@ -79,9 +79,9 @@ bool cmd_bp_disable(const vector<string>& /*command*/, vector<string>& args, cli
 bool cmd_bp_add(const vector<string>& /*command*/, vector<string>& args, cli_context& ctx)
 {
     int mode = 0;
-    for (string::const_iterator i = args[0].begin(); i != args[0].end(); ++i)
+    for (auto i : args[0])
     {
-        switch(toupper(*i))
+        switch(toupper(i))
         {
         case 'F': mode |= BreakPointManager::FETCH; break;
         case 'X': mode |= BreakPointManager::EXEC; break;

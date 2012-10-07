@@ -32,9 +32,9 @@ namespace Simulator
     {
         vector<char> argdata;
         const vector<string>& argv = config.GetArgumentVector();
-        for (size_t i = 0; i < argv.size(); ++i)
+        for (auto& arg : argv)
         {
-            argdata.insert(argdata.end(), argv[i].begin(), argv[i].end());
+            argdata.insert(argdata.end(), arg.begin(), arg.end());
             argdata.push_back('\0');
         }
         argdata.push_back('\0');
@@ -106,9 +106,8 @@ namespace Simulator
 
     void ActiveROM::PrepareRanges()
     {
-        for (size_t i = 0; i < m_loadable.size(); ++i)
+        for (auto& r : m_loadable)
         {
-            const LoadableRange& r = m_loadable[i];
             m_memory.Reserve(r.vaddr, r.vsize, 0, r.perm | IMemory::PERM_DCA_WRITE);
             if (m_verboseload)
             {
@@ -428,9 +427,8 @@ namespace Simulator
             out << "Virtual ranges:" << endl
                 << "ROM start | Bytes    | Virtual start    | Virtual end" << endl
                 << "----------+----------+------------------+-----------------" << endl;
-            for (size_t i = 0; i < m_loadable.size(); ++i)
+            for (auto& r : m_loadable)
             {
-                const LoadableRange& r = m_loadable[i];
                 out << setfill('0') << hex << setw(8) << r.rom_offset
                     << "  | "
                     << dec << setfill(' ') << setw(8) << r.rom_size

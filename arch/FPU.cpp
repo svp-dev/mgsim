@@ -232,10 +232,8 @@ Result FPU::DoPipeline()
                 COMMIT
                 {
                     // Advance the pipeline
-                    for (deque<Result>::iterator p = unit.slots.begin(); p != unit.slots.end(); ++p)
-                    {
-                        p->state++;
-                    }
+                    for (auto& p : unit.slots)
+                        p.state++;
                 }
             }
         }
@@ -336,12 +334,12 @@ FPU::FPU(const std::string& name, Object& parent, Clock& clock, Config& config, 
             set<FPUOperation> ops;
                 
             // Get ops for this unit
-            vector<string> strops = config.getWordList(*this, name + "Ops");
-            for (vector<string>::iterator p = strops.begin(); p != strops.end(); ++p)
+            auto strops = config.getWordList(*this, name + "Ops");
+            for (auto& p : strops)
             {
-                transform(p->begin(), p->end(), p->begin(), ::toupper);
+                transform(p.begin(), p.end(), p.begin(), ::toupper);
                 for (int j = 0; j < FPU_NUM_OPS; ++j) {
-                    if (p->compare(Names[j]) == 0) {
+                    if (p.compare(Names[j]) == 0) {
                         ops.insert( (FPUOperation)j );
                         break;
                     }
@@ -353,9 +351,9 @@ FPU::FPU(const std::string& name, Object& parent, Clock& clock, Config& config, 
             }
  
             // Add this unit into the mapping table for the ops it implements
-            for (set<FPUOperation>::const_iterator p = ops.begin(); p != ops.end(); ++p)
+            for (auto& p : ops)
             {
-                m_mapping[*p].push_back(m_units.size());
+                m_mapping[p].push_back(m_units.size());
             }
 
             Unit unit;
@@ -386,10 +384,8 @@ FPU::FPU(const std::string& name, Object& parent, Clock& clock, Config& config, 
 
 void FPU::Cleanup()
 {
-    for (size_t i = 0; i < m_sources.size(); ++i)
-    {
-        delete m_sources[i];
-    }
+    for (auto s : m_sources)
+        delete s;
 }
 
 FPU::~FPU()
@@ -413,13 +409,11 @@ void FPU::Cmd_Read(std::ostream& out, const std::vector<std::string>& /*argument
     out << fixed << setfill(' ');
     
     // Print the source queues
-    for (size_t i = 0; i < m_sources.size(); ++i)
+    for (auto source : m_sources)
     {
-        const Source& source = *m_sources[i];
-        
         // Print the source name
         out << "Source: ";
-        Object* object = (source.regfile != NULL) ? source.regfile->GetParent() : NULL;
+        Object* object = (source->regfile != NULL) ? source->regfile->GetParent() : NULL;
         if (object == NULL) {
             out << "???";
         } else {
@@ -427,24 +421,24 @@ void FPU::Cmd_Read(std::ostream& out, const std::vector<std::string>& /*argument
         }
         out << endl;
         
-        if (source.inputs.begin() != source.inputs.end())
+        if (source->inputs.begin() != source->inputs.end())
         {
             // Print the queued operations
             out << " Op  | Sz |           A          |            B         | Dest " << endl;
             out << "-----+----+----------------------+----------------------+------" << endl;
-            for (Buffer<Operation>::const_iterator p = source.inputs.begin(); p != source.inputs.end(); ++p)
+            for (auto& p : source->inputs)
             {
-                out << setw(4) << left << OperationNames[p->op] << right << " | "
-                    << setw(2) << left << p->size * 8 << right << " | "
-                    << setw(20) << setprecision(12) << p->Rav << " | "
+                out << setw(4) << left << OperationNames[p.op] << right << " | "
+                    << setw(2) << left << p.size * 8 << right << " | "
+                    << setw(20) << setprecision(12) << p.Rav << " | "
                     << setw(20);
-                if (p->op != FPU_OP_SQRT) { 
-                    out << setprecision(12) << fixed << p->Rbv;
+                if (p.op != FPU_OP_SQRT) { 
+                    out << setprecision(12) << fixed << p.Rbv;
                 } else {
                     out << " ";
                 }
                 out << " | "
-                    << p->Rc.str() 
+                    << p.Rc.str() 
                     << endl;
             }
         }
@@ -457,12 +451,11 @@ void FPU::Cmd_Read(std::ostream& out, const std::vector<std::string>& /*argument
     out << endl;
     
     // Print the execution units
-    for (size_t i = 0; i < m_units.size(); ++i)
+    size_t i = 0;
+    for (auto& unit : m_units)
     {
-        const Unit& unit = m_units[i];
-        
         // Print information of this unit
-        out << "Unit:       #" << dec << i << endl;
+        out << "Unit:       #" << dec << i++ << endl;
         out << "Pipelined:  " << boolalpha << unit.pipelined << endl;
         out << "Latency:    " << unit.latency << " cycles" << endl;
         out << "Operations:";
@@ -483,13 +476,13 @@ void FPU::Cmd_Read(std::ostream& out, const std::vector<std::string>& /*argument
         {
             out << " t | Sz |        Result       |  Reg  | Destination" << endl;
             out << "---+----+---------------------+-------+--------------------" << endl;
-            for (deque<Result>::const_iterator p = unit.slots.begin(); p != unit.slots.end(); ++p)
+            for (auto& p : unit.slots)
             {
-                out << setw(2) << p->state << " | "
-                    << setw(2) << p->size * 8 << " | "
-                    << setw(20) << setprecision(12) << p->value.tofloat(p->size)  << " | "
-                    << p->address.str() << " | "
-                    << m_sources[p->source]->regfile->GetParent()->GetFQN()
+                out << setw(2) << p.state << " | "
+                    << setw(2) << p.size * 8 << " | "
+                    << setw(20) << setprecision(12) << p.value.tofloat(p.size)  << " | "
+                    << p.address.str() << " | "
+                    << m_sources[p.source]->regfile->GetParent()->GetFQN()
                     << endl;
             }
             out << endl;

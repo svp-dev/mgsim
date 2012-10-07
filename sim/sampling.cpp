@@ -10,23 +10,25 @@
 #include <fnmatch.h>
 #include <unistd.h>
 
+using namespace std;
+
 struct VarInfo 
 {
     void *                 var;
     size_t                 width;
     SampleVariableDataType type;
     SampleVariableCategory cat;
-    std::vector<char>      max;
+    vector<char>           max;
 
     VarInfo() {};
 };
 
-typedef std::map<std::string, VarInfo> var_registry_t;
+typedef map<string, VarInfo> var_registry_t;
 
 static
 var_registry_t registry;
 
-void _RegisterSampleVariable(void *var, size_t width, const std::string& name, SampleVariableDataType type, SampleVariableCategory cat, void *maxval)
+void _RegisterSampleVariable(void *var, size_t width, const string& name, SampleVariableDataType type, SampleVariableCategory cat, void *maxval)
 {
     assert (registry.find(name) == registry.end()); // no duplicates allowed.
 
@@ -45,13 +47,13 @@ void _RegisterSampleVariable(void *var, size_t width, const std::string& name, S
 }
 
 static
-void ListSampleVariables_header(std::ostream& os)
+void ListSampleVariables_header(ostream& os)
 {
-    os << "# size\ttype\tdtype\tmax\taddress\tname" << std::endl;
+    os << "# size\ttype\tdtype\tmax\taddress\tname" << endl;
 }
 
 static
-void ListSampleVariables_onevar(std::ostream& os, const std::string& name, const VarInfo& vinfo)
+void ListSampleVariables_onevar(ostream& os, const string& name, const VarInfo& vinfo)
 {
     os << vinfo.width << "\t";
     
@@ -71,10 +73,10 @@ void ListSampleVariables_onevar(std::ostream& os, const std::string& name, const
         switch(vinfo.type) {
         case SV_INTEGER:
             switch(vinfo.width) {
-            case 1: os << std::dec << (unsigned)*(uint8_t*)p; break;
-            case 2: os << std::dec << *(uint16_t*)p; break;
-            case 4: os << std::dec << *(uint32_t*)p; break;
-            case 8: os << std::dec << *(uint64_t*)p; break;
+            case 1: os << dec << (unsigned)*(uint8_t*)p; break;
+            case 2: os << dec << *(uint16_t*)p; break;
+            case 4: os << dec << *(uint32_t*)p; break;
+            case 8: os << dec << *(uint64_t*)p; break;
             default: os << "<invsize>"; break;
             }
             break;
@@ -91,43 +93,39 @@ void ListSampleVariables_onevar(std::ostream& os, const std::string& name, const
    
     os << '\t' << vinfo.var << '\t'
        << name
-       << std::endl;
+       << endl;
 }
 
-void ListSampleVariables(std::ostream& os, const std::string& pat)
+void ListSampleVariables(ostream& os, const string& pat)
 {
     ListSampleVariables_header(os);
-    for (var_registry_t::const_iterator i = registry.begin();
-         i != registry.end();
-         ++i)
+    for (auto& i : registry)
     {
-        if (FNM_NOMATCH == fnmatch(pat.c_str(), i->first.c_str(), 0))
+        if (FNM_NOMATCH == fnmatch(pat.c_str(), i.first.c_str(), 0))
             continue;
-        ListSampleVariables_onevar(os, i->first, i->second);
+        ListSampleVariables_onevar(os, i.first, i.second);
     }
 }
 
-bool ReadSampleVariables(std::ostream& os, const std::string& pat)
+bool ReadSampleVariables(ostream& os, const string& pat)
 {
     bool some = false;
-    for (var_registry_t::const_iterator i = registry.begin();
-         i != registry.end();
-         ++i)
+    for (auto& i : registry)
     {
-        if (FNM_NOMATCH == fnmatch(pat.c_str(), i->first.c_str(), 0))
+        if (FNM_NOMATCH == fnmatch(pat.c_str(), i.first.c_str(), 0))
             continue;
 
-        os << i->first << " = ";
+        os << i.first << " = ";
 
-        const VarInfo& vinfo = i->second;
+        const VarInfo& vinfo = i.second;
         void *p = vinfo.var;
         switch(vinfo.type) {
         case SV_INTEGER:
             switch(vinfo.width) {
-            case 1: os << std::dec << (unsigned)*(uint8_t*)p; break;
-            case 2: os << std::dec << *(uint16_t*)p; break;
-            case 4: os << std::dec << *(uint32_t*)p; break;
-            case 8: os << std::dec << *(uint64_t*)p; break;
+            case 1: os << dec << (unsigned)*(uint8_t*)p; break;
+            case 2: os << dec << *(uint16_t*)p; break;
+            case 4: os << dec << *(uint32_t*)p; break;
+            case 8: os << dec << *(uint64_t*)p; break;
             default: os << "<invsize>"; break;
             }
             break;
@@ -138,14 +136,14 @@ bool ReadSampleVariables(std::ostream& os, const std::string& pat)
                 os << *(double*)p;
             break;
         }
-        os << std::endl;        
+        os << endl;        
         some = true;
     }
     return some;
 }
 
-typedef std::pair<const std::string*, const VarInfo*> varsel_t;
-typedef std::vector<varsel_t> varvec_t;
+typedef pair<const string*, const VarInfo*> varsel_t;
+typedef vector<varsel_t> varvec_t;
 
 static
 bool comparevars(const varsel_t& left, const varsel_t& right)
@@ -153,8 +151,8 @@ bool comparevars(const varsel_t& left, const varsel_t& right)
     return left.second->var < right.second->var;
 }
 
-BinarySampler::BinarySampler(std::ostream& os, const Config& config,
-                             const std::vector<std::string>& pats)
+BinarySampler::BinarySampler(ostream& os, const Config& config,
+                             const vector<string>& pats)
     : m_datasize(0)
 {
 
@@ -164,48 +162,46 @@ BinarySampler::BinarySampler(std::ostream& os, const Config& config,
     // Select variables to sample
     //
 
-    for (std::vector<std::string>::const_iterator i = pats.begin(); i != pats.end(); ++i)
-        for (var_registry_t::const_iterator j = registry.begin();
-             j != registry.end();
-             ++j)
-    {
-        if (FNM_NOMATCH == fnmatch(i->c_str(), j->first.c_str(), 0))
-            continue;
-        vars.push_back(std::make_pair(&j->first, &j->second));
-    }
+    for (auto& i : pats)
+        for (auto& j : registry)
+        {
+            if (FNM_NOMATCH == fnmatch(i.c_str(), j.first.c_str(), 0))
+                continue;
+            vars.push_back(make_pair(&j.first, &j.second));
+        }
 
     if (vars.size() >= 2)
         // we sort everything but the first and last variables,
         // which should be the cycle counters. The cycle counters
         // must be sampled once before and after everything else,
         // to evaluate how imprecise the measurement is.
-        std::sort(vars.begin()+1, vars.end()-1, comparevars);
+        sort(vars.begin()+1, vars.end()-1, comparevars);
 
     //
     // Generate header for output file
     // 
     time_t cl = time(0);
-    std::string timestr = asctime(gmtime(&cl));
+    string timestr = asctime(gmtime(&cl));
 
     os << "# date: " << timestr // asctime already embeds a newline character
-       << "# generator: " << PACKAGE_STRING << std::endl;
+       << "# generator: " << PACKAGE_STRING << endl;
 
     char hn[255];
     if (gethostname(hn, 255) == 0)
-        os << "# host: " << hn << std::endl;
+        os << "# host: " << hn << endl;
     
-    std::vector<std::pair<std::string, std::string> > rawconf = config.getRawConfiguration();
-    os << "# configuration: " << rawconf.size() << std::endl;
-    for (size_t i = 0; i < rawconf.size(); ++i)
-        os << rawconf[i].first << " = " << rawconf[i].second << std::endl;
+    vector<pair<string, string> > rawconf = config.getRawConfiguration();
+    os << "# configuration: " << rawconf.size() << endl;
+    for (auto& i : rawconf)
+        os << i.first << " = " << i.second << endl;
 
-    os << "# varinfo: " << vars.size() << std::endl;
+    os << "# varinfo: " << vars.size() << endl;
     // ListSampleVariables_header(os);
-    for (varvec_t::const_iterator i = vars.begin(); i != vars.end(); ++i)
+    for (auto& i : vars)
     {
-        m_datasize += i->second->width;
-        m_vars.push_back(std::make_pair((const char*)i->second->var, i->second->width));
-        ListSampleVariables_onevar(os, *i->first, *i->second);
+        m_datasize += i.second->width;
+        m_vars.push_back(make_pair((const char*)i.second->var, i.second->width));
+        ListSampleVariables_onevar(os, *i.first, *i.second);
     }
-    os << "# recwidth: " << m_datasize << std::endl;
+    os << "# recwidth: " << m_datasize << endl;
 }

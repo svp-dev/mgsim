@@ -92,7 +92,7 @@ Object::~Object()
     if (m_parent != NULL)
     {
         // Remove ourself from the parent's children array
-        for (vector<Object*>::iterator p = m_parent->m_children.begin(); p != m_parent->m_children.end(); ++p)
+        for (auto p = m_parent->m_children.begin(); p != m_parent->m_children.end(); ++p)
         {
             if (*p == this)
             {
@@ -194,16 +194,16 @@ Clock& Kernel::CreateClock(unsigned long frequency)
      Also, see if we already have this clock.
     */
     unsigned long long master_freq = 1;
-    for (std::vector<Clock*>::const_iterator p = m_clocks.begin(); p != m_clocks.end(); ++p)
+    for (auto c : m_clocks)
     {
-        if ((*p)->m_frequency == frequency)
+        if (c->m_frequency == frequency)
         {
             // We already have this clock, no need to calculate anything.
-            return **p;
+            return *c;
         }
         
         // Find Least Common Multiplier of master_freq and this clock's frequency.        
-        master_freq = lcm(master_freq, (*p)->m_frequency);
+        master_freq = lcm(master_freq, c->m_frequency);
     }
     master_freq = lcm(master_freq, frequency);
     
@@ -211,10 +211,10 @@ Clock& Kernel::CreateClock(unsigned long frequency)
     {
         // The master frequency changed, update the clock periods
         m_master_freq = master_freq;
-        for (std::vector<Clock*>::const_iterator p = m_clocks.begin(); p != m_clocks.end(); ++p)
+        for (auto c : m_clocks)
         {
-            assert(m_master_freq % (*p)->m_frequency == 0);
-            (*p)->m_period = m_master_freq / (*p)->m_frequency;
+            assert(m_master_freq % c->m_frequency == 0);
+            c->m_period = m_master_freq / c->m_frequency;
         }
     }
     assert(m_master_freq % frequency == 0);
@@ -495,10 +495,8 @@ Kernel::Kernel(BreakPointManager& breakpoints)
 
 Kernel::~Kernel()
 {
-    for (size_t i = 0; i < m_clocks.size(); ++i)
-    {
-        delete m_clocks[i];
-    }
+    for (auto c : m_clocks)
+        delete c;
 }
 
 }

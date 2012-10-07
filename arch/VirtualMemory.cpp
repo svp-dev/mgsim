@@ -24,8 +24,8 @@ static const MemAddr ALIGNMENT = 64;
 
 void VirtualMemory::ReportOverlap(MemAddr address, MemSize size) const
 {
-    std::ostringstream os;
-    VirtualMemory::Cmd_Info(os, std::vector<std::string>());
+    ostringstream os;
+    VirtualMemory::Cmd_Info(os, vector<string>());
     InvalidArgumentException e = exceptf<InvalidArgumentException>("Overlap in memory reservation (%#016llx, %zd)",
                                                                    (unsigned long long)address, (size_t)size);
     e.AddDetails(os.str());
@@ -37,7 +37,7 @@ void VirtualMemory::Reserve(MemAddr address, MemSize size, ProcessID pid, int pe
     if (size != 0)
     {
         // Check that there is no overlap
-        RangeMap::iterator p = m_ranges.lower_bound(address);
+        auto p = m_ranges.lower_bound(address);
         if (p != m_ranges.end())
         {
             if (p->first == address || (address < p->first && address + size > p->first))
@@ -48,7 +48,7 @@ void VirtualMemory::Reserve(MemAddr address, MemSize size, ProcessID pid, int pe
         }
         if (p != m_ranges.begin())
         {
-            RangeMap::iterator q = p; --q;
+            auto q = p; --q;
             assert(q->first < address);
             if (q->first + q->second.size > address)
             {
@@ -69,7 +69,7 @@ void VirtualMemory::Reserve(MemAddr address, MemSize size, ProcessID pid, int pe
 
 VirtualMemory::RangeMap::const_iterator VirtualMemory::GetReservationRange(MemAddr address, MemSize size) const
 {
-    RangeMap::const_iterator p = m_ranges.lower_bound(address);
+    auto p = m_ranges.lower_bound(address);
     if (p != m_ranges.begin() && (p == m_ranges.end() || p->first > address))
     {
         --p;
@@ -81,7 +81,7 @@ VirtualMemory::RangeMap::const_iterator VirtualMemory::GetReservationRange(MemAd
 
 void VirtualMemory::Unreserve(MemAddr address, MemSize size)
 {
-    RangeMap::iterator p = m_ranges.find(address);
+    auto p = m_ranges.find(address);
     if (p == m_ranges.end())
     {
         throw exceptf<InvalidArgumentException>("Attempting to unreserve non-reserved memory (%#016llx)", 
@@ -104,7 +104,7 @@ void VirtualMemory::UnreserveAll(ProcessID pid)
 {
     // unreserve all ranges belonging to a given process ID
 
-    for (RangeMap::iterator p = m_ranges.begin(); p != m_ranges.end(); )
+    for (auto p = m_ranges.begin(); p != m_ranges.end(); )
     {
         if (p->second.owner == pid)
         {
@@ -127,7 +127,7 @@ bool VirtualMemory::CheckPermissions(MemAddr address, MemSize size, int access) 
     }
 #endif
 
-    RangeMap::const_iterator p = GetReservationRange(address, size);
+    auto p = GetReservationRange(address, size);
     return (p != m_ranges.end() && (p->second.permissions & access) == access);
 }
 
@@ -145,7 +145,7 @@ void VirtualMemory::Read(MemAddr address, void* _data, MemSize size) const
     size_t  offset = (size_t)(address - base);      // Offset within base block of address
     char*   data   = static_cast<char*>(_data);     // Byte-aligned pointer to destination
 
-    for (BlockMap::const_iterator pos = m_blocks.lower_bound(base); size > 0;)
+    for (auto pos = m_blocks.lower_bound(base); size > 0;)
     {
         if (pos == m_blocks.end())
         {
@@ -159,10 +159,10 @@ void VirtualMemory::Read(MemAddr address, void* _data, MemSize size) const
 
         if (pos->first > base) {
             // This part of the request does not exist, fill with zero
-            std::fill(data, data + count, 0);
+            fill(data, data + count, 0);
         } else {
             // Read data
-            std::copy(pos->second.data + offset, pos->second.data + offset + count, data);
+            copy(pos->second.data + offset, pos->second.data + offset + count, data);
             ++pos;
         }
         size  -= count;
@@ -189,9 +189,9 @@ void VirtualMemory::Write(MemAddr address, const void* _data, const bool* mask, 
     while (size > 0)
     {
         // Find or insert the block
-        pair<BlockMap::iterator, bool> ins = m_blocks.insert(make_pair(base, Block()));
+        auto ins = m_blocks.insert(make_pair(base, Block()));
 
-        BlockMap::iterator pos = ins.first;
+        auto& pos = ins.first;
         if (ins.second) {
             // A new element was inserted, allocate and clear memory
             memset(pos->second.data, 0, BLOCK_SIZE);
@@ -246,7 +246,7 @@ void VirtualMemory::Cmd_Info(ostream& out, const vector<string>& /* arguments */
     out << hex << setfill('0');
 
     MemSize total = 0;
-    RangeMap::const_iterator p = m_ranges.begin();
+    auto p = m_ranges.begin();
     if (p != m_ranges.end())
     {
         // We have at least one range, walk over all ranges and

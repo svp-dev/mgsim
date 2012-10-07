@@ -8,11 +8,13 @@
 #include <SDL.h>
 #endif
 
+using namespace std;
+
 namespace Simulator
 {
     Display * Display::m_singleton = NULL;
 
-    Display::FrameBufferInterface::FrameBufferInterface(const std::string& name, Display& parent, IIOBus& iobus, IODeviceID devid)
+    Display::FrameBufferInterface::FrameBufferInterface(const string& name, Display& parent, IIOBus& iobus, IODeviceID devid)
         : Object(name, parent, iobus.GetClock()),
           m_devid(devid),
           m_iobus(iobus)
@@ -69,7 +71,7 @@ namespace Simulator
         }    
     }
     
-    Display::ControlInterface::ControlInterface(const std::string& name, Display& parent, IIOBus& iobus, IODeviceID devid)
+    Display::ControlInterface::ControlInterface(const string& name, Display& parent, IIOBus& iobus, IODeviceID devid)
         : Object(name, parent, iobus.GetClock()),
           m_devid(devid),
           m_iobus(iobus),
@@ -238,16 +240,16 @@ namespace Simulator
     }
 
 
-    Display::Display(const std::string& name, Object& parent, IIOBus& iobus, IODeviceID ctldevid, IODeviceID fbdevid, Config& config)
+    Display::Display(const string& name, Object& parent, IIOBus& iobus, IODeviceID ctldevid, IODeviceID fbdevid, Config& config)
         : Object(name, parent),
           m_framebuffer(config.getValue<size_t>(*this, "GfxFrameSize"), 0),
           m_palette(256, 0),
           m_indexed(false),
           m_bpp(8),
           m_width(640), m_height(400),
-          m_scalex_orig(1.0f / std::max(1U, config.getValue<unsigned int>("SDLHorizScale"))),
+          m_scalex_orig(1.0f / max(1U, config.getValue<unsigned int>("SDLHorizScale"))),
           m_scalex(m_scalex_orig),
-          m_scaley_orig(1.0f / std::max(1U, config.getValue<unsigned int>("SDLVertScale"))),
+          m_scaley_orig(1.0f / max(1U, config.getValue<unsigned int>("SDLVertScale"))),
           m_scaley(m_scaley_orig),
           m_refreshDelay_orig(config.getValue<unsigned int>("SDLRefreshDelay")),
           m_refreshDelay(m_refreshDelay_orig),
@@ -276,7 +278,7 @@ namespace Simulator
             m_singleton = this;
 
             if (SDL_Init(SDL_INIT_VIDEO) < 0) {
-                std::cerr << "Unable to initialize SDL: " << SDL_GetError() << std::endl;
+                cerr << "Unable to initialize SDL: " << SDL_GetError() << endl;
             } else {
                 m_enabled = true;
             }
@@ -284,8 +286,8 @@ namespace Simulator
             if (vf) {
                 m_max_screen_h = vf->current_h;
                 m_max_screen_w = vf->current_w;
-                std::cerr << "Maximum supported output size: " 
-                          << m_max_screen_w << 'x' << m_max_screen_h << std::endl;
+                cerr << "Maximum supported output size: " 
+                          << m_max_screen_w << 'x' << m_max_screen_h << endl;
             }
         }
 #endif
@@ -302,26 +304,26 @@ namespace Simulator
 
         float r = (float)h / (float)w;
 
-        // std::cerr << "DEBUG: fb size " << m_width << " " << m_height << std::endl;
-        // std::cerr << "DEBUG: resizescreen " << w << " " << h << std::endl;
-        w = std::min(m_max_screen_w, w); h = w * r; 
-        h = std::min(m_max_screen_h, h); w = h / r;
-        // std::cerr << "DEBUG: after adjust " << w << " " << h << std::endl;
+        // cerr << "DEBUG: fb size " << m_width << " " << m_height << endl;
+        // cerr << "DEBUG: resizescreen " << w << " " << h << endl;
+        w = min(m_max_screen_w, w); h = w * r; 
+        h = min(m_max_screen_h, h); w = h / r;
+        // cerr << "DEBUG: after adjust " << w << " " << h << endl;
 
 //    m_screen = SDL_SetVideoMode(w, h, 32, SDL_SWSURFACE | SDL_RESIZABLE);
         
         if ((NULL == (m_screen = SDL_SetVideoMode(w, h, 32, SDL_SWSURFACE | SDL_RESIZABLE))) &&
             (NULL == (m_screen = SDL_SetVideoMode(640, 400, 32, SDL_SWSURFACE | SDL_RESIZABLE))))
         {
-            std::cerr << "Setting SDL video mode failed: " << SDL_GetError() << std::endl;
+            cerr << "Setting SDL video mode failed: " << SDL_GetError() << endl;
         } 
         else 
         {
-            // std::cerr << "DEBUG: new size " << m_screen->w << " " << m_screen->h << std::endl;
-            // std::cerr << "DEBUG: before scale " << m_scalex << " " << m_scaley << std::endl;
+            // cerr << "DEBUG: new size " << m_screen->w << " " << m_screen->h << endl;
+            // cerr << "DEBUG: before scale " << m_scalex << " " << m_scaley << endl;
             m_scalex = (float)m_width  / (float)m_screen->w;
             m_scaley = (float)m_height / (float)m_screen->h;
-            // std::cerr << "DEBUG: after scale " << m_scalex << " " << m_scaley << std::endl;
+            // cerr << "DEBUG: after scale " << m_scalex << " " << m_scaley << endl;
             ResetCaption();
             Refresh();
         }
@@ -344,30 +346,30 @@ namespace Simulator
             throw exceptf<SimulationException>(*this, "Unable to dump the framebuffer when bpp != 32 (currently %u)", m_bpp);
         }
 
-        std::ostream * os;
+        ostream * os;
         bool free_os = false;
         if (stream == 0)
         {
-            std::ostringstream fname;
+            ostringstream fname;
             fname << "gfx." << key;
             if (gen_ts)
             {
                 fname << '.' << GetKernel()->GetCycleNo();
             }
             fname << ".ppm";
-            os = new std::ofstream(fname.str().c_str(), std::ios_base::out | std::ios_base::trunc);
+            os = new ofstream(fname.str().c_str(), ios_base::out | ios_base::trunc);
             free_os = true;
         }
         else
         {
-            os = &((stream == 2) ? std::cerr : std::cout);
+            os = &((stream == 2) ? cerr : cout);
         }
 
-        *os << "P3" << std::endl
-            << std::dec
-            << "#key: " << key << std::endl
-            << "#" << std::endl
-            << m_width << ' ' << m_height << ' ' << 255 << std::endl;
+        *os << "P3" << endl
+            << dec
+            << "#key: " << key << endl
+            << "#" << endl
+            << m_width << ' ' << m_height << ' ' << 255 << endl;
         for (unsigned y = 0; y < m_height; ++y)
         {
             for (unsigned x = 0; x < m_width; ++x)
@@ -377,7 +379,7 @@ namespace Simulator
                     << ((d >>  8) & 0xff) << ' '
                     << ((d >>  0) & 0xff) << ' ';
             }
-            *os << std::endl;
+            *os << endl;
         }
 
 
@@ -541,7 +543,7 @@ namespace Simulator
     void Display::ResetCaption() const
     {
 #ifdef USE_SDL
-        std::stringstream caption;
+        stringstream caption;
         caption << "MGSim display: " 
                 << m_width << "x" << m_height 
                 << ", " << m_refreshDelay << " kernel cycles / frame";
@@ -632,7 +634,7 @@ namespace Simulator
         
         if (do_close)
         {
-            // std::cerr << "Graphics output closed by user." << std::endl;
+            // cerr << "Graphics output closed by user." << endl;
             m_enabled = false;
             m_screen  = NULL;
             SDL_Quit();

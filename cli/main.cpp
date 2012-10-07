@@ -243,10 +243,10 @@ void PrintFinalVariables(const ProgramConfig& cfg)
 {
     if (!cfg.m_printvars.empty())
     {
-        std::cout << "### begin end-of-simulation variables" << std::endl;
-        for (size_t i = 0; i < cfg.m_printvars.size(); ++i)
-            ReadSampleVariables(cout, cfg.m_printvars[i]);
-        std::cout << "### end end-of-simulation variables" << std::endl;
+        cout << "### begin end-of-simulation variables" << endl;
+        for (auto& i : cfg.m_printvars)
+            ReadSampleVariables(cout, i);
+        cout << "### end end-of-simulation variables" << endl;
     }
 }
 
@@ -284,7 +284,7 @@ int main(int argc, char** argv)
         if (config.m_interactive)
         {
             // Interactive mode
-            std::clog << argp_program_version << std::endl;
+            clog << argp_program_version << endl;
         }
 
         // Read configuration from file
@@ -294,8 +294,8 @@ int main(int argc, char** argv)
         {
             // Printing the configuration early, in case constructing the
             // system (below) fails.
-            std::clog << "### simulator version: " PACKAGE_VERSION << std::endl;
-            configfile.dumpConfiguration(std::clog, config.m_configFile);
+            clog << "### simulator version: " PACKAGE_VERSION << endl;
+            configfile.dumpConfiguration(clog, config.m_configFile);
         }
         
         // Create the system
@@ -317,24 +317,24 @@ int main(int argc, char** argv)
             // we also print the cache, which expands all effectively
             // looked up configuration values after the system
             // was constructed successfully.
-            configfile.dumpConfigurationCache(std::clog);
+            configfile.dumpConfigurationCache(clog);
         }
         if (config.m_dumpvars)
         {
-            std::clog << "### begin monitor variables" << std::endl;
-            ListSampleVariables(std::clog);
-            std::clog << "### end monitor variables" << std::endl;
+            clog << "### begin monitor variables" << endl;
+            ListSampleVariables(clog);
+            clog << "### end monitor variables" << endl;
         }
 
         if (config.m_areaTech > 0)
         {
-            std::clog << "### begin area information" << std::endl;
+            clog << "### begin area information" << endl;
 #ifdef ENABLE_CACTI
-            sys.DumpArea(std::cout, config.m_areaTech);
+            sys.DumpArea(cout, config.m_areaTech);
 #else
-            std::clog << "# Warning: CACTI not enabled; reconfigure with --enable-cacti" << std::endl;
+            clog << "# Warning: CACTI not enabled; reconfigure with --enable-cacti" << endl;
 #endif
-            std::clog << "### end area information" << std::endl;
+            clog << "### end area information" << endl;
         }
 
         if (config.m_dumptopo)

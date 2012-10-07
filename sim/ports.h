@@ -215,41 +215,41 @@ template <typename I>
         
         // Tell each port to arbitrate
         ArbitrateReadPorts();
-        for (typename ArbitratedWritePortList::iterator i = m_arbitratedWritePorts.begin(); i != m_arbitratedWritePorts.end(); ++i)
+        for (auto i : m_arbitratedWritePorts)
         {
-            (*i)->Arbitrate();
+            i->Arbitrate();
         }
 
         // Get the final requests from all ports
         RequestPortMap requests;
-        for (typename WritePortList::iterator i = m_writePorts.begin(); i != m_writePorts.end(); ++i)
+        for (auto i : m_writePorts)
         {
-            const I* index = (*i)->GetIndex();
+            const I* index = i->GetIndex();
             if (index != NULL)
             {
-                requests[*index].push_back(*i);
+                requests[*index].push_back(i);
             }
         }
 
         // Arbitrate between the ports for each request
-        for (typename RequestPortMap::iterator i = requests.begin(); i != requests.end(); ++i)
+        for (auto& i : requests)
         {
             WritePort<I>* port = NULL;
             int highest = std::numeric_limits<int>::max();
 
-            for (typename WritePortMap::iterator j = i->second.begin(); j != i->second.end(); ++j)
+            for (auto j : i.second)
             {
-                typename PriorityMap::const_iterator priority = m_priorities.find(*j);
+                auto priority = m_priorities.find(j);
                 if (priority != m_priorities.end() && priority->second < highest)
                 {
                     highest   = priority->second;
-                    port      = *j;
+                    port      = j;
                 }
             }
 
-            for (typename WritePortMap::iterator j = i->second.begin(); j != i->second.end(); ++j)
+            for (auto j : i.second)
             {
-                (*j)->Notify( port == *j );
+                j->Notify( port == j );
             }
         }
     }

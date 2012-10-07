@@ -135,33 +135,33 @@ const string& SymbolTable::operator[](MemAddr addr)
     return m_cache[addr] = Resolve(addr);
 }
 
-void SymbolTable::Write(std::ostream& o, const std::string& pat) const
+void SymbolTable::Write(ostream& o, const string& pat) const
 {
-    for (table_t::const_iterator i = m_entries.begin(); i != m_entries.end(); ++i) 
+    for (auto& i : m_entries)
     {
-        if (FNM_NOMATCH != fnmatch(pat.c_str(), entry_sym(*i).c_str(), 0)) 
+        if (FNM_NOMATCH != fnmatch(pat.c_str(), entry_sym(i).c_str(), 0)) 
         {
-            o << hex << "0x" << entry_addr(*i) << ' ' << entry_sym(*i);
-            if (entry_sz(*i))
-                o << " (" << dec << entry_sz(*i) << ')';
+            o << hex << "0x" << entry_addr(i) << ' ' << entry_sym(i);
+            if (entry_sz(i))
+                o << " (" << dec << entry_sz(i) << ')';
             o << endl;
         }
     }
 }
 
-bool SymbolTable::LookUp(const std::string& sym, MemAddr &addr, bool recurse) const
+bool SymbolTable::LookUp(const string& sym, MemAddr &addr, bool recurse) const
 {
-    for (table_t::const_iterator i = m_entries.begin(); i != m_entries.end(); ++i)
-        if (entry_sym(*i) == sym)
+    for (auto& i : m_entries)
+        if (entry_sym(i) == sym)
         {
-            addr = entry_addr(*i);
+            addr = entry_addr(i);
             return true;
         }
 
-    for (cache_t::const_iterator i = m_cache.begin(); i != m_cache.end(); ++i)
-        if (i->second == sym)
+    for (auto& i : m_cache)
+        if (i.second == sym)
         {
-            addr = i->first;
+            addr = i.first;
             return true;
         }
 
@@ -170,7 +170,7 @@ bool SymbolTable::LookUp(const std::string& sym, MemAddr &addr, bool recurse) co
     return false;
 }
 
-void SymbolTable::AddSymbol(MemAddr addr, const std::string& name, size_t sz)
+void SymbolTable::AddSymbol(MemAddr addr, const string& name, size_t sz)
 {
     m_entries.push_back(make_pair(addr, make_pair(sz, name)));
     sort(m_entries.begin(), m_entries.end());

@@ -81,10 +81,10 @@ public:
             return b;
         
         StorageTraceSet res;
-        for (std::set<StorageTrace>::const_iterator p =   m_storages.begin(); p !=   m_storages.end(); ++p)
-        for (std::set<StorageTrace>::const_iterator q = b.m_storages.begin(); q != b.m_storages.end(); ++q)
+        for (auto& p : m_storages)
+        for (auto& q : b.m_storages)
         {
-            res.m_storages.insert(StorageTrace(*p, *q));
+            res.m_storages.insert(StorageTrace(p, q));
         }
         return res;
     }

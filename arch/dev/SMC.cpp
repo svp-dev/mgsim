@@ -132,17 +132,17 @@ namespace Simulator
             m_cpu->Boot(prog_start, legacy, m_cpu->GetGridSize(), m_cpu->GetDeviceBaseAddress(m_devid));
 
             // Fill initial registers
-            for (size_t i = 0; i < m_loads.size(); ++i)
+            for (auto& l : m_loads)
             {
-                RegAddr reg = m_loads[i].first;
+                RegAddr reg = l.first;
                 RegValue val;
-                val.m_integer = m_cpu->GetDeviceBaseAddress(m_iobus.GetDeviceIDByName(m_loads[i].second));
+                val.m_integer = m_cpu->GetDeviceBaseAddress(m_iobus.GetDeviceIDByName(l.second));
                 val.m_state = RST_FULL;
                 m_cpu->WriteRegister(reg, val);
             }
-            for (size_t i = 0; i < m_regs.size(); ++i)
+            for (auto& r : m_regs)
             {
-                m_cpu->WriteRegister(m_regs[i].first, m_regs[i].second);
+                m_cpu->WriteRegister(r.first, r.second);
             }
         }
         m_doboot.Clear();

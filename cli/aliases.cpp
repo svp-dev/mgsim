@@ -29,8 +29,8 @@ bool cmd_aliases(const vector<string>& /*command*/, vector<string>& /*args*/, cl
     for (const command_alias *p = &alias_table[0]; p->alias != 0; ++p)
     {
         cout << setw(10) << p->alias;
-        for (size_t i = 0; p->subst[i] != 0; ++i)
-            cout << ' ' << p->subst[i];
+        for (auto& i : p->subst)
+            cout << ' ' << i;
         cout << endl;
     }
     cout << endl;

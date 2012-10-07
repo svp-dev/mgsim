@@ -695,7 +695,7 @@ namespace Simulator
         }
         else
         {
-            for (Buffer<unsigned char>::const_iterator p = m_fifo_out.begin(); p != m_fifo_out.end(); )
+            for (auto p = m_fifo_out.begin(); p != m_fifo_out.end(); )
             {
                 obyte(out, *p);
                 if (++p != m_fifo_out.end()) 
@@ -713,7 +713,7 @@ namespace Simulator
         }
         else
         {
-            for (Buffer<unsigned char>::const_iterator p = m_fifo_in.begin(); p != m_fifo_in.end(); )
+            for (auto p = m_fifo_in.begin(); p != m_fifo_in.end(); )
             {
                 obyte(out, *p);
                 if (++p != m_fifo_in.end()) 
