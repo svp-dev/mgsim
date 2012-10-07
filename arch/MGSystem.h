@@ -72,7 +72,7 @@ namespace Simulator {
         void PrintComponents(std::ostream& os, const std::string& pat = "*", size_t levels = 0) const;
         void PrintProcesses(std::ostream& os, const std::string& pat = "*") const;
         
-        void DumpArea(std::ostream& os, unsigned int tech) const;
+        void DumpArea(std::ostream& os, size_t tech) const;
 
         void PrintMemoryStatistics(std::ostream& os) const;
         void PrintState(const std::vector<std::string>& arguments) const;
