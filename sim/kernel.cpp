@@ -479,11 +479,10 @@ void Kernel::ToggleDebugMode(int flags)
     m_debugMode ^= flags;
 }
 
-Kernel::Kernel(SymbolTable& symtable, BreakPointManager& breakpoints)
+Kernel::Kernel(BreakPointManager& breakpoints)
  : m_lastsuspend((CycleNo)-1),
    m_debugMode(0),
    m_cycle(0),
-   m_symtable(symtable),
    m_bp_manager(breakpoints),
    m_phase(PHASE_COMMIT),
    m_master_freq(0),

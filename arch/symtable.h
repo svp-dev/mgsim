@@ -9,6 +9,8 @@
 #include <map>
 #include <iostream>
 
+namespace Simulator {
+
 class SymbolTable 
 {
 public:
@@ -36,5 +38,6 @@ protected:
     cache_t m_cache;
 };
 
+}
 
 #endif

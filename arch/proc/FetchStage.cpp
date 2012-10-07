@@ -52,7 +52,7 @@ Processor::Pipeline::PipeAction Processor::Pipeline::FetchStage::OnCycle()
         {
             DeadlockWrite("F%u/T%u(%llu) %s fetch stall due to I-cache miss",
                           (unsigned)thread.family, (unsigned)tid, (unsigned long long)thread.index,
-                          GetKernel()->GetSymbolTable()[pc].c_str());
+                          m_parent.GetProcessor().GetSymbolTable()[pc].c_str());
             return PIPE_STALL;
         }
 
@@ -77,7 +77,7 @@ Processor::Pipeline::PipeAction Processor::Pipeline::FetchStage::OnCycle()
 
         DebugSimWrite("F%u/T%u(%llu) %s switched in",
                       (unsigned)thread.family, (unsigned)tid, (unsigned long long)thread.index,
-                      GetKernel()->GetSymbolTable()[pc].c_str());
+                      m_parent.GetProcessor().GetSymbolTable()[pc].c_str());
     }
 
     COMMIT
@@ -103,7 +103,7 @@ Processor::Pipeline::PipeAction Processor::Pipeline::FetchStage::OnCycle()
         m_output.pc_dbg       = pc;
         if (GetKernel()->GetDebugMode() & (Kernel::DEBUG_PIPE|Kernel::DEBUG_FLOW|Kernel::DEBUG_SIM|Kernel::DEBUG_DEADLOCK))
         {
-            m_output.pc_sym = GetKernel()->GetSymbolTable()[m_output.pc].c_str();
+            m_output.pc_sym = m_parent.GetProcessor().GetSymbolTable()[m_output.pc].c_str();
         }
         else
         {

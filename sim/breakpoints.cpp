@@ -63,7 +63,7 @@ void BreakPointManager::ListBreakPoints(std::ostream& out) const
             
             out << setw(4) << dec << i->second.id << " | "
                 << setw(18) << hex << showbase << i->first << " | " 
-                << setw(20) << m_kernel.GetSymbolTable()[i->first] << " | "
+                << setw(20) << GetSymbolTable()[i->first] << " | "
                 << setw(4) << mode << " | "
                 << setw(9) << (i->second.enabled ? "enabled" : "disabled")
                 << endl;
@@ -110,7 +110,7 @@ void BreakPointManager::ReportBreaks(std::ostream& out) const
 
         out << setw(4) << dec << b->second.id << " | "
             << setw(18) << hex << showbase << i->addr << " | " 
-            << setw(20) << m_kernel.GetSymbolTable()[i->addr] << " | "
+            << setw(20) << GetSymbolTable()[i->addr] << " | "
             << setw(4) << GetModeName(i->type) << " | "
             << i->obj->GetFQN()
             << endl;
@@ -188,7 +188,7 @@ void BreakPointManager::AddBreakPoint(const std::string& sym, int offset, int ty
     MemAddr addr = strtoull(sym.c_str(), 0, 0);
     if (errno == EINVAL)
     {
-        bool check = m_kernel.GetSymbolTable().LookUp(sym, addr, true);
+        bool check = GetSymbolTable().LookUp(sym, addr, true);
         if (!check)
         {
             cerr << "invalid address: " << sym << endl;
@@ -210,7 +210,7 @@ void BreakPointManager::CheckMore(int type, MemAddr addr, Object& obj)
             {
                 obj.DebugSimWrite_("Trace point %d reached: 0x%.*llx (%s, %s)", 
                                    i->second.id, (int)sizeof(addr)*2, (unsigned long long)addr, 
-                                   m_kernel.GetSymbolTable()[addr].c_str(), 
+                                   GetSymbolTable()[addr].c_str(), 
                                    GetModeName(i->second.type & type).c_str());
             }
         }

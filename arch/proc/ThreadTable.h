@@ -102,10 +102,13 @@ private:
     TID                 m_empty;
     std::vector<Thread> m_threads;
     TSize               m_free[NUM_CONTEXT_TYPES];
+
+    // Admin
     TSize               m_totalalloc;
     TSize               m_maxalloc;
     CycleNo             m_lastcycle;
     TSize               m_curalloc;
+    Processor&          m_parent;
 
     void UpdateStats();
     void CheckStateSanity() const;

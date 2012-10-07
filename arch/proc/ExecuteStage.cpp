@@ -259,7 +259,7 @@ Processor::Pipeline::PipeAction Processor::Pipeline::ExecuteStage::ExecCreate(co
     DebugFlowWrite("F%u/T%u(%llu) %s create CPU%u/F%u %s",
                    (unsigned)m_input.fid, (unsigned)m_input.tid, (unsigned long long)m_input.logical_index, m_input.pc_sym,
                    (unsigned)fid.pid, (unsigned) fid.lfid,
-                   GetKernel()->GetSymbolTable()[address].c_str());
+                   m_parent.GetProcessor().GetSymbolTable()[address].c_str());
     
     return PIPE_CONTINUE;
 }

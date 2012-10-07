@@ -629,7 +629,7 @@ MGSystem::MGSystem(Config& config,
                    const vector<pair<RegAddr, string> >& loads,
                    const vector<string>& extradevs,
                    bool quiet, bool doload)
-    : m_kernel(m_symtable, m_breakpoints),
+    : m_kernel(m_breakpoints),
       m_clock(m_kernel.CreateClock(config.getValue<unsigned long>("CoreFreq"))),
       m_root("", m_clock),
       m_breakpoints(m_kernel),
@@ -687,6 +687,8 @@ MGSystem::MGSystem(Config& config,
     {
         clog << "memory: " << memory_type << endl;
     }
+    m_memory->SetSymbolTable(m_symtable);
+    m_breakpoints.SetSymbolTable(m_symtable);
 
     // Create the event selector
     Clock& selclock = m_kernel.CreateClock(config.getValue<unsigned long>("EventCheckFreq"));

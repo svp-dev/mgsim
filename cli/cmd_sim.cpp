@@ -62,7 +62,7 @@ bool cmd_disas(const vector<string>& /*command*/, vector<string>& args, cli_cont
     addr = strtoull(args[0].c_str(), 0, 0);
     if (errno == EINVAL)
     {
-        bool check = ctx.sys.GetKernel().GetSymbolTable().LookUp(args[0], addr, true);
+        bool check = ctx.sys.GetSymTable().LookUp(args[0], addr, true);
         if (!check)
         {
             cout << "invalid address: " << args[0] << endl;

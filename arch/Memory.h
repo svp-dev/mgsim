@@ -2,6 +2,7 @@
 #define MEMORY_H
 
 #include "simtypes.h"
+#include "symtable.h"
 #include <sim/ports.h>
 #include <sim/storage.h>
 
@@ -106,8 +107,11 @@ public:
     virtual void UnreserveAll(ProcessID pid) = 0;
     virtual bool CheckPermissions(MemAddr address, MemSize size, int access) const = 0;
 
-    virtual void Read (MemAddr address, void* data, MemSize size) = 0;
+    virtual void Read (MemAddr address, void* data, MemSize size) const = 0;
     virtual void Write(MemAddr address, const void* data, const bool* mask, MemSize size) = 0;
+
+    virtual SymbolTable& GetSymbolTable() const = 0;
+    virtual void SetSymbolTable(SymbolTable& symtable) = 0;
 
     virtual ~IMemoryAdmin() {}
 };

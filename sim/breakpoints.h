@@ -50,15 +50,16 @@ private:
     bool               m_enabled;
     breakpoints_t      m_breakpoints;
     active_breaks_t    m_activebreaks;
-    Simulator::Kernel& m_kernel;
+    Kernel&            m_kernel;
+    SymbolTable*       m_symtable;
 
     void CheckMore(int type, Simulator::MemAddr addr, Simulator::Object& obj);
     void CheckEnabled(void);
 
     static std::string GetModeName(int);
 public:
-    BreakPointManager(Simulator::Kernel& kernel) 
-        : m_counter(0), m_enabled(false), m_kernel(kernel) {}
+    BreakPointManager(Simulator::Kernel& kernel, SymbolTable* symtable = 0) 
+      : m_counter(0), m_enabled(false), m_kernel(kernel), m_symtable(symtable) {}
 
     void EnableCheck(void) { m_enabled = true; }
     void DisableCheck(void) { m_enabled = false; }
@@ -86,6 +87,9 @@ public:
         if (m_enabled)
             CheckMore(type, addr, obj);
     }
+
+    void SetSymbolTable(SymbolTable &symtable) { m_symtable = &symtable; }
+    SymbolTable& GetSymbolTable() const { return *m_symtable; }
 };
 
 }

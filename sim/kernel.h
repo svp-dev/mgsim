@@ -11,8 +11,6 @@
 #include <set>
 #include <cassert>
 
-class SymbolTable;
-
 namespace Simulator
 {
 
@@ -249,7 +247,6 @@ private:
     CycleNo             m_lastsuspend;  ///< Avoid suspending twice on the same cycle.
     int	                m_debugMode;    ///< Bit mask of enabled debugging modes.
     CycleNo             m_cycle;        ///< Current cycle of the simulation.
-    SymbolTable&        m_symtable;     ///< The symbol table for debugging.
     BreakPointManager&  m_bp_manager;   ///< The breakpoint checker for debugging.
     CyclePhase          m_phase;        ///< Current sub-cycle phase of the simulation.
     unsigned long long  m_master_freq;  ///< Master frequency
@@ -260,7 +257,7 @@ private:
     bool UpdateStorages();
     
 public:
-    Kernel(SymbolTable& symtable, BreakPointManager& breakpoints);
+    Kernel(BreakPointManager& breakpoints);
     ~Kernel();
 
     void ActivateClock(Clock& clock);
@@ -348,7 +345,6 @@ public:
      */
 	//const ComponentList& GetComponents() const { return m_components; }
 
-    inline SymbolTable& GetSymbolTable() const { return m_symtable; }
     inline BreakPointManager& GetBreakPointManager() const { return m_bp_manager; }
 };
 

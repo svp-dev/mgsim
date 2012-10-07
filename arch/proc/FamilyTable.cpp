@@ -14,7 +14,7 @@ namespace Simulator
 Processor::FamilyTable::FamilyTable(const std::string& name, Processor& parent, Clock& clock, Config& config)
 :   Object(name, parent, clock),
     m_families(config.getValue<size_t>(*this, "NumEntries")),
-    m_totalalloc(0), m_maxalloc(0), m_lastcycle(0), m_curalloc(0)
+    m_totalalloc(0), m_maxalloc(0), m_lastcycle(0), m_curalloc(0), m_parent(parent)
 {
     RegisterSampleVariableInObject(m_totalalloc, SVC_CUMULATIVE);
     RegisterSampleVariableInObject(m_maxalloc, SVC_WATERMARK, m_families.size());
@@ -258,7 +258,7 @@ void Processor::FamilyTable::Cmd_Read(ostream& out, const vector<string>& argume
             
                 if (family.state != FST_ALLOCATED)
                 {
-                    out << GetKernel()->GetSymbolTable()[family.pc];
+                    out << m_parent.GetSymbolTable()[family.pc];
                 }
             }
             out << endl;

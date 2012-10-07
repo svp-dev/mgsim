@@ -265,7 +265,7 @@ bool Processor::Allocator::RescheduleThread(TID tid, MemAddr pc)
 
     DebugSimWrite("F%u/T%u(%llu) rescheduling to %s", 
                   (unsigned)thread.family, (unsigned)tid, (unsigned long long)thread.index,
-                  GetKernel()->GetSymbolTable()[pc].c_str());
+                  m_parent.GetSymbolTable()[pc].c_str());
     return true;
 }
 
@@ -1336,7 +1336,7 @@ bool Processor::Allocator::QueueCreate(const LinkMessage& msg)
                   (unsigned)msg.create.fid, (unsigned long long)family.nThreads, 
                   (unsigned)(m_parent.GetPID() & ~family.numCores),
                   (unsigned)family.numCores, 
-                  GetKernel()->GetSymbolTable()[msg.create.address].c_str(),
+                  m_parent.GetSymbolTable()[msg.create.address].c_str(),
                   (unsigned long long)family.start);            
     
     if (!AllocateRegisters(msg.create.fid, CONTEXT_RESERVED))
@@ -1416,7 +1416,7 @@ bool Processor::Allocator::QueueCreate(const RemoteMessage& msg, PID src)
     
     DebugSimWrite("F%u queued create %s from CPU%u/R%04x", 
                   (unsigned)info.fid, 
-                  GetKernel()->GetSymbolTable()[msg.create.address].c_str(),
+                  m_parent.GetSymbolTable()[msg.create.address].c_str(),
                   (unsigned)info.completion_pid, (unsigned)info.completion_reg);
     return true;
 }
@@ -1556,7 +1556,7 @@ Result Processor::Allocator::DoFamilyCreate()
         Family& family = m_familyTable[info.fid];
             
         DebugSimWrite("F%u start creation %s", 
-                      (unsigned)info.fid, GetKernel()->GetSymbolTable()[family.pc].c_str());
+                      (unsigned)info.fid, m_parent.GetSymbolTable()[family.pc].c_str());
 
         // Load the register counts from the family's first cache line
         Instruction counts;
