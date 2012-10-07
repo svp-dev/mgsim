@@ -24,9 +24,12 @@
 #include <fstream>
 #include <cmath>
 #include <limits>
-#include <cxxabi.h>
 #include <fnmatch.h>
 #include <cstring>
+
+#ifdef HAVE_GCC_ABI_DEMANGLE
+#include <cxxabi.h>
+#endif
 
 using namespace Simulator;
 using namespace std;
@@ -85,9 +88,12 @@ static string GetClassName(const type_info& info)
     char *buf = (char*)malloc(len);
     assert(buf != 0);
 
-    int status;
+    int status = 0;
+    char *res = 0;
 
-    char *res = abi::__cxa_demangle(name, buf, &len, &status);
+#ifdef HAVE_GCC_ABI_DEMANGLE
+    res = abi::__cxa_demangle(name, buf, &len, &status);
+#endif
 
     if (res && status == 0)
     {
