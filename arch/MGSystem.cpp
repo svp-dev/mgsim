@@ -631,7 +631,6 @@ void MGSystem::Disassemble(MemAddr addr, size_t sz) const
 }
 
 MGSystem::MGSystem(Config& config,
-                   const string& symtable,
                    const vector<pair<RegAddr, RegValue> >& regs,
                    const vector<pair<RegAddr, string> >& loads,
                    const vector<string>& extradevs,
@@ -942,13 +941,6 @@ MGSystem::MGSystem(Config& config,
 
     // Set program debugging per default
     m_kernel.SetDebugMode(Kernel::DEBUG_PROG);
-
-    // Load symbol table
-    if (doload && !symtable.empty())
-    {
-        ifstream in(symtable.c_str(), ios::in);
-        m_symtable.Read(in, quiet);
-    }
 
     // Find objdump command
 #if defined(TARGET_MTALPHA)

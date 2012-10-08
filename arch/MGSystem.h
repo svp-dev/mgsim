@@ -92,7 +92,6 @@ namespace Simulator {
         void Abort() { GetKernel().Abort(); }
     
         MGSystem(Config& config,
-                 const std::string& symtable,
                  const std::vector<std::pair<RegAddr, RegValue> >& regs,
                  const std::vector<std::pair<RegAddr, std::string> >& loads,
                  const std::vector<std::string>& extradevs,
