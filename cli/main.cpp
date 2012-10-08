@@ -303,8 +303,7 @@ int main(int argc, char** argv)
                      config.m_regs, 
                      config.m_loads, 
                      config.m_extradevs, 
-                     !config.m_interactive, 
-                     !config.m_earlyquit);
+                     !config.m_interactive);
 
 #ifdef ENABLE_MONITOR
         string mo_mdfile = configfile.getValueOrDefault<string>("MonitorMetadataFile", "mgtrace.md");

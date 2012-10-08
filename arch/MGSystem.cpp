@@ -634,7 +634,7 @@ MGSystem::MGSystem(Config& config,
                    const vector<pair<RegAddr, RegValue> >& regs,
                    const vector<pair<RegAddr, string> >& loads,
                    const vector<string>& extradevs,
-                   bool quiet, bool doload)
+                   bool quiet)
     : m_kernel(m_breakpoints),
       m_clock(m_kernel.CreateClock(config.getValue<unsigned long>("CoreFreq"))),
       m_root("", m_clock),

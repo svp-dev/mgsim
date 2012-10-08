@@ -95,7 +95,7 @@ namespace Simulator {
                  const std::vector<std::pair<RegAddr, RegValue> >& regs,
                  const std::vector<std::pair<RegAddr, std::string> >& loads,
                  const std::vector<std::string>& extradevs,
-                 bool quiet, bool doload);
+                 bool quiet);
 
         ~MGSystem();
 
