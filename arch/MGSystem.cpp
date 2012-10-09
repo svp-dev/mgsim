@@ -30,6 +30,7 @@
 #ifdef HAVE_GCC_ABI_DEMANGLE
 #include <cxxabi.h>
 #endif
+#include <typeinfo>
 
 using namespace Simulator;
 using namespace std;

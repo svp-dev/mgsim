@@ -33,6 +33,7 @@ ax_cv_cxx_gcc_abi_demangle,
  AC_TRY_COMPILE([#include <typeinfo>
 #include <cxxabi.h>
 #include <string>
+#include <cstdlib>
 
 template<typename TYPE>
 class A {};
@@ -43,7 +44,7 @@ char* c_name = 0;
 c_name = abi::__cxa_demangle(typeid(instance).name(), 0, 0, &status);
 
 std::string name(c_name);
-free(c_name);
+::free(c_name);
 
 return name == "A<int>";
 ],
