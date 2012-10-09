@@ -46,6 +46,9 @@ AC_SUBST([WARN_CXXFLAGS])
 # enable extensions for the non-standard tests below
 AC_USE_SYSTEM_EXTENSIONS
 
+# check support for abi::__cxa_demangle
+AX_CXX_GCC_ABI_DEMANGLE
+
 AC_MSG_CHECKING([for the number of bits in a char])
 AC_COMPUTE_INT([char_size], [CHAR_BIT], [#include <limits.h>], [char_size=unknown])
 AC_MSG_RESULT([$char_size])

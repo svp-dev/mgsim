@@ -95,36 +95,6 @@ bool SerialMemory::Write(MCID id, MemAddr address, const MemData& data, WClientI
     return true;
 }
 
-void SerialMemory::Reserve(MemAddr address, MemSize size, ProcessID pid, int perm)
-{
-    return VirtualMemory::Reserve(address, size, pid, perm);
-}
-
-void SerialMemory::Unreserve(MemAddr address, MemSize size)
-{
-    return VirtualMemory::Unreserve(address, size);
-}
-
-void SerialMemory::UnreserveAll(ProcessID pid)
-{
-    return VirtualMemory::UnreserveAll(pid);
-}
-
-void SerialMemory::Read(MemAddr address, void* data, MemSize size)
-{
-    return VirtualMemory::Read(address, data, size);
-}
-
-void SerialMemory::Write(MemAddr address, const void* data, const bool* mask, MemSize size)
-{
-    return VirtualMemory::Write(address, data, mask, size);
-}
-
-bool SerialMemory::CheckPermissions(MemAddr address, MemSize size, int access) const
-{
-    return VirtualMemory::CheckPermissions(address, size, access);
-}
-
 Result SerialMemory::DoRequests()
 {
     assert(!m_requests.Empty());

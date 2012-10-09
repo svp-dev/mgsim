@@ -225,7 +225,7 @@ Result Processor::Pipeline::DoPipeline()
         {
             // Add details about thread, family and PC
             stringstream details;
-            details << "While executing instruction at " << GetKernel()->GetSymbolTable()[stage->input->pc_dbg] 
+            details << "While executing instruction at " << GetProcessor().GetSymbolTable()[stage->input->pc_dbg] 
                         // "0x" << setw(sizeof(MemAddr) * 2) << setfill('0') << hex << stage->input->pc_dbg
                     << " in T" << dec << stage->input->tid << " in F" << stage->input->fid;
             e.AddDetails(details.str());
@@ -263,7 +263,7 @@ void Processor::Pipeline::PrintLatchCommon(std::ostream& out, const CommonData& 
 {
     out << " | LFID: F"  << dec << latch.fid
         << "    TID: T"  << dec << latch.tid << right
-        << "    PC: "    << GetKernel()->GetSymbolTable()[latch.pc_dbg] // "0x" << hex << setw(sizeof(MemAddr) * 2) << setfill('0') << latch.pc
+        << "    PC: "    << GetProcessor().GetSymbolTable()[latch.pc_dbg] // "0x" << hex << setw(sizeof(MemAddr) * 2) << setfill('0') << latch.pc
         << "    Annotation: " << ((latch.kill) ? "End" : (latch.swch ? "Switch" : "None")) << endl
         << " |" << endl;
 }
@@ -390,7 +390,7 @@ void Processor::Pipeline::Cmd_Read(std::ostream& out, const std::vector<std::str
         {
             out << " | Operation: " << (m_emLatch.Rcv.m_state == RST_FULL ? "Store" : "Load") << endl
                 << " | Address:   0x" << hex << setw(sizeof(MemAddr) * 2) << setfill('0') << m_emLatch.address 
-                << " " << GetKernel()->GetSymbolTable()[m_emLatch.address] << endl
+                << " " << GetProcessor().GetSymbolTable()[m_emLatch.address] << endl
                 << " | Size:      " << dec << m_emLatch.size << " bytes" << endl;
         }
     }

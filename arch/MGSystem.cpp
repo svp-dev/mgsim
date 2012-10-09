@@ -24,9 +24,13 @@
 #include <fstream>
 #include <cmath>
 #include <limits>
-#include <cxxabi.h>
 #include <fnmatch.h>
 #include <cstring>
+
+#ifdef HAVE_GCC_ABI_DEMANGLE
+#include <cxxabi.h>
+#endif
+#include <typeinfo>
 
 using namespace Simulator;
 using namespace std;
@@ -85,9 +89,12 @@ static string GetClassName(const type_info& info)
     char *buf = (char*)malloc(len);
     assert(buf != 0);
 
-    int status;
+    int status = 0;
+    char *res = 0;
 
-    char *res = abi::__cxa_demangle(name, buf, &len, &status);
+#ifdef HAVE_GCC_ABI_DEMANGLE
+    res = abi::__cxa_demangle(name, buf, &len, &status);
+#endif
 
     if (res && status == 0)
     {
@@ -629,7 +636,7 @@ MGSystem::MGSystem(Config& config,
                    const vector<pair<RegAddr, string> >& loads,
                    const vector<string>& extradevs,
                    bool quiet, bool doload)
-    : m_kernel(m_symtable, m_breakpoints),
+    : m_kernel(m_breakpoints),
       m_clock(m_kernel.CreateClock(config.getValue<unsigned long>("CoreFreq"))),
       m_root("", m_clock),
       m_breakpoints(m_kernel),
@@ -687,6 +694,8 @@ MGSystem::MGSystem(Config& config,
     {
         clog << "memory: " << memory_type << endl;
     }
+    m_memory->SetSymbolTable(m_symtable);
+    m_breakpoints.SetSymbolTable(m_symtable);
 
     // Create the event selector
     Clock& selclock = m_kernel.CreateClock(config.getValue<unsigned long>("EventCheckFreq"));

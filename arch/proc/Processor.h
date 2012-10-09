@@ -95,6 +95,7 @@ public:
     RegisterFile& GetRegisterFile() { return m_registerFile; }
     ICache& GetICache() { return m_icache; }
     DCache& GetDCache() { return m_dcache; }
+    SymbolTable& GetSymbolTable() { return *m_symtable; }
 
 private:
     PID                            m_pid;
@@ -102,6 +103,7 @@ private:
     IMemoryAdmin&                  m_memadmin;
     const std::vector<Processor*>& m_grid;
     FPU&                           m_fpu;
+    SymbolTable*                   m_symtable;
     
     // Bit counts for packing and unpacking configuration-dependent values
     struct

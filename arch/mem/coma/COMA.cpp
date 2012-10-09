@@ -127,36 +127,6 @@ bool COMA::Write(MCID id, MemAddr address, const MemData& data, WClientID wid)
     return m_clientMap[id].first->Write(m_clientMap[id].second, address, data, wid);
 }
 
-void COMA::Reserve(MemAddr address, MemSize size, ProcessID pid, int perm)
-{
-    return VirtualMemory::Reserve(address, size, pid, perm);
-}
-
-void COMA::Unreserve(MemAddr address, MemSize size)
-{
-    return VirtualMemory::Unreserve(address, size);
-}
-
-void COMA::UnreserveAll(ProcessID pid)
-{
-    return VirtualMemory::UnreserveAll(pid);
-}
-
-void COMA::Read(MemAddr address, void* data, MemSize size)
-{
-    return VirtualMemory::Read(address, data, size);
-}
-
-void COMA::Write(MemAddr address, const void* data, const bool* mask, MemSize size)
-{
-    return VirtualMemory::Write(address, data, mask, size);
-}
-
-bool COMA::CheckPermissions(MemAddr address, MemSize size, int access) const
-{
-	return VirtualMemory::CheckPermissions(address, size, access);
-}
-
 COMA::COMA(const std::string& name, Simulator::Object& parent, Clock& clock, Config& config) :
     // Note that the COMA class is just a container for caches and directories.
     // It has no processes of its own.

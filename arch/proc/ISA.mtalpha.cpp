@@ -972,7 +972,7 @@ Processor::Pipeline::PipeAction Processor::Pipeline::ExecuteStage::ExecuteInstru
                     {
                         DebugFlowWrite("F%u/T%u(%llu) %s branch %s",
                                        (unsigned)m_input.fid, (unsigned)m_input.tid, (unsigned long long)m_input.logical_index, m_input.pc_sym,
-                                       GetKernel()->GetSymbolTable()[target].c_str());
+                                       m_parent.GetProcessor().GetSymbolTable()[target].c_str());
                         m_output.pc   = target;
                         m_output.swch = true;
                     }
@@ -997,7 +997,7 @@ Processor::Pipeline::PipeAction Processor::Pipeline::ExecuteStage::ExecuteInstru
             {
                 DebugFlowWrite("F%u/T%u(%llu) %s branch %s",
                                (unsigned)m_input.fid, (unsigned)m_input.tid, (unsigned long long)m_input.logical_index, m_input.pc_sym,
-                               GetKernel()->GetSymbolTable()[target].c_str());
+                               m_parent.GetProcessor().GetSymbolTable()[target].c_str());
 
                 // Store the address of the next instruction
                 if (!m_input.legacy && (next & (m_parent.GetProcessor().GetICache().GetLineSize()-1)) == 0)

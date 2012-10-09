@@ -5,9 +5,11 @@
 #include <iomanip>
 
 using namespace std;
-using namespace Simulator;
 
-void BreakPoints::CheckEnabled()
+namespace Simulator
+{
+
+void BreakPointManager::CheckEnabled()
 {
     bool someenabled = false;
     for (breakpoints_t::const_iterator i = m_breakpoints.begin();
@@ -17,7 +19,7 @@ void BreakPoints::CheckEnabled()
     m_enabled = someenabled;
 }
 
-void BreakPoints::EnableBreakPoint(unsigned id)
+void BreakPointManager::EnableBreakPoint(unsigned id)
 {
     bool found = false;
     for (breakpoints_t::iterator i = m_breakpoints.begin();
@@ -37,32 +39,34 @@ void BreakPoints::EnableBreakPoint(unsigned id)
     }
 }
 
-void BreakPoints::ListBreakPoints(std::ostream& out) const
+void BreakPointManager::ListBreakPoints(std::ostream& out) const
 {
     if (m_breakpoints.empty())
         out << "no breakpoints defined." << endl;
     else 
     {
-        out << "Id   | Address            | Symbol               | Mode | Status    " << endl
-            << "-----+--------------------+----------------------+------+-----------" << endl
+        out << "Id   | Address            | Symbol               | Mode  | Status    " << endl
+            << "-----+--------------------+----------------------+-------+-----------" << endl
             << setfill(' ') << left;
         for (breakpoints_t::const_iterator i = m_breakpoints.begin();
              i != m_breakpoints.end(); ++i)
         {
             std::string mode;
-            if (i->second.type & READ)
-                mode += 'R';
-            if (i->second.type & WRITE)
-                mode += 'W';
+            if (i->second.type & FETCH)
+                mode += 'F';
             if (i->second.type & EXEC)
                 mode += 'X';
+            if (i->second.type & MEMREAD)
+                mode += 'R';
+            if (i->second.type & MEMWRITE)
+                mode += 'W';
             if (i->second.type & TRACEONLY)
                 mode += 'T';
             
             out << setw(4) << dec << i->second.id << " | "
                 << setw(18) << hex << showbase << i->first << " | " 
-                << setw(20) << m_kernel.GetSymbolTable()[i->first] << " | "
-                << setw(4) << mode << " | "
+                << setw(20) << GetSymbolTable()[i->first] << " | "
+                << setw(5) << mode << " | "
                 << setw(9) << (i->second.enabled ? "enabled" : "disabled")
                 << endl;
         }
@@ -71,26 +75,28 @@ void BreakPoints::ListBreakPoints(std::ostream& out) const
     out << "Breakpoint checking is " << (m_enabled ? "enabled" : "disabled") << '.' << endl;
 }
 
-void BreakPoints::Resume(void)
+void BreakPointManager::Resume(void)
 {
     m_activebreaks.clear();
 }
 
-std::string BreakPoints::GetModeName(int type)
+std::string BreakPointManager::GetModeName(int type)
 {
     std::string mode;
-    if (type & READ)
-        mode += 'R';
-    if (type & WRITE)
-        mode += 'W';
+    if (type & FETCH)
+        mode += 'F';
     if (type & EXEC)
         mode += 'X';
+    if (type & MEMREAD)
+        mode += 'R';
+    if (type & MEMWRITE)
+        mode += 'W';
     if (type & TRACEONLY)
         mode += 'T';
     return mode;
 }
 
-void BreakPoints::ReportBreaks(std::ostream& out) const
+void BreakPointManager::ReportBreaks(std::ostream& out) const
 {
     if (m_activebreaks.empty())
         return;
@@ -108,20 +114,20 @@ void BreakPoints::ReportBreaks(std::ostream& out) const
 
         out << setw(4) << dec << b->second.id << " | "
             << setw(18) << hex << showbase << i->addr << " | " 
-            << setw(20) << m_kernel.GetSymbolTable()[i->addr] << " | "
+            << setw(20) << GetSymbolTable()[i->addr] << " | "
             << setw(4) << GetModeName(i->type) << " | "
             << i->obj->GetFQN()
             << endl;
     }
 }
 
-void BreakPoints::ClearAllBreakPoints(void)
+void BreakPointManager::ClearAllBreakPoints(void)
 {
     m_breakpoints.clear();
     m_enabled = false;
 }
 
-void BreakPoints::DisableBreakPoint(unsigned id)
+void BreakPointManager::DisableBreakPoint(unsigned id)
 {
     bool found = false;
 
@@ -143,7 +149,7 @@ void BreakPoints::DisableBreakPoint(unsigned id)
     CheckEnabled();
 }
 
-void BreakPoints::DeleteBreakPoint(unsigned id)
+void BreakPointManager::DeleteBreakPoint(unsigned id)
 {
     bool found = false;
 
@@ -165,7 +171,7 @@ void BreakPoints::DeleteBreakPoint(unsigned id)
     CheckEnabled();
 }
 
-void BreakPoints::AddBreakPoint(MemAddr addr, int type)
+void BreakPointManager::AddBreakPoint(MemAddr addr, int type)
 {
     BreakPointInfo info;
     info.enabled = true;
@@ -180,13 +186,13 @@ void BreakPoints::AddBreakPoint(MemAddr addr, int type)
     m_enabled = true;
 }
 
-void BreakPoints::AddBreakPoint(const std::string& sym, int offset, int type)
+void BreakPointManager::AddBreakPoint(const std::string& sym, int offset, int type)
 {
     errno = 0;
     MemAddr addr = strtoull(sym.c_str(), 0, 0);
     if (errno == EINVAL)
     {
-        bool check = m_kernel.GetSymbolTable().LookUp(sym, addr, true);
+        bool check = GetSymbolTable().LookUp(sym, addr, true);
         if (!check)
         {
             cerr << "invalid address: " << sym << endl;
@@ -197,7 +203,7 @@ void BreakPoints::AddBreakPoint(const std::string& sym, int offset, int type)
 }
 
 
-void BreakPoints::CheckMore(int type, MemAddr addr, Object& obj)
+void BreakPointManager::CheckMore(int type, MemAddr addr, Object& obj)
 {
     breakpoints_t::const_iterator i = m_breakpoints.find(addr);
     if (i != m_breakpoints.end() && i->second.enabled && (i->second.type & type) != 0) 
@@ -208,7 +214,7 @@ void BreakPoints::CheckMore(int type, MemAddr addr, Object& obj)
             {
                 obj.DebugSimWrite_("Trace point %d reached: 0x%.*llx (%s, %s)", 
                                    i->second.id, (int)sizeof(addr)*2, (unsigned long long)addr, 
-                                   m_kernel.GetSymbolTable()[addr].c_str(), 
+                                   GetSymbolTable()[addr].c_str(), 
                                    GetModeName(i->second.type & type).c_str());
             }
         }
@@ -220,3 +226,6 @@ void BreakPoints::CheckMore(int type, MemAddr addr, Object& obj)
         }
     }
 }
+
+}
+
