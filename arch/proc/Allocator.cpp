@@ -1121,7 +1121,11 @@ Result Processor::Allocator::DoFamilyAllocate()
 
     if (buffer == NULL)
     {
-        DeadlockWrite("Exclusive create in process");
+        // remaining situation:
+        // - there are no non-exclusive allocation requests ready to be handled;
+        // - there is at least one exclusive allocation request waiting;
+        // - the exclusive context is busy.
+        DeadlockWrite("Exclusive context busy; exclusive allocation delayed.");
         return FAILED;
     }
 
