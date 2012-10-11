@@ -45,6 +45,27 @@ struct ProgramConfig
     bool                             m_dumpnodeprops;
     bool                             m_dumpedgeprops;
     vector<string>                   m_argv;
+    ProgramConfig()
+        : m_areaTech(0),
+          m_configFile(MGSIM_CONFIG_PATH),
+          m_enableMonitor(false),
+          m_interactive(false),
+          m_terminate(false),
+          m_dumpconf(false),
+          m_quiet(false),
+          m_dumpvars(false),
+          m_printvars(),
+          m_earlyquit(false),
+          m_overrides(),
+          m_extradevs(),
+          m_loads(),
+          m_regs(),
+          m_dumptopo(false),
+          m_topofile(),
+          m_dumpnodeprops(true),
+          m_dumpedgeprops(true),
+          m_argv()
+    {}
 };
 
 extern "C" 
@@ -261,18 +282,6 @@ int main(int argc, char** argv)
     {
         // Parse command line arguments
         ProgramConfig config;
-        config.m_areaTech = 0;
-        config.m_configFile = MGSIM_CONFIG_PATH;
-        config.m_enableMonitor = false;
-        config.m_interactive = false;
-        config.m_terminate = false;
-        config.m_dumpconf = false;
-        config.m_quiet = false;
-        config.m_dumpvars = false;
-        config.m_earlyquit = false;
-        config.m_dumptopo = false;
-        config.m_dumpnodeprops = true;
-        config.m_dumpedgeprops = true;
 
         argp_parse(&argp, argc, argv, 0, 0, &config);
         
