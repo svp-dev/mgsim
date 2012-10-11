@@ -8,8 +8,8 @@
 namespace Simulator
 {
 
-typedef size_t  IODeviceID;     ///< Number of a device on an I/O Bus
-typedef size_t  IONotificationChannelID;  ///< Number of a notification/interrupt channel on an I/O bus
+typedef unsigned IODeviceID;     ///< Number of a device on an I/O Bus
+typedef unsigned IONotificationChannelID;  ///< Number of a notification/interrupt channel on an I/O bus
 
 /* maximum size of the data in an I/O request. */
 static const size_t MAX_IO_OPERATION_SIZE = 64;
