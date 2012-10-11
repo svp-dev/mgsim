@@ -658,6 +658,7 @@ namespace Simulator
             << "End-of-file reached: " << (m_eof ? "yes" : "no") << endl;
     }
 
+    static
     ostream& obyte(ostream& out, unsigned char byte)
     {
         out << "0x" << setw(2) << setfill('0') << right << hex << (unsigned)byte << left << ' ';
