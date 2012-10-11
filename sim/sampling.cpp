@@ -12,7 +12,7 @@
 
 using namespace std;
 
-struct VarInfo 
+struct VarInfo
 {
     void *                 var;
     size_t                 width;
@@ -20,7 +20,9 @@ struct VarInfo
     SampleVariableCategory cat;
     vector<char>           max;
 
-    VarInfo() {};
+    VarInfo() : var(0), width(0), type(SV_INTEGER), cat(SVC_LEVEL), max() {};
+    VarInfo(const VarInfo&) = default;
+    VarInfo& operator=(const VarInfo&) = default;
 };
 
 typedef map<string, VarInfo> var_registry_t;
@@ -38,11 +40,11 @@ void _RegisterSampleVariable(void *var, size_t width, const string& name, Sample
     vinfo.width = width;
     vinfo.type = type;
     vinfo.cat = cat;
-    
+
     const char *maxdata = (const char*)maxval;
     for (size_t i = 0; i < width; ++i)
         vinfo.max.push_back(maxdata[i]);
-    
+
     registry[name] = vinfo;
 }
 
@@ -56,8 +58,8 @@ static
 void ListSampleVariables_onevar(ostream& os, const string& name, const VarInfo& vinfo)
 {
     os << vinfo.width << "\t";
-    
-    switch(vinfo.cat) 
+
+    switch(vinfo.cat)
     {
     case SVC_LEVEL: os << "level"; break;
     case SVC_STATE: os << "state"; break;
@@ -67,7 +69,7 @@ void ListSampleVariables_onevar(ostream& os, const string& name, const VarInfo& 
     }
     os << (const char*)((vinfo.type == SV_INTEGER) ? "\tint\t" : "\tfloat\t");
 
-    if (vinfo.cat == SVC_LEVEL || vinfo.cat == SVC_WATERMARK) 
+    if (vinfo.cat == SVC_LEVEL || vinfo.cat == SVC_WATERMARK)
     {
         const void *p = &vinfo.max[0];
         switch(vinfo.type) {
@@ -81,8 +83,8 @@ void ListSampleVariables_onevar(ostream& os, const string& name, const VarInfo& 
             }
             break;
         case SV_FLOAT:
-            if (vinfo.width == sizeof(float)) 
-                os << *(float*)p; 
+            if (vinfo.width == sizeof(float))
+                os << *(float*)p;
             else
                 os << *(double*)p;
             break;
@@ -90,7 +92,7 @@ void ListSampleVariables_onevar(ostream& os, const string& name, const VarInfo& 
     }
     else
         os << "N/A";
-   
+
     os << '\t' << vinfo.var << '\t'
        << name
        << endl;
@@ -130,13 +132,13 @@ bool ReadSampleVariables(ostream& os, const string& pat)
             }
             break;
         case SV_FLOAT:
-            if (vinfo.width == sizeof(float)) 
-                os << *(float*)p; 
+            if (vinfo.width == sizeof(float))
+                os << *(float*)p;
             else
                 os << *(double*)p;
             break;
         }
-        os << endl;        
+        os << endl;
         some = true;
     }
     return some;
@@ -153,7 +155,7 @@ bool comparevars(const varsel_t& left, const varsel_t& right)
 
 BinarySampler::BinarySampler(ostream& os, const Config& config,
                              const vector<string>& pats)
-    : m_datasize(0)
+    : m_datasize(0), m_vars()
 {
 
     varvec_t vars;
@@ -179,7 +181,7 @@ BinarySampler::BinarySampler(ostream& os, const Config& config,
 
     //
     // Generate header for output file
-    // 
+    //
     time_t cl = time(0);
     string timestr = asctime(gmtime(&cl));
 
@@ -189,7 +191,7 @@ BinarySampler::BinarySampler(ostream& os, const Config& config,
     char hn[255];
     if (gethostname(hn, 255) == 0)
         os << "# host: " << hn << endl;
-    
+
     vector<pair<string, string> > rawconf = config.getRawConfiguration();
     os << "# configuration: " << rawconf.size() << endl;
     for (auto& i : rawconf)

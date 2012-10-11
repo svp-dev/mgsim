@@ -13,7 +13,7 @@ enum SampleVariableDataType {
 };
 
 enum SampleVariableCategory {
-    SVC_LEVEL,    // current level: cycle counter, #threads, etc 
+    SVC_LEVEL,    // current level: cycle counter, #threads, etc
     SVC_STATE,    // state variable
     SVC_WATERMARK,  // mins and maxs, evolves monotonously
     SVC_CUMULATIVE, // integral of level over time
@@ -51,7 +51,7 @@ class BinarySampler
 
 public:
 
-    BinarySampler(std::ostream& os, const Config& config, 
+    BinarySampler(std::ostream& os, const Config& config,
                   const std::vector<std::string>& pats);
 
     size_t GetBufferSize() const { return m_datasize; }

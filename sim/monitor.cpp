@@ -31,12 +31,15 @@ void* runmonitor(void *arg)
 }
 
 Monitor::Monitor(Simulator::MGSystem& sys, bool enabled, const string& mdfile, const string& outfile, bool quiet)
-    : m_sys(sys), 
+    : m_sys(sys),
       m_outputfile(0),
+      m_tsdelay(),
+      m_monitorthread(),
+      m_runlock(),
+      m_sampler(0),
       m_quiet(quiet),
       m_running(false),
-      m_enabled(true),
-      m_sampler(0)
+      m_enabled(true)
 {
     if (!enabled)
     {
@@ -56,7 +59,7 @@ Monitor::Monitor(Simulator::MGSystem& sys, bool enabled, const string& mdfile, c
     pats.insert(pats.begin(), "kernel.cycle");
     pats.push_back("kernel.cycle");
     m_sampler = new BinarySampler(metadatafile, sys.GetConfig(), pats);
-    metadatafile << "# tv_sizes: " << sizeof(((struct timeval*)(void*)0)->tv_sec) 
+    metadatafile << "# tv_sizes: " << sizeof(((struct timeval*)(void*)0)->tv_sec)
                  << ' ' << sizeof(((struct timeval*)(void*)0)->tv_usec)
                  << ' ' << sizeof(struct timeval) << endl;
     metadatafile.close();
@@ -66,7 +69,7 @@ Monitor::Monitor(Simulator::MGSystem& sys, bool enabled, const string& mdfile, c
         return ;
 
     m_outputfile = new ofstream(outfile.c_str(), ios_base::binary|ios_base::out|ios_base::trunc);
-    if (!m_outputfile->good()) 
+    if (!m_outputfile->good())
     {
         clog << "# warning: cannot write to file " << outfile << ". Monitoring disabled." << endl;
         delete m_outputfile;
@@ -78,13 +81,13 @@ Monitor::Monitor(Simulator::MGSystem& sys, bool enabled, const string& mdfile, c
     msd = fabs(msd);
     m_tsdelay.tv_sec = msd;
     m_tsdelay.tv_nsec = (msd - (float)m_tsdelay.tv_sec) * 1000000000.;
-   
+
     if (!m_quiet)
         clog << "# monitoring enabled, sampling "
                   << m_sampler->GetBufferSize()
                   << " bytes every "
                   << m_tsdelay.tv_sec << '.'
-                  << setfill('0') << setw(9) << m_tsdelay.tv_nsec 
+                  << setfill('0') << setw(9) << m_tsdelay.tv_nsec
                   << "s to file " << outfile << endl
                   << "# metadata output to file " << mdfile << endl;
 
@@ -96,7 +99,7 @@ Monitor::Monitor(Simulator::MGSystem& sys, bool enabled, const string& mdfile, c
 
 Monitor::~Monitor()
 {
-    if (m_outputfile) 
+    if (m_outputfile)
     {
         if (!m_quiet)
             clog << "# shutting down monitoring..." << endl;
@@ -149,7 +152,7 @@ void Monitor::run()
 
     Simulator::CycleNo lastCycle = 0;
 
-    while (m_enabled) 
+    while (m_enabled)
     {
 #if defined(HAVE_NANOSLEEP)
         nanosleep(&m_tsdelay, 0);
@@ -171,7 +174,7 @@ void Monitor::run()
         m_sampler->SampleToBuffer(databuf);
         gettimeofday(tv_end, 0);
 
-        m_outputfile->write(allbuf, allsz); 
+        m_outputfile->write(allbuf, allsz);
 
         pthread(mutex_unlock, &m_runlock);
     }

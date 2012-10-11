@@ -15,19 +15,19 @@ namespace Simulator
 class BreakPointManager
 {
 public:
-    enum BreakPointType { 
+    enum BreakPointType {
         FETCH = 1,
-        EXEC = 2, 
-        MEMREAD = 4, 
-        MEMWRITE = 8, 
+        EXEC = 2,
+        MEMREAD = 4,
+        MEMWRITE = 8,
         TRACEONLY = 16,
     };
 
 private:
     struct BreakPointInfo {
-        bool              enabled;
         unsigned          id;
         int               type;
+        bool              enabled;
     };
 
     typedef std::map<Simulator::MemAddr, BreakPointInfo> breakpoints_t;
@@ -42,30 +42,38 @@ private:
 
         // For std::set
         bool operator<(const ActiveBreak& other) const
-        { 
+        {
             return (addr < other.addr) ||
                 (addr == other.addr && (obj < other.obj)) ||
-                (obj == other.obj && type < other.type); 
+                (obj == other.obj && type < other.type);
         }
     };
 
     typedef std::set<ActiveBreak> active_breaks_t;
 
 
-    unsigned           m_counter;
-    bool               m_enabled;
     breakpoints_t      m_breakpoints;
     active_breaks_t    m_activebreaks;
     Kernel&            m_kernel;
     SymbolTable*       m_symtable;
+    unsigned           m_counter;
+    bool               m_enabled;
 
     void CheckMore(int type, Simulator::MemAddr addr, Simulator::Object& obj);
     void CheckEnabled(void);
 
     static std::string GetModeName(int);
 public:
-    BreakPointManager(Simulator::Kernel& kernel, SymbolTable* symtable = 0) 
-      : m_counter(0), m_enabled(false), m_kernel(kernel), m_symtable(symtable) {}
+    BreakPointManager(Simulator::Kernel& kernel, SymbolTable* symtable = 0)
+        : m_breakpoints(), m_activebreaks(),
+        m_kernel(kernel), m_symtable(symtable),
+        m_counter(0), m_enabled(false) {}
+
+    BreakPointManager(const BreakPointManager& other)
+        : m_breakpoints(other.m_breakpoints), m_activebreaks(other.m_activebreaks),
+        m_kernel(other.m_kernel), m_symtable(other.m_symtable),
+        m_counter(other.m_counter), m_enabled(other.m_enabled) {}
+    BreakPointManager& operator=(const BreakPointManager& other) = delete;
 
     void EnableCheck(void) { m_enabled = true; }
     void DisableCheck(void) { m_enabled = false; }
@@ -88,7 +96,7 @@ public:
 
     bool NewBreaksDetected(void) const { return !m_activebreaks.empty(); }
 
-    void Check(int type, Simulator::MemAddr addr, Simulator::Object& obj) 
+    void Check(int type, Simulator::MemAddr addr, Simulator::Object& obj)
     {
         if (m_enabled)
             CheckMore(type, addr, obj);

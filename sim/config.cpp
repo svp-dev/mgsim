@@ -48,7 +48,7 @@ double InputConfigRegistry::convertToNumber<double>(const string& name, const st
     double val = strtod(start, &end);
     if (*end != '\0')
     {
-        throw exceptf<SimulationException>("Configuration value for %s is not a floating-point number: %s", name.c_str(), start); 
+        throw exceptf<SimulationException>("Configuration value for %s is not a floating-point number: %s", name.c_str(), start);
     }
     return val;
 }
@@ -68,7 +68,7 @@ bool InputConfigRegistry::convertToNumber<bool>(const string& name, const string
     // Check for the boolean values
     if (val == "TRUE" || val == "YES") return true;
     if (val == "FALSE" || val == "NO") return false;
-    
+
     // Otherwise, try to interpret as an integer
     int i = convertToNumber<int>(name, val);
     return i != 0;
@@ -101,7 +101,7 @@ bool InputConfigRegistry::lookup(const string& name_, string& result, const stri
             break;
         }
     }
-    
+
     if (!found)
     {
         for (auto& c : m_data)
@@ -183,7 +183,7 @@ vector<string> InputConfigRegistry::getWordList(const Object& obj, const string&
 
 
 InputConfigRegistry::InputConfigRegistry(const string& filename, const ConfigMap& overrides, const vector<string>& argv)
-    : m_overrides(overrides), m_argv(argv)
+    : m_data(), m_overrides(overrides), m_cache(), m_argv(argv)
 {
     enum State
     {
@@ -234,12 +234,12 @@ InputConfigRegistry::InputConfigRegistry(const string& filename, const ConfigMap
         else if (state == STATE_NAME)
         {
             if (isalnum(c) || c == '_' || c == '*' || c == '.' || c == ':') name += (char)c;
-            else 
+            else
             {
                 state = STATE_EQUALS;
             }
         }
-        
+
         if (state == STATE_EQUALS && !isspace(c))
         {
             if (c == '=') state = STATE_VALUE;
@@ -258,20 +258,20 @@ InputConfigRegistry::InputConfigRegistry(const string& filename, const ConfigMap
                     if (pos != string::npos) {
                         value.erase(pos + 1);
                     }
-                    
+
                     m_data.append(name, value);
                     name.clear();
                     value.clear();
                 }
                 state = (c == '#') ? STATE_COMMENT : STATE_BEGIN;
             }
-            else 
+            else
             {
                 value = value + (char)c;
             }
         }
     }
-    
+
     if (value != "")
     {
         m_data.append(name, value);
@@ -366,15 +366,15 @@ void ComponentModelRegistry::printEntity(ostream& os, const ComponentModelRegist
     {
     case Entity::VOID: os << "(void)"; break;
     case Entity::SYMBOL: os << *e.symbol; break;
-    case Entity::OBJECT: 
+    case Entity::OBJECT:
         assert(m_names.find(e.object) != m_names.end());
-        os << *m_names.find(e.object)->second; 
+        os << *m_names.find(e.object)->second;
         break;
     case Entity::UINT: os << dec << e.value; break;
     }
 }
 
-void ComponentModelRegistry::dumpComponentGraph(ostream& os, bool display_nodeprops, bool display_linkprops) 
+void ComponentModelRegistry::dumpComponentGraph(ostream& os, bool display_nodeprops, bool display_linkprops)
 {
     renameObjects();
 
@@ -434,7 +434,7 @@ void ComponentModelRegistry::dumpComponentGraph(ostream& os, bool display_nodepr
     os << "}" << endl;
 }
 
-void ComponentModelRegistry::collectPropertiesByType() 
+void ComponentModelRegistry::collectPropertiesByType()
 {
     m_types.clear();
     m_typeattrs.clear();
@@ -488,7 +488,7 @@ vector<uint32_t> Config::GetConfWords()
     // word 1: global offset to attribute table
 
     // HEADER
-    db.push_back(CONF_TAG_TYPETABLE); 
+    db.push_back(CONF_TAG_TYPETABLE);
     cur_next_offset = db.size(); db.push_back(0);
 
     // CONTENT - HEADER
@@ -504,13 +504,13 @@ vector<uint32_t> Config::GetConfWords()
         if (!i.second.empty())
             attrtable_backrefs[i.first].push_back(db.size());
         db.push_back(0);
-        
+
         type_table[i.first] = typecnt++;
     }
     db[cur_next_offset] = db.size();
 
-    // attribute tables. For each table: 
-    // word 0: number of entries, 
+    // attribute tables. For each table:
+    // word 0: number of entries,
     // word 1: logical offset to object type in type table
     // then entries. Each entry is a global symbol offset (1 word)
     for (auto& i : m_types)
@@ -534,20 +534,20 @@ vector<uint32_t> Config::GetConfWords()
         }
 
         db[cur_next_offset] = db.size();
-    }    
+    }
 
     // objects. For each object:
     // word 0: logical offset to object type in type table
     // then properties. Each property is a pair (entity type, global offset/value)
     // each property's position matches the attribute name offsets
     // in the type-attribute table.
-    // 
+    //
     for (auto& i : m_objects)
     {
         // HEADER
         db.push_back(CONF_TAG_OBJECT);
         cur_next_offset = db.size(); db.push_back(0);
-        
+
         // CONTENT - HEADER
         obj_table[i.first] = db.size();
         db.push_back(type_table[i.second]);
@@ -559,7 +559,7 @@ vector<uint32_t> Config::GetConfWords()
         auto& propdescs = m_typeattrs.find(i.second)->second;
         vector<EntityRef> collect;
         collect.resize(propdescs.size(), 0);
-        
+
         auto op = m_objprops.find(i.first);
         if (op != m_objprops.end())
         {
@@ -603,7 +603,7 @@ vector<uint32_t> Config::GetConfWords()
     auto rawconf = getRawConfiguration();
 
     // HEADER
-    db.push_back(CONF_TAG_RAWCONFIG); 
+    db.push_back(CONF_TAG_RAWCONFIG);
     cur_next_offset = db.size(); db.push_back(0);
 
     // CONTENT - HEADER
@@ -621,7 +621,7 @@ vector<uint32_t> Config::GetConfWords()
         db.push_back(0);
     }
     db[cur_next_offset] = db.size();
-    
+
     // symbols. For each symbol:
     // word 0: size (number of characters)
     // then characters, nul-terminated
@@ -631,7 +631,7 @@ vector<uint32_t> Config::GetConfWords()
         // HEADER
         db.push_back(CONF_TAG_SYMBOL);
         cur_next_offset = db.size(); db.push_back(0);
-        
+
         // CONTENT - HEADER
         sym_table[&i] = db.size();
         db.push_back(i.size());
@@ -643,18 +643,18 @@ vector<uint32_t> Config::GetConfWords()
         // we want to enforce byte order, so we cannot use memcpy
         // because the host might be big endian.
         vector<char> raw(i.begin(), i.end());
-        raw.resize(((raw.size() / sizeof(uint32_t)) + 1) * sizeof(uint32_t), 0);       
+        raw.resize(((raw.size() / sizeof(uint32_t)) + 1) * sizeof(uint32_t), 0);
 
         db.resize(db.size() + raw.size() / sizeof(uint32_t));
         for (size_t j = first_pos, k = 0; j < db.size(); ++j, k += 4)
         {
-            uint32_t val = (uint32_t)raw[k] 
+            uint32_t val = (uint32_t)raw[k]
                 | ((uint32_t)raw[k+1] << 8)
                 | ((uint32_t)raw[k+2] << 16)
                 | ((uint32_t)raw[k+3] << 24);
             db[j] = val;
         }
-        
+
         db[cur_next_offset] = db.size();
     }
 

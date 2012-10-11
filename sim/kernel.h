@@ -38,9 +38,8 @@ static const CycleNo INFINITE_CYCLES = (CycleNo)-1;
 class Clock
 {
     friend class Kernel;
-    
+
     Kernel&            m_kernel;      ///< The kernel that controls this clock and all components based off it
-    bool               m_activated;   ///< Has this clock already been activated this cycle?
     unsigned long long m_frequency;   ///< Frequency of this clock, in MHz
     unsigned long long m_period;      ///< No. master-cycles per tick of this clock.
     Clock*             m_next;        ///< Next clock to run
@@ -49,33 +48,36 @@ class Clock
     Process*     m_activeProcesses;   ///< List of processes that need to be run.
     Storage*     m_activeStorages;    ///< List of storages that need to be updated.
     Arbitrator*  m_activeArbitrators; ///< List of arbitrators that need arbitration.
-    
-    Clock(const Clock& clock) : m_kernel(clock.m_kernel) {}  // No copying
-    
+
+    bool               m_activated;   ///< Has this clock already been activated this cycle?
+
+    Clock(const Clock& clock) = delete; // No copying
+
     Clock(Kernel& kernel, unsigned long long frequency, unsigned long long period)
-      : m_kernel(kernel), m_activated(false),
+      : m_kernel(kernel),
         m_frequency(frequency), m_period(period), m_next(NULL), m_cycle(0),
-        m_activeProcesses(NULL), m_activeStorages(NULL), m_activeArbitrators(NULL)
+        m_activeProcesses(NULL), m_activeStorages(NULL), m_activeArbitrators(NULL),
+        m_activated(false)
     {}
 
 public:
     Kernel& GetKernel() { return m_kernel; }
-    
+
     /// Used for iterating through active clocks
     const Clock* GetNext() const { return m_next; }
-    
+
     const Process* GetActiveProcesses() const { return m_activeProcesses; }
     const Storage* GetActiveStorages() const { return m_activeStorages; }
     const Arbitrator* GetActiveArbitrators() const { return m_activeArbitrators; }
-    
+
     CycleNo GetNextTick() const { return m_cycle; }
-    
+
     /// Returns the cycle counter for this clock
     CycleNo GetCycleNo() const;
 
     /// Returns the frequency of this clock
     unsigned long long GetFrequency() const { return m_frequency; }
-    
+
     /**
      * @brief Register an update request for the specified storage at the end of the cycle.
      * @param storage The storage to update
@@ -89,7 +91,7 @@ public:
      * @return the next arbitrator that requires updating
      */
     Arbitrator* ActivateArbitrator(Arbitrator& arbitrator);
-    
+
     /**
      * @brief Schedule the specified process on the run queue.
      * @param process The process to schedule
@@ -116,14 +118,14 @@ class Process
 {
     friend class Kernel;
     friend class Clock;
-    
+
     const std::string m_name;          ///< The name of this process
     const delegate    m_delegate;      ///< The callback for the execution of the process
     RunState          m_state;         ///< Last run state of this process
     unsigned int      m_activations;   ///< Reference count of activations of this process
     Process*          m_next;          ///< Next pointer in the list of processes that require updates
     Process**         m_pPrev;         ///< Prev pointer in the list of processes that require updates
-    
+
 #if !defined(NDEBUG) && !defined(DISABLE_TRACE_CHECKS)
     StorageTraceSet m_storages;         ///< Set of storage traces this process can have
     StorageTrace    m_currentStorages;  ///< Storage trace for this cycle
@@ -133,23 +135,23 @@ class Process
     // Processes are non-copyable and non-assignable
     Process(const Process&);
     void operator=(const Process&);
-    
+
 public:
     const Process* GetNext()   const { return m_next;  }
     RunState       GetState()  const { return m_state; }
     Object*        GetObject() const { return m_delegate.GetObject(); }
     std::string    GetName()   const;
-    
+
     void Deactivate();
 
     // The following functions are for verification of storage accesses.
-    // They check that the process does not violate its contract for 
+    // They check that the process does not violate its contract for
     // accessing storages. The contract is set up when the system is created.
 #if !defined(NDEBUG) && !defined(DISABLE_TRACE_CHECKS)
     void OnBeginCycle() {
         m_currentStorages = StorageTrace();
     }
-    
+
     void OnEndCycle() const {
         // Check if the process accessed storages in a way that isn't allowed
         if (!m_storages.Contains(m_currentStorages))
@@ -165,11 +167,11 @@ public:
 #endif
         };
     }
-    
+
     void OnStorageAccess(const Storage& s) {
         m_currentStorages.Append(s);
     }
-    
+
     void SetStorageTraces(const StorageTraceSet& sl) {
         m_storages = sl;
     }
@@ -179,7 +181,7 @@ public:
     void OnStorageAccess(const Storage& ) {}
     void SetStorageTraces(const StorageTraceSet& ) {}
 #endif
-    
+
     Process(Object& parent, const std::string& name, const delegate& delegate);
     ~Process();
 
@@ -223,12 +225,12 @@ enum CyclePhase {
 class Kernel
 {
     friend class Object;
-    
+
 public:
     /// Modes of debugging
     enum DebugMode
     {
-        DEBUG_SIM      = 1, ///< Debug the simulator 
+        DEBUG_SIM      = 1, ///< Debug the simulator
         DEBUG_PROG     = 2, ///< Debug the program
         DEBUG_DEADLOCK = 4, ///< Debug deadlocks
         DEBUG_FLOW     = 8, ///< Debug control flow
@@ -240,38 +242,42 @@ public:
         DEBUG_FPU      = 512, ///< Debug FPU activity
         DEBUG_PIPE     = 1024, ///< Debug pipeline activity
     };
-    
+
 private:
-    bool                m_aborted;      ///< Should the run be aborted?
-    bool                m_suspended;    ///< Should the run be suspended?
     CycleNo             m_lastsuspend;  ///< Avoid suspending twice on the same cycle.
-    int	                m_debugMode;    ///< Bit mask of enabled debugging modes.
     CycleNo             m_cycle;        ///< Current cycle of the simulation.
     BreakPointManager&  m_bp_manager;   ///< The breakpoint checker for debugging.
-    CyclePhase          m_phase;        ///< Current sub-cycle phase of the simulation.
     unsigned long long  m_master_freq;  ///< Master frequency
     Process*            m_process;      ///< The currently executing process.
     std::vector<Clock*> m_clocks;       ///< All clocks in the system.
     Clock*              m_activeClocks; ///< The clocks that have active components
 
+    CyclePhase          m_phase;        ///< Current sub-cycle phase of the simulation.
+    int                 m_debugMode;    ///< Bit mask of enabled debugging modes.
+    bool                m_aborted;      ///< Should the run be aborted?
+    bool                m_suspended;    ///< Should the run be suspended?
+
     bool UpdateStorages();
-    
+
 public:
     Kernel(BreakPointManager& breakpoints);
     ~Kernel();
 
+    Kernel(const Kernel&) = delete; // No copy.
+    Kernel& operator=(const Kernel&) = delete; // No assignment.
+
     void ActivateClock(Clock& clock);
-    
+
     /**
      * @brief Creates a clock at the specified frequency (in MHz).
-     */    
+     */
     Simulator::Clock& CreateClock(unsigned long mhz);
-    
+
     /**
      * @brief Returns the master frequency for the simulation, in MHz
      */
     unsigned long long GetMasterFrequency() const { return m_master_freq; }
-    
+
     /**
      * @brief Get the currently executing process
      */
@@ -288,14 +294,14 @@ public:
      * @return the current cycle counter.
      */
     inline CycleNo GetCycleNo() const { return m_cycle; }
-    
+
     /**
      * @brief Get the cycle phase.
      * Gets the current sub-cycle phase of the simulation.
      * @return the current sub-cycle phase.
      */
     inline CyclePhase GetCyclePhase() const { return m_phase; }
-    
+
     /**
      * Sets the debug flags.
      * @param mode the debug flags to set (from enum DebugMode).
@@ -307,7 +313,7 @@ public:
      * @param mode the debug flags to toggle (from enum DebugMode).
      */
     void ToggleDebugMode(int flags);
-    
+
     /**
      * Gets the current debug flags.
      * @return the current debug flags.
@@ -322,7 +328,7 @@ public:
      * @return the state of simulation afterwards.
      */
     RunState Step(CycleNo cycles = 1);
-    
+
     /**
      * @brief Aborts the simulation
      * Stops the current simulation, in Step(). This is best called asynchronously,
@@ -343,7 +349,7 @@ public:
      * Gets the list of all components in the simulation.
      * @return a constant reference to the list of all components.
      */
-	//const ComponentList& GetComponents() const { return m_components; }
+        //const ComponentList& GetComponents() const { return m_components; }
 
     inline BreakPointManager& GetBreakPointManager() const { return m_bp_manager; }
 };
@@ -360,7 +366,7 @@ inline Storage* Clock::ActivateStorage(Storage& storage)
     m_kernel.ActivateClock(*this);
     return next;
 }
-    
+
 inline Arbitrator* Clock::ActivateArbitrator(Arbitrator& arbitrator)
 {
     Arbitrator* next = m_activeArbitrators;
@@ -384,14 +390,14 @@ class Object
     Clock&               m_clock;       ///< Clock that drives this object.
     Kernel&              m_kernel;      ///< The kernel that manages this object.
     std::vector<Object*> m_children;    ///< Children of this object
-    
+
 public:
     /**
      * Constructs a root object.
      * @param name the name of this object.
      */
     Object(const std::string& name, Clock& clock);
-    
+
     /**
      * Constructs a child object, using the same kernel as the parent
      * @param parent the parent object.
@@ -406,6 +412,9 @@ public:
      * @param name the name of this object.
      */
     Object(const std::string& name, Object& parent, Clock& clock);
+
+    Object(const Object&) = delete; // No copy.
+    Object& operator=(const Object&) = delete; // No assignment.
 
     virtual ~Object();
 
@@ -430,7 +439,7 @@ public:
     const std::string& GetName()   const { return m_name; }
     /// Get the current cycle counter of this object's clock
     CycleNo            GetCycleNo() const { return m_clock.GetCycleNo(); }
-    
+
     /**
      * @brief Get the object's Fully Qualified Name.
      * The objectś Fully Qualified Name, or FQN, is the name of the object and
@@ -469,12 +478,16 @@ class Arbitrator
 {
     friend class Kernel;
 
-    bool        m_activated;  ///< Has the arbitrator already been activated this cycle?
+private:
     Arbitrator* m_next;       ///< Next pointer in the list of arbitrators that require arbitration
 
 protected:
     Clock&      m_clock;      ///< The clock that controls this arbitrator
 
+private:
+    bool        m_activated;  ///< Has the arbitrator already been activated this cycle?
+
+protected:
     void RequestArbitration()
     {
         if (!m_activated) {
@@ -487,16 +500,18 @@ public:
     ///< Callback for arbitration
     virtual void OnArbitrate() = 0;
     virtual std::string GetFQN() const = 0;
-   
+
     const Arbitrator* GetNext() const { return m_next; }
 
     Arbitrator(Clock& clock)
-    : m_activated(false), m_next(NULL), m_clock(clock)
+        : m_next(NULL), m_clock(clock), m_activated(false)
     {}
-    
+
+    Arbitrator(const Arbitrator&) = delete; // No copy.
+    Arbitrator& operator=(const Arbitrator&) = delete; // No assignment.
+
     virtual ~Arbitrator() {}
 };
 
 }
 #endif
-

@@ -22,8 +22,8 @@ namespace Inspect
 
     template<unsigned V, unsigned Choose>
         class Parent_ : public Parent_<V, (Choose >> 1)>, public virtual Interface_<V & Choose>
-    { };    
-    
+    { };
+
     class ListCommands
     {
     public:
@@ -42,14 +42,14 @@ namespace Inspect
     public:
         virtual ~Interface() {}
     };
-    
+
     template<>
         class Interface_<None>
     {
     public:
         virtual ~Interface_() {}
     };
-    
+
     template<>
         class Interface_<Info>
     {

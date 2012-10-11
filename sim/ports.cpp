@@ -14,7 +14,7 @@ void SimpleArbitratedPort::AddRequest(const Process& process)
     {
         // A process can request more than once in a cycle if the requester is in a higher frequency
         // domain than the arbitrator.
-        
+
         // But obviously the clocks should differ, or else it's a bug.
         assert(&process.GetObject()->GetClock() != &m_object.GetClock());
         return;
@@ -22,11 +22,11 @@ void SimpleArbitratedPort::AddRequest(const Process& process)
     m_requests.push_back(&process);
 }
 
-ArbitratedPort::ArbitratedPort(const Object& object, const string& name) 
+ArbitratedPort::ArbitratedPort(const Object& object, const string& name)
   : m_selected(NULL),
-    m_busyCycles(0), 
-    m_object(object), 
-    m_name(name) 
+    m_busyCycles(0),
+    m_object(object),
+    m_name(name)
 {
     RegisterSampleVariable(m_busyCycles, object.GetFQN() + '.' + name + ".busyCycles", SVC_CUMULATIVE);
 }
@@ -40,7 +40,7 @@ void PriorityCyclicArbitratedPort::Arbitrate()
         {
             // Optimization for common case
             m_selected = *m_requests.begin();
-            
+
             size_t maybe_cyclic_last = find(m_cyclicprocesses.begin(), m_cyclicprocesses.end(), m_selected) - m_cyclicprocesses.begin();
             if (maybe_cyclic_last < m_cyclicprocesses.size())
                 m_lastSelected = maybe_cyclic_last;
@@ -74,7 +74,7 @@ void PriorityCyclicArbitratedPort::Arbitrate()
                 {
                     size_t pos = find(m_cyclicprocesses.begin(), m_cyclicprocesses.end(), i) - m_cyclicprocesses.begin();
                     assert(pos < m_cyclicprocesses.size());
-                    
+
                     // Find the distance to the last selected
                     pos = (pos + m_cyclicprocesses.size() - m_lastSelected) % m_cyclicprocesses.size();
                     if (pos != 0 && pos < lowest)
@@ -83,7 +83,7 @@ void PriorityCyclicArbitratedPort::Arbitrate()
                         m_selected = i;
                     }
                 }
-                
+
                 // Remember which one we selected
                 m_lastSelected = (m_lastSelected + lowest) % m_cyclicprocesses.size();
 
@@ -132,7 +132,7 @@ void PriorityArbitratedPort::Arbitrate()
 void CyclicArbitratedPort::Arbitrate()
 {
     assert(m_lastSelected <= m_processes.size());
-    
+
     m_selected = NULL;
     if (!m_requests.empty())
     {
@@ -149,7 +149,7 @@ void CyclicArbitratedPort::Arbitrate()
             {
                 size_t pos = find(m_processes.begin(), m_processes.end(), i) - m_processes.begin();
                 assert(pos < m_processes.size());
-        
+
                 // Find the distance to the last selected
                 pos = (pos + m_processes.size() - m_lastSelected) % m_processes.size();
                 if (pos != 0 && pos < lowest)
@@ -158,7 +158,7 @@ void CyclicArbitratedPort::Arbitrate()
                     m_selected = i;
                 }
             }
-        
+
             // Remember which one we selected
             m_lastSelected = (m_lastSelected + lowest) % m_processes.size();
         }
@@ -172,7 +172,8 @@ void CyclicArbitratedPort::Arbitrate()
 // IStructure class
 //
 IStructure::IStructure(const string& name, Object& parent, Clock& clock)
-    : Object(name, parent, clock), Arbitrator(clock)
+    : Object(name, parent, clock), Arbitrator(clock),
+      m_readPorts()
 {
 }
 

@@ -31,13 +31,15 @@ protected:
     bool HasAcquired(const Process& process) const {
         return m_selected == &process;
     }
-    
+
     const Process* GetSelectedProcess() const {
         return m_selected;
     }
 
     ArbitratedPort(const Object& object, const std::string& name);
     virtual ~ArbitratedPort() {}
+    ArbitratedPort(const ArbitratedPort&) = delete;
+    ArbitratedPort& operator=(const ArbitratedPort&) = delete;
 
     const Process* m_selected;
     uint64_t       m_busyCycles;
@@ -60,11 +62,11 @@ protected:
     }
 
     void AddRequest(const Process& process);
-    
-SimpleArbitratedPort(const Object& object, const std::string& name)
-    : ArbitratedPort(object, name)
+
+    SimpleArbitratedPort(const Object& object, const std::string& name)
+        : ArbitratedPort(object, name), m_processes(), m_requests()
     {}
-      
+
     virtual ~SimpleArbitratedPort() {}
 
 protected:
@@ -89,15 +91,15 @@ class CyclicArbitratedPort : public SimpleArbitratedPort
 {
 public:
     void Arbitrate();
-    
+
 protected:
 CyclicArbitratedPort(const Object& object, const std::string& name)
-    : SimpleArbitratedPort(object, name), 
+    : SimpleArbitratedPort(object, name),
         m_lastSelected(0) {}
 
-    
+
     size_t m_lastSelected;
-    
+
 };
 
 class PriorityCyclicArbitratedPort : public CyclicArbitratedPort
@@ -114,12 +116,12 @@ public:
     }
 
 protected:
-PriorityCyclicArbitratedPort(const Object& object, const std::string& name)
-    : CyclicArbitratedPort(object, name)
+    PriorityCyclicArbitratedPort(const Object& object, const std::string& name)
+        : CyclicArbitratedPort(object, name), m_cyclicprocesses()
         {}
 
     bool CanAccess(const Process& process) const {
-        return SimpleArbitratedPort::CanAccess(process) 
+        return SimpleArbitratedPort::CanAccess(process)
             || (std::find(m_cyclicprocesses.begin(), m_cyclicprocesses.end(), &process) != m_cyclicprocesses.end());
     }
 
@@ -141,10 +143,10 @@ private:
 template <typename I>
     class WritePort
 {
+    I       m_index;    ///< Index of the request
     bool    m_valid;    ///< Is there a request?
     bool    m_chosen;   ///< Have we been chosen?
-    I       m_index;    ///< Index of the request
-    
+
 protected:
     void SetIndex(const I& index)
     {
@@ -152,16 +154,17 @@ protected:
         m_valid  = true;
         m_chosen = false;
     }
-    
-WritePort()
-    : m_valid(false), m_chosen(false)
-    {
-    }
+
+    WritePort()
+        : m_index(), m_valid(false), m_chosen(false)
+    { }
+
+    virtual ~WritePort() {}
 
 public:
     bool     IsChosen() const { return m_chosen; }
     const I* GetIndex() const { return (m_valid) ? &m_index : NULL; }
-    
+
     void Notify(bool chosen) {
         m_chosen = chosen;
         m_valid  = false;
@@ -187,7 +190,7 @@ public:
     {
         Arbitrator::RequestArbitration();
     }
-    
+
     /**
      * @brief Constructs the structure
      * @param parent parent object.
@@ -212,7 +215,7 @@ template <typename I>
     {
         typedef std::vector<WritePort<I>*> WritePortMap;
         typedef std::map<I,WritePortMap>   RequestPortMap;
-        
+
         // Tell each port to arbitrate
         ArbitrateReadPorts();
         for (auto i : m_arbitratedWritePorts)
@@ -259,8 +262,13 @@ template <typename I>
     PriorityMap             m_priorities;
 
 public:
-Structure(const std::string& name, Object& parent, Clock& clock) 
-    : Object(name, parent, clock), IStructure(name, parent, clock) {}
+    Structure(const std::string& name, Object& parent, Clock& clock)
+        : Object(name, parent, clock),
+          IStructure(name, parent, clock),
+          m_writePorts(),
+          m_arbitratedWritePorts(),
+          m_priorities()
+        {}
 
     void AddPort(WritePort<I>& port)
     {
@@ -285,7 +293,7 @@ ArbitratedReadPort(IStructure& structure, const std::string& name)
     {
         m_structure.RegisterReadPort(*this);
     }
-    
+
     ~ArbitratedReadPort() {
         m_structure.UnregisterReadPort(*this);
     }
@@ -314,7 +322,7 @@ template <typename I>
     class ArbitratedWritePort : public PriorityArbitratedPort, public WritePort<I>
 {
     typedef std::map<const Process*, I> IndexMap;
-   
+
     Structure<I>& m_structure;
     IndexMap      m_indices;
 
@@ -323,7 +331,7 @@ template <typename I>
         PriorityArbitratedPort::AddRequest(process);
         m_indices[&process] = index;
     }
-    
+
 public:
     void Arbitrate()
     {
@@ -339,12 +347,14 @@ public:
         }
     }
 
-ArbitratedWritePort(Structure<I>& structure, const std::string& name)
-    : PriorityArbitratedPort(structure, name), m_structure(structure)
+    ArbitratedWritePort(Structure<I>& structure, const std::string& name)
+      : PriorityArbitratedPort(structure, name),
+        m_structure(structure),
+        m_indices()
     {
         m_structure.RegisterArbitratedWritePort(*this);
     }
-    
+
     ~ArbitratedWritePort() {
         m_structure.UnregisterArbitratedWritePort(*this);
     }
@@ -372,7 +382,9 @@ ArbitratedWritePort(Structure<I>& structure, const std::string& name)
 class DedicatedPort
 {
 public:
-DedicatedPort(const Object& /*unused for now*/, const std::string& /* unused for now */) {}
+    DedicatedPort(const Object& , const std::string& ) : m_process(0) {}
+    DedicatedPort(const DedicatedPort&) = delete;
+    DedicatedPort& operator=(const DedicatedPort&) = delete;
     virtual ~DedicatedPort() {}
 
     void SetProcess(const Process& process) {
@@ -394,9 +406,9 @@ class DedicatedReadPort : public DedicatedPort
 {
     IStructure& m_structure;
 public:
-DedicatedReadPort(IStructure& structure, const std::string& name)
-    : DedicatedPort(structure, name), m_structure(structure) {}
-        
+    DedicatedReadPort(IStructure& structure, const std::string& name)
+        : DedicatedPort(structure, name), m_structure(structure) {}
+
     bool Read() {
         // Dedicated Read ports always succeed -- they don't require arbitration
         assert(CanAccess( *m_structure.GetKernel()->GetActiveProcess() ));
@@ -412,12 +424,12 @@ template <typename I>
 {
     Structure<I>& m_structure;
 public:
-DedicatedWritePort(Structure<I>& structure, const std::string& name)
-    : DedicatedPort(structure, name), m_structure(structure)
+    DedicatedWritePort(Structure<I>& structure, const std::string& name)
+        : DedicatedPort(structure, name), m_structure(structure)
     {
         m_structure.RegisterWritePort(*this);
     }
-    
+
     ~DedicatedWritePort() {
         m_structure.UnregisterWritePort(*this);
     }
@@ -448,7 +460,7 @@ template <typename Base = class PriorityArbitratedPort>
     {
         this->Arbitrate();
     }
-    
+
 public:
     bool Invoke()
     {
@@ -463,12 +475,12 @@ public:
         }
         return true;
     }
-    
+
 ArbitratedService(const Object& object, Clock& clock, const std::string& name)
     : Base(object, name), Arbitrator(clock)
     {
     }
-    
+
     ~ArbitratedService() {
     }
 
@@ -479,4 +491,3 @@ ArbitratedService(const Object& object, Clock& clock, const std::string& name)
 
 }
 #endif
-

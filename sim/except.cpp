@@ -13,15 +13,15 @@ static string MakeMessage(const Object& object, const string& msg)
 }
 
 SimulationException::SimulationException(const string& msg, const Object& object)
-    : runtime_error(MakeMessage(object, msg))
+    : runtime_error(MakeMessage(object, msg)), m_details()
 {
-    
+
 }
 
 SimulationException::SimulationException(const Object& object, const string& msg)
-    : runtime_error(MakeMessage(object, msg))
+    : runtime_error(MakeMessage(object, msg)), m_details()
 {
-    
+
 }
 
 void PrintException(ostream& out, const exception& e)

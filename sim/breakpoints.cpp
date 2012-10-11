@@ -25,7 +25,7 @@ void BreakPointManager::EnableBreakPoint(unsigned id)
 {
     bool found = false;
     for (auto& i : m_breakpoints)
-        if (i.second.id == id) 
+        if (i.second.id == id)
         {
             found = true;
             i.second.enabled = true;
@@ -36,7 +36,7 @@ void BreakPointManager::EnableBreakPoint(unsigned id)
     else
     {
         cerr << "invalid breakpoint" << endl;
-        return; 
+        return;
     }
 }
 
@@ -44,7 +44,7 @@ void BreakPointManager::ListBreakPoints(std::ostream& out) const
 {
     if (m_breakpoints.empty())
         out << "no breakpoints defined." << endl;
-    else 
+    else
     {
         out << "Id   | Address            | Symbol               | Mode  | Status    " << endl
             << "-----+--------------------+----------------------+-------+-----------" << endl
@@ -62,9 +62,9 @@ void BreakPointManager::ListBreakPoints(std::ostream& out) const
                 mode += 'W';
             if (i.second.type & TRACEONLY)
                 mode += 'T';
-            
+
             out << setw(4) << dec << i.second.id << " | "
-                << setw(18) << hex << showbase << i.first << " | " 
+                << setw(18) << hex << showbase << i.first << " | "
                 << setw(20) << GetSymbolTable()[i.first] << " | "
                 << setw(5) << mode << " | "
                 << setw(9) << (i.second.enabled ? "enabled" : "disabled")
@@ -113,7 +113,7 @@ void BreakPointManager::ReportBreaks(std::ostream& out) const
             continue;
 
         out << setw(4) << dec << b->second.id << " | "
-            << setw(18) << hex << showbase << i.addr << " | " 
+            << setw(18) << hex << showbase << i.addr << " | "
             << setw(20) << GetSymbolTable()[i.addr] << " | "
             << setw(4) << GetModeName(i.type) << " | "
             << i.obj->GetFQN()
@@ -132,7 +132,7 @@ void BreakPointManager::DisableBreakPoint(unsigned id)
     bool found = false;
 
     for (auto& i : m_breakpoints)
-        if (i.second.id == id) 
+        if (i.second.id == id)
         {
             found = true;
             i.second.enabled = false;
@@ -142,7 +142,7 @@ void BreakPointManager::DisableBreakPoint(unsigned id)
     if (!found)
     {
         cerr << "invalid breakpoint" << endl;
-        return; 
+        return;
     }
 
     CheckEnabled();
@@ -153,7 +153,7 @@ void BreakPointManager::DeleteBreakPoint(unsigned id)
     bool found = false;
 
     for (auto i = m_breakpoints.begin(); i != m_breakpoints.end(); ++i)
-        if (i->second.id == id) 
+        if (i->second.id == id)
         {
             found = true;
             m_breakpoints.erase(i);
@@ -163,7 +163,7 @@ void BreakPointManager::DeleteBreakPoint(unsigned id)
     if (!found)
     {
         cerr << "invalid breakpoint" << endl;
-        return; 
+        return;
     }
 
     CheckEnabled();
@@ -204,15 +204,15 @@ void BreakPointManager::AddBreakPoint(const std::string& sym, int offset, int ty
 void BreakPointManager::CheckMore(int type, MemAddr addr, Object& obj)
 {
     auto i = m_breakpoints.find(addr);
-    if (i != m_breakpoints.end() && i->second.enabled && (i->second.type & type) != 0) 
+    if (i != m_breakpoints.end() && i->second.enabled && (i->second.type & type) != 0)
     {
         if (i->second.type & TRACEONLY)
         {
             if (m_kernel.GetCyclePhase() == PHASE_COMMIT)
             {
-                obj.DebugSimWrite_("Trace point %d reached: 0x%.*llx (%s, %s)", 
-                                   i->second.id, (int)sizeof(addr)*2, (unsigned long long)addr, 
-                                   GetSymbolTable()[addr].c_str(), 
+                obj.DebugSimWrite_("Trace point %d reached: 0x%.*llx (%s, %s)",
+                                   i->second.id, (int)sizeof(addr)*2, (unsigned long long)addr,
+                                   GetSymbolTable()[addr].c_str(),
                                    GetModeName(i->second.type & type).c_str());
             }
         }

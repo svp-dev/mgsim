@@ -24,9 +24,9 @@ class SimulationException : public std::runtime_error
     std::list<std::string> m_details;
 public:
     const std::list<std::string>& GetDetails() const { return m_details; }
-    
+
     void AddDetails(const std::string& msg) { m_details.push_back(msg); }
-    SimulationException(const std::string& msg) : std::runtime_error(msg) {}
+    SimulationException(const std::string& msg) : std::runtime_error(msg), m_details() {}
     SimulationException(const std::string& msg, const Object& object);
     SimulationException(const Object& object, const std::string& msg);
     virtual ~SimulationException() throw() {}

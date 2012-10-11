@@ -45,7 +45,12 @@ void Process::Deactivate()
 std::set<const Process*> Process::m_registry;
 
 Process::Process(Object& parent, const string& name, const delegate& delegate)
-    : m_name(name), m_delegate(delegate), m_state(STATE_IDLE), m_activations(0), m_stalls(0)
+    : m_name(name), m_delegate(delegate), m_state(STATE_IDLE), m_activations(0),
+      m_next(0), m_pPrev(0),
+#if !defined(NDEBUG) && !defined(DISABLE_TRACE_CHECKS)
+      m_storages(), m_currentStorages(),
+#endif
+      m_stalls(0)
 {
     m_registry.insert(this);
     RegisterSampleVariable(m_stalls, parent.GetFQN() + ':' + name + ":stalls", SVC_CUMULATIVE);
@@ -61,27 +66,21 @@ Process::~Process()
 // Object class
 //
 Object::Object(const std::string& name, Clock& clock)
-    : m_parent(NULL), m_name(name), m_fqn(name), m_clock(clock), m_kernel(clock.GetKernel())
+    : m_parent(NULL), m_name(name), m_fqn(name), m_clock(clock), m_kernel(clock.GetKernel()), m_children()
 {
 }
 
 Object::Object(const std::string& name, Object& parent)
-    : m_parent(&parent), 
-      m_name(name), 
-      m_fqn(parent.GetFQN().empty() ? name : (parent.GetFQN() + '.' + name)),
-      m_clock(parent.m_clock), 
-      m_kernel(m_clock.GetKernel())
-{
-    // Add ourself to the parent's children array
-    parent.m_children.push_back(this);
-}
+    : Object(name, parent, parent.m_clock)
+{ }
 
 Object::Object(const std::string& name, Object& parent, Clock& clock)
-    : m_parent(&parent), 
-      m_name(name), 
+    : m_parent(&parent),
+      m_name(name),
       m_fqn(parent.GetFQN().empty() ? name : (parent.GetFQN() + '.' + name)),
-      m_clock(clock), 
-      m_kernel(clock.GetKernel())
+      m_clock(clock),
+      m_kernel(clock.GetKernel()),
+      m_children()
 {
     // Add ourself to the parent's children array
     parent.m_children.push_back(this);
@@ -166,6 +165,7 @@ static unsigned long long gcd(unsigned long long a, unsigned long long b)
 }
 
 // Returns the Lowest Common Multiple of a and b.
+static inline
 unsigned long long lcm(unsigned long long a, unsigned long long b)
 {
     return (a * b / gcd(a,b));
@@ -187,10 +187,10 @@ Clock& Kernel::CreateClock(unsigned long frequency)
      cycle time (e.g., a 300 MHz and 400 MHz clock would create a master
      clock of 1200 MHz, where the 300 MHz clock ticks once every 4 cycles
      and the 400 MHz clock ticks once every 3 cycles).
-    
+
      This is simply equalizing fractions. e.g., 1/300 and 1/400 becomes
      4/1200 and 3/1200.
-    
+
      Also, see if we already have this clock.
     */
     unsigned long long master_freq = 1;
@@ -201,12 +201,12 @@ Clock& Kernel::CreateClock(unsigned long frequency)
             // We already have this clock, no need to calculate anything.
             return *c;
         }
-        
-        // Find Least Common Multiplier of master_freq and this clock's frequency.        
+
+        // Find Least Common Multiplier of master_freq and this clock's frequency.
         master_freq = lcm(master_freq, c->m_frequency);
     }
     master_freq = lcm(master_freq, frequency);
-    
+
     if (m_master_freq != master_freq)
     {
         // The master frequency changed, update the clock periods
@@ -218,7 +218,7 @@ Clock& Kernel::CreateClock(unsigned long frequency)
         }
     }
     assert(m_master_freq % frequency == 0);
-    
+
     m_clocks.push_back(new Clock(*this, frequency, m_master_freq / frequency));
     return *m_clocks.back();
 }
@@ -229,7 +229,7 @@ RunState Kernel::Step(CycleNo cycles)
     {
         // Time to simulate until
         const CycleNo endcycle = (cycles == INFINITE_CYCLES) ? cycles : m_cycle + cycles;
-        
+
         if (m_cycle == 0)
         {
             // Update any changed storages.
@@ -237,14 +237,14 @@ RunState Kernel::Step(CycleNo cycles)
             // in order to activate the initial processes.
             UpdateStorages();
         }
-        
+
         // Advance time to the first clock to run.
         if (m_activeClocks != NULL)
         {
             assert(m_activeClocks->m_cycle >= m_cycle);
             m_cycle = m_activeClocks->m_cycle;
         }
-        
+
         m_aborted = m_suspended = false;
         bool idle = false;
         while (!m_aborted && (!m_suspended || (m_lastsuspend == m_cycle)) && !idle && (endcycle == INFINITE_CYCLES || m_cycle < endcycle))
@@ -261,11 +261,11 @@ RunState Kernel::Step(CycleNo cycles)
                 for (Process* process = clock->m_activeProcesses; process != NULL; process = process->m_next)
                 {
                     m_process   = process;
-                    
+
                     // This process begins the cycle
                     // This is a purely administrative function and has no simulation effect.
                     process->OnBeginCycle();
-                            
+
                     // If we fail in the acquire stage, don't bother with the check and commit stages
                     Result result = process->m_delegate();
                     if (result == SUCCESS)
@@ -280,7 +280,7 @@ RunState Kernel::Step(CycleNo cycles)
                     }
                 }
             }
-            
+
             //
             // Arbitrate phase
             //
@@ -293,7 +293,7 @@ RunState Kernel::Step(CycleNo cycles)
                 }
                 clock->m_activeArbitrators = NULL;
             }
-            
+
             //
             // Commit phase
             //
@@ -305,7 +305,7 @@ RunState Kernel::Step(CycleNo cycles)
                     {
                         m_process   = process;
                         m_phase     = PHASE_CHECK;
-                
+
                         Result result = process->m_delegate();
                         if (result == SUCCESS)
                         {
@@ -314,14 +314,14 @@ RunState Kernel::Step(CycleNo cycles)
                             // We call this before the COMMIT phase, so that if this produces an error,
                             // we can still inspect the state that caused it.
                             process->OnEndCycle();
-                            
+
                             m_phase = PHASE_COMMIT;
                             result = process->m_delegate();
-                            
+
                             // If the CHECK succeeded, the COMMIT cannot fail
                             assert(result == SUCCESS);
                             process->m_state = STATE_RUNNING;
-                    
+
                             // We've done something -- we're not idle
                             idle = false;
                         }
@@ -344,7 +344,7 @@ RunState Kernel::Step(CycleNo cycles)
                 // We've update at least one storage
                 idle = false;
             }
-                
+
             if (idle)
             {
                 // We haven't done anything this cycle. Check if there are clocks scheduled
@@ -358,14 +358,14 @@ RunState Kernel::Step(CycleNo cycles)
                     }
                 }
             }
-            
+
             if (Display::GetDisplay())
                 Display::GetDisplay()->OnCycle(m_cycle);
 
             if (!idle)
             {
                 // Advance the simulation
-                
+
                 // Update the clocks
                 for (Clock *next, *clock = m_activeClocks; clock != NULL && m_cycle == clock->m_cycle; clock = next)
                 {
@@ -383,7 +383,7 @@ RunState Kernel::Step(CycleNo cycles)
                         ActivateClock(*clock);
                     }
                 }
-                
+
                 // Advance time to first clock to run
                 if (m_activeClocks != NULL)
                 {
@@ -392,13 +392,13 @@ RunState Kernel::Step(CycleNo cycles)
                 }
             }
         }
-        
+
         // In case we overshot the end with the last update
         m_cycle = std::min(m_cycle, endcycle);
-        
+
         if (m_suspended)
         {
-            // prevent aborting on the same cycle twice 
+            // prevent aborting on the same cycle twice
             // (ie allow try to resume)
             m_lastsuspend = m_cycle;
             return STATE_ABORTED;
@@ -422,7 +422,7 @@ void Kernel::ActivateClock(Clock& clock)
     {
         // Calculate new activation time for clock
         clock.m_cycle = (m_cycle / clock.m_period) * clock.m_period + clock.m_period;
-                            
+
         // Insert clock into list based on activation time (earliest in front)
         Clock **before = &m_activeClocks, *after = m_activeClocks;
         while (after != NULL && after->m_cycle < clock.m_cycle)
@@ -450,7 +450,7 @@ bool Kernel::UpdateStorages()
         clock->m_activeStorages = NULL;
     }
     return updated;
-}        
+}
 
 void Clock::ActivateProcess(Process& process)
 {
@@ -481,13 +481,16 @@ void Kernel::ToggleDebugMode(int flags)
 
 Kernel::Kernel(BreakPointManager& breakpoints)
  : m_lastsuspend((CycleNo)-1),
-   m_debugMode(0),
    m_cycle(0),
    m_bp_manager(breakpoints),
-   m_phase(PHASE_COMMIT),
    m_master_freq(0),
    m_process(NULL),
-   m_activeClocks(NULL)
+   m_clocks(),
+   m_activeClocks(NULL),
+   m_phase(PHASE_COMMIT),
+   m_debugMode(0),
+   m_aborted(false),
+   m_suspended(false)
 {
     RegisterSampleVariable(m_cycle, "kernel.cycle", SVC_CUMULATIVE);
     RegisterSampleVariable(m_phase, "kernel.phase", SVC_STATE);
