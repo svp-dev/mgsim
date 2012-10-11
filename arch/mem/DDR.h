@@ -66,7 +66,7 @@ Bandwidth of DDR memory is identified by the number behind it. For instance,
 DDR3-800 means the data rate is 800 MHz (thus, the I/O bus frequency is 400
 MHz and the memory clock 100 MHz). Together with a 64-bit wide databus and
 2 transfers/cycle, DDR3-800 can support up to 6.4 GB/s.
-*/   
+*/
 #include <sim/kernel.h>
 #include <sim/inspect.h>
 #include <arch/Memory.h>
@@ -89,7 +89,7 @@ public:
         virtual bool OnReadCompleted() = 0;
         virtual ~ICallback() {}
     };
-    
+
 private:
     typedef std::set<MemAddr> TraceMap;
 
@@ -106,7 +106,7 @@ private:
     class DDRConfig : public Object {
     public:
         unsigned int m_nBurstLength;    ///< Size of a single burst
-        
+
         // Timing configuration
         unsigned int m_tRCD;    ///< RAS to CAS Delay (row open)
         unsigned int m_tRP;     ///< Row Precharge Delay (row close)
@@ -115,7 +115,7 @@ private:
         unsigned int m_tCCD;    ///< CAS to CAS Delay (time between read commands)
         unsigned int m_tCWL;    ///< CAS Write Latency (time for a write command)
         unsigned int m_tRAS;    ///< Row Active Time (min time after row open before row close)
-        
+
         // Address configuration
         unsigned int m_nDevicesPerRank; ///< Number of devices per rank
         unsigned int m_nBankBits;       ///< Log number of banks in a device
@@ -129,7 +129,7 @@ private:
         unsigned int m_nRowStart;       ///< Start position of the row bits
 
         unsigned int m_nBurstSize;
-        
+
         DDRConfig(const std::string& name, Object& parent, Clock& clock, Config&);
     };
 
@@ -144,23 +144,25 @@ private:
     CycleNo                    m_next_command;   ///< Minimum time for next command
     CycleNo                    m_next_precharge; ///< Minimum time for next Row Precharge
     TraceMap                   m_traces;         ///< Active traces
-    
+
     // Processes
     Process p_Request;
     Process p_Pipeline;
-    
+
     // Statistics
     CycleNo m_busyCycles;
-    
+
     Result DoRequest();
     Result DoPipeline();
-    
+
 public:
     void SetClient(ICallback& cb, StorageTraceSet& sts, const StorageTraceSet& storages);
     bool Read(MemAddr address, MemSize size);
     bool Write(MemAddr address, MemSize size);
-    
+
     DDRChannel(const std::string& name, Object& parent, Clock& clock, Config& config);
+    DDRChannel(const DDRChannel&) = delete;
+    DDRChannel& operator=(const DDRChannel&) = delete;
     ~DDRChannel();
 };
 

@@ -44,7 +44,7 @@ class BankedMemory : public Object, public IMemory, public VirtualMemory
         nwrite_bytes = m_nwrite_bytes;
         nreads_ext = m_nreads;
         nwrites_ext = m_nwrites;
-    }	
+    }
 
 protected:
     ComponentModelRegistry& m_registry;
@@ -55,7 +55,6 @@ protected:
     CycleNo                 m_baseRequestTime;
     CycleNo                 m_timePerLine;
     size_t                  m_lineSize;
-    BufferSize              m_bufferSize;
     IBankSelector*          m_selector;
 
     uint64_t m_nreads;
@@ -65,8 +64,10 @@ protected:
 
 public:
     BankedMemory(const std::string& name, Object& parent, Clock& clock, Config& config, const std::string& defaultBankSelectorType);
+    BankedMemory(const BankedMemory&) = delete;
+    BankedMemory& operator=(const BankedMemory&) = delete;
     ~BankedMemory();
-    
+
     // Debugging
     void Cmd_Info(std::ostream& out, const std::vector<std::string>& arguments) const;
     void Cmd_Read(std::ostream& out, const std::vector<std::string>& arguments) const;

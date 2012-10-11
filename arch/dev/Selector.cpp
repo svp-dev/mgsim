@@ -21,7 +21,7 @@ namespace Simulator
 
         static
         map<int, ev::io*>  handlers;
-        
+
         static
         bool current_result = true;
 
@@ -33,7 +33,7 @@ namespace Simulator
         {
             // cerr << "I/O ready on fd " << fd << ", mode " << mode << endl;
             ISelectorClient* client = (ISelectorClient*)io.data;
-            
+
             int st = 0;
             if (revents & ev::READ) st |= Selector::READABLE;
             if (revents & ev::WRITE) st |= Selector::WRITABLE;
@@ -97,11 +97,11 @@ namespace Simulator
         ev::io * &ev = Event::handlers[fd];
 
         assert(Event::evbase != NULL);
-        
+
         ev = new ev::io(Event::evbase);
         ev->set<Event::selector_delegate_callback>(&callback);
         ev->start(fd, EV_READ|EV_WRITE);
-        
+
         if (!m_doCheckStreams.IsSet())
             m_doCheckStreams.Set();
         return true;
@@ -139,10 +139,10 @@ namespace Simulator
             Event::current_result = true;
             return FAILED;
         }
-        
+
         // cerr << GetClock().GetCycleNo() << ": Checking for I/O stream availability" << endl;
 
-        COMMIT { 
+        COMMIT {
             // in principle we should be able to run event_base_loop once per
             // kernel phase, and only actually do the I/O on the commit phase.
             // Unfortunately, libev/kqueue only reports writability once
@@ -150,7 +150,7 @@ namespace Simulator
             // the loop too often.
             Event::current_result = true;
             Event::handler_count = 0;
-            ev_loop(Event::evbase, EVLOOP_NONBLOCK); 
+            ev_loop(Event::evbase, EVLOOP_NONBLOCK);
 
             if (Event::handler_count == 0)
             {
@@ -160,14 +160,14 @@ namespace Simulator
 
         return SUCCESS;
     }
-    
+
     Selector* Selector::m_singleton = NULL;
 
     Selector::Selector(const std::string& name, Object& parent, Clock& clock, Config& /*config*/)
         : Object(name, parent, clock),
           m_doCheckStreams("f_checking", *this, clock, false),
           p_checkStreams(*this, "check-streams", delegate::create<Selector, &Selector::DoCheckStreams>(*this))
-    { 
+    {
         if (m_singleton != NULL)
         {
             throw InvalidArgumentException(*this, "More than one selector defined, previous at " + m_singleton->GetFQN());

@@ -13,15 +13,15 @@ MCID SerialMemory::RegisterClient(IMemoryCallback& callback, Process& process, S
 {
     assert(std::find(m_clients.begin(), m_clients.end(), &callback) == m_clients.end());
     m_clients.push_back(&callback);
-    
+
     p_requests.AddProcess(process);
     traces = m_requests;
-    
+
     m_storages = m_storages ^ storage;
     p_Requests.SetStorageTraces(m_storages);
-    
+
     m_registry.registerRelation(callback.GetMemoryPeer(), *this, "mem");
-    
+
     return m_clients.size() - 1;
 }
 
@@ -34,7 +34,7 @@ void SerialMemory::UnregisterClient(MCID id)
 bool SerialMemory::Read(MCID id, MemAddr address)
 {
     assert(address % m_lineSize == 0);
-    
+
     if (!p_requests.Invoke())
     {
         return false;
@@ -42,7 +42,7 @@ bool SerialMemory::Read(MCID id, MemAddr address)
 
     // Client should have registered
     assert(id < m_clients.size() && m_clients[id] != NULL);
-    
+
     Request request;
     request.callback  = m_clients[id];
     request.address   = address;
@@ -52,7 +52,7 @@ bool SerialMemory::Read(MCID id, MemAddr address)
     {
         return false;
     }
-    
+
     return true;
 }
 
@@ -67,7 +67,7 @@ bool SerialMemory::Write(MCID id, MemAddr address, const MemData& data, WClientI
 
     // Client should have registered
     assert(id < m_clients.size() && m_clients[id] != NULL);
-    
+
     Request request;
     request.callback  = m_clients[id];
     request.address   = address;
@@ -101,7 +101,7 @@ Result SerialMemory::DoRequests()
 
     const Request& request = m_requests.Front();
     const CycleNo  now     = GetCycleNo();
-        
+
     if (m_nextdone > 0)
     {
         // There is already a request active
@@ -154,22 +154,24 @@ Result SerialMemory::DoRequests()
 SerialMemory::SerialMemory(const std::string& name, Object& parent, Clock& clock, Config& config) :
     Object(name, parent, clock),
     m_registry       (config),
+    m_clients        (),
     m_requests       ("b_requests", *this, clock, config.getValue<BufferSize>(*this, "BufferSize")),
     p_requests       (*this, clock, "m_requests"),
     m_baseRequestTime(config.getValue<CycleNo>   (*this, "BaseRequestTime")),
     m_timePerLine    (config.getValue<CycleNo>   (*this, "TimePerLine")),
     m_lineSize       (config.getValue<CycleNo>   ("CacheLineSize")),
     m_nextdone(0),
+    m_storages(),
     m_nreads(0),
     m_nread_bytes(0),
     m_nwrites(0),
     m_nwrite_bytes(0),
-    
+
     p_Requests(*this, "requests", delegate::create<SerialMemory, &SerialMemory::DoRequests>(*this) )
 {
     m_requests.Sensitive( p_Requests );
     config.registerObject(*this, "sermem");
-    
+
     m_storages = StorageTraceSet(StorageTrace());   // Request handler is waiting for completion
     p_Requests.SetStorageTraces(m_storages);
 
@@ -204,13 +206,13 @@ void SerialMemory::Cmd_Read(ostream& out, const vector<string>& arguments) const
     {
         return VirtualMemory::Cmd_Read(out, arguments);
     }
-    
+
     out << "      Address       | Type  | Source               | Value(writes)" << endl;
     out << "--------------------+-------+----------------------+----------------" << endl;
 
     for (Buffer<Request>::const_iterator p = m_requests.begin(); p != m_requests.end(); ++p)
     {
-        out << hex << setfill('0') << right 
+        out << hex << setfill('0') << right
             << " 0x" << setw(16) << p->address << " | ";
 
         if (p->write) {

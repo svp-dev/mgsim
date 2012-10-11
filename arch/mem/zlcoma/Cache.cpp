@@ -26,7 +26,7 @@ MCID ZLCOMA::Cache::RegisterClient(IMemoryCallback& callback, Process& process, 
 
     p_bus.AddCyclicProcess(process);
     traces = m_requests;
-    
+
     m_storages *= opt(storage);
     p_Requests.SetStorageTraces(opt(m_storages ^ GetOutgoingTrace()));
     p_In.SetStorageTraces(opt(m_storages ^ GetOutgoingTrace()));
@@ -194,7 +194,7 @@ ZLCOMA::Cache::Line* ZLCOMA::Cache::GetReplacementLine(MemAddr address, MemAddr&
     for (unsigned int i = 0; i < m_assoc; i++)
     {
         Line& line = m_lines[set + i];
-        
+
         // Return the first found empty one
         if (!line.valid)
             return &line;
@@ -214,7 +214,7 @@ ZLCOMA::Cache::Line* ZLCOMA::Cache::GetReplacementLine(MemAddr address, MemAddr&
             }
         }
     }
-    
+
     // Prefer to to evict non-dirty lines since they don't require writeback to off-chip memory.
     return (linelrue != NULL) ? linelrue : linelruw;
 }
@@ -230,7 +230,7 @@ Result ZLCOMA::Cache::OnMessageReceived(Message* msg)
         }
 		return SUCCESS;
     }
-    
+
     switch (msg->type)
     {
     case Message::ACQUIRE_TOKENS:
@@ -249,7 +249,7 @@ Result ZLCOMA::Cache::OnMessageReceived(Message* msg)
     case Message::LOCALDIR_NOTIFICATION:
         // Request is meant for directory, we shouldn't receive it again
         assert(msg->source != m_id);
-    
+
         // Just pass it on
         if (!SendMessage(msg, MINSPACE_FORWARD))
         {
@@ -275,7 +275,7 @@ bool ZLCOMA::Cache::ClearLine(Line* line)
 
     size_t  set     = (line - &m_lines[0]) / m_assoc;
     MemAddr address = m_selector.Unmap(line->tag, set) * m_lineSize;
-    
+
     for (std::vector<IMemoryCallback*>::const_iterator p = m_clients.begin(); p != m_clients.end(); ++p)
     {
         if (*p != NULL && !(*p)->OnMemoryInvalidated(address))
@@ -284,9 +284,9 @@ bool ZLCOMA::Cache::ClearLine(Line* line)
             return false;
         }
     }
-    
+
     COMMIT{ line->valid = false; }
-    
+
     return true;
 }
 
@@ -294,10 +294,10 @@ bool ZLCOMA::Cache::ClearLine(Line* line)
 bool ZLCOMA::Cache::EvictLine(Line* line, const Request& req)
 {
     assert(line->valid);
-    
+
     size_t  set     = (line - &m_lines[0]) / m_assoc;
     MemAddr address = m_selector.Unmap(line->tag, set) * m_lineSize;
-     
+
     Message* msg = new Message();
     COMMIT
     {
@@ -305,16 +305,16 @@ bool ZLCOMA::Cache::EvictLine(Line* line, const Request& req)
         msg->type      = Message::EVICTION;
         msg->address   = address;
         msg->ignore    = false;
-        msg->source    = m_id;    
+        msg->source    = m_id;
         msg->priority  = line->priority;
         msg->dirty     = line->dirty;
         msg->tokens    = line->tokens;
         std::copy(line->data,    line->data    + m_lineSize, msg->data);
         std::copy(line->bitmask, line->bitmask + m_lineSize, msg->bitmask);
     }
-    
+
     TraceWrite(address, "Evicting with %u tokens due to miss for 0x%llx", line->tokens, (unsigned long long)req.address);
-    
+
     if (!SendMessage(msg, MINSPACE_FORWARD))
     {
         return false;
@@ -354,7 +354,7 @@ Result ZLCOMA::Cache::OnReadRequest(const Request& req)
         if (line->valid)
         {
             // Line is already in use; evict it
-            TraceWrite(req.address, "Processing Bus Read Request: Miss; Evicting line with tag %#016llx", 
+            TraceWrite(req.address, "Processing Bus Read Request: Miss; Evicting line with tag %#016llx",
                        (unsigned long long)line->tag);
 
             if (!EvictLine(line, req))
@@ -363,7 +363,7 @@ Result ZLCOMA::Cache::OnReadRequest(const Request& req)
                 DeadlockWrite("Unable to evict line for bus read request");
                 return FAILED;
             }
-            
+
             COMMIT { ++m_numConflicts; ++m_numResolved; }
             return DELAYED;
         }
@@ -391,19 +391,19 @@ Result ZLCOMA::Cache::OnReadRequest(const Request& req)
         // Note that this can happen before a read or write request has
         // returned: local or remote writes can fill up the cache-line.
         TraceWrite(req.address, "Processing Bus Read Request: Full Hit");
-    
+
         // Return the data
         char data[m_lineSize];
         COMMIT
         {
             std::copy(line->data, line->data + m_lineSize, data);
-            
+
             // Update LRU time of the line
             line->time = GetCycleNo();
-            
+
             m_numHits++;
         }
-    
+
         if (!OnReadCompleted(req.address, data))
         {
             return FAILED;
@@ -416,7 +416,7 @@ Result ZLCOMA::Cache::OnReadRequest(const Request& req)
         // cache will be notified, including the sender of this request. Thus, we can simply
         // drop this request.
         TraceWrite(req.address, "Processing Bus Read Request: Read Loading Hit");
-        
+
         // Counts as a miss because we have to wait
         COMMIT{ m_numMisses++; }
         return SUCCESS;
@@ -424,7 +424,7 @@ Result ZLCOMA::Cache::OnReadRequest(const Request& req)
     else
     {
         TraceWrite(req.address, "Processing Bus Read Request: Miss; Sending Read Request");
-        
+
     }
 
     // Send request for a copy of the cache-line
@@ -440,13 +440,13 @@ Result ZLCOMA::Cache::OnReadRequest(const Request& req)
         msg->priority  = false;
         msg->transient = false;
         std::fill(msg->bitmask, msg->bitmask + m_lineSize, false);
-        
+
         line->pending_read = true;
 
         // Counts as a miss because we have to wait
         m_numMisses++;
     }
-        
+
     if (!SendMessage(msg, MINSPACE_INSERTION))
     {
         return FAILED;
@@ -462,7 +462,7 @@ Result ZLCOMA::Cache::OnWriteRequest(const Request& req)
         DeadlockWrite("Unable to acquire lines");
         return FAILED;
     }
-    
+
     bool newline = false;
 
     Line* line = FindLine(req.address);
@@ -492,7 +492,7 @@ Result ZLCOMA::Cache::OnWriteRequest(const Request& req)
             COMMIT { ++m_numConflicts; ++m_numResolved; }
             return DELAYED;
         }
-        
+
         // Reset the line
         COMMIT
         {
@@ -506,10 +506,10 @@ Result ZLCOMA::Cache::OnWriteRequest(const Request& req)
             line->pending_write = false;
             std::fill(line->bitmask, line->bitmask + m_lineSize, false);
         }
-        
+
         newline = true;
     }
-    
+
     // Update line; write data
     COMMIT
     {
@@ -519,26 +519,26 @@ Result ZLCOMA::Cache::OnWriteRequest(const Request& req)
         line::blit(line->data, req.data, req.mask, m_lineSize);
         line::setif(line->bitmask, true, req.mask, m_lineSize);
     }
-    
+
     if (!newline && !line->transient && line->tokens == m_parent.GetTotalTokens())
     {
         assert(line->priority);
-            
+
         // This line has all the tokens.
         // We can acknowledge directly after writing.
         TraceWrite(req.address, "Processing Bus Write Request: Exclusive Hit");
-        
+
         if (!m_clients[req.client]->OnMemoryWriteCompleted(req.wid))
         {
             return FAILED;
         }
-            
+
         return SUCCESS;
     }
 
     // Save acknowledgement. When we get all tokens later, these will get acknowledged.
     COMMIT{ line->ack_queue.push_back(WriteAck(req.client, req.wid)); }
-    
+
     if (line->pending_write)
     {
         // There's already a write pending on this line; a token acquisition message has already been
@@ -546,13 +546,13 @@ Result ZLCOMA::Cache::OnWriteRequest(const Request& req)
         TraceWrite(req.address, "Processing Bus Write Request: Pending Hit; Queuing acknowledgement");
         return SUCCESS;
     }
-    
+
     // Send message to acquire all tokens (and, optionally, data)
     if (newline)
         TraceWrite(req.address, "Processing Bus Write Request: Miss; Acquiring tokens");
     else
         TraceWrite(req.address, "Processing Bus Write Request: Hit; Acquiring tokens");
-        
+
     Message* msg = NULL;
     COMMIT
     {
@@ -564,7 +564,7 @@ Result ZLCOMA::Cache::OnWriteRequest(const Request& req)
         msg->tokens    = 0;
         msg->priority  = false;
         msg->transient = false;
-            
+
         // Send our current (updated) data with the message
         std::copy(line->data,    line->data    + m_lineSize, msg->data);
         std::copy(line->bitmask, line->bitmask + m_lineSize, msg->bitmask);
@@ -578,11 +578,11 @@ Result ZLCOMA::Cache::OnWriteRequest(const Request& req)
             line->priority = false;
             line->tokens--;
         }
-    
+
         // We have a write in transit now
         line->pending_write = true;
     }
-    
+
     if (!SendMessage(msg, MINSPACE_INSERTION))
     {
         DeadlockWrite("Unable to buffer write request for next node");
@@ -629,7 +629,7 @@ Result ZLCOMA::Cache::OnAcquireTokensRem(Message* req)
             }
         }
     }
-    
+
     if (line->pending_read)
     {
         // The line has a pending read.
@@ -665,7 +665,7 @@ Result ZLCOMA::Cache::OnAcquireTokensRem(Message* req)
                 req->transient = false;
             }
         }
-        
+
         if (!ClearLine(line))
         {
             return FAILED;
@@ -677,7 +677,7 @@ Result ZLCOMA::Cache::OnAcquireTokensRem(Message* req)
         // The request has the priority token and will get the tokens.
         assert(req->transient == false);
         assert(line->priority == false);
-                           
+
         COMMIT
         {
             req->tokens += line->tokens;
@@ -689,7 +689,7 @@ Result ZLCOMA::Cache::OnAcquireTokensRem(Message* req)
         // The line has the priority token and will get the tokens
         assert(line->transient == false);
         assert(req->priority == false);
-        
+
         unsigned int tokens = req->tokens;
 
         COMMIT
@@ -701,7 +701,7 @@ Result ZLCOMA::Cache::OnAcquireTokensRem(Message* req)
         if (req->transient)
         {
             assert(tokens > 0);
-        
+
             // We've taken transient tokens from the request and made them permanent
             Message *reqnotify = NULL;
             COMMIT
@@ -715,12 +715,12 @@ Result ZLCOMA::Cache::OnAcquireTokensRem(Message* req)
 
                 req->transient = false;
             }
-            
+
             if (!SendMessage(reqnotify, MINSPACE_FORWARD))
             {
                 return FAILED;
             }
-            
+
             // We need to delay because we sent a message. We can't send the
             // request below in the same cycle. Note that the current state
             // of the line means that the message will not come here again.
@@ -738,7 +738,7 @@ Result ZLCOMA::Cache::OnAcquireTokensRem(Message* req)
             req->transient = line->transient = true;
         }
     }
-    
+
     if (!SendMessage(req, MINSPACE_FORWARD))
     {
         return FAILED;
@@ -772,7 +772,7 @@ Result ZLCOMA::Cache::OnAcquireTokensRet(Message* req)
             }
         }
     }
-    
+
     unsigned int tokens = line->tokens;
     if (line->transient)
     {
@@ -785,12 +785,12 @@ Result ZLCOMA::Cache::OnAcquireTokensRet(Message* req)
         }
         COMMIT{ line->transient = false; }
     }
-    
+
     if (!req->transient || line->priority)
     {
         // Give the request's tokens to the line
         tokens += req->tokens;
-        
+
         COMMIT{ line->priority = line->priority || req->priority; }
 
         if (req->transient && req->tokens > 0)
@@ -806,7 +806,7 @@ Result ZLCOMA::Cache::OnAcquireTokensRet(Message* req)
                 reqnotify->source  = m_id;
                 reqnotify->tokens  = req->tokens;
             }
-            
+
             // FIXME: sending two messages (in case we also don't have all tokens)
             if (!SendMessage(reqnotify, MINSPACE_FORWARD))
             {
@@ -814,7 +814,7 @@ Result ZLCOMA::Cache::OnAcquireTokensRet(Message* req)
             }
         }
     }
-    
+
     if (tokens < m_parent.GetTotalTokens())
     {
         // We don't have all the tokens necessary to acknowledge the pending writes.
@@ -828,7 +828,7 @@ Result ZLCOMA::Cache::OnAcquireTokensRet(Message* req)
         }
     }
     else
-    {        
+    {
         // We have all the tokens now, acknowledge writes
         if (!line->ack_queue.empty())
         {
@@ -841,16 +841,16 @@ Result ZLCOMA::Cache::OnAcquireTokensRet(Message* req)
             COMMIT{ line->ack_queue.pop_back(); }
             return DELAYED;
         }
-        
+
         COMMIT
         {
             line->pending_write = false;
             delete req;
-        }        
+        }
     }
 
     COMMIT{ line->tokens = tokens; }
-    
+
     return SUCCESS;
 }
 
@@ -875,7 +875,7 @@ Result ZLCOMA::Cache::OnReadRem(Message* req)
         }
 		return SUCCESS;
     }
-    
+
     // Exchange data between line and request
     for (unsigned int i = 0; i < m_lineSize; i++)
     {
@@ -890,7 +890,7 @@ Result ZLCOMA::Cache::OnReadRem(Message* req)
             line->bitmask[i] = true;
         }
     }
-    
+
     if (line->pending_write)
     {
         // The line has a pending write, which means it wants all the tokens.
@@ -901,11 +901,11 @@ Result ZLCOMA::Cache::OnReadRem(Message* req)
         if (!line->transient || req->priority)
         {
             TraceWrite(req->address, "Received Read Request; Stealing tokens for pending write");
-            
+
             line->tokens += req->tokens;
             line->priority = line->priority || req->priority;
             line->transient = false;
-        
+
             // The request continues on without tokens
             req->tokens = 0;
             req->priority = false;
@@ -925,7 +925,7 @@ Result ZLCOMA::Cache::OnReadRem(Message* req)
         line->tokens--;
         req->tokens++;
     }
-    
+
     if (!SendMessage(req, MINSPACE_FORWARD))
     {
         return FAILED;
@@ -957,12 +957,12 @@ Result ZLCOMA::Cache::OnReadRet(Message* req)
             missing_bytes++;
         }
     }
-    
+
     if (missing_bytes > 0)
         TraceWrite(req->address, "Received Read Response with %u tokens; Sending request for remaining %u bytes", req->tokens, missing_bytes);
-    else        
-        TraceWrite(req->address, "Received Read Response with %u tokens; Read completed", req->tokens);        
-        
+    else
+        TraceWrite(req->address, "Received Read Response with %u tokens; Read completed", req->tokens);
+
     COMMIT
     {
         // Update the line with the request's data
@@ -982,7 +982,7 @@ Result ZLCOMA::Cache::OnReadRet(Message* req)
         req->tokens = 0;
         req->priority = false;
     }
-    
+
     // If we still have no full line, send the read request out again.
     // We need the entire line to acknowledge the pending read to the line.
     if (missing_bytes > 0)
@@ -1003,13 +1003,13 @@ Result ZLCOMA::Cache::OnReadRet(Message* req)
 
             std::copy(line->data, line->data + m_lineSize, data);
         }
-        
+
         // Acknowledge the read to the memory clients
         if (!OnReadCompleted(req->address, data))
         {
             return FAILED;
         }
-    
+
         COMMIT{ delete req; }
     }
     return SUCCESS;
@@ -1037,7 +1037,7 @@ Result ZLCOMA::Cache::OnEviction(Message* req)
             }
             return SUCCESS;
         }
-        
+
         // Try to allocate an empty line to inject the evicted line
         MemAddr tag;
         line = GetEmptyLine(req->address, tag);
@@ -1050,7 +1050,7 @@ Result ZLCOMA::Cache::OnEviction(Message* req)
             }
             return SUCCESS;
         }
-        
+
         // Store evicted line in the allocated line
         COMMIT
         {
@@ -1065,7 +1065,7 @@ Result ZLCOMA::Cache::OnEviction(Message* req)
 
             std::copy(req->data, req->data + m_lineSize, line->data);
             std::fill(line->bitmask, line->bitmask + m_lineSize, true);
-            
+
             delete req;
         }
     }
@@ -1163,7 +1163,10 @@ ZLCOMA::Cache::Cache(const std::string& name, ZLCOMA& parent, Clock& clock, Cach
     m_sets     (m_selector.GetNumBanks()),
     m_inject   (config.getValue<bool>(parent, "EnableCacheInjection")),
     m_id       (id),
+    m_clients  (),
+    m_storages (),
     p_lines    (*this, clock, "p_lines"),
+    m_lines    (m_assoc * m_sets),
     m_numHits  (0),
     m_numMisses(0),
     m_numConflicts(0),
@@ -1180,7 +1183,6 @@ ZLCOMA::Cache::Cache(const std::string& name, ZLCOMA& parent, Clock& clock, Cach
     RegisterSampleVariableInObject(m_numResolved, SVC_CUMULATIVE);
 
     // Create the cache lines
-    m_lines.resize(m_assoc * m_sets);
     for (size_t i = 0; i < m_lines.size(); ++i)
     {
         m_lines[i].valid = false;
@@ -1252,11 +1254,11 @@ void ZLCOMA::Cache::Cmd_Read(std::ostream& out, const std::vector<std::string>& 
     else
     {
         float factor = 100.0f / (m_numHits + m_numMisses);
-        
-        out << "Current hit rate:    " << setprecision(2) << fixed << m_numHits * factor 
+
+        out << "Current hit rate:    " << setprecision(2) << fixed << m_numHits * factor
             << "% (" << dec << m_numHits << " hits, " << m_numMisses << " misses)" << endl
             << "Current soft conflict rate: "
-            << setprecision(2) << fixed << m_numResolved * factor 
+            << setprecision(2) << fixed << m_numResolved * factor
             << "% (" << dec << m_numResolved << " non-stalling conflicts)" << endl
             << "Current hard conflict rate: "
             << setprecision(2) << fixed << m_numConflicts * factor
@@ -1286,7 +1288,7 @@ void ZLCOMA::Cache::Cmd_Read(std::ostream& out, const std::vector<std::string>& 
                 << (line.pending_read  ? 'R' : ' ')
                 << (line.pending_write ? 'W' : ' ')
                 << (line.dirty         ? 'D' : ' ')
-                << " | " << dec << setfill(' ') << setw(5) << line.tokens 
+                << " | " << dec << setfill(' ') << setw(5) << line.tokens
                 << (line.priority ? 'P' : line.transient ? 'T' : ' ')
                 << " |";
 

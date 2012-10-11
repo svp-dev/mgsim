@@ -19,19 +19,19 @@ class VirtualMemory : public IMemoryAdmin, public Inspect::Interface<Inspect::In
 public:
     // We allocate per block, this is the size of each block. Must be a power of two
     static const int BLOCK_SIZE = (1 << 12);
-    
+
     struct Block
     {
         char data[BLOCK_SIZE];
     };
-    
+
     struct Range
     {
         MemSize   size;
         ProcessID owner;
         int       permissions;
     };
-    
+
     typedef std::map<MemAddr, Block> BlockMap;
     typedef std::map<MemAddr, Range> RangeMap;
 
@@ -47,7 +47,9 @@ public:
 
     bool CheckPermissions(MemAddr address, MemSize size, int access) const override;
 
-    VirtualMemory();    
+    VirtualMemory();
+    VirtualMemory(const VirtualMemory&) = delete;
+    VirtualMemory& operator=(const VirtualMemory&) = delete;
     virtual ~VirtualMemory();
 
     void Cmd_Info(std::ostream& out, const std::vector<std::string>& arguments) const override;

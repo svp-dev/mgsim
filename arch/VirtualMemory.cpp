@@ -75,7 +75,7 @@ VirtualMemory::RangeMap::const_iterator VirtualMemory::GetReservationRange(MemAd
         --p;
     }
     return (p != m_ranges.end() &&
-            address >= p->first && p->second.size >= size && 
+            address >= p->first && p->second.size >= size &&
             address <= p->first + (p->second.size - size)) ? p : m_ranges.end();
 }
 
@@ -84,7 +84,7 @@ void VirtualMemory::Unreserve(MemAddr address, MemSize size)
     auto p = m_ranges.find(address);
     if (p == m_ranges.end())
     {
-        throw exceptf<InvalidArgumentException>("Attempting to unreserve non-reserved memory (%#016llx)", 
+        throw exceptf<InvalidArgumentException>("Attempting to unreserve non-reserved memory (%#016llx)",
                                                 (unsigned long long)address);
     }
 
@@ -136,7 +136,7 @@ void VirtualMemory::Read(MemAddr address, void* _data, MemSize size) const
 #if MEMSIZE_MAX >= SIZE_MAX
     if (size > SIZE_MAX)
     {
-        throw exceptf<InvalidArgumentException>("Read (%#016llx, %zd): Size argument too big", 
+        throw exceptf<InvalidArgumentException>("Read (%#016llx, %zd): Size argument too big",
                                                 (unsigned long long)address, (size_t)size);
     }
 #endif
@@ -197,7 +197,7 @@ void VirtualMemory::Write(MemAddr address, const void* _data, const bool* mask, 
             memset(pos->second.data, 0, BLOCK_SIZE);
             m_totalallocated += BLOCK_SIZE;
         }
-       
+
         // Number of bytes to write, initially
         size_t count = min( (size_t)size, (size_t)BLOCK_SIZE - offset);
 
@@ -216,8 +216,8 @@ void VirtualMemory::Write(MemAddr address, const void* _data, const bool* mask, 
 }
 
 void VirtualMemory::SetSymbolTable(SymbolTable& symtable)
-{ 
-    m_symtable = &symtable; 
+{
+    m_symtable = &symtable;
 }
 
 SymbolTable& VirtualMemory::GetSymbolTable() const
@@ -227,7 +227,8 @@ SymbolTable& VirtualMemory::GetSymbolTable() const
 
 
 VirtualMemory::VirtualMemory()
-    : m_totalreserved(0), m_totalallocated(0), m_nRanges(0), m_symtable(0)
+    : m_blocks(), m_ranges(),
+      m_totalreserved(0), m_totalallocated(0), m_nRanges(0), m_symtable(0)
 {
     RegisterSampleVariable(m_totalreserved, "vm:reserved", SVC_LEVEL);
     RegisterSampleVariable(m_totalallocated, "vm:allocated", SVC_LEVEL);
@@ -261,15 +262,15 @@ void VirtualMemory::Cmd_Info(ostream& out, const vector<string>& /* arguments */
             size  += p->second.size;
             total += p->second.size;
             p++;
-            if (p == m_ranges.end() || p->first > begin + size 
+            if (p == m_ranges.end() || p->first > begin + size
                 || p->second.permissions != perm || p->second.owner != owner)
             {
                 // Different block, or end of blocks
-                out << setw(16) << begin << " - " << setw(16) << begin + size - 1 
+                out << setw(16) << begin << " - " << setw(16) << begin + size - 1
                     << " | "
                     << (perm & IMemory::PERM_READ    ? "R" : ".")
                     << (perm & IMemory::PERM_WRITE   ? "W" : ".")
-                    << (perm & IMemory::PERM_EXECUTE ? "X" : ".") 
+                    << (perm & IMemory::PERM_EXECUTE ? "X" : ".")
                     << " | "
                     << (perm & IMemory::PERM_DCA_READ ? "DR" : "..")
                     << (perm & IMemory::PERM_DCA_WRITE ? "DW" : "..")
@@ -315,7 +316,7 @@ void VirtualMemory::Cmd_Read(ostream& out, const vector<string>& arguments) cons
     MemAddr addr = 0;
     MemSize size = 0;
     char* endptr = NULL;
-    
+
     if (arguments.size() == 2)
     {
         addr = (MemAddr)strtoull( arguments[0].c_str(), &endptr, 0 );
@@ -356,7 +357,7 @@ void VirtualMemory::Cmd_Read(ostream& out, const vector<string>& arguments) cons
                     out << setw(2) << (unsigned int)buf[(size_t)(x - addr)];
                 else
                     out << "  ";
-                    
+
                 // Print some space at half the grid
                 if ((x - y) == BYTES_PER_LINE / 2 - 1) out << "  ";
                 out << " ";

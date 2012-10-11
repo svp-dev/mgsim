@@ -14,13 +14,13 @@ namespace Simulator
 
        We want that several RTC clocks can update their time
        when a tick event is received. They could update more
-       often but we want to limit syscall usage. 
+       often but we want to limit syscall usage.
 
        To do this we maintain a count of the RTC clocks
        that have acknowledged the tickevent in "timerTicked".
        The count is reset to the number of RTC clocks
        every time SIGALRM ticks; each RTC clock's event
-       handler then decreases it. 
+       handler then decreases it.
     */
 
     static volatile unsigned clockSemaphore = 0;
@@ -126,7 +126,7 @@ namespace Simulator
             m_timerTicked = true;
             --clockSemaphore;
         }
-        
+
         if (m_timerTicked)
         {
             // The clock is configured to deliver interrupts. Check
@@ -135,7 +135,7 @@ namespace Simulator
             {
                 // Time for an interrupt.
                 m_businterface.m_doNotify.Set();
-                
+
                 COMMIT {
                     if (m_deliverAllEvents)
                     {
@@ -147,8 +147,8 @@ namespace Simulator
                     }
                 }
             }
-            COMMIT { 
-                m_timerTicked = false; 
+            COMMIT {
+                m_timerTicked = false;
             }
         }
         return SUCCESS;
@@ -159,7 +159,7 @@ namespace Simulator
         if (!DeviceDatabase::GetDatabase().FindDeviceByName("MGSim", "RTC", id))
         {
             throw InvalidArgumentException(*this, "Device identity not registered");
-        }    
+        }
     }
 
 
@@ -173,7 +173,7 @@ namespace Simulator
             //       bits 17-21: day in month (0-30)
             //       bits 22-25: month in year (0-11)
             //       bits 26-31: year from 1970
-            return (uint32_t)tm->tm_sec 
+            return (uint32_t)tm->tm_sec
                 | ((uint32_t)tm->tm_min << 6)
                 | ((uint32_t)tm->tm_hour << 12)
                 | ((uint32_t)tm->tm_mday << 17)
@@ -185,7 +185,7 @@ namespace Simulator
             //       bits 0-3: day of week (sunday = 0)
             //       bits 4-12: day of year (0-365)
             //       bit 13: summer time in effect
-            //       bits 14-31: offset from UTC in seconds  
+            //       bits 14-31: offset from UTC in seconds
             return (uint32_t)tm->tm_wday
                 | ((uint32_t)tm->tm_yday << 4)
                 | ((uint32_t)!!tm->tm_isdst << 13)
@@ -202,20 +202,20 @@ namespace Simulator
 
         if (address % 4 != 0 || data.size != 4)
         {
-            throw exceptf<SimulationException>(*this, "Invalid unaligned RTC write: %#016llx (%u)", (unsigned long long)address, (unsigned)data.size); 
+            throw exceptf<SimulationException>(*this, "Invalid unaligned RTC write: %#016llx (%u)", (unsigned long long)address, (unsigned)data.size);
         }
         if (word == 0 || word > 3)
         {
             throw exceptf<SimulationException>(*this, "Invalid write to RTC word: %u", word);
         }
-        
+
         Integer value = UnserializeRegister(RT_INTEGER, data.data, data.size);
         RTC& rtc = GetRTC();
-        
+
         COMMIT{
             switch(word)
             {
-            case 1:   
+            case 1:
             {
                 if (value != 0)
                 {
@@ -227,7 +227,7 @@ namespace Simulator
                     m_doNotify.Clear(); // cancel sending the current interrupt if currently ongoing.
                     rtc.m_enableCheck.Clear();
                 }
-                rtc.m_triggerDelay = value; 
+                rtc.m_triggerDelay = value;
                 break;
             }
             case 2:   m_interruptNumber = value; break;
@@ -239,14 +239,14 @@ namespace Simulator
 
     bool RTC::RTCInterface::OnReadRequestReceived(IODeviceID from, MemAddr address, MemSize size)
     {
-        // the clock uses 32-bit control words 
+        // the clock uses 32-bit control words
         // word 0: resolution (microseconds)
         // word 1: interrupt delay (in microseconds, set to 0 to disable interrupts)
         // word 2: interrupt number to generate
         // word 3: whether to deliver all events
         // word 4: microseconds part of current time since jan 1, 1970
         // word 5: seconds part of current time since jan 1, 1970
-        // word 6: packed UTC time: 
+        // word 6: packed UTC time:
         // word 7: packed UTC time (more):
         // word 8,9: packed local time (same format as UTC)
 
@@ -255,7 +255,7 @@ namespace Simulator
 
         if (address % 4 != 0 || size != 4)
         {
-            throw exceptf<SimulationException>(*this, "Invalid unaligned RTC read: %#016llx (%u)", (unsigned long long)address, (unsigned)size); 
+            throw exceptf<SimulationException>(*this, "Invalid unaligned RTC read: %#016llx (%u)", (unsigned long long)address, (unsigned)size);
         }
         if (word > 9)
         {
@@ -293,7 +293,7 @@ namespace Simulator
         IOData iodata;
         SerializeRegister(RT_INTEGER, value, iodata.data, 4);
         iodata.size = 4;
-        
+
         if (!m_iobus.SendReadResponse(m_devid, from, address, iodata))
         {
             DeadlockWrite("Cannot send RTC read response to I/O bus");

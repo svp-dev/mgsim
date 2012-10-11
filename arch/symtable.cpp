@@ -18,7 +18,7 @@ const string SymbolTable::Resolve(MemAddr addr) const
     o << '<' << hex;
 
     /* if no entries in table, nothing to resolve */
-    if (m_entries.empty()) 
+    if (m_entries.empty())
     {
         o << "0x" << addr;
     }
@@ -28,12 +28,12 @@ const string SymbolTable::Resolve(MemAddr addr) const
         size_t len = m_entries.size();
         size_t cursor = 0;
         size_t half, middle;
-        
-        while (len > 0) 
+
+        while (len > 0)
         {
             half = len / 2;
             middle = cursor + half;
-            if (entry_addr(m_entries[middle]) < addr) 
+            if (entry_addr(m_entries[middle]) < addr)
             {
                 cursor = middle + 1;
                 len = len - half - 1;
@@ -42,7 +42,7 @@ const string SymbolTable::Resolve(MemAddr addr) const
                 len = half;
         }
 
-        if (cursor >= m_entries.size()) 
+        if (cursor >= m_entries.size())
         {
             // cerr << "found after last" << endl;
             // addr greater than all addresses
@@ -62,7 +62,7 @@ const string SymbolTable::Resolve(MemAddr addr) const
             const entry_t & found = m_entries[cursor];
 
             // do we have exact match?
-            if (entry_addr(found) == addr) 
+            if (entry_addr(found) == addr)
             {
                 // yes, collate all equivalent symbols
                 o << entry_sym(found);
@@ -88,16 +88,16 @@ const string SymbolTable::Resolve(MemAddr addr) const
                 */
 
                 // are we within the lower object?
-                if (addr < (entry_addr(below) + entry_sz(below))) 
+                if (addr < (entry_addr(below) + entry_sz(below)))
                     // yes, then prefer that always
                     o << entry_sym(below) << "+0x" << (addr - entry_addr(below));
-                else 
+                else
                 {
                     // compute distance from both
                     size_t d_above = entry_addr(above) - addr;
                     size_t d_below = addr - (entry_addr(below) + entry_sz(below));
 
-                    if (d_above < d_below) 
+                    if (d_above < d_below)
                         // using above entry
                         o << entry_sym(above) << "-0x" << d_above;
                     else
@@ -110,7 +110,7 @@ const string SymbolTable::Resolve(MemAddr addr) const
                 }
             }
         }
-    }   
+    }
     o << '>';
     return o.str();
 }
@@ -122,7 +122,7 @@ const string SymbolTable::operator[](MemAddr addr) const
     if (i != m_cache.end())
         return i->second;
     /* can't use cache, so simply resolve */
-    return Resolve(addr);    
+    return Resolve(addr);
 }
 
 const string& SymbolTable::operator[](MemAddr addr)
@@ -139,7 +139,7 @@ void SymbolTable::Write(ostream& o, const string& pat) const
 {
     for (auto& i : m_entries)
     {
-        if (FNM_NOMATCH != fnmatch(pat.c_str(), entry_sym(i).c_str(), 0)) 
+        if (FNM_NOMATCH != fnmatch(pat.c_str(), entry_sym(i).c_str(), 0))
         {
             o << hex << "0x" << entry_addr(i) << ' ' << entry_sym(i);
             if (entry_sz(i))

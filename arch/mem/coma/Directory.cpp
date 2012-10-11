@@ -90,7 +90,7 @@ COMA::Directory::Line* COMA::Directory::AllocateLine(MemAddr address)
         if (!line->valid)
         {
             COMMIT
-            {                
+            {
                 line->valid  = true;
                 line->tag    = tag;
                 line->tokens = 0;
@@ -115,21 +115,21 @@ bool COMA::Directory::OnMessageReceivedBottom(Message* msg)
     }
 
     if (!msg->ignore)
-    {    
+    {
         switch (msg->type)
         {
         case Message::EVICTION:
             // Evictions always come from below since they do not go down into a ring.
             // (Except for deadlock avoidance, but then the ignore flag is set).
             assert(IsBelow(msg->sender));
-            
+
         case Message::REQUEST_DATA_TOKEN:
         {
             // Reduce the token count in the dir line
             Line* line = FindLine(msg->address);
             assert(line != NULL);
             assert(line->tokens >= msg->tokens);
-            
+
             COMMIT
             {
                 line->tokens -= msg->tokens;
@@ -141,22 +141,22 @@ bool COMA::Directory::OnMessageReceivedBottom(Message* msg)
             }
             break;
         }
-            
+
         case Message::REQUEST:
         case Message::REQUEST_DATA:
         case Message::UPDATE:
             break;
-            
+
         default:
             assert(false);
             break;
         }
     }
-    
+
     // We can stop ignoring it now
     COMMIT{ msg->ignore = false; }
 #endif
-    
+
     // Put the message on the higher-level ring
     if (!m_top.SendMessage(msg, MINSPACE_FORWARD))
     {
@@ -175,7 +175,7 @@ bool COMA::Directory::OnMessageReceivedTop(Message* msg)
         DeadlockWrite("Unable to get access to lines");
         return false;
     }
-    
+
     // See if a cache below this directory has the line
     Line* line = NULL;
     switch (msg->type)
@@ -196,21 +196,21 @@ bool COMA::Directory::OnMessageReceivedTop(Message* msg)
             {
                 line = AllocateLine(msg->address);
             }
-            
+
             // We now have more tokens in this ring
             COMMIT{ line->tokens += msg->tokens; }
         }
         break;
-        
+
     case Message::EVICTION:
         // Evicts are always forwarded
         break;
-        
+
     default:
         assert(false);
         break;
     }
-    
+
     if (line == NULL)
     {
         // Miss, just forward the request on the upper ring
@@ -235,7 +235,7 @@ bool COMA::Directory::OnMessageReceivedTop(Message* msg)
             return false;
         }
     }
-    
+
     return true;
 }
 
@@ -270,9 +270,10 @@ COMA::Directory::Directory(const std::string& name, COMA& parent, Clock& clock, 
     m_top(name + ".top", parent, clock, config),
     m_selector  (parent.GetBankSelector()),
     p_lines     (*this, clock, "p_lines"),
-    m_lineSize  (config.getValue<size_t>("CacheLineSize")),
     m_assoc     (config.getValue<size_t>(parent, "L2CacheAssociativity") * config.getValue<size_t>(parent, "NumL2CachesPerRing")),
     m_sets      (m_selector.GetNumBanks()),
+    m_lines     (m_assoc * m_sets),
+    m_lineSize  (config.getValue<size_t>("CacheLineSize")),
     m_firstCache(firstCache),
     m_lastCache (firstCache + config.getValue<size_t>(parent, "NumL2CachesPerRing") - 1),
     p_InBottom  (*this, "bottom-incoming", delegate::create<Directory, &Directory::DoInBottom >(*this)),
@@ -280,18 +281,16 @@ COMA::Directory::Directory(const std::string& name, COMA& parent, Clock& clock, 
 {
     // Create the cache lines
     // We need as many cache lines in a directory to cover all caches below it
-    m_lines.resize(m_assoc * m_sets);
-    for (size_t i = 0; i < m_lines.size(); ++i)
+    for (auto &line : m_lines)
     {
-        Line& line = m_lines[i];
         line.valid = false;
     }
 
     m_bottom.m_incoming.Sensitive(p_InBottom);
     m_top.m_incoming.Sensitive(p_InTop);
-    
+
     p_lines.AddProcess(p_InTop);
-    p_lines.AddProcess(p_InBottom);   
+    p_lines.AddProcess(p_InBottom);
 
     p_InBottom.SetStorageTraces(m_top.GetOutgoingTrace());
     p_InTop.SetStorageTraces((m_top.GetOutgoingTrace() * opt(m_bottom.GetOutgoingTrace())) ^ m_bottom.GetOutgoingTrace());
@@ -300,7 +299,7 @@ COMA::Directory::Directory(const std::string& name, COMA& parent, Clock& clock, 
     config.registerProperty(m_top, "freq", clock.GetFrequency());
     config.registerObject(m_bottom, "db");
     config.registerProperty(m_bottom, "freq", clock.GetFrequency());
-    
+
     config.registerBidiRelation(m_bottom, m_top, "dir");
 }
 
@@ -327,7 +326,7 @@ void COMA::Directory::Cmd_Read(std::ostream& out, const std::vector<std::string>
 
         out << endl << "Bottom ring interface:" << endl << endl;
         m_bottom.Print(out);
-        
+
         return;
     }
 
@@ -341,7 +340,7 @@ void COMA::Directory::Cmd_Read(std::ostream& out, const std::vector<std::string>
     }
     out << "Cache range: " << m_firstCache << " - " << m_lastCache << endl;
     out << endl;
-    
+
     // No more than 4 columns per row and at most 1 set per row
     const size_t width = std::min<size_t>(m_assoc, 4);
 
@@ -351,7 +350,7 @@ void COMA::Directory::Cmd_Read(std::ostream& out, const std::vector<std::string>
     std::string separator = "+";
     for (size_t i = 0; i < width; ++i) separator += "--------------------+--------+";
     out << separator << endl;
-    
+
     for (size_t i = 0; i < m_lines.size() / width; ++i)
     {
         const size_t index = (i * width);

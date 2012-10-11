@@ -29,7 +29,7 @@ namespace line {
             if (mask[i])
                 dst[i] = src[i];
     }
-    
+
     template<typename T, typename M, typename S>
     void blitnot(T* dst, const T* src, const M* mask, S sz)
     {
@@ -37,7 +37,7 @@ namespace line {
             if (!mask[i])
                 dst[i] = src[i];
     }
-    
+
     template<typename T, typename M, typename S>
     void setif(T* dst, const T& src, const M* mask, S sz)
     {
@@ -45,7 +45,7 @@ namespace line {
             if (mask[i])
                 dst[i] = src;
     }
-    
+
     template<typename T, typename M, typename S>
     void setifnot(T* dst, const T& src, const M* mask, S sz)
     {
@@ -53,7 +53,7 @@ namespace line {
             if (!mask[i])
                 dst[i] = src;
     }
-    
+
 }
 
 class IMemory;
@@ -89,12 +89,12 @@ public:
     virtual void UnregisterClient(MCID id) = 0;
     virtual bool Read (MCID id, MemAddr address) = 0;
     virtual bool Write(MCID id, MemAddr address, const MemData& data, WClientID wid) = 0;
-    
+
     virtual void Initialize() {}
 
     virtual ~IMemory() {}
 
-    virtual void GetMemoryStatistics(uint64_t& nreads, uint64_t& nwrites, 
+    virtual void GetMemoryStatistics(uint64_t& nreads, uint64_t& nwrites,
                                      uint64_t& nread_bytes, uint64_t& nwrite_bytes,
                                      uint64_t& nreads_ext, uint64_t& nwrites_ext) const = 0;
 };

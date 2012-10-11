@@ -25,14 +25,14 @@ public:
     class Directory;
     class RootDirectory;
     class Cache;
-    
+
     // A simple base class for all COMA objects. It keeps track of what
     // COMA memory it's in.
     class Object : public virtual Simulator::Object
     {
     protected:
         COMA& m_parent;
-        
+
     public:
         Object(const std::string& name, COMA& parent)
             : Simulator::Object(name, parent), m_parent(parent) {}
@@ -42,7 +42,7 @@ public:
 protected:
     typedef std::set<MemAddr> TraceMap;
     typedef size_t            CacheID;
-    
+
     ComponentModelRegistry&     m_registry;
     size_t                      m_numClientsPerCache;
     size_t                      m_numCachesPerLowRing;
@@ -55,20 +55,22 @@ protected:
     std::vector<RootDirectory*> m_roots;              ///< List of root directories
     TraceMap                    m_traces;             ///< Active traces
     DDRChannelRegistry          m_ddr;                ///< List of DDR channels
-    
+
     std::vector<std::pair<Cache*,MCID> > m_clientMap; ///< Mapping of MCID to caches
 
     uint64_t                    m_nreads, m_nwrites, m_nread_bytes, m_nwrite_bytes;
-    
+
     unsigned int GetTotalTokens() const {
         // One token per cache
         return m_caches.size();
     }
-    
+
     virtual void Initialize() = 0;
-    
+
 public:
     COMA(const std::string& name, Simulator::Object& parent, Clock& clock, Config& config);
+    COMA(const COMA&) = delete;
+    COMA& operator=(const COMA&) = delete;
     ~COMA();
 
     const TraceMap& GetTraces() const { return m_traces; }
@@ -76,7 +78,7 @@ public:
     IBankSelector& GetBankSelector() const { return *m_selector; }
 
     size_t GetLineSize() const { return m_lineSize; }
-    size_t GetNumClientsPerCache() const { return m_numClientsPerCache; }    
+    size_t GetNumClientsPerCache() const { return m_numClientsPerCache; }
     size_t GetNumCachesPerLowRing() const { return m_numCachesPerLowRing; }
     size_t GetNumCaches() const { return m_caches.size(); }
     size_t GetNumDirectories() const { return m_directories.size(); }

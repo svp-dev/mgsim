@@ -40,7 +40,7 @@ class DDRMemory : public Object, public IMemory, public VirtualMemory
         nwrite_bytes = m_nwrite_bytes;
         nreads_ext = m_nreads;
         nwrites_ext = m_nwrites;
-    }	
+    }
 
 protected:
     ComponentModelRegistry&  m_registry;
@@ -59,8 +59,10 @@ protected:
 
 public:
     DDRMemory(const std::string& name, Object& parent, Clock& clock, Config& config, const std::string& defaultInterfaceSelectorType);
+    DDRMemory(const DDRMemory&) = delete;
+    DDRMemory& operator=(const DDRMemory&) = delete;
     ~DDRMemory();
-    
+
     // Debugging
     void Cmd_Info(std::ostream& out, const std::vector<std::string>& arguments) const;
     void Cmd_Read(std::ostream& out, const std::vector<std::string>& arguments) const;

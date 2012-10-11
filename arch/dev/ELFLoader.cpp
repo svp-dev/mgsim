@@ -18,13 +18,13 @@ static const int PAGE_SIZE = 4096;
     }
 
 // Load the program image into the memory
-std::pair<MemAddr, bool> 
+std::pair<MemAddr, bool>
 LoadProgram(const std::string& msg_prefix, vector<ActiveROM::LoadableRange>& ranges, IMemoryAdmin& memory, char* data, MemSize size, bool verbose)
 {
     Verify(size >= sizeof(Elf_Ehdr), "ELF file too short or truncated");
 
     Elf_Ehdr& ehdr = *static_cast<Elf_Ehdr*>(static_cast<void*>(data));
-    
+
     // Unmarshall header
     ehdr.e_type      = elftohh(ehdr.e_type);
     ehdr.e_machine   = elftohh(ehdr.e_machine);
@@ -145,7 +145,7 @@ LoadProgram(const std::string& msg_prefix, vector<ActiveROM::LoadableRange>& ran
         phdr[i].p_filesz = elftohxw(phdr[i].p_filesz);
         phdr[i].p_memsz  = elftohxw(phdr[i].p_memsz);
         phdr[i].p_align  = elftohxw(phdr[i].p_align);
-        
+
         if (phdr[i].p_type == PT_LOAD)
         {
             if (!hasLoadable || phdr[i].p_vaddr < base) {
@@ -163,12 +163,12 @@ LoadProgram(const std::string& msg_prefix, vector<ActiveROM::LoadableRange>& ran
         if (phdr[i].p_type == PT_LOAD && phdr[i].p_memsz > 0)
         {
             Verify(phdr[i].p_memsz >= phdr[i].p_filesz, "file has an invalid segment");
-            
+
             int perm = 0;
             if (phdr[i].p_flags & PF_R) perm |= IMemory::PERM_READ|IMemory::PERM_DCA_READ;
             if (phdr[i].p_flags & PF_W) perm |= IMemory::PERM_WRITE|IMemory::PERM_DCA_WRITE;
             if (phdr[i].p_flags & PF_X) perm |= IMemory::PERM_EXECUTE;
-            
+
             if (phdr[i].p_filesz > 0)
             {
                 Verify(phdr[i].p_offset + phdr[i].p_filesz <= size, "file has an invalid segment");
@@ -198,13 +198,13 @@ LoadProgram(const std::string& msg_prefix, vector<ActiveROM::LoadableRange>& ran
             }
         }
     }
-    
+
     if (verbose)
     {
         const char* type = (ehdr.e_machine == MACHINE_LEGACY)
             ? "legacy"
             : "microthreaded";
-            
+
         clog << msg_prefix << ": loaded " << type << " ELF binary with virtual base address 0x" << hex << base
              << ", entry point at 0x" << hex << ehdr.e_entry << endl;
     }

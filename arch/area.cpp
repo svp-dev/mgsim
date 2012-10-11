@@ -33,7 +33,7 @@ struct config
     size_t bits_TID;
     size_t bits_PID;
     size_t bits_BlockSize;
-    
+
     size_t numProcessors;
     size_t numFPUs;
     size_t numThreads;
@@ -47,13 +47,13 @@ struct org_t
     double area;        // in um^2
     double access_time; // in s
     double cycle_time;  // in s
-    
+
     void merge(const org_t& o) {
         area += o.area;
         access_time = std::max(access_time, o.access_time);
         cycle_time = std::max(cycle_time, o.cycle_time);
     }
-    
+
     org_t(double area_, double access_time_, double cycle_time_)
         : area(area_), access_time(access_time_), cycle_time(cycle_time_)
     {
@@ -125,35 +125,35 @@ static const structure_desc family_table = {
                                             // R: fetch stage (pass to execute stage; for default create place size)
                                             // R: local create process, distribution calculation
                                             // R: remote create process, distribution calculation
-                                            
+
     FIELD(PSize, numCores, 1, 2, 1),        // W: network allocate process
                                             // W: network allocate response process
                                             // R: remote create process, distribution calculation
                                             // RW: local create process, distribution calculation
-                                            
+
     FIELD(FCapability, capability, 2, 1, 0),   // R: create process (create completion; compose FID)
                                                // R: network handler (capability check for incoming messages)
                                                // W: local family allocation process
-                                                
+
     FIELD(MemAddr, pc, 2, 2, 0),                // R: thread allocation process
                                                 // R: create process
                                                 // W: remote create handler
                                                 // W: local create handler
-    
+
     FIELD(TSize, physBlockSize, 1, 2, 2),      // W: local family allocation process (set to default)
                                                 // W: network's delegate message handler (set property)
                                                 // W: network's link message handler (set property)
                                                 // RW: family creation process (register allocation; update) to final
                                                 // RW: link process (remote family creation; register allocation; update to final)
                                                 // R: thread allocation process (check if block size reached)
-    
+
     FIELD(SInteger, start, 2, 3, 1),            // W: local family allocation process (set to default)
                                                 // W: network's delegate message handler (set property)
                                                 // W: network's link message handler (set property)
                                                 // R: local family create process (thread distribution)
                                                 // R: remote family create process (thread distribution)
                                                 // RW: thread allocation process (calculation thread index, and update for next)
-    
+
     FIELD(SInteger, step, 3, 3, 0),             // W: local family allocation process (set to default)
                                                 // W: network's delegate message handler (set property)
                                                 // W: network's link message handler (set property)
@@ -168,25 +168,25 @@ static const structure_desc family_table = {
                                                 // RW: remote family create process (thread distribution)
                                                 // *** as nThreads: ***
                                                 // RW: thread allocation process (update thread count)
-                                                
-                                                                                                    
+
+
     FIELD(bool, hasShareds, 1, 1, 0),           // R: thread allocation process
                                                 // W: local create process (set based on loaded register count)
-    
+
     FIELD(bool, allocationDone, 2, 1, 3),       // RW: network's remote handler (break, detach)
                                                 // RW: network's link handler (break, detach, done)
                                                 // W: local family allocation process (set to default)
                                                 // RW: thread allocation process
                                                 // R: DCache's read handler (dependency check)
                                                 // R: Network's sync handler (dependency check)
-                                                
+
     FIELD(bool, prevSynched, 4, 1, 1),          // W: local family allocation (set to initial value)
                                                 // R: network's remote handler (break, detach)
                                                 // RW: network's link handler (break, detach, done)
                                                 // R: thread allocation process (dependency check)
                                                 // R: DCache's read handler (dependency check)
                                                 // R: Network's sync handler (dependency check)
-        
+
     FIELD(bool, detached, 3, 1, 2),             // W: local family allocation (set to initial value)
                                                 // RW: network's remote handler (break, detach)
                                                 // RW: network's link handler (break, detach, done)
@@ -215,7 +215,7 @@ static const structure_desc family_table = {
                                                     // R: network's link handler (break, detach, done)
                                                     // RW: DCache's read handler (decrement)
                                                     // R: Network's sync handler (dependency check)
-                                                                                  
+
     FIELD(LFID, link, 4, 1, 3),                     // W: local family allocation process (set to prev FID)
                                                     // RW: network's link handler (create forward, with possible restrict)
                                                     // RW: local create process (create forward, with possible restrict)
@@ -224,10 +224,10 @@ static const structure_desc family_table = {
                                                     // R: network's remote handler (forward message/send done)
                                                     // R: network's link handler (forward message/send done)
                                                     // R: DCache's read handler (dependency check)
-    
+
     FIELD(bool, prevCleanedUp, 0, 1, 1),            // W: local family allocation process (set to initial)
                                                     // RW: thread allocation process (dependency initialization)
-    
+
     FIELD(RegIndex, sync_reg, 2, 2, 1),             // R: thread allocation process (dependency check)
                                                     // R: DCache's read handler (dependency check)
                                                     // W: local family allocation process (set to initial)
@@ -245,15 +245,15 @@ static const structure_desc family_table = {
                                                     // W: local family allocation process (set to initial)
                                                     // R: network's remote handler (sync)
                                                     // RW: network's link handler (sync, done)
-    
+
     FIELD(bool, lastAllocated, 0, 1, 1),            // RW: thread allocation process (setup nextInBlock; update field)
                                                     // W: local family allocation process (set to initial)
-                                                    
+
     FIELD_2(RegsNo, reg_count, 3, 1, 0),            // R: thread allocation process (reg context calculation)
                                                     // W: local create process
                                                     // R: network's remote handler (write reg)
                                                     // R: network's link handler (write reg, create)
-    
+
     FIELD_2(RegIndex, reg_base, 4, 1, 1),           // R: thread allocation process (reg context calculation; free context)
                                                     // W: local create process (set to initial)
                                                     // R: network's remote handler (write reg; free context)
@@ -269,7 +269,7 @@ static const structure_desc family_table = {
                                                     // W: local create handler
                                                     // W: network's link handler (create)
                                                     // R: network's remote handler (write shared)
-    
+
     {0,0,0,0,0,0},
     }
 };
@@ -282,44 +282,44 @@ static const structure_desc thread_table = {
                                                     // W: thread allocation process (setup initial)
                                                     // R: thread scheduler (check I-cache)
                                                     // R: fetch stage (thread switch)
-                                                    
+
     FIELD_2(RegIndex, reg_locals, 1, 1, 0),         // W: thread allocation process (setup initial)
                                                     // R: fetch stage (thread switch; for decode stage)
 
     FIELD_2(RegIndex, reg_dependents, 1, 0, 1),     // RW: thread allocation process (read for clear, use as shareds, setup initial)
                                                     // R: fetch stage (thread switch; for decode stage)
-                                                    
+
     FIELD_2(RegIndex, reg_shareds, 1, 1, 0),        // W: thread allocation process (setup initial)
                                                     // R: fetch stage (thread switch; for decode stage)
-                                                    
-    FIELD(bool, killed, 1, 1, 1),                   // RW: thread allocation process (setup initial; check dependencies)    
+
+    FIELD(bool, killed, 1, 1, 1),                   // RW: thread allocation process (setup initial; check dependencies)
                                                     // W: writeback stage (kill thread)
                                                     // R: DCache write completion process (check dependencies)
-                                                    
+
     FIELD(bool, prev_cleaned_up, 2, 1, 0),          // W: thread allocation process (setup initial; mark cleanup)
                                                     // R: DCache write completion process (check dependencies)
                                                     // R: writeback stage (check dependencies)
-                                                    
+
     FIELD(unsigned, pending_writes, 3, 0, 3),       // RW: thread allocation process (setup initial; check dependencies)
                                                     // R: Execute stage (memory write barrier)
                                                     // R: Writeback stage (memory write barrier)
                                                     // RW: DCache write completion process (decrement)
                                                     // RW: memory stage (increment)
                                                     // R: writeback stage (check dependencies)
-                                                    
+
     FIELD(bool, waiting_writes, 0, 2, 1),           // W: thread allocation process (setup initial)
                                                     // RW: DCache write completion process (check for memory barrier; wakeup)
-                                                    // W: writeback stage (suspend) 
-                                                    
+                                                    // W: writeback stage (suspend)
+
     FIELD(TID, block_next, 0, 0, 1),                // RW: thread allocation process (setup initial; mark cleanup)
 
     FIELD(CID, cid, 2, 1, 0),                       // W: thread scheduler (check I-cache)
                                                     // R: fetch stage (read cache-line)
                                                     // R: writeback stage (release cache-line)
-                                                    
+
     FIELD(LFID, family, 1, 0, 1),                   // RW: thread allocation process (setup initial; cleanup)
                                                     // R: fetch stage (thread switch)
-                                                    
+
     FIELD(TID, next, 1, 1, 1),                      // RW: thread scheduler (queue activate threads; pop ready thread), thread allocation process (reschedule after creation), D-Cache (reschedule after memory barrier), register file writes (wakeup)
                                                     // W: writeback stage (reschedule after switch / suspend on register)
                                                     // R: fetch stage (pop active thread)
@@ -419,18 +419,18 @@ static org_t get_structure_info(std::ostream& os, const config& config, const st
     {
         size_t actual_bits = config.*fld->bits * fld->mult;
         size_t cacti_bits  = (actual_bits + 7) / 8 * 8;
-        
+
         // Expand rows until cache size is at least 64 bytes
         size_t actual_rows = config.*desc.rows;
         size_t cacti_rows  = std::max(actual_rows, (512 + cacti_bits - 1) / cacti_bits);
 
         org_t i = get_ram_info(cacti_rows, cacti_bits / 8, fld->r_ports, fld->w_ports, fld->rw_ports, config.tech);
-        
+
         i.area = i.area * actual_bits / cacti_bits;
         i.area = i.area * actual_rows / cacti_rows;
-        
+
         os << desc.name << "\t" << fld->name << "\t" << i.area*1e-6 << "\t" << i.access_time*1e9 << std::endl;
-        
+
         info.merge(i);
     }
     return info;
@@ -441,7 +441,7 @@ static void DumpStatsCOMA(std::ostream& os, const Simulator::COMA& coma)
     size_t numCaches      = coma.GetNumCaches();
     size_t numDirectories = coma.GetNumDirectories();
     size_t numRootDirs    = coma.GetNumRootDirectories();
-    
+
     os << "L2 caches: " << numCaches << std::endl
        << "Directories: " << numDirectories << std::endl
        << "Root Directories: " << numRootDirs << std::endl;
@@ -459,7 +459,7 @@ static org_t DumpAreaCOMA(std::ostream& os, const config& config, const Simulato
     size_t bits_numCaches = ilog2(numCaches);
 
     size_t numCachesPerLowRing = coma.GetNumCachesPerLowRing();
-    
+
     static const tcache_desc l2_cache = {
         "l2_cache",
         {numSets, assoc,
@@ -495,7 +495,7 @@ static org_t DumpAreaCOMA(std::ostream& os, const config& config, const Simulato
         &directory,
         &root_directory,
     };
-    
+
     org_t total(0,0,0);
     for (size_t i = 0; i < sizeof caches / sizeof caches[0]; ++i)
     {
@@ -507,33 +507,33 @@ static org_t DumpAreaCOMA(std::ostream& os, const config& config, const Simulato
     }
     return total;
 }
-    
+
 void Simulator::MGSystem::DumpArea(std::ostream& os, size_t tech) const
 {
     // Virtual register size (registers in ISA)
     static const size_t BITS_VREG = 5;
-    
+
     config cfg;
-    
+
     cfg.numProcessors   = m_procs[0]->GetGridSize();
     cfg.numFPUs         = m_fpus.size();
     cfg.numThreads      = m_procs[0]->GetThreadTableSize();
     cfg.numFamilies     = m_procs[0]->GetFamilyTableSize();
     cfg.numIntRegisters = m_procs[0]->GetRegisterFile().GetSize(RT_INTEGER);
     cfg.numFltRegisters = m_procs[0]->GetRegisterFile().GetSize(RT_FLOAT);
-    
+
     cfg.tech             = tech;
     cfg.bits_PID         =
     cfg.bits_PSize       = ilog2(cfg.numProcessors);
-    cfg.bits_TID         = 
+    cfg.bits_TID         =
     cfg.bits_TSize       = ilog2(cfg.numThreads);
     cfg.bits_RegsNo      = NUM_REG_TYPES * BITS_VREG;
     cfg.bits_RegIndex    = ilog2(std::max(cfg.numIntRegisters, cfg.numFltRegisters));
     cfg.bits_RegAddr     = cfg.bits_RegIndex + ilog2((int)NUM_REG_TYPES);
-    cfg.bits_RegValue    = 
+    cfg.bits_RegValue    =
     cfg.bits_SInteger    = sizeof(SInteger) * 8;
     cfg.bits_LFID        = ilog2(cfg.numFamilies);
-    
+
     if (cfg.bits_PID + cfg.bits_LFID >= cfg.bits_RegValue)
     {
         std::cerr << "Error: No space in registers for capability bits" << std::endl;
@@ -549,7 +549,7 @@ void Simulator::MGSystem::DumpArea(std::ostream& os, size_t tech) const
 
     // We only dump information for the memory if it is COMA
     Simulator::COMA* coma = dynamic_cast<Simulator::COMA*>(m_memory);
-    
+
     // Dump processor structures
     static const structure_desc* structures[] = {
         &int_register_file,
@@ -565,7 +565,7 @@ void Simulator::MGSystem::DumpArea(std::ostream& os, size_t tech) const
     {
         DumpStatsCOMA(os, *coma);
     }
-    
+
     os << std::endl
        << "Structure\tField\tArea (mm^2)\tAccess time (ns)" << std::endl;
 
@@ -582,7 +582,7 @@ void Simulator::MGSystem::DumpArea(std::ostream& os, size_t tech) const
     {
         const Simulator::Processor::ICache& icache = m_procs[0]->GetICache();
         const Simulator::Processor::DCache& dcache = m_procs[0]->GetDCache();
-        
+
         static const tcache_desc l1_icache = {
             "l1_icache",
             {icache.GetNumSets(), icache.GetAssociativity(),
@@ -607,7 +607,7 @@ void Simulator::MGSystem::DumpArea(std::ostream& os, size_t tech) const
             &l1_icache,
             &l1_dcache,
         };
-    
+
         for (size_t i = 0; i < sizeof caches / sizeof caches[0]; ++i)
         {
             const tcache_desc& c = *caches[i];
@@ -616,7 +616,7 @@ void Simulator::MGSystem::DumpArea(std::ostream& os, size_t tech) const
             coreinfo.merge(si);
         }
     }
-    
+
     // Dump misc. components
     // llb = lambda squared * #bits * adjustment for um^2
     const double llb = tech * tech * cfg.bits_RegValue / 4e6;
@@ -630,7 +630,7 @@ void Simulator::MGSystem::DumpArea(std::ostream& os, size_t tech) const
 
     coreinfo.merge(alu);
     coreinfo.merge(mult);
-    
+
     os << "processor\t(total,max)\t" << coreinfo.area*1e-6 << "\t" << coreinfo.access_time*1e9 << std::endl
        << "fpu\t\t" << fpu.area*1e-6 << "\t" << fpu.access_time*1e9 << std::endl;
 
@@ -640,21 +640,21 @@ void Simulator::MGSystem::DumpArea(std::ostream& os, size_t tech) const
     org_t grid(0,0,0);
     grid.merge(coreinfo);
     grid.merge(fpu);
-    
+
     // Dump memory, if we can
     if (coma != NULL)
     {
         org_t mem = DumpAreaCOMA(os, cfg, *coma);
         grid.merge(mem);
     }
-    
+
     os << "microgrid\t(total,max)\t" << grid.area*1e-6 << "\t" << grid.access_time*1e9 << std::endl;
 }
 
 #else
 // CACTI not enabled
-void Simulator::MGSystem::DumpArea(std::ostream& os, size_t tech) const
+void Simulator::MGSystem::DumpArea(std::ostream&, size_t ) const
 {
-    assert(false);
+    throw std::runtime_error("CACTI estimation not supported in this build.");
 }
 #endif

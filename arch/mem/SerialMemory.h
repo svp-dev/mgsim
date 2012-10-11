@@ -18,11 +18,11 @@ class SerialMemory : public Object, public IMemory, public VirtualMemory
 {
     struct Request
     {
-        bool             write;
         MemAddr          address;
         MemData          data;
-        WClientID        wid;
         IMemoryCallback* callback;
+        WClientID        wid;
+        bool             write;
     };
 
     // IMemory
@@ -33,7 +33,7 @@ class SerialMemory : public Object, public IMemory, public VirtualMemory
     using VirtualMemory::Read;
     using VirtualMemory::Write;
 
-    void GetMemoryStatistics(uint64_t& nreads, uint64_t& nwrites, 
+    void GetMemoryStatistics(uint64_t& nreads, uint64_t& nwrites,
                              uint64_t& nread_bytes, uint64_t& nwrite_bytes,
                              uint64_t& nreads_ext, uint64_t& nwrites_ext) const
     {
@@ -48,7 +48,7 @@ class SerialMemory : public Object, public IMemory, public VirtualMemory
     ComponentModelRegistry&       m_registry;
     std::vector<IMemoryCallback*> m_clients;
     Buffer<Request>               m_requests;
-    ArbitratedService<CyclicArbitratedPort>           p_requests;
+    ArbitratedService<CyclicArbitratedPort> p_requests;
     CycleNo                       m_baseRequestTime;
     CycleNo                       m_timePerLine;
     CycleNo                       m_lineSize;
@@ -59,12 +59,12 @@ class SerialMemory : public Object, public IMemory, public VirtualMemory
     uint64_t m_nread_bytes;
     uint64_t m_nwrites;
     uint64_t m_nwrite_bytes;
-    
+
     // Processes
     Process p_Requests;
-    
+
     Result DoRequests();
-    
+
 public:
     SerialMemory(const std::string& name, Object& parent, Clock& clock, Config& config);
 

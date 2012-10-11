@@ -11,10 +11,10 @@ namespace Simulator
 
 
     NullIO::NullIO(const std::string& name, Object& parent, Clock& clock)
-        : Object(name, parent, clock)
+        : Object(name, parent, clock), m_clients()
     {
     }
-    
+
     void NullIO::CheckEndPoints(IODeviceID from, IODeviceID to) const
     {
         if (from >= m_clients.size() || m_clients[from] == NULL)
@@ -28,7 +28,7 @@ namespace Simulator
         }
 
     }
-  
+
     bool NullIO::RegisterClient(IODeviceID id, IIOBusClient& client)
     {
         if (id >= m_clients.size())
@@ -110,7 +110,7 @@ namespace Simulator
         }
         return res;
     }
-    
+
     StorageTraceSet NullIO::GetWriteRequestTraces() const
     {
         StorageTraceSet res;
@@ -120,7 +120,7 @@ namespace Simulator
         }
         return res;
     }
-    
+
     StorageTraceSet NullIO::GetReadResponseTraces() const
     {
         StorageTraceSet res;
@@ -130,7 +130,7 @@ namespace Simulator
         }
         return res;
     }
-    
+
     StorageTraceSet NullIO::GetInterruptRequestTraces() const
     {
         StorageTraceSet res;
@@ -140,7 +140,7 @@ namespace Simulator
 
         return res;
     }
-    
+
     StorageTraceSet NullIO::GetNotificationTraces() const
     {
         StorageTraceSet res;
@@ -150,7 +150,7 @@ namespace Simulator
 
         return res;
     }
-    
+
     IODeviceID NullIO::GetNextAvailableDeviceID() const
     {
         for (size_t i = 0; i < m_clients.size(); ++i)
@@ -172,7 +172,7 @@ namespace Simulator
     {
         string name(name_);
         transform(name.begin(), name.end(), name.begin(), ::tolower);
-        
+
         for (size_t i = 0; i < m_clients.size(); ++i)
         {
             if (m_clients[i] != NULL && FNM_NOMATCH != fnmatch(name.c_str(), m_clients[i]->GetIODeviceName().c_str(), 0))
@@ -215,7 +215,7 @@ namespace Simulator
 
     void NullIO::Cmd_Info(std::ostream& out, const std::vector<std::string>& /*args*/) const
     {
-        out << 
+        out <<
             "The Null I/O bus implements a zero-latency bus between\n"
             "the components connected to it.\n\n"
             "The following components are registered:\n";

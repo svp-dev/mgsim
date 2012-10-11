@@ -38,7 +38,7 @@ using namespace std;
 uint64_t MGSystem::GetOp() const
 {
     uint64_t op = 0;
-    for (Processor* p : m_procs) 
+    for (Processor* p : m_procs)
         op += p->GetPipeline().GetOp();
     return op;
 }
@@ -131,7 +131,7 @@ map<string, Object*> MGSystem::GetComponents(const string& pat)
         string syspat = m_root.GetName() + '.' + pat;
         ::GetComponents(ret, &m_root, syspat);
     }
-    
+
     return ret;
 }
 
@@ -183,7 +183,7 @@ static void PrintComponents(ostream& out, const Object* cur, const string& inden
         if (new_printing && (levels == 0 || cur_level < levels))
         {
             string str = indent + child->GetName();
-            
+
             out << setfill(' ') << setw(30) << left << str << right << " ";
 
             auto lc = dynamic_cast<const Inspect::ListCommands*>(child);
@@ -228,11 +228,11 @@ void MGSystem::PrintCoreStats(ostream& os) const {
     const size_t P = m_procs.size();
     enum ct { I, F, PC };
     struct dt { uint64_t i; float f; };
-    struct dt c[P][MAXCOUNTS];
-    enum ct types[MAXCOUNTS];
+    dt c[P][MAXCOUNTS];
+    ct types[MAXCOUNTS];
 
     size_t i, j;
-    
+
     memset(c, 0, sizeof(struct dt)*P*MAXCOUNTS);
 
     // Collect the data
@@ -404,7 +404,6 @@ void MGSystem::PrintCoreStats(ostream& os) const {
        << "# xqavg: average size of the exclusive allocate queue (= xqtot / nmastercycles_total)" << endl
        << "# fcreates: total number of local families created" << endl
        << "# tcreates: total number of threads created" << endl;
-
 }
 
 void MGSystem::PrintMemoryStatistics(ostream& os) const {
@@ -469,7 +468,7 @@ void MGSystem::PrintState(const vector<string>& /*unused*/) const
     }
 
     for (Processor* p : m_procs)
-        if (!p->IsIdle()) 
+        if (!p->IsIdle())
             cout << p->GetFQN() << ": non-empty" << endl;
 }
 
@@ -541,15 +540,15 @@ void MGSystem::Step(CycleNo nCycles)
             {
                 switch (process->GetState())
                 {
-                case STATE_DEADLOCK: 
+                case STATE_DEADLOCK:
                     ss << "  " << process->GetName() << endl;
-                    ++num_stalled; 
+                    ++num_stalled;
                     break;
-                case STATE_RUNNING:  
-                    ++num_running; 
+                case STATE_RUNNING:
+                    ++num_running;
                     break;
-                default: 
-                    assert(false); 
+                default:
+                    assert(false);
                     break;
                 }
             }
@@ -605,14 +604,23 @@ MGSystem::MGSystem(Config& config,
     : m_kernel(m_breakpoints),
       m_clock(m_kernel.CreateClock(config.getValue<unsigned long>("CoreFreq"))),
       m_root("", m_clock),
+      m_procs(),
+      m_fpus(),
+      m_iobuses(),
+      m_devices(),
+      m_procbusmapping(),
+      m_symtable(),
       m_breakpoints(m_kernel),
+      m_memory(0),
+      m_objdump_cmd(),
       m_config(config),
-      m_bootrom(NULL)
+      m_bootrom(0),
+      m_selector(0)
 {
 
     if (!quiet)
     {
-        clog << endl 
+        clog << endl
              << "Instanciating components..." << endl;
     }
 
@@ -746,7 +754,7 @@ MGSystem::MGSystem(Config& config,
     {
         clog << numProcessors << " cores instantiated." << endl;
     }
-    
+
     // Create the I/O devices
     vector<string> dev_names = extradevs;
     vector<string> cfg_names = config.getWordList("IODevices");
@@ -773,7 +781,7 @@ MGSystem::MGSystem(Config& config,
         {
             throw runtime_error("Device " + name + " set to connect to non-existent bus");
         }
-        
+
         IIOBus& iobus = *m_iobuses[busid];
 
         IODeviceID devid = config.getValueOrDefault<IODeviceID>(m_root, name, "DeviceID", iobus.GetNextAvailableDeviceID());
@@ -837,7 +845,7 @@ MGSystem::MGSystem(Config& config,
 
     if (!quiet)
     {
-        clog << endl 
+        clog << endl
              << "Initializing components..." << endl;
     }
 
@@ -877,7 +885,7 @@ MGSystem::MGSystem(Config& config,
 
     if (!quiet)
     {
-        clog << endl 
+        clog << endl
              << "Final configuration..." << endl;
     }
 

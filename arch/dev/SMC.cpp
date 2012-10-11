@@ -31,13 +31,13 @@ namespace Simulator
         iobus.RegisterClient(devid, *this);
 
         // Linked ROM
-        
+
         m_rom = dynamic_cast<ActiveROM*>(& iobus.GetDeviceByName(config.getValue<string>(*this, "LinkedROM")));
         if (m_rom == NULL)
         {
             throw exceptf<InvalidArgumentException>(*this, "LinkedROM does not name a ROM device");
         }
-        
+
         if (!m_rom->IsPreloaded())
         {
             m_enable_dca = true;
@@ -55,7 +55,7 @@ namespace Simulator
 
         m_cpu = & cpu_if->GetProcessor();
 
-        // component processes 
+        // component processes
 
         m_start_dca.Sensitive(p_StartDCA);
         m_doboot.Sensitive(p_Boot);
@@ -84,7 +84,7 @@ namespace Simulator
             m_iobus.GetDeviceIdentity(i, id);
             SerializeRegister(RT_INTEGER, id.provider, m_enumdata + (i + 1) * 8, 2);
             SerializeRegister(RT_INTEGER, id.model,    m_enumdata + (i + 1) * 8 + 2, 2);
-            SerializeRegister(RT_INTEGER, id.revision, m_enumdata + (i + 1) * 8 + 4, 2);            
+            SerializeRegister(RT_INTEGER, id.revision, m_enumdata + (i + 1) * 8 + 4, 2);
         }
 
         m_cpu->GetIOInterface()->Initialize(m_devid);
@@ -97,9 +97,9 @@ namespace Simulator
         {
             m_doboot.Set();
         }
-        
+
         p_StartDCA.SetStorageTraces(m_iobus.GetWriteRequestTraces());
-        
+
         p_Boot.SetStorageTraces(StorageTrace());
     }
 
@@ -169,7 +169,7 @@ namespace Simulator
     {
         return opt(m_doboot);
     }
-    
+
     bool SMC::OnReadRequestReceived(IODeviceID from, MemAddr address, MemSize size)
     {
         if (address + size > m_size)
@@ -193,12 +193,12 @@ namespace Simulator
         if (!DeviceDatabase::GetDatabase().FindDeviceByName("MGSim", "SMC", id))
         {
             throw InvalidArgumentException(*this, "Device identity not registered");
-        }    
+        }
     }
 
-    std::string SMC::GetIODeviceName() const 
-    { 
-        return GetFQN(); 
+    std::string SMC::GetIODeviceName() const
+    {
+        return GetFQN();
     }
 
 

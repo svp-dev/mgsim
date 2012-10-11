@@ -33,9 +33,9 @@ namespace Simulator {
         BreakPointManager           m_breakpoints;
         IMemory*                    m_memory;
         std::string                 m_objdump_cmd;
-        Config&            m_config;
-        ActiveROM*         m_bootrom;
-        Selector*          m_selector;
+        Config&                     m_config;
+        ActiveROM*                  m_bootrom;
+        Selector*                   m_selector;
 
         // Writes the current configuration into memory and returns its address
         MemAddr WriteConfiguration();
@@ -44,8 +44,8 @@ namespace Simulator {
         struct ConfWords
         {
             std::vector<uint32_t> data;
-            
-            ConfWords& operator<<(uint32_t val) 
+
+            ConfWords& operator<<(uint32_t val)
             {
                 uint32_t repr;
                 SerializeRegister(RT_INTEGER, val, &repr, sizeof(repr));
@@ -71,7 +71,7 @@ namespace Simulator {
 
         void PrintComponents(std::ostream& os, const std::string& pat = "*", size_t levels = 0) const;
         void PrintProcesses(std::ostream& os, const std::string& pat = "*") const;
-        
+
         void DumpArea(std::ostream& os, size_t tech) const;
 
         void PrintMemoryStatistics(std::ostream& os) const;
@@ -90,12 +90,14 @@ namespace Simulator {
         // Steps the entire system this many cycles
         void Step(CycleNo nCycles);
         void Abort() { GetKernel().Abort(); }
-    
+
         MGSystem(Config& config,
                  const std::vector<std::pair<RegAddr, RegValue> >& regs,
                  const std::vector<std::pair<RegAddr, std::string> >& loads,
                  const std::vector<std::string>& extradevs,
                  bool quiet);
+        MGSystem(const MGSystem&) = delete;
+        MGSystem& operator=(const MGSystem&) = delete;
 
         ~MGSystem();
 

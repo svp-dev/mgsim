@@ -29,7 +29,7 @@ public:
     virtual bool OnReadResponseReceived(IODeviceID from, MemAddr address, const IOData& data);
     virtual bool OnInterruptRequestReceived(IONotificationChannelID which);
     virtual bool OnNotificationReceived(IONotificationChannelID which, Integer tag);
-    
+
     virtual StorageTraceSet GetReadRequestTraces() const { return StorageTraceSet(); }
     virtual StorageTraceSet GetWriteRequestTraces() const { return StorageTraceSet(); }
     virtual StorageTraceSet GetReadResponseTraces() const { return StorageTraceSet(); }

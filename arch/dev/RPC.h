@@ -5,7 +5,7 @@
 #include <sim/storage.h>
 #include <arch/IOBus.h>
 
-namespace Simulator 
+namespace Simulator
 {
     class IRPCServiceProvider
     {
@@ -13,14 +13,14 @@ namespace Simulator
         virtual void Service(uint32_t procedure_id,
                              std::vector<char>& res1, size_t res1_maxsize,
                              std::vector<char>& res2, size_t res2_maxsize,
-                             const std::vector<char>& arg1, 
-                             const std::vector<char>& arg2, 
+                             const std::vector<char>& arg1,
+                             const std::vector<char>& arg2,
                              uint32_t arg3, uint32_t arg4) = 0;
 
         virtual std::string GetName() = 0;
         virtual ~IRPCServiceProvider() {};
     };
-   
+
     class RPCInterface : public Object, public IIOBusClient
     {
         struct IncomingRequest
@@ -35,8 +35,8 @@ namespace Simulator
             MemSize                 arg2_size;
             MemAddr                 res1_base_address;
             MemAddr                 res2_base_address;
-            IONotificationChannelID notification_channel_id;
             Integer                 completion_tag;
+            IONotificationChannelID notification_channel_id;
         };
 
         struct ProcessRequest
@@ -47,12 +47,23 @@ namespace Simulator
             IODeviceID              dca_device_id;
             MemAddr                 res1_base_address;
             MemAddr                 res2_base_address;
-            IONotificationChannelID notification_channel_id;
             Integer                 completion_tag;
             std::vector<char>       data1;
             std::vector<char>       data2;
+            IONotificationChannelID notification_channel_id;
+            ProcessRequest() : ProcessRequest(0, 0, 0, 0, 0, 0, 0, 0) {}
+            ProcessRequest(uint32_t a, uint32_t b, uint32_t c,
+                           IODeviceID d, MemAddr e, MemAddr f, IONotificationChannelID g,
+                           Integer h)
+            : procedure_id(a), extra_arg1(b), extra_arg2(c),
+                dca_device_id(d), res1_base_address(e),
+                res2_base_address(f),
+                completion_tag(h),
+                data1(), data2(),
+                notification_channel_id(g)
+            {}
         };
-            
+
         struct ProcessResponse
         {
             IODeviceID              dca_device_id;
@@ -62,6 +73,13 @@ namespace Simulator
             Integer                 completion_tag;
             std::vector<char>       data1;
             std::vector<char>       data2;
+            ProcessResponse() : ProcessResponse(0, 0, 0, 0, 0) {}
+            ProcessResponse(IODeviceID a, MemAddr b, MemAddr c,
+                            IONotificationChannelID d, Integer e)
+            : dca_device_id(a), res1_base_address(b),
+                res2_base_address(c), notification_channel_id(d),
+                completion_tag(e), data1(), data2()
+            {}
         };
 
         struct CompletionNotificationRequest
@@ -120,16 +138,16 @@ namespace Simulator
 
         Process p_queue;
         Result  DoQueue();
-        
+
         Process p_argumentFetch;
-        Result  DoArgumentFetch();       
+        Result  DoArgumentFetch();
 
         Process p_processRequests;
-        Result  DoProcessRequests();       
+        Result  DoProcessRequests();
 
         Process p_writeResponse;
         Result  DoWriteResponse();
-        
+
         Process p_sendCompletionNotifications;
         Result  DoSendCompletionNotifications();
 
@@ -138,7 +156,7 @@ namespace Simulator
         bool OnWriteRequestReceived(IODeviceID from, MemAddr address, const IOData& iodata);
         bool OnReadResponseReceived(IODeviceID from, MemAddr address, const IOData& iodata);
 
-        void GetDeviceIdentity(IODeviceIdentification& id) const;        
+        void GetDeviceIdentity(IODeviceIdentification& id) const;
         std::string GetIODeviceName() const { return GetFQN(); }
     };
 

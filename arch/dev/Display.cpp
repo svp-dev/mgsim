@@ -16,8 +16,8 @@ namespace Simulator
 
     Display::FrameBufferInterface::FrameBufferInterface(const string& name, Display& parent, IIOBus& iobus, IODeviceID devid)
         : Object(name, parent, iobus.GetClock()),
-          m_devid(devid),
-          m_iobus(iobus)
+          m_iobus(iobus),
+          m_devid(devid)
     {
         iobus.RegisterClient(devid, *this);
     }
@@ -35,7 +35,7 @@ namespace Simulator
             memcpy(iodata.data, &disp.m_framebuffer[address], size);
         }
         iodata.size = size;
-        
+
         DebugIOWrite("FB read: %#016llx/%u", (unsigned long long)address, (unsigned)size);
 
         if (!m_iobus.SendReadResponse(m_devid, from, address, iodata))
@@ -68,14 +68,15 @@ namespace Simulator
         if (!DeviceDatabase::GetDatabase().FindDeviceByName("MGSim", "GfxFB", id))
         {
             throw InvalidArgumentException(*this, "Device identity not registered");
-        }    
+        }
     }
-    
+
     Display::ControlInterface::ControlInterface(const string& name, Display& parent, IIOBus& iobus, IODeviceID devid)
         : Object(name, parent, iobus.GetClock()),
-          m_devid(devid),
           m_iobus(iobus),
-          m_control(3, 0)
+          m_control(3, 0),
+          m_devid(devid),
+          m_key(0)
     {
         iobus.RegisterClient(devid, *this);
     }
@@ -85,7 +86,7 @@ namespace Simulator
         if (!DeviceDatabase::GetDatabase().FindDeviceByName("MGSim", "GfxCtl", id))
         {
             throw InvalidArgumentException(*this, "Device identity not registered");
-        }    
+        }
     }
 
     bool Display::ControlInterface::OnWriteRequestReceived(IODeviceID /*from*/, MemAddr address, const IOData& iodata)
@@ -94,13 +95,13 @@ namespace Simulator
 
         if (address % 4 != 0 || iodata.size != 4)
         {
-            throw exceptf<SimulationException>(*this, "Invalid unaligned GfxCtl write: %#016llx (%u)", (unsigned long long)address, (unsigned)iodata.size); 
+            throw exceptf<SimulationException>(*this, "Invalid unaligned GfxCtl write: %#016llx (%u)", (unsigned long long)address, (unsigned)iodata.size);
         }
         if ((word > 5 && word < 0x100) || word > 0x1ff)
         {
             throw exceptf<SimulationException>(*this, "Invalid write to GfxCtl word: %u", word);
         }
-        
+
         uint32_t value = UnserializeRegister(RT_INTEGER, iodata.data, iodata.size);
         Display& disp = GetDisplay();
 
@@ -111,7 +112,7 @@ namespace Simulator
             uint32_t req_w = m_control[0], req_h = m_control[1], req_bpp = m_control[2] & 0xffff;
             size_t act_w, act_h;
             bool req_indexed = m_control[2] >> 16;
-            
+
             if (req_bpp != 32 && req_bpp != 24 && req_bpp != 16 && req_bpp != 8)
             { DebugIOWrite("unsupported bits per pixel: %u", (unsigned)req_bpp); return true; }
             if (req_indexed && req_bpp > 8)
@@ -136,7 +137,7 @@ namespace Simulator
 
             if (act_w * act_h * req_bpp / 8 > disp.m_framebuffer.size())
             { DebugIOWrite("resolution too large for framebuffer: %ux%ux%u", (unsigned)act_w, (unsigned)act_h, (unsigned)req_bpp); return true; }
-            
+
             COMMIT {
                 disp.m_indexed = req_indexed;
                 disp.m_bpp = req_bpp;
@@ -192,13 +193,13 @@ namespace Simulator
 
         if (address % 4 != 0 || size != 4)
         {
-            throw exceptf<SimulationException>(*this, "Invalid unaligned GfxCtl read: %#016llx (%u)", (unsigned long long)address, (unsigned)size); 
+            throw exceptf<SimulationException>(*this, "Invalid unaligned GfxCtl read: %#016llx (%u)", (unsigned long long)address, (unsigned)size);
         }
         if ((word > 9 && word < 0x100) || word > 0x1ff)
         {
             throw exceptf<SimulationException>(*this, "Read from invalid GfxCtl word: %u", word);
         }
-        
+
         Display& disp = GetDisplay();
 
         if (word <= 9)
@@ -229,7 +230,7 @@ namespace Simulator
         iodata.size = 4;
 
         DebugIOWrite("Ctl read from word %u: %#016lx", word, (unsigned long)value);
-        
+
         if (!m_iobus.SendReadResponse(m_devid, from, address, iodata))
         {
             DeadlockWrite("Cannot send GfxCtl read response to I/O bus");
@@ -242,9 +243,12 @@ namespace Simulator
 
     Display::Display(const string& name, Object& parent, IIOBus& iobus, IODeviceID ctldevid, IODeviceID fbdevid, Config& config)
         : Object(name, parent),
+          m_ctlinterface("ctl", *this, iobus, ctldevid),
+          m_fbinterface("fb", *this, iobus, fbdevid),
           m_framebuffer(config.getValue<size_t>(*this, "GfxFrameSize"), 0),
           m_palette(256, 0),
-          m_indexed(false),
+          m_lastUpdate(0),
+          m_screen(NULL),
           m_bpp(8),
           m_width(640), m_height(400),
           m_scalex_orig(1.0f / max(1U, config.getValue<unsigned int>("SDLHorizScale"))),
@@ -253,12 +257,9 @@ namespace Simulator
           m_scaley(m_scaley_orig),
           m_refreshDelay_orig(config.getValue<unsigned int>("SDLRefreshDelay")),
           m_refreshDelay(m_refreshDelay_orig),
-          m_lastUpdate(0),
-          m_screen(NULL),
           m_max_screen_h(1024), m_max_screen_w(1280),
-          m_enabled(false),
-          m_ctlinterface("ctl", *this, iobus, ctldevid),
-          m_fbinterface("fb", *this, iobus, fbdevid)
+          m_indexed(false),
+          m_enabled(false)
     {
         if (m_framebuffer.size() < 640*400)
             throw exceptf<InvalidArgumentException>(*this, "FrameBufferSize not set or too small for minimum resolution 640x400: %zu", m_framebuffer.size());
@@ -286,12 +287,12 @@ namespace Simulator
             if (vf) {
                 m_max_screen_h = vf->current_h;
                 m_max_screen_w = vf->current_w;
-                cerr << "Maximum supported output size: " 
+                cerr << "Maximum supported output size: "
                           << m_max_screen_w << 'x' << m_max_screen_h << endl;
             }
         }
 #endif
-        
+
 
     }
 
@@ -306,18 +307,18 @@ namespace Simulator
 
         // cerr << "DEBUG: fb size " << m_width << " " << m_height << endl;
         // cerr << "DEBUG: resizescreen " << w << " " << h << endl;
-        w = min(m_max_screen_w, w); h = w * r; 
+        w = min(m_max_screen_w, w); h = w * r;
         h = min(m_max_screen_h, h); w = h / r;
         // cerr << "DEBUG: after adjust " << w << " " << h << endl;
 
 //    m_screen = SDL_SetVideoMode(w, h, 32, SDL_SWSURFACE | SDL_RESIZABLE);
-        
+
         if ((NULL == (m_screen = SDL_SetVideoMode(w, h, 32, SDL_SWSURFACE | SDL_RESIZABLE))) &&
             (NULL == (m_screen = SDL_SetVideoMode(640, 400, 32, SDL_SWSURFACE | SDL_RESIZABLE))))
         {
             cerr << "Setting SDL video mode failed: " << SDL_GetError() << endl;
-        } 
-        else 
+        }
+        else
         {
             // cerr << "DEBUG: new size " << m_screen->w << " " << m_screen->h << endl;
             // cerr << "DEBUG: before scale " << m_scalex << " " << m_scaley << endl;
@@ -399,7 +400,7 @@ namespace Simulator
                 // No source to copy, just clear the surface
                 SDL_FillRect(m_screen, NULL, 0);
             }
-            else 
+            else
             {
                 if (SDL_MUSTLOCK(m_screen))
                     if (SDL_LockSurface(m_screen) < 0)
@@ -408,10 +409,10 @@ namespace Simulator
 
                 // Copy the buffer into the video surface
                 unsigned dx, dy;
-                float m_scaley = this->m_scaley, 
+                float m_scaley = this->m_scaley,
                     m_scalex = this->m_scalex;
                 unsigned m_width = this->m_width;
-                unsigned m_screen_h = m_screen->h, 
+                unsigned m_screen_h = m_screen->h,
                     m_screen_w = m_screen->w;
                 unsigned m_screen_pitch = m_screen->pitch;
                 char* pixels = (char*)m_screen->pixels;
@@ -424,7 +425,7 @@ namespace Simulator
                     assert(m_bpp == 8);
                     /*** 1 byte per pixel, palette lookup ***/
                     const uint8_t *src = &m_framebuffer[0];
-                    for (dy = 0; dy < m_screen_h; ++dy) 
+                    for (dy = 0; dy < m_screen_h; ++dy)
                     {
                         Uint32*         dest = (Uint32*)(pixels + dy * m_screen_pitch);
                         unsigned int    sy   = dy * m_scaley;
@@ -432,11 +433,11 @@ namespace Simulator
                         {
                             unsigned int sx  = dx * m_scalex;
                             Uint32 color = m_palette[src[sy * m_width + sx]];
-                            dest[dx] = (((color & 0xff0000) >> 16) << Rshift) 
+                            dest[dx] = (((color & 0xff0000) >> 16) << Rshift)
                                 | (((color & 0x00ff00) >> 8) << Gshift)
                                 | (((color & 0x0000ff)     ) << Bshift);
                         }
-                    }                
+                    }
                 }
                 else
                     switch(m_bpp)
@@ -448,18 +449,18 @@ namespace Simulator
                         static const float Rf = 0xff / (float)0xe0;
                         static const float Gf = Rf;
                         static const float Bf = 0xff / (float)0xc0;
-                        for (dy = 0; dy < m_screen_h; ++dy) 
+                        for (dy = 0; dy < m_screen_h; ++dy)
                         {
                             Uint32*         dest = (Uint32*)(pixels + dy * m_screen_pitch);
                             unsigned int    sy   = dy * m_scaley;
-                        
+
                             for (dx = 0; dx < m_screen_w; ++dx)
                             {
                                 unsigned int sx  = dx * m_scalex;
                                 Uint8 color = src[sy * m_width + sx];
-                                dest[dx] = 
-                                    (((uint32_t)((color & 0xe0) * Rf)) << Rshift) 
-                                    | (((uint32_t)(((color & 0x1c) << 3) * Gf)) << Gshift) 
+                                dest[dx] =
+                                    (((uint32_t)((color & 0xe0) * Rf)) << Rshift)
+                                    | (((uint32_t)(((color & 0x1c) << 3) * Gf)) << Gshift)
                                     | (((uint32_t)(((color & 0x03) << 6) * Bf)) << Bshift);
                             }
                         }
@@ -472,18 +473,18 @@ namespace Simulator
                         static const float Rf = 0xff / (float)0xf8;
                         static const float Gf = 0xff / (float)0xfc;
                         static const float Bf = Rf;
-                        for (dy = 0; dy < m_screen_h; ++dy) 
+                        for (dy = 0; dy < m_screen_h; ++dy)
                         {
                             Uint32*         dest = (Uint32*)(pixels + dy * m_screen_pitch);
                             unsigned int    sy   = dy * m_scaley;
-                        
+
                             for (dx = 0; dx < m_screen_w; ++dx)
                             {
                                 unsigned int sx  = dx * m_scalex;
                                 Uint16 color = src[sy * m_width + sx];
-                                dest[dx] = 
-                                    (((uint32_t)(((color & 0xf800) >> 8) * Rf)) << Rshift) 
-                                    | (((uint32_t)(((color & 0x07e0) >> 3) * Gf)) << Gshift) 
+                                dest[dx] =
+                                    (((uint32_t)(((color & 0xf800) >> 8) * Rf)) << Rshift)
+                                    | (((uint32_t)(((color & 0x07e0) >> 3) * Gf)) << Gshift)
                                     | (((uint32_t)(((color & 0x001f) << 3) * Bf)) << Bshift);
                             }
                         }
@@ -493,16 +494,16 @@ namespace Simulator
                     {
                         /*** 3 bytes per pixel, 8-8-8 RGB ***/
                         const uint8_t *src = (const uint8_t*)(void*)&m_framebuffer[0];
-                        for (dy = 0; dy < m_screen_h; ++dy) 
+                        for (dy = 0; dy < m_screen_h; ++dy)
                         {
                             Uint32*         dest = (Uint32*)(pixels + dy * m_screen_pitch);
                             unsigned int    sy   = dy * m_scaley;
-                        
+
                             for (dx = 0; dx < m_screen_w; ++dx)
                             {
                                 unsigned int sx  = dx * m_scalex;
                                 const Uint8 * base = &src[sy * m_width * 3 + sx * 3];
-                                dest[dx] = (base[0] << Rshift) 
+                                dest[dx] = (base[0] << Rshift)
                                     | (base[1] << Gshift)
                                     | (base[2] << Bshift);
                             }
@@ -513,16 +514,16 @@ namespace Simulator
                     {
                         /*** 4 bytes per pixel, 8-8-8 RGB ***/
                         const uint32_t *src = (const uint32_t*)(void*)&m_framebuffer[0];
-                        for (dy = 0; dy < m_screen_h; ++dy) 
+                        for (dy = 0; dy < m_screen_h; ++dy)
                         {
                             Uint32*         dest = (Uint32*)(pixels + dy * m_screen_pitch);
                             unsigned int    sy   = dy * m_scaley;
-                        
+
                             for (dx = 0; dx < m_screen_w; ++dx)
                             {
                                 unsigned int sx  = dx * m_scalex;
                                 Uint32 color = src[sy * m_width + sx];
-                                dest[dx] = (((color & 0xff0000) >> 16) << Rshift) 
+                                dest[dx] = (((color & 0xff0000) >> 16) << Rshift)
                                     | (((color & 0x00ff00) >> 8) << Gshift)
                                     | (((color & 0x0000ff)     ) << Bshift);
                             }
@@ -546,8 +547,8 @@ namespace Simulator
     {
 #ifdef USE_SDL
         stringstream caption;
-        caption << "MGSim display: " 
-                << m_width << "x" << m_height 
+        caption << "MGSim display: "
+                << m_width << "x" << m_height
                 << ", " << m_refreshDelay << " kernel cycles / frame";
         SDL_WM_SetCaption(caption.str().c_str(), NULL);
 #endif
@@ -567,11 +568,11 @@ namespace Simulator
 #ifdef USE_SDL
         if (!m_enabled)
             return ;
-        
+
         bool do_resize = false;
         bool do_close = false;
         unsigned nh = 0, nw = 0;
-        
+
         SDL_Event event;
         while (SDL_PollEvent(&event))
         {
@@ -580,9 +581,9 @@ namespace Simulator
             case SDL_QUIT:
                 do_close = true;
                 break;
-                
+
             case SDL_KEYUP:
-                switch (event.key.keysym.sym) 
+                switch (event.key.keysym.sym)
                 {
                 case SDLK_ESCAPE:
                     do_close = true;
@@ -621,13 +622,13 @@ namespace Simulator
                     // do nothing (yet)
                     break;
                 }
-                if (do_resize) 
+                if (do_resize)
                 {
                     nw = m_width / m_scalex;
                     nh = m_height / m_scaley;
                 }
                 break;
-                
+
             case SDL_VIDEORESIZE:
                 do_resize = true;
                 nw = event.resize.w;
@@ -635,7 +636,7 @@ namespace Simulator
                 break;
             }
         }
-        
+
         if (do_close)
         {
             // cerr << "Graphics output closed by user." << endl;
@@ -645,7 +646,7 @@ namespace Simulator
         }
         if (do_resize)
             ResizeScreen(nw, nh);
-        
+
         Refresh();
 #endif
     }
@@ -658,7 +659,7 @@ namespace Simulator
 
         if (erase)
             memset(&m_framebuffer[0], 0, w * h * m_bpp / 8);
-    
+
 #ifdef USE_SDL
         // Try to resize the screen as well
         ResizeScreen(m_width / m_scalex, m_height / m_scaley);

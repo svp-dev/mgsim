@@ -272,7 +272,7 @@ struct Elf_Shdr
 };
 
 struct Elf_Sym
-{ 
+{
     Elf_Word      st_name;
     Elf_Addr      st_value;
     Elf_Word      st_size;

@@ -35,19 +35,19 @@ class DDRMemory::Interface : public Object, public DDRChannel::ICallback
     StorageTraceSet     m_ddrStorageTraces;
     Buffer<Request>     m_requests;  //< incoming from system, outgoing to memory
     Buffer<Request>     m_responses; //< incoming from memory, outgoing to system
-    
+
     std::queue<Request> m_activeRequests; //< Requests currently active in DDR
 
     // Processes
     Process             p_Requests;
     Process             p_Responses;
-    
+
     VirtualMemory&      m_memory;
 
     // Statistics
     uint64_t          m_nreads;
     uint64_t          m_nwrites;
-    
+
 
 public:
 
@@ -55,19 +55,19 @@ public:
     bool OnReadCompleted()
     {
         assert(!m_activeRequests.empty());
-        
+
         Request& request = m_activeRequests.front();
 
         COMMIT {
             m_memory.Read(request.address, request.data.data, m_lineSize);
         }
-            
+
         if (!m_responses.Push(request))
         {
             DeadlockWrite("Unable to push reply into send buffer");
             return false;
         }
-        
+
         COMMIT {
             m_activeRequests.pop();
         }
@@ -88,7 +88,7 @@ public:
             DeadlockWrite("Unable to queue read request to memory");
             return false;
         }
-        
+
         return true;
     }
 
@@ -98,9 +98,9 @@ public:
         // queued by AddRequest()
 
         assert(!m_requests.Empty());
-        
+
         const Request& req = m_requests.Front();
-        
+
         if (!req.write)
         {
             // It's a read
@@ -108,8 +108,8 @@ public:
             {
                 return FAILED;
             }
-            
-            COMMIT{ 
+
+            COMMIT{
                 ++m_nreads;
                 m_activeRequests.push(req);
             }
@@ -120,12 +120,12 @@ public:
             {
                 return FAILED;
             }
-            
+
             if (!req.client->callback->OnMemoryWriteCompleted(req.wid)) {
                 return FAILED;
             }
 
-            COMMIT { 
+            COMMIT {
                 m_memory.Write(req.address, req.data.data, req.data.mask, m_lineSize);
 
                 ++m_nwrites;
@@ -143,7 +143,7 @@ public:
 
         assert(!m_responses.Empty());
         const Request &request = m_responses.Front();
-        
+
         assert(!request.write);
 
         // This request has arrived, send it to the callback
@@ -151,11 +151,11 @@ public:
         {
             return FAILED;
         }
-        
+
         if (!request.client->callback->OnMemoryReadCompleted(request.address, request.data.data)) {
             return FAILED;
         }
-        
+
         m_responses.Pop();
         return SUCCESS;
     }
@@ -168,7 +168,7 @@ public:
 
         if (request.write) {
             out << "Write";
-        } else { 
+        } else {
             out << "Read ";
         }
         out << " | ";
@@ -184,10 +184,10 @@ public:
             }
         }
         else
-            out << "                         ";                
+            out << "                         ";
 
         out << " | ";
-    
+
         Object* obj = dynamic_cast<Object*>(request.client->callback);
         if (obj == NULL) {
             out << "???";
@@ -199,14 +199,14 @@ public:
 
     void RegisterClient(ArbitratedService<>& client_arbitrator, Process& process, StorageTraceSet& traces, const StorageTraceSet& storages)
     {
-        p_service.AddProcess(process);      
+        p_service.AddProcess(process);
         client_arbitrator.AddProcess(p_Responses);
 
         p_Requests.SetStorageTraces(m_ddrStorageTraces * storages);
         p_Responses.SetStorageTraces(storages);
         traces ^= m_requests;
     }
-    
+
     bool HasRequests(void) const
     {
         return !(m_requests.Empty() && m_responses.Empty());
@@ -229,13 +229,20 @@ public:
         }
         out << endl;
     }
-    
+
+    Interface(const Interface&) = delete;
+    Interface& operator=(const Interface&) = delete;
+
     Interface(const std::string& name, DDRMemory& parent, Clock& clock, size_t id, const DDRChannelRegistry& ddr, Config& config)
         : Object     (name, parent, clock),
           m_lineSize (config.getValue<size_t>("CacheLineSize")),
           p_service  (*this, clock, "p_service"),
+          m_ddr      (0),
+          m_ddrStorageTraces(),
           m_requests ("b_requests", *this, clock, config.getValue<size_t>(*this, "ExternalOutputQueueSize")),
           m_responses("b_responses", *this, clock, config.getValue<size_t>(*this, "ExternalInputQueueSize")),
+          m_activeRequests(),
+
           p_Requests (*this, "requests",   delegate::create<Interface, &Interface::DoRequests>(*this)),
           p_Responses(*this, "responses",  delegate::create<Interface, &Interface::DoResponses>(*this)),
           m_memory(parent),
@@ -257,14 +264,14 @@ public:
             throw exceptf<InvalidArgumentException>(*this, "Invalid DDR channel ID: %zu", ddrid);
         }
         m_ddr = ddr[ddrid];
-    
+
         m_ddr->SetClient(*this, m_ddrStorageTraces, m_responses);
 
         //p_Requests.SetStorageTraces(m_requests);
         //p_Responses.SetStorageTraces(sts);
     }
 };
-                        
+
 MCID DDRMemory::RegisterClient(IMemoryCallback& callback, Process& process, StorageTraceSet& traces, Storage& storage, bool /*ignored*/)
 {
 #ifndef NDEBUG
@@ -272,7 +279,7 @@ MCID DDRMemory::RegisterClient(IMemoryCallback& callback, Process& process, Stor
         assert(m_clients[i].callback != &callback);
     }
 #endif
-    
+
     MCID id = m_clients.size();
 
     stringstream name;
@@ -283,7 +290,7 @@ MCID DDRMemory::RegisterClient(IMemoryCallback& callback, Process& process, Stor
     m_clients.push_back(client);
 
     m_storages ^= storage;
-    
+
     for (size_t i = 0; i < m_ifs.size(); ++i)
     {
         m_ifs[i]->RegisterClient(*client.service, process, traces, opt(m_storages));
@@ -318,7 +325,7 @@ bool DDRMemory::Read(MCID id, MemAddr address)
     request.address   = address;
     request.client    = &m_clients[id];
     request.write     = false;
-    
+
     Interface& chan = *m_ifs[ if_index ];
     if (!chan.AddIncomingRequest(request))
     {
@@ -332,7 +339,7 @@ bool DDRMemory::Read(MCID id, MemAddr address)
 bool DDRMemory::Write(MCID id, MemAddr address, const MemData& data, WClientID wid)
 {
     assert(address % m_lineSize == 0);
-    
+
     // Client should have been registered
     assert(id < m_clients.size() && m_clients[id].callback != NULL);
 
@@ -354,7 +361,7 @@ bool DDRMemory::Write(MCID id, MemAddr address, const MemData& data, WClientID w
             return false;
         }
     }
-    
+
     size_t if_index;
     MemAddr unused;
     m_selector->Map(address / m_lineSize, unused, if_index);
@@ -369,11 +376,13 @@ bool DDRMemory::Write(MCID id, MemAddr address, const MemData& data, WClientID w
     return true;
 }
 
-DDRMemory::DDRMemory(const std::string& name, Object& parent, Clock& clock, Config& config, const std::string& defaultInterfaceSelectorType) 
+DDRMemory::DDRMemory(const std::string& name, Object& parent, Clock& clock, Config& config, const std::string& defaultInterfaceSelectorType)
     : Object(name, parent, clock),
       m_registry(config),
       m_clock(clock),
-      m_ifs       (config.getValueOrDefault<size_t>(*this, "NumInterfaces", 
+      m_clients(),
+      m_storages(),
+      m_ifs       (config.getValueOrDefault<size_t>(*this, "NumInterfaces",
                                                          config.getValue<size_t>("NumProcessors"))),
       m_ddr            ("ddr", *this, config, m_ifs.size()),
       m_lineSize       (config.getValue<size_t> ("CacheLineSize")),
@@ -385,14 +394,14 @@ DDRMemory::DDRMemory(const std::string& name, Object& parent, Clock& clock, Conf
 {
     config.registerObject(*this, "ddrmem");
     config.registerProperty(*this, "selector", m_selector->GetName());
-        
+
     // Create the interfaces
     for (size_t i = 0; i < m_ifs.size(); ++i)
     {
-        stringstream name;
-        name << "extif" << i;
+        stringstream sname;
+        sname << "extif" << i;
 
-        m_ifs[i] = new Interface(name.str(), *this, clock, i, m_ddr, config);
+        m_ifs[i] = new Interface(sname.str(), *this, clock, i, m_ddr, config);
 
         config.registerObject(*m_ifs[i], "extif");
         config.registerRelation(*this, *m_ifs[i], "extif");
@@ -446,7 +455,7 @@ void DDRMemory::Cmd_Read(ostream& out, const vector<string>& arguments) const
         {
             m_ifs[i]->Print(out);
         }
-    }    
+    }
 }
 
 }

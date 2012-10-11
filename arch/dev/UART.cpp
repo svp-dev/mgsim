@@ -12,7 +12,7 @@ using namespace std;
 #undef get_pty_master
 
 #if defined(HAVE_POSIX_TERMIOS) && defined(HAVE_TCGETATTR) && defined(HAVE_TCSETATTR) && \
-    defined(HAVE_UNLOCKPT) && defined(HAVE_GRANTPT) && defined(HAVE_PTSNAME) 
+    defined(HAVE_UNLOCKPT) && defined(HAVE_GRANTPT) && defined(HAVE_PTSNAME)
 
 #include <termios.h>
 
@@ -37,7 +37,7 @@ namespace Simulator
     // - DMA mode select is not supported/connected
     // - MODEM lines are not supported/connected
     // - transmit speed / divisor latch is not supported
-    
+
     UART::UART(const string& name, Object& parent, IIOBus& iobus, IODeviceID devid, Config& config)
         : Object(name, parent, iobus.GetClock()),
 
@@ -55,7 +55,7 @@ namespace Simulator
 
           m_fifo_out("b_fifo_out", *this, GetClock(), config.getValue<BufferSize>(*this, "UARTOutputFIFOSize")),
           p_Transmit(*this, "external-transmit", delegate::create<UART,&UART::DoTransmit>(*this)),
-          
+
           m_write_buffer(0),
 
           m_sendEnable("f_sendEnable", *this, GetClock(), false),
@@ -73,13 +73,18 @@ namespace Simulator
 
           m_writeInterruptEnable(false),
           m_writeInterruptThreshold(1),
-          
+
           m_writeInterrupt("f_writeInterrupt", *this, GetClock(), false),
           p_WriteInterrupt(*this, "write-interrupt", delegate::create<UART,&UART::DoSendWriteInterrupt>(*this)),
           m_writeInterruptChannel(0),
 
           m_loopback(false),
           m_scratch(0),
+
+          m_fin_name(),
+          m_fout_name(),
+          m_fd_in(-1),
+          m_fd_out(-1),
           m_enabled(false),
 
           p_dummy(*this, "dummy-process", delegate::create<UART, &UART::DoNothing>(*this))
@@ -88,7 +93,7 @@ namespace Simulator
         string fin, fout;
 
         string connectMode = config.getValue<string>(*this, "UARTConnectMode");
-        
+
         errno = 0;
 
         if (connectMode == "FILE")
@@ -149,7 +154,7 @@ namespace Simulator
             tcflush(master_fd, TCIOFLUSH);
 
             cerr << GetFQN() << ": slave tty at " << slave_name << endl;
-            
+
             ostringstream os;
             os << "<pty master for " << slave_name << ">";
             fin = fout = os.str();
@@ -179,7 +184,7 @@ namespace Simulator
         m_readInterrupt.Sensitive(p_ReadInterrupt);
         m_writeInterrupt.Sensitive(p_WriteInterrupt);
         m_fifo_in.Sensitive(p_dummy);
-        
+
         iobus.RegisterClient(devid, *this);
 
         config.registerObject(*this, "uart");
@@ -197,7 +202,7 @@ namespace Simulator
         }
         return SUCCESS;
     }
-          
+
     Result UART::DoSendWriteInterrupt()
     {
         if (!m_iobus.SendInterruptRequest(m_devid, m_writeInterruptChannel))
@@ -257,15 +262,15 @@ namespace Simulator
             COMMIT { m_hwbuf_out_full = true; }
             DebugIOWrite("Latching one byte to external stream: %#02x", (unsigned)m_hwbuf_out);
         }
-            
+
         if (m_writeInterruptEnable && m_fifo_out.size() < m_writeInterruptThreshold + 1)
             m_writeInterrupt.Set();
 
         m_fifo_out.Pop();
-        
+
         return SUCCESS;
     }
-    
+
     Result UART::DoReceive()
     {
         assert(m_hwbuf_in_full == true);
@@ -305,7 +310,7 @@ namespace Simulator
         {
             throw exceptf<SimulationException>(*this, "Invalid write from device %u to %#016llx/%u", (unsigned)from, (unsigned long long)addr, (unsigned)iodata.size);
         }
-        
+
         unsigned char data = *(unsigned char*)iodata.data;
         switch(addr)
         {
@@ -320,7 +325,7 @@ namespace Simulator
             // bit 1: enable transmitter holding register empty / FIFO not full
             if (data & 1)
             {
-                COMMIT { 
+                COMMIT {
                     m_readInterruptEnable = true;
                 }
                 if (!m_fifo_in.Empty())
@@ -362,8 +367,8 @@ namespace Simulator
         break;
 
         case 4: // MCR
-            COMMIT { 
-                m_loopback = data & 0x10; 
+            COMMIT {
+                m_loopback = data & 0x10;
             }
             DebugIOWrite("Setting loopback mode to %s", m_loopback ? "enabled" : "disabled");
             break;
@@ -387,9 +392,9 @@ namespace Simulator
                 m_writeInterrupt.Clear();
                 m_readInterrupt.Clear();
                 COMMIT {
-                    Selector::GetSelector().UnregisterStream(m_fd_in); 
+                    Selector::GetSelector().UnregisterStream(m_fd_in);
                     if (m_fd_in != m_fd_out)
-                        Selector::GetSelector().UnregisterStream(m_fd_out); 
+                        Selector::GetSelector().UnregisterStream(m_fd_out);
                     m_enabled = false;
                 }
             }
@@ -397,9 +402,9 @@ namespace Simulator
             {
                 DebugIOWrite("Activating the UART");
                 COMMIT {
-                    Selector::GetSelector().RegisterStream(m_fd_in, *this); 
+                    Selector::GetSelector().RegisterStream(m_fd_in, *this);
                     if (m_fd_in != m_fd_out)
-                        Selector::GetSelector().RegisterStream(m_fd_out, *this); 
+                        Selector::GetSelector().RegisterStream(m_fd_out, *this);
                     m_enabled = true;
                 }
             }
@@ -411,9 +416,9 @@ namespace Simulator
         case 6: // MSR
             DebugIOWrite("Ignoring unsupported write to UART register %u", (unsigned)addr);
             break;
-            
+
         }
-        
+
         return true;
     }
 
@@ -424,7 +429,7 @@ namespace Simulator
         {
             throw exceptf<SimulationException>(*this, "Invalid read from device %u to %#016llx/%u", (unsigned)from, (unsigned long long)addr, (unsigned)size);
         }
-        
+
         unsigned char data = 0;
 
         switch(addr)
@@ -432,7 +437,7 @@ namespace Simulator
         case 0: // RX
 
             // is there a byte available?
-            if (!m_fifo_in.Empty()) 
+            if (!m_fifo_in.Empty())
             {
                 // are we extracting the last byte available?
                 if (m_fifo_in.size() == 1)
@@ -448,7 +453,7 @@ namespace Simulator
                 DebugIOWrite("Extracted one byte from input FIFO for device %u", (unsigned)from);
             }
             break;
-            
+
         case 1: // IER
             // bit 0: enable received data available
             // bit 1: enable transmitter holding register empty / FIFO not full
@@ -464,15 +469,15 @@ namespace Simulator
             bool write_underrun = m_writeInterrupt.IsSet();
 
             data = !(data_available | write_underrun);
-            if (data_available) 
-            { 
+            if (data_available)
+            {
                 // DR has priority over THRE
-                data |= 1<<2;      
+                data |= 1<<2;
             }
-            else 
-                if (write_underrun) 
+            else
+                if (write_underrun)
                 {
-                    data |= 1<<1; 
+                    data |= 1<<1;
 
                     // reading the IIR also stops the THRE interrupts
                     // if it was the interrupt source
@@ -527,7 +532,7 @@ namespace Simulator
             // bit 6: RI
             // bit 7: DCD
             break;
-            
+
         case 7: // scratch
             data = m_scratch;
             break;
@@ -548,7 +553,7 @@ namespace Simulator
         IOData iodata;
         iodata.size = 1;
         iodata.data[0] = (char)data;
-        
+
         if (!m_iobus.SendReadResponse(m_devid, from, addr, iodata))
         {
             DeadlockWrite("Cannot send UART read response to I/O bus");
@@ -683,7 +688,7 @@ namespace Simulator
         if (m_hwbuf_in_full) obyte(out, m_hwbuf_in);
         else out << "Empty";
         out << endl;
-        
+
         out << "Stream output latch: ";
         if (m_hwbuf_out_full) obyte(out, m_hwbuf_out);
         else out << "Empty";
@@ -699,7 +704,7 @@ namespace Simulator
             for (auto p = m_fifo_out.begin(); p != m_fifo_out.end(); )
             {
                 obyte(out, *p);
-                if (++p != m_fifo_out.end()) 
+                if (++p != m_fifo_out.end())
                 {
                     out << "; ";
                 }
@@ -717,14 +722,14 @@ namespace Simulator
             for (auto p = m_fifo_in.begin(); p != m_fifo_in.end(); )
             {
                 obyte(out, *p);
-                if (++p != m_fifo_in.end()) 
+                if (++p != m_fifo_in.end())
                 {
                     out << "; ";
                 }
             }
             out << endl;
         }
-            
+
     }
 
     void UART::GetDeviceIdentity(IODeviceIdentification& id) const
@@ -732,14 +737,14 @@ namespace Simulator
         if (!DeviceDatabase::GetDatabase().FindDeviceByName("MGSim", "UART", id))
         {
             throw InvalidArgumentException(*this, "Device identity not registered");
-        }    
+        }
     }
 
-    string UART::GetIODeviceName() const 
-    { 
-        return GetFQN(); 
+    string UART::GetIODeviceName() const
+    {
+        return GetFQN();
     }
-    
+
 
 
 }

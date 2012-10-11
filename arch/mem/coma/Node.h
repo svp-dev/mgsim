@@ -43,34 +43,34 @@ protected:
             EVICTION,           ///< Eviction (EV)
             UPDATE,             ///< Update (UP)
         };
-        
+
         /// The actual message contents that's simulated
         struct
         {
             Type         type;          ///< Type of message
-            MemAddr      address;       ///< The address of the cache-line
-            CacheID      sender;        ///< ID of the sender of the message
-            bool         ignore;        ///< Just pass this message through to the top level
-            MemData      data;          ///< The data (RD, RDT, EV, UP)
             bool         dirty;         ///< Is the data dirty? (EV, RD, RDT)
-            unsigned int tokens;        ///< Number of tokens in this message (RDT, EV)
+            bool         ignore;        ///< Just pass this message through to the top level
+            MemAddr      address;       ///< The address of the cache-line
+            MemData      data;          ///< The data (RD, RDT, EV, UP)
+            CacheID      sender;        ///< ID of the sender of the message
             size_t       client;        ///< Sending client (UP)
             WClientID    wid;           ///< Sending entity on client (family/thread) (UP)
+            unsigned int tokens;        ///< Number of tokens in this message (RDT, EV)
         };
-        
+
         /// For memory management
         Message* next;
 
         // Overload allocation for efficiency
         static void * operator new (size_t size);
         static void operator delete (void *p, size_t size);
-        
+
         Message() {}
     private:
         Message(const Message&) {} // No copying
     };
 
-private:    
+private:
     // Message management
     static Message*            g_FreeMessages;
     static std::list<Message*> g_Messages;
@@ -84,7 +84,7 @@ protected:
     Buffer<Message*>  m_incoming;       ///< Buffer for incoming messages from the prev node
 private:
     Buffer<Message*>  m_outgoing;       ///< Buffer for outgoing messages to the next node
-   
+
     /// Process for sending to the next node
     Process           p_Forward;
     Result            DoForward();
@@ -93,18 +93,20 @@ protected:
     StorageTraceSet GetOutgoingTrace() const {
         return m_outgoing;
     }
-    
+
     /// Send the message to the next node
     bool SendMessage(Message* message, size_t min_space);
-    
+
     /// Print a message queue
     static void Print(std::ostream& out, const std::string& name, const Buffer<Message*>& buffer);
-    
+
     /// Print the incoming and outgoing buffers of this node
     void Print(std::ostream& out) const;
-    
+
     /// Construct the node
     Node(const std::string& name, COMA& parent, Clock& clock, Config& config);
+    Node(const Node&) = delete;
+    Node& operator=(const Node&) = delete;
     virtual ~Node();
 
 public:

@@ -74,31 +74,31 @@ const COMA::RootDirectory::Line* COMA::RootDirectory::FindLine(MemAddr address) 
 bool COMA::RootDirectory::OnReadCompleted()
 {
     assert (!m_active.empty());
-    
+
     Message* msg = m_active.front();
     COMMIT
     {
         msg->type = Message::REQUEST_DATA_TOKEN;
         msg->dirty = false;
-        
+
         static_cast<VirtualMemory&>(m_parent).Read(msg->address, msg->data.data, m_lineSize);
-        
+
         m_active.pop();
     }
-    
+
     if (!m_responses.Push(msg))
     {
         DeadlockWrite("Unable to push reply into send buffer");
         return false;
     }
-    
+
     return true;
 }
 
 bool COMA::RootDirectory::OnMessageReceived(Message* msg)
 {
     assert(msg != NULL);
-    
+
     if (((msg->address / m_lineSize) % m_numRoots) == m_id)
     {
         // This message is for us
@@ -113,7 +113,7 @@ bool COMA::RootDirectory::OnMessageReceived(Message* msg)
         case Message::REQUEST:
         {
             // Cache-line read request
-        
+
             // Find or allocate the line
             Line* line = FindLine(msg->address, false);
             if (line != NULL && line->state == LINE_EMPTY)
@@ -135,15 +135,15 @@ bool COMA::RootDirectory::OnMessageReceived(Message* msg)
             }
             break;
         }
-    
+
         case Message::REQUEST_DATA:
         {
             // Cache-line read request with data
-            
+
             // Find or allocate the line. This should not fail.
             Line* line = FindLine(msg->address, false);
             assert(line != NULL);
-            
+
             if (line->state == LINE_EMPTY)
             {
                 // It's possible that a read request with data grabs data from the last copy of a cache-line,
@@ -151,7 +151,7 @@ bool COMA::RootDirectory::OnMessageReceived(Message* msg)
                 // In that case, we simply reintroduce the tokens into the system (the data is already in
                 // the system, so no need to read it from memory).
                 TraceWrite(msg->address, "Received Read Request with data; Miss; Introducing and attaching %u tokens", (unsigned)m_parent.GetTotalTokens());
-                
+
                 COMMIT
                 {
                     msg->type   = Message::REQUEST_DATA_TOKEN;
@@ -163,7 +163,7 @@ bool COMA::RootDirectory::OnMessageReceived(Message* msg)
             {
                 // Give the request the tokens that we have
                 TraceWrite(msg->address, "Received Read Request with data; Hit; Attaching %u tokens", line->tokens);
-                
+
                 COMMIT
                 {
                     msg->type    = Message::REQUEST_DATA_TOKEN;
@@ -179,10 +179,10 @@ bool COMA::RootDirectory::OnMessageReceived(Message* msg)
             Line* line = FindLine(msg->address, true);
             assert(line != NULL);
             assert(line->state == LINE_FULL);
-            
+
             unsigned int tokens = msg->tokens + line->tokens;
             assert(tokens <= m_parent.GetTotalTokens());
-        
+
             if (tokens < m_parent.GetTotalTokens())
             {
                 // We don't have all the tokens, so just store the new token count
@@ -199,7 +199,7 @@ bool COMA::RootDirectory::OnMessageReceived(Message* msg)
                 if (msg->dirty)
                 {
                     TraceWrite(msg->address, "Received Evict Request; All tokens; Writing back and clearing line from system");
-                
+
                     // Line has been modified, queue the writeback
                     if (!m_requests.Push(msg))
                     {
@@ -211,23 +211,23 @@ bool COMA::RootDirectory::OnMessageReceived(Message* msg)
                 {
                     TraceWrite(msg->address, "Received Evict Request; All tokens; Clearing line from system");
                     COMMIT{ delete msg; }
-                }            
+                }
                 COMMIT{ line->state = LINE_EMPTY; }
             }
             return true;
         }
-    
+
         case Message::UPDATE:
         case Message::REQUEST_DATA_TOKEN:
             // Just forward it
             break;
-                    
+
         default:
             assert(false);
             break;
         }
     }
-    
+
     // Forward the request
     if (!SendMessage(msg, MINSPACE_SHORTCUT))
     {
@@ -269,10 +269,10 @@ Result COMA::RootDirectory::DoRequests()
     }
     else
     {
-        // Since we stripe cache lines across root directories, adjust the 
+        // Since we stripe cache lines across root directories, adjust the
         // address before we send it to memory for timing.
         unsigned int mem_address = (msg->address / m_lineSize) / m_numRoots * m_lineSize;
-        
+
         if (msg->type == Message::REQUEST)
         {
             // It's a read
@@ -283,8 +283,8 @@ Result COMA::RootDirectory::DoRequests()
             {
                 return FAILED;
             }
-                        
-            COMMIT{ 
+
+            COMMIT{
                 ++m_nreads;
                 m_active.push(msg);
             }
@@ -318,7 +318,7 @@ Result COMA::RootDirectory::DoRequests()
                 return FAILED;
             }
 #endif
-            COMMIT { 
+            COMMIT {
 
                 static_cast<VirtualMemory&>(m_parent).Write(msg->address, msg->data.data, 0, m_lineSize);
 
@@ -358,19 +358,19 @@ Result COMA::RootDirectory::DoResponses()
             // Since this comes from memory, the reply has all tokens
             msg->tokens = m_parent.GetTotalTokens();
             msg->sender = line->sender;
-    
+
             // The line has now been read
             line->state = LINE_FULL;
         }
     }
-    
+
     COMMIT{ msg->ignore = false; }
-    
+
     if (!SendMessage(msg, MINSPACE_FORWARD))
     {
         return FAILED;
     }
-    
+
     m_responses.Pop();
     return SUCCESS;
 }
@@ -381,9 +381,9 @@ void COMA::RootDirectory::SetNumRings(size_t num_rings)
     // We need as many cache lines in the directory to cover all caches below it.
     m_assoc = m_assoc_ring * num_rings;
     m_lines.resize(m_assoc * m_sets);
-    for (size_t i = 0; i < m_lines.size(); ++i)
+    for (auto& line : m_lines)
     {
-        m_lines[i].state = LINE_EMPTY;
+        line.state = LINE_EMPTY;
     }
 }
 
@@ -391,14 +391,18 @@ COMA::RootDirectory::RootDirectory(const std::string& name, COMA& parent, Clock&
     Simulator::Object(name, parent),
     DirectoryBottom(name, parent, clock, config),
     m_selector (parent.GetBankSelector()),
+    m_lines    (),
     m_lineSize (config.getValue<size_t>("CacheLineSize")),
     m_assoc_ring(config.getValue<size_t>(parent, "L2CacheAssociativity") * config.getValue<size_t>(parent, "NumL2CachesPerRing")),
+    m_assoc    (0),
     m_sets     (m_selector.GetNumBanks()),
     m_id       (id),
     m_numRoots (numRoots),
-    p_lines    (*this, clock, "p_lines"),    
+    p_lines    (*this, clock, "p_lines"),
+    m_memory   (0),
     m_requests ("b_requests", *this, clock, config.getValue<size_t>(*this, "ExternalOutputQueueSize")),
     m_responses("b_responses", *this, clock, config.getValue<size_t>(*this, "ExternalInputQueueSize")),
+    m_active   (),
     p_Incoming (*this, "incoming",  delegate::create<RootDirectory, &RootDirectory::DoIncoming>(*this)),
     p_Requests (*this, "requests",  delegate::create<RootDirectory, &RootDirectory::DoRequests>(*this)),
     p_Responses(*this, "responses", delegate::create<RootDirectory, &RootDirectory::DoResponses>(*this)),
@@ -409,11 +413,11 @@ COMA::RootDirectory::RootDirectory(const std::string& name, COMA& parent, Clock&
 
     config.registerObject(*this, "rootdir");
     config.registerProperty(*this, "freq", (uint32_t)clock.GetFrequency());
-    
+
     m_incoming.Sensitive(p_Incoming);
     m_requests.Sensitive(p_Requests);
     m_responses.Sensitive(p_Responses);
-    
+
     p_lines.AddProcess(p_Responses);
     p_lines.AddProcess(p_Incoming);
 
@@ -423,10 +427,10 @@ COMA::RootDirectory::RootDirectory(const std::string& name, COMA& parent, Clock&
         throw exceptf<InvalidArgumentException>(*this, "Invalid DDR channel ID: %zu", ddrid);
     }
     m_memory = ddr[ddrid];
-    
+
     StorageTraceSet sts;
     m_memory->SetClient(*this, sts, m_responses);
-    
+
     p_Requests.SetStorageTraces(sts ^ m_responses);
     p_Incoming.SetStorageTraces((GetOutgoingTrace() * opt(m_requests)) ^ opt(m_requests));
     p_Responses.SetStorageTraces(GetOutgoingTrace());

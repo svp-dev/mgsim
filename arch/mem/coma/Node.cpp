@@ -18,14 +18,14 @@ namespace Simulator
 {
     // We allocate this many messages at once
     static const size_t ALLOCATE_SIZE = 1024;
-    
+
     assert(size == sizeof(Message));
     if (g_FreeMessages == NULL)
     {
         // Allocate more messages
         Message* msg = new Message[ALLOCATE_SIZE];
         g_Messages.push_back(msg);
-        
+
         // Link the new messages into the free list
         for (size_t i = 0; i < ALLOCATE_SIZE; ++i, ++msg)
         {
@@ -34,7 +34,7 @@ namespace Simulator
         }
     }
     assert(g_FreeMessages != NULL);
-    
+
     // Grab a message off the free list
     Message* msg = g_FreeMessages;
     g_FreeMessages = msg->next;
@@ -66,26 +66,26 @@ namespace Simulator
     case Message::EVICTION:           out << "| Eviction            "; break;
     case Message::UPDATE:             out << "| Update              "; break;
     }
-    
+
     out << " | "
         << "0x" << hex << setfill('0') << setw(16) << msg.address << " | "
         << dec << setfill(' ') << right
         << setw(6);
-    
+
     switch (msg.type)
     {
     case Message::EVICTION:
     case Message::REQUEST_DATA_TOKEN:
         out << msg.tokens;
         break;
-        
+
     case Message::REQUEST:
     case Message::REQUEST_DATA:
     case Message::UPDATE:
-        out << ""; 
-        break;        
+        out << "";
+        break;
     }
-    
+
     out << " | "
         << setw(6) << msg.sender << " | "
         << endl;
@@ -95,14 +95,14 @@ namespace Simulator
 {
     std::string sp_left((61 - name.length()) / 2, ' ');
     std::string sp_right(61 - sp_left.length() - name.length(), ' ');
-    
+
     out <<
     "+-------------------------------------------------------------+\n"
     "|" << sp_left << name << sp_right << "|\n"
     "+----------------------+--------------------+--------+--------+\n"
     "|         Type         |       Address      | Tokens | Sender |\n"
     "+----------------------+--------------------+--------+--------+\n";
-        
+
     for (Buffer<Message*>::const_iterator p = buffer.begin(); p != buffer.end(); ++p)
     {
         PrintMessage(out, **p);
@@ -128,7 +128,7 @@ Result COMA::Node::DoForward()
     // Forward requests to the next node
     assert(!m_outgoing.Empty());
     assert(m_next != NULL);
-    
+
     if (!m_next->m_incoming.Push( m_outgoing.Front() ))
     {
         DeadlockWrite("Unable to send request to next node (%s)", m_next->GetFQN().c_str());
@@ -159,7 +159,7 @@ COMA::Node::Node(const std::string& name, COMA& parent, Clock& clock, Config& co
       p_Forward(*this, "forward", delegate::create<Node, &Node::DoForward>(*this))
 {
     g_References++;
-    
+
     m_outgoing.Sensitive(p_Forward);
 }
 
