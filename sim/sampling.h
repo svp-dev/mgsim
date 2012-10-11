@@ -23,11 +23,20 @@ template<typename T> struct _sv_detect_type { static const SampleVariableDataTyp
 template<> struct _sv_detect_type<float> { static const SampleVariableDataType type = SV_FLOAT; };
 template<> struct _sv_detect_type<double> { static const SampleVariableDataType type = SV_FLOAT; };
 
+void _RegisterSampleVariable(void*, size_t, const std::string&, SampleVariableDataType, SampleVariableCategory, void*);
+
 template<typename T>
-void RegisterSampleVariable(T& var, const std::string& name, SampleVariableCategory cat, T max = (T)0)
+void RegisterSampleVariable(T& var, const std::string& name, SampleVariableCategory cat)
 {
-    extern void _RegisterSampleVariable(void*, size_t, const std::string&, SampleVariableDataType, SampleVariableCategory, void*);
-    _RegisterSampleVariable(&var, sizeof(T), name, _sv_detect_type<T>::type, cat, &max);
+    T _max = (T)0;
+    _RegisterSampleVariable(&var, sizeof(T), name, _sv_detect_type<T>::type, cat, &_max);
+}
+
+template<typename T, typename U>
+void RegisterSampleVariable(T& var, const std::string& name, SampleVariableCategory cat, U max)
+{
+    T _max = max;
+    _RegisterSampleVariable(&var, sizeof(T), name, _sv_detect_type<T>::type, cat, &_max);
 }
 
 #define RegisterSampleVariableInObject(var, cat, ...)                       \
