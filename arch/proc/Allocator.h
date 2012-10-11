@@ -42,9 +42,7 @@ public:
 	    PID            completion_pid; ///< Core that requested the allocation
 	    RegIndex       completion_reg; ///< Register (on that core) that will receive the FID
 	    bool      	   bundle;         ///< Whether the family parameters are already bundled.
-	    MemAddr   	   pc;             ///< For bundled requests, the PC of the newly created family.
-	    Integer   	   parameter;      ///< For bundled requests, the value of the first shared argument.
-	    SInteger   	   index;          ///< For bundled requests, the initial thread index.
+	    Bundle         binfo;          ///< The bundle information for bundled requests.
 	};
 
     // These are the different states in the state machine for
