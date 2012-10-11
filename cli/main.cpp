@@ -260,6 +260,7 @@ static struct argp argp = {
     NULL /* argp domain */
 };
 
+static
 void PrintFinalVariables(const ProgramConfig& cfg)
 {
     if (!cfg.m_printvars.empty())
