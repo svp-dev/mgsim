@@ -39,7 +39,7 @@ AC_PROG_CXX
 
 WARN_CXXFLAGS=
 if test "x$GXX" = xyes; then
-  WARN_CXXFLAGS="-W -Wall -Wwrite-strings"
+  WARN_CXXFLAGS="-W -Wall -Wextra -Weffc++ -Wundef -Wshadow -Wpointer-arith -Wmissing-declarations -Wwrite-strings"
 fi
 AC_SUBST([WARN_CXXFLAGS])
 
@@ -368,7 +368,7 @@ cat <<EOF
 * MIPSel tests:           $enable_mipsel_tests
 * Compiled tests:         $enable_compiled_tests
 *
-* C++ compiler:           $CXX $CPPFLAGS $AM_CXXFLAGS $CXXFLAGS $LDFLAGS
+* C++ compiler:           $CXX $CPPFLAGS $WARN_CXXFLAGS $AM_CXXFLAGS $CXXFLAGS $LDFLAGS
 * Destination dir:        $prefix
 *
 Now run:
