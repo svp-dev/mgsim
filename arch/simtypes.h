@@ -20,17 +20,17 @@ namespace Simulator
 #define ARCH_ENDIANNESS ARCH_BIG_ENDIAN
 #endif
 
-typedef size_t   PID;           ///< Processor index
-typedef size_t   TID;           ///< Thread index
-typedef size_t   CID;           ///< Cache index
-typedef size_t   PSize;         ///< Processor list size
-typedef size_t   TSize;         ///< Thread list size
-typedef size_t   RegIndex;      ///< Index into a register file
-typedef size_t   RegSize;       ///< Size of something in the register file
-typedef size_t   FSize;         ///< Family list size
-typedef size_t   LFID;          ///< Local family index
+typedef unsigned PID;       ///< Processor index
+typedef unsigned TID;       ///< Thread index
+typedef unsigned CID;       ///< Cache index
+typedef unsigned PSize;     ///< Processor list size
+typedef unsigned TSize;     ///< Thread list size
+typedef unsigned RegIndex;  ///< Index into a register file
+typedef unsigned RegSize;   ///< Size of something in the register file
+typedef unsigned FSize;     ///< Family list size
+typedef unsigned LFID;      ///< Local family index
 
-typedef size_t   WClientID; ///< Entity ID to match memory writes (either TID or LFID depending on config)
+typedef unsigned WClientID; ///< Entity ID to match memory writes (either TID or LFID depending on config)
 
 enum ContextType
 {
