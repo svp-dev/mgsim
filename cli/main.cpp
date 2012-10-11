@@ -37,7 +37,7 @@ struct ProgramConfig
     vector<string>                   m_printvars;
     bool                             m_earlyquit;
     ConfigMap                        m_overrides;
-    vector<string>                   m_extradevs;    
+    vector<string>                   m_extradevs;
     vector<pair<RegAddr, string> >   m_loads;
     vector<pair<RegAddr, RegValue> > m_regs;
     bool                             m_dumptopo;
@@ -68,7 +68,7 @@ struct ProgramConfig
     {}
 };
 
-extern "C" 
+extern "C"
 {
 const char *argp_program_version =
     "mgsim " PACKAGE_VERSION "\n"
@@ -129,7 +129,7 @@ static const struct argp_option mgsim_options[] =
 static error_t mgsim_parse_opt(int key, char *arg, struct argp_state *state)
 {
     struct ProgramConfig &config = *(struct ProgramConfig*)state->input;
-    
+
     switch (key)
     {
     case 'a':
@@ -143,7 +143,7 @@ static error_t mgsim_parse_opt(int key, char *arg, struct argp_state *state)
         } else {
             config.m_areaTech = tech;
         }
-    } 
+    }
     break;
     case 'c': config.m_configFile = arg; break;
     case 'i': config.m_interactive = true; break;
@@ -180,11 +180,11 @@ static error_t mgsim_parse_opt(int key, char *arg, struct argp_state *state)
         }
         string filename(state->argv[state->next++]);
         string regnum(arg);
-        char* endptr; 
-        unsigned long index = strtoul(regnum.c_str(), &endptr, 0); 
-        if (*endptr != '\0') { 
-            throw runtime_error("Error: invalid register specifier in option: " + regnum); 
-        } 
+        char* endptr;
+        unsigned long index = strtoul(regnum.c_str(), &endptr, 0);
+        if (*endptr != '\0') {
+            throw runtime_error("Error: invalid register specifier in option: " + regnum);
+        }
         RegAddr  regaddr = MAKE_REGADDR(RT_INTEGER, index);
 
         string devname = "file" + regnum;
@@ -193,7 +193,7 @@ static error_t mgsim_parse_opt(int key, char *arg, struct argp_state *state)
         config.m_overrides.append(cfgprefix + "Type", "AROM");
         config.m_overrides.append(cfgprefix + "ROMContentSource", "RAW");
         config.m_overrides.append(cfgprefix + "ROMFileName", filename);
-        config.m_loads.push_back(make_pair(regaddr, devname)); 
+        config.m_loads.push_back(make_pair(regaddr, devname));
     }
     break;
     case 'R': case 'F':
@@ -213,7 +213,7 @@ static error_t mgsim_parse_opt(int key, char *arg, struct argp_state *state)
         if (*endptr != '\0') {
             throw runtime_error("Error: invalid register specifier in option");
         }
-                
+
         if (key == 'R') {
             value >> *(SInteger*)&val.m_integer;
             addr = MAKE_REGADDR(RT_INTEGER, index);
@@ -278,14 +278,14 @@ extern "C"
 int main(int argc, char** argv)
 {
     srand(time(NULL));
-    
+
     try
     {
         // Parse command line arguments
         ProgramConfig config;
 
         argp_parse(&argp, argc, argv, 0, 0, &config);
-        
+
         if (config.m_quiet)
         {
             config.m_overrides.append("*.ROMVerboseLoad", "false");
@@ -307,18 +307,18 @@ int main(int argc, char** argv)
             clog << "### simulator version: " PACKAGE_VERSION << endl;
             configfile.dumpConfiguration(clog, config.m_configFile);
         }
-        
+
         // Create the system
-        MGSystem sys(configfile, 
-                     config.m_regs, 
-                     config.m_loads, 
-                     config.m_extradevs, 
+        MGSystem sys(configfile,
+                     config.m_regs,
+                     config.m_loads,
+                     config.m_extradevs,
                      !config.m_interactive);
 
 #ifdef ENABLE_MONITOR
         string mo_mdfile = configfile.getValueOrDefault<string>("MonitorMetadataFile", "mgtrace.md");
         string mo_tfile = configfile.getValueOrDefault<string>("MonitorTraceFile", "mgtrace.out");
-        Monitor mo(sys, config.m_enableMonitor, 
+        Monitor mo(sys, config.m_enableMonitor,
                    mo_mdfile, config.m_earlyquit ? "" : mo_tfile, !config.m_interactive);
 #endif
 
@@ -370,7 +370,7 @@ int main(int argc, char** argv)
 #ifdef ENABLE_MONITOR
                 mo.stop();
 #endif
-                
+
                 if (!config.m_quiet)
                 {
                     clog << "### begin end-of-simulation statistics" << endl;
@@ -383,22 +383,22 @@ int main(int argc, char** argv)
 #ifdef ENABLE_MONITOR
                 mo.stop();
 #endif
-                if (config.m_terminate) 
+                if (config.m_terminate)
                 {
                     // We do not want to go to interactive mode,
                     // rethrow so it abort the program.
                     PrintFinalVariables(config);
                     throw;
                 }
-                
+
                 PrintException(cerr, e);
-                
+
                 // When we get an exception in non-interactive mode,
                 // jump into interactive mode
                 interactive = true;
             }
         }
-        
+
         if (interactive)
         {
             // Command loop
@@ -406,7 +406,7 @@ int main(int argc, char** argv)
             CommandLineReader clr;
             cli_context ctx = { clr, sys
 #ifdef ENABLE_MONITOR
-                                , mo 
+                                , mo
 #endif
             };
 
@@ -421,6 +421,6 @@ int main(int argc, char** argv)
         PrintException(cerr, e);
         return 1;
     }
-    
+
     return 0;
 }

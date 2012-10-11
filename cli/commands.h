@@ -17,7 +17,7 @@ struct cli_context
     Simulator::MGSystem& sys;
 #ifdef ENABLE_MONITOR
     Monitor& mon;
-#endif        
+#endif
 };
 
 // handler for a command in interactive mode.
@@ -79,7 +79,7 @@ void ExpandAliases(std::vector<std::string>& command);
 
 // the following should return true to exit the simulation
 bool DoCommand(std::vector<std::string>& command, cli_context& ctx);
-bool HandleCommandLine(cli_context& ctx); 
+bool HandleCommandLine(cli_context& ctx);
 
 
 // Some public commands

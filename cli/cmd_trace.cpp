@@ -28,7 +28,7 @@ bool cmd_trace_debug(const vector<string>& command, vector<string>& args, cli_co
     for (size_t i = 0; i < args.size(); ++i)
     {
         string tcmd = args[i];
-        
+
         if      (tcmd == "sim")       ctx.sys.ToggleDebugMode(Kernel::DEBUG_SIM);
         else if (tcmd == "prog")      ctx.sys.ToggleDebugMode(Kernel::DEBUG_PROG);
         else if (tcmd == "deadlocks") ctx.sys.ToggleDebugMode(Kernel::DEBUG_DEADLOCK);
