@@ -327,6 +327,8 @@ namespace Simulator
             ResetCaption();
             Refresh();
         }
+#else
+        (void)w; (void)h;
 #endif
     }
 
@@ -551,12 +553,14 @@ namespace Simulator
 #endif
     }
 
+#ifdef USE_SDL
     static unsigned currentDelayScale(unsigned x)
     {
         for (unsigned i = 10000000; i > 0; i /= 10)
             if (x > i) return i;
         return 1;
     }
+#endif
 
     void Display::CheckEvents()
     {
