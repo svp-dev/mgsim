@@ -24,7 +24,7 @@ namespace Simulator
 
         if (to >= m_clients.size() || m_clients[to] == NULL)
         {
-            throw exceptf<SimulationException>(*this, "I/O from device %u to non-existence device %u", (unsigned)from, (unsigned)to);
+            throw exceptf<SimulationException>(*this, "I/O from device %u to non-existent device %u", (unsigned)from, (unsigned)to);
         }
 
     }
@@ -37,7 +37,7 @@ namespace Simulator
         }
         if (m_clients[id] != NULL)
         {
-            throw exceptf<InvalidArgumentException>(*this, "Device number %zu is already registered", id);
+            throw exceptf<InvalidArgumentException>(*this, "Device number %u is already registered", (unsigned)id);
         }
         m_clients[id] = &client;
         return true;
