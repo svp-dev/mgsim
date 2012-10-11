@@ -99,7 +99,7 @@ public:
                                      uint64_t& nreads_ext, uint64_t& nwrites_ext) const = 0;
 };
 
-class IMemoryAdmin : public IMemory
+class IMemoryAdmin
 {
 public:
     virtual void Reserve(MemAddr address, MemSize size, ProcessID pid, int perm) = 0;

@@ -16,7 +16,7 @@ class ComponentModelRegistry;
 namespace Simulator
 {
 
-class COMA : public Object, public VirtualMemory, public Inspect::Interface<Inspect::Line|Inspect::Trace>
+class COMA : public Object, public IMemory, public VirtualMemory, public Inspect::Interface<Inspect::Line|Inspect::Trace>
 {
 public:
     class Node;
@@ -91,6 +91,8 @@ public:
     bool Read (MCID id, MemAddr address);
     bool Write(MCID id, MemAddr address, const MemData& data, WClientID wid);
 
+    using VirtualMemory::Read;
+    using VirtualMemory::Write;
     void GetMemoryStatistics(uint64_t& nreads, uint64_t& nwrites, 
                              uint64_t& nread_bytes, uint64_t& nwrite_bytes,
                              uint64_t& nreads_ext, uint64_t& nwrites_ext) const;

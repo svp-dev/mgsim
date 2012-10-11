@@ -31,7 +31,7 @@ namespace Simulator {
 
         SymbolTable                 m_symtable;
         BreakPointManager           m_breakpoints;
-        IMemoryAdmin*               m_memory;
+        IMemory*                    m_memory;
         std::string                 m_objdump_cmd;
         Config&            m_config;
         ActiveROM*         m_bootrom;

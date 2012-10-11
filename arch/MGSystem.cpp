@@ -626,33 +626,35 @@ MGSystem::MGSystem(Config& config,
 
     Clock& memclock = m_kernel.CreateClock(config.getValue<size_t>("MemoryFreq"));
 
+    IMemoryAdmin *memadmin;
+
     if (memory_type == "SERIAL") {
         SerialMemory* memory = new SerialMemory("memory", m_root, memclock, config);
-        m_memory = memory;
+        memadmin = memory; m_memory = memory;
     } else if (memory_type == "PARALLEL") {
         ParallelMemory* memory = new ParallelMemory("memory", m_root, memclock, config);
-        m_memory = memory;
+        memadmin = memory; m_memory = memory;
     } else if (memory_type == "BANKED") {
         BankedMemory* memory = new BankedMemory("memory", m_root, memclock, config, "DIRECT");
-        m_memory = memory;
+        memadmin = memory; m_memory = memory;
     } else if (memory_type == "RANDOMBANKED") {
         BankedMemory* memory = new BankedMemory("memory", m_root, memclock, config, "RMIX");
-        m_memory = memory;
+        memadmin = memory; m_memory = memory;
     } else if (memory_type == "DDR") {
         DDRMemory* memory = new DDRMemory("memory", m_root, memclock, config, "DIRECT");
-        m_memory = memory;
+        memadmin = memory; m_memory = memory;
     } else if (memory_type == "RANDOMDDR") {
         DDRMemory* memory = new DDRMemory("memory", m_root, memclock, config, "RMIX");
-        m_memory = memory;
+        memadmin = memory; m_memory = memory;
     } else if (memory_type == "COMA") {
         COMA* memory = new TwoLevelCOMA("memory", m_root, memclock, config);
-        m_memory = memory;
+        memadmin = memory; m_memory = memory;
     } else if (memory_type == "ZLCOMA") {
         ZLCOMA* memory = new ZLCOMA("memory", m_root, memclock, config);
-        m_memory = memory;
+        memadmin = memory; m_memory = memory;
     } else if (memory_type == "FLATCOMA") {
         COMA* memory = new OneLevelCOMA("memory", m_root, memclock, config);
-        m_memory = memory;
+        memadmin = memory; m_memory = memory;
     } else {
         throw runtime_error("Unknown memory type: " + memory_type);
     }
@@ -660,7 +662,7 @@ MGSystem::MGSystem(Config& config,
     {
         clog << "memory: " << memory_type << endl;
     }
-    m_memory->SetSymbolTable(m_symtable);
+    memadmin->SetSymbolTable(m_symtable);
     m_breakpoints.SetSymbolTable(m_symtable);
 
     // Create the event selector
@@ -738,7 +740,7 @@ MGSystem::MGSystem(Config& config,
             }
         }
 
-        m_procs[i]   = new Processor(name, m_root, m_clock, i, m_procs, *m_memory, *m_memory, fpu, iobus, config);
+        m_procs[i]   = new Processor(name, m_root, m_clock, i, m_procs, *m_memory, *memadmin, fpu, iobus, config);
     }
     if (!quiet)
     {
@@ -798,7 +800,7 @@ MGSystem::MGSystem(Config& config,
             m_devices[i] = disp;
             config.registerObject(*disp, "gfx");
         } else if (dev_type == "AROM") {
-            ActiveROM *rom = new ActiveROM(name, m_root, *m_memory, iobus, devid, config, quiet);
+            ActiveROM *rom = new ActiveROM(name, m_root, *memadmin, iobus, devid, config, quiet);
             m_devices[i] = rom;
             aroms.push_back(rom);
             config.registerObject(*rom, "arom");
@@ -899,7 +901,7 @@ MGSystem::MGSystem(Config& config,
         if (mode.find("X") != string::npos)
             perm |= IMemory::PERM_EXECUTE;
 
-        m_memory->Reserve(address, size, pid, perm);
+        memadmin->Reserve(address, size, pid, perm);
     }
 
     // Set program debugging per default

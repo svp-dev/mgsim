@@ -15,7 +15,7 @@ class ComponentModelRegistry;
 namespace Simulator
 {
 
-class ZLCOMA : public Object, public VirtualMemory, public Inspect::Interface<Inspect::Line|Inspect::Trace>
+class ZLCOMA : public Object, public IMemory, public VirtualMemory, public Inspect::Interface<Inspect::Line|Inspect::Trace>
 {
 public:
     class Node;
@@ -88,6 +88,8 @@ public:
     // IMemory
     MCID RegisterClient(IMemoryCallback& callback, Process& process, StorageTraceSet& traces, Storage& storage, bool grouped);
     void UnregisterClient(MCID id);
+    using VirtualMemory::Read;
+    using VirtualMemory::Write;
     bool Read (MCID id, MemAddr address);
     bool Write(MCID id, MemAddr address, const MemData& data, WClientID wid);
 

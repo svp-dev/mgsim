@@ -16,7 +16,7 @@ class Config;
 namespace Simulator
 {
 
-class DDRMemory : public Object, public VirtualMemory
+class DDRMemory : public Object, public IMemory, public VirtualMemory
 {
     struct ClientInfo;
     struct Request;
@@ -27,6 +27,8 @@ class DDRMemory : public Object, public VirtualMemory
     void UnregisterClient(MCID id);
     bool Read (MCID id, MemAddr address);
     bool Write(MCID id, MemAddr address, const MemData& data, WClientID wid);
+    using VirtualMemory::Read;
+    using VirtualMemory::Write;
 
     void GetMemoryStatistics(uint64_t& nreads, uint64_t& nwrites, 
                              uint64_t& nread_bytes, uint64_t& nwrite_bytes,
