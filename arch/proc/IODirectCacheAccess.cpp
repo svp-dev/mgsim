@@ -99,6 +99,21 @@ namespace Simulator
         return true;
     }
 
+    bool Processor::IODirectCacheAccess::OnMemorySnooped(MemAddr /*unused*/, const char* /*data*/, const bool* /*mask*/)
+    {
+        return true;
+    }
+
+    bool Processor::IODirectCacheAccess::OnMemoryInvalidated(MemAddr /*unused*/)
+    {
+        return true;
+    }
+
+    Object& Processor::IODirectCacheAccess::GetMemoryPeer()
+    {
+        return m_cpu;
+    }
+
     Result Processor::IODirectCacheAccess::DoBusOutgoing()
     {
         const Response& res = m_responses.Front();

@@ -68,12 +68,12 @@ public:
     Result DoMemoryOutgoing();
     Result DoBusOutgoing();
 
-    bool OnMemoryReadCompleted(MemAddr addr, const char* data) ;
-    bool OnMemoryWriteCompleted(TID tid);
-    bool OnMemorySnooped(MemAddr /*unused*/, const char* /*data*/, const bool* /*mask*/) { return true; }
-    bool OnMemoryInvalidated(MemAddr /*unused*/) { return true; }
+    bool OnMemoryReadCompleted(MemAddr addr, const char* data) override;
+    bool OnMemoryWriteCompleted(TID tid) override;
+    bool OnMemorySnooped(MemAddr /*unused*/, const char* /*data*/, const bool* /*mask*/) override;
+    bool OnMemoryInvalidated(MemAddr /*unused*/) override;
 
-    Object& GetMemoryPeer() { return m_cpu; }
+    Object& GetMemoryPeer() override;
 };
 
 #endif

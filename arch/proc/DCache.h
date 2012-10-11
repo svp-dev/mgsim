@@ -122,17 +122,17 @@ public:
     size_t GetLineSize() const { return m_lineSize; }
 
     // Memory callbacks
-    bool OnMemoryReadCompleted(MemAddr addr, const char* data);
-    bool OnMemoryWriteCompleted(TID tid);
-    bool OnMemorySnooped(MemAddr addr, const char* data, const bool* mask);
-    bool OnMemoryInvalidated(MemAddr addr);
+    bool OnMemoryReadCompleted(MemAddr addr, const char* data) override;
+    bool OnMemoryWriteCompleted(TID tid) override;
+    bool OnMemorySnooped(MemAddr addr, const char* data, const bool* mask) override;
+    bool OnMemoryInvalidated(MemAddr addr) override;
 
-    Object& GetMemoryPeer() { return m_parent; }
+    Object& GetMemoryPeer() override;
 
 
     // Debugging
-    void Cmd_Info(std::ostream& out, const std::vector<std::string>& arguments) const;
-    void Cmd_Read(std::ostream& out, const std::vector<std::string>& arguments) const;
+    void Cmd_Info(std::ostream& out, const std::vector<std::string>& arguments) const override;
+    void Cmd_Read(std::ostream& out, const std::vector<std::string>& arguments) const override;
 
     size_t GetAssociativity() const { return m_assoc; }
     size_t GetNumLines()      const { return m_lines.size(); }

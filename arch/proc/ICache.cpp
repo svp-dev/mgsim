@@ -443,6 +443,11 @@ bool Processor::ICache::OnMemoryInvalidated(MemAddr address)
     return true;
 }
 
+Object& Processor::ICache::GetMemoryPeer()
+{
+    return m_parent;
+}
+
 Result Processor::ICache::DoOutgoing()
 {
     assert(!m_outgoing.Empty());

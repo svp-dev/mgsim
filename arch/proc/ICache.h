@@ -74,19 +74,23 @@ public:
     bool   Read(CID cid, MemAddr address, void* data, MemSize size) const;
     bool   ReleaseCacheLine(CID bid);
     bool   IsEmpty() const;
-    bool   OnMemoryReadCompleted(MemAddr addr, const char* data);
-    bool   OnMemoryWriteCompleted(TID tid);
-    bool   OnMemorySnooped(MemAddr addr, const char* data, const bool* mask);
-    bool   OnMemoryInvalidated(MemAddr addr);
-    Object& GetMemoryPeer() { return m_parent; }
+
+    // IMemoryCallback
+    bool   OnMemoryReadCompleted(MemAddr addr, const char* data) override;
+    bool   OnMemoryWriteCompleted(TID tid) override;
+    bool   OnMemorySnooped(MemAddr addr, const char* data, const bool* mask) override;
+    bool   OnMemoryInvalidated(MemAddr addr) override ;
+    Object& GetMemoryPeer() override;
+
+    // Admin
     size_t GetLineSize() const { return m_lineSize; }
     size_t GetAssociativity() const { return m_assoc; }
     size_t GetNumLines() const { return m_lines.size(); }
     size_t GetNumSets() const { return GetNumLines() / m_assoc; }
     
     // Debugging
-    void Cmd_Info(std::ostream& out, const std::vector<std::string>& arguments) const;
-    void Cmd_Read(std::ostream& out, const std::vector<std::string>& arguments) const;
+    void Cmd_Info(std::ostream& out, const std::vector<std::string>& arguments) const override;
+    void Cmd_Read(std::ostream& out, const std::vector<std::string>& arguments) const override;
 };
 
 #endif

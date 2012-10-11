@@ -530,6 +530,11 @@ bool Processor::DCache::OnMemoryInvalidated(MemAddr address)
     return true;
 }
 
+Object& Processor::DCache::GetMemoryPeer()
+{
+    return m_parent;
+}
+
 Result Processor::DCache::DoCompletedReads()
 {
     assert(!m_completed.Empty());
