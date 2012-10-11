@@ -14,7 +14,7 @@ namespace Simulator
 Processor::ThreadTable::ThreadTable(const std::string& name, Processor& parent, Clock& clock, Config& config)
   : Object(name, parent, clock),
     m_threads(config.getValue<size_t>(*this, "NumEntries")),
-    m_totalalloc(0), m_maxalloc(0), m_lastcycle(0), m_curalloc(0), m_parent(parent)
+    m_totalalloc(0), m_maxalloc(0), m_lastcycle(0), m_curalloc(0)
 {
     RegisterSampleVariableInObject(m_totalalloc, SVC_CUMULATIVE);
     RegisterSampleVariableInObject(m_maxalloc, SVC_WATERMARK, m_threads.size());
@@ -205,7 +205,11 @@ void Processor::ThreadTable::Cmd_Read(ostream& out, const vector<string>& argume
             }
         }
     }
-    
+
+    // Change the following if Processor is not a direct parent any more
+    Processor& parent = dynamic_cast<Processor&>(*GetParent());
+    SymbolTable& symtable = parent.GetSymbolTable();
+
     if (tids.empty())
     {
         out << "No threads selected" << endl;
@@ -232,7 +236,7 @@ void Processor::ThreadTable::Cmd_Read(ostream& out, const vector<string>& argume
                     << " | ";
 
                 out << left << setfill(' ') << setw(9) <<  ThreadStateNames[thread.state]
-                    << " | " << m_parent.GetSymbolTable()[thread.pc];
+                    << " | " << symtable[thread.pc];
             }
             else
             {

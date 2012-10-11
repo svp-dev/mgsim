@@ -92,7 +92,6 @@ public:
     ArbitratedWritePort<RegAddr> p_asyncW;     ///< Write port for all other components
 
 private:
-    Processor& m_parent;    ///< Reference to parent processor
     Allocator& m_allocator; ///< Reference to the allocator
 
     // We can have at most this many number of updates per cycle.

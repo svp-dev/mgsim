@@ -137,7 +137,6 @@ private:
     CycleNo             m_lastcycle;
     FSize               m_curalloc;
 
-    Processor&          m_parent;
 
     void UpdateStats();    
     void CheckStateSanity() const;

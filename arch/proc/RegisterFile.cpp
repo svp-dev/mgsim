@@ -22,7 +22,7 @@ Processor::RegisterFile::RegisterFile(const std::string& name, Processor& parent
     p_pipelineW (*this, "p_pipelineW"),
     p_asyncR    (*this, "p_asyncR"),
     p_asyncW    (*this, "p_asyncW"),
-    m_parent(parent), m_allocator(alloc),
+    m_allocator(alloc),
     m_nUpdates(0),
     m_integers(config.getValue<size_t>(*this, "NumIntRegisters")),
     m_floats  (config.getValue<size_t>(*this, "NumFltRegisters"))
@@ -213,14 +213,15 @@ void Processor::RegisterFile::Cmd_Info(std::ostream& out, const std::vector<std:
 void Processor::RegisterFile::Cmd_Read(std::ostream& out, const std::vector<std::string>& arguments) const
 {
     const RAUnit*    rau    = NULL;
-    const Allocator* alloc  = NULL;
 
-    // Find the RAUnit and FamilyTable in the same processor
-    for (unsigned int i = 0; i < m_parent.GetNumChildren(); ++i)
+    // Need to change this if the RF is not directly child of parent
+    Processor& parent = dynamic_cast<Processor&>(*GetParent());
+
+    // Find the RAUnit in the same processor
+    for (unsigned int i = 0; i < parent.GetNumChildren(); ++i)
     {
-        const Object* child = m_parent.GetChild(i);
+        const Object* child = parent.GetChild(i);
         if (rau   == NULL) rau   = dynamic_cast<const RAUnit*>(child);
-        if (alloc == NULL) alloc = dynamic_cast<const Allocator*>(child);
     }
 
     RegType type = RT_INTEGER;
@@ -289,7 +290,7 @@ void Processor::RegisterFile::Cmd_Read(std::ostream& out, const std::vector<std:
         out << " |  ";
 
         RegClass group = RC_LOCAL;
-        TID      tid   = (fid != INVALID_LFID) ? alloc->GetRegisterType(fid, addr, &group) : INVALID_TID;
+        TID      tid   = (fid != INVALID_LFID) ? m_allocator.GetRegisterType(fid, addr, &group) : INVALID_TID;
         if (tid != INVALID_TID) {
             out << "T" << setw(4) << setfill('0') << tid;
         } else {

@@ -110,7 +110,6 @@ private:
     TSize               m_maxalloc;
     CycleNo             m_lastcycle;
     TSize               m_curalloc;
-    Processor&          m_parent;
 
     void UpdateStats();
     void CheckStateSanity() const;
