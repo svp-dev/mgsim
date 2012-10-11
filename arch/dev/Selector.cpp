@@ -28,7 +28,7 @@ namespace Simulator
         static
         size_t handler_count;
 
-        
+        static
         void selector_delegate_callback(ev::io& io, int revents)
         {
             // cerr << "I/O ready on fd " << fd << ", mode " << mode << endl;
