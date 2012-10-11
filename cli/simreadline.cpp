@@ -40,7 +40,8 @@ int CommandLineReader::ReadLineHook(void) {
     return 0;
 }
 
-CommandLineReader::CommandLineReader()  {
+CommandLineReader::CommandLineReader()
+    : m_histfilename() {
 #ifdef HAVE_LIBREADLINE
     rl_event_hook = &ReadLineHook;
 # ifdef HAVE_READLINE_HISTORY
