@@ -164,11 +164,16 @@ public:
     ~DDRChannel();
 };
 
-class DDRChannelRegistry : public Object, public std::vector<DDRChannel*>
+class DDRChannelRegistry : public Object
 {
+    std::vector<DDRChannel*> m_channels;
+
 public:
     DDRChannelRegistry(const std::string& name, Object& parent, Config& config, size_t defaultNumChannels);
     ~DDRChannelRegistry();
+
+    size_t size() const { return m_channels.size(); }
+    DDRChannel* operator[](size_t i) const { return m_channels[i]; }
 };
 
 }

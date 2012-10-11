@@ -285,23 +285,22 @@ DDRChannel::~DDRChannel()
 }
 
 DDRChannelRegistry::DDRChannelRegistry(const std::string& name, Object& parent, Config& config, size_t defaultNumChannels)
-    : Object(name, parent)
+    : Object(name, parent),
+      m_channels(config.getValueOrDefault<size_t>(*this, "NumChannels", defaultNumChannels))
 {
-    size_t numChannels = config.getValueOrDefault<size_t>(*this, "NumChannels", defaultNumChannels);
-
-    for (size_t i = 0; i < numChannels; ++i)
+    for (size_t i = 0; i < m_channels.size(); ++i)
     {
         std::stringstream ss;
         ss << "channel" << i;
         Clock &ddrclock = GetKernel()->CreateClock(config.getValue<size_t>(*this, ss.str(), "Freq"));
-        this->push_back(new DDRChannel(ss.str(), *this, ddrclock, config));
+        m_channels[i] = new DDRChannel(ss.str(), *this, ddrclock, config);
     }
 }
 
 DDRChannelRegistry::~DDRChannelRegistry()
 {
-    for (size_t i = 0; i < size(); ++i)
-        delete (*this)[i];
+    for (auto p : m_channels)
+        delete p;
 }
 
 }
