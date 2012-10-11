@@ -26,16 +26,16 @@ class SerialMemory : public Object, public IMemory, public VirtualMemory
     };
 
     // IMemory
-    MCID RegisterClient(IMemoryCallback& callback, Process& process, StorageTraceSet& traces, Storage& storage, bool /*ignored*/);
-    void UnregisterClient(MCID id);
-    bool Read (MCID id, MemAddr address);
-    bool Write(MCID id, MemAddr address, const MemData& data, WClientID wid);
+    MCID RegisterClient(IMemoryCallback& callback, Process& process, StorageTraceSet& traces, Storage& storage, bool /*ignored*/) override;
+    void UnregisterClient(MCID id) override;
     using VirtualMemory::Read;
     using VirtualMemory::Write;
+    bool Read (MCID id, MemAddr address) override;
+    bool Write(MCID id, MemAddr address, const MemData& data, WClientID wid) override;
 
     void GetMemoryStatistics(uint64_t& nreads, uint64_t& nwrites,
                              uint64_t& nread_bytes, uint64_t& nwrite_bytes,
-                             uint64_t& nreads_ext, uint64_t& nwrites_ext) const
+                             uint64_t& nreads_ext, uint64_t& nwrites_ext) const override
     {
         nreads = m_nreads;
         nwrites = m_nwrites;

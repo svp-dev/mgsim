@@ -88,20 +88,20 @@ public:
     IBankSelector& GetBankSelector() const { return *m_selector; }
 
     // IMemory
-    MCID RegisterClient(IMemoryCallback& callback, Process& process, StorageTraceSet& traces, Storage& storage, bool grouped);
-    void UnregisterClient(MCID id);
+    MCID RegisterClient(IMemoryCallback& callback, Process& process, StorageTraceSet& traces, Storage& storage, bool grouped) override;
+    void UnregisterClient(MCID id) override;
     using VirtualMemory::Read;
     using VirtualMemory::Write;
-    bool Read (MCID id, MemAddr address);
-    bool Write(MCID id, MemAddr address, const MemData& data, WClientID wid);
+    bool Read (MCID id, MemAddr address) override;
+    bool Write(MCID id, MemAddr address, const MemData& data, WClientID wid) override;
 
     void GetMemoryStatistics(uint64_t& nreads, uint64_t& nwrites,
                              uint64_t& nread_bytes, uint64_t& nwrite_bytes,
-                             uint64_t& nreads_ext, uint64_t& nwrites_ext) const;
+                             uint64_t& nreads_ext, uint64_t& nwrites_ext) const override;
 
-    void Cmd_Info (std::ostream& out, const std::vector<std::string>& arguments) const;
-    void Cmd_Line (std::ostream& out, const std::vector<std::string>& arguments) const;
-    void Cmd_Trace(std::ostream& out, const std::vector<std::string>& arguments);
+    void Cmd_Info (std::ostream& out, const std::vector<std::string>& arguments) const override;
+    void Cmd_Line (std::ostream& out, const std::vector<std::string>& arguments) const override;
+    void Cmd_Trace(std::ostream& out, const std::vector<std::string>& arguments) override;
 };
 
 }
