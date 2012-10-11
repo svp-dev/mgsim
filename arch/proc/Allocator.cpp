@@ -1000,15 +1000,15 @@ bool Processor::Allocator::QueueFamilyAllocation(const RemoteMessage& msg, bool 
     
     if (bundle)
     {
-        request.pc         = msg.allocate.bundle.pc;
-        request.parameter  = msg.allocate.bundle.parameter;
-        request.index      = msg.allocate.bundle.index;
+        request.binfo.pc         = msg.allocate.bundle.pc;
+        request.binfo.parameter  = msg.allocate.bundle.parameter;
+        request.binfo.index      = msg.allocate.bundle.index;
     }
     else
     {
-        request.pc         = 0;
-        request.parameter  = 0;
-        request.index      = 0;
+        request.binfo.pc         = 0;
+        request.binfo.parameter  = 0;
+        request.binfo.index      = 0;
     }
      
     Buffer<AllocRequest>& allocations = msg.allocate.exclusive
@@ -1031,16 +1031,16 @@ bool Processor::Allocator::QueueFamilyAllocation(const LinkMessage& msg)
 {
     // Place the request in the appropriate buffer
     AllocRequest request;
-    request.first_fid      = msg.allocate.first_fid;
-    request.prev_fid       = msg.allocate.prev_fid;
-    request.placeSize      = msg.allocate.size;
-    request.type           = msg.allocate.exact ? ALLOCATE_EXACT : ALLOCATE_NORMAL;
-    request.completion_reg = msg.allocate.completion_reg;
-    request.completion_pid = msg.allocate.completion_pid;
-    request.bundle         = false;
-    request.pc             = 0;
-    request.parameter      = 0;
-    request.index          = 0;
+    request.first_fid       = msg.allocate.first_fid;
+    request.prev_fid        = msg.allocate.prev_fid;
+    request.placeSize       = msg.allocate.size;
+    request.type            = msg.allocate.exact ? ALLOCATE_EXACT : ALLOCATE_NORMAL;
+    request.completion_reg  = msg.allocate.completion_reg;
+    request.completion_pid  = msg.allocate.completion_pid;
+    request.bundle          = false;
+    request.binfo.pc        = 0;
+    request.binfo.parameter = 0;
+    request.binfo.index     = 0;
 
     Buffer<AllocRequest>& allocations = (msg.allocate.suspend ? m_allocRequestsSuspend : m_allocRequestsNoSuspend);
     if (!allocations.Push(request))
@@ -1258,15 +1258,14 @@ Result Processor::Allocator::DoFamilyAllocate()
             
             RemoteMessage msg;
             msg.type                  = RemoteMessage::MSG_CREATE;
+            msg.create.address        = req.binfo.pc;
             msg.create.fid            = fid;
-            msg.create.address        = req.pc;
-            msg.create.completion_reg = req.completion_reg;
-            msg.create.bundle         = true;
-            msg.create.parameter      = req.parameter;
-            msg.create.index          = req.index;
             msg.create.completion_pid = req.completion_pid;
-            
-            
+            msg.create.completion_reg = req.completion_reg;
+            msg.create.parameter      = req.binfo.parameter;
+            msg.create.index          = req.binfo.index;
+            msg.create.bundle         = true;
+
             if (!m_network.SendMessage(msg))
             {
                 DeadlockWrite("Unable to send remote bundle allocation");
