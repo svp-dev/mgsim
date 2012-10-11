@@ -122,11 +122,12 @@ private:
         unsigned int m_nRankBits;       ///< Log number of ranks on DIMM (only one active per DIMM)
         unsigned int m_nRowBits;        ///< Log number of rows
         unsigned int m_nColumnBits;     ///< Log number of columns
+
+        unsigned int m_nColumnStart;    ///< Start position of the column bits
+        unsigned int m_nBankStart;      ///< Start position of the bank bits
         unsigned int m_nRankStart;      ///< Start position of the rank bits
         unsigned int m_nRowStart;       ///< Start position of the row bits
-        unsigned int m_nBankStart;      ///< Start position of the bank bits
-        unsigned int m_nColumnStart;    ///< Start position of the column bits
-        
+
         unsigned int m_nBurstSize;
         
         DDRConfig(const std::string& name, Object& parent, Clock& clock, Config&);

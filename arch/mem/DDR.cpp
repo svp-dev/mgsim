@@ -191,43 +191,40 @@ Result DDRChannel::DoPipeline()
 }
 
 DDRChannel::DDRConfig::DDRConfig(const std::string& name, Object& parent, Clock& clock, Config& config)
-    : Object(name, parent, clock)
+    : Object(name, parent, clock),
+      m_nBurstLength(config.getValue<size_t> (*this, "BurstLength")),
+      m_tRCD (config.getValue<unsigned> (*this, "tRCD")),
+      m_tRP  (config.getValue<unsigned> (*this, "tRP")),
+      m_tCL  (config.getValue<unsigned> (*this, "tCL")),
+      // tWR is expressed in DDR specs in nanoseconds, see
+      // http://www.samsung.com/global/business/semiconductor/products/dram/downloads/applicationnote/tWR.pdf
+      // Frequency is in MHz.
+      m_tWR  (config.getValue<unsigned> (*this, "tWR") / 1e3 * clock.GetFrequency()),
+
+      m_tCCD (config.getValue<unsigned> (*this, "tCCD")),
+      m_tCWL (config.getValue<unsigned> (*this, "tCWL")),
+      m_tRAS (config.getValue<unsigned> (*this, "tRAS")),
+
+      // Address bit mapping.
+      m_nDevicesPerRank (config.getValue<size_t> (*this, "DevicesPerRank")),
+      m_nBankBits (ilog2(config.getValue<size_t> (*this, "Banks"))),
+      m_nRankBits (ilog2(config.getValue<size_t> (*this, "Ranks"))),
+      m_nRowBits (config.getValue<size_t> (*this, "RowBits")),
+      m_nColumnBits (config.getValue<size_t> (*this, "ColumnBits")),
+
+      m_nColumnStart (0),
+      m_nBankStart (m_nColumnStart + m_nColumnBits),
+      m_nRankStart (m_nBankStart + m_nBankBits),
+      m_nRowStart (m_nRankStart + m_nRankBits),
+
+      m_nBurstSize (m_nDevicesPerRank * m_nBurstLength)
 {
-    // DDR 3
-    m_nBurstLength = config.getValue<size_t> (*this, "BurstLength");
     if (m_nBurstLength != 8)
         throw SimulationException(*this, "This implementation only supports m_nBurstLength = 8");
         
     size_t cellsize = config.getValue<size_t> (*this, "CellSize");
     if (cellsize != 8)
         throw SimulationException(*this, "This implementation only supports CellSize = 8");
-
-    m_tCL  = config.getValue<unsigned> (*this, "tCL");
-    m_tRCD = config.getValue<unsigned> (*this, "tRCD");
-    m_tRP  = config.getValue<unsigned> (*this, "tRP");
-    m_tRAS = config.getValue<unsigned> (*this, "tRAS");
-    m_tCWL = config.getValue<unsigned> (*this, "tCWL");
-    m_tCCD = config.getValue<unsigned> (*this, "tCCD");
-    
-    // tWR is expressed in DDR specs in nanoseconds, see 
-    // http://www.samsung.com/global/business/semiconductor/products/dram/downloads/applicationnote/tWR.pdf
-    // Frequency is in MHz.
-    m_tWR = config.getValue<unsigned> (*this, "tWR") / 1e3 * clock.GetFrequency();
-
-    // Address bit mapping.
-    m_nDevicesPerRank = config.getValue<size_t> (*this, "DevicesPerRank");
-    m_nRankBits = ilog2(config.getValue<size_t> (*this, "Ranks"));
-    m_nBankBits = ilog2(config.getValue<size_t> (*this, "Banks"));
-    m_nRowBits = config.getValue<size_t> (*this, "RowBits");
-    m_nColumnBits = config.getValue<size_t> (*this, "ColumnBits");
-    m_nBurstSize = m_nDevicesPerRank * m_nBurstLength;
-
-    // ordering of bits in address (after division by burst size):
-    m_nColumnStart = 0;
-    m_nBankStart = m_nColumnStart + m_nColumnBits;
-    m_nRankStart = m_nBankStart + m_nBankBits;
-    m_nRowStart = m_nRankStart + m_nRankBits;
-
 }
 
 DDRChannel::DDRChannel(const std::string& name, Object& parent, Clock& clock, Config& config)
