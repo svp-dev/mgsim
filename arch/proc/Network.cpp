@@ -88,7 +88,7 @@ bool Processor::Network::SendMessage(const RemoteMessage& msg)
     
     // Delegated message
     DelegateMessage dmsg;
-    (RemoteMessage&)dmsg = msg;
+    dmsg.payload = msg;
     dmsg.src = m_parent.GetPID();
 
     // Get destination
@@ -523,15 +523,16 @@ Result Processor::Network::DoDelegationIn()
     // Note that we make a copy here, because we want to clear it before
     // we process it, because we may overwrite the entry during processing.
     assert(!m_delegateIn.Empty());
-    DelegateMessage msg = m_delegateIn.Read();
+    DelegateMessage dmsg = m_delegateIn.Read();
     m_delegateIn.Clear();
-    assert(msg.dest == m_parent.GetPID());
+    assert(dmsg.dest == m_parent.GetPID());
 
+    RemoteMessage& msg = dmsg.payload;
     DebugNetWrite("accepted delegation message %s", msg.str().c_str());
     
     switch (msg.type)
     {
-    case DelegateMessage::MSG_ALLOCATE:
+    case RemoteMessage::MSG_ALLOCATE:
         if (msg.allocate.type == ALLOCATE_BALANCED && msg.allocate.place.size > 1)
         {
             unsigned used_contexts = m_familyTable.GetNumUsedFamilies(CONTEXT_NORMAL);
@@ -568,8 +569,8 @@ Result Processor::Network::DoDelegationIn()
         COMMIT { ++m_numAllocates; }
 
         break;
-        
-    case DelegateMessage::MSG_BUNDLE:
+
+    case RemoteMessage::MSG_BUNDLE:
         if (!m_allocator.QueueFamilyAllocation(msg, true))
         {
             DeadlockWrite("Unable to process received indirect create");
@@ -580,8 +581,8 @@ Result Processor::Network::DoDelegationIn()
         COMMIT { ++m_numBundles; }
 
         break;
-    
-    case DelegateMessage::MSG_SET_PROPERTY:
+
+    case RemoteMessage::MSG_SET_PROPERTY:
     {
         Family& family = m_allocator.GetFamilyChecked(msg.property.fid.lfid, msg.property.fid.capability);
         COMMIT
@@ -620,11 +621,11 @@ Result Processor::Network::DoDelegationIn()
                       (unsigned long long)msg.property.value);
         break;
     }
-        
-    case DelegateMessage::MSG_CREATE:
-	{
+
+    case RemoteMessage::MSG_CREATE:
+        {
             // Process the received delegated create
-            PID src = (msg.create.bundle) ? msg.create.completion_pid : msg.src;
+            PID src = (msg.create.bundle) ? msg.create.completion_pid : dmsg.src;
             if (!m_allocator.QueueCreate(msg, src))
             {
                 DeadlockWrite("Unable to process received delegation create");
@@ -634,18 +635,18 @@ Result Processor::Network::DoDelegationIn()
             COMMIT { ++m_numCreates; }
 
             break;
-	}
-        
-    case DelegateMessage::MSG_SYNC:
+        }
+
+    case RemoteMessage::MSG_SYNC:
         // Authorize family access
         m_allocator.GetFamilyChecked(msg.sync.fid.lfid, msg.sync.fid.capability);
-        if (!OnSync(msg.sync.fid.lfid, msg.src, msg.sync.completion_reg))
+        if (!OnSync(msg.sync.fid.lfid, dmsg.src, msg.sync.completion_reg))
         {
             return FAILED;
         }
         break;
-                
-    case DelegateMessage::MSG_DETACH:
+
+    case RemoteMessage::MSG_DETACH:
         // Authorize family access
         m_allocator.GetFamilyChecked(msg.detach.fid.lfid, msg.detach.fid.capability);
         if (!OnDetach(msg.detach.fid.lfid))
@@ -653,8 +654,8 @@ Result Processor::Network::DoDelegationIn()
             return FAILED;
         }
         break;
-	
-    case DelegateMessage::MSG_BREAK:
+
+    case RemoteMessage::MSG_BREAK:
         // A break can only be sent from the family itself,
         // so no capability-verification has to be done.
         if (!OnBreak(msg.brk.fid))
@@ -662,8 +663,8 @@ Result Processor::Network::DoDelegationIn()
             return FAILED;
         }
         break;
-        
-    case DelegateMessage::MSG_RAW_REGISTER:
+
+    case RemoteMessage::MSG_RAW_REGISTER:
         // Remote register write.
         // No validation necessary; cannot be sent by user code.
         assert(msg.rawreg.value.m_state == RST_FULL);
@@ -683,8 +684,8 @@ Result Processor::Network::DoDelegationIn()
         DebugSimWrite("remote register write %s <- %s", 
                       msg.rawreg.addr.str().c_str(), msg.rawreg.value.str(msg.rawreg.addr.type).c_str());
         break;
-        
-    case DelegateMessage::MSG_FAM_REGISTER:
+
+    case RemoteMessage::MSG_FAM_REGISTER:
     {
         const Family& family = m_allocator.GetFamilyChecked(msg.famreg.fid.lfid, msg.famreg.fid.capability);
 
@@ -706,16 +707,14 @@ Result Processor::Network::DoDelegationIn()
                 if (!SendMessage(fwd))
                 {
                     return FAILED;
-                }           
+                }
             }
         }
         else /* register read */
         {
-            DelegateMessage response;
-            response.type        = DelegateMessage::MSG_RAW_REGISTER;
-            response.src         = m_parent.GetPID();
-            response.dest        = msg.src;
-            response.rawreg.pid  = msg.src;
+            RemoteMessage response;
+            response.type        = RemoteMessage::MSG_RAW_REGISTER;
+            response.rawreg.pid  = dmsg.src;
             response.rawreg.addr = MAKE_REGADDR(msg.famreg.addr.type, msg.famreg.completion_reg);
 
             if (!ReadRegister(msg.famreg.fid.lfid, msg.famreg.kind, msg.famreg.addr, response.rawreg.value))
@@ -961,7 +960,7 @@ void Processor::Network::Cmd_Read(ostream& out, const vector<string>& /* argumen
         out << Registers[i].name << " delegation network:" << endl;
         if (!Registers[i].reg.Empty()) {
             const DelegateMessage& msg = Registers[i].reg.Read();
-            out << msg.str();
+            out << msg.payload.str();
         } else {
             out << "Empty";
         }

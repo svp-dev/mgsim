@@ -298,10 +298,11 @@ public:
     void Cmd_Read(std::ostream& out, const std::vector<std::string>& arguments) const;
 
 private:
-    struct DelegateMessage : public RemoteMessage
+    struct DelegateMessage
     {
-        PID src;  ///< Source processor
-        PID dest; ///< Destination processor
+        PID           src;     ///< Source processor
+        PID           dest;    ///< Destination processor
+        RemoteMessage payload; ///< Body of message
     };
     
     bool ReadRegister(LFID fid, RemoteRegType kind, const RegAddr& addr, RegValue& value);
