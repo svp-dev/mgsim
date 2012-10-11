@@ -93,8 +93,8 @@ bool COMA::Cache::Write(MCID id, MemAddr address, const MemData& data, WClientID
     req.client  = id;
     req.wid     = wid;
     COMMIT{
-    std::copy(data.data, data.data + m_lineSize, req.data);
-    std::copy(data.mask, data.mask + m_lineSize, req.mask);
+    std::copy(data.data, data.data + m_lineSize, req.mdata.data);
+    std::copy(data.mask, data.mask + m_lineSize, req.mdata.mask);
     }
 
     // Client should have been registered
@@ -113,7 +113,7 @@ bool COMA::Cache::Write(MCID id, MemAddr address, const MemData& data, WClientID
         IMemoryCallback* client = m_clients[i];
         if (client != NULL && i != req.client)
         {
-            if (!client->OnMemorySnooped(req.address, req.data, req.mask))
+            if (!client->OnMemorySnooped(req.address, req.mdata.data, req.mdata.mask))
             {
                 DeadlockWrite("Unable to snoop data to cache clients");
                 return false;
@@ -384,12 +384,12 @@ bool COMA::Cache::OnMessageReceived(Message* msg)
         {
             std::copy(msg->data.data, msg->data.data + m_lineSize, data);
 
-            for (Buffer<Request>::const_iterator p = m_requests.begin(); p != m_requests.end(); ++p)
+            for (auto& p : m_requests)
             {
-                if (p->write && p->address == msg->address)
+                if (p.write && p.address == msg->address)
                 {
                     // This is a write to the same line, merge it
-                    line::blit(data, p->data, p->mask, m_lineSize);
+                    line::blit(data, p.mdata.data, p.mdata.mask, m_lineSize);
                 }
             }
         }
@@ -679,8 +679,8 @@ Result COMA::Cache::OnWriteRequest(const Request& req)
             msg->ignore    = false;
             msg->client    = req.client;
             msg->wid       = req.wid;
-            std::copy(req.data, req.data + m_lineSize, msg->data.data);
-            std::copy(req.mask, req.mask + m_lineSize, msg->data.mask);
+            std::copy(req.mdata.data, req.mdata.data + m_lineSize, msg->data.data);
+            std::copy(req.mdata.mask, req.mdata.mask + m_lineSize, msg->data.mask);
 
             // Lock the line to prevent eviction
             line->updating++;
@@ -706,9 +706,9 @@ Result COMA::Cache::OnWriteRequest(const Request& req)
     // write the data into it.
     COMMIT
     {
-        line::blit(line->data, req.data, req.mask, m_lineSize);
-        line::setif(line->valid, true, req.mask, m_lineSize);
-        
+        line::blit(line->data, req.mdata.data, req.mdata.mask, m_lineSize);
+        line::setif(line->valid, true, req.mdata.mask, m_lineSize);
+
         // The line is now dirty
         line->dirty = true;
 

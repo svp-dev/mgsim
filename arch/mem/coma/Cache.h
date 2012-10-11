@@ -35,9 +35,10 @@ public:
         bool         valid[MAX_MEMORY_OPERATION_SIZE]; ///< Validity bitmask
     };
 
-private:    
-    struct Request : public MemData
+private:
+    struct Request
     {
+        MemData      mdata;
         bool         write;
         MemAddr      address;
         unsigned int client;

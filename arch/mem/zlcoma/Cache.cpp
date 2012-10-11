@@ -92,8 +92,8 @@ bool ZLCOMA::Cache::Write(MCID id, MemAddr address, const MemData& data, WClient
     req.client  = id;
     req.wid     = wid;
     COMMIT{
-    std::copy(data.data, data.data + m_lineSize, req.data);
-    std::copy(data.mask, data.mask + m_lineSize, req.mask);
+    std::copy(data.data, data.data + m_lineSize, req.mdata.data);
+    std::copy(data.mask, data.mask + m_lineSize, req.mdata.mask);
     }
 
     // Client should have been registered
@@ -112,7 +112,7 @@ bool ZLCOMA::Cache::Write(MCID id, MemAddr address, const MemData& data, WClient
         IMemoryCallback* client = m_clients[i];
         if (client != NULL && i != req.client)
         {
-            if (!client->OnMemorySnooped(req.address, req.data, req.mask))
+            if (!client->OnMemorySnooped(req.address, req.mdata.data, req.mdata.mask))
             {
                 DeadlockWrite("Unable to snoop data to cache clients");
                 return false;
@@ -515,9 +515,9 @@ Result ZLCOMA::Cache::OnWriteRequest(const Request& req)
     {
         line->time = GetCycleNo();
         line->dirty = true;
-        
-        line::blit(line->data, req.data, req.mask, m_lineSize);
-        line::setif(line->bitmask, true, req.mask, m_lineSize);
+
+        line::blit(line->data, req.mdata.data, req.mdata.mask, m_lineSize);
+        line::setif(line->bitmask, true, req.mdata.mask, m_lineSize);
     }
 
     if (!newline && !line->transient && line->tokens == m_parent.GetTotalTokens())

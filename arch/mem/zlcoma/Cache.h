@@ -54,9 +54,10 @@ public:
         {}
     };
 
-private:    
-    struct Request : public MemData
+private:
+    struct Request
     {
+        MemData      mdata;
         bool         write;
         MemAddr      address;
         unsigned int client;
