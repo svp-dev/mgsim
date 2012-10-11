@@ -8,7 +8,7 @@
 class Pipeline : public Object, public Inspect::Interface<Inspect::Read>
 {
     friend class Processor;
-    
+
     /// A (possibly multi-) register value in the pipeline
     struct PipeValue
     {
@@ -66,7 +66,7 @@ class Pipeline : public Object, public Inspect::Interface<Inspect::Read>
         PIPE_DELAY,     ///< Stage completed, but must be run again; delay rest of the pipeline.
         PIPE_IDLE,      ///< Stage has nothing to do
     };
-    
+
     /// Type of thread suspension
     enum SuspendType
     {
@@ -92,15 +92,15 @@ class Pipeline : public Object, public Inspect::Interface<Inspect::Read>
         const bool*      empty;
         const RegAddr*   addr;
         const PipeValue* value;
-        
-        BypassInfo(const bool& empty, const RegAddr& addr, const PipeValue& value)
-            : empty(&empty), addr(&addr), value(&value) {}
+
+        BypassInfo(const bool& _empty, const RegAddr& _addr, const PipeValue& _value)
+            : empty(&_empty), addr(&_addr), value(&_value) {}
     };
-    
+
     struct CommonData
     {
-        TID     tid;
         MemAddr pc;
+        TID     tid;
         LFID    fid;
         bool    swch;
         bool    kill;
@@ -110,13 +110,16 @@ class Pipeline : public Object, public Inspect::Interface<Inspect::Read>
         const char*  pc_sym;        // Symbolic name for PC
         uint64_t     logical_index; // Thread logical index
 
-    CommonData() : tid(0), pc(0), fid(0), swch(false), kill(false), pc_dbg(0), pc_sym(NULL), logical_index(0) {}
+        CommonData() : pc(0), tid(0), fid(0), swch(false), kill(false), pc_dbg(0), pc_sym(NULL), logical_index(0) {}
+        CommonData(const CommonData&) = default;
+        CommonData& operator=(const CommonData&) = default;
+        virtual ~CommonData() {}
     };
 
     struct Latch : public CommonData
     {
         bool empty;
-        
+
         Latch() : empty(true) {}
     };
 
@@ -124,75 +127,97 @@ class Pipeline : public Object, public Inspect::Interface<Inspect::Read>
     {
         Instruction instr;
         RegInfo     regs;
-        bool        legacy;
         PSize       placeSize;
+        bool        legacy;
 
-    FetchDecodeLatch() : instr(0), legacy(false), placeSize(0) {}
+        FetchDecodeLatch() : instr(0), regs(), placeSize(0), legacy(false) {}
     };
 
     struct DecodeReadLatch : public Latch, public ArchDecodeReadLatch
     {
         uint32_t        literal;
         RegInfo         regs;
-        
-        // For [f]mov[gsd], the offset in the child family's register file
-        unsigned char   regofs;
+
+        PSize           placeSize;
 
         // Registers addresses, types and sizes
         RegAddr         Ra,  Rb,  Rc;
-        bool            RaIsLocal, RbIsLocal;
         unsigned int    RaSize, RbSize, RcSize;
+        bool            RaIsLocal, RbIsLocal;
         bool            RaNotPending; // Ra is only used to check for Not Pending
-        
-        PSize           placeSize;
+
+        // For [f]mov[gsd], the offset in the child family's register file
+        unsigned char   regofs;
 
         bool            legacy;
 
-    DecodeReadLatch() : literal(0), regofs(0), RaSize(0), RbSize(0), RcSize(0), RaNotPending(false), placeSize(0), legacy(false) {}
+        DecodeReadLatch()
+            : literal(0),
+            regs(),
+            placeSize(0),
+            Ra(), Rb(), Rc(),
+            RaSize(0), RbSize(0), RcSize(0),
+            RaIsLocal(false), RbIsLocal(false),
+            RaNotPending(false),
+            regofs(0),
+            legacy(false) {}
     };
 
     struct ReadExecuteLatch : public Latch, public ArchReadExecuteLatch
     {
+        PSize           placeSize;
+
         // Registers addresses, values and types
+        RegInfo         regs;
         RegAddr         Rc;
         PipeValue       Rav, Rbv;
         unsigned int    RcSize;
-        RegInfo         regs;
 
         // For [f]mov[gsd], the offset in the child family's register file
         unsigned char   regofs;
-        
-        PSize           placeSize;
-   
+
         bool            legacy;
 
         // For debugging only
         RegAddr         Ra, Rb;
 
-    ReadExecuteLatch() : RcSize(0), regofs(0), placeSize(0), legacy(false) {}
+        ReadExecuteLatch()
+            : placeSize(0),
+            regs(),
+            Rc(), Rav(), Rbv(),
+            RcSize(0),
+            regofs(0),
+            legacy(false),
+            Ra(), Rb()
+        {}
     };
 
     struct ExecuteMemoryLatch : public Latch
     {
-        SuspendType suspend;
-        
+        SuspendType   suspend;
+
         // Memory operation information
-        MemAddr address;
-        MemSize size;           // 0 when no memory operation
-        bool    sign_extend;    // Sign extend sub-register loads?
+        MemAddr       address;
+        MemSize       size;           // 0 when no memory operation
+        bool          sign_extend;    // Sign extend sub-register loads?
 
         // To be written address and value
-        RegAddr       Rc;
         PipeValue     Rcv;      // On loads, m_state = RST_INVALID and m_size is reg. size
-        
+        RegAddr       Rc;
+
         PSize         placeSize;
-        
+
         RemoteMessage Rrc;
 
         // For debugging only
         RegAddr       Ra; // the origin of the value for a store
 
-    ExecuteMemoryLatch() : suspend(SUSPEND_NONE), address(0), size(0), sign_extend(false), placeSize(0) {}
+        ExecuteMemoryLatch()
+            : suspend(SUSPEND_NONE),
+            address(0), size(0), sign_extend(false),
+            Rcv(), Rc(),
+            placeSize(0),
+            Rrc(), Ra() {}
     };
 
     struct MemoryWritebackLatch : public Latch
@@ -200,12 +225,12 @@ class Pipeline : public Object, public Inspect::Interface<Inspect::Read>
         SuspendType   suspend;
         RegAddr       Rc;
         PipeValue     Rcv;
-        
+
         RemoteMessage Rrc;
 
-    MemoryWritebackLatch() : suspend(SUSPEND_NONE) {}
+        MemoryWritebackLatch() : suspend(SUSPEND_NONE), Rc(), Rcv(), Rrc() {}
     };
-    
+
     //
     // Stages
     //
@@ -232,10 +257,12 @@ class Pipeline : public Object, public Inspect::Interface<Inspect::Read>
         bool              m_switched;
         MemAddr           m_pc;
 
-        void Clear(TID tid);    
+        void Clear(TID tid);
         PipeAction OnCycle();
     public:
         FetchStage(Pipeline& parent, Clock& clock, FetchDecodeLatch& output, Allocator& allocator, FamilyTable& familyTable, ThreadTable& threadTable, ICache &icache, Config& config);
+        FetchStage(const FetchStage&) = delete;
+        FetchStage& operator=(const FetchStage&) = delete;
         ~FetchStage();
     };
 
@@ -264,13 +291,15 @@ class Pipeline : public Object, public Inspect::Interface<Inspect::Read>
             PipeValue          value;     ///< Final value
             int                offset;    ///< Sub-register of the operand we are currently reading
             bool               islocal;   ///< Whether the operand is a local register (not channel)
-            
+
             // Address and value as read from the register file
             // The PipeValue actually contains a RegValue, but this way the code can remain generic
             RegAddr            addr_reg;  ///< Address of the value read from register
             PipeValue          value_reg; ///< Value as read from the register file
+
+            OperandInfo() : port(0), addr(), value(), offset(0), islocal(false), addr_reg(), value_reg() {}
         };
-        
+
         bool ReadRegister(OperandInfo& operand, uint32_t literal);
         bool ReadBypasses(OperandInfo& operand);
         void CheckLocalOperand(OperandInfo& operand) const;
@@ -284,7 +313,7 @@ class Pipeline : public Object, public Inspect::Interface<Inspect::Read>
         std::vector<BypassInfo>     m_bypasses;
         OperandInfo                 m_operand1, m_operand2;
         bool                        m_RaNotPending;
-        
+
 #if defined(TARGET_MTSPARC)
         // Sparc memory stores require three registers so takes two cycles.
         // First cycle calculates the address and stores it here.
@@ -298,7 +327,7 @@ class Pipeline : public Object, public Inspect::Interface<Inspect::Read>
             const std::vector<BypassInfo>& bypasses,
             Config& config);
     };
-    
+
     class ExecuteStage : public Stage
     {
         const ReadExecuteLatch& m_input;
@@ -306,11 +335,11 @@ class Pipeline : public Object, public Inspect::Interface<Inspect::Read>
         Allocator&              m_allocator;
         FamilyTable&            m_familyTable;
         ThreadTable&            m_threadTable;
-		FPU&                    m_fpu;
-		size_t                  m_fpuSource;    // Which input are we to the FPU?
+        FPU&                    m_fpu;
+        size_t                  m_fpuSource;    // Which input are we to the FPU?
         uint64_t                m_flop;         // FP operations
         uint64_t                m_op;           // Instructions
-        
+
         bool       MemoryWriteBarrier(TID tid) const;
         PipeAction ReadFamilyRegister(RemoteRegType kind, RegType type, const FID& fid, unsigned char ofs);
         PipeAction WriteFamilyRegister(RemoteRegType kind, RegType type, const FID& fid, unsigned char ofs);
@@ -325,7 +354,7 @@ class Pipeline : public Object, public Inspect::Interface<Inspect::Read>
         void       ExecDebug(Integer value, Integer stream) const;
         void       ExecDebug(double value, Integer stream) const;
         PipeAction OnCycle();
-        
+
         void       ExecStatusAction(Integer value, int command, int flags) const;
         void       ExecMemoryControl(Integer value, int command, int flags) const;
         void       ExecDebugOutput(Integer value, int command, int flags) const;
@@ -355,9 +384,9 @@ class Pipeline : public Object, public Inspect::Interface<Inspect::Read>
         static RegValue PipeValueToRegValue(RegType type, const PipeValue& v);
     public:
         size_t GetFPUSource() const { return m_fpuSource; }
-        
+
         ExecuteStage(Pipeline& parent, Clock& clock, const ReadExecuteLatch& input, ExecuteMemoryLatch& output, Allocator& allocator, FamilyTable& familyTable, ThreadTable& threadTable, FPU& fpu, size_t fpu_source, Config& config);
-        
+
         uint64_t getFlop() const { return m_flop; }
         uint64_t getOp()   const { return m_op; }
     };
@@ -376,10 +405,10 @@ class Pipeline : public Object, public Inspect::Interface<Inspect::Read>
         PipeAction OnCycle();
     public:
         MemoryStage(Pipeline& parent, Clock& clock, const ExecuteMemoryLatch& input, MemoryWritebackLatch& output, DCache& dcache, Allocator& allocator, Config& config);
-        void addMemStatistics(uint64_t& nr, uint64_t& nw, uint64_t& nrb, uint64_t& nwb) const 
+        void addMemStatistics(uint64_t& nr, uint64_t& nw, uint64_t& nrb, uint64_t& nwb) const
         { nr += m_loads; nw += m_stores; nrb += m_load_bytes; nwb += m_store_bytes; }
     };
-    
+
     class DummyStage : public Stage
     {
         const MemoryWritebackLatch& m_input;
@@ -407,29 +436,31 @@ class Pipeline : public Object, public Inspect::Interface<Inspect::Read>
 
     void PrintLatchCommon(std::ostream& out, const CommonData& latch) const;
     static std::string MakePipeValue(const RegType& type, const PipeValue& value);
-    
+
 public:
     Pipeline(const std::string& name, Processor& parent, Clock& clock, RegisterFile& regFile, Network& network, Allocator& allocator, FamilyTable& familyTable, ThreadTable& threadTable, ICache& icache, DCache& dcache, FPU& fpu, Config& config);
+    Pipeline(const Pipeline&) = delete;
+    Pipeline& operator=(const Pipeline&) = delete;
     ~Pipeline();
 
     Result DoPipeline();
 
     Processor& GetProcessor()  const { return m_parent; }
-    
+
     uint64_t GetTotalBusyTime() const { return m_pipelineBusyTime; }
     uint64_t GetStalls() const { return m_nStalls; }
     uint64_t GetNStages() const { return m_stages.size(); }
     uint64_t GetStagesRun() const { return m_nStagesRun; }
-    
+
     size_t GetFPUSource() const { return dynamic_cast<ExecuteStage&>(*m_stages[3].stage).GetFPUSource(); }
 
     float    GetEfficiency() const { return (float)m_nStagesRun / m_stages.size() / (float)std::max<uint64_t>(1ULL, m_pipelineBusyTime); }
 
     uint64_t GetFlop() const { return dynamic_cast<ExecuteStage&>(*m_stages[3].stage).getFlop(); }
     uint64_t GetOp()   const { return dynamic_cast<ExecuteStage&>(*m_stages[3].stage).getOp(); }
-    void     CollectMemOpStatistics(uint64_t& nr, uint64_t& nw, uint64_t& nrb, uint64_t& nwb) const 
+    void     CollectMemOpStatistics(uint64_t& nr, uint64_t& nw, uint64_t& nrb, uint64_t& nwb) const
     { return dynamic_cast<MemoryStage&>(*m_stages[4].stage).addMemStatistics(nr, nw, nrb, nwb); }
-    
+
     void Cmd_Info(std::ostream& out, const std::vector<std::string>& arguments) const;
     void Cmd_Read(std::ostream& out, const std::vector<std::string>& arguments) const;
 
@@ -443,9 +474,9 @@ private:
         Latch* output;
         Result status;
     };
-    
+
     Processor& m_parent;
-    
+
     FetchDecodeLatch                  m_fdLatch;
     DecodeReadLatch                   m_drLatch;
     ReadExecuteLatch                  m_reLatch;
@@ -455,14 +486,13 @@ private:
     MemoryWritebackLatch              m_mwBypass;
 
     std::vector<StageInfo> m_stages;
-    
+
     Register<bool> m_active;
-    
+
     size_t   m_nStagesRunnable;
     size_t   m_nStagesRun;
     uint64_t m_pipelineBusyTime;
-    uint64_t m_nStalls;   
+    uint64_t m_nStalls;
 };
 
 #endif
-

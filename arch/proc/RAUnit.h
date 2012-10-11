@@ -8,7 +8,7 @@
 class RAUnit : public Object, public Inspect::Interface<Inspect::Read>
 {
     friend class RegisterFile;
-    
+
 public:
     typedef std::vector<std::pair<RegSize, LFID> > List;
     typedef RegSize  BlockSize;
@@ -28,16 +28,16 @@ public:
      *      at least one reserved context worth of register is considered for allocation as well.
      */
     bool Alloc(const RegSize size[NUM_REG_TYPES], LFID fid, ContextType context, RegIndex indices[NUM_REG_TYPES]);
-    
+
     /**
      * \brief Frees the allocated registers
      * \param indices[in] the base address of the allocate registers, as returned from Alloc.
      */
     void Free(RegIndex indices[NUM_REG_TYPES], ContextType context);
-    
+
     /// Returns the maximum number of contexts still available
     BlockSize GetNumFreeContexts(ContextType type) const;
-    
+
     /// Reserves a context for future allocation
     void ReserveContext();
 
@@ -45,8 +45,8 @@ public:
     void UnreserveContext();
 
     // Interaction functions
-    void Cmd_Info(std::ostream& out, const std::vector<std::string>& arguments) const;
-    void Cmd_Read(std::ostream& out, const std::vector<std::string>& arguments) const;
+    void Cmd_Info(std::ostream& out, const std::vector<std::string>& arguments) const override;
+    void Cmd_Read(std::ostream& out, const std::vector<std::string>& arguments) const override;
 
 private:
     struct TypeInfo
@@ -54,6 +54,8 @@ private:
         List      list;                     ///< The list of blocks for administration
         RegSize   blockSize;                ///< Blocksize for this register type
         BlockSize free[NUM_CONTEXT_TYPES];  ///< Number of free blocks
+
+        TypeInfo() : list(), blockSize() {};
     };
     TypeInfo m_types[NUM_REG_TYPES];
 };

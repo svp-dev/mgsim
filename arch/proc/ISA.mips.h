@@ -16,10 +16,10 @@ struct ArchDecodeReadLatch
 
     // FIXME: FILL ADDITIONAL LATCH FIELDS HERE.
 
-    ArchDecodeReadLatch() : 
+    ArchDecodeReadLatch() :
     /* NB: all latch fields should be initialized here. */
-         function(0), 
-         displacement(0) 
+         function(0),
+         displacement(0)
     {}
 };
 
@@ -32,4 +32,4 @@ struct ArchReadExecuteLatch : public ArchDecodeReadLatch
 };
 
 
-#endif 
+#endif

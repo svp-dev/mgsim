@@ -34,8 +34,10 @@ public:
 #include "PerfCounters.h"
 
     Processor(const std::string& name, Object& parent, Clock& clock, PID pid, const std::vector<Processor*>& grid, IMemory& memory, IMemoryAdmin& admin, FPU& fpu, IIOBus *iobus, Config& config);
+    Processor(const Processor&) = delete;
+    Processor& operator=(const Processor&) = delete;
     ~Processor();
-    
+
     void Initialize(Processor* prev, Processor* next);
     void Boot(MemAddr runAddress, bool legacy, PSize placeSize, SInteger startIndex);
 
@@ -47,11 +49,11 @@ public:
     Pipeline& GetPipeline() { return m_pipeline; }
     IOMatchUnit& GetIOMatchUnit() { return m_mmio; }
     MemAddr GetDeviceBaseAddress(IODeviceID dev) const;
-    
+
     float GetRegFileAsyncPortActivity() const {
         return (float)m_registerFile.p_asyncW.GetBusyCycles() / (float)GetCycleNo();
     }
-	
+
     TSize GetMaxThreadsAllocated() const { return m_threadTable.GetMaxAllocated(); }
     TSize GetTotalThreadsAllocated() { return m_threadTable.GetTotalAllocated(); }
     TSize GetTotalThreadsCreated() { return m_allocator.GetTotalThreadsCreated(); }
@@ -67,7 +69,7 @@ public:
     float GetAverageAllocateExQueueSize() { return (float)GetTotalAllocateExQueueSize() / (float)GetKernel()->GetCycleNo(); }
 
     unsigned int GetNumSuspendedRegisters() const;
-    
+
     void WriteRegister(const RegAddr& addr, const RegValue& value) { m_registerFile.WriteRegister(addr, value); }
     void WriteASR(ARAddr which, Integer data) {  m_asr_file.WriteRegister(which, data); }
     Integer ReadASR(ARAddr which) const { return m_asr_file.ReadRegister(which); }
@@ -75,7 +77,7 @@ public:
     Integer ReadAPR(ARAddr which) const { return m_apr_file.ReadRegister(which); }
 
 
-	
+
     // Configuration-dependent helpers
     MemAddr     GetTLSAddress(LFID fid, TID tid) const;
     MemSize     GetTLSSize() const;
@@ -89,7 +91,7 @@ public:
     void UnmapMemory(MemAddr address, MemSize size);
     void UnmapMemory(ProcessID pid);
     bool CheckPermissions(MemAddr address, MemSize size, int access) const;
-	
+
     Network& GetNetwork() { return m_network; }
     IOInterface* GetIOInterface() { return m_io_if; }
     RegisterFile& GetRegisterFile() { return m_registerFile; }
@@ -98,13 +100,13 @@ public:
     SymbolTable& GetSymbolTable() { return *m_symtable; }
 
 private:
-    PID                            m_pid;
     IMemory&                       m_memory;
     IMemoryAdmin&                  m_memadmin;
     const std::vector<Processor*>& m_grid;
     FPU&                           m_fpu;
     SymbolTable*                   m_symtable;
-    
+    PID                            m_pid;
+
     // Bit counts for packing and unpacking configuration-dependent values
     struct
     {
@@ -112,7 +114,7 @@ private:
         unsigned int fid_bits;  ///< Number of bits for a LFID (Local Family ID)
         unsigned int tid_bits;  ///< Number of bits for a TID (Thread ID)
     } m_bits;
-    
+
     // The components on the core
     FamilyTable           m_familyTable;
     ThreadTable           m_threadTable;

@@ -8,7 +8,7 @@
 class DCache : public Object, public IMemoryCallback, public Inspect::Interface<Inspect::Read>
 {
     friend class Processor;
-    
+
 public:
     /// The state of a cache-line
     enum LineState
@@ -21,57 +21,57 @@ public:
 
     struct Line
     {
-        LineState   state;      ///< The line state.
-        bool        processing; ///< Has the line been added to m_returned yet?
         MemAddr     tag;        ///< The address tag.
         char*       data;       ///< The data in this line.
         bool*       valid;      ///< A bitmap of valid bytes in this line.
         CycleNo     access;     ///< Last access time of this line (for LRU).
         RegAddr     waiting;    ///< First register waiting on this line.
-        bool        create;
+        LineState   state;      ///< The line state.
+        bool        processing; ///< Has the line been added to m_returned yet?
+        bool        create;     ///< Is the line expected by the create process (bundle)?
     };
 
 private:
     struct Request
     {
-        MemAddr address;
-        bool    write;
-        MemData data;
+        MemData   data;
+        MemAddr   address;
         WClientID wid;
+        bool      write;
     };
-    
+
     struct Response
     {
         bool write;
         union {
             WClientID wid;
-            CID cid;
+            CID       cid;
         };
     };
-    
+
     // Information for multi-register writes
     struct WritebackState
     {
-        LFID         fid;    ///< FID of the thread's that's waiting on the register
+        uint64_t     value;  ///< Value to write
         RegAddr      addr;   ///< Address of the next register to write
+        RegAddr      next;   ///< Next register after this one
         unsigned int size;   ///< Number of registers remaining to write
         unsigned int offset; ///< Current offset in the multi-register operand
-        uint64_t     value;  ///< Value to write
-        RegAddr      next;   ///< Next register after this one
+        LFID         fid;    ///< FID of the thread's that's waiting on the register
     };
-    
+
     Result FindLine(MemAddr address, Line* &line, bool check_only);
 
     Processor&           m_parent;          ///< Parent processor.
-    Allocator&			 m_allocator;       ///< Allocator component.
-	FamilyTable&		 m_familyTable;     ///< Family table .
-	RegisterFile&		 m_regFile;         ///< Register File.
-	IMemory&             m_memory;          ///< Memory
-	MCID                 m_mcid;            ///< Memory Client ID
+    Allocator&           m_allocator;       ///< Allocator component.
+    FamilyTable&         m_familyTable;     ///< Family table .
+    RegisterFile&        m_regFile;         ///< Register File.
+    IMemory&             m_memory;          ///< Memory
+    MCID                 m_mcid;            ///< Memory Client ID
     std::vector<Line>    m_lines;           ///< The cache-lines.
-	size_t               m_assoc;           ///< Config: Cache associativity.
-	size_t               m_sets;            ///< Config: Number of sets in the cace.
-	size_t               m_lineSize;        ///< Config: Size of a cache line, in bytes.
+    size_t               m_assoc;           ///< Config: Cache associativity.
+    size_t               m_sets;            ///< Config: Number of sets in the cace.
+    size_t               m_lineSize;        ///< Config: Size of a cache line, in bytes.
     IBankSelector*       m_selector;        ///< Mapping of cache line addresses to tags and set indices.
     Buffer<CID>          m_completed;       ///< Completed cache-line reads waiting to be processed.
     Buffer<Response>     m_incoming;        ///< Incoming buffer from memory bus.
@@ -99,15 +99,17 @@ private:
 
     uint64_t             m_numSnoops;
 
-       
+
     Result DoCompletedReads();
     Result DoIncomingResponses();
     Result DoOutgoingRequests();
 
 public:
     DCache(const std::string& name, Processor& parent, Clock& clock, Allocator& allocator, FamilyTable& familyTable, RegisterFile& regFile, IMemory& memory, Config& config);
+    DCache(const DCache&) = delete;
+    DCache& operator=(const DCache&) = delete;
     ~DCache();
-    
+
     // Processes
     Process p_CompletedReads;
     Process p_Incoming;
@@ -142,4 +144,3 @@ public:
 };
 
 #endif
-

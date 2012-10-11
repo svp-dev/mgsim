@@ -22,10 +22,10 @@ Processor::RegisterFile::RegisterFile(const std::string& name, Processor& parent
     p_pipelineW (*this, "p_pipelineW"),
     p_asyncR    (*this, "p_asyncR"),
     p_asyncW    (*this, "p_asyncW"),
-    m_allocator(alloc),
-    m_nUpdates(0),
-    m_integers(config.getValue<size_t>(*this, "NumIntRegisters")),
-    m_floats  (config.getValue<size_t>(*this, "NumFltRegisters"))
+    m_integers  (config.getValue<size_t>(*this, "NumIntRegisters")),
+    m_floats    (config.getValue<size_t>(*this, "NumFltRegisters")),
+    m_allocator (alloc),
+    m_nUpdates(0)
 {
     // Initialize all registers to empty
     for (RegSize i = 0; i < m_integers.size(); ++i)
@@ -37,7 +37,7 @@ Processor::RegisterFile::RegisterFile(const std::string& name, Processor& parent
     {
         m_floats[i] = MAKE_EMPTY_REG();
     }
-    
+
     // Set port priorities; first port has highest priority
     AddPort(p_pipelineW);
     AddPort(p_asyncW);
@@ -70,7 +70,7 @@ bool Processor::RegisterFile::WriteRegister(const RegAddr& addr, const RegValue&
     vector<RegValue>& regs = PickFile(addr.type);
     if (addr.index < regs.size())
     {
-        DebugRegWrite("write %s <- %s (was %s, ADMIN)", addr.str().c_str(), 
+        DebugRegWrite("write %s <- %s (was %s, ADMIN)", addr.str().c_str(),
                       data.str(addr.type).c_str(),
                       regs[ addr.index ].str(addr.type).c_str());
         regs[addr.index] = data;
@@ -108,7 +108,7 @@ bool Processor::RegisterFile::WriteRegister(const RegAddr& addr, const RegValue&
     }
 
     assert(data.m_state == RST_EMPTY || data.m_state == RST_PENDING || data.m_state == RST_WAITING || data.m_state == RST_FULL);
-    
+
     if (data.m_state == RST_EMPTY || data.m_state == RST_PENDING)
     {
         assert(data.m_waiting.head == INVALID_TID);
@@ -138,8 +138,8 @@ bool Processor::RegisterFile::WriteRegister(const RegAddr& addr, const RegValue&
                     throw exceptf<SimulationException>(*this, "Invalid reset of pending load %s: %s becomes %s", addr.str().c_str(), value.str(addr.type).c_str(), data.str(addr.type).c_str());
                 }
             }
-        }        
-       
+        }
+
         if (data.m_state == RST_FULL)
         {
             if (value.m_state == RST_WAITING && value.m_waiting.head != INVALID_TID)
@@ -153,7 +153,7 @@ bool Processor::RegisterFile::WriteRegister(const RegAddr& addr, const RegValue&
             }
         }
     }
-    
+
     COMMIT
     {
 #ifndef NDEBUG
@@ -186,7 +186,7 @@ void Processor::RegisterFile::Update()
         RegType type = addr.type;
         vector<RegValue>& regs = PickFile(type);
 
-        DebugRegWrite("write %s <- %s (was %s)", addr.str().c_str(), 
+        DebugRegWrite("write %s <- %s (was %s)", addr.str().c_str(),
                       m_updates[i].second.str(type).c_str(),
                       regs[ addr.index ].str(type).c_str());
 
@@ -225,18 +225,18 @@ void Processor::RegisterFile::Cmd_Read(std::ostream& out, const std::vector<std:
     }
 
     RegType type = RT_INTEGER;
-    size_t  i    = 0;
+    size_t  ix    = 0;
     if (!arguments.empty())
     {
-        if (arguments[i] == "float") {
+        if (arguments[ix] == "float") {
             type = RT_FLOAT;
-            i++;
-        } else if (arguments[i] == "integer") {
+            ix++;
+        } else if (arguments[ix] == "integer") {
             type = RT_INTEGER;
-            i++;
+            ix++;
         }
     }
-        
+
     vector<LFID> regs(GetSize(type), INVALID_LFID);
     if (rau != NULL)
     {
@@ -257,9 +257,9 @@ void Processor::RegisterFile::Cmd_Read(std::ostream& out, const std::vector<std:
     }
 
     set<RegIndex> indices;
-    if (i < arguments.size())
+    if (ix < arguments.size())
     {
-        indices = parse_range<RegIndex>(arguments[i], 0, regs.size());
+        indices = parse_range<RegIndex>(arguments[ix], 0, regs.size());
     }
     else
     {

@@ -36,26 +36,34 @@ Processor::Pipeline::Pipeline(
     Object(name, parent, clock),
     p_Pipeline(*this, "pipeline", delegate::create<Pipeline, &Processor::Pipeline::DoPipeline>(*this)),
     m_parent(parent),
-    
+    m_fdLatch(),
+    m_drLatch(),
+    m_reLatch(),
+    m_emLatch(),
+    m_mwLatch(),
+    m_dummyLatches(),
+    m_mwBypass(),
+    m_stages(),
+
     m_active("f_active", *this, clock),
-    
+
     m_nStagesRunnable(0), m_nStagesRun(0),
     m_pipelineBusyTime(0), m_nStalls(0)
 {
     static const size_t NUM_FIXED_STAGES = 6;
 
     m_active.Sensitive(p_Pipeline);
-    
+
     // Number of forwarding delay slots between the Memory and Writeback stage
     const size_t num_dummy_stages = config.getValue<size_t>(*this, "NumDummyStages");
-    
+
     m_stages.resize( num_dummy_stages + NUM_FIXED_STAGES );
 
     RegisterSampleVariableInObject(m_nStagesRunnable, SVC_LEVEL, m_stages.size());
     RegisterSampleVariableInObject(m_nStagesRun, SVC_CUMULATIVE);
     RegisterSampleVariableInObject(m_pipelineBusyTime, SVC_CUMULATIVE);
     RegisterSampleVariableInObject(m_nStalls, SVC_CUMULATIVE);
-    
+
 
     // Create the Fetch stage
     m_stages[0].stage  = new FetchStage(*this, clock, m_fdLatch, alloc, familyTable, threadTable, icache, config);
@@ -85,26 +93,26 @@ Processor::Pipeline::Pipeline(
     m_stages[4].output = &m_mwLatch;
     bypasses.push_back(BypassInfo(m_mwLatch.empty, m_mwLatch.Rc, m_mwLatch.Rcv));
 
-    // Create the dummy stages   
-    MemoryWritebackLatch* last_output = &m_mwLatch;    
+    // Create the dummy stages
+    MemoryWritebackLatch* last_output = &m_mwLatch;
     m_dummyLatches.resize(num_dummy_stages);
     for (size_t i = 0; i < num_dummy_stages; ++i)
     {
         const size_t j = i + NUM_FIXED_STAGES - 1;
         StageInfo& si = m_stages[j];
-        
+
         MemoryWritebackLatch& output = m_dummyLatches[i];
         bypasses.push_back(BypassInfo(output.empty, output.Rc, output.Rcv));
 
-        stringstream name;
-        name << "dummy" << i;
+        stringstream sname;
+        sname << "dummy" << i;
         si.input  = last_output;
         si.output = &output;
-        si.stage  = new DummyStage(name.str(), *this, clock, *last_output, output, config);
-        
+        si.stage  = new DummyStage(sname.str(), *this, clock, *last_output, output, config);
+
         last_output = &output;
     }
-    
+
     // Create the Writeback stage
     m_stages.back().stage  = new WritebackStage(*this, clock, *last_output, regFile, alloc, threadTable, network, config);
     m_stages.back().input  = m_stages[m_stages.size() - 2].output;
@@ -131,7 +139,7 @@ Result Processor::Pipeline::DoPipeline()
         {
             p->status = (p->input != NULL && p->input->empty ? DELAYED : SUCCESS);
         }
-    
+
         /*
          Make a copy of the WB latch before doing anything. This will be used as
          the source for the bypass to the Read Stage. This can be justified by
@@ -143,7 +151,7 @@ Result Processor::Pipeline::DoPipeline()
         // We've been busy this cycle
         m_pipelineBusyTime++;
     }
-    
+
     Result result = FAILED;
     m_nStagesRunnable = 0;
 
@@ -152,12 +160,12 @@ Result Processor::Pipeline::DoPipeline()
     {
     for (stage = m_stages.rbegin(); stage != m_stages.rend(); ++stage)
     {
-        if (stage->status == FAILED) 
+        if (stage->status == FAILED)
         {
             // The pipeline stalled at this point
             break;
         }
-        
+
         if (stage->status == SUCCESS)
         {
             m_nStagesRunnable++;
@@ -175,13 +183,13 @@ Result Processor::Pipeline::DoPipeline()
                     DeadlockWrite("%s stage stalled", stage->stage->GetName().c_str());
                     break;
                 }
-                
+
                 if (action == PIPE_DELAY)
                 {
                     result = SUCCESS;
                     break;
                 }
-                
+
                 if (action == PIPE_IDLE)
                 {
                     m_nStagesRunnable--;
@@ -202,7 +210,7 @@ Result Processor::Pipeline::DoPipeline()
                             f->stage->Clear(tid);
                         }
                     }
-                    
+
                     COMMIT
                     {
                         // Clear input and set output
@@ -225,25 +233,25 @@ Result Processor::Pipeline::DoPipeline()
         {
             // Add details about thread, family and PC
             stringstream details;
-            details << "While executing instruction at " << GetProcessor().GetSymbolTable()[stage->input->pc_dbg] 
+            details << "While executing instruction at " << GetProcessor().GetSymbolTable()[stage->input->pc_dbg]
                         // "0x" << setw(sizeof(MemAddr) * 2) << setfill('0') << hex << stage->input->pc_dbg
                     << " in T" << dec << stage->input->tid << " in F" << stage->input->fid;
             e.AddDetails(details.str());
         }
         throw;
     }
-    
+
     if (m_nStagesRunnable == 0) {
         // Nothing to do anymore
         m_active.Clear();
         return SUCCESS;
     }
-    
+
     COMMIT
     {
         m_nStagesRun += m_nStagesRunnable;
     }
-    
+
     m_active.Write(true);
     return result;
 }
@@ -322,7 +330,7 @@ void Processor::Pipeline::Cmd_Read(std::ostream& out, const std::vector<std::str
         PrintLatchCommon(out, m_drLatch);
         out  << hex << setfill('0')
 #if defined(TARGET_MTALPHA)
-             << " | Opcode:       0x" << setw(2) << (unsigned)m_drLatch.opcode 
+             << " | Opcode:       0x" << setw(2) << (unsigned)m_drLatch.opcode
 #elif defined(TARGET_MTSPARC)
              << " | Op1:          0x" << setw(2) << (unsigned)m_drLatch.op1
              << "   Op2: 0x" << setw(2) << (unsigned)m_drLatch.op2
@@ -357,7 +365,7 @@ void Processor::Pipeline::Cmd_Read(std::ostream& out, const std::vector<std::str
              << "         Function:     0x" << setw(4) << m_reLatch.function << endl
 #elif defined(TARGET_MTSPARC)
              << " | Op1:          0x" << setw(2) << (unsigned)m_reLatch.op1
-             << "   Op2: 0x" << setw(2) << (unsigned)m_reLatch.op2 
+             << "   Op2: 0x" << setw(2) << (unsigned)m_reLatch.op2
              << "   Op3: 0x" << setw(2) << (unsigned)m_reLatch.op3
              << "         Function:     0x" << setw(4) << m_reLatch.function << endl
 #endif
@@ -389,7 +397,7 @@ void Processor::Pipeline::Cmd_Read(std::ostream& out, const std::vector<std::str
         else
         {
             out << " | Operation: " << (m_emLatch.Rcv.m_state == RST_FULL ? "Store" : "Load") << endl
-                << " | Address:   0x" << hex << setw(sizeof(MemAddr) * 2) << setfill('0') << m_emLatch.address 
+                << " | Address:   0x" << hex << setw(sizeof(MemAddr) * 2) << setfill('0') << m_emLatch.address
                 << " " << GetProcessor().GetSymbolTable()[m_emLatch.address] << endl
                 << " | Size:      " << dec << m_emLatch.size << " bytes" << endl;
         }
@@ -398,7 +406,7 @@ void Processor::Pipeline::Cmd_Read(std::ostream& out, const std::vector<std::str
 
     // Memory stage
     out << "Stage: memory" << endl;
-    
+
     const MemoryWritebackLatch* latch = &m_mwLatch;
     for (size_t i = 0; i <= m_dummyLatches.size(); ++i)
     {
@@ -413,7 +421,7 @@ void Processor::Pipeline::Cmd_Read(std::ostream& out, const std::vector<std::str
                 << " | Rcv: " << MakePipeValue(latch->Rc.type, latch->Rcv) << endl;
         }
         out << " v" << endl;
-        
+
         if (i < m_dummyLatches.size())
         {
             out << "Stage: extra" << endl
@@ -421,7 +429,7 @@ void Processor::Pipeline::Cmd_Read(std::ostream& out, const std::vector<std::str
             latch = &m_dummyLatches[i];
         }
     }
-    
+
     // Writeback stage
     out << "Stage: writeback" << endl;
 }
@@ -429,14 +437,13 @@ void Processor::Pipeline::Cmd_Read(std::ostream& out, const std::vector<std::str
 string Processor::Pipeline::PipeValue::str(RegType type) const
 {
     // Code similar to RegValue::str()
-    ostringstream ss;
     string tc = (type == RT_FLOAT) ? "float:" : "int:" ;
 
     switch (m_state)
     {
-    case RST_INVALID: return tc + "INVALID"; 
-    case RST_EMPTY:   return tc + "[E]"; 
-    case RST_PENDING: return tc + "[P:" + m_memory.str() + "]"; 
+    case RST_INVALID: return tc + "INVALID";
+    case RST_EMPTY:   return tc + "[E]";
+    case RST_PENDING: return tc + "[P:" + m_memory.str() + "]";
     case RST_WAITING: return tc + "[W:" + m_memory.str() + "," + m_waiting.str() + "]";
     case RST_FULL: {
         stringstream ss;

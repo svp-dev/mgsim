@@ -30,7 +30,7 @@ Processor::Pipeline::PipeAction Processor::Pipeline::FetchStage::OnCycle()
             // Nothing to do....
             return PIPE_IDLE;
         }
-        
+
         // Read its information from the Family and Thread Tables
         Thread& thread = m_threadTable[tid];
         Family& family = m_familyTable[thread.family];
@@ -70,7 +70,7 @@ Processor::Pipeline::PipeAction Processor::Pipeline::FetchStage::OnCycle()
                 m_output.regs.types[i].family = family.regs[i];
                 m_output.regs.types[i].thread = thread.regs[i];
             }
-            
+
             // Mark the thread as running
             thread.state = TST_RUNNING;
         }
@@ -86,7 +86,7 @@ Processor::Pipeline::PipeAction Processor::Pipeline::FetchStage::OnCycle()
         const size_t offset   = (size_t)(pc % m_icache.GetLineSize());                // Offset within the cacheline
         const size_t iInstr   = offset / sizeof(Instruction);                         // Offset in instructions
         const size_t iControl = (offset & -m_controlBlockSize) / sizeof(Instruction); // Align offset down to control block size
-    
+
         const Instruction* instrs = (const Instruction*)m_buffer;
         const Instruction control = (!m_output.legacy) ? UnserializeInstruction(&instrs[iControl]) >> (2 * (iInstr - iControl)) : 0;
         const MemAddr     next_pc = pc + sizeof(Instruction);
@@ -117,7 +117,7 @@ Processor::Pipeline::PipeAction Processor::Pipeline::FetchStage::OnCycle()
         m_pc       = next_pc;
         m_switched = m_output.swch;
     }
-        
+
     DebugPipeWrite("F%u/T%u(%llu) %s fetched 0x%.*lx (switching: %s)",
                    (unsigned)m_output.fid, (unsigned)m_output.tid, (unsigned long long)m_output.logical_index, m_output.pc_sym,
                    (int)(sizeof(Instruction) * 2), (unsigned long)m_output.instr,
@@ -134,7 +134,9 @@ Processor::Pipeline::FetchStage::FetchStage(Pipeline& parent, Clock& clock, Fetc
     m_threadTable(threadTable),
     m_icache(icache),
     m_controlBlockSize(config.getValue<size_t>("ControlBlockSize")),
-    m_switched(true)
+    m_buffer(0),
+    m_switched(true),
+    m_pc(0)
 {
     if ((m_controlBlockSize & ~(m_controlBlockSize - 1)) != m_controlBlockSize)
     {

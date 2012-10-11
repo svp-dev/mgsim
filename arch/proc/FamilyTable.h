@@ -8,13 +8,13 @@
 struct Family
 {
     struct RegInfo
-    {   
+    {
         RegsNo   count;            // Number of globals, locals and shareds
         RegIndex base;             // Base address of this family's register block
         RegSize  size;             // Size of the allocated registers (could be calculated from other values)
         RegIndex last_shareds;     // Address of the last allocated thread's shareds
     };
-    
+
     // Groups all dependencies that need to be resolved before termination and/or cleanup
     struct Dependencies
     {
@@ -22,7 +22,7 @@ struct Family
          All threads in the family must have been allocated before the family is done
         */
         bool allocationDone;
-        
+
         /*
          The parent threads needs to be notified of the termination of the
          family. This is done by having each family notify the family on the
@@ -32,7 +32,7 @@ struct Family
          parent core.
         */
         bool prevSynchronized;
-        
+
         /*
          After synchronizing on the family's termination, the parent thread
          can still read the final shareds back from the last thread's context.
@@ -40,20 +40,20 @@ struct Family
          explicitely detached from it.
         */
         bool detached;
-        
+
         /*
          After synchronizing on the family's termination, the sync even can
          hang around in a FT-sized buffer before being sent out. Until that
          has happened, the family cannot be reused.
         */
         bool syncSent;
-		
+
         /*
          All allocated threads (0 <= allocated <= physBlockSize) must have
          been cleaned up before the family has terminated.
         */
         TSize numThreadsAllocated;
-        
+
         /*
          FIXME:
          Maybe this can be generalized to a thread not being cleaned up
@@ -62,33 +62,33 @@ struct Family
          dependency.
         */
         unsigned int numPendingReads;
-	};
+        };
 
     PSize        placeSize;      // Number of cores this family wanted to run on.
     PSize        numCores;       // Number of cores this family is actually running on (1 <= numCores <= placeSize).
     FCapability  capability;     // Capability value for security
     MemAddr      pc;             // Initial PC for newly created threads
-	bool         legacy;		 // Consists of a single thread of legacy code?
     TSize        physBlockSize;  // Physical block size, <= Virtual block size, depending on the amount of free registers
     SInteger     start;          // Start index of the family (on this core)
     SInteger     step;           // Step size of the family
-	union {
-		SInteger limit;		     // Limit of the family
-	    Integer  nThreads;       // Number of threads we still need to run (on this core)
-	};
-    bool         hasShareds;     // Does this family use shareds?
+    union {
+        SInteger limit;          // Limit of the family
+        Integer  nThreads;       // Number of threads we still need to run (on this core)
+    };
     Dependencies dependencies;   // The dependencies for termination and cleanup
     LFID         link;           // The LFID of the matching family on the next CPU (prev during allocate)
+    bool         hasShareds;     // Does this family use shareds?
+    bool         legacy;         // Consists of a single thread of legacy code?
     bool         prevCleanedUp;  // Last thread has been cleaned up
     bool         broken;         // Family terminated due to break
-    
+
     struct
     {
-        bool     done;           // Whether the family is done or not
         PID      pid;            // The core that's synchronising
         RegIndex reg;            // The exit code register on the core
+        bool     done;           // Whether the family is done or not
     }            sync;           // Synchronisation information
-    
+
     TID          lastAllocated;  // Last thread that has been allocated
 
     RegInfo      regs[NUM_REG_TYPES];    // Register information
@@ -106,17 +106,17 @@ public:
 
     typedef Family value_type;
           Family& operator[](LFID fid)       { return m_families[fid]; }
-	const Family& operator[](LFID fid) const { return m_families[fid]; }
+        const Family& operator[](LFID fid) const { return m_families[fid]; }
 
-	LFID  AllocateFamily(ContextType type);
+        LFID  AllocateFamily(ContextType type);
     void  FreeFamily(LFID fid, ContextType context);
-    
+
     FSize GetNumFreeFamilies(ContextType type) const;
     FSize GetNumUsedFamilies(ContextType type) const;
     bool  IsEmpty()             const;
     bool  IsExclusive(LFID fid) const { return fid + 1 == m_families.size(); }
     bool  IsExclusiveUsed()     const { return m_free[CONTEXT_EXCLUSIVE] == 0; }
-    
+
     // Admin functions
     const std::vector<Family>& GetFamilies() const { return m_families; }
 
@@ -132,15 +132,13 @@ private:
     FSize               m_free[NUM_CONTEXT_TYPES];
 
     // Admin
+    CycleNo             m_lastcycle;
     FSize               m_totalalloc;
     FSize               m_maxalloc;
-    CycleNo             m_lastcycle;
     FSize               m_curalloc;
 
-
-    void UpdateStats();    
+    void UpdateStats();
     void CheckStateSanity() const;
 };
 
 #endif
-

@@ -17,6 +17,9 @@ Processor::ICache::ICache(const std::string& name, Processor& parent, Clock& clo
     m_parent(parent), m_allocator(alloc),
     m_memory(memory),
     m_selector(IBankSelector::makeSelector(*this, config.getValue<string>(*this, "BankSelector"), config.getValue<size_t>(*this, "NumSets"))),
+    m_mcid(0),
+    m_lines(),
+    m_data(),
     m_outgoing("b_outgoing", *this, clock, config.getValue<BufferSize>(*this, "OutgoingBufferSize")),
     m_incoming("b_incoming", *this, clock, config.getValue<BufferSize>(*this, "IncomingBufferSize")),
     m_lineSize(config.getValue<size_t>("CacheLineSize")),
@@ -44,7 +47,7 @@ Processor::ICache::ICache(const std::string& name, Processor& parent, Clock& clo
     RegisterSampleVariableInObject(m_numStallingMisses, SVC_CUMULATIVE);
 
     config.registerObject(m_parent, "cpu");
-    
+
     StorageTraceSet traces;
     m_mcid = m_memory.RegisterClient(*this, p_Outgoing, traces, m_incoming);
     p_Outgoing.SetStorageTraces(traces);
@@ -143,7 +146,7 @@ Result Processor::ICache::FindLine(MemAddr address, Line* &line, bool check_only
             replace = line;
         }
     }
-    
+
     // The line could not be found, allocate the empty line or replace an existing line
     line = (empty != NULL) ? empty : replace;
     if (line == NULL)
@@ -192,14 +195,14 @@ bool Processor::ICache::Read(CID cid, MemAddr address, void* data, MemSize size)
 
     if (offset + size > m_lineSize)
     {
-        throw exceptf<InvalidArgumentException>(*this, "Read (%#016llx, %zd): Address range crosses over cache line boundary", 
+        throw exceptf<InvalidArgumentException>(*this, "Read (%#016llx, %zd): Address range crosses over cache line boundary",
                                                 (unsigned long long)address, (size_t)size);
     }
 
 #if MEMSIZE_MAX >= SIZE_MAX
     if (size > SIZE_MAX)
     {
-        throw exceptf<InvalidArgumentException>(*this, "Read (%#016llx, %zd): Size argument too big", 
+        throw exceptf<InvalidArgumentException>(*this, "Read (%#016llx, %zd): Size argument too big",
                                                 (unsigned long long)address, (size_t)size);
     }
 #endif
@@ -294,10 +297,10 @@ Result Processor::ICache::Fetch(MemAddr address, MemSize size, TID* tid, CID* ci
             ++m_numInvalidMisses;
             return FAILED;
         }
-        
+
         // Update reference count
         COMMIT{ line->references++; }
-        
+
         if (line->state == LINE_FULL)
         {
             // The line was already fetched so we're done.
@@ -305,7 +308,7 @@ Result Processor::ICache::Fetch(MemAddr address, MemSize size, TID* tid, CID* ci
             COMMIT{ ++m_numHits; }
             return SUCCESS;
         }
-        
+
         // The line is being fetched
         assert(line->state == LINE_LOADING);
         COMMIT
@@ -345,10 +348,10 @@ Result Processor::ICache::Fetch(MemAddr address, MemSize size, TID* tid, CID* ci
         COMMIT
         {
             // Statistics
-            if (line->state == LINE_EMPTY) 
+            if (line->state == LINE_EMPTY)
                 ++m_numEmptyMisses;
-            else 
-                ++m_numResolvedConflicts; 
+            else
+                ++m_numResolvedConflicts;
 
             // Initialize buffer
             line->creation   = false;
@@ -378,19 +381,19 @@ Result Processor::ICache::Fetch(MemAddr address, MemSize size, TID* tid, CID* ci
 bool Processor::ICache::OnMemoryReadCompleted(MemAddr addr, const char *data)
 {
     // Instruction cache line returned, store in cache and Buffer
-    
+
     // Find the line
     Line* line;
     if (FindLine(addr, line, true) == SUCCESS && line->state != LINE_FULL)
     {
         // We need this data, store it
         assert(line->state == LINE_LOADING || line->state == LINE_INVALID);
-        
+
         COMMIT
         {
             std::copy(data, data + m_lineSize, line->data);
         }
-    
+
         CID cid = line - &m_lines[0];
         if (!m_incoming.Push(cid))
         {
@@ -470,9 +473,9 @@ Result Processor::ICache::DoIncoming()
     {
         return FAILED;
     }
-    
+
     CID   cid  = m_incoming.Front();
-    Line& line = m_lines[cid];            
+    Line& line = m_lines[cid];
     COMMIT{ line.state = LINE_FULL; }
 
     if (line.creation)
@@ -505,7 +508,7 @@ Result Processor::ICache::DoIncoming()
     }
     m_incoming.Pop();
     return SUCCESS;
-}        
+}
 
 void Processor::ICache::Cmd_Info(std::ostream& out, const std::vector<std::string>& /*arguments*/) const
 {
@@ -531,7 +534,7 @@ void Processor::ICache::Cmd_Read(std::ostream& out, const std::vector<std::strin
         } else {
             out << dec << m_assoc << "-way set associative" << endl;
         }
-        
+
         out << "L1 bank mapping:     " << m_selector->GetName() << endl
             << "Cache size:          " << dec << (m_lineSize * m_lines.size()) << " bytes" << endl
             << "Cache line size:     " << dec << m_lineSize << " bytes" << endl
@@ -546,7 +549,7 @@ void Processor::ICache::Cmd_Read(std::ostream& out, const std::vector<std::strin
         if (numRAccesses == 0)
             out << "No accesses so far, cannot provide statistical data." << endl;
         else
-        {           
+        {
             out << "***********************************************************" << endl
                 << "                      Summary                              " << endl
                 << "***********************************************************" << endl
@@ -555,7 +558,7 @@ void Processor::ICache::Cmd_Read(std::ostream& out, const std::vector<std::strin
                 << "Number of request to upstream:       " << numRqst << endl
                 << "Number of stall cycles:              " << numStalls << endl
                 << endl << endl;
-                
+
             float r_factor = 100.0f / numRAccesses;
             out << "***********************************************************" << endl
                 << "                      Cache reads                          " << endl
@@ -564,16 +567,16 @@ void Processor::ICache::Cmd_Read(std::ostream& out, const std::vector<std::strin
                 << "Number of read requests from client:                " << numRAccesses << endl
                 << "Read hits:                                          " << PRINTVAL(m_numHits, r_factor) << endl
                 << "Read misses:                                        " << PRINTVAL(m_numDelayedReads, r_factor) << endl
-                << "Breakdown of read misses:" << endl                  
+                << "Breakdown of read misses:" << endl
                 << "- to an empty line:                                 " << PRINTVAL(m_numEmptyMisses, r_factor) << endl
                 << "- to a loading line with same tag:                  " << PRINTVAL(m_numLoadingMisses, r_factor) << endl
                 << "- to a reusable line with different tag (conflict): " << PRINTVAL(m_numResolvedConflicts, r_factor) << endl
                 << "(percentages relative to " << numRAccesses << " read requests)" << endl
                 << endl;
-            
+
             if (numStalls != 0)
             {
-                float s_factor = 100.f / numStalls;   
+                float s_factor = 100.f / numStalls;
                 out << "***********************************************************" << endl
                     << "                      Stall cycles                         " << endl
                     << "***********************************************************" << endl
@@ -604,7 +607,7 @@ void Processor::ICache::Cmd_Read(std::ostream& out, const std::vector<std::strin
                 out << setfill('0') << hex << setw(16) << *p << endl;
             }
         }
-        
+
         out << endl << "Incoming buffer:";
         if (m_incoming.Empty()) {
             out << " (Empty)";
@@ -627,7 +630,7 @@ void Processor::ICache::Cmd_Read(std::ostream& out, const std::vector<std::strin
         } else {
             out << "   ";
         }
-        
+
         if (line.state == LINE_EMPTY) {
             out << " |                     |                                                 |     |";
         } else {
@@ -637,11 +640,11 @@ void Processor::ICache::Cmd_Read(std::ostream& out, const std::vector<std::strin
                 case LINE_INVALID: state = 'I'; break;
                 default: state = ' '; break;
             }
-            
+
             out << " | "
                 << hex << "0x" << setw(16) << setfill('0') << m_selector->Unmap(line.tag, set) * m_lineSize
                 << state << " |";
-            
+
             if (line.state == LINE_FULL)
             {
                 // Print the data
@@ -652,7 +655,7 @@ void Processor::ICache::Cmd_Read(std::ostream& out, const std::vector<std::strin
                     for (size_t x = y; x < y + BYTES_PER_LINE; ++x) {
                         out << " " << setw(2) << (unsigned)(unsigned char)line.data[x];
                     }
-                    
+
                     out << " | ";
                     if (y == 0) {
                         out << setw(3) << dec << setfill(' ') << line.references;
@@ -669,7 +672,7 @@ void Processor::ICache::Cmd_Read(std::ostream& out, const std::vector<std::strin
             }
             else
             {
-                out << "                                                 | " 
+                out << "                                                 | "
                     << setw(3) << dec << setfill(' ') << line.references << " |";
             }
         }
@@ -677,7 +680,7 @@ void Processor::ICache::Cmd_Read(std::ostream& out, const std::vector<std::strin
         out << ((i + 1) % m_assoc == 0 ? "----" : "    ");
         out << "+---------------------+-------------------------------------------------+-----+" << endl;
     }
-    
+
 }
 
 }

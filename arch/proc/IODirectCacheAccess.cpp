@@ -8,13 +8,17 @@ namespace Simulator
         : Object(name, parent, clock),
           m_cpu(proc),
           m_memory(memory),
+          m_mcid(0),
           m_busif(busif),
           m_lineSize(config.getValue<MemSize>("CacheLineSize")),
           m_requests("b_requests", *this, clock, config.getValue<BufferSize>(*this, "RequestQueueSize")),
           m_responses("b_responses", *this, clock, config.getValue<BufferSize>(*this, "ResponseQueueSize")),
+          m_pending_writes(0),
+          m_outstanding_address(0),
+          m_outstanding_size(0),
+          m_outstanding_client(0),
           m_has_outstanding_request(false),
           m_flushing(false),
-          m_pending_writes(0),
           p_MemoryOutgoing(*this, "send-memory-requests", delegate::create<IODirectCacheAccess, &Processor::IODirectCacheAccess::DoMemoryOutgoing>(*this)),
           p_BusOutgoing   (*this, "send-bus-responses", delegate::create<IODirectCacheAccess, &Processor::IODirectCacheAccess::DoBusOutgoing>(*this)),
           p_service(*this, clock, "p_service")
@@ -23,25 +27,25 @@ namespace Simulator
         p_service.AddProcess(p_MemoryOutgoing);
         m_responses.Sensitive(p_BusOutgoing);
         m_requests.Sensitive(p_MemoryOutgoing);
-        
+
         StorageTraceSet traces;
         m_mcid = m_memory.RegisterClient(*this, p_MemoryOutgoing, traces, m_responses, true);
-        
+
         p_MemoryOutgoing.SetStorageTraces(opt(traces ^ m_responses));
         p_BusOutgoing.SetStorageTraces(opt(m_busif.m_outgoing_reqs));
     }
-    
+
     Processor::IODirectCacheAccess::~IODirectCacheAccess()
     {
         m_memory.UnregisterClient(m_mcid);
     }
-    
+
     bool Processor::IODirectCacheAccess::QueueRequest(const Request& req)
     {
         size_t offset = (size_t)(req.address % m_lineSize);
         if (offset + req.size > m_lineSize)
         {
-            throw exceptf<InvalidArgumentException>(*this, "DCA request for %#016llx/%u (dev %u, type %d) crosses over cache line boundary", 
+            throw exceptf<InvalidArgumentException>(*this, "DCA request for %#016llx/%u (dev %u, type %d) crosses over cache line boundary",
                                                     (unsigned long long)req.address, (unsigned)req.size, (unsigned)req.client, (int)req.type);
         }
 
@@ -93,7 +97,7 @@ namespace Simulator
         {
             DeadlockWrite("Unable to push memory read response (%#016llx)",
                           (unsigned long long)addr);
-            
+
             return false;
         }
         return true;
@@ -123,7 +127,7 @@ namespace Simulator
         {
             DeadlockWrite("Unable to acquire port for DCA read response (%#016llx, %u)",
                           (unsigned long long)res.address, (unsigned)res.size);
-            
+
             return FAILED;
         }
 
@@ -131,19 +135,19 @@ namespace Simulator
         {
             // write response
             assert(m_pending_writes > 0);
-            
+
             if (m_pending_writes == 1 && m_flushing == true)
-            { 
-                COMMIT { 
+            {
+                COMMIT {
                     --m_pending_writes;
-                    m_flushing = false; 
+                    m_flushing = false;
                 }
                 // the flush response will be sent below.
             }
             else
             {
-                COMMIT { 
-                    --m_pending_writes; 
+                COMMIT {
+                    --m_pending_writes;
                 }
                 // one or more outstanding write left, no flush response needed
                 m_responses.Pop();
@@ -151,7 +155,7 @@ namespace Simulator
             }
         }
 
-        if (m_has_outstanding_request 
+        if (m_has_outstanding_request
             && res.address <= m_outstanding_address
             && res.address + res.size >= m_outstanding_address + m_outstanding_size)
         {
@@ -162,7 +166,7 @@ namespace Simulator
             req.data.size = m_outstanding_size;
 
             memcpy(req.data.data, res.data + (m_outstanding_address - res.address), m_outstanding_size);
-            
+
             if (!m_busif.SendRequest(req))
             {
                 DeadlockWrite("Unable to send DCA read response to client %u for %#016llx/%u",
@@ -172,7 +176,7 @@ namespace Simulator
 
             DebugIOWrite("Sent DCA read response to client %u for %#016llx/%u",
                          (unsigned)req.device, (unsigned long long)req.address, (unsigned)req.data.size);
-            
+
             COMMIT {
                 m_has_outstanding_request = false;
             }
@@ -193,7 +197,7 @@ namespace Simulator
         {
             if (!p_service.Invoke())
             {
-                DeadlockWrite("Unable to acquire port for DCA flush");                
+                DeadlockWrite("Unable to acquire port for DCA flush");
                 return FAILED;
             }
 
@@ -207,7 +211,7 @@ namespace Simulator
 
             if (m_pending_writes == 0)
             {
-                // no outstanding write, fake one and then 
+                // no outstanding write, fake one and then
                 // acknowledge immediately
 
                 COMMIT { ++m_pending_writes; }
@@ -229,7 +233,7 @@ namespace Simulator
                 m_outstanding_address = 0;
                 m_outstanding_size = 0;
             }
-            
+
             break;
         }
         case READ:
@@ -240,18 +244,18 @@ namespace Simulator
             {
                 throw InvalidArgumentException("Read size is too big");
             }
-            
+
             if (req.address / m_lineSize != (req.address + req.size - 1) / m_lineSize)
             {
                 throw InvalidArgumentException("Read request straddles cache-line boundary");
             }
 
-            
+
             if (!p_service.Invoke())
             {
                 DeadlockWrite("Unable to acquire port for DCA read (%#016llx, %u)",
                               (unsigned long long)req.address, (unsigned)req.size);
-                
+
                 return FAILED;
             }
 
@@ -259,11 +263,11 @@ namespace Simulator
             {
                 // some request is already queued, so we just stall
                 DeadlockWrite("Will not send additional DCA read request from client %u for %#016llx/%u, already waiting for %#016llx/%u, dev %u",
-                              (unsigned)req.client, (unsigned long long)req.address, (unsigned)req.size, 
+                              (unsigned)req.client, (unsigned long long)req.address, (unsigned)req.size,
                               (unsigned long long)m_outstanding_address, (unsigned)m_outstanding_size, (unsigned)m_outstanding_client);
                 return FAILED;
             }
-            
+
             // send the request to the memory
             MemAddr line_address  = req.address & -m_lineSize;
             if (!m_memory.Read(m_mcid, line_address))
@@ -289,7 +293,7 @@ namespace Simulator
             {
                 throw InvalidArgumentException("Write size is too big");
             }
-            
+
             if (req.address / m_lineSize != (req.address + req.size - 1) / m_lineSize)
             {
                 throw InvalidArgumentException("Write request straddles cache-line boundary");
@@ -299,7 +303,7 @@ namespace Simulator
             {
                 DeadlockWrite("Unable to acquire port for DCA write (%#016llx, %u)",
                               (unsigned long long)req.address, (unsigned)req.size);
-                
+
                 return FAILED;
             }
 

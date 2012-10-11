@@ -33,10 +33,10 @@ void Processor::Pipeline::DecodeStage::DecodeInstruction(const Instruction& inst
 
     // FIXME: FILL CODE HERE.
 
-    /* NB: 
+    /* NB:
 
        - "instr" is the input of decode, ie the instruction word
-       read from memory by the fetch stage. 
+       read from memory by the fetch stage.
 
        - m_output is the decode-read latch, containing the buffers
        declared in ISA.mips.h and the following "standard" buffers from
@@ -45,13 +45,13 @@ void Processor::Pipeline::DecodeStage::DecodeInstruction(const Instruction& inst
           - uint32_t literal;  <- for instructions that have an "immediate" field
           - RegAddr Ra, Rb, Rc;  <- for register operands: Ra and Rb will be read automatically, Rc written to
     */
-       
+
 }
 
 
 Processor::Pipeline::PipeAction Processor::Pipeline::ExecuteStage::ExecuteInstruction()
 {
-    /* NB: 
+    /* NB:
 
        - m_input is the read-execute latch, containing all buffers
        between the read and execute stages. This has the buffers
@@ -75,7 +75,7 @@ Processor::Pipeline::PipeAction Processor::Pipeline::ExecuteStage::ExecuteInstru
 
     // FIXME: FILL CODE HERE.
 
-    
+
     return PIPE_CONTINUE;
 }
 

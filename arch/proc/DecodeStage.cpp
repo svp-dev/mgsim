@@ -30,17 +30,17 @@ RegAddr Processor::Pipeline::DecodeStage::TranslateRegister(unsigned char reg, R
     unsigned int nRegs = size / sizeof(Integer);
 
     *islocal = false;
-    
+
     if (nRegs == 0)
     {
         // Don't translate, just return the address as-is.
         // The register index has a special meaning for this instruction.
         return MAKE_REGADDR(type, reg);
     }
-    
+
     const Family::RegInfo& family = m_input.regs.types[type].family;
     const Thread::RegInfo& thread = m_input.regs.types[type].thread;
-    
+
     // Get register class and address within class
     RegClass rc;
     reg = GetRegisterClass(reg, family.count, &rc);
@@ -51,31 +51,31 @@ RegAddr Processor::Pipeline::DecodeStage::TranslateRegister(unsigned char reg, R
             {
                 throw IllegalInstruction();
             }
-            
+
             /*
              We just suspend on the register if it's empty. The parent
              thread will push the globals to our family, which ensures
              it will come by this register file eventually.
             */
-            
+
             // Use this family's globals
             return MAKE_REGADDR(type, family.base + family.size - family.count.globals + reg);
-            
+
         case RC_SHARED:
             if (reg + nRegs > family.count.shareds)
             {
                 throw IllegalInstruction();
             }
-            
+
             // Use the thread's shareds
             return MAKE_REGADDR(type, thread.shareds + reg);
-            
+
         case RC_LOCAL:
             if (reg + nRegs > family.count.locals)
             {
                 throw IllegalInstruction();
             }
-            
+
             // Just use the local register
             *islocal = true;
             return MAKE_REGADDR(type, thread.locals + reg);
@@ -85,7 +85,7 @@ RegAddr Processor::Pipeline::DecodeStage::TranslateRegister(unsigned char reg, R
             {
                 throw IllegalInstruction();
             }
-            
+
             /*
              If we have a read miss, we just suspend on the empty register.
              Either the parent thread will push the family's first dependents,
@@ -111,7 +111,7 @@ Processor::Pipeline::PipeAction Processor::Pipeline::DecodeStage::OnCycle()
         m_output.placeSize    = m_input.placeSize;
         m_output.legacy       = m_input.legacy;
         m_output.RaNotPending = false;
-        
+
         try
         {
             // Default cases are just naturally-sized operations
@@ -121,7 +121,7 @@ Processor::Pipeline::PipeAction Processor::Pipeline::DecodeStage::OnCycle()
 #if defined(TARGET_MTSPARC)
             m_output.RsSize = sizeof(Integer);
 #endif
-            
+
             DecodeInstruction(m_input.instr);
 
             DebugPipeWrite("F%u/T%u(%llu) %s decoded %s %s %s"
@@ -139,7 +139,7 @@ Processor::Pipeline::PipeAction Processor::Pipeline::DecodeStage::OnCycle()
 #endif
                            (unsigned long)m_output.literal
                 );
-            
+
             // Translate registers from window to full register file
             m_output.Ra = TranslateRegister((unsigned char)m_output.Ra.index, m_output.Ra.type, m_output.RaSize, &m_output.RaIsLocal);
             m_output.Rb = TranslateRegister((unsigned char)m_output.Rb.index, m_output.Rb.type, m_output.RbSize, &m_output.RbIsLocal);

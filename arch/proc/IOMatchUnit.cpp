@@ -40,7 +40,7 @@ Processor::IOMatchUnit::RegisterComponent(MemAddr address, AccessMode mode, MMIO
             throw exceptf<InvalidArgumentException>("Overlap in I/O reservation (%#016llx, %zd)",
                                                     (unsigned long long)address, (size_t)size);
         }
-        
+
         if (p != m_ranges.begin())
         {
             RangeMap::iterator q = p; --q;
@@ -50,7 +50,7 @@ Processor::IOMatchUnit::RegisterComponent(MemAddr address, AccessMode mode, MMIO
                 throw exceptf<InvalidArgumentException>("Overlap in I/O reservation (%#016llx, %zd)",
                                                         (unsigned long long)address, (size_t)size);
             }
-            
+
         }
     }
 
@@ -84,14 +84,14 @@ Processor::IOMatchUnit::FindInterface(MemAddr address, MemSize size) const
 bool Processor::IOMatchUnit::IsRegisteredReadAddress(MemAddr address, MemSize size) const
 {
     RangeMap::const_iterator interface = FindInterface(address, size);
-    return (interface != m_ranges.end() && 
+    return (interface != m_ranges.end() &&
             ((int)interface->second.mode & 1) != 0);
 }
 
 bool Processor::IOMatchUnit::IsRegisteredWriteAddress(MemAddr address, MemSize size) const
 {
     RangeMap::const_iterator interface = FindInterface(address, size);
-    return (interface != m_ranges.end() && 
+    return (interface != m_ranges.end() &&
             ((int)interface->second.mode & 2) != 0);
 }
 
@@ -100,7 +100,7 @@ Result Processor::IOMatchUnit::Read (MemAddr address, void* data, MemSize size, 
     RangeMap::const_iterator interface = FindInterface(address, size);
     assert(interface != m_ranges.end());
     assert(interface->second.mode == READ || interface->second.mode == READWRITE);
-    
+
     MemAddr base = interface->first;
     MemAddr offset = address - base;
 
@@ -112,7 +112,7 @@ Result Processor::IOMatchUnit::Write(MemAddr address, const void* data, MemSize 
     RangeMap::const_iterator interface = FindInterface(address, size);
     assert(interface != m_ranges.end());
     assert(interface->second.mode == WRITE || interface->second.mode == READWRITE);
-    
+
     MemAddr base = interface->first;
     MemAddr offset = address - base;
 
@@ -137,7 +137,7 @@ void Processor::IOMatchUnit::Cmd_Info(std::ostream& out, const std::vector<std::
         out << "Start address    | End address      | RW | Name" << std::endl
             << "-----------------+------------------+----+--------------------" << std::endl
             << std::hex << std::setfill('0');
-        
+
         for ( ;
              p != m_ranges.end();
              ++p)
@@ -146,22 +146,22 @@ void Processor::IOMatchUnit::Cmd_Info(std::ostream& out, const std::vector<std::
             MemAddr size = p->second.size;
             AccessMode mode = p->second.mode;
             MMIOComponent &component = *p->second.component;
-            
-            out << std::setw(16) << begin 
-                << " | " 
-                << std::setw(16) << begin + size - 1 
+
+            out << std::setw(16) << begin
                 << " | "
-                << (mode & READ  ? "R" : ".") 
+                << std::setw(16) << begin + size - 1
+                << " | "
+                << (mode & READ  ? "R" : ".")
                 << (mode & WRITE ? "W" : ".")
                 << " | "
                 << component.GetFQN()
-                << std::endl;       
+                << std::endl;
         }
     }
 }
-    
+
 Processor::IOMatchUnit::IOMatchUnit(const std::string& name, Processor& parent, Clock& clock)
-    : Object(name, parent, clock)
+    : Object(name, parent, clock), m_ranges()
 {
 }
 

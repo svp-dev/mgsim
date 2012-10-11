@@ -15,7 +15,7 @@ struct Thread
         RegIndex dependents;
         RegIndex shareds;
     };
-    
+
     // The dependencies that must be resolved before a thread can be cleaned up
     struct Dependencies
     {
@@ -23,7 +23,7 @@ struct Thread
          Obviously the thread must have terminated before it can be cleaned up.
         */
         bool killed;
-        
+
         /*
          Threads can terminate out of index order. This leads to problems
          when figuring out which thread is the logical predecessor of the
@@ -40,7 +40,7 @@ struct Thread
          a dependency on the previous thread's cleanup event.
         */
         bool prevCleanedUp;
-        
+
         /*
          All writes made by a thread are tagged with the thread's TID. Thus,
          the thread cannot be cleaned up until those writes have been
@@ -48,11 +48,10 @@ struct Thread
         */
         unsigned int numPendingWrites;
     };
-    
+
     MemAddr      pc;
     RegInfo      regs[NUM_REG_TYPES];
     Dependencies dependencies;
-    bool         waitingForWrites;
     TID          nextInBlock;
     CID          cid;
     LFID         family;
@@ -60,14 +59,16 @@ struct Thread
 
     // Architecture specific per-thread stuff
 #if defined(TARGET_MTALPHA)
-	FPCR         fpcr;
+    FPCR         fpcr;
 #elif defined(TARGET_MTSPARC)
     PSR          psr;
     FSR          fsr;
     uint32_t     Y;
 #elif defined(TARGET_MIPS32) || defined(TARGET_MIPS32EL)
     // FIXME: FILL IN THREAD-SPECIFIC DATA FIELDS HERE
-#endif    
+#endif
+
+    bool         waitingForWrites;
 
     // Admin
     uint64_t    index;
@@ -90,9 +91,9 @@ public:
     void  ReserveThread();
     void  UnreserveThread();
     TSize GetNumFreeThreads(ContextType type) const;
-    
+
     bool IsEmpty() const;
-    
+
     void Cmd_Info(std::ostream& out, const std::vector<std::string>& arguments) const;
     void Cmd_Read(std::ostream& out, const std::vector<std::string>& arguments) const;
 
@@ -106,9 +107,9 @@ private:
     TSize               m_free[NUM_CONTEXT_TYPES];
 
     // Admin
+    CycleNo             m_lastcycle;
     TSize               m_totalalloc;
     TSize               m_maxalloc;
-    CycleNo             m_lastcycle;
     TSize               m_curalloc;
 
     void UpdateStats();

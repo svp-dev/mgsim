@@ -50,7 +50,7 @@ Result Processor::PerfCounters::Read(MemAddr address, void *data, MemSize size, 
         }
         value = ops;
     }
-    break;    
+    break;
     case 2:
     {
         // Return the number of issued FP instructions on all cores
@@ -194,8 +194,8 @@ Result Processor::PerfCounters::Read(MemAddr address, void *data, MemSize size, 
         // usec is 0-999999; so it has 20 bits of value
         Integer usec = (tv.tv_usec >> (20-15)) & 0x7fff;
         value = usec | (tm->tm_sec << 15) | (tm->tm_min << 21) | (tm->tm_hour << 27);
-    }       
-    break;        
+    }
+    break;
     case 16:
     {
         // Return the number of memory loads overall from external memory (cache lines)
@@ -238,7 +238,7 @@ Result Processor::PerfCounters::Read(MemAddr address, void *data, MemSize size, 
     }
 
     DebugIOWrite("Read counter %u by F%u/T%u: %#016llx (%llu)",
-                 (unsigned)address, (unsigned)fid, (unsigned)tid, 
+                 (unsigned)address, (unsigned)fid, (unsigned)tid,
                  (unsigned long long)value, (unsigned long long)value);
 
     COMMIT{
@@ -264,7 +264,7 @@ Processor::PerfCounters::PerfCounters(Processor& parent, Config& config)
 {
     parent.WriteASR(ASR_NUM_PERFCOUNTERS, NUM_COUNTERS);
     parent.WriteASR(ASR_PERFCOUNTERS_BASE, config.getValue<MemAddr>(*this, "MMIO_BaseAddr"));
- 
+
     RegisterSampleVariableInObject(m_nCycleSampleOps, SVC_CUMULATIVE);
     RegisterSampleVariableInObject(m_nOtherSampleOps, SVC_CUMULATIVE);
 }

@@ -17,12 +17,13 @@ namespace Simulator
 //
 Processor::Processor(const std::string& name, Object& parent, Clock& clock, PID pid, const vector<Processor*>& grid, IMemory& memory, IMemoryAdmin& admin, FPU& fpu, IIOBus *iobus, Config& config)
 :   Object(name, parent, clock),
-    m_pid(pid), 
     m_memory(memory),
     m_memadmin(admin),
     m_grid(grid),
     m_fpu(fpu),
     m_symtable(&admin.GetSymbolTable()),
+    m_pid(pid),
+    m_bits(),
     m_familyTable ("families",      *this, clock, config),
     m_threadTable ("threads",       *this, clock, config),
     m_registerFile("registers",     *this, clock, m_allocator, config),
@@ -108,17 +109,17 @@ void Processor::Initialize(Processor* prev, Processor* next)
     m_allocator.p_allocation.AddProcess(m_pipeline.p_Pipeline);         // ALLOCATE instruction
     m_allocator.p_allocation.AddProcess(m_network.p_DelegationIn);      // Delegated non-exclusive create
     m_allocator.p_allocation.AddProcess(m_allocator.p_FamilyAllocate);  // Delayed ALLOCATE instruction
-    
+
     m_allocator.p_alloc.AddProcess(m_network.p_Link);                   // Place-wide create
     m_allocator.p_alloc.AddProcess(m_allocator.p_FamilyCreate);         // Local creates
-    
-    
-    
+
+
+
     if (m_io_if != NULL)
     {
         IONotificationMultiplexer &nmux = m_io_if->GetNotificationMultiplexer();
 
-        m_allocator.p_readyThreads.AddProcess(nmux.p_IncomingNotifications); // Thread wakeup due to notification 
+        m_allocator.p_readyThreads.AddProcess(nmux.p_IncomingNotifications); // Thread wakeup due to notification
         m_allocator.p_readyThreads.AddProcess(m_io_if->GetReadResponseMultiplexer().p_IncomingReadResponses); // Thread wakeup due to I/O read completion
 
         for (size_t i = 0; i < nmux.m_services.size(); ++i)
@@ -145,7 +146,7 @@ void Processor::Initialize(Processor* prev, Processor* next)
         m_registerFile.p_asyncW.AddProcess(m_io_if->GetNotificationMultiplexer().p_IncomingNotifications); // I/O notifications
         m_registerFile.p_asyncW.AddProcess(m_io_if->GetReadResponseMultiplexer().p_IncomingReadResponses); // I/O read requests
     }
-    
+
     m_registerFile.p_asyncW.AddProcess(m_network.p_Link);                   // Place register receives
     m_registerFile.p_asyncW.AddProcess(m_network.p_DelegationIn);           // Remote register receives
     m_registerFile.p_asyncW.AddProcess(m_dcache.p_CompletedReads);          // Mem Load writebacks
@@ -153,15 +154,15 @@ void Processor::Initialize(Processor* prev, Processor* next)
     m_registerFile.p_asyncW.AddProcess(m_fpu.p_Pipeline);                   // FPU Op writebacks
     m_registerFile.p_asyncW.AddProcess(m_allocator.p_FamilyCreate);         // Family creation
     m_registerFile.p_asyncW.AddProcess(m_allocator.p_ThreadAllocate);       // Thread allocation
-   
+
 
     m_registerFile.p_asyncR.AddProcess(m_network.p_DelegationIn);           // Remote register requests
-    
+
     m_registerFile.p_pipelineR1.SetProcess(m_pipeline.p_Pipeline);          // Pipeline read stage
     m_registerFile.p_pipelineR2.SetProcess(m_pipeline.p_Pipeline);          // Pipeline read stage
-    
+
     m_registerFile.p_pipelineW .SetProcess(m_pipeline.p_Pipeline);          // Pipeline writeback stage
-    
+
     m_network.m_allocResponse.out.AddProcess(m_network.p_AllocResponse);    // Forwarding allocation response
     m_network.m_allocResponse.out.AddProcess(m_allocator.p_FamilyAllocate); // Sending allocation response
 
@@ -171,8 +172,8 @@ void Processor::Initialize(Processor* prev, Processor* next)
     m_network.m_link.out.AddProcess(m_allocator.p_FamilyAllocate);          // Allocate process sending place-wide allocate
     m_network.m_link.out.AddProcess(m_allocator.p_FamilyCreate);            // Create process sends place-wide create
     m_network.m_link.out.AddProcess(m_allocator.p_ThreadAllocate);          // Thread cleanup causes sync
-    
-    m_network.m_delegateIn.AddProcess(m_network.p_Link);                    // Link messages causes remote 
+
+    m_network.m_delegateIn.AddProcess(m_network.p_Link);                    // Link messages causes remote
 
     m_network.m_delegateIn.AddProcess(m_dcache.p_CompletedReads);           // Read completion causes sync
 
@@ -188,7 +189,7 @@ void Processor::Initialize(Processor* prev, Processor* next)
         m_network.m_delegateIn.AddProcess(m_grid[i]->m_network.p_DelegationOut);
     }
     m_network.m_delegateIn.AddProcess(m_network.p_Syncs);             // Family sync goes to delegation
-    
+
     m_network.m_delegateOut.AddProcess(m_pipeline.p_Pipeline);        // Sending or requesting registers
     m_network.m_delegateOut.AddProcess(m_network.p_DelegationIn);     // Returning registers
     m_network.m_delegateOut.AddProcess(m_network.p_Link);             // Place sync causes final sync
@@ -201,7 +202,7 @@ void Processor::Initialize(Processor* prev, Processor* next)
     m_network.m_delegateOut.AddProcess(m_allocator.p_FamilyCreate);   // Create process sends delegated create
     m_network.m_delegateOut.AddProcess(m_allocator.p_ThreadAllocate); // Thread cleanup caused sync
     m_network.m_delegateOut.AddProcess(m_network.p_Syncs);            // Family sync goes to delegation
-    
+
     //
     // Set possible storage accesses per process.
     //
@@ -221,7 +222,7 @@ void Processor::Initialize(Processor* prev, Processor* next)
 #define DELEGATE (m_network.m_delegateIn ^ m_network.m_delegateOut)
 
     m_allocator.p_ThreadAllocate.SetStorageTraces(
-        /* THREADDEP_PREV_CLEANED_UP */ (opt(m_allocator.m_cleanup) * 
+        /* THREADDEP_PREV_CLEANED_UP */ (opt(m_allocator.m_cleanup) *
         /* FAMDEP_THREAD_COUNT */        opt(m_network.m_link.out ^ m_network.m_syncs ^
         /* AllocateThread */                 m_allocator.m_readyThreads2)) ^
         /* FAMDEP_ALLOCATION_DONE */    (opt(m_network.m_link.out ^ m_network.m_syncs) *
@@ -233,12 +234,12 @@ void Processor::Initialize(Processor* prev, Processor* next)
     m_allocator.p_FamilyCreate.SetStorageTraces(
         /* CREATE_INITIAL */                opt(m_icache.m_outgoing) ^
         /* CREATE_BROADCASTING_CREATE */    opt(m_network.m_link.out) ^
-        /* CREATE_ACTIVATING_FAMILY */      m_allocator.m_alloc ^ 
+        /* CREATE_ACTIVATING_FAMILY */      m_allocator.m_alloc ^
         /* CREATE_NOTIFY */                 opt(DELEGATE) );
 
     m_allocator.p_ThreadActivation.SetStorageTraces(
-        opt(m_allocator.m_activeThreads ^ m_icache.m_outgoing) );  
-    
+        opt(m_allocator.m_activeThreads ^ m_icache.m_outgoing) );
+
     m_allocator.p_Bundle.SetStorageTraces( m_dcache.m_outgoing ^ DELEGATE );
 
     m_icache.p_Incoming.SetStorageTraces(
@@ -249,18 +250,18 @@ void Processor::Initialize(Processor* prev, Processor* next)
     m_dcache.p_Incoming.SetStorageTraces(
         /* Writes */    opt(m_allocator.m_readyThreads2) ^ opt(m_allocator.m_cleanup) ^
         /* Reads */     m_dcache.m_completed );
-    
+
     m_dcache.p_CompletedReads.SetStorageTraces(
         /* Thread wakeup */ opt(m_allocator.m_readyThreads2) *
         /* Family sync */   opt(m_network.m_link.out ^ m_network.m_syncs) );
-    
+
     // m_dcache.p_Outgoing is set in the memory
 
-    StorageTraceSet pls_writeback = 
+    StorageTraceSet pls_writeback =
         opt(DELEGATE) *
         opt(m_allocator.m_bundle ^ /* FIXME: is the bundle creation buffer really involved here? */
-            (m_allocator.m_readyThreads1 * m_allocator.m_cleanup) ^ 
-            m_allocator.m_cleanup ^ 
+            (m_allocator.m_readyThreads1 * m_allocator.m_cleanup) ^
+            m_allocator.m_cleanup ^
             m_allocator.m_readyThreads1);
     StorageTraceSet pls_memory =
         m_dcache.m_outgoing;
@@ -272,24 +273,24 @@ void Processor::Initialize(Processor* prev, Processor* next)
             opt(m_io_if->GetNotificationMultiplexer().GetWriteBackTraces());
 
         /* I/O reads / writes */
-        pls_memory ^= 
+        pls_memory ^=
             opt(m_io_if->GetReadResponseMultiplexer().GetWriteBackTraces()) * /* I/O read, write has no writeback */
-            m_io_if->GetIOBusInterface().m_outgoing_reqs * 
+            m_io_if->GetIOBusInterface().m_outgoing_reqs *
             /* in the NullIO interface, the transfer occurs in the same cycle, so we have to add the
                receiver traces here too. This is not realistic, and should disappear with the
                implementation of an I/O substrate with appropriate buffering. */
-            opt(m_io_if->GetIOBusInterface().GetReadResponseTraces() ^ 
-                m_io_if->GetIOBusInterface().GetInterruptRequestTraces() ^ 
+            opt(m_io_if->GetIOBusInterface().GetReadResponseTraces() ^
+                m_io_if->GetIOBusInterface().GetInterruptRequestTraces() ^
                 m_io_if->GetIOBusInterface().GetNotificationTraces());
 
     }
 
-    StorageTraceSet pls_execute = 
+    StorageTraceSet pls_execute =
         m_fpu.GetSourceTrace(m_pipeline.GetFPUSource());
 
     m_pipeline.p_Pipeline.SetStorageTraces(
         /* Writeback */ opt(pls_writeback) *
-        /* Memory */    opt(pls_memory) * 
+        /* Memory */    opt(pls_memory) *
         /* Execute */   opt(pls_execute) *
                         m_pipeline.m_active );
 
@@ -302,7 +303,7 @@ void Processor::Initialize(Processor* prev, Processor* next)
         /* MSG_DETACH */            opt(m_network.m_link.out) ^
         /* MSG_BREAK */             (opt(m_network.m_link.out ^ m_network.m_syncs) * opt(m_network.m_link.out)) ^
         /* MSG_RAW_REGISTER */      m_allocator.m_readyThreads2 ^
-        /* RRT_LAST_SHARED */       (DELEGATE) ^ 
+        /* RRT_LAST_SHARED */       (DELEGATE) ^
         /* RRT_FIRST_DEPENDENT */   (m_allocator.m_readyThreads2) ^
         /* RRT_GLOBAL */            (m_allocator.m_readyThreads2 * opt(m_network.m_link.out))
         );
@@ -322,7 +323,7 @@ void Processor::Initialize(Processor* prev, Processor* next)
 
     m_network.p_AllocResponse.SetStorageTraces(
         DELEGATE ^ m_network.m_allocResponse.out );
-        
+
     m_network.p_Syncs.SetStorageTraces(
         DELEGATE );
 
@@ -335,7 +336,7 @@ void Processor::Initialize(Processor* prev, Processor* next)
             stsDelegationOut ^= m_grid[i]->m_network.m_delegateIn;
         }
     }
-    m_network.p_DelegationOut.SetStorageTraces(stsDelegationOut);   
+    m_network.p_DelegationOut.SetStorageTraces(stsDelegationOut);
 #undef DELEGATE
 
     if (m_io_if != NULL)
@@ -345,7 +346,7 @@ void Processor::Initialize(Processor* prev, Processor* next)
         m_io_if->GetReadResponseMultiplexer().p_IncomingReadResponses.SetStorageTraces(opt(m_allocator.m_readyThreads2) ^ opt(m_allocator.m_cleanup));
         m_io_if->GetNotificationMultiplexer().p_IncomingNotifications.SetStorageTraces(opt(m_allocator.m_readyThreads2) ^ opt(m_allocator.m_cleanup));
     }
-}    
+}
 
 MemAddr Processor::GetDeviceBaseAddress(IODeviceID dev) const
 {
@@ -383,7 +384,7 @@ unsigned int Processor::GetNumSuspendedRegisters() const
 void Processor::MapMemory(MemAddr address, MemSize size, ProcessID pid)
 {
     m_memadmin.Reserve(address, size, pid,
-                       IMemory::PERM_READ | IMemory::PERM_WRITE | 
+                       IMemory::PERM_READ | IMemory::PERM_WRITE |
                        IMemory::PERM_DCA_READ | IMemory::PERM_DCA_WRITE);
 }
 
@@ -466,7 +467,7 @@ Integer Processor::PackPlace(const PlaceID& place) const
 {
     assert(IsPowerOfTwo(place.size));
     assert(place.pid % place.size == 0);
-    
+
     return place.capability << (m_bits.pid_bits + 1) | (place.pid << 1) | place.size;
 }
 
@@ -474,14 +475,14 @@ PlaceID Processor::UnpackPlace(Integer id) const
 {
     // Unpack the place value: <Capability:N, PID*2|Size:P+1>
     PlaceID place;
-    
+
     place.size       = 0;
     place.pid        = 0;
     place.capability = id >> (m_bits.pid_bits + 1);
 
     // Clear the capability bits
     id &= (2ULL << m_bits.pid_bits) - 1;
-    
+
     // ctz below only works if id != 0
     if (id != 0)
     {

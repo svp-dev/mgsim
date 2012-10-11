@@ -40,7 +40,7 @@ namespace Simulator
         }
         return m_registers[addr];
     }
-    
+
     void Processor::AncillaryRegisterFile::WriteRegister(ARAddr addr, Integer data)
     {
         if (addr >= m_numRegisters)
@@ -53,7 +53,8 @@ namespace Simulator
 
     Processor::AncillaryRegisterFile::AncillaryRegisterFile(const std::string& name, Processor& parent, Clock& clock, Config& config)
         : Object(name, parent, clock),
-          m_numRegisters(name == "aprs" ? config.getValue<size_t>(*this, "NumAncillaryRegisters") : NUM_ASRS)
+          m_numRegisters(name == "aprs" ? config.getValue<size_t>(*this, "NumAncillaryRegisters") : NUM_ASRS),
+          m_registers()
     {
         if (m_numRegisters == 0)
         {

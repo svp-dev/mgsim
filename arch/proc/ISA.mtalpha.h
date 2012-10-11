@@ -31,8 +31,8 @@ enum {
 // Branch Instructions
      A_OP_BR    = 0x30,
      A_OP_FBEQ  = 0x31,
-     A_OP_FBLT  = 0x32,    
-     A_OP_FBLE  = 0x33,     
+     A_OP_FBLT  = 0x32,
+     A_OP_FBLE  = 0x33,
      A_OP_BSR   = 0x34,
      A_OP_FBNE  = 0x35,
      A_OP_FBGE  = 0x36,
@@ -119,7 +119,7 @@ enum {
 enum {
 
     /* local operations */
-    A_UTHREAD_DC_MASK    = 0x78, 
+    A_UTHREAD_DC_MASK    = 0x78,
     A_UTHREAD_DC_VALUE   = 0x00,
 
     A_UTHREAD_LDBP       = 0x00,
@@ -131,7 +131,7 @@ enum {
     A_UTHREAD_GETASR     = 0x06,
     A_UTHREAD_GETAPR     = 0x07,
 
-    A_UTHREAD_DZ_MASK    = 0x78, 
+    A_UTHREAD_DZ_MASK    = 0x78,
     A_UTHREAD_DZ_VALUE   = 0x08,
 
     A_UTHREAD_BREAK      = 0x08,
@@ -180,13 +180,13 @@ enum {
 enum {
     A_INTAFUNC_ADDL     = 0x00,
     A_INTAFUNC_S4ADDL   = 0x02,
-    A_INTAFUNC_SUBL     = 0x09,  
+    A_INTAFUNC_SUBL     = 0x09,
     A_INTAFUNC_S4SUBL   = 0x0B,
     A_INTAFUNC_CMPBGE   = 0x0F,
     A_INTAFUNC_S8ADDL   = 0x12,
     A_INTAFUNC_S8SUBL   = 0x1B,
     A_INTAFUNC_CMPULT   = 0x1D,
-    A_INTAFUNC_ADDQ     = 0x20,     
+    A_INTAFUNC_ADDQ     = 0x20,
     A_INTAFUNC_S4ADDQ   = 0x22,
     A_INTAFUNC_SUBQ     = 0x29,
     A_INTAFUNC_S4SUBQ   = 0x2B,
@@ -705,16 +705,14 @@ static const FPCR FPCR_DNOD     = 0x0000800000000000ULL;
 struct ArchDecodeReadLatch
 {
     InstrFormat format;
-    uint8_t     opcode;
-    uint16_t    function;
     int32_t     displacement;
+    uint16_t    function;
+    uint8_t     opcode;
 
-ArchDecodeReadLatch() : format(IFORMAT_INVALID), opcode(0), function(0), displacement(0) {}
+    ArchDecodeReadLatch() : format(IFORMAT_INVALID), displacement(0), function(0), opcode(0) {}
+    virtual ~ArchDecodeReadLatch() {}
 };
 
-struct ArchReadExecuteLatch : public ArchDecodeReadLatch
-{
-};
+typedef ArchDecodeReadLatch ArchReadExecuteLatch;
 
-
-#endif 
+#endif

@@ -8,7 +8,7 @@
 class MMIOComponent;
 
 class IOMatchUnit : public Object, public Inspect::Interface<Inspect::Info>
-{    
+{
 public:
     enum AccessMode
     {
@@ -41,10 +41,10 @@ public:
     Result Read (MemAddr address, void* data, MemSize size, LFID fid, TID tid, const RegAddr& writeback);
     Result Write(MemAddr address, const void* data, MemSize size, LFID fid, TID tid);
 
-    void RegisterComponent(MemAddr base, AccessMode mode, MMIOComponent& component);    
+    void RegisterComponent(MemAddr base, AccessMode mode, MMIOComponent& component);
 
     // Debugging
-    void Cmd_Info(std::ostream& out, const std::vector<std::string>& arguments) const;
+    void Cmd_Info(std::ostream& out, const std::vector<std::string>& arguments) const override;
 };
 
 

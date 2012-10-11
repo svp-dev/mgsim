@@ -16,7 +16,7 @@ public:
         FLUSH = 2
     };
 
-    struct Request 
+    struct Request
     {
         IODeviceID  client;
         RequestType type;
@@ -38,7 +38,7 @@ private:
     IMemory&             m_memory;
     MCID                 m_mcid;
     IOBusInterface&      m_busif;
-    const MemSize        m_lineSize; 
+    const MemSize        m_lineSize;
 
 public:
     Buffer<Request>      m_requests; // from bus
@@ -46,20 +46,20 @@ public:
 private:
     Buffer<Response>     m_responses; // from memory
 
-    bool                 m_has_outstanding_request;
-    IODeviceID           m_outstanding_client;
+    size_t               m_pending_writes;
+
     MemAddr              m_outstanding_address;
     MemSize              m_outstanding_size;
-
+    IODeviceID           m_outstanding_client;
+    bool                 m_has_outstanding_request;
     bool                 m_flushing;
-    size_t               m_pending_writes;
 
 public:
     IODirectCacheAccess(const std::string& name, Object& parent, Clock& clock, Processor& proc, IMemory& memory, IOBusInterface& busif, Config& config);
     ~IODirectCacheAccess();
 
     bool QueueRequest(const Request& req);
-    
+
     Process p_MemoryOutgoing;
     Process p_BusOutgoing;
 
