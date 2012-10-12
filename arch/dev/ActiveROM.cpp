@@ -175,7 +175,15 @@ namespace Simulator
 
         if (source == "RAW" || source == "ELF")
         {
-            m_filename = m_config.getValue<string>(*this, "ROMFileName");
+            auto &v = m_config.GetArgumentVector();
+            if (!v.empty())
+            {
+                m_filename = m_config.getValueOrDefault<string>(*this, "ROMFileName", v[0]);
+            }
+            else
+            {
+                m_filename = m_config.getValue<string>(*this, "ROMFileName");
+            }
             LoadFile(m_filename);
         }
         else if (source == "CONFIG")

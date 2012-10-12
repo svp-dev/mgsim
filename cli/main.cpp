@@ -229,11 +229,6 @@ static error_t mgsim_parse_opt(int key, char *arg, struct argp_state *state)
     break;
     case ARGP_KEY_ARG: /* extra arguments */
     {
-        if (config.m_argv.empty())
-        {
-            cerr << "# Warning: converting first extra argument to -o *:ROMFileName=" << arg << endl;
-            config.m_overrides.append("*:ROMFileName", arg);
-        }
         config.m_argv.push_back(arg);
     }
     break;
