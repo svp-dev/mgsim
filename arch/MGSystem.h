@@ -94,7 +94,6 @@ namespace Simulator {
         MGSystem(Config& config,
                  const std::vector<std::pair<RegAddr, RegValue> >& regs,
                  const std::vector<std::pair<RegAddr, std::string> >& loads,
-                 const std::vector<std::string>& extradevs,
                  bool quiet);
         MGSystem(const MGSystem&) = delete;
         MGSystem& operator=(const MGSystem&) = delete;

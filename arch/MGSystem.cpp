@@ -599,7 +599,6 @@ void MGSystem::Disassemble(MemAddr addr, size_t sz) const
 MGSystem::MGSystem(Config& config,
                    const vector<pair<RegAddr, RegValue> >& regs,
                    const vector<pair<RegAddr, string> >& loads,
-                   const vector<string>& extradevs,
                    bool quiet)
     : m_kernel(m_breakpoints),
       m_clock(m_kernel.CreateClock(config.getValue<unsigned long>("CoreFreq"))),
@@ -756,9 +755,7 @@ MGSystem::MGSystem(Config& config,
     }
 
     // Create the I/O devices
-    vector<string> dev_names = extradevs;
-    vector<string> cfg_names = config.getWordList("IODevices");
-    copy(cfg_names.begin(), cfg_names.end(), back_inserter(dev_names));
+    vector<string> dev_names = config.getWordList("IODevices");
     size_t numIODevices = dev_names.size();
 
     m_devices.resize(numIODevices);

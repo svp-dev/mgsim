@@ -174,16 +174,19 @@ vector<string> InputConfigRegistry::getWordList(const string& name)
     while (getline(stream, token, ','))
     {
         token.erase(remove(token.begin(), token.end(), ' '), token.end());
-        vals.push_back(token);
+
+        if (!token.empty() && token[0] == '$')
+        {
+            auto vn = getWordList(token.substr(1));
+            vals.insert(vals.end(), vn.begin(), vn.end());
+        }
+        else
+        {
+            vals.push_back(token);
+        }
     }
     return vals;
 }
-
-vector<string> InputConfigRegistry::getWordList(const Object& obj, const string& name)
-{
-    return getWordList(obj.GetFQN() + ':' + name);
-}
-
 
 InputConfigRegistry::InputConfigRegistry(const string& filename, const ConfigMap& overrides, const vector<string>& argv)
     : m_data(), m_overrides(overrides), m_cache(), m_argv(argv)

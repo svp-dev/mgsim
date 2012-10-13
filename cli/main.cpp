@@ -282,6 +282,17 @@ int main(int argc, char** argv)
         {
             config.m_overrides.append("*.ROMVerboseLoad", "false");
         }
+        if (!config.m_extradevs.empty())
+        {
+            string n;
+            for (size_t i = 0; i < config.m_extradevs.size(); ++i)
+            {
+                if (i > 0)
+                    n += ',';
+                n += config.m_extradevs[i];
+            }
+            config.m_overrides.append("CmdLineFiles", n);
+        }
 
         if (config.m_interactive)
         {
@@ -304,7 +315,6 @@ int main(int argc, char** argv)
         MGSystem sys(configfile,
                      config.m_regs,
                      config.m_loads,
-                     config.m_extradevs,
                      !config.m_interactive);
 
 #ifdef ENABLE_MONITOR

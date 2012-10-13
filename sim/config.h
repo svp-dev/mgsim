@@ -155,7 +155,10 @@ public:
     }
 
     std::vector<std::string> getWordList(const std::string& name);
-    std::vector<std::string> getWordList(const Simulator::Object& obj, const std::string& name);
+    std::vector<std::string> getWordList(const Simulator::Object& obj, const std::string& name)
+    {
+        return getWordList(obj.GetFQN() + ':' + name);
+    }
 
     void dumpConfiguration(std::ostream& os, const std::string& cf) const;
     void dumpConfigurationCache(std::ostream& os) const;
