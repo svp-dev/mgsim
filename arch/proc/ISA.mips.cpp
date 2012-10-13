@@ -7,10 +7,19 @@ using namespace std;
 
 namespace Simulator
 {
+
+static void ThrowIllegalInstructionException(Object& obj, MemAddr pc)
+{
+    stringstream error;
+    error << "Illegal instruction at "
+        << hex << setw(sizeof(MemAddr) * 2) << setfill('0') << pc;
+    throw IllegalInstructionException(obj, error.str());
+}
+
 // Function for getting a register's type and index within that type
 unsigned char GetRegisterClass(unsigned char addr, const RegsNo& regs, RegClass* rc)
 {
-    // DO NOT CHANGE THIS
+    // $0 is zero, otherwise all registers are local.
     if (addr > 0)
     {
         addr--;
@@ -24,59 +33,441 @@ unsigned char GetRegisterClass(unsigned char addr, const RegsNo& regs, RegClass*
     return 0;
 }
 
+Processor::Pipeline::InstrFormat Processor::Pipeline::DecodeStage::GetInstrFormat(uint8_t opcode)
+{
+    switch (opcode) {
+        case M_OP_SPECIAL:
+            return IFORMAT_RTYPE;
+        case M_OP_REGIMM:
+            return IFORMAT_REGIMM;
+        case M_OP_J:
+        case M_OP_JAL:
+            return IFORMAT_JTYPE;
+        default:
+            return IFORMAT_ITYPE;
+    }
+}
 
 void Processor::Pipeline::DecodeStage::DecodeInstruction(const Instruction& instr)
 {
-    m_output.Ra     = INVALID_REG;
-    m_output.Rb     = INVALID_REG;
-    m_output.Rc     = INVALID_REG;
+    m_output.opcode = (instr >> 26) & 0x3f;
+    m_output.format = GetInstrFormat(m_output.opcode);
 
-    // FIXME: FILL CODE HERE.
+    // The decode pipeline explodes if these are INVALID_REG, but setting the buffers to $0 is harmless.
+    m_output.Ra = MAKE_REGADDR(RT_INTEGER, 0);
+    m_output.Rb = MAKE_REGADDR(RT_INTEGER, 0);
+    m_output.Rc = MAKE_REGADDR(RT_INTEGER, 0);
 
-    /* NB:
+    RegIndex Ra = (instr >> 21) & 0x1f;
+    RegIndex Rb = (instr >> 16) & 0x1f;
+    RegIndex Rc = (instr >> 11) & 0x1f;
 
-       - "instr" is the input of decode, ie the instruction word
-       read from memory by the fetch stage.
+    m_output.literal = 0;
 
-       - m_output is the decode-read latch, containing the buffers
-       declared in ISA.mips.h and the following "standard" buffers from
-       Pipeline.h:
+    switch (m_output.format) {
+        case IFORMAT_RTYPE:
+            m_output.function = instr & 0x3f;
+            if (m_output.function == M_ROP_BREAK) {
+                m_output.immediate = (instr >> 6) & 0xfffff;
+                break;
+            }
+            m_output.Ra = MAKE_REGADDR(RT_INTEGER, Ra);
+            m_output.Rb = MAKE_REGADDR(RT_INTEGER, Rb);
+            m_output.Rc = MAKE_REGADDR(RT_INTEGER, Rc);
+            m_output.shift = (instr >> 6) & 0x1f;
+            break;
 
-          - uint32_t literal;  <- for instructions that have an "immediate" field
-          - RegAddr Ra, Rb, Rc;  <- for register operands: Ra and Rb will be read automatically, Rc written to
-    */
+        case IFORMAT_REGIMM:
+            m_output.Ra = MAKE_REGADDR(RT_INTEGER, Ra);
+            m_output.regimm = (instr >> 16) & 0x1f;
+            m_output.displacement = (int32_t)((instr & 0xffff) << 16) >> 14; // sign-extend
+            if (m_output.regimm == M_REGIMMOP_BGEZAL || m_output.regimm == M_REGIMMOP_BLTZAL)
+                m_output.Rc = MAKE_REGADDR(RT_INTEGER, 31);
+            break;
 
+        case IFORMAT_JTYPE:
+            // 26-bit target field
+            m_output.displacement = instr & 0x3ffffff;
+            if (m_output.opcode == M_OP_JAL)
+                m_output.Rc = MAKE_REGADDR(RT_INTEGER, 31);
+            break;
+
+        case IFORMAT_ITYPE:
+            m_output.Ra = MAKE_REGADDR(RT_INTEGER, Ra);
+            // we write back to the second register
+            // but for stores we also read from it
+            m_output.Rb = MAKE_REGADDR(RT_INTEGER, Rb);
+            m_output.Rc = MAKE_REGADDR(RT_INTEGER, Rb);
+            m_output.immediate = instr & 0xffff;
+            if (m_output.opcode == M_OP_BNE || m_output.opcode == M_OP_BEQ || m_output.opcode == M_OP_BLEZ || m_output.opcode == M_OP_BGTZ) {
+                // Signed displacement.
+                m_output.displacement = (int32_t)(m_output.immediate << 16) >> 14;
+            }
+            break;
+    }
 }
+
 
 
 Processor::Pipeline::PipeAction Processor::Pipeline::ExecuteStage::ExecuteInstruction()
 {
-    /* NB:
+    Thread& thread = m_threadTable[m_input.tid];
 
-       - m_input is the read-execute latch, containing all buffers
-       between the read and execute stages. This has the buffers
-       from the decode-read latch, and also the additional buffers declared
-       in ISA.mips.h, and also the following from Pipeline.h:
-
-          - PipeValue Rav, Rbv; <- the values read from the register file by the read stage
-
-       - m_output is the execute-memory latch, with the following
-       "standard" buffers from Pipeline.h:
-
-          - PipeValue Rcv; <- the register value resulting from execute
-          - MemAddr address; <- for memory instructions
-          - MemSize size; <- for memory instructions
-
-    */
-
+    // Fetch both potential input buffers.
     uint32_t Rav = m_input.Rav.m_integer.get(m_input.Rav.m_size);
     uint32_t Rbv = m_input.Rbv.m_integer.get(m_input.Rbv.m_size);
 
+    // Note that:
+    //   * Overflow is not handled, so instructions like ADDI and ADDIU share implementations.
+    //   * We don't verify that the low bits of addresses are zero (could be handled in the memory stage).
+    //   * We ignore delay slots; the pipeline is flushed immediately upon branching.
+    //   * For various instructions (e.g. BLEZ/BGTZ), we don't check that registers (e.g. Rb) are actually 0.
+    switch (m_input.format) {
+        case IFORMAT_RTYPE:
+            switch (m_input.function) {
+                case M_ROP_SLL:
+                    COMMIT {
+                        m_output.Rcv.m_state = RST_FULL;
+                        m_output.Rcv.m_integer = Rbv << m_input.shift;
+                    }
+                    break;
+                case M_ROP_SRL:
+                    COMMIT {
+                        m_output.Rcv.m_state = RST_FULL;
+                        m_output.Rcv.m_integer = Rbv >> m_input.shift;
+                    }
+                    break;
+                case M_ROP_SRA:
+                    COMMIT {
+                        m_output.Rcv.m_state = RST_FULL;
+                        m_output.Rcv.m_integer = (int32_t)Rbv >> m_input.shift;
+                    }
+                    break;
+                case M_ROP_SLLV:
+                    COMMIT {
+                        m_output.Rcv.m_state = RST_FULL;
+                        m_output.Rcv.m_integer = Rbv << (Rav & 0x1f);
+                    }
+                    break;
+                case M_ROP_SRLV:
+                    COMMIT {
+                        m_output.Rcv.m_state = RST_FULL;
+                        m_output.Rcv.m_integer = Rbv >> (Rav & 0x1f);
+                    }
+                    break;
+                case M_ROP_SRAV:
+                    COMMIT {
+                        m_output.Rcv.m_state = RST_FULL;
+                        m_output.Rcv.m_integer = (int32_t)Rbv >> (Rav & 0x1f);
+                    }
+                    break;
+                case M_ROP_JR:
+                    if (Rav != m_input.pc + sizeof(Instruction)) {
+                        COMMIT {
+                            m_output.pc = Rav;
+                        }
+                        return PIPE_FLUSH;
+                    }
+                    break;
+                case M_ROP_JALR:
+                    {
+                        MemAddr next = m_input.pc + sizeof(Instruction);
+                        COMMIT {
+                            m_output.Rcv.m_state = RST_FULL;
+                            m_output.Rcv.m_integer = next;
+                        }
+                        if (Rav == next)
+                            break;
+                        COMMIT {
+                            m_output.pc = Rav;
+                        }
+                        return PIPE_FLUSH;
+                    }
+                    break;
+                case M_ROP_SYSCALL:
+                    // Ignored for now.
+                    break;
+                case M_ROP_BREAK:
+                    // We repurpose this for ExecDebug.
+                    COMMIT{
+                        ExecDebug((Integer)(m_input.immediate >> 8), m_input.immediate & 0xff);
+                    }
+                    break;
+                case M_ROP_MFHI:
+                    COMMIT {
+                        m_output.Rcv.m_state = RST_FULL;
+                        m_output.Rcv.m_integer = thread.HI;
+                    }
+                    break;
+                case M_ROP_MTHI:
+                    COMMIT {
+                        thread.HI = Rav;
+                    }
+                    break;
+                case M_ROP_MFLO:
+                    COMMIT {
+                        m_output.Rcv.m_state = RST_FULL;
+                        m_output.Rcv.m_integer = thread.LO;
+                    }
+                    break;
+                case M_ROP_MTLO:
+                    COMMIT {
+                        thread.LO = Rav;
+                    }
+                    break;
+                case M_ROP_MULT:
+                    COMMIT {
+                        uint64_t result = (int64_t)(int32_t)Rav * (int64_t)(int32_t)Rbv;
+                        thread.LO = result & 0xffffffff;
+                        thread.HI = result >> 32;
+                    }
+                    break;
+                case M_ROP_MULTU:
+                    COMMIT {
+                        uint64_t result = (uint64_t)Rav * (uint64_t)Rbv;
+                        thread.LO = result & 0xffffffff;
+                        thread.HI = result >> 32;
+                    }
+                    break;
+                case M_ROP_DIV:
+                    if (Rbv == 0)
+                        break; // undefined
+                    COMMIT {
+                        thread.LO = (int32_t)Rav / (int32_t)Rbv;
+                        thread.HI = (int32_t)Rav % (int32_t)Rbv;
+                    }
+                    break;
+                case M_ROP_DIVU:
+                    if (Rbv == 0)
+                        break; // undefined
+                    COMMIT {
+                        thread.LO = Rav / Rbv;
+                        thread.HI = Rav % Rbv;
+                    }
+                    break;
+                case M_ROP_ADD:
+                case M_ROP_ADDU:
+                    COMMIT {
+                        m_output.Rcv.m_state = RST_FULL;
+                        m_output.Rcv.m_integer = Rav + Rbv;
+                    }
+                    break;
+		case M_ROP_SUB:
+		case M_ROP_SUBU:
+                    COMMIT {
+                        m_output.Rcv.m_state = RST_FULL;
+                        m_output.Rcv.m_integer = Rav - Rbv;
+                    }
+                    break;
+                case M_ROP_AND:
+                    COMMIT {
+                        m_output.Rcv.m_state = RST_FULL;
+                        m_output.Rcv.m_integer = Rav & Rbv;
+                    }
+                    break;
+                case M_ROP_OR:
+                    COMMIT {
+                        m_output.Rcv.m_state = RST_FULL;
+                        m_output.Rcv.m_integer = Rav | Rbv;
+                    }
+                    break;
+                case M_ROP_XOR:
+                    COMMIT {
+                        m_output.Rcv.m_state = RST_FULL;
+                        m_output.Rcv.m_integer = Rav ^ Rbv;
+                    }
+                    break;
+                case M_ROP_NOR:
+                    COMMIT {
+                        m_output.Rcv.m_state = RST_FULL;
+                        m_output.Rcv.m_integer = ~(Rav | Rbv);
+                    }
+                    break;
+                case M_ROP_SLT:
+                    COMMIT {
+                        m_output.Rcv.m_state = RST_FULL;
+                        m_output.Rcv.m_integer = (int32_t)Rav < (int32_t)Rbv ? 1 : 0;
+                    }
+                    break;
+                case M_ROP_SLTU:
+                    COMMIT {
+                        m_output.Rcv.m_state = RST_FULL;
+                        m_output.Rcv.m_integer = Rav < Rbv ? 1 : 0;
+                    }
+                    break;
+                default:
+                    ThrowIllegalInstructionException(*this, m_input.pc);
+            }
+            break;
 
-    // FIXME: FILL CODE HERE.
+        case IFORMAT_REGIMM:
+            switch (m_input.regimm) {
+                case M_REGIMMOP_BLTZ:
+                case M_REGIMMOP_BGEZ:
+                case M_REGIMMOP_BLTZAL:
+                case M_REGIMMOP_BGEZAL:
+                    {
+                        MemAddr next = m_input.pc + sizeof(Instruction);
+                        if (m_input.regimm == M_REGIMMOP_BGEZAL || m_input.regimm == M_REGIMMOP_BLTZAL) {
+                            COMMIT {
+                                m_output.Rcv.m_state = RST_FULL;
+                                m_output.Rcv.m_integer = next;
+                            }
+                        }
+
+                        if (m_input.regimm == M_REGIMMOP_BLTZ || m_input.regimm == M_REGIMMOP_BLTZAL) {
+                            if ((int32_t)Rav >= 0)
+                                break;
+                        } else {
+                            if ((int32_t)Rav < 0)
+                                break;
+                        }
+
+                        MemAddr target = next + m_input.displacement;
+                        if (target != next) {
+                            COMMIT {
+                                m_output.pc = target;
+                            }
+                            return PIPE_FLUSH;
+                        }
+                    }
+                    break;
+                default:
+                    ThrowIllegalInstructionException(*this, m_input.pc);
+            }
+            break;
+
+        case IFORMAT_JTYPE:
+            switch (m_input.opcode) {
+	        case M_OP_J:
+	        case M_OP_JAL:
+                    COMMIT {
+                        MemAddr next = m_input.pc + sizeof(Instruction);
+                        MemAddr target = (next & 0xf0000000) | (m_input.displacement << 2);
+                        if (m_input.opcode == M_OP_JAL) {
+                            m_output.Rcv.m_state = RST_FULL;
+                            m_output.Rcv.m_integer = next;
+                        }
+                        if (target != next) {
+                            m_output.pc = target;
+                            return PIPE_FLUSH;
+                        }
+                    }
+                    break;
+                default:
+                    ThrowIllegalInstructionException(*this, m_input.pc);
+            }
+            break;
+
+        case IFORMAT_ITYPE:
+            switch (m_input.opcode) {
+                case M_OP_BEQ:
+                case M_OP_BNE:
+                case M_OP_BLEZ:
+                case M_OP_BGTZ:
+                    if (m_input.opcode == M_OP_BEQ && Rav != Rbv)
+                        break;
+                    if (m_input.opcode == M_OP_BNE && Rav == Rbv)
+                        break;
+                    if (m_input.opcode == M_OP_BLEZ && (int32_t)Rav > (int32_t)Rbv)
+                        break;
+                    if (m_input.opcode == M_OP_BGTZ && (int32_t)Rav <= (int32_t)Rbv)
+                        break;
+                    COMMIT {
+                        MemAddr next = m_input.pc + sizeof(Instruction);
+                        MemAddr target = next + m_input.displacement;
+                        if (target != next) {
+                            m_output.pc = target;
+                        }
+                    }
+                    return PIPE_FLUSH;
+                case M_OP_ADDI:
+                case M_OP_ADDIU:
+                    COMMIT {
+                        m_output.Rcv.m_state = RST_FULL;
+                        m_output.Rcv.m_integer = Rav + (int16_t)m_input.immediate;
+                    }
+                    break;
+                case M_OP_SLTI:
+                    COMMIT {
+                        m_output.Rcv.m_state = RST_FULL;
+                        m_output.Rcv.m_integer = (int32_t)Rav < (int16_t)m_input.immediate ? 1 : 0;
+                    }
+                    break;
+                case M_OP_SLTIU:
+                    COMMIT {
+                        m_output.Rcv.m_state = RST_FULL;
+                        m_output.Rcv.m_integer = Rav < (uint32_t)(int16_t)m_input.immediate ? 1 : 0;
+                    }
+                    break;
+                case M_OP_ANDI:
+                    COMMIT {
+                        m_output.Rcv.m_state = RST_FULL;
+                        m_output.Rcv.m_integer = Rav & (uint16_t)m_input.immediate;
+                    }
+                    break;
+                case M_OP_ORI:
+                    COMMIT {
+                        m_output.Rcv.m_state = RST_FULL;
+                        m_output.Rcv.m_integer = Rav | (uint16_t)m_input.immediate;
+                    }
+                    break;
+                case M_OP_XORI:
+                    COMMIT {
+                        m_output.Rcv.m_state = RST_FULL;
+                        m_output.Rcv.m_integer = Rav ^ (uint16_t)m_input.immediate;
+                    }
+                    break;
+                case M_OP_LUI:
+                    COMMIT {
+                        m_output.Rcv.m_state = RST_FULL;
+                        m_output.Rcv.m_integer = m_input.immediate << 16;
+                    }
+                    break;
+                case M_OP_LB:
+                case M_OP_LBU:
+                case M_OP_LH:
+                case M_OP_LHU:
+                case M_OP_LW:
+                    COMMIT {
+                        m_output.sign_extend = (m_input.opcode == M_OP_LB || m_input.opcode == M_OP_LH);
+                        if (m_input.opcode == M_OP_LB || m_input.opcode == M_OP_LBU)
+                            m_output.size = 1;
+                        else if (m_input.opcode == M_OP_LH || m_input.opcode == M_OP_LHU)
+                            m_output.size = 2;
+                        else if (m_input.opcode == M_OP_LW)
+                            m_output.size = 4;
+                        else
+                            assert(false && "unreachable");
+                        m_output.address = Rav + (int16_t)m_input.immediate;
+                        m_output.Rcv.m_state = RST_INVALID;
+                    }
+                    break;
+                case M_OP_SB:
+                case M_OP_SH:
+                case M_OP_SW:
+                    COMMIT {
+                        if (m_input.opcode == M_OP_SB)
+                            m_output.size = 1;
+                        else if (m_input.opcode == M_OP_SH)
+                            m_output.size = 2;
+                        else if (m_input.opcode == M_OP_SW)
+                            m_output.size = 4;
+                        else
+                            assert(false && "unreachable");
+                        m_output.address = Rav + (int16_t)m_input.immediate;
+                        m_output.Rcv = m_input.Rbv;
+                    }
+                    break;
+                default:
+                    ThrowIllegalInstructionException(*this, m_input.pc);
+            }
+            break;
+    }
+  
+      return PIPE_CONTINUE;
 
 
-    return PIPE_CONTINUE;
 }
 
 }

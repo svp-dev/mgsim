@@ -275,7 +275,7 @@ class Pipeline : public Object, public Inspect::Interface<Inspect::Read>
         RegAddr TranslateRegister(uint8_t reg, RegType type, unsigned int size, bool *islocal) const;
         void    DecodeInstruction(const Instruction& instr);
 
-#if defined(TARGET_MTALPHA)
+#if defined(TARGET_MTALPHA) || defined(TARGET_MIPS32) || defined(TARGET_MIPS32EL)
         static InstrFormat GetInstrFormat(uint8_t opcode);
 #endif
     public:
