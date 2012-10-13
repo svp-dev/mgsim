@@ -22,6 +22,16 @@ string InputConfigRegistry::lookupValue<string>(const string& name, const string
 {
     string val;
     bool found = lookup(name, val, def, !fail_if_not_found);
+    int i = 0;
+    while (found && val[0] == '$')
+    {
+        if (i++ > 10000)
+        {
+            throw exceptf<SimulationException>("Runaway indirection in configuration: %s", name.c_str());
+        }
+        string newpat = val.substr(1);
+        found = lookup(newpat, val, def, !fail_if_not_found);
+    }
     if (!found)
     {
         if (fail_if_not_found)
