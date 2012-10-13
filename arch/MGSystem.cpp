@@ -596,10 +596,7 @@ void MGSystem::Disassemble(MemAddr addr, size_t sz) const
     system(cmd.str().c_str());
 }
 
-MGSystem::MGSystem(Config& config,
-                   const vector<pair<RegAddr, RegValue> >& regs,
-                   const vector<pair<RegAddr, string> >& loads,
-                   bool quiet)
+MGSystem::MGSystem(Config& config, bool quiet)
     : m_kernel(m_breakpoints),
       m_clock(m_kernel.CreateClock(config.getValue<unsigned long>("CoreFreq"))),
       m_root("", m_clock),
@@ -814,7 +811,7 @@ MGSystem::MGSystem(Config& config,
             m_devices[i] = uart;
             config.registerObject(*uart, "uart");
         } else if (dev_type == "SMC") {
-            SMC * smc = new SMC(name, m_root, iobus, devid, regs, loads, config);
+            SMC * smc = new SMC(name, m_root, iobus, devid, config);
             m_devices[i] = smc;
             config.registerObject(*smc, "smc");
         } else if (dev_type == "RPC") {

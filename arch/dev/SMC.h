@@ -20,8 +20,8 @@ namespace Simulator
         IIOBus& m_iobus;
         IODeviceID m_devid;
 
-        const std::vector<std::pair<RegAddr, RegValue> >& m_regs;
-        const std::vector<std::pair<RegAddr, std::string> >& m_loads;
+        Config& m_config;
+        const std::vector<std::string> m_regs;
         Processor* m_cpu;
 
         ActiveROM* m_rom;
@@ -32,11 +32,10 @@ namespace Simulator
         SingleFlag m_start_dca;
         SingleFlag m_doboot;
 
+        void InitRegs() const;
+
     public:
-        SMC(const std::string& name, Object& parent, IIOBus& iobus, IODeviceID devid,
-            const std::vector<std::pair<RegAddr, RegValue> >& regs,
-            const std::vector<std::pair<RegAddr, std::string> >& loads,
-            Config& config);
+        SMC(const std::string& name, Object& parent, IIOBus& iobus, IODeviceID devid, Config& config);
         SMC(const SMC&) = delete;
         SMC& operator=(const SMC&) = delete;
         ~SMC();

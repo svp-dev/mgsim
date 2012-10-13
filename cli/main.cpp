@@ -38,8 +38,7 @@ struct ProgramConfig
     bool                             m_earlyquit;
     ConfigMap                        m_overrides;
     vector<string>                   m_extradevs;
-    vector<pair<RegAddr, string> >   m_loads;
-    vector<pair<RegAddr, RegValue> > m_regs;
+    vector<string>                   m_regs;
     bool                             m_dumptopo;
     string                           m_topofile;
     bool                             m_dumpnodeprops;
@@ -58,7 +57,6 @@ struct ProgramConfig
           m_earlyquit(false),
           m_overrides(),
           m_extradevs(),
-          m_loads(),
           m_regs(),
           m_dumptopo(false),
           m_topofile(),
@@ -172,17 +170,11 @@ static error_t mgsim_parse_opt(int key, char *arg, struct argp_state *state)
     break;
     case 'L':
     {
+        string regnum(arg);
         if (state->next == state->argc) {
-            throw runtime_error("Error: -L<N> expected filename");
+            throw runtime_error("Error: -L" + regnum + " expected filename");
         }
         string filename(state->argv[state->next++]);
-        string regnum(arg);
-        char* endptr;
-        unsigned long index = strtoul(regnum.c_str(), &endptr, 0);
-        if (*endptr != '\0') {
-            throw runtime_error("Error: invalid register specifier in option: " + regnum);
-        }
-        RegAddr  regaddr = MAKE_REGADDR(RT_INTEGER, index);
 
         string devname = "file" + regnum;
         config.m_extradevs.push_back(devname);
@@ -190,41 +182,19 @@ static error_t mgsim_parse_opt(int key, char *arg, struct argp_state *state)
         config.m_overrides.append(cfgprefix + "Type", "AROM");
         config.m_overrides.append(cfgprefix + "ROMContentSource", "RAW");
         config.m_overrides.append(cfgprefix + "ROMFileName", filename);
-        config.m_loads.push_back(make_pair(regaddr, devname));
+        config.m_regs.push_back("R" + regnum + "=B" + devname);
     }
     break;
     case 'R': case 'F':
     {
+        string regnum;
+        regnum += (char)key;
+        regnum += arg;
         if (state->next == state->argc) {
-            throw runtime_error("Error: -R/-F expected register value");
+            throw runtime_error("Error: -" + regnum + ": expected register value");
         }
 
-        stringstream value;
-        value << state->argv[state->next++];
-
-        RegAddr  addr;
-        RegValue val;
-
-        char* endptr;
-        unsigned long index = strtoul(arg, &endptr, 0);
-        if (*endptr != '\0') {
-            throw runtime_error("Error: invalid register specifier in option");
-        }
-
-        if (key == 'R') {
-            value >> *(SInteger*)&val.m_integer;
-            addr = MAKE_REGADDR(RT_INTEGER, index);
-        } else {
-            double f;
-            value >> f;
-            val.m_float.fromfloat(f);
-            addr = MAKE_REGADDR(RT_FLOAT, index);
-        }
-        if (value.fail()) {
-            throw runtime_error("Error: invalid value for register");
-        }
-        val.m_state = RST_FULL;
-        config.m_regs.push_back(make_pair(addr, val));
+        config.m_regs.push_back(regnum + "=" + state->argv[state->next++]);
     }
     break;
     case ARGP_KEY_ARG: /* extra arguments */
@@ -278,6 +248,18 @@ int main(int argc, char** argv)
 
         argp_parse(&argp, argc, argv, 0, 0, &config);
 
+        // Convert the remaining m_regs to an override
+        {
+            ostringstream s;
+            for (size_t i = 0; i < config.m_regs.size(); ++i)
+            {
+                if (i)
+                    s << ',';
+                s << config.m_regs[i];
+            }
+            config.m_overrides.append("CmdLineRegs", s.str()); 
+        }
+
         if (config.m_quiet)
         {
             config.m_overrides.append("*.ROMVerboseLoad", "false");
@@ -313,8 +295,6 @@ int main(int argc, char** argv)
 
         // Create the system
         MGSystem sys(configfile,
-                     config.m_regs,
-                     config.m_loads,
                      !config.m_interactive);
 
 #ifdef ENABLE_MONITOR

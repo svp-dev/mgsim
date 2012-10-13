@@ -7,17 +7,14 @@ using namespace std;
 
 namespace Simulator
 {
-    SMC::SMC(const string& name, Object& parent, IIOBus& iobus, IODeviceID devid,
-             const vector<pair<RegAddr, RegValue> >& regs,
-             const vector<pair<RegAddr, string> >& loads,
-             Config& config)
+    SMC::SMC(const string& name, Object& parent, IIOBus& iobus, IODeviceID devid, Config& config)
         : Object(name, parent, iobus.GetClock()),
           m_enumdata(NULL),
           m_size(0),
           m_iobus(iobus),
           m_devid(devid),
-          m_regs(regs),
-          m_loads(loads),
+          m_config(config),
+          m_regs(config.getWordList(*this, "InitRegs")),
           m_cpu(NULL),
           m_rom(NULL),
           m_romid(0),
@@ -121,6 +118,76 @@ namespace Simulator
         return SUCCESS;
     }
 
+    void SMC::InitRegs() const
+    {
+        for (auto ri : m_regs)
+        {
+            // format is RNNN=VAL or FNNN=VAL
+            transform(ri.begin(), ri.end(), ri.begin(), ::tolower);
+            if (ri[0] != 'r' && ri[0] != 'f')
+            {
+                throw exceptf<InvalidArgumentException>("Register name not recognized: %s", ri.c_str());
+            }
+            // find "=" sign
+            size_t i = ri.find('=');
+            if (i < 2 || i + 1 > ri.size()) // need at least 2 chars before and 1 char after
+            {
+                throw exceptf<InvalidArgumentException>("Invalid register specifier: %s", ri.c_str());
+            }
+            string sidx = ri.substr(1, i - 1), value = ri.substr(i + 1);
+
+            char* endptr;
+            unsigned long idx = strtoul(sidx.c_str(), &endptr, 0);
+            if (*endptr != '\0') 
+            {
+                throw exceptf<InvalidArgumentException>("Invalid register number: %s (%s)", sidx.c_str(), ri.c_str());
+            }
+
+            RegAddr reg_addr = MAKE_REGADDR((ri[0] == 'r') ? RT_INTEGER : RT_FLOAT, idx);
+            RegValue reg_value;
+            reg_value.m_state = RST_FULL;
+
+            assert(value.size() > 0); // because of check above
+
+            // First handle value indirections
+            if (value[0] == '$')
+            {
+                value = m_config.getValue<string>(value.substr(1));
+            }
+                
+            // Then handle actual value conversion, after indirection            
+            if (value[0] == 'b')
+            {
+                reg_value.m_integer = m_cpu->GetDeviceBaseAddress(m_iobus.GetDeviceIDByName(value.substr(1)));
+            }
+            else if (value[0] == 'i' || (ri[0] == 'r' && (value[0] == '-' || (value[0] >= '0' && value[0] <= '9'))))
+            {
+                string nval = (value[0] == 'i') ? value.substr(1) : value;
+                reg_value.m_integer = strtoull(nval.c_str(), &endptr, 0);
+                if (*endptr != '\0')
+                {
+                    throw exceptf<InvalidArgumentException>("Invalid register value: %s (%s)", nval.c_str(), ri.c_str());
+                }
+            }
+            else if (value[0] == 'f' || (ri[0] == 'f' && (value[0] == '-' || (value[0] >= '0' && value[0] <= '9'))))
+            {
+                string nval = (value[0] == 'f') ? value.substr(1) : value;
+                reg_value.m_float.fromfloat(strtod(nval.c_str(), &endptr));
+                if (*endptr != '\0')
+                {
+                    throw exceptf<InvalidArgumentException>("Invalid register value: %s (%s)", nval.c_str(), ri.c_str());
+                }
+            }
+            else
+            {
+                throw exceptf<InvalidArgumentException>("Invalid register initializer: %s", ri.c_str());
+            }
+
+            m_cpu->WriteRegister(reg_addr, reg_value);
+
+        }
+    }
+
     Result SMC::DoBoot()
     {
         DebugIOWrite("Sending boot signal to processor %s", m_cpu->GetName().c_str());
@@ -131,19 +198,7 @@ namespace Simulator
             m_rom->GetBootInfo(prog_start, legacy);
             m_cpu->Boot(prog_start, legacy, m_cpu->GetGridSize(), m_cpu->GetDeviceBaseAddress(m_devid));
 
-            // Fill initial registers
-            for (auto& l : m_loads)
-            {
-                RegAddr reg = l.first;
-                RegValue val;
-                val.m_integer = m_cpu->GetDeviceBaseAddress(m_iobus.GetDeviceIDByName(l.second));
-                val.m_state = RST_FULL;
-                m_cpu->WriteRegister(reg, val);
-            }
-            for (auto& r : m_regs)
-            {
-                m_cpu->WriteRegister(r.first, r.second);
-            }
+            InitRegs();
         }
         m_doboot.Clear();
         return SUCCESS;
