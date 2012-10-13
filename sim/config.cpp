@@ -252,23 +252,20 @@ InputConfigRegistry::InputConfigRegistry(const string& filename, const ConfigMap
         }
         else if (state == STATE_VALUE)
         {
-            if (isspace(c) && value.empty())
+            if ((c == '\t' || c == ' ') && value.empty())
             {
             }
             else if (c == '\r' || c == '\n' || c == '#')
             {
-                if (!value.empty())
-                {
-                    // Strip off all the spaces from the end
-                    string::size_type pos = value.find_last_not_of("\r\n\t\v\f ");
-                    if (pos != string::npos) {
-                        value.erase(pos + 1);
-                    }
-
-                    m_data.append(name, value);
-                    name.clear();
-                    value.clear();
+                // Strip off all the spaces from the end
+                string::size_type pos = value.find_last_not_of("\r\n\t\v\f ");
+                if (pos != string::npos) {
+                    value.erase(pos + 1);
                 }
+
+                m_data.append(name, value);
+                name.clear();
+                value.clear();
 
                 state = (c == '#' || c == ';') ? STATE_COMMENT : STATE_BEGIN;
             }
