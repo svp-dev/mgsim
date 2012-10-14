@@ -20,15 +20,22 @@
 
 class ConfigMap
 {
-public:
-    typedef std::vector<std::pair<std::string,std::string> > map_t;
-    typedef map_t::const_iterator const_iterator;
+    typedef std::vector<std::pair<std::string,std::string> >  map_t;
 
-    void insert(const std::string& key, const std::string& value);
+    template<typename T>
+        struct reverse_proxy {
+            const T& m_cont;
+            reverse_proxy(const T& cont) : m_cont(cont) {}
+            typename T::const_reverse_iterator begin() const { return m_cont.rbegin(); }
+            typename T::const_reverse_iterator end() const { return m_cont.rend(); }
+        };
+public:
     void append(const std::string& key, const std::string& value);
 
-    const_iterator begin() const { return m_map.begin(); }
-    const_iterator end() const { return m_map.end(); }
+    map_t::const_iterator begin() const { return m_map.begin(); }
+    map_t::const_iterator end() const { return m_map.end(); }
+
+    reverse_proxy<map_t> reverse() const { return m_map; }
 
     ConfigMap() : m_map() {}
 private:

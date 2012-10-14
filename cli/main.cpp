@@ -167,10 +167,7 @@ static error_t mgsim_parse_opt(int key, char *arg, struct argp_state *state)
             }
             string name = sarg.substr(0, eq);
 
-            // push overrides in inverse order, so that the latest
-            // specified in the command line has higher priority in
-            // matching.
-            config.m_overrides.insert(name, sarg.substr(eq + 1));
+            config.m_overrides.append(name, sarg.substr(eq + 1));
     }
     break;
     case 'L':

@@ -10,13 +10,6 @@
 using namespace std;
 using namespace Simulator;
 
-void ConfigMap::insert(const string& key_, const string& val)
-{
-    string key(key_);
-    transform(key.begin(), key.end(), key.begin(), ::tolower);
-    m_map.insert(m_map.begin(), make_pair(key, val));
-}
-
 void ConfigMap::append(const string& key_, const string& val)
 {
     string key(key_);
@@ -90,7 +83,7 @@ bool InputConfigRegistry::lookup(const string& name_, string& result, const stri
     }
 
     bool found = false;
-    for (auto& o : m_overrides)
+    for (auto& o : m_overrides.reverse())
     {
         pat = o.first;
         if (FNM_NOMATCH != fnmatch(pat.c_str(), name.c_str(), 0))
