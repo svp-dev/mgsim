@@ -121,7 +121,7 @@ static const struct argp_option mgsim_options[] =
     { "monitor", 'm', 0, 0, "Enable asynchronous simulation monitoring (configure with -o MonitorSampleVariables).", 7 },
 #endif
 
-    { 0, 's', 0, 0, "(obsolete; symbols are now read automatically from ELF)", 8 },
+    { "symtable", 's', "FILE", OPTION_HIDDEN, "(obsolete; symbols are now read automatically from ELF)", 8 },
 
     { 0, 0, 0, 0, 0, 0 }
 };
