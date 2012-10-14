@@ -14,7 +14,11 @@ string read_file(const string& filename)
     // Open the file
     int errno_;
     FILE* fd;
-    if (NULL == (fd = fopen(filename.c_str(), "r")))
+    if (filename == "-")
+    {
+        fd = stdin;
+    }
+    else if (NULL == (fd = fopen(filename.c_str(), "r")))
     {
         errno_ = errno;
         throw runtime_error(string("fopen: ") + strerror(errno_));
@@ -43,7 +47,7 @@ string read_file(const string& filename)
         error = true;
         errmsg << "fread: " << strerror(errno_);
     }
-    if (fclose(fd))
+    if (filename != "-" && fclose(fd))
     {
         error = true;
         errno_ = errno;
