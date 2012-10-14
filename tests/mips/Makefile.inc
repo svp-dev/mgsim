@@ -1,5 +1,5 @@
 MIPS_TEST_SOURCES = \
-    mips/simple.s
+    tests/mips/simple.s
 
 if ENABLE_MIPS_TESTS
 TEST_ARCH       = mips
