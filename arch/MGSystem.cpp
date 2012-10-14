@@ -24,9 +24,13 @@
 #include <fstream>
 #include <cmath>
 #include <limits>
-#include <cxxabi.h>
 #include <fnmatch.h>
 #include <cstring>
+
+#ifdef HAVE_GCC_ABI_DEMANGLE
+#include <cxxabi.h>
+#endif
+#include <typeinfo>
 
 using namespace Simulator;
 using namespace std;
@@ -85,9 +89,12 @@ static string GetClassName(const type_info& info)
     char *buf = (char*)malloc(len);
     assert(buf != 0);
 
-    int status;
+    int status = 0;
+    char *res = 0;
 
-    char *res = abi::__cxa_demangle(name, buf, &len, &status);
+#ifdef HAVE_GCC_ABI_DEMANGLE
+    res = abi::__cxa_demangle(name, buf, &len, &status);
+#endif
 
     if (res && status == 0)
     {
@@ -624,12 +631,11 @@ void MGSystem::Disassemble(MemAddr addr, size_t sz) const
 }
 
 MGSystem::MGSystem(Config& config,
-                   const string& symtable,
                    const vector<pair<RegAddr, RegValue> >& regs,
                    const vector<pair<RegAddr, string> >& loads,
                    const vector<string>& extradevs,
-                   bool quiet, bool doload)
-    : m_kernel(m_symtable, m_breakpoints),
+                   bool quiet)
+    : m_kernel(m_breakpoints),
       m_clock(m_kernel.CreateClock(config.getValue<unsigned long>("CoreFreq"))),
       m_root("", m_clock),
       m_breakpoints(m_kernel),
@@ -687,6 +693,8 @@ MGSystem::MGSystem(Config& config,
     {
         clog << "memory: " << memory_type << endl;
     }
+    m_memory->SetSymbolTable(m_symtable);
+    m_breakpoints.SetSymbolTable(m_symtable);
 
     // Create the event selector
     Clock& selclock = m_kernel.CreateClock(config.getValue<unsigned long>("EventCheckFreq"));
@@ -934,21 +942,19 @@ MGSystem::MGSystem(Config& config,
     // Set program debugging per default
     m_kernel.SetDebugMode(Kernel::DEBUG_PROG);
 
-    // Load symbol table
-    if (doload && !symtable.empty())
-    {
-        ifstream in(symtable.c_str(), ios::in);
-        m_symtable.Read(in, quiet);
-    }
-
     // Find objdump command
 #if defined(TARGET_MTALPHA)
     const char *default_objdump = "mtalpha-linux-gnu-objdump";
     const char *objdump_var = "MTALPHA_OBJDUMP";
-#endif
-#if defined(TARGET_MTSPARC)
+#elif defined(TARGET_MTSPARC)
     const char *default_objdump = "mtsparc-linux-gnu-objdump";
     const char *objdump_var = "MTSPARC_OBJDUMP";
+#elif defined(TARGET_MIPS32)
+    const char *default_objdump = "mips-linux-gnu-objdump";
+    const char *objdump_var = "MIPS_OBJDUMP";
+#elif defined(TARGET_MIPS32EL)
+    const char *default_objdump = "mipsel-linux-gnu-objdump";
+    const char *objdump_var = "MIPSEL_OBJDUMP";
 #endif
     const char *v = getenv(objdump_var);
     if (!v) v = default_objdump;

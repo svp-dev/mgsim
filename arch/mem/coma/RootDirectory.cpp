@@ -81,7 +81,7 @@ bool COMA::RootDirectory::OnReadCompleted()
         msg->type = Message::REQUEST_DATA_TOKEN;
         msg->dirty = false;
         
-        m_parent.Read(msg->address, msg->data.data, m_lineSize);
+        static_cast<VirtualMemory&>(m_parent).Read(msg->address, msg->data.data, m_lineSize);
         
         m_active.pop();
     }
@@ -319,7 +319,9 @@ Result COMA::RootDirectory::DoRequests()
             }
 #endif
             COMMIT { 
-                m_parent.Write(msg->address, msg->data.data, 0, m_lineSize);
+
+                static_cast<VirtualMemory&>(m_parent).Write(msg->address, msg->data.data, 0, m_lineSize);
+
                 ++m_nwrites;
                 delete msg;
             }

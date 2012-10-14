@@ -28,7 +28,6 @@ struct ProgramConfig
 {
     unsigned int                     m_areaTech;
     string                           m_configFile;
-    string                           m_symtableFile;
     bool                             m_enableMonitor;
     bool                             m_interactive;
     bool                             m_terminate;
@@ -81,7 +80,6 @@ static const struct argp_option mgsim_options[] =
     { "config", 'c', "FILE", 0, "Read configuration from FILE.", 2 },
     { "dump-configuration", 'd', 0, 0, "Dump configuration to standard error prior to program startup.", 2 },
     { "override", 'o', "NAME=VAL", 0, "Overrides the configuration option NAME with value VAL. Can be specified multiple times.", 2 },
-    { "symtable", 's', "FILE", 0, "Read symbol from FILE. (generate with nm -P)\n", 2 },
 
     { "do-nothing", 'n', 0, 0, "Exit before the program starts, but after the system is configured.", 3 },
     { "quiet", 'q', 0, 0, "Do not print simulation statistics after execution.", 3 },
@@ -101,6 +99,8 @@ static const struct argp_option mgsim_options[] =
 #ifdef ENABLE_MONITOR
     { "monitor", 'm', 0, 0, "Enable asynchronous simulation monitoring (configure with -o MonitorSampleVariables).", 7 },
 #endif
+
+    { "symtable", 's', "FILE", OPTION_HIDDEN, "(obsolete; symbols are now read automatically from ELF)", 8 },
 
     { 0, 0, 0, 0, 0, 0 }
 };
@@ -128,7 +128,7 @@ static error_t mgsim_parse_opt(int key, char *arg, struct argp_state *state)
     case 'i': config.m_interactive = true; break;
     case 't': config.m_terminate = true; break;
     case 'q': config.m_quiet = true; break;
-    case 's': config.m_symtableFile = arg; break;
+    case 's': cerr << "# Warning: ignoring obsolete flag '-s'" << endl; break;
     case 'd': config.m_dumpconf = true; break;
     case 'm': config.m_enableMonitor = true; break;
     case 'l': config.m_dumpvars = true; break;
@@ -213,7 +213,7 @@ static error_t mgsim_parse_opt(int key, char *arg, struct argp_state *state)
     {
         if (config.m_argv.empty())
         {
-            cerr << "Warning: converting first extra argument to -o *:ROMFileName=" << arg << endl;
+            cerr << "# Warning: converting first extra argument to -o *:ROMFileName=" << arg << endl;
             config.m_overrides.append("*:ROMFileName", arg);
         }
         config.m_argv.push_back(arg);
@@ -300,12 +300,10 @@ int main(int argc, char** argv)
         
         // Create the system
         MGSystem sys(configfile, 
-                     config.m_symtableFile,
                      config.m_regs, 
                      config.m_loads, 
                      config.m_extradevs, 
-                     !config.m_interactive, 
-                     !config.m_earlyquit);
+                     !config.m_interactive);
 
 #ifdef ENABLE_MONITOR
         string mo_mdfile = configfile.getValueOrDefault<string>("MonitorMetadataFile", "mgtrace.md");

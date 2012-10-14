@@ -263,7 +263,8 @@ InputConfigRegistry::InputConfigRegistry(const string& filename, const ConfigMap
                     name.clear();
                     value.clear();
                 }
-                state = (c == '#') ? STATE_COMMENT : STATE_BEGIN;
+
+                state = (c == '#' || c == ';') ? STATE_COMMENT : STATE_BEGIN;
             }
             else 
             {

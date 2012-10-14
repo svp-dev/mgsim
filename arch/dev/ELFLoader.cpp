@@ -55,6 +55,80 @@ LoadProgram(const std::string& msg_prefix, vector<ActiveROM::LoadableRange>& ran
     Verify(ehdr.e_phoff != 0 && ehdr.e_phnum != 0, "file has no program header");
     Verify(ehdr.e_phentsize == sizeof(Elf_Phdr),   "file has an invalid program header");
     Verify(ehdr.e_phoff + ehdr.e_phnum * ehdr.e_phentsize <= size, "file has an invalid program header");
+    Verify(ehdr.e_shentsize == sizeof(Elf_Shdr),   "file has an invalid section header");
+    Verify(ehdr.e_shoff + ehdr.e_shnum * ehdr.e_shentsize <= size, "file has an invalid section header");
+
+    Elf_Shdr* shdr = static_cast<Elf_Shdr*>(static_cast<void*>(data + ehdr.e_shoff));
+
+    // Load section information
+    for (Elf_Half i = 0; i < ehdr.e_shnum; ++i)
+    {
+        shdr[i].sh_name      = elftohw (shdr[i].sh_name);
+        shdr[i].sh_type      = elftohw (shdr[i].sh_type);
+        shdr[i].sh_addr      = elftoha (shdr[i].sh_addr);
+        shdr[i].sh_offset    = elftoho (shdr[i].sh_offset);
+        shdr[i].sh_link      = elftohw (shdr[i].sh_link);
+        shdr[i].sh_info      = elftohw (shdr[i].sh_info);
+#if ELFCLASS == ELFCLASS64
+        shdr[i].sh_flags     = elftohxw(shdr[i].sh_flags);
+        shdr[i].sh_size      = elftohxw(shdr[i].sh_size);
+        shdr[i].sh_addralign = elftohxw(shdr[i].sh_addralign);
+        shdr[i].sh_entsize   = elftohxw(shdr[i].sh_entsize);
+#else
+        shdr[i].sh_flags     = elftohw (shdr[i].sh_flags);
+        shdr[i].sh_size      = elftohw (shdr[i].sh_size);
+        shdr[i].sh_addralign = elftohw (shdr[i].sh_addralign);
+        shdr[i].sh_entsize   = elftohw (shdr[i].sh_entsize);
+#endif
+    }
+
+
+    // Find symbol table & corresponding string table
+    Elf_Sym* elf_sym_table = 0;
+    size_t elf_sym_table_len = 0;
+    const char *str_table = 0;
+    size_t str_table_len = 0;
+
+    for (Elf_Half i = 0; i < ehdr.e_shnum; ++i)
+    {
+        if (shdr[i].sh_type == SHT_SYMTAB)
+        {
+            if (elf_sym_table != 0)
+                cerr << "#warning: ELF file has more than one symtable, using the first one" << endl;
+
+            Verify(shdr[i].sh_entsize == sizeof(Elf_Sym), "file has an invalid symtable");
+            Verify(shdr[i].sh_offset + shdr[i].sh_size <= size, "file has an invalid symtable");
+
+            elf_sym_table = static_cast<Elf_Sym*>(static_cast<void*>(data + shdr[i].sh_offset));
+            elf_sym_table_len = shdr[i].sh_size / sizeof(Elf_Sym);
+
+            Verify(shdr[i].sh_link != 0 /*SHN_UNDEF*/, "symtable has no string table");
+            Verify(shdr[i].sh_link < ehdr.e_shnum, "symtable has an invalid string table");
+
+            Elf_Shdr& strsh = shdr[shdr[i].sh_link];
+
+            Verify(strsh.sh_type == SHT_STRTAB, "file has an invalid string table");
+            Verify(strsh.sh_offset + strsh.sh_size <= size, "file has an invalid string table");
+
+            str_table = data + strsh.sh_offset;
+            str_table_len = strsh.sh_size;
+
+            break;
+        }
+    }
+
+    SymbolTable& symtable = memory.GetSymbolTable();
+    for (size_t i = 1 /* first entry is unused */; i < elf_sym_table_len; ++i)
+    {
+        Verify(elf_sym_table[i].st_name < str_table_len, "file specifies an invalid symbol");
+
+        const char* name = str_table + elf_sym_table[i].st_name;
+        MemAddr addr = elf_sym_table[i].st_value;
+        if (addr != 0 && strlen(name) > 0)
+        {
+            symtable.AddSymbol(addr, name, elf_sym_table[i].st_size);
+        }
+    }
 
     Elf_Phdr* phdr = static_cast<Elf_Phdr*>(static_cast<void*>(data + ehdr.e_phoff));
 

@@ -51,7 +51,8 @@ class ParallelMemory::Port : public Object
             // The current request has completed
             if (request.write)
             {
-                m_memory.Write(request.address, request.data.data, request.data.mask, m_lineSize);
+                static_cast<VirtualMemory&>(m_memory).Write(request.address, request.data.data, request.data.mask, m_lineSize);
+
                 if (!m_callback.OnMemoryWriteCompleted(request.wid))
                 {
                     return FAILED;
@@ -61,7 +62,7 @@ class ParallelMemory::Port : public Object
             {
                 char data[m_lineSize];
 
-                m_memory.Read(request.address, data, m_lineSize);
+                static_cast<VirtualMemory&>(m_memory).Read(request.address, data, m_lineSize);
 
                 if (!m_callback.OnMemoryReadCompleted(request.address, data))
                 {
@@ -235,36 +236,6 @@ bool ParallelMemory::Write(MCID id, MemAddr address, const MemData& data, WClien
 
     COMMIT { ++m_nwrites; m_nwrite_bytes += m_lineSize; }
     return true;
-}
-
-bool ParallelMemory::CheckPermissions(MemAddr address, MemSize size, int access) const
-{
-    return VirtualMemory::CheckPermissions(address, size, access);
-}
-
-void ParallelMemory::Reserve(MemAddr address, MemSize size, ProcessID pid, int perm)
-{
-    return VirtualMemory::Reserve(address, size, pid, perm);
-}
-
-void ParallelMemory::Unreserve(MemAddr address, MemSize size)
-{
-    return VirtualMemory::Unreserve(address, size);
-}
-
-void ParallelMemory::UnreserveAll(ProcessID pid)
-{
-    return VirtualMemory::UnreserveAll(pid);
-}
-
-void ParallelMemory::Read (MemAddr address, void* data, MemSize size)
-{
-    return VirtualMemory::Read(address, data, size);
-}
-
-void ParallelMemory::Write(MemAddr address, const void* data, const bool* mask, MemSize size)
-{
-    return VirtualMemory::Write(address, data, mask, size);
 }
 
 ParallelMemory::ParallelMemory(const std::string& name, Object& parent, Clock& clock, Config& config) :

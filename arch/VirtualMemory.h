@@ -2,7 +2,9 @@
 #define VIRTUALMEMORY_H
 
 #include <arch/simtypes.h>
+#include <arch/symtable.h>
 #include <sim/inspect.h>
+#include <arch/Memory.h>
 
 #include <map>
 #include <vector>
@@ -12,7 +14,7 @@ namespace Simulator
 
 // This class presents as large, sparse memory region as a linear memory region.
 // It allocates blocks of memory as they are read or written.
-class VirtualMemory : public Inspect::Interface<Inspect::Info|Inspect::Read>
+class VirtualMemory : public IMemoryAdmin, public Inspect::Interface<Inspect::Info|Inspect::Read>
 {
 public:
     // We allocate per block, this is the size of each block. Must be a power of two
@@ -50,6 +52,10 @@ public:
     
     void Cmd_Info(std::ostream& out, const std::vector<std::string>& arguments) const;
     void Cmd_Read(std::ostream& out, const std::vector<std::string>& arguments) const;
+
+    void SetSymbolTable(SymbolTable& symtable);
+    SymbolTable& GetSymbolTable() const;
+
 private:
     RangeMap::const_iterator GetReservationRange(MemAddr address, MemSize size) const;
     void ReportOverlap(MemAddr address, MemSize size) const;
@@ -59,6 +65,7 @@ private:
     size_t   m_totalreserved;
     size_t   m_totalallocated;
     size_t   m_nRanges;
+    SymbolTable *m_symtable;
 };
 
 }

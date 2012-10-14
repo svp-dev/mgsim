@@ -9,6 +9,8 @@
 #include <map>
 #include <iostream>
 
+namespace Simulator {
+
 class SymbolTable 
 {
 public:
@@ -17,7 +19,6 @@ public:
     
     // default constructor & copy constructor are suitable.
 
-    void Read(std::istream& i, bool quiet = false);
     void AddSymbol(Simulator::MemAddr addr, const std::string& name, size_t sz = 0);
 
     void Write(std::ostream& o, const std::string& pat = "*") const;
@@ -36,5 +37,6 @@ protected:
     cache_t m_cache;
 };
 
+}
 
 #endif

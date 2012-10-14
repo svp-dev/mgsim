@@ -14,9 +14,9 @@ namespace Simulator
 #define ARCH_LITTLE_ENDIAN 1
 #define ARCH_BIG_ENDIAN    2
 
-#if defined(TARGET_MTALPHA)
+#if defined(TARGET_MTALPHA) || defined(TARGET_MIPS32EL)
 #define ARCH_ENDIANNESS ARCH_LITTLE_ENDIAN
-#else
+#elif defined (TARGET_MTSPARC) || defined(TARGET_MIPS32)
 #define ARCH_ENDIANNESS ARCH_BIG_ENDIAN
 #endif
 
@@ -96,7 +96,7 @@ typedef uint64_t Integer;       ///< Natural integer type
 typedef int64_t  SInteger;      ///< Natural integer type, signed
 typedef Float64  Float;         ///< Natural floating point type
 #define MEMSIZE_MAX UINT64_MAX
-#elif defined(TARGET_MTSPARC)
+#elif defined(TARGET_MTSPARC) || defined(TARGET_MIPS32) || defined(TARGET_MIPS32EL)
 typedef uint32_t MemAddr;       ///< Address into memory
 typedef uint32_t MemSize;       ///< Size of something in memory
 typedef uint32_t Instruction;   ///< Instruction bits

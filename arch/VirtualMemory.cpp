@@ -215,8 +215,19 @@ void VirtualMemory::Write(MemAddr address, const void* _data, const bool* mask, 
     }
 }
 
+void VirtualMemory::SetSymbolTable(SymbolTable& symtable)
+{ 
+    m_symtable = &symtable; 
+}
+
+SymbolTable& VirtualMemory::GetSymbolTable() const
+{
+    return *m_symtable;
+}
+
+
 VirtualMemory::VirtualMemory()
-    : m_totalreserved(0), m_totalallocated(0)
+    : m_totalreserved(0), m_totalallocated(0), m_nRanges(0), m_symtable(0)
 {
     RegisterSampleVariable(m_totalreserved, "vm:reserved", SVC_LEVEL);
     RegisterSampleVariable(m_totalallocated, "vm:allocated", SVC_LEVEL);

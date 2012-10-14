@@ -141,7 +141,7 @@ void SymbolTable::Write(std::ostream& o, const std::string& pat) const
     {
         if (FNM_NOMATCH != fnmatch(pat.c_str(), entry_sym(*i).c_str(), 0)) 
         {
-            o << hex << entry_addr(*i) << ' ' << entry_sym(*i);
+            o << hex << "0x" << entry_addr(*i) << ' ' << entry_sym(*i);
             if (entry_sz(*i))
                 o << " (" << dec << entry_sz(*i) << ')';
             o << endl;
@@ -173,39 +173,6 @@ bool SymbolTable::LookUp(const std::string& sym, MemAddr &addr, bool recurse) co
 void SymbolTable::AddSymbol(MemAddr addr, const std::string& name, size_t sz)
 {
     m_entries.push_back(make_pair(addr, make_pair(sz, name)));
-    sort(m_entries.begin(), m_entries.end());
-    m_cache.clear();
-}
-
-void SymbolTable::Read(std::istream& i, bool quiet)
-{
-    // get entries from stream
-    // assume POSIX nm format: <sym> <type> <addr> <size(opt)>
-
-    size_t nread = 0;
-    while (!i.eof()) 
-    {
-        MemAddr addr;
-        size_t sz;
-        string sym, ty;
-        i.clear();
-        i >> sym >> ty >> hex >> addr;
-        if (!i.good()) break;
-        i >> sz;
-        if (!i.good()) sz = 0;
-
-        m_entries.push_back(make_pair(addr, make_pair(sz, sym)));
-        ++nread;
-    }
-
-    if (!quiet)
-    {
-        if (!nread)
-            cerr << "Warning: symbol table is empty (no symbols read)." << endl;
-        else
-            clog << "Symbol table: " << dec << nread << " symbols loaded." << endl;
-    }
-
     sort(m_entries.begin(), m_entries.end());
     m_cache.clear();
 }

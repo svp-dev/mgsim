@@ -11,9 +11,6 @@
 #include <set>
 #include <cassert>
 
-class SymbolTable;
-class BreakPoints;
-
 namespace Simulator
 {
 
@@ -25,6 +22,7 @@ class Kernel;
 class Arbitrator;
 class IRegister;
 class Process;
+class BreakPointManager;
 
 /// Cycle Number
 typedef uint64_t CycleNo;
@@ -249,8 +247,7 @@ private:
     CycleNo             m_lastsuspend;  ///< Avoid suspending twice on the same cycle.
     int	                m_debugMode;    ///< Bit mask of enabled debugging modes.
     CycleNo             m_cycle;        ///< Current cycle of the simulation.
-    SymbolTable&        m_symtable;     ///< The symbol table for debugging.
-    BreakPoints&        m_breakpoints;  ///< The breakpoint checker for debugging.
+    BreakPointManager&  m_bp_manager;   ///< The breakpoint checker for debugging.
     CyclePhase          m_phase;        ///< Current sub-cycle phase of the simulation.
     unsigned long long  m_master_freq;  ///< Master frequency
     Process*            m_process;      ///< The currently executing process.
@@ -260,7 +257,7 @@ private:
     bool UpdateStorages();
     
 public:
-    Kernel(SymbolTable& symtable, BreakPoints& breakpoints);
+    Kernel(BreakPointManager& breakpoints);
     ~Kernel();
 
     void ActivateClock(Clock& clock);
@@ -348,8 +345,7 @@ public:
      */
 	//const ComponentList& GetComponents() const { return m_components; }
 
-    inline SymbolTable& GetSymbolTable() const { return m_symtable; }
-    inline BreakPoints& GetBreakPoints() const { return m_breakpoints; }
+    inline BreakPointManager& GetBreakPointManager() const { return m_bp_manager; }
 };
 
 inline CycleNo Clock::GetCycleNo() const

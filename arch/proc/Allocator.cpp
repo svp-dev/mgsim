@@ -265,7 +265,7 @@ bool Processor::Allocator::RescheduleThread(TID tid, MemAddr pc)
 
     DebugSimWrite("F%u/T%u(%llu) rescheduling to %s", 
                   (unsigned)thread.family, (unsigned)tid, (unsigned long long)thread.index,
-                  GetKernel()->GetSymbolTable()[pc].c_str());
+                  m_parent.GetSymbolTable()[pc].c_str());
     return true;
 }
 
@@ -1000,15 +1000,15 @@ bool Processor::Allocator::QueueFamilyAllocation(const RemoteMessage& msg, bool 
     
     if (bundle)
     {
-        request.pc         = msg.allocate.bundle.pc;
-        request.parameter  = msg.allocate.bundle.parameter;
-        request.index      = msg.allocate.bundle.index;
+        request.binfo.pc         = msg.allocate.bundle.pc;
+        request.binfo.parameter  = msg.allocate.bundle.parameter;
+        request.binfo.index      = msg.allocate.bundle.index;
     }
     else
     {
-        request.pc         = 0;
-        request.parameter  = 0;
-        request.index      = 0;
+        request.binfo.pc         = 0;
+        request.binfo.parameter  = 0;
+        request.binfo.index      = 0;
     }
      
     Buffer<AllocRequest>& allocations = msg.allocate.exclusive
@@ -1031,16 +1031,16 @@ bool Processor::Allocator::QueueFamilyAllocation(const LinkMessage& msg)
 {
     // Place the request in the appropriate buffer
     AllocRequest request;
-    request.first_fid      = msg.allocate.first_fid;
-    request.prev_fid       = msg.allocate.prev_fid;
-    request.placeSize      = msg.allocate.size;
-    request.type           = msg.allocate.exact ? ALLOCATE_EXACT : ALLOCATE_NORMAL;
-    request.completion_reg = msg.allocate.completion_reg;
-    request.completion_pid = msg.allocate.completion_pid;
-    request.bundle         = false;
-    request.pc             = 0;
-    request.parameter      = 0;
-    request.index          = 0;
+    request.first_fid       = msg.allocate.first_fid;
+    request.prev_fid        = msg.allocate.prev_fid;
+    request.placeSize       = msg.allocate.size;
+    request.type            = msg.allocate.exact ? ALLOCATE_EXACT : ALLOCATE_NORMAL;
+    request.completion_reg  = msg.allocate.completion_reg;
+    request.completion_pid  = msg.allocate.completion_pid;
+    request.bundle          = false;
+    request.binfo.pc        = 0;
+    request.binfo.parameter = 0;
+    request.binfo.index     = 0;
 
     Buffer<AllocRequest>& allocations = (msg.allocate.suspend ? m_allocRequestsSuspend : m_allocRequestsNoSuspend);
     if (!allocations.Push(request))
@@ -1121,7 +1121,11 @@ Result Processor::Allocator::DoFamilyAllocate()
 
     if (buffer == NULL)
     {
-        DeadlockWrite("Exclusive create in process");
+        // remaining situation:
+        // - there are no non-exclusive allocation requests ready to be handled;
+        // - there is at least one exclusive allocation request waiting;
+        // - the exclusive context is busy.
+        DeadlockWrite("Exclusive context busy; exclusive allocation delayed.");
         return FAILED;
     }
 
@@ -1142,9 +1146,15 @@ Result Processor::Allocator::DoFamilyAllocate()
         DeadlockWrite("Unable to allocate a free context");
         return FAILED;
     }
-    
-    if ((lfid == INVALID_LFID) && (req.completion_reg != INVALID_REG_INDEX))
+
+    if (lfid == INVALID_LFID)
     {
+        // Bundle creations are always suspending, so it is not
+        // possible that the request is a bundle, allocation failed
+        // and that the control flow arrives here.
+        assert(!req.bundle);
+        assert(req.completion_reg != INVALID_REG_INDEX);
+
         // No family entry was available and we don't want to suspend until one is.
         if (req.prev_fid == INVALID_LFID)
         {
@@ -1200,8 +1210,14 @@ Result Processor::Allocator::DoFamilyAllocate()
         }
         DebugSimWrite("F%u finished allocation on %u cores", (unsigned)lfid, (unsigned)family.numCores);
         
-        if (req.completion_reg != INVALID_REG_INDEX)
+        if (!req.bundle)
         {
+            // Here we have a regular allocation request, where either:
+            // - we have reached the first core after committing, and the parent
+            //   is waiting on an acknowledgement for the allocate itself. Send it.
+            // - or we need to commit the request to the previous cores in the
+            //   place via the link network.
+            
             if (req.prev_fid == INVALID_LFID) 
             {
                 // We're the only core in the family
@@ -1248,28 +1264,31 @@ Result Processor::Allocator::DoFamilyAllocate()
                               (unsigned)(m_parent.GetPID() - 1), (unsigned)ret.prev_fid);
             }
         }
-        
-        if (req.bundle)
+        else
         {
-            FID fid;
-            fid.pid        = m_parent.GetPID();
-            fid.lfid       = lfid;
-            fid.capability = family.capability;
+            // bundle request:
+            // do not notify the allocation; we need to wait for creation
+            // before notifying. This is because otherwise the parent could issue
+            // a sync before the creation occurs, and this is not supported. The
+            // parent must wait until creation starts.
+
+            // Instead, trigger creation by sending a creation request via loopback.
             
             RemoteMessage msg;
             msg.type                  = RemoteMessage::MSG_CREATE;
-            msg.create.fid            = fid;
-            msg.create.address        = req.pc;
+            msg.create.fid.pid        = m_parent.GetPID();
+            msg.create.fid.lfid       = lfid;
+            msg.create.fid.capability = family.capability;
+            msg.create.address        = req.binfo.pc;
             msg.create.completion_reg = req.completion_reg;
-            msg.create.bundle         = true;
-            msg.create.parameter      = req.parameter;
-            msg.create.index          = req.index;
             msg.create.completion_pid = req.completion_pid;
-            
-            
+            msg.create.bundle         = true;
+            msg.create.parameter      = req.binfo.parameter;
+            msg.create.index          = req.binfo.index;
+
             if (!m_network.SendMessage(msg))
             {
-                DeadlockWrite("Unable to send remote bundle allocation");
+                DeadlockWrite("Unable to send bundle creation to loopback");
                 return FAILED;
             }
             
@@ -1336,7 +1355,7 @@ bool Processor::Allocator::QueueCreate(const LinkMessage& msg)
                   (unsigned)msg.create.fid, (unsigned long long)family.nThreads, 
                   (unsigned)(m_parent.GetPID() & ~family.numCores),
                   (unsigned)family.numCores, 
-                  GetKernel()->GetSymbolTable()[msg.create.address].c_str(),
+                  m_parent.GetSymbolTable()[msg.create.address].c_str(),
                   (unsigned long long)family.start);            
     
     if (!AllocateRegisters(msg.create.fid, CONTEXT_RESERVED))
@@ -1416,7 +1435,7 @@ bool Processor::Allocator::QueueCreate(const RemoteMessage& msg, PID src)
     
     DebugSimWrite("F%u queued create %s from CPU%u/R%04x", 
                   (unsigned)info.fid, 
-                  GetKernel()->GetSymbolTable()[msg.create.address].c_str(),
+                  m_parent.GetSymbolTable()[msg.create.address].c_str(),
                   (unsigned)info.completion_pid, (unsigned)info.completion_reg);
     return true;
 }
@@ -1556,7 +1575,7 @@ Result Processor::Allocator::DoFamilyCreate()
         Family& family = m_familyTable[info.fid];
             
         DebugSimWrite("F%u start creation %s", 
-                      (unsigned)info.fid, GetKernel()->GetSymbolTable()[family.pc].c_str());
+                      (unsigned)info.fid, m_parent.GetSymbolTable()[family.pc].c_str());
 
         // Load the register counts from the family's first cache line
         Instruction counts;

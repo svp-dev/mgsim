@@ -17,7 +17,12 @@ namespace Simulator
 //
 Processor::Processor(const std::string& name, Object& parent, Clock& clock, PID pid, const vector<Processor*>& grid, IMemory& memory, IMemoryAdmin& admin, FPU& fpu, IIOBus *iobus, Config& config)
 :   Object(name, parent, clock),
-    m_pid(pid), m_memory(memory), m_memadmin(admin), m_grid(grid), m_fpu(fpu),
+    m_pid(pid), 
+    m_memory(memory),
+    m_memadmin(admin),
+    m_grid(grid),
+    m_fpu(fpu),
+    m_symtable(&admin.GetSymbolTable()),
     m_familyTable ("families",      *this, clock, config),
     m_threadTable ("threads",       *this, clock, config),
     m_registerFile("registers",     *this, clock, m_allocator, config),

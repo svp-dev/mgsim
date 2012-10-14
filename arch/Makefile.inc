@@ -70,6 +70,7 @@ PROCESSOR_SRC = \
         arch/proc/ISA.cpp \
 	arch/proc/ISA.mtalpha.h \
 	arch/proc/ISA.mtsparc.h \
+	arch/proc/ISA.mips.h \
 	arch/proc/MemoryStage.cpp \
 	arch/proc/Network.cpp \
 	arch/proc/Network.h \
@@ -132,6 +133,7 @@ MLCOMA_SRC = \
 	arch/mem/coma/RootDirectory.cpp 
 
 EXTRA_DIST += \
+	arch/proc/ISA.mips.cpp \
 	arch/proc/ISA.mtalpha.cpp \
 	arch/proc/ISA.mtsparc.cpp
 

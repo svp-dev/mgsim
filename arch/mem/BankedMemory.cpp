@@ -133,9 +133,9 @@ class BankedMemory::Bank : public Object
         {
             // This bank is done serving the request
             if (m_request.write) {
-                m_memory.Write(m_request.address, m_request.data.data, m_request.data.mask, m_request.size);
+                static_cast<VirtualMemory&>(m_memory).Write(m_request.address, m_request.data.data, m_request.data.mask, m_request.size);
             } else {
-                m_memory.Read(m_request.address, m_request.data.data, m_request.size);
+                static_cast<VirtualMemory&>(m_memory).Read(m_request.address, m_request.data.data, m_request.size);
             }
 
             // Move it to the outgoing queue
@@ -382,36 +382,6 @@ bool BankedMemory::Write(MCID id, MemAddr address, const MemData& data, WClientI
 
     COMMIT { ++m_nwrites; m_nwrite_bytes += m_lineSize; }
     return true;
-}
-
-void BankedMemory::Reserve(MemAddr address, MemSize size, ProcessID pid, int perm)
-{
-    return VirtualMemory::Reserve(address, size, pid, perm);
-}
-
-void BankedMemory::Unreserve(MemAddr address, MemSize size)
-{
-    return VirtualMemory::Unreserve(address, size);
-}
-
-void BankedMemory::UnreserveAll(ProcessID pid)
-{
-    return VirtualMemory::UnreserveAll(pid);
-}
-
-void BankedMemory::Read(MemAddr address, void* data, MemSize size)
-{
-    return VirtualMemory::Read(address, data, size);
-}
-
-void BankedMemory::Write(MemAddr address, const void* data, const bool* mask, MemSize size)
-{
-    return VirtualMemory::Write(address, data, mask, size);
-}
-
-bool BankedMemory::CheckPermissions(MemAddr address, MemSize size, int access) const
-{
-    return VirtualMemory::CheckPermissions(address, size, access);
 }
 
 BankedMemory::BankedMemory(const std::string& name, Object& parent, Clock& clock, Config& config, const std::string& defaultBankSelectorType) 

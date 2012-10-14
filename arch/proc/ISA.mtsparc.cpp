@@ -714,7 +714,7 @@ Processor::Pipeline::PipeAction Processor::Pipeline::ExecuteStage::ExecuteInstru
             m_output.Rcv.m_size    = sizeof(Integer);
             DebugFlowWrite("F%u/T%u(%llu) %s call %s",
                            (unsigned)m_input.fid, (unsigned)m_input.tid, (unsigned long long)m_input.logical_index, m_input.pc_sym,
-                           GetKernel()->GetSymbolTable()[m_output.pc].c_str());
+                           m_parent.GetProcessor().GetSymbolTable()[m_output.pc].c_str());
         }
         return PIPE_FLUSH;
         
@@ -750,7 +750,7 @@ Processor::Pipeline::PipeAction Processor::Pipeline::ExecuteStage::ExecuteInstru
                     m_output.pc = m_input.pc + m_input.displacement * sizeof(Instruction);
                     DebugFlowWrite("F%u/T%u(%llu) %s branch %s",
                                    (unsigned)m_input.fid, (unsigned)m_input.tid, (unsigned long long)m_input.logical_index, m_input.pc_sym,
-                                   GetKernel()->GetSymbolTable()[m_output.pc].c_str());
+                                   m_parent.GetProcessor().GetSymbolTable()[m_output.pc].c_str());
                 }
                 return PIPE_FLUSH;
             }
@@ -1095,7 +1095,7 @@ Processor::Pipeline::PipeAction Processor::Pipeline::ExecuteStage::ExecuteInstru
                 m_output.Rcv.m_state   = RST_FULL;
                 DebugFlowWrite("F%u/T%u(%llu) %s branch %s",
                                (unsigned)m_input.fid, (unsigned)m_input.tid, (unsigned long long)m_input.logical_index, m_input.pc_sym,
-                               GetKernel()->GetSymbolTable()[m_output.pc].c_str());
+                               m_parent.GetProcessor().GetSymbolTable()[m_output.pc].c_str());
             }
             return PIPE_FLUSH;
         }

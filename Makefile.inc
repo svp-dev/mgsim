@@ -33,8 +33,7 @@ endif
 ## 
 ## Manual page rules
 ##
-mgsim.1: $(top_srcdir)/.version $(top_srcdir)/cli/main.cpp
-	$(MAKE) $(AM_MAKEFLAGS) mgsim
+mgsim.1: mgsim
 	$(AM_V_GEN)$(HELP2MAN) -N --output=$@ ./mgsim
 
 MAINTAINERCLEANFILES += $(dist_man1_MANS)

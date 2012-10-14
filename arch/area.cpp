@@ -17,29 +17,29 @@ struct config
 {
     double       tech;      // in nanometers
 
-    unsigned int bits_PSize;
-    unsigned int bits_FCapability;
-    unsigned int bits_TSize;
-    unsigned int bits_RegIndex;
-    unsigned int bits_RegAddr;
-    unsigned int bits_RegValue;
-    unsigned int bits_RegsNo;
-    unsigned int bits_SInteger;
-    unsigned int bits_MemAddr;
-    unsigned int bits_bool;
-    unsigned int bits_CID;
-    unsigned int bits_unsigned;
-    unsigned int bits_LFID;
-    unsigned int bits_TID;
-    unsigned int bits_PID;
-    unsigned int bits_BlockSize;
+    size_t bits_PSize;
+    size_t bits_FCapability;
+    size_t bits_TSize;
+    size_t bits_RegIndex;
+    size_t bits_RegAddr;
+    size_t bits_RegValue;
+    size_t bits_RegsNo;
+    size_t bits_SInteger;
+    size_t bits_MemAddr;
+    size_t bits_bool;
+    size_t bits_CID;
+    size_t bits_unsigned;
+    size_t bits_LFID;
+    size_t bits_TID;
+    size_t bits_PID;
+    size_t bits_BlockSize;
     
-    unsigned int numProcessors;
-    unsigned int numFPUs;
-    unsigned int numThreads;
-    unsigned int numFamilies;
-    unsigned int numIntRegisters;
-    unsigned int numFltRegisters;
+    size_t numProcessors;
+    size_t numFPUs;
+    size_t numThreads;
+    size_t numFamilies;
+    size_t numIntRegisters;
+    size_t numFltRegisters;
 };
 
 struct org_t
@@ -62,27 +62,27 @@ struct org_t
 
 struct cache_desc
 {
-    unsigned int sets;
-    unsigned int assoc;
-    unsigned int tag;
-    unsigned int linesize;
-    unsigned int r_ports;
-    unsigned int w_ports;
-    unsigned int rw_ports;
+    size_t sets;
+    size_t assoc;
+    size_t tag;
+    size_t linesize;
+    size_t r_ports;
+    size_t w_ports;
+    size_t rw_ports;
 };
 
 struct field_desc {
     const char* name;
-    const unsigned int config::*bits;
-    unsigned int mult;
-    unsigned int r_ports;
-    unsigned int w_ports;
-    unsigned int rw_ports;
+    const size_t config::*bits;
+    size_t mult;
+    size_t r_ports;
+    size_t w_ports;
+    size_t rw_ports;
 };
 
 struct structure_desc {
     const char* name;
-    const unsigned int config::*rows;
+    const size_t config::*rows;
     field_desc fields[40];
 };
 
@@ -405,8 +405,8 @@ static org_t get_ram_info(int rows, int width, int rw_ports, int r_ports, int w_
 
 static org_t get_cache_info(const cache_desc& desc, double tech)
 {
-    unsigned int actual_sets = desc.sets;
-    unsigned int cacti_sets  = std::max(actual_sets, 16u);
+    size_t actual_sets = desc.sets;
+    size_t cacti_sets  = std::max(actual_sets, (size_t)16);
     org_t i = get_info(cacti_sets * desc.assoc * desc.linesize, desc.linesize, desc.assoc, desc.rw_ports, desc.r_ports, desc.w_ports, tech, desc.linesize * 8, desc.tag, 1);
     i.area = i.area * actual_sets / cacti_sets;
     return i;
@@ -417,12 +417,12 @@ static org_t get_structure_info(std::ostream& os, const config& config, const st
     org_t info(0,0,0);
     for (const field_desc* fld = desc.fields; fld->name != 0; ++fld)
     {
-        unsigned int actual_bits = config.*fld->bits * fld->mult;
-        unsigned int cacti_bits  = (actual_bits + 7) / 8 * 8;
+        size_t actual_bits = config.*fld->bits * fld->mult;
+        size_t cacti_bits  = (actual_bits + 7) / 8 * 8;
         
         // Expand rows until cache size is at least 64 bytes
-        unsigned int actual_rows = config.*desc.rows;
-        unsigned int cacti_rows  = std::max(actual_rows, (512 + cacti_bits - 1) / cacti_bits);
+        size_t actual_rows = config.*desc.rows;
+        size_t cacti_rows  = std::max(actual_rows, (512 + cacti_bits - 1) / cacti_bits);
 
         org_t i = get_ram_info(cacti_rows, cacti_bits / 8, fld->r_ports, fld->w_ports, fld->rw_ports, config.tech);
         
@@ -438,9 +438,9 @@ static org_t get_structure_info(std::ostream& os, const config& config, const st
 
 static void DumpStatsCOMA(std::ostream& os, const Simulator::COMA& coma)
 {
-    unsigned int numCaches      = coma.GetNumCaches();
-    unsigned int numDirectories = coma.GetNumDirectories();
-    unsigned int numRootDirs    = coma.GetNumRootDirectories();
+    size_t numCaches      = coma.GetNumCaches();
+    size_t numDirectories = coma.GetNumDirectories();
+    size_t numRootDirs    = coma.GetNumRootDirectories();
     
     os << "L2 caches: " << numCaches << std::endl
        << "Directories: " << numDirectories << std::endl
@@ -449,16 +449,16 @@ static void DumpStatsCOMA(std::ostream& os, const Simulator::COMA& coma)
 
 static org_t DumpAreaCOMA(std::ostream& os, const config& config, const Simulator::COMA& coma)
 {
-    unsigned int lineSize       = coma.GetLineSize();
-    unsigned int numSets        = coma.GetNumCacheSets();
-    unsigned int assoc          = coma.GetCacheAssociativity();
-    unsigned int numCaches      = coma.GetNumCaches();
-    unsigned int numDirectories = coma.GetNumDirectories();
-    unsigned int numRootDirs    = coma.GetNumRootDirectories();
-    unsigned int bits_tag       = config.bits_MemAddr - ilog2(lineSize) - ilog2(numSets);
-    unsigned int bits_numCaches = ilog2(numCaches);
+    size_t lineSize       = coma.GetLineSize();
+    size_t numSets        = coma.GetNumCacheSets();
+    size_t assoc          = coma.GetCacheAssociativity();
+    size_t numCaches      = coma.GetNumCaches();
+    size_t numDirectories = coma.GetNumDirectories();
+    size_t numRootDirs    = coma.GetNumRootDirectories();
+    size_t bits_tag       = config.bits_MemAddr - ilog2(lineSize) - ilog2(numSets);
+    size_t bits_numCaches = ilog2(numCaches);
 
-    unsigned int numCachesPerLowRing = coma.GetNumCachesPerLowRing();
+    size_t numCachesPerLowRing = coma.GetNumCachesPerLowRing();
     
     static const tcache_desc l2_cache = {
         "l2_cache",
@@ -508,10 +508,10 @@ static org_t DumpAreaCOMA(std::ostream& os, const config& config, const Simulato
     return total;
 }
     
-void Simulator::MGSystem::DumpArea(std::ostream& os, unsigned int tech) const
+void Simulator::MGSystem::DumpArea(std::ostream& os, size_t tech) const
 {
     // Virtual register size (registers in ISA)
-    static const unsigned int BITS_VREG = 5;
+    static const size_t BITS_VREG = 5;
     
     config cfg;
     
@@ -653,7 +653,7 @@ void Simulator::MGSystem::DumpArea(std::ostream& os, unsigned int tech) const
 
 #else
 // CACTI not enabled
-void Simulator::MGSystem::DumpArea(std::ostream& os, unsigned int tech) const
+void Simulator::MGSystem::DumpArea(std::ostream& os, size_t tech) const
 {
     assert(false);
 }

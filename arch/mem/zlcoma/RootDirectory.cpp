@@ -79,7 +79,7 @@ bool ZLCOMA::RootDirectory::OnReadCompleted()
     COMMIT
     {
         char data[m_lineSize];
-        m_parent.Read(msg->address, data, m_lineSize);
+        static_cast<VirtualMemory&>(m_parent).Read(msg->address, data, m_lineSize);
 
         line::blitnot(msg->data, data, msg->bitmask, m_lineSize);
         std::fill(msg->bitmask, msg->bitmask + m_lineSize, true);
@@ -382,7 +382,7 @@ Result ZLCOMA::RootDirectory::DoRequests()
             }
             
             COMMIT{
-                m_parent.Write(msg->address, msg->data, 0, m_lineSize);
+                static_cast<VirtualMemory&>(m_parent).Write(msg->address, msg->data, 0, m_lineSize);
                 
                 ++m_nwrites;
                 delete msg; 
