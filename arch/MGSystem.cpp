@@ -937,7 +937,8 @@ MGSystem::MGSystem(Config& config, bool quiet)
 #ifdef OBJDUMP_CMD
         v = OBJDUMP_CMD;
 #else
-        throw runtime_error("Utility 'objdump' was not found and " OBJDUMP_VAR " is not set.");
+        if (!quiet)
+            cerr << "# Warning: platform-specific 'objdump' was not found and " OBJDUMP_VAR " is not set; cannot disassemble code." << endl;
 #endif
     }
     m_objdump_cmd = v;
