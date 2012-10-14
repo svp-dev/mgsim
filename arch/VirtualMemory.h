@@ -4,7 +4,7 @@
 #include <arch/simtypes.h>
 #include <arch/symtable.h>
 #include <sim/inspect.h>
-#include <arch/memory.h>
+#include <arch/Memory.h>
 
 #include <map>
 #include <vector>
