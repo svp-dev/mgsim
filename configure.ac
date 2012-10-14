@@ -220,18 +220,26 @@ enable_mipsel_tests=no
 
 AC_ARG_VAR([AS_MTALPHA], [Location of the `as' utility configured for the MT-Alpha binary format.])
 AC_ARG_VAR([LD_MTALPHA], [Location of the `ld' utility configured for the MT-Alpha binary format.])
+AC_ARG_VAR([OBJDUMP_MTALPHA], [Location of the `objdump' utility configured for the MT-Alpha binary format.])
 AC_ARG_VAR([AS_MTSPARC], [Location of the `as' utility configured for the MT-Sparc binary format.])
 AC_ARG_VAR([LD_MTSPARC], [Location of the `ld' utility configured for the MT-Sparc binary format.])
+AC_ARG_VAR([OBJDUMP_MTSPARC], [Location of the `objdump' utility configured for the MT-Sparc binary format.])
 AC_ARG_VAR([AS_MIPS], [Location of the `as' utility configured for the MIPS binary format.])
 AC_ARG_VAR([LD_MIPS], [Location of the `ld' utility configured for the MIPS binary format.])
+AC_ARG_VAR([OBJDUMP_MIPS], [Location of the `objdump' utility configured for the MIPS binary format.])
 AC_ARG_VAR([AS_MIPSEL], [Location of the `as' utility configured for the MIPSel binary format.])
 AC_ARG_VAR([LD_MIPSEL], [Location of the `ld' utility configured for the MIPSel binary format.])
+AC_ARG_VAR([OBJDUMP_MIPSEL], [Location of the `objdump' utility configured for the MIPSel binary format.])
 
 case "$target_cpu" in
 mtalpha)
 
   AC_PATH_PROG([AS_MTALPHA], [mtalpha-linux-gnu-as], [no], [$prefix/bin$PATH_SEPARATOR$PATH])
   AC_PATH_PROG([LD_MTALPHA], [mtalpha-linux-gnu-ld], [no], [$prefix/bin$PATH_SEPARATOR$PATH])
+  AC_PATH_PROG([OBJDUMP_MTALPHA], [mtalpha-linux-gnu-objdump], [no], [$prefix/bin$PATH_SEPARATOR$PATH]) 
+  if test "x$OBJDUMP_MTALPHA" != xno; then
+     AC_DEFINE_UNQUOTED([OBJDUMP_MTALPHA], ["$OBJDUMP_MTALPHA"], [Define to the location of the `objdump' utility for MT-Alpha.])
+  fi
 
   enable_mtalpha_tests=yes
   if test "x$AS_MTALPHA" = "xno" \
@@ -249,6 +257,10 @@ mtsparc)
 
   AC_PATH_PROG([AS_MTSPARC], [mtsparc-linux-gnu-as], [no], [$prefix/bin$PATH_SEPARATOR$PATH])
   AC_PATH_PROG([LD_MTSPARC], [mtsparc-linux-gnu-ld], [no], [$prefix/bin$PATH_SEPARATOR$PATH])
+  AC_PATH_PROG([OBJDUMP_MTSPARC], [mtsparc-linux-gnu-objdump], [no], [$prefix/bin$PATH_SEPARATOR$PATH])
+  if test "x$OBJDUMP_MTSPARC" != xno; then
+     AC_DEFINE_UNQUOTED([OBJDUMP_MTSPARC], ["$OBJDUMP_MTSPARC"], [Define to the location of the `objdump' utility for MT-SPARC.])
+  fi
 
   enable_mtsparc_tests=yes
   if test "x$AS_MTSPARC" = "xno" \
@@ -265,6 +277,10 @@ mips)
 
   AC_PATH_PROG([AS_MIPS], [mips-linux-gnu-as], [no], [$prefix/bin$PATH_SEPARATOR$PATH])
   AC_PATH_PROG([LD_MIPS], [mips-linux-gnu-ld], [no], [$prefix/bin$PATH_SEPARATOR$PATH])
+  AC_PATH_PROG([OBJDUMP_MIPS], [mips-linux-gnu-objdump], [no], [$prefix/bin$PATH_SEPARATOR$PATH])
+  if test "x$OBJDUMP_MIPS" != xno; then
+     AC_DEFINE_UNQUOTED([OBJDUMP_MIPS], ["$OBJDUMP_MIPS"], [Define to the location of the `objdump' utility for MIPS.])
+  fi
 
   enable_mips_tests=yes
   if test "x$AS_MIPS" = "xno" \
@@ -281,6 +297,10 @@ mipsel)
 
   AC_PATH_PROG([AS_MIPSEL], [mipsel-linux-gnu-as], [no], [$prefix/bin$PATH_SEPARATOR$PATH])
   AC_PATH_PROG([LD_MIPSEL], [mipsel-linux-gnu-ld], [no], [$prefix/bin$PATH_SEPARATOR$PATH])
+  AC_PATH_PROG([OBJDUMP_MIPSEL], [mipsel-linux-gnu-objdump], [no], [$prefix/bin$PATH_SEPARATOR$PATH])
+  if test "x$OBJDUMP_MIPSEL" != xno; then
+     AC_DEFINE_UNQUOTED([OBJDUMP_MIPSEL], ["$OBJDUMP_MIPSEL"], [Define to the location of the `objdump' utility for MIPSel.])
+  fi
 
   enable_mipsel_tests=yes
   if test "x$AS_MIPSEL" = "xno" \

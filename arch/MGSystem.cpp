@@ -590,9 +590,9 @@ void MGSystem::Disassemble(MemAddr addr, size_t sz) const
 {
     ostringstream cmd;
 
-    cmd << m_objdump_cmd << " -d -r --prefix-addresses --show-raw-insn --start-address=" << addr
-        << " --stop-address=" << addr + sz << " " << m_bootrom->GetProgramName();
-    clog << "Running " << cmd.str() << "..." << endl;
+    cmd << m_objdump_cmd << " -d -r \\\n   --prefix-addresses --show-raw-insn \\\n   --start-address=" << addr
+        << " --stop-address=" << addr + sz << " \\\n   " << m_bootrom->GetProgramName();
+    clog << "Command:" << endl << "  " << cmd.str() << endl;
     system(cmd.str().c_str());
 }
 
@@ -911,24 +911,41 @@ MGSystem::MGSystem(Config& config, bool quiet)
 
     // Find objdump command
 #if defined(TARGET_MTALPHA)
-    const char *default_objdump = "mtalpha-linux-gnu-objdump";
-    const char *objdump_var = "MTALPHA_OBJDUMP";
+# define OBJDUMP_VAR "MTALPHA_OBJDUMP"
+# if defined(OBJDUMP_MTALPHA)
+#  define OBJDUMP_CMD OBJDUMP_MTALPHA
+# endif
 #elif defined(TARGET_MTSPARC)
-    const char *default_objdump = "mtsparc-linux-gnu-objdump";
-    const char *objdump_var = "MTSPARC_OBJDUMP";
+# define OBJDUMP_VAR "MTSPARc_OBJDUMP"
+# if defined(OBJDUMP_MTSPARC)
+#  define OBJDUMP_CMD OBJDUMP_MTSPARC
+# endif
 #elif defined(TARGET_MIPS32)
-    const char *default_objdump = "mips-linux-gnu-objdump";
-    const char *objdump_var = "MIPS_OBJDUMP";
+# define OBJDUMP_VAR "MIPS_OBJDUMP"
+# if defined(OBJDUMP_MIPS)
+#  define OBJDUMP_CMD OBJDUMP_MIPS
+# endif
 #elif defined(TARGET_MIPS32EL)
-    const char *default_objdump = "mipsel-linux-gnu-objdump";
-    const char *objdump_var = "MIPSEL_OBJDUMP";
+# define OBJDUMP_VAR "MIPSEL_OBJDUMP"
+# if defined(OBJDUMP_MIPSEL)
+#  define OBJDUMP_CMD OBJDUMP_MIPSEL
+# endif
 #endif
-    const char *v = getenv(objdump_var);
-    if (!v) v = default_objdump;
+    const char *v = getenv(OBJDUMP_VAR);
+    if (!v)
+    {
+#ifdef OBJDUMP_CMD
+        v = OBJDUMP_CMD;
+#else
+        throw runtime_error("Utility 'objdump' was not found and " OBJDUMP_VAR " is not set.");
+#endif
+    }
     m_objdump_cmd = v;
 
     if (!quiet)
     {
+        clog << "Location of `objdump': " << m_objdump_cmd << endl;
+
         static char const qual[] = {'M', 'G', 'T', 'P', 'E', 'Z', 'Y'};
         unsigned int q;
         for (q = 0; masterfreq % 1000 == 0 && q < sizeof(qual)/sizeof(qual[0]); ++q)
