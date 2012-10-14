@@ -1,11 +1,12 @@
 #include "config.h"
+#include "configparser.h"
 #include "except.h"
+#include "readfile.h"
 #include <algorithm>
-#include <fstream>
 #include <iostream>
+#include <cctype>
 #include <set>
 #include <fnmatch.h>
-#include <cctype>
 
 using namespace std;
 using namespace Simulator;
@@ -76,8 +77,6 @@ bool InputConfigRegistry::convertToNumber<bool>(const string& name, const string
     int i = convertToNumber<int>(name, val);
     return i != 0;
 }
-
-
 
 bool InputConfigRegistry::lookup(const string& name_, string& result, const string &def, bool allow_default)
 {
@@ -191,95 +190,8 @@ vector<string> InputConfigRegistry::getWordList(const string& name)
 InputConfigRegistry::InputConfigRegistry(const string& filename, const ConfigMap& overrides, const vector<string>& argv)
     : m_data(), m_overrides(overrides), m_cache(), m_argv(argv)
 {
-    enum State
-    {
-        STATE_BEGIN,
-        STATE_COMMENT,
-        STATE_NAME,
-        STATE_EQUALS,
-        STATE_VALUE,
-    };
-
-    State state = STATE_BEGIN;
-    string name;
-    string value;
-
-    ifstream input(filename.c_str());
-    if (!input.is_open())
-    {
-        throw FileNotFoundException(filename);
-    }
-
-    while (!input.eof())
-    {
-        int c = input.get();
-        if (input.fail())
-        {
-            break;
-        }
-
-        if (state == STATE_BEGIN && !isspace(c))
-        {
-            if (c == '#' || c == ';')
-            {
-                state = STATE_COMMENT;
-            }
-            else if (isalpha(c) || c == '_' || c == '*' || c == '.' || c == ':')
-            {
-                state = STATE_NAME;
-                name = (char)c;
-            }
-        }
-        else if (state == STATE_COMMENT)
-        {
-            if (c == '\n')
-            {
-                state = STATE_BEGIN;
-            }
-        }
-        else if (state == STATE_NAME)
-        {
-            if (isalnum(c) || c == '_' || c == '*' || c == '.' || c == ':') name += (char)c;
-            else
-            {
-                state = STATE_EQUALS;
-            }
-        }
-
-        if (state == STATE_EQUALS && !isspace(c))
-        {
-            if (c == '=') state = STATE_VALUE;
-        }
-        else if (state == STATE_VALUE)
-        {
-            if ((c == '\t' || c == ' ') && value.empty())
-            {
-            }
-            else if (c == '\r' || c == '\n' || c == '#')
-            {
-                // Strip off all the spaces from the end
-                string::size_type pos = value.find_last_not_of("\r\n\t\v\f ");
-                if (pos != string::npos) {
-                    value.erase(pos + 1);
-                }
-
-                m_data.append(name, value);
-                name.clear();
-                value.clear();
-
-                state = (c == '#' || c == ';') ? STATE_COMMENT : STATE_BEGIN;
-            }
-            else
-            {
-                value = value + (char)c;
-            }
-        }
-    }
-
-    if (value != "")
-    {
-        m_data.append(name, value);
-    }
+    ConfigParser parser(m_data);
+    parser(read_file(filename).c_str());
 }
 
 bool ComponentModelRegistry::Entity::operator<(const ComponentModelRegistry::Entity& right) const
