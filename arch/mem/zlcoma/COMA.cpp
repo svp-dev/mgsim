@@ -96,7 +96,7 @@ ZLCOMA::ZLCOMA(const std::string& name, Simulator::Object& parent, Clock& clock,
     // It has no processes of its own.
     Simulator::Object(name, parent, clock),
     m_registry(config),
-    m_numClientsPerCache(config.getValue<size_t>("NumClientsPerL2Cache")),
+    m_numClientsPerCache(config.getValue<size_t>(*this, "NumClientsPerL2Cache")),
     m_numCachesPerDir   (config.getValue<size_t>(*this, "NumL2CachesPerRing")),
     m_numClients(0),
     m_lineSize(config.getValue<size_t>("CacheLineSize")),
