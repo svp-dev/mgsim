@@ -106,7 +106,7 @@ bool InputConfigRegistry::lookup(const string& name_, string& result, const stri
 
     if (!found)
     {
-        for (auto& c : m_data)
+        for (auto& c : m_data.reverse())
         {
             pat = c.first;
             if (FNM_NOMATCH != fnmatch(pat.c_str(), name.c_str(), 0))
