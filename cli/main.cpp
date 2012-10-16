@@ -72,7 +72,7 @@ extern "C"
 {
 const char *argp_program_version =
     "mgsim " PACKAGE_VERSION "\n"
-    "Copyright (C) 2008,2009,2010,2011 Universiteit van Amsterdam.\n"
+    "Copyright (C) 2008,2009,2010,2011,2012 Universiteit van Amsterdam.\n"
     "\n"
     "Written by Mike Lankamp. Maintained by the Microgrid project.";
 
@@ -98,10 +98,11 @@ static const struct argp_option mgsim_options[] =
     { 0, 'F', "NUM VALUE", 0, "Store the float VALUE in the specified FP register of the initial thread.", 1 },
     { 0, 'L', "NUM FILE", 0, "Create an ActiveROM component with the contents of FILE and store the address in the specified register of the initial thread.", 1 },
 
-    { "config", 'c', "FILE", 0, "Read default configuration from FILE.", 2 },
+    { "config", 'c', "FILE", 0, "Read default configuration from FILE. "
+      "The contents of this file are considered after all overrides (-o/-I).", 2 },
     { "dump-configuration", 'd', 0, 0, "Dump configuration to standard error prior to program startup.", 2 },
     { "override", 'o', "NAME=VAL", 0, "Add override option NAME with value VAL. Can be specified multiple times.", 2 },
-    { "include", 'I', "FILE", 0, "Read override options from FILE. Can be specified multiple times.", 2 },
+    { "include", 'I', "FILE", 0, "Read extra override options from FILE. Can be specified multiple times.", 2 },
 
     { "do-nothing", 'n', 0, 0, "Exit before the program starts, but after the system is configured.", 3 },
     { "quiet", 'q', 0, 0, "Do not print simulation statistics after execution.", 3 },
