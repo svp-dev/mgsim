@@ -186,7 +186,7 @@ static error_t mgsim_parse_opt(int key, char *arg, struct argp_state *state)
         }
         string filename(state->argv[state->next++]);
 
-        string devname = "file" + regnum;
+        string devname = "rom_file" + regnum;
         config.m_extradevs.push_back(devname);
         string cfgprefix = devname + ":";
         config.m_overrides.append(cfgprefix + "Type", "AROM");
@@ -283,7 +283,7 @@ int main(int argc, char** argv)
                     n += ',';
                 n += config.m_extradevs[i];
             }
-            config.m_overrides.append("CmdLineFiles", n);
+            config.m_overrides.append("CmdLineFileDevs", n);
         }
 
         if (config.m_interactive)
