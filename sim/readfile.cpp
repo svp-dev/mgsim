@@ -12,7 +12,7 @@ using namespace std;
 string read_file(const string& filename)
 {
     // Open the file
-    int errno_;
+    int errno_ = 0;
     FILE* fd;
     if (filename == "-")
     {
