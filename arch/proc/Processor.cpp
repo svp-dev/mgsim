@@ -40,6 +40,7 @@ Processor::Processor(const std::string& name, Object& parent, Clock& clock, PID 
     m_lpout("stdout", *this, std::cout),
     m_lperr("stderr", *this, std::cerr),
     m_mmu("mmu", *this),
+    m_action("action", *this),
     m_io_if(NULL)
 {
     config.registerProperty(*this, "pid", (uint32_t)pid);
@@ -67,6 +68,7 @@ Processor::Processor(const std::string& name, Object& parent, Clock& clock, PID 
     m_lpout.Connect(m_mmio, IOMatchUnit::WRITE, config);
     m_lperr.Connect(m_mmio, IOMatchUnit::WRITE, config);
     m_mmu.Connect(m_mmio, IOMatchUnit::WRITE, config);
+    m_action.Connect(m_mmio, IOMatchUnit::WRITE, config);
 
     if (iobus != NULL)
     {

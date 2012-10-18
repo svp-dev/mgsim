@@ -39,6 +39,8 @@ DEVICE_SRC = \
         arch/dev/UART.cpp
 
 PROCESSOR_SRC = \
+        arch/proc/ActionInterface.cpp \
+        arch/proc/ActionInterface.h \
 	arch/proc/Allocator.cpp \
 	arch/proc/Allocator.h \
 	arch/proc/AncillaryRegisterFile.cpp \
