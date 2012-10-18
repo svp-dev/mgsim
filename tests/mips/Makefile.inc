@@ -1,5 +1,9 @@
 MIPS_TEST_SOURCES = \
-    tests/mips/simple.s
+    tests/mips/simple.s \
+    tests/mips/addsub.s \
+    tests/mips/arith_branches.s \
+    tests/mips/memory.s \
+    tests/mips/hilo.s
 
 if ENABLE_MIPS_TESTS
 TEST_ARCH       = mips
