@@ -229,7 +229,7 @@ Result Processor::PerfCounters::Read(MemAddr address, void *data, MemSize size, 
         Integer fc = 0;
         for (size_t i = placeStart; i < placeEnd; ++i)
         {
-            fc += cpu.m_grid[i]->GetTotalFamiliesCreated();
+            fc += cpu.m_grid[i]->GetTotalThreadsCreated();
         }
         value = fc;
     }
