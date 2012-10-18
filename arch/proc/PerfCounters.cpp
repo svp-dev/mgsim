@@ -234,6 +234,11 @@ Result Processor::PerfCounters::Read(MemAddr address, void *data, MemSize size, 
         value = fc;
     }
     break;
+    case 20:
+    {
+        value = GetCycleNo();
+    }
+    break;
     default:
         value = 0;
     }
