@@ -233,6 +233,7 @@ Result Processor::PerfCounters::Read(MemAddr address, void *data, MemSize size, 
         }
         value = fc;
     }
+    break;
     default:
         value = 0;
     }
