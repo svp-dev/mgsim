@@ -5,7 +5,7 @@ template <typename T>
 #ifdef __GNUC__
 __attribute__((const))
 #endif
-static bool IsPowerOfTwo(const T& x)
+static inline bool IsPowerOfTwo(T x)
 {
     return (x & (x - 1)) == 0;
 }
