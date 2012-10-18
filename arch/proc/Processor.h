@@ -32,6 +32,7 @@ public:
 #include "RAUnit.h"
 #include "Allocator.h"
 #include "PerfCounters.h"
+#include "MMUInterface.h"
 
     Processor(const std::string& name, Object& parent, Clock& clock, PID pid, const std::vector<Processor*>& grid, IMemory& memory, IMemoryAdmin& admin, FPU& fpu, IIOBus *iobus, Config& config);
     Processor(const Processor&) = delete;
@@ -133,6 +134,7 @@ private:
     PerfCounters          m_perfcounters;
     DebugChannel          m_lpout;
     DebugChannel          m_lperr;
+    MMUInterface          m_mmu;
 
     // External I/O interface, optional
     IOInterface           *m_io_if;

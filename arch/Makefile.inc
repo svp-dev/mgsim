@@ -72,6 +72,8 @@ PROCESSOR_SRC = \
 	arch/proc/ISA.mtsparc.h \
 	arch/proc/ISA.mips.h \
 	arch/proc/MemoryStage.cpp \
+	arch/proc/MMUInterface.cpp \
+	arch/proc/MMUInterface.h \
 	arch/proc/Network.cpp \
 	arch/proc/Network.h \
 	arch/proc/Pipeline.cpp \
