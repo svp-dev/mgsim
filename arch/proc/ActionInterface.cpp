@@ -56,7 +56,7 @@ Result Processor::ActionInterface::Write(MemAddr address, const void *data, MemS
             msg << (value & 0xff);
         }
 
-        const char *actiontype;
+        const char *actiontype = 0;
         switch(address & 3)
         {
         case 0: actiontype = "CONTINUE"; break;
