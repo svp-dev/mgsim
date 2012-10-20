@@ -44,7 +44,7 @@ Result Processor::ActionInterface::Write(MemAddr address, const void *data, MemS
         {
             // Anything but EXIT
             Integer imsg = value;
-            for (int i = 0; i < sizeof(imsg); ++i, imsg >>= 8)
+            for (unsigned i = 0; i < sizeof(imsg); ++i, imsg >>= 8)
             {
                 char byte = imsg & 0xff;
                 if (std::isprint(byte)) msg << byte;
