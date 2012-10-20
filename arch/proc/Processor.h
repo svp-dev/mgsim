@@ -11,6 +11,7 @@ class Config;
 namespace Simulator
 {
 
+namespace counters {};
 class FPU;
 
 class Processor : public Object
@@ -81,6 +82,7 @@ public:
 
 
     // Configuration-dependent helpers
+    PSize       GetPlaceSize(LFID fid) const { return m_familyTable[fid].placeSize; }
     MemAddr     GetTLSAddress(LFID fid, TID tid) const;
     MemSize     GetTLSSize() const;
     PlaceID     UnpackPlace(Integer id) const;
@@ -141,7 +143,7 @@ private:
     // External I/O interface, optional
     IOInterface           *m_io_if;
 
-    friend class PerfCounters;
+    friend class PerfCounters::Helpers;
 };
 
 }

@@ -7,7 +7,10 @@
 
 class PerfCounters : public MMIOComponent
 {
+    class Helpers;
+    friend class Processor;
 
+    std::vector<Integer (*)(Processor&, LFID)> m_counters;
     uint64_t                  m_nCycleSampleOps; // nr of samplings of the cycle counter by program
     uint64_t                  m_nOtherSampleOps; // nr of samplings of other counters
 
