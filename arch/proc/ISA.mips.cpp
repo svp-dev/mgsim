@@ -226,8 +226,12 @@ Processor::Pipeline::PipeAction Processor::Pipeline::ExecuteStage::ExecuteInstru
                     break;
                 case M_ROP_JR:
                     if (Rav != m_input.pc + sizeof(Instruction)) {
+                        DebugFlowWrite("F%u/T%u(%llu) %s branch %s",
+                                       (unsigned)m_input.fid, (unsigned)m_input.tid, (unsigned long long)m_input.logical_index, m_input.pc_sym,
+                                       m_parent.GetProcessor().GetSymbolTable()[Rav].c_str());
                         COMMIT {
                             m_output.pc = Rav;
+                            m_output.swch = true;
                         }
                         return PIPE_FLUSH;
                     }
@@ -241,8 +245,12 @@ Processor::Pipeline::PipeAction Processor::Pipeline::ExecuteStage::ExecuteInstru
                         }
                         if (Rav == next)
                             break;
+                        DebugFlowWrite("F%u/T%u(%llu) %s branch %s",
+                                       (unsigned)m_input.fid, (unsigned)m_input.tid, (unsigned long long)m_input.logical_index, m_input.pc_sym,
+                                       m_parent.GetProcessor().GetSymbolTable()[Rav].c_str());
                         COMMIT {
                             m_output.pc = Rav;
+                            m_output.swch = true;
                         }
                         return PIPE_FLUSH;
                     }
@@ -388,8 +396,12 @@ Processor::Pipeline::PipeAction Processor::Pipeline::ExecuteStage::ExecuteInstru
 
                         MemAddr target = next + m_input.displacement;
                         if (target != next) {
+                            DebugFlowWrite("F%u/T%u(%llu) %s branch %s",
+                                           (unsigned)m_input.fid, (unsigned)m_input.tid, (unsigned long long)m_input.logical_index, m_input.pc_sym,
+                                           m_parent.GetProcessor().GetSymbolTable()[target].c_str());
                             COMMIT {
                                 m_output.pc = target;
+                                m_output.swch = true;
                             }
                             return PIPE_FLUSH;
                         }
@@ -404,19 +416,27 @@ Processor::Pipeline::PipeAction Processor::Pipeline::ExecuteStage::ExecuteInstru
             switch (m_input.opcode) {
 	        case M_OP_J:
 	        case M_OP_JAL:
-                    COMMIT {
-                        MemAddr next = m_input.pc + sizeof(Instruction);
-                        MemAddr target = (next & 0xf0000000) | (m_input.displacement << 2);
-                        if (m_input.opcode == M_OP_JAL) {
+                {
+                    MemAddr next = m_input.pc + sizeof(Instruction);
+                    MemAddr target = (next & 0xf0000000) | (m_input.displacement << 2);
+                    if (m_input.opcode == M_OP_JAL) {
+                        COMMIT {
                             m_output.Rcv.m_state = RST_FULL;
                             m_output.Rcv.m_integer = next;
                         }
-                        if (target != next) {
-                            m_output.pc = target;
-                            return PIPE_FLUSH;
-                        }
                     }
-                    break;
+                    if (target != next) {
+                        DebugFlowWrite("F%u/T%u(%llu) %s branch %s",
+                                       (unsigned)m_input.fid, (unsigned)m_input.tid, (unsigned long long)m_input.logical_index, m_input.pc_sym,
+                                       m_parent.GetProcessor().GetSymbolTable()[target].c_str());
+                        COMMIT {
+                            m_output.swch = true;
+                            m_output.pc = target;
+                        }
+                        return PIPE_FLUSH;
+                    }
+                }
+                break;
                 default:
                     ThrowIllegalInstructionException(*this, m_input.pc);
             }
@@ -428,6 +448,7 @@ Processor::Pipeline::PipeAction Processor::Pipeline::ExecuteStage::ExecuteInstru
                 case M_OP_BNE:
                 case M_OP_BLEZ:
                 case M_OP_BGTZ:
+                {
                     if (m_input.opcode == M_OP_BEQ && Rav != Rbv)
                         break;
                     if (m_input.opcode == M_OP_BNE && Rav == Rbv)
@@ -436,14 +457,21 @@ Processor::Pipeline::PipeAction Processor::Pipeline::ExecuteStage::ExecuteInstru
                         break;
                     if (m_input.opcode == M_OP_BGTZ && (int32_t)Rav <= (int32_t)Rbv)
                         break;
-                    COMMIT {
-                        MemAddr next = m_input.pc + sizeof(Instruction);
-                        MemAddr target = next + m_input.displacement;
-                        if (target != next) {
+
+                    MemAddr next = m_input.pc + sizeof(Instruction);
+                    MemAddr target = next + m_input.displacement;
+                    if (target != next) {
+                        DebugFlowWrite("F%u/T%u(%llu) %s branch %s",
+                                       (unsigned)m_input.fid, (unsigned)m_input.tid, (unsigned long long)m_input.logical_index, m_input.pc_sym,
+                                       m_parent.GetProcessor().GetSymbolTable()[target].c_str());
+                        COMMIT {
+                            m_output.swch = true;
                             m_output.pc = target;
                         }
+                        return PIPE_FLUSH;
                     }
-                    return PIPE_FLUSH;
+                    break;
+                }
                 case M_OP_ADDI:
                 case M_OP_ADDIU:
                     COMMIT {
