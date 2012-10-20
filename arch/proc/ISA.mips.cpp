@@ -256,7 +256,7 @@ Processor::Pipeline::PipeAction Processor::Pipeline::ExecuteStage::ExecuteInstru
                     }
                     break;
                 case M_ROP_SYSCALL:
-                    // Ignored for now.
+                    ThrowIllegalInstructionException(*this, m_input.pc);
                     break;
                 case M_ROP_BREAK:
                     // We repurpose this for ExecDebug.
@@ -302,7 +302,7 @@ Processor::Pipeline::PipeAction Processor::Pipeline::ExecuteStage::ExecuteInstru
                     break;
                 case M_ROP_DIV:
                     if (Rbv == 0)
-                        break; // undefined
+                        ThrowIllegalInstructionException(*this, m_input.pc); // undefined
                     COMMIT {
                         thread.LO = (int32_t)Rav / (int32_t)Rbv;
                         thread.HI = (int32_t)Rav % (int32_t)Rbv;
@@ -310,7 +310,7 @@ Processor::Pipeline::PipeAction Processor::Pipeline::ExecuteStage::ExecuteInstru
                     break;
                 case M_ROP_DIVU:
                     if (Rbv == 0)
-                        break; // undefined
+                        ThrowIllegalInstructionException(*this, m_input.pc); // undefined
                     COMMIT {
                         thread.LO = Rav / Rbv;
                         thread.HI = Rav % Rbv;
