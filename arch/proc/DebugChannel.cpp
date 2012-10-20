@@ -25,10 +25,12 @@ Result Processor::DebugChannel::Read (MemAddr /*address*/, void* /*data*/, MemSi
 
 Result Processor::DebugChannel::Write(MemAddr address, const void *data, MemSize size, LFID fid, TID tid)
 {
-    address /= sizeof(Integer);
+    if (address % sizeof(Integer) != 0 || (size != 1 && size != sizeof(Integer)))
+    {
+        throw exceptf<SimulationException>(*this, "Invalid MMU configuration access: %#016llx (%u)", (unsigned long long)address, (unsigned)size);
+    }
 
-    if (size != 1 && size != sizeof(Integer))
-        return SUCCESS;
+    address /= sizeof(Integer);
 
     COMMIT{
 
