@@ -10,6 +10,7 @@ enum InstrFormat {
     IFORMAT_REGIMM,
     IFORMAT_JTYPE,
     IFORMAT_RTYPE,
+    IFORMAT_SPECIAL,
 };
 
 enum {
@@ -29,6 +30,7 @@ enum {
     M_OP_ORI = 0xd,
     M_OP_XORI = 0xe,
     M_OP_LUI = 0xf,
+    M_OP_COP2 = 0x12,
     // (COPx)
     M_OP_LB = 0x20,
     M_OP_LH = 0x21,
@@ -85,6 +87,16 @@ enum {
     //M_REGIMMOP_BGEZALL = 0x13
 };
 
+enum {
+    M_SPECIAL_GETTID = 0,
+    M_SPECIAL_GETFID = 1,
+    M_SPECIAL_GETPID = 2,
+    M_SPECIAL_GETCID = 3,
+    M_SPECIAL_LDFP = 4,
+    M_SPECIAL_LDBP = 5,
+    M_SPECIAL_GETASR_FIRST = 6,
+    M_SPECIAL_GETAPR_FIRST = 16,
+};
 
 // Latch information for Pipeline
 struct ArchDecodeReadLatch

@@ -43,6 +43,8 @@ Processor::Pipeline::InstrFormat Processor::Pipeline::DecodeStage::GetInstrForma
         case M_OP_J:
         case M_OP_JAL:
             return IFORMAT_JTYPE;
+        case M_OP_COP2:
+            return IFORMAT_SPECIAL;
         default:
             return IFORMAT_ITYPE;
     }
@@ -65,6 +67,16 @@ void Processor::Pipeline::DecodeStage::DecodeInstruction(const Instruction& inst
     m_output.literal = 0;
 
     switch (m_output.format) {
+        case IFORMAT_SPECIAL:
+            if ((instr >> 21) & 0x1f)
+            {
+                ThrowIllegalInstructionException(*this, m_input.pc);
+            }
+            // We overload MFC2 x, $N for getpid/getcid/gettid/getfid
+            m_output.function = Rc; // bits 11..15 give the register to read.
+            m_output.Rc = MAKE_REGADDR(RT_INTEGER, Rb);
+            break;
+
         case IFORMAT_RTYPE:
             m_output.function = instr & 0x3f;
             if (m_output.function == M_ROP_BREAK) {
@@ -123,6 +135,43 @@ Processor::Pipeline::PipeAction Processor::Pipeline::ExecuteStage::ExecuteInstru
     //   * We ignore delay slots; the pipeline is flushed immediately upon branching.
     //   * For various instructions (e.g. BLEZ/BGTZ), we don't check that registers (e.g. Rb) are actually 0.
     switch (m_input.format) {
+        case IFORMAT_SPECIAL:
+            COMMIT { m_output.Rcv.m_state = RST_FULL; }
+
+            switch (m_input.function) {
+            case M_SPECIAL_GETTID: COMMIT { m_output.Rcv.m_integer = m_input.tid; } break;
+            case M_SPECIAL_GETFID: COMMIT { m_output.Rcv.m_integer = m_input.fid; } break;
+            case M_SPECIAL_GETCID: COMMIT { m_output.Rcv.m_integer = m_parent.GetProcessor().GetPID(); } break;
+            case M_SPECIAL_GETPID:
+            {
+                PlaceID place;
+                place.size = m_input.placeSize;
+                place.pid  = m_parent.GetProcessor().GetPID() & -place.size;
+                place.capability = 0x1337; // later: find a proper substitute
+                COMMIT { m_output.Rcv.m_integer = m_parent.GetProcessor().PackPlace(place); }
+                break;
+            }
+            case M_SPECIAL_LDBP: m_output.Rcv.m_integer = m_parent.GetProcessor().GetTLSAddress(m_input.fid, m_input.tid); break; 
+            case M_SPECIAL_LDFP:
+            {
+                const MemAddr tls_base = m_parent.GetProcessor().GetTLSAddress(m_input.fid, m_input.tid);
+                const MemAddr tls_size = m_parent.GetProcessor().GetTLSSize();
+                COMMIT { m_output.Rcv.m_integer = tls_base + tls_size; }
+                break;
+            }
+            default:
+                // Read ASR (6..15) / APR (16...31)
+                if ((m_input.function) < M_SPECIAL_GETAPR_FIRST)
+                {
+                    COMMIT { m_output.Rcv.m_integer = m_parent.GetProcessor().ReadASR(m_input.function - M_SPECIAL_GETASR_FIRST); break; }
+                }
+                else
+                {
+                    COMMIT { m_output.Rcv.m_integer = m_parent.GetProcessor().ReadAPR(m_input.function - M_SPECIAL_GETAPR_FIRST); break; }
+                }
+                break;
+            }
+            break;
         case IFORMAT_RTYPE:
             switch (m_input.function) {
                 case M_ROP_SLL:
