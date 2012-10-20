@@ -41,9 +41,9 @@ enum {
     //M_OP_LWR = 0x26,
     M_OP_SB = 0x28,
     M_OP_SH = 0x29,
-    //M_OP_SWL = 0x2a,
-    M_OP_SW = 0x2b
-    //M_OP_SWR = 0x2e
+    M_OP_SWL = 0x2a,
+    M_OP_SW = 0x2b,
+    M_OP_SWR = 0x2e
     // (LWCx, SWCx)
 };
 

@@ -109,11 +109,25 @@ void Processor::Pipeline::DecodeStage::DecodeInstruction(const Instruction& inst
             // we write back to the second register
             // but for stores we also read from it
             m_output.Rb = MAKE_REGADDR(RT_INTEGER, Rb);
-            m_output.Rc = MAKE_REGADDR(RT_INTEGER, Rb);
             m_output.immediate = instr & 0xffff;
-            if (m_output.opcode == M_OP_BNE || m_output.opcode == M_OP_BEQ || m_output.opcode == M_OP_BLEZ || m_output.opcode == M_OP_BGTZ) {
-                // Signed displacement.
+            switch(m_output.opcode)
+            {
+            case M_OP_BNE:
+            case M_OP_BEQ:
+            case M_OP_BLEZ:
+            case M_OP_BGTZ:
                 m_output.displacement = (int32_t)(m_output.immediate << 16) >> 14;
+                break;
+            case M_OP_SB:
+            case M_OP_SH:
+            case M_OP_SW:
+            case M_OP_SWL:
+            case M_OP_SWR:
+                break;
+            default:
+                // all I-type instructions except for cond. branches and stores write back to $rt (Rb)
+                m_output.Rc = MAKE_REGADDR(RT_INTEGER, Rb);
+                break;
             }
             break;
     }
@@ -495,19 +509,52 @@ Processor::Pipeline::PipeAction Processor::Pipeline::ExecuteStage::ExecuteInstru
                 case M_OP_SB:
                 case M_OP_SH:
                 case M_OP_SW:
-                    COMMIT {
-                        if (m_input.opcode == M_OP_SB)
-                            m_output.size = 1;
-                        else if (m_input.opcode == M_OP_SH)
-                            m_output.size = 2;
-                        else if (m_input.opcode == M_OP_SW)
-                            m_output.size = 4;
+                case M_OP_SWL:
+                case M_OP_SWR:
+                {
+                    MemAddr address = Rav + (int16_t)m_input.immediate;
+                    uint32_t value = m_input.Rbv.m_integer.get(4);
+                    unsigned size = 0;
+
+                    switch(m_input.opcode)
+                    {
+                    case M_OP_SB: size = 1; break;
+                    case M_OP_SH: size = 2; break;
+                    case M_OP_SW: size = 4; break;
+                    case M_OP_SWL:
+                    {
+                        unsigned shift = address & 3;
+                        if (ARCH_ENDIANNESS == ARCH_LITTLE_ENDIAN)
+                            address &= ~(uint32_t)3;
                         else
-                            assert(false && "unreachable");
-                        m_output.address = Rav + (int16_t)m_input.immediate;
-                        m_output.Rcv = m_input.Rbv;
+                            shift ^= 3;
+                        value >>= (8 * shift);
+                        size = shift;
                     }
                     break;
+                    case M_OP_SWR:
+                    {
+                        unsigned shift = address & 3;
+                        if (ARCH_ENDIANNESS == ARCH_LITTLE_ENDIAN)
+                            address &= ~(uint32_t)3;
+                        else
+                            shift ^= 3;
+                        value &= ~(uint32_t)((1 << shift) - 1);
+                        size = 4 - shift;
+                    }
+                    break;
+                    default:
+                        assert(false && "unreachable");
+                    }
+
+                    COMMIT {
+                        m_output.address = address;
+                        m_output.size = size;
+                        m_output.Rcv.m_state = RST_FULL;
+                        m_output.Rcv.m_integer = value;
+                    }
+                }
+                break;
                 default:
                     ThrowIllegalInstructionException(*this, m_input.pc);
             }
