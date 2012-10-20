@@ -35,7 +35,14 @@ check-mips:
 	  $$cdir/configure --target=mips && \
 	  $(MAKE) $(AM_MAKEFLAGS) check
 
-check-all: check-mtsparc check-mtalpha check-mips
+check-mipsel:
+	mkdir -p build-mipsel && \
+	  cdir=`cd $(top_srcdir) && pwd` && \
+	  cd build-mipsel && \
+	  $$cdir/configure --target=mipsel && \
+	  $(MAKE) $(AM_MAKEFLAGS) check
+
+check-all: check-mtsparc check-mtalpha check-mips check-mipsel
 
 distcheck-mtsparc:
 	$(MAKE) $(AM_MAKEFLAGS) distcheck DISTCHECK_CONFIGURE_FLAGS='--target=mtsparc --disable-sdl'
