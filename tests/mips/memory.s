@@ -1,4 +1,5 @@
 	.comm	_stack, 4096, 4
+        .text
 	.globl	main
 	.ent	main
 main:
@@ -46,10 +47,14 @@ main:
 	bne	$3, 0x90000000, bad
 
 	# exit
-	break	0x0, 0xd0
-
+	sw      $0, 0x26c($0)
 bad:
-	break	0x0, 0x90
+	sw      $0, 0x268($0)
+        nop
+        nop
+        nop
+        nop
+        nop
 	.end	main
 
 	.data

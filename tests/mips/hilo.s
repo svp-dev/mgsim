@@ -1,3 +1,4 @@
+        .text
 	.globl	main
 	.ent	main
 main:
@@ -28,7 +29,12 @@ main:
 	bne	$3, 9, bad
 
 	# exit
-	break	0x0, 0xd0
+	sw      $0, 0x26c($0) # exit: action_base + 3 * wordsize
 bad:
-	break	0x0, 0x90
+	sw      $0, 0x268($0) # exit: action_base + 2 * wordsize
+        nop
+        nop
+        nop
+        nop
+        nop
 	.end	main
