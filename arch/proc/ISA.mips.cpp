@@ -54,11 +54,9 @@ void Processor::Pipeline::DecodeStage::DecodeInstruction(const Instruction& inst
 {
     m_output.opcode = (instr >> 26) & 0x3f;
     m_output.format = GetInstrFormat(m_output.opcode);
-
-    // The decode pipeline explodes if these are INVALID_REG, but setting the buffers to $0 is harmless.
-    m_output.Ra = MAKE_REGADDR(RT_INTEGER, 0);
-    m_output.Rb = MAKE_REGADDR(RT_INTEGER, 0);
-    m_output.Rc = MAKE_REGADDR(RT_INTEGER, 0);
+    m_output.Ra     = INVALID_REG;
+    m_output.Rb     = INVALID_REG;
+    m_output.Rc     = INVALID_REG;
 
     RegIndex Ra = (instr >> 21) & 0x1f;
     RegIndex Rb = (instr >> 16) & 0x1f;
@@ -85,8 +83,24 @@ void Processor::Pipeline::DecodeStage::DecodeInstruction(const Instruction& inst
             }
             m_output.Ra = MAKE_REGADDR(RT_INTEGER, Ra);
             m_output.Rb = MAKE_REGADDR(RT_INTEGER, Rb);
-            m_output.Rc = MAKE_REGADDR(RT_INTEGER, Rc);
             m_output.shift = (instr >> 6) & 0x1f;
+            // Some special instructions do not write back a result
+            switch(m_output.function)
+            {
+            case M_ROP_JR:
+            case M_ROP_SYSCALL:
+            case M_ROP_BREAK:
+            case M_ROP_MTHI:
+            case M_ROP_MTLO:
+            case M_ROP_MULT:
+            case M_ROP_MULTU:
+            case M_ROP_DIV:
+            case M_ROP_DIVU:
+                break;
+            default:
+                m_output.Rc = MAKE_REGADDR(RT_INTEGER, Rc);
+                break;
+            }
             break;
 
         case IFORMAT_REGIMM:
