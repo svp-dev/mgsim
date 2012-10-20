@@ -77,10 +77,6 @@ void Processor::Pipeline::DecodeStage::DecodeInstruction(const Instruction& inst
 
         case IFORMAT_RTYPE:
             m_output.function = instr & 0x3f;
-            if (m_output.function == M_ROP_BREAK) {
-                m_output.immediate = (instr >> 6) & 0xfffff;
-                break;
-            }
             m_output.Ra = MAKE_REGADDR(RT_INTEGER, Ra);
             m_output.Rb = MAKE_REGADDR(RT_INTEGER, Rb);
             m_output.shift = (instr >> 6) & 0x1f;
@@ -269,14 +265,9 @@ Processor::Pipeline::PipeAction Processor::Pipeline::ExecuteStage::ExecuteInstru
                         return PIPE_FLUSH;
                     }
                     break;
+                case M_ROP_BREAK:
                 case M_ROP_SYSCALL:
                     ThrowIllegalInstructionException(*this, m_input.pc);
-                    break;
-                case M_ROP_BREAK:
-                    // We repurpose this for ExecDebug.
-                    COMMIT{
-                        ExecDebug((Integer)(m_input.immediate >> 8), m_input.immediate & 0xff);
-                    }
                     break;
                 case M_ROP_MFHI:
                     COMMIT {
