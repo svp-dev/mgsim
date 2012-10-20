@@ -77,11 +77,14 @@ Result Processor::ActionInterface::Write(MemAddr address, const void *data, MemS
             GetKernel()->Stop();
             break;
         case 2:
-            abort();
-            break;
+            throw ProgramTerminationException(*this, "Program requested simulator to abort.", 0, true);
         case 3:
-            exit(value & 0xff);
-            break;
+        {
+            int code = value & 0xff;
+            std::ostringstream emsg;
+            emsg << "Program requested simulator to exit with code " << code << ".";
+            throw ProgramTerminationException(*this, emsg.str(), code, false);
+        }
         }
     }
 

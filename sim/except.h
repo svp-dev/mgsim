@@ -71,6 +71,17 @@ public:
     SecurityException(const Object& object, const std::string& msg) : SimulationException(msg, object) {}
 };
 
+class ProgramTerminationException : public SimulationException
+{
+    int  m_exitcode;
+    bool m_abort;
+public:
+    bool TerminateWithAbort() const { return m_abort; }
+    int GetExitCode() const { return m_exitcode; }
+    ProgramTerminationException(const Object& object, const std::string& msg, int exitcode, bool abort) 
+        : SimulationException(msg, object), m_exitcode(exitcode), m_abort(abort) {}
+};
+
 template<typename Except>
 Except exceptf(const char* fmt, ...)
 #ifdef __GNUC__

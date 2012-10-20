@@ -347,7 +347,7 @@ int main(int argc, char** argv)
         }
 
         if (config.m_earlyquit)
-            exit(0);
+            return 0;
 
         bool interactive = config.m_interactive;
         if (!interactive)
@@ -410,8 +410,21 @@ int main(int argc, char** argv)
     }
     catch (const exception& e)
     {
-        PrintException(cerr, e);
-        return 1;
+        const ProgramTerminationException *ex = dynamic_cast<const ProgramTerminationException*>(&e);
+        if (ex != NULL)
+        {
+            // The program is telling us how to terminate. Do it.
+            if (ex->TerminateWithAbort())
+                abort();
+            else
+                return ex->GetExitCode();
+        }
+        else
+        {
+            // No more information, simply terminate with error.
+            PrintException(cerr, e);
+            return 1;
+        }
     }
 
     return 0;

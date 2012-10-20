@@ -454,13 +454,13 @@ void Processor::Pipeline::ExecuteStage::ExecStatusAction(Integer value, int comm
         GetKernel()->Stop();
         break;
     case 2:
-        abort();
-        break;
+        throw ProgramTerminationException(*this, "Program requested simulator to abort.", 0, true);
     case 3:
     {
         int code = value & 0xff;
-        exit(code);
-        break;
+        ostringstream emsg;
+        emsg << "Program requested simulator to exit with code " << code << ".";
+        throw ProgramTerminationException(*this, emsg.str(), code, false);
     }
     }
 }
