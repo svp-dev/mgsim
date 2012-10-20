@@ -120,11 +120,9 @@ struct ArchDecodeReadLatch
           immediate(0),
           displacement(0)
     {}
+    virtual ~ArchDecodeReadLatch() {}
 };
 
-struct ArchReadExecuteLatch : public ArchDecodeReadLatch
-{
-};
-
+typedef ArchDecodeReadLatch ArchReadExecuteLatch;
 
 #endif
