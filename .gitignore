@@ -15,4 +15,7 @@ config.status
 *.out
 *~
 *.log
+*.rej
+*.orig
+*#*#
 sys_config.h.in
