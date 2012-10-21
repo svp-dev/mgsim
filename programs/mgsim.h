@@ -12,11 +12,14 @@
 #if defined(__mtalpha__)
 #define mgsim_read_asr(DestVar, Register) __asm__ __volatile__("getasr %1, %0" : "=r"(DestVar) : "I"(Register))
 #define mgsim_read_apr(DestVar, Register) __asm__ __volatile__("getapr %1, %0" : "=r"(DestVar) : "I"(Register))
-#endif
-#if defined(__mtsparc__)
+#elif defined(__mtsparc__)
 /* on MT-SPARC, ASR0 is %y, ASR15 is STBAR, and ASR20 are Microthreaded opcodes. */
 #define mgsim_read_asr(DestVar, Register) __asm__ __volatile__("rd %%asr%1, %0" : "=r"(DestVar) : "I"((Register)+1))
 #define mgsim_read_apr(DestVar, Register) __asm__ __volatile__("rd %%asr%1, %0" : "=r"(DestVar) : "I"((Register)+21))
+#elif defined(__mips__)
+/* on MIPS, ASR0 is CP2 register $6; APR0 is CP2 register $16. */
+#define mgsim_read_asr(DestVar, Register) __asm__ __volatile__("mfc2 %0, $%1" : "=r"(DestVar) : "I"((Register)+6))
+#define mgsim_read_apr(DestVar, Register) __asm__ __volatile__("mfc2 %0, $%1" : "=r"(DestVar) : "I"((Register)+16)) 
 #endif
 
 /* Ancillary system registers */
