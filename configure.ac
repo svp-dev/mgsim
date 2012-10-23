@@ -222,22 +222,29 @@ AC_PATH_PROG([SLC], [slc], [no], [$prefix/bin$PATH_SEPARATOR$PATH])
 
 m4_define([MGS_TARGET_CHECK],
 [dnl
-enable_[$1]_tests=no
-
 AC_ARG_VAR([AS_]m4_toupper([$1]), [Location of the `as' utility configured for the $2 binary format.])
 AC_ARG_VAR([LD_]m4_toupper([$1]), [Location of the `ld' utility configured for the $2 binary format.])
 AC_ARG_VAR([OBJDUMP_]m4_toupper([$1]), 
            [Location of the `objdump' utility configured for the $2 binary format.])
 
+enable_[$1]_tests=no
+enable_compiled_[$1]_tests=no
+
+have_[$1]_binutils=no
+AC_PATH_PROG([AS_]m4_toupper([$1]), [$3-as], [no], [$prefix/bin$PATH_SEPARATOR$PATH])
+AC_PATH_PROG([LD_]m4_toupper([$1]), [$3-ld], [no], [$prefix/bin$PATH_SEPARATOR$PATH])
+if test "x$AS_[]m4_toupper([$1])" != "xno" -a "x$LD_[]m4_toupper([$1])" != "xno"; then
+   have_[$1]_binutils=yes
+fi
+
 if test "x$target_cpu" = "x$1"; then
 
-  AC_PATH_PROG([AS_]m4_toupper([$1]), [$3-as], [no], [$prefix/bin$PATH_SEPARATOR$PATH])
-  AC_PATH_PROG([LD_]m4_toupper([$1]), [$3-ld], [no], [$prefix/bin$PATH_SEPARATOR$PATH])
-  if test "x$AS_[]m4_toupper([$1])" = "xno" -o "x$LD_[]m4_toupper([$1])" = "xno"; then
+  if test "x$have_[$1]_binutils" != xyes; then
      AC_MSG_WARN([Some $2 utilities are missing. Cannot run the $2 test suite.])
   else
      enable_[$1]_tests=yes
   fi
+
   AC_PATH_PROG([OBJDUMP_]m4_toupper([$1]), [$3-objdump], [no], [$prefix/bin$PATH_SEPARATOR$PATH]) 
   if test "x$OBJDUMP_"[]m4_toupper([$1]) != xno; then
      AC_DEFINE_UNQUOTED([OBJDUMP_]m4_toupper([$1]), ["$OBJDUMP_]m4_toupper([$1])["],
@@ -249,7 +256,7 @@ if test "x$target_cpu" = "x$1"; then
     AC_LANG_CONFTEST([AC_LANG_SOURCE([int main(void) { return 0; }])])
     if $SLC -b $4 -c -o conftest.o conftest.c >/dev/null 2>&1; then
       AC_MSG_RESULT([yes])
-      enable_compiled_tests=yes
+      enable_compiled_[$1]_tests=yes
     else
       AC_MSG_RESULT([no])
       AC_MSG_WARN([borked $SLC -b ]$4[. Cannot run the compiled $2 test suite.])
@@ -264,7 +271,9 @@ if test "x$target_cpu" = "x$1"; then
 
 fi
 
+AM_CONDITIONAL([HAVE_]m4_toupper([$1])[_BINUTILS], [test x$have_]$1[_binutils = xyes])
 AM_CONDITIONAL([ENABLE_]m4_toupper([$1])[_TESTS], [test x$enable_]$1[_tests = xyes])
+AM_CONDITIONAL([ENABLE_COMPILED_]m4_toupper([$1])[_TESTS], [test x$enable_compiled_]$1[_tests = xyes])
 
 
 ])
@@ -281,7 +290,7 @@ if test $target_found = no; then
   AC_MSG_ERROR([Unsupported simulated core model: $target_cpu (did you use --target?)])
 fi
 
-AM_CONDITIONAL([ENABLE_C_TESTS], [test x$enable_compiled_tests = xyes])
+AC_SUBST([GET_TEST_LIST],['$(TEST_LIST)'])
 
 AC_CONFIG_FILES([
 	Makefile
@@ -291,8 +300,6 @@ AC_CONFIG_FILES([
 ])
 AC_CONFIG_FILES([tools/readtrace], [chmod +x tools/readtrace])
 AC_CONFIG_FILES([tools/viewlog], [chmod +x tools/viewlog])
-AC_CONFIG_FILES([tools/aslink], [chmod +x tools/aslink])
-AC_CONFIG_FILES([tools/compile], [chmod +x tools/compile])
 
 AC_OUTPUT
 

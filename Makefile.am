@@ -1,64 +1,44 @@
-bin_PROGRAMS =
-dist_man1_MANS = 
-MAINTAINERCLEANFILES =
-EXTRA_DIST = 
-
-include $(srcdir)/Makefile.inc
-include $(srcdir)/tests/Makefile.inc
-
 SUBDIRS = tools programs doc .
 
 DISTCHECK_CONFIGURE_FLAGS = --target=mtalpha
 ACLOCAL_AMFLAGS = -I build-aux
 
+# Preset variables so they can be incremented by
+# the included Makefiles below.
+bin_PROGRAMS =
+dist_man1_MANS = 
+CLEANFILES = 
+MAINTAINERCLEANFILES =
+EXTRA_DIST = 
+
 ##
 ## Multi-way distcheck
 ##
-check-mtsparc:
-	mkdir -p build-mtsparc && \
+CHECK_TARGETS = mtsparc mtalpha mips mipsel
+
+check-target-%:
+	mkdir -p build-$* && \
 	  cdir=`cd $(top_srcdir) && pwd` && \
-	  cd build-mtsparc && \
-	  $$cdir/configure --target=mtsparc && \
+	  cd build-$* && \
+	  $$cdir/configure --target=$* && \
 	  $(MAKE) $(AM_MAKEFLAGS) check
 
-check-mtalpha:
-	mkdir -p build-mtalpha && \
+smoketest-target-%:
+	mkdir -p build-$* && \
 	  cdir=`cd $(top_srcdir) && pwd` && \
-	  cd build-mtalpha && \
-	  $$cdir/configure --target=mtalpha && \
-	  $(MAKE) $(AM_MAKEFLAGS) check
+	  cd build-$* && \
+	  $$cdir/configure $(SMOKETEST_CONFIGURE_FLAGS) --target=$* && \
+	  $(MAKE) $(AM_MAKEFLAGS) smoketest
 
-check-mips:
-	mkdir -p build-mips && \
-	  cdir=`cd $(top_srcdir) && pwd` && \
-	  cd build-mips && \
-	  $$cdir/configure --target=mips && \
-	  $(MAKE) $(AM_MAKEFLAGS) check
+distcheck-target-%:
+	$(MAKE) $(AM_MAKEFLAGS) distcheck DISTCHECK_CONFIGURE_FLAGS='--target=$* --disable-sdl'
+	$(MAKE) $(AM_MAKEFLAGS) distcheck DISTCHECK_CONFIGURE_FLAGS='--target=$* --enable-sdl'
 
-check-mipsel:
-	mkdir -p build-mipsel && \
-	  cdir=`cd $(top_srcdir) && pwd` && \
-	  cd build-mipsel && \
-	  $$cdir/configure --target=mipsel && \
-	  $(MAKE) $(AM_MAKEFLAGS) check
+smoketest-all: $(foreach T,$(CHECK_TARGETS),smoketest-target-$(T))
+check-all: $(foreach T,$(CHECK_TARGETS),check-target-$(T))
+discheck-all: $(foreach T,$(CHECK_TARGETS),distcheck-target-$(T))
 
-check-all: check-mtsparc check-mtalpha check-mips check-mipsel
-
-distcheck-mtsparc:
-	$(MAKE) $(AM_MAKEFLAGS) distcheck DISTCHECK_CONFIGURE_FLAGS='--target=mtsparc --disable-sdl'
-	$(MAKE) $(AM_MAKEFLAGS) distcheck DISTCHECK_CONFIGURE_FLAGS='--target=mtsparc --enable-sdl'
-
-distcheck-mtalpha:
-	$(MAKE) $(AM_MAKEFLAGS) distcheck DISTCHECK_CONFIGURE_FLAGS='--target=mtalpha --disable-sdl'
-	$(MAKE) $(AM_MAKEFLAGS) distcheck DISTCHECK_CONFIGURE_FLAGS='--target=mtalpha --enable-sdl'
-
-distcheck-mips:
-	$(MAKE) $(AM_MAKEFLAGS) distcheck DISTCHECK_CONFIGURE_FLAGS='--target=mips --disable-sdl'
-	$(MAKE) $(AM_MAKEFLAGS) distcheck DISTCHECK_CONFIGURE_FLAGS='--target=mips --enable-sdl'
-
-distcheck-all: distcheck-mtsparc distcheck-mtalpha distcheck-mips
-
-.PHONY: check-all distcheck-all
+.PHONY: check-all distcheck-all smoketest-all
 
 include $(srcdir)/build-aux/version.mk
 
@@ -83,3 +63,10 @@ ChangeLog:
 	     echo "No source for ChangeLog. Cannot generate." >&2; \
 	     exit 1; \
 	fi
+
+## General build rules.
+include $(srcdir)/Makefile.inc
+
+## General test rules. This must be at the end because it sets
+## SECONDEXPANSION.
+include $(srcdir)/tests/Makefile.inc

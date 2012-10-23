@@ -1,3 +1,6 @@
+MTALPHA_CRT = \
+        tests/mtalpha/crt_simple.s
+
 MTALPHA_TEST_SOURCES = \
 	tests/mtalpha/fibo/fibo.s \
 	tests/mtalpha/sine/sine_mt_o.s \
@@ -33,13 +36,32 @@ MTALPHA_TEST_SOURCES = \
 	tests/mtalpha/bundle/ceb_i.s \
 	tests/mtalpha/bundle/ceb_is.s
 
-if ENABLE_MTALPHA_TESTS
-TEST_ARCH = mtalpha
-TEST_BINS += $(MTALPHA_TEST_SOURCES:.s=.bin)
+EXTRA_DIST += \
+    $(MTALPHA_TEST_SOURCES) \
+    $(MTALPHA_CRT)
+
+MTALPHA_TEST_BINS = $(MTALPHA_TEST_SOURCES:.s=.mtalpha-bin)
+MTALPHA_CTEST_BINS = $(COMPILED_TEST_SOURCES:.c=.mtalpha-bin)
+
+if ENABLE_COMPILED_MTALPHA_TESTS
+TEST_BINS += $(MTALPHA_CTEST_BINS)
 endif
 
-EXTRA_DIST += $(MTALPHA_TEST_SOURCES) \
-	tests/mtalpha/crt_simple.s
+if ENABLE_MTALPHA_TESTS
+TEST_BINS += $(MTALPHA_TEST_BINS)
+endif
 
+SUFFIXES += .mtalpha-o .mtalpha-bin
 
+.s.mtalpha-o:
+	$(AM_V_at)$(MKDIR_P) `dirname "$@"`
+	$(AM_V_GEN)$(AS_MTALPHA) -o $@ `test -f "$<" || echo "$(srcdir)"/`$<
+
+.mtalpha-o.mtalpha-bin:
+	$(AM_V_at)$(MKDIR_P) `dirname "$@"`
+	$(AM_V_GEN)$(LD_MTALPHA) -e main -Ttext 0x10000 -o $@ `test -f "$<" || echo "$(srcdir)"/`$<
+
+.c.mtalpha-bin:
+	$(MKDIR_P) `dirname "$@"`
+	$(AM_V_GEN)$(SLC) -b mta_n -o $@ $(srcdir)/tests/mtalpha/crt_simple.s `test -f "$<" || echo "$(srcdir)"/`$< $(COMMON_SLC_OPTIONS)
 

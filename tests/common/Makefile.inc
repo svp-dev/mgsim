@@ -1,10 +1,8 @@
-COMMON_TEST_SOURCES = \
+COMPILED_TEST_SOURCES = \
     tests/common/io.c \
     tests/common/mgcfg.c \
     tests/common/rtc.c
 
-if ENABLE_C_TESTS
-TEST_BINS += $(COMMON_TEST_SOURCES:.c=.bin)
-endif
+CLEANFILES += testinput # created by io.c
 
-EXTRA_DIST += $(COMMON_TEST_SOURCES)
+EXTRA_DIST += $(COMPILED_TEST_SOURCES)
