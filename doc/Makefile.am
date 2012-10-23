@@ -36,6 +36,8 @@ dist_man7_MANS = \
 
 # extra rules for manual generation of .pdf manuals
 .7.pdf:
-	$(AM_V_GEN)tbl <$< | groff -Tps -mandoc | ps2pdf - - >$@
+	$(AM_V_GEN)$(TBL) <$< | $(GROFF) -Tps -mandoc | $(PS2PDF) - - >$@
+
+pdf: $(dist_man7_MANS:.7=.pdf)
 
 MAINTAINERCLEANFILES = $(dist_man7_MANS)

@@ -31,6 +31,9 @@ AC_CHECK_PROGS(m4_toupper([$1]), [m4_default([$3], [$1])],
 
 MY_OPT_PROG([help2man], [--help output to manpage converter], [help2man])
 MY_OPT_PROG([rst2man], [reStructuredText to manpage converter], [rst2man rst2man.py])
+MY_OPT_PROG([tbl], [Troff table converter], [tbl])
+MY_OPT_PROG([groff], [GNU roff formatter], [groff])
+MY_OPT_PROG([ps2pdf], [Postscript to PDF converter], [ps2pdf])
 
 ## language / library tests
 
@@ -398,6 +401,12 @@ Now run:
 
     make all
     make check
+
+    # then optionally:
+    make install
+
+    # to generate PDF versions of the manual pages:
+    cd doc && make pdf
 
 EOF
 
