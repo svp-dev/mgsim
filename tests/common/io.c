@@ -23,11 +23,12 @@ void die(const char *where)
     svp_abort();
 }
 
+const char *testconf = "\0PLACES: 1"; // for "make check": this program is single-threaded.
+
 int test(void)
 {
     sys_detect_devs();
     sys_conf_init();
-
     
     int fd;
     int i;
