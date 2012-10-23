@@ -505,11 +505,10 @@ Processor::Pipeline::ReadStage::ReadStage(Pipeline& parent, Clock& clock, const 
     m_bypasses(bypasses),
     m_operand1(), m_operand2(),
     m_RaNotPending(false)
-{
 #if defined(TARGET_MTSPARC)
-    m_isMemoryOp = false;
-    m_rsv.m_state = RST_INVALID;
+  , m_isMemoryOp(false), m_rsv()
 #endif
+{
     m_operand1.port = &m_regFile.p_pipelineR1;
     m_operand2.port = &m_regFile.p_pipelineR2;
     Clear(input.tid);

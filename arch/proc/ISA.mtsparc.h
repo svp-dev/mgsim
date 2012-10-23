@@ -269,12 +269,14 @@ struct ArchDecodeReadLatch
     bool         RsIsLocal;
     unsigned int RsSize;
 
-ArchDecodeReadLatch() : op1(0), op2(0), op3(0), function(0), asi(0), displacement(0), RsSize(0) {}
+    ArchDecodeReadLatch() : op1(0), op2(0), op3(0), function(0), asi(0), displacement(0), Rs(), RsIsLocal(false),  RsSize(0) {}
+    virtual ~ArchDecodeReadLatch() {}
 };
 
 struct ArchReadExecuteLatch : public ArchDecodeReadLatch
 {
     PipeValue Rsv;
+    ArchReadExecuteLatch() : ArchDecodeReadLatch(), Rsv() {}
 };
 
 
