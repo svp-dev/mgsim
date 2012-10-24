@@ -55,13 +55,12 @@ dist-hook: check-version
 	##
 	for f in $(CONFIG_CLEAN_FILES) $(DISTCLEANFILES); do rm -f $(distdir)/$$f; done
 
+.PHONY: ChangeLog
+
 ChangeLog:
-	cd $(srcdir); \
-	if test -e .git; then \
-	     git log --stat --graph >$@ || (rm -f $@; false); \
-	else \
-	     echo "No source for ChangeLog. Cannot generate." >&2; \
-	     exit 1; \
+	$(AM_V_GEN)if test -e $(srcdir)/.git; then \
+	     (cd $(srcdir) && git log --stat --graph) >$@.tmp || (rm -f $@.tmp; false); \
+	     if ! (test -r $(srcdir)/$@ && cmp $@.tmp $(srcdir)/$@); then mv -f $@.tmp $@; else rm -f $@.tmp; fi; \
 	fi
 
 ## General build rules.
