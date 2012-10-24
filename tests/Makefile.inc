@@ -36,7 +36,7 @@ check_%: $(TEST_BINS)
 recheck_%: $(TEST_BINS)
 	$(MAKE) recheck TESTS="$(foreach P,$(PSIZES),$(foreach T,$(TEST_BINS),$(T).$*.$(P).test))"
 
-CLEANFILES += $(TESTS) *.out
+CLEANFILES += $(TESTS) $(TEST_BINS) *.out
 MAINTAINERCLEANFILES += $(TEST_BINS)
 
 .PRECIOUS: %.test
