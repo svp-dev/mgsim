@@ -20,6 +20,7 @@ AM_SILENT_RULES([yes])
 
 ## extra programs
 
+AC_PROG_RANLIB
 AC_PROG_SED
 AM_PATH_PYTHON([2.6], [], [AC_MSG_WARN([The 'readtrace' utility requires Python >= 2.6.])])
 
