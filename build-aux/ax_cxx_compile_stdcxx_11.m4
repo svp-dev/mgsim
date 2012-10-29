@@ -34,6 +34,8 @@ m4_define([_AX_CXX_COMPILE_STDCXX_11_testbody], [
   template <typename T>
     struct check
     {
+      check(int x) {}
+      check() : check(42) {}
       static_assert(sizeof(int) <= sizeof(T), "not big enough");
     };
 
