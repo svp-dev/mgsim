@@ -35,6 +35,6 @@ endif
 ##
 mgsim.1: mgsim
 	$(AM_V_GEN)$(HELP2MAN) -N --output=$@.tmp ./mgsim
-	$(AM_V_at)if ! (test -r $(srcdir)/$@ && cmp $@.tmp $(srcdir)/$@); then mv -f $@.tmp $@; else rm -f $@.tmp; fi
+	$(AM_V_at)if ! (test -r $(srcdir)/$@ && cmp $@.tmp $(srcdir)/$@) >/dev/null 2>&1; then mv -f $@.tmp $@; else rm -f $@.tmp; fi
 
 MAINTAINERCLEANFILES += $(dist_man1_MANS)
