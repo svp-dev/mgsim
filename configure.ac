@@ -284,8 +284,8 @@ target_found=no
 
 MGS_TARGET_CHECK([mtalpha], [MT-Alpha], [mtalpha-linux-gnu], [mta_n])
 MGS_TARGET_CHECK([mtsparc], [MT-SPARC], [mtsparc-linux-gnu], [mtsn_n])
-MGS_TARGET_CHECK([mips], [MIPS (no MT)], [mips-linux-gnu], [mips_s])
-MGS_TARGET_CHECK([mipsel], [MIPSel (no MT)], [mipsel-linux-gnu], [mipsel_s])
+MGS_TARGET_CHECK([mips32], [MIPS (no MT)], [mips-linux-gnu], [mips_s])
+MGS_TARGET_CHECK([mips32el], [MIPSel (no MT)], [mipsel-linux-gnu], [mipsel_s])
 
 if test $target_found = no; then
   AC_MSG_ERROR([Unsupported simulated core model: $target_cpu (did you use --target?)])
