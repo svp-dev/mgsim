@@ -1,10 +1,5 @@
 #! /bin/sh
 
-# Debian ships both 1.9.6 and 1.11 but defaults to 1.9.6...
-automake-1.11 --version >/dev/null 2>/dev/null \
-  && export AUTOMAKE=automake-1.11 \
-  && export ACLOCAL=aclocal-1.11
-
 set -e
 
 if [ "$#" -eq "1" ]; then
