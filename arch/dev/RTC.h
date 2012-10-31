@@ -14,7 +14,7 @@ namespace Simulator
 
     typedef unsigned long long precise_time_t;
     typedef unsigned long      clock_delay_t;
-       
+
     class RTC : public Object
     {
         bool            m_timerTicked;
@@ -55,7 +55,7 @@ namespace Simulator
 
         RTCInterface         m_businterface;
         friend class RTCInterface;
-        
+
     public:
 
         RTC(const std::string& name, Object& parent, Clock& clock, IIOBus& iobus, IODeviceID devid, Config& config);

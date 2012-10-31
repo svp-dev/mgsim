@@ -12,7 +12,7 @@ class Config;
 
 namespace Simulator
 {
-    
+
     class UART : public IIOBusClient, public ISelectorClient, public Object, public Inspect::Interface<Inspect::Info|Inspect::Read>
     {
         IIOBus& m_iobus;
@@ -32,7 +32,7 @@ namespace Simulator
         Buffer<unsigned char> m_fifo_out;
         Process p_Transmit;
         Result DoTransmit();
-    
+
         unsigned char m_write_buffer;
 
         SingleFlag m_sendEnable;

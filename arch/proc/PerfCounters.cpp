@@ -7,18 +7,213 @@
 namespace Simulator
 {
 
-#define NUM_COUNTERS 18
+    class Processor::PerfCounters::Helpers
+{
+template<typename F>
+static void apply_place(Processor& cpu, LFID fid, const F& fun)
+{
+    auto placeSize  = cpu.m_familyTable[fid].placeSize;
+    auto placeStart = (cpu.m_pid / placeSize) * placeSize;
+    auto placeEnd   = placeStart + placeSize;
+    for (auto i = placeStart; i < placeEnd; ++i)
+        fun(i);
+}
 
-size_t Processor::PerfCounters::GetSize() const { return NUM_COUNTERS * sizeof(Integer);  }
+public:
+    // Simulation master cycle counter
+    static Integer master_cycles(Processor& cpu, LFID ) { return cpu.GetKernel()->GetCycleNo(); }
+
+    // Executed instructions on all cores in place
+    static Integer exec_ops(Processor& cpu, LFID fid) {
+        Integer ops = 0;
+        apply_place(cpu, fid, [&](size_t i) { ops += cpu.m_grid[i]->GetPipeline().GetOp(); });
+        return ops;
+    }
+
+    // Issued FP instructions on all cores in place
+    static Integer issued_flops(Processor& cpu, LFID fid) {
+        Integer flops = 0;
+        apply_place(cpu, fid, [&](size_t i) { flops += cpu.m_grid[i]->GetPipeline().GetFlop(); });
+        return flops;
+    }
+
+    // Completed loads on all cores in place
+    static Integer completed_loads(Processor& cpu, LFID fid) {
+        uint64_t n = 0, dummy;
+        apply_place(cpu, fid, [&](size_t i) { cpu.m_grid[i]->GetPipeline().CollectMemOpStatistics(n, dummy, dummy, dummy); });
+        return n;
+    }
+
+    // Completed stores on all cores in place
+    static Integer completed_stores(Processor& cpu, LFID fid) {
+        uint64_t n = 0, dummy;
+        apply_place(cpu, fid, [&](size_t i) { cpu.m_grid[i]->GetPipeline().CollectMemOpStatistics(dummy, n, dummy, dummy); });
+        return n;
+    }
+
+    // Loaded bytes on all cores in place
+    static Integer loaded_bytes(Processor& cpu, LFID fid) {
+        uint64_t n = 0, dummy;
+        apply_place(cpu, fid, [&](size_t i) { cpu.m_grid[i]->GetPipeline().CollectMemOpStatistics(dummy, dummy, n, dummy); });
+        return n;
+    }
+
+    // Stored bytes on all cores in place
+    static Integer stored_bytes(Processor& cpu, LFID fid) {
+        uint64_t n = 0, dummy;
+        apply_place(cpu, fid, [&](size_t i) { cpu.m_grid[i]->GetPipeline().CollectMemOpStatistics(dummy, dummy, dummy, n); });
+        return n;
+    }
+
+    // Line load requests issued from L1 to L2
+    static Integer lines_loaded(Processor& cpu, LFID) {
+        uint64_t n = 0, dummy;
+        cpu.m_memory.GetMemoryStatistics(n, dummy, dummy, dummy, dummy, dummy);
+        return n;
+    }
+
+    // Line store requests issued from L1 to L2
+    static Integer lines_stored(Processor& cpu, LFID) {
+        uint64_t n = 0, dummy;
+        cpu.m_memory.GetMemoryStatistics(dummy, n, dummy, dummy, dummy, dummy);
+        return n;
+    }
+
+    // Place size
+    static Integer place_size(Processor& cpu, LFID fid) { return cpu.m_familyTable[fid].placeSize; }
+
+    // Total cumulative allocated thread slots
+    static Integer allocated_threads(Processor& cpu, LFID fid) {
+        Integer n = 0;
+        apply_place(cpu, fid, [&](size_t i) { n += cpu.m_grid[i]->GetTotalThreadsAllocated(); });
+        return n;
+    }
+
+    // Total cumulative allocated family slots
+    static Integer allocated_families(Processor& cpu, LFID fid) {
+        Integer n = 0;
+        apply_place(cpu, fid, [&](size_t i) { n += cpu.m_grid[i]->GetTotalFamiliesAllocated(); });
+        return n;
+    }
+
+    // Total cumulative exclusive allocate queue size
+    static Integer allocated_xfamilies(Processor& cpu, LFID fid) {
+        Integer n = 0;
+        apply_place(cpu, fid, [&](size_t i) { n += cpu.m_grid[i]->GetTotalAllocateExQueueSize(); });
+        return n;
+    }
+
+    // Unix time in seconds
+    static Integer unix_time(Processor&, LFID) { return time(0); }
+
+    // Packed wall clock date
+    // bits 0-4: day in month
+    // bits 5-8: month in year
+    // bits 9-31: year from 1900
+    static Integer packed_date(Processor&, LFID) {
+        time_t c = time(0);
+        struct tm * tm = gmtime(&c);
+        return (Integer)tm->tm_mday |
+            ((Integer)tm->tm_mon << 5) |
+            ((Integer)tm->tm_year << 9);
+    }
+
+    // Packed wall clock time
+    // bits 0-14 = microseconds / 2^5  (topmost 15 bits)
+    // bits 15-20 = seconds
+    // bits 21-26 = minutes
+    // bits 27-31 = hours
+    static Integer packed_time(Processor&, LFID) {
+        struct timeval tv;
+        gettimeofday(&tv, 0);
+        struct tm * tm = gmtime(&tv.tv_sec);
+
+        // get topmost 15 bits of precision of the usec field
+        // usec is 0-999999; so it has 20 bits of value
+        Integer usec = (tv.tv_usec >> (20-15)) & 0x7fff;
+        return  usec | (tm->tm_sec << 15) | (tm->tm_min << 21) | (tm->tm_hour << 27);
+    }
+
+    // Line load requests issued from chip to outside
+    static Integer extlines_loaded(Processor& cpu, LFID) {
+        uint64_t n = 0, dummy;
+        cpu.m_memory.GetMemoryStatistics(dummy, dummy, dummy, dummy, n, dummy);
+        return n;
+    }
+
+    // Line store requests issued from chip to outside
+    static Integer extlines_stored(Processor& cpu, LFID) {
+        uint64_t n = 0, dummy;
+        cpu.m_memory.GetMemoryStatistics(dummy, dummy, dummy, dummy, dummy, n);
+        return n;
+    }
+
+    // Number of created threads
+    static Integer created_threads(Processor& cpu, LFID fid) {
+        Integer n = 0;
+        apply_place(cpu, fid, [&](size_t i) { n += cpu.m_grid[i]->GetTotalThreadsCreated(); });
+        return n;
+    }
+
+    // Total cumulative created family slots
+    static Integer created_families(Processor& cpu, LFID fid) {
+        Integer n = 0;
+        apply_place(cpu, fid, [&](size_t i) { n += cpu.m_grid[i]->GetTotalFamiliesCreated(); });
+        return n;
+    }
+
+    // Core cycle counter
+    static Integer core_cycles(Processor& cpu, LFID) { return cpu.GetCycleNo(); }
+
+};
+
+Processor::PerfCounters::PerfCounters(Processor& parent, Config& config)
+    : Processor::MMIOComponent("perfcounters", parent, parent.GetClock()),
+      m_counters(),
+      m_nCycleSampleOps(0),
+      m_nOtherSampleOps(0)
+{
+    m_counters.push_back(&Helpers::master_cycles);
+    m_counters.push_back(&Helpers::exec_ops);
+    m_counters.push_back(&Helpers::issued_flops);
+    m_counters.push_back(&Helpers::completed_loads);
+    m_counters.push_back(&Helpers::completed_stores);
+    m_counters.push_back(&Helpers::loaded_bytes);
+    m_counters.push_back(&Helpers::stored_bytes);
+    m_counters.push_back(&Helpers::lines_loaded);
+    m_counters.push_back(&Helpers::lines_stored);
+    m_counters.push_back(&Helpers::place_size);
+    m_counters.push_back(&Helpers::allocated_threads);
+    m_counters.push_back(&Helpers::allocated_families);
+    m_counters.push_back(&Helpers::allocated_xfamilies);
+    m_counters.push_back(&Helpers::unix_time);
+    m_counters.push_back(&Helpers::packed_date);
+    m_counters.push_back(&Helpers::packed_time);
+    m_counters.push_back(&Helpers::extlines_loaded);
+    m_counters.push_back(&Helpers::extlines_stored);
+    m_counters.push_back(&Helpers::created_threads);
+    m_counters.push_back(&Helpers::created_families);
+    m_counters.push_back(&Helpers::core_cycles);
+
+    parent.WriteASR(ASR_NUM_PERFCOUNTERS, m_counters.size());
+    parent.WriteASR(ASR_PERFCOUNTERS_BASE, config.getValue<MemAddr>(*this, "MMIO_BaseAddr"));
+
+    RegisterSampleVariableInObject(m_nCycleSampleOps, SVC_CUMULATIVE);
+    RegisterSampleVariableInObject(m_nOtherSampleOps, SVC_CUMULATIVE);
+}
+
+
+size_t Processor::PerfCounters::GetSize() const { return m_counters.size() * sizeof(Integer);  }
 
 Result Processor::PerfCounters::Write(MemAddr /*address*/, const void * /*data*/, MemSize /*size*/, LFID /*fid*/, TID /*tid*/)
 {
+    assert(0);
     return FAILED;
 }
 
 Result Processor::PerfCounters::Read(MemAddr address, void *data, MemSize size, LFID fid, TID tid, const RegAddr& /*writeback*/)
 {
-    if (size != sizeof(Integer) || address % sizeof(Integer) != 0 || address / sizeof(Integer) >= NUM_COUNTERS)
+    if (size != sizeof(Integer) || address % sizeof(Integer) != 0 || address / sizeof(Integer) >= m_counters.size())
     {
         throw exceptf<InvalidArgumentException>(*this, "Invalid read to performance counter address by F%u/T%u: %#016llx/%u",
                                                 (unsigned)fid, (unsigned)tid, (unsigned long long)address, (unsigned)size);
@@ -27,218 +222,10 @@ Result Processor::PerfCounters::Read(MemAddr address, void *data, MemSize size, 
 
     Processor& cpu = *static_cast<Processor*>(GetParent());
 
-    const size_t placeSize  = cpu.m_familyTable[fid].placeSize;
-    const size_t placeStart = (cpu.m_pid / placeSize) * placeSize;
-    const size_t placeEnd   = placeStart + placeSize;
-    Integer value;
-
-    switch (address)
-    {
-    case 0:
-    {
-        // Return the number of elapsed cycles
-        value = (Integer)GetKernel()->GetCycleNo();
-    }
-    break;
-    case 1:
-    {
-        // Return the number of executed instructions on all cores
-        Integer ops = 0;
-        for (size_t i = placeStart; i < placeEnd; ++i)
-        {
-            ops += cpu.m_grid[i]->GetPipeline().GetOp();
-        }
-        value = ops;
-    }
-    break;    
-    case 2:
-    {
-        // Return the number of issued FP instructions on all cores
-        Integer flops = 0;
-        for (size_t i = placeStart; i < placeEnd; ++i)
-        {
-            flops += cpu.m_grid[i]->GetPipeline().GetFlop();
-        }
-        value = flops;
-    }
-    break;
-    case 3:
-    {
-        // Return the number of completed loads on all cores
-        uint64_t n = 0, dummy;
-        for (size_t i = placeStart; i < placeEnd; ++i)
-        {
-            cpu.m_grid[i]->GetPipeline().CollectMemOpStatistics(n, dummy, dummy, dummy);
-        }
-        value = (Integer)n;
-    }
-    break;
-    case 4:
-    {
-        // Return the number of completed stores on all cores
-        uint64_t n = 0, dummy;
-        for (size_t i = placeStart; i < placeEnd; ++i)
-        {
-            cpu.m_grid[i]->GetPipeline().CollectMemOpStatistics(dummy, n, dummy, dummy);
-        }
-        value = (Integer)n;
-    }
-    break;
-    case 5:
-    {
-        // Return the number of successfully loaded bytes on all cores
-        uint64_t n = 0, dummy;
-        for (size_t i = placeStart; i < placeEnd; ++i)
-        {
-            cpu.m_grid[i]->GetPipeline().CollectMemOpStatistics(dummy, dummy, n, dummy);
-        }
-        value = (Integer)n;
-    }
-    break;
-    case 6:
-    {
-        // Return the number of successfully stored bytes on all cores
-        uint64_t n = 0, dummy;
-        for (size_t i = placeStart; i < placeEnd; ++i)
-        {
-            cpu.m_grid[i]->GetPipeline().CollectMemOpStatistics(dummy, dummy, dummy, n);
-        }
-        value = (Integer)n;
-    }
-    break;
-    case 7:
-    {
-        // Return the number of memory loads overall from L1 to L2 (cache lines)
-        uint64_t n = 0, dummy;
-        cpu.m_memory.GetMemoryStatistics(n, dummy, dummy, dummy, dummy, dummy);
-        value = (Integer)n;
-    }
-    break;
-    case 8:
-    {
-        // Return the number of memory stores overall from L1 to L2 (cache lines)
-        uint64_t n = 0, dummy;
-        cpu.m_memory.GetMemoryStatistics(dummy, n, dummy, dummy, dummy, dummy);
-        value = (Integer)n;
-    }
-    break;
-    case 9:
-    {
-        value = (Integer)placeSize;
-    }
-    break;
-    case 10:
-    {
-        // Return the total cumulative allocated thread slots
-        Integer alloc = 0;
-        for (size_t i = placeStart; i < placeEnd; ++i)
-        {
-            alloc += cpu.m_grid[i]->GetTotalThreadsAllocated();
-        }
-        value = alloc;
-    }
-    break;
-    case 11:
-    {
-        // Return the total cumulative allocated thread slots
-        Integer alloc = 0;
-        for (size_t i = placeStart; i < placeEnd; ++i)
-        {
-            alloc += cpu.m_grid[i]->GetTotalFamiliesAllocated();
-        }
-        value = alloc;
-    }
-    break;
-    case 12:
-    {
-        // Return the total cumulative exclusive allocate queue size
-        Integer alloc = 0;
-        for (size_t i = placeStart; i < placeEnd; ++i)
-        {
-            alloc += cpu.m_grid[i]->GetTotalAllocateExQueueSize();
-        }
-        value = alloc;
-    }
-    break;
-    case 13:
-    {
-        // Return the Unix time
-        value = (Integer)time(0);
-    }
-    break;
-    case 14:
-    {
-        // Return the local date as a packed struct
-        // bits 0-4: day in month
-        // bits 5-8: month in year
-        // bits 9-31: year from 1900
-        time_t c = time(0);
-        struct tm * tm = gmtime(&c);
-        value = (Integer)tm->tm_mday |
-            ((Integer)tm->tm_mon << 5) |
-            ((Integer)tm->tm_year << 9);
-    }
-    break;
-    case 15:
-    {
-        // Return the local time as a packed struct
-        // bits 0-14 = microseconds / 2^5  (topmost 15 bits)
-        // bits 15-20 = seconds
-        // bits 21-26 = minutes
-        // bits 27-31 = hours
-        struct timeval tv;
-        gettimeofday(&tv, 0);
-        struct tm * tm = gmtime(&tv.tv_sec);
-
-        // get topmost 15 bits of precision of the usec field
-        // usec is 0-999999; so it has 20 bits of value
-        Integer usec = (tv.tv_usec >> (20-15)) & 0x7fff;
-        value = usec | (tm->tm_sec << 15) | (tm->tm_min << 21) | (tm->tm_hour << 27);
-    }       
-    break;        
-    case 16:
-    {
-        // Return the number of memory loads overall from external memory (cache lines)
-        uint64_t n = 0, dummy;
-        cpu.m_memory.GetMemoryStatistics(dummy, dummy, dummy, dummy, n, dummy);
-        value = (Integer)n;
-    }
-    break;
-    case 17:
-    {
-        // Return the number of memory stores overall to external memory (cache lines)
-        uint64_t n = 0, dummy;
-        cpu.m_memory.GetMemoryStatistics(dummy, dummy, dummy, dummy, dummy, n);
-        value = (Integer)n;
-    }
-    break;
-    case 18:
-    {
-        // Return the number of created families
-        Integer tc = 0;
-        for (size_t i = placeStart; i < placeEnd; ++i)
-        {
-            tc += cpu.m_grid[i]->GetTotalFamiliesCreated();
-        }
-        value = tc;
-    }
-    break;
-    case 19:
-    {
-        // Return the number of created threads
-        Integer fc = 0;
-        for (size_t i = placeStart; i < placeEnd; ++i)
-        {
-            fc += cpu.m_grid[i]->GetTotalFamiliesCreated();
-        }
-        value = fc;
-    }
-    default:
-        value = 0;
-    }
+    Integer value = m_counters[address](cpu, fid);
 
     DebugIOWrite("Read counter %u by F%u/T%u: %#016llx (%llu)",
-                 (unsigned)address, (unsigned)fid, (unsigned)tid, 
+                 (unsigned)address, (unsigned)fid, (unsigned)tid,
                  (unsigned long long)value, (unsigned long long)value);
 
     COMMIT{
@@ -255,18 +242,6 @@ Result Processor::PerfCounters::Read(MemAddr address, void *data, MemSize size, 
     SerializeRegister(RT_INTEGER, value, data, sizeof(Integer));
 
     return SUCCESS;
-}
-
-Processor::PerfCounters::PerfCounters(Processor& parent, Config& config)
-    : Processor::MMIOComponent("perfcounters", parent, parent.GetClock()),
-      m_nCycleSampleOps(0),
-      m_nOtherSampleOps(0)
-{
-    parent.WriteASR(ASR_NUM_PERFCOUNTERS, NUM_COUNTERS);
-    parent.WriteASR(ASR_PERFCOUNTERS_BASE, config.getValue<MemAddr>(*this, "MMIO_BaseAddr"));
- 
-    RegisterSampleVariableInObject(m_nCycleSampleOps, SVC_CUMULATIVE);
-    RegisterSampleVariableInObject(m_nOtherSampleOps, SVC_CUMULATIVE);
 }
 
 }

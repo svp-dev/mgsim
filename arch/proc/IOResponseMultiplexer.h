@@ -13,8 +13,8 @@ private:
 
     struct IOResponse
     {
-        IODeviceID  device;
         IOData      data;
+        IODeviceID  device;
     };
 
 public:
@@ -38,7 +38,7 @@ public:
     bool OnReadResponseReceived(IODeviceID from, MemAddr address, const IOData& data);
 
     Process p_IncomingReadResponses;
-    
+
     // upon data available on m_incoming
     Result DoReceivedReadResponses();
 

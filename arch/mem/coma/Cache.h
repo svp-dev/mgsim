@@ -22,7 +22,7 @@ public:
         LINE_LOADING,   ///< Allocated, read request sent.
         LINE_FULL,      ///< Allocated and data present.
     };
-    
+
     struct Line
     {
         LineState    state;     ///< State of the line
@@ -35,9 +35,10 @@ public:
         bool         valid[MAX_MEMORY_OPERATION_SIZE]; ///< Validity bitmask
     };
 
-private:    
-    struct Request : public MemData
+private:
+    struct Request
     {
+        MemData      mdata;
         bool         write;
         MemAddr      address;
         unsigned int client;
@@ -54,7 +55,7 @@ private:
     ArbitratedService<>           p_lines;
     std::vector<Line>             m_lines;
     std::vector<char>             m_data;
-    
+
     // Statistics
 
     /* reads */
@@ -65,7 +66,7 @@ private:
     uint64_t                      m_numStallingRLoads;
     uint64_t                      m_numRLoads;
     uint64_t                      m_numRFullHits;
-    uint64_t                      m_numStallingRHits; 
+    uint64_t                      m_numStallingRHits;
     uint64_t                      m_numLoadingRMisses;
 
     /* writes */
@@ -75,12 +76,12 @@ private:
     uint64_t                      m_numWEvictions;
     uint64_t                      m_numStallingWLoads;
     uint64_t                      m_numWLoads;
-    uint64_t                      m_numStallingWHits; 
+    uint64_t                      m_numStallingWHits;
     uint64_t                      m_numWEHits;
     uint64_t                      m_numLoadingWUpdates;
     uint64_t                      m_numSharedWUpdates;
     uint64_t                      m_numStallingWUpdates;
-    
+
     /* accesses from network */
     uint64_t                      m_numReceivedMessages;
     uint64_t                      m_numIgnoredMessages;
@@ -88,7 +89,7 @@ private:
 
     // read and read completions
     uint64_t                      m_numNetworkRHits;
-    uint64_t                      m_numRCompletions; 
+    uint64_t                      m_numRCompletions;
     uint64_t                      m_numStallingRCompletions;
     // evictions
     uint64_t                      m_numInjectedEvictions;
@@ -98,7 +99,7 @@ private:
     uint64_t                      m_numWCompletions;
     uint64_t                      m_numNetworkWHits;
     uint64_t                      m_numStallingWSnoops;
-   
+
     // Processes
     Process p_Requests;
     Process p_In;
@@ -108,7 +109,7 @@ private:
     ArbitratedService<PriorityCyclicArbitratedPort> p_bus;
     Buffer<Request>     m_requests;
     Buffer<MemData>     m_responses;
-    
+
     Line* FindLine(MemAddr address);
     Line* AllocateLine(MemAddr address, bool empty_only, MemAddr *ptag = NULL);
     bool  EvictLine(Line* line, const Request& req);
@@ -123,15 +124,15 @@ private:
     bool OnReadCompleted(MemAddr addr, const char * data);
 public:
     Cache(const std::string& name, COMA& parent, Clock& clock, CacheID id, Config& config);
-    
+
     size_t GetLineSize() const { return m_lineSize; }
     size_t GetNumSets() const { return m_sets; }
     size_t GetAssociativity() const { return m_assoc; }
-    
+
     void Cmd_Info(std::ostream& out, const std::vector<std::string>& arguments) const;
     void Cmd_Read(std::ostream& out, const std::vector<std::string>& arguments) const;
     const Line* FindLine(MemAddr address) const;
-    
+
     MCID RegisterClient  (IMemoryCallback& callback, Process& process, StorageTraceSet& traces, Storage& storage);
     void UnregisterClient(MCID id);
     bool Read (MCID id, MemAddr address);

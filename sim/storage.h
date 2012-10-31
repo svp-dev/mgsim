@@ -18,11 +18,11 @@ class Storage : public virtual Object
 {
     friend class Kernel;
 
-    bool                  m_activated;   ///< Has the storage already been activated this cycle?
     Storage*              m_next;        ///< Next pointer in the list of storages that require updates
+    bool                  m_activated;   ///< Has the storage already been activated this cycle?
 
 protected:
-    
+
     // The process using this storage should run with the same clock as this storage
     void CheckClocks() {
 #ifndef NDEBUG
@@ -32,7 +32,7 @@ protected:
         }
 #endif
     }
-    
+
     void MarkUsage() const {
         if (IsAcquiring()) {
             Process* process = GetKernel()->GetActiveProcess();
@@ -41,25 +41,27 @@ protected:
             }
         }
     }
-    
+
     void RegisterUpdate() {
         if (!m_activated) {
             m_next = GetClock().ActivateStorage(*this);
             m_activated = true;
         }
     }
-    
-    virtual ~Storage() {
-    }
-    
+
+    virtual ~Storage() {}
+
 public:
     virtual void Update() = 0;
 
     const Storage* GetNext() const { return m_next; }
 
     Storage(const std::string& name, Object& parent, Clock& clock)
-        : Object(name, parent, clock), m_activated(false), m_next(NULL)
+        : Object(name, parent, clock), m_next(NULL), m_activated(false)
     {}
+
+    Storage(const Storage&) = delete; // No copy
+    Storage& operator=(const Storage&) = delete; // No assign
 };
 
 /// A storage element that a process is sensitive on
@@ -89,8 +91,10 @@ public:
 
     SensitiveStorage(const std::string& name, Object& parent, Clock& clock)
       : Object(name, parent, clock), Storage(name, parent, clock), m_process(NULL)
-    {
-    }
+    { }
+
+    SensitiveStorage(const SensitiveStorage&) = delete; // No copy
+    SensitiveStorage& operator=(const SensitiveStorage&) = delete; // No assign
 };
 
 template <
@@ -102,14 +106,14 @@ class LinkedList : public SensitiveStorage
 {
     L&   m_table;     ///< The table to dereference to form the linked list
     bool m_empty;     ///< Whether this list is empty
+    bool m_popped;    ///< Has a Pop() been done?
+    bool m_pushed;    ///< Has a Push() been done?
     T    m_head;      ///< First item on the list (when !m_empty)
     T    m_tail;      ///< Last item on the list (when !m_empty)
-    bool m_popped;    ///< Has a Pop() been done?
     T    m_next;      ///< The next field to use (when m_popped)
-    bool m_pushed;    ///< Has a Push() been done?
     T    m_first;     ///< First item of the list being pushed (when m_pushed)
     T    m_last;      ///< Last item of the list being pushed (when m_pushed)
-    
+
     void Update()
     {
         // Effect the changes made in this cycle
@@ -123,7 +127,7 @@ class LinkedList : public SensitiveStorage
                 m_head = m_next;
             }
         }
-        
+
         if (m_pushed) {
             if (m_empty) {
                 // First item on the list; notify sensitive process
@@ -135,20 +139,20 @@ class LinkedList : public SensitiveStorage
             }
             m_tail = m_last;
         }
-        
+
         m_pushed  = false;
         m_popped  = false;
     }
-    
+
 public:
     // A forward iterator (for debugging the contents)
     struct const_iterator
     {
         const L& m_table;
-        bool     m_end;
         const T& m_tail;
         T        m_index;
-        
+        bool     m_end;
+
     public:
         bool operator != (const const_iterator& rhs) const { return !operator==(rhs); }
         bool operator == (const const_iterator& rhs) const {
@@ -166,32 +170,32 @@ public:
         }
         const_iterator operator++(int) { const_iterator p(*this); operator++(); return p; }
         const T& operator*() const { assert(!m_end); return m_index; }
-        const_iterator(const L& table, const T& tail, const T& index) : m_table(table), m_end(false), m_tail(tail), m_index(index) {}
-        const_iterator(const L& table, const T& tail)                 : m_table(table), m_end(true ), m_tail(tail) {}
+        const_iterator(const L& table, const T& tail, const T& index) : m_table(table), m_tail(tail), m_index(index), m_end(false) {}
+        const_iterator(const L& table, const T& tail)                 : m_table(table), m_tail(tail), m_index(), m_end(true ) {}
     };
-    
+
     const_iterator begin() const { return const_iterator(m_table, m_tail, m_head);  }
     const_iterator end()   const { return const_iterator(m_table, m_tail); }
-    
+
     /// Is the list empty?
     bool Empty() const
     {
         return m_empty;
     }
-    
+
     /// Does the list contain only one item?
     bool Singular() const
     {
         assert(!m_empty);
         return m_head == m_tail;
     }
-    
+
     /// Returns the front index on the list
     const T& Front() const {
         assert(!m_empty);
         return m_head;
     }
-    
+
     /// Pushes the item on the back of the list
     void Push(const T& item)
     {
@@ -203,7 +207,7 @@ public:
     void Append(const T& first, const T& last)
     {
         MarkUsage();
-        CheckClocks();        
+        CheckClocks();
         assert(!m_pushed);  // We can only push once in a cycle
         COMMIT {
             m_first  = first;
@@ -212,7 +216,7 @@ public:
             RegisterUpdate();
         }
     }
-    
+
     /// Removes the front item from this list
     void Pop()
     {
@@ -225,13 +229,20 @@ public:
             RegisterUpdate();
         }
     }
-    
+
     /// Construct an empty list with a sensitive component
     LinkedList(const std::string& name, Object& parent, Clock& clock, L& table)
         : Object(name, parent, clock),
           Storage(name, parent, clock),
           SensitiveStorage(name, parent, clock),
-          m_table(table), m_empty(true), m_popped(false), m_pushed(false)
+          m_table(table),
+          m_empty(true),
+          m_popped(false),
+          m_pushed(false),
+          m_head(),
+          m_tail(),
+          m_next(),
+          m_first(), m_last()
     {}
 };
 
@@ -242,13 +253,13 @@ class Buffer : public SensitiveStorage
     // Maximum for m_maxPushes
     // In hardware it can be possible to support multiple pushes
     static const size_t MAX_PUSHES = 4;
-    
+
     size_t        m_maxSize;         ///< Maximum size of this buffer
     size_t        m_maxPushes;       ///< Maximum number of pushes at a cycle
     std::deque<T> m_data;            ///< The actual buffer storage
-    bool          m_popped;          ///< Has a Pop() been done?
     size_t        m_pushes;          ///< Number of items Push()'d this cycle
     T             m_new[MAX_PUSHES]; ///< The items being pushed (when m_pushes > 0)
+    bool          m_popped;          ///< Has a Pop() been done?
 
     // Statistics
     uint64_t      m_stalls;         ///< Number of stalls so far
@@ -290,7 +301,7 @@ class Buffer : public SensitiveStorage
             m_maxsize = std::max(m_maxsize, m_cursize);
         }
     }
-    
+
 public:
     // We define an iterator for debugging the contents only
     typedef typename std::deque<T>::const_iterator         const_iterator;
@@ -315,13 +326,13 @@ public:
             RegisterUpdate();
         }
     }
-    
+
     // Pushes the item onto the buffer. Only succeeds if at
     // least min_space space is available before the push.
     bool Push(const T& item, size_t min_space = 1)
     {
         MarkUsage();
-        
+
         assert(min_space >= 1);
         if (m_maxPushes != 1)
         {
@@ -337,7 +348,7 @@ public:
             // that is in a different clock domain and hasn't been updated yet.
             return false;
         }
-        
+
         if (m_maxSize == INFINITE || m_data.size() + m_pushes + min_space <= m_maxSize)
         {
             COMMIT {
@@ -349,7 +360,7 @@ public:
             }
             return true;
         }
-        
+
         // Accumulate for statistics. We don't want
         // to register multiple stalls so only test during acquire.
         if (IsAcquiring())
@@ -362,10 +373,11 @@ public:
 
     Buffer(const std::string& name, Object& parent, Clock& clock, BufferSize maxSize, size_t maxPushes = 1)
         : Object(name, parent, clock),
-          Storage(name, parent, clock),
-          SensitiveStorage(name, parent, clock),
-          m_maxSize(maxSize), m_maxPushes(maxPushes), m_popped(false), m_pushes(0),
-          m_stalls(0), m_lastcycle(0), m_totalsize(0), m_maxsize(0)
+        Storage(name, parent, clock),
+        SensitiveStorage(name, parent, clock),
+        m_maxSize(maxSize), m_maxPushes(maxPushes),
+        m_data(), m_pushes(0), m_popped(false),
+        m_stalls(0), m_lastcycle(0), m_totalsize(0), m_maxsize(0), m_cursize(0)
     {
         RegisterSampleVariableInObject(m_totalsize, SVC_CUMULATIVE);
         RegisterSampleVariableInObject(m_maxsize, SVC_WATERMARK, maxSize);
@@ -374,15 +386,18 @@ public:
         assert(maxPushes <= MAX_PUSHES);
     }
 
+    Buffer(const Buffer&) = delete;
+    Buffer& operator=(const Buffer&) = delete;
+
 };
 
 /// A full/empty single-value storage element
 template <typename T>
 class Register : public SensitiveStorage
 {
-    bool m_empty;
     T    m_cur;
     T    m_new;
+    bool m_empty;
     bool m_cleared;
     bool m_assigned;
 
@@ -407,17 +422,17 @@ protected:
         }
         m_cleared = false;
     }
-    
+
 public:
     bool Empty() const {
         return m_empty;
     }
-    
+
     const T& Read() const {
         assert(!m_empty);
         return m_cur;
     }
-    
+
     void Clear() {
         CheckClocks();
         assert(!m_cleared);     // We can only clear once in a cycle
@@ -427,7 +442,7 @@ public:
             RegisterUpdate();
         }
     }
-    
+
     void Write(const T& data) {
         MarkUsage();
         CheckClocks();
@@ -438,12 +453,12 @@ public:
             RegisterUpdate();
         }
     }
-    
+
     Register(const std::string& name, Object& parent, Clock& clock)
         : Object(name, parent, clock),
           Storage(name, parent, clock),
           SensitiveStorage(name, parent, clock),
-          m_empty(true), m_cleared(false), m_assigned(false)
+          m_cur(), m_new(), m_empty(true), m_cleared(false), m_assigned(false)
     {}
 };
 
@@ -474,7 +489,7 @@ protected:
             m_totalsize += (uint64_t)m_set * elapsed;
         }
     }
-    
+
 public:
     bool IsSet() const {
         return m_set;
@@ -498,7 +513,7 @@ public:
         }
         return false;
     }
-    
+
     bool Clear() {
         if (!m_updated) {
             COMMIT {
@@ -516,11 +531,11 @@ public:
         }
         return false;
     }
-    
+
     Flag(const std::string& name, Object& parent, Clock& clock, bool set)
         : Object(name, parent, clock), Storage(name, parent, clock),
-          m_set(false), m_updated(false), m_new(set),
-          m_stalls(0), m_lastcycle(0), m_totalsize(0)
+        m_set(false), m_updated(false), m_new(set),
+        m_stalls(0), m_lastcycle(0), m_totalsize(0), m_maxsize(0), m_cursize(0)
     {
         RegisterSampleVariableInObject(m_totalsize, SVC_CUMULATIVE);
         RegisterSampleVariableInObject(m_set, SVC_LEVEL);
@@ -544,8 +559,8 @@ class SingleFlag : public Flag, public SensitiveStorage
 public:
     SingleFlag(const std::string& name, Object& parent, Clock& clock, bool set)
         : Object(name, parent, clock),
-        Storage(name, parent, clock), 
-        Flag(name, parent, clock, set), 
+        Storage(name, parent, clock),
+        Flag(name, parent, clock, set),
         SensitiveStorage(name, parent, clock)
     {}
 };

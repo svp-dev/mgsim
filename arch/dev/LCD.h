@@ -13,8 +13,8 @@ namespace Simulator
 
 class LCD : public IIOBusClient, public Object
 {
-    IODeviceID m_devid;
     IIOBus&    m_iobus;
+    IODeviceID m_devid;
 
     char*      m_buffer;
 
@@ -36,12 +36,14 @@ class LCD : public IIOBusClient, public Object
 
 public:
     LCD(const std::string& name, Object& parent, IIOBus& iobus, IODeviceID devid, Config& config);
+    LCD(const LCD&) = delete;
+    LCD& operator=(const LCD&) = delete;
     ~LCD();
 
-    bool OnReadRequestReceived(IODeviceID from, MemAddr address, MemSize size);
-    bool OnWriteRequestReceived(IODeviceID from, MemAddr address, const IOData& data);
+    bool OnReadRequestReceived(IODeviceID from, MemAddr address, MemSize size) override;
+    bool OnWriteRequestReceived(IODeviceID from, MemAddr address, const IOData& data) override;
 
-    void GetDeviceIdentity(IODeviceIdentification& id) const;
+    void GetDeviceIdentity(IODeviceIdentification& id) const override;
 
     std::string GetIODeviceName() const { return GetFQN(); }
 };

@@ -149,6 +149,12 @@ pre-packaged MGSim distribution where these files are already present.
 .. _Docutils: http://docutils.sourceforge.net/
 .. _help2man: https://www.gnu.org/software/help2man/
 
+To (re-)generate the PDF versions of the manual pages, you will need a
+Postscript to PDF converter. The ``ps2pdf`` command bundled with
+Ghoscript_ is used if it is found.
+
+.. _Ghostscript: http://www.ghostscript.com/
+
 To assemble/link programs from assembly source, you will need a
 modified copy `GNU Binutils`_ with microthreaded extensions. The
 latest source code distribution can be found at http://dist.svp-home.org/deploy/.

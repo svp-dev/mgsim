@@ -73,9 +73,9 @@ string MemoryRequest::str() const
     if (size == 0)
         ss << "NoMem";
     else
-        ss << "Mem:(F" << fid 
-           << ',' << offset 
-           << ',' << size 
+        ss << "Mem:(F" << fid
+           << ',' << offset
+           << ',' << size
            << ',' << sign_extend
            << ',' << next.str()
            << ')';
@@ -88,9 +88,9 @@ string RegValue::str(RegType type) const
     // Also see Pipeline::PipeValue::str()
     switch (m_state)
     {
-    case RST_INVALID: return "INVALID"; 
-    case RST_EMPTY:   return "[E]"; 
-    case RST_PENDING: return "[P:" + m_memory.str() + "]"; 
+    case RST_INVALID: return "INVALID";
+    case RST_EMPTY:   return "[E]";
+    case RST_PENDING: return "[P:" + m_memory.str() + "]";
     case RST_WAITING: return "[W:" + m_memory.str() + "," + m_waiting.str() + "]";
     case RST_FULL:{
         stringstream ss;
@@ -200,8 +200,8 @@ uint64_t UnserializeRegister(RegType type, const void* data, size_t size)
         case RT_INTEGER:
         {
             uint64_t value = EndianToInteger(data, size);
-#if defined(TARGET_MTALPHA)
-            // The Alpha sign-extends 32-bits to 64-bits
+#if defined(TARGET_MTALPHA) || defined(TARGET_MIPS32) || defined(TARGET_MIPS32EL)
+            // The Alpha and MIPS sign-extends 32-bits to 64-bits
             if (size == 4) {
                 // Sign-extend
                 value = (int64_t)(int32_t)(uint32_t)value;
@@ -283,7 +283,7 @@ class IEEE754
             // Move to the first block
             data += start / width;
             start = start % width;
-            
+
             unsigned long long x = 0; // Return value
             unsigned int pos = 0;     // Bit-offset to put new bits
             while (num > 0)           // While we have bits to read
@@ -291,10 +291,10 @@ class IEEE754
                 // Get number of bits in this block
                 unsigned int n = min(width - start, num);
                 T mask = ((n < width) ? (1ULL << n) : 0) - 1;
-                
+
                 // Read block, shift to the bits we want, mask them, move them to final position
                 x |= ((*data >> start) & mask) << pos;
-                
+
                 num  -= n;  // We have n bits less to read
                 pos  += n;  // New bits are n bits further in the result
                 start = 0;  // New bits come from the start of the block
@@ -303,13 +303,13 @@ class IEEE754
             return x;
         }
     }
-    
+
     // Copies the value x into the bits [start, start + num)
     static void SET_BITS(T* data, unsigned int start, unsigned int num, unsigned long long x)
     {
         // Ensure we can store the value
         assert(num <= sizeof(unsigned long long) * 8);
-        
+
         const unsigned int width = sizeof(T) * 8;
         if (start + num <= width)
         {
@@ -321,24 +321,24 @@ class IEEE754
             // Move to first block
             data += start / width;
             start = start % width;
-            
+
             while (num > 0) // While we have bits to set
             {
                 // Get number of bits in this block
                 unsigned int n = min(width - start, num);
                 T mask = ((n < width) ? (1ULL << n) : 0) - 1;
-                
+
                 // Read current data, clear to-be-written area, overwrite with new bits
                 *data = (*data & ~(mask << start)) | ((x & mask) << start);
-                
+
                 num  -= n;  // We have n bits less to set
                 x   >>= n;  // Shift out the bits we set
                 start = 0;  // Next bits go to the start of the block
                 data++;     // Moving to next block
             }
-        }        
+        }
     }
-    
+
     // Tests if all the bits [start, start + num) are zero
     static bool IS_ZERO_BITS(const T* data, unsigned int start, unsigned int num)
     {
@@ -353,18 +353,18 @@ class IEEE754
             // Move to the first block
             data += start / width;
             start = start % width;
-            
+
             while (num > 0) // While we have bits to check
             {
                 // Get number of bits in this block
                 unsigned int n = min(width - start, num);
                 T mask = ((n < width) ? (1ULL << n) : 0) - 1;
-                
+
                 // Read block; shift to the bits we want, mask them, test them
                 if (((*data >> start) & mask) != 0) {
                     return false;
                 }
-                
+
                 num  -= n; // We have n bits less to check
                 start = 0; // Next bits come from the start of the block
                 data++;    // Moving to next block
@@ -372,7 +372,7 @@ class IEEE754
             return true;
         }
     }
-    
+
     // Clears the bits [start, start + num)
     static void CLEAR_BITS(T* data, unsigned int start, unsigned int num)
     {
@@ -387,16 +387,16 @@ class IEEE754
             // Move to the first block
             data += start / width;
             start = start % width;
-            
+
             while (num > 0) // While we have bits to clear
             {
                 // Get number of bits in this block
                 unsigned int n = min(width - start, num);
                 T mask = ((n < width) ? (1ULL << n) : 0) - 1;
-                
+
                 // Clear block
                 *data &= ~(mask << start);
-                
+
                 num  -= n; // We have n bits less to clear
                 start = 0; // Next bits come from the start of the block
                 data++;    // Moving to next block
@@ -410,7 +410,7 @@ public:
         double value = 0.0; // Default to zero
         unsigned long long sign     = GET_BITS(data, Frac + Exp, 1);
         unsigned long long exponent = GET_BITS(data, Frac, Exp);
-        
+
         if (exponent == IEEE754_MAX_EXPONENT)
         {
             value = (IS_ZERO_BITS(data, 0, Frac))
@@ -419,7 +419,7 @@ public:
                     ? numeric_limits<double>::quiet_NaN()      // Not-a-Number (Quiet)
                     : numeric_limits<double>::signaling_NaN(); // Not-a-Number (Signaling)
         }
-        else 
+        else
         {
             // (De)normalized number
             for (int i = 0; i < Frac; ++i)
@@ -467,10 +467,10 @@ public:
             // (De)normalized number
             SET_BITS(data, Frac + Exp, 1, (f < 0) ? 1 : 0);
             f = fabs(f);
-        
+
             int exp;
             f = frexp(f, &exp);
-        
+
             if (exp != 0 || f != 0)
             {
                 // Non-zero number
@@ -482,7 +482,7 @@ public:
                 if (f >= 1) {
                     f -= 1;
                 }
-                
+
                 for (int i = Frac - 1; i >= 0; i--)
                 {
                     f = (f * 2);

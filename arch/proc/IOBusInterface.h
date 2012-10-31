@@ -34,7 +34,7 @@ private:
     IODirectCacheAccess&       m_dca;
     IIOBus&                    m_iobus;
     IODeviceID                 m_hostid;
-    
+
     void Initialize();
 
 public:
@@ -46,7 +46,7 @@ public:
     IOBusInterface(const std::string& name, IOInterface& parent, Clock& clock, IOResponseMultiplexer& rrmux, IONotificationMultiplexer& nmux, IODirectCacheAccess& dca, IIOBus& iobus, IODeviceID devid, Config& config);
 
     bool SendRequest(const IORequest& request);
-    
+
     Process p_OutgoingRequests;
 
     Result DoOutgoingRequests();
@@ -66,7 +66,7 @@ public:
     StorageTraceSet GetNotificationTraces() const;
 
     void GetDeviceIdentity(IODeviceIdentification& id) const;
-    
+
     IODeviceID GetHostID() const { return m_hostid; }
 
     /* for debugging */

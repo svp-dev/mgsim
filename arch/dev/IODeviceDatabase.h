@@ -6,7 +6,7 @@
 namespace Simulator
 {
 
-struct IODeviceIdentification 
+struct IODeviceIdentification
 {
     uint16_t  provider;
     uint16_t  model;
@@ -16,7 +16,7 @@ struct IODeviceIdentification
 class DeviceDatabase
 {
     struct ProviderEntry {
-        uint16_t                    id;
+        uint64_t                    id;
         const char                  *name;
     };
     static const ProviderEntry      provider_db[];
@@ -36,7 +36,7 @@ class DeviceDatabase
 
 
 public:
-    static 
+    static
     const DeviceDatabase& GetDatabase() { return m_singleton; }
 
     void Print(std::ostream& out) const;

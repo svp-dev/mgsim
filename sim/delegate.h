@@ -20,7 +20,7 @@ class delegate
     void     *m_object;
     Result  (*m_stub)(void*);
     Object* (*m_get)(void*);
-    
+
     template <typename T, Result (T::*TMethod)()>
     static Result method_stub(void* object)
     {
@@ -33,8 +33,8 @@ class delegate
     {
         return static_cast<T*>(object);
     }
-    
-    delegate() {}
+
+    delegate() : m_object(0), m_stub(0), m_get(0) {}
 public:
     template <typename T, Result (T::*TMethod)()>
     static delegate create(T& object)
@@ -45,14 +45,14 @@ public:
         d.m_get    = &get_stub<T>;
         return d;
     }
-    
+
     Result operator()() const
     {
         return (*m_stub)(m_object);
     }
-    
-    Object* GetObject() const { return m_get(m_object); }   
-};    
+
+    Object* GetObject() const { return m_get(m_object); }
+};
 
 }
 

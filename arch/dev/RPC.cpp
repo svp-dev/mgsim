@@ -49,7 +49,7 @@ The following processes run concurrently (pipeline):
   the behavior, then queues the result to the completion queue.
 
 - result writeback: issues DCA write reauests until the result data
-  has been sent to memory; then send a read request of 0 as a memory barrier; 
+  has been sent to memory; then send a read request of 0 as a memory barrier;
   then deactivate until the MB completes; then pop the front incoming request.
 
 - notifications:  issues completion notification for the frontmost
@@ -64,7 +64,7 @@ The following processes run concurrently (pipeline):
     stores values for the parameters into latches
     initiates commands by enqueuing into the incoming queue
 
-  - read response handler: 
+  - read response handler:
 
     if the size is greater than 0; then populate the argument data for
     the frontmost entry in the incoming queue.  If there are no pending read
@@ -94,6 +94,8 @@ namespace Simulator
           m_devid(devid),
 
           m_lineSize(config.getValueOrDefault<size_t>(*this, "RPCLineSize", config.getValue<size_t>("CacheLineSize"))),
+
+          m_inputLatch(),
 
           m_fetchState(ARGFETCH_READING1),
           m_currentArgumentOffset(0),
@@ -133,8 +135,8 @@ namespace Simulator
         if (m_lineSize == 0)
         {
             throw exceptf<InvalidArgumentException>(*this, "RPCLineSize cannot be zero");
-        }        
-        
+        }
+
     }
 
     Result RPCInterface::DoQueue()
@@ -153,7 +155,7 @@ namespace Simulator
         assert(!m_incoming.Empty());
 
         const IncomingRequest& req = m_incoming.Front();
-        ArgumentFetchState s = m_fetchState;        
+        ArgumentFetchState s = m_fetchState;
 
         switch(s)
         {
@@ -177,7 +179,7 @@ namespace Simulator
             // - cannot be greater than the line size
             // - cannot be greated than the number of bytes remaining on the ROM
             // - cannot cause the range [voffset + size] to cross over a line boundary.
-            MemSize transfer_size = std::min(std::min((MemSize)(totalsize - m_currentArgumentOffset), (MemSize)m_lineSize), 
+            MemSize transfer_size = std::min(std::min((MemSize)(totalsize - m_currentArgumentOffset), (MemSize)m_lineSize),
                                              (MemSize)(m_lineSize - voffset % m_lineSize));
 
             if (transfer_size > 0)
@@ -191,7 +193,7 @@ namespace Simulator
             }
 
             COMMIT {
-                if (m_currentArgumentOffset + transfer_size < totalsize) 
+                if (m_currentArgumentOffset + transfer_size < totalsize)
                 {
                     m_currentArgumentOffset += transfer_size;
                 }
@@ -213,17 +215,18 @@ namespace Simulator
         }
         case ARGFETCH_FINALIZE:
         {
-            ProcessRequest preq;
+            ProcessRequest preq(
+                req.procedure_id,
+                req.extra_arg1,
+                req.extra_arg2,
+                req.dca_device_id,
+                req.res1_base_address,
+                req.res2_base_address,
+                req.notification_channel_id,
+                req.completion_tag
+                );
 
             COMMIT {
-                preq.procedure_id = req.procedure_id;
-                preq.dca_device_id = req.dca_device_id;
-                preq.extra_arg1 = req.extra_arg1;
-                preq.extra_arg2 = req.extra_arg2;
-                preq.res1_base_address = req.res1_base_address;
-                preq.res2_base_address = req.res2_base_address;
-                preq.notification_channel_id = req.notification_channel_id;
-                preq.completion_tag = req.completion_tag;
                 preq.data1.insert(preq.data1.begin(), m_currentArgData1.begin(), m_currentArgData1.begin() + req.arg1_size);
                 preq.data2.insert(preq.data2.begin(), m_currentArgData2.begin(), m_currentArgData2.begin() + req.arg2_size);
             }
@@ -233,7 +236,7 @@ namespace Simulator
                 DeadlockWrite("Unable to push the current request to the ready queue");
                 return FAILED;
             }
-        
+
             COMMIT {
                 m_fetchState = ARGFETCH_READING1;
                 m_currentArgumentOffset = 0;
@@ -247,7 +250,7 @@ namespace Simulator
         // unreachable
         assert(false);
         return SUCCESS;
-    }    
+    }
 
 
     Result RPCInterface::DoProcessRequests()
@@ -259,20 +262,20 @@ namespace Simulator
         DebugIOWrite("Processing RPC request from client %u for procedure %u, completion tag %#016llx",
                      (unsigned)req.dca_device_id, (unsigned)req.procedure_id, (unsigned long long)req.completion_tag);
 
-        ProcessResponse res;
+        ProcessResponse res(
+            req.dca_device_id,
+            req.res1_base_address,
+            req.res2_base_address,
+            req.notification_channel_id,
+            req.completion_tag
+            );
 
         COMMIT {
-            res.dca_device_id = req.dca_device_id;
-            res.res1_base_address = req.res1_base_address;
-            res.res2_base_address = req.res2_base_address;
-            res.notification_channel_id = req.notification_channel_id;
-            res.completion_tag = req.completion_tag;
-            
-            m_provider.Service(req.procedure_id, 
+            m_provider.Service(req.procedure_id,
                                res.data1, m_maxRes1Size,
                                res.data2, m_maxRes2Size,
-                               req.data1, 
-                               req.data2, 
+                               req.data1,
+                               req.data2,
                                req.extra_arg1,
                                req.extra_arg2);
         }
@@ -293,7 +296,7 @@ namespace Simulator
         const ProcessResponse& res = m_completed.Front();
 
         ResponseWritebackState s = m_writebackState;
-    
+
         // if we are just receiving a result and there is no data, or
         // the response address is set to 0 (ignore), then shortcut to
         // notification.
@@ -312,8 +315,8 @@ namespace Simulator
         case RESULTWB_WRITING2:
         {
 
-            MemAddr voffset; 
-            MemSize totalsize; 
+            MemAddr voffset;
+            MemSize totalsize;
             const char *data;
             if (s == RESULTWB_WRITING1)
             {
@@ -327,18 +330,18 @@ namespace Simulator
                 totalsize = res.data2.size();
                 data = &res.data2[0];
             }
-        
+
             // transfer size:
             // - cannot be greater than the line size
             // - cannot be greated than the number of bytes remaining on the ROM
             // - cannot cause the range [voffset + size] to cross over a line boundary.
-            size_t transfer_size = std::min(std::min((size_t)(totalsize - m_currentResponseOffset), (size_t)m_lineSize), 
+            size_t transfer_size = std::min(std::min((size_t)(totalsize - m_currentResponseOffset), (size_t)m_lineSize),
                                             (size_t)(m_lineSize - voffset % m_lineSize));
 
             size_t res_offset = m_currentResponseOffset;
 
             DebugIOWrite("Sending response data %d for offsets %zu - %zu", (s == RESULTWB_WRITING1) ? 1 : 2, res_offset, res_offset + transfer_size - 1);
-            
+
             IOData iodata;
             iodata.size = transfer_size;
             COMMIT {
@@ -352,7 +355,7 @@ namespace Simulator
             }
 
             COMMIT {
-                if (m_currentResponseOffset + transfer_size < totalsize) 
+                if (m_currentResponseOffset + transfer_size < totalsize)
                 {
                     m_currentResponseOffset += transfer_size;
                 }
@@ -375,8 +378,8 @@ namespace Simulator
                 DeadlockWrite("Unable to send DCA write barrier to device %u", (unsigned)res.dca_device_id);
                 return FAILED;
             }
-        
-            COMMIT { 
+
+            COMMIT {
                 m_writebackState = RESULTWB_FINALIZE;
                 // wait until the last read completion re-activates
                 // this process.
@@ -396,7 +399,7 @@ namespace Simulator
                     DeadlockWrite("Unable to push the current result to the notification queue");
                     return FAILED;
             }
-            
+
             COMMIT {
                 m_writebackState = RESULTWB_WRITING1;
                 m_currentResponseOffset = 0;
@@ -409,7 +412,7 @@ namespace Simulator
         // unreachable
         assert(false);
         return SUCCESS;
-    }    
+    }
 
     Result RPCInterface::DoSendCompletionNotifications()
     {
@@ -433,7 +436,7 @@ namespace Simulator
         {
             // this is a write barrier completion, the writeback process is interested.
             assert(m_writebackState == RESULTWB_FINALIZE);
-            COMMIT { 
+            COMMIT {
                 m_completed.GetClock().ActivateProcess(p_writeResponse);
             }
         }
@@ -443,7 +446,7 @@ namespace Simulator
             assert(!m_incoming.Empty());
 
             const IncomingRequest& req = m_incoming.Front();
-         
+
             size_t data_size = iodata.size;
 
             // Since the two memory areas may overlap, the address
@@ -476,16 +479,16 @@ namespace Simulator
                     memcpy(&m_currentArgData2[arg_offset], iodata.data, data_size);
                 }
             }
-            
-            
+
+
             if (m_fetchState == ARGFETCH_FINALIZE && m_numPendingDCAReads == 1)
             {
                 DebugSimWrite("Last read completion, waking up reader process");
                 COMMIT { m_incoming.GetClock().ActivateProcess(p_argumentFetch); }
             }
-            
+
             COMMIT { --m_numPendingDCAReads; }
-            
+
         }
 
         return SUCCESS;
@@ -514,7 +517,7 @@ namespace Simulator
 
         if (address % 4 != 0 || data.size != 4)
         {
-            throw exceptf<SimulationException>(*this, "Invalid unaligned RPC write: %#016llx (%u)", (unsigned long long)address, (unsigned)data.size); 
+            throw exceptf<SimulationException>(*this, "Invalid unaligned RPC write: %#016llx (%u)", (unsigned long long)address, (unsigned)data.size);
         }
 
         unsigned word = address / 4;
@@ -529,8 +532,8 @@ namespace Simulator
             switch(word)
             {
             case 0: m_queueEnabled.Set(); break;
-            case 1: 
-                m_inputLatch.dca_device_id = value & 0xffff; 
+            case 1:
+                m_inputLatch.dca_device_id = value & 0xffff;
                 m_inputLatch.notification_channel_id = (value >> 16) & 0xffff;
                 break;
             case 2: m_inputLatch.procedure_id = value; break;
@@ -597,7 +600,7 @@ namespace Simulator
 
         if (address % 4 != 0 || size != 4)
         {
-            throw exceptf<SimulationException>(*this, "Invalid unaligned RPC read: %#016llx (%u)", (unsigned long long)address, (unsigned)size); 
+            throw exceptf<SimulationException>(*this, "Invalid unaligned RPC read: %#016llx (%u)", (unsigned long long)address, (unsigned)size);
         }
 
         unsigned word = address / 4;
@@ -611,7 +614,7 @@ namespace Simulator
         COMMIT{
             switch(word)
             {
-            case 0:  value = m_queueEnabled.IsSet(); break; 
+            case 0:  value = m_queueEnabled.IsSet(); break;
 
             case 1:  value = (m_inputLatch.dca_device_id & 0xffff) | ((m_inputLatch.notification_channel_id & 0xffff) << 16); break;
             case 2:  value = m_inputLatch.procedure_id; break;
@@ -653,7 +656,7 @@ namespace Simulator
         IOData iodata;
         SerializeRegister(RT_INTEGER, value, iodata.data, 4);
         iodata.size = 4;
-        
+
         if (!m_iobus.SendReadResponse(m_devid, from, address, iodata))
         {
             DeadlockWrite("Cannot send RPC read response to I/O bus");
@@ -668,11 +671,11 @@ namespace Simulator
         if (!DeviceDatabase::GetDatabase().FindDeviceByName("MGSim", "RPC", id))
         {
             throw InvalidArgumentException(*this, "Device identity not registered");
-        }    
+        }
     }
 
-    
 
-    
+
+
 
 }

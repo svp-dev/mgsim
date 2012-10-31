@@ -112,14 +112,14 @@ bool ZLCOMA::Directory::OnMessageReceivedBottom(Message* req)
             break;
 
         case Message::ACQUIRE_TOKENS:
-            break;        
-        
+            break;
+
         case Message::EVICTION:
             assert(req->tokens > 0);            // Should have tokens
             assert(req->transient == false);    // Evictions never have transient tokens
             assert(IsBelow(req->source));       // Evictions never go down into a group
             break;
-        
+
         case Message::LOCALDIR_NOTIFICATION:
             // Transient tokens have been made permanent in this group
             assert(line != NULL);
@@ -136,12 +136,12 @@ bool ZLCOMA::Directory::OnMessageReceivedBottom(Message* req)
             assert(false);
             break;
         }
-    
+
         if (req->tokens > 0 && !req->transient)
         {
             // If we're losing tokens, we should have the line
             assert(line != NULL);
-    
+
             // There's tokens leaving the group
             COMMIT
             {
@@ -154,10 +154,10 @@ bool ZLCOMA::Directory::OnMessageReceivedBottom(Message* req)
             }
         }
     }
-            
+
     // We can stop ignoring it now
     COMMIT{ req->ignore = false; }
-    
+
     // Forward request onto upper ring
     if (!m_top.SendMessage(req, MINSPACE_FORWARD))
     {
@@ -185,7 +185,7 @@ bool ZLCOMA::Directory::OnMessageReceivedTop(Message* req)
         if (IsBelow(req->source) && line == NULL)
         {
             line = AllocateLine(req->address);
-        }    
+        }
         break;
 
     case Message::ACQUIRE_TOKENS:
@@ -193,9 +193,9 @@ bool ZLCOMA::Directory::OnMessageReceivedTop(Message* req)
         if (IsBelow(req->source) && line == NULL)
         {
             line = AllocateLine(req->address);
-        }   
+        }
         break;
-        
+
     case Message::EVICTION:
         assert(req->tokens > 0);
         assert(req->transient == false);
@@ -212,7 +212,7 @@ bool ZLCOMA::Directory::OnMessageReceivedTop(Message* req)
         assert(line != NULL);
         COMMIT{ line->tokens += req->tokens; }
     }
-    
+
     if (line == NULL)
     {
         // Forward request onto upper ring
@@ -268,23 +268,15 @@ ZLCOMA::Directory::Directory(const std::string& name, ZLCOMA& parent, Clock& clo
     m_top(name + ".top", parent, clock),
     m_selector  (parent.GetBankSelector()),
     p_lines     (*this, clock, "p_lines"),
-    m_lineSize  (config.getValue<size_t>("CacheLineSize")),
     m_assoc     (config.getValue<size_t>(parent, "L2CacheAssociativity") * config.getValue<size_t>(parent, "NumL2CachesPerRing")),
     m_sets      (m_selector.GetNumBanks()),
+    m_lines     (m_assoc * m_sets),
+    m_lineSize  (config.getValue<size_t>("CacheLineSize")),
     m_firstCache(firstCache),
     m_lastCache (firstCache + config.getValue<size_t>(parent, "NumL2CachesPerRing") - 1),
     p_InBottom  (*this, "bottom_incoming", delegate::create<Directory, &Directory::DoInBottom >(*this)),
     p_InTop     (*this, "top_incoming",    delegate::create<Directory, &Directory::DoInTop    >(*this))
 {
-    // Create the cache lines
-    // We need as many cache lines in a directory to cover all caches below it
-    m_lines.resize(m_assoc * m_sets);
-    for (size_t i = 0; i < m_lines.size(); ++i)
-    {
-        Line& line = m_lines[i];
-        line.valid = false;
-    }
-
     m_bottom.m_incoming.Sensitive(p_InBottom);
     m_top.m_incoming.Sensitive(p_InTop);
 

@@ -23,10 +23,10 @@ MCID COMA::Cache::RegisterClient(IMemoryCallback& callback, Process& process, St
     m_clients.resize(index + 1);
 
     m_clients[index] = &callback;
-    
+
     p_bus.AddCyclicProcess(process);
     traces = m_requests;
-    
+
     m_storages *= opt(storage);
     p_Requests.SetStorageTraces(m_storages ^ GetOutgoingTrace());
     p_In.SetStorageTraces(opt(m_storages ^ GetOutgoingTrace()));
@@ -45,7 +45,7 @@ void COMA::Cache::UnregisterClient(MCID id)
 bool COMA::Cache::Read(MCID id, MemAddr address)
 {
     assert(address % m_lineSize == 0);
-    
+
     // We need to arbitrate between the different processes on the cache,
     // and then between the different clients. There are 2 arbitrators for this.
     if (!p_bus.Invoke())
@@ -54,11 +54,11 @@ bool COMA::Cache::Read(MCID id, MemAddr address)
         DeadlockWrite("Unable to acquire bus for read");
         return false;
     }
-    
+
     Request req;
     req.address = address;
     req.write   = false;
-    
+
     // Client should have been registered
     assert(m_clients[id] != NULL);
 
@@ -68,7 +68,7 @@ bool COMA::Cache::Read(MCID id, MemAddr address)
         DeadlockWrite("Unable to push read request into buffer");
         return false;
     }
-    
+
     return true;
 }
 
@@ -86,41 +86,41 @@ bool COMA::Cache::Write(MCID id, MemAddr address, const MemData& data, WClientID
         DeadlockWrite("Unable to acquire bus for write");
         return false;
     }
-    
+
     Request req;
     req.address = address;
     req.write   = true;
     req.client  = id;
     req.wid     = wid;
     COMMIT{
-    std::copy(data.data, data.data + m_lineSize, req.data);
-    std::copy(data.mask, data.mask + m_lineSize, req.mask);
+    std::copy(data.data, data.data + m_lineSize, req.mdata.data);
+    std::copy(data.mask, data.mask + m_lineSize, req.mdata.mask);
     }
 
     // Client should have been registered
     assert(m_clients[req.client] != NULL);
-    
+
     if (!m_requests.Push(req))
     {
         // Buffer was full
         DeadlockWrite("Unable to push write request into buffer");
         return false;
     }
-    
+
     // Snoop the write back to the other clients
     for (size_t i = 0; i < m_clients.size(); ++i)
     {
         IMemoryCallback* client = m_clients[i];
         if (client != NULL && i != req.client)
         {
-            if (!client->OnMemorySnooped(req.address, req.data, req.mask))
+            if (!client->OnMemorySnooped(req.address, req.mdata.data, req.mdata.mask))
             {
                 DeadlockWrite("Unable to snoop data to cache clients");
                 return false;
             }
         }
     }
-    
+
     return true;
 }
 
@@ -203,7 +203,7 @@ COMA::Cache::Line* COMA::Cache::AllocateLine(MemAddr address, bool empty_only, M
             }
         }
     }
-    
+
     // The line could not be found, allocate the empty line or replace an existing line
     if (ptag) *ptag = tag;
     return (empty != NULL) ? empty : replace;
@@ -217,9 +217,9 @@ bool COMA::Cache::EvictLine(Line* line, const Request& req)
 
     size_t setindex = (line - &m_lines[0]) / m_assoc;
     MemAddr address = m_selector.Unmap(line->tag, setindex) * m_lineSize;
-    
+
     TraceWrite(address, "Evicting with %u tokens due to miss for address %#016llx", line->tokens, (unsigned long long)req.address);
-    
+
     Message* msg = NULL;
     COMMIT
     {
@@ -232,13 +232,13 @@ bool COMA::Cache::EvictLine(Line* line, const Request& req)
         msg->dirty     = line->dirty;
         std::copy(line->data, line->data + m_lineSize, msg->data.data);
     }
-    
+
     if (!SendMessage(msg, MINSPACE_INSERTION))
     {
         DeadlockWrite("Unable to buffer eviction request for next node");
         return false;
     }
-    
+
     // Send line invalidation to caches
     if (!p_bus.Invoke())
     {
@@ -254,7 +254,7 @@ bool COMA::Cache::EvictLine(Line* line, const Request& req)
             return false;
         }
     }
-    
+
     COMMIT{ line->state = LINE_EMPTY; }
     return true;
 }
@@ -265,13 +265,13 @@ bool COMA::Cache::OnMessageReceived(Message* msg)
     assert(msg != NULL);
 
     // We need to grab p_lines because it also arbitrates access to the
-    // outgoing ring buffer.    
+    // outgoing ring buffer.
     if (!p_lines.Invoke())
     {
         DeadlockWrite("Unable to acquire lines");
         return false;
     }
-    
+
     if (msg->ignore || (msg->type == Message::REQUEST_DATA_TOKEN && msg->sender != m_id))
     {
         // This is either
@@ -287,13 +287,13 @@ bool COMA::Cache::OnMessageReceived(Message* msg)
         COMMIT { ++m_numIgnoredMessages; }
         return true;
     }
-    
-    Line* line = FindLine(msg->address);   
+
+    Line* line = FindLine(msg->address);
     switch (msg->type)
     {
     case Message::REQUEST:
     case Message::REQUEST_DATA:
-        // Some cache had a read miss. See if we have the line.        
+        // Some cache had a read miss. See if we have the line.
 
         if (line != NULL && line->state == LINE_FULL)
         {
@@ -302,7 +302,7 @@ bool COMA::Cache::OnMessageReceived(Message* msg)
             {
                 // We can give the request data and tokens
                 TraceWrite(msg->address, "Received Read Request; Attaching data and tokens");
-                        
+
                 COMMIT
                 {
                     msg->type   = Message::REQUEST_DATA_TOKEN;
@@ -311,7 +311,7 @@ bool COMA::Cache::OnMessageReceived(Message* msg)
                     std::copy(line->data, line->data + m_lineSize, msg->data.data);
 
                     line->tokens -= msg->tokens;
-                                
+
                     // Also update last access time.
                     line->access = GetKernel()->GetCycleNo();
                 }
@@ -353,7 +353,7 @@ bool COMA::Cache::OnMessageReceived(Message* msg)
         assert(line->tokens == 0);
 
         TraceWrite(msg->address, "Received Read Response with %u tokens", msg->tokens);
-        
+
         COMMIT
         {
             // Some byte may have been overwritten by processor.
@@ -370,7 +370,7 @@ bool COMA::Cache::OnMessageReceived(Message* msg)
             line->tokens = msg->tokens;
             line->dirty  = msg->dirty || line->dirty;
         }
-        
+
         /*
          Put the data on the bus for the processors.
          Merge with pending writes first so we don't accidentally give some
@@ -384,12 +384,12 @@ bool COMA::Cache::OnMessageReceived(Message* msg)
         {
             std::copy(msg->data.data, msg->data.data + m_lineSize, data);
 
-            for (Buffer<Request>::const_iterator p = m_requests.begin(); p != m_requests.end(); ++p)
+            for (auto& p : m_requests)
             {
-                if (p->write && p->address == msg->address)
+                if (p.write && p.address == msg->address)
                 {
                     // This is a write to the same line, merge it
-                    line::blit(data, p->data, p->mask, m_lineSize);
+                    line::blit(data, p.mdata.data, p.mdata.mask, m_lineSize);
                 }
             }
         }
@@ -403,11 +403,11 @@ bool COMA::Cache::OnMessageReceived(Message* msg)
 
         // Statistics
         COMMIT{ ++m_numRCompletions; }
-        
+
         COMMIT{ delete msg; }
         break;
     }
-    
+
     case Message::EVICTION:
         if (line != NULL)
         {
@@ -415,16 +415,16 @@ bool COMA::Cache::OnMessageReceived(Message* msg)
             {
                 // We have the line, merge it.
                 TraceWrite(msg->address, "Merging Evict Request with %u tokens into line with %u tokens", msg->tokens, line->tokens);
-            
+
                 // Just add the tokens count to the line.
                 assert(msg->tokens > 0);
                 COMMIT
                 {
                     line->tokens += msg->tokens;
-                
+
                     // Combine the dirty flags
                     line->dirty = line->dirty || msg->dirty;
-                
+
                     delete msg;
 
                     // Statistics
@@ -441,7 +441,7 @@ bool COMA::Cache::OnMessageReceived(Message* msg)
             {
                 // Yes, place the line there
                 TraceWrite(msg->address, "Storing Evict Request for line %#016llx locally with %u tokens", (unsigned long long)msg->address, msg->tokens);
-                
+
                 COMMIT
                 {
                     line->state    = LINE_FULL;
@@ -453,7 +453,7 @@ bool COMA::Cache::OnMessageReceived(Message* msg)
                     std::fill(line->valid, line->valid + m_lineSize, true);
                     std::copy(msg->data.data, msg->data.data + m_lineSize, line->data);
 
-                    delete msg; 
+                    delete msg;
 
                     // Statistics
                     ++m_numInjectedEvictions;
@@ -480,7 +480,7 @@ bool COMA::Cache::OnMessageReceived(Message* msg)
             // Notify the sender of write consistency.
             assert(line != NULL);
             assert(line->updating > 0);
-            
+
             if (!m_clients[msg->client]->OnMemoryWriteCompleted(msg->wid))
             {
                 ++m_numStallingWCompletions;
@@ -509,7 +509,7 @@ bool COMA::Cache::OnMessageReceived(Message* msg)
                     // Statistics
                     ++m_numNetworkWHits;
                 }
-            
+
                 // Send the write as a snoop to the processors
                 for (size_t i = 0; i < m_clients.size(); ++i)
                 {
@@ -526,7 +526,7 @@ bool COMA::Cache::OnMessageReceived(Message* msg)
             }
             else
                 COMMIT{ ++m_numIgnoredMessages; }
-            
+
             if (!SendMessage(msg, MINSPACE_FORWARD))
             {
                 DeadlockWrite("Unable to buffer forwarded update request for next node");
@@ -535,14 +535,14 @@ bool COMA::Cache::OnMessageReceived(Message* msg)
             }
         }
         break;
-        
+
     default:
         assert(false);
-        break;    
+        break;
     }
     return true;
 }
-    
+
 bool COMA::Cache::OnReadCompleted(MemAddr addr, const char * data)
 {
     // Send the completion on the bus
@@ -551,7 +551,7 @@ bool COMA::Cache::OnReadCompleted(MemAddr addr, const char * data)
         DeadlockWrite("Unable to acquire the bus for sending read completion");
         return false;
     }
-    
+
     for (std::vector<IMemoryCallback*>::const_iterator p = m_clients.begin(); p != m_clients.end(); ++p)
     {
         if (*p != NULL && !(*p)->OnMemoryReadCompleted(addr, data))
@@ -560,7 +560,7 @@ bool COMA::Cache::OnReadCompleted(MemAddr addr, const char * data)
             return false;
         }
     }
-    
+
     return true;
 }
 
@@ -575,9 +575,9 @@ Result COMA::Cache::OnWriteRequest(const Request& req)
         DeadlockWrite("Lines busy, cannot process bus write request");
         return FAILED;
     }
-    
+
     MemAddr tag;
-    
+
     Line* line = FindLine(req.address);
     if (line == NULL)
     {
@@ -608,7 +608,7 @@ Result COMA::Cache::OnWriteRequest(const Request& req)
         }
 
         TraceWrite(req.address, "Processing Bus Write Request: Miss; Sending Read Request");
-        
+
         // Reset the line
         COMMIT
         {
@@ -619,7 +619,7 @@ Result COMA::Cache::OnWriteRequest(const Request& req)
             line->updating = 0;
             std::fill(line->valid, line->valid + m_lineSize, false);
         }
-        
+
         // Send a request out for the cache-line
         Message* msg = NULL;
         COMMIT
@@ -630,9 +630,9 @@ Result COMA::Cache::OnWriteRequest(const Request& req)
             msg->ignore    = false;
             msg->tokens    = 0;
             msg->sender    = m_id;
-            
+
         }
-            
+
         if (!SendMessage(msg, MINSPACE_INSERTION))
         {
             ++m_numStallingWLoads;
@@ -642,7 +642,7 @@ Result COMA::Cache::OnWriteRequest(const Request& req)
 
         // Statistics
         COMMIT { ++m_numWLoads; }
-        
+
         // Now try against next cycle
         return DELAYED;
     }
@@ -653,7 +653,7 @@ Result COMA::Cache::OnWriteRequest(const Request& req)
     {
         // We have all tokens, notify the sender client immediately
         TraceWrite(req.address, "Processing Bus Write Request: Exclusive Hit");
-        
+
         if (!m_clients[req.client]->OnMemoryWriteCompleted(req.wid))
         {
             ++m_numStallingWHits;
@@ -668,7 +668,7 @@ Result COMA::Cache::OnWriteRequest(const Request& req)
     {
         // There are other copies out there, send out an update message
         TraceWrite(req.address, "Processing Bus Write Request: Shared Hit; Sending Update");
-        
+
         Message* msg = NULL;
         COMMIT
         {
@@ -679,13 +679,13 @@ Result COMA::Cache::OnWriteRequest(const Request& req)
             msg->ignore    = false;
             msg->client    = req.client;
             msg->wid       = req.wid;
-            std::copy(req.data, req.data + m_lineSize, msg->data.data);
-            std::copy(req.mask, req.mask + m_lineSize, msg->data.mask);
+            std::copy(req.mdata.data, req.mdata.data + m_lineSize, msg->data.data);
+            std::copy(req.mdata.mask, req.mdata.mask + m_lineSize, msg->data.mask);
 
             // Lock the line to prevent eviction
             line->updating++;
         }
-            
+
         if (!SendMessage(msg, MINSPACE_INSERTION))
         {
             ++m_numStallingWUpdates;
@@ -701,19 +701,19 @@ Result COMA::Cache::OnWriteRequest(const Request& req)
                 ++m_numSharedWUpdates;
         }
     }
-    
+
     // Either way, at this point we have a line, so we
     // write the data into it.
     COMMIT
     {
-        line::blit(line->data, req.data, req.mask, m_lineSize);
-        line::setif(line->valid, true, req.mask, m_lineSize);
-        
+        line::blit(line->data, req.mdata.data, req.mdata.mask, m_lineSize);
+        line::setif(line->valid, true, req.mdata.mask, m_lineSize);
+
         // The line is now dirty
         line->dirty = true;
-        
+
         // Also update last access time.
-        line->access = GetKernel()->GetCycleNo();                    
+        line->access = GetKernel()->GetCycleNo();
     }
     return SUCCESS;
 }
@@ -749,7 +749,7 @@ Result COMA::Cache::OnReadRequest(const Request& req)
             // We're overwriting another line, evict the old line
             TraceWrite(req.address, "Processing Bus Read Request: Miss; Evicting line with tag %#016llx",
                        (unsigned long long)line->tag);
-            
+
             if (!EvictLine(line, req))
             {
                 ++m_numStallingREvictions;
@@ -774,7 +774,7 @@ Result COMA::Cache::OnReadRequest(const Request& req)
             line->access   = GetKernel()->GetCycleNo();
             std::fill(line->valid, line->valid + m_lineSize, false);
         }
-        
+
         // Send a request out
         Message* msg = NULL;
         COMMIT
@@ -786,14 +786,14 @@ Result COMA::Cache::OnReadRequest(const Request& req)
             msg->tokens    = 0;
             msg->sender    = m_id;
         }
-            
+
         if (!SendMessage(msg, MINSPACE_INSERTION))
         {
             ++m_numStallingRLoads;
             DeadlockWrite("Unable to buffer read request for next node");
             return FAILED;
         }
-        
+
         // Statistics
         COMMIT { ++m_numRLoads; }
 
@@ -813,7 +813,7 @@ Result COMA::Cache::OnReadRequest(const Request& req)
 
             // Update LRU information
             line->access = GetKernel()->GetCycleNo();
-            
+
             ++m_numRFullHits;
         }
 
@@ -832,7 +832,7 @@ Result COMA::Cache::OnReadRequest(const Request& req)
         // We can ignore this request; the completion of the earlier load
         // will put the data on the bus so this requester will also get it.
         assert(line->state == LINE_LOADING);
-        
+
         // Counts as a miss because we have to wait
         COMMIT{ ++m_numLoadingRMisses; }
     }
@@ -859,7 +859,7 @@ Result COMA::Cache::DoRequests()
     }
     return (result == FAILED) ? FAILED : SUCCESS;
 }
-    
+
 Result COMA::Cache::DoReceive()
 {
     // Handle received message from prev
@@ -883,7 +883,11 @@ COMA::Cache::Cache(const std::string& name, COMA& parent, Clock& clock, CacheID 
     m_assoc    (config.getValue<size_t>(parent, "L2CacheAssociativity")),
     m_sets     (m_selector.GetNumBanks()),
     m_id       (id),
+    m_clients  (),
+    m_storages (),
     p_lines    (*this, clock, "p_lines"),
+    m_lines    (m_assoc * m_sets),
+    m_data     (m_lines.size() * m_lineSize),
 
     m_numRAccesses(0),
     m_numHardRConflicts(0),
@@ -924,7 +928,6 @@ COMA::Cache::Cache(const std::string& name, COMA& parent, Clock& clock, CacheID 
     m_requests ("b_requests", *this, clock, config.getValue<BufferSize>(*this, "RequestBufferSize")),
     m_responses("b_responses", *this, clock, config.getValue<BufferSize>(*this, "ResponseBufferSize"))
 {
-    
     RegisterSampleVariableInObject(m_numRAccesses, SVC_CUMULATIVE);
     RegisterSampleVariableInObject(m_numHardRConflicts, SVC_CUMULATIVE);
     RegisterSampleVariableInObject(m_numStallingREvictions, SVC_CUMULATIVE);
@@ -959,8 +962,6 @@ COMA::Cache::Cache(const std::string& name, COMA& parent, Clock& clock, CacheID 
     RegisterSampleVariableInObject(m_numStallingWSnoops, SVC_CUMULATIVE);
 
     // Create the cache lines
-    m_lines.resize(m_assoc * m_sets);
-    m_data.resize(m_lines.size() * m_lineSize);
     for (size_t i = 0; i < m_lines.size(); ++i)
     {
         Line& line = m_lines[i];
@@ -968,9 +969,9 @@ COMA::Cache::Cache(const std::string& name, COMA& parent, Clock& clock, CacheID 
         line.data  = &m_data[i * m_lineSize];
     }
 
-    m_requests.Sensitive(p_Requests);   
+    m_requests.Sensitive(p_Requests);
     m_incoming.Sensitive(p_In);
-    
+
     p_lines.AddProcess(p_In);
     p_lines.AddProcess(p_Requests);
 
@@ -997,7 +998,7 @@ void COMA::Cache::Cmd_Info(std::ostream& out, const std::vector<std::string>& /*
     "  Read the cache lines themselves.\n"
     "  * fmt can be b/w/c and indicates formatting by bytes, words, or characters.\n"
     "  * width indicates how many bytes are printed on each line (default: entire line).\n"
-    "  * address if specified filters the output to the specified cache line.\n" 
+    "  * address if specified filters the output to the specified cache line.\n"
     "- inspect <component> buffers\n"
     "  Reads and displays the buffers in the cache\n";
 }
@@ -1016,9 +1017,9 @@ void COMA::Cache::Cmd_Read(std::ostream& out, const std::vector<std::string>& ar
                 << (p->write ? "Write" : "Read ") << " | "
                 << endl;
         }
-        
+
         out << endl << "Ring interface:" << endl << endl;
-        Print(out);        
+        Print(out);
         return;
     }
     else if (arguments.empty())
@@ -1031,12 +1032,12 @@ void COMA::Cache::Cmd_Read(std::ostream& out, const std::vector<std::string>& ar
         } else {
             out << dec << m_assoc << "-way set associative" << endl;
         }
-        
+
         out << "L2 bank mapping:  " << m_selector.GetName() << endl
             << "Cache size:       " << dec << (m_lineSize * m_lines.size()) << " bytes" << endl
             << "Cache line size:  " << dec << m_lineSize << " bytes" << endl
             << endl;
-        
+
 
         uint64_t numRHits     = m_numRFullHits;
         uint64_t numRMisses   = m_numRAccesses - numRHits;
@@ -1061,9 +1062,9 @@ void COMA::Cache::Cmd_Read(std::ostream& out, const std::vector<std::string>& ar
         uint64_t numConsumedMessages  = m_numRCompletions + m_numWCompletions + m_numMergedEvictions + m_numInjectedEvictions;
         uint64_t numProcessedMessages = m_numNetworkRHits + m_numNetworkWHits;
         uint64_t numUsedMessages      = m_numReceivedMessages - m_numIgnoredMessages;
-        
+
 #define PRINTVAL(X, q) dec << (X) << " (" << setprecision(2) << fixed << (X) * q << "%)"
-        
+
         if (m_numRAccesses == 0 && m_numWAccesses == 0 && numUsedMessages == 0)
             out << "No accesses so far, cannot provide statistical data." << endl;
         else
@@ -1077,33 +1078,33 @@ void COMA::Cache::Cmd_Read(std::ostream& out, const std::vector<std::string>& ar
                 << "Number of messages issued to upstream:     " << numMessages  << endl
                 << "Number of messages received from upstream: " << m_numReceivedMessages << endl
                 << "Stall cycles while processing requests:    " << numStalls_above << endl
-                << "Stall cycles while processing messages:    " << numStalls_below << endl 
+                << "Stall cycles while processing messages:    " << numStalls_below << endl
                 << endl;
-                
+
             float r_factor = 100.0f / m_numRAccesses;
             out << "***********************************************************" << endl
                 << "              Cache reads from downstream                  " << endl
-                << "***********************************************************" << endl 
+                << "***********************************************************" << endl
                 << endl
                 << "Number of reads from downstream:         " << m_numRAccesses << endl
                 << "Read hits:                               " << PRINTVAL(numRHits, r_factor) << endl
                 << "Read misses:                             " << PRINTVAL(numRMisses, r_factor) << endl
-                << "Breakdown of reads:" << endl             
+                << "Breakdown of reads:" << endl
                 << "- reads causing an eviction:             " << PRINTVAL(m_numREvictions, r_factor) << endl
                 << "- reads causing a read message upstream: " << PRINTVAL(m_numRLoads, r_factor) << endl
                 << "- reads delayed on line already loading: " << PRINTVAL(m_numLoadingRMisses, r_factor) << endl
                 << "(percentages relative to " << m_numRAccesses << " read requests)" << endl
                 << endl;
-                
+
             float w_factor = 100.0f / m_numWAccesses;
             out << "***********************************************************" << endl
                 << "              Cache writes from downstream                 " << endl
                 << "***********************************************************" << endl
                 << endl
                 << "Number of writes from downstream:             " << m_numWAccesses << endl
-                << "Write hits:                                   " << PRINTVAL(numWHits, w_factor) << endl 
+                << "Write hits:                                   " << PRINTVAL(numWHits, w_factor) << endl
                 << "Write misses:                                 " << PRINTVAL(numWMisses, w_factor) << endl
-                << "Breakdown of writes:" << endl                 
+                << "Breakdown of writes:" << endl
                 << "- writes causing an eviction:                 " << PRINTVAL(m_numWEvictions, w_factor) << endl
                 << "- writes causing a read message upstream:     " << PRINTVAL(m_numWLoads, w_factor) << endl
                 << "- writes to a shared line causing an update:  " << PRINTVAL(m_numSharedWUpdates, w_factor) << endl
@@ -1111,7 +1112,7 @@ void COMA::Cache::Cmd_Read(std::ostream& out, const std::vector<std::string>& ar
                 << "(percentages relative to " << m_numWAccesses << " write requests)" << endl
                 << endl;
 
-            float m_factor = 100.f / numMessages;                
+            float m_factor = 100.f / numMessages;
             out << "***********************************************************" << endl
                 << "                   Messages to upstream                    " << endl
                 << "***********************************************************" << endl
@@ -1130,7 +1131,7 @@ void COMA::Cache::Cmd_Read(std::ostream& out, const std::vector<std::string>& ar
                 << "(percentages relative to " << numMessages << " messages to upstream)" << endl
                 << endl;
 
-            float m2_factor = 100.f / m_numReceivedMessages;                
+            float m2_factor = 100.f / m_numReceivedMessages;
             out << "***********************************************************" << endl
                 << "                 Messages from upstream                    " << endl
                 << "***********************************************************" << endl
@@ -1149,10 +1150,10 @@ void COMA::Cache::Cmd_Read(std::ostream& out, const std::vector<std::string>& ar
                 << "- merged updates:                          " << PRINTVAL(m_numNetworkWHits, m2_factor) << endl
                 << "(percentages relative to " << m_numReceivedMessages << " messages from upstream)" << endl
                 << endl;
-                
+
             if (numStalls_above != 0)
             {
-                float s_factor = 100.f / numStalls_above;   
+                float s_factor = 100.f / numStalls_above;
                 out << "***********************************************************" << endl
                     << "       Stalls while processing requests from below.        " << endl
                     << "***********************************************************" << endl
@@ -1169,7 +1170,7 @@ void COMA::Cache::Cmd_Read(std::ostream& out, const std::vector<std::string>& ar
                     << "- stalled loads during writes:                     " << PRINTVAL(m_numStallingWLoads, s_factor) << endl
                     << "- stalled updates during writes:                   " << PRINTVAL(m_numStallingWUpdates, s_factor) << endl
                     << "(stall percentages relative to " << numStalls_above << " cycles)" << endl
-                    << endl; 
+                    << endl;
             }
 
             if (numStalls_below != 0)
@@ -1189,17 +1190,17 @@ void COMA::Cache::Cmd_Read(std::ostream& out, const std::vector<std::string>& ar
                     << "- stalled write completion notification to downstream: " << PRINTVAL(m_numStallingWCompletions, s_factor) << endl
                     << "- stalled write snoops to downstream:                  " << PRINTVAL(m_numStallingWSnoops, s_factor) << endl
                     << "(stall percentages relative to " << numStalls_below << " cycles)" << endl
-                    << endl; 
+                    << endl;
             }
-                
-                       
+
+
         }
 
-       
 
-        
-        
-       
+
+
+
+
 
 
     }
@@ -1227,12 +1228,12 @@ void COMA::Cache::Cmd_Read(std::ostream& out, const std::vector<std::string>& ar
         if (arguments.size() > 3)
         {
             errno = 0;
-            seladdr = strtoumax(arguments[3].c_str(), 0, 0); 
+            seladdr = strtoumax(arguments[3].c_str(), 0, 0);
             if (errno != EINVAL)
                 specific = true;
             seladdr = (seladdr / m_lineSize) * m_lineSize;
         }
-        
+
         out << "Set |       Address      | LDU   | Tokens |                       Data" << endl;
         out << "----+--------------------+-------+--------+--------------------------------------------------" << endl;
         for (size_t i = 0; i < m_lines.size(); ++i)
@@ -1242,9 +1243,9 @@ void COMA::Cache::Cmd_Read(std::ostream& out, const std::vector<std::string>& ar
             MemAddr lineaddr = m_selector.Unmap(line.tag, set) * m_lineSize;
             if (specific && lineaddr != seladdr)
                 continue;
-            
+
             out << setw(3) << setfill(' ') << dec << right << set;
-            
+
             if (line.state == LINE_EMPTY) {
                 out << " |                    |       |        |";
             } else {
@@ -1256,15 +1257,15 @@ void COMA::Cache::Cmd_Read(std::ostream& out, const std::vector<std::string>& ar
                     << setw(3) << setfill(' ') << dec << line.updating
                     << " | "
                     << setfill(' ') << setw(6) << line.tokens << " |";
-                
+
                 // Print the data
                 out << hex << setfill('0');
                 for (size_t y = 0; y < m_lineSize; y += bytes_per_line)
                 {
                     for (size_t x = y; x < y + bytes_per_line; ++x) {
-                        if ((fmt == fmt_bytes) || ((fmt == fmt_words) && (x % sizeof(Integer) == 0))) 
+                        if ((fmt == fmt_bytes) || ((fmt == fmt_words) && (x % sizeof(Integer) == 0)))
                             out << " ";
-                        
+
                         if (line.valid[x]) {
                             char byte = line.data[x];
                             if (fmt == fmt_chars)
@@ -1275,7 +1276,7 @@ void COMA::Cache::Cmd_Read(std::ostream& out, const std::vector<std::string>& ar
                             out << ((fmt == fmt_chars) ? " " : "  ");
                         }
                     }
-                    
+
                     if (y + bytes_per_line < m_lineSize) {
                         // This was not yet the last line
                         out << endl << "    |                    |       |        |";
@@ -1286,5 +1287,5 @@ void COMA::Cache::Cmd_Read(std::ostream& out, const std::vector<std::string>& ar
         }
     }
 }
-    
+
 }

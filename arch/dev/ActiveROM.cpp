@@ -15,7 +15,7 @@ namespace Simulator
 
         m_numLines = romsize / m_lineSize;
         m_numLines = (romsize % m_lineSize == 0) ? m_numLines : (m_numLines + 1);
-        
+
         m_data = new char [m_numLines * m_lineSize];
         for (size_t i = 0; i < db.size(); ++i)
         {
@@ -32,9 +32,9 @@ namespace Simulator
     {
         vector<char> argdata;
         const vector<string>& argv = config.GetArgumentVector();
-        for (size_t i = 0; i < argv.size(); ++i)
+        for (auto& arg : argv)
         {
-            argdata.insert(argdata.end(), argv[i].begin(), argv[i].end());
+            argdata.insert(argdata.end(), arg.begin(), arg.end());
             argdata.push_back('\0');
         }
         argdata.push_back('\0');
@@ -43,7 +43,7 @@ namespace Simulator
 
         m_numLines = romsize / m_lineSize;
         m_numLines = (romsize % m_lineSize == 0) ? m_numLines : (m_numLines + 1);
-        
+
         m_data = new char [m_numLines * m_lineSize];
 
         SerializeRegister(RT_INTEGER, 0x56475241, m_data, sizeof(uint32_t));
@@ -61,39 +61,39 @@ namespace Simulator
     {
         ifstream is;
         is.open(fname.c_str(), ios::binary);
-        
+
         if (!is.good())
         {
             throw exceptf<InvalidArgumentException>(*this, "Unable to open file: %s", fname.c_str());
         }
-        
+
         // get length of file:
         is.seekg (0, ios::end);
         size_t length = is.tellg();
         is.seekg (0, ios::beg);
-        
+
         if (!is.good())
         {
             throw exceptf<InvalidArgumentException>(*this, "Unable to get file size: %s", fname.c_str());
         }
-        
+
         if (length == 0)
         {
             throw exceptf<InvalidArgumentException>(*this, "File is empty: %s", fname.c_str());
         }
-        
+
         m_numLines = length / m_lineSize;
         m_numLines = (length % m_lineSize == 0) ? m_numLines : (m_numLines + 1);
-        
+
         m_data = new char [m_numLines * m_lineSize];
-        
+
         is.read(m_data, length);
-        
+
         if (!is.good())
         {
             throw exceptf<InvalidArgumentException>(*this, "Unable to read file: %s", fname.c_str());
         }
-        
+
         is.close();
 
         if (m_verboseload)
@@ -106,19 +106,18 @@ namespace Simulator
 
     void ActiveROM::PrepareRanges()
     {
-        for (size_t i = 0; i < m_loadable.size(); ++i)
+        for (auto& r : m_loadable)
         {
-            const LoadableRange& r = m_loadable[i];
             m_memory.Reserve(r.vaddr, r.vsize, 0, r.perm | IMemory::PERM_DCA_WRITE);
             if (m_verboseload)
             {
-                clog << GetName() << ": reserved " << dec << r.vsize << " bytes in main memory at 0x" 
-                     << hex << setfill('0') << setw(16) << r.vaddr 
-                     << " - 0x" 
+                clog << GetName() << ": reserved " << dec << r.vsize << " bytes in main memory at 0x"
+                     << hex << setfill('0') << setw(16) << r.vaddr
+                     << " - 0x"
                      << hex << setfill('0') << setw(16) << r.vaddr + r.vsize - 1 ;
             }
             if (m_preloaded_at_boot)
-            {                
+            {
                 m_memory.Write(r.vaddr, m_data + r.rom_offset, 0, r.rom_size);
                 if (m_verboseload)
                 {
@@ -139,6 +138,8 @@ namespace Simulator
           m_data(NULL),
           m_lineSize(config.getValueOrDefault<size_t>(*this, "ROMLineSize", config.getValue<size_t>("CacheLineSize"))),
           m_numLines(0),
+          m_loadable(),
+          m_filename(),
           m_verboseload(!quiet),
           m_bootable(false),
           m_start_address(0),
@@ -161,7 +162,7 @@ namespace Simulator
         m_loading.Sensitive(p_Load);
         m_notifying.Sensitive(p_Notify);
         m_flushing.Sensitive(p_Flush);
-        
+
         if (m_lineSize == 0)
         {
             throw exceptf<InvalidArgumentException>(*this, "ROMLineSize cannot be zero");
@@ -174,7 +175,15 @@ namespace Simulator
 
         if (source == "RAW" || source == "ELF")
         {
-            m_filename = m_config.getValue<string>(*this, "ROMFileName");
+            auto &v = m_config.GetArgumentVector();
+            if (!v.empty())
+            {
+                m_filename = m_config.getValueOrDefault<string>(*this, "ROMFileName", v[0]);
+            }
+            else
+            {
+                m_filename = m_config.getValue<string>(*this, "ROMFileName");
+            }
             LoadFile(m_filename);
         }
         else if (source == "CONFIG")
@@ -192,7 +201,7 @@ namespace Simulator
 
         if (source == "ELF")
         {
-            pair<MemAddr, bool> res = LoadProgram(GetName(), m_loadable, m_memory, m_data, m_numLines * m_lineSize, m_verboseload);
+            pair<MemAddr, bool> res = LoadProgram(GetName() + ':' + m_filename, m_loadable, m_memory, m_data, m_numLines * m_lineSize, m_verboseload);
             m_bootable = true;
             m_start_address = res.first;
             m_legacy = res.second;
@@ -207,7 +216,7 @@ namespace Simulator
                 r.rom_offset = 0;
                 r.vsize = r.rom_size = m_numLines * m_lineSize;
                 r.perm = (IMemory::Permissions)(IMemory::PERM_READ | IMemory::PERM_DCA_READ);
-                
+
                 m_loadable.push_back(r);
             }
         }
@@ -215,9 +224,9 @@ namespace Simulator
         PrepareRanges();
 
         p_Load.SetStorageTraces(m_iobus.GetWriteRequestTraces() * opt(m_flushing));
-        
+
         p_Flush.SetStorageTraces(m_iobus.GetReadRequestTraces(m_devid));
-        
+
         p_Notify.SetStorageTraces(m_iobus.GetNotificationTraces());
     }
 
@@ -237,7 +246,7 @@ namespace Simulator
         m_notifying.Clear();
         return SUCCESS;
     }
-    
+
     bool ActiveROM::OnReadResponseReceived(IODeviceID from, MemAddr address, const IOData& /*data*/)
     {
         assert(from == m_client && address == 0);
@@ -249,7 +258,7 @@ namespace Simulator
     {
         return m_notifying;
     }
-    
+
     Result ActiveROM::DoFlush()
     {
         if (!m_iobus.SendReadRequest(m_devid, m_client, 0, 0))
@@ -260,18 +269,18 @@ namespace Simulator
         m_flushing.Clear();
         return SUCCESS;
     }
-    
+
     Result ActiveROM::DoLoad()
-    {      
+    {
         LoadableRange& r = m_loadable[m_currentRange];
         size_t offset = r.rom_offset + m_currentOffset;
         MemAddr voffset = r.vaddr + m_currentOffset;
-        
+
         // transfer size:
         // - cannot be greater than the line size
         // - cannot be greated than the number of bytes remaining on the ROM
         // - cannot cause the range [voffset + size] to cross over a line boundary.
-        MemSize transfer_size = min(min((MemSize)(r.rom_size - m_currentOffset), (MemSize)m_lineSize), 
+        MemSize transfer_size = min(min((MemSize)(r.rom_size - m_currentOffset), (MemSize)m_lineSize),
                                     (MemSize)(m_lineSize - voffset % m_lineSize));
 
         IOData data;
@@ -280,7 +289,7 @@ namespace Simulator
 
         if (!m_iobus.SendWriteRequest(m_devid, m_client, voffset, data))
         {
-            DeadlockWrite("Unable to send DCA write for ROM data %#016llx/%u to device %u", 
+            DeadlockWrite("Unable to send DCA write for ROM data %#016llx/%u to device %u",
                           (unsigned long long)(voffset), (unsigned)transfer_size, (unsigned)m_client);
             return FAILED;
         }
@@ -343,7 +352,7 @@ namespace Simulator
         }
 
         Integer value = UnserializeRegister(RT_INTEGER, data.data, data.size);
-        
+
         unsigned word = address / 4;
 
         if (word >= 2)
@@ -370,7 +379,7 @@ namespace Simulator
             break;
         case 1:
             COMMIT {
-                m_client = (value & 0xffff); 
+                m_client = (value & 0xffff);
                 m_completionTarget = (value >> 16) & 0xffff;
             }
             break;
@@ -400,18 +409,18 @@ namespace Simulator
     {
         return opt(m_loading);
     }
-    
+
     void ActiveROM::GetDeviceIdentity(IODeviceIdentification& id) const
     {
         if (!DeviceDatabase::GetDatabase().FindDeviceByName("MGSim", "ActiveROM", id))
         {
             throw InvalidArgumentException(*this, "Device identity not registered");
-        }    
+        }
     }
 
-    string ActiveROM::GetIODeviceName() const 
-    { 
-        return GetFQN(); 
+    string ActiveROM::GetIODeviceName() const
+    {
+        return GetFQN();
     }
 
     void ActiveROM::Cmd_Info(ostream& out, const vector<string>& /* args */) const
@@ -428,9 +437,8 @@ namespace Simulator
             out << "Virtual ranges:" << endl
                 << "ROM start | Bytes    | Virtual start    | Virtual end" << endl
                 << "----------+----------+------------------+-----------------" << endl;
-            for (size_t i = 0; i < m_loadable.size(); ++i)
+            for (auto& r : m_loadable)
             {
-                const LoadableRange& r = m_loadable[i];
                 out << setfill('0') << hex << setw(8) << r.rom_offset
                     << "  | "
                     << dec << setfill(' ') << setw(8) << r.rom_size
@@ -452,7 +460,7 @@ namespace Simulator
         MemAddr addr = 0;
         MemSize size = 0;
         char* endptr = NULL;
-    
+
         if (arguments.size() == 2)
         {
             addr = (MemAddr)strtoull( arguments[0].c_str(), &endptr, 0 );
@@ -498,7 +506,7 @@ namespace Simulator
                     out << setw(2) << (unsigned int)buf[(size_t)(x - addr)];
                 else
                     out << "  ";
-                    
+
                 // Print some space at half the grid
                 if ((x - y) == BYTES_PER_LINE / 2 - 1) out << "  ";
                 out << " ";

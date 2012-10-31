@@ -55,6 +55,12 @@ static const unsigned char EV_CURRENT = 1; // Current version
 #elif defined(TARGET_MTSPARC)
 #define ELFCLASS ELFCLASS32
 #define ELFDATA  ELFDATA2MSB
+#elif defined(TARGET_MIPS32EL)
+#define ELFCLASS ELFCLASS32
+#define ELFDATA  ELFDATA2LSB
+#elif defined(TARGET_MIPS32)
+#define ELFCLASS ELFCLASS32
+#define ELFDATA  ELFDATA2MSB
 #endif
 
 #if ELFDATA == ELFDATA2MSB
@@ -160,6 +166,9 @@ static const Elf_Half EM_MTSPARC     = 0xaff0; // Microthreaded Sparc V8
 #elif defined(TARGET_MTSPARC)
 #define MACHINE_NORMAL EM_MTSPARC
 #define MACHINE_LEGACY EM_SPARC
+#elif defined(TARGET_MIPS32) || defined(TARGET_MIPS32EL)
+#define MACHINE_NORMAL EM_MIPS /* no MT for now */
+#define MACHINE_LEGACY EM_MIPS
 #endif
 
 // File header
@@ -197,7 +206,7 @@ static const Elf_Word PF_R = 4;
 static const Elf_Word PF_W = 2;
 static const Elf_Word PF_X = 1;
 
-// Program header
+// Program & section headers
 #pragma pack(1)
 #if ELFCLASS == ELFCLASS64
 struct Elf_Phdr
@@ -211,6 +220,30 @@ struct Elf_Phdr
 	Elf_Xword p_memsz;
 	Elf_Xword p_align;
 };
+
+struct Elf_Shdr
+{
+    Elf_Word  sh_name;
+    Elf_Word  sh_type;
+    Elf_Xword sh_flags;
+    Elf_Addr  sh_addr;
+    Elf_Off   sh_offset;
+    Elf_Xword sh_size;
+    Elf_Word  sh_link;
+    Elf_Word  sh_info;
+    Elf_Xword sh_addralign;
+    Elf_Xword sh_entsize;
+};
+
+struct Elf_Sym {
+    Elf_Word      st_name;
+    unsigned char st_info;
+    unsigned char st_other;
+    Elf_Half      st_shndx;
+    Elf_Addr      st_value;
+    Elf_Xword     st_size;
+};
+
 #else
 struct Elf_Phdr
 {
@@ -223,8 +256,74 @@ struct Elf_Phdr
 	Elf_Word  p_flags;
 	Elf_Xword p_align;
 };
+
+struct Elf_Shdr
+{
+    Elf_Word sh_name;
+    Elf_Word sh_type;
+    Elf_Word sh_flags;
+    Elf_Addr sh_addr;
+    Elf_Off  sh_offset;
+    Elf_Word sh_size;
+    Elf_Word sh_link;
+    Elf_Word sh_info;
+    Elf_Word sh_addralign;
+    Elf_Word sh_entsize;
+};
+
+struct Elf_Sym
+{
+    Elf_Word      st_name;
+    Elf_Addr      st_value;
+    Elf_Word      st_size;
+    unsigned char st_info;
+    unsigned char st_other;
+    Elf_Half      st_shndx;
+};
+
 #endif
 #pragma pack()
+
+#define ELF_ST_BIND(val)                (((unsigned int)(val)) >> 4)
+#define ELF_ST_TYPE(val)                ((val) & 0xF)
+#define ELF_ST_INFO(bind,type)          (((bind) << 4) + ((type) & 0xF))
+
+static const unsigned STN_UNDEF     = 0;  /* Undefined symbol index */
+
+static const unsigned STB_LOCAL     = 0;  /* Symbol not visible outside obj */
+static const unsigned STB_GLOBAL    = 1;  /* Symbol visible outside obj */
+static const unsigned STB_WEAK      = 2;  /* Like globals, lower precedence */
+static const unsigned STB_LOOS      = 10; /* OS-specific semantics */
+static const unsigned STB_HIOS      = 12; /* OS-specific semantics */
+static const unsigned STB_LOPROC    = 13; /* Application-specific semantics */
+static const unsigned STB_HIPROC    = 15; /* Application-specific semantics */
+
+static const unsigned STT_NOTYPE    = 0;  /* Symbol type is unspecified */
+static const unsigned STT_OBJECT    = 1;  /* Symbol is a data object */
+static const unsigned STT_FUNC      = 2;  /* Symbol is a code object */
+static const unsigned STT_SECTION   = 3;  /* Symbol associated with a section */
+static const unsigned STT_FILE      = 4;  /* Symbol gives a file name */
+static const unsigned STT_COMMON    = 5;  /* An uninitialised common block */
+static const unsigned STT_TLS       = 6;  /* Thread local data object */
+static const unsigned STT_RELC      = 8;  /* Complex relocation expression */
+static const unsigned STT_SRELC     = 9;  /* Signed Complex relocation expression */
+static const unsigned STT_LOOS      = 10; /* OS-specific semantics */
+static const unsigned STT_HIOS      = 12; /* OS-specific semantics */
+static const unsigned STT_LOPROC    = 13; /* Application-specific semantics */
+static const unsigned STT_HIPROC    = 15; /* Application-specific semantics */
+
+static const Elf_Word SHT_NULL      = 0;  /* Section header table entry unused */
+static const Elf_Word SHT_PROGBITS  = 1;  /* Program specific (private) data */
+static const Elf_Word SHT_SYMTAB    = 2;  /* Link editing symbol table */
+static const Elf_Word SHT_STRTAB    = 3;  /* A string table */
+static const Elf_Word SHT_RELA      = 4;  /* Relocation entries with addends */
+static const Elf_Word SHT_HASH      = 5;  /* A symbol hash table */
+static const Elf_Word SHT_DYNAMIC   = 6;  /* Information for dynamic linking */
+static const Elf_Word SHT_NOTE      = 7;  /* Information that marks file */
+static const Elf_Word SHT_NOBITS    = 8;  /* Section occupies no space in file */
+static const Elf_Word SHT_REL       = 9;  /* Relocation entries, no addends */
+static const Elf_Word SHT_SHLIB     = 10; /* Reserved, unspecified semantics */
+static const Elf_Word SHT_DYNSYM    = 11; /* Dynamic linking symbol table */
 
 #endif
 

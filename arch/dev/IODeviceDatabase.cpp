@@ -32,17 +32,18 @@ namespace Simulator
         { {   0,  0,  0 }, NULL }
     };
 
-    
+
     DeviceDatabase::DeviceDatabase()
+        : m_providers()
     {
        for (size_t i = 0; provider_db[i].name != NULL; ++i)
            m_providers[provider_db[i].id] = provider_db[i].name;
     }
-                                   
+
     const DeviceDatabase
     DeviceDatabase::m_singleton;
 
-    
+
     void DeviceDatabase::Print(std::ostream& out) const
     {
         out << "Prov. | Mod. | Rev. | Description" << endl
@@ -61,7 +62,7 @@ namespace Simulator
                 << endl;
         }
     }
-    
+
     bool DeviceDatabase::FindDeviceByName(const string& provider, const string& model, IODeviceIdentification& id) const
     {
         for (size_t i = 0; device_db[i].name != NULL; ++i)

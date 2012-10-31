@@ -11,10 +11,10 @@ namespace Simulator
 
 
     NullIO::NullIO(const std::string& name, Object& parent, Clock& clock)
-        : Object(name, parent, clock)
+        : Object(name, parent, clock), m_clients()
     {
     }
-    
+
     void NullIO::CheckEndPoints(IODeviceID from, IODeviceID to) const
     {
         if (from >= m_clients.size() || m_clients[from] == NULL)
@@ -24,11 +24,11 @@ namespace Simulator
 
         if (to >= m_clients.size() || m_clients[to] == NULL)
         {
-            throw exceptf<SimulationException>(*this, "I/O from device %u to non-existence device %u", (unsigned)from, (unsigned)to);
+            throw exceptf<SimulationException>(*this, "I/O from device %u to non-existent device %u", (unsigned)from, (unsigned)to);
         }
 
     }
-  
+
     bool NullIO::RegisterClient(IODeviceID id, IIOBusClient& client)
     {
         if (id >= m_clients.size())
@@ -37,7 +37,7 @@ namespace Simulator
         }
         if (m_clients[id] != NULL)
         {
-            throw exceptf<InvalidArgumentException>(*this, "Device number %zu is already registered", id);
+            throw exceptf<InvalidArgumentException>(*this, "Device number %u is already registered", (unsigned)id);
         }
         m_clients[id] = &client;
         return true;
@@ -77,11 +77,10 @@ namespace Simulator
         DebugIONetWrite("Sending interrupt request from device %u to channel %u", (unsigned)from, (unsigned)which);
 
         bool res = true;
-        for (size_t to = 0; to < m_clients.size(); ++to)
-        {
-            if (m_clients[to] != NULL)
-                res = res & m_clients[to]->OnInterruptRequestReceived(which);
-        }
+        for (auto to : m_clients)
+            if (to != NULL)
+                res = res & to->OnInterruptRequestReceived(which);
+
         return res;
     }
 
@@ -95,94 +94,85 @@ namespace Simulator
         DebugIONetWrite("Sending notification from device %u to channel %u (tag %#016llx)", (unsigned)from, (unsigned)which, (unsigned long long)tag);
 
         bool res = true;
-        for (size_t to = 0; to < m_clients.size(); ++to)
-        {
-            if (m_clients[to] != NULL)
-                res = res & m_clients[to]->OnNotificationReceived(which, tag);
-        }
+        for (auto to : m_clients)
+            if (to != NULL)
+                res = res & to->OnNotificationReceived(which, tag);
+
         return res;
     }
 
     StorageTraceSet NullIO::GetReadRequestTraces(IODeviceID from) const
     {
         StorageTraceSet res;
-        for (std::vector<IIOBusClient*>::const_iterator p = m_clients.begin(); p != m_clients.end(); ++p)
+        for (auto p : m_clients)
         {
-            res ^= (*p)->GetReadRequestTraces() * opt(m_clients[from]->GetReadResponseTraces());
+            res ^= p->GetReadRequestTraces() * opt(m_clients[from]->GetReadResponseTraces());
         }
         return res;
     }
-    
+
     StorageTraceSet NullIO::GetWriteRequestTraces() const
     {
         StorageTraceSet res;
-        for (std::vector<IIOBusClient*>::const_iterator p = m_clients.begin(); p != m_clients.end(); ++p)
+        for (auto p : m_clients)
         {
-            res ^= (*p)->GetWriteRequestTraces();
+            res ^= p->GetWriteRequestTraces();
         }
         return res;
     }
-    
+
     StorageTraceSet NullIO::GetReadResponseTraces() const
     {
         StorageTraceSet res;
-        for (std::vector<IIOBusClient*>::const_iterator p = m_clients.begin(); p != m_clients.end(); ++p)
+        for (auto p : m_clients)
         {
-            res ^= (*p)->GetReadResponseTraces();
+            res ^= p->GetReadResponseTraces();
         }
         return res;
     }
-    
+
     StorageTraceSet NullIO::GetInterruptRequestTraces() const
     {
         StorageTraceSet res;
-        for (std::vector<IIOBusClient*>::const_iterator p = m_clients.begin(); p != m_clients.end(); ++p)
-        {
-            if (*p != NULL)
-                res *= (*p)->GetInterruptRequestTraces();
-        }
+        for (auto p : m_clients)
+            if (p != NULL)
+                res *= p->GetInterruptRequestTraces();
+
         return res;
     }
-    
+
     StorageTraceSet NullIO::GetNotificationTraces() const
     {
         StorageTraceSet res;
-        for (std::vector<IIOBusClient*>::const_iterator p = m_clients.begin(); p != m_clients.end(); ++p)
-        {
-            if (*p != NULL)
-                res *= (*p)->GetNotificationTraces();
-        }
+        for (auto p : m_clients)
+            if (p != NULL)
+                res *= p->GetNotificationTraces();
+
         return res;
     }
-    
+
     IODeviceID NullIO::GetNextAvailableDeviceID() const
     {
         for (size_t i = 0; i < m_clients.size(); ++i)
-        {
             if (m_clients[i] == NULL)
-            {
                 return i;
-            }
-        }
+
         return m_clients.size();
     }
 
     void NullIO::Initialize()
     {
-        for (size_t i = 0; i < m_clients.size(); ++i)
-        {
-            if (m_clients[i] != NULL)
-            {
-                m_clients[i]->Initialize();
-            }
-        }
+        for (auto c : m_clients)
+            if (c != NULL)
+                c->Initialize();
+
     }
 
     IODeviceID NullIO::GetDeviceIDByName(const std::string& name_) const
     {
         string name(name_);
         transform(name.begin(), name.end(), name.begin(), ::tolower);
-        
+
         for (size_t i = 0; i < m_clients.size(); ++i)
         {
             if (m_clients[i] != NULL && FNM_NOMATCH != fnmatch(name.c_str(), m_clients[i]->GetIODeviceName().c_str(), 0))
@@ -196,10 +186,10 @@ namespace Simulator
         string name(name_);
         transform(name.begin(), name.end(), name.begin(), ::tolower);
 
-        for (size_t i = 0; i < m_clients.size(); ++i)
+        for (auto c : m_clients)
         {
-            if (m_clients[i] != NULL && FNM_NOMATCH != fnmatch(name.c_str(), m_clients[i]->GetIODeviceName().c_str(), 0))
-                return dynamic_cast<Object&>(*m_clients[i]);
+            if (c != NULL && FNM_NOMATCH != fnmatch(name.c_str(), c->GetIODeviceName().c_str(), 0))
+                return dynamic_cast<Object&>(*c);
         }
         throw exceptf<InvalidArgumentException>(*this, "No such device: %s", name.c_str());
     }
@@ -225,7 +215,7 @@ namespace Simulator
 
     void NullIO::Cmd_Info(std::ostream& out, const std::vector<std::string>& /*args*/) const
     {
-        out << 
+        out <<
             "The Null I/O bus implements a zero-latency bus between\n"
             "the components connected to it.\n\n"
             "The following components are registered:\n";
@@ -242,10 +232,11 @@ namespace Simulator
 
         for (size_t i = 0; i < m_clients.size(); ++i)
         {
-            if (m_clients[i] != NULL)
+            auto c = m_clients[i];
+            if (c != NULL)
             {
                 IODeviceIdentification id;
-                m_clients[i]->GetDeviceIdentity(id);
+                c->GetDeviceIdentity(id);
 
                 out << setw(5) << setfill(' ') << i
                     << " | "
@@ -255,7 +246,7 @@ namespace Simulator
                     << '/'
                     << setw(4) << setfill('0') << hex << id.revision
                     << " | "
-                    << m_clients[i]->GetIODeviceName()
+                    << c->GetIODeviceName()
                     << endl;
             }
         }

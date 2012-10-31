@@ -6,6 +6,8 @@
 #include "commands.h"
 #include <arch/MGSystem.h>
 #include <sim/config.h>
+#include <sim/configparser.h>
+#include <sim/readfile.h>
 
 #ifdef ENABLE_MONITOR
 # include <sim/monitor.h>
@@ -28,7 +30,6 @@ struct ProgramConfig
 {
     unsigned int                     m_areaTech;
     string                           m_configFile;
-    string                           m_symtableFile;
     bool                             m_enableMonitor;
     bool                             m_interactive;
     bool                             m_terminate;
@@ -38,21 +39,40 @@ struct ProgramConfig
     vector<string>                   m_printvars;
     bool                             m_earlyquit;
     ConfigMap                        m_overrides;
-    vector<string>                   m_extradevs;    
-    vector<pair<RegAddr, string> >   m_loads;
-    vector<pair<RegAddr, RegValue> > m_regs;
+    vector<string>                   m_extradevs;
+    vector<string>                   m_regs;
     bool                             m_dumptopo;
     string                           m_topofile;
     bool                             m_dumpnodeprops;
     bool                             m_dumpedgeprops;
     vector<string>                   m_argv;
+    ProgramConfig()
+        : m_areaTech(0),
+          m_configFile(MGSIM_CONFIG_PATH),
+          m_enableMonitor(false),
+          m_interactive(false),
+          m_terminate(false),
+          m_dumpconf(false),
+          m_quiet(false),
+          m_dumpvars(false),
+          m_printvars(),
+          m_earlyquit(false),
+          m_overrides(),
+          m_extradevs(),
+          m_regs(),
+          m_dumptopo(false),
+          m_topofile(),
+          m_dumpnodeprops(true),
+          m_dumpedgeprops(true),
+          m_argv()
+    {}
 };
 
-extern "C" 
+extern "C"
 {
 const char *argp_program_version =
     "mgsim " PACKAGE_VERSION "\n"
-    "Copyright (C) 2008,2009,2010,2011 Universiteit van Amsterdam.\n"
+    "Copyright (C) 2008,2009,2010,2011,2012 Universiteit van Amsterdam.\n"
     "\n"
     "Written by Mike Lankamp. Maintained by the Microgrid project.";
 
@@ -78,10 +98,11 @@ static const struct argp_option mgsim_options[] =
     { 0, 'F', "NUM VALUE", 0, "Store the float VALUE in the specified FP register of the initial thread.", 1 },
     { 0, 'L', "NUM FILE", 0, "Create an ActiveROM component with the contents of FILE and store the address in the specified register of the initial thread.", 1 },
 
-    { "config", 'c', "FILE", 0, "Read configuration from FILE.", 2 },
+    { "config", 'c', "FILE", 0, "Read default configuration from FILE. "
+      "The contents of this file are considered after all overrides (-o/-I).", 2 },
     { "dump-configuration", 'd', 0, 0, "Dump configuration to standard error prior to program startup.", 2 },
-    { "override", 'o', "NAME=VAL", 0, "Overrides the configuration option NAME with value VAL. Can be specified multiple times.", 2 },
-    { "symtable", 's', "FILE", 0, "Read symbol from FILE. (generate with nm -P)\n", 2 },
+    { "override", 'o', "NAME=VAL", 0, "Add override option NAME with value VAL. Can be specified multiple times.", 2 },
+    { "include", 'I', "FILE", 0, "Read extra override options from FILE. Can be specified multiple times.", 2 },
 
     { "do-nothing", 'n', 0, 0, "Exit before the program starts, but after the system is configured.", 3 },
     { "quiet", 'q', 0, 0, "Do not print simulation statistics after execution.", 3 },
@@ -102,13 +123,15 @@ static const struct argp_option mgsim_options[] =
     { "monitor", 'm', 0, 0, "Enable asynchronous simulation monitoring (configure with -o MonitorSampleVariables).", 7 },
 #endif
 
+    { "symtable", 's', "FILE", OPTION_HIDDEN, "(obsolete; symbols are now read automatically from ELF)", 8 },
+
     { 0, 0, 0, 0, 0, 0 }
 };
 
 static error_t mgsim_parse_opt(int key, char *arg, struct argp_state *state)
 {
     struct ProgramConfig &config = *(struct ProgramConfig*)state->input;
-    
+
     switch (key)
     {
     case 'a':
@@ -122,13 +145,13 @@ static error_t mgsim_parse_opt(int key, char *arg, struct argp_state *state)
         } else {
             config.m_areaTech = tech;
         }
-    } 
+    }
     break;
     case 'c': config.m_configFile = arg; break;
     case 'i': config.m_interactive = true; break;
     case 't': config.m_terminate = true; break;
     case 'q': config.m_quiet = true; break;
-    case 's': config.m_symtableFile = arg; break;
+    case 's': cerr << "# Warning: ignoring obsolete flag '-s'" << endl; break;
     case 'd': config.m_dumpconf = true; break;
     case 'm': config.m_enableMonitor = true; break;
     case 'l': config.m_dumpvars = true; break;
@@ -146,76 +169,46 @@ static error_t mgsim_parse_opt(int key, char *arg, struct argp_state *state)
             }
             string name = sarg.substr(0, eq);
 
-            // push overrides in inverse order, so that the latest
-            // specified in the command line has higher priority in
-            // matching.
-            config.m_overrides.insert(name, sarg.substr(eq + 1));
+            config.m_overrides.append(name, sarg.substr(eq + 1));
+    }
+    break;
+    case 'I':
+    {
+        ConfigParser parser(config.m_overrides);
+        parser(read_file(arg));
     }
     break;
     case 'L':
     {
+        string regnum(arg);
         if (state->next == state->argc) {
-            throw runtime_error("Error: -L<N> expected filename");
+            throw runtime_error("Error: -L" + regnum + " expected filename");
         }
         string filename(state->argv[state->next++]);
-        string regnum(arg);
-        char* endptr; 
-        unsigned long index = strtoul(regnum.c_str(), &endptr, 0); 
-        if (*endptr != '\0') { 
-            throw runtime_error("Error: invalid register specifier in option: " + regnum); 
-        } 
-        RegAddr  regaddr = MAKE_REGADDR(RT_INTEGER, index);
 
-        string devname = "file" + regnum;
+        string devname = "rom_file" + regnum;
         config.m_extradevs.push_back(devname);
         string cfgprefix = devname + ":";
         config.m_overrides.append(cfgprefix + "Type", "AROM");
         config.m_overrides.append(cfgprefix + "ROMContentSource", "RAW");
         config.m_overrides.append(cfgprefix + "ROMFileName", filename);
-        config.m_loads.push_back(make_pair(regaddr, devname)); 
+        config.m_regs.push_back("R" + regnum + "=B" + devname);
     }
     break;
     case 'R': case 'F':
     {
+        string regnum;
+        regnum += (char)key;
+        regnum += arg;
         if (state->next == state->argc) {
-            throw runtime_error("Error: -R/-F expected register value");
+            throw runtime_error("Error: -" + regnum + ": expected register value");
         }
 
-        stringstream value;
-        value << state->argv[state->next++];
-
-        RegAddr  addr;
-        RegValue val;
-
-        char* endptr;
-        unsigned long index = strtoul(arg, &endptr, 0);
-        if (*endptr != '\0') {
-            throw runtime_error("Error: invalid register specifier in option");
-        }
-                
-        if (key == 'R') {
-            value >> *(SInteger*)&val.m_integer;
-            addr = MAKE_REGADDR(RT_INTEGER, index);
-        } else {
-            double f;
-            value >> f;
-            val.m_float.fromfloat(f);
-            addr = MAKE_REGADDR(RT_FLOAT, index);
-        }
-        if (value.fail()) {
-            throw runtime_error("Error: invalid value for register");
-        }
-        val.m_state = RST_FULL;
-        config.m_regs.push_back(make_pair(addr, val));
+        config.m_regs.push_back(regnum + "=" + state->argv[state->next++]);
     }
     break;
     case ARGP_KEY_ARG: /* extra arguments */
     {
-        if (config.m_argv.empty())
-        {
-            cerr << "Warning: converting first extra argument to -o *:ROMFileName=" << arg << endl;
-            config.m_overrides.append("*:ROMFileName", arg);
-        }
         config.m_argv.push_back(arg);
     }
     break;
@@ -239,14 +232,15 @@ static struct argp argp = {
     NULL /* argp domain */
 };
 
+static
 void PrintFinalVariables(const ProgramConfig& cfg)
 {
     if (!cfg.m_printvars.empty())
     {
-        std::cout << "### begin end-of-simulation variables" << std::endl;
-        for (size_t i = 0; i < cfg.m_printvars.size(); ++i)
-            ReadSampleVariables(cout, cfg.m_printvars[i]);
-        std::cout << "### end end-of-simulation variables" << std::endl;
+        cout << "### begin end-of-simulation variables" << endl;
+        for (auto& i : cfg.m_printvars)
+            ReadSampleVariables(cout, i);
+        cout << "### end end-of-simulation variables" << endl;
     }
 }
 
@@ -256,35 +250,46 @@ extern "C"
 int main(int argc, char** argv)
 {
     srand(time(NULL));
-    
+
     try
     {
         // Parse command line arguments
         ProgramConfig config;
-        config.m_areaTech = 0;
-        config.m_configFile = MGSIM_CONFIG_PATH;
-        config.m_enableMonitor = false;
-        config.m_interactive = false;
-        config.m_terminate = false;
-        config.m_dumpconf = false;
-        config.m_quiet = false;
-        config.m_dumpvars = false;
-        config.m_earlyquit = false;
-        config.m_dumptopo = false;
-        config.m_dumpnodeprops = true;
-        config.m_dumpedgeprops = true;
 
         argp_parse(&argp, argc, argv, 0, 0, &config);
-        
+
+        // Convert the remaining m_regs to an override
+        {
+            ostringstream s;
+            for (size_t i = 0; i < config.m_regs.size(); ++i)
+            {
+                if (i)
+                    s << ',';
+                s << config.m_regs[i];
+            }
+            config.m_overrides.append("CmdLineRegs", s.str()); 
+        }
+
         if (config.m_quiet)
         {
             config.m_overrides.append("*.ROMVerboseLoad", "false");
+        }
+        if (!config.m_extradevs.empty())
+        {
+            string n;
+            for (size_t i = 0; i < config.m_extradevs.size(); ++i)
+            {
+                if (i > 0)
+                    n += ',';
+                n += config.m_extradevs[i];
+            }
+            config.m_overrides.append("CmdLineFileDevs", n);
         }
 
         if (config.m_interactive)
         {
             // Interactive mode
-            std::clog << argp_program_version << std::endl;
+            clog << argp_program_version << endl;
         }
 
         // Read configuration from file
@@ -294,23 +299,18 @@ int main(int argc, char** argv)
         {
             // Printing the configuration early, in case constructing the
             // system (below) fails.
-            std::clog << "### simulator version: " PACKAGE_VERSION << std::endl;
-            configfile.dumpConfiguration(std::clog, config.m_configFile);
+            clog << "### simulator version: " PACKAGE_VERSION << endl;
+            configfile.dumpConfiguration(clog, config.m_configFile);
         }
-        
+
         // Create the system
-        MGSystem sys(configfile, 
-                     config.m_symtableFile,
-                     config.m_regs, 
-                     config.m_loads, 
-                     config.m_extradevs, 
-                     !config.m_interactive, 
-                     !config.m_earlyquit);
+        MGSystem sys(configfile,
+                     !config.m_interactive);
 
 #ifdef ENABLE_MONITOR
         string mo_mdfile = configfile.getValueOrDefault<string>("MonitorMetadataFile", "mgtrace.md");
         string mo_tfile = configfile.getValueOrDefault<string>("MonitorTraceFile", "mgtrace.out");
-        Monitor mo(sys, config.m_enableMonitor, 
+        Monitor mo(sys, config.m_enableMonitor,
                    mo_mdfile, config.m_earlyquit ? "" : mo_tfile, !config.m_interactive);
 #endif
 
@@ -319,24 +319,24 @@ int main(int argc, char** argv)
             // we also print the cache, which expands all effectively
             // looked up configuration values after the system
             // was constructed successfully.
-            configfile.dumpConfigurationCache(std::clog);
+            configfile.dumpConfigurationCache(clog);
         }
         if (config.m_dumpvars)
         {
-            std::clog << "### begin monitor variables" << std::endl;
-            ListSampleVariables(std::clog);
-            std::clog << "### end monitor variables" << std::endl;
+            clog << "### begin monitor variables" << endl;
+            ListSampleVariables(clog);
+            clog << "### end monitor variables" << endl;
         }
 
         if (config.m_areaTech > 0)
         {
-            std::clog << "### begin area information" << std::endl;
+            clog << "### begin area information" << endl;
 #ifdef ENABLE_CACTI
-            sys.DumpArea(std::cout, config.m_areaTech);
+            sys.DumpArea(cout, config.m_areaTech);
 #else
-            std::clog << "# Warning: CACTI not enabled; reconfigure with --enable-cacti" << std::endl;
+            clog << "# Warning: CACTI not enabled; reconfigure with --enable-cacti" << endl;
 #endif
-            std::clog << "### end area information" << std::endl;
+            clog << "### end area information" << endl;
         }
 
         if (config.m_dumptopo)
@@ -347,7 +347,7 @@ int main(int argc, char** argv)
         }
 
         if (config.m_earlyquit)
-            exit(0);
+            return 0;
 
         bool interactive = config.m_interactive;
         if (!interactive)
@@ -362,7 +362,7 @@ int main(int argc, char** argv)
 #ifdef ENABLE_MONITOR
                 mo.stop();
 #endif
-                
+
                 if (!config.m_quiet)
                 {
                     clog << "### begin end-of-simulation statistics" << endl;
@@ -375,22 +375,22 @@ int main(int argc, char** argv)
 #ifdef ENABLE_MONITOR
                 mo.stop();
 #endif
-                if (config.m_terminate) 
+                if (config.m_terminate)
                 {
                     // We do not want to go to interactive mode,
                     // rethrow so it abort the program.
                     PrintFinalVariables(config);
                     throw;
                 }
-                
+
                 PrintException(cerr, e);
-                
+
                 // When we get an exception in non-interactive mode,
                 // jump into interactive mode
                 interactive = true;
             }
         }
-        
+
         if (interactive)
         {
             // Command loop
@@ -398,7 +398,7 @@ int main(int argc, char** argv)
             CommandLineReader clr;
             cli_context ctx = { clr, sys
 #ifdef ENABLE_MONITOR
-                                , mo 
+                                , mo
 #endif
             };
 
@@ -410,9 +410,22 @@ int main(int argc, char** argv)
     }
     catch (const exception& e)
     {
-        PrintException(cerr, e);
-        return 1;
+        const ProgramTerminationException *ex = dynamic_cast<const ProgramTerminationException*>(&e);
+        if (ex != NULL)
+        {
+            // The program is telling us how to terminate. Do it.
+            if (ex->TerminateWithAbort())
+                abort();
+            else
+                return ex->GetExitCode();
+        }
+        else
+        {
+            // No more information, simply terminate with error.
+            PrintException(cerr, e);
+            return 1;
+        }
     }
-    
+
     return 0;
 }

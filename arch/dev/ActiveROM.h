@@ -44,10 +44,10 @@ namespace Simulator
 
         IODeviceID         m_devid;
         IIOBus&            m_iobus;
-                           
+
         IODeviceID         m_client;
         IONotificationChannelID      m_completionTarget;
-                           
+
         SingleFlag         m_loading;
         SingleFlag         m_flushing;
         SingleFlag         m_notifying;
@@ -62,6 +62,8 @@ namespace Simulator
 
     public:
         ActiveROM(const std::string& name, Object& parent, IMemoryAdmin& mem, IIOBus& iobus, IODeviceID devid, Config& config, bool quiet = false);
+        ActiveROM(const ActiveROM&) = delete;
+        ActiveROM& operator=(const ActiveROM&) = delete;
         ~ActiveROM();
 
         void Initialize();
@@ -83,7 +85,7 @@ namespace Simulator
         bool OnReadRequestReceived(IODeviceID from, MemAddr address, MemSize size);
         bool OnWriteRequestReceived(IODeviceID from, MemAddr address, const IOData& data);
         bool OnReadResponseReceived(IODeviceID from, MemAddr address, const IOData& data);
-        
+
         StorageTraceSet GetWriteRequestTraces() const;
         StorageTraceSet GetReadResponseTraces() const;
 

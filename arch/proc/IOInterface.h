@@ -54,7 +54,7 @@ public:
         // for boot sequence
         MemAddr GetDeviceBaseAddress(IODeviceID dev) const;
     };
-    
+
 
 private:
     size_t                      m_numDevices;
@@ -64,7 +64,7 @@ private:
     AsyncIOInterface            m_async_io;
 
     friend class PNCInterface;
-    PNCInterface                m_pnc;        
+    PNCInterface                m_pnc;
 
     IOResponseMultiplexer       m_rrmux;
     IONotificationMultiplexer   m_nmux;
@@ -87,7 +87,7 @@ public:
     IONotificationMultiplexer& GetNotificationMultiplexer() { return m_nmux; }
     IODirectCacheAccess& GetDirectCacheAccess() { return m_dca; }
     IOBusInterface&      GetIOBusInterface()    { return m_iobus_if; }
-    
+
     MemAddr GetDeviceBaseAddress(IODeviceID dev) const { return m_async_io.GetDeviceBaseAddress(dev); }
 
     // At core initialization, triggered by the SMC

@@ -17,15 +17,16 @@ namespace Simulator
 
 LCD::LCD(const std::string& name, Object& parent, IIOBus& iobus, IODeviceID devid, Config& config)
     : Object(name, parent, parent.GetClock()),
-      m_devid(devid), m_iobus(iobus),
+      m_iobus(iobus),
+      m_devid(devid),
       m_buffer(0),
-      m_width(config.getValue<size_t>(*this, "LCDDisplayWidth")), 
+      m_width(config.getValue<size_t>(*this, "LCDDisplayWidth")),
       m_height(config.getValue<size_t>(*this, "LCDDisplayHeight")),
-      m_startrow(config.getValue<size_t>(*this, "LCDOutputRow")), 
+      m_startrow(config.getValue<size_t>(*this, "LCDOutputRow")),
       m_startcolumn(config.getValue<size_t>(*this, "LCDOutputColumn")),
-      m_bgcolor(config.getValue<size_t>(*this, "LCDBackgroundColor") % 10), 
+      m_bgcolor(config.getValue<size_t>(*this, "LCDBackgroundColor") % 10),
       m_fgcolor(config.getValue<size_t>(*this, "LCDForegroundColor") % 10),
-      m_curx(0), 
+      m_curx(0),
       m_cury(0),
       m_tracefile(NULL)
 {
@@ -65,7 +66,7 @@ void LCD::GetDeviceIdentity(IODeviceIdentification& id) const
     if (!DeviceDatabase::GetDatabase().FindDeviceByName("MGSim", "LCD", id))
     {
         throw InvalidArgumentException(*this, "Device identity not registered");
-    }    
+    }
 }
 
 bool LCD::OnReadRequestReceived(IODeviceID from, MemAddr address, MemSize size)
@@ -93,7 +94,7 @@ bool LCD::OnWriteRequestReceived(IODeviceID from, MemAddr address, const IOData&
 {
     if (data.size < 1)
         return true;
-    
+
     COMMIT{
         if (address == m_width * m_height)
         {
@@ -159,7 +160,7 @@ bool LCD::OnWriteRequestReceived(IODeviceID from, MemAddr address, const IOData&
                 m_cury = m_height - 1;
                 Refresh(0, m_height);
             }
-            
+
         }
         else
         {
@@ -175,9 +176,9 @@ bool LCD::OnWriteRequestReceived(IODeviceID from, MemAddr address, const IOData&
                     (*m_tracefile) << thebyte << std::flush;
 
                 m_buffer[address + i] = std::isprint(thebyte) ? thebyte : ' ';
-                
+
                 DebugIOWrite("LCD output by device %u: %u -> %ux%u",
-                             (unsigned)from, (unsigned)thebyte, 
+                             (unsigned)from, (unsigned)thebyte,
                              (unsigned)(i % m_width + 1), (unsigned)(i / m_width + 1));
             }
             Refresh(address / m_width, (address + data.size) / m_width + 1);
@@ -207,6 +208,6 @@ void LCD::Refresh(unsigned first, unsigned last) const
         write(0, m_buffer + j * m_width, m_width);
     }
     write(0, restore, sizeof(restore));
-}    
+}
 
 }

@@ -1,43 +1,39 @@
 #include "except.h"
 #include "kernel.h"
-#include <algorithm>
 #include <iostream>
+
+using namespace std;
 
 namespace Simulator
 {
 
-static std::string MakeMessage(const Object& object, const std::string& msg)
+static string MakeMessage(const Object& object, const string& msg)
 {
-    std::string name = object.GetFQN();
-    std::transform(name.begin(), name.end(), name.begin(), toupper);
-    return name + ": " + msg;
+    return object.GetFQN() + ": " + msg;
 }
 
-SimulationException::SimulationException(const std::string& msg, const Object& object)
-    : std::runtime_error(MakeMessage(object, msg))
+SimulationException::SimulationException(const string& msg, const Object& object)
+    : runtime_error(MakeMessage(object, msg)), m_details()
 {
-    
+
 }
 
-SimulationException::SimulationException(const Object& object, const std::string& msg)
-    : std::runtime_error(MakeMessage(object, msg))
+SimulationException::SimulationException(const Object& object, const string& msg)
+    : runtime_error(MakeMessage(object, msg)), m_details()
 {
-    
+
 }
 
-void PrintException(std::ostream& out, const std::exception& e)
+void PrintException(ostream& out, const exception& e)
 {
-    out << std::endl << e.what() << std::endl;
+    out << endl << e.what() << endl;
 
-    const SimulationException* se = dynamic_cast<const SimulationException*>(&e);
+    auto se = dynamic_cast<const SimulationException*>(&e);
     if (se != NULL)
     {
         // SimulationExceptions hold more information, print it
-        const std::list<std::string>& details = se->GetDetails();
-        for (std::list<std::string>::const_iterator p = details.begin(); p != details.end(); ++p)
-        {
-            out << *p << std::endl;
-        }
+        for (auto& p : se->GetDetails())
+            out << p << endl;
     }
 }
 

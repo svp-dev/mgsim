@@ -4,7 +4,7 @@
 #include <sim/kernel.h>
 #include <arch/simtypes.h>
 
-namespace Simulator 
+namespace Simulator
 {
 
     class IBankSelector {

@@ -24,7 +24,7 @@ bool DDRChannel::Read(MemAddr address, MemSize size)
         // We're still busy
         return false;
     }
-    
+
     // Accept request
     COMMIT
     {
@@ -33,7 +33,7 @@ bool DDRChannel::Read(MemAddr address, MemSize size)
         m_request.size    = size;
         m_request.write   = false;
     }
-    
+
     if (!m_busy.Set())
     {
         return false;
@@ -48,7 +48,7 @@ bool DDRChannel::Write(MemAddr address, MemSize size)
         // We're still busy
         return false;
     }
-    
+
     // Accept request
     COMMIT
     {
@@ -69,17 +69,17 @@ bool DDRChannel::Write(MemAddr address, MemSize size)
 Result DDRChannel::DoRequest()
 {
     assert(m_busy.IsSet());
-    
+
     const CycleNo now = GetClock().GetCycleNo();
     if (now < m_next_command)
     {
         // Can't continue yet
         return SUCCESS;
     }
-    
+
     // We read from m_nDevicesPerRank devices, each providing m_nBurstLength bytes in the burst.
     const unsigned burst_size = m_ddrconfig.m_nBurstSize;
-    
+
     // Decode the burst address and offset-within-burst
     const MemAddr      address = (m_request.address + m_request.offset) / m_ddrconfig.m_nDevicesPerRank;
     const unsigned int offset  = (m_request.address + m_request.offset) % m_ddrconfig.m_nDevicesPerRank;
@@ -90,7 +90,7 @@ Result DDRChannel::DoRequest()
     // Ranks and banks are analogous in this concept; each bank can be invidually pre-charged and activated,
     // providing an array of rows * columns cells.
     const unsigned int array  = rank * (1 << m_ddrconfig.m_nBankBits) + bank;
-    
+
     if (m_currentRow[array] != row)
     {
         if (m_currentRow[array] != INVALID_ROW)
@@ -103,18 +103,18 @@ Result DDRChannel::DoRequest()
             }
             return SUCCESS;
         }
-        
+
         // Activate (open) the desired row
         COMMIT
         {
             m_next_command   = now + m_ddrconfig.m_tRCD;
             m_next_precharge = now + m_ddrconfig.m_tRAS;
-            
+
             m_currentRow[array] = row;
         }
         return SUCCESS;
     }
-    
+
     // Process a single burst
     unsigned int remainder = m_request.size - m_request.offset;
     unsigned int size      = std::min(burst_size - offset, remainder);
@@ -143,17 +143,17 @@ Result DDRChannel::DoRequest()
             // Update address to reflect read portion
             m_request.offset += size;
             m_request.done    = now + m_ddrconfig.m_tCL;
-            
+
             // Schedule next read
             m_next_command = now + m_ddrconfig.m_tCCD;
         }
-    
+
         if (size < remainder)
         {
             // We're not done yet
             return SUCCESS;
         }
-        
+
         // We're done with this read; queue it into the pipeline
         if (!m_pipeline.Push(m_request))
         {
@@ -191,43 +191,40 @@ Result DDRChannel::DoPipeline()
 }
 
 DDRChannel::DDRConfig::DDRConfig(const std::string& name, Object& parent, Clock& clock, Config& config)
-    : Object(name, parent, clock)
+    : Object(name, parent, clock),
+      m_nBurstLength(config.getValue<size_t> (*this, "BurstLength")),
+      m_tRCD (config.getValue<unsigned> (*this, "tRCD")),
+      m_tRP  (config.getValue<unsigned> (*this, "tRP")),
+      m_tCL  (config.getValue<unsigned> (*this, "tCL")),
+      // tWR is expressed in DDR specs in nanoseconds, see
+      // http://www.samsung.com/global/business/semiconductor/products/dram/downloads/applicationnote/tWR.pdf
+      // Frequency is in MHz.
+      m_tWR  (config.getValue<unsigned> (*this, "tWR") / 1e3 * clock.GetFrequency()),
+
+      m_tCCD (config.getValue<unsigned> (*this, "tCCD")),
+      m_tCWL (config.getValue<unsigned> (*this, "tCWL")),
+      m_tRAS (config.getValue<unsigned> (*this, "tRAS")),
+
+      // Address bit mapping.
+      m_nDevicesPerRank (config.getValue<size_t> (*this, "DevicesPerRank")),
+      m_nBankBits (ilog2(config.getValue<size_t> (*this, "Banks"))),
+      m_nRankBits (ilog2(config.getValue<size_t> (*this, "Ranks"))),
+      m_nRowBits (config.getValue<size_t> (*this, "RowBits")),
+      m_nColumnBits (config.getValue<size_t> (*this, "ColumnBits")),
+
+      m_nColumnStart (0),
+      m_nBankStart (m_nColumnStart + m_nColumnBits),
+      m_nRankStart (m_nBankStart + m_nBankBits),
+      m_nRowStart (m_nRankStart + m_nRankBits),
+
+      m_nBurstSize (m_nDevicesPerRank * m_nBurstLength)
 {
-    // DDR 3
-    m_nBurstLength = config.getValue<size_t> (*this, "BurstLength");
     if (m_nBurstLength != 8)
         throw SimulationException(*this, "This implementation only supports m_nBurstLength = 8");
-        
+
     size_t cellsize = config.getValue<size_t> (*this, "CellSize");
     if (cellsize != 8)
         throw SimulationException(*this, "This implementation only supports CellSize = 8");
-
-    m_tCL  = config.getValue<unsigned> (*this, "tCL");
-    m_tRCD = config.getValue<unsigned> (*this, "tRCD");
-    m_tRP  = config.getValue<unsigned> (*this, "tRP");
-    m_tRAS = config.getValue<unsigned> (*this, "tRAS");
-    m_tCWL = config.getValue<unsigned> (*this, "tCWL");
-    m_tCCD = config.getValue<unsigned> (*this, "tCCD");
-    
-    // tWR is expressed in DDR specs in nanoseconds, see 
-    // http://www.samsung.com/global/business/semiconductor/products/dram/downloads/applicationnote/tWR.pdf
-    // Frequency is in MHz.
-    m_tWR = config.getValue<unsigned> (*this, "tWR") / 1e3 * clock.GetFrequency();
-
-    // Address bit mapping.
-    m_nDevicesPerRank = config.getValue<size_t> (*this, "DevicesPerRank");
-    m_nRankBits = ilog2(config.getValue<size_t> (*this, "Ranks"));
-    m_nBankBits = ilog2(config.getValue<size_t> (*this, "Banks"));
-    m_nRowBits = config.getValue<size_t> (*this, "RowBits");
-    m_nColumnBits = config.getValue<size_t> (*this, "ColumnBits");
-    m_nBurstSize = m_nDevicesPerRank * m_nBurstLength;
-
-    // ordering of bits in address (after division by burst size):
-    m_nColumnStart = 0;
-    m_nBankStart = m_nColumnStart + m_nColumnBits;
-    m_nRankStart = m_nBankStart + m_nBankBits;
-    m_nRowStart = m_nRankStart + m_nRankBits;
-
 }
 
 DDRChannel::DDRChannel(const std::string& name, Object& parent, Clock& clock, Config& config)
@@ -236,16 +233,17 @@ DDRChannel::DDRChannel(const std::string& name, Object& parent, Clock& clock, Co
       m_ddrconfig("config", *this, clock, config),
       // Initialize each rank at 'no row selected'
       m_currentRow(1 << (m_ddrconfig.m_nRankBits + m_ddrconfig.m_nBankBits), INVALID_ROW),
-
       m_callback(0),
+      m_request(),
       m_pipeline("b_pipeline", *this, clock, m_ddrconfig.m_tCL),
       m_busy("f_busy", *this, clock, false),
       m_next_command(0),
       m_next_precharge(0),
-    
+      m_traces(),
+
       p_Request (*this, "request",  delegate::create<DDRChannel, &DDRChannel::DoRequest >(*this)),
       p_Pipeline(*this, "pipeline", delegate::create<DDRChannel, &DDRChannel::DoPipeline>(*this)),
-      
+
       m_busyCycles(0)
 {
     m_busy.Sensitive(p_Request);
@@ -264,7 +262,7 @@ DDRChannel::DDRChannel(const std::string& name, Object& parent, Clock& clock, Co
     config.registerProperty(*this, "rows", (uint32_t)(1UL<<m_ddrconfig.m_nRowBits));
     config.registerProperty(*this, "columns", (uint32_t)(1UL<<m_ddrconfig.m_nColumnBits));
     config.registerProperty(*this, "freq", (uint32_t)clock.GetFrequency());
-    
+
     RegisterSampleVariableInObject(m_busyCycles, SVC_CUMULATIVE);
 }
 
@@ -288,23 +286,22 @@ DDRChannel::~DDRChannel()
 }
 
 DDRChannelRegistry::DDRChannelRegistry(const std::string& name, Object& parent, Config& config, size_t defaultNumChannels)
-    : Object(name, parent)
+    : Object(name, parent),
+      m_channels(config.getValueOrDefault<size_t>(*this, "NumChannels", defaultNumChannels))
 {
-    size_t numChannels = config.getValueOrDefault<size_t>(*this, "NumChannels", defaultNumChannels);
-
-    for (size_t i = 0; i < numChannels; ++i)
+    for (size_t i = 0; i < m_channels.size(); ++i)
     {
         std::stringstream ss;
         ss << "channel" << i;
         Clock &ddrclock = GetKernel()->CreateClock(config.getValue<size_t>(*this, ss.str(), "Freq"));
-        this->push_back(new DDRChannel(ss.str(), *this, ddrclock, config));
+        m_channels[i] = new DDRChannel(ss.str(), *this, ddrclock, config);
     }
 }
 
 DDRChannelRegistry::~DDRChannelRegistry()
 {
-    for (size_t i = 0; i < size(); ++i)
-        delete (*this)[i];
+    for (auto p : m_channels)
+        delete p;
 }
 
 }

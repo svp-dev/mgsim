@@ -8,8 +8,8 @@
 namespace Simulator
 {
 
-typedef size_t  IODeviceID;     ///< Number of a device on an I/O Bus
-typedef size_t  IONotificationChannelID;  ///< Number of a notification/interrupt channel on an I/O bus
+typedef unsigned IODeviceID;     ///< Number of a device on an I/O Bus
+typedef unsigned IONotificationChannelID;  ///< Number of a notification/interrupt channel on an I/O bus
 
 /* maximum size of the data in an I/O request. */
 static const size_t MAX_IO_OPERATION_SIZE = 64;
@@ -29,7 +29,7 @@ public:
     virtual bool OnReadResponseReceived(IODeviceID from, MemAddr address, const IOData& data);
     virtual bool OnInterruptRequestReceived(IONotificationChannelID which);
     virtual bool OnNotificationReceived(IONotificationChannelID which, Integer tag);
-    
+
     virtual StorageTraceSet GetReadRequestTraces() const { return StorageTraceSet(); }
     virtual StorageTraceSet GetWriteRequestTraces() const { return StorageTraceSet(); }
     virtual StorageTraceSet GetReadResponseTraces() const { return StorageTraceSet(); }

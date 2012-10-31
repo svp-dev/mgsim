@@ -207,7 +207,7 @@ namespace Simulator
             // translate virtual flags (iflags) to real flags (oflags)
             if      ((iflags & VO_ACCMODE) == VO_RDONLY) oflags = O_RDONLY;
             else if ((iflags & VO_ACCMODE) == VO_WRONLY) oflags = O_WRONLY;
-            else if ((iflags & VO_ACCMODE) == VO_RDWR)   oflags = O_RDWR;  
+            else if ((iflags & VO_ACCMODE) == VO_RDWR)   oflags = O_RDWR;
             iflags &= ~VO_ACCMODE;
 
             if (iflags & VO_APPEND)   { oflags |= O_APPEND;   iflags &= ~VO_APPEND; }
@@ -475,7 +475,7 @@ namespace Simulator
 
             if (sz > arg2.size())
                 sz = arg2.size();
-            
+
             ssize_t s = pwrite(vd->hfd, &arg2[0], sz, offset);
 
             if (s >= 0)

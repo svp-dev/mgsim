@@ -17,7 +17,7 @@ using namespace std;
 
 int CommandLineReader::ReadLineHook(void) {
     Display *display = Display::GetDisplay();
-    if (!display) 
+    if (!display)
         return 0;
 
     // readline is annoying: the documentation says the event
@@ -26,9 +26,9 @@ int CommandLineReader::ReadLineHook(void) {
     // we don't want to refresh the display or check events
     // too often (it's expensive...) So we keep track of time
     // here as well, and force 10ths of seconds ourselves.
-        
+
     static long last_check = 0;
-        
+
     struct timeval tv;
     gettimeofday(&tv, 0);
     long current = tv.tv_sec * 10 + tv.tv_usec / 100000;
@@ -40,7 +40,8 @@ int CommandLineReader::ReadLineHook(void) {
     return 0;
 }
 
-CommandLineReader::CommandLineReader()  {
+CommandLineReader::CommandLineReader()
+    : m_histfilename() {
 #ifdef HAVE_LIBREADLINE
     rl_event_hook = &ReadLineHook;
 # ifdef HAVE_READLINE_HISTORY
@@ -78,7 +79,7 @@ char* CommandLineReader::GetCommandLine(const string& prompt)
     std::getline(std::cin, line);
     if (std::cin.fail())
         return 0;
-    
+
     char *str = (char*)malloc(line.size() + 1);
     assert(str != 0);
     strcpy(str, line.c_str());
@@ -101,7 +102,7 @@ vector<string> Tokenize(const string& str, const string& sep)
         next = str.find_first_of(sep, pos);
         if (next == string::npos)
         {
-            tokens.push_back(str.substr(pos));  
+            tokens.push_back(str.substr(pos));
         }
         else
         {

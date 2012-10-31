@@ -54,7 +54,7 @@ protected:
             MemAddr         address;    // Address of the concerned cache-line
             CacheID         source;     // ID of the originating cache
             bool            dirty;      // Is the data in this message 'dirty'?
-            
+
             // Message data and validity bitmask
             char            data   [MAX_MEMORY_OPERATION_SIZE];
             bool            bitmask[MAX_MEMORY_OPERATION_SIZE];
@@ -94,7 +94,7 @@ protected:
         Message(const Message&) {} // No copying
     };
 
-private:    
+private:
     // Message management
     static Message*            g_FreeMessages;
     static std::list<Message*> g_Messages;
@@ -108,7 +108,7 @@ protected:
     Buffer<Message*>  m_incoming;       ///< Buffer for incoming messages from the prev node
 private:
     Buffer<Message*>  m_outgoing;       ///< Buffer for outgoing messages to the next node
-   
+
     /// Process for sending to the next node
     Process           p_Forward;
     Result            DoForward();
@@ -120,15 +120,17 @@ protected:
 
     /// Send the message to the next node
     bool SendMessage(Message* message, size_t min_space);
-    
+
     /// Print a message queue
     static void Print(std::ostream& out, const std::string& name, const Buffer<Message*>& buffer);
 
     /// Print the incoming and outgoing buffers of this node
     void Print(std::ostream& out) const;
-    
+
     /// Construct the node
     Node(const std::string& name, ZLCOMA& parent, Clock& clock);
+    Node(const Node&) = delete;
+    Node& operator=(const Node&) = delete;
     virtual ~Node();
 
 public:

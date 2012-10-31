@@ -24,9 +24,9 @@ class SimulationException : public std::runtime_error
     std::list<std::string> m_details;
 public:
     const std::list<std::string>& GetDetails() const { return m_details; }
-    
+
     void AddDetails(const std::string& msg) { m_details.push_back(msg); }
-    SimulationException(const std::string& msg) : std::runtime_error(msg) {}
+    SimulationException(const std::string& msg) : std::runtime_error(msg), m_details() {}
     SimulationException(const std::string& msg, const Object& object);
     SimulationException(const Object& object, const std::string& msg);
     virtual ~SimulationException() throw() {}
@@ -69,6 +69,17 @@ class SecurityException : public SimulationException
 {
 public:
     SecurityException(const Object& object, const std::string& msg) : SimulationException(msg, object) {}
+};
+
+class ProgramTerminationException : public SimulationException
+{
+    int  m_exitcode;
+    bool m_abort;
+public:
+    bool TerminateWithAbort() const { return m_abort; }
+    int GetExitCode() const { return m_exitcode; }
+    ProgramTerminationException(const Object& object, const std::string& msg, int exitcode, bool abort) 
+        : SimulationException(msg, object), m_exitcode(exitcode), m_abort(abort) {}
 };
 
 template<typename Except>

@@ -9,8 +9,8 @@ Processor::Pipeline::PipeAction Processor::Pipeline::WritebackStage::OnCycle()
     int  writebackOffset  = m_writebackOffset;
     int  size             = -1;
     bool allow_reschedule = true;
-    bool suspend          = (m_input.suspend != SUSPEND_NONE);        
-    
+    bool suspend          = (m_input.suspend != SUSPEND_NONE);
+
     if (m_stall)
     {
         // We need to stall this cycle without doing *anything*.
@@ -21,7 +21,7 @@ Processor::Pipeline::PipeAction Processor::Pipeline::WritebackStage::OnCycle()
         }
         return PIPE_STALL;
     }
-    
+
     if (m_input.Rrc.type != RemoteMessage::MSG_NONE)
     {
         // Network activity
@@ -34,19 +34,19 @@ Processor::Pipeline::PipeAction Processor::Pipeline::WritebackStage::OnCycle()
                        (unsigned)m_input.fid, (unsigned)m_input.tid, (unsigned long long)m_input.logical_index, m_input.pc_sym,
                        m_input.Rrc.str().c_str());
     }
-                    
+
     if (m_input.Rcv.m_state != RST_INVALID)
     {
         // We have something to write back
         assert(m_input.Rcv.m_size % sizeof(Integer) == 0);
         size = m_input.Rcv.m_size / sizeof(Integer);
-        
+
         if (writebackOffset == -1)
-        {        
+        {
             // New data write
             writebackOffset = 0;
         }
-    
+
         if (writebackOffset < size)
         {
             // Take data from input
@@ -73,7 +73,7 @@ Processor::Pipeline::PipeAction Processor::Pipeline::WritebackStage::OnCycle()
                 index = size - 1 - index;
 #endif
                 const unsigned int shift = index * 8 * sizeof(Integer);
-            
+
                 switch (m_input.Rc.type)
                 {
                     case RT_INTEGER: value.m_integer       = (Integer)(m_input.Rcv.m_integer.get(m_input.Rcv.m_size) >> shift); break;
@@ -81,17 +81,17 @@ Processor::Pipeline::PipeAction Processor::Pipeline::WritebackStage::OnCycle()
                 }
                 break;
             }
-        
+
             default:
                 // These states are never written from the pipeline
                 assert(0);
             }
-            
+
             if (m_input.Rc.valid())
             {
                 // Get the address of the register we're writing.
                 const RegAddr addr = MAKE_REGADDR(m_input.Rc.type, m_input.Rc.index + writebackOffset);
-            
+
                 // We have something to write back
                 if (!m_regFile.p_pipelineW.Write(addr))
                 {
@@ -101,7 +101,7 @@ Processor::Pipeline::PipeAction Processor::Pipeline::WritebackStage::OnCycle()
 
                     return PIPE_STALL;
                 }
-        
+
                 // Read the old value
                 RegValue old_value;
                 if (!m_regFile.ReadRegister(addr, old_value))
@@ -113,11 +113,11 @@ Processor::Pipeline::PipeAction Processor::Pipeline::WritebackStage::OnCycle()
 
                     return PIPE_STALL;
                 }
-                
+
                 if (value.m_state == RST_WAITING)
                 {
                     assert(suspend);
-                
+
                     if (old_value.m_state == RST_FULL)
                     {
                         // The data we wanted to wait for has returned before we could write the register.
@@ -133,8 +133,8 @@ Processor::Pipeline::PipeAction Processor::Pipeline::WritebackStage::OnCycle()
                     else
                     {
                         assert(value.m_waiting.head == m_input.tid);
-                
-                        // The Read Stage will have setup the register to 
+
+                        // The Read Stage will have setup the register to
                         // link this thread into the register's thread waiting list
                         if (old_value.m_state == RST_WAITING && old_value.m_waiting.head != INVALID_TID)
                         {
@@ -146,7 +146,7 @@ Processor::Pipeline::PipeAction Processor::Pipeline::WritebackStage::OnCycle()
                         {
                             assert(value.m_waiting.tail == m_input.tid);
                         }
-                
+
                         COMMIT
                         {
                             // We're suspending because we're waiting on a non-full register.
@@ -162,7 +162,7 @@ Processor::Pipeline::PipeAction Processor::Pipeline::WritebackStage::OnCycle()
                     // operation on a shared register that already has a thread waiting on it.
                     // So we just combine the waiting information.
                     assert(old_value.m_memory.size == 0);
-                
+
                     value.m_state   = RST_WAITING;
                     value.m_waiting = old_value.m_waiting;
 
@@ -217,7 +217,7 @@ Processor::Pipeline::PipeAction Processor::Pipeline::WritebackStage::OnCycle()
                                    addr.str().c_str(), value.str(addr.type).c_str());
                 }
             }
-            
+
             // Adjust after writing
             writebackOffset++;
         }
@@ -243,7 +243,7 @@ Processor::Pipeline::PipeAction Processor::Pipeline::WritebackStage::OnCycle()
     {
         // We're done writing
         bool delay = false;
-        
+
         if (m_input.swch)
         {
             // We've switched threads
@@ -276,7 +276,7 @@ Processor::Pipeline::PipeAction Processor::Pipeline::WritebackStage::OnCycle()
             {
                 // We can only reschedule if the write didn't wake up a thread
                 // Otherwise we're appending multiple things to a linked list.
-            
+
                 if (!m_allocator.RescheduleThread(m_input.tid, m_input.pc))
                 {
                     // We cannot reschedule, stall pipeline
@@ -292,16 +292,16 @@ Processor::Pipeline::PipeAction Processor::Pipeline::WritebackStage::OnCycle()
                 delay = true;
             }
         }
-        
+
         if (!delay)
         {
             // We're really done with this write
             writebackOffset = -1;
-        } 
+        }
     }
-            
+
     COMMIT{ m_writebackOffset = writebackOffset; }
-    
+
     return writebackOffset == -1
         ? PIPE_CONTINUE     // We're done, continue
         : PIPE_DELAY;       // We still have data to write back next cycle

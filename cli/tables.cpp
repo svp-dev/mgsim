@@ -1,36 +1,5 @@
 #include "commands.h"
 
-extern command_handler
-cmd_aliases,
-    cmd_bp_list,
-    cmd_bp_add,
-    cmd_bp_clear,
-    cmd_bp_del,
-    cmd_bp_disable,
-    cmd_bp_enable,
-    cmd_bp_off,
-    cmd_bp_on,
-    cmd_bp_state,
-    cmd_disas,
-    cmd_help,
-    cmd_info,
-    cmd_line,
-    cmd_lookup,
-    cmd_quit,
-    cmd_inspect,
-    cmd_run,
-    cmd_show_vars,
-    cmd_show_syms,
-    cmd_show_components,
-    cmd_show_processes,
-    cmd_show_devdb,
-    cmd_state,
-    cmd_stats,
-    cmd_run,
-    cmd_trace_show,
-    cmd_trace_debug,
-    cmd_trace_line;
-
 const
 command_descriptor command_table[] =
 {

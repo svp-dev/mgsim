@@ -4,6 +4,7 @@
 #include <sim/log2.h>
 #include <programs/mgsim.h>
 #include <arch/FPU.h>
+#include <sim/breakpoints.h>
 
 #include <cassert>
 #include <cmath>
@@ -55,11 +56,11 @@ Processor::Pipeline::PipeAction Processor::Pipeline::ExecuteStage::OnCycle()
         // Clear memory operation information
         m_output.address = 0;
         m_output.size    = 0;
-        
+
         // Clear remote information
-        m_output.Rrc.type = RemoteMessage::MSG_NONE;        
+        m_output.Rrc.type = RemoteMessage::MSG_NONE;
     }
-    
+
     // If we need to suspend on an operand, it'll be in Rav (by the Read Stage)
     // In such a case, we must write them back, because they actually contain the
     // suspend information.
@@ -72,7 +73,7 @@ Processor::Pipeline::PipeAction Processor::Pipeline::ExecuteStage::OnCycle()
             // that will be send by the Writeback stage.
             m_output.Rc  = m_input.Rc;
             m_output.Rcv = m_input.Rav;
-            
+
             // Force a thread switch
             m_output.swch    = true;
             m_output.kill    = false;
@@ -85,19 +86,22 @@ Processor::Pipeline::PipeAction Processor::Pipeline::ExecuteStage::OnCycle()
 
         return PIPE_FLUSH;
     }
-    
+
     COMMIT
     {
         // Set PC to point to next instruction
         m_output.pc = m_input.pc + sizeof(Instruction);
-        
+
         // Copy input data and set some defaults
         m_output.Rc          = m_input.Rc;
         m_output.suspend     = SUSPEND_NONE;
         m_output.Rcv.m_state = RST_INVALID;
         m_output.Rcv.m_size  = m_input.RcSize;
     }
-    
+
+    // Check for breakpoints
+    GetKernel()->GetBreakPointManager().Check(BreakPointManager::EXEC, m_input.pc, *this);
+
     PipeAction action = ExecuteInstruction();
     if (action != PIPE_STALL)
     {
@@ -123,7 +127,7 @@ Processor::Pipeline::PipeAction Processor::Pipeline::ExecuteStage::OnCycle()
         DebugPipeWrite("F%u/T%u(%llu) %s stalled",
                        (unsigned)m_input.fid, (unsigned)m_input.tid, (unsigned long long)m_input.logical_index, m_input.pc_sym);
     }
-    
+
     return action;
 }
 
@@ -159,7 +163,7 @@ Processor::Pipeline::PipeAction Processor::Pipeline::ExecuteStage::ExecAllocate(
         DebugSimWrite("F%u/T%u(%llu) %s adjusted default place -> CPU%u/%u cap 0x%lx",
                       (unsigned)m_input.fid, (unsigned)m_input.tid, (unsigned long long)m_input.logical_index, m_input.pc_sym,
                       (unsigned)place.pid, (unsigned)place.size, (unsigned long)place.capability);
-    } 
+    }
     else if (place.size == 1 && place.capability == 0)
     {
         if (place.pid == 0)
@@ -177,7 +181,7 @@ Processor::Pipeline::PipeAction Processor::Pipeline::ExecuteStage::ExecAllocate(
                       (unsigned)m_input.fid, (unsigned)m_input.tid, (unsigned long long)m_input.logical_index, m_input.pc_sym,
                       (unsigned long)place.capability);
     }
-    
+
     // Size must be a power of two and ID a multiple of size.
     assert(IsPowerOfTwo(place.size));
     assert((place.pid % place.size) == 0);
@@ -187,16 +191,16 @@ Processor::Pipeline::PipeAction Processor::Pipeline::ExecuteStage::ExecAllocate(
     {
         throw SimulationException("Attempting to delegate to a non-existing core");
     }
-    
+
     AllocationType type = (AllocationType)(flags & 3);
     if (exclusive && type != ALLOCATE_SINGLE)
     {
         type = ALLOCATE_SINGLE;
-        
+
         DebugSimWrite("F%u/T%u(%llu) %s adjusted allocate type exclusive -> exclusive single",
                       (unsigned)m_input.fid, (unsigned)m_input.tid, (unsigned long long)m_input.logical_index, m_input.pc_sym);
     }
-        
+
     // Send an allocation request.
     // This will write back the FID to the specified register once the allocation
     // has completed. Even for creates to this core, we do this. Simplifies things.
@@ -209,7 +213,7 @@ Processor::Pipeline::PipeAction Processor::Pipeline::ExecuteStage::ExecAllocate(
         m_output.Rrc.allocate.type           = type;
         m_output.Rrc.allocate.completion_pid = m_parent.GetProcessor().GetPID();
         m_output.Rrc.allocate.completion_reg = reg;
-            
+
         m_output.Rcv = MAKE_PENDING_PIPEVALUE(m_input.RcSize);
     }
     return PIPE_CONTINUE;
@@ -243,7 +247,7 @@ Processor::Pipeline::PipeAction Processor::Pipeline::ExecuteStage::ExecCreate(co
         }
         return PIPE_FLUSH;
     }
-    
+
     // Send the create.
     COMMIT
     {
@@ -252,15 +256,15 @@ Processor::Pipeline::PipeAction Processor::Pipeline::ExecuteStage::ExecCreate(co
         m_output.Rrc.create.address        = address;
         m_output.Rrc.create.completion_reg = completion;
         m_output.Rrc.create.bundle         = false;
-        
+
         m_output.Rcv = MAKE_PENDING_PIPEVALUE(m_input.RcSize);
     }
-    
+
     DebugFlowWrite("F%u/T%u(%llu) %s create CPU%u/F%u %s",
                    (unsigned)m_input.fid, (unsigned)m_input.tid, (unsigned long long)m_input.logical_index, m_input.pc_sym,
                    (unsigned)fid.pid, (unsigned) fid.lfid,
-                   GetKernel()->GetSymbolTable()[address].c_str());
-    
+                   m_parent.GetProcessor().GetSymbolTable()[address].c_str());
+
     return PIPE_CONTINUE;
 }
 
@@ -273,7 +277,7 @@ Processor::Pipeline::PipeAction Processor::Pipeline::ExecuteStage::ReadFamilyReg
         m_output.Rrc.famreg.kind = kind;
         m_output.Rrc.famreg.fid  = fid;
         m_output.Rrc.famreg.addr = MAKE_REGADDR(type, reg);
-            
+
         m_output.Rrc.famreg.value.m_state = RST_INVALID;
         m_output.Rrc.famreg.completion_reg = m_output.Rc.index;
         m_output.Rcv = MAKE_PENDING_PIPEVALUE(m_input.RcSize);
@@ -290,7 +294,7 @@ Processor::Pipeline::PipeAction Processor::Pipeline::ExecuteStage::WriteFamilyRe
         m_output.Rrc.famreg.kind = kind;
         m_output.Rrc.famreg.fid  = fid;
         m_output.Rrc.famreg.addr = MAKE_REGADDR(type, reg);
-            
+
         assert(m_input.Rbv.m_size == sizeof(Integer));
         m_output.Rrc.famreg.value = PipeValueToRegValue(type, m_input.Rbv);
     }
@@ -300,10 +304,10 @@ Processor::Pipeline::PipeAction Processor::Pipeline::ExecuteStage::WriteFamilyRe
 Processor::Pipeline::PipeAction Processor::Pipeline::ExecuteStage::ExecSync(const FID& fid)
 {
     assert(m_input.Rc.type == RT_INTEGER);
-    
+
     if (m_input.Rc.index == INVALID_REG_INDEX)
     {
-        throw exceptf<InvalidArgumentException>(*this, "F%u/T%u(%llu) %s invalid target register for sync", 
+        throw exceptf<InvalidArgumentException>(*this, "F%u/T%u(%llu) %s invalid target register for sync",
                                                 (unsigned)m_input.fid, (unsigned)m_input.tid, (unsigned long long)m_input.logical_index, m_input.pc_sym);
     }
 
@@ -322,8 +326,8 @@ Processor::Pipeline::PipeAction Processor::Pipeline::ExecuteStage::ExecSync(cons
             m_output.Rrc.type                = RemoteMessage::MSG_SYNC;
             m_output.Rrc.sync.fid            = fid;
             m_output.Rrc.sync.completion_reg = m_input.Rc.index;
-            
-            m_output.Rcv = MAKE_PENDING_PIPEVALUE(m_input.RcSize);            
+
+            m_output.Rcv = MAKE_PENDING_PIPEVALUE(m_input.RcSize);
         }
         DebugFlowWrite("F%u/T%u(%llu) %s sync CPU%u/F%u",
                        (unsigned)m_input.fid, (unsigned)m_input.tid, (unsigned long long)m_input.logical_index, m_input.pc_sym,
@@ -356,15 +360,15 @@ Processor::Pipeline::PipeAction Processor::Pipeline::ExecuteStage::ExecDetach(co
 }
 
 Processor::Pipeline::PipeAction Processor::Pipeline::ExecuteStage::ExecBreak()
-{ 
+{
     COMMIT
     {
-             
+
         m_output.Rrc.type    = RemoteMessage::MSG_BREAK;
         m_output.Rrc.brk.pid = m_parent.GetProcessor().GetPID();
         m_output.Rrc.brk.fid = m_input.fid;
     }
-    return PIPE_CONTINUE; 
+    return PIPE_CONTINUE;
 }
 
 void Processor::Pipeline::ExecuteStage::ExecDebugOutput(Integer value, int command, int flags) const
@@ -442,23 +446,23 @@ void Processor::Pipeline::ExecuteStage::ExecStatusAction(Integer value, int comm
 
     switch(command)
     {
-    case 0: 
+    case 0:
         break;
-    case 1: 
+    case 1:
         // interrupt the simulation in a way that is resumable
         // from the interactive prompt.
         GetKernel()->Stop();
         break;
     case 2:
-        abort();
-        break;
+        throw ProgramTerminationException(*this, "Program requested simulator to abort.", 0, true);
     case 3:
     {
         int code = value & 0xff;
-        exit(code);
-        break;
+        ostringstream emsg;
+        emsg << "Program requested simulator to exit with code " << code << ".";
+        throw ProgramTerminationException(*this, emsg.str(), code, false);
     }
-    }    
+    }
 }
 
 void Processor::Pipeline::ExecuteStage::ExecMemoryControl(Integer value, int command, int flags) const
@@ -469,7 +473,7 @@ void Processor::Pipeline::ExecuteStage::ExecMemoryControl(Integer value, int com
     //  10: mmap(addr = value, size = 2^(flags+12), pid = ASR_PID)
     //  11, flag 0: munmapall(pid = value)
     //  11, flag 1: set ASR_PID := value
-    
+
     unsigned l = flags & 0x7;
     MemSize req_size = 1 << (l + 12);
 
@@ -492,7 +496,7 @@ void Processor::Pipeline::ExecuteStage::ExecMemoryControl(Integer value, int com
         else if (flags == 1)
             cpu.UnmapMemory(value);
         break;
-    }    
+    }
 }
 
 void Processor::Pipeline::ExecuteStage::ExecDebug(Integer value, Integer stream) const
@@ -560,10 +564,10 @@ Processor::Pipeline::ExecuteStage::ExecuteStage(Pipeline& parent, Clock& clock, 
     m_familyTable(familyTable),
     m_threadTable(threadTable),
     m_fpu(fpu),
-    m_fpuSource(fpu_source)
+    m_fpuSource(fpu_source),
+    m_flop(0),
+    m_op(0)
 {
-    m_flop = 0;
-    m_op   = 0;
     RegisterSampleVariableInObject(m_flop, SVC_CUMULATIVE);
     RegisterSampleVariableInObject(m_op, SVC_CUMULATIVE);
 }

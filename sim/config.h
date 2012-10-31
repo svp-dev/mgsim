@@ -20,15 +20,24 @@
 
 class ConfigMap
 {
-public:
-    typedef std::vector<std::pair<std::string,std::string> > map_t;
-    typedef map_t::const_iterator const_iterator;
+    typedef std::vector<std::pair<std::string,std::string> >  map_t;
 
-    void insert(const std::string& key, const std::string& value);
+    template<typename T>
+        struct reverse_proxy {
+            const T& m_cont;
+            reverse_proxy(const T& cont) : m_cont(cont) {}
+            typename T::const_reverse_iterator begin() const { return m_cont.rbegin(); }
+            typename T::const_reverse_iterator end() const { return m_cont.rend(); }
+        };
+public:
     void append(const std::string& key, const std::string& value);
 
-    const_iterator begin() const { return m_map.begin(); }
-    const_iterator end() const { return m_map.end(); }
+    map_t::const_iterator begin() const { return m_map.begin(); }
+    map_t::const_iterator end() const { return m_map.end(); }
+
+    reverse_proxy<map_t> reverse() const { return m_map; }
+
+    ConfigMap() : m_map() {}
 private:
     map_t m_map;
 };
@@ -37,7 +46,7 @@ class InputConfigRegistry
 {
 private:
     typedef std::map<std::string,std::pair<std::string,std::string> > ConfigCache;
-    
+
     ConfigMap                m_data;
     const ConfigMap&         m_overrides;
     ConfigCache              m_cache;
@@ -59,7 +68,7 @@ private:
         }
         if (errno == EINVAL)
         {
-            throw Simulator::exceptf<Simulator::SimulationException>("Configuration value for %s is not a number: %s", name.c_str(), start); 
+            throw Simulator::exceptf<Simulator::SimulationException>("Configuration value for %s is not a number: %s", name.c_str(), start);
         }
         if (*end != '\0')
         {
@@ -77,7 +86,7 @@ private:
             else if (0 == strcmp(end, "KB"))
                 val *= 1000;
             else
-                throw Simulator::exceptf<Simulator::SimulationException>("Configuration value for %s has an invalid suffix: %s", name.c_str(), start); 
+                throw Simulator::exceptf<Simulator::SimulationException>("Configuration value for %s has an invalid suffix: %s", name.c_str(), start);
         }
         return val;
     }
@@ -85,14 +94,14 @@ private:
     bool lookup(const std::string& name, std::string& result, const std::string& def, bool allow_default);
 
     template <typename T>
-    T lookupValue(const std::string& name, const T& def, bool fail_if_not_found) 
+    T lookupValue(const std::string& name, const T& def, bool fail_if_not_found)
     {
         /* general version for numbers. The version for strings and bools is specialized below. */
 
         std::stringstream ss;
         ss << def;
         std::string val = lookupValue<std::string>(name, ss.str(), fail_if_not_found);
-        
+
         // get the string value back
         return convertToNumber<T>(name, val);
     }
@@ -145,8 +154,11 @@ public:
         return lookupValue<T>((objname.empty() ? objname : objname + '.') + prefix + ':' + name, T(), true);
     }
 
-    std::vector<std::string> getWordList(const std::string& name); 
-    std::vector<std::string> getWordList(const Simulator::Object& obj, const std::string& name);
+    std::vector<std::string> getWordList(const std::string& name);
+    std::vector<std::string> getWordList(const Simulator::Object& obj, const std::string& name)
+    {
+        return getWordList(obj.GetFQN() + ':' + name);
+    }
 
     void dumpConfiguration(std::ostream& os, const std::string& cf) const;
     void dumpConfigurationCache(std::ostream& os) const;
@@ -154,6 +166,10 @@ public:
     std::vector<std::pair<std::string, std::string> > getRawConfiguration() const;
 
     InputConfigRegistry(const std::string& filename, const ConfigMap& overrides, const std::vector<std::string>& argv);
+
+protected:
+    // Ensure this class cannot be used unless it is subclassed.
+    virtual ~InputConfigRegistry() {}
 
 };
 
@@ -183,11 +199,11 @@ protected:
 
     struct Entity
     {
-        enum { 
-            VOID = CONF_ENTITY_VOID, 
+        enum {
+            VOID = CONF_ENTITY_VOID,
             SYMBOL = CONF_ENTITY_SYMBOL,
             OBJECT = CONF_ENTITY_OBJECT,
-            UINT = CONF_ENTITY_UINT, 
+            UINT = CONF_ENTITY_UINT,
         } type;
         union
         {
@@ -289,6 +305,14 @@ public:
 
 
     void dumpComponentGraph(std::ostream& out, bool display_nodeprops = true, bool display_linkprops = true);
+
+    ComponentModelRegistry()
+        : m_symbols(), m_objects(), m_entities(), m_objprops(),
+        m_linkprops(), m_names(), m_types(), m_typeattrs() {}
+
+protected:
+    // Ensure this class cannot be used unless it is subclassed.
+    virtual ~ComponentModelRegistry() {}
 };
 
 
@@ -308,7 +332,6 @@ public:
     Config(const std::string& filename, const ConfigMap& overrides, const std::vector<std::string>& argv)
         : InputConfigRegistry(filename, overrides, argv)
     { }
-
 
     std::vector<uint32_t> GetConfWords();
 };

@@ -19,15 +19,15 @@ Processor::RAUnit::RAUnit(const std::string& name, Processor& parent, Clock& clo
         {"IntRegistersBlockSize", 32},
         {"FltRegistersBlockSize", 32}
     };
-    
+
     for (size_t i = 0; i < NUM_REG_TYPES; ++i)
     {
         TypeInfo&          type = m_types[i];
         const RegTypeInfo& info = RegTypeInfos[i];
-        
+
         // Contexts must be a power of two
         assert(IsPowerOfTwo(info.context_size));
-        
+
         type.blockSize = config.getValue<size_t>(*this, info.blocksize_name);
         if (type.blockSize == 0 || !IsPowerOfTwo(type.blockSize))
         {
@@ -45,8 +45,8 @@ Processor::RAUnit::RAUnit(const std::string& name, Processor& parent, Clock& clo
         {
             throw exceptf<InvalidArgumentException>(*this, "%s does not divide the register file size", info.blocksize_name);
         }
-    
-        const BlockSize free_blocks = size / type.blockSize;        
+
+        const BlockSize free_blocks = size / type.blockSize;
         if (free_blocks < 2)
         {
             throw exceptf<InvalidArgumentException>(*this, "%s: there must be at least two allocation blocks of registers", info.blocksize_name);
@@ -55,7 +55,7 @@ Processor::RAUnit::RAUnit(const std::string& name, Processor& parent, Clock& clo
         type.free[CONTEXT_NORMAL]    = free_blocks - 1;
         type.free[CONTEXT_RESERVED]  = 0;
         type.free[CONTEXT_EXCLUSIVE] = 1;
-        
+
         type.list.resize(free_blocks, List::value_type(0, INVALID_LFID));
     }
 }
@@ -100,11 +100,11 @@ void Processor::RAUnit::UnreserveContext()
 bool Processor::RAUnit::Alloc(const RegSize sizes[NUM_REG_TYPES], LFID fid, ContextType context, RegIndex indices[NUM_REG_TYPES])
 {
     BlockSize blocksizes[NUM_REG_TYPES];
-    
+
     for (size_t i = 0; i < NUM_REG_TYPES; ++i)
     {
         TypeInfo& type = m_types[i];
-        
+
         indices[i] = INVALID_REG_INDEX;
         if (sizes[i] != 0)
         {
@@ -119,7 +119,7 @@ bool Processor::RAUnit::Alloc(const RegSize sizes[NUM_REG_TYPES], LFID fid, Cont
                 free++;
             }
             assert(free <= type.list.size());
-            
+
             if (free >= size)
             {
                 // We have enough free space, find a contiguous free area of specified size
@@ -145,7 +145,7 @@ bool Processor::RAUnit::Alloc(const RegSize sizes[NUM_REG_TYPES], LFID fid, Cont
                     }
                 }
             }
-            
+
             if (indices[i] == INVALID_REG_INDEX)
             {
                 // Couldn't get a block for this type
@@ -155,7 +155,7 @@ bool Processor::RAUnit::Alloc(const RegSize sizes[NUM_REG_TYPES], LFID fid, Cont
     }
 
     COMMIT
-    { 
+    {
         // We've found blocks for all types, commit them
         for (size_t i = 0; i < NUM_REG_TYPES; ++i)
         {
@@ -163,16 +163,16 @@ bool Processor::RAUnit::Alloc(const RegSize sizes[NUM_REG_TYPES], LFID fid, Cont
             if (sizes[i] != 0)
             {
                 BlockSize size = blocksizes[i];
-                
+
                 type.list[indices[i] / type.blockSize].first  = size;
                 type.list[indices[i] / type.blockSize].second = fid;
-                
+
                 if (context != CONTEXT_NORMAL)
                 {
                     // We used one special context
                     assert(type.free[context] > 0);
                     type.free[context]--;
-                    
+
                     // The rest come from the normal contexts' pool
                     size--;
                 }
@@ -185,7 +185,7 @@ bool Processor::RAUnit::Alloc(const RegSize sizes[NUM_REG_TYPES], LFID fid, Cont
                 // Release it back to the normal pool.
                 type.free[CONTEXT_NORMAL]++;
             }
-        }   
+        }
     }
 
     return true;
@@ -210,7 +210,7 @@ void Processor::RAUnit::Free(RegIndex indices[NUM_REG_TYPES], ContextType contex
                     // One of the blocks goes to the exclusive pool
                     assert(type.free[CONTEXT_EXCLUSIVE] == 0);
                     type.free[CONTEXT_EXCLUSIVE]++;
-                    
+
                     // The rest to the normal pool
                     size--;
                 }
@@ -263,7 +263,7 @@ void Processor::RAUnit::Cmd_Read(ostream& out, const vector<string>& /*arguments
     for (size_t i = 0; i < NUM_REG_TYPES; ++i)
     {
         static const char* TypeName[NUM_REG_TYPES] = {"int", "flt"};
-        
+
         const TypeInfo& type = m_types[i];
         out << endl
             << "Free " << TypeName[i] << " register contexts: " << dec

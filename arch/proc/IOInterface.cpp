@@ -29,7 +29,7 @@ namespace Simulator
             throw InvalidArgumentException(*this, "NumNotificationChannels not specified or zero");
         }
     }
-    
+
     bool Processor::IOInterface::Read(IODeviceID dev, MemAddr address, MemSize size, const RegAddr& writeback)
     {
         if (!m_rrmux.QueueWriteBackAddress(dev, writeback))
@@ -38,7 +38,7 @@ namespace Simulator
                           writeback.str().c_str(), (unsigned)dev, (unsigned long long)address, (unsigned) size);
             return false;
         }
-        
+
         IOBusInterface::IORequest req;
         req.device = dev;
         req.address = address;
@@ -149,7 +149,7 @@ namespace Simulator
         {
             throw exceptf<SimulationException>("Invalid I/O read to non-existent device %u by F%u/T%u", (unsigned)dev, (unsigned)fid, (unsigned)tid);
         }
-        
+
         MemAddr devaddr = address & ((1ULL << m_devAddrBits) - 1);
 
         if (!GetInterface().Read(dev, devaddr, size, writeback))
@@ -166,11 +166,11 @@ namespace Simulator
         {
             throw exceptf<SimulationException>("Invalid I/O read to non-existent device %u by F%u/T%u", (unsigned)dev, (unsigned)fid, (unsigned)tid);
         }
-        
+
         MemAddr devaddr = address & ((1ULL << m_devAddrBits) - 1);
 
         IOData iodata;
-        assert(size <= sizeof(iodata.data));        
+        assert(size <= sizeof(iodata.data));
         memcpy(iodata.data, data, size);
         iodata.size = size;
 
@@ -183,7 +183,7 @@ namespace Simulator
 
     void Processor::IOInterface::AsyncIOInterface::Cmd_Info(ostream& out, const vector<string>& /*args*/) const
     {
-        out << 
+        out <<
             "The asynchronous I/O interface accepts read and write commands from\n"
             "the processor and forwards them to the I/O bus. Each device is mapped\n"
             "to a fixed range in the memory address space.\n"
@@ -200,7 +200,7 @@ namespace Simulator
                 << " | async. I/O range for device " << dec << i << hex
                 << endl;
         }
-        
+
     }
 
     Processor::IOInterface::PNCInterface::PNCInterface(const string& name, Processor::IOInterface& parent, Clock& clock, Config& config)
@@ -232,7 +232,7 @@ namespace Simulator
         {
             throw exceptf<SimulationException>("Invalid wait to non-existent notification/interrupt channel %u by F%u/T%u", (unsigned)which, (unsigned)fid, (unsigned)tid);
         }
-        
+
         if (!GetInterface().WaitForNotification(which, writeback))
         {
             return FAILED;
@@ -243,7 +243,7 @@ namespace Simulator
 
     void Processor::IOInterface::PNCInterface::Cmd_Info(ostream& out, const vector<string>& /*args*/) const
     {
-        out << 
+        out <<
             "The PNC interface accepts read commands from the processor and \n"
             "configures the I/O interface to wait for a notification or interrupt\n"
             "request coming from the I/O Bus. Each notification/interrupt channel\n"
@@ -258,11 +258,11 @@ namespace Simulator
                 << " | wait address for interrupt channel " << dec << i << hex
                 << endl;
         }
-        
+
     }
 
     Result Processor::IOInterface::PNCInterface::Write(MemAddr address, const void* data, MemSize size, LFID fid, TID tid)
-    { 
+    {
         if (address % sizeof(Integer) != 0 || size != sizeof(Integer))
         {
             throw exceptf<SimulationException>("Invalid unaligned PNC read: %#016llx (%u)", (unsigned long long)address, (unsigned)size);

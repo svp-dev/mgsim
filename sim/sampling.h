@@ -13,7 +13,7 @@ enum SampleVariableDataType {
 };
 
 enum SampleVariableCategory {
-    SVC_LEVEL,    // current level: cycle counter, #threads, etc 
+    SVC_LEVEL,    // current level: cycle counter, #threads, etc
     SVC_STATE,    // state variable
     SVC_WATERMARK,  // mins and maxs, evolves monotonously
     SVC_CUMULATIVE, // integral of level over time
@@ -23,11 +23,20 @@ template<typename T> struct _sv_detect_type { static const SampleVariableDataTyp
 template<> struct _sv_detect_type<float> { static const SampleVariableDataType type = SV_FLOAT; };
 template<> struct _sv_detect_type<double> { static const SampleVariableDataType type = SV_FLOAT; };
 
+void _RegisterSampleVariable(void*, size_t, const std::string&, SampleVariableDataType, SampleVariableCategory, void*);
+
 template<typename T>
-void RegisterSampleVariable(T& var, const std::string& name, SampleVariableCategory cat, T max = (T)0)
+void RegisterSampleVariable(T& var, const std::string& name, SampleVariableCategory cat)
 {
-    extern void _RegisterSampleVariable(void*, size_t, const std::string&, SampleVariableDataType, SampleVariableCategory, void*);
-    _RegisterSampleVariable(&var, sizeof(T), name, _sv_detect_type<T>::type, cat, &max);
+    T _max = (T)0;
+    _RegisterSampleVariable(&var, sizeof(T), name, _sv_detect_type<T>::type, cat, &_max);
+}
+
+template<typename T, typename U>
+void RegisterSampleVariable(T& var, const std::string& name, SampleVariableCategory cat, U max)
+{
+    T _max = max;
+    _RegisterSampleVariable(&var, sizeof(T), name, _sv_detect_type<T>::type, cat, &_max);
 }
 
 #define RegisterSampleVariableInObject(var, cat, ...)                       \
@@ -51,15 +60,15 @@ class BinarySampler
 
 public:
 
-    BinarySampler(std::ostream& os, const Config& config, 
+    BinarySampler(std::ostream& os, const Config& config,
                   const std::vector<std::string>& pats);
 
     size_t GetBufferSize() const { return m_datasize; }
     void   SampleToBuffer(char *buf) const
     {
-        for (vars_t::const_iterator i = m_vars.begin(); i != m_vars.end(); ++i)
-            for (size_t j = 0; j < i->second; ++j)
-                *buf++ = i->first[j];
+        for (auto& i : m_vars)
+            for (size_t j = 0; j < i.second; ++j)
+                *buf++ = i.first[j];
     }
 };
 

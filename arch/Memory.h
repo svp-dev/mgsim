@@ -2,6 +2,7 @@
 #define MEMORY_H
 
 #include "simtypes.h"
+#include "symtable.h"
 #include <sim/ports.h>
 #include <sim/storage.h>
 
@@ -28,7 +29,7 @@ namespace line {
             if (mask[i])
                 dst[i] = src[i];
     }
-    
+
     template<typename T, typename M, typename S>
     void blitnot(T* dst, const T* src, const M* mask, S sz)
     {
@@ -36,7 +37,7 @@ namespace line {
             if (!mask[i])
                 dst[i] = src[i];
     }
-    
+
     template<typename T, typename M, typename S>
     void setif(T* dst, const T& src, const M* mask, S sz)
     {
@@ -44,7 +45,7 @@ namespace line {
             if (mask[i])
                 dst[i] = src;
     }
-    
+
     template<typename T, typename M, typename S>
     void setifnot(T* dst, const T& src, const M* mask, S sz)
     {
@@ -52,7 +53,7 @@ namespace line {
             if (!mask[i])
                 dst[i] = src;
     }
-    
+
 }
 
 class IMemory;
@@ -88,17 +89,17 @@ public:
     virtual void UnregisterClient(MCID id) = 0;
     virtual bool Read (MCID id, MemAddr address) = 0;
     virtual bool Write(MCID id, MemAddr address, const MemData& data, WClientID wid) = 0;
-    
+
     virtual void Initialize() {}
 
     virtual ~IMemory() {}
 
-    virtual void GetMemoryStatistics(uint64_t& nreads, uint64_t& nwrites, 
+    virtual void GetMemoryStatistics(uint64_t& nreads, uint64_t& nwrites,
                                      uint64_t& nread_bytes, uint64_t& nwrite_bytes,
                                      uint64_t& nreads_ext, uint64_t& nwrites_ext) const = 0;
 };
 
-class IMemoryAdmin : public IMemory
+class IMemoryAdmin
 {
 public:
     virtual void Reserve(MemAddr address, MemSize size, ProcessID pid, int perm) = 0;
@@ -106,8 +107,11 @@ public:
     virtual void UnreserveAll(ProcessID pid) = 0;
     virtual bool CheckPermissions(MemAddr address, MemSize size, int access) const = 0;
 
-    virtual void Read (MemAddr address, void* data, MemSize size) = 0;
+    virtual void Read (MemAddr address, void* data, MemSize size) const = 0;
     virtual void Write(MemAddr address, const void* data, const bool* mask, MemSize size) = 0;
+
+    virtual SymbolTable& GetSymbolTable() const = 0;
+    virtual void SetSymbolTable(SymbolTable& symtable) = 0;
 
     virtual ~IMemoryAdmin() {}
 };

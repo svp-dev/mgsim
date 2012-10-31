@@ -22,9 +22,9 @@ public:
 
         // The data stored in this line
         char data[MAX_MEMORY_OPERATION_SIZE];
-        
+
         // The bitmask indicates the valid sections of the line,
-        // when writes are stored by replies come back with the 
+        // when writes are stored by replies come back with the
         // whole cache line.
         bool bitmask[MAX_MEMORY_OPERATION_SIZE];
 
@@ -33,7 +33,7 @@ public:
 
         // Does this line have the priority token?
         bool priority;
-    
+
         // Does this line have a pending read and/or write?
         bool pending_read;
         bool pending_write;
@@ -46,11 +46,18 @@ public:
 
         // Temporary hack for storing write-acknowledgements
         std::vector<WriteAck> ack_queue;
+
+        Line()
+        : valid(false), tag(0), time(0), tokens(0), priority(false),
+            pending_read(false), pending_write(false), dirty(false),
+            transient(false), ack_queue()
+        {}
     };
 
-private:    
-    struct Request : public MemData
+private:
+    struct Request
     {
+        MemData      mdata;
         bool         write;
         MemAddr      address;
         unsigned int client;
@@ -61,13 +68,12 @@ private:
     size_t                        m_lineSize;
     size_t                        m_assoc;
     size_t                        m_sets;
-    bool                          m_inject;    
+    bool                          m_inject;
     CacheID                       m_id;
     std::vector<IMemoryCallback*> m_clients;
     StorageTraceSet               m_storages;
     ArbitratedService<>           p_lines;
     std::vector<Line>             m_lines;
-    std::vector<char>             m_data;
 
     // Statistics
     uint64_t                      m_numHits;

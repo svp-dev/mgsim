@@ -11,12 +11,13 @@ Processor::IOResponseMultiplexer::IOResponseMultiplexer(const std::string& name,
       m_regFile(rf),
       m_allocator(alloc),
       m_incoming("b_incoming", *this, clock, config.getValue<BufferSize>(*this, "IncomingQueueSize")),
+      m_wb_buffers(),
       p_dummy(*this, "dummy-process", delegate::create<IOResponseMultiplexer, &Processor::IOResponseMultiplexer::DoNothing>(*this)),
       p_IncomingReadResponses(*this, "completed-reads", delegate::create<IOResponseMultiplexer, &Processor::IOResponseMultiplexer::DoReceivedReadResponses>(*this))
 {
     m_incoming.Sensitive(p_IncomingReadResponses);
 
-    BufferSize wbqsize = config.getValue<BufferSize>(*this, "WritebackQueueSize"); 
+    BufferSize wbqsize = config.getValue<BufferSize>(*this, "WritebackQueueSize");
     if (wbqsize < 3)
     {
         throw InvalidArgumentException(*this, "WritebackQueueSize must be at least 3 to accomodate pipeline hazards");
@@ -40,7 +41,7 @@ Processor::IOResponseMultiplexer::~IOResponseMultiplexer()
         delete m_wb_buffers[i];
     }
 }
-      
+
 bool Processor::IOResponseMultiplexer::QueueWriteBackAddress(IODeviceID dev, const RegAddr& addr)
 {
     assert(dev < m_wb_buffers.size());
@@ -53,7 +54,7 @@ bool Processor::IOResponseMultiplexer::OnReadResponseReceived(IODeviceID from, M
     assert(from < m_wb_buffers.size());
 
     // the responses come in order the read were issued, so we do not need to match for addresses.
-    IOResponse response = { from, data };
+    IOResponse response = { data, from };
 
     return m_incoming.Push(response);
 }
@@ -70,7 +71,7 @@ Result Processor::IOResponseMultiplexer::DoReceivedReadResponses()
     // pending writeback address.
     if (wbq.Empty())
     {
-        throw exceptf<SimulationException>(*this, "Unexpected read response from device %u", (unsigned)response.device);        
+        throw exceptf<SimulationException>(*this, "Unexpected read response from device %u", (unsigned)response.device);
     }
 
     const RegAddr& addr = wbq.Front();
@@ -89,7 +90,7 @@ Result Processor::IOResponseMultiplexer::DoReceivedReadResponses()
         DeadlockWrite("Unable to read register %s", addr.str().c_str());
         return FAILED;
     }
-    
+
     if (regvalue.m_state == RST_FULL)
     {
         // Rare case: the request info is still in the pipeline, stall!
@@ -103,7 +104,7 @@ Result Processor::IOResponseMultiplexer::DoReceivedReadResponses()
         DeadlockWrite("I/O read completed before register %s was cleared", addr.str().c_str());
         return FAILED;
     }
-    
+
     // Now write
     LFID fid = regvalue.m_memory.fid;
     Integer value = UnserializeRegister(addr.type, response.data.data, response.data.size);
@@ -114,7 +115,7 @@ Result Processor::IOResponseMultiplexer::DoReceivedReadResponses()
         int shift = (sizeof(value) - regvalue.m_memory.size) * 8;
         value = (int64_t)(value << shift) >> shift;
     }
-    
+
     regvalue.m_state = RST_FULL;
 
     switch (addr.type) {
@@ -128,7 +129,7 @@ Result Processor::IOResponseMultiplexer::DoReceivedReadResponses()
         DeadlockWrite("Unable to write register %s", addr.str().c_str());
         return FAILED;
     }
-    
+
     if (!m_allocator.DecreaseFamilyDependency(fid, FAMDEP_OUTSTANDING_READS))
     {
         DeadlockWrite("Unable to decrement outstanding reads on F%u", (unsigned)fid);
@@ -153,5 +154,5 @@ StorageTraceSet Processor::IOResponseMultiplexer::GetWriteBackTraces() const
     }
     return res;
 }
-    
+
 }

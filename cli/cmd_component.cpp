@@ -32,7 +32,7 @@ bool cmd_inspect(const vector<string>& /*command*/, vector<string>& args, cli_co
         if (!match)
             cout << "No variables found." << endl;
     }
-    DoObjectCommand<Inspect::Read>(cout, ctx.sys, pat, args);    
+    DoObjectCommand<Inspect::Read>(cout, ctx.sys, pat, args);
     return false;
 }
 

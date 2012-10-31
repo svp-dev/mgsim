@@ -24,7 +24,7 @@ bool DoCommand(vector<string>& args, cli_context& ctx)
                 break;
             }
         }
-        
+
         if (!match)
             continue;
 
@@ -46,7 +46,7 @@ bool DoCommand(vector<string>& args, cli_context& ctx)
         break;
     }
     cout.copyfmt(backup);
-    
+
     if (!match)
         cout << "Unknown command." << endl;
     return quit;

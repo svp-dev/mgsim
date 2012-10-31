@@ -11,7 +11,7 @@ class IONotificationMultiplexer : public Object, public Inspect::Interface<Inspe
 {
 private:
     RegisterFile&                   m_regFile;
-    Allocator&                   m_allocator;
+    Allocator&                      m_allocator;
 
     std::vector<Register<RegAddr>*> m_writebacks;
 
@@ -41,7 +41,7 @@ public:
     bool OnNotificationReceived(IONotificationChannelID which, Integer tag);
 
     Process p_IncomingNotifications;
-    
+
     // upon interrupt received
     Result DoReceivedNotifications();
 
@@ -49,7 +49,7 @@ public:
     void Cmd_Read(std::ostream& out, const std::vector<std::string>& arguments) const;
 
     StorageTraceSet GetWriteBackTraces() const;
-    
+
 };
 
 
