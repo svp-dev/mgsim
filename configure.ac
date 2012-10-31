@@ -223,58 +223,58 @@ AC_PATH_PROG([SLC], [slc], [no], [$prefix/bin$PATH_SEPARATOR$PATH])
 
 m4_define([MGS_TARGET_CHECK],
 [dnl
-AC_ARG_VAR([AS_]m4_toupper([$1]), [Location of the `as' utility configured for the $2 binary format.])
-AC_ARG_VAR([LD_]m4_toupper([$1]), [Location of the `ld' utility configured for the $2 binary format.])
-AC_ARG_VAR([OBJDUMP_]m4_toupper([$1]), 
-           [Location of the `objdump' utility configured for the $2 binary format.])
+AC_ARG_VAR([AS_$2], [Location of the `as' utility configured for the $3 binary format.])
+AC_ARG_VAR([LD_$2], [Location of the `ld' utility configured for the $3 binary format.])
+AC_ARG_VAR([OBJDUMP_$2], 
+           [Location of the `objdump' utility configured for the $3 binary format.])
 
 enable_[$1]_tests=no
 enable_compiled_[$1]_tests=no
 
 have_[$1]_binutils=no
-AC_PATH_PROG([AS_]m4_toupper([$1]), [$3-as], [no], [$prefix/bin$PATH_SEPARATOR$PATH])
-AC_PATH_PROG([LD_]m4_toupper([$1]), [$3-ld], [no], [$prefix/bin$PATH_SEPARATOR$PATH])
-if test "x$AS_[]m4_toupper([$1])" != "xno" -a "x$LD_[]m4_toupper([$1])" != "xno"; then
+AC_PATH_PROG([AS_$2], [$4-as], [no], [$prefix/bin$PATH_SEPARATOR$PATH])
+AC_PATH_PROG([LD_$2], [$4-ld], [no], [$prefix/bin$PATH_SEPARATOR$PATH])
+if test "x$AS_$2" != "xno" -a "x$LD_$2" != "xno"; then
    have_[$1]_binutils=yes
 fi
 
 if test "x$target_cpu" = "x$1"; then
 
   if test "x$have_[$1]_binutils" != xyes; then
-     AC_MSG_WARN([Some $2 utilities are missing. Cannot run the $2 test suite.])
+     AC_MSG_WARN([Some $3 utilities are missing. Cannot run the $3 test suite.])
   else
      enable_[$1]_tests=yes
   fi
 
-  AC_PATH_PROG([OBJDUMP_]m4_toupper([$1]), [$3-objdump], [no], [$prefix/bin$PATH_SEPARATOR$PATH]) 
-  if test "x$OBJDUMP_"[]m4_toupper([$1]) != xno; then
-     AC_DEFINE_UNQUOTED([OBJDUMP_]m4_toupper([$1]), ["$OBJDUMP_]m4_toupper([$1])["],
-                        [Define to the location of the `objdump' utility for $2.])
+  AC_PATH_PROG([OBJDUMP_$2], [$4-objdump], [no], [$prefix/bin$PATH_SEPARATOR$PATH]) 
+  if test "x$OBJDUMP_$2" != xno; then
+     AC_DEFINE_UNQUOTED([OBJDUMP_$2], ["$OBJDUMP_$2"],
+                        [Define to the location of the `objdump' utility for $3.])
   fi
 
   if test "x$SLC" != "x:" ; then
-    AC_MSG_CHECKING([whether $SLC supports -b mta_n])
+    AC_MSG_CHECKING([whether $SLC supports -b $5])
     AC_LANG_CONFTEST([AC_LANG_SOURCE([int main(void) { return 0; }])])
-    if $SLC -b $4 -c -o conftest.o conftest.c >/dev/null 2>&1; then
+    if $SLC -b $5 -c -o conftest.o conftest.c >/dev/null 2>&1; then
       AC_MSG_RESULT([yes])
       enable_compiled_[$1]_tests=yes
     else
       AC_MSG_RESULT([no])
-      AC_MSG_WARN([borked $SLC -b ]$4[. Cannot run the compiled $2 test suite.])
+      AC_MSG_WARN([borked $SLC -b $5. Cannot run the compiled $3 test suite.])
     fi
   else
-    AC_MSG_WARN([slc not found. Cannot run the compiled $2 test suite.])
+    AC_MSG_WARN([slc not found. Cannot run the compiled $3 test suite.])
   fi
 
   target_found=yes
-  AC_DEFINE([TARGET_]m4_toupper([$1]), [1],
-            [Define when building a simulator using the $2 core model.])
+  AC_DEFINE([TARGET_$2], [1],
+            [Define when building a simulator using the $3 core model.])
 
 fi
 
-AM_CONDITIONAL([HAVE_]m4_toupper([$1])[_BINUTILS], [test x$have_]$1[_binutils = xyes])
-AM_CONDITIONAL([ENABLE_]m4_toupper([$1])[_TESTS], [test x$enable_]$1[_tests = xyes])
-AM_CONDITIONAL([ENABLE_COMPILED_]m4_toupper([$1])[_TESTS], [test x$enable_compiled_]$1[_tests = xyes])
+AM_CONDITIONAL([HAVE_$2_BINUTILS], [test x$have_$1_binutils = xyes])
+AM_CONDITIONAL([ENABLE_$2_TESTS], [test x$enable_$1_tests = xyes])
+AM_CONDITIONAL([ENABLE_COMPILED_$2_TESTS], [test x$enable_compiled_$1_tests = xyes])
 
 
 ])
@@ -282,10 +282,10 @@ AM_CONDITIONAL([ENABLE_COMPILED_]m4_toupper([$1])[_TESTS], [test x$enable_compil
 enable_compiled_tests=no
 target_found=no
 
-MGS_TARGET_CHECK([mtalpha], [MT-Alpha], [mtalpha-linux-gnu], [mta_n])
-MGS_TARGET_CHECK([mtsparc], [MT-SPARC], [mtsparc-linux-gnu], [mtsn_n])
-MGS_TARGET_CHECK([mips32], [MIPS (no MT)], [mips-linux-gnu], [mips_s])
-MGS_TARGET_CHECK([mips32el], [MIPSel (no MT)], [mipsel-linux-gnu], [mipsel_s])
+MGS_TARGET_CHECK([mtalpha], [MTALPHA], [MT-Alpha], [mtalpha-linux-gnu], [mta_n])
+MGS_TARGET_CHECK([mtsparc], [MTSPARC], [MT-SPARC], [mtsparc-linux-gnu], [mtsn_n])
+MGS_TARGET_CHECK([mips], [MIPS32], [MIPS (no MT)], [mips-linux-gnu], [mips_s])
+MGS_TARGET_CHECK([mipsel], [MIPS32EL], [MIPSel (no MT)], [mipsel-linux-gnu], [mipsel_s])
 
 if test $target_found = no; then
   AC_MSG_ERROR([Unsupported simulated core model: $target_cpu (did you use --target?)])
