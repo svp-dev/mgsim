@@ -2,10 +2,12 @@
 #include "storage.h"
 #include <iostream>
 
+using namespace std;
+
 namespace Simulator
 {
 
-std::ostream& operator<<(std::ostream& os, const StorageTrace& st)
+ostream& operator<<(ostream& os, const StorageTrace& st)
 {
     for (size_t i = 0; i < st.m_storages.size(); ++i)
     {
@@ -16,19 +18,14 @@ std::ostream& operator<<(std::ostream& os, const StorageTrace& st)
     return os;
 }
 
-std::ostream& operator<<(std::ostream& os, const StorageTraceSet& sts)
+ostream& operator<<(ostream& os, const StorageTraceSet& sts)
 {
     if (sts.m_storages.empty())
-    {
-        os << "(no traces)" << std::endl;
-    }
+        os << "(no traces)" << endl;
     else
-    {
-        for (std::set<StorageTrace>::const_iterator i = sts.m_storages.begin(); i != sts.m_storages.end(); ++i)
-        {
-            os << "- " << *i << std::endl;
-        }
-    }
+        for (auto& i : sts.m_storages)
+            os << "- " << i << endl;
+
     return os;
 }
 

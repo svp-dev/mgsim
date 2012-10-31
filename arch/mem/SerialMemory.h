@@ -14,35 +14,28 @@ class ComponentModelRegistry;
 namespace Simulator
 {
 
-class SerialMemory : public Object, public IMemoryAdmin, public VirtualMemory
+class SerialMemory : public Object, public IMemory, public VirtualMemory
 {
     struct Request
     {
-        bool             write;
         MemAddr          address;
         MemData          data;
-        WClientID        wid;
         IMemoryCallback* callback;
+        WClientID        wid;
+        bool             write;
     };
 
     // IMemory
-    MCID RegisterClient(IMemoryCallback& callback, Process& process, StorageTraceSet& traces, Storage& storage, bool /*ignored*/);
-    void UnregisterClient(MCID id);
-    bool Read (MCID id, MemAddr address);
-    bool Write(MCID id, MemAddr address, const MemData& data, WClientID wid);
-	bool CheckPermissions(MemAddr address, MemSize size, int access) const;
+    MCID RegisterClient(IMemoryCallback& callback, Process& process, StorageTraceSet& traces, Storage& storage, bool /*ignored*/) override;
+    void UnregisterClient(MCID id) override;
+    using VirtualMemory::Read;
+    using VirtualMemory::Write;
+    bool Read (MCID id, MemAddr address) override;
+    bool Write(MCID id, MemAddr address, const MemData& data, WClientID wid) override;
 
-    // IMemoryAdmin
-    void Reserve(MemAddr address, MemSize size, ProcessID pid, int perm);
-    void Unreserve(MemAddr address, MemSize size);
-    void UnreserveAll(ProcessID pid);
-
-    void Read (MemAddr address, void* data, MemSize size);
-    void Write(MemAddr address, const void* data, const bool* mask, MemSize size);
-
-    void GetMemoryStatistics(uint64_t& nreads, uint64_t& nwrites, 
+    void GetMemoryStatistics(uint64_t& nreads, uint64_t& nwrites,
                              uint64_t& nread_bytes, uint64_t& nwrite_bytes,
-                             uint64_t& nreads_ext, uint64_t& nwrites_ext) const
+                             uint64_t& nreads_ext, uint64_t& nwrites_ext) const override
     {
         nreads = m_nreads;
         nwrites = m_nwrites;
@@ -55,7 +48,7 @@ class SerialMemory : public Object, public IMemoryAdmin, public VirtualMemory
     ComponentModelRegistry&       m_registry;
     std::vector<IMemoryCallback*> m_clients;
     Buffer<Request>               m_requests;
-    ArbitratedService<CyclicArbitratedPort>           p_requests;
+    ArbitratedService<CyclicArbitratedPort> p_requests;
     CycleNo                       m_baseRequestTime;
     CycleNo                       m_timePerLine;
     CycleNo                       m_lineSize;
@@ -66,12 +59,12 @@ class SerialMemory : public Object, public IMemoryAdmin, public VirtualMemory
     uint64_t m_nread_bytes;
     uint64_t m_nwrites;
     uint64_t m_nwrite_bytes;
-    
+
     // Processes
     Process p_Requests;
-    
+
     Result DoRequests();
-    
+
 public:
     SerialMemory(const std::string& name, Object& parent, Clock& clock, Config& config);
 

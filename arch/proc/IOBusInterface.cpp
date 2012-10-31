@@ -4,7 +4,7 @@
 
 namespace Simulator
 {
-    
+
     Processor::IOBusInterface::IOBusInterface(const std::string& name, IOInterface& parent, Clock& clock, IOResponseMultiplexer& rrmux, IONotificationMultiplexer& nmux, IODirectCacheAccess& dca, IIOBus& iobus, IODeviceID devid, Config& config)
         : Object(name, parent, clock),
           m_rrmux(rrmux),
@@ -22,7 +22,7 @@ namespace Simulator
         iobus.RegisterClient(devid, *this);
         m_outgoing_reqs.Sensitive(p_OutgoingRequests);
     }
-    
+
     void Processor::IOBusInterface::Initialize()
     {
         p_OutgoingRequests.SetStorageTraces(
@@ -69,7 +69,7 @@ namespace Simulator
             }
             break;
         };
-        
+
         m_outgoing_reqs.Pop();
         return SUCCESS;
     }
@@ -93,7 +93,7 @@ namespace Simulator
     {
         if (data.size > MAX_MEMORY_OPERATION_SIZE)
         {
-            throw exceptf<InvalidArgumentException>(*this, "Write request for %#016llx/%u from client %u is too large", 
+            throw exceptf<InvalidArgumentException>(*this, "Write request for %#016llx/%u from client %u is too large",
                                                     (unsigned long long)address, (unsigned)data.size, (unsigned)from);
         }
 
@@ -110,7 +110,7 @@ namespace Simulator
     {
         return m_dca.m_requests;
     }
-    
+
     bool Processor::IOBusInterface::OnReadResponseReceived(IODeviceID from, MemAddr address, const IOData& data)
     {
         return m_rrmux.OnReadResponseReceived(from, address, data);
@@ -120,7 +120,7 @@ namespace Simulator
     {
         return m_rrmux.m_incoming;
     }
-    
+
     bool Processor::IOBusInterface::OnInterruptRequestReceived(IONotificationChannelID which)
     {
         return m_nmux.OnInterruptRequestReceived(which);
@@ -135,7 +135,7 @@ namespace Simulator
         }
         return res;
     }
-    
+
     bool Processor::IOBusInterface::OnNotificationReceived(IONotificationChannelID which, Integer tag)
     {
         return m_nmux.OnNotificationReceived(which, tag);
@@ -156,7 +156,7 @@ namespace Simulator
         if (!DeviceDatabase::GetDatabase().FindDeviceByName("MGSim", "CPU", id))
         {
             throw InvalidArgumentException(*this, "Device identity not registered");
-        }    
+        }
     }
 
 }

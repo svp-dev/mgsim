@@ -1,6 +1,8 @@
 SIM_SOURCES = \
 	sim/breakpoints.cpp \
 	sim/breakpoints.h \
+        sim/configparser.cpp \
+        sim/configparser.h \
 	sim/config.cpp \
 	sim/config.h \
         sim/ctz.h \
@@ -15,6 +17,8 @@ SIM_SOURCES = \
 	sim/ports.h \
 	sim/ports.cpp \
 	sim/range.h \
+        sim/readfile.h \
+        sim/readfile.cpp \
 	sim/sampling.h \
 	sim/sampling.cpp \
 	sim/storage.h \

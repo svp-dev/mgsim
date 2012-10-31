@@ -31,7 +31,7 @@ class ParallelMemory::Port : public Object
     Result DoRequests()
     {
         assert(!m_requests.Empty());
-    
+
         const Request& request = m_requests.Front();
         const CycleNo  now     = GetCycleNo();
 
@@ -51,7 +51,8 @@ class ParallelMemory::Port : public Object
             // The current request has completed
             if (request.write)
             {
-                m_memory.Write(request.address, request.data.data, request.data.mask, m_lineSize);
+                static_cast<VirtualMemory&>(m_memory).Write(request.address, request.data.data, request.data.mask, m_lineSize);
+
                 if (!m_callback.OnMemoryWriteCompleted(request.wid))
                 {
                     return FAILED;
@@ -61,7 +62,7 @@ class ParallelMemory::Port : public Object
             {
                 char data[m_lineSize];
 
-                m_memory.Read(request.address, data, m_lineSize);
+                static_cast<VirtualMemory&>(m_memory).Read(request.address, data, m_lineSize);
 
                 if (!m_callback.OnMemoryReadCompleted(request.address, data))
                 {
@@ -79,7 +80,7 @@ public:
     {
         return m_callback;
     }
-    
+
     void Print(ostream& out)
     {
         if (!m_requests.Empty())
@@ -92,7 +93,7 @@ public:
                 out << obj->GetFQN();
             }
             out << endl;
-        
+
             out << "      Address       | Type  " << endl;
             out << "--------------------+-------" << endl;
 
@@ -100,16 +101,16 @@ public:
             {
                 out << hex << setfill('0') << right
                     << " 0x" << setw(16) << p->address << " | ";
-    
+
                 if (p->write) {
                     out << "Write";
                 } else {
                     out << "Read ";
                 }
-                
+
                 out << endl;
             }
-            
+
             out << endl << "First request done at: ";
             if (m_nextdone == 0) {
                 out << "N/A";
@@ -119,22 +120,22 @@ public:
             out << endl << endl;
         }
     }
-    
+
     bool AddRequest(const Request& request)
     {
         if (!p_requests.Invoke())
         {
             return false;
         }
-        
+
         return m_requests.Push(request);
     }
-    
+
     bool OnMemorySnooped(MemAddr address, const char * data, const bool * mask)
     {
         return m_callback.OnMemorySnooped(address, data, mask);
     }
-    
+
     Port(const std::string& name, ParallelMemory& memory, BufferSize buffersize, IMemoryCallback& callback, Process& process, StorageTraceSet& traces, Storage& storage, size_t lineSize)
         : Object(name, memory),
           m_memory(memory),
@@ -160,8 +161,8 @@ CycleNo ParallelMemory::GetMemoryDelay(size_t data_size) const
 MCID ParallelMemory::RegisterClient(IMemoryCallback& callback, Process& process, StorageTraceSet& traces, Storage& storage, bool /*ignored*/)
 {
 #ifndef NDEBUG
-    for (size_t i = 0; i < m_ports.size(); ++i) {
-        assert(&m_ports[i]->GetCallback() != &callback);
+    for (auto p : m_ports) {
+        assert(&p->GetCallback() != &callback);
     }
 #endif
 
@@ -172,7 +173,7 @@ MCID ParallelMemory::RegisterClient(IMemoryCallback& callback, Process& process,
     stringstream name;
     name << "port" << id;
     m_ports.push_back(new Port(name.str(), *this, m_buffersize, callback, process, traces, storage, m_lineSize));
-    
+
     return id;
 }
 
@@ -186,14 +187,14 @@ void ParallelMemory::UnregisterClient(MCID id)
 bool ParallelMemory::Read(MCID id, MemAddr address)
 {
     assert(address % m_lineSize == 0);
-    
+
     // Client should have registered
     assert(id < m_ports.size());
-    
+
     Request request;
     request.address   = address;
     request.write     = false;
-    
+
     if (!m_ports[id]->AddRequest(request))
     {
         return false;
@@ -209,7 +210,7 @@ bool ParallelMemory::Write(MCID id, MemAddr address, const MemData& data, WClien
 
     // Client should have registered
     assert(id < m_ports.size());
-    
+
     Request request;
     request.address   = address;
     request.wid       = wid;
@@ -220,9 +221,9 @@ bool ParallelMemory::Write(MCID id, MemAddr address, const MemData& data, WClien
     }
 
     // Broadcast the snoop data
-    for (std::vector<Port*>::iterator p = m_ports.begin(); p != m_ports.end(); ++p)
+    for (auto p : m_ports)
     {
-        if (!(*p)->OnMemorySnooped(request.address, request.data.data, request.data.mask))
+        if (!p->OnMemorySnooped(request.address, request.data.data, request.data.mask))
         {
             return false;
         }
@@ -237,39 +238,10 @@ bool ParallelMemory::Write(MCID id, MemAddr address, const MemData& data, WClien
     return true;
 }
 
-bool ParallelMemory::CheckPermissions(MemAddr address, MemSize size, int access) const
-{
-    return VirtualMemory::CheckPermissions(address, size, access);
-}
-
-void ParallelMemory::Reserve(MemAddr address, MemSize size, ProcessID pid, int perm)
-{
-    return VirtualMemory::Reserve(address, size, pid, perm);
-}
-
-void ParallelMemory::Unreserve(MemAddr address, MemSize size)
-{
-    return VirtualMemory::Unreserve(address, size);
-}
-
-void ParallelMemory::UnreserveAll(ProcessID pid)
-{
-    return VirtualMemory::UnreserveAll(pid);
-}
-
-void ParallelMemory::Read (MemAddr address, void* data, MemSize size)
-{
-    return VirtualMemory::Read(address, data, size);
-}
-
-void ParallelMemory::Write(MemAddr address, const void* data, const bool* mask, MemSize size)
-{
-    return VirtualMemory::Write(address, data, mask, size);
-}
-
 ParallelMemory::ParallelMemory(const std::string& name, Object& parent, Clock& clock, Config& config) :
     Object(name, parent, clock),
     m_registry       (config),
+    m_ports          (),
     m_buffersize     (config.getValue<BufferSize>(*this, "BufferSize")),
     m_baseRequestTime(config.getValue<CycleNo>(*this, "BaseRequestTime")),
     m_timePerLine    (config.getValue<CycleNo>(*this, "TimePerLine")),
@@ -289,10 +261,8 @@ ParallelMemory::ParallelMemory(const std::string& name, Object& parent, Clock& c
 
 ParallelMemory::~ParallelMemory()
 {
-    for (size_t i = 0; i < m_ports.size(); ++i)
-    {
-        delete m_ports[i];
-    }
+    for (auto p : m_ports)
+        delete p;
 }
 
 void ParallelMemory::Cmd_Info(ostream& out, const vector<string>& arguments) const
@@ -322,9 +292,9 @@ void ParallelMemory::Cmd_Read(ostream& out, const vector<string>& arguments) con
         return VirtualMemory::Cmd_Read(out, arguments);
     }
 
-    for (std::vector<Port*>::const_iterator q = m_ports.begin(); q != m_ports.end(); ++q)
+    for (auto q : m_ports)
     {
-        (*q)->Print(out);
+        q->Print(out);
     }
 }
 

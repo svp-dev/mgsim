@@ -11,7 +11,7 @@ namespace Simulator
 {
     /*
      * NullIO: an I/O bus with no latency between send and
-     * receive. 
+     * receive.
      * - Devices are numbered from 0 to N with no holes.
      * - requests to invalid devices fault the simulation.
      */
@@ -24,7 +24,7 @@ namespace Simulator
     public:
         NullIO(const std::string& name, Object& parent, Clock& clock);
 
-        /* from IIOBus */ 
+        /* from IIOBus */
         bool RegisterClient(IODeviceID id, IIOBusClient& client);
 
         bool SendReadRequest(IODeviceID from, IODeviceID to, MemAddr address, MemSize size);
@@ -51,7 +51,7 @@ namespace Simulator
 
         /* debug */
         void Cmd_Info(std::ostream& out, const std::vector<std::string>& arguments) const;
-        
+
     };
 }
 

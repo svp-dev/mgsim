@@ -13,15 +13,14 @@ Processor::IONotificationMultiplexer::IONotificationMultiplexer(const string& na
     : Object(name, parent, clock),
       m_regFile(rf),
       m_allocator(alloc),
+      m_writebacks(numChannels, 0),
+      m_mask(numChannels, false),
+      m_interrupts(numChannels, 0),
+      m_notifications(numChannels, 0),
+      m_services(numChannels, 0),
       m_lastNotified(0),
       p_IncomingNotifications(*this, "received-notifications", delegate::create<IONotificationMultiplexer, &Processor::IONotificationMultiplexer::DoReceivedNotifications>(*this))
 {
-    m_writebacks.resize(numChannels, 0);
-    m_mask.resize(numChannels, false);
-    m_interrupts.resize(numChannels, 0);
-    m_notifications.resize(numChannels, 0);
-    m_services.resize(numChannels, 0);
-
     BufferSize nqs = config.getValue<BufferSize>(*this, "NotificationQueueSize");
 
     for (size_t i = 0; i < numChannels; ++i)
@@ -85,7 +84,7 @@ bool Processor::IONotificationMultiplexer::SetWriteBackAddress(IONotificationCha
         DeadlockWrite("Unable to acquire service for channel %u", (unsigned)which);
         return false;
     }
-    
+
     if (!m_writebacks[which]->Empty())
     {
         // some thread is already waiting, do not
@@ -160,7 +159,7 @@ Result Processor::IONotificationMultiplexer::DoReceivedNotifications()
             break;
         }
     }
-    
+
     if (!notification_ready)
     {
         if (pending_notifications)
@@ -173,7 +172,7 @@ Result Processor::IONotificationMultiplexer::DoReceivedNotifications()
     }
 
     /* A notification was found, try to notify the processor */
-    
+
     if (!m_services[i]->Invoke())
     {
         DeadlockWrite("Unable to acquire service for channel %zu", i);
@@ -207,28 +206,28 @@ Result Processor::IONotificationMultiplexer::DoReceivedNotifications()
             DeadlockWrite("Unable to acquire port to write back %s", addr.str().c_str());
             return FAILED;
         }
-        
+
         RegValue regvalue;
         if (!m_regFile.ReadRegister(addr, regvalue))
         {
             DeadlockWrite("Unable to read register %s", addr.str().c_str());
             return FAILED;
         }
-        
+
         if (regvalue.m_state == RST_FULL)
         {
             // Rare case: the request info is still in the pipeline, stall!
             DeadlockWrite("Register %s is not yet written for read completion", addr.str().c_str());
             return FAILED;
         }
-        
+
         if (regvalue.m_state != RST_PENDING && regvalue.m_state != RST_WAITING)
         {
             // We're too fast, wait!
             DeadlockWrite("I/O notification delivered before register %s was cleared", addr.str().c_str());
             return FAILED;
         }
-        
+
         // Now write
         LFID fid = regvalue.m_memory.fid;
         regvalue.m_state = RST_FULL;
@@ -250,27 +249,27 @@ Result Processor::IONotificationMultiplexer::DoReceivedNotifications()
             value = 0;
             type = "draining disabled channel";
         }
-        
+
         switch (addr.type) {
         case RT_INTEGER: regvalue.m_integer       = value; break;
         case RT_FLOAT:   regvalue.m_float.integer = value; break;
         default: assert(0); // should not be there
         }
-        
+
         if (!m_regFile.WriteRegister(addr, regvalue, true))
         {
             DeadlockWrite("Unable to write register %s", addr.str().c_str());
             return FAILED;
         }
-        
+
         if (!m_allocator.DecreaseFamilyDependency(fid, FAMDEP_OUTSTANDING_READS))
         {
             DeadlockWrite("Unable to decrement outstanding reads on F%u", (unsigned)fid);
             return FAILED;
         }
-        
+
         m_writebacks[i]->Clear();
-        
+
         if (m_interrupts[i]->IsSet())
         {
             m_interrupts[i]->Clear();
@@ -347,5 +346,5 @@ StorageTraceSet Processor::IONotificationMultiplexer::GetWriteBackTraces() const
     return res;
 }
 
-    
+
 }

@@ -36,6 +36,7 @@ public:
         bool         valid;
         MemAddr      tag;
         unsigned int tokens;     ///< Tokens in the caches in the group
+        Line() : valid(false), tag(0), tokens(0) {}
     };
 
 protected:
@@ -48,11 +49,10 @@ private:
 
     IBankSelector&      m_selector;
     ArbitratedService<CyclicArbitratedPort> p_lines;      ///< Arbitrator for access to the lines
-    std::vector<Line>   m_lines;      ///< The cache lines
-    size_t              m_lineSize;   ///< The size of a cache-line
     size_t              m_assoc;      ///< Number of lines in a set
     size_t              m_sets;       ///< Number of sets
-    size_t              m_numTokens;  ///< Total number of tokens per cache line
+    std::vector<Line>   m_lines;      ///< The cache lines
+    size_t              m_lineSize;   ///< The size of a cache-line
     CacheID             m_firstCache; ///< ID of first cache in the ring
     CacheID             m_lastCache;  ///< ID of last cache in the ring
 

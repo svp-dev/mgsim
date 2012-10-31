@@ -27,17 +27,18 @@ OVERVIEW
 
 An execution of the simulator entails the following steps:
 
-1. the simulator parses configuration parameters from the command line
-   (``-o``) and/or an optional configuration file (``-c``).
+1. the simulator parses configuration parameters from a configuration
+   file (``-c``) and optional configuration overrides on the command
+   line (``-o`` / ``-I``).
 
 2. it creates the system's components (cores, FPUs, memories, etc)
-   using the configuration. Input files, including program code,
-   is loaded into ROM pseudo-devices.
+   using the configuration. Input files, including program code, is
+   loaded into ROM pseudo-devices.
 
 3. it signals to the processor chip to boot.
 
-4. it proceeds to run the simulation of all components, until
-   either of the following happens:
+4. it proceeds to run the simulation of all components, until either
+   of the following happens:
 
    - the software running on the platform signals explicit termination;
    - a simulation error occurs;
@@ -377,11 +378,14 @@ with 4 cache sets.
 The configuration space is constructed when the simulator is started,
 using the following input:
 
-1. any *override* from the command line (parameter ``-o``), in the
-   order specified;
+1. any *override* from the command line (parameters ``-o`` and
+   ``-I``), in inverse order: later overrides on the command line are
+   considered first;
 
 2. the contents of the *configuration file* specified with parameter
-   ``-c``, or the default configuration file if none is specified.
+   ``-c``, or the default configuration file if none is specified, in
+   inverse order: later key/value pairs in the file are considered
+   first.
 
 The configuration space can be dumped to the console output upon
 initialization using the command-line parameter ``-d``. It is also copied
@@ -425,6 +429,38 @@ space matches the name of a parameter that needs configuration.
 
 There are exceptions to this rule. Some parameters do have default values,
 which are described as comments in the reference configuration file.
+
+Configuration file format
+-------------------------
+
+The files read by parameters ``-c`` and ``-I`` are text files that
+contain configuration specifications of the form ``key = value``, as
+described above.
+
+In a configuration file, the following extra syntax is also recognized:
+
+- comments starting with ``#`` or ``;`` at the start of lines or after
+  values;
+
+- "section names", of the form ``[NAME]``. A section name introduces a
+  common prefix for the following keys, until the following section
+  name. For example, the following syntax::
+
+     [CPU1]
+     ICache:Associativity = 4
+     DCache:Associativity = 8
+
+  is equivalent to::
+
+     CPU1.ICache:Associativity = 4
+     CPU1.DCache:Associativity = 8
+
+  The special section name ``[global]`` resets the
+  prefix to empty.
+
+
+More examples can be found in the default configuration file shipped
+with the program.
 
 Standard configuration file
 ---------------------------

@@ -122,7 +122,7 @@ void Processor::Pipeline::DecodeStage::DecodeInstruction(const Instruction& inst
             break;
         }
         break;
-        
+
     case S_OP1_CALL:
         m_output.displacement = SEXT((instr >> IMM30_SHIFT) & IMM30_MASK, IMM30_SIZE);
         m_output.Rc = MAKE_REGADDR(RT_INTEGER, 15);
@@ -137,7 +137,7 @@ void Processor::Pipeline::DecodeStage::DecodeInstruction(const Instruction& inst
             m_output.asi = (uint8_t)((instr >> ASI_SHIFT) & ASI_MASK);
             m_output.Rb  = MAKE_REGADDR(RT_INTEGER, Rb);
         }
-        
+
         // Determine operation size
         switch (m_output.op3)
         {
@@ -164,19 +164,19 @@ void Processor::Pipeline::DecodeStage::DecodeInstruction(const Instruction& inst
                 // FP load or store
                 m_output.Rc  = MAKE_REGADDR(RT_FLOAT, Rc);
                 break;
-                
+
             default:
                 // Integer load or store
                 m_output.Rc  = MAKE_REGADDR(RT_INTEGER, Rc);
                 break;
         }
-        
+
         // Both loads and stores have three operands.
         // For stores Rc specifies the value to write to [Ra + Rb].
         // For loads we must load Rc to check if we're loading a pending register (which could cause problems).
         m_output.Rs     = m_output.Rc;
         m_output.RsSize = m_output.RcSize;
-        
+
         // However, for stores we don't actually use Rc to write
         switch (m_output.op3)
         {
@@ -188,14 +188,14 @@ void Processor::Pipeline::DecodeStage::DecodeInstruction(const Instruction& inst
                 // Stores
                 m_output.Rc = INVALID_REG;
                 break;
-                
+
             default:
                 // Loads
                 m_output.RaNotPending = true;
                 break;
         }
         break;
-            
+
     case S_OP1_OTHER:
         m_output.op3 = (uint8_t)((instr >> OP3_SHIFT) & OP3_MASK);
         m_output.asi = (uint8_t)((instr >> ASI_SHIFT) & ASI_MASK);
@@ -215,12 +215,12 @@ void Processor::Pipeline::DecodeStage::DecodeInstruction(const Instruction& inst
             case S_OPF_FITOS: m_output.RaSize = m_output.RcSize =  4; break;
             case S_OPF_FITOD: m_output.RaSize = m_output.RcSize =  8; break;
             case S_OPF_FITOQ: m_output.RaSize = m_output.RcSize = 16; break;
-    
+
             // Convert FP to Int
             case S_OPF_FSTOI: m_output.RaSize = m_output.RbSize =  4; break;
             case S_OPF_FDTOI: m_output.RaSize = m_output.RbSize =  8; break;
             case S_OPF_FQTOI: m_output.RaSize = m_output.RbSize = 16; break;
-    
+
             // Convert FP to FP
             case S_OPF_FSTOD: m_output.RaSize = m_output.RbSize =  4; m_output.RcSize =  8; break;
             case S_OPF_FSTOQ: m_output.RaSize = m_output.RbSize =  4; m_output.RcSize = 16; break;
@@ -228,16 +228,16 @@ void Processor::Pipeline::DecodeStage::DecodeInstruction(const Instruction& inst
             case S_OPF_FDTOQ: m_output.RaSize = m_output.RbSize =  8; m_output.RcSize = 16; break;
             case S_OPF_FQTOS: m_output.RaSize = m_output.RbSize = 16; m_output.RcSize =  4; break;
             case S_OPF_FQTOD: m_output.RaSize = m_output.RbSize = 16; m_output.RcSize =  8; break;
-    
+
             case S_OPF_FPRINTS: m_output.RaSize = 4;  m_output.Rb = MAKE_REGADDR(RT_INTEGER, Rb); break;
             case S_OPF_FPRINTD: m_output.RaSize = 8;  m_output.Rb = MAKE_REGADDR(RT_INTEGER, Rb); break;
             case S_OPF_FPRINTQ: m_output.RaSize = 16; m_output.Rb = MAKE_REGADDR(RT_INTEGER, Rb); break;
-                
+
             // FP Move
             case S_OPF_FMOV:
-            case S_OPF_FNEG: 
+            case S_OPF_FNEG:
             case S_OPF_FABS: break;
-    
+
             // FP Compare
             case S_OPF_FCMPS: case S_OPF_FCMPES: m_output.RcSize =  4; break;
             case S_OPF_FCMPD: case S_OPF_FCMPED: m_output.RcSize =  8; break;
@@ -254,7 +254,7 @@ void Processor::Pipeline::DecodeStage::DecodeInstruction(const Instruction& inst
             case S_OPF_FDMULQ: m_output.RaSize = m_output.RbSize = 8; m_output.RcSize = 16; break;
             }
             break;
-            
+
         case S_OP3_WRASR:
             // This instruction needs the Rc specifier, but we can't put it in the literal,
             // so we abuse the displacement field so the EX stage can use it
@@ -262,15 +262,15 @@ void Processor::Pipeline::DecodeStage::DecodeInstruction(const Instruction& inst
             m_output.displacement = Rc;
             m_output.function = (uint16_t)((instr >> OPT_SHIFT) & OPT_MASK);
             m_output.asi = (instr >> UTASI_SHIFT) & UTASI_MASK;
-            
+
             if (instr & BIT_IMMEDIATE) {
                 m_output.literal = ((Rc == 0x14/*ASR20*/) || (Rc == 0x13/*ASR19*/))
                     ? SEXT((instr >> IMM9_SHIFT ) & IMM9_MASK , IMM9_SIZE)
                     : SEXT((instr >> IMM13_SHIFT) & IMM13_MASK, IMM13_SIZE);
             } else {
                 m_output.Rb = MAKE_REGADDR(RT_INTEGER, Rb);
-            }           
-            
+            }
+
             if (Rc == 0x14 /*ASR20*/)
             {
                 switch (m_output.function)
@@ -323,11 +323,11 @@ void Processor::Pipeline::DecodeStage::DecodeInstruction(const Instruction& inst
                     m_output.Ra = MAKE_REGADDR(RT_INTEGER, Rc);
                     m_output.Rc = MAKE_REGADDR(RT_INTEGER, Rc);
                     break;
-                    
+
                 case S_OPT1_FGETS:
                 case S_OPT1_FGETG:
                     m_output.Rc = MAKE_REGADDR(RT_FLOAT, Rc);
-                    break;          
+                    break;
                 default:
                     m_output.Rc = MAKE_REGADDR(RT_INTEGER, Rc);
                     break;
@@ -381,7 +381,7 @@ bool Processor::Pipeline::ExecuteStage::BranchTakenFlt(int cond, uint32_t fsr)
     const bool g = (fsr & FSR_FCC) == FSR_FCC_GT; // Greater than
     const bool u = (fsr & FSR_FCC) == FSR_FCC_UO; // Unordered
     bool b = false;
-    
+
     if (~cond & 7) return (cond & 8) != 0;   // FBA, FBN
     cond--;
     if (cond & 8) { b |= e; cond = ~cond; }
@@ -417,7 +417,7 @@ uint32_t Processor::Pipeline::ExecuteStage::ExecBasicInteger(int opcode, uint32_
         case S_OP3_UDIV:    Rcv =          (((uint64_t)Y << 32) | Rav) /                   Rbv; break;
         case S_OP3_SDIV:    Rcv = (int64_t)(((uint64_t)Y << 32) | Rav) / (int64_t)(int32_t)Rbv; break;
     }
-    
+
     if (opcode & 0x10)
     {
         // Set icc
@@ -427,7 +427,7 @@ uint32_t Processor::Pipeline::ExecuteStage::ExecBasicInteger(int opcode, uint32_
 
         // Clear the icc flags
         psr &= ~PSR_ICC;
-        
+
         switch (opcode & 0xF)
         {
             case S_OP3_ADD: case S_OP3_ADDX:
@@ -458,7 +458,7 @@ uint32_t Processor::Pipeline::ExecuteStage::ExecBasicInteger(int opcode, uint32_
                 if (Rcv == 0)              psr |= PSR_ICC_Z;
                 if (C31)                   psr |= PSR_ICC_N;
                 break;
-                
+
             case S_OP3_SDIV:
                 if ((int64_t)Rcv < -0x80000000LL) { psr |= PSR_ICC_V; Rcv = (uint64_t)(int64_t)-0x80000000LL; }
                 if ((int64_t)Rcv >  0x7FFFFFFFLL) { psr |= PSR_ICC_V; Rcv = (uint64_t)(int64_t) 0x7FFFFFFFLL; }
@@ -485,19 +485,19 @@ uint32_t Processor::Pipeline::ExecuteStage::ExecOtherInteger(int opcode, uint32_
 
         // Remember Rav's LSB for step 6
         const uint32_t Rav_LSB = (Rav & 1);
-        
+
         // Step 2: Shift Rav, put (N xor V) in MSB gap
         const bool N = (psr & PSR_ICC_N) != 0;
         const bool V = (psr & PSR_ICC_V) != 0;
         Rav = (Rav >> 1) | ((N ^ V) ? 0x80000000 : 0);
-        
+
         // Step 3: Add to multiplier depending on Y's LSB, and
-        // Step 5: Update icc according to step 3's addition        
+        // Step 5: Update icc according to step 3's addition
         Rbv = ExecBasicInteger(S_OP3_ADDcc, Rbv, (Y & 1) ? Rav : 0, Y, psr);
-        
+
         // Step 6: Shift Y, put Rav's LSB in MSB gap
         Y = (Y >> 1) | (Rav_LSB << 31);
-        
+
         // Step 4: Step 3's result is the result
         return Rbv;
     }
@@ -508,7 +508,7 @@ uint32_t Processor::Pipeline::ExecuteStage::ExecOtherInteger(int opcode, uint32_
 static void ThrowIllegalInstructionException(Object& obj, MemAddr pc)
 {
     stringstream error;
-    error << "Illegal instruction at " 
+    error << "Illegal instruction at "
           << hex << setw(sizeof(MemAddr) * 2) << setfill('0') << pc;
     throw IllegalInstructionException(obj, error.str());
 }
@@ -534,7 +534,7 @@ Processor::Pipeline::PipeAction Processor::Pipeline::ExecuteStage::ExecReadASR19
                 m_output.Rcv.m_state   = RST_FULL;
             }
             break;
-        
+
         case S_OPT2_CREBAS:
         case S_OPT2_CREBIS:
         {
@@ -544,7 +544,7 @@ Processor::Pipeline::PipeAction Processor::Pipeline::ExecuteStage::ExecReadASR19
             Integer Rbv = m_input.Rbv.m_integer.get(m_input.Rbv.m_size);
             return ExecBundle(Rbv, (func == S_OPT2_CREBIS), Rav, m_input.Rc.index);
         }
-      
+
         default:
             ThrowIllegalInstructionException(*this, m_input.pc);
             break;
@@ -568,7 +568,7 @@ Processor::Pipeline::PipeAction Processor::Pipeline::ExecuteStage::ExecReadASR20
             PlaceID place = m_parent.GetProcessor().UnpackPlace(Rav);
             return ExecAllocate(place, m_input.Rc.index, func != S_OPT1_ALLOCATE, func == S_OPT1_ALLOCATEX, Rbv);
         }
-        
+
         case S_OPT1_CREATE:
         {
             FID     fid  = m_parent.GetProcessor().UnpackFID(Rav);
@@ -614,7 +614,7 @@ Processor::Pipeline::PipeAction Processor::Pipeline::ExecuteStage::ExecReadASR20
 
         case S_OPT1_FGETG:
             return ReadFamilyRegister(RRT_GLOBAL, RT_FLOAT, m_parent.GetProcessor().UnpackFID(Rbv), m_input.asi);
-            
+
         default:
             ThrowIllegalInstructionException(*this, m_input.pc);
             break;
@@ -628,7 +628,7 @@ Processor::Pipeline::PipeAction Processor::Pipeline::ExecuteStage::ExecWriteASR1
     assert(m_input.Rbv.m_size == sizeof(Integer));
     Integer Rav = m_input.Rav.m_integer.get(m_input.Rav.m_size);
     Integer Rbv = m_input.Rbv.m_integer.get(m_input.Rbv.m_size);
-    
+
     switch (func)
     {
         case S_OPT2_CREBA:
@@ -655,12 +655,12 @@ Processor::Pipeline::PipeAction Processor::Pipeline::ExecuteStage::ExecWriteASR2
     assert(m_input.Rbv.m_size == sizeof(Integer));
     Integer Rav = m_input.Rav.m_integer.get(m_input.Rav.m_size);
     Integer Rbv = m_input.Rbv.m_integer.get(m_input.Rbv.m_size);
-    
+
     switch (func)
     {
-    case S_OPT1_SETSTART: 
-    case S_OPT1_SETLIMIT: 
-    case S_OPT1_SETSTEP: 
+    case S_OPT1_SETSTART:
+    case S_OPT1_SETLIMIT:
+    case S_OPT1_SETSTEP:
     case S_OPT1_SETBLOCK:
         {
             FamilyProperty prop;
@@ -678,19 +678,19 @@ Processor::Pipeline::PipeAction Processor::Pipeline::ExecuteStage::ExecWriteASR2
 
         case S_OPT1_BREAK:
             return ExecBreak();
-            
+
         case S_OPT1_PUTG:
             return WriteFamilyRegister(RRT_GLOBAL, RT_INTEGER, m_parent.GetProcessor().UnpackFID(Rav), m_input.asi);
-            
+
         case S_OPT1_PUTS:
             return WriteFamilyRegister(RRT_FIRST_DEPENDENT, RT_INTEGER, m_parent.GetProcessor().UnpackFID(Rav), m_input.asi);
-        
+
         case S_OPT1_FPUTG:
             return WriteFamilyRegister(RRT_GLOBAL, RT_FLOAT, m_parent.GetProcessor().UnpackFID(Rav), m_input.asi);
-            
+
         case S_OPT1_FPUTS:
             return WriteFamilyRegister(RRT_FIRST_DEPENDENT, RT_FLOAT, m_parent.GetProcessor().UnpackFID(Rav), m_input.asi);
-            
+
         case S_OPT1_DETACH:
             return ExecDetach(m_parent.GetProcessor().UnpackFID(Rav));
 
@@ -714,10 +714,10 @@ Processor::Pipeline::PipeAction Processor::Pipeline::ExecuteStage::ExecuteInstru
             m_output.Rcv.m_size    = sizeof(Integer);
             DebugFlowWrite("F%u/T%u(%llu) %s call %s",
                            (unsigned)m_input.fid, (unsigned)m_input.tid, (unsigned long long)m_input.logical_index, m_input.pc_sym,
-                           GetKernel()->GetSymbolTable()[m_output.pc].c_str());
+                           m_parent.GetProcessor().GetSymbolTable()[m_output.pc].c_str());
         }
         return PIPE_FLUSH;
-        
+
     case S_OP1_BRANCH:
         switch (m_input.op2)
         {
@@ -728,7 +728,7 @@ Processor::Pipeline::PipeAction Processor::Pipeline::ExecuteStage::ExecuteInstru
                 m_output.Rcv.m_state   = RST_FULL;
             }
             break;
-        
+
         case S_OP2_BRANCH_INT: // Bicc
         case S_OP2_BRANCH_FLT: // FBfcc
         case S_OP2_BRANCH_COP: // CBccc
@@ -750,7 +750,7 @@ Processor::Pipeline::PipeAction Processor::Pipeline::ExecuteStage::ExecuteInstru
                     m_output.pc = m_input.pc + m_input.displacement * sizeof(Instruction);
                     DebugFlowWrite("F%u/T%u(%llu) %s branch %s",
                                    (unsigned)m_input.fid, (unsigned)m_input.tid, (unsigned long long)m_input.logical_index, m_input.pc_sym,
-                                   GetKernel()->GetSymbolTable()[m_output.pc].c_str());
+                                   m_parent.GetProcessor().GetSymbolTable()[m_output.pc].c_str());
                 }
                 return PIPE_FLUSH;
             }
@@ -778,7 +778,7 @@ Processor::Pipeline::PipeAction Processor::Pipeline::ExecuteStage::ExecuteInstru
             case S_OP3_ST:   case S_OP3_LD:   size = 4; break;
             case S_OP3_LDDF: case S_OP3_STDF:
             case S_OP3_STD:  case S_OP3_LDD:  size = 8; break;
-            
+
             // Load/Store Alternate address space.
             // These are privileged instructions and we don't support them yet.
             case S_OP3_STBA:  case S_OP3_STHA:  case S_OP3_STA:   case S_OP3_STDA:
@@ -788,20 +788,20 @@ Processor::Pipeline::PipeAction Processor::Pipeline::ExecuteStage::ExecuteInstru
                 ThrowIllegalInstructionException(*this, m_input.pc);
                 break;
         }
-        
+
         if ((address & (size - 1)) != 0)
         {
             // The address is mis-aligned
             ThrowIllegalInstructionException(*this, m_input.pc);
         }
-        
+
         COMMIT
         {
             switch (m_input.op3)
             {
                 case S_OP3_STB:
                 case S_OP3_STH:
-                case S_OP3_ST: 
+                case S_OP3_ST:
                 case S_OP3_STD:
                 case S_OP3_STF:
                 case S_OP3_STDF:
@@ -816,18 +816,18 @@ Processor::Pipeline::PipeAction Processor::Pipeline::ExecuteStage::ExecuteInstru
         }
         break;
     }
-        
+
     case S_OP1_OTHER:
     {
         Thread& thread = m_threadTable[m_input.tid];
-        
+
         switch (m_input.op3)
         {
         case S_OP3_FPOP1:
         case S_OP3_FPOP2:
         {
             FPUOperation fpuop = FPU_OP_NONE;
-            
+
             COMMIT {
                 m_output.Rcv.m_size = m_input.RcSize;
             }
@@ -844,7 +844,7 @@ Processor::Pipeline::PipeAction Processor::Pipeline::ExecuteStage::ExecuteInstru
                         m_output.Rcv.m_size);
                 }
                 break;
-    
+
             // Convert FP to Int
             case S_OPF_FSTOI:
             case S_OPF_FDTOI:
@@ -856,7 +856,7 @@ Processor::Pipeline::PipeAction Processor::Pipeline::ExecuteStage::ExecuteInstru
                         m_output.Rcv.m_size);
                 }
                 break;
-    
+
             // Convert FP to FP
             case S_OPF_FSTOD:
             case S_OPF_FSTOQ:
@@ -871,7 +871,7 @@ Processor::Pipeline::PipeAction Processor::Pipeline::ExecuteStage::ExecuteInstru
                         m_output.Rcv.m_size);
                 }
                 break;
-    
+
             case S_OPF_FPRINTS:
             case S_OPF_FPRINTD:
             case S_OPF_FPRINTQ:
@@ -880,22 +880,22 @@ Processor::Pipeline::PipeAction Processor::Pipeline::ExecuteStage::ExecuteInstru
                     m_output.Rc = INVALID_REG;
                 }
                 break;
-                
+
             case S_OPF_FMOV:
                 COMMIT{
                     m_output.Rcv.m_float.fromfloat(m_input.Rbv.m_float.tofloat(m_input.Rbv.m_size), m_output.Rcv.m_size);
                     m_output.Rcv.m_state = RST_FULL;
                 }
                 break;
-                
-            case S_OPF_FNEG: 
+
+            case S_OPF_FNEG:
                 COMMIT{
                     m_output.Rcv.m_float.fromfloat(-m_input.Rbv.m_float.tofloat(m_input.Rbv.m_size), m_output.Rcv.m_size);
                     m_output.Rcv.m_state = RST_FULL;
                 }
                 break;
-                
-            case S_OPF_FABS: 
+
+            case S_OPF_FABS:
                 COMMIT{
                     m_output.Rcv.m_float.fromfloat(abs(m_input.Rbv.m_float.tofloat(m_input.Rbv.m_size)), m_output.Rcv.m_size);
                     m_output.Rcv.m_state = RST_FULL;
@@ -945,10 +945,10 @@ Processor::Pipeline::PipeAction Processor::Pipeline::ExecuteStage::ExecuteInstru
                     // We've executed a floating point operation
                     m_flop++;
                 }
-            }            
+            }
             break;
         }
-        
+
         case S_OP3_SLL:
         case S_OP3_SRL:
         case S_OP3_SRA:
@@ -962,7 +962,7 @@ Processor::Pipeline::PipeAction Processor::Pipeline::ExecuteStage::ExecuteInstru
                 m_output.Rcv.m_state   = RST_FULL;
             }
             break;
-            
+
         case S_OP3_RDASR:
             // The displacement field holds the original Ra specifier
             switch (m_input.displacement)
@@ -1021,7 +1021,7 @@ Processor::Pipeline::PipeAction Processor::Pipeline::ExecuteStage::ExecuteInstru
                 if (m_input.displacement >= 7 && m_input.displacement < 15) {
                     // Read reserved state register 7-14
                     COMMIT {
-                        m_output.Rcv.m_integer = m_parent.GetProcessor().ReadASR(m_input.displacement - 7); 
+                        m_output.Rcv.m_integer = m_parent.GetProcessor().ReadASR(m_input.displacement - 7);
                         m_output.Rcv.m_state   = RST_FULL;
                     }
                 } else if (m_input.displacement >= 21) {
@@ -1077,7 +1077,7 @@ Processor::Pipeline::PipeAction Processor::Pipeline::ExecuteStage::ExecuteInstru
             ThrowIllegalInstructionException(*this, m_input.pc);
             break;
         }
-            
+
         case S_OP3_JMPL:
         {
             MemAddr target = (MemAddr)(m_input.Rav.m_integer.get(m_input.Rav.m_size) + m_input.Rbv.m_integer.get(m_input.Rbv.m_size));
@@ -1086,7 +1086,7 @@ Processor::Pipeline::PipeAction Processor::Pipeline::ExecuteStage::ExecuteInstru
                 // Misaligned jump
                 ThrowIllegalInstructionException(*this, m_input.pc);
             }
-            
+
             COMMIT
             {
                 // Note that we don't annul
@@ -1095,11 +1095,11 @@ Processor::Pipeline::PipeAction Processor::Pipeline::ExecuteStage::ExecuteInstru
                 m_output.Rcv.m_state   = RST_FULL;
                 DebugFlowWrite("F%u/T%u(%llu) %s branch %s",
                                (unsigned)m_input.fid, (unsigned)m_input.tid, (unsigned long long)m_input.logical_index, m_input.pc_sym,
-                               GetKernel()->GetSymbolTable()[m_output.pc].c_str());
+                               m_parent.GetProcessor().GetSymbolTable()[m_output.pc].c_str());
             }
             return PIPE_FLUSH;
         }
-        
+
         case S_OP3_RDPSR:
         case S_OP3_RDWIM:
         case S_OP3_RDTBR:
@@ -1118,7 +1118,7 @@ Processor::Pipeline::PipeAction Processor::Pipeline::ExecuteStage::ExecuteInstru
             // We don't support these instructions (yet?)
             ThrowIllegalInstructionException(*this, m_input.pc);
             break;
-        
+
         default:
             if (m_input.op3 < 0x20)
             {

@@ -26,6 +26,7 @@ main:
     gets    $3, 1, $0
     detach  $3
     mov     $0, $31
+    stq     $31, 0x278($31)
     end
     .end main
 

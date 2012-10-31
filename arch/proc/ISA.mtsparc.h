@@ -78,7 +78,7 @@ enum {
     S_OP3_FLUSH     = 0x3B,
     S_OP3_SAVE      = 0x3C,
     S_OP3_RESTORE   = 0x3D,
-    
+
 
 // op3 (op1 is S_OP1_MEMORY)
     S_OP3_LD      = 0x00,
@@ -181,7 +181,7 @@ enum {
     S_OPT1_ALLOCATES = 0x09,
     S_OPT1_ALLOCATEX = 0x0A,
     S_OPT1_GETS      = 0x0B,
-    S_OPT1_GETG      = 0x0C,   
+    S_OPT1_GETG      = 0x0C,
     S_OPT1_FGETS     = 0x0D,
     S_OPT1_FGETG     = 0x0E,
 };
@@ -191,7 +191,7 @@ enum {
     S_OPT2_LDBP      = 0x01,
     S_OPT2_LDFP      = 0x02,
     S_OPT2_CREBAS    = 0x03,
-    S_OPT2_CREBIS    = 0x04, 
+    S_OPT2_CREBIS    = 0x04,
 };
 
 // opt (op1 is S_OP1_OTHER, op3 is S_OP3_WRASR, rd=20 (0x14))
@@ -214,7 +214,7 @@ enum {
 enum {
 
     S_OPT2_CREBA     = 0x03,
-    S_OPT2_CREBI     = 0x04,   
+    S_OPT2_CREBI     = 0x04,
 
     S_OPT2_PRINT     = 0x0F,
 };
@@ -256,4 +256,28 @@ static const FSR FSR_RD_ZERO = 0x40000000UL; // RD: Zero
 static const FSR FSR_RD_PINF = 0x80000000UL; // RD: +infinity
 static const FSR FSR_RD_NINF = 0xC0000000UL; // RD: -infinity
 
-#endif 
+// Latch information for Pipeline
+struct ArchDecodeReadLatch
+{
+    uint8_t  op1, op2, op3;
+    uint16_t function;
+    uint8_t  asi;
+    int32_t  displacement;
+
+    // Memory store data source
+    RegAddr      Rs;
+    bool         RsIsLocal;
+    unsigned int RsSize;
+
+    ArchDecodeReadLatch() : op1(0), op2(0), op3(0), function(0), asi(0), displacement(0), Rs(), RsIsLocal(false),  RsSize(0) {}
+    virtual ~ArchDecodeReadLatch() {}
+};
+
+struct ArchReadExecuteLatch : public ArchDecodeReadLatch
+{
+    PipeValue Rsv;
+    ArchReadExecuteLatch() : ArchDecodeReadLatch(), Rsv() {}
+};
+
+
+#endif

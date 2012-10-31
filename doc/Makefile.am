@@ -11,6 +11,9 @@ dist_doc_DATA = \
 	mgsimdev-rtc.rst \
 	mgsimdev-smc.rst \
 	mgsimdev-rpc.rst \
+	mgsim-memranges.rst \
+	mgsim-perfcounters.rst \
+	mgsim-control.rst \
 	processor-architecture-20110430.pdf \
 	system-model-20110430.pdf
 
@@ -22,6 +25,9 @@ dist_man7_MANS = \
 	mgsimdev-rtc.7 \
 	mgsimdev-smc.7 \
 	mgsimdev-rpc.7 \
+	mgsim-memranges.7 \
+	mgsim-perfcounters.7 \
+	mgsim-control.7 \
 	mgsimdoc.7
 
 .rst.7:
@@ -30,6 +36,8 @@ dist_man7_MANS = \
 
 # extra rules for manual generation of .pdf manuals
 .7.pdf:
-	$(AM_V_GEN)tbl <$< | groff -Tps -mandoc | ps2pdf - - >$@
+	$(AM_V_GEN)$(TBL) <$< | $(GROFF) -Tps -mandoc | $(PS2PDF) - - >$@
+
+pdf: $(dist_man7_MANS:.7=.pdf)
 
 MAINTAINERCLEANFILES = $(dist_man7_MANS)

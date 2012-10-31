@@ -4,7 +4,7 @@
 #include <sim/except.h>
 
 /*
-  Mapping of cache line addresses to cache set/bank indices 
+  Mapping of cache line addresses to cache set/bank indices
   is configurable for most banked memory structures.
 
   The choice of a mapping is a trade-off between the hardware
@@ -37,12 +37,12 @@
   B. R. Rau, “Pseudo-randomly interleaved memory,” SIGARCH
   Comput. Archit. News, vol. 19, pp. 74–83, April 1991.
 
-  http://portal.acm.org/citation.cfm?id=110396 
+  http://portal.acm.org/citation.cfm?id=110396
   R. Raghavan and J. P. Hayes, “On randomly interleaved memories,” in
   Proceedings of the 1990 ACM/IEEE conference on Supercomputing,
   Supercomputing ’90, (Los Alamitos, CA, USA), pp. 49–58, IEEE
   Computer Society Press, 1990.
-  
+
 */
 
 namespace Simulator
@@ -53,7 +53,7 @@ namespace Simulator
         std::string m_name;
         size_t m_numBanks;
     public:
-        SelectorBase(const std::string& name, size_t numBanks) 
+        SelectorBase(const std::string& name, size_t numBanks)
             : m_name(name),
               m_numBanks(numBanks)
         {}
@@ -66,7 +66,7 @@ namespace Simulator
     class ZeroSelector : public SelectorBase
     {
     public:
-        ZeroSelector(size_t numBanks) 
+        ZeroSelector(size_t numBanks)
             : SelectorBase("bank 0 only", numBanks)
         {}
 
@@ -165,7 +165,7 @@ namespace Simulator
         MemAddr Unmap(MemAddr tag, size_t /*index*/)
         {
             return tag;
-        }        
+        }
     };
 
     // RightAdd: generalization of RightXOR with integer arithmetic
@@ -200,7 +200,7 @@ namespace Simulator
             MemAddr result = 0;
             do
             {
-                result ^= address; 
+                result ^= address;
                 address /= m_numBanks;
             }
             while (address > m_numBanks);
@@ -255,6 +255,6 @@ namespace Simulator
             throw exceptf<InvalidArgumentException>(parent, "Unknown banking strategy: %s", name.c_str());
         }
     }
-    
+
 }
 

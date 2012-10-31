@@ -35,7 +35,7 @@ public:
      * @return true if the register could be read
      */
     bool ReadRegister(const RegAddr& addr, RegValue& data, bool quiet = false) const;
-    
+
     /**
      * Writes a register
      *
@@ -51,7 +51,7 @@ public:
      * @return true if the register could be written
      */
     bool WriteRegister(const RegAddr& addr, const RegValue& data, bool from_memory);
-    
+
     /**
      * Clears a range of registers.
      * @param[in] addr  the address of the first register to clear
@@ -71,7 +71,7 @@ public:
 	 * @return true if the register could be written (i.e., addr was valid)
 	 */
     bool WriteRegister(const RegAddr& addr, const RegValue& data);
-    
+
     /**
      * Returns the number of registers
      * @param[in] type the type of registers whose number should be returned
@@ -92,20 +92,9 @@ public:
     ArbitratedWritePort<RegAddr> p_asyncW;     ///< Write port for all other components
 
 private:
-    Processor& m_parent;    ///< Reference to parent processor
-    Allocator& m_allocator; ///< Reference to the allocator
-
-    // We can have at most this many number of updates per cycle.
-    // This should be equal to the number of write ports.
-    static const unsigned int MAX_UPDATES = 2;
-    
-    // The queued updates
-    std::pair<RegAddr, RegValue> m_updates[MAX_UPDATES];
-    unsigned int                 m_nUpdates;
-
     // Applies the queued updates
     void Update();
-    
+
     std::vector<RegValue>& PickFile(RegType t)
     {
         switch(t)
@@ -126,7 +115,18 @@ private:
     }
 
     std::vector<RegValue> m_integers; ///< Integer register file
-    std::vector<RegValue> m_floats;   ///< Floating point register file    
+    std::vector<RegValue> m_floats;   ///< Floating point register file
+
+    Allocator& m_allocator; ///< Reference to the allocator
+
+    // We can have at most this many number of updates per cycle.
+    // This should be equal to the number of write ports.
+    static const unsigned int MAX_UPDATES = 2;
+
+    // The queued updates
+    std::pair<RegAddr, RegValue> m_updates[MAX_UPDATES];
+    unsigned int                 m_nUpdates;
+
 };
 
 #endif

@@ -29,57 +29,56 @@ enum ThreadDependency
 class Allocator : public Object, public Inspect::Interface<Inspect::Read>
 {
     friend class Processor;
-    
+
 public:
     typedef LinkedList< TID, ThreadTable, &Thread::next> ThreadList;
-    
-	struct AllocRequest
-	{
-	    LFID           first_fid;      ///< FID of the family on the first core
-	    LFID           prev_fid;       ///< FID of the family on the previous core
-	    PSize          placeSize;      ///< Number of cores to allocate on
-	    AllocationType type;           ///< Type of the allocation
-	    PID            completion_pid; ///< Core that requested the allocation
-	    RegIndex       completion_reg; ///< Register (on that core) that will receive the FID
-	    bool      	   bundle;         ///< Whether the family parameters are already bundled.
-	    MemAddr   	   pc;             ///< For bundled requests, the PC of the newly created family.
-	    Integer   	   parameter;      ///< For bundled requests, the value of the first shared argument.
-	    SInteger   	   index;          ///< For bundled requests, the initial thread index.
-	};
+
+    struct AllocRequest
+    {
+        LFID           first_fid;      ///< FID of the family on the first core
+        LFID           prev_fid;       ///< FID of the family on the previous core
+        PSize          placeSize;      ///< Number of cores to allocate on
+        AllocationType type;           ///< Type of the allocation
+        PID            completion_pid; ///< Core that requested the allocation
+        RegIndex       completion_reg; ///< Register (on that core) that will receive the FID
+        bool           bundle;         ///< Whether the family parameters are already bundled.
+        Bundle         binfo;          ///< The bundle information for bundled requests.
+    };
 
     // These are the different states in the state machine for
     // family creation
-	enum CreateState
-	{
-		CREATE_INITIAL,             // Waiting for a family to create
-                CREATE_LOAD_REGSPEC,        // Load program code to look for register window specification
-		CREATE_LOADING_LINE,        // Waiting until the cache-line is loaded
-		CREATE_LINE_LOADED,         // The line has been loaded
-		CREATE_RESTRICTING,         // Check family property and restrict if necessary
-		CREATE_ALLOCATING_REGISTERS,// Allocating register space
-		CREATE_BROADCASTING_CREATE, // Broadcasting the create
-		CREATE_ACTIVATING_FAMILY,   // Activating the family
-		CREATE_NOTIFY,              // Notifying creator
-	};
-	
-	struct BundleInfo
-	{
-		MemAddr   addr;            ///< Memory Entry
-		Integer   parameter;      ///< Parameter for shareds
-		RegIndex  completion_reg; ///< Register (on that core) that will receive the FID
-	};
-	
-	enum BundleState
-	{
-		BUNDLE_INITIAL,             // Waiting for a system call to be handle
-		BUNDLE_LOADING_LINE,        // Waiting until the cache-line is loaded
-		BUNDLE_LINE_LOADED,         // The line has been loaded        
-	};
+    enum CreateState
+    {
+        CREATE_INITIAL,             // Waiting for a family to create
+        CREATE_LOAD_REGSPEC,        // Load program code to look for register window specification
+        CREATE_LOADING_LINE,        // Waiting until the cache-line is loaded
+        CREATE_LINE_LOADED,         // The line has been loaded
+        CREATE_RESTRICTING,         // Check family property and restrict if necessary
+        CREATE_ALLOCATING_REGISTERS,// Allocating register space
+        CREATE_BROADCASTING_CREATE, // Broadcasting the create
+        CREATE_ACTIVATING_FAMILY,   // Activating the family
+        CREATE_NOTIFY,              // Notifying creator
+    };
 
+    struct BundleInfo
+    {
+        MemAddr   addr;            ///< Memory Entry
+        Integer   parameter;      ///< Parameter for shareds
+        RegIndex  completion_reg; ///< Register (on that core) that will receive the FID
+    };
+
+    enum BundleState
+    {
+        BUNDLE_INITIAL,             // Waiting for a system call to be handle
+        BUNDLE_LOADING_LINE,        // Waiting until the cache-line is loaded
+        BUNDLE_LINE_LOADED,         // The line has been loaded
+    };
 
     Allocator(const std::string& name, Processor& parent, Clock& clock,
-        FamilyTable& familyTable, ThreadTable& threadTable, RegisterFile& registerFile, RAUnit& raunit, ICache& icache, DCache& dcache, Network& network, Pipeline& pipeline,
-        Config& config);
+              FamilyTable& familyTable, ThreadTable& threadTable, RegisterFile& registerFile, RAUnit& raunit, ICache& icache, DCache& dcache, Network& network, Pipeline& pipeline,
+              Config& config);
+    Allocator(const Allocator&) = delete;
+    Allocator& operator=(const Allocator&) = delete;
 
     // Allocates the initial family consisting of a single thread on the first CPU.
     // Typically called before tha actual simulation starts.
@@ -100,7 +99,7 @@ public:
     bool RescheduleThread(TID tid, MemAddr pc);         // Reschedules a thread from the pipeline
     bool SuspendThread(TID tid, MemAddr pc);            // Suspends a thread at the specified PC
     bool KillThread(TID tid);                           // Kills a thread
-    
+
     bool QueueFamilyAllocation(const RemoteMessage& msg, bool bundle);
     bool QueueFamilyAllocation(const LinkMessage& msg);
     bool QueueBundle(const MemAddr addr, Integer parameter, RegIndex completion_reg);
@@ -108,29 +107,29 @@ public:
 
     FCapability InitializeFamily(LFID fid) const;
     void ReleaseContext(LFID fid);
-	
+
     bool QueueCreate(const RemoteMessage& msg, PID src);
     bool QueueCreate(const LinkMessage& msg);
     bool QueueActiveThreads(const ThreadQueue& threads);
     bool QueueThreads(ThreadList& list, const ThreadQueue& threads, ThreadState state);
-    
+
     bool OnICachelineLoaded(CID cid);
     bool OnDCachelineLoaded(char* data);
     bool OnMemoryRead(LFID fid);
-    
+
     bool DecreaseFamilyDependency(LFID fid, FamilyDependency dep);
     bool DecreaseFamilyDependency(LFID fid, Family& family, FamilyDependency dep);
     bool IncreaseThreadDependency(TID tid, ThreadDependency dep);
     bool DecreaseThreadDependency(TID tid, ThreadDependency dep);
-    
+
     TID PopActiveThread();
-    
+
     // Helpers
     TID  GetRegisterType(LFID fid, RegAddr addr, RegClass* group) const;
-    
+
     // Debugging
-    void Cmd_Info(std::ostream& out, const std::vector<std::string>& arguments) const;
-    void Cmd_Read(std::ostream& out, const std::vector<std::string>& arguments) const;
+    void Cmd_Info(std::ostream& out, const std::vector<std::string>& arguments) const override;
+    void Cmd_Read(std::ostream& out, const std::vector<std::string>& arguments) const override;
 
 private:
     struct CreateInfo
@@ -138,11 +137,11 @@ private:
         LFID     fid;
         PID      completion_pid;
         RegIndex completion_reg;
-        Integer  parameter;
-        SInteger index;
-        bool     bundle;
+        Integer  parameter; // For bundle creation
+        SInteger index;     // For bundle creation
+        bool     bundle;    // For bundle creation
     };
-    
+
     // A queued integer register write
     struct RegisterWrite
     {
@@ -155,7 +154,7 @@ private:
     void    CalculateDistribution(Family& family, Integer nThreads, PSize numCores);
     bool    AllocateRegisters(LFID fid, ContextType type);
     bool    AllocateThread(LFID fid, TID tid, bool isNewlyAllocated = true);
-    bool    PushCleanup(TID tid);   
+    bool    PushCleanup(TID tid);
     bool    IsContextAvailable(ContextType type) const;
 
     // Thread queue manipulation
@@ -170,9 +169,8 @@ private:
     ICache&       m_icache;
     DCache&       m_dcache;
     Network&      m_network;
-	Pipeline&	  m_pipeline;
-    
-    
+    Pipeline&	  m_pipeline;
+
     char                  m_bundleData[MAX_MEMORY_OPERATION_SIZE];
     Buffer<BundleInfo>    m_bundle;
     Buffer<LFID>          m_alloc;                   ///< This is the queue of families waiting for initial thread allocation
@@ -183,15 +181,15 @@ private:
     ThreadList            m_readyThreads1;           ///< Queue of the threads can be activated; from the pipeline
     ThreadList            m_readyThreads2;           ///< Queue of the threads can be activated; from the rest
     ThreadList*           m_prevReadyList;           ///< Which ready list was used last cycle. For round-robin prioritization.
-    BundleState           m_bundleState;
 
     // The family allocation request queues
     Buffer<AllocRequest>  m_allocRequestsSuspend;	 ///< Non-exclusive requests that want to suspend.
     Buffer<AllocRequest>  m_allocRequestsNoSuspend;	 ///< Non-exclusive requests that do not want to suspend.
     Buffer<AllocRequest>  m_allocRequestsExclusive;  ///< Exclusive requests.
-    
-    
-    
+
+    BundleState           m_bundleState;
+
+
     Result DoThreadAllocate();
     Result DoFamilyAllocate();
     Result DoFamilyCreate();
@@ -199,9 +197,9 @@ private:
     Result DoBundle();
 
     // Statistics
+    CycleNo    m_lastcycle;
     BufferSize m_maxallocex;
     BufferSize m_totalallocex;
-    CycleNo    m_lastcycle;
     BufferSize m_curallocex;
     FSize      m_numCreatedFamilies;
     TSize      m_numCreatedThreads;

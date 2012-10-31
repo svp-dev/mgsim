@@ -47,7 +47,7 @@ MCID ZLCOMA::RegisterClient(IMemoryCallback& callback, Process& process, Storage
         Cache* cache = new Cache(name.str(), *this, GetClock(), m_caches.size(), m_config);
         m_caches.push_back(cache);
     }
-    
+
     // Forward the registration to the cache associated with the processor
 
     Cache *cache = m_caches[cache_id];
@@ -91,42 +91,12 @@ bool ZLCOMA::Write(MCID id, MemAddr address, const MemData& data, WClientID wid)
     return m_clientMap[id].first->Write(m_clientMap[id].second, address, data, wid);
 }
 
-void ZLCOMA::Reserve(MemAddr address, MemSize size, ProcessID pid, int perm)
-{
-    return VirtualMemory::Reserve(address, size, pid, perm);
-}
-
-void ZLCOMA::Unreserve(MemAddr address, MemSize size)
-{
-    return VirtualMemory::Unreserve(address, size);
-}
-
-void ZLCOMA::UnreserveAll(ProcessID pid)
-{
-    return VirtualMemory::UnreserveAll(pid);
-}
-
-void ZLCOMA::Read(MemAddr address, void* data, MemSize size)
-{
-    return VirtualMemory::Read(address, data, size);
-}
-
-void ZLCOMA::Write(MemAddr address, const void* data, const bool* mask, MemSize size)
-{
-    return VirtualMemory::Write(address, data, mask, size);
-}
-
-bool ZLCOMA::CheckPermissions(MemAddr address, MemSize size, int access) const
-{
-	return VirtualMemory::CheckPermissions(address, size, access);
-}
-
 ZLCOMA::ZLCOMA(const std::string& name, Simulator::Object& parent, Clock& clock, Config& config) :
     // Note that the COMA class is just a container for caches and directories.
     // It has no processes of its own.
     Simulator::Object(name, parent, clock),
     m_registry(config),
-    m_numClientsPerCache(config.getValue<size_t>("NumClientsPerL2Cache")),
+    m_numClientsPerCache(config.getValue<size_t>(*this, "NumClientsPerL2Cache")),
     m_numCachesPerDir   (config.getValue<size_t>(*this, "NumL2CachesPerRing")),
     m_numClients(0),
     m_lineSize(config.getValue<size_t>("CacheLineSize")),
@@ -134,17 +104,20 @@ ZLCOMA::ZLCOMA(const std::string& name, Simulator::Object& parent, Clock& clock,
     m_selector(IBankSelector::makeSelector(*this,
                                            config.getValueOrDefault<string>(*this, "BankSelector", "XORFOLD"),
                                            config.getValue<size_t>(*this, "L2CacheNumSets"))),
+    m_caches(),
+    m_directories(),
+    m_roots(config.getValue<size_t>(*this, "NumRootDirectories"), 0),
+    m_traces(),
     m_ddr("ddr", *this, config, config.getValue<size_t>(*this, "NumRootDirectories")),
+    m_clientMap(),
     m_nreads(0), m_nwrites(0), m_nread_bytes(0), m_nwrite_bytes(0)
 {
-
     RegisterSampleVariableInObject(m_nreads, SVC_CUMULATIVE);
     RegisterSampleVariableInObject(m_nread_bytes, SVC_CUMULATIVE);
     RegisterSampleVariableInObject(m_nwrites, SVC_CUMULATIVE);
     RegisterSampleVariableInObject(m_nwrite_bytes, SVC_CUMULATIVE);
 
     // Create the root directories
-    m_roots.resize(config.getValue<size_t>(*this, "NumRootDirectories"));
     if (!IsPowerOfTwo(m_roots.size()))
     {
         throw InvalidArgumentException(*this, "NumRootDirectories is not a power of two");
@@ -152,9 +125,9 @@ ZLCOMA::ZLCOMA(const std::string& name, Simulator::Object& parent, Clock& clock,
 
     for (size_t i = 0; i < m_roots.size(); ++i)
     {
-        stringstream name;
-        name << "rootdir" << i;
-        m_roots[i] = new RootDirectory(name.str(), *this, clock, i, m_roots.size(), m_ddr, config);
+        stringstream rname;
+        rname << "rootdir" << i;
+        m_roots[i] = new RootDirectory(rname.str(), *this, clock, i, m_roots.size(), m_ddr, config);
     }
 
 }
@@ -227,20 +200,14 @@ void ZLCOMA::Initialize()
 
 ZLCOMA::~ZLCOMA()
 {
-    for (size_t i = 0; i < m_caches.size(); ++i)
-    {
-        delete m_caches[i];
-    }
-    
-    for (size_t i = 0; i < m_directories.size(); ++i)
-    {
-        delete m_directories[i];
-    }
+    for (auto c : m_caches)
+        delete c;
 
-    for (size_t i = 0; i < m_roots.size(); ++i)
-    {
-        delete m_roots[i];
-    }
+    for (auto d : m_directories)
+        delete d;
+
+    for (auto r : m_roots)
+        delete r;
 
     delete m_selector;
 }
@@ -329,7 +296,7 @@ void ZLCOMA::Cmd_Line(ostream& out, const vector<string>& arguments) const
         }
     }
     if (printed) out << endl;
-    
+
     // Check the caches
     printed = false;
     for (std::vector<Cache*>::const_iterator p = m_caches.begin(); p != m_caches.end(); ++p)

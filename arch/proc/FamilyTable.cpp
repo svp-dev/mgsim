@@ -14,7 +14,7 @@ namespace Simulator
 Processor::FamilyTable::FamilyTable(const std::string& name, Processor& parent, Clock& clock, Config& config)
 :   Object(name, parent, clock),
     m_families(config.getValue<size_t>(*this, "NumEntries")),
-    m_totalalloc(0), m_maxalloc(0), m_lastcycle(0), m_curalloc(0)
+    m_lastcycle(0), m_totalalloc(0), m_maxalloc(0), m_curalloc(0)
 {
     RegisterSampleVariableInObject(m_totalalloc, SVC_CUMULATIVE);
     RegisterSampleVariableInObject(m_maxalloc, SVC_WATERMARK, m_families.size());
@@ -25,7 +25,7 @@ Processor::FamilyTable::FamilyTable(const std::string& name, Processor& parent, 
     {
         m_families[i].state = FST_EMPTY;
     }
-    
+
     m_free[CONTEXT_EXCLUSIVE] = 1;
     m_free[CONTEXT_RESERVED]  = 0;
     m_free[CONTEXT_NORMAL]    = m_families.size() - 1;
@@ -46,11 +46,11 @@ void Processor::FamilyTable::UpdateStats()
     CycleNo cycle = GetKernel()->GetCycleNo();
     CycleNo elapsed = cycle - m_lastcycle;
     m_lastcycle = cycle;
-    
-    m_curalloc = m_families.size() - m_free[CONTEXT_EXCLUSIVE] - m_free[CONTEXT_NORMAL]; 
-    
+
+    m_curalloc = m_families.size() - m_free[CONTEXT_EXCLUSIVE] - m_free[CONTEXT_NORMAL];
+
     m_totalalloc += m_curalloc * elapsed;
-    m_maxalloc = std::max(m_maxalloc, m_curalloc);   
+    m_maxalloc = std::max(m_maxalloc, m_curalloc);
 }
 
 // Checks that all internal administration is sane
@@ -65,13 +65,13 @@ void Processor::FamilyTable::CheckStateSanity() const
             used++;
         }
     }
-    
+
     // At most one exclusive context free
     assert(m_free[CONTEXT_EXCLUSIVE] <= 1);
-    
+
     // Exclusive context is only free if the entry isn't used
     assert((m_free[CONTEXT_EXCLUSIVE] == 1) ^ (m_families.back().state != FST_EMPTY));
-    
+
     // All counts must add up
     assert(m_free[CONTEXT_NORMAL] + m_free[CONTEXT_EXCLUSIVE] + used == m_families.size());
 #endif
@@ -81,7 +81,7 @@ LFID Processor::FamilyTable::AllocateFamily(ContextType context)
 {
     // Check that we're in a sane state
     CheckStateSanity();
-    
+
     LFID fid = INVALID_LFID;
     if (m_free[context] > 0)
     {
@@ -102,7 +102,7 @@ LFID Processor::FamilyTable::AllocateFamily(ContextType context)
                 }
             }
         }
-        
+
         // We've allocated a family entry
         assert(fid != INVALID_LFID);
         assert(m_families[fid].state == FST_EMPTY);
@@ -138,7 +138,7 @@ FSize Processor::FamilyTable::GetNumUsedFamilies(ContextType type) const
 void Processor::FamilyTable::FreeFamily(LFID fid, ContextType context)
 {
     assert(fid != INVALID_LFID);
-    
+
     // Check that we're in a sane state
     CheckStateSanity();
 
@@ -186,6 +186,9 @@ void Processor::FamilyTable::Cmd_Read(ostream& out, const vector<string>& argume
         }
     }
 
+    Processor& parent = dynamic_cast<Processor&>(*GetParent());
+    SymbolTable& symtable = parent.GetSymbolTable();
+
     if (fids.empty())
     {
         out << "No families selected" << endl;
@@ -231,10 +234,10 @@ void Processor::FamilyTable::Cmd_Read(ostream& out, const vector<string>& argume
                 }
 
                 // Print cores
-                out << setfill(' ') 
+                out << setfill(' ')
                     << setw(3) << right << family.numCores << "/"
                     << setw(3) << left  << family.placeSize << " | ";
-                    
+
                 // Print link
                 out << setfill('0') << right;
                 if (family.link != INVALID_LFID) {
@@ -242,7 +245,7 @@ void Processor::FamilyTable::Cmd_Read(ostream& out, const vector<string>& argume
                 } else {
                     out << "  - ";
                 }
-            
+
                 // Print sync reg
                 if (family.sync.pid != INVALID_PID) {
                     out << right << setfill('0') << noshowbase
@@ -251,20 +254,20 @@ void Processor::FamilyTable::Cmd_Read(ostream& out, const vector<string>& argume
                 } else {
                     out << " |      -    ";
                 }
-            
+
                 out << " | 0x" << right << setw(16) << setfill('0') << hex << noshowbase << family.capability
                     << " | " << left  << setw(13) << setfill(' ') << FamilyStates[family.state]
                     << " | ";
-            
+
                 if (family.state != FST_ALLOCATED)
                 {
-                    out << GetKernel()->GetSymbolTable()[family.pc];
+                    out << symtable[family.pc];
                 }
             }
             out << endl;
         }
     }
-    
+
     if (show_counts)
     {
         out << endl

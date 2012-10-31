@@ -13,8 +13,9 @@ namespace Simulator
 
 Processor::ThreadTable::ThreadTable(const std::string& name, Processor& parent, Clock& clock, Config& config)
   : Object(name, parent, clock),
+    m_empty(0),
     m_threads(config.getValue<size_t>(*this, "NumEntries")),
-    m_totalalloc(0), m_maxalloc(0), m_lastcycle(0), m_curalloc(0)
+    m_lastcycle(0), m_totalalloc(0), m_maxalloc(0), m_curalloc(0)
 {
     RegisterSampleVariableInObject(m_totalalloc, SVC_CUMULATIVE);
     RegisterSampleVariableInObject(m_maxalloc, SVC_WATERMARK, m_threads.size());
@@ -27,12 +28,10 @@ Processor::ThreadTable::ThreadTable(const std::string& name, Processor& parent, 
         m_threads[i].state = TST_EMPTY;
     }
     m_threads.back().next = INVALID_TID;
-    
+
     m_free[CONTEXT_NORMAL]    = m_threads.size() - 1;
     m_free[CONTEXT_RESERVED]  = 0;
     m_free[CONTEXT_EXCLUSIVE] = 1;
-
-    m_empty = 0;
 }
 
 bool Processor::ThreadTable::IsEmpty() const
@@ -50,11 +49,11 @@ void Processor::ThreadTable::UpdateStats()
     CycleNo cycle = GetKernel()->GetCycleNo();
     CycleNo elapsed = cycle - m_lastcycle;
     m_lastcycle = cycle;
-    
-    m_curalloc = m_threads.size() - m_free[CONTEXT_RESERVED] - m_free[CONTEXT_EXCLUSIVE] - m_free[CONTEXT_NORMAL]; 
-    
+
+    m_curalloc = m_threads.size() - m_free[CONTEXT_RESERVED] - m_free[CONTEXT_EXCLUSIVE] - m_free[CONTEXT_NORMAL];
+
     m_totalalloc += m_curalloc * elapsed;
-    m_maxalloc = std::max(m_maxalloc, m_curalloc);   
+    m_maxalloc = std::max(m_maxalloc, m_curalloc);
 }
 
 // Checks that all internal administration is sane
@@ -85,7 +84,7 @@ TSize Processor::ThreadTable::GetNumFreeThreads(ContextType type) const
 {
     // Check that we are in a sane state
     CheckStateSanity();
-    
+
     return m_free[type];
 }
 
@@ -129,7 +128,7 @@ TID Processor::ThreadTable::PopEmpty(ContextType context)
     CheckStateSanity();
 
     TID tid = INVALID_TID;
-    
+
     // See if we have a free entry
     if (m_free[context] > 0)
     {
@@ -157,7 +156,7 @@ void Processor::ThreadTable::PushEmpty(TID tid, ContextType context)
     CheckStateSanity();
 
     assert(tid != INVALID_TID);
-    
+
     COMMIT
     {
         UpdateStats();
@@ -205,7 +204,11 @@ void Processor::ThreadTable::Cmd_Read(ostream& out, const vector<string>& argume
             }
         }
     }
-    
+
+    // Change the following if Processor is not a direct parent any more
+    Processor& parent = dynamic_cast<Processor&>(*GetParent());
+    SymbolTable& symtable = parent.GetSymbolTable();
+
     if (tids.empty())
     {
         out << "No threads selected" << endl;
@@ -232,7 +235,7 @@ void Processor::ThreadTable::Cmd_Read(ostream& out, const vector<string>& argume
                     << " | ";
 
                 out << left << setfill(' ') << setw(9) <<  ThreadStateNames[thread.state]
-                    << " | " << GetKernel()->GetSymbolTable()[thread.pc];
+                    << " | " << symtable[thread.pc];
             }
             else
             {
@@ -241,7 +244,7 @@ void Processor::ThreadTable::Cmd_Read(ostream& out, const vector<string>& argume
             out << endl;
         }
     }
-    
+
     if (show_counts)
     {
         out << endl

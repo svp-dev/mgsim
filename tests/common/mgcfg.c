@@ -5,6 +5,8 @@
 
 #include "mtconf.h"
 
+const char *testconf = "\0PLACES: 1"; // for "make check": this program is single-threaded.
+
 int test(void)
 {
     sys_detect_devs();

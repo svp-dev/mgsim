@@ -1,6 +1,6 @@
 /*
   Note about the Read Stage:
- 
+
   An operand can be several registers big, so data for an operand can
   come from different bypasses. We keep track of which register
   sub-values we've read, and keep checking bypasses until we got all
@@ -35,7 +35,7 @@ Processor::Pipeline::PipeValue Processor::Pipeline::ReadStage::RegToPipeValue(Re
         dest_value.m_waiting = src_value.m_waiting;
         dest_value.m_memory  = src_value.m_memory;
         break;
-        
+
     case RST_FULL:
         {
             // Make bit-mask and bit-offsets
@@ -73,14 +73,14 @@ bool Processor::Pipeline::ReadStage::ReadRegister(OperandInfo& operand, uint32_t
             // Invalid read -- use the literal, and everything's been read
             operand.offset = -1;
         }
-        
+
         switch (operand.addr.type)
         {
             case RT_INTEGER: operand.value.m_integer.set  (literal, operand.value.m_size); break;
             case RT_FLOAT:   operand.value.m_float.fromint(literal, operand.value.m_size); break;
         }
     }
-    
+
     if (operand.offset >= 0)
     {
         // Part of the operand still needs to be read from the register file
@@ -100,7 +100,7 @@ bool Processor::Pipeline::ReadStage::ReadRegister(OperandInfo& operand, uint32_t
         // That way, all ReadStage inputs are PipeValues.
         operand.value_reg = RegToPipeValue(operand.addr_reg.type, value);
     }
-    
+
     // Data was read
     return true;
 }
@@ -125,7 +125,7 @@ bool Processor::Pipeline::ReadStage::ReadBypasses(OperandInfo& operand)
     // We iterate over all inputs from back to front. This in effect 'replays'
     // the last instructions and gets the correct final value.
     //
-    
+
     // Set the read register at the end of the bypass list to make
     // the code simple. This is removed at the end.
     static const bool g_false = false;
@@ -146,7 +146,7 @@ bool Processor::Pipeline::ReadStage::ReadBypasses(OperandInfo& operand)
             // This bypass does not hold the register that we want
             continue;
         }
-    
+
         // The wanted register is present in the source.
         // Check the state of the source.
         switch (p->value->m_state)
@@ -181,7 +181,7 @@ bool Processor::Pipeline::ReadStage::ReadBypasses(OperandInfo& operand)
             // Full always overwrites everything else.
             // Get the register from the pipeline value.
             value.m_state = RST_FULL;
-                
+
             // Make bit-mask and bit-offsets
             unsigned int offset = operand.addr.index + operand.offset - p->addr->index;
 #ifdef ARCH_BIG_ENDIAN
@@ -196,13 +196,13 @@ bool Processor::Pipeline::ReadStage::ReadBypasses(OperandInfo& operand)
             break;
         }
     }
-    
+
     m_bypasses.pop_back();
-    
+
     //
     // We're done replaying the bypasses. See what we ended up with.
     //
-    
+
     if (value.m_state != RST_FULL)
     {
         // The register is not full
@@ -218,7 +218,7 @@ bool Processor::Pipeline::ReadStage::ReadBypasses(OperandInfo& operand)
         // Wait on it
         operand.addr.index += operand.offset;
         operand.value = RegToPipeValue(operand.addr.type, value);
-            
+
         // Pretend we've read everything since the entire operand
         // will now be waiting on the wanted register.
         operand.offset = -1;
@@ -238,14 +238,14 @@ bool Processor::Pipeline::ReadStage::ReadBypasses(OperandInfo& operand)
                 operand.value.m_integer.get(operand.value.m_size) | ((uint64_t)value.m_integer << shift),
                 operand.value.m_size);
             break;
-            
+
         case RT_FLOAT:
             operand.value.m_float.fromint(
                 operand.value.m_float.toint(operand.value.m_size) | ((uint64_t)value.m_float.integer << shift),
                 operand.value.m_size);
             break;
         }
-            
+
         // Proceed to the next register in the operand
         operand.offset--;
     }
@@ -282,7 +282,7 @@ bool Processor::Pipeline::ReadStage::CheckOperandForSuspension(const OperandInfo
         COMMIT
         {
             // Register wasn't full, write back the suspend information
-            
+
             // Put the output value in the waiting state
             m_output.Rc                 = operand.addr;
             m_output.Rav                = operand.value;
@@ -305,7 +305,7 @@ Processor::Pipeline::PipeAction Processor::Pipeline::ReadStage::OnCycle()
     if (operand1.offset == -2 && operand2.offset == -2)
     {
         // This is a new read; initialize stuff
-        
+
         // Initialize the operand data
         operand1.addr         = m_input.Ra;
         operand1.value.m_size = m_input.RaSize;
@@ -313,9 +313,9 @@ Processor::Pipeline::PipeAction Processor::Pipeline::ReadStage::OnCycle()
         operand2.addr         = m_input.Rb;
         operand2.value.m_size = m_input.RbSize;
         operand2.islocal      = m_input.RbIsLocal;
-    
+
         m_RaNotPending = m_input.RaNotPending;
-        
+
 #if defined(TARGET_MTSPARC)
         m_isMemoryOp = false;
         if (m_input.op1 == S_OP1_MEMORY)
@@ -350,14 +350,14 @@ Processor::Pipeline::PipeAction Processor::Pipeline::ReadStage::OnCycle()
         DeadlockWrite("Unable to read operand #1's register");
         return PIPE_STALL;
     }
-    
+
     // Use the literal if the second operand is not valid
     if (!ReadRegister(operand2, m_input.literal))
     {
         DeadlockWrite("Unable to read operand #2's register");
         return PIPE_STALL;
     }
-    
+
     if (!IsAcquiring())
     {
         //
@@ -371,14 +371,14 @@ Processor::Pipeline::PipeAction Processor::Pipeline::ReadStage::OnCycle()
             DeadlockWrite("Unable to read bypasses for operand #1");
             return PIPE_STALL;
         }
-    
+
         if (!ReadBypasses(operand2))
         {
             DeadlockWrite("Unable to read bypasses for operand #2");
             return PIPE_STALL;
         }
     }
-    
+
     if (operand1.offset >= 0 || operand2.offset >= 0)
     {
         // Both operands haven't been fully read yet -- delay
@@ -389,7 +389,7 @@ Processor::Pipeline::PipeAction Processor::Pipeline::ReadStage::OnCycle()
         }
         return PIPE_DELAY;
     }
-    
+
     //
     // Both operands are now fully read
     //
@@ -398,10 +398,10 @@ Processor::Pipeline::PipeAction Processor::Pipeline::ReadStage::OnCycle()
         // Copy common latch data
         (CommonData&)m_output          = m_input;
         (ArchDecodeReadLatch&)m_output = m_input;
-        
+
         m_output.Ra = operand1.addr;
         m_output.Rb = operand2.addr;
-        
+
         // We're done with these operands -- reset for new operands next cycle
         m_operand1.offset = -2;
         m_operand2.offset = -2;
@@ -411,7 +411,7 @@ Processor::Pipeline::PipeAction Processor::Pipeline::ReadStage::OnCycle()
     {
         // Since we can possible wait on this register, it can't be waiting
         assert(operand1.value.m_state != RST_WAITING);
-        
+
         if (operand1.value.m_state == RST_EMPTY)
         {
             // If it's empty, it's fine too; just set it to FULL. The contents does not matter
@@ -421,7 +421,7 @@ Processor::Pipeline::PipeAction Processor::Pipeline::ReadStage::OnCycle()
 
     CheckLocalOperand(operand1);
     CheckLocalOperand(operand2);
-    
+
     if (!CheckOperandForSuspension(operand1))  // Suspending on operand #1?
     if (!CheckOperandForSuspension(operand2))  // Suspending on operand #2?
     {
@@ -440,7 +440,7 @@ Processor::Pipeline::PipeAction Processor::Pipeline::ReadStage::OnCycle()
             m_output.placeSize = m_input.placeSize;
             m_output.legacy    = m_input.legacy;
         }
-        
+
 #if defined(TARGET_MTSPARC)
         // On the Sparc, memory ops take longer because three registers
         // need to be read. We do this by first reading the value to store
@@ -452,11 +452,11 @@ Processor::Pipeline::PipeAction Processor::Pipeline::ReadStage::OnCycle()
                 // First phase of the store has completed,
                 // copy the read value.
                 COMMIT{ m_rsv = operand1.value; }
-                
+
                 // We need to delay this cycle
                 return PIPE_DELAY;
             }
-        
+
             COMMIT
             {
                 // Final cycle of the store
@@ -502,12 +502,13 @@ Processor::Pipeline::ReadStage::ReadStage(Pipeline& parent, Clock& clock, const 
     m_regFile(regFile),
     m_input(input),
     m_output(output),
-    m_bypasses(bypasses)
-{
+    m_bypasses(bypasses),
+    m_operand1(), m_operand2(),
+    m_RaNotPending(false)
 #if defined(TARGET_MTSPARC)
-    m_isMemoryOp = false;
-    m_rsv.m_state = RST_INVALID;
+  , m_isMemoryOp(false), m_rsv()
 #endif
+{
     m_operand1.port = &m_regFile.p_pipelineR1;
     m_operand2.port = &m_regFile.p_pipelineR2;
     Clear(input.tid);
