@@ -931,7 +931,10 @@ MGSystem::MGSystem(Config& config, bool quiet)
 #  define OBJDUMP_CMD OBJDUMP_MIPS32EL
 # endif
 #endif
-    const char *v = getenv(OBJDUMP_VAR);
+    const char *v = 0;
+#ifdef OBJDUMP_VAR
+    v = getenv(OBJDUMP_VAR);
+#endif
     if (!v)
     {
 #ifdef OBJDUMP_CMD
@@ -939,6 +942,7 @@ MGSystem::MGSystem(Config& config, bool quiet)
 #else
         if (!quiet)
             cerr << "# Warning: platform-specific 'objdump' was not found and " OBJDUMP_VAR " is not set; cannot disassemble code." << endl;
+        v = "unknown-objdump";
 #endif
     }
     m_objdump_cmd = v;
