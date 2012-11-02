@@ -46,10 +46,7 @@ Result Processor::DebugChannel::Write(MemAddr address, const void *data, MemSize
         switch (address)
         {
         case 0:
-            if (std::isprint((char)value))
-                m_output << (char)value;
-            else if ((char)value == '\n')
-                m_output << std::endl;
+            m_output << (char)value;
             break;
         case 1:
             m_output << std::dec << value;
