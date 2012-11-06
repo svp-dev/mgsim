@@ -48,12 +48,6 @@ dist-hook: check-version
 
 	## prepare the version file
 	echo $(VERSION) >$(distdir)/build-aux/tarball-version
-	##
-	## we generate sources during configuration, which confuses Automake
-	## wrt distribution. So be sure that they are not present during "make
-	## dist".
-	##
-	for f in $(CONFIG_CLEAN_FILES) $(DISTCLEANFILES); do rm -f $(distdir)/$$f; done
 
 .PHONY: ChangeLog
 
