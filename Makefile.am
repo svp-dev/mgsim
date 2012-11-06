@@ -43,10 +43,6 @@ discheck-all: $(foreach T,$(CHECK_TARGETS),distcheck-target-$(T))
 include $(srcdir)/build-aux/version.mk
 
 dist-hook: check-version
-	## Ensure that CACTI is not bundled, as its license does not permit redistribution.
-	rm -rf $(distdir)/cacti
-
-	## prepare the version file
 	echo $(VERSION) >$(distdir)/build-aux/tarball-version
 
 .PHONY: ChangeLog

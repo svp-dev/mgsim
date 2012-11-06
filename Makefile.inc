@@ -16,7 +16,7 @@ mgsim_LDADD =
 if ENABLE_CACTI
 BASE_CXXFLAGS += $(PTHREAD_CFLAGS)
 noinst_LIBRARIES = libmgsimcacti.a
-libmgsimcacti_a_SOURCES = $(CACTI_SOURCES)
+nodist_libmgsimcacti_a_SOURCES = $(CACTI_SOURCES)
 libmgsimcacti_a_CPPFLAGS = $(mgsim_CPPFLAGS) $(CACTI_EXTRA_CPPFLAGS) 
 libmgsimcacti_a_CXXFLAGS = $(BASE_CXXFLAGS) # No warnings
 mgsim_CPPFLAGS += -DENABLE_CACTI=1
