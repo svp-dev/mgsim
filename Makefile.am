@@ -50,7 +50,7 @@ dist-hook: check-version
 ChangeLog:
 	$(AM_V_GEN)if test -e $(srcdir)/.git; then \
 	     (cd $(srcdir) && git log --stat --graph) >$@.tmp || (rm -f $@.tmp; false); \
-	     if ! (test -r $(srcdir)/$@ && cmp $@.tmp $(srcdir)/$@); then mv -f $@.tmp $@; else rm -f $@.tmp; fi; \
+	     if ! (test -r $(srcdir)/$@ && cmp $@.tmp $(srcdir)/$@) >/dev/null 2>&1; then mv -f $@.tmp $@; else rm -f $@.tmp; fi; \
 	fi
 
 ## General build rules.
