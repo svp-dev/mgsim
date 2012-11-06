@@ -539,24 +539,38 @@ namespace Simulator
             case 2: m_inputLatch.procedure_id = value; break;
 
             case 4: m_inputLatch.completion_tag      = (m_inputLatch.completion_tag       & ~(MemAddr)0xffffffff) |           (value & 0xffffffff); break;
+#if INTEGER_WIDTH > 32
             case 5: m_inputLatch.completion_tag      = (m_inputLatch.completion_tag       &           0xffffffff) | ((Integer)(value & 0xffffffff) << 32); break;
+#endif
 
             case 6: m_inputLatch.arg1_size = std::min((uint32_t)m_maxArg1Size, value); break;
             case 7: m_inputLatch.arg2_size = std::min((uint32_t)m_maxArg1Size, value); break;
 
             case 8: m_inputLatch.arg1_base_address = (m_inputLatch.arg1_base_address & ~(MemAddr)0xffffffff) |           (value & 0xffffffff); break;
+#if MEMSIZE_WIDTH > 32
             case 9: m_inputLatch.arg1_base_address = (m_inputLatch.arg1_base_address &           0xffffffff) | ((MemAddr)(value & 0xffffffff) << 32); break;
+#endif
+
             case 10: m_inputLatch.arg2_base_address = (m_inputLatch.arg2_base_address & ~(MemAddr)0xffffffff) |           (value & 0xffffffff); break;
+#if MEMSIZE_WIDTH > 32
             case 11: m_inputLatch.arg2_base_address = (m_inputLatch.arg2_base_address &           0xffffffff) | ((MemAddr)(value & 0xffffffff) << 32); break;
+#endif
 
             case 12: m_inputLatch.extra_arg1 = value; break;
             case 13: m_inputLatch.extra_arg2 = value; break;
 
             case 14: m_inputLatch.res1_base_address = (m_inputLatch.res1_base_address & ~(MemAddr)0xffffffff) |           (value & 0xffffffff); break;
+#if MEMSIZE_WIDTH > 32
             case 15: m_inputLatch.res1_base_address = (m_inputLatch.res1_base_address &           0xffffffff) | ((MemAddr)(value & 0xffffffff) << 32); break;
-            case 16: m_inputLatch.res2_base_address = (m_inputLatch.res2_base_address & ~(MemAddr)0xffffffff) |           (value & 0xffffffff); break;
-            case 17: m_inputLatch.res2_base_address = (m_inputLatch.res2_base_address &           0xffffffff) | ((MemAddr)(value & 0xffffffff) << 32); break;
+#endif
 
+            case 16: m_inputLatch.res2_base_address = (m_inputLatch.res2_base_address & ~(MemAddr)0xffffffff) |           (value & 0xffffffff); break;
+#if MEMSIZE_WIDTH > 32
+            case 17: m_inputLatch.res2_base_address = (m_inputLatch.res2_base_address &           0xffffffff) | ((MemAddr)(value & 0xffffffff) << 32); break;
+#endif
+
+            default:
+                break;
             }
         }
 
@@ -620,23 +634,33 @@ namespace Simulator
             case 2:  value = m_inputLatch.procedure_id; break;
 
             case 4: value = (m_inputLatch.completion_tag             ) & 0xffffffff; break;
+#if INTEGER_WIDTH > 32
             case 5: value = (m_inputLatch.completion_tag        >> 32) & 0xffffffff; break;
+#endif
 
             case 6:  value = m_inputLatch.arg1_size; break;
             case 7:  value = m_inputLatch.arg2_size; break;
 
             case 8:  value = (m_inputLatch.arg1_base_address      ) & 0xffffffff; break;
+#if MEMSIZE_WIDTH > 32
             case 9:  value = (m_inputLatch.arg1_base_address >> 32) & 0xffffffff; break;
+#endif
             case 10:  value = (m_inputLatch.arg2_base_address      ) & 0xffffffff; break;
+#if MEMSIZE_WIDTH > 32
             case 11:  value = (m_inputLatch.arg2_base_address >> 32) & 0xffffffff; break;
+#endif
 
             case 12:  value = m_inputLatch.extra_arg1; break;
             case 13:  value = m_inputLatch.extra_arg2; break;
 
             case 14:  value = (m_inputLatch.res1_base_address      ) & 0xffffffff; break;
+#if MEMSIZE_WIDTH > 32
             case 15:  value = (m_inputLatch.res1_base_address >> 32) & 0xffffffff; break;
+#endif
             case 16:  value = (m_inputLatch.res2_base_address      ) & 0xffffffff; break;
+#if MEMSIZE_WIDTH > 32
             case 17:  value = (m_inputLatch.res2_base_address >> 32) & 0xffffffff; break;
+#endif
 
             case 64: value = m_maxArg1Size; break;
             case 65: value = m_maxArg2Size; break;

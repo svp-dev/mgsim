@@ -387,19 +387,25 @@ namespace Simulator
             COMMIT { m_loadable[0].rom_offset = (m_loadable[0].rom_offset & 0xffffffff00000000ULL) | (MemSize)value; }
             break;
         case 3:
+#if MEMSIZE_WIDTH > 32
             COMMIT { m_loadable[0].rom_offset = (m_loadable[0].rom_offset & 0xffffffffULL) | ((MemSize)value << 32); }
+#endif
             break;
         case 4:
             COMMIT { m_loadable[0].vaddr = (m_loadable[0].vaddr & 0xffffffff00000000ULL) | (MemSize)value; }
             break;
         case 5:
+#if MEMSIZE_WIDTH > 32
             COMMIT { m_loadable[0].vaddr = (m_loadable[0].vaddr & 0xffffffffULL) | ((MemSize)value << 32); }
+#endif
             break;
         case 6:
             COMMIT { m_loadable[0].rom_size = (m_loadable[0].rom_size & 0xffffffff00000000ULL) | (MemSize)value; }
             break;
         case 7:
+#if MEMSIZE_WIDTH > 32
             COMMIT { m_loadable[0].rom_size = (m_loadable[0].rom_size & 0xffffffffULL) | ((MemSize)value << 32); }
+#endif
             break;
         }
         return true;
