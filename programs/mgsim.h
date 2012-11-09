@@ -13,8 +13,12 @@
 #define mgsim_read_asr(DestVar, Register) __asm__ __volatile__("getasr %1, %0" : "=r"(DestVar) : "I"(Register))
 #define mgsim_read_apr(DestVar, Register) __asm__ __volatile__("getapr %1, %0" : "=r"(DestVar) : "I"(Register))
 #elif defined(__mtsparc__)
-/* on MT-SPARC, ASR0 is %y, ASR15 is STBAR, and ASR20 are Microthreaded opcodes. */
-#define mgsim_read_asr(DestVar, Register) __asm__ __volatile__("rd %%asr%1, %0" : "=r"(DestVar) : "I"((Register)+1))
+/* on MT-SPARC, the Microgrid "ASRs" are different from the SPARC ISA ASRs'.
+ * The SPARC ASRs are for example ASR0 for %y, ASR15 for STBAR, and ASR19/ASR20 for Microthreaded opcodes. 
+ * The Microgrid "ASRs" 0-N are mapped to SPARC ASRs 7-(7+N).
+ * The Microgrid "APRs" 0-N are mapped to SPARC APRs 21-(21+N).
+ */
+#define mgsim_read_asr(DestVar, Register) __asm__ __volatile__("rd %%asr%1, %0" : "=r"(DestVar) : "I"((Register)+7))
 #define mgsim_read_apr(DestVar, Register) __asm__ __volatile__("rd %%asr%1, %0" : "=r"(DestVar) : "I"((Register)+21))
 #elif defined(__mips__)
 /* on MIPS, ASR0 is CP2 register $6; APR0 is CP2 register $16. */
