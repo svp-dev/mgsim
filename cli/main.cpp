@@ -16,6 +16,7 @@
 #include <sstream>
 #include <iostream>
 #include <limits>
+#include <memory>
 
 #ifdef USE_SDL
 #include <SDL.h>
@@ -34,6 +35,7 @@ struct ProgramConfig
     bool                             m_interactive;
     bool                             m_terminate;
     bool                             m_dumpconf;
+    bool                             m_dumpcache;
     bool                             m_quiet;
     bool                             m_dumpvars;
     vector<string>                   m_printvars;
@@ -53,6 +55,7 @@ struct ProgramConfig
           m_interactive(false),
           m_terminate(false),
           m_dumpconf(false),
+          m_dumpcache(false),
           m_quiet(false),
           m_dumpvars(false),
           m_printvars(),
@@ -101,6 +104,7 @@ static const struct argp_option mgsim_options[] =
     { "config", 'c', "FILE", 0, "Read default configuration from FILE. "
       "The contents of this file are considered after all overrides (-o/-I).", 2 },
     { "dump-configuration", 'd', 0, 0, "Dump configuration to standard error prior to program startup.", 2 },
+    { "dump-config-cache", 10, 0, 0, "Dump configuration cache to standard error prior to program startup.", 2 },
     { "override", 'o', "NAME=VAL", 0, "Add override option NAME with value VAL. Can be specified multiple times.", 2 },
     { "include", 'I', "FILE", 0, "Read extra override options from FILE. Can be specified multiple times.", 2 },
 
@@ -116,8 +120,8 @@ static const struct argp_option mgsim_options[] =
     { "print-final-mvars", 'p', "PATTERN", 0, "Print the value of all monitoring variables matching PATTERN. Can be specified multiple times.", 5 },
 
     { "dump-topology", 'T', "FILE", 0, "Dump the grid topology to FILE prior to program startup.", 6 },
-    { "no-node-properties", 10, 0, 0, "Do not print component properties in the topology dump.", 6 },
-    { "no-edge-properties", 11, 0, 0, "Do not print link properties in the topology output.", 6 },
+    { "no-node-properties", 11, 0, 0, "Do not print component properties in the topology dump.", 6 },
+    { "no-edge-properties", 12, 0, 0, "Do not print link properties in the topology output.", 6 },
 
 #ifdef ENABLE_MONITOR
     { "monitor", 'm', 0, 0, "Enable asynchronous simulation monitoring (configure with -o MonitorSampleVariables).", 7 },
@@ -153,12 +157,13 @@ static error_t mgsim_parse_opt(int key, char *arg, struct argp_state *state)
     case 'q': config.m_quiet = true; break;
     case 's': cerr << "# Warning: ignoring obsolete flag '-s'" << endl; break;
     case 'd': config.m_dumpconf = true; break;
+    case 10 : config.m_dumpcache = true; break;
     case 'm': config.m_enableMonitor = true; break;
     case 'l': config.m_dumpvars = true; break;
     case 'p': config.m_printvars.push_back(arg); break;
     case 'T': config.m_dumptopo = true; config.m_topofile = arg; break;
-    case 10 : config.m_dumpnodeprops = false; break;
-    case 11 : config.m_dumpedgeprops = false; break;
+    case 11 : config.m_dumpnodeprops = false; break;
+    case 12 : config.m_dumpedgeprops = false; break;
     case 'n': config.m_earlyquit = true; break;
     case 'o':
     {
@@ -244,6 +249,19 @@ void PrintFinalVariables(const ProgramConfig& cfg)
     }
 }
 
+static
+void AtEnd(const MGSystem& sys, const ProgramConfig& cfg)
+{
+    if (!cfg.m_quiet)
+    {
+        clog << "### begin end-of-simulation statistics" << endl;
+        sys.PrintAllStatistics(clog);
+        clog << "### end end-of-simulation statistics" << endl;
+    }
+    PrintFinalVariables(cfg);
+}
+
+
 #ifdef USE_SDL
 extern "C"
 #endif
@@ -251,142 +269,197 @@ int main(int argc, char** argv)
 {
     srand(time(NULL));
 
+    ProgramConfig flags;
+    unique_ptr<Config> config = 0;
+    unique_ptr<MGSystem> sys = 0;
+#ifdef ENABLE_MONITOR
+    unique_ptr<Monitor> mo = 0;
+#endif
+
+    ////
+    // Early initialization.
+    // Argument parsing, no simulation yet.
     try
     {
         // Parse command line arguments
-        ProgramConfig config;
+        argp_parse(&argp, argc, argv, 0, 0, &flags);
+    }
+    catch (const exception& e)
+    {
+        PrintException(cerr, e);
+        return 1;
+    }
 
-        argp_parse(&argp, argc, argv, 0, 0, &config);
+    if (flags.m_interactive)
+    {
+        // Interactive mode: print name & version first
+        clog << argp_program_version << endl;
+    }
 
-        // Convert the remaining m_regs to an override
+    // Convert the remaining m_regs to an override
+    if (!flags.m_regs.empty())
+    {
+        ostringstream s;
+        for (size_t i = 0; i < flags.m_regs.size(); ++i)
         {
-            ostringstream s;
-            for (size_t i = 0; i < config.m_regs.size(); ++i)
-            {
-                if (i)
-                    s << ',';
-                s << config.m_regs[i];
-            }
-            config.m_overrides.append("CmdLineRegs", s.str()); 
+            if (i)
+                s << ',';
+            s << flags.m_regs[i];
         }
+        flags.m_overrides.append("CmdLineRegs", s.str());
+    }
 
-        if (config.m_quiet)
+    // Convert the extra devices created with -L to an override
+    if (!flags.m_extradevs.empty())
+    {
+        string n;
+        for (size_t i = 0; i < flags.m_extradevs.size(); ++i)
         {
-            config.m_overrides.append("*.ROMVerboseLoad", "false");
+            if (i > 0)
+                n += ',';
+            n += flags.m_extradevs[i];
         }
-        if (!config.m_extradevs.empty())
-        {
-            string n;
-            for (size_t i = 0; i < config.m_extradevs.size(); ++i)
-            {
-                if (i > 0)
-                    n += ',';
-                n += config.m_extradevs[i];
-            }
-            config.m_overrides.append("CmdLineFileDevs", n);
-        }
+        flags.m_overrides.append("CmdLineFileDevs", n);
+    }
 
-        if (config.m_interactive)
-        {
-            // Interactive mode
-            clog << argp_program_version << endl;
-        }
+    if (flags.m_quiet)
+    {
+        // Silence the ROM loads.
+        flags.m_overrides.append("*.ROMVerboseLoad", "false");
+    }
 
+    ////
+    // Load the simulation configuration.
+    // Process -c, group with overrides and argv.
+    try
+    {
         // Read configuration from file
-        Config configfile(config.m_configFile, config.m_overrides, config.m_argv);
+        config.reset(new Config(flags.m_configFile, flags.m_overrides, flags.m_argv));
+    }
+    catch (const exception& e)
+    {
+        PrintException(cerr, e);
+        return 1;
+    }
 
-        if (config.m_dumpconf)
-        {
-            // Printing the configuration early, in case constructing the
-            // system (below) fails.
-            clog << "### simulator version: " PACKAGE_VERSION << endl;
-            configfile.dumpConfiguration(clog, config.m_configFile);
-        }
+    if (flags.m_dumpconf)
+    {
+        // Printing the configuration if requested. We need to
+        // do/check this early, in case constructing the system
+        // (below) fails.
+        clog << "### simulator version: " PACKAGE_VERSION << endl;
+        config->dumpConfiguration(clog, flags.m_configFile);
+    }
 
+    ////
+    // Construct the simulator.
+    // This instantiates all the components, in the initial (stopped) state.
+    // It also populates the "config" object with a cache of all
+    // values effectively looked up by the instantiated components.
+    try
+    {
         // Create the system
-        MGSystem sys(configfile,
-                     !config.m_interactive);
+        sys.reset(new MGSystem(*config, !flags.m_interactive));
+    }
+    catch (const exception& e)
+    {
+        PrintException(cerr, e);
+        return 1;
+    }
 
-#ifdef ENABLE_MONITOR
-        string mo_mdfile = configfile.getValueOrDefault<string>("MonitorMetadataFile", "mgtrace.md");
-        string mo_tfile = configfile.getValueOrDefault<string>("MonitorTraceFile", "mgtrace.out");
-        Monitor mo(sys, config.m_enableMonitor,
-                   mo_mdfile, config.m_earlyquit ? "" : mo_tfile, !config.m_interactive);
-#endif
+    if (flags.m_dumpcache)
+    {
+        // Dump the configuration cache if requested.
+        config->dumpConfigurationCache(clog);
+    }
 
-        if (config.m_dumpconf)
-        {
-            // we also print the cache, which expands all effectively
-            // looked up configuration values after the system
-            // was constructed successfully.
-            configfile.dumpConfigurationCache(clog);
-        }
-        if (config.m_dumpvars)
-        {
-            clog << "### begin monitor variables" << endl;
-            ListSampleVariables(clog);
-            clog << "### end monitor variables" << endl;
-        }
+    if (flags.m_dumpvars)
+    {
+        // Dump the list of monitoring variables if requested.
+        clog << "### begin monitor variables" << endl;
+        ListSampleVariables(clog);
+        clog << "### end monitor variables" << endl;
+    }
 
-        if (config.m_areaTech > 0)
-        {
-            clog << "### begin area information" << endl;
+    if (flags.m_areaTech > 0)
+    {
+        // Dump the area estimation information if requested.
+        clog << "### begin area information" << endl;
 #ifdef ENABLE_CACTI
-            sys.DumpArea(cout, config.m_areaTech);
+        sys->DumpArea(cout, flags.m_areaTech);
 #else
-            clog << "# Warning: CACTI not enabled; reconfigure with --enable-cacti" << endl;
+        clog << "# Warning: CACTI not enabled; reconfigure with --enable-cacti" << endl;
 #endif
-            clog << "### end area information" << endl;
-        }
+        clog << "### end area information" << endl;
+    }
 
-        if (config.m_dumptopo)
-        {
-            ofstream of(config.m_topofile.c_str(), ios::out);
-            configfile.dumpComponentGraph(of, config.m_dumpnodeprops, config.m_dumpedgeprops);
-            of.close();
-        }
+    if (flags.m_dumptopo)
+    {
+        // Dump the component topology diagram if requested.
+        ofstream of(flags.m_topofile.c_str(), ios::out);
+        config->dumpComponentGraph(of, flags.m_dumpnodeprops, flags.m_dumpedgeprops);
+        of.close();
+    }
 
-        if (config.m_earlyquit)
-            return 0;
+    if (flags.m_earlyquit)
+        // At this point the simulation is ready and we have dumped
+        // everything requested. If the user requested to not do anything,
+        // we can just stop here.
+        return 0;
 
-        bool interactive = config.m_interactive;
+    // Otherwise, the simulation should start.
+
+    ////
+    // Start the simulation.
+
+    // First construct the monitor thread, if enabled.
+#ifdef ENABLE_MONITOR
+    string mo_mdfile = config->getValueOrDefault<string>("MonitorMetadataFile", "mgtrace.md");
+    string mo_tfile = config->getValueOrDefault<string>("MonitorTraceFile", "mgtrace.out");
+    mo.reset(new Monitor(*sys, flags.m_enableMonitor,
+                         mo_mdfile, flags.m_earlyquit ? "" : mo_tfile, !flags.m_interactive));
+#endif
+
+    // Simulation proper.
+    // Rules:
+    // - if interactive, then do not automatically start the simulation.
+    // - if interactive at start, always remain interactive.
+    // - if not interactive at start and the simulation stops abnormally, then become interactive unless -t is specified.
+    // - upon becoming interative because of an exception, print the exception.
+    // - always print statistics at termination if not quiet.
+    // - always print final variables at termination.
+
+    bool interactive = flags.m_interactive;
+    try
+    {
         if (!interactive)
         {
-            // Non-interactive mode; run and dump cycle count
+            // Non-interactive: automatically start and run until simulation terminates.
             try
             {
 #ifdef ENABLE_MONITOR
-                mo.start();
+                mo->start();
 #endif
-                StepSystem(sys, INFINITE_CYCLES);
+                StepSystem(*sys, INFINITE_CYCLES);
 #ifdef ENABLE_MONITOR
-                mo.stop();
+                mo->stop();
 #endif
 
-                if (!config.m_quiet)
-                {
-                    clog << "### begin end-of-simulation statistics" << endl;
-                    sys.PrintAllStatistics(clog);
-                    clog << "### end end-of-simulation statistics" << endl;
-                }
             }
             catch (const exception& e)
             {
 #ifdef ENABLE_MONITOR
-                mo.stop();
+                mo->stop();
 #endif
-                if (config.m_terminate)
+                if (flags.m_terminate)
                 {
-                    // We do not want to go to interactive mode,
-                    // rethrow so it abort the program.
-                    PrintFinalVariables(config);
+                    // Re-throw to terminate.
                     throw;
                 }
 
+                // else
+                // Print the exception and become interactive.
                 PrintException(cerr, e);
-
-                // When we get an exception in non-interactive mode,
-                // jump into interactive mode
                 interactive = true;
             }
         }
@@ -396,20 +469,25 @@ int main(int argc, char** argv)
             // Command loop
             cout << endl;
             CommandLineReader clr;
-            cli_context ctx = { clr, sys
+            cli_context ctx = { clr, *sys
 #ifdef ENABLE_MONITOR
-                                , mo
+                                , *mo
 #endif
             };
 
             while (HandleCommandLine(ctx) == false)
                 /* just loop */;
         }
-
-        PrintFinalVariables(config);
     }
     catch (const exception& e)
     {
+        if (!flags.m_quiet)
+            // Print exception.
+            PrintException(cerr, e);
+
+        // Print statistics & final variables.
+        AtEnd(*sys, flags);
+
         const ProgramTerminationException *ex = dynamic_cast<const ProgramTerminationException*>(&e);
         if (ex != NULL)
         {
@@ -420,12 +498,12 @@ int main(int argc, char** argv)
                 return ex->GetExitCode();
         }
         else
-        {
             // No more information, simply terminate with error.
-            PrintException(cerr, e);
             return 1;
-        }
     }
+
+    // Print statistics & final variables.
+    AtEnd(*sys, flags);
 
     return 0;
 }
