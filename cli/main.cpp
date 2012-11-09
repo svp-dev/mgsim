@@ -270,10 +270,10 @@ int main(int argc, char** argv)
     srand(time(NULL));
 
     ProgramConfig flags;
-    unique_ptr<Config> config = 0;
-    unique_ptr<MGSystem> sys = 0;
+    UNIQUE_PTR<Config> config;
+    UNIQUE_PTR<MGSystem> sys;
 #ifdef ENABLE_MONITOR
-    unique_ptr<Monitor> mo = 0;
+    UNIQUE_PTR<Monitor> mo;
 #endif
 
     ////

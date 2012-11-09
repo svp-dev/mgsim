@@ -56,6 +56,21 @@ AX_CXX_GCC_ABI_DEMANGLE
 # check support for C++11
 AX_CXX_COMPILE_STDCXX_11
 
+AC_CACHE_CHECK([what template to use for unique pointers], 
+               [mg_cv_uniqueptr],
+               [
+                  mg_cv_uniqueptr=none
+                  AC_COMPILE_IFELSE([AC_LANG_PROGRAM([@%:@include <memory>], 
+                                                     [std::unique_ptr<int> x; x.reset(0); return 0;])], 
+                                    [mg_cv_uniqueptr=unique_ptr])
+                  if test x$mg_cv_uniqueptr = xnone; then
+                    AC_COMPILE_IFELSE([AC_LANG_PROGRAM([@%:@include <memory>], 
+                                                       [std::auto_ptr<int> x; x.reset(0); return 0;])], 
+                                      [mg_cv_uniqueptr=auto_ptr])
+                  fi
+               ])
+AC_DEFINE_UNQUOTED([UNIQUE_PTR], [$mg_cv_uniqueptr], [Define to unique_ptr if available, otherwise auto_ptr])
+
 AC_MSG_CHECKING([for the number of bits in a char])
 AC_COMPUTE_INT([char_size], [CHAR_BIT], [#include <limits.h>], [char_size=unknown])
 AC_MSG_RESULT([$char_size])
