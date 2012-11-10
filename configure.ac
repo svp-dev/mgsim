@@ -56,7 +56,7 @@ AX_CXX_GCC_ABI_DEMANGLE
 # check support for C++11
 AX_CXX_COMPILE_STDCXX_11
 
-AC_CACHE_CHECK([what template to use for unique pointers], 
+AC_CACHE_CHECK([which template to use for unique pointers],
                [mg_cv_uniqueptr],
                [
                   mg_cv_uniqueptr=none
@@ -69,6 +69,9 @@ AC_CACHE_CHECK([what template to use for unique pointers],
                                       [mg_cv_uniqueptr=auto_ptr])
                   fi
                ])
+if test x$mg_cv_uniqueptr = xnone; then
+  AC_MSG_ERROR([Support for std::unique_ptr or std::auto_ptr is required.])
+fi
 AC_DEFINE_UNQUOTED([UNIQUE_PTR], [$mg_cv_uniqueptr], [Define to unique_ptr if available, otherwise auto_ptr])
 
 AC_MSG_CHECKING([for the number of bits in a char])
