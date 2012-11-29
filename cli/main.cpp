@@ -17,6 +17,7 @@
 #include <iostream>
 #include <limits>
 #include <memory>
+#include <cstdlib>
 
 #ifdef USE_SDL
 #include <SDL.h>
@@ -68,7 +69,15 @@ struct ProgramConfig
           m_dumpnodeprops(true),
           m_dumpedgeprops(true),
           m_argv()
-    {}
+    {
+        const char *v = getenv("MGSIM_BASE_CONFIG");
+        if (v != nullptr)
+        {
+            // A base file in the environment variable
+            // will override the default.
+            m_configFile = v;
+        }
+    }
 };
 
 extern "C"
