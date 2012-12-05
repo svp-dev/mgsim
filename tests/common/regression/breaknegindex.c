@@ -48,8 +48,8 @@ int test(void)
            sl_sharg(unsigned, count, 0),
            sl_glarg(unsigned, max, 20));
  sl_sync(r);
- if (r == SVP_EXIT_BREAK) 
-     return 1; // should not see break here
+ if (r != SVP_EXIT_BREAK) 
+     return 1; // should see break here
 
  if (sl_geta(count) != 20)
      return 1;
