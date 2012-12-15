@@ -382,7 +382,15 @@ if __name__ == "__main__":
                  help="Execute Python synthesis code from FILE.", metavar="FILE")
     add_argument(parser, '--help-engines', dest="helpengines", action="store_true",
                  help="Display some documentation about synthesis engines.")
-    (options, args) = parser.parse_args()
+    try:
+        # argparse from py2.7
+        parser.add_argument("METADATA")
+        parser.add_argument("TRACE")
+        options = parser.parse_args()
+        args = (options.METADATA, options.TRACE)
+    except:
+        # optparse
+        (options, args) = parser.parse_args()
 
     if options.helpengines:
         helpengines()
