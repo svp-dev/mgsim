@@ -93,9 +93,6 @@ LoadProgram(const std::string& msg_prefix, vector<ActiveROM::LoadableRange>& ran
     {
         if (shdr[i].sh_type == SHT_SYMTAB)
         {
-            if (elf_sym_table != 0)
-                cerr << "#warning: ELF file has more than one symtable, using the first one" << endl;
-
             Verify(shdr[i].sh_entsize == sizeof(Elf_Sym), "file has an invalid symtable");
             Verify(shdr[i].sh_offset + shdr[i].sh_size <= size, "file has an invalid symtable");
 
@@ -120,6 +117,14 @@ LoadProgram(const std::string& msg_prefix, vector<ActiveROM::LoadableRange>& ran
     SymbolTable& symtable = memory.GetSymbolTable();
     for (size_t i = 1 /* first entry is unused */; i < elf_sym_table_len; ++i)
     {
+        elf_sym_table[i].st_name = elftohw(elf_sym_table[i].st_name);
+        elf_sym_table[i].st_value = elftoha(elf_sym_table[i].st_value);
+#if ELFCLASS == ELFCLASS64
+        elf_sym_table[i].st_size = elftohxw(elf_sym_table[i].st_size);
+#else
+        elf_sym_table[i].st_size = elftohw(elf_sym_table[i].st_size);
+#endif
+
         Verify(elf_sym_table[i].st_name < str_table_len, "file specifies an invalid symbol");
 
         const char* name = str_table + elf_sym_table[i].st_name;
