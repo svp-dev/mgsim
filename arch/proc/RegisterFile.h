@@ -101,7 +101,7 @@ private:
         {
         case RT_INTEGER: return m_integers;
         case RT_FLOAT:   return m_floats;
-        default: assert(0);
+        default: UNREACHABLE;
         }
     }
     const std::vector<RegValue>& PickFile(RegType t) const
@@ -110,7 +110,7 @@ private:
         {
         case RT_INTEGER: return m_integers;
         case RT_FLOAT:   return m_floats;
-        default: assert(0);
+        default: UNREACHABLE;
         }
     }
 

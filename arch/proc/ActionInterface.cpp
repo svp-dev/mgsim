@@ -23,8 +23,7 @@ size_t Processor::ActionInterface::GetSize() const { return 8 * sizeof(Integer);
 
 Result Processor::ActionInterface::Read (MemAddr /*address*/, void* /*data*/, MemSize /*size*/, LFID /*fid*/, TID /*tid*/, const RegAddr& /*writeback*/)
 {
-    assert(0); // should not be here
-    return FAILED;
+    UNREACHABLE;
 }
 
 Result Processor::ActionInterface::Write(MemAddr address, const void *data, MemSize size, LFID fid, TID tid)

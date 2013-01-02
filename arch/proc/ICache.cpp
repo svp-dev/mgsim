@@ -407,8 +407,7 @@ bool Processor::ICache::OnMemoryReadCompleted(MemAddr addr, const char *data)
 bool Processor::ICache::OnMemoryWriteCompleted(TID /*tid*/)
 {
     // The I-Cache never writes
-    assert(false);
-    return false;
+    UNREACHABLE;
 }
 
 bool Processor::ICache::OnMemorySnooped(MemAddr address, const char * data, const bool * mask)

@@ -309,7 +309,7 @@ bool ZLCOMA::RootDirectory::OnMessageReceived(Message* req)
             return true;
 
         default:
-            assert(false);
+            UNREACHABLE;
             break;
         }
     }

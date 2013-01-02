@@ -3,6 +3,7 @@
 
 #include "Archures.h"
 #include <sim/types.h>
+#include <sim/unreachable.h>
 
 #include <string>
 #include <cassert>
@@ -165,8 +166,7 @@ struct MultiFloat
         case 4: return _32.integer;
         case 8: return _64.integer;
         }
-        assert(false);
-        return 0;
+        UNREACHABLE;
     }
 
     double   tofloat(int size) const
@@ -176,8 +176,7 @@ struct MultiFloat
         case 4: return _32.tofloat();
         case 8: return _64.tofloat();
         }
-        assert(false);
-        return 0.0f;
+        UNREACHABLE;
     }
 
     void fromint(uint64_t i, int size)
@@ -186,7 +185,7 @@ struct MultiFloat
         {
         case 4: _32.integer = i; break;
         case 8: _64.integer = i; break;
-        default: assert(0);
+        default: UNREACHABLE;
         }
     }
 
@@ -196,7 +195,7 @@ struct MultiFloat
         {
         case 4: _32.fromfloat(f); break;
         case 8: _64.fromfloat(f); break;
-        default: assert(0);
+        default: UNREACHABLE;
         }
     }
 };
@@ -216,9 +215,8 @@ struct MultiInteger
         {
         case 4: return _32; break;
         case 8: return _64; break;
-        default: assert(0);
+        default: UNREACHABLE;
         }
-        return 0;
     }
     void set(uint64_t v, int size)
     {
@@ -226,7 +224,7 @@ struct MultiInteger
         {
         case 4: _32 = (uint32_t)v; break;
         case 8: _64 = v; break;
-        default: assert(0);
+        default: UNREACHABLE;
         }
     }
 

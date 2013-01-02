@@ -56,6 +56,18 @@ AX_CXX_GCC_ABI_DEMANGLE
 # check support for C++11
 AX_CXX_COMPILE_STDCXX_11
 
+AC_CACHE_CHECK([for __builtin_unreachable],
+               [mg_cv_unreachable],
+               [
+                  mg_cv_unreachable=no
+                  AC_COMPILE_IFELSE([AC_LANG_PROGRAM([], 
+                                                     [__builtin_unreachable();])], 
+                                    [mg_cv_unreachable=yes])
+               ])
+if test x$mg_cv_unreachable = xyes; then
+   AC_DEFINE([HAVE___BUILTIN_UNREACHABLE],[1],[Define to 1 if __builtin_unreachable() is available.])
+fi
+
 AC_CACHE_CHECK([which template to use for unique pointers],
                [mg_cv_uniqueptr],
                [

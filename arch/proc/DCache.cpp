@@ -637,7 +637,7 @@ Result Processor::DCache::DoCompletedReads()
         switch (state.addr.type) {
             case RT_INTEGER: reg.m_integer       = data; break;
             case RT_FLOAT:   reg.m_float.integer = data; break;
-            default: assert(0); // should not be there
+            default: UNREACHABLE;
         }
 
         if (!m_regFile.WriteRegister(state.addr, reg, true))

@@ -28,7 +28,6 @@ Processor::Pipeline::PipeValue Processor::Pipeline::ReadStage::RegToPipeValue(Re
     dest_value.m_size  = sizeof(Integer);
     switch (src_value.m_state)
     {
-    case RST_INVALID: assert(0); break;
     case RST_WAITING:
     case RST_PENDING:
     case RST_EMPTY:
@@ -45,6 +44,11 @@ Processor::Pipeline::PipeValue Processor::Pipeline::ReadStage::RegToPipeValue(Re
             case RT_FLOAT:   dest_value.m_float.fromint(src_value.m_float.integer, dest_value.m_size); break;
             }
         }
+        break;
+
+    case RST_INVALID: 
+    default:
+        UNREACHABLE; 
         break;
     }
     return dest_value;
@@ -265,7 +269,7 @@ void Processor::Pipeline::ReadStage::CheckLocalOperand(OperandInfo& operand) con
         {
         case RT_INTEGER: operand.value.m_integer.set(0, operand.value.m_size); break;
         case RT_FLOAT:   operand.value.m_float.fromint(0, operand.value.m_size); break;
-        default: assert(0);
+        default: UNREACHABLE;
         }
     }
 }

@@ -59,8 +59,7 @@ RegAddr Processor::Allocator::GetRemoteRegisterAddress(LFID fid, RemoteRegType k
             break;
 
         default:
-            assert(false);
-            return INVALID_REG;
+            UNREACHABLE;
     }
     return (addr.index < size) ? MAKE_REGADDR(addr.type, base + addr.index) : INVALID_REG;
 }
@@ -645,7 +644,8 @@ bool Processor::Allocator::IncreaseThreadDependency(TID tid, ThreadDependency de
         {
         case THREADDEP_OUTSTANDING_WRITES: deps.numPendingWrites++; break;
         case THREADDEP_PREV_CLEANED_UP:
-        case THREADDEP_TERMINATED:         assert(0); break;
+        case THREADDEP_TERMINATED:         
+            UNREACHABLE; break;
         }
     }
     return true;

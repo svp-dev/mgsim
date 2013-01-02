@@ -223,7 +223,7 @@ bool COMA::RootDirectory::OnMessageReceived(Message* msg)
             break;
 
         default:
-            assert(false);
+            UNREACHABLE;
             break;
         }
     }

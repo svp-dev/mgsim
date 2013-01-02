@@ -98,8 +98,7 @@ COMA::Directory::Line* COMA::Directory::AllocateLine(MemAddr address)
             return line;
         }
     }
-    assert(false);
-    return NULL;
+    UNREACHABLE;
 }
 
 bool COMA::Directory::OnMessageReceivedBottom(Message* msg)
@@ -148,7 +147,7 @@ bool COMA::Directory::OnMessageReceivedBottom(Message* msg)
             break;
 
         default:
-            assert(false);
+            UNREACHABLE;
             break;
         }
     }
@@ -207,7 +206,7 @@ bool COMA::Directory::OnMessageReceivedTop(Message* msg)
         break;
 
     default:
-        assert(false);
+        UNREACHABLE;
         break;
     }
 

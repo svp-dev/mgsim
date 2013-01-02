@@ -510,7 +510,7 @@ bool Processor::Pipeline::ExecuteStage::ExecuteINTM(PipeValue& Rcv, const PipeVa
         case A_INTMFUNC_DIVQ:  Rc = (int64_t)Ra / (int64_t)Rb; break;
         case A_INTMFUNC_UDIVL: Rc = (uint64_t)(uint32_t)((uint32_t)Ra / (uint32_t)Rb); break;
         case A_INTMFUNC_UDIVQ: Rc = Ra / Rb; break;
-        default: assert(0); Rc = 0; break;
+        default: UNREACHABLE; break;
     }
     Rcv.m_integer = Rc;
     return true;

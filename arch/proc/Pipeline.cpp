@@ -456,8 +456,7 @@ string Processor::Pipeline::PipeValue::str(RegType type) const
         return ss.str();
     }
     default:
-        assert(0); // can't be here
-        return "UNKNOWN";
+        UNREACHABLE;
     }
 }
 

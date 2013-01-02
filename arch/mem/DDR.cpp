@@ -158,8 +158,7 @@ Result DDRChannel::DoRequest()
         if (!m_pipeline.Push(m_request))
         {
             // The read pipeline should be big enough
-            assert(false);
-            return FAILED;
+            UNREACHABLE;
         }
     }
 

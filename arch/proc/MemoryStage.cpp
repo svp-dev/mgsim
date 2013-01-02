@@ -40,7 +40,7 @@ Processor::Pipeline::PipeAction Processor::Pipeline::MemoryStage::OnCycle()
                 switch (m_input.Rc.type) {
                 case RT_INTEGER: value = m_input.Rcv.m_integer.get(m_input.Rcv.m_size); break;
                 case RT_FLOAT:   value = m_input.Rcv.m_float.toint(m_input.Rcv.m_size); break;
-                default: assert(0);
+                default: UNREACHABLE;
                 }
 
 
@@ -248,7 +248,7 @@ Processor::Pipeline::PipeAction Processor::Pipeline::MemoryStage::OnCycle()
                         {
                         case RT_INTEGER: rcv.m_integer.set(value, rcv.m_size); break;
                         case RT_FLOAT:   rcv.m_float.fromint(value, rcv.m_size); break;
-                        default:         assert(0);
+                        default:         UNREACHABLE;
                         }
 
                         // Memory read

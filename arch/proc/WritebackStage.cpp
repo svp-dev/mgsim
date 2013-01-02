@@ -84,7 +84,7 @@ Processor::Pipeline::PipeAction Processor::Pipeline::WritebackStage::OnCycle()
 
             default:
                 // These states are never written from the pipeline
-                assert(0);
+                UNREACHABLE;
             }
 
             if (m_input.Rc.valid())
@@ -116,7 +116,7 @@ Processor::Pipeline::PipeAction Processor::Pipeline::WritebackStage::OnCycle()
 
                 if (value.m_state == RST_WAITING)
                 {
-                    assert(suspend);
+                    assert(suspend == true);
 
                     if (old_value.m_state == RST_FULL)
                     {

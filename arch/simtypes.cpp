@@ -35,9 +35,9 @@ const char* GetRemoteRegisterTypeString(RemoteRegType type)
     case RRT_GLOBAL:          return "global";
     case RRT_FIRST_DEPENDENT: return "first shared";
     case RRT_LAST_SHARED:     return "last shared";
-    default:                  assert(false); break;
+    default:
+        UNREACHABLE;
     }
-    return "unknown";
 }
 
 string RegAddr::str() const
@@ -102,10 +102,8 @@ string RegValue::str(RegType type) const
         ss << ']';
         return ss.str();
     }
-    default:
-        assert(0); // can't be here
-        return "UNKNOWN";
     }
+    UNREACHABLE;
 }
 
 ostream& operator << (ostream& output, const RegAddr& reg)

@@ -2,6 +2,7 @@
 #define PROCESSOR_H
 
 #include <sim/inspect.h>
+#include <sim/unreachable.h>
 #include <arch/IOBus.h>
 #include <arch/Memory.h>
 #include <arch/BankSelector.h>

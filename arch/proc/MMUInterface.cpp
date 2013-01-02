@@ -21,8 +21,7 @@ size_t Processor::MMUInterface::GetSize() const { return 0x1A /* 11010 */ * size
 
 Result Processor::MMUInterface::Read (MemAddr /*address*/, void* /*data*/, MemSize /*size*/, LFID /*fid*/, TID /*tid*/, const RegAddr& /*writeback*/)
 {
-    assert(0); // should not be here
-    return FAILED;
+    UNREACHABLE;
 }
 
 Result Processor::MMUInterface::Write(MemAddr address, const void *data, MemSize size, LFID fid, TID tid)
@@ -63,7 +62,7 @@ Result Processor::MMUInterface::Write(MemAddr address, const void *data, MemSize
                 cpu->WriteASR(ASR_PID, value);
             break;
         default:
-            assert(0);
+            UNREACHABLE;
             break;
         }
     }

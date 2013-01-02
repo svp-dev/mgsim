@@ -247,9 +247,7 @@ namespace Simulator
             return SUCCESS;
         }
         }
-        // unreachable
-        assert(false);
-        return SUCCESS;
+        UNREACHABLE;
     }
 
 
@@ -409,9 +407,7 @@ namespace Simulator
             return SUCCESS;
         }
         }
-        // unreachable
-        assert(false);
-        return SUCCESS;
+        UNREACHABLE;
     }
 
     Result RPCInterface::DoSendCompletionNotifications()

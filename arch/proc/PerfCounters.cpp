@@ -207,8 +207,7 @@ size_t Processor::PerfCounters::GetSize() const { return m_counters.size() * siz
 
 Result Processor::PerfCounters::Write(MemAddr /*address*/, const void * /*data*/, MemSize /*size*/, LFID /*fid*/, TID /*tid*/)
 {
-    assert(0);
-    return FAILED;
+    UNREACHABLE;
 }
 
 Result Processor::PerfCounters::Read(MemAddr address, void *data, MemSize size, LFID fid, TID tid, const RegAddr& /*writeback*/)

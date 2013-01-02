@@ -537,7 +537,7 @@ bool COMA::Cache::OnMessageReceived(Message* msg)
         break;
 
     default:
-        assert(false);
+        UNREACHABLE;
         break;
     }
     return true;

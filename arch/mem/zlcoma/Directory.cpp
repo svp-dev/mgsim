@@ -90,8 +90,7 @@ ZLCOMA::Directory::Line* ZLCOMA::Directory::AllocateLine(MemAddr address)
             return line;
         }
     }
-    assert(false);
-    return NULL;
+    UNREACHABLE;
 }
 
 bool ZLCOMA::Directory::OnMessageReceivedBottom(Message* req)
@@ -133,7 +132,7 @@ bool ZLCOMA::Directory::OnMessageReceivedBottom(Message* req)
             return true;
 
         default:
-            assert(false);
+            UNREACHABLE;
             break;
         }
 
@@ -203,7 +202,7 @@ bool ZLCOMA::Directory::OnMessageReceivedTop(Message* req)
         break;
 
     default:
-        assert(false);
+        UNREACHABLE;
         break;
     }
 

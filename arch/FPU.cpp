@@ -54,9 +54,7 @@ size_t FPU::RegisterSource(Processor::RegisterFile& regfile, const StorageTraceS
             return i;
         }
     }
-    // This shouldn't happen
-    assert(0);
-    return SIZE_MAX;
+    UNREACHABLE;
 }
 
 string FPU::Operation::str() const
@@ -106,7 +104,7 @@ FPU::Result FPU::CalculateResult(const Operation& op) const
     case FPU_OP_SUB:  value = op.Rav - op.Rbv; break;
     case FPU_OP_MUL:  value = op.Rav * op.Rbv; break;
     case FPU_OP_DIV:  value = op.Rav / op.Rbv; break;
-    default:          value = 0.0; assert(0); break;
+    default:          UNREACHABLE; break;
     }
 
     Result  res;

@@ -28,7 +28,7 @@ RegValue Processor::Pipeline::ExecuteStage::PipeValueToRegValue(RegType type, co
     {
     case RT_INTEGER: r.m_integer       = v.m_integer.get(v.m_size); break;
     case RT_FLOAT:   r.m_float.integer = v.m_float.toint(v.m_size); break;
-    default: assert(0); // should not be here
+    default: UNREACHABLE;
     }
     return r;
 }
