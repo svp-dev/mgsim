@@ -349,11 +349,10 @@ cat <<EOF
 * Asynchronous monitor:   $enable_monitor
 * Area calculation:       $enable_cacti
 *
-* MT-Alpha tests:         $enable_mtalpha_tests
-* MT-SPARC tests:         $enable_mtsparc_tests
-* MIPS tests:             $enable_mips_tests
-* MIPSel tests:           $enable_mipsel_tests
-* Compiled tests:         $enable_compiled_tests
+* MT-Alpha tests:         (asm) $enable_mtalpha_tests (compiled) $enable_compiled_mtalpha_tests
+* MT-SPARC tests:         (asm) $enable_mtsparc_tests (compiled) $enable_compiled_mtsparc_tests
+* MIPS tests:             (asm) $enable_mips_tests (compiled) $enable_compiled_mips_tests
+* MIPSel tests:           (asm) $enable_mipsel_tests (compiled) $enable_compiled_mipsel_tests
 *
 * C++ compiler:           $CXX $CPPFLAGS $WARN_CXXFLAGS $AM_CXXFLAGS $CXXFLAGS $LDFLAGS
 * Destination dir:        $prefix
