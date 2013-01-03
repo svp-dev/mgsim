@@ -29,7 +29,7 @@ SUFFIXES += .mips-o .mips-bin
 	$(AM_V_at)$(MKDIR_P) `dirname "$@"`
 	$(AM_V_GEN)$(LD_MIPS32) -e main -Ttext 0x10000 -o $@ `test -f "$<" || echo "$(srcdir)"/`$<
 
-.c.mips-bin:
+.c.mips-bin: $(COMMON_SLC_DEPS)
 	$(MKDIR_P) `dirname "$@"`
 	$(AM_V_GEN)$(SLC) -b mips_s -o $@ $(srcdir)/tests/mips/crt_simple.s `test -f "$<" || echo "$(srcdir)"/`$< $(COMMON_SLC_OPTIONS)
 
@@ -57,7 +57,7 @@ SUFFIXES += .mipsel-o .mipsel-bin
 	$(AM_V_at)$(MKDIR_P) `dirname "$@"`
 	$(AM_V_GEN)$(LD_MIPS32EL) -e main -Ttext 0x10000 -o $@ `test -f "$<" || echo "$(srcdir)"/`$<
 
-.c.mipsel-bin:
+.c.mipsel-bin: $(COMMON_SLC_DEPS)
 	$(MKDIR_P) `dirname "$@"`
 	$(AM_V_GEN)$(SLC) -b mipsel_s -o $@ $(srcdir)/tests/mips/crt_simple.s `test -f "$<" || echo "$(srcdir)"/`$< $(COMMON_SLC_OPTIONS)
 

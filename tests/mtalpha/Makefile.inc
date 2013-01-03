@@ -61,7 +61,7 @@ SUFFIXES += .mtalpha-o .mtalpha-bin
 	$(AM_V_at)$(MKDIR_P) `dirname "$@"`
 	$(AM_V_GEN)$(LD_MTALPHA) -e main -Ttext 0x10000 -o $@ `test -f "$<" || echo "$(srcdir)"/`$<
 
-.c.mtalpha-bin:
+.c.mtalpha-bin: $(COMMON_SLC_DEPS)
 	$(MKDIR_P) `dirname "$@"`
 	$(AM_V_GEN)$(SLC) -b mta_n -o $@ $(srcdir)/tests/mtalpha/crt_simple.s `test -f "$<" || echo "$(srcdir)"/`$< $(COMMON_SLC_OPTIONS)
 

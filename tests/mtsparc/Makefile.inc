@@ -57,6 +57,6 @@ SUFFIXES += .mtalpha-o .mtalpha-bin
 	$(AM_V_at)$(MKDIR_P) `dirname "$@"`
 	$(AM_V_GEN)$(LD_MTSPARC) -e main -Ttext 0x10000 -o $@ `test -f "$<" || echo "$(srcdir)"/`$<
 
-.c.mtsparc-bin:
+.c.mtsparc-bin: $(COMMON_SLC_DEPS)
 	$(MKDIR_P) `dirname "$@"`
 	$(AM_V_GEN)$(SLC) -b mtsn_n -o $@ $(srcdir)/tests/mtsparc/crt_simple.s `test -f "$<" || echo "$(srcdir)"/`$< $(COMMON_SLC_OPTIONS)
