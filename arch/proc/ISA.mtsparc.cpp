@@ -296,6 +296,7 @@ void Processor::Pipeline::DecodeStage::DecodeInstruction(const Instruction& inst
                 m_output.Rb  = MAKE_REGADDR(RT_INTEGER, Rb);
             }
 
+            m_output.Rc = MAKE_REGADDR(RT_INTEGER, Rc);
             if (Ra == 0x13 /*ASR19*/)
             {
                 switch(m_output.function)
@@ -304,10 +305,6 @@ void Processor::Pipeline::DecodeStage::DecodeInstruction(const Instruction& inst
                 case S_OPT2_CREBIS:
                     // Special case, Rc is input as well
                     m_output.Ra = MAKE_REGADDR(RT_INTEGER, Rc);
-                    // fall through to init output Rc
-                case S_OPT2_LDFP:
-                case S_OPT2_LDBP:
-                    m_output.Rc = MAKE_REGADDR(RT_INTEGER, Rc);
                     break;
                 }
             }
@@ -321,18 +318,16 @@ void Processor::Pipeline::DecodeStage::DecodeInstruction(const Instruction& inst
                 case S_OPT1_CREATE:
                     // Special case, Rc is input as well
                     m_output.Ra = MAKE_REGADDR(RT_INTEGER, Rc);
-                    m_output.Rc = MAKE_REGADDR(RT_INTEGER, Rc);
                     break;
 
                 case S_OPT1_FGETS:
                 case S_OPT1_FGETG:
+                    // Special case, Rc is really a float
                     m_output.Rc = MAKE_REGADDR(RT_FLOAT, Rc);
-                    break;
-                default:
-                    m_output.Rc = MAKE_REGADDR(RT_INTEGER, Rc);
                     break;
                 }
             }
+
             break;
 
         default:
@@ -1010,23 +1005,7 @@ Processor::Pipeline::PipeAction Processor::Pipeline::ExecuteStage::ExecuteInstru
                 return ExecReadASR20(m_input.function);
 
             default:
-                if (m_input.displacement >= 7 && m_input.displacement < 15) {
-                    // Read reserved state register 7-14
-                    COMMIT {
-                        m_output.Rcv.m_integer = m_parent.GetProcessor().ReadASR(m_input.displacement - 7);
-                        m_output.Rcv.m_state   = RST_FULL;
-                    }
-                } else if (m_input.displacement >= 21) {
-                    // Read implementation dependent State Register >= 21
-                    COMMIT {
-                        m_output.Rcv.m_integer = m_parent.GetProcessor().ReadAPR(m_input.displacement - 21);
-                        m_output.Rcv.m_state   = RST_FULL;
-                    }
-                } else {
-                    // Read implementation dependent State Register > 15, < 20
-                    // We don't support this yet
-                    ThrowIllegalInstructionException(*this, m_input.pc);
-                }
+                ThrowIllegalInstructionException(*this, m_input.pc, "Unsupported read from ASR%d", (int)m_input.displacement);
                 break;
             }
             break;
