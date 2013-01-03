@@ -30,6 +30,8 @@ Start            End              Size   Mode A/C Description                   
              230              25F     48   W  A   Debug line to MGSim stderr       mgsim-control(7)
              260              29F     64   W  A   MGSim control interface          mgsim-control(7)
              300              3FF    208   W  A   MMU control                      mgsim-control(7)
+             400              4FF    256  R   A   Ancillary system registers
+             500              5FF    256  RW  A   Ancillary program registers
              400              FFF     3K  --  --  RESERVED
                                                   
             1000         6FFF0000   1.7G  --  --  Available for program

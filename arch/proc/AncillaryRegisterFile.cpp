@@ -9,9 +9,7 @@ namespace Simulator
 {
     void Processor::AncillaryRegisterFile::Cmd_Info(std::ostream& out, const std::vector<std::string>& /*arguments*/) const
     {
-        out <<
-            "The ancillary registers hold information common to all threads on a processor.\n"
-            "They allow for faster (1-cycle) access to commonly used information.\n";
+        out << "The ancillary registers hold information common to all threads on a processor.\n";
     }
 
     void Processor::AncillaryRegisterFile::Cmd_Read(std::ostream& out, const std::vector<std::string>& /*arguments*/) const
@@ -19,8 +17,7 @@ namespace Simulator
         out << " Register | Value" << endl
             << "----------+----------------------" << endl;
 
-        size_t numRegisters = GetNumRegisters();
-        for (size_t i = 0; i < numRegisters; ++i)
+        for (size_t i = 0; i < m_numRegisters; ++i)
         {
             Integer value = ReadRegister(i);
             out << setw(9) << setfill(' ') << right << i << left
@@ -31,6 +28,10 @@ namespace Simulator
         }
     }
 
+    size_t Processor::AncillaryRegisterFile::GetSize() const
+    {
+        return m_numRegisters * sizeof(Integer);
+    }
 
     Integer Processor::AncillaryRegisterFile::ReadRegister(ARAddr addr) const
     {
@@ -50,9 +51,34 @@ namespace Simulator
         m_registers[addr] = data;
     }
 
+    Result Processor::AncillaryRegisterFile::Read (MemAddr addr, void* data, MemSize size, LFID /*fid*/, TID /*tid*/, const RegAddr& /*writeback*/)
+    {
+        if (addr % sizeof(Integer) != 0 || (size != sizeof(Integer)) || (addr > m_numRegisters * sizeof(Integer)))
+            throw exceptf<InvalidArgumentException>(*this, "Invalid read from ancillary register: %#016llx (%u)", (unsigned long long)addr, (unsigned)size);
 
-    Processor::AncillaryRegisterFile::AncillaryRegisterFile(const std::string& name, Processor& parent, Clock& clock, Config& config)
-        : Object(name, parent, clock),
+        ARAddr raddr = addr / sizeof(Integer);
+        Integer value = ReadRegister(raddr);
+        COMMIT{
+            SerializeRegister(RT_INTEGER, value, data, size);
+        }
+        return SUCCESS;
+    }
+
+    Result Processor::AncillaryRegisterFile::Write(MemAddr addr, const void *data, MemSize size, LFID /*fid*/, TID /*tid*/)
+    {
+        if (addr % sizeof(Integer) != 0 || (size != sizeof(Integer)) || (addr > m_numRegisters * sizeof(Integer)))
+            throw exceptf<InvalidArgumentException>(*this, "Invalid write to ancillary register: %#016llx (%u)", (unsigned long long)addr, (unsigned)size);
+
+        addr /= sizeof(Integer);
+        Integer value = UnserializeRegister(RT_INTEGER, data, size);
+        COMMIT{
+            WriteRegister(addr, value);
+        }
+        return SUCCESS;
+    }
+
+    Processor::AncillaryRegisterFile::AncillaryRegisterFile(const std::string& name, Object& parent, Config& config)
+        : MMIOComponent(name, parent, parent.GetClock()),
           m_numRegisters(name == "aprs" ? config.getValue<size_t>(*this, "NumAncillaryRegisters") : NUM_ASRS),
           m_registers()
     {

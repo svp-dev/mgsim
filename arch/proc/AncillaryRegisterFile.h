@@ -17,18 +17,20 @@
 
 typedef size_t ARAddr;
 
-class AncillaryRegisterFile : public Object, public Inspect::Interface<Inspect::Read>
+class AncillaryRegisterFile : public MMIOComponent, public Inspect::Interface<Inspect::Read|Inspect::Info>
 {
     const size_t                  m_numRegisters;
     std::vector<Integer>          m_registers;
 
 public:
-    AncillaryRegisterFile(const std::string& name, Processor& parent, Clock& clock, Config& config);
+    AncillaryRegisterFile(const std::string& name, Object& parent, Config& config);
 
-    size_t GetNumRegisters() const { return m_numRegisters; }
+    size_t GetSize() const;
 
     Integer ReadRegister(ARAddr addr) const;
     void WriteRegister(ARAddr addr, Integer data);
+    Result Read (MemAddr address, void* data, MemSize size, LFID fid, TID tid, const RegAddr& writeback);
+    Result Write(MemAddr address, const void* data, MemSize size, LFID fid, TID tid);
 
     void Cmd_Info(std::ostream& out, const std::vector<std::string>& arguments) const;
     void Cmd_Read(std::ostream& out, const std::vector<std::string>& arguments) const;
