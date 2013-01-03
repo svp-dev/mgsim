@@ -310,7 +310,8 @@ void MGSystem::PrintCoreStats(ostream& os) const {
 
     // print the data
 
-    os << "## core statistics:" << endl
+    os << dec << setfill(' ')
+       << "## core statistics:" << endl
        << "# P " << sep
        << fi << "iops" << sep
        << fi << "flops" << sep
