@@ -13,30 +13,15 @@ static string MakeMessage(const Object& object, const string& msg)
 }
 
 SimulationException::SimulationException(const string& msg, const Object& object)
-    : runtime_error(MakeMessage(object, msg)), m_details()
+    : runtime_error(MakeMessage(object, msg)), m_details(), m_pc(0)
 {
 
 }
 
 SimulationException::SimulationException(const Object& object, const string& msg)
-    : runtime_error(MakeMessage(object, msg)), m_details()
+    : runtime_error(MakeMessage(object, msg)), m_details(), m_pc(0)
 {
 
 }
-
-void PrintException(ostream& out, const exception& e)
-{
-    out << endl << e.what() << endl;
-
-    auto se = dynamic_cast<const SimulationException*>(&e);
-    if (se != NULL)
-    {
-        // SimulationExceptions hold more information, print it
-        for (auto& p : se->GetDetails())
-            out << p << endl;
-    }
-}
-
-
 
 }

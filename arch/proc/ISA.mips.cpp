@@ -8,14 +8,6 @@ using namespace std;
 namespace Simulator
 {
 
-static void ThrowIllegalInstructionException(Object& obj, MemAddr pc)
-{
-    stringstream error;
-    error << "Illegal instruction at "
-        << hex << setw(sizeof(MemAddr) * 2) << setfill('0') << pc;
-    throw IllegalInstructionException(obj, error.str());
-}
-
 // Function for getting a register's type and index within that type
 unsigned char GetRegisterClass(unsigned char addr, const RegsNo& regs, RegClass* rc)
 {
@@ -66,9 +58,9 @@ void Processor::Pipeline::DecodeStage::DecodeInstruction(const Instruction& inst
 
     switch (m_output.format) {
         case IFORMAT_SPECIAL:
-            if ((instr >> 21) & 0x1f)
+            if (Ra != 0)
             {
-                ThrowIllegalInstructionException(*this, m_input.pc);
+                ThrowIllegalInstructionException(*this, m_input.pc, "MFC2 used with valid source register");
             }
             // We overload MFC2 x, $N for getpid/getcid/gettid/getfid
             m_output.function = Rc; // bits 11..15 give the register to read.
@@ -267,7 +259,7 @@ Processor::Pipeline::PipeAction Processor::Pipeline::ExecuteStage::ExecuteInstru
                     break;
                 case M_ROP_BREAK:
                 case M_ROP_SYSCALL:
-                    ThrowIllegalInstructionException(*this, m_input.pc);
+                    ThrowIllegalInstructionException(*this, m_input.pc, "BREAK/SYSCALL not supported on D-RISC");
                     break;
                 case M_ROP_MFHI:
                     COMMIT {
@@ -307,7 +299,7 @@ Processor::Pipeline::PipeAction Processor::Pipeline::ExecuteStage::ExecuteInstru
                     break;
                 case M_ROP_DIV:
                     if (Rbv == 0)
-                        ThrowIllegalInstructionException(*this, m_input.pc); // undefined
+                        ThrowIllegalInstructionException(*this, m_input.pc, "Division by zero");
                     COMMIT {
                         thread.LO = (int32_t)Rav / (int32_t)Rbv;
                         thread.HI = (int32_t)Rav % (int32_t)Rbv;
@@ -315,7 +307,7 @@ Processor::Pipeline::PipeAction Processor::Pipeline::ExecuteStage::ExecuteInstru
                     break;
                 case M_ROP_DIVU:
                     if (Rbv == 0)
-                        ThrowIllegalInstructionException(*this, m_input.pc); // undefined
+                        ThrowIllegalInstructionException(*this, m_input.pc, "Division by zero");
                     COMMIT {
                         thread.LO = Rav / Rbv;
                         thread.HI = Rav % Rbv;
@@ -372,7 +364,7 @@ Processor::Pipeline::PipeAction Processor::Pipeline::ExecuteStage::ExecuteInstru
                     }
                     break;
                 default:
-                    ThrowIllegalInstructionException(*this, m_input.pc);
+                    ThrowIllegalInstructionException(*this, m_input.pc, "Unsupported R-R function: %#x", (unsigned)m_input.function);
             }
             break;
 
@@ -413,7 +405,7 @@ Processor::Pipeline::PipeAction Processor::Pipeline::ExecuteStage::ExecuteInstru
                     }
                     break;
                 default:
-                    ThrowIllegalInstructionException(*this, m_input.pc);
+                    ThrowIllegalInstructionException(*this, m_input.pc, "Unsupported R-I regimm opcode: %#x", (unsigned)m_input.regimm);
             }
             break;
 
@@ -443,7 +435,7 @@ Processor::Pipeline::PipeAction Processor::Pipeline::ExecuteStage::ExecuteInstru
                 }
                 break;
                 default:
-                    ThrowIllegalInstructionException(*this, m_input.pc);
+                    ThrowIllegalInstructionException(*this, m_input.pc, "Unsupported J opcode: %#x", (unsigned)m_input.opcode);
             }
             break;
 
@@ -589,7 +581,7 @@ Processor::Pipeline::PipeAction Processor::Pipeline::ExecuteStage::ExecuteInstru
                 }
                 break;
                 default:
-                    ThrowIllegalInstructionException(*this, m_input.pc);
+                    ThrowIllegalInstructionException(*this, m_input.pc, "Unsupported I opcode: %#x", (unsigned)m_input.opcode);
             }
             break;
     }

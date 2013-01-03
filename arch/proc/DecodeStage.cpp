@@ -7,11 +7,6 @@ using namespace std;
 namespace Simulator
 {
 
-struct IllegalInstruction
-{
-    IllegalInstruction() {}
-};
-
 /**
  \brief This function translates the 32-registers based address into the
         proper physical register file address.
@@ -49,7 +44,8 @@ RegAddr Processor::Pipeline::DecodeStage::TranslateRegister(unsigned char reg, R
         case RC_GLOBAL:
             if (reg + nRegs > family.count.globals)
             {
-                throw IllegalInstruction();
+                ThrowIllegalInstructionException(*this, m_input.pc, "Invalid global register offset %c%03d (size %u)",
+                                                 type == RT_INTEGER ? 'R' : 'F', reg, size);
             }
 
             /*
@@ -64,7 +60,8 @@ RegAddr Processor::Pipeline::DecodeStage::TranslateRegister(unsigned char reg, R
         case RC_SHARED:
             if (reg + nRegs > family.count.shareds)
             {
-                throw IllegalInstruction();
+                ThrowIllegalInstructionException(*this, m_input.pc, "Invalid shared register offset %c%03d (size %u)",
+                                                 type == RT_INTEGER ? 'R' : 'F', reg, size);
             }
 
             // Use the thread's shareds
@@ -73,7 +70,8 @@ RegAddr Processor::Pipeline::DecodeStage::TranslateRegister(unsigned char reg, R
         case RC_LOCAL:
             if (reg + nRegs > family.count.locals)
             {
-                throw IllegalInstruction();
+                ThrowIllegalInstructionException(*this, m_input.pc, "Invalid local register offset %c%03d (size %u)",
+                                                 type == RT_INTEGER ? 'R' : 'F', reg, size);
             }
 
             // Just use the local register
@@ -83,7 +81,8 @@ RegAddr Processor::Pipeline::DecodeStage::TranslateRegister(unsigned char reg, R
         case RC_DEPENDENT:
             if (reg + nRegs > family.count.shareds)
             {
-                throw IllegalInstruction();
+                ThrowIllegalInstructionException(*this, m_input.pc, "Invalid dependent register offset %c%03d (size %u)",
+                                                 type == RT_INTEGER ? 'R' : 'F', reg, size);
             }
 
             /*
@@ -149,12 +148,14 @@ Processor::Pipeline::PipeAction Processor::Pipeline::DecodeStage::OnCycle()
             m_output.Rs = TranslateRegister((unsigned char)m_output.Rs.index, m_output.Rs.type, m_output.RsSize, &m_output.RsIsLocal);
 #endif
         }
-        catch (IllegalInstruction&)
+        catch (IllegalInstructionException& ex)
         {
             stringstream error;
-            error << "F" << m_output.fid << "/T" << m_output.tid << "(" << m_input.logical_index << ") " << m_input.pc_sym
-                  << "illegal instruction";
-            throw IllegalInstructionException(*this, error.str());
+            error << "While decoding "
+                  << hex << "0x" << setfill('0') << setw(sizeof(Integer) * 2) << m_input.instr << dec
+                  << " for F" << m_output.fid << "/T" << m_output.tid << "(" << m_input.logical_index << ")";
+            ex.AddDetails(error.str());
+            throw ex;
         }
     }
 

@@ -29,14 +29,6 @@ static const uint32_t A_INT_FUNC_MASK = 0x7F;
 static const uint32_t A_FLT_FUNC_MASK = 0x7FF;
 static const uint32_t A_LITERAL_MASK  = 0xFF;
 
-static void ThrowIllegalInstructionException(Object& obj, MemAddr pc)
-{
-    stringstream error;
-    error << "Illegal instruction at "
-          << hex << setw(sizeof(MemAddr) * 2) << setfill('0') << pc;
-    throw IllegalInstructionException(obj, error.str());
-}
-
 // Function for getting a register's type and index within that type
 unsigned char GetRegisterClass(unsigned char addr, const RegsNo& regs, RegClass* rc)
 {
@@ -1320,7 +1312,7 @@ Processor::Pipeline::PipeAction Processor::Pipeline::ExecuteStage::ExecuteInstru
         break;
 
     default:
-        ThrowIllegalInstructionException(*this, m_input.pc);
+        ThrowIllegalInstructionException(*this, m_input.pc, "Unknown instruction format: %#x", (int)m_input.format);
         break;
     }
     return PIPE_CONTINUE;

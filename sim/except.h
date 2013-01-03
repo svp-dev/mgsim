@@ -22,11 +22,14 @@ public:
 class SimulationException : public std::runtime_error
 {
     std::list<std::string> m_details;
+    unsigned long long     m_pc;
 public:
     const std::list<std::string>& GetDetails() const { return m_details; }
+    unsigned long long GetPC() const { return m_pc; }
+    void SetPC(unsigned long long pc) { m_pc = pc; }
 
     void AddDetails(const std::string& msg) { m_details.push_back(msg); }
-    SimulationException(const std::string& msg) : std::runtime_error(msg), m_details() {}
+    SimulationException(const std::string& msg) : std::runtime_error(msg), m_details(), m_pc(0) {}
     SimulationException(const std::string& msg, const Object& object);
     SimulationException(const Object& object, const std::string& msg);
     virtual ~SimulationException() throw() {}
@@ -117,10 +120,6 @@ Except exceptf(const Object& obj, const char* fmt, ...)
     va_end(ap);
     return Except(obj, std::string(buf));
 }
-
-void PrintException(std::ostream& out, const std::exception& e);
-
-
 
 }
 #endif

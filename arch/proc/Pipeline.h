@@ -445,6 +445,13 @@ public:
 
     Result DoPipeline();
 
+#define ThrowIllegalInstructionException(Obj, PC, ...)             \
+    do {                                                                \
+        auto ex = exceptf<IllegalInstructionException>(Obj, "Illegal instruction: " __VA_ARGS__); \
+        ex.SetPC(PC);                                                   \
+        throw ex;                                                       \
+    } while(0)
+
     Processor& GetProcessor()  const { return m_parent; }
 
     uint64_t GetTotalBusyTime() const { return m_pipelineBusyTime; }

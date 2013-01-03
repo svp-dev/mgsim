@@ -28,7 +28,7 @@ bool cmd_run(const vector<string>& command, vector<string>& args, cli_context& c
     }
     catch (const exception& e)
     {
-        PrintException(cerr, e);
+        PrintException(&ctx.sys, cerr, e);
     }
 #ifdef ENABLE_MONITOR
     ctx.mon.stop();

@@ -295,7 +295,7 @@ int main(int argc, char** argv)
     }
     catch (const exception& e)
     {
-        PrintException(cerr, e);
+        PrintException(NULL, cerr, e);
         return 1;
     }
 
@@ -347,7 +347,7 @@ int main(int argc, char** argv)
     }
     catch (const exception& e)
     {
-        PrintException(cerr, e);
+        PrintException(NULL, cerr, e);
         return 1;
     }
 
@@ -372,7 +372,7 @@ int main(int argc, char** argv)
     }
     catch (const exception& e)
     {
-        PrintException(cerr, e);
+        PrintException(NULL, cerr, e);
         return 1;
     }
 
@@ -468,7 +468,7 @@ int main(int argc, char** argv)
 
                 // else
                 // Print the exception and become interactive.
-                PrintException(cerr, e);
+                PrintException(sys.get(), cerr, e);
                 interactive = true;
             }
         }
@@ -492,7 +492,7 @@ int main(int argc, char** argv)
     {
         if (!flags.m_quiet)
             // Print exception.
-            PrintException(cerr, e);
+            PrintException(sys.get(), cerr, e);
 
         // Print statistics & final variables.
         AtEnd(*sys, flags);

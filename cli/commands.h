@@ -84,6 +84,7 @@ bool HandleCommandLine(cli_context& ctx);
 
 // Some public commands
 
+void PrintException(Simulator::MGSystem* sys, std::ostream& out, const std::exception& e);
 void StepSystem(Simulator::MGSystem& system, Simulator::CycleNo cycles);
 
 template<unsigned Type>

@@ -4,6 +4,7 @@ CLI_SOURCES = \
         cli/aliases.cpp \
         cli/commandline.cpp \
         cli/stepsystem.cpp \
+        cli/print_exception.cpp \
         cli/cmd_breakpoint.cpp \
         cli/cmd_trace.cpp \
         cli/cmd_show.cpp \
