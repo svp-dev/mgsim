@@ -1,3 +1,6 @@
+MIPS32_CRT = \
+    tests/mips/crt_simple.s
+
 COMMON_MIPS32_TEST_SOURCES = \
     tests/mips/simple.s \
     tests/mips/addsub.s \
@@ -5,7 +8,7 @@ COMMON_MIPS32_TEST_SOURCES = \
     tests/mips/memory.s \
     tests/mips/hilo.s
 
-EXTRA_DIST += $(COMMON_MIPS32_TEST_SOURCES) 
+EXTRA_DIST += $(COMMON_MIPS32_TEST_SOURCES) $(MIPS32_CRT)
 
 # MIPS (BE) test selection
 MIPS32_TEST_BINS = $(COMMON_MIPS32_TEST_SOURCES:.s=.mips-bin)
@@ -59,5 +62,5 @@ SUFFIXES += .mipsel-o .mipsel-bin
 
 .c.mipsel-bin: $(COMMON_SLC_DEPS)
 	$(MKDIR_P) `dirname "$@"`
-	$(AM_V_GEN)$(SLC) -b mipsel_s -o $@ $(srcdir)/tests/mips/crt_simple.s `test -f "$<" || echo "$(srcdir)"/`$< $(COMMON_SLC_OPTIONS)
+	$(AM_V_GEN)$(SLC) -b mipsel_s -o $@ $(srcdir)/tests/mips/crt_simple.s `test -f "$<" || echo "$(srcdir)"/`$< $(COMMON_SLC_OPTIONS) -lgcc
 
