@@ -2025,7 +2025,12 @@ Processor::Allocator::Allocator(const string& name, Processor& parent, Clock& cl
 
 void Processor::Allocator::AllocateInitialFamily(MemAddr pc, bool legacy, PSize placeSize, SInteger startIndex)
 {
+#if defined(TARGET_MTSPARC)
+    // On SPARC there is no RAZ floating-point register.
+    static const unsigned char InitialRegisters[NUM_REG_TYPES] = {31, 32};
+#else
     static const unsigned char InitialRegisters[NUM_REG_TYPES] = {31, 31};
+#endif
 
     LFID fid = m_familyTable.AllocateFamily(CONTEXT_NORMAL);
     if (fid == INVALID_LFID)
