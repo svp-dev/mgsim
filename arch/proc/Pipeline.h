@@ -361,20 +361,20 @@ class Pipeline : public Object, public Inspect::Interface<Inspect::Read>
 
 #if defined(TARGET_MTALPHA)
         static bool BranchTaken(uint8_t opcode, const PipeValue& value);
-        static bool ExecuteINTA(PipeValue& Rcv, const PipeValue& Rav, const PipeValue& Rbv, int func);
-        static bool ExecuteINTL(PipeValue& Rcv, const PipeValue& Rav, const PipeValue& Rbv, int func);
-        static bool ExecuteINTS(PipeValue& Rcv, const PipeValue& Rav, const PipeValue& Rbv, int func);
-        static bool ExecuteINTM(PipeValue& Rcv, const PipeValue& Rav, const PipeValue& Rbv, int func);
-        static bool ExecuteFLTV(PipeValue& Rcv, const PipeValue& Rav, const PipeValue& Rbv, int func);
-        static bool ExecuteFLTI(PipeValue& Rcv, const PipeValue& Rav, const PipeValue& Rbv, int func);
-        static bool ExecuteFLTL(PipeValue& Rcv, const PipeValue& Rav, const PipeValue& Rbv, int func);
-        static bool ExecuteITFP(PipeValue& Rcv, const PipeValue& Rav, const PipeValue& Rbv, int func);
-        static bool ExecuteFPTI(PipeValue& Rcv, const PipeValue& Rav, const PipeValue& Rbv, int func);
+        bool ExecuteINTA(PipeValue& Rcv, const PipeValue& Rav, const PipeValue& Rbv, int func);
+        bool ExecuteINTL(PipeValue& Rcv, const PipeValue& Rav, const PipeValue& Rbv, int func);
+        bool ExecuteINTS(PipeValue& Rcv, const PipeValue& Rav, const PipeValue& Rbv, int func);
+        bool ExecuteINTM(PipeValue& Rcv, const PipeValue& Rav, const PipeValue& Rbv, int func);
+        bool ExecuteFLTV(PipeValue& Rcv, const PipeValue& Rav, const PipeValue& Rbv, int func);
+        bool ExecuteFLTI(PipeValue& Rcv, const PipeValue& Rav, const PipeValue& Rbv, int func);
+        bool ExecuteFLTL(PipeValue& Rcv, const PipeValue& Rav, const PipeValue& Rbv, int func);
+        bool ExecuteITFP(PipeValue& Rcv, const PipeValue& Rav, const PipeValue& Rbv, int func);
+        bool ExecuteFPTI(PipeValue& Rcv, const PipeValue& Rav, const PipeValue& Rbv, int func);
 #elif defined(TARGET_MTSPARC)
         static bool BranchTakenInt(int cond, uint32_t psr);
         static bool BranchTakenFlt(int cond, uint32_t fsr);
-        static uint32_t ExecBasicInteger(int opcode, uint32_t Rav, uint32_t Rbv, uint32_t& Y, PSR& psr);
-        static uint32_t ExecOtherInteger(int opcode, uint32_t Rav, uint32_t Rbv, uint32_t& Y, PSR& psr);
+               uint32_t ExecBasicInteger(int opcode, uint32_t Rav, uint32_t Rbv, uint32_t& Y, PSR& psr); // not static for div/0 exceptions
+               uint32_t ExecOtherInteger(int opcode, uint32_t Rav, uint32_t Rbv, uint32_t& Y, PSR& psr);
         PipeAction ExecReadASR19(uint8_t func);
         PipeAction ExecReadASR20(uint8_t func);
         PipeAction ExecWriteASR19(uint8_t func);

@@ -483,7 +483,6 @@ bool Processor::Pipeline::ExecuteStage::ExecuteINTS(PipeValue& Rcv, const PipeVa
     return true;
 }
 
-/*static*/
 bool Processor::Pipeline::ExecuteStage::ExecuteINTM(PipeValue& Rcv, const PipeValue& Rav, const PipeValue& Rbv, int func)
 {
     Rcv.m_state = RST_FULL;
@@ -498,10 +497,11 @@ bool Processor::Pipeline::ExecuteStage::ExecuteINTM(PipeValue& Rcv, const PipeVa
         case A_INTMFUNC_MULQ_V:
         case A_INTMFUNC_MULQ:  mul128b(Ra, Rb, NULL, &Rc); break;
         case A_INTMFUNC_UMULH: mul128b(Ra, Rb, &Rc, NULL); break;
-        case A_INTMFUNC_DIVL:  Rc = (int64_t)(int32_t)((int32_t)Ra / (int32_t)Rb); break;
-        case A_INTMFUNC_DIVQ:  Rc = (int64_t)Ra / (int64_t)Rb; break;
-        case A_INTMFUNC_UDIVL: Rc = (uint64_t)(uint32_t)((uint32_t)Ra / (uint32_t)Rb); break;
-        case A_INTMFUNC_UDIVQ: Rc = Ra / Rb; break;
+#define CHECKDIV0(X) if ((X) == 0) ThrowIllegalInstructionException(*this, m_input.pc, "Division by zero")
+        case A_INTMFUNC_DIVL:  CHECKDIV0((int32_t)Rb);  Rc = (int64_t)(int32_t)((int32_t)Ra / (int32_t)Rb); break;
+        case A_INTMFUNC_DIVQ:  CHECKDIV0((int64_t)Rb);  Rc = (int64_t)Ra / (int64_t)Rb; break;
+        case A_INTMFUNC_UDIVL: CHECKDIV0((uint32_t)Rb); Rc = (uint64_t)(uint32_t)((uint32_t)Ra / (uint32_t)Rb); break;
+        case A_INTMFUNC_UDIVQ: CHECKDIV0(Rb);           Rc = Ra / Rb; break;
         default: UNREACHABLE; break;
     }
     Rcv.m_integer = Rc;
@@ -1161,20 +1161,20 @@ Processor::Pipeline::PipeAction Processor::Pipeline::ExecuteStage::ExecuteInstru
         }
         else
         {
-            bool (*execfunc)(PipeValue&, const PipeValue&, const PipeValue&, int) = NULL;
+            bool (Processor::Pipeline::ExecuteStage::*execfunc)(PipeValue&, const PipeValue&, const PipeValue&, int) = NULL;
 
             FPUOperation fpuop = FPU_OP_NONE;
             switch (m_input.opcode)
             {
-                case A_OP_INTA: execfunc = ExecuteINTA; break;
-                case A_OP_INTL: execfunc = ExecuteINTL; break;
-                case A_OP_INTS: execfunc = ExecuteINTS; break;
-                case A_OP_INTM: execfunc = ExecuteINTM; break;
-                case A_OP_FLTV: execfunc = ExecuteFLTV; break;
-                case A_OP_FLTL: execfunc = ExecuteFLTL; break;
-                case A_OP_FPTI: execfunc = ExecuteFPTI; break;
+                case A_OP_INTA: execfunc = &Processor::Pipeline::ExecuteStage::ExecuteINTA; break;
+                case A_OP_INTL: execfunc = &Processor::Pipeline::ExecuteStage::ExecuteINTL; break;
+                case A_OP_INTS: execfunc = &Processor::Pipeline::ExecuteStage::ExecuteINTS; break;
+                case A_OP_INTM: execfunc = &Processor::Pipeline::ExecuteStage::ExecuteINTM; break;
+                case A_OP_FLTV: execfunc = &Processor::Pipeline::ExecuteStage::ExecuteFLTV; break;
+                case A_OP_FLTL: execfunc = &Processor::Pipeline::ExecuteStage::ExecuteFLTL; break;
+                case A_OP_FPTI: execfunc = &Processor::Pipeline::ExecuteStage::ExecuteFPTI; break;
                 case A_OP_ITFP:
-                    execfunc = ExecuteITFP;
+                    execfunc = &Processor::Pipeline::ExecuteStage::ExecuteITFP;
                     switch (m_input.function)
                     {
                         // IEEE Floating Square Root
@@ -1192,7 +1192,7 @@ Processor::Pipeline::PipeAction Processor::Pipeline::ExecuteStage::ExecuteInstru
                     break;
 
                 case A_OP_FLTI:
-                    execfunc = ExecuteFLTI;
+                    execfunc = &Processor::Pipeline::ExecuteStage::ExecuteFLTI;
                     switch (m_input.function)
                     {
                         case A_FLTIFUNC_ADDS:      case A_FLTIFUNC_ADDS_C:    case A_FLTIFUNC_ADDS_D:   case A_FLTIFUNC_ADDS_M:
@@ -1244,7 +1244,7 @@ Processor::Pipeline::PipeAction Processor::Pipeline::ExecuteStage::ExecuteInstru
 
             PipeValue Rcv;
             Rcv.m_size = m_input.RcSize;
-            if ((*execfunc)(Rcv, m_input.Rav, m_input.Rbv, m_input.function))
+            if ((this->*execfunc)(Rcv, m_input.Rav, m_input.Rbv, m_input.function))
             {
                 // Operation completed
                 COMMIT {

@@ -386,7 +386,6 @@ bool Processor::Pipeline::ExecuteStage::BranchTakenFlt(int cond, uint32_t fsr)
     return b;
 }
 
-/*static*/
 uint32_t Processor::Pipeline::ExecuteStage::ExecBasicInteger(int opcode, uint32_t Rav, uint32_t Rbv, uint32_t& Y, PSR& psr)
 {
     uint64_t Rcv = 0;
@@ -409,8 +408,10 @@ uint32_t Processor::Pipeline::ExecuteStage::ExecBasicInteger(int opcode, uint32_
         // Multiplication & Division
         case S_OP3_UMUL:    Rcv =                   Rav *                   Rbv; Y = (uint32_t)(Rcv >> 32); break;
         case S_OP3_SMUL:    Rcv = (int64_t)(int32_t)Rav * (int64_t)(int32_t)Rbv; Y = (uint32_t)(Rcv >> 32); break;
-        case S_OP3_UDIV:    Rcv =          (((uint64_t)Y << 32) | Rav) /                   Rbv; break;
-        case S_OP3_SDIV:    Rcv = (int64_t)(((uint64_t)Y << 32) | Rav) / (int64_t)(int32_t)Rbv; break;
+
+#define CHECKDIV0(X) if ((X) == 0) ThrowIllegalInstructionException(*this, m_input.pc, "Division by zero")
+        case S_OP3_UDIV:    CHECKDIV0(Rbv);                   Rcv =          (((uint64_t)Y << 32) | Rav) /                   Rbv; break;
+        case S_OP3_SDIV:    CHECKDIV0((int64_t)(int32_t)Rbv); Rcv = (int64_t)(((uint64_t)Y << 32) | Rav) / (int64_t)(int32_t)Rbv; break;
     }
 
     if (opcode & 0x10)
@@ -465,7 +466,6 @@ uint32_t Processor::Pipeline::ExecuteStage::ExecBasicInteger(int opcode, uint32_
     return (uint32_t)Rcv;
 }
 
-/*static*/
 uint32_t Processor::Pipeline::ExecuteStage::ExecOtherInteger(int opcode, uint32_t Rav, uint32_t Rbv, uint32_t& Y, PSR& psr)
 {
     switch (opcode)
