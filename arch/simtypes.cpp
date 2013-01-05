@@ -96,10 +96,9 @@ string RegValue::str(RegType type) const
         stringstream ss;
         ss << "[F:" << setw(sizeof(Integer) * 2) << setfill('0') << hex;
         if (type == RT_FLOAT)
-            ss << m_float.integer;
+            ss << m_float.integer << "] " << dec << m_float.floating;
         else
-            ss << m_integer;
-        ss << ']';
+            ss << m_integer << "] " << dec << m_integer;
         return ss.str();
     }
     }
