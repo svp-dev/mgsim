@@ -490,14 +490,15 @@ int main(int argc, char** argv)
     }
     catch (const exception& e)
     {
-        if (!flags.m_quiet)
+        const ProgramTerminationException *ex = dynamic_cast<const ProgramTerminationException*>(&e);
+
+        if (!flags.m_quiet || ex == NULL)
             // Print exception.
             PrintException(sys.get(), cerr, e);
 
         // Print statistics & final variables.
         AtEnd(*sys, flags);
 
-        const ProgramTerminationException *ex = dynamic_cast<const ProgramTerminationException*>(&e);
         if (ex != NULL)
         {
             // The program is telling us how to terminate. Do it.
