@@ -397,9 +397,9 @@ bool Processor::Pipeline::ExecuteStage::BranchTakenFlt(int cond, uint32_t fsr)
     const bool u = (fsr & FSR_FCC) == FSR_FCC_UO; // Unordered
     bool b = false;
 
-    if (~cond & 7) return (cond & 8) != 0;   // FBA, FBN
-    cond--;
-    if (cond & 8) { b |= e; cond = ~cond; }
+    if (cond & 8) { b |= e; }
+
+    cond =  (cond & 8) ? ((cond & 7) - 1) : (8 - cond);
     if (cond & 4) b |= l;
     if (cond & 2) b |= g;
     if (cond & 1) b |= u;
@@ -747,7 +747,7 @@ Processor::Pipeline::PipeAction Processor::Pipeline::ExecuteStage::ExecuteInstru
                 default:
                 case S_OP2_BRANCH_COP: taken = false; break; // We don't have a co-processor
                 case S_OP2_BRANCH_INT: taken = BranchTakenInt(m_input.function, thread.psr); break;
-                case S_OP2_BRANCH_FLT: taken = BranchTakenFlt(m_input.function, thread.psr); break;
+                case S_OP2_BRANCH_FLT: taken = BranchTakenFlt(m_input.function, thread.fsr); break;
             }
 
             if (taken)
