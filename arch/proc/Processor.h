@@ -15,6 +15,8 @@ namespace Simulator
 namespace counters {};
 class FPU;
 
+const std::vector<std::string>& GetDefaultLocalRegisterAliases(RegType type);
+
 class Processor : public Object
 {
 public:

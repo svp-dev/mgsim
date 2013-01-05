@@ -25,7 +25,9 @@ Processor::RegisterFile::RegisterFile(const std::string& name, Processor& parent
     m_integers  (config.getValue<size_t>(*this, "NumIntRegisters")),
     m_floats    (config.getValue<size_t>(*this, "NumFltRegisters")),
     m_allocator (alloc),
-    m_nUpdates(0)
+    m_nUpdates(0),
+    m_integer_local_aliases(),
+    m_float_local_aliases()
 {
     // Initialize all registers to empty
     for (RegSize i = 0; i < m_integers.size(); ++i)
@@ -41,6 +43,16 @@ Processor::RegisterFile::RegisterFile(const std::string& name, Processor& parent
     // Set port priorities; first port has highest priority
     AddPort(p_pipelineW);
     AddPort(p_asyncW);
+
+
+    // Register aliases for debugging
+    m_integer_local_aliases = config.getWordList("IntRegAliases");
+    if (m_integer_local_aliases.empty())
+        m_integer_local_aliases = GetDefaultLocalRegisterAliases(RT_INTEGER);
+
+    m_float_local_aliases = config.getWordList("FltRegAliases");
+    if (m_float_local_aliases.empty())
+        m_float_local_aliases = GetDefaultLocalRegisterAliases(RT_FLOAT);
 }
 
 RegSize Processor::RegisterFile::GetSize(RegType type) const
@@ -226,13 +238,15 @@ void Processor::RegisterFile::Cmd_Read(std::ostream& out, const std::vector<std:
 
     RegType type = RT_INTEGER;
     size_t  ix    = 0;
+    const vector<string> *aliases = &m_integer_local_aliases;
     if (!arguments.empty())
     {
         if (arguments[ix] == "float") {
             type = RT_FLOAT;
+            aliases = &m_float_local_aliases;
             ix++;
         } else if (arguments[ix] == "integer") {
-            type = RT_INTEGER;
+            // already initialized above
             ix++;
         }
     }
@@ -274,8 +288,8 @@ void Processor::RegisterFile::Cmd_Read(std::ostream& out, const std::vector<std:
     }
 
 
-    out << "Addr  | Fam | Thread | Role      | State / Value" << endl
-        << "------+-----+--------+-----------+--------------------------------" << endl;
+    out << "Phy   | Fam | Thread | Name/Alias | State / Value" << endl
+        << "------+-----+--------+------------+--------------------------------" << endl;
     for (set<RegIndex>::const_reverse_iterator p = indices.rbegin(); p != indices.rend(); ++p)
     {
         RegAddr  addr = MAKE_REGADDR(type, *p);
@@ -290,28 +304,42 @@ void Processor::RegisterFile::Cmd_Read(std::ostream& out, const std::vector<std:
         out << " |  ";
 
         RegClass group = RC_LOCAL;
-        TID      tid   = (fid != INVALID_LFID) ? m_allocator.GetRegisterType(fid, addr, &group) : INVALID_TID;
+        size_t   rel   = 0;
+        TID      tid   = (fid != INVALID_LFID) ? m_allocator.GetRegisterType(fid, addr, &group, &rel) : INVALID_TID;
         if (tid != INVALID_TID) {
             out << "T" << setw(4) << setfill('0') << tid;
         } else {
             out << "  -  ";
         }
 
-        out << " | ";
+        out << " | " << setfill(' ');
 
-        const char *groupstr = "    -   ";
+        char groupc = '\0';
         switch (group)
         {
-            case RC_GLOBAL:    groupstr = "Global"; break;
-            case RC_DEPENDENT: groupstr = "Dependent"; break;
-            case RC_SHARED:    groupstr = "Shared"; break;
-            case RC_LOCAL:
-                if (tid != INVALID_TID) groupstr = "Local";
-                break;
-            case RC_RAZ: break;
+        case RC_GLOBAL:    groupc = 'g'; break;
+        case RC_DEPENDENT: groupc = 'd'; break;
+        case RC_SHARED:    groupc = 's'; break;
+        case RC_LOCAL:     groupc = 'l'; break;
+        case RC_RAZ:       break;
         }
-        out << setw(9) << setfill(' ') << left << groupstr << right
-            << " | "
+
+        if (tid != INVALID_TID)
+        {
+            if (type == RT_FLOAT)
+                out << groupc << 'f' << setw(2) << left << rel << right;
+            else
+                out << ' ' << groupc << setw(2) << left << rel << right;
+            out << ' ';
+            if (group == RC_LOCAL && rel < aliases->size())
+                out << setw(5) << (*aliases)[rel];
+            else
+                out << "   - ";
+        }
+        else
+            out << "  -     - ";
+
+        out << " | "
             << value.str(type)
             << endl;
     }

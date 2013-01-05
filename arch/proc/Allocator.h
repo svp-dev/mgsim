@@ -125,7 +125,7 @@ public:
     TID PopActiveThread();
 
     // Helpers
-    TID  GetRegisterType(LFID fid, RegAddr addr, RegClass* group) const;
+    TID  GetRegisterType(LFID fid, RegAddr addr, RegClass* group, size_t *rel) const;
 
     // Debugging
     void Cmd_Info(std::ostream& out, const std::vector<std::string>& arguments) const override;

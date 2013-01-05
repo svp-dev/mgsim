@@ -127,6 +127,10 @@ private:
     std::pair<RegAddr, RegValue> m_updates[MAX_UPDATES];
     unsigned int                 m_nUpdates;
 
+    // Administrative
+    std::vector<std::string> m_integer_local_aliases;
+    std::vector<std::string> m_float_local_aliases;
+    
 };
 
 #endif

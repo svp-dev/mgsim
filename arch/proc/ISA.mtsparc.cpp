@@ -45,6 +45,26 @@ static const int OPF_MASK       = (1 << 9) - 1;
 static const int OPT_SHIFT      = 9;
 static const int OPT_MASK       = (1 << 4) - 1;
 
+// Function for naming local registers according to a standard ABI
+const vector<string>& GetDefaultLocalRegisterAliases(RegType type)
+{
+    static const vector<string> intnames = {
+        "g1", "g2", "g3", "g4", "g5", "g6", "g7",
+        "o0", "o1", "o2", "o3", "o4", "o5", "sp", "o7",
+        "l0", "l1", "l2", "l3", "l4", "l5", "l6", "l7",
+        "i0", "i1", "i2", "i3", "i4", "i5", "fp", "i7", "g0" };
+    static const vector<string> fltnames = {
+        "f0", "f1", "f2", "f3", "f4", "f5", "f6", "f7",
+        "f8", "f9", "f10", "f11", "f12", "f13", "f14", "f15",
+        "f16", "f17", "f18", "f19", "f20", "f21", "f22", "f23",
+        "f24", "f25", "f26", "f27", "f28", "f29", "f30", "f31" };
+    if (type == RT_INTEGER)
+        return intnames;
+    else
+        return fltnames;
+}
+
+
 // Function for getting a register's type and index within that type
 unsigned char GetRegisterClass(unsigned char addr, const RegsNo& regs, RegClass* rc)
 {
