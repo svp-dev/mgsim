@@ -28,7 +28,7 @@ const vector<string>& GetDefaultLocalRegisterAliases(RegType type)
 }
 
 // Function for getting a register's type and index within that type
-unsigned char GetRegisterClass(unsigned char addr, const RegsNo& regs, RegClass* rc)
+unsigned char GetRegisterClass(unsigned char addr, const RegsNo& regs, RegClass* rc, RegType /*type*/)
 {
     // $0 is zero, otherwise all registers are local.
     if (addr > 0)

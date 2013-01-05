@@ -53,7 +53,7 @@ const vector<string>& GetDefaultLocalRegisterAliases(RegType type)
 }
 
 // Function for getting a register's type and index within that type
-unsigned char GetRegisterClass(unsigned char addr, const RegsNo& regs, RegClass* rc)
+unsigned char GetRegisterClass(unsigned char addr, const RegsNo& regs, RegClass* rc, RegType /*type*/)
 {
     assert(regs.globals < 32);
     assert(regs.shareds < 32);

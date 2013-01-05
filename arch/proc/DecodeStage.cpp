@@ -38,7 +38,7 @@ RegAddr Processor::Pipeline::DecodeStage::TranslateRegister(unsigned char reg, R
 
     // Get register class and address within class
     RegClass rc;
-    reg = GetRegisterClass(reg, family.count, &rc);
+    reg = GetRegisterClass(reg, family.count, &rc, type);
     switch (rc)
     {
         case RC_GLOBAL:

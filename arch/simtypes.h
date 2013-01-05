@@ -268,7 +268,7 @@ enum RegClass
 };
 
 // ISA-specific function to map virtual registers to register classes
-extern unsigned char GetRegisterClass(unsigned char addr, const RegsNo& regs, RegClass* rc);
+extern unsigned char GetRegisterClass(unsigned char addr, const RegsNo& regs, RegClass* rc, RegType type);
 
 static RegIndex INVALID_REG_INDEX = (RegIndex)-1;
 

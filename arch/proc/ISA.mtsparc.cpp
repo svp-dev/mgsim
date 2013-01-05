@@ -66,38 +66,46 @@ const vector<string>& GetDefaultLocalRegisterAliases(RegType type)
 
 
 // Function for getting a register's type and index within that type
-unsigned char GetRegisterClass(unsigned char addr, const RegsNo& regs, RegClass* rc)
+unsigned char GetRegisterClass(unsigned char addr, const RegsNo& regs, RegClass* rc, RegType type)
 {
     assert(regs.globals < 32);
     assert(regs.shareds < 32);
-    assert(regs.locals  < 32);
+    assert((type == RT_INTEGER && regs.locals  < 32) || regs.locals <= 32);
 
-    if (addr > 0)
+    if (type == RT_INTEGER)
     {
+        // SPARC is strange: integer register 0 is RAZ,
+        // but FP register 0 is valid.
+        if (addr == 0)
+        {
+            *rc = RC_RAZ;
+            return addr;
+        }
         addr--;
-        if (addr < regs.locals)
-        {
-            *rc = RC_LOCAL;
-            return addr;
-        }
-        addr -= regs.locals;
-        if (addr < regs.globals)
-        {
-            *rc = RC_GLOBAL;
-            return addr;
-        }
-        addr -= regs.globals;
-        if (addr < regs.shareds)
-        {
-            *rc = RC_SHARED;
-            return addr;
-        }
-        addr -= regs.shareds;
-        if (addr < regs.shareds)
-        {
-            *rc = RC_DEPENDENT;
-            return addr;
-        }
+    }
+
+    if (addr < regs.locals)
+    {
+        *rc = RC_LOCAL;
+        return addr;
+    }
+    addr -= regs.locals;
+    if (addr < regs.globals)
+    {
+        *rc = RC_GLOBAL;
+        return addr;
+    }
+    addr -= regs.globals;
+    if (addr < regs.shareds)
+    {
+        *rc = RC_SHARED;
+        return addr;
+    }
+    addr -= regs.shareds;
+    if (addr < regs.shareds)
+    {
+        *rc = RC_DEPENDENT;
+        return addr;
     }
     *rc = RC_RAZ;
     return 0;
