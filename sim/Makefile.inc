@@ -24,7 +24,8 @@ SIM_SOURCES = \
 	sim/storage.h \
 	sim/storagetrace.h \
         sim/storagetrace.cpp \
-	sim/types.h
+	sim/types.h \
+        sim/unreachable.h
 
 if ENABLE_MONITOR
 SIM_SOURCES += \
