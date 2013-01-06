@@ -450,10 +450,9 @@ string Processor::Pipeline::PipeValue::str(RegType type) const
         stringstream ss;
         ss << tc << "[F:" << setw(sizeof(Integer) * 2) << setfill('0') << hex;
         if (type == RT_FLOAT)
-            ss << m_float.toint(m_size);
+            ss << m_float.toint(m_size) << "] " << dec << m_float.tofloat(m_size);
         else
-            ss << m_integer.get(m_size);
-        ss << ']';
+            ss << m_integer.get(m_size) << "] " << dec << m_integer.get(m_size);
         return ss.str();
     }
     default:
