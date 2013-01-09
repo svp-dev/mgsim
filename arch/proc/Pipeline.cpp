@@ -448,7 +448,7 @@ string Processor::Pipeline::PipeValue::str(RegType type) const
     case RST_WAITING: return tc + "[W:" + m_memory.str() + "," + m_waiting.str() + "]";
     case RST_FULL: {
         stringstream ss;
-        ss << tc << "[F:" << setw(sizeof(Integer) * 2) << setfill('0') << hex;
+        ss << tc << "[F:" << setw(m_size * 2) << setfill('0') << hex;
         if (type == RT_FLOAT)
             ss << m_float.toint(m_size) << "] " << dec << m_float.tofloat(m_size);
         else
