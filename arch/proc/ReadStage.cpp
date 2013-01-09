@@ -100,6 +100,18 @@ bool Processor::Pipeline::ReadStage::ReadRegister(OperandInfo& operand, uint32_t
             return false;
         }
 
+        // Check if the operand is both EMPTY and a local register, and if so replace with zero.
+        if (value.m_state == RST_EMPTY && operand.islocal)
+        {
+            value.m_state = RST_FULL;
+            switch (operand.addr_reg.type)
+            {
+            case RT_INTEGER: value.m_integer = 0; break;
+            case RT_FLOAT:   value.m_float.integer = 0; break;
+            default: UNREACHABLE;
+            }
+        }
+
         // Convert the register value to a PipeValue.
         // That way, all ReadStage inputs are PipeValues.
         operand.value_reg = RegToPipeValue(operand.addr_reg.type, value);
@@ -257,24 +269,6 @@ bool Processor::Pipeline::ReadStage::ReadBypasses(OperandInfo& operand)
 }
 
 /*
- Checks if the operand is both EMPTY and a local register, and if so replace with zero.
- @param [in,out]  operand The operand to check
-*/
-void Processor::Pipeline::ReadStage::CheckLocalOperand(OperandInfo& operand) const
-{
-    if (operand.value.m_state == RST_EMPTY && operand.islocal)
-    {
-        operand.value.m_state = RST_FULL;
-        switch (operand.addr.type)
-        {
-        case RT_INTEGER: operand.value.m_integer.set(0, operand.value.m_size); break;
-        case RT_FLOAT:   operand.value.m_float.fromint(0, operand.value.m_size); break;
-        default: UNREACHABLE;
-        }
-    }
-}
-
-/*
  Checks if the operand is FULL and if not, writes the output (Rav) to suspend on the missing register.
  @param [in]  operand The operand to check
  @param [in]  addr    The base address of the operand
@@ -422,9 +416,6 @@ Processor::Pipeline::PipeAction Processor::Pipeline::ReadStage::OnCycle()
             operand1.value.m_state = RST_FULL;
         }
     }
-
-    CheckLocalOperand(operand1);
-    CheckLocalOperand(operand2);
 
     if (!CheckOperandForSuspension(operand1))  // Suspending on operand #1?
     if (!CheckOperandForSuspension(operand2))  // Suspending on operand #2?
