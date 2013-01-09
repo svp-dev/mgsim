@@ -16,6 +16,10 @@
     .section .rodata
     .ascii "\0TEST_INPUTS:R10:16\0"
 
+    .align 4
+zero:
+    .long 0
+        
     .text
     
 !
@@ -39,7 +43,10 @@ main:
     putg    %1, %5, 0
     putg    %2, %5, 1
     puts    %0, %5, 0       ! %3 = token
-    
+    set     zero, %1
+    ld      [%1], %f0
+    fputg   %f0, %5, 0
+        
     sync    %5, %1
     release %5
     mov     %1, %0
@@ -55,7 +62,7 @@ main:
 !
     .globl outer
     .align 64
-    .registers 2 1 5 0 0 5
+    .registers 2 1 5 1 0 4
 outer:
     clr %tl3
     allocates %tl3
@@ -71,21 +78,21 @@ outer:
     putg    %tl0, %tl3, 0
     putg    %tl1, %tl3, 1
     putg    %tg0, %tl3, 2     ! %tg2 = X
-    fputs   %f0, %tl3, 0
-    fputs   %f0, %tl3, 1     ! %tlf0,%tlf1 = sum = 0
+    fputs   %tgf0, %tl3, 0
+    fputs   %tgf0, %tl3, 1     ! %tlf0,%tlf1 = sum = 0
 
     sll     %tl0,   3, %tl4
     add     %tl4, %tg0, %tl4   ! %tl4 = &X[i]
-    ldd     [%tl4], %tlf3
+    ldd     [%tl4], %tlf2
     
     sync    %tl3, %tl0
     mov     %tl0, %0
-    fgets   %tl3, 0, %tlf1
-    fgets   %tl3, 1, %tlf2
+    fgets   %tl3, 0, %tlf0
+    fgets   %tl3, 1, %tlf1
     release %tl3
     
-    faddd   %tlf3, %tlf1, %tlf1; swch  ! %tlf1,%tlf2 = X[i] + sum
-    std     %tlf1, [%tl4]
+    faddd   %tlf2, %tlf0, %tlf0; swch  ! %tlf0,%tlf1 = X[i] + sum
+    std     %tlf0, [%tl4]
     stbar
     clr     %ts0
     end
@@ -101,21 +108,21 @@ outer:
 !
     .globl inner
     .align 64
-    .registers 3 0 2 0 2 5
+    .registers 3 0 2 0 2 4
 inner:
     sub     %tg0,  %tl0, %tl1
     sll     %tl1,    3, %tl1
     add     %tl1,  %tg2, %tl1
-    ldd     [%tl1-8], %tlf1       ! %tlf1,%tlf2 = X[i - j - 1]
+    ldd     [%tl1-8], %tlf0       ! %tlf0,%tlf1 = X[i - j - 1]
     
     sll     %tl0,   9, %tl0
     add     %tl0, %tg1, %tl0
-    ldd     [%tl0], %tlf3         ! %tlf3,%tlf4 = Y[i][j]
+    ldd     [%tl0], %tlf2         ! %tlf2,%tlf3 = Y[i][j]
     
-    fmuld   %tlf1, %tlf3, %tlf1; swch
-    faddd   %tlf1, %tdf0, %tlf1; swch
-    fmovs   %tlf1, %tsf0; swch
-    fmovs   %tlf2, %tsf1
+    fmuld   %tlf0, %tlf2, %tlf0; swch
+    faddd   %tlf0, %tdf0, %tlf0; swch
+    fmovs   %tlf0, %tsf0; swch
+    fmovs   %tlf1, %tsf1
     end
     
     .section .bss

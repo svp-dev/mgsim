@@ -55,19 +55,19 @@ main:
 ! %tdf0,df1 = X[i-1]
 ! %tl0 = i
     .align 64
-    .registers 3 0 2 0 2 5
+    .registers 3 0 2 0 2 4
 loop:
     sll     %tl0,   3, %tl0
     add     %tl0, %tg1, %tl1
-    ldd     [%tl1], %tlf1             ! %tlf1,%tlf2 = Y[i]
+    ldd     [%tl1], %tlf0             ! %tlf0,%tlf1 = Y[i]
     add     %tl0, %tg2, %tl1
-    ldd     [%tl1], %tlf3             ! %tlf3,%tlf4 = Z[i]
+    ldd     [%tl1], %tlf2             ! %tlf2,%tlf3 = Z[i]
     add     %tl0, %tg0, %tl1           ! %tl1 = &X[i]
-    fsubd   %tlf1, %tdf0, %tlf1; swch  ! %tlf1,%tlf2 = Y[i] - X[i-1]
-    fmuld   %tlf3, %tlf1, %tlf1; swch  ! %tlf1,%tlf2 = X[i]
-    std     %tlf1, [%tl1]; swch
-    fmovs   %tlf1, %tsf0
-    fmovs   %tlf2, %tsf1
+    fsubd   %tlf0, %tdf0, %tlf0; swch  ! %tlf0,%tlf1 = Y[i] - X[i-1]
+    fmuld   %tlf2, %tlf0, %tlf0; swch  ! %tlf0,%tlf1 = X[i]
+    std     %tlf0, [%tl1]; swch
+    fmovs   %tlf0, %tsf0
+    fmovs   %tlf1, %tsf1
     end
 
     .section .bss

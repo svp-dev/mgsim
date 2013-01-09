@@ -105,21 +105,21 @@ inner:
     add     %tg3, %tl0, %tl2   ! %tl2 = k = ipnt + i
     sll     %tl2,   3, %tl2
     add     %tl2, %tg1, %tl1   ! %tl1 = &V[k]
-    ldd     [%tl1], %tlf3     ! %tlf3,%tlf4 = V[k]
+    ldd     [%tl1], %tlf2     ! %tlf2,%tlf3 = V[k]
     add     %tl2, %tg0, %tl2   ! %tl2 = &X[k]
-    ldd     [%tl2-8], %tlf9   ! %tlf9,%tlf10 = X[k-1]
-    ldd     [%tl1+8], %tlf5   ! %tlf5,%tlf6 = V[k+1]
-    ldd     [%tl2+8], %tlf7   ! %tlf7,%tlf8 = X[k+1]
-    ldd     [%tl2+0], %tlf1   ! %tlf1,%tlf2 = X[k]
+    ldd     [%tl2-8], %tlf8   ! %tlf8,%tlf9 = X[k-1]
+    ldd     [%tl1+8], %tlf4   ! %tlf4,%tlf5 = V[k+1]
+    ldd     [%tl2+8], %tlf6   ! %tlf6,%tlf7 = X[k+1]
+    ldd     [%tl2+0], %tlf0   ! %tlf0,%tlf1 = X[k]
     srl     %tl0,   1, %tl0
     add     %tg2, %tl0, %tl0
     sll     %tl0,   3, %tl0
     add     %tl0, %tg0, %tl0   ! %tl0 = &X[ipntp + i / 2]
-    fmuld   %tlf3, %tlf9, %tlf3; swch
-    fmuld   %tlf5, %tlf7, %tlf5; swch
-    faddd   %tlf3, %tlf5, %tlf3; swch
-    fsubd   %tlf1, %tlf3, %tlf3; swch
-    std     %tlf3, [%tl0]
+    fmuld   %tlf2, %tlf8, %tlf2; swch
+    fmuld   %tlf4, %tlf6, %tlf4; swch
+    faddd   %tlf2, %tlf4, %tlf2; swch
+    fsubd   %tlf0, %tlf2, %tlf2; swch
+    std     %tlf2, [%tl0]
     end
 
     .section .bss

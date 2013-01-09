@@ -23,9 +23,9 @@ main:
     end
 
     .align 64
-    .registers 0 0 0 0 2 3
+    .registers 0 0 0 0 2 2
 foo:
-    faddd %tdf0, %tdf0, %tlf1
-    fmovs %tlf1, %tsf0; swch
-    fmovs %tlf2, %tsf1
+    faddd %tdf0, %tdf0, %tlf0
+    fmovs %tlf0, %tsf0; swch
+    fmovs %tlf1, %tsf1
     end

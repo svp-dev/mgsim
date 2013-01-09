@@ -51,17 +51,17 @@ main:
 ! %tl0 = i
     .globl loop
     .align 64
-    .registers 2 0 2 0 2 5
+    .registers 2 0 2 0 2 4
 loop:
     sll     %tl0, 3, %tl0
     add     %tl0, %tg1, %tl1
-    ldd     [%tl1], %tlf3
+    ldd     [%tl1], %tlf2
     add     %tl0, %tg0, %tl0
-    ldd     [%tl0], %tlf1
-    fmuld   %tlf1, %tlf3, %tlf1; swch
-    faddd   %tdf0, %tlf1, %tlf1; swch
-    fmovs   %tlf1, %tsf0; swch
-    fmovs   %tlf2, %tsf1
+    ldd     [%tl0], %tlf0
+    fmuld   %tlf0, %tlf2, %tlf0; swch
+    faddd   %tdf0, %tlf0, %tlf0; swch
+    fmovs   %tlf0, %tsf0; swch
+    fmovs   %tlf1, %tsf1
     end
 
     .section .bss
