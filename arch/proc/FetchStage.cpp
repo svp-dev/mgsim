@@ -91,12 +91,30 @@ Processor::Pipeline::PipeAction Processor::Pipeline::FetchStage::OnCycle()
         const Instruction control = (!m_output.legacy) ? UnserializeInstruction(&instrs[iControl]) >> (2 * (iInstr - iControl)) : 0;
         const MemAddr     next_pc = pc + sizeof(Instruction);
 
-        // Fill output latch structure
-        m_output.kill         = ((control & 2) != 0);
+        // Handle thread switching. This is a combination of the following factors:
+        // 1) a switch annotation in the instruction stream: the thread itself "wants" to switch
+        // 2) there is only one thread in the active queue, so a desired switch should be ignored
+        // 3) the thread has terminated or current I-cache line is exhausted, in which case switch must happen
+
+        // 1) swch annotation:
         const bool wantSwitch = ((control & 1) != 0);
+
+        // 2) only one thread: here we have to be careful about the queue semantics. We distinguish two cases:
+        // - the thread was popped earlier than the current cycle, in which case Empty() is true
+        // - the thread was popped *in this cycle*, in which case Empty() is *not yet* true, because the update to
+        // the storage is only processed at the start of the next cycle. So we also check if there is only 1 thread (Singular)
+        // and the current thread is the only thread at the front.
+        auto& activeThreads = m_allocator.m_activeThreads;
+        const bool lastThread = activeThreads.Empty() || (activeThreads.Singular() && activeThreads.Front() == m_output.tid);
+
+        // 3) terminated or i-cache boundary
+        m_output.kill         = ((control & 2) != 0);
         const bool mustSwitch = m_output.kill || (next_pc % m_icache.GetLineSize() == 0);
-        const bool lastThread = m_allocator.m_activeThreads.Empty() || m_allocator.m_activeThreads.Singular();
+
+        // Switch if must, or if desired unless there is only 1 thread:
         m_output.swch         = mustSwitch || (wantSwitch && !lastThread);
+
+        // Fill output latch structure
         m_output.pc           = pc;
         m_output.instr        = UnserializeInstruction(&instrs[iInstr]);
 
