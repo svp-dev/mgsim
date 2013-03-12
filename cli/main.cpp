@@ -100,6 +100,10 @@ static const char *mgsim_doc =
     "in a data ROM. For more advanced code/data arrangements, use "
     "configuration options to set up ROM devices and memory ranges."
     "\n\n"
+    "If argument -c is not specified, the base configuration file "
+    "is taken from environment variable MGSIM_BASE_CONFIG if set, "
+    "otherwise from " MGSIM_CONFIG_PATH "."
+    "\n\n"
     "For more information, see mgsimdoc(1).";
 
 static const struct argp_option mgsim_options[] =
@@ -189,7 +193,11 @@ static error_t mgsim_parse_opt(int key, char *arg, struct argp_state *state)
     case 'I':
     {
         ConfigParser parser(config.m_overrides);
-        parser(read_file(arg));
+        try {
+            parser(read_file(arg));
+        } catch (runtime_error& e) {
+            throw runtime_error("Error reading include file: " + string(arg) + "\n" + e.what());
+        }
     }
     break;
     case 'L':
@@ -343,7 +351,15 @@ int main(int argc, char** argv)
     try
     {
         // Read configuration from file
-        config.reset(new Config(flags.m_configFile, flags.m_overrides, flags.m_argv));
+        ConfigMap base_config;
+        ConfigParser parser(base_config);
+        try {
+            parser(read_file(flags.m_configFile));
+        } catch (runtime_error& e) {
+            throw runtime_error("Error reading configuration file: " + flags.m_configFile + "\n" + e.what());
+        }
+
+        config.reset(new Config(base_config, flags.m_overrides, flags.m_argv));
     }
     catch (const exception& e)
     {

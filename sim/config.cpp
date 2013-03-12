@@ -187,11 +187,9 @@ vector<string> InputConfigRegistry::getWordList(const string& name)
     return vals;
 }
 
-InputConfigRegistry::InputConfigRegistry(const string& filename, const ConfigMap& overrides, const vector<string>& argv)
-    : m_data(), m_overrides(overrides), m_cache(), m_argv(argv)
+InputConfigRegistry::InputConfigRegistry(const ConfigMap& defaults, const ConfigMap& overrides, const vector<string>& argv)
+    : m_data(defaults), m_overrides(overrides), m_cache(), m_argv(argv)
 {
-    ConfigParser parser(m_data);
-    parser(read_file(filename).c_str());
 }
 
 bool ComponentModelRegistry::Entity::operator<(const ComponentModelRegistry::Entity& right) const

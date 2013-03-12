@@ -165,7 +165,7 @@ public:
 
     std::vector<std::pair<std::string, std::string> > getRawConfiguration() const;
 
-    InputConfigRegistry(const std::string& filename, const ConfigMap& overrides, const std::vector<std::string>& argv);
+    InputConfigRegistry(const ConfigMap& defaults, const ConfigMap& overrides, const std::vector<std::string>& argv);
 
 protected:
     // Ensure this class cannot be used unless it is subclassed.
@@ -329,8 +329,8 @@ inline void ComponentModelRegistry::registerTaggedRelation<Simulator::Object>(co
 class Config : public InputConfigRegistry, public ComponentModelRegistry
 {
 public:
-    Config(const std::string& filename, const ConfigMap& overrides, const std::vector<std::string>& argv)
-        : InputConfigRegistry(filename, overrides, argv)
+    Config(const ConfigMap& defaults, const ConfigMap& overrides, const std::vector<std::string>& argv)
+        : InputConfigRegistry(defaults, overrides, argv)
     { }
 
     std::vector<uint32_t> GetConfWords();
