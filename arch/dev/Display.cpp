@@ -409,12 +409,12 @@ namespace Simulator
 
                 // Copy the buffer into the video surface
                 unsigned dx, dy;
-                float m_scaley = this->m_scaley,
-                    m_scalex = this->m_scalex;
-                unsigned m_width = this->m_width;
-                unsigned m_screen_h = m_screen->h,
-                    m_screen_w = m_screen->w;
-                unsigned m_screen_pitch = m_screen->pitch;
+                float scaley = this->m_scaley,
+                    scalex = this->m_scalex;
+                unsigned width = this->m_width;
+                unsigned screen_h = m_screen->h,
+                    screen_w = m_screen->w;
+                unsigned screen_pitch = m_screen->pitch;
                 char* pixels = (char*)m_screen->pixels;
                 Uint8 Rshift = m_screen->format->Rshift,
                     Gshift = m_screen->format->Gshift,
@@ -425,14 +425,15 @@ namespace Simulator
                     assert(m_bpp == 8);
                     /*** 1 byte per pixel, palette lookup ***/
                     const uint8_t *src = &m_framebuffer[0];
-                    for (dy = 0; dy < m_screen_h; ++dy)
+                    auto& palette = m_palette;
+                    for (dy = 0; dy < screen_h; ++dy)
                     {
-                        Uint32*         dest = (Uint32*)(pixels + dy * m_screen_pitch);
-                        unsigned int    sy   = dy * m_scaley;
-                        for (dx = 0; dx < m_screen_w; ++dx)
+                        Uint32*         dest = (Uint32*)(pixels + dy * screen_pitch);
+                        unsigned int    sy   = dy * scaley;
+                        for (dx = 0; dx < screen_w; ++dx)
                         {
-                            unsigned int sx  = dx * m_scalex;
-                            Uint32 color = m_palette[src[sy * m_width + sx]];
+                            unsigned int sx  = dx * scalex;
+                            Uint32 color = palette[src[sy * width + sx]];
                             dest[dx] = (((color & 0xff0000) >> 16) << Rshift)
                                 | (((color & 0x00ff00) >> 8) << Gshift)
                                 | (((color & 0x0000ff)     ) << Bshift);
@@ -449,15 +450,15 @@ namespace Simulator
                         static const float Rf = 0xff / (float)0xe0;
                         static const float Gf = Rf;
                         static const float Bf = 0xff / (float)0xc0;
-                        for (dy = 0; dy < m_screen_h; ++dy)
+                        for (dy = 0; dy < screen_h; ++dy)
                         {
-                            Uint32*         dest = (Uint32*)(pixels + dy * m_screen_pitch);
-                            unsigned int    sy   = dy * m_scaley;
+                            Uint32*         dest = (Uint32*)(pixels + dy * screen_pitch);
+                            unsigned int    sy   = dy * scaley;
 
-                            for (dx = 0; dx < m_screen_w; ++dx)
+                            for (dx = 0; dx < screen_w; ++dx)
                             {
-                                unsigned int sx  = dx * m_scalex;
-                                Uint8 color = src[sy * m_width + sx];
+                                unsigned int sx  = dx * scalex;
+                                Uint8 color = src[sy * width + sx];
                                 dest[dx] =
                                     (((uint32_t)((color & 0xe0) * Rf)) << Rshift)
                                     | (((uint32_t)(((color & 0x1c) << 3) * Gf)) << Gshift)
@@ -473,15 +474,15 @@ namespace Simulator
                         static const float Rf = 0xff / (float)0xf8;
                         static const float Gf = 0xff / (float)0xfc;
                         static const float Bf = Rf;
-                        for (dy = 0; dy < m_screen_h; ++dy)
+                        for (dy = 0; dy < screen_h; ++dy)
                         {
-                            Uint32*         dest = (Uint32*)(pixels + dy * m_screen_pitch);
-                            unsigned int    sy   = dy * m_scaley;
+                            Uint32*         dest = (Uint32*)(pixels + dy * screen_pitch);
+                            unsigned int    sy   = dy * scaley;
 
-                            for (dx = 0; dx < m_screen_w; ++dx)
+                            for (dx = 0; dx < screen_w; ++dx)
                             {
-                                unsigned int sx  = dx * m_scalex;
-                                Uint16 color = src[sy * m_width + sx];
+                                unsigned int sx  = dx * scalex;
+                                Uint16 color = src[sy * width + sx];
                                 dest[dx] =
                                     (((uint32_t)(((color & 0xf800) >> 8) * Rf)) << Rshift)
                                     | (((uint32_t)(((color & 0x07e0) >> 3) * Gf)) << Gshift)
@@ -494,15 +495,15 @@ namespace Simulator
                     {
                         /*** 3 bytes per pixel, 8-8-8 RGB ***/
                         const uint8_t *src = (const uint8_t*)(void*)&m_framebuffer[0];
-                        for (dy = 0; dy < m_screen_h; ++dy)
+                        for (dy = 0; dy < screen_h; ++dy)
                         {
-                            Uint32*         dest = (Uint32*)(pixels + dy * m_screen_pitch);
-                            unsigned int    sy   = dy * m_scaley;
+                            Uint32*         dest = (Uint32*)(pixels + dy * screen_pitch);
+                            unsigned int    sy   = dy * scaley;
 
-                            for (dx = 0; dx < m_screen_w; ++dx)
+                            for (dx = 0; dx < screen_w; ++dx)
                             {
-                                unsigned int sx  = dx * m_scalex;
-                                const Uint8 * base = &src[sy * m_width * 3 + sx * 3];
+                                unsigned int sx  = dx * scalex;
+                                const Uint8 * base = &src[sy * width * 3 + sx * 3];
                                 dest[dx] = (base[0] << Rshift)
                                     | (base[1] << Gshift)
                                     | (base[2] << Bshift);
@@ -514,15 +515,15 @@ namespace Simulator
                     {
                         /*** 4 bytes per pixel, 8-8-8 RGB ***/
                         const uint32_t *src = (const uint32_t*)(void*)&m_framebuffer[0];
-                        for (dy = 0; dy < m_screen_h; ++dy)
+                        for (dy = 0; dy < screen_h; ++dy)
                         {
-                            Uint32*         dest = (Uint32*)(pixels + dy * m_screen_pitch);
-                            unsigned int    sy   = dy * m_scaley;
+                            Uint32*         dest = (Uint32*)(pixels + dy * screen_pitch);
+                            unsigned int    sy   = dy * scaley;
 
-                            for (dx = 0; dx < m_screen_w; ++dx)
+                            for (dx = 0; dx < screen_w; ++dx)
                             {
-                                unsigned int sx  = dx * m_scalex;
-                                Uint32 color = src[sy * m_width + sx];
+                                unsigned int sx  = dx * scalex;
+                                Uint32 color = src[sy * width + sx];
                                 dest[dx] = (((color & 0xff0000) >> 16) << Rshift)
                                     | (((color & 0x00ff00) >> 8) << Gshift)
                                     | (((color & 0x0000ff)     ) << Bshift);
