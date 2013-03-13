@@ -234,8 +234,10 @@ namespace Simulator
             }
 
             int hfd = open(path_start, oflags, mode);
-
-            rval = GetNewVFD(hfd);
+            if (hfd == -1)
+                rval = -1;
+            else
+                rval = GetNewVFD(hfd);
         }
         break;
 
@@ -310,7 +312,10 @@ namespace Simulator
                 break;
             }
             int new_hfd = dup(vd->hfd);
-            rval = DuplicateVFD(arg3, new_hfd);
+            if (new_hfd == -1)
+                rval = -1;
+            else
+                rval = DuplicateVFD(arg3, new_hfd);
         }
         break;
 
