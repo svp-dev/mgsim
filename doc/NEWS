@@ -1,15 +1,56 @@
-===========================================
- Release notes for the Microgrid simulator
-===========================================
-
-This document describes major updates to the Microgrid simulator.
-
-Major "technology levels" that reflect generations of the Microgrid
-architecture (as simulated by this simulator) are documented
-separately in CSA note [svp40].
-
-Version 3.2 (Development)
 =========================
+ Release notes for MGSim
+=========================
+
+This document describes major updates to MGSim.
+
+Version 3.3 (Development)
+=========================
+
+New features
+------------
+
+- Preliminary support for the 32-bit MIPS  ISA.
+
+- The configuration file supports sections; for example the following
+  syntax::
+
+     [CPU1]
+     ICache:Associativity = 4
+     DCache:Associativity = 8
+
+  is equivalent to::
+
+     CPU1.ICache:Associativity = 4
+     CPU1.DCache:Associativity = 8
+
+  The special section name ``[global]`` resets the
+  prefix to empty.
+
+- Configuration values can indirect through another configuration
+  variable. For example::
+
+     FPU_AddSubLatency = 3
+     FPU*:Unit0Latency = $FPU_AddSubLatency
+     FPU*:Unit1Latency = $FPU_AddSubLatency
+
+Changes since version 3.2
+-------------------------
+
+- MGSim now uses C++11 features and requires a C++11 compliant
+  compiler. GNU C++ 4.7 and 4.8 are reported to work, so are Clang 3.1
+  to 3.3.
+
+- a memory-mapped I/O (MMIO) interface supersedes the special "print"
+  instruction in MGSim's Processor model.
+
+- The unit test suite was refactored to better support parallel build
+  and skip irrelevant tests.
+
+- Fix several bugs in the SPARC ISA implementation.
+
+Version 3.2
+===========
 
 New features
 ------------
