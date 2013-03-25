@@ -242,6 +242,7 @@ public:
         DEBUG_FPU      = 512, ///< Debug FPU activity
         DEBUG_PIPE     = 1024, ///< Debug pipeline activity
     };
+    static const int DEBUG_CPU_MASK = DEBUG_SIM | DEBUG_PROG | DEBUG_DEADLOCK | DEBUG_FLOW | DEBUG_MEM | DEBUG_IO | DEBUG_REG;
 
 private:
     CycleNo             m_lastsuspend;  ///< Avoid suspending twice on the same cycle.

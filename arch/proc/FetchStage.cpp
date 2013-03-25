@@ -119,7 +119,7 @@ Processor::Pipeline::PipeAction Processor::Pipeline::FetchStage::OnCycle()
         m_output.instr        = UnserializeInstruction(&instrs[iInstr]);
 
         m_output.pc_dbg       = pc;
-        if (GetKernel()->GetDebugMode() & (Kernel::DEBUG_PIPE|Kernel::DEBUG_FLOW|Kernel::DEBUG_SIM|Kernel::DEBUG_DEADLOCK))
+        if (GetKernel()->GetDebugMode() & Kernel::DEBUG_CPU_MASK)
         {
             m_output.pc_sym = m_parent.GetProcessor().GetSymbolTable()[m_output.pc].c_str();
         }
