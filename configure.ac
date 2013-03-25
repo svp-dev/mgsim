@@ -54,7 +54,7 @@ AC_USE_SYSTEM_EXTENSIONS
 AX_CXX_GCC_ABI_DEMANGLE
 
 # check support for C++11
-AX_CXX_COMPILE_STDCXX_11
+CHECK_CXX11
 
 AC_CACHE_CHECK([for __builtin_unreachable],
                [mg_cv_unreachable],
