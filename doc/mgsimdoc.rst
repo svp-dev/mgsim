@@ -7,17 +7,17 @@
 -------------------------------------------
 
 :Author: MGSim was created by Mike Lankamp. MGSim is now under
-   stewardship of the Microgrid project. This manual page was written
+   stewardship of the MGSim project. This manual page was written
    by Raphael 'kena' Poss.
 :Date: August 2012
-:Copyright: Copyright (C) 2008-2012 the Microgrid project.
+:Copyright: Copyright (C) 2008-2013 the MGSim project.
 :Version: PACKAGE_VERSION
 :Manual section: 7
 
 DESCRIPTION
 ===========
 
-The MGSim simulator was developed to facilitate research in the design
+MGSim was developed to facilitate research in the design
 of many-core general-purpose processor chips, in particular Microgrid
 chips based on D-RISC. It also includes full-system capability, 
 including a fully configurable I/O subsystem and memory interconnect.
@@ -690,6 +690,12 @@ SEE ALSO
   mgsimdev-uart(7), mgsimdev-rtc(7)
 
 * M5, http://www.m5sim.org/ a detailed simulator for networks.
+
+* Mike Lankamp, Raphael Poss, Qiang Yang, Jian Fu, Irfan Uddin, and
+  Chris R. Jesshope. *MGSim - simulation tools for multi-core processor
+  architectures.* Technical Report arXiv:1302.1390v1 [cs.AR],
+  University of Amsterdam, February 2013. 
+  http://arxiv.org/abs/1302.1390
 
 * Raphael Poss, Mike Lankamp, Qiang Yang, Jian Fu, Michiel W. van Tol,
   and Chris Jesshope. *Apple-CORE: Microgrids of SVP cores (invited

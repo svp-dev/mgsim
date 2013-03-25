@@ -1,36 +1,36 @@
-The Microgrid simulator, a flexible system emulator/simulator to study
-fine grained dataflow architectures.
-Copyright (C) 2007,2008,2009,2010,2011,2012 the Microgrids Project.
+MGSim, a flexible component-level simulation to study chip
+architectures.
+Copyright (C) 2007,2008,2009,2010,2011,2012,2013 the MGSim project.
 
-The Microgrid Project consists of people listed in the 'AUTHORS' file.
+The MGSim consists of people listed in the 'AUTHORS' file.
 
-=========================================
- Introduction to the Microgrid simulator
-=========================================
+=======================
+ Introduction to MGSim
+=======================
 
-MGSim, a simulation environment for Microgrids_ of hybrid dataflow
-microthreaded cores.
-
-.. _Microgrids: http://www.svp-home.org/microgrids
+MGSim, a simulation environment for on-chip circuits that
+can be represented as networks of processes.
 
 .. contents::
 
 Overview
 ========
 
-Initiated by Chris Jesshope in 2004, the Microgrid is a chip
-architecture research project ongoing at the CSA_ group at the
-University of Amsterdam.
+MGSim is an open source discrete event simulator for on-chip hardware
+components developed at the University of Amsterdam. MGSim is used as
+research and teaching vehicle to study the fine-grained
+hardware/software interactions on many-core chips with and without
+hardware multithreading. MGSim's component library includes support
+for core models with different instruction sets, a configurable
+multi-core interconnect, multiple configurable cache and memory
+models, a dedicated I/O subsystem, and comprehensive monitoring and
+interaction facilities. The default model configuration shipped with
+MGSim implements Microgrids, a multi-core architecture with hardware
+concurrency management. MGSim is furthermore written mostly in C++ and
+uses object classes to represent chip components. It is optimized for
+architecture models that can be described as process networks.
 
-.. _CSA: http://csa.science.uva.nl/
-
-The goal of this research is to explore the use of hybrid dataflow
-computing in processor and chip design to obtain more performance and
-design flexibility at a lower cost. The Microgrid simulator was
-developed as a framework to study the Microgrid architecture and make
-it available for testing and research to the scientific community.
-
-Please send any question or comments to microgrids@svp-home.org.
+Please send any question or comments about MGSim to microgrids@svp-home.org.
 
 Installation
 ============
@@ -46,17 +46,17 @@ To install MGSim on your system, we recommend the following procedure:
 
       .../configure 
 
-   Here you need to select the *simulation target* for the Microgrid
-   simulator. The simulation target selects an ISA and a core
+   Here you need to select the *simulation target* for MGSim's
+   Processor model. The simulation target selects an ISA and a core
    architecture. At this time the following targets are supported:
 
    ``configure --target=mtalpha``
-      Builds a 64-bit Microgrid with an ISA extending the DEC Alpha.
+      Builds a 64-bit Processor with an ISA extending the DEC Alpha.
 
    ``configure --target=mtsparc``
-      Builds a 32-bit Microgrid with an ISA extending SPARC v8.
+      Builds a 32-bit Processor with an ISA extending SPARC v8.
 
-3. build the Microgrid simulator::
+3. build MGSim::
 
      make
 
@@ -97,7 +97,7 @@ parameter ``--disable-assert``.
 Area calculations with CACTI
 ----------------------------
 
-The simulator can print the chip area usage of Microgrid components if
+The simulator can print the chip area usage of components if
 the CACTI_ C++ library is available. To enable this feature, ensure that
 the CACTI source files are present in the ``cacti`` subdirectory of
 the MGSim sources tree before running ``configure``. For example::
@@ -125,7 +125,7 @@ Requirements
 MGSim is written in C++ and targets Unix/POSIX platforms.
 
 The system was tested using the `GNU Compiler Collection (GCC)`_
-version 4.2.x up to 4.6.x on GNU/Linux, FreeBSD and MacOS X.  The code
+version 4.6.x up to 4.8.x on GNU/Linux, FreeBSD and MacOS X.  The code
 attempts to be fully compliant with the ISO C++ standard (ISO-IEC
 14882) and POSIX, so other C++ compilers should be usable as well;
 please report any portability bug you may find.
@@ -174,8 +174,8 @@ but the output will not be shown on screen.
 
 .. _Simple DirectMedial Layer: http://www.libsdl.org/
 
-Using the Microgrid simulator
-=============================
+Using MGSim
+===========
 
 A number of small programs are provided in the ``tests/`` and
 ``programs/`` subdirectories. Looking at them is a good way to
@@ -229,7 +229,7 @@ Contacts
 The team can be reached by e-mail at microgrids@svp-home.org. Snail
 mail addresses follow.
 
-* Microgrids - CSA
+* MGSim - CSA
 
   | The CSA group
   | Institute for Informatics, University of Amsterdam

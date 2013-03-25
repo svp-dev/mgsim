@@ -1,4 +1,4 @@
-The Microgrids Project consists of:
+The MGSim Project consists of:
 
 * Mike Lankamp          m.lankamp@uva.nl
   - Microgrid architecture investigator 2007-current,
@@ -12,7 +12,7 @@ The Microgrids Project consists of:
   - Instigator of the SVP model,
   - Visionary for resource management for many core systems.
 
-* Raphael 'kena' Poss   r.c.poss@uva.nl
+* Raphael 'kena' Poss   r.poss@uva.nl
   - System architecture investigator 2008-current,
   - Software stack investigator 2008-current,
   - Packaging and distribution maintainer.
@@ -28,7 +28,7 @@ The Microgrids Project consists of:
 Acknowledgements
 ----------------
 
-The Microgrids Project thanks and acknowledges the following people
+The MGSim Project thanks and acknowledges the following people
 for their help and contributions:
 
 - Carl A. Joslin
