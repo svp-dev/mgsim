@@ -40,13 +40,14 @@ private:
         bool      write;
     };
 
-    struct Response
+    struct ReadResponse
     {
-        bool write;
-        union {
-            WClientID wid;
-            CID       cid;
-        };
+        CID       cid;
+    };
+
+    struct WriteResponse
+    {
+        WClientID wid;
     };
 
     // Information for multi-register writes
@@ -73,8 +74,8 @@ private:
     size_t               m_sets;            ///< Config: Number of sets in the cace.
     size_t               m_lineSize;        ///< Config: Size of a cache line, in bytes.
     IBankSelector*       m_selector;        ///< Mapping of cache line addresses to tags and set indices.
-    Buffer<CID>          m_completed;       ///< Completed cache-line reads waiting to be processed.
-    Buffer<Response>     m_incoming;        ///< Incoming buffer from memory bus.
+    Buffer<ReadResponse>  m_read_responses; ///< Incoming buffer for read responses from memory bus.
+    Buffer<WriteResponse> m_write_responses;///< Incoming buffer for write acknowledgements from memory bus.
     Buffer<Request>      m_outgoing;        ///< Outgoing buffer to memory bus.
     WritebackState       m_wbstate;         ///< Writeback state
 
@@ -100,8 +101,8 @@ private:
     uint64_t             m_numSnoops;
 
 
-    Result DoCompletedReads();
-    Result DoIncomingResponses();
+    Result DoReadResponses();
+    Result DoWriteResponses();
     Result DoOutgoingRequests();
 
 public:
@@ -111,8 +112,8 @@ public:
     ~DCache();
 
     // Processes
-    Process p_CompletedReads;
-    Process p_Incoming;
+    Process p_ReadResponses;
+    Process p_WriteResponses;
     Process p_Outgoing;
 
     ArbitratedService<> p_service;

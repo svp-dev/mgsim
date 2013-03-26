@@ -23,9 +23,9 @@ Processor::DCache::DCache(const std::string& name, Processor& parent, Clock& clo
     m_sets           (config.getValue<size_t>(*this, "NumSets")),
     m_lineSize       (config.getValue<size_t>("CacheLineSize")),
     m_selector       (IBankSelector::makeSelector(*this, config.getValue<string>(*this, "BankSelector"), m_sets)),
-    m_completed      ("b_completed", *this, clock, m_sets * m_assoc),
-    m_incoming       ("b_incoming",  *this, clock, config.getValue<BufferSize>(*this, "IncomingBufferSize")),
-    m_outgoing       ("b_outgoing",  *this, clock, config.getValue<BufferSize>(*this, "OutgoingBufferSize")),
+    m_read_responses ("b_read_responses", *this, clock, config.getValue<BufferSize>(*this, "ReadResponsesBufferSize")),
+    m_write_responses("b_write_responses", *this, clock, config.getValue<BufferSize>(*this, "WriteResponsesBufferSize")),
+    m_outgoing       ("b_outgoing", *this, clock, config.getValue<BufferSize>(*this, "OutgoingBufferSize")),
     m_wbstate(),
     m_numRHits        (0),
     m_numDelayedReads (0),
@@ -42,9 +42,9 @@ Processor::DCache::DCache(const std::string& name, Processor& parent, Clock& clo
     m_numStallingWMisses(0),
     m_numSnoops(0),
 
-    p_CompletedReads(*this, "completed-reads", delegate::create<DCache, &Processor::DCache::DoCompletedReads   >(*this) ),
-    p_Incoming      (*this, "incoming",        delegate::create<DCache, &Processor::DCache::DoIncomingResponses>(*this) ),
-    p_Outgoing      (*this, "outgoing",        delegate::create<DCache, &Processor::DCache::DoOutgoingRequests >(*this) ),
+    p_ReadResponses (*this, "read-responses",  delegate::create<DCache, &Processor::DCache::DoReadResponses   >(*this) ),
+    p_WriteResponses(*this, "write-responses", delegate::create<DCache, &Processor::DCache::DoWriteResponses  >(*this) ),
+    p_Outgoing      (*this, "outgoing",        delegate::create<DCache, &Processor::DCache::DoOutgoingRequests>(*this) ),
 
     p_service        (*this, clock, "p_service")
 {
@@ -61,11 +61,11 @@ Processor::DCache::DCache(const std::string& name, Processor& parent, Clock& clo
     RegisterSampleVariableInObject(m_numPassThroughWMisses, SVC_CUMULATIVE);
 
     StorageTraceSet traces;
-    m_mcid = m_memory.RegisterClient(*this, p_Outgoing, traces, m_incoming, true);
+    m_mcid = m_memory.RegisterClient(*this, p_Outgoing, traces, m_read_responses ^ m_write_responses, true);
     p_Outgoing.SetStorageTraces(traces);
 
-    m_completed.Sensitive(p_CompletedReads);
-    m_incoming.Sensitive(p_Incoming);
+    m_read_responses.Sensitive(p_ReadResponses);
+    m_write_responses.Sensitive(p_WriteResponses);
     m_outgoing.Sensitive(p_Outgoing);
 
     // These things must be powers of two
@@ -446,10 +446,9 @@ bool Processor::DCache::OnMemoryReadCompleted(MemAddr addr, const char* data)
         }
 
         // Push the cache-line to the back of the queue
-        Response response;
-        response.write = false;
+        ReadResponse response;
         response.cid   = line - &m_lines[0];
-        if (!m_incoming.Push(response))
+        if (!m_read_responses.Push(response))
         {
             DeadlockWrite("Unable to push read completion to buffer");
             return false;
@@ -463,10 +462,9 @@ bool Processor::DCache::OnMemoryWriteCompleted(WClientID wid)
     // Data has been written
     if (wid != INVALID_WCLIENTID) // otherwise for DCA
     {
-        Response response;
-        response.write = true;
+        WriteResponse response;
         response.wid  =  wid;
-        if (!m_incoming.Push(response))
+        if (!m_write_responses.Push(response))
         {
             DeadlockWrite("Unable to push write completion to buffer");
             return false;
@@ -538,9 +536,9 @@ Object& Processor::DCache::GetMemoryPeer()
     return m_parent;
 }
 
-Result Processor::DCache::DoCompletedReads()
+Result Processor::DCache::DoReadResponses()
 {
-    assert(!m_completed.Empty());
+    assert(!m_read_responses.Empty());
 
     if (!p_service.Invoke())
     {
@@ -549,7 +547,8 @@ Result Processor::DCache::DoCompletedReads()
     }
 
     // Process a waiting register
-    Line& line = m_lines[m_completed.Front()];
+    auto& response = m_read_responses.Front();
+    Line& line = m_lines[response.cid];
     assert(line.state == LINE_LOADING || line.state == LINE_INVALID);
     if (line.waiting.valid())
     {
@@ -675,35 +674,25 @@ Result Processor::DCache::DoCompletedReads()
         {
             line.state = (line.state == LINE_INVALID) ? LINE_EMPTY : LINE_FULL;
         }
-        m_completed.Pop();
+        m_read_responses.Pop();
     }
     return SUCCESS;
 }
 
-Result Processor::DCache::DoIncomingResponses()
+Result Processor::DCache::DoWriteResponses()
 {
-    assert(!m_incoming.Empty());
-    const Response& response = m_incoming.Front();
-    if (response.write)
-    {
-        if (!m_allocator.DecreaseThreadDependency((TID)response.wid, THREADDEP_OUTSTANDING_WRITES))
-        {
-            DeadlockWrite("Unable to decrease outstanding writes on T%u", (unsigned)response.wid);
-            return FAILED;
-        }
+    assert(!m_write_responses.Empty());
+    auto& response = m_write_responses.Front();
 
-        DebugMemWrite("T%u completed store", (unsigned)response.wid);
-
-    }
-    else
+    if (!m_allocator.DecreaseThreadDependency((TID)response.wid, THREADDEP_OUTSTANDING_WRITES))
     {
-        if (!m_completed.Push(response.cid))
-        {
-            DeadlockWrite("Unable to buffer read completion to processing buffer");
-            return FAILED;
-        }
+        DeadlockWrite("Unable to decrease outstanding writes on T%u", (unsigned)response.wid);
+        return FAILED;
     }
-    m_incoming.Pop();
+    
+    DebugMemWrite("T%u completed store", (unsigned)response.wid);
+
+    m_write_responses.Pop();
     return SUCCESS;
 }
 
