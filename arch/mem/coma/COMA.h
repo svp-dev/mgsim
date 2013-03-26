@@ -88,7 +88,7 @@ public:
     size_t GetDirectoryAssociativity() const;
 
     // IMemory
-    virtual MCID RegisterClient(IMemoryCallback& callback, Process& process, StorageTraceSet& traces, Storage& storage, bool grouped) override = 0;
+    virtual MCID RegisterClient(IMemoryCallback& callback, Process& process, StorageTraceSet& traces, const StorageTraceSet& storages, bool grouped) override = 0;
     void UnregisterClient(MCID id) override;
     using VirtualMemory::Read;
     using VirtualMemory::Write;
@@ -109,7 +109,7 @@ class OneLevelCOMA : public COMA
 public:
     void Initialize();
 
-    MCID RegisterClient(IMemoryCallback& callback, Process& process, StorageTraceSet& traces, Storage& storage, bool grouped) override;
+    MCID RegisterClient(IMemoryCallback& callback, Process& process, StorageTraceSet& traces, const StorageTraceSet& storages, bool grouped) override;
 
     OneLevelCOMA(const std::string& name, Simulator::Object& parent, Clock& clock, Config& config);
 };
@@ -119,7 +119,7 @@ class TwoLevelCOMA : public COMA
 public:
     void Initialize();
 
-    MCID RegisterClient(IMemoryCallback& callback, Process& process, StorageTraceSet& traces, Storage& storage, bool grouped) override;
+    MCID RegisterClient(IMemoryCallback& callback, Process& process, StorageTraceSet& traces, const StorageTraceSet& storages, bool grouped) override;
 
     TwoLevelCOMA(const std::string& name, Simulator::Object& parent, Clock& clock, Config& config);
 };

@@ -9,7 +9,7 @@ using namespace std;
 namespace Simulator
 {
 
-MCID SerialMemory::RegisterClient(IMemoryCallback& callback, Process& process, StorageTraceSet& traces, Storage& storage, bool /*ignored*/)
+MCID SerialMemory::RegisterClient(IMemoryCallback& callback, Process& process, StorageTraceSet& traces, const StorageTraceSet& storages, bool /*ignored*/)
 {
     assert(std::find(m_clients.begin(), m_clients.end(), &callback) == m_clients.end());
     m_clients.push_back(&callback);
@@ -17,7 +17,7 @@ MCID SerialMemory::RegisterClient(IMemoryCallback& callback, Process& process, S
     p_requests.AddProcess(process);
     traces = m_requests;
 
-    m_storages = m_storages ^ storage;
+    m_storages = m_storages ^ storages;
     p_Requests.SetStorageTraces(m_storages);
 
     m_registry.registerRelation(callback.GetMemoryPeer(), *this, "mem");

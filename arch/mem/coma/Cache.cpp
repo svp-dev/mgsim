@@ -17,7 +17,7 @@ namespace Simulator
 static const size_t MINSPACE_INSERTION = 2;
 static const size_t MINSPACE_FORWARD   = 1;
 
-MCID COMA::Cache::RegisterClient(IMemoryCallback& callback, Process& process, StorageTraceSet& traces, Storage& storage)
+MCID COMA::Cache::RegisterClient(IMemoryCallback& callback, Process& process, StorageTraceSet& traces, const StorageTraceSet& storages)
 {
     MCID index = m_clients.size();
     m_clients.resize(index + 1);
@@ -27,7 +27,7 @@ MCID COMA::Cache::RegisterClient(IMemoryCallback& callback, Process& process, St
     p_bus.AddCyclicProcess(process);
     traces = m_requests;
 
-    m_storages *= opt(storage);
+    m_storages *= opt(storages);
     p_Requests.SetStorageTraces(m_storages ^ GetOutgoingTrace());
     p_In.SetStorageTraces(opt(m_storages ^ GetOutgoingTrace()));
 

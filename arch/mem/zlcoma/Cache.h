@@ -121,7 +121,7 @@ public:
     void Cmd_Read(std::ostream& out, const std::vector<std::string>& arguments) const;
     const Line* FindLine(MemAddr address) const;
 
-    MCID RegisterClient  (IMemoryCallback& callback, Process& process, StorageTraceSet& traces, Storage& storage);
+    MCID RegisterClient  (IMemoryCallback& callback, Process& process, StorageTraceSet& traces, const StorageTraceSet& storages);
     void UnregisterClient(MCID id);
     bool Read (MCID id, MemAddr address);
     bool Write(MCID id, MemAddr address, const MemData& data, WClientID wid);

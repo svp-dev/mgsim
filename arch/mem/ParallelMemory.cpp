@@ -136,7 +136,7 @@ public:
         return m_callback.OnMemorySnooped(address, data, mask);
     }
 
-    Port(const std::string& name, ParallelMemory& memory, BufferSize buffersize, IMemoryCallback& callback, Process& process, StorageTraceSet& traces, Storage& storage, size_t lineSize)
+    Port(const std::string& name, ParallelMemory& memory, BufferSize buffersize, IMemoryCallback& callback, Process& process, StorageTraceSet& traces, const StorageTraceSet& storages, size_t lineSize)
         : Object(name, memory),
           m_memory(memory),
           m_callback(callback),
@@ -148,7 +148,7 @@ public:
         m_requests.Sensitive( p_Requests );
         p_requests.AddProcess(process);
         traces = m_requests;
-        p_Requests.SetStorageTraces(opt(storage));
+        p_Requests.SetStorageTraces(opt(storages));
     }
 };
 
@@ -158,7 +158,7 @@ CycleNo ParallelMemory::GetMemoryDelay(size_t data_size) const
     return m_baseRequestTime + m_timePerLine * (data_size + m_lineSize - 1) / m_lineSize;
 }
 
-MCID ParallelMemory::RegisterClient(IMemoryCallback& callback, Process& process, StorageTraceSet& traces, Storage& storage, bool /*ignored*/)
+MCID ParallelMemory::RegisterClient(IMemoryCallback& callback, Process& process, StorageTraceSet& traces, const StorageTraceSet& storages, bool /*ignored*/)
 {
 #ifndef NDEBUG
     for (auto p : m_ports) {
@@ -172,7 +172,7 @@ MCID ParallelMemory::RegisterClient(IMemoryCallback& callback, Process& process,
 
     stringstream name;
     name << "port" << id;
-    m_ports.push_back(new Port(name.str(), *this, m_buffersize, callback, process, traces, storage, m_lineSize));
+    m_ports.push_back(new Port(name.str(), *this, m_buffersize, callback, process, traces, storages, m_lineSize));
 
     return id;
 }

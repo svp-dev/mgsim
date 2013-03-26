@@ -272,7 +272,7 @@ public:
     }
 };
 
-MCID DDRMemory::RegisterClient(IMemoryCallback& callback, Process& process, StorageTraceSet& traces, Storage& storage, bool /*ignored*/)
+MCID DDRMemory::RegisterClient(IMemoryCallback& callback, Process& process, StorageTraceSet& traces, const StorageTraceSet& storages, bool /*ignored*/)
 {
 #ifndef NDEBUG
     for (size_t i = 0; i < m_clients.size(); ++i) {
@@ -289,7 +289,7 @@ MCID DDRMemory::RegisterClient(IMemoryCallback& callback, Process& process, Stor
     client.callback = &callback;
     m_clients.push_back(client);
 
-    m_storages ^= storage;
+    m_storages ^= storages;
 
     for (size_t i = 0; i < m_ifs.size(); ++i)
     {

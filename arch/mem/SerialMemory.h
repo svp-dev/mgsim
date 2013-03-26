@@ -26,7 +26,7 @@ class SerialMemory : public Object, public IMemory, public VirtualMemory
     };
 
     // IMemory
-    MCID RegisterClient(IMemoryCallback& callback, Process& process, StorageTraceSet& traces, Storage& storage, bool /*ignored*/) override;
+    MCID RegisterClient(IMemoryCallback& callback, Process& process, StorageTraceSet& traces, const StorageTraceSet& storages, bool /*ignored*/) override;
     void UnregisterClient(MCID id) override;
     using VirtualMemory::Read;
     using VirtualMemory::Write;

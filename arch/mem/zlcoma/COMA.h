@@ -88,7 +88,7 @@ public:
     IBankSelector& GetBankSelector() const { return *m_selector; }
 
     // IMemory
-    MCID RegisterClient(IMemoryCallback& callback, Process& process, StorageTraceSet& traces, Storage& storage, bool grouped) override;
+    MCID RegisterClient(IMemoryCallback& callback, Process& process, StorageTraceSet& traces, const StorageTraceSet& storages, bool grouped) override;
     void UnregisterClient(MCID id) override;
     using VirtualMemory::Read;
     using VirtualMemory::Write;

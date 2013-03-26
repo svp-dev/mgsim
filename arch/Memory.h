@@ -85,7 +85,7 @@ public:
         PERM_DCA_WRITE = 16
     };
 
-    virtual MCID RegisterClient(IMemoryCallback& callback, Process& process, StorageTraceSet& traces, Storage& storage, bool grouped = false) = 0;
+    virtual MCID RegisterClient(IMemoryCallback& callback, Process& process, StorageTraceSet& traces, const StorageTraceSet& storages, bool grouped = false) = 0;
     virtual void UnregisterClient(MCID id) = 0;
     virtual bool Read (MCID id, MemAddr address) = 0;
     virtual bool Write(MCID id, MemAddr address, const MemData& data, WClientID wid) = 0;

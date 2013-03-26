@@ -11,7 +11,7 @@ using namespace std;
 namespace Simulator
 {
 
-MCID OneLevelCOMA::RegisterClient(IMemoryCallback& callback, Process& process, StorageTraceSet& traces, Storage& storage, bool grouped)
+MCID OneLevelCOMA::RegisterClient(IMemoryCallback& callback, Process& process, StorageTraceSet& traces, const StorageTraceSet& storages, bool grouped)
 {
     MCID id = m_clientMap.size();
     m_clientMap.resize(id + 1);
@@ -37,7 +37,7 @@ MCID OneLevelCOMA::RegisterClient(IMemoryCallback& callback, Process& process, S
 
     Cache *cache = m_caches[cache_id];
 
-    MCID id_in_cache = cache->RegisterClient(callback, process, traces, storage);
+    MCID id_in_cache = cache->RegisterClient(callback, process, traces, storages);
 
     m_clientMap[id] = make_pair(cache, id_in_cache);
 
@@ -47,7 +47,7 @@ MCID OneLevelCOMA::RegisterClient(IMemoryCallback& callback, Process& process, S
     return id;
 }
 
-MCID TwoLevelCOMA::RegisterClient(IMemoryCallback& callback, Process& process, StorageTraceSet& traces, Storage& storage, bool grouped)
+MCID TwoLevelCOMA::RegisterClient(IMemoryCallback& callback, Process& process, StorageTraceSet& traces, const StorageTraceSet& storages, bool grouped)
 {
     MCID id = m_clientMap.size();
     m_clientMap.resize(id + 1);
@@ -88,7 +88,7 @@ MCID TwoLevelCOMA::RegisterClient(IMemoryCallback& callback, Process& process, S
 
     Cache *cache = m_caches[cache_id];
 
-    MCID id_in_cache = cache->RegisterClient(callback, process, traces, storage);
+    MCID id_in_cache = cache->RegisterClient(callback, process, traces, storages);
 
     m_clientMap[id] = make_pair(cache, id_in_cache);
 

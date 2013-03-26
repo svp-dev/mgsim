@@ -278,7 +278,7 @@ CycleNo BankedMemory::GetMemoryDelay(size_t data_size) const
     return m_baseRequestTime + m_timePerLine * (data_size + m_lineSize - 1) / m_lineSize;
 }
 
-MCID BankedMemory::RegisterClient(IMemoryCallback& callback, Process& process, StorageTraceSet& traces, Storage& storage, bool /*ignored*/)
+MCID BankedMemory::RegisterClient(IMemoryCallback& callback, Process& process, StorageTraceSet& traces, const StorageTraceSet& storages, bool /*ignored*/)
 {
 #ifndef NDEBUG
     for (size_t i = 0; i < m_clients.size(); ++i) {
@@ -295,7 +295,7 @@ MCID BankedMemory::RegisterClient(IMemoryCallback& callback, Process& process, S
     client.callback = &callback;
     m_clients.push_back(client);
 
-    m_storages ^= storage;
+    m_storages ^= storages;
 
     for (size_t i = 0; i < m_banks.size(); ++i)
     {

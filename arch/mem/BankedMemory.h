@@ -27,7 +27,7 @@ class BankedMemory : public Object, public IMemory, public VirtualMemory
     CycleNo                     GetMemoryDelay (size_t data_size) const;
 
     // IMemory
-    MCID RegisterClient(IMemoryCallback& callback, Process& process, StorageTraceSet& traces, Storage& storage, bool /*ignored*/) override;
+    MCID RegisterClient(IMemoryCallback& callback, Process& process, StorageTraceSet& traces, const StorageTraceSet& storages, bool /*ignored*/) override;
     void UnregisterClient(MCID id) override;
     using VirtualMemory::Read;
     using VirtualMemory::Write;

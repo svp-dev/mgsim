@@ -11,7 +11,7 @@ using namespace std;
 namespace Simulator
 {
 
-MCID ZLCOMA::RegisterClient(IMemoryCallback& callback, Process& process, StorageTraceSet& traces, Storage& storage, bool grouped)
+MCID ZLCOMA::RegisterClient(IMemoryCallback& callback, Process& process, StorageTraceSet& traces, const StorageTraceSet& storages, bool grouped)
 {
     MCID id = m_clientMap.size();
     m_clientMap.resize(id + 1);
@@ -52,7 +52,7 @@ MCID ZLCOMA::RegisterClient(IMemoryCallback& callback, Process& process, Storage
 
     Cache *cache = m_caches[cache_id];
 
-    MCID id_in_cache = cache->RegisterClient(callback, process, traces, storage);
+    MCID id_in_cache = cache->RegisterClient(callback, process, traces, storages);
 
     m_clientMap[id] = make_pair(cache, id_in_cache);
 
