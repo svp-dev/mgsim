@@ -19,7 +19,25 @@ RUNTEST_SH = \
 	$(srcdir)/programs/config.ini \
 	`test -f programs/nobounds.ini || echo '$(srcdir)/'`programs/nobounds.ini
 
-MEMORIES = serial parallel banked randombanked coma ddr randomddr zlcoma
+MEMORIES = 
+if ENABLE_MEM_SERIAL
+MEMORIES += serial
+endif
+if ENABLE_MEM_PARALLEL
+MEMORIES += parallel
+endif
+if ENABLE_MEM_BANKED
+MEMORIES += banked randombanked
+endif
+if ENABLE_MEM_COMA
+MEMORIES += coma
+endif
+if ENABLE_MEM_DDR
+MEMORIES += ddr randomddr
+endif
+if ENABLE_MEM_ZLCOMA
+MEMORIES += zlcoma
+endif
 PSIZES = 1 2 4 16
 TEST_LIST = $(foreach P,$(PSIZES),$(foreach M,$(MEMORIES),$(foreach T,$(TEST_BINS),$(T).$(M).$(P).test)))
 

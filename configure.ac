@@ -173,6 +173,24 @@ AC_LANG_POP([C++])
 
 ## Feature checks
 
+memory_list=""
+m4_define([ENABLE_MEMORY], [dnl
+AC_ARG_ENABLE([mem_$1], 
+              [AC_HELP_STRING([--disable-mem-$1], [disable support for the $2 memory type (default enable)])],
+              [], [enable_mem_$1=yes])
+if test "x$enable_mem_$1" = "xyes"; then
+  memory_list="$memory_list $1"
+  AC_DEFINE([ENABLE_MEM_$2], [1],[Define to enable the $1 memory model])
+fi
+AM_CONDITIONAL([ENABLE_MEM_$2], [test "x$enable_mem_$1" = "xyes"])
+])
+ENABLE_MEMORY([serial], [SERIAL])
+ENABLE_MEMORY([banked], [BANKED])
+ENABLE_MEMORY([parallel], [PARALLEL])
+ENABLE_MEMORY([ddr], [DDR])
+ENABLE_MEMORY([coma], [COMA])
+ENABLE_MEMORY([zlcoma], [ZLCOMA])
+
 AC_ARG_ENABLE([trace-checks],
               [AC_HELP_STRING([--disable-trace-checks],
                               [disable checking of the allowed storage traces upon failed trace checks])],
@@ -339,6 +357,7 @@ cat <<EOF
 * Configuration done.
 *
 * ISA target:             $target_cpu
+* Memory models:          $memory_list
 *
 * CACTI area computation: $enable_cacti 
 * SDL output:             $enable_sdl

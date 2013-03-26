@@ -1,11 +1,23 @@
 #include "MGSystem.h"
 
+#ifdef ENABLE_MEM_SERIAL
 #include <arch/mem/SerialMemory.h>
+#endif
+#ifdef ENABLE_MEM_PARALLEL
 #include <arch/mem/ParallelMemory.h>
+#endif
+#ifdef ENABLE_MEM_BANKED
 #include <arch/mem/BankedMemory.h>
+#endif
+#ifdef ENABLE_MEM_DDR
 #include <arch/mem/DDRMemory.h>
+#endif
+#ifdef ENABLE_MEM_COMA
 #include <arch/mem/coma/COMA.h>
+#endif
+#ifdef ENABLE_MEM_ZLCOMA
 #include <arch/mem/zlcoma/COMA.h>
+#endif
 
 #include <arch/dev/NullIO.h>
 #include <arch/dev/LCD.h>
@@ -634,34 +646,55 @@ MGSystem::MGSystem(Config& config, bool quiet)
 
     IMemoryAdmin *memadmin;
 
+#ifdef ENABLE_MEM_SERIAL
     if (memory_type == "SERIAL") {
         SerialMemory* memory = new SerialMemory("memory", m_root, memclock, config);
         memadmin = memory; m_memory = memory;
-    } else if (memory_type == "PARALLEL") {
+    } else 
+#endif
+#ifdef ENABLE_MEM_PARALLEL
+    if (memory_type == "PARALLEL") {
         ParallelMemory* memory = new ParallelMemory("memory", m_root, memclock, config);
         memadmin = memory; m_memory = memory;
-    } else if (memory_type == "BANKED") {
+    } else 
+#endif
+#ifdef ENABLE_MEM_BANKED
+    if (memory_type == "BANKED") {
         BankedMemory* memory = new BankedMemory("memory", m_root, memclock, config, "DIRECT");
         memadmin = memory; m_memory = memory;
-    } else if (memory_type == "RANDOMBANKED") {
+    } else 
+    if (memory_type == "RANDOMBANKED") {
         BankedMemory* memory = new BankedMemory("memory", m_root, memclock, config, "RMIX");
         memadmin = memory; m_memory = memory;
-    } else if (memory_type == "DDR") {
+    } else 
+#endif
+#ifdef ENABLE_MEM_DDR
+    if (memory_type == "DDR") {
         DDRMemory* memory = new DDRMemory("memory", m_root, memclock, config, "DIRECT");
         memadmin = memory; m_memory = memory;
-    } else if (memory_type == "RANDOMDDR") {
+    } else 
+    if (memory_type == "RANDOMDDR") {
         DDRMemory* memory = new DDRMemory("memory", m_root, memclock, config, "RMIX");
         memadmin = memory; m_memory = memory;
-    } else if (memory_type == "COMA") {
+    } else 
+#endif
+#ifdef ENABLE_MEM_COMA
+    if (memory_type == "COMA") {
         COMA* memory = new TwoLevelCOMA("memory", m_root, memclock, config);
         memadmin = memory; m_memory = memory;
-    } else if (memory_type == "ZLCOMA") {
-        ZLCOMA* memory = new ZLCOMA("memory", m_root, memclock, config);
-        memadmin = memory; m_memory = memory;
-    } else if (memory_type == "FLATCOMA") {
+    } else 
+    if (memory_type == "FLATCOMA") {
         COMA* memory = new OneLevelCOMA("memory", m_root, memclock, config);
         memadmin = memory; m_memory = memory;
-    } else {
+    } else 
+#endif
+#ifdef ENABLE_MEM_ZLCOMA
+    if (memory_type == "ZLCOMA") {
+        ZLCOMA* memory = new ZLCOMA("memory", m_root, memclock, config);
+        memadmin = memory; m_memory = memory;
+    } else 
+#endif
+    {
         throw runtime_error("Unknown memory type: " + memory_type);
     }
     if (!quiet)

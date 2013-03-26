@@ -1,7 +1,10 @@
 #include <arch/MGSystem.h>
 
 #ifdef ENABLE_CACTI
+
+#ifdef ENABLE_MEM_COMA
 #include <arch/mem/coma/COMA.h>
+#endif
 
 #include <sim/log2.h>
 #include <cacti/cacti_interface.h>
@@ -436,6 +439,7 @@ static org_t get_structure_info(std::ostream& os, const config& config, const st
     return info;
 }
 
+#ifdef ENABLE_MEM_COMA
 static void DumpStatsCOMA(std::ostream& os, const Simulator::COMA& coma)
 {
     size_t numCaches      = coma.GetNumCaches();
@@ -507,6 +511,7 @@ static org_t DumpAreaCOMA(std::ostream& os, const config& config, const Simulato
     }
     return total;
 }
+#endif
 
 void Simulator::MGSystem::DumpArea(std::ostream& os, size_t tech) const
 {
@@ -547,9 +552,6 @@ void Simulator::MGSystem::DumpArea(std::ostream& os, size_t tech) const
     cfg.bits_unsigned    = BITS_VREG; /* # outstanding reads */
     cfg.bits_BlockSize   = BITS_VREG; /* from RAUnit.cpp */
 
-    // We only dump information for the memory if it is COMA
-    Simulator::COMA* coma = dynamic_cast<Simulator::COMA*>(m_memory);
-
     // Dump processor structures
     static const structure_desc* structures[] = {
         &int_register_file,
@@ -561,10 +563,15 @@ void Simulator::MGSystem::DumpArea(std::ostream& os, size_t tech) const
     os << "Technology size: " << tech << " nm" << std::endl
        << "Processors: " << cfg.numProcessors << std::endl
        << "FPUs: " << cfg.numFPUs << std::endl;
+
+#ifdef ENABLE_MEM_COMA
+    // We only dump information for the memory if it is COMA
+    Simulator::COMA* coma = dynamic_cast<Simulator::COMA*>(m_memory);
     if (coma != NULL)
     {
         DumpStatsCOMA(os, *coma);
     }
+#endif
 
     os << std::endl
        << "Structure\tField\tArea (mm^2)\tAccess time (ns)" << std::endl;
@@ -641,12 +648,14 @@ void Simulator::MGSystem::DumpArea(std::ostream& os, size_t tech) const
     grid.merge(coreinfo);
     grid.merge(fpu);
 
+#ifdef ENABLE_MEM_COMA
     // Dump memory, if we can
     if (coma != NULL)
     {
         org_t mem = DumpAreaCOMA(os, cfg, *coma);
         grid.merge(mem);
     }
+#endif
 
     os << "microgrid\t(total,max)\t" << grid.area*1e-6 << "\t" << grid.access_time*1e9 << std::endl;
 }
