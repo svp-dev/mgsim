@@ -1,7 +1,7 @@
-DDR_SRC = \
+MEMORY_SRC = \
         arch/mem/DDR.cpp \
         arch/mem/DDR.h
-MEMORY_SRC = 
+
 if ENABLE_MEM_BANKED
 MEMORY_SRC += \
 	arch/mem/BankedMemory.cpp \
@@ -19,7 +19,6 @@ MEMORY_SRC += \
 endif
 if ENABLE_MEM_DDR
 MEMORY_SRC += \
-        $(DDR_SRC) \
         arch/mem/DDRMemory.cpp \
         arch/mem/DDRMemory.h
 endif
@@ -128,7 +127,6 @@ COMMON_SRC = \
 
 if ENABLE_MEM_ZLCOMA
 MEMORY_SRC += \
-        $(DDR_SRC) \
 	arch/mem/zlcoma/COMA.h \
 	arch/mem/zlcoma/COMA.cpp \
 	arch/mem/zlcoma/Cache.h \
@@ -143,7 +141,6 @@ endif
 
 if ENABLE_MEM_COMA
 MEMORY_SRC += \
-        $(DDR_SRC) \
 	arch/mem/coma/COMA.h \
 	arch/mem/coma/COMA.cpp \
 	arch/mem/coma/Cache.h \
@@ -161,5 +158,5 @@ EXTRA_DIST += \
 	arch/proc/ISA.mtalpha.cpp \
 	arch/proc/ISA.mtsparc.cpp
 
-ARCH_SOURCES = $(COMMON_SRC) $(PROCESSOR_SRC) $(MEMORY_SRC) $(DEVICE_SRC) $(ZLCOMA_SRC) $(MLCOMA_SRC)
+ARCH_SOURCES = $(COMMON_SRC) $(PROCESSOR_SRC) $(MEMORY_SRC) $(DEVICE_SRC)
 
