@@ -825,7 +825,7 @@ bool Processor::Allocator::OnDCachelineLoaded(char* data)
     assert(!m_bundle.Empty());
     COMMIT {
         m_bundleState = BUNDLE_LINE_LOADED;
-        memcpy(m_bundleData, data, sizeof(m_bundleData));
+        std::copy(data, data + sizeof(m_bundleData), m_bundleData);
     }
     return true;
 }

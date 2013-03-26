@@ -45,6 +45,12 @@ private:
         CID       cid;
     };
 
+    struct WritebackRequest
+    {
+        char      data[MAX_MEMORY_OPERATION_SIZE];
+        RegAddr   waiting;
+    };
+
     struct WriteResponse
     {
         WClientID wid;
@@ -59,6 +65,8 @@ private:
         unsigned int size;   ///< Number of registers remaining to write
         unsigned int offset; ///< Current offset in the multi-register operand
         LFID         fid;    ///< FID of the thread's that's waiting on the register
+
+        WritebackState() : value(0), addr(INVALID_REG), next(INVALID_REG), size(0), offset(0), fid(0) {}
     };
 
     Result FindLine(MemAddr address, Line* &line, bool check_only);
@@ -76,6 +84,7 @@ private:
     IBankSelector*       m_selector;        ///< Mapping of cache line addresses to tags and set indices.
     Buffer<ReadResponse>  m_read_responses; ///< Incoming buffer for read responses from memory bus.
     Buffer<WriteResponse> m_write_responses;///< Incoming buffer for write acknowledgements from memory bus.
+    Buffer<WritebackRequest> m_writebacks; ///< Incoming buffer for register writebacks after load.
     Buffer<Request>      m_outgoing;        ///< Outgoing buffer to memory bus.
     WritebackState       m_wbstate;         ///< Writeback state
 
@@ -101,6 +110,7 @@ private:
     uint64_t             m_numSnoops;
 
 
+    Result DoReadWritebacks();
     Result DoReadResponses();
     Result DoWriteResponses();
     Result DoOutgoingRequests();
@@ -112,6 +122,7 @@ public:
     ~DCache();
 
     // Processes
+    Process p_ReadWritebacks;
     Process p_ReadResponses;
     Process p_WriteResponses;
     Process p_Outgoing;

@@ -137,7 +137,7 @@ void Processor::Initialize(Processor* prev, Processor* next)
 
     m_allocator.p_readyThreads.AddProcess(m_network.p_Link);                // Thread wakeup due to write
     m_allocator.p_readyThreads.AddProcess(m_network.p_DelegationIn);        // Thread wakeup due to write
-    m_allocator.p_readyThreads.AddProcess(m_dcache.p_ReadResponses);        // Thread wakeup due to load completion
+    m_allocator.p_readyThreads.AddProcess(m_dcache.p_ReadWritebacks);        // Thread wakeup due to load completion
     m_allocator.p_readyThreads.AddProcess(m_dcache.p_WriteResponses);       // Thread wakeup due to write completion
     m_allocator.p_readyThreads.AddProcess(m_fpu.p_Pipeline);                // Thread wakeup due to FP completion
     m_allocator.p_readyThreads.AddProcess(m_allocator.p_ThreadAllocate);    // Thread creation
@@ -155,7 +155,7 @@ void Processor::Initialize(Processor* prev, Processor* next)
 
     m_registerFile.p_asyncW.AddProcess(m_network.p_Link);                   // Place register receives
     m_registerFile.p_asyncW.AddProcess(m_network.p_DelegationIn);           // Remote register receives
-    m_registerFile.p_asyncW.AddProcess(m_dcache.p_ReadResponses);           // Mem Load writebacks
+    m_registerFile.p_asyncW.AddProcess(m_dcache.p_ReadWritebacks);          // Mem Load writebacks
 
     m_registerFile.p_asyncW.AddProcess(m_fpu.p_Pipeline);                   // FPU Op writebacks
     m_registerFile.p_asyncW.AddProcess(m_allocator.p_FamilyCreate);         // Family creation
@@ -174,14 +174,14 @@ void Processor::Initialize(Processor* prev, Processor* next)
 
     m_network.m_link.out.AddProcess(m_network.p_Link);                      // Forwarding link messages
     m_network.m_link.out.AddProcess(m_network.p_DelegationIn);              // Delegation message forwards onto link
-    m_network.m_link.out.AddProcess(m_dcache.p_ReadResponses);              // Completed read causes sync
+    m_network.m_link.out.AddProcess(m_dcache.p_ReadWritebacks);             // Completed read causes sync
     m_network.m_link.out.AddProcess(m_allocator.p_FamilyAllocate);          // Allocate process sending place-wide allocate
     m_network.m_link.out.AddProcess(m_allocator.p_FamilyCreate);            // Create process sends place-wide create
     m_network.m_link.out.AddProcess(m_allocator.p_ThreadAllocate);          // Thread cleanup causes sync
 
     m_network.m_delegateIn.AddProcess(m_network.p_Link);                    // Link messages causes remote
 
-    m_network.m_delegateIn.AddProcess(m_dcache.p_ReadResponses);            // Read completion causes sync
+    m_network.m_delegateIn.AddProcess(m_dcache.p_ReadWritebacks);           // Read completion causes sync
 
     m_network.m_delegateIn.AddProcess(m_allocator.p_ThreadAllocate);        // Allocate process completes family sync
     m_network.m_delegateIn.AddProcess(m_allocator.p_FamilyAllocate);        // Allocate process returning FID
@@ -200,7 +200,7 @@ void Processor::Initialize(Processor* prev, Processor* next)
     m_network.m_delegateOut.AddProcess(m_network.p_DelegationIn);     // Returning registers
     m_network.m_delegateOut.AddProcess(m_network.p_Link);             // Place sync causes final sync
 
-    m_network.m_delegateOut.AddProcess(m_dcache.p_ReadResponses);     // Read completion causes sync
+    m_network.m_delegateOut.AddProcess(m_dcache.p_ReadWritebacks);    // Read completion causes sync
 
     m_network.m_delegateOut.AddProcess(m_network.p_AllocResponse);    // Allocate response writing back to parent
     m_network.m_delegateOut.AddProcess(m_allocator.p_FamilyAllocate); // Allocation process sends FID
@@ -256,7 +256,9 @@ void Processor::Initialize(Processor* prev, Processor* next)
     m_dcache.p_WriteResponses.SetStorageTraces(
         /* Writes */    opt(m_allocator.m_readyThreads2) ^ opt(m_allocator.m_cleanup) );
 
-    m_dcache.p_ReadResponses.SetStorageTraces(
+    m_dcache.p_ReadResponses.SetStorageTraces(opt(m_dcache.m_writebacks));
+
+    m_dcache.p_ReadWritebacks.SetStorageTraces(
         /* Thread wakeup */ opt(m_allocator.m_readyThreads2) *
         /* Family sync */   opt(m_network.m_link.out ^ m_network.m_syncs) );
 
