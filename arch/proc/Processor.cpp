@@ -292,7 +292,8 @@ void Processor::Initialize(Processor* prev, Processor* next)
     }
 
     StorageTraceSet pls_execute =
-        m_fpu.GetSourceTrace(m_pipeline.GetFPUSource());
+        m_fpu.GetSourceTrace(m_pipeline.GetFPUSource()) ^
+        m_allocator.m_bundle;
 
     m_pipeline.p_Pipeline.SetStorageTraces(
         /* Writeback */ opt(pls_writeback) *
