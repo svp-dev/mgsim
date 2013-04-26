@@ -158,7 +158,8 @@ Result DDRChannel::DoRequest()
         if (!m_pipeline.Push(m_request))
         {
             // The read pipeline should be big enough
-            UNREACHABLE;
+            DeadlockWrite("DDR read pipeline full");
+            return FAILED;
         }
     }
 
