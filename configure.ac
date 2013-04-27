@@ -87,7 +87,7 @@ fi
 AC_DEFINE_UNQUOTED([UNIQUE_PTR], [$mg_cv_uniqueptr], [Define to unique_ptr if available, otherwise auto_ptr])
 
 AC_MSG_CHECKING([for the number of bits in a char])
-AC_COMPUTE_INT([char_size], [CHAR_BIT], [#include <limits.h>], [char_size=unknown])
+AC_COMPUTE_INT([char_size], [CHAR_BIT], [@%:@include <limits.h>], [char_size=unknown])
 AC_MSG_RESULT([$char_size])
 if test x$char_size != x8; then
   AC_MSG_ERROR([This program requires CHAR_BIT == 8, found $char_size.])
@@ -123,21 +123,21 @@ if test x$ac_cv_member_struct_rusage_ru_maxrss = xyes; then
 fi
 
 AC_MSG_CHECKING([for dirfd])
-AC_TRY_LINK([#include <dirent.h>],
+AC_TRY_LINK([@%:@include <dirent.h>],
             [DIR *p; int d = dirfd(p);],
             [AC_MSG_RESULT([yes])
              AC_DEFINE([HAVE_DIRFD],[1],[Define to 1 if dirfd(DIR*) is available.])],
             [AC_MSG_RESULT([no])])
-AC_CHECK_MEMBERS([DIR.d_fd],[],[],[#include <dirent.h>])
+AC_CHECK_MEMBERS([DIR.d_fd],[],[],[@%:@include <dirent.h>])
 
-AC_CHECK_MEMBERS([struct dirent.d_ino],[],[],[#include <dirent.h>])
-AC_CHECK_MEMBERS([struct dirent.d_type],[],[],[#include <dirent.h>])
-AC_CHECK_MEMBERS([struct stat.st_blocks],[],[],[#include <sys/stat.h>])
-AC_CHECK_MEMBERS([struct stat.st_blksize],[],[],[#include <sys/stat.h>])
-AC_CHECK_MEMBERS([struct stat.st_atimespec],[],[],[#include <sys/stat.h>])
-AC_CHECK_MEMBERS([struct stat.st_mtimespec],[],[],[#include <sys/stat.h>])
-AC_CHECK_MEMBERS([struct stat.st_ctimespec],[],[],[#include <sys/stat.h>])
-AC_CHECK_MEMBERS([struct tm.tm_gmtoff],[],[],[#include <sys/time.h>])
+AC_CHECK_MEMBERS([struct dirent.d_ino],[],[],[@%:@include <dirent.h>])
+AC_CHECK_MEMBERS([struct dirent.d_type],[],[],[@%:@include <dirent.h>])
+AC_CHECK_MEMBERS([struct stat.st_blocks],[],[],[@%:@include <sys/stat.h>])
+AC_CHECK_MEMBERS([struct stat.st_blksize],[],[],[@%:@include <sys/stat.h>])
+AC_CHECK_MEMBERS([struct stat.st_atimespec],[],[],[@%:@include <sys/stat.h>])
+AC_CHECK_MEMBERS([struct stat.st_mtimespec],[],[],[@%:@include <sys/stat.h>])
+AC_CHECK_MEMBERS([struct stat.st_ctimespec],[],[],[@%:@include <sys/stat.h>])
+AC_CHECK_MEMBERS([struct tm.tm_gmtoff],[],[],[@%:@include <sys/time.h>])
 
 AC_SEARCH_LIBS([nanosleep], [rt])
 AC_CHECK_FUNCS([nanosleep usleep])
