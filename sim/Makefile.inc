@@ -19,6 +19,8 @@ SIM_SOURCES = \
 	sim/range.h \
         sim/readfile.h \
         sim/readfile.cpp \
+        sim/rusage.h \
+        sim/rusage.cpp \
 	sim/sampling.h \
 	sim/sampling.cpp \
 	sim/storage.h \

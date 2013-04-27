@@ -94,7 +94,33 @@ if test x$char_size != x8; then
 fi
 
 # non-standard POSIX functions
-AC_CHECK_FUNCS([getdtablesize fsync fdopendir])
+AC_CHECK_FUNCS([getdtablesize fsync fdopendir getrusage])
+AC_CHECK_MEMBERS([struct rusage.ru_maxrss],[],[],[@%:@include <sys/resource.h>])
+
+if test x$ac_cv_member_struct_rusage_ru_maxrss = xyes; then
+   # Linux/BSD use kilobytes; OS X uses bytes. Need to detect.
+   # If using bytes, we assume that a process that does nothing
+   # else but request 1MB from malloc() should not weigh
+   # more than 1GB of resident size.
+   AC_MSG_CHECKING([which unit rusage.ru_maxrss uses])
+   AC_RUN_IFELSE(
+      [AC_LANG_PROGRAM([@%:@include <sys/resource.h>
+                        @%:@include <stdlib.h>
+                        @%:@include <string.h>],
+                       [struct rusage ru;
+                        char *c = (char*)malloc(1024*1024);
+                        memset(c, 42, 1024*1024);
+                        getrusage(RUSAGE_SELF, &ru);
+                        if (ru.ru_maxrss >= 1024*1024ll)
+                           return 1;
+                        return 0;
+                        ])],
+      [maxrssunit=kbytes], [maxrssunit=bytes], [maxrssunit=unknown])
+    AC_MSG_RESULT([$maxrssunit])
+    AC_DEFINE_UNQUOTED([RUSAGE_MAX_RSS_DIVIDER],
+                       [`if test $maxrssunit = bytes; then echo 1024; else echo 1; fi`],
+                       [Define to the value by which to divide rusage.ru_maxrss to obtain kilobytes])
+fi
 
 AC_MSG_CHECKING([for dirfd])
 AC_TRY_LINK([#include <dirent.h>],
