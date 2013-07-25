@@ -1,13 +1,13 @@
-# 
+#
 # MGSim, the Microgrids simulator.
-# 
+#
 # Copyright (C) 2008,2009,2010,2011 Universiteit van Amsterdam..
 # All rights reserved.
-# 
+#
 
 AC_PREREQ([2.61])
-AC_INIT([mgsim], 
-        m4_esyscmd([build-aux/git-version-gen build-aux/tarball-version s/mgsim-/v/ mgsim]), 
+AC_INIT([mgsim],
+        m4_esyscmd([build-aux/git-version-gen build-aux/tarball-version s/mgsim-/v/ mgsim]),
         [microgrids@svp-home.org])
 AC_CONFIG_AUX_DIR([build-aux])
 AC_CONFIG_HEADERS([sys_config.h])
@@ -60,8 +60,8 @@ AC_CACHE_CHECK([for __builtin_unreachable],
                [mg_cv_unreachable],
                [
                   mg_cv_unreachable=no
-                  AC_COMPILE_IFELSE([AC_LANG_PROGRAM([], 
-                                                     [__builtin_unreachable();])], 
+                  AC_COMPILE_IFELSE([AC_LANG_PROGRAM([],
+                                                     [__builtin_unreachable();])],
                                     [mg_cv_unreachable=yes])
                ])
 if test x$mg_cv_unreachable = xyes; then
@@ -72,12 +72,12 @@ AC_CACHE_CHECK([which template to use for unique pointers],
                [mg_cv_uniqueptr],
                [
                   mg_cv_uniqueptr=none
-                  AC_COMPILE_IFELSE([AC_LANG_PROGRAM([@%:@include <memory>], 
-                                                     [std::unique_ptr<int> x; x.reset(0); return 0;])], 
+                  AC_COMPILE_IFELSE([AC_LANG_PROGRAM([@%:@include <memory>],
+                                                     [std::unique_ptr<int> x; x.reset(0); return 0;])],
                                     [mg_cv_uniqueptr=unique_ptr])
                   if test x$mg_cv_uniqueptr = xnone; then
-                    AC_COMPILE_IFELSE([AC_LANG_PROGRAM([@%:@include <memory>], 
-                                                       [std::auto_ptr<int> x; x.reset(0); return 0;])], 
+                    AC_COMPILE_IFELSE([AC_LANG_PROGRAM([@%:@include <memory>],
+                                                       [std::auto_ptr<int> x; x.reset(0); return 0;])],
                                       [mg_cv_uniqueptr=auto_ptr])
                   fi
                ])
@@ -202,7 +202,7 @@ AC_MSG_RESULT([$have_dev_ptmx])
 # --enable-assert
 AC_HEADER_ASSERT
 
-# argp 
+# argp
 AC_SEARCH_LIBS([argp_parse], [c argp])
 if test "x$ac_cv_search_argp_parse" = xno; then
    AC_MSG_ERROR([Unable to find argp. Is it installed? If necessary use CPPFLAGS=... LDFLAGS=... to specify its location.])
@@ -223,7 +223,7 @@ fi
 
 # libsdl
 AC_ARG_ENABLE([sdl],
-              [AC_HELP_STRING([--disable-sdl],  
+              [AC_HELP_STRING([--disable-sdl],
                               [disable support for graphics output using SDL (default is try to enable)])],
               [], [enable_sdl=yes])
 if test "x$enable_sdl" = "xyes"; then
@@ -241,7 +241,7 @@ AC_LANG_POP([C++])
 
 memory_list=""
 m4_define([ENABLE_MEMORY], [dnl
-AC_ARG_ENABLE([mem_$1], 
+AC_ARG_ENABLE([mem_$1],
               [AC_HELP_STRING([--disable-mem-$1], [disable support for the $2 memory type (default enable)])],
               [], [enable_mem_$1=yes])
 if test "x$enable_mem_$1" = "xyes"; then
@@ -263,7 +263,7 @@ AC_ARG_ENABLE([trace-checks],
               [], [enable_trace_checks=yes])
 if test "x$enable_trace_checks" = xno; then
   AC_DEFINE([DISABLE_TRACE_CHECKS], [1],
-            [Define if storage trace checks should be disabled])  
+            [Define if storage trace checks should be disabled])
 fi
 
 AC_ARG_ENABLE([verbose-trace-checks],
@@ -285,7 +285,7 @@ if test "x$enable_abort_on_trace_failure" = xyes; then
 fi
 
 AC_ARG_ENABLE([softfpu],
-              [AC_HELP_STRING([--enable-softfpu], 
+              [AC_HELP_STRING([--enable-softfpu],
                               [enable software emulation of IEEE 754 (default is disabled)])],
               [], [enable_softfpu=no])
 if test "x$enable_softfpu" = "xyes"; then
@@ -294,7 +294,7 @@ if test "x$enable_softfpu" = "xyes"; then
 fi
 
 AC_ARG_ENABLE([profile],
-              [AC_HELP_STRING([--enable-profile], 
+              [AC_HELP_STRING([--enable-profile],
                               [enable profiling during execution (default is disabled)])],
               [], [enable_profile=no])
 if test "x$enable_profile" = "xyes"; then
@@ -303,7 +303,7 @@ fi
 
 AX_PTHREAD
 
-AC_ARG_ENABLE([monitor], 
+AC_ARG_ENABLE([monitor],
               [AC_HELP_STRING([--disable-monitor], [disable support for simulation monitoring (default is try to enable)])],
               [], [enable_monitor=yes])
 if test "x$enable_monitor" = "xyes"; then
@@ -314,7 +314,7 @@ if test "x$enable_monitor" = "xyes"; then
 fi
 AM_CONDITIONAL([ENABLE_MONITOR], [test "x$enable_monitor" = "xyes"])
 
-AC_ARG_ENABLE([cacti], 
+AC_ARG_ENABLE([cacti],
               [AC_HELP_STRING([--disable-cacti], [disable support for area calculations with CACTI (default is try to enable)])],
               [], [enable_cacti=yes])
 if test "x$enable_cacti" = "xyes"; then
@@ -339,7 +339,7 @@ m4_define([MGS_TARGET_CHECK],
 [dnl
 AC_ARG_VAR([AS_$2], [Location of the `as' utility configured for the $3 binary format.])
 AC_ARG_VAR([LD_$2], [Location of the `ld' utility configured for the $3 binary format.])
-AC_ARG_VAR([OBJDUMP_$2], 
+AC_ARG_VAR([OBJDUMP_$2],
            [Location of the `objdump' utility configured for the $3 binary format.])
 
 enable_[$1]_tests=no
@@ -360,7 +360,7 @@ if test "x$target_cpu" = "x$1"; then
      enable_[$1]_tests=yes
   fi
 
-  AC_PATH_PROG([OBJDUMP_$2], [$4-objdump], [no], [$prefix/bin$PATH_SEPARATOR$PATH]) 
+  AC_PATH_PROG([OBJDUMP_$2], [$4-objdump], [no], [$prefix/bin$PATH_SEPARATOR$PATH])
   if test "x$OBJDUMP_$2" != xno; then
      AC_DEFINE_UNQUOTED([OBJDUMP_$2], ["$OBJDUMP_$2"],
                         [Define to the location of the `objdump' utility for $3.])
@@ -425,7 +425,7 @@ cat <<EOF
 * ISA target:             $target_cpu
 * Memory models:          $memory_list
 *
-* CACTI area computation: $enable_cacti 
+* CACTI area computation: $enable_cacti
 * SDL output:             $enable_sdl
 * Trace checks:           $enable_trace_checks
 * Verbose trace checks:   $enable_verbose_trace_checks
@@ -454,4 +454,3 @@ Now run:
     cd doc && make pdf
 
 EOF
-

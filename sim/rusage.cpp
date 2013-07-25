@@ -20,7 +20,7 @@ ResourceUsage::ResourceUsage(bool sample, bool set_initial)
 	rusage res;
 
 	if (getrusage(RUSAGE_SELF, &res))
-	    perror("getrusage");
+            perror("getrusage");
 
 	m_utime = res.ru_utime.tv_sec * 1000000ll + res.ru_utime.tv_usec;
 	m_stime = res.ru_stime.tv_sec * 1000000ll + res.ru_stime.tv_usec;
@@ -43,9 +43,9 @@ ResourceUsage::ResourceUsage(bool sample, bool set_initial)
 
 	if (!set_initial)
 	{
-	    m_utime -= initial->m_utime;
-	    m_stime -= initial->m_stime;
-	    m_maxrss -= initial->m_maxrss;
+            m_utime -= initial->m_utime;
+            m_stime -= initial->m_stime;
+            m_maxrss -= initial->m_maxrss;
 	}
 #endif
     }
