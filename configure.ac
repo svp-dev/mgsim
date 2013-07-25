@@ -98,15 +98,54 @@ AC_CHECK_FUNCS([getdtablesize fsync fdopendir getrusage])
 AC_CHECK_MEMBERS([struct rusage.ru_maxrss],[],[],[@%:@include <sys/resource.h>])
 
 if test x$ac_cv_member_struct_rusage_ru_maxrss = xyes; then
-   # Linux/BSD use kilobytes; OS X uses bytes. Need to detect.
-   # If using bytes, we assume that a process that does nothing
-   # else but request 1MB from malloc() should not weigh
-   # more than 1GB of resident size.
-   AC_MSG_CHECKING([which unit rusage.ru_maxrss uses])
+   # the field exists, but is it populated? At least some versions
+   # of Linux (2.x?) do not populate maxrss, which stays zero. Check this.
+   maxrss_useful=maybe
+   AC_MSG_CHECKING([whether rusage.ru_maxrss contains useful values])
    AC_RUN_IFELSE(
-      [AC_LANG_PROGRAM([@%:@include <sys/resource.h>
-                        @%:@include <stdlib.h>
-                        @%:@include <string.h>],
+     [AC_LANG_PROGRAM([@%:@include <sys/resource.h>],
+                      [struct rusage ru;
+                       getrusage(RUSAGE_SELF, &ru);
+                       if (ru.ru_maxrss == 0)
+                          return 1;
+                       return 0;
+                       ])],
+                       [maxrss_useful=yes], [maxrss_useful=no],
+                       [maxrss_useful=maybe])
+   AC_MSG_RESULT([$maxrss_useful])
+
+   if test $maxrss_useful = no; then
+      AC_DEFINE([RUSAGE_MAX_RSS_EMPTY], [1], [Define to 1 if rusage.ru_maxrss stays 0, eg on Linux 2.x])
+      # no maxrss from getrusage, but maybe from /proc? check this
+      AC_MSG_CHECKING([whether /proc/self/statm can be used])
+      AC_RUN_IFELSE(
+        [AC_LANG_PROGRAM([@%:@include <fcntl.h>
+                          @%:@include <unistd.h>],
+                         [int fd; char buf@<:@64@:>@ = {0};
+                          if (-1 == (fd = open("/proc/self/statm", O_RDONLY)))
+                             return 1;
+                          if (-1 == read(fd, buf, 63))
+                             return 1;
+                          return 0;
+                          ])],
+                          [proc_statm_useful=yes], [proc_statm_useful=no],
+                          [proc_statm_useful=maybe])
+       AC_MSG_RESULT([$proc_statm_useful])
+       if test $proc_statm_useful = yes; then
+          AC_DEFINE([HAVE_PROC_STATM], [1], [Define to 1 if /proc/self/statm should be used for memory statistics])
+       fi
+
+   else
+     # gerusage populates maxrss, but what is its unit?
+     # Linux/BSD use kilobytes; OS X uses bytes. Need to detect.
+     # If using bytes, we assume that a process that does nothing
+     # else but request 1MB from malloc() should not weigh
+     # more than 1GB of resident size.
+     AC_MSG_CHECKING([which unit rusage.ru_maxrss uses])
+     AC_RUN_IFELSE(
+         [AC_LANG_PROGRAM([@%:@include <sys/resource.h>
+                           @%:@include <stdlib.h>
+                           @%:@include <string.h>],
                        [struct rusage ru;
                         char *c = (char*)malloc(1024*1024);
                         memset(c, 42, 1024*1024);
@@ -116,10 +155,11 @@ if test x$ac_cv_member_struct_rusage_ru_maxrss = xyes; then
                         return 0;
                         ])],
       [maxrssunit=kbytes], [maxrssunit=bytes], [maxrssunit=unknown])
-    AC_MSG_RESULT([$maxrssunit])
-    AC_DEFINE_UNQUOTED([RUSAGE_MAX_RSS_DIVIDER],
-                       [`if test $maxrssunit = bytes; then echo 1024; else echo 1; fi`],
-                       [Define to the value by which to divide rusage.ru_maxrss to obtain kilobytes])
+     AC_MSG_RESULT([$maxrssunit])
+     AC_DEFINE_UNQUOTED([RUSAGE_MAX_RSS_DIVIDER],
+                        [`if test $maxrssunit = bytes; then echo 1024; else echo 1; fi`],
+                        [Define to the value by which to divide rusage.ru_maxrss to obtain kilobytes])
+   fi
 fi
 
 AC_MSG_CHECKING([for dirfd])
