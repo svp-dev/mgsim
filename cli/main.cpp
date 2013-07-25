@@ -8,6 +8,7 @@
 #include <sim/config.h>
 #include <sim/configparser.h>
 #include <sim/readfile.h>
+#include <sim/rusage.h>
 
 #ifdef ENABLE_MONITOR
 # include <sim/monitor.h>
@@ -278,6 +279,20 @@ void AtEnd(const MGSystem& sys, const ProgramConfig& cfg)
     PrintFinalVariables(cfg);
 }
 
+static
+void MemoryExhausted()
+{
+    ResourceUsage ru(true);
+
+    cerr << "MGSim: cannot allocate memory for C++ object (std::bad_alloc)." << endl
+         << dec
+         << "### error statistics" << endl
+         << ru.GetUserTime() << "\t# total real time in user mode (us)" << endl
+         << ru.GetSystemTime() << "\t# total real time in system mode (us)" << endl
+         << ru.GetMaxResidentSize() << "\t# maximum resident set size (Kibytes)" << endl
+         << "### end error statistics" << endl;
+    std::abort();
+}
 
 #ifdef USE_SDL
 extern "C"
@@ -285,6 +300,8 @@ extern "C"
 int main(int argc, char** argv)
 {
     srand(time(NULL));
+
+    std::set_new_handler(MemoryExhausted);
 
     ProgramConfig flags;
     UNIQUE_PTR<Config> config;
