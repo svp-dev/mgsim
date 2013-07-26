@@ -85,7 +85,7 @@ extern "C"
 {
 const char *argp_program_version =
     "mgsim " PACKAGE_VERSION "\n"
-    "Copyright (C) 2008,2009,2010,2011,2012,3023 the MGSim project.\n"
+    "Copyright (C) 2008,2009,2010,2011,2012,2013 the MGSim project.\n"
     "\n"
     "Written by Mike Lankamp. Maintained by the MGSim project.";
 
