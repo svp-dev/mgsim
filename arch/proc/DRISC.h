@@ -17,7 +17,7 @@ class FPU;
 
 const std::vector<std::string>& GetDefaultLocalRegisterAliases(RegType type);
 
-class Processor : public Object
+class DRISC : public Object
 {
 public:
     class Allocator;
@@ -39,12 +39,12 @@ public:
 #include "ActionInterface.h"
 #include "AncillaryRegisterFile.h"
 
-    Processor(const std::string& name, Object& parent, Clock& clock, PID pid, const std::vector<Processor*>& grid, IMemory& memory, IMemoryAdmin& admin, FPU& fpu, IIOBus *iobus, Config& config);
-    Processor(const Processor&) = delete;
-    Processor& operator=(const Processor&) = delete;
-    ~Processor();
+    DRISC(const std::string& name, Object& parent, Clock& clock, PID pid, const std::vector<DRISC*>& grid, IMemory& memory, IMemoryAdmin& admin, FPU& fpu, IIOBus *iobus, Config& config);
+    DRISC(const DRISC&) = delete;
+    DRISC& operator=(const DRISC&) = delete;
+    ~DRISC();
 
-    void Initialize(Processor* prev, Processor* next);
+    void Initialize(DRISC* prev, DRISC* next);
     void Boot(MemAddr runAddress, bool legacy, PSize placeSize, SInteger startIndex);
 
     PID   GetPID()      const { return m_pid; }
@@ -109,7 +109,7 @@ public:
 private:
     IMemory&                       m_memory;
     IMemoryAdmin&                  m_memadmin;
-    const std::vector<Processor*>& m_grid;
+    const std::vector<DRISC*>& m_grid;
     FPU&                           m_fpu;
     SymbolTable*                   m_symtable;
     PID                            m_pid;
@@ -117,7 +117,7 @@ private:
     // Bit counts for packing and unpacking configuration-dependent values
     struct
     {
-        unsigned int pid_bits;  ///< Number of bits for a PID (Processor ID)
+        unsigned int pid_bits;  ///< Number of bits for a PID (DRISC ID)
         unsigned int fid_bits;  ///< Number of bits for a LFID (Local Family ID)
         unsigned int tid_bits;  ///< Number of bits for a TID (Thread ID)
     } m_bits;

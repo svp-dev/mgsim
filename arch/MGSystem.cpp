@@ -52,7 +52,7 @@ using namespace std;
 uint64_t MGSystem::GetOp() const
 {
     uint64_t op = 0;
-    for (Processor* p : m_procs)
+    for (DRISC* p : m_procs)
         op += p->GetPipeline().GetOp();
     return op;
 }
@@ -60,7 +60,7 @@ uint64_t MGSystem::GetOp() const
 uint64_t MGSystem::GetFlop() const
 {
     uint64_t flop = 0;
-    for (Processor* p : m_procs)
+    for (DRISC* p : m_procs)
         flop += p->GetPipeline().GetFlop();
     return flop;
 }
@@ -251,8 +251,8 @@ void MGSystem::PrintCoreStats(ostream& os) const {
 
     // Collect the data
     for (i = 0; i < P; ++i) {
-        Processor &p = *m_procs[i];
-        const Processor::Pipeline& pl = p.GetPipeline();
+        DRISC &p = *m_procs[i];
+        const DRISC::Pipeline& pl = p.GetPipeline();
 
         j = 0;
         types[j] = I; c[i][j++].i = pl.GetOp();
@@ -483,7 +483,7 @@ void MGSystem::PrintState(const vector<string>& /*unused*/) const
         }
     }
 
-    for (Processor* p : m_procs)
+    for (DRISC* p : m_procs)
         if (!p->IsIdle())
             cout << p->GetFQN() << ": non-empty" << endl;
 }
@@ -515,7 +515,7 @@ void MGSystem::Step(CycleNo nCycles)
         // An idle state might actually be deadlock if there's a
         // suspended thread.  So check all cores to see if they're
         // really done.
-        for (Processor* p : m_procs)
+        for (DRISC* p : m_procs)
             if (!p->IsIdle())
             {
                 state = STATE_DEADLOCK;
@@ -578,7 +578,7 @@ void MGSystem::Step(CycleNo nCycles)
         ss << "Suspended registers:" << endl;
 
         unsigned int num_regs = 0;
-        for (Processor* p : m_procs)
+        for (DRISC* p : m_procs)
         {
             unsigned suspended = p->GetNumSuspendedRegisters();
             if (suspended > 0)
@@ -776,7 +776,7 @@ MGSystem::MGSystem(Config& config, bool quiet)
             size_t busid = config.getValue<size_t>(m_root, name, "BusID");
             if (busid >= m_iobuses.size())
             {
-                throw runtime_error("Processor " + name + " set to connect to non-existent bus");
+                throw runtime_error("DRISC " + name + " set to connect to non-existent bus");
             }
 
             m_procbusmapping[i] = busid;
@@ -788,7 +788,7 @@ MGSystem::MGSystem(Config& config, bool quiet)
             }
         }
 
-        m_procs[i]   = new Processor(name, m_root, m_clock, i, m_procs, *m_memory, *memadmin, fpu, iobus, config);
+        m_procs[i]   = new DRISC(name, m_root, m_clock, i, m_procs, *m_memory, *memadmin, fpu, iobus, config);
     }
     if (!quiet)
     {
@@ -893,8 +893,8 @@ MGSystem::MGSystem(Config& config, bool quiet)
     // Connect processors in the link
     for (size_t i = 0; i < numProcessors; ++i)
     {
-        Processor* prev = (i == 0)                 ? NULL : m_procs[i - 1];
-        Processor* next = (i == numProcessors - 1) ? NULL : m_procs[i + 1];
+        DRISC* prev = (i == 0)                 ? NULL : m_procs[i - 1];
+        DRISC* next = (i == numProcessors - 1) ? NULL : m_procs[i + 1];
         m_procs[i]->Initialize(prev, next);
         if (next)
             config.registerRelation(*m_procs[i], *next, "link", true);

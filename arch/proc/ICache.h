@@ -2,12 +2,12 @@
 #define ICACHE_H
 
 #ifndef PROCESSOR_H
-#error This file should be included in Processor.h
+#error This file should be included in DRISC.h
 #endif
 
 class ICache : public Object, public IMemoryCallback, public Inspect::Interface<Inspect::Read>
 {
-    friend class Processor;
+    friend class DRISC;
 
     enum LineState
     {
@@ -36,7 +36,7 @@ class ICache : public Object, public IMemoryCallback, public Inspect::Interface<
     Result DoOutgoing();
     Result DoIncoming();
 
-    Processor&        m_parent;
+    DRISC&        m_parent;
     Allocator&        m_allocator;
     IMemory&          m_memory;
     IBankSelector*    m_selector;
@@ -60,7 +60,7 @@ class ICache : public Object, public IMemoryCallback, public Inspect::Interface<
     uint64_t             m_numStallingMisses;
 
 public:
-    ICache(const std::string& name, Processor& parent, Clock& clock, Allocator& allocator, IMemory& memory, Config& config);
+    ICache(const std::string& name, DRISC& parent, Clock& clock, Allocator& allocator, IMemory& memory, Config& config);
     ICache(const ICache&) = delete;
     ICache& operator=(const ICache&) = delete;
     ~ICache();

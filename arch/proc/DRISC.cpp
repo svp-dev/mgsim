@@ -1,4 +1,4 @@
-#include "Processor.h"
+#include "DRISC.h"
 #include <arch/FPU.h>
 #include <sim/sampling.h>
 #include <sim/log2.h>
@@ -13,9 +13,9 @@ namespace Simulator
 {
 
 //
-// Processor implementation
+// DRISC implementation
 //
-Processor::Processor(const std::string& name, Object& parent, Clock& clock, PID pid, const vector<Processor*>& grid, IMemory& memory, IMemoryAdmin& admin, FPU& fpu, IIOBus *iobus, Config& config)
+DRISC::DRISC(const std::string& name, Object& parent, Clock& clock, PID pid, const vector<DRISC*>& grid, IMemory& memory, IMemoryAdmin& admin, FPU& fpu, IIOBus *iobus, Config& config)
 :   Object(name, parent, clock),
     m_memory(memory),
     m_memadmin(admin),
@@ -88,12 +88,12 @@ Processor::Processor(const std::string& name, Object& parent, Clock& clock, PID 
     }
 }
 
-Processor::~Processor()
+DRISC::~DRISC()
 {
     delete m_io_if;
 }
 
-void Processor::Initialize(Processor* prev, Processor* next)
+void DRISC::Initialize(DRISC* prev, DRISC* next)
 {
     m_network.Initialize(prev != NULL ? &prev->m_network : NULL, next != NULL ? &next->m_network : NULL);
 
@@ -356,22 +356,22 @@ void Processor::Initialize(Processor* prev, Processor* next)
     }
 }
 
-MemAddr Processor::GetDeviceBaseAddress(IODeviceID dev) const
+MemAddr DRISC::GetDeviceBaseAddress(IODeviceID dev) const
 {
     return (m_io_if != NULL) ? m_io_if->GetDeviceBaseAddress(dev) : 0;
 }
 
-void Processor::Boot(MemAddr runAddress, bool legacy, PSize placeSize, SInteger startIndex)
+void DRISC::Boot(MemAddr runAddress, bool legacy, PSize placeSize, SInteger startIndex)
 {
     m_allocator.AllocateInitialFamily(runAddress, legacy, placeSize, startIndex);
 }
 
-bool Processor::IsIdle() const
+bool DRISC::IsIdle() const
 {
     return m_threadTable.IsEmpty() && m_familyTable.IsEmpty() && m_icache.IsEmpty();
 }
 
-unsigned int Processor::GetNumSuspendedRegisters() const
+unsigned int DRISC::GetNumSuspendedRegisters() const
 {
     unsigned int num = 0;
     for (size_t i = 0; i < NUM_PHY_REG_TYPES; ++i)
@@ -389,26 +389,26 @@ unsigned int Processor::GetNumSuspendedRegisters() const
     return num;
 }
 
-void Processor::MapMemory(MemAddr address, MemSize size, ProcessID pid)
+void DRISC::MapMemory(MemAddr address, MemSize size, ProcessID pid)
 {
     m_memadmin.Reserve(address, size, pid,
                        IMemory::PERM_READ | IMemory::PERM_WRITE |
                        IMemory::PERM_DCA_READ | IMemory::PERM_DCA_WRITE);
 }
 
-void Processor::UnmapMemory(MemAddr address, MemSize size)
+void DRISC::UnmapMemory(MemAddr address, MemSize size)
 {
     // TODO: possibly check the size matches the reserved size
     m_memadmin.Unreserve(address, size);
 }
 
-void Processor::UnmapMemory(ProcessID pid)
+void DRISC::UnmapMemory(ProcessID pid)
 {
     // TODO: possibly check the size matches the reserved size
     m_memadmin.UnreserveAll(pid);
 }
 
-bool Processor::CheckPermissions(MemAddr address, MemSize size, int access) const
+bool DRISC::CheckPermissions(MemAddr address, MemSize size, int access) const
 {
     bool mp = m_memadmin.CheckPermissions(address, size, access);
     if (!mp && (access & IMemory::PERM_READ) && (address & (1ULL << (sizeof(MemAddr) * 8 - 1))))
@@ -431,7 +431,7 @@ bool Processor::CheckPermissions(MemAddr address, MemSize size, int access) cons
 //
 // Below are the various functions that construct configuration-dependent values
 //
-MemAddr Processor::GetTLSAddress(LFID /* fid */, TID tid) const
+MemAddr DRISC::GetTLSAddress(LFID /* fid */, TID tid) const
 {
     // 1 bit for TLS/GS
     // P bits for CPU
@@ -447,7 +447,7 @@ MemAddr Processor::GetTLSAddress(LFID /* fid */, TID tid) const
            (static_cast<MemAddr>(tid)   << Ts);
 }
 
-MemSize Processor::GetTLSSize() const
+MemSize DRISC::GetTLSSize() const
 {
     assert(sizeof(MemAddr) * 8 > m_bits.pid_bits + m_bits.tid_bits + 1);
 
@@ -465,13 +465,13 @@ static Integer GenerateCapability(unsigned int bits)
     return capability & ((1ULL << bits) - 1);
 }
 
-FCapability Processor::GenerateFamilyCapability() const
+FCapability DRISC::GenerateFamilyCapability() const
 {
     assert(sizeof(Integer) * 8 > m_bits.pid_bits + m_bits.fid_bits);
     return GenerateCapability(sizeof(Integer) * 8 - m_bits.pid_bits - m_bits.fid_bits);
 }
 
-Integer Processor::PackPlace(const PlaceID& place) const
+Integer DRISC::PackPlace(const PlaceID& place) const
 {
     assert(IsPowerOfTwo(place.size));
     assert(place.pid % place.size == 0);
@@ -479,7 +479,7 @@ Integer Processor::PackPlace(const PlaceID& place) const
     return place.capability << (m_bits.pid_bits + 1) | (place.pid << 1) | place.size;
 }
 
-PlaceID Processor::UnpackPlace(Integer id) const
+PlaceID DRISC::UnpackPlace(Integer id) const
 {
     // Unpack the place value: <Capability:N, PID*2|Size:P+1>
     PlaceID place;
@@ -502,7 +502,7 @@ PlaceID Processor::UnpackPlace(Integer id) const
     return place;
 }
 
-FID Processor::UnpackFID(Integer id) const
+FID DRISC::UnpackFID(Integer id) const
 {
     // Unpack the FID: <Capability:N, LFID:F, PID:P>
     FID fid;
@@ -512,7 +512,7 @@ FID Processor::UnpackFID(Integer id) const
     return fid;
 }
 
-Integer Processor::PackFID(const FID& fid) const
+Integer DRISC::PackFID(const FID& fid) const
 {
     // Construct the FID: <Capability:N, LFID:F, PID:P>
     return (fid.capability << (m_bits.pid_bits + m_bits.fid_bits)) | (fid.lfid << m_bits.pid_bits) | fid.pid;

@@ -7,7 +7,7 @@
   data. Afterwards, we may still need to read parts from the Register
   File.
 */
-#include "Processor.h"
+#include "DRISC.h"
 #include <arch/symtable.h>
 
 #include <cassert>
@@ -21,7 +21,7 @@ namespace Simulator
 
 // Convert a RegValue into a PipeValue
 /*static*/
-Processor::Pipeline::PipeValue Processor::Pipeline::ReadStage::RegToPipeValue(RegType type, const RegValue& src_value)
+DRISC::Pipeline::PipeValue DRISC::Pipeline::ReadStage::RegToPipeValue(RegType type, const RegValue& src_value)
 {
     PipeValue dest_value;
     dest_value.m_state = src_value.m_state;
@@ -61,7 +61,7 @@ Processor::Pipeline::PipeValue Processor::Pipeline::ReadStage::RegToPipeValue(Re
  * @param[in,out] operand persistent information about the reading of the operand for multi-cycle reads
  * @return true if the operation succeeded. This does not have to indicate the entire register has been read.
  */
-bool Processor::Pipeline::ReadStage::ReadRegister(OperandInfo& operand, uint32_t literal)
+bool DRISC::Pipeline::ReadStage::ReadRegister(OperandInfo& operand, uint32_t literal)
 {
     if (operand.offset == -2)
     {
@@ -121,7 +121,7 @@ bool Processor::Pipeline::ReadStage::ReadRegister(OperandInfo& operand, uint32_t
     return true;
 }
 
-bool Processor::Pipeline::ReadStage::ReadBypasses(OperandInfo& operand)
+bool DRISC::Pipeline::ReadStage::ReadBypasses(OperandInfo& operand)
 {
     // We don't perform this function in the ACQUIRE phase because
     // we don't have to acquire any ports, but it can still 'fail' in
@@ -273,7 +273,7 @@ bool Processor::Pipeline::ReadStage::ReadBypasses(OperandInfo& operand)
  @param [in]  operand The operand to check
  @param [in]  addr    The base address of the operand
  */
-bool Processor::Pipeline::ReadStage::CheckOperandForSuspension(const OperandInfo& operand)
+bool DRISC::Pipeline::ReadStage::CheckOperandForSuspension(const OperandInfo& operand)
 {
     if (operand.value.m_state != RST_FULL)
     {
@@ -295,7 +295,7 @@ bool Processor::Pipeline::ReadStage::CheckOperandForSuspension(const OperandInfo
     return false;
 }
 
-Processor::Pipeline::PipeAction Processor::Pipeline::ReadStage::OnCycle()
+DRISC::Pipeline::PipeAction DRISC::Pipeline::ReadStage::OnCycle()
 {
     OperandInfo operand1( m_operand1 );
     OperandInfo operand2( m_operand2 );
@@ -480,7 +480,7 @@ Processor::Pipeline::PipeAction Processor::Pipeline::ReadStage::OnCycle()
     return PIPE_CONTINUE;
 }
 
-void Processor::Pipeline::ReadStage::Clear(TID tid)
+void DRISC::Pipeline::ReadStage::Clear(TID tid)
 {
     if (m_input.tid == tid)
     {
@@ -489,7 +489,7 @@ void Processor::Pipeline::ReadStage::Clear(TID tid)
     }
 }
 
-Processor::Pipeline::ReadStage::ReadStage(Pipeline& parent, Clock& clock, const DecodeReadLatch& input, ReadExecuteLatch& output, RegisterFile& regFile,
+DRISC::Pipeline::ReadStage::ReadStage(Pipeline& parent, Clock& clock, const DecodeReadLatch& input, ReadExecuteLatch& output, RegisterFile& regFile,
     const vector<BypassInfo>& bypasses,
     Config& /*config*/
   )

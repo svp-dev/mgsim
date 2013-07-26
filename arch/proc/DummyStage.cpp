@@ -1,9 +1,9 @@
-#include "Processor.h"
+#include "DRISC.h"
 
 namespace Simulator
 {
 
-Processor::Pipeline::PipeAction Processor::Pipeline::DummyStage::OnCycle()
+DRISC::Pipeline::PipeAction DRISC::Pipeline::DummyStage::OnCycle()
 {
     COMMIT
     {
@@ -16,7 +16,7 @@ Processor::Pipeline::PipeAction Processor::Pipeline::DummyStage::OnCycle()
     return PIPE_CONTINUE;
 }
 
-Processor::Pipeline::DummyStage::DummyStage(const std::string& name, Pipeline& parent, Clock& clock, const MemoryWritebackLatch& input, MemoryWritebackLatch& output, Config& /*config*/)
+DRISC::Pipeline::DummyStage::DummyStage(const std::string& name, Pipeline& parent, Clock& clock, const MemoryWritebackLatch& input, MemoryWritebackLatch& output, Config& /*config*/)
   : Stage(name, parent, clock),
     m_input(input),
     m_output(output)

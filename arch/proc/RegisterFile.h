@@ -2,7 +2,7 @@
 #define REGISTERFILE_H
 
 #ifndef PROCESSOR_H
-#error This file should be included in Processor.h
+#error This file should be included in DRISC.h
 #endif
 
 /*
@@ -25,7 +25,7 @@ public:
      *                      writes to waiting registers.
      * @param[in] config reference to the configuration data.
      */
-    RegisterFile(const std::string& name, Processor& parent, Clock& clock, Allocator& allocator, Config& config);
+    RegisterFile(const std::string& name, DRISC& parent, Clock& clock, Allocator& allocator, Config& config);
 
     /**
      * Reads a register

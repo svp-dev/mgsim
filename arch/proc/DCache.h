@@ -2,12 +2,12 @@
 #define DCACHE_H
 
 #ifndef PROCESSOR_H
-#error This file should be included in Processor.h
+#error This file should be included in DRISC.h
 #endif
 
 class DCache : public Object, public IMemoryCallback, public Inspect::Interface<Inspect::Read>
 {
-    friend class Processor;
+    friend class DRISC;
 
 public:
     /// The state of a cache-line
@@ -71,7 +71,7 @@ private:
 
     Result FindLine(MemAddr address, Line* &line, bool check_only);
 
-    Processor&           m_parent;          ///< Parent processor.
+    DRISC&           m_parent;          ///< Parent processor.
     Allocator&           m_allocator;       ///< Allocator component.
     FamilyTable&         m_familyTable;     ///< Family table .
     RegisterFile&        m_regFile;         ///< Register File.
@@ -116,7 +116,7 @@ private:
     Result DoOutgoingRequests();
 
 public:
-    DCache(const std::string& name, Processor& parent, Clock& clock, Allocator& allocator, FamilyTable& familyTable, RegisterFile& regFile, IMemory& memory, Config& config);
+    DCache(const std::string& name, DRISC& parent, Clock& clock, Allocator& allocator, FamilyTable& familyTable, RegisterFile& regFile, IMemory& memory, Config& config);
     DCache(const DCache&) = delete;
     DCache& operator=(const DCache&) = delete;
     ~DCache();

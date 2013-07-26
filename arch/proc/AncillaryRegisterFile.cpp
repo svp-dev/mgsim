@@ -1,4 +1,4 @@
-#include "Processor.h"
+#include "DRISC.h"
 #include <sim/config.h>
 
 #include <iomanip>
@@ -7,12 +7,12 @@ using namespace std;
 
 namespace Simulator
 {
-    void Processor::AncillaryRegisterFile::Cmd_Info(std::ostream& out, const std::vector<std::string>& /*arguments*/) const
+    void DRISC::AncillaryRegisterFile::Cmd_Info(std::ostream& out, const std::vector<std::string>& /*arguments*/) const
     {
         out << "The ancillary registers hold information common to all threads on a processor.\n";
     }
 
-    void Processor::AncillaryRegisterFile::Cmd_Read(std::ostream& out, const std::vector<std::string>& /*arguments*/) const
+    void DRISC::AncillaryRegisterFile::Cmd_Read(std::ostream& out, const std::vector<std::string>& /*arguments*/) const
     {
         out << " Register | Value" << endl
             << "----------+----------------------" << endl;
@@ -28,12 +28,12 @@ namespace Simulator
         }
     }
 
-    size_t Processor::AncillaryRegisterFile::GetSize() const
+    size_t DRISC::AncillaryRegisterFile::GetSize() const
     {
         return m_numRegisters * sizeof(Integer);
     }
 
-    Integer Processor::AncillaryRegisterFile::ReadRegister(ARAddr addr) const
+    Integer DRISC::AncillaryRegisterFile::ReadRegister(ARAddr addr) const
     {
         if (addr >= m_numRegisters)
         {
@@ -42,7 +42,7 @@ namespace Simulator
         return m_registers[addr];
     }
 
-    void Processor::AncillaryRegisterFile::WriteRegister(ARAddr addr, Integer data)
+    void DRISC::AncillaryRegisterFile::WriteRegister(ARAddr addr, Integer data)
     {
         if (addr >= m_numRegisters)
         {
@@ -51,7 +51,7 @@ namespace Simulator
         m_registers[addr] = data;
     }
 
-    Result Processor::AncillaryRegisterFile::Read (MemAddr addr, void* data, MemSize size, LFID /*fid*/, TID /*tid*/, const RegAddr& /*writeback*/)
+    Result DRISC::AncillaryRegisterFile::Read (MemAddr addr, void* data, MemSize size, LFID /*fid*/, TID /*tid*/, const RegAddr& /*writeback*/)
     {
         if (addr % sizeof(Integer) != 0 || (size != sizeof(Integer)) || (addr > m_numRegisters * sizeof(Integer)))
             throw exceptf<InvalidArgumentException>(*this, "Invalid read from ancillary register: %#016llx (%u)", (unsigned long long)addr, (unsigned)size);
@@ -64,7 +64,7 @@ namespace Simulator
         return SUCCESS;
     }
 
-    Result Processor::AncillaryRegisterFile::Write(MemAddr addr, const void *data, MemSize size, LFID /*fid*/, TID /*tid*/)
+    Result DRISC::AncillaryRegisterFile::Write(MemAddr addr, const void *data, MemSize size, LFID /*fid*/, TID /*tid*/)
     {
         if (addr % sizeof(Integer) != 0 || (size != sizeof(Integer)) || (addr > m_numRegisters * sizeof(Integer)))
             throw exceptf<InvalidArgumentException>(*this, "Invalid write to ancillary register: %#016llx (%u)", (unsigned long long)addr, (unsigned)size);
@@ -77,7 +77,7 @@ namespace Simulator
         return SUCCESS;
     }
 
-    Processor::AncillaryRegisterFile::AncillaryRegisterFile(const std::string& name, Object& parent, Config& config)
+    DRISC::AncillaryRegisterFile::AncillaryRegisterFile(const std::string& name, Object& parent, Config& config)
         : MMIOComponent(name, parent, parent.GetClock()),
           m_numRegisters(name == "aprs" ? config.getValue<size_t>(*this, "NumAncillaryRegisters") : NUM_ASRS),
           m_registers()

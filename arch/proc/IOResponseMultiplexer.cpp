@@ -1,4 +1,4 @@
-#include "Processor.h"
+#include "DRISC.h"
 #include <sim/config.h>
 
 #include <sstream>
@@ -6,14 +6,14 @@
 namespace Simulator
 {
 
-Processor::IOResponseMultiplexer::IOResponseMultiplexer(const std::string& name, Object& parent, Clock& clock, RegisterFile& rf, Allocator& alloc, size_t numDevices, Config& config)
+DRISC::IOResponseMultiplexer::IOResponseMultiplexer(const std::string& name, Object& parent, Clock& clock, RegisterFile& rf, Allocator& alloc, size_t numDevices, Config& config)
     : Object(name, parent, clock),
       m_regFile(rf),
       m_allocator(alloc),
       m_incoming("b_incoming", *this, clock, config.getValue<BufferSize>(*this, "IncomingQueueSize")),
       m_wb_buffers(),
-      p_dummy(*this, "dummy-process", delegate::create<IOResponseMultiplexer, &Processor::IOResponseMultiplexer::DoNothing>(*this)),
-      p_IncomingReadResponses(*this, "completed-reads", delegate::create<IOResponseMultiplexer, &Processor::IOResponseMultiplexer::DoReceivedReadResponses>(*this))
+      p_dummy(*this, "dummy-process", delegate::create<IOResponseMultiplexer, &DRISC::IOResponseMultiplexer::DoNothing>(*this)),
+      p_IncomingReadResponses(*this, "completed-reads", delegate::create<IOResponseMultiplexer, &DRISC::IOResponseMultiplexer::DoReceivedReadResponses>(*this))
 {
     m_incoming.Sensitive(p_IncomingReadResponses);
 
@@ -34,7 +34,7 @@ Processor::IOResponseMultiplexer::IOResponseMultiplexer(const std::string& name,
 
 }
 
-Processor::IOResponseMultiplexer::~IOResponseMultiplexer()
+DRISC::IOResponseMultiplexer::~IOResponseMultiplexer()
 {
     for (size_t i = 0; i < m_wb_buffers.size(); ++i)
     {
@@ -42,14 +42,14 @@ Processor::IOResponseMultiplexer::~IOResponseMultiplexer()
     }
 }
 
-bool Processor::IOResponseMultiplexer::QueueWriteBackAddress(IODeviceID dev, const RegAddr& addr)
+bool DRISC::IOResponseMultiplexer::QueueWriteBackAddress(IODeviceID dev, const RegAddr& addr)
 {
     assert(dev < m_wb_buffers.size());
 
     return m_wb_buffers[dev]->Push(addr);
 }
 
-bool Processor::IOResponseMultiplexer::OnReadResponseReceived(IODeviceID from, MemAddr /*address*/, const IOData& data)
+bool DRISC::IOResponseMultiplexer::OnReadResponseReceived(IODeviceID from, MemAddr /*address*/, const IOData& data)
 {
     assert(from < m_wb_buffers.size());
 
@@ -59,7 +59,7 @@ bool Processor::IOResponseMultiplexer::OnReadResponseReceived(IODeviceID from, M
     return m_incoming.Push(response);
 }
 
-Result Processor::IOResponseMultiplexer::DoReceivedReadResponses()
+Result DRISC::IOResponseMultiplexer::DoReceivedReadResponses()
 {
     assert(!m_incoming.Empty());
 
@@ -145,7 +145,7 @@ Result Processor::IOResponseMultiplexer::DoReceivedReadResponses()
     return SUCCESS;
 }
 
-StorageTraceSet Processor::IOResponseMultiplexer::GetWriteBackTraces() const
+StorageTraceSet DRISC::IOResponseMultiplexer::GetWriteBackTraces() const
 {
     StorageTraceSet res;
     for (std::vector<WriteBackQueue*>::const_iterator p = m_wb_buffers.begin(); p != m_wb_buffers.end(); ++p)

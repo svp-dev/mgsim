@@ -1,7 +1,7 @@
 #ifndef MGSYSTEM_H
 #define MGSYSTEM_H
 
-#include <arch/proc/Processor.h>
+#include <arch/proc/DRISC.h>
 #include <arch/FPU.h>
 #include <arch/symtable.h>
 #include <arch/IOBus.h>
@@ -23,7 +23,7 @@ namespace Simulator {
         Kernel                      m_kernel;
         Clock&                      m_clock;    ///< Master clock for the system
         Object                      m_root;     ///< Root object for the system
-        std::vector<Processor*>     m_procs;
+        std::vector<DRISC*>     m_procs;
         std::vector<FPU*>           m_fpus;
         std::vector<IIOBus*>        m_iobuses;
         std::vector<Object*>        m_devices;

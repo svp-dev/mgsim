@@ -2,7 +2,7 @@
 #define IOBUSINTERFACE_H
 
 #ifndef PROCESSOR_H
-#error This file should be included in Processor.h
+#error This file should be included in DRISC.h
 #endif
 
 class IOResponseMultiplexer;
@@ -41,7 +41,7 @@ public:
     Buffer<IORequest>          m_outgoing_reqs;
 
 public:
-    Processor& GetProcessor() const { return dynamic_cast<Processor&>(*GetParent()->GetParent()); }
+    DRISC& GetDRISC() const { return dynamic_cast<DRISC&>(*GetParent()->GetParent()); }
 
     IOBusInterface(const std::string& name, IOInterface& parent, Clock& clock, IOResponseMultiplexer& rrmux, IONotificationMultiplexer& nmux, IODirectCacheAccess& dca, IIOBus& iobus, IODeviceID devid, Config& config);
 

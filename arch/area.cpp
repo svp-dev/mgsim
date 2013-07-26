@@ -37,7 +37,7 @@ struct config
     size_t bits_PID;
     size_t bits_BlockSize;
 
-    size_t numProcessors;
+    size_t numDRISCs;
     size_t numFPUs;
     size_t numThreads;
     size_t numFamilies;
@@ -520,7 +520,7 @@ void Simulator::MGSystem::DumpArea(std::ostream& os, size_t tech) const
 
     config cfg;
 
-    cfg.numProcessors   = m_procs[0]->GetGridSize();
+    cfg.numDRISCs   = m_procs[0]->GetGridSize();
     cfg.numFPUs         = m_fpus.size();
     cfg.numThreads      = m_procs[0]->GetThreadTableSize();
     cfg.numFamilies     = m_procs[0]->GetFamilyTableSize();
@@ -529,7 +529,7 @@ void Simulator::MGSystem::DumpArea(std::ostream& os, size_t tech) const
 
     cfg.tech             = tech;
     cfg.bits_PID         =
-    cfg.bits_PSize       = ilog2(cfg.numProcessors);
+    cfg.bits_PSize       = ilog2(cfg.numDRISCs);
     cfg.bits_TID         =
     cfg.bits_TSize       = ilog2(cfg.numThreads);
     cfg.bits_RegsNo      = NUM_REG_TYPES * BITS_VREG;
@@ -561,7 +561,7 @@ void Simulator::MGSystem::DumpArea(std::ostream& os, size_t tech) const
     };
 
     os << "Technology size: " << tech << " nm" << std::endl
-       << "Processors: " << cfg.numProcessors << std::endl
+       << "DRISCs: " << cfg.numDRISCs << std::endl
        << "FPUs: " << cfg.numFPUs << std::endl;
 
 #ifdef ENABLE_MEM_CDMA
@@ -587,8 +587,8 @@ void Simulator::MGSystem::DumpArea(std::ostream& os, size_t tech) const
 
     // Dump processor caches
     {
-        const Simulator::Processor::ICache& icache = m_procs[0]->GetICache();
-        const Simulator::Processor::DCache& dcache = m_procs[0]->GetDCache();
+        const Simulator::DRISC::ICache& icache = m_procs[0]->GetICache();
+        const Simulator::DRISC::DCache& dcache = m_procs[0]->GetDCache();
 
         static const tcache_desc l1_icache = {
             "l1_icache",
@@ -641,7 +641,7 @@ void Simulator::MGSystem::DumpArea(std::ostream& os, size_t tech) const
     os << "processor\t(total,max)\t" << coreinfo.area*1e-6 << "\t" << coreinfo.access_time*1e9 << std::endl
        << "fpu\t\t" << fpu.area*1e-6 << "\t" << fpu.access_time*1e9 << std::endl;
 
-    coreinfo.area *= cfg.numProcessors;
+    coreinfo.area *= cfg.numDRISCs;
     fpu.area *= cfg.numFPUs;
 
     org_t grid(0,0,0);

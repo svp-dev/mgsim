@@ -1,4 +1,4 @@
-#include "Processor.h"
+#include "DRISC.h"
 #include <sim/config.h>
 #include <sim/range.h>
 #include <sim/sampling.h>
@@ -11,7 +11,7 @@ using namespace std;
 namespace Simulator
 {
 
-Processor::FamilyTable::FamilyTable(const std::string& name, Processor& parent, Clock& clock, Config& config)
+DRISC::FamilyTable::FamilyTable(const std::string& name, DRISC& parent, Clock& clock, Config& config)
 :   Object(name, parent, clock),
     m_families(config.getValue<size_t>(*this, "NumEntries")),
     m_lastcycle(0), m_totalalloc(0), m_maxalloc(0), m_curalloc(0)
@@ -31,7 +31,7 @@ Processor::FamilyTable::FamilyTable(const std::string& name, Processor& parent, 
     m_free[CONTEXT_NORMAL]    = m_families.size() - 1;
 }
 
-bool Processor::FamilyTable::IsEmpty() const
+bool DRISC::FamilyTable::IsEmpty() const
 {
     FSize free = 0;
     for (int i = 0; i < NUM_CONTEXT_TYPES; ++i)
@@ -41,7 +41,7 @@ bool Processor::FamilyTable::IsEmpty() const
     return free == m_families.size();
 }
 
-void Processor::FamilyTable::UpdateStats()
+void DRISC::FamilyTable::UpdateStats()
 {
     CycleNo cycle = GetKernel()->GetCycleNo();
     CycleNo elapsed = cycle - m_lastcycle;
@@ -54,7 +54,7 @@ void Processor::FamilyTable::UpdateStats()
 }
 
 // Checks that all internal administration is sane
-void Processor::FamilyTable::CheckStateSanity() const
+void DRISC::FamilyTable::CheckStateSanity() const
 {
 #ifndef NDEBUG
     size_t used = 0;
@@ -77,7 +77,7 @@ void Processor::FamilyTable::CheckStateSanity() const
 #endif
 }
 
-LFID Processor::FamilyTable::AllocateFamily(ContextType context)
+LFID DRISC::FamilyTable::AllocateFamily(ContextType context)
 {
     // Check that we're in a sane state
     CheckStateSanity();
@@ -117,7 +117,7 @@ LFID Processor::FamilyTable::AllocateFamily(ContextType context)
     return fid;
 }
 
-FSize Processor::FamilyTable::GetNumFreeFamilies(ContextType type) const
+FSize DRISC::FamilyTable::GetNumFreeFamilies(ContextType type) const
 {
     // Check that we're in a sane state
     assert(m_free[CONTEXT_NORMAL] + m_free[CONTEXT_EXCLUSIVE] <= m_families.size());
@@ -125,7 +125,7 @@ FSize Processor::FamilyTable::GetNumFreeFamilies(ContextType type) const
     return m_free[type];
 }
 
-FSize Processor::FamilyTable::GetNumUsedFamilies(ContextType type) const
+FSize DRISC::FamilyTable::GetNumUsedFamilies(ContextType type) const
 {
     // Check that we're in a sane state
     assert(m_free[CONTEXT_NORMAL] + m_free[CONTEXT_EXCLUSIVE] <= m_families.size());
@@ -135,7 +135,7 @@ FSize Processor::FamilyTable::GetNumUsedFamilies(ContextType type) const
 }
 
 
-void Processor::FamilyTable::FreeFamily(LFID fid, ContextType context)
+void DRISC::FamilyTable::FreeFamily(LFID fid, ContextType context)
 {
     assert(fid != INVALID_LFID);
 
@@ -150,7 +150,7 @@ void Processor::FamilyTable::FreeFamily(LFID fid, ContextType context)
     }
 }
 
-void Processor::FamilyTable::Cmd_Info(ostream& out, const vector<string>& /* arguments */) const
+void DRISC::FamilyTable::Cmd_Info(ostream& out, const vector<string>& /* arguments */) const
 {
     out <<
     "The Family Table is the storage area in a processor that stores all family's\n"
@@ -166,7 +166,7 @@ void Processor::FamilyTable::Cmd_Info(ostream& out, const vector<string>& /* arg
 }
 
 // Read the global and local family table
-void Processor::FamilyTable::Cmd_Read(ostream& out, const vector<string>& arguments) const
+void DRISC::FamilyTable::Cmd_Read(ostream& out, const vector<string>& arguments) const
 {
     static const char* const FamilyStates[] = {
         "", "ALLOCATED", "CREATE QUEUED", "CREATING", "ACTIVE", "TERMINATED"
@@ -186,7 +186,7 @@ void Processor::FamilyTable::Cmd_Read(ostream& out, const vector<string>& argume
         }
     }
 
-    Processor& parent = dynamic_cast<Processor&>(*GetParent());
+    DRISC& parent = dynamic_cast<DRISC&>(*GetParent());
     SymbolTable& symtable = parent.GetSymbolTable();
 
     if (fids.empty())

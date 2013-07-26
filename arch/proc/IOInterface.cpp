@@ -1,4 +1,4 @@
-#include "Processor.h"
+#include "DRISC.h"
 #include <sim/config.h>
 
 #include <sstream>
@@ -9,7 +9,7 @@ using namespace std;
 
 namespace Simulator
 {
-    Processor::IOInterface::IOInterface(const string& name, Processor& parent, Clock& clock, IMemory& memory, RegisterFile& rf, Allocator& alloc, IIOBus& iobus, IODeviceID devid, Config& config)
+    DRISC::IOInterface::IOInterface(const string& name, DRISC& parent, Clock& clock, IMemory& memory, RegisterFile& rf, Allocator& alloc, IIOBus& iobus, IODeviceID devid, Config& config)
         : Object(name, parent, clock),
           m_numDevices(config.getValue<size_t>(*this, "NumDeviceSlots")),
           m_numChannels(config.getValue<size_t>(*this, "NumNotificationChannels")),
@@ -30,7 +30,7 @@ namespace Simulator
         }
     }
 
-    bool Processor::IOInterface::Read(IODeviceID dev, MemAddr address, MemSize size, const RegAddr& writeback)
+    bool DRISC::IOInterface::Read(IODeviceID dev, MemAddr address, MemSize size, const RegAddr& writeback)
     {
         if (!m_rrmux.QueueWriteBackAddress(dev, writeback))
         {
@@ -55,7 +55,7 @@ namespace Simulator
         return true;
     }
 
-    bool Processor::IOInterface::Write(IODeviceID dev, MemAddr address, const IOData& data)
+    bool DRISC::IOInterface::Write(IODeviceID dev, MemAddr address, const IOData& data)
     {
         IOBusInterface::IORequest req;
         req.device = dev;
@@ -73,7 +73,7 @@ namespace Simulator
         return true;
     }
 
-    bool Processor::IOInterface::WaitForNotification(IONotificationChannelID dev, const RegAddr& writeback)
+    bool DRISC::IOInterface::WaitForNotification(IONotificationChannelID dev, const RegAddr& writeback)
     {
         if (!m_nmux.SetWriteBackAddress(dev, writeback))
         {
@@ -84,7 +84,7 @@ namespace Simulator
         return true;
     }
 
-    bool Processor::IOInterface::ConfigureNotificationChannel(IONotificationChannelID dev, Integer mode)
+    bool DRISC::IOInterface::ConfigureNotificationChannel(IONotificationChannelID dev, Integer mode)
     {
         if (!m_nmux.ConfigureChannel(dev, mode))
         {
@@ -95,7 +95,7 @@ namespace Simulator
         return true;
     }
 
-    void Processor::IOInterface::Cmd_Info(ostream& out, const vector<string>& /*args*/) const
+    void DRISC::IOInterface::Cmd_Info(ostream& out, const vector<string>& /*args*/) const
     {
         out << "This I/O interface is composed of the following components:" << endl
             << "- " << m_async_io.GetFQN() << endl
@@ -106,7 +106,7 @@ namespace Simulator
             << "Use 'info' on the individual components for more details." << endl;
     }
 
-    Processor::IOInterface::AsyncIOInterface::AsyncIOInterface(const string& name, Processor::IOInterface& parent, Clock& clock, Config& config)
+    DRISC::IOInterface::AsyncIOInterface::AsyncIOInterface(const string& name, DRISC::IOInterface& parent, Clock& clock, Config& config)
         : MMIOComponent(name, parent, clock),
           m_baseAddr(config.getValue<unsigned>(*this, "MMIO_BaseAddr")),
           m_devAddrBits(config.getValue<unsigned>(*this, "DeviceAddressBits"))
@@ -117,30 +117,30 @@ namespace Simulator
         }
     }
 
-    Processor&
-    Processor::IOInterface::GetProcessor() const
+    DRISC&
+    DRISC::IOInterface::GetDRISC() const
     {
-        return *static_cast<Processor*>(GetParent());
+        return *static_cast<DRISC*>(GetParent());
     }
 
-    Processor::IOInterface&
-    Processor::IOInterface::AsyncIOInterface::GetInterface() const
+    DRISC::IOInterface&
+    DRISC::IOInterface::AsyncIOInterface::GetInterface() const
     {
         return *static_cast<IOInterface*>(GetParent());
     }
 
-    size_t Processor::IOInterface::AsyncIOInterface::GetSize() const
+    size_t DRISC::IOInterface::AsyncIOInterface::GetSize() const
     {
         return GetInterface().m_numDevices << m_devAddrBits;
     }
 
-    MemAddr Processor::IOInterface::AsyncIOInterface::GetDeviceBaseAddress(IODeviceID dev) const
+    MemAddr DRISC::IOInterface::AsyncIOInterface::GetDeviceBaseAddress(IODeviceID dev) const
     {
         assert(dev < GetInterface().m_numDevices);
         return m_baseAddr | (dev << m_devAddrBits);
     }
 
-    Result Processor::IOInterface::AsyncIOInterface::Read(MemAddr address, void* /*data*/, MemSize size, LFID fid, TID tid, const RegAddr& writeback)
+    Result DRISC::IOInterface::AsyncIOInterface::Read(MemAddr address, void* /*data*/, MemSize size, LFID fid, TID tid, const RegAddr& writeback)
     {
         IODeviceID dev = address >> m_devAddrBits;
         IOInterface& iface = GetInterface();
@@ -159,7 +159,7 @@ namespace Simulator
         return DELAYED;
     }
 
-    Result Processor::IOInterface::AsyncIOInterface::Write(MemAddr address, const void* data, MemSize size, LFID fid, TID tid)
+    Result DRISC::IOInterface::AsyncIOInterface::Write(MemAddr address, const void* data, MemSize size, LFID fid, TID tid)
     {
         IODeviceID dev = address >> m_devAddrBits;
         if (dev > GetInterface().m_numDevices)
@@ -181,7 +181,7 @@ namespace Simulator
         return SUCCESS;
     }
 
-    void Processor::IOInterface::AsyncIOInterface::Cmd_Info(ostream& out, const vector<string>& /*args*/) const
+    void DRISC::IOInterface::AsyncIOInterface::Cmd_Info(ostream& out, const vector<string>& /*args*/) const
     {
         out <<
             "The asynchronous I/O interface accepts read and write commands from\n"
@@ -203,24 +203,24 @@ namespace Simulator
 
     }
 
-    Processor::IOInterface::PNCInterface::PNCInterface(const string& name, Processor::IOInterface& parent, Clock& clock, Config& config)
+    DRISC::IOInterface::PNCInterface::PNCInterface(const string& name, DRISC::IOInterface& parent, Clock& clock, Config& config)
         : MMIOComponent(name, parent, clock),
           m_baseAddr(config.getValue<unsigned>(*this, "MMIO_BaseAddr"))
     {
     }
 
-    Processor::IOInterface&
-    Processor::IOInterface::PNCInterface::GetInterface() const
+    DRISC::IOInterface&
+    DRISC::IOInterface::PNCInterface::GetInterface() const
     {
         return *static_cast<IOInterface*>(GetParent());
     }
 
-    size_t Processor::IOInterface::PNCInterface::GetSize() const
+    size_t DRISC::IOInterface::PNCInterface::GetSize() const
     {
         return GetInterface().m_numChannels * sizeof(Integer);
     }
 
-    Result Processor::IOInterface::PNCInterface::Read(MemAddr address, void* /*data*/, MemSize size, LFID fid, TID tid, const RegAddr& writeback)
+    Result DRISC::IOInterface::PNCInterface::Read(MemAddr address, void* /*data*/, MemSize size, LFID fid, TID tid, const RegAddr& writeback)
     {
         if (address % sizeof(Integer) != 0 || size != sizeof(Integer))
         {
@@ -241,7 +241,7 @@ namespace Simulator
     }
 
 
-    void Processor::IOInterface::PNCInterface::Cmd_Info(ostream& out, const vector<string>& /*args*/) const
+    void DRISC::IOInterface::PNCInterface::Cmd_Info(ostream& out, const vector<string>& /*args*/) const
     {
         out <<
             "The PNC interface accepts read commands from the processor and \n"
@@ -261,7 +261,7 @@ namespace Simulator
 
     }
 
-    Result Processor::IOInterface::PNCInterface::Write(MemAddr address, const void* data, MemSize size, LFID fid, TID tid)
+    Result DRISC::IOInterface::PNCInterface::Write(MemAddr address, const void* data, MemSize size, LFID fid, TID tid)
     {
         if (address % sizeof(Integer) != 0 || size != sizeof(Integer))
         {
@@ -283,13 +283,13 @@ namespace Simulator
         return SUCCESS;
     }
 
-    MemAddr Processor::IOInterface::PNCInterface::GetDeviceBaseAddress(IODeviceID dev) const
+    MemAddr DRISC::IOInterface::PNCInterface::GetDeviceBaseAddress(IODeviceID dev) const
     {
         assert(dev < GetInterface().m_numChannels);
         return m_baseAddr | (dev * sizeof(Integer));
     }
 
-    void Processor::IOInterface::Initialize(IODeviceID smcid)
+    void DRISC::IOInterface::Initialize(IODeviceID smcid)
     {
         // set up the core ASR to indicate the I/O parameters.
         // ASR_IO_PARAMS1 has 32 bits:
@@ -310,10 +310,10 @@ namespace Simulator
             m_numChannels << 8 |
             smcid << 16 |
             devid << 24;
-        GetProcessor().WriteASR(ASR_IO_PARAMS1, value);
+        GetDRISC().WriteASR(ASR_IO_PARAMS1, value);
         value = m_async_io.GetDeviceAddressBits();
-        GetProcessor().WriteASR(ASR_IO_PARAMS2, value);
-        GetProcessor().WriteASR(ASR_AIO_BASE, m_async_io.GetDeviceBaseAddress(0));
-        GetProcessor().WriteASR(ASR_PNC_BASE, m_pnc.GetDeviceBaseAddress(0));
+        GetDRISC().WriteASR(ASR_IO_PARAMS2, value);
+        GetDRISC().WriteASR(ASR_AIO_BASE, m_async_io.GetDeviceBaseAddress(0));
+        GetDRISC().WriteASR(ASR_PNC_BASE, m_pnc.GetDeviceBaseAddress(0));
     }
 }

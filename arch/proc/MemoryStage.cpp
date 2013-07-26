@@ -1,4 +1,4 @@
-#include "Processor.h"
+#include "DRISC.h"
 #include <sim/breakpoints.h>
 #include <sim/sampling.h>
 
@@ -11,7 +11,7 @@ using namespace std;
 namespace Simulator
 {
 
-Processor::Pipeline::PipeAction Processor::Pipeline::MemoryStage::OnCycle()
+DRISC::Pipeline::PipeAction DRISC::Pipeline::MemoryStage::OnCycle()
 {
     PipeValue rcv = m_input.Rcv;
 
@@ -47,7 +47,7 @@ Processor::Pipeline::PipeAction Processor::Pipeline::MemoryStage::OnCycle()
 
                 SerializeRegister(m_input.Rc.type, value, data, (size_t)m_input.size);
 
-                IOMatchUnit& mmio = m_parent.GetProcessor().GetIOMatchUnit();
+                IOMatchUnit& mmio = m_parent.GetDRISC().GetIOMatchUnit();
                 if (mmio.IsRegisteredWriteAddress(m_input.address, m_input.size))
                 {
                     result = mmio.Write(m_input.address, data, m_input.size, m_input.fid, m_input.tid);
@@ -139,7 +139,7 @@ Processor::Pipeline::PipeAction Processor::Pipeline::MemoryStage::OnCycle()
                     char data[MAX_MEMORY_OPERATION_SIZE];
                     RegAddr reg = m_input.Rc;
 
-                    IOMatchUnit& mmio = m_parent.GetProcessor().GetIOMatchUnit();
+                    IOMatchUnit& mmio = m_parent.GetDRISC().GetIOMatchUnit();
                     if (mmio.IsRegisteredReadAddress(m_input.address, m_input.size))
                     {
                         result = mmio.Read(m_input.address, data, m_input.size, m_input.fid, m_input.tid, m_input.Rc);
@@ -292,7 +292,7 @@ Processor::Pipeline::PipeAction Processor::Pipeline::MemoryStage::OnCycle()
     return PIPE_CONTINUE;
 }
 
-Processor::Pipeline::MemoryStage::MemoryStage(Pipeline& parent, Clock& clock, const ExecuteMemoryLatch& input, MemoryWritebackLatch& output, DCache& dcache, Allocator& alloc, Config& /*config*/)
+DRISC::Pipeline::MemoryStage::MemoryStage(Pipeline& parent, Clock& clock, const ExecuteMemoryLatch& input, MemoryWritebackLatch& output, DCache& dcache, Allocator& alloc, Config& /*config*/)
     : Stage("memory", parent, clock),
       m_input(input),
       m_output(output),

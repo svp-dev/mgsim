@@ -37,7 +37,7 @@ StorageTraceSet FPU::CreateStoragePermutation(size_t num_sources, std::vector<bo
     return res;
 }
 
-size_t FPU::RegisterSource(Processor::RegisterFile& regfile, const StorageTraceSet& output)
+size_t FPU::RegisterSource(DRISC::RegisterFile& regfile, const StorageTraceSet& output)
 {
     for (size_t i = 0; i < m_sources.size(); ++i)
     {

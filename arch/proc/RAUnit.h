@@ -2,7 +2,7 @@
 #define RAUNIT_H
 
 #ifndef PROCESSOR_H
-#error This file should be included in Processor.h
+#error This file should be included in DRISC.h
 #endif
 
 class RAUnit : public Object, public Inspect::Interface<Inspect::Read>
@@ -14,7 +14,7 @@ public:
     typedef RegSize  BlockSize;
     typedef RegIndex BlockIndex;
 
-    RAUnit(const std::string& name, Processor& parent, Clock& clock, const RegisterFile& regFile, Config& config);
+    RAUnit(const std::string& name, DRISC& parent, Clock& clock, const RegisterFile& regFile, Config& config);
 
     /**
      * \brief Allocates registers

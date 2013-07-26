@@ -2,7 +2,7 @@
 #define IO_DCA_H
 
 #ifndef PROCESSOR_H
-#error This file should be included in Processor.h
+#error This file should be included in DRISC.h
 #endif
 
 class IODirectCacheAccess : public Object, public IMemoryCallback
@@ -34,7 +34,7 @@ private:
         char        data[MAX_MEMORY_OPERATION_SIZE];
     };
 
-    Processor&           m_cpu;
+    DRISC&           m_cpu;
     IMemory&             m_memory;
     MCID                 m_mcid;
     IOBusInterface&      m_busif;
@@ -55,7 +55,7 @@ private:
     bool                 m_flushing;
 
 public:
-    IODirectCacheAccess(const std::string& name, Object& parent, Clock& clock, Processor& proc, IMemory& memory, IOBusInterface& busif, Config& config);
+    IODirectCacheAccess(const std::string& name, Object& parent, Clock& clock, DRISC& proc, IMemory& memory, IOBusInterface& busif, Config& config);
     ~IODirectCacheAccess();
 
     bool QueueRequest(const Request& req);

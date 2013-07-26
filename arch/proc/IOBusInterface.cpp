@@ -1,11 +1,11 @@
-#include "Processor.h"
+#include "DRISC.h"
 #include <sim/config.h>
 #include <sstream>
 
 namespace Simulator
 {
 
-    Processor::IOBusInterface::IOBusInterface(const std::string& name, IOInterface& parent, Clock& clock, IOResponseMultiplexer& rrmux, IONotificationMultiplexer& nmux, IODirectCacheAccess& dca, IIOBus& iobus, IODeviceID devid, Config& config)
+    DRISC::IOBusInterface::IOBusInterface(const std::string& name, IOInterface& parent, Clock& clock, IOResponseMultiplexer& rrmux, IONotificationMultiplexer& nmux, IODirectCacheAccess& dca, IIOBus& iobus, IODeviceID devid, Config& config)
         : Object(name, parent, clock),
           m_rrmux(rrmux),
           m_nmux(nmux),
@@ -13,7 +13,7 @@ namespace Simulator
           m_iobus(iobus),
           m_hostid(devid),
           m_outgoing_reqs("b_outgoing_reqs", *this, clock, config.getValue<BufferSize>(*this, "OutgoingRequestQueueSize")),
-          p_OutgoingRequests(*this, "outgoing-requests", delegate::create<IOBusInterface, &Processor::IOBusInterface::DoOutgoingRequests>(*this))
+          p_OutgoingRequests(*this, "outgoing-requests", delegate::create<IOBusInterface, &DRISC::IOBusInterface::DoOutgoingRequests>(*this))
     {
         if (m_outgoing_reqs.GetMaxSize() < 3)
         {
@@ -23,7 +23,7 @@ namespace Simulator
         m_outgoing_reqs.Sensitive(p_OutgoingRequests);
     }
 
-    void Processor::IOBusInterface::Initialize()
+    void DRISC::IOBusInterface::Initialize()
     {
         p_OutgoingRequests.SetStorageTraces(
             m_iobus.GetWriteRequestTraces() ^
@@ -31,12 +31,12 @@ namespace Simulator
             m_iobus.GetReadResponseTraces() );
     }
 
-    bool Processor::IOBusInterface::SendRequest(const IORequest& request)
+    bool DRISC::IOBusInterface::SendRequest(const IORequest& request)
     {
         return m_outgoing_reqs.Push(request);
     }
 
-    Result Processor::IOBusInterface::DoOutgoingRequests()
+    Result DRISC::IOBusInterface::DoOutgoingRequests()
     {
         assert(!m_outgoing_reqs.Empty());
 
@@ -74,7 +74,7 @@ namespace Simulator
         return SUCCESS;
     }
 
-    bool Processor::IOBusInterface::OnReadRequestReceived(IODeviceID from, MemAddr address, MemSize size)
+    bool DRISC::IOBusInterface::OnReadRequestReceived(IODeviceID from, MemAddr address, MemSize size)
     {
         IODirectCacheAccess::Request req;
         req.client = from;
@@ -84,12 +84,12 @@ namespace Simulator
         return m_dca.QueueRequest(req);
     }
 
-    StorageTraceSet Processor::IOBusInterface::GetReadRequestTraces() const
+    StorageTraceSet DRISC::IOBusInterface::GetReadRequestTraces() const
     {
         return m_dca.m_requests;
     }
 
-    bool Processor::IOBusInterface::OnWriteRequestReceived(IODeviceID from, MemAddr address, const IOData& data)
+    bool DRISC::IOBusInterface::OnWriteRequestReceived(IODeviceID from, MemAddr address, const IOData& data)
     {
         if (data.size > MAX_MEMORY_OPERATION_SIZE)
         {
@@ -106,27 +106,27 @@ namespace Simulator
         return m_dca.QueueRequest(req);
     }
 
-    StorageTraceSet Processor::IOBusInterface::GetWriteRequestTraces() const
+    StorageTraceSet DRISC::IOBusInterface::GetWriteRequestTraces() const
     {
         return m_dca.m_requests;
     }
 
-    bool Processor::IOBusInterface::OnReadResponseReceived(IODeviceID from, MemAddr address, const IOData& data)
+    bool DRISC::IOBusInterface::OnReadResponseReceived(IODeviceID from, MemAddr address, const IOData& data)
     {
         return m_rrmux.OnReadResponseReceived(from, address, data);
     }
 
-    StorageTraceSet Processor::IOBusInterface::GetReadResponseTraces() const
+    StorageTraceSet DRISC::IOBusInterface::GetReadResponseTraces() const
     {
         return m_rrmux.m_incoming;
     }
 
-    bool Processor::IOBusInterface::OnInterruptRequestReceived(IONotificationChannelID which)
+    bool DRISC::IOBusInterface::OnInterruptRequestReceived(IONotificationChannelID which)
     {
         return m_nmux.OnInterruptRequestReceived(which);
     }
 
-    StorageTraceSet Processor::IOBusInterface::GetInterruptRequestTraces() const
+    StorageTraceSet DRISC::IOBusInterface::GetInterruptRequestTraces() const
     {
         StorageTraceSet res;
         for (std::vector<SingleFlag*>::const_iterator p = m_nmux.m_interrupts.begin(); p != m_nmux.m_interrupts.end(); ++p)
@@ -136,12 +136,12 @@ namespace Simulator
         return res;
     }
 
-    bool Processor::IOBusInterface::OnNotificationReceived(IONotificationChannelID which, Integer tag)
+    bool DRISC::IOBusInterface::OnNotificationReceived(IONotificationChannelID which, Integer tag)
     {
         return m_nmux.OnNotificationReceived(which, tag);
     }
 
-    StorageTraceSet Processor::IOBusInterface::GetNotificationTraces() const
+    StorageTraceSet DRISC::IOBusInterface::GetNotificationTraces() const
     {
         StorageTraceSet res;
         for (std::vector<Buffer<Integer>*>::const_iterator p = m_nmux.m_notifications.begin(); p != m_nmux.m_notifications.end(); ++p)
@@ -151,7 +151,7 @@ namespace Simulator
         return res;
     }
 
-    void Processor::IOBusInterface::GetDeviceIdentity(IODeviceIdentification& id) const
+    void DRISC::IOBusInterface::GetDeviceIdentity(IODeviceIdentification& id) const
     {
         if (!DeviceDatabase::GetDatabase().FindDeviceByName("MGSim", "CPU", id))
         {

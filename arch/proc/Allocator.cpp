@@ -1,4 +1,4 @@
-#include "Processor.h"
+#include "DRISC.h"
 #include <sim/config.h>
 #include <sim/sampling.h>
 #include <arch/symtable.h>
@@ -15,7 +15,7 @@ static const char* const AllocationTypes[] = {
     "Normal", "Exact", "Balanced", "Single"
 };
 
-void Processor::Allocator::UpdateStats()
+void DRISC::Allocator::UpdateStats()
 {
     CycleNo cycle = GetKernel()->GetCycleNo();
     CycleNo elapsed = cycle - m_lastcycle;
@@ -27,7 +27,7 @@ void Processor::Allocator::UpdateStats()
     m_maxallocex = std::max(m_maxallocex, m_curallocex);
 }
 
-RegAddr Processor::Allocator::GetRemoteRegisterAddress(LFID fid, RemoteRegType kind, const RegAddr& addr) const
+RegAddr DRISC::Allocator::GetRemoteRegisterAddress(LFID fid, RemoteRegType kind, const RegAddr& addr) const
 {
     const Family&          family = m_familyTable[fid];
     const Family::RegInfo& regs   = family.regs[addr.type];
@@ -65,7 +65,7 @@ RegAddr Processor::Allocator::GetRemoteRegisterAddress(LFID fid, RemoteRegType k
 }
 
 // Administrative function for getting a register's type and thread mapping
-TID Processor::Allocator::GetRegisterType(LFID fid, RegAddr addr, RegClass* group, size_t *rel) const
+TID DRISC::Allocator::GetRegisterType(LFID fid, RegAddr addr, RegClass* group, size_t *rel) const
 {
     const Family& family = m_familyTable[fid];
     const Family::RegInfo& regs = family.regs[addr.type];
@@ -110,7 +110,7 @@ TID Processor::Allocator::GetRegisterType(LFID fid, RegAddr addr, RegClass* grou
     return INVALID_TID;
 }
 
-bool Processor::Allocator::QueueActiveThreads(const ThreadQueue& threads)
+bool DRISC::Allocator::QueueActiveThreads(const ThreadQueue& threads)
 {
     if (!p_activeThreads.Invoke())
     {
@@ -127,7 +127,7 @@ bool Processor::Allocator::QueueActiveThreads(const ThreadQueue& threads)
     return true;
 }
 
-TID Processor::Allocator::PopActiveThread()
+TID DRISC::Allocator::PopActiveThread()
 {
     TID tid = INVALID_TID;
     if (!m_activeThreads.Empty())
@@ -144,7 +144,7 @@ TID Processor::Allocator::PopActiveThread()
 // There is assumed to be a linked list between the threads.head
 // and threads.tail thread by Thread::nextState.
 //
-bool Processor::Allocator::QueueThreads(ThreadList& list, const ThreadQueue& threads, ThreadState state)
+bool DRISC::Allocator::QueueThreads(ThreadList& list, const ThreadQueue& threads, ThreadState state)
 {
     assert(threads.head != INVALID_TID);
     assert(threads.tail != INVALID_TID);
@@ -176,7 +176,7 @@ bool Processor::Allocator::QueueThreads(ThreadList& list, const ThreadQueue& thr
 // This is called by various components (RegisterFile, Pipeline, ...) to
 // add the threads to the ready queue.
 //
-bool Processor::Allocator::ActivateThreads(const ThreadQueue& threads)
+bool DRISC::Allocator::ActivateThreads(const ThreadQueue& threads)
 {
     ThreadList* list;
     if (dynamic_cast<const Pipeline*>(GetKernel()->GetActiveProcess()->GetObject()) != NULL)
@@ -210,7 +210,7 @@ bool Processor::Allocator::ActivateThreads(const ThreadQueue& threads)
 // cleanup queue should it also be marked for cleanup.
 // Called from the pipeline
 //
-bool Processor::Allocator::KillThread(TID tid)
+bool DRISC::Allocator::KillThread(TID tid)
 {
     Thread& thread = m_threadTable[tid];
     assert(thread.state == TST_RUNNING);
@@ -240,7 +240,7 @@ bool Processor::Allocator::KillThread(TID tid)
 // Reschedules the thread at the specified PC.
 // Called from the pipeline.
 //
-bool Processor::Allocator::RescheduleThread(TID tid, MemAddr pc)
+bool DRISC::Allocator::RescheduleThread(TID tid, MemAddr pc)
 {
     Thread& thread = m_threadTable[tid];
     assert(thread.state == TST_RUNNING);
@@ -276,7 +276,7 @@ bool Processor::Allocator::RescheduleThread(TID tid, MemAddr pc)
 // Suspends the thread at the specific PC.
 // Called from the pipeline.
 //
-bool Processor::Allocator::SuspendThread(TID tid, MemAddr pc)
+bool DRISC::Allocator::SuspendThread(TID tid, MemAddr pc)
 {
     Thread& thread = m_threadTable[tid];
     assert(thread.state == TST_RUNNING);
@@ -300,7 +300,7 @@ bool Processor::Allocator::SuspendThread(TID tid, MemAddr pc)
 // @isNew indicates if this a new thread for the family, or a recycled
 // cleaned up one
 //
-bool Processor::Allocator::AllocateThread(LFID fid, TID tid, bool isNewlyAllocated)
+bool DRISC::Allocator::AllocateThread(LFID fid, TID tid, bool isNewlyAllocated)
 {
     // Work on a copy unless we're committing
     Family tmp_family; Family* family = &tmp_family;
@@ -469,12 +469,12 @@ bool Processor::Allocator::AllocateThread(LFID fid, TID tid, bool isNewlyAllocat
     return true;
 }
 
-bool Processor::Allocator::DecreaseFamilyDependency(LFID fid, FamilyDependency dep)
+bool DRISC::Allocator::DecreaseFamilyDependency(LFID fid, FamilyDependency dep)
 {
     return DecreaseFamilyDependency(fid, m_familyTable[fid], dep);
 }
 
-bool Processor::Allocator::DecreaseFamilyDependency(LFID fid, Family& family, FamilyDependency dep)
+bool DRISC::Allocator::DecreaseFamilyDependency(LFID fid, Family& family, FamilyDependency dep)
 {
     assert(family.state != FST_EMPTY);
 
@@ -584,13 +584,13 @@ bool Processor::Allocator::DecreaseFamilyDependency(LFID fid, Family& family, Fa
     return true;
 }
 
-bool Processor::Allocator::OnMemoryRead(LFID fid)
+bool DRISC::Allocator::OnMemoryRead(LFID fid)
 {
     COMMIT{ m_familyTable[fid].dependencies.numPendingReads++; }
     return true;
 }
 
-bool Processor::Allocator::DecreaseThreadDependency(TID tid, ThreadDependency dep)
+bool DRISC::Allocator::DecreaseThreadDependency(TID tid, ThreadDependency dep)
 {
     // We work on a copy unless we're committing
     Thread::Dependencies tmp_deps;
@@ -639,7 +639,7 @@ bool Processor::Allocator::DecreaseThreadDependency(TID tid, ThreadDependency de
     return true;
 }
 
-bool Processor::Allocator::IncreaseThreadDependency(TID tid, ThreadDependency dep)
+bool DRISC::Allocator::IncreaseThreadDependency(TID tid, ThreadDependency dep)
 {
     COMMIT
     {
@@ -655,7 +655,7 @@ bool Processor::Allocator::IncreaseThreadDependency(TID tid, ThreadDependency de
     return true;
 }
 
-Processor::Family& Processor::Allocator::GetFamilyChecked(LFID fid, FCapability capability) const
+DRISC::Family& DRISC::Allocator::GetFamilyChecked(LFID fid, FCapability capability) const
 {
     if (fid >= m_familyTable.GetFamilies().size())
     {
@@ -680,7 +680,7 @@ Processor::Family& Processor::Allocator::GetFamilyChecked(LFID fid, FCapability 
 }
 
 // Initializes the family entry with default values.
-FCapability Processor::Allocator::InitializeFamily(LFID fid) const
+FCapability DRISC::Allocator::InitializeFamily(LFID fid) const
 {
     // Capability + FID + PID must fit in an integer word
     FCapability capability = m_parent.GenerateFamilyCapability();
@@ -715,14 +715,14 @@ FCapability Processor::Allocator::InitializeFamily(LFID fid) const
     return capability;
 }
 
-bool Processor::Allocator::IsContextAvailable(ContextType type) const
+bool DRISC::Allocator::IsContextAvailable(ContextType type) const
  {
     return m_raunit     .GetNumFreeContexts(type) > 0 &&
            m_threadTable.GetNumFreeThreads(type)  > 0 &&
            m_familyTable.GetNumFreeFamilies(type) > 0;
 }
 
-bool Processor::Allocator::ActivateFamily(LFID fid)
+bool DRISC::Allocator::ActivateFamily(LFID fid)
 {
     if (!p_alloc.Invoke())
     {
@@ -743,7 +743,7 @@ bool Processor::Allocator::ActivateFamily(LFID fid)
     return true;
 }
 
-bool Processor::Allocator::AllocateRegisters(LFID fid, ContextType type)
+bool DRISC::Allocator::AllocateRegisters(LFID fid, ContextType type)
 {
     // Try to allocate registers
     Family& family = m_familyTable[fid];
@@ -810,7 +810,7 @@ bool Processor::Allocator::AllocateRegisters(LFID fid, ContextType type)
     return false;
 }
 
-bool Processor::Allocator::OnICachelineLoaded(CID cid)
+bool DRISC::Allocator::OnICachelineLoaded(CID cid)
 {
     assert(!m_creates.Empty());
     COMMIT{
@@ -820,7 +820,7 @@ bool Processor::Allocator::OnICachelineLoaded(CID cid)
     return true;
 }
 
-bool Processor::Allocator::OnDCachelineLoaded(char* data)
+bool DRISC::Allocator::OnDCachelineLoaded(char* data)
 {
     assert(!m_bundle.Empty());
     COMMIT {
@@ -830,7 +830,7 @@ bool Processor::Allocator::OnDCachelineLoaded(char* data)
     return true;
 }
 
-Result Processor::Allocator::DoThreadAllocate()
+Result DRISC::Allocator::DoThreadAllocate()
 {
     //
     // Cleanup (reallocation) takes precedence over initial allocation
@@ -962,7 +962,7 @@ Result Processor::Allocator::DoThreadAllocate()
 }
 
 
-bool Processor::Allocator::QueueBundle(const MemAddr addr, Integer parameter, RegIndex completion_reg)
+bool DRISC::Allocator::QueueBundle(const MemAddr addr, Integer parameter, RegIndex completion_reg)
 {
     BundleInfo info;
     info.addr           = addr;
@@ -983,7 +983,7 @@ bool Processor::Allocator::QueueBundle(const MemAddr addr, Integer parameter, Re
 
 
 /// Queues an allocation request for a family entry and context
-bool Processor::Allocator::QueueFamilyAllocation(const RemoteMessage& msg, bool bundle)
+bool DRISC::Allocator::QueueFamilyAllocation(const RemoteMessage& msg, bool bundle)
 {
     // Can't be balanced; that should have been handled by
     // the network before it gets here.
@@ -1031,7 +1031,7 @@ bool Processor::Allocator::QueueFamilyAllocation(const RemoteMessage& msg, bool 
 }
 
 /// Queues an allocation request for a family entry and context
-bool Processor::Allocator::QueueFamilyAllocation(const LinkMessage& msg)
+bool DRISC::Allocator::QueueFamilyAllocation(const LinkMessage& msg)
 {
     // Place the request in the appropriate buffer
     AllocRequest request;
@@ -1060,14 +1060,14 @@ bool Processor::Allocator::QueueFamilyAllocation(const LinkMessage& msg)
     return true;
 }
 
-void Processor::Allocator::ReleaseContext(LFID fid)
+void DRISC::Allocator::ReleaseContext(LFID fid)
 {
     m_familyTable.FreeFamily(fid, CONTEXT_NORMAL);
     m_raunit.UnreserveContext();
     m_threadTable.UnreserveThread();
 }
 
-LFID Processor::Allocator::AllocateContext(ContextType type, LFID prev_fid, PSize placeSize)
+LFID DRISC::Allocator::AllocateContext(ContextType type, LFID prev_fid, PSize placeSize)
 {
     if (!IsContextAvailable(type))
     {
@@ -1102,7 +1102,7 @@ LFID Processor::Allocator::AllocateContext(ContextType type, LFID prev_fid, PSiz
     return lfid;
 }
 
-Result Processor::Allocator::DoFamilyAllocate()
+Result DRISC::Allocator::DoFamilyAllocate()
 {
     // Pick an allocation queue to allocate from:
     // If we can do an exclusive allocate, we do those first.
@@ -1331,7 +1331,7 @@ Result Processor::Allocator::DoFamilyAllocate()
 
 
 //For group create
-bool Processor::Allocator::QueueCreate(const LinkMessage& msg)
+bool DRISC::Allocator::QueueCreate(const LinkMessage& msg)
 {
     assert(msg.type == LinkMessage::MSG_CREATE);
     assert(msg.create.fid != INVALID_LFID);
@@ -1396,7 +1396,7 @@ bool Processor::Allocator::QueueCreate(const LinkMessage& msg)
 }
 
 // For delegate/local create
-bool Processor::Allocator::QueueCreate(const RemoteMessage& msg, PID src)
+bool DRISC::Allocator::QueueCreate(const RemoteMessage& msg, PID src)
 {
     assert(src                != INVALID_PID);
     assert(msg.create.fid.pid == m_parent.GetPID());
@@ -1444,7 +1444,7 @@ bool Processor::Allocator::QueueCreate(const RemoteMessage& msg, PID src)
 }
 
 
-Result Processor::Allocator::DoBundle()
+Result DRISC::Allocator::DoBundle()
 {
     // handle system call
     assert(!m_bundle.Empty());
@@ -1526,7 +1526,7 @@ Result Processor::Allocator::DoBundle()
 
 }
 
-Result Processor::Allocator::DoFamilyCreate()
+Result DRISC::Allocator::DoFamilyCreate()
 {
     // The create at the front of the queue is the current create
     assert(!m_creates.Empty());
@@ -1856,7 +1856,7 @@ Result Processor::Allocator::DoFamilyCreate()
     return SUCCESS;
 }
 
-Result Processor::Allocator::DoThreadActivation()
+Result DRISC::Allocator::DoThreadActivation()
 {
     TID tid;
     if ((m_prevReadyList == &m_readyThreads2 || m_readyThreads2.Empty()) && !m_readyThreads1.Empty()) {
@@ -1915,7 +1915,7 @@ Result Processor::Allocator::DoThreadActivation()
 
 // Sanitizes the limit and block size.
 // Use only for non-delegated creates.
-Integer Processor::Allocator::CalculateThreadCount(SInteger start, SInteger limit, SInteger step)
+Integer DRISC::Allocator::CalculateThreadCount(SInteger start, SInteger limit, SInteger step)
 {
     // Sanitize the family entry
     if (step == 0)
@@ -1940,7 +1940,7 @@ Integer Processor::Allocator::CalculateThreadCount(SInteger start, SInteger limi
     return (diff + step - 1) / step;
 }
 
-void Processor::Allocator::CalculateDistribution(Family& family, Integer nThreads, PSize numCores)
+void DRISC::Allocator::CalculateDistribution(Family& family, Integer nThreads, PSize numCores)
 {
     Integer threadsPerCore = std::max<Integer>(1, (nThreads + numCores - 1) / numCores);
 
@@ -1967,7 +1967,7 @@ void Processor::Allocator::CalculateDistribution(Family& family, Integer nThread
     }
 }
 
-Processor::Allocator::Allocator(const string& name, Processor& parent, Clock& clock,
+DRISC::Allocator::Allocator(const string& name, DRISC& parent, Clock& clock,
     FamilyTable& familyTable, ThreadTable& threadTable, RegisterFile& registerFile, RAUnit& raunit, ICache& icache, DCache& dcache, Network& network, Pipeline& pipeline,
     Config& config)
  :  Object(name, parent, clock),
@@ -1992,11 +1992,11 @@ Processor::Allocator::Allocator(const string& name, Processor& parent, Clock& cl
     m_numCreatedFamilies(0),
     m_numCreatedThreads(0),
 
-    p_ThreadAllocate  (*this, "thread-allocate",   delegate::create<Allocator, &Processor::Allocator::DoThreadAllocate  >(*this) ),
-    p_FamilyAllocate  (*this, "family-allocate",   delegate::create<Allocator, &Processor::Allocator::DoFamilyAllocate  >(*this) ),
-    p_FamilyCreate    (*this, "family-create",     delegate::create<Allocator, &Processor::Allocator::DoFamilyCreate    >(*this) ),
-    p_ThreadActivation(*this, "thread-activation", delegate::create<Allocator, &Processor::Allocator::DoThreadActivation>(*this) ),
-    p_Bundle          (*this, "bundle-Create",     delegate::create<Allocator, &Processor::Allocator::DoBundle          >(*this) ),
+    p_ThreadAllocate  (*this, "thread-allocate",   delegate::create<Allocator, &DRISC::Allocator::DoThreadAllocate  >(*this) ),
+    p_FamilyAllocate  (*this, "family-allocate",   delegate::create<Allocator, &DRISC::Allocator::DoFamilyAllocate  >(*this) ),
+    p_FamilyCreate    (*this, "family-create",     delegate::create<Allocator, &DRISC::Allocator::DoFamilyCreate    >(*this) ),
+    p_ThreadActivation(*this, "thread-activation", delegate::create<Allocator, &DRISC::Allocator::DoThreadActivation>(*this) ),
+    p_Bundle          (*this, "bundle-Create",     delegate::create<Allocator, &DRISC::Allocator::DoBundle          >(*this) ),
 
     p_allocation    (*this, clock, "p_allocation"),
     p_alloc         (*this, clock, "p_alloc"),
@@ -2027,7 +2027,7 @@ Processor::Allocator::Allocator(const string& name, Processor& parent, Clock& cl
     RegisterSampleVariableInObjectWithName(m_numThreadsPerState[TST_READY], "m_numReadyThreads", SVC_LEVEL);
 }
 
-void Processor::Allocator::AllocateInitialFamily(MemAddr pc, bool legacy, PSize placeSize, SInteger startIndex)
+void DRISC::Allocator::AllocateInitialFamily(MemAddr pc, bool legacy, PSize placeSize, SInteger startIndex)
 {
 #if defined(TARGET_MTSPARC)
     // On SPARC there is no RAZ floating-point register.
@@ -2077,7 +2077,7 @@ void Processor::Allocator::AllocateInitialFamily(MemAddr pc, bool legacy, PSize 
     m_alloc.Push(fid);
 }
 
-void Processor::Allocator::Push(ThreadQueue& q, TID tid)
+void DRISC::Allocator::Push(ThreadQueue& q, TID tid)
 {
     COMMIT
     {
@@ -2090,7 +2090,7 @@ void Processor::Allocator::Push(ThreadQueue& q, TID tid)
     }
 }
 
-TID Processor::Allocator::Pop(ThreadQueue& q)
+TID DRISC::Allocator::Pop(ThreadQueue& q)
 {
     TID tid = q.head;
     if (q.head != INVALID_TID)
@@ -2100,7 +2100,7 @@ TID Processor::Allocator::Pop(ThreadQueue& q)
     return tid;
 }
 
-void Processor::Allocator::Cmd_Info(ostream& out, const vector<string>& /* arguments */) const
+void DRISC::Allocator::Cmd_Info(ostream& out, const vector<string>& /* arguments */) const
 {
     out <<
     "The Allocator is where most of the thread and family management takes place.\n"
@@ -2110,7 +2110,7 @@ void Processor::Allocator::Cmd_Info(ostream& out, const vector<string>& /* argum
     "  Reads and displays the various queues and registers in the Allocator.\n";
 }
 
-void Processor::Allocator::Cmd_Read(ostream& out, const vector<string>& /*arguments*/) const
+void DRISC::Allocator::Cmd_Read(ostream& out, const vector<string>& /*arguments*/) const
 {
     {
         const struct {

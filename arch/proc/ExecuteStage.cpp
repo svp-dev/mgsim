@@ -1,4 +1,4 @@
-#include "Processor.h"
+#include "DRISC.h"
 #include <arch/symtable.h>
 #include <sim/sampling.h>
 #include <sim/log2.h>
@@ -20,7 +20,7 @@ namespace Simulator
 {
 
 /*static*/
-RegValue Processor::Pipeline::ExecuteStage::PipeValueToRegValue(RegType type, const PipeValue& v)
+RegValue DRISC::Pipeline::ExecuteStage::PipeValueToRegValue(RegType type, const PipeValue& v)
 {
     RegValue r;
     r.m_state = RST_FULL;
@@ -33,7 +33,7 @@ RegValue Processor::Pipeline::ExecuteStage::PipeValueToRegValue(RegType type, co
     return r;
 }
 
-bool Processor::Pipeline::ExecuteStage::MemoryWriteBarrier(TID tid) const
+bool DRISC::Pipeline::ExecuteStage::MemoryWriteBarrier(TID tid) const
 {
     Thread& thread = m_threadTable[tid];
     if (thread.dependencies.numPendingWrites != 0)
@@ -45,7 +45,7 @@ bool Processor::Pipeline::ExecuteStage::MemoryWriteBarrier(TID tid) const
     return true;
 }
 
-Processor::Pipeline::PipeAction Processor::Pipeline::ExecuteStage::OnCycle()
+DRISC::Pipeline::PipeAction DRISC::Pipeline::ExecuteStage::OnCycle()
 {
     COMMIT
     {
@@ -131,11 +131,11 @@ Processor::Pipeline::PipeAction Processor::Pipeline::ExecuteStage::OnCycle()
     return action;
 }
 
-Processor::Pipeline::PipeAction Processor::Pipeline::ExecuteStage::ExecBundle(MemAddr addr, bool indirect, Integer value, RegIndex reg)
+DRISC::Pipeline::PipeAction DRISC::Pipeline::ExecuteStage::ExecBundle(MemAddr addr, bool indirect, Integer value, RegIndex reg)
 {
     if (indirect)
     {
-        addr += m_parent.GetProcessor().ReadASR(ASR_SYSCALL_BASE);
+        addr += m_parent.GetDRISC().ReadASR(ASR_SYSCALL_BASE);
     }
 
     if (!m_allocator.QueueBundle(addr, value, reg))
@@ -151,13 +151,13 @@ Processor::Pipeline::PipeAction Processor::Pipeline::ExecuteStage::ExecBundle(Me
     return PIPE_CONTINUE;
 }
 
-Processor::Pipeline::PipeAction Processor::Pipeline::ExecuteStage::ExecAllocate(PlaceID place, RegIndex reg, bool suspend, bool exclusive, Integer flags)
+DRISC::Pipeline::PipeAction DRISC::Pipeline::ExecuteStage::ExecAllocate(PlaceID place, RegIndex reg, bool suspend, bool exclusive, Integer flags)
 {
     if (place.size == 0)
     {
         // Inherit the parent's place
         place.size = m_input.placeSize;
-        place.pid  = (m_parent.GetProcessor().GetPID() / place.size) * place.size;
+        place.pid  = (m_parent.GetDRISC().GetPID() / place.size) * place.size;
         place.capability = 0x1337; // also later: copy the place capability from the parent.
 
         DebugSimWrite("F%u/T%u(%llu) %s adjusted default place -> CPU%u/%u cap 0x%lx",
@@ -169,7 +169,7 @@ Processor::Pipeline::PipeAction Processor::Pipeline::ExecuteStage::ExecAllocate(
         if (place.pid == 0)
         {
             // Local place
-            place.pid  = m_parent.GetProcessor().GetPID();
+            place.pid  = m_parent.GetDRISC().GetPID();
 
             DebugSimWrite("F%u/T%u(%llu) %s adjusted local place -> CPU%u/1",
                           (unsigned)m_input.fid, (unsigned)m_input.tid, (unsigned long long)m_input.logical_index, m_input.pc_sym,
@@ -187,7 +187,7 @@ Processor::Pipeline::PipeAction Processor::Pipeline::ExecuteStage::ExecAllocate(
     assert((place.pid % place.size) == 0);
 
     // Verify processor ID
-    if (place.pid >= m_parent.GetProcessor().GetGridSize())
+    if (place.pid >= m_parent.GetDRISC().GetGridSize())
     {
         throw SimulationException("Attempting to delegate to a non-existing core");
     }
@@ -211,7 +211,7 @@ Processor::Pipeline::PipeAction Processor::Pipeline::ExecuteStage::ExecAllocate(
         m_output.Rrc.allocate.suspend        = suspend;
         m_output.Rrc.allocate.exclusive      = exclusive;
         m_output.Rrc.allocate.type           = type;
-        m_output.Rrc.allocate.completion_pid = m_parent.GetProcessor().GetPID();
+        m_output.Rrc.allocate.completion_pid = m_parent.GetDRISC().GetPID();
         m_output.Rrc.allocate.completion_reg = reg;
 
         m_output.Rcv = MAKE_PENDING_PIPEVALUE(m_input.RcSize);
@@ -219,7 +219,7 @@ Processor::Pipeline::PipeAction Processor::Pipeline::ExecuteStage::ExecAllocate(
     return PIPE_CONTINUE;
 }
 
-Processor::Pipeline::PipeAction Processor::Pipeline::ExecuteStage::SetFamilyProperty(const FID& fid, FamilyProperty property, Integer value)
+DRISC::Pipeline::PipeAction DRISC::Pipeline::ExecuteStage::SetFamilyProperty(const FID& fid, FamilyProperty property, Integer value)
 {
     COMMIT
     {
@@ -231,7 +231,7 @@ Processor::Pipeline::PipeAction Processor::Pipeline::ExecuteStage::SetFamilyProp
     return PIPE_CONTINUE;
 }
 
-Processor::Pipeline::PipeAction Processor::Pipeline::ExecuteStage::ExecCreate(const FID& fid, MemAddr address, RegIndex completion)
+DRISC::Pipeline::PipeAction DRISC::Pipeline::ExecuteStage::ExecCreate(const FID& fid, MemAddr address, RegIndex completion)
 {
     // Create
     if (!MemoryWriteBarrier(m_input.tid))
@@ -263,12 +263,12 @@ Processor::Pipeline::PipeAction Processor::Pipeline::ExecuteStage::ExecCreate(co
     DebugFlowWrite("F%u/T%u(%llu) %s create CPU%u/F%u %s",
                    (unsigned)m_input.fid, (unsigned)m_input.tid, (unsigned long long)m_input.logical_index, m_input.pc_sym,
                    (unsigned)fid.pid, (unsigned) fid.lfid,
-                   m_parent.GetProcessor().GetSymbolTable()[address].c_str());
+                   m_parent.GetDRISC().GetSymbolTable()[address].c_str());
 
     return PIPE_CONTINUE;
 }
 
-Processor::Pipeline::PipeAction Processor::Pipeline::ExecuteStage::ReadFamilyRegister(RemoteRegType kind, RegType type, const FID& fid, unsigned char reg)
+DRISC::Pipeline::PipeAction DRISC::Pipeline::ExecuteStage::ReadFamilyRegister(RemoteRegType kind, RegType type, const FID& fid, unsigned char reg)
 {
     COMMIT
     {
@@ -285,7 +285,7 @@ Processor::Pipeline::PipeAction Processor::Pipeline::ExecuteStage::ReadFamilyReg
     return PIPE_CONTINUE;
 }
 
-Processor::Pipeline::PipeAction Processor::Pipeline::ExecuteStage::WriteFamilyRegister(RemoteRegType kind, RegType type, const FID& fid, unsigned char reg)
+DRISC::Pipeline::PipeAction DRISC::Pipeline::ExecuteStage::WriteFamilyRegister(RemoteRegType kind, RegType type, const FID& fid, unsigned char reg)
 {
     COMMIT
     {
@@ -301,7 +301,7 @@ Processor::Pipeline::PipeAction Processor::Pipeline::ExecuteStage::WriteFamilyRe
     return PIPE_CONTINUE;
 }
 
-Processor::Pipeline::PipeAction Processor::Pipeline::ExecuteStage::ExecSync(const FID& fid)
+DRISC::Pipeline::PipeAction DRISC::Pipeline::ExecuteStage::ExecSync(const FID& fid)
 {
     assert(m_input.Rc.type == RT_INTEGER);
 
@@ -337,7 +337,7 @@ Processor::Pipeline::PipeAction Processor::Pipeline::ExecuteStage::ExecSync(cons
     return PIPE_CONTINUE;
 }
 
-Processor::Pipeline::PipeAction Processor::Pipeline::ExecuteStage::ExecDetach(const FID& fid)
+DRISC::Pipeline::PipeAction DRISC::Pipeline::ExecuteStage::ExecDetach(const FID& fid)
 {
     if (fid.pid == 0 && fid.lfid == 0 && fid.capability == 0)
     {
@@ -359,19 +359,19 @@ Processor::Pipeline::PipeAction Processor::Pipeline::ExecuteStage::ExecDetach(co
     return PIPE_CONTINUE;
 }
 
-Processor::Pipeline::PipeAction Processor::Pipeline::ExecuteStage::ExecBreak()
+DRISC::Pipeline::PipeAction DRISC::Pipeline::ExecuteStage::ExecBreak()
 {
     COMMIT
     {
 
         m_output.Rrc.type    = RemoteMessage::MSG_BREAK;
-        m_output.Rrc.brk.pid = m_parent.GetProcessor().GetPID();
+        m_output.Rrc.brk.pid = m_parent.GetDRISC().GetPID();
         m_output.Rrc.brk.fid = m_input.fid;
     }
     return PIPE_CONTINUE;
 }
 
-void Processor::Pipeline::ExecuteStage::ExecDebugOutput(Integer value, int command, int flags) const
+void DRISC::Pipeline::ExecuteStage::ExecDebugOutput(Integer value, int command, int flags) const
 {
     // command:
     //  0 -> unsigned decimal
@@ -408,7 +408,7 @@ void Processor::Pipeline::ExecuteStage::ExecDebugOutput(Integer value, int comma
 }
 
 
-void Processor::Pipeline::ExecuteStage::ExecStatusAction(Integer value, int command, int flags) const
+void DRISC::Pipeline::ExecuteStage::ExecStatusAction(Integer value, int command, int flags) const
 {
     // command:
     //  00: status and continue
@@ -465,7 +465,7 @@ void Processor::Pipeline::ExecuteStage::ExecStatusAction(Integer value, int comm
     }
 }
 
-void Processor::Pipeline::ExecuteStage::ExecMemoryControl(Integer value, int command, int flags) const
+void DRISC::Pipeline::ExecuteStage::ExecMemoryControl(Integer value, int command, int flags) const
 {
     // command:
     //  00: mmap(addr = value, size = 2^(flags+12), pid = 0)
@@ -477,7 +477,7 @@ void Processor::Pipeline::ExecuteStage::ExecMemoryControl(Integer value, int com
     unsigned l = flags & 0x7;
     MemSize req_size = 1 << (l + 12);
 
-    Processor& cpu = m_parent.GetProcessor();
+    DRISC& cpu = m_parent.GetDRISC();
 
     switch(command)
     {
@@ -499,7 +499,7 @@ void Processor::Pipeline::ExecuteStage::ExecMemoryControl(Integer value, int com
     }
 }
 
-void Processor::Pipeline::ExecuteStage::ExecDebug(Integer value, Integer stream) const
+void DRISC::Pipeline::ExecuteStage::ExecDebug(Integer value, Integer stream) const
 {
     // pattern: x x 0 1 x x x x = status and action
     // pattern: 0 0 0 1 - - - - =   status and continue
@@ -537,7 +537,7 @@ void Processor::Pipeline::ExecuteStage::ExecDebug(Integer value, Integer stream)
         ExecDebugOutput(value, command, stream & 0x3);
 }
 
-void Processor::Pipeline::ExecuteStage::ExecDebug(double value, Integer stream) const
+void DRISC::Pipeline::ExecuteStage::ExecDebug(double value, Integer stream) const
 {
     /* precision: bits 4-7 */
     int prec = (stream >> 4) & 0xf;
@@ -556,7 +556,7 @@ void Processor::Pipeline::ExecuteStage::ExecDebug(double value, Integer stream) 
     }
 }
 
-Processor::Pipeline::ExecuteStage::ExecuteStage(Pipeline& parent, Clock& clock, const ReadExecuteLatch& input, ExecuteMemoryLatch& output, Allocator& alloc, FamilyTable& familyTable, ThreadTable& threadTable, FPU& fpu, size_t fpu_source, Config& /*config*/)
+DRISC::Pipeline::ExecuteStage::ExecuteStage(Pipeline& parent, Clock& clock, const ReadExecuteLatch& input, ExecuteMemoryLatch& output, Allocator& alloc, FamilyTable& familyTable, ThreadTable& threadTable, FPU& fpu, size_t fpu_source, Config& /*config*/)
   : Stage("execute", parent, clock),
     m_input(input),
     m_output(output),

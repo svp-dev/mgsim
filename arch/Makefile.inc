@@ -93,8 +93,8 @@ PROCESSOR_SRC = \
 	arch/proc/Network.h \
 	arch/proc/Pipeline.cpp \
 	arch/proc/Pipeline.h \
-	arch/proc/Processor.cpp \
-	arch/proc/Processor.h \
+	arch/proc/DRISC.cpp \
+	arch/proc/DRISC.h \
 	arch/proc/RAUnit.cpp \
 	arch/proc/RAUnit.h \
 	arch/proc/ReadStage.cpp \

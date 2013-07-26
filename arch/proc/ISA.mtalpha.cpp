@@ -1,4 +1,4 @@
-#include "Processor.h"
+#include "DRISC.h"
 #include <arch/FPU.h>
 #include <arch/symtable.h>
 
@@ -87,7 +87,7 @@ unsigned char GetRegisterClass(unsigned char addr, const RegsNo& regs, RegClass*
 }
 
 /*static*/
-Processor::Pipeline::InstrFormat Processor::Pipeline::DecodeStage::GetInstrFormat(uint8_t opcode)
+DRISC::Pipeline::InstrFormat DRISC::Pipeline::DecodeStage::GetInstrFormat(uint8_t opcode)
 {
     if (opcode <= 0x3F)
     {
@@ -134,7 +134,7 @@ Processor::Pipeline::InstrFormat Processor::Pipeline::DecodeStage::GetInstrForma
     return IFORMAT_INVALID;
 }
 
-void Processor::Pipeline::DecodeStage::DecodeInstruction(const Instruction& instr)
+void DRISC::Pipeline::DecodeStage::DecodeInstruction(const Instruction& instr)
 {
     m_output.opcode = (uint8_t)((instr >> A_OPCODE_SHIFT) & A_OPCODE_MASK);
     m_output.format = GetInstrFormat(m_output.opcode);
@@ -301,7 +301,7 @@ void Processor::Pipeline::DecodeStage::DecodeInstruction(const Instruction& inst
 }
 
 /*static*/
-bool Processor::Pipeline::ExecuteStage::BranchTaken(uint8_t opcode, const PipeValue& value)
+bool DRISC::Pipeline::ExecuteStage::BranchTaken(uint8_t opcode, const PipeValue& value)
 {
     switch (opcode)
     {
@@ -368,7 +368,7 @@ static void mul128b(uint64_t op1, uint64_t op2, uint64_t *resultH, uint64_t *res
 }
 
 /*static*/
-bool Processor::Pipeline::ExecuteStage::ExecuteINTA(PipeValue& Rcv, const PipeValue& Rav, const PipeValue& Rbv, int func)
+bool DRISC::Pipeline::ExecuteStage::ExecuteINTA(PipeValue& Rcv, const PipeValue& Rav, const PipeValue& Rbv, int func)
 {
     Rcv.m_state  = RST_FULL;
     uint64_t      Ra = Rav.m_integer.get(Rav.m_size);
@@ -423,7 +423,7 @@ bool Processor::Pipeline::ExecuteStage::ExecuteINTA(PipeValue& Rcv, const PipeVa
 }
 
 /*static*/
-bool Processor::Pipeline::ExecuteStage::ExecuteINTL(PipeValue& Rcv, const PipeValue& Rav, const PipeValue& Rbv, int func)
+bool DRISC::Pipeline::ExecuteStage::ExecuteINTL(PipeValue& Rcv, const PipeValue& Rav, const PipeValue& Rbv, int func)
 {
     Rcv.m_state      = RST_FULL;
     uint64_t      Ra = Rav.m_integer.get(Rav.m_size);
@@ -458,7 +458,7 @@ bool Processor::Pipeline::ExecuteStage::ExecuteINTL(PipeValue& Rcv, const PipeVa
 }
 
 /*static*/
-bool Processor::Pipeline::ExecuteStage::ExecuteINTS(PipeValue& Rcv, const PipeValue& Rav, const PipeValue& Rbv, int func)
+bool DRISC::Pipeline::ExecuteStage::ExecuteINTS(PipeValue& Rcv, const PipeValue& Rav, const PipeValue& Rbv, int func)
 {
     Rcv.m_state      = RST_FULL;
     uint64_t      Ra = Rav.m_integer.get(Rav.m_size);
@@ -506,7 +506,7 @@ bool Processor::Pipeline::ExecuteStage::ExecuteINTS(PipeValue& Rcv, const PipeVa
     return true;
 }
 
-bool Processor::Pipeline::ExecuteStage::ExecuteINTM(PipeValue& Rcv, const PipeValue& Rav, const PipeValue& Rbv, int func)
+bool DRISC::Pipeline::ExecuteStage::ExecuteINTM(PipeValue& Rcv, const PipeValue& Rav, const PipeValue& Rbv, int func)
 {
     Rcv.m_state = RST_FULL;
     uint64_t Ra = Rav.m_integer.get(Rav.m_size);
@@ -532,7 +532,7 @@ bool Processor::Pipeline::ExecuteStage::ExecuteINTM(PipeValue& Rcv, const PipeVa
 }
 
 /*static*/
-bool Processor::Pipeline::ExecuteStage::ExecuteFLTV(PipeValue& Rcv, const PipeValue& /* Rav */, const PipeValue& /* Rbv */, int func)
+bool DRISC::Pipeline::ExecuteStage::ExecuteFLTV(PipeValue& Rcv, const PipeValue& /* Rav */, const PipeValue& /* Rbv */, int func)
 {
     Rcv.m_state = RST_FULL;
 
@@ -648,7 +648,7 @@ bool Processor::Pipeline::ExecuteStage::ExecuteFLTV(PipeValue& Rcv, const PipeVa
 }
 
 /*static*/
-bool Processor::Pipeline::ExecuteStage::ExecuteFLTI(PipeValue& Rcv, const PipeValue& Rav, const PipeValue& Rbv, int func)
+bool DRISC::Pipeline::ExecuteStage::ExecuteFLTI(PipeValue& Rcv, const PipeValue& Rav, const PipeValue& Rbv, int func)
 {
     Rcv.m_state = RST_FULL;
     const Float64& Ra = Rav.m_float._64;
@@ -743,7 +743,7 @@ bool Processor::Pipeline::ExecuteStage::ExecuteFLTI(PipeValue& Rcv, const PipeVa
 }
 
 /*static*/
-bool Processor::Pipeline::ExecuteStage::ExecuteFLTL(PipeValue& Rcv, const PipeValue& Rav, const PipeValue& Rbv, int func)
+bool DRISC::Pipeline::ExecuteStage::ExecuteFLTL(PipeValue& Rcv, const PipeValue& Rav, const PipeValue& Rbv, int func)
 {
     Rcv.m_state = RST_FULL;
     const Float64& Ra = Rav.m_float._64;
@@ -781,7 +781,7 @@ bool Processor::Pipeline::ExecuteStage::ExecuteFLTL(PipeValue& Rcv, const PipeVa
 }
 
 /*static*/
-bool Processor::Pipeline::ExecuteStage::ExecuteITFP(PipeValue& Rcv, const PipeValue& Rav, const PipeValue& /* Rbv */, int func)
+bool DRISC::Pipeline::ExecuteStage::ExecuteITFP(PipeValue& Rcv, const PipeValue& Rav, const PipeValue& /* Rbv */, int func)
 {
     Rcv.m_state = RST_FULL;
     switch (func)
@@ -820,7 +820,7 @@ static uint64_t MASK1(int offset, int size)
 }
 
 /*static*/
-bool Processor::Pipeline::ExecuteStage::ExecuteFPTI(PipeValue& Rcv, const PipeValue& Rav_, const PipeValue& Rbv_, int func)
+bool DRISC::Pipeline::ExecuteStage::ExecuteFPTI(PipeValue& Rcv, const PipeValue& Rav_, const PipeValue& Rbv_, int func)
 {
     uint64_t Rav = Rav_.m_integer.get(Rav_.m_size);
     uint64_t Rbv = Rbv_.m_integer.get(Rbv_.m_size);
@@ -939,7 +939,7 @@ bool Processor::Pipeline::ExecuteStage::ExecuteFPTI(PipeValue& Rcv, const PipeVa
     return true;
 }
 
-Processor::Pipeline::PipeAction Processor::Pipeline::ExecuteStage::ExecuteInstruction()
+DRISC::Pipeline::PipeAction DRISC::Pipeline::ExecuteStage::ExecuteInstruction()
 {
     uint64_t Rav = m_input.Rav.m_integer.get(m_input.Rav.m_size);
     uint64_t Rbv = m_input.Rbv.m_integer.get(m_input.Rbv.m_size);
@@ -953,7 +953,7 @@ Processor::Pipeline::PipeAction Processor::Pipeline::ExecuteStage::ExecuteInstru
             if (m_input.opcode == A_OP_CREATE_D)
             {
                 // Direct create
-                return ExecCreate(m_parent.GetProcessor().UnpackFID(Rav), target, m_input.Rc.index);
+                return ExecCreate(m_parent.GetDRISC().UnpackFID(Rav), target, m_input.Rc.index);
             }
 
             // Conditional and unconditional branches
@@ -965,7 +965,7 @@ Processor::Pipeline::PipeAction Processor::Pipeline::ExecuteStage::ExecuteInstru
                     {
                         // Store the address of the next instruction for BR and BSR
                         MemAddr retaddr = next;
-                        if (!m_input.legacy && (retaddr & (m_parent.GetProcessor().GetICache().GetLineSize()-1)) == 0)
+                        if (!m_input.legacy && (retaddr & (m_parent.GetDRISC().GetICache().GetLineSize()-1)) == 0)
                         {
                             // If the next PC is at a cache-line boundary, skip the control word
                             // NB: we need to adjust this here, *even though the fetch stage does it too*
@@ -987,7 +987,7 @@ Processor::Pipeline::PipeAction Processor::Pipeline::ExecuteStage::ExecuteInstru
                     {
                         DebugFlowWrite("F%u/T%u(%llu) %s branch %s",
                                        (unsigned)m_input.fid, (unsigned)m_input.tid, (unsigned long long)m_input.logical_index, m_input.pc_sym,
-                                       m_parent.GetProcessor().GetSymbolTable()[target].c_str());
+                                       m_parent.GetDRISC().GetSymbolTable()[target].c_str());
                         m_output.pc   = target;
                         m_output.swch = true;
                     }
@@ -1004,7 +1004,7 @@ Processor::Pipeline::PipeAction Processor::Pipeline::ExecuteStage::ExecuteInstru
 
             if (m_input.opcode == A_OP_CREATE_I)
             {
-                return ExecCreate(m_parent.GetProcessor().UnpackFID(Rav), target, m_input.Rc.index);
+                return ExecCreate(m_parent.GetDRISC().UnpackFID(Rav), target, m_input.Rc.index);
             }
 
             // Unconditional Jumps
@@ -1012,10 +1012,10 @@ Processor::Pipeline::PipeAction Processor::Pipeline::ExecuteStage::ExecuteInstru
             {
                 DebugFlowWrite("F%u/T%u(%llu) %s branch %s",
                                (unsigned)m_input.fid, (unsigned)m_input.tid, (unsigned long long)m_input.logical_index, m_input.pc_sym,
-                               m_parent.GetProcessor().GetSymbolTable()[target].c_str());
+                               m_parent.GetDRISC().GetSymbolTable()[target].c_str());
 
                 // Store the address of the next instruction
-                if (!m_input.legacy && (next & (m_parent.GetProcessor().GetICache().GetLineSize()-1)) == 0)
+                if (!m_input.legacy && (next & (m_parent.GetDRISC().GetICache().GetLineSize()-1)) == 0)
                 {
                     // If the next PC is at a cache-line boundary, skip the control word.
                     // NB: we need to adjust this here, *even though the fetch stage does it too*
@@ -1096,28 +1096,28 @@ Processor::Pipeline::PipeAction Processor::Pipeline::ExecuteStage::ExecuteInstru
                     m_output.Rcv.m_state   = RST_FULL;
                     switch (m_input.function)
                     {
-                    case A_UTHREAD_LDBP: m_output.Rcv.m_integer = m_parent.GetProcessor().GetTLSAddress(m_input.fid, m_input.tid); break;
+                    case A_UTHREAD_LDBP: m_output.Rcv.m_integer = m_parent.GetDRISC().GetTLSAddress(m_input.fid, m_input.tid); break;
                     case A_UTHREAD_LDFP:
                     {
-                        const MemAddr tls_base = m_parent.GetProcessor().GetTLSAddress(m_input.fid, m_input.tid);
-                        const MemAddr tls_size = m_parent.GetProcessor().GetTLSSize();
+                        const MemAddr tls_base = m_parent.GetDRISC().GetTLSAddress(m_input.fid, m_input.tid);
+                        const MemAddr tls_size = m_parent.GetDRISC().GetTLSSize();
                         m_output.Rcv.m_integer = tls_base + tls_size;
                         break;
                     }
                     case A_UTHREAD_GETFID: m_output.Rcv.m_integer = m_input.fid; break;
                     case A_UTHREAD_GETTID: m_output.Rcv.m_integer = m_input.tid; break;
-                    case A_UTHREAD_GETCID: m_output.Rcv.m_integer = m_parent.GetProcessor().GetPID(); break;
+                    case A_UTHREAD_GETCID: m_output.Rcv.m_integer = m_parent.GetDRISC().GetPID(); break;
                     case A_UTHREAD_GETPID:
                     {
                         PlaceID place;
                         place.size = m_input.placeSize;
-                        place.pid  = m_parent.GetProcessor().GetPID() & -place.size;
+                        place.pid  = m_parent.GetDRISC().GetPID() & -place.size;
                         place.capability = 0x1337; // later: find a proper substitute
-                        m_output.Rcv.m_integer = m_parent.GetProcessor().PackPlace(place);
+                        m_output.Rcv.m_integer = m_parent.GetDRISC().PackPlace(place);
                         break;
                     }
-                    case A_UTHREAD_GETASR: m_output.Rcv.m_integer = m_parent.GetProcessor().ReadASR(Rbv); break;
-                    case A_UTHREAD_GETAPR: m_output.Rcv.m_integer = m_parent.GetProcessor().ReadAPR(Rbv); break;
+                    case A_UTHREAD_GETASR: m_output.Rcv.m_integer = m_parent.GetDRISC().ReadASR(Rbv); break;
+                    case A_UTHREAD_GETAPR: m_output.Rcv.m_integer = m_parent.GetDRISC().ReadAPR(Rbv); break;
                     }
                 }
             }
@@ -1132,7 +1132,7 @@ Processor::Pipeline::PipeAction Processor::Pipeline::ExecuteStage::ExecuteInstru
             }
             else if ((m_input.function & A_UTHREAD_REMOTE_MASK) == A_UTHREAD_REMOTE_VALUE)
             {
-                const FID fid = m_parent.GetProcessor().UnpackFID(Rav);
+                const FID fid = m_parent.GetDRISC().UnpackFID(Rav);
                 switch (m_input.function)
                 {
                 case A_UTHREAD_SETSTART: return SetFamilyProperty(fid, FAMPROP_START, Rbv);
@@ -1151,7 +1151,7 @@ Processor::Pipeline::PipeAction Processor::Pipeline::ExecuteStage::ExecuteInstru
             else if ((m_input.function & A_UTHREAD_ALLOC_MASK) == A_UTHREAD_ALLOC_VALUE)
             {
                 Integer flags  = Rbv;
-                PlaceID place  = m_parent.GetProcessor().UnpackPlace(Rav);
+                PlaceID place  = m_parent.GetDRISC().UnpackPlace(Rav);
                 bool suspend   = (m_input.function & A_UTHREAD_ALLOC_S_MASK);
                 bool exclusive = (m_input.function & A_UTHREAD_ALLOC_X_MASK);
 
@@ -1172,7 +1172,7 @@ Processor::Pipeline::PipeAction Processor::Pipeline::ExecuteStage::ExecuteInstru
             }
             else
             {
-                const FID fid = m_parent.GetProcessor().UnpackFID(Rav);
+                const FID fid = m_parent.GetDRISC().UnpackFID(Rav);
                 switch(m_input.function)
                 {
                 case A_UTHREADF_PUTG: return WriteFamilyRegister(RRT_GLOBAL,          RT_FLOAT, fid, m_input.regofs);
@@ -1184,20 +1184,20 @@ Processor::Pipeline::PipeAction Processor::Pipeline::ExecuteStage::ExecuteInstru
         }
         else
         {
-            bool (Processor::Pipeline::ExecuteStage::*execfunc)(PipeValue&, const PipeValue&, const PipeValue&, int) = NULL;
+            bool (DRISC::Pipeline::ExecuteStage::*execfunc)(PipeValue&, const PipeValue&, const PipeValue&, int) = NULL;
 
             FPUOperation fpuop = FPU_OP_NONE;
             switch (m_input.opcode)
             {
-                case A_OP_INTA: execfunc = &Processor::Pipeline::ExecuteStage::ExecuteINTA; break;
-                case A_OP_INTL: execfunc = &Processor::Pipeline::ExecuteStage::ExecuteINTL; break;
-                case A_OP_INTS: execfunc = &Processor::Pipeline::ExecuteStage::ExecuteINTS; break;
-                case A_OP_INTM: execfunc = &Processor::Pipeline::ExecuteStage::ExecuteINTM; break;
-                case A_OP_FLTV: execfunc = &Processor::Pipeline::ExecuteStage::ExecuteFLTV; break;
-                case A_OP_FLTL: execfunc = &Processor::Pipeline::ExecuteStage::ExecuteFLTL; break;
-                case A_OP_FPTI: execfunc = &Processor::Pipeline::ExecuteStage::ExecuteFPTI; break;
+                case A_OP_INTA: execfunc = &DRISC::Pipeline::ExecuteStage::ExecuteINTA; break;
+                case A_OP_INTL: execfunc = &DRISC::Pipeline::ExecuteStage::ExecuteINTL; break;
+                case A_OP_INTS: execfunc = &DRISC::Pipeline::ExecuteStage::ExecuteINTS; break;
+                case A_OP_INTM: execfunc = &DRISC::Pipeline::ExecuteStage::ExecuteINTM; break;
+                case A_OP_FLTV: execfunc = &DRISC::Pipeline::ExecuteStage::ExecuteFLTV; break;
+                case A_OP_FLTL: execfunc = &DRISC::Pipeline::ExecuteStage::ExecuteFLTL; break;
+                case A_OP_FPTI: execfunc = &DRISC::Pipeline::ExecuteStage::ExecuteFPTI; break;
                 case A_OP_ITFP:
-                    execfunc = &Processor::Pipeline::ExecuteStage::ExecuteITFP;
+                    execfunc = &DRISC::Pipeline::ExecuteStage::ExecuteITFP;
                     switch (m_input.function)
                     {
                         // IEEE Floating Square Root
@@ -1215,7 +1215,7 @@ Processor::Pipeline::PipeAction Processor::Pipeline::ExecuteStage::ExecuteInstru
                     break;
 
                 case A_OP_FLTI:
-                    execfunc = &Processor::Pipeline::ExecuteStage::ExecuteFLTI;
+                    execfunc = &DRISC::Pipeline::ExecuteStage::ExecuteFLTI;
                     switch (m_input.function)
                     {
                         case A_FLTIFUNC_ADDS:      case A_FLTIFUNC_ADDS_C:    case A_FLTIFUNC_ADDS_D:   case A_FLTIFUNC_ADDS_M:

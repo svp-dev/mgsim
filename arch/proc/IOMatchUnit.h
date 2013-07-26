@@ -2,7 +2,7 @@
 #define IOMATCHUNIT_H
 
 #ifndef PROCESSOR_H
-#error This file should be included in Processor.h
+#error This file should be included in DRISC.h
 #endif
 
 class MMIOComponent;
@@ -31,9 +31,9 @@ protected:
     RangeMap::const_iterator FindInterface(MemAddr address, MemSize size) const;
 
 public:
-    IOMatchUnit(const std::string& name, Processor& parent, Clock& clock);
+    IOMatchUnit(const std::string& name, DRISC& parent, Clock& clock);
 
-    Processor& GetProcessor() const;
+    DRISC& GetDRISC() const;
 
     bool IsRegisteredReadAddress(MemAddr address, MemSize size) const;
     bool IsRegisteredWriteAddress(MemAddr address, MemSize size) const;

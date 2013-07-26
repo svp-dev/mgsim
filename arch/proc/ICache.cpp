@@ -1,4 +1,4 @@
-#include "Processor.h"
+#include "DRISC.h"
 #include <sim/log2.h>
 #include <sim/config.h>
 #include <sim/sampling.h>
@@ -12,7 +12,7 @@ using namespace std;
 namespace Simulator
 {
 
-Processor::ICache::ICache(const std::string& name, Processor& parent, Clock& clock, Allocator& alloc, IMemory& memory, Config& config)
+DRISC::ICache::ICache(const std::string& name, DRISC& parent, Clock& clock, Allocator& alloc, IMemory& memory, Config& config)
 :   Object(name, parent, clock),
     m_parent(parent), m_allocator(alloc),
     m_memory(memory),
@@ -34,8 +34,8 @@ Processor::ICache::ICache(const std::string& name, Processor& parent, Clock& clo
     m_numResolvedConflicts(0),
     m_numStallingMisses(0),
 
-    p_Outgoing(*this, "outgoing", delegate::create<ICache, &Processor::ICache::DoOutgoing>(*this)),
-    p_Incoming(*this, "incoming", delegate::create<ICache, &Processor::ICache::DoIncoming>(*this)),
+    p_Outgoing(*this, "outgoing", delegate::create<ICache, &DRISC::ICache::DoOutgoing>(*this)),
+    p_Incoming(*this, "incoming", delegate::create<ICache, &DRISC::ICache::DoIncoming>(*this)),
     p_service(*this, clock, "p_service")
 {
     RegisterSampleVariableInObject(m_numHits, SVC_CUMULATIVE);
@@ -92,12 +92,12 @@ Processor::ICache::ICache(const std::string& name, Processor& parent, Clock& clo
     }
 }
 
-Processor::ICache::~ICache()
+DRISC::ICache::~ICache()
 {
     delete m_selector;
 }
 
-bool Processor::ICache::IsEmpty() const
+bool DRISC::ICache::IsEmpty() const
 {
     for (size_t i = 0; i < m_lines.size(); ++i)
     {
@@ -115,7 +115,7 @@ bool Processor::ICache::IsEmpty() const
 // DELAYED - Line not found (miss), but empty one allocated
 // FAILED  - Line not found (miss), no empty lines to allocate
 //
-Result Processor::ICache::FindLine(MemAddr address, Line* &line, bool check_only)
+Result DRISC::ICache::FindLine(MemAddr address, Line* &line, bool check_only)
 {
     MemAddr tag;
     size_t setindex;
@@ -168,7 +168,7 @@ Result Processor::ICache::FindLine(MemAddr address, Line* &line, bool check_only
     return DELAYED;
 }
 
-bool Processor::ICache::ReleaseCacheLine(CID cid)
+bool DRISC::ICache::ReleaseCacheLine(CID cid)
 {
     if (cid != INVALID_CID)
     {
@@ -186,7 +186,7 @@ bool Processor::ICache::ReleaseCacheLine(CID cid)
     return true;
 }
 
-bool Processor::ICache::Read(CID cid, MemAddr address, void* data, MemSize size) const
+bool DRISC::ICache::Read(CID cid, MemAddr address, void* data, MemSize size) const
 {
     MemAddr tag;
     size_t unused;
@@ -223,18 +223,18 @@ bool Processor::ICache::Read(CID cid, MemAddr address, void* data, MemSize size)
 }
 
 // For family creation
-Result Processor::ICache::Fetch(MemAddr address, MemSize size, CID& cid)
+Result DRISC::ICache::Fetch(MemAddr address, MemSize size, CID& cid)
 {
     return Fetch(address, size, NULL, &cid);
 }
 
 // For thread activation
-Result Processor::ICache::Fetch(MemAddr address, MemSize size, TID& tid, CID& cid)
+Result DRISC::ICache::Fetch(MemAddr address, MemSize size, TID& tid, CID& cid)
 {
     return Fetch(address, size, &tid, &cid);
 }
 
-Result Processor::ICache::Fetch(MemAddr address, MemSize size, TID* tid, CID* cid)
+Result DRISC::ICache::Fetch(MemAddr address, MemSize size, TID* tid, CID* cid)
 {
     // Check that we're fetching executable memory
     if (!m_parent.CheckPermissions(address, size, IMemory::PERM_EXECUTE))
@@ -378,7 +378,7 @@ Result Processor::ICache::Fetch(MemAddr address, MemSize size, TID* tid, CID* ci
     return DELAYED;
 }
 
-bool Processor::ICache::OnMemoryReadCompleted(MemAddr addr, const char *data)
+bool DRISC::ICache::OnMemoryReadCompleted(MemAddr addr, const char *data)
 {
     // Instruction cache line returned, store in cache and Buffer
 
@@ -404,13 +404,13 @@ bool Processor::ICache::OnMemoryReadCompleted(MemAddr addr, const char *data)
     return true;
 }
 
-bool Processor::ICache::OnMemoryWriteCompleted(TID /*tid*/)
+bool DRISC::ICache::OnMemoryWriteCompleted(TID /*tid*/)
 {
     // The I-Cache never writes
     UNREACHABLE;
 }
 
-bool Processor::ICache::OnMemorySnooped(MemAddr address, const char * data, const bool * mask)
+bool DRISC::ICache::OnMemorySnooped(MemAddr address, const char * data, const bool * mask)
 {
     Line* line;
     // Cache coherency: check if we have the same address
@@ -424,7 +424,7 @@ bool Processor::ICache::OnMemorySnooped(MemAddr address, const char * data, cons
     return true;
 }
 
-bool Processor::ICache::OnMemoryInvalidated(MemAddr address)
+bool DRISC::ICache::OnMemoryInvalidated(MemAddr address)
 {
     COMMIT
     {
@@ -445,12 +445,12 @@ bool Processor::ICache::OnMemoryInvalidated(MemAddr address)
     return true;
 }
 
-Object& Processor::ICache::GetMemoryPeer()
+Object& DRISC::ICache::GetMemoryPeer()
 {
     return m_parent;
 }
 
-Result Processor::ICache::DoOutgoing()
+Result DRISC::ICache::DoOutgoing()
 {
     assert(!m_outgoing.Empty());
     const MemAddr& address = m_outgoing.Front();
@@ -464,7 +464,7 @@ Result Processor::ICache::DoOutgoing()
     return SUCCESS;
 }
 
-Result Processor::ICache::DoIncoming()
+Result DRISC::ICache::DoIncoming()
 {
     assert(!m_incoming.Empty());
 
@@ -509,7 +509,7 @@ Result Processor::ICache::DoIncoming()
     return SUCCESS;
 }
 
-void Processor::ICache::Cmd_Info(std::ostream& out, const std::vector<std::string>& /*arguments*/) const
+void DRISC::ICache::Cmd_Info(std::ostream& out, const std::vector<std::string>& /*arguments*/) const
 {
     out <<
     "The Instruction Cache stores data from memory that contains instructions for\n"
@@ -521,7 +521,7 @@ void Processor::ICache::Cmd_Info(std::ostream& out, const std::vector<std::strin
     "  and cache configuration.\n";
 }
 
-void Processor::ICache::Cmd_Read(std::ostream& out, const std::vector<std::string>& arguments) const
+void DRISC::ICache::Cmd_Read(std::ostream& out, const std::vector<std::string>& arguments) const
 {
     if (arguments.empty())
     {

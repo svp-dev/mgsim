@@ -1,4 +1,4 @@
-#include "Processor.h"
+#include "DRISC.h"
 #include <sim/config.h>
 #include <sim/range.h>
 
@@ -13,7 +13,7 @@ namespace Simulator
 // RegisterFile implementation
 //
 
-Processor::RegisterFile::RegisterFile(const std::string& name, Processor& parent, Clock& clock, Allocator& alloc, Config& config)
+DRISC::RegisterFile::RegisterFile(const std::string& name, DRISC& parent, Clock& clock, Allocator& alloc, Config& config)
   : Object(name, parent, clock),
     Structure<RegAddr>(name, parent, clock),
     Storage("storage", *this, clock),
@@ -55,13 +55,13 @@ Processor::RegisterFile::RegisterFile(const std::string& name, Processor& parent
         m_float_local_aliases = GetDefaultLocalRegisterAliases(RT_FLOAT);
 }
 
-RegSize Processor::RegisterFile::GetSize(RegType type) const
+RegSize DRISC::RegisterFile::GetSize(RegType type) const
 {
     const vector<RegValue>& regs = PickFile(type);
     return regs.size();
 }
 
-bool Processor::RegisterFile::ReadRegister(const RegAddr& addr, RegValue& data, bool quiet) const
+bool DRISC::RegisterFile::ReadRegister(const RegAddr& addr, RegValue& data, bool quiet) const
 {
     const vector<RegValue>& regs = PickFile(addr.type);
     if (addr.index >= regs.size())
@@ -77,7 +77,7 @@ bool Processor::RegisterFile::ReadRegister(const RegAddr& addr, RegValue& data, 
 }
 
 // Admin version
-bool Processor::RegisterFile::WriteRegister(const RegAddr& addr, const RegValue& data)
+bool DRISC::RegisterFile::WriteRegister(const RegAddr& addr, const RegValue& data)
 {
     vector<RegValue>& regs = PickFile(addr.type);
     if (addr.index < regs.size())
@@ -91,7 +91,7 @@ bool Processor::RegisterFile::WriteRegister(const RegAddr& addr, const RegValue&
     return false;
 }
 
-bool Processor::RegisterFile::Clear(const RegAddr& addr, RegSize size)
+bool DRISC::RegisterFile::Clear(const RegAddr& addr, RegSize size)
 {
     std::vector<RegValue>& regs = PickFile(addr.type);
     if (addr.index + size > regs.size())
@@ -111,7 +111,7 @@ bool Processor::RegisterFile::Clear(const RegAddr& addr, RegSize size)
     return true;
 }
 
-bool Processor::RegisterFile::WriteRegister(const RegAddr& addr, const RegValue& data, bool from_memory)
+bool DRISC::RegisterFile::WriteRegister(const RegAddr& addr, const RegValue& data, bool from_memory)
 {
     std::vector<RegValue>& regs = PickFile(addr.type);
     if (addr.index >= regs.size())
@@ -188,7 +188,7 @@ bool Processor::RegisterFile::WriteRegister(const RegAddr& addr, const RegValue&
     return true;
 }
 
-void Processor::RegisterFile::Update()
+void DRISC::RegisterFile::Update()
 {
     // Commit the queued updates to registers
     assert(m_nUpdates > 0);
@@ -207,7 +207,7 @@ void Processor::RegisterFile::Update()
     m_nUpdates = 0;
 }
 
-void Processor::RegisterFile::Cmd_Info(std::ostream& out, const std::vector<std::string>& /*arguments*/) const
+void DRISC::RegisterFile::Cmd_Info(std::ostream& out, const std::vector<std::string>& /*arguments*/) const
 {
     out <<
     "The Register File stores the register for all threads running on a processor.\n"
@@ -222,12 +222,12 @@ void Processor::RegisterFile::Cmd_Info(std::ostream& out, const std::vector<std:
     "  \"1\", \"1-4,15,7-8\", \"all\"\n";
 }
 
-void Processor::RegisterFile::Cmd_Read(std::ostream& out, const std::vector<std::string>& arguments) const
+void DRISC::RegisterFile::Cmd_Read(std::ostream& out, const std::vector<std::string>& arguments) const
 {
     const RAUnit*    rau    = NULL;
 
     // Need to change this if the RF is not directly child of parent
-    Processor& parent = dynamic_cast<Processor&>(*GetParent());
+    DRISC& parent = dynamic_cast<DRISC&>(*GetParent());
 
     // Find the RAUnit in the same processor
     for (unsigned int i = 0; i < parent.GetNumChildren(); ++i)

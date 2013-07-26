@@ -2,7 +2,7 @@
 #define IONMUX_H
 
 #ifndef PROCESSOR_H
-#error This file should be included in Processor.h
+#error This file should be included in DRISC.h
 #endif
 
 class IOBusInterface;

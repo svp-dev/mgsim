@@ -1,4 +1,4 @@
-#include "Processor.h"
+#include "DRISC.h"
 #include <programs/mgsim.h>
 
 #include <iomanip>
@@ -16,15 +16,15 @@ namespace Simulator
  *    maximum address: 1 1 0 1 0
  */
 
-size_t Processor::MMUInterface::GetSize() const { return 0x1A /* 11010 */ * sizeof(Integer);  }
+size_t DRISC::MMUInterface::GetSize() const { return 0x1A /* 11010 */ * sizeof(Integer);  }
 
 
-Result Processor::MMUInterface::Read (MemAddr /*address*/, void* /*data*/, MemSize /*size*/, LFID /*fid*/, TID /*tid*/, const RegAddr& /*writeback*/)
+Result DRISC::MMUInterface::Read (MemAddr /*address*/, void* /*data*/, MemSize /*size*/, LFID /*fid*/, TID /*tid*/, const RegAddr& /*writeback*/)
 {
     UNREACHABLE;
 }
 
-Result Processor::MMUInterface::Write(MemAddr address, const void *data, MemSize size, LFID fid, TID tid)
+Result DRISC::MMUInterface::Write(MemAddr address, const void *data, MemSize size, LFID fid, TID tid)
 {
     if (address % sizeof(Integer) != 0)
     {
@@ -44,7 +44,7 @@ Result Processor::MMUInterface::Write(MemAddr address, const void *data, MemSize
                  (unsigned long long)value, (unsigned long long)value,
                  (unsigned)cmd, (unsigned long long)req_size);
 
-    Processor* cpu = static_cast<Processor*>(GetParent());
+    DRISC* cpu = static_cast<DRISC*>(GetParent());
 
     COMMIT{
         switch(cmd)
@@ -70,8 +70,8 @@ Result Processor::MMUInterface::Write(MemAddr address, const void *data, MemSize
     return SUCCESS;
 }
 
-Processor::MMUInterface::MMUInterface(const std::string& name, Object& parent)
-    : Processor::MMIOComponent(name, parent, parent.GetClock())
+DRISC::MMUInterface::MMUInterface(const std::string& name, Object& parent)
+    : DRISC::MMIOComponent(name, parent, parent.GetClock())
 {
 }
 

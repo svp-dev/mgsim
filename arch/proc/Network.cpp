@@ -1,4 +1,4 @@
-#include "Processor.h"
+#include "DRISC.h"
 #include "FamilyTable.h"
 #include <sim/config.h>
 #include <sim/log2.h>
@@ -12,11 +12,11 @@ using namespace std;
 namespace Simulator
 {
 
-Processor::Network::Network(
+DRISC::Network::Network(
     const std::string&        name,
-    Processor&                parent,
+    DRISC&                parent,
     Clock&                    clock,
-    const vector<Processor*>& grid,
+    const vector<DRISC*>& grid,
     Allocator&                alloc,
     RegisterFile&             regFile,
     FamilyTable&              familyTable,
@@ -47,11 +47,11 @@ Processor::Network::Network(
 #undef CONTRUCT_REGISTER
     m_syncs ("b_syncs", *this, clock, familyTable.GetNumFamilies(), 3 ),
 
-    p_DelegationOut(*this, "delegation-out", delegate::create<Network, &Processor::Network::DoDelegationOut>(*this)),
-    p_DelegationIn (*this, "delegation-in",  delegate::create<Network, &Processor::Network::DoDelegationIn >(*this)),
-    p_Link         (*this, "link",           delegate::create<Network, &Processor::Network::DoLink         >(*this)),
-    p_AllocResponse(*this, "alloc-response", delegate::create<Network, &Processor::Network::DoAllocResponse>(*this)),
-    p_Syncs        (*this, "syncs",          delegate::create<Network, &Processor::Network::DoSyncs        >(*this))
+    p_DelegationOut(*this, "delegation-out", delegate::create<Network, &DRISC::Network::DoDelegationOut>(*this)),
+    p_DelegationIn (*this, "delegation-in",  delegate::create<Network, &DRISC::Network::DoDelegationIn >(*this)),
+    p_Link         (*this, "link",           delegate::create<Network, &DRISC::Network::DoLink         >(*this)),
+    p_AllocResponse(*this, "alloc-response", delegate::create<Network, &DRISC::Network::DoAllocResponse>(*this)),
+    p_Syncs        (*this, "syncs",          delegate::create<Network, &DRISC::Network::DoSyncs        >(*this))
 {
     RegisterSampleVariableInObject(m_numAllocates, SVC_CUMULATIVE);
     RegisterSampleVariableInObject(m_numBundles, SVC_CUMULATIVE);
@@ -66,7 +66,7 @@ Processor::Network::Network(
     m_allocResponse.in.Sensitive(p_AllocResponse);
 }
 
-void Processor::Network::Initialize(Network* prev, Network* next)
+void DRISC::Network::Initialize(Network* prev, Network* next)
 {
     m_prev = prev;
     m_next = next;
@@ -82,7 +82,7 @@ void Processor::Network::Initialize(Network* prev, Network* next)
 #undef INITIALIZE
 }
 
-bool Processor::Network::SendMessage(const RemoteMessage& msg)
+bool DRISC::Network::SendMessage(const RemoteMessage& msg)
 {
     assert(msg.type != RemoteMessage::MSG_NONE);
 
@@ -145,7 +145,7 @@ bool Processor::Network::SendMessage(const RemoteMessage& msg)
     return true;
 }
 
-bool Processor::Network::SendMessage(const LinkMessage& msg)
+bool DRISC::Network::SendMessage(const LinkMessage& msg)
 {
     assert(m_next != NULL);
     if (!m_link.out.Write(msg))
@@ -157,7 +157,7 @@ bool Processor::Network::SendMessage(const LinkMessage& msg)
     return true;
 }
 
-bool Processor::Network::SendAllocResponse(const AllocResponse& msg)
+bool DRISC::Network::SendAllocResponse(const AllocResponse& msg)
 {
     if (!m_allocResponse.out.Write(msg))
     {
@@ -166,7 +166,7 @@ bool Processor::Network::SendAllocResponse(const AllocResponse& msg)
     return true;
 }
 
-bool Processor::Network::SendSync(const SyncInfo& sync)
+bool DRISC::Network::SendSync(const SyncInfo& sync)
 {
     if (!m_syncs.Push(sync))
     {
@@ -178,7 +178,7 @@ bool Processor::Network::SendSync(const SyncInfo& sync)
     return true;
 }
 
-Result Processor::Network::DoSyncs()
+Result DRISC::Network::DoSyncs()
 {
     assert(!m_syncs.Empty());
     const SyncInfo& info = m_syncs.Front();
@@ -215,7 +215,7 @@ Result Processor::Network::DoSyncs()
     return SUCCESS;
 }
 
-Result Processor::Network::DoAllocResponse()
+Result DRISC::Network::DoAllocResponse()
 {
     assert(!m_allocResponse.in.Empty());
     AllocResponse msg = m_allocResponse.in.Read();
@@ -308,7 +308,7 @@ Result Processor::Network::DoAllocResponse()
     return SUCCESS;
 }
 
-bool Processor::Network::ReadRegister(LFID fid, RemoteRegType kind, const RegAddr& raddr, RegValue& value)
+bool DRISC::Network::ReadRegister(LFID fid, RemoteRegType kind, const RegAddr& raddr, RegValue& value)
 {
     const RegAddr addr = m_allocator.GetRemoteRegisterAddress(fid, kind, raddr);
     assert(addr != INVALID_REG);
@@ -357,7 +357,7 @@ bool Processor::Network::ReadRegister(LFID fid, RemoteRegType kind, const RegAdd
     return true;
 }
 
-bool Processor::Network::WriteRegister(LFID fid, RemoteRegType kind, const RegAddr& raddr, const RegValue& value)
+bool DRISC::Network::WriteRegister(LFID fid, RemoteRegType kind, const RegAddr& raddr, const RegValue& value)
 {
     RegAddr addr = m_allocator.GetRemoteRegisterAddress(fid, kind, raddr);
     if (addr != INVALID_REG)
@@ -386,7 +386,7 @@ bool Processor::Network::WriteRegister(LFID fid, RemoteRegType kind, const RegAd
 }
 
 
-bool Processor::Network::OnSync(LFID fid, PID completion_pid, RegIndex completion_reg)
+bool DRISC::Network::OnSync(LFID fid, PID completion_pid, RegIndex completion_reg)
 {
     Family& family = m_familyTable[fid];
     if (family.link != INVALID_LFID)
@@ -441,7 +441,7 @@ bool Processor::Network::OnSync(LFID fid, PID completion_pid, RegIndex completio
     return true;
 }
 
-bool Processor::Network::OnDetach(LFID fid)
+bool DRISC::Network::OnDetach(LFID fid)
 {
     if (!m_allocator.DecreaseFamilyDependency(fid, FAMDEP_DETACHED))
     {
@@ -466,7 +466,7 @@ bool Processor::Network::OnDetach(LFID fid)
     return true;
 }
 
-bool Processor::Network::OnBreak(LFID fid)
+bool DRISC::Network::OnBreak(LFID fid)
 {
     Family& family = m_familyTable[fid];
 
@@ -498,7 +498,7 @@ bool Processor::Network::OnBreak(LFID fid)
     return true;
 }
 
-Result Processor::Network::DoDelegationOut()
+Result DRISC::Network::DoDelegationOut()
 {
     // Send outgoing message over the delegation network
     assert(!m_delegateOut.Empty());
@@ -517,7 +517,7 @@ Result Processor::Network::DoDelegationOut()
     return SUCCESS;
 }
 
-Result Processor::Network::DoDelegationIn()
+Result DRISC::Network::DoDelegationIn()
 {
     // Handle incoming message from the delegation network
     // Note that we make a copy here, because we want to clear it before
@@ -739,7 +739,7 @@ Result Processor::Network::DoDelegationIn()
     return SUCCESS;
 }
 
-Result Processor::Network::DoLink()
+Result DRISC::Network::DoLink()
 {
     // Handle incoming message from the link
     assert(!m_link.in.Empty());
@@ -931,7 +931,7 @@ Result Processor::Network::DoLink()
     return SUCCESS;
 }
 
-void Processor::Network::Cmd_Info(ostream& out, const vector<string>& /* arguments */) const
+void DRISC::Network::Cmd_Info(ostream& out, const vector<string>& /* arguments */) const
 {
     out <<
     "The network component manages all inter-processor communication such as\n"
@@ -943,7 +943,7 @@ void Processor::Network::Cmd_Info(ostream& out, const vector<string>& /* argumen
     "  Reads and displays the various registers and buffers from the component.\n";
 }
 
-void Processor::Network::Cmd_Read(ostream& out, const vector<string>& /* arguments */) const
+void DRISC::Network::Cmd_Read(ostream& out, const vector<string>& /* arguments */) const
 {
     const struct {
         const char*                      name;
@@ -995,7 +995,7 @@ void Processor::Network::Cmd_Read(ostream& out, const vector<string>& /* argumen
     out << endl;
 }
 
-string Processor::RemoteMessage::str() const
+string DRISC::RemoteMessage::str() const
 {
     ostringstream ss;
 
@@ -1091,7 +1091,7 @@ string Processor::RemoteMessage::str() const
     return ss.str();
 }
 
-string Processor::LinkMessage::str() const
+string DRISC::LinkMessage::str() const
 {
     ostringstream ss;
 

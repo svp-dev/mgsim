@@ -2,7 +2,7 @@
 #define NETWORK_H
 
 #ifndef PROCESSOR_H
-#error This file should be included in Processor.h
+#error This file should be included in DRISC.h
 #endif
 
 struct RemoteMessage
@@ -291,7 +291,7 @@ public:
         bool     broken;
     };
 
-    Network(const std::string& name, Processor& parent, Clock& clock, const std::vector<Processor*>& grid, Allocator& allocator, RegisterFile& regFile, FamilyTable& familyTable, Config& config);
+    Network(const std::string& name, DRISC& parent, Clock& clock, const std::vector<DRISC*>& grid, Allocator& allocator, RegisterFile& regFile, FamilyTable& familyTable, Config& config);
     Network(const Network&) = delete;
     Network& operator=(const Network&) = delete;
 
@@ -326,13 +326,13 @@ private:
     Result DoDelegationIn();
     Result DoSyncs();
 
-    Processor&                     m_parent;
+    DRISC&                     m_parent;
     RegisterFile&                  m_regFile;
     FamilyTable&                   m_familyTable;
     Allocator&                     m_allocator;
     Network*                       m_prev;
     Network*                       m_next;
-    const std::vector<Processor*>& m_grid;
+    const std::vector<DRISC*>& m_grid;
     unsigned int                   m_loadBalanceThreshold;
 
     // Statistics

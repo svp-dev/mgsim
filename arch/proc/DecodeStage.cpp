@@ -1,4 +1,4 @@
-#include "Processor.h"
+#include "DRISC.h"
 #include <cassert>
 #include <sstream>
 #include <iomanip>
@@ -18,7 +18,7 @@ namespace Simulator
  \param[in] writing Indicates if this register is used in a write
  \returns the physical register address to use for the read or write
  */
-RegAddr Processor::Pipeline::DecodeStage::TranslateRegister(unsigned char reg, RegType type, unsigned int size, bool *islocal) const
+RegAddr DRISC::Pipeline::DecodeStage::TranslateRegister(unsigned char reg, RegType type, unsigned int size, bool *islocal) const
 {
     // We're always dealing with whole registers
     assert(size % sizeof(Integer) == 0);
@@ -100,7 +100,7 @@ RegAddr Processor::Pipeline::DecodeStage::TranslateRegister(unsigned char reg, R
     return MAKE_REGADDR(type, INVALID_REG_INDEX);
 }
 
-Processor::Pipeline::PipeAction Processor::Pipeline::DecodeStage::OnCycle()
+DRISC::Pipeline::PipeAction DRISC::Pipeline::DecodeStage::OnCycle()
 {
     COMMIT
     {
@@ -175,7 +175,7 @@ Processor::Pipeline::PipeAction Processor::Pipeline::DecodeStage::OnCycle()
     return PIPE_CONTINUE;
 }
 
-Processor::Pipeline::DecodeStage::DecodeStage(Pipeline& parent, Clock& clock, const FetchDecodeLatch& input, DecodeReadLatch& output, Config& /*config*/)
+DRISC::Pipeline::DecodeStage::DecodeStage(Pipeline& parent, Clock& clock, const FetchDecodeLatch& input, DecodeReadLatch& output, Config& /*config*/)
   : Stage("decode", parent, clock),
     m_input(input),
     m_output(output)

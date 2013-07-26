@@ -2,7 +2,7 @@
 #define THREADTABLE_H
 
 #ifndef PROCESSOR_H
-#error This file should be included in Processor.h
+#error This file should be included in DRISC.h
 #endif
 
 struct Thread
@@ -79,7 +79,7 @@ struct Thread
 class ThreadTable : public Object, public Inspect::Interface<Inspect::Read>
 {
 public:
-    ThreadTable(const std::string& name, Processor& parent, Clock& clock, Config& config);
+    ThreadTable(const std::string& name, DRISC& parent, Clock& clock, Config& config);
 
     TSize GetNumThreads() const { return m_threads.size(); }
 

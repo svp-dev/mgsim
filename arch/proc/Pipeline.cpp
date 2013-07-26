@@ -1,4 +1,4 @@
-#include "Processor.h"
+#include "DRISC.h"
 #include <arch/FPU.h>
 #include <sim/config.h>
 #include <arch/symtable.h>
@@ -13,15 +13,15 @@ using namespace std;
 namespace Simulator
 {
 
-Processor::Pipeline::Stage::Stage(const std::string& name, Pipeline& parent, Clock& clock)
+DRISC::Pipeline::Stage::Stage(const std::string& name, Pipeline& parent, Clock& clock)
 :   Object(name, parent, clock),
     m_parent(parent)
 {
 }
 
-Processor::Pipeline::Pipeline(
+DRISC::Pipeline::Pipeline(
     const std::string&  name,
-    Processor&          parent,
+    DRISC&          parent,
     Clock&              clock,
     RegisterFile&       regFile,
     Network&            network,
@@ -34,7 +34,7 @@ Processor::Pipeline::Pipeline(
     Config&       config)
 :
     Object(name, parent, clock),
-    p_Pipeline(*this, "pipeline", delegate::create<Pipeline, &Processor::Pipeline::DoPipeline>(*this)),
+    p_Pipeline(*this, "pipeline", delegate::create<Pipeline, &DRISC::Pipeline::DoPipeline>(*this)),
     m_parent(parent),
     m_fdLatch(),
     m_drLatch(),
@@ -122,7 +122,7 @@ Processor::Pipeline::Pipeline(
     m_stages[2].stage = new ReadStage(*this, clock, m_drLatch, m_reLatch, regFile, bypasses, config);
 }
 
-Processor::Pipeline::~Pipeline()
+DRISC::Pipeline::~Pipeline()
 {
     for (vector<StageInfo>::const_iterator p = m_stages.begin(); p != m_stages.end(); ++p)
     {
@@ -130,7 +130,7 @@ Processor::Pipeline::~Pipeline()
     }
 }
 
-Result Processor::Pipeline::DoPipeline()
+Result DRISC::Pipeline::DoPipeline()
 {
     if (IsAcquiring())
     {
@@ -233,7 +233,7 @@ Result Processor::Pipeline::DoPipeline()
         {
             // Add details about thread, family and PC
             stringstream details;
-            details << "While executing instruction at " << GetProcessor().GetSymbolTable()[stage->input->pc_dbg]
+            details << "While executing instruction at " << GetDRISC().GetSymbolTable()[stage->input->pc_dbg]
                     << " (0x" << hex << stage->input->pc_dbg
                     << ") in T" << dec << stage->input->tid << " in F" << stage->input->fid;
             e.AddDetails(details.str());
@@ -257,7 +257,7 @@ Result Processor::Pipeline::DoPipeline()
     return result;
 }
 
-void Processor::Pipeline::Cmd_Info(std::ostream& out, const std::vector<std::string>& /*arguments*/) const
+void DRISC::Pipeline::Cmd_Info(std::ostream& out, const std::vector<std::string>& /*arguments*/) const
 {
     out <<
     "The pipeline reads instructions, loads operands, computes their results and/or\n"
@@ -268,17 +268,17 @@ void Processor::Pipeline::Cmd_Info(std::ostream& out, const std::vector<std::str
     "  Reads and displays the stages and latches.\n";
 }
 
-void Processor::Pipeline::PrintLatchCommon(std::ostream& out, const CommonData& latch) const
+void DRISC::Pipeline::PrintLatchCommon(std::ostream& out, const CommonData& latch) const
 {
     out << " | LFID: F"  << dec << latch.fid
         << "    TID: T"  << dec << latch.tid << right
-        << "    PC: "    << GetProcessor().GetSymbolTable()[latch.pc_dbg] // "0x" << hex << setw(sizeof(MemAddr) * 2) << setfill('0') << latch.pc
+        << "    PC: "    << GetDRISC().GetSymbolTable()[latch.pc_dbg] // "0x" << hex << setw(sizeof(MemAddr) * 2) << setfill('0') << latch.pc
         << "    Annotation: " << ((latch.kill) ? "End" : (latch.swch ? "Switch" : "None")) << endl
         << " |" << endl;
 }
 
 // Construct a string representation of a pipeline register value
-/*static*/ std::string Processor::Pipeline::MakePipeValue(const RegType& type, const PipeValue& value)
+/*static*/ std::string DRISC::Pipeline::MakePipeValue(const RegType& type, const PipeValue& value)
 {
     std::stringstream ss;
 
@@ -305,7 +305,7 @@ void Processor::Pipeline::PrintLatchCommon(std::ostream& out, const CommonData& 
     return ret;
 }
 
-void Processor::Pipeline::Cmd_Read(std::ostream& out, const std::vector<std::string>& /*arguments*/) const
+void DRISC::Pipeline::Cmd_Read(std::ostream& out, const std::vector<std::string>& /*arguments*/) const
 {
     // Fetch stage
     out << "Stage: fetch" << endl;
@@ -399,7 +399,7 @@ void Processor::Pipeline::Cmd_Read(std::ostream& out, const std::vector<std::str
         {
             out << " | Operation: " << (m_emLatch.Rcv.m_state == RST_FULL ? "Store" : "Load") << endl
                 << " | Address:   0x" << hex << setw(sizeof(MemAddr) * 2) << setfill('0') << m_emLatch.address
-                << " " << GetProcessor().GetSymbolTable()[m_emLatch.address] << endl
+                << " " << GetDRISC().GetSymbolTable()[m_emLatch.address] << endl
                 << " | Size:      " << dec << m_emLatch.size << " bytes" << endl;
         }
     }
@@ -435,7 +435,7 @@ void Processor::Pipeline::Cmd_Read(std::ostream& out, const std::vector<std::str
     out << "Stage: writeback" << endl;
 }
 
-string Processor::Pipeline::PipeValue::str(RegType type) const
+string DRISC::Pipeline::PipeValue::str(RegType type) const
 {
     // Code similar to RegValue::str()
     string tc = (type == RT_FLOAT) ? "float:" : "int:" ;

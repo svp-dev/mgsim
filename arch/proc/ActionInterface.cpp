@@ -1,4 +1,4 @@
-#include "Processor.h"
+#include "DRISC.h"
 #include <cctype>
 #include <sstream>
 
@@ -18,15 +18,15 @@ namespace Simulator
  *    maximum address: 1 1 1
  */
 
-size_t Processor::ActionInterface::GetSize() const { return 8 * sizeof(Integer);  }
+size_t DRISC::ActionInterface::GetSize() const { return 8 * sizeof(Integer);  }
 
 
-Result Processor::ActionInterface::Read (MemAddr /*address*/, void* /*data*/, MemSize /*size*/, LFID /*fid*/, TID /*tid*/, const RegAddr& /*writeback*/)
+Result DRISC::ActionInterface::Read (MemAddr /*address*/, void* /*data*/, MemSize /*size*/, LFID /*fid*/, TID /*tid*/, const RegAddr& /*writeback*/)
 {
     UNREACHABLE;
 }
 
-Result Processor::ActionInterface::Write(MemAddr address, const void *data, MemSize size, LFID fid, TID tid)
+Result DRISC::ActionInterface::Write(MemAddr address, const void *data, MemSize size, LFID fid, TID tid)
 {
     if (address % sizeof(Integer) != 0)
     {
@@ -90,8 +90,8 @@ Result Processor::ActionInterface::Write(MemAddr address, const void *data, MemS
     return SUCCESS;
 }
 
-Processor::ActionInterface::ActionInterface(const std::string& name, Object& parent)
-    : Processor::MMIOComponent(name, parent, parent.GetClock())
+DRISC::ActionInterface::ActionInterface(const std::string& name, Object& parent)
+    : DRISC::MMIOComponent(name, parent, parent.GetClock())
 {
 }
 

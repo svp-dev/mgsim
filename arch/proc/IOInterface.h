@@ -2,7 +2,7 @@
 #define IOINTERFACE_H
 
 #ifndef PROCESSOR_H
-#error This file should be included in Processor.h
+#error This file should be included in DRISC.h
 #endif
 
 #include "IOResponseMultiplexer.h"
@@ -75,10 +75,10 @@ private:
     bool Write(IODeviceID dev, MemAddr address, const IOData& data);
     bool WaitForNotification(IONotificationChannelID dev, const RegAddr& writeback);
     bool ConfigureNotificationChannel(IONotificationChannelID dev, Integer mode);
-    Processor& GetProcessor() const;
+    DRISC& GetDRISC() const;
 
 public:
-    IOInterface(const std::string& name, Processor& parent, Clock& clock, IMemory& memory, RegisterFile& rf, Allocator& alloc, IIOBus& iobus, IODeviceID devid, Config& config);
+    IOInterface(const std::string& name, DRISC& parent, Clock& clock, IMemory& memory, RegisterFile& rf, Allocator& alloc, IIOBus& iobus, IODeviceID devid, Config& config);
 
     MMIOComponent& GetAsyncIOInterface() { return m_async_io; }
     MMIOComponent& GetPNCInterface() { return m_pnc; }

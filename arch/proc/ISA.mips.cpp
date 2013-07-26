@@ -1,4 +1,4 @@
-#include "Processor.h"
+#include "DRISC.h"
 #include <arch/symtable.h>
 #include <cassert>
 #include <sstream>
@@ -44,7 +44,7 @@ unsigned char GetRegisterClass(unsigned char addr, const RegsNo& regs, RegClass*
     return 0;
 }
 
-Processor::Pipeline::InstrFormat Processor::Pipeline::DecodeStage::GetInstrFormat(uint8_t opcode)
+DRISC::Pipeline::InstrFormat DRISC::Pipeline::DecodeStage::GetInstrFormat(uint8_t opcode)
 {
     switch (opcode) {
         case M_OP_SPECIAL:
@@ -61,7 +61,7 @@ Processor::Pipeline::InstrFormat Processor::Pipeline::DecodeStage::GetInstrForma
     }
 }
 
-void Processor::Pipeline::DecodeStage::DecodeInstruction(const Instruction& instr)
+void DRISC::Pipeline::DecodeStage::DecodeInstruction(const Instruction& instr)
 {
     m_output.opcode = (instr >> 26) & 0x3f;
     m_output.format = GetInstrFormat(m_output.opcode);
@@ -156,7 +156,7 @@ void Processor::Pipeline::DecodeStage::DecodeInstruction(const Instruction& inst
 
 
 
-Processor::Pipeline::PipeAction Processor::Pipeline::ExecuteStage::ExecuteInstruction()
+DRISC::Pipeline::PipeAction DRISC::Pipeline::ExecuteStage::ExecuteInstruction()
 {
     Thread& thread = m_threadTable[m_input.tid];
 
@@ -176,21 +176,21 @@ Processor::Pipeline::PipeAction Processor::Pipeline::ExecuteStage::ExecuteInstru
             switch (m_input.function) {
             case M_SPECIAL_GETTID: COMMIT { m_output.Rcv.m_integer = m_input.tid; } break;
             case M_SPECIAL_GETFID: COMMIT { m_output.Rcv.m_integer = m_input.fid; } break;
-            case M_SPECIAL_GETCID: COMMIT { m_output.Rcv.m_integer = m_parent.GetProcessor().GetPID(); } break;
+            case M_SPECIAL_GETCID: COMMIT { m_output.Rcv.m_integer = m_parent.GetDRISC().GetPID(); } break;
             case M_SPECIAL_GETPID:
             {
                 PlaceID place;
                 place.size = m_input.placeSize;
-                place.pid  = m_parent.GetProcessor().GetPID() & -place.size;
+                place.pid  = m_parent.GetDRISC().GetPID() & -place.size;
                 place.capability = 0x1337; // later: find a proper substitute
-                COMMIT { m_output.Rcv.m_integer = m_parent.GetProcessor().PackPlace(place); }
+                COMMIT { m_output.Rcv.m_integer = m_parent.GetDRISC().PackPlace(place); }
                 break;
             }
-            case M_SPECIAL_LDBP: m_output.Rcv.m_integer = m_parent.GetProcessor().GetTLSAddress(m_input.fid, m_input.tid); break; 
+            case M_SPECIAL_LDBP: m_output.Rcv.m_integer = m_parent.GetDRISC().GetTLSAddress(m_input.fid, m_input.tid); break; 
             case M_SPECIAL_LDFP:
             {
-                const MemAddr tls_base = m_parent.GetProcessor().GetTLSAddress(m_input.fid, m_input.tid);
-                const MemAddr tls_size = m_parent.GetProcessor().GetTLSSize();
+                const MemAddr tls_base = m_parent.GetDRISC().GetTLSAddress(m_input.fid, m_input.tid);
+                const MemAddr tls_size = m_parent.GetDRISC().GetTLSSize();
                 COMMIT { m_output.Rcv.m_integer = tls_base + tls_size; }
                 break;
             }
@@ -198,11 +198,11 @@ Processor::Pipeline::PipeAction Processor::Pipeline::ExecuteStage::ExecuteInstru
                 // Read ASR (6..15) / APR (16...31)
                 if ((m_input.function) < M_SPECIAL_GETAPR_FIRST)
                 {
-                    COMMIT { m_output.Rcv.m_integer = m_parent.GetProcessor().ReadASR(m_input.function - M_SPECIAL_GETASR_FIRST); break; }
+                    COMMIT { m_output.Rcv.m_integer = m_parent.GetDRISC().ReadASR(m_input.function - M_SPECIAL_GETASR_FIRST); break; }
                 }
                 else
                 {
-                    COMMIT { m_output.Rcv.m_integer = m_parent.GetProcessor().ReadAPR(m_input.function - M_SPECIAL_GETAPR_FIRST); break; }
+                    COMMIT { m_output.Rcv.m_integer = m_parent.GetDRISC().ReadAPR(m_input.function - M_SPECIAL_GETAPR_FIRST); break; }
                 }
                 break;
             }
@@ -249,7 +249,7 @@ Processor::Pipeline::PipeAction Processor::Pipeline::ExecuteStage::ExecuteInstru
                     if (Rav != m_input.pc + sizeof(Instruction)) {
                         DebugFlowWrite("F%u/T%u(%llu) %s branch %s",
                                        (unsigned)m_input.fid, (unsigned)m_input.tid, (unsigned long long)m_input.logical_index, m_input.pc_sym,
-                                       m_parent.GetProcessor().GetSymbolTable()[Rav].c_str());
+                                       m_parent.GetDRISC().GetSymbolTable()[Rav].c_str());
                         COMMIT {
                             m_output.pc = Rav;
                             m_output.swch = true;
@@ -268,7 +268,7 @@ Processor::Pipeline::PipeAction Processor::Pipeline::ExecuteStage::ExecuteInstru
                             break;
                         DebugFlowWrite("F%u/T%u(%llu) %s branch %s",
                                        (unsigned)m_input.fid, (unsigned)m_input.tid, (unsigned long long)m_input.logical_index, m_input.pc_sym,
-                                       m_parent.GetProcessor().GetSymbolTable()[Rav].c_str());
+                                       m_parent.GetDRISC().GetSymbolTable()[Rav].c_str());
                         COMMIT {
                             m_output.pc = Rav;
                             m_output.swch = true;
@@ -414,7 +414,7 @@ Processor::Pipeline::PipeAction Processor::Pipeline::ExecuteStage::ExecuteInstru
                         if (target != next) {
                             DebugFlowWrite("F%u/T%u(%llu) %s branch %s",
                                            (unsigned)m_input.fid, (unsigned)m_input.tid, (unsigned long long)m_input.logical_index, m_input.pc_sym,
-                                           m_parent.GetProcessor().GetSymbolTable()[target].c_str());
+                                           m_parent.GetDRISC().GetSymbolTable()[target].c_str());
                             COMMIT {
                                 m_output.pc = target;
                                 m_output.swch = true;
@@ -444,7 +444,7 @@ Processor::Pipeline::PipeAction Processor::Pipeline::ExecuteStage::ExecuteInstru
                     if (target != next) {
                         DebugFlowWrite("F%u/T%u(%llu) %s branch %s",
                                        (unsigned)m_input.fid, (unsigned)m_input.tid, (unsigned long long)m_input.logical_index, m_input.pc_sym,
-                                       m_parent.GetProcessor().GetSymbolTable()[target].c_str());
+                                       m_parent.GetDRISC().GetSymbolTable()[target].c_str());
                         COMMIT {
                             m_output.swch = true;
                             m_output.pc = target;
@@ -479,7 +479,7 @@ Processor::Pipeline::PipeAction Processor::Pipeline::ExecuteStage::ExecuteInstru
                     if (target != next) {
                         DebugFlowWrite("F%u/T%u(%llu) %s branch %s",
                                        (unsigned)m_input.fid, (unsigned)m_input.tid, (unsigned long long)m_input.logical_index, m_input.pc_sym,
-                                       m_parent.GetProcessor().GetSymbolTable()[target].c_str());
+                                       m_parent.GetDRISC().GetSymbolTable()[target].c_str());
                         COMMIT {
                             m_output.swch = true;
                             m_output.pc = target;

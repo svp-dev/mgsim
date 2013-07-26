@@ -1,4 +1,4 @@
-#include "Processor.h"
+#include "DRISC.h"
 #include <sim/config.h>
 #include <sim/log2.h>
 
@@ -9,7 +9,7 @@ using namespace std;
 namespace Simulator
 {
 
-Processor::RAUnit::RAUnit(const std::string& name, Processor& parent, Clock& clock, const RegisterFile& regFile, Config& config)
+DRISC::RAUnit::RAUnit(const std::string& name, DRISC& parent, Clock& clock, const RegisterFile& regFile, Config& config)
     : Object(name, parent, clock)
 {
     static struct RegTypeInfo {
@@ -60,7 +60,7 @@ Processor::RAUnit::RAUnit(const std::string& name, Processor& parent, Clock& clo
     }
 }
 
-Processor::RAUnit::BlockSize Processor::RAUnit::GetNumFreeContexts(ContextType type) const
+DRISC::RAUnit::BlockSize DRISC::RAUnit::GetNumFreeContexts(ContextType type) const
 {
     // Return the smallest number of free contexts.
     BlockSize free = m_types[0].free[type];
@@ -71,7 +71,7 @@ Processor::RAUnit::BlockSize Processor::RAUnit::GetNumFreeContexts(ContextType t
     return free;
 }
 
-void Processor::RAUnit::ReserveContext()
+void DRISC::RAUnit::ReserveContext()
 {
     // Move a normal context to reserved
     for (size_t i = 0; i < NUM_REG_TYPES; ++i)
@@ -84,7 +84,7 @@ void Processor::RAUnit::ReserveContext()
     }
 }
 
-void Processor::RAUnit::UnreserveContext()
+void DRISC::RAUnit::UnreserveContext()
 {
     // Move a reserved context to normal
     for (size_t i = 0; i < NUM_REG_TYPES; ++i)
@@ -97,7 +97,7 @@ void Processor::RAUnit::UnreserveContext()
     }
 }
 
-bool Processor::RAUnit::Alloc(const RegSize sizes[NUM_REG_TYPES], LFID fid, ContextType context, RegIndex indices[NUM_REG_TYPES])
+bool DRISC::RAUnit::Alloc(const RegSize sizes[NUM_REG_TYPES], LFID fid, ContextType context, RegIndex indices[NUM_REG_TYPES])
 {
     BlockSize blocksizes[NUM_REG_TYPES];
 
@@ -191,7 +191,7 @@ bool Processor::RAUnit::Alloc(const RegSize sizes[NUM_REG_TYPES], LFID fid, Cont
     return true;
 }
 
-void Processor::RAUnit::Free(RegIndex indices[NUM_REG_TYPES], ContextType context)
+void DRISC::RAUnit::Free(RegIndex indices[NUM_REG_TYPES], ContextType context)
 {
     for (size_t i = 0; i < NUM_REG_TYPES; ++i)
     {
@@ -221,7 +221,7 @@ void Processor::RAUnit::Free(RegIndex indices[NUM_REG_TYPES], ContextType contex
     }
 }
 
-void Processor::RAUnit::Cmd_Info(ostream& out, const std::vector<std::string>& /*arguments*/) const
+void DRISC::RAUnit::Cmd_Info(ostream& out, const std::vector<std::string>& /*arguments*/) const
 {
     out <<
         "The Register Allocation Unit is the component that manages the allocation\n"
@@ -235,7 +235,7 @@ void Processor::RAUnit::Cmd_Info(ostream& out, const std::vector<std::string>& /
         "  quickly see which registers are allocated to which family.\n";
 }
 
-void Processor::RAUnit::Cmd_Read(ostream& out, const vector<string>& /*arguments*/) const
+void DRISC::RAUnit::Cmd_Read(ostream& out, const vector<string>& /*arguments*/) const
 {
     static const char* TypeNames[NUM_REG_TYPES] = {"Integer", "Float"};
 

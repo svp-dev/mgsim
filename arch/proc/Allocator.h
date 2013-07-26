@@ -2,7 +2,7 @@
 #define ALLOCATOR_H
 
 #ifndef PROCESSOR_H
-#error This file should be included in Processor.h
+#error This file should be included in DRISC.h
 #endif
 
 // A list of dependencies that prevent a family from being
@@ -28,7 +28,7 @@ enum ThreadDependency
 
 class Allocator : public Object, public Inspect::Interface<Inspect::Read>
 {
-    friend class Processor;
+    friend class DRISC;
 
 public:
     typedef LinkedList< TID, ThreadTable, &Thread::next> ThreadList;
@@ -74,7 +74,7 @@ public:
         BUNDLE_LINE_LOADED,         // The line has been loaded
     };
 
-    Allocator(const std::string& name, Processor& parent, Clock& clock,
+    Allocator(const std::string& name, DRISC& parent, Clock& clock,
               FamilyTable& familyTable, ThreadTable& threadTable, RegisterFile& registerFile, RAUnit& raunit, ICache& icache, DCache& dcache, Network& network, Pipeline& pipeline,
               Config& config);
     Allocator(const Allocator&) = delete;
@@ -161,7 +161,7 @@ private:
     void Push(ThreadQueue& queue, TID tid);
     TID  Pop (ThreadQueue& queue);
 
-    Processor&    m_parent;
+    DRISC&    m_parent;
     FamilyTable&  m_familyTable;
     ThreadTable&  m_threadTable;
     RegisterFile& m_registerFile;

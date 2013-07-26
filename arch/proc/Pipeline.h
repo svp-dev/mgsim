@@ -2,12 +2,12 @@
 #define PIPELINE_H
 
 #ifndef PROCESSOR_H
-#error This file should be included in Processor.h
+#error This file should be included in DRISC.h
 #endif
 
 class Pipeline : public Object, public Inspect::Interface<Inspect::Read>
 {
-    friend class Processor;
+    friend class DRISC;
 
     /// A (possibly multi-) register value in the pipeline
     struct PipeValue
@@ -438,7 +438,7 @@ class Pipeline : public Object, public Inspect::Interface<Inspect::Read>
     static std::string MakePipeValue(const RegType& type, const PipeValue& value);
 
 public:
-    Pipeline(const std::string& name, Processor& parent, Clock& clock, RegisterFile& regFile, Network& network, Allocator& allocator, FamilyTable& familyTable, ThreadTable& threadTable, ICache& icache, DCache& dcache, FPU& fpu, Config& config);
+    Pipeline(const std::string& name, DRISC& parent, Clock& clock, RegisterFile& regFile, Network& network, Allocator& allocator, FamilyTable& familyTable, ThreadTable& threadTable, ICache& icache, DCache& dcache, FPU& fpu, Config& config);
     Pipeline(const Pipeline&) = delete;
     Pipeline& operator=(const Pipeline&) = delete;
     ~Pipeline();
@@ -452,7 +452,7 @@ public:
         throw ex;                                                       \
     } while(0)
 
-    Processor& GetProcessor()  const { return m_parent; }
+    DRISC& GetDRISC()  const { return m_parent; }
 
     uint64_t GetTotalBusyTime() const { return m_pipelineBusyTime; }
     uint64_t GetStalls() const { return m_nStalls; }
@@ -482,7 +482,7 @@ private:
         Result status;
     };
 
-    Processor& m_parent;
+    DRISC& m_parent;
 
     FetchDecodeLatch                  m_fdLatch;
     DecodeReadLatch                   m_drLatch;

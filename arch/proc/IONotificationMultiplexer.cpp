@@ -1,4 +1,4 @@
-#include "Processor.h"
+#include "DRISC.h"
 #include <sim/config.h>
 
 #include <sstream>
@@ -9,7 +9,7 @@ using namespace std;
 namespace Simulator
 {
 
-Processor::IONotificationMultiplexer::IONotificationMultiplexer(const string& name, Object& parent, Clock& clock, RegisterFile& rf, Allocator& alloc, size_t numChannels, Config& config)
+DRISC::IONotificationMultiplexer::IONotificationMultiplexer(const string& name, Object& parent, Clock& clock, RegisterFile& rf, Allocator& alloc, size_t numChannels, Config& config)
     : Object(name, parent, clock),
       m_regFile(rf),
       m_allocator(alloc),
@@ -19,7 +19,7 @@ Processor::IONotificationMultiplexer::IONotificationMultiplexer(const string& na
       m_notifications(numChannels, 0),
       m_services(numChannels, 0),
       m_lastNotified(0),
-      p_IncomingNotifications(*this, "received-notifications", delegate::create<IONotificationMultiplexer, &Processor::IONotificationMultiplexer::DoReceivedNotifications>(*this))
+      p_IncomingNotifications(*this, "received-notifications", delegate::create<IONotificationMultiplexer, &DRISC::IONotificationMultiplexer::DoReceivedNotifications>(*this))
 {
     BufferSize nqs = config.getValue<BufferSize>(*this, "NotificationQueueSize");
 
@@ -52,7 +52,7 @@ Processor::IONotificationMultiplexer::IONotificationMultiplexer(const string& na
 
 }
 
-Processor::IONotificationMultiplexer::~IONotificationMultiplexer()
+DRISC::IONotificationMultiplexer::~IONotificationMultiplexer()
 {
     for (size_t i = 0; i < m_writebacks.size(); ++i)
     {
@@ -63,7 +63,7 @@ Processor::IONotificationMultiplexer::~IONotificationMultiplexer()
     }
 }
 
-bool Processor::IONotificationMultiplexer::ConfigureChannel(IONotificationChannelID which, Integer mode)
+bool DRISC::IONotificationMultiplexer::ConfigureChannel(IONotificationChannelID which, Integer mode)
 {
     assert(which < m_writebacks.size());
 
@@ -75,7 +75,7 @@ bool Processor::IONotificationMultiplexer::ConfigureChannel(IONotificationChanne
 }
 
 
-bool Processor::IONotificationMultiplexer::SetWriteBackAddress(IONotificationChannelID which, const RegAddr& addr)
+bool DRISC::IONotificationMultiplexer::SetWriteBackAddress(IONotificationChannelID which, const RegAddr& addr)
 {
     assert(which < m_writebacks.size());
 
@@ -96,7 +96,7 @@ bool Processor::IONotificationMultiplexer::SetWriteBackAddress(IONotificationCha
     return true;
 }
 
-bool Processor::IONotificationMultiplexer::OnInterruptRequestReceived(IONotificationChannelID from)
+bool DRISC::IONotificationMultiplexer::OnInterruptRequestReceived(IONotificationChannelID from)
 {
     assert(from < m_interrupts.size());
 
@@ -112,7 +112,7 @@ bool Processor::IONotificationMultiplexer::OnInterruptRequestReceived(IONotifica
     }
 }
 
-bool Processor::IONotificationMultiplexer::OnNotificationReceived(IONotificationChannelID from, Integer tag)
+bool DRISC::IONotificationMultiplexer::OnNotificationReceived(IONotificationChannelID from, Integer tag)
 {
     assert(from < m_notifications.size());
 
@@ -129,7 +129,7 @@ bool Processor::IONotificationMultiplexer::OnNotificationReceived(IONotification
 }
 
 
-Result Processor::IONotificationMultiplexer::DoReceivedNotifications()
+Result DRISC::IONotificationMultiplexer::DoReceivedNotifications()
 {
     size_t i, j;
     bool   notification_ready = false;
@@ -292,14 +292,14 @@ Result Processor::IONotificationMultiplexer::DoReceivedNotifications()
 }
 
 
-void Processor::IONotificationMultiplexer::Cmd_Info(ostream& out, const vector<string>& /*args*/) const
+void DRISC::IONotificationMultiplexer::Cmd_Info(ostream& out, const vector<string>& /*args*/) const
 {
     out << "I/O notification multiplexer." << endl
         << endl
         << "Number of channels: " << m_writebacks.size() << endl;
 }
 
-void Processor::IONotificationMultiplexer::Cmd_Read(ostream& out, const vector<string>& /*args*/) const
+void DRISC::IONotificationMultiplexer::Cmd_Read(ostream& out, const vector<string>& /*args*/) const
 {
     out << "Channel | Enable | WB    | Int. Latch | Notifications" << endl
         << "--------+--------+-------+------------+---------------------" << endl;
@@ -336,7 +336,7 @@ void Processor::IONotificationMultiplexer::Cmd_Read(ostream& out, const vector<s
     }
 }
 
-StorageTraceSet Processor::IONotificationMultiplexer::GetWriteBackTraces() const
+StorageTraceSet DRISC::IONotificationMultiplexer::GetWriteBackTraces() const
 {
     StorageTraceSet res;
     for (std::vector<Register<RegAddr>*>::const_iterator p = m_writebacks.begin(); p != m_writebacks.end(); ++p)

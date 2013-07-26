@@ -1,4 +1,4 @@
-#include "Processor.h"
+#include "DRISC.h"
 #include <arch/FPU.h>
 #include <arch/symtable.h>
 #include <programs/mgsim.h>
@@ -118,7 +118,7 @@ static int32_t SEXT(uint32_t value, int bits)
     return (int32_t)(value << bits) >> bits;
 }
 
-void Processor::Pipeline::DecodeStage::DecodeInstruction(const Instruction& instr)
+void DRISC::Pipeline::DecodeStage::DecodeInstruction(const Instruction& instr)
 {
     m_output.op1 = (uint8_t)((instr >> OP1_SHIFT) & OP1_MASK);
     RegIndex Ra  = (instr >> RA_SHIFT) & REG_MASK;
@@ -374,7 +374,7 @@ void Processor::Pipeline::DecodeStage::DecodeInstruction(const Instruction& inst
 }
 
 /*static*/
-bool Processor::Pipeline::ExecuteStage::BranchTakenInt(int cond, uint32_t psr)
+bool DRISC::Pipeline::ExecuteStage::BranchTakenInt(int cond, uint32_t psr)
 {
     const bool n = (psr & PSR_ICC_N) != 0; // Negative
     const bool z = (psr & PSR_ICC_Z) != 0; // Zero
@@ -397,7 +397,7 @@ bool Processor::Pipeline::ExecuteStage::BranchTakenInt(int cond, uint32_t psr)
 }
 
 /*static*/
-bool Processor::Pipeline::ExecuteStage::BranchTakenFlt(int cond, uint32_t fsr)
+bool DRISC::Pipeline::ExecuteStage::BranchTakenFlt(int cond, uint32_t fsr)
 {
     const bool e = (fsr & FSR_FCC) == FSR_FCC_EQ; // Equal
     const bool l = (fsr & FSR_FCC) == FSR_FCC_LT; // Less than
@@ -414,7 +414,7 @@ bool Processor::Pipeline::ExecuteStage::BranchTakenFlt(int cond, uint32_t fsr)
     return b;
 }
 
-uint32_t Processor::Pipeline::ExecuteStage::ExecBasicInteger(int opcode, uint32_t Rav, uint32_t Rbv, uint32_t& Y, PSR& psr)
+uint32_t DRISC::Pipeline::ExecuteStage::ExecBasicInteger(int opcode, uint32_t Rav, uint32_t Rbv, uint32_t& Y, PSR& psr)
 {
     uint64_t Rcv = 0;
     switch (opcode & 0xF)
@@ -494,7 +494,7 @@ uint32_t Processor::Pipeline::ExecuteStage::ExecBasicInteger(int opcode, uint32_
     return (uint32_t)Rcv;
 }
 
-uint32_t Processor::Pipeline::ExecuteStage::ExecOtherInteger(int opcode, uint32_t Rav, uint32_t Rbv, uint32_t& Y, PSR& psr)
+uint32_t DRISC::Pipeline::ExecuteStage::ExecOtherInteger(int opcode, uint32_t Rav, uint32_t Rbv, uint32_t& Y, PSR& psr)
 {
     switch (opcode)
     {
@@ -528,14 +528,14 @@ uint32_t Processor::Pipeline::ExecuteStage::ExecOtherInteger(int opcode, uint32_
     return 0;
 }
 
-Processor::Pipeline::PipeAction Processor::Pipeline::ExecuteStage::ExecReadASR19(uint8_t func)
+DRISC::Pipeline::PipeAction DRISC::Pipeline::ExecuteStage::ExecReadASR19(uint8_t func)
 {
     switch (func)
     {
         case S_OPT2_LDBP:
             COMMIT {
                 // TLS base pointer: base address of TLS
-                m_output.Rcv.m_integer = m_parent.GetProcessor().GetTLSAddress(m_input.fid, m_input.tid);
+                m_output.Rcv.m_integer = m_parent.GetDRISC().GetTLSAddress(m_input.fid, m_input.tid);
                 m_output.Rcv.m_state   = RST_FULL;
             }
             break;
@@ -543,8 +543,8 @@ Processor::Pipeline::PipeAction Processor::Pipeline::ExecuteStage::ExecReadASR19
         case S_OPT2_LDFP:
             COMMIT {
                 /// TLS frame (stack) pointer: top of TLS
-                const MemAddr tls_base = m_parent.GetProcessor().GetTLSAddress(m_input.fid, m_input.tid);
-                const MemAddr tls_size = m_parent.GetProcessor().GetTLSSize();
+                const MemAddr tls_base = m_parent.GetDRISC().GetTLSAddress(m_input.fid, m_input.tid);
+                const MemAddr tls_size = m_parent.GetDRISC().GetTLSSize();
                 m_output.Rcv.m_integer = tls_base + tls_size;
                 m_output.Rcv.m_state   = RST_FULL;
             }
@@ -567,7 +567,7 @@ Processor::Pipeline::PipeAction Processor::Pipeline::ExecuteStage::ExecReadASR19
     return PIPE_CONTINUE;
 }
 
-Processor::Pipeline::PipeAction Processor::Pipeline::ExecuteStage::ExecReadASR20(uint8_t func)
+DRISC::Pipeline::PipeAction DRISC::Pipeline::ExecuteStage::ExecReadASR20(uint8_t func)
 {
     assert(m_input.Rav.m_size == sizeof(Integer));
     assert(m_input.Rbv.m_size == sizeof(Integer));
@@ -580,19 +580,19 @@ Processor::Pipeline::PipeAction Processor::Pipeline::ExecuteStage::ExecReadASR20
         case S_OPT1_ALLOCATES:
         case S_OPT1_ALLOCATEX:
         {
-            PlaceID place = m_parent.GetProcessor().UnpackPlace(Rav);
+            PlaceID place = m_parent.GetDRISC().UnpackPlace(Rav);
             return ExecAllocate(place, m_input.Rc.index, func != S_OPT1_ALLOCATE, func == S_OPT1_ALLOCATEX, Rbv);
         }
 
         case S_OPT1_CREATE:
         {
-            FID     fid  = m_parent.GetProcessor().UnpackFID(Rav);
+            FID     fid  = m_parent.GetDRISC().UnpackFID(Rav);
             MemAddr addr = Rbv;
             return ExecCreate(fid, addr, m_input.Rc.index);
         }
 
         case S_OPT1_SYNC:
-            return ExecSync(m_parent.GetProcessor().UnpackFID(Rbv));
+            return ExecSync(m_parent.GetDRISC().UnpackFID(Rbv));
 
         case S_OPT1_GETTID:
         case S_OPT1_GETFID:
@@ -604,14 +604,14 @@ Processor::Pipeline::PipeAction Processor::Pipeline::ExecuteStage::ExecReadASR20
                 {
                 case S_OPT1_GETFID: m_output.Rcv.m_integer = m_input.fid; break;
                 case S_OPT1_GETTID: m_output.Rcv.m_integer = m_input.tid; break;
-                case S_OPT1_GETCID: m_output.Rcv.m_integer = m_parent.GetProcessor().GetPID(); break;
+                case S_OPT1_GETCID: m_output.Rcv.m_integer = m_parent.GetDRISC().GetPID(); break;
                 case S_OPT1_GETPID:
                 {
                     PlaceID place;
                     place.size = m_input.placeSize;
-                    place.pid  = m_parent.GetProcessor().GetPID() & -place.size;
+                    place.pid  = m_parent.GetDRISC().GetPID() & -place.size;
                     place.capability = 0x1337;
-                    m_output.Rcv.m_integer = m_parent.GetProcessor().PackPlace(place);
+                    m_output.Rcv.m_integer = m_parent.GetDRISC().PackPlace(place);
                     break;
                 }
                 }
@@ -619,16 +619,16 @@ Processor::Pipeline::PipeAction Processor::Pipeline::ExecuteStage::ExecReadASR20
             break;
 
         case S_OPT1_GETS:
-            return ReadFamilyRegister(RRT_LAST_SHARED, RT_INTEGER, m_parent.GetProcessor().UnpackFID(Rbv), m_input.asi);
+            return ReadFamilyRegister(RRT_LAST_SHARED, RT_INTEGER, m_parent.GetDRISC().UnpackFID(Rbv), m_input.asi);
 
         case S_OPT1_FGETS:
-            return ReadFamilyRegister(RRT_LAST_SHARED, RT_FLOAT, m_parent.GetProcessor().UnpackFID(Rbv), m_input.asi);
+            return ReadFamilyRegister(RRT_LAST_SHARED, RT_FLOAT, m_parent.GetDRISC().UnpackFID(Rbv), m_input.asi);
 
         case S_OPT1_GETG:
-            return ReadFamilyRegister(RRT_GLOBAL, RT_INTEGER, m_parent.GetProcessor().UnpackFID(Rbv), m_input.asi);
+            return ReadFamilyRegister(RRT_GLOBAL, RT_INTEGER, m_parent.GetDRISC().UnpackFID(Rbv), m_input.asi);
 
         case S_OPT1_FGETG:
-            return ReadFamilyRegister(RRT_GLOBAL, RT_FLOAT, m_parent.GetProcessor().UnpackFID(Rbv), m_input.asi);
+            return ReadFamilyRegister(RRT_GLOBAL, RT_FLOAT, m_parent.GetDRISC().UnpackFID(Rbv), m_input.asi);
 
         default:
             ThrowIllegalInstructionException(*this, m_input.pc, "Invalid read from ASR20: func = %d", (int)func);
@@ -637,7 +637,7 @@ Processor::Pipeline::PipeAction Processor::Pipeline::ExecuteStage::ExecReadASR20
     return PIPE_CONTINUE;
 }
 
-Processor::Pipeline::PipeAction Processor::Pipeline::ExecuteStage::ExecWriteASR19(uint8_t func)
+DRISC::Pipeline::PipeAction DRISC::Pipeline::ExecuteStage::ExecWriteASR19(uint8_t func)
 {
     assert(m_input.Rav.m_size == sizeof(Integer));
     assert(m_input.Rbv.m_size == sizeof(Integer));
@@ -664,7 +664,7 @@ Processor::Pipeline::PipeAction Processor::Pipeline::ExecuteStage::ExecWriteASR1
     return PIPE_CONTINUE;
 }
 
-Processor::Pipeline::PipeAction Processor::Pipeline::ExecuteStage::ExecWriteASR20(uint8_t func)
+DRISC::Pipeline::PipeAction DRISC::Pipeline::ExecuteStage::ExecWriteASR20(uint8_t func)
 {
     assert(m_input.Rav.m_size == sizeof(Integer));
     assert(m_input.Rbv.m_size == sizeof(Integer));
@@ -687,7 +687,7 @@ Processor::Pipeline::PipeAction Processor::Pipeline::ExecuteStage::ExecWriteASR2
             case S_OPT1_SETSTEP:  prop = FAMPROP_STEP;  break;
             case S_OPT1_SETBLOCK: prop = FAMPROP_BLOCK; break;
             }
-            FID fid = m_parent.GetProcessor().UnpackFID(Rav);
+            FID fid = m_parent.GetDRISC().UnpackFID(Rav);
             return SetFamilyProperty(fid, prop, Rbv);
         }
 
@@ -695,19 +695,19 @@ Processor::Pipeline::PipeAction Processor::Pipeline::ExecuteStage::ExecWriteASR2
             return ExecBreak();
 
         case S_OPT1_PUTG:
-            return WriteFamilyRegister(RRT_GLOBAL, RT_INTEGER, m_parent.GetProcessor().UnpackFID(Rav), m_input.asi);
+            return WriteFamilyRegister(RRT_GLOBAL, RT_INTEGER, m_parent.GetDRISC().UnpackFID(Rav), m_input.asi);
 
         case S_OPT1_PUTS:
-            return WriteFamilyRegister(RRT_FIRST_DEPENDENT, RT_INTEGER, m_parent.GetProcessor().UnpackFID(Rav), m_input.asi);
+            return WriteFamilyRegister(RRT_FIRST_DEPENDENT, RT_INTEGER, m_parent.GetDRISC().UnpackFID(Rav), m_input.asi);
 
         case S_OPT1_FPUTG:
-            return WriteFamilyRegister(RRT_GLOBAL, RT_FLOAT, m_parent.GetProcessor().UnpackFID(Rav), m_input.asi);
+            return WriteFamilyRegister(RRT_GLOBAL, RT_FLOAT, m_parent.GetDRISC().UnpackFID(Rav), m_input.asi);
 
         case S_OPT1_FPUTS:
-            return WriteFamilyRegister(RRT_FIRST_DEPENDENT, RT_FLOAT, m_parent.GetProcessor().UnpackFID(Rav), m_input.asi);
+            return WriteFamilyRegister(RRT_FIRST_DEPENDENT, RT_FLOAT, m_parent.GetDRISC().UnpackFID(Rav), m_input.asi);
 
         case S_OPT1_DETACH:
-            return ExecDetach(m_parent.GetProcessor().UnpackFID(Rav));
+            return ExecDetach(m_parent.GetDRISC().UnpackFID(Rav));
 
         default:
             ThrowIllegalInstructionException(*this, m_input.pc, "Invalid write to ASR20: func = %d", (int)func);
@@ -716,7 +716,7 @@ Processor::Pipeline::PipeAction Processor::Pipeline::ExecuteStage::ExecWriteASR2
     return PIPE_CONTINUE;
 }
 
-Processor::Pipeline::PipeAction Processor::Pipeline::ExecuteStage::ExecuteInstruction()
+DRISC::Pipeline::PipeAction DRISC::Pipeline::ExecuteStage::ExecuteInstruction()
 {
     switch (m_input.op1)
     {
@@ -729,7 +729,7 @@ Processor::Pipeline::PipeAction Processor::Pipeline::ExecuteStage::ExecuteInstru
             m_output.Rcv.m_size    = sizeof(Integer);
             DebugFlowWrite("F%u/T%u(%llu) %s call %s",
                            (unsigned)m_input.fid, (unsigned)m_input.tid, (unsigned long long)m_input.logical_index, m_input.pc_sym,
-                           m_parent.GetProcessor().GetSymbolTable()[m_output.pc].c_str());
+                           m_parent.GetDRISC().GetSymbolTable()[m_output.pc].c_str());
         }
         return PIPE_FLUSH;
 
@@ -765,7 +765,7 @@ Processor::Pipeline::PipeAction Processor::Pipeline::ExecuteStage::ExecuteInstru
                     m_output.pc = m_input.pc + m_input.displacement * sizeof(Instruction);
                     DebugFlowWrite("F%u/T%u(%llu) %s branch %s",
                                    (unsigned)m_input.fid, (unsigned)m_input.tid, (unsigned long long)m_input.logical_index, m_input.pc_sym,
-                                   m_parent.GetProcessor().GetSymbolTable()[m_output.pc].c_str());
+                                   m_parent.GetDRISC().GetSymbolTable()[m_output.pc].c_str());
                 }
                 return PIPE_FLUSH;
             }
@@ -1083,7 +1083,7 @@ Processor::Pipeline::PipeAction Processor::Pipeline::ExecuteStage::ExecuteInstru
                 m_output.Rcv.m_state   = RST_FULL;
                 DebugFlowWrite("F%u/T%u(%llu) %s branch %s",
                                (unsigned)m_input.fid, (unsigned)m_input.tid, (unsigned long long)m_input.logical_index, m_input.pc_sym,
-                               m_parent.GetProcessor().GetSymbolTable()[m_output.pc].c_str());
+                               m_parent.GetDRISC().GetSymbolTable()[m_output.pc].c_str());
             }
             return PIPE_FLUSH;
         }

@@ -221,12 +221,12 @@ enum {
 
 
 
-// Processor State Register flags
+// DRISC State Register flags
 static const PSR PSR_CWP   = 0x0000001FUL; // Current Window Pointer
 static const PSR PSR_ET    = 0x00000020UL; // Enable Traps
 static const PSR PSR_PS    = 0x00000040UL; // Previous Supervisor
 static const PSR PSR_S     = 0x00000080UL; // Supervisor
-static const PSR PSR_PIL   = 0x00000F00UL; // Processor Interrupt Level
+static const PSR PSR_PIL   = 0x00000F00UL; // DRISC Interrupt Level
 static const PSR PSR_EF    = 0x00001000UL; // Enable Floating Point
 static const PSR PSR_EC    = 0x00002000UL; // Enable Coprocessor
 static const PSR PSR_ICC   = 0x00F00000UL; // Integer Condition Codes

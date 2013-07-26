@@ -1,4 +1,4 @@
-#include "Processor.h"
+#include "DRISC.h"
 #include <sim/config.h>
 
 #include <sys/time.h>
@@ -7,10 +7,10 @@
 namespace Simulator
 {
 
-    class Processor::PerfCounters::Helpers
+    class DRISC::PerfCounters::Helpers
 {
 template<typename F>
-static void apply_place(Processor& cpu, LFID fid, const F& fun)
+static void apply_place(DRISC& cpu, LFID fid, const F& fun)
 {
     auto placeSize  = cpu.m_familyTable[fid].placeSize;
     auto placeStart = (cpu.m_pid / placeSize) * placeSize;
@@ -21,96 +21,96 @@ static void apply_place(Processor& cpu, LFID fid, const F& fun)
 
 public:
     // Simulation master cycle counter
-    static Integer master_cycles(Processor& cpu, LFID ) { return cpu.GetKernel()->GetCycleNo(); }
+    static Integer master_cycles(DRISC& cpu, LFID ) { return cpu.GetKernel()->GetCycleNo(); }
 
     // Executed instructions on all cores in place
-    static Integer exec_ops(Processor& cpu, LFID fid) {
+    static Integer exec_ops(DRISC& cpu, LFID fid) {
         Integer ops = 0;
         apply_place(cpu, fid, [&](size_t i) { ops += cpu.m_grid[i]->GetPipeline().GetOp(); });
         return ops;
     }
 
     // Issued FP instructions on all cores in place
-    static Integer issued_flops(Processor& cpu, LFID fid) {
+    static Integer issued_flops(DRISC& cpu, LFID fid) {
         Integer flops = 0;
         apply_place(cpu, fid, [&](size_t i) { flops += cpu.m_grid[i]->GetPipeline().GetFlop(); });
         return flops;
     }
 
     // Completed loads on all cores in place
-    static Integer completed_loads(Processor& cpu, LFID fid) {
+    static Integer completed_loads(DRISC& cpu, LFID fid) {
         uint64_t n = 0, dummy;
         apply_place(cpu, fid, [&](size_t i) { cpu.m_grid[i]->GetPipeline().CollectMemOpStatistics(n, dummy, dummy, dummy); });
         return n;
     }
 
     // Completed stores on all cores in place
-    static Integer completed_stores(Processor& cpu, LFID fid) {
+    static Integer completed_stores(DRISC& cpu, LFID fid) {
         uint64_t n = 0, dummy;
         apply_place(cpu, fid, [&](size_t i) { cpu.m_grid[i]->GetPipeline().CollectMemOpStatistics(dummy, n, dummy, dummy); });
         return n;
     }
 
     // Loaded bytes on all cores in place
-    static Integer loaded_bytes(Processor& cpu, LFID fid) {
+    static Integer loaded_bytes(DRISC& cpu, LFID fid) {
         uint64_t n = 0, dummy;
         apply_place(cpu, fid, [&](size_t i) { cpu.m_grid[i]->GetPipeline().CollectMemOpStatistics(dummy, dummy, n, dummy); });
         return n;
     }
 
     // Stored bytes on all cores in place
-    static Integer stored_bytes(Processor& cpu, LFID fid) {
+    static Integer stored_bytes(DRISC& cpu, LFID fid) {
         uint64_t n = 0, dummy;
         apply_place(cpu, fid, [&](size_t i) { cpu.m_grid[i]->GetPipeline().CollectMemOpStatistics(dummy, dummy, dummy, n); });
         return n;
     }
 
     // Line load requests issued from L1 to L2
-    static Integer lines_loaded(Processor& cpu, LFID) {
+    static Integer lines_loaded(DRISC& cpu, LFID) {
         uint64_t n = 0, dummy;
         cpu.m_memory.GetMemoryStatistics(n, dummy, dummy, dummy, dummy, dummy);
         return n;
     }
 
     // Line store requests issued from L1 to L2
-    static Integer lines_stored(Processor& cpu, LFID) {
+    static Integer lines_stored(DRISC& cpu, LFID) {
         uint64_t n = 0, dummy;
         cpu.m_memory.GetMemoryStatistics(dummy, n, dummy, dummy, dummy, dummy);
         return n;
     }
 
     // Place size
-    static Integer place_size(Processor& cpu, LFID fid) { return cpu.m_familyTable[fid].placeSize; }
+    static Integer place_size(DRISC& cpu, LFID fid) { return cpu.m_familyTable[fid].placeSize; }
 
     // Total cumulative allocated thread slots
-    static Integer allocated_threads(Processor& cpu, LFID fid) {
+    static Integer allocated_threads(DRISC& cpu, LFID fid) {
         Integer n = 0;
         apply_place(cpu, fid, [&](size_t i) { n += cpu.m_grid[i]->GetTotalThreadsAllocated(); });
         return n;
     }
 
     // Total cumulative allocated family slots
-    static Integer allocated_families(Processor& cpu, LFID fid) {
+    static Integer allocated_families(DRISC& cpu, LFID fid) {
         Integer n = 0;
         apply_place(cpu, fid, [&](size_t i) { n += cpu.m_grid[i]->GetTotalFamiliesAllocated(); });
         return n;
     }
 
     // Total cumulative exclusive allocate queue size
-    static Integer allocated_xfamilies(Processor& cpu, LFID fid) {
+    static Integer allocated_xfamilies(DRISC& cpu, LFID fid) {
         Integer n = 0;
         apply_place(cpu, fid, [&](size_t i) { n += cpu.m_grid[i]->GetTotalAllocateExQueueSize(); });
         return n;
     }
 
     // Unix time in seconds
-    static Integer unix_time(Processor&, LFID) { return time(0); }
+    static Integer unix_time(DRISC&, LFID) { return time(0); }
 
     // Packed wall clock date
     // bits 0-4: day in month
     // bits 5-8: month in year
     // bits 9-31: year from 1900
-    static Integer packed_date(Processor&, LFID) {
+    static Integer packed_date(DRISC&, LFID) {
         time_t c = time(0);
         struct tm * tm = gmtime(&c);
         return (Integer)tm->tm_mday |
@@ -123,7 +123,7 @@ public:
     // bits 15-20 = seconds
     // bits 21-26 = minutes
     // bits 27-31 = hours
-    static Integer packed_time(Processor&, LFID) {
+    static Integer packed_time(DRISC&, LFID) {
         struct timeval tv;
         gettimeofday(&tv, 0);
         struct tm * tm = gmtime(&tv.tv_sec);
@@ -135,40 +135,40 @@ public:
     }
 
     // Line load requests issued from chip to outside
-    static Integer extlines_loaded(Processor& cpu, LFID) {
+    static Integer extlines_loaded(DRISC& cpu, LFID) {
         uint64_t n = 0, dummy;
         cpu.m_memory.GetMemoryStatistics(dummy, dummy, dummy, dummy, n, dummy);
         return n;
     }
 
     // Line store requests issued from chip to outside
-    static Integer extlines_stored(Processor& cpu, LFID) {
+    static Integer extlines_stored(DRISC& cpu, LFID) {
         uint64_t n = 0, dummy;
         cpu.m_memory.GetMemoryStatistics(dummy, dummy, dummy, dummy, dummy, n);
         return n;
     }
 
     // Number of created threads
-    static Integer created_threads(Processor& cpu, LFID fid) {
+    static Integer created_threads(DRISC& cpu, LFID fid) {
         Integer n = 0;
         apply_place(cpu, fid, [&](size_t i) { n += cpu.m_grid[i]->GetTotalThreadsCreated(); });
         return n;
     }
 
     // Total cumulative created family slots
-    static Integer created_families(Processor& cpu, LFID fid) {
+    static Integer created_families(DRISC& cpu, LFID fid) {
         Integer n = 0;
         apply_place(cpu, fid, [&](size_t i) { n += cpu.m_grid[i]->GetTotalFamiliesCreated(); });
         return n;
     }
 
     // Core cycle counter
-    static Integer core_cycles(Processor& cpu, LFID) { return cpu.GetCycleNo(); }
+    static Integer core_cycles(DRISC& cpu, LFID) { return cpu.GetCycleNo(); }
 
 };
 
-Processor::PerfCounters::PerfCounters(Processor& parent, Config& config)
-    : Processor::MMIOComponent("perfcounters", parent, parent.GetClock()),
+DRISC::PerfCounters::PerfCounters(DRISC& parent, Config& config)
+    : DRISC::MMIOComponent("perfcounters", parent, parent.GetClock()),
       m_counters(),
       m_nCycleSampleOps(0),
       m_nOtherSampleOps(0)
@@ -203,14 +203,14 @@ Processor::PerfCounters::PerfCounters(Processor& parent, Config& config)
 }
 
 
-size_t Processor::PerfCounters::GetSize() const { return m_counters.size() * sizeof(Integer);  }
+size_t DRISC::PerfCounters::GetSize() const { return m_counters.size() * sizeof(Integer);  }
 
-Result Processor::PerfCounters::Write(MemAddr /*address*/, const void * /*data*/, MemSize /*size*/, LFID /*fid*/, TID /*tid*/)
+Result DRISC::PerfCounters::Write(MemAddr /*address*/, const void * /*data*/, MemSize /*size*/, LFID /*fid*/, TID /*tid*/)
 {
     UNREACHABLE;
 }
 
-Result Processor::PerfCounters::Read(MemAddr address, void *data, MemSize size, LFID fid, TID tid, const RegAddr& /*writeback*/)
+Result DRISC::PerfCounters::Read(MemAddr address, void *data, MemSize size, LFID fid, TID tid, const RegAddr& /*writeback*/)
 {
     if (size != sizeof(Integer) || address % sizeof(Integer) != 0 || address / sizeof(Integer) >= m_counters.size())
     {
@@ -219,7 +219,7 @@ Result Processor::PerfCounters::Read(MemAddr address, void *data, MemSize size, 
     }
     address /= sizeof(Integer);
 
-    Processor& cpu = *static_cast<Processor*>(GetParent());
+    DRISC& cpu = *static_cast<DRISC*>(GetParent());
 
     Integer value = m_counters[address](cpu, fid);
 

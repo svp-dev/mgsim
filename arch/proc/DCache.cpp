@@ -1,4 +1,4 @@
-#include "Processor.h"
+#include "DRISC.h"
 #include <sim/log2.h>
 #include <sim/config.h>
 #include <sim/sampling.h>
@@ -12,7 +12,7 @@ using namespace std;
 namespace Simulator
 {
 
-Processor::DCache::DCache(const std::string& name, Processor& parent, Clock& clock, Allocator& alloc, FamilyTable& familyTable, RegisterFile& regFile, IMemory& memory, Config& config)
+DRISC::DCache::DCache(const std::string& name, DRISC& parent, Clock& clock, Allocator& alloc, FamilyTable& familyTable, RegisterFile& regFile, IMemory& memory, Config& config)
 :   Object(name, parent, clock), m_parent(parent),
     m_allocator(alloc), m_familyTable(familyTable), m_regFile(regFile),
     m_memory(memory),
@@ -43,10 +43,10 @@ Processor::DCache::DCache(const std::string& name, Processor& parent, Clock& clo
     m_numStallingWMisses(0),
     m_numSnoops(0),
 
-    p_ReadWritebacks(*this, "read-writebacks", delegate::create<DCache, &Processor::DCache::DoReadWritebacks  >(*this) ),
-    p_ReadResponses (*this, "read-responses",  delegate::create<DCache, &Processor::DCache::DoReadResponses   >(*this) ),
-    p_WriteResponses(*this, "write-responses", delegate::create<DCache, &Processor::DCache::DoWriteResponses  >(*this) ),
-    p_Outgoing      (*this, "outgoing",        delegate::create<DCache, &Processor::DCache::DoOutgoingRequests>(*this) ),
+    p_ReadWritebacks(*this, "read-writebacks", delegate::create<DCache, &DRISC::DCache::DoReadWritebacks  >(*this) ),
+    p_ReadResponses (*this, "read-responses",  delegate::create<DCache, &DRISC::DCache::DoReadResponses   >(*this) ),
+    p_WriteResponses(*this, "write-responses", delegate::create<DCache, &DRISC::DCache::DoWriteResponses  >(*this) ),
+    p_Outgoing      (*this, "outgoing",        delegate::create<DCache, &DRISC::DCache::DoOutgoingRequests>(*this) ),
 
     p_service        (*this, clock, "p_service")
 {
@@ -106,7 +106,7 @@ Processor::DCache::DCache(const std::string& name, Processor& parent, Clock& clo
     m_wbstate.offset = 0;
 }
 
-Processor::DCache::~DCache()
+DRISC::DCache::~DCache()
 {
     for (size_t i = 0; i < m_lines.size(); ++i)
     {
@@ -116,7 +116,7 @@ Processor::DCache::~DCache()
     delete m_selector;
 }
 
-Result Processor::DCache::FindLine(MemAddr address, Line* &line, bool check_only)
+Result DRISC::DCache::FindLine(MemAddr address, Line* &line, bool check_only)
 {
     MemAddr tag;
     size_t setindex;
@@ -178,7 +178,7 @@ Result Processor::DCache::FindLine(MemAddr address, Line* &line, bool check_only
 
 
 
-Result Processor::DCache::Read(MemAddr address, void* data, MemSize size, RegAddr* reg)
+Result DRISC::DCache::Read(MemAddr address, void* data, MemSize size, RegAddr* reg)
 {
     size_t offset = (size_t)(address % m_lineSize);
     if (offset + size > m_lineSize)
@@ -307,7 +307,7 @@ Result Processor::DCache::Read(MemAddr address, void* data, MemSize size, RegAdd
     return DELAYED;
 }
 
-Result Processor::DCache::Write(MemAddr address, void* data, MemSize size, LFID fid, TID tid)
+Result DRISC::DCache::Write(MemAddr address, void* data, MemSize size, LFID fid, TID tid)
 {
     assert(fid != INVALID_LFID);
     assert(tid != INVALID_TID);
@@ -407,7 +407,7 @@ Result Processor::DCache::Write(MemAddr address, void* data, MemSize size, LFID 
     return DELAYED;
 }
 
-bool Processor::DCache::OnMemoryReadCompleted(MemAddr addr, const char* data)
+bool DRISC::DCache::OnMemoryReadCompleted(MemAddr addr, const char* data)
 {
     // Check if we have the line and if its loading.
     // This method gets called whenever a memory read completion is put on the
@@ -463,7 +463,7 @@ bool Processor::DCache::OnMemoryReadCompleted(MemAddr addr, const char* data)
     return true;
 }
 
-bool Processor::DCache::OnMemoryWriteCompleted(WClientID wid)
+bool DRISC::DCache::OnMemoryWriteCompleted(WClientID wid)
 {
     // Data has been written
     if (wid != INVALID_WCLIENTID) // otherwise for DCA
@@ -481,7 +481,7 @@ bool Processor::DCache::OnMemoryWriteCompleted(WClientID wid)
     return true;
 }
 
-bool Processor::DCache::OnMemorySnooped(MemAddr address, const char* data, const bool* mask)
+bool DRISC::DCache::OnMemorySnooped(MemAddr address, const char* data, const bool* mask)
 {
     Line*  line;
 
@@ -520,7 +520,7 @@ bool Processor::DCache::OnMemorySnooped(MemAddr address, const char* data, const
     return true;
 }
 
-bool Processor::DCache::OnMemoryInvalidated(MemAddr address)
+bool DRISC::DCache::OnMemoryInvalidated(MemAddr address)
 {
     COMMIT
     {
@@ -543,12 +543,12 @@ bool Processor::DCache::OnMemoryInvalidated(MemAddr address)
     return true;
 }
 
-Object& Processor::DCache::GetMemoryPeer()
+Object& DRISC::DCache::GetMemoryPeer()
 {
     return m_parent;
 }
 
-Result Processor::DCache::DoReadResponses()
+Result DRISC::DCache::DoReadResponses()
 {
     assert(!m_read_responses.Empty());
 
@@ -597,7 +597,7 @@ Result Processor::DCache::DoReadResponses()
     return SUCCESS;
 }
 
-Result Processor::DCache::DoReadWritebacks()
+Result DRISC::DCache::DoReadWritebacks()
 {
     assert(!m_writebacks.Empty());
 
@@ -727,7 +727,7 @@ Result Processor::DCache::DoReadWritebacks()
     return SUCCESS;
 }
 
-Result Processor::DCache::DoWriteResponses()
+Result DRISC::DCache::DoWriteResponses()
 {
     assert(!m_write_responses.Empty());
     auto& response = m_write_responses.Front();
@@ -744,7 +744,7 @@ Result Processor::DCache::DoWriteResponses()
     return SUCCESS;
 }
 
-Result Processor::DCache::DoOutgoingRequests()
+Result DRISC::DCache::DoOutgoingRequests()
 {
     assert(!m_outgoing.Empty());
     const Request& request = m_outgoing.Front();
@@ -774,7 +774,7 @@ Result Processor::DCache::DoOutgoingRequests()
     return SUCCESS;
 }
 
-void Processor::DCache::Cmd_Info(std::ostream& out, const std::vector<std::string>& /*arguments*/) const
+void DRISC::DCache::Cmd_Info(std::ostream& out, const std::vector<std::string>& /*arguments*/) const
 {
     out <<
     "The Data Cache stores data from memory that has been used in loads and stores\n"
@@ -789,7 +789,7 @@ void Processor::DCache::Cmd_Info(std::ostream& out, const std::vector<std::strin
     "  Reads and displays the cache-lines.\n";
 }
 
-void Processor::DCache::Cmd_Read(std::ostream& out, const std::vector<std::string>& arguments) const
+void DRISC::DCache::Cmd_Read(std::ostream& out, const std::vector<std::string>& arguments) const
 {
     if (arguments.empty())
     {
