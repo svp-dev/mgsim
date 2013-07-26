@@ -20,6 +20,9 @@
 #include <memory>
 #include <cstdlib>
 
+#include <sys/param.h>
+#include <unistd.h>
+
 #ifdef USE_SDL
 #include <SDL.h>
 #endif
@@ -327,7 +330,16 @@ int main(int argc, char** argv)
     if (flags.m_interactive)
     {
         // Interactive mode: print name & version first
-        clog << argp_program_version << endl;
+        clog << argp_program_version << endl
+             << endl;
+
+	// Then print also command name & arguments
+	clog  << "Command line:";
+	for (int i = 0; i < argc; ++i)
+            clog << ' ' << argv[i];
+	char buf[MAXPATHLEN];
+	getcwd(buf, MAXPATHLEN);
+	clog << endl << "Current working directory: " << buf << endl;
     }
 
     // Convert the remaining m_regs to an override
