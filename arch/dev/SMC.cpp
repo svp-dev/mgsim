@@ -1,6 +1,6 @@
 #include "SMC.h"
 #include "sim/config.h"
-#include "arch/proc/DRISC.h"
+#include "arch/drisc/DRISC.h"
 #include "ActiveROM.h"
 
 using namespace std;

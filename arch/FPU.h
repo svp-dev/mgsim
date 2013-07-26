@@ -1,7 +1,7 @@
 #ifndef FPU_H
 #define FPU_H
 
-#include <arch/proc/DRISC.h>
+#include <arch/drisc/DRISC.h>
 #include <sim/inspect.h>
 
 #include <deque>

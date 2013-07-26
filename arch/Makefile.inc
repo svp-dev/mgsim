@@ -52,59 +52,59 @@ DEVICE_SRC = \
         arch/dev/UART.cpp
 
 PROCESSOR_SRC = \
-        arch/proc/ActionInterface.cpp \
-        arch/proc/ActionInterface.h \
-	arch/proc/Allocator.cpp \
-	arch/proc/Allocator.h \
-	arch/proc/AncillaryRegisterFile.cpp \
-	arch/proc/AncillaryRegisterFile.h \
-	arch/proc/DCache.cpp \
-	arch/proc/DCache.h \
-	arch/proc/DebugChannel.h \
-	arch/proc/DebugChannel.cpp \
-	arch/proc/DecodeStage.cpp \
-	arch/proc/DummyStage.cpp \
-	arch/proc/ExecuteStage.cpp \
-	arch/proc/FamilyTable.cpp \
-	arch/proc/FamilyTable.h \
-	arch/proc/FetchStage.cpp \
-	arch/proc/ICache.cpp \
-	arch/proc/ICache.h \
-	arch/proc/IOResponseMultiplexer.h \
-	arch/proc/IOResponseMultiplexer.cpp \
-	arch/proc/IONotificationMultiplexer.h \
-	arch/proc/IONotificationMultiplexer.cpp \
-	arch/proc/IOBusInterface.h \
-	arch/proc/IOBusInterface.cpp \
-	arch/proc/IOInterface.h \
-	arch/proc/IOInterface.cpp \
-	arch/proc/IOMatchUnit.h \
-	arch/proc/IOMatchUnit.cpp \
-        arch/proc/IODirectCacheAccess.h \
-        arch/proc/IODirectCacheAccess.cpp \
-        arch/proc/ISA.cpp \
-	arch/proc/ISA.mtalpha.h \
-	arch/proc/ISA.mtsparc.h \
-	arch/proc/ISA.mips.h \
-	arch/proc/MemoryStage.cpp \
-	arch/proc/MMUInterface.cpp \
-	arch/proc/MMUInterface.h \
-	arch/proc/Network.cpp \
-	arch/proc/Network.h \
-	arch/proc/Pipeline.cpp \
-	arch/proc/Pipeline.h \
-	arch/proc/DRISC.cpp \
-	arch/proc/DRISC.h \
-	arch/proc/RAUnit.cpp \
-	arch/proc/RAUnit.h \
-	arch/proc/ReadStage.cpp \
-	arch/proc/RegisterFile.cpp \
-	arch/proc/RegisterFile.h \
-	arch/proc/ThreadTable.cpp \
-	arch/proc/ThreadTable.h \
-	arch/proc/WritebackStage.cpp \
-	arch/proc/PerfCounters.h \
-	arch/proc/PerfCounters.cpp
+        arch/drisc/ActionInterface.cpp \
+        arch/drisc/ActionInterface.h \
+	arch/drisc/Allocator.cpp \
+	arch/drisc/Allocator.h \
+	arch/drisc/AncillaryRegisterFile.cpp \
+	arch/drisc/AncillaryRegisterFile.h \
+	arch/drisc/DCache.cpp \
+	arch/drisc/DCache.h \
+	arch/drisc/DebugChannel.h \
+	arch/drisc/DebugChannel.cpp \
+	arch/drisc/DecodeStage.cpp \
+	arch/drisc/DummyStage.cpp \
+	arch/drisc/ExecuteStage.cpp \
+	arch/drisc/FamilyTable.cpp \
+	arch/drisc/FamilyTable.h \
+	arch/drisc/FetchStage.cpp \
+	arch/drisc/ICache.cpp \
+	arch/drisc/ICache.h \
+	arch/drisc/IOResponseMultiplexer.h \
+	arch/drisc/IOResponseMultiplexer.cpp \
+	arch/drisc/IONotificationMultiplexer.h \
+	arch/drisc/IONotificationMultiplexer.cpp \
+	arch/drisc/IOBusInterface.h \
+	arch/drisc/IOBusInterface.cpp \
+	arch/drisc/IOInterface.h \
+	arch/drisc/IOInterface.cpp \
+	arch/drisc/IOMatchUnit.h \
+	arch/drisc/IOMatchUnit.cpp \
+        arch/drisc/IODirectCacheAccess.h \
+        arch/drisc/IODirectCacheAccess.cpp \
+        arch/drisc/ISA.cpp \
+	arch/drisc/ISA.mtalpha.h \
+	arch/drisc/ISA.mtsparc.h \
+	arch/drisc/ISA.mips.h \
+	arch/drisc/MemoryStage.cpp \
+	arch/drisc/MMUInterface.cpp \
+	arch/drisc/MMUInterface.h \
+	arch/drisc/Network.cpp \
+	arch/drisc/Network.h \
+	arch/drisc/Pipeline.cpp \
+	arch/drisc/Pipeline.h \
+	arch/drisc/DRISC.cpp \
+	arch/drisc/DRISC.h \
+	arch/drisc/RAUnit.cpp \
+	arch/drisc/RAUnit.h \
+	arch/drisc/ReadStage.cpp \
+	arch/drisc/RegisterFile.cpp \
+	arch/drisc/RegisterFile.h \
+	arch/drisc/ThreadTable.cpp \
+	arch/drisc/ThreadTable.h \
+	arch/drisc/WritebackStage.cpp \
+	arch/drisc/PerfCounters.h \
+	arch/drisc/PerfCounters.cpp
 
 COMMON_SRC = \
     arch/area.cpp \
@@ -154,9 +154,9 @@ MEMORY_SRC += \
 endif
 
 EXTRA_DIST += \
-	arch/proc/ISA.mips.cpp \
-	arch/proc/ISA.mtalpha.cpp \
-	arch/proc/ISA.mtsparc.cpp
+	arch/drisc/ISA.mips.cpp \
+	arch/drisc/ISA.mtalpha.cpp \
+	arch/drisc/ISA.mtsparc.cpp
 
 ARCH_SOURCES = $(COMMON_SRC) $(PROCESSOR_SRC) $(MEMORY_SRC) $(DEVICE_SRC)
 

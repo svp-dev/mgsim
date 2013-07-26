@@ -1,7 +1,7 @@
 #ifndef MGSYSTEM_H
 #define MGSYSTEM_H
 
-#include <arch/proc/DRISC.h>
+#include <arch/drisc/DRISC.h>
 #include <arch/FPU.h>
 #include <arch/symtable.h>
 #include <arch/IOBus.h>
