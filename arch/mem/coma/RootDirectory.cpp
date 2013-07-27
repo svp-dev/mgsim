@@ -52,25 +52,6 @@ COMA::RootDirectory::Line* COMA::RootDirectory::FindLine(MemAddr address, bool c
     return line;
 }
 
-const COMA::RootDirectory::Line* COMA::RootDirectory::FindLine(MemAddr address) const
-{
-    MemAddr tag;
-    size_t setindex;
-    m_selector.Map(address / m_lineSize, tag, setindex);
-    const size_t  set  = setindex * m_assoc;
-
-    // Find the line
-    for (size_t i = 0; i < m_assoc; ++i)
-    {
-        const Line* line = &m_lines[set + i];
-        if (line->state != LINE_EMPTY && line->tag == tag)
-        {
-            return line;
-        }
-    }
-    return NULL;
-}
-
 bool COMA::RootDirectory::OnReadCompleted()
 {
     assert (!m_active.empty());

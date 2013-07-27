@@ -54,27 +54,6 @@ COMA::Directory::Line* COMA::Directory::FindLine(MemAddr address)
     return NULL;
 }
 
-// Performs a lookup in this directory's table to see whether
-// the wanted address exists in the ring below this directory.
-const COMA::Directory::Line* COMA::Directory::FindLine(MemAddr address) const
-{
-    MemAddr tag;
-    size_t setindex;
-    m_selector.Map(address / m_lineSize, tag, setindex);
-    const size_t  set  = setindex * m_assoc;
-
-    // Find the line
-    for (size_t i = 0; i < m_assoc; ++i)
-    {
-        const Line* line = &m_lines[set + i];
-        if (line->valid && line->tag == tag)
-        {
-            return line;
-        }
-    }
-    return NULL;
-}
-
 // Marks the specified address as present in the directory
 COMA::Directory::Line* COMA::Directory::AllocateLine(MemAddr address)
 {

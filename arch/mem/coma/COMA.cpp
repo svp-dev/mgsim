@@ -387,9 +387,9 @@ void COMA::Cmd_Line(ostream& out, const vector<string>& arguments) const
 
     // Check the root directories
     bool printed = false;
-    for (std::vector<RootDirectory*>::const_iterator p = m_roots.begin(); p != m_roots.end(); ++p)
+    for (auto p = m_roots.begin(); p != m_roots.end(); ++p)
     {
-        const RootDirectory::Line* line = static_cast<const RootDirectory*>(*p)->FindLine(address);
+        auto line = (*p)->FindLine(address, true);
         if (line != NULL)
         {
             const char* state = (line->state == RootDirectory::LINE_LOADING) ? "loading" : "loaded";
@@ -401,9 +401,9 @@ void COMA::Cmd_Line(ostream& out, const vector<string>& arguments) const
 
     // Check the directories
     printed = false;
-    for (std::vector<Directory*>::const_iterator p = m_directories.begin(); p != m_directories.end(); ++p)
+    for (auto p = m_directories.begin(); p != m_directories.end(); ++p)
     {
-        const Directory::Line* line = static_cast<const Directory*>(*p)->FindLine(address);
+        auto line = (*p)->FindLine(address);
         if (line != NULL)
         {
             out << (*p)->GetFQN() << ": present" << endl;
@@ -414,9 +414,9 @@ void COMA::Cmd_Line(ostream& out, const vector<string>& arguments) const
 
     // Check the caches
     printed = false;
-    for (std::vector<Cache*>::const_iterator p = m_caches.begin(); p != m_caches.end(); ++p)
+    for (auto p = m_caches.begin(); p != m_caches.end(); ++p)
     {
-        const Cache::Line* line = static_cast<const Cache*>(*p)->FindLine(address);
+        auto line = (*p)->FindLine(address);
         if (line != NULL)
         {
             const char* state = (line->state == Cache::LINE_LOADING) ? "loading" : "loaded";

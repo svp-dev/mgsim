@@ -68,6 +68,9 @@ private:
     uint64_t          m_nreads;
     uint64_t          m_nwrites;
 
+    // Administrative
+    friend class COMA;
+
 public:
     RootDirectory(const std::string& name, COMA& parent, Clock& clock, size_t id, size_t numRoots, const DDRChannelRegistry& ddr, Config& config);
     RootDirectory(const RootDirectory&) = delete;
@@ -77,8 +80,6 @@ public:
     void SetNumRings(size_t num_rings);
 
     // Administrative
-    const Line* FindLine(MemAddr address) const;
-
     void Cmd_Info(std::ostream& out, const std::vector<std::string>& arguments) const;
     void Cmd_Read(std::ostream& out, const std::vector<std::string>& arguments) const;
 

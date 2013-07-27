@@ -122,6 +122,9 @@ private:
     Result OnWriteRequest(const Request& req);
     bool OnMessageReceived(Message* msg);
     bool OnReadCompleted(MemAddr addr, const char * data);
+
+    // Administrative
+    friend class COMA;
 public:
     Cache(const std::string& name, COMA& parent, Clock& clock, CacheID id, Config& config);
 
@@ -131,7 +134,6 @@ public:
 
     void Cmd_Info(std::ostream& out, const std::vector<std::string>& arguments) const;
     void Cmd_Read(std::ostream& out, const std::vector<std::string>& arguments) const;
-    const Line* FindLine(MemAddr address) const;
 
     MCID RegisterClient  (IMemoryCallback& callback, Process& process, StorageTraceSet& traces, const StorageTraceSet& storages);
     void UnregisterClient(MCID id);

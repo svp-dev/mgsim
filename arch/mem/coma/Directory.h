@@ -78,7 +78,6 @@ private:
     Result DoOutTop();
 
 public:
-    const Line* FindLine(MemAddr address) const;
 
     Directory(const std::string& name, COMA& parent, Clock& clock, CacheID firstCache, Config& config);
 

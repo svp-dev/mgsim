@@ -145,27 +145,6 @@ COMA::Cache::Line* COMA::Cache::FindLine(MemAddr address)
     return NULL;
 }
 
-// Attempts to find a line for the specified address.
-const COMA::Cache::Line* COMA::Cache::FindLine(MemAddr address) const
-{
-    MemAddr tag;
-    size_t  setindex;
-    m_selector.Map(address / m_lineSize, tag, setindex);
-    const size_t  set  = setindex * m_assoc;
-
-    // Find the line
-    for (size_t i = 0; i < m_assoc; ++i)
-    {
-        const Line& line = m_lines[set + i];
-        if (line.state != LINE_EMPTY && line.tag == tag)
-        {
-            // The wanted line was in the cache
-            return &line;
-        }
-    }
-    return NULL;
-}
-
 // Attempts to allocate a line for the specified address.
 // If empty_only is true, only empty lines will be considered.
 COMA::Cache::Line* COMA::Cache::AllocateLine(MemAddr address, bool empty_only, MemAddr* ptag)
