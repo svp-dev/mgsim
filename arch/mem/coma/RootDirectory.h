@@ -56,6 +56,7 @@ private:
     Process p_Responses;
 
     Line* FindLine(MemAddr address, bool check_only);
+    bool  IsLocalAddress(MemAddr address) const;
     bool  OnMessageReceived(Message* msg);
     bool  OnReadCompleted();
 

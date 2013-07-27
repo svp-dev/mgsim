@@ -76,14 +76,21 @@ bool COMA::RootDirectory::OnReadCompleted()
     return true;
 }
 
+bool COMA::RootDirectory::IsLocalAddress(MemAddr addr) const
+{
+    return (((addr / m_lineSize) % m_numRoots) == m_id);
+}
+
 bool COMA::RootDirectory::OnMessageReceived(Message* msg)
 {
     assert(msg != NULL);
 
-    if (((msg->address / m_lineSize) % m_numRoots) == m_id)
+    const MemAddr msg_addr = msg->address;
+
+    if (IsLocalAddress(msg_addr))
     {
         // This message is for us
-        TraceWrite(msg->address, "Received message for this directory: %s", msg->str().c_str());
+        TraceWrite(msg_addr, "Received message for this directory: %s", msg->str().c_str());
 
         if (!p_lines.Invoke())
         {
@@ -102,7 +109,8 @@ bool COMA::RootDirectory::OnMessageReceived(Message* msg)
             if (line != NULL && line->state == LINE_EMPTY)
             {
                 // Line has not been read yet it; queue the read
-                TraceWrite(msg->address, "Received Read Request; Miss; Queuing request");
+                TraceWrite(msg_addr, "Received Read Request; Miss; Queuing request");
+
                 if (!m_requests.Push(msg))
                 {
                     DeadlockWrite("Unable to queue read request to memory");
@@ -115,6 +123,12 @@ bool COMA::RootDirectory::OnMessageReceived(Message* msg)
                     line->sender = msg->sender;
                 }
                 return true;
+            } else {
+                // We already have an entry for the line, meaning
+                // it is being loaded or is somewhere in cache already.
+                // Let the message go around:
+                // it will pick its data on a cache "later on".
+                TraceWrite(msg_addr, "Received Read Request; Hit; Not loaded yet: going around");
             }
             break;
         }
@@ -133,7 +147,7 @@ bool COMA::RootDirectory::OnMessageReceived(Message* msg)
                 // which is then evicted from the system before this request comes to the root directory.
                 // In that case, we simply reintroduce the tokens into the system (the data is already in
                 // the system, so no need to read it from memory).
-                TraceWrite(msg->address, "Received Read Request with data; Miss; Introducing and attaching %u tokens", (unsigned)m_parent.GetTotalTokens());
+                TraceWrite(msg_addr, "Received Read Request with data; Miss; Introducing and attaching %u tokens", (unsigned)m_parent.GetTotalTokens());
 
                 COMMIT
                 {
@@ -145,7 +159,7 @@ bool COMA::RootDirectory::OnMessageReceived(Message* msg)
             else if (line->tokens > 0)
             {
                 // Give the request the tokens that we have
-                TraceWrite(msg->address, "Received Read Request with data; Hit; Attaching %u tokens", line->tokens);
+                TraceWrite(msg_addr, "Received Read Request with data; Hit; Attaching %u tokens", line->tokens);
 
                 COMMIT
                 {
@@ -153,6 +167,10 @@ bool COMA::RootDirectory::OnMessageReceived(Message* msg)
                     msg->tokens  = line->tokens;
                     line->tokens = 0;
                 }
+            }
+            else
+            {
+                TraceWrite(msg_addr, "Received Read Request with data; Hit; No tokens: going around");
             }
             break;
         }
@@ -169,7 +187,7 @@ bool COMA::RootDirectory::OnMessageReceived(Message* msg)
             if (tokens < m_parent.GetTotalTokens())
             {
                 // We don't have all the tokens, so just store the new token count
-                TraceWrite(msg->address, "Received Evict Request; Adding its %u tokens to directory's %u tokens", msg->tokens, line->tokens);
+                TraceWrite(msg_addr, "Received Evict Request; Adding its %u tokens to directory's %u tokens", msg->tokens, line->tokens);
                 COMMIT
                 {
                     line->tokens = tokens;
@@ -181,7 +199,7 @@ bool COMA::RootDirectory::OnMessageReceived(Message* msg)
                 // Evict message with all tokens, discard and remove the line from the system.
                 if (msg->dirty)
                 {
-                    TraceWrite(msg->address, "Received Evict Request; All tokens; Writing back and clearing line from system");
+                    TraceWrite(msg_addr, "Received Evict Request; All tokens; Writing back and clearing line from system");
 
                     // Line has been modified, queue the writeback
                     if (!m_requests.Push(msg))
@@ -192,7 +210,7 @@ bool COMA::RootDirectory::OnMessageReceived(Message* msg)
                 }
                 else
                 {
-                    TraceWrite(msg->address, "Received Evict Request; All tokens; Clearing line from system");
+                    TraceWrite(msg_addr, "Received Evict Request; All tokens; Clearing line from system");
                     COMMIT{ delete msg; }
                 }
                 COMMIT{ line->state = LINE_EMPTY; }
@@ -254,7 +272,8 @@ Result COMA::RootDirectory::DoRequests()
     {
         // Since we stripe cache lines across root directories, adjust the
         // address before we send it to memory for timing.
-        unsigned int mem_address = (msg->address / m_lineSize) / m_numRoots * m_lineSize;
+        const MemAddr msg_addr = msg->address;
+        const MemAddr mem_address = (msg_addr / m_lineSize) / m_numRoots * m_lineSize;
 
         if (msg->type == Message::REQUEST)
         {
@@ -279,7 +298,7 @@ Result COMA::RootDirectory::DoRequests()
                 msg->type = Message::REQUEST_DATA_TOKEN;
                 msg->dirty = false;
 
-                m_parent.Read(msg->address, msg->data.data, m_lineSize);
+                m_parent.Read(msg_addr, msg->data.data, m_lineSize);
             }
 
             if (!m_responses.Push(msg))
@@ -303,7 +322,7 @@ Result COMA::RootDirectory::DoRequests()
 #endif
             COMMIT {
 
-                static_cast<VirtualMemory&>(m_parent).Write(msg->address, msg->data.data, 0, m_lineSize);
+                static_cast<VirtualMemory&>(m_parent).Write(msg_addr, msg->data.data, 0, m_lineSize);
 
                 ++m_nwrites;
                 delete msg;
@@ -330,11 +349,12 @@ Result COMA::RootDirectory::DoResponses()
     if (!msg->ignore)
     {
         // We should have a loading line for this
-        Line* line = FindLine(msg->address, true);
+        const MemAddr msg_addr = msg->address;
+        Line* line = FindLine(msg_addr, true);
         assert(line != NULL);
         assert(line->state == LINE_LOADING);
 
-        TraceWrite(msg->address, "Sending Read Response with %u tokens", (unsigned)m_parent.GetTotalTokens());
+        TraceWrite(msg_addr, "Sending Read Response with %u tokens", (unsigned)m_parent.GetTotalTokens());
 
         COMMIT
         {
