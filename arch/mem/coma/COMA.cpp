@@ -288,20 +288,14 @@ void TwoLevelCOMA::Initialize()
 
 COMA::~COMA()
 {
-    for (size_t i = 0; i < m_caches.size(); ++i)
-    {
-        delete m_caches[i];
-    }
+    for (auto c : m_caches)
+        delete c;
 
-    for (size_t i = 0; i < m_directories.size(); ++i)
-    {
-        delete m_directories[i];
-    }
+    for (auto d : m_directories)
+        delete d;
 
-    for (size_t i = 0; i < m_roots.size(); ++i)
-    {
-        delete m_roots[i];
-    }
+    for (auto r : m_roots)
+        delete r;
 
     delete m_selector;
 }
@@ -328,9 +322,9 @@ void COMA::GetMemoryStatistics(uint64_t& nreads, uint64_t& nwrites, uint64_t& nr
     nwrite_bytes = m_nwrite_bytes;
 
     uint64_t nre = 0, nwe = 0;
-    for (size_t i = 0; i < m_roots.size(); ++i)
+    for (auto r : m_roots)
     {
-        m_roots[i]->GetMemoryStatistics(nre, nwe);
+        r->GetMemoryStatistics(nre, nwe);
         nreads_ext += nre;
         nwrites_ext += nwe;
     }
