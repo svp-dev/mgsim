@@ -14,12 +14,12 @@ namespace Simulator
  * For use in COMA::Object instances. Writes out a message
  * if the specified address is being traced.
  */
-#define TraceWrite(addr, fmt, ...) do { \
-        const COMA::TraceMap& traces = m_parent.GetTraces(); \
-        MemAddr __addr = (addr) / m_lineSize * m_lineSize; \
-        if (!traces.empty() && traces.find((__addr)) != traces.end()) { \
-            OutputWrite(("0x%llx: " fmt), (unsigned long long)(__addr), ##__VA_ARGS__); \
-        } \
+#define TraceWrite(addr, fmt, ...) do {                                 \
+        if (                                                            \
+            ((GetKernel()->GetDebugMode() & Kernel::DEBUG_MEMNET) ||    \
+             (m_parent.GetTraces().find(addr) != m_parent.GetTraces().end())) \
+            && GetKernel()->GetCyclePhase() == PHASE_COMMIT)            \
+            DebugSimWrite_(("0x%llx: " fmt), (unsigned long long)(addr), ##__VA_ARGS__); \
     } while (false)
 
 /**
