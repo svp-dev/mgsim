@@ -28,9 +28,9 @@ COMA::DirectoryBottom::DirectoryBottom(const std::string& name, COMA& parent, Cl
 {
 }
 
-bool COMA::Directory::IsBelow(CacheID id) const
+bool COMA::Directory::IsBelow(NodeID id) const
 {
-    return (id >= m_firstCache) && (id <= m_lastCache);
+    return (id >= m_firstNode) && (id <= m_lastNode);
 }
 
 // Performs a lookup in this directory's table to see whether
@@ -241,7 +241,7 @@ Result COMA::Directory::DoInTop()
     return SUCCESS;
 }
 
-COMA::Directory::Directory(const std::string& name, COMA& parent, Clock& clock, CacheID firstCache, Config& config) :
+COMA::Directory::Directory(const std::string& name, COMA& parent, Clock& clock, NodeID firstNode, Config& config) :
     Simulator::Object(name, parent),
     COMA::Object(name, parent),
     m_bottom(name + ".bottom", parent, clock, config),
@@ -252,8 +252,8 @@ COMA::Directory::Directory(const std::string& name, COMA& parent, Clock& clock, 
     m_sets      (m_selector.GetNumBanks()),
     m_lines     (m_assoc * m_sets),
     m_lineSize  (config.getValue<size_t>("CacheLineSize")),
-    m_firstCache(firstCache),
-    m_lastCache (firstCache + config.getValue<size_t>(parent, "NumL2CachesPerRing") - 1),
+    m_firstNode (firstNode),
+    m_lastNode  (firstNode + config.getValue<size_t>(parent, "NumL2CachesPerRing") - 1),
     p_InBottom  (*this, "bottom-incoming", delegate::create<Directory, &Directory::DoInBottom >(*this)),
     p_InTop     (*this, "top-incoming",    delegate::create<Directory, &Directory::DoInTop    >(*this))
 {
@@ -316,7 +316,7 @@ void COMA::Directory::Cmd_Read(std::ostream& out, const std::vector<std::string>
     } else {
         out << dec << m_assoc << "-way set associative" << endl;
     }
-    out << "Cache range: " << m_firstCache << " - " << m_lastCache << endl;
+    out << "Cache range: " << m_firstNode << " - " << m_lastNode << endl;
     out << endl;
 
     // No more than 4 columns per row and at most 1 set per row

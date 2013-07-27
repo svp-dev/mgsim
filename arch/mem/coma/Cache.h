@@ -49,7 +49,7 @@ private:
     size_t                        m_lineSize;
     size_t                        m_assoc;
     size_t                        m_sets;
-    CacheID                       m_id;
+    NodeID                        m_id;
     std::vector<IMemoryCallback*> m_clients;
     StorageTraceSet               m_storages;
     ArbitratedService<>           p_lines;
@@ -126,7 +126,7 @@ private:
     // Administrative
     friend class COMA;
 public:
-    Cache(const std::string& name, COMA& parent, Clock& clock, CacheID id, Config& config);
+    Cache(const std::string& name, COMA& parent, Clock& clock, NodeID id, Config& config);
 
     size_t GetLineSize() const { return m_lineSize; }
     size_t GetNumSets() const { return m_sets; }

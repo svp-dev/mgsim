@@ -30,7 +30,7 @@ public:
         MemAddr      tag;      ///< Tag of this line
         LineState    state;    ///< State of the line
         unsigned int tokens;   ///< Full: tokens stored here by evictions
-        CacheID      sender;   ///< Loading: ID of the cache that requested the loading line
+        NodeID       sender;   ///< Loading: ID of the cache that requested the loading line
     };
 
 private:

@@ -52,7 +52,7 @@ protected:
             bool         ignore;        ///< Just pass this message through to the top level
             MemAddr      address;       ///< The address of the cache-line
             MemData      data;          ///< The data (RD, RDT, EV, UP)
-            CacheID      sender;        ///< ID of the sender of the message
+            NodeID       sender;        ///< ID of the sender of the message
             size_t       client;        ///< Sending client (UP)
             WClientID    wid;           ///< Sending entity on client (family/thread) (UP)
             unsigned int tokens;        ///< Number of tokens in this message (RDT, EV)

@@ -70,7 +70,7 @@ MCID TwoLevelCOMA::RegisterClient(IMemoryCallback& callback, Process& process, S
         if (m_caches.size() % m_numCachesPerLowRing == 0)
         {
             // First cache in a ring; add a directory
-            CacheID firstCache = m_caches.size();
+            NodeID firstCache = m_caches.size();
 
             stringstream name;
             name << "dir" << m_directories.size();

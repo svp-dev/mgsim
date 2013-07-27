@@ -58,8 +58,8 @@ private:
     size_t              m_sets;       ///< Number of sets
     std::vector<Line>   m_lines;      ///< The cache lines
     size_t              m_lineSize;   ///< The size of a cache-line
-    CacheID             m_firstCache; ///< ID of first cache in the ring
-    CacheID             m_lastCache;  ///< ID of last cache in the ring
+    NodeID              m_firstNode;  ///< ID of first cache in the ring
+    NodeID              m_lastNode;   ///< ID of last cache in the ring
 
     // Processes
     Process p_InBottom;
@@ -69,7 +69,7 @@ private:
     Line* AllocateLine(MemAddr address);
     bool  OnMessageReceivedBottom(Message* msg);
     bool  OnMessageReceivedTop(Message* msg);
-    bool  IsBelow(CacheID id) const;
+    bool  IsBelow(NodeID id) const;
 
     // Processes
     Result DoInBottom();
@@ -79,7 +79,7 @@ private:
 
 public:
 
-    Directory(const std::string& name, COMA& parent, Clock& clock, CacheID firstCache, Config& config);
+    Directory(const std::string& name, COMA& parent, Clock& clock, NodeID firstCache, Config& config);
 
     void Cmd_Info(std::ostream& out, const std::vector<std::string>& arguments) const;
     void Cmd_Read(std::ostream& out, const std::vector<std::string>& arguments) const;

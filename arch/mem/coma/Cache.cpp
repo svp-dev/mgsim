@@ -854,7 +854,7 @@ Result COMA::Cache::DoReceive()
     return SUCCESS;
 }
 
-COMA::Cache::Cache(const std::string& name, COMA& parent, Clock& clock, CacheID id, Config& config) :
+COMA::Cache::Cache(const std::string& name, COMA& parent, Clock& clock, NodeID id, Config& config) :
     Simulator::Object(name, parent),
     Node(name, parent, clock, config),
     m_selector (parent.GetBankSelector()),

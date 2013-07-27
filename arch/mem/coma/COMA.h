@@ -41,7 +41,7 @@ public:
 
 protected:
     typedef std::set<MemAddr> TraceMap;
-    typedef size_t            CacheID;
+    typedef size_t            NodeID;
 
     ComponentModelRegistry&     m_registry;
     size_t                      m_numClientsPerCache;
