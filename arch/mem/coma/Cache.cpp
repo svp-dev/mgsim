@@ -854,6 +854,11 @@ Result COMA::Cache::DoReceive()
     return SUCCESS;
 }
 
+size_t COMA::Cache::GetNumLines() const
+{
+    return m_lines.size();
+}
+
 COMA::Cache::Cache(const std::string& name, COMA& parent, Clock& clock, NodeID id, Config& config) :
     Simulator::Object(name, parent),
     Node(name, parent, clock, id, config),

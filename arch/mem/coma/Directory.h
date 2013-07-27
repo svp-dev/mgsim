@@ -20,7 +20,9 @@ protected:
     friend class OneLevelCOMA;
     friend class TwoLevelCOMA;
     friend class COMA::Directory;
-    DirectoryTop(const std::string& name, COMA& parent, Clock& clock, Config& config);
+    DirectoryTop(const std::string& name, COMA& parent, Clock& clock, size_t& numLines, Config& config);
+    size_t GetNumLines() const override;
+    size_t& m_numLines;
 };
 
 class COMA::DirectoryBottom : public COMA::Node
@@ -58,6 +60,7 @@ private:
     size_t              m_sets;       ///< Number of sets
     std::vector<Line>   m_lines;      ///< The cache lines
     size_t              m_lineSize;   ///< The size of a cache-line
+    size_t              m_maxNumLines; ///< Maximum number of lines to store
     NodeID              m_firstNode;  ///< ID of first cache in the ring
     NodeID              m_lastNode;   ///< ID of last cache in the ring
 
@@ -78,8 +81,12 @@ private:
     Result DoOutTop();
 
 public:
+    Directory(const std::string& name, COMA& parent, Clock& clock, Config& config);
 
-    Directory(const std::string& name, COMA& parent, Clock& clock, NodeID firstCache, Config& config);
+    // Connect directory to caches
+    void ConnectRing(Node* first, Node* last);
+    // Initialize after all caches have been connected
+    void Initialize();
 
     void Cmd_Info(std::ostream& out, const std::vector<std::string>& arguments) const;
     void Cmd_Read(std::ostream& out, const std::vector<std::string>& arguments) const;

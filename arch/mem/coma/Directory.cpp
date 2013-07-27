@@ -16,10 +16,16 @@ namespace Simulator
 static const size_t MINSPACE_SHORTCUT = 2;
 static const size_t MINSPACE_FORWARD  = 1;
 
-COMA::DirectoryTop::DirectoryTop(const std::string& name, COMA& parent, Clock& clock, Config& config)
+COMA::DirectoryTop::DirectoryTop(const std::string& name, COMA& parent, Clock& clock, size_t& numLines, Config& config)
     : Simulator::Object(name, parent),
       Node(name, parent, clock, (NodeID)-1, config),
+      m_numLines(numLines)
 {
+}
+
+size_t COMA::DirectoryTop::GetNumLines() const
+{
+    return m_numLines;
 }
 
 COMA::DirectoryBottom::DirectoryBottom(const std::string& name, COMA& parent, Clock& clock, Config& config)
@@ -241,19 +247,20 @@ Result COMA::Directory::DoInTop()
     return SUCCESS;
 }
 
-COMA::Directory::Directory(const std::string& name, COMA& parent, Clock& clock, NodeID firstNode, Config& config) :
+COMA::Directory::Directory(const std::string& name, COMA& parent, Clock& clock, Config& config) :
     Simulator::Object(name, parent),
     COMA::Object(name, parent),
     m_bottom(name + ".bottom", parent, clock, config),
-    m_top(name + ".top", parent, clock, config),
+    m_top(name + ".top", parent, clock, m_maxNumLines, config),
     m_selector  (parent.GetBankSelector()),
     p_lines     (*this, clock, "p_lines"),
     m_assoc     (config.getValue<size_t>(parent, "L2CacheAssociativity") * config.getValue<size_t>(parent, "NumL2CachesPerRing")),
     m_sets      (m_selector.GetNumBanks()),
     m_lines     (m_assoc * m_sets),
     m_lineSize  (config.getValue<size_t>("CacheLineSize")),
-    m_firstNode (firstNode),
-    m_lastNode  (firstNode + config.getValue<size_t>(parent, "NumL2CachesPerRing") - 1),
+    m_maxNumLines(0),
+    m_firstNode(-1),
+    m_lastNode (-1),
     p_InBottom  (*this, "bottom-incoming", delegate::create<Directory, &Directory::DoInBottom >(*this)),
     p_InTop     (*this, "top-incoming",    delegate::create<Directory, &Directory::DoInTop    >(*this))
 {
@@ -279,6 +286,31 @@ COMA::Directory::Directory(const std::string& name, COMA& parent, Clock& clock, 
     config.registerProperty(m_bottom, "freq", clock.GetFrequency());
 
     config.registerBidiRelation(m_bottom, m_top, "dir");
+}
+
+void COMA::Directory::ConnectRing(Node* first, Node* last)
+{
+    m_bottom.Connect(last, first);
+}
+
+void COMA::Directory::Initialize()
+{
+    Node* first = m_bottom.GetPrevNode();
+    Node* last = m_bottom.GetNextNode();
+    assert(first->GetNextNode() == &m_bottom);
+    assert(last->GetPrevNode() == &m_bottom);
+
+    m_firstNode = first->GetNodeID();
+    m_lastNode = last->GetNodeID();
+
+    for (Node *p = first; p != &m_bottom; p = p->GetPrevNode())
+    {
+        // Consistency check: we required all nodes in the subring
+        // to be contiguous. This may be overly restrictive; the main
+        // property is that IsBelow() should be accurate and constant time.
+        assert(p->GetPrevNode() == &m_bottom || p->GetPrevNode()->GetNodeID() == p->GetNodeID() + 1);
+        m_maxNumLines += p->GetNumLines();
+    }
 }
 
 void COMA::Directory::Cmd_Info(std::ostream& out, const std::vector<std::string>& /*args*/) const
@@ -318,6 +350,7 @@ void COMA::Directory::Cmd_Read(std::ostream& out, const std::vector<std::string>
     }
     out << "Cache range: " << m_firstNode << " - " << m_lastNode << endl;
     out << endl;
+    out << "Max directory size: " << m_maxNumLines << endl;
 
     // No more than 4 columns per row and at most 1 set per row
     const size_t width = std::min<size_t>(m_assoc, 4);

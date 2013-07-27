@@ -117,6 +117,7 @@ protected:
 
 public:
     void Connect(Node* next, Node* prev);
+    virtual size_t GetNumLines() const;
 };
 
 }

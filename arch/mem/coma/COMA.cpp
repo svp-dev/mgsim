@@ -70,11 +70,9 @@ MCID TwoLevelCOMA::RegisterClient(IMemoryCallback& callback, Process& process, S
         if (m_caches.size() % m_numCachesPerLowRing == 0)
         {
             // First cache in a ring; add a directory
-            NodeID firstCache = m_caches.size();
-
             stringstream name;
             name << "dir" << m_directories.size();
-            Directory* dir = new Directory(name.str(), *this, GetClock(), firstCache, m_config);
+            Directory* dir = new Directory(name.str(), *this, GetClock(), m_config);
             m_directories.push_back(dir);
         }
 
@@ -244,7 +242,9 @@ void TwoLevelCOMA::Initialize()
     {
         Node *next = m_caches[std::min(i * m_numCachesPerLowRing + m_numCachesPerLowRing, m_caches.size()) - 1];
         Node *prev = m_caches[i * m_numCachesPerLowRing];
-        m_directories[i]->m_bottom.Connect(next, prev);
+        m_directories[i]->ConnectRing(prev, next);
+        // Caches are already connected above, so we can initialize directly
+        m_directories[i]->Initialize();
 
         m_config.registerRelation(m_directories[i]->m_bottom, *next, "l2ring", true);
     }

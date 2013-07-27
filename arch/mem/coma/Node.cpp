@@ -112,6 +112,11 @@ void COMA::Node::Print(std::ostream& out) const
     Print(out, "outgoing", m_outgoing);
 }
 
+size_t COMA::Node::GetNumLines() const
+{
+    return 0;
+}
+
 void COMA::Node::Connect(Node* next, Node* prev)
 {
     m_prev = prev;
