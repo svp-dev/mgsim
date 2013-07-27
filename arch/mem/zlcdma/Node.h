@@ -1,7 +1,7 @@
-#ifndef ZLCOMA_NODE_H
-#define ZLCOMA_NODE_H
+#ifndef ZLCDMA_NODE_H
+#define ZLCDMA_NODE_H
 
-#include "COMA.h"
+#include "CDMA.h"
 
 namespace Simulator
 {
@@ -11,14 +11,14 @@ namespace Simulator
  *
  * Note: The argument for 'fmt' has to be a string literal.
  *
- * For use in ZLCOMA::Object instances. Writes out a message
+ * For use in ZLCDMA::Object instances. Writes out a message
  * if the specified address is being traced.
  */
 #ifdef TraceWrite
 #undef TraceWrite
 #endif
 #define TraceWrite(addr, fmt, ...) do { \
-        const ZLCOMA::TraceMap& traces = m_parent.GetTraces(); \
+        const ZLCDMA::TraceMap& traces = m_parent.GetTraces(); \
         MemAddr __addr = (addr) / m_lineSize * m_lineSize; \
         if (!traces.empty() && traces.find((__addr)) != traces.end()) { \
             OutputWrite(("0x%llx: " fmt), (unsigned long long)(__addr), ##__VA_ARGS__); \
@@ -28,13 +28,13 @@ namespace Simulator
 /**
  * This class defines a generic ring node interface.
  * Both directories and caches inherit from this. This way, a heterogeneous
- * COMA hierarchy can be easily composed, since no element needs to know the
+ * CDMA hierarchy can be easily composed, since no element needs to know the
  * exact type of its neighbour.
  */
-class ZLCOMA::Node : public ZLCOMA::Object
+class ZLCDMA::Node : public ZLCDMA::Object
 {
 protected:
-    friend class ZLCOMA::Directory;
+    friend class ZLCDMA::Directory;
 
     /// This is the message that gets sent around
     union Message
@@ -128,7 +128,7 @@ protected:
     void Print(std::ostream& out) const;
 
     /// Construct the node
-    Node(const std::string& name, ZLCOMA& parent, Clock& clock);
+    Node(const std::string& name, ZLCDMA& parent, Clock& clock);
     Node(const Node&) = delete;
     Node& operator=(const Node&) = delete;
     virtual ~Node();

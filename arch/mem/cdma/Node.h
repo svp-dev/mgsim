@@ -1,7 +1,7 @@
-#ifndef COMA_NODE_H
-#define COMA_NODE_H
+#ifndef CDMA_NODE_H
+#define CDMA_NODE_H
 
-#include "COMA.h"
+#include "CDMA.h"
 
 namespace Simulator
 {
@@ -11,7 +11,7 @@ namespace Simulator
  *
  * Note: The argument for 'fmt' has to be a string literal.
  *
- * For use in COMA::Object instances. Writes out a message
+ * For use in CDMA::Object instances. Writes out a message
  * if the specified address is being traced.
  */
 #define TraceWrite(addr, fmt, ...) do {                                 \
@@ -25,14 +25,14 @@ namespace Simulator
 /**
  * This class defines a generic ring node interface.
  * Both directories and caches inherit from this. This way, a heterogeneous
- * COMA hierarchy can be easily composed, since no element needs to know the
+ * CDMA hierarchy can be easily composed, since no element needs to know the
  * exact type of its neighbour.
  */
-class COMA::Node : public COMA::Object
+class CDMA::Node : public CDMA::Object
 {
 protected:
-    friend class COMA::Directory;
-    friend class COMA::RootDirectory;
+    friend class CDMA::Directory;
+    friend class CDMA::RootDirectory;
 
     /// This is the message that gets sent around
     union Message
@@ -106,7 +106,7 @@ protected:
     void Print(std::ostream& out) const;
 
     /// Construct the node
-    Node(const std::string& name, COMA& parent, Clock& clock, NodeID id, Config& config);
+    Node(const std::string& name, CDMA& parent, Clock& clock, NodeID id, Config& config);
     Node(const Node&) = delete;
     Node& operator=(const Node&) = delete;
     virtual ~Node();

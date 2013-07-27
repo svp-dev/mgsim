@@ -1,5 +1,5 @@
-#ifndef ZLCOMA_CACHE_H
-#define ZLCOMA_CACHE_H
+#ifndef ZLCDMA_CACHE_H
+#define ZLCDMA_CACHE_H
 
 #include "Node.h"
 #include <sim/inspect.h>
@@ -11,7 +11,7 @@
 namespace Simulator
 {
 
-class ZLCOMA::Cache : public ZLCOMA::Node, public Inspect::Interface<Inspect::Read>
+class ZLCDMA::Cache : public ZLCDMA::Node, public Inspect::Interface<Inspect::Read>
 {
 public:
     struct Line
@@ -115,7 +115,7 @@ private:
     Result DoReceive();
 
 public:
-    Cache(const std::string& name, ZLCOMA& parent, Clock& clock, CacheID id, Config& config);
+    Cache(const std::string& name, ZLCDMA& parent, Clock& clock, CacheID id, Config& config);
 
     void Cmd_Info(std::ostream& out, const std::vector<std::string>& arguments) const;
     void Cmd_Read(std::ostream& out, const std::vector<std::string>& arguments) const;

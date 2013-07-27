@@ -1,5 +1,5 @@
-#ifndef ZLCOMA_COMA_H
-#define ZLCOMA_COMA_H
+#ifndef ZLCDMA_CDMA_H
+#define ZLCDMA_CDMA_H
 
 #include <arch/Memory.h>
 #include <arch/VirtualMemory.h>
@@ -15,7 +15,7 @@ class ComponentModelRegistry;
 namespace Simulator
 {
 
-class ZLCOMA : public Object, public IMemory, public VirtualMemory, public Inspect::Interface<Inspect::Line|Inspect::Trace>
+class ZLCDMA : public Object, public IMemory, public VirtualMemory, public Inspect::Interface<Inspect::Line|Inspect::Trace>
 {
 public:
     class Node;
@@ -25,15 +25,15 @@ public:
     class RootDirectory;
     class Cache;
 
-    // A simple base class for all COMA objects. It keeps track of what
-    // COMA memory it's in.
+    // A simple base class for all CDMA objects. It keeps track of what
+    // CDMA memory it's in.
     class Object : public virtual Simulator::Object
     {
     protected:
-        ZLCOMA& m_parent;
+        ZLCDMA& m_parent;
 
     public:
-        Object(const std::string& name, ZLCOMA& parent)
+        Object(const std::string& name, ZLCDMA& parent)
             : Simulator::Object(name, parent), m_parent(parent) {}
         virtual ~Object() {}
     };
@@ -78,10 +78,10 @@ private:
     void Initialize();
 
 public:
-    ZLCOMA(const std::string& name, Simulator::Object& parent, Clock& clock, Config& config);
-    ZLCOMA(const ZLCOMA&) = delete;
-    ZLCOMA& operator=(const ZLCOMA&) = delete;
-    ~ZLCOMA();
+    ZLCDMA(const std::string& name, Simulator::Object& parent, Clock& clock, Config& config);
+    ZLCDMA(const ZLCDMA&) = delete;
+    ZLCDMA& operator=(const ZLCDMA&) = delete;
+    ~ZLCDMA();
 
     const TraceMap& GetTraces() const { return m_traces; }
 

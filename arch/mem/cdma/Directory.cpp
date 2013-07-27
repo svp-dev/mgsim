@@ -16,32 +16,32 @@ namespace Simulator
 static const size_t MINSPACE_SHORTCUT = 2;
 static const size_t MINSPACE_FORWARD  = 1;
 
-COMA::DirectoryTop::DirectoryTop(const std::string& name, COMA& parent, Clock& clock, size_t& numLines, Config& config)
+CDMA::DirectoryTop::DirectoryTop(const std::string& name, CDMA& parent, Clock& clock, size_t& numLines, Config& config)
     : Simulator::Object(name, parent),
       Node(name, parent, clock, (NodeID)-1, config),
       m_numLines(numLines)
 {
 }
 
-size_t COMA::DirectoryTop::GetNumLines() const
+size_t CDMA::DirectoryTop::GetNumLines() const
 {
     return m_numLines;
 }
 
-COMA::DirectoryBottom::DirectoryBottom(const std::string& name, COMA& parent, Clock& clock, Config& config)
+CDMA::DirectoryBottom::DirectoryBottom(const std::string& name, CDMA& parent, Clock& clock, Config& config)
     : Simulator::Object(name, parent),
       Node(name, parent, clock, (NodeID)-1, config)
 {
 }
 
-bool COMA::Directory::IsBelow(NodeID id) const
+bool CDMA::Directory::IsBelow(NodeID id) const
 {
     return (id >= m_firstNode) && (id <= m_lastNode);
 }
 
 // Performs a lookup in this directory's table to see whether
 // the wanted address exists in the ring below this directory.
-size_t* COMA::Directory::FindLine(MemAddr address)
+size_t* CDMA::Directory::FindLine(MemAddr address)
 {
     auto linei = m_dir.find(address);
     if (linei == m_dir.end())
@@ -51,7 +51,7 @@ size_t* COMA::Directory::FindLine(MemAddr address)
 
 // Marks the specified address as present in the directory
 static size_t pseudoline;
-size_t* COMA::Directory::AllocateLine(MemAddr address)
+size_t* CDMA::Directory::AllocateLine(MemAddr address)
 {
     size_t *line = &pseudoline;
     COMMIT {
@@ -64,9 +64,9 @@ size_t* COMA::Directory::AllocateLine(MemAddr address)
     return line;
 }
 
-bool COMA::Directory::OnMessageReceivedBottom(Message* msg)
+bool CDMA::Directory::OnMessageReceivedBottom(Message* msg)
 {
-#if 1 /* set to 0 to attempt to flatten the COMA ring, ie remove the shortcut across (DEBUG FEATURE ONLY) -- also check below */
+#if 1 /* set to 0 to attempt to flatten the CDMA ring, ie remove the shortcut across (DEBUG FEATURE ONLY) -- also check below */
 
     // We need to grab p_line because it arbitrates access to the outgoing
     // buffer on the top ring as well.
@@ -129,9 +129,9 @@ bool COMA::Directory::OnMessageReceivedBottom(Message* msg)
     return true;
 }
 
-bool COMA::Directory::OnMessageReceivedTop(Message* msg)
+bool CDMA::Directory::OnMessageReceivedTop(Message* msg)
 {
-#if 1 /* set to 0 to attempt to flatten the COMA ring, ie remove the shortcut across (DEBUG FEATURE ONLY) -- also check above */
+#if 1 /* set to 0 to attempt to flatten the CDMA ring, ie remove the shortcut across (DEBUG FEATURE ONLY) -- also check above */
     if (!p_lines.Invoke())
     {
         DeadlockWrite("Unable to get access to lines");
@@ -201,7 +201,7 @@ bool COMA::Directory::OnMessageReceivedTop(Message* msg)
     return true;
 }
 
-Result COMA::Directory::DoInBottom()
+Result CDMA::Directory::DoInBottom()
 {
     // Handle incoming message on bottom ring from previous node
     assert(!m_bottom.m_incoming.Empty());
@@ -213,7 +213,7 @@ Result COMA::Directory::DoInBottom()
     return SUCCESS;
 }
 
-Result COMA::Directory::DoInTop()
+Result CDMA::Directory::DoInTop()
 {
     // Handle incoming message on top ring from previous node
     assert(!m_top.m_incoming.Empty());
@@ -225,9 +225,9 @@ Result COMA::Directory::DoInTop()
     return SUCCESS;
 }
 
-COMA::Directory::Directory(const std::string& name, COMA& parent, Clock& clock, Config& config) :
+CDMA::Directory::Directory(const std::string& name, CDMA& parent, Clock& clock, Config& config) :
     Simulator::Object(name, parent),
-    COMA::Object(name, parent),
+    CDMA::Object(name, parent),
     m_bottom(name + ".bottom", parent, clock, config),
     m_top(name + ".top", parent, clock, m_maxNumLines, config),
     p_lines     (*this, clock, "p_lines"),
@@ -256,12 +256,12 @@ COMA::Directory::Directory(const std::string& name, COMA& parent, Clock& clock, 
     config.registerBidiRelation(m_bottom, m_top, "dir");
 }
 
-void COMA::Directory::ConnectRing(Node* first, Node* last)
+void CDMA::Directory::ConnectRing(Node* first, Node* last)
 {
     m_bottom.Connect(last, first);
 }
 
-void COMA::Directory::Initialize()
+void CDMA::Directory::Initialize()
 {
     Node* first = m_bottom.GetPrevNode();
     Node* last = m_bottom.GetNextNode();
@@ -281,10 +281,10 @@ void COMA::Directory::Initialize()
     }
 }
 
-void COMA::Directory::Cmd_Info(std::ostream& out, const std::vector<std::string>& /*args*/) const
+void CDMA::Directory::Cmd_Info(std::ostream& out, const std::vector<std::string>& /*args*/) const
 {
     out <<
-    "The Directory in a COMA system is connected via other nodes in the COMA\n"
+    "The Directory in a CDMA system is connected via other nodes in the CDMA\n"
     "system via a ring network.\n\n"
     "Supported operations:\n"
     "- inspect <component>\n"
@@ -294,7 +294,7 @@ void COMA::Directory::Cmd_Info(std::ostream& out, const std::vector<std::string>
     "  Reads and displays the buffers in the directory\n";
 }
 
-void COMA::Directory::Cmd_Read(std::ostream& out, const std::vector<std::string>& arguments) const
+void CDMA::Directory::Cmd_Read(std::ostream& out, const std::vector<std::string>& arguments) const
 {
     if (!arguments.empty() && arguments[0] == "buffers")
     {

@@ -2,8 +2,8 @@
 
 #ifdef ENABLE_CACTI
 
-#ifdef ENABLE_MEM_COMA
-#include <arch/mem/cdma/COMA.h>
+#ifdef ENABLE_MEM_CDMA
+#include <arch/mem/cdma/CDMA.h>
 #endif
 
 #include <sim/log2.h>
@@ -439,8 +439,8 @@ static org_t get_structure_info(std::ostream& os, const config& config, const st
     return info;
 }
 
-#ifdef ENABLE_MEM_COMA
-static void DumpStatsCOMA(std::ostream& os, const Simulator::COMA& coma)
+#ifdef ENABLE_MEM_CDMA
+static void DumpStatsCDMA(std::ostream& os, const Simulator::CDMA& coma)
 {
     size_t numCaches      = coma.GetNumCaches();
     size_t numDirectories = coma.GetNumDirectories();
@@ -451,7 +451,7 @@ static void DumpStatsCOMA(std::ostream& os, const Simulator::COMA& coma)
        << "Root Directories: " << numRootDirs << std::endl;
 }
 
-static org_t DumpAreaCOMA(std::ostream& os, const config& config, const Simulator::COMA& coma)
+static org_t DumpAreaCDMA(std::ostream& os, const config& config, const Simulator::CDMA& coma)
 {
     size_t lineSize       = coma.GetLineSize();
     size_t numSets        = coma.GetNumCacheSets();
@@ -564,12 +564,12 @@ void Simulator::MGSystem::DumpArea(std::ostream& os, size_t tech) const
        << "Processors: " << cfg.numProcessors << std::endl
        << "FPUs: " << cfg.numFPUs << std::endl;
 
-#ifdef ENABLE_MEM_COMA
-    // We only dump information for the memory if it is COMA
-    Simulator::COMA* coma = dynamic_cast<Simulator::COMA*>(m_memory);
+#ifdef ENABLE_MEM_CDMA
+    // We only dump information for the memory if it is CDMA
+    Simulator::CDMA* coma = dynamic_cast<Simulator::CDMA*>(m_memory);
     if (coma != NULL)
     {
-        DumpStatsCOMA(os, *coma);
+        DumpStatsCDMA(os, *coma);
     }
 #endif
 
@@ -648,11 +648,11 @@ void Simulator::MGSystem::DumpArea(std::ostream& os, size_t tech) const
     grid.merge(coreinfo);
     grid.merge(fpu);
 
-#ifdef ENABLE_MEM_COMA
+#ifdef ENABLE_MEM_CDMA
     // Dump memory, if we can
     if (coma != NULL)
     {
-        org_t mem = DumpAreaCOMA(os, cfg, *coma);
+        org_t mem = DumpAreaCDMA(os, cfg, *coma);
         grid.merge(mem);
     }
 #endif

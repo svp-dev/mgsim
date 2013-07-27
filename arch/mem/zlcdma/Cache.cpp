@@ -17,7 +17,7 @@ namespace Simulator
 static const size_t MINSPACE_INSERTION = 2;
 static const size_t MINSPACE_FORWARD   = 1;
 
-MCID ZLCOMA::Cache::RegisterClient(IMemoryCallback& callback, Process& process, StorageTraceSet& traces, const StorageTraceSet& storages)
+MCID ZLCDMA::Cache::RegisterClient(IMemoryCallback& callback, Process& process, StorageTraceSet& traces, const StorageTraceSet& storages)
 {
     MCID index = m_clients.size();
     m_clients.resize(index + 1);
@@ -34,7 +34,7 @@ MCID ZLCOMA::Cache::RegisterClient(IMemoryCallback& callback, Process& process, 
     return index;
 }
 
-void ZLCOMA::Cache::UnregisterClient(MCID id)
+void ZLCDMA::Cache::UnregisterClient(MCID id)
 {
     assert(m_clients[id] != NULL);
     m_clients[id] = NULL;
@@ -42,7 +42,7 @@ void ZLCOMA::Cache::UnregisterClient(MCID id)
 
 // Called from the processor on a memory read (typically a whole cache-line)
 // Just queues the request.
-bool ZLCOMA::Cache::Read(MCID id, MemAddr address)
+bool ZLCDMA::Cache::Read(MCID id, MemAddr address)
 {
     assert(address % m_lineSize == 0);
 
@@ -74,7 +74,7 @@ bool ZLCOMA::Cache::Read(MCID id, MemAddr address)
 
 // Called from the processor on a memory write (can be any size with write-through/around)
 // Just queues the request.
-bool ZLCOMA::Cache::Write(MCID id, MemAddr address, const MemData& data, WClientID wid)
+bool ZLCDMA::Cache::Write(MCID id, MemAddr address, const MemData& data, WClientID wid)
 {
 
     // This method can get called by several 'listeners', so we need
@@ -123,7 +123,7 @@ bool ZLCOMA::Cache::Write(MCID id, MemAddr address, const MemData& data, WClient
     return true;
 }
 
-ZLCOMA::Cache::Line* ZLCOMA::Cache::FindLine(MemAddr address)
+ZLCDMA::Cache::Line* ZLCDMA::Cache::FindLine(MemAddr address)
 {
     MemAddr tag;
     size_t setindex;
@@ -143,7 +143,7 @@ ZLCOMA::Cache::Line* ZLCOMA::Cache::FindLine(MemAddr address)
     return NULL;
 }
 
-const ZLCOMA::Cache::Line* ZLCOMA::Cache::FindLine(MemAddr address) const
+const ZLCDMA::Cache::Line* ZLCDMA::Cache::FindLine(MemAddr address) const
 {
     MemAddr tag;
     size_t setindex;
@@ -163,7 +163,7 @@ const ZLCOMA::Cache::Line* ZLCOMA::Cache::FindLine(MemAddr address) const
     return NULL;
 }
 
-ZLCOMA::Cache::Line* ZLCOMA::Cache::GetEmptyLine(MemAddr address, MemAddr& tag)
+ZLCDMA::Cache::Line* ZLCDMA::Cache::GetEmptyLine(MemAddr address, MemAddr& tag)
 {
     size_t setindex;
     m_selector.Map(address / m_lineSize, tag, setindex);
@@ -182,7 +182,7 @@ ZLCOMA::Cache::Line* ZLCOMA::Cache::GetEmptyLine(MemAddr address, MemAddr& tag)
 }
 
 // function for find replacement line
-ZLCOMA::Cache::Line* ZLCOMA::Cache::GetReplacementLine(MemAddr address, MemAddr& tag)
+ZLCDMA::Cache::Line* ZLCDMA::Cache::GetReplacementLine(MemAddr address, MemAddr& tag)
 {
     Line *linelruw = NULL; // replacement line for write-back request
     Line *linelrue = NULL; // replacement line for eviction request
@@ -219,7 +219,7 @@ ZLCOMA::Cache::Line* ZLCOMA::Cache::GetReplacementLine(MemAddr address, MemAddr&
     return (linelrue != NULL) ? linelrue : linelruw;
 }
 
-Result ZLCOMA::Cache::OnMessageReceived(Message* msg)
+Result ZLCDMA::Cache::OnMessageReceived(Message* msg)
 {
     if (msg->ignore)
     {
@@ -264,7 +264,7 @@ Result ZLCOMA::Cache::OnMessageReceived(Message* msg)
     return FAILED;
 }
 
-bool ZLCOMA::Cache::ClearLine(Line* line)
+bool ZLCDMA::Cache::ClearLine(Line* line)
 {
     // Send line invalidation to caches
     if (!p_bus.Invoke())
@@ -291,7 +291,7 @@ bool ZLCOMA::Cache::ClearLine(Line* line)
 }
 
 // Evict a cache-line
-bool ZLCOMA::Cache::EvictLine(Line* line, const Request& req)
+bool ZLCDMA::Cache::EvictLine(Line* line, const Request& req)
 {
     assert(line->valid);
 
@@ -329,7 +329,7 @@ bool ZLCOMA::Cache::EvictLine(Line* line, const Request& req)
 }
 
 // Local Read from a memory client on the bus
-Result ZLCOMA::Cache::OnReadRequest(const Request& req)
+Result ZLCDMA::Cache::OnReadRequest(const Request& req)
 {
     if (!p_lines.Invoke())
     {
@@ -455,7 +455,7 @@ Result ZLCOMA::Cache::OnReadRequest(const Request& req)
 }
 
 // Local Write from a memory client on the bus
-Result ZLCOMA::Cache::OnWriteRequest(const Request& req)
+Result ZLCDMA::Cache::OnWriteRequest(const Request& req)
 {
     if (!p_lines.Invoke())
     {
@@ -593,7 +593,7 @@ Result ZLCOMA::Cache::OnWriteRequest(const Request& req)
 
 // Network remote request to acquire all tokens and data.
 // Issued by writes.
-Result ZLCOMA::Cache::OnAcquireTokensRem(Message* req)
+Result ZLCDMA::Cache::OnAcquireTokensRem(Message* req)
 {
     if (!p_lines.Invoke())
     {
@@ -747,7 +747,7 @@ Result ZLCOMA::Cache::OnAcquireTokensRem(Message* req)
 }
 
 // Write request returns for all tokens and data
-Result ZLCOMA::Cache::OnAcquireTokensRet(Message* req)
+Result ZLCDMA::Cache::OnAcquireTokensRet(Message* req)
 {
     if (!p_lines.Invoke())
     {
@@ -855,7 +855,7 @@ Result ZLCOMA::Cache::OnAcquireTokensRet(Message* req)
 }
 
 // Remote request to acquire copy of cache line
-Result ZLCOMA::Cache::OnReadRem(Message* req)
+Result ZLCDMA::Cache::OnReadRem(Message* req)
 {
     assert(req->transient == false);    // Read requests never carry transient tokens
 
@@ -934,7 +934,7 @@ Result ZLCOMA::Cache::OnReadRem(Message* req)
 }
 
 // Read request returns
-Result ZLCOMA::Cache::OnReadRet(Message* req)
+Result ZLCDMA::Cache::OnReadRet(Message* req)
 {
     assert(req->transient == false);    // Read requests never carry transient tokens
 
@@ -1016,7 +1016,7 @@ Result ZLCOMA::Cache::OnReadRet(Message* req)
 }
 
 // network disseminate token and data, EV, WB, include IJ
-Result ZLCOMA::Cache::OnEviction(Message* req)
+Result ZLCDMA::Cache::OnEviction(Message* req)
 {
     if (!p_lines.Invoke())
     {
@@ -1095,7 +1095,7 @@ Result ZLCOMA::Cache::OnEviction(Message* req)
     return SUCCESS;
 }
 
-bool ZLCOMA::Cache::AcknowledgeQueuedWrites(Line* line)
+bool ZLCDMA::Cache::AcknowledgeQueuedWrites(Line* line)
 {
     for (size_t i = 0; i < line->ack_queue.size(); ++i)
     {
@@ -1108,7 +1108,7 @@ bool ZLCOMA::Cache::AcknowledgeQueuedWrites(Line* line)
     return true;
 }
 
-bool ZLCOMA::Cache::OnReadCompleted(MemAddr addr, const char* data)
+bool ZLCDMA::Cache::OnReadCompleted(MemAddr addr, const char* data)
 {
     // Send the completion on the bus
     if (!p_bus.Invoke())
@@ -1129,7 +1129,7 @@ bool ZLCOMA::Cache::OnReadCompleted(MemAddr addr, const char* data)
     return true;
 }
 
-Result ZLCOMA::Cache::DoRequests()
+Result ZLCDMA::Cache::DoRequests()
 {
     // Handle incoming requests from below
     assert(!m_requests.Empty());
@@ -1142,7 +1142,7 @@ Result ZLCOMA::Cache::DoRequests()
     return (result == FAILED) ? FAILED : SUCCESS;
 }
 
-Result ZLCOMA::Cache::DoReceive()
+Result ZLCDMA::Cache::DoReceive()
 {
     // Handle received message from prev
     assert(!m_incoming.Empty());
@@ -1154,7 +1154,7 @@ Result ZLCOMA::Cache::DoReceive()
     return (result == FAILED) ? FAILED : SUCCESS;
 }
 
-ZLCOMA::Cache::Cache(const std::string& name, ZLCOMA& parent, Clock& clock, CacheID id, Config& config) :
+ZLCDMA::Cache::Cache(const std::string& name, ZLCDMA& parent, Clock& clock, CacheID id, Config& config) :
     Simulator::Object(name, parent),
     Node(name, parent, clock),
     m_selector (parent.GetBankSelector()),
@@ -1204,11 +1204,11 @@ ZLCOMA::Cache::Cache(const std::string& name, ZLCOMA& parent, Clock& clock, Cach
     config.registerProperty(*this, "freq", (uint32_t)clock.GetFrequency());
 }
 
-void ZLCOMA::Cache::Cmd_Info(std::ostream& out, const std::vector<std::string>& /*args*/) const
+void ZLCDMA::Cache::Cmd_Info(std::ostream& out, const std::vector<std::string>& /*args*/) const
 {
     out <<
-    "The L2 Cache in a COMA system is connected to the processors with a bus and to\n"
-    "the rest of the COMA system via a ring network.\n\n"
+    "The L2 Cache in a CDMA system is connected to the processors with a bus and to\n"
+    "the rest of the CDMA system via a ring network.\n\n"
     "Supported operations:\n"
     "- inspect <component>\n"
     "  Reads and displays the cache-lines, and global information such as hit-rate\n"
@@ -1217,7 +1217,7 @@ void ZLCOMA::Cache::Cmd_Info(std::ostream& out, const std::vector<std::string>& 
     "  Reads and displays the buffers in the cache\n";
 }
 
-void ZLCOMA::Cache::Cmd_Read(std::ostream& out, const std::vector<std::string>& arguments) const
+void ZLCDMA::Cache::Cmd_Read(std::ostream& out, const std::vector<std::string>& arguments) const
 {
     if (!arguments.empty() && arguments[0] == "buffers")
     {

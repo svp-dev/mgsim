@@ -1,5 +1,5 @@
-#ifndef ZLCOMA_DIRECTORY_H
-#define ZLCOMA_DIRECTORY_H
+#ifndef ZLCDMA_DIRECTORY_H
+#define ZLCDMA_DIRECTORY_H
 
 #include "Node.h"
 #include <sim/inspect.h>
@@ -12,23 +12,23 @@ class Config;
 namespace Simulator
 {
 
-class ZLCOMA::DirectoryTop : public ZLCOMA::Node
+class ZLCDMA::DirectoryTop : public ZLCDMA::Node
 {
 protected:
-    friend class ZLCOMA;
-    friend class ZLCOMA::Directory;
-    DirectoryTop(const std::string& name, ZLCOMA& parent, Clock& clock);
+    friend class ZLCDMA;
+    friend class ZLCDMA::Directory;
+    DirectoryTop(const std::string& name, ZLCDMA& parent, Clock& clock);
 };
 
-class ZLCOMA::DirectoryBottom : public ZLCOMA::Node
+class ZLCDMA::DirectoryBottom : public ZLCDMA::Node
 {
 protected:
-    friend class ZLCOMA;
-    friend class ZLCOMA::Directory;
-    DirectoryBottom(const std::string& name, ZLCOMA& parent, Clock& clock);
+    friend class ZLCDMA;
+    friend class ZLCDMA::Directory;
+    DirectoryBottom(const std::string& name, ZLCDMA& parent, Clock& clock);
 };
 
-class ZLCOMA::Directory : public ZLCOMA::Object, public Inspect::Interface<Inspect::Read>
+class ZLCDMA::Directory : public ZLCDMA::Object, public Inspect::Interface<Inspect::Read>
 {
 public:
     struct Line
@@ -40,12 +40,12 @@ public:
     };
 
 protected:
-    friend class ZLCOMA;
-    ZLCOMA::DirectoryBottom m_bottom;
-    ZLCOMA::DirectoryTop    m_top;
+    friend class ZLCDMA;
+    ZLCDMA::DirectoryBottom m_bottom;
+    ZLCDMA::DirectoryTop    m_top;
 
 private:
-    typedef ZLCOMA::Node::Message Message;
+    typedef ZLCDMA::Node::Message Message;
 
     IBankSelector&      m_selector;
     ArbitratedService<CyclicArbitratedPort> p_lines;      ///< Arbitrator for access to the lines
@@ -80,7 +80,7 @@ private:
 public:
     const Line* FindLine(MemAddr address) const;
 
-    Directory(const std::string& name, ZLCOMA& parent, Clock& clock, CacheID firstCache, Config& config);
+    Directory(const std::string& name, ZLCDMA& parent, Clock& clock, CacheID firstCache, Config& config);
 
     void Cmd_Info(std::ostream& out, const std::vector<std::string>& arguments) const;
     void Cmd_Read(std::ostream& out, const std::vector<std::string>& arguments) const;

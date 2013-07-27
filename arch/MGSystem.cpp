@@ -12,11 +12,11 @@
 #ifdef ENABLE_MEM_DDR
 #include <arch/mem/DDRMemory.h>
 #endif
-#ifdef ENABLE_MEM_COMA
-#include <arch/mem/cdma/COMA.h>
+#ifdef ENABLE_MEM_CDMA
+#include <arch/mem/cdma/CDMA.h>
 #endif
-#ifdef ENABLE_MEM_ZLCOMA
-#include <arch/mem/zlcdma/COMA.h>
+#ifdef ENABLE_MEM_ZLCDMA
+#include <arch/mem/zlcdma/CDMA.h>
 #endif
 
 #include <arch/dev/NullIO.h>
@@ -687,19 +687,19 @@ MGSystem::MGSystem(Config& config, bool quiet)
         memadmin = memory; m_memory = memory;
     } else
 #endif
-#ifdef ENABLE_MEM_COMA
-    if (memory_type == "COMA") {
-        COMA* memory = new TwoLevelCOMA("memory", m_root, memclock, config);
+#ifdef ENABLE_MEM_CDMA
+    if (memory_type == "CDMA" || memory_type == "COMA") {
+        CDMA* memory = new TwoLevelCDMA("memory", m_root, memclock, config);
         memadmin = memory; m_memory = memory;
     } else
-    if (memory_type == "FLATCOMA") {
-        COMA* memory = new OneLevelCOMA("memory", m_root, memclock, config);
+    if (memory_type == "FLATCDMA" || memory_type == "FLATCOMA") {
+        CDMA* memory = new OneLevelCDMA("memory", m_root, memclock, config);
         memadmin = memory; m_memory = memory;
     } else
 #endif
-#ifdef ENABLE_MEM_ZLCOMA
-    if (memory_type == "ZLCOMA") {
-        ZLCOMA* memory = new ZLCOMA("memory", m_root, memclock, config);
+#ifdef ENABLE_MEM_ZLCDMA
+    if (memory_type == "ZLCDMA") {
+        ZLCDMA* memory = new ZLCDMA("memory", m_root, memclock, config);
         memadmin = memory; m_memory = memory;
     } else
 #endif

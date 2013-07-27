@@ -255,8 +255,8 @@ ENABLE_MEMORY([serial], [SERIAL])
 ENABLE_MEMORY([banked], [BANKED])
 ENABLE_MEMORY([parallel], [PARALLEL])
 ENABLE_MEMORY([ddr], [DDR])
-ENABLE_MEMORY([coma], [COMA])
-ENABLE_MEMORY([zlcoma], [ZLCOMA])
+ENABLE_MEMORY([cdma], [CDMA])
+ENABLE_MEMORY([zlcdma], [ZLCDMA])
 
 AC_ARG_ENABLE([trace-checks],
               [AC_HELP_STRING([--disable-trace-checks],

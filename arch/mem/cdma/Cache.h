@@ -1,5 +1,5 @@
-#ifndef COMA_CACHE_H
-#define COMA_CACHE_H
+#ifndef CDMA_CACHE_H
+#define CDMA_CACHE_H
 
 #include "Node.h"
 #include <sim/inspect.h>
@@ -13,7 +13,7 @@ class Config;
 namespace Simulator
 {
 
-class COMA::Cache : public COMA::Node, public Inspect::Interface<Inspect::Read>
+class CDMA::Cache : public CDMA::Node, public Inspect::Interface<Inspect::Read>
 {
 public:
     enum LineState
@@ -123,9 +123,9 @@ private:
     bool OnReadCompleted(MemAddr addr, const char * data);
 
     // Administrative
-    friend class COMA;
+    friend class CDMA;
 public:
-    Cache(const std::string& name, COMA& parent, Clock& clock, NodeID id, Config& config);
+    Cache(const std::string& name, CDMA& parent, Clock& clock, NodeID id, Config& config);
 
     size_t GetLineSize() const { return m_lineSize; }
     size_t GetNumSets() const { return m_sets; }

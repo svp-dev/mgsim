@@ -1,5 +1,5 @@
-#ifndef COMA_COMA_H
-#define COMA_COMA_H
+#ifndef CDMA_CDMA_H
+#define CDMA_CDMA_H
 
 #include <arch/Memory.h>
 #include <arch/VirtualMemory.h>
@@ -16,7 +16,7 @@ class ComponentModelRegistry;
 namespace Simulator
 {
 
-class COMA : public Object, public IMemory, public VirtualMemory, public Inspect::Interface<Inspect::Line|Inspect::Trace>
+class CDMA : public Object, public IMemory, public VirtualMemory, public Inspect::Interface<Inspect::Line|Inspect::Trace>
 {
 public:
     class Node;
@@ -26,15 +26,15 @@ public:
     class RootDirectory;
     class Cache;
 
-    // A simple base class for all COMA objects. It keeps track of what
-    // COMA memory it's in.
+    // A simple base class for all CDMA objects. It keeps track of what
+    // CDMA memory it's in.
     class Object : public virtual Simulator::Object
     {
     protected:
-        COMA& m_parent;
+        CDMA& m_parent;
 
     public:
-        Object(const std::string& name, COMA& parent)
+        Object(const std::string& name, CDMA& parent)
             : Simulator::Object(name, parent), m_parent(parent) {}
         virtual ~Object() {}
     };
@@ -68,10 +68,10 @@ protected:
     virtual void Initialize() = 0;
 
 public:
-    COMA(const std::string& name, Simulator::Object& parent, Clock& clock, Config& config);
-    COMA(const COMA&) = delete;
-    COMA& operator=(const COMA&) = delete;
-    ~COMA();
+    CDMA(const std::string& name, Simulator::Object& parent, Clock& clock, Config& config);
+    CDMA(const CDMA&) = delete;
+    CDMA& operator=(const CDMA&) = delete;
+    ~CDMA();
 
     const TraceMap& GetTraces() const { return m_traces; }
 
@@ -103,24 +103,24 @@ public:
     void Cmd_Trace(std::ostream& out, const std::vector<std::string>& arguments) override;
 };
 
-class OneLevelCOMA : public COMA
+class OneLevelCDMA : public CDMA
 {
 public:
     void Initialize();
 
     MCID RegisterClient(IMemoryCallback& callback, Process& process, StorageTraceSet& traces, const StorageTraceSet& storages, bool grouped) override;
 
-    OneLevelCOMA(const std::string& name, Simulator::Object& parent, Clock& clock, Config& config);
+    OneLevelCDMA(const std::string& name, Simulator::Object& parent, Clock& clock, Config& config);
 };
 
-class TwoLevelCOMA : public COMA
+class TwoLevelCDMA : public CDMA
 {
 public:
     void Initialize();
 
     MCID RegisterClient(IMemoryCallback& callback, Process& process, StorageTraceSet& traces, const StorageTraceSet& storages, bool grouped) override;
 
-    TwoLevelCOMA(const std::string& name, Simulator::Object& parent, Clock& clock, Config& config);
+    TwoLevelCDMA(const std::string& name, Simulator::Object& parent, Clock& clock, Config& config);
 };
 
 }

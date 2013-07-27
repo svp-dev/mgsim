@@ -10,11 +10,11 @@ namespace Simulator
 {
 
 // Memory management data
-/*static*/ unsigned long                   COMA::Node::g_References   = 0;
-/*static*/ COMA::Node::Message*            COMA::Node::g_FreeMessages = NULL;
-/*static*/ std::list<COMA::Node::Message*> COMA::Node::g_Messages;
+/*static*/ unsigned long                   CDMA::Node::g_References   = 0;
+/*static*/ CDMA::Node::Message*            CDMA::Node::g_FreeMessages = NULL;
+/*static*/ std::list<CDMA::Node::Message*> CDMA::Node::g_Messages;
 
-/*static*/ void* COMA::Node::Message::operator new(size_t size)
+/*static*/ void* CDMA::Node::Message::operator new(size_t size)
 {
     // We allocate this many messages at once
     static const size_t ALLOCATE_SIZE = 1024;
@@ -41,7 +41,7 @@ namespace Simulator
     return msg;
 }
 
-/*static*/ void COMA::Node::Message::operator delete(void *p, size_t size)
+/*static*/ void CDMA::Node::Message::operator delete(void *p, size_t size)
 {
     assert(size == sizeof(Message));
     Message* msg = static_cast<Message*>(p);
@@ -56,7 +56,7 @@ namespace Simulator
     g_FreeMessages = msg;
 }
 
-string COMA::Node::Message::str() const
+string CDMA::Node::Message::str() const
 {
     ostringstream out;
     switch (type)
@@ -96,7 +96,7 @@ string COMA::Node::Message::str() const
     return out.str();
 }
 
-/*static*/ void COMA::Node::Print(std::ostream& out, const std::string& name, const Buffer<Message*>& buffer)
+/*static*/ void CDMA::Node::Print(std::ostream& out, const std::string& name, const Buffer<Message*>& buffer)
 {
     out << "Queue: " << name << ":" << endl;
 
@@ -106,25 +106,25 @@ string COMA::Node::Message::str() const
     }
 }
 
-void COMA::Node::Print(std::ostream& out) const
+void CDMA::Node::Print(std::ostream& out) const
 {
     Print(out, "incoming", m_incoming);
     Print(out, "outgoing", m_outgoing);
 }
 
-size_t COMA::Node::GetNumLines() const
+size_t CDMA::Node::GetNumLines() const
 {
     return 0;
 }
 
-void COMA::Node::Connect(Node* next, Node* prev)
+void CDMA::Node::Connect(Node* next, Node* prev)
 {
     m_prev = prev;
     m_next = next;
     p_Forward.SetStorageTraces(next->m_incoming);
 }
 
-Result COMA::Node::DoForward()
+Result CDMA::Node::DoForward()
 {
     // Forward requests to the next node
     assert(!m_outgoing.Empty());
@@ -143,7 +143,7 @@ Result COMA::Node::DoForward()
 
 // Send a message to the next node.
 // Only succeeds if there's min_space left before the push.
-bool COMA::Node::SendMessage(Message* message, size_t min_space)
+bool CDMA::Node::SendMessage(Message* message, size_t min_space)
 {
     if (!m_outgoing.Push(message, min_space))
     {
@@ -152,9 +152,9 @@ bool COMA::Node::SendMessage(Message* message, size_t min_space)
     return true;
 }
 
-COMA::Node::Node(const std::string& name, COMA& parent, Clock& clock, NodeID id, Config& config)
+CDMA::Node::Node(const std::string& name, CDMA& parent, Clock& clock, NodeID id, Config& config)
     : Simulator::Object(name, parent),
-      COMA::Object(name, parent),
+      CDMA::Object(name, parent),
       m_id(id),
       m_prev(NULL),
       m_next(NULL),
@@ -167,7 +167,7 @@ COMA::Node::Node(const std::string& name, COMA& parent, Clock& clock, NodeID id,
     m_outgoing.Sensitive(p_Forward);
 }
 
-COMA::Node::~Node()
+CDMA::Node::~Node()
 {
     assert(g_References > 0);
     if (--g_References == 0)

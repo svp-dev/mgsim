@@ -1,5 +1,5 @@
-#ifndef ZLCOMA_ROOTDIRECTORY_H
-#define ZLCOMA_ROOTDIRECTORY_H
+#ifndef ZLCDMA_ROOTDIRECTORY_H
+#define ZLCDMA_ROOTDIRECTORY_H
 
 #include "Directory.h"
 #include <arch/mem/DDR.h>
@@ -12,7 +12,7 @@ class Config;
 namespace Simulator
 {
 
-class ZLCOMA::RootDirectory : public ZLCOMA::DirectoryBottom, public DDRChannel::ICallback, public Inspect::Interface<Inspect::Read>
+class ZLCDMA::RootDirectory : public ZLCDMA::DirectoryBottom, public DDRChannel::ICallback, public Inspect::Interface<Inspect::Read>
 {
 public:
     struct Line
@@ -70,7 +70,7 @@ private:
     uint64_t          m_nwrites;
 
 public:
-    RootDirectory(const std::string& name, ZLCOMA& parent, Clock& clock, size_t id, size_t numRoots, const DDRChannelRegistry& ddr, Config& config);
+    RootDirectory(const std::string& name, ZLCDMA& parent, Clock& clock, size_t id, size_t numRoots, const DDRChannelRegistry& ddr, Config& config);
     RootDirectory(const RootDirectory&) = delete;
     RootDirectory& operator=(const RootDirectory&) = delete;
 

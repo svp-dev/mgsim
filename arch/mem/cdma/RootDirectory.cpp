@@ -14,7 +14,7 @@ namespace Simulator
 static const size_t MINSPACE_SHORTCUT = 2;
 static const size_t MINSPACE_FORWARD  = 1;
 
-COMA::RootDirectory::Line* COMA::RootDirectory::FindLine(MemAddr address)
+CDMA::RootDirectory::Line* CDMA::RootDirectory::FindLine(MemAddr address)
 {
     auto linei = m_dir.find(address);
     if (linei == m_dir.end())
@@ -23,9 +23,9 @@ COMA::RootDirectory::Line* COMA::RootDirectory::FindLine(MemAddr address)
 }
 
 static
-COMA::RootDirectory::Line pseudoline = { COMA::RootDirectory::LINE_EMPTY, 0, (size_t)-1 };
+CDMA::RootDirectory::Line pseudoline = { CDMA::RootDirectory::LINE_EMPTY, 0, (size_t)-1 };
 
-COMA::RootDirectory::Line* COMA::RootDirectory::AllocateLine(MemAddr address)
+CDMA::RootDirectory::Line* CDMA::RootDirectory::AllocateLine(MemAddr address)
 {
     Line *line = &pseudoline;
     COMMIT {
@@ -39,7 +39,7 @@ COMA::RootDirectory::Line* COMA::RootDirectory::AllocateLine(MemAddr address)
     return line;
 }
 
-bool COMA::RootDirectory::OnReadCompleted()
+bool CDMA::RootDirectory::OnReadCompleted()
 {
     assert (!m_active.empty());
 
@@ -63,12 +63,12 @@ bool COMA::RootDirectory::OnReadCompleted()
     return true;
 }
 
-bool COMA::RootDirectory::IsLocalAddress(MemAddr addr) const
+bool CDMA::RootDirectory::IsLocalAddress(MemAddr addr) const
 {
     return (((addr / m_lineSize) % m_numRoots) == m_id);
 }
 
-bool COMA::RootDirectory::OnMessageReceived(Message* msg)
+bool CDMA::RootDirectory::OnMessageReceived(Message* msg)
 {
     assert(msg != NULL);
 
@@ -235,7 +235,7 @@ bool COMA::RootDirectory::OnMessageReceived(Message* msg)
     return true;
 }
 
-Result COMA::RootDirectory::DoIncoming()
+Result CDMA::RootDirectory::DoIncoming()
 {
     // Handle incoming message from previous node
     assert(!m_incoming.Empty());
@@ -247,7 +247,7 @@ Result COMA::RootDirectory::DoIncoming()
     return SUCCESS;
 }
 
-Result COMA::RootDirectory::DoRequests()
+Result CDMA::RootDirectory::DoRequests()
 {
     assert(!m_requests.Empty());
 
@@ -325,7 +325,7 @@ Result COMA::RootDirectory::DoRequests()
     return SUCCESS;
 }
 
-Result COMA::RootDirectory::DoResponses()
+Result CDMA::RootDirectory::DoResponses()
 {
     assert(!m_responses.Empty());
     Message* msg = m_responses.Front();
@@ -370,7 +370,7 @@ Result COMA::RootDirectory::DoResponses()
     return SUCCESS;
 }
 
-void COMA::RootDirectory::Initialize()
+void CDMA::RootDirectory::Initialize()
 {
     Node* first = GetPrevNode();
     Node* last = GetNextNode();
@@ -388,7 +388,7 @@ void COMA::RootDirectory::Initialize()
     }
 }
 
-COMA::RootDirectory::RootDirectory(const std::string& name, COMA& parent, Clock& clock, size_t id, const DDRChannelRegistry& ddr, Config& config) :
+CDMA::RootDirectory::RootDirectory(const std::string& name, CDMA& parent, Clock& clock, size_t id, const DDRChannelRegistry& ddr, Config& config) :
     Simulator::Object(name, parent),
     DirectoryBottom(name, parent, clock, config),
     m_dir    (),
@@ -434,10 +434,10 @@ COMA::RootDirectory::RootDirectory(const std::string& name, COMA& parent, Clock&
     p_Responses.SetStorageTraces(GetOutgoingTrace());
 }
 
-void COMA::RootDirectory::Cmd_Info(std::ostream& out, const std::vector<std::string>& /*args*/) const
+void CDMA::RootDirectory::Cmd_Info(std::ostream& out, const std::vector<std::string>& /*args*/) const
 {
     out <<
-    "The Root Directory in a COMA system is connected via other nodes in the COMA\n"
+    "The Root Directory in a CDMA system is connected via other nodes in the CDMA\n"
     "system via a ring network. It acts as memory controller for a DDR channel which\n"
     "serves as the backing store.\n\n"
     "Supported operations:\n"
@@ -448,7 +448,7 @@ void COMA::RootDirectory::Cmd_Info(std::ostream& out, const std::vector<std::str
     "  Reads and displays the buffers in the directory\n";
 }
 
-void COMA::RootDirectory::Cmd_Read(std::ostream& out, const std::vector<std::string>& arguments) const
+void CDMA::RootDirectory::Cmd_Read(std::ostream& out, const std::vector<std::string>& arguments) const
 {
     if (!arguments.empty() && arguments[0] == "buffers")
     {

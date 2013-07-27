@@ -1,5 +1,5 @@
-#ifndef COMA_DIRECTORY_H
-#define COMA_DIRECTORY_H
+#ifndef CDMA_DIRECTORY_H
+#define CDMA_DIRECTORY_H
 
 #include "Node.h"
 #include <sim/inspect.h>
@@ -13,37 +13,37 @@ namespace Simulator
 {
 
 
-class COMA::DirectoryTop : public COMA::Node
+class CDMA::DirectoryTop : public CDMA::Node
 {
 protected:
-    friend class OneLevelCOMA;
-    friend class TwoLevelCOMA;
-    friend class COMA::Directory;
-    DirectoryTop(const std::string& name, COMA& parent, Clock& clock, size_t& numLines, Config& config);
+    friend class OneLevelCDMA;
+    friend class TwoLevelCDMA;
+    friend class CDMA::Directory;
+    DirectoryTop(const std::string& name, CDMA& parent, Clock& clock, size_t& numLines, Config& config);
     size_t GetNumLines() const override;
     size_t& m_numLines;
 };
 
-class COMA::DirectoryBottom : public COMA::Node
+class CDMA::DirectoryBottom : public CDMA::Node
 {
 protected:
-    friend class OneLevelCOMA;
-    friend class TwoLevelCOMA;
-    friend class COMA::Directory;
-    DirectoryBottom(const std::string& name, COMA& parent, Clock& clock, Config& config);
+    friend class OneLevelCDMA;
+    friend class TwoLevelCDMA;
+    friend class CDMA::Directory;
+    DirectoryBottom(const std::string& name, CDMA& parent, Clock& clock, Config& config);
 };
 
-class COMA::Directory : public COMA::Object, public Inspect::Interface<Inspect::Read>
+class CDMA::Directory : public CDMA::Object, public Inspect::Interface<Inspect::Read>
 {
 protected:
-    friend class COMA;
-    friend class OneLevelCOMA;
-    friend class TwoLevelCOMA;
-    COMA::DirectoryBottom m_bottom;
-    COMA::DirectoryTop    m_top;
+    friend class CDMA;
+    friend class OneLevelCDMA;
+    friend class TwoLevelCDMA;
+    CDMA::DirectoryBottom m_bottom;
+    CDMA::DirectoryTop    m_top;
 
 private:
-    typedef COMA::Node::Message Message;
+    typedef CDMA::Node::Message Message;
 
     ArbitratedService<CyclicArbitratedPort> p_lines;      ///< Arbitrator for access to the lines
 
@@ -70,7 +70,7 @@ private:
     Result DoOutTop();
 
 public:
-    Directory(const std::string& name, COMA& parent, Clock& clock, Config& config);
+    Directory(const std::string& name, CDMA& parent, Clock& clock, Config& config);
 
     // Connect directory to caches
     void ConnectRing(Node* first, Node* last);

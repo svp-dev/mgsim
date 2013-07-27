@@ -14,7 +14,7 @@ namespace Simulator
 static const size_t MINSPACE_SHORTCUT = 2;
 static const size_t MINSPACE_FORWARD  = 1;
 
-ZLCOMA::RootDirectory::Line* ZLCOMA::RootDirectory::FindLine(MemAddr address)
+ZLCDMA::RootDirectory::Line* ZLCDMA::RootDirectory::FindLine(MemAddr address)
 {
     MemAddr tag;
     size_t setindex;
@@ -33,7 +33,7 @@ ZLCOMA::RootDirectory::Line* ZLCOMA::RootDirectory::FindLine(MemAddr address)
     return NULL;
 }
 
-const ZLCOMA::RootDirectory::Line* ZLCOMA::RootDirectory::FindLine(MemAddr address) const
+const ZLCDMA::RootDirectory::Line* ZLCDMA::RootDirectory::FindLine(MemAddr address) const
 {
     MemAddr tag;
     size_t setindex;
@@ -53,7 +53,7 @@ const ZLCOMA::RootDirectory::Line* ZLCOMA::RootDirectory::FindLine(MemAddr addre
 }
 
 // replace only invalid lines otherwise NULL
-ZLCOMA::RootDirectory::Line* ZLCOMA::RootDirectory::GetEmptyLine(MemAddr address, MemAddr& tag)
+ZLCDMA::RootDirectory::Line* ZLCDMA::RootDirectory::GetEmptyLine(MemAddr address, MemAddr& tag)
 {
     size_t setindex;
     m_selector.Map(address / m_lineSize, tag, setindex);
@@ -70,7 +70,7 @@ ZLCOMA::RootDirectory::Line* ZLCOMA::RootDirectory::GetEmptyLine(MemAddr address
     return NULL;
 }
 
-bool ZLCOMA::RootDirectory::OnReadCompleted()
+bool ZLCDMA::RootDirectory::OnReadCompleted()
 {
     assert(!m_active.empty());
     Message* msg = m_active.front();
@@ -99,7 +99,7 @@ bool ZLCOMA::RootDirectory::OnReadCompleted()
 }
 
 
-bool ZLCOMA::RootDirectory::OnMessageReceived(Message* req)
+bool ZLCDMA::RootDirectory::OnMessageReceived(Message* req)
 {
     assert(req != NULL);
 
@@ -328,7 +328,7 @@ bool ZLCOMA::RootDirectory::OnMessageReceived(Message* req)
     return true;
 }
 
-Result ZLCOMA::RootDirectory::DoIncoming()
+Result ZLCDMA::RootDirectory::DoIncoming()
 {
     // Handle incoming message from previous node
     assert(!m_incoming.Empty());
@@ -340,7 +340,7 @@ Result ZLCOMA::RootDirectory::DoIncoming()
     return SUCCESS;
 }
 
-Result ZLCOMA::RootDirectory::DoRequests()
+Result ZLCDMA::RootDirectory::DoRequests()
 {
     assert(!m_requests.Empty());
 
@@ -393,7 +393,7 @@ Result ZLCOMA::RootDirectory::DoRequests()
     return SUCCESS;
 }
 
-Result ZLCOMA::RootDirectory::DoResponses()
+Result ZLCDMA::RootDirectory::DoResponses()
 {
     assert(!m_responses.Empty());
     Message* msg = m_responses.Front();
@@ -434,7 +434,7 @@ Result ZLCOMA::RootDirectory::DoResponses()
     return SUCCESS;
 }
 
-void ZLCOMA::RootDirectory::SetNumDirectories(size_t num_dirs)
+void ZLCDMA::RootDirectory::SetNumDirectories(size_t num_dirs)
 {
     // Create the cache lines.
     // We need as many cache lines in the directory to cover all caches below it.
@@ -444,7 +444,7 @@ void ZLCOMA::RootDirectory::SetNumDirectories(size_t num_dirs)
         l.valid = false;
 }
 
-ZLCOMA::RootDirectory::RootDirectory(const std::string& name, ZLCOMA& parent, Clock& clock, size_t id, size_t numRoots, const DDRChannelRegistry& ddr, Config& config) :
+ZLCDMA::RootDirectory::RootDirectory(const std::string& name, ZLCDMA& parent, Clock& clock, size_t id, size_t numRoots, const DDRChannelRegistry& ddr, Config& config) :
     Simulator::Object(name, parent),
     DirectoryBottom(name, parent, clock),
     m_selector (parent.GetBankSelector()),
@@ -494,10 +494,10 @@ ZLCOMA::RootDirectory::RootDirectory(const std::string& name, ZLCOMA& parent, Cl
     p_Responses.SetStorageTraces(GetOutgoingTrace());
 }
 
-void ZLCOMA::RootDirectory::Cmd_Info(std::ostream& out, const std::vector<std::string>& /*args*/) const
+void ZLCDMA::RootDirectory::Cmd_Info(std::ostream& out, const std::vector<std::string>& /*args*/) const
 {
     out <<
-    "The Root Directory in a COMA system is connected via other nodes in the COMA\n"
+    "The Root Directory in a CDMA system is connected via other nodes in the CDMA\n"
     "system via a ring network. It acts as memory controller for a DDR channel which\n"
     "serves as the backing store.\n\n"
     "Supported operations:\n"
@@ -508,7 +508,7 @@ void ZLCOMA::RootDirectory::Cmd_Info(std::ostream& out, const std::vector<std::s
     "  Reads and displays the buffers in the directory\n";
 }
 
-void ZLCOMA::RootDirectory::Cmd_Read(std::ostream& out, const std::vector<std::string>& arguments) const
+void ZLCDMA::RootDirectory::Cmd_Read(std::ostream& out, const std::vector<std::string>& arguments) const
 {
     if (!arguments.empty() && arguments[0] == "buffers")
     {

@@ -16,25 +16,25 @@ namespace Simulator
 static const size_t MINSPACE_SHORTCUT = 2;
 static const size_t MINSPACE_FORWARD  = 1;
 
-ZLCOMA::DirectoryTop::DirectoryTop(const std::string& name, ZLCOMA& parent, Clock& clock)
+ZLCDMA::DirectoryTop::DirectoryTop(const std::string& name, ZLCDMA& parent, Clock& clock)
   : Simulator::Object(name, parent),
     Node(name, parent, clock)
 {
 }
 
-ZLCOMA::DirectoryBottom::DirectoryBottom(const std::string& name, ZLCOMA& parent, Clock& clock)
+ZLCDMA::DirectoryBottom::DirectoryBottom(const std::string& name, ZLCDMA& parent, Clock& clock)
   : Simulator::Object(name, parent),
     Node(name, parent, clock)
 {
 }
 
 // this probably only works with current naive configuration
-bool ZLCOMA::Directory::IsBelow(CacheID id) const
+bool ZLCDMA::Directory::IsBelow(CacheID id) const
 {
     return (id >= m_firstCache) && (id <= m_lastCache);
 }
 
-ZLCOMA::Directory::Line* ZLCOMA::Directory::FindLine(MemAddr address)
+ZLCDMA::Directory::Line* ZLCDMA::Directory::FindLine(MemAddr address)
 {
     MemAddr tag;
     size_t setindex;
@@ -53,7 +53,7 @@ ZLCOMA::Directory::Line* ZLCOMA::Directory::FindLine(MemAddr address)
     return NULL;
 }
 
-const ZLCOMA::Directory::Line* ZLCOMA::Directory::FindLine(MemAddr address) const
+const ZLCDMA::Directory::Line* ZLCDMA::Directory::FindLine(MemAddr address) const
 {
     MemAddr tag;
     size_t setindex;
@@ -72,7 +72,7 @@ const ZLCOMA::Directory::Line* ZLCOMA::Directory::FindLine(MemAddr address) cons
     return NULL;
 }
 
-ZLCOMA::Directory::Line* ZLCOMA::Directory::AllocateLine(MemAddr address)
+ZLCDMA::Directory::Line* ZLCDMA::Directory::AllocateLine(MemAddr address)
 {
     MemAddr tag;
     size_t setindex;
@@ -93,7 +93,7 @@ ZLCOMA::Directory::Line* ZLCOMA::Directory::AllocateLine(MemAddr address)
     UNREACHABLE;
 }
 
-bool ZLCOMA::Directory::OnMessageReceivedBottom(Message* req)
+bool ZLCDMA::Directory::OnMessageReceivedBottom(Message* req)
 {
     if (!p_lines.Invoke())
     {
@@ -167,7 +167,7 @@ bool ZLCOMA::Directory::OnMessageReceivedBottom(Message* req)
 }
 
 
-bool ZLCOMA::Directory::OnMessageReceivedTop(Message* req)
+bool ZLCDMA::Directory::OnMessageReceivedTop(Message* req)
 {
     if (!p_lines.Invoke())
     {
@@ -236,7 +236,7 @@ bool ZLCOMA::Directory::OnMessageReceivedTop(Message* req)
     return true;
 }
 
-Result ZLCOMA::Directory::DoInBottom()
+Result ZLCDMA::Directory::DoInBottom()
 {
     // Handle incoming message on bottom ring from previous node
     assert(!m_bottom.m_incoming.Empty());
@@ -248,7 +248,7 @@ Result ZLCOMA::Directory::DoInBottom()
     return SUCCESS;
 }
 
-Result ZLCOMA::Directory::DoInTop()
+Result ZLCDMA::Directory::DoInTop()
 {
     // Handle incoming message on top ring from previous node
     assert(!m_top.m_incoming.Empty());
@@ -260,9 +260,9 @@ Result ZLCOMA::Directory::DoInTop()
     return SUCCESS;
 }
 
-ZLCOMA::Directory::Directory(const std::string& name, ZLCOMA& parent, Clock& clock, CacheID firstCache, Config& config) :
+ZLCDMA::Directory::Directory(const std::string& name, ZLCDMA& parent, Clock& clock, CacheID firstCache, Config& config) :
     Simulator::Object(name, parent),
-    ZLCOMA::Object(name, parent),
+    ZLCDMA::Object(name, parent),
     m_bottom(name + ".bottom", parent, clock),
     m_top(name + ".top", parent, clock),
     m_selector  (parent.GetBankSelector()),
@@ -293,10 +293,10 @@ ZLCOMA::Directory::Directory(const std::string& name, ZLCOMA& parent, Clock& clo
     config.registerBidiRelation(m_bottom, m_top, "dir");
 }
 
-void ZLCOMA::Directory::Cmd_Info(std::ostream& out, const std::vector<std::string>& /*args*/) const
+void ZLCDMA::Directory::Cmd_Info(std::ostream& out, const std::vector<std::string>& /*args*/) const
 {
     out <<
-    "The Directory in a COMA system is connected via other nodes in the COMA\n"
+    "The Directory in a CDMA system is connected via other nodes in the CDMA\n"
     "system via a ring network.\n\n"
     "Supported operations:\n"
     "- inspect <component>\n"
@@ -306,7 +306,7 @@ void ZLCOMA::Directory::Cmd_Info(std::ostream& out, const std::vector<std::strin
     "  Reads and displays the buffers in the directory\n";
 }
 
-void ZLCOMA::Directory::Cmd_Read(std::ostream& out, const std::vector<std::string>& arguments) const
+void ZLCDMA::Directory::Cmd_Read(std::ostream& out, const std::vector<std::string>& arguments) const
 {
     if (!arguments.empty() && arguments[0] == "buffers")
     {

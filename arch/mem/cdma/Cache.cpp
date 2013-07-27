@@ -17,7 +17,7 @@ namespace Simulator
 static const size_t MINSPACE_INSERTION = 2;
 static const size_t MINSPACE_FORWARD   = 1;
 
-MCID COMA::Cache::RegisterClient(IMemoryCallback& callback, Process& process, StorageTraceSet& traces, const StorageTraceSet& storages)
+MCID CDMA::Cache::RegisterClient(IMemoryCallback& callback, Process& process, StorageTraceSet& traces, const StorageTraceSet& storages)
 {
     MCID index = m_clients.size();
     m_clients.resize(index + 1);
@@ -34,7 +34,7 @@ MCID COMA::Cache::RegisterClient(IMemoryCallback& callback, Process& process, St
     return index;
 }
 
-void COMA::Cache::UnregisterClient(MCID id)
+void CDMA::Cache::UnregisterClient(MCID id)
 {
     assert(m_clients[id] != NULL);
     m_clients[id] = NULL;
@@ -42,7 +42,7 @@ void COMA::Cache::UnregisterClient(MCID id)
 
 // Called from the processor on a memory read (typically a whole cache-line)
 // Just queues the request.
-bool COMA::Cache::Read(MCID id, MemAddr address)
+bool CDMA::Cache::Read(MCID id, MemAddr address)
 {
     assert(address % m_lineSize == 0);
 
@@ -74,7 +74,7 @@ bool COMA::Cache::Read(MCID id, MemAddr address)
 
 // Called from the processor on a memory write (can be any size with write-through/around)
 // Just queues the request.
-bool COMA::Cache::Write(MCID id, MemAddr address, const MemData& data, WClientID wid)
+bool CDMA::Cache::Write(MCID id, MemAddr address, const MemData& data, WClientID wid)
 {
     assert(address % m_lineSize == 0);
 
@@ -125,7 +125,7 @@ bool COMA::Cache::Write(MCID id, MemAddr address, const MemData& data, WClientID
 }
 
 // Attempts to find a line for the specified address.
-COMA::Cache::Line* COMA::Cache::FindLine(MemAddr address)
+CDMA::Cache::Line* CDMA::Cache::FindLine(MemAddr address)
 {
     MemAddr tag;
     size_t  setindex;
@@ -147,7 +147,7 @@ COMA::Cache::Line* COMA::Cache::FindLine(MemAddr address)
 
 // Attempts to allocate a line for the specified address.
 // If empty_only is true, only empty lines will be considered.
-COMA::Cache::Line* COMA::Cache::AllocateLine(MemAddr address, bool empty_only, MemAddr* ptag)
+CDMA::Cache::Line* CDMA::Cache::AllocateLine(MemAddr address, bool empty_only, MemAddr* ptag)
 {
     MemAddr tag;
     size_t  setindex;
@@ -188,7 +188,7 @@ COMA::Cache::Line* COMA::Cache::AllocateLine(MemAddr address, bool empty_only, M
     return (empty != NULL) ? empty : replace;
 }
 
-bool COMA::Cache::EvictLine(Line* line, const Request& req)
+bool CDMA::Cache::EvictLine(Line* line, const Request& req)
 {
     // We never evict loading or updating lines
     assert(line->state != LINE_LOADING);
@@ -239,7 +239,7 @@ bool COMA::Cache::EvictLine(Line* line, const Request& req)
 }
 
 // Called when a message has been received from the previous node in the chain
-bool COMA::Cache::OnMessageReceived(Message* msg)
+bool CDMA::Cache::OnMessageReceived(Message* msg)
 {
     assert(msg != NULL);
 
@@ -522,7 +522,7 @@ bool COMA::Cache::OnMessageReceived(Message* msg)
     return true;
 }
 
-bool COMA::Cache::OnReadCompleted(MemAddr addr, const char * data)
+bool CDMA::Cache::OnReadCompleted(MemAddr addr, const char * data)
 {
     // Send the completion on the bus
     if (!p_bus.Invoke())
@@ -547,7 +547,7 @@ bool COMA::Cache::OnReadCompleted(MemAddr addr, const char * data)
 // FAILED  - stall
 // DELAYED - repeat next cycle
 // SUCCESS - advance
-Result COMA::Cache::OnWriteRequest(const Request& req)
+Result CDMA::Cache::OnWriteRequest(const Request& req)
 {
     if (!p_lines.Invoke())
     {
@@ -701,7 +701,7 @@ Result COMA::Cache::OnWriteRequest(const Request& req)
 // FAILED  - stall
 // DELAYED - repeat next cycle
 // SUCCESS - advance
-Result COMA::Cache::OnReadRequest(const Request& req)
+Result CDMA::Cache::OnReadRequest(const Request& req)
 {
     if (!p_lines.Invoke())
     {
@@ -818,7 +818,7 @@ Result COMA::Cache::OnReadRequest(const Request& req)
     return SUCCESS;
 }
 
-Result COMA::Cache::DoRequests()
+Result CDMA::Cache::DoRequests()
 {
     // Handle incoming requests from below
     assert(!m_requests.Empty());
@@ -839,7 +839,7 @@ Result COMA::Cache::DoRequests()
     return (result == FAILED) ? FAILED : SUCCESS;
 }
 
-Result COMA::Cache::DoReceive()
+Result CDMA::Cache::DoReceive()
 {
     // Handle received message from prev
     assert(!m_incoming.Empty());
@@ -854,12 +854,12 @@ Result COMA::Cache::DoReceive()
     return SUCCESS;
 }
 
-size_t COMA::Cache::GetNumLines() const
+size_t CDMA::Cache::GetNumLines() const
 {
     return m_lines.size();
 }
 
-COMA::Cache::Cache(const std::string& name, COMA& parent, Clock& clock, NodeID id, Config& config) :
+CDMA::Cache::Cache(const std::string& name, CDMA& parent, Clock& clock, NodeID id, Config& config) :
     Simulator::Object(name, parent),
     Node(name, parent, clock, id, config),
     m_selector (parent.GetBankSelector()),
@@ -968,11 +968,11 @@ COMA::Cache::Cache(const std::string& name, COMA& parent, Clock& clock, NodeID i
     config.registerProperty(*this, "freq", (uint32_t)clock.GetFrequency());
 }
 
-void COMA::Cache::Cmd_Info(std::ostream& out, const std::vector<std::string>& /*args*/) const
+void CDMA::Cache::Cmd_Info(std::ostream& out, const std::vector<std::string>& /*args*/) const
 {
     out <<
-    "The L2 Cache in a COMA system is connected to the processors with a bus and to\n"
-    "the rest of the COMA system via a ring network.\n\n"
+    "The L2 Cache in a CDMA system is connected to the processors with a bus and to\n"
+    "the rest of the CDMA system via a ring network.\n\n"
     "Supported operations:\n"
     "- inspect <component>\n"
     "  Print global information such as hit-rate\n"
@@ -986,7 +986,7 @@ void COMA::Cache::Cmd_Info(std::ostream& out, const std::vector<std::string>& /*
     "  Reads and displays the buffers in the cache\n";
 }
 
-void COMA::Cache::Cmd_Read(std::ostream& out, const std::vector<std::string>& arguments) const
+void CDMA::Cache::Cmd_Read(std::ostream& out, const std::vector<std::string>& arguments) const
 {
     if (!arguments.empty() && arguments[0] == "buffers")
     {

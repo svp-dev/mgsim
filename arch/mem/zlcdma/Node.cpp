@@ -9,11 +9,11 @@ namespace Simulator
 {
 
 // Memory management data
-/*static*/ unsigned long                     ZLCOMA::Node::g_References   = 0;
-/*static*/ ZLCOMA::Node::Message*            ZLCOMA::Node::g_FreeMessages = NULL;
-/*static*/ std::list<ZLCOMA::Node::Message*> ZLCOMA::Node::g_Messages;
+/*static*/ unsigned long                     ZLCDMA::Node::g_References   = 0;
+/*static*/ ZLCDMA::Node::Message*            ZLCDMA::Node::g_FreeMessages = NULL;
+/*static*/ std::list<ZLCDMA::Node::Message*> ZLCDMA::Node::g_Messages;
 
-/*static*/ void* ZLCOMA::Node::Message::operator new(size_t size)
+/*static*/ void* ZLCDMA::Node::Message::operator new(size_t size)
 {
     // We allocate this many messages at once
     static const size_t ALLOCATE_SIZE = 1024;
@@ -40,7 +40,7 @@ namespace Simulator
     return msg;
 }
 
-/*static*/ void ZLCOMA::Node::Message::operator delete(void *p, size_t size)
+/*static*/ void ZLCDMA::Node::Message::operator delete(void *p, size_t size)
 {
     assert(size == sizeof(Message));
     Message* msg = static_cast<Message*>(p);
@@ -55,7 +55,7 @@ namespace Simulator
     g_FreeMessages = msg;
 }
 
-/*static*/ void ZLCOMA::Node::PrintMessage(std::ostream& out, const Message& msg)
+/*static*/ void ZLCDMA::Node::PrintMessage(std::ostream& out, const Message& msg)
 {
     switch (msg.type)
     {
@@ -73,7 +73,7 @@ namespace Simulator
         << endl;
 }
 
-/*static*/ void ZLCOMA::Node::Print(std::ostream& out, const std::string& name, const Buffer<Message*>& buffer)
+/*static*/ void ZLCDMA::Node::Print(std::ostream& out, const std::string& name, const Buffer<Message*>& buffer)
 {
     std::string sp_left((61 - name.length()) / 2, ' ');
     std::string sp_right(61 - sp_left.length() - name.length(), ' ');
@@ -92,20 +92,20 @@ namespace Simulator
     out << "+----------------------+--------------------+--------+--------+\n\n";
 }
 
-void ZLCOMA::Node::Print(std::ostream& out) const
+void ZLCDMA::Node::Print(std::ostream& out) const
 {
     Print(out, "incoming", m_incoming);
     Print(out, "outgoing", m_outgoing);
 }
 
-void ZLCOMA::Node::Initialize(Node* next, Node* prev)
+void ZLCDMA::Node::Initialize(Node* next, Node* prev)
 {
     m_prev = prev;
     m_next = next;
     p_Forward.SetStorageTraces(next->m_incoming);
 }
 
-Result ZLCOMA::Node::DoForward()
+Result ZLCDMA::Node::DoForward()
 {
     // Forward requests to the next node
     assert(!m_outgoing.Empty());
@@ -122,7 +122,7 @@ Result ZLCOMA::Node::DoForward()
 
 // Send a message to the next node.
 // Only succeeds if there's min_space left before the push.
-bool ZLCOMA::Node::SendMessage(Message* message, size_t min_space)
+bool ZLCDMA::Node::SendMessage(Message* message, size_t min_space)
 {
     if (!m_outgoing.Push(message, min_space))
     {
@@ -131,9 +131,9 @@ bool ZLCOMA::Node::SendMessage(Message* message, size_t min_space)
     return true;
 }
 
-ZLCOMA::Node::Node(const std::string& name, ZLCOMA& parent, Clock& clock)
+ZLCDMA::Node::Node(const std::string& name, ZLCDMA& parent, Clock& clock)
     : Simulator::Object(name, parent),
-      ZLCOMA::Object(name, parent),
+      ZLCDMA::Object(name, parent),
       m_prev(NULL),
       m_next(NULL),
       m_incoming("b_incoming", *this, clock, 2),
@@ -145,7 +145,7 @@ ZLCOMA::Node::Node(const std::string& name, ZLCOMA& parent, Clock& clock)
     m_outgoing.Sensitive(p_Forward);
 }
 
-ZLCOMA::Node::~Node()
+ZLCDMA::Node::~Node()
 {
     assert(g_References > 0);
     if (--g_References == 0)

@@ -1,5 +1,5 @@
-#ifndef COMA_ROOTDIRECTORY_H
-#define COMA_ROOTDIRECTORY_H
+#ifndef CDMA_ROOTDIRECTORY_H
+#define CDMA_ROOTDIRECTORY_H
 
 #include "Directory.h"
 #include <arch/mem/DDR.h>
@@ -15,7 +15,7 @@ namespace Simulator
 class DDRChannel;
 class DDRChannelRegistry;
 
-class COMA::RootDirectory : public COMA::DirectoryBottom, public DDRChannel::ICallback, public Inspect::Interface<Inspect::Read>
+class CDMA::RootDirectory : public CDMA::DirectoryBottom, public DDRChannel::ICallback, public Inspect::Interface<Inspect::Read>
 {
 public:
     enum LineState
@@ -67,10 +67,10 @@ private:
     uint64_t          m_nwrites;
 
     // Administrative
-    friend class COMA;
+    friend class CDMA;
 
 public:
-    RootDirectory(const std::string& name, COMA& parent, Clock& clock, size_t id, const DDRChannelRegistry& ddr, Config& config);
+    RootDirectory(const std::string& name, CDMA& parent, Clock& clock, size_t id, const DDRChannelRegistry& ddr, Config& config);
     RootDirectory(const RootDirectory&) = delete;
     RootDirectory& operator=(const RootDirectory&) = delete;
 

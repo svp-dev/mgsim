@@ -125,10 +125,10 @@ COMMON_SRC = \
 	arch/VirtualMemory.cpp \
 	arch/VirtualMemory.h
 
-if ENABLE_MEM_ZLCOMA
+if ENABLE_MEM_ZLCDMA
 MEMORY_SRC += \
-	arch/mem/zlcdma/COMA.h \
-	arch/mem/zlcdma/COMA.cpp \
+	arch/mem/zlcdma/CDMA.h \
+	arch/mem/zlcdma/CDMA.cpp \
 	arch/mem/zlcdma/Cache.h \
 	arch/mem/zlcdma/Cache.cpp \
 	arch/mem/zlcdma/Directory.h \
@@ -139,10 +139,10 @@ MEMORY_SRC += \
 	arch/mem/zlcdma/RootDirectory.cpp 
 endif
 
-if ENABLE_MEM_COMA
+if ENABLE_MEM_CDMA
 MEMORY_SRC += \
-	arch/mem/cdma/COMA.h \
-	arch/mem/cdma/COMA.cpp \
+	arch/mem/cdma/CDMA.h \
+	arch/mem/cdma/CDMA.cpp \
 	arch/mem/cdma/Cache.h \
 	arch/mem/cdma/Cache.cpp \
 	arch/mem/cdma/Directory.h \
