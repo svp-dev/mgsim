@@ -14,41 +14,28 @@ namespace Simulator
 static const size_t MINSPACE_SHORTCUT = 2;
 static const size_t MINSPACE_FORWARD  = 1;
 
-COMA::RootDirectory::Line* COMA::RootDirectory::FindLine(MemAddr address, bool check_only)
+COMA::RootDirectory::Line* COMA::RootDirectory::FindLine(MemAddr address)
 {
-    MemAddr tag;
-    size_t setindex;
-    m_selector.Map(address / m_lineSize, tag, setindex);
-    const size_t  set  = setindex * m_assoc;
+    auto linei = m_dir.find(address);
+    if (linei == m_dir.end())
+        return NULL;
+    return &linei->second;
+}
 
-    // Find the line
-    Line* empty = NULL;
-    for (size_t i = 0; i < m_assoc; ++i)
-    {
-        Line* line = &m_lines[set + i];
+static
+COMA::RootDirectory::Line pseudoline = { COMA::RootDirectory::LINE_EMPTY, 0, (size_t)-1 };
 
-        if (line->state == LINE_EMPTY)
-        {
-            // Empty, unused line, remember this one
-            empty = line;
-        }
-        else if (line->tag == tag)
-        {
-            // The wanted line was in the cache
-            return line;
-        }
+COMA::RootDirectory::Line* COMA::RootDirectory::AllocateLine(MemAddr address)
+{
+    Line *line = &pseudoline;
+    COMMIT {
+        auto np = m_dir.insert(make_pair(address, Line()));
+        assert(np.second == true);
+        assert(m_dir.size() <= m_maxNumLines);
+
+        line = &(np.first->second);
     }
 
-    // The line could not be found, allocate the empty line or replace an existing line
-    Line* line = NULL;
-    if (!check_only && empty != NULL)
-    {
-        // Reset the line
-        line = empty;
-        line->tag    = tag;
-        line->state  = LINE_EMPTY;
-        line->tokens = 0;
-    }
     return line;
 }
 
@@ -105,8 +92,8 @@ bool COMA::RootDirectory::OnMessageReceived(Message* msg)
             // Cache-line read request
 
             // Find or allocate the line
-            Line* line = FindLine(msg->address, false);
-            if (line != NULL && line->state == LINE_EMPTY)
+            Line* line = FindLine(msg_addr);
+            if (line == NULL)
             {
                 // Line has not been read yet it; queue the read
                 TraceWrite(msg_addr, "Received Read Request; Miss; Queuing request");
@@ -116,6 +103,8 @@ bool COMA::RootDirectory::OnMessageReceived(Message* msg)
                     DeadlockWrite("Unable to queue read request to memory");
                     return false;
                 }
+
+                line = AllocateLine(msg_addr);
 
                 COMMIT
                 {
@@ -138,8 +127,9 @@ bool COMA::RootDirectory::OnMessageReceived(Message* msg)
             // Cache-line read request with data
 
             // Find or allocate the line. This should not fail.
-            Line* line = FindLine(msg->address, false);
-            assert(line != NULL);
+            Line* line = FindLine(msg_addr);
+            if (line == NULL)
+                line = AllocateLine(msg_addr);
 
             if (line->state == LINE_EMPTY)
             {
@@ -177,7 +167,7 @@ bool COMA::RootDirectory::OnMessageReceived(Message* msg)
 
         case Message::EVICTION:
         {
-            Line* line = FindLine(msg->address, true);
+            Line* line = FindLine(msg_addr);
             assert(line != NULL);
             assert(line->state == LINE_FULL);
 
@@ -213,7 +203,9 @@ bool COMA::RootDirectory::OnMessageReceived(Message* msg)
                     TraceWrite(msg_addr, "Received Evict Request; All tokens; Clearing line from system");
                     COMMIT{ delete msg; }
                 }
-                COMMIT{ line->state = LINE_EMPTY; }
+                COMMIT{
+                    m_dir.erase(msg_addr);
+                }
             }
             return true;
         }
@@ -350,7 +342,7 @@ Result COMA::RootDirectory::DoResponses()
     {
         // We should have a loading line for this
         const MemAddr msg_addr = msg->address;
-        Line* line = FindLine(msg_addr, true);
+        Line* line = FindLine(msg_addr);
         assert(line != NULL);
         assert(line->state == LINE_LOADING);
 
@@ -378,29 +370,32 @@ Result COMA::RootDirectory::DoResponses()
     return SUCCESS;
 }
 
-void COMA::RootDirectory::SetNumRings(size_t num_rings)
+void COMA::RootDirectory::Initialize()
 {
-    // Create the cache lines.
-    // We need as many cache lines in the directory to cover all caches below it.
-    m_assoc = m_assoc_ring * num_rings;
-    m_lines.resize(m_assoc * m_sets);
-    for (auto& line : m_lines)
+    Node* first = GetPrevNode();
+    Node* last = GetNextNode();
+    assert(first->GetNextNode() == this);
+    assert(last->GetPrevNode() == this);
+
+    for (Node *p = first; p != this; p = p->GetPrevNode())
     {
-        line.state = LINE_EMPTY;
+        // Grow the directory as needed by caches or sub-dirs
+        m_maxNumLines += p->GetNumLines();
+
+        // Also count the number of sibling directories
+        if (dynamic_cast<RootDirectory*>(p) != NULL)
+            ++m_numRoots;
     }
 }
 
-COMA::RootDirectory::RootDirectory(const std::string& name, COMA& parent, Clock& clock, size_t id, size_t numRoots, const DDRChannelRegistry& ddr, Config& config) :
+COMA::RootDirectory::RootDirectory(const std::string& name, COMA& parent, Clock& clock, size_t id, const DDRChannelRegistry& ddr, Config& config) :
     Simulator::Object(name, parent),
     DirectoryBottom(name, parent, clock, config),
-    m_selector (parent.GetBankSelector()),
-    m_lines    (),
+    m_dir    (),
+    m_maxNumLines(0),
     m_lineSize (config.getValue<size_t>("CacheLineSize")),
-    m_assoc_ring(config.getValue<size_t>(parent, "L2CacheAssociativity") * config.getValue<size_t>(parent, "NumL2CachesPerRing")),
-    m_assoc    (0),
-    m_sets     (m_selector.GetNumBanks()),
     m_id       (id),
-    m_numRoots (numRoots),
+    m_numRoots (1),
     p_lines    (*this, clock, "p_lines"),
     m_memory   (0),
     m_requests ("b_requests", *this, clock, config.getValue<size_t>(*this, "ExternalOutputQueueSize")),
@@ -464,57 +459,53 @@ void COMA::RootDirectory::Cmd_Read(std::ostream& out, const std::vector<std::str
         return;
     }
 
-    out << "Cache type:          ";
-    if (m_assoc == 1) {
-        out << "Direct mapped" << endl;
-    } else if (m_assoc == m_lines.size()) {
-        out << "Fully associative" << endl;
-    } else {
-        out << dec << m_assoc << "-way set associative" << endl;
-    }
-    out << endl;
+    out << "Max directory size: " << m_maxNumLines << endl
+        << "Current directory size: " << m_dir.size() << endl
+        << endl;
+
 
     // No more than 4 columns per row and at most 1 set per row
-    const size_t width = std::min<size_t>(m_assoc, 4);
+    const size_t width = std::min<size_t>(m_dir.size(), 4);
 
-    out << "Set |";
-    for (size_t i = 0; i < width; ++i) out << "        Address       |";
-    out << endl << "----";
-    std::string seperator = "+";
-    for (size_t i = 0; i < width; ++i) seperator += "----------------------+";
-    out << seperator << endl;
+    out << "Entry  |";
+    for (size_t i = 0; i < width; ++i) out << "       Address      | State       |";
+    out << endl << "-------";
+    std::string separator = "+";
+    for (size_t i = 0; i < width; ++i) separator += "--------------------+-------------+";
+    out << separator << endl;
 
-    for (size_t i = 0; i < m_lines.size() / width; ++i)
+    auto p = m_dir.begin();
+    for (size_t i = 0; i < m_dir.size(); i += width)
     {
-        const size_t index = (i * width);
-        const size_t set   = index / m_assoc;
-
-        if (index % m_assoc == 0) {
-            out << setw(3) << setfill(' ') << dec << right << set;
-        } else {
-            out << "   ";
-        }
-
-        out << " | ";
-        for (size_t j = 0; j < width; ++j)
+        out << setw(6) << dec << right << i << " | ";
+        for (size_t j = i; j < i + width; ++j)
         {
-            const Line& line = m_lines[index + j];
-            if (line.state == LINE_EMPTY) {
-                out << "                    ";
-            } else {
-                out << hex << "0x" << setw(16) << setfill('0') << m_selector.Unmap(line.tag, set) * m_lineSize;
-                if (line.state == LINE_LOADING) {
-                    out << " L";
-                } else {
-                    out << "  ";
+            if (p != m_dir.end())
+            {
+                out << hex << "0x" << setfill('0') << setw(16) << p->first << " | "
+                    << dec << setfill(' ') << right;
+                switch (p->second.state) {
+                case LINE_EMPTY:
+                    out << "E          ";
+                    break;
+                case LINE_LOADING:
+                    out << "L      S" << setw(3) << (int)p->second.sender;
+                    break;
+                case LINE_FULL:
+                    out << "L T" << setw(3) << p->second.tokens
+                        << "     ";
+                    break;
                 }
+                p++;
+
+            } else {
+                out << "                   |            ";
             }
             out << " | ";
         }
-        out << endl
-            << ((index + width) % m_assoc == 0 ? "----" : "    ")
-            << seperator << endl;
+        out << endl;
     }
+    out << "-------" << separator << endl;
 }
 
 }

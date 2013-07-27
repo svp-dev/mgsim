@@ -162,7 +162,7 @@ COMA::COMA(const std::string& name, Simulator::Object& parent, Clock& clock, Con
     {
         stringstream rname;
         rname << "rootdir" << i;
-        m_roots[i] = new RootDirectory(rname.str(), *this, clock, i, m_roots.size(), m_ddr, config);
+        m_roots[i] = new RootDirectory(rname.str(), *this, clock, i, m_ddr, config);
     }
 
 }
@@ -189,9 +189,6 @@ void OneLevelCOMA::Initialize()
     // First place root directories in their place in the ring.
     for (size_t i = 0; i < m_roots.size(); ++i)
     {
-        // Tell the root directory how many rings there are
-        m_roots[i]->SetNumRings(1);
-
         // Do an even (as possible) distribution
         size_t pos = i * m_caches.size() / m_roots.size() + i;
 
@@ -215,6 +212,12 @@ void OneLevelCOMA::Initialize()
         nodes[i]->Connect(next, prev);
 
         m_config.registerRelation(*nodes[i], *next, "topring", true);
+    }
+
+    // Then inform the root directories
+    for (auto r : m_roots)
+    {
+        r->Initialize();
     }
 }
 
@@ -257,9 +260,6 @@ void TwoLevelCOMA::Initialize()
     // First place root directories in their place in the ring.
     for (size_t i = 0; i < m_roots.size(); ++i)
     {
-        // Tell the root directory how many rings there are
-        m_roots[i]->SetNumRings(m_directories.size());
-
         // Do an even (as possible) distribution
         size_t pos = i * m_directories.size() / m_roots.size() + i;
 
@@ -283,6 +283,12 @@ void TwoLevelCOMA::Initialize()
         nodes[i]->Connect(next, prev);
 
         m_config.registerRelation(*nodes[i], *next, "topring", true);
+    }
+
+    // Then inform the root directories
+    for (auto r : m_roots)
+    {
+        r->Initialize();
     }
 }
 
@@ -376,7 +382,7 @@ void COMA::Cmd_Line(ostream& out, const vector<string>& arguments) const
     bool printed = false;
     for (auto p = m_roots.begin(); p != m_roots.end(); ++p)
     {
-        auto line = (*p)->FindLine(address, true);
+        auto line = (*p)->FindLine(address);
         if (line != NULL)
         {
             const char* state = (line->state == RootDirectory::LINE_LOADING) ? "loading" : "loaded";

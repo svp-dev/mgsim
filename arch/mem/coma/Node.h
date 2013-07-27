@@ -32,6 +32,7 @@ class COMA::Node : public COMA::Object
 {
 protected:
     friend class COMA::Directory;
+    friend class COMA::RootDirectory;
 
     /// This is the message that gets sent around
     union Message
