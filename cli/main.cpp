@@ -333,13 +333,13 @@ int main(int argc, char** argv)
         clog << argp_program_version << endl
              << endl;
 
-	// Then print also command name & arguments
-	clog  << "Command line:";
-	for (int i = 0; i < argc; ++i)
+        // Then print also command name & arguments
+        clog  << "Command line:";
+        for (int i = 0; i < argc; ++i)
             clog << ' ' << argv[i];
-	char buf[MAXPATHLEN];
-	getcwd(buf, MAXPATHLEN);
-	clog << endl << "Current working directory: " << buf << endl;
+        char buf[MAXPATHLEN];
+        getcwd(buf, MAXPATHLEN);
+        clog << endl << "Current working directory: " << buf << endl;
     }
 
     // Convert the remaining m_regs to an override

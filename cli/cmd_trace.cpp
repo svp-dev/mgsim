@@ -55,4 +55,3 @@ bool cmd_trace_line(const vector<string>& /*command*/, vector<string>& args, cli
     DoObjectCommand<Inspect::Trace>(cout, ctx.sys, pat, args);
     return false;
 }
-
