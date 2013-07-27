@@ -102,6 +102,8 @@ bool COMA::RootDirectory::OnMessageReceived(Message* msg)
     if (((msg->address / m_lineSize) % m_numRoots) == m_id)
     {
         // This message is for us
+        TraceWrite(msg->address, "Received message for this directory: %s", msg->str().c_str());
+
         if (!p_lines.Invoke())
         {
             DeadlockWrite("Unable to acquire lines");
