@@ -78,6 +78,7 @@ private:
     static std::list<Message*> g_Messages;
     static unsigned long       g_References;
 
+    NodeID            m_id;             ///< Node identifier in the memory network
     Node*             m_prev;           ///< Prev node in the ring
     Node*             m_next;           ///< Next node in the ring
 protected:
@@ -104,10 +105,15 @@ protected:
     void Print(std::ostream& out) const;
 
     /// Construct the node
-    Node(const std::string& name, COMA& parent, Clock& clock, Config& config);
+    Node(const std::string& name, COMA& parent, Clock& clock, NodeID id, Config& config);
     Node(const Node&) = delete;
     Node& operator=(const Node&) = delete;
     virtual ~Node();
+
+    /// For iterating during directory initialization
+    Node* GetNextNode() const { return m_next; }
+    Node* GetPrevNode() const { return m_prev; }
+    NodeID GetNodeID() const { return m_id; }
 
 public:
     void Initialize(Node* next, Node* prev);

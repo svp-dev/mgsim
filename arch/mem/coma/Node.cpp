@@ -147,9 +147,10 @@ bool COMA::Node::SendMessage(Message* message, size_t min_space)
     return true;
 }
 
-COMA::Node::Node(const std::string& name, COMA& parent, Clock& clock, Config& config)
+COMA::Node::Node(const std::string& name, COMA& parent, Clock& clock, NodeID id, Config& config)
     : Simulator::Object(name, parent),
       COMA::Object(name, parent),
+      m_id(id),
       m_prev(NULL),
       m_next(NULL),
       m_incoming("b_incoming", *this, clock, config.getValue<BufferSize>(*this, "NodeBufferSize")),

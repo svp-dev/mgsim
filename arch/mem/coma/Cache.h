@@ -49,7 +49,6 @@ private:
     size_t                        m_lineSize;
     size_t                        m_assoc;
     size_t                        m_sets;
-    NodeID                        m_id;
     std::vector<IMemoryCallback*> m_clients;
     StorageTraceSet               m_storages;
     ArbitratedService<>           p_lines;

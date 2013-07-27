@@ -206,7 +206,7 @@ bool COMA::Cache::EvictLine(Line* line, const Request& req)
         msg->type      = Message::EVICTION;
         msg->address   = address;
         msg->ignore    = false;
-        msg->sender    = m_id;
+        msg->sender    = GetNodeID();
         msg->tokens    = line->tokens;
         msg->dirty     = line->dirty;
         std::copy(line->data, line->data + m_lineSize, msg->data.data);
@@ -251,7 +251,7 @@ bool COMA::Cache::OnMessageReceived(Message* msg)
         return false;
     }
 
-    if (msg->ignore || (msg->type == Message::REQUEST_DATA_TOKEN && msg->sender != m_id))
+    if (msg->ignore || (msg->type == Message::REQUEST_DATA_TOKEN && msg->sender != GetNodeID()))
     {
         // This is either
         // * a message that should ignored, or
@@ -453,7 +453,7 @@ bool COMA::Cache::OnMessageReceived(Message* msg)
         break;
 
     case Message::UPDATE:
-        if (msg->sender == m_id)
+        if (msg->sender == GetNodeID())
         {
             // The update has come full circle.
             // Notify the sender of write consistency.
@@ -608,7 +608,7 @@ Result COMA::Cache::OnWriteRequest(const Request& req)
             msg->address   = req.address;
             msg->ignore    = false;
             msg->tokens    = 0;
-            msg->sender    = m_id;
+            msg->sender    = GetNodeID();
 
         }
 
@@ -654,7 +654,7 @@ Result COMA::Cache::OnWriteRequest(const Request& req)
             msg = new Message;
             msg->address   = req.address;
             msg->type      = Message::UPDATE;
-            msg->sender    = m_id;
+            msg->sender    = GetNodeID();
             msg->ignore    = false;
             msg->client    = req.client;
             msg->wid       = req.wid;
@@ -763,7 +763,7 @@ Result COMA::Cache::OnReadRequest(const Request& req)
             msg->address   = req.address;
             msg->ignore    = false;
             msg->tokens    = 0;
-            msg->sender    = m_id;
+            msg->sender    = GetNodeID();
         }
 
         if (!SendMessage(msg, MINSPACE_INSERTION))
@@ -856,12 +856,11 @@ Result COMA::Cache::DoReceive()
 
 COMA::Cache::Cache(const std::string& name, COMA& parent, Clock& clock, NodeID id, Config& config) :
     Simulator::Object(name, parent),
-    Node(name, parent, clock, config),
+    Node(name, parent, clock, id, config),
     m_selector (parent.GetBankSelector()),
     m_lineSize (config.getValue<size_t>("CacheLineSize")),
     m_assoc    (config.getValue<size_t>(parent, "L2CacheAssociativity")),
     m_sets     (m_selector.GetNumBanks()),
-    m_id       (id),
     m_clients  (),
     m_storages (),
     p_lines    (*this, clock, "p_lines"),
