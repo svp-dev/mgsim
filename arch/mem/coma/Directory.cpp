@@ -41,49 +41,27 @@ bool COMA::Directory::IsBelow(NodeID id) const
 
 // Performs a lookup in this directory's table to see whether
 // the wanted address exists in the ring below this directory.
-COMA::Directory::Line* COMA::Directory::FindLine(MemAddr address)
+size_t* COMA::Directory::FindLine(MemAddr address)
 {
-    MemAddr tag;
-    size_t setindex;
-    m_selector.Map(address / m_lineSize, tag, setindex);
-    const size_t  set  = setindex * m_assoc;
-
-    // Find the line
-    for (size_t i = 0; i < m_assoc; ++i)
-    {
-        Line* line = &m_lines[set + i];
-        if (line->valid && line->tag == tag)
-        {
-            return line;
-        }
-    }
-    return NULL;
+    auto linei = m_dir.find(address);
+    if (linei == m_dir.end())
+        return NULL;
+    return &linei->second;
 }
 
 // Marks the specified address as present in the directory
-COMA::Directory::Line* COMA::Directory::AllocateLine(MemAddr address)
+static size_t pseudoline;
+size_t* COMA::Directory::AllocateLine(MemAddr address)
 {
-    MemAddr tag;
-    size_t setindex;
-    m_selector.Map(address / m_lineSize, tag, setindex);
-    const size_t  set  = setindex * m_assoc;
+    size_t *line = &pseudoline;
+    COMMIT {
+        auto np = m_dir.insert(make_pair(address, 0));
+        assert(np.second == true);
+        assert(m_dir.size() <= m_maxNumLines);
 
-    // Find the line
-    for (size_t i = 0; i < m_assoc; ++i)
-    {
-        Line* line = &m_lines[set + i];
-        if (!line->valid)
-        {
-            COMMIT
-            {
-                line->valid  = true;
-                line->tag    = tag;
-                line->tokens = 0;
-            }
-            return line;
-        }
+        line = &(np.first->second);
     }
-    UNREACHABLE;
+    return line;
 }
 
 bool COMA::Directory::OnMessageReceivedBottom(Message* msg)
@@ -110,17 +88,17 @@ bool COMA::Directory::OnMessageReceivedBottom(Message* msg)
         case Message::REQUEST_DATA_TOKEN:
         {
             // Reduce the token count in the dir line
-            Line* line = FindLine(msg->address);
-            assert(line != NULL);
-            assert(line->tokens >= msg->tokens);
+            size_t* tokens = FindLine(msg->address);
+            assert(tokens != NULL);
+            assert(*tokens >= msg->tokens);
 
             COMMIT
             {
-                line->tokens -= msg->tokens;
-                if (line->tokens == 0)
+                *tokens -= msg->tokens;
+                if (*tokens == 0)
                 {
                     // No more tokens left; clear the line too
-                    line->valid = false;
+                    m_dir.erase(msg->address);
                 }
             }
             break;
@@ -161,13 +139,13 @@ bool COMA::Directory::OnMessageReceivedTop(Message* msg)
     }
 
     // See if a cache below this directory has the line
-    Line* line = NULL;
+    size_t* tokens = NULL;
     switch (msg->type)
     {
     case Message::REQUEST:
     case Message::REQUEST_DATA:
     case Message::UPDATE:
-        line = FindLine(msg->address);
+        tokens = FindLine(msg->address);
         break;
 
     case Message::REQUEST_DATA_TOKEN:
@@ -175,14 +153,14 @@ bool COMA::Directory::OnMessageReceivedTop(Message* msg)
         {
             // This directory contains the sender cache.
             // In case the line doesn't exist yet, allocate it.
-            line = FindLine(msg->address);
-            if (line == NULL)
+            tokens = FindLine(msg->address);
+            if (tokens == NULL)
             {
-                line = AllocateLine(msg->address);
+                tokens = AllocateLine(msg->address);
             }
 
             // We now have more tokens in this ring
-            COMMIT{ line->tokens += msg->tokens; }
+            COMMIT{ *tokens += msg->tokens; }
         }
         break;
 
@@ -195,7 +173,7 @@ bool COMA::Directory::OnMessageReceivedTop(Message* msg)
         break;
     }
 
-    if (line == NULL)
+    if (tokens == NULL)
     {
         // Miss, just forward the request on the upper ring
         if (!m_top.SendMessage(msg, MINSPACE_SHORTCUT))
@@ -252,24 +230,14 @@ COMA::Directory::Directory(const std::string& name, COMA& parent, Clock& clock, 
     COMA::Object(name, parent),
     m_bottom(name + ".bottom", parent, clock, config),
     m_top(name + ".top", parent, clock, m_maxNumLines, config),
-    m_selector  (parent.GetBankSelector()),
     p_lines     (*this, clock, "p_lines"),
-    m_assoc     (config.getValue<size_t>(parent, "L2CacheAssociativity") * config.getValue<size_t>(parent, "NumL2CachesPerRing")),
-    m_sets      (m_selector.GetNumBanks()),
-    m_lines     (m_assoc * m_sets),
-    m_lineSize  (config.getValue<size_t>("CacheLineSize")),
+    m_dir       (),
     m_maxNumLines(0),
     m_firstNode(-1),
     m_lastNode (-1),
     p_InBottom  (*this, "bottom-incoming", delegate::create<Directory, &Directory::DoInBottom >(*this)),
     p_InTop     (*this, "top-incoming",    delegate::create<Directory, &Directory::DoInTop    >(*this))
 {
-    // Create the cache lines
-    // We need as many cache lines in a directory to cover all caches below it
-    for (auto &line : m_lines)
-    {
-        line.valid = false;
-    }
 
     m_bottom.m_incoming.Sensitive(p_InBottom);
     m_top.m_incoming.Sensitive(p_InTop);
@@ -340,55 +308,40 @@ void COMA::Directory::Cmd_Read(std::ostream& out, const std::vector<std::string>
         return;
     }
 
-    out << "Cache type:  ";
-    if (m_assoc == 1) {
-        out << "Direct mapped" << endl;
-    } else if (m_assoc == m_lines.size()) {
-        out << "Fully associative" << endl;
-    } else {
-        out << dec << m_assoc << "-way set associative" << endl;
-    }
-    out << "Cache range: " << m_firstNode << " - " << m_lastNode << endl;
-    out << endl;
-    out << "Max directory size: " << m_maxNumLines << endl;
+    out << "Max directory size: " << m_maxNumLines << endl
+        << "Current directory size: " << m_dir.size() << endl
+        << "Range of node IDs on lower ring: " << m_firstNode << " - " << m_lastNode << endl
+        << endl;
 
     // No more than 4 columns per row and at most 1 set per row
-    const size_t width = std::min<size_t>(m_assoc, 4);
+    const size_t width = std::min<size_t>(m_dir.size(), 4);
 
-    out << "Set |";
+    out << "Entry  |";
     for (size_t i = 0; i < width; ++i) out << "       Address      | Tokens |";
-    out << endl << "----";
+    out << endl << "-------";
     std::string separator = "+";
     for (size_t i = 0; i < width; ++i) separator += "--------------------+--------+";
     out << separator << endl;
 
-    for (size_t i = 0; i < m_lines.size() / width; ++i)
+    auto p = m_dir.begin();
+    for (size_t i = 0; i < m_dir.size(); i += width)
     {
-        const size_t index = (i * width);
-        const size_t set   = index / m_assoc;
-
-        if (index % m_assoc == 0) {
-            out << setw(3) << setfill(' ') << dec << right << set;
-        } else {
-            out << "   ";
-        }
-
-        out << " | ";
-        for (size_t j = 0; j < width; ++j)
+        out << setw(6) << setfill(' ') << dec << right << i << " | ";
+        for (size_t j = i; j < i + width; ++j)
         {
-            const Line& line = m_lines[index + j];
-            if (line.valid) {
-                out << hex << "0x" << setw(16) << setfill('0') << m_selector.Unmap(line.tag, set) * m_lineSize << " | "
-                    << dec << setfill(' ') << setw(6) << line.tokens;
+            if (p != m_dir.end())
+            {
+                out << hex << "0x" << setw(16) << setfill('0') << p->first << " | "
+                    << dec << setfill(' ') << setw(6) << p->second;
+                p++;
             } else {
                 out << "                   |       ";
             }
             out << " | ";
         }
-        out << endl
-            << ((index + width) % m_assoc == 0 ? "----" : "    ")
-            << separator << endl;
+        out << endl;
     }
+    out << "-------" << separator << endl;
 }
 
 }

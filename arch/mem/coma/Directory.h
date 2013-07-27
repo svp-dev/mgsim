@@ -3,10 +3,9 @@
 
 #include "Node.h"
 #include <sim/inspect.h>
-#include <arch/BankSelector.h>
 
-#include <queue>
-#include <set>
+#include <vector>
+#include <map>
 
 class Config;
 
@@ -36,14 +35,6 @@ protected:
 
 class COMA::Directory : public COMA::Object, public Inspect::Interface<Inspect::Read>
 {
-public:
-    struct Line
-    {
-        bool         valid;  ///< Valid line?
-        MemAddr      tag;    ///< Tag of this line
-        unsigned int tokens; ///< Tokens in this ring
-    };
-
 protected:
     friend class COMA;
     friend class OneLevelCOMA;
@@ -54,22 +45,20 @@ protected:
 private:
     typedef COMA::Node::Message Message;
 
-    IBankSelector&      m_selector;
     ArbitratedService<CyclicArbitratedPort> p_lines;      ///< Arbitrator for access to the lines
-    size_t              m_assoc;      ///< Number of lines in a set
-    size_t              m_sets;       ///< Number of sets
-    std::vector<Line>   m_lines;      ///< The cache lines
-    size_t              m_lineSize;   ///< The size of a cache-line
+
+    std::map<MemAddr, size_t> m_dir;  ///< The directory: tag -> tokens
+
     size_t              m_maxNumLines; ///< Maximum number of lines to store
-    NodeID              m_firstNode;  ///< ID of first cache in the ring
-    NodeID              m_lastNode;   ///< ID of last cache in the ring
+    NodeID              m_firstNode;  ///< ID of first node in the subring
+    NodeID              m_lastNode;   ///< ID of last node in the subring
 
     // Processes
     Process p_InBottom;
     Process p_InTop;
 
-    Line* FindLine(MemAddr address);
-    Line* AllocateLine(MemAddr address);
+    size_t* FindLine(MemAddr address);
+    size_t* AllocateLine(MemAddr address);
     bool  OnMessageReceivedBottom(Message* msg);
     bool  OnMessageReceivedTop(Message* msg);
     bool  IsBelow(NodeID id) const;
