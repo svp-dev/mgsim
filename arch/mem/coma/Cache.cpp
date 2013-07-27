@@ -1009,12 +1009,13 @@ void COMA::Cache::Cmd_Read(std::ostream& out, const std::vector<std::string>& ar
     {
         // Read the buffers
         out << "Bus requests:" << endl << endl
-            << "      Address      | Type  |" << endl
-            << "-------------------+-------+" << endl;
+            << "      Address      | Type  | Client " << endl
+            << "-------------------+-------+---------" << endl;
         for (Buffer<Request>::const_iterator p = m_requests.begin(); p != m_requests.end(); ++p)
         {
             out << hex << "0x" << setw(16) << setfill('0') << p->address << " | "
                 << (p->write ? "Write" : "Read ") << " | "
+                << p->client << ":" << p->wid
                 << endl;
         }
 
