@@ -3,7 +3,7 @@
 #ifdef ENABLE_CACTI
 
 #ifdef ENABLE_MEM_COMA
-#include <arch/mem/coma/COMA.h>
+#include <arch/mem/cdma/COMA.h>
 #endif
 
 #include <sim/log2.h>

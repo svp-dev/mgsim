@@ -127,30 +127,30 @@ COMMON_SRC = \
 
 if ENABLE_MEM_ZLCOMA
 MEMORY_SRC += \
-	arch/mem/zlcoma/COMA.h \
-	arch/mem/zlcoma/COMA.cpp \
-	arch/mem/zlcoma/Cache.h \
-	arch/mem/zlcoma/Cache.cpp \
-	arch/mem/zlcoma/Directory.h \
-	arch/mem/zlcoma/Directory.cpp \
-	arch/mem/zlcoma/Node.h \
-	arch/mem/zlcoma/Node.cpp \
-	arch/mem/zlcoma/RootDirectory.h \
-	arch/mem/zlcoma/RootDirectory.cpp 
+	arch/mem/zlcdma/COMA.h \
+	arch/mem/zlcdma/COMA.cpp \
+	arch/mem/zlcdma/Cache.h \
+	arch/mem/zlcdma/Cache.cpp \
+	arch/mem/zlcdma/Directory.h \
+	arch/mem/zlcdma/Directory.cpp \
+	arch/mem/zlcdma/Node.h \
+	arch/mem/zlcdma/Node.cpp \
+	arch/mem/zlcdma/RootDirectory.h \
+	arch/mem/zlcdma/RootDirectory.cpp 
 endif
 
 if ENABLE_MEM_COMA
 MEMORY_SRC += \
-	arch/mem/coma/COMA.h \
-	arch/mem/coma/COMA.cpp \
-	arch/mem/coma/Cache.h \
-	arch/mem/coma/Cache.cpp \
-	arch/mem/coma/Directory.h \
-	arch/mem/coma/Directory.cpp \
-	arch/mem/coma/Node.h \
-	arch/mem/coma/Node.cpp \
-	arch/mem/coma/RootDirectory.h \
-	arch/mem/coma/RootDirectory.cpp 
+	arch/mem/cdma/COMA.h \
+	arch/mem/cdma/COMA.cpp \
+	arch/mem/cdma/Cache.h \
+	arch/mem/cdma/Cache.cpp \
+	arch/mem/cdma/Directory.h \
+	arch/mem/cdma/Directory.cpp \
+	arch/mem/cdma/Node.h \
+	arch/mem/cdma/Node.cpp \
+	arch/mem/cdma/RootDirectory.h \
+	arch/mem/cdma/RootDirectory.cpp 
 endif
 
 EXTRA_DIST += \

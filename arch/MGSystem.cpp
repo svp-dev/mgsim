@@ -13,10 +13,10 @@
 #include <arch/mem/DDRMemory.h>
 #endif
 #ifdef ENABLE_MEM_COMA
-#include <arch/mem/coma/COMA.h>
+#include <arch/mem/cdma/COMA.h>
 #endif
 #ifdef ENABLE_MEM_ZLCOMA
-#include <arch/mem/zlcoma/COMA.h>
+#include <arch/mem/zlcdma/COMA.h>
 #endif
 
 #include <arch/dev/NullIO.h>
@@ -456,7 +456,7 @@ void MGSystem::PrintState(const vector<string>& /*unused*/) const
                     case STATE_DEADLOCK: cout << "stalled"; break;
                     case STATE_RUNNING:  cout << "running"; break;
                     case STATE_IDLE:
-                    case STATE_ABORTED:  
+                    case STATE_ABORTED:
                         UNREACHABLE; break;
                     }
                     cout << ')' << endl;
@@ -659,49 +659,49 @@ MGSystem::MGSystem(Config& config, bool quiet)
     if (memory_type == "SERIAL") {
         SerialMemory* memory = new SerialMemory("memory", m_root, memclock, config);
         memadmin = memory; m_memory = memory;
-    } else 
+    } else
 #endif
 #ifdef ENABLE_MEM_PARALLEL
     if (memory_type == "PARALLEL") {
         ParallelMemory* memory = new ParallelMemory("memory", m_root, memclock, config);
         memadmin = memory; m_memory = memory;
-    } else 
+    } else
 #endif
 #ifdef ENABLE_MEM_BANKED
     if (memory_type == "BANKED") {
         BankedMemory* memory = new BankedMemory("memory", m_root, memclock, config, "DIRECT");
         memadmin = memory; m_memory = memory;
-    } else 
+    } else
     if (memory_type == "RANDOMBANKED") {
         BankedMemory* memory = new BankedMemory("memory", m_root, memclock, config, "RMIX");
         memadmin = memory; m_memory = memory;
-    } else 
+    } else
 #endif
 #ifdef ENABLE_MEM_DDR
     if (memory_type == "DDR") {
         DDRMemory* memory = new DDRMemory("memory", m_root, memclock, config, "DIRECT");
         memadmin = memory; m_memory = memory;
-    } else 
+    } else
     if (memory_type == "RANDOMDDR") {
         DDRMemory* memory = new DDRMemory("memory", m_root, memclock, config, "RMIX");
         memadmin = memory; m_memory = memory;
-    } else 
+    } else
 #endif
 #ifdef ENABLE_MEM_COMA
     if (memory_type == "COMA") {
         COMA* memory = new TwoLevelCOMA("memory", m_root, memclock, config);
         memadmin = memory; m_memory = memory;
-    } else 
+    } else
     if (memory_type == "FLATCOMA") {
         COMA* memory = new OneLevelCOMA("memory", m_root, memclock, config);
         memadmin = memory; m_memory = memory;
-    } else 
+    } else
 #endif
 #ifdef ENABLE_MEM_ZLCOMA
     if (memory_type == "ZLCOMA") {
         ZLCOMA* memory = new ZLCOMA("memory", m_root, memclock, config);
         memadmin = memory; m_memory = memory;
-    } else 
+    } else
 #endif
     {
         throw runtime_error("Unknown memory type: " + memory_type);
@@ -1009,9 +1009,9 @@ MGSystem::MGSystem(Config& config, bool quiet)
              << CountComponents(m_root) << " components, "
              << Process::GetAllProcesses().size() << " processes, "
              << "simulation running at " << dec << masterfreq << " " << qual[q] << "Hz" << endl
-	     << "Instantiation costs: "
-	     << ru2.GetUserTime() << " us, "
-	     << ru2.GetMaxResidentSize() << " KiB (approx)" << endl;
+             << "Instantiation costs: "
+             << ru2.GetUserTime() << " us, "
+             << ru2.GetMaxResidentSize() << " KiB (approx)" << endl;
     }
 }
 
