@@ -56,58 +56,54 @@ namespace Simulator
     g_FreeMessages = msg;
 }
 
-/*static*/ void COMA::Node::PrintMessage(std::ostream& out, const Message& msg)
+string COMA::Node::Message::str() const
 {
-    switch (msg.type)
+    ostringstream out;
+    switch (type)
     {
-    case Message::REQUEST:            out << "| Read Request        "; break;
-    case Message::REQUEST_DATA:       out << "| Read Request (Data) "; break;
-    case Message::REQUEST_DATA_TOKEN: out << "| Read Response       "; break;
-    case Message::EVICTION:           out << "| Eviction            "; break;
-    case Message::UPDATE:             out << "| Update              "; break;
+    case REQUEST:            out << "[RR "; break;
+    case REQUEST_DATA:       out << "[RD "; break;
+    case REQUEST_DATA_TOKEN: out << "[RDT"; break;
+    case EVICTION:           out << "[EV "; break;
+    case UPDATE:             out << "[UP "; break;
+    }
+    out << " 0x" << hex << address << dec
+        << (ignore ? " I+" : " I-")
+        << " S" << sender;
+
+    if (type == UPDATE)
+        out << " C" << client << ":" << wid;
+
+    switch (type)
+    {
+    case EVICTION:
+    case REQUEST_DATA_TOKEN:
+        out << " T" << tokens;
+        break;
+    default: break;
     }
 
-    out << " | "
-        << "0x" << hex << setfill('0') << setw(16) << msg.address << " | "
-        << dec << setfill(' ') << right
-        << setw(6);
-
-    switch (msg.type)
+    switch (type)
     {
-    case Message::EVICTION:
-    case Message::REQUEST_DATA_TOKEN:
-        out << msg.tokens;
+    case EVICTION:
+    case REQUEST_DATA:
+    case REQUEST_DATA_TOKEN:
+        out << (dirty ? " D+" : " D-");
         break;
-
-    case Message::REQUEST:
-    case Message::REQUEST_DATA:
-    case Message::UPDATE:
-        out << "";
-        break;
+    default: break;
     }
-
-    out << " | "
-        << setw(6) << msg.sender << " | "
-        << endl;
+    out << "]@" << this;
+    return out.str();
 }
 
 /*static*/ void COMA::Node::Print(std::ostream& out, const std::string& name, const Buffer<Message*>& buffer)
 {
-    std::string sp_left((61 - name.length()) / 2, ' ');
-    std::string sp_right(61 - sp_left.length() - name.length(), ' ');
-
-    out <<
-    "+-------------------------------------------------------------+\n"
-    "|" << sp_left << name << sp_right << "|\n"
-    "+----------------------+--------------------+--------+--------+\n"
-    "|         Type         |       Address      | Tokens | Sender |\n"
-    "+----------------------+--------------------+--------+--------+\n";
+    out << "Queue: " << name << ":" << endl;
 
     for (Buffer<Message*>::const_iterator p = buffer.begin(); p != buffer.end(); ++p)
     {
-        PrintMessage(out, **p);
+        out << (**p).str() << endl;
     }
-    out << "+----------------------+--------------------+--------+--------+\n\n";
 }
 
 void COMA::Node::Print(std::ostream& out) const

@@ -65,6 +65,8 @@ protected:
         static void * operator new (size_t size);
         static void operator delete (void *p, size_t size);
 
+        std::string str() const;
+
         Message() {}
     private:
         Message(const Message&) {} // No copying
@@ -75,8 +77,6 @@ private:
     static Message*            g_FreeMessages;
     static std::list<Message*> g_Messages;
     static unsigned long       g_References;
-
-    static void PrintMessage(std::ostream& out, const Message& msg);
 
     Node*             m_prev;           ///< Prev node in the ring
     Node*             m_next;           ///< Next node in the ring
