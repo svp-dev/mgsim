@@ -116,7 +116,7 @@ protected:
     NodeID GetNodeID() const { return m_id; }
 
 public:
-    void Initialize(Node* next, Node* prev);
+    void Connect(Node* next, Node* prev);
 };
 
 }

@@ -214,7 +214,7 @@ void OneLevelCOMA::Initialize()
     {
         Node *next = nodes[(i == 0 ? nodes.size() : i) - 1];
         Node *prev = nodes[(i + 1) % nodes.size()];
-        nodes[i]->Initialize(next, prev);
+        nodes[i]->Connect(next, prev);
 
         m_config.registerRelation(*nodes[i], *next, "topring", true);
     }
@@ -234,7 +234,7 @@ void TwoLevelCOMA::Initialize()
 
         Node *next = first ? dir : static_cast<Node*>(m_caches[i-1]);
         Node *prev = last  ? dir : static_cast<Node*>(m_caches[i+1]);
-        m_caches[i]->Initialize(next, prev);
+        m_caches[i]->Connect(next, prev);
 
         m_config.registerRelation(*m_caches[i], *next, "l2ring", true);
     }
@@ -244,7 +244,7 @@ void TwoLevelCOMA::Initialize()
     {
         Node *next = m_caches[std::min(i * m_numCachesPerLowRing + m_numCachesPerLowRing, m_caches.size()) - 1];
         Node *prev = m_caches[i * m_numCachesPerLowRing];
-        m_directories[i]->m_bottom.Initialize(next, prev);
+        m_directories[i]->m_bottom.Connect(next, prev);
 
         m_config.registerRelation(m_directories[i]->m_bottom, *next, "l2ring", true);
     }
@@ -280,7 +280,7 @@ void TwoLevelCOMA::Initialize()
     {
         Node *next = nodes[(i == 0 ? nodes.size() : i) - 1];
         Node *prev = nodes[(i + 1) % nodes.size()];
-        nodes[i]->Initialize(next, prev);
+        nodes[i]->Connect(next, prev);
 
         m_config.registerRelation(*nodes[i], *next, "topring", true);
     }

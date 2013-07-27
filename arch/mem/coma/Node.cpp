@@ -112,7 +112,7 @@ void COMA::Node::Print(std::ostream& out) const
     Print(out, "outgoing", m_outgoing);
 }
 
-void COMA::Node::Initialize(Node* next, Node* prev)
+void COMA::Node::Connect(Node* next, Node* prev)
 {
     m_prev = prev;
     m_next = next;
