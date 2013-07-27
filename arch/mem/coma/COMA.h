@@ -85,7 +85,6 @@ public:
     size_t GetNumRootDirectories() const { return m_roots.size(); }
     size_t GetNumCacheSets() const;
     size_t GetCacheAssociativity() const;
-    size_t GetDirectoryAssociativity() const;
 
     // IMemory
     virtual MCID RegisterClient(IMemoryCallback& callback, Process& process, StorageTraceSet& traces, const StorageTraceSet& storages, bool grouped) override = 0;
