@@ -556,20 +556,26 @@ void DRISC::Pipeline::ExecuteStage::ExecDebug(double value, Integer stream) cons
     }
 }
 
-DRISC::Pipeline::ExecuteStage::ExecuteStage(Pipeline& parent, Clock& clock, const ReadExecuteLatch& input, ExecuteMemoryLatch& output, Allocator& alloc, FamilyTable& familyTable, ThreadTable& threadTable, FPU& fpu, size_t fpu_source, Config& /*config*/)
+DRISC::Pipeline::ExecuteStage::ExecuteStage(Pipeline& parent, Clock& clock, const ReadExecuteLatch& input, ExecuteMemoryLatch& output, Allocator& alloc, FamilyTable& familyTable, ThreadTable& threadTable, Config& /*config*/)
   : Stage("execute", parent, clock),
     m_input(input),
     m_output(output),
     m_allocator(alloc),
     m_familyTable(familyTable),
     m_threadTable(threadTable),
-    m_fpu(fpu),
-    m_fpuSource(fpu_source),
+    m_fpu(NULL),
+    m_fpuSource(0),
     m_flop(0),
     m_op(0)
 {
     RegisterSampleVariableInObject(m_flop, SVC_CUMULATIVE);
     RegisterSampleVariableInObject(m_op, SVC_CUMULATIVE);
+}
+
+void DRISC::Pipeline::ExecuteStage::ConnectFPU(FPU* fpu, size_t fpu_source)
+{
+    m_fpu = fpu;
+    m_fpuSource = fpu_source;
 }
 
 }

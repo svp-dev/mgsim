@@ -335,7 +335,7 @@ class Pipeline : public Object, public Inspect::Interface<Inspect::Read>
         Allocator&              m_allocator;
         FamilyTable&            m_familyTable;
         ThreadTable&            m_threadTable;
-        FPU&                    m_fpu;
+        FPU*                    m_fpu;
         size_t                  m_fpuSource;    // Which input are we to the FPU?
         uint64_t                m_flop;         // FP operations
         uint64_t                m_op;           // Instructions
@@ -385,7 +385,8 @@ class Pipeline : public Object, public Inspect::Interface<Inspect::Read>
     public:
         size_t GetFPUSource() const { return m_fpuSource; }
 
-        ExecuteStage(Pipeline& parent, Clock& clock, const ReadExecuteLatch& input, ExecuteMemoryLatch& output, Allocator& allocator, FamilyTable& familyTable, ThreadTable& threadTable, FPU& fpu, size_t fpu_source, Config& config);
+        ExecuteStage(Pipeline& parent, Clock& clock, const ReadExecuteLatch& input, ExecuteMemoryLatch& output, Allocator& allocator, FamilyTable& familyTable, ThreadTable& threadTable, Config& config);
+        void ConnectFPU(FPU* fpu, size_t fpu_source);
 
         uint64_t getFlop() const { return m_flop; }
         uint64_t getOp()   const { return m_op; }
@@ -438,10 +439,12 @@ class Pipeline : public Object, public Inspect::Interface<Inspect::Read>
     static std::string MakePipeValue(const RegType& type, const PipeValue& value);
 
 public:
-    Pipeline(const std::string& name, DRISC& parent, Clock& clock, RegisterFile& regFile, Network& network, Allocator& allocator, FamilyTable& familyTable, ThreadTable& threadTable, ICache& icache, DCache& dcache, FPU& fpu, Config& config);
+    Pipeline(const std::string& name, DRISC& parent, Clock& clock, RegisterFile& regFile, Network& network, Allocator& allocator, FamilyTable& familyTable, ThreadTable& threadTable, ICache& icache, DCache& dcache, Config& config);
     Pipeline(const Pipeline&) = delete;
     Pipeline& operator=(const Pipeline&) = delete;
     ~Pipeline();
+
+    void ConnectFPU(FPU *fpu);
 
     Result DoPipeline();
 

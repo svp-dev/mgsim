@@ -30,7 +30,6 @@ DRISC::Pipeline::Pipeline(
     ThreadTable&        threadTable,
     ICache&             icache,
     DCache&             dcache,
-    FPU&                fpu,
     Config&       config)
 :
     Object(name, parent, clock),
@@ -81,8 +80,7 @@ DRISC::Pipeline::Pipeline(
     std::vector<BypassInfo> bypasses;
 
     // Create the Execute stage
-    size_t fpu_client_id = fpu.RegisterSource(regFile, alloc.m_readyThreads2);
-    m_stages[3].stage  = new ExecuteStage(*this, clock, m_reLatch, m_emLatch, alloc, familyTable, threadTable, fpu, fpu_client_id, config);
+    m_stages[3].stage  = new ExecuteStage(*this, clock, m_reLatch, m_emLatch, alloc, familyTable, threadTable, config);
     m_stages[3].input  = &m_reLatch;
     m_stages[3].output = &m_emLatch;
     bypasses.push_back(BypassInfo(m_emLatch.empty, m_emLatch.Rc, m_emLatch.Rcv));
@@ -121,6 +119,16 @@ DRISC::Pipeline::Pipeline(
 
     m_stages[2].stage = new ReadStage(*this, clock, m_drLatch, m_reLatch, regFile, bypasses, config);
 }
+
+void DRISC::Pipeline::ConnectFPU(FPU* fpu)
+{
+    assert(fpu != NULL);
+    size_t fpu_client_id = fpu->RegisterSource(m_parent.GetRegisterFile(),
+                                               m_parent.GetAllocator().m_readyThreads2);
+    ExecuteStage &e = dynamic_cast<ExecuteStage&>(*m_stages[3].stage);
+    e.ConnectFPU(fpu, fpu_client_id);
+}
+
 
 DRISC::Pipeline::~Pipeline()
 {

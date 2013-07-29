@@ -942,14 +942,17 @@ DRISC::Pipeline::PipeAction DRISC::Pipeline::ExecuteStage::ExecuteInstruction()
 
             if (fpuop != FPU_OP_NONE)
             {
+                // Absent FPU should trap during decode, not execute.
+                assert(m_fpu != NULL);
+
                 // Dispatch long-latency operation to FPU
-                if (!m_fpu.QueueOperation(m_fpuSource, fpuop, m_input.RcSize,
+                if (!m_fpu->QueueOperation(m_fpuSource, fpuop, m_input.RcSize,
                     m_input.Rav.m_float.tofloat(m_input.Rav.m_size),
                     m_input.Rbv.m_float.tofloat(m_input.Rbv.m_size), m_input.Rc))
                 {
                     DeadlockWrite("F%u/T%u(%llu) %s unable to queue FP operation %u on %s for %s",
                                   (unsigned)m_input.fid, (unsigned)m_input.tid, (unsigned long long)m_input.logical_index, m_input.pc_sym,
-                                  (unsigned)fpuop, m_fpu.GetFQN().c_str(), m_input.Rc.str().c_str());
+                                  (unsigned)fpuop, m_fpu->GetFQN().c_str(), m_input.Rc.str().c_str());
                     return PIPE_STALL;
                 }
 

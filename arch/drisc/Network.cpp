@@ -66,18 +66,21 @@ DRISC::Network::Network(
     m_allocResponse.in.Sensitive(p_AllocResponse);
 }
 
-void DRISC::Network::Initialize(Network* prev, Network* next)
+void DRISC::Network::Connect(Network* prev, Network* next)
 {
     m_prev = prev;
     m_next = next;
+}
 
+void DRISC::Network::Initialize()
+{
 #define INITIALIZE(object,dest) object.Initialize(dest->object)
-    if (next != NULL) {
-        INITIALIZE(m_link, next);
+    if (m_next != NULL) {
+        INITIALIZE(m_link, m_next);
     }
 
-    if (prev != NULL) {
-        INITIALIZE(m_allocResponse, prev);
+    if (m_prev != NULL) {
+        INITIALIZE(m_allocResponse, m_prev);
     }
 #undef INITIALIZE
 }

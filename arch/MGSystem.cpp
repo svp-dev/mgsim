@@ -764,13 +764,14 @@ MGSystem::MGSystem(Config& config, bool quiet)
     m_procs.resize(numProcessors);
     for (size_t i = 0; i < numProcessors; ++i)
     {
-        FPU& fpu = *m_fpus[i / numProcessorsPerFPU];
 
         stringstream ss;
         ss << "cpu" << i;
         string name = ss.str();
+        m_procs[i]   = new DRISC(name, m_root, m_clock, i, m_procs, *m_memory, *memadmin, config);
 
-        IIOBus* iobus = NULL;
+        m_procs[i]->ConnectFPU(config, m_fpus[i / numProcessorsPerFPU]);
+
         if (config.getValueOrDefault<bool>(m_root, name, "EnableIO", false)) // I/O disabled unless specified
         {
             size_t busid = config.getValue<size_t>(m_root, name, "BusID");
@@ -780,7 +781,8 @@ MGSystem::MGSystem(Config& config, bool quiet)
             }
 
             m_procbusmapping[i] = busid;
-            iobus = m_iobuses[busid];
+            auto iobus = m_iobuses[busid];
+            m_procs[i]->ConnectIO(config, iobus);
 
             if (!quiet)
             {
@@ -788,7 +790,6 @@ MGSystem::MGSystem(Config& config, bool quiet)
             }
         }
 
-        m_procs[i]   = new DRISC(name, m_root, m_clock, i, m_procs, *m_memory, *memadmin, fpu, iobus, config);
     }
     if (!quiet)
     {
@@ -895,7 +896,7 @@ MGSystem::MGSystem(Config& config, bool quiet)
     {
         DRISC* prev = (i == 0)                 ? NULL : m_procs[i - 1];
         DRISC* next = (i == numProcessors - 1) ? NULL : m_procs[i + 1];
-        m_procs[i]->Initialize(prev, next);
+        m_procs[i]->ConnectLink(prev, next);
         if (next)
             config.registerRelation(*m_procs[i], *next, "link", true);
     }
@@ -903,6 +904,10 @@ MGSystem::MGSystem(Config& config, bool quiet)
     // Initialize the buses. This initializes the devices as well.
     for (auto iob : m_iobuses)
         iob->Initialize();
+
+    // Initialize the processors.
+    for (auto proc : m_procs)
+        proc->Initialize();
 
     // Check for bootable ROMs. This must happen after I/O bus
     // initialization because the ROM contents are loaded then.

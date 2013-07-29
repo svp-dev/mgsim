@@ -15,12 +15,12 @@ namespace Simulator
 //
 // DRISC implementation
 //
-DRISC::DRISC(const std::string& name, Object& parent, Clock& clock, PID pid, const vector<DRISC*>& grid, IMemory& memory, IMemoryAdmin& admin, FPU& fpu, IIOBus *iobus, Config& config)
+DRISC::DRISC(const std::string& name, Object& parent, Clock& clock, PID pid, const vector<DRISC*>& grid, IMemory& memory, IMemoryAdmin& admin, Config& config)
 :   Object(name, parent, clock),
     m_memory(memory),
     m_memadmin(admin),
     m_grid(grid),
-    m_fpu(fpu),
+    m_fpu(NULL),
     m_symtable(&admin.GetSymbolTable()),
     m_pid(pid),
     m_bits(),
@@ -31,7 +31,7 @@ DRISC::DRISC(const std::string& name, Object& parent, Clock& clock, PID pid, con
     m_allocator   ("alloc",         *this, clock, m_familyTable, m_threadTable, m_registerFile, m_raunit, m_icache, m_dcache, m_network, m_pipeline, config),
     m_icache      ("icache",        *this, clock, m_allocator, memory, config),
     m_dcache      ("dcache",        *this, clock, m_allocator, m_familyTable, m_registerFile, memory, config),
-    m_pipeline    ("pipeline",      *this, clock, m_registerFile, m_network, m_allocator, m_familyTable, m_threadTable, m_icache, m_dcache, fpu, config),
+    m_pipeline    ("pipeline",      *this, clock, m_registerFile, m_network, m_allocator, m_familyTable, m_threadTable, m_icache, m_dcache, config),
     m_network     ("network",       *this, clock, grid, m_allocator, m_registerFile, m_familyTable, config),
     m_mmio        ("mmio",          *this, clock),
     m_apr_file("aprs", *this, config),
@@ -55,7 +55,6 @@ DRISC::DRISC(const std::string& name, Object& parent, Clock& clock, PID pid, con
     config.registerProperty(*this, "iregs", (uint32_t)m_registerFile.GetSize(RT_INTEGER));
     config.registerProperty(*this, "fpregs", (uint32_t)m_registerFile.GetSize(RT_FLOAT));
     config.registerProperty(*this, "freq", (uint32_t)clock.GetFrequency());
-    config.registerBidiRelation(*this, fpu, "fpu");
 
     // Get the size, in bits, of various identifiers.
     // This is used for packing and unpacking various fields.
@@ -71,21 +70,6 @@ DRISC::DRISC(const std::string& name, Object& parent, Clock& clock, PID pid, con
     m_lperr.Connect(m_mmio, IOMatchUnit::WRITE, config);
     m_mmu.Connect(m_mmio, IOMatchUnit::WRITE, config);
     m_action.Connect(m_mmio, IOMatchUnit::WRITE, config);
-
-    if (iobus != NULL)
-    {
-        // This processor also supports I/O
-        IODeviceID devid = config.getValueOrDefault<IODeviceID>(*this, "DeviceID", iobus->GetNextAvailableDeviceID());
-
-        m_io_if = new IOInterface("io_if", *this, clock, memory, m_registerFile, m_allocator, *iobus, devid, config);
-
-        MMIOComponent& async_if = m_io_if->GetAsyncIOInterface();
-        async_if.Connect(m_mmio, IOMatchUnit::READWRITE, config);
-        MMIOComponent& pnc_if = m_io_if->GetPNCInterface();
-        pnc_if.Connect(m_mmio, IOMatchUnit::READWRITE, config);
-
-        config.registerBidiRelation(*iobus, *this, "client", (uint32_t)devid);
-    }
 }
 
 DRISC::~DRISC()
@@ -93,10 +77,40 @@ DRISC::~DRISC()
     delete m_io_if;
 }
 
-void DRISC::Initialize(DRISC* prev, DRISC* next)
+void DRISC::ConnectLink(DRISC* prev, DRISC* next)
 {
-    m_network.Initialize(prev != NULL ? &prev->m_network : NULL, next != NULL ? &next->m_network : NULL);
+    m_network.Connect(prev != NULL ? &prev->m_network : NULL, next != NULL ? &next->m_network : NULL);
+}
 
+void DRISC::ConnectFPU(Config& config, FPU* fpu)
+{
+    assert(fpu != NULL);
+
+    m_fpu = fpu;
+    m_pipeline.ConnectFPU(fpu);
+
+    config.registerBidiRelation(*this, *fpu, "fpu");
+}
+
+void DRISC::ConnectIO(Config& config, IIOBus* iobus)
+{
+    assert(iobus != NULL);
+
+    // This processor also supports I/O
+    IODeviceID devid = config.getValueOrDefault<IODeviceID>(*this, "DeviceID", iobus->GetNextAvailableDeviceID());
+
+    m_io_if = new IOInterface("io_if", *this, GetClock(), m_memory, m_registerFile, m_allocator, *iobus, devid, config);
+
+    MMIOComponent& async_if = m_io_if->GetAsyncIOInterface();
+    async_if.Connect(m_mmio, IOMatchUnit::READWRITE, config);
+    MMIOComponent& pnc_if = m_io_if->GetPNCInterface();
+    pnc_if.Connect(m_mmio, IOMatchUnit::READWRITE, config);
+
+    config.registerBidiRelation(*iobus, *this, "client", (uint32_t)devid);
+}
+
+void DRISC::Initialize()
+{
     //
     // Set port priorities and connections on all components.
     // First source on a port has the highest priority.
@@ -139,7 +153,10 @@ void DRISC::Initialize(DRISC* prev, DRISC* next)
     m_allocator.p_readyThreads.AddProcess(m_network.p_DelegationIn);        // Thread wakeup due to write
     m_allocator.p_readyThreads.AddProcess(m_dcache.p_ReadWritebacks);        // Thread wakeup due to load completion
     m_allocator.p_readyThreads.AddProcess(m_dcache.p_WriteResponses);       // Thread wakeup due to write completion
-    m_allocator.p_readyThreads.AddProcess(m_fpu.p_Pipeline);                // Thread wakeup due to FP completion
+    if (m_fpu != NULL)
+    {
+        m_allocator.p_readyThreads.AddProcess(m_fpu->p_Pipeline);                // Thread wakeup due to FP completion
+    }
     m_allocator.p_readyThreads.AddProcess(m_allocator.p_ThreadAllocate);    // Thread creation
     m_allocator.p_readyThreads.AddProcess(m_allocator.p_FamilyAllocate);    // Thread wakeup due to family allocation
     m_allocator.p_readyThreads.AddProcess(m_allocator.p_FamilyCreate);      // Thread wakeup due to local create completion
@@ -157,7 +174,10 @@ void DRISC::Initialize(DRISC* prev, DRISC* next)
     m_registerFile.p_asyncW.AddProcess(m_network.p_DelegationIn);           // Remote register receives
     m_registerFile.p_asyncW.AddProcess(m_dcache.p_ReadWritebacks);          // Mem Load writebacks
 
-    m_registerFile.p_asyncW.AddProcess(m_fpu.p_Pipeline);                   // FPU Op writebacks
+    if (m_fpu != NULL)
+    {
+        m_registerFile.p_asyncW.AddProcess(m_fpu->p_Pipeline);                   // FPU Op writebacks
+    }
     m_registerFile.p_asyncW.AddProcess(m_allocator.p_FamilyCreate);         // Family creation
     m_registerFile.p_asyncW.AddProcess(m_allocator.p_ThreadAllocate);       // Thread allocation
 
@@ -292,9 +312,10 @@ void DRISC::Initialize(DRISC* prev, DRISC* next)
 
     }
 
-    StorageTraceSet pls_execute =
-        m_fpu.GetSourceTrace(m_pipeline.GetFPUSource()) ^
-        m_allocator.m_bundle;
+    StorageTraceSet pls_execute;
+    if (m_fpu != NULL)
+        pls_execute = m_fpu->GetSourceTrace(m_pipeline.GetFPUSource());
+    pls_execute ^= m_allocator.m_bundle;
 
     m_pipeline.p_Pipeline.SetStorageTraces(
         /* Writeback */ opt(pls_writeback) *

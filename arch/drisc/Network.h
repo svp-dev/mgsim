@@ -295,7 +295,8 @@ public:
     Network(const Network&) = delete;
     Network& operator=(const Network&) = delete;
 
-    void Initialize(Network* prev, Network* next);
+    void Connect(Network* prev, Network* next);
+    void Initialize();
 
     bool SendMessage(const RemoteMessage& msg);
     bool SendMessage(const LinkMessage& msg);

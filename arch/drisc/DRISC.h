@@ -39,12 +39,17 @@ public:
 #include "ActionInterface.h"
 #include "AncillaryRegisterFile.h"
 
-    DRISC(const std::string& name, Object& parent, Clock& clock, PID pid, const std::vector<DRISC*>& grid, IMemory& memory, IMemoryAdmin& admin, FPU& fpu, IIOBus *iobus, Config& config);
+    DRISC(const std::string& name, Object& parent, Clock& clock, PID pid, const std::vector<DRISC*>& grid, IMemory& memory, IMemoryAdmin& admin, Config& config);
     DRISC(const DRISC&) = delete;
     DRISC& operator=(const DRISC&) = delete;
     ~DRISC();
 
-    void Initialize(DRISC* prev, DRISC* next);
+    void ConnectLink(DRISC* prev, DRISC* next);
+    void ConnectFPU(Config& config, FPU* fpu);
+    void ConnectIO(Config& config, IIOBus* iobus);
+
+    void Initialize();
+
     void Boot(MemAddr runAddress, bool legacy, PSize placeSize, SInteger startIndex);
 
     PID   GetPID()      const { return m_pid; }
@@ -105,12 +110,13 @@ public:
     ICache& GetICache() { return m_icache; }
     DCache& GetDCache() { return m_dcache; }
     SymbolTable& GetSymbolTable() { return *m_symtable; }
+    Allocator& GetAllocator() { return m_allocator; }
 
 private:
     IMemory&                       m_memory;
     IMemoryAdmin&                  m_memadmin;
     const std::vector<DRISC*>& m_grid;
-    FPU&                           m_fpu;
+    FPU*                           m_fpu;
     SymbolTable*                   m_symtable;
     PID                            m_pid;
 
