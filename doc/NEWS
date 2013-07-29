@@ -4,8 +4,22 @@
 
 This document describes major updates to MGSim.
 
-Version 3.3 (Development)
+Version 3.4 (Development)
 =========================
+
+Changes since version 3.3
+-------------------------
+
+- Rename the "COMA" memory models to "CDMA" (Cache Diffusion Memory
+  Architecture) to reflect the reality of the memory protocol.
+
+- Rename "Processor" to "DRISC" to pave the way for other core models.
+
+- Separate the "connect" and "initialize" phases during instantiation
+  of many components.
+
+Version 3.3
+===========
 
 New features
 ------------
@@ -34,6 +48,9 @@ New features
      FPU*:Unit0Latency = $FPU_AddSubLatency
      FPU*:Unit1Latency = $FPU_AddSubLatency
 
+- Each memory system can be statically disabled during configure
+  (--enable/--disable); this helps save build time.
+
 Changes since version 3.2
 -------------------------
 
@@ -47,7 +64,19 @@ Changes since version 3.2
 - The unit test suite was refactored to better support parallel build
   and skip irrelevant tests.
 
-- Fix several bugs in the SPARC ISA implementation.
+- Fix several bugs in the SPARC ISA implementation that would yield
+  invalid instruction behavior.
+
+- Fix a bug in the FlatCOMA memory model yielding livelocks and
+  general inefficiencies.
+
+- Fix a bug in the DDR interface, which could cause spurious errors
+  under high request load.
+
+- Use a separate load completion buffer so that the L1D cache line
+  does not need to be locked during load completions.
+
+- Various improvements to reporting and tracing facilities.
 
 Version 3.2
 ===========

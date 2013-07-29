@@ -9,7 +9,7 @@
 :Author: MGSim was created by Mike Lankamp. MGSim is now under
    stewardship of the MGSim project. This manual page was written
    by Raphael 'kena' Poss.
-:Date: August 2012
+:Date: July 2013
 :Copyright: Copyright (C) 2008-2013 the MGSim project.
 :Version: PACKAGE_VERSION
 :Manual section: 7
@@ -19,7 +19,7 @@ DESCRIPTION
 
 MGSim was developed to facilitate research in the design
 of many-core general-purpose processor chips, in particular Microgrid
-chips based on D-RISC. It also includes full-system capability, 
+chips based on D-RISC. It also includes full-system capability,
 including a fully configurable I/O subsystem and memory interconnect.
 
 OVERVIEW
@@ -81,14 +81,14 @@ behavior fo all instructions, including inter-core synchronization,
 memory accesses and I/O operations.
 
 Currently the choice of the core model is static (compile-time);
-it is selected during source configuration using ``--target``. 
+it is selected during source configuration using ``--target``.
 
 Memory
 ------
 
 MGSim simulates a many-core chip connected to a shared memory. The
 memory protocol, topology and interconnect are determined by the
-run-time choice of a memory system. 
+run-time choice of a memory system.
 
 The following memory systems are supported:
 
@@ -118,7 +118,7 @@ The following memory systems are supported:
 ``randomddr``
    Similar to ``randombanked``, with DDR interfaces.
 
-``flatcoma``
+``flatcdma``
    Cores are connected to L2 caches, in turn connected to memory
    interfaces.  Memory interfaces implement DDR channels. The L2
    caches and memory interface are organized in a ring. Directories at
@@ -127,14 +127,14 @@ The following memory systems are supported:
    is connected using a bus. The protocol migrates cache lines at the
    L2 cache of last use.
 
-``coma``
-   Like ``flatcoma``, with two levels of rings. L2 caches are
+``cdma``
+   Like ``flatcdma``, with two levels of rings. L2 caches are
    connected together in multiple rings each containing a middle-level
    directory. Middle-level directories are then connected in a single
    top-level ring also containing the memory interfaces.
-  
-``zlcoma``
-   Like ``coma``, using an alternate, token-based but less realistic
+
+``zlcdma``
+   Like ``cdma``, using an alternate, token-based but less realistic
    cache coherence protocol.
 
 On-chip interconnect
@@ -185,7 +185,7 @@ The choice of pseudo-device types includes:
   simulated platform's software (``smc``).
 
 Some of these pseudo-devices have their own documentation, cf `SEE
-ALSO`_ below for details. 
+ALSO`_ below for details.
 
 COMPONENTS AND NAMING
 =====================
@@ -250,7 +250,7 @@ The name of an entity mat indicate its type:
 
 - names starting with "``p_``" identify *priority arbitrators*;
 
-The FQN of an entity can further identify its type: 
+The FQN of an entity can further identify its type:
 
 - a component FQN is a concatenation of its path in the hierarchy with
   periods ("``.``");
@@ -264,24 +264,24 @@ the Microgrid simulator. From the interactive prompt, the commands
 interactive mode (``-i``) can be used. Here is an example session::
 
   00000000> show components *cpu27*
-  cpu27                       Processor
-    families                  Processor::FamilyTable
-    threads                   Processor::ThreadTable
-    registers                 Processor::RegisterFile
-    rau                       Processor::RAUnit
-    icache                    Processor::ICache
+  cpu27                       DRISC
+    families                  DRISC::FamilyTable
+    threads                   DRISC::ThreadTable
+    registers                 DRISC::RegisterFile
+    rau                       DRISC::RAUnit
+    icache                    DRISC::ICache
       b_outgoing              Buffer<unsigned long long>
       b_incoming              Buffer<unsigned long>
-    dcache                    Processor::DCache
+    dcache                    DRISC::DCache
       b_completed             Buffer<unsigned long>
-      b_incoming              Buffer<Processor::DCache::Response>
-      b_outgoing              Buffer<Processor::DCache::Request>
-    pipeline                  Processor::Pipeline
+      b_incoming              Buffer<DRISC::DCache::Response>
+      b_outgoing              Buffer<DRISC::DCache::Request>
+    pipeline                  DRISC::Pipeline
       f_active                Register<bool>
-      fetch                   Processor::Pipeline::FetchStage
-      decode                  Processor::Pipeline::DecodeStage
-      execute                 Processor::Pipeline::ExecuteStage
-   (some output lines omitted)  
+      fetch                   DRISC::Pipeline::FetchStage
+      decode                  DRISC::Pipeline::DecodeStage
+      execute                 DRISC::Pipeline::ExecuteStage
+   (some output lines omitted)
 
   00000000> show processes *cpu27*
   cpu27.alloc:thread-allocate
@@ -310,7 +310,7 @@ CONFIGURATION SYSTEM AND VARIABLES
 ==================================
 
 The simulated Microgrid can be configured via command-line parameters
-and an architecture configuration file. 
+and an architecture configuration file.
 
 The following can be configured:
 
@@ -334,7 +334,7 @@ The following can be configured:
   component. For example, the core frequency and the cache line width
   are shared across the system.
 
-Each configurable item has a *name* which identifies it uniquely. 
+Each configurable item has a *name* which identifies it uniquely.
 
 For individual component parameters, the name is composed of the fully
 qualified component name (FQN), followed by a colon and the parameter
@@ -484,7 +484,7 @@ INTERACTIVE MODE
 ================
 
 When started with ``-i``, or upon encountering an error and ``-t`` is
-not specified, MGSim presents an interactive prompt to the user to 
+not specified, MGSim presents an interactive prompt to the user to
 control the simulation.
 
 The prompt indicates the current simulation cycle.
@@ -609,6 +609,9 @@ Event categories can be individually selected:
 ``trace mem``
     Events reporting memory loads and stores.
 
+``trace memnet``
+    Events reporting messages on the memory network.
+
 ``trace io``
     Events reporting I/O operations.
 
@@ -691,10 +694,16 @@ SEE ALSO
 
 * M5, http://www.m5sim.org/ a detailed simulator for networks.
 
+* Raphael Poss, Mike Lankamp, Qiang Yang, Jian Fu, Irfan Uddin, and
+  Chris Jesshope. *MGSim - a simulation environment for multi-core
+  research and education.* In Proc. Intl. Conf. on Embedded Computer
+  Systems: Architectures, MOdeling and Simulation (SAMOS). IEEE,
+  Samos, Greece, July 2013.
+
 * Mike Lankamp, Raphael Poss, Qiang Yang, Jian Fu, Irfan Uddin, and
   Chris R. Jesshope. *MGSim - simulation tools for multi-core processor
   architectures.* Technical Report arXiv:1302.1390v1 [cs.AR],
-  University of Amsterdam, February 2013. 
+  University of Amsterdam, February 2013.
   http://arxiv.org/abs/1302.1390
 
 * Raphael Poss, Mike Lankamp, Qiang Yang, Jian Fu, Michiel W. van Tol,
@@ -712,4 +721,3 @@ BUGS
 ====
 
 Report bugs & suggest improvements to PACKAGE_BUGREPORT.
-
