@@ -8,6 +8,7 @@
 #include <sim/config.h>
 #include <sim/configparser.h>
 #include <sim/readfile.h>
+#include <sim/rusage.h>
 
 #ifdef ENABLE_MONITOR
 # include <sim/monitor.h>
@@ -18,6 +19,9 @@
 #include <limits>
 #include <memory>
 #include <cstdlib>
+
+#include <sys/param.h>
+#include <unistd.h>
 
 #ifdef USE_SDL
 #include <SDL.h>
@@ -84,7 +88,7 @@ extern "C"
 {
 const char *argp_program_version =
     "mgsim " PACKAGE_VERSION "\n"
-    "Copyright (C) 2008,2009,2010,2011,2012,3023 the MGSim project.\n"
+    "Copyright (C) 2008,2009,2010,2011,2012,2013 the MGSim project.\n"
     "\n"
     "Written by Mike Lankamp. Maintained by the MGSim project.";
 
@@ -278,6 +282,20 @@ void AtEnd(const MGSystem& sys, const ProgramConfig& cfg)
     PrintFinalVariables(cfg);
 }
 
+static
+void MemoryExhausted()
+{
+    ResourceUsage ru(true);
+
+    cerr << "MGSim: cannot allocate memory for C++ object (std::bad_alloc)." << endl
+         << dec
+         << "### error statistics" << endl
+         << ru.GetUserTime() << "\t# total real time in user mode (us)" << endl
+         << ru.GetSystemTime() << "\t# total real time in system mode (us)" << endl
+         << ru.GetMaxResidentSize() << "\t# maximum resident set size (Kibytes)" << endl
+         << "### end error statistics" << endl;
+    std::abort();
+}
 
 #ifdef USE_SDL
 extern "C"
@@ -285,6 +303,8 @@ extern "C"
 int main(int argc, char** argv)
 {
     srand(time(NULL));
+
+    std::set_new_handler(MemoryExhausted);
 
     ProgramConfig flags;
     UNIQUE_PTR<Config> config;
@@ -310,7 +330,16 @@ int main(int argc, char** argv)
     if (flags.m_interactive)
     {
         // Interactive mode: print name & version first
-        clog << argp_program_version << endl;
+        clog << argp_program_version << endl
+             << endl;
+
+        // Then print also command name & arguments
+        clog  << "Command line:";
+        for (int i = 0; i < argc; ++i)
+            clog << ' ' << argv[i];
+        char buf[MAXPATHLEN];
+        getcwd(buf, MAXPATHLEN);
+        clog << endl << "Current working directory: " << buf << endl;
     }
 
     // Convert the remaining m_regs to an override

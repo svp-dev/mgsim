@@ -1,13 +1,13 @@
-# 
+#
 # MGSim, the Microgrids simulator.
-# 
+#
 # Copyright (C) 2008,2009,2010,2011 Universiteit van Amsterdam..
 # All rights reserved.
-# 
+#
 
 AC_PREREQ([2.61])
-AC_INIT([mgsim], 
-        m4_esyscmd([build-aux/git-version-gen build-aux/tarball-version s/mgsim-/v/ mgsim]), 
+AC_INIT([mgsim],
+        m4_esyscmd([build-aux/git-version-gen build-aux/tarball-version s/mgsim-/v/ mgsim]),
         [microgrids@svp-home.org])
 AC_CONFIG_AUX_DIR([build-aux])
 AC_CONFIG_HEADERS([sys_config.h])
@@ -60,8 +60,8 @@ AC_CACHE_CHECK([for __builtin_unreachable],
                [mg_cv_unreachable],
                [
                   mg_cv_unreachable=no
-                  AC_COMPILE_IFELSE([AC_LANG_PROGRAM([], 
-                                                     [__builtin_unreachable();])], 
+                  AC_COMPILE_IFELSE([AC_LANG_PROGRAM([],
+                                                     [__builtin_unreachable();])],
                                     [mg_cv_unreachable=yes])
                ])
 if test x$mg_cv_unreachable = xyes; then
@@ -72,12 +72,12 @@ AC_CACHE_CHECK([which template to use for unique pointers],
                [mg_cv_uniqueptr],
                [
                   mg_cv_uniqueptr=none
-                  AC_COMPILE_IFELSE([AC_LANG_PROGRAM([@%:@include <memory>], 
-                                                     [std::unique_ptr<int> x; x.reset(0); return 0;])], 
+                  AC_COMPILE_IFELSE([AC_LANG_PROGRAM([@%:@include <memory>],
+                                                     [std::unique_ptr<int> x; x.reset(0); return 0;])],
                                     [mg_cv_uniqueptr=unique_ptr])
                   if test x$mg_cv_uniqueptr = xnone; then
-                    AC_COMPILE_IFELSE([AC_LANG_PROGRAM([@%:@include <memory>], 
-                                                       [std::auto_ptr<int> x; x.reset(0); return 0;])], 
+                    AC_COMPILE_IFELSE([AC_LANG_PROGRAM([@%:@include <memory>],
+                                                       [std::auto_ptr<int> x; x.reset(0); return 0;])],
                                       [mg_cv_uniqueptr=auto_ptr])
                   fi
                ])
@@ -98,15 +98,54 @@ AC_CHECK_FUNCS([getdtablesize fsync fdopendir getrusage])
 AC_CHECK_MEMBERS([struct rusage.ru_maxrss],[],[],[@%:@include <sys/resource.h>])
 
 if test x$ac_cv_member_struct_rusage_ru_maxrss = xyes; then
-   # Linux/BSD use kilobytes; OS X uses bytes. Need to detect.
-   # If using bytes, we assume that a process that does nothing
-   # else but request 1MB from malloc() should not weigh
-   # more than 1GB of resident size.
-   AC_MSG_CHECKING([which unit rusage.ru_maxrss uses])
+   # the field exists, but is it populated? At least some versions
+   # of Linux (2.x?) do not populate maxrss, which stays zero. Check this.
+   maxrss_useful=maybe
+   AC_MSG_CHECKING([whether rusage.ru_maxrss contains useful values])
    AC_RUN_IFELSE(
-      [AC_LANG_PROGRAM([@%:@include <sys/resource.h>
-                        @%:@include <stdlib.h>
-                        @%:@include <string.h>],
+     [AC_LANG_PROGRAM([@%:@include <sys/resource.h>],
+                      [struct rusage ru;
+                       getrusage(RUSAGE_SELF, &ru);
+                       if (ru.ru_maxrss == 0)
+                          return 1;
+                       return 0;
+                       ])],
+                       [maxrss_useful=yes], [maxrss_useful=no],
+                       [maxrss_useful=maybe])
+   AC_MSG_RESULT([$maxrss_useful])
+
+   if test $maxrss_useful = no; then
+      AC_DEFINE([RUSAGE_MAX_RSS_EMPTY], [1], [Define to 1 if rusage.ru_maxrss stays 0, eg on Linux 2.x])
+      # no maxrss from getrusage, but maybe from /proc? check this
+      AC_MSG_CHECKING([whether /proc/self/statm can be used])
+      AC_RUN_IFELSE(
+        [AC_LANG_PROGRAM([@%:@include <fcntl.h>
+                          @%:@include <unistd.h>],
+                         [int fd; char buf@<:@64@:>@ = {0};
+                          if (-1 == (fd = open("/proc/self/statm", O_RDONLY)))
+                             return 1;
+                          if (-1 == read(fd, buf, 63))
+                             return 1;
+                          return 0;
+                          ])],
+                          [proc_statm_useful=yes], [proc_statm_useful=no],
+                          [proc_statm_useful=maybe])
+       AC_MSG_RESULT([$proc_statm_useful])
+       if test $proc_statm_useful = yes; then
+          AC_DEFINE([HAVE_PROC_STATM], [1], [Define to 1 if /proc/self/statm should be used for memory statistics])
+       fi
+
+   else
+     # gerusage populates maxrss, but what is its unit?
+     # Linux/BSD use kilobytes; OS X uses bytes. Need to detect.
+     # If using bytes, we assume that a process that does nothing
+     # else but request 1MB from malloc() should not weigh
+     # more than 1GB of resident size.
+     AC_MSG_CHECKING([which unit rusage.ru_maxrss uses])
+     AC_RUN_IFELSE(
+         [AC_LANG_PROGRAM([@%:@include <sys/resource.h>
+                           @%:@include <stdlib.h>
+                           @%:@include <string.h>],
                        [struct rusage ru;
                         char *c = (char*)malloc(1024*1024);
                         memset(c, 42, 1024*1024);
@@ -116,10 +155,11 @@ if test x$ac_cv_member_struct_rusage_ru_maxrss = xyes; then
                         return 0;
                         ])],
       [maxrssunit=kbytes], [maxrssunit=bytes], [maxrssunit=unknown])
-    AC_MSG_RESULT([$maxrssunit])
-    AC_DEFINE_UNQUOTED([RUSAGE_MAX_RSS_DIVIDER],
-                       [`if test $maxrssunit = bytes; then echo 1024; else echo 1; fi`],
-                       [Define to the value by which to divide rusage.ru_maxrss to obtain kilobytes])
+     AC_MSG_RESULT([$maxrssunit])
+     AC_DEFINE_UNQUOTED([RUSAGE_MAX_RSS_DIVIDER],
+                        [`if test $maxrssunit = bytes; then echo 1024; else echo 1; fi`],
+                        [Define to the value by which to divide rusage.ru_maxrss to obtain kilobytes])
+   fi
 fi
 
 AC_MSG_CHECKING([for dirfd])
@@ -137,7 +177,8 @@ AC_CHECK_MEMBERS([struct stat.st_blksize],[],[],[@%:@include <sys/stat.h>])
 AC_CHECK_MEMBERS([struct stat.st_atimespec],[],[],[@%:@include <sys/stat.h>])
 AC_CHECK_MEMBERS([struct stat.st_mtimespec],[],[],[@%:@include <sys/stat.h>])
 AC_CHECK_MEMBERS([struct stat.st_ctimespec],[],[],[@%:@include <sys/stat.h>])
-AC_CHECK_MEMBERS([struct tm.tm_gmtoff],[],[],[@%:@include <sys/time.h>])
+AC_CHECK_MEMBERS([struct tm.tm_gmtoff],[],[],[@%:@include <sys/time.h>
+                                              @%:@include <time.h>])
 
 AC_SEARCH_LIBS([nanosleep], [rt])
 AC_CHECK_FUNCS([nanosleep usleep])
@@ -162,7 +203,7 @@ AC_MSG_RESULT([$have_dev_ptmx])
 # --enable-assert
 AC_HEADER_ASSERT
 
-# argp 
+# argp
 AC_SEARCH_LIBS([argp_parse], [c argp])
 if test "x$ac_cv_search_argp_parse" = xno; then
    AC_MSG_ERROR([Unable to find argp. Is it installed? If necessary use CPPFLAGS=... LDFLAGS=... to specify its location.])
@@ -183,7 +224,7 @@ fi
 
 # libsdl
 AC_ARG_ENABLE([sdl],
-              [AC_HELP_STRING([--disable-sdl],  
+              [AC_HELP_STRING([--disable-sdl],
                               [disable support for graphics output using SDL (default is try to enable)])],
               [], [enable_sdl=yes])
 if test "x$enable_sdl" = "xyes"; then
@@ -201,7 +242,7 @@ AC_LANG_POP([C++])
 
 memory_list=""
 m4_define([ENABLE_MEMORY], [dnl
-AC_ARG_ENABLE([mem_$1], 
+AC_ARG_ENABLE([mem_$1],
               [AC_HELP_STRING([--disable-mem-$1], [disable support for the $2 memory type (default enable)])],
               [], [enable_mem_$1=yes])
 if test "x$enable_mem_$1" = "xyes"; then
@@ -214,8 +255,8 @@ ENABLE_MEMORY([serial], [SERIAL])
 ENABLE_MEMORY([banked], [BANKED])
 ENABLE_MEMORY([parallel], [PARALLEL])
 ENABLE_MEMORY([ddr], [DDR])
-ENABLE_MEMORY([coma], [COMA])
-ENABLE_MEMORY([zlcoma], [ZLCOMA])
+ENABLE_MEMORY([cdma], [CDMA])
+ENABLE_MEMORY([zlcdma], [ZLCDMA])
 
 AC_ARG_ENABLE([trace-checks],
               [AC_HELP_STRING([--disable-trace-checks],
@@ -223,7 +264,7 @@ AC_ARG_ENABLE([trace-checks],
               [], [enable_trace_checks=yes])
 if test "x$enable_trace_checks" = xno; then
   AC_DEFINE([DISABLE_TRACE_CHECKS], [1],
-            [Define if storage trace checks should be disabled])  
+            [Define if storage trace checks should be disabled])
 fi
 
 AC_ARG_ENABLE([verbose-trace-checks],
@@ -245,7 +286,7 @@ if test "x$enable_abort_on_trace_failure" = xyes; then
 fi
 
 AC_ARG_ENABLE([softfpu],
-              [AC_HELP_STRING([--enable-softfpu], 
+              [AC_HELP_STRING([--enable-softfpu],
                               [enable software emulation of IEEE 754 (default is disabled)])],
               [], [enable_softfpu=no])
 if test "x$enable_softfpu" = "xyes"; then
@@ -254,7 +295,7 @@ if test "x$enable_softfpu" = "xyes"; then
 fi
 
 AC_ARG_ENABLE([profile],
-              [AC_HELP_STRING([--enable-profile], 
+              [AC_HELP_STRING([--enable-profile],
                               [enable profiling during execution (default is disabled)])],
               [], [enable_profile=no])
 if test "x$enable_profile" = "xyes"; then
@@ -263,7 +304,7 @@ fi
 
 AX_PTHREAD
 
-AC_ARG_ENABLE([monitor], 
+AC_ARG_ENABLE([monitor],
               [AC_HELP_STRING([--disable-monitor], [disable support for simulation monitoring (default is try to enable)])],
               [], [enable_monitor=yes])
 if test "x$enable_monitor" = "xyes"; then
@@ -274,7 +315,7 @@ if test "x$enable_monitor" = "xyes"; then
 fi
 AM_CONDITIONAL([ENABLE_MONITOR], [test "x$enable_monitor" = "xyes"])
 
-AC_ARG_ENABLE([cacti], 
+AC_ARG_ENABLE([cacti],
               [AC_HELP_STRING([--disable-cacti], [disable support for area calculations with CACTI (default is try to enable)])],
               [], [enable_cacti=yes])
 if test "x$enable_cacti" = "xyes"; then
@@ -299,7 +340,7 @@ m4_define([MGS_TARGET_CHECK],
 [dnl
 AC_ARG_VAR([AS_$2], [Location of the `as' utility configured for the $3 binary format.])
 AC_ARG_VAR([LD_$2], [Location of the `ld' utility configured for the $3 binary format.])
-AC_ARG_VAR([OBJDUMP_$2], 
+AC_ARG_VAR([OBJDUMP_$2],
            [Location of the `objdump' utility configured for the $3 binary format.])
 
 enable_[$1]_tests=no
@@ -320,7 +361,7 @@ if test "x$target_cpu" = "x$1"; then
      enable_[$1]_tests=yes
   fi
 
-  AC_PATH_PROG([OBJDUMP_$2], [$4-objdump], [no], [$prefix/bin$PATH_SEPARATOR$PATH]) 
+  AC_PATH_PROG([OBJDUMP_$2], [$4-objdump], [no], [$prefix/bin$PATH_SEPARATOR$PATH])
   if test "x$OBJDUMP_$2" != xno; then
      AC_DEFINE_UNQUOTED([OBJDUMP_$2], ["$OBJDUMP_$2"],
                         [Define to the location of the `objdump' utility for $3.])
@@ -385,7 +426,7 @@ cat <<EOF
 * ISA target:             $target_cpu
 * Memory models:          $memory_list
 *
-* CACTI area computation: $enable_cacti 
+* CACTI area computation: $enable_cacti
 * SDL output:             $enable_sdl
 * Trace checks:           $enable_trace_checks
 * Verbose trace checks:   $enable_verbose_trace_checks
@@ -414,4 +455,3 @@ Now run:
     cd doc && make pdf
 
 EOF
-

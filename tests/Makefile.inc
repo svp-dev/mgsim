@@ -29,14 +29,14 @@ endif
 if ENABLE_MEM_BANKED
 MEMORIES += banked randombanked
 endif
-if ENABLE_MEM_COMA
-MEMORIES += coma
+if ENABLE_MEM_CDMA
+MEMORIES += cdma
 endif
 if ENABLE_MEM_DDR
 MEMORIES += ddr randomddr
 endif
-if ENABLE_MEM_ZLCOMA
-MEMORIES += zlcoma
+if ENABLE_MEM_ZLCDMA
+MEMORIES += zlcdma
 endif
 PSIZES = 1 2 4 16
 TEST_LIST = $(foreach P,$(PSIZES),$(foreach M,$(MEMORIES),$(foreach T,$(TEST_BINS),$(T).$(M).$(P).test)))

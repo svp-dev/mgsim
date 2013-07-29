@@ -1,7 +1,7 @@
 #ifndef FPU_H
 #define FPU_H
 
-#include <arch/proc/Processor.h>
+#include <arch/drisc/DRISC.h>
 #include <sim/inspect.h>
 
 #include <deque>
@@ -50,7 +50,7 @@ class FPU : public Object, public Inspect::Interface<Inspect::Read>
         private:
 	    Buffer<Operation>        inputs;     ///< Input queue for operations from this source
             StorageTraceSet          outputs;    ///< Set of storage trace each output can generate
-	    Processor::RegisterFile* regfile;    ///< Register file to write back results for this source
+	    DRISC::RegisterFile* regfile;    ///< Register file to write back results for this source
 	    CycleNo                  last_write; ///< Last time an FPU pipe wrote back to this source
 	    unsigned int             last_unit;  ///< Unit that did the last (or current) write
 
@@ -127,7 +127,7 @@ public:
 	 * @param output [in] the storage traces that can be generated when writing the result
 	 * @return the unique for this source to be passed to QueueOperation
 	 */
-	size_t RegisterSource(Processor::RegisterFile& regfile, const StorageTraceSet& output);
+	size_t RegisterSource(DRISC::RegisterFile& regfile, const StorageTraceSet& output);
 
     /**
      * @brief Queues an FP operation.

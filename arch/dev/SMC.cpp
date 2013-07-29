@@ -1,6 +1,6 @@
 #include "SMC.h"
 #include "sim/config.h"
-#include "arch/proc/Processor.h"
+#include "arch/drisc/DRISC.h"
 #include "ActiveROM.h"
 
 using namespace std;
@@ -44,13 +44,13 @@ namespace Simulator
 
         // Linked processor
 
-        Processor::IOBusInterface *cpu_if = dynamic_cast<Processor::IOBusInterface*>(& iobus.GetDeviceByName(config.getValue<string>(*this, "LinkedProcessor") + ".io_if.bus_if"));
+        DRISC::IOBusInterface *cpu_if = dynamic_cast<DRISC::IOBusInterface*>(& iobus.GetDeviceByName(config.getValue<string>(*this, "LinkedProcessor") + ".io_if.bus_if"));
         if (cpu_if == NULL)
         {
             throw exceptf<InvalidArgumentException>(*this, "LinkedProcessor does not name a processor");
         }
 
-        m_cpu = & cpu_if->GetProcessor();
+        m_cpu = & cpu_if->GetDRISC();
 
         // component processes
 
