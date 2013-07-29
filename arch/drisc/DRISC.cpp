@@ -23,6 +23,7 @@ DRISC::DRISC(const std::string& name, Object& parent, Clock& clock, PID pid, con
     m_fpu(NULL),
     m_symtable(&admin.GetSymbolTable()),
     m_pid(pid),
+    m_reginits(),
     m_bits(),
     m_familyTable ("families",      *this, clock, config),
     m_threadTable ("threads",       *this, clock, config),
@@ -70,6 +71,44 @@ DRISC::DRISC(const std::string& name, Object& parent, Clock& clock, PID pid, con
     m_lperr.Connect(m_mmio, IOMatchUnit::WRITE, config);
     m_mmu.Connect(m_mmio, IOMatchUnit::WRITE, config);
     m_action.Connect(m_mmio, IOMatchUnit::WRITE, config);
+
+    // Check if there is an initial register configuration
+    auto regs = config.getWordList(*this, "InitRegs");
+    for (auto ri : regs)
+    {
+        // format is RNNN=VAL or FNNN=VAL
+        transform(ri.begin(), ri.end(), ri.begin(), ::tolower);
+        if (ri[0] != 'r' && ri[0] != 'f')
+        {
+            throw exceptf<InvalidArgumentException>("Register name not recognized: %s", ri.c_str());
+        }
+        // find "=" sign
+        size_t i = ri.find('=');
+        if (i < 2 || i + 1 > ri.size()) // need at least 2 chars before and 1 char after
+        {
+            throw exceptf<InvalidArgumentException>("Invalid register specifier: %s", ri.c_str());
+        }
+        string sidx = ri.substr(1, i - 1);
+        string value = ri.substr(i + 1);
+
+        char* endptr;
+        unsigned long idx = strtoul(sidx.c_str(), &endptr, 0);
+        if (*endptr != '\0')
+        {
+            throw exceptf<InvalidArgumentException>("Invalid register number: %s (%s)", sidx.c_str(), ri.c_str());
+        }
+
+        RegAddr reg_addr = MAKE_REGADDR((ri[0] == 'r') ? RT_INTEGER : RT_FLOAT, idx);
+
+        assert(value.size() > 0); // because of check above
+
+        // First handle value indirections
+        if (value[0] == '$')
+        {
+            value = config.getValue<string>(value.substr(1));
+        }
+        m_reginits[reg_addr] = value;
+    }
 }
 
 DRISC::~DRISC()
@@ -115,6 +154,7 @@ void DRISC::Initialize()
     m_network.Initialize();
     if (m_io_if != NULL)
         m_io_if->Initialize();
+    InitializeRegisters();
 
     //
     // Set port priorities and connections on all components.
@@ -380,9 +420,57 @@ void DRISC::Initialize()
     }
 }
 
-MemAddr DRISC::GetDeviceBaseAddress(IODeviceID dev) const
+void DRISC::InitializeRegisters()
 {
-    return (m_io_if != NULL) ? m_io_if->GetDeviceBaseAddress(dev) : 0;
+    for (auto& ri : m_reginits)
+    {
+        RegAddr reg_addr = ri.first;
+        auto& value = ri.second;
+
+        RegValue reg_value;
+        reg_value.m_state = RST_FULL;
+        reg_value.m_integer = 0;
+
+        assert(value.size() > 0);
+
+        if (value[0] == 'b')
+        {
+            if (m_io_if == NULL)
+            {
+                clog << "#warning: -RNNN=B... specified but " << GetFQN() << " is not connected to I/O" << endl;
+            }
+            else {
+                auto devname = m_io_if->GetIOBusInterface().GetIOBus().GetDeviceIDByName(value.substr(1));
+                reg_value.m_integer = m_io_if->GetDeviceBaseAddress(devname);
+            }
+        }
+        else if (value[0] == 'i' || (reg_addr.type == RT_INTEGER && (value[0] == '-' || (value[0] >= '0' && value[0] <= '9'))))
+        {
+            string nval = (value[0] == 'i') ? value.substr(1) : value;
+            char *endptr;
+            reg_value.m_integer = strtoull(nval.c_str(), &endptr, 0);
+            if (*endptr != '\0')
+            {
+                throw exceptf<InvalidArgumentException>("Invalid register value: %s (%s)", nval.c_str(), reg_addr.str().c_str());
+            }
+        }
+        else if (value[0] == 'f' || (reg_addr.type == RT_FLOAT && (value[0] == '-' || (value[0] >= '0' && value[0] <= '9'))))
+        {
+            string nval = (value[0] == 'f') ? value.substr(1) : value;
+            char *endptr;
+            reg_value.m_float.fromfloat(strtod(nval.c_str(), &endptr));
+            if (*endptr != '\0')
+            {
+                throw exceptf<InvalidArgumentException>("Invalid register value: %s (%s)", nval.c_str(), reg_addr.str().c_str());
+            }
+        }
+        else
+        {
+            throw exceptf<InvalidArgumentException>("Invalid register initializer: %s", reg_addr.str().c_str());
+        }
+
+        m_registerFile.WriteRegister(reg_addr, reg_value);
+    }
 }
 
 void DRISC::Boot(MemAddr runAddress, bool legacy, PSize placeSize, SInteger startIndex)

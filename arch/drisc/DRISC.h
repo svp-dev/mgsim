@@ -52,6 +52,11 @@ public:
 
     void Boot(MemAddr runAddress, bool legacy, PSize placeSize, SInteger startIndex);
 
+private:
+    // Helper to Initialize()
+    void InitializeRegisters();
+public:
+
     PID   GetPID()      const { return m_pid; }
     PSize GetGridSize() const { return m_grid.size(); }
     bool  IsIdle()      const;
@@ -59,7 +64,6 @@ public:
 
     Pipeline& GetPipeline() { return m_pipeline; }
     IOMatchUnit& GetIOMatchUnit() { return m_mmio; }
-    MemAddr GetDeviceBaseAddress(IODeviceID dev) const;
 
     float GetRegFileAsyncPortActivity() const {
         return (float)m_registerFile.p_asyncW.GetBusyCycles() / (float)GetCycleNo();
@@ -81,7 +85,6 @@ public:
 
     unsigned int GetNumSuspendedRegisters() const;
 
-    void WriteRegister(const RegAddr& addr, const RegValue& value) { m_registerFile.WriteRegister(addr, value); }
     void WriteASR(ARAddr which, Integer data) {  m_asr_file.WriteRegister(which, data); }
     Integer ReadASR(ARAddr which) const { return m_asr_file.ReadRegister(which); }
     void WriteAPR(ARAddr which, Integer data) {  m_apr_file.WriteRegister(which, data); }
@@ -119,6 +122,8 @@ private:
     FPU*                           m_fpu;
     SymbolTable*                   m_symtable;
     PID                            m_pid;
+    // Register initializers
+    std::map<RegAddr, std::string> m_reginits;
 
     // Bit counts for packing and unpacking configuration-dependent values
     struct
