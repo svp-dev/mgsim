@@ -11,6 +11,8 @@ namespace Simulator
 typedef unsigned IODeviceID;     ///< Number of a device on an I/O Bus
 typedef unsigned IONotificationChannelID;  ///< Number of a notification/interrupt channel on an I/O bus
 
+static const IODeviceID INVALID_IO_DEVID = IODeviceID(-1);
+
 /* maximum size of the data in an I/O request. */
 static const size_t MAX_IO_OPERATION_SIZE = 64;
 
