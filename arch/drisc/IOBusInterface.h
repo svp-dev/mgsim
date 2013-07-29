@@ -59,12 +59,14 @@ public:
     bool OnReadResponseReceived(IODeviceID from, MemAddr address, const IOData& data);
     bool OnInterruptRequestReceived(IONotificationChannelID which);
     bool OnNotificationReceived(IONotificationChannelID which, Integer tag);
+    bool OnActiveMessageReceived(IODeviceID from, MemAddr address, Integer arg);
 
     StorageTraceSet GetReadRequestTraces() const;
     StorageTraceSet GetWriteRequestTraces() const;
     StorageTraceSet GetReadResponseTraces() const;
     StorageTraceSet GetInterruptRequestTraces() const;
     StorageTraceSet GetNotificationTraces() const;
+    StorageTraceSet GetActiveMessageTraces() const;
 
     void GetDeviceIdentity(IODeviceIdentification& id) const;
 

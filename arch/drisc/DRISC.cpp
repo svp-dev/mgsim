@@ -473,9 +473,12 @@ void DRISC::InitializeRegisters()
     }
 }
 
-void DRISC::Boot(MemAddr runAddress, bool legacy, PSize placeSize, SInteger startIndex)
+bool DRISC::Boot(MemAddr runAddress, bool legacy)
 {
-    m_allocator.AllocateInitialFamily(runAddress, legacy, placeSize, startIndex);
+    auto placeSize = GetGridSize();
+
+    COMMIT { m_allocator.AllocateInitialFamily(runAddress, legacy, placeSize, 0); }
+    return true;
 }
 
 bool DRISC::IsIdle() const

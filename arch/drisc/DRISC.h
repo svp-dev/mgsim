@@ -44,13 +44,14 @@ public:
     DRISC& operator=(const DRISC&) = delete;
     ~DRISC();
 
+public:
     void ConnectLink(DRISC* prev, DRISC* next);
     void ConnectFPU(Config& config, FPU* fpu);
     void ConnectIO(Config& config, IIOBus* iobus);
 
     void Initialize();
 
-    void Boot(MemAddr runAddress, bool legacy, PSize placeSize, SInteger startIndex);
+    bool Boot(MemAddr addr, bool legacy);
 
 private:
     // Helper to Initialize()
