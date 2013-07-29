@@ -241,6 +241,7 @@ public:
         DEBUG_IONET    = 256, ///< Debug I/O network message (interrupts/requests)
         DEBUG_FPU      = 512, ///< Debug FPU activity
         DEBUG_PIPE     = 1024, ///< Debug pipeline activity
+        DEBUG_MEMNET   = 2048, ///< Debug memory network activity
     };
     static const int DEBUG_CPU_MASK = DEBUG_SIM | DEBUG_PROG | DEBUG_DEADLOCK | DEBUG_FLOW | DEBUG_MEM | DEBUG_IO | DEBUG_REG;
 

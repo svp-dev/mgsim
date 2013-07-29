@@ -21,10 +21,10 @@ namespace Simulator
 #define ARCH_ENDIANNESS ARCH_BIG_ENDIAN
 #endif
 
-typedef unsigned PID;       ///< Processor index
+typedef unsigned PID;       ///< DRISC index
 typedef unsigned TID;       ///< Thread index
 typedef unsigned CID;       ///< Cache index
-typedef unsigned PSize;     ///< Processor list size
+typedef unsigned PSize;     ///< DRISC list size
 typedef unsigned TSize;     ///< Thread list size
 typedef unsigned RegIndex;  ///< Index into a register file
 typedef unsigned RegSize;   ///< Size of something in the register file

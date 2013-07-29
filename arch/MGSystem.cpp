@@ -12,11 +12,11 @@
 #ifdef ENABLE_MEM_DDR
 #include <arch/mem/DDRMemory.h>
 #endif
-#ifdef ENABLE_MEM_COMA
-#include <arch/mem/coma/COMA.h>
+#ifdef ENABLE_MEM_CDMA
+#include <arch/mem/cdma/CDMA.h>
 #endif
-#ifdef ENABLE_MEM_ZLCOMA
-#include <arch/mem/zlcoma/COMA.h>
+#ifdef ENABLE_MEM_ZLCDMA
+#include <arch/mem/zlcdma/CDMA.h>
 #endif
 
 #include <arch/dev/NullIO.h>
@@ -52,7 +52,7 @@ using namespace std;
 uint64_t MGSystem::GetOp() const
 {
     uint64_t op = 0;
-    for (Processor* p : m_procs)
+    for (DRISC* p : m_procs)
         op += p->GetPipeline().GetOp();
     return op;
 }
@@ -60,7 +60,7 @@ uint64_t MGSystem::GetOp() const
 uint64_t MGSystem::GetFlop() const
 {
     uint64_t flop = 0;
-    for (Processor* p : m_procs)
+    for (DRISC* p : m_procs)
         flop += p->GetPipeline().GetFlop();
     return flop;
 }
@@ -251,8 +251,8 @@ void MGSystem::PrintCoreStats(ostream& os) const {
 
     // Collect the data
     for (i = 0; i < P; ++i) {
-        Processor &p = *m_procs[i];
-        const Processor::Pipeline& pl = p.GetPipeline();
+        DRISC &p = *m_procs[i];
+        const DRISC::Pipeline& pl = p.GetPipeline();
 
         j = 0;
         types[j] = I; c[i][j++].i = pl.GetOp();
@@ -456,7 +456,7 @@ void MGSystem::PrintState(const vector<string>& /*unused*/) const
                     case STATE_DEADLOCK: cout << "stalled"; break;
                     case STATE_RUNNING:  cout << "running"; break;
                     case STATE_IDLE:
-                    case STATE_ABORTED:  
+                    case STATE_ABORTED:
                         UNREACHABLE; break;
                     }
                     cout << ')' << endl;
@@ -483,7 +483,7 @@ void MGSystem::PrintState(const vector<string>& /*unused*/) const
         }
     }
 
-    for (Processor* p : m_procs)
+    for (DRISC* p : m_procs)
         if (!p->IsIdle())
             cout << p->GetFQN() << ": non-empty" << endl;
 }
@@ -515,7 +515,7 @@ void MGSystem::Step(CycleNo nCycles)
         // An idle state might actually be deadlock if there's a
         // suspended thread.  So check all cores to see if they're
         // really done.
-        for (Processor* p : m_procs)
+        for (DRISC* p : m_procs)
             if (!p->IsIdle())
             {
                 state = STATE_DEADLOCK;
@@ -578,7 +578,7 @@ void MGSystem::Step(CycleNo nCycles)
         ss << "Suspended registers:" << endl;
 
         unsigned int num_regs = 0;
-        for (Processor* p : m_procs)
+        for (DRISC* p : m_procs)
         {
             unsigned suspended = p->GetNumSuspendedRegisters();
             if (suspended > 0)
@@ -625,7 +625,6 @@ MGSystem::MGSystem(Config& config, bool quiet)
       m_fpus(),
       m_iobuses(),
       m_devices(),
-      m_procbusmapping(),
       m_symtable(),
       m_breakpoints(m_kernel),
       m_memory(0),
@@ -659,49 +658,49 @@ MGSystem::MGSystem(Config& config, bool quiet)
     if (memory_type == "SERIAL") {
         SerialMemory* memory = new SerialMemory("memory", m_root, memclock, config);
         memadmin = memory; m_memory = memory;
-    } else 
+    } else
 #endif
 #ifdef ENABLE_MEM_PARALLEL
     if (memory_type == "PARALLEL") {
         ParallelMemory* memory = new ParallelMemory("memory", m_root, memclock, config);
         memadmin = memory; m_memory = memory;
-    } else 
+    } else
 #endif
 #ifdef ENABLE_MEM_BANKED
     if (memory_type == "BANKED") {
         BankedMemory* memory = new BankedMemory("memory", m_root, memclock, config, "DIRECT");
         memadmin = memory; m_memory = memory;
-    } else 
+    } else
     if (memory_type == "RANDOMBANKED") {
         BankedMemory* memory = new BankedMemory("memory", m_root, memclock, config, "RMIX");
         memadmin = memory; m_memory = memory;
-    } else 
+    } else
 #endif
 #ifdef ENABLE_MEM_DDR
     if (memory_type == "DDR") {
         DDRMemory* memory = new DDRMemory("memory", m_root, memclock, config, "DIRECT");
         memadmin = memory; m_memory = memory;
-    } else 
+    } else
     if (memory_type == "RANDOMDDR") {
         DDRMemory* memory = new DDRMemory("memory", m_root, memclock, config, "RMIX");
         memadmin = memory; m_memory = memory;
-    } else 
+    } else
 #endif
-#ifdef ENABLE_MEM_COMA
-    if (memory_type == "COMA") {
-        COMA* memory = new TwoLevelCOMA("memory", m_root, memclock, config);
+#ifdef ENABLE_MEM_CDMA
+    if (memory_type == "CDMA" || memory_type == "COMA") {
+        CDMA* memory = new TwoLevelCDMA("memory", m_root, memclock, config);
         memadmin = memory; m_memory = memory;
-    } else 
-    if (memory_type == "FLATCOMA") {
-        COMA* memory = new OneLevelCOMA("memory", m_root, memclock, config);
+    } else
+    if (memory_type == "FLATCDMA" || memory_type == "FLATCOMA") {
+        CDMA* memory = new OneLevelCDMA("memory", m_root, memclock, config);
         memadmin = memory; m_memory = memory;
-    } else 
+    } else
 #endif
-#ifdef ENABLE_MEM_ZLCOMA
-    if (memory_type == "ZLCOMA") {
-        ZLCOMA* memory = new ZLCOMA("memory", m_root, memclock, config);
+#ifdef ENABLE_MEM_ZLCDMA
+    if (memory_type == "ZLCDMA") {
+        ZLCDMA* memory = new ZLCDMA("memory", m_root, memclock, config);
         memadmin = memory; m_memory = memory;
-    } else 
+    } else
 #endif
     {
         throw runtime_error("Unknown memory type: " + memory_type);
@@ -764,23 +763,24 @@ MGSystem::MGSystem(Config& config, bool quiet)
     m_procs.resize(numProcessors);
     for (size_t i = 0; i < numProcessors; ++i)
     {
-        FPU& fpu = *m_fpus[i / numProcessorsPerFPU];
 
         stringstream ss;
         ss << "cpu" << i;
         string name = ss.str();
+        m_procs[i]   = new DRISC(name, m_root, m_clock, i, m_procs, *m_memory, *memadmin, config);
 
-        IIOBus* iobus = NULL;
+        m_procs[i]->ConnectFPU(config, m_fpus[i / numProcessorsPerFPU]);
+
         if (config.getValueOrDefault<bool>(m_root, name, "EnableIO", false)) // I/O disabled unless specified
         {
             size_t busid = config.getValue<size_t>(m_root, name, "BusID");
             if (busid >= m_iobuses.size())
             {
-                throw runtime_error("Processor " + name + " set to connect to non-existent bus");
+                throw runtime_error("DRISC " + name + " set to connect to non-existent bus");
             }
 
-            m_procbusmapping[i] = busid;
-            iobus = m_iobuses[busid];
+            auto iobus = m_iobuses[busid];
+            m_procs[i]->ConnectIO(config, iobus);
 
             if (!quiet)
             {
@@ -788,7 +788,6 @@ MGSystem::MGSystem(Config& config, bool quiet)
             }
         }
 
-        m_procs[i]   = new Processor(name, m_root, m_clock, i, m_procs, *m_memory, *memadmin, fpu, iobus, config);
     }
     if (!quiet)
     {
@@ -893,9 +892,9 @@ MGSystem::MGSystem(Config& config, bool quiet)
     // Connect processors in the link
     for (size_t i = 0; i < numProcessors; ++i)
     {
-        Processor* prev = (i == 0)                 ? NULL : m_procs[i - 1];
-        Processor* next = (i == numProcessors - 1) ? NULL : m_procs[i + 1];
-        m_procs[i]->Initialize(prev, next);
+        DRISC* prev = (i == 0)                 ? NULL : m_procs[i - 1];
+        DRISC* next = (i == numProcessors - 1) ? NULL : m_procs[i + 1];
+        m_procs[i]->ConnectLink(prev, next);
         if (next)
             config.registerRelation(*m_procs[i], *next, "link", true);
     }
@@ -903,6 +902,10 @@ MGSystem::MGSystem(Config& config, bool quiet)
     // Initialize the buses. This initializes the devices as well.
     for (auto iob : m_iobuses)
         iob->Initialize();
+
+    // Initialize the processors.
+    for (auto proc : m_procs)
+        proc->Initialize();
 
     // Check for bootable ROMs. This must happen after I/O bus
     // initialization because the ROM contents are loaded then.
@@ -1009,9 +1012,9 @@ MGSystem::MGSystem(Config& config, bool quiet)
              << CountComponents(m_root) << " components, "
              << Process::GetAllProcesses().size() << " processes, "
              << "simulation running at " << dec << masterfreq << " " << qual[q] << "Hz" << endl
-	     << "Instantiation costs: "
-	     << ru2.GetUserTime() << " us, "
-	     << ru2.GetMaxResidentSize() << " KiB (approx)" << endl;
+             << "Instantiation costs: "
+             << ru2.GetUserTime() << " us, "
+             << ru2.GetMaxResidentSize() << " KiB (approx)" << endl;
     }
 }
 

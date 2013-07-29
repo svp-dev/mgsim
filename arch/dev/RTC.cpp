@@ -1,6 +1,7 @@
 #include "RTC.h"
 
 #include <sys/time.h>
+#include <ctime>
 #include <csignal>
 #include <cerrno>
 #include <cstring>

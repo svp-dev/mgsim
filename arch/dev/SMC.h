@@ -7,7 +7,7 @@
 class Config;
 namespace Simulator
 {
-    class Processor;
+    class DRISC;
     class ActiveROM;
 
     class SMC : public IIOBusClient, public Object
@@ -22,7 +22,7 @@ namespace Simulator
 
         Config& m_config;
         const std::vector<std::string> m_regs;
-        Processor* m_cpu;
+        DRISC* m_cpu;
 
         ActiveROM* m_rom;
         IODeviceID m_romid;

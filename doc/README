@@ -1,5 +1,4 @@
-MGSim, a flexible component-level simulation to study chip
-architectures.
+MGSim, a flexible component-level simulation to study chip architectures.
 Copyright (C) 2007,2008,2009,2010,2011,2012,2013 the MGSim project.
 
 The MGSim consists of people listed in the 'AUTHORS' file.
@@ -44,7 +43,7 @@ To install MGSim on your system, we recommend the following procedure:
 
 2. configure the build system::
 
-      .../configure 
+      .../configure
 
    Here you need to select the *simulation target* for MGSim's
    Processor model. The simulation target selects an ISA and a core
@@ -77,11 +76,15 @@ Additional features
 If the host system where MGSim is executed does not support IEEE754
 floating point semantics, an accurate (but slow) IEEE754 simulation
 can be enabled with::
- 
+
    configure --enable-softfpu
 
 The following parameters can be used to forcefully disabled features
 that are otherwise enabled automatically if possible:
+
+``configure --disable-mem-...``
+   Disable support for some memory models (use ``configure --help``
+   for a list).
 
 ``configure --disable-sdl``
    Disable support to output graphics using SDL.
@@ -110,7 +113,7 @@ the MGSim sources tree before running ``configure``. For example::
    cacti/io.h
    cacti/cacti_interface.h
    ...
-   
+
    $ configure ...
 
 Support for area calculation is enabled automatically if the CACTI
@@ -125,10 +128,11 @@ Requirements
 MGSim is written in C++ and targets Unix/POSIX platforms.
 
 The system was tested using the `GNU Compiler Collection (GCC)`_
-version 4.6.x up to 4.8.x on GNU/Linux, FreeBSD and MacOS X.  The code
-attempts to be fully compliant with the ISO C++ standard (ISO-IEC
-14882) and POSIX, so other C++ compilers should be usable as well;
-please report any portability bug you may find.
+version 4.7.x up to 4.8.x on GNU/Linux, FreeBSD and MacOS X, as well
+as CLang 3.1 to 3.3. The code attempts to be fully compliant with
+the ISO C++ standard (ISO-IEC 14882) and POSIX, so other C++ compilers
+should be usable as well; please report any portability bug you may
+find.
 
 .. _GNU Compiler Collection (GCC): http://gcc.gnu.org/
 
@@ -200,8 +204,8 @@ doc
 arch
    Source code for the architecture components.
 
-   proc
-      Simulation for microthreaded cores.
+   drisc
+      Simulation for D-RISC cores.
 
    mem
       Simulation for the memory system.
