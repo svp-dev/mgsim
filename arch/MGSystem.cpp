@@ -1,5 +1,7 @@
 #include "MGSystem.h"
 
+#include <arch/drisc/DRISC.h>
+
 #ifdef ENABLE_MEM_SERIAL
 #include <arch/mem/SerialMemory.h>
 #endif

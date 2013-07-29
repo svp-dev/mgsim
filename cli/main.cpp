@@ -9,6 +9,7 @@
 #include <sim/configparser.h>
 #include <sim/readfile.h>
 #include <sim/rusage.h>
+#include <sim/sampling.h>
 
 #ifdef ENABLE_MONITOR
 # include <sim/monitor.h>

@@ -222,6 +222,42 @@ void DRISC::RegisterFile::Cmd_Info(std::ostream& out, const std::vector<std::str
     "  \"1\", \"1-4,15,7-8\", \"all\"\n";
 }
 
+std::string DRISC::RegisterFile::GetName() const
+{
+    return GetParent()->GetFQN();
+}
+
+bool DRISC::RegisterFile::CheckFPUOutputAvailability(RegAddr addr)
+{
+    if (!p_asyncW.Write(addr))
+    {
+        DeadlockWrite("Unable to acquire port to write back to %s", addr.str().c_str());
+        return false;
+    }
+
+    // Read the old value
+    RegValue value;
+    if (!ReadRegister(addr, value))
+    {
+        DeadlockWrite("Unable to read register %s", addr.str().c_str());
+        return false;
+    }
+
+    if (value.m_state != RST_PENDING && value.m_state != RST_WAITING)
+    {
+        // We're too fast, wait!
+        DeadlockWrite("FP operation completed before register %s was cleared", addr.str().c_str());
+        return false;
+    }
+
+    return true;
+}
+
+bool DRISC::RegisterFile::WriteFPUResult(RegAddr addr, const RegValue& value)
+{
+    return WriteRegister(addr, value, false);
+}
+
 void DRISC::RegisterFile::Cmd_Read(std::ostream& out, const std::vector<std::string>& arguments) const
 {
     const RAUnit*    rau    = NULL;

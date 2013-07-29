@@ -37,13 +37,13 @@ StorageTraceSet FPU::CreateStoragePermutation(size_t num_sources, std::vector<bo
     return res;
 }
 
-size_t FPU::RegisterSource(DRISC::RegisterFile& regfile, const StorageTraceSet& output)
+size_t FPU::RegisterSource(IFPUClient& client, const StorageTraceSet& output)
 {
     for (size_t i = 0; i < m_sources.size(); ++i)
     {
-        if (m_sources[i]->regfile == NULL)
+        if (m_sources[i]->client == NULL)
         {
-            m_sources[i]->regfile = &regfile;
+            m_sources[i]->client = &client;
             m_sources[i]->outputs = output;
 
             // Any number of outputs can be written in any order.
@@ -71,7 +71,7 @@ bool FPU::QueueOperation(size_t source, FPUOperation fop, int size, double Rav, 
 {
     // The size must be a multiple of the arch's native integer size
     assert(source < m_sources.size());
-    assert(m_sources[source]->regfile != NULL);
+    assert(m_sources[source]->client != NULL);
     assert(size > 0);
     assert(size % sizeof(Integer) == 0);
     assert(Rc.valid());
@@ -89,7 +89,7 @@ bool FPU::QueueOperation(size_t source, FPUOperation fop, int size, double Rav, 
     }
 
     DebugFPUWrite("queued %s %s",
-                  m_sources[source]->regfile->GetParent()->GetFQN().c_str(),
+                  m_sources[source]->client->GetName().c_str(),
                   op.str().c_str());
     return true;
 }
@@ -135,24 +135,9 @@ bool FPU::OnCompletion(unsigned int unit, const Result& res) const
     RegAddr addr = res.address;
     addr.index += res.index;
 
-    if (!source->regfile->p_asyncW.Write(addr))
+    if (!source->client->CheckFPUOutputAvailability(addr))
     {
-        DeadlockWrite("Unable to acquire port to write back to %s", addr.str().c_str());
-        return false;
-    }
-
-    // Read the old value
-    RegValue value;
-    if (!source->regfile->ReadRegister(addr, value))
-    {
-        DeadlockWrite("Unable to read register %s", addr.str().c_str());
-        return false;
-    }
-
-    if (value.m_state != RST_PENDING && value.m_state != RST_WAITING)
-    {
-        // We're too fast, wait!
-        DeadlockWrite("FP operation completed before register %s was cleared", addr.str().c_str());
+        DeadlockWrite("Client not ready to accept result");
         return false;
     }
 
@@ -163,18 +148,19 @@ bool FPU::OnCompletion(unsigned int unit, const Result& res) const
     index = size - 1 - index;
 #endif
 
+    RegValue value;
     value.m_state         = RST_FULL;
     value.m_float.integer = (Integer)(res.value.toint(res.size) >> (sizeof(Integer) * 8 * index));
 
-    if (!source->regfile->WriteRegister(addr, value, false))
+    if (!source->client->WriteFPUResult(addr, value))
     {
-        DeadlockWrite("Unable to write register %s", addr.str().c_str());
+        DeadlockWrite("Unable to write result to %s", addr.str().c_str());
         return false;
     }
 
     DebugFPUWrite("unit %u completed %s %s <- %s",
                   (unsigned)unit,
-                  source->regfile->GetParent()->GetFQN().c_str(),
+                  source->client->GetName().c_str(),
                   addr.str().c_str(),
                   value.str(addr.type).c_str());
     return true;
@@ -277,7 +263,7 @@ Result FPU::DoPipeline()
 
             DebugFPUWrite("unit %u executing %s %s",
                           (unsigned)unit_index,
-                          m_sources[source_id]->regfile->GetParent()->GetFQN().c_str(),
+                          m_sources[source_id]->client->GetName().c_str(),
                           op.str().c_str());
 
             // Remove the queued operation from the queue
@@ -300,7 +286,7 @@ FPU::Source::Source(const std::string& name, Object& parent, Clock& clock, Confi
     : Object(name, parent, clock),
       inputs("b_source", *this, clock, config.getValue<BufferSize>(*this, "InputQueueSize")),
       outputs(),
-      regfile(NULL),
+      client(NULL),
       last_write(0),
       last_unit(0)
 {}
@@ -415,12 +401,10 @@ void FPU::Cmd_Read(std::ostream& out, const std::vector<std::string>& /*argument
     {
         // Print the source name
         out << "Source: ";
-        Object* object = (source->regfile != NULL) ? source->regfile->GetParent() : NULL;
-        if (object == NULL) {
-            out << "???";
-        } else {
-            out << object->GetFQN();
-        }
+        if (source->client != NULL)
+            out << source->client->GetName();
+        else
+            out << "not connected";
         out << endl;
 
         if (source->inputs.begin() != source->inputs.end())
@@ -484,7 +468,7 @@ void FPU::Cmd_Read(std::ostream& out, const std::vector<std::string>& /*argument
                     << setw(2) << p.size * 8 << " | "
                     << setw(20) << setprecision(12) << p.value.tofloat(p.size)  << " | "
                     << p.address.str() << " | "
-                    << m_sources[p.source]->regfile->GetParent()->GetFQN()
+                    << m_sources[p.source]->client->GetName()
                     << endl;
             }
             out << endl;

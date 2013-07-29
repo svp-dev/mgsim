@@ -6,6 +6,7 @@
 #include <arch/IOBus.h>
 #include <arch/Memory.h>
 #include <arch/BankSelector.h>
+#include <arch/FPU.h>
 
 class Config;
 
@@ -13,7 +14,6 @@ namespace Simulator
 {
 
 namespace counters {};
-class FPU;
 
 const std::vector<std::string>& GetDefaultLocalRegisterAliases(RegType type);
 

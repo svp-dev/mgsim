@@ -1,8 +1,10 @@
 #ifndef FPU_H
 #define FPU_H
 
-#include <arch/drisc/DRISC.h>
+#include <sim/kernel.h>
+#include <sim/storage.h>
 #include <sim/inspect.h>
+#include <arch/simtypes.h>
 
 #include <deque>
 #include <map>
@@ -44,13 +46,25 @@ class FPU : public Object, public Inspect::Interface<Inspect::Read>
             std::string  str() const;
     };
 
+public:
+    /// Represents a client for this FPU
+    class IFPUClient
+    {
+    public:
+        virtual std::string GetName() const = 0;
+        virtual bool CheckFPUOutputAvailability(RegAddr addr) = 0;
+        virtual bool WriteFPUResult(RegAddr addr, const RegValue& value) = 0;
+    };
+
+private:
+
     /// Represents a source for this FPU
     class Source : public Object
     {
     private:
         Buffer<Operation>        inputs;     ///< Input queue for operations from this source
         StorageTraceSet          outputs;    ///< Set of storage trace each output can generate
-        DRISC::RegisterFile* regfile;    ///< Register file to write back results for this source
+        IFPUClient*              client;     ///< Component accepting results for this source
         CycleNo                  last_write; ///< Last time an FPU pipe wrote back to this source
         unsigned int             last_unit;  ///< Unit that did the last (or current) write
 
@@ -127,7 +141,7 @@ public:
      * @param output [in] the storage traces that can be generated when writing the result
      * @return the unique for this source to be passed to QueueOperation
      */
-    size_t RegisterSource(DRISC::RegisterFile& regfile, const StorageTraceSet& output);
+    size_t RegisterSource(IFPUClient& client, const StorageTraceSet& output);
 
     /**
      * @brief Queues an FP operation.
