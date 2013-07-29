@@ -136,8 +136,6 @@ void DRISC::Initialize()
     m_allocator.p_alloc.AddProcess(m_network.p_Link);                   // Place-wide create
     m_allocator.p_alloc.AddProcess(m_allocator.p_FamilyCreate);         // Local creates
 
-
-
     if (m_io_if != NULL)
     {
         IONotificationMultiplexer &nmux = m_io_if->GetNotificationMultiplexer();

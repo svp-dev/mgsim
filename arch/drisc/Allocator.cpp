@@ -648,7 +648,7 @@ bool DRISC::Allocator::IncreaseThreadDependency(TID tid, ThreadDependency dep)
         {
         case THREADDEP_OUTSTANDING_WRITES: deps.numPendingWrites++; break;
         case THREADDEP_PREV_CLEANED_UP:
-        case THREADDEP_TERMINATED:         
+        case THREADDEP_TERMINATED:
             UNREACHABLE; break;
         }
     }
@@ -1212,7 +1212,7 @@ Result DRISC::Allocator::DoFamilyAllocate()
             family.link     = INVALID_LFID;
         }
         DebugSimWrite("F%u finished allocation on %u cores", (unsigned)lfid, (unsigned)family.numCores);
-        
+
         if (!req.bundle)
         {
             // Here we have a regular allocation request, where either:
@@ -1220,8 +1220,8 @@ Result DRISC::Allocator::DoFamilyAllocate()
             //   is waiting on an acknowledgement for the allocate itself. Send it.
             // - or we need to commit the request to the previous cores in the
             //   place via the link network.
-            
-            if (req.prev_fid == INVALID_LFID) 
+
+            if (req.prev_fid == INVALID_LFID)
             {
                 // We're the only core in the family
                 // Construct a global FID for this family
@@ -1276,7 +1276,7 @@ Result DRISC::Allocator::DoFamilyAllocate()
             // parent must wait until creation starts.
 
             // Instead, trigger creation by sending a creation request via loopback.
-            
+
             RemoteMessage msg;
             msg.type                  = RemoteMessage::MSG_CREATE;
             msg.create.fid.pid        = m_parent.GetPID();

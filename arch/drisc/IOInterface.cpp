@@ -315,5 +315,7 @@ namespace Simulator
         GetDRISC().WriteASR(ASR_IO_PARAMS2, value);
         GetDRISC().WriteASR(ASR_AIO_BASE, m_async_io.GetDeviceBaseAddress(0));
         GetDRISC().WriteASR(ASR_PNC_BASE, m_pnc.GetDeviceBaseAddress(0));
+
+
     }
 }

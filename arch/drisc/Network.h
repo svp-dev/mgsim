@@ -238,34 +238,34 @@ class Network : public Object, public Inspect::Interface<Inspect::Read>
 	class RegisterPair : public Object
 	{
 	private:
-	    Register<T>* remote;     ///< Remote register to send output to
-	    Process      p_Transfer; ///< The transfer process
+            Register<T>* remote;     ///< Remote register to send output to
+            Process      p_Transfer; ///< The transfer process
 
 	public:
-	    Register<T>  out;        ///< Register for outgoing messages
-	    Register<T>  in;         ///< Register for incoming messages
+            Register<T>  out;        ///< Register for outgoing messages
+            Register<T>  in;         ///< Register for incoming messages
 
-	    /// Transfers the output data to the input buffer
-	    Result DoTransfer()
-	    {
-	        assert(!out.Empty());
-	        assert(remote != NULL);
-	        if (!remote->Write(out.Read()))
-	        {
-	            return FAILED;
-	        }
-	        out.Clear();
-	        return SUCCESS;
-	    }
+            /// Transfers the output data to the input buffer
+            Result DoTransfer()
+            {
+                assert(!out.Empty());
+                assert(remote != NULL);
+                if (!remote->Write(out.Read()))
+                {
+                    return FAILED;
+                }
+                out.Clear();
+                return SUCCESS;
+            }
 
-	    /// Connects the output to the input on the destination core
-	    void Initialize(RegisterPair<T>& dest)
-	    {
-	        assert(remote == NULL);
-	        remote = &dest.in;
-	        dest.in.AddProcess(p_Transfer);
+            /// Connects the output to the input on the destination core
+            void Initialize(RegisterPair<T>& dest)
+            {
+                assert(remote == NULL);
+                remote = &dest.in;
+                dest.in.AddProcess(p_Transfer);
             p_Transfer.SetStorageTraces(dest.in);
-	    }
+            }
 
             RegisterPair(Object& parent, const std::string& name)
                 : Object(name, parent),
@@ -362,4 +362,3 @@ public:
 };
 
 #endif
-

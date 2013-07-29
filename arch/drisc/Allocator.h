@@ -169,22 +169,22 @@ private:
     ICache&       m_icache;
     DCache&       m_dcache;
     Network&      m_network;
-    Pipeline&	  m_pipeline;
+    Pipeline&     m_pipeline;
 
     char                  m_bundleData[MAX_MEMORY_OPERATION_SIZE];
     Buffer<BundleInfo>    m_bundle;
     Buffer<LFID>          m_alloc;                   ///< This is the queue of families waiting for initial thread allocation
     Buffer<CreateInfo>    m_creates;                 ///< Create queue
     Buffer<TID>           m_cleanup;                 ///< Cleanup queue
-    CreateState           m_createState;	         ///< State of the current state;
-    CID                   m_createLine;	   	         ///< Cache line that holds the register info
+    CreateState           m_createState;                 ///< State of the current state;
+    CID                   m_createLine;                          ///< Cache line that holds the register info
     ThreadList            m_readyThreads1;           ///< Queue of the threads can be activated; from the pipeline
     ThreadList            m_readyThreads2;           ///< Queue of the threads can be activated; from the rest
     ThreadList*           m_prevReadyList;           ///< Which ready list was used last cycle. For round-robin prioritization.
 
     // The family allocation request queues
-    Buffer<AllocRequest>  m_allocRequestsSuspend;	 ///< Non-exclusive requests that want to suspend.
-    Buffer<AllocRequest>  m_allocRequestsNoSuspend;	 ///< Non-exclusive requests that do not want to suspend.
+    Buffer<AllocRequest>  m_allocRequestsSuspend;        ///< Non-exclusive requests that want to suspend.
+    Buffer<AllocRequest>  m_allocRequestsNoSuspend;      ///< Non-exclusive requests that do not want to suspend.
     Buffer<AllocRequest>  m_allocRequestsExclusive;  ///< Exclusive requests.
 
     BundleState           m_bundleState;
