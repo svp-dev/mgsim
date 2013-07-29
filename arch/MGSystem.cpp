@@ -625,7 +625,6 @@ MGSystem::MGSystem(Config& config, bool quiet)
       m_fpus(),
       m_iobuses(),
       m_devices(),
-      m_procbusmapping(),
       m_symtable(),
       m_breakpoints(m_kernel),
       m_memory(0),
@@ -780,7 +779,6 @@ MGSystem::MGSystem(Config& config, bool quiet)
                 throw runtime_error("DRISC " + name + " set to connect to non-existent bus");
             }
 
-            m_procbusmapping[i] = busid;
             auto iobus = m_iobuses[busid];
             m_procs[i]->ConnectIO(config, iobus);
 
