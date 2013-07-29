@@ -856,7 +856,7 @@ MGSystem::MGSystem(Config& config, bool quiet)
             m_devices[i] = uart;
             config.registerObject(*uart, "uart");
         } else if (dev_type == "SMC") {
-            SMC * smc = new SMC(name, m_root, iobus, devid, config);
+            SMC * smc = new SMC(name, m_root, iobus, devid);
             m_devices[i] = smc;
             config.registerObject(*smc, "smc");
         } else if (dev_type == "RPC") {
