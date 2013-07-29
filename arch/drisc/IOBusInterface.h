@@ -42,6 +42,7 @@ public:
 
 public:
     DRISC& GetDRISC() const { return dynamic_cast<DRISC&>(*GetParent()->GetParent()); }
+    IIOBus& GetIOBus() const { return m_iobus; }
 
     IOBusInterface(const std::string& name, IOInterface& parent, Clock& clock, IOResponseMultiplexer& rrmux, IONotificationMultiplexer& nmux, IODirectCacheAccess& dca, IIOBus& iobus, IODeviceID devid, Config& config);
 

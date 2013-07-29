@@ -1,5 +1,6 @@
 #include "DRISC.h"
 #include <sim/config.h>
+#include <arch/dev/IODeviceDatabase.h>
 
 #include <sstream>
 #include <iomanip>
@@ -289,7 +290,7 @@ namespace Simulator
         return m_baseAddr | (dev * sizeof(Integer));
     }
 
-    void DRISC::IOInterface::Initialize(IODeviceID smcid)
+    void DRISC::IOInterface::Initialize()
     {
         // set up the core ASR to indicate the I/O parameters.
         // ASR_IO_PARAMS1 has 32 bits:
@@ -302,14 +303,45 @@ namespace Simulator
         // bits 8-31:  (unused)
         assert(m_numDevices < 256);
         assert(m_numChannels < 256);
-        assert(smcid < 256);
         IODeviceID devid = m_iobus_if.GetHostID();
         assert(devid < 256);
         Integer value =
             m_numDevices |
             m_numChannels << 8 |
-            smcid << 16 |
             devid << 24;
+
+        IODeviceID smcid = INVALID_IO_DEVID;
+
+        auto& devdb = DeviceDatabase::GetDatabase();
+        IODeviceIdentification smcrefid;
+        bool smcdefined = devdb.FindDeviceByName("MGSim", "SMC", smcrefid);
+        if (smcdefined)
+        {
+            auto& bus = m_iobus_if.GetIOBus();
+            auto maxdevid = bus.GetLastDeviceID();
+
+            for (IODeviceID i = 0; i < maxdevid; ++i)
+            {
+                IODeviceIdentification id;
+                bus.GetDeviceIdentity(i, id);
+                if (id.provider == smcrefid.provider &&
+                    id.model == smcrefid.model)
+                {
+                    smcid = i;
+                    break;
+                }
+            }
+        }
+        if (smcid == INVALID_IO_DEVID)
+        {
+            clog << "#warning: processor " << GetDRISC().GetFQN() << " connected to I/O but cannot find SMC" << endl;
+        }
+        else
+        {
+            assert(smcid < 256);
+            value |= smcid << 16;
+        }
+
         GetDRISC().WriteASR(ASR_IO_PARAMS1, value);
         value = m_async_io.GetDeviceAddressBits();
         GetDRISC().WriteASR(ASR_IO_PARAMS2, value);

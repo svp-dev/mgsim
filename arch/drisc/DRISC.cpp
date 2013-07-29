@@ -113,6 +113,8 @@ void DRISC::Initialize()
 {
     // First finish initializing the components
     m_network.Initialize();
+    if (m_io_if != NULL)
+        m_io_if->Initialize();
 
     //
     // Set port priorities and connections on all components.

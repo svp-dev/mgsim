@@ -90,8 +90,7 @@ public:
 
     MemAddr GetDeviceBaseAddress(IODeviceID dev) const { return m_async_io.GetDeviceBaseAddress(dev); }
 
-    // At core initialization, triggered by the SMC
-    void Initialize(IODeviceID smcid);
+    void Initialize();
 
     // Debugging
     void Cmd_Info(std::ostream& out, const std::vector<std::string>& args) const;
