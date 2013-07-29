@@ -230,11 +230,6 @@ namespace Simulator
         p_Notify.SetStorageTraces(m_iobus.GetNotificationTraces());
     }
 
-    void ActiveROM::GetBootInfo(MemAddr& start, bool& legacy) const
-    {
-        start = m_start_address;
-        legacy = m_legacy;
-    }
 
     Result ActiveROM::DoNotify()
     {

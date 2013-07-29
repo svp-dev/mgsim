@@ -78,7 +78,6 @@ namespace Simulator
 
         bool IsBootable() const { return m_bootable; }
         bool IsPreloaded() const { return m_preloaded_at_boot; }
-        void GetBootInfo(MemAddr& start, bool& legacy) const;
         const std::string& GetProgramName() const { return m_filename; }
         IODeviceID GetDeviceID() const { return m_devid; }
 
