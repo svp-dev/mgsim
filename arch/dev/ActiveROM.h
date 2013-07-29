@@ -38,6 +38,7 @@ namespace Simulator
         bool               m_bootable;
         MemAddr            m_start_address;
         bool               m_legacy;
+        bool               m_booting;
         const bool         m_preloaded_at_boot;
 
         // DCA parameters

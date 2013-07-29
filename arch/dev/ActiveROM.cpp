@@ -144,6 +144,7 @@ namespace Simulator
           m_bootable(false),
           m_start_address(0),
           m_legacy(false),
+          m_booting(false),
           m_preloaded_at_boot(config.getValue<bool>(*this, "PreloadROMToRAM")),
           m_devid(devid),
           m_iobus(iobus),
@@ -224,16 +225,38 @@ namespace Simulator
         PrepareRanges();
 
         p_Load.SetStorageTraces(m_iobus.GetWriteRequestTraces() * opt(m_flushing));
-
         p_Flush.SetStorageTraces(m_iobus.GetReadRequestTraces(m_devid));
+        p_Notify.SetStorageTraces(m_iobus.GetNotificationTraces() ^ m_iobus.GetActiveMessageTraces());
 
-        p_Notify.SetStorageTraces(m_iobus.GetNotificationTraces());
+        if (m_bootable)
+        {
+            if (m_preloaded_at_boot)
+            {
+                // Simply signal a spontaneous completion to target
+                m_notifying.Set();
+            }
+            else
+            {
+                // Not loaded yet; first load, then completion will signal boot.
+                m_loading.Set();
+            }
+            m_booting = true;
+        }
     }
 
 
     Result ActiveROM::DoNotify()
     {
-        if (!m_iobus.SendNotification(m_devid, m_completionTarget, m_devid))
+        if (m_booting)
+        {
+            if (!m_iobus.SendActiveMessage(m_devid, m_completionTarget, m_start_address, m_legacy))
+            {
+                DeadlockWrite("Unable to send boot active message");
+                return FAILED;
+            }
+            COMMIT { m_booting = false; }
+        }
+        else if (!m_iobus.SendNotification(m_devid, m_completionTarget, m_devid))
         {
             DeadlockWrite("Unable to send DCA completion notification");
             return FAILED;
