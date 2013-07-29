@@ -111,6 +111,9 @@ void DRISC::ConnectIO(Config& config, IIOBus* iobus)
 
 void DRISC::Initialize()
 {
+    // First finish initializing the components
+    m_network.Initialize();
+
     //
     // Set port priorities and connections on all components.
     // First source on a port has the highest priority.
