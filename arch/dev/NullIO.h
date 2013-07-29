@@ -32,12 +32,14 @@ namespace Simulator
         bool SendWriteRequest(IODeviceID from, IODeviceID to, MemAddr address, const IOData& data);
         bool SendInterruptRequest(IODeviceID from, IONotificationChannelID which);
         bool SendNotification(IODeviceID from, IONotificationChannelID which, Integer tag);
+        bool SendActiveMessage(IODeviceID from, IODeviceID to, MemAddr pc, Integer arg);
 
         StorageTraceSet GetReadRequestTraces(IODeviceID from) const;
         StorageTraceSet GetWriteRequestTraces() const;
         StorageTraceSet GetReadResponseTraces() const;
         StorageTraceSet GetInterruptRequestTraces() const;
         StorageTraceSet GetNotificationTraces() const;
+        StorageTraceSet GetActiveMessageTraces() const;
 
         void Initialize();
 
