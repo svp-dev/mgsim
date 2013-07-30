@@ -14,6 +14,7 @@ dist_doc_DATA = \
 	mgsim-memranges.rst \
 	mgsim-perfcounters.rst \
 	mgsim-control.rst \
+	core-interfaces.rst \
 	processor-architecture-20110430.pdf \
 	system-model-20110430.pdf
 
