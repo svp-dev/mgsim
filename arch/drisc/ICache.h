@@ -20,13 +20,13 @@ class ICache : public Object, public IMemoryCallback, public Inspect::Interface<
     /// A Cache-line
     struct Line
     {
-        MemAddr       tag;	    ///< Address tag
-        char*         data;	    ///< The line data
-        CycleNo       access;	    ///< Last access time (for LRU replacement)
+        MemAddr       tag;          ///< Address tag
+        char*         data;         ///< The line data
+        CycleNo       access;       ///< Last access time (for LRU replacement)
         ThreadQueue   waiting;      ///< Threads waiting on this line
         unsigned long references;   ///< Number of references to this line
         LineState     state;        ///< The state of the line
-        bool          creation;	    ///< Is the family creation process waiting on this line?
+        bool          creation;             ///< Is the family creation process waiting on this line?
     };
 
     Result Fetch(MemAddr address, MemSize size, TID* tid, CID* cid);
@@ -36,9 +36,9 @@ class ICache : public Object, public IMemoryCallback, public Inspect::Interface<
     Result DoOutgoing();
     Result DoIncoming();
 
-    DRISC&        m_parent;
+    DRISC&            m_parent;
     Allocator&        m_allocator;
-    IMemory&          m_memory;
+    IMemory*          m_memory;
     IBankSelector*    m_selector;
     MCID              m_mcid;
     std::vector<Line> m_lines;
@@ -60,10 +60,11 @@ class ICache : public Object, public IMemoryCallback, public Inspect::Interface<
     uint64_t             m_numStallingMisses;
 
 public:
-    ICache(const std::string& name, DRISC& parent, Clock& clock, Allocator& allocator, IMemory& memory, Config& config);
+    ICache(const std::string& name, DRISC& parent, Clock& clock, Allocator& allocator, Config& config);
     ICache(const ICache&) = delete;
     ICache& operator=(const ICache&) = delete;
     ~ICache();
+    void ConnectMemory(IMemory* memory);
 
     // Processes
     Process p_Outgoing;

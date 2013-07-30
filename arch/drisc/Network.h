@@ -11,7 +11,6 @@ struct RemoteMessage
     {
         MSG_NONE,           ///< No message
         MSG_ALLOCATE,       ///< Allocate family
-        MSG_BUNDLE,            ///< Indirect creation
         MSG_SET_PROPERTY,   ///< Set family property
         MSG_CREATE,         ///< Create family
         MSG_SYNC,           ///< Synchronise on family
@@ -33,7 +32,11 @@ struct RemoteMessage
             AllocationType type;          ///< Type of the allocation
             bool           suspend;       ///< Queue request if no context available?
             bool           exclusive;     ///< Allocate the exclusive context?
-            Bundle         bundle;        ///< Bundle information (if bundled)
+
+            bool           bundle;        ///< Is this allocation also bundling a create?
+            MemAddr        pc;            ///< Bundled program counter
+            Integer        parameter;     ///< Bundled program-specified parameter
+            SInteger       index;         ///< Bundled table-specified parameter
         } allocate;
 
         struct {
@@ -47,9 +50,10 @@ struct RemoteMessage
             FID      fid;           ///< Family to start creation of
             PID      completion_pid;///< PID where the thread that issued the request is running
             RegIndex completion_reg;///< Register to write create-completion to
-            Integer  parameter;     ///< Parameter of the bundle request
-            SInteger index;         ///< Index of the bundle request
-            bool     bundle;        ///< Whether this is a create resulting from a bundle req.
+
+            bool     bundle;        ///< Whether this is a create resulting from a bundle
+            Integer  parameter;     ///< Bundled program-specified parameter
+            SInteger index;         ///< Bundled table-specified parameter
         } create;
 
         struct {
@@ -238,34 +242,34 @@ class Network : public Object, public Inspect::Interface<Inspect::Read>
 	class RegisterPair : public Object
 	{
 	private:
-	    Register<T>* remote;     ///< Remote register to send output to
-	    Process      p_Transfer; ///< The transfer process
+            Register<T>* remote;     ///< Remote register to send output to
+            Process      p_Transfer; ///< The transfer process
 
 	public:
-	    Register<T>  out;        ///< Register for outgoing messages
-	    Register<T>  in;         ///< Register for incoming messages
+            Register<T>  out;        ///< Register for outgoing messages
+            Register<T>  in;         ///< Register for incoming messages
 
-	    /// Transfers the output data to the input buffer
-	    Result DoTransfer()
-	    {
-	        assert(!out.Empty());
-	        assert(remote != NULL);
-	        if (!remote->Write(out.Read()))
-	        {
-	            return FAILED;
-	        }
-	        out.Clear();
-	        return SUCCESS;
-	    }
+            /// Transfers the output data to the input buffer
+            Result DoTransfer()
+            {
+                assert(!out.Empty());
+                assert(remote != NULL);
+                if (!remote->Write(out.Read()))
+                {
+                    return FAILED;
+                }
+                out.Clear();
+                return SUCCESS;
+            }
 
-	    /// Connects the output to the input on the destination core
-	    void Initialize(RegisterPair<T>& dest)
-	    {
-	        assert(remote == NULL);
-	        remote = &dest.in;
-	        dest.in.AddProcess(p_Transfer);
+            /// Connects the output to the input on the destination core
+            void Initialize(RegisterPair<T>& dest)
+            {
+                assert(remote == NULL);
+                remote = &dest.in;
+                dest.in.AddProcess(p_Transfer);
             p_Transfer.SetStorageTraces(dest.in);
-	    }
+            }
 
             RegisterPair(Object& parent, const std::string& name)
                 : Object(name, parent),
@@ -338,7 +342,6 @@ private:
 
     // Statistics
     uint64_t                       m_numAllocates;
-    uint64_t                       m_numBundles;
     uint64_t                       m_numCreates;
 
 public:
@@ -362,4 +365,3 @@ public:
 };
 
 #endif
-

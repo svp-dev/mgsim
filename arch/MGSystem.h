@@ -1,10 +1,7 @@
 #ifndef MGSYSTEM_H
 #define MGSYSTEM_H
 
-#include <arch/drisc/DRISC.h>
-#include <arch/FPU.h>
 #include <arch/symtable.h>
-#include <arch/IOBus.h>
 #include <sim/breakpoints.h>
 #include <sim/config.h>
 
@@ -17,6 +14,10 @@ namespace Simulator {
 
     class ActiveROM;
     class Selector;
+    class FPU;
+    class IIOBus;
+    class DRISC;
+    class IMemory;
 
     class MGSystem
     {

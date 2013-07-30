@@ -3,7 +3,6 @@
 
 #include <arch/Memory.h>
 #include <arch/VirtualMemory.h>
-#include <arch/BankSelector.h>
 #include <sim/inspect.h>
 #include <arch/mem/DDR.h>
 
@@ -49,7 +48,6 @@ protected:
     size_t                      m_numClients;
     size_t                      m_lineSize;
     Config&                     m_config;
-    IBankSelector*              m_selector;           ///< Mapping of line addresses to set indexes
     std::vector<Cache*>         m_caches;             ///< List of caches
     std::vector<Directory*>     m_directories;        ///< List of directories
     std::vector<RootDirectory*> m_roots;              ///< List of root directories
@@ -75,16 +73,14 @@ public:
 
     const TraceMap& GetTraces() const { return m_traces; }
 
-    IBankSelector& GetBankSelector() const { return *m_selector; }
-
     size_t GetLineSize() const { return m_lineSize; }
-    size_t GetNumClientsPerCache() const { return m_numClientsPerCache; }
-    size_t GetNumCachesPerLowRing() const { return m_numCachesPerLowRing; }
     size_t GetNumCaches() const { return m_caches.size(); }
     size_t GetNumDirectories() const { return m_directories.size(); }
     size_t GetNumRootDirectories() const { return m_roots.size(); }
-    size_t GetNumCacheSets() const;
-    size_t GetCacheAssociativity() const;
+
+    Cache& GetCache(size_t i) const { return *m_caches[i]; }
+    Directory& GetDirectory(size_t i) const { return *m_directories[i]; }
+    RootDirectory& GetRootDirectory(size_t i) const { return *m_roots[i]; }
 
     // IMemory
     virtual MCID RegisterClient(IMemoryCallback& callback, Process& process, StorageTraceSet& traces, const StorageTraceSet& storages, bool grouped) override = 0;

@@ -67,6 +67,14 @@ namespace Simulator
         return m_clients[to]->OnWriteRequestReceived(from, address, data);
     }
 
+    bool NullIO::SendActiveMessage(IODeviceID from, IODeviceID to, MemAddr address, Integer arg)
+    {
+        CheckEndPoints(from, to);
+
+        DebugIONetWrite("Sending active message from device %u to device %u (%#016llx/%llu)", (unsigned)from, (unsigned)to, (unsigned long long)address, (unsigned long long)arg);
+        return m_clients[to]->OnActiveMessageReceived(from, address, arg);
+    }
+
     bool NullIO::SendInterruptRequest(IODeviceID from, IONotificationChannelID which)
     {
         if (from >= m_clients.size() || m_clients[from] == NULL)
@@ -147,6 +155,16 @@ namespace Simulator
         for (auto p : m_clients)
             if (p != NULL)
                 res *= p->GetNotificationTraces();
+
+        return res;
+    }
+
+    StorageTraceSet NullIO::GetActiveMessageTraces() const
+    {
+        StorageTraceSet res;
+        for (auto p : m_clients)
+            if (p != NULL)
+                res *= p->GetActiveMessageTraces();
 
         return res;
     }

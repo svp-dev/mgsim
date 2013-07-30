@@ -1,4 +1,5 @@
 #include "commands.h"
+#include <sim/sampling.h>
 
 using namespace Simulator;
 using namespace std;

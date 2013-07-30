@@ -75,7 +75,7 @@ private:
     Allocator&           m_allocator;       ///< Allocator component.
     FamilyTable&         m_familyTable;     ///< Family table .
     RegisterFile&        m_regFile;         ///< Register File.
-    IMemory&             m_memory;          ///< Memory
+    IMemory*             m_memory;          ///< Memory
     MCID                 m_mcid;            ///< Memory Client ID
     std::vector<Line>    m_lines;           ///< The cache-lines.
     size_t               m_assoc;           ///< Config: Cache associativity.
@@ -116,10 +116,11 @@ private:
     Result DoOutgoingRequests();
 
 public:
-    DCache(const std::string& name, DRISC& parent, Clock& clock, Allocator& allocator, FamilyTable& familyTable, RegisterFile& regFile, IMemory& memory, Config& config);
+    DCache(const std::string& name, DRISC& parent, Clock& clock, Allocator& allocator, FamilyTable& familyTable, RegisterFile& regFile, Config& config);
     DCache(const DCache&) = delete;
     DCache& operator=(const DCache&) = delete;
     ~DCache();
+    void ConnectMemory(IMemory* memory);
 
     // Processes
     Process p_ReadWritebacks;

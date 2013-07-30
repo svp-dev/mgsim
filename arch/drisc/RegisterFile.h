@@ -13,7 +13,7 @@
  * one write port from the writeback stage of the pipeline, and one asynchronous
  * read and write port for other components (memory, etc).
  */
-class RegisterFile : public virtual Structure<RegAddr>, public virtual Storage, public Inspect::Interface<Inspect::Read>
+class RegisterFile : public virtual Structure<RegAddr>, public virtual Storage, public FPU::IFPUClient, public Inspect::Interface<Inspect::Read>
 {
 public:
     /**
@@ -78,6 +78,11 @@ public:
      * @return the number of registers of the specified type.
      */
     RegSize GetSize(RegType type) const;
+
+    // Interfaces from IFPUClient
+    std::string GetName() const override;
+    bool CheckFPUOutputAvailability(RegAddr addr) override;
+    bool WriteFPUResult(RegAddr addr, const RegValue& value) override;
 
 
     void Cmd_Info(std::ostream& out, const std::vector<std::string>& arguments) const;

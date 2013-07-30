@@ -34,8 +34,8 @@ private:
         char        data[MAX_MEMORY_OPERATION_SIZE];
     };
 
-    DRISC&           m_cpu;
-    IMemory&             m_memory;
+    DRISC&               m_cpu;
+    IMemory*             m_memory;
     MCID                 m_mcid;
     IOBusInterface&      m_busif;
     const MemSize        m_lineSize;
@@ -55,8 +55,11 @@ private:
     bool                 m_flushing;
 
 public:
-    IODirectCacheAccess(const std::string& name, Object& parent, Clock& clock, DRISC& proc, IMemory& memory, IOBusInterface& busif, Config& config);
+    IODirectCacheAccess(const std::string& name, Object& parent, Clock& clock, DRISC& proc, IOBusInterface& busif, Config& config);
+    IODirectCacheAccess(const IODirectCacheAccess&) = delete;
+    IODirectCacheAccess& operator=(const IODirectCacheAccess&) = delete;
     ~IODirectCacheAccess();
+    void ConnectMemory(IMemory* memory);
 
     bool QueueRequest(const Request& req);
 

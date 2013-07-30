@@ -11,6 +11,8 @@ namespace Simulator
 typedef unsigned IODeviceID;     ///< Number of a device on an I/O Bus
 typedef unsigned IONotificationChannelID;  ///< Number of a notification/interrupt channel on an I/O bus
 
+static const IODeviceID INVALID_IO_DEVID = IODeviceID(-1);
+
 /* maximum size of the data in an I/O request. */
 static const size_t MAX_IO_OPERATION_SIZE = 64;
 
@@ -29,13 +31,14 @@ public:
     virtual bool OnReadResponseReceived(IODeviceID from, MemAddr address, const IOData& data);
     virtual bool OnInterruptRequestReceived(IONotificationChannelID which);
     virtual bool OnNotificationReceived(IONotificationChannelID which, Integer tag);
+    virtual bool OnActiveMessageReceived(IODeviceID from, MemAddr pc, Integer arg);
 
     virtual StorageTraceSet GetReadRequestTraces() const { return StorageTraceSet(); }
     virtual StorageTraceSet GetWriteRequestTraces() const { return StorageTraceSet(); }
     virtual StorageTraceSet GetReadResponseTraces() const { return StorageTraceSet(); }
     virtual StorageTraceSet GetInterruptRequestTraces() const { return StorageTraceSet(); }
     virtual StorageTraceSet GetNotificationTraces() const { return StorageTraceSet(); }
-
+    virtual StorageTraceSet GetActiveMessageTraces() const { return StorageTraceSet(); }
 
     // Admin
     virtual void Initialize();
@@ -58,12 +61,14 @@ public:
     virtual bool SendReadResponse(IODeviceID from, IODeviceID to, MemAddr address, const IOData& data) = 0;
     virtual bool SendInterruptRequest(IODeviceID from, IONotificationChannelID which) = 0;
     virtual bool SendNotification(IODeviceID from, IONotificationChannelID which, Integer tag) = 0;
+    virtual bool SendActiveMessage(IODeviceID from, IODeviceID to, MemAddr pc, Integer arg) = 0;
 
     virtual StorageTraceSet GetReadRequestTraces(IODeviceID from) const = 0;
     virtual StorageTraceSet GetWriteRequestTraces() const = 0;
     virtual StorageTraceSet GetReadResponseTraces() const = 0;
     virtual StorageTraceSet GetInterruptRequestTraces() const = 0;
     virtual StorageTraceSet GetNotificationTraces() const = 0;
+    virtual StorageTraceSet GetActiveMessageTraces() const = 0;
 
     virtual Clock& GetClock() = 0;
 

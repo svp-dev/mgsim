@@ -7,6 +7,7 @@
 # include <sim/monitor.h>
 #endif
 #include <arch/MGSystem.h>
+#include <sim/inspect.h>
 
 #include <vector>
 #include <string>

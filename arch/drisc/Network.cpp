@@ -36,7 +36,6 @@ DRISC::Network::Network(
     m_loadBalanceThreshold(config.getValue<unsigned>(*this, "LoadBalanceThreshold")),
 
     m_numAllocates(0),
-    m_numBundles(0),
     m_numCreates(0),
 
 #define CONSTRUCT_REGISTER(name) name(*this, #name)
@@ -54,7 +53,6 @@ DRISC::Network::Network(
     p_Syncs        (*this, "syncs",          delegate::create<Network, &DRISC::Network::DoSyncs        >(*this))
 {
     RegisterSampleVariableInObject(m_numAllocates, SVC_CUMULATIVE);
-    RegisterSampleVariableInObject(m_numBundles, SVC_CUMULATIVE);
     RegisterSampleVariableInObject(m_numCreates, SVC_CUMULATIVE);
 
     m_delegateOut.Sensitive(p_DelegationOut);
@@ -97,8 +95,7 @@ bool DRISC::Network::SendMessage(const RemoteMessage& msg)
     // Get destination
     switch (msg.type)
     {
-    case RemoteMessage::MSG_ALLOCATE:
-    case RemoteMessage::MSG_BUNDLE:       dmsg.dest = msg.allocate.place.pid; break;
+    case RemoteMessage::MSG_ALLOCATE:     dmsg.dest = msg.allocate.place.pid; break;
     case RemoteMessage::MSG_SET_PROPERTY: dmsg.dest = msg.property.fid.pid; break;
     case RemoteMessage::MSG_CREATE:       dmsg.dest = msg.create.fid.pid; break;
     case RemoteMessage::MSG_DETACH:       dmsg.dest = msg.detach.fid.pid; break;
@@ -536,7 +533,8 @@ Result DRISC::Network::DoDelegationIn()
     switch (msg.type)
     {
     case RemoteMessage::MSG_ALLOCATE:
-        if (msg.allocate.type == ALLOCATE_BALANCED && msg.allocate.place.size > 1)
+        if (!msg.allocate.bundle &&
+            msg.allocate.type == ALLOCATE_BALANCED && msg.allocate.place.size > 1)
         {
             unsigned used_contexts = m_familyTable.GetNumUsedFamilies(CONTEXT_NORMAL);
             if (used_contexts >= m_loadBalanceThreshold)
@@ -562,7 +560,7 @@ Result DRISC::Network::DoDelegationIn()
             msg.allocate.type = ALLOCATE_SINGLE;
         }
 
-        if (!m_allocator.QueueFamilyAllocation(msg, false))
+        if (!m_allocator.QueueFamilyAllocation(msg))
         {
             DeadlockWrite("Unable to process family allocation request");
             return FAILED;
@@ -570,18 +568,6 @@ Result DRISC::Network::DoDelegationIn()
 
         // Statistics
         COMMIT { ++m_numAllocates; }
-
-        break;
-
-    case RemoteMessage::MSG_BUNDLE:
-        if (!m_allocator.QueueFamilyAllocation(msg, true))
-        {
-            DeadlockWrite("Unable to process received indirect create");
-            return FAILED;
-        }
-
-        // Statistics
-        COMMIT { ++m_numBundles; }
 
         break;
 
@@ -628,8 +614,7 @@ Result DRISC::Network::DoDelegationIn()
     case RemoteMessage::MSG_CREATE:
         {
             // Process the received delegated create
-            PID src = (msg.create.bundle) ? msg.create.completion_pid : dmsg.src;
-            if (!m_allocator.QueueCreate(msg, src))
+            if (!m_allocator.QueueCreate(msg))
             {
                 DeadlockWrite("Unable to process received delegation create");
                 return FAILED;
@@ -1012,21 +997,12 @@ string DRISC::RemoteMessage::str() const
            << " excl " << allocate.exclusive
            << " type " << allocate.type
            << " cpid " << allocate.completion_pid
-           << " creg " << allocate.completion_reg
-           << "]";
-        break;
-    case MSG_BUNDLE:
-        ss << "[bundle"
-           << " pid " << allocate.place.str()
-           << " susp " << allocate.suspend
-           << " excl " << allocate.exclusive
-           << " type " << allocate.type
-           << " cpid " << allocate.completion_pid
-           << " creg " << allocate.completion_reg
-           << " pc " << hex << "0x" << allocate.bundle.pc << dec
-           << " parm " << allocate.bundle.parameter
-           << " idx " << allocate.bundle.index
-           << "]";
+           << " creg " << allocate.completion_reg;
+        if (allocate.bundle)
+            ss << " bpc " << allocate.pc
+               << " bparam " << allocate.parameter
+               << " bidx " << allocate.index;
+        ss << "]";
         break;
     case MSG_SET_PROPERTY:
         ss << "[setproperty"

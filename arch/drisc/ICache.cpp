@@ -12,10 +12,10 @@ using namespace std;
 namespace Simulator
 {
 
-DRISC::ICache::ICache(const std::string& name, DRISC& parent, Clock& clock, Allocator& alloc, IMemory& memory, Config& config)
+DRISC::ICache::ICache(const std::string& name, DRISC& parent, Clock& clock, Allocator& alloc, Config& config)
 :   Object(name, parent, clock),
     m_parent(parent), m_allocator(alloc),
-    m_memory(memory),
+    m_memory(NULL),
     m_selector(IBankSelector::makeSelector(*this, config.getValue<string>(*this, "BankSelector"), config.getValue<size_t>(*this, "NumSets"))),
     m_mcid(0),
     m_lines(),
@@ -47,10 +47,6 @@ DRISC::ICache::ICache(const std::string& name, DRISC& parent, Clock& clock, Allo
     RegisterSampleVariableInObject(m_numStallingMisses, SVC_CUMULATIVE);
 
     config.registerObject(m_parent, "cpu");
-
-    StorageTraceSet traces;
-    m_mcid = m_memory.RegisterClient(*this, p_Outgoing, traces, m_incoming);
-    p_Outgoing.SetStorageTraces(traces);
 
     m_outgoing.Sensitive( p_Outgoing );
     m_incoming.Sensitive( p_Incoming );
@@ -90,6 +86,17 @@ DRISC::ICache::ICache(const std::string& name, DRISC& parent, Clock& clock, Allo
         line.waiting.head = INVALID_TID;
         line.creation     = false;
     }
+}
+
+void DRISC::ICache::ConnectMemory(IMemory* memory)
+{
+    assert(m_memory == NULL); // can't register two times
+    assert(memory != NULL);
+
+    m_memory = memory;
+    StorageTraceSet traces;
+    m_mcid = m_memory->RegisterClient(*this, p_Outgoing, traces, m_incoming);
+    p_Outgoing.SetStorageTraces(traces);
 }
 
 DRISC::ICache::~ICache()
@@ -453,8 +460,10 @@ Object& DRISC::ICache::GetMemoryPeer()
 Result DRISC::ICache::DoOutgoing()
 {
     assert(!m_outgoing.Empty());
+    assert(m_memory != NULL);
+
     const MemAddr& address = m_outgoing.Front();
-    if (!m_memory.Read(m_mcid, address))
+    if (!m_memory->Read(m_mcid, address))
     {
         // The fetch failed
         DeadlockWrite("Unable to read %#016llx from memory", (unsigned long long)address);

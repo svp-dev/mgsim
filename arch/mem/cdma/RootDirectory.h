@@ -81,6 +81,7 @@ public:
     void Cmd_Info(std::ostream& out, const std::vector<std::string>& arguments) const;
     void Cmd_Read(std::ostream& out, const std::vector<std::string>& arguments) const;
 
+    size_t GetMaxNumLines() const { return m_maxNumLines; }
 
     // Statistics
     void GetMemoryStatistics(uint64_t& nreads_ext, uint64_t& nwrites_ext) const

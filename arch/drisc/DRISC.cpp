@@ -15,22 +15,23 @@ namespace Simulator
 //
 // DRISC implementation
 //
-DRISC::DRISC(const std::string& name, Object& parent, Clock& clock, PID pid, const vector<DRISC*>& grid, IMemory& memory, IMemoryAdmin& admin, Config& config)
+DRISC::DRISC(const std::string& name, Object& parent, Clock& clock, PID pid, const vector<DRISC*>& grid, Config& config)
 :   Object(name, parent, clock),
-    m_memory(memory),
-    m_memadmin(admin),
+    m_memory(NULL),
+    m_memadmin(NULL),
     m_grid(grid),
     m_fpu(NULL),
-    m_symtable(&admin.GetSymbolTable()),
+    m_symtable(NULL),
     m_pid(pid),
+    m_reginits(),
     m_bits(),
     m_familyTable ("families",      *this, clock, config),
     m_threadTable ("threads",       *this, clock, config),
     m_registerFile("registers",     *this, clock, m_allocator, config),
     m_raunit      ("rau",           *this, clock, m_registerFile, config),
     m_allocator   ("alloc",         *this, clock, m_familyTable, m_threadTable, m_registerFile, m_raunit, m_icache, m_dcache, m_network, m_pipeline, config),
-    m_icache      ("icache",        *this, clock, m_allocator, memory, config),
-    m_dcache      ("dcache",        *this, clock, m_allocator, m_familyTable, m_registerFile, memory, config),
+    m_icache      ("icache",        *this, clock, m_allocator, config),
+    m_dcache      ("dcache",        *this, clock, m_allocator, m_familyTable, m_registerFile, config),
     m_pipeline    ("pipeline",      *this, clock, m_registerFile, m_network, m_allocator, m_familyTable, m_threadTable, m_icache, m_dcache, config),
     m_network     ("network",       *this, clock, grid, m_allocator, m_registerFile, m_familyTable, config),
     m_mmio        ("mmio",          *this, clock),
@@ -70,11 +71,63 @@ DRISC::DRISC(const std::string& name, Object& parent, Clock& clock, PID pid, con
     m_lperr.Connect(m_mmio, IOMatchUnit::WRITE, config);
     m_mmu.Connect(m_mmio, IOMatchUnit::WRITE, config);
     m_action.Connect(m_mmio, IOMatchUnit::WRITE, config);
+
+    // Check if there is an initial register configuration
+    if (!config.getValueOrDefault<string>(*this, "InitRegs", "").empty())
+    {
+        auto regs = config.getWordList(*this, "InitRegs");
+        for (auto ri : regs)
+        {
+            // format is RNNN=VAL or FNNN=VAL
+            transform(ri.begin(), ri.end(), ri.begin(), ::tolower);
+            if (ri[0] != 'r' && ri[0] != 'f')
+            {
+                throw exceptf<InvalidArgumentException>("Register name not recognized: %s", ri.c_str());
+            }
+            // find "=" sign
+            size_t i = ri.find('=');
+            if (i < 2 || i + 1 > ri.size()) // need at least 2 chars before and 1 char after
+            {
+                throw exceptf<InvalidArgumentException>("Invalid register specifier: %s", ri.c_str());
+            }
+            string sidx = ri.substr(1, i - 1);
+            string value = ri.substr(i + 1);
+
+            char* endptr;
+            unsigned long idx = strtoul(sidx.c_str(), &endptr, 0);
+            if (*endptr != '\0')
+            {
+                throw exceptf<InvalidArgumentException>("Invalid register number: %s (%s)", sidx.c_str(), ri.c_str());
+            }
+
+            RegAddr reg_addr = MAKE_REGADDR((ri[0] == 'r') ? RT_INTEGER : RT_FLOAT, idx);
+
+            assert(value.size() > 0); // because of check above
+
+            // First handle value indirections
+            if (value[0] == '$')
+            {
+                value = config.getValue<string>(value.substr(1));
+            }
+            m_reginits[reg_addr] = value;
+        }
+    }
 }
 
 DRISC::~DRISC()
 {
     delete m_io_if;
+}
+
+void DRISC::ConnectMemory(IMemory* memory, IMemoryAdmin* admin)
+{
+    m_memory = memory;
+    m_memadmin = admin;
+    m_symtable = &admin->GetSymbolTable(),
+    m_icache.ConnectMemory(memory);
+    m_dcache.ConnectMemory(memory);
+    if (m_io_if != NULL)
+        m_io_if->ConnectMemory(memory);
 }
 
 void DRISC::ConnectLink(DRISC* prev, DRISC* next)
@@ -99,7 +152,10 @@ void DRISC::ConnectIO(Config& config, IIOBus* iobus)
     // This processor also supports I/O
     IODeviceID devid = config.getValueOrDefault<IODeviceID>(*this, "DeviceID", iobus->GetNextAvailableDeviceID());
 
-    m_io_if = new IOInterface("io_if", *this, GetClock(), m_memory, m_registerFile, m_allocator, *iobus, devid, config);
+    m_io_if = new IOInterface("io_if", *this, GetClock(), m_registerFile, m_allocator, *iobus, devid, config);
+
+    if (m_memory != NULL)
+        m_io_if->ConnectMemory(m_memory);
 
     MMIOComponent& async_if = m_io_if->GetAsyncIOInterface();
     async_if.Connect(m_mmio, IOMatchUnit::READWRITE, config);
@@ -113,6 +169,8 @@ void DRISC::Initialize()
 {
     // First finish initializing the components
     m_network.Initialize();
+    if (m_io_if != NULL)
+        m_io_if->Initialize();
 
     //
     // Set port priorities and connections on all components.
@@ -135,8 +193,6 @@ void DRISC::Initialize()
 
     m_allocator.p_alloc.AddProcess(m_network.p_Link);                   // Place-wide create
     m_allocator.p_alloc.AddProcess(m_allocator.p_FamilyCreate);         // Local creates
-
-
 
     if (m_io_if != NULL)
     {
@@ -380,14 +436,68 @@ void DRISC::Initialize()
     }
 }
 
-MemAddr DRISC::GetDeviceBaseAddress(IODeviceID dev) const
+void DRISC::InitializeRegisters()
 {
-    return (m_io_if != NULL) ? m_io_if->GetDeviceBaseAddress(dev) : 0;
+    for (auto& ri : m_reginits)
+    {
+        RegAddr reg_addr = ri.first;
+        auto& value = ri.second;
+
+        RegValue reg_value;
+        reg_value.m_state = RST_FULL;
+        reg_value.m_integer = 0;
+
+        assert(value.size() > 0);
+
+        if (value[0] == 'b')
+        {
+            if (m_io_if == NULL)
+            {
+                clog << "#warning: -RNNN=B... specified but " << GetFQN() << " is not connected to I/O" << endl;
+            }
+            else {
+                auto devname = m_io_if->GetIOBusInterface().GetIOBus().GetDeviceIDByName(value.substr(1));
+                reg_value.m_integer = m_io_if->GetDeviceBaseAddress(devname);
+            }
+        }
+        else if (value[0] == 'i' || (reg_addr.type == RT_INTEGER && (value[0] == '-' || (value[0] >= '0' && value[0] <= '9'))))
+        {
+            string nval = (value[0] == 'i') ? value.substr(1) : value;
+            char *endptr;
+            reg_value.m_integer = strtoull(nval.c_str(), &endptr, 0);
+            if (*endptr != '\0')
+            {
+                throw exceptf<InvalidArgumentException>("Invalid register value: %s (%s)", nval.c_str(), reg_addr.str().c_str());
+            }
+        }
+        else if (value[0] == 'f' || (reg_addr.type == RT_FLOAT && (value[0] == '-' || (value[0] >= '0' && value[0] <= '9'))))
+        {
+            string nval = (value[0] == 'f') ? value.substr(1) : value;
+            char *endptr;
+            reg_value.m_float.fromfloat(strtod(nval.c_str(), &endptr));
+            if (*endptr != '\0')
+            {
+                throw exceptf<InvalidArgumentException>("Invalid register value: %s (%s)", nval.c_str(), reg_addr.str().c_str());
+            }
+        }
+        else
+        {
+            throw exceptf<InvalidArgumentException>("Invalid register initializer: %s", reg_addr.str().c_str());
+        }
+
+        m_registerFile.WriteRegister(reg_addr, reg_value);
+    }
 }
 
-void DRISC::Boot(MemAddr runAddress, bool legacy, PSize placeSize, SInteger startIndex)
+bool DRISC::Boot(MemAddr runAddress, bool legacy)
 {
-    m_allocator.AllocateInitialFamily(runAddress, legacy, placeSize, startIndex);
+    auto placeSize = GetGridSize();
+
+    COMMIT {
+        m_allocator.AllocateInitialFamily(runAddress, legacy, placeSize, 0);
+        InitializeRegisters();
+    }
+    return true;
 }
 
 bool DRISC::IsIdle() const
@@ -415,26 +525,30 @@ unsigned int DRISC::GetNumSuspendedRegisters() const
 
 void DRISC::MapMemory(MemAddr address, MemSize size, ProcessID pid)
 {
-    m_memadmin.Reserve(address, size, pid,
-                       IMemory::PERM_READ | IMemory::PERM_WRITE |
-                       IMemory::PERM_DCA_READ | IMemory::PERM_DCA_WRITE);
+    assert(m_memadmin != NULL);
+    m_memadmin->Reserve(address, size, pid,
+                        IMemory::PERM_READ | IMemory::PERM_WRITE |
+                        IMemory::PERM_DCA_READ | IMemory::PERM_DCA_WRITE);
 }
 
 void DRISC::UnmapMemory(MemAddr address, MemSize size)
 {
+    assert(m_memadmin != NULL);
     // TODO: possibly check the size matches the reserved size
-    m_memadmin.Unreserve(address, size);
+    m_memadmin->Unreserve(address, size);
 }
 
 void DRISC::UnmapMemory(ProcessID pid)
 {
+    assert(m_memadmin != NULL);
     // TODO: possibly check the size matches the reserved size
-    m_memadmin.UnreserveAll(pid);
+    m_memadmin->UnreserveAll(pid);
 }
 
 bool DRISC::CheckPermissions(MemAddr address, MemSize size, int access) const
 {
-    bool mp = m_memadmin.CheckPermissions(address, size, access);
+    assert(m_memadmin != NULL);
+    bool mp = m_memadmin->CheckPermissions(address, size, access);
     if (!mp && (access & IMemory::PERM_READ) && (address & (1ULL << (sizeof(MemAddr) * 8 - 1))))
     {
         // we allow reads to the first cache line (64 bytes) of TLS to always succeed.

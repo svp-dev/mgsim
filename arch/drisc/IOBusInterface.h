@@ -42,6 +42,7 @@ public:
 
 public:
     DRISC& GetDRISC() const { return dynamic_cast<DRISC&>(*GetParent()->GetParent()); }
+    IIOBus& GetIOBus() const { return m_iobus; }
 
     IOBusInterface(const std::string& name, IOInterface& parent, Clock& clock, IOResponseMultiplexer& rrmux, IONotificationMultiplexer& nmux, IODirectCacheAccess& dca, IIOBus& iobus, IODeviceID devid, Config& config);
 
@@ -58,12 +59,14 @@ public:
     bool OnReadResponseReceived(IODeviceID from, MemAddr address, const IOData& data);
     bool OnInterruptRequestReceived(IONotificationChannelID which);
     bool OnNotificationReceived(IONotificationChannelID which, Integer tag);
+    bool OnActiveMessageReceived(IODeviceID from, MemAddr address, Integer arg);
 
     StorageTraceSet GetReadRequestTraces() const;
     StorageTraceSet GetWriteRequestTraces() const;
     StorageTraceSet GetReadResponseTraces() const;
     StorageTraceSet GetInterruptRequestTraces() const;
     StorageTraceSet GetNotificationTraces() const;
+    StorageTraceSet GetActiveMessageTraces() const;
 
     void GetDeviceIdentity(IODeviceIdentification& id) const;
 
