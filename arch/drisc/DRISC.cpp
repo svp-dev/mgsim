@@ -73,41 +73,44 @@ DRISC::DRISC(const std::string& name, Object& parent, Clock& clock, PID pid, con
     m_action.Connect(m_mmio, IOMatchUnit::WRITE, config);
 
     // Check if there is an initial register configuration
-    auto regs = config.getWordList(*this, "InitRegs");
-    for (auto ri : regs)
+    if (!config.getValueOrDefault<string>(*this, "InitRegs", "").empty())
     {
-        // format is RNNN=VAL or FNNN=VAL
-        transform(ri.begin(), ri.end(), ri.begin(), ::tolower);
-        if (ri[0] != 'r' && ri[0] != 'f')
+        auto regs = config.getWordList(*this, "InitRegs");
+        for (auto ri : regs)
         {
-            throw exceptf<InvalidArgumentException>("Register name not recognized: %s", ri.c_str());
-        }
-        // find "=" sign
-        size_t i = ri.find('=');
-        if (i < 2 || i + 1 > ri.size()) // need at least 2 chars before and 1 char after
-        {
-            throw exceptf<InvalidArgumentException>("Invalid register specifier: %s", ri.c_str());
-        }
-        string sidx = ri.substr(1, i - 1);
-        string value = ri.substr(i + 1);
+            // format is RNNN=VAL or FNNN=VAL
+            transform(ri.begin(), ri.end(), ri.begin(), ::tolower);
+            if (ri[0] != 'r' && ri[0] != 'f')
+            {
+                throw exceptf<InvalidArgumentException>("Register name not recognized: %s", ri.c_str());
+            }
+            // find "=" sign
+            size_t i = ri.find('=');
+            if (i < 2 || i + 1 > ri.size()) // need at least 2 chars before and 1 char after
+            {
+                throw exceptf<InvalidArgumentException>("Invalid register specifier: %s", ri.c_str());
+            }
+            string sidx = ri.substr(1, i - 1);
+            string value = ri.substr(i + 1);
 
-        char* endptr;
-        unsigned long idx = strtoul(sidx.c_str(), &endptr, 0);
-        if (*endptr != '\0')
-        {
-            throw exceptf<InvalidArgumentException>("Invalid register number: %s (%s)", sidx.c_str(), ri.c_str());
+            char* endptr;
+            unsigned long idx = strtoul(sidx.c_str(), &endptr, 0);
+            if (*endptr != '\0')
+            {
+                throw exceptf<InvalidArgumentException>("Invalid register number: %s (%s)", sidx.c_str(), ri.c_str());
+            }
+
+            RegAddr reg_addr = MAKE_REGADDR((ri[0] == 'r') ? RT_INTEGER : RT_FLOAT, idx);
+
+            assert(value.size() > 0); // because of check above
+
+            // First handle value indirections
+            if (value[0] == '$')
+            {
+                value = config.getValue<string>(value.substr(1));
+            }
+            m_reginits[reg_addr] = value;
         }
-
-        RegAddr reg_addr = MAKE_REGADDR((ri[0] == 'r') ? RT_INTEGER : RT_FLOAT, idx);
-
-        assert(value.size() > 0); // because of check above
-
-        // First handle value indirections
-        if (value[0] == '$')
-        {
-            value = config.getValue<string>(value.substr(1));
-        }
-        m_reginits[reg_addr] = value;
     }
 }
 
