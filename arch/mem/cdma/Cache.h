@@ -45,10 +45,10 @@ private:
         WClientID    wid;
     };
 
-    IBankSelector&                m_selector;
     size_t                        m_lineSize;
     size_t                        m_assoc;
     size_t                        m_sets;
+    IBankSelector*                m_selector;
     std::vector<IMemoryCallback*> m_clients;
     StorageTraceSet               m_storages;
     ArbitratedService<>           p_lines;
@@ -126,6 +126,9 @@ private:
     friend class CDMA;
 public:
     Cache(const std::string& name, CDMA& parent, Clock& clock, NodeID id, Config& config);
+    Cache(const Cache&) = delete;
+    Cache& operator=(const Cache&) = delete;
+    ~Cache();
 
     size_t GetLineSize() const { return m_lineSize; }
     size_t GetNumSets() const { return m_sets; }

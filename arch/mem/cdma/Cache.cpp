@@ -129,7 +129,7 @@ CDMA::Cache::Line* CDMA::Cache::FindLine(MemAddr address)
 {
     MemAddr tag;
     size_t  setindex;
-    m_selector.Map(address / m_lineSize, tag, setindex);
+    m_selector->Map(address / m_lineSize, tag, setindex);
     const size_t  set  = setindex * m_assoc;
 
     // Find the line
@@ -151,7 +151,7 @@ CDMA::Cache::Line* CDMA::Cache::AllocateLine(MemAddr address, bool empty_only, M
 {
     MemAddr tag;
     size_t  setindex;
-    m_selector.Map(address / m_lineSize, tag, setindex);
+    m_selector->Map(address / m_lineSize, tag, setindex);
     const size_t  set  = setindex * m_assoc;
 
     // Find the line
@@ -195,7 +195,7 @@ bool CDMA::Cache::EvictLine(Line* line, const Request& req)
     assert(line->updating == 0);
 
     size_t setindex = (line - &m_lines[0]) / m_assoc;
-    MemAddr address = m_selector.Unmap(line->tag, setindex) * m_lineSize;
+    MemAddr address = m_selector->Unmap(line->tag, setindex) * m_lineSize;
 
     TraceWrite(address, "Evicting with %u tokens due to miss for address %#016llx", line->tokens, (unsigned long long)req.address);
 
@@ -862,10 +862,14 @@ size_t CDMA::Cache::GetNumLines() const
 CDMA::Cache::Cache(const std::string& name, CDMA& parent, Clock& clock, NodeID id, Config& config) :
     Simulator::Object(name, parent),
     Node(name, parent, clock, id, config),
-    m_selector (parent.GetBankSelector()),
     m_lineSize (config.getValue<size_t>("CacheLineSize")),
-    m_assoc    (config.getValue<size_t>(parent, "L2CacheAssociativity")),
-    m_sets     (m_selector.GetNumBanks()),
+    m_assoc    (config.getValueOrDefault<size_t>(*this, "Associativity",
+                                                 config.getValue<size_t>(parent, "L2CacheAssociativity"))),
+    m_sets     (config.getValueOrDefault<size_t>(*this, "NumSets",
+                                                 config.getValue<size_t>(parent, "L2CacheNumSets"))),
+    m_selector (IBankSelector::makeSelector(*this,
+                                            config.getValueOrDefault<string>(*this, "BankSelector", "XORFOLD"),
+                                            m_sets)),
     m_clients  (),
     m_storages (),
     p_lines    (*this, clock, "p_lines"),
@@ -962,10 +966,16 @@ CDMA::Cache::Cache(const std::string& name, CDMA& parent, Clock& clock, NodeID i
     p_bus.AddPriorityProcess(p_Requests);             // Read or write hit
 
     config.registerObject(*this, "cache");
+    config.registerProperty(*this, "selector", m_selector->GetName());
     config.registerProperty(*this, "assoc", (uint32_t)m_assoc);
     config.registerProperty(*this, "sets", (uint32_t)m_sets);
     config.registerProperty(*this, "lsz", (uint32_t)m_lineSize);
     config.registerProperty(*this, "freq", (uint32_t)clock.GetFrequency());
+}
+
+CDMA::Cache::~Cache()
+{
+    delete m_selector;
 }
 
 void CDMA::Cache::Cmd_Info(std::ostream& out, const std::vector<std::string>& /*args*/) const
@@ -1017,7 +1027,7 @@ void CDMA::Cache::Cmd_Read(std::ostream& out, const std::vector<std::string>& ar
             out << dec << m_assoc << "-way set associative" << endl;
         }
 
-        out << "L2 bank mapping:  " << m_selector.GetName() << endl
+        out << "L2 bank mapping:  " << m_selector->GetName() << endl
             << "Cache size:       " << dec << (m_lineSize * m_lines.size()) << " bytes" << endl
             << "Cache line size:  " << dec << m_lineSize << " bytes" << endl
             << endl;
@@ -1224,7 +1234,7 @@ void CDMA::Cache::Cmd_Read(std::ostream& out, const std::vector<std::string>& ar
         {
             const size_t set = i / m_assoc;
             const Line& line = m_lines[i];
-            MemAddr lineaddr = m_selector.Unmap(line.tag, set) * m_lineSize;
+            MemAddr lineaddr = m_selector->Unmap(line.tag, set) * m_lineSize;
             if (specific && lineaddr != seladdr)
                 continue;
 

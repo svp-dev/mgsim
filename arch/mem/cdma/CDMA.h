@@ -3,7 +3,6 @@
 
 #include <arch/Memory.h>
 #include <arch/VirtualMemory.h>
-#include <arch/BankSelector.h>
 #include <sim/inspect.h>
 #include <arch/mem/DDR.h>
 
@@ -49,7 +48,6 @@ protected:
     size_t                      m_numClients;
     size_t                      m_lineSize;
     Config&                     m_config;
-    IBankSelector*              m_selector;           ///< Mapping of line addresses to set indexes
     std::vector<Cache*>         m_caches;             ///< List of caches
     std::vector<Directory*>     m_directories;        ///< List of directories
     std::vector<RootDirectory*> m_roots;              ///< List of root directories
@@ -74,8 +72,6 @@ public:
     ~CDMA();
 
     const TraceMap& GetTraces() const { return m_traces; }
-
-    IBankSelector& GetBankSelector() const { return *m_selector; }
 
     size_t GetLineSize() const { return m_lineSize; }
     size_t GetNumClientsPerCache() const { return m_numClientsPerCache; }
