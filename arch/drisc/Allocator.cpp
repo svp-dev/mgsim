@@ -983,7 +983,7 @@ bool DRISC::Allocator::QueueBundle(const MemAddr addr, Integer parameter, RegInd
 
 
 /// Queues an allocation request for a family entry and context
-bool DRISC::Allocator::QueueFamilyAllocation(const RemoteMessage& msg, bool bundle)
+bool DRISC::Allocator::QueueFamilyAllocation(const RemoteMessage& msg)
 {
     // Can't be balanced; that should have been handled by
     // the network before it gets here.
@@ -1000,20 +1000,10 @@ bool DRISC::Allocator::QueueFamilyAllocation(const RemoteMessage& msg, bool bund
     request.type           = msg.allocate.type;
     request.completion_reg = msg.allocate.completion_reg;
     request.completion_pid = msg.allocate.completion_pid;
-    request.bundle         = bundle;
-
-    if (bundle)
-    {
-        request.binfo.pc         = msg.allocate.bundle.pc;
-        request.binfo.parameter  = msg.allocate.bundle.parameter;
-        request.binfo.index      = msg.allocate.bundle.index;
-    }
-    else
-    {
-        request.binfo.pc         = 0;
-        request.binfo.parameter  = 0;
-        request.binfo.index      = 0;
-    }
+    request.bundle         = msg.allocate.bundle;
+    request.pc             = msg.allocate.pc; // for bundles
+    request.parameter      = msg.allocate.parameter; // for bundles
+    request.index          = msg.allocate.index; // for bundles
 
     Buffer<AllocRequest>& allocations = msg.allocate.exclusive
         ? m_allocRequestsExclusive
@@ -1042,9 +1032,9 @@ bool DRISC::Allocator::QueueFamilyAllocation(const LinkMessage& msg)
     request.completion_reg  = msg.allocate.completion_reg;
     request.completion_pid  = msg.allocate.completion_pid;
     request.bundle          = false;
-    request.binfo.pc        = 0;
-    request.binfo.parameter = 0;
-    request.binfo.index     = 0;
+    request.pc              = 0; // no bundle
+    request.parameter       = 0; // no bundle
+    request.index           = 0; // no bundle
 
     Buffer<AllocRequest>& allocations = (msg.allocate.suspend ? m_allocRequestsSuspend : m_allocRequestsNoSuspend);
     if (!allocations.Push(request))
@@ -1279,15 +1269,15 @@ Result DRISC::Allocator::DoFamilyAllocate()
 
             RemoteMessage msg;
             msg.type                  = RemoteMessage::MSG_CREATE;
+            msg.create.address        = req.pc;
             msg.create.fid.pid        = m_parent.GetPID();
             msg.create.fid.lfid       = lfid;
             msg.create.fid.capability = family.capability;
-            msg.create.address        = req.binfo.pc;
-            msg.create.completion_reg = req.completion_reg;
             msg.create.completion_pid = req.completion_pid;
+            msg.create.completion_reg = req.completion_reg;
             msg.create.bundle         = true;
-            msg.create.parameter      = req.binfo.parameter;
-            msg.create.index          = req.binfo.index;
+            msg.create.parameter      = req.parameter;
+            msg.create.index          = req.index;
 
             if (!m_network.SendMessage(msg))
             {
@@ -1396,9 +1386,8 @@ bool DRISC::Allocator::QueueCreate(const LinkMessage& msg)
 }
 
 // For delegate/local create
-bool DRISC::Allocator::QueueCreate(const RemoteMessage& msg, PID src)
+bool DRISC::Allocator::QueueCreate(const RemoteMessage& msg)
 {
-    assert(src                != INVALID_PID);
     assert(msg.create.fid.pid == m_parent.GetPID());
 
     Family& family = GetFamilyChecked(msg.create.fid.lfid, msg.create.fid.capability);
@@ -1414,21 +1403,12 @@ bool DRISC::Allocator::QueueCreate(const RemoteMessage& msg, PID src)
     // Queue the create
     CreateInfo info;
     info.fid            = msg.create.fid.lfid;
-    info.completion_pid = src;
+    info.completion_pid = msg.create.completion_pid;
     info.completion_reg = msg.create.completion_reg;
+
     info.bundle         = msg.create.bundle;
-
-    if (info.bundle)
-    {
-        info.parameter      = msg.create.parameter;
-        info.index          = msg.create.index;
-    }
-    else
-    {
-        info.parameter      = 0;
-        info.index          = 0;
-    }
-
+    info.parameter      = msg.create.parameter;
+    info.index          = msg.create.index;
 
     if (!m_creates.Push(info))
     {
@@ -1484,7 +1464,7 @@ Result DRISC::Allocator::DoBundle()
     else if (m_bundleState == BUNDLE_LINE_LOADED)
     {
         RemoteMessage msg;
-        msg.type                       = RemoteMessage::MSG_BUNDLE;
+        msg.type                       = RemoteMessage::MSG_ALLOCATE;
 
         msg.allocate.place             = m_parent.UnpackPlace(UnserializeRegister(RT_INTEGER,&m_bundleData[0], sizeof(Integer)));
 
@@ -1493,20 +1473,21 @@ Result DRISC::Allocator::DoBundle()
             throw exceptf<SimulationException>("Invalid place size in bundle creation");
         }
 
-        msg.allocate.completion_reg    = info.completion_reg;
         msg.allocate.completion_pid    = m_parent.GetPID();
+        msg.allocate.completion_reg    = info.completion_reg;
         msg.allocate.type              = ALLOCATE_SINGLE;
         msg.allocate.suspend           = true;
         msg.allocate.exclusive         = true;
-        msg.allocate.bundle.pc         = UnserializeRegister(RT_INTEGER, &m_bundleData[sizeof(Integer) ], sizeof(MemAddr));
-        msg.allocate.bundle.parameter  = info.parameter;
-        msg.allocate.bundle.index      = UnserializeRegister(RT_INTEGER, &m_bundleData[sizeof(Integer) + sizeof(MemAddr)], sizeof(SInteger));
+        msg.allocate.bundle            = true;
+        msg.allocate.pc                = UnserializeRegister(RT_INTEGER, &m_bundleData[sizeof(Integer) ], sizeof(MemAddr));
+        msg.allocate.parameter         = info.parameter;
+        msg.allocate.index             = UnserializeRegister(RT_INTEGER, &m_bundleData[sizeof(Integer) + sizeof(MemAddr)], sizeof(SInteger));
 
         DebugSimWrite("Processing bundle creation for CPU%u/%u, PC %#016llx, parameter %#016llx, index %#016llx",
                       (unsigned)msg.allocate.place.pid, (unsigned)msg.allocate.place.size,
-                      (unsigned long long)msg.allocate.bundle.pc,
-                      (unsigned long long)msg.allocate.bundle.parameter,
-                      (unsigned long long)msg.allocate.bundle.index);
+                      (unsigned long long)msg.allocate.pc,
+                      (unsigned long long)msg.allocate.parameter,
+                      (unsigned long long)msg.allocate.index);
 
         if (!m_network.SendMessage(msg))
         {
@@ -1521,9 +1502,6 @@ Result DRISC::Allocator::DoBundle()
     }
 
     return SUCCESS;
-
-
-
 }
 
 Result DRISC::Allocator::DoFamilyCreate()
