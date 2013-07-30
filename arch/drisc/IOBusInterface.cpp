@@ -151,6 +151,18 @@ namespace Simulator
         return res;
     }
 
+    bool DRISC::IOBusInterface::OnActiveMessageReceived(IODeviceID /*from*/, MemAddr addr, Integer arg)
+    {
+        return GetDRISC().Boot(addr, !!arg);
+    }
+
+    StorageTraceSet DRISC::IOBusInterface::GetActiveMessageTraces() const
+    {
+        StorageTraceSet res;
+        res = GetDRISC().GetAllocator().m_allocRequestsNoSuspend;
+        return res;
+    }
+
     void DRISC::IOBusInterface::GetDeviceIdentity(IODeviceIdentification& id) const
     {
         if (!DeviceDatabase::GetDatabase().FindDeviceByName("MGSim", "CPU", id))

@@ -77,6 +77,8 @@ public:
     // Initialize after all caches have been connected
     void Initialize();
 
+    size_t GetMaxNumLines() const { return m_maxNumLines; }
+
     void Cmd_Info(std::ostream& out, const std::vector<std::string>& arguments) const;
     void Cmd_Read(std::ostream& out, const std::vector<std::string>& arguments) const;
 };

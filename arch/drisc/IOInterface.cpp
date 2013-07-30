@@ -1,5 +1,6 @@
 #include "DRISC.h"
 #include <sim/config.h>
+#include <arch/dev/IODeviceDatabase.h>
 
 #include <sstream>
 #include <iomanip>
@@ -9,7 +10,7 @@ using namespace std;
 
 namespace Simulator
 {
-    DRISC::IOInterface::IOInterface(const string& name, DRISC& parent, Clock& clock, IMemory& memory, RegisterFile& rf, Allocator& alloc, IIOBus& iobus, IODeviceID devid, Config& config)
+    DRISC::IOInterface::IOInterface(const string& name, DRISC& parent, Clock& clock, RegisterFile& rf, Allocator& alloc, IIOBus& iobus, IODeviceID devid, Config& config)
         : Object(name, parent, clock),
           m_numDevices(config.getValue<size_t>(*this, "NumDeviceSlots")),
           m_numChannels(config.getValue<size_t>(*this, "NumNotificationChannels")),
@@ -18,7 +19,7 @@ namespace Simulator
           m_rrmux   ("rrmux",  *this, clock, rf, alloc, m_numDevices, config),
           m_nmux    ("nmux",   *this, clock, rf, alloc, m_numChannels, config),
           m_iobus_if("bus_if", *this, iobus.GetClock(), m_rrmux, m_nmux, m_dca, iobus, devid, config),
-          m_dca     ("dca",    *this, clock, parent, memory, m_iobus_if, config)
+          m_dca     ("dca",    *this, clock, parent, m_iobus_if, config)
     {
         if (m_numDevices == 0)
         {
@@ -28,6 +29,11 @@ namespace Simulator
         {
             throw InvalidArgumentException(*this, "NumNotificationChannels not specified or zero");
         }
+    }
+
+    void DRISC::IOInterface::ConnectMemory(IMemory* memory)
+    {
+        m_dca.ConnectMemory(memory);
     }
 
     bool DRISC::IOInterface::Read(IODeviceID dev, MemAddr address, MemSize size, const RegAddr& writeback)
@@ -289,7 +295,7 @@ namespace Simulator
         return m_baseAddr | (dev * sizeof(Integer));
     }
 
-    void DRISC::IOInterface::Initialize(IODeviceID smcid)
+    void DRISC::IOInterface::Initialize()
     {
         // set up the core ASR to indicate the I/O parameters.
         // ASR_IO_PARAMS1 has 32 bits:
@@ -302,18 +308,51 @@ namespace Simulator
         // bits 8-31:  (unused)
         assert(m_numDevices < 256);
         assert(m_numChannels < 256);
-        assert(smcid < 256);
         IODeviceID devid = m_iobus_if.GetHostID();
         assert(devid < 256);
         Integer value =
             m_numDevices |
             m_numChannels << 8 |
-            smcid << 16 |
             devid << 24;
+
+        IODeviceID smcid = INVALID_IO_DEVID;
+
+        auto& devdb = DeviceDatabase::GetDatabase();
+        IODeviceIdentification smcrefid;
+        bool smcdefined = devdb.FindDeviceByName("MGSim", "SMC", smcrefid);
+        if (smcdefined)
+        {
+            auto& bus = m_iobus_if.GetIOBus();
+            auto maxdevid = bus.GetLastDeviceID();
+
+            for (IODeviceID i = 0; i < maxdevid; ++i)
+            {
+                IODeviceIdentification id;
+                bus.GetDeviceIdentity(i, id);
+                if (id.provider == smcrefid.provider &&
+                    id.model == smcrefid.model)
+                {
+                    smcid = i;
+                    break;
+                }
+            }
+        }
+        if (smcid == INVALID_IO_DEVID)
+        {
+            clog << "#warning: processor " << GetDRISC().GetFQN() << " connected to I/O but cannot find SMC" << endl;
+        }
+        else
+        {
+            assert(smcid < 256);
+            value |= smcid << 16;
+        }
+
         GetDRISC().WriteASR(ASR_IO_PARAMS1, value);
         value = m_async_io.GetDeviceAddressBits();
         GetDRISC().WriteASR(ASR_IO_PARAMS2, value);
         GetDRISC().WriteASR(ASR_AIO_BASE, m_async_io.GetDeviceBaseAddress(0));
         GetDRISC().WriteASR(ASR_PNC_BASE, m_pnc.GetDeviceBaseAddress(0));
+
+
     }
 }

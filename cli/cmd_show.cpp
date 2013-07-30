@@ -1,4 +1,6 @@
 #include "commands.h"
+#include <sim/sampling.h>
+#include <arch/dev/IODeviceDatabase.h>
 
 using namespace Simulator;
 using namespace std;

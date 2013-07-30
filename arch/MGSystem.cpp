@@ -1,5 +1,7 @@
 #include "MGSystem.h"
 
+#include <arch/drisc/DRISC.h>
+
 #ifdef ENABLE_MEM_SERIAL
 #include <arch/mem/SerialMemory.h>
 #endif
@@ -767,8 +769,8 @@ MGSystem::MGSystem(Config& config, bool quiet)
         stringstream ss;
         ss << "cpu" << i;
         string name = ss.str();
-        m_procs[i]   = new DRISC(name, m_root, m_clock, i, m_procs, *m_memory, *memadmin, config);
-
+        m_procs[i]   = new DRISC(name, m_root, m_clock, i, m_procs, config);
+        m_procs[i]->ConnectMemory(m_memory, memadmin);
         m_procs[i]->ConnectFPU(config, m_fpus[i / numProcessorsPerFPU]);
 
         if (config.getValueOrDefault<bool>(m_root, name, "EnableIO", false)) // I/O disabled unless specified
@@ -854,7 +856,7 @@ MGSystem::MGSystem(Config& config, bool quiet)
             m_devices[i] = uart;
             config.registerObject(*uart, "uart");
         } else if (dev_type == "SMC") {
-            SMC * smc = new SMC(name, m_root, iobus, devid, config);
+            SMC * smc = new SMC(name, m_root, iobus, devid);
             m_devices[i] = smc;
             config.registerObject(*smc, "smc");
         } else if (dev_type == "RPC") {

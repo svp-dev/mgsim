@@ -135,9 +135,6 @@ CDMA::CDMA(const std::string& name, Simulator::Object& parent, Clock& clock, Con
     m_numClients(0),
     m_lineSize(config.getValue<size_t>("CacheLineSize")),
     m_config(config),
-    m_selector(IBankSelector::makeSelector(*this,
-                                           config.getValueOrDefault<string>(*this, "BankSelector", "XORFOLD"),
-                                           config.getValue<size_t>(*this, "L2CacheNumSets"))),
     m_caches(),
     m_directories(),
     m_roots(config.getValue<size_t>(*this, "NumRootDirectories"), 0),
@@ -178,8 +175,7 @@ TwoLevelCDMA::TwoLevelCDMA(const std::string& name, Simulator::Object& parent, C
 
 void OneLevelCDMA::Initialize()
 {
-    m_config.registerObject(*this, "coma");
-    m_config.registerProperty(*this, "selector", m_selector->GetName());
+    m_config.registerObject(*this, "cdma");
 
     //
     // Figure out the layout of the top-level ring
@@ -223,8 +219,7 @@ void OneLevelCDMA::Initialize()
 
 void TwoLevelCDMA::Initialize()
 {
-    m_config.registerObject(*this, "coma");
-    m_config.registerProperty(*this, "selector", m_selector->GetName());
+    m_config.registerObject(*this, "cdma");
 
     // Initialize the caches
     for (size_t i = 0; i < m_caches.size(); ++i)
@@ -302,22 +297,6 @@ CDMA::~CDMA()
 
     for (auto r : m_roots)
         delete r;
-
-    delete m_selector;
-}
-
-size_t CDMA::GetNumCacheSets() const
-{
-    if (m_caches.empty())
-        return 0;
-    return m_caches[0]->GetNumSets();
-}
-
-size_t CDMA::GetCacheAssociativity() const
-{
-    if (m_caches.empty())
-        return 0;
-    return m_caches[0]->GetNumLines() / m_caches[0]->GetNumSets();
 }
 
 void CDMA::GetMemoryStatistics(uint64_t& nreads, uint64_t& nwrites, uint64_t& nread_bytes, uint64_t& nwrite_bytes, uint64_t& nreads_ext, uint64_t& nwrites_ext) const
@@ -348,8 +327,6 @@ void CDMA::Cmd_Info(ostream& out, const vector<string>& arguments) const
     "to higher-level rings. One or more root directories at the top provide access to\n"
     "to off-chip storage.\n"
     "\n"
-    "This memory uses the following mapping of lines to cache sets(banks): " << m_selector->GetName() <<
-    "\n\n"
     "Supported operations:\n"
     "- info <component> ranges\n"
     "  Displays the currently reserved and allocated memory ranges\n\n"

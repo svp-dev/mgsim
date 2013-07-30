@@ -23,6 +23,11 @@ namespace Simulator
         throw exceptf<SimulationException>("Unsupported write request received from device %u", (unsigned)from);
     }
 
+    bool IIOBusClient::OnActiveMessageReceived(IODeviceID from, MemAddr /*address*/, Integer /*arg*/)
+    {
+        throw exceptf<SimulationException>("Unsupported active message received from device %u", (unsigned)from);
+    }
+
     bool IIOBusClient::OnReadResponseReceived(IODeviceID from, MemAddr /*address*/, const IOData& /*data*/)
     {
         throw exceptf<SimulationException>("Unsupported read response received from device %u", (unsigned)from);

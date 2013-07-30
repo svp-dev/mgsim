@@ -208,11 +208,15 @@ DRISC::Pipeline::PipeAction DRISC::Pipeline::ExecuteStage::ExecAllocate(PlaceID 
     {
         m_output.Rrc.type = RemoteMessage::MSG_ALLOCATE;
         m_output.Rrc.allocate.place          = place;
-        m_output.Rrc.allocate.suspend        = suspend;
-        m_output.Rrc.allocate.exclusive      = exclusive;
-        m_output.Rrc.allocate.type           = type;
         m_output.Rrc.allocate.completion_pid = m_parent.GetDRISC().GetPID();
         m_output.Rrc.allocate.completion_reg = reg;
+        m_output.Rrc.allocate.type           = type;
+        m_output.Rrc.allocate.suspend        = suspend;
+        m_output.Rrc.allocate.exclusive      = exclusive;
+        m_output.Rrc.allocate.bundle         = false;
+        m_output.Rrc.allocate.pc             = 0;
+        m_output.Rrc.allocate.parameter      = 0;
+        m_output.Rrc.allocate.index          = 0;
 
         m_output.Rcv = MAKE_PENDING_PIPEVALUE(m_input.RcSize);
     }
@@ -255,6 +259,7 @@ DRISC::Pipeline::PipeAction DRISC::Pipeline::ExecuteStage::ExecCreate(const FID&
         m_output.Rrc.create.fid            = fid;
         m_output.Rrc.create.address        = address;
         m_output.Rrc.create.completion_reg = completion;
+        m_output.Rrc.create.completion_pid = m_parent.GetDRISC().GetPID();
         m_output.Rrc.create.bundle         = false;
 
         m_output.Rcv = MAKE_PENDING_PIPEVALUE(m_input.RcSize);

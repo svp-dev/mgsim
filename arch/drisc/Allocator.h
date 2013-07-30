@@ -41,8 +41,11 @@ public:
         AllocationType type;           ///< Type of the allocation
         PID            completion_pid; ///< Core that requested the allocation
         RegIndex       completion_reg; ///< Register (on that core) that will receive the FID
+
         bool           bundle;         ///< Whether the family parameters are already bundled.
-        Bundle         binfo;          ///< The bundle information for bundled requests.
+        MemAddr        pc;             ///< Bundled program counter
+        Integer        parameter;      ///< Bundled program-specified parameter
+        SInteger       index;          ///< Bundled table-specified parameter
     };
 
     // These are the different states in the state machine for
@@ -63,8 +66,8 @@ public:
     struct BundleInfo
     {
         MemAddr   addr;            ///< Memory Entry
-        Integer   parameter;      ///< Parameter for shareds
-        RegIndex  completion_reg; ///< Register (on that core) that will receive the FID
+        Integer   parameter;       ///< Program-specified parameter for shareds
+        RegIndex  completion_reg;  ///< Register (on that core) that will receive the FID
     };
 
     enum BundleState
@@ -100,7 +103,7 @@ public:
     bool SuspendThread(TID tid, MemAddr pc);            // Suspends a thread at the specified PC
     bool KillThread(TID tid);                           // Kills a thread
 
-    bool QueueFamilyAllocation(const RemoteMessage& msg, bool bundle);
+    bool QueueFamilyAllocation(const RemoteMessage& msg);
     bool QueueFamilyAllocation(const LinkMessage& msg);
     bool QueueBundle(const MemAddr addr, Integer parameter, RegIndex completion_reg);
     bool ActivateFamily(LFID fid);
@@ -108,7 +111,7 @@ public:
     FCapability InitializeFamily(LFID fid) const;
     void ReleaseContext(LFID fid);
 
-    bool QueueCreate(const RemoteMessage& msg, PID src);
+    bool QueueCreate(const RemoteMessage& msg);
     bool QueueCreate(const LinkMessage& msg);
     bool QueueActiveThreads(const ThreadQueue& threads);
     bool QueueThreads(ThreadList& list, const ThreadQueue& threads, ThreadState state);
@@ -169,22 +172,22 @@ private:
     ICache&       m_icache;
     DCache&       m_dcache;
     Network&      m_network;
-    Pipeline&	  m_pipeline;
+    Pipeline&     m_pipeline;
 
     char                  m_bundleData[MAX_MEMORY_OPERATION_SIZE];
     Buffer<BundleInfo>    m_bundle;
     Buffer<LFID>          m_alloc;                   ///< This is the queue of families waiting for initial thread allocation
     Buffer<CreateInfo>    m_creates;                 ///< Create queue
     Buffer<TID>           m_cleanup;                 ///< Cleanup queue
-    CreateState           m_createState;	         ///< State of the current state;
-    CID                   m_createLine;	   	         ///< Cache line that holds the register info
+    CreateState           m_createState;                 ///< State of the current state;
+    CID                   m_createLine;                          ///< Cache line that holds the register info
     ThreadList            m_readyThreads1;           ///< Queue of the threads can be activated; from the pipeline
     ThreadList            m_readyThreads2;           ///< Queue of the threads can be activated; from the rest
     ThreadList*           m_prevReadyList;           ///< Which ready list was used last cycle. For round-robin prioritization.
 
     // The family allocation request queues
-    Buffer<AllocRequest>  m_allocRequestsSuspend;	 ///< Non-exclusive requests that want to suspend.
-    Buffer<AllocRequest>  m_allocRequestsNoSuspend;	 ///< Non-exclusive requests that do not want to suspend.
+    Buffer<AllocRequest>  m_allocRequestsSuspend;        ///< Non-exclusive requests that want to suspend.
+    Buffer<AllocRequest>  m_allocRequestsNoSuspend;      ///< Non-exclusive requests that do not want to suspend.
     Buffer<AllocRequest>  m_allocRequestsExclusive;  ///< Exclusive requests.
 
     BundleState           m_bundleState;

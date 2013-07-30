@@ -78,7 +78,8 @@ private:
     DRISC& GetDRISC() const;
 
 public:
-    IOInterface(const std::string& name, DRISC& parent, Clock& clock, IMemory& memory, RegisterFile& rf, Allocator& alloc, IIOBus& iobus, IODeviceID devid, Config& config);
+    IOInterface(const std::string& name, DRISC& parent, Clock& clock, RegisterFile& rf, Allocator& alloc, IIOBus& iobus, IODeviceID devid, Config& config);
+    void ConnectMemory(IMemory* memory);
 
     MMIOComponent& GetAsyncIOInterface() { return m_async_io; }
     MMIOComponent& GetPNCInterface() { return m_pnc; }
@@ -90,8 +91,7 @@ public:
 
     MemAddr GetDeviceBaseAddress(IODeviceID dev) const { return m_async_io.GetDeviceBaseAddress(dev); }
 
-    // At core initialization, triggered by the SMC
-    void Initialize(IODeviceID smcid);
+    void Initialize();
 
     // Debugging
     void Cmd_Info(std::ostream& out, const std::vector<std::string>& args) const;

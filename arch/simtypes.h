@@ -33,6 +33,14 @@ typedef unsigned LFID;      ///< Local family index
 
 typedef unsigned WClientID; ///< Entity ID to match memory writes (either TID or LFID depending on config)
 
+static const PID       INVALID_PID  = PID (-1);
+static const LFID      INVALID_LFID = LFID(-1);
+static const TID       INVALID_TID  = TID (-1);
+static const WClientID INVALID_WCLIENTID = WClientID(-1);
+static const CID       INVALID_CID  = CID (-1);
+static const RegIndex  INVALID_REG_INDEX = RegIndex (-1);
+
+
 enum ContextType
 {
     CONTEXT_NORMAL = 0,
@@ -131,14 +139,6 @@ struct FID
     PID         pid;
     LFID        lfid;
     std::string str() const;
-};
-
-/// Infor for bundle creation
-struct Bundle
-{
-    MemAddr  pc;
-    Integer  parameter;
-    SInteger index;
 };
 
 /// Program-specified allocation type for a place allocation
@@ -270,8 +270,6 @@ enum RegClass
 // ISA-specific function to map virtual registers to register classes
 extern unsigned char GetRegisterClass(unsigned char addr, const RegsNo& regs, RegClass* rc, RegType type);
 
-static RegIndex INVALID_REG_INDEX = (RegIndex)-1;
-
 struct RegAddr
 {
     RegIndex index;
@@ -292,6 +290,8 @@ static RegAddr MAKE_REGADDR(RegType type, RegIndex index)
     addr.type  = type;
     return addr;
 }
+
+static const RegAddr   INVALID_REG  = MAKE_REGADDR(RT_INTEGER, INVALID_REG_INDEX);
 
 enum ThreadState
 {
@@ -327,13 +327,6 @@ enum ExitCode
 };
 
 std::ostream& operator << (std::ostream& output, const RegAddr& reg);
-
-static const PID       INVALID_PID  = PID (-1);
-static const LFID      INVALID_LFID = LFID(-1);
-static const TID       INVALID_TID  = TID (-1);
-static const WClientID INVALID_WCLIENTID = WClientID(-1);
-static const CID       INVALID_CID  = CID (-1);
-static const RegAddr   INVALID_REG  = MAKE_REGADDR(RT_INTEGER, INVALID_REG_INDEX);
 
 /// This structure stores memory request information, to be used in RegValue.
 struct MemoryRequest
