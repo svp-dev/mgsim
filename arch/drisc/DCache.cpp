@@ -461,7 +461,7 @@ bool DRISC::DCache::OnMemoryReadCompleted(MemAddr addr, const char* data)
         response.cid   = line - &m_lines[0];
 
         DebugMemWrite("Received read completion for %#016llx -> CID %u", (unsigned long long)addr, (unsigned)response.cid);
-        
+
         if (!m_read_responses.Push(response))
         {
             DeadlockWrite("Unable to push read completion to buffer");
@@ -589,7 +589,7 @@ Result DRISC::DCache::DoReadResponses()
         req.waiting = line.waiting;
 
         DebugMemWrite("Queuing writeback request for CID %u starting at %s", (unsigned)response.cid, req.waiting.str().c_str());
-        
+
         if (!m_writebacks.Push(req))
         {
             DeadlockWrite("Unable to push writeback request to buffer");
@@ -597,8 +597,8 @@ Result DRISC::DCache::DoReadResponses()
         }
     }
 
-    COMMIT { 
-        line.waiting = INVALID_REG;            
+    COMMIT {
+        line.waiting = INVALID_REG;
         line.state = (line.state == LINE_INVALID) ? LINE_EMPTY : LINE_FULL;
     }
     m_read_responses.Pop();
@@ -623,14 +623,14 @@ Result DRISC::DCache::DoReadWritebacks()
     if (state.offset == state.size)
     {
         // Starting a new multi-register write
-        
+
         // Write to register
         if (!m_regFile.p_asyncW.Write(state.next))
         {
             DeadlockWrite("Unable to acquire port to write back %s", state.next.str().c_str());
             return FAILED;
         }
-        
+
         // Read request information
         RegValue value;
         if (!m_regFile.ReadRegister(state.next, value))
@@ -638,24 +638,24 @@ Result DRISC::DCache::DoReadWritebacks()
             DeadlockWrite("Unable to read register %s", state.next.str().c_str());
             return FAILED;
         }
-        
+
         if (value.m_state == RST_FULL || value.m_memory.size == 0)
         {
             // Rare case: the request info is still in the pipeline, stall!
             DeadlockWrite("Register %s is not yet written for read completion", state.next.str().c_str());
             return FAILED;
         }
-        
+
         if (value.m_state != RST_PENDING && value.m_state != RST_WAITING)
         {
             // We're too fast, wait!
             DeadlockWrite("Memory read completed before register %s was cleared", state.next.str().c_str());
             return FAILED;
         }
-        
+
         // Ignore the request if the family has been killed
         state.value = UnserializeRegister(state.next.type, &req.data[value.m_memory.offset], value.m_memory.size);
-        
+
         if (value.m_memory.sign_extend)
         {
             // Sign-extend the value
@@ -663,12 +663,12 @@ Result DRISC::DCache::DoReadWritebacks()
             int shift = (sizeof(state.value) - value.m_memory.size) * 8;
             state.value = (int64_t)(state.value << shift) >> shift;
         }
-        
+
         state.fid    = value.m_memory.fid;
         state.addr   = state.next;
         state.next   = value.m_memory.next;
         state.offset = 0;
-        
+
         // Number of registers that we're writing (must be a power of two)
         state.size = (value.m_memory.size + sizeof(Integer) - 1) / sizeof(Integer);
         assert((state.size & (state.size - 1)) == 0);
@@ -682,13 +682,13 @@ Result DRISC::DCache::DoReadWritebacks()
             return FAILED;
         }
     }
-    
+
     assert(state.offset < state.size);
-    
+
     // Write to register file
     RegValue reg;
     reg.m_state = RST_FULL;
-    
+
 #if ARCH_ENDIANNESS == ARCH_BIG_ENDIAN
     // LSB goes in last register
     const Integer data = state.value >> ((state.size - 1 - state.offset) * sizeof(Integer) * 8);
@@ -696,26 +696,26 @@ Result DRISC::DCache::DoReadWritebacks()
     // LSB goes in first register
     const Integer data = state.value >> (state.offset * sizeof(Integer) * 8);
 #endif
-    
+
     DebugMemWrite("Completed load: %#016llx -> %s",
                   (unsigned long long)data, state.addr.str().c_str());
-    
+
     switch (state.addr.type) {
     case RT_INTEGER: reg.m_integer       = data; break;
     case RT_FLOAT:   reg.m_float.integer = data; break;
     default: UNREACHABLE;
     }
-    
+
     if (!m_regFile.WriteRegister(state.addr, reg, true))
     {
         DeadlockWrite("Unable to write register %s", state.addr.str().c_str());
         return FAILED;
     }
-    
+
     // Update writeback state
     state.offset++;
     state.addr.index++;
-    
+
     if (state.offset == state.size)
     {
         // This operand is now fully written
@@ -724,7 +724,7 @@ Result DRISC::DCache::DoReadWritebacks()
             DeadlockWrite("Unable to decrement outstanding reads on F%u", (unsigned)state.fid);
             return FAILED;
         }
-        
+
         if (!state.next.valid())
         {
             m_writebacks.Pop();
@@ -745,7 +745,7 @@ Result DRISC::DCache::DoWriteResponses()
         DeadlockWrite("Unable to decrease outstanding writes on T%u", (unsigned)response.wid);
         return FAILED;
     }
-    
+
     DebugMemWrite("T%u completed store", (unsigned)response.wid);
 
     m_write_responses.Pop();
