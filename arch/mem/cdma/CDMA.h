@@ -74,13 +74,13 @@ public:
     const TraceMap& GetTraces() const { return m_traces; }
 
     size_t GetLineSize() const { return m_lineSize; }
-    size_t GetNumClientsPerCache() const { return m_numClientsPerCache; }
-    size_t GetNumCachesPerLowRing() const { return m_numCachesPerLowRing; }
     size_t GetNumCaches() const { return m_caches.size(); }
     size_t GetNumDirectories() const { return m_directories.size(); }
     size_t GetNumRootDirectories() const { return m_roots.size(); }
-    size_t GetNumCacheSets() const;
-    size_t GetCacheAssociativity() const;
+
+    Cache& GetCache(size_t i) const { return *m_caches[i]; }
+    Directory& GetDirectory(size_t i) const { return *m_directories[i]; }
+    RootDirectory& GetRootDirectory(size_t i) const { return *m_roots[i]; }
 
     // IMemory
     virtual MCID RegisterClient(IMemoryCallback& callback, Process& process, StorageTraceSet& traces, const StorageTraceSet& storages, bool grouped) override = 0;

@@ -5,6 +5,9 @@
 
 #ifdef ENABLE_MEM_CDMA
 #include <arch/mem/cdma/CDMA.h>
+#include <arch/mem/cdma/Cache.h>
+#include <arch/mem/cdma/Directory.h>
+#include <arch/mem/cdma/RootDirectory.h>
 #endif
 
 #include <sim/log2.h>
@@ -424,6 +427,13 @@ static org_t get_structure_info(std::ostream& os, const config& config, const st
         size_t actual_bits = config.*fld->bits * fld->mult;
         size_t cacti_bits  = (actual_bits + 7) / 8 * 8;
 
+        if (cacti_bits == 0)
+        {
+            cerr << "#warning: structure " << desc.name << '.' << fld->name
+                 << " too small for accurate results" << endl;
+            cacti_bits = 8;
+        }
+
         // Expand rows until cache size is at least 64 bytes
         size_t actual_rows = config.*desc.rows;
         size_t cacti_rows  = std::max(actual_rows, (512 + cacti_bits - 1) / cacti_bits);
@@ -441,75 +451,61 @@ static org_t get_structure_info(std::ostream& os, const config& config, const st
 }
 
 #ifdef ENABLE_MEM_CDMA
-static void DumpStatsCDMA(std::ostream& os, const Simulator::CDMA& coma)
+static void DumpStatsCDMA(std::ostream& os, const Simulator::CDMA& cdma)
 {
-    size_t numCaches      = coma.GetNumCaches();
-    size_t numDirectories = coma.GetNumDirectories();
-    size_t numRootDirs    = coma.GetNumRootDirectories();
+    size_t numCaches      = cdma.GetNumCaches();
+    size_t numDirectories = cdma.GetNumDirectories();
+    size_t numRootDirs    = cdma.GetNumRootDirectories();
 
     os << "L2 caches: " << numCaches << std::endl
        << "Directories: " << numDirectories << std::endl
        << "Root Directories: " << numRootDirs << std::endl;
 }
 
-static org_t DumpAreaCDMA(std::ostream& os, const config& config, const Simulator::CDMA& coma)
+static org_t DumpAreaCDMA(std::ostream& os, const config& config, const Simulator::CDMA& cdma)
 {
-    size_t lineSize       = coma.GetLineSize();
-    size_t numSets        = coma.GetNumCacheSets();
-    size_t assoc          = coma.GetCacheAssociativity();
-    size_t numCaches      = coma.GetNumCaches();
-    size_t numDirectories = coma.GetNumDirectories();
-    size_t numRootDirs    = coma.GetNumRootDirectories();
-    size_t bits_tag       = config.bits_MemAddr - ilog2(lineSize) - ilog2(numSets);
+    size_t lineSize       = cdma.GetLineSize();
+    size_t numCaches      = cdma.GetNumCaches();
+    size_t numDirectories = cdma.GetNumDirectories();
+    size_t numRootDirs    = cdma.GetNumRootDirectories();
+
+    size_t bits_tag_base  = config.bits_MemAddr - ilog2(lineSize);
     size_t bits_numCaches = ilog2(numCaches);
 
-    size_t numCachesPerLowRing = coma.GetNumCachesPerLowRing();
-
-    static const tcache_desc l2_cache = {
-        "l2_cache",
-        {numSets, assoc,
-        bits_tag + 2 + ilog2(assoc) + bits_numCaches + 1 + 9,
-        lineSize + lineSize / 8, /* data + dirty bitmask */
-        0, 0, 1    /* one port; access is arbitrated */
-        },
-        numCaches,
-    };
-
-    static const tcache_desc directory = {
-        "directory",
-        {numSets, assoc * numCachesPerLowRing,
-        bits_tag + 1 + bits_numCaches,
-        1, /* dummy data for CACTI */
-        0, 0, 1    /* one port; access is arbitrated */
-        },
-        numDirectories,
-    };
-
-    static const tcache_desc root_directory = {
-        "root_directory",
-        {numSets, assoc * numCaches,
-        bits_tag - ilog2(numRootDirs) + 2 + bits_numCaches + bits_numCaches,
-        1, /* dummy data for CACTI */
-        0, 0, 1    /* one port; access is arbitrated */
-        },
-        numRootDirs,
-    };
-
-    static const tcache_desc* caches[] = {
-        &l2_cache,
-        &directory,
-        &root_directory,
-    };
-
     org_t total(0,0,0);
-    for (size_t i = 0; i < sizeof caches / sizeof caches[0]; ++i)
+
+    cache_desc desc;
+    desc.r_ports = 0;
+    desc.w_ports = 0;
+    desc.rw_ports = 1;
+    desc.linesize = lineSize + lineSize / 8; // data + dirty bitmask
+    for (size_t i = 0; i < numCaches; ++i)
     {
-        const tcache_desc& c = *caches[i];
-        org_t info = get_cache_info(c.desc, config.tech);
-        os << c.name << "\t\t" << info.area*1e-6 << "\t" << info.access_time*1e9 << std::endl;
-        info.area *= c.count;
+        auto& cache = cdma.GetCache(i);
+        desc.sets = cache.GetNumSets();
+        desc.assoc = cache.GetNumLines() / desc.sets;
+        desc.tag = bits_tag_base - ilog2(desc.sets) + 2 + ilog2(desc.assoc) + bits_numCaches + 1 + 9;
+        org_t info = get_cache_info(desc, config.tech);
+        os << cache.GetFQN() << "\t\t" << info.area*1e-6 << "\t" << info.access_time*1e9 << std::endl;
         total.merge(info);
     }
+
+    for (size_t i = 0; i < numDirectories; ++i)
+    {
+        auto& dir = cdma.GetDirectory(i);
+        org_t info = get_ram_info(dir.GetMaxNumLines(), (bits_tag_base + 2) / 8, 1, 0, 0, config.tech);
+        os << dir.GetFQN() << "\t\t" << info.area*1e-6 << "\t" << info.access_time*1e9 << std::endl;
+        total.merge(info);
+    }
+
+    for (size_t i = 0; i < numRootDirs; ++i)
+    {
+        auto& dir = cdma.GetRootDirectory(i);
+        org_t info = get_ram_info(dir.GetMaxNumLines(), (bits_tag_base + 2) / 8, 1, 0, 0, config.tech);
+        os << dir.GetFQN() << "\t\t" << info.area*1e-6 << "\t" << info.access_time*1e9 << std::endl;
+        total.merge(info);
+    }
+
     return total;
 }
 #endif
@@ -567,10 +563,10 @@ void Simulator::MGSystem::DumpArea(std::ostream& os, size_t tech) const
 
 #ifdef ENABLE_MEM_CDMA
     // We only dump information for the memory if it is CDMA
-    Simulator::CDMA* coma = dynamic_cast<Simulator::CDMA*>(m_memory);
-    if (coma != NULL)
+    Simulator::CDMA* cdma = dynamic_cast<Simulator::CDMA*>(m_memory);
+    if (cdma != NULL)
     {
-        DumpStatsCDMA(os, *coma);
+        DumpStatsCDMA(os, *cdma);
     }
 #endif
 
@@ -651,9 +647,9 @@ void Simulator::MGSystem::DumpArea(std::ostream& os, size_t tech) const
 
 #ifdef ENABLE_MEM_CDMA
     // Dump memory, if we can
-    if (coma != NULL)
+    if (cdma != NULL)
     {
-        org_t mem = DumpAreaCDMA(os, cfg, *coma);
+        org_t mem = DumpAreaCDMA(os, cfg, *cdma);
         grid.merge(mem);
     }
 #endif

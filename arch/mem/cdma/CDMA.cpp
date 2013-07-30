@@ -299,20 +299,6 @@ CDMA::~CDMA()
         delete r;
 }
 
-size_t CDMA::GetNumCacheSets() const
-{
-    if (m_caches.empty())
-        return 0;
-    return m_caches[0]->GetNumSets();
-}
-
-size_t CDMA::GetCacheAssociativity() const
-{
-    if (m_caches.empty())
-        return 0;
-    return m_caches[0]->GetNumLines() / m_caches[0]->GetNumSets();
-}
-
 void CDMA::GetMemoryStatistics(uint64_t& nreads, uint64_t& nwrites, uint64_t& nread_bytes, uint64_t& nwrite_bytes, uint64_t& nreads_ext, uint64_t& nwrites_ext) const
 {
     nreads = m_nreads;
