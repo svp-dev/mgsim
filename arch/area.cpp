@@ -1,4 +1,5 @@
 #include <arch/MGSystem.h>
+#include <arch/drisc/DRISC.h>
 
 #ifdef ENABLE_CACTI
 
