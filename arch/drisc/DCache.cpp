@@ -12,10 +12,10 @@ using namespace std;
 namespace Simulator
 {
 
-DRISC::DCache::DCache(const std::string& name, DRISC& parent, Clock& clock, Allocator& alloc, FamilyTable& familyTable, RegisterFile& regFile, IMemory& memory, Config& config)
+DRISC::DCache::DCache(const std::string& name, DRISC& parent, Clock& clock, Allocator& alloc, FamilyTable& familyTable, RegisterFile& regFile, Config& config)
 :   Object(name, parent, clock), m_parent(parent),
     m_allocator(alloc), m_familyTable(familyTable), m_regFile(regFile),
-    m_memory(memory),
+    m_memory(NULL),
     m_mcid(0),
     m_lines(),
 
@@ -62,10 +62,6 @@ DRISC::DCache::DCache(const std::string& name, DRISC& parent, Clock& clock, Allo
     RegisterSampleVariableInObject(m_numStallingWMisses, SVC_CUMULATIVE);
     RegisterSampleVariableInObject(m_numPassThroughWMisses, SVC_CUMULATIVE);
 
-    StorageTraceSet traces;
-    m_mcid = m_memory.RegisterClient(*this, p_Outgoing, traces, m_read_responses ^ m_write_responses, true);
-    p_Outgoing.SetStorageTraces(traces);
-
     m_writebacks.Sensitive(p_ReadWritebacks);
     m_read_responses.Sensitive(p_ReadResponses);
     m_write_responses.Sensitive(p_WriteResponses);
@@ -104,6 +100,18 @@ DRISC::DCache::DCache(const std::string& name, DRISC& parent, Clock& clock, Allo
 
     m_wbstate.size   = 0;
     m_wbstate.offset = 0;
+}
+
+void DRISC::DCache::ConnectMemory(IMemory* memory)
+{
+    assert(memory != NULL);
+    assert(m_memory == NULL); // can't register two times
+
+    m_memory = memory;
+    StorageTraceSet traces;
+    m_mcid = m_memory->RegisterClient(*this, p_Outgoing, traces, m_read_responses ^ m_write_responses, true);
+    p_Outgoing.SetStorageTraces(traces);
+
 }
 
 DRISC::DCache::~DCache()
@@ -746,12 +754,13 @@ Result DRISC::DCache::DoWriteResponses()
 
 Result DRISC::DCache::DoOutgoingRequests()
 {
+    assert(m_memory != NULL);
     assert(!m_outgoing.Empty());
     const Request& request = m_outgoing.Front();
 
     if (request.write)
     {
-        if (!m_memory.Write(m_mcid, request.address, request.data, request.wid))
+        if (!m_memory->Write(m_mcid, request.address, request.data, request.wid))
         {
             DeadlockWrite("Unable to send write to 0x%016llx to memory", (unsigned long long)request.address);
             return FAILED;
@@ -759,7 +768,7 @@ Result DRISC::DCache::DoOutgoingRequests()
     }
     else
     {
-        if (!m_memory.Read(m_mcid, request.address))
+        if (!m_memory->Read(m_mcid, request.address))
         {
             DeadlockWrite("Unable to send read to 0x%016llx to memory", (unsigned long long)request.address);
             return FAILED;

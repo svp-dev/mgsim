@@ -68,14 +68,14 @@ public:
     // Line load requests issued from L1 to L2
     static Integer lines_loaded(DRISC& cpu, LFID) {
         uint64_t n = 0, dummy;
-        cpu.m_memory.GetMemoryStatistics(n, dummy, dummy, dummy, dummy, dummy);
+        cpu.m_memory->GetMemoryStatistics(n, dummy, dummy, dummy, dummy, dummy);
         return n;
     }
 
     // Line store requests issued from L1 to L2
     static Integer lines_stored(DRISC& cpu, LFID) {
         uint64_t n = 0, dummy;
-        cpu.m_memory.GetMemoryStatistics(dummy, n, dummy, dummy, dummy, dummy);
+        cpu.m_memory->GetMemoryStatistics(dummy, n, dummy, dummy, dummy, dummy);
         return n;
     }
 
@@ -137,14 +137,14 @@ public:
     // Line load requests issued from chip to outside
     static Integer extlines_loaded(DRISC& cpu, LFID) {
         uint64_t n = 0, dummy;
-        cpu.m_memory.GetMemoryStatistics(dummy, dummy, dummy, dummy, n, dummy);
+        cpu.m_memory->GetMemoryStatistics(dummy, dummy, dummy, dummy, n, dummy);
         return n;
     }
 
     // Line store requests issued from chip to outside
     static Integer extlines_stored(DRISC& cpu, LFID) {
         uint64_t n = 0, dummy;
-        cpu.m_memory.GetMemoryStatistics(dummy, dummy, dummy, dummy, dummy, n);
+        cpu.m_memory->GetMemoryStatistics(dummy, dummy, dummy, dummy, dummy, n);
         return n;
     }
 

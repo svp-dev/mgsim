@@ -4,10 +4,10 @@
 
 namespace Simulator
 {
-    DRISC::IODirectCacheAccess::IODirectCacheAccess(const std::string& name, Object& parent, Clock& clock, DRISC& proc, IMemory& memory, IOBusInterface& busif, Config& config)
+    DRISC::IODirectCacheAccess::IODirectCacheAccess(const std::string& name, Object& parent, Clock& clock, DRISC& proc, IOBusInterface& busif, Config& config)
         : Object(name, parent, clock),
           m_cpu(proc),
-          m_memory(memory),
+          m_memory(NULL),
           m_mcid(0),
           m_busif(busif),
           m_lineSize(config.getValue<MemSize>("CacheLineSize")),
@@ -28,16 +28,24 @@ namespace Simulator
         m_responses.Sensitive(p_BusOutgoing);
         m_requests.Sensitive(p_MemoryOutgoing);
 
-        StorageTraceSet traces;
-        m_mcid = m_memory.RegisterClient(*this, p_MemoryOutgoing, traces, m_responses, true);
-
-        p_MemoryOutgoing.SetStorageTraces(opt(traces ^ m_responses));
         p_BusOutgoing.SetStorageTraces(opt(m_busif.m_outgoing_reqs));
+    }
+
+    void DRISC::IODirectCacheAccess::ConnectMemory(IMemory* memory)
+    {
+        assert(m_memory == NULL);
+        assert(memory != NULL); // can't register two times
+
+        m_memory = memory;
+        StorageTraceSet traces;
+        m_mcid = m_memory->RegisterClient(*this, p_MemoryOutgoing, traces, m_responses, true);
+        p_MemoryOutgoing.SetStorageTraces(opt(traces ^ m_responses));
     }
 
     DRISC::IODirectCacheAccess::~IODirectCacheAccess()
     {
-        m_memory.UnregisterClient(m_mcid);
+        assert(m_memory != NULL);
+        m_memory->UnregisterClient(m_mcid);
     }
 
     bool DRISC::IODirectCacheAccess::QueueRequest(const Request& req)
@@ -189,6 +197,7 @@ namespace Simulator
 
     Result DRISC::IODirectCacheAccess::DoMemoryOutgoing()
     {
+        assert(m_memory != NULL);
         const Request& req = m_requests.Front();
 
         switch(req.type)
@@ -270,7 +279,7 @@ namespace Simulator
 
             // send the request to the memory
             MemAddr line_address  = req.address & -m_lineSize;
-            if (!m_memory.Read(m_mcid, line_address))
+            if (!m_memory->Read(m_mcid, line_address))
             {
                 DeadlockWrite("Unable to send DCA read from %#016llx/%u, dev %u to memory", (unsigned long long)req.address, (unsigned)req.size, (unsigned)req.client);
                 return FAILED;
@@ -318,7 +327,7 @@ namespace Simulator
                 std::fill(mdata.mask + offset + req.size, mdata.mask + m_lineSize, false);
             }
 
-            if (!m_memory.Write(m_mcid, line_address, mdata, INVALID_WCLIENTID))
+            if (!m_memory->Write(m_mcid, line_address, mdata, INVALID_WCLIENTID))
             {
                 DeadlockWrite("Unable to send DCA write to %#016llx/%u to memory", (unsigned long long)req.address, (unsigned)req.size);
                 return FAILED;

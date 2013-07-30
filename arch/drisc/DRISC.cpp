@@ -15,13 +15,13 @@ namespace Simulator
 //
 // DRISC implementation
 //
-DRISC::DRISC(const std::string& name, Object& parent, Clock& clock, PID pid, const vector<DRISC*>& grid, IMemory& memory, IMemoryAdmin& admin, Config& config)
+DRISC::DRISC(const std::string& name, Object& parent, Clock& clock, PID pid, const vector<DRISC*>& grid, Config& config)
 :   Object(name, parent, clock),
-    m_memory(memory),
-    m_memadmin(admin),
+    m_memory(NULL),
+    m_memadmin(NULL),
     m_grid(grid),
     m_fpu(NULL),
-    m_symtable(&admin.GetSymbolTable()),
+    m_symtable(NULL),
     m_pid(pid),
     m_reginits(),
     m_bits(),
@@ -30,8 +30,8 @@ DRISC::DRISC(const std::string& name, Object& parent, Clock& clock, PID pid, con
     m_registerFile("registers",     *this, clock, m_allocator, config),
     m_raunit      ("rau",           *this, clock, m_registerFile, config),
     m_allocator   ("alloc",         *this, clock, m_familyTable, m_threadTable, m_registerFile, m_raunit, m_icache, m_dcache, m_network, m_pipeline, config),
-    m_icache      ("icache",        *this, clock, m_allocator, memory, config),
-    m_dcache      ("dcache",        *this, clock, m_allocator, m_familyTable, m_registerFile, memory, config),
+    m_icache      ("icache",        *this, clock, m_allocator, config),
+    m_dcache      ("dcache",        *this, clock, m_allocator, m_familyTable, m_registerFile, config),
     m_pipeline    ("pipeline",      *this, clock, m_registerFile, m_network, m_allocator, m_familyTable, m_threadTable, m_icache, m_dcache, config),
     m_network     ("network",       *this, clock, grid, m_allocator, m_registerFile, m_familyTable, config),
     m_mmio        ("mmio",          *this, clock),
@@ -119,6 +119,17 @@ DRISC::~DRISC()
     delete m_io_if;
 }
 
+void DRISC::ConnectMemory(IMemory* memory, IMemoryAdmin* admin)
+{
+    m_memory = memory;
+    m_memadmin = admin;
+    m_symtable = &admin->GetSymbolTable(),
+    m_icache.ConnectMemory(memory);
+    m_dcache.ConnectMemory(memory);
+    if (m_io_if != NULL)
+        m_io_if->ConnectMemory(memory);
+}
+
 void DRISC::ConnectLink(DRISC* prev, DRISC* next)
 {
     m_network.Connect(prev != NULL ? &prev->m_network : NULL, next != NULL ? &next->m_network : NULL);
@@ -141,7 +152,10 @@ void DRISC::ConnectIO(Config& config, IIOBus* iobus)
     // This processor also supports I/O
     IODeviceID devid = config.getValueOrDefault<IODeviceID>(*this, "DeviceID", iobus->GetNextAvailableDeviceID());
 
-    m_io_if = new IOInterface("io_if", *this, GetClock(), m_memory, m_registerFile, m_allocator, *iobus, devid, config);
+    m_io_if = new IOInterface("io_if", *this, GetClock(), m_registerFile, m_allocator, *iobus, devid, config);
+
+    if (m_memory != NULL)
+        m_io_if->ConnectMemory(m_memory);
 
     MMIOComponent& async_if = m_io_if->GetAsyncIOInterface();
     async_if.Connect(m_mmio, IOMatchUnit::READWRITE, config);
@@ -511,26 +525,30 @@ unsigned int DRISC::GetNumSuspendedRegisters() const
 
 void DRISC::MapMemory(MemAddr address, MemSize size, ProcessID pid)
 {
-    m_memadmin.Reserve(address, size, pid,
-                       IMemory::PERM_READ | IMemory::PERM_WRITE |
-                       IMemory::PERM_DCA_READ | IMemory::PERM_DCA_WRITE);
+    assert(m_memadmin != NULL);
+    m_memadmin->Reserve(address, size, pid,
+                        IMemory::PERM_READ | IMemory::PERM_WRITE |
+                        IMemory::PERM_DCA_READ | IMemory::PERM_DCA_WRITE);
 }
 
 void DRISC::UnmapMemory(MemAddr address, MemSize size)
 {
+    assert(m_memadmin != NULL);
     // TODO: possibly check the size matches the reserved size
-    m_memadmin.Unreserve(address, size);
+    m_memadmin->Unreserve(address, size);
 }
 
 void DRISC::UnmapMemory(ProcessID pid)
 {
+    assert(m_memadmin != NULL);
     // TODO: possibly check the size matches the reserved size
-    m_memadmin.UnreserveAll(pid);
+    m_memadmin->UnreserveAll(pid);
 }
 
 bool DRISC::CheckPermissions(MemAddr address, MemSize size, int access) const
 {
-    bool mp = m_memadmin.CheckPermissions(address, size, access);
+    assert(m_memadmin != NULL);
+    bool mp = m_memadmin->CheckPermissions(address, size, access);
     if (!mp && (access & IMemory::PERM_READ) && (address & (1ULL << (sizeof(MemAddr) * 8 - 1))))
     {
         // we allow reads to the first cache line (64 bytes) of TLS to always succeed.
