@@ -154,7 +154,6 @@ void DRISC::Initialize()
     m_network.Initialize();
     if (m_io_if != NULL)
         m_io_if->Initialize();
-    InitializeRegisters();
 
     //
     // Set port priorities and connections on all components.
@@ -477,7 +476,10 @@ bool DRISC::Boot(MemAddr runAddress, bool legacy)
 {
     auto placeSize = GetGridSize();
 
-    COMMIT { m_allocator.AllocateInitialFamily(runAddress, legacy, placeSize, 0); }
+    COMMIT {
+        m_allocator.AllocateInitialFamily(runAddress, legacy, placeSize, 0);
+        InitializeRegisters();
+    }
     return true;
 }
 
