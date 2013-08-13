@@ -13,6 +13,7 @@
 #include "ActionInterface.h"
 #include "AncillaryRegisterFile.h"
 #include "PerfCounters.h"
+#include "MMUInterface.h"
 #include <array> // for RegisterFile
 
 class Config;
@@ -38,7 +39,6 @@ public:
 #include "DCache.h"
 #include "Pipeline.h"
 #include "Allocator.h"
-#include "MMUInterface.h"
 
     DRISC(const std::string& name, Object& parent, Clock& clock, PID pid, const std::vector<DRISC*>& grid, Config& config);
     DRISC(const DRISC&) = delete;
@@ -154,7 +154,7 @@ private:
     drisc::PerfCounters   m_perfcounters;
     drisc::DebugChannel   m_lpout;
     drisc::DebugChannel   m_lperr;
-    MMUInterface          m_mmu;
+    drisc::MMUInterface   m_mmu;
     drisc::ActionInterface m_action;
 
     // External I/O interface, optional

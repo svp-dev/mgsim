@@ -1,12 +1,14 @@
 #ifndef MMUINTERFACE_H
 #define MMUINTERFACE_H
 
+#include "IOMatchUnit.h"
 
-#ifndef PROCESSOR_H
-#error This file should be included in DRISC.h
-#endif
+namespace Simulator
+{
+namespace drisc
+{
 
-class MMUInterface : public drisc::MMIOComponent
+class MMUInterface : public MMIOComponent
 {
 public:
     MMUInterface(const std::string& name, Object& parent);
@@ -18,6 +20,7 @@ public:
 
 };
 
-
+}
+}
 
 #endif
