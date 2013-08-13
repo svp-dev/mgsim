@@ -566,7 +566,7 @@ bool DRISC::Allocator::DecreaseFamilyDependency(LFID fid, Family& family, Family
             ContextType context = m_familyTable.IsExclusive(fid) ? CONTEXT_EXCLUSIVE : CONTEXT_NORMAL;
 
             // Release registers
-            RegIndex indices[NUM_REG_TYPES];
+            std::array<RegIndex, NUM_REG_TYPES> indices;
             for (size_t i = 0; i < NUM_REG_TYPES; i++)
             {
                 indices[i] = family.regs[i].base;
@@ -751,7 +751,7 @@ bool DRISC::Allocator::AllocateRegisters(LFID fid, ContextType type)
     for (FSize physBlockSize = std::max<TSize>(1, family.physBlockSize); physBlockSize > 0; physBlockSize--)
     {
         // Calculate register requirements
-        RegSize sizes[NUM_REG_TYPES];
+        std::array<RegSize, NUM_REG_TYPES> sizes;
         for (size_t i = 0; i < NUM_REG_TYPES; i++)
         {
             const Family::RegInfo& regs = family.regs[i];
@@ -761,7 +761,7 @@ bool DRISC::Allocator::AllocateRegisters(LFID fid, ContextType type)
                      + regs.count.shareds; // Add the space for the initial/remote shareds
         }
 
-        RegIndex indices[NUM_REG_TYPES];
+        std::array<RegIndex, NUM_REG_TYPES> indices;
         if (m_raunit.Alloc(sizes, fid, type, indices))
         {
             // Success, we have registers for all types

@@ -32,13 +32,13 @@ public:
      *      only allocate the registers if all reserved contexts can remain available. If reserved is true,
      *      at least one reserved context worth of register is considered for allocation as well.
      */
-    bool Alloc(const RegSize size[NUM_REG_TYPES], LFID fid, ContextType context, RegIndex indices[NUM_REG_TYPES]);
+    bool Alloc(const std::array<RegSize, NUM_REG_TYPES>& size, LFID fid, ContextType context, std::array<RegIndex, NUM_REG_TYPES>& indices);
 
     /**
      * \brief Frees the allocated registers
      * \param indices[in] the base address of the allocate registers, as returned from Alloc.
      */
-    void Free(RegIndex indices[NUM_REG_TYPES], ContextType context);
+    void Free(const std::array<RegIndex, NUM_REG_TYPES>& indices, ContextType context);
 
     /// Returns the maximum number of contexts still available
     BlockSize GetNumFreeContexts(ContextType type) const;

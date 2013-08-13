@@ -100,7 +100,7 @@ void RAUnit::UnreserveContext()
     }
 }
 
-bool RAUnit::Alloc(const RegSize sizes[NUM_REG_TYPES], LFID fid, ContextType context, RegIndex indices[NUM_REG_TYPES])
+bool RAUnit::Alloc(const std::array<RegSize, NUM_REG_TYPES>& sizes, LFID fid, ContextType context, std::array<RegIndex, NUM_REG_TYPES>& indices)
 {
     BlockSize blocksizes[NUM_REG_TYPES];
 
@@ -194,7 +194,7 @@ bool RAUnit::Alloc(const RegSize sizes[NUM_REG_TYPES], LFID fid, ContextType con
     return true;
 }
 
-void RAUnit::Free(RegIndex indices[NUM_REG_TYPES], ContextType context)
+void RAUnit::Free(const std::array<RegIndex, NUM_REG_TYPES>& indices, ContextType context)
 {
     for (size_t i = 0; i < NUM_REG_TYPES; ++i)
     {
