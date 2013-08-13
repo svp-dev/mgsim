@@ -1,16 +1,14 @@
-#include "DRISC.h"
+#include "IOMatchUnit.h"
 #include <sim/config.h>
 #include <iomanip>
 
 namespace Simulator
 {
 
-DRISC& DRISC::IOMatchUnit::GetDRISC() const
+namespace drisc
 {
-    return *static_cast<DRISC*>(GetParent());
-}
 
-void DRISC::MMIOComponent::Connect(IOMatchUnit& mmio, IOMatchUnit::AccessMode mode, Config& config)
+void MMIOComponent::Connect(IOMatchUnit& mmio, IOMatchUnit::AccessMode mode, Config& config)
 {
     // we allow the base address to be set to zero to indicate it should not be mapped.
     MemAddr base = config.getValueOrDefault<MemAddr>(*this, "MMIO_BaseAddr", 0);
@@ -25,7 +23,7 @@ void DRISC::MMIOComponent::Connect(IOMatchUnit& mmio, IOMatchUnit::AccessMode mo
 }
 
 void
-DRISC::IOMatchUnit::RegisterComponent(MemAddr address, AccessMode mode, MMIOComponent& component)
+IOMatchUnit::RegisterComponent(MemAddr address, AccessMode mode, MMIOComponent& component)
 {
     MemSize size = component.GetSize();
     assert(size > 0);
@@ -61,8 +59,8 @@ DRISC::IOMatchUnit::RegisterComponent(MemAddr address, AccessMode mode, MMIOComp
     m_ranges.insert(p, std::make_pair(address, ci));
 }
 
-DRISC::IOMatchUnit::RangeMap::const_iterator
-DRISC::IOMatchUnit::FindInterface(MemAddr address, MemSize size) const
+IOMatchUnit::RangeMap::const_iterator
+IOMatchUnit::FindInterface(MemAddr address, MemSize size) const
 {
     RangeMap::const_iterator p = m_ranges.lower_bound(address);
     if (p != m_ranges.begin() && (p == m_ranges.end() || p->first > address))
@@ -81,21 +79,21 @@ DRISC::IOMatchUnit::FindInterface(MemAddr address, MemSize size) const
     }
 }
 
-bool DRISC::IOMatchUnit::IsRegisteredReadAddress(MemAddr address, MemSize size) const
+bool IOMatchUnit::IsRegisteredReadAddress(MemAddr address, MemSize size) const
 {
     RangeMap::const_iterator interface = FindInterface(address, size);
     return (interface != m_ranges.end() &&
             ((int)interface->second.mode & 1) != 0);
 }
 
-bool DRISC::IOMatchUnit::IsRegisteredWriteAddress(MemAddr address, MemSize size) const
+bool IOMatchUnit::IsRegisteredWriteAddress(MemAddr address, MemSize size) const
 {
     RangeMap::const_iterator interface = FindInterface(address, size);
     return (interface != m_ranges.end() &&
             ((int)interface->second.mode & 2) != 0);
 }
 
-Result DRISC::IOMatchUnit::Read (MemAddr address, void* data, MemSize size, LFID fid, TID tid, const RegAddr& writeback)
+Result IOMatchUnit::Read (MemAddr address, void* data, MemSize size, LFID fid, TID tid, const RegAddr& writeback)
 {
     RangeMap::const_iterator interface = FindInterface(address, size);
     assert(interface != m_ranges.end());
@@ -107,7 +105,7 @@ Result DRISC::IOMatchUnit::Read (MemAddr address, void* data, MemSize size, LFID
     return interface->second.component->Read(offset, data, size, fid, tid, writeback);
 }
 
-Result DRISC::IOMatchUnit::Write(MemAddr address, const void* data, MemSize size, LFID fid, TID tid)
+Result IOMatchUnit::Write(MemAddr address, const void* data, MemSize size, LFID fid, TID tid)
 {
     RangeMap::const_iterator interface = FindInterface(address, size);
     assert(interface != m_ranges.end());
@@ -119,7 +117,7 @@ Result DRISC::IOMatchUnit::Write(MemAddr address, const void* data, MemSize size
     return interface->second.component->Write(offset, data, size, fid, tid);
 }
 
-void DRISC::IOMatchUnit::Cmd_Info(std::ostream& out, const std::vector<std::string>& /*arguments*/) const
+void IOMatchUnit::Cmd_Info(std::ostream& out, const std::vector<std::string>& /*arguments*/) const
 {
     out <<
         "The memory-mapped I/O interface intercepts memory operations at the memory stage\n"
@@ -160,13 +158,14 @@ void DRISC::IOMatchUnit::Cmd_Info(std::ostream& out, const std::vector<std::stri
     }
 }
 
-DRISC::IOMatchUnit::IOMatchUnit(const std::string& name, DRISC& parent, Clock& clock)
+IOMatchUnit::IOMatchUnit(const std::string& name, Object& parent, Clock& clock)
     : Object(name, parent, clock), m_ranges()
 {
 }
 
-DRISC::MMIOComponent::MMIOComponent(const std::string& name, Object& parent, Clock& clock)
+MMIOComponent::MMIOComponent(const std::string& name, Object& parent, Clock& clock)
     : Object(name, parent, clock)
 { }
 
+}
 }

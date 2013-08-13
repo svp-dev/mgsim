@@ -31,7 +31,7 @@ Result DRISC::MMUInterface::Write(MemAddr address, const void *data, MemSize siz
         throw exceptf<SimulationException>(*this, "Invalid MMU configuration access: %#016llx (%u)", (unsigned long long)address, (unsigned)size);
     }
 
-    
+
     Integer value = UnserializeRegister(RT_INTEGER, data, size);
 
     address /= sizeof(Integer);
@@ -71,7 +71,7 @@ Result DRISC::MMUInterface::Write(MemAddr address, const void *data, MemSize siz
 }
 
 DRISC::MMUInterface::MMUInterface(const std::string& name, Object& parent)
-    : DRISC::MMIOComponent(name, parent, parent.GetClock())
+    : drisc::MMIOComponent(name, parent, parent.GetClock())
 {
 }
 

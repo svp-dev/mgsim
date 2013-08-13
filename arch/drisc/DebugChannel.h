@@ -6,7 +6,7 @@
 #error This file should be included in DRISC.h
 #endif
 
-class DebugChannel : public MMIOComponent
+class DebugChannel : public drisc::MMIOComponent
 {
     std::ostream&  m_output;
     unsigned       m_floatprecision;

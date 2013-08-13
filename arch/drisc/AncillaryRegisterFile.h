@@ -17,7 +17,7 @@
 
 typedef size_t ARAddr;
 
-class AncillaryRegisterFile : public MMIOComponent, public Inspect::Interface<Inspect::Read|Inspect::Info>
+class AncillaryRegisterFile : public drisc::MMIOComponent, public Inspect::Interface<Inspect::Read|Inspect::Info>
 {
     const size_t                  m_numRegisters;
     std::vector<Integer>          m_registers;

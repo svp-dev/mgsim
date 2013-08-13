@@ -1,9 +1,18 @@
 #ifndef IOMATCHUNIT_H
 #define IOMATCHUNIT_H
 
-#ifndef PROCESSOR_H
-#error This file should be included in DRISC.h
-#endif
+#include <sim/kernel.h>
+#include <sim/inspect.h>
+#include <arch/simtypes.h>
+#include <map>
+
+class Config;
+
+namespace Simulator {
+
+class DRISC;
+
+namespace drisc {
 
 class MMIOComponent;
 
@@ -31,9 +40,7 @@ protected:
     RangeMap::const_iterator FindInterface(MemAddr address, MemSize size) const;
 
 public:
-    IOMatchUnit(const std::string& name, DRISC& parent, Clock& clock);
-
-    DRISC& GetDRISC() const;
+    IOMatchUnit(const std::string& name, Object& parent, Clock& clock);
 
     bool IsRegisteredReadAddress(MemAddr address, MemSize size) const;
     bool IsRegisteredWriteAddress(MemAddr address, MemSize size) const;
@@ -65,7 +72,8 @@ public:
     virtual ~MMIOComponent() {};
 };
 
-
+}
+}
 
 
 #endif

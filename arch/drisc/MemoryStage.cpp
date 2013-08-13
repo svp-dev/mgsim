@@ -47,7 +47,7 @@ DRISC::Pipeline::PipeAction DRISC::Pipeline::MemoryStage::OnCycle()
 
                 SerializeRegister(m_input.Rc.type, value, data, (size_t)m_input.size);
 
-                IOMatchUnit& mmio = m_parent.GetDRISC().GetIOMatchUnit();
+                auto& mmio = m_parent.GetDRISC().GetIOMatchUnit();
                 if (mmio.IsRegisteredWriteAddress(m_input.address, m_input.size))
                 {
                     result = mmio.Write(m_input.address, data, m_input.size, m_input.fid, m_input.tid);
@@ -139,7 +139,7 @@ DRISC::Pipeline::PipeAction DRISC::Pipeline::MemoryStage::OnCycle()
                     char data[MAX_MEMORY_OPERATION_SIZE];
                     RegAddr reg = m_input.Rc;
 
-                    IOMatchUnit& mmio = m_parent.GetDRISC().GetIOMatchUnit();
+                    auto& mmio = m_parent.GetDRISC().GetIOMatchUnit();
                     if (mmio.IsRegisteredReadAddress(m_input.address, m_input.size))
                     {
                         result = mmio.Read(m_input.address, data, m_input.size, m_input.fid, m_input.tid, m_input.Rc);

@@ -1,12 +1,11 @@
 #ifndef ACTIONINTERFACE_H
 #define ACTIONINTERFACE_H
 
-
 #ifndef PROCESSOR_H
 #error This file should be included in DRISC.h
 #endif
 
-class ActionInterface : public MMIOComponent
+class ActionInterface : public drisc::MMIOComponent
 {
 public:
     ActionInterface(const std::string& name, Object& parent);

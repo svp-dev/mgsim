@@ -91,7 +91,7 @@ Result DRISC::ActionInterface::Write(MemAddr address, const void *data, MemSize 
 }
 
 DRISC::ActionInterface::ActionInterface(const std::string& name, Object& parent)
-    : DRISC::MMIOComponent(name, parent, parent.GetClock())
+    : drisc::MMIOComponent(name, parent, parent.GetClock())
 {
 }
 

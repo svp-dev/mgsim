@@ -70,7 +70,7 @@ Result DRISC::DebugChannel::Write(MemAddr address, const void *data, MemSize siz
 }
 
 DRISC::DebugChannel::DebugChannel(const std::string& name, Object& parent, std::ostream& output)
-    : DRISC::MMIOComponent("debug_" + name, parent, parent.GetClock()),
+    : drisc::MMIOComponent("debug_" + name, parent, parent.GetClock()),
       m_output(output),
       m_floatprecision(6)
 {

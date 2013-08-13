@@ -6,7 +6,7 @@
 #error This file should be included in DRISC.h
 #endif
 
-class MMUInterface : public MMIOComponent
+class MMUInterface : public drisc::MMIOComponent
 {
 public:
     MMUInterface(const std::string& name, Object& parent);

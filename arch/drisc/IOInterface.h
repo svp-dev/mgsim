@@ -13,7 +13,7 @@
 class IOInterface : public Object, public Inspect::Interface<Inspect::Info>
 {
 public:
-    class AsyncIOInterface : public MMIOComponent, public Inspect::Interface<Inspect::Info>
+    class AsyncIOInterface : public drisc::MMIOComponent, public Inspect::Interface<Inspect::Info>
     {
     private:
         MemAddr                 m_baseAddr;
@@ -35,7 +35,7 @@ public:
         MemAddr GetDeviceBaseAddress(IODeviceID dev) const;
     };
 
-    class PNCInterface : public MMIOComponent, public Inspect::Interface<Inspect::Info>
+    class PNCInterface : public drisc::MMIOComponent, public Inspect::Interface<Inspect::Info>
     {
     private:
         MemAddr                 m_baseAddr;
@@ -81,8 +81,8 @@ public:
     IOInterface(const std::string& name, DRISC& parent, Clock& clock, RegisterFile& rf, Allocator& alloc, IIOBus& iobus, IODeviceID devid, Config& config);
     void ConnectMemory(IMemory* memory);
 
-    MMIOComponent& GetAsyncIOInterface() { return m_async_io; }
-    MMIOComponent& GetPNCInterface() { return m_pnc; }
+    drisc::MMIOComponent& GetAsyncIOInterface() { return m_async_io; }
+    drisc::MMIOComponent& GetPNCInterface() { return m_pnc; }
 
     IOResponseMultiplexer& GetReadResponseMultiplexer() { return m_rrmux; }
     IONotificationMultiplexer& GetNotificationMultiplexer() { return m_nmux; }

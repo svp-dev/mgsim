@@ -5,7 +5,7 @@
 #error This file should be included in DRISC.h
 #endif
 
-class PerfCounters : public MMIOComponent
+class PerfCounters : public drisc::MMIOComponent
 {
     class Helpers;
     friend class DRISC;

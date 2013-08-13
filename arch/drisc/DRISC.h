@@ -8,6 +8,7 @@
 #include <arch/BankSelector.h>
 #include <arch/FPU.h>
 #include "RAUnit.h"
+#include "IOMatchUnit.h"
 
 class Config;
 
@@ -28,7 +29,6 @@ public:
 #include "RegisterFile.h"
 #include "Network.h"
 #include "ICache.h"
-#include "IOMatchUnit.h"
 #include "IOInterface.h"
 #include "DebugChannel.h"
 #include "DCache.h"
@@ -65,7 +65,7 @@ public:
 
 
     Pipeline& GetPipeline() { return m_pipeline; }
-    IOMatchUnit& GetIOMatchUnit() { return m_mmio; }
+    drisc::IOMatchUnit& GetIOMatchUnit() { return m_mmio; }
 
     float GetRegFileAsyncPortActivity() const {
         return (float)m_registerFile.p_asyncW.GetBusyCycles() / (float)GetCycleNo();
@@ -147,7 +147,7 @@ private:
     Network               m_network;
 
     // Local MMIO devices
-    IOMatchUnit           m_mmio;
+    drisc::IOMatchUnit    m_mmio;
     AncillaryRegisterFile m_apr_file;
     AncillaryRegisterFile m_asr_file;
     PerfCounters          m_perfcounters;

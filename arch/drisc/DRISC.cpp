@@ -12,6 +12,8 @@ using namespace std;
 namespace Simulator
 {
 
+using namespace drisc;
+
 //
 // DRISC implementation
 //
