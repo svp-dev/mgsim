@@ -94,17 +94,11 @@ static string GetClassName(const type_info& info)
 {
     const char* name = info.name();
 
-    // __cxa_demangle requires an output buffer
-    // allocated with malloc(). Provide it.
-    size_t len = 1024;
-    char *buf = (char*)malloc(len);
-    assert(buf != 0);
-
     int status = 0;
     char *res = 0;
 
 #ifdef HAVE_GCC_ABI_DEMANGLE
-    res = abi::__cxa_demangle(name, buf, &len, &status);
+    res = abi::__cxa_demangle(name, NULL, NULL, &status);
 #endif
 
     if (res && status == 0)
@@ -115,8 +109,6 @@ static string GetClassName(const type_info& info)
     }
     else
     {
-        if (res) free(res);
-        else free(buf);
         return name;
     }
 }
