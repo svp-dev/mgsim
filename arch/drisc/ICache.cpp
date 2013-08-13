@@ -52,7 +52,7 @@ DRISC::ICache::ICache(const std::string& name, DRISC& parent, Clock& clock, Allo
     m_incoming.Sensitive( p_Incoming );
 
     // These things must be powers of two
-    if (!IsPowerOfTwo(m_assoc))
+    if (m_assoc == 0 || !IsPowerOfTwo(m_assoc))
     {
         throw exceptf<InvalidArgumentException>(*this, "Associativity = %zd is not a power of two", m_assoc);
     }
