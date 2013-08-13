@@ -504,16 +504,28 @@ void MGSystem::Step(CycleNo nCycles)
 {
     m_breakpoints.Resume();
     RunState state = GetKernel().Step(nCycles);
-    if (state == STATE_IDLE)
+    switch(state)
     {
+    case STATE_ABORTED:
+        if (m_breakpoints.NewBreaksDetected())
+        {
+            ostringstream ss;
+            m_breakpoints.ReportBreaks(ss);
+            throw runtime_error(ss.str());
+        }
+        else
+            // The simulation was aborted, because the user interrupted it.
+            throw runtime_error("Interrupted!");
+        break;
+
+    case STATE_IDLE:
         // An idle state might actually be deadlock if there's a
         // suspended thread.  So check all cores to see if they're
         // really done.
         for (DRISC* p : m_procs)
             if (!p->IsIdle())
             {
-                state = STATE_DEADLOCK;
-                break;
+                goto deadlock;
             }
 
         // If all cores are done, but there are still some remaining
@@ -523,24 +535,24 @@ void MGSystem::Step(CycleNo nCycles)
         // either there are no processes at all, or they are all
         // stalled. Deadlock only exists in the latter case, so
         // we only check for the existence of an active process.
-        if (state != STATE_DEADLOCK)
-            for (const Clock* clock = m_kernel.GetActiveClocks(); clock != NULL; clock = clock->GetNext())
+        for (const Clock* clock = m_kernel.GetActiveClocks(); clock != NULL; clock = clock->GetNext())
+        {
+            if (clock->GetActiveProcesses() != NULL)
             {
-                if (clock->GetActiveProcesses() != NULL)
-                {
-                    state = STATE_DEADLOCK;
-                    break;
-                }
+                goto deadlock;
             }
-    }
+        }
 
-    if (state == STATE_DEADLOCK)
+        break;
+
+    case STATE_DEADLOCK:
+    deadlock:
     {
         cerr << "Deadlock at cycle " << GetKernel().GetCycleNo() << "; replaying the last cycle:" << endl;
 
         int savemode = GetDebugMode();
         SetDebugMode(-1);
-        state = GetKernel().Step(1);
+        (void) GetKernel().Step(1);
         SetDebugMode(savemode);
 
         ostringstream ss;
@@ -585,20 +597,13 @@ void MGSystem::Step(CycleNo nCycles)
            << "(" << num_stalled << " processes stalled;  " << num_running << " processes running; "
            << num_regs << " registers waited on)";
         throw DeadlockException(ss.str());
+        UNREACHABLE;
     }
 
-    if (state == STATE_ABORTED)
-    {
-        if (m_breakpoints.NewBreaksDetected())
-        {
-            ostringstream ss;
-            m_breakpoints.ReportBreaks(ss);
-            throw runtime_error(ss.str());
-        }
-        else
-            // The simulation was aborted, because the user interrupted it.
-            throw runtime_error("Interrupted!");
+    default:
+        break;
     }
+
 }
 
 void MGSystem::Disassemble(MemAddr addr, size_t sz) const
