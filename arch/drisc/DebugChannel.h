@@ -1,11 +1,8 @@
 #ifndef DEBUGCHANNEL_H
 #define DEBUGCHANNEL_H
 
-#include <sim/kernel.h>
-#include <arch/simtypes.h>
-#include <iostream>
-
 #include "IOMatchUnit.h"
+#include <iostream>
 
 namespace Simulator
 {

@@ -1,9 +1,6 @@
 #ifndef ANCILLARYREGISTERFILE_H
 #define ANCILLARYREGISTERFILE_H
 
-#include <sim/kernel.h>
-#include <arch/simtypes.h>
-
 #include "IOMatchUnit.h"
 
 namespace Simulator
