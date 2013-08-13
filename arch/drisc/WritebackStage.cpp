@@ -311,7 +311,7 @@ DRISC::Pipeline::WritebackStage::WritebackStage(Pipeline& parent, Clock& clock,
                                                 const MemoryWritebackLatch& input,
                                                 drisc::RegisterFile& regFile,
                                                 Allocator& alloc,
-                                                ThreadTable& threadTable,
+                                                drisc::ThreadTable& threadTable,
                                                 Network& network,
                                                 Config& /*config*/)
   : Stage("writeback", parent, clock),

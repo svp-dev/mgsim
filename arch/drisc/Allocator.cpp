@@ -81,10 +81,10 @@ TID DRISC::Allocator::GetRegisterType(LFID fid, RegAddr addr, RegClass* group, s
 
     for (TID i = 0; i < m_threadTable.GetNumThreads(); ++i)
     {
-        const Thread& thread = m_threadTable[i];
+        auto& thread = m_threadTable[i];
         if (thread.state != TST_EMPTY && thread.family == fid)
         {
-            const Thread::RegInfo& tregs = m_threadTable[i].regs[addr.type];
+            auto& tregs = m_threadTable[i].regs[addr.type];
             if (tregs.locals != INVALID_REG_INDEX && addr.index >= tregs.locals && addr.index < tregs.locals + regs.count.locals) {
                 *group = RC_LOCAL;
                 *rel = addr.index - tregs.locals;
@@ -212,7 +212,7 @@ bool DRISC::Allocator::ActivateThreads(const ThreadQueue& threads)
 //
 bool DRISC::Allocator::KillThread(TID tid)
 {
-    Thread& thread = m_threadTable[tid];
+    auto& thread = m_threadTable[tid];
     assert(thread.state == TST_RUNNING);
 
     if (!m_icache.ReleaseCacheLine(thread.cid))
@@ -242,7 +242,7 @@ bool DRISC::Allocator::KillThread(TID tid)
 //
 bool DRISC::Allocator::RescheduleThread(TID tid, MemAddr pc)
 {
-    Thread& thread = m_threadTable[tid];
+    auto& thread = m_threadTable[tid];
     assert(thread.state == TST_RUNNING);
 
     // Save the (possibly overriden) program counter
@@ -278,7 +278,7 @@ bool DRISC::Allocator::RescheduleThread(TID tid, MemAddr pc)
 //
 bool DRISC::Allocator::SuspendThread(TID tid, MemAddr pc)
 {
-    Thread& thread = m_threadTable[tid];
+    auto& thread = m_threadTable[tid];
     assert(thread.state == TST_RUNNING);
 
     if (!m_icache.ReleaseCacheLine(thread.cid))
@@ -304,7 +304,7 @@ bool DRISC::Allocator::AllocateThread(LFID fid, TID tid, bool isNewlyAllocated)
 {
     // Work on a copy unless we're committing
     drisc::Family tmp_family; drisc::Family* family = &tmp_family;
-    Thread tmp_thread; Thread* thread = &tmp_thread;
+    drisc::Thread tmp_thread; drisc::Thread* thread = &tmp_thread;
     if (IsCommitting())
     {
         family = &m_familyTable[fid];
@@ -593,9 +593,9 @@ bool DRISC::Allocator::OnMemoryRead(LFID fid)
 bool DRISC::Allocator::DecreaseThreadDependency(TID tid, ThreadDependency dep)
 {
     // We work on a copy unless we're committing
-    Thread::Dependencies tmp_deps;
-    Thread::Dependencies* deps = &tmp_deps;
-    Thread& thread = m_threadTable[tid];
+    drisc::Thread::Dependencies tmp_deps;
+    drisc::Thread::Dependencies* deps = &tmp_deps;
+    auto& thread = m_threadTable[tid];
     if (IsCommitting()) {
         deps = &thread.dependencies;
     } else {
@@ -643,7 +643,7 @@ bool DRISC::Allocator::IncreaseThreadDependency(TID tid, ThreadDependency dep)
 {
     COMMIT
     {
-        Thread::Dependencies& deps = m_threadTable[tid].dependencies;
+        auto& deps = m_threadTable[tid].dependencies;
         switch (dep)
         {
         case THREADDEP_OUTSTANDING_WRITES: deps.numPendingWrites++; break;
@@ -838,7 +838,7 @@ Result DRISC::Allocator::DoThreadAllocate()
     if (!m_cleanup.Empty())
     {
         TID     tid    = m_cleanup.Front();
-        Thread& thread = m_threadTable[tid];
+        auto&   thread = m_threadTable[tid];
         LFID    fid    = thread.family;
         auto&   family = m_familyTable[fid];
 
@@ -1850,7 +1850,7 @@ Result DRISC::Allocator::DoThreadActivation()
     COMMIT{ --m_numThreadsPerState[TST_READY]; }
 
     {
-        Thread& thread = m_threadTable[tid];
+        auto& thread = m_threadTable[tid];
 
         // This thread doesn't have a Thread Instruction Buffer yet,
         // so try to get the cache line
@@ -1946,7 +1946,7 @@ void DRISC::Allocator::CalculateDistribution(drisc::Family& family, Integer nThr
 }
 
 DRISC::Allocator::Allocator(const string& name, DRISC& parent, Clock& clock,
-                            drisc::FamilyTable& familyTable, ThreadTable& threadTable,
+                            drisc::FamilyTable& familyTable, drisc::ThreadTable& threadTable,
                             drisc::RegisterFile& registerFile, drisc::RAUnit& raunit,
                             ICache& icache, DCache& dcache,
                             Network& network,

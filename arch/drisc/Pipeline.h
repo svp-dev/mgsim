@@ -80,7 +80,7 @@ class Pipeline : public Object, public Inspect::Interface<Inspect::Read>
         struct
         {
             drisc::Family::RegInfo family;
-            Thread::RegInfo thread;
+            drisc::Thread::RegInfo thread;
         } types[NUM_REG_TYPES];
     };
 
@@ -250,7 +250,7 @@ class Pipeline : public Object, public Inspect::Interface<Inspect::Read>
         FetchDecodeLatch& m_output;
         Allocator&        m_allocator;
         drisc::FamilyTable& m_familyTable;
-        ThreadTable&      m_threadTable;
+        drisc::ThreadTable& m_threadTable;
         ICache&           m_icache;
         size_t            m_controlBlockSize;
         char*             m_buffer;
@@ -264,7 +264,7 @@ class Pipeline : public Object, public Inspect::Interface<Inspect::Read>
                    FetchDecodeLatch& output,
                    Allocator& allocator,
                    drisc::FamilyTable& familyTable,
-                   ThreadTable& threadTable,
+                   drisc::ThreadTable& threadTable,
                    ICache &icache,
                    Config& config);
         FetchStage(const FetchStage&) = delete;
@@ -340,7 +340,7 @@ class Pipeline : public Object, public Inspect::Interface<Inspect::Read>
         ExecuteMemoryLatch&     m_output;
         Allocator&              m_allocator;
         drisc::FamilyTable&     m_familyTable;
-        ThreadTable&            m_threadTable;
+        drisc::ThreadTable&     m_threadTable;
         FPU*                    m_fpu;
         size_t                  m_fpuSource;    // Which input are we to the FPU?
         uint64_t                m_flop;         // FP operations
@@ -396,7 +396,7 @@ class Pipeline : public Object, public Inspect::Interface<Inspect::Read>
                      ExecuteMemoryLatch& output,
                      Allocator& allocator,
                      drisc::FamilyTable& familyTable,
-                     ThreadTable& threadTable,
+                     drisc::ThreadTable& threadTable,
                      Config& config);
         ExecuteStage(const ExecuteStage&) = delete;
         ExecuteStage& operator=(const ExecuteStage&) = delete;
@@ -440,13 +440,13 @@ class Pipeline : public Object, public Inspect::Interface<Inspect::Read>
         bool                        m_stall;
         drisc::RegisterFile&        m_regFile;
         Allocator&                  m_allocator;
-        ThreadTable&                m_threadTable;
+        drisc::ThreadTable&         m_threadTable;
         Network&                    m_network;
         int                         m_writebackOffset; // For multiple-cycle writebacks
 
         PipeAction OnCycle();
     public:
-        WritebackStage(Pipeline& parent, Clock& clock, const MemoryWritebackLatch& input, drisc::RegisterFile& regFile, Allocator& allocator, ThreadTable& threadTable, Network& network, Config& config);
+        WritebackStage(Pipeline& parent, Clock& clock, const MemoryWritebackLatch& input, drisc::RegisterFile& regFile, Allocator& allocator, drisc::ThreadTable& threadTable, Network& network, Config& config);
     };
 
     void PrintLatchCommon(std::ostream& out, const CommonData& latch) const;
@@ -458,7 +458,7 @@ public:
              Network& network,
              Allocator& allocator,
              drisc::FamilyTable& familyTable,
-             ThreadTable& threadTable,
+             drisc::ThreadTable& threadTable,
              ICache& icache,
              DCache& dcache,
              Config& config);

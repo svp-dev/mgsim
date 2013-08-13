@@ -16,6 +16,7 @@
 #include "MMUInterface.h"
 #include "RegisterFile.h"
 #include "FamilyTable.h"
+#include "ThreadTable.h"
 
 class Config;
 
@@ -31,7 +32,6 @@ class DRISC : public Object
 public:
     class Allocator;
 
-#include "ThreadTable.h"
 #include "Network.h"
 #include "ICache.h"
 #include "IOInterface.h"
@@ -137,7 +137,7 @@ private:
 
     // The components on the core
     drisc::FamilyTable    m_familyTable;
-    ThreadTable           m_threadTable;
+    drisc::ThreadTable    m_threadTable;
     drisc::RegisterFile   m_registerFile;
     drisc::RAUnit         m_raunit;
     Allocator             m_allocator;

@@ -1,9 +1,19 @@
 #ifndef THREADTABLE_H
 #define THREADTABLE_H
 
-#ifndef PROCESSOR_H
-#error This file should be included in DRISC.h
-#endif
+#include <sim/kernel.h>
+#include <sim/inspect.h>
+#include <arch/simtypes.h>
+#include <vector>
+
+class Config;
+
+namespace Simulator
+{
+class DRISC;
+
+namespace drisc
+{
 
 struct Thread
 {
@@ -84,7 +94,7 @@ public:
     TSize GetNumThreads() const { return m_threads.size(); }
 
     typedef Thread value_type;
-          Thread& operator[](TID index)       { return m_threads[index]; }
+    Thread& operator[](TID index) { return m_threads[index]; }
     const Thread& operator[](TID index) const { return m_threads[index]; }
 
     TID   PopEmpty(ContextType type);
@@ -117,5 +127,7 @@ private:
     void CheckStateSanity() const;
 };
 
-#endif
+}
+}
 
+#endif

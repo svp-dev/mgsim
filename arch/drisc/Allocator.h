@@ -31,7 +31,7 @@ class Allocator : public Object, public Inspect::Interface<Inspect::Read>
     friend class DRISC;
 
 public:
-    typedef LinkedList< TID, ThreadTable, &Thread::next> ThreadList;
+    typedef LinkedList< TID, drisc::ThreadTable, &drisc::Thread::next> ThreadList;
 
     struct AllocRequest
     {
@@ -78,7 +78,7 @@ public:
     };
 
     Allocator(const std::string& name, DRISC& parent, Clock& clock,
-              drisc::FamilyTable& familyTable, ThreadTable& threadTable,
+              drisc::FamilyTable& familyTable, drisc::ThreadTable& threadTable,
               drisc::RegisterFile& registerFile, drisc::RAUnit& raunit,
               ICache& icache, DCache& dcache,
               Network& network,
@@ -170,7 +170,7 @@ private:
 
     DRISC&    m_parent;
     drisc::FamilyTable&  m_familyTable;
-    ThreadTable&  m_threadTable;
+    drisc::ThreadTable&  m_threadTable;
     drisc::RegisterFile& m_registerFile;
     drisc::RAUnit& m_raunit;
     ICache&       m_icache;

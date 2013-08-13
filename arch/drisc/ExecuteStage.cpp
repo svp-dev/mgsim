@@ -35,7 +35,7 @@ RegValue DRISC::Pipeline::ExecuteStage::PipeValueToRegValue(RegType type, const 
 
 bool DRISC::Pipeline::ExecuteStage::MemoryWriteBarrier(TID tid) const
 {
-    Thread& thread = m_threadTable[tid];
+    auto& thread = m_threadTable[tid];
     if (thread.dependencies.numPendingWrites != 0)
     {
         // There are pending writes, we need to wait for them
@@ -566,7 +566,7 @@ DRISC::Pipeline::ExecuteStage::ExecuteStage(Pipeline& parent, Clock& clock,
                                             ExecuteMemoryLatch& output,
                                             Allocator& alloc,
                                             drisc::FamilyTable& familyTable,
-                                            ThreadTable& threadTable,
+                                            drisc::ThreadTable& threadTable,
                                             Config& /*config*/)
   : Stage("execute", parent, clock),
     m_input(input),

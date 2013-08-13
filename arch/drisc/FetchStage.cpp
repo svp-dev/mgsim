@@ -32,7 +32,7 @@ DRISC::Pipeline::PipeAction DRISC::Pipeline::FetchStage::OnCycle()
         }
 
         // Read its information from the Family and Thread Tables
-        Thread& thread = m_threadTable[tid];
+        auto& thread = m_threadTable[tid];
         auto& family = m_familyTable[thread.family];
 
         pc = thread.pc;
@@ -148,7 +148,7 @@ DRISC::Pipeline::FetchStage::FetchStage(Pipeline& parent, Clock& clock,
                                         FetchDecodeLatch& output,
                                         Allocator& alloc,
                                         drisc::FamilyTable& familyTable,
-                                        ThreadTable& threadTable,
+                                        drisc::ThreadTable& threadTable,
                                         ICache& icache,
                                         Config& config)
   : Stage("fetch", parent, clock),
