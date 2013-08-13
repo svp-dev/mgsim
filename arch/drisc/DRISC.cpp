@@ -508,7 +508,7 @@ bool DRISC::IsIdle() const
 unsigned int DRISC::GetNumSuspendedRegisters() const
 {
     unsigned int num = 0;
-    for (size_t i = 0; i < NUM_PHY_REG_TYPES; ++i)
+    for (size_t i = 0; i < NUM_REG_TYPES; ++i)
     {
         RegSize size = m_registerFile.GetSize((RegType)i);
         for (RegIndex r = 0; r < size; ++r)

@@ -231,12 +231,6 @@ struct MultiInteger
     MultiInteger& operator=(uint64_t v) { set(v, sizeof(Integer)); return *this; }
 };
 
-/*
-typedef unsigned int RegType;
-static const RegType RT_INTEGER    = 0;
-static const RegType RT_FLOAT      = 1;
-static const RegType NUM_REG_TYPES = 2;
-*/
 enum RegType
 {
     RT_INTEGER = 0,
@@ -245,9 +239,6 @@ enum RegType
 /* NUM_REG_TYPES is for "value" registers used in computations
    and communication */
 static const RegType NUM_REG_TYPES = (RegType)(RT_FLOAT + 1);
-/* NUM_PHY_REG_TYPES may include "special" registers used
-   for synchronization */
-static const RegType NUM_PHY_REG_TYPES = (RegType)(RT_FLOAT + 1);
 
 // These fields only have to be 5 bits wide
 struct RegsNo
