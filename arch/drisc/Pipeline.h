@@ -79,7 +79,7 @@ class Pipeline : public Object, public Inspect::Interface<Inspect::Read>
     {
         struct
         {
-            Family::RegInfo family;
+            drisc::Family::RegInfo family;
             Thread::RegInfo thread;
         } types[NUM_REG_TYPES];
     };
@@ -249,7 +249,7 @@ class Pipeline : public Object, public Inspect::Interface<Inspect::Read>
     {
         FetchDecodeLatch& m_output;
         Allocator&        m_allocator;
-        FamilyTable&      m_familyTable;
+        drisc::FamilyTable& m_familyTable;
         ThreadTable&      m_threadTable;
         ICache&           m_icache;
         size_t            m_controlBlockSize;
@@ -260,7 +260,13 @@ class Pipeline : public Object, public Inspect::Interface<Inspect::Read>
         void Clear(TID tid);
         PipeAction OnCycle();
     public:
-        FetchStage(Pipeline& parent, Clock& clock, FetchDecodeLatch& output, Allocator& allocator, FamilyTable& familyTable, ThreadTable& threadTable, ICache &icache, Config& config);
+        FetchStage(Pipeline& parent, Clock& clock,
+                   FetchDecodeLatch& output,
+                   Allocator& allocator,
+                   drisc::FamilyTable& familyTable,
+                   ThreadTable& threadTable,
+                   ICache &icache,
+                   Config& config);
         FetchStage(const FetchStage&) = delete;
         FetchStage& operator=(const FetchStage&) = delete;
         ~FetchStage();
@@ -333,7 +339,7 @@ class Pipeline : public Object, public Inspect::Interface<Inspect::Read>
         const ReadExecuteLatch& m_input;
         ExecuteMemoryLatch&     m_output;
         Allocator&              m_allocator;
-        FamilyTable&            m_familyTable;
+        drisc::FamilyTable&     m_familyTable;
         ThreadTable&            m_threadTable;
         FPU*                    m_fpu;
         size_t                  m_fpuSource;    // Which input are we to the FPU?
@@ -385,7 +391,13 @@ class Pipeline : public Object, public Inspect::Interface<Inspect::Read>
     public:
         size_t GetFPUSource() const { return m_fpuSource; }
 
-        ExecuteStage(Pipeline& parent, Clock& clock, const ReadExecuteLatch& input, ExecuteMemoryLatch& output, Allocator& allocator, FamilyTable& familyTable, ThreadTable& threadTable, Config& config);
+        ExecuteStage(Pipeline& parent, Clock& clock,
+                     const ReadExecuteLatch& input,
+                     ExecuteMemoryLatch& output,
+                     Allocator& allocator,
+                     drisc::FamilyTable& familyTable,
+                     ThreadTable& threadTable,
+                     Config& config);
         ExecuteStage(const ExecuteStage&) = delete;
         ExecuteStage& operator=(const ExecuteStage&) = delete;
         void ConnectFPU(FPU* fpu, size_t fpu_source);
@@ -441,7 +453,15 @@ class Pipeline : public Object, public Inspect::Interface<Inspect::Read>
     static std::string MakePipeValue(const RegType& type, const PipeValue& value);
 
 public:
-    Pipeline(const std::string& name, DRISC& parent, Clock& clock, drisc::RegisterFile& regFile, Network& network, Allocator& allocator, FamilyTable& familyTable, ThreadTable& threadTable, ICache& icache, DCache& dcache, Config& config);
+    Pipeline(const std::string& name, DRISC& parent, Clock& clock,
+             drisc::RegisterFile& regFile,
+             Network& network,
+             Allocator& allocator,
+             drisc::FamilyTable& familyTable,
+             ThreadTable& threadTable,
+             ICache& icache,
+             DCache& dcache,
+             Config& config);
     Pipeline(const Pipeline&) = delete;
     Pipeline& operator=(const Pipeline&) = delete;
     ~Pipeline();

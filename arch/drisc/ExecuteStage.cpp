@@ -561,7 +561,13 @@ void DRISC::Pipeline::ExecuteStage::ExecDebug(double value, Integer stream) cons
     }
 }
 
-DRISC::Pipeline::ExecuteStage::ExecuteStage(Pipeline& parent, Clock& clock, const ReadExecuteLatch& input, ExecuteMemoryLatch& output, Allocator& alloc, FamilyTable& familyTable, ThreadTable& threadTable, Config& /*config*/)
+DRISC::Pipeline::ExecuteStage::ExecuteStage(Pipeline& parent, Clock& clock,
+                                            const ReadExecuteLatch& input,
+                                            ExecuteMemoryLatch& output,
+                                            Allocator& alloc,
+                                            drisc::FamilyTable& familyTable,
+                                            ThreadTable& threadTable,
+                                            Config& /*config*/)
   : Stage("execute", parent, clock),
     m_input(input),
     m_output(output),

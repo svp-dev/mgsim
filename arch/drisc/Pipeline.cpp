@@ -26,7 +26,7 @@ DRISC::Pipeline::Pipeline(
     drisc::RegisterFile& regFile,
     Network&            network,
     Allocator&          alloc,
-    FamilyTable&        familyTable,
+    drisc::FamilyTable& familyTable,
     ThreadTable&        threadTable,
     ICache&             icache,
     DCache&             dcache,

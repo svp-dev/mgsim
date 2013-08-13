@@ -1,9 +1,19 @@
 #ifndef FAMILYTABLE_H
 #define FAMILYTABLE_H
 
-#ifndef PROCESSOR_H
-#error This file should be included in DRISC.h
-#endif
+#include <sim/kernel.h>
+#include <sim/inspect.h>
+#include <arch/simtypes.h>
+#include <vector>
+
+class Config;
+
+namespace Simulator
+{
+class DRISC;
+
+namespace drisc
+{
 
 struct Family
 {
@@ -139,5 +149,8 @@ private:
     void UpdateStats();
     void CheckStateSanity() const;
 };
+
+}
+}
 
 #endif

@@ -33,7 +33,7 @@ DRISC::Pipeline::PipeAction DRISC::Pipeline::FetchStage::OnCycle()
 
         // Read its information from the Family and Thread Tables
         Thread& thread = m_threadTable[tid];
-        Family& family = m_familyTable[thread.family];
+        auto& family = m_familyTable[thread.family];
 
         pc = thread.pc;
         if (!family.legacy && pc % m_controlBlockSize == 0)
@@ -144,7 +144,13 @@ DRISC::Pipeline::PipeAction DRISC::Pipeline::FetchStage::OnCycle()
     return PIPE_CONTINUE;
 }
 
-DRISC::Pipeline::FetchStage::FetchStage(Pipeline& parent, Clock& clock, FetchDecodeLatch& output, Allocator& alloc, FamilyTable& familyTable, ThreadTable& threadTable, ICache& icache, Config& config)
+DRISC::Pipeline::FetchStage::FetchStage(Pipeline& parent, Clock& clock,
+                                        FetchDecodeLatch& output,
+                                        Allocator& alloc,
+                                        drisc::FamilyTable& familyTable,
+                                        ThreadTable& threadTable,
+                                        ICache& icache,
+                                        Config& config)
   : Stage("fetch", parent, clock),
     m_output(output),
     m_allocator(alloc),

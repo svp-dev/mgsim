@@ -29,8 +29,8 @@ void DRISC::Allocator::UpdateStats()
 
 RegAddr DRISC::Allocator::GetRemoteRegisterAddress(LFID fid, RemoteRegType kind, const RegAddr& addr) const
 {
-    const Family&          family = m_familyTable[fid];
-    const Family::RegInfo& regs   = family.regs[addr.type];
+    auto& family = m_familyTable[fid];
+    auto& regs   = family.regs[addr.type];
 
     assert(family.state != FST_EMPTY);
 
@@ -67,8 +67,8 @@ RegAddr DRISC::Allocator::GetRemoteRegisterAddress(LFID fid, RemoteRegType kind,
 // Administrative function for getting a register's type and thread mapping
 TID DRISC::Allocator::GetRegisterType(LFID fid, RegAddr addr, RegClass* group, size_t *rel) const
 {
-    const Family& family = m_familyTable[fid];
-    const Family::RegInfo& regs = family.regs[addr.type];
+    auto& family = m_familyTable[fid];
+    auto& regs = family.regs[addr.type];
 
     const RegIndex globals = regs.base + regs.size - regs.count.globals;
     if (addr.index >= globals && addr.index < globals + regs.count.globals)
@@ -303,7 +303,7 @@ bool DRISC::Allocator::SuspendThread(TID tid, MemAddr pc)
 bool DRISC::Allocator::AllocateThread(LFID fid, TID tid, bool isNewlyAllocated)
 {
     // Work on a copy unless we're committing
-    Family tmp_family; Family* family = &tmp_family;
+    drisc::Family tmp_family; drisc::Family* family = &tmp_family;
     Thread tmp_thread; Thread* thread = &tmp_thread;
     if (IsCommitting())
     {
@@ -474,13 +474,13 @@ bool DRISC::Allocator::DecreaseFamilyDependency(LFID fid, FamilyDependency dep)
     return DecreaseFamilyDependency(fid, m_familyTable[fid], dep);
 }
 
-bool DRISC::Allocator::DecreaseFamilyDependency(LFID fid, Family& family, FamilyDependency dep)
+bool DRISC::Allocator::DecreaseFamilyDependency(LFID fid, drisc::Family& family, FamilyDependency dep)
 {
     assert(family.state != FST_EMPTY);
 
     // We work on a copy unless we're committing
-    Family::Dependencies  tmp_deps;
-    Family::Dependencies* deps = &tmp_deps;
+    drisc::Family::Dependencies  tmp_deps;
+    drisc::Family::Dependencies* deps = &tmp_deps;
     if (IsCommitting()) {
         deps = &family.dependencies;
     } else {
@@ -655,14 +655,14 @@ bool DRISC::Allocator::IncreaseThreadDependency(TID tid, ThreadDependency dep)
     return true;
 }
 
-DRISC::Family& DRISC::Allocator::GetFamilyChecked(LFID fid, FCapability capability) const
+drisc::Family& DRISC::Allocator::GetFamilyChecked(LFID fid, FCapability capability) const
 {
     if (fid >= m_familyTable.GetFamilies().size())
     {
         throw InvalidArgumentException(*this, "Invalid Family ID: index out of range");
     }
 
-    Family& family = m_familyTable[fid];
+    auto& family = m_familyTable[fid];
     if (family.state == FST_EMPTY)
     {
         throw InvalidArgumentException(*this, "Invalid Family ID: family entry is empty");
@@ -687,7 +687,7 @@ FCapability DRISC::Allocator::InitializeFamily(LFID fid) const
 
     COMMIT
     {
-        Family& family = m_familyTable[fid];
+        auto& family = m_familyTable[fid];
 
         family.capability    = capability;
         family.legacy        = false;
@@ -732,7 +732,7 @@ bool DRISC::Allocator::ActivateFamily(LFID fid)
     // Update the family state
     COMMIT
     {
-        Family& family = m_familyTable[fid];
+        auto& family = m_familyTable[fid];
         family.state = FST_ACTIVE;
 
         // Statistics
@@ -746,7 +746,7 @@ bool DRISC::Allocator::ActivateFamily(LFID fid)
 bool DRISC::Allocator::AllocateRegisters(LFID fid, ContextType type)
 {
     // Try to allocate registers
-    Family& family = m_familyTable[fid];
+    auto& family = m_familyTable[fid];
 
     for (FSize physBlockSize = std::max<TSize>(1, family.physBlockSize); physBlockSize > 0; physBlockSize--)
     {
@@ -754,7 +754,7 @@ bool DRISC::Allocator::AllocateRegisters(LFID fid, ContextType type)
         std::array<RegSize, NUM_REG_TYPES> sizes;
         for (size_t i = 0; i < NUM_REG_TYPES; i++)
         {
-            const Family::RegInfo& regs = family.regs[i];
+            auto& regs = family.regs[i];
 
             sizes[i] = (regs.count.locals + regs.count.shareds) * physBlockSize
                      + regs.count.globals  // Add the space for the globals
@@ -778,7 +778,7 @@ bool DRISC::Allocator::AllocateRegisters(LFID fid, ContextType type)
 
                 COMMIT
                 {
-                    Family::RegInfo& regs = family.regs[i];
+                    auto& regs            = family.regs[i];
                     regs.base             = base;
                     regs.size             = sizes[i];
                     regs.last_shareds     = base;
@@ -840,7 +840,7 @@ Result DRISC::Allocator::DoThreadAllocate()
         TID     tid    = m_cleanup.Front();
         Thread& thread = m_threadTable[tid];
         LFID    fid    = thread.family;
-        Family& family = m_familyTable[fid];
+        auto&   family = m_familyTable[fid];
 
         m_cleanup.Pop();
 
@@ -917,7 +917,7 @@ Result DRISC::Allocator::DoThreadAllocate()
     {
         // Allocate an initial thread of a family
         LFID    fid    = m_alloc.Front();
-        Family& family = m_familyTable[fid];
+        auto&   family = m_familyTable[fid];
 
         // Check if we're done with the initial allocation of this family
         if (family.dependencies.numThreadsAllocated == family.physBlockSize || family.dependencies.allocationDone)
@@ -1081,7 +1081,7 @@ LFID DRISC::Allocator::AllocateContext(ContextType type, LFID prev_fid, PSize pl
     COMMIT
     {
         // Set up some essential family table fields
-        Family& family = m_familyTable[lfid];
+        auto& family = m_familyTable[lfid];
         family.placeSize = placeSize;
         family.link      = prev_fid;
 
@@ -1195,7 +1195,7 @@ Result DRISC::Allocator::DoFamilyAllocate()
     else if (req.type == ALLOCATE_SINGLE || (m_parent.GetPID() + 1) % req.placeSize == 0)
     {
         // We've grabbed the last context that we wanted in the place
-        Family& family = m_familyTable[lfid];
+        auto& family = m_familyTable[lfid];
         COMMIT
         {
             family.numCores = (req.type == ALLOCATE_SINGLE) ? 1 : req.placeSize;
@@ -1326,7 +1326,7 @@ bool DRISC::Allocator::QueueCreate(const LinkMessage& msg)
     assert(msg.type == LinkMessage::MSG_CREATE);
     assert(msg.create.fid != INVALID_LFID);
 
-    Family& family = m_familyTable[msg.create.fid];
+    auto& family = m_familyTable[msg.create.fid];
 
     // Set information and lock family
     COMMIT
@@ -1390,7 +1390,7 @@ bool DRISC::Allocator::QueueCreate(const RemoteMessage& msg)
 {
     assert(msg.create.fid.pid == m_parent.GetPID());
 
-    Family& family = GetFamilyChecked(msg.create.fid.lfid, msg.create.fid.capability);
+    auto& family = GetFamilyChecked(msg.create.fid.lfid, msg.create.fid.capability);
 
     // Set PC and lock family
     COMMIT
@@ -1515,7 +1515,7 @@ Result DRISC::Allocator::DoFamilyCreate()
         // Based on the indices, calculate the number of threads in the family
         // This is needed for the next step, where we calculate the number of cores
         // actually required.
-        Family& family = m_familyTable[info.fid];
+        auto& family = m_familyTable[info.fid];
 
         // with bundle creations, the range is 1 thread starting at the
         // specified index value.
@@ -1553,7 +1553,7 @@ Result DRISC::Allocator::DoFamilyCreate()
     }
     else if (m_createState == CREATE_LOAD_REGSPEC)
     {
-        Family& family = m_familyTable[info.fid];
+        auto& family = m_familyTable[info.fid];
 
         DebugSimWrite("F%u start creation %s",
                       (unsigned)info.fid, m_parent.GetSymbolTable()[family.pc].c_str());
@@ -1591,7 +1591,7 @@ Result DRISC::Allocator::DoFamilyCreate()
     }
     else if (m_createState == CREATE_LINE_LOADED)
     {
-        Family& family = m_familyTable[info.fid];
+        auto& family = m_familyTable[info.fid];
 
         // Read the register counts from the cache-line
         Instruction counts;
@@ -1657,7 +1657,7 @@ Result DRISC::Allocator::DoFamilyCreate()
     else if (m_createState == CREATE_RESTRICTING)
     {
         // See how many cores we REALLY need.
-        Family& family = m_familyTable[info.fid];
+        auto& family = m_familyTable[info.fid];
 
         // Exclusive families and families with shareds run on one core.
         // Non-exclusive families without cores are distributed, but cannot use more cores than it has threads.
@@ -1700,7 +1700,7 @@ Result DRISC::Allocator::DoFamilyCreate()
     else if (m_createState == CREATE_BROADCASTING_CREATE)
     {
         // Broadcast the create
-        Family& family = m_familyTable[info.fid];
+        auto& family = m_familyTable[info.fid];
         if (family.link != INVALID_LFID)
         {
             LinkMessage msg;
@@ -1731,7 +1731,7 @@ Result DRISC::Allocator::DoFamilyCreate()
     }
     else if (m_createState == CREATE_ACTIVATING_FAMILY)
     {
-        Family& family  = m_familyTable[info.fid];
+        auto& family  = m_familyTable[info.fid];
 
         if (info.bundle)
         {
@@ -1918,7 +1918,7 @@ Integer DRISC::Allocator::CalculateThreadCount(SInteger start, SInteger limit, S
     return (diff + step - 1) / step;
 }
 
-void DRISC::Allocator::CalculateDistribution(Family& family, Integer nThreads, PSize numCores)
+void DRISC::Allocator::CalculateDistribution(drisc::Family& family, Integer nThreads, PSize numCores)
 {
     Integer threadsPerCore = std::max<Integer>(1, (nThreads + numCores - 1) / numCores);
 
@@ -1946,7 +1946,7 @@ void DRISC::Allocator::CalculateDistribution(Family& family, Integer nThreads, P
 }
 
 DRISC::Allocator::Allocator(const string& name, DRISC& parent, Clock& clock,
-                            FamilyTable& familyTable, ThreadTable& threadTable,
+                            drisc::FamilyTable& familyTable, ThreadTable& threadTable,
                             drisc::RegisterFile& registerFile, drisc::RAUnit& raunit,
                             ICache& icache, DCache& dcache,
                             Network& network,
@@ -2026,7 +2026,7 @@ void DRISC::Allocator::AllocateInitialFamily(MemAddr pc, bool legacy, PSize plac
 
     InitializeFamily(fid);
 
-    Family& family = m_familyTable[fid];
+    auto& family = m_familyTable[fid];
     family.numCores      = 1;
     family.placeSize     = placeSize;
     family.nThreads      = 1;

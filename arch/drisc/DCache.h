@@ -73,7 +73,7 @@ private:
 
     DRISC&           m_parent;          ///< Parent processor.
     Allocator&           m_allocator;       ///< Allocator component.
-    FamilyTable&         m_familyTable;     ///< Family table .
+    drisc::FamilyTable&  m_familyTable;     ///< Family table .
     drisc::RegisterFile& m_regFile;         ///< Register File.
     IMemory*             m_memory;          ///< Memory
     MCID                 m_mcid;            ///< Memory Client ID
@@ -116,7 +116,11 @@ private:
     Result DoOutgoingRequests();
 
 public:
-    DCache(const std::string& name, DRISC& parent, Clock& clock, Allocator& allocator, FamilyTable& familyTable, drisc::RegisterFile& regFile, Config& config);
+    DCache(const std::string& name, DRISC& parent, Clock& clock,
+           Allocator& allocator,
+           drisc::FamilyTable& familyTable,
+           drisc::RegisterFile& regFile,
+           Config& config);
     DCache(const DCache&) = delete;
     DCache& operator=(const DCache&) = delete;
     ~DCache();

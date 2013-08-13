@@ -78,7 +78,7 @@ public:
     };
 
     Allocator(const std::string& name, DRISC& parent, Clock& clock,
-              FamilyTable& familyTable, ThreadTable& threadTable,
+              drisc::FamilyTable& familyTable, ThreadTable& threadTable,
               drisc::RegisterFile& registerFile, drisc::RAUnit& raunit,
               ICache& icache, DCache& dcache,
               Network& network,
@@ -97,7 +97,7 @@ public:
     // Returns the physical register address for a logical register in a certain family.
     RegAddr GetRemoteRegisterAddress(LFID fid, RemoteRegType kind, const RegAddr& addr) const;
 
-    Family& GetFamilyChecked(LFID fid, FCapability capability) const;
+    drisc::Family& GetFamilyChecked(LFID fid, FCapability capability) const;
 
     //
     // Thread management
@@ -125,7 +125,7 @@ public:
     bool OnMemoryRead(LFID fid);
 
     bool DecreaseFamilyDependency(LFID fid, FamilyDependency dep);
-    bool DecreaseFamilyDependency(LFID fid, Family& family, FamilyDependency dep);
+    bool DecreaseFamilyDependency(LFID fid, drisc::Family& family, FamilyDependency dep);
     bool IncreaseThreadDependency(TID tid, ThreadDependency dep);
     bool DecreaseThreadDependency(TID tid, ThreadDependency dep);
 
@@ -158,7 +158,7 @@ private:
 
 
     Integer CalculateThreadCount(SInteger start, SInteger limit, SInteger step);
-    void    CalculateDistribution(Family& family, Integer nThreads, PSize numCores);
+    void    CalculateDistribution(drisc::Family& family, Integer nThreads, PSize numCores);
     bool    AllocateRegisters(LFID fid, ContextType type);
     bool    AllocateThread(LFID fid, TID tid, bool isNewlyAllocated = true);
     bool    PushCleanup(TID tid);
@@ -169,7 +169,7 @@ private:
     TID  Pop (ThreadQueue& queue);
 
     DRISC&    m_parent;
-    FamilyTable&  m_familyTable;
+    drisc::FamilyTable&  m_familyTable;
     ThreadTable&  m_threadTable;
     drisc::RegisterFile& m_registerFile;
     drisc::RAUnit& m_raunit;

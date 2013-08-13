@@ -14,7 +14,7 @@ namespace Simulator
 
 DRISC::DCache::DCache(const std::string& name, DRISC& parent, Clock& clock,
                       Allocator& alloc,
-                      FamilyTable& familyTable,
+                      drisc::FamilyTable& familyTable,
                       drisc::RegisterFile& regFile,
                       Config& config)
 :   Object(name, parent, clock), m_parent(parent),

@@ -1,3 +1,4 @@
+#include "FamilyTable.h"
 #include "DRISC.h"
 #include <sim/config.h>
 #include <sim/range.h>
@@ -10,8 +11,10 @@ using namespace std;
 
 namespace Simulator
 {
+namespace drisc
+{
 
-DRISC::FamilyTable::FamilyTable(const std::string& name, DRISC& parent, Clock& clock, Config& config)
+FamilyTable::FamilyTable(const std::string& name, DRISC& parent, Clock& clock, Config& config)
 :   Object(name, parent, clock),
     m_families(config.getValue<size_t>(*this, "NumEntries")),
     m_lastcycle(0), m_totalalloc(0), m_maxalloc(0), m_curalloc(0)
@@ -31,7 +34,7 @@ DRISC::FamilyTable::FamilyTable(const std::string& name, DRISC& parent, Clock& c
     m_free[CONTEXT_NORMAL]    = m_families.size() - 1;
 }
 
-bool DRISC::FamilyTable::IsEmpty() const
+bool FamilyTable::IsEmpty() const
 {
     FSize free = 0;
     for (int i = 0; i < NUM_CONTEXT_TYPES; ++i)
@@ -41,7 +44,7 @@ bool DRISC::FamilyTable::IsEmpty() const
     return free == m_families.size();
 }
 
-void DRISC::FamilyTable::UpdateStats()
+void FamilyTable::UpdateStats()
 {
     CycleNo cycle = GetKernel()->GetCycleNo();
     CycleNo elapsed = cycle - m_lastcycle;
@@ -54,7 +57,7 @@ void DRISC::FamilyTable::UpdateStats()
 }
 
 // Checks that all internal administration is sane
-void DRISC::FamilyTable::CheckStateSanity() const
+void FamilyTable::CheckStateSanity() const
 {
 #ifndef NDEBUG
     size_t used = 0;
@@ -77,7 +80,7 @@ void DRISC::FamilyTable::CheckStateSanity() const
 #endif
 }
 
-LFID DRISC::FamilyTable::AllocateFamily(ContextType context)
+LFID FamilyTable::AllocateFamily(ContextType context)
 {
     // Check that we're in a sane state
     CheckStateSanity();
@@ -117,7 +120,7 @@ LFID DRISC::FamilyTable::AllocateFamily(ContextType context)
     return fid;
 }
 
-FSize DRISC::FamilyTable::GetNumFreeFamilies(ContextType type) const
+FSize FamilyTable::GetNumFreeFamilies(ContextType type) const
 {
     // Check that we're in a sane state
     assert(m_free[CONTEXT_NORMAL] + m_free[CONTEXT_EXCLUSIVE] <= m_families.size());
@@ -125,7 +128,7 @@ FSize DRISC::FamilyTable::GetNumFreeFamilies(ContextType type) const
     return m_free[type];
 }
 
-FSize DRISC::FamilyTable::GetNumUsedFamilies(ContextType type) const
+FSize FamilyTable::GetNumUsedFamilies(ContextType type) const
 {
     // Check that we're in a sane state
     assert(m_free[CONTEXT_NORMAL] + m_free[CONTEXT_EXCLUSIVE] <= m_families.size());
@@ -135,7 +138,7 @@ FSize DRISC::FamilyTable::GetNumUsedFamilies(ContextType type) const
 }
 
 
-void DRISC::FamilyTable::FreeFamily(LFID fid, ContextType context)
+void FamilyTable::FreeFamily(LFID fid, ContextType context)
 {
     assert(fid != INVALID_LFID);
 
@@ -150,7 +153,7 @@ void DRISC::FamilyTable::FreeFamily(LFID fid, ContextType context)
     }
 }
 
-void DRISC::FamilyTable::Cmd_Info(ostream& out, const vector<string>& /* arguments */) const
+void FamilyTable::Cmd_Info(ostream& out, const vector<string>& /* arguments */) const
 {
     out <<
     "The Family Table is the storage area in a processor that stores all family's\n"
@@ -166,7 +169,7 @@ void DRISC::FamilyTable::Cmd_Info(ostream& out, const vector<string>& /* argumen
 }
 
 // Read the global and local family table
-void DRISC::FamilyTable::Cmd_Read(ostream& out, const vector<string>& arguments) const
+void FamilyTable::Cmd_Read(ostream& out, const vector<string>& arguments) const
 {
     static const char* const FamilyStates[] = {
         "", "ALLOCATED", "CREATE QUEUED", "CREATING", "ACTIVE", "TERMINATED"
@@ -186,7 +189,7 @@ void DRISC::FamilyTable::Cmd_Read(ostream& out, const vector<string>& arguments)
         }
     }
 
-    DRISC& parent = dynamic_cast<DRISC&>(*GetParent());
+    DRISC& parent = static_cast<DRISC&>(*GetParent());
     SymbolTable& symtable = parent.GetSymbolTable();
 
     if (fids.empty())
@@ -278,4 +281,5 @@ void DRISC::FamilyTable::Cmd_Read(ostream& out, const vector<string>& arguments)
     }
 }
 
+}
 }

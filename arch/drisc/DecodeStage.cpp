@@ -33,7 +33,7 @@ RegAddr DRISC::Pipeline::DecodeStage::TranslateRegister(unsigned char reg, RegTy
         return MAKE_REGADDR(type, reg);
     }
 
-    const Family::RegInfo& family = m_input.regs.types[type].family;
+    const auto& family = m_input.regs.types[type].family;
     const Thread::RegInfo& thread = m_input.regs.types[type].thread;
 
     // Get register class and address within class

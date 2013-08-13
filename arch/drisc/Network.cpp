@@ -19,7 +19,7 @@ DRISC::Network::Network(
     const vector<DRISC*>& grid,
     Allocator&            alloc,
     drisc::RegisterFile&  regFile,
-    FamilyTable&          familyTable,
+    drisc::FamilyTable&   familyTable,
     Config&               config
 ) :
     Object(name, parent, clock),
@@ -221,7 +221,7 @@ Result DRISC::Network::DoAllocResponse()
     AllocResponse msg = m_allocResponse.in.Read();
 
     const LFID lfid = msg.prev_fid;
-    Family& family = m_familyTable[lfid];
+    auto& family = m_familyTable[lfid];
 
     // Grab the previous FID from the link field
     msg.prev_fid = family.link;
@@ -388,7 +388,7 @@ bool DRISC::Network::WriteRegister(LFID fid, RemoteRegType kind, const RegAddr& 
 
 bool DRISC::Network::OnSync(LFID fid, PID completion_pid, RegIndex completion_reg)
 {
-    Family& family = m_familyTable[fid];
+    auto& family = m_familyTable[fid];
     if (family.link != INVALID_LFID)
     {
         // Forward the sync to the last core
@@ -449,7 +449,7 @@ bool DRISC::Network::OnDetach(LFID fid)
         return false;
     }
 
-    Family& family = m_familyTable[fid];
+    auto& family = m_familyTable[fid];
     if (family.link != INVALID_LFID)
     {
         // Forward message on link
@@ -468,7 +468,7 @@ bool DRISC::Network::OnDetach(LFID fid)
 
 bool DRISC::Network::OnBreak(LFID fid)
 {
-    Family& family = m_familyTable[fid];
+    auto& family = m_familyTable[fid];
 
     if (!family.dependencies.allocationDone)
     {
@@ -573,7 +573,7 @@ Result DRISC::Network::DoDelegationIn()
 
     case RemoteMessage::MSG_SET_PROPERTY:
     {
-        Family& family = m_allocator.GetFamilyChecked(msg.property.fid.lfid, msg.property.fid.capability);
+        auto& family = m_allocator.GetFamilyChecked(msg.property.fid.lfid, msg.property.fid.capability);
         COMMIT
         {
             switch (msg.property.type)
@@ -675,7 +675,7 @@ Result DRISC::Network::DoDelegationIn()
 
     case RemoteMessage::MSG_FAM_REGISTER:
     {
-        const Family& family = m_allocator.GetFamilyChecked(msg.famreg.fid.lfid, msg.famreg.fid.capability);
+        auto& family = m_allocator.GetFamilyChecked(msg.famreg.fid.lfid, msg.famreg.fid.capability);
 
         if (msg.famreg.write)
         {
@@ -797,7 +797,7 @@ Result DRISC::Network::DoLink()
 
     case LinkMessage::MSG_SET_PROPERTY:
     {
-        Family& family = m_familyTable[msg.property.fid];
+        auto& family = m_familyTable[msg.property.fid];
         COMMIT
         {
             // Set property
@@ -826,7 +826,7 @@ Result DRISC::Network::DoLink()
 
     case LinkMessage::MSG_CREATE:
     {
-        Family& family = m_familyTable[msg.create.fid];
+        auto& family = m_familyTable[msg.create.fid];
 
         if (msg.create.numCores == 0)
         {
@@ -858,7 +858,7 @@ Result DRISC::Network::DoLink()
 
     case LinkMessage::MSG_DONE:
     {
-        Family& family = m_familyTable[msg.done.fid];
+        auto& family = m_familyTable[msg.done.fid];
 
         COMMIT { family.broken |= msg.done.broken; }
 
@@ -885,7 +885,7 @@ Result DRISC::Network::DoLink()
 
     case LinkMessage::MSG_GLOBAL:
     {
-        const Family& family = m_familyTable[msg.global.fid];
+        auto& family = m_familyTable[msg.global.fid];
         if (!WriteRegister(msg.global.fid, RRT_GLOBAL, msg.global.addr, msg.global.value))
         {
             return FAILED;
