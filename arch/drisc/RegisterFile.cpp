@@ -4,6 +4,8 @@
 
 #include <cassert>
 #include <iomanip>
+#include <array>
+
 using namespace std;
 
 namespace Simulator
@@ -31,7 +33,7 @@ DRISC::RegisterFile::RegisterFile(const std::string& name, DRISC& parent, Clock&
     // Initialize all registers
     for (size_t i = 0; i < NUM_REG_TYPES; ++i)
     {
-        static std::array<const char*, NUM_REG_TYPES> cfg_names = { "NumIntRegisters", "NumFltRegisters" };
+        static constexpr std::array<const char*, NUM_REG_TYPES> cfg_names = { "NumIntRegisters", "NumFltRegisters" };
         m_sizes[i] = config.getValue<size_t>(*this, cfg_names[i]);
         m_files[i] = new RegValue[m_sizes[i]];
         for (RegSize j = 0; j < m_sizes[i]; ++j)
@@ -46,7 +48,7 @@ DRISC::RegisterFile::RegisterFile(const std::string& name, DRISC& parent, Clock&
     // Register aliases for debugging
     for (size_t i = 0; i < NUM_REG_TYPES; ++i)
     {
-        static std::array<const char *, NUM_REG_TYPES> cfg_names = { "IntRegAliases", "FltRegAliases" };
+        static constexpr std::array<const char *, NUM_REG_TYPES> cfg_names = { "IntRegAliases", "FltRegAliases" };
         m_local_aliases[i] = config.getWordList(cfg_names[i]);
         if (m_local_aliases[i].empty())
             m_local_aliases[i] = GetDefaultLocalRegisterAliases((RegType)i);

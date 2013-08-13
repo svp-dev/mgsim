@@ -13,6 +13,7 @@
 #include "ActionInterface.h"
 #include "AncillaryRegisterFile.h"
 #include "PerfCounters.h"
+#include <array> // for RegisterFile
 
 class Config;
 

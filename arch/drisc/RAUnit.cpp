@@ -2,6 +2,7 @@
 #include <sim/config.h>
 #include <sim/log2.h>
 
+#include <array>
 #include <cassert>
 #include <iomanip>
 
@@ -15,10 +16,11 @@ namespace drisc {
 RAUnit::RAUnit(const string& name, Object& parent, Clock& clock, const array<RegSize, NUM_REG_TYPES>& sizes, Config& config)
     : Object(name, parent, clock)
 {
-    static struct RegTypeInfo {
+    struct RegTypeInfo {
         const char* blocksize_name;
         RegSize     context_size;
-    } const RegTypeInfos[NUM_REG_TYPES] = {
+    };
+    static constexpr RegTypeInfo RegTypeInfos[NUM_REG_TYPES] = {
         {"IntRegistersBlockSize", 32},
         {"FltRegistersBlockSize", 32}
     };
@@ -27,9 +29,6 @@ RAUnit::RAUnit(const string& name, Object& parent, Clock& clock, const array<Reg
     {
         TypeInfo&          type = m_types[i];
         const RegTypeInfo& info = RegTypeInfos[i];
-
-        // Contexts must be a power of two
-        assert(IsPowerOfTwo(info.context_size));
 
         type.blockSize = config.getValue<size_t>(*this, info.blocksize_name);
         if (type.blockSize == 0 || !IsPowerOfTwo(type.blockSize))

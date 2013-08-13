@@ -7,7 +7,8 @@
 #ifdef __GNUC__
 # define ctz(N) __builtin_ctz(N)
 #else
-static inline int ctz(unsigned int x)
+template<typename T>
+inline int ctz(T x)
 {
     int p, b;
     for (p = 0, b = 1; !(b & x); b <<= 1, ++p)
