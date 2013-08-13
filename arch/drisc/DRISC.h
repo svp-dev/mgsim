@@ -10,6 +10,7 @@
 #include "RAUnit.h"
 #include "IOMatchUnit.h"
 #include "DebugChannel.h"
+#include "ActionInterface.h"
 
 class Config;
 
@@ -36,7 +37,6 @@ public:
 #include "Allocator.h"
 #include "PerfCounters.h"
 #include "MMUInterface.h"
-#include "ActionInterface.h"
 #include "AncillaryRegisterFile.h"
 
     DRISC(const std::string& name, Object& parent, Clock& clock, PID pid, const std::vector<DRISC*>& grid, Config& config);
@@ -154,7 +154,7 @@ private:
     drisc::DebugChannel   m_lpout;
     drisc::DebugChannel   m_lperr;
     MMUInterface          m_mmu;
-    ActionInterface       m_action;
+    drisc::ActionInterface m_action;
 
     // External I/O interface, optional
     IOInterface           *m_io_if;
