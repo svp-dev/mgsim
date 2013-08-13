@@ -1,10 +1,15 @@
 #ifndef ANCILLARYREGISTERFILE_H
 #define ANCILLARYREGISTERFILE_H
 
+#include <sim/kernel.h>
+#include <arch/simtypes.h>
 
-#ifndef PROCESSOR_H
-#error This file should be included in DRISC.h
-#endif
+#include "IOMatchUnit.h"
+
+namespace Simulator
+{
+namespace drisc
+{
 
 /*
  * Access interface to ancillary registers. Ancillary registers
@@ -17,7 +22,7 @@
 
 typedef size_t ARAddr;
 
-class AncillaryRegisterFile : public drisc::MMIOComponent, public Inspect::Interface<Inspect::Read|Inspect::Info>
+class AncillaryRegisterFile : public MMIOComponent, public Inspect::Interface<Inspect::Read|Inspect::Info>
 {
     const size_t                  m_numRegisters;
     std::vector<Integer>          m_registers;
@@ -37,5 +42,7 @@ public:
 
 };
 
+}
+}
 
 #endif

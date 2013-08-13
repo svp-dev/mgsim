@@ -11,6 +11,7 @@
 #include "IOMatchUnit.h"
 #include "DebugChannel.h"
 #include "ActionInterface.h"
+#include "AncillaryRegisterFile.h"
 
 class Config;
 
@@ -37,7 +38,6 @@ public:
 #include "Allocator.h"
 #include "PerfCounters.h"
 #include "MMUInterface.h"
-#include "AncillaryRegisterFile.h"
 
     DRISC(const std::string& name, Object& parent, Clock& clock, PID pid, const std::vector<DRISC*>& grid, Config& config);
     DRISC(const DRISC&) = delete;
@@ -87,10 +87,10 @@ public:
 
     unsigned int GetNumSuspendedRegisters() const;
 
-    void WriteASR(ARAddr which, Integer data) {  m_asr_file.WriteRegister(which, data); }
-    Integer ReadASR(ARAddr which) const { return m_asr_file.ReadRegister(which); }
-    void WriteAPR(ARAddr which, Integer data) {  m_apr_file.WriteRegister(which, data); }
-    Integer ReadAPR(ARAddr which) const { return m_apr_file.ReadRegister(which); }
+    void WriteASR(drisc::ARAddr which, Integer data) {  m_asr_file.WriteRegister(which, data); }
+    Integer ReadASR(drisc::ARAddr which) const { return m_asr_file.ReadRegister(which); }
+    void WriteAPR(drisc::ARAddr which, Integer data) {  m_apr_file.WriteRegister(which, data); }
+    Integer ReadAPR(drisc::ARAddr which) const { return m_apr_file.ReadRegister(which); }
 
 
 
@@ -148,8 +148,8 @@ private:
 
     // Local MMIO devices
     drisc::IOMatchUnit    m_mmio;
-    AncillaryRegisterFile m_apr_file;
-    AncillaryRegisterFile m_asr_file;
+    drisc::AncillaryRegisterFile m_apr_file;
+    drisc::AncillaryRegisterFile m_asr_file;
     PerfCounters          m_perfcounters;
     drisc::DebugChannel   m_lpout;
     drisc::DebugChannel   m_lperr;
