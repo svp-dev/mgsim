@@ -46,9 +46,9 @@ DRISC::Pipeline::PipeValue DRISC::Pipeline::ReadStage::RegToPipeValue(RegType ty
         }
         break;
 
-    case RST_INVALID: 
+    case RST_INVALID:
     default:
-        UNREACHABLE; 
+        UNREACHABLE;
         break;
     }
     return dest_value;
@@ -489,10 +489,12 @@ void DRISC::Pipeline::ReadStage::Clear(TID tid)
     }
 }
 
-DRISC::Pipeline::ReadStage::ReadStage(Pipeline& parent, Clock& clock, const DecodeReadLatch& input, ReadExecuteLatch& output, RegisterFile& regFile,
-    const vector<BypassInfo>& bypasses,
-    Config& /*config*/
-  )
+DRISC::Pipeline::ReadStage::ReadStage(Pipeline& parent, Clock& clock,
+                                      const DecodeReadLatch& input,
+                                      ReadExecuteLatch& output,
+                                      drisc::RegisterFile& regFile,
+                                      const vector<BypassInfo>& bypasses,
+                                      Config& /*config*/)
   : Stage("read", parent, clock),
     m_regFile(regFile),
     m_input(input),

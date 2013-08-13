@@ -29,7 +29,7 @@ DRISC::DRISC(const std::string& name, Object& parent, Clock& clock, PID pid, con
     m_bits(),
     m_familyTable ("families",      *this, clock, config),
     m_threadTable ("threads",       *this, clock, config),
-    m_registerFile("registers",     *this, clock, m_allocator, config),
+    m_registerFile("registers",     *this, clock, config),
     m_raunit      ("rau",           *this, clock, m_registerFile.GetSizes(), config),
     m_allocator   ("alloc",         *this, clock, m_familyTable, m_threadTable, m_registerFile, m_raunit, m_icache, m_dcache, m_network, m_pipeline, config),
     m_icache      ("icache",        *this, clock, m_allocator, config),

@@ -307,7 +307,13 @@ DRISC::Pipeline::PipeAction DRISC::Pipeline::WritebackStage::OnCycle()
         : PIPE_DELAY;       // We still have data to write back next cycle
 }
 
-DRISC::Pipeline::WritebackStage::WritebackStage(Pipeline& parent, Clock& clock, const MemoryWritebackLatch& input, RegisterFile& regFile, Allocator& alloc, ThreadTable& threadTable, Network& network, Config& /*config*/)
+DRISC::Pipeline::WritebackStage::WritebackStage(Pipeline& parent, Clock& clock,
+                                                const MemoryWritebackLatch& input,
+                                                drisc::RegisterFile& regFile,
+                                                Allocator& alloc,
+                                                ThreadTable& threadTable,
+                                                Network& network,
+                                                Config& /*config*/)
   : Stage("writeback", parent, clock),
     m_input(input),
     m_stall(false),

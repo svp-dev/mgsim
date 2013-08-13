@@ -295,7 +295,7 @@ public:
         bool     broken;
     };
 
-    Network(const std::string& name, DRISC& parent, Clock& clock, const std::vector<DRISC*>& grid, Allocator& allocator, RegisterFile& regFile, FamilyTable& familyTable, Config& config);
+    Network(const std::string& name, DRISC& parent, Clock& clock, const std::vector<DRISC*>& grid, Allocator& allocator, drisc::RegisterFile& regFile, FamilyTable& familyTable, Config& config);
     Network(const Network&) = delete;
     Network& operator=(const Network&) = delete;
 
@@ -332,7 +332,7 @@ private:
     Result DoSyncs();
 
     DRISC&                     m_parent;
-    RegisterFile&                  m_regFile;
+    drisc::RegisterFile&       m_regFile;
     FamilyTable&                   m_familyTable;
     Allocator&                     m_allocator;
     Network*                       m_prev;

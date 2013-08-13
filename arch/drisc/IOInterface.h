@@ -78,7 +78,7 @@ private:
     DRISC& GetDRISC() const;
 
 public:
-    IOInterface(const std::string& name, DRISC& parent, Clock& clock, RegisterFile& rf, Allocator& alloc, IIOBus& iobus, IODeviceID devid, Config& config);
+    IOInterface(const std::string& name, DRISC& parent, Clock& clock, drisc::RegisterFile& rf, Allocator& alloc, IIOBus& iobus, IODeviceID devid, Config& config);
     void ConnectMemory(IMemory* memory);
 
     drisc::MMIOComponent& GetAsyncIOInterface() { return m_async_io; }

@@ -1,9 +1,19 @@
 #ifndef REGISTERFILE_H
 #define REGISTERFILE_H
 
-#ifndef PROCESSOR_H
-#error This file should be included in DRISC.h
-#endif
+#include <sim/kernel.h>
+#include <sim/inspect.h>
+#include <arch/FPU.h>
+#include <sim/storage.h>
+#include <array>
+
+class Config;
+namespace Simulator
+{
+class DRISC;
+
+namespace drisc
+{
 
 /*
  * @brief Register File with R/W ports.
@@ -21,11 +31,9 @@ public:
      * @param[in] name name of this register file.
      * @param[in] parent reference to parent processor.
      * @param[in] clock reference to the clock used to control updates.
-     * @param[in] allocator reference to allocator used to wake up threads on
-     *                      writes to waiting registers.
      * @param[in] config reference to the configuration data.
      */
-    RegisterFile(const std::string& name, DRISC& parent, Clock& clock, Allocator& allocator, Config& config);
+    RegisterFile(const std::string& name, DRISC& parent, Clock& clock, Config& config);
     ~RegisterFile();
 
     /**
@@ -102,8 +110,6 @@ private:
     std::array<RegValue*, NUM_REG_TYPES> m_files; ///< Sub-files of registers, indexed by RegType
     std::array<RegSize, NUM_REG_TYPES> m_sizes;
 
-    Allocator& m_allocator; ///< Reference to the allocator
-
     // We can have at most this many number of updates per cycle.
     // This should be equal to the number of write ports.
     static const unsigned int MAX_UPDATES = 2;
@@ -114,7 +120,9 @@ private:
 
     // Administrative
     std::array<std::vector<std::string>, NUM_REG_TYPES> m_local_aliases;
-
 };
+
+}
+}
 
 #endif

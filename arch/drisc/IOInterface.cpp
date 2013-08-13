@@ -10,7 +10,7 @@ using namespace std;
 
 namespace Simulator
 {
-    DRISC::IOInterface::IOInterface(const string& name, DRISC& parent, Clock& clock, RegisterFile& rf, Allocator& alloc, IIOBus& iobus, IODeviceID devid, Config& config)
+    DRISC::IOInterface::IOInterface(const string& name, DRISC& parent, Clock& clock, drisc::RegisterFile& rf, Allocator& alloc, IIOBus& iobus, IODeviceID devid, Config& config)
         : Object(name, parent, clock),
           m_numDevices(config.getValue<size_t>(*this, "NumDeviceSlots")),
           m_numChannels(config.getValue<size_t>(*this, "NumNotificationChannels")),

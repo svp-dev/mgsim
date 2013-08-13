@@ -14,7 +14,7 @@
 #include "AncillaryRegisterFile.h"
 #include "PerfCounters.h"
 #include "MMUInterface.h"
-#include <array> // for RegisterFile
+#include "RegisterFile.h"
 
 class Config;
 
@@ -32,7 +32,6 @@ public:
 
 #include "FamilyTable.h"
 #include "ThreadTable.h"
-#include "RegisterFile.h"
 #include "Network.h"
 #include "ICache.h"
 #include "IOInterface.h"
@@ -112,7 +111,7 @@ public:
 
     Network& GetNetwork() { return m_network; }
     IOInterface* GetIOInterface() { return m_io_if; }
-    RegisterFile& GetRegisterFile() { return m_registerFile; }
+    drisc::RegisterFile& GetRegisterFile() { return m_registerFile; }
     ICache& GetICache() { return m_icache; }
     DCache& GetDCache() { return m_dcache; }
     SymbolTable& GetSymbolTable() { return *m_symtable; }
@@ -139,7 +138,7 @@ private:
     // The components on the core
     FamilyTable           m_familyTable;
     ThreadTable           m_threadTable;
-    RegisterFile          m_registerFile;
+    drisc::RegisterFile   m_registerFile;
     drisc::RAUnit         m_raunit;
     Allocator             m_allocator;
     ICache                m_icache;

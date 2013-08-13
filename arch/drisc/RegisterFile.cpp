@@ -1,3 +1,4 @@
+#include "RegisterFile.h"
 #include "DRISC.h"
 #include <sim/config.h>
 #include <sim/range.h>
@@ -10,12 +11,14 @@ using namespace std;
 
 namespace Simulator
 {
+namespace drisc
+{
 
 //
 // RegisterFile implementation
 //
 
-DRISC::RegisterFile::RegisterFile(const std::string& name, DRISC& parent, Clock& clock, Allocator& alloc, Config& config)
+RegisterFile::RegisterFile(const std::string& name, DRISC& parent, Clock& clock, Config& config)
   : Object(name, parent, clock),
     Structure<RegAddr>(name, parent, clock),
     Storage("storage", *this, clock),
@@ -26,7 +29,6 @@ DRISC::RegisterFile::RegisterFile(const std::string& name, DRISC& parent, Clock&
     p_asyncW    (*this, "p_asyncW"),
     m_files     (),
     m_sizes     (),
-    m_allocator (alloc),
     m_nUpdates(0),
     m_local_aliases()
 {
@@ -55,13 +57,13 @@ DRISC::RegisterFile::RegisterFile(const std::string& name, DRISC& parent, Clock&
     }
 }
 
-DRISC::RegisterFile::~RegisterFile()
+RegisterFile::~RegisterFile()
 {
     for (auto p : m_files)
         delete[] p;
 }
 
-bool DRISC::RegisterFile::ReadRegister(const RegAddr& addr, RegValue& data, bool quiet) const
+bool RegisterFile::ReadRegister(const RegAddr& addr, RegValue& data, bool quiet) const
 {
     auto& regs = m_files[addr.type];
     auto sz = m_sizes[addr.type];
@@ -78,7 +80,7 @@ bool DRISC::RegisterFile::ReadRegister(const RegAddr& addr, RegValue& data, bool
 }
 
 // Admin version
-bool DRISC::RegisterFile::WriteRegister(const RegAddr& addr, const RegValue& data)
+bool RegisterFile::WriteRegister(const RegAddr& addr, const RegValue& data)
 {
     auto& regs = m_files[addr.type];
     auto sz = m_sizes[addr.type];
@@ -93,7 +95,7 @@ bool DRISC::RegisterFile::WriteRegister(const RegAddr& addr, const RegValue& dat
     return false;
 }
 
-bool DRISC::RegisterFile::Clear(const RegAddr& addr, RegSize size)
+bool RegisterFile::Clear(const RegAddr& addr, RegSize size)
 {
     auto& regs = m_files[addr.type];
     auto sz = m_sizes[addr.type];
@@ -114,7 +116,7 @@ bool DRISC::RegisterFile::Clear(const RegAddr& addr, RegSize size)
     return true;
 }
 
-bool DRISC::RegisterFile::WriteRegister(const RegAddr& addr, const RegValue& data, bool from_memory)
+bool RegisterFile::WriteRegister(const RegAddr& addr, const RegValue& data, bool from_memory)
 {
     auto& regs = m_files[addr.type];
     auto sz = m_sizes[addr.type];
@@ -161,7 +163,8 @@ bool DRISC::RegisterFile::WriteRegister(const RegAddr& addr, const RegValue& dat
             if (value.m_state == RST_WAITING && value.m_waiting.head != INVALID_TID)
             {
                 // This write caused a reschedule
-                if (!m_allocator.ActivateThreads(value.m_waiting))
+                auto& alloc = static_cast<DRISC&>(*GetParent()).GetAllocator();
+                if (!alloc.ActivateThreads(value.m_waiting))
                 {
                     DeadlockWrite("Unable to wake up threads after write of %s: %s becomes %s", addr.str().c_str(), value.str(addr.type).c_str(), data.str(addr.type).c_str());
                     return false;
@@ -192,7 +195,7 @@ bool DRISC::RegisterFile::WriteRegister(const RegAddr& addr, const RegValue& dat
     return true;
 }
 
-void DRISC::RegisterFile::Update()
+void RegisterFile::Update()
 {
     // Commit the queued updates to registers
     assert(m_nUpdates > 0);
@@ -211,7 +214,7 @@ void DRISC::RegisterFile::Update()
     m_nUpdates = 0;
 }
 
-void DRISC::RegisterFile::Cmd_Info(std::ostream& out, const std::vector<std::string>& /*arguments*/) const
+void RegisterFile::Cmd_Info(std::ostream& out, const std::vector<std::string>& /*arguments*/) const
 {
     out <<
     "The Register File stores the register for all threads running on a processor.\n"
@@ -226,12 +229,14 @@ void DRISC::RegisterFile::Cmd_Info(std::ostream& out, const std::vector<std::str
     "  \"1\", \"1-4,15,7-8\", \"all\"\n";
 }
 
-std::string DRISC::RegisterFile::GetName() const
+
+// IFPUClient::GetName()
+std::string RegisterFile::GetName() const
 {
     return GetParent()->GetFQN();
 }
 
-bool DRISC::RegisterFile::CheckFPUOutputAvailability(RegAddr addr)
+bool RegisterFile::CheckFPUOutputAvailability(RegAddr addr)
 {
     if (!p_asyncW.Write(addr))
     {
@@ -257,15 +262,15 @@ bool DRISC::RegisterFile::CheckFPUOutputAvailability(RegAddr addr)
     return true;
 }
 
-bool DRISC::RegisterFile::WriteFPUResult(RegAddr addr, const RegValue& value)
+bool RegisterFile::WriteFPUResult(RegAddr addr, const RegValue& value)
 {
     return WriteRegister(addr, value, false);
 }
 
-void DRISC::RegisterFile::Cmd_Read(std::ostream& out, const std::vector<std::string>& arguments) const
+void RegisterFile::Cmd_Read(std::ostream& out, const std::vector<std::string>& arguments) const
 {
     // Need to change this if the RF is not directly child of parent
-    DRISC& parent = dynamic_cast<DRISC&>(*GetParent());
+    DRISC& parent = static_cast<DRISC&>(*GetParent());
 
     // Find the RAUnit in the same processor
     const drisc::RAUnit* rau = NULL;
@@ -312,6 +317,7 @@ void DRISC::RegisterFile::Cmd_Read(std::ostream& out, const std::vector<std::str
         }
     }
 
+    auto& alloc = static_cast<DRISC&>(*GetParent()).GetAllocator();
 
     out << "Phy   | Fam | Thread | Name/Alias | State / Value" << endl
         << "------+-----+--------+------------+--------------------------------" << endl;
@@ -330,7 +336,7 @@ void DRISC::RegisterFile::Cmd_Read(std::ostream& out, const std::vector<std::str
 
         RegClass group = RC_LOCAL;
         size_t   rel   = 0;
-        TID      tid   = (fid != INVALID_LFID) ? m_allocator.GetRegisterType(fid, addr, &group, &rel) : INVALID_TID;
+        TID      tid   = (fid != INVALID_LFID) ? alloc.GetRegisterType(fid, addr, &group, &rel) : INVALID_TID;
         if (tid != INVALID_TID) {
             out << "T" << setw(4) << setfill('0') << tid;
         } else {
@@ -370,4 +376,5 @@ void DRISC::RegisterFile::Cmd_Read(std::ostream& out, const std::vector<std::str
     }
 }
 
+}
 }

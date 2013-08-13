@@ -23,7 +23,7 @@ DRISC::Pipeline::Pipeline(
     const std::string&  name,
     DRISC&          parent,
     Clock&              clock,
-    RegisterFile&       regFile,
+    drisc::RegisterFile& regFile,
     Network&            network,
     Allocator&          alloc,
     FamilyTable&        familyTable,

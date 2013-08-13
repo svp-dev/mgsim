@@ -6,7 +6,7 @@
 namespace Simulator
 {
 
-DRISC::IOResponseMultiplexer::IOResponseMultiplexer(const std::string& name, Object& parent, Clock& clock, RegisterFile& rf, Allocator& alloc, size_t numDevices, Config& config)
+DRISC::IOResponseMultiplexer::IOResponseMultiplexer(const std::string& name, Object& parent, Clock& clock, drisc::RegisterFile& rf, Allocator& alloc, size_t numDevices, Config& config)
     : Object(name, parent, clock),
       m_regFile(rf),
       m_allocator(alloc),

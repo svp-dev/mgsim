@@ -307,7 +307,7 @@ class Pipeline : public Object, public Inspect::Interface<Inspect::Read>
         void Clear(TID tid);
         PipeAction OnCycle();
 
-        RegisterFile&               m_regFile;
+        drisc::RegisterFile&        m_regFile;
         const DecodeReadLatch&      m_input;
         ReadExecuteLatch&           m_output;
         std::vector<BypassInfo>     m_bypasses;
@@ -323,7 +323,7 @@ class Pipeline : public Object, public Inspect::Interface<Inspect::Read>
 
         static PipeValue RegToPipeValue(RegType type, const RegValue& src_value);
     public:
-        ReadStage(Pipeline& parent, Clock& clock, const DecodeReadLatch& input, ReadExecuteLatch& output, RegisterFile& regFile,
+        ReadStage(Pipeline& parent, Clock& clock, const DecodeReadLatch& input, ReadExecuteLatch& output, drisc::RegisterFile& regFile,
             const std::vector<BypassInfo>& bypasses,
             Config& config);
     };
@@ -426,7 +426,7 @@ class Pipeline : public Object, public Inspect::Interface<Inspect::Read>
     {
         const MemoryWritebackLatch& m_input;
         bool                        m_stall;
-        RegisterFile&               m_regFile;
+        drisc::RegisterFile&        m_regFile;
         Allocator&                  m_allocator;
         ThreadTable&                m_threadTable;
         Network&                    m_network;
@@ -434,14 +434,14 @@ class Pipeline : public Object, public Inspect::Interface<Inspect::Read>
 
         PipeAction OnCycle();
     public:
-        WritebackStage(Pipeline& parent, Clock& clock, const MemoryWritebackLatch& input, RegisterFile& regFile, Allocator& allocator, ThreadTable& threadTable, Network& network, Config& config);
+        WritebackStage(Pipeline& parent, Clock& clock, const MemoryWritebackLatch& input, drisc::RegisterFile& regFile, Allocator& allocator, ThreadTable& threadTable, Network& network, Config& config);
     };
 
     void PrintLatchCommon(std::ostream& out, const CommonData& latch) const;
     static std::string MakePipeValue(const RegType& type, const PipeValue& value);
 
 public:
-    Pipeline(const std::string& name, DRISC& parent, Clock& clock, RegisterFile& regFile, Network& network, Allocator& allocator, FamilyTable& familyTable, ThreadTable& threadTable, ICache& icache, DCache& dcache, Config& config);
+    Pipeline(const std::string& name, DRISC& parent, Clock& clock, drisc::RegisterFile& regFile, Network& network, Allocator& allocator, FamilyTable& familyTable, ThreadTable& threadTable, ICache& icache, DCache& dcache, Config& config);
     Pipeline(const Pipeline&) = delete;
     Pipeline& operator=(const Pipeline&) = delete;
     ~Pipeline();

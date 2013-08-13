@@ -9,7 +9,11 @@ using namespace std;
 namespace Simulator
 {
 
-DRISC::IONotificationMultiplexer::IONotificationMultiplexer(const string& name, Object& parent, Clock& clock, RegisterFile& rf, Allocator& alloc, size_t numChannels, Config& config)
+DRISC::IONotificationMultiplexer::IONotificationMultiplexer(const string& name, Object& parent, Clock& clock,
+                                                            drisc::RegisterFile& rf,
+                                                            Allocator& alloc,
+                                                            size_t numChannels,
+                                                            Config& config)
     : Object(name, parent, clock),
       m_regFile(rf),
       m_allocator(alloc),

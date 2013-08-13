@@ -10,7 +10,7 @@ class IOBusInterface;
 class IONotificationMultiplexer : public Object, public Inspect::Interface<Inspect::Read>
 {
 private:
-    RegisterFile&                   m_regFile;
+    drisc::RegisterFile&            m_regFile;
     Allocator&                      m_allocator;
 
     std::vector<Register<RegAddr>*> m_writebacks;
@@ -29,7 +29,7 @@ private:
     size_t                          m_lastNotified;
 
 public:
-    IONotificationMultiplexer(const std::string& name, Object& parent, Clock& clock, RegisterFile& rf, Allocator& alloc, size_t numChannels, Config& config);
+    IONotificationMultiplexer(const std::string& name, Object& parent, Clock& clock, drisc::RegisterFile& rf, Allocator& alloc, size_t numChannels, Config& config);
     ~IONotificationMultiplexer();
 
     // sent by device select upon an I/O read from the processor

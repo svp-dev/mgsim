@@ -79,7 +79,7 @@ public:
 
     Allocator(const std::string& name, DRISC& parent, Clock& clock,
               FamilyTable& familyTable, ThreadTable& threadTable,
-              RegisterFile& registerFile, drisc::RAUnit& raunit,
+              drisc::RegisterFile& registerFile, drisc::RAUnit& raunit,
               ICache& icache, DCache& dcache,
               Network& network,
               Pipeline& pipeline,
@@ -171,7 +171,7 @@ private:
     DRISC&    m_parent;
     FamilyTable&  m_familyTable;
     ThreadTable&  m_threadTable;
-    RegisterFile& m_registerFile;
+    drisc::RegisterFile& m_registerFile;
     drisc::RAUnit& m_raunit;
     ICache&       m_icache;
     DCache&       m_dcache;

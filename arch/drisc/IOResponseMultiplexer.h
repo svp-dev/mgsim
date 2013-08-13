@@ -8,7 +8,7 @@
 class IOResponseMultiplexer : public Object
 {
 private:
-    RegisterFile&                m_regFile;
+    drisc::RegisterFile&         m_regFile;
     Allocator&                   m_allocator;
 
     struct IOResponse
@@ -28,7 +28,7 @@ private:
     Result DoNothing() { COMMIT{ p_dummy.Deactivate(); }; return SUCCESS; }
 
 public:
-    IOResponseMultiplexer(const std::string& name, Object& parent, Clock& clock, RegisterFile& rf, Allocator& alloc, size_t numDevices, Config& config);
+    IOResponseMultiplexer(const std::string& name, Object& parent, Clock& clock, drisc::RegisterFile& rf, Allocator& alloc, size_t numDevices, Config& config);
     ~IOResponseMultiplexer();
 
     // sent by device select upon an I/O read from the processor

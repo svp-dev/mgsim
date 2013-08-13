@@ -12,7 +12,11 @@ using namespace std;
 namespace Simulator
 {
 
-DRISC::DCache::DCache(const std::string& name, DRISC& parent, Clock& clock, Allocator& alloc, FamilyTable& familyTable, RegisterFile& regFile, Config& config)
+DRISC::DCache::DCache(const std::string& name, DRISC& parent, Clock& clock,
+                      Allocator& alloc,
+                      FamilyTable& familyTable,
+                      drisc::RegisterFile& regFile,
+                      Config& config)
 :   Object(name, parent, clock), m_parent(parent),
     m_allocator(alloc), m_familyTable(familyTable), m_regFile(regFile),
     m_memory(NULL),

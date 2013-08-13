@@ -13,14 +13,14 @@ namespace Simulator
 {
 
 DRISC::Network::Network(
-    const std::string&        name,
+    const std::string&    name,
     DRISC&                parent,
-    Clock&                    clock,
+    Clock&                clock,
     const vector<DRISC*>& grid,
-    Allocator&                alloc,
-    RegisterFile&             regFile,
-    FamilyTable&              familyTable,
-    Config&                   config
+    Allocator&            alloc,
+    drisc::RegisterFile&  regFile,
+    FamilyTable&          familyTable,
+    Config&               config
 ) :
     Object(name, parent, clock),
 
