@@ -104,11 +104,10 @@ public:
 
     FSize GetNumFamilies() const { return m_families.size(); }
 
-    typedef Family value_type;
-          Family& operator[](LFID fid)       { return m_families[fid]; }
-        const Family& operator[](LFID fid) const { return m_families[fid]; }
+    Family& operator[](LFID fid)       { return m_families[fid]; }
+    const Family& operator[](LFID fid) const { return m_families[fid]; }
 
-        LFID  AllocateFamily(ContextType type);
+    LFID  AllocateFamily(ContextType type);
     void  FreeFamily(LFID fid, ContextType context);
 
     FSize GetNumFreeFamilies(ContextType type) const;
