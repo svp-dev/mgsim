@@ -12,6 +12,7 @@
 #include "DebugChannel.h"
 #include "ActionInterface.h"
 #include "AncillaryRegisterFile.h"
+#include "PerfCounters.h"
 
 class Config;
 
@@ -36,7 +37,6 @@ public:
 #include "DCache.h"
 #include "Pipeline.h"
 #include "Allocator.h"
-#include "PerfCounters.h"
 #include "MMUInterface.h"
 
     DRISC(const std::string& name, Object& parent, Clock& clock, PID pid, const std::vector<DRISC*>& grid, Config& config);
@@ -150,7 +150,7 @@ private:
     drisc::IOMatchUnit    m_mmio;
     drisc::AncillaryRegisterFile m_apr_file;
     drisc::AncillaryRegisterFile m_asr_file;
-    PerfCounters          m_perfcounters;
+    drisc::PerfCounters   m_perfcounters;
     drisc::DebugChannel   m_lpout;
     drisc::DebugChannel   m_lperr;
     MMUInterface          m_mmu;
@@ -159,7 +159,7 @@ private:
     // External I/O interface, optional
     IOInterface           *m_io_if;
 
-    friend class PerfCounters::Helpers;
+    friend class drisc::PerfCounters::Helpers;
 };
 
 }

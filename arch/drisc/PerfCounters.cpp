@@ -1,3 +1,4 @@
+#include "PerfCounters.h"
 #include "DRISC.h"
 #include <sim/config.h>
 
@@ -6,8 +7,10 @@
 
 namespace Simulator
 {
+namespace drisc
+{
 
-    class DRISC::PerfCounters::Helpers
+class PerfCounters::Helpers
 {
 template<typename F>
 static void apply_place(DRISC& cpu, LFID fid, const F& fun)
@@ -167,8 +170,8 @@ public:
 
 };
 
-DRISC::PerfCounters::PerfCounters(DRISC& parent, Config& config)
-    : drisc::MMIOComponent("perfcounters", parent, parent.GetClock()),
+PerfCounters::PerfCounters(DRISC& parent, Config& config)
+    : MMIOComponent("perfcounters", parent, parent.GetClock()),
       m_counters(),
       m_nCycleSampleOps(0),
       m_nOtherSampleOps(0)
@@ -203,14 +206,14 @@ DRISC::PerfCounters::PerfCounters(DRISC& parent, Config& config)
 }
 
 
-size_t DRISC::PerfCounters::GetSize() const { return m_counters.size() * sizeof(Integer);  }
+size_t PerfCounters::GetSize() const { return m_counters.size() * sizeof(Integer);  }
 
-Result DRISC::PerfCounters::Write(MemAddr /*address*/, const void * /*data*/, MemSize /*size*/, LFID /*fid*/, TID /*tid*/)
+Result PerfCounters::Write(MemAddr /*address*/, const void * /*data*/, MemSize /*size*/, LFID /*fid*/, TID /*tid*/)
 {
     UNREACHABLE;
 }
 
-Result DRISC::PerfCounters::Read(MemAddr address, void *data, MemSize size, LFID fid, TID tid, const RegAddr& /*writeback*/)
+Result PerfCounters::Read(MemAddr address, void *data, MemSize size, LFID fid, TID tid, const RegAddr& /*writeback*/)
 {
     if (size != sizeof(Integer) || address % sizeof(Integer) != 0 || address / sizeof(Integer) >= m_counters.size())
     {
@@ -243,4 +246,5 @@ Result DRISC::PerfCounters::Read(MemAddr address, void *data, MemSize size, LFID
     return SUCCESS;
 }
 
+}
 }
