@@ -44,22 +44,22 @@ Result DRISC::MMUInterface::Write(MemAddr address, const void *data, MemSize siz
                  (unsigned long long)value, (unsigned long long)value,
                  (unsigned)cmd, (unsigned long long)req_size);
 
-    DRISC* cpu = static_cast<DRISC*>(GetParent());
-
     COMMIT{
+        DRISC& cpu = static_cast<DRISC&>(*GetParent());
+
         switch(cmd)
         {
         case 0:
-            cpu->MapMemory(value, req_size, 0); break;
+            cpu.MapMemory(value, req_size, 0); break;
         case 1:
-            cpu->UnmapMemory(value, req_size); break;
+            cpu.UnmapMemory(value, req_size); break;
         case 2:
-            cpu->MapMemory(value, req_size, cpu->ReadASR(ASR_PID)); break;
+            cpu.MapMemory(value, req_size, cpu.ReadASR(ASR_PID)); break;
         case 3:
             if (req_size == 0)
-                cpu->UnmapMemory(value);
+                cpu.UnmapMemory(value);
             else if (req_size == 1)
-                cpu->WriteASR(ASR_PID, value);
+                cpu.WriteASR(ASR_PID, value);
             break;
         default:
             UNREACHABLE;
