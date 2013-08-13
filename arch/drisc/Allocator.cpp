@@ -1948,7 +1948,7 @@ void DRISC::Allocator::CalculateDistribution(drisc::Family& family, Integer nThr
 DRISC::Allocator::Allocator(const string& name, DRISC& parent, Clock& clock,
                             drisc::FamilyTable& familyTable, drisc::ThreadTable& threadTable,
                             drisc::RegisterFile& registerFile, drisc::RAUnit& raunit,
-                            drisc::ICache& icache, DCache& dcache,
+                            drisc::ICache& icache, drisc::DCache& dcache,
                             Network& network,
                             Pipeline& pipeline,
                             Config& config)

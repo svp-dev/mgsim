@@ -292,7 +292,12 @@ DRISC::Pipeline::PipeAction DRISC::Pipeline::MemoryStage::OnCycle()
     return PIPE_CONTINUE;
 }
 
-DRISC::Pipeline::MemoryStage::MemoryStage(Pipeline& parent, Clock& clock, const ExecuteMemoryLatch& input, MemoryWritebackLatch& output, DCache& dcache, Allocator& alloc, Config& /*config*/)
+DRISC::Pipeline::MemoryStage::MemoryStage(Pipeline& parent, Clock& clock,
+                                          const ExecuteMemoryLatch& input,
+                                          MemoryWritebackLatch& output,
+                                          drisc::DCache& dcache,
+                                          Allocator& alloc,
+                                          Config& /*config*/)
     : Stage("memory", parent, clock),
       m_input(input),
       m_output(output),

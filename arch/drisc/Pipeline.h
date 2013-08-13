@@ -411,7 +411,7 @@ class Pipeline : public Object, public Inspect::Interface<Inspect::Read>
         const ExecuteMemoryLatch& m_input;
         MemoryWritebackLatch&     m_output;
         Allocator&                m_allocator;
-        DCache&                   m_dcache;
+        drisc::DCache&            m_dcache;
         uint64_t                  m_loads;         // nr of successful loads
         uint64_t                  m_stores;        // nr of successful stores
         uint64_t                  m_load_bytes;    // nr of successfully loaded bytes
@@ -419,7 +419,12 @@ class Pipeline : public Object, public Inspect::Interface<Inspect::Read>
 
         PipeAction OnCycle();
     public:
-        MemoryStage(Pipeline& parent, Clock& clock, const ExecuteMemoryLatch& input, MemoryWritebackLatch& output, DCache& dcache, Allocator& allocator, Config& config);
+        MemoryStage(Pipeline& parent, Clock& clock,
+                    const ExecuteMemoryLatch& input,
+                    MemoryWritebackLatch& output,
+                    drisc::DCache& dcache,
+                    Allocator& allocator,
+                    Config& config);
         void addMemStatistics(uint64_t& nr, uint64_t& nw, uint64_t& nrb, uint64_t& nwb) const
         { nr += m_loads; nw += m_stores; nrb += m_load_bytes; nwb += m_store_bytes; }
     };
@@ -460,7 +465,7 @@ public:
              drisc::FamilyTable& familyTable,
              drisc::ThreadTable& threadTable,
              drisc::ICache& icache,
-             DCache& dcache,
+             drisc::DCache& dcache,
              Config& config);
     Pipeline(const Pipeline&) = delete;
     Pipeline& operator=(const Pipeline&) = delete;

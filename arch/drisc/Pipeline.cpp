@@ -29,7 +29,7 @@ DRISC::Pipeline::Pipeline(
     drisc::FamilyTable& familyTable,
     drisc::ThreadTable& threadTable,
     drisc::ICache&      icache,
-    DCache&             dcache,
+    drisc::DCache&      dcache,
     Config&       config)
 :
     Object(name, parent, clock),
