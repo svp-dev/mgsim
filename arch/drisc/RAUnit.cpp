@@ -4,6 +4,7 @@
 
 #include <cassert>
 #include <iomanip>
+
 using namespace std;
 
 namespace Simulator
@@ -11,7 +12,7 @@ namespace Simulator
 
 namespace drisc {
 
-RAUnit::RAUnit(const std::string& name, Object& parent, Clock& clock, const std::array<RegSize, NUM_REG_TYPES>& sizes, Config& config)
+RAUnit::RAUnit(const string& name, Object& parent, Clock& clock, const array<RegSize, NUM_REG_TYPES>& sizes, Config& config)
     : Object(name, parent, clock)
 {
     static struct RegTypeInfo {
@@ -68,7 +69,7 @@ RAUnit::BlockSize RAUnit::GetNumFreeContexts(ContextType type) const
     BlockSize free = m_types[0].free[type];
     for (size_t i = 1; i < NUM_REG_TYPES; ++i)
     {
-        free = std::min(free, m_types[i].free[type]);
+        free = min(free, m_types[i].free[type]);
     }
     return free;
 }
@@ -248,7 +249,7 @@ vector<LFID> RAUnit::GetBlockInfo(RegType type) const
     return regs;
 }
 
-void RAUnit::Cmd_Info(ostream& out, const std::vector<std::string>& /*arguments*/) const
+void RAUnit::Cmd_Info(ostream& out, const vector<string>& /*arguments*/) const
 {
     out <<
         "The Register Allocation Unit is the component that manages the allocation\n"
