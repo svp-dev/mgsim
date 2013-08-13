@@ -1,7 +1,10 @@
-#include "DRISC.h"
+#include "DebugChannel.h"
 #include <iomanip>
 
 namespace Simulator
+{
+
+namespace drisc
 {
 
 /*
@@ -14,15 +17,15 @@ namespace Simulator
  * - offset 5*word, size word: output float decimal
  */
 
-size_t DRISC::DebugChannel::GetSize() const { return  6 * sizeof(Integer);  }
+size_t DebugChannel::GetSize() const { return  6 * sizeof(Integer);  }
 
 
-Result DRISC::DebugChannel::Read (MemAddr /*address*/, void* /*data*/, MemSize /*size*/, LFID /*fid*/, TID /*tid*/, const RegAddr& /*writeback*/)
+Result DebugChannel::Read (MemAddr /*address*/, void* /*data*/, MemSize /*size*/, LFID /*fid*/, TID /*tid*/, const RegAddr& /*writeback*/)
 {
     UNREACHABLE;
 }
 
-Result DRISC::DebugChannel::Write(MemAddr address, const void *data, MemSize size, LFID fid, TID tid)
+Result DebugChannel::Write(MemAddr address, const void *data, MemSize size, LFID fid, TID tid)
 {
     if (address % sizeof(Integer) != 0 || (size != 1 && size != sizeof(Integer)))
     {
@@ -69,11 +72,13 @@ Result DRISC::DebugChannel::Write(MemAddr address, const void *data, MemSize siz
     return SUCCESS;
 }
 
-DRISC::DebugChannel::DebugChannel(const std::string& name, Object& parent, std::ostream& output)
-    : drisc::MMIOComponent("debug_" + name, parent, parent.GetClock()),
+DebugChannel::DebugChannel(const std::string& name, Object& parent, std::ostream& output)
+    : MMIOComponent("debug_" + name, parent, parent.GetClock()),
       m_output(output),
       m_floatprecision(6)
 {
+}
+
 }
 
 }

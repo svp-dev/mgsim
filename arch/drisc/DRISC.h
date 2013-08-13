@@ -9,6 +9,7 @@
 #include <arch/FPU.h>
 #include "RAUnit.h"
 #include "IOMatchUnit.h"
+#include "DebugChannel.h"
 
 class Config;
 
@@ -30,7 +31,6 @@ public:
 #include "Network.h"
 #include "ICache.h"
 #include "IOInterface.h"
-#include "DebugChannel.h"
 #include "DCache.h"
 #include "Pipeline.h"
 #include "Allocator.h"
@@ -151,8 +151,8 @@ private:
     AncillaryRegisterFile m_apr_file;
     AncillaryRegisterFile m_asr_file;
     PerfCounters          m_perfcounters;
-    DebugChannel          m_lpout;
-    DebugChannel          m_lperr;
+    drisc::DebugChannel   m_lpout;
+    drisc::DebugChannel   m_lperr;
     MMUInterface          m_mmu;
     ActionInterface       m_action;
 
