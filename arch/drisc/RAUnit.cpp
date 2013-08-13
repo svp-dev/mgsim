@@ -1,4 +1,4 @@
-#include "DRISC.h"
+#include "RAUnit.h"
 #include <sim/config.h>
 #include <sim/log2.h>
 
@@ -9,13 +9,15 @@ using namespace std;
 namespace Simulator
 {
 
-DRISC::RAUnit::RAUnit(const std::string& name, DRISC& parent, Clock& clock, const RegisterFile& regFile, Config& config)
+namespace drisc {
+
+RAUnit::RAUnit(const std::string& name, Object& parent, Clock& clock, const std::array<RegSize, NUM_REG_TYPES>& sizes, Config& config)
     : Object(name, parent, clock)
 {
     static struct RegTypeInfo {
         const char* blocksize_name;
         RegSize     context_size;
-    } RegTypeInfos[NUM_REG_TYPES] = {
+    } const RegTypeInfos[NUM_REG_TYPES] = {
         {"IntRegistersBlockSize", 32},
         {"FltRegistersBlockSize", 32}
     };
@@ -40,7 +42,7 @@ DRISC::RAUnit::RAUnit(const std::string& name, DRISC& parent, Clock& clock, cons
             throw exceptf<InvalidArgumentException>(*this, "%s is smaller than a context", info.blocksize_name);
         }
 
-        const RegSize size = regFile.GetSize((RegType)i);
+        auto size = sizes[i];
         if (size % type.blockSize != 0)
         {
             throw exceptf<InvalidArgumentException>(*this, "%s does not divide the register file size", info.blocksize_name);
@@ -60,7 +62,7 @@ DRISC::RAUnit::RAUnit(const std::string& name, DRISC& parent, Clock& clock, cons
     }
 }
 
-DRISC::RAUnit::BlockSize DRISC::RAUnit::GetNumFreeContexts(ContextType type) const
+RAUnit::BlockSize RAUnit::GetNumFreeContexts(ContextType type) const
 {
     // Return the smallest number of free contexts.
     BlockSize free = m_types[0].free[type];
@@ -71,7 +73,7 @@ DRISC::RAUnit::BlockSize DRISC::RAUnit::GetNumFreeContexts(ContextType type) con
     return free;
 }
 
-void DRISC::RAUnit::ReserveContext()
+void RAUnit::ReserveContext()
 {
     // Move a normal context to reserved
     for (size_t i = 0; i < NUM_REG_TYPES; ++i)
@@ -84,7 +86,7 @@ void DRISC::RAUnit::ReserveContext()
     }
 }
 
-void DRISC::RAUnit::UnreserveContext()
+void RAUnit::UnreserveContext()
 {
     // Move a reserved context to normal
     for (size_t i = 0; i < NUM_REG_TYPES; ++i)
@@ -97,7 +99,7 @@ void DRISC::RAUnit::UnreserveContext()
     }
 }
 
-bool DRISC::RAUnit::Alloc(const RegSize sizes[NUM_REG_TYPES], LFID fid, ContextType context, RegIndex indices[NUM_REG_TYPES])
+bool RAUnit::Alloc(const RegSize sizes[NUM_REG_TYPES], LFID fid, ContextType context, RegIndex indices[NUM_REG_TYPES])
 {
     BlockSize blocksizes[NUM_REG_TYPES];
 
@@ -191,7 +193,7 @@ bool DRISC::RAUnit::Alloc(const RegSize sizes[NUM_REG_TYPES], LFID fid, ContextT
     return true;
 }
 
-void DRISC::RAUnit::Free(RegIndex indices[NUM_REG_TYPES], ContextType context)
+void RAUnit::Free(RegIndex indices[NUM_REG_TYPES], ContextType context)
 {
     for (size_t i = 0; i < NUM_REG_TYPES; ++i)
     {
@@ -221,7 +223,32 @@ void DRISC::RAUnit::Free(RegIndex indices[NUM_REG_TYPES], ContextType context)
     }
 }
 
-void DRISC::RAUnit::Cmd_Info(ostream& out, const std::vector<std::string>& /*arguments*/) const
+vector<LFID> RAUnit::GetBlockInfo(RegType type) const
+{
+    auto& tinfo = m_types[type];
+    auto& list = tinfo.list;
+    auto blockSize = tinfo.blockSize;
+    auto num_registers = list.size() * blockSize;
+
+    vector<LFID> regs(num_registers, INVALID_LFID);
+
+    for (size_t i = 0; i < list.size(); )
+    {
+        if (list[i].first != 0)
+        {
+            for (size_t j = 0; j < list[i].first * blockSize; ++j)
+            {
+                regs[i * blockSize + j] = list[i].second;
+            }
+            i += list[i].first;
+        }
+        else i++;
+    }
+
+    return regs;
+}
+
+void RAUnit::Cmd_Info(ostream& out, const std::vector<std::string>& /*arguments*/) const
 {
     out <<
         "The Register Allocation Unit is the component that manages the allocation\n"
@@ -235,7 +262,7 @@ void DRISC::RAUnit::Cmd_Info(ostream& out, const std::vector<std::string>& /*arg
         "  quickly see which registers are allocated to which family.\n";
 }
 
-void DRISC::RAUnit::Cmd_Read(ostream& out, const vector<string>& /*arguments*/) const
+void RAUnit::Cmd_Read(ostream& out, const vector<string>& /*arguments*/) const
 {
     static const char* TypeNames[NUM_REG_TYPES] = {"Integer", "Float"};
 
@@ -274,4 +301,5 @@ void DRISC::RAUnit::Cmd_Read(ostream& out, const vector<string>& /*arguments*/) 
     }
 }
 
+}
 }

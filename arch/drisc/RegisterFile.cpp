@@ -22,49 +22,48 @@ DRISC::RegisterFile::RegisterFile(const std::string& name, DRISC& parent, Clock&
     p_pipelineW (*this, "p_pipelineW"),
     p_asyncR    (*this, "p_asyncR"),
     p_asyncW    (*this, "p_asyncW"),
-    m_integers  (config.getValue<size_t>(*this, "NumIntRegisters")),
-    m_floats    (config.getValue<size_t>(*this, "NumFltRegisters")),
+    m_files     (),
+    m_sizes     (),
     m_allocator (alloc),
     m_nUpdates(0),
-    m_integer_local_aliases(),
-    m_float_local_aliases()
+    m_local_aliases()
 {
-    // Initialize all registers to empty
-    for (RegSize i = 0; i < m_integers.size(); ++i)
+    // Initialize all registers
+    for (size_t i = 0; i < NUM_REG_TYPES; ++i)
     {
-        m_integers[i] = MAKE_EMPTY_REG();
+        static std::array<const char*, NUM_REG_TYPES> cfg_names = { "NumIntRegisters", "NumFltRegisters" };
+        m_sizes[i] = config.getValue<size_t>(*this, cfg_names[i]);
+        m_files[i] = new RegValue[m_sizes[i]];
+        for (RegSize j = 0; j < m_sizes[i]; ++j)
+        {
+            m_files[i][j] = MAKE_EMPTY_REG();
+        }
     }
-
-    for (RegSize i = 0; i < m_floats.size(); ++i)
-    {
-        m_floats[i] = MAKE_EMPTY_REG();
-    }
-
     // Set port priorities; first port has highest priority
     AddPort(p_pipelineW);
     AddPort(p_asyncW);
 
-
     // Register aliases for debugging
-    m_integer_local_aliases = config.getWordList("IntRegAliases");
-    if (m_integer_local_aliases.empty())
-        m_integer_local_aliases = GetDefaultLocalRegisterAliases(RT_INTEGER);
-
-    m_float_local_aliases = config.getWordList("FltRegAliases");
-    if (m_float_local_aliases.empty())
-        m_float_local_aliases = GetDefaultLocalRegisterAliases(RT_FLOAT);
+    for (size_t i = 0; i < NUM_REG_TYPES; ++i)
+    {
+        static std::array<const char *, NUM_REG_TYPES> cfg_names = { "IntRegAliases", "FltRegAliases" };
+        m_local_aliases[i] = config.getWordList(cfg_names[i]);
+        if (m_local_aliases[i].empty())
+            m_local_aliases[i] = GetDefaultLocalRegisterAliases((RegType)i);
+    }
 }
 
-RegSize DRISC::RegisterFile::GetSize(RegType type) const
+DRISC::RegisterFile::~RegisterFile()
 {
-    const vector<RegValue>& regs = PickFile(type);
-    return regs.size();
+    for (auto p : m_files)
+        delete[] p;
 }
 
 bool DRISC::RegisterFile::ReadRegister(const RegAddr& addr, RegValue& data, bool quiet) const
 {
-    const vector<RegValue>& regs = PickFile(addr.type);
-    if (addr.index >= regs.size())
+    auto& regs = m_files[addr.type];
+    auto sz = m_sizes[addr.type];
+    if (addr.index >= sz)
     {
         throw SimulationException("A component attempted to read from a non-existing register", *this);
     }
@@ -79,8 +78,9 @@ bool DRISC::RegisterFile::ReadRegister(const RegAddr& addr, RegValue& data, bool
 // Admin version
 bool DRISC::RegisterFile::WriteRegister(const RegAddr& addr, const RegValue& data)
 {
-    vector<RegValue>& regs = PickFile(addr.type);
-    if (addr.index < regs.size())
+    auto& regs = m_files[addr.type];
+    auto sz = m_sizes[addr.type];
+    if (addr.index < sz)
     {
         DebugRegWrite("write %s <- %s (was %s, ADMIN)", addr.str().c_str(),
                       data.str(addr.type).c_str(),
@@ -93,8 +93,9 @@ bool DRISC::RegisterFile::WriteRegister(const RegAddr& addr, const RegValue& dat
 
 bool DRISC::RegisterFile::Clear(const RegAddr& addr, RegSize size)
 {
-    std::vector<RegValue>& regs = PickFile(addr.type);
-    if (addr.index + size > regs.size())
+    auto& regs = m_files[addr.type];
+    auto sz = m_sizes[addr.type];
+    if (addr.index + size > sz)
     {
         throw SimulationException("A component attempted to clear a non-existing register", *this);
     }
@@ -113,8 +114,9 @@ bool DRISC::RegisterFile::Clear(const RegAddr& addr, RegSize size)
 
 bool DRISC::RegisterFile::WriteRegister(const RegAddr& addr, const RegValue& data, bool from_memory)
 {
-    std::vector<RegValue>& regs = PickFile(addr.type);
-    if (addr.index >= regs.size())
+    auto& regs = m_files[addr.type];
+    auto sz = m_sizes[addr.type];
+    if (addr.index >= sz)
     {
         throw SimulationException("A component attempted to write to a non-existing register", *this);
     }
@@ -126,7 +128,7 @@ bool DRISC::RegisterFile::WriteRegister(const RegAddr& addr, const RegValue& dat
         assert(data.m_waiting.head == INVALID_TID);
     }
 
-    const RegValue& value = regs[addr.index];
+    auto& value = regs[addr.index];
     if (value.m_state != RST_FULL)
     {
         if (value.m_state == RST_WAITING && data.m_state == RST_EMPTY)
@@ -192,11 +194,11 @@ void DRISC::RegisterFile::Update()
 {
     // Commit the queued updates to registers
     assert(m_nUpdates > 0);
-    for (unsigned int i = 0; i < m_nUpdates; ++i)
+    for (unsigned i = 0; i < m_nUpdates; ++i)
     {
-        RegAddr& addr = m_updates[i].first;
-        RegType type = addr.type;
-        vector<RegValue>& regs = PickFile(type);
+        auto& addr = m_updates[i].first;
+        auto type = addr.type;
+        auto& regs = m_files[type];
 
         DebugRegWrite("write %s <- %s (was %s)", addr.str().c_str(),
                       m_updates[i].second.str(type).c_str(),
@@ -260,51 +262,36 @@ bool DRISC::RegisterFile::WriteFPUResult(RegAddr addr, const RegValue& value)
 
 void DRISC::RegisterFile::Cmd_Read(std::ostream& out, const std::vector<std::string>& arguments) const
 {
-    const RAUnit*    rau    = NULL;
-
     // Need to change this if the RF is not directly child of parent
     DRISC& parent = dynamic_cast<DRISC&>(*GetParent());
 
     // Find the RAUnit in the same processor
+    const drisc::RAUnit* rau = NULL;
     for (unsigned int i = 0; i < parent.GetNumChildren(); ++i)
     {
         const Object* child = parent.GetChild(i);
-        if (rau   == NULL) rau   = dynamic_cast<const RAUnit*>(child);
+        if (rau == NULL)
+        {
+            rau = dynamic_cast<const drisc::RAUnit*>(child);
+            break;
+        }
     }
+    assert(rau != NULL);
 
     RegType type = RT_INTEGER;
     size_t  ix    = 0;
-    const vector<string> *aliases = &m_integer_local_aliases;
     if (!arguments.empty())
     {
         if (arguments[ix] == "float") {
             type = RT_FLOAT;
-            aliases = &m_float_local_aliases;
-            ix++;
         } else if (arguments[ix] == "integer") {
             // already initialized above
             ix++;
         }
     }
+    auto& aliases = m_local_aliases[type];
 
-    vector<LFID> regs(GetSize(type), INVALID_LFID);
-    if (rau != NULL)
-    {
-        const RAUnit::List& list = rau->m_types[type].list;
-        const RegSize blockSize  = rau->m_types[type].blockSize;
-        for (size_t i = 0; i < list.size();)
-        {
-            if (list[i].first != 0)
-            {
-                for (size_t j = 0; j < list[i].first * blockSize; ++j)
-                {
-                    regs[i * blockSize + j] = list[i].second;
-                }
-                i += list[i].first;
-            }
-            else i++;
-        }
-    }
+    auto regs = rau->GetBlockInfo(type);
 
     set<RegIndex> indices;
     if (ix < arguments.size())
@@ -367,8 +354,8 @@ void DRISC::RegisterFile::Cmd_Read(std::ostream& out, const std::vector<std::str
             else
                 out << ' ' << groupc << setw(2) << left << rel << right;
             out << ' ';
-            if (group == RC_LOCAL && rel < aliases->size())
-                out << setw(5) << (*aliases)[rel];
+            if (group == RC_LOCAL && rel < aliases.size())
+                out << setw(5) << aliases[rel];
             else
                 out << "   - ";
         }

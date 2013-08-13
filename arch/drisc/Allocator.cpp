@@ -1946,8 +1946,12 @@ void DRISC::Allocator::CalculateDistribution(Family& family, Integer nThreads, P
 }
 
 DRISC::Allocator::Allocator(const string& name, DRISC& parent, Clock& clock,
-    FamilyTable& familyTable, ThreadTable& threadTable, RegisterFile& registerFile, RAUnit& raunit, ICache& icache, DCache& dcache, Network& network, Pipeline& pipeline,
-    Config& config)
+                            FamilyTable& familyTable, ThreadTable& threadTable,
+                            RegisterFile& registerFile, drisc::RAUnit& raunit,
+                            ICache& icache, DCache& dcache,
+                            Network& network,
+                            Pipeline& pipeline,
+                            Config& config)
  :  Object(name, parent, clock),
     m_parent(parent), m_familyTable(familyTable), m_threadTable(threadTable), m_registerFile(registerFile), m_raunit(raunit), m_icache(icache), m_dcache(dcache), m_network(network), m_pipeline(pipeline),
     m_bundle        ("b_indirectcreate", *this, clock, config.getValueOrDefault<BufferSize>(*this,"IndirectCreateQueueSize", 8)),

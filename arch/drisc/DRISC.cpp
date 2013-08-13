@@ -28,7 +28,7 @@ DRISC::DRISC(const std::string& name, Object& parent, Clock& clock, PID pid, con
     m_familyTable ("families",      *this, clock, config),
     m_threadTable ("threads",       *this, clock, config),
     m_registerFile("registers",     *this, clock, m_allocator, config),
-    m_raunit      ("rau",           *this, clock, m_registerFile, config),
+    m_raunit      ("rau",           *this, clock, m_registerFile.GetSizes(), config),
     m_allocator   ("alloc",         *this, clock, m_familyTable, m_threadTable, m_registerFile, m_raunit, m_icache, m_dcache, m_network, m_pipeline, config),
     m_icache      ("icache",        *this, clock, m_allocator, config),
     m_dcache      ("dcache",        *this, clock, m_allocator, m_familyTable, m_registerFile, config),
@@ -53,8 +53,8 @@ DRISC::DRISC(const std::string& name, Object& parent, Clock& clock, PID pid, con
     config.registerProperty(*this, "dc.lsz", (uint32_t)m_dcache.GetLineSize());
     config.registerProperty(*this, "threads", (uint32_t)m_threadTable.GetNumThreads());
     config.registerProperty(*this, "families", (uint32_t)m_familyTable.GetFamilies().size());
-    config.registerProperty(*this, "iregs", (uint32_t)m_registerFile.GetSize(RT_INTEGER));
-    config.registerProperty(*this, "fpregs", (uint32_t)m_registerFile.GetSize(RT_FLOAT));
+    config.registerProperty(*this, "iregs", (uint32_t)m_registerFile.GetSizes()[RT_INTEGER]);
+    config.registerProperty(*this, "fpregs", (uint32_t)m_registerFile.GetSizes()[RT_FLOAT]);
     config.registerProperty(*this, "freq", (uint32_t)clock.GetFrequency());
 
     // Get the size, in bits, of various identifiers.
@@ -510,7 +510,7 @@ unsigned int DRISC::GetNumSuspendedRegisters() const
     unsigned int num = 0;
     for (size_t i = 0; i < NUM_REG_TYPES; ++i)
     {
-        RegSize size = m_registerFile.GetSize((RegType)i);
+        RegSize size = m_registerFile.GetSizes()[i];
         for (RegIndex r = 0; r < size; ++r)
         {
             RegValue value;

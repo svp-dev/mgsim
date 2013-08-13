@@ -233,6 +233,8 @@ struct MultiInteger
 
 enum RegType
 {
+    // The following must be numbered in sequence as they are used
+    // to index an array in RegisterFile.
     RT_INTEGER = 0,
     RT_FLOAT   = 1,
 };

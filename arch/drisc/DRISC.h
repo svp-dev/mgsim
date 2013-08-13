@@ -7,6 +7,7 @@
 #include <arch/Memory.h>
 #include <arch/BankSelector.h>
 #include <arch/FPU.h>
+#include "RAUnit.h"
 
 class Config;
 
@@ -32,7 +33,6 @@ public:
 #include "DebugChannel.h"
 #include "DCache.h"
 #include "Pipeline.h"
-#include "RAUnit.h"
 #include "Allocator.h"
 #include "PerfCounters.h"
 #include "MMUInterface.h"
@@ -139,7 +139,7 @@ private:
     FamilyTable           m_familyTable;
     ThreadTable           m_threadTable;
     RegisterFile          m_registerFile;
-    RAUnit                m_raunit;
+    drisc::RAUnit         m_raunit;
     Allocator             m_allocator;
     ICache                m_icache;
     DCache                m_dcache;

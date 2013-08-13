@@ -1,20 +1,25 @@
 #ifndef RAUNIT_H
 #define RAUNIT_H
 
-#ifndef PROCESSOR_H
-#error This file should be included in DRISC.h
-#endif
+#include <sim/kernel.h>
+#include <sim/inspect.h>
+#include <arch/simtypes.h>
+#include <vector>
+
+class Config;
+
+namespace Simulator {
+
+namespace drisc {
 
 class RAUnit : public Object, public Inspect::Interface<Inspect::Read>
 {
-    friend class RegisterFile;
-
 public:
     typedef std::vector<std::pair<RegSize, LFID> > List;
     typedef RegSize  BlockSize;
     typedef RegIndex BlockIndex;
 
-    RAUnit(const std::string& name, DRISC& parent, Clock& clock, const RegisterFile& regFile, Config& config);
+    RAUnit(const std::string& name, Object& parent, Clock& clock, const std::array<RegSize, NUM_REG_TYPES>& regFileSizes, Config& config);
 
     /**
      * \brief Allocates registers
@@ -48,7 +53,11 @@ public:
     void Cmd_Info(std::ostream& out, const std::vector<std::string>& arguments) const override;
     void Cmd_Read(std::ostream& out, const std::vector<std::string>& arguments) const override;
 
+    // Helper for RegisterFile::Cmd_Read
+    std::vector<LFID> GetBlockInfo(RegType type) const;
+
 private:
+    // Helpers for GetBlockInfo()
     struct TypeInfo
     {
         List      list;                     ///< The list of blocks for administration
@@ -60,5 +69,7 @@ private:
     TypeInfo m_types[NUM_REG_TYPES];
 };
 
-#endif
+}
+}
 
+#endif

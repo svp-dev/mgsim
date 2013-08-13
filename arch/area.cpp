@@ -521,8 +521,9 @@ void Simulator::MGSystem::DumpArea(std::ostream& os, size_t tech) const
     cfg.numFPUs         = m_fpus.size();
     cfg.numThreads      = m_procs[0]->GetThreadTableSize();
     cfg.numFamilies     = m_procs[0]->GetFamilyTableSize();
-    cfg.numIntRegisters = m_procs[0]->GetRegisterFile().GetSize(RT_INTEGER);
-    cfg.numFltRegisters = m_procs[0]->GetRegisterFile().GetSize(RT_FLOAT);
+    auto reg_szs        = m_procs[0]->GetRegisterFile().GetSizes();
+    cfg.numIntRegisters = reg_szs[RT_INTEGER];
+    cfg.numFltRegisters = reg_szs[RT_FLOAT];
 
     cfg.tech             = tech;
     cfg.bits_PID         =

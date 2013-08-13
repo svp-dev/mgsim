@@ -78,7 +78,11 @@ public:
     };
 
     Allocator(const std::string& name, DRISC& parent, Clock& clock,
-              FamilyTable& familyTable, ThreadTable& threadTable, RegisterFile& registerFile, RAUnit& raunit, ICache& icache, DCache& dcache, Network& network, Pipeline& pipeline,
+              FamilyTable& familyTable, ThreadTable& threadTable,
+              RegisterFile& registerFile, drisc::RAUnit& raunit,
+              ICache& icache, DCache& dcache,
+              Network& network,
+              Pipeline& pipeline,
               Config& config);
     Allocator(const Allocator&) = delete;
     Allocator& operator=(const Allocator&) = delete;
@@ -168,7 +172,7 @@ private:
     FamilyTable&  m_familyTable;
     ThreadTable&  m_threadTable;
     RegisterFile& m_registerFile;
-    RAUnit&       m_raunit;
+    drisc::RAUnit& m_raunit;
     ICache&       m_icache;
     DCache&       m_dcache;
     Network&      m_network;
