@@ -32,7 +32,7 @@ DRISC::DRISC(const std::string& name, Object& parent, Clock& clock, PID pid, con
     m_registerFile("registers",     *this, clock, config),
     m_raunit      ("rau",           *this, clock, m_registerFile.GetSizes(), config),
     m_allocator   ("alloc",         *this, clock, m_familyTable, m_threadTable, m_registerFile, m_raunit, m_icache, m_dcache, m_network, m_pipeline, config),
-    m_icache      ("icache",        *this, clock, m_allocator, config),
+    m_icache      ("icache",        *this, clock, config),
     m_dcache      ("dcache",        *this, clock, m_allocator, m_familyTable, m_registerFile, config),
     m_pipeline    ("pipeline",      *this, clock, m_registerFile, m_network, m_allocator, m_familyTable, m_threadTable, m_icache, m_dcache, config),
     m_network     ("network",       *this, clock, grid, m_allocator, m_registerFile, m_familyTable, config),

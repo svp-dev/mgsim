@@ -17,6 +17,7 @@
 #include "RegisterFile.h"
 #include "FamilyTable.h"
 #include "ThreadTable.h"
+#include "ICache.h"
 
 class Config;
 
@@ -33,7 +34,6 @@ public:
     class Allocator;
 
 #include "Network.h"
-#include "ICache.h"
 #include "IOInterface.h"
 #include "DCache.h"
 #include "Pipeline.h"
@@ -112,7 +112,7 @@ public:
     Network& GetNetwork() { return m_network; }
     IOInterface* GetIOInterface() { return m_io_if; }
     drisc::RegisterFile& GetRegisterFile() { return m_registerFile; }
-    ICache& GetICache() { return m_icache; }
+    drisc::ICache& GetICache() { return m_icache; }
     DCache& GetDCache() { return m_dcache; }
     SymbolTable& GetSymbolTable() { return *m_symtable; }
     Allocator& GetAllocator() { return m_allocator; }
@@ -141,7 +141,7 @@ private:
     drisc::RegisterFile   m_registerFile;
     drisc::RAUnit         m_raunit;
     Allocator             m_allocator;
-    ICache                m_icache;
+    drisc::ICache         m_icache;
     DCache                m_dcache;
     Pipeline              m_pipeline;
     Network               m_network;

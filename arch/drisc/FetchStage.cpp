@@ -149,7 +149,7 @@ DRISC::Pipeline::FetchStage::FetchStage(Pipeline& parent, Clock& clock,
                                         Allocator& alloc,
                                         drisc::FamilyTable& familyTable,
                                         drisc::ThreadTable& threadTable,
-                                        ICache& icache,
+                                        drisc::ICache& icache,
                                         Config& config)
   : Stage("fetch", parent, clock),
     m_output(output),

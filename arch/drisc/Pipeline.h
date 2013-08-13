@@ -251,7 +251,7 @@ class Pipeline : public Object, public Inspect::Interface<Inspect::Read>
         Allocator&        m_allocator;
         drisc::FamilyTable& m_familyTable;
         drisc::ThreadTable& m_threadTable;
-        ICache&           m_icache;
+        drisc::ICache&    m_icache;
         size_t            m_controlBlockSize;
         char*             m_buffer;
         bool              m_switched;
@@ -265,7 +265,7 @@ class Pipeline : public Object, public Inspect::Interface<Inspect::Read>
                    Allocator& allocator,
                    drisc::FamilyTable& familyTable,
                    drisc::ThreadTable& threadTable,
-                   ICache &icache,
+                   drisc::ICache &icache,
                    Config& config);
         FetchStage(const FetchStage&) = delete;
         FetchStage& operator=(const FetchStage&) = delete;
@@ -459,7 +459,7 @@ public:
              Allocator& allocator,
              drisc::FamilyTable& familyTable,
              drisc::ThreadTable& threadTable,
-             ICache& icache,
+             drisc::ICache& icache,
              DCache& dcache,
              Config& config);
     Pipeline(const Pipeline&) = delete;

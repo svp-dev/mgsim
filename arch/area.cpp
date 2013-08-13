@@ -585,8 +585,8 @@ void Simulator::MGSystem::DumpArea(std::ostream& os, size_t tech) const
 
     // Dump processor caches
     {
-        const Simulator::DRISC::ICache& icache = m_procs[0]->GetICache();
-        const Simulator::DRISC::DCache& dcache = m_procs[0]->GetDCache();
+        auto& icache = m_procs[0]->GetICache();
+        auto& dcache = m_procs[0]->GetDCache();
 
         static const tcache_desc l1_icache = {
             "l1_icache",
