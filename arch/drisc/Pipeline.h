@@ -250,10 +250,9 @@ class Pipeline : public Object, public Inspect::Interface<Inspect::Read>
         virtual PipeAction OnCycle() = 0;
         virtual void       Clear(TID /*tid*/) {}
 
-        // Inherit constructor from Object
-        using Object::Object;
-
     protected:
+        Stage(const std::string& name, Object& parent, Clock& clock)
+            : Object(name, parent, clock) {}
         Object& GetDRISCParent()  const { return *GetParent()->GetParent(); }
     };
 
