@@ -828,8 +828,11 @@ bool Allocator::OnDCachelineLoaded(char* data)
 {
     assert(!m_bundle.Empty());
     COMMIT {
+        auto& info = m_bundle.Front();
+        auto offset = info.addr % m_dcache.GetLineSize();
+        assert(offset + sizeof(m_bundleData) < m_dcache.GetLineSize());
+        std::copy(data + offset, data + offset + sizeof(m_bundleData), m_bundleData);
         m_bundleState = BUNDLE_LINE_LOADED;
-        std::copy(data, data + sizeof(m_bundleData), m_bundleData);
     }
     return true;
 }
@@ -1436,6 +1439,12 @@ Result Allocator::DoBundle()
     const BundleInfo& info = m_bundle.Front();
     if (m_bundleState == BUNDLE_INITIAL)
     {
+        auto lineSize = m_dcache.GetLineSize();
+        if (((info.addr % lineSize) + sizeof(m_bundleData)) > lineSize)
+        {
+            throw exceptf<InvalidArgumentException>(*this, "Bundle info structure at %#016llx straddles cache line boundary", (unsigned long long)info.addr);
+        }
+
         Result      result;
         if ((result = m_dcache.Read(info.addr, m_bundleData, sizeof(Integer) * 2 + sizeof(MemAddr), 0)) == FAILED)
         {
@@ -1471,7 +1480,7 @@ Result Allocator::DoBundle()
         RemoteMessage msg;
         msg.type                       = RemoteMessage::MSG_ALLOCATE;
 
-        msg.allocate.place             = GetDRISC().UnpackPlace(UnserializeRegister(RT_INTEGER,&m_bundleData[0], sizeof(Integer)));
+        msg.allocate.place             = GetDRISC().UnpackPlace(UnserializeRegister(RT_INTEGER, &m_bundleData[0], sizeof(Integer)));
 
         if (msg.allocate.place.size == 0)
         {

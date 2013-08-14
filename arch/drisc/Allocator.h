@@ -183,7 +183,7 @@ private:
     Network&      m_network;
     Pipeline&     m_pipeline;
 
-    char                  m_bundleData[MAX_MEMORY_OPERATION_SIZE];
+    char                  m_bundleData[sizeof(Integer) + sizeof(MemAddr) + sizeof(SInteger)];
     Buffer<BundleInfo>    m_bundle;
     Buffer<LFID>          m_alloc;                   ///< This is the queue of families waiting for initial thread allocation
     Buffer<CreateInfo>    m_creates;                 ///< Create queue
