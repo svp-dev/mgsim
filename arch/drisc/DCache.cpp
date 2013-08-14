@@ -705,14 +705,14 @@ Result DCache::DoReadWritebacks()
     const Integer data = state.value >> (state.offset * sizeof(Integer) * 8);
 #endif
 
-    DebugMemWrite("Completed load: %#016llx -> %s",
-                  (unsigned long long)data, state.addr.str().c_str());
-
     switch (state.addr.type) {
     case RT_INTEGER: reg.m_integer       = data; break;
     case RT_FLOAT:   reg.m_float.integer = data; break;
     default: UNREACHABLE;
     }
+
+    DebugMemWrite("Completed load: %#016llx -> %s %s",
+                  (unsigned long long)data, state.addr.str().c_str(), reg.str(state.addr.type).c_str());
 
     if (!regFile.WriteRegister(state.addr, reg, true))
     {
@@ -920,20 +920,74 @@ void DCache::Cmd_Read(std::ostream& out, const std::vector<std::string>& argumen
     }
     else if (arguments[0] == "buffers")
     {
-        out << endl << "Outgoing requests:" << endl << endl
+        out << endl << "Read responses (CIDs):";
+        for (auto& p : m_read_responses)
+            out << ' ' << p.cid;
+        out << "." << endl
+
+            << endl << "Write responses (TIDs):";
+        for (auto& p : m_write_responses)
+            out << ' ' << p.wid;
+        out << "." << endl
+
+            << endl << "Writeback requests:" << endl;
+        for (auto& p : m_writebacks)
+        {
+            out << "Data: " << hex << setfill('0');
+;
+            for (size_t x = 0; x < m_lineSize; ++x) {
+                if (x && x % sizeof(Integer) == 0) out << ' ';
+                out << setw(2) << (unsigned)(unsigned char)p.data[x];
+            }
+            out << dec << endl
+                << "Waiting registers: ";
+            RegAddr reg = p.waiting;
+            while (reg != INVALID_REG)
+            {
+                RegValue value;
+                regFile.ReadRegister(reg, value, true);
+
+                out << ' ' << reg.str() << " (" << value.str(reg.type) << ')';
+
+                if (value.m_state == RST_FULL || value.m_memory.size == 0)
+                {
+                    // Rare case: the request info is still in the pipeline, stall!
+                    out << " !!";
+                    break;
+                }
+
+                if (value.m_state != RST_PENDING && value.m_state != RST_WAITING)
+                {
+                    // We're too fast, wait!
+                    out << " !!";
+                    break;
+                }
+                reg = value.m_memory.next;
+            }
+            out << endl << endl;
+        }
+        out << endl << "Writeback state: value "
+            << hex << showbase << m_wbstate.value << dec << noshowbase
+            << " addr " << m_wbstate.addr.str()
+            << " next " << m_wbstate.next.str()
+            << " size " << m_wbstate.size
+            << " offset " << m_wbstate.offset
+            << " fid " << m_wbstate.fid
+            << endl
+            << endl << "Outgoing requests:" << endl
             << "      Address      | Type  | Value (writes)" << endl
             << "-------------------+-------+-------------------------" << endl;
-        for (Buffer<Request>::const_iterator p = m_outgoing.begin(); p != m_outgoing.end(); ++p)
+        for (auto &p : m_outgoing)
         {
-            out << hex << "0x" << setw(16) << setfill('0') << p->address << " | "
-                << (p->write ? "Write" : "Read ") << " |";
-            if (p->write)
+            out << hex << "0x" << setw(16) << setfill('0') << p.address << " | "
+                << (p.write ? "Write" : "Read ") << " |";
+            if (p.write)
             {
                 out << hex << setfill('0');
                 for (size_t x = 0; x < m_lineSize; ++x)
                 {
-                    if (p->data.mask[x])
-                        out << " " << setw(2) << (unsigned)(unsigned char)p->data.data[x];
+                    if (p.data.mask[x])
+                        out << " " << setw(2) << (unsigned)(unsigned char)p.data.data[x];
                     else
                         out << " --";
                 }
