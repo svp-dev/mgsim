@@ -281,6 +281,7 @@ void RegisterFile::Cmd_Read(std::ostream& out, const std::vector<std::string>& a
     {
         if (arguments[ix] == "float") {
             type = RT_FLOAT;
+            ix++;
         } else if (arguments[ix] == "integer") {
             // already initialized above
             ix++;
