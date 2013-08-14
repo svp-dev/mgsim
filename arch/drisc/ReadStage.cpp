@@ -7,6 +7,7 @@
   data. Afterwards, we may still need to read parts from the Register
   File.
 */
+#include "Pipeline.h"
 #include "DRISC.h"
 #include <arch/symtable.h>
 
@@ -18,10 +19,12 @@ using namespace std;
 
 namespace Simulator
 {
+namespace drisc
+{
 
 // Convert a RegValue into a PipeValue
 /*static*/
-DRISC::Pipeline::PipeValue DRISC::Pipeline::ReadStage::RegToPipeValue(RegType type, const RegValue& src_value)
+Pipeline::PipeValue Pipeline::ReadStage::RegToPipeValue(RegType type, const RegValue& src_value)
 {
     PipeValue dest_value;
     dest_value.m_state = src_value.m_state;
@@ -61,7 +64,7 @@ DRISC::Pipeline::PipeValue DRISC::Pipeline::ReadStage::RegToPipeValue(RegType ty
  * @param[in,out] operand persistent information about the reading of the operand for multi-cycle reads
  * @return true if the operation succeeded. This does not have to indicate the entire register has been read.
  */
-bool DRISC::Pipeline::ReadStage::ReadRegister(OperandInfo& operand, uint32_t literal)
+bool Pipeline::ReadStage::ReadRegister(OperandInfo& operand, uint32_t literal)
 {
     if (operand.offset == -2)
     {
@@ -121,7 +124,7 @@ bool DRISC::Pipeline::ReadStage::ReadRegister(OperandInfo& operand, uint32_t lit
     return true;
 }
 
-bool DRISC::Pipeline::ReadStage::ReadBypasses(OperandInfo& operand)
+bool Pipeline::ReadStage::ReadBypasses(OperandInfo& operand)
 {
     // We don't perform this function in the ACQUIRE phase because
     // we don't have to acquire any ports, but it can still 'fail' in
@@ -273,7 +276,7 @@ bool DRISC::Pipeline::ReadStage::ReadBypasses(OperandInfo& operand)
  @param [in]  operand The operand to check
  @param [in]  addr    The base address of the operand
  */
-bool DRISC::Pipeline::ReadStage::CheckOperandForSuspension(const OperandInfo& operand)
+bool Pipeline::ReadStage::CheckOperandForSuspension(const OperandInfo& operand)
 {
     if (operand.value.m_state != RST_FULL)
     {
@@ -295,7 +298,7 @@ bool DRISC::Pipeline::ReadStage::CheckOperandForSuspension(const OperandInfo& op
     return false;
 }
 
-DRISC::Pipeline::PipeAction DRISC::Pipeline::ReadStage::OnCycle()
+Pipeline::PipeAction Pipeline::ReadStage::OnCycle()
 {
     OperandInfo operand1( m_operand1 );
     OperandInfo operand2( m_operand2 );
@@ -480,7 +483,7 @@ DRISC::Pipeline::PipeAction DRISC::Pipeline::ReadStage::OnCycle()
     return PIPE_CONTINUE;
 }
 
-void DRISC::Pipeline::ReadStage::Clear(TID tid)
+void Pipeline::ReadStage::Clear(TID tid)
 {
     if (m_input.tid == tid)
     {
@@ -489,14 +492,13 @@ void DRISC::Pipeline::ReadStage::Clear(TID tid)
     }
 }
 
-DRISC::Pipeline::ReadStage::ReadStage(Pipeline& parent, Clock& clock,
-                                      const DecodeReadLatch& input,
-                                      ReadExecuteLatch& output,
-                                      drisc::RegisterFile& regFile,
-                                      const vector<BypassInfo>& bypasses,
-                                      Config& /*config*/)
+Pipeline::ReadStage::ReadStage(Pipeline& parent, Clock& clock,
+                               const DecodeReadLatch& input,
+                               ReadExecuteLatch& output,
+                               const vector<BypassInfo>& bypasses,
+                               Config& /*config*/)
   : Stage("read", parent, clock),
-    m_regFile(regFile),
+    m_regFile(GetDRISC().GetRegisterFile()),
     m_input(input),
     m_output(output),
     m_bypasses(bypasses),
@@ -511,4 +513,5 @@ DRISC::Pipeline::ReadStage::ReadStage(Pipeline& parent, Clock& clock,
     Clear(input.tid);
 }
 
+}
 }

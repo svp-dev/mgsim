@@ -5,12 +5,12 @@
 #include <sim/inspect.h>
 #include <arch/simtypes.h>
 #include <vector>
+#include "forward.h"
 
-class Config;
-
-namespace Simulator {
-
-namespace drisc {
+namespace Simulator
+{
+namespace drisc
+{
 
 class RAUnit : public Object, public Inspect::Interface<Inspect::Read>
 {

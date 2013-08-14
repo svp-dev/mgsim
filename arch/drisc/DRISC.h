@@ -20,27 +20,21 @@
 #include "ICache.h"
 #include "DCache.h"
 #include "IOInterface.h"
-#include <sim/storage.h> // for Network
+#include "Network.h"
+#include "Allocator.h"
+#include "Pipeline.h"
 
 class Config;
 
 namespace Simulator
 {
 
-namespace counters {};
-
-const std::vector<std::string>& GetDefaultLocalRegisterAliases(RegType type);
 #define GetDRISC() (dynamic_cast<DRISC&>(GetDRISCParent()))
-
 
 class DRISC : public Object
 {
 public:
     class Allocator;
-
-#include "Network.h"
-#include "Pipeline.h"
-#include "Allocator.h"
 
     DRISC(const std::string& name, Object& parent, Clock& clock, PID pid, const std::vector<DRISC*>& grid, Config& config);
     DRISC(const DRISC&) = delete;
@@ -65,10 +59,6 @@ public:
     PID   GetPID()      const { return m_pid; }
     PSize GetGridSize() const { return m_grid.size(); }
     bool  IsIdle()      const;
-
-
-    Pipeline& GetPipeline() { return m_pipeline; }
-    drisc::IOMatchUnit& GetIOMatchUnit() { return m_mmio; }
 
     float GetRegFileAsyncPortActivity() const {
         return (float)m_registerFile.p_asyncW.GetBusyCycles() / (float)GetCycleNo();
@@ -112,14 +102,18 @@ public:
     void UnmapMemory(ProcessID pid);
     bool CheckPermissions(MemAddr address, MemSize size, int access) const;
 
-    Network& GetNetwork() { return m_network; }
+    drisc::Network& GetNetwork() { return m_network; }
     drisc::IOInterface* GetIOInterface() { return m_io_if; }
     drisc::RegisterFile& GetRegisterFile() { return m_registerFile; }
     drisc::ICache& GetICache() { return m_icache; }
     drisc::DCache& GetDCache() { return m_dcache; }
-    SymbolTable& GetSymbolTable() { return *m_symtable; }
-    Allocator& GetAllocator() { return m_allocator; }
+    drisc::Allocator& GetAllocator() { return m_allocator; }
     drisc::RAUnit& GetRAUnit() { return m_raunit; }
+    drisc::Pipeline& GetPipeline() { return m_pipeline; }
+    drisc::IOMatchUnit& GetIOMatchUnit() { return m_mmio; }
+    drisc::FamilyTable& GetFamilyTable() { return m_familyTable; }
+    drisc::ThreadTable& GetThreadTable() { return m_threadTable; }
+    SymbolTable& GetSymbolTable() { return *m_symtable; }
 
 private:
     IMemory*                       m_memory;
@@ -144,11 +138,11 @@ private:
     drisc::ThreadTable    m_threadTable;
     drisc::RegisterFile   m_registerFile;
     drisc::RAUnit         m_raunit;
-    Allocator             m_allocator;
+    drisc::Allocator      m_allocator;
     drisc::ICache         m_icache;
     drisc::DCache         m_dcache;
-    Pipeline              m_pipeline;
-    Network               m_network;
+    drisc::Pipeline       m_pipeline;
+    drisc::Network        m_network;
 
     // Local MMIO devices
     drisc::IOMatchUnit    m_mmio;

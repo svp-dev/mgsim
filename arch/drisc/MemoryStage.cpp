@@ -1,6 +1,9 @@
+#include "Pipeline.h"
 #include "DRISC.h"
+
 #include <sim/breakpoints.h>
 #include <sim/sampling.h>
+#include <arch/Memory.h>
 
 #include <cassert>
 #include <sstream>
@@ -10,8 +13,10 @@ using namespace std;
 
 namespace Simulator
 {
+namespace drisc
+{
 
-DRISC::Pipeline::PipeAction DRISC::Pipeline::MemoryStage::OnCycle()
+Pipeline::PipeAction Pipeline::MemoryStage::OnCycle()
 {
     PipeValue rcv = m_input.Rcv;
 
@@ -292,17 +297,15 @@ DRISC::Pipeline::PipeAction DRISC::Pipeline::MemoryStage::OnCycle()
     return PIPE_CONTINUE;
 }
 
-DRISC::Pipeline::MemoryStage::MemoryStage(Pipeline& parent, Clock& clock,
+Pipeline::MemoryStage::MemoryStage(Pipeline& parent, Clock& clock,
                                           const ExecuteMemoryLatch& input,
                                           MemoryWritebackLatch& output,
-                                          drisc::DCache& dcache,
-                                          Allocator& alloc,
                                           Config& /*config*/)
     : Stage("memory", parent, clock),
       m_input(input),
       m_output(output),
-      m_allocator(alloc),
-      m_dcache(dcache),
+      m_allocator(GetDRISC().GetAllocator()),
+      m_dcache(GetDRISC().GetDCache()),
       m_loads(0),
       m_stores(0),
       m_load_bytes(0),
@@ -314,4 +317,5 @@ DRISC::Pipeline::MemoryStage::MemoryStage(Pipeline& parent, Clock& clock,
     RegisterSampleVariableInObject(m_store_bytes, SVC_CUMULATIVE);
 }
 
+}
 }

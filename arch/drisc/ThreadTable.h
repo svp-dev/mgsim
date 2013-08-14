@@ -5,13 +5,10 @@
 #include <sim/inspect.h>
 #include <arch/simtypes.h>
 #include <vector>
-
-class Config;
+#include "forward.h"
 
 namespace Simulator
 {
-class DRISC;
-
 namespace drisc
 {
 

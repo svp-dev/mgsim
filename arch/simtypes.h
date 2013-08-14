@@ -260,9 +260,6 @@ enum RegClass
     RC_RAZ,         ///< Read-as-zero
 };
 
-// ISA-specific function to map virtual registers to register classes
-extern unsigned char GetRegisterClass(unsigned char addr, const RegsNo& regs, RegClass* rc, RegType type);
-
 struct RegAddr
 {
     RegIndex index;

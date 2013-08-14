@@ -7,12 +7,11 @@ namespace Simulator
 {
 namespace drisc
 {
-    IODirectCacheAccess::IODirectCacheAccess(const std::string& name, Object& parent, Clock& clock, DRISC& proc, IOBusInterface& busif, Config& config)
+    IODirectCacheAccess::IODirectCacheAccess(const std::string& name, IOInterface& parent, Clock& clock, Config& config)
         : Object(name, parent, clock),
-          m_cpu(proc),
           m_memory(NULL),
           m_mcid(0),
-          m_busif(busif),
+          m_busif(parent.GetIOBusInterface()),
           m_lineSize(config.getValue<MemSize>("CacheLineSize")),
           m_requests("b_requests", *this, clock, config.getValue<BufferSize>(*this, "RequestQueueSize")),
           m_responses("b_responses", *this, clock, config.getValue<BufferSize>(*this, "ResponseQueueSize")),
@@ -60,7 +59,8 @@ namespace drisc
                                                     (unsigned long long)req.address, (unsigned)req.size, (unsigned)req.client, (int)req.type);
         }
 
-        if (req.type != FLUSH && !m_cpu.CheckPermissions(req.address, req.size, (req.type == WRITE) ? IMemory::PERM_DCA_WRITE : IMemory::PERM_DCA_READ))
+        auto& cpu = GetDRISC();
+        if (req.type != FLUSH && !cpu.CheckPermissions(req.address, req.size, (req.type == WRITE) ? IMemory::PERM_DCA_WRITE : IMemory::PERM_DCA_READ))
         {
             throw exceptf<SecurityException>(*this, "Invalid access in DCA request for %#016llx/%u (dev %u, type %d)",
                                              (unsigned long long)req.address, (unsigned)req.size, (unsigned)req.client, (int)req.type);
@@ -126,7 +126,7 @@ namespace drisc
 
     Object& IODirectCacheAccess::GetMemoryPeer()
     {
-        return m_cpu;
+        return GetDRISC();
     }
 
     Result IODirectCacheAccess::DoBusOutgoing()

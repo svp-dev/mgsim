@@ -5,13 +5,10 @@
 #include <sim/inspect.h>
 #include <sim/storage.h>
 #include <arch/Memory.h>
+#include "forward.h"
 
-class Config;
 namespace Simulator
 {
-class DRISC;
-class IBankSelector;
-
 namespace drisc
 {
 

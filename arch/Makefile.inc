@@ -68,6 +68,7 @@ PROCESSOR_SRC = \
 	arch/drisc/FamilyTable.cpp \
 	arch/drisc/FamilyTable.h \
 	arch/drisc/FetchStage.cpp \
+        arch/drisc/forward.h \
 	arch/drisc/ICache.cpp \
 	arch/drisc/ICache.h \
 	arch/drisc/IOResponseMultiplexer.h \

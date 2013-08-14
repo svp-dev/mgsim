@@ -21,8 +21,8 @@ namespace drisc
           m_pnc     ("pnc",    *this, clock, config),
           m_rrmux   ("rrmux",  *this, clock, m_numDevices, config),
           m_nmux    ("nmux",   *this, clock, m_numChannels, config),
-          m_iobus_if("bus_if", *this, iobus.GetClock(), m_rrmux, m_nmux, m_dca, iobus, devid, config),
-          m_dca     ("dca",    *this, clock, parent, m_iobus_if, config)
+          m_iobus_if("bus_if", *this, iobus.GetClock(), iobus, devid, config),
+          m_dca     ("dca",    *this, clock, config)
     {
         if (m_numDevices == 0)
         {

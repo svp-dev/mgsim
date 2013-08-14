@@ -4,14 +4,12 @@
 #include <sim/kernel.h>
 #include <sim/storage.h>
 #include <arch/IOBus.h>
+#include "forward.h"
 
-class Config;
 namespace Simulator
 {
 namespace drisc
 {
-
-class IOInterface;
 
 class IOResponseMultiplexer : public Object
 {

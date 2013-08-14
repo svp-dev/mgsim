@@ -8,11 +8,11 @@ namespace Simulator
 namespace drisc
 {
 
-    IOBusInterface::IOBusInterface(const std::string& name, IOInterface& parent, Clock& clock, IOResponseMultiplexer& rrmux, IONotificationMultiplexer& nmux, IODirectCacheAccess& dca, IIOBus& iobus, IODeviceID devid, Config& config)
+    IOBusInterface::IOBusInterface(const std::string& name, IOInterface& parent, Clock& clock, IIOBus& iobus, IODeviceID devid, Config& config)
         : Object(name, parent, clock),
-          m_rrmux(rrmux),
-          m_nmux(nmux),
-          m_dca(dca),
+          m_rrmux(parent.GetReadResponseMultiplexer()),
+          m_nmux(parent.GetNotificationMultiplexer()),
+          m_dca(parent.GetDirectCacheAccess()),
           m_iobus(iobus),
           m_hostid(devid),
           m_outgoing_reqs("b_outgoing_reqs", *this, clock, config.getValue<BufferSize>(*this, "OutgoingRequestQueueSize")),

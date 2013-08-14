@@ -1,9 +1,18 @@
 #ifndef ALLOCATOR_H
 #define ALLOCATOR_H
 
-#ifndef PROCESSOR_H
-#error This file should be included in DRISC.h
-#endif
+#include <sim/kernel.h>
+#include <sim/inspect.h>
+#include <sim/storage.h>
+#include <arch/simtypes.h>
+#include <arch/Memory.h>
+#include "forward.h"
+#include "ThreadTable.h"
+
+namespace Simulator
+{
+namespace drisc
+{
 
 // A list of dependencies that prevent a family from being
 // terminated or cleaned up
@@ -28,11 +37,12 @@ enum ThreadDependency
 
 class Allocator : public Object, public Inspect::Interface<Inspect::Read>
 {
-    friend class DRISC;
-    friend class drisc::IOBusInterface;
+    friend class Simulator::DRISC;
+    friend class IOBusInterface;
+    friend class Pipeline;
 
 public:
-    typedef LinkedList< TID, drisc::ThreadTable, &drisc::Thread::next> ThreadList;
+    typedef LinkedList< TID, ThreadTable, &Thread::next> ThreadList;
 
     struct AllocRequest
     {
@@ -78,14 +88,7 @@ public:
         BUNDLE_LINE_LOADED,         // The line has been loaded
     };
 
-    Allocator(const std::string& name, DRISC& parent, Clock& clock,
-              drisc::FamilyTable& familyTable, drisc::ThreadTable& threadTable,
-              drisc::RegisterFile& registerFile, drisc::RAUnit& raunit,
-              drisc::ICache& icache,
-              drisc::DCache& dcache,
-              Network& network,
-              Pipeline& pipeline,
-              Config& config);
+    Allocator(const std::string& name, DRISC& parent, Clock& clock, Config& config);
     Allocator(const Allocator&) = delete;
     Allocator& operator=(const Allocator&) = delete;
 
@@ -99,7 +102,7 @@ public:
     // Returns the physical register address for a logical register in a certain family.
     RegAddr GetRemoteRegisterAddress(LFID fid, RemoteRegType kind, const RegAddr& addr) const;
 
-    drisc::Family& GetFamilyChecked(LFID fid, FCapability capability) const;
+    Family& GetFamilyChecked(LFID fid, FCapability capability) const;
 
     //
     // Thread management
@@ -127,7 +130,7 @@ public:
     bool OnMemoryRead(LFID fid);
 
     bool DecreaseFamilyDependency(LFID fid, FamilyDependency dep);
-    bool DecreaseFamilyDependency(LFID fid, drisc::Family& family, FamilyDependency dep);
+    bool DecreaseFamilyDependency(LFID fid, Family& family, FamilyDependency dep);
     bool IncreaseThreadDependency(TID tid, ThreadDependency dep);
     bool DecreaseThreadDependency(TID tid, ThreadDependency dep);
 
@@ -160,7 +163,7 @@ private:
 
 
     Integer CalculateThreadCount(SInteger start, SInteger limit, SInteger step);
-    void    CalculateDistribution(drisc::Family& family, Integer nThreads, PSize numCores);
+    void    CalculateDistribution(Family& family, Integer nThreads, PSize numCores);
     bool    AllocateRegisters(LFID fid, ContextType type);
     bool    AllocateThread(LFID fid, TID tid, bool isNewlyAllocated = true);
     bool    PushCleanup(TID tid);
@@ -170,13 +173,13 @@ private:
     void Push(ThreadQueue& queue, TID tid);
     TID  Pop (ThreadQueue& queue);
 
-    DRISC&    m_parent;
-    drisc::FamilyTable&  m_familyTable;
-    drisc::ThreadTable&  m_threadTable;
-    drisc::RegisterFile& m_registerFile;
-    drisc::RAUnit& m_raunit;
-    drisc::ICache& m_icache;
-    drisc::DCache& m_dcache;
+    Object& GetDRISCParent() const { return *GetParent(); }
+    FamilyTable&  m_familyTable;
+    ThreadTable&  m_threadTable;
+    RegisterFile& m_registerFile;
+    RAUnit&       m_raunit;
+    ICache&       m_icache;
+    DCache&       m_dcache;
     Network&      m_network;
     Pipeline&     m_pipeline;
 
@@ -236,5 +239,8 @@ public:
     TSize GetTotalFamiliesCreated() const { return m_numCreatedFamilies; }
     FSize GetTotalThreadsCreated() const { return m_numCreatedThreads; }
 };
+
+}
+}
 
 #endif

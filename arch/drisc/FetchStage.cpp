@@ -1,3 +1,4 @@
+#include "Pipeline.h"
 #include "DRISC.h"
 #include <sim/config.h>
 #include <sim/breakpoints.h>
@@ -7,8 +8,10 @@ using namespace std;
 
 namespace Simulator
 {
+namespace drisc
+{
 
-void DRISC::Pipeline::FetchStage::Clear(TID tid)
+void Pipeline::FetchStage::Clear(TID tid)
 {
     if (m_output.tid == tid)
     {
@@ -16,7 +19,7 @@ void DRISC::Pipeline::FetchStage::Clear(TID tid)
     }
 }
 
-DRISC::Pipeline::PipeAction DRISC::Pipeline::FetchStage::OnCycle()
+Pipeline::PipeAction Pipeline::FetchStage::OnCycle()
 {
     MemAddr pc = m_pc;
     if (m_switched)
@@ -144,19 +147,13 @@ DRISC::Pipeline::PipeAction DRISC::Pipeline::FetchStage::OnCycle()
     return PIPE_CONTINUE;
 }
 
-DRISC::Pipeline::FetchStage::FetchStage(Pipeline& parent, Clock& clock,
-                                        FetchDecodeLatch& output,
-                                        Allocator& alloc,
-                                        drisc::FamilyTable& familyTable,
-                                        drisc::ThreadTable& threadTable,
-                                        drisc::ICache& icache,
-                                        Config& config)
+Pipeline::FetchStage::FetchStage(Pipeline& parent, Clock& clock, FetchDecodeLatch& output, Config& config)
   : Stage("fetch", parent, clock),
     m_output(output),
-    m_allocator(alloc),
-    m_familyTable(familyTable),
-    m_threadTable(threadTable),
-    m_icache(icache),
+    m_allocator(GetDRISC().GetAllocator()),
+    m_familyTable(GetDRISC().GetFamilyTable()),
+    m_threadTable(GetDRISC().GetThreadTable()),
+    m_icache(GetDRISC().GetICache()),
     m_controlBlockSize(config.getValue<size_t>("ControlBlockSize")),
     m_buffer(0),
     m_switched(true),
@@ -180,9 +177,10 @@ DRISC::Pipeline::FetchStage::FetchStage(Pipeline& parent, Clock& clock,
     m_buffer = new char[m_icache.GetLineSize()];
 }
 
-DRISC::Pipeline::FetchStage::~FetchStage()
+Pipeline::FetchStage::~FetchStage()
 {
     delete[] m_buffer;
 }
 
+}
 }

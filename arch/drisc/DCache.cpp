@@ -728,7 +728,7 @@ Result DCache::DoReadWritebacks()
     {
         // This operand is now fully written
         auto& alloc = GetDRISC().GetAllocator();
-        if (!alloc.DecreaseFamilyDependency(state.fid, DRISC::FAMDEP_OUTSTANDING_READS))
+        if (!alloc.DecreaseFamilyDependency(state.fid, FAMDEP_OUTSTANDING_READS))
         {
             DeadlockWrite("Unable to decrement outstanding reads on F%u", (unsigned)state.fid);
             return FAILED;
@@ -750,7 +750,7 @@ Result DCache::DoWriteResponses()
     auto& response = m_write_responses.Front();
 
     auto& alloc = GetDRISC().GetAllocator();
-    if (!alloc.DecreaseThreadDependency((TID)response.wid, DRISC::THREADDEP_OUTSTANDING_WRITES))
+    if (!alloc.DecreaseThreadDependency((TID)response.wid, THREADDEP_OUTSTANDING_WRITES))
     {
         DeadlockWrite("Unable to decrease outstanding writes on T%u", (unsigned)response.wid);
         return FAILED;

@@ -13,9 +13,6 @@
 
 namespace Simulator
 {
-
-class DRISC;
-
 namespace drisc
 {
 

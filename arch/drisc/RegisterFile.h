@@ -6,12 +6,10 @@
 #include <arch/FPU.h>
 #include <sim/storage.h>
 #include <array>
+#include "forward.h"
 
-class Config;
 namespace Simulator
 {
-class DRISC;
-
 namespace drisc
 {
 

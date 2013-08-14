@@ -139,7 +139,7 @@ Result IOResponseMultiplexer::DoReceivedReadResponses()
         return FAILED;
     }
 
-    if (!cpu.GetAllocator().DecreaseFamilyDependency(fid, DRISC::FAMDEP_OUTSTANDING_READS))
+    if (!cpu.GetAllocator().DecreaseFamilyDependency(fid, FAMDEP_OUTSTANDING_READS))
     {
         DeadlockWrite("Unable to decrement outstanding reads on F%u", (unsigned)fid);
         return FAILED;

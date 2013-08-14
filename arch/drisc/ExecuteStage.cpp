@@ -1,3 +1,4 @@
+#include "Pipeline.h"
 #include "DRISC.h"
 #include <arch/symtable.h>
 #include <sim/sampling.h>
@@ -18,9 +19,11 @@ using namespace std;
 
 namespace Simulator
 {
+namespace drisc
+{
 
 /*static*/
-RegValue DRISC::Pipeline::ExecuteStage::PipeValueToRegValue(RegType type, const PipeValue& v)
+RegValue Pipeline::ExecuteStage::PipeValueToRegValue(RegType type, const PipeValue& v)
 {
     RegValue r;
     r.m_state = RST_FULL;
@@ -33,7 +36,7 @@ RegValue DRISC::Pipeline::ExecuteStage::PipeValueToRegValue(RegType type, const 
     return r;
 }
 
-bool DRISC::Pipeline::ExecuteStage::MemoryWriteBarrier(TID tid) const
+bool Pipeline::ExecuteStage::MemoryWriteBarrier(TID tid) const
 {
     auto& thread = m_threadTable[tid];
     if (thread.dependencies.numPendingWrites != 0)
@@ -45,7 +48,7 @@ bool DRISC::Pipeline::ExecuteStage::MemoryWriteBarrier(TID tid) const
     return true;
 }
 
-DRISC::Pipeline::PipeAction DRISC::Pipeline::ExecuteStage::OnCycle()
+Pipeline::PipeAction Pipeline::ExecuteStage::OnCycle()
 {
     COMMIT
     {
@@ -131,7 +134,7 @@ DRISC::Pipeline::PipeAction DRISC::Pipeline::ExecuteStage::OnCycle()
     return action;
 }
 
-DRISC::Pipeline::PipeAction DRISC::Pipeline::ExecuteStage::ExecBundle(MemAddr addr, bool indirect, Integer value, RegIndex reg)
+Pipeline::PipeAction Pipeline::ExecuteStage::ExecBundle(MemAddr addr, bool indirect, Integer value, RegIndex reg)
 {
     if (indirect)
     {
@@ -151,7 +154,7 @@ DRISC::Pipeline::PipeAction DRISC::Pipeline::ExecuteStage::ExecBundle(MemAddr ad
     return PIPE_CONTINUE;
 }
 
-DRISC::Pipeline::PipeAction DRISC::Pipeline::ExecuteStage::ExecAllocate(PlaceID place, RegIndex reg, bool suspend, bool exclusive, Integer flags)
+Pipeline::PipeAction Pipeline::ExecuteStage::ExecAllocate(PlaceID place, RegIndex reg, bool suspend, bool exclusive, Integer flags)
 {
     if (place.size == 0)
     {
@@ -223,7 +226,7 @@ DRISC::Pipeline::PipeAction DRISC::Pipeline::ExecuteStage::ExecAllocate(PlaceID 
     return PIPE_CONTINUE;
 }
 
-DRISC::Pipeline::PipeAction DRISC::Pipeline::ExecuteStage::SetFamilyProperty(const FID& fid, FamilyProperty property, Integer value)
+Pipeline::PipeAction Pipeline::ExecuteStage::SetFamilyProperty(const FID& fid, FamilyProperty property, Integer value)
 {
     COMMIT
     {
@@ -235,7 +238,7 @@ DRISC::Pipeline::PipeAction DRISC::Pipeline::ExecuteStage::SetFamilyProperty(con
     return PIPE_CONTINUE;
 }
 
-DRISC::Pipeline::PipeAction DRISC::Pipeline::ExecuteStage::ExecCreate(const FID& fid, MemAddr address, RegIndex completion)
+Pipeline::PipeAction Pipeline::ExecuteStage::ExecCreate(const FID& fid, MemAddr address, RegIndex completion)
 {
     // Create
     if (!MemoryWriteBarrier(m_input.tid))
@@ -273,7 +276,7 @@ DRISC::Pipeline::PipeAction DRISC::Pipeline::ExecuteStage::ExecCreate(const FID&
     return PIPE_CONTINUE;
 }
 
-DRISC::Pipeline::PipeAction DRISC::Pipeline::ExecuteStage::ReadFamilyRegister(RemoteRegType kind, RegType type, const FID& fid, unsigned char reg)
+Pipeline::PipeAction Pipeline::ExecuteStage::ReadFamilyRegister(RemoteRegType kind, RegType type, const FID& fid, unsigned char reg)
 {
     COMMIT
     {
@@ -290,7 +293,7 @@ DRISC::Pipeline::PipeAction DRISC::Pipeline::ExecuteStage::ReadFamilyRegister(Re
     return PIPE_CONTINUE;
 }
 
-DRISC::Pipeline::PipeAction DRISC::Pipeline::ExecuteStage::WriteFamilyRegister(RemoteRegType kind, RegType type, const FID& fid, unsigned char reg)
+Pipeline::PipeAction Pipeline::ExecuteStage::WriteFamilyRegister(RemoteRegType kind, RegType type, const FID& fid, unsigned char reg)
 {
     COMMIT
     {
@@ -306,7 +309,7 @@ DRISC::Pipeline::PipeAction DRISC::Pipeline::ExecuteStage::WriteFamilyRegister(R
     return PIPE_CONTINUE;
 }
 
-DRISC::Pipeline::PipeAction DRISC::Pipeline::ExecuteStage::ExecSync(const FID& fid)
+Pipeline::PipeAction Pipeline::ExecuteStage::ExecSync(const FID& fid)
 {
     assert(m_input.Rc.type == RT_INTEGER);
 
@@ -342,7 +345,7 @@ DRISC::Pipeline::PipeAction DRISC::Pipeline::ExecuteStage::ExecSync(const FID& f
     return PIPE_CONTINUE;
 }
 
-DRISC::Pipeline::PipeAction DRISC::Pipeline::ExecuteStage::ExecDetach(const FID& fid)
+Pipeline::PipeAction Pipeline::ExecuteStage::ExecDetach(const FID& fid)
 {
     if (fid.pid == 0 && fid.lfid == 0 && fid.capability == 0)
     {
@@ -364,7 +367,7 @@ DRISC::Pipeline::PipeAction DRISC::Pipeline::ExecuteStage::ExecDetach(const FID&
     return PIPE_CONTINUE;
 }
 
-DRISC::Pipeline::PipeAction DRISC::Pipeline::ExecuteStage::ExecBreak()
+Pipeline::PipeAction Pipeline::ExecuteStage::ExecBreak()
 {
     COMMIT
     {
@@ -376,7 +379,7 @@ DRISC::Pipeline::PipeAction DRISC::Pipeline::ExecuteStage::ExecBreak()
     return PIPE_CONTINUE;
 }
 
-void DRISC::Pipeline::ExecuteStage::ExecDebugOutput(Integer value, int command, int flags) const
+void Pipeline::ExecuteStage::ExecDebugOutput(Integer value, int command, int flags) const
 {
     // command:
     //  0 -> unsigned decimal
@@ -413,7 +416,7 @@ void DRISC::Pipeline::ExecuteStage::ExecDebugOutput(Integer value, int command, 
 }
 
 
-void DRISC::Pipeline::ExecuteStage::ExecStatusAction(Integer value, int command, int flags) const
+void Pipeline::ExecuteStage::ExecStatusAction(Integer value, int command, int flags) const
 {
     // command:
     //  00: status and continue
@@ -470,7 +473,7 @@ void DRISC::Pipeline::ExecuteStage::ExecStatusAction(Integer value, int command,
     }
 }
 
-void DRISC::Pipeline::ExecuteStage::ExecMemoryControl(Integer value, int command, int flags) const
+void Pipeline::ExecuteStage::ExecMemoryControl(Integer value, int command, int flags) const
 {
     // command:
     //  00: mmap(addr = value, size = 2^(flags+12), pid = 0)
@@ -504,7 +507,7 @@ void DRISC::Pipeline::ExecuteStage::ExecMemoryControl(Integer value, int command
     }
 }
 
-void DRISC::Pipeline::ExecuteStage::ExecDebug(Integer value, Integer stream) const
+void Pipeline::ExecuteStage::ExecDebug(Integer value, Integer stream) const
 {
     // pattern: x x 0 1 x x x x = status and action
     // pattern: 0 0 0 1 - - - - =   status and continue
@@ -542,7 +545,7 @@ void DRISC::Pipeline::ExecuteStage::ExecDebug(Integer value, Integer stream) con
         ExecDebugOutput(value, command, stream & 0x3);
 }
 
-void DRISC::Pipeline::ExecuteStage::ExecDebug(double value, Integer stream) const
+void Pipeline::ExecuteStage::ExecDebug(double value, Integer stream) const
 {
     /* precision: bits 4-7 */
     int prec = (stream >> 4) & 0xf;
@@ -561,19 +564,16 @@ void DRISC::Pipeline::ExecuteStage::ExecDebug(double value, Integer stream) cons
     }
 }
 
-DRISC::Pipeline::ExecuteStage::ExecuteStage(Pipeline& parent, Clock& clock,
-                                            const ReadExecuteLatch& input,
-                                            ExecuteMemoryLatch& output,
-                                            Allocator& alloc,
-                                            drisc::FamilyTable& familyTable,
-                                            drisc::ThreadTable& threadTable,
-                                            Config& /*config*/)
+Pipeline::ExecuteStage::ExecuteStage(Pipeline& parent, Clock& clock,
+                                     const ReadExecuteLatch& input,
+                                     ExecuteMemoryLatch& output,
+                                     Config& /*config*/)
   : Stage("execute", parent, clock),
     m_input(input),
     m_output(output),
-    m_allocator(alloc),
-    m_familyTable(familyTable),
-    m_threadTable(threadTable),
+    m_allocator(GetDRISC().GetAllocator()),
+    m_familyTable(GetDRISC().GetFamilyTable()),
+    m_threadTable(GetDRISC().GetThreadTable()),
     m_fpu(NULL),
     m_fpuSource(0),
     m_flop(0),
@@ -583,10 +583,11 @@ DRISC::Pipeline::ExecuteStage::ExecuteStage(Pipeline& parent, Clock& clock,
     RegisterSampleVariableInObject(m_op, SVC_CUMULATIVE);
 }
 
-void DRISC::Pipeline::ExecuteStage::ConnectFPU(FPU* fpu, size_t fpu_source)
+void Pipeline::ExecuteStage::ConnectFPU(FPU* fpu, size_t fpu_source)
 {
     m_fpu = fpu;
     m_fpuSource = fpu_source;
 }
 
+}
 }

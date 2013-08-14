@@ -4,19 +4,12 @@
 #include <sim/kernel.h>
 #include <sim/storage.h>
 #include <arch/IOBus.h>
+#include "forward.h"
 
-class Config;
 namespace Simulator
 {
-class DRISC;
-
 namespace drisc
 {
-
-class IOResponseMultiplexer;
-class IONotificationMultiplexer;
-class IODirectCacheAccess;
-class IOInterface;
 
 class IOBusInterface : public IIOBusClient, public Object
 {
@@ -52,7 +45,7 @@ public:
 public:
     IIOBus& GetIOBus() const { return m_iobus; }
 
-    IOBusInterface(const std::string& name, IOInterface& parent, Clock& clock, IOResponseMultiplexer& rrmux, IONotificationMultiplexer& nmux, IODirectCacheAccess& dca, IIOBus& iobus, IODeviceID devid, Config& config);
+    IOBusInterface(const std::string& name, IOInterface& parent, Clock& clock, IIOBus& iobus, IODeviceID devid, Config& config);
 
     bool SendRequest(const IORequest& request);
 

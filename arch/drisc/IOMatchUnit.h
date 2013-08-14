@@ -5,16 +5,12 @@
 #include <sim/inspect.h>
 #include <arch/simtypes.h>
 #include <map>
+#include "forward.h"
 
-class Config;
-
-namespace Simulator {
-
-class DRISC;
-
-namespace drisc {
-
-class MMIOComponent;
+namespace Simulator
+{
+namespace drisc
+{
 
 class IOMatchUnit : public Object, public Inspect::Interface<Inspect::Info>
 {

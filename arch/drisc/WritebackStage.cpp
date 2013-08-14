@@ -1,10 +1,13 @@
+#include "Pipeline.h"
 #include "DRISC.h"
 #include <cassert>
 
 namespace Simulator
 {
+namespace drisc
+{
 
-DRISC::Pipeline::PipeAction DRISC::Pipeline::WritebackStage::OnCycle()
+Pipeline::PipeAction Pipeline::WritebackStage::OnCycle()
 {
     int  writebackOffset  = m_writebackOffset;
     int  size             = -1;
@@ -307,22 +310,19 @@ DRISC::Pipeline::PipeAction DRISC::Pipeline::WritebackStage::OnCycle()
         : PIPE_DELAY;       // We still have data to write back next cycle
 }
 
-DRISC::Pipeline::WritebackStage::WritebackStage(Pipeline& parent, Clock& clock,
-                                                const MemoryWritebackLatch& input,
-                                                drisc::RegisterFile& regFile,
-                                                Allocator& alloc,
-                                                drisc::ThreadTable& threadTable,
-                                                Network& network,
-                                                Config& /*config*/)
+Pipeline::WritebackStage::WritebackStage(Pipeline& parent, Clock& clock,
+                                         const MemoryWritebackLatch& input,
+                                         Config& /*config*/)
   : Stage("writeback", parent, clock),
     m_input(input),
     m_stall(false),
-    m_regFile(regFile),
-    m_allocator(alloc),
-    m_threadTable(threadTable),
-    m_network(network),
+    m_regFile(GetDRISC().GetRegisterFile()),
+    m_allocator(GetDRISC().GetAllocator()),
+    m_threadTable(GetDRISC().GetThreadTable()),
+    m_network(GetDRISC().GetNetwork()),
     m_writebackOffset(-1)
 {
 }
 
+}
 }

@@ -1,9 +1,16 @@
 #ifndef NETWORK_H
 #define NETWORK_H
 
-#ifndef PROCESSOR_H
-#error This file should be included in DRISC.h
-#endif
+#include <sim/kernel.h>
+#include <sim/inspect.h>
+#include <sim/storage.h>
+#include <arch/simtypes.h>
+#include "forward.h"
+
+namespace Simulator
+{
+namespace drisc
+{
 
 struct RemoteMessage
 {
@@ -297,9 +304,6 @@ public:
 
     Network(const std::string& name, DRISC& parent, Clock& clock,
             const std::vector<DRISC*>& grid,
-            Allocator& allocator,
-            drisc::RegisterFile& regFile,
-            drisc::FamilyTable& familyTable,
             Config& config);
     Network(const Network&) = delete;
     Network& operator=(const Network&) = delete;
@@ -336,14 +340,15 @@ private:
     Result DoDelegationIn();
     Result DoSyncs();
 
-    DRISC&                     m_parent;
-    drisc::RegisterFile&       m_regFile;
-    drisc::FamilyTable&        m_familyTable;
+    RegisterFile&                  m_regFile;
+    FamilyTable&                   m_familyTable;
     Allocator&                     m_allocator;
     Network*                       m_prev;
     Network*                       m_next;
     const std::vector<DRISC*>& m_grid;
     unsigned int                   m_loadBalanceThreshold;
+
+    Object& GetDRISCParent() const { return *GetParent(); }
 
     // Statistics
     uint64_t                       m_numAllocates;
@@ -368,5 +373,8 @@ public:
     Process p_AllocResponse;
     Process p_Syncs;
 };
+
+}
+}
 
 #endif

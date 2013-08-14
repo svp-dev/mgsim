@@ -5,16 +5,12 @@
 #include <sim/inspect.h>
 #include <sim/storage.h>
 #include <arch/IOBus.h>
+#include "forward.h"
 
-class Config;
 namespace Simulator
 {
-
 namespace drisc
 {
-
-class IOInterface;
-class IOBusInterface;
 
 class IONotificationMultiplexer : public Object, public Inspect::Interface<Inspect::Read>
 {

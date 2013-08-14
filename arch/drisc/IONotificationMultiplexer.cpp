@@ -269,7 +269,7 @@ Result IONotificationMultiplexer::DoReceivedNotifications()
         }
 
         auto& alloc = cpu.GetAllocator();
-        if (!alloc.DecreaseFamilyDependency(fid, DRISC::FAMDEP_OUTSTANDING_READS))
+        if (!alloc.DecreaseFamilyDependency(fid, FAMDEP_OUTSTANDING_READS))
         {
             DeadlockWrite("Unable to decrement outstanding reads on F%u", (unsigned)fid);
             return FAILED;

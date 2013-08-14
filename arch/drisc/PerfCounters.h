@@ -3,13 +3,8 @@
 
 #include "IOMatchUnit.h"
 
-class Config;
-
 namespace Simulator
 {
-
-class DRISC;
-
 namespace drisc
 {
 
