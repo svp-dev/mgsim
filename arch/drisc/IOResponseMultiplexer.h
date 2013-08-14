@@ -27,6 +27,7 @@ private:
     Process p_dummy;
     Result DoNothing() { COMMIT{ p_dummy.Deactivate(); }; return SUCCESS; }
 
+    Object& GetDRISCParent() const { return *GetParent()->GetParent(); };
 public:
     IOResponseMultiplexer(const std::string& name, Object& parent, Clock& clock, drisc::RegisterFile& rf, Allocator& alloc, size_t numDevices, Config& config);
     ~IOResponseMultiplexer();

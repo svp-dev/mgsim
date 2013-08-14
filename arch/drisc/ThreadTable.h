@@ -125,6 +125,8 @@ private:
 
     void UpdateStats();
     void CheckStateSanity() const;
+    Object& GetDRISCParent() const { return *GetParent(); }
+
 };
 
 }

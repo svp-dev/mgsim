@@ -48,7 +48,7 @@ Result MMUInterface::Write(MemAddr address, const void *data, MemSize size, LFID
                  (unsigned)cmd, (unsigned long long)req_size);
 
     COMMIT{
-        DRISC& cpu = static_cast<DRISC&>(*GetParent());
+        auto& cpu = GetDRISC();
 
         switch(cmd)
         {

@@ -36,12 +36,12 @@ private:
     IODeviceID                 m_hostid;
 
     void Initialize();
+    Object& GetDRISCParent() const { return *GetParent()->GetParent(); }
 
 public:
     Buffer<IORequest>          m_outgoing_reqs;
 
 public:
-    DRISC& GetDRISC() const { return dynamic_cast<DRISC&>(*GetParent()->GetParent()); }
     IIOBus& GetIOBus() const { return m_iobus; }
 
     IOBusInterface(const std::string& name, IOInterface& parent, Clock& clock, IOResponseMultiplexer& rrmux, IONotificationMultiplexer& nmux, IODirectCacheAccess& dca, IIOBus& iobus, IODeviceID devid, Config& config);

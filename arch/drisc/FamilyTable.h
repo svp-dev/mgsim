@@ -137,6 +137,7 @@ public:
     TSize GetMaxAllocated() const { return m_maxalloc; }
 
 private:
+    Object& GetDRISCParent() const { return *GetParent(); }
     std::vector<Family> m_families;
     FSize               m_free[NUM_CONTEXT_TYPES];
 

@@ -242,7 +242,7 @@ class Pipeline : public Object, public Inspect::Interface<Inspect::Read>
         Stage(const std::string& name, Pipeline& parent, Clock& clock);
 
     protected:
-        Pipeline& m_parent;
+        Object& GetDRISCParent()  const { return *GetParent()->GetParent(); }
     };
 
     class FetchStage : public Stage
@@ -482,7 +482,7 @@ public:
         throw ex;                                                       \
     } while(0)
 
-    DRISC& GetDRISC()  const { return m_parent; }
+    Object& GetDRISCParent()  const { return *GetParent(); }
 
     uint64_t GetTotalBusyTime() const { return m_pipelineBusyTime; }
     uint64_t GetStalls() const { return m_nStalls; }
@@ -511,8 +511,6 @@ private:
         Latch* output;
         Result status;
     };
-
-    DRISC& m_parent;
 
     FetchDecodeLatch                  m_fdLatch;
     DecodeReadLatch                   m_drLatch;

@@ -944,6 +944,8 @@ DRISC::Pipeline::PipeAction DRISC::Pipeline::ExecuteStage::ExecuteInstruction()
     uint64_t Rav = m_input.Rav.m_integer.get(m_input.Rav.m_size);
     uint64_t Rbv = m_input.Rbv.m_integer.get(m_input.Rbv.m_size);
 
+    auto& cpu = GetDRISC();
+
     switch (m_input.format)
     {
         case IFORMAT_BRA:
@@ -953,7 +955,7 @@ DRISC::Pipeline::PipeAction DRISC::Pipeline::ExecuteStage::ExecuteInstruction()
             if (m_input.opcode == A_OP_CREATE_D)
             {
                 // Direct create
-                return ExecCreate(m_parent.GetDRISC().UnpackFID(Rav), target, m_input.Rc.index);
+                return ExecCreate(cpu.UnpackFID(Rav), target, m_input.Rc.index);
             }
 
             // Conditional and unconditional branches
@@ -965,7 +967,7 @@ DRISC::Pipeline::PipeAction DRISC::Pipeline::ExecuteStage::ExecuteInstruction()
                     {
                         // Store the address of the next instruction for BR and BSR
                         MemAddr retaddr = next;
-                        if (!m_input.legacy && (retaddr & (m_parent.GetDRISC().GetICache().GetLineSize()-1)) == 0)
+                        if (!m_input.legacy && (retaddr & (cpu.GetICache().GetLineSize()-1)) == 0)
                         {
                             // If the next PC is at a cache-line boundary, skip the control word
                             // NB: we need to adjust this here, *even though the fetch stage does it too*
@@ -987,7 +989,7 @@ DRISC::Pipeline::PipeAction DRISC::Pipeline::ExecuteStage::ExecuteInstruction()
                     {
                         DebugFlowWrite("F%u/T%u(%llu) %s branch %s",
                                        (unsigned)m_input.fid, (unsigned)m_input.tid, (unsigned long long)m_input.logical_index, m_input.pc_sym,
-                                       m_parent.GetDRISC().GetSymbolTable()[target].c_str());
+                                       cpu.GetSymbolTable()[target].c_str());
                         m_output.pc   = target;
                         m_output.swch = true;
                     }
@@ -1004,7 +1006,7 @@ DRISC::Pipeline::PipeAction DRISC::Pipeline::ExecuteStage::ExecuteInstruction()
 
             if (m_input.opcode == A_OP_CREATE_I)
             {
-                return ExecCreate(m_parent.GetDRISC().UnpackFID(Rav), target, m_input.Rc.index);
+                return ExecCreate(cpu.UnpackFID(Rav), target, m_input.Rc.index);
             }
 
             // Unconditional Jumps
@@ -1012,10 +1014,10 @@ DRISC::Pipeline::PipeAction DRISC::Pipeline::ExecuteStage::ExecuteInstruction()
             {
                 DebugFlowWrite("F%u/T%u(%llu) %s branch %s",
                                (unsigned)m_input.fid, (unsigned)m_input.tid, (unsigned long long)m_input.logical_index, m_input.pc_sym,
-                               m_parent.GetDRISC().GetSymbolTable()[target].c_str());
+                               cpu.GetSymbolTable()[target].c_str());
 
                 // Store the address of the next instruction
-                if (!m_input.legacy && (next & (m_parent.GetDRISC().GetICache().GetLineSize()-1)) == 0)
+                if (!m_input.legacy && (next & (cpu.GetICache().GetLineSize()-1)) == 0)
                 {
                     // If the next PC is at a cache-line boundary, skip the control word.
                     // NB: we need to adjust this here, *even though the fetch stage does it too*
@@ -1096,28 +1098,28 @@ DRISC::Pipeline::PipeAction DRISC::Pipeline::ExecuteStage::ExecuteInstruction()
                     m_output.Rcv.m_state   = RST_FULL;
                     switch (m_input.function)
                     {
-                    case A_UTHREAD_LDBP: m_output.Rcv.m_integer = m_parent.GetDRISC().GetTLSAddress(m_input.fid, m_input.tid); break;
+                    case A_UTHREAD_LDBP: m_output.Rcv.m_integer = cpu.GetTLSAddress(m_input.fid, m_input.tid); break;
                     case A_UTHREAD_LDFP:
                     {
-                        const MemAddr tls_base = m_parent.GetDRISC().GetTLSAddress(m_input.fid, m_input.tid);
-                        const MemAddr tls_size = m_parent.GetDRISC().GetTLSSize();
+                        const MemAddr tls_base = cpu.GetTLSAddress(m_input.fid, m_input.tid);
+                        const MemAddr tls_size = cpu.GetTLSSize();
                         m_output.Rcv.m_integer = tls_base + tls_size;
                         break;
                     }
                     case A_UTHREAD_GETFID: m_output.Rcv.m_integer = m_input.fid; break;
                     case A_UTHREAD_GETTID: m_output.Rcv.m_integer = m_input.tid; break;
-                    case A_UTHREAD_GETCID: m_output.Rcv.m_integer = m_parent.GetDRISC().GetPID(); break;
+                    case A_UTHREAD_GETCID: m_output.Rcv.m_integer = cpu.GetPID(); break;
                     case A_UTHREAD_GETPID:
                     {
                         PlaceID place;
                         place.size = m_input.placeSize;
-                        place.pid  = m_parent.GetDRISC().GetPID() & -place.size;
+                        place.pid  = cpu.GetPID() & -place.size;
                         place.capability = 0x1337; // later: find a proper substitute
-                        m_output.Rcv.m_integer = m_parent.GetDRISC().PackPlace(place);
+                        m_output.Rcv.m_integer = cpu.PackPlace(place);
                         break;
                     }
-                    case A_UTHREAD_GETASR: m_output.Rcv.m_integer = m_parent.GetDRISC().ReadASR(Rbv); break;
-                    case A_UTHREAD_GETAPR: m_output.Rcv.m_integer = m_parent.GetDRISC().ReadAPR(Rbv); break;
+                    case A_UTHREAD_GETASR: m_output.Rcv.m_integer = cpu.ReadASR(Rbv); break;
+                    case A_UTHREAD_GETAPR: m_output.Rcv.m_integer = cpu.ReadAPR(Rbv); break;
                     }
                 }
             }
@@ -1132,7 +1134,7 @@ DRISC::Pipeline::PipeAction DRISC::Pipeline::ExecuteStage::ExecuteInstruction()
             }
             else if ((m_input.function & A_UTHREAD_REMOTE_MASK) == A_UTHREAD_REMOTE_VALUE)
             {
-                const FID fid = m_parent.GetDRISC().UnpackFID(Rav);
+                const FID fid = cpu.UnpackFID(Rav);
                 switch (m_input.function)
                 {
                 case A_UTHREAD_SETSTART: return SetFamilyProperty(fid, FAMPROP_START, Rbv);
@@ -1151,7 +1153,7 @@ DRISC::Pipeline::PipeAction DRISC::Pipeline::ExecuteStage::ExecuteInstruction()
             else if ((m_input.function & A_UTHREAD_ALLOC_MASK) == A_UTHREAD_ALLOC_VALUE)
             {
                 Integer flags  = Rbv;
-                PlaceID place  = m_parent.GetDRISC().UnpackPlace(Rav);
+                PlaceID place  = cpu.UnpackPlace(Rav);
                 bool suspend   = (m_input.function & A_UTHREAD_ALLOC_S_MASK);
                 bool exclusive = (m_input.function & A_UTHREAD_ALLOC_X_MASK);
 
@@ -1172,7 +1174,7 @@ DRISC::Pipeline::PipeAction DRISC::Pipeline::ExecuteStage::ExecuteInstruction()
             }
             else
             {
-                const FID fid = m_parent.GetDRISC().UnpackFID(Rav);
+                const FID fid = cpu.UnpackFID(Rav);
                 switch(m_input.function)
                 {
                 case A_UTHREADF_PUTG: return WriteFamilyRegister(RRT_GLOBAL,          RT_FLOAT, fid, m_input.regofs);

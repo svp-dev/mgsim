@@ -163,7 +163,7 @@ bool RegisterFile::WriteRegister(const RegAddr& addr, const RegValue& data, bool
             if (value.m_state == RST_WAITING && value.m_waiting.head != INVALID_TID)
             {
                 // This write caused a reschedule
-                auto& alloc = static_cast<DRISC&>(*GetParent()).GetAllocator();
+                auto& alloc = GetDRISC().GetAllocator();
                 if (!alloc.ActivateThreads(value.m_waiting))
                 {
                     DeadlockWrite("Unable to wake up threads after write of %s: %s becomes %s", addr.str().c_str(), value.str(addr.type).c_str(), data.str(addr.type).c_str());
@@ -270,20 +270,10 @@ bool RegisterFile::WriteFPUResult(RegAddr addr, const RegValue& value)
 void RegisterFile::Cmd_Read(std::ostream& out, const std::vector<std::string>& arguments) const
 {
     // Need to change this if the RF is not directly child of parent
-    DRISC& parent = static_cast<DRISC&>(*GetParent());
+    auto& cpu = GetDRISC();
 
     // Find the RAUnit in the same processor
-    const drisc::RAUnit* rau = NULL;
-    for (unsigned int i = 0; i < parent.GetNumChildren(); ++i)
-    {
-        const Object* child = parent.GetChild(i);
-        if (rau == NULL)
-        {
-            rau = dynamic_cast<const drisc::RAUnit*>(child);
-            break;
-        }
-    }
-    assert(rau != NULL);
+    auto& rau = cpu.GetRAUnit();
 
     RegType type = RT_INTEGER;
     size_t  ix    = 0;
@@ -298,7 +288,7 @@ void RegisterFile::Cmd_Read(std::ostream& out, const std::vector<std::string>& a
     }
     auto& aliases = m_local_aliases[type];
 
-    auto regs = rau->GetBlockInfo(type);
+    auto regs = rau.GetBlockInfo(type);
 
     set<RegIndex> indices;
     if (ix < arguments.size())
@@ -317,7 +307,7 @@ void RegisterFile::Cmd_Read(std::ostream& out, const std::vector<std::string>& a
         }
     }
 
-    auto& alloc = static_cast<DRISC&>(*GetParent()).GetAllocator();
+    auto& alloc = GetDRISC().GetAllocator();
 
     out << "Phy   | Fam | Thread | Name/Alias | State / Value" << endl
         << "------+-----+--------+------------+--------------------------------" << endl;

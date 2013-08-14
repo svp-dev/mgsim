@@ -222,7 +222,7 @@ Result PerfCounters::Read(MemAddr address, void *data, MemSize size, LFID fid, T
     }
     address /= sizeof(Integer);
 
-    DRISC& cpu = *static_cast<DRISC*>(GetParent());
+    auto& cpu = GetDRISC();
 
     Integer value = m_counters[address](cpu, fid);
 

@@ -29,6 +29,8 @@ namespace Simulator
 namespace counters {};
 
 const std::vector<std::string>& GetDefaultLocalRegisterAliases(RegType type);
+#define GetDRISC() (dynamic_cast<DRISC&>(GetDRISCParent()))
+
 
 class DRISC : public Object
 {
@@ -117,6 +119,7 @@ public:
     drisc::DCache& GetDCache() { return m_dcache; }
     SymbolTable& GetSymbolTable() { return *m_symtable; }
     Allocator& GetAllocator() { return m_allocator; }
+    drisc::RAUnit& GetRAUnit() { return m_raunit; }
 
 private:
     IMemory*                       m_memory;

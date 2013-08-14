@@ -209,7 +209,7 @@ void ThreadTable::Cmd_Read(ostream& out, const vector<string>& arguments) const
     }
 
     // Change the following if DRISC is not a direct parent any more
-    DRISC& parent = static_cast<DRISC&>(*GetParent());
+    auto& parent = GetDRISC();
     SymbolTable& symtable = parent.GetSymbolTable();
 
     if (tids.empty())

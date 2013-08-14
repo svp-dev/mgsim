@@ -246,7 +246,7 @@ Result ICache::Fetch(MemAddr address, MemSize size, TID& tid, CID& cid)
 Result ICache::Fetch(MemAddr address, MemSize size, TID* tid, CID* cid)
 {
     // Check that we're fetching executable memory
-    auto& cpu = static_cast<DRISC&>(*GetParent());
+    auto& cpu = GetDRISC();
     if (!cpu.CheckPermissions(address, size, IMemory::PERM_EXECUTE))
     {
         throw exceptf<SecurityException>(*this, "Fetch (%#016llx, %zd): Attempting to execute from non-executable memory",
@@ -489,7 +489,7 @@ Result ICache::DoIncoming()
     Line& line = m_lines[cid];
     COMMIT{ line.state = LINE_FULL; }
 
-    auto& alloc = static_cast<DRISC*>(GetParent())->GetAllocator();
+    auto& alloc = GetDRISC().GetAllocator();
     if (line.creation)
     {
         // Resume family creation

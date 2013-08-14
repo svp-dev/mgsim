@@ -14,8 +14,7 @@ namespace Simulator
 {
 
 DRISC::Pipeline::Stage::Stage(const std::string& name, Pipeline& parent, Clock& clock)
-:   Object(name, parent, clock),
-    m_parent(parent)
+:   Object(name, parent, clock)
 {
 }
 
@@ -34,7 +33,6 @@ DRISC::Pipeline::Pipeline(
 :
     Object(name, parent, clock),
     p_Pipeline(*this, "pipeline", delegate::create<Pipeline, &DRISC::Pipeline::DoPipeline>(*this)),
-    m_parent(parent),
     m_fdLatch(),
     m_drLatch(),
     m_reLatch(),
@@ -123,8 +121,9 @@ DRISC::Pipeline::Pipeline(
 void DRISC::Pipeline::ConnectFPU(FPU* fpu)
 {
     assert(fpu != NULL);
-    size_t fpu_client_id = fpu->RegisterSource(m_parent.GetRegisterFile(),
-                                               m_parent.GetAllocator().m_readyThreads2);
+    auto& cpu = GetDRISC();
+    size_t fpu_client_id = fpu->RegisterSource(cpu.GetRegisterFile(),
+                                               cpu.GetAllocator().m_readyThreads2);
     ExecuteStage &e = dynamic_cast<ExecuteStage&>(*m_stages[3].stage);
     e.ConnectFPU(fpu, fpu_client_id);
 }

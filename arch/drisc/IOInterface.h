@@ -20,6 +20,7 @@ public:
         unsigned                m_devAddrBits;
 
         IOInterface&  GetInterface() const;
+        Object& GetDRISCParent() const { return *GetParent()->GetParent(); };
     public:
         AsyncIOInterface(const std::string& name, IOInterface& parent, Clock& clock, Config& config);
 
@@ -40,6 +41,7 @@ public:
     private:
         MemAddr                 m_baseAddr;
         IOInterface&  GetInterface() const;
+        Object& GetDRISCParent() const { return *GetParent()->GetParent(); };
 
     public:
         PNCInterface(const std::string& name, IOInterface& parent, Clock& clock, Config& config);
@@ -75,7 +77,7 @@ private:
     bool Write(IODeviceID dev, MemAddr address, const IOData& data);
     bool WaitForNotification(IONotificationChannelID dev, const RegAddr& writeback);
     bool ConfigureNotificationChannel(IONotificationChannelID dev, Integer mode);
-    DRISC& GetDRISC() const;
+    Object& GetDRISCParent() const { return *GetParent(); };
 
 public:
     IOInterface(const std::string& name, DRISC& parent, Clock& clock, drisc::RegisterFile& rf, Allocator& alloc, IIOBus& iobus, IODeviceID devid, Config& config);

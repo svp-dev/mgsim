@@ -52,7 +52,7 @@ DRISC::Pipeline::PipeAction DRISC::Pipeline::FetchStage::OnCycle()
         {
             DeadlockWrite("F%u/T%u(%llu) %s fetch stall due to I-cache miss",
                           (unsigned)thread.family, (unsigned)tid, (unsigned long long)thread.index,
-                          m_parent.GetDRISC().GetSymbolTable()[pc].c_str());
+                          GetDRISC().GetSymbolTable()[pc].c_str());
             return PIPE_STALL;
         }
 
@@ -77,7 +77,7 @@ DRISC::Pipeline::PipeAction DRISC::Pipeline::FetchStage::OnCycle()
 
         DebugSimWrite("F%u/T%u(%llu) %s switched in",
                       (unsigned)thread.family, (unsigned)tid, (unsigned long long)thread.index,
-                      m_parent.GetDRISC().GetSymbolTable()[pc].c_str());
+                      GetDRISC().GetSymbolTable()[pc].c_str());
     }
 
     COMMIT
@@ -121,7 +121,7 @@ DRISC::Pipeline::PipeAction DRISC::Pipeline::FetchStage::OnCycle()
         m_output.pc_dbg       = pc;
         if (GetKernel()->GetDebugMode() & Kernel::DEBUG_CPU_MASK)
         {
-            m_output.pc_sym = m_parent.GetDRISC().GetSymbolTable()[m_output.pc].c_str();
+            m_output.pc_sym = GetDRISC().GetSymbolTable()[m_output.pc].c_str();
         }
         else
         {

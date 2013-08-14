@@ -28,6 +28,8 @@ public:
 private:
     size_t                          m_lastNotified;
 
+    Object& GetDRISCParent() const { return *GetParent()->GetParent(); };
+
 public:
     IONotificationMultiplexer(const std::string& name, Object& parent, Clock& clock, drisc::RegisterFile& rf, Allocator& alloc, size_t numChannels, Config& config);
     ~IONotificationMultiplexer();

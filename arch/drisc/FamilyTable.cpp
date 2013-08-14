@@ -189,7 +189,7 @@ void FamilyTable::Cmd_Read(ostream& out, const vector<string>& arguments) const
         }
     }
 
-    DRISC& parent = static_cast<DRISC&>(*GetParent());
+    DRISC& parent = GetDRISC();
     SymbolTable& symtable = parent.GetSymbolTable();
 
     if (fids.empty())

@@ -22,6 +22,7 @@ class PerfCounters : public drisc::MMIOComponent
     uint64_t                  m_nCycleSampleOps; // nr of samplings of the cycle counter by program
     uint64_t                  m_nOtherSampleOps; // nr of samplings of other counters
 
+    Object& GetDRISCParent() const { return *GetParent(); }
 public:
 
     size_t GetSize() const;

@@ -135,7 +135,7 @@ DRISC::Pipeline::PipeAction DRISC::Pipeline::ExecuteStage::ExecBundle(MemAddr ad
 {
     if (indirect)
     {
-        addr += m_parent.GetDRISC().ReadASR(ASR_SYSCALL_BASE);
+        addr += GetDRISC().ReadASR(ASR_SYSCALL_BASE);
     }
 
     if (!m_allocator.QueueBundle(addr, value, reg))
@@ -157,7 +157,7 @@ DRISC::Pipeline::PipeAction DRISC::Pipeline::ExecuteStage::ExecAllocate(PlaceID 
     {
         // Inherit the parent's place
         place.size = m_input.placeSize;
-        place.pid  = (m_parent.GetDRISC().GetPID() / place.size) * place.size;
+        place.pid  = (GetDRISC().GetPID() / place.size) * place.size;
         place.capability = 0x1337; // also later: copy the place capability from the parent.
 
         DebugSimWrite("F%u/T%u(%llu) %s adjusted default place -> CPU%u/%u cap 0x%lx",
@@ -169,7 +169,7 @@ DRISC::Pipeline::PipeAction DRISC::Pipeline::ExecuteStage::ExecAllocate(PlaceID 
         if (place.pid == 0)
         {
             // Local place
-            place.pid  = m_parent.GetDRISC().GetPID();
+            place.pid  = GetDRISC().GetPID();
 
             DebugSimWrite("F%u/T%u(%llu) %s adjusted local place -> CPU%u/1",
                           (unsigned)m_input.fid, (unsigned)m_input.tid, (unsigned long long)m_input.logical_index, m_input.pc_sym,
@@ -187,7 +187,7 @@ DRISC::Pipeline::PipeAction DRISC::Pipeline::ExecuteStage::ExecAllocate(PlaceID 
     assert((place.pid % place.size) == 0);
 
     // Verify processor ID
-    if (place.pid >= m_parent.GetDRISC().GetGridSize())
+    if (place.pid >= GetDRISC().GetGridSize())
     {
         throw SimulationException("Attempting to delegate to a non-existing core");
     }
@@ -208,7 +208,7 @@ DRISC::Pipeline::PipeAction DRISC::Pipeline::ExecuteStage::ExecAllocate(PlaceID 
     {
         m_output.Rrc.type = RemoteMessage::MSG_ALLOCATE;
         m_output.Rrc.allocate.place          = place;
-        m_output.Rrc.allocate.completion_pid = m_parent.GetDRISC().GetPID();
+        m_output.Rrc.allocate.completion_pid = GetDRISC().GetPID();
         m_output.Rrc.allocate.completion_reg = reg;
         m_output.Rrc.allocate.type           = type;
         m_output.Rrc.allocate.suspend        = suspend;
@@ -259,7 +259,7 @@ DRISC::Pipeline::PipeAction DRISC::Pipeline::ExecuteStage::ExecCreate(const FID&
         m_output.Rrc.create.fid            = fid;
         m_output.Rrc.create.address        = address;
         m_output.Rrc.create.completion_reg = completion;
-        m_output.Rrc.create.completion_pid = m_parent.GetDRISC().GetPID();
+        m_output.Rrc.create.completion_pid = GetDRISC().GetPID();
         m_output.Rrc.create.bundle         = false;
 
         m_output.Rcv = MAKE_PENDING_PIPEVALUE(m_input.RcSize);
@@ -268,7 +268,7 @@ DRISC::Pipeline::PipeAction DRISC::Pipeline::ExecuteStage::ExecCreate(const FID&
     DebugFlowWrite("F%u/T%u(%llu) %s create CPU%u/F%u %s",
                    (unsigned)m_input.fid, (unsigned)m_input.tid, (unsigned long long)m_input.logical_index, m_input.pc_sym,
                    (unsigned)fid.pid, (unsigned) fid.lfid,
-                   m_parent.GetDRISC().GetSymbolTable()[address].c_str());
+                   GetDRISC().GetSymbolTable()[address].c_str());
 
     return PIPE_CONTINUE;
 }
@@ -370,7 +370,7 @@ DRISC::Pipeline::PipeAction DRISC::Pipeline::ExecuteStage::ExecBreak()
     {
 
         m_output.Rrc.type    = RemoteMessage::MSG_BREAK;
-        m_output.Rrc.brk.pid = m_parent.GetDRISC().GetPID();
+        m_output.Rrc.brk.pid = GetDRISC().GetPID();
         m_output.Rrc.brk.fid = m_input.fid;
     }
     return PIPE_CONTINUE;
@@ -482,7 +482,7 @@ void DRISC::Pipeline::ExecuteStage::ExecMemoryControl(Integer value, int command
     unsigned l = flags & 0x7;
     MemSize req_size = 1 << (l + 12);
 
-    DRISC& cpu = m_parent.GetDRISC();
+    DRISC& cpu = GetDRISC();
 
     switch(command)
     {

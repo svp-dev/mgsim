@@ -96,6 +96,7 @@ public:
     void Cmd_Read(std::ostream& out, const std::vector<std::string>& arguments) const;
 
     Object* GetParent() const { return Structure<RegAddr>::GetParent(); }
+    Object& GetDRISCParent() const { return *GetParent(); }
 
     DedicatedReadPort            p_pipelineR1; ///< Read port #1 for the pipeline
     DedicatedReadPort            p_pipelineR2; ///< Read port #2 for the pipeline

@@ -121,6 +121,8 @@ private:
     Result DoWriteResponses();
     Result DoOutgoingRequests();
 
+    Object& GetDRISCParent() const { return *GetParent(); }
+
 public:
     DCache(const std::string& name, DRISC& parent, Clock& clock, Config& config);
     DCache(const DCache&) = delete;

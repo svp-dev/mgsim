@@ -67,6 +67,8 @@ class ICache : public Object, public IMemoryCallback, public Inspect::Interface<
     uint64_t             m_numResolvedConflicts;
     uint64_t             m_numStallingMisses;
 
+    Object& GetDRISCParent() const { return *GetParent(); }
+
 public:
     ICache(const std::string& name, DRISC& parent, Clock& clock, Config& config);
     ICache(const ICache&) = delete;

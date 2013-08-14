@@ -207,7 +207,7 @@ Result DCache::Read(MemAddr address, void* data, MemSize size, RegAddr* reg)
 #endif
 
     // Check that we're reading readable memory
-    auto& cpu = static_cast<DRISC&>(*GetParent());
+    auto& cpu = GetDRISC();
     if (!cpu.CheckPermissions(address, size, IMemory::PERM_READ))
     {
         throw exceptf<SecurityException>(*this, "Read (%#016llx, %zd): Attempting to read from non-readable memory",
@@ -340,7 +340,7 @@ Result DCache::Write(MemAddr address, void* data, MemSize size, LFID fid, TID ti
 #endif
 
     // Check that we're writing writable memory
-    auto& cpu = static_cast<DRISC&>(*GetParent());
+    auto& cpu = GetDRISC();
     if (!cpu.CheckPermissions(address, size, IMemory::PERM_WRITE))
     {
         throw exceptf<SecurityException>(*this, "Write (%#016llx, %zd): Attempting to write to non-writable memory",
@@ -582,7 +582,7 @@ Result DCache::DoReadResponses()
     if (line.create)
     {
         DebugMemWrite("Signalling read completion to creation process");
-        auto& alloc = static_cast<DRISC&>(*GetParent()).GetAllocator();
+        auto& alloc = GetDRISC().GetAllocator();
         alloc.OnDCachelineLoaded(line.data);
         COMMIT { line.create = false; }
     }
@@ -626,7 +626,7 @@ Result DCache::DoReadWritebacks()
         state.next = req.waiting;
     }
 
-    auto& regFile = static_cast<DRISC&>(*GetParent()).GetRegisterFile();
+    auto& regFile = GetDRISC().GetRegisterFile();
 
     if (state.offset == state.size)
     {
@@ -727,7 +727,7 @@ Result DCache::DoReadWritebacks()
     if (state.offset == state.size)
     {
         // This operand is now fully written
-        auto& alloc = static_cast<DRISC&>(*GetParent()).GetAllocator();
+        auto& alloc = GetDRISC().GetAllocator();
         if (!alloc.DecreaseFamilyDependency(state.fid, DRISC::FAMDEP_OUTSTANDING_READS))
         {
             DeadlockWrite("Unable to decrement outstanding reads on F%u", (unsigned)state.fid);
@@ -749,7 +749,7 @@ Result DCache::DoWriteResponses()
     assert(!m_write_responses.Empty());
     auto& response = m_write_responses.Front();
 
-    auto& alloc = static_cast<DRISC&>(*GetParent()).GetAllocator();
+    auto& alloc = GetDRISC().GetAllocator();
     if (!alloc.DecreaseThreadDependency((TID)response.wid, DRISC::THREADDEP_OUTSTANDING_WRITES))
     {
         DeadlockWrite("Unable to decrease outstanding writes on T%u", (unsigned)response.wid);
@@ -810,6 +810,8 @@ void DCache::Cmd_Info(std::ostream& out, const std::vector<std::string>& /*argum
 
 void DCache::Cmd_Read(std::ostream& out, const std::vector<std::string>& arguments) const
 {
+    auto& regFile = GetDRISC().GetRegisterFile();
+
     if (arguments.empty())
     {
         out << "Cache type:          ";
@@ -940,8 +942,6 @@ void DCache::Cmd_Read(std::ostream& out, const std::vector<std::string>& argumen
         }
         return;
     }
-
-    auto& regFile = static_cast<DRISC&>(*GetParent()).GetRegisterFile();
 
     out << "Set |       Address       |                       Data                      | Waiting Registers" << endl;
     out << "----+---------------------+-------------------------------------------------+-------------------" << endl;
