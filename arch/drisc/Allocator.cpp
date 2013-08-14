@@ -1984,7 +1984,7 @@ Allocator::Allocator(const string& name, DRISC& parent, Clock& clock, Config& co
     p_FamilyAllocate  (*this, "family-allocate",   delegate::create<Allocator, &Allocator::DoFamilyAllocate  >(*this) ),
     p_FamilyCreate    (*this, "family-create",     delegate::create<Allocator, &Allocator::DoFamilyCreate    >(*this) ),
     p_ThreadActivation(*this, "thread-activation", delegate::create<Allocator, &Allocator::DoThreadActivation>(*this) ),
-    p_Bundle          (*this, "bundle-Create",     delegate::create<Allocator, &Allocator::DoBundle          >(*this) ),
+    p_Bundle          (*this, "bundle-create",     delegate::create<Allocator, &Allocator::DoBundle          >(*this) ),
 
     p_allocation    (*this, clock, "p_allocation"),
     p_alloc         (*this, clock, "p_alloc"),
