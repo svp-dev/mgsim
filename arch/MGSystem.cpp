@@ -245,8 +245,8 @@ void MGSystem::PrintCoreStats(ostream& os) const {
 
     // Collect the data
     for (i = 0; i < P; ++i) {
-        DRISC &p = *m_procs[i];
-        const DRISC::Pipeline& pl = p.GetPipeline();
+        auto &p = *m_procs[i];
+        auto& pl = p.GetPipeline();
 
         j = 0;
         types[j] = I; c[i][j++].i = pl.GetOp();
