@@ -806,7 +806,7 @@ DRISC::Pipeline::PipeAction DRISC::Pipeline::ExecuteStage::ExecuteInstruction()
 
         if ((address & (size - 1)) != 0)
         {
-            ThrowIllegalInstructionException(*this, m_input.pc, "Misaligned address for size %u: %#llx", 
+            ThrowIllegalInstructionException(*this, m_input.pc, "Misaligned address for size %u: %#llx",
                                              (unsigned)size, (unsigned long long)address);
         }
 
