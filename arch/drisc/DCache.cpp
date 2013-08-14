@@ -619,7 +619,7 @@ Result DCache::DoReadWritebacks()
     auto& req = m_writebacks.Front();
 
     WritebackState state = m_wbstate;
-    if (!state.next.valid())
+    if (!state.next.valid() && state.offset == state.size)
     {
         // New request
         assert(req.waiting.valid());
@@ -736,6 +736,13 @@ Result DCache::DoReadWritebacks()
 
         if (!state.next.valid())
         {
+            COMMIT {
+                state.value = 0;
+                state.addr = INVALID_REG;
+                state.size = 0;
+                state.offset = 0;
+                state.fid = 0;
+            }
             m_writebacks.Pop();
         }
     }
