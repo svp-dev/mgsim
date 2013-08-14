@@ -348,8 +348,8 @@ class Pipeline : public Object, public Inspect::Interface<Inspect::Read>
         const ReadExecuteLatch& m_input;
         ExecuteMemoryLatch&     m_output;
         Allocator&              m_allocator;
-        FamilyTable&     m_familyTable;
-        ThreadTable&     m_threadTable;
+        FamilyTable&            m_familyTable;
+        ThreadTable&            m_threadTable;
         FPU*                    m_fpu;
         size_t                  m_fpuSource;    // Which input are we to the FPU?
         uint64_t                m_flop;         // FP operations
@@ -416,7 +416,7 @@ class Pipeline : public Object, public Inspect::Interface<Inspect::Read>
         const ExecuteMemoryLatch& m_input;
         MemoryWritebackLatch&     m_output;
         Allocator&                m_allocator;
-        DCache&            m_dcache;
+        DCache&                   m_dcache;
         uint64_t                  m_loads;         // nr of successful loads
         uint64_t                  m_stores;        // nr of successful stores
         uint64_t                  m_load_bytes;    // nr of successfully loaded bytes
@@ -447,9 +447,9 @@ class Pipeline : public Object, public Inspect::Interface<Inspect::Read>
     {
         const MemoryWritebackLatch& m_input;
         bool                        m_stall;
-        RegisterFile&        m_regFile;
+        RegisterFile&               m_regFile;
         Allocator&                  m_allocator;
-        ThreadTable&         m_threadTable;
+        ThreadTable&                m_threadTable;
         Network&                    m_network;
         int                         m_writebackOffset; // For multiple-cycle writebacks
 
