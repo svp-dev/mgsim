@@ -12,9 +12,9 @@ namespace Simulator
 const vector<string>& GetDefaultLocalRegisterAliases(RegType type)
 {
     static const vector<string> intnames = {
-        "at", "v0", "v1", "a0", "a1", "a2", "a3", 
-        "t0", "t1", "t2", "t3", "t4", "t5", "t6", "t7", 
-        "s0", "s1", "s2", "s3", "s4", "s5", "s6", "s7", "t8", "t9", 
+        "at", "v0", "v1", "a0", "a1", "a2", "a3",
+        "t0", "t1", "t2", "t3", "t4", "t5", "t6", "t7",
+        "s0", "s1", "s2", "s3", "s4", "s5", "s6", "s7", "t8", "t9",
         "k0", "k1", "gp", "sp", "fp", "ra" };
     static const vector<string> fltnames = {
         "f0", "f1", "f2", "f3", "f4", "f5", "f6", "f7",
@@ -430,8 +430,8 @@ DRISC::Pipeline::PipeAction DRISC::Pipeline::ExecuteStage::ExecuteInstruction()
 
         case IFORMAT_JTYPE:
             switch (m_input.opcode) {
-	        case M_OP_J:
-	        case M_OP_JAL:
+                case M_OP_J:
+                case M_OP_JAL:
                 {
                     MemAddr next = m_input.pc + sizeof(Instruction);
                     MemAddr target = (next & 0xf0000000) | (m_input.displacement << 2);
@@ -604,7 +604,7 @@ DRISC::Pipeline::PipeAction DRISC::Pipeline::ExecuteStage::ExecuteInstruction()
             }
             break;
     }
-  
+
       return PIPE_CONTINUE;
 
 
