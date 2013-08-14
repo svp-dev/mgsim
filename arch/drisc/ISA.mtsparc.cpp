@@ -1,3 +1,4 @@
+#include "Pipeline.h"
 #include "DRISC.h"
 #include <arch/FPU.h>
 #include <arch/symtable.h>
@@ -11,6 +12,9 @@ using namespace std;
 
 namespace Simulator
 {
+namespace drisc
+{
+
 static const int RA_SHIFT       = 14;
 static const int RB_SHIFT       = 0;
 static const int RC_SHIFT       = 25;
@@ -118,7 +122,7 @@ static int32_t SEXT(uint32_t value, int bits)
     return (int32_t)(value << bits) >> bits;
 }
 
-void DRISC::Pipeline::DecodeStage::DecodeInstruction(const Instruction& instr)
+void Pipeline::DecodeStage::DecodeInstruction(const Instruction& instr)
 {
     m_output.op1 = (uint8_t)((instr >> OP1_SHIFT) & OP1_MASK);
     RegIndex Ra  = (instr >> RA_SHIFT) & REG_MASK;
@@ -374,7 +378,7 @@ void DRISC::Pipeline::DecodeStage::DecodeInstruction(const Instruction& instr)
 }
 
 /*static*/
-bool DRISC::Pipeline::ExecuteStage::BranchTakenInt(int cond, uint32_t psr)
+bool Pipeline::ExecuteStage::BranchTakenInt(int cond, uint32_t psr)
 {
     const bool n = (psr & PSR_ICC_N) != 0; // Negative
     const bool z = (psr & PSR_ICC_Z) != 0; // Zero
@@ -397,7 +401,7 @@ bool DRISC::Pipeline::ExecuteStage::BranchTakenInt(int cond, uint32_t psr)
 }
 
 /*static*/
-bool DRISC::Pipeline::ExecuteStage::BranchTakenFlt(int cond, uint32_t fsr)
+bool Pipeline::ExecuteStage::BranchTakenFlt(int cond, uint32_t fsr)
 {
     const bool e = (fsr & FSR_FCC) == FSR_FCC_EQ; // Equal
     const bool l = (fsr & FSR_FCC) == FSR_FCC_LT; // Less than
@@ -414,7 +418,7 @@ bool DRISC::Pipeline::ExecuteStage::BranchTakenFlt(int cond, uint32_t fsr)
     return b;
 }
 
-uint32_t DRISC::Pipeline::ExecuteStage::ExecBasicInteger(int opcode, uint32_t Rav, uint32_t Rbv, uint32_t& Y, PSR& psr)
+uint32_t Pipeline::ExecuteStage::ExecBasicInteger(int opcode, uint32_t Rav, uint32_t Rbv, uint32_t& Y, PSR& psr)
 {
     uint64_t Rcv = 0;
     switch (opcode & 0xF)
@@ -494,7 +498,7 @@ uint32_t DRISC::Pipeline::ExecuteStage::ExecBasicInteger(int opcode, uint32_t Ra
     return (uint32_t)Rcv;
 }
 
-uint32_t DRISC::Pipeline::ExecuteStage::ExecOtherInteger(int opcode, uint32_t Rav, uint32_t Rbv, uint32_t& Y, PSR& psr)
+uint32_t Pipeline::ExecuteStage::ExecOtherInteger(int opcode, uint32_t Rav, uint32_t Rbv, uint32_t& Y, PSR& psr)
 {
     switch (opcode)
     {
@@ -528,7 +532,7 @@ uint32_t DRISC::Pipeline::ExecuteStage::ExecOtherInteger(int opcode, uint32_t Ra
     return 0;
 }
 
-DRISC::Pipeline::PipeAction DRISC::Pipeline::ExecuteStage::ExecReadASR19(uint8_t func)
+Pipeline::PipeAction Pipeline::ExecuteStage::ExecReadASR19(uint8_t func)
 {
     auto& cpu = GetDRISC();
     switch (func)
@@ -568,7 +572,7 @@ DRISC::Pipeline::PipeAction DRISC::Pipeline::ExecuteStage::ExecReadASR19(uint8_t
     return PIPE_CONTINUE;
 }
 
-DRISC::Pipeline::PipeAction DRISC::Pipeline::ExecuteStage::ExecReadASR20(uint8_t func)
+Pipeline::PipeAction Pipeline::ExecuteStage::ExecReadASR20(uint8_t func)
 {
     assert(m_input.Rav.m_size == sizeof(Integer));
     assert(m_input.Rbv.m_size == sizeof(Integer));
@@ -639,7 +643,7 @@ DRISC::Pipeline::PipeAction DRISC::Pipeline::ExecuteStage::ExecReadASR20(uint8_t
     return PIPE_CONTINUE;
 }
 
-DRISC::Pipeline::PipeAction DRISC::Pipeline::ExecuteStage::ExecWriteASR19(uint8_t func)
+Pipeline::PipeAction Pipeline::ExecuteStage::ExecWriteASR19(uint8_t func)
 {
     assert(m_input.Rav.m_size == sizeof(Integer));
     assert(m_input.Rbv.m_size == sizeof(Integer));
@@ -666,7 +670,7 @@ DRISC::Pipeline::PipeAction DRISC::Pipeline::ExecuteStage::ExecWriteASR19(uint8_
     return PIPE_CONTINUE;
 }
 
-DRISC::Pipeline::PipeAction DRISC::Pipeline::ExecuteStage::ExecWriteASR20(uint8_t func)
+Pipeline::PipeAction Pipeline::ExecuteStage::ExecWriteASR20(uint8_t func)
 {
     assert(m_input.Rav.m_size == sizeof(Integer));
     assert(m_input.Rbv.m_size == sizeof(Integer));
@@ -719,7 +723,7 @@ DRISC::Pipeline::PipeAction DRISC::Pipeline::ExecuteStage::ExecWriteASR20(uint8_
     return PIPE_CONTINUE;
 }
 
-DRISC::Pipeline::PipeAction DRISC::Pipeline::ExecuteStage::ExecuteInstruction()
+Pipeline::PipeAction Pipeline::ExecuteStage::ExecuteInstruction()
 {
     auto& cpu = GetDRISC();
     switch (m_input.op1)
@@ -1140,4 +1144,5 @@ DRISC::Pipeline::PipeAction DRISC::Pipeline::ExecuteStage::ExecuteInstruction()
     return PIPE_CONTINUE;
 }
 
+}
 }

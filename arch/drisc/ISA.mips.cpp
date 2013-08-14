@@ -1,3 +1,4 @@
+#include "Pipeline.h"
 #include "DRISC.h"
 #include <arch/symtable.h>
 #include <cassert>
@@ -6,6 +7,8 @@
 using namespace std;
 
 namespace Simulator
+{
+namespace drisc
 {
 
 // Function for naming local registers according to a standard ABI
@@ -44,7 +47,7 @@ unsigned char GetRegisterClass(unsigned char addr, const RegsNo& regs, RegClass*
     return 0;
 }
 
-DRISC::Pipeline::InstrFormat DRISC::Pipeline::DecodeStage::GetInstrFormat(uint8_t opcode)
+Pipeline::InstrFormat Pipeline::DecodeStage::GetInstrFormat(uint8_t opcode)
 {
     switch (opcode) {
         case M_OP_SPECIAL:
@@ -61,7 +64,7 @@ DRISC::Pipeline::InstrFormat DRISC::Pipeline::DecodeStage::GetInstrFormat(uint8_
     }
 }
 
-void DRISC::Pipeline::DecodeStage::DecodeInstruction(const Instruction& instr)
+void Pipeline::DecodeStage::DecodeInstruction(const Instruction& instr)
 {
     m_output.opcode = (instr >> 26) & 0x3f;
     m_output.format = GetInstrFormat(m_output.opcode);
@@ -156,7 +159,7 @@ void DRISC::Pipeline::DecodeStage::DecodeInstruction(const Instruction& instr)
 
 
 
-DRISC::Pipeline::PipeAction DRISC::Pipeline::ExecuteStage::ExecuteInstruction()
+Pipeline::PipeAction Pipeline::ExecuteStage::ExecuteInstruction()
 {
     auto& thread = m_threadTable[m_input.tid];
 
@@ -610,4 +613,5 @@ DRISC::Pipeline::PipeAction DRISC::Pipeline::ExecuteStage::ExecuteInstruction()
 
 }
 
+}
 }
