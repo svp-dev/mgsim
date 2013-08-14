@@ -1,9 +1,19 @@
 #ifndef IO_DCA_H
 #define IO_DCA_H
 
-#ifndef PROCESSOR_H
-#error This file should be included in DRISC.h
-#endif
+#include <sim/kernel.h>
+#include <sim/storage.h>
+#include <arch/Memory.h>
+#include <arch/IOBus.h>
+
+class Config;
+namespace Simulator
+{
+class DRISC;
+namespace drisc
+{
+
+class IOBusInterface;
 
 class IODirectCacheAccess : public Object, public IMemoryCallback
 {
@@ -78,5 +88,8 @@ public:
 
     Object& GetMemoryPeer() override;
 };
+
+}
+}
 
 #endif

@@ -1,14 +1,23 @@
 #ifndef IOINTERFACE_H
 #define IOINTERFACE_H
 
-#ifndef PROCESSOR_H
-#error This file should be included in DRISC.h
-#endif
-
+#include <sim/kernel.h>
+#include <sim/inspect.h>
+#include <sim/storage.h>
+#include <arch/Memory.h>
+#include "IOMatchUnit.h"
 #include "IOResponseMultiplexer.h"
 #include "IONotificationMultiplexer.h"
 #include "IOBusInterface.h"
 #include "IODirectCacheAccess.h"
+
+namespace Simulator
+{
+
+class DRISC;
+
+namespace drisc
+{
 
 class IOInterface : public Object, public Inspect::Interface<Inspect::Info>
 {
@@ -80,7 +89,7 @@ private:
     Object& GetDRISCParent() const { return *GetParent(); };
 
 public:
-    IOInterface(const std::string& name, DRISC& parent, Clock& clock, drisc::RegisterFile& rf, Allocator& alloc, IIOBus& iobus, IODeviceID devid, Config& config);
+    IOInterface(const std::string& name, DRISC& parent, Clock& clock, IIOBus& iobus, IODeviceID devid, Config& config);
     void ConnectMemory(IMemory* memory);
 
     drisc::MMIOComponent& GetAsyncIOInterface() { return m_async_io; }
@@ -99,5 +108,7 @@ public:
     void Cmd_Info(std::ostream& out, const std::vector<std::string>& args) const;
 };
 
+}
+}
 
 #endif

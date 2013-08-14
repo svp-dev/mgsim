@@ -154,7 +154,7 @@ void DRISC::ConnectIO(Config& config, IIOBus* iobus)
     // This processor also supports I/O
     IODeviceID devid = config.getValueOrDefault<IODeviceID>(*this, "DeviceID", iobus->GetNextAvailableDeviceID());
 
-    m_io_if = new IOInterface("io_if", *this, GetClock(), m_registerFile, m_allocator, *iobus, devid, config);
+    m_io_if = new IOInterface("io_if", *this, GetClock(), *iobus, devid, config);
 
     if (m_memory != NULL)
         m_io_if->ConnectMemory(m_memory);

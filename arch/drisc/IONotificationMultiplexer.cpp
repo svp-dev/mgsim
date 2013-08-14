@@ -1,3 +1,4 @@
+#include "IONotificationMultiplexer.h"
 #include "DRISC.h"
 #include <sim/config.h>
 
@@ -8,22 +9,20 @@ using namespace std;
 
 namespace Simulator
 {
+namespace drisc
+{
 
-DRISC::IONotificationMultiplexer::IONotificationMultiplexer(const string& name, Object& parent, Clock& clock,
-                                                            drisc::RegisterFile& rf,
-                                                            Allocator& alloc,
-                                                            size_t numChannels,
-                                                            Config& config)
+IONotificationMultiplexer::IONotificationMultiplexer(const string& name, IOInterface& parent, Clock& clock,
+                                                     size_t numChannels,
+                                                     Config& config)
     : Object(name, parent, clock),
-      m_regFile(rf),
-      m_allocator(alloc),
       m_writebacks(numChannels, 0),
       m_mask(numChannels, false),
       m_interrupts(numChannels, 0),
       m_notifications(numChannels, 0),
       m_services(numChannels, 0),
       m_lastNotified(0),
-      p_IncomingNotifications(*this, "received-notifications", delegate::create<IONotificationMultiplexer, &DRISC::IONotificationMultiplexer::DoReceivedNotifications>(*this))
+      p_IncomingNotifications(*this, "received-notifications", delegate::create<IONotificationMultiplexer, &IONotificationMultiplexer::DoReceivedNotifications>(*this))
 {
     BufferSize nqs = config.getValue<BufferSize>(*this, "NotificationQueueSize");
 
@@ -56,7 +55,7 @@ DRISC::IONotificationMultiplexer::IONotificationMultiplexer(const string& name, 
 
 }
 
-DRISC::IONotificationMultiplexer::~IONotificationMultiplexer()
+IONotificationMultiplexer::~IONotificationMultiplexer()
 {
     for (size_t i = 0; i < m_writebacks.size(); ++i)
     {
@@ -67,7 +66,7 @@ DRISC::IONotificationMultiplexer::~IONotificationMultiplexer()
     }
 }
 
-bool DRISC::IONotificationMultiplexer::ConfigureChannel(IONotificationChannelID which, Integer mode)
+bool IONotificationMultiplexer::ConfigureChannel(IONotificationChannelID which, Integer mode)
 {
     assert(which < m_writebacks.size());
 
@@ -79,7 +78,7 @@ bool DRISC::IONotificationMultiplexer::ConfigureChannel(IONotificationChannelID 
 }
 
 
-bool DRISC::IONotificationMultiplexer::SetWriteBackAddress(IONotificationChannelID which, const RegAddr& addr)
+bool IONotificationMultiplexer::SetWriteBackAddress(IONotificationChannelID which, const RegAddr& addr)
 {
     assert(which < m_writebacks.size());
 
@@ -100,7 +99,7 @@ bool DRISC::IONotificationMultiplexer::SetWriteBackAddress(IONotificationChannel
     return true;
 }
 
-bool DRISC::IONotificationMultiplexer::OnInterruptRequestReceived(IONotificationChannelID from)
+bool IONotificationMultiplexer::OnInterruptRequestReceived(IONotificationChannelID from)
 {
     assert(from < m_interrupts.size());
 
@@ -116,7 +115,7 @@ bool DRISC::IONotificationMultiplexer::OnInterruptRequestReceived(IONotification
     }
 }
 
-bool DRISC::IONotificationMultiplexer::OnNotificationReceived(IONotificationChannelID from, Integer tag)
+bool IONotificationMultiplexer::OnNotificationReceived(IONotificationChannelID from, Integer tag)
 {
     assert(from < m_notifications.size());
 
@@ -133,7 +132,7 @@ bool DRISC::IONotificationMultiplexer::OnNotificationReceived(IONotificationChan
 }
 
 
-Result DRISC::IONotificationMultiplexer::DoReceivedNotifications()
+Result IONotificationMultiplexer::DoReceivedNotifications()
 {
     size_t i, j;
     bool   notification_ready = false;
@@ -205,14 +204,17 @@ Result DRISC::IONotificationMultiplexer::DoReceivedNotifications()
 
         const RegAddr& addr = m_writebacks[i]->Read();
 
-        if (!m_regFile.p_asyncW.Write(addr))
+        auto& cpu = GetDRISC();
+        auto& regFile = cpu.GetRegisterFile();
+
+        if (!regFile.p_asyncW.Write(addr))
         {
             DeadlockWrite("Unable to acquire port to write back %s", addr.str().c_str());
             return FAILED;
         }
 
         RegValue regvalue;
-        if (!m_regFile.ReadRegister(addr, regvalue))
+        if (!regFile.ReadRegister(addr, regvalue))
         {
             DeadlockWrite("Unable to read register %s", addr.str().c_str());
             return FAILED;
@@ -260,13 +262,14 @@ Result DRISC::IONotificationMultiplexer::DoReceivedNotifications()
         default: UNREACHABLE;
         }
 
-        if (!m_regFile.WriteRegister(addr, regvalue, true))
+        if (!regFile.WriteRegister(addr, regvalue, true))
         {
             DeadlockWrite("Unable to write register %s", addr.str().c_str());
             return FAILED;
         }
 
-        if (!m_allocator.DecreaseFamilyDependency(fid, FAMDEP_OUTSTANDING_READS))
+        auto& alloc = cpu.GetAllocator();
+        if (!alloc.DecreaseFamilyDependency(fid, DRISC::FAMDEP_OUTSTANDING_READS))
         {
             DeadlockWrite("Unable to decrement outstanding reads on F%u", (unsigned)fid);
             return FAILED;
@@ -296,14 +299,14 @@ Result DRISC::IONotificationMultiplexer::DoReceivedNotifications()
 }
 
 
-void DRISC::IONotificationMultiplexer::Cmd_Info(ostream& out, const vector<string>& /*args*/) const
+void IONotificationMultiplexer::Cmd_Info(ostream& out, const vector<string>& /*args*/) const
 {
     out << "I/O notification multiplexer." << endl
         << endl
         << "Number of channels: " << m_writebacks.size() << endl;
 }
 
-void DRISC::IONotificationMultiplexer::Cmd_Read(ostream& out, const vector<string>& /*args*/) const
+void IONotificationMultiplexer::Cmd_Read(ostream& out, const vector<string>& /*args*/) const
 {
     out << "Channel | Enable | WB    | Int. Latch | Notifications" << endl
         << "--------+--------+-------+------------+---------------------" << endl;
@@ -340,7 +343,7 @@ void DRISC::IONotificationMultiplexer::Cmd_Read(ostream& out, const vector<strin
     }
 }
 
-StorageTraceSet DRISC::IONotificationMultiplexer::GetWriteBackTraces() const
+StorageTraceSet IONotificationMultiplexer::GetWriteBackTraces() const
 {
     StorageTraceSet res;
     for (std::vector<Register<RegAddr>*>::const_iterator p = m_writebacks.begin(); p != m_writebacks.end(); ++p)
@@ -351,4 +354,5 @@ StorageTraceSet DRISC::IONotificationMultiplexer::GetWriteBackTraces() const
 }
 
 
+}
 }

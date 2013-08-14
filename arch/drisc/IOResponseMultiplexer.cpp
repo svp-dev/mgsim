@@ -1,3 +1,4 @@
+#include "IOResponseMultiplexer.h"
 #include "DRISC.h"
 #include <sim/config.h>
 
@@ -5,15 +6,15 @@
 
 namespace Simulator
 {
+namespace drisc
+{
 
-DRISC::IOResponseMultiplexer::IOResponseMultiplexer(const std::string& name, Object& parent, Clock& clock, drisc::RegisterFile& rf, Allocator& alloc, size_t numDevices, Config& config)
+IOResponseMultiplexer::IOResponseMultiplexer(const std::string& name, IOInterface& parent, Clock& clock, size_t numDevices, Config& config)
     : Object(name, parent, clock),
-      m_regFile(rf),
-      m_allocator(alloc),
       m_incoming("b_incoming", *this, clock, config.getValue<BufferSize>(*this, "IncomingQueueSize")),
       m_wb_buffers(),
-      p_dummy(*this, "dummy-process", delegate::create<IOResponseMultiplexer, &DRISC::IOResponseMultiplexer::DoNothing>(*this)),
-      p_IncomingReadResponses(*this, "completed-reads", delegate::create<IOResponseMultiplexer, &DRISC::IOResponseMultiplexer::DoReceivedReadResponses>(*this))
+      p_dummy(*this, "dummy-process", delegate::create<IOResponseMultiplexer, &IOResponseMultiplexer::DoNothing>(*this)),
+      p_IncomingReadResponses(*this, "completed-reads", delegate::create<IOResponseMultiplexer, &IOResponseMultiplexer::DoReceivedReadResponses>(*this))
 {
     m_incoming.Sensitive(p_IncomingReadResponses);
 
@@ -34,7 +35,14 @@ DRISC::IOResponseMultiplexer::IOResponseMultiplexer(const std::string& name, Obj
 
 }
 
-DRISC::IOResponseMultiplexer::~IOResponseMultiplexer()
+Result IOResponseMultiplexer::DoNothing()
+{
+    COMMIT{ p_dummy.Deactivate(); };
+    return SUCCESS;
+}
+
+
+IOResponseMultiplexer::~IOResponseMultiplexer()
 {
     for (size_t i = 0; i < m_wb_buffers.size(); ++i)
     {
@@ -42,14 +50,14 @@ DRISC::IOResponseMultiplexer::~IOResponseMultiplexer()
     }
 }
 
-bool DRISC::IOResponseMultiplexer::QueueWriteBackAddress(IODeviceID dev, const RegAddr& addr)
+bool IOResponseMultiplexer::QueueWriteBackAddress(IODeviceID dev, const RegAddr& addr)
 {
     assert(dev < m_wb_buffers.size());
 
     return m_wb_buffers[dev]->Push(addr);
 }
 
-bool DRISC::IOResponseMultiplexer::OnReadResponseReceived(IODeviceID from, MemAddr /*address*/, const IOData& data)
+bool IOResponseMultiplexer::OnReadResponseReceived(IODeviceID from, MemAddr /*address*/, const IOData& data)
 {
     assert(from < m_wb_buffers.size());
 
@@ -59,7 +67,7 @@ bool DRISC::IOResponseMultiplexer::OnReadResponseReceived(IODeviceID from, MemAd
     return m_incoming.Push(response);
 }
 
-Result DRISC::IOResponseMultiplexer::DoReceivedReadResponses()
+Result IOResponseMultiplexer::DoReceivedReadResponses()
 {
     assert(!m_incoming.Empty());
 
@@ -77,15 +85,16 @@ Result DRISC::IOResponseMultiplexer::DoReceivedReadResponses()
     const RegAddr& addr = wbq.Front();
 
     // Try to write to register
-
-    if (!m_regFile.p_asyncW.Write(addr))
+    auto& cpu = GetDRISC();
+    auto& regFile = cpu.GetRegisterFile();
+    if (!regFile.p_asyncW.Write(addr))
     {
         DeadlockWrite("Unable to acquire port to write back %s", addr.str().c_str());
         return FAILED;
     }
 
     RegValue regvalue;
-    if (!m_regFile.ReadRegister(addr, regvalue))
+    if (!regFile.ReadRegister(addr, regvalue))
     {
         DeadlockWrite("Unable to read register %s", addr.str().c_str());
         return FAILED;
@@ -124,13 +133,13 @@ Result DRISC::IOResponseMultiplexer::DoReceivedReadResponses()
         default: UNREACHABLE;
     }
 
-    if (!m_regFile.WriteRegister(addr, regvalue, true))
+    if (!regFile.WriteRegister(addr, regvalue, true))
     {
         DeadlockWrite("Unable to write register %s", addr.str().c_str());
         return FAILED;
     }
 
-    if (!m_allocator.DecreaseFamilyDependency(fid, FAMDEP_OUTSTANDING_READS))
+    if (!cpu.GetAllocator().DecreaseFamilyDependency(fid, DRISC::FAMDEP_OUTSTANDING_READS))
     {
         DeadlockWrite("Unable to decrement outstanding reads on F%u", (unsigned)fid);
         return FAILED;
@@ -145,7 +154,7 @@ Result DRISC::IOResponseMultiplexer::DoReceivedReadResponses()
     return SUCCESS;
 }
 
-StorageTraceSet DRISC::IOResponseMultiplexer::GetWriteBackTraces() const
+StorageTraceSet IOResponseMultiplexer::GetWriteBackTraces() const
 {
     StorageTraceSet res;
     for (std::vector<WriteBackQueue*>::const_iterator p = m_wb_buffers.begin(); p != m_wb_buffers.end(); ++p)
@@ -155,4 +164,5 @@ StorageTraceSet DRISC::IOResponseMultiplexer::GetWriteBackTraces() const
     return res;
 }
 
+}
 }

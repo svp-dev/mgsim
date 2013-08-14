@@ -1,10 +1,13 @@
+#include "IODirectCacheAccess.h"
 #include "DRISC.h"
 #include <sim/config.h>
 #include <cstring>
 
 namespace Simulator
 {
-    DRISC::IODirectCacheAccess::IODirectCacheAccess(const std::string& name, Object& parent, Clock& clock, DRISC& proc, IOBusInterface& busif, Config& config)
+namespace drisc
+{
+    IODirectCacheAccess::IODirectCacheAccess(const std::string& name, Object& parent, Clock& clock, DRISC& proc, IOBusInterface& busif, Config& config)
         : Object(name, parent, clock),
           m_cpu(proc),
           m_memory(NULL),
@@ -19,8 +22,8 @@ namespace Simulator
           m_outstanding_client(0),
           m_has_outstanding_request(false),
           m_flushing(false),
-          p_MemoryOutgoing(*this, "send-memory-requests", delegate::create<IODirectCacheAccess, &DRISC::IODirectCacheAccess::DoMemoryOutgoing>(*this)),
-          p_BusOutgoing   (*this, "send-bus-responses", delegate::create<IODirectCacheAccess, &DRISC::IODirectCacheAccess::DoBusOutgoing>(*this)),
+          p_MemoryOutgoing(*this, "send-memory-requests", delegate::create<IODirectCacheAccess, &IODirectCacheAccess::DoMemoryOutgoing>(*this)),
+          p_BusOutgoing   (*this, "send-bus-responses", delegate::create<IODirectCacheAccess, &IODirectCacheAccess::DoBusOutgoing>(*this)),
           p_service(*this, clock, "p_service")
     {
         p_service.AddProcess(p_BusOutgoing);
@@ -31,7 +34,7 @@ namespace Simulator
         p_BusOutgoing.SetStorageTraces(opt(m_busif.m_outgoing_reqs));
     }
 
-    void DRISC::IODirectCacheAccess::ConnectMemory(IMemory* memory)
+    void IODirectCacheAccess::ConnectMemory(IMemory* memory)
     {
         assert(m_memory == NULL);
         assert(memory != NULL); // can't register two times
@@ -42,13 +45,13 @@ namespace Simulator
         p_MemoryOutgoing.SetStorageTraces(opt(traces ^ m_responses));
     }
 
-    DRISC::IODirectCacheAccess::~IODirectCacheAccess()
+    IODirectCacheAccess::~IODirectCacheAccess()
     {
         assert(m_memory != NULL);
         m_memory->UnregisterClient(m_mcid);
     }
 
-    bool DRISC::IODirectCacheAccess::QueueRequest(const Request& req)
+    bool IODirectCacheAccess::QueueRequest(const Request& req)
     {
         size_t offset = (size_t)(req.address % m_lineSize);
         if (offset + req.size > m_lineSize)
@@ -76,7 +79,7 @@ namespace Simulator
         return true;
     }
 
-    bool DRISC::IODirectCacheAccess::OnMemoryWriteCompleted(TID tid)
+    bool IODirectCacheAccess::OnMemoryWriteCompleted(TID tid)
     {
         if (tid == INVALID_TID) // otherwise for D-Cache
         {
@@ -92,7 +95,7 @@ namespace Simulator
         return true;
     }
 
-    bool DRISC::IODirectCacheAccess::OnMemoryReadCompleted(MemAddr addr, const char * data)
+    bool IODirectCacheAccess::OnMemoryReadCompleted(MemAddr addr, const char * data)
     {
         assert(addr % m_lineSize == 0);
 
@@ -111,22 +114,22 @@ namespace Simulator
         return true;
     }
 
-    bool DRISC::IODirectCacheAccess::OnMemorySnooped(MemAddr /*unused*/, const char* /*data*/, const bool* /*mask*/)
+    bool IODirectCacheAccess::OnMemorySnooped(MemAddr /*unused*/, const char* /*data*/, const bool* /*mask*/)
     {
         return true;
     }
 
-    bool DRISC::IODirectCacheAccess::OnMemoryInvalidated(MemAddr /*unused*/)
+    bool IODirectCacheAccess::OnMemoryInvalidated(MemAddr /*unused*/)
     {
         return true;
     }
 
-    Object& DRISC::IODirectCacheAccess::GetMemoryPeer()
+    Object& IODirectCacheAccess::GetMemoryPeer()
     {
         return m_cpu;
     }
 
-    Result DRISC::IODirectCacheAccess::DoBusOutgoing()
+    Result IODirectCacheAccess::DoBusOutgoing()
     {
         const Response& res = m_responses.Front();
 
@@ -195,7 +198,7 @@ namespace Simulator
         return SUCCESS;
     }
 
-    Result DRISC::IODirectCacheAccess::DoMemoryOutgoing()
+    Result IODirectCacheAccess::DoMemoryOutgoing()
     {
         assert(m_memory != NULL);
         const Request& req = m_requests.Front();
@@ -345,4 +348,5 @@ namespace Simulator
     }
 
 
+}
 }

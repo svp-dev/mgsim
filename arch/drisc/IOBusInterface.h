@@ -1,9 +1,17 @@
 #ifndef IOBUSINTERFACE_H
 #define IOBUSINTERFACE_H
 
-#ifndef PROCESSOR_H
-#error This file should be included in DRISC.h
-#endif
+#include <sim/kernel.h>
+#include <sim/storage.h>
+#include <arch/IOBus.h>
+
+class Config;
+namespace Simulator
+{
+class DRISC;
+
+namespace drisc
+{
 
 class IOResponseMultiplexer;
 class IONotificationMultiplexer;
@@ -77,5 +85,7 @@ public:
 
 };
 
+}
+}
 
 #endif

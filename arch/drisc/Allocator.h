@@ -29,6 +29,7 @@ enum ThreadDependency
 class Allocator : public Object, public Inspect::Interface<Inspect::Read>
 {
     friend class DRISC;
+    friend class drisc::IOBusInterface;
 
 public:
     typedef LinkedList< TID, drisc::ThreadTable, &drisc::Thread::next> ThreadList;

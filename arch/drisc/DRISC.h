@@ -19,6 +19,7 @@
 #include "ThreadTable.h"
 #include "ICache.h"
 #include "DCache.h"
+#include "IOInterface.h"
 #include <sim/storage.h> // for Network
 
 class Config;
@@ -38,7 +39,6 @@ public:
     class Allocator;
 
 #include "Network.h"
-#include "IOInterface.h"
 #include "Pipeline.h"
 #include "Allocator.h"
 
@@ -113,7 +113,7 @@ public:
     bool CheckPermissions(MemAddr address, MemSize size, int access) const;
 
     Network& GetNetwork() { return m_network; }
-    IOInterface* GetIOInterface() { return m_io_if; }
+    drisc::IOInterface* GetIOInterface() { return m_io_if; }
     drisc::RegisterFile& GetRegisterFile() { return m_registerFile; }
     drisc::ICache& GetICache() { return m_icache; }
     drisc::DCache& GetDCache() { return m_dcache; }
@@ -161,7 +161,7 @@ private:
     drisc::ActionInterface m_action;
 
     // External I/O interface, optional
-    IOInterface           *m_io_if;
+    drisc::IOInterface    *m_io_if;
 
     friend class drisc::PerfCounters::Helpers;
 };
