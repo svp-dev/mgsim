@@ -158,7 +158,7 @@ void DRISC::Pipeline::DecodeStage::DecodeInstruction(const Instruction& instr)
 
 DRISC::Pipeline::PipeAction DRISC::Pipeline::ExecuteStage::ExecuteInstruction()
 {
-    Thread& thread = m_threadTable[m_input.tid];
+    auto& thread = m_threadTable[m_input.tid];
 
     // Fetch both potential input buffers.
     uint32_t Rav = m_input.Rav.m_integer.get(m_input.Rav.m_size);
@@ -176,21 +176,21 @@ DRISC::Pipeline::PipeAction DRISC::Pipeline::ExecuteStage::ExecuteInstruction()
             switch (m_input.function) {
             case M_SPECIAL_GETTID: COMMIT { m_output.Rcv.m_integer = m_input.tid; } break;
             case M_SPECIAL_GETFID: COMMIT { m_output.Rcv.m_integer = m_input.fid; } break;
-            case M_SPECIAL_GETCID: COMMIT { m_output.Rcv.m_integer = m_parent.GetDRISC().GetPID(); } break;
+            case M_SPECIAL_GETCID: COMMIT { m_output.Rcv.m_integer = GetDRISC().GetPID(); } break;
             case M_SPECIAL_GETPID:
             {
                 PlaceID place;
                 place.size = m_input.placeSize;
-                place.pid  = m_parent.GetDRISC().GetPID() & -place.size;
+                place.pid  = GetDRISC().GetPID() & -place.size;
                 place.capability = 0x1337; // later: find a proper substitute
-                COMMIT { m_output.Rcv.m_integer = m_parent.GetDRISC().PackPlace(place); }
+                COMMIT { m_output.Rcv.m_integer = GetDRISC().PackPlace(place); }
                 break;
             }
-            case M_SPECIAL_LDBP: m_output.Rcv.m_integer = m_parent.GetDRISC().GetTLSAddress(m_input.fid, m_input.tid); break; 
+            case M_SPECIAL_LDBP: m_output.Rcv.m_integer = GetDRISC().GetTLSAddress(m_input.fid, m_input.tid); break;
             case M_SPECIAL_LDFP:
             {
-                const MemAddr tls_base = m_parent.GetDRISC().GetTLSAddress(m_input.fid, m_input.tid);
-                const MemAddr tls_size = m_parent.GetDRISC().GetTLSSize();
+                const MemAddr tls_base = GetDRISC().GetTLSAddress(m_input.fid, m_input.tid);
+                const MemAddr tls_size = GetDRISC().GetTLSSize();
                 COMMIT { m_output.Rcv.m_integer = tls_base + tls_size; }
                 break;
             }
@@ -198,11 +198,11 @@ DRISC::Pipeline::PipeAction DRISC::Pipeline::ExecuteStage::ExecuteInstruction()
                 // Read ASR (6..15) / APR (16...31)
                 if ((m_input.function) < M_SPECIAL_GETAPR_FIRST)
                 {
-                    COMMIT { m_output.Rcv.m_integer = m_parent.GetDRISC().ReadASR(m_input.function - M_SPECIAL_GETASR_FIRST); break; }
+                    COMMIT { m_output.Rcv.m_integer = GetDRISC().ReadASR(m_input.function - M_SPECIAL_GETASR_FIRST); break; }
                 }
                 else
                 {
-                    COMMIT { m_output.Rcv.m_integer = m_parent.GetDRISC().ReadAPR(m_input.function - M_SPECIAL_GETAPR_FIRST); break; }
+                    COMMIT { m_output.Rcv.m_integer = GetDRISC().ReadAPR(m_input.function - M_SPECIAL_GETAPR_FIRST); break; }
                 }
                 break;
             }
@@ -249,7 +249,7 @@ DRISC::Pipeline::PipeAction DRISC::Pipeline::ExecuteStage::ExecuteInstruction()
                     if (Rav != m_input.pc + sizeof(Instruction)) {
                         DebugFlowWrite("F%u/T%u(%llu) %s branch %s",
                                        (unsigned)m_input.fid, (unsigned)m_input.tid, (unsigned long long)m_input.logical_index, m_input.pc_sym,
-                                       m_parent.GetDRISC().GetSymbolTable()[Rav].c_str());
+                                       GetDRISC().GetSymbolTable()[Rav].c_str());
                         COMMIT {
                             m_output.pc = Rav;
                             m_output.swch = true;
@@ -268,7 +268,7 @@ DRISC::Pipeline::PipeAction DRISC::Pipeline::ExecuteStage::ExecuteInstruction()
                             break;
                         DebugFlowWrite("F%u/T%u(%llu) %s branch %s",
                                        (unsigned)m_input.fid, (unsigned)m_input.tid, (unsigned long long)m_input.logical_index, m_input.pc_sym,
-                                       m_parent.GetDRISC().GetSymbolTable()[Rav].c_str());
+                                       GetDRISC().GetSymbolTable()[Rav].c_str());
                         COMMIT {
                             m_output.pc = Rav;
                             m_output.swch = true;
@@ -414,7 +414,7 @@ DRISC::Pipeline::PipeAction DRISC::Pipeline::ExecuteStage::ExecuteInstruction()
                         if (target != next) {
                             DebugFlowWrite("F%u/T%u(%llu) %s branch %s",
                                            (unsigned)m_input.fid, (unsigned)m_input.tid, (unsigned long long)m_input.logical_index, m_input.pc_sym,
-                                           m_parent.GetDRISC().GetSymbolTable()[target].c_str());
+                                           GetDRISC().GetSymbolTable()[target].c_str());
                             COMMIT {
                                 m_output.pc = target;
                                 m_output.swch = true;
@@ -444,7 +444,7 @@ DRISC::Pipeline::PipeAction DRISC::Pipeline::ExecuteStage::ExecuteInstruction()
                     if (target != next) {
                         DebugFlowWrite("F%u/T%u(%llu) %s branch %s",
                                        (unsigned)m_input.fid, (unsigned)m_input.tid, (unsigned long long)m_input.logical_index, m_input.pc_sym,
-                                       m_parent.GetDRISC().GetSymbolTable()[target].c_str());
+                                       GetDRISC().GetSymbolTable()[target].c_str());
                         COMMIT {
                             m_output.swch = true;
                             m_output.pc = target;
@@ -479,7 +479,7 @@ DRISC::Pipeline::PipeAction DRISC::Pipeline::ExecuteStage::ExecuteInstruction()
                     if (target != next) {
                         DebugFlowWrite("F%u/T%u(%llu) %s branch %s",
                                        (unsigned)m_input.fid, (unsigned)m_input.tid, (unsigned long long)m_input.logical_index, m_input.pc_sym,
-                                       m_parent.GetDRISC().GetSymbolTable()[target].c_str());
+                                       GetDRISC().GetSymbolTable()[target].c_str());
                         COMMIT {
                             m_output.swch = true;
                             m_output.pc = target;
