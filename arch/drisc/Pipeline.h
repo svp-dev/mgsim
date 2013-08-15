@@ -1,13 +1,23 @@
 #ifndef PIPELINE_H
 #define PIPELINE_H
 
-#ifndef PROCESSOR_H
-#error This file should be included in DRISC.h
-#endif
+#include <sim/kernel.h>
+#include <sim/inspect.h>
+#include <arch/simtypes.h>
+#include "forward.h"
+#include "FamilyTable.h"
+#include "ThreadTable.h"
+#include "Network.h"
+
+namespace Simulator
+{
+class FPU;
+namespace drisc
+{
 
 class Pipeline : public Object, public Inspect::Interface<Inspect::Read>
 {
-    friend class DRISC;
+    friend class Simulator::DRISC;
 
     /// A (possibly multi-) register value in the pipeline
     struct PipeValue
@@ -239,10 +249,11 @@ class Pipeline : public Object, public Inspect::Interface<Inspect::Read>
     public:
         virtual PipeAction OnCycle() = 0;
         virtual void       Clear(TID /*tid*/) {}
-        Stage(const std::string& name, Pipeline& parent, Clock& clock);
 
     protected:
-        Pipeline& m_parent;
+        Stage(const std::string& name, Object& parent, Clock& clock)
+            : Object(name, parent, clock) {}
+        Object& GetDRISCParent()  const { return *GetParent()->GetParent(); }
     };
 
     class FetchStage : public Stage
@@ -260,7 +271,7 @@ class Pipeline : public Object, public Inspect::Interface<Inspect::Read>
         void Clear(TID tid);
         PipeAction OnCycle();
     public:
-        FetchStage(Pipeline& parent, Clock& clock, FetchDecodeLatch& output, Allocator& allocator, FamilyTable& familyTable, ThreadTable& threadTable, ICache &icache, Config& config);
+        FetchStage(Pipeline& parent, Clock& clock, FetchDecodeLatch& output, Config& config);
         FetchStage(const FetchStage&) = delete;
         FetchStage& operator=(const FetchStage&) = delete;
         ~FetchStage();
@@ -279,7 +290,9 @@ class Pipeline : public Object, public Inspect::Interface<Inspect::Read>
         static InstrFormat GetInstrFormat(uint8_t opcode);
 #endif
     public:
-        DecodeStage(Pipeline& parent, Clock& clock, const FetchDecodeLatch& input, DecodeReadLatch& output, Config& config);
+        DecodeStage(Pipeline& parent, Clock& clock,
+                    const FetchDecodeLatch& input, DecodeReadLatch& output,
+                    Config& config);
     };
 
     class ReadStage : public Stage
@@ -307,7 +320,7 @@ class Pipeline : public Object, public Inspect::Interface<Inspect::Read>
         void Clear(TID tid);
         PipeAction OnCycle();
 
-        RegisterFile&               m_regFile;
+        RegisterFile&        m_regFile;
         const DecodeReadLatch&      m_input;
         ReadExecuteLatch&           m_output;
         std::vector<BypassInfo>     m_bypasses;
@@ -323,9 +336,10 @@ class Pipeline : public Object, public Inspect::Interface<Inspect::Read>
 
         static PipeValue RegToPipeValue(RegType type, const RegValue& src_value);
     public:
-        ReadStage(Pipeline& parent, Clock& clock, const DecodeReadLatch& input, ReadExecuteLatch& output, RegisterFile& regFile,
-            const std::vector<BypassInfo>& bypasses,
-            Config& config);
+        ReadStage(Pipeline& parent, Clock& clock,
+                  const DecodeReadLatch& input, ReadExecuteLatch& output,
+                  const std::vector<BypassInfo>& bypasses,
+                  Config& config);
     };
 
     class ExecuteStage : public Stage
@@ -385,7 +399,9 @@ class Pipeline : public Object, public Inspect::Interface<Inspect::Read>
     public:
         size_t GetFPUSource() const { return m_fpuSource; }
 
-        ExecuteStage(Pipeline& parent, Clock& clock, const ReadExecuteLatch& input, ExecuteMemoryLatch& output, Allocator& allocator, FamilyTable& familyTable, ThreadTable& threadTable, Config& config);
+        ExecuteStage(Pipeline& parent, Clock& clock,
+                     const ReadExecuteLatch& input, ExecuteMemoryLatch& output,
+                     Config& config);
         ExecuteStage(const ExecuteStage&) = delete;
         ExecuteStage& operator=(const ExecuteStage&) = delete;
         void ConnectFPU(FPU* fpu, size_t fpu_source);
@@ -407,7 +423,9 @@ class Pipeline : public Object, public Inspect::Interface<Inspect::Read>
 
         PipeAction OnCycle();
     public:
-        MemoryStage(Pipeline& parent, Clock& clock, const ExecuteMemoryLatch& input, MemoryWritebackLatch& output, DCache& dcache, Allocator& allocator, Config& config);
+        MemoryStage(Pipeline& parent, Clock& clock,
+                    const ExecuteMemoryLatch& input, MemoryWritebackLatch& output,
+                    Config& config);
         void addMemStatistics(uint64_t& nr, uint64_t& nw, uint64_t& nrb, uint64_t& nwb) const
         { nr += m_loads; nw += m_stores; nrb += m_load_bytes; nwb += m_store_bytes; }
     };
@@ -419,7 +437,9 @@ class Pipeline : public Object, public Inspect::Interface<Inspect::Read>
 
         PipeAction OnCycle();
     public:
-        DummyStage(const std::string& name, Pipeline& parent, Clock& clock, const MemoryWritebackLatch& input, MemoryWritebackLatch& output, Config& config);
+        DummyStage(const std::string& name, Pipeline& parent, Clock& clock,
+                   const MemoryWritebackLatch& input, MemoryWritebackLatch& output,
+                   Config& config);
     };
 
     class WritebackStage : public Stage
@@ -434,14 +454,14 @@ class Pipeline : public Object, public Inspect::Interface<Inspect::Read>
 
         PipeAction OnCycle();
     public:
-        WritebackStage(Pipeline& parent, Clock& clock, const MemoryWritebackLatch& input, RegisterFile& regFile, Allocator& allocator, ThreadTable& threadTable, Network& network, Config& config);
+        WritebackStage(Pipeline& parent, Clock& clock, const MemoryWritebackLatch& input, Config& config);
     };
 
     void PrintLatchCommon(std::ostream& out, const CommonData& latch) const;
     static std::string MakePipeValue(const RegType& type, const PipeValue& value);
 
 public:
-    Pipeline(const std::string& name, DRISC& parent, Clock& clock, RegisterFile& regFile, Network& network, Allocator& allocator, FamilyTable& familyTable, ThreadTable& threadTable, ICache& icache, DCache& dcache, Config& config);
+    Pipeline(const std::string& name, DRISC& parent, Clock& clock, Config& config);
     Pipeline(const Pipeline&) = delete;
     Pipeline& operator=(const Pipeline&) = delete;
     ~Pipeline();
@@ -457,7 +477,7 @@ public:
         throw ex;                                                       \
     } while(0)
 
-    DRISC& GetDRISC()  const { return m_parent; }
+    Object& GetDRISCParent()  const { return *GetParent(); }
 
     uint64_t GetTotalBusyTime() const { return m_pipelineBusyTime; }
     uint64_t GetStalls() const { return m_nStalls; }
@@ -487,8 +507,6 @@ private:
         Result status;
     };
 
-    DRISC& m_parent;
-
     FetchDecodeLatch                  m_fdLatch;
     DecodeReadLatch                   m_drLatch;
     ReadExecuteLatch                  m_reLatch;
@@ -506,5 +524,8 @@ private:
     uint64_t m_pipelineBusyTime;
     uint64_t m_nStalls;
 };
+
+}
+}
 
 #endif

@@ -1,10 +1,12 @@
 #ifndef ANCILLARYREGISTERFILE_H
 #define ANCILLARYREGISTERFILE_H
 
+#include "IOMatchUnit.h"
 
-#ifndef PROCESSOR_H
-#error This file should be included in DRISC.h
-#endif
+namespace Simulator
+{
+namespace drisc
+{
 
 /*
  * Access interface to ancillary registers. Ancillary registers
@@ -37,5 +39,7 @@ public:
 
 };
 
+}
+}
 
 #endif

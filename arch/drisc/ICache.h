@@ -1,13 +1,20 @@
 #ifndef ICACHE_H
 #define ICACHE_H
 
-#ifndef PROCESSOR_H
-#error This file should be included in DRISC.h
-#endif
+#include <sim/kernel.h>
+#include <sim/inspect.h>
+#include <sim/storage.h>
+#include <arch/Memory.h>
+#include "forward.h"
+
+namespace Simulator
+{
+namespace drisc
+{
 
 class ICache : public Object, public IMemoryCallback, public Inspect::Interface<Inspect::Read>
 {
-    friend class DRISC;
+    friend class Simulator::DRISC;
 
     enum LineState
     {
@@ -36,8 +43,6 @@ class ICache : public Object, public IMemoryCallback, public Inspect::Interface<
     Result DoOutgoing();
     Result DoIncoming();
 
-    DRISC&            m_parent;
-    Allocator&        m_allocator;
     IMemory*          m_memory;
     IBankSelector*    m_selector;
     MCID              m_mcid;
@@ -59,8 +64,10 @@ class ICache : public Object, public IMemoryCallback, public Inspect::Interface<
     uint64_t             m_numResolvedConflicts;
     uint64_t             m_numStallingMisses;
 
+    Object& GetDRISCParent() const { return *GetParent(); }
+
 public:
-    ICache(const std::string& name, DRISC& parent, Clock& clock, Allocator& allocator, Config& config);
+    ICache(const std::string& name, DRISC& parent, Clock& clock, Config& config);
     ICache(const ICache&) = delete;
     ICache& operator=(const ICache&) = delete;
     ~ICache();
@@ -72,8 +79,8 @@ public:
 
     ArbitratedService<> p_service;
 
-    Result Fetch(MemAddr address, MemSize size, CID& cid);				// Initial family line fetch
-    Result Fetch(MemAddr address, MemSize size, TID& tid, CID& cid);	// Thread code fetch
+    Result Fetch(MemAddr address, MemSize size, CID& cid); // Initial family line fetch
+    Result Fetch(MemAddr address, MemSize size, TID& tid, CID& cid);  // Thread code fetch
     bool   Read(CID cid, MemAddr address, void* data, MemSize size) const;
     bool   ReleaseCacheLine(CID bid);
     bool   IsEmpty() const;
@@ -95,5 +102,8 @@ public:
     void Cmd_Info(std::ostream& out, const std::vector<std::string>& arguments) const override;
     void Cmd_Read(std::ostream& out, const std::vector<std::string>& arguments) const override;
 };
+
+}
+}
 
 #endif

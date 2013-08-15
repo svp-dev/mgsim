@@ -290,6 +290,7 @@ namespace Simulator
             {
                 errno = ENAMETOOLONG;
                 rval = -1;
+                break;
             }
 
             rval = unlink(path_start);

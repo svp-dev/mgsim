@@ -1,3 +1,4 @@
+#include "ICache.h"
 #include "DRISC.h"
 #include <sim/log2.h>
 #include <sim/config.h>
@@ -11,10 +12,11 @@ using namespace std;
 
 namespace Simulator
 {
+namespace drisc
+{
 
-DRISC::ICache::ICache(const std::string& name, DRISC& parent, Clock& clock, Allocator& alloc, Config& config)
+ICache::ICache(const std::string& name, DRISC& parent, Clock& clock, Config& config)
 :   Object(name, parent, clock),
-    m_parent(parent), m_allocator(alloc),
     m_memory(NULL),
     m_selector(IBankSelector::makeSelector(*this, config.getValue<string>(*this, "BankSelector"), config.getValue<size_t>(*this, "NumSets"))),
     m_mcid(0),
@@ -34,8 +36,8 @@ DRISC::ICache::ICache(const std::string& name, DRISC& parent, Clock& clock, Allo
     m_numResolvedConflicts(0),
     m_numStallingMisses(0),
 
-    p_Outgoing(*this, "outgoing", delegate::create<ICache, &DRISC::ICache::DoOutgoing>(*this)),
-    p_Incoming(*this, "incoming", delegate::create<ICache, &DRISC::ICache::DoIncoming>(*this)),
+    p_Outgoing(*this, "outgoing", delegate::create<ICache, &ICache::DoOutgoing>(*this)),
+    p_Incoming(*this, "incoming", delegate::create<ICache, &ICache::DoIncoming>(*this)),
     p_service(*this, clock, "p_service")
 {
     RegisterSampleVariableInObject(m_numHits, SVC_CUMULATIVE);
@@ -46,13 +48,13 @@ DRISC::ICache::ICache(const std::string& name, DRISC& parent, Clock& clock, Allo
     RegisterSampleVariableInObject(m_numResolvedConflicts, SVC_CUMULATIVE);
     RegisterSampleVariableInObject(m_numStallingMisses, SVC_CUMULATIVE);
 
-    config.registerObject(m_parent, "cpu");
+    config.registerObject(parent, "cpu");
 
     m_outgoing.Sensitive( p_Outgoing );
     m_incoming.Sensitive( p_Incoming );
 
     // These things must be powers of two
-    if (!IsPowerOfTwo(m_assoc))
+    if (m_assoc == 0 || !IsPowerOfTwo(m_assoc))
     {
         throw exceptf<InvalidArgumentException>(*this, "Associativity = %zd is not a power of two", m_assoc);
     }
@@ -88,7 +90,7 @@ DRISC::ICache::ICache(const std::string& name, DRISC& parent, Clock& clock, Allo
     }
 }
 
-void DRISC::ICache::ConnectMemory(IMemory* memory)
+void ICache::ConnectMemory(IMemory* memory)
 {
     assert(m_memory == NULL); // can't register two times
     assert(memory != NULL);
@@ -99,12 +101,12 @@ void DRISC::ICache::ConnectMemory(IMemory* memory)
     p_Outgoing.SetStorageTraces(traces);
 }
 
-DRISC::ICache::~ICache()
+ICache::~ICache()
 {
     delete m_selector;
 }
 
-bool DRISC::ICache::IsEmpty() const
+bool ICache::IsEmpty() const
 {
     for (size_t i = 0; i < m_lines.size(); ++i)
     {
@@ -122,7 +124,7 @@ bool DRISC::ICache::IsEmpty() const
 // DELAYED - Line not found (miss), but empty one allocated
 // FAILED  - Line not found (miss), no empty lines to allocate
 //
-Result DRISC::ICache::FindLine(MemAddr address, Line* &line, bool check_only)
+Result ICache::FindLine(MemAddr address, Line* &line, bool check_only)
 {
     MemAddr tag;
     size_t setindex;
@@ -175,7 +177,7 @@ Result DRISC::ICache::FindLine(MemAddr address, Line* &line, bool check_only)
     return DELAYED;
 }
 
-bool DRISC::ICache::ReleaseCacheLine(CID cid)
+bool ICache::ReleaseCacheLine(CID cid)
 {
     if (cid != INVALID_CID)
     {
@@ -193,7 +195,7 @@ bool DRISC::ICache::ReleaseCacheLine(CID cid)
     return true;
 }
 
-bool DRISC::ICache::Read(CID cid, MemAddr address, void* data, MemSize size) const
+bool ICache::Read(CID cid, MemAddr address, void* data, MemSize size) const
 {
     MemAddr tag;
     size_t unused;
@@ -230,21 +232,22 @@ bool DRISC::ICache::Read(CID cid, MemAddr address, void* data, MemSize size) con
 }
 
 // For family creation
-Result DRISC::ICache::Fetch(MemAddr address, MemSize size, CID& cid)
+Result ICache::Fetch(MemAddr address, MemSize size, CID& cid)
 {
     return Fetch(address, size, NULL, &cid);
 }
 
 // For thread activation
-Result DRISC::ICache::Fetch(MemAddr address, MemSize size, TID& tid, CID& cid)
+Result ICache::Fetch(MemAddr address, MemSize size, TID& tid, CID& cid)
 {
     return Fetch(address, size, &tid, &cid);
 }
 
-Result DRISC::ICache::Fetch(MemAddr address, MemSize size, TID* tid, CID* cid)
+Result ICache::Fetch(MemAddr address, MemSize size, TID* tid, CID* cid)
 {
     // Check that we're fetching executable memory
-    if (!m_parent.CheckPermissions(address, size, IMemory::PERM_EXECUTE))
+    auto& cpu = GetDRISC();
+    if (!cpu.CheckPermissions(address, size, IMemory::PERM_EXECUTE))
     {
         throw exceptf<SecurityException>(*this, "Fetch (%#016llx, %zd): Attempting to execute from non-executable memory",
                                          (unsigned long long)address, (size_t)size);
@@ -385,7 +388,7 @@ Result DRISC::ICache::Fetch(MemAddr address, MemSize size, TID* tid, CID* cid)
     return DELAYED;
 }
 
-bool DRISC::ICache::OnMemoryReadCompleted(MemAddr addr, const char *data)
+bool ICache::OnMemoryReadCompleted(MemAddr addr, const char *data)
 {
     // Instruction cache line returned, store in cache and Buffer
 
@@ -411,13 +414,13 @@ bool DRISC::ICache::OnMemoryReadCompleted(MemAddr addr, const char *data)
     return true;
 }
 
-bool DRISC::ICache::OnMemoryWriteCompleted(TID /*tid*/)
+bool ICache::OnMemoryWriteCompleted(TID /*tid*/)
 {
     // The I-Cache never writes
     UNREACHABLE;
 }
 
-bool DRISC::ICache::OnMemorySnooped(MemAddr address, const char * data, const bool * mask)
+bool ICache::OnMemorySnooped(MemAddr address, const char * data, const bool * mask)
 {
     Line* line;
     // Cache coherency: check if we have the same address
@@ -431,7 +434,7 @@ bool DRISC::ICache::OnMemorySnooped(MemAddr address, const char * data, const bo
     return true;
 }
 
-bool DRISC::ICache::OnMemoryInvalidated(MemAddr address)
+bool ICache::OnMemoryInvalidated(MemAddr address)
 {
     COMMIT
     {
@@ -452,12 +455,12 @@ bool DRISC::ICache::OnMemoryInvalidated(MemAddr address)
     return true;
 }
 
-Object& DRISC::ICache::GetMemoryPeer()
+Object& ICache::GetMemoryPeer()
 {
-    return m_parent;
+    return *GetParent();
 }
 
-Result DRISC::ICache::DoOutgoing()
+Result ICache::DoOutgoing()
 {
     assert(!m_outgoing.Empty());
     assert(m_memory != NULL);
@@ -473,7 +476,7 @@ Result DRISC::ICache::DoOutgoing()
     return SUCCESS;
 }
 
-Result DRISC::ICache::DoIncoming()
+Result ICache::DoIncoming()
 {
     assert(!m_incoming.Empty());
 
@@ -486,10 +489,11 @@ Result DRISC::ICache::DoIncoming()
     Line& line = m_lines[cid];
     COMMIT{ line.state = LINE_FULL; }
 
+    auto& alloc = GetDRISC().GetAllocator();
     if (line.creation)
     {
         // Resume family creation
-        if (!m_allocator.OnICachelineLoaded(cid))
+        if (!alloc.OnICachelineLoaded(cid))
         {
             DeadlockWrite("Unable to resume family creation for C%u", (unsigned)cid);
             return FAILED;
@@ -500,7 +504,7 @@ Result DRISC::ICache::DoIncoming()
     if (line.waiting.head != INVALID_TID)
     {
         // Reschedule the line's waiting list
-        if (!m_allocator.QueueActiveThreads(line.waiting))
+        if (!alloc.QueueActiveThreads(line.waiting))
         {
             DeadlockWrite("Unable to queue active threads T%u through T%u for C%u",
                 (unsigned)line.waiting.head, (unsigned)line.waiting.tail, (unsigned)cid);
@@ -518,7 +522,7 @@ Result DRISC::ICache::DoIncoming()
     return SUCCESS;
 }
 
-void DRISC::ICache::Cmd_Info(std::ostream& out, const std::vector<std::string>& /*arguments*/) const
+void ICache::Cmd_Info(std::ostream& out, const std::vector<std::string>& /*arguments*/) const
 {
     out <<
     "The Instruction Cache stores data from memory that contains instructions for\n"
@@ -530,7 +534,7 @@ void DRISC::ICache::Cmd_Info(std::ostream& out, const std::vector<std::string>& 
     "  and cache configuration.\n";
 }
 
-void DRISC::ICache::Cmd_Read(std::ostream& out, const std::vector<std::string>& arguments) const
+void ICache::Cmd_Read(std::ostream& out, const std::vector<std::string>& arguments) const
 {
     if (arguments.empty())
     {
@@ -688,6 +692,8 @@ void DRISC::ICache::Cmd_Read(std::ostream& out, const std::vector<std::string>& 
         out << ((i + 1) % m_assoc == 0 ? "----" : "    ");
         out << "+---------------------+-------------------------------------------------+-----+" << endl;
     }
+
+}
 
 }
 

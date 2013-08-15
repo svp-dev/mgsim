@@ -1,4 +1,4 @@
-#include "DRISC.h"
+#include "Pipeline.h"
 #include <cassert>
 #include <sstream>
 #include <iomanip>
@@ -6,7 +6,8 @@ using namespace std;
 
 namespace Simulator
 {
-
+namespace drisc
+{
 /**
  \brief This function translates the 32-registers based address into the
         proper physical register file address.
@@ -18,7 +19,7 @@ namespace Simulator
  \param[in] writing Indicates if this register is used in a write
  \returns the physical register address to use for the read or write
  */
-RegAddr DRISC::Pipeline::DecodeStage::TranslateRegister(unsigned char reg, RegType type, unsigned int size, bool *islocal) const
+RegAddr Pipeline::DecodeStage::TranslateRegister(unsigned char reg, RegType type, unsigned int size, bool *islocal) const
 {
     // We're always dealing with whole registers
     assert(size % sizeof(Integer) == 0);
@@ -33,8 +34,8 @@ RegAddr DRISC::Pipeline::DecodeStage::TranslateRegister(unsigned char reg, RegTy
         return MAKE_REGADDR(type, reg);
     }
 
-    const Family::RegInfo& family = m_input.regs.types[type].family;
-    const Thread::RegInfo& thread = m_input.regs.types[type].thread;
+    auto& family = m_input.regs.types[type].family;
+    auto& thread = m_input.regs.types[type].thread;
 
     // Get register class and address within class
     RegClass rc;
@@ -100,7 +101,7 @@ RegAddr DRISC::Pipeline::DecodeStage::TranslateRegister(unsigned char reg, RegTy
     return MAKE_REGADDR(type, INVALID_REG_INDEX);
 }
 
-DRISC::Pipeline::PipeAction DRISC::Pipeline::DecodeStage::OnCycle()
+Pipeline::PipeAction Pipeline::DecodeStage::OnCycle()
 {
     COMMIT
     {
@@ -175,11 +176,12 @@ DRISC::Pipeline::PipeAction DRISC::Pipeline::DecodeStage::OnCycle()
     return PIPE_CONTINUE;
 }
 
-DRISC::Pipeline::DecodeStage::DecodeStage(Pipeline& parent, Clock& clock, const FetchDecodeLatch& input, DecodeReadLatch& output, Config& /*config*/)
+Pipeline::DecodeStage::DecodeStage(Pipeline& parent, Clock& clock, const FetchDecodeLatch& input, DecodeReadLatch& output, Config& /*config*/)
   : Stage("decode", parent, clock),
     m_input(input),
     m_output(output)
 {
 }
 
+}
 }
