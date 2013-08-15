@@ -1,18 +1,20 @@
 #ifndef IONMUX_H
 #define IONMUX_H
 
-#ifndef PROCESSOR_H
-#error This file should be included in DRISC.h
-#endif
+#include <sim/kernel.h>
+#include <sim/inspect.h>
+#include <sim/storage.h>
+#include <arch/IOBus.h>
+#include "forward.h"
 
-class IOBusInterface;
+namespace Simulator
+{
+namespace drisc
+{
 
 class IONotificationMultiplexer : public Object, public Inspect::Interface<Inspect::Read>
 {
 private:
-    RegisterFile&                   m_regFile;
-    Allocator&                      m_allocator;
-
     std::vector<Register<RegAddr>*> m_writebacks;
 
     StorageTraceSet GetInterruptRequestTraces() const;
@@ -28,8 +30,10 @@ public:
 private:
     size_t                          m_lastNotified;
 
+    Object& GetDRISCParent() const { return *GetParent()->GetParent(); };
+
 public:
-    IONotificationMultiplexer(const std::string& name, Object& parent, Clock& clock, RegisterFile& rf, Allocator& alloc, size_t numChannels, Config& config);
+    IONotificationMultiplexer(const std::string& name, IOInterface& parent, Clock& clock, size_t numChannels, Config& config);
     ~IONotificationMultiplexer();
 
     // sent by device select upon an I/O read from the processor
@@ -52,5 +56,7 @@ public:
 
 };
 
+}
+}
 
 #endif

@@ -1,13 +1,20 @@
 #ifndef DCACHE_H
 #define DCACHE_H
 
-#ifndef PROCESSOR_H
-#error This file should be included in DRISC.h
-#endif
+#include <sim/kernel.h>
+#include <sim/inspect.h>
+#include <sim/storage.h>
+#include <arch/Memory.h>
+#include "forward.h"
+
+namespace Simulator
+{
+namespace drisc
+{
 
 class DCache : public Object, public IMemoryCallback, public Inspect::Interface<Inspect::Read>
 {
-    friend class DRISC;
+    friend class Simulator::DRISC;
 
 public:
     /// The state of a cache-line
@@ -71,10 +78,6 @@ private:
 
     Result FindLine(MemAddr address, Line* &line, bool check_only);
 
-    DRISC&           m_parent;          ///< Parent processor.
-    Allocator&           m_allocator;       ///< Allocator component.
-    FamilyTable&         m_familyTable;     ///< Family table .
-    RegisterFile&        m_regFile;         ///< Register File.
     IMemory*             m_memory;          ///< Memory
     MCID                 m_mcid;            ///< Memory Client ID
     std::vector<Line>    m_lines;           ///< The cache-lines.
@@ -115,8 +118,10 @@ private:
     Result DoWriteResponses();
     Result DoOutgoingRequests();
 
+    Object& GetDRISCParent() const { return *GetParent(); }
+
 public:
-    DCache(const std::string& name, DRISC& parent, Clock& clock, Allocator& allocator, FamilyTable& familyTable, RegisterFile& regFile, Config& config);
+    DCache(const std::string& name, DRISC& parent, Clock& clock, Config& config);
     DCache(const DCache&) = delete;
     DCache& operator=(const DCache&) = delete;
     ~DCache();
@@ -155,5 +160,8 @@ public:
 
     const Line& GetLine(size_t i) const { return m_lines[i];  }
 };
+
+}
+}
 
 #endif

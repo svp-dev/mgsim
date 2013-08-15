@@ -1,10 +1,13 @@
 #ifndef DEBUGCHANNEL_H
 #define DEBUGCHANNEL_H
 
+#include "IOMatchUnit.h"
+#include <iostream>
 
-#ifndef PROCESSOR_H
-#error This file should be included in DRISC.h
-#endif
+namespace Simulator
+{
+namespace drisc
+{
 
 class DebugChannel : public MMIOComponent
 {
@@ -21,6 +24,7 @@ public:
 
 };
 
-
+}
+}
 
 #endif

@@ -1,9 +1,12 @@
+#include "MMUInterface.h"
 #include "DRISC.h"
 #include <programs/mgsim.h>
 
 #include <iomanip>
 
 namespace Simulator
+{
+namespace drisc
 {
 
 /*
@@ -16,22 +19,22 @@ namespace Simulator
  *    maximum address: 1 1 0 1 0
  */
 
-size_t DRISC::MMUInterface::GetSize() const { return 0x1A /* 11010 */ * sizeof(Integer);  }
+size_t MMUInterface::GetSize() const { return 0x1A /* 11010 */ * sizeof(Integer);  }
 
 
-Result DRISC::MMUInterface::Read (MemAddr /*address*/, void* /*data*/, MemSize /*size*/, LFID /*fid*/, TID /*tid*/, const RegAddr& /*writeback*/)
+Result MMUInterface::Read (MemAddr /*address*/, void* /*data*/, MemSize /*size*/, LFID /*fid*/, TID /*tid*/, const RegAddr& /*writeback*/)
 {
     UNREACHABLE;
 }
 
-Result DRISC::MMUInterface::Write(MemAddr address, const void *data, MemSize size, LFID fid, TID tid)
+Result MMUInterface::Write(MemAddr address, const void *data, MemSize size, LFID fid, TID tid)
 {
     if (address % sizeof(Integer) != 0)
     {
         throw exceptf<SimulationException>(*this, "Invalid MMU configuration access: %#016llx (%u)", (unsigned long long)address, (unsigned)size);
     }
 
-    
+
     Integer value = UnserializeRegister(RT_INTEGER, data, size);
 
     address /= sizeof(Integer);
@@ -44,22 +47,22 @@ Result DRISC::MMUInterface::Write(MemAddr address, const void *data, MemSize siz
                  (unsigned long long)value, (unsigned long long)value,
                  (unsigned)cmd, (unsigned long long)req_size);
 
-    DRISC* cpu = static_cast<DRISC*>(GetParent());
-
     COMMIT{
+        auto& cpu = GetDRISC();
+
         switch(cmd)
         {
         case 0:
-            cpu->MapMemory(value, req_size, 0); break;
+            cpu.MapMemory(value, req_size, 0); break;
         case 1:
-            cpu->UnmapMemory(value, req_size); break;
+            cpu.UnmapMemory(value, req_size); break;
         case 2:
-            cpu->MapMemory(value, req_size, cpu->ReadASR(ASR_PID)); break;
+            cpu.MapMemory(value, req_size, cpu.ReadASR(ASR_PID)); break;
         case 3:
             if (req_size == 0)
-                cpu->UnmapMemory(value);
+                cpu.UnmapMemory(value);
             else if (req_size == 1)
-                cpu->WriteASR(ASR_PID, value);
+                cpu.WriteASR(ASR_PID, value);
             break;
         default:
             UNREACHABLE;
@@ -70,9 +73,10 @@ Result DRISC::MMUInterface::Write(MemAddr address, const void *data, MemSize siz
     return SUCCESS;
 }
 
-DRISC::MMUInterface::MMUInterface(const std::string& name, Object& parent)
-    : DRISC::MMIOComponent(name, parent, parent.GetClock())
+MMUInterface::MMUInterface(const std::string& name, Object& parent)
+    : MMIOComponent(name, parent, parent.GetClock())
 {
 }
 
+}
 }

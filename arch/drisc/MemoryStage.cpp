@@ -1,6 +1,9 @@
+#include "Pipeline.h"
 #include "DRISC.h"
+
 #include <sim/breakpoints.h>
 #include <sim/sampling.h>
+#include <arch/Memory.h>
 
 #include <cassert>
 #include <sstream>
@@ -10,8 +13,10 @@ using namespace std;
 
 namespace Simulator
 {
+namespace drisc
+{
 
-DRISC::Pipeline::PipeAction DRISC::Pipeline::MemoryStage::OnCycle()
+Pipeline::PipeAction Pipeline::MemoryStage::OnCycle()
 {
     PipeValue rcv = m_input.Rcv;
 
@@ -47,7 +52,7 @@ DRISC::Pipeline::PipeAction DRISC::Pipeline::MemoryStage::OnCycle()
 
                 SerializeRegister(m_input.Rc.type, value, data, (size_t)m_input.size);
 
-                IOMatchUnit& mmio = m_parent.GetDRISC().GetIOMatchUnit();
+                auto& mmio = GetDRISC().GetIOMatchUnit();
                 if (mmio.IsRegisteredWriteAddress(m_input.address, m_input.size))
                 {
                     result = mmio.Write(m_input.address, data, m_input.size, m_input.fid, m_input.tid);
@@ -139,7 +144,7 @@ DRISC::Pipeline::PipeAction DRISC::Pipeline::MemoryStage::OnCycle()
                     char data[MAX_MEMORY_OPERATION_SIZE];
                     RegAddr reg = m_input.Rc;
 
-                    IOMatchUnit& mmio = m_parent.GetDRISC().GetIOMatchUnit();
+                    auto& mmio = GetDRISC().GetIOMatchUnit();
                     if (mmio.IsRegisteredReadAddress(m_input.address, m_input.size))
                     {
                         result = mmio.Read(m_input.address, data, m_input.size, m_input.fid, m_input.tid, m_input.Rc);
@@ -292,12 +297,15 @@ DRISC::Pipeline::PipeAction DRISC::Pipeline::MemoryStage::OnCycle()
     return PIPE_CONTINUE;
 }
 
-DRISC::Pipeline::MemoryStage::MemoryStage(Pipeline& parent, Clock& clock, const ExecuteMemoryLatch& input, MemoryWritebackLatch& output, DCache& dcache, Allocator& alloc, Config& /*config*/)
+Pipeline::MemoryStage::MemoryStage(Pipeline& parent, Clock& clock,
+                                          const ExecuteMemoryLatch& input,
+                                          MemoryWritebackLatch& output,
+                                          Config& /*config*/)
     : Stage("memory", parent, clock),
       m_input(input),
       m_output(output),
-      m_allocator(alloc),
-      m_dcache(dcache),
+      m_allocator(GetDRISC().GetAllocator()),
+      m_dcache(GetDRISC().GetDCache()),
       m_loads(0),
       m_stores(0),
       m_load_bytes(0),
@@ -309,4 +317,5 @@ DRISC::Pipeline::MemoryStage::MemoryStage(Pipeline& parent, Clock& clock, const 
     RegisterSampleVariableInObject(m_store_bytes, SVC_CUMULATIVE);
 }
 
+}
 }

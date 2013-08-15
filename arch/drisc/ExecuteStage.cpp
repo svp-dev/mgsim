@@ -1,3 +1,4 @@
+#include "Pipeline.h"
 #include "DRISC.h"
 #include <arch/symtable.h>
 #include <sim/sampling.h>
@@ -18,9 +19,11 @@ using namespace std;
 
 namespace Simulator
 {
+namespace drisc
+{
 
 /*static*/
-RegValue DRISC::Pipeline::ExecuteStage::PipeValueToRegValue(RegType type, const PipeValue& v)
+RegValue Pipeline::ExecuteStage::PipeValueToRegValue(RegType type, const PipeValue& v)
 {
     RegValue r;
     r.m_state = RST_FULL;
@@ -33,9 +36,9 @@ RegValue DRISC::Pipeline::ExecuteStage::PipeValueToRegValue(RegType type, const 
     return r;
 }
 
-bool DRISC::Pipeline::ExecuteStage::MemoryWriteBarrier(TID tid) const
+bool Pipeline::ExecuteStage::MemoryWriteBarrier(TID tid) const
 {
-    Thread& thread = m_threadTable[tid];
+    auto& thread = m_threadTable[tid];
     if (thread.dependencies.numPendingWrites != 0)
     {
         // There are pending writes, we need to wait for them
@@ -45,7 +48,7 @@ bool DRISC::Pipeline::ExecuteStage::MemoryWriteBarrier(TID tid) const
     return true;
 }
 
-DRISC::Pipeline::PipeAction DRISC::Pipeline::ExecuteStage::OnCycle()
+Pipeline::PipeAction Pipeline::ExecuteStage::OnCycle()
 {
     COMMIT
     {
@@ -131,11 +134,11 @@ DRISC::Pipeline::PipeAction DRISC::Pipeline::ExecuteStage::OnCycle()
     return action;
 }
 
-DRISC::Pipeline::PipeAction DRISC::Pipeline::ExecuteStage::ExecBundle(MemAddr addr, bool indirect, Integer value, RegIndex reg)
+Pipeline::PipeAction Pipeline::ExecuteStage::ExecBundle(MemAddr addr, bool indirect, Integer value, RegIndex reg)
 {
     if (indirect)
     {
-        addr += m_parent.GetDRISC().ReadASR(ASR_SYSCALL_BASE);
+        addr += GetDRISC().ReadASR(ASR_SYSCALL_BASE);
     }
 
     if (!m_allocator.QueueBundle(addr, value, reg))
@@ -151,13 +154,13 @@ DRISC::Pipeline::PipeAction DRISC::Pipeline::ExecuteStage::ExecBundle(MemAddr ad
     return PIPE_CONTINUE;
 }
 
-DRISC::Pipeline::PipeAction DRISC::Pipeline::ExecuteStage::ExecAllocate(PlaceID place, RegIndex reg, bool suspend, bool exclusive, Integer flags)
+Pipeline::PipeAction Pipeline::ExecuteStage::ExecAllocate(PlaceID place, RegIndex reg, bool suspend, bool exclusive, Integer flags)
 {
     if (place.size == 0)
     {
         // Inherit the parent's place
         place.size = m_input.placeSize;
-        place.pid  = (m_parent.GetDRISC().GetPID() / place.size) * place.size;
+        place.pid  = (GetDRISC().GetPID() / place.size) * place.size;
         place.capability = 0x1337; // also later: copy the place capability from the parent.
 
         DebugSimWrite("F%u/T%u(%llu) %s adjusted default place -> CPU%u/%u cap 0x%lx",
@@ -169,7 +172,7 @@ DRISC::Pipeline::PipeAction DRISC::Pipeline::ExecuteStage::ExecAllocate(PlaceID 
         if (place.pid == 0)
         {
             // Local place
-            place.pid  = m_parent.GetDRISC().GetPID();
+            place.pid  = GetDRISC().GetPID();
 
             DebugSimWrite("F%u/T%u(%llu) %s adjusted local place -> CPU%u/1",
                           (unsigned)m_input.fid, (unsigned)m_input.tid, (unsigned long long)m_input.logical_index, m_input.pc_sym,
@@ -187,7 +190,7 @@ DRISC::Pipeline::PipeAction DRISC::Pipeline::ExecuteStage::ExecAllocate(PlaceID 
     assert((place.pid % place.size) == 0);
 
     // Verify processor ID
-    if (place.pid >= m_parent.GetDRISC().GetGridSize())
+    if (place.pid >= GetDRISC().GetGridSize())
     {
         throw SimulationException("Attempting to delegate to a non-existing core");
     }
@@ -208,7 +211,7 @@ DRISC::Pipeline::PipeAction DRISC::Pipeline::ExecuteStage::ExecAllocate(PlaceID 
     {
         m_output.Rrc.type = RemoteMessage::MSG_ALLOCATE;
         m_output.Rrc.allocate.place          = place;
-        m_output.Rrc.allocate.completion_pid = m_parent.GetDRISC().GetPID();
+        m_output.Rrc.allocate.completion_pid = GetDRISC().GetPID();
         m_output.Rrc.allocate.completion_reg = reg;
         m_output.Rrc.allocate.type           = type;
         m_output.Rrc.allocate.suspend        = suspend;
@@ -223,7 +226,7 @@ DRISC::Pipeline::PipeAction DRISC::Pipeline::ExecuteStage::ExecAllocate(PlaceID 
     return PIPE_CONTINUE;
 }
 
-DRISC::Pipeline::PipeAction DRISC::Pipeline::ExecuteStage::SetFamilyProperty(const FID& fid, FamilyProperty property, Integer value)
+Pipeline::PipeAction Pipeline::ExecuteStage::SetFamilyProperty(const FID& fid, FamilyProperty property, Integer value)
 {
     COMMIT
     {
@@ -235,7 +238,7 @@ DRISC::Pipeline::PipeAction DRISC::Pipeline::ExecuteStage::SetFamilyProperty(con
     return PIPE_CONTINUE;
 }
 
-DRISC::Pipeline::PipeAction DRISC::Pipeline::ExecuteStage::ExecCreate(const FID& fid, MemAddr address, RegIndex completion)
+Pipeline::PipeAction Pipeline::ExecuteStage::ExecCreate(const FID& fid, MemAddr address, RegIndex completion)
 {
     // Create
     if (!MemoryWriteBarrier(m_input.tid))
@@ -259,7 +262,7 @@ DRISC::Pipeline::PipeAction DRISC::Pipeline::ExecuteStage::ExecCreate(const FID&
         m_output.Rrc.create.fid            = fid;
         m_output.Rrc.create.address        = address;
         m_output.Rrc.create.completion_reg = completion;
-        m_output.Rrc.create.completion_pid = m_parent.GetDRISC().GetPID();
+        m_output.Rrc.create.completion_pid = GetDRISC().GetPID();
         m_output.Rrc.create.bundle         = false;
 
         m_output.Rcv = MAKE_PENDING_PIPEVALUE(m_input.RcSize);
@@ -268,12 +271,12 @@ DRISC::Pipeline::PipeAction DRISC::Pipeline::ExecuteStage::ExecCreate(const FID&
     DebugFlowWrite("F%u/T%u(%llu) %s create CPU%u/F%u %s",
                    (unsigned)m_input.fid, (unsigned)m_input.tid, (unsigned long long)m_input.logical_index, m_input.pc_sym,
                    (unsigned)fid.pid, (unsigned) fid.lfid,
-                   m_parent.GetDRISC().GetSymbolTable()[address].c_str());
+                   GetDRISC().GetSymbolTable()[address].c_str());
 
     return PIPE_CONTINUE;
 }
 
-DRISC::Pipeline::PipeAction DRISC::Pipeline::ExecuteStage::ReadFamilyRegister(RemoteRegType kind, RegType type, const FID& fid, unsigned char reg)
+Pipeline::PipeAction Pipeline::ExecuteStage::ReadFamilyRegister(RemoteRegType kind, RegType type, const FID& fid, unsigned char reg)
 {
     COMMIT
     {
@@ -290,7 +293,7 @@ DRISC::Pipeline::PipeAction DRISC::Pipeline::ExecuteStage::ReadFamilyRegister(Re
     return PIPE_CONTINUE;
 }
 
-DRISC::Pipeline::PipeAction DRISC::Pipeline::ExecuteStage::WriteFamilyRegister(RemoteRegType kind, RegType type, const FID& fid, unsigned char reg)
+Pipeline::PipeAction Pipeline::ExecuteStage::WriteFamilyRegister(RemoteRegType kind, RegType type, const FID& fid, unsigned char reg)
 {
     COMMIT
     {
@@ -306,7 +309,7 @@ DRISC::Pipeline::PipeAction DRISC::Pipeline::ExecuteStage::WriteFamilyRegister(R
     return PIPE_CONTINUE;
 }
 
-DRISC::Pipeline::PipeAction DRISC::Pipeline::ExecuteStage::ExecSync(const FID& fid)
+Pipeline::PipeAction Pipeline::ExecuteStage::ExecSync(const FID& fid)
 {
     assert(m_input.Rc.type == RT_INTEGER);
 
@@ -342,7 +345,7 @@ DRISC::Pipeline::PipeAction DRISC::Pipeline::ExecuteStage::ExecSync(const FID& f
     return PIPE_CONTINUE;
 }
 
-DRISC::Pipeline::PipeAction DRISC::Pipeline::ExecuteStage::ExecDetach(const FID& fid)
+Pipeline::PipeAction Pipeline::ExecuteStage::ExecDetach(const FID& fid)
 {
     if (fid.pid == 0 && fid.lfid == 0 && fid.capability == 0)
     {
@@ -364,19 +367,19 @@ DRISC::Pipeline::PipeAction DRISC::Pipeline::ExecuteStage::ExecDetach(const FID&
     return PIPE_CONTINUE;
 }
 
-DRISC::Pipeline::PipeAction DRISC::Pipeline::ExecuteStage::ExecBreak()
+Pipeline::PipeAction Pipeline::ExecuteStage::ExecBreak()
 {
     COMMIT
     {
 
         m_output.Rrc.type    = RemoteMessage::MSG_BREAK;
-        m_output.Rrc.brk.pid = m_parent.GetDRISC().GetPID();
+        m_output.Rrc.brk.pid = GetDRISC().GetPID();
         m_output.Rrc.brk.fid = m_input.fid;
     }
     return PIPE_CONTINUE;
 }
 
-void DRISC::Pipeline::ExecuteStage::ExecDebugOutput(Integer value, int command, int flags) const
+void Pipeline::ExecuteStage::ExecDebugOutput(Integer value, int command, int flags) const
 {
     // command:
     //  0 -> unsigned decimal
@@ -413,7 +416,7 @@ void DRISC::Pipeline::ExecuteStage::ExecDebugOutput(Integer value, int command, 
 }
 
 
-void DRISC::Pipeline::ExecuteStage::ExecStatusAction(Integer value, int command, int flags) const
+void Pipeline::ExecuteStage::ExecStatusAction(Integer value, int command, int flags) const
 {
     // command:
     //  00: status and continue
@@ -470,7 +473,7 @@ void DRISC::Pipeline::ExecuteStage::ExecStatusAction(Integer value, int command,
     }
 }
 
-void DRISC::Pipeline::ExecuteStage::ExecMemoryControl(Integer value, int command, int flags) const
+void Pipeline::ExecuteStage::ExecMemoryControl(Integer value, int command, int flags) const
 {
     // command:
     //  00: mmap(addr = value, size = 2^(flags+12), pid = 0)
@@ -482,7 +485,7 @@ void DRISC::Pipeline::ExecuteStage::ExecMemoryControl(Integer value, int command
     unsigned l = flags & 0x7;
     MemSize req_size = 1 << (l + 12);
 
-    DRISC& cpu = m_parent.GetDRISC();
+    DRISC& cpu = GetDRISC();
 
     switch(command)
     {
@@ -504,7 +507,7 @@ void DRISC::Pipeline::ExecuteStage::ExecMemoryControl(Integer value, int command
     }
 }
 
-void DRISC::Pipeline::ExecuteStage::ExecDebug(Integer value, Integer stream) const
+void Pipeline::ExecuteStage::ExecDebug(Integer value, Integer stream) const
 {
     // pattern: x x 0 1 x x x x = status and action
     // pattern: 0 0 0 1 - - - - =   status and continue
@@ -542,7 +545,7 @@ void DRISC::Pipeline::ExecuteStage::ExecDebug(Integer value, Integer stream) con
         ExecDebugOutput(value, command, stream & 0x3);
 }
 
-void DRISC::Pipeline::ExecuteStage::ExecDebug(double value, Integer stream) const
+void Pipeline::ExecuteStage::ExecDebug(double value, Integer stream) const
 {
     /* precision: bits 4-7 */
     int prec = (stream >> 4) & 0xf;
@@ -561,13 +564,16 @@ void DRISC::Pipeline::ExecuteStage::ExecDebug(double value, Integer stream) cons
     }
 }
 
-DRISC::Pipeline::ExecuteStage::ExecuteStage(Pipeline& parent, Clock& clock, const ReadExecuteLatch& input, ExecuteMemoryLatch& output, Allocator& alloc, FamilyTable& familyTable, ThreadTable& threadTable, Config& /*config*/)
+Pipeline::ExecuteStage::ExecuteStage(Pipeline& parent, Clock& clock,
+                                     const ReadExecuteLatch& input,
+                                     ExecuteMemoryLatch& output,
+                                     Config& /*config*/)
   : Stage("execute", parent, clock),
     m_input(input),
     m_output(output),
-    m_allocator(alloc),
-    m_familyTable(familyTable),
-    m_threadTable(threadTable),
+    m_allocator(GetDRISC().GetAllocator()),
+    m_familyTable(GetDRISC().GetFamilyTable()),
+    m_threadTable(GetDRISC().GetThreadTable()),
     m_fpu(NULL),
     m_fpuSource(0),
     m_flop(0),
@@ -577,10 +583,11 @@ DRISC::Pipeline::ExecuteStage::ExecuteStage(Pipeline& parent, Clock& clock, cons
     RegisterSampleVariableInObject(m_op, SVC_CUMULATIVE);
 }
 
-void DRISC::Pipeline::ExecuteStage::ConnectFPU(FPU* fpu, size_t fpu_source)
+void Pipeline::ExecuteStage::ConnectFPU(FPU* fpu, size_t fpu_source)
 {
     m_fpu = fpu;
     m_fpuSource = fpu_source;
 }
 
+}
 }

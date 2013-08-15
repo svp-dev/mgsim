@@ -1,20 +1,25 @@
 #ifndef RAUNIT_H
 #define RAUNIT_H
 
-#ifndef PROCESSOR_H
-#error This file should be included in DRISC.h
-#endif
+#include <sim/kernel.h>
+#include <sim/inspect.h>
+#include <arch/simtypes.h>
+#include <vector>
+#include "forward.h"
+
+namespace Simulator
+{
+namespace drisc
+{
 
 class RAUnit : public Object, public Inspect::Interface<Inspect::Read>
 {
-    friend class RegisterFile;
-
 public:
     typedef std::vector<std::pair<RegSize, LFID> > List;
     typedef RegSize  BlockSize;
     typedef RegIndex BlockIndex;
 
-    RAUnit(const std::string& name, DRISC& parent, Clock& clock, const RegisterFile& regFile, Config& config);
+    RAUnit(const std::string& name, Object& parent, Clock& clock, const std::array<RegSize, NUM_REG_TYPES>& regFileSizes, Config& config);
 
     /**
      * \brief Allocates registers
@@ -27,13 +32,13 @@ public:
      *      only allocate the registers if all reserved contexts can remain available. If reserved is true,
      *      at least one reserved context worth of register is considered for allocation as well.
      */
-    bool Alloc(const RegSize size[NUM_REG_TYPES], LFID fid, ContextType context, RegIndex indices[NUM_REG_TYPES]);
+    bool Alloc(const std::array<RegSize, NUM_REG_TYPES>& size, LFID fid, ContextType context, std::array<RegIndex, NUM_REG_TYPES>& indices);
 
     /**
      * \brief Frees the allocated registers
      * \param indices[in] the base address of the allocate registers, as returned from Alloc.
      */
-    void Free(RegIndex indices[NUM_REG_TYPES], ContextType context);
+    void Free(const std::array<RegIndex, NUM_REG_TYPES>& indices, ContextType context);
 
     /// Returns the maximum number of contexts still available
     BlockSize GetNumFreeContexts(ContextType type) const;
@@ -48,7 +53,11 @@ public:
     void Cmd_Info(std::ostream& out, const std::vector<std::string>& arguments) const override;
     void Cmd_Read(std::ostream& out, const std::vector<std::string>& arguments) const override;
 
+    // Helper for RegisterFile::Cmd_Read
+    std::vector<LFID> GetBlockInfo(RegType type) const;
+
 private:
+    // Helpers for GetBlockInfo()
     struct TypeInfo
     {
         List      list;                     ///< The list of blocks for administration
@@ -60,5 +69,7 @@ private:
     TypeInfo m_types[NUM_REG_TYPES];
 };
 
-#endif
+}
+}
 
+#endif

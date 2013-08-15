@@ -1,3 +1,4 @@
+#include "Pipeline.h"
 #include "DRISC.h"
 #include <arch/FPU.h>
 #include <sim/config.h>
@@ -12,29 +13,17 @@ using namespace std;
 
 namespace Simulator
 {
-
-DRISC::Pipeline::Stage::Stage(const std::string& name, Pipeline& parent, Clock& clock)
-:   Object(name, parent, clock),
-    m_parent(parent)
+namespace drisc
 {
-}
 
-DRISC::Pipeline::Pipeline(
+Pipeline::Pipeline(
     const std::string&  name,
     DRISC&          parent,
     Clock&              clock,
-    RegisterFile&       regFile,
-    Network&            network,
-    Allocator&          alloc,
-    FamilyTable&        familyTable,
-    ThreadTable&        threadTable,
-    ICache&             icache,
-    DCache&             dcache,
     Config&       config)
 :
     Object(name, parent, clock),
-    p_Pipeline(*this, "pipeline", delegate::create<Pipeline, &DRISC::Pipeline::DoPipeline>(*this)),
-    m_parent(parent),
+    p_Pipeline(*this, "pipeline", delegate::create<Pipeline, &Pipeline::DoPipeline>(*this)),
     m_fdLatch(),
     m_drLatch(),
     m_reLatch(),
@@ -65,7 +54,7 @@ DRISC::Pipeline::Pipeline(
 
 
     // Create the Fetch stage
-    m_stages[0].stage  = new FetchStage(*this, clock, m_fdLatch, alloc, familyTable, threadTable, icache, config);
+    m_stages[0].stage  = new FetchStage(*this, clock, m_fdLatch, config);
     m_stages[0].input  = NULL;
     m_stages[0].output = &m_fdLatch;
 
@@ -80,13 +69,13 @@ DRISC::Pipeline::Pipeline(
     std::vector<BypassInfo> bypasses;
 
     // Create the Execute stage
-    m_stages[3].stage  = new ExecuteStage(*this, clock, m_reLatch, m_emLatch, alloc, familyTable, threadTable, config);
+    m_stages[3].stage  = new ExecuteStage(*this, clock, m_reLatch, m_emLatch, config);
     m_stages[3].input  = &m_reLatch;
     m_stages[3].output = &m_emLatch;
     bypasses.push_back(BypassInfo(m_emLatch.empty, m_emLatch.Rc, m_emLatch.Rcv));
 
     // Create the Memory stage
-    m_stages[4].stage  = new MemoryStage(*this, clock, m_emLatch, m_mwLatch, dcache, alloc, config);
+    m_stages[4].stage  = new MemoryStage(*this, clock, m_emLatch, m_mwLatch, config);
     m_stages[4].input  = &m_emLatch;
     m_stages[4].output = &m_mwLatch;
     bypasses.push_back(BypassInfo(m_mwLatch.empty, m_mwLatch.Rc, m_mwLatch.Rcv));
@@ -112,40 +101,41 @@ DRISC::Pipeline::Pipeline(
     }
 
     // Create the Writeback stage
-    m_stages.back().stage  = new WritebackStage(*this, clock, *last_output, regFile, alloc, threadTable, network, config);
+    m_stages.back().stage  = new WritebackStage(*this, clock, *last_output, config);
     m_stages.back().input  = m_stages[m_stages.size() - 2].output;
     m_stages.back().output = NULL;
     bypasses.push_back(BypassInfo(m_mwBypass.empty, m_mwBypass.Rc, m_mwBypass.Rcv));
 
-    m_stages[2].stage = new ReadStage(*this, clock, m_drLatch, m_reLatch, regFile, bypasses, config);
+    m_stages[2].stage = new ReadStage(*this, clock, m_drLatch, m_reLatch, bypasses, config);
 }
 
-void DRISC::Pipeline::ConnectFPU(FPU* fpu)
+void Pipeline::ConnectFPU(FPU* fpu)
 {
     assert(fpu != NULL);
-    size_t fpu_client_id = fpu->RegisterSource(m_parent.GetRegisterFile(),
-                                               m_parent.GetAllocator().m_readyThreads2);
+    auto& cpu = GetDRISC();
+    size_t fpu_client_id = fpu->RegisterSource(cpu.GetRegisterFile(),
+                                               cpu.GetAllocator().m_readyThreads2);
     ExecuteStage &e = dynamic_cast<ExecuteStage&>(*m_stages[3].stage);
     e.ConnectFPU(fpu, fpu_client_id);
 }
 
 
-DRISC::Pipeline::~Pipeline()
+Pipeline::~Pipeline()
 {
-    for (vector<StageInfo>::const_iterator p = m_stages.begin(); p != m_stages.end(); ++p)
+    for (auto &p : m_stages)
     {
-        delete p->stage;
+        delete p.stage;
     }
 }
 
-Result DRISC::Pipeline::DoPipeline()
+Result Pipeline::DoPipeline()
 {
     if (IsAcquiring())
     {
         // Begin of the cycle, initialize
-        for (vector<StageInfo>::iterator p = m_stages.begin(); p != m_stages.end(); ++p)
+        for (auto& p : m_stages)
         {
-            p->status = (p->input != NULL && p->input->empty ? DELAYED : SUCCESS);
+            p.status = (p.input != NULL && p.input->empty ? DELAYED : SUCCESS);
         }
 
         /*
@@ -265,7 +255,7 @@ Result DRISC::Pipeline::DoPipeline()
     return result;
 }
 
-void DRISC::Pipeline::Cmd_Info(std::ostream& out, const std::vector<std::string>& /*arguments*/) const
+void Pipeline::Cmd_Info(std::ostream& out, const std::vector<std::string>& /*arguments*/) const
 {
     out <<
     "The pipeline reads instructions, loads operands, computes their results and/or\n"
@@ -276,7 +266,7 @@ void DRISC::Pipeline::Cmd_Info(std::ostream& out, const std::vector<std::string>
     "  Reads and displays the stages and latches.\n";
 }
 
-void DRISC::Pipeline::PrintLatchCommon(std::ostream& out, const CommonData& latch) const
+void Pipeline::PrintLatchCommon(std::ostream& out, const CommonData& latch) const
 {
     out << " | LFID: F"  << dec << latch.fid
         << "    TID: T"  << dec << latch.tid << right
@@ -286,7 +276,7 @@ void DRISC::Pipeline::PrintLatchCommon(std::ostream& out, const CommonData& latc
 }
 
 // Construct a string representation of a pipeline register value
-/*static*/ std::string DRISC::Pipeline::MakePipeValue(const RegType& type, const PipeValue& value)
+/*static*/ std::string Pipeline::MakePipeValue(const RegType& type, const PipeValue& value)
 {
     std::stringstream ss;
 
@@ -313,7 +303,7 @@ void DRISC::Pipeline::PrintLatchCommon(std::ostream& out, const CommonData& latc
     return ret;
 }
 
-void DRISC::Pipeline::Cmd_Read(std::ostream& out, const std::vector<std::string>& /*arguments*/) const
+void Pipeline::Cmd_Read(std::ostream& out, const std::vector<std::string>& /*arguments*/) const
 {
     // Fetch stage
     out << "Stage: fetch" << endl;
@@ -443,7 +433,7 @@ void DRISC::Pipeline::Cmd_Read(std::ostream& out, const std::vector<std::string>
     out << "Stage: writeback" << endl;
 }
 
-string DRISC::Pipeline::PipeValue::str(RegType type) const
+string Pipeline::PipeValue::str(RegType type) const
 {
     // Code similar to RegValue::str()
     string tc = (type == RT_FLOAT) ? "float:" : "int:" ;
@@ -468,5 +458,5 @@ string DRISC::Pipeline::PipeValue::str(RegType type) const
     }
 }
 
-
+}
 }

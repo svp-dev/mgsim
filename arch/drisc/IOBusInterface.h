@@ -1,14 +1,15 @@
 #ifndef IOBUSINTERFACE_H
 #define IOBUSINTERFACE_H
 
-#ifndef PROCESSOR_H
-#error This file should be included in DRISC.h
-#endif
+#include <sim/kernel.h>
+#include <sim/storage.h>
+#include <arch/IOBus.h>
+#include "forward.h"
 
-class IOResponseMultiplexer;
-class IONotificationMultiplexer;
-class IODirectCacheAccess;
-class IOInterface;
+namespace Simulator
+{
+namespace drisc
+{
 
 class IOBusInterface : public IIOBusClient, public Object
 {
@@ -36,15 +37,15 @@ private:
     IODeviceID                 m_hostid;
 
     void Initialize();
+    Object& GetDRISCParent() const { return *GetParent()->GetParent(); }
 
 public:
     Buffer<IORequest>          m_outgoing_reqs;
 
 public:
-    DRISC& GetDRISC() const { return dynamic_cast<DRISC&>(*GetParent()->GetParent()); }
     IIOBus& GetIOBus() const { return m_iobus; }
 
-    IOBusInterface(const std::string& name, IOInterface& parent, Clock& clock, IOResponseMultiplexer& rrmux, IONotificationMultiplexer& nmux, IODirectCacheAccess& dca, IIOBus& iobus, IODeviceID devid, Config& config);
+    IOBusInterface(const std::string& name, IOInterface& parent, Clock& clock, IIOBus& iobus, IODeviceID devid, Config& config);
 
     bool SendRequest(const IORequest& request);
 
@@ -77,5 +78,7 @@ public:
 
 };
 
+}
+}
 
 #endif

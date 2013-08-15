@@ -1,9 +1,16 @@
 #ifndef FAMILYTABLE_H
 #define FAMILYTABLE_H
 
-#ifndef PROCESSOR_H
-#error This file should be included in DRISC.h
-#endif
+#include <sim/kernel.h>
+#include <sim/inspect.h>
+#include <arch/simtypes.h>
+#include <vector>
+#include "forward.h"
+
+namespace Simulator
+{
+namespace drisc
+{
 
 struct Family
 {
@@ -104,11 +111,10 @@ public:
 
     FSize GetNumFamilies() const { return m_families.size(); }
 
-    typedef Family value_type;
-          Family& operator[](LFID fid)       { return m_families[fid]; }
-        const Family& operator[](LFID fid) const { return m_families[fid]; }
+    Family& operator[](LFID fid)       { return m_families[fid]; }
+    const Family& operator[](LFID fid) const { return m_families[fid]; }
 
-        LFID  AllocateFamily(ContextType type);
+    LFID  AllocateFamily(ContextType type);
     void  FreeFamily(LFID fid, ContextType context);
 
     FSize GetNumFreeFamilies(ContextType type) const;
@@ -128,6 +134,7 @@ public:
     TSize GetMaxAllocated() const { return m_maxalloc; }
 
 private:
+    Object& GetDRISCParent() const { return *GetParent(); }
     std::vector<Family> m_families;
     FSize               m_free[NUM_CONTEXT_TYPES];
 
@@ -140,5 +147,8 @@ private:
     void UpdateStats();
     void CheckStateSanity() const;
 };
+
+}
+}
 
 #endif
