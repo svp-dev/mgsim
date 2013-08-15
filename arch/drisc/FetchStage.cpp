@@ -1,3 +1,4 @@
+#include "Pipeline.h"
 #include "DRISC.h"
 #include <sim/config.h>
 #include <sim/breakpoints.h>
@@ -7,8 +8,10 @@ using namespace std;
 
 namespace Simulator
 {
+namespace drisc
+{
 
-void DRISC::Pipeline::FetchStage::Clear(TID tid)
+void Pipeline::FetchStage::Clear(TID tid)
 {
     if (m_output.tid == tid)
     {
@@ -16,7 +19,7 @@ void DRISC::Pipeline::FetchStage::Clear(TID tid)
     }
 }
 
-DRISC::Pipeline::PipeAction DRISC::Pipeline::FetchStage::OnCycle()
+Pipeline::PipeAction Pipeline::FetchStage::OnCycle()
 {
     MemAddr pc = m_pc;
     if (m_switched)
@@ -32,8 +35,8 @@ DRISC::Pipeline::PipeAction DRISC::Pipeline::FetchStage::OnCycle()
         }
 
         // Read its information from the Family and Thread Tables
-        Thread& thread = m_threadTable[tid];
-        Family& family = m_familyTable[thread.family];
+        auto& thread = m_threadTable[tid];
+        auto& family = m_familyTable[thread.family];
 
         pc = thread.pc;
         if (!family.legacy && pc % m_controlBlockSize == 0)
@@ -52,7 +55,7 @@ DRISC::Pipeline::PipeAction DRISC::Pipeline::FetchStage::OnCycle()
         {
             DeadlockWrite("F%u/T%u(%llu) %s fetch stall due to I-cache miss",
                           (unsigned)thread.family, (unsigned)tid, (unsigned long long)thread.index,
-                          m_parent.GetDRISC().GetSymbolTable()[pc].c_str());
+                          GetDRISC().GetSymbolTable()[pc].c_str());
             return PIPE_STALL;
         }
 
@@ -77,7 +80,7 @@ DRISC::Pipeline::PipeAction DRISC::Pipeline::FetchStage::OnCycle()
 
         DebugSimWrite("F%u/T%u(%llu) %s switched in",
                       (unsigned)thread.family, (unsigned)tid, (unsigned long long)thread.index,
-                      m_parent.GetDRISC().GetSymbolTable()[pc].c_str());
+                      GetDRISC().GetSymbolTable()[pc].c_str());
     }
 
     COMMIT
@@ -121,7 +124,7 @@ DRISC::Pipeline::PipeAction DRISC::Pipeline::FetchStage::OnCycle()
         m_output.pc_dbg       = pc;
         if (GetKernel()->GetDebugMode() & Kernel::DEBUG_CPU_MASK)
         {
-            m_output.pc_sym = m_parent.GetDRISC().GetSymbolTable()[m_output.pc].c_str();
+            m_output.pc_sym = GetDRISC().GetSymbolTable()[m_output.pc].c_str();
         }
         else
         {
@@ -144,13 +147,13 @@ DRISC::Pipeline::PipeAction DRISC::Pipeline::FetchStage::OnCycle()
     return PIPE_CONTINUE;
 }
 
-DRISC::Pipeline::FetchStage::FetchStage(Pipeline& parent, Clock& clock, FetchDecodeLatch& output, Allocator& alloc, FamilyTable& familyTable, ThreadTable& threadTable, ICache& icache, Config& config)
+Pipeline::FetchStage::FetchStage(Pipeline& parent, Clock& clock, FetchDecodeLatch& output, Config& config)
   : Stage("fetch", parent, clock),
     m_output(output),
-    m_allocator(alloc),
-    m_familyTable(familyTable),
-    m_threadTable(threadTable),
-    m_icache(icache),
+    m_allocator(GetDRISC().GetAllocator()),
+    m_familyTable(GetDRISC().GetFamilyTable()),
+    m_threadTable(GetDRISC().GetThreadTable()),
+    m_icache(GetDRISC().GetICache()),
     m_controlBlockSize(config.getValue<size_t>("ControlBlockSize")),
     m_buffer(0),
     m_switched(true),
@@ -174,9 +177,10 @@ DRISC::Pipeline::FetchStage::FetchStage(Pipeline& parent, Clock& clock, FetchDec
     m_buffer = new char[m_icache.GetLineSize()];
 }
 
-DRISC::Pipeline::FetchStage::~FetchStage()
+Pipeline::FetchStage::~FetchStage()
 {
     delete[] m_buffer;
 }
 
+}
 }

@@ -1,3 +1,4 @@
+#include "ThreadTable.h"
 #include "DRISC.h"
 #include <arch/symtable.h>
 #include <sim/config.h>
@@ -10,8 +11,10 @@ using namespace std;
 
 namespace Simulator
 {
+namespace drisc
+{
 
-DRISC::ThreadTable::ThreadTable(const std::string& name, DRISC& parent, Clock& clock, Config& config)
+ThreadTable::ThreadTable(const std::string& name, DRISC& parent, Clock& clock, Config& config)
   : Object(name, parent, clock),
     m_empty(0),
     m_threads(config.getValue<size_t>(*this, "NumEntries")),
@@ -34,7 +37,7 @@ DRISC::ThreadTable::ThreadTable(const std::string& name, DRISC& parent, Clock& c
     m_free[CONTEXT_EXCLUSIVE] = 1;
 }
 
-bool DRISC::ThreadTable::IsEmpty() const
+bool ThreadTable::IsEmpty() const
 {
     TSize free = 0;
     for (int i = 0; i < NUM_CONTEXT_TYPES; ++i)
@@ -44,7 +47,7 @@ bool DRISC::ThreadTable::IsEmpty() const
     return free == m_threads.size();
 }
 
-void DRISC::ThreadTable::UpdateStats()
+void ThreadTable::UpdateStats()
 {
     CycleNo cycle = GetKernel()->GetCycleNo();
     CycleNo elapsed = cycle - m_lastcycle;
@@ -57,7 +60,7 @@ void DRISC::ThreadTable::UpdateStats()
 }
 
 // Checks that all internal administration is sane
-void DRISC::ThreadTable::CheckStateSanity() const
+void ThreadTable::CheckStateSanity() const
 {
 #ifndef NDEBUG
     size_t used = 0;
@@ -80,7 +83,7 @@ void DRISC::ThreadTable::CheckStateSanity() const
 #endif
 }
 
-TSize DRISC::ThreadTable::GetNumFreeThreads(ContextType type) const
+TSize ThreadTable::GetNumFreeThreads(ContextType type) const
 {
     // Check that we are in a sane state
     CheckStateSanity();
@@ -88,7 +91,7 @@ TSize DRISC::ThreadTable::GetNumFreeThreads(ContextType type) const
     return m_free[type];
 }
 
-void DRISC::ThreadTable::ReserveThread()
+void ThreadTable::ReserveThread()
 {
     // Check that we are in a sane state
     CheckStateSanity();
@@ -105,7 +108,7 @@ void DRISC::ThreadTable::ReserveThread()
     CheckStateSanity();
 }
 
-void DRISC::ThreadTable::UnreserveThread()
+void ThreadTable::UnreserveThread()
 {
     // Check that we are in a sane state
     CheckStateSanity();
@@ -122,7 +125,7 @@ void DRISC::ThreadTable::UnreserveThread()
     CheckStateSanity();
 }
 
-TID DRISC::ThreadTable::PopEmpty(ContextType context)
+TID ThreadTable::PopEmpty(ContextType context)
 {
     // Check that we are in a sane state
     CheckStateSanity();
@@ -150,7 +153,7 @@ TID DRISC::ThreadTable::PopEmpty(ContextType context)
     return tid;
 }
 
-void DRISC::ThreadTable::PushEmpty(TID tid, ContextType context)
+void ThreadTable::PushEmpty(TID tid, ContextType context)
 {
     // Check that we are in a sane state
     CheckStateSanity();
@@ -174,7 +177,7 @@ void DRISC::ThreadTable::PushEmpty(TID tid, ContextType context)
     CheckStateSanity();
 }
 
-void DRISC::ThreadTable::Cmd_Info(ostream& out, const vector<string>& /* arguments */) const
+void ThreadTable::Cmd_Info(ostream& out, const vector<string>& /* arguments */) const
 {
     out <<
     "The Thread Table is the storage area in a processor that stores all thread's\n"
@@ -189,7 +192,7 @@ void DRISC::ThreadTable::Cmd_Info(ostream& out, const vector<string>& /* argumen
     "  \"1\", \"1-4,15,7-8\", \"all\"\n";
 }
 
-void DRISC::ThreadTable::Cmd_Read(ostream& out, const vector<string>& arguments) const
+void ThreadTable::Cmd_Read(ostream& out, const vector<string>& arguments) const
 {
     // Read the range
     bool show_counts = false;
@@ -206,7 +209,7 @@ void DRISC::ThreadTable::Cmd_Read(ostream& out, const vector<string>& arguments)
     }
 
     // Change the following if DRISC is not a direct parent any more
-    DRISC& parent = dynamic_cast<DRISC&>(*GetParent());
+    auto& parent = GetDRISC();
     SymbolTable& symtable = parent.GetSymbolTable();
 
     if (tids.empty())
@@ -254,6 +257,8 @@ void DRISC::ThreadTable::Cmd_Read(ostream& out, const vector<string>& arguments)
             << m_free[CONTEXT_EXCLUSIVE] << " exclusive"
             << endl;
     }
+}
+
 }
 
 }

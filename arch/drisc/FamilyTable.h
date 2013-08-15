@@ -1,9 +1,16 @@
 #ifndef FAMILYTABLE_H
 #define FAMILYTABLE_H
 
-#ifndef PROCESSOR_H
-#error This file should be included in DRISC.h
-#endif
+#include <sim/kernel.h>
+#include <sim/inspect.h>
+#include <arch/simtypes.h>
+#include <vector>
+#include "forward.h"
+
+namespace Simulator
+{
+namespace drisc
+{
 
 struct Family
 {
@@ -127,6 +134,7 @@ public:
     TSize GetMaxAllocated() const { return m_maxalloc; }
 
 private:
+    Object& GetDRISCParent() const { return *GetParent(); }
     std::vector<Family> m_families;
     FSize               m_free[NUM_CONTEXT_TYPES];
 
@@ -139,5 +147,8 @@ private:
     void UpdateStats();
     void CheckStateSanity() const;
 };
+
+}
+}
 
 #endif

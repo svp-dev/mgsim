@@ -1,9 +1,18 @@
 #ifndef ALLOCATOR_H
 #define ALLOCATOR_H
 
-#ifndef PROCESSOR_H
-#error This file should be included in DRISC.h
-#endif
+#include <sim/kernel.h>
+#include <sim/inspect.h>
+#include <sim/storage.h>
+#include <arch/simtypes.h>
+#include <arch/Memory.h>
+#include "forward.h"
+#include "ThreadTable.h"
+
+namespace Simulator
+{
+namespace drisc
+{
 
 // A list of dependencies that prevent a family from being
 // terminated or cleaned up
@@ -28,7 +37,9 @@ enum ThreadDependency
 
 class Allocator : public Object, public Inspect::Interface<Inspect::Read>
 {
-    friend class DRISC;
+    friend class Simulator::DRISC;
+    friend class IOBusInterface;
+    friend class Pipeline;
 
 public:
     typedef LinkedList< TID, ThreadTable, &Thread::next> ThreadList;
@@ -77,9 +88,7 @@ public:
         BUNDLE_LINE_LOADED,         // The line has been loaded
     };
 
-    Allocator(const std::string& name, DRISC& parent, Clock& clock,
-              FamilyTable& familyTable, ThreadTable& threadTable, RegisterFile& registerFile, RAUnit& raunit, ICache& icache, DCache& dcache, Network& network, Pipeline& pipeline,
-              Config& config);
+    Allocator(const std::string& name, DRISC& parent, Clock& clock, Config& config);
     Allocator(const Allocator&) = delete;
     Allocator& operator=(const Allocator&) = delete;
 
@@ -164,7 +173,7 @@ private:
     void Push(ThreadQueue& queue, TID tid);
     TID  Pop (ThreadQueue& queue);
 
-    DRISC&    m_parent;
+    Object& GetDRISCParent() const { return *GetParent(); }
     FamilyTable&  m_familyTable;
     ThreadTable&  m_threadTable;
     RegisterFile& m_registerFile;
@@ -230,5 +239,8 @@ public:
     TSize GetTotalFamiliesCreated() const { return m_numCreatedFamilies; }
     FSize GetTotalThreadsCreated() const { return m_numCreatedThreads; }
 };
+
+}
+}
 
 #endif

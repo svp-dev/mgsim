@@ -1,9 +1,17 @@
 #ifndef REGISTERFILE_H
 #define REGISTERFILE_H
 
-#ifndef PROCESSOR_H
-#error This file should be included in DRISC.h
-#endif
+#include <sim/kernel.h>
+#include <sim/inspect.h>
+#include <arch/FPU.h>
+#include <sim/storage.h>
+#include <array>
+#include "forward.h"
+
+namespace Simulator
+{
+namespace drisc
+{
 
 /*
  * @brief Register File with R/W ports.
@@ -21,11 +29,10 @@ public:
      * @param[in] name name of this register file.
      * @param[in] parent reference to parent processor.
      * @param[in] clock reference to the clock used to control updates.
-     * @param[in] allocator reference to allocator used to wake up threads on
-     *                      writes to waiting registers.
      * @param[in] config reference to the configuration data.
      */
-    RegisterFile(const std::string& name, DRISC& parent, Clock& clock, Allocator& allocator, Config& config);
+    RegisterFile(const std::string& name, DRISC& parent, Clock& clock, Config& config);
+    ~RegisterFile();
 
     /**
      * Reads a register
@@ -61,23 +68,21 @@ public:
      */
     bool Clear(const RegAddr& addr, RegSize size);
 
-	/**
-	 * Writes a value into a register unconditionally
-	 * This function performs no arbitration and has no wake-up semantics.
-	 * @warning this is an admin function, do not use it from the simulation.
-	 *
-	 * @param[in] addr the address of the register to write
-	 * @param[in] data the value to write to the register
-	 * @return true if the register could be written (i.e., addr was valid)
-	 */
+    /**
+     * Writes a value into a register unconditionally
+     * This function performs no arbitration and has no wake-up semantics.
+     * @warning this is an admin function, do not use it from the simulation.
+     *
+     * @param[in] addr the address of the register to write
+     * @param[in] data the value to write to the register
+     * @return true if the register could be written (i.e., addr was valid)
+     */
     bool WriteRegister(const RegAddr& addr, const RegValue& data);
 
     /**
-     * Returns the number of registers
-     * @param[in] type the type of registers whose number should be returned
-     * @return the number of registers of the specified type.
+     * Returns the number of registers for each type.
      */
-    RegSize GetSize(RegType type) const;
+    const std::array<RegSize, NUM_REG_TYPES>& GetSizes() const { return m_sizes; };
 
     // Interfaces from IFPUClient
     std::string GetName() const override;
@@ -89,6 +94,7 @@ public:
     void Cmd_Read(std::ostream& out, const std::vector<std::string>& arguments) const;
 
     Object* GetParent() const { return Structure<RegAddr>::GetParent(); }
+    Object& GetDRISCParent() const { return *GetParent(); }
 
     DedicatedReadPort            p_pipelineR1; ///< Read port #1 for the pipeline
     DedicatedReadPort            p_pipelineR2; ///< Read port #2 for the pipeline
@@ -100,29 +106,8 @@ private:
     // Applies the queued updates
     void Update();
 
-    std::vector<RegValue>& PickFile(RegType t)
-    {
-        switch(t)
-        {
-        case RT_INTEGER: return m_integers;
-        case RT_FLOAT:   return m_floats;
-        default: UNREACHABLE;
-        }
-    }
-    const std::vector<RegValue>& PickFile(RegType t) const
-    {
-        switch(t)
-        {
-        case RT_INTEGER: return m_integers;
-        case RT_FLOAT:   return m_floats;
-        default: UNREACHABLE;
-        }
-    }
-
-    std::vector<RegValue> m_integers; ///< Integer register file
-    std::vector<RegValue> m_floats;   ///< Floating point register file
-
-    Allocator& m_allocator; ///< Reference to the allocator
+    std::array<RegValue*, NUM_REG_TYPES> m_files; ///< Sub-files of registers, indexed by RegType
+    std::array<RegSize, NUM_REG_TYPES> m_sizes;
 
     // We can have at most this many number of updates per cycle.
     // This should be equal to the number of write ports.
@@ -133,10 +118,10 @@ private:
     unsigned int                 m_nUpdates;
 
     // Administrative
-    std::vector<std::string> m_integer_local_aliases;
-    std::vector<std::string> m_float_local_aliases;
-    
+    std::array<std::vector<std::string>, NUM_REG_TYPES> m_local_aliases;
 };
 
-#endif
+}
+}
 
+#endif

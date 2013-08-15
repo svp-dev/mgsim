@@ -7,37 +7,34 @@
 #include <arch/Memory.h>
 #include <arch/BankSelector.h>
 #include <arch/FPU.h>
+#include "RAUnit.h"
+#include "IOMatchUnit.h"
+#include "DebugChannel.h"
+#include "ActionInterface.h"
+#include "AncillaryRegisterFile.h"
+#include "PerfCounters.h"
+#include "MMUInterface.h"
+#include "RegisterFile.h"
+#include "FamilyTable.h"
+#include "ThreadTable.h"
+#include "ICache.h"
+#include "DCache.h"
+#include "IOInterface.h"
+#include "Network.h"
+#include "Allocator.h"
+#include "Pipeline.h"
 
 class Config;
 
 namespace Simulator
 {
 
-namespace counters {};
-
-const std::vector<std::string>& GetDefaultLocalRegisterAliases(RegType type);
+#define GetDRISC() (dynamic_cast<DRISC&>(GetDRISCParent()))
 
 class DRISC : public Object
 {
 public:
     class Allocator;
-
-#include "FamilyTable.h"
-#include "ThreadTable.h"
-#include "RegisterFile.h"
-#include "Network.h"
-#include "ICache.h"
-#include "IOMatchUnit.h"
-#include "IOInterface.h"
-#include "DebugChannel.h"
-#include "DCache.h"
-#include "Pipeline.h"
-#include "RAUnit.h"
-#include "Allocator.h"
-#include "PerfCounters.h"
-#include "MMUInterface.h"
-#include "ActionInterface.h"
-#include "AncillaryRegisterFile.h"
 
     DRISC(const std::string& name, Object& parent, Clock& clock, PID pid, const std::vector<DRISC*>& grid, Config& config);
     DRISC(const DRISC&) = delete;
@@ -63,10 +60,6 @@ public:
     PSize GetGridSize() const { return m_grid.size(); }
     bool  IsIdle()      const;
 
-
-    Pipeline& GetPipeline() { return m_pipeline; }
-    IOMatchUnit& GetIOMatchUnit() { return m_mmio; }
-
     float GetRegFileAsyncPortActivity() const {
         return (float)m_registerFile.p_asyncW.GetBusyCycles() / (float)GetCycleNo();
     }
@@ -87,10 +80,10 @@ public:
 
     unsigned int GetNumSuspendedRegisters() const;
 
-    void WriteASR(ARAddr which, Integer data) {  m_asr_file.WriteRegister(which, data); }
-    Integer ReadASR(ARAddr which) const { return m_asr_file.ReadRegister(which); }
-    void WriteAPR(ARAddr which, Integer data) {  m_apr_file.WriteRegister(which, data); }
-    Integer ReadAPR(ARAddr which) const { return m_apr_file.ReadRegister(which); }
+    void WriteASR(drisc::ARAddr which, Integer data) {  m_asr_file.WriteRegister(which, data); }
+    Integer ReadASR(drisc::ARAddr which) const { return m_asr_file.ReadRegister(which); }
+    void WriteAPR(drisc::ARAddr which, Integer data) {  m_apr_file.WriteRegister(which, data); }
+    Integer ReadAPR(drisc::ARAddr which) const { return m_apr_file.ReadRegister(which); }
 
 
 
@@ -109,13 +102,18 @@ public:
     void UnmapMemory(ProcessID pid);
     bool CheckPermissions(MemAddr address, MemSize size, int access) const;
 
-    Network& GetNetwork() { return m_network; }
-    IOInterface* GetIOInterface() { return m_io_if; }
-    RegisterFile& GetRegisterFile() { return m_registerFile; }
-    ICache& GetICache() { return m_icache; }
-    DCache& GetDCache() { return m_dcache; }
+    drisc::Network& GetNetwork() { return m_network; }
+    drisc::IOInterface* GetIOInterface() { return m_io_if; }
+    drisc::RegisterFile& GetRegisterFile() { return m_registerFile; }
+    drisc::ICache& GetICache() { return m_icache; }
+    drisc::DCache& GetDCache() { return m_dcache; }
+    drisc::Allocator& GetAllocator() { return m_allocator; }
+    drisc::RAUnit& GetRAUnit() { return m_raunit; }
+    drisc::Pipeline& GetPipeline() { return m_pipeline; }
+    drisc::IOMatchUnit& GetIOMatchUnit() { return m_mmio; }
+    drisc::FamilyTable& GetFamilyTable() { return m_familyTable; }
+    drisc::ThreadTable& GetThreadTable() { return m_threadTable; }
     SymbolTable& GetSymbolTable() { return *m_symtable; }
-    Allocator& GetAllocator() { return m_allocator; }
 
 private:
     IMemory*                       m_memory;
@@ -136,30 +134,30 @@ private:
     } m_bits;
 
     // The components on the core
-    FamilyTable           m_familyTable;
-    ThreadTable           m_threadTable;
-    RegisterFile          m_registerFile;
-    RAUnit                m_raunit;
-    Allocator             m_allocator;
-    ICache                m_icache;
-    DCache                m_dcache;
-    Pipeline              m_pipeline;
-    Network               m_network;
+    drisc::FamilyTable    m_familyTable;
+    drisc::ThreadTable    m_threadTable;
+    drisc::RegisterFile   m_registerFile;
+    drisc::RAUnit         m_raunit;
+    drisc::Allocator      m_allocator;
+    drisc::ICache         m_icache;
+    drisc::DCache         m_dcache;
+    drisc::Pipeline       m_pipeline;
+    drisc::Network        m_network;
 
     // Local MMIO devices
-    IOMatchUnit           m_mmio;
-    AncillaryRegisterFile m_apr_file;
-    AncillaryRegisterFile m_asr_file;
-    PerfCounters          m_perfcounters;
-    DebugChannel          m_lpout;
-    DebugChannel          m_lperr;
-    MMUInterface          m_mmu;
-    ActionInterface       m_action;
+    drisc::IOMatchUnit    m_mmio;
+    drisc::AncillaryRegisterFile m_apr_file;
+    drisc::AncillaryRegisterFile m_asr_file;
+    drisc::PerfCounters   m_perfcounters;
+    drisc::DebugChannel   m_lpout;
+    drisc::DebugChannel   m_lperr;
+    drisc::MMUInterface   m_mmu;
+    drisc::ActionInterface m_action;
 
     // External I/O interface, optional
-    IOInterface           *m_io_if;
+    drisc::IOInterface    *m_io_if;
 
-    friend class PerfCounters::Helpers;
+    friend class drisc::PerfCounters::Helpers;
 };
 
 }

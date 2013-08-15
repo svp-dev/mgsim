@@ -1,16 +1,19 @@
 #ifndef IORESPONSEMUX_H
 #define IORESPONSEMUX_H
 
-#ifndef PROCESSOR_H
-#error This file should be included in DRISC.h
-#endif
+#include <sim/kernel.h>
+#include <sim/storage.h>
+#include <arch/IOBus.h>
+#include "forward.h"
+
+namespace Simulator
+{
+namespace drisc
+{
 
 class IOResponseMultiplexer : public Object
 {
 private:
-    RegisterFile&                m_regFile;
-    Allocator&                   m_allocator;
-
     struct IOResponse
     {
         IOData      data;
@@ -25,10 +28,11 @@ private:
     std::vector<WriteBackQueue*>  m_wb_buffers;
 
     Process p_dummy;
-    Result DoNothing() { COMMIT{ p_dummy.Deactivate(); }; return SUCCESS; }
+    Result DoNothing();
 
+    Object& GetDRISCParent() const { return *GetParent()->GetParent(); };
 public:
-    IOResponseMultiplexer(const std::string& name, Object& parent, Clock& clock, RegisterFile& rf, Allocator& alloc, size_t numDevices, Config& config);
+    IOResponseMultiplexer(const std::string& name, IOInterface& parent, Clock& clock, size_t numDevices, Config& config);
     ~IOResponseMultiplexer();
 
     // sent by device select upon an I/O read from the processor
@@ -45,6 +49,8 @@ public:
     StorageTraceSet GetWriteBackTraces() const;
 };
 
+}
+}
 
 
 #endif

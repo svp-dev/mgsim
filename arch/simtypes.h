@@ -233,6 +233,8 @@ struct MultiInteger
 
 enum RegType
 {
+    // The following must be numbered in sequence as they are used
+    // to index an array in RegisterFile.
     RT_INTEGER = 0,
     RT_FLOAT   = 1,
 };
@@ -257,9 +259,6 @@ enum RegClass
     RC_DEPENDENT,   ///< Dependents
     RC_RAZ,         ///< Read-as-zero
 };
-
-// ISA-specific function to map virtual registers to register classes
-extern unsigned char GetRegisterClass(unsigned char addr, const RegsNo& regs, RegClass* rc, RegType type);
 
 struct RegAddr
 {

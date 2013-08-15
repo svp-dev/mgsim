@@ -12,6 +12,8 @@ using namespace std;
 namespace Simulator
 {
 
+using namespace drisc;
+
 //
 // DRISC implementation
 //
@@ -27,13 +29,13 @@ DRISC::DRISC(const std::string& name, Object& parent, Clock& clock, PID pid, con
     m_bits(),
     m_familyTable ("families",      *this, clock, config),
     m_threadTable ("threads",       *this, clock, config),
-    m_registerFile("registers",     *this, clock, m_allocator, config),
-    m_raunit      ("rau",           *this, clock, m_registerFile, config),
-    m_allocator   ("alloc",         *this, clock, m_familyTable, m_threadTable, m_registerFile, m_raunit, m_icache, m_dcache, m_network, m_pipeline, config),
-    m_icache      ("icache",        *this, clock, m_allocator, config),
-    m_dcache      ("dcache",        *this, clock, m_allocator, m_familyTable, m_registerFile, config),
-    m_pipeline    ("pipeline",      *this, clock, m_registerFile, m_network, m_allocator, m_familyTable, m_threadTable, m_icache, m_dcache, config),
-    m_network     ("network",       *this, clock, grid, m_allocator, m_registerFile, m_familyTable, config),
+    m_registerFile("registers",     *this, clock, config),
+    m_raunit      ("rau",           *this, clock, m_registerFile.GetSizes(), config),
+    m_allocator   ("alloc",         *this, clock, config),
+    m_icache      ("icache",        *this, clock, config),
+    m_dcache      ("dcache",        *this, clock, config),
+    m_pipeline    ("pipeline",      *this, clock, config),
+    m_network     ("network",       *this, clock, grid, config),
     m_mmio        ("mmio",          *this, clock),
     m_apr_file("aprs", *this, config),
     m_asr_file("asrs", *this, config),
@@ -53,8 +55,8 @@ DRISC::DRISC(const std::string& name, Object& parent, Clock& clock, PID pid, con
     config.registerProperty(*this, "dc.lsz", (uint32_t)m_dcache.GetLineSize());
     config.registerProperty(*this, "threads", (uint32_t)m_threadTable.GetNumThreads());
     config.registerProperty(*this, "families", (uint32_t)m_familyTable.GetFamilies().size());
-    config.registerProperty(*this, "iregs", (uint32_t)m_registerFile.GetSize(RT_INTEGER));
-    config.registerProperty(*this, "fpregs", (uint32_t)m_registerFile.GetSize(RT_FLOAT));
+    config.registerProperty(*this, "iregs", (uint32_t)m_registerFile.GetSizes()[RT_INTEGER]);
+    config.registerProperty(*this, "fpregs", (uint32_t)m_registerFile.GetSizes()[RT_FLOAT]);
     config.registerProperty(*this, "freq", (uint32_t)clock.GetFrequency());
 
     // Get the size, in bits, of various identifiers.
@@ -152,7 +154,7 @@ void DRISC::ConnectIO(Config& config, IIOBus* iobus)
     // This processor also supports I/O
     IODeviceID devid = config.getValueOrDefault<IODeviceID>(*this, "DeviceID", iobus->GetNextAvailableDeviceID());
 
-    m_io_if = new IOInterface("io_if", *this, GetClock(), m_registerFile, m_allocator, *iobus, devid, config);
+    m_io_if = new IOInterface("io_if", *this, GetClock(), *iobus, devid, config);
 
     if (m_memory != NULL)
         m_io_if->ConnectMemory(m_memory);
@@ -510,7 +512,7 @@ unsigned int DRISC::GetNumSuspendedRegisters() const
     unsigned int num = 0;
     for (size_t i = 0; i < NUM_REG_TYPES; ++i)
     {
-        RegSize size = m_registerFile.GetSize((RegType)i);
+        RegSize size = m_registerFile.GetSizes()[i];
         for (RegIndex r = 0; r < size; ++r)
         {
             RegValue value;

@@ -1,3 +1,4 @@
+#include "DCache.h"
 #include "DRISC.h"
 #include <sim/log2.h>
 #include <sim/config.h>
@@ -12,9 +13,11 @@ using namespace std;
 namespace Simulator
 {
 
-DRISC::DCache::DCache(const std::string& name, DRISC& parent, Clock& clock, Allocator& alloc, FamilyTable& familyTable, RegisterFile& regFile, Config& config)
-:   Object(name, parent, clock), m_parent(parent),
-    m_allocator(alloc), m_familyTable(familyTable), m_regFile(regFile),
+namespace drisc
+{
+
+DCache::DCache(const std::string& name, DRISC& parent, Clock& clock, Config& config)
+:   Object(name, parent, clock),
     m_memory(NULL),
     m_mcid(0),
     m_lines(),
@@ -43,10 +46,10 @@ DRISC::DCache::DCache(const std::string& name, DRISC& parent, Clock& clock, Allo
     m_numStallingWMisses(0),
     m_numSnoops(0),
 
-    p_ReadWritebacks(*this, "read-writebacks", delegate::create<DCache, &DRISC::DCache::DoReadWritebacks  >(*this) ),
-    p_ReadResponses (*this, "read-responses",  delegate::create<DCache, &DRISC::DCache::DoReadResponses   >(*this) ),
-    p_WriteResponses(*this, "write-responses", delegate::create<DCache, &DRISC::DCache::DoWriteResponses  >(*this) ),
-    p_Outgoing      (*this, "outgoing",        delegate::create<DCache, &DRISC::DCache::DoOutgoingRequests>(*this) ),
+    p_ReadWritebacks(*this, "read-writebacks", delegate::create<DCache, &DCache::DoReadWritebacks  >(*this) ),
+    p_ReadResponses (*this, "read-responses",  delegate::create<DCache, &DCache::DoReadResponses   >(*this) ),
+    p_WriteResponses(*this, "write-responses", delegate::create<DCache, &DCache::DoWriteResponses  >(*this) ),
+    p_Outgoing      (*this, "outgoing",        delegate::create<DCache, &DCache::DoOutgoingRequests>(*this) ),
 
     p_service        (*this, clock, "p_service")
 {
@@ -102,7 +105,7 @@ DRISC::DCache::DCache(const std::string& name, DRISC& parent, Clock& clock, Allo
     m_wbstate.offset = 0;
 }
 
-void DRISC::DCache::ConnectMemory(IMemory* memory)
+void DCache::ConnectMemory(IMemory* memory)
 {
     assert(memory != NULL);
     assert(m_memory == NULL); // can't register two times
@@ -114,7 +117,7 @@ void DRISC::DCache::ConnectMemory(IMemory* memory)
 
 }
 
-DRISC::DCache::~DCache()
+DCache::~DCache()
 {
     for (size_t i = 0; i < m_lines.size(); ++i)
     {
@@ -124,7 +127,7 @@ DRISC::DCache::~DCache()
     delete m_selector;
 }
 
-Result DRISC::DCache::FindLine(MemAddr address, Line* &line, bool check_only)
+Result DCache::FindLine(MemAddr address, Line* &line, bool check_only)
 {
     MemAddr tag;
     size_t setindex;
@@ -186,7 +189,7 @@ Result DRISC::DCache::FindLine(MemAddr address, Line* &line, bool check_only)
 
 
 
-Result DRISC::DCache::Read(MemAddr address, void* data, MemSize size, RegAddr* reg)
+Result DCache::Read(MemAddr address, void* data, MemSize size, RegAddr* reg)
 {
     size_t offset = (size_t)(address % m_lineSize);
     if (offset + size > m_lineSize)
@@ -204,7 +207,8 @@ Result DRISC::DCache::Read(MemAddr address, void* data, MemSize size, RegAddr* r
 #endif
 
     // Check that we're reading readable memory
-    if (!m_parent.CheckPermissions(address, size, IMemory::PERM_READ))
+    auto& cpu = GetDRISC();
+    if (!cpu.CheckPermissions(address, size, IMemory::PERM_READ))
     {
         throw exceptf<SecurityException>(*this, "Read (%#016llx, %zd): Attempting to read from non-readable memory",
                                          (unsigned long long)address, (size_t)size);
@@ -315,7 +319,7 @@ Result DRISC::DCache::Read(MemAddr address, void* data, MemSize size, RegAddr* r
     return DELAYED;
 }
 
-Result DRISC::DCache::Write(MemAddr address, void* data, MemSize size, LFID fid, TID tid)
+Result DCache::Write(MemAddr address, void* data, MemSize size, LFID fid, TID tid)
 {
     assert(fid != INVALID_LFID);
     assert(tid != INVALID_TID);
@@ -336,7 +340,8 @@ Result DRISC::DCache::Write(MemAddr address, void* data, MemSize size, LFID fid,
 #endif
 
     // Check that we're writing writable memory
-    if (!m_parent.CheckPermissions(address, size, IMemory::PERM_WRITE))
+    auto& cpu = GetDRISC();
+    if (!cpu.CheckPermissions(address, size, IMemory::PERM_WRITE))
     {
         throw exceptf<SecurityException>(*this, "Write (%#016llx, %zd): Attempting to write to non-writable memory",
                                          (unsigned long long)address, (size_t)size);
@@ -415,7 +420,7 @@ Result DRISC::DCache::Write(MemAddr address, void* data, MemSize size, LFID fid,
     return DELAYED;
 }
 
-bool DRISC::DCache::OnMemoryReadCompleted(MemAddr addr, const char* data)
+bool DCache::OnMemoryReadCompleted(MemAddr addr, const char* data)
 {
     // Check if we have the line and if its loading.
     // This method gets called whenever a memory read completion is put on the
@@ -471,7 +476,7 @@ bool DRISC::DCache::OnMemoryReadCompleted(MemAddr addr, const char* data)
     return true;
 }
 
-bool DRISC::DCache::OnMemoryWriteCompleted(WClientID wid)
+bool DCache::OnMemoryWriteCompleted(WClientID wid)
 {
     // Data has been written
     if (wid != INVALID_WCLIENTID) // otherwise for DCA
@@ -489,7 +494,7 @@ bool DRISC::DCache::OnMemoryWriteCompleted(WClientID wid)
     return true;
 }
 
-bool DRISC::DCache::OnMemorySnooped(MemAddr address, const char* data, const bool* mask)
+bool DCache::OnMemorySnooped(MemAddr address, const char* data, const bool* mask)
 {
     Line*  line;
 
@@ -528,7 +533,7 @@ bool DRISC::DCache::OnMemorySnooped(MemAddr address, const char* data, const boo
     return true;
 }
 
-bool DRISC::DCache::OnMemoryInvalidated(MemAddr address)
+bool DCache::OnMemoryInvalidated(MemAddr address)
 {
     COMMIT
     {
@@ -551,12 +556,12 @@ bool DRISC::DCache::OnMemoryInvalidated(MemAddr address)
     return true;
 }
 
-Object& DRISC::DCache::GetMemoryPeer()
+Object& DCache::GetMemoryPeer()
 {
-    return m_parent;
+    return *GetParent();
 }
 
-Result DRISC::DCache::DoReadResponses()
+Result DCache::DoReadResponses()
 {
     assert(!m_read_responses.Empty());
 
@@ -577,7 +582,8 @@ Result DRISC::DCache::DoReadResponses()
     if (line.create)
     {
         DebugMemWrite("Signalling read completion to creation process");
-        m_allocator.OnDCachelineLoaded(line.data);
+        auto& alloc = GetDRISC().GetAllocator();
+        alloc.OnDCachelineLoaded(line.data);
         COMMIT { line.create = false; }
     }
 
@@ -605,7 +611,7 @@ Result DRISC::DCache::DoReadResponses()
     return SUCCESS;
 }
 
-Result DRISC::DCache::DoReadWritebacks()
+Result DCache::DoReadWritebacks()
 {
     assert(!m_writebacks.Empty());
 
@@ -620,12 +626,14 @@ Result DRISC::DCache::DoReadWritebacks()
         state.next = req.waiting;
     }
 
+    auto& regFile = GetDRISC().GetRegisterFile();
+
     if (state.offset == state.size)
     {
         // Starting a new multi-register write
 
         // Write to register
-        if (!m_regFile.p_asyncW.Write(state.next))
+        if (!regFile.p_asyncW.Write(state.next))
         {
             DeadlockWrite("Unable to acquire port to write back %s", state.next.str().c_str());
             return FAILED;
@@ -633,7 +641,7 @@ Result DRISC::DCache::DoReadWritebacks()
 
         // Read request information
         RegValue value;
-        if (!m_regFile.ReadRegister(state.next, value))
+        if (!regFile.ReadRegister(state.next, value))
         {
             DeadlockWrite("Unable to read register %s", state.next.str().c_str());
             return FAILED;
@@ -676,7 +684,7 @@ Result DRISC::DCache::DoReadWritebacks()
     else
     {
         // Write to register
-        if (!m_regFile.p_asyncW.Write(state.addr))
+        if (!regFile.p_asyncW.Write(state.addr))
         {
             DeadlockWrite("Unable to acquire port to write back %s", state.addr.str().c_str());
             return FAILED;
@@ -706,7 +714,7 @@ Result DRISC::DCache::DoReadWritebacks()
     default: UNREACHABLE;
     }
 
-    if (!m_regFile.WriteRegister(state.addr, reg, true))
+    if (!regFile.WriteRegister(state.addr, reg, true))
     {
         DeadlockWrite("Unable to write register %s", state.addr.str().c_str());
         return FAILED;
@@ -719,7 +727,8 @@ Result DRISC::DCache::DoReadWritebacks()
     if (state.offset == state.size)
     {
         // This operand is now fully written
-        if (!m_allocator.DecreaseFamilyDependency(state.fid, FAMDEP_OUTSTANDING_READS))
+        auto& alloc = GetDRISC().GetAllocator();
+        if (!alloc.DecreaseFamilyDependency(state.fid, FAMDEP_OUTSTANDING_READS))
         {
             DeadlockWrite("Unable to decrement outstanding reads on F%u", (unsigned)state.fid);
             return FAILED;
@@ -735,12 +744,13 @@ Result DRISC::DCache::DoReadWritebacks()
     return SUCCESS;
 }
 
-Result DRISC::DCache::DoWriteResponses()
+Result DCache::DoWriteResponses()
 {
     assert(!m_write_responses.Empty());
     auto& response = m_write_responses.Front();
 
-    if (!m_allocator.DecreaseThreadDependency((TID)response.wid, THREADDEP_OUTSTANDING_WRITES))
+    auto& alloc = GetDRISC().GetAllocator();
+    if (!alloc.DecreaseThreadDependency((TID)response.wid, THREADDEP_OUTSTANDING_WRITES))
     {
         DeadlockWrite("Unable to decrease outstanding writes on T%u", (unsigned)response.wid);
         return FAILED;
@@ -752,7 +762,7 @@ Result DRISC::DCache::DoWriteResponses()
     return SUCCESS;
 }
 
-Result DRISC::DCache::DoOutgoingRequests()
+Result DCache::DoOutgoingRequests()
 {
     assert(m_memory != NULL);
     assert(!m_outgoing.Empty());
@@ -783,7 +793,7 @@ Result DRISC::DCache::DoOutgoingRequests()
     return SUCCESS;
 }
 
-void DRISC::DCache::Cmd_Info(std::ostream& out, const std::vector<std::string>& /*arguments*/) const
+void DCache::Cmd_Info(std::ostream& out, const std::vector<std::string>& /*arguments*/) const
 {
     out <<
     "The Data Cache stores data from memory that has been used in loads and stores\n"
@@ -798,8 +808,10 @@ void DRISC::DCache::Cmd_Info(std::ostream& out, const std::vector<std::string>& 
     "  Reads and displays the cache-lines.\n";
 }
 
-void DRISC::DCache::Cmd_Read(std::ostream& out, const std::vector<std::string>& arguments) const
+void DCache::Cmd_Read(std::ostream& out, const std::vector<std::string>& arguments) const
 {
+    auto& regFile = GetDRISC().GetRegisterFile();
+
     if (arguments.empty())
     {
         out << "Cache type:          ";
@@ -965,7 +977,7 @@ void DRISC::DCache::Cmd_Read(std::ostream& out, const std::vector<std::string>& 
             {
                 waiting.push_back(reg);
                 RegValue value;
-                m_regFile.ReadRegister(reg, value, true);
+                regFile.ReadRegister(reg, value, true);
 
                 if (value.m_state == RST_FULL || value.m_memory.size == 0)
                 {
@@ -1028,4 +1040,5 @@ void DRISC::DCache::Cmd_Read(std::ostream& out, const std::vector<std::string>& 
 
 }
 
+}
 }

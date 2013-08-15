@@ -1,25 +1,32 @@
 #ifndef IOINTERFACE_H
 #define IOINTERFACE_H
 
-#ifndef PROCESSOR_H
-#error This file should be included in DRISC.h
-#endif
-
+#include <sim/kernel.h>
+#include <sim/inspect.h>
+#include <sim/storage.h>
+#include <arch/Memory.h>
+#include "IOMatchUnit.h"
 #include "IOResponseMultiplexer.h"
 #include "IONotificationMultiplexer.h"
 #include "IOBusInterface.h"
 #include "IODirectCacheAccess.h"
 
+namespace Simulator
+{
+namespace drisc
+{
+
 class IOInterface : public Object, public Inspect::Interface<Inspect::Info>
 {
 public:
-    class AsyncIOInterface : public MMIOComponent, public Inspect::Interface<Inspect::Info>
+    class AsyncIOInterface : public drisc::MMIOComponent, public Inspect::Interface<Inspect::Info>
     {
     private:
         MemAddr                 m_baseAddr;
         unsigned                m_devAddrBits;
 
         IOInterface&  GetInterface() const;
+        Object& GetDRISCParent() const { return *GetParent()->GetParent(); };
     public:
         AsyncIOInterface(const std::string& name, IOInterface& parent, Clock& clock, Config& config);
 
@@ -35,11 +42,12 @@ public:
         MemAddr GetDeviceBaseAddress(IODeviceID dev) const;
     };
 
-    class PNCInterface : public MMIOComponent, public Inspect::Interface<Inspect::Info>
+    class PNCInterface : public drisc::MMIOComponent, public Inspect::Interface<Inspect::Info>
     {
     private:
         MemAddr                 m_baseAddr;
         IOInterface&  GetInterface() const;
+        Object& GetDRISCParent() const { return *GetParent()->GetParent(); };
 
     public:
         PNCInterface(const std::string& name, IOInterface& parent, Clock& clock, Config& config);
@@ -75,14 +83,14 @@ private:
     bool Write(IODeviceID dev, MemAddr address, const IOData& data);
     bool WaitForNotification(IONotificationChannelID dev, const RegAddr& writeback);
     bool ConfigureNotificationChannel(IONotificationChannelID dev, Integer mode);
-    DRISC& GetDRISC() const;
+    Object& GetDRISCParent() const { return *GetParent(); };
 
 public:
-    IOInterface(const std::string& name, DRISC& parent, Clock& clock, RegisterFile& rf, Allocator& alloc, IIOBus& iobus, IODeviceID devid, Config& config);
+    IOInterface(const std::string& name, DRISC& parent, Clock& clock, IIOBus& iobus, IODeviceID devid, Config& config);
     void ConnectMemory(IMemory* memory);
 
-    MMIOComponent& GetAsyncIOInterface() { return m_async_io; }
-    MMIOComponent& GetPNCInterface() { return m_pnc; }
+    drisc::MMIOComponent& GetAsyncIOInterface() { return m_async_io; }
+    drisc::MMIOComponent& GetPNCInterface() { return m_pnc; }
 
     IOResponseMultiplexer& GetReadResponseMultiplexer() { return m_rrmux; }
     IONotificationMultiplexer& GetNotificationMultiplexer() { return m_nmux; }
@@ -97,5 +105,7 @@ public:
     void Cmd_Info(std::ostream& out, const std::vector<std::string>& args) const;
 };
 
+}
+}
 
 #endif

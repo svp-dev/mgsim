@@ -1,19 +1,23 @@
 #ifndef PERFCOUNTERS_H
 #define PERFCOUNTERS_H
 
-#ifndef PROCESSOR_H
-#error This file should be included in DRISC.h
-#endif
+#include "IOMatchUnit.h"
 
-class PerfCounters : public MMIOComponent
+namespace Simulator
+{
+namespace drisc
+{
+
+class PerfCounters : public drisc::MMIOComponent
 {
     class Helpers;
-    friend class DRISC;
+    friend class Simulator::DRISC;
 
     std::vector<Integer (*)(DRISC&, LFID)> m_counters;
     uint64_t                  m_nCycleSampleOps; // nr of samplings of the cycle counter by program
     uint64_t                  m_nOtherSampleOps; // nr of samplings of other counters
 
+    Object& GetDRISCParent() const { return *GetParent(); }
 public:
 
     size_t GetSize() const;
@@ -25,5 +29,8 @@ public:
 
     ~PerfCounters() {}
 };
+
+}
+}
 
 #endif
