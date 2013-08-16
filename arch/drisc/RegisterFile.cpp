@@ -35,7 +35,7 @@ RegisterFile::RegisterFile(const std::string& name, DRISC& parent, Clock& clock,
     // Initialize all registers
     for (size_t i = 0; i < NUM_REG_TYPES; ++i)
     {
-        static constexpr std::array<const char*, NUM_REG_TYPES> cfg_names = { "NumIntRegisters", "NumFltRegisters" };
+        static constexpr std::array<const char*, NUM_REG_TYPES> cfg_names = { {"NumIntRegisters", "NumFltRegisters"} };
         m_sizes[i] = config.getValue<size_t>(*this, cfg_names[i]);
         m_files[i] = new RegValue[m_sizes[i]];
         for (RegSize j = 0; j < m_sizes[i]; ++j)
@@ -50,7 +50,7 @@ RegisterFile::RegisterFile(const std::string& name, DRISC& parent, Clock& clock,
     // Register aliases for debugging
     for (size_t i = 0; i < NUM_REG_TYPES; ++i)
     {
-        static constexpr std::array<const char *, NUM_REG_TYPES> cfg_names = { "IntRegAliases", "FltRegAliases" };
+        static constexpr std::array<const char *, NUM_REG_TYPES> cfg_names = { {"IntRegAliases", "FltRegAliases"} };
         m_local_aliases[i] = config.getWordList(cfg_names[i]);
         if (m_local_aliases[i].empty())
             m_local_aliases[i] = GetDefaultLocalRegisterAliases((RegType)i);

@@ -5,6 +5,7 @@
 #include <sim/inspect.h>
 #include <arch/simtypes.h>
 #include <vector>
+#include <array>
 #include "forward.h"
 
 namespace Simulator
