@@ -3,9 +3,7 @@
 
 #include "simreadline.h"
 
-#ifdef ENABLE_MONITOR
-# include <sim/monitor.h>
-#endif
+#include <sim/monitor.h>
 #include <arch/MGSystem.h>
 #include <sim/inspect.h>
 
@@ -16,9 +14,7 @@ struct cli_context
 {
     CommandLineReader& clr;
     Simulator::MGSystem& sys;
-#ifdef ENABLE_MONITOR
     Monitor& mon;
-#endif
 };
 
 // handler for a command in interactive mode.
@@ -34,7 +30,7 @@ extern command_handler
     cmd_bp_disable,
     cmd_bp_enable,
     cmd_bp_off,
-    cmd_bp_on,
+     cmd_bp_on,
     cmd_bp_state,
     cmd_disas,
     cmd_help,

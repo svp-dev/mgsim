@@ -56,6 +56,40 @@ AX_CXX_GCC_ABI_DEMANGLE
 # check support for C++11
 CHECK_CXX11
 
+# check whether std::thread uses POSIX behind the scenes, then
+# whether pthread_sigmask is available.
+AX_PTHREAD
+if test "x$ax_pthread_ok" = "xyes"; then
+   AC_CACHE_CHECK([whether std::thread is based on pthread_t],
+                  [mg_cv_stdthread_is_pthread],
+                  [mg_cv_stdthread_is_pthread=no
+                   save_CXXFLAGS="$CXXFLAGS $PTHREAD_CFLAGS"
+                   AC_COMPILE_IFELSE([AC_LANG_SOURCE([
+#include <thread>
+#include <pthread.h>
+#include <type_traits>
+int main() {
+   static_assert(std::is_same<std::thread::native_handle_type, pthread_t>::value == true,
+                 "std::thread::native_handle_type and pthread_t are different types");
+   return 0;
+}
+                   ])], [mg_cv_stdthread_is_pthread=yes])
+                   CXXFLAGS=$save_CXXFLAGS
+                  ])
+
+   if test x$mg_cv_stdthread_is_pthread = xyes; then
+      AC_SEARCH_LIBS([pthread_sigmask], [pthread])
+      AC_CHECK_FUNCS([pthread_sigmask])
+
+      if test x$ac_cv_func_pthread_sigmask = xyes; then
+         AC_DEFINE([CAN_USE_SIGMASK_ON_STD_THREAD], [1], [Define to 1 if std::thread uses pthreads and pthread_sigmask is available])
+         AM_CXXFLAGS="$AM_CXXFLAGS $PTHREAD_CFLAGS"
+         AM_LDFLAGS="$AM_LDFLAGS $PTHREAD_LIBS"
+      fi
+   fi
+fi
+
+# check for extensions
 AC_CACHE_CHECK([for __builtin_unreachable],
                [mg_cv_unreachable],
                [
@@ -302,19 +336,6 @@ if test "x$enable_profile" = "xyes"; then
   AM_CXXFLAGS="$AM_CXXFLAGS -pg"
 fi
 
-AX_PTHREAD
-
-AC_ARG_ENABLE([monitor],
-              [AC_HELP_STRING([--disable-monitor], [disable support for simulation monitoring (default is try to enable)])],
-              [], [enable_monitor=yes])
-if test "x$enable_monitor" = "xyes"; then
-  if test "x$ax_pthread_ok" != "xyes"; then
-     AC_MSG_WARN([POSIX threads not available, cannot use monitor.])
-     enable_monitor=no
-  fi
-fi
-AM_CONDITIONAL([ENABLE_MONITOR], [test "x$enable_monitor" = "xyes"])
-
 AC_ARG_ENABLE([cacti],
               [AC_HELP_STRING([--disable-cacti], [disable support for area calculations with CACTI (default is try to enable)])],
               [], [enable_cacti=yes])
@@ -432,7 +453,6 @@ cat <<EOF
 * Verbose trace checks:   $enable_verbose_trace_checks
 * Abort on trace failure: $enable_abort_on_trace_failure
 * Software IEEE754:       $enable_softfpu
-* Asynchronous monitor:   $enable_monitor
 * Area calculation:       $enable_cacti
 *
 * MT-Alpha tests:         (asm) $enable_mtalpha_tests (compiled) $enable_compiled_mtalpha_tests

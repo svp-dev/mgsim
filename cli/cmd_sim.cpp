@@ -19,9 +19,7 @@ bool cmd_run(const vector<string>& command, vector<string>& args, cli_context& c
     // bad happens in StepSystem...
     ctx.clr.CheckPointHistory();
 
-#ifdef ENABLE_MONITOR
     ctx.mon.start();
-#endif
     try
     {
         StepSystem(ctx.sys, nCycles);
@@ -30,9 +28,7 @@ bool cmd_run(const vector<string>& command, vector<string>& args, cli_context& c
     {
         PrintException(&ctx.sys, cerr, e);
     }
-#ifdef ENABLE_MONITOR
     ctx.mon.stop();
-#endif
     return false;
 }
 
@@ -85,4 +81,3 @@ bool cmd_stats(const vector<string>& /*command*/, vector<string>& /*args*/, cli_
     ctx.sys.PrintAllStatistics(cout);
     return false;
 }
-

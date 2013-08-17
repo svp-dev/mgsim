@@ -10,10 +10,7 @@
 #include <sim/readfile.h>
 #include <sim/rusage.h>
 #include <sim/sampling.h>
-
-#ifdef ENABLE_MONITOR
-# include <sim/monitor.h>
-#endif
+#include <sim/monitor.h>
 
 #include <sstream>
 #include <iostream>
@@ -142,9 +139,7 @@ static const struct argp_option mgsim_options[] =
     { "no-node-properties", 11, 0, 0, "Do not print component properties in the topology dump.", 6 },
     { "no-edge-properties", 12, 0, 0, "Do not print link properties in the topology output.", 6 },
 
-#ifdef ENABLE_MONITOR
     { "monitor", 'm', 0, 0, "Enable asynchronous simulation monitoring (configure with -o MonitorSampleVariables).", 7 },
-#endif
 
     { "symtable", 's', "FILE", OPTION_HIDDEN, "(obsolete; symbols are now read automatically from ELF)", 8 },
 
@@ -311,9 +306,7 @@ int main(int argc, char** argv)
     ProgramConfig flags;
     UNIQUE_PTR<Config> config;
     UNIQUE_PTR<MGSystem> sys;
-#ifdef ENABLE_MONITOR
     UNIQUE_PTR<Monitor> mo;
-#endif
 
     ////
     // Early initialization.
@@ -469,12 +462,10 @@ int main(int argc, char** argv)
     // Start the simulation.
 
     // First construct the monitor thread, if enabled.
-#ifdef ENABLE_MONITOR
     string mo_mdfile = config->getValueOrDefault<string>("MonitorMetadataFile", "mgtrace.md");
     string mo_tfile = config->getValueOrDefault<string>("MonitorTraceFile", "mgtrace.out");
     mo.reset(new Monitor(*sys, flags.m_enableMonitor,
                          mo_mdfile, flags.m_earlyquit ? "" : mo_tfile, !flags.m_interactive));
-#endif
 
     // Simulation proper.
     // Rules:
@@ -493,20 +484,14 @@ int main(int argc, char** argv)
             // Non-interactive: automatically start and run until simulation terminates.
             try
             {
-#ifdef ENABLE_MONITOR
                 mo->start();
-#endif
                 StepSystem(*sys, INFINITE_CYCLES);
-#ifdef ENABLE_MONITOR
                 mo->stop();
-#endif
 
             }
             catch (const exception& e)
             {
-#ifdef ENABLE_MONITOR
                 mo->stop();
-#endif
                 if (flags.m_terminate)
                 {
                     // Re-throw to terminate.
@@ -525,11 +510,7 @@ int main(int argc, char** argv)
             // Command loop
             cout << endl;
             CommandLineReader clr;
-            cli_context ctx = { clr, *sys
-#ifdef ENABLE_MONITOR
-                                , *mo
-#endif
-            };
+            cli_context ctx = { clr, *sys, *mo };
 
             while (HandleCommandLine(ctx) == false)
                 /* just loop */;

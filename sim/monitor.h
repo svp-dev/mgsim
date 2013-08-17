@@ -3,7 +3,8 @@
 
 #include <fstream>
 #include <ctime>
-#include <pthread.h>
+#include <thread>
+#include <mutex>
 
 namespace Simulator {
     class MGSystem;
@@ -17,8 +18,8 @@ class Monitor
     std::ofstream*        m_outputfile;
     struct timespec       m_tsdelay;
 
-    pthread_t             m_monitorthread;
-    pthread_mutex_t       m_runlock;
+    std::thread*          m_monitorthread;
+    std::mutex            m_runlock;
     BinarySampler*        m_sampler;
 
     bool                  m_quiet;

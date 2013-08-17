@@ -33,6 +33,12 @@ m4_define([CXX_COMPILE_CXX11_right_angle_brackets], [
   int main() { return 0; }
 ])
 
+m4_define([CXX_COMPILE_CXX11_array], [
+#include <array>
+std::array<int, 3> x;
+int main() { x@<:@0@:>@ = x@<:@1@:>@ = x@<:@2@:>@ = 0; return x@<:@0@:>@; }
+])
+
 m4_define([CXX_COMPILE_CXX11_initializer_list], [
   #include <vector>
   #include <string>
@@ -73,6 +79,26 @@ m4_define([CXX_COMPILE_CXX11_move_ref], [
   int main() { return 0; }
 ])
 
+m4_define([CXX_COMPILE_CXX11_thread], [
+#include <thread>
+void foo(int x) { }
+int main() {
+ std::thread t(foo, 42);
+ t.join();
+ return 0;
+}
+])
+
+m4_define([CXX_COMPILE_CXX11_mutex], [
+#include <mutex>
+int main() {
+ std::mutex m;
+ m.lock();
+ m.unlock();
+ return 0;
+}
+])
+
 AC_DEFUN([_CHECK_CXX11_FEATURE], [dnl
       cachevar=AS_TR_SH([cxx11_cv_$1_$2])
       AC_CACHE_CHECK([whether $CXX $2 supports $3], $cachevar,
@@ -96,6 +122,9 @@ AC_DEFUN([CHECK_CXX11], [dnl
       _CHECK_CXX11_FEATURE([static_assert], [$switch], [static_assert])
       _CHECK_CXX11_FEATURE([constructor_reuse], [$switch], [constructor reuse])
       _CHECK_CXX11_FEATURE([move_ref], [$switch], [move references])
+      _CHECK_CXX11_FEATURE([array], [$switch], [std::array])
+      _CHECK_CXX11_FEATURE([thread], [$switch], [threads])
+      _CHECK_CXX11_FEATURE([mutex], [$switch], [mutexes])
 
       if test $ac_success = yes; then
         CXXFLAGS="$CXXFLAGS $switch"

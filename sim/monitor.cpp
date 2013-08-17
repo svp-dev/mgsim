@@ -7,23 +7,28 @@
 #include <fstream>
 #include <iomanip>
 #include <cmath>
-#include <signal.h>
 #include <sys/time.h>
 #include <unistd.h>
 
+#ifdef CAN_USE_SIGMASK_ON_STD_THREAD
+#include <csignal>
+#include <pthread.h>
 #define pthread(Function, ...) do { if (pthread_ ## Function(__VA_ARGS__)) perror("pthread_" #Function); } while(0)
+#endif
 
 using namespace std;
 
 void* runmonitor(void *arg)
 {
+#ifdef CAN_USE_SIGMASK_ON_STD_THREAD
     sigset_t sigset;
     sigemptyset(&sigset);
     sigaddset(&sigset, SIGINT);
     sigaddset(&sigset, SIGQUIT);
     sigaddset(&sigset, SIGHUP);
     sigaddset(&sigset, SIGTERM);
-    pthread_sigmask(SIG_BLOCK, &sigset, 0);
+    pthread(sigmask, SIG_BLOCK, &sigset, 0);
+#endif
 
     Monitor *m = (Monitor*) arg;
     m->run();
@@ -34,7 +39,7 @@ Monitor::Monitor(Simulator::MGSystem& sys, bool enabled, const string& mdfile, c
     : m_sys(sys),
       m_outputfile(0),
       m_tsdelay(),
-      m_monitorthread(),
+      m_monitorthread(NULL),
       m_runlock(),
       m_sampler(0),
       m_quiet(quiet),
@@ -91,10 +96,11 @@ Monitor::Monitor(Simulator::MGSystem& sys, bool enabled, const string& mdfile, c
                   << "s to file " << outfile << endl
                   << "# metadata output to file " << mdfile << endl;
 
-    pthread(mutex_init, &m_runlock, 0);
-    pthread(mutex_lock, &m_runlock);
+    m_monitorthread = new std::thread(runmonitor, this);
 
-    pthread(create, &m_monitorthread, 0, runmonitor, this);
+#ifndef CAN_USE_SIGMASK_ON_STD_THREAD
+    clog << "#warning: cannot mask signals on monitor thread."
+#endif
 }
 
 Monitor::~Monitor()
@@ -105,9 +111,9 @@ Monitor::~Monitor()
             clog << "# shutting down monitoring..." << endl;
 
         m_enabled = false;
-        pthread(mutex_unlock, &m_runlock);
-        pthread(join, m_monitorthread, 0);
-        pthread(mutex_destroy, &m_runlock);
+        m_runlock.unlock();
+        m_monitorthread->join();
+        delete m_monitorthread;
 
         m_outputfile->close();
         delete m_outputfile;
@@ -123,7 +129,7 @@ void Monitor::start()
         if (!m_quiet)
             clog << "# starting monitor..." << endl;
         m_running = true;
-        pthread(mutex_unlock, &m_runlock);
+        m_runlock.unlock();
     }
 }
 
@@ -132,7 +138,7 @@ void Monitor::stop()
     if (m_running) {
         if (!m_quiet)
             clog << "# stopping monitor..." << endl;
-        pthread(mutex_lock, &m_runlock);
+        m_runlock.lock();
         m_running = false;
     }
 }
@@ -168,7 +174,7 @@ void Monitor::run()
             continue;
         lastCycle = currentCycle;
 
-        pthread(mutex_lock, &m_runlock);
+        m_runlock.lock();
 
         gettimeofday(tv_begin, 0);
         m_sampler->SampleToBuffer(databuf);
@@ -176,6 +182,6 @@ void Monitor::run()
 
         m_outputfile->write(allbuf, allsz);
 
-        pthread(mutex_unlock, &m_runlock);
+        m_runlock.unlock();
     }
 }

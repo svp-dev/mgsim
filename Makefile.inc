@@ -30,12 +30,6 @@ mgsim_CXXFLAGS += $(SDL_CFLAGS)
 mgsim_LDADD += $(SDL_LIBS)
 endif
 
-if ENABLE_MONITOR
-mgsim_CPPFLAGS += -DENABLE_MONITOR=1
-mgsim_CXXFLAGS += $(PTHREAD_CFLAGS)
-mgsim_LDADD += $(PTHREAD_LIBS)
-endif
-
 ## 
 ## Manual page rules
 ##

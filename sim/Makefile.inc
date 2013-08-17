@@ -14,6 +14,8 @@ SIM_SOURCES = \
 	sim/kernel.h \
 	sim/kernel.cpp \
 	sim/log2.h \
+	sim/monitor.h \
+	sim/monitor.cpp \
 	sim/ports.h \
 	sim/ports.cpp \
 	sim/range.h \
@@ -28,12 +30,6 @@ SIM_SOURCES = \
         sim/storagetrace.cpp \
 	sim/types.h \
         sim/unreachable.h
-
-if ENABLE_MONITOR
-SIM_SOURCES += \
-	sim/monitor.h \
-	sim/monitor.cpp
-endif
-
+ 
 
 
