@@ -613,7 +613,9 @@ void MGSystem::Disassemble(MemAddr addr, size_t sz) const
     cmd << m_objdump_cmd << " -d -r \\\n   --prefix-addresses --show-raw-insn \\\n   --start-address=" << addr
         << " --stop-address=" << addr + sz << " \\\n   " << m_bootrom->GetProgramName();
     clog << "Command:" << endl << "  " << cmd.str() << endl;
-    system(cmd.str().c_str());
+    int x = system(cmd.str().c_str());
+    if (x != 0)
+        clog << "warning: system() returned " << x << endl;
 }
 
 MGSystem::MGSystem(Config& config, bool quiet)
