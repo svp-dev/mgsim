@@ -477,4 +477,7 @@ void FPU::Cmd_Read(std::ostream& out, const std::vector<std::string>& /*argument
     }
 }
 
+FPU::IFPUClient::~IFPUClient()
+{}
+
 }
