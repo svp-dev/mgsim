@@ -113,9 +113,8 @@ public:
     virtual SymbolTable& GetSymbolTable() const = 0;
     virtual void SetSymbolTable(SymbolTable& symtable) = 0;
 
-    virtual ~IMemoryAdmin() {}
+    virtual ~IMemoryAdmin();
 };
 
 }
 #endif
-

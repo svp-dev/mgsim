@@ -384,5 +384,7 @@ void VirtualMemory::Cmd_Read(ostream& out, const vector<string>& arguments) cons
     }
 }
 
-}
+IMemoryAdmin::~IMemoryAdmin()
+{}
 
+}
