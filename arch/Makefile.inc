@@ -87,6 +87,7 @@ PROCESSOR_SRC = \
 	arch/drisc/ISA.mtalpha.h \
 	arch/drisc/ISA.mtsparc.h \
 	arch/drisc/ISA.mips.h \
+        arch/drisc/ISA.or1k.h \
 	arch/drisc/MemoryStage.cpp \
 	arch/drisc/MMUInterface.cpp \
 	arch/drisc/MMUInterface.h \
@@ -156,6 +157,7 @@ endif
 
 EXTRA_DIST += \
 	arch/drisc/ISA.mips.cpp \
+        arch/drisc/ISA.or1k.cpp \
 	arch/drisc/ISA.mtalpha.cpp \
 	arch/drisc/ISA.mtsparc.cpp
 

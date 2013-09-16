@@ -14,7 +14,7 @@ EXTRA_DIST =
 ##
 ## Multi-way distcheck
 ##
-CHECK_TARGETS = mtsparc mtalpha mips mipsel
+CHECK_TARGETS = mtsparc mtalpha mips mipsel or1knd
 
 check-target-%:
 	mkdir -p build-$* && \

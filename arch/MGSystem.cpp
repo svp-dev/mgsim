@@ -978,6 +978,11 @@ MGSystem::MGSystem(Config& config, bool quiet)
 # if defined(OBJDUMP_MIPS32EL)
 #  define OBJDUMP_CMD OBJDUMP_MIPS32EL
 # endif
+#elif defined(TARGET_OR1K)
+# define OBJDUMP_VAR "OR1K_OBJDUMP"
+# if defined(OBJDUMP_OR1K)
+#  define OBJDUMP_CMD OBJDUMP_OR1K
+# endif
 #endif
     const char *v = 0;
 #ifdef OBJDUMP_VAR

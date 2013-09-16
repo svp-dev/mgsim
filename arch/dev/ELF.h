@@ -58,7 +58,7 @@ static const unsigned char EV_CURRENT = 1; // Current version
 #elif defined(TARGET_MIPS32EL)
 #define ELFCLASS ELFCLASS32
 #define ELFDATA  ELFDATA2LSB
-#elif defined(TARGET_MIPS32)
+#elif defined(TARGET_MIPS32) || defined(TARGET_OR1K)
 #define ELFCLASS ELFCLASS32
 #define ELFDATA  ELFDATA2MSB
 #endif
@@ -154,6 +154,7 @@ static const Elf_Half EM_IA_64       = 50; // Intel Merced
 static const Elf_Half EM_MIPS_X      = 51; // Stanford MIPS-X
 static const Elf_Half EM_COLDFIRE    = 52; // Motorola Coldfire
 static const Elf_Half EM_68HC12      = 53; // Motorola M68HC12
+static const Elf_Half EM_OR1K        = 92; // OpenRISC 1000
 
 // unofficial EM_* values
 static const Elf_Half EM_ALPHA       = 0x9026; // Alpha
@@ -169,6 +170,9 @@ static const Elf_Half EM_MTSPARC     = 0xaff0; // Microthreaded Sparc V8
 #elif defined(TARGET_MIPS32) || defined(TARGET_MIPS32EL)
 #define MACHINE_NORMAL EM_MIPS /* no MT for now */
 #define MACHINE_LEGACY EM_MIPS
+#elif defined(TARGET_OR1K)
+#define MACHINE_NORMAL EM_OR1K /* no MT for now */
+#define MACHINE_LEGACY EM_OR1K
 #endif
 
 // File header

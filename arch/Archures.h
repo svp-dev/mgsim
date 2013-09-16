@@ -4,5 +4,6 @@
 #define ARCH_ALPHA 1
 #define ARCH_SPARC 2
 #define ARCH_MIPS  3
+#define ARCH_OPENRISC  4
 
 #endif

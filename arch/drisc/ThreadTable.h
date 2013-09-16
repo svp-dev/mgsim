@@ -74,6 +74,8 @@ struct Thread
 #elif defined(TARGET_MIPS32) || defined(TARGET_MIPS32EL)
     uint32_t     LO;
     uint32_t     HI;
+#elif defined(TARGET_OR1K)
+    // FIXME: FILL IN THREAD-SPECIFIC DATA FIELDS HERE
 #endif
 
     bool         waitingForWrites;

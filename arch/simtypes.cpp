@@ -197,8 +197,8 @@ uint64_t UnserializeRegister(RegType type, const void* data, size_t size)
         case RT_INTEGER:
         {
             uint64_t value = EndianToInteger(data, size);
-#if defined(TARGET_MTALPHA) || defined(TARGET_MIPS32) || defined(TARGET_MIPS32EL)
-            // The Alpha and MIPS sign-extends 32-bits to 64-bits
+#if defined(TARGET_MTALPHA) || defined(TARGET_MIPS32) || defined(TARGET_MIPS32EL) || defined(TARGET_OR1K)
+            // The Alpha, OR1K and MIPS sign-extends 32-bits to 64-bits
             if (size == 4) {
                 // Sign-extend
                 value = (int64_t)(int32_t)(uint32_t)value;

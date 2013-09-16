@@ -366,15 +366,15 @@ AC_ARG_VAR([OBJDUMP_$2],
 
 enable_[$1]_tests=no
 enable_compiled_[$1]_tests=no
-
 have_[$1]_binutils=no
-AC_PATH_PROG([AS_$2], [$4-as], [no], [$prefix/bin$PATH_SEPARATOR$PATH])
-AC_PATH_PROG([LD_$2], [$4-ld], [no], [$prefix/bin$PATH_SEPARATOR$PATH])
-if test "x$AS_$2" != "xno" -a "x$LD_$2" != "xno"; then
-   have_[$1]_binutils=yes
-fi
 
 if test "x$target_cpu" = "x$1"; then
+
+  AC_PATH_PROG([AS_$2], [$4-as], [no], [$prefix/bin$PATH_SEPARATOR$PATH])
+  AC_PATH_PROG([LD_$2], [$4-ld], [no], [$prefix/bin$PATH_SEPARATOR$PATH])
+  if test "x$AS_$2" != "xno" -a "x$LD_$2" != "xno"; then
+    have_[$1]_binutils=yes
+  fi
 
   if test "x$have_[$1]_binutils" != xyes; then
      AC_MSG_WARN([Some $3 utilities are missing. Cannot run the $3 test suite.])
@@ -422,6 +422,7 @@ MGS_TARGET_CHECK([mtalpha], [MTALPHA], [MT-Alpha], [mtalpha-linux-gnu], [mta_n])
 MGS_TARGET_CHECK([mtsparc], [MTSPARC], [MT-SPARC], [mtsparc-linux-gnu], [mtsn_n])
 MGS_TARGET_CHECK([mips], [MIPS32], [MIPS (no MT)], [mips-linux-gnu], [mips_s])
 MGS_TARGET_CHECK([mipsel], [MIPS32EL], [MIPSel (no MT)], [mipsel-linux-gnu], [mipsel_s])
+MGS_TARGET_CHECK([or1k], [OR1K], [OpenRISC 1000 (no MT)], [or1knd-elf], [or1k_s])
 
 if test $target_found = no; then
   AC_MSG_ERROR([Unsupported simulated core model: $target_cpu (did you use --target?)])
@@ -459,6 +460,7 @@ cat <<EOF
 * MT-SPARC tests:         (asm) $enable_mtsparc_tests (compiled) $enable_compiled_mtsparc_tests
 * MIPS tests:             (asm) $enable_mips_tests (compiled) $enable_compiled_mips_tests
 * MIPSel tests:           (asm) $enable_mipsel_tests (compiled) $enable_compiled_mipsel_tests
+* OpenRISC tests:         (asm) $enable_or1k_tests (compiled) $enable_compiled_or1k_tests
 *
 * C++ compiler:           $CXX $CPPFLAGS $WARN_CXXFLAGS $AM_CXXFLAGS $CXXFLAGS $LDFLAGS
 * Destination dir:        $prefix
