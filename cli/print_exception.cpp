@@ -20,9 +20,9 @@ void PrintException(Simulator::MGSystem *sys, ostream& out, const exception& e)
         {
             // We avoid printing the backtrace when receiving an exception
             // for normal program termination.
-            assert(sys != NULL);
-            sys->Disassemble(se->GetPC());
+            if (sys != NULL)
+                // Only disassemble if there is a system to do so.
+                sys->Disassemble(se->GetPC());
         }
     }
 }
-
