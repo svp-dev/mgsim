@@ -33,7 +33,7 @@ Simulation kernel interface
 The kernel interface is organized as follows:
 
 - the component uses one or more instances of ``Simulation::Process`` (``<sim/kernel.h>``);
-- each ``Process`` is instantiated connected to a callback method via ``delegate::create``;
+- each ``Process`` is instantiated and connected to a callback method via ``delegate::create``;
 - each ``Process`` is also connected to a "storage" (latch / flag / FIFO etc) which only *activate*
   the process if there is some data in the storage;
 - at each cycle, the kernel calls the delegate method of each *active* process 3 times:
