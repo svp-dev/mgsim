@@ -743,7 +743,11 @@ bool Allocator::ActivateFamily(LFID fid)
         ++m_numCreatedFamilies;
     }
 
-    m_alloc.Push(fid);
+    if (!m_alloc.Push(fid))
+    {
+        DeadlockWrite("Unable to queue created family F%u for thread allocation", (unsigned)fid);
+        return false;
+    }
     return true;
 }
 
