@@ -311,9 +311,9 @@ void DRISC::Initialize()
     m_allocator.p_ThreadAllocate.SetStorageTraces(
         /* THREADDEP_PREV_CLEANED_UP */ (opt(m_allocator.m_cleanup) *
         /* FAMDEP_THREAD_COUNT */        opt(m_network.m_link.out ^ m_network.m_syncs ^
-        /* AllocateThread */                 m_allocator.m_readyThreads2)) ^
+        /* AllocateThread */                 m_allocator.m_readyThreadsOther)) ^
         /* FAMDEP_ALLOCATION_DONE */    (opt(m_network.m_link.out ^ m_network.m_syncs) *
-        /* AllocateThread */             opt(m_allocator.m_readyThreads2)) );
+        /* AllocateThread */             opt(m_allocator.m_readyThreadsOther)) );
 
     m_allocator.p_FamilyAllocate.SetStorageTraces(
         m_network.m_allocResponse.out ^ m_allocator.m_creates ^ m_network.m_link.out ^ DELEGATE * opt(DELEGATE) );
@@ -335,12 +335,12 @@ void DRISC::Initialize()
     // m_icache.p_Outgoing is set in the memory
 
     m_dcache.p_WriteResponses.SetStorageTraces(
-        /* Writes */    opt(m_allocator.m_readyThreads2) ^ opt(m_allocator.m_cleanup) );
+        /* Writes */    opt(m_allocator.m_readyThreadsOther) ^ opt(m_allocator.m_cleanup) );
 
     m_dcache.p_ReadResponses.SetStorageTraces(opt(m_dcache.m_writebacks));
 
     m_dcache.p_ReadWritebacks.SetStorageTraces(
-        /* Thread wakeup */ opt(m_allocator.m_readyThreads2) *
+        /* Thread wakeup */ opt(m_allocator.m_readyThreadsOther) *
         /* Family sync */   opt(m_network.m_link.out ^ m_network.m_syncs) );
 
     // m_dcache.p_Outgoing is set in the memory
@@ -348,9 +348,9 @@ void DRISC::Initialize()
     StorageTraceSet pls_writeback =
         opt(DELEGATE) *
         opt(m_allocator.m_bundle ^ /* FIXME: is the bundle creation buffer really involved here? */
-            (m_allocator.m_readyThreads1 * m_allocator.m_cleanup) ^
+            (m_allocator.m_readyThreadsPipe * m_allocator.m_cleanup) ^
             m_allocator.m_cleanup ^
-            m_allocator.m_readyThreads1);
+            m_allocator.m_readyThreadsPipe);
     StorageTraceSet pls_memory =
         m_dcache.m_outgoing;
 
@@ -392,10 +392,10 @@ void DRISC::Initialize()
         /* MSG_SYNC */              opt(m_network.m_link.out ^ m_network.m_syncs) ^
         /* MSG_DETACH */            opt(m_network.m_link.out) ^
         /* MSG_BREAK */             (opt(m_network.m_link.out ^ m_network.m_syncs) * opt(m_network.m_link.out)) ^
-        /* MSG_RAW_REGISTER */      m_allocator.m_readyThreads2 ^
+        /* MSG_RAW_REGISTER */      m_allocator.m_readyThreadsOther ^
         /* RRT_LAST_SHARED */       (DELEGATE) ^
-        /* RRT_FIRST_DEPENDENT */   (m_allocator.m_readyThreads2) ^
-        /* RRT_GLOBAL */            (m_allocator.m_readyThreads2 * opt(m_network.m_link.out))
+        /* RRT_FIRST_DEPENDENT */   (m_allocator.m_readyThreadsOther) ^
+        /* RRT_GLOBAL */            (m_allocator.m_readyThreadsOther * opt(m_network.m_link.out))
         );
 
     m_network.p_Link.SetStorageTraces(
@@ -407,7 +407,7 @@ void DRISC::Initialize()
         /* MSG_DONE */              opt(m_network.m_link.out ^ m_network.m_syncs) ^
         /* MSG_SYNC */              opt(m_network.m_link.out ^ m_network.m_syncs) ^
         /* MSG_DETACH */            opt(m_network.m_link.out) ^
-        /* MSG_GLOBAL */            (m_allocator.m_readyThreads2 * opt(m_network.m_link.out)) ^
+        /* MSG_GLOBAL */            (m_allocator.m_readyThreadsOther * opt(m_network.m_link.out)) ^
         /* MSG_BREAK */             (opt(m_network.m_link.out ^ m_network.m_syncs) * opt(m_network.m_link.out))
         );
 
@@ -433,8 +433,8 @@ void DRISC::Initialize()
     {
         // Asynchronous events from the I/O network can wake up / terminate threads
         // due to a register write.
-        m_io_if->GetReadResponseMultiplexer().p_IncomingReadResponses.SetStorageTraces(opt(m_allocator.m_readyThreads2) ^ opt(m_allocator.m_cleanup));
-        m_io_if->GetNotificationMultiplexer().p_IncomingNotifications.SetStorageTraces(opt(m_allocator.m_readyThreads2) ^ opt(m_allocator.m_cleanup));
+        m_io_if->GetReadResponseMultiplexer().p_IncomingReadResponses.SetStorageTraces(opt(m_allocator.m_readyThreadsOther) ^ opt(m_allocator.m_cleanup));
+        m_io_if->GetNotificationMultiplexer().p_IncomingNotifications.SetStorageTraces(opt(m_allocator.m_readyThreadsOther) ^ opt(m_allocator.m_cleanup));
     }
 }
 

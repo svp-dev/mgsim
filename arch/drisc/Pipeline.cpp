@@ -114,7 +114,7 @@ void Pipeline::ConnectFPU(FPU* fpu)
     assert(fpu != NULL);
     auto& cpu = GetDRISC();
     size_t fpu_client_id = fpu->RegisterSource(cpu.GetRegisterFile(),
-                                               cpu.GetAllocator().m_readyThreads2);
+                                               cpu.GetAllocator().m_readyThreadsOther);
     ExecuteStage &e = dynamic_cast<ExecuteStage&>(*m_stages[3].stage);
     e.ConnectFPU(fpu, fpu_client_id);
 }

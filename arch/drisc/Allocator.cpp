@@ -185,17 +185,19 @@ bool Allocator::ActivateThreads(const ThreadQueue& threads)
     if (dynamic_cast<const Pipeline*>(GetKernel()->GetActiveProcess()->GetObject()) != NULL)
     {
         // Request comes from the pipeline, use the first list
-        list = &m_readyThreads1;
+        list = &m_readyThreadsPipe;
     }
     else
     {
         // Request comes from something else, arbitrate and use the second list
+        // Something else = either Allocator (DoThreadAllocate), DCache (DoWriteResponses)
+        // or other processes via RegisterFile::WriteRegister
         if (!p_readyThreads.Invoke())
         {
             DeadlockWrite("Unable to acquire arbitrator for Ready Queue");
             return false;
         }
-        list = &m_readyThreads2;
+        list = &m_readyThreadsOther;
     }
 
     if (!QueueThreads(*list, threads, TST_READY))
@@ -1855,15 +1857,15 @@ Result Allocator::DoFamilyCreate()
 Result Allocator::DoThreadActivation()
 {
     TID tid;
-    if ((m_prevReadyList == &m_readyThreads2 || m_readyThreads2.Empty()) && !m_readyThreads1.Empty()) {
-        tid = m_readyThreads1.Front();
-        m_readyThreads1.Pop();
-        COMMIT{ m_prevReadyList = &m_readyThreads1; }
+    if ((m_prevReadyList == &m_readyThreadsOther || m_readyThreadsOther.Empty()) && !m_readyThreadsPipe.Empty()) {
+        tid = m_readyThreadsPipe.Front();
+        m_readyThreadsPipe.Pop();
+        COMMIT{ m_prevReadyList = &m_readyThreadsPipe; }
     } else {
-        assert(!m_readyThreads2.Empty());
-        tid = m_readyThreads2.Front();
-        m_readyThreads2.Pop();
-        COMMIT{ m_prevReadyList = &m_readyThreads2; }
+        assert(!m_readyThreadsOther.Empty());
+        tid = m_readyThreadsOther.Front();
+        m_readyThreadsOther.Pop();
+        COMMIT{ m_prevReadyList = &m_readyThreadsOther; }
     }
     COMMIT{ --m_numThreadsPerState[TST_READY]; }
 
@@ -1979,8 +1981,8 @@ Allocator::Allocator(const string& name, DRISC& parent, Clock& clock, Config& co
     m_cleanup       ("b_cleanup",        *this, clock, config.getValueOrDefault<BufferSize>(*this, "ThreadCleanupQueueSize", m_threadTable.GetNumThreads()), 4),
     m_createState   (CREATE_INITIAL),
     m_createLine    (0),
-    m_readyThreads1 ("q_readyThreads1", *this, clock, m_threadTable),
-    m_readyThreads2 ("q_readyThreads2", *this, clock, m_threadTable),
+    m_readyThreadsPipe ("q_readyThreadsPipe", *this, clock, m_threadTable),
+    m_readyThreadsOther ("q_readyThreadsOther", *this, clock, m_threadTable),
     m_prevReadyList (NULL),
 
     m_allocRequestsSuspend  ("b_allocRequestsSuspend",   *this, clock, config.getValue<BufferSize>(*this, "FamilyAllocationSuspendQueueSize")),
@@ -2008,8 +2010,8 @@ Allocator::Allocator(const string& name, DRISC& parent, Clock& clock, Config& co
     m_alloc         .Sensitive(p_ThreadAllocate);
     m_creates       .Sensitive(p_FamilyCreate);
     m_cleanup       .Sensitive(p_ThreadAllocate);
-    m_readyThreads1 .Sensitive(p_ThreadActivation);
-    m_readyThreads2 .Sensitive(p_ThreadActivation);
+    m_readyThreadsPipe .Sensitive(p_ThreadActivation);
+    m_readyThreadsOther .Sensitive(p_ThreadActivation);
     m_activeThreads .Sensitive(m_pipeline.p_Pipeline); // Fetch Stage is sensitive on this list
 
     m_allocRequestsSuspend  .Sensitive(p_FamilyAllocate);
