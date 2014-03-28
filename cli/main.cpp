@@ -389,6 +389,27 @@ int main(int argc, char** argv)
         return 1;
     }
 
+    ////
+    // Initialize the random seed.
+    // We place it in the configuration, so that dumpConfiguration below
+    // can print it too (for reproducability).
+    try
+    {
+        (void)config->getValue<string>("RandomSeed");
+    }
+    catch (const exception& e)
+    {
+        // Not in configuration(yet)
+        char s[20];
+        snprintf(s, 20, "%u", (unsigned)time(NULL));
+        flags.m_overrides.append("RandomSeed", s);
+    }
+    {
+        unsigned seed = config->getValue<unsigned>("RandomSeed");
+        clog << "### random seed: " << seed << endl;
+        srand(seed);
+    }
+
     if (flags.m_dumpconf)
     {
         // Printing the configuration if requested. We need to
@@ -397,8 +418,6 @@ int main(int argc, char** argv)
         clog << "### simulator version: " PACKAGE_VERSION << endl;
         config->dumpConfiguration(clog, flags.m_configFile);
     }
-
-    srand(config->getValueOrDefault<unsigned>("RandomSeed", (unsigned)time(NULL)));
 
 
     ////
