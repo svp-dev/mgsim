@@ -299,8 +299,6 @@ extern "C"
 #endif
 int main(int argc, char** argv)
 {
-    srand(time(NULL));
-
     std::set_new_handler(MemoryExhausted);
 
     ProgramConfig flags;
@@ -399,6 +397,9 @@ int main(int argc, char** argv)
         clog << "### simulator version: " PACKAGE_VERSION << endl;
         config->dumpConfiguration(clog, flags.m_configFile);
     }
+
+    srand(config->getValueOrDefault<unsigned>("RandomSeed", (unsigned)time(NULL)));
+
 
     ////
     // Construct the simulator.
