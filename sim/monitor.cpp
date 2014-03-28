@@ -99,7 +99,7 @@ Monitor::Monitor(Simulator::MGSystem& sys, bool enabled, const string& mdfile, c
     m_monitorthread = new std::thread(runmonitor, this);
 
 #ifndef CAN_USE_SIGMASK_ON_STD_THREAD
-    clog << "#warning: cannot mask signals on monitor thread."
+    clog << "#warning: cannot mask signals on monitor thread." << endl;
 #endif
 }
 
