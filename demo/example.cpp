@@ -1,9 +1,11 @@
-// Includes necessary for the simulation kernel and initialization:
 #include "demo/tinysim.h"
 #include "demo/memclient.h"
+#include "demo/prodcons.h"
 
-// Memory system(s) to use:
 #include "arch/mem/SerialMemory.h"
+
+#include <cstdlib>
+
 
 // An example test program:
 int main(int argc, char *argv[])
@@ -13,7 +15,9 @@ int main(int argc, char *argv[])
 	std::cerr << "usage: " << argv[0] << " <path-to-ini-file> <demoname>" << std::endl
 		  << std::endl
 		  << "Supported demos:" << std::endl
-		  << "   memory      Demonstrate the memory subsystem with a serial memory." << std::endl;
+		  << "   memory          Demo of the memory subsystem with a serial memory." << std::endl
+		  << "   prodcons N M S  Demo a producer-consumer with a buffer of size S" << std::endl
+		  << "                   and frequency ratio N/M." << std::endl;
 	return 0;
     }
     MGSim env(argv[1]);
@@ -22,18 +26,35 @@ int main(int argc, char *argv[])
     // To show the configuration found so far: env.cfg->dumpConfiguration(std::cerr, argv[1]);
 
     std::cout << "Initializing the '" << demo << "' demo..." << std::endl;
-    if (demo == "memory")
+    if (demo == "prodcons")
+    {
+	size_t f1 = 1, f2 = 1, sz = 1;
+	if (argc > 3)
+	    f1 = atoi(argv[3]);
+	if (argc > 4)
+	    f2 = atoi(argv[4]);
+	if (argc > 5)
+	    sz = atoi(argv[5]);
+
+	auto& c1 = env.k.CreateClock(f1);
+	auto root = new Simulator::Object("", c1);
+	auto& c2 = env.k.CreateClock(f2);
+
+	auto cons = new ExampleConsumer("cons", *root, c1, sz);
+	auto prod = new ExampleProducer("prod", *root, c2, *cons);
+    }
+    else if (demo == "memory")
     {
 	// Set up a clock and top-leval object
 	size_t freq = env.cfg->getValue<size_t>("MemoryFreq");
-	Simulator::Clock& clock = env.k.CreateClock(freq);
-	Simulator::Object root("", clock);
+	auto& clock = env.k.CreateClock(freq);
+	auto root = new Simulator::Object("", clock);
 
 	// Instantiate a memory system
-	Simulator::SerialMemory* mem = new Simulator::SerialMemory("memory", root, clock, *env.cfg);
+	auto mem = new Simulator::SerialMemory("memory", *root, clock, *env.cfg);
 
 	// Instantiate a memory client
-	ExampleMemClient *c = new ExampleMemClient("test", root, clock, *env.cfg);
+	auto c = new ExampleMemClient("test", *root, clock, *env.cfg);
 
 	// Connect the client to memory
 	c->ConnectMemory(mem);

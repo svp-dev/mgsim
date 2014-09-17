@@ -3,6 +3,8 @@ DEMO_SRC = \
 	demo/tinysim.cpp \
 	demo/memclient.h \
 	demo/memclient.cpp \
+	demo/prodcons.h \
+	demo/prodcons.cpp \
 	demo/example.cpp
 
 DEMO_SOURCES = $(DEMO_SRC)
