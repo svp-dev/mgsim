@@ -3,6 +3,8 @@ DEMO_SRC = \
 	demo/tinysim.cpp \
 	demo/memclient.h \
 	demo/memclient.cpp \
+	demo/prodcons2.h \
+	demo/prodcons2.cpp \
 	demo/prodcons.h \
 	demo/prodcons.cpp \
 	demo/example.cpp

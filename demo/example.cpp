@@ -1,6 +1,7 @@
 #include "demo/tinysim.h"
 #include "demo/memclient.h"
 #include "demo/prodcons.h"
+#include "demo/prodcons2.h"
 
 #include "arch/mem/SerialMemory.h"
 
@@ -42,6 +43,31 @@ int main(int argc, char *argv[])
 
 	auto cons = new ExampleConsumer("cons", *root, c1, sz);
 	auto prod = new ExampleProducer("prod", *root, c2, *cons);
+    }
+    if (demo == "prodcons2")
+    {
+	size_t f1 = 1, f2 = 1, sz = 0;
+	if (argc > 3)
+	    f1 = atoi(argv[3]);
+	if (argc > 4)
+	    f2 = atoi(argv[4]);
+	if (argc > 5)
+	    sz = atoi(argv[5]);
+
+	auto& c1 = env.k.CreateClock(f1);
+	auto root = new Simulator::Object("", c1);
+	auto& c2 = env.k.CreateClock(f2);
+
+	auto cons = new ExampleConsumer2("cons", *root, c1);
+	auto prod = new ExampleProducer2("prod", *root, c2);
+	Simulator::Connector *c;
+	if (sz > 0)
+	    c = new Simulator::BufferedConnector<int>("buf", *root, c1, sz);
+	else
+	    c = new Simulator::DirectConnector();
+	c->Connect(*cons);
+	c->Connect(*prod);
+	c->Initialize();
     }
     else if (demo == "memory")
     {
