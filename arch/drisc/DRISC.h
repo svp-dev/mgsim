@@ -25,18 +25,20 @@
 #include "Pipeline.h"
 
 class Config;
+class BreakPointManager;
 
 namespace Simulator
 {
 
-#define GetDRISC() (dynamic_cast<DRISC&>(GetDRISCParent()))
+#define GetDRISC() (static_cast<DRISC&>(GetDRISCParent()))
 
 class DRISC : public Object
 {
 public:
     class Allocator;
 
-    DRISC(const std::string& name, Object& parent, Clock& clock, PID pid, const std::vector<DRISC*>& grid, Config& config);
+    DRISC(const std::string& name, Object& parent, Clock& clock, PID pid, const std::vector<DRISC*>& grid, 
+	  Config& config, BreakPointManager& bp);
     DRISC(const DRISC&) = delete;
     DRISC& operator=(const DRISC&) = delete;
     ~DRISC();
@@ -102,6 +104,7 @@ public:
     void UnmapMemory(ProcessID pid);
     bool CheckPermissions(MemAddr address, MemSize size, int access) const;
 
+    BreakPointManager& GetBreakPointManager() { return m_bp_manager; }
     drisc::Network& GetNetwork() { return m_network; }
     drisc::IOInterface* GetIOInterface() { return m_io_if; }
     drisc::RegisterFile& GetRegisterFile() { return m_registerFile; }
@@ -116,6 +119,7 @@ public:
     SymbolTable& GetSymbolTable() { return *m_symtable; }
 
 private:
+    BreakPointManager&             m_bp_manager;
     IMemory*                       m_memory;
     IMemoryAdmin*                  m_memadmin;
     const std::vector<DRISC*>&     m_grid;

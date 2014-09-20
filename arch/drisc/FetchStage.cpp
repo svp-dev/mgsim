@@ -43,7 +43,7 @@ Pipeline::PipeAction Pipeline::FetchStage::OnCycle()
         {
             // We need to check for breakpoints on the control
             // word here.
-            GetKernel()->GetBreakPointManager().Check(BreakPointManager::FETCH, pc, *this);
+            GetDRISC().GetBreakPointManager().Check(BreakPointManager::FETCH, pc, *this);
 
             // Skip the control word
             pc += sizeof(Instruction);
@@ -132,7 +132,7 @@ Pipeline::PipeAction Pipeline::FetchStage::OnCycle()
         }
 
         // Check for breakpoints
-        GetKernel()->GetBreakPointManager().Check(BreakPointManager::FETCH, pc, *this);
+        GetDRISC().GetBreakPointManager().Check(BreakPointManager::FETCH, pc, *this);
 
         // Update the PC and switched state
         m_pc       = next_pc;

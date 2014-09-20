@@ -37,9 +37,9 @@ int main(int argc, char *argv[])
 	if (argc > 5)
 	    sz = atoi(argv[5]);
 
-	auto& c1 = env.k.CreateClock(f1);
+	auto& c1 = env.k->CreateClock(f1);
 	auto root = new Simulator::Object("", c1);
-	auto& c2 = env.k.CreateClock(f2);
+	auto& c2 = env.k->CreateClock(f2);
 
 	auto cons = new ExampleConsumer("cons", *root, c1, sz);
 	auto prod = new ExampleProducer("prod", *root, c2, *cons);
@@ -54,9 +54,9 @@ int main(int argc, char *argv[])
 	if (argc > 5)
 	    sz = atoi(argv[5]);
 
-	auto& c1 = env.k.CreateClock(f1);
+	auto& c1 = env.k->CreateClock(f1);
 	auto root = new Simulator::Object("", c1);
-	auto& c2 = env.k.CreateClock(f2);
+	auto& c2 = env.k->CreateClock(f2);
 
 	auto cons = new ExampleConsumer2("cons", *root, c1);
 	auto prod = new ExampleProducer2("prod", *root, c2);
@@ -73,7 +73,7 @@ int main(int argc, char *argv[])
     {
 	// Set up a clock and top-leval object
 	size_t freq = env.cfg->getValue<size_t>("MemoryFreq");
-	auto& clock = env.k.CreateClock(freq);
+	auto& clock = env.k->CreateClock(freq);
 	auto root = new Simulator::Object("", clock);
 
 	// Instantiate a memory system
@@ -97,8 +97,8 @@ int main(int argc, char *argv[])
 
     // Global simulation loop: simulate 100 cycles
     try {
-        env.DoSteps(100);
-	std::cout << "Simulation completed, " << env.k.GetCycleNo() << " cycles elapsed." << std::endl;
+        env.DoSteps(100000);
+	std::cout << "Simulation completed, " << env.k->GetCycleNo() << " cycles elapsed." << std::endl;
     }
     catch (const std::exception& e) {
         // Standard exception message

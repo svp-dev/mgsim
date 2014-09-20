@@ -2,10 +2,17 @@
 #include "sim/configparser.h"
 #include "sim/except.h"
 #include "sim/readfile.h"
+#include "sim/unreachable.h"
 
 MGSim::MGSim(const char* conf)
-    : overrides(), extras(), cfg(0), k(bps), bps(k, 0)
+    : overrides(), extras(), cfg(0), k(0)
 {
+#ifdef STATIC_KERNEL
+    Simulator::Kernel::InitGlobalKernel();
+    k = &Simulator::Kernel::GetGlobalKernel();
+#else
+    k = new Simulator::Kernel();
+#endif
     ConfigMap defaults;
     ConfigParser parser(defaults);
     parser(read_file(conf));
@@ -16,21 +23,12 @@ void MGSim::DoSteps(Simulator::CycleNo nCycles)
 {
     using namespace Simulator;
 
-    bps.Resume();
-    RunState state = k.Step(nCycles);
+    RunState state = k->Step(nCycles);
     switch(state)
     {
     case STATE_ABORTED:
-        if (bps.NewBreaksDetected())
-        {
-            std::ostringstream ss;
-            bps.ReportBreaks(ss);
-            throw std::runtime_error(ss.str());
-        }
-        else
-            // The simulation was aborted, because the user interrupted it.
-            throw std::runtime_error("Interrupted!");
-        break;
+	// The simulation was aborted, because the user interrupted it.
+	throw std::runtime_error("Interrupted!");
 
     case STATE_IDLE:
         // An idle state might actually be deadlock if there's a
@@ -52,7 +50,7 @@ void MGSim::DoSteps(Simulator::CycleNo nCycles)
         // either there are no processes at all, or they are all
         // stalled. Deadlock only exists in the latter case, so
         // we only check for the existence of an active process.
-        for (const Clock* clock = k.GetActiveClocks(); clock != NULL; clock = clock->GetNext())
+        for (const Clock* clock = k->GetActiveClocks(); clock != NULL; clock = clock->GetNext())
         {
             if (clock->GetActiveProcesses() != NULL)
             {
@@ -65,13 +63,13 @@ void MGSim::DoSteps(Simulator::CycleNo nCycles)
     case STATE_DEADLOCK:
     deadlock:
     {
-        std::cerr << "Deadlock at cycle " << k.GetCycleNo()
+        std::cerr << "Deadlock at cycle " << k->GetCycleNo()
                   << "; replaying the last cycle:" << std::endl;
 
-        int savemode = k.GetDebugMode();
-        k.SetDebugMode(-1);
-        (void) k.Step(1);
-        k.SetDebugMode(savemode);
+        int savemode = k->GetDebugMode();
+        k->SetDebugMode(-1);
+        (void) k->Step(1);
+        k->SetDebugMode(savemode);
 
         std::ostringstream ss;
         ss << "Stalled processes:" << std::endl;
@@ -79,7 +77,7 @@ void MGSim::DoSteps(Simulator::CycleNo nCycles)
         // See how many processes are in each of the states
         unsigned int num_stalled = 0, num_running = 0;
 
-        for (const Clock* clock = k.GetActiveClocks(); clock != NULL; clock = clock->GetNext())
+        for (const Clock* clock = k->GetActiveClocks(); clock != NULL; clock = clock->GetNext())
         {
             for (const Process* process = clock->GetActiveProcesses(); process != NULL; process = process->GetNext())
             {
@@ -100,7 +98,7 @@ void MGSim::DoSteps(Simulator::CycleNo nCycles)
         }
 
         ss << std::endl
-           << "Deadlock! (at cycle " << k.GetCycleNo() << ')' << std::endl
+           << "Deadlock! (at cycle " << k->GetCycleNo() << ')' << std::endl
            << "(" << num_stalled << " processes stalled;  " << num_running << " processes running)";
         throw DeadlockException(ss.str());
         UNREACHABLE;

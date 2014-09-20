@@ -66,7 +66,11 @@ Process::~Process()
 // Object class
 //
 Object::Object(const std::string& name, Clock& clock)
-    : m_parent(NULL), m_name(name), m_fqn(name), m_clock(clock), m_kernel(clock.GetKernel()), m_children()
+    : m_parent(NULL), m_name(name), m_fqn(name), m_clock(clock), 
+#ifndef STATIC_KERNEL
+      m_kernel(clock.GetKernel()), 
+#endif
+      m_children()
 {
 }
 
@@ -79,7 +83,9 @@ Object::Object(const std::string& name, Object& parent, Clock& clock)
       m_name(name),
       m_fqn(parent.GetFQN().empty() ? name : (parent.GetFQN() + '.' + name)),
       m_clock(clock),
+#ifndef STATIC_KERNEL
       m_kernel(clock.GetKernel()),
+#endif
       m_children()
 {
     // Add ourself to the parent's children array
@@ -106,7 +112,7 @@ void Object::OutputWrite_(const char* msg, ...) const
 {
     va_list args;
 
-    fprintf(stderr, "[%08lld:%s]\t\to ", (unsigned long long)m_kernel.GetCycleNo(), GetFQN().c_str());
+    fprintf(stderr, "[%08lld:%s]\t\to ", (unsigned long long)GetKernel()->GetCycleNo(), GetFQN().c_str());
     va_start(args, msg);
     vfprintf(stderr, msg, args);
     va_end(args);
@@ -117,7 +123,8 @@ void Object::DeadlockWrite_(const char* msg, ...) const
 {
     va_list args;
 
-    fprintf(stderr, "[%08lld:%s]\t(%s)\td ", (unsigned long long)m_kernel.GetCycleNo(), GetFQN().c_str(), m_kernel.GetActiveProcess()->GetName().c_str());
+    fprintf(stderr, "[%08lld:%s]\t(%s)\td ", (unsigned long long)GetKernel()->GetCycleNo(), GetFQN().c_str(), 
+	    GetKernel()->GetActiveProcess()->GetName().c_str());
     va_start(args, msg);
     vfprintf(stderr, msg, args);
     va_end(args);
@@ -128,8 +135,8 @@ void Object::DebugSimWrite_(const char* msg, ...) const
 {
     va_list args;
 
-    fprintf(stderr, "[%08lld:%s]\t", (unsigned long long)m_kernel.GetCycleNo(), GetFQN().c_str());
-    const Process *p = m_kernel.GetActiveProcess();
+    fprintf(stderr, "[%08lld:%s]\t", (unsigned long long)GetKernel()->GetCycleNo(), GetFQN().c_str());
+    const Process *p = GetKernel()->GetActiveProcess();
     if (p)
         fprintf(stderr, "(%s)", p->GetName().c_str());
     fputc('\t', stderr);
@@ -142,6 +149,11 @@ void Object::DebugSimWrite_(const char* msg, ...) const
 //
 // Kernel class
 //
+
+#ifdef STATIC_KERNEL
+Kernel* Kernel::g_kernel = 0;
+#endif
+
 void Kernel::Abort()
 {
     m_aborted = true;
@@ -465,7 +477,7 @@ void Clock::ActivateProcess(Process& process)
         m_activeProcesses = &process;
         process.m_state = STATE_ACTIVE;
 
-        m_kernel.ActivateClock(*this);
+        GetKernel().ActivateClock(*this);
     }
 }
 
@@ -479,10 +491,9 @@ void Kernel::ToggleDebugMode(int flags)
     m_debugMode ^= flags;
 }
 
-Kernel::Kernel(BreakPointManager& breakpoints)
+Kernel::Kernel()
  : m_lastsuspend((CycleNo)-1),
    m_cycle(0),
-   m_bp_manager(breakpoints),
    m_master_freq(0),
    m_process(NULL),
    m_clocks(),

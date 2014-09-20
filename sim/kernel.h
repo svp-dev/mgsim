@@ -39,7 +39,9 @@ class Clock
 {
     friend class Kernel;
 
+#ifndef STATIC_KERNEL
     Kernel&            m_kernel;      ///< The kernel that controls this clock and all components based off it
+#endif
     unsigned long long m_frequency;   ///< Frequency of this clock, in MHz
     unsigned long long m_period;      ///< No. master-cycles per tick of this clock.
     Clock*             m_next;        ///< Next clock to run
@@ -53,15 +55,27 @@ class Clock
 
     Clock(const Clock& clock) = delete; // No copying
 
-    Clock(Kernel& kernel, unsigned long long frequency, unsigned long long period)
-      : m_kernel(kernel),
+    Clock(Kernel&
+#ifndef STATIC_KERNEL
+	  kernel
+#endif
+	  , unsigned long long frequency, unsigned long long period)
+      :
+#ifndef STATIC_KERNEL
+        m_kernel(kernel),
+#endif
         m_frequency(frequency), m_period(period), m_next(NULL), m_cycle(0),
         m_activeProcesses(NULL), m_activeStorages(NULL), m_activeArbitrators(NULL),
         m_activated(false)
     {}
 
 public:
-    Kernel& GetKernel() { return m_kernel; }
+#ifdef STATIC_KERNEL
+	static Kernel& GetKernel();
+#else
+	Kernel& GetKernel() { return m_kernel; }
+	const Kernel& GetKernel() const { return m_kernel; }
+#endif
 
     /// Used for iterating through active clocks
     const Clock* GetNext() const { return m_next; }
@@ -248,7 +262,6 @@ public:
 private:
     CycleNo             m_lastsuspend;  ///< Avoid suspending twice on the same cycle.
     CycleNo             m_cycle;        ///< Current cycle of the simulation.
-    BreakPointManager&  m_bp_manager;   ///< The breakpoint checker for debugging.
     unsigned long long  m_master_freq;  ///< Master frequency
     Process*            m_process;      ///< The currently executing process.
     std::vector<Clock*> m_clocks;       ///< All clocks in the system.
@@ -261,8 +274,16 @@ private:
 
     bool UpdateStorages();
 
+#ifdef STATIC_KERNEL
+    static Kernel* g_kernel;
 public:
-    Kernel(BreakPointManager& breakpoints);
+    static inline void InitGlobalKernel() { assert(g_kernel == NULL); g_kernel = new Kernel(); }
+    static inline Kernel& GetGlobalKernel() { return *g_kernel; }
+private:
+#endif
+
+public:
+    Kernel();
     ~Kernel();
 
     Kernel(const Kernel&) = delete; // No copy.
@@ -345,27 +366,25 @@ public:
      * will resume the simulation.
      */
     void Stop();
-
-    /**
-     * @brief Get all components.
-     * Gets the list of all components in the simulation.
-     * @return a constant reference to the list of all components.
-     */
-        //const ComponentList& GetComponents() const { return m_components; }
-
-    inline BreakPointManager& GetBreakPointManager() const { return m_bp_manager; }
 };
+
+#ifdef STATIC_KERNEL
+inline Kernel& Clock::GetKernel()
+{
+    return Kernel::GetGlobalKernel();
+}
+#endif
 
 inline CycleNo Clock::GetCycleNo() const
 {
-    return m_kernel.GetCycleNo() / m_period;
+    return GetKernel().GetCycleNo() / m_period;
 }
 
 inline Storage* Clock::ActivateStorage(Storage& storage)
 {
     Storage* next = m_activeStorages;
     m_activeStorages = &storage;
-    m_kernel.ActivateClock(*this);
+    GetKernel().ActivateClock(*this);
     return next;
 }
 
@@ -373,7 +392,7 @@ inline Arbitrator* Clock::ActivateArbitrator(Arbitrator& arbitrator)
 {
     Arbitrator* next = m_activeArbitrators;
     m_activeArbitrators = &arbitrator;
-    m_kernel.ActivateClock(*this);
+    GetKernel().ActivateClock(*this);
     return next;
 }
 
@@ -390,7 +409,9 @@ class Object
     std::string          m_name;        ///< Object name.
     std::string          m_fqn;         ///< Full object name.
     Clock&               m_clock;       ///< Clock that drives this object.
+#ifndef STATIC_KERNEL
     Kernel&              m_kernel;      ///< The kernel that manages this object.
+#endif
     std::vector<Object*> m_children;    ///< Children of this object
 
 public:
@@ -421,14 +442,19 @@ public:
     virtual ~Object();
 
     /// Check if the simulation is in the acquiring phase. @return true if the simulation is in the acquiring phase.
-    bool IsAcquiring()  const { return m_kernel.GetCyclePhase() == PHASE_ACQUIRE; }
+    bool IsAcquiring()  const { return GetKernel()->GetCyclePhase() == PHASE_ACQUIRE; }
     /// Check if the simulation is in the check phase. @return true if the simulation is in the check phase.
-    bool IsChecking()   const { return m_kernel.GetCyclePhase() == PHASE_CHECK;   }
+    bool IsChecking()   const { return GetKernel()->GetCyclePhase() == PHASE_CHECK;   }
     /// Check if the simulation is in the commit phase. @return true if the simulation is in the commit phase.
-    bool IsCommitting() const { return m_kernel.GetCyclePhase() == PHASE_COMMIT;  }
+    bool IsCommitting() const { return GetKernel()->GetCyclePhase() == PHASE_COMMIT;  }
 
     /// Get the kernel managing this object. @return the kernel managing this object.
-    Kernel*            GetKernel() const { return &m_kernel; }
+#ifdef STATIC_KERNEL
+    static Kernel* GetKernel() { return &Kernel::GetGlobalKernel(); }
+#else
+    Kernel* GetKernel() const { return &m_kernel; }
+#endif
+
     /// Get the clock that controls this object
     Clock&             GetClock() const { return m_clock; }
     /// Get the parent object. @return the parent object.

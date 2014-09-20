@@ -131,13 +131,13 @@ void GetComponents(map<string, Object*>& ret, Object *cur, const string& pat)
 map<string, Object*> MGSystem::GetComponents(const string& pat)
 {
     map<string, Object*> ret;
-    ::GetComponents(ret, &m_root, pat);
+    ::GetComponents(ret, m_root, pat);
 
     if (ret.empty())
     {
         // try to match with the system name inserted as prefix.
-        string syspat = m_root.GetName() + '.' + pat;
-        ::GetComponents(ret, &m_root, syspat);
+        string syspat = m_root->GetName() + '.' + pat;
+        ::GetComponents(ret, m_root, syspat);
     }
 
     return ret;
@@ -216,7 +216,7 @@ static void PrintComponents(ostream& out, const Object* cur, const string& inden
 
 void MGSystem::PrintComponents(ostream& out, const string& pat, size_t levels) const
 {
-    ::PrintComponents(out, &m_root, "", pat, levels, 0, false);
+    ::PrintComponents(out, m_root, "", pat, levels, 0, false);
 }
 
 static size_t CountComponents(const Object& obj)
@@ -431,7 +431,7 @@ void MGSystem::PrintMemoryStatistics(ostream& os) const {
 void MGSystem::PrintState(const vector<string>& /*unused*/) const
 {
     // This should be all non-idle processes
-    for (const Clock* clock = m_kernel.GetActiveClocks(); clock != NULL; clock = clock->GetNext())
+    for (const Clock* clock = GetKernel().GetActiveClocks(); clock != NULL; clock = clock->GetNext())
     {
         if (clock->GetActiveProcesses() != NULL || clock->GetActiveStorages() != NULL || clock->GetActiveArbitrators() != NULL)
         {
@@ -488,7 +488,7 @@ void MGSystem::PrintAllStatistics(ostream& os) const
 
     os << dec
        << GetKernel().GetCycleNo() << "\t# master cycle counter" << endl
-       << m_clock.GetCycleNo() << "\t# core cycle counter" << endl
+       << m_clock->GetCycleNo() << "\t# core cycle counter" << endl
        << GetOp() << "\t# total executed instructions" << endl
        << GetFlop() << "\t# total issued fp instructions" << endl
        << ru.GetUserTime() << "\t# total real time in user mode (us)" << endl
@@ -535,7 +535,7 @@ void MGSystem::Step(CycleNo nCycles)
         // either there are no processes at all, or they are all
         // stalled. Deadlock only exists in the latter case, so
         // we only check for the existence of an active process.
-        for (const Clock* clock = m_kernel.GetActiveClocks(); clock != NULL; clock = clock->GetNext())
+        for (const Clock* clock = GetKernel().GetActiveClocks(); clock != NULL; clock = clock->GetNext())
         {
             if (clock->GetActiveProcesses() != NULL)
             {
@@ -561,7 +561,7 @@ void MGSystem::Step(CycleNo nCycles)
         // See how many processes are in each of the states
         unsigned int num_stalled = 0, num_running = 0;
 
-        for (const Clock* clock = m_kernel.GetActiveClocks(); clock != NULL; clock = clock->GetNext())
+        for (const Clock* clock = GetKernel().GetActiveClocks(); clock != NULL; clock = clock->GetNext())
         {
             for (const Process* process = clock->GetActiveProcesses(); process != NULL; process = process->GetNext())
             {
@@ -593,7 +593,7 @@ void MGSystem::Step(CycleNo nCycles)
         }
 
         ss << endl
-           << "Deadlock! (at cycle " << m_kernel.GetCycleNo() << ')' << endl
+           << "Deadlock! (at cycle " << GetKernel().GetCycleNo() << ')' << endl
            << "(" << num_stalled << " processes stalled;  " << num_running << " processes running; "
            << num_regs << " registers waited on)";
         throw DeadlockException(ss.str());
@@ -619,21 +619,30 @@ void MGSystem::Disassemble(MemAddr addr, size_t sz) const
 }
 
 MGSystem::MGSystem(Config& config, bool quiet)
-    : m_kernel(m_breakpoints),
-      m_clock(m_kernel.CreateClock(config.getValue<unsigned long>("CoreFreq"))),
-      m_root("", m_clock),
+    :
+#ifndef STATIC_KERNEL
+      m_kernel(),
+#endif
+      m_clock(0),
+      m_root(0),
       m_procs(),
       m_fpus(),
       m_iobuses(),
       m_devices(),
       m_symtable(),
-      m_breakpoints(m_kernel),
+      m_breakpoints(),
       m_memory(0),
       m_objdump_cmd(),
       m_config(config),
       m_bootrom(0),
       m_selector(0)
 {
+#ifdef STATIC_KERNEL
+    Kernel::InitGlobalKernel();
+#endif
+    m_clock = &GetKernel().CreateClock(config.getValue<unsigned long>("CoreFreq"));
+    m_root = new Object("", *m_clock);
+    m_breakpoints.AttachKernel(GetKernel());
 
     if (!quiet)
     {
@@ -651,55 +660,55 @@ MGSystem::MGSystem(Config& config, bool quiet)
     string memory_type = config.getValue<string>("MemoryType");
     transform(memory_type.begin(), memory_type.end(), memory_type.begin(), ::toupper);
 
-    Clock& memclock = m_kernel.CreateClock(config.getValue<size_t>("MemoryFreq"));
+    Clock& memclock = GetKernel().CreateClock(config.getValue<size_t>("MemoryFreq"));
 
     IMemoryAdmin *memadmin;
 
 #ifdef ENABLE_MEM_SERIAL
     if (memory_type == "SERIAL") {
-        SerialMemory* memory = new SerialMemory("memory", m_root, memclock, config);
+        SerialMemory* memory = new SerialMemory("memory", *m_root, memclock, config);
         memadmin = memory; m_memory = memory;
     } else
 #endif
 #ifdef ENABLE_MEM_PARALLEL
     if (memory_type == "PARALLEL") {
-        ParallelMemory* memory = new ParallelMemory("memory", m_root, memclock, config);
+        ParallelMemory* memory = new ParallelMemory("memory", *m_root, memclock, config);
         memadmin = memory; m_memory = memory;
     } else
 #endif
 #ifdef ENABLE_MEM_BANKED
     if (memory_type == "BANKED") {
-        BankedMemory* memory = new BankedMemory("memory", m_root, memclock, config, "DIRECT");
+        BankedMemory* memory = new BankedMemory("memory", *m_root, memclock, config, "DIRECT");
         memadmin = memory; m_memory = memory;
     } else
     if (memory_type == "RANDOMBANKED") {
-        BankedMemory* memory = new BankedMemory("memory", m_root, memclock, config, "RMIX");
+        BankedMemory* memory = new BankedMemory("memory", *m_root, memclock, config, "RMIX");
         memadmin = memory; m_memory = memory;
     } else
 #endif
 #ifdef ENABLE_MEM_DDR
     if (memory_type == "DDR") {
-        DDRMemory* memory = new DDRMemory("memory", m_root, memclock, config, "DIRECT");
+        DDRMemory* memory = new DDRMemory("memory", *m_root, memclock, config, "DIRECT");
         memadmin = memory; m_memory = memory;
     } else
     if (memory_type == "RANDOMDDR") {
-        DDRMemory* memory = new DDRMemory("memory", m_root, memclock, config, "RMIX");
+        DDRMemory* memory = new DDRMemory("memory", *m_root, memclock, config, "RMIX");
         memadmin = memory; m_memory = memory;
     } else
 #endif
 #ifdef ENABLE_MEM_CDMA
     if (memory_type == "CDMA" || memory_type == "COMA") {
-        CDMA* memory = new TwoLevelCDMA("memory", m_root, memclock, config);
+        CDMA* memory = new TwoLevelCDMA("memory", *m_root, memclock, config);
         memadmin = memory; m_memory = memory;
     } else
     if (memory_type == "FLATCDMA" || memory_type == "FLATCOMA") {
-        CDMA* memory = new OneLevelCDMA("memory", m_root, memclock, config);
+        CDMA* memory = new OneLevelCDMA("memory", *m_root, memclock, config);
         memadmin = memory; m_memory = memory;
     } else
 #endif
 #ifdef ENABLE_MEM_ZLCDMA
     if (memory_type == "ZLCDMA") {
-        ZLCDMA* memory = new ZLCDMA("memory", m_root, memclock, config);
+        ZLCDMA* memory = new ZLCDMA("memory", *m_root, memclock, config);
         memadmin = memory; m_memory = memory;
     } else
 #endif
@@ -714,8 +723,8 @@ MGSystem::MGSystem(Config& config, bool quiet)
     m_breakpoints.SetSymbolTable(m_symtable);
 
     // Create the event selector
-    Clock& selclock = m_kernel.CreateClock(config.getValue<unsigned long>("EventCheckFreq"));
-    m_selector = new Selector("selector", m_root, selclock, config);
+    Clock& selclock = GetKernel().CreateClock(config.getValue<unsigned long>("EventCheckFreq"));
+    m_selector = new Selector("selector", *m_root, selclock, config);
 
     // Create the I/O Buses
     const size_t numIOBuses = config.getValue<size_t>("NumIOBuses");
@@ -726,11 +735,11 @@ MGSystem::MGSystem(Config& config, bool quiet)
         ss << "iobus" << b;
         string name = ss.str();
 
-        string bus_type = config.getValue<string>(m_root, name, "Type");
-        Clock& ioclock = m_kernel.CreateClock(config.getValue<unsigned long>(m_root, name, "Freq"));
+        string bus_type = config.getValue<string>(*m_root, name, "Type");
+        Clock& ioclock = GetKernel().CreateClock(config.getValue<unsigned long>(*m_root, name, "Freq"));
 
         if (bus_type == "NULLIO") {
-            NullIO* bus = new NullIO(name, m_root, ioclock);
+            NullIO* bus = new NullIO(name, *m_root, ioclock);
             m_iobuses[b] = bus;
             config.registerObject(*bus, "nullio");
             config.registerProperty(*bus, "freq", (uint32_t)ioclock.GetFrequency());
@@ -750,10 +759,10 @@ MGSystem::MGSystem(Config& config, bool quiet)
     {
         stringstream name;
         name << "fpu" << f;
-        m_fpus[f] = new FPU(name.str(), m_root, m_clock, config, numProcessorsPerFPU);
+        m_fpus[f] = new FPU(name.str(), *m_root, *m_clock, config, numProcessorsPerFPU);
 
         config.registerObject(*m_fpus[f], "fpu");
-        config.registerProperty(*m_fpus[f], "freq", (uint32_t)m_clock.GetFrequency());
+        config.registerProperty(*m_fpus[f], "freq", (uint32_t)m_clock->GetFrequency());
     }
     if (!quiet)
     {
@@ -768,13 +777,13 @@ MGSystem::MGSystem(Config& config, bool quiet)
         stringstream ss;
         ss << "cpu" << i;
         string name = ss.str();
-        m_procs[i]   = new DRISC(name, m_root, m_clock, i, m_procs, config);
+        m_procs[i]   = new DRISC(name, *m_root, *m_clock, i, m_procs, config, m_breakpoints);
         m_procs[i]->ConnectMemory(m_memory, memadmin);
         m_procs[i]->ConnectFPU(config, m_fpus[i / numProcessorsPerFPU]);
 
-        if (config.getValueOrDefault<bool>(m_root, name, "EnableIO", false)) // I/O disabled unless specified
+        if (config.getValueOrDefault<bool>(*m_root, name, "EnableIO", false)) // I/O disabled unless specified
         {
-            size_t busid = config.getValue<size_t>(m_root, name, "BusID");
+            size_t busid = config.getValue<size_t>(*m_root, name, "BusID");
             if (busid >= m_iobuses.size())
             {
                 throw runtime_error("DRISC " + name + " set to connect to non-existent bus");
@@ -802,18 +811,18 @@ MGSystem::MGSystem(Config& config, bool quiet)
     m_devices.resize(numIODevices);
     vector<ActiveROM*> aroms;
 
-    UnixInterface *uif = new UnixInterface("unix_if", m_root);
+    UnixInterface *uif = new UnixInterface("unix_if", *m_root);
     m_devices.push_back(uif);
 
     for (size_t i = 0; i < numIODevices; ++i)
     {
         string name = dev_names[i];
 
-        bool enable_dev = config.getValueOrDefault<bool>(m_root, name, "EnableDevice", true);
+        bool enable_dev = config.getValueOrDefault<bool>(*m_root, name, "EnableDevice", true);
         if (!enable_dev)
             continue;
 
-        size_t busid = config.getValue<size_t>(m_root, name, "BusID");
+        size_t busid = config.getValue<size_t>(*m_root, name, "BusID");
 
         if (busid >= m_iobuses.size())
         {
@@ -822,9 +831,9 @@ MGSystem::MGSystem(Config& config, bool quiet)
 
         IIOBus& iobus = *m_iobuses[busid];
 
-        IODeviceID devid = config.getValueOrDefault<IODeviceID>(m_root, name, "DeviceID", iobus.GetNextAvailableDeviceID());
+        IODeviceID devid = config.getValueOrDefault<IODeviceID>(*m_root, name, "DeviceID", iobus.GetNextAvailableDeviceID());
 
-        string dev_type = config.getValue<string>(m_root, name, "Type");
+        string dev_type = config.getValue<string>(*m_root, name, "Type");
 
         if (!quiet)
         {
@@ -832,34 +841,34 @@ MGSystem::MGSystem(Config& config, bool quiet)
         }
 
         if (dev_type == "LCD") {
-            LCD *lcd = new LCD(name, m_root, iobus, devid, config);
+            LCD *lcd = new LCD(name, *m_root, iobus, devid, config);
             m_devices[i] = lcd;
             config.registerObject(*lcd, "lcd");
         } else if (dev_type == "RTC") {
-            Clock& rtcclock = m_kernel.CreateClock(config.getValue<size_t>(m_root, name, "RTCUpdateFreq"));
-            RTC *rtc = new RTC(name, m_root, rtcclock, iobus, devid, config);
+            Clock& rtcclock = GetKernel().CreateClock(config.getValue<size_t>(*m_root, name, "RTCUpdateFreq"));
+            RTC *rtc = new RTC(name, *m_root, rtcclock, iobus, devid, config);
             m_devices[i] = rtc;
             config.registerObject(*rtc, "rtc");
         } else if (dev_type == "GFX") {
-            size_t fbdevid = config.getValueOrDefault<size_t>(m_root, name, "GfxFrameBufferDeviceID", devid + 1);
-            Display *disp = new Display(name, m_root, iobus, devid, fbdevid, config);
+            size_t fbdevid = config.getValueOrDefault<size_t>(*m_root, name, "GfxFrameBufferDeviceID", devid + 1);
+            Display *disp = new Display(name, *m_root, iobus, devid, fbdevid, config);
             m_devices[i] = disp;
             config.registerObject(*disp, "gfx");
         } else if (dev_type == "AROM") {
-            ActiveROM *rom = new ActiveROM(name, m_root, *memadmin, iobus, devid, config, quiet);
+            ActiveROM *rom = new ActiveROM(name, *m_root, *memadmin, iobus, devid, config, quiet);
             m_devices[i] = rom;
             aroms.push_back(rom);
             config.registerObject(*rom, "arom");
         } else if (dev_type == "UART") {
-            UART *uart = new UART(name, m_root, iobus, devid, config);
+            UART *uart = new UART(name, *m_root, iobus, devid, config);
             m_devices[i] = uart;
             config.registerObject(*uart, "uart");
         } else if (dev_type == "SMC") {
-            SMC * smc = new SMC(name, m_root, iobus, devid);
+            SMC * smc = new SMC(name, *m_root, iobus, devid);
             m_devices[i] = smc;
             config.registerObject(*smc, "smc");
         } else if (dev_type == "RPC") {
-            RPCInterface* rpc = new RPCInterface(name, m_root, iobus, devid, config, *uif);
+            RPCInterface* rpc = new RPCInterface(name, *m_root, iobus, devid, config, *uif);
             m_devices[i] = rpc;
             config.registerObject(*rpc, "rpc");
         } else {
@@ -874,12 +883,12 @@ MGSystem::MGSystem(Config& config, bool quiet)
     // We need to register the master frequency into the
     // configuration, because both in-program and external monitoring
     // want to know it.
-    unsigned long masterfreq = m_kernel.GetMasterFrequency();
+    unsigned long masterfreq = GetKernel().GetMasterFrequency();
     config.getValueOrDefault("MasterFreq", masterfreq); // The lookup will set the config key as side effect
 
-    config.registerObject(m_root, "system");
-    config.registerProperty(m_root, "version", PACKAGE_VERSION);
-    config.registerProperty(m_root, "masterfreq", (uint32_t)masterfreq);
+    config.registerObject(*m_root, "system");
+    config.registerProperty(*m_root, "version", PACKAGE_VERSION);
+    config.registerProperty(*m_root, "masterfreq", (uint32_t)masterfreq);
 
     if (!quiet)
     {
@@ -955,7 +964,7 @@ MGSystem::MGSystem(Config& config, bool quiet)
     }
 
     // Set program debugging per default
-    m_kernel.SetDebugMode(Kernel::DEBUG_PROG);
+    GetKernel().SetDebugMode(Kernel::DEBUG_PROG);
 
     // Find objdump command
 #if defined(TARGET_MTALPHA)
@@ -1015,7 +1024,7 @@ MGSystem::MGSystem(Config& config, bool quiet)
         }
         clog << "Created Microgrid: "
              << dec
-             << CountComponents(m_root) << " components, "
+             << CountComponents(*m_root) << " components, "
              << Process::GetAllProcesses().size() << " processes, "
              << "simulation running at " << dec << masterfreq << " " << qual[q] << "Hz" << endl
              << "Instantiation costs: "

@@ -17,8 +17,9 @@ using namespace drisc;
 //
 // DRISC implementation
 //
-DRISC::DRISC(const std::string& name, Object& parent, Clock& clock, PID pid, const vector<DRISC*>& grid, Config& config)
+DRISC::DRISC(const std::string& name, Object& parent, Clock& clock, PID pid, const vector<DRISC*>& grid, Config& config, BreakPointManager& bp)
 :   Object(name, parent, clock),
+    m_bp_manager(bp),
     m_memory(NULL),
     m_memadmin(NULL),
     m_grid(grid),

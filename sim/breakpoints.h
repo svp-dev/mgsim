@@ -54,7 +54,9 @@ private:
 
     breakpoints_t      m_breakpoints;
     active_breaks_t    m_activebreaks;
-    Kernel&            m_kernel;
+#ifndef STATIC_KERNEL
+    Kernel*            m_kernel;
+#endif
     SymbolTable*       m_symtable;
     unsigned           m_counter;
     bool               m_enabled;
@@ -63,17 +65,35 @@ private:
     void CheckEnabled(void);
 
     static std::string GetModeName(int);
+#ifdef STATIC_KERNEL
+    static Kernel* GetKernel() { return &Kernel::GetGlobalKernel(); }
+#else
+    Kernel* GetKernel() { return m_kernel; }
+#endif
+
 public:
-    BreakPointManager(Simulator::Kernel& kernel, SymbolTable* symtable = 0)
+    BreakPointManager(SymbolTable* symtable = 0)
         : m_breakpoints(), m_activebreaks(),
-        m_kernel(kernel), m_symtable(symtable),
+#ifndef STATIC_KERNEL
+        m_kernel(0), 
+#endif
+	m_symtable(symtable),
         m_counter(0), m_enabled(false) {}
 
     BreakPointManager(const BreakPointManager& other)
         : m_breakpoints(other.m_breakpoints), m_activebreaks(other.m_activebreaks),
-        m_kernel(other.m_kernel), m_symtable(other.m_symtable),
+#ifndef STATIC_KERNEL
+        m_kernel(other.m_kernel), 
+#endif
+	m_symtable(other.m_symtable),
         m_counter(other.m_counter), m_enabled(other.m_enabled) {}
     BreakPointManager& operator=(const BreakPointManager& other) = delete;
+
+#ifdef STATIC_KERNEL
+    void AttachKernel(Kernel&) {}
+#else
+    void AttachKernel(Kernel& k) { m_kernel = &k; }
+#endif
 
     void EnableCheck(void) { m_enabled = true; }
     void DisableCheck(void) { m_enabled = false; }

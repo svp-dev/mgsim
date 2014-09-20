@@ -103,7 +103,7 @@ Pipeline::PipeAction Pipeline::ExecuteStage::OnCycle()
     }
 
     // Check for breakpoints
-    GetKernel()->GetBreakPointManager().Check(BreakPointManager::EXEC, m_input.pc, *this);
+    GetDRISC().GetBreakPointManager().Check(BreakPointManager::EXEC, m_input.pc, *this);
 
     PipeAction action = ExecuteInstruction();
     if (action != PIPE_STALL)

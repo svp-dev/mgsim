@@ -7,35 +7,35 @@ using namespace Simulator;
 
 bool cmd_bp_list(const vector<string>& /*command*/, vector<string>&/*args*/, cli_context& ctx)
 {
-    ctx.sys.GetKernel().GetBreakPointManager().ListBreakPoints(cout);
+    ctx.sys.GetBreakPointManager().ListBreakPoints(cout);
     return false;
 }
 
 
 bool cmd_bp_state(const vector<string>& /*command*/, vector<string>&/*args*/, cli_context& ctx)
 {
-    ctx.sys.GetKernel().GetBreakPointManager().ReportBreaks(cout);
+    ctx.sys.GetBreakPointManager().ReportBreaks(cout);
     return false;
 }
 
 
 bool cmd_bp_on(const vector<string>& /*command*/, vector<string>&/*args*/, cli_context& ctx)
 {
-    ctx.sys.GetKernel().GetBreakPointManager().EnableCheck();
+    ctx.sys.GetBreakPointManager().EnableCheck();
     return false;
 }
 
 
 bool cmd_bp_off(const vector<string>& /*command*/, vector<string>&/*args*/, cli_context& ctx)
 {
-    ctx.sys.GetKernel().GetBreakPointManager().DisableCheck();
+    ctx.sys.GetBreakPointManager().DisableCheck();
     return false;
 }
 
 
 bool cmd_bp_clear(const vector<string>& /*command*/, vector<string>&/*args*/, cli_context& ctx)
 {
-    ctx.sys.GetKernel().GetBreakPointManager().ClearAllBreakPoints();
+    ctx.sys.GetBreakPointManager().ClearAllBreakPoints();
     return false;
 }
 
@@ -47,7 +47,7 @@ bool cmd_bp_del(const vector<string>& /*command*/, vector<string>& args, cli_con
     if (errno == EINVAL)
         cout << "Invalid breakpoint: " << args[0] << endl;
     else
-        ctx.sys.GetKernel().GetBreakPointManager().DeleteBreakPoint(id);
+        ctx.sys.GetBreakPointManager().DeleteBreakPoint(id);
     return false;
 }
 
@@ -59,7 +59,7 @@ bool cmd_bp_enable(const vector<string>& /*command*/, vector<string>& args, cli_
     if (errno == EINVAL)
         cout << "Invalid breakpoint: " << args[0] << endl;
     else
-        ctx.sys.GetKernel().GetBreakPointManager().EnableBreakPoint(id);
+        ctx.sys.GetBreakPointManager().EnableBreakPoint(id);
     return false;
 }
 
@@ -71,7 +71,7 @@ bool cmd_bp_disable(const vector<string>& /*command*/, vector<string>& args, cli
     if (errno == EINVAL)
         cout << "Invalid breakpoint: " << args[0] << endl;
     else
-        ctx.sys.GetKernel().GetBreakPointManager().DisableBreakPoint(id);
+        ctx.sys.GetBreakPointManager().DisableBreakPoint(id);
     return false;
 }
 
@@ -94,7 +94,7 @@ bool cmd_bp_add(const vector<string>& /*command*/, vector<string>& args, cli_con
     if (mode == 0)
         cout << "Invalid breakpoint mode:" << args[0] << endl;
     else
-        ctx.sys.GetKernel().GetBreakPointManager().AddBreakPoint(args[1], 0, mode);
+        ctx.sys.GetBreakPointManager().AddBreakPoint(args[1], 0, mode);
     return false;
 }
 

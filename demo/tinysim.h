@@ -1,7 +1,6 @@
 #ifndef TINYSIM_H
 #define TINYSIM_H
 
-#include "sim/breakpoints.h"
 #include "sim/config.h"
 #include "sim/kernel.h"
 
@@ -14,8 +13,7 @@ public:
     MGSim(const char *conf);
 
     Config* cfg;
-    Simulator::Kernel k;
-    Simulator::BreakPointManager bps;
+    Simulator::Kernel* k;
 
     void DoSteps(Simulator::CycleNo nCycles);
 

@@ -21,9 +21,11 @@ namespace Simulator {
 
     class MGSystem
     {
+#ifndef STATIC_KERNEL
         Kernel                      m_kernel;
-        Clock&                      m_clock;    ///< Master clock for the system
-        Object                      m_root;     ///< Root object for the system
+#endif
+        Clock*                      m_clock;    ///< Master clock for the system
+        Object*                     m_root;     ///< Root object for the system
         std::vector<DRISC*>     m_procs;
         std::vector<FPU*>           m_fpus;
         std::vector<IIOBus*>        m_iobuses;
@@ -57,9 +59,9 @@ namespace Simulator {
         Config& GetConfig() const { return m_config; }
 
         // Get or set the debug flag
-        int  GetDebugMode() const   { return m_kernel.GetDebugMode(); }
-        void SetDebugMode(int mode) { m_kernel.SetDebugMode(mode); }
-        void ToggleDebugMode(int mode) { m_kernel.ToggleDebugMode(mode); }
+        int  GetDebugMode() const   { return GetKernel().GetDebugMode(); }
+        void SetDebugMode(int mode) { GetKernel().SetDebugMode(mode); }
+        void ToggleDebugMode(int mode) { GetKernel().ToggleDebugMode(mode); }
 
         uint64_t GetOp() const;
         uint64_t GetFlop() const;
@@ -82,10 +84,15 @@ namespace Simulator {
         void PrintCoreStats(std::ostream& os) const;
         void PrintAllStatistics(std::ostream& os) const;
 
-        const Kernel& GetKernel() const { return m_kernel; }
-        Kernel& GetKernel()       { return m_kernel; }
+#ifdef STATIC_KERNEL
+	static Kernel& GetKernel() { return Kernel::GetGlobalKernel(); }
+#else
+        Kernel& GetKernel() { return m_kernel; }
+	const Kernel& GetKernel() const { return m_kernel; }
+#endif
 
         const SymbolTable& GetSymTable() const { return m_symtable; }
+	BreakPointManager& GetBreakPointManager() { return m_breakpoints; }
 
         // Steps the entire system this many cycles
         void Step(CycleNo nCycles);
