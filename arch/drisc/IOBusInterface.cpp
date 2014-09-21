@@ -174,5 +174,10 @@ namespace drisc
         }
     }
 
+    const std::string& IOBusInterface::GetIODeviceName() const
+    {
+        return GetFQN();
+    }
+
 }
 }

@@ -46,9 +46,8 @@ public:
 
     void GetDeviceIdentity(IODeviceIdentification& id) const override;
 
-    std::string GetIODeviceName() const { return GetFQN(); }
+    const std::string& GetIODeviceName() const override;
 };
-
 
 }
 

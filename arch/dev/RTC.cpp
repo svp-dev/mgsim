@@ -74,6 +74,11 @@ namespace Simulator
         }
     }
 
+    const std::string& RTC::RTCInterface::GetIODeviceName() const
+    {
+        return GetFQN();
+    }
+
     RTC::RTCInterface::RTCInterface(const std::string& name, RTC& parent, IIOBus& iobus, IODeviceID devid)
         : Object(name, parent, iobus.GetClock()),
           m_devid(devid),

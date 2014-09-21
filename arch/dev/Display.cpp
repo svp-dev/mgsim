@@ -71,6 +71,11 @@ namespace Simulator
         }
     }
 
+    const string& Display::FrameBufferInterface::GetIODeviceName() const
+    {
+        return GetFQN();
+    }
+
     Display::ControlInterface::ControlInterface(const string& name, Display& parent, IIOBus& iobus, IODeviceID devid)
         : Object(name, parent, iobus.GetClock()),
           m_iobus(iobus),
@@ -238,6 +243,11 @@ namespace Simulator
         }
 
         return true;
+    }
+
+    const string& Display::ControlInterface::GetIODeviceName() const
+    {
+        return GetFQN();
     }
 
 

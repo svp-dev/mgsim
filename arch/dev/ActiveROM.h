@@ -91,7 +91,7 @@ namespace Simulator
         StorageTraceSet GetReadResponseTraces() const;
 
         void GetDeviceIdentity(IODeviceIdentification& id) const;
-        std::string GetIODeviceName() const;
+        const std::string& GetIODeviceName() const;
 
         /* debug */
         void Cmd_Read(std::ostream& out, const std::vector<std::string>& arguments) const;

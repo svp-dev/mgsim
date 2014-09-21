@@ -34,7 +34,7 @@ namespace Simulator
             bool OnWriteRequestReceived(IODeviceID from, MemAddr address, const IOData& data);
             void GetDeviceIdentity(IODeviceIdentification& id) const;
 
-            std::string GetIODeviceName() const { return GetFQN(); }
+            const std::string& GetIODeviceName() const;
         };
 
         class ControlInterface : public IIOBusClient, public Object
@@ -55,7 +55,7 @@ namespace Simulator
             bool OnWriteRequestReceived(IODeviceID from, MemAddr address, const IOData& data);
             void GetDeviceIdentity(IODeviceIdentification& id) const;
 
-            std::string GetIODeviceName() const { return GetFQN(); }
+            const std::string& GetIODeviceName() const;
         };
 
         ControlInterface      m_ctlinterface;

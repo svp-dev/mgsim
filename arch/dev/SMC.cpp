@@ -65,7 +65,7 @@ namespace Simulator
         }
     }
 
-    std::string SMC::GetIODeviceName() const
+    const std::string& SMC::GetIODeviceName() const
     {
         return GetFQN();
     }

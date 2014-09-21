@@ -158,9 +158,8 @@ namespace Simulator
         bool OnReadResponseReceived(IODeviceID from, MemAddr address, const IOData& iodata);
 
         void GetDeviceIdentity(IODeviceIdentification& id) const;
-        std::string GetIODeviceName() const { return GetFQN(); }
+        const std::string& GetIODeviceName() const;
     };
-
 }
 
 

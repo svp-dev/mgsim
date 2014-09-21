@@ -740,7 +740,7 @@ namespace Simulator
         }
     }
 
-    string UART::GetIODeviceName() const
+    const string& UART::GetIODeviceName() const
     {
         return GetFQN();
     }

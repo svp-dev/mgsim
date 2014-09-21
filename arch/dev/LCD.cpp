@@ -61,6 +61,11 @@ LCD::~LCD()
     }
 }
 
+const std::string& LCD::GetIODeviceName() const
+{
+    return GetFQN();
+}
+
 void LCD::GetDeviceIdentity(IODeviceIdentification& id) const
 {
     if (!DeviceDatabase::GetDatabase().FindDeviceByName("MGSim", "LCD", id))

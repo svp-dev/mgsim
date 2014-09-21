@@ -43,7 +43,7 @@ public:
 
     // Admin
     virtual void Initialize();
-    virtual std::string GetIODeviceName() const = 0;
+    virtual const std::string& GetIODeviceName() const = 0;
     virtual void GetDeviceIdentity(IODeviceIdentification& id) const = 0;
 
     virtual ~IIOBusClient();

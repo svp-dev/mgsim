@@ -699,8 +699,9 @@ namespace Simulator
         }
     }
 
-
-
-
+    const std::string& RPCInterface::GetIODeviceName() const
+    {
+        return GetFQN();
+    }
 
 }

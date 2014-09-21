@@ -75,7 +75,7 @@ public:
     IODeviceID GetHostID() const { return m_hostid; }
 
     /* for debugging */
-    std::string GetIODeviceName() const { return GetFQN(); };
+    const std::string& GetIODeviceName() const;
 
 };
 

@@ -442,7 +442,7 @@ namespace Simulator
         }
     }
 
-    string ActiveROM::GetIODeviceName() const
+    const string& ActiveROM::GetIODeviceName() const
     {
         return GetFQN();
     }

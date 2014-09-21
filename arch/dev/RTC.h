@@ -50,7 +50,7 @@ namespace Simulator
 
             // Admin
             void Initialize();
-            std::string GetIODeviceName() const { return GetFQN(); }
+            const std::string& GetIODeviceName() const;
             void GetDeviceIdentity(IODeviceIdentification& id) const;
         };
 

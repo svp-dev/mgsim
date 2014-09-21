@@ -79,7 +79,7 @@ namespace Simulator
         bool OnReadRequestReceived(IODeviceID from, MemAddr addr, MemSize size);
         bool OnWriteRequestReceived(IODeviceID from, MemAddr addr, const IOData& data);
         void GetDeviceIdentity(IODeviceIdentification& id) const;
-        std::string GetIODeviceName() const;
+        const std::string& GetIODeviceName() const;
 
         // From ISelectorClient
         bool OnStreamReady(int fd, Selector::StreamState state);
