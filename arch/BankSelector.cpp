@@ -57,7 +57,7 @@ namespace Simulator
             : m_name(name),
               m_numBanks(numBanks)
         {}
-        std::string GetName() const { return m_name; }
+        const std::string& GetName() const { return m_name; }
         size_t GetNumBanks() const { return m_numBanks; }
     };
 
