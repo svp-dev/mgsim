@@ -56,7 +56,7 @@ namespace Simulator
                      const std::vector<char>& arg2,
                      uint32_t arg3, uint32_t arg4);
 
-        std::string GetName() { return GetFQN(); }
+        const std::string& GetName() const override;
 
         void Cmd_Info(std::ostream& out, const std::vector<std::string>& /*args*/) const;
 

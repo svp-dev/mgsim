@@ -18,7 +18,7 @@ namespace Simulator
                              const std::vector<char>& arg2,
                              uint32_t arg3, uint32_t arg4) = 0;
 
-        virtual std::string GetName() = 0;
+        virtual const std::string& GetName() const = 0;
         virtual ~IRPCServiceProvider() {};
     };
 
