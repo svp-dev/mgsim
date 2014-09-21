@@ -147,8 +147,8 @@ Pipeline::PipeAction Pipeline::FetchStage::OnCycle()
     return PIPE_CONTINUE;
 }
 
-Pipeline::FetchStage::FetchStage(Pipeline& parent, Clock& clock, FetchDecodeLatch& output, Config& config)
-  : Stage("fetch", parent, clock),
+Pipeline::FetchStage::FetchStage(Pipeline& parent, FetchDecodeLatch& output, Config& config)
+  : Stage("fetch", parent),
     m_output(output),
     m_allocator(GetDRISC().GetAllocator()),
     m_familyTable(GetDRISC().GetFamilyTable()),

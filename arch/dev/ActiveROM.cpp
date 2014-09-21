@@ -132,7 +132,7 @@ namespace Simulator
     }
 
     ActiveROM::ActiveROM(const string& name, Object& parent, IMemoryAdmin& mem, IIOBus& iobus, IODeviceID devid, Config& config, bool quiet)
-        : Object(name, parent, iobus.GetClock()),
+        : Object(name, parent),
           m_memory(mem),
           m_config(config),
           m_data(NULL),
@@ -444,7 +444,7 @@ namespace Simulator
 
     const string& ActiveROM::GetIODeviceName() const
     {
-        return GetFQN();
+        return GetName();
     }
 
     void ActiveROM::Cmd_Info(ostream& out, const vector<string>& /* args */) const

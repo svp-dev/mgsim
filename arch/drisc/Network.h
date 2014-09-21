@@ -209,30 +209,31 @@ class Network : public Object, public Inspect::Interface<Inspect::Read>
     /*
      A specialization of the generic register to implement arbitration
     */
-    template <typename T, typename Arbitrator=PriorityArbitratedPort>
+    template <typename T, typename Arbitrator = PriorityArbitratedPort>
     class Register : public Simulator::Register<T>
     {
-        ArbitratedService<Arbitrator> m_service;
+        ArbitratedService<Arbitrator> p_service;
 
     public:
-        void AddProcess(const Process& process) {
-            m_service.AddProcess(process);
+        void AddProcess(const Process& process)
+        {
+            p_service.AddProcess(process);
         }
 
         bool Write(const T& data)
         {
-            if (!this->Empty() || !m_service.Invoke()) {
+            if (!this->Empty() || !p_service.Invoke()) {
                 return false;
             }
             Simulator::Register<T>::Write(data);
             return true;
         }
 
-        Register(Object& object, const std::string& name)
-            : Object(name, object, object.GetClock()),
-              Storage(name, object, object.GetClock()),
-              Simulator::Register<T>(name + ".reg", object, object.GetClock()),
-              m_service(object, object.GetClock(), name + ".p_service")
+        Register(Object& object, const std::string& name, Clock& clock)
+            : Object(name, object),
+              Storage(name, object, clock),
+              Simulator::Register<T>(name + ".reg", object, clock),
+              p_service(clock, name + ".p_service")
         {
         }
     };
@@ -276,18 +277,18 @@ class Network : public Object, public Inspect::Interface<Inspect::Read>
                 assert(remote == NULL);
                 remote = &dest.in;
                 dest.in.AddProcess(p_Transfer);
-            p_Transfer.SetStorageTraces(dest.in);
+                p_Transfer.SetStorageTraces(dest.in);
             }
 
-            RegisterPair(Object& parent, const std::string& name)
+            RegisterPair(Object& parent, const std::string& name, Clock& clock)
                 : Object(name, parent),
-                remote(NULL),
-                p_Transfer(*this, "transfer", delegate::create<RegisterPair, &RegisterPair::DoTransfer>(*this)),
-                out(parent, name + ".out"),
-                in (parent, name + ".in")
-                {
-                    out.Sensitive(p_Transfer);
-                }
+                  remote(NULL),
+                  p_Transfer(*this, "transfer", delegate::create<RegisterPair, &RegisterPair::DoTransfer>(*this)),
+                  out(parent, name + ".out", clock),
+                  in (parent, name + ".in", clock)
+            {
+                out.Sensitive(p_Transfer);
+            }
             RegisterPair(const RegisterPair&) = delete; // No copy
             RegisterPair& operator=(const RegisterPair&) = delete; // No assign
 

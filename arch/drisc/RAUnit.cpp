@@ -13,8 +13,8 @@ namespace Simulator
 
 namespace drisc {
 
-RAUnit::RAUnit(const string& name, Object& parent, Clock& clock, const array<RegSize, NUM_REG_TYPES>& sizes, Config& config)
-    : Object(name, parent, clock)
+RAUnit::RAUnit(const string& name, Object& parent, const array<RegSize, NUM_REG_TYPES>& sizes, Config& config)
+    : Object(name, parent)
 {
     struct RegTypeInfo {
         const char* blocksize_name;

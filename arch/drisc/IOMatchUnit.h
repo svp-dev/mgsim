@@ -37,7 +37,7 @@ protected:
     RangeMap::const_iterator FindInterface(MemAddr address, MemSize size) const;
 
 public:
-    IOMatchUnit(const std::string& name, Object& parent, Clock& clock);
+    IOMatchUnit(const std::string& name, Object& parent);
 
     bool IsRegisteredReadAddress(MemAddr address, MemSize size) const;
     bool IsRegisteredWriteAddress(MemAddr address, MemSize size) const;
@@ -55,7 +55,7 @@ public:
 class MMIOComponent : public Object
 {
 public:
-    MMIOComponent(const std::string& name, Object& parent, Clock& clock);
+    MMIOComponent(const std::string& name, Object& parent);
 
     void Connect(IOMatchUnit& mmio, IOMatchUnit::AccessMode mode, Config& config);
 

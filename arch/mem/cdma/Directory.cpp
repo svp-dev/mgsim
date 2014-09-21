@@ -228,13 +228,13 @@ Result CDMA::Directory::DoInTop()
 CDMA::Directory::Directory(const std::string& name, CDMA& parent, Clock& clock, Config& config) :
     Simulator::Object(name, parent),
     CDMA::Object(name, parent),
-    m_bottom(name + ".bottom", parent, clock, config),
-    m_top(name + ".top", parent, clock, m_maxNumLines, config),
-    p_lines     (*this, clock, "p_lines"),
+    m_bottom    (name + ".bottom", parent, clock, config),
+    m_top       (name + ".top", parent, clock, m_maxNumLines, config),
+    p_lines     (clock, GetName() + ".p_lines"),
     m_dir       (),
     m_maxNumLines(0),
-    m_firstNode(-1),
-    m_lastNode (-1),
+    m_firstNode (-1),
+    m_lastNode  (-1),
     p_InBottom  (*this, "bottom-incoming", delegate::create<Directory, &Directory::DoInBottom >(*this)),
     p_InTop     (*this, "top-incoming",    delegate::create<Directory, &Directory::DoInTop    >(*this))
 {

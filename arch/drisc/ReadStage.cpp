@@ -492,12 +492,12 @@ void Pipeline::ReadStage::Clear(TID tid)
     }
 }
 
-Pipeline::ReadStage::ReadStage(Pipeline& parent, Clock& clock,
+Pipeline::ReadStage::ReadStage(Pipeline& parent,
                                const DecodeReadLatch& input,
                                ReadExecuteLatch& output,
                                const vector<BypassInfo>& bypasses,
                                Config& /*config*/)
-  : Stage("read", parent, clock),
+  : Stage("read", parent),
     m_regFile(GetDRISC().GetRegisterFile()),
     m_input(input),
     m_output(output),

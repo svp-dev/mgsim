@@ -14,11 +14,11 @@ namespace drisc
 {
 
     IOInterface::IOInterface(const string& name, DRISC& parent, Clock& clock, IIOBus& iobus, IODeviceID devid, Config& config)
-        : Object(name, parent, clock),
+        : Object(name, parent),
           m_numDevices(config.getValue<size_t>(*this, "NumDeviceSlots")),
           m_numChannels(config.getValue<size_t>(*this, "NumNotificationChannels")),
-          m_async_io("aio",    *this, clock, config),
-          m_pnc     ("pnc",    *this, clock, config),
+          m_async_io("aio",    *this, config),
+          m_pnc     ("pnc",    *this, config),
           m_rrmux   ("rrmux",  *this, clock, m_numDevices, config),
           m_nmux    ("nmux",   *this, clock, m_numChannels, config),
           m_iobus_if("bus_if", *this, iobus.GetClock(), iobus, devid, config),
@@ -107,16 +107,16 @@ namespace drisc
     void IOInterface::Cmd_Info(ostream& out, const vector<string>& /*args*/) const
     {
         out << "This I/O interface is composed of the following components:" << endl
-            << "- " << m_async_io.GetFQN() << endl
-            << "- " << m_pnc.GetFQN() << endl
-            << "- " << m_rrmux.GetFQN() << endl
-            << "- " << m_nmux.GetFQN() << endl
-            << "- " << m_dca.GetFQN() << endl
+            << "- " << m_async_io.GetName() << endl
+            << "- " << m_pnc.GetName() << endl
+            << "- " << m_rrmux.GetName() << endl
+            << "- " << m_nmux.GetName() << endl
+            << "- " << m_dca.GetName() << endl
             << "Use 'info' on the individual components for more details." << endl;
     }
 
-    IOInterface::AsyncIOInterface::AsyncIOInterface(const string& name, IOInterface& parent, Clock& clock, Config& config)
-        : MMIOComponent(name, parent, clock),
+    IOInterface::AsyncIOInterface::AsyncIOInterface(const string& name, IOInterface& parent, Config& config)
+        : MMIOComponent(name, parent),
           m_baseAddr(config.getValue<unsigned>(*this, "MMIO_BaseAddr")),
           m_devAddrBits(config.getValue<unsigned>(*this, "DeviceAddressBits"))
     {
@@ -206,8 +206,8 @@ namespace drisc
 
     }
 
-    IOInterface::PNCInterface::PNCInterface(const string& name, IOInterface& parent, Clock& clock, Config& config)
-        : MMIOComponent(name, parent, clock),
+    IOInterface::PNCInterface::PNCInterface(const string& name, IOInterface& parent, Config& config)
+        : MMIOComponent(name, parent),
           m_baseAddr(config.getValue<unsigned>(*this, "MMIO_BaseAddr"))
     {
     }
@@ -336,7 +336,7 @@ namespace drisc
         }
         if (smcid == INVALID_IO_DEVID)
         {
-            clog << "#warning: processor " << GetDRISC().GetFQN() << " connected to I/O but cannot find SMC" << endl;
+            clog << "#warning: processor " << GetDRISC().GetName() << " connected to I/O but cannot find SMC" << endl;
         }
         else
         {

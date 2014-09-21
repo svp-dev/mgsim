@@ -21,7 +21,7 @@ public:
     typedef RegSize  BlockSize;
     typedef RegIndex BlockIndex;
 
-    RAUnit(const std::string& name, Object& parent, Clock& clock, const std::array<RegSize, NUM_REG_TYPES>& regFileSizes, Config& config);
+    RAUnit(const std::string& name, Object& parent, const std::array<RegSize, NUM_REG_TYPES>& regFileSizes, Config& config);
 
     /**
      * \brief Allocates registers

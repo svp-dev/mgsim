@@ -486,7 +486,7 @@ static org_t DumpAreaCDMA(std::ostream& os, const config& config, const Simulato
         desc.assoc = cache.GetNumLines() / desc.sets;
         desc.tag = bits_tag_base - ilog2(desc.sets) + 2 + ilog2(desc.assoc) + bits_numCaches + 1 + 9;
         org_t info = get_cache_info(desc, config.tech);
-        os << cache.GetFQN() << "\t\t" << info.area*1e-6 << "\t" << info.access_time*1e9 << std::endl;
+        os << cache.GetName() << "\t\t" << info.area*1e-6 << "\t" << info.access_time*1e9 << std::endl;
         total.merge(info);
     }
 
@@ -494,7 +494,7 @@ static org_t DumpAreaCDMA(std::ostream& os, const config& config, const Simulato
     {
         auto& dir = cdma.GetDirectory(i);
         org_t info = get_ram_info(dir.GetMaxNumLines(), (bits_tag_base + 2) / 8, 1, 0, 0, config.tech);
-        os << dir.GetFQN() << "\t\t" << info.area*1e-6 << "\t" << info.access_time*1e9 << std::endl;
+        os << dir.GetName() << "\t\t" << info.area*1e-6 << "\t" << info.access_time*1e9 << std::endl;
         total.merge(info);
     }
 
@@ -502,7 +502,7 @@ static org_t DumpAreaCDMA(std::ostream& os, const config& config, const Simulato
     {
         auto& dir = cdma.GetRootDirectory(i);
         org_t info = get_ram_info(dir.GetMaxNumLines(), (bits_tag_base + 2) / 8, 1, 0, 0, config.tech);
-        os << dir.GetFQN() << "\t\t" << info.area*1e-6 << "\t" << info.access_time*1e9 << std::endl;
+        os << dir.GetName() << "\t\t" << info.area*1e-6 << "\t" << info.access_time*1e9 << std::endl;
         total.merge(info);
     }
 

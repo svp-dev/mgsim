@@ -89,7 +89,7 @@ namespace Simulator
 {
 
     RPCInterface::RPCInterface(const std::string& name, Object& parent, IIOBus& iobus, IODeviceID devid, Config& config, IRPCServiceProvider& provider)
-        : Object(name, parent, iobus.GetClock()),
+        : Object(name, parent),
           m_iobus(iobus),
           m_devid(devid),
 
@@ -701,7 +701,7 @@ namespace Simulator
 
     const std::string& RPCInterface::GetIODeviceName() const
     {
-        return GetFQN();
+        return GetName();
     }
 
 }

@@ -192,7 +192,7 @@ public:
         if (obj == NULL) {
             out << "???";
         } else {
-            out << obj->GetFQN();
+            out << obj->GetName();
         }
         out << dec << endl;
     }
@@ -234,9 +234,9 @@ public:
     Interface& operator=(const Interface&) = delete;
 
     Interface(const std::string& name, DDRMemory& parent, Clock& clock, size_t id, const DDRChannelRegistry& ddr, Config& config)
-        : Object     (name, parent, clock),
+        : Object     (name, parent),
           m_lineSize (config.getValue<size_t>("CacheLineSize")),
-          p_service  (*this, clock, "p_service"),
+          p_service  (clock, GetName() + ".p_service"),
           m_ddr      (0),
           m_ddrStorageTraces(),
           m_requests ("b_requests", *this, clock, config.getValue<size_t>(*this, "ExternalOutputQueueSize")),
@@ -283,9 +283,9 @@ MCID DDRMemory::RegisterClient(IMemoryCallback& callback, Process& process, Stor
     MCID id = m_clients.size();
 
     stringstream name;
-    name << "client" << id;
+    name << GetName() << ".client" << id;
     ClientInfo client;
-    client.service = new ArbitratedService<>(*this, m_clock, name.str());
+    client.service = new ArbitratedService<>(m_clock, name.str());
     client.callback = &callback;
     m_clients.push_back(client);
 
@@ -377,7 +377,7 @@ bool DDRMemory::Write(MCID id, MemAddr address, const MemData& data, WClientID w
 }
 
 DDRMemory::DDRMemory(const std::string& name, Object& parent, Clock& clock, Config& config, const std::string& defaultInterfaceSelectorType)
-    : Object(name, parent, clock),
+    : Object(name, parent),
       m_registry(config),
       m_clock(clock),
       m_clients(),

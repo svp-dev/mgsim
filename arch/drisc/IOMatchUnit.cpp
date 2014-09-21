@@ -14,7 +14,7 @@ void MMIOComponent::Connect(IOMatchUnit& mmio, IOMatchUnit::AccessMode mode, Con
     MemAddr base = config.getValueOrDefault<MemAddr>(*this, "MMIO_BaseAddr", 0);
     if (base == 0)
     {
-        std::cerr << "warning: " << GetFQN() << " not mapped to the I/O address space." << std::endl;
+        std::cerr << "warning: " << GetName() << " not mapped to the I/O address space." << std::endl;
     }
     else
     {
@@ -152,19 +152,19 @@ void IOMatchUnit::Cmd_Info(std::ostream& out, const std::vector<std::string>& /*
                 << (mode & READ  ? "R" : ".")
                 << (mode & WRITE ? "W" : ".")
                 << " | "
-                << component.GetFQN()
+                << component.GetName()
                 << std::endl;
         }
     }
 }
 
-IOMatchUnit::IOMatchUnit(const std::string& name, Object& parent, Clock& clock)
-    : Object(name, parent, clock), m_ranges()
+IOMatchUnit::IOMatchUnit(const std::string& name, Object& parent)
+    : Object(name, parent), m_ranges()
 {
 }
 
-MMIOComponent::MMIOComponent(const std::string& name, Object& parent, Clock& clock)
-    : Object(name, parent, clock)
+MMIOComponent::MMIOComponent(const std::string& name, Object& parent)
+    : Object(name, parent)
 { }
 
 }

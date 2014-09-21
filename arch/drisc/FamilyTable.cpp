@@ -14,10 +14,13 @@ namespace Simulator
 namespace drisc
 {
 
-FamilyTable::FamilyTable(const std::string& name, DRISC& parent, Clock& clock, Config& config)
-:   Object(name, parent, clock),
+FamilyTable::FamilyTable(const std::string& name, DRISC& parent, Config& config)
+:   Object(name, parent),
     m_families(config.getValue<size_t>(*this, "NumEntries")),
-    m_lastcycle(0), m_totalalloc(0), m_maxalloc(0), m_curalloc(0)
+    m_lastcycle(0),
+    m_totalalloc(0),
+    m_maxalloc(0),
+    m_curalloc(0)
 {
     RegisterSampleVariableInObject(m_totalalloc, SVC_CUMULATIVE);
     RegisterSampleVariableInObject(m_maxalloc, SVC_WATERMARK, m_families.size());

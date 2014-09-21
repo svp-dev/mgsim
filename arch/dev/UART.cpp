@@ -39,7 +39,7 @@ namespace Simulator
     // - transmit speed / divisor latch is not supported
 
     UART::UART(const string& name, Object& parent, IIOBus& iobus, IODeviceID devid, Config& config)
-        : Object(name, parent, iobus.GetClock()),
+        : Object(name, parent),
 
           m_iobus(iobus),
           m_devid(devid),
@@ -49,16 +49,16 @@ namespace Simulator
           m_hwbuf_out_full(false),
           m_hwbuf_out(0),
 
-          m_receiveEnable("f_receiveEnable", *this, GetClock(), false),
-          m_fifo_in("b_fifo_in", *this, GetClock(), config.getValue<BufferSize>(*this, "UARTInputFIFOSize")),
+          m_receiveEnable("f_receiveEnable", *this, iobus.GetClock(), false),
+          m_fifo_in("b_fifo_in", *this, iobus.GetClock(), config.getValue<BufferSize>(*this, "UARTInputFIFOSize")),
           p_Receive(*this, "external-receive", delegate::create<UART,&UART::DoReceive>(*this)),
 
-          m_fifo_out("b_fifo_out", *this, GetClock(), config.getValue<BufferSize>(*this, "UARTOutputFIFOSize")),
+          m_fifo_out("b_fifo_out", *this, iobus.GetClock(), config.getValue<BufferSize>(*this, "UARTOutputFIFOSize")),
           p_Transmit(*this, "external-transmit", delegate::create<UART,&UART::DoTransmit>(*this)),
 
           m_write_buffer(0),
 
-          m_sendEnable("f_sendEnable", *this, GetClock(), false),
+          m_sendEnable("f_sendEnable", *this, iobus.GetClock(), false),
           p_Send(*this, "fifo-put", delegate::create<UART,&UART::DoSend>(*this)),
 
           m_eof(false),
@@ -67,14 +67,14 @@ namespace Simulator
 
           m_readInterruptEnable(false),
 
-          m_readInterrupt("f_readInterrupt", *this, GetClock(), false),
+          m_readInterrupt("f_readInterrupt", *this, iobus.GetClock(), false),
           p_ReadInterrupt(*this, "read-interrupt", delegate::create<UART,&UART::DoSendReadInterrupt>(*this)),
           m_readInterruptChannel(0),
 
           m_writeInterruptEnable(false),
           m_writeInterruptThreshold(1),
 
-          m_writeInterrupt("f_writeInterrupt", *this, GetClock(), false),
+          m_writeInterrupt("f_writeInterrupt", *this, iobus.GetClock(), false),
           p_WriteInterrupt(*this, "write-interrupt", delegate::create<UART,&UART::DoSendWriteInterrupt>(*this)),
           m_writeInterruptChannel(0),
 
@@ -153,7 +153,7 @@ namespace Simulator
                 throw exceptf<SimulationException>("tcsetattr: %s", strerror(errno));
             tcflush(master_fd, TCIOFLUSH);
 
-            cerr << GetFQN() << ": slave tty at " << slave_name << endl;
+            cerr << GetName() << ": slave tty at " << slave_name << endl;
 
             ostringstream os;
             os << "<pty master for " << slave_name << ">";
@@ -635,7 +635,7 @@ namespace Simulator
 
     string UART::GetSelectorClientName() const
     {
-        return GetFQN();
+        return GetName();
     }
 
 
@@ -742,7 +742,7 @@ namespace Simulator
 
     const string& UART::GetIODeviceName() const
     {
-        return GetFQN();
+        return GetName();
     }
 
 

@@ -43,6 +43,7 @@ protected:
     typedef std::set<MemAddr> TraceMap;
     typedef size_t            NodeID;
 
+    Clock&                      m_clock;
     ComponentModelRegistry&     m_registry;
     size_t                      m_numClientsPerCache;
     size_t                      m_numCachesPerLowRing;

@@ -266,7 +266,7 @@ ZLCDMA::Directory::Directory(const std::string& name, ZLCDMA& parent, Clock& clo
     m_bottom(name + ".bottom", parent, clock),
     m_top(name + ".top", parent, clock),
     m_selector  (parent.GetBankSelector()),
-    p_lines     (*this, clock, "p_lines"),
+    p_lines     (clock, GetName() +  ".p_lines"),
     m_assoc     (config.getValue<size_t>(parent, "L2CacheAssociativity") * config.getValue<size_t>(parent, "NumL2CachesPerRing")),
     m_sets      (m_selector.GetNumBanks()),
     m_lines     (m_assoc * m_sets),

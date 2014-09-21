@@ -13,7 +13,7 @@ ostream& operator<<(ostream& os, const StorageTrace& st)
     {
         if (i != 0)
             os << ", ";
-        os << st.m_storages[i]->GetFQN();
+        os << st.m_storages[i]->GetName();
     }
     return os;
 }

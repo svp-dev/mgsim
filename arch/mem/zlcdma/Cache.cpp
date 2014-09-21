@@ -374,7 +374,7 @@ Result ZLCDMA::Cache::OnReadRequest(const Request& req)
         COMMIT
         {
             line->tag           = tag;
-            line->time          = GetCycleNo();
+            line->time          = GetKernel()->GetActiveClock()->GetCycleNo();
             line->valid         = true;
             line->dirty         = false;
             line->tokens        = 0;
@@ -399,7 +399,7 @@ Result ZLCDMA::Cache::OnReadRequest(const Request& req)
             std::copy(line->data, line->data + m_lineSize, data);
 
             // Update LRU time of the line
-            line->time = GetCycleNo();
+            line->time = GetKernel()->GetActiveClock()->GetCycleNo();
 
             m_numHits++;
         }
@@ -513,7 +513,7 @@ Result ZLCDMA::Cache::OnWriteRequest(const Request& req)
     // Update line; write data
     COMMIT
     {
-        line->time = GetCycleNo();
+        line->time = GetKernel()->GetActiveClock()->GetCycleNo();
         line->dirty = true;
 
         line::blit(line->data, req.mdata.data, req.mdata.mask, m_lineSize);
@@ -1055,7 +1055,7 @@ Result ZLCDMA::Cache::OnEviction(Message* req)
         COMMIT
         {
             line->tag           = tag;
-            line->time          = GetCycleNo();
+            line->time          = GetKernel()->GetActiveClock()->GetCycleNo();
             line->dirty         = req->dirty;
             line->tokens        = req->tokens;
             line->pending_read  = false;
@@ -1165,7 +1165,7 @@ ZLCDMA::Cache::Cache(const std::string& name, ZLCDMA& parent, Clock& clock, Cach
     m_id       (id),
     m_clients  (),
     m_storages (),
-    p_lines    (*this, clock, "p_lines"),
+    p_lines    (clock, GetName() + ".p_lines"),
     m_lines    (m_assoc * m_sets),
     m_numHits  (0),
     m_numMisses(0),
@@ -1173,7 +1173,7 @@ ZLCDMA::Cache::Cache(const std::string& name, ZLCDMA& parent, Clock& clock, Cach
     m_numResolved(0),
     p_Requests (*this, "requests", delegate::create<Cache, &Cache::DoRequests>(*this)),
     p_In       (*this, "incoming", delegate::create<Cache, &Cache::DoReceive>(*this)),
-    p_bus      (*this, clock, "p_bus"),
+    p_bus      (clock, GetName() + ".p_bus"),
     m_requests ("b_requests", *this, clock, config.getValue<BufferSize>(*this, "RequestBufferSize")),
     m_responses("b_responses", *this, clock, config.getValue<BufferSize>(*this, "ResponseBufferSize"))
 {

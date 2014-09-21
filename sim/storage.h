@@ -20,6 +20,7 @@ class Storage : public virtual Object
     friend class Kernel;
 
     Storage*              m_next;        ///< Next pointer in the list of storages that require updates
+    Clock&                m_clock;       ///< The clock that governs this storage
     bool                  m_activated;   ///< Has the storage already been activated this cycle?
 
 protected:
@@ -27,19 +28,15 @@ protected:
     // The process using this storage should run with the same clock as this storage
     void CheckClocks() {
 #ifndef NDEBUG
-        const Process* process = GetKernel()->GetActiveProcess();
-        if (process != NULL) {
-            assert(&process->GetObject()->GetClock() == &GetClock());
-        }
+        assert(GetKernel()->GetActiveClock() == &GetClock());
 #endif
     }
 
     void MarkUsage() const {
         if (IsAcquiring()) {
             Process* process = GetKernel()->GetActiveProcess();
-            if (process != NULL) {
-                process->OnStorageAccess(*this);
-            }
+            assert(process != NULL);
+            process->OnStorageAccess(*this);
         }
     }
 
@@ -56,9 +53,13 @@ public:
     virtual void Update() = 0;
 
     const Storage* GetNext() const { return m_next; }
+    Clock& GetClock() const { return m_clock; }
 
     Storage(const std::string& name, Object& parent, Clock& clock)
-        : Object(name, parent, clock), m_next(NULL), m_activated(false)
+        : Object(name, parent),
+          m_next(NULL),
+          m_clock(clock),
+          m_activated(false)
     {}
 
     Storage(const Storage&) = delete; // No copy
@@ -91,7 +92,9 @@ public:
     }
 
     SensitiveStorage(const std::string& name, Object& parent, Clock& clock)
-      : Object(name, parent, clock), Storage(name, parent, clock), m_process(NULL)
+      : Object(name, parent),
+        Storage(name, parent, clock),
+        m_process(NULL)
     { }
 
     SensitiveStorage(const SensitiveStorage&) = delete; // No copy
@@ -233,7 +236,7 @@ public:
 
     /// Construct an empty list with a sensitive component
     LinkedList(const std::string& name, Object& parent, Clock& clock, L& table)
-        : Object(name, parent, clock),
+        : Object(name, parent),
           Storage(name, parent, clock),
           SensitiveStorage(name, parent, clock),
           m_table(table),
@@ -287,7 +290,8 @@ class Buffer : public SensitiveStorage
             if (m_data.empty()) {
                 // The buffer became empty; unnotify sensitive process
                 Unnotify();
-            }
+
+          }
         }
         m_pushes = 0;
         m_popped = false;
@@ -373,12 +377,19 @@ public:
     }
 
     Buffer(const std::string& name, Object& parent, Clock& clock, BufferSize maxSize, size_t maxPushes = 1)
-        : Object(name, parent, clock),
-        Storage(name, parent, clock),
-        SensitiveStorage(name, parent, clock),
-        m_maxSize(maxSize), m_maxPushes(maxPushes),
-        m_data(), m_pushes(0), m_popped(false),
-        m_stalls(0), m_lastcycle(0), m_totalsize(0), m_maxsize(0), m_cursize(0)
+        : Object(name, parent),
+          Storage(name, parent, clock),
+          SensitiveStorage(name, parent, clock),
+          m_maxSize(maxSize),
+          m_maxPushes(maxPushes),
+          m_data(),
+          m_pushes(0),
+          m_popped(false),
+          m_stalls(0),
+          m_lastcycle(0),
+          m_totalsize(0),
+          m_maxsize(0),
+          m_cursize(0)
     {
         RegisterSampleVariableInObject(m_totalsize, SVC_CUMULATIVE);
         RegisterSampleVariableInObject(m_maxsize, SVC_WATERMARK, maxSize);
@@ -456,10 +467,14 @@ public:
     }
 
     Register(const std::string& name, Object& parent, Clock& clock)
-        : Object(name, parent, clock),
+        : Object(name, parent),
           Storage(name, parent, clock),
           SensitiveStorage(name, parent, clock),
-          m_cur(), m_new(), m_empty(true), m_cleared(false), m_assigned(false)
+          m_cur(),
+          m_new(),
+          m_empty(true),
+          m_cleared(false),
+          m_assigned(false)
     {}
 };
 
@@ -534,9 +549,16 @@ public:
     }
 
     Flag(const std::string& name, Object& parent, Clock& clock, bool set)
-        : Object(name, parent, clock), Storage(name, parent, clock),
-        m_set(false), m_updated(false), m_new(set),
-        m_stalls(0), m_lastcycle(0), m_totalsize(0), m_maxsize(0), m_cursize(0)
+        : Object(name, parent),
+          Storage(name, parent, clock),
+          m_set(false),
+          m_updated(false),
+          m_new(set),
+          m_stalls(0),
+          m_lastcycle(0),
+          m_totalsize(0),
+          m_maxsize(0),
+          m_cursize(0)
     {
         RegisterSampleVariableInObject(m_totalsize, SVC_CUMULATIVE);
         RegisterSampleVariableInObject(m_set, SVC_LEVEL);
@@ -559,10 +581,10 @@ class SingleFlag : public Flag, public SensitiveStorage
     }
 public:
     SingleFlag(const std::string& name, Object& parent, Clock& clock, bool set)
-        : Object(name, parent, clock),
-        Storage(name, parent, clock),
-        Flag(name, parent, clock, set),
-        SensitiveStorage(name, parent, clock)
+        : Object(name, parent),
+          Storage(name, parent, clock),
+          Flag(name, parent, clock, set),
+          SensitiveStorage(name, parent, clock)
     {}
 };
 

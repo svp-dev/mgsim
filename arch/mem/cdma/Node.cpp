@@ -130,11 +130,11 @@ Result CDMA::Node::DoForward()
     assert(!m_outgoing.Empty());
     assert(m_next != NULL);
 
-    TraceWrite(m_outgoing.Front()->address, "Sending %s to %s", m_outgoing.Front()->str().c_str(), m_next->GetFQN().c_str());
+    TraceWrite(m_outgoing.Front()->address, "Sending %s to %s", m_outgoing.Front()->str().c_str(), m_next->GetName().c_str());
 
     if (!m_next->m_incoming.Push( m_outgoing.Front() ))
     {
-        DeadlockWrite("Unable to send request to next node (%s)", m_next->GetFQN().c_str());
+        DeadlockWrite("Unable to send request to next node (%s)", m_next->GetName().c_str());
         return FAILED;
     }
     m_outgoing.Pop();

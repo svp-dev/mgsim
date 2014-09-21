@@ -11,7 +11,7 @@ namespace Simulator
 
 
     NullIO::NullIO(const std::string& name, Object& parent, Clock& clock)
-        : Object(name, parent, clock), m_clients()
+        : Object(name, parent), m_clock(clock), m_clients()
     {
     }
 

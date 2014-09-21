@@ -73,7 +73,7 @@ Result DebugChannel::Write(MemAddr address, const void *data, MemSize size, LFID
 }
 
 DebugChannel::DebugChannel(const std::string& name, Object& parent, std::ostream& output)
-    : MMIOComponent("debug_" + name, parent, parent.GetClock()),
+    : MMIOComponent("debug_" + name, parent),
       m_output(output),
       m_floatprecision(6)
 {

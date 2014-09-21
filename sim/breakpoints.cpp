@@ -116,7 +116,7 @@ void BreakPointManager::ReportBreaks(std::ostream& out) const
             << setw(18) << hex << showbase << i.addr << " | "
             << setw(20) << GetSymbolTable()[i.addr] << " | "
             << setw(4) << GetModeName(i.type) << " | "
-            << i.obj->GetFQN()
+            << i.obj->GetName()
             << endl;
     }
 }

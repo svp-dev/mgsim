@@ -100,7 +100,7 @@ Result SerialMemory::DoRequests()
     assert(!m_requests.Empty());
 
     const Request& request = m_requests.Front();
-    const CycleNo  now     = GetCycleNo();
+    const CycleNo  now     = GetKernel()->GetActiveClock()->GetCycleNo();
 
     if (m_nextdone > 0)
     {
@@ -152,11 +152,11 @@ Result SerialMemory::DoRequests()
 }
 
 SerialMemory::SerialMemory(const std::string& name, Object& parent, Clock& clock, Config& config) :
-    Object(name, parent, clock),
+    Object(name, parent),
     m_registry       (config),
     m_clients        (),
     m_requests       ("b_requests", *this, clock, config.getValue<BufferSize>(*this, "BufferSize")),
-    p_requests       (*this, clock, "m_requests"),
+    p_requests       (clock, GetName() + ".m_requests"),
     m_baseRequestTime(config.getValue<CycleNo>   (*this, "BaseRequestTime")),
     m_timePerLine    (config.getValue<CycleNo>   (*this, "TimePerLine")),
     m_lineSize       (config.getValue<CycleNo>   ("CacheLineSize")),
@@ -227,7 +227,7 @@ void SerialMemory::Cmd_Read(ostream& out, const vector<string>& arguments) const
         if (obj == NULL) {
             out << "???";
         } else {
-            out << obj->GetFQN();
+            out << obj->GetName();
         }
 
         out << " |"

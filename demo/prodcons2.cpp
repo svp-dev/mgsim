@@ -1,8 +1,8 @@
 #include "demo/prodcons2.h"
 #include "sim/delegate.h"
 
-ExampleConsumer2::ExampleConsumer2(const std::string& name, Simulator::Object& parent, Simulator::Clock& clock)
-    : Simulator::Object(name, parent, clock)
+ExampleConsumer2::ExampleConsumer2(const std::string& name, Simulator::Object& parent)
+    : Simulator::Object(name, parent)
 {
 
 }
@@ -19,7 +19,7 @@ ExampleConsumer2::Deliver(const int& x)
 
 
 ExampleProducer2::ExampleProducer2(const std::string& name, Simulator::Object& parent, Simulator::Clock& clock)
-    : Simulator::Object(name, parent, clock),
+    : Simulator::Object(name, parent),
       m_counter(0),
       p_Produce(*this, "produce", Simulator::delegate::create<ExampleProducer2, &ExampleProducer2::DoProduce>(*this)),
       m_enabled("f_enabled", *this, clock, true)

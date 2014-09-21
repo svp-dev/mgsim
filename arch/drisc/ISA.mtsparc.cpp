@@ -960,7 +960,7 @@ Pipeline::PipeAction Pipeline::ExecuteStage::ExecuteInstruction()
                 {
                     DeadlockWrite("F%u/T%u(%llu) %s unable to queue FP operation %u on %s for %s",
                                   (unsigned)m_input.fid, (unsigned)m_input.tid, (unsigned long long)m_input.logical_index, m_input.pc_sym,
-                                  (unsigned)fpuop, m_fpu->GetFQN().c_str(), m_input.Rc.str().c_str());
+                                  (unsigned)fpuop, m_fpu->GetName().c_str(), m_input.Rc.str().c_str());
                     return PIPE_STALL;
                 }
 

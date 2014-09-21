@@ -38,8 +38,8 @@ class DRISC : public Object
 public:
     class Allocator;
 
-    DRISC(const std::string& name, Object& parent, Clock& clock, PID pid, const std::vector<DRISC*>& grid, 
-	  Config& config, BreakPointManager& bp);
+    DRISC(const std::string& name, Object& parent, Clock& clock, PID pid, const std::vector<DRISC*>& grid,
+          Config& config, BreakPointManager& bp);
     DRISC(const DRISC&) = delete;
     DRISC& operator=(const DRISC&) = delete;
     ~DRISC();
@@ -58,7 +58,7 @@ private:
     // Helper to Initialize()
     void InitializeRegisters();
 public:
-
+    CycleNo GetCycleNo() const { return m_clock.GetCycleNo(); }
     PID   GetPID()      const { return m_pid; }
     PSize GetGridSize() const { return m_grid.size(); }
     bool  IsIdle()      const;
@@ -120,6 +120,7 @@ public:
     SymbolTable& GetSymbolTable() { return *m_symtable; }
 
 private:
+    Clock&                         m_clock;
     BreakPointManager&             m_bp_manager;
     IMemory*                       m_memory;
     IMemoryAdmin*                  m_memadmin;

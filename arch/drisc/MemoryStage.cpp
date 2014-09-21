@@ -297,11 +297,11 @@ Pipeline::PipeAction Pipeline::MemoryStage::OnCycle()
     return PIPE_CONTINUE;
 }
 
-Pipeline::MemoryStage::MemoryStage(Pipeline& parent, Clock& clock,
+Pipeline::MemoryStage::MemoryStage(Pipeline& parent,
                                           const ExecuteMemoryLatch& input,
                                           MemoryWritebackLatch& output,
                                           Config& /*config*/)
-    : Stage("memory", parent, clock),
+    : Stage("memory", parent),
       m_input(input),
       m_output(output),
       m_allocator(GetDRISC().GetAllocator()),

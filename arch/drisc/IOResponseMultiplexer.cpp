@@ -10,7 +10,7 @@ namespace drisc
 {
 
 IOResponseMultiplexer::IOResponseMultiplexer(const std::string& name, IOInterface& parent, Clock& clock, size_t numDevices, Config& config)
-    : Object(name, parent, clock),
+    : Object(name, parent),
       m_incoming("b_incoming", *this, clock, config.getValue<BufferSize>(*this, "IncomingQueueSize")),
       m_wb_buffers(),
       p_dummy(*this, "dummy-process", delegate::create<IOResponseMultiplexer, &IOResponseMultiplexer::DoNothing>(*this)),

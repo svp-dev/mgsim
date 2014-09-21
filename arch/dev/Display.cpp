@@ -15,7 +15,7 @@ namespace Simulator
     Display * Display::m_singleton = NULL;
 
     Display::FrameBufferInterface::FrameBufferInterface(const string& name, Display& parent, IIOBus& iobus, IODeviceID devid)
-        : Object(name, parent, iobus.GetClock()),
+        : Object(name, parent),
           m_iobus(iobus),
           m_devid(devid)
     {
@@ -73,11 +73,11 @@ namespace Simulator
 
     const string& Display::FrameBufferInterface::GetIODeviceName() const
     {
-        return GetFQN();
+        return GetName();
     }
 
     Display::ControlInterface::ControlInterface(const string& name, Display& parent, IIOBus& iobus, IODeviceID devid)
-        : Object(name, parent, iobus.GetClock()),
+        : Object(name, parent),
           m_iobus(iobus),
           m_control(3, 0),
           m_devid(devid),
@@ -247,7 +247,7 @@ namespace Simulator
 
     const string& Display::ControlInterface::GetIODeviceName() const
     {
-        return GetFQN();
+        return GetName();
     }
 
 

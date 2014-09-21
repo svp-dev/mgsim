@@ -17,7 +17,7 @@ namespace drisc
 {
 
 DCache::DCache(const std::string& name, DRISC& parent, Clock& clock, Config& config)
-:   Object(name, parent, clock),
+:   Object(name, parent),
     m_memory(NULL),
     m_mcid(0),
     m_lines(),
@@ -51,7 +51,7 @@ DCache::DCache(const std::string& name, DRISC& parent, Clock& clock, Config& con
     p_WriteResponses(*this, "write-responses", delegate::create<DCache, &DCache::DoWriteResponses  >(*this) ),
     p_Outgoing      (*this, "outgoing",        delegate::create<DCache, &DCache::DoOutgoingRequests>(*this) ),
 
-    p_service        (*this, clock, "p_service")
+    p_service       (clock, GetName() + ".p_service")
 {
     RegisterSampleVariableInObject(m_numRHits, SVC_CUMULATIVE);
     RegisterSampleVariableInObject(m_numEmptyRMisses, SVC_CUMULATIVE);
@@ -236,7 +236,7 @@ Result DCache::Read(MemAddr address, void* data, MemSize size, RegAddr* reg)
     }
 
     // Update last line access
-    COMMIT{ line->access = GetCycleNo(); }
+    COMMIT{ line->access = cpu.GetCycleNo(); }
 
     if (result == DELAYED)
     {

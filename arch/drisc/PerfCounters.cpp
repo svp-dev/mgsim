@@ -171,7 +171,7 @@ public:
 };
 
 PerfCounters::PerfCounters(DRISC& parent, Config& config)
-    : MMIOComponent("perfcounters", parent, parent.GetClock()),
+    : MMIOComponent("perfcounters", parent),
       m_counters(),
       m_nCycleSampleOps(0),
       m_nOtherSampleOps(0)

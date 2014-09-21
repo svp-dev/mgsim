@@ -76,11 +76,11 @@ namespace Simulator
 
     const std::string& RTC::RTCInterface::GetIODeviceName() const
     {
-        return GetFQN();
+        return GetName();
     }
 
     RTC::RTCInterface::RTCInterface(const std::string& name, RTC& parent, IIOBus& iobus, IODeviceID devid)
-        : Object(name, parent, iobus.GetClock()),
+        : Object(name, parent),
           m_devid(devid),
           m_iobus(iobus),
           m_doNotify("f_interruptTriggered", *this, iobus.GetClock(), false),
@@ -97,7 +97,7 @@ namespace Simulator
     }
 
     RTC::RTC(const string& name, Object& parent, Clock& rtcclock, IIOBus& iobus, IODeviceID devid, Config& config)
-        : Object(name, parent, rtcclock),
+        : Object(name, parent),
           m_timerTicked(false),
           m_timeOfLastInterrupt(0),
           m_triggerDelay(0),

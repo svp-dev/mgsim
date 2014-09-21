@@ -15,7 +15,7 @@ namespace drisc
 IONotificationMultiplexer::IONotificationMultiplexer(const string& name, IOInterface& parent, Clock& clock,
                                                      size_t numChannels,
                                                      Config& config)
-    : Object(name, parent, clock),
+    : Object(name, parent),
       m_writebacks(numChannels, 0),
       m_mask(numChannels, false),
       m_interrupts(numChannels, 0),
@@ -48,8 +48,8 @@ IONotificationMultiplexer::IONotificationMultiplexer(const string& name, IOInter
         }
         {
             stringstream ss;
-            ss << "p_service" << i;
-            m_services[i] = new ArbitratedService<>(*this, clock, ss.str());
+            ss << GetName() << ".p_service" << i;
+            m_services[i] = new ArbitratedService<>(clock, ss.str());
         }
     }
 

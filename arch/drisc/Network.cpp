@@ -21,7 +21,7 @@ Network::Network(
     const vector<DRISC*>& grid,
     Config&               config
 ) :
-    Object(name, parent, clock),
+    Object(name, parent),
 
     m_regFile    (parent.GetRegisterFile()),
     m_familyTable(parent.GetFamilyTable()),
@@ -36,7 +36,7 @@ Network::Network(
     m_numAllocates(0),
     m_numCreates(0),
 
-#define CONSTRUCT_REGISTER(name) name(*this, #name)
+#define CONSTRUCT_REGISTER(name) name(*this, GetName() + "." #name, clock)
     CONSTRUCT_REGISTER(m_delegateOut),
     CONSTRUCT_REGISTER(m_delegateIn),
     CONSTRUCT_REGISTER(m_link),

@@ -58,9 +58,9 @@ class Clock
 
     Clock(Kernel&
 #ifndef STATIC_KERNEL
-	  kernel
+          kernel
 #endif
-	  , unsigned long long frequency, unsigned long long period)
+          , unsigned long long frequency, unsigned long long period)
       :
 #ifndef STATIC_KERNEL
         m_kernel(kernel),
@@ -134,7 +134,7 @@ class Process
     friend class Kernel;
     friend class Clock;
 
-    const std::string m_name;          ///< The name of this process
+    const std::string m_name;          ///< The fully qualified name of this process
     const delegate    m_delegate;      ///< The callback for the execution of the process
     RunState          m_state;         ///< Last run state of this process
     unsigned int      m_activations;   ///< Reference count of activations of this process
@@ -155,7 +155,7 @@ public:
     const Process* GetNext()   const { return m_next;  }
     RunState       GetState()  const { return m_state; }
     Object*        GetObject() const { return m_delegate.GetObject(); }
-    std::string    GetName()   const;
+    const std::string& GetName() const { return m_name; }
 
     void Deactivate();
 
@@ -264,6 +264,7 @@ private:
     CycleNo             m_lastsuspend;  ///< Avoid suspending twice on the same cycle.
     CycleNo             m_cycle;        ///< Current cycle of the simulation.
     unsigned long long  m_master_freq;  ///< Master frequency
+    Clock*              m_clock;        ///< The currently active clock.
     Process*            m_process;      ///< The currently executing process.
     std::vector<Clock*> m_clocks;       ///< All clocks in the system.
     Clock*              m_activeClocks; ///< The clocks that have active components
@@ -301,6 +302,11 @@ public:
      * @brief Returns the master frequency for the simulation, in MHz
      */
     unsigned long long GetMasterFrequency() const { return m_master_freq; }
+
+    /**
+     * @brief Get the currently active clock
+     */
+    inline Clock* GetActiveClock() const { return m_clock; }
 
     /**
      * @brief Get the currently executing process
@@ -408,8 +414,6 @@ class Object
 {
     Object*              m_parent;      ///< Parent object.
     std::string          m_name;        ///< Object name.
-    std::string          m_fqn;         ///< Full object name.
-    Clock&               m_clock;       ///< Clock that drives this object.
 #ifndef STATIC_KERNEL
     Kernel&              m_kernel;      ///< The kernel that manages this object.
 #endif
@@ -420,7 +424,7 @@ public:
      * Constructs a root object.
      * @param name the name of this object.
      */
-    Object(const std::string& name, Clock& clock);
+    Object(const std::string& name, Kernel& k);
 
     /**
      * Constructs a child object, using the same kernel as the parent
@@ -428,14 +432,6 @@ public:
      * @param name the name of this object.
      */
     Object(const std::string& name, Object& parent);
-
-    /**
-     * Constructs a child object.
-     * @param parent the parent object.
-     * @param kernel the clock that drives this object.
-     * @param name the name of this object.
-     */
-    Object(const std::string& name, Object& parent, Clock& clock);
 
     Object(const Object&) = delete; // No copy.
     Object& operator=(const Object&) = delete; // No assignment.
@@ -456,26 +452,14 @@ public:
     Kernel* GetKernel() const { return &m_kernel; }
 #endif
 
-    /// Get the clock that controls this object
-    Clock&             GetClock() const { return m_clock; }
     /// Get the parent object. @return the parent object.
     Object*            GetParent() const { return m_parent; }
     /// Get the number of children of the object. @return the number of children.
     unsigned int       GetNumChildren() const { return (unsigned int)m_children.size(); }
     /// Get a child of the object. @param i the index of the child. @return the child at index i.
     Object*            GetChild(int i)  const { return m_children[i]; }
-    /// Get the object name. @return the object name.
+    /// Get the object fully qualified name. @return the object name.
     const std::string& GetName()   const { return m_name; }
-    /// Get the current cycle counter of this object's clock
-    CycleNo            GetCycleNo() const { return m_clock.GetCycleNo(); }
-
-    /**
-     * @brief Get the object's Fully Qualified Name.
-     * The objectś Fully Qualified Name, or FQN, is the name of the object and
-     * all its parent up to the root, with periods seperating the names.
-     * @return the FQN of the object.
-     */
-    const std::string& GetFQN()    const { return m_fqn; }
 
     /**
      * @brief Writes simulator debug output.
@@ -498,25 +482,31 @@ public:
      */
     void DeadlockWrite_(const char* msg, ...) const FORMAT_PRINTF(2,3);
 
-    /// Writes output. @param msg the printf-style format string.
+    /**
+     * @brief Writes general output.
+     * @param msg the printf-style format string.
+     */
     void OutputWrite_(const char* msg, ...) const FORMAT_PRINTF(2,3);
 };
 
 /// Base class for all objects that arbitrate
 class Arbitrator
 {
-    friend class Kernel;
+    ///< Next pointer in the list of arbitrators that require arbitration
+    Arbitrator* m_next;
 
-private:
-    Arbitrator* m_next;       ///< Next pointer in the list of arbitrators that require arbitration
+    ///< The clock that controls this arbitrator
+    Clock&      m_clock;
 
-protected:
-    Clock&      m_clock;      ///< The clock that controls this arbitrator
-
-private:
-    bool        m_activated;  ///< Has the arbitrator already been activated this cycle?
+    ///< Has the arbitrator already been activated this cycle?
+    bool        m_activated;
 
 protected:
+    // Request arbitration: register this arbitrator to its clock, so
+    // that it is woken up during the cycle arbitration phase (calling
+    // OnArbitrate).
+    // Arbitration is requested each time a request to a shared
+    // arbitrator comes in (see derived classes).
     void RequestArbitration()
     {
         if (!m_activated) {
@@ -525,21 +515,29 @@ protected:
         }
     }
 
-public:
-    ///< Callback for arbitration
-    virtual void OnArbitrate() = 0;
-    virtual std::string GetFQN() const = 0;
+protected:
+    // Retrieve the associated clock.
+    Clock& GetClock() { return m_clock; }
 
+public:
+    // Callback for arbitration, called by Kernel
+    virtual void OnArbitrate() = 0;
+
+    // Name of this arbitrator.
+    virtual const std::string& GetName() const = 0;
+
+    // Iterate through the list of arbitrators waiting arbitration.
+    Arbitrator* GetNext() { return m_next; }
     const Arbitrator* GetNext() const { return m_next; }
 
-    Arbitrator(Clock& clock)
-        : m_next(NULL), m_clock(clock), m_activated(false)
-    {}
+    // Deactivate this arbitrator (called by Kernel after OnArbitrate)
+    void Deactivate() { m_activated = false; }
 
-    Arbitrator(const Arbitrator&) = delete; // No copy.
-    Arbitrator& operator=(const Arbitrator&) = delete; // No assignment.
-
+    // Constructors, destructors etc.
+    Arbitrator(Clock& clock);
     virtual ~Arbitrator() {}
+    Arbitrator(const Arbitrator&) = delete;
+    Arbitrator& operator=(const Arbitrator&) = delete;
 };
 
 }

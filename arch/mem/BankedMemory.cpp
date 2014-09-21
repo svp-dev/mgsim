@@ -44,7 +44,7 @@ class BankedMemory::Bank : public Object
         COMMIT
         {
             const std::pair<CycleNo, CycleNo> delay = m_memory.GetMessageDelay(data ? request.size : 0);
-            const CycleNo                     now   = GetCycleNo();
+            const CycleNo                     now   = GetKernel()->GetActiveClock()->GetCycleNo();
 
             // Get the arrival time of the first bits
             request.done = now + delay.first;
@@ -73,7 +73,7 @@ class BankedMemory::Bank : public Object
         // Handle incoming requests
         assert(!m_incoming.Empty());
 
-        const CycleNo  now     = GetCycleNo();
+        const CycleNo  now     = GetKernel()->GetActiveClock()->GetCycleNo();
         const Request& request = m_incoming.Front();
         if (now >= request.done)
         {
@@ -100,7 +100,7 @@ class BankedMemory::Bank : public Object
         // Handle outgoing requests
         assert(!m_outgoing.Empty());
 
-        const CycleNo  now     = GetCycleNo();
+        const CycleNo  now     = GetKernel()->GetActiveClock()->GetCycleNo();
         const Request& request = m_outgoing.Front();
         if (now >= request.done)
         {
@@ -129,7 +129,7 @@ class BankedMemory::Bank : public Object
     {
         // Process the bank itself
         assert(m_busy.IsSet());
-        if (GetCycleNo() >= m_request.done)
+        if (GetKernel()->GetActiveClock()->GetCycleNo() >= m_request.done)
         {
             // This bank is done serving the request
             if (m_request.write) {
@@ -186,7 +186,7 @@ class BankedMemory::Bank : public Object
         if (obj == NULL) {
             out << "???";
         } else {
-            out << obj->GetFQN();
+            out << obj->GetName();
         }
         out << dec << endl;
     }
@@ -241,9 +241,9 @@ public:
     }
 
     Bank(const std::string& name, BankedMemory& memory, Clock& clock, BufferSize buffersize)
-        : Object(name, memory, clock),
+        : Object(name, memory),
           m_memory  (memory),
-          p_incoming(memory, clock, name + ".incoming"),
+          p_incoming(clock, name + ".incoming"),
           m_incoming("b_incoming", *this, clock, buffersize),
           m_outgoing("b_outgoing", *this, clock, buffersize),
           m_busy    ("f_busy", *this, clock, false),
@@ -289,9 +289,9 @@ MCID BankedMemory::RegisterClient(IMemoryCallback& callback, Process& process, S
     MCID id = m_clients.size();
 
     stringstream name;
-    name << "client" << id;
+    name << GetName() << ".client" << id;
     ClientInfo client;
-    client.service = new ArbitratedService<>(*this, m_clock, name.str());
+    client.service = new ArbitratedService<>(m_clock, name.str());
     client.callback = &callback;
     m_clients.push_back(client);
 
@@ -386,7 +386,7 @@ bool BankedMemory::Write(MCID id, MemAddr address, const MemData& data, WClientI
 }
 
 BankedMemory::BankedMemory(const std::string& name, Object& parent, Clock& clock, Config& config, const std::string& defaultBankSelectorType)
-    : Object(name, parent, clock),
+    : Object(name, parent),
       m_registry(config),
       m_clock(clock),
       m_clients(),

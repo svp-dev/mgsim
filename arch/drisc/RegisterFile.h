@@ -22,7 +22,11 @@ namespace drisc
  * one write port from the writeback stage of the pipeline, and one asynchronous
  * read and write port for other components (memory, etc).
  */
-class RegisterFile : public virtual Structure<RegAddr>, public virtual Storage, public FPU::IFPUClient, public Inspect::Interface<Inspect::Read>
+class RegisterFile
+    : public virtual ReadWriteStructure<RegAddr>,
+      public virtual Storage,
+      public FPU::IFPUClient,
+      public Inspect::Interface<Inspect::Read>
 {
 public:
     /**
@@ -94,7 +98,7 @@ public:
     void Cmd_Info(std::ostream& out, const std::vector<std::string>& arguments) const;
     void Cmd_Read(std::ostream& out, const std::vector<std::string>& arguments) const;
 
-    Object* GetParent() const { return Structure<RegAddr>::GetParent(); }
+    Object* GetParent() const { return ReadWriteStructure<RegAddr>::GetParent(); }
     Object& GetDRISCParent() const { return *GetParent(); }
 
     DedicatedReadPort            p_pipelineR1; ///< Read port #1 for the pipeline

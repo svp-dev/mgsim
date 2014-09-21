@@ -14,8 +14,8 @@ namespace Simulator
 namespace drisc
 {
 
-ThreadTable::ThreadTable(const std::string& name, DRISC& parent, Clock& clock, Config& config)
-  : Object(name, parent, clock),
+ThreadTable::ThreadTable(const std::string& name, DRISC& parent, Config& config)
+  : Object(name, parent),
     m_empty(0),
     m_threads(config.getValue<size_t>(*this, "NumEntries")),
     m_lastcycle(0), m_totalalloc(0), m_maxalloc(0), m_curalloc(0)

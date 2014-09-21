@@ -9,7 +9,7 @@ namespace Simulator
 
 static string MakeMessage(const Object& object, const string& msg)
 {
-    return object.GetFQN() + ": " + msg;
+    return object.GetName() + ": " + msg;
 }
 
 SimulationException::SimulationException(const string& msg, const Object& object)

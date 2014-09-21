@@ -74,7 +74,7 @@ Result MMUInterface::Write(MemAddr address, const void *data, MemSize size, LFID
 }
 
 MMUInterface::MMUInterface(const std::string& name, Object& parent)
-    : MMIOComponent(name, parent, parent.GetClock())
+    : MMIOComponent(name, parent)
 {
 }
 

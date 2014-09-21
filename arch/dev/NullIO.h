@@ -18,6 +18,7 @@ namespace Simulator
      */
     class NullIO : public IIOBus, public Object, public Inspect::Interface<Inspect::Info>
     {
+        Clock& m_clock;
         std::vector<IIOBusClient*> m_clients;
 
         void CheckEndPoints(IODeviceID from, IODeviceID to) const;
@@ -50,7 +51,7 @@ namespace Simulator
         void GetDeviceIdentity(IODeviceID which, IODeviceIdentification& id) const;
         IODeviceID GetNextAvailableDeviceID() const;
 
-        Clock& GetClock() { return Object::GetClock(); }
+        Clock& GetClock() { return m_clock; }
 
         /* debug */
         void Cmd_Info(std::ostream& out, const std::vector<std::string>& arguments) const;

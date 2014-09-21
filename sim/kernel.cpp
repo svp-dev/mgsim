@@ -22,11 +22,6 @@ namespace Simulator
 // Process class
 //
 
-std::string Process::GetName() const
-{
-    return GetObject()->GetFQN() + ":" + m_name;
-}
-
 void Process::Deactivate()
 {
     // A process can be sensitive to multiple objects, so we only remove it from the list
@@ -45,16 +40,21 @@ void Process::Deactivate()
 std::set<const Process*> Process::m_registry;
 
 Process::Process(Object& parent, const string& name, const delegate& delegate)
-    : m_name(name), m_delegate(delegate), m_state(STATE_IDLE), m_activations(0),
-      m_next(0), m_pPrev(0),
+    : m_name(parent.GetName() + ":" + name),
+      m_delegate(delegate),
+      m_state(STATE_IDLE),
+      m_activations(0),
+      m_next(0),
+      m_pPrev(0),
 #if !defined(NDEBUG) && !defined(DISABLE_TRACE_CHECKS)
-      m_storages(), m_currentStorages(),
+      m_storages(),
+      m_currentStorages(),
 #endif
       m_stalls(0)
 {
     m_registry.insert(this);
-    RegisterSampleVariable(m_stalls, parent.GetFQN() + ':' + name + ":stalls", SVC_CUMULATIVE);
-    RegisterSampleVariable(m_state, parent.GetFQN() + ':' + name + ":state", SVC_LEVEL);
+    RegisterSampleVariable(m_stalls, m_name + ":stalls", SVC_CUMULATIVE);
+    RegisterSampleVariable(m_state, m_name + ":state", SVC_LEVEL);
 }
 
 Process::~Process()
@@ -65,26 +65,25 @@ Process::~Process()
 //
 // Object class
 //
-Object::Object(const std::string& name, Clock& clock)
-    : m_parent(NULL), m_name(name), m_fqn(name), m_clock(clock), 
+Object::Object(const std::string& name, Kernel&
 #ifndef STATIC_KERNEL
-      m_kernel(clock.GetKernel()), 
+               k
+#endif
+    )
+    : m_parent(NULL),
+      m_name(name),
+#ifndef STATIC_KERNEL
+      m_kernel(k),
 #endif
       m_children()
 {
 }
 
 Object::Object(const std::string& name, Object& parent)
-    : Object(name, parent, parent.m_clock)
-{ }
-
-Object::Object(const std::string& name, Object& parent, Clock& clock)
     : m_parent(&parent),
-      m_name(name),
-      m_fqn(parent.GetFQN().empty() ? name : (parent.GetFQN() + '.' + name)),
-      m_clock(clock),
+      m_name(parent.GetName().empty() ? name : (parent.GetName() + '.' + name)),
 #ifndef STATIC_KERNEL
-      m_kernel(clock.GetKernel()),
+      m_kernel(*parent.GetKernel()),
 #endif
       m_children()
 {
@@ -112,7 +111,7 @@ void Object::OutputWrite_(const char* msg, ...) const
 {
     va_list args;
 
-    fprintf(stderr, "[%08lld:%s]\t\to ", (unsigned long long)GetKernel()->GetCycleNo(), GetFQN().c_str());
+    fprintf(stderr, "[%08lld:%s]\t\to ", (unsigned long long)GetKernel()->GetCycleNo(), GetName().c_str());
     va_start(args, msg);
     vfprintf(stderr, msg, args);
     va_end(args);
@@ -123,8 +122,8 @@ void Object::DeadlockWrite_(const char* msg, ...) const
 {
     va_list args;
 
-    fprintf(stderr, "[%08lld:%s]\t(%s)\td ", (unsigned long long)GetKernel()->GetCycleNo(), GetFQN().c_str(), 
-	    GetKernel()->GetActiveProcess()->GetName().c_str());
+    fprintf(stderr, "[%08lld:%s]\t(%s)\td ", (unsigned long long)GetKernel()->GetCycleNo(), GetName().c_str(),
+            GetKernel()->GetActiveProcess()->GetName().c_str());
     va_start(args, msg);
     vfprintf(stderr, msg, args);
     va_end(args);
@@ -135,7 +134,7 @@ void Object::DebugSimWrite_(const char* msg, ...) const
 {
     va_list args;
 
-    fprintf(stderr, "[%08lld:%s]\t", (unsigned long long)GetKernel()->GetCycleNo(), GetFQN().c_str());
+    fprintf(stderr, "[%08lld:%s]\t", (unsigned long long)GetKernel()->GetCycleNo(), GetName().c_str());
     const Process *p = GetKernel()->GetActiveProcess();
     if (p)
         fprintf(stderr, "(%s)", p->GetName().c_str());
@@ -270,6 +269,7 @@ RunState Kernel::Step(CycleNo cycles)
             m_phase = PHASE_ACQUIRE;
             for (Clock* clock = m_activeClocks; clock != NULL && m_cycle == clock->m_cycle; clock = clock->m_next)
             {
+                m_clock = clock;
                 for (Process* process = clock->m_activeProcesses; process != NULL; process = process->m_next)
                 {
                     m_process   = process;
@@ -298,10 +298,11 @@ RunState Kernel::Step(CycleNo cycles)
             //
             for (Clock* clock = m_activeClocks; clock != NULL && m_cycle == clock->m_cycle; clock = clock->m_next)
             {
-                for (Arbitrator* arbitrator = clock->m_activeArbitrators; arbitrator != NULL; arbitrator = arbitrator->m_next)
+                m_clock = clock;
+                for (Arbitrator* arbitrator = clock->m_activeArbitrators; arbitrator != NULL; arbitrator = arbitrator->GetNext())
                 {
                     arbitrator->OnArbitrate();
-                    arbitrator->m_activated = false;
+                    arbitrator->Deactivate();
                 }
                 clock->m_activeArbitrators = NULL;
             }
@@ -311,6 +312,7 @@ RunState Kernel::Step(CycleNo cycles)
             //
             for (Clock* clock = m_activeClocks; clock != NULL && m_cycle == clock->m_cycle; clock = clock->m_next)
             {
+                m_clock = clock;
                 for (Process* process = clock->m_activeProcesses; process != NULL; process = process->m_next)
                 {
                     if (process->m_state != STATE_DEADLOCK)
@@ -495,6 +497,7 @@ Kernel::Kernel()
  : m_lastsuspend((CycleNo)-1),
    m_cycle(0),
    m_master_freq(0),
+   m_clock(NULL),
    m_process(NULL),
    m_clocks(),
    m_activeClocks(NULL),
@@ -512,5 +515,12 @@ Kernel::~Kernel()
     for (auto c : m_clocks)
         delete c;
 }
+
+Arbitrator::Arbitrator(Clock& clock)
+    : m_next(0),
+      m_clock(clock),
+      m_activated(false)
+{}
+
 
 }

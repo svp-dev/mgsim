@@ -455,7 +455,7 @@ ZLCDMA::RootDirectory::RootDirectory(const std::string& name, ZLCDMA& parent, Cl
     m_assoc_dir(config.getValue<size_t>(parent, "L2CacheAssociativity") * config.getValue<size_t>(parent, "NumL2CachesPerRing")),
     m_id       (id),
     m_numRoots (numRoots),
-    p_lines    (*this, clock, "p_lines"),
+    p_lines    (clock, GetName() + ".p_lines"),
     m_memory   (0),
     m_requests ("b_requests", *this, clock, config.getValue<size_t>(*this, "ExternalOutputQueueSize")),
     m_responses("b_responses", *this, clock, config.getValue<size_t>(*this, "ExternalInputQueueSize")),
@@ -573,4 +573,3 @@ void ZLCDMA::RootDirectory::Cmd_Read(std::ostream& out, const std::vector<std::s
 }
 
 }
-

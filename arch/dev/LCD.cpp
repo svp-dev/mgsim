@@ -16,7 +16,7 @@ namespace Simulator
 // size_t LCD::GetSize() const { return m_width * m_height + 1; }
 
 LCD::LCD(const std::string& name, Object& parent, IIOBus& iobus, IODeviceID devid, Config& config)
-    : Object(name, parent, parent.GetClock()),
+    : Object(name, parent),
       m_iobus(iobus),
       m_devid(devid),
       m_buffer(0),
@@ -63,7 +63,7 @@ LCD::~LCD()
 
 const std::string& LCD::GetIODeviceName() const
 {
-    return GetFQN();
+    return GetName();
 }
 
 void LCD::GetDeviceIdentity(IODeviceIdentification& id) const

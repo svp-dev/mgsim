@@ -254,8 +254,8 @@ class Pipeline : public Object, public Inspect::Interface<Inspect::Read>
         virtual void       Clear(TID /*tid*/) {}
 
     protected:
-        Stage(const std::string& name, Object& parent, Clock& clock)
-            : Object(name, parent, clock) {}
+        Stage(const std::string& name, Object& parent)
+            : Object(name, parent) {}
         Object& GetDRISCParent()  const { return *GetParent()->GetParent(); }
     };
 
@@ -274,7 +274,7 @@ class Pipeline : public Object, public Inspect::Interface<Inspect::Read>
         void Clear(TID tid);
         PipeAction OnCycle();
     public:
-        FetchStage(Pipeline& parent, Clock& clock, FetchDecodeLatch& output, Config& config);
+        FetchStage(Pipeline& parent, FetchDecodeLatch& output, Config& config);
         FetchStage(const FetchStage&) = delete;
         FetchStage& operator=(const FetchStage&) = delete;
         ~FetchStage();
@@ -293,7 +293,7 @@ class Pipeline : public Object, public Inspect::Interface<Inspect::Read>
         static InstrFormat GetInstrFormat(uint8_t opcode);
 #endif
     public:
-        DecodeStage(Pipeline& parent, Clock& clock,
+        DecodeStage(Pipeline& parent,
                     const FetchDecodeLatch& input, DecodeReadLatch& output,
                     Config& config);
     };
@@ -339,7 +339,7 @@ class Pipeline : public Object, public Inspect::Interface<Inspect::Read>
 
         static PipeValue RegToPipeValue(RegType type, const RegValue& src_value);
     public:
-        ReadStage(Pipeline& parent, Clock& clock,
+        ReadStage(Pipeline& parent,
                   const DecodeReadLatch& input, ReadExecuteLatch& output,
                   const std::vector<BypassInfo>& bypasses,
                   Config& config);
@@ -402,7 +402,7 @@ class Pipeline : public Object, public Inspect::Interface<Inspect::Read>
     public:
         size_t GetFPUSource() const { return m_fpuSource; }
 
-        ExecuteStage(Pipeline& parent, Clock& clock,
+        ExecuteStage(Pipeline& parent,
                      const ReadExecuteLatch& input, ExecuteMemoryLatch& output,
                      Config& config);
         ExecuteStage(const ExecuteStage&) = delete;
@@ -426,7 +426,7 @@ class Pipeline : public Object, public Inspect::Interface<Inspect::Read>
 
         PipeAction OnCycle();
     public:
-        MemoryStage(Pipeline& parent, Clock& clock,
+        MemoryStage(Pipeline& parent,
                     const ExecuteMemoryLatch& input, MemoryWritebackLatch& output,
                     Config& config);
         void addMemStatistics(uint64_t& nr, uint64_t& nw, uint64_t& nrb, uint64_t& nwb) const
@@ -440,7 +440,7 @@ class Pipeline : public Object, public Inspect::Interface<Inspect::Read>
 
         PipeAction OnCycle();
     public:
-        DummyStage(const std::string& name, Pipeline& parent, Clock& clock,
+        DummyStage(const std::string& name, Pipeline& parent,
                    const MemoryWritebackLatch& input, MemoryWritebackLatch& output,
                    Config& config);
     };
@@ -457,7 +457,7 @@ class Pipeline : public Object, public Inspect::Interface<Inspect::Read>
 
         PipeAction OnCycle();
     public:
-        WritebackStage(Pipeline& parent, Clock& clock, const MemoryWritebackLatch& input, Config& config);
+        WritebackStage(Pipeline& parent, const MemoryWritebackLatch& input, Config& config);
     };
 
     void PrintLatchCommon(std::ostream& out, const CommonData& latch) const;

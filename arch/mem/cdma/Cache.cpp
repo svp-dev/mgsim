@@ -872,7 +872,7 @@ CDMA::Cache::Cache(const std::string& name, CDMA& parent, Clock& clock, NodeID i
                                             m_sets)),
     m_clients  (),
     m_storages (),
-    p_lines    (*this, clock, "p_lines"),
+    p_lines    (clock, GetName() + ".p_lines"),
     m_lines    (m_assoc * m_sets),
     m_data     (m_lines.size() * m_lineSize),
 
@@ -911,7 +911,7 @@ CDMA::Cache::Cache(const std::string& name, CDMA& parent, Clock& clock, NodeID i
 
     p_Requests (*this, "requests", delegate::create<Cache, &Cache::DoRequests>(*this)),
     p_In       (*this, "incoming", delegate::create<Cache, &Cache::DoReceive>(*this)),
-    p_bus      (*this, clock, "p_bus"),
+    p_bus      (clock, GetName() + ".p_bus"),
     m_requests ("b_requests", *this, clock, config.getValue<BufferSize>(*this, "RequestBufferSize")),
     m_responses("b_responses", *this, clock, config.getValue<BufferSize>(*this, "ResponseBufferSize"))
 {

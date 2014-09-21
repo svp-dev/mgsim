@@ -564,11 +564,11 @@ void Pipeline::ExecuteStage::ExecDebug(double value, Integer stream) const
     }
 }
 
-Pipeline::ExecuteStage::ExecuteStage(Pipeline& parent, Clock& clock,
+Pipeline::ExecuteStage::ExecuteStage(Pipeline& parent,
                                      const ReadExecuteLatch& input,
                                      ExecuteMemoryLatch& output,
                                      Config& /*config*/)
-  : Stage("execute", parent, clock),
+  : Stage("execute", parent),
     m_input(input),
     m_output(output),
     m_allocator(GetDRISC().GetAllocator()),

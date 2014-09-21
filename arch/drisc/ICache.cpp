@@ -16,7 +16,7 @@ namespace drisc
 {
 
 ICache::ICache(const std::string& name, DRISC& parent, Clock& clock, Config& config)
-:   Object(name, parent, clock),
+:   Object(name, parent),
     m_memory(NULL),
     m_selector(IBankSelector::makeSelector(*this, config.getValue<string>(*this, "BankSelector"), config.getValue<size_t>(*this, "NumSets"))),
     m_mcid(0),
@@ -38,7 +38,7 @@ ICache::ICache(const std::string& name, DRISC& parent, Clock& clock, Config& con
 
     p_Outgoing(*this, "outgoing", delegate::create<ICache, &ICache::DoOutgoing>(*this)),
     p_Incoming(*this, "incoming", delegate::create<ICache, &ICache::DoIncoming>(*this)),
-    p_service(*this, clock, "p_service")
+    p_service(clock, GetName() + ".p_service")
 {
     RegisterSampleVariableInObject(m_numHits, SVC_CUMULATIVE);
     RegisterSampleVariableInObject(m_numEmptyMisses, SVC_CUMULATIVE);
@@ -289,7 +289,7 @@ Result ICache::Fetch(MemAddr address, MemSize size, TID* tid, CID* cid)
     }
 
     // Update access time
-    COMMIT{ line->access = GetCycleNo(); }
+    COMMIT{ line->access = cpu.GetCycleNo(); }
 
     // If the caller wants the line index, give it
     if (cid != NULL)

@@ -119,7 +119,7 @@ void GetComponents(map<string, Object*>& ret, Object *cur, const string& pat)
     for (unsigned int i = 0; i < cur->GetNumChildren(); ++i)
     {
         Object* child = cur->GetChild(i);
-        string childname = child->GetFQN();
+        string childname = child->GetName();
         if (FNM_NOMATCH != fnmatch(pat.c_str(), childname.c_str(), 0))
         {
             ret[childname] = child;
@@ -263,7 +263,7 @@ void MGSystem::PrintCoreStats(ostream& os) const {
         types[j] = I; c[i][j++].i = pl.GetStagesRun();
         types[j] = I; c[i][j++].i = pl.GetStalls();
         types[j] = PC; c[i][j++].f = 100. * pl.GetEfficiency();
-        types[j] = PC; c[i][j++].f = 100. * (float)pl.GetOp() / (float)pl.GetCycleNo();
+        types[j] = PC; c[i][j++].f = 100. * (float)pl.GetOp() / (float)p.GetCycleNo();
         types[j] = I; c[i][j++].i = p.GetMaxThreadsAllocated();
         types[j] = I; c[i][j++].i = p.GetTotalThreadsAllocated();
         types[j] = I; c[i][j++].i = p.GetThreadTableSize();
@@ -462,7 +462,7 @@ void MGSystem::PrintState(const vector<string>& /*unused*/) const
                 cout << "- the following storages need updating:" << endl;
                 for (const Storage* storage = clock->GetActiveStorages(); storage != NULL; storage = storage->GetNext())
                 {
-                    cout << "  - " << storage->GetFQN() << endl;
+                    cout << "  - " << storage->GetName() << endl;
                 }
             }
 
@@ -471,7 +471,7 @@ void MGSystem::PrintState(const vector<string>& /*unused*/) const
                 cout << "- the following arbitrators need updating:" << endl;
                 for (const Arbitrator* arbitrator = clock->GetActiveArbitrators(); arbitrator != NULL; arbitrator = arbitrator->GetNext())
                 {
-                    cout << "  - " << arbitrator->GetFQN() << endl;
+                    cout << "  - " << arbitrator->GetName() << endl;
                 }
             }
         }
@@ -479,7 +479,7 @@ void MGSystem::PrintState(const vector<string>& /*unused*/) const
 
     for (DRISC* p : m_procs)
         if (!p->IsIdle())
-            cout << p->GetFQN() << ": non-empty" << endl;
+            cout << p->GetName() << ": non-empty" << endl;
 }
 
 void MGSystem::PrintAllStatistics(ostream& os) const
@@ -588,7 +588,7 @@ void MGSystem::Step(CycleNo nCycles)
         {
             unsigned suspended = p->GetNumSuspendedRegisters();
             if (suspended > 0)
-                ss << "  " << p->GetFQN() << ": " << suspended << endl;
+                ss << "  " << p->GetName() << ": " << suspended << endl;
             num_regs += suspended;
         }
 
@@ -640,9 +640,10 @@ MGSystem::MGSystem(Config& config, bool quiet)
 #ifdef STATIC_KERNEL
     Kernel::InitGlobalKernel();
 #endif
-    m_clock = &GetKernel().CreateClock(config.getValue<unsigned long>("CoreFreq"));
-    m_root = new Object("", *m_clock);
-    m_breakpoints.AttachKernel(GetKernel());
+    auto& kernel = GetKernel();
+    m_clock = &kernel.CreateClock(config.getValue<unsigned long>("CoreFreq"));
+    m_root = new Object("", kernel);
+    m_breakpoints.AttachKernel(kernel);
 
     if (!quiet)
     {
@@ -660,7 +661,7 @@ MGSystem::MGSystem(Config& config, bool quiet)
     string memory_type = config.getValue<string>("MemoryType");
     transform(memory_type.begin(), memory_type.end(), memory_type.begin(), ::toupper);
 
-    Clock& memclock = GetKernel().CreateClock(config.getValue<size_t>("MemoryFreq"));
+    Clock& memclock = kernel.CreateClock(config.getValue<size_t>("MemoryFreq"));
 
     IMemoryAdmin *memadmin;
 
@@ -723,7 +724,7 @@ MGSystem::MGSystem(Config& config, bool quiet)
     m_breakpoints.SetSymbolTable(m_symtable);
 
     // Create the event selector
-    Clock& selclock = GetKernel().CreateClock(config.getValue<unsigned long>("EventCheckFreq"));
+    Clock& selclock = kernel.CreateClock(config.getValue<unsigned long>("EventCheckFreq"));
     m_selector = new Selector("selector", *m_root, selclock, config);
 
     // Create the I/O Buses
@@ -736,7 +737,7 @@ MGSystem::MGSystem(Config& config, bool quiet)
         string name = ss.str();
 
         string bus_type = config.getValue<string>(*m_root, name, "Type");
-        Clock& ioclock = GetKernel().CreateClock(config.getValue<unsigned long>(*m_root, name, "Freq"));
+        Clock& ioclock = kernel.CreateClock(config.getValue<unsigned long>(*m_root, name, "Freq"));
 
         if (bus_type == "NULLIO") {
             NullIO* bus = new NullIO(name, *m_root, ioclock);
@@ -845,7 +846,7 @@ MGSystem::MGSystem(Config& config, bool quiet)
             m_devices[i] = lcd;
             config.registerObject(*lcd, "lcd");
         } else if (dev_type == "RTC") {
-            Clock& rtcclock = GetKernel().CreateClock(config.getValue<size_t>(*m_root, name, "RTCUpdateFreq"));
+            Clock& rtcclock = kernel.CreateClock(config.getValue<size_t>(*m_root, name, "RTCUpdateFreq"));
             RTC *rtc = new RTC(name, *m_root, rtcclock, iobus, devid, config);
             m_devices[i] = rtc;
             config.registerObject(*rtc, "rtc");
@@ -883,7 +884,7 @@ MGSystem::MGSystem(Config& config, bool quiet)
     // We need to register the master frequency into the
     // configuration, because both in-program and external monitoring
     // want to know it.
-    unsigned long masterfreq = GetKernel().GetMasterFrequency();
+    unsigned long masterfreq = kernel.GetMasterFrequency();
     config.getValueOrDefault("MasterFreq", masterfreq); // The lookup will set the config key as side effect
 
     config.registerObject(*m_root, "system");
@@ -924,7 +925,7 @@ MGSystem::MGSystem(Config& config, bool quiet)
         {
             if (m_bootrom != NULL)
             {
-                throw runtime_error("More than one bootable ROM detected: " + rom->GetName() + ", " + m_bootrom->GetFQN());
+                throw runtime_error("More than one bootable ROM detected: " + rom->GetName() + ", " + m_bootrom->GetName());
             }
             m_bootrom = rom;
         }
@@ -964,7 +965,7 @@ MGSystem::MGSystem(Config& config, bool quiet)
     }
 
     // Set program debugging per default
-    GetKernel().SetDebugMode(Kernel::DEBUG_PROG);
+    kernel.SetDebugMode(Kernel::DEBUG_PROG);
 
     // Find objdump command
 #if defined(TARGET_MTALPHA)

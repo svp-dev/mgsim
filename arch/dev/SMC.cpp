@@ -8,7 +8,7 @@ using namespace std;
 namespace Simulator
 {
     SMC::SMC(const string& name, Object& parent, IIOBus& iobus, IODeviceID devid)
-        : Object(name, parent, iobus.GetClock()),
+        : Object(name, parent),
           m_enumdata(NULL),
           m_size(0),
           m_iobus(iobus),
@@ -67,7 +67,7 @@ namespace Simulator
 
     const std::string& SMC::GetIODeviceName() const
     {
-        return GetFQN();
+        return GetName();
     }
 
 

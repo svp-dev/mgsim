@@ -2,7 +2,7 @@
 #include "sim/delegate.h"
 
 ExampleConsumer::ExampleConsumer(const std::string& name, Simulator::Object& parent, Simulator::Clock& clock, size_t sz)
-    : Simulator::Object(name, parent, clock),
+    : Simulator::Object(name, parent),
       p_Consume(*this, "consume", Simulator::delegate::create<ExampleConsumer, &ExampleConsumer::DoConsume>(*this)),
       m_fifo ("b_fifo", *this, clock, sz)
 {
@@ -24,7 +24,7 @@ ExampleConsumer::DoConsume()
 
 
 ExampleProducer::ExampleProducer(const std::string& name, Simulator::Object& parent, Simulator::Clock& clock, ExampleConsumer& cons)
-    : Simulator::Object(name, parent, clock),
+    : Simulator::Object(name, parent),
       m_counter(0),
       m_fifo(cons.m_fifo),
       p_Produce(*this, "produce", Simulator::delegate::create<ExampleProducer, &ExampleProducer::DoProduce>(*this)),

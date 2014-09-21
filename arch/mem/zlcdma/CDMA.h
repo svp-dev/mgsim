@@ -52,6 +52,7 @@ private:
     }
 
 
+    Clock&                      m_clock;
     ComponentModelRegistry&     m_registry;
     size_t                      m_numClientsPerCache;
     size_t                      m_numCachesPerDir;
@@ -68,6 +69,8 @@ private:
     std::vector<std::pair<Cache*,MCID> > m_clientMap; ///< Mapping of MCID to caches
 
     uint64_t                    m_nreads, m_nwrites, m_nread_bytes, m_nwrite_bytes;
+
+    Clock& GetClock() { return m_clock; }
 
     void ConfigureTopRing();
 

@@ -22,7 +22,7 @@ Pipeline::Pipeline(
     Clock&              clock,
     Config&       config)
 :
-    Object(name, parent, clock),
+    Object(name, parent),
     p_Pipeline(*this, "pipeline", delegate::create<Pipeline, &Pipeline::DoPipeline>(*this)),
     m_fdLatch(),
     m_drLatch(),
@@ -35,8 +35,10 @@ Pipeline::Pipeline(
 
     m_active("f_active", *this, clock),
 
-    m_nStagesRunnable(0), m_nStagesRun(0),
-    m_pipelineBusyTime(0), m_nStalls(0)
+    m_nStagesRunnable(0),
+    m_nStagesRun(0),
+    m_pipelineBusyTime(0),
+    m_nStalls(0)
 {
     static const size_t NUM_FIXED_STAGES = 6;
 
@@ -54,12 +56,12 @@ Pipeline::Pipeline(
 
 
     // Create the Fetch stage
-    m_stages[0].stage  = new FetchStage(*this, clock, m_fdLatch, config);
+    m_stages[0].stage  = new FetchStage(*this, m_fdLatch, config);
     m_stages[0].input  = NULL;
     m_stages[0].output = &m_fdLatch;
 
     // Create the Decode stage
-    m_stages[1].stage  = new DecodeStage(*this, clock, m_fdLatch, m_drLatch, config);
+    m_stages[1].stage  = new DecodeStage(*this, m_fdLatch, m_drLatch, config);
     m_stages[1].input  = &m_fdLatch;
     m_stages[1].output = &m_drLatch;
 
@@ -69,13 +71,13 @@ Pipeline::Pipeline(
     std::vector<BypassInfo> bypasses;
 
     // Create the Execute stage
-    m_stages[3].stage  = new ExecuteStage(*this, clock, m_reLatch, m_emLatch, config);
+    m_stages[3].stage  = new ExecuteStage(*this, m_reLatch, m_emLatch, config);
     m_stages[3].input  = &m_reLatch;
     m_stages[3].output = &m_emLatch;
     bypasses.push_back(BypassInfo(m_emLatch.empty, m_emLatch.Rc, m_emLatch.Rcv));
 
     // Create the Memory stage
-    m_stages[4].stage  = new MemoryStage(*this, clock, m_emLatch, m_mwLatch, config);
+    m_stages[4].stage  = new MemoryStage(*this, m_emLatch, m_mwLatch, config);
     m_stages[4].input  = &m_emLatch;
     m_stages[4].output = &m_mwLatch;
     bypasses.push_back(BypassInfo(m_mwLatch.empty, m_mwLatch.Rc, m_mwLatch.Rcv));
@@ -95,18 +97,18 @@ Pipeline::Pipeline(
         sname << "dummy" << i;
         si.input  = last_output;
         si.output = &output;
-        si.stage  = new DummyStage(sname.str(), *this, clock, *last_output, output, config);
+        si.stage  = new DummyStage(sname.str(), *this, *last_output, output, config);
 
         last_output = &output;
     }
 
     // Create the Writeback stage
-    m_stages.back().stage  = new WritebackStage(*this, clock, *last_output, config);
+    m_stages.back().stage  = new WritebackStage(*this, *last_output, config);
     m_stages.back().input  = m_stages[m_stages.size() - 2].output;
     m_stages.back().output = NULL;
     bypasses.push_back(BypassInfo(m_mwBypass.empty, m_mwBypass.Rc, m_mwBypass.Rcv));
 
-    m_stages[2].stage = new ReadStage(*this, clock, m_drLatch, m_reLatch, bypasses, config);
+    m_stages[2].stage = new ReadStage(*this, m_drLatch, m_reLatch, bypasses, config);
 }
 
 void Pipeline::ConnectFPU(FPU* fpu)

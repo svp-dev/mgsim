@@ -19,14 +19,14 @@ namespace drisc
 //
 
 RegisterFile::RegisterFile(const std::string& name, DRISC& parent, Clock& clock, Config& config)
-  : Object(name, parent, clock),
-    Structure<RegAddr>(name, parent, clock),
+  : Object(name, parent),
+    ReadWriteStructure<RegAddr>(name, parent, clock),
     Storage("storage", *this, clock),
-    p_pipelineR1(*this, "p_pipelineR1"),
-    p_pipelineR2(*this, "p_pipelineR2"),
-    p_pipelineW (*this, "p_pipelineW"),
-    p_asyncR    (*this, "p_asyncR"),
-    p_asyncW    (*this, "p_asyncW"),
+    p_pipelineR1(*this),
+    p_pipelineR2(*this),
+    p_pipelineW (*this),
+    p_asyncR    (*this, GetName() + ".p_asyncR"),
+    p_asyncW    (*this, GetName() + ".p_asyncW"),
     m_files     (),
     m_sizes     (),
     m_nUpdates(0),
@@ -43,7 +43,7 @@ RegisterFile::RegisterFile(const std::string& name, DRISC& parent, Clock& clock,
             m_files[i][j] = MAKE_EMPTY_REG();
         }
     }
-    // Set port priorities; first port has highest priority
+    // Set write port priorities (from ReadWriteStructure); first port has highest priority
     AddPort(p_pipelineW);
     AddPort(p_asyncW);
 
@@ -233,7 +233,7 @@ void RegisterFile::Cmd_Info(std::ostream& out, const std::vector<std::string>& /
 // IFPUClient::GetName()
 const std::string& RegisterFile::GetName() const
 {
-    return GetParent()->GetFQN();
+    return GetParent()->GetName();
 }
 
 bool RegisterFile::CheckFPUOutputAvailability(RegAddr addr)

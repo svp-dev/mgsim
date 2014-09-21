@@ -14,11 +14,11 @@ int main(int argc, char *argv[])
     if (argc < 3)
     {
 	std::cerr << "usage: " << argv[0] << " <path-to-ini-file> <demoname>" << std::endl
-		  << std::endl
-		  << "Supported demos:" << std::endl
-		  << "   memory          Demo of the memory subsystem with a serial memory." << std::endl
-		  << "   prodcons N M S  Demo a producer-consumer with a buffer of size S" << std::endl
-		  << "                   and frequency ratio N/M." << std::endl;
+                  << std::endl
+                  << "Supported demos:" << std::endl
+                  << "   memory          Demo of the memory subsystem with a serial memory." << std::endl
+                  << "   prodcons N M S  Demo a producer-consumer with a buffer of size S" << std::endl
+                  << "                   and frequency ratio N/M." << std::endl;
 	return 0;
     }
     MGSim env(argv[1]);
@@ -31,14 +31,14 @@ int main(int argc, char *argv[])
     {
 	size_t f1 = 1, f2 = 1, sz = 1;
 	if (argc > 3)
-	    f1 = atoi(argv[3]);
+            f1 = atoi(argv[3]);
 	if (argc > 4)
-	    f2 = atoi(argv[4]);
+            f2 = atoi(argv[4]);
 	if (argc > 5)
-	    sz = atoi(argv[5]);
+            sz = atoi(argv[5]);
 
 	auto& c1 = env.k->CreateClock(f1);
-	auto root = new Simulator::Object("", c1);
+	auto root = new Simulator::Object("", *env.k);
 	auto& c2 = env.k->CreateClock(f2);
 
 	auto cons = new ExampleConsumer("cons", *root, c1, sz);
@@ -48,23 +48,23 @@ int main(int argc, char *argv[])
     {
 	size_t f1 = 1, f2 = 1, sz = 0;
 	if (argc > 3)
-	    f1 = atoi(argv[3]);
+            f1 = atoi(argv[3]);
 	if (argc > 4)
-	    f2 = atoi(argv[4]);
+            f2 = atoi(argv[4]);
 	if (argc > 5)
-	    sz = atoi(argv[5]);
+            sz = atoi(argv[5]);
 
 	auto& c1 = env.k->CreateClock(f1);
-	auto root = new Simulator::Object("", c1);
+	auto root = new Simulator::Object("", *env.k);
 	auto& c2 = env.k->CreateClock(f2);
 
-	auto cons = new ExampleConsumer2("cons", *root, c1);
+	auto cons = new ExampleConsumer2("cons", *root);
 	auto prod = new ExampleProducer2("prod", *root, c2);
 	Simulator::Connector *c;
 	if (sz > 0)
-	    c = new Simulator::BufferedConnector<int>("buf", *root, c1, sz);
+            c = new Simulator::BufferedConnector<int>("buf", *root, c1, sz);
 	else
-	    c = new Simulator::DirectConnector();
+            c = new Simulator::DirectConnector();
 	c->Connect(*cons);
 	c->Connect(*prod);
 	c->Initialize();
@@ -74,7 +74,7 @@ int main(int argc, char *argv[])
 	// Set up a clock and top-leval object
 	size_t freq = env.cfg->getValue<size_t>("MemoryFreq");
 	auto& clock = env.k->CreateClock(freq);
-	auto root = new Simulator::Object("", clock);
+	auto root = new Simulator::Object("", *env.k);
 
 	// Instantiate a memory system
 	auto mem = new Simulator::SerialMemory("memory", *root, clock, *env.cfg);

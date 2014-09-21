@@ -9,7 +9,7 @@ namespace drisc
 {
 
     IOBusInterface::IOBusInterface(const std::string& name, IOInterface& parent, Clock& clock, IIOBus& iobus, IODeviceID devid, Config& config)
-        : Object(name, parent, clock),
+        : Object(name, parent),
           m_rrmux(parent.GetReadResponseMultiplexer()),
           m_nmux(parent.GetNotificationMultiplexer()),
           m_dca(parent.GetDirectCacheAccess()),
@@ -176,7 +176,7 @@ namespace drisc
 
     const std::string& IOBusInterface::GetIODeviceName() const
     {
-        return GetFQN();
+        return GetName();
     }
 
 }

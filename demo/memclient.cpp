@@ -1,9 +1,9 @@
 #include "demo/memclient.h"
 
 ExampleMemClient::ExampleMemClient(const std::string& name, Simulator::Object& parent, Simulator::Clock& clock, Config& config)
-    : Object(name, parent, clock),
+    : Object(name, parent),
       memory(0), mcid(0),
-      enabled("b_enabled", *this, GetClock(), true),
+      enabled("b_enabled", *this, clock, true),
       p_MemoryOutgoing(*this, "send-memory-requests", Simulator::delegate::create<ExampleMemClient, &ExampleMemClient::DoMemoryOutgoing>(*this))
 {
     enabled.Sensitive(p_MemoryOutgoing);
@@ -110,4 +110,3 @@ Simulator::Object&
 ExampleMemClient::GetMemoryPeer() {
     return *this;
 }
-

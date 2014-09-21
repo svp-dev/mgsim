@@ -119,7 +119,7 @@ FPU::Result FPU::CalculateResult(const Operation& op) const
 
 bool FPU::OnCompletion(unsigned int unit, const Result& res) const
 {
-    const CycleNo now = GetCycleNo();
+    const CycleNo now = GetKernel()->GetActiveClock()->GetCycleNo();
 
     Source *source = m_sources[res.source];
 
@@ -283,7 +283,7 @@ Result FPU::DoPipeline()
 }
 
 FPU::Source::Source(const std::string& name, Object& parent, Clock& clock, Config& config)
-    : Object(name, parent, clock),
+    : Object(name, parent),
       inputs("b_source", *this, clock, config.getValue<BufferSize>(*this, "InputQueueSize")),
       outputs(),
       client(NULL),
@@ -293,7 +293,7 @@ FPU::Source::Source(const std::string& name, Object& parent, Clock& clock, Confi
 
 
 FPU::FPU(const std::string& name, Object& parent, Clock& clock, Config& config, size_t num_inputs)
-    : Object(name, parent, clock),
+    : Object(name, parent),
       m_active("r_active", *this, clock),
       m_sources(),
       m_units(),

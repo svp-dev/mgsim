@@ -47,6 +47,7 @@ class ParallelMemory : public Object, public IMemory, public VirtualMemory
 
     CycleNo GetMemoryDelay(size_t data_size) const;
 
+    Clock&      m_clock;
     ComponentModelRegistry&   m_registry;
     std::vector<Port*>        m_ports;
 
@@ -71,4 +72,3 @@ public:
 
 }
 #endif
-

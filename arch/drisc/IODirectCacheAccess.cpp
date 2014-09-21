@@ -8,7 +8,7 @@ namespace Simulator
 namespace drisc
 {
     IODirectCacheAccess::IODirectCacheAccess(const std::string& name, IOInterface& parent, Clock& clock, Config& config)
-        : Object(name, parent, clock),
+        : Object(name, parent),
           m_memory(NULL),
           m_mcid(0),
           m_busif(parent.GetIOBusInterface()),
@@ -23,7 +23,7 @@ namespace drisc
           m_flushing(false),
           p_MemoryOutgoing(*this, "send-memory-requests", delegate::create<IODirectCacheAccess, &IODirectCacheAccess::DoMemoryOutgoing>(*this)),
           p_BusOutgoing   (*this, "send-bus-responses", delegate::create<IODirectCacheAccess, &IODirectCacheAccess::DoBusOutgoing>(*this)),
-          p_service(*this, clock, "p_service")
+          p_service(clock, GetName() + ".p_service")
     {
         p_service.AddProcess(p_BusOutgoing);
         p_service.AddProcess(p_MemoryOutgoing);

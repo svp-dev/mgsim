@@ -18,7 +18,8 @@ using namespace drisc;
 // DRISC implementation
 //
 DRISC::DRISC(const std::string& name, Object& parent, Clock& clock, PID pid, const vector<DRISC*>& grid, Config& config, BreakPointManager& bp)
-:   Object(name, parent, clock),
+:   Object(name, parent),
+    m_clock(clock),
     m_bp_manager(bp),
     m_memory(NULL),
     m_memadmin(NULL),
@@ -28,16 +29,16 @@ DRISC::DRISC(const std::string& name, Object& parent, Clock& clock, PID pid, con
     m_pid(pid),
     m_reginits(),
     m_bits(),
-    m_familyTable ("families",      *this, clock, config),
-    m_threadTable ("threads",       *this, clock, config),
+    m_familyTable ("families",      *this, config),
+    m_threadTable ("threads",       *this, config),
     m_registerFile("registers",     *this, clock, config),
-    m_raunit      ("rau",           *this, clock, m_registerFile.GetSizes(), config),
+    m_raunit      ("rau",           *this, m_registerFile.GetSizes(), config),
     m_allocator   ("alloc",         *this, clock, config),
     m_icache      ("icache",        *this, clock, config),
     m_dcache      ("dcache",        *this, clock, config),
     m_pipeline    ("pipeline",      *this, clock, config),
     m_network     ("network",       *this, clock, grid, config),
-    m_mmio        ("mmio",          *this, clock),
+    m_mmio        ("mmio",          *this),
     m_apr_file("aprs", *this, config),
     m_asr_file("asrs", *this, config),
     m_perfcounters(*this, config),
@@ -155,7 +156,7 @@ void DRISC::ConnectIO(Config& config, IIOBus* iobus)
     // This processor also supports I/O
     IODeviceID devid = config.getValueOrDefault<IODeviceID>(*this, "DeviceID", iobus->GetNextAvailableDeviceID());
 
-    m_io_if = new IOInterface("io_if", *this, GetClock(), *iobus, devid, config);
+    m_io_if = new IOInterface("io_if", *this, m_clock, *iobus, devid, config);
 
     if (m_memory != NULL)
         m_io_if->ConnectMemory(m_memory);
@@ -456,7 +457,7 @@ void DRISC::InitializeRegisters()
         {
             if (m_io_if == NULL)
             {
-                clog << "#warning: -RNNN=B... specified but " << GetFQN() << " is not connected to I/O" << endl;
+                clog << "#warning: -RNNN=B... specified but " << GetName() << " is not connected to I/O" << endl;
             }
             else {
                 auto devname = m_io_if->GetIOBusInterface().GetIOBus().GetDeviceIDByName(value.substr(1));

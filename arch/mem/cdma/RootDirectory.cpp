@@ -396,7 +396,7 @@ CDMA::RootDirectory::RootDirectory(const std::string& name, CDMA& parent, Clock&
     m_lineSize (config.getValue<size_t>("CacheLineSize")),
     m_id       (id),
     m_numRoots (1),
-    p_lines    (*this, clock, "p_lines"),
+    p_lines    (clock, GetName() + ".p_lines"),
     m_memory   (0),
     m_requests ("b_requests", *this, clock, config.getValue<size_t>(*this, "ExternalOutputQueueSize")),
     m_responses("b_responses", *this, clock, config.getValue<size_t>(*this, "ExternalInputQueueSize")),

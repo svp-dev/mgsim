@@ -94,7 +94,7 @@ Result ActionInterface::Write(MemAddr address, const void *data, MemSize size, L
 }
 
 ActionInterface::ActionInterface(const std::string& name, Object& parent)
-    : MMIOComponent(name, parent, parent.GetClock())
+    : MMIOComponent(name, parent)
 {
 }
 

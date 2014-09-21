@@ -91,10 +91,11 @@ bool ZLCDMA::Write(MCID id, MemAddr address, const MemData& data, WClientID wid)
     return m_clientMap[id].first->Write(m_clientMap[id].second, address, data, wid);
 }
 
-ZLCDMA::ZLCDMA(const std::string& name, Simulator::Object& parent, Clock& clock, Config& config) :
-    // Note that the CDMA class is just a container for caches and directories.
-    // It has no processes of its own.
-    Simulator::Object(name, parent, clock),
+// Note that the CDMA class is just a container for caches and directories.
+// It has no processes of its own.
+ZLCDMA::ZLCDMA(const std::string& name, Simulator::Object& parent, Clock& clock, Config& config)
+  : Simulator::Object(name, parent),
+    m_clock(clock),
     m_registry(config),
     m_numClientsPerCache(config.getValue<size_t>(*this, "NumClientsPerL2Cache")),
     m_numCachesPerDir   (config.getValue<size_t>(*this, "NumL2CachesPerRing")),
@@ -278,7 +279,7 @@ void ZLCDMA::Cmd_Line(ostream& out, const vector<string>& arguments) const
         if (line != NULL)
         {
             const char* state = "present";
-            out << (*p)->GetFQN() << ": " << state << endl;
+            out << (*p)->GetName() << ": " << state << endl;
             printed = true;
         }
     }
@@ -291,7 +292,7 @@ void ZLCDMA::Cmd_Line(ostream& out, const vector<string>& arguments) const
         const Directory::Line* line = static_cast<const Directory*>(*p)->FindLine(address);
         if (line != NULL)
         {
-            out << (*p)->GetFQN() << ": present" << endl;
+            out << (*p)->GetName() << ": present" << endl;
             printed = true;
         }
     }
@@ -305,7 +306,7 @@ void ZLCDMA::Cmd_Line(ostream& out, const vector<string>& arguments) const
         if (line != NULL)
         {
             const char* state = "present";
-            out << (*p)->GetFQN() << ": " << state << ", " << line->tokens << " tokens" << endl;
+            out << (*p)->GetName() << ": " << state << ", " << line->tokens << " tokens" << endl;
             printed = true;
         }
     }

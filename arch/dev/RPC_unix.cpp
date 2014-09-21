@@ -44,7 +44,7 @@ namespace Simulator
 
     const string& UnixInterface::GetName() const
     {
-        return GetFQN();
+        return Object::GetName();
     }
 
     UnixInterface::VirtualFD UnixInterface::GetNewVFD(UnixInterface::HostFD hfd)

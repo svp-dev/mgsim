@@ -29,7 +29,7 @@ public:
         IOInterface&  GetInterface() const;
         Object& GetDRISCParent() const { return *GetParent()->GetParent(); };
     public:
-        AsyncIOInterface(const std::string& name, IOInterface& parent, Clock& clock, Config& config);
+        AsyncIOInterface(const std::string& name, IOInterface& parent, Config& config);
 
         size_t GetSize() const;
 
@@ -51,7 +51,7 @@ public:
         Object& GetDRISCParent() const { return *GetParent()->GetParent(); };
 
     public:
-        PNCInterface(const std::string& name, IOInterface& parent, Clock& clock, Config& config);
+        PNCInterface(const std::string& name, IOInterface& parent, Config& config);
 
         size_t GetSize() const;
 

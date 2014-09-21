@@ -1966,7 +1966,7 @@ void Allocator::CalculateDistribution(Family& family, Integer nThreads, PSize nu
 }
 
 Allocator::Allocator(const string& name, DRISC& parent, Clock& clock, Config& config)
- :  Object(name, parent, clock),
+ :  Object(name, parent),
     m_familyTable(parent.GetFamilyTable()),
     m_threadTable(parent.GetThreadTable()),
     m_registerFile(parent.GetRegisterFile()),
@@ -1991,7 +1991,10 @@ Allocator::Allocator(const string& name, DRISC& parent, Clock& clock, Config& co
 
     m_bundleState   (BUNDLE_INITIAL),
 
-    m_lastcycle(0), m_maxallocex(0), m_totalallocex(0), m_curallocex(0),
+    m_lastcycle(0),
+    m_maxallocex(0),
+    m_totalallocex(0),
+    m_curallocex(0),
     m_numCreatedFamilies(0),
     m_numCreatedThreads(0),
 
@@ -2001,10 +2004,10 @@ Allocator::Allocator(const string& name, DRISC& parent, Clock& clock, Config& co
     p_ThreadActivation(*this, "thread-activation", delegate::create<Allocator, &Allocator::DoThreadActivation>(*this) ),
     p_Bundle          (*this, "bundle-create",     delegate::create<Allocator, &Allocator::DoBundle          >(*this) ),
 
-    p_allocation    (*this, clock, "p_allocation"),
-    p_alloc         (*this, clock, "p_alloc"),
-    p_readyThreads  (*this, clock, "p_readyThreads"),
-    p_activeThreads (*this, clock, "p_activeThreads"),
+    p_allocation    (clock, GetName() + ".p_allocation"),
+    p_alloc         (clock, GetName() + ".p_alloc"),
+    p_readyThreads  (clock, GetName() + ".p_readyThreads"),
+    p_activeThreads (clock, GetName() + ".p_activeThreads"),
     m_activeThreads ("q_threadList", *this, clock, m_threadTable)
 {
     m_alloc         .Sensitive(p_ThreadAllocate);

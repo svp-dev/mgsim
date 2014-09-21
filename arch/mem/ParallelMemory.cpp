@@ -33,7 +33,7 @@ class ParallelMemory::Port : public Object
         assert(!m_requests.Empty());
 
         const Request& request = m_requests.Front();
-        const CycleNo  now     = GetCycleNo();
+        const CycleNo  now     = GetKernel()->GetActiveClock()->GetCycleNo();
 
         if (m_nextdone == 0)
         {
@@ -90,7 +90,7 @@ public:
             if (obj == NULL) {
                 out << "???";
             } else {
-                out << obj->GetFQN();
+                out << obj->GetName();
             }
             out << endl;
 
@@ -136,12 +136,12 @@ public:
         return m_callback.OnMemorySnooped(address, data, mask);
     }
 
-    Port(const std::string& name, ParallelMemory& memory, BufferSize buffersize, IMemoryCallback& callback, Process& process, StorageTraceSet& traces, const StorageTraceSet& storages, size_t lineSize)
+    Port(const std::string& name, ParallelMemory& memory, Clock& clock, BufferSize buffersize, IMemoryCallback& callback, Process& process, StorageTraceSet& traces, const StorageTraceSet& storages, size_t lineSize)
         : Object(name, memory),
           m_memory(memory),
           m_callback(callback),
-          p_requests(*this, memory.GetClock(), "p_requests"),
-          m_requests("b_requests", *this, memory.GetClock(), buffersize), m_nextdone(0),
+          p_requests(clock, GetName() + ".p_requests"),
+          m_requests("b_requests", *this, clock, buffersize), m_nextdone(0),
           p_Requests(*this, "port", delegate::create<Port, &Port::DoRequests>(*this)),
           m_lineSize(lineSize)
     {
@@ -172,7 +172,7 @@ MCID ParallelMemory::RegisterClient(IMemoryCallback& callback, Process& process,
 
     stringstream name;
     name << "port" << id;
-    m_ports.push_back(new Port(name.str(), *this, m_buffersize, callback, process, traces, storages, m_lineSize));
+    m_ports.push_back(new Port(name.str(), *this, m_clock, m_buffersize, callback, process, traces, storages, m_lineSize));
 
     return id;
 }
@@ -239,7 +239,8 @@ bool ParallelMemory::Write(MCID id, MemAddr address, const MemData& data, WClien
 }
 
 ParallelMemory::ParallelMemory(const std::string& name, Object& parent, Clock& clock, Config& config) :
-    Object(name, parent, clock),
+    Object(name, parent),
+    m_clock          (clock),
     m_registry       (config),
     m_ports          (),
     m_buffersize     (config.getValue<BufferSize>(*this, "BufferSize")),

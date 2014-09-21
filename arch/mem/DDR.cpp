@@ -70,7 +70,7 @@ Result DDRChannel::DoRequest()
 {
     assert(m_busy.IsSet());
 
-    const CycleNo now = GetClock().GetCycleNo();
+    const CycleNo now = GetKernel()->GetActiveClock()->GetCycleNo();
     if (now < m_next_command)
     {
         // Can't continue yet
@@ -174,7 +174,7 @@ Result DDRChannel::DoRequest()
 Result DDRChannel::DoPipeline()
 {
     assert(!m_pipeline.Empty());
-    const CycleNo  now     = GetClock().GetCycleNo();
+    const CycleNo  now     = GetKernel()->GetActiveClock()->GetCycleNo();
     const Request& request = m_pipeline.Front();
     if (now >= request.done)
     {
@@ -191,7 +191,7 @@ Result DDRChannel::DoPipeline()
 }
 
 DDRChannel::DDRConfig::DDRConfig(const std::string& name, Object& parent, Clock& clock, Config& config)
-    : Object(name, parent, clock),
+    : Object(name, parent),
       m_nBurstLength(config.getValue<size_t> (*this, "BurstLength")),
       m_tRCD (config.getValue<unsigned> (*this, "tRCD")),
       m_tRP  (config.getValue<unsigned> (*this, "tRP")),
@@ -228,7 +228,7 @@ DDRChannel::DDRConfig::DDRConfig(const std::string& name, Object& parent, Clock&
 }
 
 DDRChannel::DDRChannel(const std::string& name, Object& parent, Clock& clock, Config& config)
-    : Object(name, parent, clock),
+    : Object(name, parent),
       m_registry(config),
       m_ddrconfig("config", *this, clock, config),
       // Initialize each rank at 'no row selected'
@@ -305,5 +305,3 @@ DDRChannelRegistry::~DDRChannelRegistry()
 }
 
 }
-
-

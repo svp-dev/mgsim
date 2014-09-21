@@ -29,7 +29,7 @@ MCID OneLevelCDMA::RegisterClient(IMemoryCallback& callback, Process& process, S
         // Add a cache
         stringstream name;
         name << "cache" << m_caches.size();
-        Cache* cache = new Cache(name.str(), *this, GetClock(), m_caches.size(), m_config);
+        Cache* cache = new Cache(name.str(), *this, m_clock, m_caches.size(), m_config);
         m_caches.push_back(cache);
     }
 
@@ -72,13 +72,13 @@ MCID TwoLevelCDMA::RegisterClient(IMemoryCallback& callback, Process& process, S
             // First cache in a ring; add a directory
             stringstream name;
             name << "dir" << m_directories.size();
-            Directory* dir = new Directory(name.str(), *this, GetClock(), m_config);
+            Directory* dir = new Directory(name.str(), *this, m_clock, m_config);
             m_directories.push_back(dir);
         }
 
         stringstream name;
         name << "cache" << m_caches.size();
-        Cache* cache = new Cache(name.str(), *this, GetClock(), m_caches.size(), m_config);
+        Cache* cache = new Cache(name.str(), *this, m_clock, m_caches.size(), m_config);
         m_caches.push_back(cache);
     }
 
@@ -125,10 +125,11 @@ bool CDMA::Write(MCID id, MemAddr address, const MemData& data, WClientID wid)
     return m_clientMap[id].first->Write(m_clientMap[id].second, address, data, wid);
 }
 
-CDMA::CDMA(const std::string& name, Simulator::Object& parent, Clock& clock, Config& config) :
-    // Note that the CDMA class is just a container for caches and directories.
-    // It has no processes of its own.
-    Simulator::Object(name, parent, clock),
+// Note that the CDMA class is just a container for caches and directories.
+// It has no processes of its own.
+CDMA::CDMA(const std::string& name, Simulator::Object& parent, Clock& clock, Config& config)
+  : Simulator::Object(name, parent),
+    m_clock(clock),
     m_registry(config),
     m_numClientsPerCache(config.getValue<size_t>(*this, "NumClientsPerL2Cache")),
     m_numCachesPerLowRing(config.getValue<size_t>(*this, "NumL2CachesPerRing")),
@@ -363,7 +364,7 @@ void CDMA::Cmd_Line(ostream& out, const vector<string>& arguments) const
         if (line != NULL)
         {
             const char* state = (line->state == RootDirectory::LINE_LOADING) ? "loading" : "loaded";
-            out << (*p)->GetFQN() << ": " << state << endl;
+            out << (*p)->GetName() << ": " << state << endl;
             printed = true;
         }
     }
@@ -376,7 +377,7 @@ void CDMA::Cmd_Line(ostream& out, const vector<string>& arguments) const
         auto line = (*p)->FindLine(address);
         if (line != NULL)
         {
-            out << (*p)->GetFQN() << ": present" << endl;
+            out << (*p)->GetName() << ": present" << endl;
             printed = true;
         }
     }
@@ -390,7 +391,7 @@ void CDMA::Cmd_Line(ostream& out, const vector<string>& arguments) const
         if (line != NULL)
         {
             const char* state = (line->state == Cache::LINE_LOADING) ? "loading" : "loaded";
-            out << (*p)->GetFQN() << ": " << state << ", " << line->tokens << " tokens" << endl;
+            out << (*p)->GetName() << ": " << state << ", " << line->tokens << " tokens" << endl;
             printed = true;
         }
     }
