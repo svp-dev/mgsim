@@ -1,3 +1,4 @@
+// -*- c++ -*-
 #ifndef CONFIGPARSER_H
 #define CONFIGPARSER_H
 

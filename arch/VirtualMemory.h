@@ -1,3 +1,4 @@
+// -*- c++ -*-
 #ifndef VIRTUALMEMORY_H
 #define VIRTUALMEMORY_H
 

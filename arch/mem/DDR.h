@@ -1,3 +1,4 @@
+// -*- c++ -*-
 #ifndef DDR_H
 #define DDR_H
 /*

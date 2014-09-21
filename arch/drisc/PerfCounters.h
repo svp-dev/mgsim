@@ -1,3 +1,4 @@
+// -*- c++ -*-
 #ifndef PERFCOUNTERS_H
 #define PERFCOUNTERS_H
 

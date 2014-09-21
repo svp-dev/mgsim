@@ -1,3 +1,4 @@
+// -*- c++ -*-
 #ifndef RAUNIT_H
 #define RAUNIT_H
 

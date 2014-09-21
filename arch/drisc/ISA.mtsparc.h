@@ -1,3 +1,4 @@
+// -*- c++ -*-
 #ifndef ISA_SPARC_H
 #define ISA_SPARC_H
 

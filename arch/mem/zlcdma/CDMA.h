@@ -1,3 +1,4 @@
+// -*- c++ -*-
 #ifndef ZLCDMA_CDMA_H
 #define ZLCDMA_CDMA_H
 

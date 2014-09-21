@@ -1,3 +1,4 @@
+// -*- c++ -*-
 #ifndef FPU_H
 #define FPU_H
 

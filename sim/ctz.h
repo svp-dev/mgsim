@@ -1,3 +1,4 @@
+// -*- c++ -*-
 #ifndef CTZ_H
 #define CTZ_H
 

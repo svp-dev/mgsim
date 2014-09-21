@@ -1,3 +1,4 @@
+// -*- c++ -*-
 #ifndef PARALLELMEMORY_H
 #define PARALLELMEMORY_H
 

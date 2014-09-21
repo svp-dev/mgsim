@@ -1,3 +1,4 @@
+// -*- c++ -*-
 #ifndef IOINTERFACE_H
 #define IOINTERFACE_H
 

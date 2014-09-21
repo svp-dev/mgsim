@@ -1,3 +1,4 @@
+// -*- c++ -*-
 #ifndef FAMILYTABLE_H
 #define FAMILYTABLE_H
 

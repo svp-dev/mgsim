@@ -1,3 +1,4 @@
+// -*- c++ -*-
 #ifndef CDMA_CDMA_H
 #define CDMA_CDMA_H
 

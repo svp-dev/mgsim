@@ -1,3 +1,4 @@
+// -*- c++ -*-
 #ifndef IOBUS_H
 #define IOBUS_H
 

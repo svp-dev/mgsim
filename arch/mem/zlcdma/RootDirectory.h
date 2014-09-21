@@ -1,3 +1,4 @@
+// -*- c++ -*-
 #ifndef ZLCDMA_ROOTDIRECTORY_H
 #define ZLCDMA_ROOTDIRECTORY_H
 

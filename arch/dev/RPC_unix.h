@@ -1,3 +1,4 @@
+// -*- c++ -*-
 #ifndef RPC_UNIX_H
 #define RPC_UNIX_H
 

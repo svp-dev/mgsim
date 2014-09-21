@@ -1,3 +1,4 @@
+// -*- c++ -*-
 #ifndef BREAKPOINTS_H
 #define BREAKPOINTS_H
 

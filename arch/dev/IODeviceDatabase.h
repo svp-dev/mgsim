@@ -1,3 +1,4 @@
+// -*- c++ -*-
 #ifndef IODEVICEDATABASE_H
 #define IODEVICEDATABASE_H
 

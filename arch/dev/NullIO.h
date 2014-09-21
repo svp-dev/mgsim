@@ -1,3 +1,4 @@
+// -*- c++ -*-
 #ifndef NULLIO_H
 #define NULLIO_H
 

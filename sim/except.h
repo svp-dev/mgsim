@@ -1,3 +1,4 @@
+// -*- c++ -*-
 #ifndef CLIB_EXCEPT_H
 #define CLIB_EXCEPT_H
 

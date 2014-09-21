@@ -1,3 +1,4 @@
+// -*- c++ -*-
 #ifndef RUSAGE_H
 #define RUSAGE_H
 

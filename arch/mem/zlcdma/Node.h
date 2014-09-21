@@ -1,3 +1,4 @@
+// -*- c++ -*-
 #ifndef ZLCDMA_NODE_H
 #define ZLCDMA_NODE_H
 

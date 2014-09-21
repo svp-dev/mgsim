@@ -1,3 +1,4 @@
+// -*- c++ -*-
 #ifndef BANK_SELECTION_H
 #define BANK_SELECTION_H
 

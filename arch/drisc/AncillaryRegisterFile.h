@@ -1,3 +1,4 @@
+// -*- c++ -*-
 #ifndef ANCILLARYREGISTERFILE_H
 #define ANCILLARYREGISTERFILE_H
 

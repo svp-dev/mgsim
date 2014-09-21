@@ -1,3 +1,4 @@
+// -*- c++ -*-
 #ifndef MGSYSTEM_H
 #define MGSYSTEM_H
 

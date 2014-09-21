@@ -1,3 +1,4 @@
+// -*- c++ -*-
 #ifndef TINYSIM_H
 #define TINYSIM_H
 

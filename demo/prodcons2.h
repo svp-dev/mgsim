@@ -1,3 +1,4 @@
+// -*- c++ -*-
 #ifndef PRODCONS2_H
 #define PRODCONS2_H
 

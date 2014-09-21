@@ -1,3 +1,4 @@
+// -*- c++ -*-
 #ifndef IOMATCHUNIT_H
 #define IOMATCHUNIT_H
 

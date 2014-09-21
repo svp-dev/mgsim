@@ -1,3 +1,4 @@
+// -*- c++ -*-
 #ifndef THREADTABLE_H
 #define THREADTABLE_H
 

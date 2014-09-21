@@ -1,3 +1,4 @@
+// -*- c++ -*-
 #ifndef DELEGATE_H
 #define DELEGATE_H
 

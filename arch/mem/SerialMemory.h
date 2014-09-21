@@ -1,3 +1,4 @@
+// -*- c++ -*-
 #ifndef SERIALMEMORY_H
 #define SERIALMEMORY_H
 

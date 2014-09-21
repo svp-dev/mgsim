@@ -1,3 +1,4 @@
+// -*- c++ -*-
 #ifndef MMUINTERFACE_H
 #define MMUINTERFACE_H
 

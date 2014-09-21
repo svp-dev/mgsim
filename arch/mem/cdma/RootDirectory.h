@@ -1,3 +1,4 @@
+// -*- c++ -*-
 #ifndef CDMA_ROOTDIRECTORY_H
 #define CDMA_ROOTDIRECTORY_H
 

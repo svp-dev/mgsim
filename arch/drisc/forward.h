@@ -1,3 +1,4 @@
+// -*- c++ -*-
 #ifndef DRISC_FORWARD_H
 #define DRISC_FORWARD_H
 

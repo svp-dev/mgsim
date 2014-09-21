@@ -1,3 +1,4 @@
+// -*- c++ -*-
 #ifndef IO_DCA_H
 #define IO_DCA_H
 

@@ -1,3 +1,4 @@
+// -*- c++ -*-
 #ifndef DCACHE_H
 #define DCACHE_H
 

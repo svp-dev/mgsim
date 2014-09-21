@@ -1,3 +1,4 @@
+// -*- c++ -*-
 #ifndef ACTIVE_ROM_H
 #define ACTIVE_ROM_H
 

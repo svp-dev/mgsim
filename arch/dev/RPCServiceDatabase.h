@@ -1,3 +1,4 @@
+// -*- c++ -*-
 #ifndef RPCSERVICEDATABASE_H
 #define RPCSERVICEDATABASE_H
 

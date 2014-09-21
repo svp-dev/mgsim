@@ -1,3 +1,4 @@
+// -*- c++ -*-
 #ifndef SMC_H
 #define SMC_H
 

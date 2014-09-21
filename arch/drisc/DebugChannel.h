@@ -1,3 +1,4 @@
+// -*- c++ -*-
 #ifndef DEBUGCHANNEL_H
 #define DEBUGCHANNEL_H
 

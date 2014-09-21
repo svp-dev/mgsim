@@ -1,3 +1,4 @@
+// -*- c++ -*-
 #ifndef ISA_MIPS_H
 #define ISA_MIPS_H
 

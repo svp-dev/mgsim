@@ -1,3 +1,4 @@
+// -*- c++ -*-
 #ifndef ELFLOADER_H
 #define ELFLOADER_H
 

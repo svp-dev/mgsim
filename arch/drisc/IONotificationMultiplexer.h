@@ -1,3 +1,4 @@
+// -*- c++ -*-
 #ifndef IONMUX_H
 #define IONMUX_H
 

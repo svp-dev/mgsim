@@ -1,3 +1,4 @@
+// -*- c++ -*-
 #ifndef BANKEDMEMORY_H
 #define BANKEDMEMORY_H
 

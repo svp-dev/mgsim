@@ -1,3 +1,4 @@
+// -*- c++ -*-
 #ifndef ARCHURES_H
 #define ARCHURES_H
 

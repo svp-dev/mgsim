@@ -1,3 +1,4 @@
+// -*- c++ -*-
 #ifndef MEMCLIENT_H
 #define MEMCLIENT_H
 

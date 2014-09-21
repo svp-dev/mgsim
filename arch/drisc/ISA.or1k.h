@@ -1,3 +1,4 @@
+// -*- c++ -*-
 #ifndef ISA_OR1K_H
 #define ISA_OR1K_H
 

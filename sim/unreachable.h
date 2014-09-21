@@ -1,3 +1,4 @@
+// -*- c++ -*-
 #ifndef UNREACHABLE_H
 #define UNREACHABLE_H
 

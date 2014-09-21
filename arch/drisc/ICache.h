@@ -1,3 +1,4 @@
+// -*- c++ -*-
 #ifndef ICACHE_H
 #define ICACHE_H
 

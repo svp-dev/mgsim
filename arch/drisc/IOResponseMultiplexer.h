@@ -1,3 +1,4 @@
+// -*- c++ -*-
 #ifndef IORESPONSEMUX_H
 #define IORESPONSEMUX_H
 

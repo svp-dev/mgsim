@@ -1,3 +1,4 @@
+// -*- c++ -*-
 #ifndef STORAGETRACE_H
 #define STORAGETRACE_H
 

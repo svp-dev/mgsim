@@ -1,3 +1,4 @@
+// -*- c++ -*-
 #ifndef ACTIONINTERFACE_H
 #define ACTIONINTERFACE_H
 

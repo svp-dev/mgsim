@@ -1,3 +1,4 @@
+// -*- c++ -*-
 #ifndef SIMREADLINE_H
 #define SIMREADLINE_H
 

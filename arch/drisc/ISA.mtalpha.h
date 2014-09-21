@@ -1,3 +1,4 @@
+// -*- c++ -*-
 #ifndef ISA_ALPHA_H
 #define ISA_ALPHA_H
 

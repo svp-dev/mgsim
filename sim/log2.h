@@ -1,3 +1,4 @@
+// -*- c++ -*-
 #ifndef LOG2_H
 #define LOG2_H
 

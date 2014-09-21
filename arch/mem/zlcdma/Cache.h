@@ -1,3 +1,4 @@
+// -*- c++ -*-
 #ifndef ZLCDMA_CACHE_H
 #define ZLCDMA_CACHE_H
 
