@@ -231,7 +231,7 @@ void RegisterFile::Cmd_Info(std::ostream& out, const std::vector<std::string>& /
 
 
 // IFPUClient::GetName()
-std::string RegisterFile::GetName() const
+const std::string& RegisterFile::GetName() const
 {
     return GetParent()->GetFQN();
 }

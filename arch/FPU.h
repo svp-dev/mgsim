@@ -52,7 +52,7 @@ public:
     class IFPUClient
     {
     public:
-        virtual std::string GetName() const = 0;
+        virtual const std::string& GetName() const = 0;
         virtual bool CheckFPUOutputAvailability(RegAddr addr) = 0;
         virtual bool WriteFPUResult(RegAddr addr, const RegValue& value) = 0;
         virtual ~IFPUClient();

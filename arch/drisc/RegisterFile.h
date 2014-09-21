@@ -86,7 +86,7 @@ public:
     const std::array<RegSize, NUM_REG_TYPES>& GetSizes() const { return m_sizes; };
 
     // Interfaces from IFPUClient
-    std::string GetName() const override;
+    const std::string& GetName() const override;
     bool CheckFPUOutputAvailability(RegAddr addr) override;
     bool WriteFPUResult(RegAddr addr, const RegValue& value) override;
 
