@@ -363,14 +363,13 @@ namespace Simulator
         bool free_os = false;
         if (stream == 0)
         {
-            ostringstream fname;
-            fname << "gfx." << key;
+            string fname = "gfx." + std::to_string(key);
             if (gen_ts)
             {
-                fname << '.' << GetKernel()->GetCycleNo();
+                fname += '.' + std::to_string(GetKernel()->GetCycleNo());
             }
-            fname << ".ppm";
-            os = new ofstream(fname.str().c_str(), ios_base::out | ios_base::trunc);
+            fname += ".ppm";
+            os = new ofstream(fname.c_str(), ios_base::out | ios_base::trunc);
             free_os = true;
         }
         else
@@ -557,11 +556,10 @@ namespace Simulator
     void Display::ResetCaption() const
     {
 #ifdef USE_SDL
-        stringstream caption;
-        caption << "MGSim display: "
-                << m_width << "x" << m_height
-                << ", " << m_refreshDelay << " kernel cycles / frame";
-        SDL_WM_SetCaption(caption.str().c_str(), NULL);
+        auto caption = "MGSim display: "
+            + to_string(m_width) + "x" + to_string(m_height)
+            + ", " + to_string(m_refreshDelay) + " kernel cycles / frame";
+        SDL_WM_SetCaption(caption.c_str(), NULL);
 #endif
     }
 

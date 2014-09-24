@@ -27,9 +27,7 @@ MCID OneLevelCDMA::RegisterClient(IMemoryCallback& callback, Process& process, S
     if (cache_id == m_caches.size())
     {
         // Add a cache
-        stringstream name;
-        name << "cache" << m_caches.size();
-        Cache* cache = new Cache(name.str(), *this, m_clock, m_caches.size(), m_config);
+        Cache* cache = new Cache("cache" + std::to_string(m_caches.size()), *this, m_clock, m_caches.size(), m_config);
         m_caches.push_back(cache);
     }
 
@@ -70,15 +68,11 @@ MCID TwoLevelCDMA::RegisterClient(IMemoryCallback& callback, Process& process, S
         if (m_caches.size() % m_numCachesPerLowRing == 0)
         {
             // First cache in a ring; add a directory
-            stringstream name;
-            name << "dir" << m_directories.size();
-            Directory* dir = new Directory(name.str(), *this, m_clock, m_config);
+            Directory* dir = new Directory("dir" + std::to_string(m_directories.size()), *this, m_clock, m_config);
             m_directories.push_back(dir);
         }
 
-        stringstream name;
-        name << "cache" << m_caches.size();
-        Cache* cache = new Cache(name.str(), *this, m_clock, m_caches.size(), m_config);
+        Cache* cache = new Cache("cache" + std::to_string(m_caches.size()), *this, m_clock, m_caches.size(), m_config);
         m_caches.push_back(cache);
     }
 
@@ -158,9 +152,7 @@ CDMA::CDMA(const std::string& name, Simulator::Object& parent, Clock& clock, Con
 
     for (size_t i = 0; i < m_roots.size(); ++i)
     {
-        stringstream rname;
-        rname << "rootdir" << i;
-        m_roots[i] = new RootDirectory(rname.str(), *this, clock, i, m_ddr, config);
+        m_roots[i] = new RootDirectory("rootdir" + std::to_string(i), *this, clock, i, m_ddr, config);
     }
 
 }

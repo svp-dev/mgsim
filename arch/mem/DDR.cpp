@@ -2,7 +2,6 @@
 #include <sim/config.h>
 #include <sim/log2.h>
 
-#include <sstream>
 #include <limits>
 #include <cstdio>
 
@@ -291,10 +290,9 @@ DDRChannelRegistry::DDRChannelRegistry(const std::string& name, Object& parent, 
 {
     for (size_t i = 0; i < m_channels.size(); ++i)
     {
-        std::stringstream ss;
-        ss << "channel" << i;
-        Clock &ddrclock = GetKernel()->CreateClock(config.getValue<size_t>(*this, ss.str(), "Freq"));
-        m_channels[i] = new DDRChannel(ss.str(), *this, ddrclock, config);
+        auto cname = "channel" + std::to_string(i);
+        Clock &ddrclock = GetKernel()->CreateClock(config.getValue<size_t>(*this, cname, "Freq"));
+        m_channels[i] = new DDRChannel(cname, *this, ddrclock, config);
     }
 }
 

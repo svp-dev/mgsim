@@ -2,7 +2,6 @@
 #include "DRISC.h"
 #include <sim/config.h>
 
-#include <sstream>
 #include <iomanip>
 
 using namespace std;
@@ -29,27 +28,19 @@ IONotificationMultiplexer::IONotificationMultiplexer(const string& name, IOInter
     for (size_t i = 0; i < numChannels; ++i)
     {
         {
-            stringstream ss;
-            ss << "wb" << i;
-            m_writebacks[i] = new Register<RegAddr>(ss.str(), *this, clock);
+            m_writebacks[i] = new Register<RegAddr>("wb" + to_string(i), *this, clock);
             m_writebacks[i]->Sensitive(p_IncomingNotifications);
         }
         {
-            stringstream ss;
-            ss << "latch" << i;
-            m_interrupts[i] = new SingleFlag(ss.str(), *this, clock, false);
+            m_interrupts[i] = new SingleFlag("latch" + to_string(i), *this, clock, false);
             m_interrupts[i]->Sensitive(p_IncomingNotifications);
         }
         {
-            stringstream ss;
-            ss << "b_notification" << i;
-            m_notifications[i] = new Buffer<Integer>(ss.str(), *this, clock, nqs);
+            m_notifications[i] = new Buffer<Integer>("b_notification" + to_string(i), *this, clock, nqs);
             m_notifications[i]->Sensitive(p_IncomingNotifications);
         }
         {
-            stringstream ss;
-            ss << GetName() << ".p_service" << i;
-            m_services[i] = new ArbitratedService<>(clock, ss.str());
+            m_services[i] = new ArbitratedService<>(clock, GetName() + ".p_service" + to_string(i));
         }
     }
 

@@ -1,6 +1,5 @@
 #include "BankedMemory.h"
 #include "sim/config.h"
-#include <sstream>
 #include <cassert>
 #include <cmath>
 #include <cstring>
@@ -288,10 +287,8 @@ MCID BankedMemory::RegisterClient(IMemoryCallback& callback, Process& process, S
 
     MCID id = m_clients.size();
 
-    stringstream name;
-    name << GetName() << ".client" << id;
     ClientInfo client;
-    client.service = new ArbitratedService<>(m_clock, name.str());
+    client.service = new ArbitratedService<>(m_clock, GetName() + ".client" + to_string(id));
     client.callback = &callback;
     m_clients.push_back(client);
 
@@ -409,9 +406,7 @@ BankedMemory::BankedMemory(const std::string& name, Object& parent, Clock& clock
     // Create the banks
     for (size_t i = 0; i < m_banks.size(); ++i)
     {
-        stringstream sname;
-        sname << "bank" << i;
-        m_banks[i] = new Bank(sname.str(), *this, clock, buffersize);
+        m_banks[i] = new Bank("bank" + to_string(i), *this, clock, buffersize);
 
         config.registerObject(*m_banks[i], "bank");
         config.registerRelation(*this, *m_banks[i], "bank");

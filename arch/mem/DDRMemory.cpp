@@ -1,6 +1,5 @@
 #include "DDRMemory.h"
 #include "sim/config.h"
-#include <sstream>
 #include <cassert>
 #include <cmath>
 #include <cstring>
@@ -282,10 +281,8 @@ MCID DDRMemory::RegisterClient(IMemoryCallback& callback, Process& process, Stor
 
     MCID id = m_clients.size();
 
-    stringstream name;
-    name << GetName() << ".client" << id;
     ClientInfo client;
-    client.service = new ArbitratedService<>(m_clock, name.str());
+    client.service = new ArbitratedService<>(m_clock, GetName() + ".client" + to_string(id));
     client.callback = &callback;
     m_clients.push_back(client);
 
@@ -397,10 +394,7 @@ DDRMemory::DDRMemory(const std::string& name, Object& parent, Clock& clock, Conf
     // Create the interfaces
     for (size_t i = 0; i < m_ifs.size(); ++i)
     {
-        stringstream sname;
-        sname << "extif" << i;
-
-        m_ifs[i] = new Interface(sname.str(), *this, clock, i, m_ddr, config);
+        m_ifs[i] = new Interface("extif" + to_string(i), *this, clock, i, m_ddr, config);
 
         config.registerObject(*m_ifs[i], "extif");
         config.registerRelation(*this, *m_ifs[i], "extif");

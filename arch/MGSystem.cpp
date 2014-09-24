@@ -732,11 +732,9 @@ MGSystem::MGSystem(Config& config, bool quiet)
     m_iobuses.resize(numIOBuses);
     for (size_t b = 0; b < numIOBuses; ++b)
     {
-        stringstream ss;
-        ss << "iobus" << b;
-        string name = ss.str();
+        auto name = "iobus" + to_string(b);
 
-        string bus_type = config.getValue<string>(*m_root, name, "Type");
+        auto bus_type = config.getValue<string>(*m_root, name, "Type");
         Clock& ioclock = kernel.CreateClock(config.getValue<unsigned long>(*m_root, name, "Freq"));
 
         if (bus_type == "NULLIO") {
@@ -758,9 +756,8 @@ MGSystem::MGSystem(Config& config, bool quiet)
     m_fpus.resize(numFPUs);
     for (size_t f = 0; f < numFPUs; ++f)
     {
-        stringstream name;
-        name << "fpu" << f;
-        m_fpus[f] = new FPU(name.str(), *m_root, *m_clock, config, numProcessorsPerFPU);
+        auto name = "fpu" + to_string(f);
+        m_fpus[f] = new FPU(name, *m_root, *m_clock, config, numProcessorsPerFPU);
 
         config.registerObject(*m_fpus[f], "fpu");
         config.registerProperty(*m_fpus[f], "freq", (uint32_t)m_clock->GetFrequency());
@@ -774,10 +771,7 @@ MGSystem::MGSystem(Config& config, bool quiet)
     m_procs.resize(numProcessors);
     for (size_t i = 0; i < numProcessors; ++i)
     {
-
-        stringstream ss;
-        ss << "cpu" << i;
-        string name = ss.str();
+        auto name = "cpu" + to_string(i);
         m_procs[i]   = new DRISC(name, *m_root, *m_clock, i, m_procs, config, m_breakpoints);
         m_procs[i]->ConnectMemory(m_memory, memadmin);
         m_procs[i]->ConnectFPU(config, m_fpus[i / numProcessorsPerFPU]);
@@ -945,9 +939,7 @@ MGSystem::MGSystem(Config& config, bool quiet)
     size_t numRanges = config.getValue<size_t>("NumMemoryRanges");
     for (size_t i = 0; i < numRanges; ++i)
     {
-        stringstream ss;
-        ss << "MemoryRange" << i;
-        string name = ss.str();
+        auto name = "MemoryRange" + to_string(i);
 
         MemAddr address = config.getValue<MemAddr>(name, "Address");
         MemSize size = config.getValue<MemSize>(name, "Size");

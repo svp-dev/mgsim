@@ -233,11 +233,10 @@ VirtualMemory::VirtualMemory()
     // to create unique sample variable names when there are multiple 
     // virtual memories
     static int vmcount = 0;
-    ostringstream ss;
-    ss << "vm" << vmcount;
-    RegisterSampleVariable(m_totalreserved, ss.str() + ":reserved", SVC_LEVEL);
-    RegisterSampleVariable(m_totalallocated, ss.str() + ":allocated", SVC_LEVEL);
-    RegisterSampleVariable(m_nRanges, ss.str() + ":nRanges", SVC_LEVEL);
+    auto ss = "vm" + to_string(vmcount);
+    RegisterSampleVariable(m_totalreserved, ss + ":reserved", SVC_LEVEL);
+    RegisterSampleVariable(m_totalallocated, ss + ":allocated", SVC_LEVEL);
+    RegisterSampleVariable(m_nRanges, ss + ":nRanges", SVC_LEVEL);
     vmcount++;
 }
 

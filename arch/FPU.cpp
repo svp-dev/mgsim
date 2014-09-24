@@ -59,12 +59,10 @@ size_t FPU::RegisterSource(IFPUClient& client, const StorageTraceSet& output)
 
 string FPU::Operation::str() const
 {
-    ostringstream ss;
-    ss << OperationNames[op] << size * 8
-       << ' ' << setprecision(12) << Rav
-       << ", " << setprecision(12) << Rbv
-       << ", " << Rc.str();
-    return ss.str();
+    return OperationNames[op] + std::to_string(size * 8)
+        + ' ' + std::to_string(Rav)
+        + ", " + std::to_string(Rbv)
+        + ", " + Rc.str();
 }
 
 bool FPU::QueueOperation(size_t source, FPUOperation fop, int size, double Rav, double Rbv, const RegAddr& Rc)
@@ -315,9 +313,7 @@ FPU::FPU(const std::string& name, Object& parent, Clock& clock, Config& config, 
         }
         for (size_t i = 0; i < nUnits; ++i)
         {
-            stringstream ssname;
-            ssname << "Unit" << i;
-            string uname = ssname.str();
+            auto uname = "Unit" + std::to_string(i);
 
             set<FPUOperation> ops;
 
@@ -353,9 +349,7 @@ FPU::FPU(const std::string& name, Object& parent, Clock& clock, Config& config, 
         // Construct the sources
         for (size_t i = 0; i < num_inputs; ++i)
         {
-            stringstream ssname;
-            ssname << "source" << i;
-            string sname = ssname.str();
+            auto sname = "source" + std::to_string(i);
 
             m_sources.push_back(NULL);
             Source* source = new Source(sname, *this, clock, config);

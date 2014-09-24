@@ -36,15 +36,11 @@ MCID ZLCDMA::RegisterClient(IMemoryCallback& callback, Process& process, Storage
             // First cache in a ring; add a directory
             CacheID firstCache = m_caches.size();
 
-            stringstream name;
-            name << "dir" << m_directories.size();
-            Directory* dir = new Directory(name.str(), *this, GetClock(), firstCache, m_config);
+            Directory* dir = new Directory("dir" + std::to_string(m_directories.size()), *this, GetClock(), firstCache, m_config);
             m_directories.push_back(dir);
         }
 
-        stringstream name;
-        name << "cache" << m_caches.size();
-        Cache* cache = new Cache(name.str(), *this, GetClock(), m_caches.size(), m_config);
+        Cache* cache = new Cache("cache" + std::to_string(m_caches.size()), *this, GetClock(), m_caches.size(), m_config);
         m_caches.push_back(cache);
     }
 
@@ -126,9 +122,7 @@ ZLCDMA::ZLCDMA(const std::string& name, Simulator::Object& parent, Clock& clock,
 
     for (size_t i = 0; i < m_roots.size(); ++i)
     {
-        stringstream rname;
-        rname << "rootdir" << i;
-        m_roots[i] = new RootDirectory(rname.str(), *this, clock, i, m_roots.size(), m_ddr, config);
+        m_roots[i] = new RootDirectory("rootdir" + std::to_string(i), *this, clock, i, m_roots.size(), m_ddr, config);
     }
 
 }

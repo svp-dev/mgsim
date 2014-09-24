@@ -2,7 +2,6 @@
 #include <sim/config.h>
 
 #include <cassert>
-#include <sstream>
 #include <cstring>
 #include <iomanip>
 using namespace std;
@@ -170,9 +169,7 @@ MCID ParallelMemory::RegisterClient(IMemoryCallback& callback, Process& process,
 
     MCID id = m_ports.size();
 
-    stringstream name;
-    name << "port" << id;
-    m_ports.push_back(new Port(name.str(), *this, m_clock, m_buffersize, callback, process, traces, storages, m_lineSize));
+    m_ports.push_back(new Port("port" + to_string(id), *this, m_clock, m_buffersize, callback, process, traces, storages, m_lineSize));
 
     return id;
 }

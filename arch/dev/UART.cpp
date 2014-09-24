@@ -155,9 +155,7 @@ namespace Simulator
 
             cerr << GetName() << ": slave tty at " << slave_name << endl;
 
-            ostringstream os;
-            os << "<pty master for " << slave_name << ">";
-            fin = fout = os.str();
+            fin = fout = "<pty master for " + std::string(slave_name) + ">";
             m_fd_in = m_fd_out = master_fd;
             ein = eout = 0;
         }

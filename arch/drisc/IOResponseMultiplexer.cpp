@@ -2,8 +2,6 @@
 #include "DRISC.h"
 #include <sim/config.h>
 
-#include <sstream>
-
 namespace Simulator
 {
 namespace drisc
@@ -27,9 +25,7 @@ IOResponseMultiplexer::IOResponseMultiplexer(const std::string& name, IOInterfac
     m_wb_buffers.resize(numDevices, 0);
     for (size_t i = 0; i < numDevices; ++i)
     {
-        std::stringstream ss;
-        ss << "b_writeback" << i;
-        m_wb_buffers[i] = new WriteBackQueue(ss.str(), *this, clock, wbqsize);
+        m_wb_buffers[i] = new WriteBackQueue("b_writeback" + std::to_string(i), *this, clock, wbqsize);
         m_wb_buffers[i]->Sensitive(p_dummy);
     }
 

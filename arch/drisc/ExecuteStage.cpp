@@ -466,9 +466,7 @@ void Pipeline::ExecuteStage::ExecStatusAction(Integer value, int command, int fl
     case 3:
     {
         int code = value & 0xff;
-        ostringstream emsg;
-        emsg << "Program requested simulator to exit with code " << code << ".";
-        throw ProgramTerminationException(*this, emsg.str(), code, false);
+        throw ProgramTerminationException(*this, "Program requested simulator to exit with code " + to_string(code) + ".", code, false);
     }
     }
 }
