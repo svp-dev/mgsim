@@ -126,6 +126,24 @@ enum RunState
     STATE_ABORTED,  ///< The simulation has been aborted.
 };
 
+/**
+ * Enumeration for the result type of a cycle handler.
+ *  Values:
+ *  - FAILED: The operation could not make progress, must be retried.
+ *    For example a producer encountered a full FIFO.
+ *  - DELAYED: The operation did make progress but must be retried.
+ *  - SUCCESS: The operation made progress and need not be retried.
+ */
+enum Result
+{
+    FAILED,
+    DELAYED,
+    SUCCESS
+};
+
+// The most common delegate form in MGSim is cycle handlers, of
+// type Result (*)(). So alias this to "delegate" for convenience.
+typedef delegate_gen<Result> delegate;
 
 // Processes are member variables in components and represent the information
 // about a single process in that component.
@@ -154,7 +172,6 @@ class Process
 public:
     const Process* GetNext()   const { return m_next;  }
     RunState       GetState()  const { return m_state; }
-    Object*        GetObject() const { return m_delegate.GetObject(); }
     const std::string& GetName() const { return m_name; }
 
     void Deactivate();
