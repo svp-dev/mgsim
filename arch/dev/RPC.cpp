@@ -1,5 +1,6 @@
+#include <cstring>
+#include "sim/config.h"
 #include "RPC.h"
-#include <sim/config.h>
 
 /*
 

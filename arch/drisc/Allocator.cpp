@@ -6,6 +6,8 @@
 
 #include <cassert>
 #include <iomanip>
+#include <sstream>
+
 using namespace std;
 
 namespace Simulator

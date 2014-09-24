@@ -4,6 +4,7 @@
 #include "readfile.h"
 #include <algorithm>
 #include <iostream>
+#include <sstream>
 #include <cctype>
 #include <set>
 #include <fnmatch.h>

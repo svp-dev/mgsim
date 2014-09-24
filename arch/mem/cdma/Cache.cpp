@@ -6,6 +6,9 @@
 #include <cstring>
 #include <cstdio>
 #include <iomanip>
+#include <cstdlib>
+#include <cinttypes>
+
 using namespace std;
 
 namespace Simulator

@@ -2,6 +2,7 @@
 #include "sim/config.h"
 #include "arch/drisc/DRISC.h"
 #include "ActiveROM.h"
+#include <cstring>
 
 using namespace std;
 

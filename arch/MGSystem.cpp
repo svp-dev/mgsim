@@ -34,6 +34,7 @@
 
 #include <sim/rusage.h>
 
+#include <sstream>
 #include <cstdlib>
 #include <iomanip>
 #include <iostream>

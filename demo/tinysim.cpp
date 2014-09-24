@@ -1,3 +1,4 @@
+#include <sstream>
 #include "demo/tinysim.h"
 #include "sim/configparser.h"
 #include "sim/except.h"

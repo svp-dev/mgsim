@@ -2,6 +2,7 @@
 #include "DRISC.h"
 #include <sim/config.h>
 #include <sstream>
+#include <cstring>
 
 namespace Simulator
 {
