@@ -39,9 +39,9 @@ void Process::Deactivate()
 
 std::set<const Process*> Process::m_registry;
 
-Process::Process(Object& parent, const string& name, const delegate& delegate)
+Process::Process(Object& parent, const string& name, const delegate& d)
     : m_name(parent.GetName() + ":" + name),
-      m_delegate(delegate),
+      m_delegate(d),
       m_state(STATE_IDLE),
       m_activations(0),
       m_next(0),
