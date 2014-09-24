@@ -35,6 +35,7 @@ Pipeline::Pipeline(
 
     m_active("f_active", *this, clock),
 
+    m_running(false),
     m_nStagesRunnable(0),
     m_nStagesRun(0),
     m_pipelineBusyTime(0),
@@ -132,6 +133,8 @@ Pipeline::~Pipeline()
 
 Result Pipeline::DoPipeline()
 {
+    m_running = true;
+
     if (IsAcquiring())
     {
         // Begin of the cycle, initialize
@@ -239,21 +242,24 @@ Result Pipeline::DoPipeline()
             e.AddDetails(details.str());
             e.SetPC(stage->input->pc_dbg);
         }
+        m_running = false;
         throw;
     }
 
     if (m_nStagesRunnable == 0) {
         // Nothing to do anymore
         m_active.Clear();
-        return SUCCESS;
+        result = SUCCESS;
     }
+    else
+        m_active.Write(true);
 
     COMMIT
     {
         m_nStagesRun += m_nStagesRunnable;
     }
 
-    m_active.Write(true);
+    m_running = false;
     return result;
 }
 

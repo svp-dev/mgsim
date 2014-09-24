@@ -499,6 +499,8 @@ public:
     void Cmd_Info(std::ostream& out, const std::vector<std::string>& arguments) const;
     void Cmd_Read(std::ostream& out, const std::vector<std::string>& arguments) const;
 
+    bool IsPipelineProcessActive() const { return m_running; }
+
     // Processes
     Process p_Pipeline;
 private:
@@ -522,6 +524,7 @@ private:
 
     Register<bool> m_active;
 
+    bool     m_running;
     size_t   m_nStagesRunnable;
     size_t   m_nStagesRun;
     uint64_t m_pipelineBusyTime;

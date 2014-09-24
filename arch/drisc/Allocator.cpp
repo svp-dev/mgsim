@@ -182,7 +182,7 @@ bool Allocator::QueueThreads(ThreadList& list, const ThreadQueue& threads, Threa
 bool Allocator::ActivateThreads(const ThreadQueue& threads)
 {
     ThreadList* list;
-    if (dynamic_cast<const Pipeline*>(GetKernel()->GetActiveProcess()->GetObject()) != NULL)
+    if (GetDRISC().GetPipeline().IsPipelineProcessActive())
     {
         // Request comes from the pipeline, use the first list
         list = &m_readyThreadsPipe;
