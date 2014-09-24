@@ -86,12 +86,12 @@ namespace Simulator
 #define RequireArgs(Arg1Size, Arg2Size)                                 \
     do {                                                                \
         if ((Arg1Size) && (int)arg1.size() < (Arg1Size))                \
-            throw exceptf<SimulationException>("Procedure %u requires at least %zu bytes in 1st memory argument, %zu were provided", \
+            throw exceptf<>("Procedure %u requires at least %zu bytes in 1st memory argument, %zu were provided", \
                                                (unsigned)procedure_id,  \
                                                (size_t)(Arg1Size),      \
                                                arg1.size());            \
         if ((Arg2Size) && (int)arg2.size() < (Arg2Size))                \
-            throw exceptf<SimulationException>("Procedure %u requires at least %zu bytes in 2nd memory argument, %zu were provided", \
+            throw exceptf<>("Procedure %u requires at least %zu bytes in 2nd memory argument, %zu were provided", \
                                                (unsigned)procedure_id,  \
                                                (size_t)(Arg2Size),      \
                                                arg2.size());            \
@@ -107,7 +107,7 @@ namespace Simulator
     {
         if (res1_maxsize < 12)
         {
-            throw exceptf<SimulationException>("Procedure %u requires at least 12 bytes available in 1st result area", (unsigned)procedure_id);
+            throw exceptf<>("Procedure %u requires at least 12 bytes available in 1st result area", (unsigned)procedure_id);
         }
 
         uint64_t rval = 0;

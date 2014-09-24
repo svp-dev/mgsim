@@ -137,7 +137,7 @@ bool RegisterFile::WriteRegister(const RegAddr& addr, const RegValue& data, bool
     {
         if (value.m_state == RST_WAITING && data.m_state == RST_EMPTY)
         {
-            throw exceptf<SimulationException>(*this, "Invalid reset of %s: %s becomes %s", addr.str().c_str(), value.str(addr.type).c_str(), data.str(addr.type).c_str());
+            throw exceptf<>(*this, "Invalid reset of %s: %s becomes %s", addr.str().c_str(), value.str(addr.type).c_str(), data.str(addr.type).c_str());
         }
 
         if (value.m_memory.size != 0)
@@ -153,7 +153,7 @@ bool RegisterFile::WriteRegister(const RegAddr& addr, const RegValue& data, bool
                 if (!from_memory)
                 {
                     // Only the memory can change memory-pending registers
-                    throw exceptf<SimulationException>(*this, "Invalid reset of pending load %s: %s becomes %s", addr.str().c_str(), value.str(addr.type).c_str(), data.str(addr.type).c_str());
+                    throw exceptf<>(*this, "Invalid reset of pending load %s: %s becomes %s", addr.str().c_str(), value.str(addr.type).c_str(), data.str(addr.type).c_str());
                 }
             }
         }

@@ -27,7 +27,7 @@ namespace Simulator
         Display& disp = GetDisplay();
         if (address + size > disp.m_framebuffer.size())
         {
-            throw exceptf<SimulationException>(*this, "FB read out of bounds: %#016llx (%u)", (unsigned long long)address, (unsigned)size);
+            throw exceptf<>(*this, "FB read out of bounds: %#016llx (%u)", (unsigned long long)address, (unsigned)size);
         }
 
         IOData iodata;
@@ -51,7 +51,7 @@ namespace Simulator
         Display& disp = GetDisplay();
         if (address >= disp.m_framebuffer.size() || address + iodata.size >= disp.m_framebuffer.size())
         {
-            throw exceptf<SimulationException>(*this, "FB write out of bounds: %#016llx (%u)", (unsigned long long)address, (unsigned)iodata.size);
+            throw exceptf<>(*this, "FB write out of bounds: %#016llx (%u)", (unsigned long long)address, (unsigned)iodata.size);
         }
 
         COMMIT {
@@ -100,11 +100,11 @@ namespace Simulator
 
         if (address % 4 != 0 || iodata.size != 4)
         {
-            throw exceptf<SimulationException>(*this, "Invalid unaligned GfxCtl write: %#016llx (%u)", (unsigned long long)address, (unsigned)iodata.size);
+            throw exceptf<>(*this, "Invalid unaligned GfxCtl write: %#016llx (%u)", (unsigned long long)address, (unsigned)iodata.size);
         }
         if ((word > 5 && word < 0x100) || word > 0x1ff)
         {
-            throw exceptf<SimulationException>(*this, "Invalid write to GfxCtl word: %u", word);
+            throw exceptf<>(*this, "Invalid write to GfxCtl word: %u", word);
         }
 
         uint32_t value = UnserializeRegister(RT_INTEGER, iodata.data, iodata.size);
@@ -198,11 +198,11 @@ namespace Simulator
 
         if (address % 4 != 0 || size != 4)
         {
-            throw exceptf<SimulationException>(*this, "Invalid unaligned GfxCtl read: %#016llx (%u)", (unsigned long long)address, (unsigned)size);
+            throw exceptf<>(*this, "Invalid unaligned GfxCtl read: %#016llx (%u)", (unsigned long long)address, (unsigned)size);
         }
         if ((word > 9 && word < 0x100) || word > 0x1ff)
         {
-            throw exceptf<SimulationException>(*this, "Read from invalid GfxCtl word: %u", word);
+            throw exceptf<>(*this, "Read from invalid GfxCtl word: %u", word);
         }
 
         Display& disp = GetDisplay();
@@ -356,7 +356,7 @@ namespace Simulator
     {
         if (m_bpp != 32)
         {
-            throw exceptf<SimulationException>(*this, "Unable to dump the framebuffer when bpp != 32 (currently %u)", m_bpp);
+            throw exceptf<>(*this, "Unable to dump the framebuffer when bpp != 32 (currently %u)", m_bpp);
         }
 
         ostream * os;

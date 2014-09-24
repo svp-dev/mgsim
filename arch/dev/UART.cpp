@@ -129,18 +129,18 @@ namespace Simulator
 
             // Open master PTY and get name of slave side
             if (-1 == (master_fd = get_pty_master()))
-                throw exceptf<SimulationException>("Unable to obtain pty master (%s)", strerror(errno));
+                throw exceptf<>("Unable to obtain pty master (%s)", strerror(errno));
             if (-1 == grantpt(master_fd))
-                throw exceptf<SimulationException>("grantpt: %s", strerror(errno));
+                throw exceptf<>("grantpt: %s", strerror(errno));
             if (-1 == unlockpt(master_fd))
-                throw exceptf<SimulationException>("unlockpt: %s", strerror(errno));
+                throw exceptf<>("unlockpt: %s", strerror(errno));
             if (NULL == (slave_name = ptsname(master_fd)))
-                throw exceptf<SimulationException>("ptsname: %s", strerror(errno));
+                throw exceptf<>("ptsname: %s", strerror(errno));
 
             // configure master side: disable echo, buffering, control flow etc
             struct termios tio;
             if (-1 == tcgetattr(master_fd, &tio))
-                throw exceptf<SimulationException>("tcgetattr: %s", strerror(errno));
+                throw exceptf<>("tcgetattr: %s", strerror(errno));
 
             tio.c_iflag &= ~(IXON|IXOFF|ICRNL|INLCR|IGNCR|IMAXBEL|ISTRIP);
             tio.c_iflag |= IGNBRK;
@@ -150,7 +150,7 @@ namespace Simulator
             tio.c_cc[VTIME] = 0;
 
             if (-1 == tcsetattr(master_fd, TCSANOW, &tio))
-                throw exceptf<SimulationException>("tcsetattr: %s", strerror(errno));
+                throw exceptf<>("tcsetattr: %s", strerror(errno));
             tcflush(master_fd, TCIOFLUSH);
 
             cerr << GetName() << ": slave tty at " << slave_name << endl;
@@ -306,7 +306,7 @@ namespace Simulator
     {
         if (iodata.size != 1 || addr > 10)
         {
-            throw exceptf<SimulationException>(*this, "Invalid write from device %u to %#016llx/%u", (unsigned)from, (unsigned long long)addr, (unsigned)iodata.size);
+            throw exceptf<>(*this, "Invalid write from device %u to %#016llx/%u", (unsigned)from, (unsigned long long)addr, (unsigned)iodata.size);
         }
 
         unsigned char data = *(unsigned char*)iodata.data;
@@ -425,7 +425,7 @@ namespace Simulator
     {
         if (size != 1 || addr > 10)
         {
-            throw exceptf<SimulationException>(*this, "Invalid read from device %u to %#016llx/%u", (unsigned)from, (unsigned long long)addr, (unsigned)size);
+            throw exceptf<>(*this, "Invalid read from device %u to %#016llx/%u", (unsigned)from, (unsigned long long)addr, (unsigned)size);
         }
 
         unsigned char data = 0;

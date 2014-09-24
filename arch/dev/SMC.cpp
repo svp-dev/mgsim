@@ -43,7 +43,7 @@ namespace Simulator
     {
         if (address + size > m_size)
         {
-            throw exceptf<SimulationException>(*this, "Invalid I/O read to %#016llx/%u", (unsigned long long)address, (unsigned)size);
+            throw exceptf<>(*this, "Invalid I/O read to %#016llx/%u", (unsigned long long)address, (unsigned)size);
         }
 
         IOData iodata;

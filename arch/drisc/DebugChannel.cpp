@@ -29,7 +29,7 @@ Result DebugChannel::Write(MemAddr address, const void *data, MemSize size, LFID
 {
     if (address % sizeof(Integer) != 0 || (size != 1 && size != sizeof(Integer)))
     {
-        throw exceptf<SimulationException>(*this, "Invalid debug channel access: %#016llx (%u)", (unsigned long long)address, (unsigned)size);
+        throw exceptf<>(*this, "Invalid debug channel access: %#016llx (%u)", (unsigned long long)address, (unsigned)size);
     }
 
     address /= sizeof(Integer);

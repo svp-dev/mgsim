@@ -57,7 +57,7 @@ namespace Simulator
 
             if (SIG_ERR == signal(SIGALRM, alarm_handler))
             {
-                throw exceptf<SimulationException>("Cannot set alarm: %s", strerror(errno));
+                throw exceptf<>("Cannot set alarm: %s", strerror(errno));
             };
 
             struct itimerval it;
@@ -67,7 +67,7 @@ namespace Simulator
 
             if (-1 == setitimer(ITIMER_REAL, &it, NULL))
             {
-                throw exceptf<SimulationException>("Cannot set timer: %s", strerror(errno));
+                throw exceptf<>("Cannot set timer: %s", strerror(errno));
             };
 
             initialized = true;
@@ -208,11 +208,11 @@ namespace Simulator
 
         if (address % 4 != 0 || data.size != 4)
         {
-            throw exceptf<SimulationException>(*this, "Invalid unaligned RTC write: %#016llx (%u)", (unsigned long long)address, (unsigned)data.size);
+            throw exceptf<>(*this, "Invalid unaligned RTC write: %#016llx (%u)", (unsigned long long)address, (unsigned)data.size);
         }
         if (word == 0 || word > 3)
         {
-            throw exceptf<SimulationException>(*this, "Invalid write to RTC word: %u", word);
+            throw exceptf<>(*this, "Invalid write to RTC word: %u", word);
         }
 
         Integer value = UnserializeRegister(RT_INTEGER, data.data, data.size);
@@ -261,11 +261,11 @@ namespace Simulator
 
         if (address % 4 != 0 || size != 4)
         {
-            throw exceptf<SimulationException>(*this, "Invalid unaligned RTC read: %#016llx (%u)", (unsigned long long)address, (unsigned)size);
+            throw exceptf<>(*this, "Invalid unaligned RTC read: %#016llx (%u)", (unsigned long long)address, (unsigned)size);
         }
         if (word > 9)
         {
-            throw exceptf<SimulationException>(*this, "Read from invalid RTC word: %u", word);
+            throw exceptf<>(*this, "Read from invalid RTC word: %u", word);
         }
 
         RTC& rtc = GetRTC();

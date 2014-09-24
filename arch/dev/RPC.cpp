@@ -518,14 +518,14 @@ namespace Simulator
 
         if (address % 4 != 0 || data.size != 4)
         {
-            throw exceptf<SimulationException>(*this, "Invalid unaligned RPC write: %#016llx (%u)", (unsigned long long)address, (unsigned)data.size);
+            throw exceptf<>(*this, "Invalid unaligned RPC write: %#016llx (%u)", (unsigned long long)address, (unsigned)data.size);
         }
 
         unsigned word = address / 4;
 
         if (word == 3 || word > 17)
         {
-            throw exceptf<SimulationException>(*this, "Invalid RPC write to word: %u", word);
+            throw exceptf<>(*this, "Invalid RPC write to word: %u", word);
         }
 
         uint32_t value = UnserializeRegister(RT_INTEGER, data.data, 4);
@@ -615,14 +615,14 @@ namespace Simulator
 
         if (address % 4 != 0 || size != 4)
         {
-            throw exceptf<SimulationException>(*this, "Invalid unaligned RPC read: %#016llx (%u)", (unsigned long long)address, (unsigned)size);
+            throw exceptf<>(*this, "Invalid unaligned RPC read: %#016llx (%u)", (unsigned long long)address, (unsigned)size);
         }
 
         unsigned word = address / 4;
 
         if (word == 3 || (word > 17 && word < 64) || word > 75)
         {
-            throw exceptf<SimulationException>(*this, "Invalid RPC read from word: %u", word);
+            throw exceptf<>(*this, "Invalid RPC read from word: %u", word);
         }
 
         uint32_t value = 0;

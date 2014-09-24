@@ -150,7 +150,7 @@ namespace drisc
 
         if (dev > iface.m_numDevices)
         {
-            throw exceptf<SimulationException>("Invalid I/O read to non-existent device %u by F%u/T%u", (unsigned)dev, (unsigned)fid, (unsigned)tid);
+            throw exceptf<>("Invalid I/O read to non-existent device %u by F%u/T%u", (unsigned)dev, (unsigned)fid, (unsigned)tid);
         }
 
         MemAddr devaddr = address & ((1ULL << m_devAddrBits) - 1);
@@ -167,7 +167,7 @@ namespace drisc
         IODeviceID dev = address >> m_devAddrBits;
         if (dev > GetInterface().m_numDevices)
         {
-            throw exceptf<SimulationException>("Invalid I/O read to non-existent device %u by F%u/T%u", (unsigned)dev, (unsigned)fid, (unsigned)tid);
+            throw exceptf<>("Invalid I/O read to non-existent device %u by F%u/T%u", (unsigned)dev, (unsigned)fid, (unsigned)tid);
         }
 
         MemAddr devaddr = address & ((1ULL << m_devAddrBits) - 1);
@@ -227,13 +227,13 @@ namespace drisc
     {
         if (address % sizeof(Integer) != 0 || size != sizeof(Integer))
         {
-            throw exceptf<SimulationException>("Invalid unaligned PNC read: %#016llx (%u)", (unsigned long long)address, (unsigned)size);
+            throw exceptf<>("Invalid unaligned PNC read: %#016llx (%u)", (unsigned long long)address, (unsigned)size);
         }
 
         IONotificationChannelID which = address / sizeof(Integer);
         if (which > GetInterface().m_numChannels)
         {
-            throw exceptf<SimulationException>("Invalid wait to non-existent notification/interrupt channel %u by F%u/T%u", (unsigned)which, (unsigned)fid, (unsigned)tid);
+            throw exceptf<>("Invalid wait to non-existent notification/interrupt channel %u by F%u/T%u", (unsigned)which, (unsigned)fid, (unsigned)tid);
         }
 
         if (!GetInterface().WaitForNotification(which, writeback))
@@ -268,13 +268,13 @@ namespace drisc
     {
         if (address % sizeof(Integer) != 0 || size != sizeof(Integer))
         {
-            throw exceptf<SimulationException>("Invalid unaligned PNC read: %#016llx (%u)", (unsigned long long)address, (unsigned)size);
+            throw exceptf<>("Invalid unaligned PNC read: %#016llx (%u)", (unsigned long long)address, (unsigned)size);
         }
 
         IONotificationChannelID which = address / sizeof(Integer);
         if (which > GetInterface().m_numChannels)
         {
-            throw exceptf<SimulationException>("Invalid wait to non-existent notification/interrupt channel %u by F%u/T%u", (unsigned)which, (unsigned)fid, (unsigned)tid);
+            throw exceptf<>("Invalid wait to non-existent notification/interrupt channel %u by F%u/T%u", (unsigned)which, (unsigned)fid, (unsigned)tid);
         }
 
         Integer value = UnserializeRegister(RT_INTEGER, data, size);

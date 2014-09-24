@@ -348,7 +348,7 @@ namespace Simulator
     {
         if (address >= m_lineSize * m_numLines || address + size > m_lineSize * m_numLines)
         {
-            throw exceptf<SimulationException>(*this, "Invalid I/O read to %#016llx/%u", (unsigned long long)address, (unsigned)size);
+            throw exceptf<>(*this, "Invalid I/O read to %#016llx/%u", (unsigned long long)address, (unsigned)size);
         }
 
         IOData iodata;
@@ -366,7 +366,7 @@ namespace Simulator
     {
         if (address % 4 != 0 || address > 32 || data.size != 4)
         {
-            throw exceptf<SimulationException>(*this, "Invalid I/O write from device %u to %#016llx/%u", (unsigned)from, (unsigned long long)address, (unsigned)data.size);
+            throw exceptf<>(*this, "Invalid I/O write from device %u to %#016llx/%u", (unsigned)from, (unsigned long long)address, (unsigned)data.size);
         }
 
         Integer value = UnserializeRegister(RT_INTEGER, data.data, data.size);

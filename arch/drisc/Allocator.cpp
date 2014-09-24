@@ -1490,7 +1490,7 @@ Result Allocator::DoBundle()
 
         if (msg.allocate.place.size == 0)
         {
-            throw exceptf<SimulationException>("Invalid place size in bundle creation");
+            throw exceptf<>("Invalid place size in bundle creation");
         }
 
         msg.allocate.completion_pid    = GetDRISC().GetPID();
@@ -1758,7 +1758,7 @@ Result Allocator::DoFamilyCreate()
                 assert(family.nThreads > 0);
                 if (family.regs[0].count.shareds < 1)
                 {
-                    throw exceptf<SimulationException>("Program target of bundle create does not define shared registers");
+                    throw exceptf<>("Program target of bundle create does not define shared registers");
                 }
 
                 RegAddr  addr   = MAKE_REGADDR(RT_INTEGER, family.regs[0].last_shareds);

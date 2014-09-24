@@ -75,7 +75,7 @@ Result IOResponseMultiplexer::DoReceivedReadResponses()
     // pending writeback address.
     if (wbq.Empty())
     {
-        throw exceptf<SimulationException>(*this, "Unexpected read response from device %u", (unsigned)response.device);
+        throw exceptf<>(*this, "Unexpected read response from device %u", (unsigned)response.device);
     }
 
     const RegAddr& addr = wbq.Front();

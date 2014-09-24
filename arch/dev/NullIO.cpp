@@ -19,12 +19,12 @@ namespace Simulator
     {
         if (from >= m_clients.size() || m_clients[from] == NULL)
         {
-            throw exceptf<SimulationException>(*this, "I/O from non-existent device %u", (unsigned)from);
+            throw exceptf<>(*this, "I/O from non-existent device %u", (unsigned)from);
         }
 
         if (to >= m_clients.size() || m_clients[to] == NULL)
         {
-            throw exceptf<SimulationException>(*this, "I/O from device %u to non-existent device %u", (unsigned)from, (unsigned)to);
+            throw exceptf<>(*this, "I/O from device %u to non-existent device %u", (unsigned)from, (unsigned)to);
         }
 
     }
@@ -79,7 +79,7 @@ namespace Simulator
     {
         if (from >= m_clients.size() || m_clients[from] == NULL)
         {
-            throw exceptf<SimulationException>(*this, "I/O from non-existent device %u", (unsigned)from);
+            throw exceptf<>(*this, "I/O from non-existent device %u", (unsigned)from);
         }
 
         DebugIONetWrite("Sending interrupt request from device %u to channel %u", (unsigned)from, (unsigned)which);
@@ -96,7 +96,7 @@ namespace Simulator
     {
         if (from >= m_clients.size() || m_clients[from] == NULL)
         {
-            throw exceptf<SimulationException>(*this, "I/O from non-existent device %u", (unsigned)from);
+            throw exceptf<>(*this, "I/O from non-existent device %u", (unsigned)from);
         }
 
         DebugIONetWrite("Sending notification from device %u to channel %u (tag %#016llx)", (unsigned)from, (unsigned)which, (unsigned long long)tag);

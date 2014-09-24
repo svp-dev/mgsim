@@ -31,7 +31,7 @@ Result MMUInterface::Write(MemAddr address, const void *data, MemSize size, LFID
 {
     if (address % sizeof(Integer) != 0)
     {
-        throw exceptf<SimulationException>(*this, "Invalid MMU configuration access: %#016llx (%u)", (unsigned long long)address, (unsigned)size);
+        throw exceptf<>(*this, "Invalid MMU configuration access: %#016llx (%u)", (unsigned long long)address, (unsigned)size);
     }
 
 

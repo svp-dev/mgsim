@@ -15,22 +15,22 @@ namespace Simulator
 
     bool IIOBusClient::OnReadRequestReceived(IODeviceID from, MemAddr /*address*/, MemSize /*size*/)
     {
-        throw exceptf<SimulationException>("Unsupported read request received from device %u", (unsigned)from);
+        throw exceptf<>("Unsupported read request received from device %u", (unsigned)from);
     }
 
     bool IIOBusClient::OnWriteRequestReceived(IODeviceID from, MemAddr /*address*/, const IOData& /*data*/)
     {
-        throw exceptf<SimulationException>("Unsupported write request received from device %u", (unsigned)from);
+        throw exceptf<>("Unsupported write request received from device %u", (unsigned)from);
     }
 
     bool IIOBusClient::OnActiveMessageReceived(IODeviceID from, MemAddr /*address*/, Integer /*arg*/)
     {
-        throw exceptf<SimulationException>("Unsupported active message received from device %u", (unsigned)from);
+        throw exceptf<>("Unsupported active message received from device %u", (unsigned)from);
     }
 
     bool IIOBusClient::OnReadResponseReceived(IODeviceID from, MemAddr /*address*/, const IOData& /*data*/)
     {
-        throw exceptf<SimulationException>("Unsupported read response received from device %u", (unsigned)from);
+        throw exceptf<>("Unsupported read response received from device %u", (unsigned)from);
     }
 
     bool IIOBusClient::OnInterruptRequestReceived(IONotificationChannelID /*which*/)

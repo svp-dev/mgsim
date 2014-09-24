@@ -78,7 +78,7 @@ bool LCD::OnReadRequestReceived(IODeviceID from, MemAddr address, MemSize size)
 {
     if (address != 0 || size != 4)
     {
-        throw exceptf<SimulationException>(*this, "Invalid I/O read to %#016llx/%u", (unsigned long long)address, (unsigned)size);
+        throw exceptf<>(*this, "Invalid I/O read to %#016llx/%u", (unsigned long long)address, (unsigned)size);
     }
 
     uint32_t value = (uint32_t)m_width << 16 | (uint32_t)m_height;
@@ -171,7 +171,7 @@ bool LCD::OnWriteRequestReceived(IODeviceID from, MemAddr address, const IOData&
         {
             if (address + data.size >= (m_width * m_height))
             {
-                throw exceptf<SimulationException>(*this, "Invalid I/O write to %#016llx/%u", (unsigned long long)address, (unsigned)data.size);
+                throw exceptf<>(*this, "Invalid I/O write to %#016llx/%u", (unsigned long long)address, (unsigned)data.size);
             }
             for (size_t i = 0; i < data.size; ++i)
             {
