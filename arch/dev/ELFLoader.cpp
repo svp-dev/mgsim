@@ -1,11 +1,10 @@
-#include "ELFLoader.h"
-#include "ELF.h"
-#include <sim/except.h>
-
 #include <fstream>
 #include <iostream>
 #include <vector>
 #include <cstring>
+#include "ELFLoader.h"
+#include "ELF.h"
+#include "sim/except.h"
 
 using namespace std;
 using namespace Simulator;

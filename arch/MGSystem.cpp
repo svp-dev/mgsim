@@ -1,38 +1,38 @@
 #include "MGSystem.h"
 
-#include <arch/drisc/DRISC.h>
+#include "arch/drisc/DRISC.h"
 
 #ifdef ENABLE_MEM_SERIAL
-#include <arch/mem/SerialMemory.h>
+#include "arch/mem/SerialMemory.h"
 #endif
 #ifdef ENABLE_MEM_PARALLEL
-#include <arch/mem/ParallelMemory.h>
+#include "arch/mem/ParallelMemory.h"
 #endif
 #ifdef ENABLE_MEM_BANKED
-#include <arch/mem/BankedMemory.h>
+#include "arch/mem/BankedMemory.h"
 #endif
 #ifdef ENABLE_MEM_DDR
-#include <arch/mem/DDRMemory.h>
+#include "arch/mem/DDRMemory.h"
 #endif
 #ifdef ENABLE_MEM_CDMA
-#include <arch/mem/cdma/CDMA.h>
+#include "arch/mem/cdma/CDMA.h"
 #endif
 #ifdef ENABLE_MEM_ZLCDMA
-#include <arch/mem/zlcdma/CDMA.h>
+#include "arch/mem/zlcdma/CDMA.h"
 #endif
 
-#include <arch/dev/NullIO.h>
-#include <arch/dev/LCD.h>
-#include <arch/dev/RTC.h>
-#include <arch/dev/Display.h>
-#include <arch/dev/ActiveROM.h>
-#include <arch/dev/Selector.h>
-#include <arch/dev/SMC.h>
-#include <arch/dev/UART.h>
-#include <arch/dev/RPC.h>
-#include <arch/dev/RPC_unix.h>
+#include "arch/dev/NullIO.h"
+#include "arch/dev/LCD.h"
+#include "arch/dev/RTC.h"
+#include "arch/dev/Display.h"
+#include "arch/dev/ActiveROM.h"
+#include "arch/dev/Selector.h"
+#include "arch/dev/SMC.h"
+#include "arch/dev/UART.h"
+#include "arch/dev/RPC.h"
+#include "arch/dev/RPC_unix.h"
 
-#include <sim/rusage.h>
+#include "sim/rusage.h"
 
 #include <sstream>
 #include <cstdlib>
