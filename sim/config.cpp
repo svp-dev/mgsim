@@ -1,365 +1,20 @@
 #include "sim/config.h"
-#include "sim/configparser.h"
-#include "sim/except.h"
-#include "sim/readfile.h"
-#include <algorithm>
-#include <iostream>
-#include <sstream>
-#include <cctype>
+#include "programs/mgsim.h"
 #include <set>
-#include <fnmatch.h>
+#include <map>
+#include <vector>
 
 using namespace std;
-using namespace Simulator;
 
-void ConfigMap::append(const string& key_, const string& val)
+void Config::collectPropertiesByType(Config::types_t& types,
+                                     Config::typeattrs_t& typeattrs)
 {
-    string key(key_);
-    transform(key.begin(), key.end(), key.begin(), ::tolower);
-    m_map.push_back(make_pair(key, val));
-}
-
-template <>
-string InputConfigRegistry::lookupValue<string>(const string& name, const string& def, bool fail_if_not_found)
-{
-    string val;
-    bool found = lookup(name, val, def, !fail_if_not_found);
-    int i = 0;
-    while (found && val[0] == '$')
-    {
-        if (i++ > 10000)
-        {
-            throw exceptf<SimulationException>("Runaway indirection in configuration: %s", name.c_str());
-        }
-        string newpat = val.substr(1);
-        found = lookup(newpat, val, def, !fail_if_not_found);
-    }
-    if (!found)
-    {
-        if (fail_if_not_found)
-            throw exceptf<SimulationException>("No configuration key matches: %s", name.c_str());
-        else
-            return def;
-    }
-    return val;
-}
-
-template<>
-double InputConfigRegistry::convertToNumber<double>(const string& name, const string& value)
-{
-    const char *start = value.c_str();
-    char *end;
-
-    double val = strtod(start, &end);
-    if (*end != '\0')
-    {
-        throw exceptf<SimulationException>("Configuration value for %s is not a floating-point number: %s", name.c_str(), start);
-    }
-    return val;
-}
-
-template<>
-float InputConfigRegistry::convertToNumber<float>(const string& name, const string& value)
-{
-    return convertToNumber<double>(name, value);
-}
-
-template <>
-bool InputConfigRegistry::convertToNumber<bool>(const string& name, const string& value)
-{
-    string val(value);
-    transform(val.begin(), val.end(), val.begin(), ::toupper);
-
-    // Check for the boolean values
-    if (val == "TRUE" || val == "YES") return true;
-    if (val == "FALSE" || val == "NO") return false;
-
-    // Otherwise, try to interpret as an integer
-    int i = convertToNumber<int>(name, val);
-    return i != 0;
-}
-
-bool InputConfigRegistry::lookup(const string& name_, string& result, const string &def, bool allow_default)
-{
-    string name(name_);
-    string pat;
-    transform(name.begin(), name.end(), name.begin(), ::tolower);
-
-    auto p = m_cache.find(name);
-    if (p != m_cache.end())
-    {
-        result = p->second.first;
-        return true;
-    }
-
-    bool found = false;
-    for (auto& o : m_overrides.reverse())
-    {
-        pat = o.first;
-        if (FNM_NOMATCH != fnmatch(pat.c_str(), name.c_str(), 0))
-        {
-            // Return the overriden value
-            result = o.second;
-            found = true;
-            break;
-        }
-    }
-
-    if (!found)
-    {
-        for (auto& c : m_data.reverse())
-        {
-            pat = c.first;
-            if (FNM_NOMATCH != fnmatch(pat.c_str(), name.c_str(), 0))
-            {
-                // Return the configuration value
-                result = c.second;
-                found = true;
-                break;
-            }
-        }
-    }
-    if (!found && allow_default)
-    {
-        pat = "default";
-        result = def;
-        found = true;
-    }
-    if (found)
-    {
-        m_cache[name] = make_pair(result, pat);
-    }
-    return found;
-}
-
-vector<pair<string, string> > InputConfigRegistry::getRawConfiguration() const
-{
-    vector<pair<string, string> > ret;
-    for (auto& c : m_cache)
-        ret.push_back(make_pair(c.first, c.second.first));
-    return ret;
-}
-
-void InputConfigRegistry::dumpConfiguration(ostream& os, const string& cf) const
-{
-    os << "### begin simulator configuration" << endl
-       << "# overrides from command line:" << endl;
-
-    for (auto& o : m_overrides)
-        os << "# -o " << o.first << " = " << o.second << endl;
-
-    os << "# configuration file: " << cf << endl;
-
-    for (auto& c : m_data)
-        os << "# -o " << c.first << " = " << c.second << endl;
-
-    os << "### end simulator configuration" << endl;
-}
-
-void InputConfigRegistry::dumpConfigurationCache(ostream& os) const
-{
-    os << "### begin simulator configuration (lookup matches)" << endl;
-
-    for (auto& c : m_cache)
-        os << "# " << c.first << " = " << c.second.first << " (matches " << c.second.second << ')' << endl;
-
-    os << "### end simulator configuration (lookup matches)" << endl;
-}
-
-vector<string> InputConfigRegistry::getWordList(const string& name)
-{
-    vector<string> vals;
-    istringstream stream(getValue<string>(name));
-    string token = "";
-    while (getline(stream, token, ','))
-    {
-        token.erase(remove(token.begin(), token.end(), ' '), token.end());
-
-        if (!token.empty() && token[0] == '$')
-        {
-            auto vn = getWordList(token.substr(1));
-            vals.insert(vals.end(), vn.begin(), vn.end());
-        }
-        else
-        {
-            vals.push_back(token);
-        }
-    }
-    return vals;
-}
-
-InputConfigRegistry::InputConfigRegistry(const ConfigMap& defaults, const ConfigMap& overrides, const vector<string>& argv)
-    : m_data(defaults), m_overrides(overrides), m_cache(), m_argv(argv)
-{
-}
-
-bool ComponentModelRegistry::Entity::operator<(const ComponentModelRegistry::Entity& right) const
-{
-    return (type < right.type ||
-            (type == right.type && type != VOID &&
-             (
-                 (type == UINT && value < right.value) ||
-                 (type == SYMBOL && symbol < right.symbol) ||
-                 (type == OBJECT && object < right.object))));
-};
-
-ComponentModelRegistry::Symbol ComponentModelRegistry::makeSymbol(const string& sym)
-{
-    string str(sym);
-    transform(str.begin(), str.end(), str.begin(), ::tolower);
-    auto i = m_symbols.insert(str);
-    return &(*i.first);
-}
-
-ComponentModelRegistry::ObjectRef ComponentModelRegistry::refObject(const Simulator::Object& obj)
-{
-    auto obj_declaration = m_objects.find(&obj);
-    assert(obj_declaration != m_objects.end());
-
-    return obj_declaration->first;
-}
-
-ComponentModelRegistry::EntityRef ComponentModelRegistry::refEntity(const ObjectRef& obj)
-{
-    assert(m_objects.find(obj) != m_objects.end());
-    Entity e;
-    e.type = Entity::OBJECT;
-    e.object = obj;
-    auto i = m_entities.insert(e);
-    return &(*i.first);
-}
-
-ComponentModelRegistry::EntityRef ComponentModelRegistry::refEntity(const Symbol& sym)
-{
-    assert(m_symbols.find(*sym) != m_symbols.end());
-    Entity e;
-    e.type = Entity::SYMBOL;
-    e.symbol = sym;
-    auto i = m_entities.insert(e);
-    return &(*i.first);
-}
-
-ComponentModelRegistry::EntityRef ComponentModelRegistry::refEntity(const uint32_t& val)
-{
-    Entity e;
-    e.type = Entity::UINT;
-    e.value = val;
-    auto i = m_entities.insert(e);
-    return &(*i.first);
-}
-
-ComponentModelRegistry::EntityRef ComponentModelRegistry::refEntity(void)
-{
-    Entity e;
-    e.type = Entity::VOID;
-    auto i = m_entities.insert(e);
-    return &(*i.first);
-}
-
-void ComponentModelRegistry::registerObject(const Object& obj, const string& type)
-{
-    assert(m_objects.find(&obj) == m_objects.end() || m_objects.find(&obj)->second == makeSymbol(type));
-    m_objects[&obj] = makeSymbol(type);
-}
-
-void ComponentModelRegistry::renameObjects()
-{
-    map<Symbol, int> typecounters;
-    m_names.clear();
-    for (auto& i : m_objects)
-    {
-        std::ostringstream ss;
-        ss << *i.second;
-        ss << typecounters[i.second]++;
-        m_names[i.first] = makeSymbol(ss.str());
-    }
-}
-
-void ComponentModelRegistry::printEntity(ostream& os, const ComponentModelRegistry::Entity& e) const
-{
-    switch(e.type)
-    {
-    case Entity::VOID: os << "(void)"; break;
-    case Entity::SYMBOL: os << *e.symbol; break;
-    case Entity::OBJECT:
-        assert(m_names.find(e.object) != m_names.end());
-        os << *m_names.find(e.object)->second;
-        break;
-    case Entity::UINT: os << dec << e.value; break;
-    }
-}
-
-void ComponentModelRegistry::dumpComponentGraph(ostream& os, bool display_nodeprops, bool display_linkprops)
-{
-    renameObjects();
-
-    os << "# Microgrid system topology, generated by " << PACKAGE_NAME << " " << PACKAGE_VERSION << endl
-       << "digraph Microgrid {" << endl
-       << "overlap=\"false\"; labeljust=\"l\"; concentrate=\"true\"; splines=\"true\"; node [shape=box]; edge [len=2,constraint=\"false\"];" << endl;
-    for (auto& i : m_objects)
-    {
-        ObjectRef objref = i.first;
-        os << *m_names[objref] << " [label=\"" << *m_names[objref];
-        string name = objref->GetName();
-        if (name != *m_names[objref])
-            os << "\\nconfig:" << name;
-        if (display_nodeprops && !m_objprops[objref].empty())
-        {
-            for (auto& p : m_objprops[objref])
-            {
-                os << "\\n" << *p.first;
-                if (p.second->type != Entity::VOID)
-                {
-                    os << ':';
-                    printEntity(os, *p.second);
-                }
-            }
-        }
-        os << "\"];" << endl;
-    }
-
-    for (auto& i : m_linkprops)
-    {
-        auto& endpoints = i.first;
-        auto& props = i.second;
-
-        os << *m_names[endpoints.first] << " -> " << *m_names[endpoints.second.first]
-           << " [constraint=\"" << (endpoints.second.second.first ? "false" : "true") << "\"";
-
-        if (endpoints.second.second.second)
-            os << ",dir=both";
-
-        if (display_linkprops)
-        {
-            os << ",label=\"";
-            for (auto& p : props)
-            {
-                os << *p.first;
-                if (p.second->type != Entity::VOID)
-                {
-                    os << ':';
-                    printEntity(os, *p.second);
-                }
-                os << ' ';
-            }
-            os << "\"";
-        }
-        os << "];"  << endl;
-    }
-    os << "}" << endl;
-}
-
-void ComponentModelRegistry::collectPropertiesByType()
-{
-    m_types.clear();
-    m_typeattrs.clear();
-
     map<Symbol, set<Symbol> > collect;
 
     for (auto& i : m_objects)
     {
-        m_types[m_objects[i.first]].clear();
-        m_typeattrs[m_objects[i.first]].clear();
+        types[m_objects[i.first]].clear();
+        typeattrs[m_objects[i.first]].clear();
     }
 
     for (auto& i : m_objprops)
@@ -372,15 +27,17 @@ void ComponentModelRegistry::collectPropertiesByType()
         size_t j = 0;
         for (auto k : i.second)
         {
-            m_types[i.first].push_back(k);
-            m_typeattrs[i.first][k] = j++;
+            types[i.first].push_back(k);
+            typeattrs[i.first][k] = j++;
         }
     }
 }
 
 vector<uint32_t> Config::GetConfWords()
 {
-    collectPropertiesByType();
+    types_t types;
+    typeattrs_t typeattrs;
+    collectPropertiesByType(types, typeattrs);
 
     vector<uint32_t> db;
 
@@ -408,11 +65,11 @@ vector<uint32_t> Config::GetConfWords()
 
     // CONTENT - HEADER
 
-    db.push_back(m_types.size());
+    db.push_back(types.size());
 
     // ENTRIES
     size_t typecnt = 0;
-    for (auto& i : m_types)
+    for (auto& i : types)
     {
         sym_backrefs[i.first].push_back(db.size());
         db.push_back(0);
@@ -428,7 +85,7 @@ vector<uint32_t> Config::GetConfWords()
     // word 0: number of entries,
     // word 1: logical offset to object type in type table
     // then entries. Each entry is a global symbol offset (1 word)
-    for (auto& i : m_types)
+    for (auto& i : types)
     {
         if (i.second.empty())
             continue;
@@ -471,7 +128,7 @@ vector<uint32_t> Config::GetConfWords()
 
         // collect the attributes actually defined in the
         // order defined by the type
-        auto& propdescs = m_typeattrs.find(i.second)->second;
+        auto& propdescs = typeattrs.find(i.second)->second;
         vector<EntityRef> collect;
         collect.resize(propdescs.size(), 0);
 

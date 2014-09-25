@@ -402,7 +402,7 @@ int main(int argc, char** argv)
         // Not in configuration(yet)
         char s[20];
         snprintf(s, 20, "%u", (unsigned)time(NULL));
-        flags.m_overrides.append("RandomSeed", s);
+        config->GetOverrides().append("RandomSeed", s);
     }
     {
         unsigned seed = config->getValue<unsigned>("RandomSeed");
