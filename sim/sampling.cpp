@@ -27,11 +27,15 @@ struct VarInfo
 
 typedef map<string, VarInfo> var_registry_t;
 
-static
-var_registry_t registry;
+static var_registry_t& GetRegistry()
+{
+    static var_registry_t registry;
+    return registry;
+}
 
 void _RegisterSampleVariable(void *var, size_t width, const string& name, SampleVariableDataType type, SampleVariableCategory cat, void *maxval)
 {
+    auto &registry = GetRegistry();
     assert (registry.find(name) == registry.end()); // no duplicates allowed.
 
     VarInfo vinfo;
@@ -101,7 +105,7 @@ void ListSampleVariables_onevar(ostream& os, const string& name, const VarInfo& 
 void ListSampleVariables(ostream& os, const string& pat)
 {
     ListSampleVariables_header(os);
-    for (auto& i : registry)
+    for (auto& i : GetRegistry())
     {
         if (FNM_NOMATCH == fnmatch(pat.c_str(), i.first.c_str(), 0))
             continue;
@@ -112,7 +116,7 @@ void ListSampleVariables(ostream& os, const string& pat)
 bool ReadSampleVariables(ostream& os, const string& pat)
 {
     bool some = false;
-    for (auto& i : registry)
+    for (auto& i : GetRegistry())
     {
         if (FNM_NOMATCH == fnmatch(pat.c_str(), i.first.c_str(), 0))
             continue;
@@ -163,7 +167,7 @@ BinarySampler::BinarySampler(ostream& os, const Config& config,
     //
     // Select variables to sample
     //
-
+    auto& registry = GetRegistry();
     for (auto& i : pats)
         for (auto& j : registry)
         {
