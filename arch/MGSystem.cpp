@@ -162,7 +162,7 @@ static string StringReplace(string arg, string pat, string repl)
 
 void MGSystem::PrintProcesses(ostream& out, const string& pat) const
 {
-    auto& allprocs = Process::GetAllProcesses();
+    auto& allprocs = GetKernel().GetAllProcesses();
     for (const Process* p : allprocs)
     {
         std::string name = p->GetName();
@@ -1019,7 +1019,7 @@ MGSystem::MGSystem(Config& config, bool quiet)
         clog << "Created Microgrid: "
              << dec
              << CountComponents(*m_root) << " components, "
-             << Process::GetAllProcesses().size() << " processes, "
+             << GetKernel().GetAllProcesses().size() << " processes, "
              << "simulation running at " << dec << masterfreq << " " << qual[q] << "Hz" << endl
              << "Instantiation costs: "
              << ru2.GetUserTime() << " us, "

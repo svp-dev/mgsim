@@ -1,6 +1,12 @@
 SIM_SOURCES = \
+        sim/arbitrator.cpp \
+        sim/arbitrator.hpp \
+        sim/arbitrator.h \
 	sim/breakpoints.cpp \
 	sim/breakpoints.h \
+        sim/clock.cpp \
+        sim/clock.hpp \
+        sim/clock.h \
         sim/configmap.cpp \
         sim/configmap.h \
         sim/configparser.cpp \
@@ -24,8 +30,14 @@ SIM_SOURCES = \
         sim/modelregistry.cpp \
 	sim/monitor.h \
 	sim/monitor.cpp \
+        sim/object.h \
+        sim/object.hpp \
+        sim/object.cpp \
 	sim/ports.h \
 	sim/ports.cpp \
+        sim/process.h \
+        sim/process.hpp \
+        sim/process.cpp \
 	sim/range.h \
         sim/readfile.h \
         sim/readfile.cpp \
