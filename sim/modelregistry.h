@@ -1,3 +1,4 @@
+// -*- c++ -*-
 #ifndef MODEL_REGISTRY_H
 #define MODEL_REGISTRY_H
 
