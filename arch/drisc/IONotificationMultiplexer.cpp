@@ -21,7 +21,7 @@ IONotificationMultiplexer::IONotificationMultiplexer(const string& name, IOInter
       m_notifications(numChannels, 0),
       m_services(numChannels, 0),
       m_lastNotified(0),
-      p_IncomingNotifications(*this, "received-notifications", delegate::create<IONotificationMultiplexer, &IONotificationMultiplexer::DoReceivedNotifications>(*this))
+      InitProcess(p_IncomingNotifications, DoReceivedNotifications)
 {
     BufferSize nqs = config.getValue<BufferSize>(*this, "NotificationQueueSize");
 

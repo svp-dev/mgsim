@@ -1,11 +1,35 @@
 #include "sim/sampling.h"
 #include "sim/kernel.h"
+#include <cctype>
 
 namespace Simulator
 {
+    static std::string&& renameProcess(std::string cname,
+                                       const std::string& pname)
+    {
+        assert(pname.size() > 0);
+        size_t i = 0;
+        if (pname.size() > 2 && pname[0] == 'p' && pname[1] == '_')
+            i = 2;
+
+        cname += ':';
+        cname += (char)::tolower(pname[i]);
+        for (++i; i < pname.size(); ++i)
+        {
+            if (::isupper(pname[i]))
+            {
+                cname += '-';
+                cname += (char)::tolower(pname[i]);
+            }
+            else
+                cname += pname[i];
+        }
+        return std::move(cname);
+    }
+
 
     Process::Process(Object& parent, const std::string& name, const delegate& d)
-        : m_name(parent.GetName() + ":" + name),
+        : m_name(renameProcess(parent.GetName(), name)),
           m_delegate(d),
           m_state(STATE_IDLE),
           m_activations(0),

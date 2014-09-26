@@ -17,7 +17,7 @@ namespace drisc
           m_iobus(iobus),
           m_hostid(devid),
           m_outgoing_reqs("b_outgoing_reqs", *this, clock, config.getValue<BufferSize>(*this, "OutgoingRequestQueueSize")),
-          p_OutgoingRequests(*this, "outgoing-requests", delegate::create<IOBusInterface, &IOBusInterface::DoOutgoingRequests>(*this))
+          InitProcess(p_OutgoingRequests, DoOutgoingRequests)
     {
         if (m_outgoing_reqs.GetMaxSize() < 3)
         {

@@ -119,15 +119,15 @@ namespace Simulator
 
           m_provider(provider),
 
-          p_queue                      (*this, "queue-request",                 delegate::create<RPCInterface, &RPCInterface::DoQueue>(*this)),
-          p_argumentFetch              (*this, "fetch-argument-data",           delegate::create<RPCInterface, &RPCInterface::DoArgumentFetch>(*this)),
-          p_processRequests            (*this, "process-requests",              delegate::create<RPCInterface, &RPCInterface::DoProcessRequests>(*this)),
-          p_writeResponse              (*this, "write-response",                delegate::create<RPCInterface, &RPCInterface::DoWriteResponse>(*this)),
-          p_sendCompletionNotifications(*this, "send-completion-notifications", delegate::create<RPCInterface, &RPCInterface::DoSendCompletionNotifications>(*this))
+          InitProcess(p_queueRequest, DoQueue),
+          InitProcess(p_argumentFetch, DoArgumentFetch),
+          InitProcess(p_processRequests, DoProcessRequests),
+          InitProcess(p_writeResponse, DoWriteResponse),
+          InitProcess(p_sendCompletionNotifications, DoSendCompletionNotifications)
     {
         iobus.RegisterClient(devid, *this);
 
-        m_queueEnabled.Sensitive(p_queue);
+        m_queueEnabled.Sensitive(p_queueRequest);
         m_incoming.Sensitive(p_argumentFetch);
         m_ready.Sensitive(p_processRequests);
         m_completed.Sensitive(p_writeResponse);
@@ -138,7 +138,7 @@ namespace Simulator
             throw exceptf<InvalidArgumentException>(*this, "RPCLineSize cannot be zero");
         }
 
-        p_queue.SetStorageTraces(m_incoming);
+        p_queueRequest.SetStorageTraces(m_incoming);
         p_argumentFetch.SetStorageTraces(m_iobus.GetReadRequestTraces(m_devid) ^ m_ready);
         p_processRequests.SetStorageTraces(m_completed);
         p_writeResponse.SetStorageTraces(m_iobus.GetWriteRequestTraces() ^ m_iobus.GetReadRequestTraces(m_devid) ^ m_notifications);

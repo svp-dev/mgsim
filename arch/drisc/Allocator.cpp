@@ -2000,11 +2000,11 @@ Allocator::Allocator(const string& name, DRISC& parent, Clock& clock, Config& co
     m_numCreatedFamilies(0),
     m_numCreatedThreads(0),
 
-    p_ThreadAllocate  (*this, "thread-allocate",   delegate::create<Allocator, &Allocator::DoThreadAllocate  >(*this) ),
-    p_FamilyAllocate  (*this, "family-allocate",   delegate::create<Allocator, &Allocator::DoFamilyAllocate  >(*this) ),
-    p_FamilyCreate    (*this, "family-create",     delegate::create<Allocator, &Allocator::DoFamilyCreate    >(*this) ),
-    p_ThreadActivation(*this, "thread-activation", delegate::create<Allocator, &Allocator::DoThreadActivation>(*this) ),
-    p_Bundle          (*this, "bundle-create",     delegate::create<Allocator, &Allocator::DoBundle          >(*this) ),
+    InitProcess(p_ThreadAllocate, DoThreadAllocate),
+    InitProcess(p_FamilyAllocate, DoFamilyAllocate),
+    InitProcess(p_FamilyCreate, DoFamilyCreate),
+    InitProcess(p_ThreadActivation, DoThreadActivation),
+    InitProcess(p_BundleCreate, DoBundle),
 
     p_allocation    (clock, GetName() + ".p_allocation"),
     p_alloc         (clock, GetName() + ".p_alloc"),
@@ -2022,7 +2022,7 @@ Allocator::Allocator(const string& name, DRISC& parent, Clock& clock, Config& co
     m_allocRequestsSuspend  .Sensitive(p_FamilyAllocate);
     m_allocRequestsNoSuspend.Sensitive(p_FamilyAllocate);
     m_allocRequestsExclusive.Sensitive(p_FamilyAllocate);
-    m_bundle                .Sensitive(p_Bundle);
+    m_bundle                .Sensitive(p_BundleCreate);
 
     std::fill(m_numThreadsPerState, m_numThreadsPerState+TST_NUMSTATES, 0);
 

@@ -189,7 +189,7 @@ void DRISC::Initialize()
     // remain filled and we get deadlock because the pipeline keeps wanting to do a read.
     m_dcache.p_service.AddProcess(m_dcache.p_ReadResponses);     // Memory read returns
     m_dcache.p_service.AddProcess(m_pipeline.p_Pipeline);         // Memory read/write
-    m_dcache.p_service.AddProcess(m_allocator.p_Bundle);          // Indirect create read
+    m_dcache.p_service.AddProcess(m_allocator.p_BundleCreate);    // Indirect create read
 
     m_allocator.p_allocation.AddProcess(m_pipeline.p_Pipeline);         // ALLOCATE instruction
     m_allocator.p_allocation.AddProcess(m_network.p_DelegationIn);      // Delegated non-exclusive create
@@ -268,7 +268,7 @@ void DRISC::Initialize()
 
     m_network.m_delegateIn.AddProcess(m_allocator.p_ThreadAllocate);        // Allocate process completes family sync
     m_network.m_delegateIn.AddProcess(m_allocator.p_FamilyAllocate);        // Allocate process returning FID
-    m_network.m_delegateIn.AddProcess(m_allocator.p_Bundle);                // Create process returning FID
+    m_network.m_delegateIn.AddProcess(m_allocator.p_BundleCreate);          // Create process returning FID
     m_network.m_delegateIn.AddProcess(m_allocator.p_FamilyCreate);          // Create process returning FID
     m_network.m_delegateIn.AddProcess(m_network.p_AllocResponse);           // Allocate response writing back to parent
     m_network.m_delegateIn.AddProcess(m_pipeline.p_Pipeline);               // Sending local messages
@@ -287,7 +287,7 @@ void DRISC::Initialize()
 
     m_network.m_delegateOut.AddProcess(m_network.p_AllocResponse);    // Allocate response writing back to parent
     m_network.m_delegateOut.AddProcess(m_allocator.p_FamilyAllocate); // Allocation process sends FID
-    m_network.m_delegateOut.AddProcess(m_allocator.p_Bundle);         // Indirect creation sends bundle info
+    m_network.m_delegateOut.AddProcess(m_allocator.p_BundleCreate);   // Indirect creation sends bundle info
     m_network.m_delegateOut.AddProcess(m_allocator.p_FamilyCreate);   // Create process sends delegated create
     m_network.m_delegateOut.AddProcess(m_allocator.p_ThreadAllocate); // Thread cleanup caused sync
     m_network.m_delegateOut.AddProcess(m_network.p_Syncs);            // Family sync goes to delegation
@@ -329,7 +329,7 @@ void DRISC::Initialize()
     m_allocator.p_ThreadActivation.SetStorageTraces(
         opt(m_allocator.m_activeThreads ^ m_icache.m_outgoing) );
 
-    m_allocator.p_Bundle.SetStorageTraces( m_dcache.m_outgoing ^ DELEGATE );
+    m_allocator.p_BundleCreate.SetStorageTraces( m_dcache.m_outgoing ^ DELEGATE );
 
     m_icache.p_Incoming.SetStorageTraces(
         opt(m_allocator.m_activeThreads) );

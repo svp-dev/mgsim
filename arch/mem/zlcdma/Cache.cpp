@@ -1171,8 +1171,8 @@ ZLCDMA::Cache::Cache(const std::string& name, ZLCDMA& parent, Clock& clock, Cach
     m_numMisses(0),
     m_numConflicts(0),
     m_numResolved(0),
-    p_Requests (*this, "requests", delegate::create<Cache, &Cache::DoRequests>(*this)),
-    p_In       (*this, "incoming", delegate::create<Cache, &Cache::DoReceive>(*this)),
+    InitProcess(p_Requests, DoRequests),
+    InitProcess(p_In, DoReceive),
     p_bus      (clock, GetName() + ".p_bus"),
     m_requests ("b_requests", *this, clock, config.getValue<BufferSize>(*this, "RequestBufferSize")),
     m_responses("b_responses", *this, clock, config.getValue<BufferSize>(*this, "ResponseBufferSize"))

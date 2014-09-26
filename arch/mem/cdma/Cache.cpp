@@ -912,8 +912,8 @@ CDMA::Cache::Cache(const std::string& name, CDMA& parent, Clock& clock, NodeID i
     m_numNetworkWHits(0),
     m_numStallingWSnoops(0),
 
-    p_Requests (*this, "requests", delegate::create<Cache, &Cache::DoRequests>(*this)),
-    p_In       (*this, "incoming", delegate::create<Cache, &Cache::DoReceive>(*this)),
+    InitProcess(p_Requests, DoRequests),
+    InitProcess(p_In, DoReceive),
     p_bus      (clock, GetName() + ".p_bus"),
     m_requests ("b_requests", *this, clock, config.getValue<BufferSize>(*this, "RequestBufferSize")),
     m_responses("b_responses", *this, clock, config.getValue<BufferSize>(*this, "ResponseBufferSize"))

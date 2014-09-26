@@ -224,7 +224,7 @@ public:
     Process p_FamilyAllocate;
     Process p_FamilyCreate;
     Process p_ThreadActivation;
-    Process p_Bundle;
+    Process p_BundleCreate;
 
     ArbitratedService<>   p_allocation;     ///< Arbitrator for FamilyTable::AllocateFamily
     ArbitratedService<>   p_alloc;          ///< Arbitrator for m_alloc

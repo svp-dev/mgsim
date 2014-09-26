@@ -51,15 +51,15 @@ namespace Simulator
 
           m_receiveEnable("f_receiveEnable", *this, iobus.GetClock(), false),
           m_fifo_in("b_fifo_in", *this, iobus.GetClock(), config.getValue<BufferSize>(*this, "UARTInputFIFOSize")),
-          p_Receive(*this, "external-receive", delegate::create<UART,&UART::DoReceive>(*this)),
+          InitProcess(p_Receive, DoReceive),
 
           m_fifo_out("b_fifo_out", *this, iobus.GetClock(), config.getValue<BufferSize>(*this, "UARTOutputFIFOSize")),
-          p_Transmit(*this, "external-transmit", delegate::create<UART,&UART::DoTransmit>(*this)),
+          InitProcess(p_Transmit, DoTransmit),
 
           m_write_buffer(0),
 
           m_sendEnable("f_sendEnable", *this, iobus.GetClock(), false),
-          p_Send(*this, "fifo-put", delegate::create<UART,&UART::DoSend>(*this)),
+          InitProcess(p_Send, DoSend),
 
           m_eof(false),
           m_error_in(0),
@@ -68,14 +68,14 @@ namespace Simulator
           m_readInterruptEnable(false),
 
           m_readInterrupt("f_readInterrupt", *this, iobus.GetClock(), false),
-          p_ReadInterrupt(*this, "read-interrupt", delegate::create<UART,&UART::DoSendReadInterrupt>(*this)),
+          InitProcess(p_ReadInterrupt, DoSendReadInterrupt),
           m_readInterruptChannel(0),
 
           m_writeInterruptEnable(false),
           m_writeInterruptThreshold(1),
 
           m_writeInterrupt("f_writeInterrupt", *this, iobus.GetClock(), false),
-          p_WriteInterrupt(*this, "write-interrupt", delegate::create<UART,&UART::DoSendWriteInterrupt>(*this)),
+          InitProcess(p_WriteInterrupt, DoSendWriteInterrupt),
           m_writeInterruptChannel(0),
 
           m_loopback(false),
@@ -87,7 +87,7 @@ namespace Simulator
           m_fd_out(-1),
           m_enabled(false),
 
-          p_dummy(*this, "dummy-process", delegate::create<UART, &UART::DoNothing>(*this))
+          InitProcess(p_dummy, DoNothing)
     {
         int ein, eout;
         string fin, fout;

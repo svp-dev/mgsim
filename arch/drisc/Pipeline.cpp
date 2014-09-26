@@ -23,7 +23,7 @@ Pipeline::Pipeline(
     Config&       config)
 :
     Object(name, parent),
-    p_Pipeline(*this, "pipeline", delegate::create<Pipeline, &Pipeline::DoPipeline>(*this)),
+    InitProcess(p_Pipeline, DoPipeline),
     m_fdLatch(),
     m_drLatch(),
     m_reLatch(),

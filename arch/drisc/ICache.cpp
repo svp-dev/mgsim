@@ -36,8 +36,8 @@ ICache::ICache(const std::string& name, DRISC& parent, Clock& clock, Config& con
     m_numResolvedConflicts(0),
     m_numStallingMisses(0),
 
-    p_Outgoing(*this, "outgoing", delegate::create<ICache, &ICache::DoOutgoing>(*this)),
-    p_Incoming(*this, "incoming", delegate::create<ICache, &ICache::DoIncoming>(*this)),
+    InitProcess(p_Outgoing, DoOutgoing),
+    InitProcess(p_Incoming, DoIncoming),
     p_service(clock, GetName() + ".p_service")
 {
     RegisterSampleVariableInObject(m_numHits, SVC_CUMULATIVE);

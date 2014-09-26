@@ -21,8 +21,8 @@ namespace drisc
           m_outstanding_client(0),
           m_has_outstanding_request(false),
           m_flushing(false),
-          p_MemoryOutgoing(*this, "send-memory-requests", delegate::create<IODirectCacheAccess, &IODirectCacheAccess::DoMemoryOutgoing>(*this)),
-          p_BusOutgoing   (*this, "send-bus-responses", delegate::create<IODirectCacheAccess, &IODirectCacheAccess::DoBusOutgoing>(*this)),
+          InitProcess(p_MemoryOutgoing, DoMemoryOutgoing),
+          InitProcess(p_BusOutgoing, DoBusOutgoing),
           p_service(clock, GetName() + ".p_service")
     {
         p_service.AddProcess(p_BusOutgoing);

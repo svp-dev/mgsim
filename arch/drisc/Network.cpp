@@ -44,11 +44,11 @@ Network::Network(
 #undef CONTRUCT_REGISTER
     m_syncs ("b_syncs", *this, clock, m_familyTable.GetNumFamilies(), 3 ),
 
-    p_DelegationOut(*this, "delegation-out", delegate::create<Network, &Network::DoDelegationOut>(*this)),
-    p_DelegationIn (*this, "delegation-in",  delegate::create<Network, &Network::DoDelegationIn >(*this)),
-    p_Link         (*this, "link",           delegate::create<Network, &Network::DoLink         >(*this)),
-    p_AllocResponse(*this, "alloc-response", delegate::create<Network, &Network::DoAllocResponse>(*this)),
-    p_Syncs        (*this, "syncs",          delegate::create<Network, &Network::DoSyncs        >(*this))
+    InitProcess(p_DelegationOut, DoDelegationOut),
+    InitProcess(p_DelegationIn, DoDelegationIn),
+    InitProcess(p_Link, DoLink),
+    InitProcess(p_AllocResponse, DoAllocResponse),
+    InitProcess(p_Syncs, DoSyncs)
 {
     RegisterSampleVariableInObject(m_numAllocates, SVC_CUMULATIVE);
     RegisterSampleVariableInObject(m_numCreates, SVC_CUMULATIVE);

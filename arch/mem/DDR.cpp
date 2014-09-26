@@ -240,8 +240,8 @@ DDRChannel::DDRChannel(const std::string& name, Object& parent, Clock& clock, Co
       m_next_precharge(0),
       m_traces(),
 
-      p_Request (*this, "request",  delegate::create<DDRChannel, &DDRChannel::DoRequest >(*this)),
-      p_Pipeline(*this, "pipeline", delegate::create<DDRChannel, &DDRChannel::DoPipeline>(*this)),
+      InitProcess(p_Request, DoRequest),
+      InitProcess(p_Pipeline, DoPipeline),
 
       m_busyCycles(0)
 {

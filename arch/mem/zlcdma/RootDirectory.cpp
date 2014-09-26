@@ -461,9 +461,9 @@ ZLCDMA::RootDirectory::RootDirectory(const std::string& name, ZLCDMA& parent, Cl
     m_responses("b_responses", *this, clock, config.getValue<size_t>(*this, "ExternalInputQueueSize")),
     m_active   (),
     m_activelines(),
-    p_Incoming (*this, "incoming",  delegate::create<RootDirectory, &RootDirectory::DoIncoming>(*this)),
-    p_Requests (*this, "requests",  delegate::create<RootDirectory, &RootDirectory::DoRequests>(*this)),
-    p_Responses(*this, "responses", delegate::create<RootDirectory, &RootDirectory::DoResponses>(*this)),
+    InitProcess(p_Incoming, DoIncoming),
+    InitProcess(p_Requests, DoRequests),
+    InitProcess(p_Responses, DoResponses),
     m_nreads(0),
     m_nwrites(0)
 {

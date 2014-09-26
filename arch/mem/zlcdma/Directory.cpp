@@ -273,8 +273,8 @@ ZLCDMA::Directory::Directory(const std::string& name, ZLCDMA& parent, Clock& clo
     m_lineSize  (config.getValue<size_t>("CacheLineSize")),
     m_firstCache(firstCache),
     m_lastCache (firstCache + config.getValue<size_t>(parent, "NumL2CachesPerRing") - 1),
-    p_InBottom  (*this, "bottom_incoming", delegate::create<Directory, &Directory::DoInBottom >(*this)),
-    p_InTop     (*this, "top_incoming",    delegate::create<Directory, &Directory::DoInTop    >(*this))
+    InitProcess(p_InBottom, DoInBottom),
+    InitProcess(p_InTop, DoInTop)
 {
     m_bottom.m_incoming.Sensitive(p_InBottom);
     m_top.m_incoming.Sensitive(p_InTop);

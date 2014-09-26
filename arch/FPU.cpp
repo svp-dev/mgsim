@@ -296,7 +296,7 @@ FPU::FPU(const std::string& name, Object& parent, Clock& clock, Config& config, 
       m_sources(),
       m_units(),
       m_last_source(0),
-      p_Pipeline(*this, "pipeline", delegate::create<FPU, &FPU::DoPipeline>(*this) )
+      InitProcess(p_Pipeline, DoPipeline)
 {
     m_active.Sensitive(p_Pipeline);
     try

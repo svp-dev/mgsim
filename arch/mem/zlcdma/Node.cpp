@@ -138,7 +138,7 @@ ZLCDMA::Node::Node(const std::string& name, ZLCDMA& parent, Clock& clock)
       m_next(NULL),
       m_incoming("b_incoming", *this, clock, 2),
       m_outgoing("b_outgoing", *this, clock, 2),
-      p_Forward(*this, "forward", delegate::create<Node, &Node::DoForward>(*this))
+      InitProcess(p_Forward, DoForward)
 {
     g_References++;
 

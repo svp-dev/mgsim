@@ -137,7 +137,7 @@ namespace Simulator
 
         RPCInterface(const std::string& name, Object& parent, IIOBus& iobus, IODeviceID devid, Config& config, IRPCServiceProvider& provider);
 
-        Process p_queue;
+        Process p_queueRequest;
         Result  DoQueue();
 
         Process p_argumentFetch;

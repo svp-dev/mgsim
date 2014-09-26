@@ -46,10 +46,10 @@ DCache::DCache(const std::string& name, DRISC& parent, Clock& clock, Config& con
     m_numStallingWMisses(0),
     m_numSnoops(0),
 
-    p_ReadWritebacks(*this, "read-writebacks", delegate::create<DCache, &DCache::DoReadWritebacks  >(*this) ),
-    p_ReadResponses (*this, "read-responses",  delegate::create<DCache, &DCache::DoReadResponses   >(*this) ),
-    p_WriteResponses(*this, "write-responses", delegate::create<DCache, &DCache::DoWriteResponses  >(*this) ),
-    p_Outgoing      (*this, "outgoing",        delegate::create<DCache, &DCache::DoOutgoingRequests>(*this) ),
+    InitProcess(p_ReadWritebacks, DoReadWritebacks),
+    InitProcess(p_ReadResponses, DoReadResponses),
+    InitProcess(p_WriteResponses, DoWriteResponses),
+    InitProcess(p_Outgoing, DoOutgoingRequests),
 
     p_service       (clock, GetName() + ".p_service")
 {

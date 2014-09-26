@@ -242,8 +242,8 @@ public:
           m_responses("b_responses", *this, clock, config.getValue<size_t>(*this, "ExternalInputQueueSize")),
           m_activeRequests(),
 
-          p_Requests (*this, "requests",   delegate::create<Interface, &Interface::DoRequests>(*this)),
-          p_Responses(*this, "responses",  delegate::create<Interface, &Interface::DoResponses>(*this)),
+          InitProcess(p_Requests, DoRequests),
+          InitProcess(p_Responses, DoResponses),
           m_memory(parent),
           m_nreads(0),
           m_nwrites(0)

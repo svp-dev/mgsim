@@ -141,7 +141,7 @@ public:
           m_callback(callback),
           p_requests(clock, GetName() + ".p_requests"),
           m_requests("b_requests", *this, clock, buffersize), m_nextdone(0),
-          p_Requests(*this, "port", delegate::create<Port, &Port::DoRequests>(*this)),
+          InitProcess(p_Requests, DoRequests),
           m_lineSize(lineSize)
     {
         m_requests.Sensitive( p_Requests );

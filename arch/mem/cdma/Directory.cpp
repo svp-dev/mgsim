@@ -235,8 +235,8 @@ CDMA::Directory::Directory(const std::string& name, CDMA& parent, Clock& clock, 
     m_maxNumLines(0),
     m_firstNode (-1),
     m_lastNode  (-1),
-    p_InBottom  (*this, "bottom-incoming", delegate::create<Directory, &Directory::DoInBottom >(*this)),
-    p_InTop     (*this, "top-incoming",    delegate::create<Directory, &Directory::DoInTop    >(*this))
+    InitProcess(p_InBottom, DoInBottom),
+    InitProcess(p_InTop, DoInTop)
 {
 
     m_bottom.m_incoming.Sensitive(p_InBottom);

@@ -11,8 +11,8 @@ IOResponseMultiplexer::IOResponseMultiplexer(const std::string& name, IOInterfac
     : Object(name, parent),
       m_incoming("b_incoming", *this, clock, config.getValue<BufferSize>(*this, "IncomingQueueSize")),
       m_wb_buffers(),
-      p_dummy(*this, "dummy-process", delegate::create<IOResponseMultiplexer, &IOResponseMultiplexer::DoNothing>(*this)),
-      p_IncomingReadResponses(*this, "completed-reads", delegate::create<IOResponseMultiplexer, &IOResponseMultiplexer::DoReceivedReadResponses>(*this))
+      InitProcess(p_dummy, DoNothing),
+      InitProcess(p_IncomingReadResponses, DoReceivedReadResponses)
 {
     m_incoming.Sensitive(p_IncomingReadResponses);
 

@@ -167,7 +167,7 @@ SerialMemory::SerialMemory(const std::string& name, Object& parent, Clock& clock
     m_nwrites(0),
     m_nwrite_bytes(0),
 
-    p_Requests(*this, "requests", delegate::create<SerialMemory, &SerialMemory::DoRequests>(*this) )
+    InitProcess(p_Requests, DoRequests)
 {
     m_requests.Sensitive( p_Requests );
     config.registerObject(*this, "sermem");

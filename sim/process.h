@@ -93,8 +93,8 @@ namespace Simulator
         void SetStorageTraces(const StorageTraceSet& );
     };
 
-#define INIT_PROCESS(Member, Name, DelegateFunc) \
-    Member(GetName() + ":" #Member, \
+#define InitProcess(Member, DelegateFunc)                               \
+    Member(*this, #Member,                                              \
            delegate::create<std::remove_reference<decltype(*this)>::type, \
            &std::remove_reference<decltype(*this)>::type::DelegateFunc>(*this))
 

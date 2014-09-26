@@ -401,9 +401,9 @@ CDMA::RootDirectory::RootDirectory(const std::string& name, CDMA& parent, Clock&
     m_requests ("b_requests", *this, clock, config.getValue<size_t>(*this, "ExternalOutputQueueSize")),
     m_responses("b_responses", *this, clock, config.getValue<size_t>(*this, "ExternalInputQueueSize")),
     m_active   (),
-    p_Incoming (*this, "incoming",  delegate::create<RootDirectory, &RootDirectory::DoIncoming>(*this)),
-    p_Requests (*this, "requests",  delegate::create<RootDirectory, &RootDirectory::DoRequests>(*this)),
-    p_Responses(*this, "responses", delegate::create<RootDirectory, &RootDirectory::DoResponses>(*this)),
+    InitProcess(p_Incoming, DoIncoming),
+    InitProcess(p_Requests, DoRequests),
+    InitProcess(p_Responses, DoResponses),
     m_nreads(0),
     m_nwrites(0)
 {
