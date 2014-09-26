@@ -31,14 +31,14 @@ private:
         bool              enabled;
     };
 
-    typedef std::map<Simulator::MemAddr, BreakPointInfo> breakpoints_t;
+    typedef std::map<MemAddr, BreakPointInfo> breakpoints_t;
 
     struct ActiveBreak {
-        Simulator::MemAddr addr;
-        Simulator::Object  *obj;
-        int                type;
+        MemAddr addr;
+        Object  *obj;
+        int     type;
 
-        ActiveBreak(Simulator::MemAddr addr_, Simulator::Object& obj_, int type_)
+        ActiveBreak(MemAddr addr_, Object& obj_, int type_)
         : addr(addr_), obj(&obj_), type(type_) {}
 
         // For std::set
@@ -62,7 +62,7 @@ private:
     unsigned           m_counter;
     bool               m_enabled;
 
-    void CheckMore(int type, Simulator::MemAddr addr, Simulator::Object& obj);
+    void CheckMore(int type, MemAddr addr, Object& obj);
     void CheckEnabled(void);
 
     static std::string GetModeName(int);
@@ -103,7 +103,7 @@ public:
     void DisableBreakPoint(unsigned id);
     void DeleteBreakPoint(unsigned id);
 
-    void AddBreakPoint(Simulator::MemAddr addr, int type = EXEC);
+    void AddBreakPoint(MemAddr addr, int type = EXEC);
     void AddBreakPoint(const std::string& sym, int offset, int type = EXEC);
 
     void ClearAllBreakPoints(void);
@@ -117,7 +117,7 @@ public:
 
     bool NewBreaksDetected(void) const { return !m_activebreaks.empty(); }
 
-    void Check(int type, Simulator::MemAddr addr, Simulator::Object& obj)
+    void Check(int type, MemAddr addr, Object& obj)
     {
         if (m_enabled)
             CheckMore(type, addr, obj);

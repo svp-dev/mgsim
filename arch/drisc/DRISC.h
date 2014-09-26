@@ -26,10 +26,11 @@
 #include "Pipeline.h"
 
 class Config;
-class BreakPointManager;
 
 namespace Simulator
 {
+
+    class BreakPointManager;
 
 #define GetDRISC() (static_cast<DRISC&>(GetDRISCParent()))
 
