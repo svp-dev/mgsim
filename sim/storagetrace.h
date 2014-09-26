@@ -58,6 +58,7 @@ public:
     }
 
     bool empty() const { return m_storages.empty(); }
+    void clear() { m_storages.clear(); }
 
     friend std::ostream& operator<<(std::ostream& os, const StorageTrace& st);
 };
