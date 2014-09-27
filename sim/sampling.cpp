@@ -1,5 +1,6 @@
 #include "sampling.h"
 #include "config.h"
+#include "except.h"
 #include <sys_config.h>
 #include <arch/MGSystem.h>
 
@@ -36,7 +37,8 @@ static var_registry_t& GetRegistry()
 void _RegisterSampleVariable(void *var, size_t width, const string& name, SampleVariableDataType type, SampleVariableCategory cat, void *maxval)
 {
     auto &registry = GetRegistry();
-    assert (registry.find(name) == registry.end()); // no duplicates allowed.
+    if (registry.find(name) != registry.end())
+        throw Simulator::exceptf<>("Duplicate variable registration: %s", name.c_str());
 
     VarInfo vinfo;
 
