@@ -24,11 +24,11 @@ namespace Simulator
        handler then decreases it.
     */
 
-    static volatile unsigned clockSemaphore = 0;
-    static unsigned clockListeners = 0;
+    static volatile unsigned g_clockSemaphore = 0;
+    static unsigned g_clockListeners = 0;
 
-    static clock_delay_t clockResolution = 0;
-    static volatile precise_time_t currentTime = 0;
+    static clock_delay_t g_clockResolution = 0;
+    static volatile precise_time_t g_currentTime = 0;
 
     static void set_time(void)
     {
@@ -36,12 +36,12 @@ namespace Simulator
         int gtod_status = gettimeofday(&tv, NULL);
         assert(gtod_status == 0);
         precise_time_t newTime = tv.tv_usec + tv.tv_sec * 1000000;
-        currentTime = newTime;
+        g_currentTime = newTime;
     }
 
     static void alarm_handler(int)
     {
-        clockSemaphore = clockListeners;
+        g_clockSemaphore = g_clockListeners;
         set_time();
     }
 
@@ -52,8 +52,7 @@ namespace Simulator
         {
             set_time(); // need to have a non-zero value before the RTC starts
 
-            // update delay in microseconds
-            clockResolution = config.getValue<clock_delay_t>("RTCMeatSpaceUpdateInterval");
+            g_clockResolution = config.getValue<clock_delay_t>("RTCMeatSpaceUpdateInterval");
 
             if (SIG_ERR == signal(SIGALRM, alarm_handler))
             {
@@ -61,8 +60,8 @@ namespace Simulator
             };
 
             struct itimerval it;
-            it.it_interval.tv_sec = clockResolution / 1000000;
-            it.it_interval.tv_usec = clockResolution % 1000000;
+            it.it_interval.tv_sec = g_clockResolution / 1000000;
+            it.it_interval.tv_usec = g_clockResolution % 1000000;
             it.it_value = it.it_interval;
 
             if (-1 == setitimer(ITIMER_REAL, &it, NULL))
@@ -106,9 +105,10 @@ namespace Simulator
           m_businterface("if", *this, iobus, devid),
           InitProcess(p_checkTime, DoCheckTime)
     {
+
         setup_clocks(config);
-        m_timeOfLastInterrupt = currentTime;
-        ++clockListeners;
+        m_timeOfLastInterrupt = g_currentTime;
+        ++g_clockListeners;
         m_enableCheck.Sensitive(p_checkTime);
 
         p_checkTime.SetStorageTraces(opt(m_businterface.m_doNotify));
@@ -127,17 +127,17 @@ namespace Simulator
 
     Result RTC::DoCheckTime()
     {
-        if (!m_timerTicked && (clockSemaphore != 0))
+        if (!m_timerTicked && (g_clockSemaphore != 0))
         {
             m_timerTicked = true;
-            --clockSemaphore;
+            --g_clockSemaphore;
         }
 
         if (m_timerTicked)
         {
             // The clock is configured to deliver interrupts. Check
             // for this.
-            if (m_timeOfLastInterrupt + m_triggerDelay <= currentTime)
+            if (m_timeOfLastInterrupt + m_triggerDelay <= g_currentTime)
             {
                 // Time for an interrupt.
                 m_businterface.m_doNotify.Set();
@@ -149,7 +149,7 @@ namespace Simulator
                     }
                     else
                     {
-                        m_timeOfLastInterrupt = currentTime;
+                        m_timeOfLastInterrupt = g_currentTime;
                     }
                 }
             }
@@ -225,7 +225,7 @@ namespace Simulator
             {
                 if (value != 0)
                 {
-                    rtc.m_timeOfLastInterrupt = currentTime;
+                    rtc.m_timeOfLastInterrupt = g_currentTime;
                     rtc.m_enableCheck.Set();
                 }
                 else
@@ -273,12 +273,12 @@ namespace Simulator
         COMMIT{
             switch(word)
             {
-            case 0:   value = clockResolution; break;
+            case 0:   value = g_clockResolution; break;
             case 1:   value = rtc.m_triggerDelay; break;
             case 2:   value = m_interruptNumber; break;
             case 3:   value = (int)rtc.m_deliverAllEvents; break;
-            case 4:   value = currentTime % 1000000; break;
-            case 5:   value = currentTime / 1000000; break;
+            case 4:   value = g_currentTime % 1000000; break;
+            case 5:   value = g_currentTime / 1000000; break;
             case 6: case 7:
             {
                 time_t c = time(0);
