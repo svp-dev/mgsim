@@ -53,12 +53,10 @@ private:
 
 
     Clock&                      m_clock;
-    ComponentModelRegistry&     m_registry;
     size_t                      m_numClientsPerCache;
     size_t                      m_numCachesPerDir;
     size_t                      m_numClients;
     size_t                      m_lineSize;
-    Config&                     m_config;
     IBankSelector*              m_selector;           ///< Mapping of line addresses to set indexes
     std::vector<Cache*>         m_caches;             ///< List of caches
     std::vector<Directory*>     m_directories;        ///< List of directories
@@ -82,7 +80,7 @@ private:
     void Initialize();
 
 public:
-    ZLCDMA(const std::string& name, Simulator::Object& parent, Clock& clock, Config& config);
+    ZLCDMA(const std::string& name, Simulator::Object& parent, Clock& clock);
     ZLCDMA(const ZLCDMA&) = delete;
     ZLCDMA& operator=(const ZLCDMA&) = delete;
     ~ZLCDMA();

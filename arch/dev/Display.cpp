@@ -251,21 +251,21 @@ namespace Simulator
     }
 
 
-    Display::Display(const string& name, Object& parent, IIOBus& iobus, IODeviceID ctldevid, IODeviceID fbdevid, Config& config)
+    Display::Display(const string& name, Object& parent, IIOBus& iobus, IODeviceID ctldevid, IODeviceID fbdevid)
         : Object(name, parent),
           m_ctlinterface("ctl", *this, iobus, ctldevid),
           m_fbinterface("fb", *this, iobus, fbdevid),
-          m_framebuffer(config.getValue<size_t>(*this, "GfxFrameSize"), 0),
+          m_framebuffer(GetConf("GfxFrameSize", size_t), 0),
           m_palette(256, 0),
           m_lastUpdate(0),
           m_screen(NULL),
           m_bpp(8),
           m_width(640), m_height(400),
-          m_scalex_orig(1.0f / max(1U, config.getValue<unsigned int>("SDLHorizScale"))),
+          m_scalex_orig(1.0f / max(1U, GetTopConf("SDLHorizScale", unsigned int))),
           m_scalex(m_scalex_orig),
-          m_scaley_orig(1.0f / max(1U, config.getValue<unsigned int>("SDLVertScale"))),
+          m_scaley_orig(1.0f / max(1U, GetTopConf("SDLVertScale", unsigned int))),
           m_scaley(m_scaley_orig),
-          m_refreshDelay_orig(config.getValue<unsigned int>("SDLRefreshDelay")),
+          m_refreshDelay_orig(GetTopConf("SDLRefreshDelay", unsigned int)),
           m_refreshDelay(m_refreshDelay_orig),
           m_max_screen_h(1024), m_max_screen_w(1280),
           m_indexed(false),
@@ -282,7 +282,7 @@ namespace Simulator
         RegisterSampleVariableInObject(m_lastUpdate, SVC_CUMULATIVE);
 
 #ifdef USE_SDL
-        if (config.getValue<bool>(*this, "GfxEnableSDLOutput"))
+        if (GetConf("GfxEnableSDLOutput", bool))
         {
             if (m_singleton != NULL)
                 throw InvalidArgumentException(*this, "Only one Display device can output to SDL.");

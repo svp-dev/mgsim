@@ -108,7 +108,7 @@ struct Family
 class FamilyTable : public Object, public Inspect::Interface<Inspect::Read>
 {
 public:
-    FamilyTable(const std::string& name, DRISC& parent, Config& config);
+    FamilyTable(const std::string& name, DRISC& parent);
 
     FSize GetNumFamilies() const { return m_families.size(); }
 

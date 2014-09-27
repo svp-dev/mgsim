@@ -34,7 +34,7 @@ private:
     Object& GetDRISCParent() const { return *GetParent()->GetParent(); };
 
 public:
-    IONotificationMultiplexer(const std::string& name, IOInterface& parent, Clock& clock, size_t numChannels, Config& config);
+    IONotificationMultiplexer(const std::string& name, IOInterface& parent, Clock& clock, size_t numChannels);
     ~IONotificationMultiplexer();
 
     // sent by device select upon an I/O read from the processor

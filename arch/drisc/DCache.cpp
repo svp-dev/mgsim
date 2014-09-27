@@ -16,20 +16,20 @@ namespace Simulator
 namespace drisc
 {
 
-DCache::DCache(const std::string& name, DRISC& parent, Clock& clock, Config& config)
+DCache::DCache(const std::string& name, DRISC& parent, Clock& clock)
 :   Object(name, parent),
     m_memory(NULL),
     m_mcid(0),
     m_lines(),
 
-    m_assoc          (config.getValue<size_t>(*this, "Associativity")),
-    m_sets           (config.getValue<size_t>(*this, "NumSets")),
-    m_lineSize       (config.getValue<size_t>("CacheLineSize")),
-    m_selector       (IBankSelector::makeSelector(*this, config.getValue<string>(*this, "BankSelector"), m_sets)),
-    m_read_responses ("b_read_responses", *this, clock, config.getValue<BufferSize>(*this, "ReadResponsesBufferSize")),
-    m_write_responses("b_write_responses", *this, clock, config.getValue<BufferSize>(*this, "WriteResponsesBufferSize")),
-    m_writebacks     ("b_writebacks", *this, clock, config.getValue<BufferSize>(*this, "ReadWritebacksBufferSize")),
-    m_outgoing       ("b_outgoing", *this, clock, config.getValue<BufferSize>(*this, "OutgoingBufferSize")),
+    m_assoc          (GetConf("Associativity", size_t)),
+    m_sets           (GetConf("NumSets", size_t)),
+    m_lineSize       (GetTopConf("CacheLineSize", size_t)),
+    m_selector       (IBankSelector::makeSelector(*this, GetConf("BankSelector", string), m_sets)),
+    m_read_responses ("b_read_responses", *this, clock, GetConf("ReadResponsesBufferSize", BufferSize)),
+    m_write_responses("b_write_responses", *this, clock, GetConf("WriteResponsesBufferSize", BufferSize)),
+    m_writebacks     ("b_writebacks", *this, clock, GetConf("ReadWritebacksBufferSize", BufferSize)),
+    m_outgoing       ("b_outgoing", *this, clock, GetConf("OutgoingBufferSize", BufferSize)),
     m_wbstate(),
     m_numRHits        (0),
     m_numDelayedReads (0),

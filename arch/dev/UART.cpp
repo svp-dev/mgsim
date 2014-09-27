@@ -38,7 +38,7 @@ namespace Simulator
     // - MODEM lines are not supported/connected
     // - transmit speed / divisor latch is not supported
 
-    UART::UART(const string& name, Object& parent, IIOBus& iobus, IODeviceID devid, Config& config)
+    UART::UART(const string& name, Object& parent, IIOBus& iobus, IODeviceID devid)
         : Object(name, parent),
 
           m_iobus(iobus),
@@ -50,10 +50,10 @@ namespace Simulator
           m_hwbuf_out(0),
 
           m_receiveEnable("f_receiveEnable", *this, iobus.GetClock(), false),
-          m_fifo_in("b_fifo_in", *this, iobus.GetClock(), config.getValue<BufferSize>(*this, "UARTInputFIFOSize")),
+          m_fifo_in("b_fifo_in", *this, iobus.GetClock(), GetConf("UARTInputFIFOSize", BufferSize)),
           InitProcess(p_Receive, DoReceive),
 
-          m_fifo_out("b_fifo_out", *this, iobus.GetClock(), config.getValue<BufferSize>(*this, "UARTOutputFIFOSize")),
+          m_fifo_out("b_fifo_out", *this, iobus.GetClock(), GetConf("UARTOutputFIFOSize", BufferSize)),
           InitProcess(p_Transmit, DoTransmit),
 
           m_write_buffer(0),
@@ -92,20 +92,20 @@ namespace Simulator
         int ein, eout;
         string fin, fout;
 
-        string connectMode = config.getValue<string>(*this, "UARTConnectMode");
+        string connectMode = GetConf("UARTConnectMode", string);
 
         errno = 0;
 
         if (connectMode == "FILE")
         {
-            fin = fout = config.getValue<string>(*this, "UARTFile");
+            fin = fout = GetConf("UARTFile", string);
             m_fd_in = m_fd_out = open(fin.c_str(), O_RDWR);
             ein = eout = errno;
         }
         else if (connectMode == "FILEPAIR")
         {
-            fin = config.getValue<string>(*this, "UARTInputFile");
-            fout = config.getValue<string>(*this, "UARTOutputFile");
+            fin = GetConf("UARTInputFile", string);
+            fout = GetConf("UARTOutputFile", string);
 
             m_fd_in = open(fin.c_str(), O_RDONLY);
             ein = errno;
@@ -185,9 +185,9 @@ namespace Simulator
 
         iobus.RegisterClient(devid, *this);
 
-        config.registerObject(*this, "uart");
-        config.registerProperty(*this, "inpfifosz", m_fifo_in.GetMaxSize());
-        config.registerProperty(*this, "outfifosz", m_fifo_out.GetMaxSize());
+        RegisterModelObject(*this, "uart");
+        RegisterModelProperty(*this, "inpfifosz", m_fifo_in.GetMaxSize());
+        RegisterModelProperty(*this, "outfifosz", m_fifo_out.GetMaxSize());
         RegisterSampleVariableInObject(m_enabled, SVC_LEVEL);
     }
 

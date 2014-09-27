@@ -131,11 +131,10 @@ private:
 
         unsigned int m_nBurstSize;
 
-        DDRConfig(const std::string& name, Object& parent, Clock& clock, Config&);
+        DDRConfig(const std::string& name, Object& parent, Clock& clock);
     };
 
     // Runtime parameters
-    ComponentModelRegistry&    m_registry;
     DDRConfig                  m_ddrconfig;      ///< DDR virtual chip parameters
     std::vector<unsigned long> m_currentRow;     ///< Currently selected row, for each rank
     ICallback*                 m_callback;       ///< The callback to notify for completion
@@ -161,7 +160,7 @@ public:
     bool Read(MemAddr address, MemSize size);
     bool Write(MemAddr address, MemSize size);
 
-    DDRChannel(const std::string& name, Object& parent, Clock& clock, Config& config);
+    DDRChannel(const std::string& name, Object& parent, Clock& clock);
     DDRChannel(const DDRChannel&) = delete;
     DDRChannel& operator=(const DDRChannel&) = delete;
     ~DDRChannel();
@@ -172,7 +171,7 @@ class DDRChannelRegistry : public Object
     std::vector<DDRChannel*> m_channels;
 
 public:
-    DDRChannelRegistry(const std::string& name, Object& parent, Config& config, size_t defaultNumChannels);
+    DDRChannelRegistry(const std::string& name, Object& parent, size_t defaultNumChannels);
     ~DDRChannelRegistry();
 
     size_t size() const { return m_channels.size(); }

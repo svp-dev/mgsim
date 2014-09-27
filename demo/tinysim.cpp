@@ -6,7 +6,7 @@
 #include "sim/unreachable.h"
 
 MGSim::MGSim(const char* conf)
-    : overrides(), extras(), cfg(0), k(0)
+    : cfg(0), k(0)
 {
 #ifdef STATIC_KERNEL
     Simulator::Kernel::InitGlobalKernel();
@@ -17,7 +17,8 @@ MGSim::MGSim(const char* conf)
     ConfigMap defaults;
     ConfigParser parser(defaults);
     parser(read_file(conf));
-    cfg = new Config(defaults, overrides, extras);
+    cfg = new Config(defaults, ConfigMap(), std::vector<std::string>());
+    k->AttachConfig(*cfg);
 }
 
 void MGSim::DoSteps(Simulator::CycleNo nCycles)

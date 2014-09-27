@@ -170,7 +170,7 @@ public:
 
 };
 
-PerfCounters::PerfCounters(DRISC& parent, Config& config)
+PerfCounters::PerfCounters(DRISC& parent)
     : MMIOComponent("perfcounters", parent),
       m_counters(),
       m_nCycleSampleOps(0),
@@ -199,7 +199,7 @@ PerfCounters::PerfCounters(DRISC& parent, Config& config)
     m_counters.push_back(&Helpers::core_cycles);
 
     parent.WriteASR(ASR_NUM_PERFCOUNTERS, m_counters.size());
-    parent.WriteASR(ASR_PERFCOUNTERS_BASE, config.getValue<MemAddr>(*this, "MMIO_BaseAddr"));
+    parent.WriteASR(ASR_PERFCOUNTERS_BASE, GetConf("MMIO_BaseAddr", MemAddr));
 
     RegisterSampleVariableInObject(m_nCycleSampleOps, SVC_CUMULATIVE);
     RegisterSampleVariableInObject(m_nOtherSampleOps, SVC_CUMULATIVE);

@@ -100,6 +100,33 @@ namespace Simulator
         void OutputWrite_(const char* msg, ...) const FORMAT_PRINTF(2,3);
     };
 
+#define GetConf(Word, Type) \
+    GetKernel()->GetConfig()->getValue<Type>(*this, Word)
+#define GetSubConf(Prefix, Word, Type) \
+    GetKernel()->GetConfig()->getValue<Type>(*this, Prefix, Word)
+#define GetConfOpt(Word, Type, Val) \
+    GetKernel()->GetConfig()->getValueOrDefault<Type>(*this, Word, Val)
+#define GetConfStrings(Word) \
+    GetKernel()->GetConfig()->getWordList(*this, Word)
+#define GetTopConf(Word, Type) \
+    GetKernel()->GetConfig()->getValue<Type>(Word)
+#define GetTopConfOpt(Word, Type, Val) \
+    GetKernel()->GetConfig()->getValueOrDefault<Type>(Word, Val)
+#define GetTopConfStrings(Word) \
+    GetKernel()->GetConfig()->getWordList(Word)
+#define GetTopSubConf(Prefix, Word, Type) \
+    GetKernel()->GetConfig()->getValue<Type>(Prefix, Word)
+#define GetTopSubConfOpt(Prefix, Word, Type, Val) \
+    GetKernel()->GetConfig()->getValueOrDefault<Type>(Prefix, Word, Val)
+
+#define RegisterModelObject(Obj, ...) \
+    GetKernel()->GetConfig()->registerObject(Obj, ##__VA_ARGS__)
+#define RegisterModelProperty(Obj, ...) \
+    GetKernel()->GetConfig()->registerProperty(Obj, ##__VA_ARGS__)
+#define RegisterModelRelation(Obj, ...) \
+    GetKernel()->GetConfig()->registerRelation(Obj, ##__VA_ARGS__)
+#define RegisterModelBidiRelation(Obj, ...) \
+    GetKernel()->GetConfig()->registerBidiRelation(Obj, ##__VA_ARGS__)
 
 
 #define COMMIT  if (IsCommitting())

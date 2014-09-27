@@ -44,12 +44,10 @@ protected:
     typedef size_t            NodeID;
 
     Clock&                      m_clock;
-    ComponentModelRegistry&     m_registry;
     size_t                      m_numClientsPerCache;
     size_t                      m_numCachesPerLowRing;
     size_t                      m_numClients;
     size_t                      m_lineSize;
-    Config&                     m_config;
     std::vector<Cache*>         m_caches;             ///< List of caches
     std::vector<Directory*>     m_directories;        ///< List of directories
     std::vector<RootDirectory*> m_roots;              ///< List of root directories
@@ -68,7 +66,7 @@ protected:
     virtual void Initialize() = 0;
 
 public:
-    CDMA(const std::string& name, Simulator::Object& parent, Clock& clock, Config& config);
+    CDMA(const std::string& name, Simulator::Object& parent, Clock& clock);
     CDMA(const CDMA&) = delete;
     CDMA& operator=(const CDMA&) = delete;
     ~CDMA();
@@ -108,7 +106,7 @@ public:
 
     MCID RegisterClient(IMemoryCallback& callback, Process& process, StorageTraceSet& traces, const StorageTraceSet& storages, bool grouped) override;
 
-    OneLevelCDMA(const std::string& name, Simulator::Object& parent, Clock& clock, Config& config);
+    OneLevelCDMA(const std::string& name, Simulator::Object& parent, Clock& clock);
 };
 
 class TwoLevelCDMA : public CDMA
@@ -118,7 +116,7 @@ public:
 
     MCID RegisterClient(IMemoryCallback& callback, Process& process, StorageTraceSet& traces, const StorageTraceSet& storages, bool grouped) override;
 
-    TwoLevelCDMA(const std::string& name, Simulator::Object& parent, Clock& clock, Config& config);
+    TwoLevelCDMA(const std::string& name, Simulator::Object& parent, Clock& clock);
 };
 
 }

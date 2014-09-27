@@ -126,7 +126,7 @@ private:
     // Administrative
     friend class CDMA;
 public:
-    Cache(const std::string& name, CDMA& parent, Clock& clock, NodeID id, Config& config);
+    Cache(const std::string& name, CDMA& parent, Clock& clock, NodeID id, size_t refAssoc, size_t refNumSets);
     Cache(const Cache&) = delete;
     Cache& operator=(const Cache&) = delete;
     ~Cache();

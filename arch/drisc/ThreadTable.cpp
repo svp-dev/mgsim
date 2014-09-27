@@ -14,10 +14,10 @@ namespace Simulator
 namespace drisc
 {
 
-ThreadTable::ThreadTable(const std::string& name, DRISC& parent, Config& config)
+ThreadTable::ThreadTable(const std::string& name, DRISC& parent)
   : Object(name, parent),
     m_empty(0),
-    m_threads(config.getValue<size_t>(*this, "NumEntries")),
+    m_threads(GetConf("NumEntries", size_t)),
     m_lastcycle(0), m_totalalloc(0), m_maxalloc(0), m_curalloc(0)
 {
     RegisterSampleVariableInObject(m_totalalloc, SVC_CUMULATIVE);

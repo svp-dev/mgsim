@@ -59,7 +59,7 @@ namespace Simulator
 
     public:
 
-        RTC(const std::string& name, Object& parent, Clock& clock, IIOBus& iobus, IODeviceID devid, Config& config);
+        RTC(const std::string& name, Object& parent, Clock& clock, IIOBus& iobus, IODeviceID devid);
 
         Process p_checkTime;
 

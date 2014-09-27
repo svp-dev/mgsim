@@ -48,7 +48,6 @@ class BankedMemory : public Object, public IMemory, public VirtualMemory
     }
 
 protected:
-    ComponentModelRegistry& m_registry;
     Clock&                  m_clock;
     std::vector<ClientInfo> m_clients;
     StorageTraceSet         m_storages;
@@ -64,7 +63,7 @@ protected:
     uint64_t m_nwrite_bytes;
 
 public:
-    BankedMemory(const std::string& name, Object& parent, Clock& clock, Config& config, const std::string& defaultBankSelectorType);
+    BankedMemory(const std::string& name, Object& parent, Clock& clock, const std::string& defaultBankSelectorType);
     BankedMemory(const BankedMemory&) = delete;
     BankedMemory& operator=(const BankedMemory&) = delete;
     ~BankedMemory();

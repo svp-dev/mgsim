@@ -299,7 +299,7 @@ MCID BankedMemory::RegisterClient(IMemoryCallback& callback, Process& process, S
         m_banks[i]->RegisterClient(*client.service, process, traces, opt(m_storages));
     }
 
-    m_registry.registerRelation(callback.GetMemoryPeer(), *this, "mem");
+    RegisterModelRelation(callback.GetMemoryPeer(), *this, "mem");
 
     return id;
 }
@@ -382,34 +382,33 @@ bool BankedMemory::Write(MCID id, MemAddr address, const MemData& data, WClientI
     return true;
 }
 
-BankedMemory::BankedMemory(const std::string& name, Object& parent, Clock& clock, Config& config, const std::string& defaultBankSelectorType)
+BankedMemory::BankedMemory(const std::string& name, Object& parent, Clock& clock, const std::string& defaultBankSelectorType)
     : Object(name, parent),
-      m_registry(config),
       m_clock(clock),
       m_clients(),
       m_storages(),
-      m_banks          (config.getValue<size_t>(*this, "NumBanks")),
-      m_baseRequestTime(config.getValue<CycleNo>(*this, "BaseRequestTime")),
-      m_timePerLine    (config.getValue<CycleNo>(*this, "TimePerLine")),
-      m_lineSize       (config.getValue<size_t> ("CacheLineSize")),
-      m_selector       (IBankSelector::makeSelector(*this, config.getValueOrDefault<string>(*this, "BankSelector", defaultBankSelectorType), m_banks.size())),
+      m_banks          (GetConf("NumBanks", size_t)),
+      m_baseRequestTime(GetConf("BaseRequestTime", CycleNo)),
+      m_timePerLine    (GetConf("TimePerLine", CycleNo)),
+      m_lineSize       (GetTopConf("CacheLineSize", size_t)),
+      m_selector       (IBankSelector::makeSelector(*this, GetConfOpt("BankSelector", string, defaultBankSelectorType), m_banks.size())),
       m_nreads         (0),
       m_nread_bytes    (0),
       m_nwrites        (0),
       m_nwrite_bytes   (0)
 {
-    const BufferSize buffersize = config.getValue<BufferSize>(*this, "BufferSize");
+    const BufferSize buffersize = GetConf("BufferSize", BufferSize);
 
-    config.registerObject(*this, "bmem");
-    config.registerProperty(*this, "selector", m_selector->GetName());
+    RegisterModelObject(*this, "bmem");
+    RegisterModelProperty(*this, "selector", m_selector->GetName());
 
     // Create the banks
     for (size_t i = 0; i < m_banks.size(); ++i)
     {
         m_banks[i] = new Bank("bank" + to_string(i), *this, clock, buffersize);
 
-        config.registerObject(*m_banks[i], "bank");
-        config.registerRelation(*this, *m_banks[i], "bank");
+        RegisterModelObject(*m_banks[i], "bank");
+        RegisterModelRelation(*this, *m_banks[i], "bank");
     }
 
     RegisterSampleVariableInObject(m_nreads, SVC_CUMULATIVE);

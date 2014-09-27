@@ -29,7 +29,7 @@ public:
         IOInterface&  GetInterface() const;
         Object& GetDRISCParent() const { return *GetParent()->GetParent(); };
     public:
-        AsyncIOInterface(const std::string& name, IOInterface& parent, Config& config);
+        AsyncIOInterface(const std::string& name, IOInterface& parent);
 
         size_t GetSize() const;
 
@@ -51,7 +51,7 @@ public:
         Object& GetDRISCParent() const { return *GetParent()->GetParent(); };
 
     public:
-        PNCInterface(const std::string& name, IOInterface& parent, Config& config);
+        PNCInterface(const std::string& name, IOInterface& parent);
 
         size_t GetSize() const;
 
@@ -87,7 +87,7 @@ private:
     Object& GetDRISCParent() const { return *GetParent(); };
 
 public:
-    IOInterface(const std::string& name, DRISC& parent, Clock& clock, IIOBus& iobus, IODeviceID devid, Config& config);
+    IOInterface(const std::string& name, DRISC& parent, Clock& clock, IIOBus& iobus, IODeviceID devid);
     void ConnectMemory(IMemory* memory);
 
     drisc::MMIOComponent& GetAsyncIOInterface() { return m_async_io; }

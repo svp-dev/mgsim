@@ -7,16 +7,16 @@ namespace Simulator
 namespace drisc
 {
 
-IOResponseMultiplexer::IOResponseMultiplexer(const std::string& name, IOInterface& parent, Clock& clock, size_t numDevices, Config& config)
+IOResponseMultiplexer::IOResponseMultiplexer(const std::string& name, IOInterface& parent, Clock& clock, size_t numDevices)
     : Object(name, parent),
-      m_incoming("b_incoming", *this, clock, config.getValue<BufferSize>(*this, "IncomingQueueSize")),
+      m_incoming("b_incoming", *this, clock, GetConf("IncomingQueueSize", BufferSize)),
       m_wb_buffers(),
       InitProcess(p_dummy, DoNothing),
       InitProcess(p_IncomingReadResponses, DoReceivedReadResponses)
 {
     m_incoming.Sensitive(p_IncomingReadResponses);
 
-    BufferSize wbqsize = config.getValue<BufferSize>(*this, "WritebackQueueSize");
+    BufferSize wbqsize = GetConf("WritebackQueueSize", BufferSize);
     if (wbqsize < 3)
     {
         throw InvalidArgumentException(*this, "WritebackQueueSize must be at least 3 to accomodate pipeline hazards");

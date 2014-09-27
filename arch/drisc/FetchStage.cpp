@@ -147,14 +147,14 @@ Pipeline::PipeAction Pipeline::FetchStage::OnCycle()
     return PIPE_CONTINUE;
 }
 
-Pipeline::FetchStage::FetchStage(Pipeline& parent, FetchDecodeLatch& output, Config& config)
+Pipeline::FetchStage::FetchStage(Pipeline& parent, FetchDecodeLatch& output)
   : Stage("fetch", parent),
     m_output(output),
     m_allocator(GetDRISC().GetAllocator()),
     m_familyTable(GetDRISC().GetFamilyTable()),
     m_threadTable(GetDRISC().GetThreadTable()),
     m_icache(GetDRISC().GetICache()),
-    m_controlBlockSize(config.getValue<size_t>("ControlBlockSize")),
+    m_controlBlockSize(GetTopConf("ControlBlockSize", size_t)),
     m_buffer(0),
     m_switched(true),
     m_pc(0)

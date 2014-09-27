@@ -89,7 +89,7 @@ public:
         BUNDLE_LINE_LOADED,         // The line has been loaded
     };
 
-    Allocator(const std::string& name, DRISC& parent, Clock& clock, Config& config);
+    Allocator(const std::string& name, DRISC& parent, Clock& clock);
     Allocator(const Allocator&) = delete;
     Allocator& operator=(const Allocator&) = delete;
 

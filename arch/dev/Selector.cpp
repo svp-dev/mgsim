@@ -170,7 +170,7 @@ namespace Simulator
 
     Selector* Selector::m_singleton = NULL;
 
-    Selector::Selector(const std::string& name, Object& parent, Clock& clock, Config& /*config*/)
+    Selector::Selector(const std::string& name, Object& parent, Clock& clock)
         : Object(name, parent),
           m_doCheckStreams("f_checking", *this, clock, false),
           InitProcess(p_checkStreams, DoCheckStreams)

@@ -388,18 +388,18 @@ void CDMA::RootDirectory::Initialize()
     }
 }
 
-CDMA::RootDirectory::RootDirectory(const std::string& name, CDMA& parent, Clock& clock, size_t id, const DDRChannelRegistry& ddr, Config& config) :
+CDMA::RootDirectory::RootDirectory(const std::string& name, CDMA& parent, Clock& clock, size_t id, const DDRChannelRegistry& ddr) :
     Simulator::Object(name, parent),
-    DirectoryBottom(name, parent, clock, config),
+    DirectoryBottom(name, parent, clock),
     m_dir    (),
     m_maxNumLines(0),
-    m_lineSize (config.getValue<size_t>("CacheLineSize")),
+    m_lineSize (GetTopConf("CacheLineSize", size_t)),
     m_id       (id),
     m_numRoots (1),
     p_lines    (clock, GetName() + ".p_lines"),
     m_memory   (0),
-    m_requests ("b_requests", *this, clock, config.getValue<size_t>(*this, "ExternalOutputQueueSize")),
-    m_responses("b_responses", *this, clock, config.getValue<size_t>(*this, "ExternalInputQueueSize")),
+    m_requests ("b_requests", *this, clock, GetConf("ExternalOutputQueueSize", size_t)),
+    m_responses("b_responses", *this, clock, GetConf("ExternalInputQueueSize", size_t)),
     m_active   (),
     InitProcess(p_Incoming, DoIncoming),
     InitProcess(p_Requests, DoRequests),
@@ -409,8 +409,8 @@ CDMA::RootDirectory::RootDirectory(const std::string& name, CDMA& parent, Clock&
 {
     assert(m_lineSize <= MAX_MEMORY_OPERATION_SIZE);
 
-    config.registerObject(*this, "rootdir");
-    config.registerProperty(*this, "freq", (uint32_t)clock.GetFrequency());
+    RegisterModelObject(*this, "rootdir");
+    RegisterModelProperty(*this, "freq", (uint32_t)clock.GetFrequency());
 
     m_incoming.Sensitive(p_Incoming);
     m_requests.Sensitive(p_Requests);
@@ -419,7 +419,7 @@ CDMA::RootDirectory::RootDirectory(const std::string& name, CDMA& parent, Clock&
     p_lines.AddProcess(p_Responses);
     p_lines.AddProcess(p_Incoming);
 
-    size_t ddrid = config.getValueOrDefault<size_t>(*this, "DDRChannelID", id);
+    size_t ddrid = GetConfOpt("DDRChannelID", size_t, id);
     if (ddrid >= ddr.size())
     {
         throw exceptf<InvalidArgumentException>(*this, "Invalid DDR channel ID: %zu", ddrid);

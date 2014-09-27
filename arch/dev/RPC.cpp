@@ -89,20 +89,20 @@ The following processes run concurrently (pipeline):
 namespace Simulator
 {
 
-    RPCInterface::RPCInterface(const std::string& name, Object& parent, IIOBus& iobus, IODeviceID devid, Config& config, IRPCServiceProvider& provider)
+    RPCInterface::RPCInterface(const std::string& name, Object& parent, IIOBus& iobus, IODeviceID devid, IRPCServiceProvider& provider)
         : Object(name, parent),
           m_iobus(iobus),
           m_devid(devid),
 
-          m_lineSize(config.getValueOrDefault<size_t>(*this, "RPCLineSize", config.getValue<size_t>("CacheLineSize"))),
+          m_lineSize(GetConfOpt("RPCLineSize", size_t, GetTopConf("CacheLineSize", size_t))),
 
           m_inputLatch(),
 
           m_fetchState(ARGFETCH_READING1),
           m_currentArgumentOffset(0),
           m_numPendingDCAReads(0),
-          m_maxArg1Size(config.getValue<size_t>(*this, "RPCBufferSize1")),
-          m_maxArg2Size(config.getValue<size_t>(*this, "RPCBufferSize2")),
+          m_maxArg1Size(GetConf("RPCBufferSize1", size_t)),
+          m_maxArg2Size(GetConf("RPCBufferSize2", size_t)),
           m_maxRes1Size(m_maxArg1Size),
           m_maxRes2Size(m_maxArg2Size),
           m_currentArgData1(m_maxArg1Size, 0),
@@ -112,10 +112,10 @@ namespace Simulator
           m_currentResponseOffset(0),
 
           m_queueEnabled ("f_queue",         *this, iobus.GetClock(), false),
-          m_incoming     ("b_incoming",      *this, iobus.GetClock(), config.getValue<BufferSize>(*this, "RPCIncomingQueueSize")),
-          m_ready        ("b_ready",         *this, iobus.GetClock(), config.getValue<BufferSize>(*this, "RPCReadyQueueSize")),
-          m_completed    ("b_completed",     *this, iobus.GetClock(), config.getValue<BufferSize>(*this, "RPCCompletedQueueSize")),
-          m_notifications("b_notifications", *this, iobus.GetClock(), config.getValue<BufferSize>(*this, "RPCNotificationQueueSize")),
+          m_incoming     ("b_incoming",      *this, iobus.GetClock(), GetConf("RPCIncomingQueueSize", BufferSize)),
+          m_ready        ("b_ready",         *this, iobus.GetClock(), GetConf("RPCReadyQueueSize", BufferSize)),
+          m_completed    ("b_completed",     *this, iobus.GetClock(), GetConf("RPCCompletedQueueSize", BufferSize)),
+          m_notifications("b_notifications", *this, iobus.GetClock(), GetConf("RPCNotificationQueueSize", BufferSize)),
 
           m_provider(provider),
 

@@ -260,19 +260,20 @@ Result ZLCDMA::Directory::DoInTop()
     return SUCCESS;
 }
 
-ZLCDMA::Directory::Directory(const std::string& name, ZLCDMA& parent, Clock& clock, CacheID firstCache, Config& config) :
-    Simulator::Object(name, parent),
+    ZLCDMA::Directory::Directory(const std::string& name, ZLCDMA& parent, Clock& clock,
+                                 CacheID firstCache, size_t l2Assoc, size_t numCachesPerDir)
+  : Simulator::Object(name, parent),
     ZLCDMA::Object(name, parent),
     m_bottom(name + ".bottom", parent, clock),
     m_top(name + ".top", parent, clock),
     m_selector  (parent.GetBankSelector()),
     p_lines     (clock, GetName() +  ".p_lines"),
-    m_assoc     (config.getValue<size_t>(parent, "L2CacheAssociativity") * config.getValue<size_t>(parent, "NumL2CachesPerRing")),
+    m_assoc     (l2Assoc * numCachesPerDir),
     m_sets      (m_selector.GetNumBanks()),
     m_lines     (m_assoc * m_sets),
-    m_lineSize  (config.getValue<size_t>("CacheLineSize")),
+    m_lineSize  (GetTopConf("CacheLineSize", size_t)),
     m_firstCache(firstCache),
-    m_lastCache (firstCache + config.getValue<size_t>(parent, "NumL2CachesPerRing") - 1),
+    m_lastCache (firstCache + numCachesPerDir - 1),
     InitProcess(p_InBottom, DoInBottom),
     InitProcess(p_InTop, DoInTop)
 {
@@ -285,12 +286,12 @@ ZLCDMA::Directory::Directory(const std::string& name, ZLCDMA& parent, Clock& clo
     p_InBottom.SetStorageTraces(m_top.GetOutgoingTrace());
     p_InTop.SetStorageTraces((m_top.GetOutgoingTrace() * opt(m_bottom.GetOutgoingTrace())) ^ m_bottom.GetOutgoingTrace());
 
-    config.registerObject(m_top, "dt");
-    config.registerProperty(m_top, "freq", clock.GetFrequency());
-    config.registerObject(m_bottom, "db");
-    config.registerProperty(m_bottom, "freq", clock.GetFrequency());
+    RegisterModelObject(m_top, "dt");
+    RegisterModelProperty(m_top, "freq", clock.GetFrequency());
+    RegisterModelObject(m_bottom, "db");
+    RegisterModelProperty(m_bottom, "freq", clock.GetFrequency());
 
-    config.registerBidiRelation(m_bottom, m_top, "dir");
+    RegisterModelBidiRelation(m_bottom, m_top, "dir");
 }
 
 void ZLCDMA::Directory::Cmd_Info(std::ostream& out, const std::vector<std::string>& /*args*/) const

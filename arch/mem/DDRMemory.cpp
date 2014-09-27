@@ -232,14 +232,14 @@ public:
     Interface(const Interface&) = delete;
     Interface& operator=(const Interface&) = delete;
 
-    Interface(const std::string& name, DDRMemory& parent, Clock& clock, size_t id, const DDRChannelRegistry& ddr, Config& config)
+    Interface(const std::string& name, DDRMemory& parent, Clock& clock, size_t id, const DDRChannelRegistry& ddr)
         : Object     (name, parent),
-          m_lineSize (config.getValue<size_t>("CacheLineSize")),
+          m_lineSize (GetTopConf("CacheLineSize", size_t)),
           p_service  (clock, GetName() + ".p_service"),
           m_ddr      (0),
           m_ddrStorageTraces(),
-          m_requests ("b_requests", *this, clock, config.getValue<size_t>(*this, "ExternalOutputQueueSize")),
-          m_responses("b_responses", *this, clock, config.getValue<size_t>(*this, "ExternalInputQueueSize")),
+          m_requests ("b_requests", *this, clock, GetConf("ExternalOutputQueueSize", size_t)),
+          m_responses("b_responses", *this, clock, GetConf("ExternalInputQueueSize", size_t)),
           m_activeRequests(),
 
           InitProcess(p_Requests, DoRequests),
@@ -251,13 +251,13 @@ public:
         RegisterSampleVariableInObject(m_nreads, SVC_CUMULATIVE);
         RegisterSampleVariableInObject(m_nwrites, SVC_CUMULATIVE);
 
-        config.registerObject(*this, "extif");
-        config.registerProperty(*this, "freq", (uint32_t)clock.GetFrequency());
+        RegisterModelObject(*this, "extif");
+        RegisterModelProperty(*this, "freq", (uint32_t)clock.GetFrequency());
 
         m_requests.Sensitive( p_Requests );
         m_responses.Sensitive( p_Responses );
 
-        size_t ddrid = config.getValueOrDefault<size_t>(*this, "DDRChannelID", id);
+        size_t ddrid = GetConfOpt("DDRChannelID", size_t, id);
         if (ddrid >= ddr.size())
         {
             throw exceptf<InvalidArgumentException>(*this, "Invalid DDR channel ID: %zu", ddrid);
@@ -293,7 +293,7 @@ MCID DDRMemory::RegisterClient(IMemoryCallback& callback, Process& process, Stor
         m_ifs[i]->RegisterClient(*client.service, process, traces, opt(m_storages));
     }
 
-    m_registry.registerRelation(callback.GetMemoryPeer(), *this, "mem");
+    RegisterModelRelation(callback.GetMemoryPeer(), *this, "mem");
 
     return id;
 }
@@ -373,31 +373,30 @@ bool DDRMemory::Write(MCID id, MemAddr address, const MemData& data, WClientID w
     return true;
 }
 
-DDRMemory::DDRMemory(const std::string& name, Object& parent, Clock& clock, Config& config, const std::string& defaultInterfaceSelectorType)
+DDRMemory::DDRMemory(const std::string& name, Object& parent, Clock& clock, const std::string& defaultInterfaceSelectorType)
     : Object(name, parent),
-      m_registry(config),
       m_clock(clock),
       m_clients(),
       m_storages(),
-      m_ifs            (config.getValue<size_t>(*this, "NumInterfaces")),
-      m_ddr            ("ddr", *this, config, m_ifs.size()),
-      m_lineSize       (config.getValue<size_t> ("CacheLineSize")),
-      m_selector       (IBankSelector::makeSelector(*this, config.getValueOrDefault<string>(*this, "InterfaceSelector", defaultInterfaceSelectorType), m_ifs.size())),
+      m_ifs            (GetConf("NumInterfaces", size_t)),
+      m_ddr            ("ddr", *this, m_ifs.size()),
+      m_lineSize       (GetTopConf("CacheLineSize", size_t)),
+      m_selector       (IBankSelector::makeSelector(*this, GetConfOpt("InterfaceSelector", string, defaultInterfaceSelectorType), m_ifs.size())),
       m_nreads         (0),
       m_nread_bytes    (0),
       m_nwrites        (0),
       m_nwrite_bytes   (0)
 {
-    config.registerObject(*this, "ddrmem");
-    config.registerProperty(*this, "selector", m_selector->GetName());
+    RegisterModelObject(*this, "ddrmem");
+    RegisterModelProperty(*this, "selector", m_selector->GetName());
 
     // Create the interfaces
     for (size_t i = 0; i < m_ifs.size(); ++i)
     {
-        m_ifs[i] = new Interface("extif" + to_string(i), *this, clock, i, m_ddr, config);
+        m_ifs[i] = new Interface("extif" + to_string(i), *this, clock, i, m_ddr);
 
-        config.registerObject(*m_ifs[i], "extif");
-        config.registerRelation(*this, *m_ifs[i], "extif");
+        RegisterModelObject(*m_ifs[i], "extif");
+        RegisterModelRelation(*this, *m_ifs[i], "extif");
     }
 
     RegisterSampleVariableInObject(m_nreads, SVC_CUMULATIVE);

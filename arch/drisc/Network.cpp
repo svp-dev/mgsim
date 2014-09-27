@@ -18,10 +18,8 @@ Network::Network(
     const std::string&    name,
     DRISC&                parent,
     Clock&                clock,
-    const vector<DRISC*>& grid,
-    Config&               config
-) :
-    Object(name, parent),
+    const vector<DRISC*>& grid)
+  : Object(name, parent),
 
     m_regFile    (parent.GetRegisterFile()),
     m_familyTable(parent.GetFamilyTable()),
@@ -31,7 +29,7 @@ Network::Network(
     m_next(NULL),
     m_grid(grid),
 
-    m_loadBalanceThreshold(config.getValue<unsigned>(*this, "LoadBalanceThreshold")),
+    m_loadBalanceThreshold(GetConf("LoadBalanceThreshold", unsigned)),
 
     m_numAllocates(0),
     m_numCreates(0),

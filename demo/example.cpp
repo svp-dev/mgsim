@@ -77,10 +77,10 @@ int main(int argc, char *argv[])
 	auto root = new Simulator::Object("", *env.k);
 
 	// Instantiate a memory system
-	auto mem = new Simulator::SerialMemory("memory", *root, clock, *env.cfg);
+	auto mem = new Simulator::SerialMemory("memory", *root, clock);
 
 	// Instantiate a memory client
-	auto c = new ExampleMemClient("test", *root, clock, *env.cfg);
+	auto c = new ExampleMemClient("test", *root, clock);
 
 	// Connect the client to memory
 	c->ConnectMemory(mem);

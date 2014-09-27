@@ -10,8 +10,6 @@
 #include <deque>
 #include <map>
 
-class Config;
-
 namespace Simulator
 {
 
@@ -72,7 +70,7 @@ private:
 
         friend class FPU;
     public:
-        Source(const std::string& name, Object& parent, Clock& clock, Config& config);
+        Source(const std::string& name, Object& parent, Clock& clock);
         Source(const Source&) = delete;
         Source& operator=(const Source&) = delete;
     };
@@ -129,10 +127,9 @@ public:
      * @brief Constructs the FPU.
      * @param parent     reference to the parent object
      * @param name       name of the FPU, irrelevant to simulation
-     * @param config     reference to the configuration data
      * @param num_inputs number of inputs that will be connected to this FPU
      */
-    FPU(const std::string& name, Object& parent, Clock& clock, Config& config, size_t num_inputs);
+    FPU(const std::string& name, Object& parent, Clock& clock, size_t num_inputs);
 
     /// Destroys the FPU object
     ~FPU();

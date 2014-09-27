@@ -16,9 +16,9 @@ namespace Simulator
 static const size_t MINSPACE_SHORTCUT = 2;
 static const size_t MINSPACE_FORWARD  = 1;
 
-CDMA::DirectoryTop::DirectoryTop(const std::string& name, CDMA& parent, Clock& clock, size_t& numLines, Config& config)
+CDMA::DirectoryTop::DirectoryTop(const std::string& name, CDMA& parent, Clock& clock, size_t& numLines)
     : Simulator::Object(name, parent),
-      Node(name, parent, clock, (NodeID)-1, config),
+      Node(name, parent, clock, (NodeID)-1),
       m_numLines(numLines)
 {
 }
@@ -28,9 +28,9 @@ size_t CDMA::DirectoryTop::GetNumLines() const
     return m_numLines;
 }
 
-CDMA::DirectoryBottom::DirectoryBottom(const std::string& name, CDMA& parent, Clock& clock, Config& config)
+CDMA::DirectoryBottom::DirectoryBottom(const std::string& name, CDMA& parent, Clock& clock)
     : Simulator::Object(name, parent),
-      Node(name, parent, clock, (NodeID)-1, config)
+      Node(name, parent, clock, (NodeID)-1)
 {
 }
 
@@ -225,11 +225,11 @@ Result CDMA::Directory::DoInTop()
     return SUCCESS;
 }
 
-CDMA::Directory::Directory(const std::string& name, CDMA& parent, Clock& clock, Config& config) :
+CDMA::Directory::Directory(const std::string& name, CDMA& parent, Clock& clock) :
     Simulator::Object(name, parent),
     CDMA::Object(name, parent),
-    m_bottom    (name + ".bottom", parent, clock, config),
-    m_top       (name + ".top", parent, clock, m_maxNumLines, config),
+    m_bottom    (name + ".bottom", parent, clock),
+    m_top       (name + ".top", parent, clock, m_maxNumLines),
     p_lines     (clock, GetName() + ".p_lines"),
     m_dir       (),
     m_maxNumLines(0),
@@ -248,12 +248,12 @@ CDMA::Directory::Directory(const std::string& name, CDMA& parent, Clock& clock, 
     p_InBottom.SetStorageTraces(m_top.GetOutgoingTrace());
     p_InTop.SetStorageTraces((m_top.GetOutgoingTrace() * opt(m_bottom.GetOutgoingTrace())) ^ m_bottom.GetOutgoingTrace());
 
-    config.registerObject(m_top, "dt");
-    config.registerProperty(m_top, "freq", clock.GetFrequency());
-    config.registerObject(m_bottom, "db");
-    config.registerProperty(m_bottom, "freq", clock.GetFrequency());
+    RegisterModelObject(m_top, "dt");
+    RegisterModelProperty(m_top, "freq", clock.GetFrequency());
+    RegisterModelObject(m_bottom, "db");
+    RegisterModelProperty(m_bottom, "freq", clock.GetFrequency());
 
-    config.registerBidiRelation(m_bottom, m_top, "dir");
+    RegisterModelBidiRelation(m_bottom, m_top, "dir");
 }
 
 void CDMA::Directory::ConnectRing(Node* first, Node* last)

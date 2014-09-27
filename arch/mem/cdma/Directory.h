@@ -20,7 +20,7 @@ protected:
     friend class OneLevelCDMA;
     friend class TwoLevelCDMA;
     friend class CDMA::Directory;
-    DirectoryTop(const std::string& name, CDMA& parent, Clock& clock, size_t& numLines, Config& config);
+    DirectoryTop(const std::string& name, CDMA& parent, Clock& clock, size_t& numLines);
     size_t GetNumLines() const override;
     size_t& m_numLines;
 };
@@ -31,7 +31,7 @@ protected:
     friend class OneLevelCDMA;
     friend class TwoLevelCDMA;
     friend class CDMA::Directory;
-    DirectoryBottom(const std::string& name, CDMA& parent, Clock& clock, Config& config);
+    DirectoryBottom(const std::string& name, CDMA& parent, Clock& clock);
 };
 
 class CDMA::Directory : public CDMA::Object, public Inspect::Interface<Inspect::Read>
@@ -71,7 +71,7 @@ private:
     Result DoOutTop();
 
 public:
-    Directory(const std::string& name, CDMA& parent, Clock& clock, Config& config);
+    Directory(const std::string& name, CDMA& parent, Clock& clock);
 
     // Connect directory to caches
     void ConnectRing(Node* first, Node* last);

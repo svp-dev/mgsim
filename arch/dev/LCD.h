@@ -36,7 +36,7 @@ class LCD : public IIOBusClient, public Object
     void Refresh(unsigned firstrow, unsigned lastrow) const;
 
 public:
-    LCD(const std::string& name, Object& parent, IIOBus& iobus, IODeviceID devid, Config& config);
+    LCD(const std::string& name, Object& parent, IIOBus& iobus, IODeviceID devid);
     LCD(const LCD&) = delete;
     LCD& operator=(const LCD&) = delete;
     ~LCD();

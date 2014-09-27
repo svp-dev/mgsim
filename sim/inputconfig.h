@@ -131,8 +131,9 @@ public:
     //
     // Exists in 3 forms:
     // getValueOrDefault(name, def)
+    // getValueOrDefault(prefix, name, def)
     // getValueOrDefault(obj, name, def)
-    //    - same as getValueOrDefault(obj.GetName() + ':' + name, def)
+    //    - same as getValueOrDefault(obj.GetName(), name, def)
     // getValueOrDefault(obj, prefix, name, def)
     //    - same as getValueOrDefault(prefix, name, def) if obj.GetName() is empty,
     //    - otherwise getValueOrDEfault(obj.GetName() + '.' + prefix, name, def)
@@ -140,6 +141,10 @@ public:
     template <typename T>
     T getValueOrDefault(const std::string& name, const T& def)
     { return lookupValue<T>(name, def, false); }
+
+    template <typename T>
+    T getValueOrDefault(const std::string& prefix, const std::string& name, const T& def)
+    { return lookupValue<T>(prefix + ':' + name, def, false); }
 
     template <typename T>
     T getValueOrDefault(const Simulator::Object& obj, const std::string& name, const T& def)

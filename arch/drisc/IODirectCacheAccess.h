@@ -64,7 +64,7 @@ private:
     bool                 m_flushing;
 
 public:
-    IODirectCacheAccess(const std::string& name, IOInterface& parent, Clock& clock, Config& config);
+    IODirectCacheAccess(const std::string& name, IOInterface& parent, Clock& clock);
     IODirectCacheAccess(const IODirectCacheAccess&) = delete;
     IODirectCacheAccess& operator=(const IODirectCacheAccess&) = delete;
     ~IODirectCacheAccess();

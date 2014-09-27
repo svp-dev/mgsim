@@ -33,7 +33,7 @@ private:
 
     Object& GetDRISCParent() const { return *GetParent()->GetParent(); };
 public:
-    IOResponseMultiplexer(const std::string& name, IOInterface& parent, Clock& clock, size_t numDevices, Config& config);
+    IOResponseMultiplexer(const std::string& name, IOInterface& parent, Clock& clock, size_t numDevices);
     ~IOResponseMultiplexer();
 
     // sent by device select upon an I/O read from the processor

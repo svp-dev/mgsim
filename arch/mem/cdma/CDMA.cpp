@@ -27,7 +27,9 @@ MCID OneLevelCDMA::RegisterClient(IMemoryCallback& callback, Process& process, S
     if (cache_id == m_caches.size())
     {
         // Add a cache
-        Cache* cache = new Cache("cache" + std::to_string(m_caches.size()), *this, m_clock, m_caches.size(), m_config);
+        auto refAssoc = GetConf("L2CacheAssociativity", size_t);
+        auto refNumSets = GetConf("L2CacheNumSets", size_t);
+        Cache* cache = new Cache("cache" + std::to_string(m_caches.size()), *this, m_clock, m_caches.size(), refAssoc, refNumSets);
         m_caches.push_back(cache);
     }
 
@@ -40,7 +42,7 @@ MCID OneLevelCDMA::RegisterClient(IMemoryCallback& callback, Process& process, S
     m_clientMap[id] = make_pair(cache, id_in_cache);
 
     if (!grouped)
-        m_registry.registerBidiRelation(callback.GetMemoryPeer(), *cache, "mem");
+        RegisterModelBidiRelation(callback.GetMemoryPeer(), *cache, "mem");
 
     return id;
 }
@@ -68,11 +70,12 @@ MCID TwoLevelCDMA::RegisterClient(IMemoryCallback& callback, Process& process, S
         if (m_caches.size() % m_numCachesPerLowRing == 0)
         {
             // First cache in a ring; add a directory
-            Directory* dir = new Directory("dir" + std::to_string(m_directories.size()), *this, m_clock, m_config);
+            Directory* dir = new Directory("dir" + std::to_string(m_directories.size()), *this, m_clock);
             m_directories.push_back(dir);
         }
-
-        Cache* cache = new Cache("cache" + std::to_string(m_caches.size()), *this, m_clock, m_caches.size(), m_config);
+        auto refAssoc = GetConf("L2CacheAssociativity", size_t);
+        auto refNumSets = GetConf("L2CacheNumSets", size_t);
+        Cache* cache = new Cache("cache" + std::to_string(m_caches.size()), *this, m_clock, m_caches.size(), refAssoc, refNumSets);
         m_caches.push_back(cache);
     }
 
@@ -85,7 +88,7 @@ MCID TwoLevelCDMA::RegisterClient(IMemoryCallback& callback, Process& process, S
     m_clientMap[id] = make_pair(cache, id_in_cache);
 
     if (!grouped)
-        m_registry.registerBidiRelation(callback.GetMemoryPeer(), *cache, "mem");
+        RegisterModelBidiRelation(callback.GetMemoryPeer(), *cache, "mem");
 
     return id;
 }
@@ -121,20 +124,18 @@ bool CDMA::Write(MCID id, MemAddr address, const MemData& data, WClientID wid)
 
 // Note that the CDMA class is just a container for caches and directories.
 // It has no processes of its own.
-CDMA::CDMA(const std::string& name, Simulator::Object& parent, Clock& clock, Config& config)
+CDMA::CDMA(const std::string& name, Simulator::Object& parent, Clock& clock)
   : Simulator::Object(name, parent),
     m_clock(clock),
-    m_registry(config),
-    m_numClientsPerCache(config.getValue<size_t>(*this, "NumClientsPerL2Cache")),
-    m_numCachesPerLowRing(config.getValue<size_t>(*this, "NumL2CachesPerRing")),
+    m_numClientsPerCache(GetConf("NumClientsPerL2Cache", size_t)),
+    m_numCachesPerLowRing(GetConf("NumL2CachesPerRing", size_t)),
     m_numClients(0),
-    m_lineSize(config.getValue<size_t>("CacheLineSize")),
-    m_config(config),
+    m_lineSize(GetTopConf("CacheLineSize", size_t)),
     m_caches(),
     m_directories(),
-    m_roots(config.getValue<size_t>(*this, "NumRootDirectories"), 0),
+    m_roots(GetConf("NumRootDirectories", size_t), 0),
     m_traces(),
-    m_ddr("ddr", *this, config, config.getValue<size_t>(*this, "NumRootDirectories")),
+    m_ddr("ddr", *this, GetConf("NumRootDirectories", size_t)),
     m_clientMap(),
     m_nreads(0), m_nwrites(0), m_nread_bytes(0), m_nwrite_bytes(0)
 {
@@ -152,23 +153,23 @@ CDMA::CDMA(const std::string& name, Simulator::Object& parent, Clock& clock, Con
 
     for (size_t i = 0; i < m_roots.size(); ++i)
     {
-        m_roots[i] = new RootDirectory("rootdir" + std::to_string(i), *this, clock, i, m_ddr, config);
+        m_roots[i] = new RootDirectory("rootdir" + std::to_string(i), *this, clock, i, m_ddr);
     }
 
 }
 
-OneLevelCDMA::OneLevelCDMA(const std::string& name, Simulator::Object& parent, Clock& clock, Config& config) :
-    CDMA(name, parent, clock, config)
+OneLevelCDMA::OneLevelCDMA(const std::string& name, Simulator::Object& parent, Clock& clock) :
+    CDMA(name, parent, clock)
 { };
 
-TwoLevelCDMA::TwoLevelCDMA(const std::string& name, Simulator::Object& parent, Clock& clock, Config& config) :
-    CDMA(name, parent, clock, config)
+TwoLevelCDMA::TwoLevelCDMA(const std::string& name, Simulator::Object& parent, Clock& clock) :
+    CDMA(name, parent, clock)
 { };
 
 
 void OneLevelCDMA::Initialize()
 {
-    m_config.registerObject(*this, "cdma");
+    RegisterModelObject(*this, "cdma");
 
     //
     // Figure out the layout of the top-level ring
@@ -200,7 +201,7 @@ void OneLevelCDMA::Initialize()
         Node *prev = nodes[(i + 1) % nodes.size()];
         nodes[i]->Connect(next, prev);
 
-        m_config.registerRelation(*nodes[i], *next, "topring", true);
+        RegisterModelRelation(*nodes[i], *next, "topring", true);
     }
 
     // Then inform the root directories
@@ -212,7 +213,7 @@ void OneLevelCDMA::Initialize()
 
 void TwoLevelCDMA::Initialize()
 {
-    m_config.registerObject(*this, "cdma");
+    RegisterModelObject(*this, "cdma");
 
     // Initialize the caches
     for (size_t i = 0; i < m_caches.size(); ++i)
@@ -225,7 +226,7 @@ void TwoLevelCDMA::Initialize()
         Node *prev = last  ? dir : static_cast<Node*>(m_caches[i+1]);
         m_caches[i]->Connect(next, prev);
 
-        m_config.registerRelation(*m_caches[i], *next, "l2ring", true);
+        RegisterModelRelation(*m_caches[i], *next, "l2ring", true);
     }
 
     // Connect the directories to the cache rings
@@ -237,7 +238,7 @@ void TwoLevelCDMA::Initialize()
         // Caches are already connected above, so we can initialize directly
         m_directories[i]->Initialize();
 
-        m_config.registerRelation(m_directories[i]->m_bottom, *next, "l2ring", true);
+        RegisterModelRelation(m_directories[i]->m_bottom, *next, "l2ring", true);
     }
 
     //
@@ -270,7 +271,7 @@ void TwoLevelCDMA::Initialize()
         Node *prev = nodes[(i + 1) % nodes.size()];
         nodes[i]->Connect(next, prev);
 
-        m_config.registerRelation(*nodes[i], *next, "topring", true);
+        RegisterModelRelation(*nodes[i], *next, "topring", true);
     }
 
     // Then inform the root directories

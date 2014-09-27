@@ -1,13 +1,16 @@
+#include "sim/kernel.h"
 #include "demo/memclient.h"
 
-ExampleMemClient::ExampleMemClient(const std::string& name, Simulator::Object& parent, Simulator::Clock& clock, Config& config)
+using namespace Simulator;
+
+ExampleMemClient::ExampleMemClient(const std::string& name, Simulator::Object& parent, Simulator::Clock& clock)
     : Object(name, parent),
       memory(0), mcid(0),
       enabled("b_enabled", *this, clock, true),
-      p_MemoryOutgoing(*this, "send-memory-requests", Simulator::delegate::create<ExampleMemClient, &ExampleMemClient::DoMemoryOutgoing>(*this))
+      InitProcess(p_MemoryOutgoing, DoMemoryOutgoing)
 {
     enabled.Sensitive(p_MemoryOutgoing);
-    config.registerObject(*this, "example client");
+    RegisterModelObject(*this, "example client");
 }
 
 void

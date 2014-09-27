@@ -46,7 +46,7 @@ public:
 public:
     IIOBus& GetIOBus() const { return m_iobus; }
 
-    IOBusInterface(const std::string& name, IOInterface& parent, Clock& clock, IIOBus& iobus, IODeviceID devid, Config& config);
+    IOBusInterface(const std::string& name, IOInterface& parent, Clock& clock, IIOBus& iobus, IODeviceID devid);
 
     bool SendRequest(const IORequest& request);
 

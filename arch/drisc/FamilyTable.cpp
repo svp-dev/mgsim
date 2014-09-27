@@ -14,9 +14,9 @@ namespace Simulator
 namespace drisc
 {
 
-FamilyTable::FamilyTable(const std::string& name, DRISC& parent, Config& config)
+FamilyTable::FamilyTable(const std::string& name, DRISC& parent)
 :   Object(name, parent),
-    m_families(config.getValue<size_t>(*this, "NumEntries")),
+    m_families(GetConf("NumEntries", size_t)),
     m_lastcycle(0),
     m_totalalloc(0),
     m_maxalloc(0),

@@ -280,9 +280,9 @@ Result FPU::DoPipeline()
     return (num_units_failed == num_units_active && num_sources_failed == num_sources_active) ? FAILED : SUCCESS;
 }
 
-FPU::Source::Source(const std::string& name, Object& parent, Clock& clock, Config& config)
+FPU::Source::Source(const std::string& name, Object& parent, Clock& clock)
     : Object(name, parent),
-      inputs("b_source", *this, clock, config.getValue<BufferSize>(*this, "InputQueueSize")),
+      inputs("b_source", *this, clock, GetConf("InputQueueSize", BufferSize)),
       outputs(),
       client(NULL),
       last_write(0),
@@ -290,7 +290,7 @@ FPU::Source::Source(const std::string& name, Object& parent, Clock& clock, Confi
 {}
 
 
-FPU::FPU(const std::string& name, Object& parent, Clock& clock, Config& config, size_t num_inputs)
+FPU::FPU(const std::string& name, Object& parent, Clock& clock, size_t num_inputs)
     : Object(name, parent),
       m_active("r_active", *this, clock),
       m_sources(),
@@ -306,7 +306,7 @@ FPU::FPU(const std::string& name, Object& parent, Clock& clock, Config& config, 
         };
 
         // Construct the FP units
-        size_t nUnits = config.getValue<size_t>(*this, "NumUnits");
+        size_t nUnits = GetConf("NumUnits", size_t);
         if (nUnits == 0)
         {
             throw InvalidArgumentException(*this, "NumUnits not set or zero");
@@ -318,7 +318,7 @@ FPU::FPU(const std::string& name, Object& parent, Clock& clock, Config& config, 
             set<FPUOperation> ops;
 
             // Get ops for this unit
-            auto strops = config.getWordList(*this, uname + "Ops");
+            auto strops = GetConfStrings(uname + "Ops");
             for (auto& p : strops)
             {
                 transform(p.begin(), p.end(), p.begin(), ::toupper);
@@ -341,8 +341,8 @@ FPU::FPU(const std::string& name, Object& parent, Clock& clock, Config& config, 
             }
 
             Unit unit;
-            unit.latency   = config.getValue<CycleNo>(*this, uname+"Latency");
-            unit.pipelined = config.getValue<bool>   (*this, uname+"Pipelined");
+            unit.latency   = GetConf(uname + "Latency", CycleNo);
+            unit.pipelined = GetConf(uname + "Pipelined", bool);
             m_units.push_back(unit);
         }
 
@@ -352,7 +352,7 @@ FPU::FPU(const std::string& name, Object& parent, Clock& clock, Config& config, 
             auto sname = "source" + std::to_string(i);
 
             m_sources.push_back(NULL);
-            Source* source = new Source(sname, *this, clock, config);
+            Source* source = new Source(sname, *this, clock);
             source->inputs.Sensitive(p_Pipeline);
             m_sources.back() = source;
         }

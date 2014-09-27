@@ -48,7 +48,6 @@ class ParallelMemory : public Object, public IMemory, public VirtualMemory
     CycleNo GetMemoryDelay(size_t data_size) const;
 
     Clock&      m_clock;
-    ComponentModelRegistry&   m_registry;
     std::vector<Port*>        m_ports;
 
     BufferSize  m_buffersize;      // Size of request queues
@@ -62,7 +61,7 @@ class ParallelMemory : public Object, public IMemory, public VirtualMemory
     uint64_t    m_nwrite_bytes;
 
 public:
-    ParallelMemory(const std::string& name, Object& parent, Clock& clock, Config& config);
+    ParallelMemory(const std::string& name, Object& parent, Clock& clock);
     ~ParallelMemory();
 
     // Debugging

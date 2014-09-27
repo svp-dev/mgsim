@@ -305,8 +305,7 @@ public:
     };
 
     Network(const std::string& name, DRISC& parent, Clock& clock,
-            const std::vector<DRISC*>& grid,
-            Config& config);
+            const std::vector<DRISC*>& grid);
     Network(const Network&) = delete;
     Network& operator=(const Network&) = delete;
 

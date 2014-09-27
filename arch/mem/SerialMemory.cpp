@@ -20,7 +20,7 @@ MCID SerialMemory::RegisterClient(IMemoryCallback& callback, Process& process, S
     m_storages = m_storages ^ storages;
     p_Requests.SetStorageTraces(m_storages);
 
-    m_registry.registerRelation(callback.GetMemoryPeer(), *this, "mem");
+    RegisterModelRelation(callback.GetMemoryPeer(), *this, "mem");
 
     return m_clients.size() - 1;
 }
@@ -151,15 +151,14 @@ Result SerialMemory::DoRequests()
     return SUCCESS;
 }
 
-SerialMemory::SerialMemory(const std::string& name, Object& parent, Clock& clock, Config& config) :
+SerialMemory::SerialMemory(const std::string& name, Object& parent, Clock& clock) :
     Object(name, parent),
-    m_registry       (config),
     m_clients        (),
-    m_requests       ("b_requests", *this, clock, config.getValue<BufferSize>(*this, "BufferSize")),
+    m_requests       ("b_requests", *this, clock, GetConf("BufferSize", BufferSize)),
     p_requests       (clock, GetName() + ".m_requests"),
-    m_baseRequestTime(config.getValue<CycleNo>   (*this, "BaseRequestTime")),
-    m_timePerLine    (config.getValue<CycleNo>   (*this, "TimePerLine")),
-    m_lineSize       (config.getValue<CycleNo>   ("CacheLineSize")),
+    m_baseRequestTime(GetConf("BaseRequestTime", CycleNo)),
+    m_timePerLine    (GetConf("TimePerLine", CycleNo)),
+    m_lineSize       (GetTopConf("CacheLineSize", CycleNo)),
     m_nextdone(0),
     m_storages(),
     m_nreads(0),
@@ -170,7 +169,7 @@ SerialMemory::SerialMemory(const std::string& name, Object& parent, Clock& clock
     InitProcess(p_Requests, DoRequests)
 {
     m_requests.Sensitive( p_Requests );
-    config.registerObject(*this, "sermem");
+    RegisterModelObject(*this, "sermem");
 
     m_storages = StorageTraceSet(StorageTrace());   // Request handler is waiting for completion
     p_Requests.SetStorageTraces(m_storages);

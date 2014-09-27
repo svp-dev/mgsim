@@ -122,7 +122,7 @@ private:
     Object& GetDRISCParent() const { return *GetParent(); }
 
 public:
-    DCache(const std::string& name, DRISC& parent, Clock& clock, Config& config);
+    DCache(const std::string& name, DRISC& parent, Clock& clock);
     DCache(const DCache&) = delete;
     DCache& operator=(const DCache&) = delete;
     ~DCache();

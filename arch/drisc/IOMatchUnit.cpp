@@ -8,10 +8,10 @@ namespace Simulator
 namespace drisc
 {
 
-void MMIOComponent::Connect(IOMatchUnit& mmio, IOMatchUnit::AccessMode mode, Config& config)
+void MMIOComponent::Connect(IOMatchUnit& mmio, IOMatchUnit::AccessMode mode)
 {
     // we allow the base address to be set to zero to indicate it should not be mapped.
-    MemAddr base = config.getValueOrDefault<MemAddr>(*this, "MMIO_BaseAddr", 0);
+    MemAddr base = GetConfOpt("MMIO_BaseAddr", MemAddr, 0);
     if (base == 0)
     {
         std::cerr << "warning: " << GetName() << " not mapped to the I/O address space." << std::endl;

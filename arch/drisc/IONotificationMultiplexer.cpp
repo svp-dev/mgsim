@@ -12,8 +12,7 @@ namespace drisc
 {
 
 IONotificationMultiplexer::IONotificationMultiplexer(const string& name, IOInterface& parent, Clock& clock,
-                                                     size_t numChannels,
-                                                     Config& config)
+                                                     size_t numChannels)
     : Object(name, parent),
       m_writebacks(numChannels, 0),
       m_mask(numChannels, false),
@@ -23,7 +22,7 @@ IONotificationMultiplexer::IONotificationMultiplexer(const string& name, IOInter
       m_lastNotified(0),
       InitProcess(p_IncomingNotifications, DoReceivedNotifications)
 {
-    BufferSize nqs = config.getValue<BufferSize>(*this, "NotificationQueueSize");
+    BufferSize nqs = GetConf("NotificationQueueSize", BufferSize);
 
     for (size_t i = 0; i < numChannels; ++i)
     {

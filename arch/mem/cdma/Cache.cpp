@@ -862,16 +862,14 @@ size_t CDMA::Cache::GetNumLines() const
     return m_lines.size();
 }
 
-CDMA::Cache::Cache(const std::string& name, CDMA& parent, Clock& clock, NodeID id, Config& config) :
+CDMA::Cache::Cache(const std::string& name, CDMA& parent, Clock& clock, NodeID id, size_t refAssoc, size_t refNumSets) :
     Simulator::Object(name, parent),
-    Node(name, parent, clock, id, config),
-    m_lineSize (config.getValue<size_t>("CacheLineSize")),
-    m_assoc    (config.getValueOrDefault<size_t>(*this, "Associativity",
-                                                 config.getValue<size_t>(parent, "L2CacheAssociativity"))),
-    m_sets     (config.getValueOrDefault<size_t>(*this, "NumSets",
-                                                 config.getValue<size_t>(parent, "L2CacheNumSets"))),
+    Node(name, parent, clock, id),
+    m_lineSize (GetTopConf("CacheLineSize", size_t)),
+    m_assoc    (GetConfOpt("Associativity", size_t, refAssoc)),
+    m_sets     (GetConfOpt("NumSets", size_t, refNumSets)),
     m_selector (IBankSelector::makeSelector(*this,
-                                            config.getValueOrDefault<string>(*this, "BankSelector", "XORFOLD"),
+                                            GetConfOpt("BankSelector", string, "XORFOLD"),
                                             m_sets)),
     m_clients  (),
     m_storages (),
@@ -915,8 +913,8 @@ CDMA::Cache::Cache(const std::string& name, CDMA& parent, Clock& clock, NodeID i
     InitProcess(p_Requests, DoRequests),
     InitProcess(p_In, DoReceive),
     p_bus      (clock, GetName() + ".p_bus"),
-    m_requests ("b_requests", *this, clock, config.getValue<BufferSize>(*this, "RequestBufferSize")),
-    m_responses("b_responses", *this, clock, config.getValue<BufferSize>(*this, "ResponseBufferSize"))
+    m_requests ("b_requests", *this, clock, GetConf("RequestBufferSize", BufferSize)),
+    m_responses("b_responses", *this, clock, GetConf("ResponseBufferSize", BufferSize))
 {
     RegisterSampleVariableInObject(m_numRAccesses, SVC_CUMULATIVE);
     RegisterSampleVariableInObject(m_numHardRConflicts, SVC_CUMULATIVE);
@@ -968,12 +966,12 @@ CDMA::Cache::Cache(const std::string& name, CDMA& parent, Clock& clock, NodeID i
     p_bus.AddPriorityProcess(p_In);                   // Update triggers write completion
     p_bus.AddPriorityProcess(p_Requests);             // Read or write hit
 
-    config.registerObject(*this, "cache");
-    config.registerProperty(*this, "selector", m_selector->GetName());
-    config.registerProperty(*this, "assoc", (uint32_t)m_assoc);
-    config.registerProperty(*this, "sets", (uint32_t)m_sets);
-    config.registerProperty(*this, "lsz", (uint32_t)m_lineSize);
-    config.registerProperty(*this, "freq", (uint32_t)clock.GetFrequency());
+    RegisterModelObject(*this, "cache");
+    RegisterModelProperty(*this, "selector", m_selector->GetName());
+    RegisterModelProperty(*this, "assoc", (uint32_t)m_assoc);
+    RegisterModelProperty(*this, "sets", (uint32_t)m_sets);
+    RegisterModelProperty(*this, "lsz", (uint32_t)m_lineSize);
+    RegisterModelProperty(*this, "freq", (uint32_t)clock.GetFrequency());
 }
 
 CDMA::Cache::~Cache()

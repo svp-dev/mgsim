@@ -19,12 +19,13 @@
 #include "sim/process.h"
 #include "sim/arbitrator.h"
 
+class Config;
+
 namespace Simulator
 {
-
-/**
- * Enumeration for the phases inside a cycle
- */
+    /**
+     * Enumeration for the phases inside a cycle
+     */
     enum CyclePhase {
         PHASE_ACQUIRE,  ///< Acquire phase, all components indicate their wishes.
         PHASE_CHECK,    ///< Check phase, all components verify that they can continue.
@@ -61,7 +62,7 @@ public:
     private:
         CycleNo             m_lastsuspend;  ///< Avoid suspending twice on the same cycle.
         CycleNo             m_cycle;        ///< Current cycle of the simulation.
-        unsigned long       m_master_freq;  ///< Master frequency
+        Clock::Frequency    m_master_freq;  ///< Master frequency
         Clock*              m_clock;        ///< The currently active clock.
         Process*            m_process;      ///< The currently executing process.
         std::vector<Clock*> m_clocks;       ///< All clocks in the system.
@@ -72,6 +73,7 @@ public:
         bool                m_aborted;      ///< Should the run be aborted?
         bool                m_suspended;    ///< Should the run be suspended?
 
+        Config*             m_config;       ///< Attached configuration object.
         std::set<Process*>  m_proc_registry; ///< Set of all processes instantiated.
 
         bool UpdateStorages();
@@ -91,6 +93,8 @@ public:
         Kernel(const Kernel&) = delete; // No copy.
         Kernel& operator=(const Kernel&) = delete; // No assignment.
 
+        void AttachConfig(Config& cfg) { m_config = &cfg; }
+        Config* GetConfig() const { return m_config; }
 
         /**
          * @brief Register a process for introspection.
@@ -110,12 +114,12 @@ public:
         /**
          * @brief Creates a clock at the specified frequency (in MHz).
          */
-        Simulator::Clock& CreateClock(unsigned long mhz);
+        Clock& CreateClock(Clock::Frequency mhz);
 
         /**
          * @brief Returns the master frequency for the simulation, in MHz
          */
-        unsigned long GetMasterFrequency() const { return m_master_freq; }
+        Clock::Frequency GetMasterFrequency() const { return m_master_freq; }
 
         /**
          * @brief Get the currently active clock

@@ -6,10 +6,6 @@
 #include "sim/kernel.h"
 
 class MGSim {
-private:
-    ConfigMap overrides;
-    std::vector<std::string> extras; // any additional strings that should be carried around by the Config class
-
 public:
     MGSim(const char *conf);
 

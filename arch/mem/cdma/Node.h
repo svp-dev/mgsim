@@ -107,7 +107,7 @@ protected:
     void Print(std::ostream& out) const;
 
     /// Construct the node
-    Node(const std::string& name, CDMA& parent, Clock& clock, NodeID id, Config& config);
+    Node(const std::string& name, CDMA& parent, Clock& clock, NodeID id);
     Node(const Node&) = delete;
     Node& operator=(const Node&) = delete;
     virtual ~Node();

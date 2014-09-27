@@ -6,7 +6,7 @@ namespace Simulator
 #ifndef STATIC_KERNEL
           kernel
 #endif
-          , unsigned long frequency, unsigned long period)
+          , Frequency frequency, Period period)
         :
 #ifndef STATIC_KERNEL
         m_kernel(kernel),

@@ -1154,14 +1154,15 @@ Result ZLCDMA::Cache::DoReceive()
     return (result == FAILED) ? FAILED : SUCCESS;
 }
 
-ZLCDMA::Cache::Cache(const std::string& name, ZLCDMA& parent, Clock& clock, CacheID id, Config& config) :
-    Simulator::Object(name, parent),
+ZLCDMA::Cache::Cache(const std::string& name, ZLCDMA& parent, Clock& clock, CacheID id,
+                     size_t assoc, bool enableInjection)
+  : Simulator::Object(name, parent),
     Node(name, parent, clock),
     m_selector (parent.GetBankSelector()),
-    m_lineSize (config.getValue<size_t>("CacheLineSize")),
-    m_assoc    (config.getValue<size_t>(parent, "L2CacheAssociativity")),
+    m_lineSize (GetTopConf("CacheLineSize", size_t)),
+    m_assoc    (assoc),
     m_sets     (m_selector.GetNumBanks()),
-    m_inject   (config.getValue<bool>(parent, "EnableCacheInjection")),
+    m_inject   (enableInjection),
     m_id       (id),
     m_clients  (),
     m_storages (),
@@ -1174,8 +1175,8 @@ ZLCDMA::Cache::Cache(const std::string& name, ZLCDMA& parent, Clock& clock, Cach
     InitProcess(p_Requests, DoRequests),
     InitProcess(p_In, DoReceive),
     p_bus      (clock, GetName() + ".p_bus"),
-    m_requests ("b_requests", *this, clock, config.getValue<BufferSize>(*this, "RequestBufferSize")),
-    m_responses("b_responses", *this, clock, config.getValue<BufferSize>(*this, "ResponseBufferSize"))
+    m_requests ("b_requests", *this, clock, GetConf("RequestBufferSize", BufferSize)),
+    m_responses("b_responses", *this, clock, GetConf("ResponseBufferSize", BufferSize))
 {
     RegisterSampleVariableInObject(m_numHits, SVC_CUMULATIVE);
     RegisterSampleVariableInObject(m_numMisses, SVC_CUMULATIVE);
@@ -1197,11 +1198,11 @@ ZLCDMA::Cache::Cache(const std::string& name, ZLCDMA& parent, Clock& clock, Cach
     p_bus.AddPriorityProcess(p_In);                   // Update triggers write completion
     p_bus.AddPriorityProcess(p_Requests);             // Read or write hit
 
-    config.registerObject(*this, "cache");
-    config.registerProperty(*this, "assoc", (uint32_t)m_assoc);
-    config.registerProperty(*this, "sets", (uint32_t)m_sets);
-    config.registerProperty(*this, "lsz", (uint32_t)m_lineSize);
-    config.registerProperty(*this, "freq", (uint32_t)clock.GetFrequency());
+    RegisterModelObject(*this, "cache");
+    RegisterModelProperty(*this, "assoc", (uint32_t)m_assoc);
+    RegisterModelProperty(*this, "sets", (uint32_t)m_sets);
+    RegisterModelProperty(*this, "lsz", (uint32_t)m_lineSize);
+    RegisterModelProperty(*this, "freq", (uint32_t)clock.GetFrequency());
 }
 
 void ZLCDMA::Cache::Cmd_Info(std::ostream& out, const std::vector<std::string>& /*args*/) const

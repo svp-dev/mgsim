@@ -7,14 +7,14 @@ namespace Simulator
 {
 namespace drisc
 {
-    IODirectCacheAccess::IODirectCacheAccess(const std::string& name, IOInterface& parent, Clock& clock, Config& config)
+    IODirectCacheAccess::IODirectCacheAccess(const std::string& name, IOInterface& parent, Clock& clock)
         : Object(name, parent),
           m_memory(NULL),
           m_mcid(0),
           m_busif(parent.GetIOBusInterface()),
-          m_lineSize(config.getValue<MemSize>("CacheLineSize")),
-          m_requests("b_requests", *this, clock, config.getValue<BufferSize>(*this, "RequestQueueSize")),
-          m_responses("b_responses", *this, clock, config.getValue<BufferSize>(*this, "ResponseQueueSize")),
+          m_lineSize(GetTopConf("CacheLineSize", MemSize)),
+          m_requests("b_requests", *this, clock, GetConf("RequestQueueSize", BufferSize)),
+          m_responses("b_responses", *this, clock, GetConf("ResponseQueueSize", BufferSize)),
           m_pending_writes(0),
           m_outstanding_address(0),
           m_outstanding_size(0),

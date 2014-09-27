@@ -298,9 +298,8 @@ Pipeline::PipeAction Pipeline::MemoryStage::OnCycle()
 }
 
 Pipeline::MemoryStage::MemoryStage(Pipeline& parent,
-                                          const ExecuteMemoryLatch& input,
-                                          MemoryWritebackLatch& output,
-                                          Config& /*config*/)
+                                   const ExecuteMemoryLatch& input,
+                                   MemoryWritebackLatch& output)
     : Stage("memory", parent),
       m_input(input),
       m_output(output),

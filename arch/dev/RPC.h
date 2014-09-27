@@ -135,7 +135,7 @@ namespace Simulator
 
     public:
 
-        RPCInterface(const std::string& name, Object& parent, IIOBus& iobus, IODeviceID devid, Config& config, IRPCServiceProvider& provider);
+        RPCInterface(const std::string& name, Object& parent, IIOBus& iobus, IODeviceID devid, IRPCServiceProvider& provider);
 
         Process p_queueRequest;
         Result  DoQueue();

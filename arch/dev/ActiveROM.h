@@ -26,8 +26,6 @@ namespace Simulator
     private:
         IMemoryAdmin&      m_memory;
 
-        Config&            m_config;
-
         char              *m_data;
         size_t             m_lineSize;
         size_t             m_numLines;
@@ -57,13 +55,13 @@ namespace Simulator
         size_t             m_currentRange;
         size_t             m_currentOffset;
 
-        void LoadConfig(Config& config);
-        void LoadArgumentVector(Config& config);
+        void LoadConfig();
+        void LoadArgumentVector();
         void LoadFile(const std::string& filename);
         void PrepareRanges();
 
     public:
-        ActiveROM(const std::string& name, Object& parent, IMemoryAdmin& mem, IIOBus& iobus, IODeviceID devid, Config& config, bool quiet = false);
+        ActiveROM(const std::string& name, Object& parent, IMemoryAdmin& mem, IIOBus& iobus, IODeviceID devid, bool quiet = false);
         ActiveROM(const ActiveROM&) = delete;
         ActiveROM& operator=(const ActiveROM&) = delete;
         ~ActiveROM();

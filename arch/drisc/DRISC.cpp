@@ -17,7 +17,7 @@ using namespace drisc;
 //
 // DRISC implementation
 //
-DRISC::DRISC(const std::string& name, Object& parent, Clock& clock, PID pid, const vector<DRISC*>& grid, Config& config, BreakPointManager& bp)
+DRISC::DRISC(const std::string& name, Object& parent, Clock& clock, PID pid, const vector<DRISC*>& grid, BreakPointManager& bp)
 :   Object(name, parent),
     m_clock(clock),
     m_bp_manager(bp),
@@ -29,37 +29,37 @@ DRISC::DRISC(const std::string& name, Object& parent, Clock& clock, PID pid, con
     m_pid(pid),
     m_reginits(),
     m_bits(),
-    m_familyTable ("families",      *this, config),
-    m_threadTable ("threads",       *this, config),
-    m_registerFile("registers",     *this, clock, config),
-    m_raunit      ("rau",           *this, m_registerFile.GetSizes(), config),
-    m_allocator   ("alloc",         *this, clock, config),
-    m_icache      ("icache",        *this, clock, config),
-    m_dcache      ("dcache",        *this, clock, config),
-    m_pipeline    ("pipeline",      *this, clock, config),
-    m_network     ("network",       *this, clock, grid, config),
+    m_familyTable ("families",      *this),
+    m_threadTable ("threads",       *this),
+    m_registerFile("registers",     *this, clock),
+    m_raunit      ("rau",           *this, m_registerFile.GetSizes()),
+    m_allocator   ("alloc",         *this, clock),
+    m_icache      ("icache",        *this, clock),
+    m_dcache      ("dcache",        *this, clock),
+    m_pipeline    ("pipeline",      *this, clock),
+    m_network     ("network",       *this, clock, grid),
     m_mmio        ("mmio",          *this),
-    m_apr_file("aprs", *this, config),
-    m_asr_file("asrs", *this, config),
-    m_perfcounters(*this, config),
+    m_apr_file("aprs", *this),
+    m_asr_file("asrs", *this),
+    m_perfcounters(*this),
     m_lpout("stdout", *this, std::cout),
     m_lperr("stderr", *this, std::cerr),
     m_mmu("mmu", *this),
     m_action("action", *this),
     m_io_if(NULL)
 {
-    config.registerProperty(*this, "pid", (uint32_t)pid);
-    config.registerProperty(*this, "ic.assoc", (uint32_t)m_icache.GetAssociativity());
-    config.registerProperty(*this, "ic.lsz", (uint32_t)m_icache.GetLineSize());
-    config.registerProperty(*this, "dc.assoc", (uint32_t)m_dcache.GetAssociativity());
-    config.registerProperty(*this, "dc.sets", (uint32_t)m_dcache.GetNumSets());
-    config.registerProperty(*this, "dc.lines", (uint32_t)m_dcache.GetNumLines());
-    config.registerProperty(*this, "dc.lsz", (uint32_t)m_dcache.GetLineSize());
-    config.registerProperty(*this, "threads", (uint32_t)m_threadTable.GetNumThreads());
-    config.registerProperty(*this, "families", (uint32_t)m_familyTable.GetFamilies().size());
-    config.registerProperty(*this, "iregs", (uint32_t)m_registerFile.GetSizes()[RT_INTEGER]);
-    config.registerProperty(*this, "fpregs", (uint32_t)m_registerFile.GetSizes()[RT_FLOAT]);
-    config.registerProperty(*this, "freq", (uint32_t)clock.GetFrequency());
+    RegisterModelProperty(*this, "pid", (uint32_t)pid);
+    RegisterModelProperty(*this, "ic.assoc", (uint32_t)m_icache.GetAssociativity());
+    RegisterModelProperty(*this, "ic.lsz", (uint32_t)m_icache.GetLineSize());
+    RegisterModelProperty(*this, "dc.assoc", (uint32_t)m_dcache.GetAssociativity());
+    RegisterModelProperty(*this, "dc.sets", (uint32_t)m_dcache.GetNumSets());
+    RegisterModelProperty(*this, "dc.lines", (uint32_t)m_dcache.GetNumLines());
+    RegisterModelProperty(*this, "dc.lsz", (uint32_t)m_dcache.GetLineSize());
+    RegisterModelProperty(*this, "threads", (uint32_t)m_threadTable.GetNumThreads());
+    RegisterModelProperty(*this, "families", (uint32_t)m_familyTable.GetFamilies().size());
+    RegisterModelProperty(*this, "iregs", (uint32_t)m_registerFile.GetSizes()[RT_INTEGER]);
+    RegisterModelProperty(*this, "fpregs", (uint32_t)m_registerFile.GetSizes()[RT_FLOAT]);
+    RegisterModelProperty(*this, "freq", (uint32_t)clock.GetFrequency());
 
     // Get the size, in bits, of various identifiers.
     // This is used for packing and unpacking various fields.
@@ -68,18 +68,18 @@ DRISC::DRISC(const std::string& name, Object& parent, Clock& clock, PID pid, con
     m_bits.tid_bits = ilog2(m_threadTable.GetNumThreads());
 
     // Configure the MMIO interface for the common devices
-    m_perfcounters.Connect(m_mmio, IOMatchUnit::READ, config);
-    m_apr_file.Connect(m_mmio, IOMatchUnit::READWRITE, config);
-    m_asr_file.Connect(m_mmio, IOMatchUnit::READ, config);
-    m_lpout.Connect(m_mmio, IOMatchUnit::WRITE, config);
-    m_lperr.Connect(m_mmio, IOMatchUnit::WRITE, config);
-    m_mmu.Connect(m_mmio, IOMatchUnit::WRITE, config);
-    m_action.Connect(m_mmio, IOMatchUnit::WRITE, config);
+    m_perfcounters.Connect(m_mmio, IOMatchUnit::READ);
+    m_apr_file.Connect(m_mmio, IOMatchUnit::READWRITE);
+    m_asr_file.Connect(m_mmio, IOMatchUnit::READ);
+    m_lpout.Connect(m_mmio, IOMatchUnit::WRITE);
+    m_lperr.Connect(m_mmio, IOMatchUnit::WRITE);
+    m_mmu.Connect(m_mmio, IOMatchUnit::WRITE);
+    m_action.Connect(m_mmio, IOMatchUnit::WRITE);
 
     // Check if there is an initial register configuration
-    if (!config.getValueOrDefault<string>(*this, "InitRegs", "").empty())
+    if (!GetConfOpt("InitRegs", string, "").empty())
     {
-        auto regs = config.getWordList(*this, "InitRegs");
+        auto regs = GetConfStrings("InitRegs");
         for (auto ri : regs)
         {
             // format is RNNN=VAL or FNNN=VAL
@@ -111,7 +111,7 @@ DRISC::DRISC(const std::string& name, Object& parent, Clock& clock, PID pid, con
             // First handle value indirections
             if (value[0] == '$')
             {
-                value = config.getValue<string>(value.substr(1));
+                value = GetTopConf(value.substr(1), string);
             }
             m_reginits[reg_addr] = value;
         }
@@ -139,34 +139,34 @@ void DRISC::ConnectLink(DRISC* prev, DRISC* next)
     m_network.Connect(prev != NULL ? &prev->m_network : NULL, next != NULL ? &next->m_network : NULL);
 }
 
-void DRISC::ConnectFPU(Config& config, FPU* fpu)
+void DRISC::ConnectFPU(FPU* fpu)
 {
     assert(fpu != NULL);
 
     m_fpu = fpu;
     m_pipeline.ConnectFPU(fpu);
 
-    config.registerBidiRelation(*this, *fpu, "fpu");
+    RegisterModelBidiRelation(*this, *fpu, "fpu");
 }
 
-void DRISC::ConnectIO(Config& config, IIOBus* iobus)
+void DRISC::ConnectIO(IIOBus* iobus)
 {
     assert(iobus != NULL);
 
     // This processor also supports I/O
-    IODeviceID devid = config.getValueOrDefault<IODeviceID>(*this, "DeviceID", iobus->GetNextAvailableDeviceID());
+    IODeviceID devid = GetConfOpt("DeviceID", IODeviceID, iobus->GetNextAvailableDeviceID());
 
-    m_io_if = new IOInterface("io_if", *this, m_clock, *iobus, devid, config);
+    m_io_if = new IOInterface("io_if", *this, m_clock, *iobus, devid);
 
     if (m_memory != NULL)
         m_io_if->ConnectMemory(m_memory);
 
     MMIOComponent& async_if = m_io_if->GetAsyncIOInterface();
-    async_if.Connect(m_mmio, IOMatchUnit::READWRITE, config);
+    async_if.Connect(m_mmio, IOMatchUnit::READWRITE);
     MMIOComponent& pnc_if = m_io_if->GetPNCInterface();
-    pnc_if.Connect(m_mmio, IOMatchUnit::READWRITE, config);
+    pnc_if.Connect(m_mmio, IOMatchUnit::READWRITE);
 
-    config.registerBidiRelation(*iobus, *this, "client", (uint32_t)devid);
+    RegisterModelBidiRelation(*iobus, *this, "client", (uint32_t)devid);
 }
 
 void DRISC::Initialize()

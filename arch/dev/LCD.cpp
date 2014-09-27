@@ -15,17 +15,17 @@ namespace Simulator
 
 // size_t LCD::GetSize() const { return m_width * m_height + 1; }
 
-LCD::LCD(const std::string& name, Object& parent, IIOBus& iobus, IODeviceID devid, Config& config)
+LCD::LCD(const std::string& name, Object& parent, IIOBus& iobus, IODeviceID devid)
     : Object(name, parent),
       m_iobus(iobus),
       m_devid(devid),
       m_buffer(0),
-      m_width(config.getValue<size_t>(*this, "LCDDisplayWidth")),
-      m_height(config.getValue<size_t>(*this, "LCDDisplayHeight")),
-      m_startrow(config.getValue<size_t>(*this, "LCDOutputRow")),
-      m_startcolumn(config.getValue<size_t>(*this, "LCDOutputColumn")),
-      m_bgcolor(config.getValue<size_t>(*this, "LCDBackgroundColor") % 10),
-      m_fgcolor(config.getValue<size_t>(*this, "LCDForegroundColor") % 10),
+      m_width(GetConf("LCDDisplayWidth", size_t)),
+      m_height(GetConf("LCDDisplayHeight", size_t)),
+      m_startrow(GetConf("LCDOutputRow", size_t)),
+      m_startcolumn(GetConf("LCDOutputColumn", size_t)),
+      m_bgcolor(GetConf("LCDBackgroundColor", size_t) % 10),
+      m_fgcolor(GetConf("LCDForegroundColor", size_t) % 10),
       m_curx(0),
       m_cury(0),
       m_tracefile(NULL)
@@ -37,7 +37,7 @@ LCD::LCD(const std::string& name, Object& parent, IIOBus& iobus, IODeviceID devi
     m_buffer = new char[m_width * m_height];
     memset(m_buffer, ' ', m_width * m_height);
 
-    std::string tfname = config.getValueOrDefault<std::string>(*this, "LCDTraceFile", "");
+    std::string tfname = GetConfOpt("LCDTraceFile", std::string, "");
     if (!tfname.empty())
     {
         m_tracefile = new std::ofstream;

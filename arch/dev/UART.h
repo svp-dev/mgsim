@@ -72,7 +72,7 @@ namespace Simulator
         Result DoNothing() { COMMIT{ p_dummy.Deactivate(); }; return SUCCESS; }
 
     public:
-        UART(const std::string& name, Object& parent, IIOBus& iobus, IODeviceID devid, Config& config);
+        UART(const std::string& name, Object& parent, IIOBus& iobus, IODeviceID devid);
 
 
         // from IIOBusClient

@@ -165,7 +165,7 @@ MCID ParallelMemory::RegisterClient(IMemoryCallback& callback, Process& process,
     }
 #endif
 
-    m_registry.registerRelation(callback.GetMemoryPeer(), *this, "mem");
+    RegisterModelRelation(callback.GetMemoryPeer(), *this, "mem");
 
     MCID id = m_ports.size();
 
@@ -235,21 +235,20 @@ bool ParallelMemory::Write(MCID id, MemAddr address, const MemData& data, WClien
     return true;
 }
 
-ParallelMemory::ParallelMemory(const std::string& name, Object& parent, Clock& clock, Config& config) :
+ParallelMemory::ParallelMemory(const std::string& name, Object& parent, Clock& clock) :
     Object(name, parent),
     m_clock          (clock),
-    m_registry       (config),
     m_ports          (),
-    m_buffersize     (config.getValue<BufferSize>(*this, "BufferSize")),
-    m_baseRequestTime(config.getValue<CycleNo>(*this, "BaseRequestTime")),
-    m_timePerLine    (config.getValue<CycleNo>(*this, "TimePerLine")),
-    m_lineSize       (config.getValue<size_t> ("CacheLineSize")),
+    m_buffersize     (GetConf("BufferSize", BufferSize)),
+    m_baseRequestTime(GetConf("BaseRequestTime", CycleNo)),
+    m_timePerLine    (GetConf("TimePerLine", CycleNo)),
+    m_lineSize       (GetTopConf("CacheLineSize", size_t)),
     m_nreads         (0),
     m_nread_bytes    (0),
     m_nwrites        (0),
     m_nwrite_bytes   (0)
 {
-    config.registerObject(*this, "pmem");
+    RegisterModelObject(*this, "pmem");
 
     RegisterSampleVariableInObject(m_nreads, SVC_CUMULATIVE);
     RegisterSampleVariableInObject(m_nread_bytes, SVC_CUMULATIVE);

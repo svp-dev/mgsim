@@ -36,7 +36,7 @@ public:
      * @param[in] clock reference to the clock used to control updates.
      * @param[in] config reference to the configuration data.
      */
-    RegisterFile(const std::string& name, DRISC& parent, Clock& clock, Config& config);
+    RegisterFile(const std::string& name, DRISC& parent, Clock& clock);
     ~RegisterFile();
 
     /**

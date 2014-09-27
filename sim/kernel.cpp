@@ -363,6 +363,7 @@ namespace Simulator
           m_debugMode(0),
           m_aborted(false),
           m_suspended(false),
+          m_config(NULL),
           m_proc_registry()
     {
         RegisterSampleVariable(m_cycle, "kernel.cycle", SVC_CUMULATIVE);

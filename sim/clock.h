@@ -37,11 +37,16 @@ namespace Simulator
     {
         friend class Kernel;
 
+    public:
+        typedef unsigned long Frequency;
+        typedef unsigned long Period;
+    private:
+
 #ifndef STATIC_KERNEL
         Kernel&       m_kernel;      ///< The kernel that controls this clock and all components based off it
 #endif
-        unsigned long m_frequency;   ///< Frequency of this clock, in MHz
-        unsigned long m_period;      ///< No. master-cycles per tick of this clock.
+        Frequency     m_frequency;   ///< Frequency of this clock, in MHz
+        Period        m_period;      ///< No. master-cycles per tick of this clock.
         Clock*        m_next;        ///< Next clock to run
         CycleNo       m_cycle;       ///< Next cycle this clock needs to run
 
@@ -61,7 +66,7 @@ namespace Simulator
         // some unit is assumed for concrete architecture models, eg. MHz.
         // The 3rd argument (period) is the number of master ticks per
         // tick of this clock.
-        Clock(Kernel&, unsigned long frequency, unsigned long period);
+        Clock(Kernel&, Frequency frequency, Period period);
 
     public:
 #ifdef STATIC_KERNEL
@@ -84,7 +89,7 @@ namespace Simulator
         CycleNo GetCycleNo() const;
 
         /// Returns the frequency of this clock
-        unsigned long long GetFrequency() const { return m_frequency; }
+        Frequency GetFrequency() const { return m_frequency; }
 
         /**
          * @brief Register an update request for the specified storage at the end of the cycle.

@@ -81,7 +81,8 @@ private:
 public:
     const Line* FindLine(MemAddr address) const;
 
-    Directory(const std::string& name, ZLCDMA& parent, Clock& clock, CacheID firstCache, Config& config);
+    Directory(const std::string& name, ZLCDMA& parent, Clock& clock,
+              CacheID firstCache, size_t l2Assoc, size_t numCachesPerDir);
 
     void Cmd_Info(std::ostream& out, const std::vector<std::string>& arguments) const;
     void Cmd_Read(std::ostream& out, const std::vector<std::string>& arguments) const;

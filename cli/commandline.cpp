@@ -20,7 +20,7 @@ static vector<string> prevCommands;
 bool HandleCommandLine(cli_context& ctx)
 {
     stringstream prompt;
-    prompt << dec << setw(8) << setfill('0') << right << ctx.sys.GetKernel().GetCycleNo() << "> ";
+    prompt << dec << setw(8) << setfill('0') << right << ctx.sys.GetKernel()->GetCycleNo() << "> ";
 
     // Read the command line and split into commands
     char* line = ctx.clr.GetCommandLine(prompt.str());

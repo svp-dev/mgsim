@@ -10,7 +10,7 @@ class ExampleMemClient : public Simulator::Object, public Simulator::IMemoryCall
 
 public:
     // Constructor
-    ExampleMemClient(const std::string& name, Simulator::Object& parent, Simulator::Clock& clock, Config& config);
+    ExampleMemClient(const std::string& name, Simulator::Object& parent, Simulator::Clock& clock);
 
     // Connect memory
     void ConnectMemory(Simulator::IMemory* memory);

@@ -71,7 +71,7 @@ private:
     friend class CDMA;
 
 public:
-    RootDirectory(const std::string& name, CDMA& parent, Clock& clock, size_t id, const DDRChannelRegistry& ddr, Config& config);
+    RootDirectory(const std::string& name, CDMA& parent, Clock& clock, size_t id, const DDRChannelRegistry& ddr);
     RootDirectory(const RootDirectory&) = delete;
     RootDirectory& operator=(const RootDirectory&) = delete;
 

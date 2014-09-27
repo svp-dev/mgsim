@@ -13,7 +13,7 @@ namespace Simulator
 
 namespace drisc {
 
-RAUnit::RAUnit(const string& name, Object& parent, const array<RegSize, NUM_REG_TYPES>& sizes, Config& config)
+RAUnit::RAUnit(const string& name, Object& parent, const array<RegSize, NUM_REG_TYPES>& sizes)
     : Object(name, parent)
 {
     struct RegTypeInfo {
@@ -30,7 +30,7 @@ RAUnit::RAUnit(const string& name, Object& parent, const array<RegSize, NUM_REG_
         TypeInfo&          type = m_types[i];
         const RegTypeInfo& info = RegTypeInfos[i];
 
-        type.blockSize = config.getValue<size_t>(*this, info.blocksize_name);
+        type.blockSize = GetConf(info.blocksize_name, size_t);
         if (type.blockSize == 0 || !IsPowerOfTwo(type.blockSize))
         {
             throw exceptf<InvalidArgumentException>(*this, "%s is not a power of two", info.blocksize_name);

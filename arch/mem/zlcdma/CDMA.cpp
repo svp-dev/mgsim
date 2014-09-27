@@ -31,16 +31,19 @@ MCID ZLCDMA::RegisterClient(IMemoryCallback& callback, Process& process, Storage
     if (cache_id == m_caches.size())
     {
         // Add a cache
+
+        auto l2Assoc = GetConf("L2CacheAssociativity", size_t);
+        auto enableInjection = GetConf("EnableCacheInjection", bool);
+
         if (m_caches.size() % m_numCachesPerDir == 0)
         {
             // First cache in a ring; add a directory
             CacheID firstCache = m_caches.size();
-
-            Directory* dir = new Directory("dir" + std::to_string(m_directories.size()), *this, GetClock(), firstCache, m_config);
+            Directory* dir = new Directory("dir" + std::to_string(m_directories.size()), *this, GetClock(), firstCache, l2Assoc, m_numCachesPerDir);
             m_directories.push_back(dir);
         }
 
-        Cache* cache = new Cache("cache" + std::to_string(m_caches.size()), *this, GetClock(), m_caches.size(), m_config);
+        Cache* cache = new Cache("cache" + std::to_string(m_caches.size()), *this, GetClock(), m_caches.size(), l2Assoc, enableInjection);
         m_caches.push_back(cache);
     }
 
@@ -53,7 +56,7 @@ MCID ZLCDMA::RegisterClient(IMemoryCallback& callback, Process& process, Storage
     m_clientMap[id] = make_pair(cache, id_in_cache);
 
     if (!grouped)
-        m_registry.registerBidiRelation(callback.GetMemoryPeer(), *cache, "mem");
+        RegisterModelBidiRelation(callback.GetMemoryPeer(), *cache, "mem");
 
     return id;
 }
@@ -89,23 +92,21 @@ bool ZLCDMA::Write(MCID id, MemAddr address, const MemData& data, WClientID wid)
 
 // Note that the CDMA class is just a container for caches and directories.
 // It has no processes of its own.
-ZLCDMA::ZLCDMA(const std::string& name, Simulator::Object& parent, Clock& clock, Config& config)
+ZLCDMA::ZLCDMA(const std::string& name, Simulator::Object& parent, Clock& clock)
   : Simulator::Object(name, parent),
     m_clock(clock),
-    m_registry(config),
-    m_numClientsPerCache(config.getValue<size_t>(*this, "NumClientsPerL2Cache")),
-    m_numCachesPerDir   (config.getValue<size_t>(*this, "NumL2CachesPerRing")),
+    m_numClientsPerCache(GetConf("NumClientsPerL2Cache", size_t)),
+    m_numCachesPerDir   (GetConf("NumL2CachesPerRing", size_t)),
     m_numClients(0),
-    m_lineSize(config.getValue<size_t>("CacheLineSize")),
-    m_config(config),
+    m_lineSize(GetTopConf("CacheLineSize", size_t)),
     m_selector(IBankSelector::makeSelector(*this,
-                                           config.getValueOrDefault<string>(*this, "BankSelector", "XORFOLD"),
-                                           config.getValue<size_t>(*this, "L2CacheNumSets"))),
+                                           GetConfOpt("BankSelector", string, "XORFOLD"),
+                                           GetConf("L2CacheNumSets", size_t))),
     m_caches(),
     m_directories(),
-    m_roots(config.getValue<size_t>(*this, "NumRootDirectories"), 0),
+    m_roots(GetConf("NumRootDirectories", size_t), 0),
     m_traces(),
-    m_ddr("ddr", *this, config, config.getValue<size_t>(*this, "NumRootDirectories")),
+    m_ddr("ddr", *this, GetConf("NumRootDirectories", size_t)),
     m_clientMap(),
     m_nreads(0), m_nwrites(0), m_nread_bytes(0), m_nwrite_bytes(0)
 {
@@ -120,17 +121,18 @@ ZLCDMA::ZLCDMA(const std::string& name, Simulator::Object& parent, Clock& clock,
         throw InvalidArgumentException(*this, "NumRootDirectories is not a power of two");
     }
 
+    auto l2Assoc = GetConf("L2CacheAssociativity", size_t);
     for (size_t i = 0; i < m_roots.size(); ++i)
     {
-        m_roots[i] = new RootDirectory("rootdir" + std::to_string(i), *this, clock, i, m_roots.size(), m_ddr, config);
+        m_roots[i] = new RootDirectory("rootdir" + std::to_string(i), *this, clock, i, m_roots.size(), m_ddr, l2Assoc, m_numCachesPerDir);
     }
 
 }
 
 void ZLCDMA::Initialize()
 {
-    m_config.registerObject(*this, "coma");
-    m_config.registerProperty(*this, "selector", m_selector->GetName());
+    RegisterModelObject(*this, "coma");
+    RegisterModelProperty(*this, "selector", m_selector->GetName());
 
     // Initialize the caches
     for (size_t i = 0; i < m_caches.size(); ++i)
@@ -143,7 +145,7 @@ void ZLCDMA::Initialize()
         Node *prev = last  ? dir : static_cast<Node*>(m_caches[i+1]);
         m_caches[i]->Initialize(next, prev);
 
-        m_config.registerRelation(*m_caches[i], *next, "l2ring");
+        RegisterModelRelation(*m_caches[i], *next, "l2ring");
     }
 
     // Connect the directories to the cache rings
@@ -153,7 +155,7 @@ void ZLCDMA::Initialize()
         Node *prev = m_caches[i * m_numCachesPerDir];
         m_directories[i]->m_bottom.Initialize(next, prev);
 
-        m_config.registerRelation(m_directories[i]->m_bottom, *next, "l2ring");
+        RegisterModelRelation(m_directories[i]->m_bottom, *next, "l2ring");
     }
 
     //
@@ -189,7 +191,7 @@ void ZLCDMA::Initialize()
         Node *prev = nodes[(i + 1) % nodes.size()];
         nodes[i]->Initialize(next, prev);
 
-        m_config.registerRelation(*nodes[i], *next, "topring");
+        RegisterModelRelation(*nodes[i], *next, "topring");
     }
 }
 

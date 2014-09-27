@@ -28,7 +28,7 @@ namespace Simulator
             WRITABLE = 2,
         };
 
-        Selector(const std::string& name, Object& parent, Clock& clock, Config& config);
+        Selector(const std::string& name, Object& parent, Clock& clock);
         ~Selector();
 
         Process p_checkStreams;

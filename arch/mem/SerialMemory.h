@@ -46,7 +46,6 @@ class SerialMemory : public Object, public IMemory, public VirtualMemory
         nwrites_ext = m_nwrites;
     }
 
-    ComponentModelRegistry&       m_registry;
     std::vector<IMemoryCallback*> m_clients;
     Buffer<Request>               m_requests;
     ArbitratedService<CyclicArbitratedPort> p_requests;
@@ -67,7 +66,7 @@ class SerialMemory : public Object, public IMemory, public VirtualMemory
     Result DoRequests();
 
 public:
-    SerialMemory(const std::string& name, Object& parent, Clock& clock, Config& config);
+    SerialMemory(const std::string& name, Object& parent, Clock& clock);
 
     // Debugging
     void Cmd_Info(std::ostream& out, const std::vector<std::string>& arguments) const;

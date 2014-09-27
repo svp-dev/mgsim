@@ -68,7 +68,7 @@ class ICache : public Object, public IMemoryCallback, public Inspect::Interface<
     Object& GetDRISCParent() const { return *GetParent(); }
 
 public:
-    ICache(const std::string& name, DRISC& parent, Clock& clock, Config& config);
+    ICache(const std::string& name, DRISC& parent, Clock& clock);
     ICache(const ICache&) = delete;
     ICache& operator=(const ICache&) = delete;
     ~ICache();

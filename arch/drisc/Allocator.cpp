@@ -1967,7 +1967,7 @@ void Allocator::CalculateDistribution(Family& family, Integer nThreads, PSize nu
     }
 }
 
-Allocator::Allocator(const string& name, DRISC& parent, Clock& clock, Config& config)
+Allocator::Allocator(const string& name, DRISC& parent, Clock& clock)
  :  Object(name, parent),
     m_familyTable(parent.GetFamilyTable()),
     m_threadTable(parent.GetThreadTable()),
@@ -1977,19 +1977,19 @@ Allocator::Allocator(const string& name, DRISC& parent, Clock& clock, Config& co
     m_dcache(parent.GetDCache()),
     m_network(parent.GetNetwork()),
     m_pipeline(parent.GetPipeline()),
-    m_bundle        ("b_indirectcreate", *this, clock, config.getValueOrDefault<BufferSize>(*this,"IndirectCreateQueueSize", 8)),
-    m_alloc         ("b_alloc",          *this, clock, config.getValueOrDefault<BufferSize>(*this, "InitialThreadAllocateQueueSize", m_familyTable.GetNumFamilies())),
-    m_creates       ("b_creates",        *this, clock, config.getValueOrDefault<BufferSize>(*this, "CreateQueueSize", m_familyTable.GetNumFamilies()), 3),
-    m_cleanup       ("b_cleanup",        *this, clock, config.getValueOrDefault<BufferSize>(*this, "ThreadCleanupQueueSize", m_threadTable.GetNumThreads()), 4),
+    m_bundle        ("b_indirectcreate", *this, clock, GetConfOpt("IndirectCreateQueueSize", BufferSize, 8)),
+    m_alloc         ("b_alloc",          *this, clock, GetConfOpt("InitialThreadAllocateQueueSize", BufferSize, m_familyTable.GetNumFamilies())),
+    m_creates       ("b_creates",        *this, clock, GetConfOpt("CreateQueueSize", BufferSize, m_familyTable.GetNumFamilies()), 3),
+    m_cleanup       ("b_cleanup",        *this, clock, GetConfOpt("ThreadCleanupQueueSize", BufferSize, m_threadTable.GetNumThreads()), 4),
     m_createState   (CREATE_INITIAL),
     m_createLine    (0),
     m_readyThreadsPipe ("q_readyThreadsPipe", *this, clock, m_threadTable),
     m_readyThreadsOther ("q_readyThreadsOther", *this, clock, m_threadTable),
     m_prevReadyList (NULL),
 
-    m_allocRequestsSuspend  ("b_allocRequestsSuspend",   *this, clock, config.getValue<BufferSize>(*this, "FamilyAllocationSuspendQueueSize")),
-    m_allocRequestsNoSuspend("b_allocRequestsNoSuspend", *this, clock, config.getValue<BufferSize>(*this, "FamilyAllocationNoSuspendQueueSize")),
-    m_allocRequestsExclusive("b_allocRequestsExclusive", *this, clock, config.getValue<BufferSize>(*this, "FamilyAllocationExclusiveQueueSize")),
+    m_allocRequestsSuspend  ("b_allocRequestsSuspend",   *this, clock, GetConf("FamilyAllocationSuspendQueueSize", BufferSize)),
+    m_allocRequestsNoSuspend("b_allocRequestsNoSuspend", *this, clock, GetConf("FamilyAllocationNoSuspendQueueSize", BufferSize)),
+    m_allocRequestsExclusive("b_allocRequestsExclusive", *this, clock, GetConf("FamilyAllocationExclusiveQueueSize", BufferSize)),
 
     m_bundleState   (BUNDLE_INITIAL),
 

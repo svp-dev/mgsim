@@ -564,8 +564,7 @@ void Pipeline::ExecuteStage::ExecDebug(double value, Integer stream) const
 
 Pipeline::ExecuteStage::ExecuteStage(Pipeline& parent,
                                      const ReadExecuteLatch& input,
-                                     ExecuteMemoryLatch& output,
-                                     Config& /*config*/)
+                                     ExecuteMemoryLatch& output)
   : Stage("execute", parent),
     m_input(input),
     m_output(output),

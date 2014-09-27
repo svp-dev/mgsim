@@ -39,8 +39,7 @@ class DRISC : public Object
 public:
     class Allocator;
 
-    DRISC(const std::string& name, Object& parent, Clock& clock, PID pid, const std::vector<DRISC*>& grid,
-          Config& config, BreakPointManager& bp);
+    DRISC(const std::string& name, Object& parent, Clock& clock, PID pid, const std::vector<DRISC*>& grid, BreakPointManager& bp);
     DRISC(const DRISC&) = delete;
     DRISC& operator=(const DRISC&) = delete;
     ~DRISC();
@@ -48,8 +47,8 @@ public:
 public:
     void ConnectMemory(IMemory* memory, IMemoryAdmin *admin);
     void ConnectLink(DRISC* prev, DRISC* next);
-    void ConnectFPU(Config& config, FPU* fpu);
-    void ConnectIO(Config& config, IIOBus* iobus);
+    void ConnectFPU(FPU* fpu);
+    void ConnectIO(IIOBus* iobus);
 
     void Initialize();
 

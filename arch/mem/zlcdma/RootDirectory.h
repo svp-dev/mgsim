@@ -71,7 +71,9 @@ private:
     uint64_t          m_nwrites;
 
 public:
-    RootDirectory(const std::string& name, ZLCDMA& parent, Clock& clock, size_t id, size_t numRoots, const DDRChannelRegistry& ddr, Config& config);
+    RootDirectory(const std::string& name, ZLCDMA& parent, Clock& clock, size_t id,
+                  size_t numRoots, const DDRChannelRegistry& ddr,
+                  size_t l2Assoc, size_t numCachesPerDir);
     RootDirectory(const RootDirectory&) = delete;
     RootDirectory& operator=(const RootDirectory&) = delete;
 

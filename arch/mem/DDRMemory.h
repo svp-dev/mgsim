@@ -44,7 +44,6 @@ class DDRMemory : public Object, public IMemory, public VirtualMemory
     }
 
 protected:
-    ComponentModelRegistry&  m_registry;
     Clock&                   m_clock;
     std::vector<ClientInfo>  m_clients;
     StorageTraceSet          m_storages;
@@ -59,7 +58,7 @@ protected:
     uint64_t m_nwrite_bytes;
 
 public:
-    DDRMemory(const std::string& name, Object& parent, Clock& clock, Config& config, const std::string& defaultInterfaceSelectorType);
+    DDRMemory(const std::string& name, Object& parent, Clock& clock, const std::string& defaultInterfaceSelectorType);
     DDRMemory(const DDRMemory&) = delete;
     DDRMemory& operator=(const DDRMemory&) = delete;
     ~DDRMemory();

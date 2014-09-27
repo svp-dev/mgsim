@@ -45,14 +45,14 @@ namespace Simulator
         set_time();
     }
 
-    static void setup_clocks(Config& config)
+    static void setup_clocks(clock_delay_t d)
     {
         static bool initialized = false;
         if (!initialized)
         {
-            set_time(); // need to have a non-zero value before the RTC starts
+            g_clockResolution = d;
 
-            g_clockResolution = config.getValue<clock_delay_t>("RTCMeatSpaceUpdateInterval");
+            set_time(); // need to have a non-zero value before the RTC starts
 
             if (SIG_ERR == signal(SIGALRM, alarm_handler))
             {
@@ -95,7 +95,7 @@ namespace Simulator
         p_notifyTime.SetStorageTraces(m_iobus.GetInterruptRequestTraces());
     }
 
-    RTC::RTC(const string& name, Object& parent, Clock& rtcclock, IIOBus& iobus, IODeviceID devid, Config& config)
+    RTC::RTC(const string& name, Object& parent, Clock& rtcclock, IIOBus& iobus, IODeviceID devid)
         : Object(name, parent),
           m_timerTicked(false),
           m_timeOfLastInterrupt(0),
@@ -106,7 +106,7 @@ namespace Simulator
           InitProcess(p_checkTime, DoCheckTime)
     {
 
-        setup_clocks(config);
+        setup_clocks(GetTopConf("RTCMeatSpaceUpdateInterval", clock_delay_t));
         m_timeOfLastInterrupt = g_currentTime;
         ++g_clockListeners;
         m_enableCheck.Sensitive(p_checkTime);

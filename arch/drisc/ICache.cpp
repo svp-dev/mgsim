@@ -15,17 +15,17 @@ namespace Simulator
 namespace drisc
 {
 
-ICache::ICache(const std::string& name, DRISC& parent, Clock& clock, Config& config)
+ICache::ICache(const std::string& name, DRISC& parent, Clock& clock)
 :   Object(name, parent),
     m_memory(NULL),
-    m_selector(IBankSelector::makeSelector(*this, config.getValue<string>(*this, "BankSelector"), config.getValue<size_t>(*this, "NumSets"))),
+    m_selector(IBankSelector::makeSelector(*this, GetConf("BankSelector", string), GetConf("NumSets", size_t))),
     m_mcid(0),
     m_lines(),
     m_data(),
-    m_outgoing("b_outgoing", *this, clock, config.getValue<BufferSize>(*this, "OutgoingBufferSize")),
-    m_incoming("b_incoming", *this, clock, config.getValue<BufferSize>(*this, "IncomingBufferSize")),
-    m_lineSize(config.getValue<size_t>("CacheLineSize")),
-    m_assoc   (config.getValue<size_t>(*this, "Associativity")),
+    m_outgoing("b_outgoing", *this, clock, GetConf("OutgoingBufferSize", BufferSize)),
+    m_incoming("b_incoming", *this, clock, GetConf("IncomingBufferSize", BufferSize)),
+    m_lineSize(GetTopConf("CacheLineSize", size_t)),
+    m_assoc   (GetConf("Associativity", size_t)),
 
     m_numHits        (0),
     m_numDelayedReads(0),
@@ -48,7 +48,7 @@ ICache::ICache(const std::string& name, DRISC& parent, Clock& clock, Config& con
     RegisterSampleVariableInObject(m_numResolvedConflicts, SVC_CUMULATIVE);
     RegisterSampleVariableInObject(m_numStallingMisses, SVC_CUMULATIVE);
 
-    config.registerObject(parent, "cpu");
+    RegisterModelObject(parent, "cpu");
 
     m_outgoing.Sensitive( p_Outgoing );
     m_incoming.Sensitive( p_Incoming );

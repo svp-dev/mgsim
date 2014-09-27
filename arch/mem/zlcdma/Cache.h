@@ -116,7 +116,8 @@ private:
     Result DoReceive();
 
 public:
-    Cache(const std::string& name, ZLCDMA& parent, Clock& clock, CacheID id, Config& config);
+    Cache(const std::string& name, ZLCDMA& parent, Clock& clock, CacheID id,
+          size_t assoc, bool enableInjection);
 
     void Cmd_Info(std::ostream& out, const std::vector<std::string>& arguments) const;
     void Cmd_Read(std::ostream& out, const std::vector<std::string>& arguments) const;

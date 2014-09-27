@@ -9,9 +9,9 @@ using namespace std;
 
 namespace Simulator
 {
-    void ActiveROM::LoadConfig(Config& config)
+    void ActiveROM::LoadConfig()
     {
-        vector<uint32_t> db = config.GetConfWords();
+        vector<uint32_t> db = GetKernel()->GetConfig()->GetConfWords();
         size_t romsize = db.size() * sizeof(uint32_t) + m_lineSize;
 
         m_numLines = romsize / m_lineSize;
@@ -29,10 +29,10 @@ namespace Simulator
         }
     }
 
-    void ActiveROM::LoadArgumentVector(Config& config)
+    void ActiveROM::LoadArgumentVector()
     {
         vector<char> argdata;
-        const vector<string>& argv = config.GetArgumentVector();
+        const vector<string>& argv = GetKernel()->GetConfig()->GetArgumentVector();
         for (auto& arg : argv)
         {
             argdata.insert(argdata.end(), arg.begin(), arg.end());
@@ -132,12 +132,11 @@ namespace Simulator
         }
     }
 
-    ActiveROM::ActiveROM(const string& name, Object& parent, IMemoryAdmin& mem, IIOBus& iobus, IODeviceID devid, Config& config, bool quiet)
+    ActiveROM::ActiveROM(const string& name, Object& parent, IMemoryAdmin& mem, IIOBus& iobus, IODeviceID devid, bool quiet)
         : Object(name, parent),
           m_memory(mem),
-          m_config(config),
           m_data(NULL),
-          m_lineSize(config.getValueOrDefault<size_t>(*this, "ROMLineSize", config.getValue<size_t>("CacheLineSize"))),
+          m_lineSize(GetConfOpt("ROMLineSize", size_t, GetTopConf("CacheLineSize", size_t))),
           m_numLines(0),
           m_loadable(),
           m_filename(),
@@ -146,11 +145,11 @@ namespace Simulator
           m_start_address(0),
           m_legacy(false),
           m_booting(false),
-          m_preloaded_at_boot(config.getValue<bool>(*this, "PreloadROMToRAM")),
+          m_preloaded_at_boot(GetConf("PreloadROMToRAM", bool)),
           m_devid(devid),
           m_iobus(iobus),
-          m_client(config.getValue<IODeviceID>(*this, "DCATargetID")),
-          m_completionTarget(config.getValue<IONotificationChannelID>(*this, "DCANotificationChannel")),
+          m_client(GetConf("DCATargetID", IODeviceID)),
+          m_completionTarget(GetConf("DCANotificationChannel", IONotificationChannelID)),
           m_loading("f_loading", *this, iobus.GetClock(), false),
           m_flushing("f_flushing", *this, iobus.GetClock(), false),
           m_notifying("f_notifying", *this, iobus.GetClock(), false),
@@ -173,28 +172,28 @@ namespace Simulator
 
     void ActiveROM::Initialize()
     {
-        string source = m_config.getValue<string>(*this, "ROMContentSource");
+        string source = GetConf("ROMContentSource", string);
 
         if (source == "RAW" || source == "ELF")
         {
-            auto &v = m_config.GetArgumentVector();
+            auto &v = GetKernel()->GetConfig()->GetArgumentVector();
             if (!v.empty())
             {
-                m_filename = m_config.getValueOrDefault<string>(*this, "ROMFileName", v[0]);
+                m_filename = GetConfOpt("ROMFileName", string, v[0]);
             }
             else
             {
-                m_filename = m_config.getValue<string>(*this, "ROMFileName");
+                m_filename = GetConf("ROMFileName", string);
             }
             LoadFile(m_filename);
         }
         else if (source == "CONFIG")
         {
-            LoadConfig(m_config);
+            LoadConfig();
         }
         else if (source == "ARGV")
         {
-            LoadArgumentVector(m_config);
+            LoadArgumentVector();
         }
         else
         {
@@ -210,7 +209,7 @@ namespace Simulator
         }
         else /* not ELF */
         {
-            MemAddr addr = m_config.getValueOrDefault<MemAddr>(*this, "ROMBaseAddr", 0);
+            MemAddr addr = GetConfOpt("ROMBaseAddr", MemAddr, 0);
             if (addr != 0)
             {
                 LoadableRange r;

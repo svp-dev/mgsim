@@ -153,14 +153,14 @@ bool CDMA::Node::SendMessage(Message* message, size_t min_space)
     return true;
 }
 
-CDMA::Node::Node(const std::string& name, CDMA& parent, Clock& clock, NodeID id, Config& config)
+CDMA::Node::Node(const std::string& name, CDMA& parent, Clock& clock, NodeID id)
     : Simulator::Object(name, parent),
       CDMA::Object(name, parent),
       m_id(id),
       m_prev(NULL),
       m_next(NULL),
-      m_incoming("b_incoming", *this, clock, config.getValue<BufferSize>(*this, "NodeBufferSize")),
-      m_outgoing("b_outgoing", *this, clock, config.getValue<BufferSize>(*this, "NodeBufferSize")),
+      m_incoming("b_incoming", *this, clock, GetConf("NodeBufferSize", BufferSize)),
+      m_outgoing("b_outgoing", *this, clock, GetConf("NodeBufferSize", BufferSize)),
       InitProcess(p_Forward, DoForward)
 {
     g_References++;

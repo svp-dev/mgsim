@@ -13,16 +13,16 @@ namespace Simulator
 namespace drisc
 {
 
-    IOInterface::IOInterface(const string& name, DRISC& parent, Clock& clock, IIOBus& iobus, IODeviceID devid, Config& config)
+    IOInterface::IOInterface(const string& name, DRISC& parent, Clock& clock, IIOBus& iobus, IODeviceID devid)
         : Object(name, parent),
-          m_numDevices(config.getValue<size_t>(*this, "NumDeviceSlots")),
-          m_numChannels(config.getValue<size_t>(*this, "NumNotificationChannels")),
-          m_async_io("aio",    *this, config),
-          m_pnc     ("pnc",    *this, config),
-          m_rrmux   ("rrmux",  *this, clock, m_numDevices, config),
-          m_nmux    ("nmux",   *this, clock, m_numChannels, config),
-          m_iobus_if("bus_if", *this, iobus.GetClock(), iobus, devid, config),
-          m_dca     ("dca",    *this, clock, config)
+          m_numDevices(GetConf("NumDeviceSlots", size_t)),
+          m_numChannels(GetConf("NumNotificationChannels", size_t)),
+          m_async_io("aio",    *this),
+          m_pnc     ("pnc",    *this),
+          m_rrmux   ("rrmux",  *this, clock, m_numDevices),
+          m_nmux    ("nmux",   *this, clock, m_numChannels),
+          m_iobus_if("bus_if", *this, iobus.GetClock(), iobus, devid),
+          m_dca     ("dca",    *this, clock)
     {
         if (m_numDevices == 0)
         {
@@ -115,10 +115,10 @@ namespace drisc
             << "Use 'info' on the individual components for more details." << endl;
     }
 
-    IOInterface::AsyncIOInterface::AsyncIOInterface(const string& name, IOInterface& parent, Config& config)
+    IOInterface::AsyncIOInterface::AsyncIOInterface(const string& name, IOInterface& parent)
         : MMIOComponent(name, parent),
-          m_baseAddr(config.getValue<unsigned>(*this, "MMIO_BaseAddr")),
-          m_devAddrBits(config.getValue<unsigned>(*this, "DeviceAddressBits"))
+          m_baseAddr(GetConf("MMIO_BaseAddr", unsigned)),
+          m_devAddrBits(GetConf("DeviceAddressBits", unsigned))
     {
         if (m_devAddrBits == 0)
         {
@@ -206,9 +206,9 @@ namespace drisc
 
     }
 
-    IOInterface::PNCInterface::PNCInterface(const string& name, IOInterface& parent, Config& config)
+    IOInterface::PNCInterface::PNCInterface(const string& name, IOInterface& parent)
         : MMIOComponent(name, parent),
-          m_baseAddr(config.getValue<unsigned>(*this, "MMIO_BaseAddr"))
+          m_baseAddr(GetConf("MMIO_BaseAddr", unsigned))
     {
     }
 

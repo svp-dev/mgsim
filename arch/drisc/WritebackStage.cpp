@@ -311,8 +311,7 @@ Pipeline::PipeAction Pipeline::WritebackStage::OnCycle()
 }
 
 Pipeline::WritebackStage::WritebackStage(Pipeline& parent,
-                                         const MemoryWritebackLatch& input,
-                                         Config& /*config*/)
+                                         const MemoryWritebackLatch& input)
   : Stage("writeback", parent),
     m_input(input),
     m_stall(false),

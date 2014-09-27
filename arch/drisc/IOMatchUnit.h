@@ -57,7 +57,7 @@ class MMIOComponent : public Object
 public:
     MMIOComponent(const std::string& name, Object& parent);
 
-    void Connect(IOMatchUnit& mmio, IOMatchUnit::AccessMode mode, Config& config);
+    void Connect(IOMatchUnit& mmio, IOMatchUnit::AccessMode mode);
 
 
     virtual size_t GetSize() const = 0;
