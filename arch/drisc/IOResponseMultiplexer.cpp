@@ -9,7 +9,7 @@ namespace drisc
 
 IOResponseMultiplexer::IOResponseMultiplexer(const std::string& name, IOInterface& parent, Clock& clock, size_t numDevices)
     : Object(name, parent),
-      m_incoming("b_incoming", *this, clock, GetConf("IncomingQueueSize", BufferSize)),
+      InitBuffer(m_incoming, clock, "IncomingQueueSize"),
       m_wb_buffers(),
       InitProcess(p_dummy, DoNothing),
       InitProcess(p_IncomingReadResponses, DoReceivedReadResponses)
@@ -25,7 +25,7 @@ IOResponseMultiplexer::IOResponseMultiplexer(const std::string& name, IOInterfac
     m_wb_buffers.resize(numDevices, 0);
     for (size_t i = 0; i < numDevices; ++i)
     {
-        m_wb_buffers[i] = new WriteBackQueue("b_writeback" + std::to_string(i), *this, clock, wbqsize);
+        m_wb_buffers[i] = MakeStorage(WriteBackQueue, "writeback" + std::to_string(i), clock, wbqsize);
         m_wb_buffers[i]->Sensitive(p_dummy);
     }
 

@@ -34,13 +34,13 @@ Network::Network(
     m_numAllocates(0),
     m_numCreates(0),
 
-#define CONSTRUCT_REGISTER(name) name(*this, GetName() + "." #name, clock)
+#define CONSTRUCT_REGISTER(name) name((((const char*)#name)+2), *this, clock)
     CONSTRUCT_REGISTER(m_delegateOut),
     CONSTRUCT_REGISTER(m_delegateIn),
     CONSTRUCT_REGISTER(m_link),
     CONSTRUCT_REGISTER(m_allocResponse),
 #undef CONTRUCT_REGISTER
-    m_syncs ("b_syncs", *this, clock, m_familyTable.GetNumFamilies(), 3 ),
+    InitStorage(m_syncs, clock, m_familyTable.GetNumFamilies(), 3),
 
     InitProcess(p_DelegationOut, DoDelegationOut),
     InitProcess(p_DelegationIn, DoDelegationIn),

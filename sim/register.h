@@ -40,6 +40,7 @@ namespace Simulator
 
         Register(const Register&) = delete;
         Register& operator=(const Register&) = delete;
+        static constexpr const char* NAME_PREFIX = "r_";
     };
 
 }

@@ -231,13 +231,14 @@ class Network : public Object, public Inspect::Interface<Inspect::Read>
             return true;
         }
 
-        Register(Object& object, const std::string& name, Clock& clock)
-            : Object(name, object),
-              Storage(name, object, clock),
-              Simulator::Register<T>(name + ".reg", object, clock),
-              p_service(clock, name + ".p_service")
+        Register(const std::string& name, Object& parent, Clock& clock)
+            : Object(name, parent),
+              Storage(name, parent, clock),
+              Simulator::Register<T>(name, parent, clock),
+              p_service(clock, this->GetName() + ".p_service")
         {
         }
+        static constexpr const char *NAME_PREFIX = "rn_";
     };
 
     /*
@@ -282,12 +283,12 @@ class Network : public Object, public Inspect::Interface<Inspect::Read>
                 p_Transfer.SetStorageTraces(dest.in);
             }
 
-            RegisterPair(Object& parent, const std::string& name, Clock& clock)
+            RegisterPair(const std::string& name, Object& parent, Clock& clock)
                 : Object(name, parent),
                   remote(NULL),
-                  p_Transfer(*this, "transfer", delegate::create<RegisterPair, &RegisterPair::DoTransfer>(*this)),
-                  out(parent, name + ".out", clock),
-                  in (parent, name + ".in", clock)
+                  InitProcessInTemplate(p_Transfer, DoTransfer),
+                  InitStorage(out, clock),
+                  InitStorage(in, clock)
             {
                 out.Sensitive(p_Transfer);
             }

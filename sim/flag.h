@@ -35,6 +35,7 @@ namespace Simulator
         Flag(const std::string& name, Object& parent, Clock& clock, bool set);
         Flag(const Flag&) = delete;
         Flag& operator=(const Flag&) = delete;
+        static constexpr const char* NAME_PREFIX = "f_";
     };
 
 }

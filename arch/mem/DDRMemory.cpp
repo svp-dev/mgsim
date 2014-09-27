@@ -238,8 +238,8 @@ public:
           p_service  (clock, GetName() + ".p_service"),
           m_ddr      (0),
           m_ddrStorageTraces(),
-          m_requests ("b_requests", *this, clock, GetConf("ExternalOutputQueueSize", size_t)),
-          m_responses("b_responses", *this, clock, GetConf("ExternalInputQueueSize", size_t)),
+          InitStorage(m_requests, clock, GetConf("ExternalOutputQueueSize", size_t)),
+          InitStorage(m_responses, clock, GetConf("ExternalInputQueueSize", size_t)),
           m_activeRequests(),
 
           InitProcess(p_Requests, DoRequests),

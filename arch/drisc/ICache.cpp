@@ -22,8 +22,8 @@ ICache::ICache(const std::string& name, DRISC& parent, Clock& clock)
     m_mcid(0),
     m_lines(),
     m_data(),
-    m_outgoing("b_outgoing", *this, clock, GetConf("OutgoingBufferSize", BufferSize)),
-    m_incoming("b_incoming", *this, clock, GetConf("IncomingBufferSize", BufferSize)),
+    InitBuffer(m_outgoing, clock, "OutgoingBufferSize"),
+    InitBuffer(m_incoming, clock, "IncomingBufferSize"),
     m_lineSize(GetTopConf("CacheLineSize", size_t)),
     m_assoc   (GetConf("Associativity", size_t)),
 

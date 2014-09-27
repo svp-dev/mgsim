@@ -16,7 +16,7 @@ namespace drisc
           m_dca(parent.GetDirectCacheAccess()),
           m_iobus(iobus),
           m_hostid(devid),
-          m_outgoing_reqs("b_outgoing_reqs", *this, clock, GetConf("OutgoingRequestQueueSize", BufferSize)),
+          InitBuffer(m_outgoing_reqs, clock, "OutgoingRequestQueueSize"),
           InitProcess(p_OutgoingRequests, DoOutgoingRequests)
     {
         if (m_outgoing_reqs.GetMaxSize() < 3)

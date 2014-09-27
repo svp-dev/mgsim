@@ -1977,19 +1977,19 @@ Allocator::Allocator(const string& name, DRISC& parent, Clock& clock)
     m_dcache(parent.GetDCache()),
     m_network(parent.GetNetwork()),
     m_pipeline(parent.GetPipeline()),
-    m_bundle        ("b_indirectcreate", *this, clock, GetConfOpt("IndirectCreateQueueSize", BufferSize, 8)),
-    m_alloc         ("b_alloc",          *this, clock, GetConfOpt("InitialThreadAllocateQueueSize", BufferSize, m_familyTable.GetNumFamilies())),
-    m_creates       ("b_creates",        *this, clock, GetConfOpt("CreateQueueSize", BufferSize, m_familyTable.GetNumFamilies()), 3),
-    m_cleanup       ("b_cleanup",        *this, clock, GetConfOpt("ThreadCleanupQueueSize", BufferSize, m_threadTable.GetNumThreads()), 4),
+    InitStorage(m_bundle, clock, GetConfOpt("IndirectCreateQueueSize", BufferSize, 8)),
+    InitStorage(m_alloc, clock, GetConfOpt("InitialThreadAllocateQueueSize", BufferSize, m_familyTable.GetNumFamilies())),
+    InitStorage(m_creates, clock, GetConfOpt("CreateQueueSize", BufferSize, m_familyTable.GetNumFamilies()), 3),
+    InitStorage(m_cleanup, clock, GetConfOpt("ThreadCleanupQueueSize", BufferSize, m_threadTable.GetNumThreads()), 4),
     m_createState   (CREATE_INITIAL),
     m_createLine    (0),
-    m_readyThreadsPipe ("q_readyThreadsPipe", *this, clock, m_threadTable),
-    m_readyThreadsOther ("q_readyThreadsOther", *this, clock, m_threadTable),
+    InitStorage(m_readyThreadsPipe, clock, m_threadTable),
+    InitStorage(m_readyThreadsOther, clock, m_threadTable),
     m_prevReadyList (NULL),
 
-    m_allocRequestsSuspend  ("b_allocRequestsSuspend",   *this, clock, GetConf("FamilyAllocationSuspendQueueSize", BufferSize)),
-    m_allocRequestsNoSuspend("b_allocRequestsNoSuspend", *this, clock, GetConf("FamilyAllocationNoSuspendQueueSize", BufferSize)),
-    m_allocRequestsExclusive("b_allocRequestsExclusive", *this, clock, GetConf("FamilyAllocationExclusiveQueueSize", BufferSize)),
+    InitBuffer(m_allocRequestsSuspend, clock, "FamilyAllocationSuspendQueueSize"),
+    InitBuffer(m_allocRequestsNoSuspend, clock, "FamilyAllocationNoSuspendQueueSize"),
+    InitBuffer(m_allocRequestsExclusive, clock, "FamilyAllocationExclusiveQueueSize"),
 
     m_bundleState   (BUNDLE_INITIAL),
 
@@ -2010,7 +2010,7 @@ Allocator::Allocator(const string& name, DRISC& parent, Clock& clock)
     p_alloc         (clock, GetName() + ".p_alloc"),
     p_readyThreads  (clock, GetName() + ".p_readyThreads"),
     p_activeThreads (clock, GetName() + ".p_activeThreads"),
-    m_activeThreads ("q_threadList", *this, clock, m_threadTable)
+    InitStorage(m_activeThreads, clock, m_threadTable)
 {
     m_alloc         .Sensitive(p_ThreadAllocate);
     m_creates       .Sensitive(p_FamilyCreate);

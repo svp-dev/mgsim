@@ -27,15 +27,15 @@ IONotificationMultiplexer::IONotificationMultiplexer(const string& name, IOInter
     for (size_t i = 0; i < numChannels; ++i)
     {
         {
-            m_writebacks[i] = new Register<RegAddr>("wb" + to_string(i), *this, clock);
+            m_writebacks[i] = MakeStorage(Register<RegAddr>, "wb" + to_string(i), clock);
             m_writebacks[i]->Sensitive(p_IncomingNotifications);
         }
         {
-            m_interrupts[i] = new Flag("latch" + to_string(i), *this, clock, false);
+            m_interrupts[i] = MakeStorage(Flag, "latch" + to_string(i), clock, false);
             m_interrupts[i]->Sensitive(p_IncomingNotifications);
         }
         {
-            m_notifications[i] = new Buffer<Integer>("b_notification" + to_string(i), *this, clock, nqs);
+            m_notifications[i] = MakeStorage(Buffer<Integer>, "notification" + to_string(i), clock, nqs);
             m_notifications[i]->Sensitive(p_IncomingNotifications);
         }
         {

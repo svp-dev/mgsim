@@ -68,6 +68,8 @@ namespace Simulator
 
         const_iterator begin() const { return const_iterator(m_table, m_tail, m_head);  }
         const_iterator end()   const { return const_iterator(m_table, m_tail); }
+
+        static constexpr const char* NAME_PREFIX = "l_";
     };
 
 }

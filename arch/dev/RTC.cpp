@@ -82,7 +82,7 @@ namespace Simulator
         : Object(name, parent),
           m_devid(devid),
           m_iobus(iobus),
-          m_doNotify("f_interruptTriggered", *this, iobus.GetClock(), false),
+          InitStorage(m_doNotify, iobus.GetClock(), false),
           m_interruptNumber(0),
           InitProcess(p_notifyTime, DoNotifyTime)
     {
@@ -101,7 +101,7 @@ namespace Simulator
           m_timeOfLastInterrupt(0),
           m_triggerDelay(0),
           m_deliverAllEvents(true),
-          m_enableCheck("f_checkTime", *this, rtcclock, false),
+          InitStorage(m_enableCheck, rtcclock, false),
           m_businterface("if", *this, iobus, devid),
           InitProcess(p_checkTime, DoCheckTime)
     {

@@ -140,7 +140,7 @@ public:
           m_memory(memory),
           m_callback(callback),
           p_requests(clock, GetName() + ".p_requests"),
-          m_requests("b_requests", *this, clock, buffersize), m_nextdone(0),
+          InitStorage(m_requests, clock, buffersize), m_nextdone(0),
           InitProcess(p_Requests, DoRequests),
           m_lineSize(lineSize)
     {

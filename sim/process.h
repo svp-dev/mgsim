@@ -98,6 +98,11 @@ namespace Simulator
            delegate::create<std::remove_reference<decltype(*this)>::type, \
            &std::remove_reference<decltype(*this)>::type::DelegateFunc>(*this))
 
+#define InitProcessInTemplate(Member, DelegateFunc)                     \
+    Member(*this, #Member,                                              \
+           delegate::create<typename std::remove_reference<decltype(*this)>::type, \
+           &std::remove_reference<decltype(*this)>::type::DelegateFunc>(*this))
+
 }
 
 

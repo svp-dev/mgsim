@@ -159,8 +159,8 @@ CDMA::Node::Node(const std::string& name, CDMA& parent, Clock& clock, NodeID id)
       m_id(id),
       m_prev(NULL),
       m_next(NULL),
-      m_incoming("b_incoming", *this, clock, GetConf("NodeBufferSize", BufferSize)),
-      m_outgoing("b_outgoing", *this, clock, GetConf("NodeBufferSize", BufferSize)),
+      InitBuffer(m_incoming, clock, "NodeBufferSize"),
+      InitBuffer(m_outgoing, clock, "NodeBufferSize"),
       InitProcess(p_Forward, DoForward)
 {
     g_References++;

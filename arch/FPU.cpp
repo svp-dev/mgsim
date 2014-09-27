@@ -284,7 +284,7 @@ Result FPU::DoPipeline()
 
 FPU::Source::Source(const std::string& name, Object& parent, Clock& clock)
     : Object(name, parent),
-      inputs("b_source", *this, clock, GetConf("InputQueueSize", BufferSize)),
+      InitBuffer(inputs, clock, "InputQueueSize"),
       outputs(),
       client(NULL),
       last_write(0),
@@ -294,7 +294,7 @@ FPU::Source::Source(const std::string& name, Object& parent, Clock& clock)
 
 FPU::FPU(const std::string& name, Object& parent, Clock& clock, size_t num_inputs)
     : Object(name, parent),
-      m_active("r_active", *this, clock),
+      InitStorage(m_active, clock),
       m_sources(),
       m_units(),
       m_last_source(0),

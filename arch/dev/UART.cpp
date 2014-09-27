@@ -49,16 +49,16 @@ namespace Simulator
           m_hwbuf_out_full(false),
           m_hwbuf_out(0),
 
-          m_receiveEnable("f_receiveEnable", *this, iobus.GetClock(), false),
-          m_fifo_in("b_fifo_in", *this, iobus.GetClock(), GetConf("UARTInputFIFOSize", BufferSize)),
+          InitStorage(m_receiveEnable, iobus.GetClock(), false),
+          InitBuffer(m_fifo_in, iobus.GetClock(), "UARTInputFIFOSize"),
           InitProcess(p_Receive, DoReceive),
 
-          m_fifo_out("b_fifo_out", *this, iobus.GetClock(), GetConf("UARTOutputFIFOSize", BufferSize)),
+          InitBuffer(m_fifo_out, iobus.GetClock(), "UARTOutputFIFOSize"),
           InitProcess(p_Transmit, DoTransmit),
 
           m_write_buffer(0),
 
-          m_sendEnable("f_sendEnable", *this, iobus.GetClock(), false),
+          InitStorage(m_sendEnable, iobus.GetClock(), false),
           InitProcess(p_Send, DoSend),
 
           m_eof(false),
@@ -67,14 +67,14 @@ namespace Simulator
 
           m_readInterruptEnable(false),
 
-          m_readInterrupt("f_readInterrupt", *this, iobus.GetClock(), false),
+          InitStorage(m_readInterrupt, iobus.GetClock(), false),
           InitProcess(p_ReadInterrupt, DoSendReadInterrupt),
           m_readInterruptChannel(0),
 
           m_writeInterruptEnable(false),
           m_writeInterruptThreshold(1),
 
-          m_writeInterrupt("f_writeInterrupt", *this, iobus.GetClock(), false),
+          InitStorage(m_writeInterrupt, iobus.GetClock(), false),
           InitProcess(p_WriteInterrupt, DoSendWriteInterrupt),
           m_writeInterruptChannel(0),
 

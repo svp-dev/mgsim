@@ -30,7 +30,7 @@ Pipeline::Pipeline(const std::string&  name,
     m_mwBypass(),
     m_stages(),
 
-    m_active("f_active", *this, clock),
+    InitStorage(m_active, clock),
 
     m_running(false),
     m_nStagesRunnable(0),

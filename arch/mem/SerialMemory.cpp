@@ -154,7 +154,7 @@ Result SerialMemory::DoRequests()
 SerialMemory::SerialMemory(const std::string& name, Object& parent, Clock& clock) :
     Object(name, parent),
     m_clients        (),
-    m_requests       ("b_requests", *this, clock, GetConf("BufferSize", BufferSize)),
+    InitBuffer(m_requests, clock, "BufferSize"),
     p_requests       (clock, GetName() + ".m_requests"),
     m_baseRequestTime(GetConf("BaseRequestTime", CycleNo)),
     m_timePerLine    (GetConf("TimePerLine", CycleNo)),

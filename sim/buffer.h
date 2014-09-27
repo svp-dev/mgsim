@@ -63,8 +63,7 @@ namespace Simulator
 
         Buffer(const Buffer&) = delete;
         Buffer& operator=(const Buffer&) = delete;
-
-
+        static constexpr const char* NAME_PREFIX = "b_";
 
         // We define an iterator for debugging the contents only
         typedef typename std::deque<T>::const_iterator         const_iterator;
@@ -76,6 +75,10 @@ namespace Simulator
         BufferSize size()  const { return m_data.size(); }
 
     };
+
+#define InitBuffer(Member, Clock, Key, ...) \
+    Member(MakeStorageName(decltype(Member)::NAME_PREFIX, #Member), *this, Clock, GetConf(Key, BufferSize), ##__VA_ARGS__)
+
 }
 
 #include "sim/buffer.hpp"

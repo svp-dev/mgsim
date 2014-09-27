@@ -1175,8 +1175,8 @@ ZLCDMA::Cache::Cache(const std::string& name, ZLCDMA& parent, Clock& clock, Cach
     InitProcess(p_Requests, DoRequests),
     InitProcess(p_In, DoReceive),
     p_bus      (clock, GetName() + ".p_bus"),
-    m_requests ("b_requests", *this, clock, GetConf("RequestBufferSize", BufferSize)),
-    m_responses("b_responses", *this, clock, GetConf("ResponseBufferSize", BufferSize))
+    InitBuffer(m_requests, clock, "RequestBufferSize"),
+    InitBuffer(m_responses, clock, "ResponseBufferSize")
 {
     RegisterSampleVariableInObject(m_numHits, SVC_CUMULATIVE);
     RegisterSampleVariableInObject(m_numMisses, SVC_CUMULATIVE);

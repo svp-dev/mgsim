@@ -71,6 +71,16 @@ namespace Simulator
         SensitiveStorage(const SensitiveStorage&) = delete; // No copy
         SensitiveStorage& operator=(const SensitiveStorage&) = delete; // No assign
     };
+
+    std::string
+    MakeStorageName(const char *prefix, const std::string& name);
+
+#define InitStorage(Member, Clock, ...) \
+    Member(MakeStorageName(decltype(Member)::NAME_PREFIX, #Member), *this, Clock, ##__VA_ARGS__)
+
+#define MakeStorage(Type, Name, Clock, ...) \
+    new Type(MakeStorageName(Type::NAME_PREFIX, Name), *this, Clock, ##__VA_ARGS__)
+
 }
 
 #include "sim/storage.hpp"

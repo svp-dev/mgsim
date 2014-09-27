@@ -111,11 +111,11 @@ namespace Simulator
           m_writebackState(RESULTWB_WRITING1),
           m_currentResponseOffset(0),
 
-          m_queueEnabled ("f_queue",         *this, iobus.GetClock(), false),
-          m_incoming     ("b_incoming",      *this, iobus.GetClock(), GetConf("RPCIncomingQueueSize", BufferSize)),
-          m_ready        ("b_ready",         *this, iobus.GetClock(), GetConf("RPCReadyQueueSize", BufferSize)),
-          m_completed    ("b_completed",     *this, iobus.GetClock(), GetConf("RPCCompletedQueueSize", BufferSize)),
-          m_notifications("b_notifications", *this, iobus.GetClock(), GetConf("RPCNotificationQueueSize", BufferSize)),
+          InitStorage(m_queueEnabled, iobus.GetClock(), false),
+          InitBuffer(m_incoming, iobus.GetClock(), "RPCIncomingQueueSize"),
+          InitBuffer(m_ready, iobus.GetClock(), "RPCReadyQueueSize"),
+          InitBuffer(m_completed, iobus.GetClock(), "RPCCompletedQueueSize"),
+          InitBuffer(m_notifications, iobus.GetClock(), "RPCNotificationQueueSize"),
 
           m_provider(provider),
 
