@@ -13,7 +13,7 @@ namespace Simulator
           m_selected(NULL),
           m_busyCycles(0)
     {
-        RegisterSampleVariable(m_busyCycles, m_name + ".busyCycles", SVC_CUMULATIVE);
+        RegisterSampleVariableInObject(m_busyCycles, SVC_CUMULATIVE);
     }
 
     SimpleArbitratedPort::SimpleArbitratedPort(const string& name)
