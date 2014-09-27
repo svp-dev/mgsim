@@ -2,10 +2,10 @@
 #ifndef RTC_H
 #define RTC_H
 
-#include <arch/IOBus.h>
-#include <sim/kernel.h>
-#include <sim/config.h>
-#include <sim/storage.h>
+#include "arch/IOBus.h"
+#include "sim/kernel.h"
+#include "sim/config.h"
+#include "sim/flag.h"
 
 #include <ctime>
 #include <sys/time.h>
@@ -24,14 +24,14 @@ namespace Simulator
         clock_delay_t   m_triggerDelay;
         bool            m_deliverAllEvents;
 
-        SingleFlag      m_enableCheck;
+        Flag            m_enableCheck;
 
 
         class RTCInterface : public IIOBusClient, public Object
         {
             IODeviceID      m_devid;
             IIOBus&         m_iobus;
-            SingleFlag      m_doNotify;
+            Flag            m_doNotify;
             IONotificationChannelID   m_interruptNumber;
 
             RTC&            GetRTC() { return *dynamic_cast<RTC*>(GetParent()); }

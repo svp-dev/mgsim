@@ -4,6 +4,8 @@ SIM_SOURCES = \
         sim/arbitrator.h \
 	sim/breakpoints.cpp \
 	sim/breakpoints.h \
+        sim/buffer.hpp \
+        sim/buffer.h \
         sim/clock.cpp \
         sim/clock.hpp \
         sim/clock.h \
@@ -19,12 +21,17 @@ SIM_SOURCES = \
 	sim/delegate.h \
 	sim/except.h \
 	sim/except.cpp \
+        sim/flag.h \
+        sim/flag.hpp \
+        sim/flag.cpp \
         sim/inputconfig.h \
         sim/inputconfig.cpp \
 	sim/inspect.h \
 	sim/inspect.cpp \
 	sim/kernel.h \
 	sim/kernel.cpp \
+        sim/linkedlist.h \
+        sim/linkedlist.hpp \
 	sim/log2.h \
         sim/modelregistry.h \
         sim/modelregistry.cpp \
@@ -41,11 +48,15 @@ SIM_SOURCES = \
 	sim/range.h \
         sim/readfile.h \
         sim/readfile.cpp \
+        sim/register.h \
+        sim/register.hpp \
         sim/rusage.h \
         sim/rusage.cpp \
 	sim/sampling.h \
 	sim/sampling.cpp \
 	sim/storage.h \
+        sim/storage.hpp \
+        sim/storage.cpp \
 	sim/storagetrace.h \
         sim/storagetrace.cpp \
 	sim/types.h \

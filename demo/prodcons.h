@@ -3,7 +3,8 @@
 #define PRODCONS_H
 
 #include "sim/kernel.h"
-#include "sim/storage.h"
+#include "sim/buffer.h"
+#include "sim/flag.h"
 
 class ExampleConsumer : public Simulator::Object
 {
@@ -25,7 +26,7 @@ public:
     int                     m_counter;
     Simulator::Buffer<int>& m_fifo;
     Simulator::Process      p_Produce;
-    Simulator::SingleFlag   m_enabled;
+    Simulator::Flag         m_enabled;
 };
 
 

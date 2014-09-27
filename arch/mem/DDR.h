@@ -68,9 +68,11 @@ DDR3-800 means the data rate is 800 MHz (thus, the I/O bus frequency is 400
 MHz and the memory clock 100 MHz). Together with a 64-bit wide databus and
 2 transfers/cycle, DDR3-800 can support up to 6.4 GB/s.
 */
-#include <sim/kernel.h>
-#include <sim/inspect.h>
-#include <arch/Memory.h>
+#include "sim/kernel.h"
+#include "sim/inspect.h"
+#include "sim/flag.h"
+#include "sim/buffer.h"
+#include "arch/Memory.h"
 
 #include <vector>
 
@@ -140,7 +142,7 @@ private:
     ICallback*                 m_callback;       ///< The callback to notify for completion
     Request                    m_request;        ///< The current request
     Buffer<Request>            m_pipeline;       ///< Pipelined reads
-    SingleFlag                 m_busy;           ///< Trigger for process
+    Flag                       m_busy;           ///< Trigger for process
     CycleNo                    m_next_command;   ///< Minimum time for next command
     CycleNo                    m_next_precharge; ///< Minimum time for next Row Precharge
     TraceMap                   m_traces;         ///< Active traces

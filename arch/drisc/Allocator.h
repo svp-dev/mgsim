@@ -2,11 +2,13 @@
 #ifndef ALLOCATOR_H
 #define ALLOCATOR_H
 
-#include <sim/kernel.h>
-#include <sim/inspect.h>
-#include <sim/storage.h>
-#include <arch/simtypes.h>
-#include <arch/Memory.h>
+#include "sim/kernel.h"
+#include "sim/inspect.h"
+#include "sim/linkedlist.h"
+#include "sim/buffer.h"
+#include "arch/simtypes.h"
+#include "arch/Memory.h"
+
 #include "forward.h"
 #include "ThreadTable.h"
 
@@ -43,7 +45,7 @@ class Allocator : public Object, public Inspect::Interface<Inspect::Read>
     friend class Pipeline;
 
 public:
-    typedef LinkedList< TID, ThreadTable, &Thread::next> ThreadList;
+    typedef LinkedList<TID, ThreadTable, &Thread::next> ThreadList;
 
     struct AllocRequest
     {

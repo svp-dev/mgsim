@@ -2,10 +2,10 @@
 #ifndef ICACHE_H
 #define ICACHE_H
 
-#include <sim/kernel.h>
-#include <sim/inspect.h>
-#include <sim/storage.h>
-#include <arch/Memory.h>
+#include "sim/kernel.h"
+#include "sim/inspect.h"
+#include "sim/buffer.h"
+#include "arch/Memory.h"
 #include "forward.h"
 
 namespace Simulator

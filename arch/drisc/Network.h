@@ -2,10 +2,12 @@
 #ifndef NETWORK_H
 #define NETWORK_H
 
-#include <sim/kernel.h>
-#include <sim/inspect.h>
-#include <sim/storage.h>
-#include <arch/simtypes.h>
+#include "sim/kernel.h"
+#include "sim/inspect.h"
+#include "sim/buffer.h"
+#include "sim/register.h"
+#include "sim/ports.h"
+#include "arch/simtypes.h"
 #include "forward.h"
 
 namespace Simulator

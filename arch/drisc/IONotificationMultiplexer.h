@@ -2,10 +2,13 @@
 #ifndef IONMUX_H
 #define IONMUX_H
 
-#include <sim/kernel.h>
-#include <sim/inspect.h>
-#include <sim/storage.h>
-#include <arch/IOBus.h>
+#include "sim/kernel.h"
+#include "sim/inspect.h"
+#include "sim/register.h"
+#include "sim/buffer.h"
+#include "sim/flag.h"
+#include "sim/ports.h"
+#include "arch/IOBus.h"
 #include "forward.h"
 
 namespace Simulator
@@ -23,7 +26,7 @@ private:
 
 public:
     std::vector<bool>               m_mask;
-    std::vector<SingleFlag*>        m_interrupts;
+    std::vector<Flag*>              m_interrupts;
     std::vector<Buffer<Integer>*>   m_notifications;
     std::vector<ArbitratedService<>*> m_services;
 

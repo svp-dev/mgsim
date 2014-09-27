@@ -2,10 +2,10 @@
 #ifndef IO_DCA_H
 #define IO_DCA_H
 
-#include <sim/kernel.h>
-#include <sim/storage.h>
-#include <arch/Memory.h>
-#include <arch/IOBus.h>
+#include "sim/kernel.h"
+#include "sim/buffer.h"
+#include "arch/Memory.h"
+#include "arch/IOBus.h"
 #include "forward.h"
 
 namespace Simulator

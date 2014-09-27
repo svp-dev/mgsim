@@ -133,7 +133,7 @@ namespace drisc
     StorageTraceSet IOBusInterface::GetInterruptRequestTraces() const
     {
         StorageTraceSet res;
-        for (std::vector<SingleFlag*>::const_iterator p = m_nmux.m_interrupts.begin(); p != m_nmux.m_interrupts.end(); ++p)
+        for (std::vector<Flag      *>::const_iterator p = m_nmux.m_interrupts.begin(); p != m_nmux.m_interrupts.end(); ++p)
         {
             res ^= opt(*(*p));
         }

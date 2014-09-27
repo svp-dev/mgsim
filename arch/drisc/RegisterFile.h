@@ -2,11 +2,12 @@
 #ifndef REGISTERFILE_H
 #define REGISTERFILE_H
 
-#include <sim/kernel.h>
-#include <sim/inspect.h>
-#include <arch/FPU.h>
-#include <sim/storage.h>
 #include <array>
+
+#include "sim/kernel.h"
+#include "sim/inspect.h"
+#include "sim/ports.h"
+#include "arch/FPU.h"
 #include "forward.h"
 
 namespace Simulator

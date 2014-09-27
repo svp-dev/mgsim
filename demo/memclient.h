@@ -5,6 +5,7 @@
 #include "arch/Memory.h"
 #include "sim/kernel.h"
 #include "sim/config.h"
+#include "sim/flag.h"
 
 class ExampleMemClient : public Simulator::Object, public Simulator::IMemoryCallback {
 
@@ -19,7 +20,7 @@ public:
 
     Simulator::IMemory *memory;
     Simulator::MCID mcid;
-    Simulator::SingleFlag enabled;
+    Simulator::Flag enabled;
     Simulator::Process p_MemoryOutgoing;
     Simulator::Result DoMemoryOutgoing();
 

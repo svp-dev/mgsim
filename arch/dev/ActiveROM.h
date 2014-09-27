@@ -2,12 +2,12 @@
 #ifndef ACTIVE_ROM_H
 #define ACTIVE_ROM_H
 
-#include <arch/IOBus.h>
-#include <arch/Memory.h>
-#include <sim/kernel.h>
-#include <sim/config.h>
-#include <sim/storage.h>
-#include <sim/inspect.h>
+#include "arch/IOBus.h"
+#include "arch/Memory.h"
+#include "sim/kernel.h"
+#include "sim/config.h"
+#include "sim/flag.h"
+#include "sim/inspect.h"
 #include <map>
 
 namespace Simulator
@@ -48,9 +48,9 @@ namespace Simulator
         IODeviceID         m_client;
         IONotificationChannelID      m_completionTarget;
 
-        SingleFlag         m_loading;
-        SingleFlag         m_flushing;
-        SingleFlag         m_notifying;
+        Flag               m_loading;
+        Flag               m_flushing;
+        Flag               m_notifying;
 
         size_t             m_currentRange;
         size_t             m_currentOffset;

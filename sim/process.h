@@ -89,8 +89,8 @@ namespace Simulator
         // accessing storages. The contract is set up when the system is created.
         void OnBeginCycle();
         void OnEndCycle() const;
-        void OnStorageAccess(const Storage&);
         void SetStorageTraces(const StorageTraceSet& );
+        void OnStorageAccess(const Storage&);
     };
 
 #define InitProcess(Member, DelegateFunc)                               \

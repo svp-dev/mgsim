@@ -1,4 +1,5 @@
-#include "Display.h"
+#include "arch/dev/Display.h"
+#include "sim/sampling.h"
 
 #include <cstring>
 #include <fstream>

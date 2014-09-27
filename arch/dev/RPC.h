@@ -2,9 +2,12 @@
 #ifndef RPC_H
 #define RPC_H
 
-#include <sim/kernel.h>
-#include <sim/storage.h>
-#include <arch/IOBus.h>
+#include <vector>
+#include <cstdint>
+#include "sim/kernel.h"
+#include "sim/flag.h"
+#include "sim/buffer.h"
+#include "arch/IOBus.h"
 
 namespace Simulator
 {
@@ -125,7 +128,7 @@ namespace Simulator
         ResponseWritebackState  m_writebackState;
         MemAddr                 m_currentResponseOffset;
 
-        SingleFlag              m_queueEnabled;
+        Flag                    m_queueEnabled;
         Buffer<IncomingRequest> m_incoming;
         Buffer<ProcessRequest>  m_ready;
         Buffer<ProcessResponse> m_completed;

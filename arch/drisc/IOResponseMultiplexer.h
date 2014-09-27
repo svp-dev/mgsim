@@ -2,9 +2,9 @@
 #ifndef IORESPONSEMUX_H
 #define IORESPONSEMUX_H
 
-#include <sim/kernel.h>
-#include <sim/storage.h>
-#include <arch/IOBus.h>
+#include "sim/kernel.h"
+#include "sim/buffer.h"
+#include "arch/IOBus.h"
 #include "forward.h"
 
 namespace Simulator

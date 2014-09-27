@@ -1,5 +1,5 @@
-#include "SerialMemory.h"
-#include <sim/config.h>
+#include "arch/mem/SerialMemory.h"
+#include "sim/config.h"
 
 #include <cassert>
 #include <cstring>

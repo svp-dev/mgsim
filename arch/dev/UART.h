@@ -4,10 +4,11 @@
 
 #include "Selector.h"
 
-#include <arch/IOBus.h>
-#include <sim/kernel.h>
-#include <sim/storage.h>
-#include <sim/inspect.h>
+#include "arch/IOBus.h"
+#include "sim/kernel.h"
+#include "sim/flag.h"
+#include "sim/buffer.h"
+#include "sim/inspect.h"
 
 class Config;
 
@@ -25,7 +26,7 @@ namespace Simulator
         bool m_hwbuf_out_full;
         unsigned char m_hwbuf_out;
 
-        SingleFlag m_receiveEnable;
+        Flag       m_receiveEnable;
         Buffer<unsigned char> m_fifo_in;
         Process p_Receive;
         Result DoReceive();
@@ -36,7 +37,7 @@ namespace Simulator
 
         unsigned char m_write_buffer;
 
-        SingleFlag m_sendEnable;
+        Flag       m_sendEnable;
         Process p_Send;
         Result DoSend();
 
@@ -46,7 +47,7 @@ namespace Simulator
 
         bool m_readInterruptEnable;
 
-        SingleFlag m_readInterrupt;
+        Flag       m_readInterrupt;
         Process p_ReadInterrupt;
         IONotificationChannelID m_readInterruptChannel;
         Result DoSendReadInterrupt();
@@ -54,7 +55,7 @@ namespace Simulator
         bool m_writeInterruptEnable;
         size_t m_writeInterruptThreshold;
 
-        SingleFlag m_writeInterrupt;
+        Flag       m_writeInterrupt;
         Process p_WriteInterrupt;
         IONotificationChannelID m_writeInterruptChannel;
         Result DoSendWriteInterrupt();

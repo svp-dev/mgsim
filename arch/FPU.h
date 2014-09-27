@@ -2,10 +2,11 @@
 #ifndef FPU_H
 #define FPU_H
 
-#include <sim/kernel.h>
-#include <sim/storage.h>
-#include <sim/inspect.h>
-#include <arch/simtypes.h>
+#include "sim/kernel.h"
+#include "sim/buffer.h"
+#include "sim/register.h"
+#include "sim/inspect.h"
+#include "arch/simtypes.h"
 
 #include <deque>
 #include <map>

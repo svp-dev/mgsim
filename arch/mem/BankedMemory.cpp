@@ -1,9 +1,12 @@
 #include "BankedMemory.h"
 #include "sim/config.h"
+#include "sim/flag.h"
+#include "sim/buffer.h"
 #include <cassert>
 #include <cmath>
 #include <cstring>
 #include <iomanip>
+
 using namespace std;
 
 namespace Simulator
@@ -32,7 +35,7 @@ class BankedMemory::Bank : public Object
     ArbitratedService<CyclicArbitratedPort> p_incoming;
     Buffer<Request>     m_incoming;
     Buffer<Request>     m_outgoing;
-    SingleFlag          m_busy;
+    Flag                m_busy;
     Request             m_request;
     Process             p_Incoming;
     Process             p_Outgoing;

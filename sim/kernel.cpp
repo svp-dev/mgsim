@@ -323,10 +323,10 @@ namespace Simulator
         bool updated = false;
         for (Clock* clock = m_activeClocks; clock != NULL && m_cycle == clock->m_cycle; clock = clock->m_next)
         {
-            for (Storage *s = clock->m_activeStorages; s != NULL; s = s->m_next)
+            for (Storage *s = clock->m_activeStorages; s != NULL; s = s->GetNext())
             {
                 s->Update();
-                s->m_activated = false;
+                s->Deactivate();
                 updated = true;
             }
             clock->m_activeStorages = NULL;

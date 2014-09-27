@@ -52,7 +52,8 @@ namespace Simulator
     }
 
     inline
-    void Process::OnStorageAccess(const Storage& s) {
+    void Process::OnStorageAccess(const Storage& s)
+    {
 #if !defined(NDEBUG) && !defined(DISABLE_TRACE_CHECKS)
         m_currentStorages.Append(s);
 #else

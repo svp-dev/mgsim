@@ -3,7 +3,8 @@
 #define PRODCONS2_H
 
 #include "sim/kernel.h"
-#include "sim/storage.h"
+#include "sim/buffer.h"
+#include "sim/flag.h"
 #include <vector>
 
 namespace Simulator
@@ -169,7 +170,7 @@ private:
     int                     m_counter;
 
     Simulator::Process      p_Produce;
-    Simulator::SingleFlag   m_enabled;
+    Simulator::Flag         m_enabled;
 };
 
 #endif

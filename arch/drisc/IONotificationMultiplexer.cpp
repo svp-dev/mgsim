@@ -31,7 +31,7 @@ IONotificationMultiplexer::IONotificationMultiplexer(const string& name, IOInter
             m_writebacks[i]->Sensitive(p_IncomingNotifications);
         }
         {
-            m_interrupts[i] = new SingleFlag("latch" + to_string(i), *this, clock, false);
+            m_interrupts[i] = new Flag("latch" + to_string(i), *this, clock, false);
             m_interrupts[i]->Sensitive(p_IncomingNotifications);
         }
         {
