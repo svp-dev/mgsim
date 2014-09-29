@@ -10,10 +10,6 @@ namespace Simulator
     typedef size_t  BufferSize; // Size of buffer, in elements
     static const    BufferSize INFINITE = (size_t)-1;
 
-
-    struct BufferInspector { virtual ~BufferInspector(){} };
-
-
     /// A FIFO storage queue.
     template <typename T>
     class Buffer : public SensitiveStorage
