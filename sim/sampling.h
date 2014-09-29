@@ -2,75 +2,120 @@
 #ifndef SAMPLING_H
 #define SAMPLING_H
 
+#include <type_traits>
 #include <vector>
-#include <utility>
 #include <string>
-#include <iostream>
-#include <cassert>
 
-enum SampleVariableDataType {
-    SV_INTEGER,
-    SV_FLOAT
-};
+class Config;
 
-enum SampleVariableCategory {
-    SVC_LEVEL,    // current level: cycle counter, #threads, etc
-    SVC_STATE,    // state variable
-    SVC_WATERMARK,  // mins and maxs, evolves monotonously
-    SVC_CUMULATIVE, // integral of level over time
-};
-
-template<typename T> struct _sv_detect_type { static const SampleVariableDataType type = SV_INTEGER; };
-template<> struct _sv_detect_type<float> { static const SampleVariableDataType type = SV_FLOAT; };
-template<> struct _sv_detect_type<double> { static const SampleVariableDataType type = SV_FLOAT; };
-
-void _RegisterSampleVariable(void*, size_t, const std::string&, SampleVariableDataType, SampleVariableCategory, void*);
-
-template<typename T>
-void RegisterSampleVariable(T& var, const std::string& name, SampleVariableCategory cat)
+namespace Simulator
 {
-    T _max = (T)0;
-    _RegisterSampleVariable(&var, sizeof(T), name, _sv_detect_type<T>::type, cat, &_max);
-}
+    enum SampleVariableDataType {
+        SV_BOOL,    // boolean
+        SV_INTEGER, // fixed-width integer value
+        SV_FLOAT,   // fixed-width floating-point
+        SV_BINARY,  // fixed-width binary (char array)
+        SV_CUSTOM   // custom I/O primitives
+    };
 
-template<typename T, typename U>
-void RegisterSampleVariable(T& var, const std::string& name, SampleVariableCategory cat, U max)
-{
-    T _max = max;
-    _RegisterSampleVariable(&var, sizeof(T), name, _sv_detect_type<T>::type, cat, &_max);
-}
+    enum SampleVariableCategory {
+        SVC_STATE,      // state variable
+        SVC_LEVEL,      // stats: current level: cycle counter, #threads, etc
+        SVC_WATERMARK,  // stats: mins and maxs, evolves monotonously
+        SVC_CUMULATIVE, // stats: integral of level over time
+    };
+
+    /// RegisterSampleVariable: perform a registration.
+    void RegisterSampleVariable(void* ptr, const std::string& name,
+                                SampleVariableCategory cat,
+                                SampleVariableDataType t,
+                                size_t s, void* ref);
+
+    // c++ misses is_bool, so define it here.
+    template <typename T>
+    using is_bool = std::is_same<typename std::remove_cv<T>::type, bool>;
+
+    template<typename T>
+    void RegisterSampleVariable(T& var, const std::string& name, SampleVariableCategory cat)
+    {
+        static_assert(std::is_arithmetic<T>::value == true
+                      || std::is_enum<T>::value, "This form of RegisterSampleVariable works only on scalars, bools or enums");
+
+        SampleVariableDataType t = \
+            std::is_floating_point<T>::value ? SV_FLOAT :
+            is_bool<T>::value ? SV_BOOL :
+            SV_INTEGER;
+
+        RegisterSampleVariable(&var, name, cat, t, sizeof(T), 0);
+    }
+
+    inline
+    void RegisterSampleVariable(std::vector<char>& var, const std::string& name, SampleVariableCategory cat)
+    {
+        RegisterSampleVariable(&var[0], name, cat, SV_BINARY, var.size(), 0);
+    }
+
+    template<typename T, typename U>
+    void RegisterSampleVariable(T& var, const std::string& name, SampleVariableCategory cat, U max)
+    {
+        static_assert(std::is_arithmetic<T>::value == true, "This form of RegisterSampleVariable works only on scalars.");
+        static_assert(is_bool<T>::value == false, "This form of RegisterSampleVariable does not work with bool");
+
+        T _max = max;
+
+        SampleVariableDataType t = std::is_floating_point<T>::value ? SV_FLOAT : SV_INTEGER;
+
+        RegisterSampleVariable(&var, name, cat, t, sizeof(T), &_max);
+    }
 
 #define RegisterSampleVariableInObject(var, cat, ...)                       \
     RegisterSampleVariable(var, GetName() + ':' + (#var + 2) , cat, ##__VA_ARGS__)
 
-#define RegisterSampleVariableInObjectWithName(var, name, cat, ...)      \
+#define RegisterSampleVariableInObjectWithName(var, name, cat, ...)     \
     RegisterSampleVariable(var, GetName() + ':' + name, cat, ##__VA_ARGS__)
 
-void ListSampleVariables(std::ostream& os, const std::string &pat = "*");
-bool ReadSampleVariables(std::ostream& os, const std::string &pat = "*"); // returns "false" if no variables match.
+#define DefineSampleVariable(Type, Member) \
+    Type m_ ## Member
+
+#define DefineStateVariable(Type, Member) \
+    Type m_ ## Member
+
+#define RegisterStateVariable(LValue, Name) \
+    RegisterSampleVariableInObjectWithName(LValue, Name, SVC_STATE), LValue
+
+#define InitSampleVariable(Member, ...)                             \
+    m_ ## Member((RegisterSampleVariableInObject(m_ ## Member, ##__VA_ARGS__), 0))
+
+#define InitStateVariable(Member, ...)                                 \
+    m_ ## Member((RegisterSampleVariableInObject(m_ ## Member, SVC_STATE), ##__VA_ARGS__))
+
+    void ListSampleVariables(std::ostream& os, const std::string &pat = "*");
+    bool ReadSampleVariables(std::ostream& os, const std::string &pat = "*"); // returns "false" if no variables match.
 
 
-class Config;
-
-class BinarySampler
-{
-    typedef std::vector<std::pair<const char*, size_t> > vars_t;
-
-    size_t   m_datasize;
-    vars_t   m_vars;
-
-public:
-
-    BinarySampler(std::ostream& os, const Config& config,
-                  const std::vector<std::string>& pats);
-
-    size_t GetBufferSize() const { return m_datasize; }
-    void   SampleToBuffer(char *buf) const
+    // BinarySampler: used by Monitor to quickly serialize scalar
+    // variables to a binary format.
+    class BinarySampler
     {
-        for (auto& i : m_vars)
-            for (size_t j = 0; j < i.second; ++j)
-                *buf++ = i.first[j];
-    }
-};
+        typedef std::vector<std::pair<const char*, size_t> > vars_t;
+
+        size_t   m_datasize;
+        vars_t   m_vars;
+
+    public:
+        BinarySampler(std::ostream& os, const Config& config,
+                      const std::vector<std::string>& pats);
+
+        size_t GetBufferSize() const { return m_datasize; }
+
+        void   SampleToBuffer(char *buf) const
+        {
+            for (auto& i : m_vars)
+                for (size_t j = 0; j < i.second; ++j)
+                    *buf++ = i.first[j];
+        }
+    };
+
+}
 
 #endif

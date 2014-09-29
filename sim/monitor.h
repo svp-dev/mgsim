@@ -9,23 +9,23 @@
 
 namespace Simulator {
     class MGSystem;
+    class BinarySampler;
 }
 
-class BinarySampler;
 
 class Monitor
 {
-    Simulator::MGSystem&  m_sys;
-    std::ofstream*        m_outputfile;
-    struct timespec       m_tsdelay;
+    Simulator::MGSystem&      m_sys;
+    std::ofstream*            m_outputfile;
+    struct timespec           m_tsdelay;
 
-    std::thread*          m_monitorthread;
-    std::mutex            m_runlock;
-    BinarySampler*        m_sampler;
+    std::thread*              m_monitorthread;
+    std::mutex                m_runlock;
+    Simulator::BinarySampler* m_sampler;
 
-    bool                  m_quiet;
-    bool                  m_running;
-    volatile bool         m_enabled;
+    bool                      m_quiet;
+    bool                      m_running;
+    volatile bool             m_enabled;
 
     friend void* runmonitor(void*);
     void run();

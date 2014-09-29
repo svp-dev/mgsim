@@ -1,6 +1,7 @@
-#include "monitor.h"
-#include "sampling.h"
-#include <arch/MGSystem.h>
+#include "sim/monitor.h"
+#include "sim/sampling.h"
+#include "sim/config.h"
+#include "arch/MGSystem.h"
 
 #include <ios>
 #include <iostream>
@@ -63,7 +64,7 @@ Monitor::Monitor(Simulator::MGSystem& sys, bool enabled, const string& mdfile, c
     vector<string> pats = sys.GetKernel()->GetConfig()->getWordList("MonitorSampleVariables");
     pats.insert(pats.begin(), "kernel.cycle");
     pats.push_back("kernel.cycle");
-    m_sampler = new BinarySampler(metadatafile, *sys.GetKernel()->GetConfig(), pats);
+    m_sampler = new Simulator::BinarySampler(metadatafile, *sys.GetKernel()->GetConfig(), pats);
     metadatafile << "# tv_sizes: " << sizeof(((struct timeval*)(void*)0)->tv_sec)
                  << ' ' << sizeof(((struct timeval*)(void*)0)->tv_usec)
                  << ' ' << sizeof(struct timeval) << endl;
