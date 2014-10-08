@@ -56,10 +56,10 @@ class ParallelMemory : public Object, public IMemory, public VirtualMemory
     CycleNo	m_timePerLine;     // Config: With this many additional cycles per line
     size_t	m_lineSize;        // Config: With this many bytes per line
 
-    uint64_t    m_nreads;
-    uint64_t    m_nread_bytes;
-    uint64_t    m_nwrites;
-    uint64_t    m_nwrite_bytes;
+    DefineSampleVariable(uint64_t, nreads);
+    DefineSampleVariable(uint64_t, nread_bytes);
+    DefineSampleVariable(uint64_t, nwrites);
+    DefineSampleVariable(uint64_t, nwrite_bytes);
 
 public:
     ParallelMemory(const std::string& name, Object& parent, Clock& clock);

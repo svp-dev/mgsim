@@ -355,8 +355,8 @@ private:
     Object& GetDRISCParent() const { return *GetParent(); }
 
     // Statistics
-    uint64_t                       m_numAllocates;
-    uint64_t                       m_numCreates;
+    DefineSampleVariable(uint64_t, numAllocates);
+    DefineSampleVariable(uint64_t, numCreates);
 
 public:
     // Delegation network

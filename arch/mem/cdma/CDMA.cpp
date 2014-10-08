@@ -137,13 +137,9 @@ CDMA::CDMA(const std::string& name, Simulator::Object& parent, Clock& clock)
     m_traces(),
     m_ddr("ddr", *this, GetConf("NumRootDirectories", size_t)),
     m_clientMap(),
-    m_nreads(0), m_nwrites(0), m_nread_bytes(0), m_nwrite_bytes(0)
+    InitSampleVariable(nreads, SVC_CUMULATIVE), InitSampleVariable(nwrites, SVC_CUMULATIVE), InitSampleVariable(nread_bytes, SVC_CUMULATIVE), InitSampleVariable(nwrite_bytes, SVC_CUMULATIVE)
 {
 
-    RegisterSampleVariableInObject(m_nreads, SVC_CUMULATIVE);
-    RegisterSampleVariableInObject(m_nread_bytes, SVC_CUMULATIVE);
-    RegisterSampleVariableInObject(m_nwrites, SVC_CUMULATIVE);
-    RegisterSampleVariableInObject(m_nwrite_bytes, SVC_CUMULATIVE);
 
     // Create the root directories
     if (!IsPowerOfTwo(m_roots.size()))

@@ -520,10 +520,10 @@ private:
     Register<bool> m_active;
 
     bool     m_running;
-    size_t   m_nStagesRunnable;
-    size_t   m_nStagesRun;
-    uint64_t m_pipelineBusyTime;
-    uint64_t m_nStalls;
+    DefineSampleVariable(size_t, nStagesRunnable);
+    DefineSampleVariable(size_t, nStagesRun);
+    DefineSampleVariable(uint64_t, pipelineBusyTime);
+    DefineSampleVariable(uint64_t, nStalls);
 };
 
 }

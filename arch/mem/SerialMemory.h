@@ -22,7 +22,7 @@ class SerialMemory : public Object, public IMemory, public VirtualMemory
     {
         MemAddr          address;
         MemData          data;
-        IMemoryCallback* callback;
+        MCID             client;
         WClientID        wid;
         bool             write;
     };
@@ -53,13 +53,13 @@ class SerialMemory : public Object, public IMemory, public VirtualMemory
     CycleNo                       m_baseRequestTime;
     CycleNo                       m_timePerLine;
     CycleNo                       m_lineSize;
-    CycleNo                       m_nextdone;
+    DefineStateVariable(CycleNo, nextdone);
     StorageTraceSet               m_storages;
 
-    uint64_t m_nreads;
-    uint64_t m_nread_bytes;
-    uint64_t m_nwrites;
-    uint64_t m_nwrite_bytes;
+    DefineSampleVariable(uint64_t, nreads);
+    DefineSampleVariable(uint64_t, nread_bytes);
+    DefineSampleVariable(uint64_t, nwrites);
+    DefineSampleVariable(uint64_t, nwrite_bytes);
 
     // Processes
     Process p_Requests;

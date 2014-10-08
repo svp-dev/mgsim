@@ -18,21 +18,14 @@ namespace Simulator
     UnixInterface::UnixInterface(const string& name, Object& parent)
         : Object(name, parent),
           m_vfds(17),
-          m_nrequests(0),
-          m_nfailures(0),
-          m_nstats(0),
-          m_nreads(0),
-          m_nread_bytes(0),
-          m_nwrites(0),
-          m_nwrite_bytes(0)
+          InitSampleVariable(nrequests, SVC_CUMULATIVE),
+          InitSampleVariable(nfailures, SVC_CUMULATIVE),
+          InitSampleVariable(nstats, SVC_CUMULATIVE),
+          InitSampleVariable(nreads, SVC_CUMULATIVE),
+          InitSampleVariable(nread_bytes, SVC_CUMULATIVE),
+          InitSampleVariable(nwrites, SVC_CUMULATIVE),
+          InitSampleVariable(nwrite_bytes, SVC_CUMULATIVE)
     {
-        RegisterSampleVariableInObject(m_nrequests, SVC_CUMULATIVE);
-        RegisterSampleVariableInObject(m_nfailures, SVC_CUMULATIVE);
-        RegisterSampleVariableInObject(m_nstats, SVC_CUMULATIVE);
-        RegisterSampleVariableInObject(m_nreads, SVC_CUMULATIVE);
-        RegisterSampleVariableInObject(m_nread_bytes, SVC_CUMULATIVE);
-        RegisterSampleVariableInObject(m_nwrites, SVC_CUMULATIVE);
-        RegisterSampleVariableInObject(m_nwrite_bytes, SVC_CUMULATIVE);
     }
 
     UnixInterface::VirtualDescriptor* UnixInterface::GetEntry(UnixInterface::VirtualFD vfd)

@@ -37,7 +37,7 @@ namespace Simulator
         m_lastcycle = cycle;
         m_cursize = m_data.size();
         m_totalsize += (uint64_t)m_cursize * elapsed;
-        m_maxsize = std::max(m_maxsize, m_cursize);
+        m_maxeffsize = std::max(m_maxeffsize, m_cursize);
     }
 
     template<typename T>
@@ -128,16 +128,12 @@ namespace Simulator
           m_data(),
           m_pushes(0),
           m_popped(false),
-          m_stalls(0),
-          m_lastcycle(0),
-          m_totalsize(0),
-          m_maxsize(0),
-          m_cursize(0)
+          InitSampleVariable(stalls, SVC_CUMULATIVE),
+          InitSampleVariable(lastcycle, SVC_CUMULATIVE),
+          InitSampleVariable(totalsize, SVC_CUMULATIVE),
+          InitSampleVariable(maxeffsize, SVC_WATERMARK, maxSize),
+          InitSampleVariable(cursize, SVC_LEVEL)
     {
-        RegisterSampleVariableInObject(m_totalsize, SVC_CUMULATIVE);
-        RegisterSampleVariableInObject(m_maxsize, SVC_WATERMARK, maxSize);
-        RegisterSampleVariableInObject(m_cursize, SVC_LEVEL);
-        RegisterSampleVariableInObject(m_stalls, SVC_CUMULATIVE);
         assert(maxPushes <= MAX_PUSHES);
     }
 

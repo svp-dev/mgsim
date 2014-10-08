@@ -404,8 +404,8 @@ CDMA::RootDirectory::RootDirectory(const std::string& name, CDMA& parent, Clock&
     InitProcess(p_Incoming, DoIncoming),
     InitProcess(p_Requests, DoRequests),
     InitProcess(p_Responses, DoResponses),
-    m_nreads(0),
-    m_nwrites(0)
+    InitSampleVariable(nreads, SVC_CUMULATIVE),
+    InitSampleVariable(nwrites, SVC_CUMULATIVE)
 {
     assert(m_lineSize <= MAX_MEMORY_OPERATION_SIZE);
 

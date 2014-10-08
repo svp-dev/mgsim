@@ -26,8 +26,8 @@ LCD::LCD(const std::string& name, Object& parent, IIOBus& iobus, IODeviceID devi
       m_startcolumn(GetConf("LCDOutputColumn", size_t)),
       m_bgcolor(GetConf("LCDBackgroundColor", size_t) % 10),
       m_fgcolor(GetConf("LCDForegroundColor", size_t) % 10),
-      m_curx(0),
-      m_cury(0),
+      InitStateVariable(curx, 0),
+      InitStateVariable(cury, 0),
       m_tracefile(NULL)
 {
     if (m_width * m_height == 0)
@@ -36,6 +36,7 @@ LCD::LCD(const std::string& name, Object& parent, IIOBus& iobus, IODeviceID devi
     }
     m_buffer = new char[m_width * m_height];
     memset(m_buffer, ' ', m_width * m_height);
+    RegisterStateArray(m_buffer, m_width * m_height, "buffer");
 
     std::string tfname = GetConfOpt("LCDTraceFile", std::string, "");
     if (!tfname.empty())

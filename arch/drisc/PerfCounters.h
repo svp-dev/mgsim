@@ -3,6 +3,7 @@
 #define PERFCOUNTERS_H
 
 #include "IOMatchUnit.h"
+#include <sim/sampling.h>
 
 namespace Simulator
 {
@@ -15,8 +16,8 @@ class PerfCounters : public drisc::MMIOComponent
     friend class Simulator::DRISC;
 
     std::vector<Integer (*)(DRISC&, LFID)> m_counters;
-    uint64_t                  m_nCycleSampleOps; // nr of samplings of the cycle counter by program
-    uint64_t                  m_nOtherSampleOps; // nr of samplings of other counters
+    DefineSampleVariable(uint64_t, nCycleSampleOps); // nr of samplings of the cycle counter by program
+    DefineSampleVariable(uint64_t, nOtherSampleOps); // nr of samplings of other counters
 
     Object& GetDRISCParent() const { return *GetParent(); }
 public:

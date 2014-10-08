@@ -77,10 +77,10 @@ private:
     std::vector<Line>             m_lines;
 
     // Statistics
-    uint64_t                      m_numHits;
-    uint64_t                      m_numMisses;
-    uint64_t                      m_numConflicts;
-    uint64_t                      m_numResolved;
+    DefineSampleVariable(uint64_t, numHits);
+    DefineSampleVariable(uint64_t, numMisses);
+    DefineSampleVariable(uint64_t, numConflicts);
+    DefineSampleVariable(uint64_t, numResolved);
 
     // Processes
     Process p_Requests;

@@ -877,38 +877,38 @@ CDMA::Cache::Cache(const std::string& name, CDMA& parent, Clock& clock, NodeID i
     m_lines    (m_assoc * m_sets),
     m_data     (m_lines.size() * m_lineSize),
 
-    m_numRAccesses(0),
-    m_numHardRConflicts(0),
-    m_numStallingREvictions(0),
-    m_numREvictions(0),
-    m_numStallingRLoads(0),
-    m_numRLoads(0),
-    m_numRFullHits(0),
-    m_numStallingRHits (0),
-    m_numLoadingRMisses(0),
-    m_numWAccesses(0),
-    m_numHardWConflicts(0),
-    m_numStallingWEvictions(0),
-    m_numWEvictions(0),
-    m_numStallingWLoads(0),
-    m_numWLoads(0),
-    m_numStallingWHits (0),
-    m_numWEHits(0),
-    m_numLoadingWUpdates(0),
-    m_numSharedWUpdates(0),
-    m_numStallingWUpdates(0),
-    m_numReceivedMessages(0),
-    m_numIgnoredMessages(0),
-    m_numForwardStalls(0),
-    m_numNetworkRHits(0),
-    m_numRCompletions (0),
-    m_numStallingRCompletions(0),
-    m_numInjectedEvictions(0),
-    m_numMergedEvictions(0),
-    m_numStallingWCompletions(0),
-    m_numWCompletions(0),
-    m_numNetworkWHits(0),
-    m_numStallingWSnoops(0),
+    InitSampleVariable(numRAccesses, SVC_CUMULATIVE),
+    InitSampleVariable(numHardRConflicts, SVC_CUMULATIVE),
+    InitSampleVariable(numStallingREvictions, SVC_CUMULATIVE),
+    InitSampleVariable(numREvictions, SVC_CUMULATIVE),
+    InitSampleVariable(numStallingRLoads, SVC_CUMULATIVE),
+    InitSampleVariable(numRLoads, SVC_CUMULATIVE),
+    InitSampleVariable(numRFullHits, SVC_CUMULATIVE),
+    InitSampleVariable(numStallingRHits, SVC_CUMULATIVE),
+    InitSampleVariable(numLoadingRMisses, SVC_CUMULATIVE),
+    InitSampleVariable(numWAccesses, SVC_CUMULATIVE),
+    InitSampleVariable(numHardWConflicts, SVC_CUMULATIVE),
+    InitSampleVariable(numStallingWEvictions, SVC_CUMULATIVE),
+    InitSampleVariable(numWEvictions, SVC_CUMULATIVE),
+    InitSampleVariable(numStallingWLoads, SVC_CUMULATIVE),
+    InitSampleVariable(numWLoads, SVC_CUMULATIVE),
+    InitSampleVariable(numStallingWHits, SVC_CUMULATIVE),
+    InitSampleVariable(numWEHits, SVC_CUMULATIVE),
+    InitSampleVariable(numLoadingWUpdates, SVC_CUMULATIVE),
+    InitSampleVariable(numSharedWUpdates, SVC_CUMULATIVE),
+    InitSampleVariable(numStallingWUpdates, SVC_CUMULATIVE),
+    InitSampleVariable(numReceivedMessages, SVC_CUMULATIVE),
+    InitSampleVariable(numIgnoredMessages, SVC_CUMULATIVE),
+    InitSampleVariable(numForwardStalls, SVC_CUMULATIVE),
+    InitSampleVariable(numNetworkRHits, SVC_CUMULATIVE),
+    InitSampleVariable(numRCompletions, SVC_CUMULATIVE),
+    InitSampleVariable(numStallingRCompletions, SVC_CUMULATIVE),
+    InitSampleVariable(numInjectedEvictions, SVC_CUMULATIVE),
+    InitSampleVariable(numMergedEvictions, SVC_CUMULATIVE),
+    InitSampleVariable(numStallingWCompletions, SVC_CUMULATIVE),
+    InitSampleVariable(numWCompletions, SVC_CUMULATIVE),
+    InitSampleVariable(numNetworkWHits, SVC_CUMULATIVE),
+    InitSampleVariable(numStallingWSnoops, SVC_CUMULATIVE),
 
     InitProcess(p_Requests, DoRequests),
     InitProcess(p_In, DoReceive),
@@ -916,45 +916,22 @@ CDMA::Cache::Cache(const std::string& name, CDMA& parent, Clock& clock, NodeID i
     InitBuffer(m_requests, clock, "RequestBufferSize"),
     InitBuffer(m_responses, clock, "ResponseBufferSize")
 {
-    RegisterSampleVariableInObject(m_numRAccesses, SVC_CUMULATIVE);
-    RegisterSampleVariableInObject(m_numHardRConflicts, SVC_CUMULATIVE);
-    RegisterSampleVariableInObject(m_numStallingREvictions, SVC_CUMULATIVE);
-    RegisterSampleVariableInObject(m_numREvictions, SVC_CUMULATIVE);
-    RegisterSampleVariableInObject(m_numStallingRLoads, SVC_CUMULATIVE);
-    RegisterSampleVariableInObject(m_numRLoads, SVC_CUMULATIVE);
-    RegisterSampleVariableInObject(m_numRFullHits, SVC_CUMULATIVE);
-    RegisterSampleVariableInObject(m_numStallingRHits , SVC_CUMULATIVE);
-    RegisterSampleVariableInObject(m_numLoadingRMisses, SVC_CUMULATIVE);
-    RegisterSampleVariableInObject(m_numWAccesses, SVC_CUMULATIVE);
-    RegisterSampleVariableInObject(m_numHardWConflicts, SVC_CUMULATIVE);
-    RegisterSampleVariableInObject(m_numStallingWEvictions, SVC_CUMULATIVE);
-    RegisterSampleVariableInObject(m_numWEvictions, SVC_CUMULATIVE);
-    RegisterSampleVariableInObject(m_numStallingWLoads, SVC_CUMULATIVE);
-    RegisterSampleVariableInObject(m_numWLoads, SVC_CUMULATIVE);
-    RegisterSampleVariableInObject(m_numStallingWHits , SVC_CUMULATIVE);
-    RegisterSampleVariableInObject(m_numWEHits, SVC_CUMULATIVE);
-    RegisterSampleVariableInObject(m_numLoadingWUpdates, SVC_CUMULATIVE);
-    RegisterSampleVariableInObject(m_numSharedWUpdates, SVC_CUMULATIVE);
-    RegisterSampleVariableInObject(m_numStallingWUpdates, SVC_CUMULATIVE);
-    RegisterSampleVariableInObject(m_numReceivedMessages, SVC_CUMULATIVE);
-    RegisterSampleVariableInObject(m_numIgnoredMessages, SVC_CUMULATIVE);
-    RegisterSampleVariableInObject(m_numForwardStalls, SVC_CUMULATIVE);
-    RegisterSampleVariableInObject(m_numNetworkRHits, SVC_CUMULATIVE);
-    RegisterSampleVariableInObject(m_numRCompletions , SVC_CUMULATIVE);
-    RegisterSampleVariableInObject(m_numStallingRCompletions, SVC_CUMULATIVE);
-    RegisterSampleVariableInObject(m_numInjectedEvictions, SVC_CUMULATIVE);
-    RegisterSampleVariableInObject(m_numMergedEvictions, SVC_CUMULATIVE);
-    RegisterSampleVariableInObject(m_numStallingWCompletions, SVC_CUMULATIVE);
-    RegisterSampleVariableInObject(m_numWCompletions, SVC_CUMULATIVE);
-    RegisterSampleVariableInObject(m_numNetworkWHits, SVC_CUMULATIVE);
-    RegisterSampleVariableInObject(m_numStallingWSnoops, SVC_CUMULATIVE);
 
+    RegisterStateVariable(m_data, "data");
     // Create the cache lines
     for (size_t i = 0; i < m_lines.size(); ++i)
     {
         Line& line = m_lines[i];
         line.state = LINE_EMPTY;
         line.data  = &m_data[i * m_lineSize];
+        auto ln = "line" + to_string(i);
+        RegisterStateVariable(line.state, ln + ".state");
+        RegisterStateVariable(line.tag, ln + ".tag");
+        RegisterStateVariable(line.access, ln + ".access");
+        RegisterStateVariable(line.tokens, ln + ".tokens");
+        RegisterStateVariable(line.dirty, ln + ".dirty");
+        RegisterStateVariable(line.updating, ln + ".updating");
+        RegisterStateArray(line.valid, sizeof(line.valid)/sizeof(line.valid[0]), ln + ".valid");
     }
 
     m_requests.Sensitive(p_Requests);

@@ -56,7 +56,10 @@ protected:
 
     std::vector<std::pair<Cache*,MCID> > m_clientMap; ///< Mapping of MCID to caches
 
-    uint64_t                    m_nreads, m_nwrites, m_nread_bytes, m_nwrite_bytes;
+    DefineSampleVariable(uint64_t, nreads);
+    DefineSampleVariable(uint64_t, nwrites);
+    DefineSampleVariable(uint64_t, nread_bytes);
+    DefineSampleVariable(uint64_t, nwrite_bytes);
 
     unsigned int GetTotalTokens() const {
         // One token per cache

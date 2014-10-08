@@ -33,10 +33,10 @@ Pipeline::Pipeline(const std::string&  name,
     InitStorage(m_active, clock),
 
     m_running(false),
-    m_nStagesRunnable(0),
-    m_nStagesRun(0),
-    m_pipelineBusyTime(0),
-    m_nStalls(0)
+    InitSampleVariable(nStagesRunnable, SVC_LEVEL),
+    InitSampleVariable(nStagesRun, SVC_CUMULATIVE),
+    InitSampleVariable(pipelineBusyTime, SVC_CUMULATIVE),
+    InitSampleVariable(nStalls, SVC_CUMULATIVE)
 {
     static const size_t NUM_FIXED_STAGES = 6;
 
@@ -47,10 +47,6 @@ Pipeline::Pipeline(const std::string&  name,
 
     m_stages.resize( num_dummy_stages + NUM_FIXED_STAGES );
 
-    RegisterSampleVariableInObject(m_nStagesRunnable, SVC_LEVEL, m_stages.size());
-    RegisterSampleVariableInObject(m_nStagesRun, SVC_CUMULATIVE);
-    RegisterSampleVariableInObject(m_pipelineBusyTime, SVC_CUMULATIVE);
-    RegisterSampleVariableInObject(m_nStalls, SVC_CUMULATIVE);
 
 
     // Create the Fetch stage

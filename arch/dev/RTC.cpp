@@ -83,7 +83,7 @@ namespace Simulator
           m_devid(devid),
           m_iobus(iobus),
           InitStorage(m_doNotify, iobus.GetClock(), false),
-          m_interruptNumber(0),
+          InitStateVariable(interruptNumber, 0),
           InitProcess(p_notifyTime, DoNotifyTime)
     {
         iobus.RegisterClient(devid, *this);
@@ -98,9 +98,9 @@ namespace Simulator
     RTC::RTC(const string& name, Object& parent, Clock& rtcclock, IIOBus& iobus, IODeviceID devid)
         : Object(name, parent),
           m_timerTicked(false),
-          m_timeOfLastInterrupt(0),
-          m_triggerDelay(0),
-          m_deliverAllEvents(true),
+          InitStateVariable(timeOfLastInterrupt, 0),
+          InitStateVariable(triggerDelay, 0),
+          InitStateVariable(deliverAllEvents, true),
           InitStorage(m_enableCheck, rtcclock, false),
           m_businterface("if", *this, iobus, devid),
           InitProcess(p_checkTime, DoCheckTime)

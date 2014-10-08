@@ -44,10 +44,10 @@ namespace Simulator
           m_iobus(iobus),
           m_devid(devid),
 
-          m_hwbuf_in_full(false),
-          m_hwbuf_in(0),
-          m_hwbuf_out_full(false),
-          m_hwbuf_out(0),
+          InitStateVariable(hwbuf_in_full, false),
+          InitStateVariable(hwbuf_in, 0),
+          InitStateVariable(hwbuf_out_full, false),
+          InitStateVariable(hwbuf_out, 0),
 
           InitStorage(m_receiveEnable, iobus.GetClock(), false),
           InitBuffer(m_fifo_in, iobus.GetClock(), "UARTInputFIFOSize"),
@@ -56,7 +56,7 @@ namespace Simulator
           InitBuffer(m_fifo_out, iobus.GetClock(), "UARTOutputFIFOSize"),
           InitProcess(p_Transmit, DoTransmit),
 
-          m_write_buffer(0),
+          InitStateVariable(write_buffer, 0),
 
           InitStorage(m_sendEnable, iobus.GetClock(), false),
           InitProcess(p_Send, DoSend),
@@ -65,27 +65,27 @@ namespace Simulator
           m_error_in(0),
           m_error_out(0),
 
-          m_readInterruptEnable(false),
+          InitStateVariable(readInterruptEnable, false),
 
           InitStorage(m_readInterrupt, iobus.GetClock(), false),
           InitProcess(p_ReadInterrupt, DoSendReadInterrupt),
-          m_readInterruptChannel(0),
+          InitStateVariable(readInterruptChannel, 0),
 
-          m_writeInterruptEnable(false),
-          m_writeInterruptThreshold(1),
+          InitStateVariable(writeInterruptEnable, false),
+          InitStateVariable(writeInterruptThreshold, 1),
 
           InitStorage(m_writeInterrupt, iobus.GetClock(), false),
           InitProcess(p_WriteInterrupt, DoSendWriteInterrupt),
-          m_writeInterruptChannel(0),
+          InitStateVariable(writeInterruptChannel, 0),
 
-          m_loopback(false),
-          m_scratch(0),
+          InitStateVariable(loopback, false),
+          InitStateVariable(scratch, 0),
 
           m_fin_name(),
           m_fout_name(),
           m_fd_in(-1),
           m_fd_out(-1),
-          m_enabled(false),
+          InitStateVariable(enabled, false),
 
           InitProcess(p_dummy, DoNothing)
     {
@@ -188,7 +188,6 @@ namespace Simulator
         RegisterModelObject(*this, "uart");
         RegisterModelProperty(*this, "inpfifosz", m_fifo_in.GetMaxSize());
         RegisterModelProperty(*this, "outfifosz", m_fifo_out.GetMaxSize());
-        RegisterSampleVariableInObject(m_enabled, SVC_LEVEL);
     }
 
     Result UART::DoSendReadInterrupt()

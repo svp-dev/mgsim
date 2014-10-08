@@ -31,8 +31,8 @@ Network::Network(
 
     m_loadBalanceThreshold(GetConf("LoadBalanceThreshold", unsigned)),
 
-    m_numAllocates(0),
-    m_numCreates(0),
+    InitSampleVariable(numAllocates, SVC_CUMULATIVE),
+    InitSampleVariable(numCreates, SVC_CUMULATIVE),
 
 #define CONSTRUCT_REGISTER(name) name((((const char*)#name)+2), *this, clock)
     CONSTRUCT_REGISTER(m_delegateOut),
@@ -48,8 +48,6 @@ Network::Network(
     InitProcess(p_AllocResponse, DoAllocResponse),
     InitProcess(p_Syncs, DoSyncs)
 {
-    RegisterSampleVariableInObject(m_numAllocates, SVC_CUMULATIVE);
-    RegisterSampleVariableInObject(m_numCreates, SVC_CUMULATIVE);
 
     m_delegateOut.Sensitive(p_DelegationOut);
     m_delegateIn .Sensitive(p_DelegationIn);

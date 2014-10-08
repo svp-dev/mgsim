@@ -4,6 +4,7 @@
 
 #include <sim/kernel.h>
 #include <sim/inspect.h>
+#include <sim/sampling.h>
 #include <arch/simtypes.h>
 #include <vector>
 #include "forward.h"
@@ -118,10 +119,10 @@ private:
     TSize               m_free[NUM_CONTEXT_TYPES];
 
     // Admin
-    CycleNo             m_lastcycle;
-    TSize               m_totalalloc;
-    TSize               m_maxalloc;
-    TSize               m_curalloc;
+    DefineSampleVariable(CycleNo, lastcycle);
+    DefineSampleVariable(TSize, totalalloc);
+    DefineSampleVariable(TSize, maxalloc);
+    DefineSampleVariable(TSize, curalloc);
 
     void UpdateStats();
     void CheckStateSanity() const;

@@ -18,12 +18,11 @@ ThreadTable::ThreadTable(const std::string& name, DRISC& parent)
   : Object(name, parent),
     m_empty(0),
     m_threads(GetConf("NumEntries", size_t)),
-    m_lastcycle(0), m_totalalloc(0), m_maxalloc(0), m_curalloc(0)
+    InitSampleVariable(lastcycle, SVC_CUMULATIVE),
+    InitSampleVariable(totalalloc, SVC_CUMULATIVE),
+    InitSampleVariable(maxalloc, SVC_WATERMARK, m_threads.size()),
+    InitSampleVariable(curalloc, SVC_LEVEL, m_threads.size())
 {
-    RegisterSampleVariableInObject(m_totalalloc, SVC_CUMULATIVE);
-    RegisterSampleVariableInObject(m_maxalloc, SVC_WATERMARK, m_threads.size());
-    RegisterSampleVariableInObject(m_curalloc, SVC_LEVEL, m_threads.size());
-    RegisterSampleVariableInObject(m_lastcycle, SVC_CUMULATIVE);
 
     for (TID i = 0; i < m_threads.size(); ++i)
     {

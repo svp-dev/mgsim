@@ -1168,20 +1168,16 @@ ZLCDMA::Cache::Cache(const std::string& name, ZLCDMA& parent, Clock& clock, Cach
     m_storages (),
     p_lines    (clock, GetName() + ".p_lines"),
     m_lines    (m_assoc * m_sets),
-    m_numHits  (0),
-    m_numMisses(0),
-    m_numConflicts(0),
-    m_numResolved(0),
+    InitSampleVariable(numHits, SVC_CUMULATIVE),
+    InitSampleVariable(numMisses, SVC_CUMULATIVE),
+    InitSampleVariable(numConflicts, SVC_CUMULATIVE),
+    InitSampleVariable(numResolved, SVC_CUMULATIVE),
     InitProcess(p_Requests, DoRequests),
     InitProcess(p_In, DoReceive),
     p_bus      (clock, GetName() + ".p_bus"),
     InitBuffer(m_requests, clock, "RequestBufferSize"),
     InitBuffer(m_responses, clock, "ResponseBufferSize")
 {
-    RegisterSampleVariableInObject(m_numHits, SVC_CUMULATIVE);
-    RegisterSampleVariableInObject(m_numMisses, SVC_CUMULATIVE);
-    RegisterSampleVariableInObject(m_numConflicts, SVC_CUMULATIVE);
-    RegisterSampleVariableInObject(m_numResolved, SVC_CUMULATIVE);
 
     // Create the cache lines
     for (size_t i = 0; i < m_lines.size(); ++i)

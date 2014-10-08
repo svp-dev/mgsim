@@ -140,11 +140,11 @@ private:
     DDRConfig                  m_ddrconfig;      ///< DDR virtual chip parameters
     std::vector<unsigned long> m_currentRow;     ///< Currently selected row, for each rank
     ICallback*                 m_callback;       ///< The callback to notify for completion
-    Request                    m_request;        ///< The current request
+    DefineStateVariable(Request, request);       ///< The current request
     Buffer<Request>            m_pipeline;       ///< Pipelined reads
     Flag                       m_busy;           ///< Trigger for process
-    CycleNo                    m_next_command;   ///< Minimum time for next command
-    CycleNo                    m_next_precharge; ///< Minimum time for next Row Precharge
+    DefineStateVariable(CycleNo, next_command);  ///< Minimum time for next command
+    DefineStateVariable(CycleNo, next_precharge);///< Minimum time for next Row Precharge
     TraceMap                   m_traces;         ///< Active traces
 
     // Processes
@@ -152,7 +152,7 @@ private:
     Process p_Pipeline;
 
     // Statistics
-    CycleNo m_busyCycles;
+    DefineSampleVariable(CycleNo, busyCycles);
 
     Result DoRequest();
     Result DoPipeline();

@@ -20,9 +20,9 @@ namespace Simulator
     {
         bool            m_timerTicked;
 
-        precise_time_t  m_timeOfLastInterrupt;
-        clock_delay_t   m_triggerDelay;
-        bool            m_deliverAllEvents;
+        DefineStateVariable(precise_time_t, timeOfLastInterrupt);
+        DefineStateVariable(clock_delay_t, triggerDelay);
+        DefineStateVariable(bool, deliverAllEvents);
 
         Flag            m_enableCheck;
 
@@ -32,7 +32,7 @@ namespace Simulator
             IODeviceID      m_devid;
             IIOBus&         m_iobus;
             Flag            m_doNotify;
-            IONotificationChannelID   m_interruptNumber;
+            DefineStateVariable(IONotificationChannelID, interruptNumber);
 
             RTC&            GetRTC() { return *dynamic_cast<RTC*>(GetParent()); }
 

@@ -64,8 +64,8 @@ private:
     Result DoResponses();
 
     // Statistics
-    uint64_t          m_nreads;
-    uint64_t          m_nwrites;
+    DefineSampleVariable(uint64_t, nreads);
+    DefineSampleVariable(uint64_t, nwrites);
 
     // Administrative
     friend class CDMA;

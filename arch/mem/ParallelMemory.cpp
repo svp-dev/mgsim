@@ -23,7 +23,7 @@ class ParallelMemory::Port : public Object
     IMemoryCallback&    m_callback;
     ArbitratedService<> p_requests;
     Buffer<Request>     m_requests;
-    CycleNo             m_nextdone;
+    DefineStateVariable(CycleNo, nextdone);
     Process             p_Requests;
     size_t              m_lineSize;
 
@@ -140,7 +140,8 @@ public:
           m_memory(memory),
           m_callback(callback),
           p_requests(clock, GetName() + ".p_requests"),
-          InitStorage(m_requests, clock, buffersize), m_nextdone(0),
+          InitStorage(m_requests, clock, buffersize),
+          InitStateVariable(nextdone, 0),
           InitProcess(p_Requests, DoRequests),
           m_lineSize(lineSize)
     {
@@ -243,17 +244,13 @@ ParallelMemory::ParallelMemory(const std::string& name, Object& parent, Clock& c
     m_baseRequestTime(GetConf("BaseRequestTime", CycleNo)),
     m_timePerLine    (GetConf("TimePerLine", CycleNo)),
     m_lineSize       (GetTopConf("CacheLineSize", size_t)),
-    m_nreads         (0),
-    m_nread_bytes    (0),
-    m_nwrites        (0),
-    m_nwrite_bytes   (0)
+    InitSampleVariable(nreads, SVC_CUMULATIVE),
+    InitSampleVariable(nread_bytes, SVC_CUMULATIVE),
+    InitSampleVariable(nwrites, SVC_CUMULATIVE),
+    InitSampleVariable(nwrite_bytes, SVC_CUMULATIVE)
 {
     RegisterModelObject(*this, "pmem");
 
-    RegisterSampleVariableInObject(m_nreads, SVC_CUMULATIVE);
-    RegisterSampleVariableInObject(m_nread_bytes, SVC_CUMULATIVE);
-    RegisterSampleVariableInObject(m_nwrites, SVC_CUMULATIVE);
-    RegisterSampleVariableInObject(m_nwrite_bytes, SVC_CUMULATIVE);
 }
 
 ParallelMemory::~ParallelMemory()

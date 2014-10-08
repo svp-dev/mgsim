@@ -20,7 +20,7 @@ struct BankedMemory::ClientInfo
 
 struct BankedMemory::Request
 {
-    ClientInfo* client;
+    MCID        client;
     bool        write;
     MemAddr     address;
     MemSize     size;
@@ -31,12 +31,13 @@ struct BankedMemory::Request
 
 class BankedMemory::Bank : public Object
 {
+    const vector<ClientInfo>& m_clients;
     BankedMemory&       m_memory;
     ArbitratedService<CyclicArbitratedPort> p_incoming;
     Buffer<Request>     m_incoming;
     Buffer<Request>     m_outgoing;
     Flag                m_busy;
-    Request             m_request;
+    DefineStateVariable(Request, request);
     Process             p_Incoming;
     Process             p_Outgoing;
     Process             p_Bank;
@@ -107,17 +108,17 @@ class BankedMemory::Bank : public Object
         if (now >= request.done)
         {
             // This request has arrived, send it to the callback
-            if (!request.client->service->Invoke())
+            if (!m_clients[request.client].service->Invoke())
             {
                 return FAILED;
             }
 
             if (request.write) {
-                if (!request.client->callback->OnMemoryWriteCompleted(request.wid)) {
+                if (!m_clients[request.client].callback->OnMemoryWriteCompleted(request.wid)) {
                     return FAILED;
                 }
             } else {
-                if (!request.client->callback->OnMemoryReadCompleted(request.address, request.data.data)) {
+                if (!m_clients[request.client].callback->OnMemoryReadCompleted(request.address, request.data.data)) {
                     return FAILED;
                 }
             }
@@ -154,7 +155,7 @@ class BankedMemory::Bank : public Object
         return SUCCESS;
     }
 
-    static void PrintRequest(ostream& out, char prefix, const Request& request)
+    void PrintRequest(ostream& out, char prefix, const Request& request)
     {
         out << prefix << " "
             << hex << setfill('0') << right
@@ -184,7 +185,7 @@ class BankedMemory::Bank : public Object
 
         out << " | ";
 
-        Object* obj = dynamic_cast<Object*>(request.client->callback);
+        Object* obj = dynamic_cast<Object*>(m_clients[request.client].callback);
         if (obj == NULL) {
             out << "???";
         } else {
@@ -242,8 +243,9 @@ public:
         out << endl;
     }
 
-    Bank(const std::string& name, BankedMemory& memory, Clock& clock, BufferSize buffersize)
+    Bank(const std::string& name, BankedMemory& memory, Clock& clock, BufferSize buffersize, const vector<ClientInfo>& clients)
         : Object(name, memory),
+          m_clients(clients),
           m_memory  (memory),
           p_incoming(clock, name + ".incoming"),
           InitStorage(m_incoming, clock, buffersize),
@@ -254,6 +256,15 @@ public:
           InitProcess(p_Outgoing, DoOutgoing),
           InitProcess(p_Bank, DoRequest)
     {
+        RegisterStateVariable(m_request.client, "request.client");
+        RegisterStateVariable(m_request.write, "request.write");
+        RegisterStateVariable(m_request.address, "request.address");
+        RegisterStateVariable(m_request.size, "request.size");
+        RegisterStateArray(m_request.data.data, sizeof(m_request.data.data)/sizeof(m_request.data.data[0]), "request.data");
+        RegisterStateArray(m_request.data.mask, sizeof(m_request.data.mask)/sizeof(m_request.data.mask[0]), "request.mask");
+        RegisterStateVariable(m_request.wid, "request.wid");
+        RegisterStateVariable(m_request.done, "request.done");
+
         m_incoming.Sensitive( p_Incoming );
         m_outgoing.Sensitive( p_Outgoing );
         m_busy    .Sensitive( p_Bank );
@@ -330,7 +341,7 @@ bool BankedMemory::Read(MCID id, MemAddr address)
 
     Request request;
     request.address   = address;
-    request.client    = &m_clients[id];
+    request.client    = id;
     request.size      = m_lineSize;
     request.write     = false;
 
@@ -353,7 +364,7 @@ bool BankedMemory::Write(MCID id, MemAddr address, const MemData& data, WClientI
 
     Request request;
     request.address   = address;
-    request.client    = &m_clients[id];
+    request.client    = id;
     request.size      = m_lineSize;
     request.wid       = wid;
     request.write     = true;
@@ -395,10 +406,10 @@ BankedMemory::BankedMemory(const std::string& name, Object& parent, Clock& clock
       m_timePerLine    (GetConf("TimePerLine", CycleNo)),
       m_lineSize       (GetTopConf("CacheLineSize", size_t)),
       m_selector       (IBankSelector::makeSelector(*this, GetConfOpt("BankSelector", string, defaultBankSelectorType), m_banks.size())),
-      m_nreads         (0),
-      m_nread_bytes    (0),
-      m_nwrites        (0),
-      m_nwrite_bytes   (0)
+      InitSampleVariable(nreads, SVC_CUMULATIVE),
+      InitSampleVariable(nread_bytes, SVC_CUMULATIVE),
+      InitSampleVariable(nwrites, SVC_CUMULATIVE),
+      InitSampleVariable(nwrite_bytes, SVC_CUMULATIVE)
 {
     const BufferSize buffersize = GetConf("BufferSize", BufferSize);
 
@@ -408,16 +419,12 @@ BankedMemory::BankedMemory(const std::string& name, Object& parent, Clock& clock
     // Create the banks
     for (size_t i = 0; i < m_banks.size(); ++i)
     {
-        m_banks[i] = new Bank("bank" + to_string(i), *this, clock, buffersize);
+        m_banks[i] = new Bank("bank" + to_string(i), *this, clock, buffersize, m_clients);
 
         RegisterModelObject(*m_banks[i], "bank");
         RegisterModelRelation(*this, *m_banks[i], "bank");
     }
 
-    RegisterSampleVariableInObject(m_nreads, SVC_CUMULATIVE);
-    RegisterSampleVariableInObject(m_nread_bytes, SVC_CUMULATIVE);
-    RegisterSampleVariableInObject(m_nwrites, SVC_CUMULATIVE);
-    RegisterSampleVariableInObject(m_nwrite_bytes, SVC_CUMULATIVE);
 }
 
 BankedMemory::~BankedMemory()

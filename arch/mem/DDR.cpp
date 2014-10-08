@@ -236,15 +236,24 @@ DDRChannel::DDRChannel(const std::string& name, Object& parent, Clock& clock)
       m_request(),
       InitStorage(m_pipeline, clock, m_ddrconfig.m_tCL),
       InitStorage(m_busy, clock, false),
-      m_next_command(0),
-      m_next_precharge(0),
+      InitStateVariable(next_command, 0),
+      InitStateVariable(next_precharge, 0),
       m_traces(),
 
       InitProcess(p_Request, DoRequest),
       InitProcess(p_Pipeline, DoPipeline),
 
-      m_busyCycles(0)
+      InitSampleVariable(busyCycles, SVC_CUMULATIVE)
 {
+    RegisterStateVariable(m_currentRow, "currentRow");
+    RegisterStateVariable(m_request.address, "request.address");
+    RegisterStateVariable(m_request.write, "request.write");
+    RegisterStateVariable(m_request.size, "request.size");
+    RegisterStateVariable(m_request.offset, "request.offset");
+    RegisterStateArray(m_request.data.data, sizeof(m_request.data.data)/sizeof(m_request.data.data[0]), "request.data");
+    RegisterStateArray(m_request.data.mask, sizeof(m_request.data.mask)/sizeof(m_request.data.mask[0]), "request.mask");
+    RegisterStateVariable(m_request.done, "request.done");
+
     m_busy.Sensitive(p_Request);
     m_pipeline.Sensitive(p_Pipeline);
 
@@ -262,7 +271,6 @@ DDRChannel::DDRChannel(const std::string& name, Object& parent, Clock& clock)
     RegisterModelProperty(*this, "columns", (uint32_t)(1UL<<m_ddrconfig.m_nColumnBits));
     RegisterModelProperty(*this, "freq", (uint32_t)clock.GetFrequency());
 
-    RegisterSampleVariableInObject(m_busyCycles, SVC_CUMULATIVE);
 }
 
 void DDRChannel::SetClient(ICallback& cb, StorageTraceSet& sts, const StorageTraceSet& storages)

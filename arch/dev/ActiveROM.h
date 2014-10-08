@@ -37,7 +37,7 @@ namespace Simulator
         bool               m_bootable;
         MemAddr            m_start_address;
         bool               m_legacy;
-        bool               m_booting;
+        DefineStateVariable(bool, booting);
         const bool         m_preloaded_at_boot;
 
         // DCA parameters
@@ -45,15 +45,15 @@ namespace Simulator
         IODeviceID         m_devid;
         IIOBus&            m_iobus;
 
-        IODeviceID         m_client;
-        IONotificationChannelID      m_completionTarget;
+        DefineStateVariable(IODeviceID, client);
+        DefineStateVariable(IONotificationChannelID, completionTarget);
 
         Flag               m_loading;
         Flag               m_flushing;
         Flag               m_notifying;
 
-        size_t             m_currentRange;
-        size_t             m_currentOffset;
+        DefineStateVariable(size_t, currentRange);
+        DefineStateVariable(size_t, currentOffset);
 
         void LoadConfig();
         void LoadArgumentVector();

@@ -6,6 +6,7 @@
 #include <sim/kernel.h>
 #include <sim/storage.h>
 #include <sim/config.h>
+#include <sim/sampling.h>
 
 struct SDL_Surface;
 
@@ -61,20 +62,25 @@ namespace Simulator
         ControlInterface      m_ctlinterface;
         FrameBufferInterface  m_fbinterface;
         static Display*       m_singleton;
+        SDL_Surface*          m_screen;
+        unsigned int          m_max_screen_h;
+        unsigned int          m_max_screen_w;
+        CycleNo               m_lastUpdate;
 
         std::vector<uint8_t>  m_framebuffer;
         std::vector<uint32_t> m_palette;
-        CycleNo               m_lastUpdate;
-        SDL_Surface*          m_screen;
-        unsigned int          m_bpp; /* 8, 16, 24, 32 */
-        unsigned int          m_width, m_height;
-        float                 m_scalex_orig,       m_scalex;
-        float                 m_scaley_orig,       m_scaley;
-        unsigned int          m_refreshDelay_orig, m_refreshDelay;
-        unsigned int          m_max_screen_h, m_max_screen_w;
-        bool                  m_indexed;
 
-        bool                  m_enabled;
+        DefineStateVariable(bool, enabled);
+        DefineStateVariable(bool, indexed);
+        DefineStateVariable(unsigned int, bpp); /* 8, 16, 24, 32 */
+        DefineStateVariable(unsigned int, width);
+        DefineStateVariable(unsigned int, height);
+        DefineStateVariable(float, scalex_orig);
+        DefineStateVariable(float, scalex);
+        DefineStateVariable(float, scaley_orig);
+        DefineStateVariable(float, scaley);
+        DefineStateVariable(unsigned int, refreshDelay_orig);
+        DefineStateVariable(unsigned int, refreshDelay);
 
 
 

@@ -21,6 +21,7 @@ DCache::DCache(const std::string& name, DRISC& parent, Clock& clock)
     m_memory(NULL),
     m_mcid(0),
     m_lines(),
+    m_data(),
 
     m_assoc          (GetConf("Associativity", size_t)),
     m_sets           (GetConf("NumSets", size_t)),
@@ -31,20 +32,20 @@ DCache::DCache(const std::string& name, DRISC& parent, Clock& clock)
     InitBuffer(m_writebacks, clock, "ReadWritebacksBufferSize"),
     InitBuffer(m_outgoing, clock, "OutgoingBufferSize"),
     m_wbstate(),
-    m_numRHits        (0),
-    m_numDelayedReads (0),
-    m_numEmptyRMisses (0),
-    m_numInvalidRMisses(0),
-    m_numLoadingRMisses(0),
-    m_numHardConflicts(0),
-    m_numResolvedConflicts(0),
-    m_numWAccesses    (0),
-    m_numWHits        (0),
-    m_numPassThroughWMisses(0),
-    m_numLoadingWMisses(0),
-    m_numStallingRMisses(0),
-    m_numStallingWMisses(0),
-    m_numSnoops(0),
+    InitSampleVariable(numRHits, SVC_CUMULATIVE),
+    InitSampleVariable(numDelayedReads, SVC_CUMULATIVE),
+    InitSampleVariable(numEmptyRMisses, SVC_CUMULATIVE),
+    InitSampleVariable(numInvalidRMisses, SVC_CUMULATIVE),
+    InitSampleVariable(numLoadingRMisses, SVC_CUMULATIVE),
+    InitSampleVariable(numHardConflicts, SVC_CUMULATIVE),
+    InitSampleVariable(numResolvedConflicts, SVC_CUMULATIVE),
+    InitSampleVariable(numWAccesses, SVC_CUMULATIVE),
+    InitSampleVariable(numWHits, SVC_CUMULATIVE),
+    InitSampleVariable(numPassThroughWMisses, SVC_CUMULATIVE),
+    InitSampleVariable(numLoadingWMisses, SVC_CUMULATIVE),
+    InitSampleVariable(numStallingRMisses, SVC_CUMULATIVE),
+    InitSampleVariable(numStallingWMisses, SVC_CUMULATIVE),
+    InitSampleVariable(numSnoops, SVC_CUMULATIVE),
 
     InitProcess(p_ReadWritebacks, DoReadWritebacks),
     InitProcess(p_ReadResponses, DoReadResponses),
@@ -53,17 +54,6 @@ DCache::DCache(const std::string& name, DRISC& parent, Clock& clock)
 
     p_service       (clock, GetName() + ".p_service")
 {
-    RegisterSampleVariableInObject(m_numRHits, SVC_CUMULATIVE);
-    RegisterSampleVariableInObject(m_numEmptyRMisses, SVC_CUMULATIVE);
-    RegisterSampleVariableInObject(m_numLoadingRMisses, SVC_CUMULATIVE);
-    RegisterSampleVariableInObject(m_numInvalidRMisses, SVC_CUMULATIVE);
-    RegisterSampleVariableInObject(m_numHardConflicts, SVC_CUMULATIVE);
-    RegisterSampleVariableInObject(m_numResolvedConflicts, SVC_CUMULATIVE);
-    RegisterSampleVariableInObject(m_numWHits, SVC_CUMULATIVE);
-    RegisterSampleVariableInObject(m_numLoadingWMisses, SVC_CUMULATIVE);
-    RegisterSampleVariableInObject(m_numStallingRMisses, SVC_CUMULATIVE);
-    RegisterSampleVariableInObject(m_numStallingWMisses, SVC_CUMULATIVE);
-    RegisterSampleVariableInObject(m_numPassThroughWMisses, SVC_CUMULATIVE);
 
     m_writebacks.Sensitive(p_ReadWritebacks);
     m_read_responses.Sensitive(p_ReadResponses);
@@ -93,16 +83,35 @@ DCache::DCache(const std::string& name, DRISC& parent, Clock& clock)
     }
 
     m_lines.resize(m_sets * m_assoc);
+    m_data.resize(m_lines.size() * m_lineSize);
+    RegisterStateVariable(m_data, "data");
     for (size_t i = 0; i < m_lines.size(); ++i)
     {
         m_lines[i].state  = LINE_EMPTY;
-        m_lines[i].data   = new char[m_lineSize];
+        m_lines[i].data   = &m_data[i * m_lineSize];
         m_lines[i].valid  = new bool[m_lineSize];
         m_lines[i].create = false;
+        auto ln = "line" + to_string(i);
+        RegisterStateArray(m_lines[i].valid, m_lineSize, ln + "_v");
+        RegisterStateVariable(m_lines[i].tag, ln + "_t");
+        RegisterStateVariable(m_lines[i].access, ln + "_a");
+        RegisterStateVariable(m_lines[i].waiting.index, ln + "_wi");
+        RegisterStateVariable(m_lines[i].waiting.type, ln + "_wt");
+        RegisterStateVariable(m_lines[i].state, ln + "_s");
+        RegisterStateVariable(m_lines[i].processing, ln + "_p");
+        RegisterStateVariable(m_lines[i].create, ln + "_c");
     }
 
     m_wbstate.size   = 0;
     m_wbstate.offset = 0;
+    RegisterStateVariable(m_wbstate.value, "wbs_v");
+    RegisterStateVariable(m_wbstate.addr.index, "wbs_ai");
+    RegisterStateVariable(m_wbstate.addr.type, "wbs_at");
+    RegisterStateVariable(m_wbstate.next.index, "wbs_ni");
+    RegisterStateVariable(m_wbstate.next.type, "wbs_nt");
+    RegisterStateVariable(m_wbstate.size, "wbs_s");
+    RegisterStateVariable(m_wbstate.offset, "wbs_o");
+    RegisterStateVariable(m_wbstate.fid, "wbs_f");
 }
 
 void DCache::ConnectMemory(IMemory* memory)
@@ -121,7 +130,6 @@ DCache::~DCache()
 {
     for (size_t i = 0; i < m_lines.size(); ++i)
     {
-        delete[] m_lines[i].data;
         delete[] m_lines[i].valid;
     }
     delete m_selector;

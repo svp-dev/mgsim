@@ -113,11 +113,12 @@ namespace Simulator
 
         MemSize                 m_lineSize;
 
-        IncomingRequest         m_inputLatch;
+        DefineStateVariable(IncomingRequest, inputLatch);
 
-        ArgumentFetchState      m_fetchState;
-        MemAddr                 m_currentArgumentOffset;
-        size_t                  m_numPendingDCAReads;
+        DefineStateVariable(ArgumentFetchState, fetchState);
+        DefineStateVariable(MemAddr, currentArgumentOffset);
+        DefineStateVariable(size_t, numPendingDCAReads);
+
         size_t                  m_maxArg1Size;
         size_t                  m_maxArg2Size;
         size_t                  m_maxRes1Size;
@@ -125,8 +126,8 @@ namespace Simulator
         std::vector<char>       m_currentArgData1;
         std::vector<char>       m_currentArgData2;
 
-        ResponseWritebackState  m_writebackState;
-        MemAddr                 m_currentResponseOffset;
+        DefineStateVariable(ResponseWritebackState, writebackState);
+        DefineStateVariable(MemAddr, currentResponseOffset);
 
         Flag                    m_queueEnabled;
         Buffer<IncomingRequest> m_incoming;

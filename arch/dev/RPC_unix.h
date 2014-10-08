@@ -37,13 +37,13 @@ namespace Simulator
         VirtualDescriptor* DuplicateVFD2(VirtualFD original, VirtualFD target);
 
         // statistics
-        uint64_t m_nrequests;
-        uint64_t m_nfailures;
-        uint64_t m_nstats;
-        uint64_t m_nreads;
-        uint64_t m_nread_bytes;
-        uint64_t m_nwrites;
-        uint64_t m_nwrite_bytes;
+        DefineSampleVariable(uint64_t, nrequests);
+        DefineSampleVariable(uint64_t, nfailures);
+        DefineSampleVariable(uint64_t, nstats);
+        DefineSampleVariable(uint64_t, nreads);
+        DefineSampleVariable(uint64_t, nread_bytes);
+        DefineSampleVariable(uint64_t, nwrites);
+        DefineSampleVariable(uint64_t, nwrite_bytes);
 
     public:
 

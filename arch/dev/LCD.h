@@ -4,6 +4,7 @@
 
 #include <arch/IOBus.h>
 #include <sim/kernel.h>
+#include <sim/sampling.h>
 
 #include <fstream>
 
@@ -28,8 +29,8 @@ class LCD : public IIOBusClient, public Object
     unsigned   m_bgcolor;
     unsigned   m_fgcolor;
 
-    size_t     m_curx;
-    size_t     m_cury;
+    DefineStateVariable(size_t, curx);
+    DefineStateVariable(size_t, cury);
 
     std::ofstream *m_tracefile;
 

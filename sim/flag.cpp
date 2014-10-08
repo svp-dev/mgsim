@@ -25,16 +25,13 @@ namespace Simulator
         : Object(name, parent),
           Storage(name, parent, clock),
           SensitiveStorage(name, parent, clock),
-          m_set(false),
+          InitStateVariable(set, false),
           m_updated(false),
           m_new(set),
-          m_stalls(0),
-          m_lastcycle(0),
-          m_totalsize(0)
+          InitSampleVariable(stalls, SVC_CUMULATIVE),
+          InitSampleVariable(lastcycle, SVC_CUMULATIVE),
+          InitSampleVariable(totalsize, SVC_CUMULATIVE)
     {
-        RegisterSampleVariableInObject(m_totalsize, SVC_CUMULATIVE);
-        RegisterSampleVariableInObject(m_set, SVC_LEVEL);
-        RegisterSampleVariableInObject(m_stalls, SVC_CUMULATIVE);
         if (set) {
             RegisterUpdate();
         }

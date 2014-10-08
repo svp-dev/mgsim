@@ -838,8 +838,8 @@ bool Allocator::OnDCachelineLoaded(char* data)
     COMMIT {
         auto& info = m_bundle.Front();
         auto offset = info.addr % m_dcache.GetLineSize();
-        assert(offset + sizeof(m_bundleData) < m_dcache.GetLineSize());
-        std::copy(data + offset, data + offset + sizeof(m_bundleData), m_bundleData);
+        assert(offset + m_bundleData.size() < m_dcache.GetLineSize());
+        std::copy(data + offset, data + offset + m_bundleData.size(), &m_bundleData[0]);
         m_bundleState = BUNDLE_LINE_LOADED;
     }
     return true;
@@ -1448,13 +1448,13 @@ Result Allocator::DoBundle()
     if (m_bundleState == BUNDLE_INITIAL)
     {
         auto lineSize = m_dcache.GetLineSize();
-        if (((info.addr % lineSize) + sizeof(m_bundleData)) > lineSize)
+        if (((info.addr % lineSize) + m_bundleData.size()) > lineSize)
         {
             throw exceptf<InvalidArgumentException>(*this, "Bundle info structure at %#016llx straddles cache line boundary", (unsigned long long)info.addr);
         }
 
         Result      result;
-        if ((result = m_dcache.Read(info.addr, m_bundleData, sizeof(Integer) * 2 + sizeof(MemAddr), 0)) == FAILED)
+        if ((result = m_dcache.Read(info.addr, &m_bundleData[0], sizeof(Integer) * 2 + sizeof(MemAddr), 0)) == FAILED)
         {
             DeadlockWrite("Unable to fetch the D-Cache line for %#016llx for bundle creation", (unsigned long long)info.addr);
             return FAILED;
@@ -1977,12 +1977,13 @@ Allocator::Allocator(const string& name, DRISC& parent, Clock& clock)
     m_dcache(parent.GetDCache()),
     m_network(parent.GetNetwork()),
     m_pipeline(parent.GetPipeline()),
+    m_bundleData(sizeof(Integer) + sizeof(MemAddr) + sizeof(SInteger), 0),
     InitStorage(m_bundle, clock, GetConfOpt("IndirectCreateQueueSize", BufferSize, 8)),
     InitStorage(m_alloc, clock, GetConfOpt("InitialThreadAllocateQueueSize", BufferSize, m_familyTable.GetNumFamilies())),
     InitStorage(m_creates, clock, GetConfOpt("CreateQueueSize", BufferSize, m_familyTable.GetNumFamilies()), 3),
     InitStorage(m_cleanup, clock, GetConfOpt("ThreadCleanupQueueSize", BufferSize, m_threadTable.GetNumThreads()), 4),
-    m_createState   (CREATE_INITIAL),
-    m_createLine    (0),
+    InitStateVariable(createState, CREATE_INITIAL),
+    InitStateVariable(createLine, 0),
     InitStorage(m_readyThreadsPipe, clock, m_threadTable),
     InitStorage(m_readyThreadsOther, clock, m_threadTable),
     m_prevReadyList (NULL),
@@ -1991,14 +1992,14 @@ Allocator::Allocator(const string& name, DRISC& parent, Clock& clock)
     InitBuffer(m_allocRequestsNoSuspend, clock, "FamilyAllocationNoSuspendQueueSize"),
     InitBuffer(m_allocRequestsExclusive, clock, "FamilyAllocationExclusiveQueueSize"),
 
-    m_bundleState   (BUNDLE_INITIAL),
+    InitStateVariable(bundleState, BUNDLE_INITIAL),
 
-    m_lastcycle(0),
-    m_maxallocex(0),
-    m_totalallocex(0),
-    m_curallocex(0),
-    m_numCreatedFamilies(0),
-    m_numCreatedThreads(0),
+    InitSampleVariable(lastcycle, SVC_CUMULATIVE),
+    InitSampleVariable(maxallocex, SVC_WATERMARK),
+    InitSampleVariable(totalallocex, SVC_CUMULATIVE),
+    InitSampleVariable(curallocex, SVC_LEVEL),
+    InitSampleVariable(numCreatedFamilies, SVC_CUMULATIVE),
+    InitSampleVariable(numCreatedThreads, SVC_CUMULATIVE),
 
     InitProcess(p_ThreadAllocate, DoThreadAllocate),
     InitProcess(p_FamilyAllocate, DoFamilyAllocate),
@@ -2026,13 +2027,9 @@ Allocator::Allocator(const string& name, DRISC& parent, Clock& clock)
 
     std::fill(m_numThreadsPerState, m_numThreadsPerState+TST_NUMSTATES, 0);
 
-    RegisterSampleVariableInObject(m_totalallocex, SVC_CUMULATIVE);
-    RegisterSampleVariableInObject(m_maxallocex, SVC_WATERMARK);
-    RegisterSampleVariableInObject(m_curallocex, SVC_LEVEL);
-    RegisterSampleVariableInObject(m_numCreatedFamilies, SVC_CUMULATIVE);
-    RegisterSampleVariableInObject(m_numCreatedThreads, SVC_CUMULATIVE);
-    RegisterSampleVariableInObjectWithName(m_numThreadsPerState[TST_ACTIVE], "m_numActiveThreads", SVC_LEVEL);
-    RegisterSampleVariableInObjectWithName(m_numThreadsPerState[TST_READY], "m_numReadyThreads", SVC_LEVEL);
+    RegisterStateVariable(m_bundleData, "bundleData");
+    RegisterSampleVariableInObjectWithName(m_numThreadsPerState[TST_ACTIVE], "numActiveThreads", SVC_LEVEL);
+    RegisterSampleVariableInObjectWithName(m_numThreadsPerState[TST_READY], "numReadyThreads", SVC_LEVEL);
 }
 
 void Allocator::AllocateInitialFamily(MemAddr pc, bool legacy, PSize placeSize, SInteger startIndex)

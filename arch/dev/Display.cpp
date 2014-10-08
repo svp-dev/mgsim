@@ -256,31 +256,28 @@ namespace Simulator
         : Object(name, parent),
           m_ctlinterface("ctl", *this, iobus, ctldevid),
           m_fbinterface("fb", *this, iobus, fbdevid),
+          m_screen(NULL),
+          m_max_screen_h(1024),
+          m_max_screen_w(1280),
+          m_lastUpdate(0),
           m_framebuffer(GetConf("GfxFrameSize", size_t), 0),
           m_palette(256, 0),
-          m_lastUpdate(0),
-          m_screen(NULL),
-          m_bpp(8),
-          m_width(640), m_height(400),
-          m_scalex_orig(1.0f / max(1U, GetTopConf("SDLHorizScale", unsigned int))),
-          m_scalex(m_scalex_orig),
-          m_scaley_orig(1.0f / max(1U, GetTopConf("SDLVertScale", unsigned int))),
-          m_scaley(m_scaley_orig),
-          m_refreshDelay_orig(GetTopConf("SDLRefreshDelay", unsigned int)),
-          m_refreshDelay(m_refreshDelay_orig),
-          m_max_screen_h(1024), m_max_screen_w(1280),
-          m_indexed(false),
-          m_enabled(false)
+          InitStateVariable(enabled, false),
+          InitStateVariable(indexed, false),
+          InitStateVariable(bpp, 8),
+          InitStateVariable(width, 640),
+          InitStateVariable(height, 400),
+          InitStateVariable(scalex_orig, 1.0f / max(1U, GetTopConf("SDLHorizScale", unsigned int))),
+          InitStateVariable(scalex, m_scalex_orig),
+          InitStateVariable(scaley_orig, 1.0f / max(1U, GetTopConf("SDLVertScale", unsigned int))),
+          InitStateVariable(scaley, m_scaley_orig),
+          InitStateVariable(refreshDelay_orig, GetTopConf("SDLRefreshDelay", unsigned int)),
+          InitStateVariable(refreshDelay, m_refreshDelay_orig)
     {
         if (m_framebuffer.size() < 640*400)
             throw exceptf<InvalidArgumentException>(*this, "FrameBufferSize not set or too small for minimum resolution 640x400: %zu", m_framebuffer.size());
-
-        RegisterSampleVariableInObject(m_width,  SVC_LEVEL);
-        RegisterSampleVariableInObject(m_height, SVC_LEVEL);
-        RegisterSampleVariableInObject(m_scalex, SVC_LEVEL);
-        RegisterSampleVariableInObject(m_scaley, SVC_LEVEL);
-        RegisterSampleVariableInObject(m_refreshDelay, SVC_LEVEL);
-        RegisterSampleVariableInObject(m_lastUpdate, SVC_CUMULATIVE);
+        RegisterStateVariable(m_framebuffer, "framebuffer");
+        RegisterStateVariable(m_palette, "palette");
 
 #ifdef USE_SDL
         if (GetConf("GfxEnableSDLOutput", bool))

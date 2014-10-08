@@ -44,7 +44,7 @@ bool SerialMemory::Read(MCID id, MemAddr address)
     assert(id < m_clients.size() && m_clients[id] != NULL);
 
     Request request;
-    request.callback  = m_clients[id];
+    request.client    = id;
     request.address   = address;
     request.write     = false;
 
@@ -69,7 +69,7 @@ bool SerialMemory::Write(MCID id, MemAddr address, const MemData& data, WClientI
     assert(id < m_clients.size() && m_clients[id] != NULL);
 
     Request request;
-    request.callback  = m_clients[id];
+    request.client    = id;
     request.address   = address;
     request.wid       = wid;
     request.write     = true;
@@ -112,7 +112,7 @@ Result SerialMemory::DoRequests()
 
                 VirtualMemory::Write(request.address, request.data.data, request.data.mask, m_lineSize);
 
-                if (!request.callback->OnMemoryWriteCompleted(request.wid))
+                if (!m_clients[request.client]->OnMemoryWriteCompleted(request.wid))
                 {
                     return FAILED;
                 }
@@ -125,7 +125,7 @@ Result SerialMemory::DoRequests()
 
                 VirtualMemory::Read(request.address, data, m_lineSize);
 
-                if (!request.callback->OnMemoryReadCompleted(request.address, data))
+                if (!m_clients[request.client]->OnMemoryReadCompleted(request.address, data))
                 {
                     return FAILED;
                 }
@@ -159,12 +159,12 @@ SerialMemory::SerialMemory(const std::string& name, Object& parent, Clock& clock
     m_baseRequestTime(GetConf("BaseRequestTime", CycleNo)),
     m_timePerLine    (GetConf("TimePerLine", CycleNo)),
     m_lineSize       (GetTopConf("CacheLineSize", CycleNo)),
-    m_nextdone(0),
+    InitStateVariable(nextdone, 0),
     m_storages(),
-    m_nreads(0),
-    m_nread_bytes(0),
-    m_nwrites(0),
-    m_nwrite_bytes(0),
+    InitSampleVariable(nreads, SVC_CUMULATIVE),
+    InitSampleVariable(nread_bytes, SVC_CUMULATIVE),
+    InitSampleVariable(nwrites, SVC_CUMULATIVE),
+    InitSampleVariable(nwrite_bytes, SVC_CUMULATIVE),
 
     InitProcess(p_Requests, DoRequests)
 {
@@ -174,10 +174,6 @@ SerialMemory::SerialMemory(const std::string& name, Object& parent, Clock& clock
     m_storages = StorageTraceSet(StorageTrace());   // Request handler is waiting for completion
     p_Requests.SetStorageTraces(m_storages);
 
-    RegisterSampleVariableInObject(m_nreads, SVC_CUMULATIVE);
-    RegisterSampleVariableInObject(m_nread_bytes, SVC_CUMULATIVE);
-    RegisterSampleVariableInObject(m_nwrites, SVC_CUMULATIVE);
-    RegisterSampleVariableInObject(m_nwrite_bytes, SVC_CUMULATIVE);
 }
 
 void SerialMemory::Cmd_Info(ostream& out, const vector<string>& arguments) const
@@ -222,7 +218,7 @@ void SerialMemory::Cmd_Read(ostream& out, const vector<string>& arguments) const
         out << " | "
             << setw(20);
 
-        Object* obj = dynamic_cast<Object*>(p->callback);
+        Object* obj = dynamic_cast<Object*>(m_clients[p->client]);
         if (obj == NULL) {
             out << "???";
         } else {

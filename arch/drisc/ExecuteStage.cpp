@@ -573,11 +573,9 @@ Pipeline::ExecuteStage::ExecuteStage(Pipeline& parent,
     m_threadTable(GetDRISC().GetThreadTable()),
     m_fpu(NULL),
     m_fpuSource(0),
-    m_flop(0),
-    m_op(0)
+    InitSampleVariable(flop, SVC_CUMULATIVE),
+    InitSampleVariable(op, SVC_CUMULATIVE)
 {
-    RegisterSampleVariableInObject(m_flop, SVC_CUMULATIVE);
-    RegisterSampleVariableInObject(m_op, SVC_CUMULATIVE);
 }
 
 void Pipeline::ExecuteStage::ConnectFPU(FPU* fpu, size_t fpu_source)

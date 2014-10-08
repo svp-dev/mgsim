@@ -82,6 +82,7 @@ private:
     IMemory*             m_memory;          ///< Memory
     MCID                 m_mcid;            ///< Memory Client ID
     std::vector<Line>    m_lines;           ///< The cache-lines.
+    std::vector<char>    m_data;            ///< The data in the cache lines.
     size_t               m_assoc;           ///< Config: Cache associativity.
     size_t               m_sets;            ///< Config: Number of sets in the cace.
     size_t               m_lineSize;        ///< Config: Size of a cache line, in bytes.
@@ -95,23 +96,23 @@ private:
 
     // Statistics
 
-    uint64_t             m_numRHits;
-    uint64_t             m_numDelayedReads;
-    uint64_t             m_numEmptyRMisses;
-    uint64_t             m_numInvalidRMisses;
-    uint64_t             m_numLoadingRMisses;
-    uint64_t             m_numHardConflicts;
-    uint64_t             m_numResolvedConflicts;
+    DefineSampleVariable(uint64_t, numRHits);
+    DefineSampleVariable(uint64_t, numDelayedReads);
+    DefineSampleVariable(uint64_t, numEmptyRMisses);
+    DefineSampleVariable(uint64_t, numInvalidRMisses);
+    DefineSampleVariable(uint64_t, numLoadingRMisses);
+    DefineSampleVariable(uint64_t, numHardConflicts);
+    DefineSampleVariable(uint64_t, numResolvedConflicts);
 
-    uint64_t             m_numWAccesses;
-    uint64_t             m_numWHits;
-    uint64_t             m_numPassThroughWMisses;
-    uint64_t             m_numLoadingWMisses;
+    DefineSampleVariable(uint64_t, numWAccesses);
+    DefineSampleVariable(uint64_t, numWHits);
+    DefineSampleVariable(uint64_t, numPassThroughWMisses);
+    DefineSampleVariable(uint64_t, numLoadingWMisses);
 
-    uint64_t             m_numStallingRMisses;
-    uint64_t             m_numStallingWMisses;
+    DefineSampleVariable(uint64_t, numStallingRMisses);
+    DefineSampleVariable(uint64_t, numStallingWMisses);
 
-    uint64_t             m_numSnoops;
+    DefineSampleVariable(uint64_t, numSnoops);
 
 
     Result DoReadWritebacks();

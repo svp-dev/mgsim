@@ -4,6 +4,7 @@
 
 #include <sim/kernel.h>
 #include <sim/inspect.h>
+#include <sim/sampling.h>
 #include <arch/simtypes.h>
 #include <vector>
 #include "forward.h"
@@ -140,10 +141,10 @@ private:
     FSize               m_free[NUM_CONTEXT_TYPES];
 
     // Admin
-    CycleNo             m_lastcycle;
-    FSize               m_totalalloc;
-    FSize               m_maxalloc;
-    FSize               m_curalloc;
+    DefineSampleVariable(CycleNo, lastcycle);
+    DefineSampleVariable(FSize, totalalloc);
+    DefineSampleVariable(FSize, maxalloc);
+    DefineSampleVariable(FSize, curalloc);
 
     void UpdateStats();
     void CheckStateSanity() const;

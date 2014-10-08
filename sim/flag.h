@@ -3,6 +3,7 @@
 #define SIM_FLAG_H
 
 #include "sim/storage.h"
+#include "sim/sampling.h"
 
 namespace Simulator
 {
@@ -10,14 +11,15 @@ namespace Simulator
     class Flag : public SensitiveStorage
     {
     protected:
-        bool m_set;
+
+        DefineStateVariable(bool, set);
         bool m_updated;
         bool m_new;
 
         // Statistics
-        uint64_t      m_stalls;         ///< Number of stalls so far
-        CycleNo       m_lastcycle;      ///< Cycle no of last event
-        uint64_t      m_totalsize;      ///< Cumulated current size * cycle no
+        DefineSampleVariable(uint64_t, stalls);      ///< Number of stalls so far
+        DefineSampleVariable(CycleNo, lastcycle);    ///< Cycle no of last event
+        DefineSampleVariable(uint64_t, totalsize); ///< Cumulated current size * cycle no
 
         // Update: commit this flag's changes between master cycles.
         void Update() override;

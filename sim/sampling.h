@@ -49,10 +49,18 @@ namespace Simulator
         RegisterSampleVariable(&var, name, cat, t, sizeof(T), 0);
     }
 
+    template<typename T>
     inline
-    void RegisterSampleVariable(std::vector<char>& var, const std::string& name, SampleVariableCategory cat)
+    void RegisterSampleVariable(std::vector<T>& var, const std::string& name, SampleVariableCategory cat)
     {
-        RegisterSampleVariable(&var[0], name, cat, SV_BINARY, var.size(), 0);
+        RegisterSampleVariable(&var[0], name, cat, SV_BINARY, var.size() * sizeof(T), 0);
+    }
+
+    template<typename T>
+    inline
+    void RegisterSampleVariable(T *var, const std::string& name, SampleVariableCategory cat, size_t sz)
+    {
+        RegisterSampleVariable(var, name, cat, SV_BINARY, sz * sizeof(T), 0);
     }
 
     template<typename T, typename U>
@@ -81,7 +89,10 @@ namespace Simulator
     Type m_ ## Member
 
 #define RegisterStateVariable(LValue, Name) \
-    RegisterSampleVariableInObjectWithName(LValue, Name, SVC_STATE), LValue
+    RegisterSampleVariableInObjectWithName(LValue, Name, SVC_STATE)
+
+#define RegisterStateArray(LValue, Size, Name) \
+    RegisterSampleVariableInObjectWithName(LValue, Name, SVC_STATE, Size)
 
 #define InitSampleVariable(Member, ...)                             \
     m_ ## Member((RegisterSampleVariableInObject(m_ ## Member, ##__VA_ARGS__), 0))

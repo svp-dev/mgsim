@@ -6,6 +6,7 @@
 #include <arch/Memory.h>
 #include <arch/VirtualMemory.h>
 #include <sim/inspect.h>
+#include <sim/sampling.h>
 
 #include <queue>
 #include <set>
@@ -57,10 +58,10 @@ protected:
     size_t                  m_lineSize;
     IBankSelector*          m_selector;
 
-    uint64_t m_nreads;
-    uint64_t m_nread_bytes;
-    uint64_t m_nwrites;
-    uint64_t m_nwrite_bytes;
+    DefineSampleVariable(uint64_t, nreads);
+    DefineSampleVariable(uint64_t, nread_bytes);
+    DefineSampleVariable(uint64_t, nwrites);
+    DefineSampleVariable(uint64_t, nwrite_bytes);
 
 public:
     BankedMemory(const std::string& name, Object& parent, Clock& clock, const std::string& defaultBankSelectorType);
@@ -75,4 +76,3 @@ public:
 
 }
 #endif
-

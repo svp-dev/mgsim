@@ -4,6 +4,7 @@
 
 #include <deque>
 #include "sim/storage.h"
+#include "sim/sampling.h"
 
 namespace Simulator
 {
@@ -26,11 +27,11 @@ namespace Simulator
         bool          m_popped;          ///< Has a Pop() been done?
 
         // Statistics
-        uint64_t      m_stalls;         ///< Number of stalls so far
-        CycleNo       m_lastcycle;      ///< Cycle no of last event
-        uint64_t      m_totalsize;      ///< Cumulated current size * cycle no
-        BufferSize    m_maxsize;        ///< Maximum effective queue size reached
-        BufferSize    m_cursize;        ///< Current size
+        DefineSampleVariable(uint64_t, stalls);  ///< Number of stalls so far
+        DefineSampleVariable(CycleNo, lastcycle); ///< Cycle no of last event
+        DefineSampleVariable(uint64_t, totalsize); ///< Cumulated current size * cycle no
+        DefineSampleVariable(BufferSize, maxeffsize); ///< Maximum effective queue size reached
+        DefineSampleVariable(BufferSize, cursize);  ///< Current size
 
     protected:
         // Update: update the buffer between cycles.

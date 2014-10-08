@@ -98,9 +98,9 @@ namespace Simulator
 
           m_inputLatch(),
 
-          m_fetchState(ARGFETCH_READING1),
-          m_currentArgumentOffset(0),
-          m_numPendingDCAReads(0),
+          InitStateVariable(fetchState, ARGFETCH_READING1),
+          InitStateVariable(currentArgumentOffset, 0),
+          InitStateVariable(numPendingDCAReads, 0),
           m_maxArg1Size(GetConf("RPCBufferSize1", size_t)),
           m_maxArg2Size(GetConf("RPCBufferSize2", size_t)),
           m_maxRes1Size(m_maxArg1Size),
@@ -108,8 +108,8 @@ namespace Simulator
           m_currentArgData1(m_maxArg1Size, 0),
           m_currentArgData2(m_maxArg2Size, 0),
 
-          m_writebackState(RESULTWB_WRITING1),
-          m_currentResponseOffset(0),
+          InitStateVariable(writebackState, RESULTWB_WRITING1),
+          InitStateVariable(currentResponseOffset, 0),
 
           InitStorage(m_queueEnabled, iobus.GetClock(), false),
           InitBuffer(m_incoming, iobus.GetClock(), "RPCIncomingQueueSize"),
@@ -125,6 +125,19 @@ namespace Simulator
           InitProcess(p_writeResponse, DoWriteResponse),
           InitProcess(p_sendCompletionNotifications, DoSendCompletionNotifications)
     {
+        RegisterStateVariable(m_inputLatch.procedure_id, "inputLatch.pid");
+        RegisterStateVariable(m_inputLatch.extra_arg1, "inputLatch.ea1");
+        RegisterStateVariable(m_inputLatch.extra_arg2, "inputLatch.ea2");
+        RegisterStateVariable(m_inputLatch.dca_device_id, "inputLatch.ddid");
+        RegisterStateVariable(m_inputLatch.arg1_base_address, "inputLatch.a1b");
+        RegisterStateVariable(m_inputLatch.arg1_size, "inputLatch.a1s");
+        RegisterStateVariable(m_inputLatch.arg2_base_address, "inputLatch.a2b");
+        RegisterStateVariable(m_inputLatch.arg2_size, "inputLatch.a2s");
+        RegisterStateVariable(m_inputLatch.res1_base_address, "inputLatch.r1b");
+        RegisterStateVariable(m_inputLatch.res2_base_address, "inputLatch.r2b");
+        RegisterStateVariable(m_inputLatch.completion_tag, "inputLatch.ct");
+        RegisterStateVariable(m_inputLatch.notification_channel_id, "inputLatch.ncid");
+
         iobus.RegisterClient(devid, *this);
 
         m_queueEnabled.Sensitive(p_queueRequest);

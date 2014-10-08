@@ -305,15 +305,11 @@ Pipeline::MemoryStage::MemoryStage(Pipeline& parent,
       m_output(output),
       m_allocator(GetDRISC().GetAllocator()),
       m_dcache(GetDRISC().GetDCache()),
-      m_loads(0),
-      m_stores(0),
-      m_load_bytes(0),
-      m_store_bytes(0)
+      InitSampleVariable(loads, SVC_CUMULATIVE),
+      InitSampleVariable(stores, SVC_CUMULATIVE),
+      InitSampleVariable(load_bytes, SVC_CUMULATIVE),
+      InitSampleVariable(store_bytes, SVC_CUMULATIVE)
 {
-    RegisterSampleVariableInObject(m_loads, SVC_CUMULATIVE);
-    RegisterSampleVariableInObject(m_stores, SVC_CUMULATIVE);
-    RegisterSampleVariableInObject(m_load_bytes, SVC_CUMULATIVE);
-    RegisterSampleVariableInObject(m_store_bytes, SVC_CUMULATIVE);
 }
 
 }
