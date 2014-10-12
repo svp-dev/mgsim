@@ -12,6 +12,32 @@ using namespace std;
 namespace Simulator
 {
 
+struct FPU::Operation
+{
+    FPUOperation op;
+    int          size;
+    double       Rav, Rbv;
+    RegAddr      Rc;
+    std::string  str() const;
+};
+
+class FPU::Source : public Object
+{
+private:
+    Buffer<Operation>        inputs;     ///< Input queue for operations from this source
+    StorageTraceSet          outputs;    ///< Set of storage trace each output can generate
+    IFPUClient*              client;     ///< Component accepting results for this source
+    DefineStateVariable(CycleNo, last_write); ///< Last time an FPU pipe wrote back to this source
+    DefineStateVariable(unsigned, last_unit);  ///< Unit that did the last (or current) write
+
+    friend class FPU;
+public:
+    Source(const std::string& name, Object& parent, Clock& clock);
+    Source(const Source&) = delete;
+    Source& operator=(const Source&) = delete;
+};
+
+
 static const char* const OperationNames[FPU_NUM_OPS] = {
     "ADD", "SUB", "MUL", "DIV", "SQRT"
 };
@@ -123,13 +149,13 @@ bool FPU::OnCompletion(unsigned int unit, const Result& res) const
 
     Source *source = m_sources[res.source];
 
-    if (source->last_write == now && source->last_unit != unit)
+    if (source->m_last_write == now && source->m_last_unit != unit)
     {
         DeadlockWrite("Unable to write back result because another FPU pipe already wrote back this cycle");
         return false;
     }
-    source->last_write = now;
-    source->last_unit  = unit;
+    source->m_last_write = now;
+    source->m_last_unit  = unit;
 
     // Calculate the address of this register
     RegAddr addr = res.address;
@@ -287,8 +313,8 @@ FPU::Source::Source(const std::string& name, Object& parent, Clock& clock)
       InitBuffer(inputs, clock, "InputQueueSize"),
       outputs(),
       client(NULL),
-      last_write(0),
-      last_unit(0)
+      InitStateVariable(last_write, 0),
+      InitStateVariable(last_unit, 0)
 {}
 
 

@@ -30,6 +30,8 @@ of this task:
 
   Known cases::
 
+    FPU::Source::inputs
+    FPU::Unit::slots
     DDRMemory::m_activeRequests
     CDMA::Directory::m_dir
     CDMA::RootDirectory::m_dir

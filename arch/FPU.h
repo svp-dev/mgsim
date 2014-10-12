@@ -37,14 +37,7 @@ enum FPUOperation
 class FPU : public Object, public Inspect::Interface<Inspect::Read>
 {
     /// Represents an FP operation
-    struct Operation
-    {
-            FPUOperation op;
-            int          size;
-            double       Rav, Rbv;
-            RegAddr      Rc;
-            std::string  str() const;
-    };
+    struct Operation;
 
 public:
     /// Represents a client for this FPU
@@ -60,21 +53,7 @@ public:
 private:
 
     /// Represents a source for this FPU
-    class Source : public Object
-    {
-    private:
-        Buffer<Operation>        inputs;     ///< Input queue for operations from this source
-        StorageTraceSet          outputs;    ///< Set of storage trace each output can generate
-        IFPUClient*              client;     ///< Component accepting results for this source
-        CycleNo                  last_write; ///< Last time an FPU pipe wrote back to this source
-        unsigned int             last_unit;  ///< Unit that did the last (or current) write
-
-        friend class FPU;
-    public:
-        Source(const std::string& name, Object& parent, Clock& clock);
-        Source(const Source&) = delete;
-        Source& operator=(const Source&) = delete;
-    };
+    class Source;
 
     /// Represents the result of an FP operation
     struct Result
@@ -119,7 +98,7 @@ private:
     std::vector<Unit>    m_units;                 ///< The execution units in the FPU
     std::vector<size_t>  m_mapping[FPU_NUM_OPS];  ///< List of units for each FPU op
 
-    size_t            m_last_source;
+    DefineStateVariable(size_t, last_source);
     Simulator::Result DoPipeline();
 
     void Cleanup();
