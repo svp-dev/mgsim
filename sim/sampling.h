@@ -5,18 +5,13 @@
 #include <type_traits>
 #include <vector>
 #include <string>
+#include "sim/serialize.h"
 
 class Config;
 
 namespace Simulator
 {
-    enum SampleVariableDataType {
-        SV_BOOL,    // boolean
-        SV_INTEGER, // fixed-width integer value
-        SV_FLOAT,   // fixed-width floating-point
-        SV_BINARY,  // fixed-width binary (char array)
-        SV_CUSTOM   // custom I/O primitives
-    };
+    typedef Serialization::SerializationValueType SampleVariableDataType;
 
     enum SampleVariableCategory {
         SVC_STATE,      // state variable
@@ -25,15 +20,34 @@ namespace Simulator
         SVC_CUMULATIVE, // stats: integral of level over time
     };
 
+
+    struct Serializer
+    {
+        bool reading;
+        union {
+            std::ostream* os;
+            std::istream* is;
+        };
+
+        void serialize_raw(SampleVariableDataType dt, void *d, size_t sz);
+
+        template<typename T>
+        Serializer& operator&(T& var)
+        {
+            Serialization::serialize_trait<T>::serialize(*this, var);
+            return *this;
+        }
+    };
+
+    typedef void (*serializer_func_t)(Serializer&, void*);
+
     /// RegisterSampleVariable: perform a registration.
     void RegisterSampleVariable(void* ptr, const std::string& name,
                                 SampleVariableCategory cat,
                                 SampleVariableDataType t,
-                                size_t s, void* ref);
+                                size_t s, void* ref,
+                                serializer_func_t ser);
 
-    // c++ misses is_bool, so define it here.
-    template <typename T>
-    using is_bool = std::is_same<typename std::remove_cv<T>::type, bool>;
 
     template<typename T>
     void RegisterSampleVariable(T& var, const std::string& name, SampleVariableCategory cat)
@@ -42,25 +56,26 @@ namespace Simulator
                       || std::is_enum<T>::value, "This form of RegisterSampleVariable works only on scalars, bools or enums");
 
         SampleVariableDataType t = \
-            std::is_floating_point<T>::value ? SV_FLOAT :
-            is_bool<T>::value ? SV_BOOL :
-            SV_INTEGER;
+            std::is_floating_point<T>::value ? Serialization::SV_FLOAT :
+            is_bool<T>::value ? Serialization::SV_BOOL :
+            Serialization::SV_INTEGER;
 
-        RegisterSampleVariable(&var, name, cat, t, sizeof(T), 0);
+        RegisterSampleVariable(&var, name, cat, t, sizeof(T), 0,
+                               &Serialization::serializer<Serializer, T>);
     }
 
     template<typename T>
     inline
     void RegisterSampleVariable(std::vector<T>& var, const std::string& name, SampleVariableCategory cat)
     {
-        RegisterSampleVariable(&var[0], name, cat, SV_BINARY, var.size() * sizeof(T), 0);
+        RegisterSampleVariable(&var[0], name, cat, Serialization::SV_BINARY, var.size() * sizeof(T), 0, 0);
     }
 
     template<typename T>
     inline
     void RegisterSampleVariable(T *var, const std::string& name, SampleVariableCategory cat, size_t sz)
     {
-        RegisterSampleVariable(var, name, cat, SV_BINARY, sz * sizeof(T), 0);
+        RegisterSampleVariable(var, name, cat, Serialization::SV_BINARY, sz * sizeof(T), 0, 0);
     }
 
     template<typename T, typename U>
@@ -71,9 +86,10 @@ namespace Simulator
 
         T _max = max;
 
-        SampleVariableDataType t = std::is_floating_point<T>::value ? SV_FLOAT : SV_INTEGER;
+        SampleVariableDataType t = std::is_floating_point<T>::value ? Serialization::SV_FLOAT : Serialization::SV_INTEGER;
 
-        RegisterSampleVariable(&var, name, cat, t, sizeof(T), &_max);
+        RegisterSampleVariable(&var, name, cat, t, sizeof(T), &_max,
+                               &Serialization::serializer<Serializer, T>);
     }
 
 #define RegisterSampleVariableInObject(var, cat, ...)                       \
@@ -91,6 +107,10 @@ namespace Simulator
 #define RegisterStateVariable(LValue, Name) \
     RegisterSampleVariableInObjectWithName(LValue, Name, SVC_STATE)
 
+#define RegisterStateObject(LValue, Name) \
+    RegisterSampleVariableInObjectWithName(&(LValue), Name, SVC_STATE, Serialization::SV_OTHER, 0, 0, \
+                                           &Serialization::serializer<Serializer, typename std::remove_reference<decltype(LValue)>::type>)
+
 #define RegisterStateArray(LValue, Size, Name) \
     RegisterSampleVariableInObjectWithName(LValue, Name, SVC_STATE, Size)
 
@@ -100,6 +120,7 @@ namespace Simulator
 #define InitStateVariable(Member, ...)                                 \
     m_ ## Member((RegisterSampleVariableInObject(m_ ## Member, SVC_STATE), ##__VA_ARGS__))
 
+    void SetSampleVariables(std::ostream& os, const std::string& pat, const std::string& val);
     void ListSampleVariables(std::ostream& os, const std::string &pat = "*");
     bool ReadSampleVariables(std::ostream& os, const std::string &pat = "*"); // returns "false" if no variables match.
 

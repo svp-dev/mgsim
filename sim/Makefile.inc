@@ -56,6 +56,7 @@ SIM_SOURCES = \
         sim/rusage.cpp \
 	sim/sampling.h \
 	sim/sampling.cpp \
+        sim/serialize.h \
 	sim/storage.h \
         sim/storage.hpp \
         sim/storage.cpp \
