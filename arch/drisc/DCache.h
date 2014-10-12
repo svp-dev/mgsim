@@ -37,6 +37,8 @@ public:
         LineState   state;      ///< The line state.
         bool        processing; ///< Has the line been added to m_returned yet?
         bool        create;     ///< Is the line expected by the create process (bundle)?
+        template<typename A>
+        void serialize(A& arch) { arch & tag & access & waiting & state & processing & create; }
     };
 
 private:
@@ -75,6 +77,8 @@ private:
         LFID         fid;    ///< FID of the thread's that's waiting on the register
 
         WritebackState() : value(0), addr(INVALID_REG), next(INVALID_REG), size(0), offset(0), fid(0) {}
+        template<typename A>
+        void serialize(A& arch) { arch & value & addr & next & size & offset & fid; }
     };
 
     Result FindLine(MemAddr address, Line* &line, bool check_only);
@@ -83,6 +87,7 @@ private:
     MCID                 m_mcid;            ///< Memory Client ID
     std::vector<Line>    m_lines;           ///< The cache-lines.
     std::vector<char>    m_data;            ///< The data in the cache lines.
+    bool*                m_valid;           ///< The valid bits.
     size_t               m_assoc;           ///< Config: Cache associativity.
     size_t               m_sets;            ///< Config: Number of sets in the cace.
     size_t               m_lineSize;        ///< Config: Size of a cache line, in bytes.

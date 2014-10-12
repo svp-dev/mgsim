@@ -272,6 +272,8 @@ struct RegAddr
 
     bool valid() const { return index != INVALID_REG_INDEX; }
     std::string str() const;
+    template<typename A>
+    void serialize(A& arch) { arch & index & type; }
 };
 
 static RegAddr MAKE_REGADDR(RegType type, RegIndex index)
@@ -371,6 +373,8 @@ struct ThreadQueue
     TID head;
     TID tail;
     std::string str() const;
+    template<typename A>
+    void serialize(A& arch) { arch & head & tail; }
 };
 
 struct FamilyQueue

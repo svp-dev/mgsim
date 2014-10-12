@@ -27,26 +27,19 @@ ICache::ICache(const std::string& name, DRISC& parent, Clock& clock)
     m_lineSize(GetTopConf("CacheLineSize", size_t)),
     m_assoc   (GetConf("Associativity", size_t)),
 
-    m_numHits        (0),
-    m_numDelayedReads(0),
-    m_numEmptyMisses (0),
-    m_numLoadingMisses(0),
-    m_numInvalidMisses(0),
-    m_numHardConflicts(0),
-    m_numResolvedConflicts(0),
-    m_numStallingMisses(0),
+    InitSampleVariable(numHits, SVC_CUMULATIVE),
+    InitSampleVariable(numDelayedReads, SVC_CUMULATIVE),
+    InitSampleVariable(numEmptyMisses, SVC_CUMULATIVE),
+    InitSampleVariable(numLoadingMisses, SVC_CUMULATIVE),
+    InitSampleVariable(numInvalidMisses, SVC_CUMULATIVE),
+    InitSampleVariable(numHardConflicts, SVC_CUMULATIVE),
+    InitSampleVariable(numResolvedConflicts, SVC_CUMULATIVE),
+    InitSampleVariable(numStallingMisses, SVC_CUMULATIVE),
 
     InitProcess(p_Outgoing, DoOutgoing),
     InitProcess(p_Incoming, DoIncoming),
     p_service(clock, GetName() + ".p_service")
 {
-    RegisterSampleVariableInObject(m_numHits, SVC_CUMULATIVE);
-    RegisterSampleVariableInObject(m_numEmptyMisses, SVC_CUMULATIVE);
-    RegisterSampleVariableInObject(m_numLoadingMisses, SVC_CUMULATIVE);
-    RegisterSampleVariableInObject(m_numInvalidMisses, SVC_CUMULATIVE);
-    RegisterSampleVariableInObject(m_numHardConflicts, SVC_CUMULATIVE);
-    RegisterSampleVariableInObject(m_numResolvedConflicts, SVC_CUMULATIVE);
-    RegisterSampleVariableInObject(m_numStallingMisses, SVC_CUMULATIVE);
 
     RegisterModelObject(parent, "cpu");
 
@@ -79,14 +72,18 @@ ICache::ICache(const std::string& name, DRISC& parent, Clock& clock)
     // Initialize the cache lines
     m_lines.resize(sets * m_assoc);
     m_data.resize(m_lineSize * m_lines.size());
+
+    RegisterStateVariable(m_data, "data");
+
     for (size_t i = 0; i < m_lines.size(); ++i)
     {
-        Line& line = m_lines[i];
+        auto& line = m_lines[i];
         line.state        = LINE_EMPTY;
         line.data         = &m_data[i * m_lineSize];
         line.references   = 0;
         line.waiting.head = INVALID_TID;
         line.creation     = false;
+        RegisterStateObject(line, "line" + to_string(i));
     }
 }
 

@@ -22,6 +22,7 @@ DCache::DCache(const std::string& name, DRISC& parent, Clock& clock)
     m_mcid(0),
     m_lines(),
     m_data(),
+    m_valid(0),
 
     m_assoc          (GetConf("Associativity", size_t)),
     m_sets           (GetConf("NumSets", size_t)),
@@ -84,34 +85,24 @@ DCache::DCache(const std::string& name, DRISC& parent, Clock& clock)
 
     m_lines.resize(m_sets * m_assoc);
     m_data.resize(m_lines.size() * m_lineSize);
+    m_valid = new bool[m_lines.size() * m_lineSize];
+
+    RegisterStateArray(m_valid, m_lines.size() * m_lineSize, "valid");
     RegisterStateVariable(m_data, "data");
+
     for (size_t i = 0; i < m_lines.size(); ++i)
     {
-        m_lines[i].state  = LINE_EMPTY;
-        m_lines[i].data   = &m_data[i * m_lineSize];
-        m_lines[i].valid  = new bool[m_lineSize];
-        m_lines[i].create = false;
-        auto ln = "line" + to_string(i);
-        RegisterStateArray(m_lines[i].valid, m_lineSize, ln + "_v");
-        RegisterStateVariable(m_lines[i].tag, ln + "_t");
-        RegisterStateVariable(m_lines[i].access, ln + "_a");
-        RegisterStateVariable(m_lines[i].waiting.index, ln + "_wi");
-        RegisterStateVariable(m_lines[i].waiting.type, ln + "_wt");
-        RegisterStateVariable(m_lines[i].state, ln + "_s");
-        RegisterStateVariable(m_lines[i].processing, ln + "_p");
-        RegisterStateVariable(m_lines[i].create, ln + "_c");
+        auto &line = m_lines[i];
+        line.state  = LINE_EMPTY;
+        line.data   = &m_data[i * m_lineSize];
+        line.valid  = &m_valid[i * m_lineSize];
+        line.create = false;
+        RegisterStateObject(line, "line" + to_string(i));
     }
 
     m_wbstate.size   = 0;
     m_wbstate.offset = 0;
-    RegisterStateVariable(m_wbstate.value, "wbs_v");
-    RegisterStateVariable(m_wbstate.addr.index, "wbs_ai");
-    RegisterStateVariable(m_wbstate.addr.type, "wbs_at");
-    RegisterStateVariable(m_wbstate.next.index, "wbs_ni");
-    RegisterStateVariable(m_wbstate.next.type, "wbs_nt");
-    RegisterStateVariable(m_wbstate.size, "wbs_s");
-    RegisterStateVariable(m_wbstate.offset, "wbs_o");
-    RegisterStateVariable(m_wbstate.fid, "wbs_f");
+    RegisterStateObject(m_wbstate, "wbstate");
 }
 
 void DCache::ConnectMemory(IMemory* memory)
@@ -128,10 +119,7 @@ void DCache::ConnectMemory(IMemory* memory)
 
 DCache::~DCache()
 {
-    for (size_t i = 0; i < m_lines.size(); ++i)
-    {
-        delete[] m_lines[i].valid;
-    }
+    delete m_valid;
     delete m_selector;
 }
 
