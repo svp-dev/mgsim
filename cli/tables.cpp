@@ -21,6 +21,7 @@ command_descriptor command_table[] =
     { { "quit", 0 },                  0, 0,  cmd_quit,       "quit",              "Exit the simulation." },
     { { "inspect", 0 },               1, -1, cmd_inspect,    "inspect NAME [ARGS...]", "Inspect NAME. See 'info NAME' for details." },
     { { "run", 0 },                   0, 0,  cmd_run,        "run",               "Run the system until it is idle or deadlocks. Livelocks will not be reported." },
+    { { "set", 0 },                   2, -1, cmd_set,        "set PAT VAL...",    "Set the variables matching PAT to the value VAL..." },
     { { "show", "vars", 0 },          0, 1,  cmd_show_vars,  "show vars [PAT]",   "List monitoring variables matching PAT." },
     { { "show", "syms", 0 },          0, 1,  cmd_show_syms,  "show syms [PAT]",   "List program symbols matching PAT." },
     { { "show", "components", 0 },    0, 2,  cmd_show_components, "show components [PAT] [LEVEL]",   "List components matching PAT (at most LEVELs)." },

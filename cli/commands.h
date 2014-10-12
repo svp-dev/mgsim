@@ -41,6 +41,7 @@ extern command_handler
     cmd_quit,
     cmd_inspect,
     cmd_run,
+    cmd_set,
     cmd_show_vars,
     cmd_show_syms,
     cmd_show_components,

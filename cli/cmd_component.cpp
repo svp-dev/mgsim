@@ -37,3 +37,19 @@ bool cmd_inspect(const vector<string>& /*command*/, vector<string>& args, cli_co
     return false;
 }
 
+bool cmd_set(const vector<string>& /*command*/, vector<string>& args, cli_context& ctx)
+{
+    string pat = args[0];
+    string val = args[1];
+    for (size_t i = 2; i < args.size(); ++i)
+        val = val + ' ' + args[i];
+    try
+    {
+        SetSampleVariables(cout, pat, val);
+    }
+    catch (const exception& e)
+    {
+        PrintException(&ctx.sys, cerr, e);
+    }
+    return false;
+}
