@@ -33,6 +33,7 @@
 #include "arch/dev/RPC_unix.h"
 
 #include "sim/rusage.h"
+#include "sim/getclassname.h"
 
 #include <sstream>
 #include <cstdlib>
@@ -43,11 +44,6 @@
 #include <limits>
 #include <fnmatch.h>
 #include <cstring>
-
-#ifdef HAVE_GCC_ABI_DEMANGLE
-#include <cxxabi.h>
-#endif
-#include <typeinfo>
 
 using namespace Simulator;
 using namespace std;
@@ -91,28 +87,6 @@ auto operator<<(basic_ostream<_CharT, _Traits>&os, my_iomanip_p /*unused*/) -> d
     return os << left << setprecision(1) << setw(8);
 }
 
-static string GetClassName(const type_info& info)
-{
-    const char* name = info.name();
-
-    int status = 0;
-    char *res = 0;
-
-#ifdef HAVE_GCC_ABI_DEMANGLE
-    res = abi::__cxa_demangle(name, NULL, NULL, &status);
-#endif
-
-    if (res && status == 0)
-    {
-        string ret = res;
-        free(res);
-        return ret;
-    }
-    else
-    {
-        return name;
-    }
-}
 
 static
 void GetComponents(map<string, Object*>& ret, Object *cur, const string& pat)

@@ -24,6 +24,8 @@ SIM_SOURCES = \
         sim/flag.h \
         sim/flag.hpp \
         sim/flag.cpp \
+        sim/getclassname.h \
+        sim/getclassname.cpp \
         sim/inputconfig.h \
         sim/inputconfig.cpp \
 	sim/inspect.h \
