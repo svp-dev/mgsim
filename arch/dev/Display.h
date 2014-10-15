@@ -43,7 +43,7 @@ namespace Simulator
             IIOBus&         m_iobus;
             std::vector<uint32_t> m_control;
             IODeviceID      m_devid;
-            unsigned        m_key;
+            DefineStateVariable(unsigned, key);
 
             Display&        GetDisplay() { return *dynamic_cast<Display*>(GetParent()); }
 
@@ -66,23 +66,21 @@ namespace Simulator
         unsigned int          m_max_screen_h;
         unsigned int          m_max_screen_w;
         CycleNo               m_lastUpdate;
+        bool                  m_data_updated;
 
-        std::vector<uint8_t>  m_framebuffer;
-        std::vector<uint32_t> m_palette;
+        std::vector<uint32_t> m_framebuffer;
+        std::vector<uint8_t>  m_video_memory;
 
         DefineStateVariable(bool, enabled);
-        DefineStateVariable(bool, indexed);
-        DefineStateVariable(unsigned int, bpp); /* 8, 16, 24, 32 */
         DefineStateVariable(unsigned int, width);
         DefineStateVariable(unsigned int, height);
+        DefineStateVariable(uint32_t, command_offset);
         DefineStateVariable(float, scalex_orig);
         DefineStateVariable(float, scalex);
         DefineStateVariable(float, scaley_orig);
         DefineStateVariable(float, scaley);
         DefineStateVariable(unsigned int, refreshDelay_orig);
         DefineStateVariable(unsigned int, refreshDelay);
-
-
 
         friend class ControlInterface;
         friend class FrameBufferInterface;
@@ -109,10 +107,11 @@ namespace Simulator
 
     protected:
         void Resize(unsigned w, unsigned h, bool erase);
-        void Refresh() const;
+        void Draw();
+        void Refresh();
         void ResetCaption() const;
         void ResizeScreen(unsigned int w, unsigned int h);
-        void DumpFrameBuffer(unsigned key, int stream, bool gen_timestamp) const;
+        void DumpFrameBuffer(unsigned key, int stream, bool gen_timestamp);
     };
 
 

@@ -18,18 +18,20 @@
 DESCRIPTION
 ===========
 
-The graphical display is a 2D pixel-oriented output device. It
-provides a linear framebuffer, without output to screen at a fixed set
-of SVGA resolutions.
+The graphical display is a 2D pixel-oriented output device with
+windowing acceleration.
 
 An I/O device of this type can be specified in MGSim using the device
 type ``GFX``.
+
+A "device driver" libray is provided with MGSim as
+``programs/gfxlib.{c,h}``.
 
 CONFIGURATION
 =============
 
 ``GfxFrameSize``
-   Size of the framebuffer memory in bytes.
+   Size of the video memory in bytes.
 
 ``GfxEnableSDLOutput``
    Enable rendering the framebuffer to screen outside of the
@@ -37,7 +39,7 @@ CONFIGURATION
    simulated platform can update the framebuffer but no pixels are
    displayed on screen.
 
-``SDLHorizScale``, ``SDLVertScale`` 
+``SDLHorizScale``, ``SDLVertScale``
    How many pixels on the real screen to use to display each pixel in
    the framebuffer. These parameters can be adjusted at run-time, see
    `On the host side of the simulation`_ below.
@@ -49,80 +51,43 @@ CONFIGURATION
 PROTOCOL
 ========
 
-Changing the display mode
--------------------------
+The device is exposed to software as a pair of interfaces: a control
+interface which can set general display parameters, and a frame buffer
+interface which provides raw access to the video memory.
 
-When read from, words 1-3 indicate the current display mode. 
+The process of generating an output display image is performed by the
+GFX device using a *command array* stored by software in video
+memory. The commands in this array can configure color palettes or
+render 2D textures of variable sizes and depths, whose data is
+specified elsewhere in video memory, with automatic scaling to a
+display size.
 
-The following process configures a new mode:
+The start address of the command array in video memory is configurable
+using the control interface.
 
-1. the desired mode is written into words 1-3 of the control device;
 
-2. the command word 0 is written to, to commit the desired mode;
-
-3. the words 1-3 are read back to check whether the mode was accepted.
-
-Invalid mode configurations are ignored and leave the previous mode
-unchanged.
-
-The following sections detail what configurations are accepted.
-
-Pixel modes
------------
-
-The desired pixel mode is written at word offset 3 of the control
-device (see `INTERFACE`_ below), then committed by writing to
-word 0. The following modes are recognized:
-
-========== =========== ====== ====================
-Bits 0-15  Bits 16-31  Value  Resulting pixel mode
-========== =========== ====== ====================
-8          0           8      RGB 2-3-3
-8          1           65544  8-bit indexed
-16         0           16     RGB 5-6-5
-24         0           24     RGB 8-8-8
-32         0           32     RGB 8-8-8, upper 8 bits ignored
-========== =========== ====== ====================
-
-When in RGB mode, the color components of the output pixels are
-defined by the bits in the framebuffer. For example in pixel mode 24,
-3 adjacent bytes in the framebuffer define one pixel on screen, with
-the first byte for red, 2nd byte for green, 3rd byte for blue. With
-pixel mode 8, one byte of the framebuffer is decomposed as 3 values,
-one value of 2 bits for red (bits 6-7), one value of 3 bits for green
-(bits 4-6), and one value of 3 bits for blue (bits 1-3).
-
-When in indexed mode, the value in the framebuffer is used as an index
-in a palette which is defined separately from the framebuffer (in the
-control device). The palette then defines which R/G/B values to use.
-
-The current pixel mode can be read from word 3 of the control device.
-
-Color palette for indexed modes
+Changing the display resolution
 -------------------------------
 
-The palette is defined at words 256 onwards in the control
-device. Word 256 corresponds to palette index 0, word 257 to palette
-index 1, and so on.
+When read from, words 1-2 of the control interface indicate the
+current display size in pixels.  The values in words 6 and 7 indicate
+the maximum supported resolution.
 
-The palette can be both read from and written to, even without setting
-a new mode.
+The following protocol can be used to configure a new output
+resolution:
 
-Output screen resolution
-------------------------
+1. the desired size is written into words 1-2 of the control interface;
 
-The desired output screen width and height in pixels are set at word
-offsets 1 and 2 of the control device, respectively (see `INTERFACE`_
-below), then committed by writing to word 0.
+2. the command word 0 is written to, to commit the desired size;
 
-The values in words 6 and 7 indicate the maximum supported resolution.
+3. the words 1-2 are read back to check whether the size was accepted.
 
 The desired resolution is rounded up to the nearest valid resolution,
 which must be one of the following: 10x10, 100x100, 160x100, 160x120,
 320x200, 320x240, 640x400, 640x480, 800x600, 1024x768, 1280x1024.
 
-The effect of setting an output resolution higher than the capacity of
-the framebuffer is undefined.
+Unrecognized size configurations are ignored and leave the previous mode
+unchanged.
 
 Changing mode vs clearing screen
 --------------------------------
@@ -130,18 +95,18 @@ Changing mode vs clearing screen
 As described above, writing to word 0 of the control device sets a new
 display mode.
 
-If the value 0 is written to word 0, the new mode is set but the
-framebuffer is preserved.
+If the value 0 is written to word 0, the new mode is set but existing
+pixels on the output screen are preserved (up to the minimum of the
+old and new display sizes).
 
-If the value 1 is written, the new mode is set *and* the framebuffer
+If the value 1 is written, the new mode is set *and* the output screen
 is cleared.
 
 Screen dump
 -----------
 
-When the current pixel mode is 32 (RGB 8-8-8), writing to control word
-4 outputs the framebuffer content to an portable pixmap (PPM) image in
-the simulation's host environment.
+Writing to control word 4 outputs the contents of the output screen to
+a portable pixmap (PPM) image in the simulation's host environment.
 
 The value written to control word 4 further configures the screen
 dump, as follows:
@@ -153,6 +118,77 @@ dump, as follows:
 
 - bit 8 determines whether to embed a timestamp in the file name when
   bits 0-1 are set to 0.
+
+
+Display commands
+----------------
+
+The command array in video memory is an array of 32-bit values. Each
+value in the array indicates how the following elements are to be
+interpreted, using the table below:
+
+========= ======================== ===========================
+Command   Decoded as               Meaning
+========= ======================== ===========================
+0x000     Code 0x000 + 0 arguments End of the command array.
+0x102     Code 0x100 + 2 arguments Set the indexed palette (see below).
+0x206     Code 0x200 + 6 arguments Render a frame (see below).
+0x3NN     Code 0x300 + N arguments Do nothing.
+========= ======================== ===========================
+
+Code 0x100, defines an indexed palette: the following two arguments N
+and M define a palette of N elements, stored at byte offset 4xM from
+the start of the video memory. Each element is a 32-bit value
+interpreted as an RGB triplet (B bits 0-7, G bits 8-15, R bits 16-23).
+
+Code 0x200, defines the rendering of a frame, ie. the scaling and rendering
+of a texture on the output screen. The following 6 arguments B, S, L,
+(W, H), (X, Y), (PW, PH) define:
+
+- B - the pixel mode, how the bytes in video memory are translated into pixel values;
+- S - start address: the texture starts in video memory at byte address 4xS;
+- L - the scan length, ie the number of pixels in memory between two successive lines in the texture;
+- W - the texture width, ie the number of pixels in memory actually drawn to screen;
+- H - the number of texture lines to draw
+- X, Y - the position of the frame on the output screen.
+- PW, PH - the width and height of the frame in the output screen.
+
+The values for W, H, X, Y, PW and PH are encoded in 16 bits, so W/H
+are encoded as one 32-bit command element (W in MSB, H in LSB), so are
+X/Y and PW/PH.
+
+Code 0x300 is a no-op. It can be used to quickly disable a command in the
+command array without shifting the remainder of the array.
+
+Pixel modes
+-----------
+
+The 32-bit pixel mode for frame commands is defined as follows:
+
+========== =========== ====== ====================
+Bits 0-15  Bits 16-31  Value  Resulting pixel mode
+========== =========== ====== ====================
+1          1           65537  1-bit indexed
+8          0           8      RGB 2-3-3
+8          1           65544  8-bit indexed
+16         0           16     RGB 5-6-5
+24         0           24     RGB 8-8-8
+32         0           32     RGB 8-8-8, upper 8 bits ignored
+========== =========== ====== ====================
+
+When in RGB mode, the color components of the resulting pixels are
+defined directly by the bits in the texture buffer. For example, in pixel mode 24,
+3 adjacent bytes in the texture buffer define one pixel on screen, with
+the first byte for red, 2nd byte for green, 3rd byte for blue. With
+pixel mode 8, one byte of the framebuffer is decomposed as 3 values,
+one value of 2 bits for red (bits 6-7), one value of 3 bits for green
+(bits 4-6), and one value of 3 bits for blue (bits 1-3).
+
+When in indexed mode, the value in the texture buffer is used as an
+index in the palette defined by the last palette command. The palette
+then defines which R/G/B values to use. In 1-bit indexed mode, the
+order of pixels is from lowest significant to higest significant.
+
 
 INTERFACE
 =========
@@ -174,20 +210,19 @@ operations. Its device address space is as follows:
 32-bit word   Mode    Description
 ============= ======= ===========================================
 0             R       Boolean: indicates whether the physical screen is connected
-0             W       Command: commit the mode configured using words 1-3, non-zero clears screen
+0             W       Command: commit the mode configured using words 1-2, non-zero clears screen
 1             R       Current width in pixels
 1             W       Desired width in pixels
 2             R       Current height in pixels
 2             W       Desired height in pixels
-3             R       Current pixel mode (see below)
-3             W       Desired pixel mode (see below)
+3             R       Current start of command array in video memory
+3             W       Set start of command array
 4             W       Command: dump the framebuffer contents
-5             R/W     Image index (key) for the next dump       
+5             R/W     Image index (key) for the next dump
 6             R       Maximum supported width
 7             R       Maximum supported height
 8             R       Screen refresh interval in bus clock cycles
 9             R       Device identifier of the corresponding framebuffer device on the I/O bus
-256-511       R/W     Color palette (one 32-bit word per color index)
 ============= ======= ===========================================
 
 Framebuffer device
@@ -195,10 +230,6 @@ Framebuffer device
 
 The framebuffer device can be accessed using any I/O data width, as
 long as no address past the framebuffer size is accessed.
-
-The data in the framebuffer is organized as per the `Pixel modes`_
-explained above, using row-major addressing (horizontally adjacent
-pixels have consecutive addresses in the device address space).
 
 On the host side of the simulation
 ----------------------------------
@@ -239,4 +270,3 @@ BUGS
 ====
 
 Report bugs & suggest improvements to PACKAGE_BUGREPORT.
-

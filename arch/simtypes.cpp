@@ -504,4 +504,3 @@ void   Float64 ::fromfloat(double f) { return IEEE754<uint64_t, 11, 52>::fromflo
 #endif // EMULATE_IEEE754
 
 }
-
