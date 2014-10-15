@@ -49,6 +49,7 @@ string RegAddr::str() const
         {
         case RT_INTEGER: ss << 'R'; break;
         case RT_FLOAT:   ss << 'F'; break;
+        default: ss << 'X'; break;
         }
         ss << hex << uppercase << setw(4) << setfill('0') << index;
         return ss.str();

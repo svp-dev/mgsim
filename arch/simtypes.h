@@ -5,6 +5,8 @@
 #include "Archures.h"
 #include <sim/types.h>
 #include <sim/unreachable.h>
+#include <sim/except.h>
+#include <sim/serialize.h>
 
 #include <string>
 #include <cassert>
@@ -201,6 +203,35 @@ struct MultiFloat
     }
 };
 
+namespace Serialization
+{
+    template<typename SZ>
+    struct multifloat_serializer
+    {
+        MultiFloat* mf;
+        SZ* sz;
+    };
+    template<typename SZ>
+    multifloat_serializer<SZ> multifloat(MultiFloat& mf, SZ& sz)
+    {
+        return multifloat_serializer<SZ>{&mf, &sz};
+    }
+    template<typename A, typename SZ>
+    inline
+    A& operator&(A& s, const multifloat_serializer<SZ>& bs)
+    {
+        s & "mf" & *bs.sz;
+        switch(*bs.sz)
+        {
+        case 4: s & bs.mf->_32.integer; break;
+        case 8: s & bs.mf->_64.integer; break;
+        default: throw exceptf<>("Invalid float size: %u", *bs.sz);
+        }
+        return s;
+    }
+
+}
+
 /// An integer value that can be of different sizes
 struct MultiInteger
 {
@@ -272,8 +303,7 @@ struct RegAddr
 
     bool valid() const { return index != INVALID_REG_INDEX; }
     std::string str() const;
-    template<typename A>
-    void serialize(A& arch) { arch & index & type; }
+    SERIALIZE(a) { a & "ra" & type & index; }
 };
 
 static RegAddr MAKE_REGADDR(RegType type, RegIndex index)
@@ -373,8 +403,7 @@ struct ThreadQueue
     TID head;
     TID tail;
     std::string str() const;
-    template<typename A>
-    void serialize(A& arch) { arch & head & tail; }
+    SERIALIZE(a) { a & "tq" & head & tail; }
 };
 
 struct FamilyQueue
