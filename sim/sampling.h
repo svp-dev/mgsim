@@ -37,6 +37,8 @@ namespace Simulator
             Serialization::serialize_trait<T>::serialize(*this, var);
             return *this;
         }
+
+        Serializer& operator&(const char* str);
     };
 
     typedef void (*serializer_func_t)(Serializer&, void*);

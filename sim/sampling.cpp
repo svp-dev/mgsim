@@ -349,6 +349,20 @@ namespace Simulator
     }
 
 
+    Serializer& Serializer::operator&(const char *tag)
+    {
+        if (reading)
+            *os << ' ' << tag;
+        else
+        {
+            string s;
+            *is >> s;
+            if (s != tag)
+                throw exceptf<>("Invalid serialized data: expected tag %s, got %s", tag, s.c_str());
+        }
+        return *this;
+    }
+
     void Serializer::serialize_raw(SampleVariableDataType dt, void* var, size_t sz)
     {
         if (reading)
