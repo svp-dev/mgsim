@@ -242,15 +242,23 @@ namespace Simulator
             os << boolalpha << *(const bool*)p;
             return true;
         case SV_INTEGER:
-            os << "0x" << hex;
+        {
+            uint64_t v = 0;
             switch(w) {
-            case 1: os << (unsigned)*(const uint8_t*)p; break;
-            case 2: os << *(const uint16_t*)p; break;
-            case 4: os << *(const uint32_t*)p; break;
-            case 8: os << *(const uint64_t*)p; break;
+            case 1: if (*(const int8_t*)p == -1) v = ~v; else v = (unsigned)*(const uint8_t*)p; break;
+            case 2: if (*(const int16_t*)p == -1) v = ~v; else v = *(const uint16_t*)p; break;
+            case 4: if (*(const int32_t*)p == -1) v = ~v; else v = *(const uint32_t*)p; break;
+            case 8: if (*(const int64_t*)p == -1) v = ~v; else v = *(const uint64_t*)p; break;
             default: os << "<invsize>"; break;
             }
+            if (v < 10)
+                os << v;
+            else if (~v == 0)
+                os << "-1";
+            else
+                os << "0x" << hex << v << dec;
             return true;
+        }
         case SV_FLOAT:
             {
                 char buf[50];
