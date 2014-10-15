@@ -19,6 +19,7 @@ struct FPU::Operation
     double       Rav, Rbv;
     RegAddr      Rc;
     std::string  str() const;
+    SERIALIZE(a) { a & op & size & Rav & Rbv & Rc; }
 };
 
 class FPU::Source : public Object
@@ -373,6 +374,8 @@ FPU::FPU(const std::string& name, Object& parent, Clock& clock, size_t num_input
             unit.pipelined = GetConf(uname + "Pipelined", bool);
             m_units.push_back(unit);
         }
+        for (auto &unit : m_units)
+            RegisterStateObject(unit, "unit" + to_string(&unit - &m_units[0]));
 
         // Construct the sources
         for (size_t i = 0; i < num_inputs; ++i)
@@ -489,9 +492,12 @@ void FPU::Cmd_Read(std::ostream& out, const std::vector<std::string>& /*argument
                 out << setw(2) << p.state << " | "
                     << setw(2) << p.size * 8 << " | "
                     << setw(20) << setprecision(12) << p.value.tofloat(p.size)  << " | "
-                    << p.address.str() << " | "
-                    << m_sources[p.source]->client->GetName()
-                    << endl;
+                    << p.address.str() << " | ";
+                if (p.source < m_sources.size() && m_sources[p.source]->client)
+                    out << m_sources[p.source]->client->GetName();
+                else
+                    out << "<invalid source>";
+                out << endl;
             }
             out << endl;
         }

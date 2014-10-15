@@ -58,12 +58,14 @@ private:
     /// Represents the result of an FP operation
     struct Result
     {
-            RegAddr       address;     ///< Address of destination register of result.
-            MultiFloat    value;       ///< Resulting value of the operation.
-            unsigned int  source;      ///< The source of the operation
-            unsigned int  size;        ///< Size of the resulting value.
-            unsigned int  state;       ///< Progression through the pipeline.
-            unsigned int  index;       ///< Current index of writeback.
+        RegAddr       address;     ///< Address of destination register of result.
+        MultiFloat    value;       ///< Resulting value of the operation.
+        unsigned int  source;      ///< The source of the operation
+        unsigned int  size;        ///< Size of the resulting value.
+        unsigned int  state;       ///< Progression through the pipeline.
+        unsigned int  index;       ///< Current index of writeback.
+
+        SERIALIZE(a) { a & "fpur" & address & source & state & index & Serialization::multifloat(value, size); }
     };
 
     /// Represents a pipeline for an FP operation type
@@ -74,6 +76,7 @@ private:
         bool               pipelined;   ///< Is it a pipeline or a single ex. unit?
 
         Unit() : latency(0), slots(), pipelined(false) {}
+        SERIALIZE(a) { a & slots; }
     };
 
     /**
