@@ -36,8 +36,7 @@ class ICache : public Object, public IMemoryCallback, public Inspect::Interface<
         LineState     state;        ///< The state of the line
         bool          creation;             ///< Is the family creation process waiting on this line?
 
-        template<typename A>
-        void serialize(A& arch) { arch & tag & access & waiting & references & state & creation; }
+        SERIALIZE(arch) { arch & "l" & tag & access & waiting & references & state & creation; }
     };
 
     Result Fetch(MemAddr address, MemSize size, TID* tid, CID* cid);
