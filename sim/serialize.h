@@ -102,6 +102,8 @@ namespace Simulator
         template<typename T>
         struct serialize_trait<std::deque<T> > : public container_serializer<std::deque<T>, 'q'> {};
 
+#define SERIALIZE(Arch) template<typename A> void serialize(A& Arch)
+
         struct binary_serializer
         {
             void *p;
