@@ -81,24 +81,26 @@ namespace Simulator
             serialize_trait<T>::serialize(arch, *v);
         }
 
-        template<typename T>
+        template<typename T, char C>
         struct container_serializer
         {
             template<typename A>
             static void serialize(A& arch, T& container)
             {
                 size_t sz = container.size();
-                arch & sz;
+                char tag[2] = {C, 0};
+                arch & (&tag[0]) & sz;
                 container.resize(sz);
                 for (auto& v : container)
                     arch & v;
             }
+            virtual ~container_serializer() {}; // unused; present to kill a gcc warning
         };
 
         template<typename T>
-        struct serialize_trait<std::vector<T> > : public container_serializer<std::vector<T> > {};
+        struct serialize_trait<std::vector<T> > : public container_serializer<std::vector<T>, 'v'> {};
         template<typename T>
-        struct serialize_trait<std::deque<T> > : public container_serializer<std::deque<T> > {};
+        struct serialize_trait<std::deque<T> > : public container_serializer<std::deque<T>, 'q'> {};
 
         struct binary_serializer
         {
