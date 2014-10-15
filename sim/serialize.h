@@ -115,7 +115,7 @@ namespace Simulator
 
         template<typename A>
         inline
-        A& operator&(A& s, const Serialization::binary_serializer& bs)
+        A& operator&(A& s, const binary_serializer& bs)
         {
             s.serialize_raw(SV_BINARY, bs.p, bs.sz);
         }
