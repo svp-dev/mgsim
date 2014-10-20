@@ -26,8 +26,8 @@ namespace Simulator
           Storage(name, parent, clock),
           SensitiveStorage(name, parent, clock),
           InitStateVariable(set, false),
-          m_updated(false),
-          m_new(set),
+          InitStateVariable(updated, false),
+          InitStateVariable(new, set),
           InitSampleVariable(stalls, SVC_CUMULATIVE),
           InitSampleVariable(lastcycle, SVC_CUMULATIVE),
           InitSampleVariable(totalsize, SVC_CUMULATIVE)

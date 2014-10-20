@@ -13,8 +13,8 @@ namespace Simulator
     protected:
 
         DefineStateVariable(bool, set);
-        bool m_updated;
-        bool m_new;
+        DefineStateVariable(bool, updated);
+        DefineStateVariable(bool, new);
 
         // Statistics
         DefineSampleVariable(uint64_t, stalls);      ///< Number of stalls so far
