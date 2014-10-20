@@ -31,7 +31,7 @@ namespace Simulator
         : Object(name, parent),
           m_next(NULL),
           m_clock(clock),
-          m_activated(false)
+          InitStateVariable(activated, false)
     {}
 
     Storage::~Storage()

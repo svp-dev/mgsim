@@ -1,9 +1,10 @@
 // -*- c++ -*-
-#ifndef BUFFER_H
-#define BUFFER_H
+#ifndef SIM_STORAGE_H
+#define SIM_STORAGE_H
 
-#include "sim/delegate.h"
-#include "sim/kernel.h"
+#include <sim/delegate.h>
+#include <sim/kernel.h>
+#include <sim/sampling.h>
 
 namespace Simulator
 {
@@ -12,9 +13,9 @@ namespace Simulator
     class Storage
         : public virtual Object
     {
-        Storage*              m_next;        ///< Next pointer in the list of storages that require updates
-        Clock&                m_clock;       ///< The clock that governs this storage
-        bool                  m_activated;   ///< Has the storage already been activated this cycle?
+        Storage*              m_next;         ///< Next pointer in the list of storages that require updates
+        Clock&                m_clock;        ///< The clock that governs this storage
+        DefineStateVariable(bool, activated); ///< Has the storage already been activated this cycle?
 
     protected:
 
