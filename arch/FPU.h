@@ -65,7 +65,7 @@ private:
         unsigned int  state;       ///< Progression through the pipeline.
         unsigned int  index;       ///< Current index of writeback.
 
-        SERIALIZE(a) { a & "fpur" & address & source & state & index & Serialization::multifloat(value, size); }
+        SERIALIZE(a) { a & "fpr" & address & source & state & index & Serialization::multifloat(value, size); }
     };
 
     /// Represents a pipeline for an FP operation type
