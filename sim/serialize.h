@@ -6,6 +6,7 @@
 #include <cstddef>
 #include <vector>
 #include <deque>
+#include <map>
 
 namespace Simulator
 {
@@ -98,9 +99,48 @@ namespace Simulator
         };
 
         template<typename T>
+        struct pair_serializer
+        {
+            template<typename A>
+            static void serialize(A& arch, T& p)
+            {
+                arch & "pf" & p.first & "ps" & p.second;
+            }
+            virtual ~pair_serializer() {}; // unused; present to kill a gcc warning
+        };
+
+        template<typename T>
+        struct map_serializer
+        {
+            template<typename A>
+            static void serialize(A& arch, T& container)
+            {
+                size_t sz = container.size();
+                std::vector<std::pair<typename T::key_type, typename T::mapped_type> > vec(sz);
+
+                if (arch.reading)
+                    std::copy(container.begin(), container.end(), vec.begin());
+
+                arch & vec;
+
+                if (arch.reading)
+                    return;
+
+                container.clear();
+                for (auto & p : vec)
+                    container[p.first] = p.second;
+            }
+            virtual ~map_serializer() {}; // unused; present to kill a gcc warning
+        };
+
+        template<typename T>
         struct serialize_trait<std::vector<T> > : public container_serializer<std::vector<T>, 'v'> {};
         template<typename T>
         struct serialize_trait<std::deque<T> > : public container_serializer<std::deque<T>, 'q'> {};
+        template<typename K, typename T>
+        struct serialize_trait<std::map<K,T> > : public map_serializer<std::map<K,T> > {};
+        template<typename K, typename T>
+        struct serialize_trait<std::pair<K,T> > : public pair_serializer<std::pair<K,T> > {};
 
 #define SERIALIZE(Arch) template<typename A> void serialize(A& Arch)
 
