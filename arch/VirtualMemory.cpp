@@ -17,10 +17,7 @@ namespace Simulator
 {
 
 // We allocate per block, this is the size of each block. Must be a power of two
-static const int BLOCK_SIZE = (1 << 12);
-
-// Align allocations on 64 bytes
-static const MemAddr ALIGNMENT = 64;
+#define BLOCK_SIZE (1 << 12)
 
 void VirtualMemory::ReportOverlap(MemAddr address, MemSize size) const
 {
