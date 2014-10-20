@@ -397,7 +397,7 @@ bool BankedMemory::Write(MCID id, MemAddr address, const MemData& data, WClientI
 }
 
 BankedMemory::BankedMemory(const std::string& name, Object& parent, Clock& clock, const std::string& defaultBankSelectorType)
-    : Object(name, parent),
+    : VirtualMemory(name, parent),
       m_clock(clock),
       m_clients(),
       m_storages(),

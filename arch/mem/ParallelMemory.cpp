@@ -237,7 +237,7 @@ bool ParallelMemory::Write(MCID id, MemAddr address, const MemData& data, WClien
 }
 
 ParallelMemory::ParallelMemory(const std::string& name, Object& parent, Clock& clock) :
-    Object(name, parent),
+    VirtualMemory(name, parent),
     m_clock          (clock),
     m_ports          (),
     m_buffersize     (GetConf("BufferSize", BufferSize)),

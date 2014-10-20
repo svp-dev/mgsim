@@ -16,7 +16,7 @@ class ComponentModelRegistry;
 namespace Simulator
 {
 
-class SerialMemory : public Object, public IMemory, public VirtualMemory
+class SerialMemory : public IMemory, public VirtualMemory
 {
     struct Request
     {

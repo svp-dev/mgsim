@@ -62,8 +62,8 @@ void VirtualMemory::Reserve(MemAddr address, MemSize size, ProcessID pid, int pe
         range.owner       = pid;
         range.permissions = perm;
         m_ranges.insert(p, make_pair(address, range));
-        m_totalreserved += size;
-        ++m_nRanges;
+        m_total_reserved += size;
+        ++m_number_of_ranges;
     }
 }
 
@@ -95,8 +95,8 @@ void VirtualMemory::Unreserve(MemAddr address, MemSize size)
                                                 (unsigned long long)address,
                                                 (unsigned long long)p->second.size);
     }
-    m_totalreserved -= p->second.size;
-    --m_nRanges;
+    m_total_reserved -= p->second.size;
+    --m_number_of_ranges;
     m_ranges.erase(p);
 }
 
@@ -108,8 +108,8 @@ void VirtualMemory::UnreserveAll(ProcessID pid)
     {
         if (p->second.owner == pid)
         {
-            m_totalreserved -= p->second.size;
-            --m_nRanges;
+            m_total_reserved -= p->second.size;
+            --m_number_of_ranges;
             m_ranges.erase(p++); // careful that iterator is invalidated by erase()
         }
         else
@@ -195,7 +195,7 @@ void VirtualMemory::Write(MemAddr address, const void* _data, const bool* mask, 
         if (ins.second) {
             // A new element was inserted, allocate and clear memory
             memset(pos->second.data, 0, BLOCK_SIZE);
-            m_totalallocated += BLOCK_SIZE;
+            m_total_allocated += BLOCK_SIZE;
         }
 
         // Number of bytes to write, initially
@@ -226,18 +226,17 @@ SymbolTable& VirtualMemory::GetSymbolTable() const
 }
 
 
-VirtualMemory::VirtualMemory()
-    : m_blocks(), m_ranges(),
-      m_totalreserved(0), m_totalallocated(0), m_nRanges(0), m_symtable(0)
+VirtualMemory::VirtualMemory(const std::string& name, Object& parent)
+    : Object(name, parent),
+      m_blocks(),
+      m_ranges(),
+      InitSampleVariable(total_reserved, SVC_LEVEL),
+      InitSampleVariable(total_allocated, SVC_LEVEL),
+      InitSampleVariable(number_of_ranges, SVC_LEVEL),
+      m_symtable(0)
 {
-    // to create unique sample variable names when there are multiple 
-    // virtual memories
-    static int vmcount = 0;
-    auto ss = "vm" + to_string(vmcount);
-    RegisterSampleVariable(m_totalreserved, ss + ":reserved", SVC_LEVEL);
-    RegisterSampleVariable(m_totalallocated, ss + ":allocated", SVC_LEVEL);
-    RegisterSampleVariable(m_nRanges, ss + ":nRanges", SVC_LEVEL);
-    vmcount++;
+    RegisterStateObject(m_blocks, "blocks");
+    RegisterStateObject(m_ranges, "ranges");
 }
 
 VirtualMemory::~VirtualMemory()
@@ -297,7 +296,7 @@ void VirtualMemory::Cmd_Info(ostream& out, const vector<string>& /* arguments */
     static const char* Mods[] = { "B", "kB", "MB", "GB", "TB", "PB", "EB", "ZB", "YB" };
 
     // Print total memory reservation
-    assert(m_totalreserved == total);
+    assert(m_total_reserved == total);
     int mod;
     for(mod = 0; total >= 1024 && mod < 9; ++mod)
     {
@@ -307,7 +306,7 @@ void VirtualMemory::Cmd_Info(ostream& out, const vector<string>& /* arguments */
     out << "Total reserved memory:  " << setw(4) << total << " " << Mods[mod] << endl;
 
     total = m_blocks.size() * BLOCK_SIZE;
-    assert(m_totalallocated == total);
+    assert(m_total_allocated == total);
     // Print total memory usage
     for (mod = 0; total >= 1024 && mod < 4; ++mod)
     {

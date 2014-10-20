@@ -19,7 +19,7 @@ class ComponentModelRegistry;
 namespace Simulator
 {
 
-class ParallelMemory : public Object, public IMemory, public VirtualMemory
+class ParallelMemory : public IMemory, public VirtualMemory
 {
     struct Request;
 	class Port;

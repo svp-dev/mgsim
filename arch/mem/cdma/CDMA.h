@@ -16,7 +16,7 @@ class ComponentModelRegistry;
 namespace Simulator
 {
 
-class CDMA : public Object, public IMemory, public VirtualMemory, public Inspect::Interface<Inspect::Line|Inspect::Trace>
+class CDMA : public IMemory, public VirtualMemory, public Inspect::Interface<Inspect::Line|Inspect::Trace>
 {
 public:
     class Node;

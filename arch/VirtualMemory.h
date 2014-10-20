@@ -5,6 +5,8 @@
 #include <arch/simtypes.h>
 #include <arch/symtable.h>
 #include <sim/inspect.h>
+#include <sim/kernel.h>
+#include <sim/sampling.h>
 #include <arch/Memory.h>
 
 #include <map>
@@ -15,7 +17,8 @@ namespace Simulator
 
 // This class presents as large, sparse memory region as a linear memory region.
 // It allocates blocks of memory as they are read or written.
-class VirtualMemory : public IMemoryAdmin, public Inspect::Interface<Inspect::Info|Inspect::Read>
+class VirtualMemory : public Object,
+                      public IMemoryAdmin, public Inspect::Interface<Inspect::Info|Inspect::Read>
 {
 public:
     // We allocate per block, this is the size of each block. Must be a power of two
@@ -24,6 +27,7 @@ public:
     struct Block
     {
         char data[BLOCK_SIZE];
+        SERIALIZE(a) { a & Serialization::binary(data, BLOCK_SIZE); }
     };
 
     struct Range
@@ -31,6 +35,7 @@ public:
         MemSize   size;
         ProcessID owner;
         int       permissions;
+        SERIALIZE(a) { a & size & owner & permissions; }
     };
 
     typedef std::map<MemAddr, Block> BlockMap;
@@ -48,7 +53,7 @@ public:
 
     bool CheckPermissions(MemAddr address, MemSize size, int access) const override;
 
-    VirtualMemory();
+    VirtualMemory(const std::string& name, Object& parent);
     VirtualMemory(const VirtualMemory&) = delete;
     VirtualMemory& operator=(const VirtualMemory&) = delete;
     virtual ~VirtualMemory();
@@ -63,14 +68,14 @@ private:
     RangeMap::const_iterator GetReservationRange(MemAddr address, MemSize size) const;
     void ReportOverlap(MemAddr address, MemSize size) const;
 
-    BlockMap m_blocks;
-    RangeMap m_ranges;
-    size_t   m_totalreserved;
-    size_t   m_totalallocated;
-    size_t   m_nRanges;
+    DefineStateVariable(BlockMap, blocks);
+    DefineStateVariable(RangeMap, ranges);
+
+    DefineSampleVariable(size_t, total_reserved);
+    DefineSampleVariable(size_t, total_allocated);
+    DefineSampleVariable(size_t, number_of_ranges);
     SymbolTable *m_symtable;
 };
 
 }
 #endif
-

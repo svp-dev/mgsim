@@ -374,7 +374,7 @@ bool DDRMemory::Write(MCID id, MemAddr address, const MemData& data, WClientID w
 }
 
 DDRMemory::DDRMemory(const std::string& name, Object& parent, Clock& clock, const std::string& defaultInterfaceSelectorType)
-    : Object(name, parent),
+    : VirtualMemory(name, parent),
       m_clock(clock),
       m_clients(),
       m_storages(),

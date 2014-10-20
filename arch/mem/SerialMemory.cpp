@@ -152,7 +152,7 @@ Result SerialMemory::DoRequests()
 }
 
 SerialMemory::SerialMemory(const std::string& name, Object& parent, Clock& clock) :
-    Object(name, parent),
+    VirtualMemory(name, parent),
     m_clients        (),
     InitBuffer(m_requests, clock, "BufferSize"),
     p_requests       (clock, GetName() + ".m_requests"),

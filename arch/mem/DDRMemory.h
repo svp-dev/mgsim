@@ -17,7 +17,7 @@ class Config;
 namespace Simulator
 {
 
-class DDRMemory : public Object, public IMemory, public VirtualMemory
+class DDRMemory : public IMemory, public VirtualMemory
 {
     struct ClientInfo;
     struct Request;

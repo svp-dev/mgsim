@@ -125,7 +125,7 @@ bool CDMA::Write(MCID id, MemAddr address, const MemData& data, WClientID wid)
 // Note that the CDMA class is just a container for caches and directories.
 // It has no processes of its own.
 CDMA::CDMA(const std::string& name, Simulator::Object& parent, Clock& clock)
-  : Simulator::Object(name, parent),
+  : VirtualMemory(name, parent),
     m_clock(clock),
     m_numClientsPerCache(GetConf("NumClientsPerL2Cache", size_t)),
     m_numCachesPerLowRing(GetConf("NumL2CachesPerRing", size_t)),

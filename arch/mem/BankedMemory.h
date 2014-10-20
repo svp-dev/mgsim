@@ -19,7 +19,7 @@ namespace Simulator
 
 class ArbitratedWriteFunction;
 
-class BankedMemory : public Object, public IMemory, public VirtualMemory
+class BankedMemory : public IMemory, public VirtualMemory
 {
     struct ClientInfo;
     struct Request;
