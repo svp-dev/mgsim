@@ -2,7 +2,8 @@
 #ifndef SIM_REGISTER_H
 #define SIM_REGISTER_H
 
-#include "sim/storage.h"
+#include <sim/storage.h>
+#include <sim/sampling.h>
 
 namespace Simulator
 {
@@ -11,11 +12,11 @@ namespace Simulator
     template <typename T>
     class Register : public SensitiveStorage
     {
-        T    m_cur;
-        T    m_new;
-        bool m_empty;
-        bool m_cleared;
-        bool m_assigned;
+        DefineStateVariable(T   , cur);
+        DefineStateVariable(T   , new);
+        DefineStateVariable(bool, empty);
+        DefineStateVariable(bool, cleared);
+        DefineStateVariable(bool, assigned);
 
     protected:
         // Update: update the register between cycles.

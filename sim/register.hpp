@@ -79,10 +79,13 @@ namespace Simulator
           SensitiveStorage(name, parent, clock),
           m_cur(),
           m_new(),
-          m_empty(true),
-          m_cleared(false),
-          m_assigned(false)
-    {}
+          InitStateVariable(empty, true),
+          InitStateVariable(cleared, false),
+          InitStateVariable(assigned, false)
+    {
+        RegisterStateObject(m_cur, "cur");
+        RegisterStateObject(m_new, "new");
+    }
 
 }
 
