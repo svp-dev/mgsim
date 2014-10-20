@@ -107,15 +107,20 @@ namespace Simulator
           Storage(name, parent, clock),
           SensitiveStorage(name, parent, clock),
           m_table(table),
-          m_empty(true),
-          m_popped(false),
-          m_pushed(false),
+          InitStateVariable(empty, true),
+          InitStateVariable(popped, false),
+          InitStateVariable(pushed, false),
           m_head(),
           m_tail(),
           m_next(),
           m_first(),
           m_last()
-    {}
+    {
+        RegisterStateObject(m_head, "head");
+        RegisterStateObject(m_tail, "tail");
+        RegisterStateObject(m_first, "first");
+        RegisterStateObject(m_last, "last");
+    }
 
 
     template<typename T, typename L, T L::value_type::*N>

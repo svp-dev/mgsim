@@ -2,7 +2,8 @@
 #ifndef SIM_LINKEDLIST_H
 #define SIM_LINKEDLIST_H
 
-#include "sim/storage.h"
+#include <sim/storage.h>
+#include <sim/sampling.h>
 
 namespace Simulator
 {
@@ -15,14 +16,14 @@ namespace Simulator
     class LinkedList : public SensitiveStorage
     {
         L&   m_table;     ///< The table to dereference to form the linked list
-        bool m_empty;     ///< Whether this list is empty
-        bool m_popped;    ///< Has a Pop() been done?
-        bool m_pushed;    ///< Has a Push() been done?
-        T    m_head;      ///< First item on the list (when !m_empty)
-        T    m_tail;      ///< Last item on the list (when !m_empty)
-        T    m_next;      ///< The next field to use (when m_popped)
-        T    m_first;     ///< First item of the list being pushed (when m_pushed)
-        T    m_last;      ///< Last item of the list being pushed (when m_pushed)
+        DefineStateVariable(bool, empty);  ///< Whether this list is empty
+        DefineStateVariable(bool, popped); ///< Has a Pop() been done?
+        DefineStateVariable(bool, pushed); ///< Has a Push() been done?
+        DefineStateVariable(T   , head);   ///< First item on the list (when !m_empty)
+        DefineStateVariable(T   , tail);   ///< Last item on the list (when !m_empty)
+        DefineStateVariable(T   , next);   ///< The next field to use (when m_popped)
+        DefineStateVariable(T   , first);  ///< First item of the list being pushed (when m_pushed)
+        DefineStateVariable(T   , last);   ///< Last item of the list being pushed (when m_pushed)
 
         void Update() override;
 
