@@ -100,7 +100,7 @@ __attribute__((format (printf, 2, 3)))
 #endif
 ;
 
-template<typename Except = SimulationException>
+template<typename Except>
 Except exceptf(const char* fmt, ...)
 {
     va_list ap;
@@ -111,7 +111,7 @@ Except exceptf(const char* fmt, ...)
     return Except(std::string(buf));
 }
 
-template<typename Except = SimulationException>
+template<typename Except>
 Except exceptf(const Object& obj, const char* fmt, ...)
 {
     va_list ap;
