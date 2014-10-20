@@ -74,6 +74,7 @@ struct Float32
         double tofloat() const { return floating; }
         void fromfloat(double f) { floating = f; }
 #endif
+    SERIALIZE(a) { a & integer; }
 };
 
 /// 64-bit IEEE-754 float
@@ -98,6 +99,7 @@ struct Float64
         double tofloat() const { return floating; }
         void fromfloat(double f) { floating = f; }
 #endif
+    SERIALIZE(a) { a & integer; }
 };
 
 #if defined(TARGET_MTALPHA)
@@ -133,6 +135,7 @@ struct PlaceID
     PSize       size;
     PID         pid;
     std::string str() const;
+    SERIALIZE(a) { a & "plid" & capability & size & pid; }
 };
 
 /// A globally unique family identifier
@@ -142,6 +145,7 @@ struct FID
     PID         pid;
     LFID        lfid;
     std::string str() const;
+    SERIALIZE(a) { a & "fid" & capability & pid & lfid; }
 };
 
 /// Program-specified allocation type for a place allocation
@@ -280,6 +284,7 @@ struct RegsNo
     unsigned char globals;
     unsigned char shareds;
     unsigned char locals;
+    SERIALIZE(a) { a & "rn" & globals & shareds & locals; }
 };
 
 /// Register classes
@@ -360,6 +365,11 @@ struct MemoryRequest
         unsigned     offset;      ///< Offset in the cache-line, in bytes
         bool         sign_extend; ///< Sign-extend the loaded value into the register?
         std::string  str() const;
+        SERIALIZE(a)
+        {
+            a & "mr" & next & fid
+                & size & offset & sign_extend;
+        }
 };
 
 /// Different types of shared classes
@@ -410,6 +420,7 @@ struct FamilyQueue
 {
     LFID head;
     LFID tail;
+    SERIALIZE(a) { a & "fq" & head & tail; }
 };
 
 struct RegValue
@@ -428,6 +439,47 @@ struct RegValue
     RegState    m_state;       ///< State of the register.
     std::string str(RegType t) const;
 };
+
+namespace Serialization
+{
+    struct reg_serializer
+    {
+        RegAddr * addr;
+        RegValue * value;
+    };
+    inline
+    reg_serializer reg(RegAddr& addr, RegValue& value)
+    {
+        return reg_serializer{&addr, &value};
+    }
+    template<typename A>
+    inline
+    A& operator&(A& a, const reg_serializer& r)
+    {
+        a & "reg" & *r.addr & r.value->m_state;
+        switch(r.value->m_state)
+        {
+        case RST_INVALID: break;
+        case RST_EMPTY: break;
+        case RST_WAITING:
+        case RST_PENDING:
+            a & r.value->m_waiting
+                & r.value->m_memory;
+            break;
+        case RST_FULL:
+            switch(r.addr->type)
+            {
+            case RT_INTEGER:
+                a & r.value->m_integer; break;
+            case RT_FLOAT:
+                a & r.value->m_float; break;
+            }
+            break;
+        }
+        return a;
+    }
+}
+
 
 static inline RegValue MAKE_EMPTY_REG()
 {

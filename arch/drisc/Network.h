@@ -2,12 +2,12 @@
 #ifndef NETWORK_H
 #define NETWORK_H
 
-#include "sim/kernel.h"
-#include "sim/inspect.h"
-#include "sim/buffer.h"
-#include "sim/register.h"
-#include "sim/ports.h"
-#include "arch/simtypes.h"
+#include <sim/kernel.h>
+#include <sim/inspect.h>
+#include <sim/buffer.h>
+#include <sim/register.h>
+#include <sim/ports.h>
+#include <arch/simtypes.h>
 #include "forward.h"
 
 namespace Simulator
@@ -32,6 +32,22 @@ struct RemoteMessage
 
     Type type;      ///< Type of the message
 
+    SERIALIZE(a) {
+        a & type;
+        switch(type) {
+        case MSG_NONE: break;
+        case MSG_ALLOCATE: a & allocate; break;
+        case MSG_SET_PROPERTY: a & property; break;
+        case MSG_CREATE: a & create; break;
+        case MSG_SYNC: a & sync; break;
+        case MSG_DETACH: a & detach; break;
+        case MSG_BREAK: a & brk; break;
+        case MSG_RAW_REGISTER: a & rawreg; break;
+        case MSG_FAM_REGISTER: a & famreg; break;
+        }
+    }
+
+
     /// The message contents
     union
     {
@@ -47,12 +63,16 @@ struct RemoteMessage
             MemAddr        pc;            ///< Bundled program counter
             Integer        parameter;     ///< Bundled program-specified parameter
             SInteger       index;         ///< Bundled table-specified parameter
+            SERIALIZE(a) { a & place & completion_pid & completion_reg
+                    & type & suspend & exclusive & bundle & pc
+                    & parameter & index; }
         } allocate;
 
         struct {
             Integer        value;   ///< The new value of the property
             FID            fid;     ///< Family to set the property of
             FamilyProperty type;    ///< The property to set
+            SERIALIZE(a) { a & value & fid & type; }
         } property;
 
         struct {
@@ -64,40 +84,53 @@ struct RemoteMessage
             bool     bundle;        ///< Whether this is a create resulting from a bundle
             Integer  parameter;     ///< Bundled program-specified parameter
             SInteger index;         ///< Bundled table-specified parameter
+            SERIALIZE(a) { a & address & fid & completion_pid & completion_reg
+                    & bundle & parameter & index; }
         } create;
 
         struct {
             FID      fid;           ///< Family to sync on
             RegIndex completion_reg;///< Register to write sync-completion to
+            SERIALIZE(a) { a & fid & completion_reg; }
         } sync;
 
         struct {
             FID fid;                ///< Family to detach
+            SERIALIZE(a) { a & fid; }
         } detach;
 
         struct {
             PID  pid;               ///< Core to send break to
             LFID fid;               ///< Family to break
+            SERIALIZE(a) { a & pid & fid; }
         } brk;
 
         struct
         {
-            RegValue value;
             RegAddr  addr;
+            RegValue value;
             PID      pid;
+            SERIALIZE(a) { a & Serialization::reg(addr, value) & pid; }
         } rawreg;
 
         struct
         {
+            FID           fid;
+            RemoteRegType kind;
+            bool          write;
             RegAddr       addr;
             union
             {
                 RegValue  value;
                 RegIndex  completion_reg;
             };
-            FID           fid;
-            RemoteRegType kind;
-            bool          write;
+            SERIALIZE(a) {
+                a & fid & kind & write;
+                if (write)
+                    a & Serialization::reg(addr, value);
+                else
+                    a & addr & completion_reg;
+            }
         } famreg;
     };
 
@@ -121,6 +154,21 @@ struct LinkMessage
 
     Type type;      ///< Type of the message
 
+    SERIALIZE(a) {
+        a & type;
+        switch(type) {
+        case MSG_ALLOCATE: a & allocate; break;
+        case MSG_BALLOCATE: a & ballocate; break;
+        case MSG_SET_PROPERTY: a & property; break;
+        case MSG_CREATE: a & create; break;
+        case MSG_DONE: a & done; break;
+        case MSG_SYNC: a & sync; break;
+        case MSG_DETACH: a & detach; break;
+        case MSG_BREAK: a & brk; break;
+        case MSG_GLOBAL: a & global; break;
+        }
+    }
+
     /// The message contents
     union
     {
@@ -133,6 +181,9 @@ struct LinkMessage
             RegIndex completion_reg; ///< Reg on parent_pid of the completion register
             bool     exact;          ///< Allocate exactly 'size' cores
             bool     suspend;        ///< Suspend until we get a context (only if exact)
+            SERIALIZE(a) { a & first_fid & prev_fid
+                    & size & completion_pid & completion_reg
+                    & exact & suspend; }
         } allocate;
 
         struct
@@ -143,6 +194,9 @@ struct LinkMessage
             PID      completion_pid; ///< PID where the thread runs that issued the allocate
             RegIndex completion_reg; ///< Reg on parent_pid of the completion register
             bool     suspend;        ///< Suspend until we get a context (only if exact)
+            SERIALIZE(a) { a & min_contexts & min_pid
+                    & size & completion_pid
+                    & completion_reg & suspend; }
         } ballocate;
 
         struct
@@ -150,6 +204,7 @@ struct LinkMessage
             LFID           fid;
             FamilyProperty type;    ///< The property to set
             Integer        value;   ///< The new value of the property
+            SERIALIZE(a) { a & fid & type & value; }
         } property;
 
         struct
@@ -158,12 +213,18 @@ struct LinkMessage
             PSize    numCores;
             MemAddr  address;
             RegsNo   regs[NUM_REG_TYPES];
+            SERIALIZE(a) {
+                a & fid & numCores & address;
+                for (auto &r : regs)
+                    a & r;
+            }
         } create;
 
         struct
         {
             LFID fid;
             bool broken;
+            SERIALIZE(a) { a & fid & broken; }
         } done;
 
         struct
@@ -171,22 +232,27 @@ struct LinkMessage
             LFID     fid;
             PID      completion_pid;
             RegIndex completion_reg;
+            SERIALIZE(a) { a & fid & completion_pid & completion_reg; }
         } sync;
 
         struct
         {
             LFID fid;
+            SERIALIZE(a) { a & fid; }
         } detach;
 
         struct {
             LFID fid;               ///< Family to break
+            SERIALIZE(a) { a & fid; }
         } brk;
 
         struct
         {
-            RegValue value;
-            RegAddr  addr;
             LFID     fid;
+            RegAddr  addr;
+            RegValue value;
+            SERIALIZE(a)
+            { a & fid & Serialization::reg(addr, value); }
         } global;
     };
 
@@ -204,6 +270,9 @@ struct AllocResponse
 
     PSize    numCores;  ///< Number of cores actually allocated (0 for failed)
     bool     exact;     ///< If the allocate was exact, unwind all the way
+
+    SERIALIZE(a) { a & completion_pid & completion_reg
+            & prev_fid & next_fid & numCores & exact; }
 };
 
 class Network : public Object, public Inspect::Interface<Inspect::Read>
@@ -329,6 +398,7 @@ private:
         PID           src;     ///< Source processor
         PID           dest;    ///< Destination processor
         RemoteMessage payload; ///< Body of message
+        SERIALIZE(a) { a & "dm" & src & dest & payload; }
     };
 
     bool ReadRegister(LFID fid, RemoteRegType kind, const RegAddr& addr, RegValue& value);
