@@ -149,15 +149,17 @@ namespace Simulator
             void *p;
             size_t sz;
         };
-        inline
-        binary_serializer binary(void *p, size_t sz)
-        { return binary_serializer{p, sz}; }
+
+        template<typename T>
+        binary_serializer binary(T *p, size_t sz)
+        { return binary_serializer{p, sizeof (T) * sz}; }
 
         template<typename A>
         inline
         A& operator&(A& s, const binary_serializer& bs)
         {
             s.serialize_raw(SV_BINARY, bs.p, bs.sz);
+            return s;
         }
 
     }
