@@ -5,10 +5,10 @@
 #include <sim/kernel.h>
 #include <sim/inspect.h>
 #include <arch/simtypes.h>
-#include "forward.h"
-#include "FamilyTable.h"
-#include "ThreadTable.h"
-#include "Network.h"
+#include <arch/drisc/forward.h>
+#include <arch/drisc/FamilyTable.h>
+#include <arch/drisc/ThreadTable.h>
+#include <arch/drisc/Network.h>
 
 namespace Simulator
 {

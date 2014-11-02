@@ -1,4 +1,4 @@
-#include "ParallelMemory.h"
+#include <arch/mem/ParallelMemory.h>
 #include <sim/config.h>
 
 #include <cassert>

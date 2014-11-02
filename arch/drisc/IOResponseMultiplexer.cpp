@@ -1,5 +1,5 @@
-#include "IOResponseMultiplexer.h"
-#include "DRISC.h"
+#include <arch/drisc/IOResponseMultiplexer.h>
+#include <arch/drisc/DRISC.h>
 #include <sim/config.h>
 
 namespace Simulator

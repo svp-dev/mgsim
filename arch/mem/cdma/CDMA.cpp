@@ -1,5 +1,5 @@
-#include "Cache.h"
-#include "RootDirectory.h"
+#include <arch/mem/cdma/Cache.h>
+#include <arch/mem/cdma/RootDirectory.h>
 #include <sim/config.h>
 #include <sim/sampling.h>
 #include <sim/log2.h>

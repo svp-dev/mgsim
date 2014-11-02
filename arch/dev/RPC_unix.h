@@ -2,7 +2,7 @@
 #ifndef RPC_UNIX_H
 #define RPC_UNIX_H
 
-#include "RPC.h"
+#include <arch/dev/RPC.h>
 #include <sim/inspect.h>
 
 #include <vector>

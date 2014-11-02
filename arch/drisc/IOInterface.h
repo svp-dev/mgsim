@@ -6,11 +6,11 @@
 #include <sim/inspect.h>
 #include <sim/storage.h>
 #include <arch/Memory.h>
-#include "IOMatchUnit.h"
-#include "IOResponseMultiplexer.h"
-#include "IONotificationMultiplexer.h"
-#include "IOBusInterface.h"
-#include "IODirectCacheAccess.h"
+#include <arch/drisc/IOMatchUnit.h>
+#include <arch/drisc/IOResponseMultiplexer.h>
+#include <arch/drisc/IONotificationMultiplexer.h>
+#include <arch/drisc/IOBusInterface.h>
+#include <arch/drisc/IODirectCacheAccess.h>
 
 namespace Simulator
 {

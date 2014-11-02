@@ -1,5 +1,5 @@
-#include "Network.h"
-#include "DRISC.h"
+#include <arch/drisc/Network.h>
+#include <arch/drisc/DRISC.h>
 #include <sim/config.h>
 #include <sim/log2.h>
 

@@ -1,7 +1,7 @@
-#include "BankedMemory.h"
-#include "sim/config.h"
-#include "sim/flag.h"
-#include "sim/buffer.h"
+#include <arch/mem/BankedMemory.h>
+#include <sim/config.h>
+#include <sim/flag.h>
+#include <sim/buffer.h>
 #include <cassert>
 #include <cmath>
 #include <cstring>

@@ -1,4 +1,4 @@
-#include "Cache.h"
+#include <arch/mem/zlcdma/Cache.h>
 #include <sim/config.h>
 #include <sim/sampling.h>
 

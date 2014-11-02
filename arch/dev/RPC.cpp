@@ -1,6 +1,6 @@
 #include <cstring>
 #include "sim/config.h"
-#include "RPC.h"
+#include <arch/dev/RPC.h>
 
 /*
 

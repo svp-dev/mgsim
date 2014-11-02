@@ -1,5 +1,5 @@
-#include "DDRMemory.h"
-#include "sim/config.h"
+#include <arch/mem/DDRMemory.h>
+#include <sim/config.h>
 #include <cassert>
 #include <cmath>
 #include <cstring>

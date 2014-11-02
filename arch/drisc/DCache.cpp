@@ -1,5 +1,5 @@
-#include "DCache.h"
-#include "DRISC.h"
+#include <arch/drisc/DCache.h>
+#include <arch/drisc/DRISC.h>
 #include <sim/log2.h>
 #include <sim/config.h>
 #include <sim/sampling.h>

@@ -1,5 +1,5 @@
-#include "IODirectCacheAccess.h"
-#include "DRISC.h"
+#include <arch/drisc/IODirectCacheAccess.h>
+#include <arch/drisc/DRISC.h>
 #include <sim/config.h>
 #include <cstring>
 
