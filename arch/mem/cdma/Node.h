@@ -58,6 +58,7 @@ protected:
             size_t       client;        ///< Sending client (UP)
             WClientID    wid;           ///< Sending entity on client (family/thread) (UP)
             unsigned int tokens;        ///< Number of tokens in this message (RDT, EV)
+            // (See also serializer below!!)
         };
 
         /// For memory management
@@ -121,6 +122,31 @@ public:
     void Connect(Node* next, Node* prev);
     virtual size_t GetNumLines() const;
 };
+
+namespace Serialization
+{
+    template<>
+    struct serialize_trait<CDMA::Node::Message*>
+    {
+        template<typename A>
+        static void serialize(A& arch, CDMA::Node::Message* &p)
+        {
+            if (p == NULL)
+                p = new CDMA::Node::Message;
+            arch & "[cn";
+            arch & p->type;
+            arch & p->dirty;
+            arch & p->ignore;
+            arch & p->address;
+            arch & p->data;
+            arch & p->sender;
+            arch & p->client;
+            arch & p->wid;
+            arch & p->tokens;
+            arch & "]";
+        }
+    };
+}
 
 }
 #endif
