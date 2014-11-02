@@ -1,5 +1,5 @@
 TEST_BINS =
-SUFFIXES = .c .s .test .log
+SUFFIXES += .c .s .test .log
 include tests/common/Makefile.inc
 include tests/mtalpha/Makefile.inc
 include tests/mtsparc/Makefile.inc

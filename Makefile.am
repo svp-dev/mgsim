@@ -10,7 +10,8 @@ dist_man1_MANS =
 noinst_LIBRARIES =
 CLEANFILES = 
 MAINTAINERCLEANFILES =
-EXTRA_DIST = 
+EXTRA_DIST =
+SUFFIXES =
 
 ##
 ## Multi-way distcheck
