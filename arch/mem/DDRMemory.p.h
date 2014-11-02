@@ -1,32 +1,40 @@
 // -*- c++ -*-
-#ifndef BANKEDMEMORY_H
-#define BANKEDMEMORY_H
+#ifndef DDRMEMORY_H
+#define DDRMEMORY_H
+
+#include "DDR.h"
 
 #include <arch/BankSelector.h>
 #include <arch/Memory.h>
 #include <arch/VirtualMemory.h>
 #include <sim/inspect.h>
-#include <sim/sampling.h>
 
 #include <queue>
 #include <set>
 
 class Config;
-class ComponentModelRegistry;
 
 namespace Simulator
 {
 
-class ArbitratedWriteFunction;
-
-class BankedMemory : public IMemory, public VirtualMemory
+class DDRMemory : public IMemory, public VirtualMemory
 {
     struct ClientInfo;
-    struct Request;
-    class Bank;
 
-    std::pair<CycleNo, CycleNo> GetMessageDelay(size_t body_size) const;
-    CycleNo                     GetMemoryDelay (size_t data_size) const;
+    // {% from "sim/macros.p.h" import gen_struct %}
+    // {% call gen_struct() %}
+    ((name Request)
+     (state
+        (MCID        client)
+        (bool        write)
+        (MemAddr     address)
+        (MemData     data)
+        (WClientID   wid)
+         ))
+    // {% endcall %}
+
+struct Request;
+    class Interface;
 
     // IMemory
     MCID RegisterClient(IMemoryCallback& callback, Process& process, StorageTraceSet& traces, const StorageTraceSet& storages, bool /*ignored*/) override;
@@ -49,14 +57,13 @@ class BankedMemory : public IMemory, public VirtualMemory
     }
 
 protected:
-    Clock&                  m_clock;
-    std::vector<ClientInfo> m_clients;
-    StorageTraceSet         m_storages;
-    std::vector<Bank*>      m_banks;
-    CycleNo                 m_baseRequestTime;
-    CycleNo                 m_timePerLine;
-    size_t                  m_lineSize;
-    IBankSelector*          m_selector;
+    Clock&                   m_clock;
+    std::vector<ClientInfo>  m_clients;
+    StorageTraceSet          m_storages;
+    std::vector<Interface*>  m_ifs;
+    DDRChannelRegistry       m_ddr;
+    size_t                   m_lineSize;
+    IBankSelector*           m_selector;
 
     DefineSampleVariable(uint64_t, nreads);
     DefineSampleVariable(uint64_t, nread_bytes);
@@ -64,10 +71,10 @@ protected:
     DefineSampleVariable(uint64_t, nwrite_bytes);
 
 public:
-    BankedMemory(const std::string& name, Object& parent, Clock& clock, const std::string& defaultBankSelectorType);
-    BankedMemory(const BankedMemory&) = delete;
-    BankedMemory& operator=(const BankedMemory&) = delete;
-    ~BankedMemory();
+    DDRMemory(const std::string& name, Object& parent, Clock& clock, const std::string& defaultInterfaceSelectorType);
+    DDRMemory(const DDRMemory&) = delete;
+    DDRMemory& operator=(const DDRMemory&) = delete;
+    ~DDRMemory();
 
     // Debugging
     void Cmd_Info(std::ostream& out, const std::vector<std::string>& arguments) const override;

@@ -2,7 +2,7 @@
 #ifndef CDMA_CACHE_H
 #define CDMA_CACHE_H
 
-#include "Node.h"
+#include <arch/mem/cdma/Node.h>
 #include <sim/inspect.h>
 #include <arch/BankSelector.h>
 
@@ -37,14 +37,18 @@ public:
     };
 
 private:
-    struct Request
-    {
-        MemData      mdata;
-        bool         write;
-        MemAddr      address;
-        unsigned int client;
-        WClientID    wid;
-    };
+
+    // {% from "sim/macros.p.h" import gen_struct %}
+    // {% call gen_struct() %}
+    ((name Request)
+     (state
+      (MemData   mdata)
+      (bool      write)
+      (MemAddr   address)
+      (unsigned  client)
+      (WClientID wid)
+         ))
+    // {% endcall %}
 
     size_t                        m_lineSize;
     size_t                        m_assoc;

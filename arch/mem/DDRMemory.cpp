@@ -15,15 +15,6 @@ struct DDRMemory::ClientInfo
     ArbitratedService<>* service;
 };
 
-struct DDRMemory::Request
-{
-    MCID        client;
-    bool        write;
-    MemAddr     address;
-    MemData     data;
-    WClientID   wid;
-};
-
 class DDRMemory::Interface : public Object, public DDRChannel::ICallback
 {
     const vector<ClientInfo>& m_clients;

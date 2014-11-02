@@ -18,14 +18,17 @@ namespace Simulator
 
 class SerialMemory : public IMemory, public VirtualMemory
 {
-    struct Request
-    {
-        MemAddr          address;
-        MemData          data;
-        MCID             client;
-        WClientID        wid;
-        bool             write;
-    };
+    // {% from "sim/macros.p.h" import gen_struct %}
+    // {% call gen_struct() %}
+    ((name Request)
+     (state
+      (MCID        client)
+      (bool        write)
+      (MemAddr     address)
+      (MemData     data)
+      (WClientID   wid)
+         ))
+    // {% endcall %}
 
     // IMemory
     MCID RegisterClient(IMemoryCallback& callback, Process& process, StorageTraceSet& traces, const StorageTraceSet& storages, bool /*ignored*/) override;

@@ -234,16 +234,14 @@ namespace Simulator
         }
         case ARGFETCH_FINALIZE:
         {
-            ProcessRequest preq(
-                req.procedure_id,
-                req.extra_arg1,
-                req.extra_arg2,
-                req.dca_device_id,
-                req.res1_base_address,
-                req.res2_base_address,
-                req.notification_channel_id,
-                req.completion_tag
-                );
+            ProcessRequest preq(req.procedure_id,
+                                req.extra_arg1,
+                                req.extra_arg2,
+                                req.dca_device_id,
+                                req.res1_base_address,
+                                req.res2_base_address,
+                                req.completion_tag,
+                                req.notification_channel_id);
 
             COMMIT {
                 preq.data1.insert(preq.data1.begin(), m_currentArgData1.begin(), m_currentArgData1.begin() + req.arg1_size);

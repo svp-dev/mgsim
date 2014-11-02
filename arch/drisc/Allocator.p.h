@@ -2,15 +2,15 @@
 #ifndef ALLOCATOR_H
 #define ALLOCATOR_H
 
-#include "sim/kernel.h"
-#include "sim/inspect.h"
-#include "sim/linkedlist.h"
-#include "sim/buffer.h"
-#include "arch/simtypes.h"
-#include "arch/Memory.h"
+#include <sim/kernel.h>
+#include <sim/inspect.h>
+#include <sim/linkedlist.h>
+#include <sim/buffer.h>
+#include <arch/simtypes.h>
+#include <arch/Memory.h>
 
-#include "forward.h"
-#include "ThreadTable.h"
+#include <arch/drisc/forward.h>
+#include <arch/drisc/ThreadTable.h>
 
 namespace Simulator
 {
@@ -47,20 +47,24 @@ class Allocator : public Object, public Inspect::Interface<Inspect::Read>
 public:
     typedef LinkedList<TID, ThreadTable, &Thread::next> ThreadList;
 
-    struct AllocRequest
-    {
-        LFID           first_fid;      ///< FID of the family on the first core
-        LFID           prev_fid;       ///< FID of the family on the previous core
-        PSize          placeSize;      ///< Number of cores to allocate on
-        AllocationType type;           ///< Type of the allocation
-        PID            completion_pid; ///< Core that requested the allocation
-        RegIndex       completion_reg; ///< Register (on that core) that will receive the FID
 
-        bool           bundle;         ///< Whether the family parameters are already bundled.
-        MemAddr        pc;             ///< Bundled program counter
-        Integer        parameter;      ///< Bundled program-specified parameter
-        SInteger       index;          ///< Bundled table-specified parameter
-    };
+    // {% from "sim/macros.p.h" import gen_struct %}
+    // {% call gen_struct() %}
+    ((name AllocRequest)
+     (state
+      (LFID           first_fid)      ///< FID of the family on the first core
+      (LFID           prev_fid)       ///< FID of the family on the previous core
+      (PSize          placeSize)      ///< Number of cores to allocate on
+      (AllocationType type)           ///< Type of the allocation
+      (PID            completion_pid) ///< Core that requested the allocation
+      (RegIndex       completion_reg) ///< Register (on that core) that will receive the FID
+
+      (bool           bundle)         ///< Whether the family parameters are already bundled.
+      (MemAddr        pc)             ///< Bundled program counter
+      (Integer        parameter)      ///< Bundled program-specified parameter
+      (SInteger       index)          ///< Bundled table-specified parameter
+         ))
+    {% endcall %}
 
     // These are the different states in the state machine for
     // family creation
@@ -77,12 +81,14 @@ public:
         CREATE_NOTIFY,              // Notifying creator
     };
 
-    struct BundleInfo
-    {
-        MemAddr   addr;            ///< Memory Entry
-        Integer   parameter;       ///< Program-specified parameter for shareds
-        RegIndex  completion_reg;  ///< Register (on that core) that will receive the FID
-    };
+    {% call gen_struct() %}
+    ((name BundleInfo)
+     (state
+      (MemAddr   addr)            ///< Memory Entry
+      (Integer   parameter)       ///< Program-specified parameter for shareds
+      (RegIndex  completion_reg)  ///< Register (on that core) that will receive the FID
+         ))
+    {% endcall %}
 
     enum BundleState
     {
@@ -147,22 +153,28 @@ public:
     void Cmd_Read(std::ostream& out, const std::vector<std::string>& arguments) const override;
 
 private:
-    struct CreateInfo
-    {
-        LFID     fid;
-        PID      completion_pid;
-        RegIndex completion_reg;
-        Integer  parameter; // For bundle creation
-        SInteger index;     // For bundle creation
-        bool     bundle;    // For bundle creation
-    };
+    {% call gen_struct() %}
+    ((name CreateInfo)
+     (state
+        (LFID     fid)
+        (PID      completion_pid)
+        (RegIndex completion_reg)
+
+        // For bundle creation
+        (Integer  parameter)
+        (SInteger index)
+        (bool     bundle)
+         ))
+    {% endcall %}
 
     // A queued integer register write
-    struct RegisterWrite
-    {
-        RegIndex address;   // Where to write
-        Integer  value;     // What to write
-    };
+    {% call gen_struct() %}
+    ((name RegisterWrite)
+     (state
+      (RegIndex address)   // Where to write
+      (Integer  value)     // What to write
+         ))
+    {% endcall %}
 
 
     Integer CalculateThreadCount(SInteger start, SInteger limit, SInteger step);

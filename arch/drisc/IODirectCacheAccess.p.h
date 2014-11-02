@@ -2,11 +2,11 @@
 #ifndef IO_DCA_H
 #define IO_DCA_H
 
-#include "sim/kernel.h"
-#include "sim/buffer.h"
-#include "arch/Memory.h"
-#include "arch/IOBus.h"
-#include "forward.h"
+#include <sim/kernel.h>
+#include <sim/buffer.h>
+#include <arch/Memory.h>
+#include <arch/IOBus.h>
+#include <arch/drisc/forward.h>
 
 namespace Simulator
 {
@@ -24,23 +24,28 @@ public:
         FLUSH = 2
     };
 
-    struct Request
-    {
-        IODeviceID  client;
-        RequestType type;
-        MemAddr     address;
-        MemSize     size;
-        char        data[MAX_MEMORY_OPERATION_SIZE];
-    };
+
+    // {% from "sim/macros.p.h" import gen_struct %}
+    // {% call gen_struct() %}
+    ((name Request)
+     (state
+      (IODeviceID  client)
+      (RequestType type)
+      (MemAddr     address)
+      (MemSize     size)
+      (array       data char MAX_MEMORY_OPERATION_SIZE)
+         ))
+    // {% endcall %}
 
 private:
 
-    struct Response
-    {
-        MemAddr     address;
-        MemSize     size;
-        char        data[MAX_MEMORY_OPERATION_SIZE];
-    };
+    // {% call gen_struct() %}
+    ((name Response)
+     (state
+      (MemAddr address)
+      (MemSize size)
+      (array   data char MAX_MEMORY_OPERATION_SIZE)))
+    // {% endcall %}
 
     IMemory*             m_memory;
     MCID                 m_mcid;

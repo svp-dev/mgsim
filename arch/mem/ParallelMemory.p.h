@@ -21,8 +21,17 @@ namespace Simulator
 
 class ParallelMemory : public IMemory, public VirtualMemory
 {
-    struct Request;
-	class Port;
+    class Port;
+    // {% from "sim/macros.p.h" import gen_struct %}
+    // {% call gen_struct() %}
+    ((name Request)
+     (state
+      (bool        write)
+      (MemAddr     address)
+      (MemData     data)
+      (WClientID   wid)
+         ))
+    // {% endcall %}
 
     bool AddRequest(IMemoryCallback& callback, const Request& request);
 

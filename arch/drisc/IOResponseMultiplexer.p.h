@@ -2,10 +2,10 @@
 #ifndef IORESPONSEMUX_H
 #define IORESPONSEMUX_H
 
-#include "sim/kernel.h"
-#include "sim/buffer.h"
-#include "arch/IOBus.h"
-#include "forward.h"
+#include <sim/kernel.h>
+#include <sim/buffer.h>
+#include <arch/IOBus.h>
+#include <arch/drisc/forward.h>
 
 namespace Simulator
 {
@@ -15,11 +15,14 @@ namespace drisc
 class IOResponseMultiplexer : public Object
 {
 private:
-    struct IOResponse
-    {
-        IOData      data;
-        IODeviceID  device;
-    };
+    // {% from "sim/macros.p.h" import gen_struct %}
+    // {% call gen_struct() %}
+    ((name IOResponse)
+     (state
+      (IOData     data)
+      (IODeviceID device)
+         ))
+    // {% endcall %}
 
 public:
     Buffer<IOResponse>            m_incoming;

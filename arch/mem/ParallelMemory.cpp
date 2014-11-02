@@ -8,15 +8,6 @@ using namespace std;
 
 namespace Simulator
 {
-
-struct ParallelMemory::Request
-{
-    bool             write;
-    MemAddr          address;
-    MemData          data;
-    WClientID        wid;
-};
-
 class ParallelMemory::Port : public Object
 {
     ParallelMemory&     m_memory;

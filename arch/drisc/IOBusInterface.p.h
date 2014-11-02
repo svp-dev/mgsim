@@ -5,7 +5,7 @@
 #include <sim/kernel.h>
 #include <sim/storage.h>
 #include <arch/IOBus.h>
-#include "forward.h"
+#include <arch/drisc/forward.h>
 
 namespace Simulator
 {
@@ -22,13 +22,16 @@ public:
         REQ_READRESPONSE
     };
 
-    struct IORequest
-    {
-        IODeviceID    device;
-        IORequestType type;
-        MemAddr       address;    // for all types
-        IOData        data;       // for writes & read responses
-    };
+    // {% from "sim/macros.p.h" import gen_struct %}
+    // {% call gen_struct() %}
+    ((name IORequest)
+     (state
+      (IODeviceID    device)
+      (IORequestType type)
+      (MemAddr       address)    // for all types
+      (IOData        data)       // for writes & read responses
+         ))
+    // {% endcall %}
 
 private:
     IOResponseMultiplexer&     m_rrmux;

@@ -2,11 +2,11 @@
 #ifndef DCACHE_H
 #define DCACHE_H
 
-#include "sim/kernel.h"
-#include "sim/inspect.h"
-#include "sim/buffer.h"
-#include "arch/Memory.h"
-#include "forward.h"
+#include <sim/kernel.h>
+#include <sim/inspect.h>
+#include <sim/buffer.h>
+#include <arch/Memory.h>
+#include <arch/drisc/forward.h>
 
 namespace Simulator
 {
@@ -27,57 +27,59 @@ public:
         LINE_FULL        ///< Line is full.
     };
 
-    struct Line
-    {
-        MemAddr     tag;        ///< The address tag.
-        char*       data;       ///< The data in this line.
-        bool*       valid;      ///< A bitmap of valid bytes in this line.
-        CycleNo     access;     ///< Last access time of this line (for LRU).
-        RegAddr     waiting;    ///< First register waiting on this line.
-        LineState   state;      ///< The line state.
-        bool        processing; ///< Has the line been added to m_returned yet?
-        bool        create;     ///< Is the line expected by the create process (bundle)?
-        SERIALIZE(arch) { arch & "l" & tag & access & waiting & state & processing & create; }
-    };
+    // {% from "sim/macros.p.h" import gen_struct %}
+    // {% call gen_struct() %}
+    ((name Line)
+     (state
+      (MemAddr     tag)               ///< The address tag.
+      (char*       data noserialize)  ///< The data in this line.
+      (bool*       valid noserialize) ///< A bitmap of valid bytes in this line.
+      (CycleNo     access)            ///< Last access time of this line (for LRU).
+      (RegAddr     waiting)           ///< First register waiting on this line.
+      (LineState   state)             ///< The line state.
+      (bool        processing)        ///< Has the line been added to m_returned yet?
+      (bool        create)))          ///< Is the line expected by the create process (bundle)?
+    // {% endcall %}
 
 private:
-    struct Request
-    {
-        MemData   data;
-        MemAddr   address;
-        WClientID wid;
-        bool      write;
-    };
+    // {% call gen_struct() %}
+    ((name Request)
+     (state
+      (MemData   data)
+      (MemAddr   address)
+      (WClientID wid)
+      (bool      write)))
+    // {% endcall %}
 
-    struct ReadResponse
-    {
-        CID       cid;
-    };
+    // {% call gen_struct() %}
+    ((name ReadResponse)
+     (state (CID cid)))
+    // {% endcall %}
 
-    struct WritebackRequest
-    {
-        char      data[MAX_MEMORY_OPERATION_SIZE];
-        RegAddr   waiting;
-    };
+    // {% call gen_struct() %}
+    ((name WritebackRequest)
+     (state
+      (array data char MAX_MEMORY_OPERATION_SIZE)
+      (RegAddr waiting)))
+    // {% endcall %}
 
-    struct WriteResponse
-    {
-        WClientID wid;
-    };
+    // {% call gen_struct() %}
+    ((name WriteResponse)
+     (state (WClientID wid)))
+    // {% endcall %}
 
     // Information for multi-register writes
-    struct WritebackState
-    {
-        uint64_t     value;  ///< Value to write
-        RegAddr      addr;   ///< Address of the next register to write
-        RegAddr      next;   ///< Next register after this one
-        unsigned int size;   ///< Number of registers remaining to write
-        unsigned int offset; ///< Current offset in the multi-register operand
-        LFID         fid;    ///< FID of the thread's that's waiting on the register
-
-        WritebackState() : value(0), addr(INVALID_REG), next(INVALID_REG), size(0), offset(0), fid(0) {}
-        SERIALIZE(arch) { arch & "wbs" & value & addr & next & size & offset & fid; }
-    };
+    // {% call gen_struct() %}
+    ((name WritebackState)
+     (state
+      (uint64_t     value  (init 0))           ///< Value to write
+      (RegAddr      addr   (init INVALID_REG)) ///< Address of the next register to write
+      (RegAddr      next   (init INVALID_REG)) ///< Next register after this one
+      (unsigned     size   (init 0))           ///< Number of registers remaining to write
+      (unsigned     offset (init 0))           ///< Current offset in the multi-register operand
+      (LFID         fid    (init 0))           ///< FID of the thread's that's waiting on the register
+         ))
+    // {% endcall %}
 
     Result FindLine(MemAddr address, Line* &line, bool check_only);
 

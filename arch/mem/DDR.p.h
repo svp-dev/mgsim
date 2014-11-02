@@ -96,15 +96,18 @@ public:
 private:
     typedef std::set<MemAddr> TraceMap;
 
-    struct Request
-    {
-        MemAddr      address;   ///< We want something with this address
-        MemSize      size;      ///< With this size
-        MemData      data;      ///< With this data
-        unsigned int offset;    ///< Current offset that we're handling
-        bool         write;     ///< A write or read
-        CycleNo      done;      ///< When this request is done
-    };
+    // {% from "sim/macros.p.h" import gen_struct %}
+    // {% call gen_struct() %}
+    ((name Request)
+     (state
+      (MemAddr   address)   ///< We want something with this address
+      (MemSize   size)      ///< With this size
+      (MemData   data)      ///< With this data
+      (unsigned  offset)    ///< Current offset that we're handling
+      (bool      write)     ///< A write or read
+      (CycleNo   done)      ///< When this request is done
+         ))
+    // {% endcall %}
 
     class DDRConfig : public Object {
     public:

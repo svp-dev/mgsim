@@ -18,17 +18,6 @@ struct BankedMemory::ClientInfo
     ArbitratedService<>* service;
 };
 
-struct BankedMemory::Request
-{
-    MCID        client;
-    bool        write;
-    MemAddr     address;
-    MemSize     size;
-    MemData     data;
-    WClientID   wid;
-    CycleNo     done;
-};
-
 class BankedMemory::Bank : public Object
 {
     const vector<ClientInfo>& m_clients;

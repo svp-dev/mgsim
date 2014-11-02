@@ -4,10 +4,11 @@
 
 #include <vector>
 #include <cstdint>
-#include "sim/kernel.h"
-#include "sim/flag.h"
-#include "sim/buffer.h"
-#include "arch/IOBus.h"
+
+#include <sim/kernel.h>
+#include <sim/flag.h>
+#include <sim/buffer.h>
+#include <arch/IOBus.h>
 
 namespace Simulator
 {
@@ -27,70 +28,60 @@ namespace Simulator
 
     class RPCInterface : public Object, public IIOBusClient
     {
-        struct IncomingRequest
-        {
-            uint32_t                procedure_id;
-            uint32_t                extra_arg1;
-            uint32_t                extra_arg2;
-            IODeviceID              dca_device_id;
-            MemAddr                 arg1_base_address;
-            MemSize                 arg1_size;
-            MemAddr                 arg2_base_address;
-            MemSize                 arg2_size;
-            MemAddr                 res1_base_address;
-            MemAddr                 res2_base_address;
-            Integer                 completion_tag;
-            IONotificationChannelID notification_channel_id;
-        };
+        // {% from "sim/macros.p.h" import gen_struct %}
 
-        struct ProcessRequest
-        {
-            uint32_t                procedure_id;
-            uint32_t                extra_arg1;
-            uint32_t                extra_arg2;
-            IODeviceID              dca_device_id;
-            MemAddr                 res1_base_address;
-            MemAddr                 res2_base_address;
-            Integer                 completion_tag;
-            std::vector<char>       data1;
-            std::vector<char>       data2;
-            IONotificationChannelID notification_channel_id;
-            ProcessRequest() : ProcessRequest(0, 0, 0, 0, 0, 0, 0, 0) {}
-            ProcessRequest(uint32_t a, uint32_t b, uint32_t c,
-                           IODeviceID d, MemAddr e, MemAddr f, IONotificationChannelID g,
-                           Integer h)
-            : procedure_id(a), extra_arg1(b), extra_arg2(c),
-                dca_device_id(d), res1_base_address(e),
-                res2_base_address(f),
-                completion_tag(h),
-                data1(), data2(),
-                notification_channel_id(g)
-            {}
-        };
+        // {% call gen_struct() %}
+        ((name IncomingRequest)
+        (state
+          (uint32_t                procedure_id)
+          (uint32_t                extra_arg1)
+          (uint32_t                extra_arg2)
+          (IODeviceID              dca_device_id)
+          (MemAddr                 arg1_base_address)
+          (MemSize                 arg1_size)
+          (MemAddr                 arg2_base_address)
+          (MemSize                 arg2_size)
+          (MemAddr                 res1_base_address)
+          (MemAddr                 res2_base_address)
+          (Integer                 completion_tag)
+          (IONotificationChannelID notification_channel_id)))
+        // {% endcall %}
 
-        struct ProcessResponse
-        {
-            IODeviceID              dca_device_id;
-            MemAddr                 res1_base_address;
-            MemAddr                 res2_base_address;
-            IONotificationChannelID notification_channel_id;
-            Integer                 completion_tag;
-            std::vector<char>       data1;
-            std::vector<char>       data2;
-            ProcessResponse() : ProcessResponse(0, 0, 0, 0, 0) {}
-            ProcessResponse(IODeviceID a, MemAddr b, MemAddr c,
-                            IONotificationChannelID d, Integer e)
-            : dca_device_id(a), res1_base_address(b),
-                res2_base_address(c), notification_channel_id(d),
-                completion_tag(e), data1(), data2()
-            {}
-        };
+        // {% call gen_struct() %}
+        ((name ProcessRequest)
+        (state
+         (uint32_t                procedure_id (init 0))
+         (uint32_t                extra_arg1 (init 0))
+         (uint32_t                extra_arg2 (init 0))
+         (IODeviceID              dca_device_id (init 0))
+         (MemAddr                 res1_base_address (init 0))
+         (MemAddr                 res2_base_address (init 0))
+         (Integer                 completion_tag (init 0))
+         (std::vector<char>       data1 nocopy (init ""))
+         (std::vector<char>       data2 nocopy (init ""))
 
-        struct CompletionNotificationRequest
-        {
-            IONotificationChannelID notification_channel_id;
-            Integer                 completion_tag;
-        };
+         (IONotificationChannelID notification_channel_id (init 0))))
+        // {% endcall %}
+
+        // {% call gen_struct() %}
+        ((name ProcessResponse)
+        (state
+         (IODeviceID              dca_device_id (init 0))
+         (MemAddr                 res1_base_address (init 0))
+         (MemAddr                 res2_base_address (init 0))
+         (IONotificationChannelID notification_channel_id (init 0))
+         (Integer                 completion_tag (init 0))
+         (std::vector<char>       data1 nocopy (init ""))
+         (std::vector<char>       data2 nocopy (init ""))
+            ))
+        // {% endcall %}
+
+        // {% call gen_struct() %}
+        ((name CompletionNotificationRequest)
+        (state
+         (IONotificationChannelID notification_channel_id)
+         (Integer                 completion_tag)))
+        // {% endcall %}
 
         enum ArgumentFetchState
         {
