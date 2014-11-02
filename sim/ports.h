@@ -50,7 +50,7 @@ namespace Simulator
         void MarkBusy() { ++m_busyCycles; }
 
         // Constructor, destructor etc.
-        ArbitratedPort(const std::string& name);
+        ArbitratedPort(Kernel&, const std::string& name);
         virtual ~ArbitratedPort() {}
         ArbitratedPort(const ArbitratedPort&) = delete;
         ArbitratedPort& operator=(const ArbitratedPort&) = delete;
@@ -103,7 +103,7 @@ namespace Simulator
         void AddRequest(const Process& process, CycleNo c);
 
         // Constructor, destructor etc.
-        SimpleArbitratedPort(const std::string& name);
+        SimpleArbitratedPort(Kernel&, const std::string& name);
         virtual ~SimpleArbitratedPort() {}
         SimpleArbitratedPort(const SimpleArbitratedPort&) = delete;
         SimpleArbitratedPort& operator=(const SimpleArbitratedPort&) = delete;
@@ -127,7 +127,7 @@ namespace Simulator
 
     protected:
         // Constructor, destructor etc.
-        PriorityArbitratedPort(const std::string& name);
+        PriorityArbitratedPort(Kernel&, const std::string& name);
         virtual ~PriorityArbitratedPort() {}
         PriorityArbitratedPort(const PriorityArbitratedPort&) = delete;
         PriorityArbitratedPort& operator=(const PriorityArbitratedPort&) = delete;
@@ -155,7 +155,7 @@ namespace Simulator
 
     protected:
         // Constructor, destructor etc.
-        CyclicArbitratedPort(const std::string& name);
+        CyclicArbitratedPort(Kernel&, const std::string& name);
         virtual ~CyclicArbitratedPort() {}
         CyclicArbitratedPort(const CyclicArbitratedPort&) = delete;
         CyclicArbitratedPort& operator=(const CyclicArbitratedPort&) = delete;
@@ -204,7 +204,7 @@ namespace Simulator
 
     protected:
         // Constructor, destructor etc.
-        PriorityCyclicArbitratedPort(const std::string& name);
+        PriorityCyclicArbitratedPort(Kernel&, const std::string& name);
         virtual ~PriorityCyclicArbitratedPort() {}
         PriorityCyclicArbitratedPort(const PriorityCyclicArbitratedPort&) = delete;
         PriorityCyclicArbitratedPort& operator=(const PriorityCyclicArbitratedPort&) = delete;
@@ -257,7 +257,7 @@ namespace Simulator
 
         // Constructor, destructor etc.
         ArbitratedService(Clock& clock, const std::string& name)
-            : Base(name),
+            : Base(clock.GetKernel(), name),
               Arbitrator(clock)
         { }
         virtual ~ArbitratedService() {}
@@ -597,7 +597,7 @@ namespace Simulator
 
         // Constructor, destructor etc.
         ArbitratedWritePort(ReadWriteStructure<I>& structure, const std::string& name)
-            : PriorityArbitratedPort(name),
+            : PriorityArbitratedPort(*structure.GetKernel(), name),
               m_structure(structure),
               m_indices()
         {

@@ -6,7 +6,7 @@
 #include <sim/types.h>
 #include <sim/unreachable.h>
 #include <sim/except.h>
-#include <sim/serialize.h>
+#include <sim/serialization.h>
 
 #include <string>
 #include <cassert>

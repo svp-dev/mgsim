@@ -34,6 +34,7 @@ extern command_handler
      cmd_bp_on,
     cmd_bp_state,
     cmd_disas,
+    cmd_dump,
     cmd_help,
     cmd_info,
     cmd_line,

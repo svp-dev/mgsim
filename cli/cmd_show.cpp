@@ -6,12 +6,12 @@ using namespace Simulator;
 using namespace std;
 
 
-bool cmd_show_vars(const vector<string>& /*command*/, vector<string>& args, cli_context& /*ctx*/)
+bool cmd_show_vars(const vector<string>& /*command*/, vector<string>& args, cli_context& ctx)
 {
     string pat = "*";
     if (!args.empty())
         pat = args[0];
-    ListSampleVariables(cout, pat);
+    ctx.sys.GetKernel()->GetVariableRegistry().ListVariables(cout, pat);
     return false;
 }
 

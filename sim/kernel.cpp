@@ -364,10 +364,11 @@ namespace Simulator
           m_aborted(false),
           m_suspended(false),
           m_config(NULL),
+          m_var_registry(),
           m_proc_registry()
     {
-        RegisterSampleVariable(m_cycle, "kernel.cycle", SVC_CUMULATIVE);
-        RegisterSampleVariable(m_phase, "kernel.phase", SVC_STATE);
+        m_var_registry.RegisterVariable(m_cycle, "kernel.cycle", SVC_CUMULATIVE);
+        m_var_registry.RegisterVariable(m_phase, "kernel.phase", SVC_STATE);
     }
 
     Kernel::~Kernel()

@@ -14,6 +14,7 @@ command_descriptor command_table[] =
     { { "breakpoint", "on", 0  },     0, 0,  cmd_bp_on,      "breakpoint on",     "Enable breakpoint detection." },
     { { "breakpoint", "state", 0  },  0, 0,  cmd_bp_state,   "breakpoint state",  "Report which breakpoints have been reached." },
     { { "disassemble", 0 },           1, 2,  cmd_disas,      "disassemble ADDR [SZ]", "Disassemble the program from address ADDR." },
+    { { "dump", 0 },                  1, 1,  cmd_dump   ,    "dump PAT",          "Dump variables with names matching PAT" },
     { { "help", 0 },                  0, 1,  cmd_help,       "help [COMMAND]",    "Print the help text for COMMAND, or this text if no command is specified." },
     { { "info", 0 },                  1, -1, cmd_info,       "info COMPONENT [ARGS...]",    "Show help/configuration/layout for COMPONENT." },
     { { "line", 0 },                  2, 2,  cmd_line,       "line COMPONENT ADDR", "Lookup the memory line at address ADDR in the memory system COMPONENT." },

@@ -41,9 +41,10 @@ namespace Simulator
           m_currentStorages()
 #endif
     {
-        parent.GetKernel()->RegisterProcess(*this);
-        RegisterSampleVariable(m_stalls, m_name + ":stalls", SVC_CUMULATIVE);
-        RegisterSampleVariable(m_state, m_name + ":state", SVC_LEVEL);
+        auto& kernel = *parent.GetKernel();
+        kernel.RegisterProcess(*this);
+        kernel.GetVariableRegistry().RegisterVariable(m_stalls, m_name + ":stalls", SVC_CUMULATIVE);
+        kernel.GetVariableRegistry().RegisterVariable(m_state, m_name + ":state", SVC_LEVEL);
     }
 
 

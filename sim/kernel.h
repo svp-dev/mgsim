@@ -12,6 +12,7 @@
 #include "sim/except.h"
 #include "sim/delegate.h"
 #include "sim/storagetrace.h"
+#include "sim/sampling.h"
 
 // Other classes that users of Kernel expect to see defined too.
 #include "sim/clock.h"
@@ -74,6 +75,7 @@ public:
         bool                m_suspended;    ///< Should the run be suspended?
 
         Config*             m_config;       ///< Attached configuration object.
+        VariableRegistry    m_var_registry; ///< Attached variable registry.
         std::set<Process*>  m_proc_registry; ///< Set of all processes instantiated.
 
         bool UpdateStorages();
@@ -95,6 +97,9 @@ public:
 
         void AttachConfig(Config& cfg) { m_config = &cfg; }
         Config* GetConfig() const { return m_config; }
+
+        VariableRegistry& GetVariableRegistry() { return m_var_registry; }
+        const VariableRegistry& GetVariableRegistry() const { return m_var_registry; }
 
         /**
          * @brief Register a process for introspection.

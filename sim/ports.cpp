@@ -8,20 +8,26 @@ using namespace std;
 namespace Simulator
 {
 
-    ArbitratedPort::ArbitratedPort(const string& name)
+    ArbitratedPort::ArbitratedPort(Kernel& k, const string& name)
         : m_name(name),
           m_selected(NULL),
           m_busyCycles(0)
     {
-        RegisterSampleVariableInObject(m_busyCycles, SVC_CUMULATIVE);
+        k.GetVariableRegistry().RegisterVariable(m_busyCycles,
+                                                 GetName() + ":busyCycles",
+                                                 SVC_CUMULATIVE);
     }
 
-    SimpleArbitratedPort::SimpleArbitratedPort(const string& name)
-        : ArbitratedPort(name),
+    SimpleArbitratedPort::SimpleArbitratedPort(Kernel& k, const string& name)
+        : ArbitratedPort(k, name),
           m_processes(),
           m_requests(),
           m_lastrequest((CycleNo)-1)
-    {}
+    {
+        k.GetVariableRegistry().RegisterVariable(m_lastrequest,
+                                                 GetName() + ":lastrequest",
+                                                 SVC_LEVEL);
+    }
 
     void SimpleArbitratedPort::AddProcess(const Process& process)
     {
@@ -49,8 +55,9 @@ namespace Simulator
         m_lastrequest = c;
     }
 
-    PriorityArbitratedPort::PriorityArbitratedPort(const string& name)
-        : SimpleArbitratedPort(name)
+    PriorityArbitratedPort::PriorityArbitratedPort(Kernel& k,
+                                                   const string& name)
+        : SimpleArbitratedPort(k, name)
     {}
 
     // Select a process that acquires the port.
@@ -85,10 +92,14 @@ namespace Simulator
         MarkBusy();
     }
 
-    CyclicArbitratedPort::CyclicArbitratedPort(const string& name)
-        : SimpleArbitratedPort(name),
+    CyclicArbitratedPort::CyclicArbitratedPort(Kernel& k, const string& name)
+        : SimpleArbitratedPort(k, name),
           m_lastSelected(0)
-    {}
+    {
+        k.GetVariableRegistry().RegisterVariable(m_lastSelected,
+                                                 GetName() + ":lastSelected",
+                                                 SVC_LEVEL);
+    }
 
     // Select a process that acquires the port.
     // Every process gets a turn.
@@ -137,8 +148,9 @@ namespace Simulator
         MarkBusy();
     }
 
-    PriorityCyclicArbitratedPort::PriorityCyclicArbitratedPort(const string& name)
-        : CyclicArbitratedPort(name),
+    PriorityCyclicArbitratedPort::PriorityCyclicArbitratedPort(Kernel& k,
+                                                               const string& name)
+        : CyclicArbitratedPort(k, name),
           m_cyclicprocesses()
     {}
 
@@ -246,8 +258,9 @@ namespace Simulator
         ArbitrateReadPorts();
     }
 
-    ArbitratedReadPort::ArbitratedReadPort(ReadOnlyStructure& structure, const string& name)
-        : PriorityArbitratedPort(name),
+    ArbitratedReadPort::ArbitratedReadPort(ReadOnlyStructure& structure,
+                                           const string& name)
+        : PriorityArbitratedPort(*structure.GetKernel(), name),
           m_structure(structure)
     {
         m_structure.RegisterReadPort(*this);

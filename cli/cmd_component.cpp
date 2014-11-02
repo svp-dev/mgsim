@@ -27,13 +27,20 @@ bool cmd_inspect(const vector<string>& /*command*/, vector<string>& args, cli_co
 
     if (args.empty())
     {
-        bool match = ReadSampleVariables(cout, pat);
-        if (!match)
-            match = ReadSampleVariables(cout, "system." + pat);
+        bool match = ctx.sys.GetKernel()->GetVariableRegistry().RenderVariables(cout, pat, false);
         if (!match)
             cout << "No variables found." << endl;
     }
     DoObjectCommand<Inspect::Read>(cout, ctx.sys, pat, args);
+    return false;
+}
+
+bool cmd_dump(const vector<string>& /*command*/, vector<string>& args, cli_context& ctx)
+{
+    string pat = args[0];
+    bool match = ctx.sys.GetKernel()->GetVariableRegistry().RenderVariables(cout, pat, true);
+    if (!match)
+        cout << "No variables found." << endl;
     return false;
 }
 
@@ -45,7 +52,7 @@ bool cmd_set(const vector<string>& /*command*/, vector<string>& args, cli_contex
         val = val + ' ' + args[i];
     try
     {
-        SetSampleVariables(cout, pat, val);
+        ctx.sys.GetKernel()->GetVariableRegistry().SetVariables(cout, pat, val);
     }
     catch (const exception& e)
     {

@@ -2,6 +2,8 @@ SIM_SOURCES = \
         sim/arbitrator.cpp \
         sim/arbitrator.hpp \
         sim/arbitrator.h \
+        sim/binarysampler.h \
+        sim/binarysampler.cpp \
 	sim/breakpoints.cpp \
 	sim/breakpoints.h \
         sim/buffer.hpp \
@@ -55,13 +57,18 @@ SIM_SOURCES = \
         sim/rusage.h \
         sim/rusage.cpp \
 	sim/sampling.h \
+        sim/sampling.hpp \
 	sim/sampling.cpp \
-        sim/serialize.h \
+        sim/serialization.h \
+        sim/serializationlanguage.h \
+        sim/serializationlanguage.cpp \
 	sim/storage.h \
         sim/storage.hpp \
         sim/storage.cpp \
 	sim/storagetrace.h \
         sim/storagetrace.cpp \
+        sim/streamserializer.h \
+        sim/streamserializer.cpp \
 	sim/types.h \
         sim/unreachable.h
  
