@@ -43,6 +43,8 @@ int main(int argc, char *argv[])
 
 	auto cons = new ExampleConsumer("cons", *root, c1, sz);
 	auto prod = new ExampleProducer("prod", *root, c2, *cons);
+        (void)cons;
+        (void)prod;
     }
     if (demo == "prodcons2")
     {
