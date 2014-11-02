@@ -1,8 +1,8 @@
-#include "Allocator.h"
-#include "DRISC.h"
-#include "sim/config.h"
-#include "sim/sampling.h"
-#include "arch/symtable.h"
+#include <arch/drisc/Allocator.h>
+#include <arch/drisc/DRISC.h>
+#include <sim/config.h>
+#include <sim/sampling.h>
+#include <arch/symtable.h>
 
 #include <cassert>
 #include <iomanip>
