@@ -4,7 +4,7 @@
 # (inspired from the same code in sl-core)
 
 EXTRA_DIST += .version build-aux/git-version-gen
-BUILT_SOURCES = $(top_srcdir)/.version
+BUILT_SOURCES += $(top_srcdir)/.version
 
 $(top_srcdir)/.version:
 	echo $(VERSION) >$@-t && mv $@-t $@
