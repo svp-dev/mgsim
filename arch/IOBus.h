@@ -20,8 +20,14 @@ static const size_t MAX_IO_OPERATION_SIZE = 64;
 /* the data for an I/O request. */
 struct IOData
 {
-    char    data[MAX_IO_OPERATION_SIZE];
     MemSize size;
+    char    data[MAX_IO_OPERATION_SIZE];
+    SERIALIZE(a) {
+        a & "[iod";
+        a & size;
+        a & Serialization::binary(data, size);
+        a & "]";
+    }
 };
 
 class IIOBusClient

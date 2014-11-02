@@ -18,6 +18,12 @@ struct MemData
 {
     char    data[MAX_MEMORY_OPERATION_SIZE];
     bool    mask[MAX_MEMORY_OPERATION_SIZE];
+    SERIALIZE(a) {
+        a & "[md"
+            & Serialization::binary(data, MAX_MEMORY_OPERATION_SIZE)
+            & Serialization::bitvec(mask, MAX_MEMORY_OPERATION_SIZE)
+            & "]";
+    }
 };
 
 namespace line {
