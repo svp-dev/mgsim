@@ -125,9 +125,9 @@ Requirements
 MGSim is written in C++ and targets Unix/POSIX platforms.
 
 The system was tested using the `GNU Compiler Collection (GCC)`_
-version 4.7.x up to 4.8.x on GNU/Linux, FreeBSD and MacOS X, as well
-as CLang 3.1 to 3.3. The code attempts to be fully compliant with
-the ISO C++ standard (ISO-IEC 14882) and POSIX, so other C++ compilers
+version 4.7.x up to 4.9.x on GNU/Linux, FreeBSD and MacOS X, as well
+as CLang 3.4 to 3.5. The code attempts to be fully compliant with
+the ISO C++11 standard (ISO-IEC 14882:2011) and POSIX, so other C++ compilers
 should be usable as well; please report any portability bug you may
 find.
 
