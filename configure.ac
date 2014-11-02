@@ -436,6 +436,8 @@ AC_CONFIG_FILES([
 	programs/Makefile
 	doc/Makefile
 ])
+
+AC_CONFIG_FILES([tools/preproc], [chmod +x tools/preproc])
 AC_CONFIG_FILES([tools/readtrace], [chmod +x tools/readtrace])
 AC_CONFIG_FILES([tools/viewlog], [chmod +x tools/viewlog])
 

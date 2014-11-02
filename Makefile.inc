@@ -58,7 +58,16 @@ mgsim_LDADD += $(SDL_LIBS)
 mgsim_dyn_LDADD += $(SDL_LIBS)
 endif
 
-## 
+##
+## Pre-processed sources
+##
+PP_MACROS = sim/macros.p.h
+EXTRA_DIST += $(PP_MACROS)
+%.h: %.p.h $(PP_MACROS)
+	$(AM_V_at)$(MKDIR_P) `dirname $@`
+	$(AM_V_GEN) $(builddir)/tools/preproc -I $(srcdir) -I . $< -o $@
+
+##
 ## Manual page rules
 ##
 mgsim.1: mgsim

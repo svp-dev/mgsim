@@ -1,0 +1,139 @@
+#! @PYTHON@
+# -*- python -*-
+from __future__ import print_function
+import os.path
+import sys
+import argparse
+import hashlib
+import pprint
+import re
+
+import jinja2
+import jinja2.ext
+import sexpdata
+
+def die(msg):
+    print(msg, file=sys.stderr)
+    sys.exit(1)
+
+### sexp functions ###
+
+def flatten(data):
+    if isinstance(data, sexpdata.Quoted):
+        return flatten(data.value())
+    elif isinstance(data, sexpdata.Symbol):
+        return data.value()
+    elif isinstance(data, list):
+        return map(flatten, data)
+    else:
+        return data
+
+class dictlist(list):
+
+    def to_list(self):
+        l = []
+        for item in self:
+           if isinstance(item, dictlist):
+              item = item.to_list()
+           l.append(item)
+        return l
+    def to_dict(self):
+        d = {}
+        for k,v in self._dvals.items():
+            if isinstance(v, dictlist):
+               v = v.to_dict()
+            d[k] = v
+        return d
+
+    def __init__(self, l):
+        self._dvals = {}
+        for item in l:
+            self.append(item)
+            if (isinstance(item, list) or isinstance(item, dictlist)) \
+               and len(item) >= 1:
+                k = item[0]
+                v = dictlist(item[1:])
+                self._dvals[k] = v
+            else:
+                self._dvals[item] = True
+
+    def __repr__(self):
+        return " <<++LIST++: " + pprint.pformat(self.to_list()) + ", ++DICT++: " + pprint.pformat(self.to_dict()) + ">> "
+
+    def __contains__(self, k):
+        if isinstance(k, str):
+            return self._dvals.contains(k)
+        else:
+            return super(dictlist, self).__contains__(k)
+
+    def __getitem__(self, k):
+        if isinstance(k, str):
+            return self._dvals[k]
+        else:
+            return super(dictlist, self).__getitem__(k)
+
+
+def dictify(data):
+    if isinstance(data, list):
+        lnew = map(dictify, data)
+        return dictlist(lnew)
+    return data
+
+cppcomment = re.compile(r'//[^\n]*(\n|$)')
+def from_sexp(s):
+    s = re.sub(cppcomment, "", s)
+    s = s.strip()
+    try:
+        d = sexpdata.loads(s)
+    except Exception, e:
+        die("ERROR: unable to parse sexp: %s" % s + "\nParser says: " + repr(e))
+    r = dictify(flatten(d))
+    #pprint.pprint(r)
+    return r
+
+def chksum(d):
+    return hashlib.md5(d.encode('utf-8')).hexdigest()[:4]
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    parser.add_argument('-I', dest='includes', default=[], metavar='PATH', action='append', help='extra search path for templates and macros')
+    parser.add_argument('-o', dest='output', default='-', metavar='OUTPUTFILE', type=str, help='where to write the results')
+    parser.add_argument('input', metavar='INPUTFILE', type=str, help='the file to preprocess')
+    args = parser.parse_args()
+
+    d = os.path.dirname(args.input)
+    paths = [((d == '') and '.') or d]
+    paths += args.includes
+
+    loader = jinja2.FileSystemLoader(paths)
+    env = jinja2.Environment(loader=loader)
+
+    env.filters['chksum'] = chksum
+    env.globals['from_sexp'] = from_sexp
+
+    name = os.path.basename(args.input)
+    tmpl = env.get_template(name)
+
+    result = tmpl.render()
+
+    result = result.encode('utf-8')
+
+    # if the output file already exists and has the same contents,
+    # avoid changing them.
+    if args.output != '-' and os.path.exists(args.output):
+        try:
+            with open(args.output, 'rb') as f:
+                ref = f.read()
+                if ref == result:
+                    sys.exit(0)
+        except:
+            pass
+
+    if args.output == '-':
+        f = sys.stdout
+    else:
+        f = open(args.output, 'wb')
+
+    f.write(result)
+    f.write('\n')
+    f.close()
