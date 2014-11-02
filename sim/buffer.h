@@ -19,12 +19,12 @@ namespace Simulator
         // In hardware it can be possible to support multiple pushes
         static const size_t MAX_PUSHES = 4;
 
-        const size_t  m_maxSize;         ///< Maximum size of this buffer
-        const size_t  m_maxPushes;       ///< Maximum number of pushes at a cycle
-        std::deque<T> m_data;            ///< The actual buffer storage
-        size_t        m_pushes;          ///< Number of items Push()'d this cycle
-        T             m_new[MAX_PUSHES]; ///< The items being pushed (when m_pushes > 0)
-        bool          m_popped;          ///< Has a Pop() been done?
+        const size_t  m_maxSize;             ///< Maximum size of this buffer
+        const size_t  m_maxPushes;           ///< Maximum number of pushes at a cycle
+        std::deque<T> m_data;                ///< The actual buffer storage
+        size_t        m_pushes;              ///< Number of items Push()'d this cycle
+        T             m_new[MAX_PUSHES];     ///< The items being pushed (when m_pushes > 0)
+        DefineStateVariable(bool, popped);   ///< Has a Pop() been done?
 
         // Statistics
         DefineSampleVariable(uint64_t, stalls);  ///< Number of stalls so far
@@ -71,6 +71,7 @@ namespace Simulator
         const_reverse_iterator rend()   const { return m_data.rend();   }
         BufferSize size()  const { return m_data.size(); }
 
+        SERIALIZE(a);
     };
 
 #define InitBuffer(Member, Clock, Key, ...) \

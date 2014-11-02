@@ -116,6 +116,23 @@ namespace Simulator
         return false;
     }
 
+    template<typename T>
+    template<typename A>
+    void Buffer<T>::serialize(A& a)
+    {
+        size_t old_pushes = m_pushes;
+
+        a & m_pushes;
+
+        // We need to erase any newly created slots first
+        // in case they are (or contain) a pointer.
+        for (size_t i = old_pushes; i < m_pushes; ++i)
+            m_new[i] = T();
+
+        // Then we can load the values.
+        for (size_t i = 0; i < m_pushes; ++i)
+            a & m_new[i];
+    }
 
     template<typename T>
     Buffer<T>::Buffer(const std::string& name, Object& parent, Clock& clock,
@@ -127,13 +144,14 @@ namespace Simulator
           m_maxPushes(maxPushes),
           m_data(),
           m_pushes(0),
-          m_popped(false),
+          InitStateVariable(popped, false),
           InitSampleVariable(stalls, SVC_CUMULATIVE),
           InitSampleVariable(lastcycle, SVC_CUMULATIVE),
           InitSampleVariable(totalsize, SVC_CUMULATIVE),
           InitSampleVariable(maxeffsize, SVC_WATERMARK, maxSize),
           InitSampleVariable(cursize, SVC_LEVEL)
     {
+        RegisterStateObject(m_data, "data");
         assert(maxPushes <= MAX_PUSHES);
     }
 
