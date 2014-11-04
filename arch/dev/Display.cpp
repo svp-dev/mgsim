@@ -759,7 +759,10 @@ namespace Simulator
             SDL_Quit();
         }
         if (do_resize)
+        {
             ResizeScreen(nw, nh);
+            m_data_updated = true;
+        }
 
         Refresh();
 #endif
