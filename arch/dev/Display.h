@@ -63,6 +63,7 @@ namespace Simulator
         FrameBufferInterface  m_fbinterface;
         static Display*       m_singleton;
         SDL_Surface*          m_screen;
+        SDL_Surface*          m_source;
         unsigned int          m_max_screen_h;
         unsigned int          m_max_screen_w;
         CycleNo               m_lastUpdate;

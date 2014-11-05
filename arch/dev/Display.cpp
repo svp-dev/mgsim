@@ -240,6 +240,7 @@ namespace Simulator
           m_ctlinterface("ctl", *this, iobus, ctldevid),
           m_fbinterface("fb", *this, iobus, fbdevid),
           m_screen(NULL),
+          m_source(NULL),
           m_max_screen_h(1024),
           m_max_screen_w(1280),
           m_lastUpdate(0),
@@ -299,8 +300,11 @@ namespace Simulator
         //cerr << "DEBUG: after adjust " << w << " " << h << endl;
 
 #ifdef USE_SDL
-        if ((NULL == (m_screen = SDL_SetVideoMode(w, h, 32, SDL_SWSURFACE | SDL_RESIZABLE))) &&
-            (NULL == (m_screen = SDL_SetVideoMode(640, 400, 32, SDL_SWSURFACE | SDL_RESIZABLE))))
+        if ((NULL == (m_screen = SDL_SetVideoMode(w, h, 32, SDL_HWSURFACE | SDL_DOUBLEBUF | SDL_RESIZABLE))) &&
+            (NULL == (m_screen = SDL_SetVideoMode(w, h, 32, SDL_SWSURFACE | SDL_RESIZABLE))) &&
+            (NULL == (m_screen = SDL_SetVideoMode(640, 480, 32, SDL_HWSURFACE | SDL_DOUBLEBUF | SDL_RESIZABLE))) &&
+            (NULL == (m_screen = SDL_SetVideoMode(640, 480, 32, SDL_SWSURFACE | SDL_RESIZABLE)))
+            )
         {
             //cerr << "Setting SDL video mode failed: " << SDL_GetError() << endl;
             return;
@@ -609,46 +613,63 @@ namespace Simulator
             return;
         m_data_updated = false;
 
+        if (m_source == NULL)
+            return;
+
 #ifdef USE_SDL
-        if (m_width == 0 || m_height == 0)
+        if (m_width * m_height == 0)
         {
             // No source to copy, just clear the surface
             SDL_FillRect(m_screen, NULL, 0);
             return ;
         }
 
-        Draw();
+        Draw(); // this updates m_source
+
         if (SDL_MUSTLOCK(m_screen))
             if (SDL_LockSurface(m_screen) < 0)
                 return;
-        assert(m_screen->format->BytesPerPixel == 4);
 
-        // Copy the buffer into the video surface
-        unsigned dx, dy;
-        float scaley = this->m_scaley,
-            scalex = this->m_scalex;
-        unsigned width = this->m_width;
-        unsigned screen_h = m_screen->h,
-            screen_w = m_screen->w;
-        unsigned screen_pitch = m_screen->pitch;
-        char* pixels = (char*)m_screen->pixels;
-        Uint8 Rshift = m_screen->format->Rshift,
-            Gshift = m_screen->format->Gshift,
-            Bshift = m_screen->format->Bshift;
-
-        const uint32_t * __restrict__ src = (const uint32_t*)&m_framebuffer[0];
-        for (dy = 0; dy < screen_h; ++dy)
+        if (m_width == m_screen->w && m_height == m_screen->h)
         {
-            Uint32 * __restrict__ dest = (Uint32*)(pixels + dy * screen_pitch);
-            unsigned int    sy   = dy * scaley;
+            // Accelerated case: blit directly to screen
+            SDL_Rect r;
+            r.x = r.y = 0;
+            r.w = m_screen->w;
+            r.h = m_screen->h;
+            SDL_LowerBlit(m_source, &r, m_screen, &r);
+        }
+        else
+        {
+            // We need to stretch the source, so use own
+            // linear stretch
 
-            for (dx = 0; dx < screen_w; ++dx)
+            assert(m_screen->format->BytesPerPixel == 4);
+
+            unsigned dx, dy;
+            float scaley = this->m_scaley, scalex = this->m_scalex;
+            unsigned width = this->m_width;
+            unsigned screen_h = m_screen->h, screen_w = m_screen->w;
+            unsigned screen_pitch = m_screen->pitch;
+            char* pixels = (char*)m_screen->pixels;
+            Uint8 Rshift = m_screen->format->Rshift,
+                Gshift = m_screen->format->Gshift,
+                Bshift = m_screen->format->Bshift;
+
+            const uint32_t * __restrict__ src = (const uint32_t*)&m_framebuffer[0];
+            for (dy = 0; dy < screen_h; ++dy)
             {
-                unsigned int sx  = dx * scalex;
-                Uint32 color = src[sy * width + sx];
-                dest[dx] = (((color & 0xff0000) >> 16) << Rshift)
-                    | (((color & 0x00ff00) >> 8) << Gshift)
-                    | (((color & 0x0000ff)     ) << Bshift);
+                Uint32 * __restrict__ dest = (Uint32*)(pixels + dy * screen_pitch);
+                unsigned int    sy   = dy * scaley;
+
+                for (dx = 0; dx < screen_w; ++dx)
+                {
+                    unsigned int sx  = dx * scalex;
+                    Uint32 color = src[sy * width + sx];
+                    dest[dx] = (((color & 0xff0000) >> 16) << Rshift)
+                        | (((color & 0x00ff00) >> 8) << Gshift)
+                        | (((color & 0x0000ff)     ) << Bshift);
+                }
             }
         }
 
@@ -717,6 +738,9 @@ namespace Simulator
                 case SDLK_TAB:
                     m_scalex = m_scaley; do_resize = true;
                     break;
+                case SDLK_SPACE:
+                    m_scalex = m_scaley = 1.0; do_resize = true;
+                    break;
                 case SDLK_DOWN:
                     m_refreshDelay += currentDelayScale(m_refreshDelay);
                     ResetCaption();
@@ -756,6 +780,9 @@ namespace Simulator
             // cerr << "Graphics output closed by user." << endl;
             m_enabled = false;
             m_screen  = NULL;
+            if (m_source)
+                SDL_FreeSurface(m_source);
+            m_source = NULL;
             SDL_Quit();
         }
         if (do_resize)
@@ -774,7 +801,20 @@ namespace Simulator
         m_width  = w;
         m_height = h;
 
+        if (m_source)
+        {
+            SDL_FreeSurface(m_source);
+            m_source = NULL;
+        }
+
         m_framebuffer.resize(w * h);
+        if (w * h != 0)
+            m_source = SDL_CreateRGBSurfaceFrom(&m_framebuffer[0],
+                                                w, h, // width, height
+                                                32, // depth
+                                                w*4, // pitch in bytes
+                                                0, 0, 0, 0);
+
 
         if (erase)
             memset(&m_framebuffer[0], 0, w * h * sizeof(m_framebuffer[0]));
