@@ -241,8 +241,8 @@ namespace Simulator
                     }
                 }
 
-                if (Display::GetDisplay())
-                    Display::GetDisplay()->OnCycle(m_cycle);
+                auto dm = DisplayManager::GetManager();
+                if (dm) dm->OnCycle(m_cycle);
 
                 if (!idle)
                 {

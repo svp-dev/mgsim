@@ -9,8 +9,8 @@
 :Author: MGSim was created by Mike Lankamp. MGSim is now under
    stewardship of the Microgrid project. This manual page was written
    by Raphael 'kena' Poss.
-:Date: August 2012
-:Copyright: Copyright (C) 2008-2012 the Microgrid project.
+:Date: October 2014
+:Copyright: Copyright (C) 2008-2014 the Microgrid project.
 :Version: PACKAGE_VERSION
 :Manual section: 7
 
@@ -39,11 +39,6 @@ CONFIGURATION
    simulated platform can update the framebuffer but no pixels are
    displayed on screen.
 
-``SDLHorizScale``, ``SDLVertScale``
-   How many pixels on the real screen to use to display each pixel in
-   the framebuffer. These parameters can be adjusted at run-time, see
-   `On the host side of the simulation`_ below.
-
 ``SDLRefreshDelay``
    Defines how many simulation cycles to wait between updates to the
    output display, when enabled. Can be adjusted at run-time.
@@ -70,7 +65,7 @@ Changing the display resolution
 -------------------------------
 
 When read from, words 1-2 of the control interface indicate the
-current display size in pixels.  The values in words 6 and 7 indicate
+current logical display size in pixels.  The values in words 6 and 7 indicate
 the maximum supported resolution.
 
 The following protocol can be used to configure a new output
@@ -169,6 +164,7 @@ The 32-bit pixel mode for frame commands is defined as follows:
 Bits 0-15  Bits 16-31  Value  Resulting pixel mode
 ========== =========== ====== ====================
 1          1           65537  1-bit indexed
+4          1           65540  4-bit indexed
 8          0           8      RGB 2-3-3
 8          1           65544  8-bit indexed
 16         0           16     RGB 5-6-5
@@ -186,8 +182,9 @@ one value of 2 bits for red (bits 6-7), one value of 3 bits for green
 
 When in indexed mode, the value in the texture buffer is used as an
 index in the palette defined by the last palette command. The palette
-then defines which R/G/B values to use. In 1-bit indexed mode, the
-order of pixels is from lowest significant to higest significant.
+then defines which R/G/B values to use. In 1-bit and 4-bit indexed
+mode, the order of pixels is from lowest significant to higest
+significant.
 
 
 INTERFACE
@@ -211,16 +208,16 @@ operations. Its device address space is as follows:
 ============= ======= ===========================================
 0             R       Boolean: indicates whether the physical screen is connected
 0             W       Command: commit the mode configured using words 1-2, non-zero clears screen
-1             R       Current width in pixels
-1             W       Desired width in pixels
-2             R       Current height in pixels
-2             W       Desired height in pixels
+1             R       Current logical width in pixels
+1             W       Desired logical width in pixels
+2             R       Current logical height in pixels
+2             W       Desired logical height in pixels
 3             R       Current start of command array in video memory
 3             W       Set start of command array
 4             W       Command: dump the framebuffer contents
 5             R/W     Image index (key) for the next dump
-6             R       Maximum supported width
-7             R       Maximum supported height
+6             R       Maximum supported physical width
+7             R       Maximum supported physical height
 8             R       Screen refresh interval in bus clock cycles
 9             R       Device identifier of the corresponding framebuffer device on the I/O bus
 ============= ======= ===========================================

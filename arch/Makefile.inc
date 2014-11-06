@@ -45,6 +45,8 @@ DEVICE_SRC = \
 	arch/dev/LCD.h \
         arch/dev/Display.h \
         arch/dev/Display.cpp \
+	arch/dev/DisplayDraw.cpp \
+	arch/dev/sdl_wrappers.h \
         arch/dev/ELF.h \
         arch/dev/ELFLoader.h \
         arch/dev/ELFLoader.cpp \

@@ -16,8 +16,8 @@ using namespace Simulator;
 using namespace std;
 
 int CommandLineReader::ReadLineHook(void) {
-    Display *display = Display::GetDisplay();
-    if (!display)
+    auto dm = DisplayManager::GetManager();
+    if (!dm)
         return 0;
 
     // readline is annoying: the documentation says the event
@@ -34,7 +34,7 @@ int CommandLineReader::ReadLineHook(void) {
     long current = tv.tv_sec * 10 + tv.tv_usec / 100000;
     if (current - last_check)
     {
-        display->CheckEvents();
+        dm->CheckEvents();
         last_check = current;
     }
     return 0;

@@ -87,7 +87,7 @@ that are otherwise enabled automatically if possible:
    for a list).
 
 ``configure --disable-sdl``
-   Disable support to output graphics using SDL.
+   Disable support to output graphics using SDL2.
 
 Assertion checking within the simulation is enabled by default. This
 ensures that consistency checks are performed throughout the
@@ -177,9 +177,9 @@ later.
 .. _Python: http://www.python.org/
 
 To enable graphical output to screen, the `Simple DirectMedia Layer`_
-library should be available. MGSim was tested with SDL 1.2 and 1.3. If
-SDL is not available, MGSim will run and simulate a graphical output,
-but the output will not be shown on screen.
+library, version 2 or later, should be available. MGSim was tested
+with SDL 2.0. If SDL is not available, MGSim will run and simulate a
+graphical output, but the output will not be shown on screen.
 
 .. _Simple DirectMedial Layer: http://www.libsdl.org/
 

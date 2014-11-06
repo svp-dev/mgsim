@@ -21,11 +21,6 @@
 
 #include <sys/param.h>
 #include <unistd.h>
-
-#ifdef USE_SDL
-#include <SDL.h>
-#endif
-
 #include <argp.h>
 
 using namespace Simulator;
@@ -294,9 +289,6 @@ void MemoryExhausted()
     std::abort();
 }
 
-#ifdef USE_SDL
-extern "C"
-#endif
 int main(int argc, char** argv)
 {
     std::set_new_handler(MemoryExhausted);
