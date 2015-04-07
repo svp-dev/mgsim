@@ -7,7 +7,14 @@
 #include <cerrno>
 #include <fcntl.h>
 
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wunused-parameter"
+#pragma GCC diagnostic ignored "-Wshadow"
+#ifndef __STDC_VERSION__
+#define __STDC_VERSION__ 201101
+#endif
 #include <ev++.h>
+#pragma GCC diagnostic pop
 
 using namespace std;
 
