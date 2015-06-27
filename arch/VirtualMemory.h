@@ -18,7 +18,7 @@ namespace Simulator
 // This class presents as large, sparse memory region as a linear memory region.
 // It allocates blocks of memory as they are read or written.
 class VirtualMemory : public Object,
-                      public IMemoryAdmin, public Inspect::Interface<Inspect::Info|Inspect::Read>
+                      public IMemoryAdmin
 {
 public:
     // We allocate per block, this is the size of each block. Must be a power of two
@@ -59,8 +59,6 @@ public:
     virtual ~VirtualMemory();
 
     void Cmd_Info(std::ostream& out, const std::vector<std::string>& arguments) const override;
-    void Cmd_Read(std::ostream& out, const std::vector<std::string>& arguments) const override;
-
     void SetSymbolTable(SymbolTable& symtable) override;
     SymbolTable& GetSymbolTable() const override;
 

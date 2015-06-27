@@ -145,6 +145,7 @@ COMMON_SRC = \
 	arch/IOBus.h \
         arch/IOBus.cpp \
 	arch/Memory.h \
+	arch/Memory.cpp \
 	arch/MGSystem.h \
 	arch/MGSystem.cpp \
 	arch/simtypes.h \

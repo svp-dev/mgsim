@@ -44,6 +44,14 @@ bool cmd_dump(const vector<string>& /*command*/, vector<string>& args, cli_conte
     return false;
 }
 
+bool cmd_write(const vector<string>& /*command*/, vector<string>& args, cli_context& ctx)
+{
+    string pat = args[0];
+    args.erase(args.begin());
+    DoObjectCommand<Inspect::Write>(cout, ctx.sys, pat, args);
+    return false;
+}
+
 bool cmd_set(const vector<string>& /*command*/, vector<string>& args, cli_context& ctx)
 {
     string pat = args[0];

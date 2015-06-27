@@ -33,6 +33,7 @@ command_descriptor command_table[] =
     { { "step", 0 },                  0, 1,  cmd_run,         "step [N]",         "Advance the system by N clock cycles (default 1)." },
     { { "trace", "line", 0 },         2, 3,  cmd_trace_line,   "trace line COMPONENT ADDR [clear]",  "Enable/Disable tracing of the cache line at address ADDR by memory COMPONENT." },
     { { "trace", 0 },                 0, -1, cmd_trace_debug,  "trace [FLAGS...]", "Show current traces / toggle tracing of FLAGS." },
+    { { "write", 0 },                 1, -1, cmd_write,        "write NAME [ARGS...]", "Write property of object NAME." },
 
     { { 0 }, 0, 0, 0, 0, 0 }
 };
@@ -61,6 +62,7 @@ command_alias alias_table[] =
     { "s"       , { "step", 0 } },
     { "stats"   , { "statistics", 0 } },
     { "t"       , { "trace", 0 } },
+    { "w"       , { "write", 0 } },
 
     { 0, { 0 } },
 };

@@ -15,7 +15,8 @@ namespace Inspect
         Read = 2,
         Trace = 4,
         Line = 8,
-        LastType = Line
+        Write = 16,
+        LastType = Write
     };
 
     template<unsigned V>
@@ -86,6 +87,17 @@ namespace Inspect
         virtual ~Interface_() {}
         void DoCommand(std::ostream& s, const std::vector<std::string>& v) const { return Cmd_Line(s, v); }
     };
+
+
+    template<>
+    class Interface_<Write>
+    {
+    public:
+        virtual void Cmd_Write(std::ostream&, const std::vector<std::string>&) = 0;
+        virtual ~Interface_() {}
+        void DoCommand(std::ostream& s, const std::vector<std::string>& v) { return Cmd_Write(s, v); }
+    };
+
 }
 
 #endif

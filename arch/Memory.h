@@ -6,6 +6,7 @@
 #include "symtable.h"
 #include <sim/ports.h>
 #include <sim/storage.h>
+#include <sim/inspect.h>
 
 namespace Simulator
 {
@@ -106,7 +107,7 @@ public:
                                      uint64_t& nreads_ext, uint64_t& nwrites_ext) const = 0;
 };
 
-class IMemoryAdmin
+class IMemoryAdmin : public Inspect::Interface<Inspect::Read|Inspect::Write>
 {
 public:
     virtual void Reserve(MemAddr address, MemSize size, ProcessID pid, int perm) = 0;
@@ -121,6 +122,10 @@ public:
     virtual void SetSymbolTable(SymbolTable& symtable) = 0;
 
     virtual ~IMemoryAdmin();
+
+    // From Inspect::Read/Write:
+    virtual void Cmd_Read(std::ostream& o, const std::vector<std::string>& args) const override;
+    virtual void Cmd_Write(std::ostream& o, const std::vector<std::string>& args) override;
 };
 
 }

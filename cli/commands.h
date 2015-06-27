@@ -31,7 +31,7 @@ extern command_handler
     cmd_bp_disable,
     cmd_bp_enable,
     cmd_bp_off,
-     cmd_bp_on,
+    cmd_bp_on,
     cmd_bp_state,
     cmd_disas,
     cmd_dump,
@@ -53,7 +53,8 @@ extern command_handler
     cmd_run,
     cmd_trace_show,
     cmd_trace_debug,
-    cmd_trace_line;
+    cmd_trace_line,
+    cmd_write;
 
 struct command_descriptor
 {
