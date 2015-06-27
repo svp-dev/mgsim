@@ -34,6 +34,7 @@ class CDMA::Node : public CDMA::Object
 protected:
     friend class CDMA::Directory;
     friend class CDMA::RootDirectory;
+    template<typename T> friend struct Serialization::serialize_trait;
 
     /// This is the message that gets sent around
     union Message

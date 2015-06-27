@@ -33,7 +33,6 @@ class DDRMemory : public IMemory, public VirtualMemory
          ))
     // {% endcall %}
 
-struct Request;
     class Interface;
 
     // IMemory

@@ -10,7 +10,7 @@
 
 namespace Simulator
 {
-    class SDLContext;
+    struct SDLContext;
     class Display : public Object
     {
         class ControlInterface;

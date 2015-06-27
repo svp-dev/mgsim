@@ -36,6 +36,7 @@ class ZLCDMA::Node : public ZLCDMA::Object
 {
 protected:
     friend class ZLCDMA::Directory;
+    template<typename T> friend struct Serialization::serialize_trait;
 
     /// This is the message that gets sent around
     union Message
