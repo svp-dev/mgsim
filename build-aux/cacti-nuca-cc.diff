@@ -1,0 +1,11 @@
+--- nuca.cc	2011-08-08 22:49:36.000000000 +0200
++++ nuca_patched.cc	2015-07-23 11:32:17.815779118 +0200
+@@ -51,7 +51,7 @@
+ int cont_stats[2 /*l2 or l3*/][5/* cores */][ROUTER_TYPES][7 /*banks*/][8 /* cycle time */];
+ 
+   Nuca::Nuca(
+-      TechnologyParameter::DeviceType *dt = &(g_tp.peri_global)
++      TechnologyParameter::DeviceType *dt
+       ):deviceType(dt)
+ {
+   init_cont();

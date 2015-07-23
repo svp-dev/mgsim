@@ -1,4 +1,4 @@
-EXTRA_DIST += build-aux/cacti-io-cc.diff
+EXTRA_DIST += build-aux/cacti-io-cc.diff build-aux/cacti-nuca-cc.diff
 
 CACTI_SOURCES = \
     cacti/arbiter.h \
@@ -25,7 +25,7 @@ CACTI_SOURCES = \
     cacti/mat.h \
     cacti/mat.cc \
     cacti/nuca.h \
-    cacti/nuca.cc \
+    cacti/nuca_patched.cc \
     cacti/parameter.h \
     cacti/parameter.cc \
     cacti/router.h \
@@ -42,6 +42,10 @@ CACTI_SOURCES = \
 
 cacti/io_patched.cc: $(srcdir)/cacti/io.cc
 	$(MKDIR_P) cacti
-	(cp -f $(srcdir)/cacti/io.cc cacti/io_patched.cc && patch cacti/io_patched.cc $(srcdir)/build-aux/cacti-io-cc.diff) || rm -f cacti/io_patched.cc
+	(cp -f $^ $@ && patch $@ $(srcdir)/build-aux/cacti-io-cc.diff) || rm -f $@
+
+cacti/nuca_patched.cc: $(srcdir)/cacti/nuca.cc
+	$(MKDIR_P) cacti
+	(cp -f $^ %@ && patch $@ $(srcdir)/build-aux/cacti-nuca-cc.diff) || rm -f $@
 
 CACTI_EXTRA_CPPFLAGS = -DNTHREADS=8 -I$(srcdir)/cacti
