@@ -196,13 +196,12 @@ namespace Simulator
         // word 1: logical screen width
         // word 2: logical screen height
         // word 3: command offset
-        // word 4: (unused)
+        // word 4: dump screen as PNM file
         // word 5: next dump key
         // word 6: max supported screen width
         // word 7: max supported screen height
         // word 8: (unused)
         // word 9: devid of the companion fb device
-        // words 0x100-0x1ff: color palette (index mode only)
 
         unsigned word = address / 4;
         uint32_t value = 0;

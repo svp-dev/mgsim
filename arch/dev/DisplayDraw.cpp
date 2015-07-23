@@ -38,9 +38,6 @@ namespace Simulator
                 {
                     palette_ncolors = v32[i+1];
                     palette_offset = v32[i+2];
-                    //cerr << "New palette " << v32[i+1] << " data " << hex << v32[i+2] << dec << endl;
-                    //for (unsigned w = 0; w < palette_ncolors; ++w)
-                    //    cerr << "idx " << w << " color " << hex << v32[palette_offset + w] << dec << endl;
                 }
             }
 
@@ -48,7 +45,7 @@ namespace Simulator
             {
                 // command 2 = draw texture
 
-                // indexed: whether a paeltte is used
+                // indexed: whether a palette is used
                 auto indexed = v32[i+1] >> 16;
                 // bit depth in bits
                 auto bpp = v32[i+1] & 0xffff;
@@ -75,20 +72,6 @@ namespace Simulator
                 if (dst_x + dst_w <= 0 || dst_y + dst_h <= 0 ||
                     dst_x >= (int)m_logical_width || dst_y >= (int)m_logical_height)
                     continue;
-
-                /*
-                cerr << "Blit indexed = " << indexed
-                     << " bpp = " << bpp
-                     << " src_start = " << hex << src_start << dec
-                     << " src_pitch = " << src_pitch
-                     << " src_w = " << src_w
-                     << " src_h = " << src_h
-                     << " dst_x = " << dst_x
-                     << " dst_y = " << dst_y
-                     << " dst_w = " << dst_w
-                     << " dst_h = " << dst_h
-                     << endl;
-                */
 
                 auto size_bytes = (bpp * src_pitch / 8) * src_h;
 
@@ -205,7 +188,7 @@ namespace Simulator
                     }
                     else if (bpp == 8 && !indexed)
                     {
-                        // 8-bit RGB "lowcolor", akin to SDL_PIXELFORMAT_RGB33, compact but uncommon
+                        // 8-bit RGB "lowcolor", akin to SDL_PIXELFORMAT_RGB332, compact but uncommon
                         static constexpr float Rf = 0xff / (float)0xe0;
                         static constexpr float Gf = Rf;
                         static constexpr float Bf = 0xff / (float)0xc0;
@@ -272,10 +255,6 @@ namespace Simulator
                             {
                                 unsigned sx = dx * scale_x;
                                 uint8_t index = (src[sx / 8] >> (sx % 8)) & 1;
-                                //cerr << "pix "
-                                //     << dy << " " << dx << " "
-                                //     << sy << " " << sx << " - "
-                                //     << (int)index << " " << hex << palette_data[index] << dec << endl;
                                 dst[dx] = v32[palette_offset + index];
                             }
                         }
