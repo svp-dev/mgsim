@@ -46,6 +46,6 @@ cacti/io_patched.cc: $(srcdir)/cacti/io.cc
 
 cacti/nuca_patched.cc: $(srcdir)/cacti/nuca.cc
 	$(MKDIR_P) cacti
-	(cp -f $^ %@ && patch $@ $(srcdir)/build-aux/cacti-nuca-cc.diff) || rm -f $@
+	(cp -f $^ $@ && patch $@ $(srcdir)/build-aux/cacti-nuca-cc.diff) || rm -f $@
 
 CACTI_EXTRA_CPPFLAGS = -DNTHREADS=8 -I$(srcdir)/cacti
