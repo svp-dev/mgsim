@@ -96,8 +96,8 @@ public:
     bool WriteFPUResult(RegAddr addr, const RegValue& value) override;
 
 
-    void Cmd_Info(std::ostream& out, const std::vector<std::string>& arguments) const;
-    void Cmd_Read(std::ostream& out, const std::vector<std::string>& arguments) const;
+    void Cmd_Info(std::ostream& out, const std::vector<std::string>& arguments) const override;
+    void Cmd_Read(std::ostream& out, const std::vector<std::string>& arguments) const override;
 
     Object* GetParent() const { return ReadWriteStructure<RegAddr>::GetParent(); }
     Object& GetDRISCParent() const { return *GetParent(); }
@@ -110,7 +110,7 @@ public:
 
 private:
     // Applies the queued updates
-    void Update();
+    void Update() override;
 
     std::array<RegValue*, NUM_REG_TYPES> m_files; ///< Sub-files of registers, indexed by RegType
     std::array<RegSize, NUM_REG_TYPES> m_sizes;

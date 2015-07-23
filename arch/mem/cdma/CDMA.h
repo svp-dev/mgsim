@@ -66,7 +66,7 @@ protected:
         return m_caches.size();
     }
 
-    virtual void Initialize() = 0;
+    virtual void Initialize() override = 0;
 
 public:
     CDMA(const std::string& name, Simulator::Object& parent, Clock& clock);
@@ -105,7 +105,7 @@ public:
 class OneLevelCDMA : public CDMA
 {
 public:
-    void Initialize();
+    void Initialize() override;
 
     MCID RegisterClient(IMemoryCallback& callback, Process& process, StorageTraceSet& traces, const StorageTraceSet& storages, bool grouped) override;
 
@@ -115,7 +115,7 @@ public:
 class TwoLevelCDMA : public CDMA
 {
 public:
-    void Initialize();
+    void Initialize() override;
 
     MCID RegisterClient(IMemoryCallback& callback, Process& process, StorageTraceSet& traces, const StorageTraceSet& storages, bool grouped) override;
 

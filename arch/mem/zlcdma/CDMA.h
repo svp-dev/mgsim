@@ -80,7 +80,7 @@ private:
         return m_caches.size();
     }
 
-    void Initialize();
+    void Initialize() override;
 
 public:
     ZLCDMA(const std::string& name, Simulator::Object& parent, Clock& clock);

@@ -54,11 +54,11 @@ namespace Simulator
                      std::vector<char>& res2, size_t res2_maxsize,
                      const std::vector<char>& arg1,
                      const std::vector<char>& arg2,
-                     uint32_t arg3, uint32_t arg4);
+                     uint32_t arg3, uint32_t arg4) override;
 
         const std::string& GetName() const override;
 
-        void Cmd_Info(std::ostream& out, const std::vector<std::string>& /*args*/) const;
+        void Cmd_Info(std::ostream& out, const std::vector<std::string>& /*args*/) const override;
 
     };
 
