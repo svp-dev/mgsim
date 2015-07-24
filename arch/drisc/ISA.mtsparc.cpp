@@ -1004,7 +1004,7 @@ Pipeline::PipeAction Pipeline::ExecuteStage::ExecuteInstruction()
             case 4:
                 // RDTICK: read processor cycle counter
                 COMMIT {
-                    m_output.Rcv.m_integer = GetCycleNo() & 0xffffffffUL;
+                    m_output.Rcv.m_integer = cpu.GetCycleNo() & 0xffffffffUL;
                     m_output.Rcv.m_state = RST_FULL;
                 }
                 break;
