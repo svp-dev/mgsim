@@ -15,6 +15,7 @@
 #pragma GCC diagnostic ignored "-Wshadow"
 #pragma GCC diagnostic ignored "-Weffc++"
 #pragma GCC diagnostic ignored "-Wunused-parameter"
+#pragma GCC diagnostic ignored "-Wstrict-aliasing"
 #endif
 #include <ev++.h>
 #ifdef __GNUC__
