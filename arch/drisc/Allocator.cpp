@@ -16,8 +16,19 @@ namespace drisc
 {
 
 /// String representation for the AllocationType enumeration
-static const char* const AllocationTypes[] = {
+constexpr const char* const AllocationTypes[] = {
     "Normal", "Exact", "Balanced", "Single"
+};
+
+constexpr const int MaxRegs[] = {
+    /* RT_INTEGER */
+    31,
+    /* RT_FLOAT */
+#if defined(TARGET_MTSPARC)
+    32
+#else
+    31
+#endif
 };
 
 void Allocator::UpdateStats()
@@ -1654,7 +1665,7 @@ Result Allocator::DoFamilyCreate()
                     hasShareds = true;
                 }
 
-                if (regcounts[i].globals + 2 * regcounts[i].shareds + regcounts[i].locals > 31)
+                if (regcounts[i].globals + 2 * regcounts[i].shareds + regcounts[i].locals > MaxRegs[i])
                 {
                     DebugProgWrite("Invalid register counts for type %d: %d %d %d\n", (int)i,
                                    (int)regcounts[i].globals, (int)regcounts[i].shareds, (int)regcounts[i].locals);
