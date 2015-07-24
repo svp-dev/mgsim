@@ -375,18 +375,15 @@ namespace Simulator
 
         unsigned word = address / 4;
 
-        if (word >= 2)
+        // ensure there is at least one loadable range
+        if (m_loadable.empty())
         {
-            // ensure there is at least one loadable range
-            if (m_loadable.empty())
-            {
-                COMMIT{
-                    LoadableRange r;
-                    r.vaddr = 0;
-                    r.rom_offset = 0;
-                    r.vsize = m_numLines * m_lineSize;
-                    m_loadable.push_back(r);
-                }
+            COMMIT{
+                LoadableRange r;
+                r.vaddr = 0;
+                r.rom_offset = 0;
+                r.vsize = m_numLines * m_lineSize;
+                m_loadable.push_back(r);
             }
         }
 
