@@ -98,11 +98,12 @@ Pipeline::PipeAction Pipeline::MemoryStage::OnCycle()
                 // Prepare for count increment
                 instore = m_input.size;
 
-                DebugMemWrite("F%u/T%u(%llu) %s store *%#.*llx/%zd <- %s %s",
+                DebugMemWrite("F%u/T%u(%llu) %s store *%#.*llx/%zd <- %#llx (%s %s)",
                               (unsigned)m_input.fid, (unsigned)m_input.tid, (unsigned long long)m_input.logical_index,
                               m_input.pc_sym,
                               (int)(sizeof(MemAddr)*2),
                               (unsigned long long)m_input.address, (size_t)m_input.size,
+                              (unsigned long long)(value & ~(((uint64_t)-1) << (8 * m_input.size) )),
                               m_input.Ra.str().c_str(), m_input.Rcv.str(m_input.Ra.type).c_str());
             }
             catch (SimulationException& e)

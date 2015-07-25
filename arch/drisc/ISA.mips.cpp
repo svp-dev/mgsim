@@ -572,22 +572,23 @@ Pipeline::PipeAction Pipeline::ExecuteStage::ExecuteInstruction()
                     {
                         unsigned shift = address & 3;
                         if (ARCH_ENDIANNESS == ARCH_LITTLE_ENDIAN)
+                        {
                             address &= ~(uint32_t)3;
-                        else
                             shift ^= 3;
+                        }
                         value >>= (8 * shift);
-                        size = shift;
+                        size = 4 - shift;
                     }
                     break;
                     case M_OP_SWR:
                     {
                         unsigned shift = address & 3;
-                        if (ARCH_ENDIANNESS == ARCH_LITTLE_ENDIAN)
+                        if (ARCH_ENDIANNESS == ARCH_BIG_ENDIAN)
                             address &= ~(uint32_t)3;
                         else
                             shift ^= 3;
-                        value &= ~(uint32_t)((1 << shift) - 1);
-                        size = 4 - shift;
+                        value &= (((uint32_t)-1) >> ((3 - shift) * 8));
+                        size = shift + 1;
                     }
                     break;
                     default:

@@ -1,5 +1,6 @@
 COMPILED_TEST_SOURCES = \
     tests/common/io.c \
+    tests/common/simple.c \
     tests/common/mgcfg.c \
     tests/common/rtc.c \
     tests/common/gfx.c \

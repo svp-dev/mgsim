@@ -249,6 +249,7 @@ struct MultiInteger
     {
         switch (size)
         {
+        case 1: case 2: case 3:
         case 4: return _32; break;
         case 8: return _64; break;
         default: UNREACHABLE;
