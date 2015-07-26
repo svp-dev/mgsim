@@ -4,8 +4,76 @@
 
 This document describes major updates to MGSim.
 
-Version 3.4 (Development)
+Version 3.x (Development)
 =========================
+
+New features
+------------
+
+- An experimental DSL (domain-specific language) is introduced to
+  automatically generate the definition of some components, to keep
+  their initialization and serialization code in sync.
+
+Changes since version 3.5
+-------------------------
+
+- Graphical output now uses SDL2, which incidentally enables multiple
+  Display devices side-by-side.
+
+- Minor SPARC and MIPS ISA emulation fixes.
+
+Version 3.5, July 2015
+======================
+
+New features
+------------
+
+- New ``tinysim`` demo to exemplify the use of the MGSim framework for
+  other projects than Microthreading research.
+
+- New serialization framework to aid investigating internal component
+  states. Some simulation state may even be modified via a new
+  interactive command ``set``.
+
+Changes since version 3.4
+-------------------------
+
+- The FPU model is now independent from the core model, and interfaces
+  via ``IFPUClient``.
+
+- Two variants of the MGSim framework are now compiled, one using a
+  singleton Kernel instance and one where multiple Kernels can be used
+  side-by-side (``*-dyn``). Using a singleton Kernel leads to 5-10%
+  performance improvement.
+
+- The configuration object is now reachable from the current Kernel
+  instance (``GetConfig()``) and does not need to be passed as
+  argument to all constructors any more.
+
+- Multiple major stylistic code improvements that take advantage of
+  the newer C++11 features.
+
+- The Display device now works using a command queue which composes
+  textures with arbitrary scaling and positioning. Textures may be of
+  different bit depths. This enables multiple user programs to render
+  output side by side without the need for synchronization.
+
+Version 3.4, July 2013
+======================
+
+New features
+------------
+
+- New trace type ``memnet`` to report activity on the memory network.
+
+- New configuration parameters ``--disable-mem-XXX`` to selectively
+  exclude some memory systems from the build (to speed up compilation).
+
+- The location of the configuration file can be overridden using the
+  environment variable ``MGSIM_BASE_CONFIG``.
+
+- Additional configuration files can be loaded by using command-line
+  argument ``-I``.
 
 Changes since version 3.3
 -------------------------
@@ -13,13 +81,21 @@ Changes since version 3.3
 - Rename the "COMA" memory models to "CDMA" (Cache Diffusion Memory
   Architecture) to reflect the reality of the memory protocol.
 
+- The ancillary core registers and the MGSim control interface are now
+  visible via the memory address space instead of special
+  instructions, so as to simplify user code.
+
 - Rename "Processor" to "DRISC" to pave the way for other core models.
 
 - Separate the "connect" and "initialize" phases during instantiation
   of many components.
 
-Version 3.3
-===========
+- Multiple fixes of the SPARC ISA implementation.
+
+- Numerous Microthreading model tweaks.
+
+Version 3.3, October 2012
+=========================
 
 New features
 ------------
@@ -78,8 +154,8 @@ Changes since version 3.2
 
 - Various improvements to reporting and tracing facilities.
 
-Version 3.2
-===========
+Version 3.2, November 2011
+==========================
 
 New features
 ------------
