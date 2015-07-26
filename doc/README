@@ -1,5 +1,5 @@
 MGSim, a flexible component-level simulation to study chip architectures.
-Copyright (C) 2007,2008,2009,2010,2011,2012,2013,2014 the MGSim project.
+Copyright (C) 2007,2008,2009,2010,2011,2012,2013,2014,2015 the MGSim project.
 
 The MGSim consists of people listed in the 'AUTHORS' file.
 
@@ -125,8 +125,8 @@ Requirements
 MGSim is written in C++ and targets Unix/POSIX platforms.
 
 The system was tested using the `GNU Compiler Collection (GCC)`_
-version 4.7.x up to 4.9.x on GNU/Linux, FreeBSD and MacOS X, as well
-as CLang 3.4 to 3.5. The code attempts to be fully compliant with
+version 4.8.x up to 5.2.x on GNU/Linux, FreeBSD and MacOS X, as well
+as CLang 3.4 to 3.6. The code attempts to be fully compliant with
 the ISO C++11 standard (ISO-IEC 14882:2011) and POSIX, so other C++ compilers
 should be usable as well; please report any portability bug you may
 find.
