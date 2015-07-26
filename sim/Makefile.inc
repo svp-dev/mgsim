@@ -55,6 +55,7 @@ SIM_SOURCES = \
         sim/readfile.cpp \
         sim/register.h \
         sim/register.hpp \
+        sim/register_functions.h \
         sim/rusage.h \
         sim/rusage.cpp \
 	sim/sampling.h \
