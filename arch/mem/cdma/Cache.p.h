@@ -139,8 +139,8 @@ public:
     size_t GetNumSets() const { return m_sets; }
     size_t GetNumLines() const override;
 
-    void Cmd_Info(std::ostream& out, const std::vector<std::string>& arguments) const;
-    void Cmd_Read(std::ostream& out, const std::vector<std::string>& arguments) const;
+    void Cmd_Info(std::ostream& out, const std::vector<std::string>& arguments) const override;
+    void Cmd_Read(std::ostream& out, const std::vector<std::string>& arguments) const override;
 
     MCID RegisterClient  (IMemoryCallback& callback, Process& process, StorageTraceSet& traces, const StorageTraceSet& storages);
     void UnregisterClient(MCID id);
