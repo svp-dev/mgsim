@@ -1,6 +1,6 @@
 // -*- c++ -*-
-#ifndef NULLIO_H
-#define NULLIO_H
+#ifndef UNBUFFERED_CROSSBAR_H
+#define UNBUFFERED_CROSSBAR_H
 
 #include <arch/IOBus.h>
 #include <sim/kernel.h>
@@ -11,12 +11,13 @@
 namespace Simulator
 {
     /*
-     * NullIO: an I/O bus with no latency between send and
-     * receive.
+     * Unbuffered crossbar: an interconnect with no latency and
+     * buffering between send and receive.
+     *
      * - Devices are numbered from 0 to N with no holes.
      * - requests to invalid devices fault the simulation.
      */
-    class NullIO : public IIOBus, public Object, public Inspect::Interface<Inspect::Info>
+    class UnbufferedCrossbar : public IIOBus, public Object, public Inspect::Interface<Inspect::Info>
     {
         Clock& m_clock;
         std::vector<IIOBusClient*> m_clients;
@@ -24,7 +25,7 @@ namespace Simulator
         void CheckEndPoints(IODeviceID from, IODeviceID to) const;
 
     public:
-        NullIO(const std::string& name, Object& parent, Clock& clock);
+        UnbufferedCrossbar(const std::string& name, Object& parent, Clock& clock);
 
         /* from IIOBus */
         bool RegisterClient(IODeviceID id, IIOBusClient& client);

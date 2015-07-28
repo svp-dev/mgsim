@@ -37,8 +37,8 @@ endif
 DEVICE_SRC = \
 	arch/dev/IODeviceDatabase.h \
 	arch/dev/IODeviceDatabase.cpp \
-	arch/dev/NullIO.cpp \
-	arch/dev/NullIO.h \
+	arch/dev/UnbufferedCrossbar.cpp \
+	arch/dev/UnbufferedCrossbar.h \
 	arch/dev/RTC.h \
 	arch/dev/RTC.cpp \
 	arch/dev/LCD.cpp \

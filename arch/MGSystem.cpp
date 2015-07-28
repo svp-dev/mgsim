@@ -21,7 +21,7 @@
 #include "arch/mem/zlcdma/CDMA.h"
 #endif
 
-#include "arch/dev/NullIO.h"
+#include "arch/dev/UnbufferedCrossbar.h"
 #include "arch/dev/LCD.h"
 #include "arch/dev/RTC.h"
 #include "arch/dev/Display.h"
@@ -713,10 +713,10 @@ MGSystem::MGSystem(Config& config, bool quiet)
         auto bus_type = GetTopSubConf(name, "Type", string);
         Clock& ioclock = kernel.CreateClock(GetTopSubConf(name, "Freq", Clock::Frequency));
 
-        if (bus_type == "NULLIO") {
-            NullIO* bus = new NullIO(name, *m_root, ioclock);
+        if (bus_type == "UNBUFFEREDCROSSBAR") {
+            UnbufferedCrossbar* bus = new UnbufferedCrossbar(name, *m_root, ioclock);
             m_iobuses[b] = bus;
-            RegisterModelObject(*bus, "nullio");
+            RegisterModelObject(*bus, "ucb");
             RegisterModelProperty(*bus, "freq", (uint32_t)ioclock.GetFrequency());
         } else {
             throw runtime_error("Unknown I/O bus type for " + name + ": " + bus_type);
