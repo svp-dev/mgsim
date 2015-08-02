@@ -100,37 +100,25 @@ int main() {
 ])
 
 AC_DEFUN([_CHECK_CXX11_FEATURE], [dnl
-      cachevar=AS_TR_SH([cxx11_cv_$1_$2])
-      AC_CACHE_CHECK([whether $CXX $2 supports $3], $cachevar,
-                     [ac_save_CXXFLAGS="$CXXFLAGS"
-                      CXXFLAGS="$CXXFLAGS $2"
-                      AC_LINK_IFELSE([AC_LANG_SOURCE([CXX_COMPILE_CXX11_$1])], [eval $cachevar=yes], [eval $cachevar=no])
-                      CXXFLAGS=$ac_save_CXXFLAGS])
+      cachevar=AS_TR_SH([cxx11_cv_$1])
+      AC_CACHE_CHECK([whether $CXX supports $2], $cachevar,
+                     [AC_LINK_IFELSE([AC_LANG_SOURCE([CXX_COMPILE_CXX11_$1])], [eval $cachevar=yes], [eval $cachevar=no])])
       if eval test x\$$cachevar = xno; then ac_success=no; continue; fi
 ])
 
 AC_DEFUN([CHECK_CXX11], [dnl
   AC_LANG_ASSERT([C++])dnl
 
-  for switch in -std=gnu++11 -std=gnu++0x -std=c++11 -std=c++0x; do
-      ac_success=yes
-
-      _CHECK_CXX11_FEATURE([auto_range], [$switch], [range-based for loops])
-      _CHECK_CXX11_FEATURE([auto_decltype], [$switch], [auto and decltype declarations])
-      _CHECK_CXX11_FEATURE([right_angle_brackets], [$switch], [double right angle brackets in template uses (a<b<int>>)])
-      _CHECK_CXX11_FEATURE([initializer_list], [$switch], [initializer lists])
-      _CHECK_CXX11_FEATURE([static_assert], [$switch], [static_assert])
-      _CHECK_CXX11_FEATURE([constructor_reuse], [$switch], [constructor reuse])
-      _CHECK_CXX11_FEATURE([move_ref], [$switch], [move references])
-      _CHECK_CXX11_FEATURE([array], [$switch], [std::array])
-      _CHECK_CXX11_FEATURE([thread], [$switch], [threads])
-      _CHECK_CXX11_FEATURE([mutex], [$switch], [mutexes])
-
-      if test $ac_success = yes; then
-        CXXFLAGS="$CXXFLAGS $switch"
-        break
-      fi
-  done
+  _CHECK_CXX11_FEATURE([auto_range], [range-based for loops])
+  _CHECK_CXX11_FEATURE([auto_decltype], [auto and decltype declarations])
+  _CHECK_CXX11_FEATURE([right_angle_brackets], [double right angle brackets in template uses (a<b<int>>)])
+  _CHECK_CXX11_FEATURE([initializer_list], [initializer lists])
+  _CHECK_CXX11_FEATURE([static_assert], [static_assert])
+  _CHECK_CXX11_FEATURE([constructor_reuse], [constructor reuse])
+  _CHECK_CXX11_FEATURE([move_ref], [move references])
+  _CHECK_CXX11_FEATURE([array], [std::array])
+  _CHECK_CXX11_FEATURE([thread], [threads])
+  _CHECK_CXX11_FEATURE([mutex], [mutexes])
 
   if test x$ac_success = xno; then
     AC_MSG_ERROR([*** A compiler with support for C++11 language features is required.])
