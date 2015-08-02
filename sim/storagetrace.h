@@ -2,7 +2,7 @@
 #ifndef STORAGETRACE_H
 #define STORAGETRACE_H
 
-#include <set>
+#include <unordered_set>
 #include <iterator>
 #include <vector>
 #include <iostream>
@@ -39,8 +39,9 @@ public:
         m_storages.push_back(&s);
     }
 
-    bool operator<(const StorageTrace& rhs) const {
-        return m_storages < rhs.m_storages;
+    bool operator==(const StorageTrace& other) const
+    {
+        return m_storages == other.m_storages;
     }
 
     /// Constructs an empty trace
@@ -57,16 +58,40 @@ public:
         std::copy(b.m_storages.begin(), b.m_storages.end(), std::back_inserter(m_storages));
     }
 
+    size_t hash() const
+    {
+        size_t h = 0;
+        std::hash<const Storage*> hfn;
+        for (auto s : m_storages)
+            h = (h << 1) ^ hfn(s);
+        return h;
+    }
     bool empty() const { return m_storages.empty(); }
     void clear() { m_storages.clear(); }
 
     friend std::ostream& operator<<(std::ostream& os, const StorageTrace& st);
 };
+}
 
+namespace std
+{
+    template<>
+    struct hash<Simulator::StorageTrace>
+    {
+        typedef Simulator::StorageTrace argument_type;
+        typedef std::size_t result_type;
+        inline result_type operator()(argument_type const& s) const
+        {
+            return s.hash();
+        }
+    };
+}
+namespace Simulator
+{
 class StorageTraceSet
 {
 public:
-    std::set<StorageTrace> m_storages;
+    std::unordered_set<StorageTrace> m_storages;
 
     StorageTraceSet() : m_storages() {}
 public:
@@ -150,4 +175,3 @@ static inline StorageTraceSet opt(const StorageTraceSet& s) {
 
 }
 #endif
-
