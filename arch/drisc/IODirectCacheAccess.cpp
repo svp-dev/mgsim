@@ -50,7 +50,7 @@ namespace drisc
         m_memory->UnregisterClient(m_mcid);
     }
 
-    bool IODirectCacheAccess::QueueRequest(const Request& req)
+    bool IODirectCacheAccess::QueueRequest(Request&& req)
     {
         size_t offset = (size_t)(req.address % m_lineSize);
         if (offset + req.size > m_lineSize)
@@ -66,15 +66,16 @@ namespace drisc
                                              (unsigned long long)req.address, (unsigned)req.size, (unsigned)req.client, (int)req.type);
         }
 
-        if (!m_requests.Push(req))
+        DebugIOWrite("Queing DCA request (%#016llx/%u, dev %u, type %d)",
+                     (unsigned long long)req.address, (unsigned)req.size, (unsigned)req.client, (int)req.type);
+
+        if (!m_requests.Push(std::move(req)))
         {
             DeadlockWrite("Unable to queue DCA request (%#016llx/%u, dev %u, type %d",
                           (unsigned long long)req.address, (unsigned)req.size, (unsigned)req.client, (int)req.type);
             return false;
         }
 
-        DebugIOWrite("Queued DCA request (%#016llx/%u, dev %u, type %d)",
-                     (unsigned long long)req.address, (unsigned)req.size, (unsigned)req.client, (int)req.type);
 
         return true;
     }
@@ -86,7 +87,7 @@ namespace drisc
             Response res;
             res.address = 0;
             res.size = 0;
-            if (!m_responses.Push(res))
+            if (!m_responses.Push(std::move(res)))
             {
                 DeadlockWrite("Unable to push memory write response");
                 return false;
@@ -102,9 +103,9 @@ namespace drisc
         Response res;
         res.address = addr;
         res.size = m_lineSize;
-        std::copy(data, data + m_lineSize, res.data);
+        COMMIT{ std::copy(data, data + m_lineSize, res.data); }
 
-        if (!m_responses.Push(res))
+        if (!m_responses.Push(std::move(res)))
         {
             DeadlockWrite("Unable to push memory read response (%#016llx)",
                           (unsigned long long)addr);
@@ -231,7 +232,7 @@ namespace drisc
                 Response res;
                 res.address = 0;
                 res.size = 0;
-                if (!m_responses.Push(res))
+                if (!m_responses.Push(std::move(res)))
                 {
                     DeadlockWrite("Unable to push DCA flush response");
                     return FAILED;

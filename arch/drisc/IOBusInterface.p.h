@@ -51,7 +51,7 @@ public:
 
     IOBusInterface(const std::string& name, IOInterface& parent, Clock& clock, IIOBus& iobus, IODeviceID devid);
 
-    bool SendRequest(const IORequest& request);
+    bool SendRequest(IORequest&& msg);
 
     Process p_OutgoingRequests;
 

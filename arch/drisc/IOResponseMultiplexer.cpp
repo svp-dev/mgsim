@@ -58,9 +58,8 @@ bool IOResponseMultiplexer::OnReadResponseReceived(IODeviceID from, MemAddr /*ad
     assert(from < m_wb_buffers.size());
 
     // the responses come in order the read were issued, so we do not need to match for addresses.
-    IOResponse response = { data, from };
 
-    return m_incoming.Push(response);
+    return m_incoming.Push(IOResponse{data, from});
 }
 
 Result IOResponseMultiplexer::DoReceivedReadResponses()

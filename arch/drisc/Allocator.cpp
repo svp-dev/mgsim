@@ -543,7 +543,7 @@ bool Allocator::DecreaseFamilyDependency(LFID fid, Family& family, FamilyDepende
                 msg.done.fid    = family.link;
                 msg.done.broken = family.broken;
 
-                if (!m_network.SendMessage(msg))
+                if (!m_network.SendMessage(std::move(msg)))
                 {
                     DeadlockWrite("F%u unable to buffer termination to next processor",
                                   (unsigned)fid);
@@ -556,20 +556,14 @@ bool Allocator::DecreaseFamilyDependency(LFID fid, Family& family, FamilyDepende
             else if (family.sync.pid != INVALID_PID)
             {
                 // A thread is synching on this family
-                Network::SyncInfo info;
-                info.fid = fid;
-                info.pid = family.sync.pid;
-                info.reg = family.sync.reg;
-                info.broken = family.broken;
-
-                if (!m_network.SendSync(info))
+                if (!m_network.SendSync(Network::SyncInfo{fid, family.sync.pid, family.sync.reg, family.broken}))
                 {
                     DeadlockWrite("F%u unable to buffer remote sync writeback %d to CPU%u/R%04x",
-                                  (unsigned)fid, (unsigned)info.pid, (int)info.broken, (unsigned)info.reg);
+                                  (unsigned)fid, (int)family.broken, (unsigned)family.sync.pid, (unsigned)family.sync.reg);
                     return false;
                 }
                 DebugSimWrite("F%u buffered termination writeback %d for CPU%u/R%04x",
-                              (unsigned)fid, (unsigned)info.pid, (int)info.broken, (unsigned)info.reg);
+                              (unsigned)fid, (int)family.broken, (unsigned)family.sync.pid, (unsigned)family.sync.reg);
             }
 
             DebugSimWrite("F%u synchronized", (unsigned)fid);
@@ -996,7 +990,7 @@ bool Allocator::QueueBundle(const MemAddr addr, Integer parameter, RegIndex comp
     info.parameter      = parameter;
     info.completion_reg = completion_reg;
 
-    if (!m_bundle.Push(info))
+    if (!m_bundle.Push(std::move(info)))
     {
         DeadlockWrite("unable to queue bundle 0x%016llx, %llu, R%04x",
                       (unsigned long long)addr, (unsigned long long)parameter, (unsigned)completion_reg);
@@ -1019,8 +1013,13 @@ bool Allocator::QueueFamilyAllocation(const RemoteMessage& msg)
     // Can't be exclusive and non-single.
     assert(!msg.allocate.exclusive || msg.allocate.type == ALLOCATE_SINGLE);
 
+    Buffer<AllocRequest>& allocations = msg.allocate.exclusive
+        ? m_allocRequestsExclusive
+        : (msg.allocate.suspend ? m_allocRequestsSuspend : m_allocRequestsNoSuspend);
+
     // Place the request in the appropriate buffer
     AllocRequest request;
+    COMMIT{
     request.first_fid      = INVALID_LFID;
     request.prev_fid       = INVALID_LFID;
     request.placeSize      = msg.allocate.place.size;
@@ -1031,19 +1030,17 @@ bool Allocator::QueueFamilyAllocation(const RemoteMessage& msg)
     request.pc             = msg.allocate.pc; // for bundles
     request.parameter      = msg.allocate.parameter; // for bundles
     request.index          = msg.allocate.index; // for bundles
-
-    Buffer<AllocRequest>& allocations = msg.allocate.exclusive
-        ? m_allocRequestsExclusive
-        : (msg.allocate.suspend ? m_allocRequestsSuspend : m_allocRequestsNoSuspend);
-
-    if (!allocations.Push(request))
-    {
-        return false;
     }
 
     DebugSimWrite("accepted incoming allocation for %u cores (%s) for CPU%u/R%04x",
                   (unsigned)msg.allocate.place.size, AllocationTypes[msg.allocate.type],
                   (unsigned)request.completion_pid, (unsigned)request.completion_reg);
+
+    if (!allocations.Push(std::move(request)))
+    {
+        return false;
+    }
+
     return true;
 }
 
@@ -1051,20 +1048,23 @@ bool Allocator::QueueFamilyAllocation(const RemoteMessage& msg)
 bool Allocator::QueueFamilyAllocation(const LinkMessage& msg)
 {
     // Place the request in the appropriate buffer
+    Buffer<AllocRequest>& allocations = (msg.allocate.suspend ? m_allocRequestsSuspend : m_allocRequestsNoSuspend);
+
     AllocRequest request;
+    COMMIT{
     request.first_fid       = msg.allocate.first_fid;
     request.prev_fid        = msg.allocate.prev_fid;
     request.placeSize       = msg.allocate.size;
     request.type            = msg.allocate.exact ? ALLOCATE_EXACT : ALLOCATE_NORMAL;
-    request.completion_reg  = msg.allocate.completion_reg;
     request.completion_pid  = msg.allocate.completion_pid;
+    request.completion_reg  = msg.allocate.completion_reg;
     request.bundle          = false;
     request.pc              = 0; // no bundle
     request.parameter       = 0; // no bundle
     request.index           = 0; // no bundle
+    }
 
-    Buffer<AllocRequest>& allocations = (msg.allocate.suspend ? m_allocRequestsSuspend : m_allocRequestsNoSuspend);
-    if (!allocations.Push(request))
+    if (!allocations.Push(std::move(request)))
     {
         return false;
     }
@@ -1208,14 +1208,16 @@ Result Allocator::DoFamilyAllocate()
             ret.next_fid       = INVALID_LFID;
             ret.completion_pid = req.completion_pid;
             ret.completion_reg = req.completion_reg;
-            if (!m_network.SendAllocResponse(ret))
-            {
-                return FAILED;
-            }
+
             DebugSimWrite("unwinding allocation for %u cores from CPU%u/R%04x prev F%u",
                           (unsigned)req.placeSize,
                           (unsigned)ret.completion_pid, (unsigned)ret.completion_reg,
                           (unsigned)ret.prev_fid);
+
+            if (!m_network.SendAllocResponse(std::move(ret)))
+            {
+                return FAILED;
+            }
         }
     }
     // Allocation succeeded
@@ -1273,15 +1275,17 @@ Result Allocator::DoFamilyAllocate()
                 ret.next_fid       = lfid;
                 ret.completion_pid = req.completion_pid;
                 ret.completion_reg = req.completion_reg;
-                if (!m_network.SendAllocResponse(ret))
-                {
-                    DeadlockWrite("Unable to send allocation commit");
-                    return FAILED;
-                }
+
                 DebugSimWrite("F%u backward link allocation response (writeback CPU%u/R%04x prev CPU%u/F%u)",
                               (unsigned)lfid,
                               (unsigned)ret.completion_pid, (unsigned)ret.completion_reg,
                               (unsigned)(GetDRISC().GetPID() - 1), (unsigned)ret.prev_fid);
+
+                if (!m_network.SendAllocResponse(std::move(ret)))
+                {
+                    DeadlockWrite("Unable to send allocation commit");
+                    return FAILED;
+                }
             }
         }
         else
@@ -1329,7 +1333,7 @@ Result Allocator::DoFamilyAllocate()
         msg.allocate.completion_reg = req.completion_reg;
 
 
-        if (!m_network.SendMessage(msg))
+        if (!m_network.SendMessage(std::move(msg)))
         {
             DeadlockWrite("Unable to forward family allocation requests");
             return FAILED;
@@ -1396,7 +1400,7 @@ bool Allocator::QueueCreate(const LinkMessage& msg)
         LinkMessage fwd(msg);
         fwd.create.fid      = family.link;
         fwd.create.numCores = (msg.create.numCores > 0) ? msg.create.numCores - 1 : 0;
-        if (!m_network.SendMessage(fwd))
+        if (!m_network.SendMessage(std::move(fwd)))
         {
             return false;
         }
@@ -1429,6 +1433,7 @@ bool Allocator::QueueCreate(const RemoteMessage& msg)
 
     // Queue the create
     CreateInfo info;
+    COMMIT{
     info.fid            = msg.create.fid.lfid;
     info.completion_pid = msg.create.completion_pid;
     info.completion_reg = msg.create.completion_reg;
@@ -1436,17 +1441,19 @@ bool Allocator::QueueCreate(const RemoteMessage& msg)
     info.bundle         = msg.create.bundle;
     info.parameter      = msg.create.parameter;
     info.index          = msg.create.index;
-
-    if (!m_creates.Push(info))
-    {
-        DeadlockWrite("Unable to queue create");
-        return false;
     }
 
     DebugSimWrite("F%u queued create %s from CPU%u/R%04x",
                   (unsigned)info.fid,
                   GetDRISC().GetSymbolTable()[msg.create.address].c_str(),
                   (unsigned)info.completion_pid, (unsigned)info.completion_reg);
+
+    if (!m_creates.Push(std::move(info)))
+    {
+        DeadlockWrite("Unable to queue create");
+        return false;
+    }
+
     return true;
 }
 
@@ -1500,12 +1507,12 @@ Result Allocator::DoBundle()
         msg.type                       = RemoteMessage::MSG_ALLOCATE;
 
         msg.allocate.place             = GetDRISC().UnpackPlace(UnserializeRegister(RT_INTEGER, &m_bundleData[0], sizeof(Integer)));
-
         if (msg.allocate.place.size == 0)
         {
             throw exceptf<>("Invalid place size in bundle creation");
         }
 
+        COMMIT{
         msg.allocate.completion_pid    = GetDRISC().GetPID();
         msg.allocate.completion_reg    = info.completion_reg;
         msg.allocate.type              = ALLOCATE_SINGLE;
@@ -1515,6 +1522,7 @@ Result Allocator::DoBundle()
         msg.allocate.pc                = UnserializeRegister(RT_INTEGER, &m_bundleData[sizeof(Integer) ], sizeof(MemAddr));
         msg.allocate.parameter         = info.parameter;
         msg.allocate.index             = UnserializeRegister(RT_INTEGER, &m_bundleData[sizeof(Integer) + sizeof(MemAddr)], sizeof(SInteger));
+        }
 
         DebugSimWrite("Processing bundle creation for CPU%u/%u, PC %#016llx, parameter %#016llx, index %#016llx",
                       (unsigned)msg.allocate.place.pid, (unsigned)msg.allocate.place.size,
@@ -1522,7 +1530,7 @@ Result Allocator::DoBundle()
                       (unsigned long long)msg.allocate.parameter,
                       (unsigned long long)msg.allocate.index);
 
-        if (!m_network.SendMessage(msg))
+        if (!m_network.SendMessage(std::move(msg)))
         {
             DeadlockWrite("Unable to send indirect creation to CPU%u", (unsigned)msg.allocate.place.pid);
             return FAILED;
@@ -1746,7 +1754,7 @@ Result Allocator::DoFamilyCreate()
                 msg.create.regs[i] = family.regs[i].count;
             }
 
-            if (!m_network.SendMessage(msg))
+            if (!m_network.SendMessage(std::move(msg)))
             {
                 DeadlockWrite("Unable to send the create for F%u", (unsigned)info.fid);
                 return FAILED;

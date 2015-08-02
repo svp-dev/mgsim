@@ -299,9 +299,9 @@ public:
     void Initialize();
 
     bool SendMessage(const RemoteMessage& msg);
-    bool SendMessage(const LinkMessage& msg);
-    bool SendAllocResponse(const AllocResponse& msg);
-    bool SendSync(const SyncInfo& event);
+    bool SendMessage(LinkMessage&& msg);
+    bool SendAllocResponse(AllocResponse&& msg);
+    bool SendSync(SyncInfo&& event);
 
     void Cmd_Info(std::ostream& out, const std::vector<std::string>& arguments) const;
     void Cmd_Read(std::ostream& out, const std::vector<std::string>& arguments) const;

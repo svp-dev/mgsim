@@ -240,7 +240,7 @@ Result DCache::Read(MemAddr address, void* data, MemSize size, RegAddr* reg)
         Request request;
         request.write     = false;
         request.address   = address - offset;
-        if (!m_outgoing.Push(request))
+        if (!m_outgoing.Push(std::move(request)))
         {
             ++m_numStallingRMisses;
             DeadlockWrite("Unable to push request to outgoing buffer");
@@ -404,7 +404,7 @@ Result DCache::Write(MemAddr address, void* data, MemSize size, LFID fid, TID ti
     std::fill(request.data.mask+offset+size, request.data.mask+m_lineSize, false);
     }
 
-    if (!m_outgoing.Push(request))
+    if (!m_outgoing.Push(std::move(request)))
     {
         ++m_numStallingWMisses;
         DeadlockWrite("Unable to push request to outgoing buffer");
@@ -463,7 +463,7 @@ bool DCache::OnMemoryReadCompleted(MemAddr addr, const char* data)
 
         DebugMemWrite("Received read completion for %#016llx -> CID %u", (unsigned long long)addr, (unsigned)response.cid);
 
-        if (!m_read_responses.Push(response))
+        if (!m_read_responses.Push(std::move(response)))
         {
             DeadlockWrite("Unable to push read completion to buffer");
             return false;
@@ -481,7 +481,7 @@ bool DCache::OnMemoryWriteCompleted(WClientID wid)
 
         WriteResponse response;
         response.wid  =  wid;
-        if (!m_write_responses.Push(response))
+        if (!m_write_responses.Push(std::move(response)))
         {
             DeadlockWrite("Unable to push write completion to buffer");
             return false;
@@ -587,12 +587,12 @@ Result DCache::DoReadResponses()
     {
         // Push the cache-line to the back of the queue
         WritebackRequest req;
-        std::copy(line.data, line.data + m_lineSize, req.data);
+        COMMIT{std::copy(line.data, line.data + m_lineSize, req.data);}
         req.waiting = line.waiting;
 
         DebugMemWrite("Queuing writeback request for CID %u starting at %s", (unsigned)response.cid, req.waiting.str().c_str());
 
-        if (!m_writebacks.Push(req))
+        if (!m_writebacks.Push(std::move(req)))
         {
             DeadlockWrite("Unable to push writeback request to buffer");
             return FAILED;

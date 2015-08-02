@@ -35,9 +35,9 @@ namespace drisc
             m_iobus.GetReadResponseTraces() );
     }
 
-    bool IOBusInterface::SendRequest(const IORequest& request)
+    bool IOBusInterface::SendRequest(IORequest&& request)
     {
-        return m_outgoing_reqs.Push(request);
+        return m_outgoing_reqs.Push(std::move(request));
     }
 
     Result IOBusInterface::DoOutgoingRequests()
@@ -85,7 +85,7 @@ namespace drisc
         req.address = address;
         req.type = (address == 0 && size == 0) ? IODirectCacheAccess::FLUSH : IODirectCacheAccess::READ;
         req.size = size;
-        return m_dca.QueueRequest(req);
+        return m_dca.QueueRequest(std::move(req));
     }
 
     StorageTraceSet IOBusInterface::GetReadRequestTraces() const
@@ -105,9 +105,9 @@ namespace drisc
         req.client = from;
         req.address = address;
         req.type = IODirectCacheAccess::WRITE;
-        memcpy(req.data, data.data, data.size);
+        COMMIT{ memcpy(req.data, data.data, data.size); }
         req.size = data.size;
-        return m_dca.QueueRequest(req);
+        return m_dca.QueueRequest(std::move(req));
     }
 
     StorageTraceSet IOBusInterface::GetWriteRequestTraces() const
