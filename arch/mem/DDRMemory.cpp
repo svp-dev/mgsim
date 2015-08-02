@@ -295,6 +295,7 @@ void DDRMemory::UnregisterClient(MCID id)
     ClientInfo& client = m_clients[id];
     assert(client.callback != NULL);
     delete client.service;
+    client.service = NULL;
     client.callback = NULL;
 }
 
@@ -395,10 +396,11 @@ DDRMemory::DDRMemory(const std::string& name, Object& parent, Clock& clock, cons
 DDRMemory::~DDRMemory()
 {
     delete m_selector;
-    for (size_t i = 0; i < m_ifs.size(); ++i)
-    {
-        delete m_ifs[i];
-    }
+    for (auto i : m_ifs)
+        delete i;
+    for (auto& c : m_clients)
+        if (c.service)
+            delete c.service;
 }
 
 void DDRMemory::Cmd_Info(ostream& out, const vector<string>& arguments) const

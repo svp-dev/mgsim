@@ -313,6 +313,7 @@ void BankedMemory::UnregisterClient(MCID id)
     ClientInfo& client = m_clients[id];
     assert(client.callback != NULL);
     delete client.service;
+    client.service = NULL;
     client.callback = NULL;
 }
 
@@ -419,10 +420,11 @@ BankedMemory::BankedMemory(const std::string& name, Object& parent, Clock& clock
 BankedMemory::~BankedMemory()
 {
     delete m_selector;
-    for (size_t i = 0; i < m_banks.size(); ++i)
-    {
-        delete m_banks[i];
-    }
+    for (auto b : m_banks)
+        delete b;
+    for (auto& c : m_clients)
+        if (c.service)
+            delete c.service;
 }
 
 void BankedMemory::Cmd_Info(ostream& out, const vector<string>& arguments) const

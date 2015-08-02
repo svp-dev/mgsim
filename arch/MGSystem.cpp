@@ -1018,4 +1018,5 @@ MGSystem::~MGSystem()
         delete fpu;
     delete m_selector;
     delete m_memory;
+    delete m_root;
 }
