@@ -463,7 +463,7 @@ void MGSystem::PrintAllStatistics(ostream& os) const
 
     os << dec
        << GetKernel()->GetCycleNo() << "\t# master cycle counter" << endl
-       << m_clock->GetCycleNo() << "\t# core cycle counter" << endl
+       << m_clock->GetCycleNo() << "\t# core cycle counter (@ rel. freq. core 0)" << endl
        << GetOp() << "\t# total executed instructions" << endl
        << GetFlop() << "\t# total issued fp instructions" << endl
        << ru.GetUserTime() << "\t# total real time in user mode (us)" << endl
@@ -617,7 +617,7 @@ MGSystem::MGSystem(Config& config, bool quiet)
     auto& kernel = *GetKernel();
     kernel.AttachConfig(config);
 
-    m_clock = &kernel.CreateClock(GetTopConf("CoreFreq", Clock::Frequency));
+    auto default_core_freq = GetTopConf("CoreFreq", Clock::Frequency);
     m_root = new Object("", kernel);
     m_breakpoints.AttachKernel(kernel);
 
@@ -637,7 +637,7 @@ MGSystem::MGSystem(Config& config, bool quiet)
     string memory_type = GetTopConf("MemoryType", string);
     transform(memory_type.begin(), memory_type.end(), memory_type.begin(), ::toupper);
 
-    Clock& memclock = kernel.CreateClock(GetTopConf("MemoryFreq", size_t));
+    Clock& memclock = kernel.CreateClock(GetTopConf("MemoryFreq", Clock::Frequency));
 
     IMemoryAdmin *memadmin;
 
@@ -733,10 +733,11 @@ MGSystem::MGSystem(Config& config, bool quiet)
     for (size_t f = 0; f < numFPUs; ++f)
     {
         auto name = "fpu" + to_string(f);
-        m_fpus[f] = new FPU(name, *m_root, *m_clock, numProcessorsPerFPU);
+        Clock& fpuclock = kernel.CreateClock(GetTopSubConfOpt(name, "Freq", Clock::Frequency, default_core_freq));
+        m_fpus[f] = new FPU(name, *m_root, fpuclock, numProcessorsPerFPU);
 
         RegisterModelObject(*m_fpus[f], "fpu");
-        RegisterModelProperty(*m_fpus[f], "freq", (uint32_t)m_clock->GetFrequency());
+        RegisterModelProperty(*m_fpus[f], "freq", (uint32_t)fpuclock.GetFrequency());
     }
     if (!quiet)
     {
@@ -748,7 +749,10 @@ MGSystem::MGSystem(Config& config, bool quiet)
     for (size_t i = 0; i < numProcessors; ++i)
     {
         auto name = "cpu" + to_string(i);
-        m_procs[i]   = new DRISC(name, *m_root, *m_clock, i, m_procs, m_breakpoints);
+        Clock& coreclock = kernel.CreateClock(GetTopSubConfOpt(name, "Freq", Clock::Frequency, default_core_freq));
+        if (m_clock == 0)
+            m_clock = &coreclock;
+        m_procs[i]   = new DRISC(name, *m_root, coreclock, i, m_procs, m_breakpoints);
         m_procs[i]->ConnectMemory(m_memory, memadmin);
         m_procs[i]->ConnectFPU(m_fpus[i / numProcessorsPerFPU]);
 
