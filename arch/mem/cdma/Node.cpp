@@ -18,7 +18,7 @@ namespace Simulator
 /*static*/ void* CDMA::Node::Message::operator new(size_t size)
 {
     // We allocate this many messages at once
-    static const size_t ALLOCATE_SIZE = 1024;
+    constexpr size_t ALLOCATE_SIZE = 1024;
 
     assert(size == sizeof(Message));
     if (g_FreeMessages == NULL)
