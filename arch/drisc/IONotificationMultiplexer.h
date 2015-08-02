@@ -50,8 +50,8 @@ public:
     // upon interrupt received
     Result DoReceivedNotifications();
 
-    void Cmd_Info(std::ostream& out, const std::vector<std::string>& arguments) const;
-    void Cmd_Read(std::ostream& out, const std::vector<std::string>& arguments) const;
+    void Cmd_Info(std::ostream& out, const std::vector<std::string>& arguments) const override;
+    void Cmd_Read(std::ostream& out, const std::vector<std::string>& arguments) const override;
 
     StorageTraceSet GetWriteBackTraces() const;
     StorageTraceSet GetNotificationTraces() const;
