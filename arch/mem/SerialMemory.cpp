@@ -48,7 +48,7 @@ bool SerialMemory::Read(MCID id, MemAddr address)
     request.address   = address;
     request.write     = false;
 
-    if (!m_requests.Push(request))
+    if (!m_requests.Push(std::move(request)))
     {
         return false;
     }
@@ -78,7 +78,7 @@ bool SerialMemory::Write(MCID id, MemAddr address, const MemData& data, WClientI
     std::copy(data.mask, data.mask + m_lineSize, request.data.mask);
     }
 
-    if (!m_requests.Push(request))
+    if (!m_requests.Push(std::move(request)))
     {
         return false;
     }

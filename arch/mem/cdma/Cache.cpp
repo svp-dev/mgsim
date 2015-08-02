@@ -65,7 +65,7 @@ bool CDMA::Cache::Read(MCID id, MemAddr address)
     // Client should have been registered
     assert(m_clients[id] != NULL);
 
-    if (!m_requests.Push(req))
+    if (!m_requests.Push(std::move(req)))
     {
         // Buffer was full
         DeadlockWrite("Unable to push read request into buffer");
@@ -103,7 +103,7 @@ bool CDMA::Cache::Write(MCID id, MemAddr address, const MemData& data, WClientID
     // Client should have been registered
     assert(m_clients[req.client] != NULL);
 
-    if (!m_requests.Push(req))
+    if (!m_requests.Push(std::move(req)))
     {
         // Buffer was full
         DeadlockWrite("Unable to push write request into buffer");

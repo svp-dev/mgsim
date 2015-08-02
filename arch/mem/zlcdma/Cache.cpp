@@ -62,7 +62,7 @@ bool ZLCDMA::Cache::Read(MCID id, MemAddr address)
     // Client should have been registered
     assert(m_clients[id] != NULL);
 
-    if (!m_requests.Push(req))
+    if (!m_requests.Push(std::move(req)))
     {
         // Buffer was full
         DeadlockWrite("Unable to push read request into buffer");
@@ -99,7 +99,7 @@ bool ZLCDMA::Cache::Write(MCID id, MemAddr address, const MemData& data, WClient
     // Client should have been registered
     assert(m_clients[req.client] != NULL);
 
-    if (!m_requests.Push(req))
+    if (!m_requests.Push(std::move(req)))
     {
         // Buffer was full
         DeadlockWrite("Unable to push write request into buffer");
@@ -112,7 +112,7 @@ bool ZLCDMA::Cache::Write(MCID id, MemAddr address, const MemData& data, WClient
         IMemoryCallback* client = m_clients[i];
         if (client != NULL && i != req.client)
         {
-            if (!client->OnMemorySnooped(req.address, req.mdata.data, req.mdata.mask))
+            if (!client->OnMemorySnooped(address, data.data, data.mask))
             {
                 DeadlockWrite("Unable to snoop data to cache clients");
                 return false;

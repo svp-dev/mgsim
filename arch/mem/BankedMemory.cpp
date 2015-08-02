@@ -53,7 +53,7 @@ class BankedMemory::Bank : public Object
             request.done += delay.second;
         }
 
-        if (!queue.Push(request))
+        if (!queue.Push(std::move(request)))
         {
             return false;
         }

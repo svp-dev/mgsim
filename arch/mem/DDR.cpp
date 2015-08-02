@@ -155,7 +155,7 @@ Result DDRChannel::DoRequest()
         }
 
         // We're done with this read; queue it into the pipeline
-        if (!m_pipeline.Push(m_request))
+        if (!m_pipeline.Push(std::move(m_request)))
         {
             // The read pipeline should be big enough
             DeadlockWrite("DDR read pipeline full");

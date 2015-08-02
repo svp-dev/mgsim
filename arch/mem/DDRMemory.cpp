@@ -53,7 +53,7 @@ public:
             m_memory.Read(request.address, request.data.data, m_lineSize);
         }
 
-        if (!m_responses.Push(request))
+        if (!m_responses.Push(std::move(request)))
         {
             DeadlockWrite("Unable to push reply into send buffer");
             return false;
@@ -66,7 +66,7 @@ public:
         return true;
     }
 
-    bool AddIncomingRequest(Request& request)
+    bool AddIncomingRequest(Request&& request)
     {
         if (!p_service.Invoke())
         {
@@ -74,7 +74,7 @@ public:
             return false;
         }
 
-        if (!m_requests.Push(request))
+        if (!m_requests.Push(std::move(request)))
         {
             DeadlockWrite("Unable to queue read request to memory");
             return false;
@@ -316,7 +316,7 @@ bool DDRMemory::Read(MCID id, MemAddr address)
     request.write     = false;
 
     Interface& chan = *m_ifs[ if_index ];
-    if (!chan.AddIncomingRequest(request))
+    if (!chan.AddIncomingRequest(std::move(request)))
     {
         return false;
     }
@@ -356,7 +356,7 @@ bool DDRMemory::Write(MCID id, MemAddr address, const MemData& data, WClientID w
     m_selector->Map(address / m_lineSize, unused, if_index);
 
     Interface& chan = *m_ifs[ if_index ];
-    if (!chan.AddIncomingRequest(request))
+    if (!chan.AddIncomingRequest(std::move(request)))
     {
        return false;
     }

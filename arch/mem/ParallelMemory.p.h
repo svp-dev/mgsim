@@ -33,7 +33,7 @@ class ParallelMemory : public IMemory, public VirtualMemory
          ))
     // {% endcall %}
 
-    bool AddRequest(IMemoryCallback& callback, const Request& request);
+    bool AddRequest(IMemoryCallback& callback, Request&& request);
 
     // IMemory
     MCID RegisterClient(IMemoryCallback& callback, Process& process, StorageTraceSet& traces, const StorageTraceSet& storages, bool /*ignored*/) override;
