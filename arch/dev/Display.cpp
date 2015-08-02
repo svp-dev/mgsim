@@ -18,6 +18,8 @@ namespace Simulator
         uint32_t windowID;
         SDL_Renderer* renderer;
         SDL_Texture* texture;
+        SDLContext()
+            : window(0), windowID(0), renderer(0), texture(0) {}
     };
 
     Display::FrameBufferInterface
