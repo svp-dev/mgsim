@@ -21,9 +21,6 @@ class IONotificationMultiplexer : public Object, public Inspect::Interface<Inspe
 private:
     std::vector<Register<RegAddr>*> m_writebacks;
 
-    StorageTraceSet GetInterruptRequestTraces() const;
-    StorageTraceSet GetNotificationTraces() const;
-
 public:
     std::vector<bool>               m_mask;
     std::vector<Flag*>              m_interrupts;
