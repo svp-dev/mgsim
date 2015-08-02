@@ -57,7 +57,7 @@ public:
     void Cmd_Read(std::ostream& out, const std::vector<std::string>& arguments) const;
 
     StorageTraceSet GetWriteBackTraces() const;
-
+    StorageTraceSet GetNotificationTraces() const;
 };
 
 }

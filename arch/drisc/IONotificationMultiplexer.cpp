@@ -333,6 +333,14 @@ void IONotificationMultiplexer::Cmd_Read(ostream& out, const vector<string>& /*a
     }
 }
 
+StorageTraceSet IONotificationMultiplexer::GetNotificationTraces() const
+{
+    StorageTraceSet sts;
+    for(size_t i = 0; i < m_writebacks.size(); ++i)
+        sts ^= (opt(*m_writebacks[i]) * opt(*m_interrupts[i]) * opt(*m_notifications[i]));
+    return sts;
+}
+
 StorageTraceSet IONotificationMultiplexer::GetWriteBackTraces() const
 {
     StorageTraceSet res;

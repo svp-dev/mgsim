@@ -135,9 +135,9 @@ namespace drisc
         StorageTraceSet res;
         for (std::vector<Flag      *>::const_iterator p = m_nmux.m_interrupts.begin(); p != m_nmux.m_interrupts.end(); ++p)
         {
-            res ^= opt(*(*p));
+            res ^= **p;
         }
-        return res;
+        return opt(res);
     }
 
     bool IOBusInterface::OnNotificationReceived(IONotificationChannelID which, Integer tag)
