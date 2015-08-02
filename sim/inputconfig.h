@@ -6,7 +6,7 @@
 #include "sim/convertval.h"
 #include "sim/except.h"
 #include "sim/kernel.h"
-#include <map>
+#include <unordered_map>
 #include <utility>
 #include <vector>
 #include <ostream>
@@ -25,7 +25,7 @@ class InputConfigRegistry
     // Configuration cache: memoizes the values already found for
     // fully qualified names, together with the pattern that
     // matched the name (for reporting).
-    typedef std::map<std::string, std::pair<std::string, std::string> > ConfigCache;
+    typedef std::unordered_map<std::string, std::pair<std::string, std::string> > ConfigCache;
     ConfigCache              m_cache;
 
 public:
