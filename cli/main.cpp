@@ -539,6 +539,7 @@ int main(int argc, char** argv)
         // Print statistics & final variables.
         AtEnd(*sys, flags);
 
+        sys.reset(nullptr);
         if (ex != NULL)
         {
             // The program is telling us how to terminate. Do it.
@@ -555,5 +556,6 @@ int main(int argc, char** argv)
     // Print statistics & final variables.
     AtEnd(*sys, flags);
 
+    sys.reset(nullptr);
     return 0;
 }
