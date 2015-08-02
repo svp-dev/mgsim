@@ -21,6 +21,7 @@ SIM_SOURCES = \
         sim/convertval.h \
         sim/ctz.h \
 	sim/delegate.h \
+        sim/delegate_closure.h \
 	sim/except.h \
 	sim/except.cpp \
         sim/flag.h \
