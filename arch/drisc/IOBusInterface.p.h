@@ -40,7 +40,7 @@ private:
     IIOBus&                    m_iobus;
     IODeviceID                 m_hostid;
 
-    void Initialize();
+    void Initialize() override;
     Object& GetDRISCParent() const { return *GetParent()->GetParent(); }
 
 public:
@@ -57,28 +57,27 @@ public:
 
     Result DoOutgoingRequests();
 
-
     /* From IIOBusClientCallBack */
-    bool OnReadRequestReceived(IODeviceID from, MemAddr address, MemSize size);
-    bool OnWriteRequestReceived(IODeviceID from, MemAddr address, const IOData& data);
-    bool OnReadResponseReceived(IODeviceID from, MemAddr address, const IOData& data);
-    bool OnInterruptRequestReceived(IONotificationChannelID which);
-    bool OnNotificationReceived(IONotificationChannelID which, Integer tag);
-    bool OnActiveMessageReceived(IODeviceID from, MemAddr address, Integer arg);
+    bool OnReadRequestReceived(IODeviceID from, MemAddr address, MemSize size) override;
+    bool OnWriteRequestReceived(IODeviceID from, MemAddr address, const IOData& data) override;
+    bool OnReadResponseReceived(IODeviceID from, MemAddr address, const IOData& data) override;
+    bool OnInterruptRequestReceived(IONotificationChannelID which) override;
+    bool OnNotificationReceived(IONotificationChannelID which, Integer tag) override;
+    bool OnActiveMessageReceived(IODeviceID from, MemAddr address, Integer arg) override;
 
-    StorageTraceSet GetReadRequestTraces() const;
-    StorageTraceSet GetWriteRequestTraces() const;
-    StorageTraceSet GetReadResponseTraces() const;
-    StorageTraceSet GetInterruptRequestTraces() const;
-    StorageTraceSet GetNotificationTraces() const;
-    StorageTraceSet GetActiveMessageTraces() const;
+    StorageTraceSet GetReadRequestTraces() const override;
+    StorageTraceSet GetWriteRequestTraces() const override;
+    StorageTraceSet GetReadResponseTraces() const override;
+    StorageTraceSet GetInterruptRequestTraces() const override;
+    StorageTraceSet GetNotificationTraces() const override;
+    StorageTraceSet GetActiveMessageTraces() const override;
 
-    void GetDeviceIdentity(IODeviceIdentification& id) const;
+    void GetDeviceIdentity(IODeviceIdentification& id) const override;
 
     IODeviceID GetHostID() const { return m_hostid; }
 
     /* for debugging */
-    const std::string& GetIODeviceName() const;
+    const std::string& GetIODeviceName() const override;
 
 };
 
