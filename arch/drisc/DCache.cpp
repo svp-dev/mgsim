@@ -119,7 +119,7 @@ void DCache::ConnectMemory(IMemory* memory)
 
 DCache::~DCache()
 {
-    delete m_valid;
+    delete[] m_valid;
     delete m_selector;
 }
 
