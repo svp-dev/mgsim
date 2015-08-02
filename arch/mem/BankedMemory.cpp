@@ -259,7 +259,7 @@ public:
         m_busy    .Sensitive( p_Bank );
 
         p_Incoming.SetStorageTraces(opt(m_busy));
-        p_Bank.SetStorageTraces(opt(m_outgoing));
+        p_Bank.SetStorageTraces(opt(m_outgoing * m_busy));
     }
 };
 
