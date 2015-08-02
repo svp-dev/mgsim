@@ -28,9 +28,9 @@ namespace Simulator
     }
 
 
-    Process::Process(Object& parent, const std::string& name, const delegate& d)
+    Process::Process(Object& parent, const std::string& name, delegate&& d)
         : m_name(renameProcess(parent.GetName(), name)),
-          m_delegate(d),
+          m_delegate(std::move(d)),
           m_state(STATE_IDLE),
           m_activations(0),
           m_next(0),
