@@ -34,6 +34,7 @@ namespace Simulator
 
         // Write data to the register.
         // If going from empty to full, activate the sensitive process.
+        void Write(T&& data);
         void Write(const T& data);
 
         // Constructor

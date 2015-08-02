@@ -52,6 +52,7 @@ namespace Simulator
 
         // Pushes the item onto the buffer. Only succeeds if at
         // least min_space space is available before the push.
+        bool Push(T&& item, size_t min_space = 1);
         bool Push(const T& item, size_t min_space = 1);
 
         // Constructor

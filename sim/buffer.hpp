@@ -16,7 +16,7 @@ namespace Simulator
                 Notify();
             }
             for (size_t i = 0; i < m_pushes; ++i) {
-                m_data.push_back(m_new[i]);
+                m_data.push_back(std::move(m_new[i]));
             }
         }
 
@@ -76,6 +76,12 @@ namespace Simulator
     template<typename T>
     bool Buffer<T>::Push(const T& item, size_t min_space)
     {
+        return Push(T(item), min_space);
+    }
+
+    template<typename T>
+    bool Buffer<T>::Push(T&& item, size_t min_space)
+    {
         MarkUpdate();
 
         assert(min_space >= 1);
@@ -97,7 +103,7 @@ namespace Simulator
         if (m_maxSize == INFINITE || m_data.size() + m_pushes + min_space <= m_maxSize)
         {
             COMMIT {
-                m_new[m_pushes] = item;
+                m_new[m_pushes] = std::move(item);
                 if (m_pushes == 0) {
                     RegisterUpdate();
                 }
