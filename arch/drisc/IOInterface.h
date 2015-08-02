@@ -87,7 +87,8 @@ private:
     Object& GetDRISCParent() const { return *GetParent(); };
 
 public:
-    IOInterface(const std::string& name, DRISC& parent, Clock& clock, IIOBus& iobus, IODeviceID devid);
+    IOInterface(const std::string& name, DRISC& parent, Clock& clock,
+                IOMessageInterface& ioif, IODeviceID devid);
     void ConnectMemory(IMemory* memory);
 
     drisc::MMIOComponent& GetAsyncIOInterface() { return m_async_io; }

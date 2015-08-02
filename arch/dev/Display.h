@@ -2,7 +2,7 @@
 #ifndef DISPLAY_H
 #define DISPLAY_H
 
-#include <arch/IOBus.h>
+#include <arch/IOMessageInterface.h>
 #include <sim/kernel.h>
 #include <sim/storage.h>
 #include <sim/config.h>
@@ -15,30 +15,33 @@ namespace Simulator
     {
         class ControlInterface;
 
-        class FrameBufferInterface : public IIOBusClient, public Object
+        class FrameBufferInterface : public IIOMessageClient, public Object
         {
-            IIOBus&         m_iobus;
-            IODeviceID      m_devid;
+            IOMessageInterface& m_ioif;
+            IODeviceID          m_devid;
 
             friend class ControlInterface;
 
             Display&        GetDisplay() { return *dynamic_cast<Display*>(GetParent()); }
 
         public:
-            FrameBufferInterface(const std::string& name, Display& parent, IIOBus& iobus, IODeviceID devid);
+            FrameBufferInterface(const std::string& name, Display& parent,
+                                 IOMessageInterface& ioif, IODeviceID devid);
 
             friend class Display;
 
-            bool OnReadRequestReceived(IODeviceID from, MemAddr address, MemSize size);
-            bool OnWriteRequestReceived(IODeviceID from, MemAddr address, const IOData& data);
-            void GetDeviceIdentity(IODeviceIdentification& id) const;
+            bool OnReadRequestReceived(IODeviceID from, MemAddr address, MemSize size) override;
+            StorageTraceSet GetReadRequestTraces() const override;
+            bool OnWriteRequestReceived(IODeviceID from, MemAddr address, const IOData& data) override;
+            StorageTraceSet GetWriteRequestTraces() const override;
+            void GetDeviceIdentity(IODeviceIdentification& id) const override;
 
-            const std::string& GetIODeviceName() const;
+            const std::string& GetIODeviceName() const override;
         };
 
-        class ControlInterface : public IIOBusClient, public Object
+        class ControlInterface : public IIOMessageClient, public Object
         {
-            IIOBus&         m_iobus;
+            IOMessageInterface&   m_ioif;
             std::vector<uint32_t> m_control;
             IODeviceID      m_devid;
             DefineStateVariable(unsigned, key);
@@ -46,15 +49,18 @@ namespace Simulator
             Display&        GetDisplay() { return *dynamic_cast<Display*>(GetParent()); }
 
         public:
-            ControlInterface(const std::string& name, Display& parent, IIOBus& iobus, IODeviceID devid);
+            ControlInterface(const std::string& name, Display& parent,
+                             IOMessageInterface& ioif, IODeviceID devid);
 
             friend class Display;
 
-            bool OnReadRequestReceived(IODeviceID from, MemAddr address, MemSize size);
-            bool OnWriteRequestReceived(IODeviceID from, MemAddr address, const IOData& data);
-            void GetDeviceIdentity(IODeviceIdentification& id) const;
+            bool OnReadRequestReceived(IODeviceID from, MemAddr address, MemSize size) override;
+            StorageTraceSet GetReadRequestTraces() const override;
+            bool OnWriteRequestReceived(IODeviceID from, MemAddr address, const IOData& data) override;
+            StorageTraceSet GetWriteRequestTraces() const override;
+            void GetDeviceIdentity(IODeviceIdentification& id) const override;
 
-            const std::string& GetIODeviceName() const;
+            const std::string& GetIODeviceName() const override;
         };
 
         ControlInterface      m_ctlinterface;
@@ -84,7 +90,8 @@ namespace Simulator
 
     public:
         Display(const std::string& name, Object& parent,
-                IIOBus& iobus, IODeviceID ctldevid, IODeviceID fbdevid);
+                IOMessageInterface& iobus,
+                IODeviceID ctldevid, IODeviceID fbdevid);
 
         Display(const Display&) = delete;
         Display& operator=(const Display&) = delete;

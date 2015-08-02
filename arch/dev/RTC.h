@@ -2,7 +2,7 @@
 #ifndef RTC_H
 #define RTC_H
 
-#include "arch/IOBus.h"
+#include "arch/IOMessageInterface.h"
 #include "sim/kernel.h"
 #include "sim/config.h"
 #include "sim/flag.h"
@@ -27,17 +27,18 @@ namespace Simulator
         Flag            m_enableCheck;
 
 
-        class RTCInterface : public IIOBusClient, public Object
+        class RTCInterface : public IIOMessageClient, public Object
         {
-            IODeviceID      m_devid;
-            IIOBus&         m_iobus;
-            Flag            m_doNotify;
+            IODeviceID          m_devid;
+            IOMessageInterface& m_ioif;
+            Flag                m_doNotify;
             DefineStateVariable(IONotificationChannelID, interruptNumber);
 
-            RTC&            GetRTC() { return *dynamic_cast<RTC*>(GetParent()); }
+            RTC&            GetRTC() const { return *dynamic_cast<RTC*>(GetParent()); }
 
         public:
-            RTCInterface(const std::string& name, RTC& parent, IIOBus& iobus, IODeviceID devid);
+            RTCInterface(const std::string& name, RTC& parent,
+                         IOMessageInterface& ioif, IODeviceID devid);
 
             Process p_notifyTime;
 
@@ -45,13 +46,15 @@ namespace Simulator
 
             friend class RTC;
 
-            bool OnReadRequestReceived(IODeviceID from, MemAddr address, MemSize size);
-            bool OnWriteRequestReceived(IODeviceID from, MemAddr address, const IOData& data);
+            bool OnReadRequestReceived(IODeviceID from, MemAddr address, MemSize size) override;
+            bool OnWriteRequestReceived(IODeviceID from, MemAddr address, const IOData& data) override;
+            StorageTraceSet GetReadRequestTraces() const override;
+            StorageTraceSet GetWriteRequestTraces() const override;
 
             // Admin
-            void Initialize();
-            const std::string& GetIODeviceName() const;
-            void GetDeviceIdentity(IODeviceIdentification& id) const;
+            void Initialize() override;
+            const std::string& GetIODeviceName() const override;
+            void GetDeviceIdentity(IODeviceIdentification& id) const override;
         };
 
         RTCInterface         m_businterface;
@@ -59,7 +62,8 @@ namespace Simulator
 
     public:
 
-        RTC(const std::string& name, Object& parent, Clock& clock, IIOBus& iobus, IODeviceID devid);
+        RTC(const std::string& name, Object& parent, Clock& clock,
+            IOMessageInterface& ioif, IODeviceID devid);
 
         Process p_checkTime;
 

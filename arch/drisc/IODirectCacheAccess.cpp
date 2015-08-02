@@ -171,23 +171,27 @@ namespace drisc
             && res.address <= m_outstanding_address
             && res.address + res.size >= m_outstanding_address + m_outstanding_size)
         {
-            IOBusInterface::IORequest req;
-            req.device = m_outstanding_client;
-            req.type = IOBusInterface::REQ_READRESPONSE;
-            req.address = m_outstanding_address;
-            req.data.size = m_outstanding_size;
+            IOBusInterface::IORequest req { m_outstanding_client, 0};
+            COMMIT {
+                req.msg = new IOMessage;
+                req.msg->type = IOMessage::READ_RESPONSE;
+                req.msg->read_response.addr = m_outstanding_address;
+                req.msg->read_response.data.size = m_outstanding_size;
 
-            memcpy(req.data.data, res.data + (m_outstanding_address - res.address), m_outstanding_size);
+                memcpy(req.msg->read_response.data.data,
+                       res.data + (m_outstanding_address - res.address), m_outstanding_size);
+            }
 
-            if (!m_busif.SendRequest(req))
+            if (!m_busif.SendRequest(std::move(req)))
             {
                 DeadlockWrite("Unable to send DCA read response to client %u for %#016llx/%u",
-                              (unsigned)req.device, (unsigned long long)req.address, (unsigned)req.data.size);
+                              (unsigned)req.device, (unsigned long long)m_outstanding_address, (unsigned)m_outstanding_size);
                 return FAILED;
             }
 
             DebugIOWrite("Sent DCA read response to client %u for %#016llx/%u",
-                         (unsigned)req.device, (unsigned long long)req.address, (unsigned)req.data.size);
+                         (unsigned)m_outstanding_client, (unsigned long long)m_outstanding_address, (unsigned)m_outstanding_size);
+
 
             COMMIT {
                 m_has_outstanding_request = false;

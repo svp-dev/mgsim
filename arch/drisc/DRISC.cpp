@@ -149,14 +149,14 @@ void DRISC::ConnectFPU(FPU* fpu)
     RegisterModelBidiRelation(*this, *fpu, "fpu");
 }
 
-void DRISC::ConnectIO(IIOBus* iobus)
+void DRISC::ConnectIO(IOMessageInterface* ioif)
 {
-    assert(iobus != NULL);
+    assert(ioif != NULL);
 
     // This processor also supports I/O
-    IODeviceID devid = GetConfOpt("DeviceID", IODeviceID, iobus->GetNextAvailableDeviceID());
+    IODeviceID devid = GetConfOpt("DeviceID", IODeviceID, ioif->GetNextAvailableDeviceID());
 
-    m_io_if = new IOInterface("io_if", *this, m_clock, *iobus, devid);
+    m_io_if = new IOInterface("io_if", *this, m_clock, *ioif, devid);
 
     if (m_memory != NULL)
         m_io_if->ConnectMemory(m_memory);
@@ -166,7 +166,7 @@ void DRISC::ConnectIO(IIOBus* iobus)
     MMIOComponent& pnc_if = m_io_if->GetPNCInterface();
     pnc_if.Connect(m_mmio, IOMatchUnit::READWRITE);
 
-    RegisterModelBidiRelation(*iobus, *this, "client", (uint32_t)devid);
+    RegisterModelBidiRelation(*ioif, *this, "client", (uint32_t)devid);
 }
 
 void DRISC::Initialize()
@@ -367,13 +367,7 @@ void DRISC::Initialize()
         /* I/O reads / writes */
         pls_memory ^=
             opt(m_io_if->GetReadResponseMultiplexer().GetWriteBackTraces()) * /* I/O read, write has no writeback */
-            m_io_if->GetIOBusInterface().m_outgoing_reqs *
-            /* in the NullIO interface, the transfer occurs in the same cycle, so we have to add the
-               receiver traces here too. This is not realistic, and should disappear with the
-               implementation of an I/O substrate with appropriate buffering. */
-            opt(m_io_if->GetIOBusInterface().GetReadResponseTraces() ^
-                m_io_if->GetIOBusInterface().GetInterruptRequestTraces() ^
-                m_io_if->GetIOBusInterface().GetNotificationTraces());
+            m_io_if->GetIOBusInterface().m_outgoing_reqs;
 
     }
 
@@ -439,7 +433,8 @@ void DRISC::Initialize()
         // Asynchronous events from the I/O network can wake up / terminate threads
         // due to a register write.
         m_io_if->GetReadResponseMultiplexer().p_IncomingReadResponses.SetStorageTraces(opt(m_allocator.m_readyThreadsOther) ^ opt(m_allocator.m_cleanup));
-        m_io_if->GetNotificationMultiplexer().p_IncomingNotifications.SetStorageTraces(opt(m_allocator.m_readyThreadsOther) ^ opt(m_allocator.m_cleanup));
+        auto& nmux = m_io_if->GetNotificationMultiplexer();
+        nmux.p_IncomingNotifications.SetStorageTraces((opt(m_allocator.m_readyThreadsOther) ^ opt(m_allocator.m_cleanup)) * nmux.GetNotificationTraces() );
     }
 }
 
@@ -463,7 +458,7 @@ void DRISC::InitializeRegisters()
                 clog << "#warning: -RNNN=B... specified but " << GetName() << " is not connected to I/O" << endl;
             }
             else {
-                auto devname = m_io_if->GetIOBusInterface().GetIOBus().GetDeviceIDByName(value.substr(1));
+                auto devname = m_io_if->GetIOBusInterface().GetIF().GetDeviceIDByName(value.substr(1));
                 reg_value.m_integer = m_io_if->GetDeviceBaseAddress(devname);
             }
         }

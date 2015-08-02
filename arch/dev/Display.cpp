@@ -24,12 +24,24 @@ namespace Simulator
 
     Display::FrameBufferInterface
     ::FrameBufferInterface(const string& name, Display& parent,
-                           IIOBus& iobus, IODeviceID devid)
+                           IOMessageInterface& ioif, IODeviceID devid)
         : Object(name, parent),
-          m_iobus(iobus),
+          m_ioif(ioif),
           m_devid(devid)
     {
-        iobus.RegisterClient(devid, *this);
+        ioif.RegisterClient(devid, *this);
+    }
+
+    StorageTraceSet Display::FrameBufferInterface::
+    GetReadRequestTraces() const
+    {
+        return m_ioif.GetRequestTraces(m_devid);
+    }
+
+    StorageTraceSet Display::FrameBufferInterface::
+    GetWriteRequestTraces() const
+    {
+        return StorageTrace();
     }
 
     bool Display::FrameBufferInterface::
@@ -41,15 +53,14 @@ namespace Simulator
             throw exceptf<>(*this, "FB read out of bounds: %#016llx (%u)", (unsigned long long)address, (unsigned)size);
         }
 
-        IOData iodata;
+        IOMessage* msg = m_ioif.CreateReadResponse(m_devid, address, size);
         COMMIT {
-            memcpy(iodata.data, &disp.m_video_memory[address], size);
+            memcpy(msg->read_response.data.data, &disp.m_video_memory[address], size);
         }
-        iodata.size = size;
 
         DebugIOWrite("FB read: %#016llx/%u", (unsigned long long)address, (unsigned)size);
 
-        if (!m_iobus.SendReadResponse(m_devid, from, address, iodata))
+        if (!m_ioif.SendMessage(m_devid, from, msg))
         {
             DeadlockWrite("Cannot send FB read response to I/O bus");
             return false;
@@ -94,15 +105,15 @@ namespace Simulator
 
     Display::ControlInterface::
     ControlInterface(const string& name, Display& parent,
-                     IIOBus& iobus, IODeviceID devid)
+                     IOMessageInterface& ioif, IODeviceID devid)
         : Object(name, parent),
-          m_iobus(iobus),
+          m_ioif(ioif),
           m_control(2, 0),
           m_devid(devid),
           InitStateVariable(key, 0)
     {
         RegisterStateVariable(m_control, "control");
-        iobus.RegisterClient(devid, *this);
+        ioif.RegisterClient(devid, *this);
     }
 
     void Display::ControlInterface::
@@ -233,19 +244,32 @@ namespace Simulator
         case 9: value = disp.m_fbinterface.m_devid; break;
         }
 
-        IOData iodata;
-        SerializeRegister(RT_INTEGER, value, iodata.data, 4);
-        iodata.size = 4;
+        IOMessage *msg = m_ioif.CreateReadResponse(m_devid, address, 4);
+        COMMIT {
+            SerializeRegister(RT_INTEGER, value, msg->read_response.data.data, 4);
+        }
 
         DebugIOWrite("Ctl read from word %u: %#016lx", word, (unsigned long)value);
 
-        if (!m_iobus.SendReadResponse(m_devid, from, address, iodata))
+        if (!m_ioif.SendMessage(m_devid, from, msg))
         {
             DeadlockWrite("Cannot send GfxCtl read response to I/O bus");
             return false;
         }
 
         return true;
+    }
+
+    StorageTraceSet Display::ControlInterface::
+    GetReadRequestTraces() const
+    {
+        return m_ioif.GetRequestTraces(m_devid);
+    }
+
+    StorageTraceSet Display::ControlInterface::
+    GetWriteRequestTraces() const
+    {
+        return StorageTrace();
     }
 
     const string& Display::ControlInterface::
@@ -255,10 +279,11 @@ namespace Simulator
     }
 
 
-    Display::Display(const string& name, Object& parent, IIOBus& iobus, IODeviceID ctldevid, IODeviceID fbdevid)
+    Display::Display(const string& name, Object& parent,
+                     IOMessageInterface& ioif, IODeviceID ctldevid, IODeviceID fbdevid)
         : Object(name, parent),
-          m_ctlinterface("ctl", *this, iobus, ctldevid),
-          m_fbinterface("fb", *this, iobus, fbdevid),
+          m_ctlinterface("ctl", *this, ioif, ctldevid),
+          m_fbinterface("fb", *this, ioif, fbdevid),
           m_max_screen_h(1024),
           m_max_screen_w(1280),
           m_video_memory_updated(false),

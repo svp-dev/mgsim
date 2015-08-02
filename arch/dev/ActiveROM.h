@@ -2,7 +2,7 @@
 #ifndef ACTIVE_ROM_H
 #define ACTIVE_ROM_H
 
-#include "arch/IOBus.h"
+#include "arch/IOMessageInterface.h"
 #include "arch/Memory.h"
 #include "sim/kernel.h"
 #include "sim/config.h"
@@ -12,7 +12,7 @@
 
 namespace Simulator
 {
-    class ActiveROM : public IIOBusClient, public Object, public Inspect::Interface<Inspect::Info|Inspect::Read>
+    class ActiveROM : public IIOMessageClient, public Object, public Inspect::Interface<Inspect::Info|Inspect::Read>
     {
     public:
         struct LoadableRange
@@ -43,7 +43,8 @@ namespace Simulator
         // DCA parameters
 
         IODeviceID         m_devid;
-        IIOBus&            m_iobus;
+        IOMessageInterface&m_ioif;
+        Clock&             m_clock;
 
         DefineStateVariable(IODeviceID, client);
         DefineStateVariable(IONotificationChannelID, completionTarget);
@@ -61,7 +62,7 @@ namespace Simulator
         void PrepareRanges();
 
     public:
-        ActiveROM(const std::string& name, Object& parent, IMemoryAdmin& mem, IIOBus& iobus, IODeviceID devid, bool quiet = false);
+        ActiveROM(const std::string& name, Object& parent, IMemoryAdmin& mem, IOMessageInterface& ioif, IODeviceID devid, bool quiet = false);
         ActiveROM(const ActiveROM&) = delete;
         ActiveROM& operator=(const ActiveROM&) = delete;
         ~ActiveROM();
@@ -81,15 +82,16 @@ namespace Simulator
         const std::string& GetProgramName() const { return m_filename; }
         IODeviceID GetDeviceID() const { return m_devid; }
 
-        bool OnReadRequestReceived(IODeviceID from, MemAddr address, MemSize size);
-        bool OnWriteRequestReceived(IODeviceID from, MemAddr address, const IOData& data);
-        bool OnReadResponseReceived(IODeviceID from, MemAddr address, const IOData& data);
+        bool OnReadRequestReceived(IODeviceID from, MemAddr address, MemSize size) override;
+        bool OnWriteRequestReceived(IODeviceID from, MemAddr address, const IOData& data) override;
+        bool OnReadResponseReceived(IODeviceID from, MemAddr address, const IOData& data) override;
 
-        StorageTraceSet GetWriteRequestTraces() const;
-        StorageTraceSet GetReadResponseTraces() const;
+        StorageTraceSet GetWriteRequestTraces() const override;
+        StorageTraceSet GetReadResponseTraces() const override;
+        StorageTraceSet GetReadRequestTraces() const override;
 
-        void GetDeviceIdentity(IODeviceIdentification& id) const;
-        const std::string& GetIODeviceName() const;
+        void GetDeviceIdentity(IODeviceIdentification& id) const override;
+        const std::string& GetIODeviceName() const override;
 
         /* debug */
         void Cmd_Read(std::ostream& out, const std::vector<std::string>& arguments) const;

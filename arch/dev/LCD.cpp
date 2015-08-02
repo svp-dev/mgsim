@@ -13,11 +13,10 @@
 namespace Simulator
 {
 
-// size_t LCD::GetSize() const { return m_width * m_height + 1; }
-
-LCD::LCD(const std::string& name, Object& parent, IIOBus& iobus, IODeviceID devid)
+LCD::LCD(const std::string& name, Object& parent,
+         IOMessageInterface& ioif, IODeviceID devid)
     : Object(name, parent),
-      m_iobus(iobus),
+      m_ioif(ioif),
       m_devid(devid),
       m_buffer(0),
       m_width(GetConf("LCDDisplayWidth", size_t)),
@@ -49,7 +48,7 @@ LCD::LCD(const std::string& name, Object& parent, IIOBus& iobus, IODeviceID devi
         }
     }
 
-    iobus.RegisterClient(devid, *this);
+    ioif.RegisterClient(devid, *this);
 }
 
 LCD::~LCD()
@@ -84,16 +83,28 @@ bool LCD::OnReadRequestReceived(IODeviceID from, MemAddr address, MemSize size)
 
     uint32_t value = (uint32_t)m_width << 16 | (uint32_t)m_height;
 
-    IOData iodata;
-    SerializeRegister(RT_INTEGER, value, iodata.data, 4);
-    iodata.size = 4;
+    IOMessage* msg = m_ioif.CreateReadResponse(m_devid, address, 4);
+    COMMIT {
+         SerializeRegister(RT_INTEGER, value, msg->read_response.data.data, 4);
+    }
 
-    if (!m_iobus.SendReadResponse(m_devid, from, address, iodata))
+    if (!m_ioif.SendMessage(m_devid, from, msg))
     {
         DeadlockWrite("Cannot send LCD read response to I/O bus");
+        delete msg;
         return false;
     }
     return true;
+}
+
+StorageTraceSet LCD::GetReadRequestTraces() const
+{
+    return m_ioif.GetRequestTraces(m_devid);
+}
+
+StorageTraceSet LCD::GetWriteRequestTraces() const
+{
+    return StorageTrace();
 }
 
 bool LCD::OnWriteRequestReceived(IODeviceID from, MemAddr address, const IOData& data)

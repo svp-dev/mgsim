@@ -4,7 +4,7 @@
 
 #include <sim/inspect.h>
 #include <sim/unreachable.h>
-#include <arch/IOBus.h>
+#include <arch/IOMessageInterface.h>
 #include <arch/Memory.h>
 #include <arch/BankSelector.h>
 #include <arch/FPU.h>
@@ -48,7 +48,7 @@ public:
     void ConnectMemory(IMemory* memory, IMemoryAdmin *admin);
     void ConnectLink(DRISC* prev, DRISC* next);
     void ConnectFPU(FPU* fpu);
-    void ConnectIO(IIOBus* iobus);
+    void ConnectIO(IOMessageInterface* ioif);
 
     void Initialize();
 

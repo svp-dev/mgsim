@@ -4,7 +4,7 @@
 
 #include <sim/kernel.h>
 #include <sim/storage.h>
-#include <arch/IOBus.h>
+#include <arch/IOMessageInterface.h>
 #include <arch/drisc/forward.h>
 
 namespace Simulator
@@ -12,24 +12,16 @@ namespace Simulator
 namespace drisc
 {
 
-class IOBusInterface : public IIOBusClient, public Object
+class IOBusInterface : public IIOMessageClient, public Object
 {
 public:
-    enum IORequestType
-    {
-        REQ_READ,
-        REQ_WRITE,
-        REQ_READRESPONSE
-    };
 
     // {% from "sim/macros.p.h" import gen_struct %}
     // {% call gen_struct() %}
     ((name IORequest)
      (state
       (IODeviceID    device)
-      (IORequestType type)
-      (MemAddr       address)    // for all types
-      (IOData        data)       // for writes & read responses
+      (IOMessage*    msg)       // for writes & read responses
          ))
     // {% endcall %}
 
@@ -37,19 +29,20 @@ private:
     IOResponseMultiplexer&     m_rrmux;
     IONotificationMultiplexer& m_nmux;
     IODirectCacheAccess&       m_dca;
-    IIOBus&                    m_iobus;
+    IOMessageInterface&        m_ioif;
     IODeviceID                 m_hostid;
 
     void Initialize() override;
     Object& GetDRISCParent() const { return *GetParent()->GetParent(); }
 
 public:
-    Buffer<IORequest>          m_outgoing_reqs;
+    Buffer<IORequest>         m_outgoing_reqs;
 
 public:
-    IIOBus& GetIOBus() const { return m_iobus; }
+    IOMessageInterface& GetIF() const { return m_ioif; }
 
-    IOBusInterface(const std::string& name, IOInterface& parent, Clock& clock, IIOBus& iobus, IODeviceID devid);
+    IOBusInterface(const std::string& name, IOInterface& parent,
+                   IOMessageInterface& ioif, IODeviceID devid);
 
     bool SendRequest(IORequest&& msg);
 

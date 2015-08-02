@@ -38,27 +38,29 @@ namespace Simulator
     // - MODEM lines are not supported/connected
     // - transmit speed / divisor latch is not supported
 
-    UART::UART(const string& name, Object& parent, IIOBus& iobus, IODeviceID devid)
+    UART::UART(const string& name, Object& parent,
+               IOMessageInterface& ioif, IODeviceID devid)
         : Object(name, parent),
 
-          m_iobus(iobus),
+          m_ioif(ioif),
           m_devid(devid),
+          m_clock(m_ioif.RegisterClient(devid, *this)),
 
           InitStateVariable(hwbuf_in_full, false),
           InitStateVariable(hwbuf_in, 0),
           InitStateVariable(hwbuf_out_full, false),
           InitStateVariable(hwbuf_out, 0),
 
-          InitStorage(m_receiveEnable, iobus.GetClock(), false),
-          InitBuffer(m_fifo_in, iobus.GetClock(), "UARTInputFIFOSize"),
+          InitStorage(m_receiveEnable, m_clock, false),
+          InitBuffer(m_fifo_in, m_clock, "UARTInputFIFOSize"),
           InitProcess(p_Receive, DoReceive),
 
-          InitBuffer(m_fifo_out, iobus.GetClock(), "UARTOutputFIFOSize"),
+          InitBuffer(m_fifo_out, m_clock, "UARTOutputFIFOSize"),
           InitProcess(p_Transmit, DoTransmit),
 
           InitStateVariable(write_buffer, 0),
 
-          InitStorage(m_sendEnable, iobus.GetClock(), false),
+          InitStorage(m_sendEnable, m_clock, false),
           InitProcess(p_Send, DoSend),
 
           m_eof(false),
@@ -67,14 +69,14 @@ namespace Simulator
 
           InitStateVariable(readInterruptEnable, false),
 
-          InitStorage(m_readInterrupt, iobus.GetClock(), false),
+          InitStorage(m_readInterrupt, m_clock, false),
           InitProcess(p_ReadInterrupt, DoSendReadInterrupt),
           InitStateVariable(readInterruptChannel, 0),
 
           InitStateVariable(writeInterruptEnable, false),
           InitStateVariable(writeInterruptThreshold, 1),
 
-          InitStorage(m_writeInterrupt, iobus.GetClock(), false),
+          InitStorage(m_writeInterrupt, m_clock, false),
           InitProcess(p_WriteInterrupt, DoSendWriteInterrupt),
           InitStateVariable(writeInterruptChannel, 0),
 
@@ -183,8 +185,6 @@ namespace Simulator
         m_writeInterrupt.Sensitive(p_WriteInterrupt);
         m_fifo_in.Sensitive(p_dummy);
 
-        iobus.RegisterClient(devid, *this);
-
         RegisterModelObject(*this, "uart");
         RegisterModelProperty(*this, "inpfifosz", m_fifo_in.GetMaxSize());
         RegisterModelProperty(*this, "outfifosz", m_fifo_out.GetMaxSize());
@@ -192,7 +192,7 @@ namespace Simulator
 
     Result UART::DoSendReadInterrupt()
     {
-        if (!m_iobus.SendInterruptRequest(m_devid, m_readInterruptChannel))
+        if (!m_ioif.SendInterruptRequest(m_devid, m_readInterruptChannel))
         {
             DeadlockWrite("Unable to send data ready interrupt to I/O bus");
             return FAILED;
@@ -202,7 +202,7 @@ namespace Simulator
 
     Result UART::DoSendWriteInterrupt()
     {
-        if (!m_iobus.SendInterruptRequest(m_devid, m_writeInterruptChannel))
+        if (!m_ioif.SendInterruptRequest(m_devid, m_writeInterruptChannel))
         {
             DeadlockWrite("Unable to send underrun interrupt to I/O bus");
             return FAILED;
@@ -212,7 +212,7 @@ namespace Simulator
 
     Result UART::DoSend()
     {
-        if (!m_fifo_out.Push(m_write_buffer))
+        if (!m_fifo_out.Push(char(m_write_buffer)))
         {
             DebugIOWrite("Unable to queue byte from transmit hold register to output FIFO: %#02x", (unsigned)m_write_buffer);
             return FAILED;
@@ -237,7 +237,7 @@ namespace Simulator
 
         if (m_loopback)
         {
-            if (!m_fifo_in.Push(m_fifo_out.Front()))
+            if (!m_fifo_in.Push(char(m_fifo_out.Front())))
             {
                 DebugIOWrite("Unable to loop back from output FIFO back to input FIFO");
                 return FAILED;
@@ -282,7 +282,7 @@ namespace Simulator
             return SUCCESS;
         }
 
-        if (!m_fifo_in.Push(m_hwbuf_in))
+        if (!m_fifo_in.Push(std::move(m_hwbuf_in)))
         {
             DebugIOWrite("Cannot queue incoming byte (%#02x) from input latch to input FIFO", (unsigned)m_hwbuf_in);
             return FAILED;
@@ -299,6 +299,19 @@ namespace Simulator
         DebugIOWrite("Pushed one byte from input latch to input FIFO: %#02x", (unsigned)m_hwbuf_in);
 
         return SUCCESS;
+    }
+
+    StorageTraceSet UART::GetReadRequestTraces() const
+    {
+        return (opt(opt(m_readInterrupt) * m_fifo_in)
+                ^ opt(m_writeInterrupt)) * m_ioif.GetRequestTraces(m_devid);
+    }
+
+    StorageTraceSet UART::GetWriteRequestTraces() const
+    {
+        return m_sendEnable
+            ^ (opt(m_readInterrupt) * opt(m_writeInterrupt))
+            ^ opt(m_writeInterrupt * m_readInterrupt);
     }
 
     bool UART::OnWriteRequestReceived(IODeviceID from, MemAddr addr, const IOData& iodata)
@@ -547,11 +560,12 @@ namespace Simulator
             break;
         }
 
-        IOData iodata;
-        iodata.size = 1;
-        iodata.data[0] = (char)data;
+        IOMessage *msg = m_ioif.CreateReadResponse(m_devid, addr, 1);
+        COMMIT {
+            msg->read_response.data.data[0] = (char)data;
+        }
 
-        if (!m_iobus.SendReadResponse(m_devid, from, addr, iodata))
+        if (!m_ioif.SendMessage(m_devid, from, msg))
         {
             DeadlockWrite("Cannot send UART read response to I/O bus");
             return false;

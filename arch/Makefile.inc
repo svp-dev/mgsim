@@ -37,8 +37,6 @@ endif
 DEVICE_SRC = \
 	arch/dev/IODeviceDatabase.h \
 	arch/dev/IODeviceDatabase.cpp \
-	arch/dev/UnbufferedCrossbar.cpp \
-	arch/dev/UnbufferedCrossbar.h \
 	arch/dev/RTC.h \
 	arch/dev/RTC.cpp \
 	arch/dev/LCD.cpp \
@@ -142,8 +140,6 @@ COMMON_SRC = \
         arch/BankSelector.cpp \
 	arch/FPU.cpp \
 	arch/FPU.h \
-	arch/IOBus.h \
-        arch/IOBus.cpp \
 	arch/Memory.h \
 	arch/Memory.cpp \
 	arch/MGSystem.h \
@@ -206,4 +202,3 @@ EXTRA_DIST += \
 	arch/drisc/ISA.mtsparc.cpp
 
 ARCH_SOURCES = $(COMMON_SRC) $(PROCESSOR_SRC) $(MEMORY_SRC) $(DEVICE_SRC)
-
