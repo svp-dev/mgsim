@@ -17,7 +17,7 @@ namespace Simulator {
     class Selector;
     class FPU;
     namespace IC { template<typename Payload> class IInterconnect; }
-    class IOPayload;
+    struct IOPayload;
     class IOMessageInterface;
     class DRISC;
     class IMemory;

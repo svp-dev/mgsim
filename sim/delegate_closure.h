@@ -31,7 +31,7 @@ namespace Simulator
         struct capture : delegate_gen<R, Args...> {
         protected:
             template<typename T, R_ (T::*TMethod)(CapturedArgs..., Args_...)>
-            struct wrap;
+            class wrap;
 
             using delegate_gen<R, Args...>::delegate_gen;
         public:
@@ -53,7 +53,7 @@ namespace Simulator
     template<typename...CapturedArgs>
     template<typename T, R_ (T::*TMethod)(CapturedArgs..., Args_...)>
     class closure<R, Args...>::adapter<R_, Args_...>::capture<CapturedArgs...>::wrap {
-        friend class capture;
+        friend struct capture;
 
         wrap(T& object, std::tuple<CapturedArgs...>&& cargs)
             : m_object(&object),
