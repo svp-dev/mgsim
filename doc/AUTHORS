@@ -1,14 +1,14 @@
 The MGSim Project consists of:
 
-* Mike Lankamp          m.lankamp@uva.nl
+* Mike Lankamp          mike.lankamp@gmail.com
   - Microgrid architecture investigator 2007-current,
   - Simulation framework designer.
 
-* Chris Jesshope        c.r.jesshope@uva.nl
+* Chris Jesshope        bossman@mac.com
   - Project manager,
   - Theoretical mentor.
 
-* Michiel W. van Tol    mwvantol@uva.nl
+* Michiel W. van Tol    mwvantol@dds.nl
   - Instigator of the SVP model,
   - Visionary for resource management for many core systems.
 
@@ -17,12 +17,12 @@ The MGSim Project consists of:
   - Software stack investigator 2008-current,
   - Packaging and distribution maintainer.
 
-* Qiang Yang            q.yang@uva.nl
+* Qiang Yang            strongyangqiang@gmail.com
   - Evaluation and benchmarking,
   - Memory system optimizations,
   - ISA improvements.
 
-* Jian Fu               j.fu@uva.nl
+* Jian Fu               fujian85@gmail.com
   - Fault tolerance.
 
 Acknowledgements
@@ -45,3 +45,7 @@ for their help and contributions:
 
 - Konstantinos Bousias
   - for his inspiration in the design of a simulation environment.
+
+- Alyssa Milburn
+  - for her contributions to the MIPS ISA simulation.
+
