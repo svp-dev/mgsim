@@ -9,35 +9,33 @@ namespace Simulator
 namespace drisc
 {
 
-    IOBusInterface::IOBusInterface(const std::string& name, IOInterface& parent, Clock& clock, IIOBus& iobus, IODeviceID devid)
+    IOBusInterface::IOBusInterface(const std::string& name, IOInterface& parent,
+                                   IOMessageInterface& ioif, IODeviceID devid)
         : Object(name, parent),
           m_rrmux(parent.GetReadResponseMultiplexer()),
           m_nmux(parent.GetNotificationMultiplexer()),
           m_dca(parent.GetDirectCacheAccess()),
-          m_iobus(iobus),
+          m_ioif(ioif),
           m_hostid(devid),
-          InitBuffer(m_outgoing_reqs, clock, "OutgoingRequestQueueSize"),
+          InitBuffer(m_outgoing_reqs, ioif.RegisterClient(devid, *this, true), "OutgoingRequestQueueSize"),
           InitProcess(p_OutgoingRequests, DoOutgoingRequests)
     {
         if (m_outgoing_reqs.GetMaxSize() < 3)
         {
             throw InvalidArgumentException(*this, "OutgoingRequestQueueSize must be at least 3 to accomodate pipeline hazards");
         }
-        iobus.RegisterClient(devid, *this);
         m_outgoing_reqs.Sensitive(p_OutgoingRequests);
+        ioif.GetIC().ConnectSender(ioif.GetSenderKey(devid), p_OutgoingRequests);
     }
 
     void IOBusInterface::Initialize()
     {
-        p_OutgoingRequests.SetStorageTraces(
-            m_iobus.GetWriteRequestTraces() ^
-            m_iobus.GetReadRequestTraces(m_hostid) ^
-            m_iobus.GetReadResponseTraces() );
+        p_OutgoingRequests.SetStorageTraces(m_ioif.GetRequestTraces(m_hostid));
     }
 
-    bool IOBusInterface::SendRequest(const IORequest& request)
+    bool IOBusInterface::SendRequest(IORequest&& request)
     {
-        return m_outgoing_reqs.Push(request);
+        return m_outgoing_reqs.Push(std::move(request));
     }
 
     Result IOBusInterface::DoOutgoingRequests()
@@ -45,34 +43,12 @@ namespace drisc
         assert(!m_outgoing_reqs.Empty());
 
         const IORequest& req = m_outgoing_reqs.Front();
-
-        switch(req.type)
+        if (!m_ioif.SendMessage(m_hostid, req.device, req.msg))
         {
-        case REQ_WRITE:
-            if (!m_iobus.SendWriteRequest(m_hostid, req.device, req.address, req.data))
-            {
-                DeadlockWrite("Unable to send I/O write request to %u:%016llx (%u)",
-                              (unsigned)req.device, (unsigned long long)req.address, (unsigned)req.data.size);
+            DeadlockWrite("Unable to send I/O request to %u",
+                          (unsigned)req.device);
                 return FAILED;
-            }
-            break;
-        case REQ_READ:
-            if (!m_iobus.SendReadRequest(m_hostid, req.device, req.address, req.data.size))
-            {
-                DeadlockWrite("Unable to send I/O read request to %u:%016llx (%u)",
-                              (unsigned)req.device, (unsigned long long)req.address, (unsigned)req.data.size);
-                return FAILED;
-            }
-            break;
-        case REQ_READRESPONSE:
-            if (!m_iobus.SendReadResponse(m_hostid, req.device, req.address, req.data))
-            {
-                DeadlockWrite("Unable to send DCA read response to %u:%016llx (%u)",
-                              (unsigned)req.device, (unsigned long long)req.address, (unsigned)req.data.size);
-                return FAILED;
-            }
-            break;
-        };
+        }
 
         m_outgoing_reqs.Pop();
         return SUCCESS;
@@ -85,7 +61,7 @@ namespace drisc
         req.address = address;
         req.type = (address == 0 && size == 0) ? IODirectCacheAccess::FLUSH : IODirectCacheAccess::READ;
         req.size = size;
-        return m_dca.QueueRequest(req);
+        return m_dca.QueueRequest(std::move(req));
     }
 
     StorageTraceSet IOBusInterface::GetReadRequestTraces() const
@@ -105,9 +81,9 @@ namespace drisc
         req.client = from;
         req.address = address;
         req.type = IODirectCacheAccess::WRITE;
-        memcpy(req.data, data.data, data.size);
+        COMMIT{ memcpy(req.data, data.data, data.size); }
         req.size = data.size;
-        return m_dca.QueueRequest(req);
+        return m_dca.QueueRequest(std::move(req));
     }
 
     StorageTraceSet IOBusInterface::GetWriteRequestTraces() const
@@ -135,9 +111,9 @@ namespace drisc
         StorageTraceSet res;
         for (std::vector<Flag      *>::const_iterator p = m_nmux.m_interrupts.begin(); p != m_nmux.m_interrupts.end(); ++p)
         {
-            res ^= opt(*(*p));
+            res ^= **p;
         }
-        return res;
+        return opt(res);
     }
 
     bool IOBusInterface::OnNotificationReceived(IONotificationChannelID which, Integer tag)

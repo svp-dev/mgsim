@@ -111,14 +111,14 @@ public:
         }
     }
 
-    bool AddRequest(const Request& request)
+    bool AddRequest(Request&& request)
     {
         if (!p_requests.Invoke())
         {
             return false;
         }
 
-        return m_requests.Push(request);
+        return m_requests.Push(std::move(request));
     }
 
     bool OnMemorySnooped(MemAddr address, const char * data, const bool * mask)
@@ -184,7 +184,7 @@ bool ParallelMemory::Read(MCID id, MemAddr address)
     request.address   = address;
     request.write     = false;
 
-    if (!m_ports[id]->AddRequest(request))
+    if (!m_ports[id]->AddRequest(std::move(request)))
     {
         return false;
     }
@@ -218,7 +218,7 @@ bool ParallelMemory::Write(MCID id, MemAddr address, const MemData& data, WClien
         }
     }
 
-    if (!m_ports[id]->AddRequest(request))
+    if (!m_ports[id]->AddRequest(std::move(request)))
     {
         return false;
     }

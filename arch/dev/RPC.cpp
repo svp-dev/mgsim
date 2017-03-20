@@ -89,10 +89,13 @@ The following processes run concurrently (pipeline):
 namespace Simulator
 {
 
-    RPCInterface::RPCInterface(const std::string& name, Object& parent, IIOBus& iobus, IODeviceID devid, IRPCServiceProvider& provider)
+    RPCInterface::RPCInterface(const std::string& name, Object& parent,
+                               IOMessageInterface& ioif, IODeviceID devid,
+                               IRPCServiceProvider& provider)
         : Object(name, parent),
-          m_iobus(iobus),
+          m_ioif(ioif),
           m_devid(devid),
+          m_clock(m_ioif.RegisterClient(devid, *this)),
 
           m_lineSize(GetConfOpt("RPCLineSize", size_t, GetTopConf("CacheLineSize", size_t))),
 
@@ -111,11 +114,11 @@ namespace Simulator
           InitStateVariable(writebackState, RESULTWB_WRITING1),
           InitStateVariable(currentResponseOffset, 0),
 
-          InitStorage(m_queueEnabled, iobus.GetClock(), false),
-          InitBuffer(m_incoming, iobus.GetClock(), "RPCIncomingQueueSize"),
-          InitBuffer(m_ready, iobus.GetClock(), "RPCReadyQueueSize"),
-          InitBuffer(m_completed, iobus.GetClock(), "RPCCompletedQueueSize"),
-          InitBuffer(m_notifications, iobus.GetClock(), "RPCNotificationQueueSize"),
+          InitStorage(m_queueEnabled, m_clock, false),
+          InitBuffer(m_incoming, m_clock, "RPCIncomingQueueSize"),
+          InitBuffer(m_ready, m_clock, "RPCReadyQueueSize"),
+          InitBuffer(m_completed, m_clock, "RPCCompletedQueueSize"),
+          InitBuffer(m_notifications, m_clock, "RPCNotificationQueueSize"),
 
           m_provider(provider),
 
@@ -138,8 +141,6 @@ namespace Simulator
         RegisterStateVariable(m_inputLatch.completion_tag, "inputLatch.ct");
         RegisterStateVariable(m_inputLatch.notification_channel_id, "inputLatch.ncid");
 
-        iobus.RegisterClient(devid, *this);
-
         m_queueEnabled.Sensitive(p_queueRequest);
         m_incoming.Sensitive(p_argumentFetch);
         m_ready.Sensitive(p_processRequests);
@@ -151,16 +152,17 @@ namespace Simulator
             throw exceptf<InvalidArgumentException>(*this, "RPCLineSize cannot be zero");
         }
 
-        p_queueRequest.SetStorageTraces(m_incoming);
-        p_argumentFetch.SetStorageTraces(m_iobus.GetReadRequestTraces(m_devid) ^ m_ready);
+        p_queueRequest.SetStorageTraces(m_incoming * m_queueEnabled);
+        p_argumentFetch.SetStorageTraces(opt(m_ioif.GetRequestTraces(m_devid)) ^ m_ready);
         p_processRequests.SetStorageTraces(m_completed);
-        p_writeResponse.SetStorageTraces(m_iobus.GetWriteRequestTraces() ^ m_iobus.GetReadRequestTraces(m_devid) ^ m_notifications);
-        p_sendCompletionNotifications.SetStorageTraces(m_iobus.GetNotificationTraces());
+        p_writeResponse.SetStorageTraces(m_ioif.GetRequestTraces(m_devid) ^ m_notifications);
+        p_sendCompletionNotifications.SetStorageTraces(m_ioif.GetRequestTraces(m_devid));
     }
 
     Result RPCInterface::DoQueue()
     {
-        if (!m_incoming.Push(m_inputLatch))
+        auto new_request = m_inputLatch;
+        if (!m_incoming.Push(std::move(new_request)))
         {
             DeadlockWrite("Unable to push incoming request");
             return FAILED;
@@ -203,7 +205,7 @@ namespace Simulator
 
             if (transfer_size > 0)
             {
-                if (!m_iobus.SendReadRequest(m_devid, req.dca_device_id, voffset, transfer_size))
+                if (!m_ioif.SendReadRequest(m_devid, req.dca_device_id, voffset, transfer_size))
                 {
                     DeadlockWrite("Unable to send DCA read request for %#016llx/%u to device %u", (unsigned long long)voffset, (unsigned)transfer_size, (unsigned)req.dca_device_id);
                     return FAILED;
@@ -248,7 +250,7 @@ namespace Simulator
                 preq.data2.insert(preq.data2.begin(), m_currentArgData2.begin(), m_currentArgData2.begin() + req.arg2_size);
             }
 
-            if (!m_ready.Push(preq))
+            if (!m_ready.Push(std::move(preq)))
             {
                 DeadlockWrite("Unable to push the current request to the ready queue");
                 return FAILED;
@@ -295,7 +297,7 @@ namespace Simulator
                                req.extra_arg2);
         }
 
-        if (!m_completed.Push(res))
+        if (!m_completed.Push(std::move(res)))
         {
             DeadlockWrite("Unable to push request completion");
             return FAILED;
@@ -357,13 +359,12 @@ namespace Simulator
 
             DebugIOWrite("Sending response data %d for offsets %zu - %zu", (s == RESULTWB_WRITING1) ? 1 : 2, res_offset, res_offset + transfer_size - 1);
 
-            IOData iodata;
-            iodata.size = transfer_size;
+            IOMessage *msg = m_ioif.CreateWriteRequest(m_devid, voffset, transfer_size);
             COMMIT {
-                memcpy(iodata.data, data + res_offset, transfer_size);
+                memcpy(msg->write_request.data.data, data + res_offset, transfer_size);
             }
 
-            if (!m_iobus.SendWriteRequest(m_devid, res.dca_device_id, voffset, iodata))
+            if (!m_ioif.SendMessage(m_devid, res.dca_device_id, msg))
             {
                 DeadlockWrite("Unable to send DCA write request for %#016llx/%u to device %u", (unsigned long long)voffset, (unsigned)transfer_size, (unsigned)res.dca_device_id);
                 return FAILED;
@@ -388,7 +389,7 @@ namespace Simulator
         }
         case RESULTWB_BARRIER:
         {
-            if (!m_iobus.SendReadRequest(m_devid, res.dca_device_id, 0, 0))
+            if (!m_ioif.SendReadRequest(m_devid, res.dca_device_id, 0, 0))
             {
                 DeadlockWrite("Unable to send DCA write barrier to device %u", (unsigned)res.dca_device_id);
                 return FAILED;
@@ -406,10 +407,11 @@ namespace Simulator
         case RESULTWB_FINALIZE:
         {
             CompletionNotificationRequest creq;
+            creq.dca_device_id = res.dca_device_id;
             creq.notification_channel_id = res.notification_channel_id;
             creq.completion_tag = res.completion_tag;
 
-            if (!m_notifications.Push(creq))
+            if (!m_notifications.Push(std::move(creq)))
             {
                     DeadlockWrite("Unable to push the current result to the notification queue");
                     return FAILED;
@@ -433,7 +435,8 @@ namespace Simulator
 
         const CompletionNotificationRequest& req = m_notifications.Front();
 
-        if (!m_iobus.SendNotification(m_devid, req.notification_channel_id, req.completion_tag))
+        if (!m_ioif.SendNotification(m_devid, req.dca_device_id,
+                                     req.notification_channel_id, req.completion_tag))
         {
             DeadlockWrite("Unable to send completion notification to channel %u (tag %#016llx)", (unsigned)req.notification_channel_id, (unsigned long long)req.completion_tag);
             return FAILED;
@@ -506,6 +509,12 @@ namespace Simulator
 
         return SUCCESS;
     }
+
+    StorageTraceSet RPCInterface::GetWriteRequestTraces() const
+    {
+        return opt(m_queueEnabled);
+    }
+
 
     bool RPCInterface::OnWriteRequestReceived(IODeviceID /*from*/, MemAddr address, const IOData& data)
     {
@@ -588,6 +597,11 @@ namespace Simulator
         }
 
         return true;
+    }
+
+    StorageTraceSet RPCInterface::GetReadRequestTraces() const
+    {
+        return m_ioif.GetRequestTraces(m_devid);
     }
 
     bool RPCInterface::OnReadRequestReceived(IODeviceID from, MemAddr address, MemSize size)
@@ -690,11 +704,12 @@ namespace Simulator
             }
         }
 
-        IOData iodata;
-        SerializeRegister(RT_INTEGER, value, iodata.data, 4);
-        iodata.size = 4;
+        IOMessage *msg = m_ioif.CreateReadResponse(m_devid, address, 4);
+        COMMIT {
+            SerializeRegister(RT_INTEGER, value, msg->read_response.data.data, 4);
+        }
 
-        if (!m_iobus.SendReadResponse(m_devid, from, address, iodata))
+        if (!m_ioif.SendMessage(m_devid, from, msg))
         {
             DeadlockWrite("Cannot send RPC read response to I/O bus");
             return false;

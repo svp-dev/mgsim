@@ -33,7 +33,7 @@ class ParallelMemory : public IMemory, public VirtualMemory
          ))
     // {% endcall %}
 
-    bool AddRequest(IMemoryCallback& callback, const Request& request);
+    bool AddRequest(IMemoryCallback& callback, Request&& request);
 
     // IMemory
     MCID RegisterClient(IMemoryCallback& callback, Process& process, StorageTraceSet& traces, const StorageTraceSet& storages, bool /*ignored*/) override;
@@ -75,8 +75,8 @@ public:
     ~ParallelMemory();
 
     // Debugging
-    void Cmd_Info(std::ostream& out, const std::vector<std::string>& arguments) const;
-    void Cmd_Read(std::ostream& out, const std::vector<std::string>& arguments) const;
+    void Cmd_Info(std::ostream& out, const std::vector<std::string>& arguments) const override;
+    void Cmd_Read(std::ostream& out, const std::vector<std::string>& arguments) const override;
 };
 
 }

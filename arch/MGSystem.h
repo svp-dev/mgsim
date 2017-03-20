@@ -16,7 +16,9 @@ namespace Simulator {
     class ActiveROM;
     class Selector;
     class FPU;
-    class IIOBus;
+    namespace IC { template<typename Payload> class IInterconnect; }
+    struct IOPayload;
+    class IOMessageInterface;
     class DRISC;
     class IMemory;
 
@@ -29,7 +31,8 @@ namespace Simulator {
         Object*                     m_root;     ///< Root object for the system
         std::vector<DRISC*>         m_procs;
         std::vector<FPU*>           m_fpus;
-        std::vector<IIOBus*>        m_iobuses;
+        std::vector<IC::IInterconnect<IOPayload>*> m_ics;
+        std::vector<IOMessageInterface*> m_ioifs;
         std::vector<Object*>        m_devices;
 
         SymbolTable                 m_symtable;

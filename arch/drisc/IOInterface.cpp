@@ -13,7 +13,8 @@ namespace Simulator
 namespace drisc
 {
 
-    IOInterface::IOInterface(const string& name, DRISC& parent, Clock& clock, IIOBus& iobus, IODeviceID devid)
+    IOInterface::IOInterface(const string& name, DRISC& parent, Clock& clock,
+                             IOMessageInterface& ioif, IODeviceID devid)
         : Object(name, parent),
           m_numDevices(GetConf("NumDeviceSlots", size_t)),
           m_numChannels(GetConf("NumNotificationChannels", size_t)),
@@ -21,7 +22,7 @@ namespace drisc
           m_pnc     ("pnc",    *this),
           m_rrmux   ("rrmux",  *this, clock, m_numDevices),
           m_nmux    ("nmux",   *this, clock, m_numChannels),
-          m_iobus_if("bus_if", *this, iobus.GetClock(), iobus, devid),
+          m_iobus_if("bus_if", *this, ioif, devid),
           m_dca     ("dca",    *this, clock)
     {
         if (m_numDevices == 0)
@@ -48,13 +49,16 @@ namespace drisc
             return false;
         }
 
-        IOBusInterface::IORequest req;
-        req.device = dev;
-        req.address = address;
-        req.type = IOBusInterface::REQ_READ;
-        req.data.size = size;
+        IOBusInterface::IORequest req { dev, 0 };
+        COMMIT{
+            req.msg = new IOMessage;
+            req.msg->type = IOMessage::READ_REQUEST;
+            req.msg->read_request.from = m_iobus_if.GetHostID();
+            req.msg->read_request.addr = address;
+            req.msg->read_request.size = size;
+        }
 
-        if (!m_iobus_if.SendRequest(req))
+        if (!m_iobus_if.SendRequest(std::move(req)))
         {
             DeadlockWrite("Unable to queue I/O read request to %u:%016llx (%u)",
                           (unsigned)dev, (unsigned long long)address, (unsigned) size);
@@ -66,13 +70,13 @@ namespace drisc
 
     bool IOInterface::Write(IODeviceID dev, MemAddr address, const IOData& data)
     {
-        IOBusInterface::IORequest req;
-        req.device = dev;
-        req.address = address;
-        req.type = IOBusInterface::REQ_WRITE;
-        req.data = data;
+        IOBusInterface::IORequest req = {dev,
+                                         m_iobus_if.GetIF().CreateWriteRequest(m_iobus_if.GetHostID(), address, data.size)};
+        COMMIT {
+            std::copy(data.data, data.data + data.size, req.msg->write_request.data.data);
+        }
 
-        if (!m_iobus_if.SendRequest(req))
+        if (!m_iobus_if.SendRequest(std::move(req)))
         {
             DeadlockWrite("Unable to queue I/O write request to %u:%016llx (%u)",
                           (unsigned)dev, (unsigned long long)address, (unsigned) data.size);
@@ -319,13 +323,13 @@ namespace drisc
         bool smcdefined = devdb.FindDeviceByName("MGSim", "SMC", smcrefid);
         if (smcdefined)
         {
-            auto& bus = m_iobus_if.GetIOBus();
-            auto maxdevid = bus.GetLastDeviceID();
+            auto& ioif = m_iobus_if.GetIF();
+            auto maxdevid = ioif.GetLastDeviceID();
 
             for (IODeviceID i = 0; i < maxdevid; ++i)
             {
                 IODeviceIdentification id;
-                bus.GetDeviceIdentity(i, id);
+                ioif.GetDeviceIdentity(i, id);
                 if (id.provider == smcrefid.provider &&
                     id.model == smcrefid.model)
                 {

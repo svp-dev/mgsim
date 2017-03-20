@@ -82,7 +82,7 @@ extern "C"
 {
 const char *argp_program_version =
     "mgsim " PACKAGE_VERSION "\n"
-    "Copyright (C) 2008,2009,2010,2011,2012,2013 the MGSim project.\n"
+    "Copyright (C) 2008-2015 the MGSim project.\n"
     "\n"
     "Written by Mike Lankamp. Maintained by the MGSim project.";
 
@@ -539,6 +539,7 @@ int main(int argc, char** argv)
         // Print statistics & final variables.
         AtEnd(*sys, flags);
 
+        sys.reset(nullptr);
         if (ex != NULL)
         {
             // The program is telling us how to terminate. Do it.
@@ -555,5 +556,6 @@ int main(int argc, char** argv)
     // Print statistics & final variables.
     AtEnd(*sys, flags);
 
+    sys.reset(nullptr);
     return 0;
 }

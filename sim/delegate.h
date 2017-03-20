@@ -20,24 +20,37 @@ namespace Simulator
     template<typename R, typename... Args>
     class delegate_gen
     {
+    protected:
         // The wrapper around the delegate method.
         R        (*m_stub)(void*, Args...);
         // The object on which the method is called.
         void     *m_object;
+        // Additional arguments, see closure
+        void     (*m_deleter)(void *);
 
-        // The implementation of the method wrapper.  This is
-        // instantiated on demand by the create() constructor below.
-        template <typename T, R (T::*TMethod)(Args...)>
-        static R method_stub(void* object, Args... params)
-        {
-            T* p = static_cast<T*>(object);
-            return (p->*TMethod)(params...);
-        }
-
-        delegate_gen(R (*m)(void*, Args...), void *o)
-            : m_stub(m), m_object(o) {}
+        delegate_gen(R (*m)(void*, Args...), void *o, void (*d)(void*))
+            : m_stub(m), m_object(o), m_deleter(d) {}
 
     public:
+        // The implementation of the method wrapper.  This is
+        // instantiated on demand by the create() constructor below.
+        template <typename R_, typename... Args_>
+        struct adapter
+        {
+            template <typename T, R_ (T::*TMethod)(Args_...)>
+            static R method_stub(void* object, Args... params)
+            {
+                T* p = static_cast<T*>(object);
+                return (p->*TMethod)(static_cast<Args_>(params)...);
+            }
+
+            template <typename T, R_ (T::*TMethod)(Args_...)>
+            static delegate_gen create(T& object)
+            {
+                return delegate_gen{ &adapter::method_stub<T, TMethod>, &object, 0 };
+            }
+        };
+
         // The delegate constructor. For a class
         // F with method F::foo(), use as follows:
         //
@@ -46,7 +59,7 @@ namespace Simulator
         template <typename T, R (T::*TMethod)(Args...)>
         static delegate_gen create(T& object)
         {
-            return delegate_gen{ &method_stub<T, TMethod>, &object };
+            return delegate_gen{ &adapter<R, Args...>::template method_stub<T, TMethod>, &object, 0 };
         }
 
         // The delegate entry point.
@@ -54,6 +67,22 @@ namespace Simulator
         {
             return (*m_stub)(m_object, params...);
         }
+
+        // To check whether the delegate is defined.
+        operator bool() const { return m_stub != 0; }
+
+        ~delegate_gen() { if (m_deleter) m_deleter(m_object); }
+
+        delegate_gen()
+            : m_stub(0), m_object(0), m_deleter(0) {}
+        delegate_gen(const delegate_gen& other) = delete;
+        delegate_gen(delegate_gen&& other)
+            : m_stub(other.m_stub), m_object(other.m_object), m_deleter(other.m_deleter)
+        { other.m_deleter = 0; }
+        delegate_gen& operator=(const delegate_gen& other) = delete;
+        delegate_gen& operator=(delegate_gen&& other)
+        { m_stub = other.m_stub; m_object = other.m_object; m_deleter = other.m_deleter;
+            other.m_deleter = 0; return *this; }
     };
 
 }

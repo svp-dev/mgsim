@@ -132,7 +132,7 @@ namespace Simulator
         }
     }
 
-    ActiveROM::ActiveROM(const string& name, Object& parent, IMemoryAdmin& mem, IIOBus& iobus, IODeviceID devid, bool quiet)
+    ActiveROM::ActiveROM(const string& name, Object& parent, IMemoryAdmin& mem, IOMessageInterface& ioif, IODeviceID devid, bool quiet)
         : Object(name, parent),
           m_memory(mem),
           m_data(NULL),
@@ -147,21 +147,21 @@ namespace Simulator
           InitStateVariable(booting, false),
           m_preloaded_at_boot(GetConf("PreloadROMToRAM", bool)),
           m_devid(devid),
-          m_iobus(iobus),
+          m_ioif(ioif),
+          m_clock(m_ioif.RegisterClient(devid, *this)),
           InitStateVariable(client, GetConf("DCATargetID", IODeviceID)),
           InitStateVariable(completionTarget,
                             GetConf("DCANotificationChannel",
                                     IONotificationChannelID)),
-          InitStorage(m_loading, iobus.GetClock(), false),
-          InitStorage(m_flushing, iobus.GetClock(), false),
-          InitStorage(m_notifying, iobus.GetClock(), false),
+          InitStorage(m_loading,   m_clock, false),
+          InitStorage(m_flushing,  m_clock, false),
+          InitStorage(m_notifying, m_clock, false),
           InitStateVariable(currentRange, 0),
           InitStateVariable(currentOffset, 0),
           InitProcess(p_Load, DoLoad),
           InitProcess(p_Flush, DoFlush),
           InitProcess(p_Notify, DoNotify)
     {
-        iobus.RegisterClient(devid, *this);
         m_loading.Sensitive(p_Load);
         m_notifying.Sensitive(p_Notify);
         m_flushing.Sensitive(p_Flush);
@@ -226,9 +226,10 @@ namespace Simulator
 
         PrepareRanges();
 
-        p_Load.SetStorageTraces(m_iobus.GetWriteRequestTraces() * opt(m_flushing));
-        p_Flush.SetStorageTraces(m_iobus.GetReadRequestTraces(m_devid));
-        p_Notify.SetStorageTraces(m_iobus.GetNotificationTraces() ^ m_iobus.GetActiveMessageTraces());
+        auto sts = m_ioif.GetRequestTraces(m_devid);
+        p_Load.SetStorageTraces(sts * opt(m_flushing) * opt(m_loading));
+        p_Flush.SetStorageTraces(sts * opt(m_flushing));
+        p_Notify.SetStorageTraces(sts * opt(m_notifying));
 
         if (m_bootable)
         {
@@ -249,19 +250,24 @@ namespace Simulator
 
     Result ActiveROM::DoNotify()
     {
+        IOMessage* msg = 0;
         if (m_booting)
         {
-            if (!m_iobus.SendActiveMessage(m_devid, m_completionTarget, m_start_address, m_legacy))
+            if (!m_ioif.SendActiveMessage(m_devid, m_client, m_start_address, m_legacy))
             {
                 DeadlockWrite("Unable to send boot active message");
                 return FAILED;
             }
             COMMIT { m_booting = false; }
         }
-        else if (!m_iobus.SendNotification(m_devid, m_completionTarget, m_devid))
+        else
         {
-            DeadlockWrite("Unable to send DCA completion notification");
-            return FAILED;
+            if (!m_ioif.SendNotification(m_devid, m_client, m_completionTarget, m_devid))
+            {
+                DeadlockWrite("Unable to send DCA completion notification");
+                delete msg;
+                return FAILED;
+            }
         }
         m_notifying.Clear();
         return SUCCESS;
@@ -281,7 +287,7 @@ namespace Simulator
 
     Result ActiveROM::DoFlush()
     {
-        if (!m_iobus.SendReadRequest(m_devid, m_client, 0, 0))
+        if (!m_ioif.SendReadRequest(m_devid, m_client, 0, 0))
         {
             DeadlockWrite("Unable to send DCA flush request");
             return FAILED;
@@ -303,11 +309,13 @@ namespace Simulator
         MemSize transfer_size = min(min((MemSize)(r.rom_size - m_currentOffset), (MemSize)m_lineSize),
                                     (MemSize)(m_lineSize - voffset % m_lineSize));
 
-        IOData data;
-        data.size = transfer_size;
-        memcpy(data.data, m_data + offset, data.size);
+        IOMessage* msg = m_ioif.CreateWriteRequest(m_devid, voffset, transfer_size);
+        COMMIT{
+            memcpy(msg->write_request.data.data, m_data + offset,
+                   msg->write_request.data.size);
+        }
 
-        if (!m_iobus.SendWriteRequest(m_devid, m_client, voffset, data))
+        if (!m_ioif.SendMessage(m_devid, m_client, msg))
         {
             DeadlockWrite("Unable to send DCA write for ROM data %#016llx/%u to device %u",
                           (unsigned long long)(voffset), (unsigned)transfer_size, (unsigned)m_client);
@@ -353,15 +361,22 @@ namespace Simulator
             throw exceptf<>(*this, "Invalid I/O read to %#016llx/%u", (unsigned long long)address, (unsigned)size);
         }
 
-        IOData iodata;
-        iodata.size = size;
-        memcpy(iodata.data, m_data + address, size);
-        if (!m_iobus.SendReadResponse(m_devid, from, address, iodata))
+        IOMessage* msg = m_ioif.CreateReadResponse(m_devid, address, size);
+        COMMIT {
+            memcpy(msg->read_response.data.data, m_data + address,
+                   msg->read_response.data.size);
+        }
+        if (!m_ioif.SendMessage(m_devid, from, msg))
         {
             DeadlockWrite("Unable to send ROM read response to I/O bus");
             return false;
         }
         return true;
+    }
+
+    StorageTraceSet ActiveROM::GetReadRequestTraces() const
+    {
+        return m_ioif.GetRequestTraces(m_devid);
     }
 
     bool ActiveROM::OnWriteRequestReceived(IODeviceID from, MemAddr address, const IOData& data)

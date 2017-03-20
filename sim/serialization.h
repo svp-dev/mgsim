@@ -182,7 +182,19 @@ namespace Simulator
         struct serialize_trait<std::vector<uint8_t> >
             : public byte_serializer<uint8_t> {};
 
-
+        // Base serializer for pointer types.
+        // Note that this is not enabled automatically
+        // as we avoid to silently misserialize arrays.
+        template<typename T>
+        struct pointer_serializer
+        {
+            template<typename A>
+            static void serialize(A& arch, T* p)
+            {
+                arch & *p;
+            }
+            virtual ~pointer_serializer() {};
+        };
 
         // Base serializer for std::pair
         template<typename Pair>

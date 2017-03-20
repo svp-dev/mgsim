@@ -111,7 +111,8 @@ Result ZLCDMA::Node::DoForward()
     assert(!m_outgoing.Empty());
     assert(m_next != NULL);
 
-    if (!m_next->m_incoming.Push( m_outgoing.Front() ))
+    auto msg = m_outgoing.Front();
+    if (!m_next->m_incoming.Push( std::move(msg) ))
     {
         DeadlockWrite("Unable to send request to next node");
         return FAILED;
@@ -124,7 +125,7 @@ Result ZLCDMA::Node::DoForward()
 // Only succeeds if there's min_space left before the push.
 bool ZLCDMA::Node::SendMessage(Message* message, size_t min_space)
 {
-    if (!m_outgoing.Push(message, min_space))
+    if (!m_outgoing.Push(std::move(message), min_space))
     {
         return false;
     }

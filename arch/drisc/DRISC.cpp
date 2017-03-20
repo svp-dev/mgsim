@@ -149,14 +149,14 @@ void DRISC::ConnectFPU(FPU* fpu)
     RegisterModelBidiRelation(*this, *fpu, "fpu");
 }
 
-void DRISC::ConnectIO(IIOBus* iobus)
+void DRISC::ConnectIO(IOMessageInterface* ioif)
 {
-    assert(iobus != NULL);
+    assert(ioif != NULL);
 
     // This processor also supports I/O
-    IODeviceID devid = GetConfOpt("DeviceID", IODeviceID, iobus->GetNextAvailableDeviceID());
+    IODeviceID devid = GetConfOpt("DeviceID", IODeviceID, ioif->GetNextAvailableDeviceID());
 
-    m_io_if = new IOInterface("io_if", *this, m_clock, *iobus, devid);
+    m_io_if = new IOInterface("io_if", *this, m_clock, *ioif, devid);
 
     if (m_memory != NULL)
         m_io_if->ConnectMemory(m_memory);
@@ -166,7 +166,7 @@ void DRISC::ConnectIO(IIOBus* iobus)
     MMIOComponent& pnc_if = m_io_if->GetPNCInterface();
     pnc_if.Connect(m_mmio, IOMatchUnit::READWRITE);
 
-    RegisterModelBidiRelation(*iobus, *this, "client", (uint32_t)devid);
+    RegisterModelBidiRelation(*ioif, *this, "client", (uint32_t)devid);
 }
 
 void DRISC::Initialize()
@@ -327,7 +327,7 @@ void DRISC::Initialize()
         /* CREATE_NOTIFY */                 opt(DELEGATE) );
 
     m_allocator.p_ThreadActivation.SetStorageTraces(
-        opt(m_allocator.m_activeThreads ^ m_icache.m_outgoing) );
+        ( m_allocator.m_readyThreadsPipe ^ m_allocator.m_readyThreadsOther ) * opt(m_allocator.m_activeThreads ^ m_icache.m_outgoing) );
 
     m_allocator.p_BundleCreate.SetStorageTraces( m_dcache.m_outgoing ^ DELEGATE );
 
@@ -355,6 +355,8 @@ void DRISC::Initialize()
             m_allocator.m_readyThreadsPipe);
     StorageTraceSet pls_memory =
         m_dcache.m_outgoing;
+    StorageTraceSet pls_fetch =
+        m_allocator.m_activeThreads;
 
     if (m_io_if != NULL)
     {
@@ -365,13 +367,7 @@ void DRISC::Initialize()
         /* I/O reads / writes */
         pls_memory ^=
             opt(m_io_if->GetReadResponseMultiplexer().GetWriteBackTraces()) * /* I/O read, write has no writeback */
-            m_io_if->GetIOBusInterface().m_outgoing_reqs *
-            /* in the NullIO interface, the transfer occurs in the same cycle, so we have to add the
-               receiver traces here too. This is not realistic, and should disappear with the
-               implementation of an I/O substrate with appropriate buffering. */
-            opt(m_io_if->GetIOBusInterface().GetReadResponseTraces() ^
-                m_io_if->GetIOBusInterface().GetInterruptRequestTraces() ^
-                m_io_if->GetIOBusInterface().GetNotificationTraces());
+            m_io_if->GetIOBusInterface().m_outgoing_reqs;
 
     }
 
@@ -384,23 +380,24 @@ void DRISC::Initialize()
         /* Writeback */ opt(pls_writeback) *
         /* Memory */    opt(pls_memory) *
         /* Execute */   opt(pls_execute) *
+        /* Fetch */     opt(pls_fetch) *
                         m_pipeline.m_active );
 
-    m_network.p_DelegationIn.SetStorageTraces(
+    m_network.p_DelegationIn.SetStorageTraces(m_network.m_delegateIn * (
         /* MSG_ALLOCATE */          (m_network.m_link.out ^ m_allocator.m_allocRequestsExclusive ^
                                      m_allocator.m_allocRequestsSuspend ^ m_allocator.m_allocRequestsNoSuspend) ^
         /* MSG_SET_PROPERTY */      (m_network.m_link.out) ^
         /* MSG_CREATE */            (m_allocator.m_creates) ^
         /* MSG_SYNC */              opt(m_network.m_link.out ^ m_network.m_syncs) ^
         /* MSG_DETACH */            opt(m_network.m_link.out) ^
-        /* MSG_BREAK */             (opt(m_network.m_link.out ^ m_network.m_syncs) * opt(m_network.m_link.out)) ^
+        /* MSG_BREAK */             (opt(m_network.m_syncs) * opt(m_network.m_link.out)) ^
         /* MSG_RAW_REGISTER */      m_allocator.m_readyThreadsOther ^
         /* RRT_LAST_SHARED */       (DELEGATE) ^
         /* RRT_FIRST_DEPENDENT */   (m_allocator.m_readyThreadsOther) ^
         /* RRT_GLOBAL */            (m_allocator.m_readyThreadsOther * opt(m_network.m_link.out))
-        );
+                                                  ));
 
-    m_network.p_Link.SetStorageTraces(
+    m_network.p_Link.SetStorageTraces((
         /* MSG_ALLOCATE */          (m_allocator.m_allocRequestsExclusive ^
                                      m_allocator.m_allocRequestsSuspend ^ m_allocator.m_allocRequestsNoSuspend) ^
         /* MSG_BALLOCATE */         (m_network.m_link.out ^ DELEGATE) ^
@@ -411,10 +408,10 @@ void DRISC::Initialize()
         /* MSG_DETACH */            opt(m_network.m_link.out) ^
         /* MSG_GLOBAL */            (m_allocator.m_readyThreadsOther * opt(m_network.m_link.out)) ^
         /* MSG_BREAK */             (opt(m_network.m_link.out ^ m_network.m_syncs) * opt(m_network.m_link.out))
-        );
+                                          ) * m_network.m_link.in);
 
     m_network.p_AllocResponse.SetStorageTraces(
-        DELEGATE ^ m_network.m_allocResponse.out );
+        ( DELEGATE ^ m_network.m_allocResponse.out ) * m_network.m_allocResponse.in) ;
 
     m_network.p_Syncs.SetStorageTraces(
         DELEGATE );
@@ -428,7 +425,7 @@ void DRISC::Initialize()
             stsDelegationOut ^= m_grid[i]->m_network.m_delegateIn;
         }
     }
-    m_network.p_DelegationOut.SetStorageTraces(stsDelegationOut);
+    m_network.p_DelegationOut.SetStorageTraces(stsDelegationOut * m_network.m_delegateOut);
 #undef DELEGATE
 
     if (m_io_if != NULL)
@@ -436,7 +433,8 @@ void DRISC::Initialize()
         // Asynchronous events from the I/O network can wake up / terminate threads
         // due to a register write.
         m_io_if->GetReadResponseMultiplexer().p_IncomingReadResponses.SetStorageTraces(opt(m_allocator.m_readyThreadsOther) ^ opt(m_allocator.m_cleanup));
-        m_io_if->GetNotificationMultiplexer().p_IncomingNotifications.SetStorageTraces(opt(m_allocator.m_readyThreadsOther) ^ opt(m_allocator.m_cleanup));
+        auto& nmux = m_io_if->GetNotificationMultiplexer();
+        nmux.p_IncomingNotifications.SetStorageTraces((opt(m_allocator.m_readyThreadsOther) ^ opt(m_allocator.m_cleanup)) * nmux.GetNotificationTraces() );
     }
 }
 
@@ -460,7 +458,7 @@ void DRISC::InitializeRegisters()
                 clog << "#warning: -RNNN=B... specified but " << GetName() << " is not connected to I/O" << endl;
             }
             else {
-                auto devname = m_io_if->GetIOBusInterface().GetIOBus().GetDeviceIDByName(value.substr(1));
+                auto devname = m_io_if->GetIOBusInterface().GetIF().GetDeviceIDByName(value.substr(1));
                 reg_value.m_integer = m_io_if->GetDeviceBaseAddress(devname);
             }
         }

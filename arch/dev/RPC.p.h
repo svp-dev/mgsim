@@ -8,7 +8,7 @@
 #include <sim/kernel.h>
 #include <sim/flag.h>
 #include <sim/buffer.h>
-#include <arch/IOBus.h>
+#include <arch/IOMessageInterface.h>
 
 namespace Simulator
 {
@@ -26,7 +26,7 @@ namespace Simulator
         virtual ~IRPCServiceProvider() {};
     };
 
-    class RPCInterface : public Object, public IIOBusClient
+    class RPCInterface : public Object, public IIOMessageClient
     {
         // {% from "sim/macros.p.h" import gen_struct %}
 
@@ -79,6 +79,7 @@ namespace Simulator
         // {% call gen_struct() %}
         ((name CompletionNotificationRequest)
         (state
+         (IODeviceID              dca_device_id)
          (IONotificationChannelID notification_channel_id)
          (Integer                 completion_tag)))
         // {% endcall %}
@@ -99,8 +100,9 @@ namespace Simulator
         };
 
 
-        IIOBus&                 m_iobus;
+        IOMessageInterface&     m_ioif;
         IODeviceID              m_devid;
+        Clock&                  m_clock;
 
         MemSize                 m_lineSize;
 
@@ -130,7 +132,9 @@ namespace Simulator
 
     public:
 
-        RPCInterface(const std::string& name, Object& parent, IIOBus& iobus, IODeviceID devid, IRPCServiceProvider& provider);
+        RPCInterface(const std::string& name, Object& parent,
+                     IOMessageInterface& ioif, IODeviceID devid,
+                     IRPCServiceProvider& provider);
 
         Process p_queueRequest;
         Result  DoQueue();
@@ -148,12 +152,14 @@ namespace Simulator
         Result  DoSendCompletionNotifications();
 
         // from IIOBusClient
-        bool OnReadRequestReceived(IODeviceID from, MemAddr address, MemSize size);
-        bool OnWriteRequestReceived(IODeviceID from, MemAddr address, const IOData& iodata);
-        bool OnReadResponseReceived(IODeviceID from, MemAddr address, const IOData& iodata);
+        bool OnReadRequestReceived(IODeviceID from, MemAddr address, MemSize size) override;
+        StorageTraceSet GetReadRequestTraces() const override;
+        bool OnWriteRequestReceived(IODeviceID from, MemAddr address, const IOData& iodata) override;
+        StorageTraceSet GetWriteRequestTraces() const override;
+        bool OnReadResponseReceived(IODeviceID from, MemAddr address, const IOData& iodata) override;
 
-        void GetDeviceIdentity(IODeviceIdentification& id) const;
-        const std::string& GetIODeviceName() const;
+        void GetDeviceIdentity(IODeviceIdentification& id) const override;
+        const std::string& GetIODeviceName() const override;
     };
 }
 

@@ -27,15 +27,15 @@ Pipeline::PipeAction Pipeline::WritebackStage::OnCycle()
 
     if (m_input.Rrc.type != RemoteMessage::MSG_NONE)
     {
+        DebugPipeWrite("F%u/T%u(%llu) %s sent network message %s",
+                       (unsigned)m_input.fid, (unsigned)m_input.tid, (unsigned long long)m_input.logical_index, m_input.pc_sym,
+                       m_input.Rrc.str().c_str());
         // Network activity
         if (!m_network.SendMessage(m_input.Rrc))
         {
             DeadlockWrite("Unable to send network message");
             return PIPE_STALL;
         }
-        DebugPipeWrite("F%u/T%u(%llu) %s sent network message %s",
-                       (unsigned)m_input.fid, (unsigned)m_input.tid, (unsigned long long)m_input.logical_index, m_input.pc_sym,
-                       m_input.Rrc.str().c_str());
     }
 
     if (m_input.Rcv.m_state != RST_INVALID)

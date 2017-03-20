@@ -155,7 +155,7 @@ Result DDRChannel::DoRequest()
         }
 
         // We're done with this read; queue it into the pipeline
-        if (!m_pipeline.Push(m_request))
+        if (!m_pipeline.Push(std::move(m_request)))
         {
             // The read pipeline should be big enough
             DeadlockWrite("DDR read pipeline full");
@@ -282,7 +282,7 @@ void DDRChannel::SetClient(ICallback& cb, StorageTraceSet& sts, const StorageTra
     m_callback = &cb;
 
     sts = m_busy;
-    p_Request.SetStorageTraces(opt(m_pipeline));
+    p_Request.SetStorageTraces(opt(opt(m_pipeline) * m_busy));
     p_Pipeline.SetStorageTraces(opt(storages));
 
     RegisterModelBidiRelation(cb, *this, "ddr");

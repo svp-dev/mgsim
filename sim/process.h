@@ -73,7 +73,7 @@ namespace Simulator
 
     public:
         // Constructor
-        Process(Object& parent, const std::string& name, const delegate& delegate);
+        Process(Object& parent, const std::string& name, delegate&& delegate);
 
         // Accessors
         const Process* GetNext() const { return m_next;  }

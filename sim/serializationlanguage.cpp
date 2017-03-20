@@ -262,23 +262,23 @@ namespace Simulator
         static
         void RenderFloat(ostream& os, const void *p, size_t w, bool compact)
         {
-            char buf[50];
+            os << hexfloat;
             switch(w) {
             case sizeof(float):
-                snprintf(buf, 50, "%a", (double)*(const float*)p);
+                os << *(const float*)p;
                 break;
             case sizeof(double):
-                snprintf(buf, 50, "%a", *(const double*)p);
+                os << *(const double*)p;
                 break;
             case sizeof(long double):
-                snprintf(buf, 50, "%La", *(const long double*)p);
+                os << *(const long double*)p;
                 break;
             default:
                 os << "xf ";
                 RenderBinaryData(os, (const uint8_t*)p, w, compact);
                 return;
             }
-            os << buf;
+            os << defaultfloat;
         }
 
 

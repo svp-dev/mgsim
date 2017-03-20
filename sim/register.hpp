@@ -48,6 +48,20 @@ namespace Simulator
         }
     }
 
+    template<typename T>
+    void Register<T>::Write(T&& data)
+    {
+        CheckClocks();
+        assert(!m_assigned);    // We can only write once in a cycle
+
+        MarkUpdate();
+        COMMIT {
+            m_new      = std::move(data);
+            m_assigned = true;
+            RegisterUpdate();
+        }
+    }
+
 
     template<typename T>
     void Register<T>::Update()
@@ -60,7 +74,7 @@ namespace Simulator
                 Notify();
                 m_empty = false;
             }
-            m_cur      = m_new;
+            m_cur      = std::move(m_new);
             m_assigned = false;
         } else {
             // Full register became empty

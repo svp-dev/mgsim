@@ -78,31 +78,32 @@ namespace Simulator
         return GetName();
     }
 
-    RTC::RTCInterface::RTCInterface(const std::string& name, RTC& parent, IIOBus& iobus, IODeviceID devid)
+    RTC::RTCInterface::RTCInterface(const std::string& name, RTC& parent,
+                                    IOMessageInterface& ioif, IODeviceID devid)
         : Object(name, parent),
           m_devid(devid),
-          m_iobus(iobus),
-          InitStorage(m_doNotify, iobus.GetClock(), false),
+          m_ioif(ioif),
+          InitStorage(m_doNotify, ioif.RegisterClient(devid, *this), false),
           InitStateVariable(interruptNumber, 0),
           InitProcess(p_notifyTime, DoNotifyTime)
     {
-        iobus.RegisterClient(devid, *this);
         m_doNotify.Sensitive(p_notifyTime);
     }
 
     void RTC::RTCInterface::Initialize()
     {
-        p_notifyTime.SetStorageTraces(m_iobus.GetInterruptRequestTraces());
+        p_notifyTime.SetStorageTraces(m_ioif.GetBroadcastTraces(m_devid) * m_doNotify);
     }
 
-    RTC::RTC(const string& name, Object& parent, Clock& rtcclock, IIOBus& iobus, IODeviceID devid)
+    RTC::RTC(const string& name, Object& parent, Clock& rtcclock,
+             IOMessageInterface& ioif, IODeviceID devid)
         : Object(name, parent),
           m_timerTicked(false),
           InitStateVariable(timeOfLastInterrupt, 0),
           InitStateVariable(triggerDelay, 0),
           InitStateVariable(deliverAllEvents, true),
           InitStorage(m_enableCheck, rtcclock, false),
-          m_businterface("if", *this, iobus, devid),
+          m_businterface("if", *this, ioif, devid),
           InitProcess(p_checkTime, DoCheckTime)
     {
 
@@ -116,7 +117,7 @@ namespace Simulator
 
     Result RTC::RTCInterface::DoNotifyTime()
     {
-        if (!m_iobus.SendInterruptRequest(m_devid, m_interruptNumber))
+        if (!m_ioif.SendInterruptRequest(m_devid, m_interruptNumber))
         {
             DeadlockWrite("Cannot send timer interrupt to I/O bus");
             return FAILED;
@@ -243,6 +244,16 @@ namespace Simulator
         return true;
     }
 
+    StorageTraceSet RTC::RTCInterface::GetWriteRequestTraces() const
+    {
+        return opt(GetRTC().m_enableCheck);
+    }
+
+    StorageTraceSet RTC::RTCInterface::GetReadRequestTraces() const
+    {
+        return m_ioif.GetRequestTraces(m_devid);
+    }
+
     bool RTC::RTCInterface::OnReadRequestReceived(IODeviceID from, MemAddr address, MemSize size)
     {
         // the clock uses 32-bit control words
@@ -296,11 +307,12 @@ namespace Simulator
             }
         }
 
-        IOData iodata;
-        SerializeRegister(RT_INTEGER, value, iodata.data, 4);
-        iodata.size = 4;
+        IOMessage *msg = m_ioif.CreateReadResponse(m_devid, address, 4);
+        COMMIT {
+            SerializeRegister(RT_INTEGER, value, msg->read_response.data.data, 4);
+        }
 
-        if (!m_iobus.SendReadResponse(m_devid, from, address, iodata))
+        if (!m_ioif.SendMessage(m_devid, from, msg))
         {
             DeadlockWrite("Cannot send RTC read response to I/O bus");
             return false;

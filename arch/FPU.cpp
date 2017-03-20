@@ -110,14 +110,15 @@ bool FPU::QueueOperation(size_t source, FPUOperation fop, int size, double Rav, 
     op.Rbv  = Rbv;
     op.Rc   = Rc;
 
-    if (!m_sources[source]->inputs.Push(op))
+    DebugFPUWrite("queuing %s %s",
+                  m_sources[source]->client->GetName().c_str(),
+                  op.str().c_str());
+
+    if (!m_sources[source]->inputs.Push(std::move(op)))
     {
         return false;
     }
 
-    DebugFPUWrite("queued %s %s",
-                  m_sources[source]->client->GetName().c_str(),
-                  op.str().c_str());
     return true;
 }
 

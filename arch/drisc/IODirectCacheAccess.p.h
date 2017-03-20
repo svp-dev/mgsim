@@ -75,7 +75,7 @@ public:
     ~IODirectCacheAccess();
     void ConnectMemory(IMemory* memory);
 
-    bool QueueRequest(const Request& req);
+    bool QueueRequest(Request&& req);
 
     Process p_MemoryOutgoing;
     Process p_BusOutgoing;

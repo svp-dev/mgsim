@@ -21,7 +21,9 @@
 #include "arch/mem/zlcdma/CDMA.h"
 #endif
 
-#include "arch/dev/NullIO.h"
+#include "arch/ic/Bus.h"
+#include "arch/ic/Crossbar.h"
+#include "arch/IOMessageInterface.h"
 #include "arch/dev/LCD.h"
 #include "arch/dev/RTC.h"
 #include "arch/dev/Display.h"
@@ -463,7 +465,7 @@ void MGSystem::PrintAllStatistics(ostream& os) const
 
     os << dec
        << GetKernel()->GetCycleNo() << "\t# master cycle counter" << endl
-       << m_clock->GetCycleNo() << "\t# core cycle counter" << endl
+       << m_clock->GetCycleNo() << "\t# core cycle counter (@ rel. freq. core 0)" << endl
        << GetOp() << "\t# total executed instructions" << endl
        << GetFlop() << "\t# total issued fp instructions" << endl
        << ru.GetUserTime() << "\t# total real time in user mode (us)" << endl
@@ -602,7 +604,8 @@ MGSystem::MGSystem(Config& config, bool quiet)
       m_root(0),
       m_procs(),
       m_fpus(),
-      m_iobuses(),
+      m_ics(),
+      m_ioifs(),
       m_devices(),
       m_symtable(),
       m_breakpoints(),
@@ -617,7 +620,7 @@ MGSystem::MGSystem(Config& config, bool quiet)
     auto& kernel = *GetKernel();
     kernel.AttachConfig(config);
 
-    m_clock = &kernel.CreateClock(GetTopConf("CoreFreq", Clock::Frequency));
+    auto default_core_freq = GetTopConf("CoreFreq", Clock::Frequency);
     m_root = new Object("", kernel);
     m_breakpoints.AttachKernel(kernel);
 
@@ -637,7 +640,7 @@ MGSystem::MGSystem(Config& config, bool quiet)
     string memory_type = GetTopConf("MemoryType", string);
     transform(memory_type.begin(), memory_type.end(), memory_type.begin(), ::toupper);
 
-    Clock& memclock = kernel.CreateClock(GetTopConf("MemoryFreq", size_t));
+    Clock& memclock = kernel.CreateClock(GetTopConf("MemoryFreq", Clock::Frequency));
 
     IMemoryAdmin *memadmin;
 
@@ -704,27 +707,48 @@ MGSystem::MGSystem(Config& config, bool quiet)
     m_selector = new Selector("selector", *m_root, selclock);
 
     // Create the I/O Buses
-    const size_t numIOBuses = GetTopConf("NumIOBuses", size_t);
-    m_iobuses.resize(numIOBuses);
-    for (size_t b = 0; b < numIOBuses; ++b)
+    auto numIONets = GetTopConf("NumIONetworks", size_t);
+    m_ics.resize(numIONets);
+    m_ioifs.resize(numIONets);
+    for (size_t b = 0; b < numIONets; ++b)
     {
-        auto name = "iobus" + to_string(b);
+        auto icname = "ic" + to_string(b);
 
-        auto bus_type = GetTopSubConf(name, "Type", string);
-        Clock& ioclock = kernel.CreateClock(GetTopSubConf(name, "Freq", Clock::Frequency));
+        auto ic_type = GetTopSubConf(icname, "Type", string);
 
-        if (bus_type == "NULLIO") {
-            NullIO* bus = new NullIO(name, *m_root, ioclock);
-            m_iobuses[b] = bus;
-            RegisterModelObject(*bus, "nullio");
-            RegisterModelProperty(*bus, "freq", (uint32_t)ioclock.GetFrequency());
+        if (ic_type == "UNBUFFEREDCROSSBAR") {
+            auto ic = new IC::UnbufferedCrossbar<IOPayload>(icname, *m_root);
+            RegisterModelObject(*ic, "ucb");
+            m_ics[b] = ic;
+        } else if (ic_type == "BUFFEREDCROSSBAR" || ic_type == "CROSSBAR") {
+            auto ic = new IC::BufferedCrossbar<IOPayload>(icname, *m_root);
+            RegisterModelObject(*ic, "cb");
+            m_ics[b] = ic;
+        } else if (ic_type == "UNBUFFEREDBUS") {
+            auto ic = new IC::UnbufferedBus<IOPayload>(icname, *m_root);
+            RegisterModelObject(*ic, "ubus");
+            m_ics[b] = ic;
+        } else if (ic_type == "BUFFEREDBUS" || ic_type == "BUS") {
+            auto ic = new IC::BufferedBus<IOPayload>(icname, *m_root);
+            RegisterModelObject(*ic, "bus");
+            m_ics[b] = ic;
         } else {
-            throw runtime_error("Unknown I/O bus type for " + name + ": " + bus_type);
+            throw runtime_error("Unknown interconnect type for " + icname + ": " + ic_type);
         }
 
         if (!quiet)
         {
-            clog << name << ": " << bus_type << endl;
+            clog << icname << ": " << ic_type << endl;
+        }
+
+        auto ifname = "ioif" + to_string(b);
+        m_ioifs[b] = new IOMessageInterface(ifname, *m_root, *m_ics[b]);
+        RegisterModelObject(*m_ioifs[b], "ioif");
+        RegisterModelBidiRelation(*m_ioifs[b], dynamic_cast<Object&>(*m_ics[b]), "ioif");
+
+        if (!quiet)
+        {
+            clog << ifname << ": connected to " << icname << endl;
         }
     }
 
@@ -733,10 +757,11 @@ MGSystem::MGSystem(Config& config, bool quiet)
     for (size_t f = 0; f < numFPUs; ++f)
     {
         auto name = "fpu" + to_string(f);
-        m_fpus[f] = new FPU(name, *m_root, *m_clock, numProcessorsPerFPU);
+        Clock& fpuclock = kernel.CreateClock(GetTopSubConfOpt(name, "Freq", Clock::Frequency, default_core_freq));
+        m_fpus[f] = new FPU(name, *m_root, fpuclock, numProcessorsPerFPU);
 
         RegisterModelObject(*m_fpus[f], "fpu");
-        RegisterModelProperty(*m_fpus[f], "freq", (uint32_t)m_clock->GetFrequency());
+        RegisterModelProperty(*m_fpus[f], "freq", (uint32_t)fpuclock.GetFrequency());
     }
     if (!quiet)
     {
@@ -748,24 +773,27 @@ MGSystem::MGSystem(Config& config, bool quiet)
     for (size_t i = 0; i < numProcessors; ++i)
     {
         auto name = "cpu" + to_string(i);
-        m_procs[i]   = new DRISC(name, *m_root, *m_clock, i, m_procs, m_breakpoints);
+        Clock& coreclock = kernel.CreateClock(GetTopSubConfOpt(name, "Freq", Clock::Frequency, default_core_freq));
+        if (m_clock == 0)
+            m_clock = &coreclock;
+        m_procs[i]   = new DRISC(name, *m_root, coreclock, i, m_procs, m_breakpoints);
         m_procs[i]->ConnectMemory(m_memory, memadmin);
         m_procs[i]->ConnectFPU(m_fpus[i / numProcessorsPerFPU]);
 
         if (GetTopSubConfOpt(name, "EnableIO", bool, false)) // I/O disabled unless specified
         {
-            size_t busid = GetTopSubConf(name, "BusID", size_t);
-            if (busid >= m_iobuses.size())
+            auto ionet = GetTopSubConf(name, "IONetID", size_t);
+            if (ionet >= m_ics.size())
             {
-                throw runtime_error("DRISC " + name + " set to connect to non-existent bus");
+                throw runtime_error("DRISC " + name + " set to connect to non-existent I/O interconnect");
             }
 
-            auto iobus = m_iobuses[busid];
-            m_procs[i]->ConnectIO(iobus);
+            auto ioif = m_ioifs[ionet];
+            m_procs[i]->ConnectIO(ioif);
 
             if (!quiet)
             {
-                clog << name << ": connected to " << dynamic_cast<Object*>(iobus)->GetName() << endl;
+                clog << name << ": connected to " << dynamic_cast<Object*>(ioif)->GetName() << endl;
             }
         }
 
@@ -793,60 +821,60 @@ MGSystem::MGSystem(Config& config, bool quiet)
         if (!enable_dev)
             continue;
 
-        auto busid = GetTopSubConf(name, "BusID", size_t);
+        auto icid = GetTopSubConf(name, "IONetID", size_t);
 
-        if (busid >= m_iobuses.size())
+        if (icid >= m_ics.size())
         {
-            throw runtime_error("Device " + name + " set to connect to non-existent bus");
+            throw runtime_error("Device " + name + " set to connect to non-existent I/O interconnect");
         }
 
-        auto& iobus = *m_iobuses[busid];
+        auto& ic = *m_ioifs[icid];
 
-        auto devid = GetTopSubConfOpt(name, "DeviceID", IODeviceID, iobus.GetNextAvailableDeviceID());
+        auto devid = GetTopSubConfOpt(name, "DeviceID", IODeviceID, ic.GetNextAvailableDeviceID());
 
         auto dev_type = GetTopSubConf(name, "Type", string);
 
         if (!quiet)
         {
-            clog << name << ": connected to " << dynamic_cast<Object&>(iobus).GetName() << " (type " << dev_type << ", devid " << dec << devid << ')' << endl;
+            clog << name << ": connected to " << dynamic_cast<Object&>(ic).GetName() << " (type " << dev_type << ", devid " << dec << devid << ')' << endl;
         }
 
         if (dev_type == "LCD") {
-            LCD *lcd = new LCD(name, *m_root, iobus, devid);
+            LCD *lcd = new LCD(name, *m_root, ic, devid);
             m_devices[i] = lcd;
             RegisterModelObject(*lcd, "lcd");
         } else if (dev_type == "RTC") {
             Clock& rtcclock = kernel.CreateClock(GetTopSubConf(name, "RTCUpdateFreq", Clock::Frequency));
-            RTC *rtc = new RTC(name, *m_root, rtcclock, iobus, devid);
+            RTC *rtc = new RTC(name, *m_root, rtcclock, ic, devid);
             m_devices[i] = rtc;
             RegisterModelObject(*rtc, "rtc");
         } else if (dev_type == "GFX") {
             size_t fbdevid = GetTopSubConfOpt(name, "GfxFrameBufferDeviceID", size_t, devid + 1);
-            Display *disp = new Display(name, *m_root, iobus, devid, fbdevid);
+            Display *disp = new Display(name, *m_root, ic, devid, fbdevid);
             m_devices[i] = disp;
             RegisterModelObject(*disp, "gfx");
         } else if (dev_type == "AROM") {
-            ActiveROM *rom = new ActiveROM(name, *m_root, *memadmin, iobus, devid, quiet);
+            ActiveROM *rom = new ActiveROM(name, *m_root, *memadmin, ic, devid, quiet);
             m_devices[i] = rom;
             aroms.push_back(rom);
             RegisterModelObject(*rom, "arom");
         } else if (dev_type == "UART") {
-            UART *uart = new UART(name, *m_root, iobus, devid);
+            UART *uart = new UART(name, *m_root, ic, devid);
             m_devices[i] = uart;
             RegisterModelObject(*uart, "uart");
         } else if (dev_type == "SMC") {
-            SMC * smc = new SMC(name, *m_root, iobus, devid);
+            SMC * smc = new SMC(name, *m_root, ic, devid);
             m_devices[i] = smc;
             RegisterModelObject(*smc, "smc");
         } else if (dev_type == "RPC") {
-            RPCInterface* rpc = new RPCInterface(name, *m_root, iobus, devid, *uif);
+            RPCInterface* rpc = new RPCInterface(name, *m_root, ic, devid, *uif);
             m_devices[i] = rpc;
             RegisterModelObject(*rpc, "rpc");
         } else {
             throw runtime_error("Unknown I/O device type: " + dev_type);
         }
 
-        RegisterModelBidiRelation(iobus, *m_devices[i], "client", (uint32_t)devid);
+        RegisterModelBidiRelation(ic, *m_devices[i], "client", (uint32_t)devid);
     }
 
 
@@ -881,8 +909,10 @@ MGSystem::MGSystem(Config& config, bool quiet)
     }
 
     // Initialize the buses. This initializes the devices as well.
-    for (auto iob : m_iobuses)
-        iob->Initialize();
+    for (auto ic : m_ics)
+        ic->Initialize();
+    for (auto ioif : m_ioifs)
+        ioif->Initialize();
 
     // Initialize the processors.
     for (auto proc : m_procs)
@@ -1004,7 +1034,9 @@ MGSystem::MGSystem(Config& config, bool quiet)
 
 MGSystem::~MGSystem()
 {
-    for (auto iob : m_iobuses)
+    for (auto ioif : m_ioifs)
+        delete ioif;
+    for (auto iob : m_ics)
         delete iob;
     for (auto dev : m_devices)
         delete dev;
@@ -1014,4 +1046,5 @@ MGSystem::~MGSystem()
         delete fpu;
     delete m_selector;
     delete m_memory;
+    delete m_root;
 }

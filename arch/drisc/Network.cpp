@@ -83,7 +83,6 @@ bool Network::SendMessage(const RemoteMessage& msg)
 
     // Delegated message
     DelegateMessage dmsg;
-    dmsg.payload = msg;
     dmsg.src = GetDRISC().GetPID();
 
     // Get destination
@@ -102,6 +101,8 @@ bool Network::SendMessage(const RemoteMessage& msg)
 
     assert(dmsg.dest != INVALID_PID);
 
+    COMMIT{ dmsg.payload = msg; }
+
     if (dmsg.dest == dmsg.src)
     {
         if (GetKernel()->GetActiveProcess() == &p_DelegationIn)
@@ -113,56 +114,62 @@ bool Network::SendMessage(const RemoteMessage& msg)
             register with the response.
             This is also necessary to avoid a circular dependency on the output buffer.
             */
-            m_delegateIn.Simulator::Register<DelegateMessage>::Write(dmsg);
+            m_delegateIn.Simulator::Register<DelegateMessage>::Write(std::move(dmsg));
 
             // Return here to avoid clearing the input buffer. We want to process this
             // response next cycle.
             return SUCCESS;
         }
 
-        if (!m_delegateIn.Write(dmsg))
+        DebugNetWrite("sent delegation message to loopback %s", dmsg.payload.str().c_str());
+
+        if (!m_delegateIn.Write(std::move(dmsg)))
         {
             DeadlockWrite("Unable to buffer local network message to loopback %s", msg.str().c_str());
             return false;
         }
-        DebugNetWrite("sent delegation message to loopback %s", msg.str().c_str());
     }
     else
     {
-        if (!m_delegateOut.Write(dmsg))
+        auto dest = dmsg.dest;
+
+        DebugNetWrite("sent delegation message to CPU%u %s", (unsigned)dest, dmsg.payload.str().c_str());
+
+        if (!m_delegateOut.Write(std::move(dmsg)))
         {
-            DeadlockWrite("Unable to buffer remote network message for CPU%u %s", (unsigned)dmsg.dest, msg.str().c_str());
+            DeadlockWrite("Unable to buffer remote network message for CPU%u %s", (unsigned)dest, msg.str().c_str());
             return false;
         }
-        DebugNetWrite("sent delegation message to CPU%u %s", (unsigned)dmsg.dest, msg.str().c_str());
     }
     return true;
 }
 
-bool Network::SendMessage(const LinkMessage& msg)
+bool Network::SendMessage(LinkMessage&& msg)
 {
     assert(m_next != NULL);
-    if (!m_link.out.Write(msg))
+
+    DebugNetWrite("Sent link message %s", msg.str().c_str());
+
+    if (!m_link.out.Write(std::move(msg)))
     {
         DeadlockWrite("Unable to buffer link message: %s", msg.str().c_str());
         return false;
     }
-    DebugNetWrite("sent link message %s", msg.str().c_str());
     return true;
 }
 
-bool Network::SendAllocResponse(const AllocResponse& msg)
+bool Network::SendAllocResponse(AllocResponse&& msg)
 {
-    if (!m_allocResponse.out.Write(msg))
+    if (!m_allocResponse.out.Write(std::move(msg)))
     {
         return false;
     }
     return true;
 }
 
-bool Network::SendSync(const SyncInfo& sync)
+bool Network::SendSync(SyncInfo&& sync)
 {
-    if (!m_syncs.Push(sync))
+    if (!m_syncs.Push(std::move(sync)))
     {
         // This shouldn't happen; the buffer should be large enough
         // to accomodate all family events (family table size).
@@ -290,7 +297,7 @@ Result Network::DoAllocResponse()
                       (unsigned)msg.completion_pid, (unsigned)msg.completion_reg);
     }
     // Forward response
-    else if (!m_allocResponse.out.Write(msg))
+    else if (!m_allocResponse.out.Write(std::move(msg)))
     {
         return FAILED;
     }
@@ -392,7 +399,7 @@ bool Network::OnSync(LFID fid, PID completion_pid, RegIndex completion_reg)
         fwd.sync.completion_pid = completion_pid;
         fwd.sync.completion_reg = completion_reg;
 
-        if (!SendMessage(fwd))
+        if (!SendMessage(std::move(fwd)))
         {
             DeadlockWrite("Unable to forward sync onto link");
             return false;
@@ -416,21 +423,16 @@ bool Network::OnSync(LFID fid, PID completion_pid, RegIndex completion_reg)
     else
     {
         // The family has already completed, send sync result back
-        SyncInfo info;
-        info.fid = fid;
-        info.pid = completion_pid;
-        info.reg = completion_reg;
-        info.broken = family.broken;
 
         COMMIT{ family.dependencies.syncSent = false; }
 
-        if (!SendSync(info))
+        if (!SendSync(SyncInfo{fid, completion_pid, completion_reg, family.broken}))
         {
             DeadlockWrite("Unable to buffer sync acknowledgement");
             return false;
         }
         DebugSimWrite("F%u sent sync writeback %u to CPU%u/R%04x",
-                      (unsigned)fid, (unsigned)info.broken, (unsigned)completion_pid, (unsigned)completion_reg);
+                      (unsigned)fid, (unsigned)family.broken, (unsigned)completion_pid, (unsigned)completion_reg);
     }
     return true;
 }
@@ -450,7 +452,7 @@ bool Network::OnDetach(LFID fid)
         LinkMessage msg;
         msg.type = LinkMessage::MSG_DETACH;
         msg.detach.fid = family.link;
-        if (!SendMessage(msg))
+        if (!SendMessage(std::move(msg)))
         {
             return false;
         }
@@ -479,7 +481,7 @@ bool Network::OnBreak(LFID fid)
         msg.type    = LinkMessage::MSG_BREAK;
         msg.brk.fid = family.link;
 
-        if (!SendMessage(msg))
+        if (!SendMessage(std::move(msg)))
         {
             DeadlockWrite("F%u unable to send break message to next processor", (unsigned)fid);
             return false;
@@ -543,7 +545,7 @@ Result Network::DoDelegationIn()
                 fwd.ballocate.completion_pid = msg.allocate.completion_pid;
                 fwd.ballocate.completion_reg = msg.allocate.completion_reg;
 
-                if (!SendMessage(fwd))
+                if (!SendMessage(std::move(fwd)))
                 {
                     return FAILED;
                 }
@@ -589,7 +591,7 @@ Result Network::DoDelegationIn()
             fwd.property.type  = msg.property.type;
             fwd.property.value = msg.property.value;
 
-            if (!SendMessage(fwd))
+            if (!SendMessage(std::move(fwd)))
             {
                 return FAILED;
             }
@@ -686,7 +688,7 @@ Result Network::DoDelegationIn()
                 fwd.global.fid   = family.link;
                 fwd.global.addr  = msg.famreg.addr;
                 fwd.global.value = msg.famreg.value;
-                if (!SendMessage(fwd))
+                if (!SendMessage(std::move(fwd)))
                 {
                     return FAILED;
                 }
@@ -758,7 +760,7 @@ Result Network::DoLink()
                     fwd.ballocate.min_pid      = GetDRISC().GetPID();
                 }
 
-                if (!SendMessage(fwd))
+                if (!SendMessage(std::move(fwd)))
                 {
                     return FAILED;
                 }
@@ -810,7 +812,7 @@ Result Network::DoLink()
             // Forward message on link
             LinkMessage fwd(msg);
             fwd.property.fid = family.link;
-            if (!SendMessage(fwd))
+            if (!SendMessage(std::move(fwd)))
             {
                 return FAILED;
             }
@@ -829,7 +831,7 @@ Result Network::DoLink()
             {
                 LinkMessage fwd(msg);
                 fwd.create.fid = family.link;
-                if (!SendMessage(fwd))
+                if (!SendMessage(std::move(fwd)))
                 {
                     DeadlockWrite("Unable to forward restrict message");
                     return FAILED;
@@ -890,7 +892,7 @@ Result Network::DoLink()
             // Forward on link as well
             LinkMessage fwd(msg);
             fwd.global.fid = family.link;
-            if (!SendMessage(fwd))
+            if (!SendMessage(std::move(fwd)))
             {
                 return FAILED;
             }

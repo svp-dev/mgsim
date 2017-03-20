@@ -21,6 +21,7 @@ SIM_SOURCES = \
         sim/convertval.h \
         sim/ctz.h \
 	sim/delegate.h \
+        sim/delegate_closure.h \
 	sim/except.h \
 	sim/except.cpp \
         sim/flag.h \
@@ -54,6 +55,7 @@ SIM_SOURCES = \
         sim/readfile.cpp \
         sim/register.h \
         sim/register.hpp \
+        sim/register_functions.h \
         sim/rusage.h \
         sim/rusage.cpp \
 	sim/sampling.h \
